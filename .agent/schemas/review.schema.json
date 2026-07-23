@@ -6,24 +6,69 @@
   "additionalProperties": false,
   "required": ["verdict", "findings", "criteria_checked", "confidence"],
   "properties": {
-    "verdict": {"type": "string", "enum": ["approved", "approved_with_non_blocking_findings", "changes_required"]},
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "approved_with_non_blocking_findings",
+        "changes_required"
+      ]
+    },
     "findings": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["severity", "location", "issue", "evidence", "smallest_fix"],
+        "required": [
+          "severity",
+          "location",
+          "issue",
+          "evidence",
+          "smallest_fix"
+        ],
         "properties": {
-          "severity": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
-          "location": {"type": "string"},
-          "issue": {"type": "string"},
-          "evidence": {"type": "string"},
-          "smallest_fix": {"type": "string"}
+          "severity": {
+            "type": "string",
+            "enum": ["P0", "P1", "P2", "P3"]
+          },
+          "invariant_id": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Z]+-[0-9]{3}$"
+          },
+          "location": {
+            "type": "string"
+          },
+          "issue": {
+            "type": "string"
+          },
+          "failure_scenario": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "verification_gap": {
+            "type": "string"
+          },
+          "smallest_fix": {
+            "type": "string"
+          }
         }
       }
     },
-    "criteria_checked": {"type": "array", "items": {"type": "string"}},
-    "remaining_risks": {"type": "array", "items": {"type": "string"}, "default": []},
-    "confidence": {"type": "string", "enum": ["low", "medium", "high"]}
+    "criteria_checked": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "remaining_risks": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": []
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    }
   }
 }
+

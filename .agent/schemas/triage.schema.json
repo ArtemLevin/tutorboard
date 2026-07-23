@@ -4,19 +4,45 @@
   "title": "Task triage result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["task_type", "execution_mode", "risk", "scope", "required_skills", "budgets"],
+  "required": [
+    "task_type",
+    "execution_mode",
+    "risk",
+    "scope",
+    "required_skills",
+    "budgets"
+  ],
   "properties": {
     "task_type": {
       "type": "string",
-      "enum": ["documentation", "bugfix", "feature", "refactor", "review", "migration", "operations", "investigation"]
+      "enum": [
+        "documentation",
+        "bugfix",
+        "feature",
+        "refactor",
+        "review",
+        "migration",
+        "operations",
+        "investigation"
+      ]
     },
-    "execution_mode": {"type": "string", "enum": ["fast", "standard", "deep"]},
+    "execution_mode": {
+      "type": "string",
+      "enum": ["fast", "standard", "deep"]
+    },
     "risk": {
       "type": "object",
       "required": ["level", "reasons"],
       "properties": {
-        "level": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
-        "reasons": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+        "level": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        }
       },
       "additionalProperties": false
     },
@@ -24,24 +50,82 @@
       "type": "object",
       "required": ["likely_paths", "compatibility_surfaces"],
       "properties": {
-        "likely_paths": {"type": "array", "items": {"type": "string"}},
-        "forbidden_paths": {"type": "array", "items": {"type": "string"}, "default": []},
-        "compatibility_surfaces": {"type": "array", "items": {"type": "string"}}
+        "likely_paths": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "forbidden_paths": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": []
+        },
+        "compatibility_surfaces": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
       },
       "additionalProperties": false
     },
-    "required_skills": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
-    "optional_skills": {"type": "array", "items": {"type": "string"}, "uniqueItems": true, "default": []},
+    "project_modules": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true,
+      "default": []
+    },
+    "invariants_touched": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z]+-[0-9]{3}$"
+      },
+      "uniqueItems": true,
+      "default": []
+    },
+    "contracts_touched": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true,
+      "default": []
+    },
+    "required_skills": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "optional_skills": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true,
+      "default": []
+    },
     "budgets": {
       "type": "object",
-      "required": ["max_initial_files", "max_implementation_iterations", "max_review_iterations"],
+      "required": [
+        "max_initial_files",
+        "max_implementation_iterations",
+        "max_review_iterations"
+      ],
       "properties": {
-        "max_initial_files": {"type": "integer", "minimum": 1},
-        "max_implementation_iterations": {"type": "integer", "minimum": 1},
-        "max_review_iterations": {"type": "integer", "minimum": 0}
+        "max_initial_files": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_implementation_iterations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_review_iterations": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
       "additionalProperties": false
     },
-    "assumptions_to_validate": {"type": "array", "items": {"type": "string"}, "default": []}
+    "assumptions_to_validate": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": []
+    }
   }
 }
+
