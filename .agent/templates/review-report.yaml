@@ -8,7 +8,11 @@ confidence: high
 # Blocking finding example:
 # findings:
 #   - severity: P1
-#     location: src/example.py:42
-#     issue: Concurrent calls can both perform the side effect.
-#     evidence: The read and write are separate operations without a durable constraint.
-#     smallest_fix: Use one conditional state transition in the persistence layer.
+#     invariant_id: PERSIST-004
+#     location: src/modules/local-persistence/save.ts:42
+#     issue: Concurrent retries can create duplicate revisions.
+#     failure_scenario: A timeout occurs after the server commits but before the client receives the response.
+#     evidence: The retry uses no durable idempotency key.
+#     verification_gap: No repository test repeats the same save request.
+#     smallest_fix: Persist and reuse one operation identity for all attempts.
+

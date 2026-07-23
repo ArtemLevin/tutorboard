@@ -14,17 +14,72 @@
         "additionalProperties": false,
         "required": ["id", "target", "action", "reason", "verification"],
         "properties": {
-          "id": {"type": "integer", "minimum": 1},
-          "target": {"type": "string", "minLength": 1},
-          "action": {"type": "string", "minLength": 1},
-          "reason": {"type": "string", "minLength": 1},
-          "verification": {"type": "string", "minLength": 1},
-          "depends_on": {"type": "array", "items": {"type": "integer"}, "default": []}
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "module_owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "invariant_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z]+-[0-9]{3}$"
+            },
+            "uniqueItems": true,
+            "default": []
+          },
+          "contract_impact": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": true,
+            "default": []
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verification": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recovery": {
+            "type": "array",
+            "items": {"type": "string"},
+            "default": []
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "default": []
+          }
         }
       }
     },
-    "constraints": {"type": "array", "items": {"type": "string"}},
-    "rollback_or_recovery": {"type": "array", "items": {"type": "string"}, "default": []},
-    "open_questions": {"type": "array", "items": {"type": "string"}, "default": []}
+    "constraints": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "rollback_or_recovery": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": []
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": []
+    }
   }
 }
+

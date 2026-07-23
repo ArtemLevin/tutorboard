@@ -1,15 +1,21 @@
 steps:
   - id: 1
-    target: path/to/file.py:Owner.method
+    target: path/to/file.ts:Owner.symbol
+    module_owner: module-or-core-owner
+    invariant_ids:
+      - ARCH-001
+    contract_impact: []
     action: Describe the behavioral change.
     reason: Explain why this layer owns the invariant.
-    verification: Name the exact test or command.
+    verification: Name the exact test or command and protected behavior.
+    recovery: []
     depends_on: []
 
 constraints:
-  - Do not change an unrelated public contract.
+  - Do not change an unrelated public, stored, or external contract.
 
 rollback_or_recovery:
   - Describe a safe revert or forward-recovery path.
 
 open_questions: []
+
