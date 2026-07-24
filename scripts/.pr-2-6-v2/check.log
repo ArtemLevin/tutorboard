@@ -1,0 +1,69 @@
+
+> tutorboard@0.1.0 check
+> npm run format:check && npm run lint && npm run typecheck && npm run test && npm run architecture && npm run build
+
+
+> tutorboard@0.1.0 format:check
+> prettier --check "src/**/*.{ts,tsx,css}" "tests/**/*.{ts,mjs}" "scripts/**/*.mjs" "*.{html,js,json,ts}" ".github/**/*.yml"
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> tutorboard@0.1.0 lint
+> eslint . --max-warnings=0
+
+
+/home/runner/work/tutorboard/tutorboard/src/adapters/persistence-dexie/repository.ts
+  293:15  error  The value assigned to 'recovery' is not used in subsequent statements  no-useless-assignment
+
+/home/runner/work/tutorboard/tutorboard/src/app/App.tsx
+  80:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/runner/work/tutorboard/tutorboard/tests/e2e/persistence.spec.ts
+   7:11  error  Unsafe assignment of an error typed value                            @typescript-eslint/no-unsafe-assignment
+   7:21  error  Unsafe call of a type that could not be resolved                     @typescript-eslint/no-unsafe-call
+   7:31  error  Unsafe member access .open on a type that cannot be resolved         @typescript-eslint/no-unsafe-member-access
+   8:11  error  Unsafe assignment of an error typed value                            @typescript-eslint/no-unsafe-assignment
+   9:15  error  Unsafe member access .onsuccess on a type that cannot be resolved    @typescript-eslint/no-unsafe-member-access
+   9:49  error  Unsafe member access .result on a type that cannot be resolved       @typescript-eslint/no-unsafe-member-access
+  10:15  error  Unsafe member access .onerror on a type that cannot be resolved      @typescript-eslint/no-unsafe-member-access
+  10:31  error  Expected the Promise rejection reason to be an Error                 @typescript-eslint/prefer-promise-reject-errors
+  10:46  error  Unsafe member access .error on a type that cannot be resolved        @typescript-eslint/no-unsafe-member-access
+  13:13  error  Unsafe assignment of an error typed value                            @typescript-eslint/no-unsafe-assignment
+  13:27  error  Unsafe call of a type that could not be resolved                     @typescript-eslint/no-unsafe-call
+  13:36  error  Unsafe member access .transaction on a type that cannot be resolved  @typescript-eslint/no-unsafe-member-access
+  14:13  error  Unsafe assignment of an error typed value                            @typescript-eslint/no-unsafe-assignment
+  14:21  error  Unsafe call of a type that could not be resolved                     @typescript-eslint/no-unsafe-call
+  14:33  error  Unsafe member access .objectStore on a type that cannot be resolved  @typescript-eslint/no-unsafe-member-access
+  17:17  error  Unsafe assignment of an error typed value                            @typescript-eslint/no-unsafe-assignment
+  17:23  error  Unsafe call of a type that could not be resolved                     @typescript-eslint/no-unsafe-call
+  17:29  error  Unsafe member access .getAll on a type that cannot be resolved       @typescript-eslint/no-unsafe-member-access
+  18:15  error  Unsafe member access .onsuccess on a type that cannot be resolved    @typescript-eslint/no-unsafe-member-access
+  19:25  error  Unsafe member access .result on a type that cannot be resolved       @typescript-eslint/no-unsafe-member-access
+  20:15  error  Unsafe member access .onerror on a type that cannot be resolved      @typescript-eslint/no-unsafe-member-access
+  20:31  error  Expected the Promise rejection reason to be an Error                 @typescript-eslint/prefer-promise-reject-errors
+  20:42  error  Unsafe member access .error on a type that cannot be resolved        @typescript-eslint/no-unsafe-member-access
+  29:7   error  Unsafe call of a type that could not be resolved                     @typescript-eslint/no-unsafe-call
+  29:13  error  Unsafe member access .put on a type that cannot be resolved          @typescript-eslint/no-unsafe-member-access
+  31:21  error  Unsafe member access .oncomplete on a type that cannot be resolved   @typescript-eslint/no-unsafe-member-access
+  32:21  error  Unsafe member access .onerror on a type that cannot be resolved      @typescript-eslint/no-unsafe-member-access
+  32:37  error  Expected the Promise rejection reason to be an Error                 @typescript-eslint/prefer-promise-reject-errors
+  32:56  error  Unsafe member access .error on a type that cannot be resolved        @typescript-eslint/no-unsafe-member-access
+  33:21  error  Unsafe member access .onabort on a type that cannot be resolved      @typescript-eslint/no-unsafe-member-access
+  33:37  error  Expected the Promise rejection reason to be an Error                 @typescript-eslint/prefer-promise-reject-errors
+  33:56  error  Unsafe member access .error on a type that cannot be resolved        @typescript-eslint/no-unsafe-member-access
+  36:7   error  Unsafe call of a type that could not be resolved                     @typescript-eslint/no-unsafe-call
+  36:16  error  Unsafe member access .close on a type that cannot be resolved        @typescript-eslint/no-unsafe-member-access
+
+/home/runner/work/tutorboard/tutorboard/tests/unit/adapters/persistence-dexie/repository.test.ts
+  35:29  error  Expected the Promise rejection reason to be an Error  @typescript-eslint/prefer-promise-reject-errors
+  50:35  error  Expected the Promise rejection reason to be an Error  @typescript-eslint/prefer-promise-reject-errors
+  51:35  error  Expected the Promise rejection reason to be an Error  @typescript-eslint/prefer-promise-reject-errors
+
+/home/runner/work/tutorboard/tutorboard/tests/unit/modules/local-persistence/autosave.test.ts
+  31:3  error  Async method 'load' has no 'await' expression      @typescript-eslint/require-await
+  35:3  error  Async method 'save' has no 'await' expression      @typescript-eslint/require-await
+  46:3  error  Async method 'diagnose' has no 'await' expression  @typescript-eslint/require-await
+
+✖ 42 problems (42 errors, 0 warnings)
+
