@@ -1,27 +1,240 @@
+  2  |  import { lintDoc } from "./utils";
+  3  |  describe("OpenAPI Schema 2.0", () => {[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30416:39[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30413:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27438:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27506:30[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27474:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m30201:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m20124:26[22m[39m
 
-> tutorboard@0.1.0 check
-> npm run geometryos:check && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run architecture && npm run build
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[119/130]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas2/__tests__/spec/paths.test.ts[2m [ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas2/__tests__/spec/paths.test.ts ][22m
+[31m[1mError[22m: Failed to resolve import "outdent" from "tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas2/__tests__/spec/paths.test.ts". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas2/__tests__/spec/paths.test.ts[39m:1:24
+[33m  1  |  import { outdent } from "outdent";
+     |                           ^
+  2  |  import { lintDoc } from "./utils";
+  3  |  describe("OpenAPI Schema", () => {[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30416:39[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30413:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27438:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27506:30[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27474:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m30201:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m20124:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[120/130]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas2/__tests__/spec/referenceableScalars.test.ts[2m [ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas2/__tests__/spec/referenceableScalars.test.ts ][22m
+[31m[1mError[22m: Failed to resolve import "outdent" from "tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas2/__tests__/spec/referenceableScalars.test.ts". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas2/__tests__/spec/referenceableScalars.test.ts[39m:1:24
+[33m  1  |  import { outdent } from "outdent";
+     |                           ^
+  2  |  import { parseYamlToDocument, replaceSourceWithRef, makeConfig } from "../../../../../__tests__/utils";
+  3  |  import { lintDocument } from "../../../../lint";[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30416:39[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30413:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27438:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27506:30[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27474:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m30201:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m20124:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[121/130]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/callbacks.test.ts[2m [ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/callbacks.test.ts ][22m
+[31m[1mError[22m: Failed to resolve import "outdent" from "tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/callbacks.test.ts". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/callbacks.test.ts[39m:1:24
+[33m  1  |  import { outdent } from "outdent";
+     |                           ^
+  2  |  import { validateDoc } from "./utils";
+  3  |  it("should not fail on valid callbacks object", async () => {[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30416:39[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30413:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27438:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27506:30[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27474:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m30201:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m20124:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[122/130]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/info.test.ts[2m [ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/info.test.ts ][22m
+[31m[1mError[22m: Failed to resolve import "outdent" from "tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/info.test.ts". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/info.test.ts[39m:1:24
+[33m  1  |  import { outdent } from "outdent";
+     |                           ^
+  2  |  import { validateDoc } from "./utils";
+  3  |  describe("OpenAPI Schema", () => {[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30416:39[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30413:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27438:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27506:30[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27474:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m30201:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m20124:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[123/130]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/operation.test.ts[2m [ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/operation.test.ts ][22m
+[31m[1mError[22m: Failed to resolve import "outdent" from "tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/operation.test.ts". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/operation.test.ts[39m:1:24
+[33m  1  |  import { outdent } from "outdent";
+     |                           ^
+  2  |  import { validateDoc } from "./utils";
+  3  |  it("should not report if summary field is valid", async () => {[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30416:39[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30413:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27438:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27506:30[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27474:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m30201:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m20124:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[124/130]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/paths.test.ts[2m [ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/paths.test.ts ][22m
+[31m[1mError[22m: Failed to resolve import "outdent" from "tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/paths.test.ts". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/paths.test.ts[39m:1:24
+[33m  1  |  import { outdent } from "outdent";
+     |                           ^
+  2  |  import { validateDoc } from "./utils";
+  3  |  describe("OpenAPI Schema", () => {[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30416:39[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30413:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27438:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27506:30[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27474:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m30201:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m20124:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[125/130]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/referenceableScalars.test.ts[2m [ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/referenceableScalars.test.ts ][22m
+[31m[1mError[22m: Failed to resolve import "outdent" from "tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/referenceableScalars.test.ts". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/referenceableScalars.test.ts[39m:1:24
+[33m  1  |  import { outdent } from "outdent";
+     |                           ^
+  2  |  import { parseYamlToDocument, replaceSourceWithRef } from "../../../../../__tests__/utils";
+  3  |  import { lintDocument } from "../../../../lint";[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30416:39[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30413:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27438:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27506:30[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27474:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m30201:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m20124:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[126/130]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/servers.test.ts[2m [ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/servers.test.ts ][22m
+[31m[1mError[22m: Failed to resolve import "outdent" from "tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/servers.test.ts". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/servers.test.ts[39m:1:24
+[33m  1  |  import { outdent } from "outdent";
+     |                           ^
+  2  |  import { validateDoc } from "./utils";
+  3  |  describe("OpenAPI Schema", () => {[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30416:39[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30413:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27438:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27506:30[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27474:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m30201:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m20124:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[127/130]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/spec.test.ts[2m [ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/spec.test.ts ][22m
+[31m[1mError[22m: Failed to resolve import "outdent" from "tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/spec.test.ts". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/oas3/__tests__/spec/spec.test.ts[39m:1:24
+[33m  1  |  import { outdent } from "outdent";
+     |                           ^
+  2  |  import { lintDocument } from "../../../../lint";
+  3  |  import { parseYamlToDocument, replaceSourceWithRef } from "../../../../../__tests__/utils";[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30416:39[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30413:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27438:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27506:30[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27474:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m30201:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m20124:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[128/130]⎯[22m[39m
 
 
-> tutorboard@0.1.0 geometryos:check
-> node scripts/check-geometryos-contract.mjs
-
-✨ openapi-typescript 7.13.0
-🚀 /home/runner/work/tutorboard/tutorboard/contracts/geometryos/openapi.v1.json → /tmp/tutorboard-geometryos-nqGq0t/src/adapters/geometryos-http/generated/geometryos.types.ts [92.9ms]
-GeometryOS contract artifacts and generated output are current.
-
-> tutorboard@0.1.0 format:check
-> prettier --check "src/**/*.{ts,tsx,css}" "tests/**/*.{ts,mjs}" "scripts/**/*.mjs" "*.{html,js,json,ts}" ".github/**/*.yml"
-
-Checking formatting...
-All matched files use Prettier code style!
-
-> tutorboard@0.1.0 lint
-> eslint . --max-warnings=0
+[2m Test Files [22m [1m[31m130 failed[39m[22m[2m | [22m[1m[32m17 passed[39m[22m[90m (147)[39m
+[2m      Tests [22m [1m[32m116 passed[39m[22m[90m (116)[39m
+[2m   Start at [22m 12:29:01
+[2m   Duration [22m 58.90s[2m (transform 2.30s, setup 13.87s, import 3.22s, tests 1.48s, environment 121.02s)[22m
 
 
-> tutorboard@0.1.0 typecheck
-> tsc -b --pretty false
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts,title=tools/geometryos-contract/node_modules/yaml-ast-parser/test/characterSet.test.ts,line=1,column=8::Error: Cannot find module './yamlAST'%0ARequire stack:%0A- /home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts%0A ❯ tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts:1:8%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { code: 'MODULE_NOT_FOUND', requireStack: [ '/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts' ] }%0A
 
-tests/unit/adapters/geometryos-http/client.test.ts(250,20): error TS2345: Argument of type 'AbortSignal | null' is not assignable to parameter of type 'AbortSignal'.
-  Type 'null' is not assignable to type 'AbortSignal'.
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts,title=tools/geometryos-contract/node_modules/yaml-ast-parser/test/loader.test.ts,line=1,column=8::Error: Cannot find module './yamlAST'%0ARequire stack:%0A- /home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts%0A ❯ tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts:1:8%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { code: 'MODULE_NOT_FOUND', requireStack: [ '/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts' ] }%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts,title=tools/geometryos-contract/node_modules/yaml-ast-parser/test/scalarInference.test.ts,line=1,column=8::Error: Cannot find module './yamlAST'%0ARequire stack:%0A- /home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts%0A ❯ tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts:1:8%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { code: 'MODULE_NOT_FOUND', requireStack: [ '/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/src/loader.ts' ] }%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/test/stability.test.ts,title=tools/geometryos-contract/node_modules/yaml-ast-parser/test/stability.test.ts,line=1,column=8::Error: Cannot find module './testUtil'%0ARequire stack:%0A- /home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/test/stability.test.ts%0A ❯ tools/geometryos-contract/node_modules/yaml-ast-parser/test/stability.test.ts:1:8%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { code: 'MODULE_NOT_FOUND', requireStack: [ '/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/test/stability.test.ts' ] }%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/test/yamlSyntax.test.ts,title=tools/geometryos-contract/node_modules/yaml-ast-parser/test/yamlSyntax.test.ts,line=1,column=8::Error: Cannot find module './testUtil'%0ARequire stack:%0A- /home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/test/yamlSyntax.test.ts%0A ❯ tools/geometryos-contract/node_modules/yaml-ast-parser/test/yamlSyntax.test.ts:1:8%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { code: 'MODULE_NOT_FOUND', requireStack: [ '/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/test/yamlSyntax.test.ts' ] }%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/test/characterSet.test.ts,title=tools/geometryos-contract/node_modules/yaml-ast-parser/dist/test/characterSet.test.js,line=5,column=0::ReferenceError: suite is not defined%0A ❯ Object.<anonymous> tools/geometryos-contract/node_modules/yaml-ast-parser/test/characterSet.test.ts:5:0%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/test/loader.test.ts,title=tools/geometryos-contract/node_modules/yaml-ast-parser/dist/test/loader.test.js,line=11,column=0::ReferenceError: suite is not defined%0A ❯ Object.<anonymous> tools/geometryos-contract/node_modules/yaml-ast-parser/test/loader.test.ts:11:0%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/test/scalarInference.test.ts,title=tools/geometryos-contract/node_modules/yaml-ast-parser/dist/test/scalarInference.test.js,line=7,column=0::ReferenceError: suite is not defined%0A ❯ Object.<anonymous> tools/geometryos-contract/node_modules/yaml-ast-parser/test/scalarInference.test.ts:7:0%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/test/stability.test.ts,title=tools/geometryos-contract/node_modules/yaml-ast-parser/dist/test/stability.test.js,line=3,column=0::ReferenceError: suite is not defined%0A ❯ Object.<anonymous> tools/geometryos-contract/node_modules/yaml-ast-parser/test/stability.test.ts:3:0%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/yaml-ast-parser/test/yamlSyntax.test.ts,title=tools/geometryos-contract/node_modules/yaml-ast-parser/dist/test/yamlSyntax.test.js,line=3,column=0::ReferenceError: suite is not defined%0A ❯ Object.<anonymous> tools/geometryos-contract/node_modules/yaml-ast-parser/test/yamlSyntax.test.ts:3:0%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/format.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/format.test.ts,line=7,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/format.test.ts:7:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/logger-browser.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/logger-browser.test.ts,line=8,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/logger-browser.test.ts:8:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/logger.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/logger.test.ts,line=4,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/logger.test.ts:4:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/login.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/login.test.ts,line=3,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/login.test.ts:3:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/normalizeVisitors.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/normalizeVisitors.test.ts,line=12,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/normalizeVisitors.test.ts:12:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/output-browser.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/output-browser.test.ts,line=7,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/output-browser.test.ts:7:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/output.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/output.test.ts,line=3,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/output.test.ts:3:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/utils-browser.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/utils-browser.test.ts,line=7,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/utils-browser.test.ts:7:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/utils.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/utils.test.ts,line=13,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/__tests__/utils.test.ts:13:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/config-resolvers.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/config-resolvers.test.ts,line=29,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/config-resolvers.test.ts:29:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/config.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/config.test.ts,line=12,column=1::ReferenceError: jest is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/config.test.ts:12:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/load.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/load.test.ts,line=13,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/load.test.ts:13:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/resolve-plugins.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/resolve-plugins.test.ts,line=7,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/resolve-plugins.test.ts:7:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/utils.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/utils.test.ts,line=75,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/config/__tests__/utils.test.ts:75:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/redocly/__tests__/domains.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/redocly/__tests__/domains.test.ts,line=4,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/redocly/__tests__/domains.test.ts:4:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/redocly/__tests__/redocly-client.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/redocly/__tests__/redocly-client.test.ts,line=6,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/redocly/__tests__/redocly-client.test.ts:6:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/__tests__/utils.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/__tests__/utils.test.ts,line=9,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/__tests__/utils.test.ts:9:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/common/assertions/__tests__/asserts.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/common/assertions/__tests__/asserts.test.ts,line=5,column=33::ReferenceError: jest is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/common/assertions/__tests__/asserts.test.ts:5:33%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/common/assertions/__tests__/index.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/common/assertions/__tests__/index.test.ts,line=57,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/common/assertions/__tests__/index.test.ts:57:1%0A%0A
+
+::error file=/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/common/assertions/__tests__/utils.test.ts,title=tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/common/assertions/__tests__/utils.test.ts,line=7,column=1::ReferenceError: describe is not defined%0A ❯ tools/geometryos-contract/node_modules/@redocly/openapi-core/src/rules/common/assertions/__tests__/utils.test.ts:7:1%0A%0A
