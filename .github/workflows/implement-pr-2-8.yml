@@ -93,7 +93,23 @@ jobs:
         run: npm run format
 
       - name: Verify implementation
-        run: npm run check
+        id: verify
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run check 2>&1 | tee /tmp/implementation-check.log
+
+      - name: Persist quality diagnostic
+        if: steps.verify.outcome == 'failure'
+        run: |
+          tail -n 240 /tmp/implementation-check.log > implementation-diagnostic.txt
+          git config user.name "TutorBoard Engineering Agent"
+          git config user.email "engineering-agent@users.noreply.github.com"
+          git add implementation-diagnostic.txt
+          git commit -m "chore: capture PR 2.8 quality diagnostic"
+          git push origin HEAD:agent/geometryos-generated-client
+          exit 1
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
