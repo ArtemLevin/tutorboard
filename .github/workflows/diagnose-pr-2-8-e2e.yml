@@ -1,0 +1,65 @@
+name: Diagnose PR 2.8 Browser Smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/diagnose-pr-2-8-e2e.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: diagnose-pr-2-8-e2e
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out head branch
+        uses: actions/checkout@v7
+        with:
+          ref: agent/geometryos-generated-client
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Run browser smoke with diagnostic capture
+        id: smoke
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run e2e 2>&1 | tee /tmp/e2e-output.log
+
+      - name: Persist failure diagnostic
+        if: steps.smoke.outcome == 'failure'
+        run: |
+          tail -n 240 /tmp/e2e-output.log > e2e-diagnostic.txt
+          git config user.name "TutorBoard Engineering Agent"
+          git config user.email "engineering-agent@users.noreply.github.com"
+          git add e2e-diagnostic.txt
+          git commit -m "chore: capture PR 2.8 browser diagnostic"
+          git push origin HEAD:agent/geometryos-generated-client
+          exit 1
+
+      - name: Complete successful diagnostic
+        if: steps.smoke.outcome == 'success'
+        run: echo "Browser smoke passed during diagnostic run."
