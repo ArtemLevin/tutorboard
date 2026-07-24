@@ -49,6 +49,7 @@ jobs:
         run: |
           python /tmp/implement-pr-2-6.py
           python scripts/.pr-2-6-v2/fix-lint.py
+          python scripts/.pr-2-6-v2/fix-types.py
 
       - name: Refresh locked dependencies
         run: npm install --package-lock-only --ignore-scripts
