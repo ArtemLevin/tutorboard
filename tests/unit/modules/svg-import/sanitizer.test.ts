@@ -4,6 +4,7 @@ import { boardObjectId, type BoardDocument } from "../../../../src/core/public";
 import {
   createSvgObject,
   sanitizeSvg,
+  svgImportLimits,
   validateStoredSvgDocument,
 } from "../../../../src/modules/svg-import/public";
 import { emptyDocument } from "../../core/helpers";
@@ -16,6 +17,15 @@ const safeSvg = `
   <rect x="0" y="0" width="200" height="100" fill="url(#paint)" />
   <text x="20" y="55">TutorBoard</text>
 </svg>`;
+
+function expectDiagnostic(source: string, code: string): void {
+  const result = sanitizeSvg(source);
+  expect(result.status).toBe("error");
+  if (result.status === "error") {
+    expect(result.diagnostic.code).toBe(code);
+    expect(JSON.stringify(result.diagnostic)).not.toContain(source);
+  }
+}
 
 describe("safe SVG import", () => {
   it("produces deterministic canonical output and bounded display size", () => {
@@ -70,6 +80,59 @@ describe("safe SVG import", () => {
       expect(result.diagnostic.code).toMatch(/^svg\./);
       expect(JSON.stringify(result.diagnostic)).not.toContain(source);
     }
+  });
+
+  it("enforces the input byte limit before XML parsing", () => {
+    expectDiagnostic(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>${"x".repeat(svgImportLimits.maxInputBytes)}</text></svg>`,
+      "svg.input-too-large",
+    );
+  });
+
+  it("enforces element-count and nesting-depth limits", () => {
+    expectDiagnostic(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${"<rect/>".repeat(svgImportLimits.maxNodes)}</svg>`,
+      "svg.node-limit-exceeded",
+    );
+    expectDiagnostic(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${"<g>".repeat(svgImportLimits.maxDepth)}<rect/>${"</g>".repeat(svgImportLimits.maxDepth)}</svg>`,
+      "svg.depth-limit-exceeded",
+    );
+  });
+
+  it("enforces attribute, path and coordinate limits", () => {
+    const attributes = Array.from(
+      { length: svgImportLimits.maxAttributesPerElement + 1 },
+      (_, index) => ` data-limit-${index}="x"`,
+    ).join("");
+    expectDiagnostic(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect${attributes}/></svg>`,
+      "svg.attribute-limit-exceeded",
+    );
+
+    const path = `M0 0 ${"L1 1 ".repeat(
+      Math.ceil(svgImportLimits.maxPathDataCharacters / 5) + 1,
+    )}`;
+    expectDiagnostic(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="${path}"/></svg>`,
+      "svg.path-limit-exceeded",
+    );
+
+    expectDiagnostic(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgImportLimits.maxViewBoxSpan + 1} 10"></svg>`,
+      "svg.dimension-limit-exceeded",
+    );
+  });
+
+  it("rejects dangling local references and foreign namespaces", () => {
+    expectDiagnostic(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect fill="url(#missing)"/></svg>',
+      "svg.missing-local-reference",
+    );
+    expectDiagnostic(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><html xmlns="http://www.w3.org/1999/xhtml"/></svg>',
+      "svg.forbidden-element",
+    );
   });
 
   it("creates one centered visual object without GeometryOS provenance", () => {
