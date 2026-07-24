@@ -10,6 +10,7 @@ on:
       - scripts/fix-pr-2-8-discriminator.py
       - scripts/fix-pr-2-8-standalone.py
       - scripts/fix-pr-2-8-generation-format.py
+      - scripts/fix-pr-2-8-lint-boundaries.py
       - .github/workflows/implement-pr-2-8.yml
 
 permissions:
@@ -44,6 +45,7 @@ jobs:
           python3 scripts/fix-pr-2-8-discriminator.py
           python3 scripts/fix-pr-2-8-standalone.py
           python3 scripts/fix-pr-2-8-generation-format.py
+          python3 scripts/fix-pr-2-8-lint-boundaries.py
 
       - name: Install exact code-generation dependencies
         id: install
@@ -117,7 +119,7 @@ jobs:
         run: npm audit --audit-level=high
 
       - name: Remove one-shot implementation helpers
-        run: rm scripts/implement-pr-2-8.py scripts/fix-pr-2-8-toolchain.py scripts/fix-pr-2-8-discriminator.py scripts/fix-pr-2-8-standalone.py scripts/fix-pr-2-8-generation-format.py .github/workflows/implement-pr-2-8.yml implementation-diagnostic.txt 2>/dev/null || true
+        run: rm scripts/implement-pr-2-8.py scripts/fix-pr-2-8-toolchain.py scripts/fix-pr-2-8-discriminator.py scripts/fix-pr-2-8-standalone.py scripts/fix-pr-2-8-generation-format.py scripts/fix-pr-2-8-lint-boundaries.py .github/workflows/implement-pr-2-8.yml implementation-diagnostic.txt 2>/dev/null || true
 
       - name: Publish verified implementation
         run: |
