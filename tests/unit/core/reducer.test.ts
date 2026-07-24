@@ -279,6 +279,35 @@ describe("BoardDocument reducer", () => {
     }
   });
 
+  it("commits a valid viewport and rejects an invalid one atomically", () => {
+    const document = emptyDocument();
+    const committed = reduceBoardDocument(document, {
+      ...metadata("viewport"),
+      kind: "core.viewport.set",
+      viewport: { offset: { x: -240, y: 90 }, zoom: 2.5 },
+    });
+
+    expect(committed.ok).toBe(true);
+    if (!committed.ok) {
+      return;
+    }
+    expect(committed.document.viewport).toEqual({
+      offset: { x: -240, y: 90 },
+      zoom: 2.5,
+    });
+
+    const rejected = reduceBoardDocument(committed.document, {
+      ...metadata("invalid-viewport", "2026-07-24T12:02:00.000Z"),
+      kind: "core.viewport.set",
+      viewport: { offset: { x: 0, y: 0 }, zoom: 0 },
+    });
+    expect(rejected.ok).toBe(false);
+    expect(rejected.document).toBe(committed.document);
+    if (!rejected.ok) {
+      expect(rejected.error.code).toBe("command.invalid");
+    }
+  });
+
   it("requires specialized commands for imported geometry edits", () => {
     const read = readBoardDocument(loadGeometryImportFixture());
     expect(read.status).toBe("ok");

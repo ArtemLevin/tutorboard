@@ -127,4 +127,52 @@ describe("architecture rules", () => {
       ),
     ).toEqual([]);
   });
+
+  it("requires adapters to consume the core public contract", () => {
+    expect(
+      analyze(
+        "adapters/canvas-konva/BoardStage.tsx",
+        'import type { ViewportState } from "../../core/board/primitives";',
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        invariant: "ARCH-001",
+      }),
+    ]);
+  });
+
+  it("prevents the canvas adapter from owning documents or reducers", () => {
+    expect(
+      analyze(
+        "adapters/canvas-konva/BoardStage.tsx",
+        'import { reduceBoardDocument } from "../../core/public";',
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        invariant: "CANVAS-007",
+      }),
+    ]);
+  });
+
+  it("allows the canvas adapter to consume the renderer read model", () => {
+    expect(
+      analyze(
+        "adapters/canvas-konva/BoardStage.tsx",
+        'import type { BoardSceneReadModel } from "../../core/public";',
+      ),
+    ).toEqual([]);
+  });
+
+  it("requires app composition to use adapter public contracts", () => {
+    expect(
+      analyze(
+        "app/App.tsx",
+        'import { BoardStage } from "../adapters/canvas-konva/BoardStage";',
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        invariant: "ARCH-004",
+      }),
+    ]);
+  });
 });

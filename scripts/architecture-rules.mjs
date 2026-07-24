@@ -84,6 +84,44 @@ function collectSpecifiers(sourceFile) {
   return specifiers;
 }
 
+function collectNamedImports(sourceFile) {
+  const imports = [];
+
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      statement.importClause === undefined
+    ) {
+      continue;
+    }
+
+    const bindings = [];
+    if (statement.importClause.name !== undefined) {
+      bindings.push("default");
+    }
+    const namedBindings = statement.importClause.namedBindings;
+    if (namedBindings !== undefined) {
+      if (ts.isNamespaceImport(namedBindings)) {
+        bindings.push("*");
+      } else {
+        bindings.push(
+          ...namedBindings.elements.map(
+            (element) => element.propertyName?.text ?? element.name.text,
+          ),
+        );
+      }
+    }
+
+    imports.push({
+      bindings,
+      specifier: statement.moduleSpecifier.text,
+    });
+  }
+
+  return imports;
+}
+
 function propertyPath(node) {
   if (ts.isIdentifier(node)) {
     return node.text;
@@ -160,6 +198,39 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
   );
   const violations = [];
 
+  if (importer.layer === "adapters" && importer.owner === "canvas-konva") {
+    const forbiddenBindings = new Set([
+      "*",
+      "BoardCommand",
+      "BoardDocument",
+      "CommandMetadata",
+      "CommandResult",
+      "reduceBoardDocument",
+    ]);
+    for (const imported of collectNamedImports(sourceFile)) {
+      const targetPath = resolveLocalTarget(
+        filePath,
+        imported.specifier,
+        srcRoot,
+      );
+      const target =
+        targetPath === null ? null : sourceLocation(targetPath, srcRoot);
+      if (
+        target?.layer === "core" &&
+        imported.bindings.some((binding) => forbiddenBindings.has(binding))
+      ) {
+        violations.push(
+          violation(
+            "CANVAS-007",
+            filePath,
+            imported.specifier,
+            "canvas adapters consume read models and emit intents; they cannot own documents or reducers",
+          ),
+        );
+      }
+    }
+  }
+
   if (importer.layer === "core" && isReducerFile(filePath, srcRoot)) {
     for (const source of collectReducerNondeterminism(sourceFile)) {
       violations.push(
@@ -210,6 +281,22 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
       continue;
     }
 
+    if (
+      importer.layer === "app" &&
+      target.layer === "adapters" &&
+      !isPublicModuleImport(specifier)
+    ) {
+      violations.push(
+        violation(
+          "ARCH-004",
+          filePath,
+          specifier,
+          "application composition must use adapter public contracts",
+        ),
+      );
+      continue;
+    }
+
     if (importer.layer === "core" && target.layer !== "core") {
       violations.push(
         violation(
@@ -245,6 +332,22 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
           filePath,
           specifier,
           "adapters may depend only on core and platform-neutral shared code",
+        ),
+      );
+      continue;
+    }
+
+    if (
+      importer.layer === "adapters" &&
+      target.layer === "core" &&
+      !isPublicModuleImport(specifier)
+    ) {
+      violations.push(
+        violation(
+          "ARCH-001",
+          filePath,
+          specifier,
+          "adapters must consume the core public contract",
         ),
       );
       continue;
