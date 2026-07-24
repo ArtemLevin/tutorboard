@@ -140,12 +140,13 @@ function jsonValue(text: string):
   }
 }
 
-function readResponseRequestId(
+async function readResponseRequestId(
   response: Response,
   expected: GeometryOsRequestId,
-): GeometryOsGenerateResult | null {
+): Promise<GeometryOsGenerateResult | null> {
   const actual = response.headers.get(geometryOsRequestIdHeader);
   if (actual === null || actual === "") {
+    await response.body?.cancel().catch(() => undefined);
     return incompatible(
       expected,
       "geometryos.missing-request-id",
@@ -153,6 +154,7 @@ function readResponseRequestId(
     );
   }
   if (actual !== expected) {
+    await response.body?.cancel().catch(() => undefined);
     return incompatible(
       expected,
       "geometryos.request-id-mismatch",
@@ -205,7 +207,7 @@ async function executeGenerate(
     };
   }
 
-  const requestIdFailure = readResponseRequestId(response, requestId);
+  const requestIdFailure = await readResponseRequestId(response, requestId);
   if (requestIdFailure !== null) {
     return requestIdFailure;
   }
