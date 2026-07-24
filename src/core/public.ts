@@ -44,6 +44,13 @@ export {
   type ViewportState,
 } from "./board/primitives";
 export {
+  panViewport,
+  screenToWorld,
+  worldToScreen,
+  zoomViewportAt,
+  type ZoomBounds,
+} from "./board/coordinates";
+export {
   boardCommandKinds,
   type AddGroupCommand,
   type AddObjectsCommand,
@@ -61,7 +68,13 @@ export {
   type CommandErrorCode,
   type CommandResult,
 } from "./board/commands/reducer";
-export { selectGroupObjects, selectOrderedObjects } from "./board/selectors";
+export {
+  selectBoardScene,
+  selectGroupObjects,
+  selectOrderedObjects,
+  type BoardRenderItem,
+  type BoardSceneReadModel,
+} from "./board/selectors";
 export {
   deserializeBoardDocument,
   serializeBoardDocument,

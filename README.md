@@ -41,16 +41,17 @@ GIR → Board adapter
 | Компонент                    | Состояние                                                                                                                                      |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | GeometryOS                   | Integration-ready сервис `0.2.0`, API v1, GIR `0.2.0`, OpenAPI и TutorBoard consumer contracts                                                 |
-| TutorBoard                   | Board domain model 0.1: strict schema, commands, pure reducer, recovery-safe serialization и architecture gates                                |
+| TutorBoard                   | Infinite canvas foundation: BoardDocument 0.1, Konva adapter, pan/zoom, coordinate contracts и architecture gates                             |
 | tutor-assistant-web          | Развитая серверная платформа преподавателя: организации, ученики, расписание, BBB, обработка уроков, материалы, публикация и production-контур |
 | tutor-assistant              | Локальное desktop-приложение для записи, транскрибации, проверки и публикации материалов занятия                                               |
 | students-26-27               | Текущий репозиторий учебных страниц и файлов учеников                                                                                          |
 | latex-for-everyone / Latexed | Сервис редактирования, компиляции и экспорта LaTeX-документов                                                                                  |
 
-На текущем этапе реализовано независимое от UI ядро `BoardDocument 0.1`.
-GeometryOS Gate 0 проверен; отсутствие machine-readable layout зафиксировано как
-compatibility gap для будущего GIR adapter. Canvas, persistence и сетевой
-GeometryOS adapter остаются следующими этапами.
+На текущем этапе `BoardDocument 0.1` подключён к заменяемому Konva renderer:
+работают бесконечное полотно, pan, pointer-centred zoom, adaptive grid и
+восстановимый viewport contract. GeometryOS Gate 0 проверен; отсутствие
+machine-readable layout зафиксировано как compatibility gap для будущего GIR
+adapter. Persistence и сетевой GeometryOS adapter остаются следующими этапами.
 
 ---
 

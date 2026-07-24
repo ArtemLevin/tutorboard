@@ -22,8 +22,10 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run architecture && npm run build"
   },
   "dependencies": {
+    "konva": "10.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-konva": "19.2.5",
     "zod": "4.4.3"
   },
   "devDependencies": {

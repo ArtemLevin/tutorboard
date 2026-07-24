@@ -15,7 +15,7 @@
 
 ## 2. Текущее состояние и ближайшая последовательность
 
-TutorBoard выполняет PR 2.2 Board domain model. Gate 0 GeometryOS закрыт
+TutorBoard выполняет PR 2.3 Infinite canvas. Gate 0 GeometryOS закрыт
 проверяемым baseline в
 [`docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md`](docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md):
 API v1, GIR `0.2.0`, fixtures, Problem Details, request ID и probes подтверждены;
@@ -23,7 +23,9 @@ machine-readable layout отсутствует и оформлен как compat
 
 `BoardDocument 0.1`, branded identifiers, namespaced commands, pure reducer,
 strict validation, recovery reader и deterministic serialization реализованы в
-PR 2.2. Canvas adapter, persistence и GeometryOS client ещё не реализованы.
+PR 2.2. В PR 2.3 реализуется Konva adapter, coordinate conversion, pan,
+pointer-centred zoom, ResizeObserver, grid/origin и renderer registry.
+Persistence и GeometryOS client ещё не реализованы.
 
 Ближайшие поставки:
 
@@ -39,14 +41,20 @@ PR 2.2. Canvas adapter, persistence и GeometryOS client ещё не реали�
    - создать React/Vite/strict TypeScript skeleton;
    - создать физические границы модулей;
    - реализовать import-boundary checks и базовый CI.
-4. **PR 2.2 — Board domain model — текущий**
+4. **PR 2.2 — Board domain model — завершён**
    - реализовать `BoardDocument 0.1`, identifiers, commands, reducer,
      validation и serialization;
    - обеспечить `DOC-001`–`DOC-012`, `CMD-001`, `CMD-003`–`CMD-007`;
    - сохранить raw input при incompatible/unknown/corrupted read;
    - использовать `order` как единственный z-order и
      `GeometryImportRecord.visualTransform` как transform импорта.
-5. Далее выполнять PR 2.3–2.12 из Technical Spike plan, не обходя phase gates.
+5. **PR 2.3 — Infinite canvas — текущий**
+   - подключить Konva только через `adapters/canvas-konva/public`;
+   - передавать renderer только immutable `BoardSceneReadModel`;
+   - реализовать pure world/screen conversion, pan и pointer-centred zoom;
+   - обеспечить cancel/release pointer lifecycle и browser tests;
+   - не добавлять canvas runtime в `BoardDocument`.
+6. Далее выполнять PR 2.4–2.12 из Technical Spike plan, не обходя phase gates.
 
 ## 3. Целевая архитектура
 

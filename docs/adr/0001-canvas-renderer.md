@@ -18,6 +18,12 @@ Konva may be introduced only as an adapter under `adapters/canvas-konva`.
 read models, renders them and translates pointer input at the application
 boundary; Konva nodes are never serialized or mutated as document state.
 
+The concrete PR 2.3 boundary is documented in
+[`../architecture/CANVAS_ADAPTER.md`](../architecture/CANVAS_ADAPTER.md).
+`BoardSceneReadModel` is the adapter input. Viewport previews stay inside the
+adapter; the application commits one `core.viewport.set` command per completed
+pan or coalesced wheel gesture.
+
 ## Alternatives considered
 
 ### Persist Konva scene nodes
@@ -49,9 +55,12 @@ boundary; Konva nodes are never serialized or mutated as document state.
 
 ## Verification
 
-PR 2.3 must add architecture checks proving that core does not import Konva and
-that the adapter cannot mutate the store directly. Serialization fixtures must
-contain no canvas runtime objects.
+PR 2.3 adds architecture checks proving that core does not import Konva, canvas
+adapters consume `core/public`, application composition consumes adapter
+`public.ts`, and the adapter cannot own `BoardDocument` or its reducer.
+Coordinate unit tests and browser lifecycle scenarios enforce pan, zoom,
+cancel, and pointer-capture behavior. Existing serialization fixtures continue
+to reject canvas runtime objects.
 
 ## Revisit or rollback conditions
 
