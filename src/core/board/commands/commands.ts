@@ -42,6 +42,20 @@ export interface DeleteObjectsCommand extends CommandMetadata {
   readonly objectIds: readonly BoardObjectId[];
 }
 
+export interface MoveSelectionCommand extends CommandMetadata {
+  readonly delta: Vec2;
+  readonly groupIds: readonly GroupId[];
+  readonly kind: "core.selection.move";
+  readonly objectIds: readonly BoardObjectId[];
+}
+
+export interface SetSelectionLockCommand extends CommandMetadata {
+  readonly groupIds: readonly GroupId[];
+  readonly kind: "core.selection.set-lock";
+  readonly locked: boolean;
+  readonly objectIds: readonly BoardObjectId[];
+}
+
 export interface SetViewportCommand extends CommandMetadata {
   readonly kind: "core.viewport.set";
   readonly viewport: ViewportState;
@@ -58,7 +72,9 @@ export type BoardCommand =
   | DeleteObjectsCommand
   | MoveGroupCommand
   | MoveObjectsCommand
+  | MoveSelectionCommand
   | RenameDocumentCommand
+  | SetSelectionLockCommand
   | SetViewportCommand;
 
 export const boardCommandKinds = [
@@ -67,6 +83,8 @@ export const boardCommandKinds = [
   "core.objects.move",
   "core.groups.move",
   "core.objects.delete",
+  "core.selection.move",
+  "core.selection.set-lock",
   "core.viewport.set",
   "core.document.rename",
 ] as const satisfies readonly BoardCommand["kind"][];

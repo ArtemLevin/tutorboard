@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BoardStage,
   createDefaultKonvaRendererRegistry,
+  type SelectionPointerStartSample,
   type WorldPointerSample,
 } from "../adapters/canvas-konva/public";
 import {
@@ -29,13 +30,33 @@ import {
   type DrawingToolId,
   type UserDrawingObject,
 } from "../modules/drawing/public";
+import {
+  createDeleteSelectionCommand,
+  createMoveSelectionCommand,
+  createSetSelectionLockCommand,
+  expandSelectionObjectIds,
+  getSelectionMarquee,
+  getSelectionPreviewDelta,
+  initialSelectionState,
+  normalizeRect,
+  reduceSelectionInteraction,
+  selectionIsLocked,
+  selectionTool,
+  selectionToolId,
+  selectObjectIdsInRect,
+  selectSelectionBounds,
+  type CompletedSelectionMove,
+  type SelectionAction,
+  type SelectionState,
+} from "../modules/selection/public";
 import { readEnvironment } from "./configuration/environment";
 import "./styles.css";
 
 const environment = readEnvironment();
 const localActorId = actorId("actor:local-teacher");
 const navigationToolId = "navigation.pan" as const;
-type ActiveToolId = typeof navigationToolId | DrawingToolId;
+type ActiveToolId =
+  typeof navigationToolId | typeof selectionToolId | DrawingToolId;
 const initialDrawingState: DrawingInteractionState = { kind: "idle" };
 
 function createInitialDocument(): BoardDocument {
@@ -155,6 +176,8 @@ export function App() {
   const [drawingDiagnostic, setDrawingDiagnostic] = useState<string | null>(
     null,
   );
+  const [selectionState, setSelectionState] = useState(initialSelectionState);
+  const selectionStateRef = useRef<SelectionState>(initialSelectionState);
   const [textDraft, setTextDraft] = useState("Новый текст");
   const { commandError, document } = boardState;
   const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);
@@ -170,6 +193,25 @@ export function App() {
         : [{ object: drawingPreview, transforms: [] }],
     [drawingPreview],
   );
+  const selectionPreviewDelta = useMemo(
+    () => getSelectionPreviewDelta(selectionState),
+    [selectionState],
+  );
+  const selectionMarquee = useMemo(
+    () => getSelectionMarquee(selectionState),
+    [selectionState],
+  );
+  const selectionBounds = useMemo(
+    () => selectSelectionBounds(scene, selectionState.selectedObjectIds),
+    [scene, selectionState.selectedObjectIds],
+  );
+  const selectedLocked = useMemo(
+    () => selectionIsLocked(document, selectionState.selectedObjectIds),
+    [document, selectionState.selectedObjectIds],
+  );
+  const renderedSelectionPreviewDelta = selectedLocked
+    ? null
+    : selectionPreviewDelta;
 
   const commitViewport = useCallback((viewport: ViewportState) => {
     const timestamp = new Date().toISOString();
@@ -211,6 +253,32 @@ export function App() {
     });
   }, []);
 
+  const commitSelectionMove = useCallback(
+    (completed: CompletedSelectionMove) => {
+      const timestamp = new Date().toISOString();
+      setBoardState((current) => {
+        const result = reduceBoardDocument(
+          current.document,
+          createMoveSelectionCommand(
+            {
+              actorId: localActorId,
+              id: commandId(`command:${crypto.randomUUID()}`),
+              timestamp,
+            },
+            current.document,
+            completed.objectIds,
+            completed.delta,
+          ),
+        );
+        if (!result.ok) {
+          return { ...current, commandError: result.error.message };
+        }
+        return { commandError: null, document: result.document };
+      });
+    },
+    [],
+  );
+
   const applyDrawingAction = useCallback(
     (action: DrawingAction) => {
       const result = reduceDrawingInteraction(drawingStateRef.current, action);
@@ -227,6 +295,12 @@ export function App() {
   const activateTool = useCallback(
     (tool: ActiveToolId) => {
       applyDrawingAction({ kind: "cancel" });
+      const selectionResult = reduceSelectionInteraction(
+        selectionStateRef.current,
+        { kind: "cancel" },
+      );
+      selectionStateRef.current = selectionResult.state;
+      setSelectionState(selectionResult.state);
       setActiveTool(tool);
     },
     [applyDrawingAction],
@@ -249,7 +323,36 @@ export function App() {
         activateTool(navigationToolId);
         return;
       }
-
+      if (event.key.toLowerCase() === selectionTool.shortcut.toLowerCase()) {
+        activateTool(selectionToolId);
+        return;
+      }
+      if (
+        (event.key === "Delete" || event.key === "Backspace") &&
+        selectionStateRef.current.selectedObjectIds.length > 0 &&
+        selectionStateRef.current.interaction.kind === "idle"
+      ) {
+        event.preventDefault();
+        const timestamp = new Date().toISOString();
+        setBoardState((current) => {
+          const result = reduceBoardDocument(
+            current.document,
+            createDeleteSelectionCommand(
+              {
+                actorId: localActorId,
+                id: commandId(`command:${crypto.randomUUID()}`),
+                timestamp,
+              },
+              current.document,
+              selectionStateRef.current.selectedObjectIds,
+            ),
+          );
+          return result.ok
+            ? { commandError: null, document: result.document }
+            : { ...current, commandError: result.error.message };
+        });
+        return;
+      }
       const tool = drawingTools.find(
         (candidate) =>
           candidate.shortcut.toLowerCase() === event.key.toLowerCase(),
@@ -262,6 +365,15 @@ export function App() {
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
   }, [activateTool]);
+
+  useEffect(() => {
+    const result = reduceSelectionInteraction(selectionStateRef.current, {
+      availableObjectIds: document.order,
+      kind: "prune",
+    });
+    selectionStateRef.current = result.state;
+    setSelectionState(result.state);
+  }, [document.order]);
 
   const startDrawing = useCallback(
     (sample: WorldPointerSample) => {
@@ -309,6 +421,122 @@ export function App() {
     [applyDrawingAction],
   );
 
+  const applySelectionAction = useCallback(
+    (action: SelectionAction) => {
+      const result = reduceSelectionInteraction(
+        selectionStateRef.current,
+        action,
+      );
+      selectionStateRef.current = result.state;
+      setSelectionState(result.state);
+      if (result.completedMove !== null) {
+        commitSelectionMove(result.completedMove);
+      }
+    },
+    [commitSelectionMove],
+  );
+
+  const startSelection = useCallback(
+    (sample: SelectionPointerStartSample) => {
+      const hitObjectIds =
+        sample.objectId === null
+          ? []
+          : expandSelectionObjectIds(document, [sample.objectId]);
+      applySelectionAction({
+        additive: sample.additive,
+        hitObjectIds,
+        kind: "start",
+        point: sample.point,
+        pointerId: sample.pointerId,
+      });
+    },
+    [applySelectionAction, document],
+  );
+
+  const moveSelection = useCallback(
+    (sample: WorldPointerSample) => {
+      applySelectionAction({
+        kind: "move",
+        point: sample.point,
+        pointerId: sample.pointerId,
+      });
+    },
+    [applySelectionAction],
+  );
+
+  const finishSelection = useCallback(
+    (sample: WorldPointerSample) => {
+      const interaction = selectionStateRef.current.interaction;
+      const marqueeObjectIds =
+        interaction.kind === "marquee"
+          ? expandSelectionObjectIds(
+              document,
+              selectObjectIdsInRect(
+                scene,
+                normalizeRect(interaction.start, sample.point),
+              ),
+            )
+          : undefined;
+      applySelectionAction({
+        kind: "finish",
+        ...(marqueeObjectIds === undefined ? {} : { marqueeObjectIds }),
+        point: sample.point,
+        pointerId: sample.pointerId,
+      });
+    },
+    [applySelectionAction, document, scene],
+  );
+
+  const cancelSelection = useCallback(
+    (pointerId: number) => {
+      applySelectionAction({ kind: "cancel", pointerId });
+    },
+    [applySelectionAction],
+  );
+
+  const setSelectionLock = useCallback((locked: boolean) => {
+    const timestamp = new Date().toISOString();
+    setBoardState((current) => {
+      const result = reduceBoardDocument(
+        current.document,
+        createSetSelectionLockCommand(
+          {
+            actorId: localActorId,
+            id: commandId(`command:${crypto.randomUUID()}`),
+            timestamp,
+          },
+          current.document,
+          selectionStateRef.current.selectedObjectIds,
+          locked,
+        ),
+      );
+      return result.ok
+        ? { commandError: null, document: result.document }
+        : { ...current, commandError: result.error.message };
+    });
+  }, []);
+
+  const deleteSelection = useCallback(() => {
+    const timestamp = new Date().toISOString();
+    setBoardState((current) => {
+      const result = reduceBoardDocument(
+        current.document,
+        createDeleteSelectionCommand(
+          {
+            actorId: localActorId,
+            id: commandId(`command:${crypto.randomUUID()}`),
+            timestamp,
+          },
+          current.document,
+          selectionStateRef.current.selectedObjectIds,
+        ),
+      );
+      return result.ok
+        ? { commandError: null, document: result.document }
+        : { ...current, commandError: result.error.message };
+    });
+  }, []);
+
   const resetViewport = () => {
     commitViewport({ offset: { x: 160, y: 90 }, zoom: 1 });
   };
@@ -348,11 +576,22 @@ export function App() {
           onWorldPointerFinish={finishDrawing}
           onWorldPointerMove={moveDrawing}
           onWorldPointerStart={startDrawing}
+          onSelectionPointerCancel={cancelSelection}
+          onSelectionPointerFinish={finishSelection}
+          onSelectionPointerMove={moveSelection}
+          onSelectionPointerStart={startSelection}
           onViewportCommit={commitViewport}
           panMode={activeTool === navigationToolId}
           previewItems={previewItems}
           registry={registry}
           scene={scene}
+          selectedObjectIds={selectionState.selectedObjectIds}
+          selectionBounds={selectionBounds}
+          selectionMarquee={selectionMarquee}
+          selectionModeKey={
+            activeTool === selectionToolId ? selectionToolId : null
+          }
+          selectionPreviewDelta={renderedSelectionPreviewDelta}
         />
 
         <div
@@ -373,6 +612,20 @@ export function App() {
             type="button"
           >
             <span aria-hidden="true">✋</span>
+          </button>
+          <button
+            aria-label={`${selectionTool.label} (${selectionTool.shortcut})`}
+            aria-pressed={activeTool === selectionToolId}
+            className={
+              activeTool === selectionToolId
+                ? "drawing-tool is-active"
+                : "drawing-tool"
+            }
+            onClick={() => activateTool(selectionToolId)}
+            title={`${selectionTool.label} · ${selectionTool.shortcut}`}
+            type="button"
+          >
+            <span aria-hidden="true">{selectionTool.icon}</span>
           </button>
           <span aria-hidden="true" className="toolbar-divider" />
           {drawingTools.map((tool) => (
@@ -407,16 +660,47 @@ export function App() {
 
         <aside className="canvas-help" aria-label="Подсказка по навигации">
           <strong>
-            {activeTool === navigationToolId ? "Навигация" : "Создание объекта"}
+            {activeTool === navigationToolId
+              ? "Навигация"
+              : activeTool === selectionToolId
+                ? "Выделение"
+                : "Создание объекта"}
           </strong>
           <span>
             {activeTool === navigationToolId
               ? "Потяните полотно для перемещения"
-              : "Потяните или нажмите на полотно"}
+              : activeTool === selectionToolId
+                ? "Клик, Shift+клик или рамка выделения"
+                : "Потяните или нажмите на полотно"}
           </span>
           <span>Space / средняя кнопка — временное перемещение</span>
           <span>Escape — отменить действие</span>
         </aside>
+
+        {selectionState.selectedObjectIds.length === 0 ? null : (
+          <aside
+            className="selection-inspector"
+            aria-label="Выделенные объекты"
+          >
+            <strong>Выделено: {selectionState.selectedObjectIds.length}</strong>
+            <span>
+              {selectedLocked
+                ? "Перемещение заблокировано"
+                : "Перетащите выделение для перемещения"}
+            </span>
+            <div>
+              <button
+                onClick={() => setSelectionLock(!selectedLocked)}
+                type="button"
+              >
+                {selectedLocked ? "Разблокировать" : "Заблокировать"}
+              </button>
+              <button onClick={deleteSelection} type="button">
+                Удалить
+              </button>
+            </div>
+          </aside>
+        )}
 
         <div className="coordinate-chip" aria-live="polite">
           <span data-testid="viewport-zoom">
@@ -440,6 +724,9 @@ export function App() {
         </span>
         <span data-testid="object-count">{document.order.length} объекта</span>
         <span data-testid="interaction-state">{drawingState.kind}</span>
+        <span data-testid="selection-count">
+          {selectionState.selectedObjectIds.length} выбрано
+        </span>
         {drawingDiagnostic === null ? null : (
           <span data-testid="drawing-diagnostic">{drawingDiagnostic}</span>
         )}

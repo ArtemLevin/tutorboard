@@ -59,7 +59,9 @@ export {
   type DeleteObjectsCommand,
   type MoveGroupCommand,
   type MoveObjectsCommand,
+  type MoveSelectionCommand,
   type RenameDocumentCommand,
+  type SetSelectionLockCommand,
   type SetViewportCommand,
 } from "./board/commands/commands";
 export {

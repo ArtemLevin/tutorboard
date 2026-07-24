@@ -15,7 +15,7 @@
 
 ## 2. Текущее состояние и ближайшая последовательность
 
-TutorBoard выполняет PR 2.4 Pen and primitive tools. Gate 0 GeometryOS закрыт
+TutorBoard завершил PR 2.5 Selection and movement. Gate 0 GeometryOS закрыт
 проверяемым baseline в
 [`docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md`](docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md):
 API v1, GIR `0.2.0`, fixtures, Problem Details, request ID и probes подтверждены;
@@ -24,10 +24,11 @@ machine-readable layout отсутствует и оформлен как compat
 `BoardDocument 0.1`, branded identifiers, namespaced commands, pure reducer,
 strict validation, recovery reader и deterministic serialization реализованы в
 PR 2.2. PR 2.3 добавил Konva adapter, coordinate conversion, pan,
-pointer-centred zoom, ResizeObserver, grid/origin и renderer registry. В PR 2.4
-реализуются drawing module, tool state machine, pen и primitive tools,
-world-coordinate pointer sampling и runtime-only preview. Persistence и
-GeometryOS client ещё не реализованы.
+pointer-centred zoom, ResizeObserver, grid/origin и renderer registry. PR 2.4
+добавил drawing module, tool state machine, pen и primitive tools. PR 2.5
+добавил runtime-only click, additive и marquee selection, атомарное перемещение
+независимых объектов и групп, delete, lock state и selection inspector.
+Persistence и GeometryOS client ещё не реализованы.
 
 Ближайшие поставки:
 
@@ -56,7 +57,7 @@ GeometryOS client ещё не реализованы.
    - реализовать pure world/screen conversion, pan и pointer-centred zoom;
    - обеспечить cancel/release pointer lifecycle и browser tests;
    - не добавлять canvas runtime в `BoardDocument`.
-6. **PR 2.4 — Pen and primitive tools — текущий**
+6. **PR 2.4 — Pen and primitive tools — завершён**
    - подключить `modules/drawing/public` как единственного владельца tool IDs,
      interaction state machine, style defaults и command factory;
    - реализовать pen, line, rectangle, ellipse и text;
@@ -66,7 +67,20 @@ GeometryOS client ещё не реализованы.
      `core.objects.add` на завершённый gesture;
    - отменять gesture при Escape, pointer loss, blur, tool switch и unmount;
    - сохранить stored shape `BoardDocument 0.1` без migration.
-7. Далее выполнять PR 2.5–2.12 из Technical Spike plan, не обходя phase gates.
+7. **PR 2.5 — Selection and movement — завершён**
+   - подключить `modules/selection/public` как владельца selection tool,
+     runtime state machine, bounds/hit testing и command factories;
+   - реализовать click, additive и marquee selection;
+   - хранить selection, marquee и drag preview только в runtime state;
+   - перемещать независимые объекты и generic groups одной атомарной командой;
+   - реализовать delete, lock/unlock и inspector;
+   - отменять drag/marquee при Escape, pointer loss, blur, tool switch и unmount;
+   - сохранить stored shape `BoardDocument 0.1` без migration.
+8. **PR 2.6 — Local persistence — следующий**
+   - реализовать Dexie repository, autosave и restore;
+   - сохранить last-good revision и recovery record;
+   - показывать recovery UI вместо white screen при повреждённых данных.
+9. Далее выполнять PR 2.7–2.12 из Technical Spike plan, не обходя phase gates.
 
 ## 3. Целевая архитектура
 

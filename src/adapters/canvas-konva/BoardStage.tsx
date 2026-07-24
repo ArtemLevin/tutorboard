@@ -6,12 +6,14 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { Group, Layer, Stage } from "react-konva";
+import { Group, Layer, Rect, Stage } from "react-konva";
 
 import {
+  boardObjectId,
   panViewport,
   screenToWorld,
   zoomViewportAt,
+  type BoardObjectId,
   type BoardRenderItem,
   type BoardSceneReadModel,
   type Transform2D,
@@ -49,10 +51,33 @@ interface DrawingSession {
   readonly viewport: ViewportState;
 }
 
+interface SelectionSession {
+  readonly captureElement: HTMLElement;
+  readonly pointerId: number;
+  readonly viewport: ViewportState;
+}
+
 export interface WorldPointerSample {
   readonly point: Vec2;
   readonly pointerId: number;
   readonly pressure: number;
+}
+
+export interface SelectionPointerStartSample extends WorldPointerSample {
+  readonly additive: boolean;
+  readonly objectId: BoardObjectId | null;
+}
+
+export interface BoardSelectionRect {
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface BoardSelectionBounds {
+  readonly id: BoardObjectId;
+  readonly rect: BoardSelectionRect;
 }
 
 export interface BoardStageProps {
@@ -61,10 +86,21 @@ export interface BoardStageProps {
   readonly onWorldPointerFinish: (sample: WorldPointerSample) => void;
   readonly onWorldPointerMove: (sample: WorldPointerSample) => void;
   readonly onWorldPointerStart: (sample: WorldPointerSample) => void;
+  readonly onSelectionPointerCancel: (pointerId: number) => void;
+  readonly onSelectionPointerFinish: (sample: WorldPointerSample) => void;
+  readonly onSelectionPointerMove: (sample: WorldPointerSample) => void;
+  readonly onSelectionPointerStart: (
+    sample: SelectionPointerStartSample,
+  ) => void;
   readonly panMode: boolean;
   readonly previewItems?: readonly BoardRenderItem[];
   readonly registry: KonvaRendererRegistry;
   readonly scene: BoardSceneReadModel;
+  readonly selectedObjectIds?: readonly BoardObjectId[];
+  readonly selectionBounds?: readonly BoardSelectionBounds[];
+  readonly selectionMarquee?: BoardSelectionRect | null;
+  readonly selectionModeKey: string | null;
+  readonly selectionPreviewDelta?: Vec2 | null;
   readonly onViewportCommit: (viewport: ViewportState) => void;
 }
 
@@ -108,12 +144,34 @@ function applyTransforms(
 function renderItem(
   item: BoardRenderItem,
   registry: KonvaRendererRegistry,
+  options: {
+    readonly interactive: boolean;
+    readonly previewDelta?: Vec2 | null;
+  },
 ): ReactElement {
   return (
-    <Group key={item.object.id}>
+    <Group
+      id={item.object.id}
+      key={item.object.id}
+      listening={options.interactive}
+      {...(options.interactive ? { name: "board-object" } : {})}
+      x={options.previewDelta?.x ?? 0}
+      y={options.previewDelta?.y ?? 0}
+    >
       {applyTransforms(registry.render(item), item.transforms)}
     </Group>
   );
+}
+
+function objectIdFromTarget(target: Konva.Node): BoardObjectId | null {
+  let current: Konva.Node | null = target;
+  while (current !== null) {
+    if (current.hasName("board-object")) {
+      return boardObjectId(current.id());
+    }
+    current = current.getParent();
+  }
+  return null;
 }
 
 export function BoardStage({
@@ -123,15 +181,25 @@ export function BoardStage({
   onWorldPointerFinish,
   onWorldPointerMove,
   onWorldPointerStart,
+  onSelectionPointerCancel,
+  onSelectionPointerFinish,
+  onSelectionPointerMove,
+  onSelectionPointerStart,
   panMode,
   previewItems = [],
   registry,
   scene,
+  selectedObjectIds = [],
+  selectionBounds = [],
+  selectionMarquee = null,
+  selectionModeKey,
+  selectionPreviewDelta = null,
 }: BoardStageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const panSessionRef = useRef<PanSession | null>(null);
   const drawingSessionRef = useRef<DrawingSession | null>(null);
+  const selectionSessionRef = useRef<SelectionSession | null>(null);
   const wheelSessionRef = useRef<WheelSession | null>(null);
   const worldPointerCallbacksRef = useRef({
     cancel: onWorldPointerCancel,
@@ -139,11 +207,18 @@ export function BoardStage({
     move: onWorldPointerMove,
     start: onWorldPointerStart,
   });
+  const selectionPointerCallbacksRef = useRef({
+    cancel: onSelectionPointerCancel,
+    finish: onSelectionPointerFinish,
+    move: onSelectionPointerMove,
+    start: onSelectionPointerStart,
+  });
   const viewportRef = useRef(scene.viewport);
   const spacePressedRef = useRef(false);
   const [previewViewport, setPreviewViewport] = useState(scene.viewport);
   const [isPanning, setIsPanning] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
   const size = useElementSize(rootRef);
 
@@ -162,8 +237,26 @@ export function BoardStage({
   ]);
 
   useEffect(() => {
+    selectionPointerCallbacksRef.current = {
+      cancel: onSelectionPointerCancel,
+      finish: onSelectionPointerFinish,
+      move: onSelectionPointerMove,
+      start: onSelectionPointerStart,
+    };
+  }, [
+    onSelectionPointerCancel,
+    onSelectionPointerFinish,
+    onSelectionPointerMove,
+    onSelectionPointerStart,
+  ]);
+
+  useEffect(() => {
     viewportRef.current = scene.viewport;
-    if (panSessionRef.current === null && drawingSessionRef.current === null) {
+    if (
+      panSessionRef.current === null &&
+      drawingSessionRef.current === null &&
+      selectionSessionRef.current === null
+    ) {
       const wheelSession = wheelSessionRef.current;
       if (wheelSession !== null) {
         window.clearTimeout(wheelSession.timeoutId);
@@ -199,6 +292,18 @@ export function BoardStage({
     [],
   );
 
+  const selectionWorldSample = useCallback(
+    (event: PointerEvent, session: SelectionSession): WorldPointerSample => ({
+      point: screenToWorld(
+        elementPoint(event, session.captureElement),
+        session.viewport,
+      ),
+      pointerId: event.pointerId,
+      pressure: 0,
+    }),
+    [],
+  );
+
   const finishDrawing = useCallback(
     (commit: boolean, event?: PointerEvent) => {
       const session = drawingSessionRef.current;
@@ -218,6 +323,28 @@ export function BoardStage({
       }
     },
     [releaseCapture, worldSample],
+  );
+
+  const finishSelection = useCallback(
+    (commit: boolean, event?: PointerEvent) => {
+      const session = selectionSessionRef.current;
+      if (session === null) {
+        return;
+      }
+
+      selectionSessionRef.current = null;
+      releaseCapture(session);
+      setIsSelecting(false);
+      setPreviewViewport(viewportRef.current);
+      if (commit && event !== undefined) {
+        selectionPointerCallbacksRef.current.finish(
+          selectionWorldSample(event, session),
+        );
+      } else {
+        selectionPointerCallbacksRef.current.cancel(session.pointerId);
+      }
+    },
+    [releaseCapture, selectionWorldSample],
   );
 
   const finishPan = useCallback(
@@ -277,6 +404,18 @@ export function BoardStage({
         return;
       }
 
+      const selectionSession = selectionSessionRef.current;
+      if (
+        selectionSession !== null &&
+        selectionSession.pointerId === event.pointerId
+      ) {
+        event.preventDefault();
+        selectionPointerCallbacksRef.current.move(
+          selectionWorldSample(event, selectionSession),
+        );
+        return;
+      }
+
       const session = panSessionRef.current;
       if (session === null || session.pointerId !== event.pointerId) {
         return;
@@ -296,6 +435,10 @@ export function BoardStage({
         finishDrawing(true, event);
         return;
       }
+      if (selectionSessionRef.current?.pointerId === event.pointerId) {
+        finishSelection(true, event);
+        return;
+      }
       if (panSessionRef.current?.pointerId === event.pointerId) {
         finishPan(true);
       }
@@ -305,6 +448,10 @@ export function BoardStage({
         finishDrawing(false);
         return;
       }
+      if (selectionSessionRef.current?.pointerId === event.pointerId) {
+        finishSelection(false);
+        return;
+      }
       if (panSessionRef.current?.pointerId === event.pointerId) {
         finishPan(false);
       }
@@ -312,6 +459,7 @@ export function BoardStage({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code === "Escape") {
         finishDrawing(false);
+        finishSelection(false);
         finishPan(false);
         cancelWheel();
         return;
@@ -333,6 +481,7 @@ export function BoardStage({
     };
     const handleBlur = () => {
       finishDrawing(false);
+      finishSelection(false);
       finishPan(false);
       cancelWheel();
     };
@@ -354,7 +503,14 @@ export function BoardStage({
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [cancelWheel, finishDrawing, finishPan, worldSample]);
+  }, [
+    cancelWheel,
+    finishDrawing,
+    finishPan,
+    finishSelection,
+    selectionWorldSample,
+    worldSample,
+  ]);
 
   useEffect(() => {
     const container = stageRef.current?.container();
@@ -366,6 +522,9 @@ export function BoardStage({
       if (drawingSessionRef.current?.pointerId === event.pointerId) {
         finishDrawing(false);
       }
+      if (selectionSessionRef.current?.pointerId === event.pointerId) {
+        finishSelection(false);
+      }
       if (panSessionRef.current?.pointerId === event.pointerId) {
         finishPan(false);
       }
@@ -374,7 +533,7 @@ export function BoardStage({
     return () => {
       container.removeEventListener("lostpointercapture", handleLostCapture);
     };
-  }, [finishDrawing, finishPan, size.height, size.width]);
+  }, [finishDrawing, finishPan, finishSelection, size.height, size.width]);
 
   useEffect(
     () => () => {
@@ -388,6 +547,12 @@ export function BoardStage({
         drawingSessionRef.current = null;
         releaseCapture(drawingSession);
         worldPointerCallbacksRef.current.cancel(drawingSession.pointerId);
+      }
+      const selectionSession = selectionSessionRef.current;
+      if (selectionSession !== null) {
+        selectionSessionRef.current = null;
+        releaseCapture(selectionSession);
+        selectionPointerCallbacksRef.current.cancel(selectionSession.pointerId);
       }
       const wheelSession = wheelSessionRef.current;
       if (wheelSession !== null) {
@@ -415,14 +580,31 @@ export function BoardStage({
   }, [drawingModeKey, finishDrawing]);
 
   useEffect(() => {
+    if (selectionSessionRef.current !== null) {
+      finishSelection(false);
+    }
+  }, [finishSelection, selectionModeKey]);
+
+  useEffect(() => {
     const session = drawingSessionRef.current;
     if (session !== null && !sameViewport(session.viewport, scene.viewport)) {
       finishDrawing(false);
     }
   }, [finishDrawing, scene.viewport]);
 
+  useEffect(() => {
+    const session = selectionSessionRef.current;
+    if (session !== null && !sameViewport(session.viewport, scene.viewport)) {
+      finishSelection(false);
+    }
+  }, [finishSelection, scene.viewport]);
+
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
-    if (panSessionRef.current !== null || drawingSessionRef.current !== null) {
+    if (
+      panSessionRef.current !== null ||
+      drawingSessionRef.current !== null ||
+      selectionSessionRef.current !== null
+    ) {
       return;
     }
 
@@ -436,7 +618,7 @@ export function BoardStage({
           ? "hand"
           : null;
     if (source === null) {
-      if (!isLeftButton || drawingModeKey === null) {
+      if (!isLeftButton) {
         return;
       }
 
@@ -448,6 +630,28 @@ export function BoardStage({
       }
       const captureElement = stage.container();
       captureElement.setPointerCapture(event.evt.pointerId);
+      if (selectionModeKey !== null) {
+        const session: SelectionSession = {
+          captureElement,
+          pointerId: event.evt.pointerId,
+          viewport: previewViewport,
+        };
+        selectionSessionRef.current = session;
+        setIsSelecting(true);
+        selectionPointerCallbacksRef.current.start({
+          ...selectionWorldSample(event.evt, session),
+          additive: event.evt.shiftKey,
+          objectId: objectIdFromTarget(event.target),
+        });
+        return;
+      }
+      if (drawingModeKey === null) {
+        releaseCapture({
+          captureElement,
+          pointerId: event.evt.pointerId,
+        });
+        return;
+      }
       const session: DrawingSession = {
         captureElement,
         pointerId: event.evt.pointerId,
@@ -481,7 +685,11 @@ export function BoardStage({
 
   const handleWheel = (event: Konva.KonvaEventObject<WheelEvent>) => {
     event.evt.preventDefault();
-    if (panSessionRef.current !== null || drawingSessionRef.current !== null) {
+    if (
+      panSessionRef.current !== null ||
+      drawingSessionRef.current !== null ||
+      selectionSessionRef.current !== null
+    ) {
       return;
     }
 
@@ -522,9 +730,12 @@ export function BoardStage({
     ? "grabbing"
     : panMode || spacePressed
       ? "grab"
-      : drawingModeKey === null
+      : selectionModeKey !== null
         ? "default"
-        : "crosshair";
+        : drawingModeKey === null
+          ? "default"
+          : "crosshair";
+  const selected = new Set(selectedObjectIds);
 
   return (
     <div
@@ -533,6 +744,7 @@ export function BoardStage({
       className="board-stage"
       data-drawing={isDrawing}
       data-panning={isPanning}
+      data-selecting={isSelecting}
       data-testid="board-stage"
       role="application"
       style={{ cursor }}
@@ -562,8 +774,51 @@ export function BoardStage({
             x={previewViewport.offset.x}
             y={previewViewport.offset.y}
           >
-            {scene.items.map((item) => renderItem(item, registry))}
-            {previewItems.map((item) => renderItem(item, registry))}
+            {scene.items.map((item) =>
+              renderItem(item, registry, {
+                interactive: true,
+                previewDelta: selected.has(item.object.id)
+                  ? selectionPreviewDelta
+                  : null,
+              }),
+            )}
+            {previewItems.map((item) =>
+              renderItem(item, registry, { interactive: false }),
+            )}
+          </Group>
+        </Layer>
+        <Layer listening={false}>
+          <Group
+            scaleX={previewViewport.zoom}
+            scaleY={previewViewport.zoom}
+            x={previewViewport.offset.x}
+            y={previewViewport.offset.y}
+          >
+            {selectionBounds.map(({ id, rect }) => (
+              <Rect
+                dash={[7 / previewViewport.zoom, 4 / previewViewport.zoom]}
+                fill="rgba(44, 113, 130, 0.05)"
+                height={rect.height}
+                key={id}
+                stroke="#2c7182"
+                strokeWidth={1.5 / previewViewport.zoom}
+                width={rect.width}
+                x={rect.x + (selectionPreviewDelta?.x ?? 0)}
+                y={rect.y + (selectionPreviewDelta?.y ?? 0)}
+              />
+            ))}
+            {selectionMarquee === null ? null : (
+              <Rect
+                dash={[7 / previewViewport.zoom, 4 / previewViewport.zoom]}
+                fill="rgba(44, 113, 130, 0.09)"
+                height={selectionMarquee.height}
+                stroke="#2c7182"
+                strokeWidth={1.5 / previewViewport.zoom}
+                width={selectionMarquee.width}
+                x={selectionMarquee.x}
+                y={selectionMarquee.y}
+              />
+            )}
           </Group>
         </Layer>
       </Stage>

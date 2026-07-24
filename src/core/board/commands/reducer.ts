@@ -17,7 +17,9 @@ import type {
   DeleteObjectsCommand,
   MoveGroupCommand,
   MoveObjectsCommand,
+  MoveSelectionCommand,
   RenameDocumentCommand,
+  SetSelectionLockCommand,
   SetViewportCommand,
 } from "./commands";
 
@@ -373,6 +375,192 @@ function deleteObjects(
   });
 }
 
+interface SelectionTargets {
+  readonly groups: readonly BoardGroup[];
+  readonly objects: readonly BoardObject[];
+}
+
+function selectTargets(
+  document: BoardDocument,
+  objectIds: readonly BoardObjectId[],
+  groupIds: readonly GroupId[],
+): SelectionTargets | CommandResult {
+  if (objectIds.length + groupIds.length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Selection command requires at least one target.",
+    );
+  }
+  if (hasDuplicates(objectIds) || hasDuplicates(groupIds)) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "Selection command contains duplicate target IDs.",
+    );
+  }
+
+  const objects = objectIds.map((id) => ownValue(document.objects, id));
+  if (objects.some((object) => object === undefined)) {
+    return failure(
+      document,
+      "command.object-missing",
+      "Selection command references a missing object.",
+    );
+  }
+  const groups = groupIds.map((id) => ownValue(document.groups, id));
+  if (groups.some((group) => group === undefined)) {
+    return failure(
+      document,
+      "command.group-missing",
+      "Selection command references a missing group.",
+    );
+  }
+
+  const selectedObjects = objects.filter(
+    (object): object is BoardObject => object !== undefined,
+  );
+  const selectedGroups = groups.filter(
+    (group): group is BoardGroup => group !== undefined,
+  );
+  const selectedGroupIds = new Set(groupIds);
+  if (
+    selectedObjects.some(
+      (object) =>
+        object.groupId !== null && selectedGroupIds.has(object.groupId),
+    )
+  ) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "An object cannot be targeted separately from its selected group.",
+    );
+  }
+  if (selectedObjects.some((object) => object.groupId !== null)) {
+    return failure(
+      document,
+      "command.invalid",
+      "Grouped objects must be targeted through their group ID.",
+    );
+  }
+
+  return { groups: selectedGroups, objects: selectedObjects };
+}
+
+function moveSelection(
+  document: BoardDocument,
+  command: MoveSelectionCommand,
+): CommandResult {
+  if (!isFiniteVec2(command.delta)) {
+    return failure(document, "command.invalid", "Movement delta is invalid.");
+  }
+
+  const targets = selectTargets(document, command.objectIds, command.groupIds);
+  if ("ok" in targets) {
+    return targets;
+  }
+
+  const groupMembers = targets.groups.flatMap((group) =>
+    group.objectIds
+      .map((id) => ownValue(document.objects, id))
+      .filter((object): object is BoardObject => object !== undefined),
+  );
+  if (
+    targets.objects.some((object) => object.source.kind === "geometryos") ||
+    targets.groups.some((group) =>
+      Object.values(document.geometryImports).some(
+        (record) => record?.rootGroupId === group.id,
+      ),
+    )
+  ) {
+    return failure(
+      document,
+      "command.imported-object-move-unsupported",
+      "Moving imported geometry requires an explicit visual transform command.",
+    );
+  }
+  if (
+    targets.objects.some((object) => object.locked) ||
+    targets.groups.some((group) => group.locked) ||
+    groupMembers.some((object) => object.locked) ||
+    targets.objects.some(
+      (object) =>
+        object.groupId !== null &&
+        ownValue(document.groups, object.groupId)?.locked === true,
+    )
+  ) {
+    return failure(
+      document,
+      "command.locked",
+      "Locked selection targets cannot be moved.",
+    );
+  }
+
+  const objects = { ...document.objects };
+  for (const object of targets.objects) {
+    objects[object.id] = {
+      ...object,
+      position: {
+        x: object.position.x + command.delta.x,
+        y: object.position.y + command.delta.y,
+      },
+    };
+  }
+
+  const groups = { ...document.groups };
+  for (const group of targets.groups) {
+    groups[group.id] = {
+      ...group,
+      transform: {
+        ...group.transform,
+        translation: {
+          x: group.transform.translation.x + command.delta.x,
+          y: group.transform.translation.y + command.delta.y,
+        },
+      },
+    };
+  }
+
+  return accept(document, {
+    ...document,
+    updatedAt: command.timestamp,
+    groups,
+    objects,
+  });
+}
+
+function setSelectionLock(
+  document: BoardDocument,
+  command: SetSelectionLockCommand,
+): CommandResult {
+  const targets = selectTargets(document, command.objectIds, command.groupIds);
+  if ("ok" in targets) {
+    return targets;
+  }
+
+  const objects = { ...document.objects };
+  for (const object of targets.objects) {
+    objects[object.id] = { ...object, locked: command.locked };
+  }
+  const groups = { ...document.groups };
+  for (const group of targets.groups) {
+    groups[group.id] = { ...group, locked: command.locked };
+    for (const objectId of group.objectIds) {
+      const member = ownValue(objects, objectId);
+      if (member !== undefined) {
+        objects[objectId] = { ...member, locked: command.locked };
+      }
+    }
+  }
+
+  return accept(document, {
+    ...document,
+    updatedAt: command.timestamp,
+    groups,
+    objects,
+  });
+}
+
 function setViewport(
   document: BoardDocument,
   command: SetViewportCommand,
@@ -527,6 +715,10 @@ export function reduceBoardDocument(
       return moveGroup(document, command);
     case "core.objects.delete":
       return deleteObjects(document, command);
+    case "core.selection.move":
+      return moveSelection(document, command);
+    case "core.selection.set-lock":
+      return setSelectionLock(document, command);
     case "core.viewport.set":
       return setViewport(document, command);
     case "core.document.rename":
