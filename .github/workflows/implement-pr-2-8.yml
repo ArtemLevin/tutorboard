@@ -1,0 +1,67 @@
+name: Implement PR 2.8
+
+on:
+  push:
+    branches:
+      - agent/geometryos-generated-client
+    paths:
+      - scripts/implement-pr-2-8.py
+      - .github/workflows/implement-pr-2-8.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: implement-pr-2-8
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out implementation branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Apply scoped implementation
+        run: python3 scripts/implement-pr-2-8.py
+
+      - name: Install exact code-generation dependencies
+        run: npm install --save-dev --save-exact openapi-typescript@7.13.0 ajv@8.17.1
+
+      - name: Vendor pinned GeometryOS release artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run geometryos:vendor
+
+      - name: Generate DTOs and standalone validators
+        run: npm run geometryos:generate
+
+      - name: Format implementation
+        run: npm run format
+
+      - name: Verify implementation
+        run: npm run check
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Remove one-shot implementation helpers
+        run: rm scripts/implement-pr-2-8.py .github/workflows/implement-pr-2-8.yml
+
+      - name: Publish verified implementation
+        run: |
+          git config user.name "TutorBoard Engineering Agent"
+          git config user.email "engineering-agent@users.noreply.github.com"
+          git add --all
+          git commit -m "feat: add generated GeometryOS client"
+          git push origin HEAD:agent/geometryos-generated-client
