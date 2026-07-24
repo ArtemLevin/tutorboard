@@ -1,0 +1,31 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/tutorboard/tutorboard[39m
+
+ [31m❯[39m tests/unit/adapters/persistence-dexie/repository.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 47[2mms[22m[39m
+     [32m✓[39m restores the exact saved document and viewport[32m 29[2mms[22m[39m
+     [32m✓[39m deduplicates a retry by durable operation identity[32m 6[2mms[22m[39m
+     [32m✓[39m rejects stale expected revisions without overwriting[32m 4[2mms[22m[39m
+[31m     [31m×[31m opens recovery UI state when no stored revision is readable[39m[32m 7[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/unit/adapters/persistence-dexie/repository.test.ts[2m > [22mDexieBoardDocumentRepository[2m > [22mopens recovery UI state when no stored revision is readable
+[31m[1mError[22m: persistence.load-failed: DatabaseClosedError Database has been closed[39m
+[36m [2m❯[22m tests/unit/adapters/persistence-dexie/repository.test.ts:[2m152:13[22m[39m
+    [90m150|[39m     const loaded = await repository.load(documentId("document:local-bo…
+    [90m151|[39m     [35mif[39m (loaded[33m.[39mstatus [33m===[39m [32m"failure"[39m) {
+    [90m152|[39m       [35mthrow[39m [35mnew[39m [33mError[39m([32m`[39m[36m${[39mloaded[33m.[39mcode[36m}[39m[32m: [39m[36m${[39mloaded[33m.[39mmessage[36m}[39m[32m`[39m)[33m;[39m
+    [90m   |[39m             [31m^[39m
+    [90m153|[39m     }
+    [90m154|[39m     [34mexpect[39m(loaded[33m.[39mstatus)[33m.[39m[34mtoBe[39m([32m"recovery-required"[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 09:22:12
+[2m   Duration [22m 1.11s[2m (transform 124ms, setup 97ms, import 211ms, tests 47ms, environment 619ms)[22m
+
+
+::error file=/home/runner/work/tutorboard/tutorboard/tests/unit/adapters/persistence-dexie/repository.test.ts,title=tests/unit/adapters/persistence-dexie/repository.test.ts > DexieBoardDocumentRepository > opens recovery UI state when no stored revision is readable,line=152,column=13::Error: persistence.load-failed: DatabaseClosedError Database has been closed%0A ❯ tests/unit/adapters/persistence-dexie/repository.test.ts:152:13%0A%0A
