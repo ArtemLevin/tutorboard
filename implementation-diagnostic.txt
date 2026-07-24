@@ -7,16 +7,187 @@
 > node scripts/check-geometryos-contract.mjs
 
 ✨ openapi-typescript 7.13.0
-🚀 /home/runner/work/tutorboard/tutorboard/contracts/geometryos/openapi.v1.json → /tmp/tutorboard-geometryos-XRUksq/src/adapters/geometryos-http/generated/geometryos.types.ts [97.4ms]
-file:///home/runner/work/tutorboard/tutorboard/scripts/geometryos-contract-lib.mjs:223
-      throw new Error(
-            ^
+🚀 /home/runner/work/tutorboard/tutorboard/contracts/geometryos/openapi.v1.json → /tmp/tutorboard-geometryos-KnmvpV/src/adapters/geometryos-http/generated/geometryos.types.ts [100.4ms]
+GeometryOS contract artifacts and generated output are current.
 
-Error: Generated GeometryOS contract is stale: src/adapters/geometryos-http/generated/geometryos.types.ts, src/adapters/geometryos-http/generated/contract-metadata.ts. Run npm run geometryos:generate.
-    at checkGeneratedContract (file:///home/runner/work/tutorboard/tutorboard/scripts/geometryos-contract-lib.mjs:223:13)
-    at file:///home/runner/work/tutorboard/tutorboard/scripts/check-geometryos-contract.mjs:3:1
-    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
-    at async node:internal/modules/esm/loader:643:26
-    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+> tutorboard@0.1.0 format:check
+> prettier --check "src/**/*.{ts,tsx,css}" "tests/**/*.{ts,mjs}" "scripts/**/*.mjs" "*.{html,js,json,ts}" ".github/**/*.yml"
 
-Node.js v24.18.0
+Checking formatting...
+All matched files use Prettier code style!
+
+> tutorboard@0.1.0 lint
+> eslint . --max-warnings=0
+
+
+/home/runner/work/tutorboard/tutorboard/src/adapters/geometryos-http/generated/geometryos.validators.mjs
+  1:22537   error  'parentData' is assigned a value but never used          no-unused-vars
+  1:22549   error  'parentDataProperty' is assigned a value but never used  no-unused-vars
+  1:22569   error  'rootData' is assigned a value but never used            no-unused-vars
+  1:22584   error  'dynamicAnchors' is assigned a value but never used      no-unused-vars
+  1:28086   error  'schema32' is assigned a value but never used            no-unused-vars
+  1:52110   error  'schema34' is assigned a value but never used            no-unused-vars
+  1:52760   error  'schema35' is assigned a value but never used            no-unused-vars
+  1:54213   error  'schema36' is assigned a value but never used            no-unused-vars
+  1:54619   error  'schema37' is assigned a value but never used            no-unused-vars
+  1:54999   error  'schema38' is assigned a value but never used            no-unused-vars
+  1:55456   error  'schema39' is assigned a value but never used            no-unused-vars
+  1:55889   error  'schema40' is assigned a value but never used            no-unused-vars
+  1:56332   error  'schema41' is assigned a value but never used            no-unused-vars
+  1:56772   error  'schema42' is assigned a value but never used            no-unused-vars
+  1:57175   error  'schema43' is assigned a value but never used            no-unused-vars
+  1:57666   error  'schema44' is assigned a value but never used            no-unused-vars
+  1:58196   error  'schema45' is assigned a value but never used            no-unused-vars
+  1:58734   error  'schema46' is assigned a value but never used            no-unused-vars
+  1:59139   error  'schema47' is assigned a value but never used            no-unused-vars
+  1:59559   error  'schema48' is assigned a value but never used            no-unused-vars
+  1:59971   error  'schema49' is assigned a value but never used            no-unused-vars
+  1:60416   error  'schema50' is assigned a value but never used            no-unused-vars
+  1:60704   error  'schema51' is assigned a value but never used            no-unused-vars
+  1:61056   error  'schema52' is assigned a value but never used            no-unused-vars
+  1:61402   error  'schema53' is assigned a value but never used            no-unused-vars
+  1:61722   error  'schema54' is assigned a value but never used            no-unused-vars
+  1:62079   error  'schema55' is assigned a value but never used            no-unused-vars
+  1:62457   error  'schema56' is assigned a value but never used            no-unused-vars
+  1:62823   error  'schema57' is assigned a value but never used            no-unused-vars
+  1:63179   error  'parentData' is assigned a value but never used          no-unused-vars
+  1:63191   error  'parentDataProperty' is assigned a value but never used  no-unused-vars
+  1:63211   error  'rootData' is assigned a value but never used            no-unused-vars
+  1:63226   error  'dynamicAnchors' is assigned a value but never used      no-unused-vars
+  1:69260   error  '_valid1' is already defined                             no-redeclare
+  1:74137   error  '_valid2' is already defined                             no-redeclare
+  1:75540   error  '_valid0' is already defined                             no-redeclare
+  1:80458   error  '_valid3' is already defined                             no-redeclare
+  1:81881   error  '_valid0' is already defined                             no-redeclare
+  1:86422   error  '_valid4' is already defined                             no-redeclare
+  1:87819   error  '_valid0' is already defined                             no-redeclare
+  1:92421   error  '_valid5' is already defined                             no-redeclare
+  1:93849   error  '_valid0' is already defined                             no-redeclare
+  1:98431   error  '_valid6' is already defined                             no-redeclare
+  1:99852   error  '_valid0' is already defined                             no-redeclare
+  1:103731  error  '_valid7' is already defined                             no-redeclare
+  1:105144  error  '_valid0' is already defined                             no-redeclare
+  1:110479  error  '_valid8' is already defined                             no-redeclare
+  1:111916  error  '_valid0' is already defined                             no-redeclare
+  1:116551  error  '_valid9' is already defined                             no-redeclare
+  1:118678  error  '_valid0' is already defined                             no-redeclare
+  1:123332  error  '_valid10' is already defined                            no-redeclare
+  1:125445  error  '_valid0' is already defined                             no-redeclare
+  1:129365  error  '_valid11' is already defined                            no-redeclare
+  1:130812  error  '_valid0' is already defined                             no-redeclare
+  1:134411  error  '_valid12' is already defined                            no-redeclare
+  1:136211  error  '_valid0' is already defined                             no-redeclare
+  1:139774  error  '_valid13' is already defined                            no-redeclare
+  1:141546  error  '_valid0' is already defined                             no-redeclare
+  1:147238  error  '_valid14' is already defined                            no-redeclare
+  1:148362  error  Empty block statement                                    no-empty
+  1:151093  error  '_valid16' is already defined                            no-redeclare
+  1:156929  error  '_valid15' is already defined                            no-redeclare
+  1:161447  error  '_valid15' is already defined                            no-redeclare
+  1:165303  error  '_valid15' is already defined                            no-redeclare
+  1:168484  error  '_valid17' is already defined                            no-redeclare
+  1:169872  error  '_valid15' is already defined                            no-redeclare
+  1:174831  error  '_valid15' is already defined                            no-redeclare
+  1:179706  error  '_valid15' is already defined                            no-redeclare
+  1:183572  error  '_valid15' is already defined                            no-redeclare
+  1:186011  error  'schema58' is assigned a value but never used            no-unused-vars
+  1:186786  error  'parentData' is assigned a value but never used          no-unused-vars
+  1:186798  error  'parentDataProperty' is assigned a value but never used  no-unused-vars
+  1:186818  error  'rootData' is assigned a value but never used            no-unused-vars
+  1:186833  error  'dynamicAnchors' is assigned a value but never used      no-unused-vars
+  1:190765  error  '_valid0' is already defined                             no-redeclare
+  1:195218  error  '_valid1' is already defined                             no-redeclare
+  1:197286  error  'parentData' is assigned a value but never used          no-unused-vars
+  1:197298  error  'parentDataProperty' is assigned a value but never used  no-unused-vars
+  1:203856  error  '_valid0' is already defined                             no-redeclare
+  1:206486  error  '_valid1' is already defined                             no-redeclare
+  1:207608  error  '_valid2' is already defined                             no-redeclare
+  1:212736  error  'parentData' is assigned a value but never used          no-unused-vars
+  1:212748  error  'parentDataProperty' is assigned a value but never used  no-unused-vars
+  1:212768  error  'rootData' is assigned a value but never used            no-unused-vars
+  1:212783  error  'dynamicAnchors' is assigned a value but never used      no-unused-vars
+  1:218748  error  '_valid0' is already defined                             no-redeclare
+  1:225933  error  'parentData' is assigned a value but never used          no-unused-vars
+  1:225945  error  'parentDataProperty' is assigned a value but never used  no-unused-vars
+  1:231945  error  '_valid0' is already defined                             no-redeclare
+  1:233045  error  '_valid1' is already defined                             no-redeclare
+  1:235991  error  '_valid2' is already defined                             no-redeclare
+  1:240615  error  '_valid0' is already defined                             no-redeclare
+  1:241015  error  '_valid0' is already defined                             no-redeclare
+  1:241722  error  'schema68' is assigned a value but never used            no-unused-vars
+  1:264927  error  'schema69' is assigned a value but never used            no-unused-vars
+  1:265287  error  'parentData' is assigned a value but never used          no-unused-vars
+  1:265299  error  'parentDataProperty' is assigned a value but never used  no-unused-vars
+  1:265319  error  'rootData' is assigned a value but never used            no-unused-vars
+  1:265334  error  'dynamicAnchors' is assigned a value but never used      no-unused-vars
+  1:271149  error  '_valid0' is already defined                             no-redeclare
+
+/home/runner/work/tutorboard/tutorboard/tests/contracts/geometryos-contract.test.ts
+  16:7   error  Unsafe assignment of an error typed value                                     @typescript-eslint/no-unsafe-assignment
+  16:14  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  16:19  error  Unsafe member access .resolve on a type that cannot be resolved               @typescript-eslint/no-unsafe-member-access
+  16:27  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  16:35  error  Unsafe member access .cwd on a type that cannot be resolved                   @typescript-eslint/no-unsafe-member-access
+  19:21  error  Unsafe argument of type error typed assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  19:21  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  19:24  error  Unsafe member access .readFileSync on a type that cannot be resolved          @typescript-eslint/no-unsafe-member-access
+  23:3   error  Unsafe return of a value of type error                                        @typescript-eslint/no-unsafe-return
+  23:10  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  23:10  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  23:10  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  24:6   error  Unsafe member access .createHash on a type that cannot be resolved            @typescript-eslint/no-unsafe-member-access
+  25:6   error  Unsafe member access .update on a type that cannot be resolved                @typescript-eslint/no-unsafe-member-access
+  25:13  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  25:16  error  Unsafe member access .readFileSync on a type that cannot be resolved          @typescript-eslint/no-unsafe-member-access
+  26:6   error  Unsafe member access .digest on a type that cannot be resolved                @typescript-eslint/no-unsafe-member-access
+  30:3   error  Unsafe return of a value of type error                                        @typescript-eslint/no-unsafe-return
+  30:10  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  30:10  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  30:13  error  Unsafe member access .readdirSync on a type that cannot be resolved           @typescript-eslint/no-unsafe-member-access
+  30:61  error  Unsafe member access .flatMap on a type that cannot be resolved               @typescript-eslint/no-unsafe-member-access
+  31:11  error  Unsafe assignment of an error typed value                                     @typescript-eslint/no-unsafe-assignment
+  31:19  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  31:24  error  Unsafe member access .join on a type that cannot be resolved                  @typescript-eslint/no-unsafe-member-access
+  31:46  error  Unsafe member access .name on an `any` value                                  @typescript-eslint/no-unsafe-member-access
+  32:5   error  Unsafe return of a value of type `any[]`                                      @typescript-eslint/no-unsafe-return
+  32:12  error  Unsafe call of an `any` typed value                                           @typescript-eslint/no-unsafe-call
+  32:18  error  Unsafe member access .isDirectory on an `any` value                           @typescript-eslint/no-unsafe-member-access
+  33:26  error  Unsafe argument of type error typed assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  34:9   error  Unsafe call of an `any` typed value                                           @typescript-eslint/no-unsafe-call
+  34:15  error  Unsafe member access .name on an `any` value                                  @typescript-eslint/no-unsafe-member-access
+  51:27  error  Unsafe argument of type error typed assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  51:27  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  51:32  error  Unsafe member access .join on a type that cannot be resolved                  @typescript-eslint/no-unsafe-member-access
+  57:19  error  Unsafe argument of type error typed assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  57:19  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  57:24  error  Unsafe member access .join on a type that cannot be resolved                  @typescript-eslint/no-unsafe-member-access
+  60:19  error  Unsafe argument of type error typed assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  60:19  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  60:24  error  Unsafe member access .join on a type that cannot be resolved                  @typescript-eslint/no-unsafe-member-access
+  63:19  error  Unsafe argument of type error typed assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  63:19  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  63:24  error  Unsafe member access .join on a type that cannot be resolved                  @typescript-eslint/no-unsafe-member-access
+  77:45  error  Unsafe argument of type error typed assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  77:45  error  Unsafe call of a type that could not be resolved                              @typescript-eslint/no-unsafe-call
+  77:50  error  Unsafe member access .join on a type that cannot be resolved                  @typescript-eslint/no-unsafe-member-access
+  78:37  error  Unsafe member access .sep on a type that cannot be resolved                   @typescript-eslint/no-unsafe-member-access
+
+/home/runner/work/tutorboard/tutorboard/tests/unit/adapters/geometryos-http/client.test.ts
+   10:3   error  Unsafe argument of type error typed assigned to a parameter of type `string`                   @typescript-eslint/no-unsafe-argument
+   10:3   error  Unsafe call of a type that could not be resolved                                               @typescript-eslint/no-unsafe-call
+   10:6   error  Unsafe member access .readFileSync on a type that cannot be resolved                           @typescript-eslint/no-unsafe-member-access
+   10:19  error  Unsafe call of a type that could not be resolved                                               @typescript-eslint/no-unsafe-call
+   10:24  error  Unsafe member access .resolve on a type that cannot be resolved                                @typescript-eslint/no-unsafe-member-access
+   55:34  error  Async arrow function has no 'await' expression                                                 @typescript-eslint/require-await
+   64:24  error  Unsafe argument of type error typed assigned to a parameter of type `HeadersInit | undefined`  @typescript-eslint/no-unsafe-argument
+   89:29  error  Async arrow function has no 'await' expression                                                 @typescript-eslint/require-await
+   97:29  error  Async arrow function has no 'await' expression                                                 @typescript-eslint/require-await
+  108:24  error  Async arrow function has no 'await' expression                                                 @typescript-eslint/require-await
+  124:22  error  Async arrow function has no 'await' expression                                                 @typescript-eslint/require-await
+  132:16  error  Async arrow function has no 'await' expression                                                 @typescript-eslint/require-await
+  150:24  error  Async arrow function has no 'await' expression                                                 @typescript-eslint/require-await
+  162:29  error  Async arrow function has no 'await' expression                                                 @typescript-eslint/require-await
+  174:24  error  Async arrow function has no 'await' expression                                                 @typescript-eslint/require-await
+
+✖ 163 problems (163 errors, 0 warnings)
+
