@@ -40,13 +40,4 @@ text = text.replace(
 )
 library_path.write_text(text, encoding="utf-8")
 
-ci_path = ROOT / ".github/workflows/ci.yml"
-ci = ci_path.read_text(encoding="utf-8")
-needle = "      - name: Install locked dependencies\n        run: npm ci\n\n      - name: Check formatting"
-replacement = "      - name: Install locked dependencies\n        run: npm ci\n\n      - name: Install locked GeometryOS code-generation toolchain\n        run: npm ci --prefix tools/geometryos-contract\n\n      - name: Verify pinned GeometryOS contract\n        run: npm run geometryos:check\n\n      - name: Check formatting"
-if needle not in ci:
-    raise RuntimeError("Unable to locate the quality dependency step in CI workflow.")
-ci = ci.replace(needle, replacement, 1)
-ci_path.write_text(ci, encoding="utf-8")
-
 print("Isolated GeometryOS code generation from the TutorBoard TypeScript compiler.")
