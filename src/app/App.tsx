@@ -59,7 +59,27 @@ type ActiveToolId =
   typeof navigationToolId | typeof selectionToolId | DrawingToolId;
 const initialDrawingState: DrawingInteractionState = { kind: "idle" };
 
-function createInitialDocument(): BoardDocument {
+export interface AppPersistenceStatus {
+  readonly detail?: string;
+  readonly kind:
+    "conflict" | "error" | "idle" | "saved" | "saving" | "scheduled";
+  readonly label: string;
+  readonly retryable?: boolean;
+}
+
+export interface AppProps {
+  readonly initialDocument?: BoardDocument;
+  readonly onDocumentChange?: (document: BoardDocument) => void;
+  readonly onExportDiagnostics?: () => void;
+  readonly onImportDocument?: (file: File) => void;
+  readonly onRetryPersistence?: () => void;
+  readonly persistenceNotice?: string | null;
+  readonly persistenceStatus?: AppPersistenceStatus;
+}
+
+// The persistence bootstrap reuses this deterministic seed without importing UI state.
+// eslint-disable-next-line react-refresh/only-export-components
+export function createInitialDocument(): BoardDocument {
   const timestamp = new Date().toISOString();
   const empty = createEmptyBoardDocument({
     id: documentId("document:local-board"),
@@ -165,10 +185,18 @@ function createInitialDocument(): BoardDocument {
   return positioned.document;
 }
 
-export function App() {
+export function App({
+  initialDocument,
+  onDocumentChange,
+  onExportDiagnostics,
+  onImportDocument,
+  onRetryPersistence,
+  persistenceNotice = null,
+  persistenceStatus = { kind: "idle", label: "Локальное сохранение" },
+}: AppProps = {}) {
   const [boardState, setBoardState] = useState(() => ({
     commandError: null as string | null,
-    document: createInitialDocument(),
+    document: initialDocument ?? createInitialDocument(),
   }));
   const [activeTool, setActiveTool] = useState<ActiveToolId>(navigationToolId);
   const [drawingState, setDrawingState] = useState(initialDrawingState);
@@ -212,6 +240,10 @@ export function App() {
   const renderedSelectionPreviewDelta = selectedLocked
     ? null
     : selectionPreviewDelta;
+
+  useEffect(() => {
+    onDocumentChange?.(document);
+  }, [document, onDocumentChange]);
 
   const commitViewport = useCallback((viewport: ViewportState) => {
     const timestamp = new Date().toISOString();
@@ -556,6 +588,32 @@ export function App() {
         </div>
 
         <div className="canvas-actions" aria-label="Управление полотном">
+          {onImportDocument === undefined ? null : (
+            <label className="tool-button file-tool-button">
+              Импорт JSON
+              <input
+                accept="application/json,.json"
+                aria-label="Импорт документа JSON"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file !== undefined) {
+                    onImportDocument(file);
+                  }
+                  event.currentTarget.value = "";
+                }}
+                type="file"
+              />
+            </label>
+          )}
+          {onExportDiagnostics === undefined ? null : (
+            <button
+              className="tool-button"
+              onClick={onExportDiagnostics}
+              type="button"
+            >
+              Диагностика
+            </button>
+          )}
           <button
             className="tool-button"
             onClick={(event) => {
@@ -570,6 +628,26 @@ export function App() {
       </header>
 
       <section className="workspace" aria-label="Рабочая область доски">
+        {persistenceNotice === null ? null : (
+          <div className="persistence-notice" role="status">
+            {persistenceNotice}
+          </div>
+        )}
+        {persistenceStatus.kind === "error" ||
+        persistenceStatus.kind === "conflict" ? (
+          <div className="persistence-alert" role="alert">
+            <strong>{persistenceStatus.label}</strong>
+            {persistenceStatus.detail === undefined ? null : (
+              <span>{persistenceStatus.detail}</span>
+            )}
+            {persistenceStatus.retryable === true &&
+            onRetryPersistence !== undefined ? (
+              <button onClick={onRetryPersistence} type="button">
+                Повторить сохранение
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <BoardStage
           drawingModeKey={isDrawingToolId(activeTool) ? activeTool : null}
           onWorldPointerCancel={cancelDrawing}
@@ -727,6 +805,7 @@ export function App() {
         <span data-testid="selection-count">
           {selectionState.selectedObjectIds.length} выбрано
         </span>
+        <span data-testid="persistence-status">{persistenceStatus.label}</span>
         {drawingDiagnostic === null ? null : (
           <span data-testid="drawing-diagnostic">{drawingDiagnostic}</span>
         )}

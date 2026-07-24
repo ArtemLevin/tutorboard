@@ -28,6 +28,20 @@ describe("architecture rules", () => {
     ]);
   });
 
+  it("restricts Dexie to the persistence adapter", () => {
+    expect(analyze("app/App.tsx", 'import Dexie from "dexie";')).toEqual([
+      expect.objectContaining({
+        invariant: "ARCH-003",
+      }),
+    ]);
+    expect(
+      analyze(
+        "adapters/persistence-dexie/repository.ts",
+        'import Dexie from "dexie";',
+      ),
+    ).toEqual([]);
+  });
+
   it("rejects a core dependency on an adapter", () => {
     expect(
       analyze(

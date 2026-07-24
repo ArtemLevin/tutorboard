@@ -10,3 +10,8 @@ imports its reducer, or depends on a feature module.
 
 GeometryOS and persistence adapters are introduced only in their respective
 Technical Spike pull requests.
+
+Implemented adapters:
+
+- `canvas-konva` renders immutable scene read models and emits intents;
+- `persistence-dexie` owns IndexedDB transactions, revisions and recovery.

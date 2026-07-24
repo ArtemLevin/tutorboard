@@ -95,6 +95,21 @@ describe("App", () => {
     expect(screen.getByTestId("interaction-state")).toHaveTextContent("idle");
   });
 
+  it("reports document changes and visible persistence status", () => {
+    const onDocumentChange = vi.fn();
+    render(
+      <App
+        onDocumentChange={onDocumentChange}
+        persistenceStatus={{ kind: "saved", label: "Сохранено локально" }}
+      />,
+    );
+
+    expect(onDocumentChange).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("persistence-status")).toHaveTextContent(
+      "Сохранено локально",
+    );
+  });
+
   it("selects and moves one object through one document command", () => {
     render(<App />);
 

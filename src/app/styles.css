@@ -364,6 +364,132 @@ button {
   color: #a83f3f;
 }
 
+.file-tool-button {
+  cursor: pointer;
+}
+
+.file-tool-button input,
+.recovery-actions input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.persistence-notice,
+.persistence-alert {
+  position: absolute;
+  z-index: 5;
+  right: 18px;
+  left: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgb(37 51 58 / 12%);
+  font-size: 0.74rem;
+}
+
+.persistence-notice {
+  bottom: 18px;
+  max-width: 680px;
+  border: 1px solid #9fbfb1;
+  color: #315847;
+  background: rgb(238 249 243 / 96%);
+}
+
+.persistence-alert {
+  top: 78px;
+  border: 1px solid #dfb0aa;
+  color: #793a34;
+  background: rgb(255 244 242 / 97%);
+}
+
+.persistence-alert span {
+  flex: 1;
+}
+
+.persistence-alert button,
+.recovery-actions button,
+.recovery-actions label {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid currentcolor;
+  border-radius: 9px;
+  color: inherit;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.bootstrap-shell,
+.recovery-shell {
+  display: grid;
+  width: 100%;
+  min-height: 100%;
+  place-items: center;
+  padding: 24px;
+  background: #edf0f2;
+}
+
+.bootstrap-shell {
+  color: #53656e;
+  font-weight: 650;
+}
+
+.recovery-card {
+  display: grid;
+  width: min(620px, 100%);
+  gap: 14px;
+  padding: 34px;
+  border: 1px solid #cbd4d8;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgb(37 51 58 / 14%);
+}
+
+.recovery-card h1,
+.recovery-card p {
+  margin: 0;
+}
+
+.recovery-card h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.55rem;
+}
+
+.recovery-card p {
+  color: #61717a;
+  line-height: 1.55;
+}
+
+.recovery-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 14px;
+  color: #fff;
+  background: #2c7182;
+  font-size: 1.35rem;
+}
+
+.recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 6px;
+}
+
+.recovery-actions label {
+  display: inline-flex;
+  align-items: center;
+}
+
 @media (max-width: 680px) {
   .board-app {
     grid-template-rows: 64px minmax(0, 1fr) 32px;

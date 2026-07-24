@@ -7,116 +7,13 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  implement-pr-2-6:
-    name: Apply and verify PR 2.6
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/local-persistence-recovery'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Check out implementation branch
-        uses: actions/checkout@v7
-        with:
-          ref: agent/local-persistence-recovery
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Verify implementation payload
-        shell: bash
-        run: |
-          cat scripts/.pr-2-6-v2/part*.b64 > /tmp/implement-pr-2-6.py.gz.b64
-          echo "3710a09c0df9dc578cedffe1c0012873ec796a1b6bccd25532ac38c77905a057  /tmp/implement-pr-2-6.py.gz.b64" | sha256sum --check
-
-      - name: Decode implementation payload
-        shell: bash
-        run: |
-          base64 --decode /tmp/implement-pr-2-6.py.gz.b64 | gzip --decompress > /tmp/implement-pr-2-6.py
-          echo "810e39d7774724f2939cb16cc422c97d165e8c0059fe69069ce8312186bd4d8a  /tmp/implement-pr-2-6.py" | sha256sum --check
-
-      - name: Apply source changes
-        run: |
-          python /tmp/implement-pr-2-6.py
-          python scripts/.pr-2-6-v2/fix-lint.py
-          python scripts/.pr-2-6-v2/fix-types.py
-          python scripts/.pr-2-6-v2/fix-recovery-test.py
-
-      - name: Refresh locked dependencies
-        run: npm install --package-lock-only --ignore-scripts
-
-      - name: Install locked dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Format implementation
-        run: npm run format
-
-      - name: Run non-browser quality gate
-        shell: bash
-        run: |
-          set +e
-          npm run check > /tmp/pr-2-6-check.log 2>&1
-          status=$?
-          set -e
-          if [ "$status" -ne 0 ]; then
-            tail -n 300 /tmp/pr-2-6-check.log > scripts/.pr-2-6-v2/check.log
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add scripts/.pr-2-6-v2/check.log
-            if ! git diff --cached --quiet; then
-              git commit -m "chore: record PR 2.6 check failure [skip ci]"
-              git push origin HEAD:agent/local-persistence-recovery
-            fi
-            exit "$status"
-          fi
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Run browser scenarios
-        shell: bash
-        run: |
-          set +e
-          npm run e2e > /tmp/pr-2-6-e2e.log 2>&1
-          status=$?
-          set -e
-          if [ "$status" -ne 0 ]; then
-            tail -n 300 /tmp/pr-2-6-e2e.log > scripts/.pr-2-6-v2/e2e.log
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add scripts/.pr-2-6-v2/e2e.log
-            if ! git diff --cached --quiet; then
-              git commit -m "chore: record PR 2.6 browser failure [skip ci]"
-              git push origin HEAD:agent/local-persistence-recovery
-            fi
-            exit "$status"
-          fi
-
-      - name: Audit production dependencies
-        run: npm audit --audit-level=high
-
-      - name: Commit verified implementation
-        shell: bash
-        run: |
-          rm -rf scripts/.pr-2-6 scripts/.pr-2-6-v2 .github/workflows/implement-pr-2-6.yml
-          git checkout origin/main -- .github/workflows/ci.yml
-          git diff --check
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "feat: add local persistence and recovery"
-          git push origin HEAD:agent/local-persistence-recovery
-
   quality:
     name: Quality gate
     runs-on: ubuntu-latest

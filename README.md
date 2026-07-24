@@ -41,7 +41,7 @@ GIR → Board adapter
 | Компонент                    | Состояние                                                                                                                                      |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | GeometryOS                   | Integration-ready сервис `0.2.0`, API v1, GIR `0.2.0`, OpenAPI и TutorBoard consumer contracts                                                 |
-| TutorBoard                   | Selection foundation: BoardDocument 0.1, infinite canvas, drawing tools, multi-selection, movement, lock/delete и runtime-only previews      |
+| TutorBoard                   | Local-durable spike: BoardDocument 0.1, canvas/tools/selection, Dexie autosave, reload restore и explicit recovery flow                    |
 | tutor-assistant-web          | Развитая серверная платформа преподавателя: организации, ученики, расписание, BBB, обработка уроков, материалы, публикация и production-контур |
 | tutor-assistant              | Локальное desktop-приложение для записи, транскрибации, проверки и публикации материалов занятия                                               |
 | students-26-27               | Текущий репозиторий учебных страниц и файлов учеников                                                                                          |
@@ -53,8 +53,9 @@ GIR → Board adapter
 перемещение, lock/unlock и delete. Каждый завершённый gesture проходит через
 command boundary, а selection, preview и отменённые действия не сериализуются.
 GeometryOS Gate 0 проверен; отсутствие machine-readable layout зафиксировано
-как compatibility gap для будущего GIR adapter. Persistence и сетевой
-GeometryOS adapter остаются следующими этапами.
+как compatibility gap для будущего GIR adapter. Локальная persistence уже
+восстанавливает document/viewport и сохраняет повреждённые revisions для явного
+recovery. Safe SVG и сетевой GeometryOS adapter остаются следующими этапами.
 
 ---
 
