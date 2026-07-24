@@ -21,13 +21,18 @@ describe("GeometryOS response resource cleanup", () => {
     let cancelCount = 0;
     const fetchImplementation: typeof globalThis.fetch = () =>
       Promise.resolve(
-        new Response(cancellableStream(() => (cancelCount += 1)), {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "X-Request-ID": "tutorboard-unexpected-request",
+        new Response(
+          cancellableStream(() => {
+            cancelCount += 1;
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "X-Request-ID": "tutorboard-unexpected-request",
+            },
           },
-        }),
+        ),
       );
     const client = createGeometryOsHttpClient({
       baseUrl: "https://geometry.example.test",
@@ -47,12 +52,17 @@ describe("GeometryOS response resource cleanup", () => {
 
   it("cancels a body rejected by declared length before reading", async () => {
     let cancelCount = 0;
-    const response = new Response(cancellableStream(() => (cancelCount += 1)), {
-      status: 200,
-      headers: {
-        "Content-Length": "1024",
+    const response = new Response(
+      cancellableStream(() => {
+        cancelCount += 1;
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Length": "1024",
+        },
       },
-    });
+    );
 
     await expect(readBoundedResponseBody(response, 16)).resolves.toEqual({
       status: "too-large",
