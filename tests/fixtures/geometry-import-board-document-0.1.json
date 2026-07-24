@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "0.1",
+  "id": "document:geometry-01",
+  "title": "Geometry import",
+  "createdAt": "2026-07-24T13:00:00.000Z",
+  "updatedAt": "2026-07-24T13:01:00.000Z",
+  "viewport": {
+    "offset": {
+      "x": 0,
+      "y": 0
+    },
+    "zoom": 1
+  },
+  "objects": {
+    "object:geometry-point-A": {
+      "id": "object:geometry-point-A",
+      "kind": "drawing.ellipse",
+      "groupId": "group:geometry-root-01",
+      "locked": false,
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "rotation": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "source": {
+        "kind": "geometryos",
+        "importId": "import:geometry-01",
+        "girEntityId": "point-A",
+        "girEntityType": "point"
+      },
+      "style": {
+        "fill": "#2457d6",
+        "opacity": 1,
+        "stroke": "#ffffff",
+        "strokeWidth": 1
+      },
+      "visible": true,
+      "radius": {
+        "x": 5,
+        "y": 5
+      }
+    }
+  },
+  "order": ["object:geometry-point-A"],
+  "groups": {
+    "group:geometry-root-01": {
+      "id": "group:geometry-root-01",
+      "locked": false,
+      "objectIds": ["object:geometry-point-A"],
+      "transform": {
+        "rotation": 0,
+        "scale": {
+          "x": 1,
+          "y": 1
+        },
+        "translation": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    }
+  },
+  "geometryImports": {
+    "import:geometry-01": {
+      "id": "import:geometry-01",
+      "createdAt": "2026-07-24T13:00:30.000Z",
+      "prompt": "Построй точку A",
+      "requestId": "request-geometry-01",
+      "geometryOsApiVersion": "1.0.0",
+      "girSchemaVersion": "0.2.0",
+      "rawResponse": {
+        "request_id": "request-geometry-01",
+        "result": {
+          "entities": [
+            {
+              "id": "point-A",
+              "type": "point"
+            }
+          ]
+        }
+      },
+      "canonicalGir": {
+        "schema_version": "0.2.0",
+        "entities": [
+          {
+            "id": "point-A",
+            "type": "point"
+          }
+        ]
+      },
+      "rootGroupId": "group:geometry-root-01",
+      "boardObjectIds": ["object:geometry-point-A"],
+      "mapping": {
+        "point-A": ["object:geometry-point-A"]
+      },
+      "visualTransform": {
+        "rotation": 0,
+        "scale": {
+          "x": 1,
+          "y": 1
+        },
+        "translation": {
+          "x": 320,
+          "y": 180
+        }
+      },
+      "visualOverrides": {}
+    }
+  }
+}

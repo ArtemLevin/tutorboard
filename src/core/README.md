@@ -1,6 +1,8 @@
 # Core boundary
 
-`core` will own BoardDocument, commands, coordinate primitives and declared
-ports. It must remain independent of React, canvas, persistence, network and
-feature modules. The directory intentionally contains no domain implementation
-until PR 2.2 introduces the first real owner of board behavior.
+`core` owns the versioned BoardDocument contract, commands, pure reducers,
+validation, serialization, selectors and declared ports. It remains independent
+of React, canvas, persistence, network and feature modules.
+
+The public domain surface is exported from `public.ts`. Stored compatibility is
+documented in `docs/architecture/BOARD_MODEL.md`.

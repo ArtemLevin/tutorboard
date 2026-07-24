@@ -251,6 +251,7 @@ Interactive Canvas Objects
 **Гипотеза:** текущих сущностей и связей GIR достаточно, чтобы создать точки, отрезки и подписи.
 
 **Проверка:**
+
 - получить GIR треугольника с высотой;
 - построить индекс сущностей;
 - получить объекты доски;
@@ -265,6 +266,7 @@ Interactive Canvas Objects
 **Гипотеза:** GIR описывает математические сущности, а TutorBoard хранит визуальное размещение.
 
 **Проверка:**
+
 - один GIR отображается в разных позициях полотна;
 - повторная загрузка сохраняет пользовательское размещение;
 - математические связи остаются неизменными;
@@ -281,6 +283,7 @@ GIR entity ID ↔ Board semantic object
 ```
 
 **Проверка:**
+
 - повторно обработать тот же GIR;
 - найти существующие объекты;
 - не создавать дубликаты;
@@ -293,6 +296,7 @@ GIR entity ID ↔ Board semantic object
 **Гипотеза:** перенос всего построения на `dx`, `dy` не меняет математическую семантику.
 
 **Проверка:**
+
 - сохранить исходный GIR;
 - переместить группу;
 - убедиться, что изменилось только visual state;
@@ -305,6 +309,7 @@ GIR entity ID ↔ Board semantic object
 **Гипотеза:** drag отдельной математической точки нельзя автоматически считать простой визуальной операцией.
 
 **Проверка:**
+
 - переместить вершину треугольника;
 - определить, что происходит с зависимыми отрезками и высотой;
 - классифицировать изменение.
@@ -394,13 +399,13 @@ Playwright
 
 До PR с полотном провести короткий ADR:
 
-| Вариант | Плюсы | Минусы |
-|---|---|---|
-| Konva | удобные интерактивные shapes, React binding | собственная scene graph |
-| Fabric.js | развитая object model | сильнее навязывает собственную сериализацию |
-| SVG DOM | простая семантика и тестирование | сложнее масштабировать свободное рисование |
-| Canvas API | полный контроль | слишком много infrastructure-кода |
-| tldraw/Excalidraw engine | много готовых функций | spike перестаёт проверять собственную модель |
+| Вариант                  | Плюсы                                       | Минусы                                       |
+| ------------------------ | ------------------------------------------- | -------------------------------------------- |
+| Konva                    | удобные интерактивные shapes, React binding | собственная scene graph                      |
+| Fabric.js                | развитая object model                       | сильнее навязывает собственную сериализацию  |
+| SVG DOM                  | простая семантика и тестирование            | сложнее масштабировать свободное рисование   |
+| Canvas API               | полный контроль                             | слишком много infrastructure-кода            |
+| tldraw/Excalidraw engine | много готовых функций                       | spike перестаёт проверять собственную модель |
 
 Рекомендуемый выбор для фазы: **Konva как renderer, собственная Board Model как source of truth**.
 
@@ -419,7 +424,7 @@ Konva.Node[]
 или:
 
 ```ts
-stage.toJSON()
+stage.toJSON();
 ```
 
 Canvas library — только способ отображения.
@@ -652,12 +657,16 @@ type BoardObjectBase = {
   scale: Vec2;
   locked: boolean;
   visible: boolean;
-  zIndex: number;
   groupId: GroupId | null;
   source: BoardObjectSource;
   style: ObjectStyle;
 };
 ```
+
+`BoardDocument.order` является единственным источником z-order. Отдельный
+`zIndex` исключён из stored object, чтобы порядок не мог расходиться между
+двумя полями. Актуальный исполнимый контракт 0.1 описан в
+[`architecture/BOARD_MODEL.md`](architecture/BOARD_MODEL.md).
 
 ## 11.4. Source metadata
 
@@ -854,14 +863,7 @@ maxZoom = 8
 
 ```ts
 type Tool =
-  | "select"
-  | "pan"
-  | "pen"
-  | "line"
-  | "rectangle"
-  | "ellipse"
-  | "text"
-  | "svg";
+  "select" | "pan" | "pen" | "line" | "rectangle" | "ellipse" | "text" | "svg";
 ```
 
 ## 15.2. Interaction state machine
@@ -935,7 +937,7 @@ Selection — runtime UI state, а не часть сохранённого до
 Перемещение всей geometry group:
 
 ```ts
-moveGeometryImport(importId, delta)
+moveGeometryImport(importId, delta);
 ```
 
 Изменяет:
@@ -1991,10 +1993,7 @@ Playwright vertical scenario
 type SpikeDiagnostic = {
   timestamp: string;
   category:
-    | "geometryos-request"
-    | "gir-mapping"
-    | "persistence"
-    | "interaction";
+    "geometryos-request" | "gir-mapping" | "persistence" | "interaction";
   code: string;
   requestId?: string;
   importId?: string;
@@ -2140,12 +2139,19 @@ BoardDocument является source of truth.
 ## Experiment E-XXX
 
 ### Question
+
 ### Setup
+
 ### Input
+
 ### Observed result
+
 ### Failure modes
+
 ### Decision
+
 ### Required changes
+
 ### Confidence
 ```
 

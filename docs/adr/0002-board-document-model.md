@@ -18,8 +18,14 @@ capture and drag previews are runtime-only. External GIR and provenance are
 preserved through explicit import records rather than inferred from visual
 objects.
 
-The concrete `BoardDocument 0.1` schema, validation and migrations are delivered
-in PR 2.2; this ADR fixes ownership before implementation.
+The concrete `BoardDocument 0.1` contract is documented in
+[`../architecture/BOARD_MODEL.md`](../architecture/BOARD_MODEL.md). Version 0.1
+is the first stored version, so its reader returns explicit recovery results
+instead of defining a predecessor migration.
+
+`order` is the sole z-order source. Generic groups own their transform, while a
+GeometryOS import owns placement through `GeometryImportRecord.visualTransform`;
+its root group remains at the identity transform.
 
 ## Alternatives considered
 
@@ -52,8 +58,9 @@ in PR 2.2; this ADR fixes ownership before implementation.
 
 ## Verification
 
-PR 2.2 must enforce `DOC-001` through `DOC-012` with runtime validation,
-round-trip fixtures, command tests and import-boundary checks.
+PR 2.2 enforces `DOC-001` through `DOC-012` with strict runtime validation,
+round-trip and provenance fixtures, atomic reducer tests, recovery tests and
+import/nondeterminism architecture checks.
 
 ## Revisit or rollback conditions
 

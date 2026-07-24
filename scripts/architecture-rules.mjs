@@ -84,6 +84,62 @@ function collectSpecifiers(sourceFile) {
   return specifiers;
 }
 
+function propertyPath(node) {
+  if (ts.isIdentifier(node)) {
+    return node.text;
+  }
+
+  if (ts.isPropertyAccessExpression(node)) {
+    const parent = propertyPath(node.expression);
+    return parent === null ? null : `${parent}.${node.name.text}`;
+  }
+
+  return null;
+}
+
+function collectReducerNondeterminism(sourceFile) {
+  const forbidden = new Set();
+  const forbiddenCalls = new Set([
+    "Date.now",
+    "Math.random",
+    "crypto.getRandomValues",
+    "crypto.randomUUID",
+    "globalThis.crypto.getRandomValues",
+    "globalThis.crypto.randomUUID",
+    "performance.now",
+  ]);
+
+  function visit(node) {
+    if (
+      ts.isNewExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "Date"
+    ) {
+      forbidden.add("new Date");
+    }
+
+    if (ts.isCallExpression(node)) {
+      const call = propertyPath(node.expression);
+      if (call !== null && forbiddenCalls.has(call)) {
+        forbidden.add(call);
+      }
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return [...forbidden].sort();
+}
+
+function isReducerFile(filePath, srcRoot) {
+  const relativePath = path.relative(srcRoot, filePath);
+  return (
+    !relativePath.startsWith("..") &&
+    /(?:^|[/\\])(?:[^/\\]*[.-])?reducer\.[cm]?tsx?$/i.test(relativePath)
+  );
+}
+
 function violation(invariant, filePath, specifier, message) {
   return { invariant, filePath, specifier, message };
 }
@@ -103,6 +159,19 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
     filePath.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   const violations = [];
+
+  if (importer.layer === "core" && isReducerFile(filePath, srcRoot)) {
+    for (const source of collectReducerNondeterminism(sourceFile)) {
+      violations.push(
+        violation(
+          "CMD-003",
+          filePath,
+          source,
+          "reducers must receive time and generated values through commands",
+        ),
+      );
+    }
+  }
 
   for (const specifier of collectSpecifiers(sourceFile)) {
     const targetPath = resolveLocalTarget(filePath, specifier, srcRoot);
