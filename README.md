@@ -41,13 +41,15 @@ GIR → Board adapter
 | Компонент | Состояние |
 |---|---|
 | GeometryOS | Integration-ready сервис `0.2.0`, API v1, GIR `0.2.0`, OpenAPI и TutorBoard consumer contracts |
-| TutorBoard | Начало разработки; архитектурный план Technical Spike подготовлен |
+| TutorBoard | Repository foundation: React/Vite/strict TypeScript, architecture gates и базовый CI |
 | tutor-assistant-web | Развитая серверная платформа преподавателя: организации, ученики, расписание, BBB, обработка уроков, материалы, публикация и production-контур |
 | tutor-assistant | Локальное desktop-приложение для записи, транскрибации, проверки и публикации материалов занятия |
 | students-26-27 | Текущий репозиторий учебных страниц и файлов учеников |
 | latex-for-everyone / Latexed | Сервис редактирования, компиляции и экспорта LaTeX-документов |
 
-На текущем этапе TutorBoard содержит документацию и проектные решения. Рабочий frontend будет создан в первых pull request фазы Technical Spike.
+На текущем этапе создан минимальный frontend-каркас без business logic.
+GeometryOS Gate 0 проверен; отсутствие machine-readable layout зафиксировано как
+compatibility gap для будущего GIR adapter.
 
 ---
 
@@ -509,7 +511,7 @@ tutorboard/
 
 ## Локальная разработка
 
-Frontend ещё не bootstrap-нут. После выполнения первого PR ожидаемый workflow будет выглядеть так:
+Для локальной разработки требуется Node.js 24 и npm 11:
 
 ```bash
 npm ci
@@ -517,9 +519,16 @@ npm run dev
 npm run lint
 npm run typecheck
 npm run test
+npm run architecture
 npm run build
 npm run e2e
 ```
+
+`npm run check` запускает весь non-browser quality gate. Перед `npm run e2e`
+нужно выполнить `npm run build`; Playwright поднимает production preview.
+
+Создайте локальную конфигурацию из `.env.example`. Все переменные `VITE_*`
+попадают в браузерный bundle и не должны содержать секреты.
 
 Для live-интеграции GeometryOS запускается отдельно:
 
@@ -536,7 +545,11 @@ TutorBoard: http://localhost:5173
 GeometryOS: http://localhost:8000
 ```
 
-Конкретные команды и переменные окружения будут зафиксированы после repository foundation PR.
+Текущая build-time конфигурация:
+
+```text
+VITE_APP_STAGE=development | test | production
+```
 
 ---
 

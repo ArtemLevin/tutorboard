@@ -15,21 +15,26 @@
 
 ## 2. Текущее состояние и ближайшая последовательность
 
-TutorBoard находится перед началом Technical Spike. Рабочий frontend,
+TutorBoard выполняет PR 2.1 Repository foundation. Gate 0 GeometryOS закрыт
+проверяемым baseline в
+[`docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md`](docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md):
+API v1, GIR `0.2.0`, fixtures, Problem Details, request ID и probes подтверждены;
+machine-readable layout отсутствует и оформлен как compatibility gap.
+
 `BoardDocument`, canvas adapter, persistence и GeometryOS client ещё не
 реализованы.
 
 Ближайшие поставки:
 
-1. **PR 2.0 — Architecture and Agent Contract**
+1. **PR 2.0 — Architecture and Agent Contract — завершён**
    - принять этот файл;
    - зафиксировать project invariants и module contract;
    - подключить TutorBoard-specific skills;
    - определить автоматические architecture checks для PR 2.1.
-2. **Gate 0 — GeometryOS contract verification**
+2. **Gate 0 — GeometryOS contract verification — завершён**
    - проверить OpenAPI v1, GIR `0.2.0`, fixtures, result union, Problem Details,
      request ID, health/readiness и доступность layout data.
-3. **PR 2.1 — Repository foundation**
+3. **PR 2.1 — Repository foundation — текущий**
    - создать React/Vite/strict TypeScript skeleton;
    - создать физические границы модулей;
    - реализовать import-boundary checks и базовый CI.
