@@ -92,3 +92,17 @@ export {
   type BoardDocumentValidation,
   type ValidationIssue,
 } from "./board/validation/validate";
+export {
+  localDiagnosticSchemaVersion,
+  localRevisionId,
+  persistenceOperationId,
+  type BoardDocumentDiagnosticBundle,
+  type BoardDocumentLoadResult,
+  type BoardDocumentRecoveryReason,
+  type BoardDocumentRecoveryRecord,
+  type BoardDocumentRepository,
+  type LocalRevisionId,
+  type PersistenceOperationId,
+  type SaveBoardDocumentInput,
+  type SaveBoardDocumentResult,
+} from "./ports/board-document-repository";

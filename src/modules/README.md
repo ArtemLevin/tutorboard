@@ -10,4 +10,6 @@ Implemented modules:
 - `drawing` owns drawing tools, defaults, interaction state and add-command
   creation;
 - `selection` owns selection state, world-space bounds, target normalization and
-  selection command creation.
+  selection command creation;
+- `local-persistence` owns autosave scheduling, durable retry identity and
+  diagnostic document import.

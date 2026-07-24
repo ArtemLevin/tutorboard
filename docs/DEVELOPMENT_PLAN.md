@@ -1476,10 +1476,10 @@ TutorBoard 1.0 считается готовым, когда:
 
 # 24. Ближайшее действие
 
-PR 2.1–2.5 завершены. Следующий практический этап — **PR 2.6 Local
-persistence**.
+PR 2.1–2.6 завершены. Следующий практический этап — **PR 2.7 Safe SVG
+insertion**.
 
-Он должен добавить IndexedDB/Dexie repository, autosave, restore, schema
-version, migrations registry и recovery record. Перезагрузка обязана
-восстанавливать документ и viewport, повреждённое состояние должно открывать
-recovery UI, а last-good revision не должна теряться.
+Он должен добавить строгую sanitization boundary, byte/node/depth/dimension
+limits, вычисление bounds, selection/movement и явные invalid-input diagnostics.
+SVG остаётся untrusted visual Board object и не используется как источник
+математической семантики.

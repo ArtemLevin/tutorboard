@@ -248,9 +248,27 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
     const targetPath = resolveLocalTarget(filePath, specifier, srcRoot);
 
     if (targetPath === null) {
+      const dependency = packageName(specifier);
+      if (
+        dependency === "dexie" &&
+        !(
+          importer.layer === "adapters" &&
+          importer.owner === "persistence-dexie"
+        )
+      ) {
+        violations.push(
+          violation(
+            "ARCH-003",
+            filePath,
+            specifier,
+            "Dexie access is restricted to the persistence adapter",
+          ),
+        );
+        continue;
+      }
       if (
         importer.layer === "core" &&
-        coreRuntimeDependencies.has(packageName(specifier))
+        coreRuntimeDependencies.has(dependency)
       ) {
         violations.push(
           violation(

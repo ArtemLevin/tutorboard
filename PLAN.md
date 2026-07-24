@@ -15,7 +15,7 @@
 
 ## 2. Текущее состояние и ближайшая последовательность
 
-TutorBoard завершил PR 2.5 Selection and movement. Gate 0 GeometryOS закрыт
+TutorBoard завершил PR 2.6 Local persistence. Gate 0 GeometryOS закрыт
 проверяемым baseline в
 [`docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md`](docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md):
 API v1, GIR `0.2.0`, fixtures, Problem Details, request ID и probes подтверждены;
@@ -28,7 +28,8 @@ pointer-centred zoom, ResizeObserver, grid/origin и renderer registry. PR 2.4
 добавил drawing module, tool state machine, pen и primitive tools. PR 2.5
 добавил runtime-only click, additive и marquee selection, атомарное перемещение
 независимых объектов и групп, delete, lock state и selection inspector.
-Persistence и GeometryOS client ещё не реализованы.
+Dexie persistence, autosave, reload restore, last-good recovery и diagnostic
+JSON import/export реализованы в PR 2.6. GeometryOS client ещё не реализован.
 
 Ближайшие поставки:
 
@@ -76,11 +77,17 @@ Persistence и GeometryOS client ещё не реализованы.
    - реализовать delete, lock/unlock и inspector;
    - отменять drag/marquee при Escape, pointer loss, blur, tool switch и unmount;
    - сохранить stored shape `BoardDocument 0.1` без migration.
-8. **PR 2.6 — Local persistence — следующий**
-   - реализовать Dexie repository, autosave и restore;
-   - сохранить last-good revision и recovery record;
-   - показывать recovery UI вместо white screen при повреждённых данных.
-9. Далее выполнять PR 2.7–2.12 из Technical Spike plan, не обходя phase gates.
+8. **PR 2.6 — Local persistence — завершён**
+   - реализован versioned Dexie repository с append-only revisions;
+   - autosave использует durable operation ID и optimistic revision check;
+   - reload восстанавливает document и viewport;
+   - повреждённая current revision сохраняется в recovery record, а UI открывает
+     last-good revision или явный recovery flow;
+   - diagnostic JSON можно экспортировать и импортировать.
+9. **PR 2.7 — Safe SVG insertion — следующий**
+   - реализовать sanitization, limits, bounds и invalid-input diagnostics;
+   - хранить SVG как untrusted Board object, но не как semantic geometry source.
+10. Далее выполнять PR 2.8–2.12 из Technical Spike plan, не обходя phase gates.
 
 ## 3. Целевая архитектура
 
