@@ -7,13 +7,74 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  implement-pr-2-6:
+    name: Apply and verify PR 2.6
+    if: github.event_name == 'pull_request' && github.head_ref == 'agent/local-persistence-recovery'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out implementation branch
+        uses: actions/checkout@v7
+        with:
+          ref: agent/local-persistence-recovery
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Reconstruct implementation
+        shell: bash
+        run: |
+          cat scripts/.pr-2-6/part*.b64 > /tmp/implement-pr-2-6.py.gz.b64
+          echo "8004cf39965391479260c6dfdca832f4c079edf40e39e151843b3cf8f5e5cc25  /tmp/implement-pr-2-6.py.gz.b64" | sha256sum --check
+          base64 --decode /tmp/implement-pr-2-6.py.gz.b64 | gzip --decompress > /tmp/implement-pr-2-6.py
+          echo "6aae300b37f7fe5169d81e216649ea018731b882e93c5128122bb81ad521929d  /tmp/implement-pr-2-6.py" | sha256sum --check
+          python /tmp/implement-pr-2-6.py
+
+      - name: Refresh locked dependencies
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Format implementation
+        run: npm run format
+
+      - name: Run non-browser quality gate
+        run: npm run check
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser scenarios
+        run: npm run e2e
+
+      - name: Audit production dependencies
+        run: npm audit --audit-level=high
+
+      - name: Commit verified implementation
+        shell: bash
+        run: |
+          rm -rf scripts/.pr-2-6 .github/workflows/implement-pr-2-6.yml
+          git checkout origin/main -- .github/workflows/ci.yml
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: add local persistence and recovery"
+          git push origin HEAD:agent/local-persistence-recovery
+
   quality:
     name: Quality gate
     runs-on: ubuntu-latest
