@@ -3,7 +3,7 @@
 > node scripts/generate-geometryos-contract.mjs
 
 ✨ openapi-typescript 7.13.0
-🚀 /home/runner/work/tutorboard/tutorboard/contracts/geometryos/openapi.v1.json → /home/runner/work/tutorboard/tutorboard/src/adapters/geometryos-http/generated/geometryos.types.ts [96.4ms]
+🚀 /home/runner/work/tutorboard/tutorboard/contracts/geometryos/openapi.v1.json → /home/runner/work/tutorboard/tutorboard/src/adapters/geometryos-http/generated/geometryos.types.ts [71.7ms]
 /home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/vocabularies/discriminator/index.js:29
             throw new Error("discriminator: mapping is not supported");
                   ^
