@@ -1,19 +1,23 @@
-npm error code ERESOLVE
-npm error ERESOLVE unable to resolve dependency tree
-npm error
-npm error While resolving: tutorboard@0.1.0
-npm error Found: typescript@6.0.2
-npm error node_modules/typescript
-npm error   dev typescript@"6.0.2" from the root project
-npm error
-npm error Could not resolve dependency:
-npm error peer typescript@"^5.x" from openapi-typescript@7.13.0
-npm error node_modules/openapi-typescript
-npm error   dev openapi-typescript@"7.13.0" from the root project
-npm error
-npm error Fix the upstream dependency conflict, or retry this command with --force or --legacy-peer-deps to accept an incorrect (and potentially broken) dependency resolution.
-npm error
-npm error
-npm error For a full report see:
-npm error /home/runner/.npm/_logs/2026-07-24T12_10_14_512Z-eresolve-report.txt
-npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-07-24T12_10_14_512Z-debug-0.log
+
+> tutorboard@0.1.0 geometryos:generate
+> node scripts/generate-geometryos-contract.mjs
+
+✨ openapi-typescript 7.13.0
+🚀 /home/runner/work/tutorboard/tutorboard/contracts/geometryos/openapi.v1.json → /home/runner/work/tutorboard/tutorboard/src/adapters/geometryos-http/generated/geometryos.types.ts [96.4ms]
+/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/vocabularies/discriminator/index.js:29
+            throw new Error("discriminator: mapping is not supported");
+                  ^
+
+Error: discriminator: mapping is not supported
+    at Object.code (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/vocabularies/discriminator/index.js:29:19)
+    at keywordCode (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/validate/index.js:464:13)
+    at /home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/validate/index.js:222:17
+    at CodeGen.code (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/codegen/index.js:439:13)
+    at CodeGen.block (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/codegen/index.js:568:18)
+    at iterateKeywords (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/validate/index.js:219:9)
+    at groupKeywords (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/validate/index.js:200:13)
+    at /home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/validate/index.js:192:13
+    at CodeGen.code (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/codegen/index.js:439:13)
+    at CodeGen.block (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/codegen/index.js:568:18)
+
+Node.js v24.18.0
