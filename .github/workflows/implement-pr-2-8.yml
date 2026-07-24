@@ -1,9 +1,9 @@
 name: Implement PR 2.8
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/geometryos-generated-client
+      - main
     paths:
       - scripts/implement-pr-2-8.py
       - .github/workflows/implement-pr-2-8.yml
