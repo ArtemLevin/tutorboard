@@ -74,9 +74,8 @@ diagnostic bundle.
 
 The input byte limit is enforced before XML parsing. DOMParser and DOMPurify are
 synchronous browser APIs, so PR 2.7 does not claim a hard pre-emptive parsing
-timeout. Measured malicious fixtures and strict complexity limits bound the
-spike; a worker-compatible parser is required if measured main-thread latency is
-not acceptable.
+timeout. Strict byte and complexity limits bound the spike; a worker-compatible
+parser is required if measured main-thread latency is not acceptable.
 
 ## Stored contract
 
@@ -106,6 +105,19 @@ provide movement, lock/unlock and delete. One file import creates exactly one
 User-visible errors expose stable `svg.*` codes and generic explanations only.
 They never include the SVG source, local file path, external URL value or board
 content. This enforces `SEC-008` while keeping malicious fixtures diagnosable.
+
+## Adversarial review evidence
+
+The final review traced input through file reading, preflight inspection,
+DOMPurify, post-inspection, canonical storage, IndexedDB/JSON restore and Blob
+rendering. Negative fixtures prove rejection of executable elements and
+attributes, foreign namespaces, remote resources, unsafe XML features, dangling
+fragment references and every declared byte/node/depth/attribute/path/dimension
+boundary.
+
+The review also verifies that a tampered canonical string is rejected before
+renderer creation, opens recovery UI, and leaves its immutable local revision
+available for diagnostic export. No P0 or P1 finding remains in the PR scope.
 
 ## Residual risks
 
