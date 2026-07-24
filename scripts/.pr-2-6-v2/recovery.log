@@ -1,11 +1,11 @@
 
 [1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/tutorboard/tutorboard[39m
 
- [31m❯[39m tests/unit/adapters/persistence-dexie/repository.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 47[2mms[22m[39m
-     [32m✓[39m restores the exact saved document and viewport[32m 29[2mms[22m[39m
-     [32m✓[39m deduplicates a retry by durable operation identity[32m 6[2mms[22m[39m
-     [32m✓[39m rejects stale expected revisions without overwriting[32m 4[2mms[22m[39m
-[31m     [31m×[31m opens recovery UI state when no stored revision is readable[39m[32m 7[2mms[22m[39m
+ [31m❯[39m tests/unit/adapters/persistence-dexie/repository.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 55[2mms[22m[39m
+     [32m✓[39m restores the exact saved document and viewport[32m 25[2mms[22m[39m
+     [32m✓[39m deduplicates a retry by durable operation identity[32m 8[2mms[22m[39m
+     [32m✓[39m rejects stale expected revisions without overwriting[32m 5[2mms[22m[39m
+[31m     [31m×[31m opens recovery UI state when no stored revision is readable[39m[32m 14[2mms[22m[39m
 
 [31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
 
@@ -24,8 +24,8 @@
 
 [2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
 [2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (4)[39m
-[2m   Start at [22m 09:22:12
-[2m   Duration [22m 1.11s[2m (transform 124ms, setup 97ms, import 211ms, tests 47ms, environment 619ms)[22m
+[2m   Start at [22m 09:24:22
+[2m   Duration [22m 1.12s[2m (transform 132ms, setup 94ms, import 218ms, tests 55ms, environment 616ms)[22m
 
 
 ::error file=/home/runner/work/tutorboard/tutorboard/tests/unit/adapters/persistence-dexie/repository.test.ts,title=tests/unit/adapters/persistence-dexie/repository.test.ts > DexieBoardDocumentRepository > opens recovery UI state when no stored revision is readable,line=152,column=13::Error: persistence.load-failed: DatabaseClosedError Database has been closed%0A ❯ tests/unit/adapters/persistence-dexie/repository.test.ts:152:13%0A%0A
