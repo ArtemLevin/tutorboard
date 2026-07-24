@@ -26,5 +26,14 @@ new = '''    const [url, init] = call;
     expect(JSON.parse(init.body)).toEqual({'''
 if old not in text:
     raise RuntimeError("GeometryOS request assertion block was not found")
-path.write_text(text.replace(old, new, 1), encoding="utf-8")
-print("Narrowed GeometryOS request URL and body assertions.")
+text = text.replace(old, new, 1)
+old_signal = '''      if (init?.signal !== undefined) {
+        calls.push(init.signal);
+      }'''
+new_signal = '''      if (init?.signal != null) {
+        calls.push(init.signal);
+      }'''
+if old_signal not in text:
+    raise RuntimeError("GeometryOS concurrency signal guard was not found")
+path.write_text(text.replace(old_signal, new_signal, 1), encoding="utf-8")
+print("Narrowed GeometryOS request assertions and nullable abort signals.")
