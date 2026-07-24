@@ -15,21 +15,23 @@
 
 ## 2. Текущее состояние и ближайшая последовательность
 
-TutorBoard завершил PR 2.6 Local persistence. Gate 0 GeometryOS закрыт
+TutorBoard завершил PR 2.7 Safe SVG insertion. Gate 0 GeometryOS закрыт
 проверяемым baseline в
 [`docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md`](docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md):
 API v1, GIR `0.2.0`, fixtures, Problem Details, request ID и probes подтверждены;
 machine-readable layout отсутствует и оформлен как compatibility gap.
 
-`BoardDocument 0.1`, branded identifiers, namespaced commands, pure reducer,
+`BoardDocument 0.2`, migration `0.1 → 0.2`, branded identifiers, namespaced
+commands, pure reducer,
 strict validation, recovery reader и deterministic serialization реализованы в
 PR 2.2. PR 2.3 добавил Konva adapter, coordinate conversion, pan,
 pointer-centred zoom, ResizeObserver, grid/origin и renderer registry. PR 2.4
 добавил drawing module, tool state machine, pen и primitive tools. PR 2.5
 добавил runtime-only click, additive и marquee selection, атомарное перемещение
 независимых объектов и групп, delete, lock state и selection inspector.
-Dexie persistence, autosave, reload restore, last-good recovery и diagnostic
-JSON import/export реализованы в PR 2.6. GeometryOS client ещё не реализован.
+Dexie persistence и recovery реализованы в PR 2.6. PR 2.7 добавил bounded
+SVG sanitizer, opaque `svg-import.svg`, selection/movement, reload revalidation
+и recovery при tampered SVG. GeometryOS client ещё не реализован.
 
 Ближайшие поставки:
 
@@ -84,10 +86,17 @@ JSON import/export реализованы в PR 2.6. GeometryOS client ещё н
    - повреждённая current revision сохраняется в recovery record, а UI открывает
      last-good revision или явный recovery flow;
    - diagnostic JSON можно экспортировать и импортировать.
-9. **PR 2.7 — Safe SVG insertion — следующий**
-   - реализовать sanitization, limits, bounds и invalid-input diagnostics;
-   - хранить SVG как untrusted Board object, но не как semantic geometry source.
-10. Далее выполнять PR 2.8–2.12 из Technical Spike plan, не обходя phase gates.
+9. **PR 2.7 — Safe SVG insertion — завершён**
+   - реализован deny-by-default sanitizer с byte/node/depth/path/dimension limits;
+   - `BoardDocument 0.2` добавляет один opaque `svg-import.svg`, а `0.1`
+     мигрируется без изменения IDs, objects, order, groups или imports;
+   - SVG выбирается, перемещается, сохраняется и повторно валидируется до render;
+   - tampered stored SVG открывает recovery UI и не исполняется.
+10. **PR 2.8 — GeometryOS generated client — следующий**
+   - подключить pinned OpenAPI-generated DTO и HTTP adapter;
+   - разделить success, clarification, domain error и Problem Details;
+   - обеспечить timeout/abort, request ID и incompatible contract diagnostics.
+11. Далее выполнять PR 2.9–2.12 из Technical Spike plan, не обходя phase gates.
 
 ## 3. Целевая архитектура
 

@@ -5,6 +5,7 @@ import ts from "typescript";
 const sourceExtensions = new Set([".cts", ".mts", ".ts", ".tsx"]);
 const coreRuntimeDependencies = new Set([
   "dexie",
+  "dompurify",
   "konva",
   "react",
   "react-dom",
@@ -262,6 +263,20 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
             filePath,
             specifier,
             "Dexie access is restricted to the persistence adapter",
+          ),
+        );
+        continue;
+      }
+      if (
+        dependency === "dompurify" &&
+        !(importer.layer === "modules" && importer.owner === "svg-import")
+      ) {
+        violations.push(
+          violation(
+            "SEC-001",
+            filePath,
+            specifier,
+            "DOMPurify policy ownership is restricted to the SVG import module",
           ),
         );
         continue;

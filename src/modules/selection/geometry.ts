@@ -60,6 +60,8 @@ function localBounds(object: BoardObject): Rect2 {
         y: 0,
       };
     }
+    case "svg-import.svg":
+      return { x: 0, y: 0, ...object.size };
   }
 }
 

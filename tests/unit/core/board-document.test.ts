@@ -13,22 +13,43 @@ import {
   validateBoardDocument,
   type BoardDocument,
 } from "../../../src/core/public";
-import { loadBoardFixture, loadGeometryImportFixture } from "./helpers";
+import {
+  loadBoardFixture,
+  loadCurrentBoardFixture,
+  loadCurrentGeometryImportFixture,
+} from "./helpers";
 
-describe("BoardDocument 0.1", () => {
+describe("BoardDocument 0.2", () => {
   it("accepts the canonical fixture and uses order as z-order", () => {
     const result = readBoardDocument(loadBoardFixture());
 
     expect(result.status).toBe("ok");
     if (result.status === "ok") {
+      expect(result.document.schemaVersion).toBe("0.2");
       expect(selectOrderedObjects(result.document).map(({ id }) => id)).toEqual(
         ["object:line-01", "object:rectangle-01"],
       );
     }
   });
 
+  it("migrates 0.1 without changing IDs, order or objects", () => {
+    const raw = loadBoardFixture();
+    const originalObjects = structuredClone(raw.objects);
+    const originalOrder = structuredClone(raw.order);
+
+    const result = readBoardDocument(raw);
+
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") {
+      expect(result.document.schemaVersion).toBe("0.2");
+      expect(result.document.objects).toEqual(originalObjects);
+      expect(result.document.order).toEqual(originalOrder);
+    }
+    expect(raw.schemaVersion).toBe("0.1");
+  });
+
   it("rejects duplicate, missing, and omitted order references", () => {
-    const duplicate = loadBoardFixture();
+    const duplicate = loadCurrentBoardFixture();
     duplicate.order = ["object:line-01", "object:line-01", "object:missing"];
 
     const result = validateBoardDocument(duplicate);
@@ -46,7 +67,7 @@ describe("BoardDocument 0.1", () => {
   });
 
   it("never treats Object prototype properties as stored records", () => {
-    const raw = loadBoardFixture();
+    const raw = loadCurrentBoardFixture();
     raw.objects = {};
     raw.groups = {};
     raw.order = ["toString"];
@@ -62,7 +83,7 @@ describe("BoardDocument 0.1", () => {
   });
 
   it("rejects broken group references", () => {
-    const raw = loadBoardFixture();
+    const raw = loadCurrentBoardFixture();
     const groups = raw.groups as Record<string, Record<string, unknown>>;
     groups["group:example-01"]!.objectIds = [
       "object:rectangle-01",
@@ -155,7 +176,7 @@ describe("BoardDocument 0.1", () => {
   });
 
   it("preserves canonical GIR and enforces one import transform owner", () => {
-    const raw = loadGeometryImportFixture();
+    const raw = loadCurrentGeometryImportFixture();
     const read = readBoardDocument(raw);
 
     expect(read.status).toBe("ok");

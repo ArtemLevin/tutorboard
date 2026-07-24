@@ -6,6 +6,8 @@ import {
   identityTransform,
   reduceBoardDocument,
   selectBoardScene,
+  svgSanitizerPolicyVersion,
+  type SvgObject,
 } from "../../../../src/core/public";
 import {
   createMoveSelectionCommand,
@@ -142,6 +144,35 @@ describe("selection geometry and commands", () => {
         rect: { height: 82, width: 122, x: 9, y: 19 },
       },
     ]);
+  });
+
+  it("uses stored SVG dimensions for selection bounds", () => {
+    const svg: SvgObject = {
+      groupId: null,
+      id: boardObjectId("object:svg"),
+      kind: "svg-import.svg",
+      locked: false,
+      position: { x: 20, y: 30 },
+      rotation: 0,
+      sanitizedSvg:
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"></svg>',
+      sanitizerPolicyVersion: svgSanitizerPolicyVersion,
+      scale: { x: 1, y: 1 },
+      size: { height: 100, width: 200 },
+      source: { kind: "user" },
+      style: { fill: null, opacity: 1, stroke: null, strokeWidth: 0 },
+      viewBox: { height: 100, width: 200, x: 0, y: 0 },
+      visible: true,
+    };
+    const document = {
+      ...emptyDocument(),
+      objects: { [svg.id]: svg },
+      order: [svg.id],
+    };
+
+    expect(selectSelectionBounds(selectBoardScene(document), [svg.id])).toEqual(
+      [{ id: svg.id, rect: { height: 100, width: 200, x: 20, y: 30 } }],
+    );
   });
 
   it("expands a group and creates one mixed-target movement command", () => {

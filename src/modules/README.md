@@ -12,4 +12,6 @@ Implemented modules:
 - `selection` owns selection state, world-space bounds, target normalization and
   selection command creation;
 - `local-persistence` owns autosave scheduling, durable retry identity and
-  diagnostic document import.
+  diagnostic document import;
+- `svg-import` owns untrusted SVG limits, sanitization, canonicalization, stored
+  validation and one-object import commands.
