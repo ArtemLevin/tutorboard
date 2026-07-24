@@ -23,8 +23,8 @@ async function stagePoint(page: Page, x: number, y: number) {
 test("selects and moves an object with a zoom-independent world delta", async ({
   page,
 }) => {
-  const start = await stagePoint(page, 340, 250);
-  const finish = await stagePoint(page, 410, 290);
+  const start = await stagePoint(page, 500, 350);
+  const finish = await stagePoint(page, 570, 390);
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(finish.x, finish.y, { steps: 5 });
