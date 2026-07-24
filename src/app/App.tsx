@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   BoardStage,
   createDefaultKonvaRendererRegistry,
+  type WorldPointerSample,
 } from "../adapters/canvas-konva/public";
 import {
   actorId,
@@ -14,13 +15,28 @@ import {
   selectBoardScene,
   type BoardDocument,
   type BoardObject,
+  type BoardRenderItem,
   type ViewportState,
 } from "../core/public";
+import {
+  createAddDrawingObjectCommand,
+  drawingTools,
+  getDrawingPreview,
+  isDrawingToolId,
+  reduceDrawingInteraction,
+  type DrawingAction,
+  type DrawingInteractionState,
+  type DrawingToolId,
+  type UserDrawingObject,
+} from "../modules/drawing/public";
 import { readEnvironment } from "./configuration/environment";
 import "./styles.css";
 
 const environment = readEnvironment();
 const localActorId = actorId("actor:local-teacher");
+const navigationToolId = "navigation.pan" as const;
+type ActiveToolId = typeof navigationToolId | DrawingToolId;
+const initialDrawingState: DrawingInteractionState = { kind: "idle" };
 
 function createInitialDocument(): BoardDocument {
   const timestamp = new Date().toISOString();
@@ -133,10 +149,27 @@ export function App() {
     commandError: null as string | null,
     document: createInitialDocument(),
   }));
-  const [panMode, setPanMode] = useState(true);
+  const [activeTool, setActiveTool] = useState<ActiveToolId>(navigationToolId);
+  const [drawingState, setDrawingState] = useState(initialDrawingState);
+  const drawingStateRef = useRef<DrawingInteractionState>(initialDrawingState);
+  const [drawingDiagnostic, setDrawingDiagnostic] = useState<string | null>(
+    null,
+  );
+  const [textDraft, setTextDraft] = useState("Новый текст");
   const { commandError, document } = boardState;
   const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);
   const scene = useMemo(() => selectBoardScene(document), [document]);
+  const drawingPreview = useMemo(
+    () => getDrawingPreview(drawingState),
+    [drawingState],
+  );
+  const previewItems = useMemo<readonly BoardRenderItem[]>(
+    () =>
+      drawingPreview === null
+        ? []
+        : [{ object: drawingPreview, transforms: [] }],
+    [drawingPreview],
+  );
 
   const commitViewport = useCallback((viewport: ViewportState) => {
     const timestamp = new Date().toISOString();
@@ -155,6 +188,126 @@ export function App() {
       return { commandError: null, document: result.document };
     });
   }, []);
+
+  const commitDrawingObject = useCallback((object: UserDrawingObject) => {
+    const timestamp = new Date().toISOString();
+    setBoardState((current) => {
+      const result = reduceBoardDocument(
+        current.document,
+        createAddDrawingObjectCommand(
+          {
+            actorId: localActorId,
+            id: commandId(`command:${crypto.randomUUID()}`),
+            timestamp,
+          },
+          object,
+        ),
+      );
+      if (!result.ok) {
+        return { ...current, commandError: result.error.message };
+      }
+
+      return { commandError: null, document: result.document };
+    });
+  }, []);
+
+  const applyDrawingAction = useCallback(
+    (action: DrawingAction) => {
+      const result = reduceDrawingInteraction(drawingStateRef.current, action);
+      drawingStateRef.current = result.state;
+      setDrawingState(result.state);
+      setDrawingDiagnostic(result.diagnostic);
+      if (result.completedObject !== null) {
+        commitDrawingObject(result.completedObject);
+      }
+    },
+    [commitDrawingObject],
+  );
+
+  const activateTool = useCallback(
+    (tool: ActiveToolId) => {
+      applyDrawingAction({ kind: "cancel" });
+      setActiveTool(tool);
+    },
+    [applyDrawingAction],
+  );
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        (event.target instanceof HTMLElement && event.target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (event.key.toLowerCase() === "h") {
+        activateTool(navigationToolId);
+        return;
+      }
+
+      const tool = drawingTools.find(
+        (candidate) =>
+          candidate.shortcut.toLowerCase() === event.key.toLowerCase(),
+      );
+      if (tool !== undefined) {
+        activateTool(tool.id);
+      }
+    };
+
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [activateTool]);
+
+  const startDrawing = useCallback(
+    (sample: WorldPointerSample) => {
+      if (!isDrawingToolId(activeTool)) {
+        return;
+      }
+      applyDrawingAction({
+        kind: "start",
+        objectId: boardObjectId(`object:${crypto.randomUUID()}`),
+        point: sample.point,
+        pointerId: sample.pointerId,
+        text: textDraft,
+        tool: activeTool,
+      });
+    },
+    [activeTool, applyDrawingAction, textDraft],
+  );
+
+  const moveDrawing = useCallback(
+    (sample: WorldPointerSample) => {
+      applyDrawingAction({
+        kind: "move",
+        point: sample.point,
+        pointerId: sample.pointerId,
+      });
+    },
+    [applyDrawingAction],
+  );
+
+  const finishDrawing = useCallback(
+    (sample: WorldPointerSample) => {
+      applyDrawingAction({
+        kind: "finish",
+        point: sample.point,
+        pointerId: sample.pointerId,
+      });
+    },
+    [applyDrawingAction],
+  );
+
+  const cancelDrawing = useCallback(
+    (pointerId: number) => {
+      applyDrawingAction({ kind: "cancel", pointerId });
+    },
+    [applyDrawingAction],
+  );
 
   const resetViewport = () => {
     commitViewport({ offset: { x: 160, y: 90 }, zoom: 1 });
@@ -176,18 +329,6 @@ export function App() {
 
         <div className="canvas-actions" aria-label="Управление полотном">
           <button
-            aria-pressed={panMode}
-            className={panMode ? "tool-button is-active" : "tool-button"}
-            onClick={(event) => {
-              setPanMode((active) => !active);
-              event.currentTarget.blur();
-            }}
-            type="button"
-          >
-            <span aria-hidden="true">✋</span>
-            Перемещение
-          </button>
-          <button
             className="tool-button"
             onClick={(event) => {
               resetViewport();
@@ -202,16 +343,79 @@ export function App() {
 
       <section className="workspace" aria-label="Рабочая область доски">
         <BoardStage
+          drawingModeKey={isDrawingToolId(activeTool) ? activeTool : null}
+          onWorldPointerCancel={cancelDrawing}
+          onWorldPointerFinish={finishDrawing}
+          onWorldPointerMove={moveDrawing}
+          onWorldPointerStart={startDrawing}
           onViewportCommit={commitViewport}
-          panMode={panMode}
+          panMode={activeTool === navigationToolId}
+          previewItems={previewItems}
           registry={registry}
           scene={scene}
         />
 
+        <div
+          aria-label="Инструменты рисования"
+          className="drawing-toolbar"
+          role="toolbar"
+        >
+          <button
+            aria-label="Перемещение (H)"
+            aria-pressed={activeTool === navigationToolId}
+            className={
+              activeTool === navigationToolId
+                ? "drawing-tool is-active"
+                : "drawing-tool"
+            }
+            onClick={() => activateTool(navigationToolId)}
+            title="Перемещение · H"
+            type="button"
+          >
+            <span aria-hidden="true">✋</span>
+          </button>
+          <span aria-hidden="true" className="toolbar-divider" />
+          {drawingTools.map((tool) => (
+            <button
+              aria-label={`${tool.label} (${tool.shortcut})`}
+              aria-pressed={activeTool === tool.id}
+              className={
+                activeTool === tool.id
+                  ? "drawing-tool is-active"
+                  : "drawing-tool"
+              }
+              key={tool.id}
+              onClick={() => activateTool(tool.id)}
+              title={`${tool.label} · ${tool.shortcut}`}
+              type="button"
+            >
+              <span aria-hidden="true">{tool.icon}</span>
+            </button>
+          ))}
+          {activeTool === "drawing.text" ? (
+            <label className="text-tool-input">
+              <span>Текст</span>
+              <input
+                aria-label="Содержимое текста"
+                maxLength={100_000}
+                onChange={(event) => setTextDraft(event.target.value)}
+                value={textDraft}
+              />
+            </label>
+          ) : null}
+        </div>
+
         <aside className="canvas-help" aria-label="Подсказка по навигации">
-          <strong>Навигация</strong>
-          <span>Колесо — масштаб</span>
-          <span>Space / средняя кнопка — перемещение</span>
+          <strong>
+            {activeTool === navigationToolId ? "Навигация" : "Создание объекта"}
+          </strong>
+          <span>
+            {activeTool === navigationToolId
+              ? "Потяните полотно для перемещения"
+              : "Потяните или нажмите на полотно"}
+          </span>
+          <span>Space / средняя кнопка — временное перемещение</span>
+          <span>Escape — отменить действие</span>
         </aside>
 
         <div className="coordinate-chip" aria-live="polite">
@@ -234,7 +438,11 @@ export function App() {
         <span data-testid="first-object-position">
           Объект: {firstObject?.position.x ?? 0}, {firstObject?.position.y ?? 0}
         </span>
-        <span>{document.order.length} объекта</span>
+        <span data-testid="object-count">{document.order.length} объекта</span>
+        <span data-testid="interaction-state">{drawingState.kind}</span>
+        {drawingDiagnostic === null ? null : (
+          <span data-testid="drawing-diagnostic">{drawingDiagnostic}</span>
+        )}
         {commandError === null ? null : (
           <span className="command-error" role="alert">
             {commandError}

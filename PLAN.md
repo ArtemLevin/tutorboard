@@ -15,7 +15,7 @@
 
 ## 2. Текущее состояние и ближайшая последовательность
 
-TutorBoard выполняет PR 2.3 Infinite canvas. Gate 0 GeometryOS закрыт
+TutorBoard выполняет PR 2.4 Pen and primitive tools. Gate 0 GeometryOS закрыт
 проверяемым baseline в
 [`docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md`](docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md):
 API v1, GIR `0.2.0`, fixtures, Problem Details, request ID и probes подтверждены;
@@ -23,9 +23,11 @@ machine-readable layout отсутствует и оформлен как compat
 
 `BoardDocument 0.1`, branded identifiers, namespaced commands, pure reducer,
 strict validation, recovery reader и deterministic serialization реализованы в
-PR 2.2. В PR 2.3 реализуется Konva adapter, coordinate conversion, pan,
-pointer-centred zoom, ResizeObserver, grid/origin и renderer registry.
-Persistence и GeometryOS client ещё не реализованы.
+PR 2.2. PR 2.3 добавил Konva adapter, coordinate conversion, pan,
+pointer-centred zoom, ResizeObserver, grid/origin и renderer registry. В PR 2.4
+реализуются drawing module, tool state machine, pen и primitive tools,
+world-coordinate pointer sampling и runtime-only preview. Persistence и
+GeometryOS client ещё не реализованы.
 
 Ближайшие поставки:
 
@@ -48,13 +50,23 @@ Persistence и GeometryOS client ещё не реализованы.
    - сохранить raw input при incompatible/unknown/corrupted read;
    - использовать `order` как единственный z-order и
      `GeometryImportRecord.visualTransform` как transform импорта.
-5. **PR 2.3 — Infinite canvas — текущий**
+5. **PR 2.3 — Infinite canvas — завершён**
    - подключить Konva только через `adapters/canvas-konva/public`;
    - передавать renderer только immutable `BoardSceneReadModel`;
    - реализовать pure world/screen conversion, pan и pointer-centred zoom;
    - обеспечить cancel/release pointer lifecycle и browser tests;
    - не добавлять canvas runtime в `BoardDocument`.
-6. Далее выполнять PR 2.4–2.12 из Technical Spike plan, не обходя phase gates.
+6. **PR 2.4 — Pen and primitive tools — текущий**
+   - подключить `modules/drawing/public` как единственного владельца tool IDs,
+     interaction state machine, style defaults и command factory;
+   - реализовать pen, line, rectangle, ellipse и text;
+   - нормализовать pointer из canvas-local CSS pixels в world coordinates на
+     границе адаптера;
+   - хранить preview только в runtime state и создавать один
+     `core.objects.add` на завершённый gesture;
+   - отменять gesture при Escape, pointer loss, blur, tool switch и unmount;
+   - сохранить stored shape `BoardDocument 0.1` без migration.
+7. Далее выполнять PR 2.5–2.12 из Technical Spike plan, не обходя phase gates.
 
 ## 3. Целевая архитектура
 

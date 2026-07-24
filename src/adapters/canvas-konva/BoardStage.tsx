@@ -10,6 +10,7 @@ import { Group, Layer, Stage } from "react-konva";
 
 import {
   panViewport,
+  screenToWorld,
   zoomViewportAt,
   type BoardRenderItem,
   type BoardSceneReadModel,
@@ -18,7 +19,7 @@ import {
   type ViewportState,
 } from "../../core/public";
 import { BoardGrid } from "./grid";
-import { clientPoint } from "./pointer";
+import { clientPoint, elementPoint } from "./pointer";
 import type { KonvaRendererRegistry } from "./renderer-registry";
 import { useElementSize } from "./use-element-size";
 
@@ -42,8 +43,26 @@ interface WheelSession {
   timeoutId: number;
 }
 
+interface DrawingSession {
+  readonly captureElement: HTMLElement;
+  readonly pointerId: number;
+  readonly viewport: ViewportState;
+}
+
+export interface WorldPointerSample {
+  readonly point: Vec2;
+  readonly pointerId: number;
+  readonly pressure: number;
+}
+
 export interface BoardStageProps {
+  readonly drawingModeKey: string | null;
+  readonly onWorldPointerCancel: (pointerId: number) => void;
+  readonly onWorldPointerFinish: (sample: WorldPointerSample) => void;
+  readonly onWorldPointerMove: (sample: WorldPointerSample) => void;
+  readonly onWorldPointerStart: (sample: WorldPointerSample) => void;
   readonly panMode: boolean;
+  readonly previewItems?: readonly BoardRenderItem[];
   readonly registry: KonvaRendererRegistry;
   readonly scene: BoardSceneReadModel;
   readonly onViewportCommit: (viewport: ViewportState) => void;
@@ -98,25 +117,53 @@ function renderItem(
 }
 
 export function BoardStage({
+  drawingModeKey,
   onViewportCommit,
+  onWorldPointerCancel,
+  onWorldPointerFinish,
+  onWorldPointerMove,
+  onWorldPointerStart,
   panMode,
+  previewItems = [],
   registry,
   scene,
 }: BoardStageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const panSessionRef = useRef<PanSession | null>(null);
+  const drawingSessionRef = useRef<DrawingSession | null>(null);
   const wheelSessionRef = useRef<WheelSession | null>(null);
+  const worldPointerCallbacksRef = useRef({
+    cancel: onWorldPointerCancel,
+    finish: onWorldPointerFinish,
+    move: onWorldPointerMove,
+    start: onWorldPointerStart,
+  });
   const viewportRef = useRef(scene.viewport);
   const spacePressedRef = useRef(false);
   const [previewViewport, setPreviewViewport] = useState(scene.viewport);
   const [isPanning, setIsPanning] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
   const size = useElementSize(rootRef);
 
   useEffect(() => {
+    worldPointerCallbacksRef.current = {
+      cancel: onWorldPointerCancel,
+      finish: onWorldPointerFinish,
+      move: onWorldPointerMove,
+      start: onWorldPointerStart,
+    };
+  }, [
+    onWorldPointerCancel,
+    onWorldPointerFinish,
+    onWorldPointerMove,
+    onWorldPointerStart,
+  ]);
+
+  useEffect(() => {
     viewportRef.current = scene.viewport;
-    if (panSessionRef.current === null) {
+    if (panSessionRef.current === null && drawingSessionRef.current === null) {
       const wheelSession = wheelSessionRef.current;
       if (wheelSession !== null) {
         window.clearTimeout(wheelSession.timeoutId);
@@ -126,11 +173,52 @@ export function BoardStage({
     }
   }, [scene.viewport]);
 
-  const releaseCapture = useCallback((session: PanSession) => {
-    if (session.captureElement.hasPointerCapture(session.pointerId)) {
-      session.captureElement.releasePointerCapture(session.pointerId);
-    }
-  }, []);
+  const releaseCapture = useCallback(
+    (session: {
+      readonly captureElement: HTMLElement;
+      readonly pointerId: number;
+    }) => {
+      if (session.captureElement.hasPointerCapture(session.pointerId)) {
+        session.captureElement.releasePointerCapture(session.pointerId);
+      }
+    },
+    [],
+  );
+
+  const worldSample = useCallback(
+    (event: PointerEvent, session: DrawingSession): WorldPointerSample => ({
+      point: screenToWorld(
+        elementPoint(event, session.captureElement),
+        session.viewport,
+      ),
+      pointerId: event.pointerId,
+      pressure: Number.isFinite(event.pressure)
+        ? Math.min(1, Math.max(0, event.pressure))
+        : 0,
+    }),
+    [],
+  );
+
+  const finishDrawing = useCallback(
+    (commit: boolean, event?: PointerEvent) => {
+      const session = drawingSessionRef.current;
+      if (session === null) {
+        return;
+      }
+
+      drawingSessionRef.current = null;
+      releaseCapture(session);
+      setIsDrawing(false);
+      setPreviewViewport(viewportRef.current);
+
+      if (commit && event !== undefined) {
+        worldPointerCallbacksRef.current.finish(worldSample(event, session));
+      } else {
+        worldPointerCallbacksRef.current.cancel(session.pointerId);
+      }
+    },
+    [releaseCapture, worldSample],
+  );
 
   const finishPan = useCallback(
     (commit: boolean) => {
@@ -177,6 +265,18 @@ export function BoardStage({
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
+      const drawingSession = drawingSessionRef.current;
+      if (
+        drawingSession !== null &&
+        drawingSession.pointerId === event.pointerId
+      ) {
+        event.preventDefault();
+        worldPointerCallbacksRef.current.move(
+          worldSample(event, drawingSession),
+        );
+        return;
+      }
+
       const session = panSessionRef.current;
       if (session === null || session.pointerId !== event.pointerId) {
         return;
@@ -192,17 +292,26 @@ export function BoardStage({
       setPreviewViewport(viewport);
     };
     const handlePointerUp = (event: PointerEvent) => {
+      if (drawingSessionRef.current?.pointerId === event.pointerId) {
+        finishDrawing(true, event);
+        return;
+      }
       if (panSessionRef.current?.pointerId === event.pointerId) {
         finishPan(true);
       }
     };
     const handlePointerCancel = (event: PointerEvent) => {
+      if (drawingSessionRef.current?.pointerId === event.pointerId) {
+        finishDrawing(false);
+        return;
+      }
       if (panSessionRef.current?.pointerId === event.pointerId) {
         finishPan(false);
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code === "Escape") {
+        finishDrawing(false);
         finishPan(false);
         cancelWheel();
         return;
@@ -223,6 +332,7 @@ export function BoardStage({
       }
     };
     const handleBlur = () => {
+      finishDrawing(false);
       finishPan(false);
       cancelWheel();
     };
@@ -244,7 +354,7 @@ export function BoardStage({
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [cancelWheel, finishPan]);
+  }, [cancelWheel, finishDrawing, finishPan, worldSample]);
 
   useEffect(() => {
     const container = stageRef.current?.container();
@@ -252,12 +362,19 @@ export function BoardStage({
       return;
     }
 
-    const handleLostCapture = () => finishPan(false);
+    const handleLostCapture = (event: PointerEvent) => {
+      if (drawingSessionRef.current?.pointerId === event.pointerId) {
+        finishDrawing(false);
+      }
+      if (panSessionRef.current?.pointerId === event.pointerId) {
+        finishPan(false);
+      }
+    };
     container.addEventListener("lostpointercapture", handleLostCapture);
     return () => {
       container.removeEventListener("lostpointercapture", handleLostCapture);
     };
-  }, [finishPan, size.height, size.width]);
+  }, [finishDrawing, finishPan, size.height, size.width]);
 
   useEffect(
     () => () => {
@@ -265,6 +382,12 @@ export function BoardStage({
       if (session !== null) {
         panSessionRef.current = null;
         releaseCapture(session);
+      }
+      const drawingSession = drawingSessionRef.current;
+      if (drawingSession !== null) {
+        drawingSessionRef.current = null;
+        releaseCapture(drawingSession);
+        worldPointerCallbacksRef.current.cancel(drawingSession.pointerId);
       }
       const wheelSession = wheelSessionRef.current;
       if (wheelSession !== null) {
@@ -285,8 +408,21 @@ export function BoardStage({
     }
   }, [finishPan, panMode]);
 
+  useEffect(() => {
+    if (drawingSessionRef.current !== null) {
+      finishDrawing(false);
+    }
+  }, [drawingModeKey, finishDrawing]);
+
+  useEffect(() => {
+    const session = drawingSessionRef.current;
+    if (session !== null && !sameViewport(session.viewport, scene.viewport)) {
+      finishDrawing(false);
+    }
+  }, [finishDrawing, scene.viewport]);
+
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
-    if (panSessionRef.current !== null) {
+    if (panSessionRef.current !== null || drawingSessionRef.current !== null) {
       return;
     }
 
@@ -300,6 +436,26 @@ export function BoardStage({
           ? "hand"
           : null;
     if (source === null) {
+      if (!isLeftButton || drawingModeKey === null) {
+        return;
+      }
+
+      commitWheel();
+      event.evt.preventDefault();
+      const stage = event.target.getStage();
+      if (stage === null) {
+        return;
+      }
+      const captureElement = stage.container();
+      captureElement.setPointerCapture(event.evt.pointerId);
+      const session: DrawingSession = {
+        captureElement,
+        pointerId: event.evt.pointerId,
+        viewport: previewViewport,
+      };
+      drawingSessionRef.current = session;
+      setIsDrawing(true);
+      worldPointerCallbacksRef.current.start(worldSample(event.evt, session));
       return;
     }
 
@@ -325,7 +481,7 @@ export function BoardStage({
 
   const handleWheel = (event: Konva.KonvaEventObject<WheelEvent>) => {
     event.evt.preventDefault();
-    if (panSessionRef.current !== null) {
+    if (panSessionRef.current !== null || drawingSessionRef.current !== null) {
       return;
     }
 
@@ -366,13 +522,16 @@ export function BoardStage({
     ? "grabbing"
     : panMode || spacePressed
       ? "grab"
-      : "default";
+      : drawingModeKey === null
+        ? "default"
+        : "crosshair";
 
   return (
     <div
       ref={rootRef}
       aria-label="Бесконечное полотно TutorBoard"
       className="board-stage"
+      data-drawing={isDrawing}
       data-panning={isPanning}
       data-testid="board-stage"
       role="application"
@@ -404,6 +563,7 @@ export function BoardStage({
             y={previewViewport.offset.y}
           >
             {scene.items.map((item) => renderItem(item, registry))}
+            {previewItems.map((item) => renderItem(item, registry))}
           </Group>
         </Layer>
       </Stage>

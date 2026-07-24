@@ -8,20 +8,23 @@ Konva, React component state, or canvas nodes part of `BoardDocument`.
 | Owner                   | Responsibility                                                                 |
 | ----------------------- | ------------------------------------------------------------------------------ |
 | `core`                  | Pure coordinate transforms and immutable `BoardSceneReadModel`                 |
-| `adapters/canvas-konva` | Konva rendering, viewport preview, pointer normalization and capture lifecycle |
-| `app`                   | Owns `BoardDocument`, creates command metadata and commits viewport commands   |
+| `modules/drawing`       | Pure drawing interaction state and completed object intent                     |
+| `adapters/canvas-konva` | Konva rendering, runtime preview, pointer normalization and capture lifecycle  |
+| `app`                   | Owns `BoardDocument`, creates command metadata and commits commands             |
 
 The dependency direction is:
 
 ```text
 app -> adapters/canvas-konva/public -> core/public
+app -> modules/drawing/public -> core/public
 app -> core/public
 ```
 
 The canvas adapter cannot import `BoardDocument`, commands, or the reducer. It
-receives only `BoardSceneReadModel` and emits a proposed `ViewportState` through
-a callback. The application composition root turns that intent into
-`core.viewport.set`.
+receives only `BoardSceneReadModel` plus explicit runtime preview items. It
+emits proposed viewport state and world-pointer samples through callbacks. The
+application composition root turns those intents into `core.viewport.set` or
+routes them through the drawing state machine.
 
 ## Coordinate contract
 
@@ -86,6 +89,16 @@ Wheel events are previewed immediately and coalesced into one viewport intent
 after a short idle window. Escape, blur, unmount, or an external viewport update
 cancels an uncommitted wheel preview.
 
+Drawing uses the same capture guarantees. The adapter subtracts the stage
+container bounds from browser client coordinates, then calls `screenToWorld`
+with the viewport snapshot taken at pointer down. It emits start, move, finish
+or cancel samples and never constructs objects or commands. Wheel zoom is
+blocked during a captured drawing gesture.
+
+Drawing preview items are rendered through the normal registry but are not part
+of the immutable scene selector. Escape, pointer cancel, lost capture, blur,
+tool-key change, or unmount releases capture and emits no completed intent.
+
 ## Resize, grid and origin
 
 `ResizeObserver` controls the Konva stage size from its container. Resizing does
@@ -98,10 +111,10 @@ origin. Grid line width is normalized by zoom.
 | Invariants                               | Evidence                                                             |
 | ---------------------------------------- | -------------------------------------------------------------------- |
 | `CANVAS-001`, `CANVAS-002`, `CANVAS-005` | Pure coordinate unit tests                                           |
-| `CANVAS-003`, `CANVAS-004`, `CANVAS-009` | Browser pan/zoom/cancel scenarios                                    |
+| `CANVAS-003`, `CANVAS-004`, `CANVAS-009` | Pointer unit test and browser pan/draw/cancel scenarios               |
 | `CANVAS-006`, `CANVAS-007`               | Read-model API and architecture-rule tests                           |
 | `CANVAS-008`                             | CSS-pixel math excludes DPR; browser rendering remains adapter-owned |
 | `DOC-001`, `DOC-012`                     | Existing strict schema/serialization fixtures plus adapter boundary  |
 
-Drawing tools, selection, object drag, resize handles, undo/redo, persistence,
-and accessibility alternatives to the bitmap canvas remain later stages.
+Selection, object drag, resize handles, undo/redo, persistence, and
+accessibility alternatives to the bitmap canvas remain later stages.

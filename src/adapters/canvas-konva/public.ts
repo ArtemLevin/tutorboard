@@ -1,4 +1,8 @@
-export { BoardStage, type BoardStageProps } from "./BoardStage";
+export {
+  BoardStage,
+  type BoardStageProps,
+  type WorldPointerSample,
+} from "./BoardStage";
 export { createDefaultKonvaRendererRegistry } from "./default-renderers";
 export {
   KonvaRendererRegistry,

@@ -175,4 +175,30 @@ describe("architecture rules", () => {
       }),
     ]);
   });
+
+  it("requires app composition to use module public contracts", () => {
+    expect(
+      analyze(
+        "app/App.tsx",
+        'import { drawingTools } from "../modules/drawing/tools";',
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        invariant: "ARCH-004",
+      }),
+    ]);
+  });
+
+  it("requires feature modules to use the core public contract", () => {
+    expect(
+      analyze(
+        "modules/drawing/interaction.ts",
+        'import type { Vec2 } from "../../core/board/primitives";',
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        invariant: "ARCH-001",
+      }),
+    ]);
+  });
 });

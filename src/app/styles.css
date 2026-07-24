@@ -157,9 +157,91 @@ button {
   user-select: none;
 }
 
+.board-stage[data-drawing="true"] {
+  user-select: none;
+}
+
+.drawing-toolbar {
+  position: absolute;
+  z-index: 3;
+  top: 18px;
+  left: 18px;
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid rgb(132 147 153 / 38%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 14px 36px rgb(37 51 58 / 12%);
+  backdrop-filter: blur(16px);
+}
+
+.drawing-tool {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  color: #42545d;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.drawing-tool:hover {
+  background: #edf2f2;
+}
+
+.drawing-tool:focus-visible,
+.text-tool-input input:focus-visible {
+  outline: 3px solid rgb(44 113 130 / 25%);
+  outline-offset: 1px;
+}
+
+.drawing-tool.is-active {
+  color: #fff;
+  background: #2c7182;
+  box-shadow: 0 5px 14px rgb(44 113 130 / 26%);
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 2px;
+  background: #d8dfe1;
+}
+
+.text-tool-input {
+  display: grid;
+  gap: 2px;
+  margin: 0 4px 0 7px;
+  color: #6a7981;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.text-tool-input input {
+  width: 180px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid #cbd4d8;
+  border-radius: 8px;
+  color: #253740;
+  background: #fff;
+  font-size: 0.72rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 .canvas-help {
   position: absolute;
-  top: 18px;
+  top: 80px;
   left: 18px;
   display: grid;
   gap: 3px;
@@ -247,5 +329,15 @@ button {
 
   .tool-button {
     padding: 0 11px;
+  }
+
+  .drawing-toolbar {
+    right: 12px;
+    left: 12px;
+    overflow-x: auto;
+  }
+
+  .text-tool-input input {
+    width: 130px;
   }
 }
