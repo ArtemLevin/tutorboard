@@ -13,8 +13,12 @@ All matched files use Prettier code style!
 > eslint . --max-warnings=0
 
 
-> tutorboard@0.1.0 typecheck
-> tsc -b --pretty false
+/home/runner/work/tutorboard/tutorboard/tests/e2e/persistence.spec.ts
+  3:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment')
+  3:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call')
+  3:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-member-access')
 
-tests/e2e/persistence.spec.ts(9,21): error TS2304: Cannot find name 'indexedDB'.
-tests/e2e/persistence.spec.ts(10,40): error TS2304: Cannot find name 'IDBDatabase'.
+✖ 3 problems (0 errors, 3 warnings)
+  0 errors and 3 warnings potentially fixable with the `--fix` option.
+
+ESLint found too many warnings (maximum: 0).
