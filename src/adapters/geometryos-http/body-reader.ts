@@ -18,6 +18,7 @@ export async function readBoundedResponseBody(
 ): Promise<BoundedBodyReadResult> {
   const expectedLength = declaredLength(response);
   if (expectedLength !== null && expectedLength > maxBytes) {
+    await response.body?.cancel().catch(() => undefined);
     return { status: "too-large" };
   }
 
