@@ -297,6 +297,22 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
       continue;
     }
 
+    if (
+      importer.layer === "app" &&
+      target.layer === "modules" &&
+      !isPublicModuleImport(specifier)
+    ) {
+      violations.push(
+        violation(
+          "ARCH-004",
+          filePath,
+          specifier,
+          "application composition must use module public contracts",
+        ),
+      );
+      continue;
+    }
+
     if (importer.layer === "core" && target.layer !== "core") {
       violations.push(
         violation(
@@ -360,6 +376,22 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
           filePath,
           specifier,
           "feature modules cannot depend on technology adapters",
+        ),
+      );
+      continue;
+    }
+
+    if (
+      importer.layer === "modules" &&
+      target.layer === "core" &&
+      !isPublicModuleImport(specifier)
+    ) {
+      violations.push(
+        violation(
+          "ARCH-001",
+          filePath,
+          specifier,
+          "feature modules must consume the core public contract",
         ),
       );
       continue;

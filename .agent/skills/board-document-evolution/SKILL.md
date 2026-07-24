@@ -34,6 +34,9 @@ and nearest migration/serialization fixtures.
 5. Require a migration decision for every stored-shape change.
 6. Verify deterministic serialization with locale-independent key ordering and
    unchanged semantic array order. Reject runtime/canvas state.
+   - pen samples stored by schema `0.1` are world-coordinate `Vec2` values;
+   - pressure or other new sample fields require an explicit version and
+     migration decision rather than runtime-only data leaking into storage.
 7. Verify failed commands return the exact original document reference and that
    reducers receive IDs, actor, and time instead of generating or reading them.
 8. Add the smallest fixtures that prove compatibility, provenance, and
