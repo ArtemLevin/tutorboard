@@ -33,17 +33,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Record and verify implementation payload
+      - name: Verify implementation payload
         shell: bash
         run: |
-          sha256sum scripts/.pr-2-6-v2/part*.b64 > scripts/.pr-2-6-v2/actual.sha256
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/.pr-2-6-v2/actual.sha256
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: record payload checksums [skip ci]"
-            git push origin HEAD:agent/local-persistence-recovery
-          fi
           cat scripts/.pr-2-6-v2/part*.b64 > /tmp/implement-pr-2-6.py.gz.b64
           echo "3710a09c0df9dc578cedffe1c0012873ec796a1b6bccd25532ac38c77905a057  /tmp/implement-pr-2-6.py.gz.b64" | sha256sum --check
 
@@ -66,7 +58,21 @@ jobs:
         run: npm run format
 
       - name: Run non-browser quality gate
-        run: npm run check
+        shell: bash
+        run: |
+          set +e
+          npm run check > /tmp/pr-2-6-check.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            tail -n 300 /tmp/pr-2-6-check.log > scripts/.pr-2-6-v2/check.log
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add scripts/.pr-2-6-v2/check.log
+            git commit -m "chore: record PR 2.6 check failure [skip ci]"
+            git push origin HEAD:agent/local-persistence-recovery
+            exit "$status"
+          fi
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
@@ -83,6 +89,8 @@ jobs:
           rm -rf scripts/.pr-2-6 scripts/.pr-2-6-v2 .github/workflows/implement-pr-2-6.yml
           git checkout origin/main -- .github/workflows/ci.yml
           git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "feat: add local persistence and recovery"
           git push origin HEAD:agent/local-persistence-recovery
