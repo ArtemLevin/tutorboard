@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - scripts/implement-pr-2-8.py
+      - scripts/fix-pr-2-8-toolchain.py
       - .github/workflows/implement-pr-2-8.yml
 
 permissions:
@@ -34,7 +35,9 @@ jobs:
           cache: npm
 
       - name: Apply scoped implementation
-        run: python3 scripts/implement-pr-2-8.py
+        run: |
+          python3 scripts/implement-pr-2-8.py
+          python3 scripts/fix-pr-2-8-toolchain.py
 
       - name: Install exact code-generation dependencies
         id: install
@@ -42,7 +45,10 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          npm install --save-dev --save-exact openapi-typescript@7.13.0 ajv@8.17.1 2>&1 | tee /tmp/npm-install.log
+          {
+            npm install --save-dev --save-exact ajv@8.17.1
+            npm install --prefix tools/geometryos-contract
+          } 2>&1 | tee /tmp/npm-install.log
 
       - name: Persist install diagnostic
         if: steps.install.outcome == 'failure'
@@ -73,7 +79,7 @@ jobs:
         run: npm audit --audit-level=high
 
       - name: Remove one-shot implementation helpers
-        run: rm scripts/implement-pr-2-8.py .github/workflows/implement-pr-2-8.yml implementation-diagnostic.txt 2>/dev/null || true
+        run: rm scripts/implement-pr-2-8.py scripts/fix-pr-2-8-toolchain.py .github/workflows/implement-pr-2-8.yml implementation-diagnostic.txt 2>/dev/null || true
 
       - name: Publish verified implementation
         run: |
