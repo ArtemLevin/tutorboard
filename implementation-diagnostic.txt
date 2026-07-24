@@ -7,7 +7,7 @@
 > node scripts/check-geometryos-contract.mjs
 
 ✨ openapi-typescript 7.13.0
-🚀 /home/runner/work/tutorboard/tutorboard/contracts/geometryos/openapi.v1.json → /tmp/tutorboard-geometryos-AZp7FP/src/adapters/geometryos-http/generated/geometryos.types.ts [71.6ms]
+🚀 /home/runner/work/tutorboard/tutorboard/contracts/geometryos/openapi.v1.json → /tmp/tutorboard-geometryos-nqGq0t/src/adapters/geometryos-http/generated/geometryos.types.ts [92.9ms]
 GeometryOS contract artifacts and generated output are current.
 
 > tutorboard@0.1.0 format:check
@@ -20,9 +20,8 @@ All matched files use Prettier code style!
 > eslint . --max-warnings=0
 
 
-/home/runner/work/tutorboard/tutorboard/tests/unit/adapters/geometryos-http/client.test.ts
-  102:19  error  'url' may use Object's default stringification format ('[object Object]') when stringified         @typescript-eslint/no-base-to-string
-  105:30  error  'init?.body' may use Object's default stringification format ('[object Object]') when stringified  @typescript-eslint/no-base-to-string
+> tutorboard@0.1.0 typecheck
+> tsc -b --pretty false
 
-✖ 2 problems (2 errors, 0 warnings)
-
+tests/unit/adapters/geometryos-http/client.test.ts(250,20): error TS2345: Argument of type 'AbortSignal | null' is not assignable to parameter of type 'AbortSignal'.
+  Type 'null' is not assignable to type 'AbortSignal'.
