@@ -1476,6 +1476,10 @@ TutorBoard 1.0 считается готовым, когда:
 
 # 24. Ближайшее действие
 
-Следующий практический этап — **PR 2.1 Repository foundation**.
+PR 2.1–2.5 завершены. Следующий практический этап — **PR 2.6 Local
+persistence**.
 
-Он должен создать TypeScript/React/Vite skeleton, строгий quality gate и архитектурную структуру без преждевременной реализации canvas domain. После его слияния начинается PR 2.2 с формальной моделью `BoardDocument`.
+Он должен добавить IndexedDB/Dexie repository, autosave, restore, schema
+version, migrations registry и recovery record. Перезагрузка обязана
+восстанавливать документ и viewport, повреждённое состояние должно открывать
+recovery UI, а last-good revision не должна теряться.

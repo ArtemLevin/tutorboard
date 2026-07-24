@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
   BoardStageProps,
+  SelectionPointerStartSample,
   WorldPointerSample,
 } from "../adapters/canvas-konva/public";
 import { App } from "./App";
@@ -19,6 +20,19 @@ vi.mock("../adapters/canvas-konva/public", () => ({
       pointerId: 1,
       pressure: 0.5,
     };
+    const selectionStart: SelectionPointerStartSample = {
+      additive: false,
+      objectId:
+        "object:welcome-card" as SelectionPointerStartSample["objectId"],
+      point: { x: 80, y: 80 },
+      pointerId: 2,
+      pressure: 0,
+    };
+    const selectionFinish: WorldPointerSample = {
+      point: { x: 100, y: 90 },
+      pointerId: 2,
+      pressure: 0,
+    };
     return (
       <div aria-label="Бесконечное полотно TutorBoard" role="application">
         <button
@@ -30,6 +44,16 @@ vi.mock("../adapters/canvas-konva/public", () => ({
           type="button"
         >
           Завершить жест
+        </button>
+        <button
+          onClick={() => {
+            props.onSelectionPointerStart(selectionStart);
+            props.onSelectionPointerMove(selectionFinish);
+            props.onSelectionPointerFinish(selectionFinish);
+          }}
+          type="button"
+        >
+          Переместить выделение
         </button>
       </div>
     );
@@ -69,5 +93,24 @@ describe("App", () => {
 
     expect(screen.getByTestId("object-count")).toHaveTextContent("5 объекта");
     expect(screen.getByTestId("interaction-state")).toHaveTextContent("idle");
+  });
+
+  it("selects and moves one object through one document command", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Выделение (V)" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Переместить выделение" }),
+    );
+
+    expect(screen.getByTestId("selection-count")).toHaveTextContent(
+      "1 выбрано",
+    );
+    expect(screen.getByTestId("first-object-position")).toHaveTextContent(
+      "Объект: 100, 90",
+    );
+    expect(
+      screen.getByRole("complementary", { name: "Выделенные объекты" }),
+    ).toBeInTheDocument();
   });
 });

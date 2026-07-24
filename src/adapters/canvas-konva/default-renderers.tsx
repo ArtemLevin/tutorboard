@@ -19,7 +19,6 @@ function expectKind<Kind extends BoardObjectKind>(
 
 function commonShapeProps(object: BoardObject) {
   return {
-    listening: false,
     opacity: object.style.opacity,
     rotation: object.rotation,
     scaleX: object.scale.x,

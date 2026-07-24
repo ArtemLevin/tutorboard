@@ -161,6 +161,10 @@ button {
   user-select: none;
 }
 
+.board-stage[data-selecting="true"] {
+  user-select: none;
+}
+
 .drawing-toolbar {
   position: absolute;
   z-index: 3;
@@ -262,6 +266,55 @@ button {
   font-size: 0.74rem;
 }
 
+.selection-inspector {
+  position: absolute;
+  z-index: 3;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  min-width: 220px;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgb(132 147 153 / 38%);
+  border-radius: 14px;
+  color: #5b6971;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 14px 36px rgb(37 51 58 / 12%);
+  backdrop-filter: blur(16px);
+  font-size: 0.72rem;
+}
+
+.selection-inspector strong {
+  color: #253740;
+  font-size: 0.78rem;
+}
+
+.selection-inspector div {
+  display: flex;
+  gap: 7px;
+}
+
+.selection-inspector button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #cbd4d8;
+  border-radius: 8px;
+  color: #31454f;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.selection-inspector button:last-child {
+  border-color: #e2b7b1;
+  color: #9b3e35;
+}
+
+.selection-inspector button:hover {
+  background: #f4f7f7;
+}
+
 .coordinate-chip {
   position: absolute;
   right: 18px;
@@ -335,6 +388,12 @@ button {
     right: 12px;
     left: 12px;
     overflow-x: auto;
+  }
+
+  .selection-inspector {
+    top: 78px;
+    right: 12px;
+    min-width: 190px;
   }
 
   .text-tool-input input {

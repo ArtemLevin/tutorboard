@@ -41,7 +41,11 @@ state machine, transform functions, and browser tests.
    may render explicit runtime preview items, but cannot import the module.
 8. Preserve the current stored schema: optional input such as pressure is not
    persisted until a version and migration decision exists.
-9. Route pure math/state transitions to unit tests and capture, Escape, blur,
+9. For selection, require the feature module to own selected IDs, marquee and
+   drag state, bounds and target normalization. The adapter may report a hit ID
+   and render overlays, but selection and preview remain runtime-only. Moving a
+   generic group updates its group transform exactly once.
+10. Route pure math/state transitions to unit tests and capture, Escape, blur,
    tool-switch and pointer-loss behavior to real-browser tests.
 
 # Blocking conditions

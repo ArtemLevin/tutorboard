@@ -9,6 +9,7 @@ Konva, React component state, or canvas nodes part of `BoardDocument`.
 | ----------------------- | ------------------------------------------------------------------------------ |
 | `core`                  | Pure coordinate transforms and immutable `BoardSceneReadModel`                 |
 | `modules/drawing`       | Pure drawing interaction state and completed object intent                     |
+| `modules/selection`     | Pure selection/drag state, world-space bounds and command intent                |
 | `adapters/canvas-konva` | Konva rendering, runtime preview, pointer normalization and capture lifecycle  |
 | `app`                   | Owns `BoardDocument`, creates command metadata and commits commands             |
 
@@ -17,6 +18,7 @@ The dependency direction is:
 ```text
 app -> adapters/canvas-konva/public -> core/public
 app -> modules/drawing/public -> core/public
+app -> modules/selection/public -> core/public
 app -> core/public
 ```
 
@@ -25,6 +27,12 @@ receives only `BoardSceneReadModel` plus explicit runtime preview items. It
 emits proposed viewport state and world-pointer samples through callbacks. The
 application composition root turns those intents into `core.viewport.set` or
 routes them through the drawing state machine.
+
+Selection follows the same boundary: Konva reports a hit object ID and
+world-pointer samples, while the application routes them through
+`modules/selection`. The adapter receives only selected IDs, world-space
+selection rectangles and a runtime preview delta. It never imports the
+selection module or mutates the document.
 
 ## Coordinate contract
 
@@ -99,6 +107,12 @@ Drawing preview items are rendered through the normal registry but are not part
 of the immutable scene selector. Escape, pointer cancel, lost capture, blur,
 tool-key change, or unmount releases capture and emits no completed intent.
 
+Selection uses click, `Shift` click and marquee capture. Hit testing identifies
+the renderer-owned object node, while deterministic area intersection and group
+expansion live in the feature module. Drag and marquee previews are runtime-only.
+Pointer up emits at most one completed movement intent; Escape, pointer loss,
+blur, tool switch, viewport replacement and unmount discard the preview.
+
 ## Resize, grid and origin
 
 `ResizeObserver` controls the Konva stage size from its container. Resizing does
@@ -111,10 +125,10 @@ origin. Grid line width is normalized by zoom.
 | Invariants                               | Evidence                                                             |
 | ---------------------------------------- | -------------------------------------------------------------------- |
 | `CANVAS-001`, `CANVAS-002`, `CANVAS-005` | Pure coordinate unit tests                                           |
-| `CANVAS-003`, `CANVAS-004`, `CANVAS-009` | Pointer unit test and browser pan/draw/cancel scenarios               |
+| `CANVAS-003`, `CANVAS-004`, `CANVAS-009` | Pointer unit test and browser pan/draw/select/cancel scenarios        |
 | `CANVAS-006`, `CANVAS-007`               | Read-model API and architecture-rule tests                           |
 | `CANVAS-008`                             | CSS-pixel math excludes DPR; browser rendering remains adapter-owned |
 | `DOC-001`, `DOC-012`                     | Existing strict schema/serialization fixtures plus adapter boundary  |
 
-Selection, object drag, resize handles, undo/redo, persistence, and
-accessibility alternatives to the bitmap canvas remain later stages.
+Resize handles, undo/redo, persistence, and accessibility alternatives to the
+bitmap canvas remain later stages.
