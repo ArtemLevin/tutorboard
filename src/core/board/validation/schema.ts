@@ -7,7 +7,7 @@ import type {
   GroupId,
 } from "../identifiers";
 import { isValidIdentifier } from "../identifiers";
-import { boardObjectKinds } from "../objects";
+import { boardObjectKinds, svgSanitizerPolicyVersion } from "../objects";
 
 const identifierSchema = z
   .string()
@@ -40,6 +40,12 @@ const sizeSchema = z
   .object({
     height: finiteNumberSchema.positive(),
     width: finiteNumberSchema.positive(),
+  })
+  .strict();
+const svgSizeSchema = z
+  .object({
+    height: finiteNumberSchema.positive().max(16_384),
+    width: finiteNumberSchema.positive().max(16_384),
   })
   .strict();
 const transformSchema = z
@@ -85,42 +91,77 @@ const objectBase = {
   style: styleSchema,
   visible: z.boolean(),
 };
+const penStrokeSchema = z
+  .object({
+    ...objectBase,
+    kind: z.literal("drawing.pen-stroke"),
+    points: z.array(vec2Schema).min(2).max(100_000),
+  })
+  .strict();
+const lineSchema = z
+  .object({
+    ...objectBase,
+    end: vec2Schema,
+    kind: z.literal("drawing.line"),
+  })
+  .strict();
+const rectangleSchema = z
+  .object({
+    ...objectBase,
+    kind: z.literal("drawing.rectangle"),
+    size: sizeSchema,
+  })
+  .strict();
+const ellipseSchema = z
+  .object({
+    ...objectBase,
+    kind: z.literal("drawing.ellipse"),
+    radius: positiveVec2Schema,
+  })
+  .strict();
+const textSchema = z
+  .object({
+    ...objectBase,
+    kind: z.literal("drawing.text"),
+    text: z.string().max(100_000),
+  })
+  .strict();
+const svgViewBoxSchema = z
+  .object({
+    height: finiteNumberSchema.positive().max(1_000_000),
+    width: finiteNumberSchema.positive().max(1_000_000),
+    x: finiteNumberSchema,
+    y: finiteNumberSchema,
+  })
+  .strict();
+const svgObjectSchema = z
+  .object({
+    ...objectBase,
+    kind: z.literal("svg-import.svg"),
+    sanitizedSvg: z
+      .string()
+      .min(1)
+      .max(512 * 1024),
+    sanitizerPolicyVersion: z.literal(svgSanitizerPolicyVersion),
+    size: svgSizeSchema,
+    viewBox: svgViewBoxSchema,
+  })
+  .strict();
+
+const legacyObjectSchema = z.discriminatedUnion("kind", [
+  penStrokeSchema,
+  lineSchema,
+  rectangleSchema,
+  ellipseSchema,
+  textSchema,
+]);
 const objectSchema = z.discriminatedUnion("kind", [
-  z
-    .object({
-      ...objectBase,
-      kind: z.literal("drawing.pen-stroke"),
-      points: z.array(vec2Schema).min(2).max(100_000),
-    })
-    .strict(),
-  z
-    .object({
-      ...objectBase,
-      end: vec2Schema,
-      kind: z.literal("drawing.line"),
-    })
-    .strict(),
-  z
-    .object({
-      ...objectBase,
-      kind: z.literal("drawing.rectangle"),
-      size: sizeSchema,
-    })
-    .strict(),
-  z
-    .object({
-      ...objectBase,
-      kind: z.literal("drawing.ellipse"),
-      radius: positiveVec2Schema,
-    })
-    .strict(),
-  z
-    .object({
-      ...objectBase,
-      kind: z.literal("drawing.text"),
-      text: z.string().max(100_000),
-    })
-    .strict(),
+  penStrokeSchema,
+  lineSchema,
+  rectangleSchema,
+  ellipseSchema,
+  textSchema,
+  svgObjectSchema,
 ]);
 const groupSchema = z
   .object({
@@ -158,19 +199,34 @@ const geometryImportSchema = z
   })
   .strict();
 
-export const boardDocumentSchema = z
-  .object({
-    createdAt: timestampSchema,
-    geometryImports: z.record(geometryImportIdSchema, geometryImportSchema),
-    groups: z.record(groupIdSchema, groupSchema),
-    id: documentIdSchema,
-    objects: z.record(boardObjectIdSchema, objectSchema),
-    order: z.array(boardObjectIdSchema),
-    schemaVersion: z.literal("0.1"),
-    title: z.string().min(1).max(256),
-    updatedAt: timestampSchema,
-    viewport: viewportSchema,
-  })
-  .strict();
+function documentSchema(
+  schemaVersion: "0.1" | "0.2",
+  storedObjectSchema: typeof legacyObjectSchema | typeof objectSchema,
+) {
+  return z
+    .object({
+      createdAt: timestampSchema,
+      geometryImports: z.record(geometryImportIdSchema, geometryImportSchema),
+      groups: z.record(groupIdSchema, groupSchema),
+      id: documentIdSchema,
+      objects: z.record(boardObjectIdSchema, storedObjectSchema),
+      order: z.array(boardObjectIdSchema),
+      schemaVersion: z.literal(schemaVersion),
+      title: z.string().min(1).max(256),
+      updatedAt: timestampSchema,
+      viewport: viewportSchema,
+    })
+    .strict();
+}
 
+export const boardDocumentSchema01 = documentSchema("0.1", legacyObjectSchema);
+export const boardDocumentSchema = documentSchema("0.2", objectSchema);
+
+export const legacyBoardObjectKinds = new Set<string>([
+  "drawing.pen-stroke",
+  "drawing.line",
+  "drawing.rectangle",
+  "drawing.ellipse",
+  "drawing.text",
+]);
 export const knownBoardObjectKinds = new Set<string>(boardObjectKinds);

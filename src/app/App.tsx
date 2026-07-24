@@ -8,11 +8,13 @@ import {
 } from "../adapters/canvas-konva/public";
 import {
   actorId,
+  boardDocumentSchemaVersion,
   boardObjectId,
   commandId,
   createEmptyBoardDocument,
   documentId,
   reduceBoardDocument,
+  screenToWorld,
   selectBoardScene,
   type BoardDocument,
   type BoardObject,
@@ -30,6 +32,11 @@ import {
   type DrawingToolId,
   type UserDrawingObject,
 } from "../modules/drawing/public";
+import {
+  createAddSvgObjectCommand,
+  createSvgObject,
+  svgImportLimits,
+} from "../modules/svg-import/public";
 import {
   createDeleteSelectionCommand,
   createMoveSelectionCommand,
@@ -207,7 +214,13 @@ export function App({
   const [selectionState, setSelectionState] = useState(initialSelectionState);
   const selectionStateRef = useRef<SelectionState>(initialSelectionState);
   const [textDraft, setTextDraft] = useState("Новый текст");
+  const [svgDiagnostic, setSvgDiagnostic] = useState<string | null>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
   const { commandError, document } = boardState;
+  const documentRef = useRef(document);
+  useEffect(() => {
+    documentRef.current = document;
+  }, [document]);
   const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);
   const scene = useMemo(() => selectBoardScene(document), [document]);
   const drawingPreview = useMemo(
@@ -569,6 +582,70 @@ export function App({
     });
   }, []);
 
+  const importSvgFile = useCallback(async (file: File) => {
+    if (file.size > svgImportLimits.maxInputBytes) {
+      setSvgDiagnostic("svg.input-too-large: SVG превышает допустимый размер.");
+      return;
+    }
+
+    let source: string;
+    try {
+      source = await file.text();
+    } catch {
+      setSvgDiagnostic("svg.read-failed: Не удалось прочитать SVG-файл.");
+      return;
+    }
+
+    const current = documentRef.current;
+    const workspace = workspaceRef.current?.getBoundingClientRect();
+    const center = screenToWorld(
+      {
+        x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
+        y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
+      },
+      current.viewport,
+    );
+    const objectId = boardObjectId(`object:${crypto.randomUUID()}`);
+    const created = createSvgObject({ center, id: objectId, source });
+    if (created.status === "error") {
+      setSvgDiagnostic(
+        `${created.diagnostic.code}: SVG содержит небезопасные или неподдерживаемые данные.`,
+      );
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const result = reduceBoardDocument(
+      current,
+      createAddSvgObjectCommand(
+        {
+          actorId: localActorId,
+          id: commandId(`command:${crypto.randomUUID()}`),
+          timestamp,
+        },
+        created.object,
+      ),
+    );
+    if (!result.ok) {
+      setBoardState((latest) => ({
+        ...latest,
+        commandError: result.error.message,
+      }));
+      return;
+    }
+
+    documentRef.current = result.document;
+    setBoardState({ commandError: null, document: result.document });
+    const selected: SelectionState = {
+      interaction: { kind: "idle" },
+      selectedObjectIds: [objectId],
+    };
+    selectionStateRef.current = selected;
+    setSelectionState(selected);
+    setActiveTool(selectionToolId);
+    setSvgDiagnostic(null);
+  }, []);
+
   const resetViewport = () => {
     commitViewport({ offset: { x: 160, y: 90 }, zoom: 1 });
   };
@@ -588,6 +665,21 @@ export function App({
         </div>
 
         <div className="canvas-actions" aria-label="Управление полотном">
+          <label className="tool-button file-tool-button">
+            Вставить SVG
+            <input
+              accept="image/svg+xml,.svg"
+              aria-label="Вставить SVG"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (file !== undefined) {
+                  void importSvgFile(file);
+                }
+                event.currentTarget.value = "";
+              }}
+              type="file"
+            />
+          </label>
           {onImportDocument === undefined ? null : (
             <label className="tool-button file-tool-button">
               Импорт JSON
@@ -627,10 +719,20 @@ export function App({
         </div>
       </header>
 
-      <section className="workspace" aria-label="Рабочая область доски">
+      <section
+        className="workspace"
+        aria-label="Рабочая область доски"
+        ref={workspaceRef}
+      >
         {persistenceNotice === null ? null : (
           <div className="persistence-notice" role="status">
             {persistenceNotice}
+          </div>
+        )}
+        {svgDiagnostic === null ? null : (
+          <div className="persistence-alert" role="alert">
+            <strong>SVG не вставлен</strong>
+            <span>{svgDiagnostic}</span>
           </div>
         )}
         {persistenceStatus.kind === "error" ||
@@ -795,7 +897,7 @@ export function App({
       <footer className="statusbar">
         <span>
           <i className="status-dot" aria-hidden="true" />
-          BoardDocument 0.1
+          BoardDocument {boardDocumentSchemaVersion}
         </span>
         <span data-testid="first-object-position">
           Объект: {firstObject?.position.x ?? 0}, {firstObject?.position.y ?? 0}

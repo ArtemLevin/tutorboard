@@ -10,7 +10,7 @@ import type { BoardObject } from "./objects";
 import { defaultViewport, type ViewportState } from "./primitives";
 import { isIsoTimestamp } from "./timestamps";
 
-export const boardDocumentSchemaVersion = "0.1" as const;
+export const boardDocumentSchemaVersion = "0.2" as const;
 
 export interface BoardDocument {
   readonly createdAt: string;

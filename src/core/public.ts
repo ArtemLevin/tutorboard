@@ -25,6 +25,7 @@ export type {
 } from "./board/geometry-imports";
 export {
   boardObjectKinds,
+  svgSanitizerPolicyVersion,
   type BoardObject,
   type BoardObjectKind,
   type BoardObjectSource,
@@ -33,8 +34,14 @@ export {
   type ObjectStyle,
   type PenStrokeObject,
   type RectangleObject,
+  type SvgObject,
+  type SvgViewBox,
   type TextObject,
 } from "./board/objects";
+export {
+  migrateBoardDocument01To02,
+  type BoardDocumentMigrationResult,
+} from "./board/migrations";
 export {
   defaultViewport,
   identityTransform,

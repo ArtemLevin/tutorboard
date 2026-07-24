@@ -1,6 +1,7 @@
 import { Ellipse, Line, Rect, Text } from "react-konva";
 
 import type { BoardObject, BoardObjectKind } from "../../core/public";
+import { SvgRenderer } from "./svg-renderer";
 import {
   KonvaRendererRegistry,
   type KonvaObjectRenderer,
@@ -98,6 +99,13 @@ const renderers: readonly KonvaObjectRenderer[] = [
           radiusY={ellipse.radius.y}
         />
       );
+    },
+  },
+  {
+    kind: "svg-import.svg",
+    render(object) {
+      const svg = expectKind(object, "svg-import.svg");
+      return <SvgRenderer object={svg} />;
     },
   },
   {

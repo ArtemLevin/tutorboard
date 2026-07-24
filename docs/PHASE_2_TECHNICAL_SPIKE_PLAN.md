@@ -1695,6 +1695,8 @@ Autosave сохраняет:
 
 ## PR 7. SVG insertion
 
+**Статус:** завершён в PR 2.7.
+
 **Цель:** поддержать вставку внешнего визуального артефакта и отделить её от GIR mapping.
 
 ### Изменения
@@ -1719,6 +1721,8 @@ Autosave сохраняет:
 - SVG не используется как semantic geometry source.
 
 ## PR 8. GeometryOS generated client
+
+**Статус:** следующий этап.
 
 **Цель:** подключить стабильный HTTP API без GIR mapping.
 

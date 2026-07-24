@@ -1,4 +1,4 @@
-# BoardDocument 0.1 contract
+# BoardDocument 0.2 contract
 
 `BoardDocument` is TutorBoard's only persisted domain source of truth. The
 contract is owned by `core`, contains JSON-compatible data only, and does not
@@ -9,7 +9,7 @@ GeometryOS transport DTOs.
 
 | Field                    | Contract                                     |
 | ------------------------ | -------------------------------------------- |
-| `schemaVersion`          | Literal `"0.1"`                              |
+| `schemaVersion`          | Literal `"0.2"`                              |
 | `id`                     | Branded `DocumentId`                         |
 | `title`                  | 1–256 characters                             |
 | `createdAt`, `updatedAt` | ISO timestamps with `updatedAt >= createdAt` |
@@ -30,7 +30,7 @@ cannot diverge between two fields.
 
 ## Board objects
 
-Version 0.1 recognizes these strict discriminated object kinds:
+Version 0.2 recognizes these strict discriminated object kinds:
 
 | Kind                 | Kind-specific data                |
 | -------------------- | --------------------------------- |
@@ -39,6 +39,7 @@ Version 0.1 recognizes these strict discriminated object kinds:
 | `drawing.rectangle`  | Positive size                     |
 | `drawing.ellipse`    | Positive radius                   |
 | `drawing.text`       | Text content                      |
+| `svg-import.svg`      | Canonical sanitized SVG, bounds and policy version |
 
 Every object also stores position, rotation, positive scale, visibility,
 locking, style, optional group membership, and one source:
@@ -124,13 +125,15 @@ Readers preserve the original input for recovery:
 
 | Input                             | Result                                      |
 | --------------------------------- | ------------------------------------------- |
-| Valid 0.1 document                | `status: "ok"`                              |
+| Valid 0.2 document                | `status: "ok"`                              |
+| Valid 0.1 document                | migrate to 0.2, then `status: "ok"`         |
 | Any other explicit schema version | `status: "incompatible-schema"` + raw       |
 | Unknown object kind               | `status: "incompatible-object"` + raw       |
 | Invalid shape or references       | `status: "invalid-document"` + raw + issues |
 | Malformed JSON text               | `status: "invalid-json"` + raw text         |
 
-Version 0.1 is the first stored version, so there is no predecessor migration.
+Version 0.1 is the first stored version. Version 0.2 adds `svg-import.svg`; the
+0.1 → 0.2 migration validates the legacy schema and changes only the version.
 Future readers must either add a tested migration path or retain the explicit
 incompatible result. They must never drop unknown data silently.
 
@@ -149,7 +152,7 @@ The canonical fixtures are:
 
 ## Invariant ownership
 
-| Invariants                     | Enforcement in 0.1                                              |
+| Invariants                     | Enforcement in 0.2                                              |
 | ------------------------------ | --------------------------------------------------------------- |
 | `DOC-001`–`DOC-006`            | Core types, strict schema, cross-validator, round-trip fixtures |
 | `DOC-007`–`DOC-009`            | Explicit read outcomes preserving raw input                     |

@@ -4,7 +4,6 @@ import {
   documentId,
   persistenceOperationId,
   type BoardDocument,
-  type BoardDocumentLoadResult,
   type BoardDocumentRepository,
   type DocumentId,
   type LocalRevisionId,
@@ -14,6 +13,7 @@ import {
   LocalDocumentAutosave,
   type LocalAutosaveState,
 } from "../modules/local-persistence/public";
+import { validateStoredSvgDocument } from "../modules/svg-import/public";
 import { App, createInitialDocument, type AppPersistenceStatus } from "./App";
 
 const localDocumentId = documentId("document:local-board");
@@ -34,10 +34,6 @@ type BootstrapState =
   | {
       readonly currentRevisionId: LocalRevisionId | null;
       readonly kind: "recovery-required";
-      readonly result: Extract<
-        BoardDocumentLoadResult,
-        { readonly status: "recovery-required" }
-      >;
     }
   | {
       readonly code: string;
@@ -143,6 +139,13 @@ function PersistedWorkspace({
       setImportError(imported.message);
       return;
     }
+    const svgValidation = validateStoredSvgDocument(imported.document);
+    if (svgValidation.status === "error") {
+      setImportError(
+        `${svgValidation.diagnostic.code}: импорт содержит несовместимый SVG-объект.`,
+      );
+      return;
+    }
     setImportError(null);
     setActiveDocument(imported.document);
     setWorkspaceKey((current) => current + 1);
@@ -198,6 +201,13 @@ function RecoveryScreen({
     );
     if (result.status === "error") {
       setError(result.message);
+      return;
+    }
+    const svgValidation = validateStoredSvgDocument(result.document);
+    if (svgValidation.status === "error") {
+      setError(
+        `${svgValidation.diagnostic.code}: импорт содержит несовместимый SVG-объект.`,
+      );
       return;
     }
     onContinue(result.document, currentRevisionId);
@@ -266,28 +276,32 @@ export function PersistedApp({ repository }: PersistedAppProps) {
           notice: null,
           persistedDocument: null,
         });
-      } else if (result.status === "restored") {
-        setBootstrap({
-          document: result.document,
-          initialRevisionId: result.revisionId,
-          kind: "ready",
-          notice: null,
-          persistedDocument: result.document,
-        });
-      } else if (result.status === "recovered") {
+      } else if (
+        result.status === "restored" ||
+        result.status === "recovered"
+      ) {
+        const svgValidation = validateStoredSvgDocument(result.document);
+        if (svgValidation.status === "error") {
+          setBootstrap({
+            currentRevisionId: result.revisionId,
+            kind: "recovery-required",
+          });
+          return;
+        }
         setBootstrap({
           document: result.document,
           initialRevisionId: result.revisionId,
           kind: "ready",
           notice:
-            "Повреждённая ревизия сохранена для диагностики. Открыта последняя корректная версия.",
+            result.status === "recovered"
+              ? "Повреждённая ревизия сохранена для диагностики. Открыта последняя корректная версия."
+              : null,
           persistedDocument: result.document,
         });
       } else if (result.status === "recovery-required") {
         setBootstrap({
           currentRevisionId: result.currentRevisionId,
           kind: "recovery-required",
-          result,
         });
       } else {
         setBootstrap({

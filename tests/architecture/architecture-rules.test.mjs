@@ -28,6 +28,18 @@ describe("architecture rules", () => {
     ]);
   });
 
+  it("restricts DOMPurify to the SVG import module", () => {
+    expect(
+      analyze("app/App.tsx", 'import DOMPurify from "dompurify";'),
+    ).toEqual([expect.objectContaining({ invariant: "SEC-001" })]);
+    expect(
+      analyze(
+        "modules/svg-import/sanitizer.ts",
+        'import DOMPurify from "dompurify";',
+      ),
+    ).toEqual([]);
+  });
+
   it("restricts Dexie to the persistence adapter", () => {
     expect(analyze("app/App.tsx", 'import Dexie from "dexie";')).toEqual([
       expect.objectContaining({

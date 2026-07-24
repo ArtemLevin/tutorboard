@@ -41,13 +41,13 @@ GIR → Board adapter
 | Компонент                    | Состояние                                                                                                                                      |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | GeometryOS                   | Integration-ready сервис `0.2.0`, API v1, GIR `0.2.0`, OpenAPI и TutorBoard consumer contracts                                                 |
-| TutorBoard                   | Local-durable spike: BoardDocument 0.1, canvas/tools/selection, Dexie autosave, reload restore и explicit recovery flow                    |
+| TutorBoard                   | Safe visual-import spike: BoardDocument 0.2, canvas/tools/selection, Dexie recovery и bounded SVG insertion                    |
 | tutor-assistant-web          | Развитая серверная платформа преподавателя: организации, ученики, расписание, BBB, обработка уроков, материалы, публикация и production-контур |
 | tutor-assistant              | Локальное desktop-приложение для записи, транскрибации, проверки и публикации материалов занятия                                               |
 | students-26-27               | Текущий репозиторий учебных страниц и файлов учеников                                                                                          |
 | latex-for-everyone / Latexed | Сервис редактирования, компиляции и экспорта LaTeX-документов                                                                                  |
 
-На текущем этапе `BoardDocument 0.1` подключён к заменяемому Konva renderer:
+На текущем этапе `BoardDocument 0.2` подключён к заменяемому Konva renderer:
 работают бесконечное полотно, pan, pointer-centred zoom, adaptive grid, перо,
 линии, прямоугольники, эллипсы, текст, click/Shift/marquee selection,
 перемещение, lock/unlock и delete. Каждый завершённый gesture проходит через
@@ -55,7 +55,8 @@ command boundary, а selection, preview и отменённые действия
 GeometryOS Gate 0 проверен; отсутствие machine-readable layout зафиксировано
 как compatibility gap для будущего GIR adapter. Локальная persistence уже
 восстанавливает document/viewport и сохраняет повреждённые revisions для явного
-recovery. Safe SVG и сетевой GeometryOS adapter остаются следующими этапами.
+recovery. Безопасная SVG-вставка работает как один opaque visual object с
+повторной проверкой перед render. Следующий этап — generated GeometryOS client.
 
 ---
 

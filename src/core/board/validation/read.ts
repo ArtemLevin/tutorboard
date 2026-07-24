@@ -1,6 +1,7 @@
-import type { BoardDocument } from "../document";
+import { boardDocumentSchemaVersion, type BoardDocument } from "../document";
+import { migrateBoardDocument01To02 } from "../migrations";
 import type { ValidationIssue } from "./validate";
-import { knownBoardObjectKinds } from "./schema";
+import { knownBoardObjectKinds, legacyBoardObjectKinds } from "./schema";
 import { validateBoardDocument } from "./validate";
 
 export type BoardDocumentReadResult =
@@ -28,7 +29,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function findUnknownObjectKinds(raw: unknown): readonly string[] {
+function findUnknownObjectKinds(
+  raw: unknown,
+  knownKinds: ReadonlySet<string>,
+): readonly string[] {
   if (!isRecord(raw) || !isRecord(raw.objects)) {
     return [];
   }
@@ -38,7 +42,7 @@ function findUnknownObjectKinds(raw: unknown): readonly string[] {
     if (
       isRecord(object) &&
       typeof object.kind === "string" &&
-      !knownBoardObjectKinds.has(object.kind)
+      !knownKinds.has(object.kind)
     ) {
       unknownKinds.add(object.kind);
     }
@@ -48,15 +52,30 @@ function findUnknownObjectKinds(raw: unknown): readonly string[] {
 }
 
 export function readBoardDocument(raw: unknown): BoardDocumentReadResult {
-  if (isRecord(raw) && "schemaVersion" in raw && raw.schemaVersion !== "0.1") {
+  const schemaVersion = isRecord(raw) ? raw.schemaVersion : undefined;
+  if (schemaVersion === "0.1") {
+    const objectKinds = findUnknownObjectKinds(raw, legacyBoardObjectKinds);
+    if (objectKinds.length > 0) {
+      return { status: "incompatible-object", raw, objectKinds };
+    }
+    const migrated = migrateBoardDocument01To02(raw);
+    return migrated.ok
+      ? { status: "ok", document: migrated.document }
+      : { status: "invalid-document", raw, issues: migrated.issues };
+  }
+
+  if (
+    schemaVersion !== undefined &&
+    schemaVersion !== boardDocumentSchemaVersion
+  ) {
     return {
       status: "incompatible-schema",
       raw,
-      schemaVersion: raw.schemaVersion,
+      schemaVersion,
     };
   }
 
-  const objectKinds = findUnknownObjectKinds(raw);
+  const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds);
   if (objectKinds.length > 0) {
     return { status: "incompatible-object", raw, objectKinds };
   }

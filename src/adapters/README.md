@@ -13,5 +13,6 @@ Technical Spike pull requests.
 
 Implemented adapters:
 
-- `canvas-konva` renders immutable scene read models and emits intents;
+- `canvas-konva` renders immutable scene read models, including validated SVG
+  images with bounded Blob URL lifecycle, and emits intents;
 - `persistence-dexie` owns IndexedDB transactions, revisions and recovery.

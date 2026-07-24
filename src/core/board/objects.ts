@@ -1,12 +1,15 @@
 import type { BoardObjectId, GeometryImportId, GroupId } from "./identifiers";
 import type { Size2, Vec2 } from "./primitives";
 
+export const svgSanitizerPolicyVersion = "tutorboard.svg-sanitizer/1" as const;
+
 export const boardObjectKinds = [
   "drawing.pen-stroke",
   "drawing.line",
   "drawing.rectangle",
   "drawing.ellipse",
   "drawing.text",
+  "svg-import.svg",
 ] as const;
 
 export type BoardObjectKind = (typeof boardObjectKinds)[number];
@@ -68,5 +71,25 @@ export interface TextObject extends BoardObjectBase {
   readonly text: string;
 }
 
+export interface SvgViewBox {
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface SvgObject extends BoardObjectBase {
+  readonly kind: "svg-import.svg";
+  readonly sanitizedSvg: string;
+  readonly sanitizerPolicyVersion: typeof svgSanitizerPolicyVersion;
+  readonly size: Size2;
+  readonly viewBox: SvgViewBox;
+}
+
 export type BoardObject =
-  EllipseObject | LineObject | PenStrokeObject | RectangleObject | TextObject;
+  | EllipseObject
+  | LineObject
+  | PenStrokeObject
+  | RectangleObject
+  | SvgObject
+  | TextObject;

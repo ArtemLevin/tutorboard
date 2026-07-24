@@ -5,6 +5,7 @@ import {
   createEmptyBoardDocument,
   documentId,
   groupId,
+  readBoardDocument,
   type BoardDocument,
   type CommandMetadata,
   type RectangleObject,
@@ -68,4 +69,20 @@ export function loadBoardFixture(): Record<string, unknown> {
 
 export function loadGeometryImportFixture(): Record<string, unknown> {
   return JSON.parse(geometryImportFixture) as Record<string, unknown>;
+}
+
+export function loadCurrentBoardFixture(): Record<string, unknown> {
+  const read = readBoardDocument(loadBoardFixture());
+  if (read.status !== "ok") {
+    throw new Error(`Fixture is not compatible: ${read.status}`);
+  }
+  return structuredClone(read.document) as unknown as Record<string, unknown>;
+}
+
+export function loadCurrentGeometryImportFixture(): Record<string, unknown> {
+  const read = readBoardDocument(loadGeometryImportFixture());
+  if (read.status !== "ok") {
+    throw new Error(`Fixture is not compatible: ${read.status}`);
+  }
+  return structuredClone(read.document) as unknown as Record<string, unknown>;
 }

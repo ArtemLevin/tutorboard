@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -82,7 +88,7 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByText("BoardDocument 0.1")).toBeInTheDocument();
+    expect(screen.getByText("BoardDocument 0.2")).toBeInTheDocument();
   });
 
   it("composes a drawing gesture into one document command", () => {
@@ -107,6 +113,28 @@ describe("App", () => {
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("persistence-status")).toHaveTextContent(
       "Сохранено локально",
+    );
+  });
+
+  it("inserts a safe SVG as one selected board object", async () => {
+    render(<App />);
+    const file = new File(
+      [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><rect width="80" height="40" /></svg>',
+      ],
+      "shape.svg",
+      { type: "image/svg+xml" },
+    );
+
+    fireEvent.change(screen.getByLabelText("Вставить SVG"), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("object-count")).toHaveTextContent("5 объекта"),
+    );
+    expect(screen.getByTestId("selection-count")).toHaveTextContent(
+      "1 выбрано",
     );
   });
 
