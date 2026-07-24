@@ -36,10 +36,10 @@ jobs:
       - name: Reconstruct implementation
         shell: bash
         run: |
-          cat scripts/.pr-2-6/part*.b64 > /tmp/implement-pr-2-6.py.gz.b64
-          echo "8004cf39965391479260c6dfdca832f4c079edf40e39e151843b3cf8f5e5cc25  /tmp/implement-pr-2-6.py.gz.b64" | sha256sum --check
+          cat scripts/.pr-2-6-v2/part*.b64 > /tmp/implement-pr-2-6.py.gz.b64
+          echo "3710a09c0df9dc578cedffe1c0012873ec796a1b6bccd25532ac38c77905a057  /tmp/implement-pr-2-6.py.gz.b64" | sha256sum --check
           base64 --decode /tmp/implement-pr-2-6.py.gz.b64 | gzip --decompress > /tmp/implement-pr-2-6.py
-          echo "6aae300b37f7fe5169d81e216649ea018731b882e93c5128122bb81ad521929d  /tmp/implement-pr-2-6.py" | sha256sum --check
+          echo "810e39d7774724f2939cb16cc422c97d165e8c0059fe69069ce8312186bd4d8a  /tmp/implement-pr-2-6.py" | sha256sum --check
           python /tmp/implement-pr-2-6.py
 
       - name: Refresh locked dependencies
@@ -66,7 +66,7 @@ jobs:
       - name: Commit verified implementation
         shell: bash
         run: |
-          rm -rf scripts/.pr-2-6 .github/workflows/implement-pr-2-6.yml
+          rm -rf scripts/.pr-2-6 scripts/.pr-2-6-v2 .github/workflows/implement-pr-2-6.yml
           git checkout origin/main -- .github/workflows/ci.yml
           git diff --check
           git config user.name "github-actions[bot]"
