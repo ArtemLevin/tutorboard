@@ -3,21 +3,21 @@
 > node scripts/generate-geometryos-contract.mjs
 
 ✨ openapi-typescript 7.13.0
-🚀 /home/runner/work/tutorboard/tutorboard/contracts/geometryos/openapi.v1.json → /home/runner/work/tutorboard/tutorboard/src/adapters/geometryos-http/generated/geometryos.types.ts [71.7ms]
-/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/vocabularies/discriminator/index.js:29
-            throw new Error("discriminator: mapping is not supported");
-                  ^
+🚀 /home/runner/work/tutorboard/tutorboard/contracts/geometryos/openapi.v1.json → /home/runner/work/tutorboard/tutorboard/src/adapters/geometryos-http/generated/geometryos.types.ts [94.1ms]
+/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/resolve.js:85
+    return id ? id.replace(TRAILING_SLASH_HASH, "") : "";
+                   ^
 
-Error: discriminator: mapping is not supported
-    at Object.code (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/vocabularies/discriminator/index.js:29:19)
-    at keywordCode (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/validate/index.js:464:13)
-    at /home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/validate/index.js:222:17
-    at CodeGen.code (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/codegen/index.js:439:13)
-    at CodeGen.block (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/codegen/index.js:568:18)
-    at iterateKeywords (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/validate/index.js:219:9)
-    at groupKeywords (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/validate/index.js:200:13)
-    at /home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/validate/index.js:192:13
-    at CodeGen.code (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/codegen/index.js:439:13)
-    at CodeGen.block (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/codegen/index.js:568:18)
+TypeError: id.replace is not a function
+    at normalizeId (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/compile/resolve.js:85:20)
+    at Ajv2020.getSchEnv (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/core.js:501:40)
+    at Ajv2020.getSchema (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/core.js:275:40)
+    at getValidate (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/standalone/index.js:16:23)
+    at multiExportsCode (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/standalone/index.js:36:23)
+    at standaloneCode (/home/runner/work/tutorboard/tutorboard/tools/geometryos-contract/node_modules/ajv/dist/standalone/index.js:13:15)
+    at generateValidators (file:///home/runner/work/tutorboard/tutorboard/scripts/geometryos-contract-lib.mjs:135:10)
+    at generateContract (file:///home/runner/work/tutorboard/tutorboard/scripts/geometryos-contract-lib.mjs:184:5)
+    at file:///home/runner/work/tutorboard/tutorboard/scripts/generate-geometryos-contract.mjs:3:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
 
 Node.js v24.18.0
