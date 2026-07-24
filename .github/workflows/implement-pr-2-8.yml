@@ -123,7 +123,7 @@ jobs:
         run: npm audit --audit-level=high
 
       - name: Remove one-shot implementation helpers
-        run: rm scripts/implement-pr-2-8.py scripts/fix-pr-2-8-toolchain.py scripts/fix-pr-2-8-discriminator.py scripts/fix-pr-2-8-standalone.py scripts/fix-pr-2-8-generation-format.py scripts/fix-pr-2-8-lint-boundaries.py scripts/fix-pr-2-8-test-narrowing.py scripts/fix-pr-2-8-vitest-exclude.py .github/workflows/implement-pr-2-8.yml implementation-diagnostic.txt 2>/dev/null || true
+        run: rm scripts/implement-pr-2-8.py scripts/fix-pr-2-8-toolchain.py scripts/fix-pr-2-8-discriminator.py scripts/fix-pr-2-8-standalone.py scripts/fix-pr-2-8-generation-format.py scripts/fix-pr-2-8-lint-boundaries.py scripts/fix-pr-2-8-test-narrowing.py scripts/fix-pr-2-8-vitest-exclude.py implementation-diagnostic.txt 2>/dev/null || true
 
       - name: Publish verified implementation
         run: |
