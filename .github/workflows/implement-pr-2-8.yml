@@ -24,6 +24,7 @@ jobs:
       - name: Check out implementation branch
         uses: actions/checkout@v7
         with:
+          ref: agent/geometryos-generated-client
           fetch-depth: 0
 
       - name: Set up Node.js
@@ -36,7 +37,13 @@ jobs:
         run: python3 scripts/implement-pr-2-8.py
 
       - name: Install exact code-generation dependencies
-        run: npm install --save-dev --save-exact openapi-typescript@7.13.0 ajv@8.17.1
+        shell: bash
+        run: |
+          set -o pipefail
+          npm install --save-dev --save-exact openapi-typescript@7.13.0 ajv@8.17.1 2>&1 | tee /tmp/npm-install.log || {
+            tail -n 100 /tmp/npm-install.log
+            exit 1
+          }
 
       - name: Vendor pinned GeometryOS release artifacts
         env:
