@@ -33,14 +33,20 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Reconstruct implementation
+      - name: Verify implementation payload
         shell: bash
         run: |
           cat scripts/.pr-2-6-v2/part*.b64 > /tmp/implement-pr-2-6.py.gz.b64
           echo "3710a09c0df9dc578cedffe1c0012873ec796a1b6bccd25532ac38c77905a057  /tmp/implement-pr-2-6.py.gz.b64" | sha256sum --check
+
+      - name: Decode implementation payload
+        shell: bash
+        run: |
           base64 --decode /tmp/implement-pr-2-6.py.gz.b64 | gzip --decompress > /tmp/implement-pr-2-6.py
           echo "810e39d7774724f2939cb16cc422c97d165e8c0059fe69069ce8312186bd4d8a  /tmp/implement-pr-2-6.py" | sha256sum --check
-          python /tmp/implement-pr-2-6.py
+
+      - name: Apply source changes
+        run: python /tmp/implement-pr-2-6.py
 
       - name: Refresh locked dependencies
         run: npm install --package-lock-only --ignore-scripts
