@@ -78,5 +78,17 @@ schema `0.1`; no document migration is required by PR 2.6.
 | `DOC-001`, `DOC-002`, `DOC-007`–`DOC-009`, `DOC-012` | unchanged core schema, reader and serialization fixtures |
 | `PERSIST-001`–`PERSIST-006` | repository, autosave, corruption and browser reload tests |
 
+## Residual risks
+
+- Autosave uses a 350 ms debounce. An abrupt browser-process termination before
+  the timer fires can lose only the latest unsaved in-memory change; previously
+  committed revisions remain intact.
+- Revision retention is intentionally unbounded during the Technical Spike.
+  Compaction and storage quotas require measured document-size data in a later
+  product-foundation PR.
+- Multi-tab writes are detected through optimistic revision conflicts, but the
+  current resolution flow is export diagnostics and reload rather than automatic
+  merge.
+
 Server revisions, offline queues, archive and the local-to-server source-of-truth
 transition remain assigned to later phases.
