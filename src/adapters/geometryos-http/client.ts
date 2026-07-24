@@ -6,7 +6,10 @@ import {
   type GeometryOsRequestId,
 } from "../../core/public";
 
-import { readBoundedResponseBody } from "./body-reader";
+import {
+  readBoundedResponseBody,
+  type BoundedBodyReadResult,
+} from "./body-reader";
 import { isJsonMediaType, isProblemMediaType } from "./content-type";
 import {
   createDefaultGeometryOsRequestId,
@@ -207,10 +210,20 @@ async function executeGenerate(
     return requestIdFailure;
   }
 
-  const body = await readBoundedResponseBody(
-    response,
-    options.maxResponseBytes,
-  );
+  let body: BoundedBodyReadResult;
+  try {
+    body = await readBoundedResponseBody(response, options.maxResponseBytes);
+  } catch (error) {
+    if (signal.aborted) {
+      throw error;
+    }
+    return {
+      kind: "transport-failure",
+      requestId,
+      code: "geometryos.network-failure",
+      retryable: true,
+    };
+  }
   if (body.status === "too-large") {
     return incompatible(
       requestId,
