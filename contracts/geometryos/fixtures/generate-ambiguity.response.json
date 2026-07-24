@@ -1,0 +1,22 @@
+{
+  "ambiguities": [
+    {
+      "code": "missing_angle",
+      "message": "Не указано, биссектрису какого угла нужно построить.",
+      "options": [
+        "angle_A",
+        "angle_B",
+        "angle_C"
+      ]
+    }
+  ],
+  "confidence": 0.4,
+  "explanation": "Bisector request lacks angle target.",
+  "gir": null,
+  "schema_version": "0.2.0",
+  "status": "needs_clarification",
+  "svg": null,
+  "tikz": null,
+  "validation_report": null,
+  "warnings": []
+}

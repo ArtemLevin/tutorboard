@@ -1,0 +1,100 @@
+{
+  "constraints": [
+    {
+      "id": "c_noncol_abc",
+      "points": [
+        "A",
+        "B",
+        "C"
+      ],
+      "type": "non_collinear"
+    },
+    {
+      "foot": "H",
+      "from_point": "A",
+      "id": "c_altitude_a_bc",
+      "segment": "AH",
+      "to_object": "BC",
+      "type": "altitude"
+    }
+  ],
+  "construction_steps": [
+    {
+      "action": "construct_triangle",
+      "constraints": [
+        "c_noncol_abc"
+      ],
+      "id": "step_construct_triangle",
+      "objects": [
+        "A",
+        "B",
+        "C",
+        "BC",
+        "ABC"
+      ],
+      "reason": "Construct triangle ABC."
+    },
+    {
+      "action": "construct_altitude",
+      "constraints": [
+        "c_altitude_a_bc"
+      ],
+      "id": "step_construct_altitude",
+      "objects": [
+        "H",
+        "AH"
+      ],
+      "reason": "Construct altitude from A to BC."
+    }
+  ],
+  "metadata": {},
+  "objects": [
+    {
+      "id": "A",
+      "label": "A",
+      "type": "point"
+    },
+    {
+      "id": "B",
+      "label": "B",
+      "type": "point"
+    },
+    {
+      "id": "C",
+      "label": "C",
+      "type": "point"
+    },
+    {
+      "id": "H",
+      "label": "H",
+      "type": "point"
+    },
+    {
+      "id": "BC",
+      "points": [
+        "B",
+        "C"
+      ],
+      "type": "segment"
+    },
+    {
+      "id": "AH",
+      "points": [
+        "A",
+        "H"
+      ],
+      "type": "segment"
+    },
+    {
+      "id": "ABC",
+      "type": "triangle",
+      "vertices": [
+        "A",
+        "B",
+        "C"
+      ]
+    }
+  ],
+  "scene_type": "2d",
+  "schema_version": "0.2.0"
+}

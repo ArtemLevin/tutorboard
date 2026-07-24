@@ -6,7 +6,9 @@ const sourceExtensions = new Set([".cts", ".mts", ".ts", ".tsx"]);
 const coreRuntimeDependencies = new Set([
   "dexie",
   "dompurify",
+  "ajv",
   "konva",
+  "openapi-typescript",
   "react",
   "react-dom",
   "react-konva",
@@ -171,6 +173,27 @@ function collectReducerNondeterminism(sourceFile) {
   return [...forbidden].sort();
 }
 
+function collectDirectFetchUsage(sourceFile) {
+  const usages = [];
+
+  function visit(node) {
+    if (ts.isCallExpression(node)) {
+      const call = propertyPath(node.expression);
+      if (
+        call === "fetch" ||
+        call === "globalThis.fetch" ||
+        call === "window.fetch"
+      ) {
+        usages.push(call);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return usages;
+}
+
 function isReducerFile(filePath, srcRoot) {
   const relativePath = path.relative(srcRoot, filePath);
   return (
@@ -245,6 +268,21 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
     }
   }
 
+  if (!(
+    importer.layer === "adapters" && importer.owner === "geometryos-http"
+  )) {
+    for (const source of collectDirectFetchUsage(sourceFile)) {
+      violations.push(
+        violation(
+          "ARCH-003",
+          filePath,
+          source,
+          "network requests must cross a declared adapter boundary",
+        ),
+      );
+    }
+  }
+
   for (const specifier of collectSpecifiers(sourceFile)) {
     const targetPath = resolveLocalTarget(filePath, specifier, srcRoot);
 
@@ -294,6 +332,24 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
           ),
         );
       }
+      continue;
+    }
+
+    const generatedRelativePath = path.relative(srcRoot, targetPath);
+    if (
+      /(?:^|[/\\])adapters[/\\]geometryos-http[/\\]generated(?:[/\\]|$)/.test(
+        generatedRelativePath,
+      ) &&
+      !(importer.layer === "adapters" && importer.owner === "geometryos-http")
+    ) {
+      violations.push(
+        violation(
+          "GEO-003",
+          filePath,
+          specifier,
+          "generated GeometryOS DTOs are private to the HTTP adapter",
+        ),
+      );
       continue;
     }
 

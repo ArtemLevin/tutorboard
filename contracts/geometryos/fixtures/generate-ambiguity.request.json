@@ -1,0 +1,8 @@
+{
+  "input": "Постройте треугольник ABC. Проведите биссектрису.",
+  "input_type": "text",
+  "mode": "strict",
+  "output": [
+    "svg"
+  ]
+}

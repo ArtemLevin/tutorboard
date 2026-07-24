@@ -19,7 +19,10 @@
     "test:watch": "vitest",
     "architecture": "node scripts/check-architecture.mjs",
     "e2e": "playwright test",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run architecture && npm run build"
+    "check": "npm run geometryos:check && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run architecture && npm run build",
+    "geometryos:vendor": "node scripts/vendor-geometryos-contract.mjs",
+    "geometryos:generate": "node scripts/generate-geometryos-contract.mjs",
+    "geometryos:check": "node scripts/check-geometryos-contract.mjs"
   },
   "dependencies": {
     "dexie": "4.4.4",
@@ -39,6 +42,7 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.4",
+    "ajv": "8.17.1",
     "eslint": "10.7.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-react-refresh": "0.5.3",

@@ -1,0 +1,106 @@
+{
+  "cases": [
+    {
+      "id": "generate-success",
+      "media_type": "application/json",
+      "method": "POST",
+      "mode": "executable",
+      "path": "/api/v1/generate",
+      "request": "generate-success.request.json",
+      "response": "generate-success.response.json",
+      "status": 200
+    },
+    {
+      "id": "generate-ambiguity",
+      "media_type": "application/json",
+      "method": "POST",
+      "mode": "executable",
+      "path": "/api/v1/generate",
+      "request": "generate-ambiguity.request.json",
+      "response": "generate-ambiguity.response.json",
+      "status": 200
+    },
+    {
+      "id": "generate-unsupported",
+      "media_type": "application/json",
+      "method": "POST",
+      "mode": "executable",
+      "path": "/api/v1/generate",
+      "request": "generate-unsupported.request.json",
+      "response": "generate-unsupported.response.json",
+      "status": 200
+    },
+    {
+      "id": "validate-canonical",
+      "media_type": "application/json",
+      "method": "POST",
+      "mode": "executable",
+      "path": "/api/v1/validate-gir",
+      "request": "validate-canonical.request.json",
+      "response": "validate-canonical.response.json",
+      "status": 200
+    },
+    {
+      "id": "validate-legacy",
+      "media_type": "application/json",
+      "method": "POST",
+      "mode": "executable",
+      "path": "/api/v1/validate-gir",
+      "request": "validate-legacy.request.json",
+      "response": "validate-legacy.response.json",
+      "status": 200
+    },
+    {
+      "id": "render-svg",
+      "media_type": "application/json",
+      "method": "POST",
+      "mode": "executable",
+      "path": "/api/v1/render/svg",
+      "request": "render-svg.request.json",
+      "response": "render-svg.response.json",
+      "status": 200
+    },
+    {
+      "id": "render-tikz",
+      "media_type": "application/json",
+      "method": "POST",
+      "mode": "executable",
+      "path": "/api/v1/render/tikz",
+      "request": "render-tikz.request.json",
+      "response": "render-tikz.response.json",
+      "status": 200
+    },
+    {
+      "id": "request-validation",
+      "media_type": "application/problem+json",
+      "method": "POST",
+      "mode": "executable",
+      "path": "/api/v1/generate",
+      "request": "generate-invalid.request.json",
+      "response": "request-validation.problem.json",
+      "status": 422
+    },
+    {
+      "id": "operation-timeout",
+      "media_type": "application/problem+json",
+      "method": "POST",
+      "mode": "injected_executor",
+      "path": "/api/v1/generate",
+      "request": "generate-success.request.json",
+      "response": "operation-timeout.problem.json",
+      "status": 504
+    },
+    {
+      "id": "internal-error",
+      "media_type": "application/problem+json",
+      "method": "POST",
+      "mode": "injected_executor",
+      "path": "/api/v1/generate",
+      "request": "generate-success.request.json",
+      "response": "internal-error.problem.json",
+      "status": 500
+    }
+  ],
+  "contract": "tutorboard/v1",
+  "openapi": "../../../schemas/openapi.v1.json"
+}

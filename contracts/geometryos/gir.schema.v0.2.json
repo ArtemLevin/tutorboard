@@ -1,0 +1,1068 @@
+{
+  "$defs": {
+    "AltitudeConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "foot": {
+          "title": "Foot",
+          "type": "string"
+        },
+        "from_point": {
+          "title": "From Point",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "segment": {
+          "title": "Segment",
+          "type": "string"
+        },
+        "to_object": {
+          "title": "To Object",
+          "type": "string"
+        },
+        "type": {
+          "const": "altitude",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "from_point",
+        "to_object",
+        "foot",
+        "segment"
+      ],
+      "title": "AltitudeConstraint",
+      "type": "object"
+    },
+    "AngleBisectorConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "angle": {
+          "title": "Angle",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "ray": {
+          "title": "Ray",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "type": {
+          "const": "angle_bisector",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "angle",
+        "ray"
+      ],
+      "title": "AngleBisectorConstraint",
+      "type": "object"
+    },
+    "AngleObject": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "points": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Points",
+          "type": "array"
+        },
+        "type": {
+          "const": "angle",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "points"
+      ],
+      "title": "AngleObject",
+      "type": "object"
+    },
+    "BelongsToConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "object": {
+          "title": "Object",
+          "type": "string"
+        },
+        "point": {
+          "title": "Point",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "type": {
+          "const": "belongs_to",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "point",
+        "object"
+      ],
+      "title": "BelongsToConstraint",
+      "type": "object"
+    },
+    "CircleObject": {
+      "additionalProperties": false,
+      "properties": {
+        "center": {
+          "title": "Center",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "radius_point": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Radius Point"
+        },
+        "type": {
+          "const": "circle",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "center"
+      ],
+      "title": "CircleObject",
+      "type": "object"
+    },
+    "CircumcircleConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "circle": {
+          "title": "Circle",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "triangle": {
+          "title": "Triangle",
+          "type": "string"
+        },
+        "type": {
+          "const": "circumcircle",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "triangle",
+        "circle"
+      ],
+      "title": "CircumcircleConstraint",
+      "type": "object"
+    },
+    "CollinearConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "points": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Points",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "type": {
+          "const": "collinear",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "points"
+      ],
+      "title": "CollinearConstraint",
+      "type": "object"
+    },
+    "ConstructionStep": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "constraints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Constraints",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "objects": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Objects",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "objects"
+      ],
+      "title": "ConstructionStep",
+      "type": "object"
+    },
+    "EqualLengthConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "objects": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Objects",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "type": {
+          "const": "equal_length",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "objects"
+      ],
+      "title": "EqualLengthConstraint",
+      "type": "object"
+    },
+    "IncircleConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "circle": {
+          "title": "Circle",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "triangle": {
+          "title": "Triangle",
+          "type": "string"
+        },
+        "type": {
+          "const": "incircle",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "triangle",
+        "circle"
+      ],
+      "title": "IncircleConstraint",
+      "type": "object"
+    },
+    "IntersectionConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "objects": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Objects",
+          "type": "array"
+        },
+        "point": {
+          "title": "Point",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "type": {
+          "const": "intersection",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "point",
+        "objects"
+      ],
+      "title": "IntersectionConstraint",
+      "type": "object"
+    },
+    "LabelObject": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "label",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "text",
+        "target"
+      ],
+      "title": "LabelObject",
+      "type": "object"
+    },
+    "LineObject": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "points": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Points",
+          "type": "array"
+        },
+        "type": {
+          "const": "line",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "points"
+      ],
+      "title": "LineObject",
+      "type": "object"
+    },
+    "MedianConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "from_point": {
+          "title": "From Point",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "midpoint": {
+          "title": "Midpoint",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "segment": {
+          "title": "Segment",
+          "type": "string"
+        },
+        "to_object": {
+          "title": "To Object",
+          "type": "string"
+        },
+        "type": {
+          "const": "median",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "from_point",
+        "to_object",
+        "midpoint",
+        "segment"
+      ],
+      "title": "MedianConstraint",
+      "type": "object"
+    },
+    "MidpointConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "object": {
+          "title": "Object",
+          "type": "string"
+        },
+        "point": {
+          "title": "Point",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "type": {
+          "const": "midpoint",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "point",
+        "object"
+      ],
+      "title": "MidpointConstraint",
+      "type": "object"
+    },
+    "NonCollinearConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "points": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Points",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "type": {
+          "const": "non_collinear",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "points"
+      ],
+      "title": "NonCollinearConstraint",
+      "type": "object"
+    },
+    "ParallelConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "objects": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Objects",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "type": {
+          "const": "parallel",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "objects"
+      ],
+      "title": "ParallelConstraint",
+      "type": "object"
+    },
+    "PerpendicularConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "objects": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Objects",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "type": {
+          "const": "perpendicular",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "objects"
+      ],
+      "title": "PerpendicularConstraint",
+      "type": "object"
+    },
+    "PointObject": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "type": {
+          "const": "point",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "PointObject",
+      "type": "object"
+    },
+    "RayObject": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "string"
+        },
+        "through": {
+          "title": "Through",
+          "type": "string"
+        },
+        "type": {
+          "const": "ray",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "start",
+        "through"
+      ],
+      "title": "RayObject",
+      "type": "object"
+    },
+    "SegmentObject": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "points": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Points",
+          "type": "array"
+        },
+        "type": {
+          "const": "segment",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "points"
+      ],
+      "title": "SegmentObject",
+      "type": "object"
+    },
+    "TriangleObject": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "triangle",
+          "title": "Type",
+          "type": "string"
+        },
+        "vertices": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Vertices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "vertices"
+      ],
+      "title": "TriangleObject",
+      "type": "object"
+    }
+  },
+  "$id": "urn:geometryos:gir:0.2.0",
+  "additionalProperties": false,
+  "properties": {
+    "constraints": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "altitude": "#/$defs/AltitudeConstraint",
+            "angle_bisector": "#/$defs/AngleBisectorConstraint",
+            "belongs_to": "#/$defs/BelongsToConstraint",
+            "circumcircle": "#/$defs/CircumcircleConstraint",
+            "collinear": "#/$defs/CollinearConstraint",
+            "equal_length": "#/$defs/EqualLengthConstraint",
+            "incircle": "#/$defs/IncircleConstraint",
+            "intersection": "#/$defs/IntersectionConstraint",
+            "median": "#/$defs/MedianConstraint",
+            "midpoint": "#/$defs/MidpointConstraint",
+            "non_collinear": "#/$defs/NonCollinearConstraint",
+            "parallel": "#/$defs/ParallelConstraint",
+            "perpendicular": "#/$defs/PerpendicularConstraint"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/BelongsToConstraint"
+          },
+          {
+            "$ref": "#/$defs/CollinearConstraint"
+          },
+          {
+            "$ref": "#/$defs/NonCollinearConstraint"
+          },
+          {
+            "$ref": "#/$defs/ParallelConstraint"
+          },
+          {
+            "$ref": "#/$defs/PerpendicularConstraint"
+          },
+          {
+            "$ref": "#/$defs/EqualLengthConstraint"
+          },
+          {
+            "$ref": "#/$defs/MidpointConstraint"
+          },
+          {
+            "$ref": "#/$defs/IntersectionConstraint"
+          },
+          {
+            "$ref": "#/$defs/AltitudeConstraint"
+          },
+          {
+            "$ref": "#/$defs/MedianConstraint"
+          },
+          {
+            "$ref": "#/$defs/AngleBisectorConstraint"
+          },
+          {
+            "$ref": "#/$defs/CircumcircleConstraint"
+          },
+          {
+            "$ref": "#/$defs/IncircleConstraint"
+          }
+        ]
+      },
+      "title": "Constraints",
+      "type": "array"
+    },
+    "construction_steps": {
+      "items": {
+        "$ref": "#/$defs/ConstructionStep"
+      },
+      "title": "Construction Steps",
+      "type": "array"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "objects": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "angle": "#/$defs/AngleObject",
+            "circle": "#/$defs/CircleObject",
+            "label": "#/$defs/LabelObject",
+            "line": "#/$defs/LineObject",
+            "point": "#/$defs/PointObject",
+            "ray": "#/$defs/RayObject",
+            "segment": "#/$defs/SegmentObject",
+            "triangle": "#/$defs/TriangleObject"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/PointObject"
+          },
+          {
+            "$ref": "#/$defs/SegmentObject"
+          },
+          {
+            "$ref": "#/$defs/LineObject"
+          },
+          {
+            "$ref": "#/$defs/RayObject"
+          },
+          {
+            "$ref": "#/$defs/CircleObject"
+          },
+          {
+            "$ref": "#/$defs/TriangleObject"
+          },
+          {
+            "$ref": "#/$defs/AngleObject"
+          },
+          {
+            "$ref": "#/$defs/LabelObject"
+          }
+        ]
+      },
+      "title": "Objects",
+      "type": "array"
+    },
+    "scene_type": {
+      "const": "2d",
+      "title": "Scene Type",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.2.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "scene_type",
+    "objects",
+    "constraints",
+    "construction_steps"
+  ],
+  "title": "GirScene",
+  "type": "object",
+  "x-gir-schema-version": "0.2.0"
+}

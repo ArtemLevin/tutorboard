@@ -9,6 +9,7 @@ export default tseslint.config(
     ignores: [
       "coverage",
       "dist",
+      "src/adapters/geometryos-http/generated",
       "node_modules",
       "playwright-report",
       "test-results",

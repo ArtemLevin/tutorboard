@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "tutorboard.geometryos-contract/1",
+  "sourceRepository": "ArtemLevin/geometryos",
+  "sourceCommit": "a9eb95852328a4665f81d16cee30966cb227676c",
+  "serviceVersion": "0.2.0",
+  "openApiVersion": "1.0.0",
+  "apiMajor": "v1",
+  "girSchemaVersion": "0.2.0",
+  "consumerContract": "tutorboard/v1",
+  "requestIdHeader": "X-Request-ID",
+  "openApiSha256": "70815f28ee32e300744c7ac841a0b63b4c1153cccefa066507049ccd19034ea2",
+  "girSchemaSha256": "dae399fa8a23458802760807c64f7b412d46ba81bb62b248cea136d714987993",
+  "fixtureManifestSha256": "3694c788e4e94d1c636510ec3ce73f70cebd63a0c42743e94f19ab6d29af12a3",
+  "sourcePaths": {
+    "openApi": "schemas/openapi.v1.json",
+    "girSchema": "schemas/gir-0.2.schema.json",
+    "fixtureManifest": "contracts/tutorboard/v1/manifest.json"
+  }
+}

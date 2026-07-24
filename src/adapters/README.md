@@ -16,3 +16,5 @@ Implemented adapters:
 - `canvas-konva` renders immutable scene read models, including validated SVG
   images with bounded Blob URL lifecycle, and emits intents;
 - `persistence-dexie` owns IndexedDB transactions, revisions and recovery.
+
+- `geometryos-http` owns the pinned generated DTO/runtime-validation boundary, bounded HTTP transport, request correlation and normalized GeometryOS outcomes.

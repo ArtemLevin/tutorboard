@@ -1,147 +1,4 @@
-from pathlib import Path
-import json
-
-root = Path(__file__).resolve().parents[1]
-
-eslint_path = root / "eslint.config.js"
-eslint = eslint_path.read_text(encoding="utf-8")
-needle = '      "dist",\n'
-replacement = '      "dist",\n      "src/adapters/geometryos-http/generated",\n'
-if replacement not in eslint:
-    if needle not in eslint:
-        raise RuntimeError("ESLint ignore list was not found")
-    eslint = eslint.replace(needle, replacement, 1)
-eslint_path.write_text(eslint, encoding="utf-8")
-
-tsconfig_path = root / "tsconfig.app.json"
-tsconfig = json.loads(tsconfig_path.read_text(encoding="utf-8"))
-tsconfig["include"] = [item for item in tsconfig["include"] if item != "tests/contracts"]
-tsconfig_path.write_text(json.dumps(tsconfig, indent=2) + "\n", encoding="utf-8")
-
-contract_ts = root / "tests/contracts/geometryos-contract.test.ts"
-if contract_ts.exists():
-    contract_ts.unlink()
-contract_mjs = root / "tests/contracts/geometryos-contract.test.mjs"
-contract_mjs.write_text(
-    '''// @vitest-environment node
-
-import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
-
-import { describe, expect, it } from "vitest";
-
-import { geometryOsContractMetadata } from "../../src/adapters/geometryos-http/public.ts";
-import {
-  validateGenerateRequest,
-  validateGenerateResponse,
-  validateProblemDetail,
-} from "../../src/adapters/geometryos-http/validation.ts";
-
-const root = path.resolve(process.cwd(), "contracts/geometryos");
-
-function json(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, "utf8"));
-}
-
-function sha256(filePath) {
-  return crypto
-    .createHash("sha256")
-    .update(fs.readFileSync(filePath))
-    .digest("hex");
-}
-
-function collectJsonFiles(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const value = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      return collectJsonFiles(value);
-    }
-    return entry.name.endsWith(".json") ? [value] : [];
-  });
-}
-
-function visit(value, callback) {
-  callback(value);
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      visit(item, callback);
-    }
-  } else if (value !== null && typeof value === "object") {
-    for (const item of Object.values(value)) {
-      visit(item, callback);
-    }
-  }
-}
-
-describe("pinned GeometryOS contract", () => {
-  it("matches the approved artifact hashes and metadata", () => {
-    const manifest = json(path.join(root, "contract-manifest.json"));
-    expect(sha256(path.join(root, "openapi.v1.json"))).toBe(
-      manifest.openApiSha256,
-    );
-    expect(sha256(path.join(root, "gir.schema.v0.2.json"))).toBe(
-      manifest.girSchemaSha256,
-    );
-    expect(sha256(path.join(root, "fixtures/manifest.json"))).toBe(
-      manifest.fixtureManifestSha256,
-    );
-    expect(geometryOsContractMetadata).toMatchObject({
-      sourceCommit: manifest.sourceCommit,
-      openApiVersion: "1.0.0",
-      apiMajor: "v1",
-      girSchemaVersion: "0.2.0",
-      consumerContract: "tutorboard/v1",
-    });
-  });
-
-  it("validates producer consumer fixtures through generated validators", () => {
-    const counts = { request: 0, response: 0, problem: 0 };
-    for (const filePath of collectJsonFiles(path.join(root, "fixtures"))) {
-      if (filePath.endsWith(`${path.sep}manifest.json`)) {
-        continue;
-      }
-      visit(json(filePath), (candidate) => {
-        if (candidate === null || typeof candidate !== "object") {
-          return;
-        }
-        if (
-          candidate.input_type === "text" &&
-          typeof candidate.input === "string" &&
-          validateGenerateRequest(candidate).valid
-        ) {
-          counts.request += 1;
-        }
-        if (
-          ["success", "needs_clarification", "error"].includes(
-            String(candidate.status),
-          ) &&
-          validateGenerateResponse(candidate).valid
-        ) {
-          counts.response += 1;
-        }
-        if (
-          typeof candidate.status === "number" &&
-          typeof candidate.request_id === "string" &&
-          typeof candidate.code === "string" &&
-          validateProblemDetail(candidate).valid
-        ) {
-          counts.problem += 1;
-        }
-      });
-    }
-    expect(counts.request).toBeGreaterThan(0);
-    expect(counts.response).toBeGreaterThan(0);
-    expect(counts.problem).toBeGreaterThan(0);
-  });
-});
-''',
-    encoding="utf-8",
-)
-
-unit_path = root / "tests/unit/adapters/geometryos-http/client.test.ts"
-unit_path.write_text(
-    '''import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createGeometryOsHttpClient } from "../../../../src/adapters/geometryos-http/public";
 import { geometryOsRequestId } from "../../../../src/core/public";
@@ -171,7 +28,10 @@ const domainError = {
   status: "error",
   confidence: 0,
   warnings: [
-    { code: "unsupported_construction", message: "Construction is unsupported." },
+    {
+      code: "unsupported_construction",
+      message: "Construction is unsupported.",
+    },
   ],
   ambiguities: [],
   explanation: "No supported construction matched the input.",
@@ -239,10 +99,15 @@ describe("GeometryOS HTTP client", () => {
       throw new Error("Expected one GeometryOS request.");
     }
     const [url, init] = call;
-    expect(String(url)).toBe("https://geometry.example.test/api/v1/generate");
+    const requestedUrl =
+      typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+    expect(requestedUrl).toBe("https://geometry.example.test/api/v1/generate");
     expect(init?.method).toBe("POST");
     expect(new Headers(init?.headers).get("X-Request-ID")).toBe(requestId);
-    expect(JSON.parse(String(init?.body))).toEqual({
+    if (typeof init?.body !== "string") {
+      throw new TypeError("Expected a JSON string request body.");
+    }
+    expect(JSON.parse(init.body)).toEqual({
       input_type: "text",
       input: "Построй треугольник ABC",
       mode: "strict",
@@ -266,7 +131,8 @@ describe("GeometryOS HTTP client", () => {
       schema_version: "0.2.0",
     };
     await expect(
-      client(resolvedFetch(clarification)).startGenerate({ prompt: "x" }).result,
+      client(resolvedFetch(clarification)).startGenerate({ prompt: "x" })
+        .result,
     ).resolves.toMatchObject({ kind: "needs-clarification" });
   });
 
@@ -341,8 +207,9 @@ describe("GeometryOS HTTP client", () => {
 
   it("bounds response bodies before parsing", async () => {
     await expect(
-      client(resolvedFetch(success), { limit: 16 }).startGenerate({ prompt: "x" })
-        .result,
+      client(resolvedFetch(success), { limit: 16 }).startGenerate({
+        prompt: "x",
+      }).result,
     ).resolves.toMatchObject({
       kind: "incompatible-contract",
       code: "geometryos.response-too-large",
@@ -379,7 +246,7 @@ describe("GeometryOS HTTP client", () => {
   it("does not retry and isolates concurrent cancellation", async () => {
     const calls: AbortSignal[] = [];
     const fetchImplementation: typeof globalThis.fetch = (_input, init) => {
-      if (init?.signal !== undefined) {
+      if (init?.signal != null) {
         calls.push(init.signal);
       }
       return new Promise<Response>((resolve, reject) => {
@@ -387,7 +254,9 @@ describe("GeometryOS HTTP client", () => {
           reject(new DOMException("Aborted", "AbortError"));
         });
         if (calls.length === 2) {
-          resolve(response(success, { responseRequestId: "tutorboard-concurrent-2" }));
+          resolve(
+            response(success, { responseRequestId: "tutorboard-concurrent-2" }),
+          );
         }
       });
     };
@@ -425,8 +294,3 @@ describe("GeometryOS HTTP client", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
-''',
-    encoding="utf-8",
-)
-
-print("Separated generated output and Node fixture tests from browser TypeScript linting.")
