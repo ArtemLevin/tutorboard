@@ -88,4 +88,43 @@ describe("architecture rules", () => {
       }),
     ]);
   });
+
+  it.each(["Date.now()", "new Date()", "Math.random()"])(
+    "rejects nondeterministic reducer input: %s",
+    (expression) => {
+      expect(
+        analyze(
+          "core/board/commands/reducer.ts",
+          `const value = ${expression};`,
+        ),
+      ).toEqual([
+        expect.objectContaining({
+          invariant: "CMD-003",
+        }),
+      ]);
+    },
+  );
+
+  it("rejects Web Crypto ID generation in reducers", () => {
+    expect(
+      analyze(
+        "core/board/commands/reducer.ts",
+        "const id = crypto.randomUUID();",
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        invariant: "CMD-003",
+        specifier: "crypto.randomUUID",
+      }),
+    ]);
+  });
+
+  it("allows deterministic command metadata and timestamp parsing", () => {
+    expect(
+      analyze(
+        "core/board/commands/reducer.ts",
+        "const timestamp = Date.parse(command.timestamp);",
+      ),
+    ).toEqual([]);
+  });
 });

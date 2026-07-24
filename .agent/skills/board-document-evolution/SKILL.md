@@ -21,10 +21,23 @@ and nearest migration/serialization fixtures.
 1. Record schema before and after the change.
 2. Identify the owner of every new object or command kind.
 3. Check IDs, references, ordering, groups, and command preconditions.
+   - `order` is the sole z-order source and contains every object exactly once;
+   - group membership is bidirectional, unique, and never references a missing
+     object;
+   - generic groups own `BoardGroup.transform`, while GeometryOS imports own
+     placement only through `GeometryImportRecord.visualTransform`; an import
+     root group remains at identity;
+   - imported object sets, source back-references, GIR mappings, and visual
+     overrides agree exactly.
 4. Define backward, forward, unknown-kind, corruption, and recovery behavior.
+   Preserve the original input in every non-success reader result.
 5. Require a migration decision for every stored-shape change.
-6. Verify deterministic serialization and that runtime state is excluded.
-7. Add the smallest fixtures that prove compatibility and recovery.
+6. Verify deterministic serialization with locale-independent key ordering and
+   unchanged semantic array order. Reject runtime/canvas state.
+7. Verify failed commands return the exact original document reference and that
+   reducers receive IDs, actor, and time instead of generating or reading them.
+8. Add the smallest fixtures that prove compatibility, provenance, and
+   recovery.
 
 # Blocking conditions
 
@@ -34,9 +47,9 @@ and nearest migration/serialization fixtures.
 - Reducer reads clock, UUID, browser, or network state.
 - Failed command can partially mutate the document.
 - Canvas/runtime state is serialized.
+- A second z-order or import-transform owner is introduced.
 
 # Output
 
 Return schema before/after, migration and compatibility decisions, recovery
 behavior, invariant IDs, fixtures, checks, and remaining risks.
-

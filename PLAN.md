@@ -15,14 +15,15 @@
 
 ## 2. Текущее состояние и ближайшая последовательность
 
-TutorBoard выполняет PR 2.1 Repository foundation. Gate 0 GeometryOS закрыт
+TutorBoard выполняет PR 2.2 Board domain model. Gate 0 GeometryOS закрыт
 проверяемым baseline в
 [`docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md`](docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md):
 API v1, GIR `0.2.0`, fixtures, Problem Details, request ID и probes подтверждены;
 machine-readable layout отсутствует и оформлен как compatibility gap.
 
-`BoardDocument`, canvas adapter, persistence и GeometryOS client ещё не
-реализованы.
+`BoardDocument 0.1`, branded identifiers, namespaced commands, pure reducer,
+strict validation, recovery reader и deterministic serialization реализованы в
+PR 2.2. Canvas adapter, persistence и GeometryOS client ещё не реализованы.
 
 Ближайшие поставки:
 
@@ -34,13 +35,17 @@ machine-readable layout отсутствует и оформлен как compat
 2. **Gate 0 — GeometryOS contract verification — завершён**
    - проверить OpenAPI v1, GIR `0.2.0`, fixtures, result union, Problem Details,
      request ID, health/readiness и доступность layout data.
-3. **PR 2.1 — Repository foundation — текущий**
+3. **PR 2.1 — Repository foundation — завершён**
    - создать React/Vite/strict TypeScript skeleton;
    - создать физические границы модулей;
    - реализовать import-boundary checks и базовый CI.
-4. **PR 2.2 — Board domain model**
+4. **PR 2.2 — Board domain model — текущий**
    - реализовать `BoardDocument 0.1`, identifiers, commands, reducer,
-     validation и serialization.
+     validation и serialization;
+   - обеспечить `DOC-001`–`DOC-012`, `CMD-001`, `CMD-003`–`CMD-007`;
+   - сохранить raw input при incompatible/unknown/corrupted read;
+   - использовать `order` как единственный z-order и
+     `GeometryImportRecord.visualTransform` как transform импорта.
 5. Далее выполнять PR 2.3–2.12 из Technical Spike plan, не обходя phase gates.
 
 ## 3. Целевая архитектура
@@ -249,112 +254,112 @@ interface TutorBoardModuleDefinition {
 
 ### 6.1. Architecture
 
-| ID | Инвариант | Основное enforcement |
-|---|---|---|
-| `ARCH-001` | Dependencies направлены к `core` | import-boundary test |
-| `ARCH-002` | Межмодульные deep imports запрещены | lint/architecture test |
-| `ARCH-003` | Side effects доступны только через ports | type boundary + review |
-| `ARCH-004` | Composition выполняется только в `app` | import-boundary test |
-| `ARCH-005` | У каждого типа и команды один module owner | registry validation |
-| `ARCH-006` | Новая abstraction требует реального consumer или внешнего contract | architecture review |
-| `ARCH-007` | Dynamic plugins не входят в 1.0 | scope gate |
-| `ARCH-008` | Ошибка module registration безопасно останавливает bootstrap | integration test |
+| ID         | Инвариант                                                          | Основное enforcement   |
+| ---------- | ------------------------------------------------------------------ | ---------------------- |
+| `ARCH-001` | Dependencies направлены к `core`                                   | import-boundary test   |
+| `ARCH-002` | Межмодульные deep imports запрещены                                | lint/architecture test |
+| `ARCH-003` | Side effects доступны только через ports                           | type boundary + review |
+| `ARCH-004` | Composition выполняется только в `app`                             | import-boundary test   |
+| `ARCH-005` | У каждого типа и команды один module owner                         | registry validation    |
+| `ARCH-006` | Новая abstraction требует реального consumer или внешнего contract | architecture review    |
+| `ARCH-007` | Dynamic plugins не входят в 1.0                                    | scope gate             |
+| `ARCH-008` | Ошибка module registration безопасно останавливает bootstrap       | integration test       |
 
 ### 6.2. BoardDocument
 
-| ID | Инвариант | Основное enforcement |
-|---|---|---|
-| `DOC-001` | `BoardDocument` — единственный сериализуемый source of truth | architecture test |
-| `DOC-002` | Каждый stored document содержит `schemaVersion` | runtime schema |
-| `DOC-003` | Object IDs уникальны и стабильны | validator + unit test |
-| `DOC-004` | `order` не содержит отсутствующих/повторных IDs | validator |
-| `DOC-005` | Group references указывают на существующие objects | validator |
-| `DOC-006` | Runtime selection, hover и drag preview не сериализуются | round-trip fixture |
-| `DOC-007` | Stored schema имеет migration или явный incompatible result | migration tests |
-| `DOC-008` | Unknown object не удаляется молча | recovery test |
-| `DOC-009` | Corrupted input сохраняется для recovery | persistence contract |
-| `DOC-010` | Canonical GIR не восстанавливается из visual objects | adapter tests |
-| `DOC-011` | Document меняется только через command boundary | architecture test |
-| `DOC-012` | Canvas runtime никогда не хранится в document | serialization test |
+| ID        | Инвариант                                                    | Основное enforcement  |
+| --------- | ------------------------------------------------------------ | --------------------- |
+| `DOC-001` | `BoardDocument` — единственный сериализуемый source of truth | architecture test     |
+| `DOC-002` | Каждый stored document содержит `schemaVersion`              | runtime schema        |
+| `DOC-003` | Object IDs уникальны и стабильны                             | validator + unit test |
+| `DOC-004` | `order` не содержит отсутствующих/повторных IDs              | validator             |
+| `DOC-005` | Group references указывают на существующие objects           | validator             |
+| `DOC-006` | Runtime selection, hover и drag preview не сериализуются     | round-trip fixture    |
+| `DOC-007` | Stored schema имеет migration или явный incompatible result  | migration tests       |
+| `DOC-008` | Unknown object не удаляется молча                            | recovery test         |
+| `DOC-009` | Corrupted input сохраняется для recovery                     | persistence contract  |
+| `DOC-010` | Canonical GIR не восстанавливается из visual objects         | adapter tests         |
+| `DOC-011` | Document меняется только через command boundary              | architecture test     |
+| `DOC-012` | Canvas runtime никогда не хранится в document                | serialization test    |
 
 ### 6.3. Commands and interaction
 
-| ID | Инвариант | Основное enforcement |
-|---|---|---|
-| `CMD-001` | Command описывает одно атомарное намерение | reducer tests |
-| `CMD-002` | Один gesture создаёт одну committed command | browser integration |
-| `CMD-003` | Reducer не читает clock, UUID или environment | unit/architecture test |
-| `CMD-004` | IDs, time и actor поступают через application boundary | command contract |
-| `CMD-005` | Failed command не оставляет partial mutation | negative tests |
-| `CMD-006` | Preconditions проверяются до mutation | reducer tests |
-| `CMD-007` | Persistent command kind имеет module namespace | schema validation |
-| `CMD-008` | Cancelled interaction не создаёт object/history | browser test |
+| ID        | Инвариант                                              | Основное enforcement   |
+| --------- | ------------------------------------------------------ | ---------------------- |
+| `CMD-001` | Command описывает одно атомарное намерение             | reducer tests          |
+| `CMD-002` | Один gesture создаёт одну committed command            | browser integration    |
+| `CMD-003` | Reducer не читает clock, UUID или environment          | unit/architecture test |
+| `CMD-004` | IDs, time и actor поступают через application boundary | command contract       |
+| `CMD-005` | Failed command не оставляет partial mutation           | negative tests         |
+| `CMD-006` | Preconditions проверяются до mutation                  | reducer tests          |
+| `CMD-007` | Persistent command kind имеет module namespace         | schema validation      |
+| `CMD-008` | Cancelled interaction не создаёт object/history        | browser test           |
 
 ### 6.4. Canvas and coordinates
 
-| ID | Инвариант | Основное enforcement |
-|---|---|---|
-| `CANVAS-001` | Pan/zoom не меняют object world coordinates | transform tests |
-| `CANVAS-002` | Zoom сохраняет world point под cursor | property/unit test |
-| `CANVAS-003` | Pointer coordinates нормализуются на boundary | interaction test |
-| `CANVAS-004` | Drag preview отделён от committed document | integration test |
-| `CANVAS-005` | Movement delta не зависит от zoom | browser test |
-| `CANVAS-006` | Renderer получает immutable read model | type/architecture test |
-| `CANVAS-007` | Renderer не изменяет store напрямую | import/API test |
-| `CANVAS-008` | DPR влияет на rendering, но не world coordinates | browser test |
-| `CANVAS-009` | Pointer capture освобождается при cancel/loss/unmount | browser test |
-| `CANVAS-010` | Resize/tool switch не оставляют half-created object | state-machine test |
+| ID           | Инвариант                                             | Основное enforcement   |
+| ------------ | ----------------------------------------------------- | ---------------------- |
+| `CANVAS-001` | Pan/zoom не меняют object world coordinates           | transform tests        |
+| `CANVAS-002` | Zoom сохраняет world point под cursor                 | property/unit test     |
+| `CANVAS-003` | Pointer coordinates нормализуются на boundary         | interaction test       |
+| `CANVAS-004` | Drag preview отделён от committed document            | integration test       |
+| `CANVAS-005` | Movement delta не зависит от zoom                     | browser test           |
+| `CANVAS-006` | Renderer получает immutable read model                | type/architecture test |
+| `CANVAS-007` | Renderer не изменяет store напрямую                   | import/API test        |
+| `CANVAS-008` | DPR влияет на rendering, но не world coordinates      | browser test           |
+| `CANVAS-009` | Pointer capture освобождается при cancel/loss/unmount | browser test           |
+| `CANVAS-010` | Resize/tool switch не оставляют half-created object   | state-machine test     |
 
 ### 6.5. GeometryOS
 
-| ID | Инвариант | Основное enforcement |
-|---|---|---|
-| `GEO-001` | DTO генерируются из pinned OpenAPI | generated-diff check |
-| `GEO-002` | External response валидируется на boundary | contract tests |
-| `GEO-003` | GIR не используется как UI/store model | architecture test |
-| `GEO-004` | GIR-to-Board adapter является pure | unit/architecture test |
-| `GEO-005` | Mapping детерминирован при одинаковом input/context | fixture test |
-| `GEO-006` | GIR ID хранится отдельно от Board object ID | schema test |
-| `GEO-007` | Missing/duplicate references дают explicit error | negative fixtures |
-| `GEO-008` | Unsupported entity создаёт diagnostic, не догадку | fixture test |
-| `GEO-009` | SVG не является primary semantic source | architecture review |
-| `GEO-010` | Canonical GIR и provenance сохраняются | round-trip test |
-| `GEO-011` | Visual transform не меняет canonical GIR | adapter test |
-| `GEO-012` | Incompatible API/GIR version отклоняется | contract test |
-| `GEO-013` | Retry не создаёт случайный duplicate import | integration test |
-| `GEO-014` | Request ID проходит через полный flow | contract/E2E |
+| ID        | Инвариант                                           | Основное enforcement   |
+| --------- | --------------------------------------------------- | ---------------------- |
+| `GEO-001` | DTO генерируются из pinned OpenAPI                  | generated-diff check   |
+| `GEO-002` | External response валидируется на boundary          | contract tests         |
+| `GEO-003` | GIR не используется как UI/store model              | architecture test      |
+| `GEO-004` | GIR-to-Board adapter является pure                  | unit/architecture test |
+| `GEO-005` | Mapping детерминирован при одинаковом input/context | fixture test           |
+| `GEO-006` | GIR ID хранится отдельно от Board object ID         | schema test            |
+| `GEO-007` | Missing/duplicate references дают explicit error    | negative fixtures      |
+| `GEO-008` | Unsupported entity создаёт diagnostic, не догадку   | fixture test           |
+| `GEO-009` | SVG не является primary semantic source             | architecture review    |
+| `GEO-010` | Canonical GIR и provenance сохраняются              | round-trip test        |
+| `GEO-011` | Visual transform не меняет canonical GIR            | adapter test           |
+| `GEO-012` | Incompatible API/GIR version отклоняется            | contract test          |
+| `GEO-013` | Retry не создаёт случайный duplicate import         | integration test       |
+| `GEO-014` | Request ID проходит через полный flow               | contract/E2E           |
 
 ### 6.6. Persistence and recovery
 
-| ID | Инвариант | Основное enforcement |
-|---|---|---|
-| `PERSIST-001` | Save не уничтожает last-good revision | repository contract |
-| `PERSIST-002` | Corruption не приводит к blank screen | recovery E2E |
-| `PERSIST-003` | Autosave failure видим пользователю | UI integration |
-| `PERSIST-004` | Retry не создаёт duplicate revision | idempotency test |
-| `PERSIST-005` | Migration атомарна или имеет safe recovery | migration test |
-| `PERSIST-006` | Unknown schema сохраняется для recovery | compatibility fixture |
-| `PERSIST-007` | Server save использует optimistic concurrency | API contract |
-| `PERSIST-008` | Conflict не разрешается silent overwrite | conflict E2E |
-| `PERSIST-009` | Offline queue имеет durable operation identity | repository test |
-| `PERSIST-010` | После integration IndexedDB не второй source of truth | architecture review |
-| `PERSIST-011` | Snapshot связан с точной revision | evidence contract |
-| `PERSIST-012` | Archive/delete не ломает immutable evidence | integration test |
+| ID            | Инвариант                                             | Основное enforcement  |
+| ------------- | ----------------------------------------------------- | --------------------- |
+| `PERSIST-001` | Save не уничтожает last-good revision                 | repository contract   |
+| `PERSIST-002` | Corruption не приводит к blank screen                 | recovery E2E          |
+| `PERSIST-003` | Autosave failure видим пользователю                   | UI integration        |
+| `PERSIST-004` | Retry не создаёт duplicate revision                   | idempotency test      |
+| `PERSIST-005` | Migration атомарна или имеет safe recovery            | migration test        |
+| `PERSIST-006` | Unknown schema сохраняется для recovery               | compatibility fixture |
+| `PERSIST-007` | Server save использует optimistic concurrency         | API contract          |
+| `PERSIST-008` | Conflict не разрешается silent overwrite              | conflict E2E          |
+| `PERSIST-009` | Offline queue имеет durable operation identity        | repository test       |
+| `PERSIST-010` | После integration IndexedDB не второй source of truth | architecture review   |
+| `PERSIST-011` | Snapshot связан с точной revision                     | evidence contract     |
+| `PERSIST-012` | Archive/delete не ломает immutable evidence           | integration test      |
 
 ### 6.7. Security and privacy
 
-| ID | Инвариант | Основное enforcement |
-|---|---|---|
-| `SEC-001` | SVG всегда считается untrusted input | security tests |
-| `SEC-002` | Scripts, event handlers, `foreignObject`, remote resources запрещены | malicious fixtures |
-| `SEC-003` | SVG имеет byte/node/depth/dimension limits | boundary tests |
-| `SEC-004` | Tokens не сохраняются в localStorage/BoardDocument | security review |
-| `SEC-005` | Tenant/role не берутся из editable client state | authorization tests |
-| `SEC-006` | Authorization проверяется на resource boundary | integration tests |
-| `SEC-007` | Prompt/raw response/board content не логируются по умолчанию | telemetry tests |
-| `SEC-008` | Diagnostics используют codes и минимальные metadata | review + fixtures |
-| `SEC-009` | Student artifacts не содержат technical metadata | publication test |
-| `SEC-010` | Feature flags не предоставляют permissions | security review |
+| ID        | Инвариант                                                            | Основное enforcement |
+| --------- | -------------------------------------------------------------------- | -------------------- |
+| `SEC-001` | SVG всегда считается untrusted input                                 | security tests       |
+| `SEC-002` | Scripts, event handlers, `foreignObject`, remote resources запрещены | malicious fixtures   |
+| `SEC-003` | SVG имеет byte/node/depth/dimension limits                           | boundary tests       |
+| `SEC-004` | Tokens не сохраняются в localStorage/BoardDocument                   | security review      |
+| `SEC-005` | Tenant/role не берутся из editable client state                      | authorization tests  |
+| `SEC-006` | Authorization проверяется на resource boundary                       | integration tests    |
+| `SEC-007` | Prompt/raw response/board content не логируются по умолчанию         | telemetry tests      |
+| `SEC-008` | Diagnostics используют codes и минимальные metadata                  | review + fixtures    |
+| `SEC-009` | Student artifacts не содержат technical metadata                     | publication test     |
+| `SEC-010` | Feature flags не предоставляют permissions                           | security review      |
 
 ## 7. Extension contracts
 
@@ -425,33 +430,33 @@ memory, Dexie или HTTP. Для любой реализации определ
 `task-triage` всегда определяет затронутые modules, contracts и invariant IDs.
 Далее подключаются только релевантные skills:
 
-| Поверхность | Обязательные project skills |
-|---|---|
-| modules, dependencies, composition, public contracts | `tutorboard-architecture` |
-| BoardDocument, objects, commands, serialization, migrations | `board-document-evolution` |
-| canvas, coordinates, tools, selection, pointer lifecycle | `canvas-interaction-review` |
-| OpenAPI, GIR, client, adapter, layout, imports | `geometryos-integration-review` |
-| Dexie, autosave, revisions, offline, conflicts, restore | `persistence-recovery-review` |
-| SVG import/render/export | `svg-security-review` + `security-review` |
-| auth, tenant, publication | `security-review` |
-| WebSocket, operation replay, retries | `concurrency-review` |
-| platform durable schema | `database-review` |
+| Поверхность                                                 | Обязательные project skills               |
+| ----------------------------------------------------------- | ----------------------------------------- |
+| modules, dependencies, composition, public contracts        | `tutorboard-architecture`                 |
+| BoardDocument, objects, commands, serialization, migrations | `board-document-evolution`                |
+| canvas, coordinates, tools, selection, pointer lifecycle    | `canvas-interaction-review`               |
+| OpenAPI, GIR, client, adapter, layout, imports              | `geometryos-integration-review`           |
+| Dexie, autosave, revisions, offline, conflicts, restore     | `persistence-recovery-review`             |
+| SVG import/render/export                                    | `svg-security-review` + `security-review` |
+| auth, tenant, publication                                   | `security-review`                         |
+| WebSocket, operation replay, retries                        | `concurrency-review`                      |
+| platform durable schema                                     | `database-review`                         |
 
 Skills для platform integration, collaboration protocol, lesson evidence и
 production release создаются вместе с соответствующей фазой, а не заранее.
 
 ## 9. Verification routing
 
-| Изменения | Минимальная проверка |
-|---|---|
-| `core/**` | typecheck, unit, schema fixtures, architecture |
-| `modules/**` | module unit, public API, architecture, relevant integration |
-| `adapters/canvas-konva/**` | transforms, browser interaction, E2E smoke |
-| `adapters/geometryos-http/**` | generated contract, fixtures, error matrix |
-| persistence | repository contract, migration, corruption/recovery |
-| SVG | malicious fixtures, limits, serialization, browser smoke |
-| collaboration | multi-client convergence, reconnect, duplicate/out-of-order |
-| evidence/publication | immutability, authorization, metadata minimization |
+| Изменения                     | Минимальная проверка                                        |
+| ----------------------------- | ----------------------------------------------------------- |
+| `core/**`                     | typecheck, unit, schema fixtures, architecture              |
+| `modules/**`                  | module unit, public API, architecture, relevant integration |
+| `adapters/canvas-konva/**`    | transforms, browser interaction, E2E smoke                  |
+| `adapters/geometryos-http/**` | generated contract, fixtures, error matrix                  |
+| persistence                   | repository contract, migration, corruption/recovery         |
+| SVG                           | malicious fixtures, limits, serialization, browser smoke    |
+| collaboration                 | multi-client convergence, reconnect, duplicate/out-of-order |
+| evidence/publication          | immutability, authorization, metadata minimization          |
 
 До появления `package.json` документационные проверки ограничены:
 
