@@ -46,7 +46,9 @@ jobs:
           echo "810e39d7774724f2939cb16cc422c97d165e8c0059fe69069ce8312186bd4d8a  /tmp/implement-pr-2-6.py" | sha256sum --check
 
       - name: Apply source changes
-        run: python /tmp/implement-pr-2-6.py
+        run: |
+          python /tmp/implement-pr-2-6.py
+          python scripts/.pr-2-6-v2/fix-lint.py
 
       - name: Refresh locked dependencies
         run: npm install --package-lock-only --ignore-scripts
@@ -69,8 +71,10 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add scripts/.pr-2-6-v2/check.log
-            git commit -m "chore: record PR 2.6 check failure [skip ci]"
-            git push origin HEAD:agent/local-persistence-recovery
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: record PR 2.6 check failure [skip ci]"
+              git push origin HEAD:agent/local-persistence-recovery
+            fi
             exit "$status"
           fi
 
@@ -78,7 +82,23 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run browser scenarios
-        run: npm run e2e
+        shell: bash
+        run: |
+          set +e
+          npm run e2e > /tmp/pr-2-6-e2e.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            tail -n 300 /tmp/pr-2-6-e2e.log > scripts/.pr-2-6-v2/e2e.log
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add scripts/.pr-2-6-v2/e2e.log
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: record PR 2.6 browser failure [skip ci]"
+              git push origin HEAD:agent/local-persistence-recovery
+            fi
+            exit "$status"
+          fi
 
       - name: Audit production dependencies
         run: npm audit --audit-level=high
