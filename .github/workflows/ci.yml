@@ -32,6 +32,12 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Install locked GeometryOS code-generation toolchain
+        run: npm ci --prefix tools/geometryos-contract
+
+      - name: Verify pinned GeometryOS contract
+        run: npm run geometryos:check
+
       - name: Check formatting
         run: npm run format:check
 

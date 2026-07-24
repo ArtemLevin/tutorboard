@@ -1,0 +1,5 @@
+{
+  "content": "\\begin{tikzpicture}\n  \\coordinate (A) at (3,4.5);\n  \\coordinate (B) at (1,1);\n  \\coordinate (C) at (6,1);\n  \\coordinate (H) at (3,1);\n  \\draw (B)--(C);\n  \\draw (A)--(H);\n  \\draw (A)--(B);\n  \\draw (B)--(C);\n  \\draw (C)--(A);\n  \\node[above right] at (A) {A};\n  \\node[above right] at (B) {B};\n  \\node[above right] at (C) {C};\n  \\node[above right] at (H) {H};\n\\end{tikzpicture}",
+  "media_type": "text/x-tex",
+  "schema_version": "0.2.0"
+}

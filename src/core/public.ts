@@ -113,3 +113,20 @@ export {
   type SaveBoardDocumentInput,
   type SaveBoardDocumentResult,
 } from "./ports/board-document-repository";
+
+export type { JsonPrimitive, JsonValue } from "./board/json";
+
+export {
+  geometryOsRequestId,
+  type GeometryOsAmbiguity,
+  type GeometryOsClient,
+  type GeometryOsGenerateInput,
+  type GeometryOsGenerateResult,
+  type GeometryOsGenerateTask,
+  type GeometryOsIncompatibleContractCode,
+  type GeometryOsNotice,
+  type GeometryOsProblemError,
+  type GeometryOsRequestId,
+  type GeometryOsValidationIssue,
+  type GeometryOsValidationReport,
+} from "./ports/geometryos-client";

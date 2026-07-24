@@ -1,0 +1,17 @@
+{
+  "checks": [
+    {
+      "name": "lifecycle",
+      "status": "pass"
+    },
+    {
+      "name": "settings",
+      "status": "pass"
+    },
+    {
+      "name": "executor",
+      "status": "pass"
+    }
+  ],
+  "status": "ready"
+}

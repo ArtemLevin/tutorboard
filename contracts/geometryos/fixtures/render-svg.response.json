@@ -1,0 +1,5 @@
+{
+  "content": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"280\" height=\"220\" viewBox=\"0 0 280 220\">\n<rect width=\"100%\" height=\"100%\" fill=\"white\"/>\n<line x1=\"40\" y1=\"180\" x2=\"240\" y2=\"180\" stroke=\"#2563eb\" stroke-width=\"2\"/>\n<line x1=\"120\" y1=\"40\" x2=\"120\" y2=\"180\" stroke=\"#2563eb\" stroke-width=\"2\"/>\n<line x1=\"120\" y1=\"40\" x2=\"40\" y2=\"180\" stroke=\"#2563eb\" stroke-width=\"2\"/>\n<line x1=\"40\" y1=\"180\" x2=\"240\" y2=\"180\" stroke=\"#2563eb\" stroke-width=\"2\"/>\n<line x1=\"240\" y1=\"180\" x2=\"120\" y2=\"40\" stroke=\"#2563eb\" stroke-width=\"2\"/>\n<circle cx=\"120\" cy=\"40\" r=\"3\" fill=\"black\"/>\n<circle cx=\"40\" cy=\"180\" r=\"3\" fill=\"black\"/>\n<circle cx=\"240\" cy=\"180\" r=\"3\" fill=\"black\"/>\n<circle cx=\"120\" cy=\"180\" r=\"3\" fill=\"black\"/>\n<text x=\"126\" y=\"34\" font-size=\"14\">A</text>\n<text x=\"46\" y=\"174\" font-size=\"14\">B</text>\n<text x=\"246\" y=\"174\" font-size=\"14\">C</text>\n<text x=\"126\" y=\"174\" font-size=\"14\">H</text>\n</svg>",
+  "media_type": "image/svg+xml",
+  "schema_version": "0.2.0"
+}

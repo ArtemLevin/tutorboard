@@ -92,11 +92,14 @@ SVG sanitizer, opaque `svg-import.svg`, selection/movement, reload revalidation
      мигрируется без изменения IDs, objects, order, groups или imports;
    - SVG выбирается, перемещается, сохраняется и повторно валидируется до render;
    - tampered stored SVG открывает recovery UI и не исполняется.
-10. **PR 2.8 — GeometryOS generated client — следующий**
-   - подключить pinned OpenAPI-generated DTO и HTTP adapter;
-   - разделить success, clarification, domain error и Problem Details;
-   - обеспечить timeout/abort, request ID и incompatible contract diagnostics.
-11. Далее выполнять PR 2.9–2.12 из Technical Spike plan, не обходя phase gates.
+10. **PR 2.8 — GeometryOS generated client — завершён**
+   - pinned OpenAPI/GIR/consumer artifacts проверяются по SHA-256;
+   - compile-time DTO и standalone runtime validators воспроизводимо генерируются из одного OpenAPI;
+   - HTTP adapter разделяет success, clarification, domain error, Problem Details, transport, cancellation и incompatible contract;
+   - bounded body, timeout/abort и request ID проверяются до передачи canonical GIR.
+11. **PR 2.9 — deterministic GIR-to-Board import — следующий**
+   - реализовать layout policy, pure GIR adapter и атомарный import command.
+12. Далее выполнять PR 2.10–2.12 из Technical Spike plan, не обходя phase gates.
 
 ## 3. Целевая архитектура
 

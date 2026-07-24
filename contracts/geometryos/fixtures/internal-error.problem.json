@@ -1,0 +1,10 @@
+{
+  "code": "internal_error",
+  "detail": "An unexpected internal error occurred.",
+  "errors": [],
+  "instance": "/api/v1/generate",
+  "request_id": "tutorboard-contract",
+  "status": 500,
+  "title": "Internal server error",
+  "type": "urn:geometryos:problem:internal-error"
+}

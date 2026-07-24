@@ -227,4 +227,31 @@ describe("architecture rules", () => {
       }),
     ]);
   });
+
+  it("keeps generated GeometryOS DTOs private to the adapter", () => {
+    expect(
+      analyze(
+        "modules/geometry-import/import.ts",
+        'import type { components } from "../../adapters/geometryos-http/generated/geometryos.types";',
+      ),
+    ).toEqual([expect.objectContaining({ invariant: "GEO-003" })]);
+    expect(
+      analyze(
+        "adapters/geometryos-http/validation.ts",
+        'import type { components } from "./generated/geometryos.types";',
+      ),
+    ).toEqual([]);
+  });
+
+  it("restricts direct fetch calls to technology adapters", () => {
+    expect(
+      analyze("app/App.tsx", 'const response = fetch("https://example.test");'),
+    ).toEqual([expect.objectContaining({ invariant: "ARCH-003" })]);
+    expect(
+      analyze(
+        "adapters/geometryos-http/client.ts",
+        'const response = globalThis.fetch("https://example.test");',
+      ),
+    ).toEqual([]);
+  });
 });

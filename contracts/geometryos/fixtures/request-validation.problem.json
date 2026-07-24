@@ -1,0 +1,19 @@
+{
+  "code": "request_validation_failed",
+  "detail": "The request payload does not satisfy the API contract.",
+  "errors": [
+    {
+      "code": "literal_error",
+      "location": [
+        "body",
+        "mode"
+      ],
+      "message": "Input should be 'strict'"
+    }
+  ],
+  "instance": "/api/v1/generate",
+  "request_id": "tutorboard-contract",
+  "status": 422,
+  "title": "Request validation failed",
+  "type": "urn:geometryos:problem:request-validation"
+}

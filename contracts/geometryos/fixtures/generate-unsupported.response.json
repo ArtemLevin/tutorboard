@@ -1,0 +1,17 @@
+{
+  "ambiguities": [],
+  "confidence": 0.0,
+  "explanation": "Skeleton adapter supports only MVP benchmark prompts.",
+  "gir": null,
+  "schema_version": "0.2.0",
+  "status": "error",
+  "svg": null,
+  "tikz": null,
+  "validation_report": null,
+  "warnings": [
+    {
+      "code": "unsupported_construction",
+      "message": "Construction is not supported."
+    }
+  ]
+}

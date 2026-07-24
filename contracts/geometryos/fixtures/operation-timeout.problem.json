@@ -1,0 +1,10 @@
+{
+  "code": "operation_timeout",
+  "detail": "The generate operation exceeded its configured time limit.",
+  "errors": [],
+  "instance": "/api/v1/generate",
+  "request_id": "tutorboard-contract",
+  "status": 504,
+  "title": "Operation timed out",
+  "type": "urn:geometryos:problem:operation-timeout"
+}
