@@ -10,7 +10,7 @@ jobs:
   prepare:
     if: github.event.pull_request.head.ref == 'integration/2.8.1-geometryos-contract-repin'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
@@ -36,17 +36,35 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/prepare-geometryos-repin.mjs
 
-      - name: Verify generated contract
-        run: npm run geometryos:check
+      - name: Apply product changes
+        run: node scripts/finalize-geometryos-repin.mjs
 
-      - name: Commit generated artifacts
+      - name: Apply canonical formatting
+        run: npm run format
+
+      - name: Verify product tree
+        run: npm run check
+
+      - name: Commit product changes
         run: |
-          git add contracts/geometryos src/adapters/geometryos-http/generated
+          git add \
+            .github/workflows/ci.yml \
+            PLAN.md \
+            README.md \
+            contracts/geometryos \
+            docs/adr/ADR-006-geometryos-generated-client.md \
+            docs/architecture/GEOMETRYOS_CLIENT.md \
+            docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md \
+            package.json \
+            scripts/geometryos-live-contract-smoke.mjs \
+            scripts/vendor-geometryos-contract.mjs \
+            src/adapters/geometryos-http/generated \
+            tests/contracts/geometryos-contract.test.mjs
           if git diff --cached --quiet; then
-            echo "Pinned contract artifacts are already current."
+            echo "PR 2.8.1 product files are already current."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: regenerate pinned GeometryOS contract"
+          git commit -m "feat: repin GeometryOS browser contract"
           git push origin HEAD:integration/2.8.1-geometryos-contract-repin
