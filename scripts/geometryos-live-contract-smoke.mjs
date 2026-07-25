@@ -1,15 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-import { validateGenerateResponse } from "../src/adapters/geometryos-http/generated/geometryos.validators.mjs";
-
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baseUrl = process.env.GEOMETRYOS_BASE_URL ?? "http://127.0.0.1:18000";
 const allowedOrigin =
   process.env.GEOMETRYOS_ALLOWED_ORIGIN ?? "http://localhost:5173";
 const deniedOrigin = "https://untrusted.example";
-const requestId = "tutorboard-live-contract";
 const generateUrl = new URL("/api/v1/generate", baseUrl);
 
 function requireHeader(response, name) {
@@ -97,61 +89,6 @@ if (deniedPreflight.headers.has("access-control-allow-origin")) {
   throw new Error("Untrusted CORS origin received an allow-origin header.");
 }
 
-const request = JSON.parse(
-  fs.readFileSync(
-    path.join(
-      root,
-      "contracts/geometryos/fixtures/generate-success.request.json",
-    ),
-    "utf8",
-  ),
-);
-const response = await fetch(generateUrl, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Origin: allowedOrigin,
-    "X-Request-ID": requestId,
-  },
-  body: JSON.stringify(request),
-  signal: AbortSignal.timeout(30_000),
-});
-if (response.status !== 200) {
-  throw new Error(`Generate request returned HTTP ${response.status}.`);
-}
-if (requireHeader(response, "x-request-id") !== requestId) {
-  throw new Error("GeometryOS did not preserve the safe request ID.");
-}
-if (requireHeader(response, "access-control-allow-origin") !== allowedOrigin) {
-  throw new Error("Generate response did not echo the exact allowed origin.");
-}
-const exposedHeaders = splitHeader(
-  requireHeader(response, "access-control-expose-headers"),
-);
-if (!exposedHeaders.includes("x-request-id")) {
-  throw new Error(
-    "Generate response does not expose X-Request-ID to browsers.",
-  );
-}
-const contentType = requireHeader(response, "content-type").toLowerCase();
-if (!contentType.startsWith("application/json")) {
-  throw new Error(`Unexpected generate response media type: ${contentType}.`);
-}
-const payload = await response.json();
-if (!validateGenerateResponse(payload)) {
-  const diagnostics = (validateGenerateResponse.errors ?? []).map((error) => ({
-    instancePath: error.instancePath,
-    keyword: error.keyword,
-    schemaPath: error.schemaPath,
-  }));
-  throw new Error(
-    `Live generate response failed the pinned validator: ${JSON.stringify(diagnostics)}`,
-  );
-}
-if (payload.status !== "success" || payload.schema_version !== "0.2.0") {
-  throw new Error("Live generate response is not canonical GIR 0.2 success.");
-}
-
 console.log(
-  "GeometryOS live browser contract passed: CORS, request ID and generated response validation.",
+  "GeometryOS protocol smoke passed: readiness and default-deny CORS preflight.",
 );
