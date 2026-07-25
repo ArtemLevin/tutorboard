@@ -18,14 +18,10 @@ jobs:
     name: Quality gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: write
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -39,33 +35,6 @@ jobs:
       - name: Install locked GeometryOS code-generation toolchain
         run: npm ci --prefix tools/geometryos-contract
 
-      - name: Regenerate pinned GeometryOS contract
-        run: npm run geometryos:generate
-
-      - name: Format PR 2.8.2 files
-        run: npm run format
-
-      - name: Commit generated and formatted PR 2.8.2 files
-        if: github.event_name == 'pull_request' && github.head_ref == 'fix/2.8.2-geometryos-live-gate'
-        run: |
-          if git diff --quiet; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            .github/workflows/ci.yml \
-            package.json \
-            playwright.geometryos.config.mjs \
-            scripts \
-            src/adapters/geometryos-http/generated \
-            tests/live
-          git commit -m "chore: format PR 2.8.2 artifacts"
-          git push origin HEAD:${GITHUB_HEAD_REF}
-
-      - name: Verify committed generated contract
-        run: git diff --exit-code -- src/adapters/geometryos-http/generated
-
       - name: Verify pinned GeometryOS contract
         run: npm run geometryos:check
 
@@ -78,8 +47,19 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
-      - name: Run unit and architecture-rule tests
-        run: npm run test
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          npm run test 2>&1 | tee unit-tests.log
+
+      - name: Upload unit-test failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-failure-${{ github.sha }}
+          path: unit-tests.log
+          if-no-files-found: error
+          retention-days: 2
 
       - name: Enforce source boundaries
         run: npm run architecture
