@@ -4,7 +4,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   prepare:
@@ -15,6 +15,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          ref: integration/2.8.1-geometryos-contract-repin
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -36,17 +39,14 @@ jobs:
       - name: Verify generated contract
         run: npm run geometryos:check
 
-      - name: Package prepared files
+      - name: Commit generated artifacts
         run: |
-          tar -czf build/geometryos-repin/repin-output.tar.gz \
-            contracts/geometryos \
-            src/adapters/geometryos-http/generated \
-            build/geometryos-repin/report.json
-
-      - name: Upload prepared contract
-        uses: actions/upload-artifact@v4
-        with:
-          name: geometryos-repin-output-${{ github.sha }}
-          path: build/geometryos-repin/repin-output.tar.gz
-          if-no-files-found: error
-          retention-days: 3
+          git add contracts/geometryos src/adapters/geometryos-http/generated
+          if git diff --cached --quiet; then
+            echo "Pinned contract artifacts are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: regenerate pinned GeometryOS contract"
+          git push origin HEAD:integration/2.8.1-geometryos-contract-repin
