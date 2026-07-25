@@ -56,6 +56,61 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
+  geometryos-live-contract:
+    name: GeometryOS live browser contract
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out TutorBoard
+        uses: actions/checkout@v7
+
+      - name: Check out pinned GeometryOS source
+        uses: actions/checkout@v7
+        with:
+          repository: ArtemLevin/geometryos
+          ref: 49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c
+          path: geometryos-source
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Build pinned GeometryOS image
+        run: |
+          docker build \
+            --tag geometryos-contract-smoke:${GITHUB_SHA} \
+            --build-arg BUILD_REVISION=49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c \
+            --build-arg BUILD_VERSION=0.2.0 \
+            geometryos-source
+
+      - name: Start hardened GeometryOS container
+        run: |
+          docker run --detach \
+            --name tutorboard-geometryos-contract \
+            --publish 127.0.0.1:18000:8000 \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --env GEOMETRYOS_CORS_ALLOWED_ORIGINS=http://localhost:5173 \
+            geometryos-contract-smoke:${GITHUB_SHA}
+
+      - name: Verify live browser contract
+        env:
+          GEOMETRYOS_ALLOWED_ORIGIN: http://localhost:5173
+          GEOMETRYOS_BASE_URL: http://127.0.0.1:18000
+        run: npm run geometryos:live-smoke
+
+      - name: Capture container diagnostics
+        if: always()
+        run: |
+          docker logs tutorboard-geometryos-contract || true
+          docker rm --force tutorboard-geometryos-contract || true
+
   e2e-smoke:
     name: Browser smoke
     needs: quality
