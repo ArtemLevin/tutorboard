@@ -15,95 +15,164 @@
 
 ## 2. Текущее состояние и ближайшая последовательность
 
-TutorBoard завершил PR 2.7 Safe SVG insertion. PR 2.8.1 закрепил актуальный browser contract GeometryOS и live-container gate. Gate 0 GeometryOS закрыт
-проверяемым baseline в
-[`docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md`](docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md):
-API v1, GIR `0.2.0`, fixtures, Problem Details, request ID и probes подтверждены;
-machine-readable layout отсутствует и оформлен как compatibility gap.
+### 2.1. Доставленный baseline
 
-`BoardDocument 0.2`, migration `0.1 → 0.2`, branded identifiers, namespaced
-commands, pure reducer,
-strict validation, recovery reader и deterministic serialization реализованы в
-PR 2.2. PR 2.3 добавил Konva adapter, coordinate conversion, pan,
-pointer-centred zoom, ResizeObserver, grid/origin и renderer registry. PR 2.4
-добавил drawing module, tool state machine, pen и primitive tools. PR 2.5
-добавил runtime-only click, additive и marquee selection, атомарное перемещение
-независимых объектов и групп, delete, lock state и selection inspector.
-Dexie persistence и recovery реализованы в PR 2.6. PR 2.7 добавил bounded
-SVG sanitizer, opaque `svg-import.svg`, selection/movement, reload revalidation
-и recovery при tampered SVG. Generated GeometryOS client реализован, закреплён на актуальном producer commit и проверяется fixture/live-container gates.
+TutorBoard завершил основную инфраструктурную часть Technical Spike:
 
-Ближайшие поставки:
+| Этап     | Статус   | Доставленный результат                                                                                   |
+| -------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| PR 2.0   | завершён | architecture contract, invariant registry и project skills                                               |
+| Gate 0   | завершён | проверены API v1, GIR `0.2.0`, fixtures, Problem Details, request ID и probes GeometryOS                 |
+| PR 2.1   | завершён | React/Vite/strict TypeScript foundation и enforceable module boundaries                                  |
+| PR 2.2   | завершён | `BoardDocument`, commands, reducer, validation, serialization и recovery contract                        |
+| PR 2.3   | завершён | заменяемый Konva adapter, infinite canvas, pan/zoom и coordinate boundary                                |
+| PR 2.4   | завершён | pen, line, rectangle, ellipse и text tools                                                               |
+| PR 2.5   | завершён | selection, marquee, movement, delete, lock и inspector                                                   |
+| PR 2.6   | завершён | Dexie revisions, autosave, optimistic conflict и explicit recovery                                       |
+| PR 2.7   | завершён | bounded deny-by-default SVG import и stored-object revalidation                                          |
+| PR 2.8   | завершён | pinned/generated GeometryOS client, runtime validators и bounded HTTP adapter                            |
+| PR 2.8.1 | смёржен  | producer repin на `49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c`, новый OpenAPI/fixtures и live-contract job |
 
-1. **PR 2.0 — Architecture and Agent Contract — завершён**
-   - принять этот файл;
-   - зафиксировать project invariants и module contract;
-   - подключить TutorBoard-specific skills;
-   - определить автоматические architecture checks для PR 2.1.
-2. **Gate 0 — GeometryOS contract verification — завершён**
-   - проверить OpenAPI v1, GIR `0.2.0`, fixtures, result union, Problem Details,
-     request ID, health/readiness и доступность layout data.
-3. **PR 2.1 — Repository foundation — завершён**
-   - создать React/Vite/strict TypeScript skeleton;
-   - создать физические границы модулей;
-   - реализовать import-boundary checks и базовый CI.
-4. **PR 2.2 — Board domain model — завершён**
-   - реализовать `BoardDocument 0.1`, identifiers, commands, reducer,
-     validation и serialization;
-   - обеспечить `DOC-001`–`DOC-012`, `CMD-001`, `CMD-003`–`CMD-007`;
-   - сохранить raw input при incompatible/unknown/corrupted read;
-   - использовать `order` как единственный z-order и
-     `GeometryImportRecord.visualTransform` как transform импорта.
-5. **PR 2.3 — Infinite canvas — завершён**
-   - подключить Konva только через `adapters/canvas-konva/public`;
-   - передавать renderer только immutable `BoardSceneReadModel`;
-   - реализовать pure world/screen conversion, pan и pointer-centred zoom;
-   - обеспечить cancel/release pointer lifecycle и browser tests;
-   - не добавлять canvas runtime в `BoardDocument`.
-6. **PR 2.4 — Pen and primitive tools — завершён**
-   - подключить `modules/drawing/public` как единственного владельца tool IDs,
-     interaction state machine, style defaults и command factory;
-   - реализовать pen, line, rectangle, ellipse и text;
-   - нормализовать pointer из canvas-local CSS pixels в world coordinates на
-     границе адаптера;
-   - хранить preview только в runtime state и создавать один
-     `core.objects.add` на завершённый gesture;
-   - отменять gesture при Escape, pointer loss, blur, tool switch и unmount;
-   - сохранить stored shape `BoardDocument 0.1` без migration.
-7. **PR 2.5 — Selection and movement — завершён**
-   - подключить `modules/selection/public` как владельца selection tool,
-     runtime state machine, bounds/hit testing и command factories;
-   - реализовать click, additive и marquee selection;
-   - хранить selection, marquee и drag preview только в runtime state;
-   - перемещать независимые объекты и generic groups одной атомарной командой;
-   - реализовать delete, lock/unlock и inspector;
-   - отменять drag/marquee при Escape, pointer loss, blur, tool switch и unmount;
-   - сохранить stored shape `BoardDocument 0.1` без migration.
-8. **PR 2.6 — Local persistence — завершён**
-   - реализован versioned Dexie repository с append-only revisions;
-   - autosave использует durable operation ID и optimistic revision check;
-   - reload восстанавливает document и viewport;
-   - повреждённая current revision сохраняется в recovery record, а UI открывает
-     last-good revision или явный recovery flow;
-   - diagnostic JSON можно экспортировать и импортировать.
-9. **PR 2.7 — Safe SVG insertion — завершён**
-   - реализован deny-by-default sanitizer с byte/node/depth/path/dimension limits;
-   - `BoardDocument 0.2` добавляет один opaque `svg-import.svg`, а `0.1`
-     мигрируется без изменения IDs, objects, order, groups или imports;
-   - SVG выбирается, перемещается, сохраняется и повторно валидируется до render;
-   - tampered stored SVG открывает recovery UI и не исполняется.
-10. **PR 2.8 — GeometryOS generated client — завершён**
-   - pinned OpenAPI/GIR/consumer artifacts проверяются по SHA-256;
-   - compile-time DTO и standalone runtime validators воспроизводимо генерируются из одного OpenAPI;
-   - HTTP adapter разделяет success, clarification, domain error, Problem Details, transport, cancellation и incompatible contract;
-   - bounded body, timeout/abort и request ID проверяются до передачи canonical GIR.
-11. **PR 2.8.1 — GeometryOS contract repin — завершён**
-    - закрепить producer commit `49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c` и новые SHA-256;
-    - регенерировать DTO и runtime validators из актуального additive OpenAPI;
-    - доказать CORS preflight, exposed `X-Request-ID` и live response validation на pinned container.
-12. **PR 2.9 — deterministic GIR-to-Board import — следующий**
-    - реализовать layout policy, pure GIR adapter и атомарный import command.
-13. Далее выполнять PR 2.10–2.12 из Technical Spike plan, не обходя phase gates.
+Текущий stored contract — `BoardDocument 0.2`. Canvas runtime, selection,
+preview и transport state не сериализуются. Canonical GIR хранится отдельно от
+Board objects и не восстанавливается из SVG или пользовательских transforms.
+
+### 2.2. Подтверждённые блокеры
+
+1. **Live GeometryOS gate ещё не зелёный.** В финальном pull-request run PR 2.8.1
+   обычные Quality gate и Browser smoke прошли, но новый job
+   `GeometryOS live browser contract` завершился ошибкой. До зелёного запуска
+   нельзя считать доказанным реальный browser flow CORS/request correlation.
+2. **GeometryOS не публикует Layout Document 0.1.** API v1 возвращает canonical
+   GIR и SVG/TikZ, но не версионированные координаты с provenance. SVG не может
+   использоваться как semantic source согласно `GEO-009`.
+3. **GeometryOS client ещё не скомпонован с UI.** HTTP adapter существует, но
+   prompt flow, clarification UI, retry identity и atomic import появятся только
+   в следующих PR.
+4. **Общий vertical slice не закрыт.** Цепочка
+   `text → GIR → Layout Document → BoardDocument → canvas` пока не доказана.
+
+### 2.3. Обязательный execution order
+
+#### TutorBoard PR 2.8.2 — восстановить зелёный live-contract gate
+
+Scope:
+
+- воспроизвести и исправить причину падения pinned-container smoke;
+- сохранить exact producer commit и default-deny CORS policy;
+- проверить allowed preflight, denied origin, отсутствие credentials,
+  browser-visible `X-Request-ID` и runtime validation ответа;
+- не менять BoardDocument, canvas, UI и geometry import contracts.
+
+Exit criteria:
+
+- Quality gate, Browser smoke и GeometryOS live browser contract зелёные;
+- diagnostics не содержат prompt, response body или credentials;
+- normal CI не обращается к mutable GeometryOS branch.
+
+#### GeometryOS G-10 — чистый Layout Document 0.1
+
+Выполняется в репозитории GeometryOS и является внешней зависимостью TutorBoard.
+Нужны versioned coordinate space, canonical GIR SHA-256, provenance, stable
+synthetic IDs, completeness/reference invariants, typed `success` /
+`unsupported` / `invalid_scene`, schema, fixtures и exact benchmarks.
+
+G-10 не включает HTTP endpoint и не меняет GIR `0.2.0`.
+
+#### TutorBoard PR 2.9A — pure GIR semantic adapter
+
+Может выполняться параллельно с GeometryOS G-10 после зелёного PR 2.8.2.
+
+Scope:
+
+- runtime GIR validation boundary;
+- entity index и reference resolver;
+- stable Board IDs и deterministic root group ID;
+- mapping GIR ID → Board object ID;
+- provenance и explicit unsupported diagnostics;
+- pure `GeometryImportSemanticPlan` без React, HTTP, persistence и coordinates.
+
+Enforcement: `GEO-003`–`GEO-010`, architecture tests и deterministic fixtures.
+
+#### GeometryOS G-11 — HTTP Layout API
+
+Предпочтительный контракт: `POST /api/v1/layout` для уже существующего canonical
+GIR. Endpoint должен публиковать Layout Document 0.1, typed unsupported/invalid
+outcomes, request ID, readiness, timeout budget, OpenAPI и TutorBoard fixtures.
+
+#### TutorBoard PR 2.9B — Layout-to-Board и атомарный import
+
+Scope:
+
+- vendored/generated Layout Document types и runtime validator;
+- Layout coordinates → local geometry group coordinates;
+- geometry object renderers и bounds;
+- один namespaced atomic import command;
+- import record, group, objects, order, mapping и provenance добавляются целиком
+  либо document остаётся неизменным;
+- migration только если stored union действительно меняется.
+
+#### TutorBoard PR 2.10 — полный GeometryOS vertical slice
+
+Prompt → readiness → generate → layout → import → select → move → autosave →
+reload. Обязательный fixture: «Построй треугольник ABC и высоту AH».
+
+#### TutorBoard PR 2.11 — visual versus mathematical movement
+
+Разрешить group translation, label offsets и style overrides. Individual drag
+constrained geometry points остаётся запрещённым до отдельного semantic edit
+contract. Visual operations не изменяют canonical GIR.
+
+#### TutorBoard PR 2.12 — закрытие Technical Spike
+
+Подготовить Phase 2 report, coordinate/mapping/change-classification ADRs,
+зафиксировать временные ограничения и сформировать Phase 3 backlog.
+
+#### GeometryOS G-13 — release 0.3.0
+
+После стабилизации Layout API выпустить GeometryOS `0.3.0`, включив layout
+schema/fixtures в release bundle и опубликовав consumer upgrade guide.
+
+### 2.4. Правила параллельной разработки
+
+- PR 2.8.2 блокирует live UI integration, но не чистую документацию и анализ.
+- TutorBoard PR 2.9A может идти параллельно с GeometryOS G-10, поскольку не
+  владеет coordinates и не вызывает HTTP.
+- PR 2.9B начинается только после принятия G-10 и опубликованного G-11 contract.
+- PR 2.10 начинается только после зелёных 2.9A, G-11 и 2.9B.
+- TutorBoard не создаёт общий layout solver и не парсит SVG ради семантики.
+- GeometryOS не хранит BoardDocument, viewport или пользовательские overrides.
+
+### 2.5. Следующие продуктовые фазы
+
+После PR 2.12 выполняется Phase 3 Product Foundation:
+
+1. contract freeze и `BoardDocument 1.0`;
+2. undo/redo с одним history item на gesture/import;
+3. clipboard и deterministic ID remapping;
+4. layers/object manager;
+5. styling и visual overrides;
+6. text/math labels;
+7. deterministic document import/export;
+8. performance baseline и viewport culling;
+9. accessibility baseline;
+10. product shell, diagnostics и feature flags.
+
+Дальнейший порядок: tutor-assistant-web gateway integration → server revisions и
+offline synchronization → collaboration protocol → lesson evidence → production
+readiness → advanced semantic geometry/AI. CRDT, semantic point drag и
+production direct-browser access к GeometryOS не выбираются заранее.
+
+### 2.6. No-go gates
+
+Запрещено объявлять Technical Spike завершённым, пока:
+
+- live GeometryOS browser contract не зелёный;
+- Layout Document не versioned и runtime-validated;
+- import не атомарен;
+- canonical GIR/provenance не переживают save/reload;
+- visual movement policy не зафиксирована;
+- обязательный triangle-altitude E2E не проходит через реальный BoardDocument.
 
 ## 3. Целевая архитектура
 
