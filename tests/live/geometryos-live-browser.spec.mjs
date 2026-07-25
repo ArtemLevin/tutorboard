@@ -43,6 +43,7 @@ test("browser can validate a pinned GeometryOS response", async ({ page }) => {
               "X-Request-ID": correlationId,
             },
             body: JSON.stringify(fixture),
+            signal: AbortSignal.timeout(30_000),
           },
         );
         if (response.status !== 200) {
