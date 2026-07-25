@@ -1,0 +1,52 @@
+name: GeometryOS Repin Preparation
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    if: github.event.pull_request.head.ref == 'integration/2.8.1-geometryos-contract-repin'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Install locked GeometryOS code-generation toolchain
+        run: npm ci --prefix tools/geometryos-contract
+
+      - name: Prepare pinned GeometryOS contract
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/prepare-geometryos-repin.mjs
+
+      - name: Verify generated contract
+        run: npm run geometryos:check
+
+      - name: Package prepared files
+        run: |
+          tar -czf build/geometryos-repin/repin-output.tar.gz \
+            contracts/geometryos \
+            src/adapters/geometryos-http/generated \
+            build/geometryos-repin/report.json
+
+      - name: Upload prepared contract
+        uses: actions/upload-artifact@v4
+        with:
+          name: geometryos-repin-output-${{ github.sha }}
+          path: build/geometryos-repin/repin-output.tar.gz
+          if-no-files-found: error
+          retention-days: 3
