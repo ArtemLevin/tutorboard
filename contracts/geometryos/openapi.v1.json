@@ -1,5 +1,30 @@
 {
   "components": {
+    "headers": {
+      "GeometryOsRequestId": {
+        "description": "Request correlation identifier assigned by GeometryOS.",
+        "required": true,
+        "schema": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "parameters": {
+      "GeometryOsRequestId": {
+        "description": "Optional safe correlation identifier. Valid values are echoed; invalid or missing values are replaced with a generated identifier.",
+        "in": "header",
+        "name": "X-Request-ID",
+        "required": false,
+        "schema": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._-]{1,128}$",
+          "type": "string"
+        }
+      }
+    },
     "schemas": {
       "AltitudeConstraint": {
         "additionalProperties": false,
@@ -1475,6 +1500,16 @@
             "type": "urn:geometryos:problem:operation-timeout"
           },
           {
+            "code": "service_unavailable",
+            "detail": "GeometryOS is not ready to accept application requests.",
+            "errors": [],
+            "instance": "/api/v1/generate",
+            "request_id": "tutorboard-contract",
+            "status": 503,
+            "title": "Service unavailable",
+            "type": "urn:geometryos:problem:service-unavailable"
+          },
+          {
             "code": "internal_error",
             "detail": "An unexpected internal error occurred.",
             "errors": [],
@@ -2016,6 +2051,11 @@
       "post": {
         "description": "Convert a supported natural-language construction into canonical GIR and optional SVG or TikZ output. Ambiguity and unsupported constructions are returned as typed HTTP 200 domain results.",
         "operationId": "geometryos_v1_generate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GeometryOsRequestId"
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -2054,7 +2094,12 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "413": {
             "content": {
@@ -2064,7 +2109,12 @@
                 }
               }
             },
-            "description": "Request exceeds the configured operational limit."
+            "description": "Request exceeds the configured operational limit.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "422": {
             "content": {
@@ -2074,7 +2124,12 @@
                 }
               }
             },
-            "description": "Request or GIR validation failed."
+            "description": "Request or GIR validation failed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "500": {
             "content": {
@@ -2084,7 +2139,27 @@
                 }
               }
             },
-            "description": "Unexpected internal error."
+            "description": "Unexpected internal error.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Service is alive but not ready to accept application traffic.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "504": {
             "content": {
@@ -2094,7 +2169,12 @@
                 }
               }
             },
-            "description": "Operation exceeded its configured time limit."
+            "description": "Operation exceeded its configured time limit.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           }
         },
         "summary": "Generate canonical geometry",
@@ -2107,6 +2187,11 @@
       "post": {
         "description": "Validate and normalize a GIR scene, then return deterministic SVG content.",
         "operationId": "geometryos_v1_render_svg",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GeometryOsRequestId"
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -2126,7 +2211,12 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "422": {
             "content": {
@@ -2136,7 +2226,12 @@
                 }
               }
             },
-            "description": "Request or GIR validation failed."
+            "description": "Request or GIR validation failed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "500": {
             "content": {
@@ -2146,7 +2241,27 @@
                 }
               }
             },
-            "description": "Unexpected internal error."
+            "description": "Unexpected internal error.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Service is alive but not ready to accept application traffic.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "504": {
             "content": {
@@ -2156,7 +2271,12 @@
                 }
               }
             },
-            "description": "Operation exceeded its configured time limit."
+            "description": "Operation exceeded its configured time limit.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           }
         },
         "summary": "Render validated GIR as SVG",
@@ -2169,6 +2289,11 @@
       "post": {
         "description": "Validate and normalize a GIR scene, then return deterministic TikZ content.",
         "operationId": "geometryos_v1_render_tikz",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GeometryOsRequestId"
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -2188,7 +2313,12 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "422": {
             "content": {
@@ -2198,7 +2328,12 @@
                 }
               }
             },
-            "description": "Request or GIR validation failed."
+            "description": "Request or GIR validation failed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "500": {
             "content": {
@@ -2208,7 +2343,27 @@
                 }
               }
             },
-            "description": "Unexpected internal error."
+            "description": "Unexpected internal error.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Service is alive but not ready to accept application traffic.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "504": {
             "content": {
@@ -2218,7 +2373,12 @@
                 }
               }
             },
-            "description": "Operation exceeded its configured time limit."
+            "description": "Operation exceeded its configured time limit.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           }
         },
         "summary": "Render validated GIR as TikZ",
@@ -2231,6 +2391,11 @@
       "post": {
         "description": "Accept canonical GIR 0.2 or the supported legacy GIR 0.1 marker, return canonical GIR 0.2, and report semantic validity without rendering.",
         "operationId": "geometryos_v1_validate_gir",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GeometryOsRequestId"
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -2250,7 +2415,12 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "422": {
             "content": {
@@ -2260,7 +2430,12 @@
                 }
               }
             },
-            "description": "Request or GIR validation failed."
+            "description": "Request or GIR validation failed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "500": {
             "content": {
@@ -2270,7 +2445,27 @@
                 }
               }
             },
-            "description": "Unexpected internal error."
+            "description": "Unexpected internal error.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Service is alive but not ready to accept application traffic.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "504": {
             "content": {
@@ -2280,7 +2475,12 @@
                 }
               }
             },
-            "description": "Operation exceeded its configured time limit."
+            "description": "Operation exceeded its configured time limit.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           }
         },
         "summary": "Validate and canonicalize GIR",
@@ -2293,6 +2493,11 @@
       "get": {
         "description": "Return HTTP 200 while the process can serve HTTP requests.",
         "operationId": "geometryos_health",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GeometryOsRequestId"
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -2309,7 +2514,12 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           }
         },
         "summary": "Check process liveness",
@@ -2322,6 +2532,11 @@
       "get": {
         "description": "Return HTTP 200 after startup while lifecycle, settings, and the application executor remain available; otherwise return HTTP 503.",
         "operationId": "geometryos_ready",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GeometryOsRequestId"
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -2331,7 +2546,12 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           },
           "503": {
             "content": {
@@ -2341,7 +2561,12 @@
                 }
               }
             },
-            "description": "Service is alive but not ready to accept application traffic."
+            "description": "Service is alive but not ready to accept application traffic.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
           }
         },
         "summary": "Check application readiness",
