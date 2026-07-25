@@ -103,7 +103,18 @@ jobs:
         env:
           GEOMETRYOS_ALLOWED_ORIGIN: http://localhost:5173
           GEOMETRYOS_BASE_URL: http://127.0.0.1:18000
-        run: npm run geometryos:live-smoke
+        run: |
+          set -o pipefail
+          npm run geometryos:live-smoke 2>&1 | tee geometryos-live-contract.log
+
+      - name: Upload live-contract failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: geometryos-live-contract-failure-${{ github.sha }}
+          path: geometryos-live-contract.log
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Capture container diagnostics
         if: always()
