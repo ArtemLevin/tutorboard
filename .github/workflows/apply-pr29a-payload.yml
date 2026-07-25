@@ -1,12 +1,6 @@
 name: Apply PR 2.9A payload
 
 on:
-  push:
-    branches:
-      - feat/2.9a-gir-semantic-adapter
-    paths:
-      - .github/pr29a-payload.part*
-      - .github/workflows/apply-pr29a-payload.yml
   pull_request:
     types:
       - opened
@@ -24,7 +18,7 @@ jobs:
       - name: Check out branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Reassemble and verify payload
         shell: bash
@@ -41,7 +35,6 @@ jobs:
           unzip -q -o /tmp/pr29a.zip -d .
           rm -f PR_2_9A_IMPLEMENTATION.md
           rm -f .github/pr29a-payload.part*
-          rm -f .github/workflows/apply-pr29a-payload.yml
 
       - name: Commit implementation
         shell: bash
