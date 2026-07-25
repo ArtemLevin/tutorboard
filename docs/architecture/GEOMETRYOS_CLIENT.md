@@ -32,7 +32,7 @@ Pinned producer:
 
 A success response with another GIR version, invalid response schema, missing or mismatched request ID, invalid content type, malformed UTF-8/JSON, or an oversized body is rejected before any GIR-to-Board code can observe it.
 
-The committed OpenAPI declares request and response `X-Request-ID` contracts and typed generate `503` Problem Details. CI imports and executes the raw generated validator with the plain Node ESM loader, then builds the exact producer commit and proves allowed/denied CORS preflight. A separate Chromium probe performs the real cross-origin request, reads the exposed request correlation header and validates the live response with the same generated validator.
+The committed OpenAPI declares request and response `X-Request-ID` contracts and typed generate `503` Problem Details. CI imports and executes the raw generated validator with the plain Node ESM loader, then builds the exact producer commit and proves allowed/denied CORS preflight. A separate Chromium probe performs one request with an explicit 30-second abort budget, reads the exposed request correlation header and validates the live response with the same generated validator.
 
 ## Privacy and security
 
