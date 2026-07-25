@@ -7,6 +7,11 @@ on:
     paths:
       - .github/pr29a-payload.part*
       - .github/workflows/apply-pr29a-payload.yml
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
 
 permissions:
   contents: write
@@ -18,6 +23,8 @@ jobs:
     steps:
       - name: Check out branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Reassemble and verify payload
         shell: bash
