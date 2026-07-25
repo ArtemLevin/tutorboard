@@ -782,6 +782,16 @@ export interface components {
      *       "type": "urn:geometryos:problem:operation-timeout"
      *     }
      * @example {
+     *       "code": "service_unavailable",
+     *       "detail": "GeometryOS is not ready to accept application requests.",
+     *       "errors": [],
+     *       "instance": "/api/v1/generate",
+     *       "request_id": "tutorboard-contract",
+     *       "status": 503,
+     *       "title": "Service unavailable",
+     *       "type": "urn:geometryos:problem:service-unavailable"
+     *     }
+     * @example {
      *       "code": "internal_error",
      *       "detail": "An unexpected internal error occurred.",
      *       "errors": [],
@@ -1087,9 +1097,15 @@ export interface components {
     };
   };
   responses: never;
-  parameters: never;
+  parameters: {
+    /** @description Optional safe correlation identifier. Valid values are echoed; invalid or missing values are replaced with a generated identifier. */
+    GeometryOsRequestId: string;
+  };
   requestBodies: never;
-  headers: never;
+  headers: {
+    /** @description Request correlation identifier assigned by GeometryOS. */
+    GeometryOsRequestId: string;
+  };
   pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -1097,7 +1113,10 @@ export interface operations {
   geometryos_v1_generate: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Optional safe correlation identifier. Valid values are echoed; invalid or missing values are replaced with a generated identifier. */
+        "X-Request-ID"?: components["parameters"]["GeometryOsRequestId"];
+      };
       path?: never;
       cookie?: never;
     };
@@ -1110,6 +1129,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1122,6 +1142,7 @@ export interface operations {
       /** @description Request exceeds the configured operational limit. */
       413: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1131,6 +1152,7 @@ export interface operations {
       /** @description Request or GIR validation failed. */
       422: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1140,6 +1162,17 @@ export interface operations {
       /** @description Unexpected internal error. */
       500: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetail"];
+        };
+      };
+      /** @description Service is alive but not ready to accept application traffic. */
+      503: {
+        headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1149,6 +1182,7 @@ export interface operations {
       /** @description Operation exceeded its configured time limit. */
       504: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1160,7 +1194,10 @@ export interface operations {
   geometryos_v1_render_svg: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Optional safe correlation identifier. Valid values are echoed; invalid or missing values are replaced with a generated identifier. */
+        "X-Request-ID"?: components["parameters"]["GeometryOsRequestId"];
+      };
       path?: never;
       cookie?: never;
     };
@@ -1173,6 +1210,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1182,6 +1220,7 @@ export interface operations {
       /** @description Request or GIR validation failed. */
       422: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1191,6 +1230,17 @@ export interface operations {
       /** @description Unexpected internal error. */
       500: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetail"];
+        };
+      };
+      /** @description Service is alive but not ready to accept application traffic. */
+      503: {
+        headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1200,6 +1250,7 @@ export interface operations {
       /** @description Operation exceeded its configured time limit. */
       504: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1211,7 +1262,10 @@ export interface operations {
   geometryos_v1_render_tikz: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Optional safe correlation identifier. Valid values are echoed; invalid or missing values are replaced with a generated identifier. */
+        "X-Request-ID"?: components["parameters"]["GeometryOsRequestId"];
+      };
       path?: never;
       cookie?: never;
     };
@@ -1224,6 +1278,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1233,6 +1288,7 @@ export interface operations {
       /** @description Request or GIR validation failed. */
       422: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1242,6 +1298,17 @@ export interface operations {
       /** @description Unexpected internal error. */
       500: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetail"];
+        };
+      };
+      /** @description Service is alive but not ready to accept application traffic. */
+      503: {
+        headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1251,6 +1318,7 @@ export interface operations {
       /** @description Operation exceeded its configured time limit. */
       504: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1262,7 +1330,10 @@ export interface operations {
   geometryos_v1_validate_gir: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Optional safe correlation identifier. Valid values are echoed; invalid or missing values are replaced with a generated identifier. */
+        "X-Request-ID"?: components["parameters"]["GeometryOsRequestId"];
+      };
       path?: never;
       cookie?: never;
     };
@@ -1275,6 +1346,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1284,6 +1356,7 @@ export interface operations {
       /** @description Request or GIR validation failed. */
       422: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1293,6 +1366,17 @@ export interface operations {
       /** @description Unexpected internal error. */
       500: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetail"];
+        };
+      };
+      /** @description Service is alive but not ready to accept application traffic. */
+      503: {
+        headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1302,6 +1386,7 @@ export interface operations {
       /** @description Operation exceeded its configured time limit. */
       504: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1313,7 +1398,10 @@ export interface operations {
   geometryos_health: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Optional safe correlation identifier. Valid values are echoed; invalid or missing values are replaced with a generated identifier. */
+        "X-Request-ID"?: components["parameters"]["GeometryOsRequestId"];
+      };
       path?: never;
       cookie?: never;
     };
@@ -1322,6 +1410,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1340,7 +1429,10 @@ export interface operations {
   geometryos_ready: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Optional safe correlation identifier. Valid values are echoed; invalid or missing values are replaced with a generated identifier. */
+        "X-Request-ID"?: components["parameters"]["GeometryOsRequestId"];
+      };
       path?: never;
       cookie?: never;
     };
@@ -1349,6 +1441,7 @@ export interface operations {
       /** @description Successful Response */
       200: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {
@@ -1358,6 +1451,7 @@ export interface operations {
       /** @description Service is alive but not ready to accept application traffic. */
       503: {
         headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
           [name: string]: unknown;
         };
         content: {

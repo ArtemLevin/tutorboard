@@ -81,6 +81,16 @@
       "status": 422
     },
     {
+      "id": "service-unavailable",
+      "media_type": "application/problem+json",
+      "method": "POST",
+      "mode": "injected_lifecycle",
+      "path": "/api/v1/generate",
+      "request": "generate-success.request.json",
+      "response": "service-unavailable.problem.json",
+      "status": 503
+    },
+    {
       "id": "operation-timeout",
       "media_type": "application/problem+json",
       "method": "POST",

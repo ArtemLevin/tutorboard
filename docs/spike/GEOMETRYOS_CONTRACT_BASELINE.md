@@ -1,9 +1,9 @@
 # GeometryOS contract baseline
 
-- Status: verified with one documented compatibility gap
-- Date: 2026-07-24
+- Status: verified with one documented layout compatibility gap
+- Date: 2026-07-25
 - GeometryOS repository commit:
-  `a9eb95852328a4665f81d16cee30966cb227676c`
+  `49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c`
 
 ## Pinned contracts
 
@@ -18,33 +18,30 @@ Pinned artifact hashes:
 
 ```text
 OpenAPI v1
-70815f28ee32e300744c7ac841a0b63b4c1153cccefa066507049ccd19034ea2
+4507f5c2da15e70a5836198e4d9af709f382f6f73e766b10e7a78e7a1d12e549
 
 GIR 0.2 JSON Schema
 dae399fa8a23458802760807c64f7b412d46ba81bb62b248cea136d714987993
 
 TutorBoard v1 fixture manifest
-3694c788e4e94d1c636510ec3ce73f70cebd63a0c42743e94f19ab6d29af12a3
+8777c49f8abbc7fec7e667b3fb475a781ed2c05523ce1e32e85387ea3b50782c
 ```
 
-These hashes are evidence for Gate 0. PR 2.8 must consume an immutable
-GeometryOS release artifact and verify the selected hash before generated DTOs
-are accepted.
+These hashes are the immutable Gate 0/PR 2.8.1 evidence. Normal CI never downloads a mutable GeometryOS branch: generation uses the committed artifacts, while the live gate checks out the exact source commit.
 
 ## Verified behavior
 
 - OpenAPI and GIR schema exports match their committed artifacts.
 - TypeScript DTOs generate from OpenAPI and compile in strict mode.
-- `POST /api/v1/generate` is a discriminated union:
-  `success`, `needs_clarification`, or domain `error`.
+- `POST /api/v1/generate` is a discriminated union: `success`, `needs_clarification`, or domain `error`.
 - Expected domain outcomes remain HTTP 200 and are not Problem Details.
-- Request validation and infrastructure failures use
-  `application/problem+json`.
-- every response receives `X-Request-ID`; Problem Details also carries
-  `request_id`;
-- `/health` and `/ready` have distinct liveness and readiness semantics;
-- canonical responses emit GIR `0.2.0`; supported GIR `0.1` is read-only
-  compatibility input.
+- Request validation and infrastructure failures use `application/problem+json`.
+- OpenAPI formally publishes request and response `X-Request-ID` contracts.
+- Generate publishes typed `503` service-unavailable Problem Details.
+- Browser CORS is default-deny, accepts only the pinned exact origin, rejects an untrusted origin, does not permit credentials, and exposes `X-Request-ID`.
+- Live response payloads pass the committed generated runtime validator.
+- `/health` and `/ready` have distinct liveness and readiness semantics.
+- Canonical responses emit GIR `0.2.0`; supported GIR `0.1` is read-only compatibility input.
 
 ## Error matrix
 
@@ -61,37 +58,39 @@ are accepted.
 
 ## Layout compatibility gap
 
-`GenerateSuccessResponse` publishes canonical GIR and optional SVG/TikZ, but no
-machine-readable layout object. The success fixture therefore cannot provide
-canonical point coordinates to a GIR-to-Board adapter.
+`GenerateSuccessResponse` publishes canonical GIR and optional SVG/TikZ, but no machine-readable layout object. The success fixture therefore cannot provide canonical point coordinates to a GIR-to-Board adapter.
 
-This does not block repository foundation or BoardDocument work. It does affect
-PR 2.9:
+This does not block repository foundation or the pure semantic portion of PR 2.9. It affects coordinate placement:
 
 1. SVG must not become the semantic source (`GEO-009`).
-2. The spike may use a deterministic, versioned fallback layout only for the
-   approved triangle-and-altitude fixture.
+2. The spike may use a deterministic, versioned fallback layout only for the approved triangle-and-altitude fixture until GeometryOS publishes Layout Document 0.1.
 3. Fallback coordinates belong to the adapter result, never to canonical GIR.
-4. The Phase 2 report must propose a GeometryOS layout contract or explicitly
-   retain the bounded fallback.
+4. The Phase 2 report must retain the bounded fallback as explicit debt or consume the versioned GeometryOS layout contract.
 
 ## Executed checks
 
-From the GeometryOS repository at the pinned commit:
+Producer artifact preparation:
 
 ```text
-uv run python scripts/export_openapi.py --check
-uv run python scripts/export_schema.py --check
-uv run pytest tests/contracts
-npm ci --prefix contracts/tutorboard/typescript
-npm run --prefix contracts/tutorboard/typescript generate
-npm run --prefix contracts/tutorboard/typescript typecheck
+pinned OpenAPI/GIR/fixture SHA-256 verification
+byte-identical DTO/runtime-validator regeneration
 ```
 
-Result: artifact checks passed, 22 contract tests passed, generated TypeScript
-compiled successfully.
+TutorBoard gates:
+
+```text
+npm run geometryos:check
+npm run format:check
+npm run lint
+npm run typecheck
+npm run test
+npm run architecture
+npm run build
+npm run geometryos:live-smoke
+```
+
+The live smoke builds GeometryOS from the exact pinned commit in a hardened container and verifies CORS preflight, denied-origin behavior, browser-visible request correlation and generated response validation.
 
 ## Gate decision
 
-Gate 0 is complete. TutorBoard may proceed to repository foundation while
-treating layout availability as an explicit, testable compatibility gap.
+Gate 0 and PR 2.8.1 are complete. TutorBoard may proceed to deterministic GIR-to-Board import while treating machine-readable layout as the only remaining producer compatibility gap.
