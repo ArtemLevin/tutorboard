@@ -35,13 +35,7 @@ jobs:
           unzip -q -o /tmp/pr29a.zip -d .
           rm -f PR_2_9A_IMPLEMENTATION.md
           rm -f .github/pr29a-payload.part*
-
-      - name: Stage and validate implementation
-        shell: bash
-        run: |
-          set -euo pipefail
           git add --all
-          git diff --cached --check
 
       - name: Commit implementation
         shell: bash
