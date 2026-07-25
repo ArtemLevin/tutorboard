@@ -21,9 +21,13 @@ TutorBoard
     ↓ HTTP API v1
 GeometryOS
     ↓
-канонический GIR
+канонический GIR 0.2
     ↓
-GIR → Board adapter
+Layout Document 0.1
+    ↓
+GIR + Layout → Board adapter
+    ↓
+BoardDocument
     ↓
 интерактивные объекты на полотне
 ```
@@ -38,27 +42,58 @@ GIR → Board adapter
 
 ## Статус
 
-| Компонент                    | Состояние                                                                                                                                      |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| GeometryOS                   | Integration-ready сервис `0.2.0`, API v1, GIR `0.2.0`, OpenAPI и TutorBoard consumer contracts                                                 |
-| TutorBoard                   | Geometry import spike: BoardDocument 0.2, canvas/tools/selection, Dexie recovery, safe SVG и актуальный generated/live-validated GeometryOS HTTP boundary |
-| tutor-assistant-web          | Развитая серверная платформа преподавателя: организации, ученики, расписание, BBB, обработка уроков, материалы, публикация и production-контур |
-| tutor-assistant              | Локальное desktop-приложение для записи, транскрибации, проверки и публикации материалов занятия                                               |
-| students-26-27               | Текущий репозиторий учебных страниц и файлов учеников                                                                                          |
-| latex-for-everyone / Latexed | Сервис редактирования, компиляции и экспорта LaTeX-документов                                                                                  |
+| Компонент                | Текущее состояние                                                                                                          | Ближайшая поставка                                         |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| GeometryOS               | API v1/GIR `0.2.0`, OpenAPI, Problem Details и TutorBoard fixtures стабильны; machine-readable Layout Document отсутствует | G-10 Layout Document 0.1, затем G-11 `POST /api/v1/layout` |
+| TutorBoard               | `BoardDocument 0.2`, infinite canvas, tools, selection, Dexie recovery, safe SVG и pinned GeometryOS client доставлены     | PR 2.8.2 live gate repair, затем PR 2.9A semantic adapter  |
+| tutor-assistant-web      | Серверная платформа пользователей, занятий, BBB, evidence, материалов и production-операций                                | Поздняя Phase 4 integration через gateway                  |
+| tutor-assistant          | Desktop recording/transcription application                                                                                | Lesson evidence integration на поздних фазах               |
+| students-26-27           | Репозиторий учебных страниц и опубликованных файлов                                                                        | Consumer lesson artifacts                                  |
+| Latexed / DocumentEngine | Проверка, компиляция и экспорт TEX/PDF/HTML                                                                                | Post-lesson material pipeline                              |
 
-На текущем этапе `BoardDocument 0.2` подключён к заменяемому Konva renderer:
-работают бесконечное полотно, pan, pointer-centred zoom, adaptive grid, перо,
-линии, прямоугольники, эллипсы, текст, click/Shift/marquee selection,
-перемещение, lock/unlock и delete. Каждый завершённый gesture проходит через
-command boundary, а selection, preview и отменённые действия не сериализуются.
-GeometryOS Gate 0 проверен; отсутствие machine-readable layout зафиксировано
-как compatibility gap для будущего GIR adapter. Локальная persistence уже
-восстанавливает document/viewport и сохраняет повреждённые revisions для явного
-recovery. Безопасная SVG-вставка работает как один opaque visual object с
-повторной проверкой перед render. Pinned GeometryOS DTO, standalone runtime validators, bounded HTTP adapter и live-container CORS/request-ID gate готовы; следующий этап — deterministic GIR-to-Board import.
+### Что уже работает в TutorBoard
 
----
+- infinite canvas, pan, pointer-centred zoom и adaptive grid;
+- pen, line, rectangle, ellipse и text;
+- click/Shift/marquee selection, movement, lock и delete;
+- versioned `BoardDocument 0.2` и command-only mutation boundary;
+- append-only Dexie revisions, autosave, optimistic conflict и recovery;
+- bounded deny-by-default SVG import;
+- pinned OpenAPI/GIR/fixture artifacts и generated runtime validation;
+- bounded GeometryOS HTTP adapter с typed results и request correlation.
+
+PR 2.8.1 смёржен и закрепил GeometryOS commit
+`49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c`. При этом последний PR-run
+показал незакрытый integration gate: Quality gate и обычный Browser smoke
+прошли, а `GeometryOS live browser contract` завершился ошибкой. Поэтому
+реальный browser CORS/request-ID flow считается недоказанным до PR 2.8.2.
+
+### Критический путь
+
+`TutorBoard 2.8.2 live gate`
+→ `GeometryOS G-10 Layout Contract`
+→ `TutorBoard 2.9A semantic adapter`
+→ `GeometryOS G-11 Layout API`
+→ `TutorBoard 2.9B atomic import`
+→ `TutorBoard 2.10 vertical slice`
+→ `TutorBoard 2.11 movement policy`
+→ `TutorBoard 2.12 Phase 2 report`.
+
+PR 2.9 разделён намеренно:
+
+- **2.9A** владеет pure GIR semantics, IDs, references, mapping и diagnostics;
+- **2.9B** владеет Layout-to-Board placement, renderable geometry objects и
+  атомарным document import;
+- coordinates не вычисляются из SVG и не записываются обратно в canonical GIR.
+
+### Следующие фазы
+
+После Technical Spike: `BoardDocument 1.0`, undo/redo, clipboard, layers,
+styling, math labels, deterministic import/export, performance, accessibility и
+product shell. Затем TutorBoard подключается к tutor-assistant-web через gateway,
+получает server revisions/offline synchronization, collaboration, lesson
+evidence и production hardening. Advanced semantic drag и AI modifications
+начинаются только после стабилизации этих контрактов.
 
 ## Зачем нужен TutorBoard
 
@@ -102,7 +137,7 @@ TutorBoard закрывает этот разрыв:
 
 ### 2. Геометрическое построение через GeometryOS
 
-Пользователь вводит естественно-языковую команду. TutorBoard отправляет её в GeometryOS, получает GIR и создаёт собственные объекты доски.
+Пользователь вводит естественно-языковую команду. TutorBoard отправляет её в GeometryOS, получает canonical GIR, затем versioned Layout Document и только после runtime validation создаёт собственные объекты доски одной атомарной import-командой.
 
 Пример:
 
@@ -243,7 +278,7 @@ text → draft GIR → validate → normalize → validate → layout → SVG/Ti
 - GIR schema;
 - семантическую валидацию;
 - нормализацию;
-- канонический layout;
+- версионированный initial layout с provenance;
 - SVG и TikZ;
 - API v1;
 - Problem Details, request ID и timeouts;
