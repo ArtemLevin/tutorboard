@@ -22,7 +22,8 @@
     "check": "npm run geometryos:check && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run architecture && npm run build",
     "geometryos:vendor": "node scripts/vendor-geometryos-contract.mjs",
     "geometryos:generate": "node scripts/generate-geometryos-contract.mjs",
-    "geometryos:check": "node scripts/check-geometryos-contract.mjs"
+    "geometryos:check": "node scripts/check-geometryos-contract.mjs",
+    "geometryos:live-smoke": "node scripts/geometryos-live-contract-smoke.mjs"
   },
   "dependencies": {
     "dexie": "4.4.4",

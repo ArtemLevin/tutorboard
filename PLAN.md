@@ -15,7 +15,7 @@
 
 ## 2. Текущее состояние и ближайшая последовательность
 
-TutorBoard завершил PR 2.7 Safe SVG insertion. Gate 0 GeometryOS закрыт
+TutorBoard завершил PR 2.7 Safe SVG insertion. PR 2.8.1 закрепил актуальный browser contract GeometryOS и live-container gate. Gate 0 GeometryOS закрыт
 проверяемым baseline в
 [`docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md`](docs/spike/GEOMETRYOS_CONTRACT_BASELINE.md):
 API v1, GIR `0.2.0`, fixtures, Problem Details, request ID и probes подтверждены;
@@ -31,7 +31,7 @@ pointer-centred zoom, ResizeObserver, grid/origin и renderer registry. PR 2.4
 независимых объектов и групп, delete, lock state и selection inspector.
 Dexie persistence и recovery реализованы в PR 2.6. PR 2.7 добавил bounded
 SVG sanitizer, opaque `svg-import.svg`, selection/movement, reload revalidation
-и recovery при tampered SVG. GeometryOS client ещё не реализован.
+и recovery при tampered SVG. Generated GeometryOS client реализован, закреплён на актуальном producer commit и проверяется fixture/live-container gates.
 
 Ближайшие поставки:
 
@@ -97,9 +97,13 @@ SVG sanitizer, opaque `svg-import.svg`, selection/movement, reload revalidation
    - compile-time DTO и standalone runtime validators воспроизводимо генерируются из одного OpenAPI;
    - HTTP adapter разделяет success, clarification, domain error, Problem Details, transport, cancellation и incompatible contract;
    - bounded body, timeout/abort и request ID проверяются до передачи canonical GIR.
-11. **PR 2.9 — deterministic GIR-to-Board import — следующий**
-   - реализовать layout policy, pure GIR adapter и атомарный import command.
-12. Далее выполнять PR 2.10–2.12 из Technical Spike plan, не обходя phase gates.
+11. **PR 2.8.1 — GeometryOS contract repin — завершён**
+    - закрепить producer commit `49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c` и новые SHA-256;
+    - регенерировать DTO и runtime validators из актуального additive OpenAPI;
+    - доказать CORS preflight, exposed `X-Request-ID` и live response validation на pinned container.
+12. **PR 2.9 — deterministic GIR-to-Board import — следующий**
+    - реализовать layout policy, pure GIR adapter и атомарный import command.
+13. Далее выполнять PR 2.10–2.12 из Technical Spike plan, не обходя phase gates.
 
 ## 3. Целевая архитектура
 

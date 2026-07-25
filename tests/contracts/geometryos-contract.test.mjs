@@ -109,4 +109,47 @@ describe("pinned GeometryOS contract", () => {
     expect(counts.response).toBeGreaterThan(0);
     expect(counts.problem).toBeGreaterThan(0);
   });
+
+  it("publishes browser correlation and service-unavailable contracts", () => {
+    const openapi = json(path.join(root, "openapi.v1.json"));
+    const operation = openapi.paths["/api/v1/generate"].post;
+    expect(openapi.components.parameters.GeometryOsRequestId).toMatchObject({
+      in: "header",
+      name: "X-Request-ID",
+      required: false,
+    });
+    expect(openapi.components.headers.GeometryOsRequestId).toMatchObject({
+      required: true,
+    });
+    expect(operation.parameters).toContainEqual({
+      $ref: "#/components/parameters/GeometryOsRequestId",
+    });
+    for (const status of ["200", "422", "500", "503", "504"]) {
+      expect(operation.responses[status].headers["X-Request-ID"]).toEqual({
+        $ref: "#/components/headers/GeometryOsRequestId",
+      });
+    }
+    expect(operation.responses["503"]).toMatchObject({
+      content: {
+        "application/problem+json": {
+          schema: { $ref: "#/components/schemas/ProblemDetail" },
+        },
+      },
+    });
+
+    const fixtureManifest = json(path.join(root, "fixtures/manifest.json"));
+    expect(fixtureManifest.cases).toContainEqual(
+      expect.objectContaining({
+        id: "service-unavailable",
+        path: "/api/v1/generate",
+        response: "service-unavailable.problem.json",
+        status: 503,
+      }),
+    );
+    expect(
+      validateProblemDetail(
+        json(path.join(root, "fixtures/service-unavailable.problem.json")),
+      ).valid,
+    ).toBe(true);
+  });
 });
