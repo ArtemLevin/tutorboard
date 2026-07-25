@@ -48,7 +48,6 @@ jobs:
       - name: Commit product changes
         run: |
           git add \
-            .github/workflows/ci.yml \
             PLAN.md \
             README.md \
             contracts/geometryos \
