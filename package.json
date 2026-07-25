@@ -11,8 +11,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"*.{html,js,json,ts}\" \".github/**/*.yml\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"*.{html,js,json,ts}\" \".github/**/*.yml\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
@@ -23,7 +23,9 @@
     "geometryos:vendor": "node scripts/vendor-geometryos-contract.mjs",
     "geometryos:generate": "node scripts/generate-geometryos-contract.mjs",
     "geometryos:check": "node scripts/check-geometryos-contract.mjs",
-    "geometryos:live-smoke": "node scripts/geometryos-live-contract-smoke.mjs"
+    "geometryos:validator-smoke": "node scripts/check-geometryos-validator-runtime.mjs",
+    "geometryos:live-smoke": "node scripts/geometryos-live-contract-smoke.mjs",
+    "geometryos:live-browser": "playwright test --config playwright.geometryos.config.mjs"
   },
   "dependencies": {
     "dexie": "4.4.4",

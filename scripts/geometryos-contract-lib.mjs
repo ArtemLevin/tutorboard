@@ -18,10 +18,20 @@ const standaloneCode = toolRequire("ajv/dist/standalone").default;
 const openApiPath = path.join(contractRoot, "openapi.v1.json");
 const girSchemaPath = path.join(contractRoot, "gir.schema.v0.2.json");
 const fixtureManifestPath = path.join(contractRoot, "fixtures/manifest.json");
+const generatedRootRelative = "src/adapters/geometryos-http/generated";
+const validatorPath = path.join(
+  generatedRootRelative,
+  "geometryos.validators.mjs",
+);
+const runtimeBridgePath = path.join(
+  generatedRootRelative,
+  "geometryos.ajv-runtime.mjs",
+);
 
 export const generatedFiles = [
   "src/adapters/geometryos-http/generated/geometryos.types.ts",
-  "src/adapters/geometryos-http/generated/geometryos.validators.mjs",
+  validatorPath,
+  runtimeBridgePath,
   "src/adapters/geometryos-http/generated/geometryos.validators.d.mts",
   "src/adapters/geometryos-http/generated/contract-metadata.ts",
 ];
@@ -37,7 +47,25 @@ function hashFile(filePath) {
     .digest("hex");
 }
 
+function verifyAjvVersionParity() {
+  const rootPackage = readJson(path.join(repositoryRoot, "package.json"));
+  const toolPackage = readJson(path.join(toolRoot, "package.json"));
+  const rootVersion = rootPackage.devDependencies?.ajv;
+  const toolVersion = toolPackage.devDependencies?.ajv;
+  if (
+    typeof rootVersion !== "string" ||
+    typeof toolVersion !== "string" ||
+    rootVersion !== toolVersion ||
+    !/^\d+\.\d+\.\d+$/.test(rootVersion)
+  ) {
+    throw new Error(
+      `GeometryOS validator Ajv versions must be the same exact version: root=${String(rootVersion)}, tool=${String(toolVersion)}`,
+    );
+  }
+}
+
 export function verifyContractArtifacts() {
+  verifyAjvVersionParity();
   const manifest = readJson(path.join(contractRoot, "contract-manifest.json"));
   const checks = [
     [openApiPath, manifest.openApiSha256, "OpenAPI"],
@@ -105,6 +133,42 @@ function bundledSchema(rootSchema, components, id) {
   };
 }
 
+function normalizeStandaloneEsm(source) {
+  const imports = [];
+  const supportedRuntimeHelpers = new Map([["ucs2length", "ucs2length"]]);
+  const normalized = source.replace(
+    /const\s+([A-Za-z_$][\w$]*)\s*=\s*require\((["'])ajv\/dist\/runtime\/([^"']+)\2\)\.default\s*;?/g,
+    (_match, localName, _quote, helperPath) => {
+      const exportName = supportedRuntimeHelpers.get(helperPath);
+      if (exportName === undefined) {
+        throw new Error(
+          `Unsupported Ajv standalone runtime helper: ${helperPath}`,
+        );
+      }
+      imports.push(
+        `import { ${exportName} as ${localName} } from "./geometryos.ajv-runtime.mjs";`,
+      );
+      return "";
+    },
+  );
+
+  const markers = [
+    ["require(", /\brequire\s*\(/],
+    ["module.exports", /\bmodule\.exports\b/],
+    ["exports.", /\bexports\./],
+  ];
+  for (const [label, pattern] of markers) {
+    if (pattern.test(normalized)) {
+      throw new Error(
+        `Generated GeometryOS validator still contains CommonJS marker: ${label}`,
+      );
+    }
+  }
+
+  const prelude = [...new Set(imports)].sort().join("\n");
+  return prelude.length > 0 ? `${prelude}\n${normalized}` : normalized;
+}
+
 function generateValidators(openapi) {
   const components = openapi.components.schemas;
   const responseSchema =
@@ -114,7 +178,7 @@ function generateValidators(openapi) {
   const ajv = new Ajv2020({
     allErrors: true,
     allowUnionTypes: true,
-    code: { esm: true, source: true },
+    code: { esm: true, lines: true, source: true },
     strict: false,
     validateFormats: false,
   });
@@ -144,7 +208,11 @@ function generateValidators(openapi) {
       schemaIds.validateProblemDetail,
     ),
   );
-  return standaloneCode(ajv, schemaIds);
+  return normalizeStandaloneEsm(standaloneCode(ajv, schemaIds));
+}
+
+function runtimeBridgeSource() {
+  return `import ucs2lengthModule from "ajv/dist/runtime/ucs2length.js";\n\nconst ucs2length =\n  typeof ucs2lengthModule === "function"\n    ? ucs2lengthModule\n    : ucs2lengthModule.default;\n\nif (typeof ucs2length !== "function") {\n  throw new TypeError("Ajv ucs2length runtime helper is unavailable.");\n}\n\nexport { ucs2length };\n`;
 }
 
 function writeMetadata(outputRoot, manifest) {
@@ -173,10 +241,7 @@ function writeMetadata(outputRoot, manifest) {
 
 export function generateContract(outputRoot = repositoryRoot) {
   const { manifest, openapi } = verifyContractArtifacts();
-  const generatedRoot = path.join(
-    outputRoot,
-    "src/adapters/geometryos-http/generated",
-  );
+  const generatedRoot = path.join(outputRoot, generatedRootRelative);
   fs.mkdirSync(generatedRoot, { recursive: true });
   const executable = path.join(
     toolRoot,
@@ -194,8 +259,12 @@ export function generateContract(outputRoot = repositoryRoot) {
     },
   );
   fs.writeFileSync(
-    path.join(generatedRoot, "geometryos.validators.mjs"),
+    path.join(outputRoot, validatorPath),
     generateValidators(openapi),
+  );
+  fs.writeFileSync(
+    path.join(outputRoot, runtimeBridgePath),
+    runtimeBridgeSource(),
   );
   fs.writeFileSync(
     path.join(generatedRoot, "geometryos.validators.d.mts"),
@@ -213,6 +282,7 @@ export function generateContract(outputRoot = repositoryRoot) {
       "--write",
       path.join(generatedRoot, "geometryos.types.ts"),
       path.join(generatedRoot, "contract-metadata.ts"),
+      path.join(generatedRoot, "geometryos.ajv-runtime.mjs"),
     ],
     { cwd: repositoryRoot, stdio: "ignore" },
   );

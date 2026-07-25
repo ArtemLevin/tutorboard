@@ -12,13 +12,16 @@ TutorBoard must consume a large OpenAPI 3.1 contract containing canonical GIR. S
 
 Vendor immutable GeometryOS artifacts, generate TypeScript DTOs with the same pinned `openapi-typescript` version used by the producer contract smoke, and generate Ajv 2020 standalone validators from the same OpenAPI document. Keep all generated DTOs private to `adapters/geometryos-http` and expose only a normalized `GeometryOsClient` port from `core`.
 
+Normalize standalone validator output at generation time into executable ESM. Allow only explicitly supported Ajv runtime helpers through a generated local bridge, reject remaining CommonJS markers, require exact Ajv version parity and execute the committed module through plain Node and Chromium gates.
+
 The adapter performs no automatic retry and does not create Board objects. Contract repins require exact source commit and SHA-256 provenance, a reproducible generated diff and a live browser-contract gate against a container built from that same commit.
 
 ## Consequences
 
 - contract upgrades produce an explicit artifact and generated-code diff;
 - network responses are validated at runtime before entering TutorBoard;
-- generated validator output is committed and reproducibility-checked;
+- generated validator output is committed, reproducibility-checked and directly executed by the plain Node ESM loader;
+- unknown Ajv runtime helpers or residual CommonJS markers fail generation instead of relying on bundler interop;
 - OpenAPI request/response `X-Request-ID`, typed generate `503` and exact-origin CORS are verified against the real producer runtime;
 - the production bundle may include small Ajv runtime helpers referenced by the standalone output;
 - machine-readable layout remains the only producer follow-up before the general GIR-to-Board placement contract.
