@@ -37,7 +37,7 @@ jobs:
         run: node scripts/prepare-geometryos-repin.mjs
 
       - name: Apply product changes
-        run: node scripts/finalize-geometryos-repin.mjs
+        run: node scripts/run-finalize-geometryos-repin.mjs
 
       - name: Apply canonical formatting
         run: npm run format
