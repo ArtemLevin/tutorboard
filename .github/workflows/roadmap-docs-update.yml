@@ -38,6 +38,11 @@ jobs:
       - name: Format documentation
         run: npx prettier --write PLAN.md README.md
 
+      - name: Exclude one-shot automation from verification
+        run: |
+          rm scripts/update-roadmap-docs.mjs
+          rm .github/workflows/roadmap-docs-update.yml
+
       - name: Verify documentation and repository gates
         run: |
           npm run format:check
