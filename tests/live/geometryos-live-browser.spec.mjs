@@ -26,9 +26,8 @@ test("browser can validate a pinned GeometryOS response", async ({ page }) => {
   const result = await page.evaluate(
     async ({ geometryOsBaseUrl, correlationId, fixture }) => {
       try {
-        const validators = await import(
-          "/src/adapters/geometryos-http/generated/geometryos.validators.mjs"
-        );
+        const validators =
+          await import("/src/adapters/geometryos-http/generated/geometryos.validators.mjs");
         if (typeof validators.validateGenerateResponse !== "function") {
           return { ok: false, code: "validator-export-missing" };
         }
@@ -84,9 +83,7 @@ test("browser can validate a pinned GeometryOS response", async ({ page }) => {
         }
 
         if (!validators.validateGenerateResponse(payload)) {
-          const diagnostics = (
-            validators.validateGenerateResponse.errors ?? []
-          )
+          const diagnostics = (validators.validateGenerateResponse.errors ?? [])
             .slice(0, 10)
             .map((error) => ({
               instancePath: error.instancePath,
@@ -101,7 +98,10 @@ test("browser can validate a pinned GeometryOS response", async ({ page }) => {
           };
         }
 
-        if (payload.status !== "success" || payload.schema_version !== "0.2.0") {
+        if (
+          payload.status !== "success" ||
+          payload.schema_version !== "0.2.0"
+        ) {
           return {
             ok: false,
             code: "incompatible-success-contract",

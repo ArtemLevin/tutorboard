@@ -135,9 +135,7 @@ function bundledSchema(rootSchema, components, id) {
 
 function normalizeStandaloneEsm(source) {
   const imports = [];
-  const supportedRuntimeHelpers = new Map([
-    ["ucs2length", "ucs2length"],
-  ]);
+  const supportedRuntimeHelpers = new Map([["ucs2length", "ucs2length"]]);
   const normalized = source.replace(
     /const\s+([A-Za-z_$][\w$]*)\s*=\s*require\((["'])ajv\/dist\/runtime\/([^"']+)\2\)\.default\s*;?/g,
     (_match, localName, _quote, helperPath) => {
