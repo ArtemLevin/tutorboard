@@ -32,6 +32,7 @@ TutorBoard завершил основную инфраструктурную ч
 | PR 2.7   | завершён | bounded deny-by-default SVG import и stored-object revalidation                                          |
 | PR 2.8   | завершён | pinned/generated GeometryOS client, runtime validators и bounded HTTP adapter                            |
 | PR 2.8.1 | смёржен  | producer repin на `49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c`, новый OpenAPI/fixtures и live-contract job |
+| PR 2.8.2 | завершён | executable ESM validators, plain-Node smoke и real Chromium CORS/request-ID/runtime gate                 |
 
 Текущий stored contract — `BoardDocument 0.2`. Canvas runtime, selection,
 preview и transport state не сериализуются. Canonical GIR хранится отдельно от
@@ -39,36 +40,34 @@ Board objects и не восстанавливается из SVG или пол�
 
 ### 2.2. Подтверждённые блокеры
 
-1. **Live GeometryOS gate ещё не зелёный.** В финальном pull-request run PR 2.8.1
-   обычные Quality gate и Browser smoke прошли, но новый job
-   `GeometryOS live browser contract` завершился ошибкой. До зелёного запуска
-   нельзя считать доказанным реальный browser flow CORS/request correlation.
-2. **GeometryOS не публикует Layout Document 0.1.** API v1 возвращает canonical
+1. **GeometryOS не публикует Layout Document 0.1.** API v1 возвращает canonical
    GIR и SVG/TikZ, но не версионированные координаты с provenance. SVG не может
    использоваться как semantic source согласно `GEO-009`.
-3. **GeometryOS client ещё не скомпонован с UI.** HTTP adapter существует, но
+2. **GeometryOS client ещё не скомпонован с UI.** HTTP adapter существует, но
    prompt flow, clarification UI, retry identity и atomic import появятся только
    в следующих PR.
-4. **Общий vertical slice не закрыт.** Цепочка
+3. **Общий vertical slice не закрыт.** Цепочка
    `text → GIR → Layout Document → BoardDocument → canvas` пока не доказана.
 
 ### 2.3. Обязательный execution order
 
-#### TutorBoard PR 2.8.2 — восстановить зелёный live-contract gate
+#### TutorBoard PR 2.8.2 — восстановить зелёный live-contract gate — завершён
 
-Scope:
+Доставлено:
 
-- воспроизвести и исправить причину падения pinned-container smoke;
-- сохранить exact producer commit и default-deny CORS policy;
-- проверить allowed preflight, denied origin, отсутствие credentials,
-  browser-visible `X-Request-ID` и runtime validation ответа;
-- не менять BoardDocument, canvas, UI и geometry import contracts.
-
-Exit criteria:
-
-- Quality gate, Browser smoke и GeometryOS live browser contract зелёные;
-- diagnostics не содержат prompt, response body или credentials;
-- normal CI не обращается к mutable GeometryOS branch.
+- Ajv standalone output fail-closed нормализуется в executable ESM на границе
+  генератора, а неизвестные CommonJS runtime helpers отклоняются;
+- exact Ajv version одинакова в root и isolated code-generation toolchain;
+- committed validators воспроизводимо проверяются plain Node ESM loader и
+  положительными/отрицательными contract fixtures;
+- отдельный protocol probe проверяет readiness, allowed/denied CORS preflight и
+  отсутствие credentials;
+- реальный Chromium выполняет cross-origin POST, читает exposed
+  `X-Request-ID` и валидирует live response тем же generated validator;
+- exact producer commit и hardened read-only container сохранены;
+- Quality gate, Browser smoke и GeometryOS live browser contract прошли в CI
+  run 149; diagnostics не содержат prompt, response body или credentials;
+- BoardDocument, canvas, UI, persistence и geometry import contracts не менялись.
 
 #### GeometryOS G-10 — чистый Layout Document 0.1
 
@@ -135,7 +134,7 @@ schema/fixtures в release bundle и опубликовав consumer upgrade gui
 
 ### 2.4. Правила параллельной разработки
 
-- PR 2.8.2 блокирует live UI integration, но не чистую документацию и анализ.
+- PR 2.8.2 закрыт; следующий TutorBoard owner — pure semantic PR 2.9A.
 - TutorBoard PR 2.9A может идти параллельно с GeometryOS G-10, поскольку не
   владеет coordinates и не вызывает HTTP.
 - PR 2.9B начинается только после принятия G-10 и опубликованного G-11 contract.
@@ -167,7 +166,6 @@ production direct-browser access к GeometryOS не выбираются зар�
 
 Запрещено объявлять Technical Spike завершённым, пока:
 
-- live GeometryOS browser contract не зелёный;
 - Layout Document не versioned и runtime-validated;
 - import не атомарен;
 - canonical GIR/provenance не переживают save/reload;

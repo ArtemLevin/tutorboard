@@ -4,6 +4,8 @@
 
 TutorBoard pins the GeometryOS OpenAPI, GIR schema and consumer fixture manifest by source commit and SHA-256. Compile-time DTOs and standalone runtime validators are generated from that same OpenAPI artifact. External DTOs remain private to `adapters/geometryos-http`; the rest of TutorBoard consumes the platform-neutral `GeometryOsClient` port from `core`.
 
+Ajv standalone output is normalized at the generator boundary into executable ESM. Only explicitly supported runtime helpers may be bridged; unknown CommonJS markers fail generation. Root and isolated code-generation toolchains must pin the same exact Ajv version.
+
 ## Flow
 
 ```text
@@ -30,11 +32,11 @@ Pinned producer:
 
 A success response with another GIR version, invalid response schema, missing or mismatched request ID, invalid content type, malformed UTF-8/JSON, or an oversized body is rejected before any GIR-to-Board code can observe it.
 
-The committed OpenAPI now declares request and response `X-Request-ID` contracts and typed generate `503` Problem Details. CI additionally builds the exact producer commit and proves allowed/denied CORS preflight, non-credentialed browser access, exposed request correlation and runtime response validation.
+The committed OpenAPI declares request and response `X-Request-ID` contracts and typed generate `503` Problem Details. CI imports and executes the raw generated validator with the plain Node ESM loader, then builds the exact producer commit and proves allowed/denied CORS preflight. A separate Chromium probe performs the real cross-origin request, reads the exposed request correlation header and validates the live response with the same generated validator.
 
 ## Privacy and security
 
-The adapter and live smoke never log prompts, response bodies or credential-bearing URLs. Base URLs cannot include credentials, query strings or fragments. Response bodies are streamed through a byte limit before decoding. Generated validators are compiled at build time; the browser does not dynamically compile schemas. The CI container receives only a non-secret exact development origin.
+The adapter and live probes never log prompts, response bodies or credential-bearing URLs. Base URLs cannot include credentials, query strings or fragments. Response bodies are streamed through a byte limit before decoding. Generated validators are compiled at build time; the browser does not dynamically compile schemas. Playwright traces are disabled for the live probe, and its diagnostics contain only safe codes, status, schema paths and correlation metadata. The CI container receives only a non-secret exact development origin.
 
 ## Remaining producer follow-up
 
