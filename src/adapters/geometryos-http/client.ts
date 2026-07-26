@@ -5,6 +5,8 @@ import {
   type GeometryOsGenerateTask,
   type GeometryOsLayoutResult,
   type GeometryOsLayoutTask,
+  type GeometryOsReadinessResult,
+  type GeometryOsReadinessTask,
   type GeometryOsRequestId,
 } from "../../core/public";
 
@@ -28,10 +30,12 @@ import {
   validateLayoutRequest,
   validateLayoutResponse,
   validateProblemDetail,
+  validateReadinessResponse,
 } from "./validation";
 
 const defaultGenerateTimeoutMs = 25_000;
 const defaultLayoutTimeoutMs = 15_000;
+const defaultReadinessTimeoutMs = 3_000;
 const defaultMaxResponseBytes = 2 * 1024 * 1024;
 const maximumPromptLength = 20_000;
 
@@ -47,6 +51,7 @@ export interface GeometryOsHttpClientOptions {
   readonly generateTimeoutMs?: number;
   readonly layoutTimeoutMs?: number;
   readonly maxResponseBytes?: number;
+  readonly readinessTimeoutMs?: number;
 }
 
 interface ResolvedOptions {
@@ -57,6 +62,8 @@ interface ResolvedOptions {
   readonly layoutEndpoint: URL;
   readonly layoutTimeoutMs: number;
   readonly maxResponseBytes: number;
+  readonly readinessEndpoint: URL;
+  readonly readinessTimeoutMs: number;
 }
 
 function positiveInteger(
@@ -74,7 +81,7 @@ function positiveInteger(
 
 function resolveEndpoint(
   baseUrl: string,
-  operation: "generate" | "layout",
+  operation: "generate" | "layout" | "readiness",
 ): URL {
   const url = new URL(baseUrl);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -91,18 +98,26 @@ function resolveEndpoint(
   if (!url.pathname.endsWith("/")) {
     url.pathname += "/";
   }
-  return new URL(`api/v1/${operation}`, url);
+  return new URL(
+    operation === "readiness" ? "ready" : `api/v1/${operation}`,
+    url,
+  );
 }
 
 function resolveOptions(options: GeometryOsHttpClientOptions): ResolvedOptions {
-  const fetchImplementation = options.fetch ?? globalThis.fetch;
-  if (typeof fetchImplementation !== "function") {
+  const configuredFetch = options.fetch;
+  if (configuredFetch === undefined && typeof globalThis.fetch !== "function") {
     throw new Error("Fetch is required by the GeometryOS HTTP adapter.");
   }
+  const fetchImplementation: FetchLike =
+    configuredFetch === undefined
+      ? (input, init) => globalThis.fetch(input, init)
+      : (input, init) => configuredFetch(input, init);
   return {
     fetch: fetchImplementation,
     generateEndpoint: resolveEndpoint(options.baseUrl, "generate"),
     layoutEndpoint: resolveEndpoint(options.baseUrl, "layout"),
+    readinessEndpoint: resolveEndpoint(options.baseUrl, "readiness"),
     createRequestId:
       options.createRequestId ?? createDefaultGeometryOsRequestId,
     generateTimeoutMs: positiveInteger(
@@ -119,6 +134,11 @@ function resolveOptions(options: GeometryOsHttpClientOptions): ResolvedOptions {
       options.maxResponseBytes ?? defaultMaxResponseBytes,
       "GeometryOS response limit",
       16 * 1024 * 1024,
+    ),
+    readinessTimeoutMs: positiveInteger(
+      options.readinessTimeoutMs ?? defaultReadinessTimeoutMs,
+      "GeometryOS readiness timeout",
+      30_000,
     ),
   };
 }
@@ -533,6 +553,147 @@ async function executeLayout(
   return normalizeProblemDetail(validation.value, requestId);
 }
 
+async function executeReadiness(
+  options: ResolvedOptions,
+  requestId: GeometryOsRequestId,
+  signal: AbortSignal,
+): Promise<GeometryOsReadinessResult> {
+  let response: Response;
+  try {
+    response = await options.fetch(options.readinessEndpoint, {
+      method: "GET",
+      headers: { [geometryOsRequestIdHeader]: requestId },
+      signal,
+    });
+  } catch (error) {
+    if (signal.aborted) {
+      throw error;
+    }
+    return {
+      kind: "transport-failure",
+      requestId,
+      code: "geometryos.network-failure",
+      retryable: true,
+    };
+  }
+
+  const requestIdFailure = await readResponseRequestId(response, requestId);
+  if (requestIdFailure !== null) {
+    return requestIdFailure;
+  }
+
+  let body: BoundedBodyReadResult;
+  try {
+    body = await readBoundedResponseBody(response, options.maxResponseBytes);
+  } catch (error) {
+    if (signal.aborted) {
+      throw error;
+    }
+    return {
+      kind: "transport-failure",
+      requestId,
+      code: "geometryos.network-failure",
+      retryable: true,
+    };
+  }
+  if (body.status === "too-large") {
+    return incompatible(
+      requestId,
+      "geometryos.response-too-large",
+      response.status,
+    );
+  }
+  if (body.status === "invalid-utf8") {
+    return incompatible(requestId, "geometryos.invalid-utf8", response.status);
+  }
+
+  const isReadinessResponse =
+    response.status === 200 || response.status === 503;
+  const contentType = response.headers.get("Content-Type");
+  if (
+    (isReadinessResponse && !isJsonMediaType(contentType)) ||
+    (!isReadinessResponse && !isProblemMediaType(contentType))
+  ) {
+    return incompatible(
+      requestId,
+      "geometryos.wrong-content-type",
+      response.status,
+      [],
+      body.text,
+    );
+  }
+  const parsed = jsonValue(body.text);
+  if (!parsed.parsed) {
+    return incompatible(
+      requestId,
+      "geometryos.invalid-json",
+      response.status,
+      [],
+      body.text,
+    );
+  }
+
+  if (isReadinessResponse) {
+    const validation = validateReadinessResponse(parsed.value);
+    if (!validation.valid) {
+      return incompatible(
+        requestId,
+        "geometryos.response-schema-mismatch",
+        response.status,
+        validation.issuePaths,
+        body.text,
+      );
+    }
+    const checks = validation.value.checks.map((check) => ({
+      name: check.name,
+      status: check.status,
+    }));
+    if (response.status === 200 && validation.value.status === "ready") {
+      return { kind: "ready", requestId, checks };
+    }
+    if (response.status === 503 && validation.value.status === "not_ready") {
+      return { kind: "not-ready", requestId, checks, retryable: true };
+    }
+    return incompatible(
+      requestId,
+      "geometryos.response-schema-mismatch",
+      response.status,
+      ["/status"],
+      body.text,
+    );
+  }
+
+  const validation = validateProblemDetail(parsed.value);
+  if (!validation.valid) {
+    return incompatible(
+      requestId,
+      "geometryos.response-schema-mismatch",
+      response.status,
+      validation.issuePaths,
+      body.text,
+    );
+  }
+  if (validation.value.request_id !== requestId) {
+    return incompatible(
+      requestId,
+      "geometryos.problem-request-id-mismatch",
+      response.status,
+      ["/request_id"],
+      body.text,
+    );
+  }
+  if (validation.value.status !== response.status) {
+    return incompatible(
+      requestId,
+      "geometryos.response-schema-mismatch",
+      response.status,
+      ["/status"],
+      body.text,
+    );
+  }
+  return normalizeProblemDetail(validation.value, requestId);
+}
+
 function invalidTask(
   requestId: GeometryOsRequestId,
   code: Extract<GeometryOsGenerateResult, { kind: "invalid-request" }>["code"],
@@ -564,6 +725,47 @@ export function createGeometryOsHttpClient(
   const options = resolveOptions(clientOptions);
 
   return {
+    startReadiness(): GeometryOsReadinessTask {
+      const requestId = geometryOsRequestId(options.createRequestId());
+      const controller = new AbortController();
+      let abortReason: "cancelled" | "timeout" | null = null;
+      let terminal = false;
+      const timeout = setTimeout(() => {
+        if (!terminal && abortReason === null) {
+          abortReason = "timeout";
+          controller.abort();
+        }
+      }, options.readinessTimeoutMs);
+      const result = executeReadiness(options, requestId, controller.signal)
+        .catch((error: unknown): GeometryOsReadinessResult => {
+          if (controller.signal.aborted) {
+            if (abortReason === "cancelled") {
+              return { kind: "cancelled", requestId };
+            }
+            return {
+              kind: "transport-failure",
+              requestId,
+              code: "geometryos.timeout",
+              retryable: true,
+            };
+          }
+          throw error;
+        })
+        .finally(() => {
+          terminal = true;
+          clearTimeout(timeout);
+        });
+      return {
+        requestId,
+        result,
+        cancel(): void {
+          if (!terminal && abortReason === null) {
+            abortReason = "cancelled";
+            controller.abort();
+          }
+        },
+      };
+    },
     startGenerate(input): GeometryOsGenerateTask {
       const requestId = geometryOsRequestId(options.createRequestId());
       const promptLength = Array.from(input.prompt).length;

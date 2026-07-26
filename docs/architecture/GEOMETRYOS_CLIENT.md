@@ -10,6 +10,7 @@ Ajv standalone output is normalized at the generator boundary into executable ES
 
 ```text
 prompt
+  -> readiness request
   -> GeometryOsClient task
   -> one bounded generate or layout HTTP request
   -> request-ID/content-type/body checks
@@ -17,7 +18,7 @@ prompt
   -> normalized result union
 ```
 
-The result union keeps HTTP 200 domain outcomes distinct from Problem Details, transport failures, cancellation and incompatible contracts. The adapter marks retryability but performs no retry. Application-level retry and import deduplication require a durable import operation identity and belong to the later geometry-import flow.
+The result unions keep readiness, HTTP 200 domain outcomes, Problem Details, transport failures, cancellation and incompatible contracts distinct. The adapter marks retryability but performs no retry. Application-level retry and import identity belong to the `geometry-prompt` workflow.
 
 ## Compatibility
 
@@ -33,7 +34,7 @@ Pinned producer:
 
 A success response with another GIR or Layout version, invalid response schema, missing or mismatched request ID, invalid content type, malformed UTF-8/JSON, or an oversized body is rejected before any GIR-to-Board code can observe it.
 
-The committed OpenAPI declares request and response `X-Request-ID` contracts, typed Problem Details, generate outcomes and layout outcomes. CI imports and executes the raw generated validators with the plain Node ESM loader, then builds the exact producer commit and proves allowed/denied CORS preflight. A separate Chromium probe performs a request with an explicit 30-second abort budget, reads the exposed request correlation header and validates the live response with the same generated validator.
+The committed OpenAPI declares request and response `X-Request-ID` contracts, typed readiness, Problem Details, generate outcomes and layout outcomes. CI imports and executes the raw generated validators with the plain Node ESM loader, then builds the exact producer commit and proves allowed/denied CORS preflight. A separate Chromium probe performs a request with an explicit 30-second abort budget, reads the exposed request correlation header and validates the live response with the same generated validator.
 
 ## Privacy and security
 

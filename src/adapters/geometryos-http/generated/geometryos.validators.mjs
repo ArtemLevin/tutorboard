@@ -18540,3 +18540,229 @@ validate64.errors = vErrors;
 return errors === 0;
 }
 validate64.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+
+export const validateReadinessResponse = validate65;
+const schema134 = {"$id":"urn:tutorboard:geometryos:readiness-response","$ref":"#/$defs/ReadinessResponse","$defs":{"AltitudeConstraint":{"additionalProperties":false,"properties":{"foot":{"title":"Foot","type":"string"},"from_point":{"title":"From Point","type":"string"},"id":{"title":"Id","type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"segment":{"title":"Segment","type":"string"},"to_object":{"title":"To Object","type":"string"},"type":{"const":"altitude","title":"Type","type":"string"}},"required":["id","type","from_point","to_object","foot","segment"],"title":"AltitudeConstraint","type":"object"},"AngleBisectorConstraint":{"additionalProperties":false,"properties":{"angle":{"title":"Angle","type":"string"},"id":{"title":"Id","type":"string"},"ray":{"title":"Ray","type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"type":{"const":"angle_bisector","title":"Type","type":"string"}},"required":["id","type","angle","ray"],"title":"AngleBisectorConstraint","type":"object"},"AngleObject":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"points":{"maxItems":3,"minItems":3,"prefixItems":[{"type":"string"},{"type":"string"},{"type":"string"}],"title":"Points","type":"array"},"type":{"const":"angle","title":"Type","type":"string"}},"required":["id","type","points"],"title":"AngleObject","type":"object"},"ApiAmbiguity":{"additionalProperties":false,"properties":{"code":{"title":"Code","type":"string"},"message":{"title":"Message","type":"string"},"options":{"items":{"type":"string"},"title":"Options","type":"array"}},"required":["code","message"],"title":"ApiAmbiguity","type":"object"},"ApiLayoutDiagnostic":{"additionalProperties":false,"properties":{"code":{"minLength":1,"title":"Code","type":"string"},"constraint_ids":{"items":{"type":"string"},"title":"Constraint Ids","type":"array"},"message":{"minLength":1,"title":"Message","type":"string"},"object_ids":{"items":{"type":"string"},"title":"Object Ids","type":"array"}},"required":["code","message"],"title":"ApiLayoutDiagnostic","type":"object"},"ApiWarning":{"additionalProperties":false,"properties":{"code":{"enum":["unsupported_construction","draft_gir_invalid","normalized_gir_invalid","adapter_warning"],"title":"Code","type":"string"},"message":{"title":"Message","type":"string"}},"required":["code","message"],"title":"ApiWarning","type":"object"},"BelongsToConstraint":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"object":{"title":"Object","type":"string"},"point":{"title":"Point","type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"type":{"const":"belongs_to","title":"Type","type":"string"}},"required":["id","type","point","object"],"title":"BelongsToConstraint","type":"object"},"CheckStatus":{"enum":["pass","fail"],"title":"CheckStatus","type":"string"},"CircleObject":{"additionalProperties":false,"properties":{"center":{"title":"Center","type":"string"},"id":{"title":"Id","type":"string"},"radius_point":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Radius Point"},"type":{"const":"circle","title":"Type","type":"string"}},"required":["id","type","center"],"title":"CircleObject","type":"object"},"CircumcircleConstraint":{"additionalProperties":false,"properties":{"circle":{"title":"Circle","type":"string"},"id":{"title":"Id","type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"triangle":{"title":"Triangle","type":"string"},"type":{"const":"circumcircle","title":"Type","type":"string"}},"required":["id","type","triangle","circle"],"title":"CircumcircleConstraint","type":"object"},"CollinearConstraint":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"points":{"items":{"type":"string"},"title":"Points","type":"array"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"type":{"const":"collinear","title":"Type","type":"string"}},"required":["id","type","points"],"title":"CollinearConstraint","type":"object"},"ConstructionStep":{"additionalProperties":false,"properties":{"action":{"title":"Action","type":"string"},"constraints":{"items":{"type":"string"},"title":"Constraints","type":"array"},"id":{"title":"Id","type":"string"},"objects":{"items":{"type":"string"},"title":"Objects","type":"array"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"}},"required":["id","action","objects"],"title":"ConstructionStep","type":"object"},"EqualLengthConstraint":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"objects":{"maxItems":2,"minItems":2,"prefixItems":[{"type":"string"},{"type":"string"}],"title":"Objects","type":"array"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"type":{"const":"equal_length","title":"Type","type":"string"}},"required":["id","type","objects"],"title":"EqualLengthConstraint","type":"object"},"GenerateClarificationResponse":{"additionalProperties":false,"examples":[{"ambiguities":[{"code":"missing_angle","message":"Не указано, биссектрису какого угла нужно построить.","options":["angle_A","angle_B","angle_C"]}],"confidence":0.4,"explanation":"Bisector request lacks angle target.","schema_version":"0.2.0","status":"needs_clarification","warnings":[]}],"properties":{"ambiguities":{"items":{"$ref":"#/$defs/ApiAmbiguity"},"title":"Ambiguities","type":"array"},"confidence":{"maximum":1,"minimum":0,"title":"Confidence","type":"number"},"explanation":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Explanation"},"gir":{"title":"Gir","type":"null"},"schema_version":{"const":"0.2.0","default":"0.2.0","title":"Schema Version","type":"string"},"status":{"const":"needs_clarification","title":"Status","type":"string"},"svg":{"title":"Svg","type":"null"},"tikz":{"title":"Tikz","type":"null"},"validation_report":{"title":"Validation Report","type":"null"},"warnings":{"items":{"$ref":"#/$defs/ApiWarning"},"title":"Warnings","type":"array"}},"required":["status","confidence"],"title":"GenerateClarificationResponse","type":"object"},"GenerateErrorResponse":{"additionalProperties":false,"examples":[{"ambiguities":[],"confidence":0,"explanation":"No supported construction matched the input.","schema_version":"0.2.0","status":"error","warnings":[{"code":"unsupported_construction","message":"Construction is not supported."}]}],"properties":{"ambiguities":{"items":{"$ref":"#/$defs/ApiAmbiguity"},"title":"Ambiguities","type":"array"},"confidence":{"maximum":1,"minimum":0,"title":"Confidence","type":"number"},"explanation":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Explanation"},"gir":{"anyOf":[{"$ref":"#/$defs/GirScene"},{"type":"null"}]},"schema_version":{"const":"0.2.0","default":"0.2.0","title":"Schema Version","type":"string"},"status":{"const":"error","title":"Status","type":"string"},"svg":{"title":"Svg","type":"null"},"tikz":{"title":"Tikz","type":"null"},"validation_report":{"anyOf":[{"$ref":"#/$defs/ValidationReport"},{"type":"null"}]},"warnings":{"items":{"$ref":"#/$defs/ApiWarning"},"title":"Warnings","type":"array"}},"required":["status","confidence"],"title":"GenerateErrorResponse","type":"object"},"GenerateSuccessResponse":{"additionalProperties":false,"examples":[{"ambiguities":[],"confidence":0.98,"explanation":"Rule-based altitude case.","gir":{"constraints":[{"id":"c_noncol_abc","points":["A","B","C"],"type":"non_collinear"},{"foot":"H","from_point":"A","id":"c_altitude_a_bc","segment":"AH","to_object":"BC","type":"altitude"}],"construction_steps":[{"action":"construct_triangle","constraints":["c_noncol_abc"],"id":"step_construct_triangle","objects":["A","B","C","BC","ABC"],"reason":"Construct triangle ABC."},{"action":"construct_altitude","constraints":["c_altitude_a_bc"],"id":"step_construct_altitude","objects":["H","AH"],"reason":"Construct altitude from A to BC."}],"metadata":{},"objects":[{"id":"A","label":"A","type":"point"},{"id":"B","label":"B","type":"point"},{"id":"C","label":"C","type":"point"},{"id":"H","label":"H","type":"point"},{"id":"BC","points":["B","C"],"type":"segment"},{"id":"AH","points":["A","H"],"type":"segment"},{"id":"ABC","type":"triangle","vertices":["A","B","C"]}],"scene_type":"2d","schema_version":"0.2.0"},"schema_version":"0.2.0","status":"success","svg":"<svg xmlns=\"http://www.w3.org/2000/svg\">...</svg>","validation_report":{"is_valid":true,"issues":[],"warnings":[]},"warnings":[]}],"properties":{"ambiguities":{"items":{"$ref":"#/$defs/ApiAmbiguity"},"title":"Ambiguities","type":"array"},"confidence":{"maximum":1,"minimum":0,"title":"Confidence","type":"number"},"explanation":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Explanation"},"gir":{"$ref":"#/$defs/GirScene"},"schema_version":{"const":"0.2.0","default":"0.2.0","title":"Schema Version","type":"string"},"status":{"const":"success","title":"Status","type":"string"},"svg":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Svg"},"tikz":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Tikz"},"validation_report":{"$ref":"#/$defs/ValidationReport"},"warnings":{"items":{"$ref":"#/$defs/ApiWarning"},"title":"Warnings","type":"array"}},"required":["status","confidence","gir","validation_report"],"title":"GenerateSuccessResponse","type":"object"},"GenerateV1Request":{"additionalProperties":false,"examples":[{"input":"Постройте треугольник ABC. Проведите высоту из вершины A к стороне BC.","input_type":"text","mode":"strict","output":["svg"]}],"properties":{"input":{"maxLength":20000,"minLength":1,"title":"Input","type":"string"},"input_type":{"const":"text","title":"Input Type","type":"string"},"mode":{"const":"strict","default":"strict","title":"Mode","type":"string"},"output":{"items":{"enum":["svg","tikz"],"type":"string"},"maxItems":2,"title":"Output","type":"array","uniqueItems":true}},"required":["input_type","input"],"title":"GenerateV1Request","type":"object"},"GirScene":{"additionalProperties":false,"properties":{"constraints":{"items":{"oneOf":[{"$ref":"#/$defs/BelongsToConstraint"},{"$ref":"#/$defs/CollinearConstraint"},{"$ref":"#/$defs/NonCollinearConstraint"},{"$ref":"#/$defs/ParallelConstraint"},{"$ref":"#/$defs/PerpendicularConstraint"},{"$ref":"#/$defs/EqualLengthConstraint"},{"$ref":"#/$defs/MidpointConstraint"},{"$ref":"#/$defs/IntersectionConstraint"},{"$ref":"#/$defs/AltitudeConstraint"},{"$ref":"#/$defs/MedianConstraint"},{"$ref":"#/$defs/AngleBisectorConstraint"},{"$ref":"#/$defs/CircumcircleConstraint"},{"$ref":"#/$defs/IncircleConstraint"}]},"title":"Constraints","type":"array"},"construction_steps":{"items":{"$ref":"#/$defs/ConstructionStep"},"title":"Construction Steps","type":"array"},"metadata":{"additionalProperties":true,"title":"Metadata","type":"object"},"objects":{"items":{"oneOf":[{"$ref":"#/$defs/PointObject"},{"$ref":"#/$defs/SegmentObject"},{"$ref":"#/$defs/LineObject"},{"$ref":"#/$defs/RayObject"},{"$ref":"#/$defs/CircleObject"},{"$ref":"#/$defs/TriangleObject"},{"$ref":"#/$defs/AngleObject"},{"$ref":"#/$defs/LabelObject"}]},"title":"Objects","type":"array"},"scene_type":{"const":"2d","title":"Scene Type","type":"string"},"schema_version":{"const":"0.2.0","title":"Schema Version","type":"string"}},"required":["schema_version","scene_type","objects","constraints","construction_steps"],"title":"GirScene","type":"object","x-gir-schema-version":"0.2.0"},"IncircleConstraint":{"additionalProperties":false,"properties":{"circle":{"title":"Circle","type":"string"},"id":{"title":"Id","type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"triangle":{"title":"Triangle","type":"string"},"type":{"const":"incircle","title":"Type","type":"string"}},"required":["id","type","triangle","circle"],"title":"IncircleConstraint","type":"object"},"IntersectionConstraint":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"objects":{"maxItems":2,"minItems":2,"prefixItems":[{"type":"string"},{"type":"string"}],"title":"Objects","type":"array"},"point":{"title":"Point","type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"type":{"const":"intersection","title":"Type","type":"string"}},"required":["id","type","point","objects"],"title":"IntersectionConstraint","type":"object"},"LabelObject":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"target":{"title":"Target","type":"string"},"text":{"title":"Text","type":"string"},"type":{"const":"label","title":"Type","type":"string"}},"required":["id","type","text","target"],"title":"LabelObject","type":"object"},"LayoutCoordinateSpace":{"additionalProperties":false,"properties":{"origin":{"const":"top_left","title":"Origin","type":"string"},"unit":{"const":"abstract","title":"Unit","type":"string"},"x_direction":{"const":"right","title":"X Direction","type":"string"},"y_direction":{"const":"down","title":"Y Direction","type":"string"}},"required":["origin","x_direction","y_direction","unit"],"title":"LayoutCoordinateSpace","type":"object"},"LayoutDocument":{"additionalProperties":false,"properties":{"coordinate_space":{"$ref":"#/$defs/LayoutCoordinateSpace"},"height":{"default":220,"title":"Height","type":"number"},"labels":{"items":{"$ref":"#/$defs/LayoutLabel"},"title":"Labels","type":"array"},"points":{"additionalProperties":{"$ref":"#/$defs/LayoutPoint"},"title":"Points","type":"object"},"schema_version":{"const":"0.1.0","title":"Schema Version","type":"string"},"segments":{"items":{"$ref":"#/$defs/LayoutSegment"},"title":"Segments","type":"array"},"source_gir_schema_version":{"const":"0.2.0","title":"Source Gir Schema Version","type":"string"},"source_gir_sha256":{"pattern":"^[0-9a-f]{64}$","title":"Source Gir Sha256","type":"string"},"width":{"default":280,"title":"Width","type":"number"}},"required":["points","segments","schema_version","source_gir_schema_version","source_gir_sha256","coordinate_space"],"title":"LayoutDocument","type":"object","x-layout-schema-version":"0.1.0"},"LayoutInvalidSceneResponse":{"additionalProperties":false,"properties":{"canonical_gir":{"$ref":"#/$defs/GirScene"},"diagnostics":{"items":{"$ref":"#/$defs/ApiLayoutDiagnostic"},"title":"Diagnostics","type":"array"},"failure_stage":{"enum":["draft_validation","normalized_validation"],"title":"Failure Stage","type":"string"},"layout":{"title":"Layout","type":"null"},"layout_schema_version":{"const":"0.1.0","default":"0.1.0","title":"Layout Schema Version","type":"string"},"status":{"const":"invalid_scene","title":"Status","type":"string"},"validation_report":{"$ref":"#/$defs/ValidationReport"}},"required":["status","canonical_gir","validation_report","failure_stage"],"title":"LayoutInvalidSceneResponse","type":"object"},"LayoutLabel":{"additionalProperties":false,"properties":{"dx":{"default":6,"title":"Dx","type":"number"},"dy":{"default":-6,"title":"Dy","type":"number"},"id":{"minLength":1,"title":"Id","type":"string"},"source":{"$ref":"#/$defs/LayoutSource"},"target":{"minLength":1,"title":"Target","type":"string"},"text":{"minLength":1,"title":"Text","type":"string"}},"required":["id","target","text","source"],"title":"LayoutLabel","type":"object"},"LayoutPoint":{"additionalProperties":false,"properties":{"id":{"minLength":1,"title":"Id","type":"string"},"label":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Label"},"source":{"$ref":"#/$defs/LayoutSource"},"x":{"title":"X","type":"number"},"y":{"title":"Y","type":"number"}},"required":["id","x","y","source"],"title":"LayoutPoint","type":"object"},"LayoutSegment":{"additionalProperties":false,"properties":{"end":{"minLength":1,"title":"End","type":"string"},"id":{"minLength":1,"title":"Id","type":"string"},"source":{"$ref":"#/$defs/LayoutSource"},"start":{"minLength":1,"title":"Start","type":"string"},"style":{"default":"solid","enum":["solid","dashed"],"title":"Style","type":"string"}},"required":["id","start","end","source"],"title":"LayoutSegment","type":"object"},"LayoutSource":{"additionalProperties":false,"properties":{"index":{"anyOf":[{"type":"integer"},{"type":"null"}],"title":"Index"},"object_id":{"minLength":1,"title":"Object Id","type":"string"},"role":{"$ref":"#/$defs/LayoutSourceRole"}},"required":["object_id","role"],"title":"LayoutSource","type":"object"},"LayoutSourceRole":{"enum":["gir_object","triangle_edge","auto_label"],"title":"LayoutSourceRole","type":"string"},"LayoutSuccessResponse":{"additionalProperties":false,"properties":{"canonical_gir":{"$ref":"#/$defs/GirScene"},"diagnostics":{"items":{"$ref":"#/$defs/ApiLayoutDiagnostic"},"title":"Diagnostics","type":"array"},"failure_stage":{"title":"Failure Stage","type":"null"},"layout":{"$ref":"#/$defs/LayoutDocument"},"layout_schema_version":{"const":"0.1.0","default":"0.1.0","title":"Layout Schema Version","type":"string"},"status":{"const":"success","title":"Status","type":"string"},"validation_report":{"$ref":"#/$defs/ValidationReport"}},"required":["status","canonical_gir","validation_report","layout"],"title":"LayoutSuccessResponse","type":"object"},"LayoutUnsupportedResponse":{"additionalProperties":false,"properties":{"canonical_gir":{"$ref":"#/$defs/GirScene"},"diagnostics":{"items":{"$ref":"#/$defs/ApiLayoutDiagnostic"},"minItems":1,"title":"Diagnostics","type":"array"},"failure_stage":{"title":"Failure Stage","type":"null"},"layout":{"title":"Layout","type":"null"},"layout_schema_version":{"const":"0.1.0","default":"0.1.0","title":"Layout Schema Version","type":"string"},"status":{"const":"unsupported","title":"Status","type":"string"},"validation_report":{"$ref":"#/$defs/ValidationReport"}},"required":["status","canonical_gir","validation_report","diagnostics"],"title":"LayoutUnsupportedResponse","type":"object"},"LineObject":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"points":{"maxItems":2,"minItems":2,"prefixItems":[{"type":"string"},{"type":"string"}],"title":"Points","type":"array"},"type":{"const":"line","title":"Type","type":"string"}},"required":["id","type","points"],"title":"LineObject","type":"object"},"MedianConstraint":{"additionalProperties":false,"properties":{"from_point":{"title":"From Point","type":"string"},"id":{"title":"Id","type":"string"},"midpoint":{"title":"Midpoint","type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"segment":{"title":"Segment","type":"string"},"to_object":{"title":"To Object","type":"string"},"type":{"const":"median","title":"Type","type":"string"}},"required":["id","type","from_point","to_object","midpoint","segment"],"title":"MedianConstraint","type":"object"},"MidpointConstraint":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"object":{"title":"Object","type":"string"},"point":{"title":"Point","type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"type":{"const":"midpoint","title":"Type","type":"string"}},"required":["id","type","point","object"],"title":"MidpointConstraint","type":"object"},"NonCollinearConstraint":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"points":{"maxItems":3,"minItems":3,"prefixItems":[{"type":"string"},{"type":"string"},{"type":"string"}],"title":"Points","type":"array"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"type":{"const":"non_collinear","title":"Type","type":"string"}},"required":["id","type","points"],"title":"NonCollinearConstraint","type":"object"},"ParallelConstraint":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"objects":{"maxItems":2,"minItems":2,"prefixItems":[{"type":"string"},{"type":"string"}],"title":"Objects","type":"array"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"type":{"const":"parallel","title":"Type","type":"string"}},"required":["id","type","objects"],"title":"ParallelConstraint","type":"object"},"PerpendicularConstraint":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"objects":{"maxItems":2,"minItems":2,"prefixItems":[{"type":"string"},{"type":"string"}],"title":"Objects","type":"array"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Reason"},"type":{"const":"perpendicular","title":"Type","type":"string"}},"required":["id","type","objects"],"title":"PerpendicularConstraint","type":"object"},"PointObject":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"label":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Label"},"type":{"const":"point","title":"Type","type":"string"}},"required":["id","type"],"title":"PointObject","type":"object"},"ProblemDetail":{"additionalProperties":false,"examples":[{"code":"request_validation_failed","detail":"The request payload does not satisfy the API contract.","errors":[{"code":"literal_error","location":["body","mode"],"message":"Input should be 'strict'"}],"instance":"/api/v1/generate","request_id":"tutorboard-contract","status":422,"title":"Request validation failed","type":"urn:geometryos:problem:request-validation"},{"code":"operation_timeout","detail":"The generate operation exceeded its configured time limit.","errors":[],"instance":"/api/v1/generate","request_id":"tutorboard-contract","status":504,"title":"Operation timed out","type":"urn:geometryos:problem:operation-timeout"},{"code":"service_unavailable","detail":"GeometryOS is not ready to accept application requests.","errors":[],"instance":"/api/v1/generate","request_id":"tutorboard-contract","status":503,"title":"Service unavailable","type":"urn:geometryos:problem:service-unavailable"},{"code":"internal_error","detail":"An unexpected internal error occurred.","errors":[],"instance":"/api/v1/generate","request_id":"tutorboard-contract","status":500,"title":"Internal server error","type":"urn:geometryos:problem:internal-error"}],"properties":{"code":{"title":"Code","type":"string"},"detail":{"title":"Detail","type":"string"},"errors":{"items":{"$ref":"#/$defs/ProblemError"},"title":"Errors","type":"array"},"instance":{"title":"Instance","type":"string"},"request_id":{"title":"Request Id","type":"string"},"status":{"title":"Status","type":"integer"},"title":{"title":"Title","type":"string"},"type":{"title":"Type","type":"string"}},"required":["type","title","status","detail","instance","code","request_id"],"title":"ProblemDetail","type":"object"},"ProblemError":{"additionalProperties":false,"properties":{"code":{"title":"Code","type":"string"},"location":{"items":{"anyOf":[{"type":"string"},{"type":"integer"}]},"title":"Location","type":"array"},"message":{"title":"Message","type":"string"}},"required":["code","message"],"title":"ProblemError","type":"object"},"RayObject":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"start":{"title":"Start","type":"string"},"through":{"title":"Through","type":"string"},"type":{"const":"ray","title":"Type","type":"string"}},"required":["id","type","start","through"],"title":"RayObject","type":"object"},"ReadinessCheck":{"additionalProperties":false,"properties":{"name":{"title":"Name","type":"string"},"status":{"$ref":"#/$defs/CheckStatus"}},"required":["name","status"],"title":"ReadinessCheck","type":"object"},"ReadinessResponse":{"additionalProperties":false,"examples":[{"checks":[{"name":"lifecycle","status":"pass"},{"name":"settings","status":"pass"},{"name":"executor","status":"pass"}],"status":"ready"}],"properties":{"checks":{"items":{"$ref":"#/$defs/ReadinessCheck"},"title":"Checks","type":"array"},"status":{"enum":["ready","not_ready"],"title":"Status","type":"string"}},"required":["status","checks"],"title":"ReadinessResponse","type":"object"},"RenderSvgV1Response":{"additionalProperties":false,"examples":[{"content":"<svg xmlns=\"http://www.w3.org/2000/svg\">...</svg>","media_type":"image/svg+xml","schema_version":"0.2.0"}],"properties":{"content":{"title":"Content","type":"string"},"media_type":{"const":"image/svg+xml","default":"image/svg+xml","title":"Media Type","type":"string"},"schema_version":{"const":"0.2.0","default":"0.2.0","title":"Schema Version","type":"string"}},"required":["content"],"title":"RenderSvgV1Response","type":"object"},"RenderTikzV1Response":{"additionalProperties":false,"examples":[{"content":"\\begin{tikzpicture}...\\end{tikzpicture}","media_type":"text/x-tex","schema_version":"0.2.0"}],"properties":{"content":{"title":"Content","type":"string"},"media_type":{"const":"text/x-tex","default":"text/x-tex","title":"Media Type","type":"string"},"schema_version":{"const":"0.2.0","default":"0.2.0","title":"Schema Version","type":"string"}},"required":["content"],"title":"RenderTikzV1Response","type":"object"},"SegmentObject":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"points":{"maxItems":2,"minItems":2,"prefixItems":[{"type":"string"},{"type":"string"}],"title":"Points","type":"array"},"type":{"const":"segment","title":"Type","type":"string"}},"required":["id","type","points"],"title":"SegmentObject","type":"object"},"TriangleObject":{"additionalProperties":false,"properties":{"id":{"title":"Id","type":"string"},"type":{"const":"triangle","title":"Type","type":"string"},"vertices":{"maxItems":3,"minItems":3,"prefixItems":[{"type":"string"},{"type":"string"},{"type":"string"}],"title":"Vertices","type":"array"}},"required":["id","type","vertices"],"title":"TriangleObject","type":"object"},"ValidateGirV1Response":{"additionalProperties":false,"examples":[{"canonical_gir":{"constraints":[{"id":"c_noncol_abc","points":["A","B","C"],"type":"non_collinear"},{"foot":"H","from_point":"A","id":"c_altitude_a_bc","segment":"AH","to_object":"BC","type":"altitude"}],"construction_steps":[{"action":"construct_triangle","constraints":["c_noncol_abc"],"id":"step_construct_triangle","objects":["A","B","C","BC","ABC"],"reason":"Construct triangle ABC."},{"action":"construct_altitude","constraints":["c_altitude_a_bc"],"id":"step_construct_altitude","objects":["H","AH"],"reason":"Construct altitude from A to BC."}],"metadata":{},"objects":[{"id":"A","label":"A","type":"point"},{"id":"B","label":"B","type":"point"},{"id":"C","label":"C","type":"point"},{"id":"H","label":"H","type":"point"},{"id":"BC","points":["B","C"],"type":"segment"},{"id":"AH","points":["A","H"],"type":"segment"},{"id":"ABC","type":"triangle","vertices":["A","B","C"]}],"scene_type":"2d","schema_version":"0.2.0"},"schema_version":"0.2.0","validation_report":{"is_valid":true,"issues":[],"warnings":[]}}],"properties":{"canonical_gir":{"$ref":"#/$defs/GirScene"},"schema_version":{"const":"0.2.0","default":"0.2.0","title":"Schema Version","type":"string"},"validation_report":{"$ref":"#/$defs/ValidationReport"}},"required":["canonical_gir","validation_report"],"title":"ValidateGirV1Response","type":"object"},"ValidationIssue":{"additionalProperties":false,"properties":{"code":{"title":"Code","type":"string"},"message":{"title":"Message","type":"string"},"path":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Path"},"severity":{"default":"error","enum":["error","warning"],"title":"Severity","type":"string"}},"required":["code","message"],"title":"ValidationIssue","type":"object"},"ValidationReport":{"additionalProperties":false,"properties":{"is_valid":{"title":"Is Valid","type":"boolean"},"issues":{"items":{"$ref":"#/$defs/ValidationIssue"},"title":"Issues","type":"array"},"warnings":{"items":{"$ref":"#/$defs/ValidationIssue"},"title":"Warnings","type":"array"}},"required":["is_valid"],"title":"ValidationReport","type":"object"}}};
+const schema135 = {"additionalProperties":false,"examples":[{"checks":[{"name":"lifecycle","status":"pass"},{"name":"settings","status":"pass"},{"name":"executor","status":"pass"}],"status":"ready"}],"properties":{"checks":{"items":{"$ref":"#/$defs/ReadinessCheck"},"title":"Checks","type":"array"},"status":{"enum":["ready","not_ready"],"title":"Status","type":"string"}},"required":["status","checks"],"title":"ReadinessResponse","type":"object"};
+const schema136 = {"additionalProperties":false,"properties":{"name":{"title":"Name","type":"string"},"status":{"$ref":"#/$defs/CheckStatus"}},"required":["name","status"],"title":"ReadinessCheck","type":"object"};
+const schema137 = {"enum":["pass","fail"],"title":"CheckStatus","type":"string"};
+
+function validate67(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate67.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(data && typeof data == "object" && !Array.isArray(data)){
+if(data.name === undefined){
+const err0 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(data.status === undefined){
+const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "status"},message:"must have required property '"+"status"+"'"};
+if(vErrors === null){
+vErrors = [err1];
+}
+else {
+vErrors.push(err1);
+}
+errors++;
+}
+for(const key0 in data){
+if(!((key0 === "name") || (key0 === "status"))){
+const err2 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err2];
+}
+else {
+vErrors.push(err2);
+}
+errors++;
+}
+}
+if(data.name !== undefined){
+if(typeof data.name !== "string"){
+const err3 = {instancePath:instancePath+"/name",schemaPath:"#/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err3];
+}
+else {
+vErrors.push(err3);
+}
+errors++;
+}
+}
+if(data.status !== undefined){
+let data1 = data.status;
+if(typeof data1 !== "string"){
+const err4 = {instancePath:instancePath+"/status",schemaPath:"#/$defs/CheckStatus/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err4];
+}
+else {
+vErrors.push(err4);
+}
+errors++;
+}
+if(!((data1 === "pass") || (data1 === "fail"))){
+const err5 = {instancePath:instancePath+"/status",schemaPath:"#/$defs/CheckStatus/enum",keyword:"enum",params:{allowedValues: schema137.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err5];
+}
+else {
+vErrors.push(err5);
+}
+errors++;
+}
+}
+}
+else {
+const err6 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err6];
+}
+else {
+vErrors.push(err6);
+}
+errors++;
+}
+validate67.errors = vErrors;
+return errors === 0;
+}
+validate67.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+
+
+function validate66(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate66.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(data && typeof data == "object" && !Array.isArray(data)){
+if(data.status === undefined){
+const err0 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "status"},message:"must have required property '"+"status"+"'"};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(data.checks === undefined){
+const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "checks"},message:"must have required property '"+"checks"+"'"};
+if(vErrors === null){
+vErrors = [err1];
+}
+else {
+vErrors.push(err1);
+}
+errors++;
+}
+for(const key0 in data){
+if(!((key0 === "checks") || (key0 === "status"))){
+const err2 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err2];
+}
+else {
+vErrors.push(err2);
+}
+errors++;
+}
+}
+if(data.checks !== undefined){
+let data0 = data.checks;
+if(Array.isArray(data0)){
+const len0 = data0.length;
+for(let i0=0; i0<len0; i0++){
+if(!(validate67(data0[i0], {instancePath:instancePath+"/checks/" + i0,parentData:data0,parentDataProperty:i0,rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate67.errors : vErrors.concat(validate67.errors);
+errors = vErrors.length;
+}
+}
+}
+else {
+const err3 = {instancePath:instancePath+"/checks",schemaPath:"#/properties/checks/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err3];
+}
+else {
+vErrors.push(err3);
+}
+errors++;
+}
+}
+if(data.status !== undefined){
+let data2 = data.status;
+if(typeof data2 !== "string"){
+const err4 = {instancePath:instancePath+"/status",schemaPath:"#/properties/status/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err4];
+}
+else {
+vErrors.push(err4);
+}
+errors++;
+}
+if(!((data2 === "ready") || (data2 === "not_ready"))){
+const err5 = {instancePath:instancePath+"/status",schemaPath:"#/properties/status/enum",keyword:"enum",params:{allowedValues: schema135.properties.status.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err5];
+}
+else {
+vErrors.push(err5);
+}
+errors++;
+}
+}
+}
+else {
+const err6 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err6];
+}
+else {
+vErrors.push(err6);
+}
+errors++;
+}
+validate66.errors = vErrors;
+return errors === 0;
+}
+validate66.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+
+
+function validate65(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="urn:tutorboard:geometryos:readiness-response" */;
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate65.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(!(validate66(data, {instancePath,parentData,parentDataProperty,rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate66.errors : vErrors.concat(validate66.errors);
+errors = vErrors.length;
+}
+validate65.errors = vErrors;
+return errors === 0;
+}
+validate65.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};

@@ -19,6 +19,7 @@ import {
   type BoardDocument,
   type BoardObject,
   type BoardRenderItem,
+  type GeometryOsClient,
   type ViewportState,
 } from "../core/public";
 import {
@@ -32,6 +33,11 @@ import {
   type DrawingToolId,
   type UserDrawingObject,
 } from "../modules/drawing/public";
+import {
+  startGeometryPrompt,
+  type GeometryPromptOperation,
+  type GeometryPromptResult,
+} from "../modules/geometry-prompt/public";
 import {
   createAddSvgObjectCommand,
   createSvgObject,
@@ -57,6 +63,10 @@ import {
   type SelectionState,
 } from "../modules/selection/public";
 import { readEnvironment } from "./configuration/environment";
+import {
+  GeometryPromptPanel,
+  type GeometryPromptViewState,
+} from "./GeometryPromptPanel";
 import "./styles.css";
 
 const environment = readEnvironment();
@@ -75,6 +85,7 @@ export interface AppPersistenceStatus {
 }
 
 export interface AppProps {
+  readonly geometryOsClient?: GeometryOsClient;
   readonly initialDocument?: BoardDocument;
   readonly onDocumentChange?: (document: BoardDocument) => void;
   readonly onExportDiagnostics?: () => void;
@@ -193,6 +204,7 @@ export function createInitialDocument(): BoardDocument {
 }
 
 export function App({
+  geometryOsClient,
   initialDocument,
   onDocumentChange,
   onExportDiagnostics,
@@ -215,12 +227,24 @@ export function App({
   const selectionStateRef = useRef<SelectionState>(initialSelectionState);
   const [textDraft, setTextDraft] = useState("Новый текст");
   const [svgDiagnostic, setSvgDiagnostic] = useState<string | null>(null);
+  const [geometryPrompt, setGeometryPrompt] = useState(
+    "Построй треугольник ABC и высоту AH",
+  );
+  const [geometryPromptState, setGeometryPromptState] =
+    useState<GeometryPromptViewState>({ kind: "idle" });
+  const geometryOperationRef = useRef<GeometryPromptOperation | null>(null);
   const workspaceRef = useRef<HTMLElement>(null);
   const { commandError, document } = boardState;
   const documentRef = useRef(document);
   useEffect(() => {
     documentRef.current = document;
   }, [document]);
+  useEffect(
+    () => () => {
+      geometryOperationRef.current?.cancel();
+    },
+    [],
+  );
   const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);
   const scene = useMemo(() => selectBoardScene(document), [document]);
   const drawingPreview = useMemo(
@@ -646,6 +670,105 @@ export function App({
     setSvgDiagnostic(null);
   }, []);
 
+  const applyGeometryPromptResult = useCallback(
+    (result: GeometryPromptResult) => {
+      if (result.kind === "cancelled") {
+        setGeometryPromptState({ kind: "idle" });
+        return;
+      }
+      const lastRequestId = result.requestIds.at(-1);
+      if (result.kind === "needs-clarification") {
+        if (lastRequestId !== undefined) {
+          setGeometryPromptState({
+            kind: "needs-clarification",
+            ambiguities: result.ambiguities,
+            requestId: lastRequestId,
+          });
+        }
+        return;
+      }
+      if (result.kind === "domain-error") {
+        if (lastRequestId !== undefined) {
+          setGeometryPromptState({
+            kind: "domain-error",
+            requestId: lastRequestId,
+            warnings: result.warnings,
+          });
+        }
+        return;
+      }
+      if (result.kind === "failure") {
+        setGeometryPromptState(result);
+        return;
+      }
+
+      const current = documentRef.current;
+      const applied = reduceBoardDocument(current, result.command);
+      if (!applied.ok) {
+        setGeometryPromptState({
+          kind: "failure",
+          code: applied.error.code,
+          requestId: lastRequestId ?? null,
+          retryable: false,
+          stage: "import",
+        });
+        return;
+      }
+      documentRef.current = applied.document;
+      setBoardState({ commandError: null, document: applied.document });
+      const selected: SelectionState = {
+        interaction: { kind: "idle" },
+        selectedObjectIds: [...result.command.importRecord.boardObjectIds],
+      };
+      selectionStateRef.current = selected;
+      setSelectionState(selected);
+      setActiveTool(selectionToolId);
+      if (lastRequestId !== undefined) {
+        setGeometryPromptState({
+          kind: "success",
+          objectCount: result.command.objects.length,
+          requestId: lastRequestId,
+        });
+      }
+    },
+    [],
+  );
+
+  const runGeometryPrompt = useCallback(() => {
+    if (geometryOsClient === undefined) {
+      return;
+    }
+    geometryOperationRef.current?.cancel();
+    const current = documentRef.current;
+    const workspace = workspaceRef.current?.getBoundingClientRect();
+    const targetWorldCenter = screenToWorld(
+      {
+        x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
+        y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
+      },
+      current.viewport,
+    );
+    const operation = startGeometryPrompt({
+      actorId: localActorId,
+      client: geometryOsClient,
+      createToken: () => crypto.randomUUID(),
+      now: () => new Date().toISOString(),
+      onProgress: (progress) => {
+        setGeometryPromptState({ kind: "running", ...progress });
+      },
+      prompt: geometryPrompt,
+      targetWorldCenter,
+    });
+    geometryOperationRef.current = operation;
+    void operation.result.then((result) => {
+      if (geometryOperationRef.current !== operation) {
+        return;
+      }
+      geometryOperationRef.current = null;
+      applyGeometryPromptResult(result);
+    });
+  }, [applyGeometryPromptResult, geometryOsClient, geometryPrompt]);
+
   const resetViewport = () => {
     commitViewport({ offset: { x: 160, y: 90 }, zoom: 1 });
   };
@@ -772,6 +895,25 @@ export function App({
             activeTool === selectionToolId ? selectionToolId : null
           }
           selectionPreviewDelta={renderedSelectionPreviewDelta}
+        />
+
+        <GeometryPromptPanel
+          available={geometryOsClient !== undefined}
+          onCancel={() => geometryOperationRef.current?.cancel()}
+          onChooseClarification={(option) => {
+            setGeometryPrompt(option);
+            setGeometryPromptState({ kind: "idle" });
+          }}
+          onPromptChange={(prompt) => {
+            setGeometryPrompt(prompt);
+            if (geometryPromptState.kind !== "running") {
+              setGeometryPromptState({ kind: "idle" });
+            }
+          }}
+          onRetry={runGeometryPrompt}
+          onSubmit={runGeometryPrompt}
+          prompt={geometryPrompt}
+          state={geometryPromptState}
         />
 
         <div
@@ -906,6 +1048,9 @@ export function App({
         <span data-testid="interaction-state">{drawingState.kind}</span>
         <span data-testid="selection-count">
           {selectionState.selectedObjectIds.length} выбрано
+        </span>
+        <span data-testid="geometry-import-count">
+          {Object.keys(document.geometryImports).length} построений
         </span>
         <span data-testid="persistence-status">{persistenceStatus.label}</span>
         {drawingDiagnostic === null ? null : (

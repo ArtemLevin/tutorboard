@@ -180,6 +180,9 @@ function generateValidators(openapi) {
     layoutOperation.requestBody.content["application/json"].schema;
   const layoutResponseSchema =
     layoutOperation.responses["200"].content["application/json"].schema;
+  const readinessResponseSchema =
+    openapi.paths["/ready"].get.responses["200"].content["application/json"]
+      .schema;
   const ajv = new Ajv2020({
     allErrors: true,
     allowUnionTypes: true,
@@ -193,6 +196,7 @@ function generateValidators(openapi) {
     validateLayoutRequest: "urn:tutorboard:geometryos:layout-request",
     validateLayoutResponse: "urn:tutorboard:geometryos:layout-response",
     validateProblemDetail: "urn:tutorboard:geometryos:problem-detail",
+    validateReadinessResponse: "urn:tutorboard:geometryos:readiness-response",
   };
   ajv.addSchema(
     bundledSchema(
@@ -227,6 +231,13 @@ function generateValidators(openapi) {
       components.ProblemDetail,
       components,
       schemaIds.validateProblemDetail,
+    ),
+  );
+  ajv.addSchema(
+    bundledSchema(
+      readinessResponseSchema,
+      components,
+      schemaIds.validateReadinessResponse,
     ),
   );
   return normalizeStandaloneEsm(standaloneCode(ajv, schemaIds));
@@ -289,7 +300,7 @@ export function generateContract(outputRoot = repositoryRoot) {
   );
   fs.writeFileSync(
     path.join(generatedRoot, "geometryos.validators.d.mts"),
-    `export interface GeneratedValidationError {\n  readonly instancePath: string;\n  readonly keyword: string;\n  readonly message?: string;\n  readonly params: unknown;\n  readonly schemaPath: string;\n}\n\nexport interface GeneratedValidator {\n  (value: unknown): boolean;\n  readonly errors?: readonly GeneratedValidationError[] | null;\n}\n\nexport const validateGenerateRequest: GeneratedValidator;\nexport const validateGenerateResponse: GeneratedValidator;\nexport const validateLayoutRequest: GeneratedValidator;\nexport const validateLayoutResponse: GeneratedValidator;\nexport const validateProblemDetail: GeneratedValidator;\n`,
+    `export interface GeneratedValidationError {\n  readonly instancePath: string;\n  readonly keyword: string;\n  readonly message?: string;\n  readonly params: unknown;\n  readonly schemaPath: string;\n}\n\nexport interface GeneratedValidator {\n  (value: unknown): boolean;\n  readonly errors?: readonly GeneratedValidationError[] | null;\n}\n\nexport const validateGenerateRequest: GeneratedValidator;\nexport const validateGenerateResponse: GeneratedValidator;\nexport const validateLayoutRequest: GeneratedValidator;\nexport const validateLayoutResponse: GeneratedValidator;\nexport const validateProblemDetail: GeneratedValidator;\nexport const validateReadinessResponse: GeneratedValidator;\n`,
   );
   writeMetadata(outputRoot, manifest);
   const prettier = path.join(

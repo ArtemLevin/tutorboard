@@ -15,3 +15,7 @@ Implemented modules:
   diagnostic document import;
 - `svg-import` owns untrusted SVG limits, sanitization, canonicalization, stored
   validation and one-object import commands.
+- `geometry-import` owns deterministic GIR semantics and the pure Layout-to-Board
+  command adapter;
+- `geometry-prompt` owns the cancellable readiness → generate → layout → import
+  application workflow without React, HTTP DTOs or document mutation.

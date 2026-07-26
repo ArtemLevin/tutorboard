@@ -13,6 +13,7 @@ import {
   validateLayoutRequest,
   validateLayoutResponse,
   validateProblemDetail,
+  validateReadinessResponse,
 } from "../../src/adapters/geometryos-http/validation.ts";
 
 const root = path.resolve(process.cwd(), "contracts/geometryos");
@@ -199,5 +200,20 @@ describe("pinned GeometryOS contract", () => {
         json(path.join(root, "fixtures/service-unavailable.problem.json")),
       ).valid,
     ).toBe(true);
+  });
+
+  it("publishes a generated readiness response boundary", () => {
+    expect(
+      validateReadinessResponse({
+        checks: [
+          { name: "lifecycle", status: "pass" },
+          { name: "executor", status: "pass" },
+        ],
+        status: "ready",
+      }).valid,
+    ).toBe(true);
+    expect(
+      validateReadinessResponse({ checks: [], status: "starting" }).valid,
+    ).toBe(false);
   });
 });
