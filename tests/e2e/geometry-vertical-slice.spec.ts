@@ -107,23 +107,13 @@ test("imports, moves and restores the triangle-altitude fixture atomically", asy
     "Сохранено локально",
   );
   const placementBeforeMove = await latestImportTranslation(page);
-  const stageBounds = await page.getByTestId("board-stage").boundingBox();
-  if (stageBounds === null) {
-    throw new Error("TutorBoard stage bounds are unavailable.");
-  }
   const movementDelta = { x: 60, y: 30 };
-  const pointA = {
-    x: stageBounds.x + stageBounds.width / 2 - 20,
-    y: stageBounds.y + stageBounds.height / 2 - 70,
-  };
-  await page.mouse.move(pointA.x, pointA.y);
-  await page.mouse.down();
-  await page.mouse.move(
-    pointA.x + movementDelta.x,
-    pointA.y + movementDelta.y,
-    { steps: 4 },
-  );
-  await page.mouse.up();
+  for (let step = 0; step < 6; step += 1) {
+    await page.keyboard.press("Shift+ArrowRight");
+  }
+  for (let step = 0; step < 3; step += 1) {
+    await page.keyboard.press("Shift+ArrowDown");
+  }
   const placementAfterMove = {
     x: placementBeforeMove.x + movementDelta.x,
     y: placementBeforeMove.y + movementDelta.y,

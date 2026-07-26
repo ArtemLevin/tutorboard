@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import { createGeometryOsHttpClient } from "../../adapters/geometryos-http/public";
 import { createDexieBoardDocumentRepository } from "../../adapters/persistence-dexie/public";
-import { PersistedApp } from "../PersistedApp";
+import { ProductShell } from "../ProductShell";
 import { readEnvironment } from "../configuration/environment";
 
 const root = document.getElementById("root");
@@ -20,6 +20,10 @@ const geometryOsClient = createGeometryOsHttpClient({
 
 createRoot(root).render(
   <StrictMode>
-    <PersistedApp geometryOsClient={geometryOsClient} repository={repository} />
+    <ProductShell
+      environment={environment}
+      geometryOsClient={geometryOsClient}
+      repository={repository}
+    />
   </StrictMode>,
 );

@@ -12,7 +12,8 @@ TutorBoard отвечает за интерактивное представле
 tutor-assistant-web отвечает за пользователей, занятия, доступ, хранение и бизнес-процессы.
 ```
 
-Проект начинается не с полноценного продукта, а с Technical Spike, который должен доказать архитектурный стык:
+Архитектурный Technical Spike завершён. Текущий default path — автономное
+single-user приложение Product Foundation:
 
 ```text
 текстовый запрос
@@ -42,21 +43,26 @@ BoardDocument
 
 ## Статус
 
-| Компонент                | Текущее состояние                                                                                                          | Ближайшая поставка                                         |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| GeometryOS               | API v1/GIR `0.2.0`, Layout Document `0.1.0` и стабильный `POST /api/v1/layout` опубликованы                                | Consumer integration hardening                            |
-| TutorBoard               | Phase 2 Technical Spike закрыт: vertical slice, durability, movement policy и архитектурные решения доказаны              | PR 3.1 contract freeze                                    |
-| tutor-assistant-web      | Серверная платформа пользователей, занятий, BBB, evidence, материалов и production-операций                                | Поздняя Phase 4 integration через gateway                  |
-| tutor-assistant          | Desktop recording/transcription application                                                                                | Lesson evidence integration на поздних фазах               |
-| students-26-27           | Репозиторий учебных страниц и опубликованных файлов                                                                        | Consumer lesson artifacts                                  |
-| Latexed / DocumentEngine | Проверка, компиляция и экспорт TEX/PDF/HTML                                                                                | Post-lesson material pipeline                              |
+| Компонент                | Текущее состояние                                                                                                     | Ближайшая поставка                           |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| GeometryOS               | API v1/GIR `0.2.0`, Layout Document `0.1.0` и стабильный `POST /api/v1/layout` опубликованы                           | Consumer integration hardening               |
+| TutorBoard               | Phase 3 Product Foundation завершена: автономная доска, история, transfer, performance, accessibility и product shell | Phase 4 platform integration                 |
+| tutor-assistant-web      | Серверная платформа пользователей, занятий, BBB, evidence, материалов и production-операций                           | Поздняя Phase 4 integration через gateway    |
+| tutor-assistant          | Desktop recording/transcription application                                                                           | Lesson evidence integration на поздних фазах |
+| students-26-27           | Репозиторий учебных страниц и опубликованных файлов                                                                   | Consumer lesson artifacts                    |
+| Latexed / DocumentEngine | Проверка, компиляция и экспорт TEX/PDF/HTML                                                                           | Post-lesson material pipeline                |
 
 ### Что уже работает в TutorBoard
 
 - infinite canvas, pan, pointer-centred zoom и adaptive grid;
 - pen, line, rectangle, ellipse и text;
 - click/Shift/marquee selection, movement, lock и delete;
-- versioned `BoardDocument 0.2` и command-only mutation boundary;
+- versioned `BoardDocument 1.0` и command-only mutation boundary;
+- bounded undo/redo, clipboard, layers, groups and visual styling;
+- deterministic `.tutorboard.json` import/export и SVG/PNG snapshots;
+- viewport culling, incremental selectors и 5,000-object CI benchmark;
+- keyboard workflow, shortcut help, reduced motion и visible focus;
+- offline product shell с routes, settings, notifications и diagnostics;
 - append-only Dexie revisions, autosave, optimistic conflict и recovery;
 - bounded deny-by-default SVG import;
 - pinned OpenAPI/GIR/fixture artifacts и generated runtime validation;
@@ -76,8 +82,8 @@ compile-time DTOs вместе с standalone runtime validators.
 
 ### Критический путь
 
-`TutorBoard 2.12 Phase 2 report` (готовится к merge)
-→ `TutorBoard 3.1 contract freeze`.
+`TutorBoard Phase 3 Product Foundation` (выполнена)
+→ `Phase 4 tutor-assistant-web integration contract`.
 
 PR 2.9 разделён намеренно и обе его части теперь реализованы:
 
@@ -88,9 +94,7 @@ PR 2.9 разделён намеренно и обе его части тепе�
 
 ### Следующие фазы
 
-После Technical Spike: `BoardDocument 1.0`, undo/redo, clipboard, layers,
-styling, math labels, deterministic import/export, performance, accessibility и
-product shell. Затем TutorBoard подключается к tutor-assistant-web через gateway,
+TutorBoard подключается к tutor-assistant-web через gateway,
 получает server revisions/offline synchronization, collaboration, lesson
 evidence и production hardening. Advanced semantic drag и AI modifications
 начинаются только после стабилизации этих контрактов.
@@ -592,9 +596,12 @@ GeometryOS: http://localhost:8000
 ```text
 VITE_APP_STAGE=development | test | production
 VITE_GEOMETRYOS_BASE_URL=http://localhost:8000
+VITE_FEATURE_DEV_DIAGNOSTICS=true
+VITE_FEATURE_DOCUMENT_SNAPSHOTS=true
+VITE_FEATURE_GEOMETRY_PROMPT=true
 ```
 
-`VITE_GEOMETRYOS_BASE_URL` используется только для development/spike browser
+`VITE_GEOMETRYOS_BASE_URL` используется только для локальной browser-интеграции
 flow и не должен содержать credentials, query или fragment. Production route
 через platform gateway остаётся отдельным решением поздней фазы.
 
