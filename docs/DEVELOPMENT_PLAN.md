@@ -402,6 +402,8 @@ A documented decision exists for:
 
 ## PR 2.12 — Phase report
 
+Status: complete.
+
 ### Deliverables
 
 - `PHASE_2_REPORT.md`;

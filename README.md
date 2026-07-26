@@ -45,7 +45,7 @@ BoardDocument
 | Компонент                | Текущее состояние                                                                                                          | Ближайшая поставка                                         |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | GeometryOS               | API v1/GIR `0.2.0`, Layout Document `0.1.0` и стабильный `POST /api/v1/layout` опубликованы                                | Consumer integration hardening                            |
-| TutorBoard               | Geometry vertical slice и visual movement policy реализованы: group translation, label/style overrides                    | PR 2.12 Phase 2 report                                    |
+| TutorBoard               | Phase 2 Technical Spike закрыт: vertical slice, durability, movement policy и архитектурные решения доказаны              | PR 3.1 contract freeze                                    |
 | tutor-assistant-web      | Серверная платформа пользователей, занятий, BBB, evidence, материалов и production-операций                                | Поздняя Phase 4 integration через gateway                  |
 | tutor-assistant          | Desktop recording/transcription application                                                                                | Lesson evidence integration на поздних фазах               |
 | students-26-27           | Репозиторий учебных страниц и опубликованных файлов                                                                        | Consumer lesson artifacts                                  |
@@ -76,8 +76,8 @@ compile-time DTOs вместе с standalone runtime validators.
 
 ### Критический путь
 
-`TutorBoard 2.11 movement policy` (готовится к merge)
-→ `TutorBoard 2.12 Phase 2 report`.
+`TutorBoard 2.12 Phase 2 report` (готовится к merge)
+→ `TutorBoard 3.1 contract freeze`.
 
 PR 2.9 разделён намеренно и обе его части теперь реализованы:
 

@@ -99,4 +99,17 @@ One `core.geometry.import` command carries every Board object, the root group an
 
 The record preserves canonical GIR, the validated raw Layout response, request ID, semantic mapping, Board object IDs and visual transform. Existing `BoardDocument 0.2` line, ellipse and text schemas are sufficient, with an optional line style added for Layout segments. Serialization/deserialization therefore needs no document version bump.
 
-PR 2.10 owns the application/UI orchestration that chains generate, layout, import, rendering and persistence into the user-visible vertical slice.
+PR 2.10 owns the application/UI orchestration that chains generate, layout,
+import, rendering and persistence into the user-visible vertical slice.
+
+## Visual movement boundary
+
+PR 2.11 adds no reverse mapping from Board geometry to GIR. Moving the whole
+construction changes only `GeometryImportRecord.visualTransform`. Label
+offsets/style changes live in per-object visual overrides. Local Board
+coordinates, primary/represented provenance, mapping and canonical GIR remain
+unchanged.
+
+Point movement and semantic deletion are blocked until a versioned GeometryOS
+edit/recompute contract can return replacement GIR, Layout and mapping
+continuity. See `CHANGE_CLASSIFICATION.md`.
