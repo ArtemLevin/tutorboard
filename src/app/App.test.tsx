@@ -205,6 +205,33 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("moves a selection by keyboard and restores focus after shortcut help", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    fireEvent.click(screen.getByRole("button", { name: "Выделение (V)" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Переместить выделение" }),
+    );
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(screen.getByTestId("first-object-position")).toHaveTextContent(
+      "Объект: 31, 30",
+    );
+
+    const shortcuts = screen.getByRole("button", {
+      name: "Горячие клавиши",
+    });
+    fireEvent.click(shortcuts);
+    expect(
+      screen.getByRole("dialog", { name: "Горячие клавиши" }),
+    ).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(
+      screen.queryByRole("dialog", { name: "Горячие клавиши" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("runs the GeometryOS vertical flow and selects one atomic import", async () => {
     const generateSuccess = JSON.parse(generateSuccessJson) as unknown;
     const layoutSuccess = JSON.parse(layoutSuccessJson) as unknown;

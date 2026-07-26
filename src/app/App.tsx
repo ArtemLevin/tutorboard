@@ -177,6 +177,12 @@ export function App({
     null,
   );
   const [clipboardNotice, setClipboardNotice] = useState<string | null>(null);
+  const [accessibilityNotice, setAccessibilityNotice] = useState<string | null>(
+    null,
+  );
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const shortcutsButtonRef = useRef<HTMLButtonElement>(null);
+  const shortcutsDialogRef = useRef<HTMLElement>(null);
   const [geometryPrompt, setGeometryPrompt] = useState(
     "Построй треугольник ABC и высоту AH",
   );
@@ -555,6 +561,11 @@ export function App({
     [],
   );
 
+  const closeShortcuts = useCallback(() => {
+    setShortcutsOpen(false);
+    queueMicrotask(() => shortcutsButtonRef.current?.focus());
+  }, []);
+
   const applyDrawingAction = useCallback(
     (action: DrawingAction) => {
       const result = reduceDrawingInteraction(drawingStateRef.current, action);
@@ -620,8 +631,43 @@ export function App({
         return;
       }
 
+      if (event.key === "Escape" && shortcutsOpen) {
+        event.preventDefault();
+        closeShortcuts();
+        return;
+      }
+      if (event.key === "?") {
+        event.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
       if (event.key.toLowerCase() === "h") {
         activateTool(navigationToolId);
+        return;
+      }
+      const arrowDelta = {
+        ArrowDown: { x: 0, y: event.shiftKey ? 10 : 1 },
+        ArrowLeft: { x: event.shiftKey ? -10 : -1, y: 0 },
+        ArrowRight: { x: event.shiftKey ? 10 : 1, y: 0 },
+        ArrowUp: { x: 0, y: event.shiftKey ? -10 : -1 },
+      }[event.key];
+      if (
+        arrowDelta !== undefined &&
+        selectionStateRef.current.selectedObjectIds.length > 0 &&
+        selectionStateRef.current.interaction.kind === "idle" &&
+        !selectionIsLocked(
+          documentRef.current,
+          selectionStateRef.current.selectedObjectIds,
+        )
+      ) {
+        event.preventDefault();
+        commitSelectionMove({
+          delta: arrowDelta,
+          objectIds: selectionStateRef.current.selectedObjectIds,
+        });
+        setAccessibilityNotice(
+          `Выделение перемещено: ${arrowDelta.x}, ${arrowDelta.y}`,
+        );
         return;
       }
       if (event.key.toLowerCase() === selectionTool.shortcut.toLowerCase()) {
@@ -671,7 +717,17 @@ export function App({
 
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [activateTool, copySelection, cutSelection, pasteClipboard, redo, undo]);
+  }, [
+    activateTool,
+    closeShortcuts,
+    commitSelectionMove,
+    copySelection,
+    cutSelection,
+    pasteClipboard,
+    redo,
+    shortcutsOpen,
+    undo,
+  ]);
 
   useEffect(() => {
     const result = reduceSelectionInteraction(selectionStateRef.current, {
@@ -1070,7 +1126,11 @@ export function App({
           </div>
         </div>
 
-        <div className="canvas-actions" aria-label="Управление полотном">
+        <div
+          className="canvas-actions"
+          aria-label="Управление полотном"
+          role="toolbar"
+        >
           <button
             aria-label="Отменить (Ctrl+Z)"
             className="tool-button"
@@ -1172,6 +1232,16 @@ export function App({
               Снимок PNG
             </button>
           )}
+          <button
+            aria-expanded={shortcutsOpen}
+            aria-haspopup="dialog"
+            className="tool-button"
+            onClick={() => setShortcutsOpen(true)}
+            ref={shortcutsButtonRef}
+            type="button"
+          >
+            Горячие клавиши
+          </button>
           {onExportDiagnostics === undefined ? null : (
             <button
               className="tool-button"
@@ -1194,6 +1264,67 @@ export function App({
         </div>
       </header>
 
+      {shortcutsOpen ? (
+        <div
+          className="dialog-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeShortcuts();
+            }
+          }}
+        >
+          <section
+            aria-labelledby="shortcuts-title"
+            aria-modal="true"
+            className="shortcuts-dialog"
+            onKeyDown={(event) => {
+              if (event.key === "Tab") {
+                event.preventDefault();
+                shortcutsDialogRef.current
+                  ?.querySelector<HTMLButtonElement>("button")
+                  ?.focus();
+              }
+            }}
+            ref={shortcutsDialogRef}
+            role="dialog"
+          >
+            <div className="dialog-heading">
+              <h2 id="shortcuts-title">Горячие клавиши</h2>
+              <button
+                aria-label="Закрыть горячие клавиши"
+                autoFocus
+                onClick={closeShortcuts}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <dl>
+              <div>
+                <dt>V / H / P / R / E / T</dt>
+                <dd>Выбор инструмента</dd>
+              </div>
+              <div>
+                <dt>Стрелки / Shift+стрелки</dt>
+                <dd>Перемещение выделения на 1 / 10 единиц</dd>
+              </div>
+              <div>
+                <dt>Ctrl/Cmd + C, X, V</dt>
+                <dd>Копирование, вырезание и вставка</dd>
+              </div>
+              <div>
+                <dt>Ctrl/Cmd + Z / Shift+Z</dt>
+                <dd>Отмена и повтор</dd>
+              </div>
+              <div>
+                <dt>Delete / Escape / ?</dt>
+                <dd>Удаление, отмена действия и эта справка</dd>
+              </div>
+            </dl>
+          </section>
+        </div>
+      ) : null}
+
       <section
         className="workspace"
         aria-label="Рабочая область доски"
@@ -1215,6 +1346,9 @@ export function App({
             {clipboardNotice}
           </div>
         )}
+        <div aria-atomic="true" aria-live="polite" className="visually-hidden">
+          {accessibilityNotice}
+        </div>
         {persistenceStatus.kind === "error" ||
         persistenceStatus.kind === "conflict" ? (
           <div className="persistence-alert" role="alert">
