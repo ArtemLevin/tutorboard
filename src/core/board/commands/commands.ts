@@ -137,6 +137,12 @@ export interface RenameDocumentCommand extends CommandMetadata {
   readonly title: string;
 }
 
+export interface UpdateTextCommand extends CommandMetadata {
+  readonly kind: "core.text.update";
+  readonly objectId: BoardObjectId;
+  readonly text: string;
+}
+
 export type BoardCommand =
   | AddGroupCommand
   | AddObjectsCommand
@@ -156,6 +162,7 @@ export type BoardCommand =
   | SetSelectionStyleCommand
   | SetLayerVisibilityCommand
   | TranslateGeometryImportCommand
+  | UpdateTextCommand
   | SetViewportCommand;
 
 export const boardCommandKinds = [
@@ -178,4 +185,5 @@ export const boardCommandKinds = [
   "core.selection.set-style",
   "core.viewport.set",
   "core.document.rename",
+  "core.text.update",
 ] as const satisfies readonly BoardCommand["kind"][];

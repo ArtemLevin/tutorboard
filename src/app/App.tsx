@@ -87,6 +87,10 @@ import {
   type SelectionState,
 } from "../modules/selection/public";
 import { createSetSelectionStyleCommand } from "../modules/styling/public";
+import {
+  createUpdateTextCommand,
+  isEditableTextObject,
+} from "../modules/text-editing/public";
 import { readEnvironment } from "./configuration/environment";
 import {
   GeometryPromptPanel,
@@ -448,6 +452,19 @@ export function App({
           selectionStateRef.current.selectedObjectIds,
           style,
         ),
+      );
+    },
+    [commitCommand],
+  );
+
+  const updateSelectedText = useCallback(
+    (objectId: BoardObjectId, text: string) => {
+      const object = documentRef.current.objects[objectId];
+      if (!isEditableTextObject(object) || object.text === text) {
+        return;
+      }
+      commitCommand(
+        createUpdateTextCommand(createLocalCommandMetadata(), objectId, text),
       );
     },
     [commitCommand],
@@ -1003,6 +1020,12 @@ export function App({
   const selectedStyle = scene.items.find(({ object }) =>
     selectionState.selectedObjectIds.includes(object.id),
   )?.object.style;
+  const selectedTextId =
+    selectionState.selectedObjectIds.length === 1
+      ? selectionState.selectedObjectIds[0]
+      : undefined;
+  const selectedEditableText =
+    selectedTextId === undefined ? undefined : document.objects[selectedTextId];
   const canGroup =
     selectedObjects.length >= 2 &&
     selectedObjects.every(
@@ -1397,6 +1420,24 @@ export function App({
             </div>
             {selectedStyle === undefined ? null : (
               <div className="style-inspector">
+                {isEditableTextObject(selectedEditableText) ? (
+                  <label className="text-content-editor">
+                    Текст или формула
+                    <textarea
+                      aria-label="Редактор текста"
+                      defaultValue={selectedEditableText.text}
+                      key={`${selectedEditableText.id}:${selectedEditableText.text}`}
+                      maxLength={100_000}
+                      onBlur={(event) =>
+                        updateSelectedText(
+                          selectedEditableText.id,
+                          event.currentTarget.value,
+                        )
+                      }
+                      rows={3}
+                    />
+                  </label>
+                ) : null}
                 <label>
                   Заливка
                   <input

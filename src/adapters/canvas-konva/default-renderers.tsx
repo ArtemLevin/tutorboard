@@ -1,6 +1,7 @@
 import { Ellipse, Line, Rect, Text } from "react-konva";
 
 import type { BoardObject, BoardObjectKind } from "../../core/public";
+import { renderSafeMathLabel } from "../../shared/safe-math-label";
 import { SvgRenderer } from "./svg-renderer";
 import {
   KonvaRendererRegistry,
@@ -113,6 +114,7 @@ const renderers: readonly KonvaObjectRenderer[] = [
     kind: "drawing.text",
     render(object) {
       const text = expectKind(object, "drawing.text");
+      const label = renderSafeMathLabel(text.text);
       return (
         <Text
           {...commonShapeProps(text)}
@@ -120,7 +122,7 @@ const renderers: readonly KonvaObjectRenderer[] = [
           fontFamily="Inter, ui-sans-serif, system-ui"
           fontSize={22}
           lineHeight={1.35}
-          text={text.text}
+          text={label.displayText}
         />
       );
     },

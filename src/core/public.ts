@@ -83,6 +83,7 @@ export {
   type SetLayerVisibilityCommand,
   type SetViewportCommand,
   type TranslateGeometryImportCommand,
+  type UpdateTextCommand,
 } from "./board/commands/commands";
 export {
   reduceBoardDocument,
