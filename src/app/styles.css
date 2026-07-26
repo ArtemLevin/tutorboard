@@ -511,7 +511,12 @@ button {
   font-size: 0.64rem;
 }
 
-.style-inspector input {
+.style-inspector .text-content-editor {
+  grid-column: 1 / -1;
+}
+
+.style-inspector input,
+.style-inspector textarea {
   width: 100%;
   min-width: 0;
   height: 30px;
@@ -520,6 +525,13 @@ button {
   border-radius: 7px;
   color: #31454f;
   background: #fff;
+}
+
+.style-inspector textarea {
+  height: auto;
+  padding: 7px;
+  resize: vertical;
+  line-height: 1.35;
 }
 
 .selection-inspector button {

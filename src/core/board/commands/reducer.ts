@@ -33,6 +33,7 @@ import type {
   SetLayerVisibilityCommand,
   SetViewportCommand,
   TranslateGeometryImportCommand,
+  UpdateTextCommand,
 } from "./commands";
 
 export type CommandErrorCode =
@@ -44,6 +45,7 @@ export type CommandErrorCode =
   | "command.import-missing"
   | "command.imported-object-delete-unsupported"
   | "command.imported-object-move-unsupported"
+  | "command.imported-object-edit-unsupported"
   | "command.imported-group-move-unsupported"
   | "command.imported-group-remove-unsupported"
   | "command.invalid"
@@ -439,6 +441,49 @@ function setSelectionStyle(
     ...document,
     geometryImports,
     objects,
+    updatedAt: command.timestamp,
+  });
+}
+
+function updateText(
+  document: BoardDocument,
+  command: UpdateTextCommand,
+): CommandResult {
+  const object = ownValue(document.objects, command.objectId);
+  if (object === undefined) {
+    return failure(
+      document,
+      "command.object-missing",
+      "Text update references a missing object.",
+    );
+  }
+  if (object.kind !== "drawing.text") {
+    return failure(
+      document,
+      "command.invalid",
+      "Text update requires a text object.",
+    );
+  }
+  if (object.source.kind === "geometryos") {
+    return failure(
+      document,
+      "command.imported-object-edit-unsupported",
+      "GeometryOS label text remains owned by canonical geometry.",
+    );
+  }
+  if (
+    object.locked ||
+    (object.groupId !== null &&
+      ownValue(document.groups, object.groupId)?.locked === true)
+  ) {
+    return failure(document, "command.locked", "Locked text cannot be edited.");
+  }
+  return accept(document, {
+    ...document,
+    objects: {
+      ...document.objects,
+      [object.id]: { ...object, text: command.text },
+    },
     updatedAt: command.timestamp,
   });
 }
@@ -1428,6 +1473,8 @@ export function reduceBoardDocument(
       return setViewport(document, command);
     case "core.document.rename":
       return renameDocument(document, command);
+    case "core.text.update":
+      return updateText(document, command);
     default:
       return assertNever(command);
   }
