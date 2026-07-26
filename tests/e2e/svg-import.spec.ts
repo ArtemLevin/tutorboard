@@ -112,14 +112,14 @@ test("inserts, selects and restores one safe SVG object", async ({ page }) => {
     name: "safe.svg",
   });
 
-  await expect(page.getByTestId("object-count")).toHaveText("5 объекта");
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Сохранено локально",
   );
 
   await page.reload();
-  await expect(page.getByTestId("object-count")).toHaveText("5 объекта");
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
 });
 
 test("rejects executable SVG without mutating the document", async ({
@@ -134,7 +134,7 @@ test("rejects executable SVG without mutating the document", async ({
   });
 
   await expect(page.getByRole("alert")).toContainText("SVG не вставлен");
-  await expect(page.getByTestId("object-count")).toHaveText("4 объекта");
+  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
 });
 
 test("opens recovery UI instead of rendering a tampered stored SVG", async ({
@@ -145,7 +145,7 @@ test("opens recovery UI instead of rendering a tampered stored SVG", async ({
     mimeType: "image/svg+xml",
     name: "safe.svg",
   });
-  await expect(page.getByTestId("object-count")).toHaveText("5 объекта");
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await expect
     .poll(() => storedSvgExists(page), {
       message: "Wait for the SVG revision to reach IndexedDB before tampering.",

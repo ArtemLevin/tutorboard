@@ -202,7 +202,7 @@ const geometryImportSchema = z
   .strict();
 
 function documentSchema(
-  schemaVersion: "0.1" | "0.2",
+  schemaVersion: "0.1" | "0.2" | "1.0",
   storedObjectSchema: typeof legacyObjectSchema | typeof objectSchema,
 ) {
   return z
@@ -222,7 +222,8 @@ function documentSchema(
 }
 
 export const boardDocumentSchema01 = documentSchema("0.1", legacyObjectSchema);
-export const boardDocumentSchema = documentSchema("0.2", objectSchema);
+export const boardDocumentSchema02 = documentSchema("0.2", objectSchema);
+export const boardDocumentSchema = documentSchema("1.0", objectSchema);
 
 export const legacyBoardObjectKinds = new Set<string>([
   "drawing.pen-stroke",

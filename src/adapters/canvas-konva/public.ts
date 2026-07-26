@@ -1,3 +1,5 @@
+export const canvasAdapterContractVersion = "1.0" as const;
+
 export {
   BoardStage,
   type BoardSelectionBounds,

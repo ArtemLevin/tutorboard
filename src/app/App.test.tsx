@@ -40,8 +40,7 @@ vi.mock("../adapters/canvas-konva/public", () => ({
     };
     const selectionStart: SelectionPointerStartSample = {
       additive: false,
-      objectId:
-        "object:welcome-card" as SelectionPointerStartSample["objectId"],
+      objectId: props.scene.items[0]?.object.id ?? null,
       point: { x: 80, y: 80 },
       pointerId: 2,
       pressure: 0,
@@ -100,7 +99,7 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByText("BoardDocument 0.2")).toBeInTheDocument();
+    expect(screen.getByText("BoardDocument 1.0")).toBeInTheDocument();
   });
 
   it("composes a drawing gesture into one document command", () => {
@@ -109,7 +108,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
 
-    expect(screen.getByTestId("object-count")).toHaveTextContent("5 объекта");
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
     expect(screen.getByTestId("interaction-state")).toHaveTextContent("idle");
   });
 
@@ -143,7 +142,7 @@ describe("App", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId("object-count")).toHaveTextContent("5 объекта"),
+      expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта"),
     );
     expect(screen.getByTestId("selection-count")).toHaveTextContent(
       "1 выбрано",
@@ -153,6 +152,8 @@ describe("App", () => {
   it("selects and moves one object through one document command", () => {
     render(<App />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
     fireEvent.click(screen.getByRole("button", { name: "Выделение (V)" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Переместить выделение" }),
@@ -162,7 +163,7 @@ describe("App", () => {
       "1 выбрано",
     );
     expect(screen.getByTestId("first-object-position")).toHaveTextContent(
-      "Объект: 100, 90",
+      "Объект: 30, 30",
     );
     expect(
       screen.getByRole("complementary", { name: "Выделенные объекты" }),
@@ -214,7 +215,7 @@ describe("App", () => {
         "Построение добавлено: 12 объектов",
       ),
     );
-    expect(screen.getByTestId("object-count")).toHaveTextContent("16 объекта");
+    expect(screen.getByTestId("object-count")).toHaveTextContent("12 объекта");
     expect(screen.getByTestId("selection-count")).toHaveTextContent(
       "12 выбрано",
     );
