@@ -13,6 +13,8 @@ import {
   commandId,
   createEmptyBoardDocument,
   documentId,
+  geometryImportId,
+  groupId,
   reduceBoardDocument,
   screenToWorld,
   selectBoardScene,
@@ -21,6 +23,12 @@ import {
   type GeometryOsClient,
   type ViewportState,
 } from "../core/public";
+import {
+  copyBoardSelection,
+  createCutContentCommand,
+  createPasteContentCommand,
+  type BoardClipboardPayload,
+} from "../modules/clipboard/public";
 import {
   createAddDrawingObjectCommand,
   drawingTools,
@@ -135,6 +143,10 @@ export function App({
   const selectionStateRef = useRef<SelectionState>(initialSelectionState);
   const [textDraft, setTextDraft] = useState("Новый текст");
   const [svgDiagnostic, setSvgDiagnostic] = useState<string | null>(null);
+  const [clipboard, setClipboard] = useState<BoardClipboardPayload | null>(
+    null,
+  );
+  const [clipboardNotice, setClipboardNotice] = useState<string | null>(null);
   const [geometryPrompt, setGeometryPrompt] = useState(
     "Построй треугольник ABC и высоту AH",
   );
@@ -208,6 +220,99 @@ export function App({
         : { commandError: null, history: next };
     });
   }, []);
+
+  const copySelection = useCallback(() => {
+    const copied = copyBoardSelection(
+      documentRef.current,
+      selectionStateRef.current.selectedObjectIds,
+    );
+    if (copied.status === "error") {
+      setClipboardNotice("Нет объектов для копирования");
+      return;
+    }
+    setClipboard(copied.payload);
+    setClipboardNotice(`Скопировано: ${copied.payload.order.length}`);
+  }, []);
+
+  const cutSelection = useCallback(() => {
+    const current = documentRef.current;
+    const copied = copyBoardSelection(
+      current,
+      selectionStateRef.current.selectedObjectIds,
+    );
+    if (copied.status === "error") {
+      setClipboardNotice("Нет объектов для вырезания");
+      return;
+    }
+    const timestamp = new Date().toISOString();
+    const result = reduceBoardDocument(
+      current,
+      createCutContentCommand(copied.payload, {
+        actorId: localActorId,
+        id: commandId(`command:${crypto.randomUUID()}`),
+        timestamp,
+      }),
+    );
+    if (!result.ok) {
+      setClipboardNotice(result.error.message);
+      return;
+    }
+    setClipboard(copied.payload);
+    setClipboardNotice(`Вырезано: ${copied.payload.order.length}`);
+    setBoardState((latest) => ({
+      commandError: null,
+      history: commitDocumentHistory(latest.history, result.document),
+    }));
+    const cleared: SelectionState = {
+      interaction: { kind: "idle" },
+      selectedObjectIds: [],
+    };
+    selectionStateRef.current = cleared;
+    setSelectionState(cleared);
+  }, []);
+
+  const pasteClipboard = useCallback(() => {
+    if (clipboard === null) {
+      setClipboardNotice("Буфер обмена пуст");
+      return;
+    }
+    const token = crypto.randomUUID();
+    let objectSequence = 0;
+    let groupSequence = 0;
+    let importSequence = 0;
+    const command = createPasteContentCommand(
+      clipboard,
+      {
+        actorId: localActorId,
+        id: commandId(`command:${token}`),
+        timestamp: new Date().toISOString(),
+      },
+      {
+        geometryImport: () =>
+          geometryImportId(`import:paste:${token}:${importSequence++}`),
+        group: () => groupId(`group:paste:${token}:${groupSequence++}`),
+        object: () =>
+          boardObjectId(`object:paste:${token}:${objectSequence++}`),
+      },
+    );
+    const result = reduceBoardDocument(documentRef.current, command);
+    if (!result.ok) {
+      setClipboardNotice(result.error.message);
+      return;
+    }
+    setBoardState((latest) => ({
+      commandError: null,
+      history: commitDocumentHistory(latest.history, result.document),
+    }));
+    const selected: SelectionState = {
+      interaction: { kind: "idle" },
+      selectedObjectIds: command.objects.map(({ id }) => id),
+    };
+    selectionStateRef.current = selected;
+    setSelectionState(selected);
+    setActiveTool(selectionToolId);
+    setClipboardNotice(`Вставлено: ${command.objects.length}`);
+  }, [clipboard]);
 
   const commitViewport = useCallback((viewport: ViewportState) => {
     const timestamp = new Date().toISOString();
@@ -329,6 +434,21 @@ export function App({
           }
           return;
         }
+        if (key === "c") {
+          event.preventDefault();
+          copySelection();
+          return;
+        }
+        if (key === "x") {
+          event.preventDefault();
+          cutSelection();
+          return;
+        }
+        if (key === "v") {
+          event.preventDefault();
+          pasteClipboard();
+          return;
+        }
       }
       if (event.altKey || event.ctrlKey || event.metaKey || editing) {
         return;
@@ -385,7 +505,7 @@ export function App({
 
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [activateTool, redo, undo]);
+  }, [activateTool, copySelection, cutSelection, pasteClipboard, redo, undo]);
 
   useEffect(() => {
     const result = reduceSelectionInteraction(selectionStateRef.current, {
@@ -770,6 +890,30 @@ export function App({
           >
             Повторить
           </button>
+          <button
+            className="tool-button"
+            disabled={selectionState.selectedObjectIds.length === 0}
+            onClick={copySelection}
+            type="button"
+          >
+            Копировать
+          </button>
+          <button
+            className="tool-button"
+            disabled={selectionState.selectedObjectIds.length === 0}
+            onClick={cutSelection}
+            type="button"
+          >
+            Вырезать
+          </button>
+          <button
+            className="tool-button"
+            disabled={clipboard === null}
+            onClick={pasteClipboard}
+            type="button"
+          >
+            Вставить
+          </button>
           <label className="tool-button file-tool-button">
             Вставить SVG
             <input
@@ -838,6 +982,11 @@ export function App({
           <div className="persistence-alert" role="alert">
             <strong>SVG не вставлен</strong>
             <span>{svgDiagnostic}</span>
+          </div>
+        )}
+        {clipboardNotice === null ? null : (
+          <div className="clipboard-notice" role="status">
+            {clipboardNotice}
           </div>
         )}
         {persistenceStatus.kind === "error" ||

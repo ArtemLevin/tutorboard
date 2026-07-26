@@ -16,12 +16,14 @@ import type {
   AddGroupCommand,
   AddObjectsCommand,
   BoardCommand,
+  CutContentCommand,
   DeleteObjectsCommand,
   ImportGeometryCommand,
   OffsetGeometryLabelCommand,
   MoveGroupCommand,
   MoveObjectsCommand,
   MoveSelectionCommand,
+  PasteContentCommand,
   RenameDocumentCommand,
   SetGeometryVisualStyleCommand,
   SetSelectionLockCommand,
@@ -217,6 +219,159 @@ function addGroup(
       [command.group.id]: command.group,
     },
     objects: attachObjectsToGroup(document, command.group),
+  });
+}
+
+function pasteContent(
+  document: BoardDocument,
+  command: PasteContentCommand,
+): CommandResult {
+  if (command.objects.length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Clipboard paste requires at least one object.",
+    );
+  }
+  const objectIds = command.objects.map(({ id }) => id);
+  const groupIds = command.groups.map(({ id }) => id);
+  const importIds = command.geometryImports.map(({ id }) => id);
+  if (
+    hasDuplicates(objectIds) ||
+    hasDuplicates(groupIds) ||
+    hasDuplicates(importIds)
+  ) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "Clipboard paste contains duplicate identifiers.",
+    );
+  }
+  if (objectIds.some((id) => ownValue(document.objects, id) !== undefined)) {
+    return failure(
+      document,
+      "command.object-exists",
+      "Clipboard paste collides with an existing object.",
+    );
+  }
+  if (groupIds.some((id) => ownValue(document.groups, id) !== undefined)) {
+    return failure(
+      document,
+      "command.group-exists",
+      "Clipboard paste collides with an existing group.",
+    );
+  }
+  if (
+    importIds.some((id) => ownValue(document.geometryImports, id) !== undefined)
+  ) {
+    return failure(
+      document,
+      "command.import-exists",
+      "Clipboard paste collides with an existing geometry import.",
+    );
+  }
+
+  return accept(document, {
+    ...document,
+    geometryImports: {
+      ...document.geometryImports,
+      ...Object.fromEntries(
+        command.geometryImports.map((record) => [record.id, record]),
+      ),
+    },
+    groups: {
+      ...document.groups,
+      ...Object.fromEntries(command.groups.map((group) => [group.id, group])),
+    },
+    objects: {
+      ...document.objects,
+      ...Object.fromEntries(
+        command.objects.map((object) => [object.id, object]),
+      ),
+    },
+    order: [...document.order, ...objectIds],
+    updatedAt: command.timestamp,
+  });
+}
+
+function cutContent(
+  document: BoardDocument,
+  command: CutContentCommand,
+): CommandResult {
+  if (command.objectIds.length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Clipboard cut requires at least one object.",
+    );
+  }
+  if (
+    hasDuplicates(command.objectIds) ||
+    hasDuplicates(command.groupIds) ||
+    hasDuplicates(command.geometryImportIds)
+  ) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "Clipboard cut contains duplicate identifiers.",
+    );
+  }
+  if (
+    command.objectIds.some((id) => ownValue(document.objects, id) === undefined)
+  ) {
+    return failure(
+      document,
+      "command.object-missing",
+      "Clipboard cut references a missing object.",
+    );
+  }
+  if (
+    command.groupIds.some((id) => ownValue(document.groups, id) === undefined)
+  ) {
+    return failure(
+      document,
+      "command.group-missing",
+      "Clipboard cut references a missing group.",
+    );
+  }
+  if (
+    command.geometryImportIds.some(
+      (id) => ownValue(document.geometryImports, id) === undefined,
+    )
+  ) {
+    return failure(
+      document,
+      "command.import-missing",
+      "Clipboard cut references a missing geometry import.",
+    );
+  }
+
+  const objectSet = new Set(command.objectIds);
+  const groupSet = new Set(command.groupIds);
+  const importSet = new Set(command.geometryImportIds);
+  const objects = Object.fromEntries(
+    Object.entries(document.objects).filter(
+      ([id]) => !objectSet.has(id as BoardObjectId),
+    ),
+  ) as BoardDocument["objects"];
+  const groups = Object.fromEntries(
+    Object.entries(document.groups).filter(
+      ([id]) => !groupSet.has(id as GroupId),
+    ),
+  ) as BoardDocument["groups"];
+  const geometryImports = Object.fromEntries(
+    Object.entries(document.geometryImports).filter(
+      ([id]) => !importSet.has(id as GeometryImportId),
+    ),
+  ) as BoardDocument["geometryImports"];
+
+  return accept(document, {
+    ...document,
+    geometryImports,
+    groups,
+    objects,
+    order: document.order.filter((id) => !objectSet.has(id)),
+    updatedAt: command.timestamp,
   });
 }
 
@@ -1016,6 +1171,10 @@ export function reduceBoardDocument(
   switch (command.kind) {
     case "core.objects.add":
       return addObjects(document, command);
+    case "core.clipboard.cut":
+      return cutContent(document, command);
+    case "core.clipboard.paste":
+      return pasteContent(document, command);
     case "core.groups.add":
       return addGroup(document, command);
     case "core.geometry.import":
