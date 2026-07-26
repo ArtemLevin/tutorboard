@@ -1,9 +1,9 @@
 # GeometryOS contract baseline
 
-- Status: verified with one documented layout compatibility gap
-- Date: 2026-07-25
+- Status: verified, including Layout Document 0.1
+- Date: 2026-07-26
 - GeometryOS repository commit:
-  `49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c`
+  `fe5ece9f7138044d638114907fe9aaecfd14e924`
 
 ## Pinned contracts
 
@@ -12,19 +12,20 @@
 | GeometryOS service | `0.2.0` | release manifest and OpenAPI metadata |
 | HTTP API | `v1` / `1.0.0` | `schemas/openapi.v1.json` |
 | GIR | `0.2.0` | GIR schema and generated response fixtures |
+| Layout Document | `0.1.0` | OpenAPI schemas and executable layout fixtures |
 | Consumer fixtures | `tutorboard/v1` | executable fixture manifest |
 
 Pinned artifact hashes:
 
 ```text
 OpenAPI v1
-4507f5c2da15e70a5836198e4d9af709f382f6f73e766b10e7a78e7a1d12e549
+eda2e6a4ab1e6e96b0c3561574695637a0be060ff68ba6a0e7b5432e989d94e9
 
 GIR 0.2 JSON Schema
 dae399fa8a23458802760807c64f7b412d46ba81bb62b248cea136d714987993
 
 TutorBoard v1 fixture manifest
-8777c49f8abbc7fec7e667b3fb475a781ed2c05523ce1e32e85387ea3b50782c
+23c1cdd94a5cf9212c538bbc6ff423d1eb8580aebba092f9c7647ad74d3c0538
 ```
 
 These hashes are the immutable Gate 0/PR 2.8.1 evidence. Normal CI never downloads a mutable GeometryOS branch: generation uses the committed artifacts, while the live gate checks out the exact source commit.
@@ -34,6 +35,8 @@ These hashes are the immutable Gate 0/PR 2.8.1 evidence. Normal CI never downloa
 - OpenAPI and GIR schema exports match their committed artifacts.
 - TypeScript DTOs generate from OpenAPI and compile in strict mode.
 - `POST /api/v1/generate` is a discriminated union: `success`, `needs_clarification`, or domain `error`.
+- `POST /api/v1/layout` accepts canonical GIR and returns `success`, `unsupported`, or `invalid_scene`.
+- Successful layout emits Layout Document `0.1.0` with structured GIR provenance.
 - Expected domain outcomes remain HTTP 200 and are not Problem Details.
 - Request validation and infrastructure failures use `application/problem+json`.
 - OpenAPI formally publishes request and response `X-Request-ID` contracts.
@@ -56,16 +59,11 @@ These hashes are the immutable Gate 0/PR 2.8.1 evidence. Normal CI never downloa
 | internal error | HTTP 500 Problem Details | diagnostic with request ID |
 | incompatible API/GIR | client boundary rejection | preserve payload for diagnosis; do not import |
 
-## Layout compatibility gap
+## Layout compatibility resolution
 
-`GenerateSuccessResponse` publishes canonical GIR and optional SVG/TikZ, but no machine-readable layout object. The success fixture therefore cannot provide canonical point coordinates to a GIR-to-Board adapter.
+`GenerateSuccessResponse` remains semantic and publishes canonical GIR plus optional renderings. Coordinate placement is a separate `POST /api/v1/layout` operation whose success response contains canonical GIR and machine-readable Layout Document `0.1.0`.
 
-This does not block repository foundation or the pure semantic portion of PR 2.9. It affects coordinate placement:
-
-1. SVG must not become the semantic source (`GEO-009`).
-2. The spike may use a deterministic, versioned fallback layout only for the approved triangle-and-altitude fixture until GeometryOS publishes Layout Document 0.1.
-3. Fallback coordinates belong to the adapter result, never to canonical GIR.
-4. The Phase 2 report must retain the bounded fallback as explicit debt or consume the versioned GeometryOS layout contract.
+TutorBoard validates both response envelopes at runtime, uses GIR as the semantic source and uses Layout only for positions and visual segment style. SVG is not parsed and no fallback coordinates are retained.
 
 ## Executed checks
 
@@ -93,4 +91,4 @@ The live smoke builds GeometryOS from the exact pinned commit in a hardened cont
 
 ## Gate decision
 
-Gate 0 and PR 2.8.1 are complete. TutorBoard may proceed to deterministic GIR-to-Board import while treating machine-readable layout as the only remaining producer compatibility gap.
+Gate 0, the generated client boundary and the producer Layout contract are complete. TutorBoard can perform deterministic Layout-to-Board import without a fixture-only compatibility fallback.

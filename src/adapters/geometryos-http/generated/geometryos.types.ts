@@ -24,6 +24,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/layout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create a deterministic Layout Document
+     * @description Validate and normalize canonical GIR, then return Layout Document 0.1. Semantically invalid and unsupported scenes are typed HTTP 200 domain outcomes.
+     */
+    post: operations["geometryos_v1_layout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/render/svg": {
     parameters: {
       query?: never;
@@ -184,6 +204,17 @@ export interface components {
       message: string;
       /** Options */
       options?: string[];
+    };
+    /** ApiLayoutDiagnostic */
+    ApiLayoutDiagnostic: {
+      /** Code */
+      code: string;
+      /** Constraint Ids */
+      constraint_ids?: string[];
+      /** Message */
+      message: string;
+      /** Object Ids */
+      object_ids?: string[];
     };
     /** ApiWarning */
     ApiWarning: {
@@ -647,6 +678,192 @@ export interface components {
        * @enum {string}
        */
       type: "label";
+    };
+    /** LayoutCoordinateSpace */
+    LayoutCoordinateSpace: {
+      /**
+       * Origin
+       * @constant
+       */
+      origin: "top_left";
+      /**
+       * Unit
+       * @constant
+       */
+      unit: "abstract";
+      /**
+       * X Direction
+       * @constant
+       */
+      x_direction: "right";
+      /**
+       * Y Direction
+       * @constant
+       */
+      y_direction: "down";
+    };
+    /** LayoutDocument */
+    LayoutDocument: {
+      coordinate_space: components["schemas"]["LayoutCoordinateSpace"];
+      /**
+       * Height
+       * @default 220
+       */
+      height: number;
+      /** Labels */
+      labels?: components["schemas"]["LayoutLabel"][];
+      /** Points */
+      points: {
+        [key: string]: components["schemas"]["LayoutPoint"];
+      };
+      /**
+       * Schema Version
+       * @constant
+       */
+      schema_version: "0.1.0";
+      /** Segments */
+      segments: components["schemas"]["LayoutSegment"][];
+      /**
+       * Source Gir Schema Version
+       * @constant
+       */
+      source_gir_schema_version: "0.2.0";
+      /** Source Gir Sha256 */
+      source_gir_sha256: string;
+      /**
+       * Width
+       * @default 280
+       */
+      width: number;
+    };
+    /** LayoutInvalidSceneResponse */
+    LayoutInvalidSceneResponse: {
+      canonical_gir: components["schemas"]["GirScene"];
+      /** Diagnostics */
+      diagnostics?: components["schemas"]["ApiLayoutDiagnostic"][];
+      /**
+       * Failure Stage
+       * @enum {string}
+       */
+      failure_stage: "draft_validation" | "normalized_validation";
+      /** Layout */
+      layout?: null;
+      /**
+       * Layout Schema Version
+       * @default 0.1.0
+       * @constant
+       */
+      layout_schema_version: "0.1.0";
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: "invalid_scene";
+      validation_report: components["schemas"]["ValidationReport"];
+    };
+    /** LayoutLabel */
+    LayoutLabel: {
+      /**
+       * Dx
+       * @default 6
+       */
+      dx: number;
+      /**
+       * Dy
+       * @default -6
+       */
+      dy: number;
+      /** Id */
+      id: string;
+      source: components["schemas"]["LayoutSource"];
+      /** Target */
+      target: string;
+      /** Text */
+      text: string;
+    };
+    /** LayoutPoint */
+    LayoutPoint: {
+      /** Id */
+      id: string;
+      /** Label */
+      label?: string | null;
+      source: components["schemas"]["LayoutSource"];
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    };
+    /** LayoutSegment */
+    LayoutSegment: {
+      /** End */
+      end: string;
+      /** Id */
+      id: string;
+      source: components["schemas"]["LayoutSource"];
+      /** Start */
+      start: string;
+      /**
+       * Style
+       * @default solid
+       * @enum {string}
+       */
+      style: "solid" | "dashed";
+    };
+    /** LayoutSource */
+    LayoutSource: {
+      /** Index */
+      index?: number | null;
+      /** Object Id */
+      object_id: string;
+      role: components["schemas"]["LayoutSourceRole"];
+    };
+    /**
+     * LayoutSourceRole
+     * @enum {string}
+     */
+    LayoutSourceRole: "gir_object" | "triangle_edge" | "auto_label";
+    /** LayoutSuccessResponse */
+    LayoutSuccessResponse: {
+      canonical_gir: components["schemas"]["GirScene"];
+      /** Diagnostics */
+      diagnostics?: components["schemas"]["ApiLayoutDiagnostic"][];
+      /** Failure Stage */
+      failure_stage?: null;
+      layout: components["schemas"]["LayoutDocument"];
+      /**
+       * Layout Schema Version
+       * @default 0.1.0
+       * @constant
+       */
+      layout_schema_version: "0.1.0";
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: "success";
+      validation_report: components["schemas"]["ValidationReport"];
+    };
+    /** LayoutUnsupportedResponse */
+    LayoutUnsupportedResponse: {
+      canonical_gir: components["schemas"]["GirScene"];
+      /** Diagnostics */
+      diagnostics: components["schemas"]["ApiLayoutDiagnostic"][];
+      /** Failure Stage */
+      failure_stage?: null;
+      /** Layout */
+      layout?: null;
+      /**
+       * Layout Schema Version
+       * @default 0.1.0
+       * @constant
+       */
+      layout_schema_version: "0.1.0";
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: "unsupported";
+      validation_report: components["schemas"]["ValidationReport"];
     };
     /** LineObject */
     LineObject: {
@@ -1147,6 +1364,77 @@ export interface operations {
         };
         content: {
           "application/problem+json": components["schemas"]["ProblemDetail"];
+        };
+      };
+      /** @description Request or GIR validation failed. */
+      422: {
+        headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetail"];
+        };
+      };
+      /** @description Unexpected internal error. */
+      500: {
+        headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetail"];
+        };
+      };
+      /** @description Service is alive but not ready to accept application traffic. */
+      503: {
+        headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetail"];
+        };
+      };
+      /** @description Operation exceeded its configured time limit. */
+      504: {
+        headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetail"];
+        };
+      };
+    };
+  };
+  geometryos_v1_layout: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Optional safe correlation identifier. Valid values are echoed; invalid or missing values are replaced with a generated identifier. */
+        "X-Request-ID"?: components["parameters"]["GeometryOsRequestId"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GirScene"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          "X-Request-ID": components["headers"]["GeometryOsRequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            | components["schemas"]["LayoutSuccessResponse"]
+            | components["schemas"]["LayoutUnsupportedResponse"]
+            | components["schemas"]["LayoutInvalidSceneResponse"];
         };
       };
       /** @description Request or GIR validation failed. */

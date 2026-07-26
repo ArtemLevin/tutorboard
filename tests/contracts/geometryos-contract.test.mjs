@@ -10,6 +10,8 @@ import { geometryOsContractMetadata } from "../../src/adapters/geometryos-http/p
 import {
   validateGenerateRequest,
   validateGenerateResponse,
+  validateLayoutRequest,
+  validateLayoutResponse,
   validateProblemDetail,
 } from "../../src/adapters/geometryos-http/validation.ts";
 
@@ -71,7 +73,13 @@ describe("pinned GeometryOS contract", () => {
   });
 
   it("validates producer consumer fixtures through generated validators", () => {
-    const counts = { request: 0, response: 0, problem: 0 };
+    const counts = {
+      request: 0,
+      response: 0,
+      layoutRequest: 0,
+      layoutResponse: 0,
+      problem: 0,
+    };
     for (const filePath of collectJsonFiles(path.join(root, "fixtures"))) {
       if (filePath.endsWith(`${path.sep}manifest.json`)) {
         continue;
@@ -96,6 +104,22 @@ describe("pinned GeometryOS contract", () => {
           counts.response += 1;
         }
         if (
+          candidate.schema_version === "0.2.0" &&
+          candidate.scene_type === "2d" &&
+          validateLayoutRequest(candidate).valid
+        ) {
+          counts.layoutRequest += 1;
+        }
+        if (
+          ["success", "unsupported", "invalid_scene"].includes(
+            String(candidate.status),
+          ) &&
+          "layout_schema_version" in candidate &&
+          validateLayoutResponse(candidate).valid
+        ) {
+          counts.layoutResponse += 1;
+        }
+        if (
           typeof candidate.status === "number" &&
           typeof candidate.request_id === "string" &&
           typeof candidate.code === "string" &&
@@ -107,7 +131,31 @@ describe("pinned GeometryOS contract", () => {
     }
     expect(counts.request).toBeGreaterThan(0);
     expect(counts.response).toBeGreaterThan(0);
+    expect(counts.layoutRequest).toBeGreaterThan(0);
+    expect(counts.layoutResponse).toBe(3);
     expect(counts.problem).toBeGreaterThan(0);
+  });
+
+  it("publishes the Layout Document route and fixtures", () => {
+    const openapi = json(path.join(root, "openapi.v1.json"));
+    expect(openapi.paths["/api/v1/layout"].post).toMatchObject({
+      operationId: "geometryos_v1_layout",
+      responses: {
+        200: {
+          content: {
+            "application/json": {
+              schema: {
+                discriminator: { propertyName: "status" },
+              },
+            },
+          },
+        },
+      },
+    });
+    const fixtureManifest = json(path.join(root, "fixtures/manifest.json"));
+    expect(
+      fixtureManifest.cases.filter((item) => item.path === "/api/v1/layout"),
+    ).toHaveLength(3);
   });
 
   it("publishes browser correlation and service-unavailable contracts", () => {

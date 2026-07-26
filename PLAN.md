@@ -33,6 +33,9 @@ TutorBoard завершил основную инфраструктурную ч
 | PR 2.8   | завершён | pinned/generated GeometryOS client, runtime validators и bounded HTTP adapter                            |
 | PR 2.8.1 | смёржен  | producer repin на `49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c`, новый OpenAPI/fixtures и live-contract job |
 | PR 2.8.2 | завершён | executable ESM validators, plain-Node smoke и real Chromium CORS/request-ID/runtime gate                 |
+| PR 2.9A  | завершён | pure GIR semantic plan, deterministic identities, references, mapping и diagnostics                      |
+| G-10/11  | завершён | Layout Document `0.1.0` и стабильный `POST /api/v1/layout` в GeometryOS                                  |
+| PR 2.9B  | завершён | Layout-to-Board placement, editable primitives и атомарный geometry import                               |
 
 Текущий stored contract — `BoardDocument 0.2`. Canvas runtime, selection,
 preview и transport state не сериализуются. Canonical GIR хранится отдельно от
@@ -40,13 +43,10 @@ Board objects и не восстанавливается из SVG или пол�
 
 ### 2.2. Подтверждённые блокеры
 
-1. **GeometryOS не публикует Layout Document 0.1.** API v1 возвращает canonical
-   GIR и SVG/TikZ, но не версионированные координаты с provenance. SVG не может
-   использоваться как semantic source согласно `GEO-009`.
-2. **GeometryOS client ещё не скомпонован с UI.** HTTP adapter существует, но
-   prompt flow, clarification UI, retry identity и atomic import появятся только
-   в следующих PR.
-3. **Общий vertical slice не закрыт.** Цепочка
+1. **GeometryOS client ещё не скомпонован с UI.** Generate/layout adapters и
+   атомарный import существуют, но prompt flow, clarification UI и retry
+   orchestration появятся в PR 2.10.
+2. **Общий vertical slice не закрыт.** Цепочка
    `text → GIR → Layout Document → BoardDocument → canvas` пока не доказана.
 
 ### 2.3. Обязательный execution order
@@ -69,16 +69,16 @@ Board objects и не восстанавливается из SVG или пол�
   run 149; diagnostics не содержат prompt, response body или credentials;
 - BoardDocument, canvas, UI, persistence и geometry import contracts не менялись.
 
-#### GeometryOS G-10 — чистый Layout Document 0.1
+#### GeometryOS G-10 — чистый Layout Document 0.1 — завершён
 
 Выполняется в репозитории GeometryOS и является внешней зависимостью TutorBoard.
-Нужны versioned coordinate space, canonical GIR SHA-256, provenance, stable
+Доставлены versioned coordinate space, canonical GIR SHA-256, provenance, stable
 synthetic IDs, completeness/reference invariants, typed `success` /
 `unsupported` / `invalid_scene`, schema, fixtures и exact benchmarks.
 
 G-10 не включает HTTP endpoint и не меняет GIR `0.2.0`.
 
-#### TutorBoard PR 2.9A — pure GIR semantic adapter
+#### TutorBoard PR 2.9A — pure GIR semantic adapter — завершён
 
 Может выполняться параллельно с GeometryOS G-10 после зелёного PR 2.8.2.
 
@@ -93,13 +93,13 @@ Scope:
 
 Enforcement: `GEO-003`–`GEO-010`, architecture tests и deterministic fixtures.
 
-#### GeometryOS G-11 — HTTP Layout API
+#### GeometryOS G-11 — HTTP Layout API — завершён
 
 Предпочтительный контракт: `POST /api/v1/layout` для уже существующего canonical
 GIR. Endpoint должен публиковать Layout Document 0.1, typed unsupported/invalid
 outcomes, request ID, readiness, timeout budget, OpenAPI и TutorBoard fixtures.
 
-#### TutorBoard PR 2.9B — Layout-to-Board и атомарный import
+#### TutorBoard PR 2.9B — Layout-to-Board и атомарный import — завершён
 
 Scope:
 
@@ -134,11 +134,8 @@ schema/fixtures в release bundle и опубликовав consumer upgrade gui
 
 ### 2.4. Правила параллельной разработки
 
-- PR 2.8.2 закрыт; следующий TutorBoard owner — pure semantic PR 2.9A.
-- TutorBoard PR 2.9A может идти параллельно с GeometryOS G-10, поскольку не
-  владеет coordinates и не вызывает HTTP.
-- PR 2.9B начинается только после принятия G-10 и опубликованного G-11 contract.
-- PR 2.10 начинается только после зелёных 2.9A, G-11 и 2.9B.
+- PR 2.8.2, 2.9A, GeometryOS G-10/G-11 и PR 2.9B закрыты.
+- Следующий TutorBoard owner — PR 2.10 vertical slice.
 - TutorBoard не создаёт общий layout solver и не парсит SVG ради семантики.
 - GeometryOS не хранит BoardDocument, viewport или пользовательские overrides.
 

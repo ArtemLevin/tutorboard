@@ -10,6 +10,7 @@ export default tseslint.config(
       "coverage",
       "dist",
       "src/adapters/geometryos-http/generated",
+      "src/modules/geometry-import/generated",
       "node_modules",
       "playwright-report",
       "test-results",

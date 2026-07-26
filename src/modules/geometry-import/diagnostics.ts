@@ -17,11 +17,8 @@ export function sortDiagnostics(
   diagnostics: readonly GeometryImportDiagnostic[],
 ): readonly GeometryImportDiagnostic[] {
   return [...diagnostics].sort((left, right) => {
-    const severity = left.severity === right.severity
-      ? 0
-      : left.severity === "error"
-        ? -1
-        : 1;
+    const severity =
+      left.severity === right.severity ? 0 : left.severity === "error" ? -1 : 1;
     return severity !== 0
       ? severity
       : compareString(left.code, right.code) ||
@@ -69,6 +66,8 @@ export function failure(
   };
 }
 
-export function hasErrors(diagnostics: readonly GeometryImportDiagnostic[]): boolean {
+export function hasErrors(
+  diagnostics: readonly GeometryImportDiagnostic[],
+): boolean {
   return diagnostics.some((item) => item.severity === "error");
 }

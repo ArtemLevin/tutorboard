@@ -1,0 +1,279 @@
+{
+  "canonical_gir": {
+    "constraints": [
+      {
+        "id": "c_noncol_abc",
+        "points": [
+          "A",
+          "B",
+          "C"
+        ],
+        "reason": null,
+        "type": "non_collinear"
+      },
+      {
+        "foot": "H",
+        "from_point": "A",
+        "id": "c_altitude_a_bc",
+        "reason": null,
+        "segment": "AH",
+        "to_object": "BC",
+        "type": "altitude"
+      }
+    ],
+    "construction_steps": [
+      {
+        "action": "construct_triangle",
+        "constraints": [
+          "c_noncol_abc"
+        ],
+        "id": "step_construct_triangle",
+        "objects": [
+          "A",
+          "B",
+          "C",
+          "BC",
+          "ABC"
+        ],
+        "reason": "Construct triangle ABC."
+      },
+      {
+        "action": "construct_altitude",
+        "constraints": [
+          "c_altitude_a_bc"
+        ],
+        "id": "step_construct_altitude",
+        "objects": [
+          "H",
+          "AH"
+        ],
+        "reason": "Construct altitude from A to BC."
+      }
+    ],
+    "metadata": {},
+    "objects": [
+      {
+        "id": "A",
+        "label": "A",
+        "type": "point"
+      },
+      {
+        "id": "B",
+        "label": "B",
+        "type": "point"
+      },
+      {
+        "id": "C",
+        "label": "C",
+        "type": "point"
+      },
+      {
+        "id": "H",
+        "label": "H",
+        "type": "point"
+      },
+      {
+        "id": "BC",
+        "points": [
+          "B",
+          "C"
+        ],
+        "type": "segment"
+      },
+      {
+        "id": "AH",
+        "points": [
+          "A",
+          "H"
+        ],
+        "type": "segment"
+      },
+      {
+        "id": "ABC",
+        "type": "triangle",
+        "vertices": [
+          "A",
+          "B",
+          "C"
+        ]
+      }
+    ],
+    "scene_type": "2d",
+    "schema_version": "0.2.0"
+  },
+  "diagnostics": [],
+  "failure_stage": null,
+  "layout": {
+    "coordinate_space": {
+      "origin": "top_left",
+      "unit": "abstract",
+      "x_direction": "right",
+      "y_direction": "down"
+    },
+    "height": 220.0,
+    "labels": [
+      {
+        "dx": 6.0,
+        "dy": -6.0,
+        "id": "label:A",
+        "source": {
+          "index": null,
+          "object_id": "A",
+          "role": "auto_label"
+        },
+        "target": "A",
+        "text": "A"
+      },
+      {
+        "dx": 6.0,
+        "dy": -6.0,
+        "id": "label:B",
+        "source": {
+          "index": null,
+          "object_id": "B",
+          "role": "auto_label"
+        },
+        "target": "B",
+        "text": "B"
+      },
+      {
+        "dx": 6.0,
+        "dy": -6.0,
+        "id": "label:C",
+        "source": {
+          "index": null,
+          "object_id": "C",
+          "role": "auto_label"
+        },
+        "target": "C",
+        "text": "C"
+      },
+      {
+        "dx": 6.0,
+        "dy": -6.0,
+        "id": "label:H",
+        "source": {
+          "index": null,
+          "object_id": "H",
+          "role": "auto_label"
+        },
+        "target": "H",
+        "text": "H"
+      }
+    ],
+    "points": {
+      "A": {
+        "id": "A",
+        "label": "A",
+        "source": {
+          "index": null,
+          "object_id": "A",
+          "role": "gir_object"
+        },
+        "x": 120.0,
+        "y": 40.0
+      },
+      "B": {
+        "id": "B",
+        "label": "B",
+        "source": {
+          "index": null,
+          "object_id": "B",
+          "role": "gir_object"
+        },
+        "x": 40.0,
+        "y": 180.0
+      },
+      "C": {
+        "id": "C",
+        "label": "C",
+        "source": {
+          "index": null,
+          "object_id": "C",
+          "role": "gir_object"
+        },
+        "x": 240.0,
+        "y": 180.0
+      },
+      "H": {
+        "id": "H",
+        "label": "H",
+        "source": {
+          "index": null,
+          "object_id": "H",
+          "role": "gir_object"
+        },
+        "x": 120.0,
+        "y": 180.0
+      }
+    },
+    "schema_version": "0.1.0",
+    "segments": [
+      {
+        "end": "B",
+        "id": "ABC:edge:0",
+        "source": {
+          "index": 0,
+          "object_id": "ABC",
+          "role": "triangle_edge"
+        },
+        "start": "A",
+        "style": "solid"
+      },
+      {
+        "end": "C",
+        "id": "ABC:edge:1",
+        "source": {
+          "index": 1,
+          "object_id": "ABC",
+          "role": "triangle_edge"
+        },
+        "start": "B",
+        "style": "solid"
+      },
+      {
+        "end": "A",
+        "id": "ABC:edge:2",
+        "source": {
+          "index": 2,
+          "object_id": "ABC",
+          "role": "triangle_edge"
+        },
+        "start": "C",
+        "style": "solid"
+      },
+      {
+        "end": "H",
+        "id": "AH",
+        "source": {
+          "index": null,
+          "object_id": "AH",
+          "role": "gir_object"
+        },
+        "start": "A",
+        "style": "solid"
+      },
+      {
+        "end": "C",
+        "id": "BC",
+        "source": {
+          "index": null,
+          "object_id": "BC",
+          "role": "gir_object"
+        },
+        "start": "B",
+        "style": "solid"
+      }
+    ],
+    "source_gir_schema_version": "0.2.0",
+    "source_gir_sha256": "6214b715b35c7082dab3fbef8ce269ed99e6b21821fd09db707f63a440465ce3",
+    "width": 280.0
+  },
+  "layout_schema_version": "0.1.0",
+  "status": "success",
+  "validation_report": {
+    "is_valid": true,
+    "issues": [],
+    "warnings": []
+  }
+}

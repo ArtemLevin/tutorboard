@@ -44,8 +44,8 @@ BoardDocument
 
 | Компонент                | Текущее состояние                                                                                                          | Ближайшая поставка                                         |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| GeometryOS               | API v1/GIR `0.2.0`, OpenAPI, Problem Details и TutorBoard fixtures стабильны; machine-readable Layout Document отсутствует | G-10 Layout Document 0.1, затем G-11 `POST /api/v1/layout` |
-| TutorBoard               | `BoardDocument 0.2`, infinite canvas, tools, selection, Dexie recovery, safe SVG и pinned GeometryOS client доставлены     | PR 2.8.2 live gate repair, затем PR 2.9A semantic adapter  |
+| GeometryOS               | API v1/GIR `0.2.0`, Layout Document `0.1.0` и стабильный `POST /api/v1/layout` опубликованы                                | Consumer integration hardening                            |
+| TutorBoard               | Pure GIR mapping и атомарный Layout-to-Board import в `BoardDocument 0.2` реализованы                                      | PR 2.10 vertical slice                                    |
 | tutor-assistant-web      | Серверная платформа пользователей, занятий, BBB, evidence, материалов и production-операций                                | Поздняя Phase 4 integration через gateway                  |
 | tutor-assistant          | Desktop recording/transcription application                                                                                | Lesson evidence integration на поздних фазах               |
 | students-26-27           | Репозиторий учебных страниц и опубликованных файлов                                                                        | Consumer lesson artifacts                                  |
@@ -60,26 +60,24 @@ BoardDocument
 - append-only Dexie revisions, autosave, optimistic conflict и recovery;
 - bounded deny-by-default SVG import;
 - pinned OpenAPI/GIR/fixture artifacts и generated runtime validation;
-- bounded GeometryOS HTTP adapter с typed results и request correlation.
+- bounded GeometryOS HTTP adapter с typed generate/layout results и request correlation;
+- deterministic GIR semantic mapping;
+- Layout-to-Board placement в редактируемые line/ellipse/text objects;
+- единая атомарная `core.geometry.import` command с provenance и persistence
+  round-trip.
 
-PR 2.8.1 смёржен и закрепил GeometryOS commit
-`49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c`. При этом последний PR-run
-показал незакрытый integration gate: Quality gate и обычный Browser smoke
-прошли, а `GeometryOS live browser contract` завершился ошибкой. Поэтому
-реальный browser CORS/request-ID flow считается недоказанным до PR 2.8.2.
+Pinned consumer contract закреплён на GeometryOS commit
+`fe5ece9f7138044d638114907fe9aaecfd14e924`: OpenAPI, GIR schema, Layout
+Document `0.1.0` и исполняемые fixtures проверяются по SHA-256 и генерируют
+compile-time DTOs вместе с standalone runtime validators.
 
 ### Критический путь
 
-`TutorBoard 2.8.2 live gate`
-→ `GeometryOS G-10 Layout Contract`
-→ `TutorBoard 2.9A semantic adapter`
-→ `GeometryOS G-11 Layout API`
-→ `TutorBoard 2.9B atomic import`
-→ `TutorBoard 2.10 vertical slice`
+`TutorBoard 2.10 vertical slice`
 → `TutorBoard 2.11 movement policy`
 → `TutorBoard 2.12 Phase 2 report`.
 
-PR 2.9 разделён намеренно:
+PR 2.9 разделён намеренно и обе его части теперь реализованы:
 
 - **2.9A** владеет pure GIR semantics, IDs, references, mapping и diagnostics;
 - **2.9B** владеет Layout-to-Board placement, renderable geometry objects и

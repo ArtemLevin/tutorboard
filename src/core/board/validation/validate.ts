@@ -310,21 +310,6 @@ function validateGeometryImports(
           );
           continue;
         }
-
-        const object = ownValue(document.objects, objectId);
-        if (
-          object !== undefined &&
-          (object.source.kind !== "geometryos" ||
-            object.source.girEntityId !== girEntityId)
-        ) {
-          issues.push(
-            issue(
-              "document.import-mapping-source-mismatch",
-              `geometryImports.${record.id}.mapping.${girEntityId}`,
-              `Geometry mapping and object source disagree for ${objectId}.`,
-            ),
-          );
-        }
       }
     }
 
@@ -335,6 +320,19 @@ function validateGeometryImports(
             "document.import-object-unmapped",
             `geometryImports.${record.id}.mapping`,
             `Imported object ${objectId} has no GIR entity mapping.`,
+          ),
+        );
+      }
+      const object = ownValue(document.objects, objectId);
+      if (
+        object?.source.kind === "geometryos" &&
+        !record.mapping[object.source.girEntityId]?.includes(objectId)
+      ) {
+        issues.push(
+          issue(
+            "document.import-mapping-source-mismatch",
+            `geometryImports.${record.id}.mapping.${object.source.girEntityId}`,
+            `Geometry mapping omits the primary source for ${objectId}.`,
           ),
         );
       }

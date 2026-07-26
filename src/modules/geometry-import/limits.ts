@@ -21,7 +21,11 @@ export function checkComplexity(
   const diagnostics: GeometryImportDiagnostic[] = [];
   const collections = [
     [gir.objects.length, geometryImportLimits.maxObjects, "/objects"],
-    [gir.constraints.length, geometryImportLimits.maxConstraints, "/constraints"],
+    [
+      gir.constraints.length,
+      geometryImportLimits.maxConstraints,
+      "/constraints",
+    ],
     [
       gir.construction_steps.length,
       geometryImportLimits.maxConstructionSteps,

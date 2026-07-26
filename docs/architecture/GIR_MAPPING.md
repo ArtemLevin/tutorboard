@@ -14,7 +14,7 @@ GeometryOS success result
   -> one atomic import command                       (PR 2.9B)
 ```
 
-PR 2.9A does not create or mutate `BoardDocument` and has no dependency on React, Konva, HTTP, Dexie, the viewport or a coordinate type.
+The PR 2.9A semantic step does not create or mutate `BoardDocument` and has no dependency on React, Konva, HTTP, Dexie, the viewport or a coordinate type. PR 2.9B consumes that result without changing this boundary.
 
 ## Inputs and outputs
 
@@ -75,20 +75,28 @@ No decision depends on an object name such as `AB`, label text or SVG markup.
 
 ### Unsupported visual entities
 
-Line, ray, circle and angle entities are indexed and reference-validated. Until a Board representation and layout contract are accepted, they create `unsupported-visual-entity` warnings and an empty mapping entry.
+Line, ray, circle and angle entities are indexed and reference-validated. Layout Document `0.1.0` currently publishes points, segments and labels only, so these entities create `unsupported-visual-entity` warnings and an empty mapping entry.
 
 ## Diagnostics and privacy
 
 Diagnostics contain codes, structural paths and semantic IDs only. They do not contain prompts, raw GeometryOS responses, GIR fragments, labels, reasons or arbitrary exception messages. UI and telemetry must decide separately whether and how semantic IDs are displayed.
 
-## Deferred work
+## Layout-to-Board placement
 
-PR 2.9B owns:
+`createGeometryImportCommand` accepts a validated Layout success result, the import identity, command metadata, prompt and a visual placement. It reruns the pure semantic plan at the module trust boundary and matches each candidate to exactly one Layout element by structured source provenance:
 
-- Layout Document runtime validation;
-- local coordinates and bounds;
-- geometry Board object kinds;
-- styles and renderers;
-- `GeometryImportRecord` construction;
-- one namespaced atomic import command;
-- persistence round-trip evidence.
+- points become editable `drawing.ellipse` objects;
+- segments become editable `drawing.line` objects, including solid/dashed style;
+- labels become editable `drawing.text` objects at the target point plus Layout offset;
+- segment, point and label z-order is deterministic;
+- the root group keeps an identity local transform while the requested placement is stored in the import record's visual transform.
+
+Missing, duplicated or provenance-inconsistent Layout elements fail before a command exists. The adapter does not infer missing coordinates and never reads SVG.
+
+## Atomic mutation and persistence
+
+One `core.geometry.import` command carries every Board object, the root group and the complete `GeometryImportRecord`. The reducer validates import, group and object identities and builds one candidate document. A collision or final document-validation error returns the original document reference; partial imports are impossible.
+
+The record preserves canonical GIR, the validated raw Layout response, request ID, semantic mapping, Board object IDs and visual transform. Existing `BoardDocument 0.2` line, ellipse and text schemas are sufficient, with an optional line style added for Layout segments. Serialization/deserialization therefore needs no document version bump.
+
+PR 2.10 owns the application/UI orchestration that chains generate, layout, import, rendering and persistence into the user-visible vertical slice.

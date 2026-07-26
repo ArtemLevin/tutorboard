@@ -190,8 +190,8 @@ function addTriangleEdges(
         state.diagnostics.push(
           diagnostic("geometry-import.ambiguous-triangle-edge", "error", {
             girEntityId: triangle.id,
-            relatedGirEntityIds: matches.map(
-              (candidate) => candidate.origin.kind === "explicit-segment"
+            relatedGirEntityIds: matches.map((candidate) =>
+              candidate.origin.kind === "explicit-segment"
                 ? candidate.origin.girEntityId
                 : triangle.id,
             ),
@@ -250,10 +250,14 @@ function addTriangleEdges(
         representedGirEntityIds: [triangle.id],
       });
       state.diagnostics.push(
-        diagnostic("geometry-import.synthetic-triangle-edge-created", "warning", {
-          girEntityId: triangle.id,
-          relatedGirEntityIds: [start, end],
-        }),
+        diagnostic(
+          "geometry-import.synthetic-triangle-edge-created",
+          "warning",
+          {
+            girEntityId: triangle.id,
+            relatedGirEntityIds: [start, end],
+          },
+        ),
       );
     });
   }
@@ -352,9 +356,9 @@ function immutableCandidates(
       candidate.kind === "segment"
         ? {
             ...candidate,
-            representedGirEntityIds: [...candidate.representedGirEntityIds].sort(
-              (left, right) => compareString(left, right),
-            ),
+            representedGirEntityIds: [
+              ...candidate.representedGirEntityIds,
+            ].sort((left, right) => compareString(left, right)),
           }
         : candidate,
     )
@@ -393,7 +397,7 @@ function immutableProvenance(
           ),
         },
       ]),
-  ) as Readonly<Record<BoardObjectId, GeometrySemanticProvenance>>;
+  );
 }
 
 export function buildSemanticPlan(

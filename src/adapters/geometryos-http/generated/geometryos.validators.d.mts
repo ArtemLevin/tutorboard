@@ -13,4 +13,6 @@ export interface GeneratedValidator {
 
 export const validateGenerateRequest: GeneratedValidator;
 export const validateGenerateResponse: GeneratedValidator;
+export const validateLayoutRequest: GeneratedValidator;
+export const validateLayoutResponse: GeneratedValidator;
 export const validateProblemDetail: GeneratedValidator;

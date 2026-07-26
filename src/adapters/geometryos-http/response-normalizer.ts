@@ -1,11 +1,17 @@
 import type {
   GeometryOsGenerateResult,
+  GeometryOsLayoutDocument,
+  GeometryOsLayoutResult,
   GeometryOsRequestId,
   GeometryOsValidationReport,
   JsonValue,
 } from "../../core/public";
 
-import type { GenerateResponseDto, ProblemDetailDto } from "./validation";
+import type {
+  GenerateResponseDto,
+  LayoutResponseDto,
+  ProblemDetailDto,
+} from "./validation";
 
 function rawJson(value: unknown): JsonValue {
   return value as JsonValue;
@@ -22,9 +28,10 @@ function warnings(
 }
 
 function validationReport(
-  report: NonNullable<
-    Extract<GenerateResponseDto, { status: "success" }>["validation_report"]
-  >,
+  report: Extract<
+    LayoutResponseDto,
+    { status: "success" }
+  >["validation_report"],
 ): GeometryOsValidationReport {
   const convert = (issue: {
     readonly code: string;
@@ -42,6 +49,65 @@ function validationReport(
     isValid: report.is_valid,
     issues: (report.issues ?? []).map(convert),
     warnings: (report.warnings ?? []).map(convert),
+  };
+}
+
+function layoutDiagnostics(response: LayoutResponseDto) {
+  return (response.diagnostics ?? []).map((item) => ({
+    code: item.code,
+    constraintIds: item.constraint_ids ?? [],
+    message: item.message,
+    objectIds: item.object_ids ?? [],
+  }));
+}
+
+function layoutDocument(
+  value: Extract<LayoutResponseDto, { status: "success" }>["layout"],
+): GeometryOsLayoutDocument {
+  const source = (item: (typeof value.points)[string]["source"]) => ({
+    index: item.index ?? null,
+    objectId: item.object_id,
+    role: item.role,
+  });
+  return {
+    coordinateSpace: {
+      origin: value.coordinate_space.origin,
+      unit: value.coordinate_space.unit,
+      xDirection: value.coordinate_space.x_direction,
+      yDirection: value.coordinate_space.y_direction,
+    },
+    height: value.height ?? 220,
+    labels: (value.labels ?? []).map((item) => ({
+      dx: item.dx ?? 6,
+      dy: item.dy ?? -6,
+      id: item.id,
+      source: source(item.source),
+      target: item.target,
+      text: item.text,
+    })),
+    points: Object.fromEntries(
+      Object.entries(value.points).map(([id, item]) => [
+        id,
+        {
+          id: item.id,
+          label: item.label ?? null,
+          source: source(item.source),
+          x: item.x,
+          y: item.y,
+        },
+      ]),
+    ),
+    schemaVersion: value.schema_version,
+    segments: value.segments.map((item) => ({
+      end: item.end,
+      id: item.id,
+      source: source(item.source),
+      start: item.start,
+      style: item.style ?? "solid",
+    })),
+    sourceGirSchemaVersion: value.source_gir_schema_version,
+    sourceGirSha256: value.source_gir_sha256,
+    width: value.width ?? 280,
   };
 }
 
@@ -98,10 +164,52 @@ export function normalizeGenerateResponse(
   };
 }
 
+export function normalizeLayoutResponse(
+  response: LayoutResponseDto,
+  requestId: GeometryOsRequestId,
+): GeometryOsLayoutResult {
+  const report = validationReport(response.validation_report);
+  const common = {
+    requestId,
+    canonicalGir: rawJson(response.canonical_gir),
+    diagnostics: layoutDiagnostics(response),
+    rawResponse: rawJson(response),
+    validationReport: report,
+  } as const;
+
+  if (response.status === "success") {
+    if (!report.isValid) {
+      return {
+        kind: "incompatible-contract",
+        code: "geometryos.invalid-success",
+        requestId,
+        httpStatus: 200,
+        issuePaths: ["/validation_report/is_valid"],
+        rawPayload: null,
+      };
+    }
+    return {
+      ...common,
+      kind: "success",
+      layoutDocument: layoutDocument(response.layout),
+    };
+  }
+
+  if (response.status === "unsupported") {
+    return { ...common, kind: "unsupported" };
+  }
+
+  return {
+    ...common,
+    kind: "invalid-scene",
+    failureStage: response.failure_stage,
+  };
+}
+
 export function normalizeProblemDetail(
   problem: ProblemDetailDto,
   requestId: GeometryOsRequestId,
-): GeometryOsGenerateResult {
+): Extract<GeometryOsGenerateResult, { readonly kind: "problem" }> {
   return {
     kind: "problem",
     requestId,

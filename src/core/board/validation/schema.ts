@@ -103,6 +103,7 @@ const lineSchema = z
     ...objectBase,
     end: vec2Schema,
     kind: z.literal("drawing.line"),
+    lineStyle: z.enum(["dashed", "solid"]).optional(),
   })
   .strict();
 const rectangleSchema = z
@@ -191,7 +192,7 @@ const geometryImportSchema = z
     rawResponse: z.json(),
     requestId: z
       .string()
-      .regex(/^[A-Za-z0-9._-]{1,128}$/)
+      .regex(/^[A-Za-z0-9._:-]{1,220}$/)
       .nullable(),
     rootGroupId: groupIdSchema,
     visualOverrides: z.record(boardObjectIdSchema, visualOverrideSchema),

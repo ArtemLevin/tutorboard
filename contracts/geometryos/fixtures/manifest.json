@@ -71,6 +71,36 @@
       "status": 200
     },
     {
+      "id": "layout-success",
+      "media_type": "application/json",
+      "method": "POST",
+      "mode": "executable",
+      "path": "/api/v1/layout",
+      "request": "layout-success.request.json",
+      "response": "layout-success.response.json",
+      "status": 200
+    },
+    {
+      "id": "layout-unsupported",
+      "media_type": "application/json",
+      "method": "POST",
+      "mode": "executable",
+      "path": "/api/v1/layout",
+      "request": "layout-unsupported.request.json",
+      "response": "layout-unsupported.response.json",
+      "status": 200
+    },
+    {
+      "id": "layout-invalid",
+      "media_type": "application/json",
+      "method": "POST",
+      "mode": "executable",
+      "path": "/api/v1/layout",
+      "request": "layout-invalid.request.json",
+      "response": "layout-invalid.response.json",
+      "status": 200
+    },
+    {
       "id": "request-validation",
       "media_type": "application/problem+json",
       "method": "POST",

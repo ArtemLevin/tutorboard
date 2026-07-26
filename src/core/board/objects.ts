@@ -54,6 +54,7 @@ export interface PenStrokeObject extends BoardObjectBase {
 export interface LineObject extends BoardObjectBase {
   readonly end: Vec2;
   readonly kind: "drawing.line";
+  readonly lineStyle?: "dashed" | "solid";
 }
 
 export interface RectangleObject extends BoardObjectBase {

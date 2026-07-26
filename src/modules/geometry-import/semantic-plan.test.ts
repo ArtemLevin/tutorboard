@@ -83,7 +83,12 @@ function fullReferenceGir(): JsonValue {
       { id: "perpendicular", objects: ["l1", "l2"], type: "perpendicular" },
       { id: "equal", objects: ["AB", "BC"], type: "equal_length" },
       { id: "midpoint", object: "AB", point: "M", type: "midpoint" },
-      { id: "intersection", objects: ["l1", "l2"], point: "H", type: "intersection" },
+      {
+        id: "intersection",
+        objects: ["l1", "l2"],
+        point: "H",
+        type: "intersection",
+      },
       {
         foot: "H",
         from_point: "A",
@@ -101,8 +106,18 @@ function fullReferenceGir(): JsonValue {
         type: "median",
       },
       { angle: "angle1", id: "bisector", ray: "r1", type: "angle_bisector" },
-      { circle: "circle1", id: "circumcircle", triangle: "triangle1", type: "circumcircle" },
-      { circle: "circle2", id: "incircle", triangle: "triangle1", type: "incircle" },
+      {
+        circle: "circle1",
+        id: "circumcircle",
+        triangle: "triangle1",
+        type: "circumcircle",
+      },
+      {
+        circle: "circle2",
+        id: "incircle",
+        triangle: "triangle1",
+        type: "incircle",
+      },
     ],
     construction_steps: [
       {
@@ -159,9 +174,15 @@ describe("createGeometryImportSemanticPlan", () => {
 
     expect(result.status).toBe("success");
     if (result.status !== "success") return;
-    expect(result.plan.candidates.filter((item) => item.kind === "point")).toHaveLength(4);
-    expect(result.plan.candidates.filter((item) => item.kind === "segment")).toHaveLength(4);
-    expect(result.plan.candidates.filter((item) => item.kind === "label")).toHaveLength(4);
+    expect(
+      result.plan.candidates.filter((item) => item.kind === "point"),
+    ).toHaveLength(4);
+    expect(
+      result.plan.candidates.filter((item) => item.kind === "segment"),
+    ).toHaveLength(4);
+    expect(
+      result.plan.candidates.filter((item) => item.kind === "label"),
+    ).toHaveLength(4);
     expect(result.plan.mapping.A).toHaveLength(2);
     expect(result.plan.mapping.BC).toHaveLength(1);
     expect(result.plan.mapping.ABC).toHaveLength(3);
@@ -198,9 +219,7 @@ describe("createGeometryImportSemanticPlan", () => {
       first.plan.candidates.map((item) => item.boardObjectId),
     );
     expect(
-      second.plan.candidates.every(
-        (item) => !firstIds.has(item.boardObjectId),
-      ),
+      second.plan.candidates.every((item) => !firstIds.has(item.boardObjectId)),
     ).toBe(true);
     expect(first.plan.rootGroupId).not.toBe(second.plan.rootGroupId);
   });
@@ -212,8 +231,7 @@ describe("createGeometryImportSemanticPlan", () => {
     expect(result.plan.references.length).toBeGreaterThan(40);
     expect(
       result.diagnostics.filter(
-        (item) =>
-          item.code === "geometry-import.unsupported-visual-entity",
+        (item) => item.code === "geometry-import.unsupported-visual-entity",
       ),
     ).toHaveLength(6);
   });
@@ -235,17 +253,25 @@ describe("createGeometryImportSemanticPlan", () => {
   });
 
   it("rejects missing and wrong-kind references explicitly", () => {
-    const missing = triangleAltitudeGir() as { objects: JsonValue[]; [key: string]: JsonValue };
+    const missing = triangleAltitudeGir() as {
+      objects: JsonValue[];
+      [key: string]: JsonValue;
+    };
     const missingObjects = missing.objects.map((value) => {
       const object = value as Record<string, JsonValue>;
-      return object.id === "AH" ? { ...object, points: ["A", "missing"] } : value;
+      return object.id === "AH"
+        ? { ...object, points: ["A", "missing"] }
+        : value;
     });
     expect(plan({ ...missing, objects: missingObjects })).toMatchObject({
       status: "failure",
       code: "geometry-import.missing-reference",
     });
 
-    const wrong = triangleAltitudeGir() as { objects: JsonValue[]; [key: string]: JsonValue };
+    const wrong = triangleAltitudeGir() as {
+      objects: JsonValue[];
+      [key: string]: JsonValue;
+    };
     const wrongObjects = wrong.objects.map((value) => {
       const object = value as Record<string, JsonValue>;
       return object.id === "AH" ? { ...object, points: ["A", "BC"] } : value;
@@ -289,14 +315,14 @@ describe("createGeometryImportSemanticPlan", () => {
     expect(result.status).toBe("success");
     if (result.status !== "success") return;
     const labelsForA = result.plan.candidates.filter(
-      (candidate) => candidate.kind === "label" && candidate.targetGirEntityId === "A",
+      (candidate) =>
+        candidate.kind === "label" && candidate.targetGirEntityId === "A",
     );
     expect(labelsForA).toHaveLength(1);
     expect(labelsForA[0]).toMatchObject({
       origin: { kind: "explicit-label", girEntityId: "label-A" },
     });
   });
-
 
   it("rejects duplicate IDs in constraint and construction-step namespaces", () => {
     const source = triangleAltitudeGir() as {
@@ -337,9 +363,7 @@ describe("createGeometryImportSemanticPlan", () => {
     };
     const objects = source.objects.map((value) => {
       const object = value as Record<string, JsonValue>;
-      return object.id === "AH"
-        ? { ...object, points: ["A", "A"] }
-        : value;
+      return object.id === "AH" ? { ...object, points: ["A", "A"] } : value;
     });
     expect(plan({ ...source, objects })).toMatchObject({
       status: "failure",

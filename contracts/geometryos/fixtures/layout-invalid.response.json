@@ -1,0 +1,121 @@
+{
+  "canonical_gir": {
+    "constraints": [
+      {
+        "id": "c_noncol_abc",
+        "points": [
+          "A",
+          "B",
+          "C"
+        ],
+        "reason": null,
+        "type": "non_collinear"
+      },
+      {
+        "foot": "MISSING_POINT",
+        "from_point": "A",
+        "id": "c_altitude_a_bc",
+        "reason": null,
+        "segment": "AH",
+        "to_object": "BC",
+        "type": "altitude"
+      }
+    ],
+    "construction_steps": [
+      {
+        "action": "construct_triangle",
+        "constraints": [
+          "c_noncol_abc"
+        ],
+        "id": "step_construct_triangle",
+        "objects": [
+          "A",
+          "B",
+          "C",
+          "BC",
+          "ABC"
+        ],
+        "reason": "Construct triangle ABC."
+      },
+      {
+        "action": "construct_altitude",
+        "constraints": [
+          "c_altitude_a_bc"
+        ],
+        "id": "step_construct_altitude",
+        "objects": [
+          "H",
+          "AH"
+        ],
+        "reason": "Construct altitude from A to BC."
+      }
+    ],
+    "metadata": {},
+    "objects": [
+      {
+        "id": "A",
+        "label": "A",
+        "type": "point"
+      },
+      {
+        "id": "B",
+        "label": "B",
+        "type": "point"
+      },
+      {
+        "id": "C",
+        "label": "C",
+        "type": "point"
+      },
+      {
+        "id": "H",
+        "label": "H",
+        "type": "point"
+      },
+      {
+        "id": "BC",
+        "points": [
+          "B",
+          "C"
+        ],
+        "type": "segment"
+      },
+      {
+        "id": "AH",
+        "points": [
+          "A",
+          "H"
+        ],
+        "type": "segment"
+      },
+      {
+        "id": "ABC",
+        "type": "triangle",
+        "vertices": [
+          "A",
+          "B",
+          "C"
+        ]
+      }
+    ],
+    "scene_type": "2d",
+    "schema_version": "0.2.0"
+  },
+  "diagnostics": [],
+  "failure_stage": "draft_validation",
+  "layout": null,
+  "layout_schema_version": "0.1.0",
+  "status": "invalid_scene",
+  "validation_report": {
+    "is_valid": false,
+    "issues": [
+      {
+        "code": "missing_object_reference",
+        "message": "Constraint 'c_altitude_a_bc' references missing object 'MISSING_POINT'.",
+        "path": "constraints[1].foot",
+        "severity": "error"
+      }
+    ],
+    "warnings": []
+  }
+}
