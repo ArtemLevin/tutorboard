@@ -176,6 +176,7 @@ const visualOverrideSchema = z
   .object({
     rotation: finiteNumberSchema,
     scale: positiveVec2Schema,
+    style: styleSchema.partial().strict().optional(),
     translation: vec2Schema,
   })
   .strict();

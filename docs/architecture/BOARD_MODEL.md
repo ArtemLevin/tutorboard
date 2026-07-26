@@ -73,6 +73,12 @@ placement is the exception: `GeometryImportRecord.visualTransform` is its only
 placement owner, and the import's `rootGroup.transform` must remain identity.
 This prevents the same movement from being represented twice.
 
+Selection or explicit import translation composes its delta into
+`visualTransform.translation`. Imported object coordinates and canonical GIR
+remain unchanged. Per-object `visualOverrides` may contain a transform for label
+offsets and an optional partial style override; the renderer applies these after
+the import transform without rewriting the base Board object.
+
 ## GeometryOS provenance
 
 `GeometryImportRecord` preserves:
@@ -88,9 +94,10 @@ The object set, root group, source back-references, mapping, and overrides are
 cross-validated. Every imported object must have a matching mapping entry.
 Canonical GIR is never reconstructed from visual objects.
 
-Generic move/delete commands reject imported objects and import root groups.
-Dedicated import commands will later update `visualTransform` or
-`visualOverrides` without silently changing canonical GIR.
+Generic object move/delete commands reject imported objects. Moving the import
+root group through selection or `core.groups.move` updates `visualTransform`;
+dedicated geometry commands update the same transform or per-object overrides
+without silently changing canonical GIR.
 
 ## Command boundary
 
@@ -100,8 +107,11 @@ Persistent command kinds are namespaced:
 | ---------------------- | -------------------------------------------- |
 | `core.objects.add`     | Insert one batch at one z-order index        |
 | `core.groups.add`      | Create one group and attach its members      |
+| `core.geometry.translate` | Translate one imported construction visually |
+| `core.geometry.label-offset` | Offset one imported text label visually |
+| `core.geometry.style-override` | Override one imported object's presentation |
 | `core.objects.move`    | Apply one delta to selected user objects     |
-| `core.groups.move`     | Apply one delta to one non-import group      |
+| `core.groups.move`     | Apply one delta to a group or import transform |
 | `core.objects.delete`  | Delete one user-object set and repair groups |
 | `core.viewport.set`    | Replace committed viewport                   |
 | `core.document.rename` | Replace title                                |

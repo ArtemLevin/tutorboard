@@ -1,9 +1,13 @@
 import type { BoardGroup } from "../groups";
-import type { GeometryImportRecord } from "../geometry-imports";
+import type {
+  GeometryImportRecord,
+  VisualStyleOverride,
+} from "../geometry-imports";
 import type {
   ActorId,
   BoardObjectId,
   CommandId,
+  GeometryImportId,
   GroupId,
 } from "../identifiers";
 import type { BoardObject } from "../objects";
@@ -31,6 +35,26 @@ export interface ImportGeometryCommand extends CommandMetadata {
   readonly importRecord: GeometryImportRecord;
   readonly kind: "core.geometry.import";
   readonly objects: readonly BoardObject[];
+}
+
+export interface TranslateGeometryImportCommand extends CommandMetadata {
+  readonly delta: Vec2;
+  readonly importId: GeometryImportId;
+  readonly kind: "core.geometry.translate";
+}
+
+export interface OffsetGeometryLabelCommand extends CommandMetadata {
+  readonly delta: Vec2;
+  readonly importId: GeometryImportId;
+  readonly kind: "core.geometry.label-offset";
+  readonly objectId: BoardObjectId;
+}
+
+export interface SetGeometryVisualStyleCommand extends CommandMetadata {
+  readonly importId: GeometryImportId;
+  readonly kind: "core.geometry.style-override";
+  readonly objectId: BoardObjectId;
+  readonly style: VisualStyleOverride;
 }
 
 export interface MoveObjectsCommand extends CommandMetadata {
@@ -79,17 +103,23 @@ export type BoardCommand =
   | AddObjectsCommand
   | DeleteObjectsCommand
   | ImportGeometryCommand
+  | OffsetGeometryLabelCommand
   | MoveGroupCommand
   | MoveObjectsCommand
   | MoveSelectionCommand
   | RenameDocumentCommand
+  | SetGeometryVisualStyleCommand
   | SetSelectionLockCommand
+  | TranslateGeometryImportCommand
   | SetViewportCommand;
 
 export const boardCommandKinds = [
   "core.objects.add",
   "core.groups.add",
   "core.geometry.import",
+  "core.geometry.translate",
+  "core.geometry.label-offset",
+  "core.geometry.style-override",
   "core.objects.move",
   "core.groups.move",
   "core.objects.delete",

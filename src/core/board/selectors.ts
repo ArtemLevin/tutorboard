@@ -66,9 +66,28 @@ function selectObjectTransforms(
 export function selectBoardScene(document: BoardDocument): BoardSceneReadModel {
   return {
     viewport: document.viewport,
-    items: selectOrderedObjects(document).map((object) => ({
-      object,
-      transforms: selectObjectTransforms(document, object),
-    })),
+    items: selectOrderedObjects(document).map((object) => {
+      if (object.source.kind !== "geometryos") {
+        return { object, transforms: selectObjectTransforms(document, object) };
+      }
+      const geometryImport = ownValue(
+        document.geometryImports,
+        object.source.importId,
+      );
+      const visualOverride =
+        geometryImport === undefined
+          ? undefined
+          : ownValue(geometryImport.visualOverrides, object.id);
+      return {
+        object:
+          visualOverride?.style === undefined
+            ? object
+            : {
+                ...object,
+                style: { ...object.style, ...visualOverride.style },
+              },
+        transforms: selectObjectTransforms(document, object),
+      };
+    }),
   };
 }

@@ -37,6 +37,7 @@ TutorBoard завершил основную инфраструктурную ч
 | G-10/11  | завершён | Layout Document `0.1.0` и стабильный `POST /api/v1/layout` в GeometryOS                                  |
 | PR 2.9B  | завершён | Layout-to-Board placement, editable primitives и атомарный geometry import                               |
 | PR 2.10  | завершён | prompt/readiness/generate/layout/import UI flow, selection и autosave/reload evidence                    |
+| PR 2.11  | готовится | visual group translation, label/style overrides и deny-by-default semantic edits                         |
 
 Текущий stored contract — `BoardDocument 0.2`. Canvas runtime, selection,
 preview и transport state не сериализуются. Canonical GIR хранится отдельно от
@@ -44,9 +45,7 @@ Board objects и не восстанавливается из SVG или пол�
 
 ### 2.2. Подтверждённые блокеры
 
-1. **Movement policy ещё не принят.** Построение автоматически выделяется, но
-   group translation и visual overrides остаются заблокированы до PR 2.11.
-2. **Technical Spike report не закрыт.** Нужны movement evidence,
+1. **Technical Spike report не закрыт.** Нужны movement evidence,
    change-classification ADR и итоговый Phase 2 report.
 
 ### 2.3. Обязательный execution order
@@ -123,6 +122,12 @@ Prompt → readiness → generate → layout → import → select → autosave 
 Разрешить group translation, label offsets и style overrides. Individual drag
 constrained geometry points остаётся запрещённым до отдельного semantic edit
 contract. Visual operations не изменяют canonical GIR.
+
+Реализовано в ветке PR 2.11: selection/group translation обновляет только import
+`visualTransform`; label/style changes хранятся в per-object overrides;
+independent/constrained point drag, semantic delete и unknown changes
+deny-by-default. ADR-010 и `CHANGE_CLASSIFICATION.md` фиксируют решение и
+redacted experiment event contract.
 
 #### TutorBoard PR 2.12 — закрытие Technical Spike
 

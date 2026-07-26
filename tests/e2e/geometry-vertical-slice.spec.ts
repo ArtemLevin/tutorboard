@@ -50,7 +50,7 @@ async function latestImportTranslation(page: import("@playwright/test").Page) {
   }, databaseName);
 }
 
-test("imports the triangle-altitude fixture atomically and restores it", async ({
+test("imports, moves and restores the triangle-altitude fixture atomically", async ({
   page,
 }) => {
   const geometryNetworkTrace: string[] = [];
@@ -106,7 +106,34 @@ test("imports the triangle-altitude fixture atomically and restores it", async (
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Сохранено локально",
   );
-  const placementBeforeReload = await latestImportTranslation(page);
+  const placementBeforeMove = await latestImportTranslation(page);
+  const stageBounds = await page.getByTestId("board-stage").boundingBox();
+  if (stageBounds === null) {
+    throw new Error("TutorBoard stage bounds are unavailable.");
+  }
+  const movementDelta = { x: 60, y: 30 };
+  const pointA = {
+    x: stageBounds.x + stageBounds.width / 2 - 20,
+    y: stageBounds.y + stageBounds.height / 2 - 70,
+  };
+  await page.mouse.move(pointA.x, pointA.y);
+  await page.mouse.down();
+  await page.mouse.move(
+    pointA.x + movementDelta.x,
+    pointA.y + movementDelta.y,
+    { steps: 4 },
+  );
+  await page.mouse.up();
+  const placementAfterMove = {
+    x: placementBeforeMove.x + movementDelta.x,
+    y: placementBeforeMove.y + movementDelta.y,
+  };
+  await expect
+    .poll(() => latestImportTranslation(page))
+    .toEqual(placementAfterMove);
+  await expect(page.getByTestId("persistence-status")).toHaveText(
+    "Сохранено локально",
+  );
 
   await page.reload();
 
@@ -117,5 +144,5 @@ test("imports the triangle-altitude fixture atomically and restores it", async (
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Локальное сохранение",
   );
-  expect(await latestImportTranslation(page)).toEqual(placementBeforeReload);
+  expect(await latestImportTranslation(page)).toEqual(placementAfterMove);
 });

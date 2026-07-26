@@ -1,8 +1,13 @@
 import type { JsonValue } from "./json";
 import type { BoardObjectId, GeometryImportId, GroupId } from "./identifiers";
+import type { ObjectStyle } from "./objects";
 import type { Transform2D } from "./primitives";
 
-export type VisualOverride = Transform2D;
+export type VisualStyleOverride = Readonly<Partial<ObjectStyle>>;
+
+export interface VisualOverride extends Transform2D {
+  readonly style?: VisualStyleOverride;
+}
 
 export interface GeometryImportRecord {
   readonly boardObjectIds: readonly BoardObjectId[];

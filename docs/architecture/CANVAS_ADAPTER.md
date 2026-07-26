@@ -70,6 +70,10 @@ For GeometryOS objects, it contains the import visual transform followed by an
 optional per-object visual override. Canonical GIR is never inspected or
 reconstructed by the renderer.
 
+When a GeometryOS visual override contains style fields, the scene selector
+merges them into the immutable renderer read model. The persisted base object is
+not rewritten, so presentation overrides remain independently identifiable.
+
 The Konva registry maps stored object kinds to renderer contributions and
 rejects duplicate or missing registrations explicitly. The default registry
 covers every `BoardObject 0.1` kind.
