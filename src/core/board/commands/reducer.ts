@@ -1,12 +1,14 @@
 import type { BoardDocument } from "../document";
+import type { GeometryImportRecord, VisualOverride } from "../geometry-imports";
 import type { BoardGroup } from "../groups";
 import {
   isValidIdentifier,
   type BoardObjectId,
+  type GeometryImportId,
   type GroupId,
 } from "../identifiers";
 import type { BoardObject } from "../objects";
-import type { Vec2 } from "../primitives";
+import { identityTransform, type Vec2 } from "../primitives";
 import { ownValue } from "../records";
 import { isIsoTimestamp } from "../timestamps";
 import { validateBoardDocument } from "../validation/validate";
@@ -16,12 +18,15 @@ import type {
   BoardCommand,
   DeleteObjectsCommand,
   ImportGeometryCommand,
+  OffsetGeometryLabelCommand,
   MoveGroupCommand,
   MoveObjectsCommand,
   MoveSelectionCommand,
   RenameDocumentCommand,
+  SetGeometryVisualStyleCommand,
   SetSelectionLockCommand,
   SetViewportCommand,
+  TranslateGeometryImportCommand,
 } from "./commands";
 
 export type CommandErrorCode =
@@ -30,6 +35,7 @@ export type CommandErrorCode =
   | "command.group-exists"
   | "command.group-missing"
   | "command.import-exists"
+  | "command.import-missing"
   | "command.imported-object-delete-unsupported"
   | "command.imported-object-move-unsupported"
   | "command.imported-group-move-unsupported"
@@ -360,6 +366,210 @@ function moveObjects(
   });
 }
 
+function geometryImportForGroup(
+  document: BoardDocument,
+  groupId: GroupId,
+): GeometryImportRecord | undefined {
+  return Object.values(document.geometryImports).find(
+    (record): record is GeometryImportRecord => record?.rootGroupId === groupId,
+  );
+}
+
+function translatedVisualOverride(
+  current: VisualOverride | undefined,
+  delta: Vec2,
+): VisualOverride {
+  const base = current ?? identityTransform;
+  return {
+    ...base,
+    translation: {
+      x: base.translation.x + delta.x,
+      y: base.translation.y + delta.y,
+    },
+  };
+}
+
+function translateImportRecord(
+  record: GeometryImportRecord,
+  delta: Vec2,
+): GeometryImportRecord {
+  return {
+    ...record,
+    visualTransform: {
+      ...record.visualTransform,
+      translation: {
+        x: record.visualTransform.translation.x + delta.x,
+        y: record.visualTransform.translation.y + delta.y,
+      },
+    },
+  };
+}
+
+function validateImportUnlocked(
+  document: BoardDocument,
+  record: GeometryImportRecord,
+): CommandResult | null {
+  const group = ownValue(document.groups, record.rootGroupId);
+  const members = record.boardObjectIds
+    .map((id) => ownValue(document.objects, id))
+    .filter((object): object is BoardObject => object !== undefined);
+  return group?.locked === true || members.some((object) => object.locked)
+    ? failure(
+        document,
+        "command.locked",
+        "Locked geometry imports cannot be changed.",
+      )
+    : null;
+}
+
+function translateGeometryImport(
+  document: BoardDocument,
+  command: TranslateGeometryImportCommand,
+): CommandResult {
+  const record = ownValue(document.geometryImports, command.importId);
+  if (record === undefined) {
+    return failure(
+      document,
+      "command.import-missing",
+      "Geometry translation references a missing import.",
+    );
+  }
+  if (!isFiniteVec2(command.delta)) {
+    return failure(document, "command.invalid", "Movement delta is invalid.");
+  }
+  const locked = validateImportUnlocked(document, record);
+  if (locked !== null) {
+    return locked;
+  }
+  return accept(document, {
+    ...document,
+    updatedAt: command.timestamp,
+    geometryImports: {
+      ...document.geometryImports,
+      [record.id]: translateImportRecord(record, command.delta),
+    },
+  });
+}
+
+function selectImportedObject(
+  document: BoardDocument,
+  importId: GeometryImportId,
+  objectId: BoardObjectId,
+):
+  | { readonly object: BoardObject; readonly record: GeometryImportRecord }
+  | CommandResult {
+  const record = ownValue(document.geometryImports, importId);
+  if (record === undefined) {
+    return failure(
+      document,
+      "command.import-missing",
+      "Visual override references a missing geometry import.",
+    );
+  }
+  const object = ownValue(document.objects, objectId);
+  if (object === undefined) {
+    return failure(
+      document,
+      "command.object-missing",
+      "Visual override references a missing object.",
+    );
+  }
+  if (
+    object.source.kind !== "geometryos" ||
+    object.source.importId !== importId ||
+    !record.boardObjectIds.includes(object.id)
+  ) {
+    return failure(
+      document,
+      "command.invalid",
+      "Visual override must target an object from the same geometry import.",
+    );
+  }
+  const locked = validateImportUnlocked(document, record);
+  return locked ?? { object, record };
+}
+
+function offsetGeometryLabel(
+  document: BoardDocument,
+  command: OffsetGeometryLabelCommand,
+): CommandResult {
+  if (!isFiniteVec2(command.delta)) {
+    return failure(document, "command.invalid", "Label offset is invalid.");
+  }
+  const selected = selectImportedObject(
+    document,
+    command.importId,
+    command.objectId,
+  );
+  if ("ok" in selected) {
+    return selected;
+  }
+  if (selected.object.kind !== "drawing.text") {
+    return failure(
+      document,
+      "command.invalid",
+      "Label offsets can only target imported text objects.",
+    );
+  }
+  return accept(document, {
+    ...document,
+    updatedAt: command.timestamp,
+    geometryImports: {
+      ...document.geometryImports,
+      [selected.record.id]: {
+        ...selected.record,
+        visualOverrides: {
+          ...selected.record.visualOverrides,
+          [selected.object.id]: translatedVisualOverride(
+            ownValue(selected.record.visualOverrides, selected.object.id),
+            command.delta,
+          ),
+        },
+      },
+    },
+  });
+}
+
+function setGeometryVisualStyle(
+  document: BoardDocument,
+  command: SetGeometryVisualStyleCommand,
+): CommandResult {
+  if (Object.keys(command.style).length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Visual style override requires at least one property.",
+    );
+  }
+  const selected = selectImportedObject(
+    document,
+    command.importId,
+    command.objectId,
+  );
+  if ("ok" in selected) {
+    return selected;
+  }
+  const current = ownValue(selected.record.visualOverrides, selected.object.id);
+  const override: VisualOverride = {
+    ...(current ?? identityTransform),
+    style: { ...current?.style, ...command.style },
+  };
+  return accept(document, {
+    ...document,
+    updatedAt: command.timestamp,
+    geometryImports: {
+      ...document.geometryImports,
+      [selected.record.id]: {
+        ...selected.record,
+        visualOverrides: {
+          ...selected.record.visualOverrides,
+          [selected.object.id]: override,
+        },
+      },
+    },
+  });
+}
+
 function moveGroup(
   document: BoardDocument,
   command: MoveGroupCommand,
@@ -370,18 +580,6 @@ function moveGroup(
       document,
       "command.group-missing",
       "Move group command references a missing group.",
-    );
-  }
-
-  if (
-    Object.values(document.geometryImports).some(
-      (record) => record?.rootGroupId === group.id,
-    )
-  ) {
-    return failure(
-      document,
-      "command.imported-group-move-unsupported",
-      "Moving an imported root group requires an explicit import transform command.",
     );
   }
 
@@ -399,6 +597,21 @@ function moveGroup(
 
   if (!isFiniteVec2(command.delta)) {
     return failure(document, "command.invalid", "Movement delta is invalid.");
+  }
+
+  const geometryImport = geometryImportForGroup(document, group.id);
+  if (geometryImport !== undefined) {
+    return accept(document, {
+      ...document,
+      updatedAt: command.timestamp,
+      geometryImports: {
+        ...document.geometryImports,
+        [geometryImport.id]: translateImportRecord(
+          geometryImport,
+          command.delta,
+        ),
+      },
+    });
   }
 
   const movedGroup: BoardGroup = {
@@ -558,14 +771,7 @@ function moveSelection(
       .map((id) => ownValue(document.objects, id))
       .filter((object): object is BoardObject => object !== undefined),
   );
-  if (
-    targets.objects.some((object) => object.source.kind === "geometryos") ||
-    targets.groups.some((group) =>
-      Object.values(document.geometryImports).some(
-        (record) => record?.rootGroupId === group.id,
-      ),
-    )
-  ) {
+  if (targets.objects.some((object) => object.source.kind === "geometryos")) {
     return failure(
       document,
       "command.imported-object-move-unsupported",
@@ -601,22 +807,32 @@ function moveSelection(
   }
 
   const groups = { ...document.groups };
+  const geometryImports = { ...document.geometryImports };
   for (const group of targets.groups) {
-    groups[group.id] = {
-      ...group,
-      transform: {
-        ...group.transform,
-        translation: {
-          x: group.transform.translation.x + command.delta.x,
-          y: group.transform.translation.y + command.delta.y,
+    const geometryImport = geometryImportForGroup(document, group.id);
+    if (geometryImport === undefined) {
+      groups[group.id] = {
+        ...group,
+        transform: {
+          ...group.transform,
+          translation: {
+            x: group.transform.translation.x + command.delta.x,
+            y: group.transform.translation.y + command.delta.y,
+          },
         },
-      },
-    };
+      };
+    } else {
+      geometryImports[geometryImport.id] = translateImportRecord(
+        geometryImport,
+        command.delta,
+      );
+    }
   }
 
   return accept(document, {
     ...document,
     updatedAt: command.timestamp,
+    geometryImports,
     groups,
     objects,
   });
@@ -804,6 +1020,12 @@ export function reduceBoardDocument(
       return addGroup(document, command);
     case "core.geometry.import":
       return importGeometry(document, command);
+    case "core.geometry.translate":
+      return translateGeometryImport(document, command);
+    case "core.geometry.label-offset":
+      return offsetGeometryLabel(document, command);
+    case "core.geometry.style-override":
+      return setGeometryVisualStyle(document, command);
     case "core.objects.move":
       return moveObjects(document, command);
     case "core.groups.move":

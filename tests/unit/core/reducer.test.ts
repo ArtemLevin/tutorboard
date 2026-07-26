@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   boardObjectId,
+  geometryImportId,
   groupId,
   identityTransform,
   readBoardDocument,
@@ -308,7 +309,7 @@ describe("BoardDocument reducer", () => {
     }
   });
 
-  it("requires specialized commands for imported geometry edits", () => {
+  it("keeps imported object edits blocked while moving the root visual transform", () => {
     const read = readBoardDocument(loadGeometryImportFixture());
     expect(read.status).toBe("ok");
     if (read.status !== "ok") {
@@ -335,12 +336,17 @@ describe("BoardDocument reducer", () => {
       groupId: groupId("group:geometry-root-01"),
       delta: { x: 1, y: 0 },
     });
-    expect(movedGroup.ok).toBe(false);
-    expect(movedGroup.document).toBe(read.document);
-    if (!movedGroup.ok) {
-      expect(movedGroup.error.code).toBe(
-        "command.imported-group-move-unsupported",
-      );
+    expect(movedGroup.ok).toBe(true);
+    if (movedGroup.ok) {
+      expect(
+        movedGroup.document.geometryImports[
+          geometryImportId("import:geometry-01")
+        ]?.visualTransform.translation,
+      ).toEqual({ x: 321, y: 180 });
+      expect(
+        movedGroup.document.groups[groupId("group:geometry-root-01")]?.transform
+          .translation,
+      ).toEqual({ x: 0, y: 0 });
     }
   });
 

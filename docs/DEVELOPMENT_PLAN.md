@@ -380,6 +380,8 @@ slice does not bypass the explicit visual-versus-mathematical movement policy.
 
 ## PR 2.11 — Movement experiment
 
+Status: implementation complete, verification pending.
+
 ### Scope
 
 - group move;

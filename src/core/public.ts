@@ -22,6 +22,7 @@ export type { BoardGroup } from "./board/groups";
 export type {
   GeometryImportRecord,
   VisualOverride,
+  VisualStyleOverride,
 } from "./board/geometry-imports";
 export {
   boardObjectKinds,
@@ -65,12 +66,15 @@ export {
   type CommandMetadata,
   type DeleteObjectsCommand,
   type ImportGeometryCommand,
+  type OffsetGeometryLabelCommand,
   type MoveGroupCommand,
   type MoveObjectsCommand,
   type MoveSelectionCommand,
   type RenameDocumentCommand,
+  type SetGeometryVisualStyleCommand,
   type SetSelectionLockCommand,
   type SetViewportCommand,
+  type TranslateGeometryImportCommand,
 } from "./board/commands/commands";
 export {
   reduceBoardDocument,
