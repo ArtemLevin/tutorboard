@@ -24,8 +24,16 @@ import { App, createInitialDocument, type AppPersistenceStatus } from "./App";
 
 const localDocumentId = documentId("document:local-board");
 
+export interface ProductNotification {
+  readonly kind: "error" | "info" | "success";
+  readonly message: string;
+}
+
 interface PersistedAppProps {
-  readonly geometryOsClient: GeometryOsClient;
+  readonly enableSnapshots?: boolean;
+  readonly geometryOsClient?: GeometryOsClient | undefined;
+  readonly onNotification?:
+    ((notification: ProductNotification) => void) | undefined;
   readonly repository: BoardDocumentRepository;
 }
 
@@ -106,7 +114,10 @@ interface WorkspaceProps {
   readonly notice: string | null;
   readonly persistedDocument: BoardDocument | null;
   readonly repository: BoardDocumentRepository;
-  readonly geometryOsClient: GeometryOsClient;
+  readonly enableSnapshots: boolean;
+  readonly geometryOsClient: GeometryOsClient | undefined;
+  readonly onNotification:
+    ((notification: ProductNotification) => void) | undefined;
 }
 
 function PersistedWorkspace({
@@ -116,6 +127,8 @@ function PersistedWorkspace({
   persistedDocument,
   repository,
   geometryOsClient,
+  enableSnapshots,
+  onNotification,
 }: WorkspaceProps) {
   const [activeDocument, setActiveDocument] = useState(initialDocument);
   const [autosaveState, setAutosaveState] = useState<LocalAutosaveState>({
@@ -149,58 +162,93 @@ function PersistedWorkspace({
     downloadJson("tutorboard-local-diagnostics.json", bundle);
   }, [repository]);
 
-  const exportDocument = useCallback((document: BoardDocument) => {
-    const exported = exportTutorBoardDocument(document);
-    if (exported.status === "error") {
-      setImportError(`${exported.code}: ${exported.message}`);
-      return;
-    }
-    setImportError(null);
-    downloadText(exported.filename, exported.json, exported.mediaType);
-  }, []);
-
-  const exportSnapshot = useCallback((document: BoardDocument) => {
-    downloadText(
-      "tutorboard-snapshot.svg",
-      renderBoardSnapshotSvg(document),
-      "image/svg+xml",
-    );
-  }, []);
-
-  const exportPngSnapshot = useCallback(async (document: BoardDocument) => {
-    try {
-      downloadBlob(
-        "tutorboard-snapshot.png",
-        await renderBoardSnapshotPng(document),
-      );
+  const exportDocument = useCallback(
+    (document: BoardDocument) => {
+      const exported = exportTutorBoardDocument(document);
+      if (exported.status === "error") {
+        setImportError(`${exported.code}: ${exported.message}`);
+        onNotification?.({ kind: "error", message: exported.message });
+        return;
+      }
       setImportError(null);
-    } catch {
-      setImportError(
-        "document-export.png-failed: не удалось создать PNG-снимок.",
-      );
-    }
-  }, []);
+      downloadText(exported.filename, exported.json, exported.mediaType);
+      onNotification?.({
+        kind: "success",
+        message: `Документ экспортирован: ${exported.filename}`,
+      });
+    },
+    [onNotification],
+  );
 
-  const importDocument = useCallback(async (file: File) => {
-    const imported = importLocalDocumentJson(
-      await file.text(),
-      localDocumentId,
-    );
-    if (imported.status === "error") {
-      setImportError(imported.message);
-      return;
-    }
-    const svgValidation = validateStoredSvgDocument(imported.document);
-    if (svgValidation.status === "error") {
-      setImportError(
-        `${svgValidation.diagnostic.code}: импорт содержит несовместимый SVG-объект.`,
+  const exportSnapshot = useCallback(
+    (document: BoardDocument) => {
+      downloadText(
+        "tutorboard-snapshot.svg",
+        renderBoardSnapshotSvg(document),
+        "image/svg+xml",
       );
-      return;
-    }
-    setImportError(null);
-    setActiveDocument(imported.document);
-    setWorkspaceKey((current) => current + 1);
-  }, []);
+      onNotification?.({
+        kind: "success",
+        message: "SVG-снимок экспортирован",
+      });
+    },
+    [onNotification],
+  );
+
+  const exportPngSnapshot = useCallback(
+    async (document: BoardDocument) => {
+      try {
+        downloadBlob(
+          "tutorboard-snapshot.png",
+          await renderBoardSnapshotPng(document),
+        );
+        setImportError(null);
+        onNotification?.({
+          kind: "success",
+          message: "PNG-снимок экспортирован",
+        });
+      } catch {
+        setImportError(
+          "document-export.png-failed: не удалось создать PNG-снимок.",
+        );
+        onNotification?.({
+          kind: "error",
+          message: "Не удалось создать PNG-снимок",
+        });
+      }
+    },
+    [onNotification],
+  );
+
+  const importDocument = useCallback(
+    async (file: File) => {
+      const imported = importLocalDocumentJson(
+        await file.text(),
+        localDocumentId,
+      );
+      if (imported.status === "error") {
+        setImportError(imported.message);
+        onNotification?.({ kind: "error", message: imported.message });
+        return;
+      }
+      const svgValidation = validateStoredSvgDocument(imported.document);
+      if (svgValidation.status === "error") {
+        setImportError(
+          `${svgValidation.diagnostic.code}: импорт содержит несовместимый SVG-объект.`,
+        );
+        onNotification?.({
+          kind: "error",
+          message: "Импорт содержит несовместимый SVG-объект",
+        });
+        return;
+      }
+      setImportError(null);
+      setActiveDocument(imported.document);
+      setWorkspaceKey((current) => current + 1);
+      onNotification?.({ kind: "success", message: "Документ импортирован" });
+    },
+    [onNotification],
+  );
   const handleDocumentChange = useCallback((document: BoardDocument) => {
     autosaveRef.current?.schedule(document);
   }, []);
@@ -213,8 +261,12 @@ function PersistedWorkspace({
       onDocumentChange={handleDocumentChange}
       onExportDocument={exportDocument}
       onExportDiagnostics={() => void exportDiagnostics()}
-      onExportPngSnapshot={(document) => void exportPngSnapshot(document)}
-      onExportSvgSnapshot={exportSnapshot}
+      onExportPngSnapshot={
+        enableSnapshots
+          ? (document) => void exportPngSnapshot(document)
+          : undefined
+      }
+      onExportSvgSnapshot={enableSnapshots ? exportSnapshot : undefined}
       onImportDocument={(file) => void importDocument(file)}
       onRetryPersistence={() => autosaveRef.current?.retry()}
       persistenceNotice={importError ?? notice}
@@ -313,7 +365,9 @@ function RecoveryScreen({
 }
 
 export function PersistedApp({
+  enableSnapshots = true,
   geometryOsClient,
+  onNotification,
   repository,
 }: PersistedAppProps) {
   const [bootstrap, setBootstrap] = useState<BootstrapState>({
@@ -404,10 +458,12 @@ export function PersistedApp({
     return (
       <PersistedWorkspace
         document={createInitialDocument()}
+        enableSnapshots={enableSnapshots}
         geometryOsClient={geometryOsClient}
         initialRevisionId={null}
         notice={`${bootstrap.code}: ${bootstrap.message}`}
         persistedDocument={null}
+        onNotification={onNotification}
         repository={repository}
       />
     );
@@ -415,10 +471,12 @@ export function PersistedApp({
   return (
     <PersistedWorkspace
       document={bootstrap.document}
+      enableSnapshots={enableSnapshots}
       geometryOsClient={geometryOsClient}
       initialRevisionId={bootstrap.initialRevisionId}
       notice={bootstrap.notice}
       persistedDocument={bootstrap.persistedDocument}
+      onNotification={onNotification}
       repository={repository}
     />
   );

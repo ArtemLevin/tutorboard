@@ -1,16 +1,51 @@
 export type AppStage = "development" | "test" | "production";
 
 export interface AppEnvironment {
+  readonly features: AppFeatureFlags;
   readonly geometryOsBaseUrl: string;
   readonly stage: AppStage;
 }
 
+export interface AppFeatureFlags {
+  readonly developmentDiagnostics: boolean;
+  readonly documentSnapshots: boolean;
+  readonly geometryPrompt: boolean;
+}
+
+export interface AppFeatureFlagInput {
+  readonly developmentDiagnostics?: string | undefined;
+  readonly documentSnapshots?: string | undefined;
+  readonly geometryPrompt?: string | undefined;
+}
+
 const stages = new Set<AppStage>(["development", "test", "production"]);
+
+function booleanFlag(
+  name: string,
+  value: string | undefined,
+  fallback: boolean,
+): boolean {
+  if (value === undefined || value === "") {
+    return fallback;
+  }
+  if (value === "true" || value === "1") {
+    return true;
+  }
+  if (value === "false" || value === "0") {
+    return false;
+  }
+  throw new Error(`${name} must be true, false, 1 or 0.`);
+}
 
 export function readEnvironment(
   value: string | undefined = import.meta.env.VITE_APP_STAGE,
   geometryOsBaseUrl: string | undefined = import.meta.env
     .VITE_GEOMETRYOS_BASE_URL,
+  featureInput: AppFeatureFlagInput = {
+    developmentDiagnostics: import.meta.env.VITE_FEATURE_DEV_DIAGNOSTICS,
+    documentSnapshots: import.meta.env.VITE_FEATURE_DOCUMENT_SNAPSHOTS,
+    geometryPrompt: import.meta.env.VITE_FEATURE_GEOMETRY_PROMPT,
+  },
 ): AppEnvironment {
   const stage = value ?? "development";
 
@@ -31,6 +66,23 @@ export function readEnvironment(
   }
 
   return {
+    features: {
+      developmentDiagnostics: booleanFlag(
+        "VITE_FEATURE_DEV_DIAGNOSTICS",
+        featureInput.developmentDiagnostics,
+        stage !== "production",
+      ),
+      documentSnapshots: booleanFlag(
+        "VITE_FEATURE_DOCUMENT_SNAPSHOTS",
+        featureInput.documentSnapshots,
+        true,
+      ),
+      geometryPrompt: booleanFlag(
+        "VITE_FEATURE_GEOMETRY_PROMPT",
+        featureInput.geometryPrompt,
+        true,
+      ),
+    },
     geometryOsBaseUrl: geometryOsUrl.href.replace(/\/$/, ""),
     stage: stage as AppStage,
   };

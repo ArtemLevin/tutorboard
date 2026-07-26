@@ -122,12 +122,14 @@ export interface AppPersistenceStatus {
 }
 
 export interface AppProps {
-  readonly geometryOsClient?: GeometryOsClient;
+  readonly geometryOsClient?: GeometryOsClient | undefined;
   readonly initialDocument?: BoardDocument;
   readonly onDocumentChange?: (document: BoardDocument) => void;
-  readonly onExportDocument?: (document: BoardDocument) => void;
-  readonly onExportPngSnapshot?: (document: BoardDocument) => void;
-  readonly onExportSvgSnapshot?: (document: BoardDocument) => void;
+  readonly onExportDocument?: ((document: BoardDocument) => void) | undefined;
+  readonly onExportPngSnapshot?:
+    ((document: BoardDocument) => void) | undefined;
+  readonly onExportSvgSnapshot?:
+    ((document: BoardDocument) => void) | undefined;
   readonly onExportDiagnostics?: () => void;
   readonly onImportDocument?: (file: File) => void;
   readonly onRetryPersistence?: () => void;

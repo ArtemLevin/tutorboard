@@ -430,6 +430,11 @@ Status: complete.
 
 # 8. Фаза 3. Product Foundation
 
+## Статус
+
+Выполнена. Итог и проверка exit criteria:
+`docs/PHASE_3_PRODUCT_FOUNDATION_REPORT.md`.
+
 ## Цель
 
 Превратить доказательный spike в устойчивую single-user доску, сохранив архитектурные границы.
