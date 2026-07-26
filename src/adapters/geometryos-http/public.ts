@@ -1,3 +1,5 @@
+export const geometryOsAdapterContractVersion = "1.0" as const;
+
 export {
   createGeometryOsHttpClient,
   type GeometryOsHttpClientOptions,

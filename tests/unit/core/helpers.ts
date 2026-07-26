@@ -11,6 +11,7 @@ import {
   type RectangleObject,
 } from "../../../src/core/public";
 import boardDocumentFixture from "../../fixtures/board-document-0.1.json?raw";
+import stableBoardDocumentFixture from "../../fixtures/board-document-1.0.json?raw";
 import geometryImportFixture from "../../fixtures/geometry-import-board-document-0.1.json?raw";
 
 export const actor = actorId("actor:test");
@@ -65,6 +66,10 @@ export function rectangle(
 
 export function loadBoardFixture(): Record<string, unknown> {
   return JSON.parse(boardDocumentFixture) as Record<string, unknown>;
+}
+
+export function loadStableBoardFixture(): Record<string, unknown> {
+  return JSON.parse(stableBoardDocumentFixture) as Record<string, unknown>;
 }
 
 export function loadGeometryImportFixture(): Record<string, unknown> {

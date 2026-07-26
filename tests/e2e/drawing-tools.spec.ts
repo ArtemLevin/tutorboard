@@ -26,7 +26,7 @@ test("creates one normalized primitive per completed gesture", async ({
   page,
 }) => {
   const count = page.getByTestId("object-count");
-  await expect(count).toHaveText("4 объекта");
+  await expect(count).toHaveText("0 объекта");
   await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
 
   const start = await canvasPoint(page, 0.72, 0.72);
@@ -36,7 +36,7 @@ test("creates one normalized primitive per completed gesture", async ({
   await page.mouse.move(end.x, end.y, { steps: 4 });
   await page.mouse.up();
 
-  await expect(count).toHaveText("5 объекта");
+  await expect(count).toHaveText("1 объекта");
   await expect(page.getByTestId("interaction-state")).toHaveText("idle");
   await expect(page.getByTestId("board-stage")).toHaveAttribute(
     "data-drawing",
@@ -58,7 +58,7 @@ test("Escape and tool switching discard runtime preview", async ({ page }) => {
   await page.keyboard.press("Escape");
   await page.mouse.up();
 
-  await expect(count).toHaveText("4 объекта");
+  await expect(count).toHaveText("0 объекта");
   await expect(stage).toHaveAttribute("data-drawing", "false");
 
   await page.getByRole("button", { name: "Линия (L)" }).click();
@@ -68,7 +68,7 @@ test("Escape and tool switching discard runtime preview", async ({ page }) => {
   await page.getByRole("button", { name: "Перо (P)" }).dispatchEvent("click");
   await page.mouse.up();
 
-  await expect(count).toHaveText("4 объекта");
+  await expect(count).toHaveText("0 объекта");
   await expect(page.getByTestId("interaction-state")).toHaveText("idle");
   await expect(stage).toHaveAttribute("data-drawing", "false");
 });
@@ -82,7 +82,7 @@ test("creates pen and text objects through their tools", async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 6 });
   await page.mouse.up();
-  await expect(count).toHaveText("5 объекта");
+  await expect(count).toHaveText("1 объекта");
 
   await page.getByRole("button", { name: "Текст (T)" }).click();
   await page
@@ -91,6 +91,6 @@ test("creates pen and text objects through their tools", async ({ page }) => {
   const textPoint = await canvasPoint(page, 0.62, 0.75);
   await page.mouse.click(textPoint.x, textPoint.y);
 
-  await expect(count).toHaveText("6 объекта");
+  await expect(count).toHaveText("2 объекта");
   await expect(page.getByTestId("interaction-state")).toHaveText("idle");
 });

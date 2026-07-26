@@ -40,7 +40,8 @@ export {
   type TextObject,
 } from "./board/objects";
 export {
-  migrateBoardDocument01To02,
+  migrateBoardDocument01To10,
+  migrateBoardDocument02To10,
   type BoardDocumentMigrationResult,
 } from "./board/migrations";
 export {

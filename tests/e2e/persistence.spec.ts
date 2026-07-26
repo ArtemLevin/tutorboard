@@ -68,7 +68,7 @@ test("autosaves drawing state and restores it after reload", async ({
   await page.mouse.down();
   await page.mouse.move(bounds.x + 730, bounds.y + 260, { steps: 4 });
   await page.mouse.up();
-  await expect(page.getByTestId("object-count")).toHaveText("5 объекта");
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Ожидает сохранения",
   );
@@ -77,7 +77,7 @@ test("autosaves drawing state and restores it after reload", async ({
   );
 
   await page.reload();
-  await expect(page.getByTestId("object-count")).toHaveText("5 объекта");
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
 });
 
 test("falls back to the last good revision and keeps a recovery notice", async ({

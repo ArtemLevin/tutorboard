@@ -1,5 +1,8 @@
 import { boardDocumentSchemaVersion, type BoardDocument } from "./document";
-import { boardDocumentSchema01 } from "./validation/schema";
+import {
+  boardDocumentSchema01,
+  boardDocumentSchema02,
+} from "./validation/schema";
 import {
   validateBoardDocument,
   type ValidationIssue,
@@ -23,10 +26,25 @@ function schemaIssues(
   }));
 }
 
-export function migrateBoardDocument01To02(
+export function migrateBoardDocument01To10(
   raw: unknown,
 ): BoardDocumentMigrationResult {
   const parsed = boardDocumentSchema01.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, issues: schemaIssues(parsed.error.issues) };
+  }
+
+  const migrated = {
+    ...parsed.data,
+    schemaVersion: "0.2" as const,
+  };
+  return migrateBoardDocument02To10(migrated);
+}
+
+export function migrateBoardDocument02To10(
+  raw: unknown,
+): BoardDocumentMigrationResult {
+  const parsed = boardDocumentSchema02.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, issues: schemaIssues(parsed.error.issues) };
   }

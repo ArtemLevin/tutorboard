@@ -98,7 +98,7 @@ test("imports, moves and restores the triangle-altitude fixture atomically", asy
       { timeout: 5_000 },
     )
     .toContain("Построение добавлено: 12 объектов");
-  await expect(page.getByTestId("object-count")).toHaveText("16 объекта");
+  await expect(page.getByTestId("object-count")).toHaveText("12 объекта");
   await expect(page.getByTestId("selection-count")).toHaveText("12 выбрано");
   await expect(page.getByTestId("geometry-import-count")).toHaveText(
     "1 построений",
@@ -137,7 +137,7 @@ test("imports, moves and restores the triangle-altitude fixture atomically", asy
 
   await page.reload();
 
-  await expect(page.getByTestId("object-count")).toHaveText("16 объекта");
+  await expect(page.getByTestId("object-count")).toHaveText("12 объекта");
   await expect(page.getByTestId("geometry-import-count")).toHaveText(
     "1 построений",
   );

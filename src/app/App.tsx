@@ -17,7 +17,6 @@ import {
   screenToWorld,
   selectBoardScene,
   type BoardDocument,
-  type BoardObject,
   type BoardRenderItem,
   type GeometryOsClient,
   type ViewportState,
@@ -99,108 +98,11 @@ export interface AppProps {
 // eslint-disable-next-line react-refresh/only-export-components
 export function createInitialDocument(): BoardDocument {
   const timestamp = new Date().toISOString();
-  const empty = createEmptyBoardDocument({
+  return createEmptyBoardDocument({
     id: documentId("document:local-board"),
     title: "TutorBoard canvas",
     createdAt: timestamp,
   });
-  const objects: readonly BoardObject[] = [
-    {
-      id: boardObjectId("object:welcome-card"),
-      kind: "drawing.rectangle",
-      groupId: null,
-      locked: false,
-      position: { x: 80, y: 80 },
-      rotation: 0,
-      scale: { x: 1, y: 1 },
-      source: { kind: "user" },
-      style: {
-        fill: "#f7f2e8",
-        opacity: 1,
-        stroke: "#d5c8b1",
-        strokeWidth: 2,
-      },
-      visible: true,
-      size: { height: 210, width: 360 },
-    },
-    {
-      id: boardObjectId("object:axis-line"),
-      kind: "drawing.line",
-      groupId: null,
-      locked: false,
-      position: { x: -160, y: 360 },
-      rotation: 0,
-      scale: { x: 1, y: 1 },
-      source: { kind: "user" },
-      style: {
-        fill: null,
-        opacity: 0.8,
-        stroke: "#536b78",
-        strokeWidth: 4,
-      },
-      visible: true,
-      end: { x: 680, y: -210 },
-    },
-    {
-      id: boardObjectId("object:focus-point"),
-      kind: "drawing.ellipse",
-      groupId: null,
-      locked: false,
-      position: { x: -80, y: 220 },
-      rotation: 0,
-      scale: { x: 1, y: 1 },
-      source: { kind: "user" },
-      style: {
-        fill: "#ee6f57",
-        opacity: 1,
-        stroke: "#ffffff",
-        strokeWidth: 3,
-      },
-      visible: true,
-      radius: { x: 12, y: 12 },
-    },
-    {
-      id: boardObjectId("object:welcome-title"),
-      kind: "drawing.text",
-      groupId: null,
-      locked: false,
-      position: { x: 116, y: 118 },
-      rotation: 0,
-      scale: { x: 1, y: 1 },
-      source: { kind: "user" },
-      style: {
-        fill: "#1c2a33",
-        opacity: 1,
-        stroke: null,
-        strokeWidth: 0,
-      },
-      visible: true,
-      text: "Бесконечное полотно\nготово к работе",
-    },
-  ];
-  const added = reduceBoardDocument(empty, {
-    id: commandId("command:initial-objects"),
-    actorId: localActorId,
-    timestamp,
-    kind: "core.objects.add",
-    objects,
-  });
-  if (!added.ok) {
-    throw new Error(added.error.message);
-  }
-
-  const positioned = reduceBoardDocument(added.document, {
-    id: commandId("command:initial-viewport"),
-    actorId: localActorId,
-    timestamp,
-    kind: "core.viewport.set",
-    viewport: { offset: { x: 160, y: 90 }, zoom: 1 },
-  });
-  if (!positioned.ok) {
-    throw new Error(positioned.error.message);
-  }
-
-  return positioned.document;
 }
 
 export function App({

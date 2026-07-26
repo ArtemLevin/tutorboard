@@ -17,15 +17,16 @@ import {
   loadBoardFixture,
   loadCurrentBoardFixture,
   loadCurrentGeometryImportFixture,
+  loadStableBoardFixture,
 } from "./helpers";
 
-describe("BoardDocument 0.2", () => {
+describe("BoardDocument 1.0", () => {
   it("accepts the canonical fixture and uses order as z-order", () => {
-    const result = readBoardDocument(loadBoardFixture());
+    const result = readBoardDocument(loadStableBoardFixture());
 
     expect(result.status).toBe("ok");
     if (result.status === "ok") {
-      expect(result.document.schemaVersion).toBe("0.2");
+      expect(result.document.schemaVersion).toBe("1.0");
       expect(selectOrderedObjects(result.document).map(({ id }) => id)).toEqual(
         ["object:line-01", "object:rectangle-01"],
       );
@@ -41,11 +42,23 @@ describe("BoardDocument 0.2", () => {
 
     expect(result.status).toBe("ok");
     if (result.status === "ok") {
-      expect(result.document.schemaVersion).toBe("0.2");
+      expect(result.document.schemaVersion).toBe("1.0");
       expect(result.document.objects).toEqual(originalObjects);
       expect(result.document.order).toEqual(originalOrder);
     }
     expect(raw.schemaVersion).toBe("0.1");
+  });
+
+  it("migrates 0.2 through the explicit compatibility step", () => {
+    const raw = loadCurrentBoardFixture();
+    raw.schemaVersion = "0.2";
+
+    const result = readBoardDocument(raw);
+
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") {
+      expect(result.document.schemaVersion).toBe("1.0");
+    }
   });
 
   it("rejects duplicate, missing, and omitted order references", () => {
