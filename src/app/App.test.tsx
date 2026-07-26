@@ -112,6 +112,22 @@ describe("App", () => {
     expect(screen.getByTestId("interaction-state")).toHaveTextContent("idle");
   });
 
+  it("undoes and redoes one completed gesture as one history item", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+
+    fireEvent.click(screen.getByRole("button", { name: /Отменить/ }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("0/1");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "z", shiftKey: true });
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+  });
+
   it("reports document changes and visible persistence status", () => {
     const onDocumentChange = vi.fn();
     render(

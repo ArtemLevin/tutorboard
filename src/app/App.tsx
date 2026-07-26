@@ -38,6 +38,12 @@ import {
   type GeometryPromptResult,
 } from "../modules/geometry-prompt/public";
 import {
+  commitDocumentHistory,
+  createDocumentHistory,
+  redoDocumentHistory,
+  undoDocumentHistory,
+} from "../modules/history/public";
+import {
   createAddSvgObjectCommand,
   createSvgObject,
   svgImportLimits,
@@ -117,7 +123,7 @@ export function App({
 }: AppProps = {}) {
   const [boardState, setBoardState] = useState(() => ({
     commandError: null as string | null,
-    document: initialDocument ?? createInitialDocument(),
+    history: createDocumentHistory(initialDocument ?? createInitialDocument()),
   }));
   const [activeTool, setActiveTool] = useState<ActiveToolId>(navigationToolId);
   const [drawingState, setDrawingState] = useState(initialDrawingState);
@@ -136,7 +142,8 @@ export function App({
     useState<GeometryPromptViewState>({ kind: "idle" });
   const geometryOperationRef = useRef<GeometryPromptOperation | null>(null);
   const workspaceRef = useRef<HTMLElement>(null);
-  const { commandError, document } = boardState;
+  const { commandError, history } = boardState;
+  const document = history.present;
   const documentRef = useRef(document);
   useEffect(() => {
     documentRef.current = document;
@@ -184,10 +191,28 @@ export function App({
     onDocumentChange?.(document);
   }, [document, onDocumentChange]);
 
+  const undo = useCallback(() => {
+    setBoardState((current) => {
+      const next = undoDocumentHistory(current.history);
+      return next === current.history
+        ? current
+        : { commandError: null, history: next };
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setBoardState((current) => {
+      const next = redoDocumentHistory(current.history);
+      return next === current.history
+        ? current
+        : { commandError: null, history: next };
+    });
+  }, []);
+
   const commitViewport = useCallback((viewport: ViewportState) => {
     const timestamp = new Date().toISOString();
     setBoardState((current) => {
-      const result = reduceBoardDocument(current.document, {
+      const result = reduceBoardDocument(current.history.present, {
         id: commandId(crypto.randomUUID()),
         actorId: localActorId,
         timestamp,
@@ -198,7 +223,10 @@ export function App({
         return { ...current, commandError: result.error.message };
       }
 
-      return { commandError: null, document: result.document };
+      return {
+        commandError: null,
+        history: commitDocumentHistory(current.history, result.document),
+      };
     });
   }, []);
 
@@ -206,7 +234,7 @@ export function App({
     const timestamp = new Date().toISOString();
     setBoardState((current) => {
       const result = reduceBoardDocument(
-        current.document,
+        current.history.present,
         createAddDrawingObjectCommand(
           {
             actorId: localActorId,
@@ -220,7 +248,10 @@ export function App({
         return { ...current, commandError: result.error.message };
       }
 
-      return { commandError: null, document: result.document };
+      return {
+        commandError: null,
+        history: commitDocumentHistory(current.history, result.document),
+      };
     });
   }, []);
 
@@ -229,14 +260,14 @@ export function App({
       const timestamp = new Date().toISOString();
       setBoardState((current) => {
         const result = reduceBoardDocument(
-          current.document,
+          current.history.present,
           createMoveSelectionCommand(
             {
               actorId: localActorId,
               id: commandId(`command:${crypto.randomUUID()}`),
               timestamp,
             },
-            current.document,
+            current.history.present,
             completed.objectIds,
             completed.delta,
           ),
@@ -244,7 +275,10 @@ export function App({
         if (!result.ok) {
           return { ...current, commandError: result.error.message };
         }
-        return { commandError: null, document: result.document };
+        return {
+          commandError: null,
+          history: commitDocumentHistory(current.history, result.document),
+        };
       });
     },
     [],
@@ -279,14 +313,24 @@ export function App({
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
-      if (
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
+      const editing =
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement ||
-        (event.target instanceof HTMLElement && event.target.isContentEditable)
-      ) {
+        (event.target instanceof HTMLElement && event.target.isContentEditable);
+      const accelerator = event.ctrlKey || event.metaKey;
+      if (accelerator && !event.altKey && !editing) {
+        const key = event.key.toLowerCase();
+        if (key === "z" || key === "y") {
+          event.preventDefault();
+          if (key === "y" || (key === "z" && event.shiftKey)) {
+            redo();
+          } else {
+            undo();
+          }
+          return;
+        }
+      }
+      if (event.altKey || event.ctrlKey || event.metaKey || editing) {
         return;
       }
 
@@ -307,19 +351,25 @@ export function App({
         const timestamp = new Date().toISOString();
         setBoardState((current) => {
           const result = reduceBoardDocument(
-            current.document,
+            current.history.present,
             createDeleteSelectionCommand(
               {
                 actorId: localActorId,
                 id: commandId(`command:${crypto.randomUUID()}`),
                 timestamp,
               },
-              current.document,
+              current.history.present,
               selectionStateRef.current.selectedObjectIds,
             ),
           );
           return result.ok
-            ? { commandError: null, document: result.document }
+            ? {
+                commandError: null,
+                history: commitDocumentHistory(
+                  current.history,
+                  result.document,
+                ),
+              }
             : { ...current, commandError: result.error.message };
         });
         return;
@@ -335,7 +385,7 @@ export function App({
 
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [activateTool]);
+  }, [activateTool, redo, undo]);
 
   useEffect(() => {
     const result = reduceSelectionInteraction(selectionStateRef.current, {
@@ -469,20 +519,23 @@ export function App({
     const timestamp = new Date().toISOString();
     setBoardState((current) => {
       const result = reduceBoardDocument(
-        current.document,
+        current.history.present,
         createSetSelectionLockCommand(
           {
             actorId: localActorId,
             id: commandId(`command:${crypto.randomUUID()}`),
             timestamp,
           },
-          current.document,
+          current.history.present,
           selectionStateRef.current.selectedObjectIds,
           locked,
         ),
       );
       return result.ok
-        ? { commandError: null, document: result.document }
+        ? {
+            commandError: null,
+            history: commitDocumentHistory(current.history, result.document),
+          }
         : { ...current, commandError: result.error.message };
     });
   }, []);
@@ -491,19 +544,22 @@ export function App({
     const timestamp = new Date().toISOString();
     setBoardState((current) => {
       const result = reduceBoardDocument(
-        current.document,
+        current.history.present,
         createDeleteSelectionCommand(
           {
             actorId: localActorId,
             id: commandId(`command:${crypto.randomUUID()}`),
             timestamp,
           },
-          current.document,
+          current.history.present,
           selectionStateRef.current.selectedObjectIds,
         ),
       );
       return result.ok
-        ? { commandError: null, document: result.document }
+        ? {
+            commandError: null,
+            history: commitDocumentHistory(current.history, result.document),
+          }
         : { ...current, commandError: result.error.message };
     });
   }, []);
@@ -561,7 +617,10 @@ export function App({
     }
 
     documentRef.current = result.document;
-    setBoardState({ commandError: null, document: result.document });
+    setBoardState((latest) => ({
+      commandError: null,
+      history: commitDocumentHistory(latest.history, result.document),
+    }));
     const selected: SelectionState = {
       interaction: { kind: "idle" },
       selectedObjectIds: [objectId],
@@ -617,7 +676,10 @@ export function App({
         return;
       }
       documentRef.current = applied.document;
-      setBoardState({ commandError: null, document: applied.document });
+      setBoardState((latest) => ({
+        commandError: null,
+        history: commitDocumentHistory(latest.history, applied.document),
+      }));
       const selected: SelectionState = {
         interaction: { kind: "idle" },
         selectedObjectIds: [...result.command.importRecord.boardObjectIds],
@@ -690,6 +752,24 @@ export function App({
         </div>
 
         <div className="canvas-actions" aria-label="Управление полотном">
+          <button
+            aria-label="Отменить (Ctrl+Z)"
+            className="tool-button"
+            disabled={history.past.length === 0}
+            onClick={undo}
+            type="button"
+          >
+            Отменить
+          </button>
+          <button
+            aria-label="Повторить (Ctrl+Shift+Z)"
+            className="tool-button"
+            disabled={history.future.length === 0}
+            onClick={redo}
+            type="button"
+          >
+            Повторить
+          </button>
           <label className="tool-button file-tool-button">
             Вставить SVG
             <input
@@ -948,6 +1028,9 @@ export function App({
         </span>
         <span data-testid="object-count">{document.order.length} объекта</span>
         <span data-testid="interaction-state">{drawingState.kind}</span>
+        <span data-testid="history-depth">
+          {history.past.length}/{history.future.length}
+        </span>
         <span data-testid="selection-count">
           {selectionState.selectedObjectIds.length} выбрано
         </span>
