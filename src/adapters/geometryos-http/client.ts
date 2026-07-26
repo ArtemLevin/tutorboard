@@ -105,10 +105,14 @@ function resolveEndpoint(
 }
 
 function resolveOptions(options: GeometryOsHttpClientOptions): ResolvedOptions {
-  const fetchImplementation = options.fetch ?? globalThis.fetch;
-  if (typeof fetchImplementation !== "function") {
+  const configuredFetch = options.fetch;
+  if (configuredFetch === undefined && typeof globalThis.fetch !== "function") {
     throw new Error("Fetch is required by the GeometryOS HTTP adapter.");
   }
+  const fetchImplementation: FetchLike =
+    configuredFetch === undefined
+      ? (input, init) => globalThis.fetch(input, init)
+      : (input, init) => configuredFetch(input, init);
   return {
     fetch: fetchImplementation,
     generateEndpoint: resolveEndpoint(options.baseUrl, "generate"),

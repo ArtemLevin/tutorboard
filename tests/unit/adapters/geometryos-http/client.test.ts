@@ -114,6 +114,38 @@ function requestUrl(input: RequestInfo | URL): string {
 }
 
 describe("GeometryOS HTTP client", () => {
+  it("calls the native fetch with its global receiver", async () => {
+    const nativeFetch = vi.fn(function (
+      this: typeof globalThis,
+    ): Promise<Response> {
+      expect(this).toBe(globalThis);
+      return Promise.resolve(
+        response({
+          checks: [
+            { name: "lifecycle", status: "pass" },
+            { name: "executor", status: "pass" },
+          ],
+          status: "ready",
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", nativeFetch);
+    try {
+      const nativeClient = createGeometryOsHttpClient({
+        baseUrl: "https://geometry.example.test",
+        createRequestId: () => requestId,
+      });
+      await expect(nativeClient.startReadiness().result).resolves.toMatchObject(
+        {
+          kind: "ready",
+        },
+      );
+      expect(nativeFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("checks readiness with correlation and keeps not-ready typed", async () => {
     const fetchMock = vi.fn<typeof globalThis.fetch>(() =>
       Promise.resolve(
