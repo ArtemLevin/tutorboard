@@ -758,6 +758,7 @@ export function BoardStage({
       data-testid="board-stage"
       role="application"
       style={{ cursor }}
+      tabIndex={0}
     >
       <Stage
         ref={stageRef}
