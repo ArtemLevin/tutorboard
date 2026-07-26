@@ -19,8 +19,11 @@ import {
   screenToWorld,
   selectBoardScene,
   type BoardDocument,
+  type BoardCommand,
+  type BoardObjectId,
   type BoardRenderItem,
   type GeometryOsClient,
+  type CommandMetadata,
   type ViewportState,
 } from "../core/public";
 import {
@@ -51,6 +54,13 @@ import {
   redoDocumentHistory,
   undoDocumentHistory,
 } from "../modules/history/public";
+import {
+  createGroupSelectionCommand,
+  createReorderLayersCommand,
+  createSetLayerVisibilityCommand,
+  createUngroupSelectionCommand,
+  selectLayers,
+} from "../modules/layers/public";
 import {
   createAddSvgObjectCommand,
   createSvgObject,
@@ -88,6 +98,14 @@ const navigationToolId = "navigation.pan" as const;
 type ActiveToolId =
   typeof navigationToolId | typeof selectionToolId | DrawingToolId;
 const initialDrawingState: DrawingInteractionState = { kind: "idle" };
+
+function createLocalCommandMetadata(): CommandMetadata {
+  return {
+    actorId: localActorId,
+    id: commandId(`command:${crypto.randomUUID()}`),
+    timestamp: new Date().toISOString(),
+  };
+}
 
 export interface AppPersistenceStatus {
   readonly detail?: string;
@@ -168,6 +186,7 @@ export function App({
   );
   const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);
   const scene = useMemo(() => selectBoardScene(document), [document]);
+  const layers = useMemo(() => selectLayers(document), [document]);
   const drawingPreview = useMemo(
     () => getDrawingPreview(drawingState),
     [drawingState],
@@ -313,6 +332,108 @@ export function App({
     setActiveTool(selectionToolId);
     setClipboardNotice(`Вставлено: ${command.objects.length}`);
   }, [clipboard]);
+
+  const commitCommand = useCallback((command: BoardCommand) => {
+    const result = reduceBoardDocument(documentRef.current, command);
+    if (!result.ok) {
+      setBoardState((current) => ({
+        ...current,
+        commandError: result.error.message,
+      }));
+      return false;
+    }
+    setBoardState((current) => ({
+      commandError: null,
+      history: commitDocumentHistory(current.history, result.document),
+    }));
+    return true;
+  }, []);
+
+  const selectLayer = useCallback(
+    (objectId: BoardObjectId) => {
+      const selected: SelectionState = {
+        interaction: { kind: "idle" },
+        selectedObjectIds: expandSelectionObjectIds(document, [objectId]),
+      };
+      selectionStateRef.current = selected;
+      setSelectionState(selected);
+      setActiveTool(selectionToolId);
+    },
+    [document],
+  );
+
+  const reorderLayer = useCallback(
+    (objectId: BoardObjectId, mode: "back" | "front") => {
+      commitCommand(
+        createReorderLayersCommand(
+          createLocalCommandMetadata(),
+          [objectId],
+          mode,
+        ),
+      );
+    },
+    [commitCommand],
+  );
+
+  const toggleLayerVisibility = useCallback(
+    (objectId: BoardObjectId, visible: boolean) => {
+      commitCommand(
+        createSetLayerVisibilityCommand(
+          createLocalCommandMetadata(),
+          [objectId],
+          visible,
+        ),
+      );
+    },
+    [commitCommand],
+  );
+
+  const toggleLayerLock = useCallback(
+    (objectId: BoardObjectId, locked: boolean) => {
+      const current = documentRef.current;
+      commitCommand(
+        createSetSelectionLockCommand(
+          createLocalCommandMetadata(),
+          current,
+          expandSelectionObjectIds(current, [objectId]),
+          locked,
+        ),
+      );
+    },
+    [commitCommand],
+  );
+
+  const groupSelection = useCallback(() => {
+    const current = documentRef.current;
+    const objectIds = selectionStateRef.current.selectedObjectIds;
+    if (
+      objectIds.length < 2 ||
+      objectIds.some((id) => {
+        const object = current.objects[id];
+        return object?.groupId !== null || object.source.kind !== "user";
+      })
+    ) {
+      return;
+    }
+    commitCommand(
+      createGroupSelectionCommand(
+        createLocalCommandMetadata(),
+        groupId(`group:${crypto.randomUUID()}`),
+        objectIds,
+      ),
+    );
+  }, [commitCommand]);
+
+  const ungroupSelection = useCallback(() => {
+    const current = documentRef.current;
+    commitCommand(
+      createUngroupSelectionCommand(
+        createLocalCommandMetadata(),
+        current,
+        selectionStateRef.current.selectedObjectIds,
+      ),
+    );
+  }, [commitCommand]);
 
   const commitViewport = useCallback((viewport: ViewportState) => {
     const timestamp = new Date().toISOString();
@@ -857,6 +978,30 @@ export function App({
     commitViewport({ offset: { x: 160, y: 90 }, zoom: 1 });
   };
   const firstObject = scene.items[0]?.object;
+  const selectedObjects = selectionState.selectedObjectIds.flatMap((id) => {
+    const object = document.objects[id];
+    return object === undefined ? [] : [object];
+  });
+  const canGroup =
+    selectedObjects.length >= 2 &&
+    selectedObjects.every(
+      (object) => object.groupId === null && object.source.kind === "user",
+    );
+  const selectedGroupIds = [
+    ...new Set(
+      selectedObjects.flatMap(({ groupId }) =>
+        groupId === null ? [] : [groupId],
+      ),
+    ),
+  ];
+  const importRootGroupIds = new Set(
+    Object.values(document.geometryImports).flatMap((record) =>
+      record === undefined ? [] : [record.rootGroupId],
+    ),
+  );
+  const canUngroup =
+    selectedGroupIds.length > 0 &&
+    selectedGroupIds.every((id) => !importRootGroupIds.has(id));
 
   return (
     <main className="board-app">
@@ -1047,6 +1192,83 @@ export function App({
           state={geometryPromptState}
         />
 
+        <aside aria-label="Слои" className="layers-panel">
+          <div className="layers-panel-header">
+            <strong>Слои</strong>
+            <span>{layers.length}</span>
+          </div>
+          <div className="layers-group-actions">
+            <button disabled={!canGroup} onClick={groupSelection} type="button">
+              Сгруппировать
+            </button>
+            <button
+              disabled={!canUngroup}
+              onClick={ungroupSelection}
+              type="button"
+            >
+              Разгруппировать
+            </button>
+          </div>
+          {layers.length === 0 ? (
+            <p>На доске пока нет объектов</p>
+          ) : (
+            <ol className="layers-list">
+              {layers.map((layer) => (
+                <li key={layer.id}>
+                  <button
+                    aria-pressed={selectionState.selectedObjectIds.includes(
+                      layer.id,
+                    )}
+                    className="layer-name"
+                    onClick={() => selectLayer(layer.id)}
+                    type="button"
+                  >
+                    {layer.kind}
+                  </button>
+                  <button
+                    aria-label={
+                      layer.visible
+                        ? `Скрыть ${layer.id}`
+                        : `Показать ${layer.id}`
+                    }
+                    onClick={() =>
+                      toggleLayerVisibility(layer.id, !layer.visible)
+                    }
+                    type="button"
+                  >
+                    {layer.visible ? "◉" : "○"}
+                  </button>
+                  <button
+                    aria-label={
+                      layer.locked
+                        ? `Разблокировать слой ${layer.id}`
+                        : `Заблокировать слой ${layer.id}`
+                    }
+                    onClick={() => toggleLayerLock(layer.id, !layer.locked)}
+                    type="button"
+                  >
+                    {layer.locked ? "🔒" : "🔓"}
+                  </button>
+                  <button
+                    aria-label={`На передний план ${layer.id}`}
+                    onClick={() => reorderLayer(layer.id, "front")}
+                    type="button"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    aria-label={`На задний план ${layer.id}`}
+                    onClick={() => reorderLayer(layer.id, "back")}
+                    type="button"
+                  >
+                    ↓
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+        </aside>
+
         <div
           aria-label="Инструменты рисования"
           className="drawing-toolbar"
@@ -1185,6 +1407,9 @@ export function App({
         </span>
         <span data-testid="geometry-import-count">
           {Object.keys(document.geometryImports).length} построений
+        </span>
+        <span data-testid="group-count">
+          {Object.keys(document.groups).length} групп
         </span>
         <span data-testid="persistence-status">{persistenceStatus.label}</span>
         {drawingDiagnostic === null ? null : (

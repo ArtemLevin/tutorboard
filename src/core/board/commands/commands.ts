@@ -30,6 +30,11 @@ export interface AddGroupCommand extends CommandMetadata {
   readonly kind: "core.groups.add";
 }
 
+export interface RemoveGroupsCommand extends CommandMetadata {
+  readonly groupIds: readonly GroupId[];
+  readonly kind: "core.groups.remove";
+}
+
 export interface ImportGeometryCommand extends CommandMetadata {
   readonly group: BoardGroup;
   readonly importRecord: GeometryImportRecord;
@@ -102,6 +107,20 @@ export interface SetSelectionLockCommand extends CommandMetadata {
   readonly objectIds: readonly BoardObjectId[];
 }
 
+export type LayerReorderMode = "back" | "backward" | "forward" | "front";
+
+export interface ReorderLayersCommand extends CommandMetadata {
+  readonly kind: "core.layers.reorder";
+  readonly mode: LayerReorderMode;
+  readonly objectIds: readonly BoardObjectId[];
+}
+
+export interface SetLayerVisibilityCommand extends CommandMetadata {
+  readonly kind: "core.layers.set-visibility";
+  readonly objectIds: readonly BoardObjectId[];
+  readonly visible: boolean;
+}
+
 export interface SetViewportCommand extends CommandMetadata {
   readonly kind: "core.viewport.set";
   readonly viewport: ViewportState;
@@ -123,9 +142,12 @@ export type BoardCommand =
   | MoveObjectsCommand
   | MoveSelectionCommand
   | PasteContentCommand
+  | RemoveGroupsCommand
   | RenameDocumentCommand
+  | ReorderLayersCommand
   | SetGeometryVisualStyleCommand
   | SetSelectionLockCommand
+  | SetLayerVisibilityCommand
   | TranslateGeometryImportCommand
   | SetViewportCommand;
 
@@ -134,6 +156,7 @@ export const boardCommandKinds = [
   "core.clipboard.cut",
   "core.clipboard.paste",
   "core.groups.add",
+  "core.groups.remove",
   "core.geometry.import",
   "core.geometry.translate",
   "core.geometry.label-offset",
@@ -141,6 +164,8 @@ export const boardCommandKinds = [
   "core.objects.move",
   "core.groups.move",
   "core.objects.delete",
+  "core.layers.reorder",
+  "core.layers.set-visibility",
   "core.selection.move",
   "core.selection.set-lock",
   "core.viewport.set",

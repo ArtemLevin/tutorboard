@@ -270,7 +270,7 @@ button {
   position: absolute;
   z-index: 3;
   top: 18px;
-  right: 18px;
+  right: 300px;
   display: grid;
   min-width: 220px;
   gap: 8px;
@@ -282,6 +282,91 @@ button {
   box-shadow: 0 14px 36px rgb(37 51 58 / 12%);
   backdrop-filter: blur(16px);
   font-size: 0.72rem;
+}
+
+.layers-panel {
+  position: absolute;
+  z-index: 3;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  width: 264px;
+  max-height: min(520px, calc(100% - 36px));
+  gap: 9px;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid rgb(132 147 153 / 38%);
+  border-radius: 14px;
+  color: #526069;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 14px 36px rgb(37 51 58 / 12%);
+  backdrop-filter: blur(16px);
+  font-size: 0.7rem;
+}
+
+.layers-panel-header,
+.layers-group-actions,
+.layers-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.layers-panel-header {
+  justify-content: space-between;
+}
+
+.layers-group-actions button,
+.layers-list button {
+  min-height: 28px;
+  border: 1px solid #d6dfe2;
+  border-radius: 7px;
+  color: #40545d;
+  background: #fff;
+  cursor: pointer;
+}
+
+.layers-group-actions button {
+  flex: 1;
+  padding: 0 7px;
+}
+
+.layers-group-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.layers-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layers-list li {
+  min-width: 0;
+}
+
+.layers-list .layer-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  padding: 0 7px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layers-list .layer-name[aria-pressed="true"] {
+  border-color: #2c7182;
+  color: #245d6a;
+  background: #eaf4f5;
+}
+
+.layers-list button:not(.layer-name) {
+  width: 28px;
+  padding: 0;
 }
 
 .geometry-prompt-panel {
@@ -638,6 +723,13 @@ button {
     top: 78px;
     right: 12px;
     min-width: 190px;
+  }
+
+  .layers-panel {
+    top: 210px;
+    right: 12px;
+    width: 230px;
+    max-height: 32%;
   }
 
   .geometry-prompt-panel {

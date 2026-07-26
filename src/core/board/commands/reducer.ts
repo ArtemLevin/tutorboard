@@ -24,9 +24,12 @@ import type {
   MoveObjectsCommand,
   MoveSelectionCommand,
   PasteContentCommand,
+  RemoveGroupsCommand,
   RenameDocumentCommand,
+  ReorderLayersCommand,
   SetGeometryVisualStyleCommand,
   SetSelectionLockCommand,
+  SetLayerVisibilityCommand,
   SetViewportCommand,
   TranslateGeometryImportCommand,
 } from "./commands";
@@ -41,6 +44,7 @@ export type CommandErrorCode =
   | "command.imported-object-delete-unsupported"
   | "command.imported-object-move-unsupported"
   | "command.imported-group-move-unsupported"
+  | "command.imported-group-remove-unsupported"
   | "command.invalid"
   | "command.invalid-current-document"
   | "command.invalid-result"
@@ -219,6 +223,169 @@ function addGroup(
       [command.group.id]: command.group,
     },
     objects: attachObjectsToGroup(document, command.group),
+  });
+}
+
+function removeGroups(
+  document: BoardDocument,
+  command: RemoveGroupsCommand,
+): CommandResult {
+  if (command.groupIds.length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Remove groups command requires at least one group.",
+    );
+  }
+  if (hasDuplicates(command.groupIds)) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "Remove groups command contains duplicate IDs.",
+    );
+  }
+  const groups = command.groupIds.map((id) => ownValue(document.groups, id));
+  if (groups.some((group) => group === undefined)) {
+    return failure(
+      document,
+      "command.group-missing",
+      "Remove groups command references a missing group.",
+    );
+  }
+  const selectedGroups = groups.filter(
+    (group): group is BoardGroup => group !== undefined,
+  );
+  if (
+    selectedGroups.some((group) =>
+      Object.values(document.geometryImports).some(
+        (record) => record?.rootGroupId === group.id,
+      ),
+    )
+  ) {
+    return failure(
+      document,
+      "command.imported-group-remove-unsupported",
+      "Geometry import root groups preserve provenance and cannot be removed.",
+    );
+  }
+  if (
+    selectedGroups.some(
+      (group) =>
+        group.locked ||
+        group.objectIds.some(
+          (id) => ownValue(document.objects, id)?.locked === true,
+        ),
+    )
+  ) {
+    return failure(
+      document,
+      "command.locked",
+      "Locked groups cannot be removed.",
+    );
+  }
+
+  const nextGroups = { ...document.groups };
+  const objects = { ...document.objects };
+  for (const group of selectedGroups) {
+    delete nextGroups[group.id];
+    for (const id of group.objectIds) {
+      const object = ownValue(objects, id);
+      if (object !== undefined) {
+        objects[id] = { ...object, groupId: null };
+      }
+    }
+  }
+  return accept(document, {
+    ...document,
+    groups: nextGroups,
+    objects,
+    updatedAt: command.timestamp,
+  });
+}
+
+function reorderLayers(
+  document: BoardDocument,
+  command: ReorderLayersCommand,
+): CommandResult {
+  const selected = selectObjects(document, command.objectIds);
+  if (!selected.ok) {
+    return selected.result;
+  }
+  const selectedIds = new Set(command.objectIds);
+  let order = [...document.order];
+  if (command.mode === "front" || command.mode === "back") {
+    const moving = order.filter((id) => selectedIds.has(id));
+    const stationary = order.filter((id) => !selectedIds.has(id));
+    order =
+      command.mode === "front"
+        ? [...stationary, ...moving]
+        : [...moving, ...stationary];
+  } else if (command.mode === "forward") {
+    for (let index = order.length - 2; index >= 0; index -= 1) {
+      const current = order[index];
+      const next = order[index + 1];
+      if (
+        current !== undefined &&
+        next !== undefined &&
+        selectedIds.has(current) &&
+        !selectedIds.has(next)
+      ) {
+        order[index] = next;
+        order[index + 1] = current;
+      }
+    }
+  } else {
+    for (let index = 1; index < order.length; index += 1) {
+      const current = order[index];
+      const previous = order[index - 1];
+      if (
+        current !== undefined &&
+        previous !== undefined &&
+        selectedIds.has(current) &&
+        !selectedIds.has(previous)
+      ) {
+        order[index] = previous;
+        order[index - 1] = current;
+      }
+    }
+  }
+  return accept(document, { ...document, order, updatedAt: command.timestamp });
+}
+
+function setLayerVisibility(
+  document: BoardDocument,
+  command: SetLayerVisibilityCommand,
+): CommandResult {
+  if (command.objectIds.length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Visibility command requires at least one object.",
+    );
+  }
+  if (hasDuplicates(command.objectIds)) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "Visibility command contains duplicate IDs.",
+    );
+  }
+  const objects = { ...document.objects };
+  for (const id of command.objectIds) {
+    const object = ownValue(objects, id);
+    if (object === undefined) {
+      return failure(
+        document,
+        "command.object-missing",
+        "Visibility command references a missing object.",
+      );
+    }
+    objects[id] = { ...object, visible: command.visible };
+  }
+  return accept(document, {
+    ...document,
+    objects,
+    updatedAt: command.timestamp,
   });
 }
 
@@ -1177,6 +1344,8 @@ export function reduceBoardDocument(
       return pasteContent(document, command);
     case "core.groups.add":
       return addGroup(document, command);
+    case "core.groups.remove":
+      return removeGroups(document, command);
     case "core.geometry.import":
       return importGeometry(document, command);
     case "core.geometry.translate":
@@ -1191,6 +1360,10 @@ export function reduceBoardDocument(
       return moveGroup(document, command);
     case "core.objects.delete":
       return deleteObjects(document, command);
+    case "core.layers.reorder":
+      return reorderLayers(document, command);
+    case "core.layers.set-visibility":
+      return setLayerVisibility(document, command);
     case "core.selection.move":
       return moveSelection(document, command);
     case "core.selection.set-lock":
