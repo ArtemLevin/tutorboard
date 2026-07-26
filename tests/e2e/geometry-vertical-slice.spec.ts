@@ -53,6 +53,27 @@ async function latestImportTranslation(page: import("@playwright/test").Page) {
 test("imports the triangle-altitude fixture atomically and restores it", async ({
   page,
 }) => {
+  const geometryNetworkTrace: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("geometryos")) {
+      geometryNetworkTrace.push(`request ${request.method()} ${request.url()}`);
+    }
+  });
+  page.on("response", (response) => {
+    if (response.url().includes("geometryos")) {
+      geometryNetworkTrace.push(
+        `response ${response.status()} ${response.url()}`,
+      );
+    }
+  });
+  page.on("requestfailed", (request) => {
+    if (request.url().includes("geometryos")) {
+      geometryNetworkTrace.push(
+        `failed ${request.failure()?.errorText ?? "unknown"} ${request.url()}`,
+      );
+    }
+  });
+
   await page.goto("/");
   await expect(
     page.getByRole("application", {
@@ -65,9 +86,18 @@ test("imports the triangle-altitude fixture atomically and restores it", async (
 
   await page.getByRole("button", { name: "Построить" }).click();
 
-  await expect(page.getByTestId("geometry-prompt-status")).toContainText(
-    "Построение добавлено: 12 объектов",
-  );
+  const geometryStatus = page.getByTestId("geometry-prompt-status");
+  await expect
+    .poll(
+      async () => {
+        const status = (await geometryStatus.textContent()) ?? "";
+        return status.includes("geometryos.network-failure")
+          ? `${status}; ${geometryNetworkTrace.join("; ")}`
+          : status;
+      },
+      { timeout: 5_000 },
+    )
+    .toContain("Построение добавлено: 12 объектов");
   await expect(page.getByTestId("object-count")).toHaveText("16 объекта");
   await expect(page.getByTestId("selection-count")).toHaveText("12 выбрано");
   await expect(page.getByTestId("geometry-import-count")).toHaveText(
