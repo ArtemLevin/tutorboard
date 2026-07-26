@@ -74,6 +74,20 @@ export interface DeleteObjectsCommand extends CommandMetadata {
   readonly objectIds: readonly BoardObjectId[];
 }
 
+export interface PasteContentCommand extends CommandMetadata {
+  readonly geometryImports: readonly GeometryImportRecord[];
+  readonly groups: readonly BoardGroup[];
+  readonly kind: "core.clipboard.paste";
+  readonly objects: readonly BoardObject[];
+}
+
+export interface CutContentCommand extends CommandMetadata {
+  readonly geometryImportIds: readonly GeometryImportId[];
+  readonly groupIds: readonly GroupId[];
+  readonly kind: "core.clipboard.cut";
+  readonly objectIds: readonly BoardObjectId[];
+}
+
 export interface MoveSelectionCommand extends CommandMetadata {
   readonly delta: Vec2;
   readonly groupIds: readonly GroupId[];
@@ -101,12 +115,14 @@ export interface RenameDocumentCommand extends CommandMetadata {
 export type BoardCommand =
   | AddGroupCommand
   | AddObjectsCommand
+  | CutContentCommand
   | DeleteObjectsCommand
   | ImportGeometryCommand
   | OffsetGeometryLabelCommand
   | MoveGroupCommand
   | MoveObjectsCommand
   | MoveSelectionCommand
+  | PasteContentCommand
   | RenameDocumentCommand
   | SetGeometryVisualStyleCommand
   | SetSelectionLockCommand
@@ -115,6 +131,8 @@ export type BoardCommand =
 
 export const boardCommandKinds = [
   "core.objects.add",
+  "core.clipboard.cut",
+  "core.clipboard.paste",
   "core.groups.add",
   "core.geometry.import",
   "core.geometry.translate",

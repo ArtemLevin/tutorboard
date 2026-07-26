@@ -128,6 +128,25 @@ describe("App", () => {
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
   });
 
+  it("copies, pastes and cuts a deterministic selection closure", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    fireEvent.click(screen.getByRole("button", { name: "Выделение (V)" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Переместить выделение" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Копировать" }));
+    fireEvent.click(screen.getByRole("button", { name: "Вставить" }));
+
+    expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
+    expect(screen.getByText("Вставлено: 1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Вырезать" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+  });
+
   it("reports document changes and visible persistence status", () => {
     const onDocumentChange = vi.fn();
     render(
