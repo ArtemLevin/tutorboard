@@ -115,7 +115,7 @@ test("imports the triangle-altitude fixture atomically and restores it", async (
     "1 построений",
   );
   await expect(page.getByTestId("persistence-status")).toHaveText(
-    "Сохранено локально",
+    "Локальное сохранение",
   );
   expect(await latestImportTranslation(page)).toEqual(placementBeforeReload);
 });
