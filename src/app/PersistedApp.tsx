@@ -10,6 +10,11 @@ import {
   type LocalRevisionId,
 } from "../core/public";
 import {
+  exportTutorBoardDocument,
+  renderBoardSnapshotPng,
+  renderBoardSnapshotSvg,
+} from "../modules/document-transfer/public";
+import {
   importLocalDocumentJson,
   LocalDocumentAutosave,
   type LocalAutosaveState,
@@ -44,9 +49,19 @@ type BootstrapState =
     };
 
 function downloadJson(filename: string, value: unknown): void {
-  const blob = new Blob([JSON.stringify(value, null, 2)], {
-    type: "application/json",
-  });
+  downloadText(filename, JSON.stringify(value, null, 2), "application/json");
+}
+
+function downloadText(
+  filename: string,
+  value: string,
+  mediaType: string,
+): void {
+  const blob = new Blob([value], { type: mediaType });
+  downloadBlob(filename, blob);
+}
+
+function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const anchor = window.document.createElement("a");
   anchor.download = filename;
@@ -134,6 +149,38 @@ function PersistedWorkspace({
     downloadJson("tutorboard-local-diagnostics.json", bundle);
   }, [repository]);
 
+  const exportDocument = useCallback((document: BoardDocument) => {
+    const exported = exportTutorBoardDocument(document);
+    if (exported.status === "error") {
+      setImportError(`${exported.code}: ${exported.message}`);
+      return;
+    }
+    setImportError(null);
+    downloadText(exported.filename, exported.json, exported.mediaType);
+  }, []);
+
+  const exportSnapshot = useCallback((document: BoardDocument) => {
+    downloadText(
+      "tutorboard-snapshot.svg",
+      renderBoardSnapshotSvg(document),
+      "image/svg+xml",
+    );
+  }, []);
+
+  const exportPngSnapshot = useCallback(async (document: BoardDocument) => {
+    try {
+      downloadBlob(
+        "tutorboard-snapshot.png",
+        await renderBoardSnapshotPng(document),
+      );
+      setImportError(null);
+    } catch {
+      setImportError(
+        "document-export.png-failed: не удалось создать PNG-снимок.",
+      );
+    }
+  }, []);
+
   const importDocument = useCallback(async (file: File) => {
     const imported = importLocalDocumentJson(
       await file.text(),
@@ -164,7 +211,10 @@ function PersistedWorkspace({
       initialDocument={activeDocument}
       key={workspaceKey}
       onDocumentChange={handleDocumentChange}
+      onExportDocument={exportDocument}
       onExportDiagnostics={() => void exportDiagnostics()}
+      onExportPngSnapshot={(document) => void exportPngSnapshot(document)}
+      onExportSvgSnapshot={exportSnapshot}
       onImportDocument={(file) => void importDocument(file)}
       onRetryPersistence={() => autosaveRef.current?.retry()}
       persistenceNotice={importError ?? notice}

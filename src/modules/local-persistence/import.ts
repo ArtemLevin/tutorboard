@@ -1,9 +1,9 @@
 import {
-  deserializeBoardDocument,
   localDiagnosticSchemaVersion,
   type BoardDocument,
   type DocumentId,
 } from "../../core/public";
+import { importTutorBoardDocument } from "../document-transfer/public";
 
 export type LocalDocumentImportResult =
   | { readonly document: BoardDocument; readonly status: "ok" }
@@ -20,18 +20,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function readDirectDocument(
   json: string,
   expectedDocumentId: DocumentId,
-): LocalDocumentImportResult | null {
-  const read = deserializeBoardDocument(json);
-  if (read.status !== "ok") {
-    return null;
+): LocalDocumentImportResult {
+  const read = importTutorBoardDocument(json);
+  if (read.status === "error") {
+    return read;
   }
-  return read.document.id === expectedDocumentId
-    ? { document: read.document, status: "ok" }
-    : {
-        code: "persistence.import-document-id-mismatch",
-        message: "Imported document belongs to another board.",
-        status: "error",
-      };
+  return {
+    document:
+      read.document.id === expectedDocumentId
+        ? read.document
+        : { ...read.document, id: expectedDocumentId },
+    status: "ok",
+  };
 }
 
 export function importLocalDocumentJson(
@@ -39,7 +39,7 @@ export function importLocalDocumentJson(
   expectedDocumentId: DocumentId,
 ): LocalDocumentImportResult {
   const direct = readDirectDocument(json, expectedDocumentId);
-  if (direct !== null) {
+  if (direct.status === "ok") {
     return direct;
   }
 
@@ -59,9 +59,8 @@ export function importLocalDocumentJson(
     !Array.isArray(raw.revisions)
   ) {
     return {
-      code: "persistence.import-unsupported",
-      message:
-        "JSON is neither a BoardDocument nor a TutorBoard diagnostic bundle.",
+      code: direct.code,
+      message: direct.message,
       status: "error",
     };
   }
@@ -85,7 +84,7 @@ export function importLocalDocumentJson(
       candidate.serializedDocument,
       expectedDocumentId,
     );
-    if (read?.status === "ok") {
+    if (read.status === "ok") {
       return read;
     }
   }
