@@ -52,6 +52,9 @@ jobs:
           set -o pipefail
           npm run test 2>&1 | tee unit-tests.log
 
+      - name: Enforce performance budgets
+        run: npm run performance
+
       - name: Upload unit-test failure log
         if: failure()
         uses: actions/upload-artifact@v4

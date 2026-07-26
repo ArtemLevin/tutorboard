@@ -6,6 +6,7 @@ import type {
 } from "../../core/public";
 
 import { drawingStyleDefaults, type DrawingToolId } from "./tools";
+import { simplifyStroke } from "./stroke-simplification";
 
 const maximumPenPoints = 100_000;
 const minimumGeometrySize = 0.001;
@@ -131,7 +132,7 @@ function completePen(
   state: PenInteraction,
   point: Vec2,
 ): UserDrawingObject | null {
-  const points = appendPenPoint(state.points, point);
+  const points = simplifyStroke(appendPenPoint(state.points, point));
   if (points.length < 2) {
     return null;
   }

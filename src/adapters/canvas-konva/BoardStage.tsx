@@ -2,6 +2,7 @@ import Konva from "konva";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactElement,
@@ -10,8 +11,10 @@ import { Group, Layer, Rect, Stage } from "react-konva";
 
 import {
   boardObjectId,
+  batchBoardRenderItems,
   panViewport,
   screenToWorld,
+  selectVisibleBoardItems,
   zoomViewportAt,
   type BoardObjectId,
   type BoardRenderItem,
@@ -221,6 +224,13 @@ export function BoardStage({
   const [isSelecting, setIsSelecting] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
   const size = useElementSize(rootRef);
+  const visibleItemBatches = useMemo(
+    () =>
+      batchBoardRenderItems(
+        selectVisibleBoardItems(scene.items, previewViewport, size),
+      ),
+    [previewViewport, scene.items, size],
+  );
 
   useEffect(() => {
     worldPointerCallbacksRef.current = {
@@ -774,14 +784,18 @@ export function BoardStage({
             x={previewViewport.offset.x}
             y={previewViewport.offset.y}
           >
-            {scene.items.map((item) =>
-              renderItem(item, registry, {
-                interactive: true,
-                previewDelta: selected.has(item.object.id)
-                  ? selectionPreviewDelta
-                  : null,
-              }),
-            )}
+            {visibleItemBatches.map((batch, batchIndex) => (
+              <Group key={`render-batch-${batchIndex}`}>
+                {batch.map((item) =>
+                  renderItem(item, registry, {
+                    interactive: true,
+                    previewDelta: selected.has(item.object.id)
+                      ? selectionPreviewDelta
+                      : null,
+                  }),
+                )}
+              </Group>
+            ))}
             {previewItems.map((item) =>
               renderItem(item, registry, { interactive: false }),
             )}
