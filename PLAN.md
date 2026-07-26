@@ -37,16 +37,18 @@ TutorBoard завершил основную инфраструктурную ч
 | G-10/11  | завершён | Layout Document `0.1.0` и стабильный `POST /api/v1/layout` в GeometryOS                                  |
 | PR 2.9B  | завершён | Layout-to-Board placement, editable primitives и атомарный geometry import                               |
 | PR 2.10  | завершён | prompt/readiness/generate/layout/import UI flow, selection и autosave/reload evidence                    |
-| PR 2.11  | готовится | visual group translation, label/style overrides и deny-by-default semantic edits                         |
+| PR 2.11  | завершён | visual group translation, label/style overrides и deny-by-default semantic edits                         |
+| PR 2.12  | готовится | Phase 2 report, coordinate/change boundaries, contract proposals и Phase 3 backlog                        |
 
 Текущий stored contract — `BoardDocument 0.2`. Canvas runtime, selection,
 preview и transport state не сериализуются. Canonical GIR хранится отдельно от
 Board objects и не восстанавливается из SVG или пользовательских transforms.
 
-### 2.2. Подтверждённые блокеры
+### 2.2. Открытые границы следующих фаз
 
-1. **Technical Spike report не закрыт.** Нужны movement evidence,
-   change-classification ADR и итоговый Phase 2 report.
+Phase 2 blockers закрыты. Семантическое редактирование GeometryOS, production
+gateway, server source of truth и collaboration явно переданы следующим фазам и
+не маскируются permissive fallback.
 
 ### 2.3. Обязательный execution order
 
@@ -134,6 +136,11 @@ redacted experiment event contract.
 Подготовить Phase 2 report, coordinate/mapping/change-classification ADRs,
 зафиксировать временные ограничения и сформировать Phase 3 backlog.
 
+Результат подготовлен: `PHASE_2_REPORT.md`, `COORDINATE_SYSTEMS.md`,
+`GEOMETRYOS_CONTRACT_PROPOSALS.md`, `PHASE_3_BACKLOG.md` и обновлённый
+`GIR_MAPPING.md`. Все no-go gates имеют явное evidence или documented deferred
+owner.
+
 #### GeometryOS G-13 — release 0.3.0
 
 После стабилизации Layout API выпустить GeometryOS `0.3.0`, включив layout
@@ -141,8 +148,8 @@ schema/fixtures в release bundle и опубликовав consumer upgrade gui
 
 ### 2.4. Правила параллельной разработки
 
-- PR 2.8.2, 2.9A, GeometryOS G-10/G-11, PR 2.9B и PR 2.10 закрыты.
-- Следующий TutorBoard owner — PR 2.11 movement policy.
+- PR 2.8.2, 2.9A, GeometryOS G-10/G-11 и TutorBoard PR 2.9B–2.11 закрыты.
+- После merge PR 2.12 следующий TutorBoard owner — PR 3.1 contract freeze.
 - TutorBoard не создаёт общий layout solver и не парсит SVG ради семантики.
 - GeometryOS не хранит BoardDocument, viewport или пользовательские overrides.
 
@@ -175,6 +182,9 @@ production direct-browser access к GeometryOS не выбираются зар�
 - canonical GIR/provenance не переживают save/reload;
 - visual movement policy не зафиксирована;
 - обязательный triangle-altitude E2E не проходит через реальный BoardDocument.
+
+Все перечисленные gates доказаны к PR 2.12; ссылки и ограничения собраны в
+`docs/PHASE_2_REPORT.md`.
 
 ## 3. Целевая архитектура
 
