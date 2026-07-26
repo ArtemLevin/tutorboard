@@ -24,6 +24,7 @@ import {
   type BoardRenderItem,
   type GeometryOsClient,
   type CommandMetadata,
+  type VisualStyleOverride,
   type ViewportState,
 } from "../core/public";
 import {
@@ -85,6 +86,7 @@ import {
   type SelectionAction,
   type SelectionState,
 } from "../modules/selection/public";
+import { createSetSelectionStyleCommand } from "../modules/styling/public";
 import { readEnvironment } from "./configuration/environment";
 import {
   GeometryPromptPanel,
@@ -434,6 +436,22 @@ export function App({
       ),
     );
   }, [commitCommand]);
+
+  const updateSelectionStyle = useCallback(
+    (style: VisualStyleOverride) => {
+      if (selectionStateRef.current.selectedObjectIds.length === 0) {
+        return;
+      }
+      commitCommand(
+        createSetSelectionStyleCommand(
+          createLocalCommandMetadata(),
+          selectionStateRef.current.selectedObjectIds,
+          style,
+        ),
+      );
+    },
+    [commitCommand],
+  );
 
   const commitViewport = useCallback((viewport: ViewportState) => {
     const timestamp = new Date().toISOString();
@@ -982,6 +1000,9 @@ export function App({
     const object = document.objects[id];
     return object === undefined ? [] : [object];
   });
+  const selectedStyle = scene.items.find(({ object }) =>
+    selectionState.selectedObjectIds.includes(object.id),
+  )?.object.style;
   const canGroup =
     selectedObjects.length >= 2 &&
     selectedObjects.every(
@@ -1374,6 +1395,73 @@ export function App({
                 Удалить
               </button>
             </div>
+            {selectedStyle === undefined ? null : (
+              <div className="style-inspector">
+                <label>
+                  Заливка
+                  <input
+                    aria-label="Заливка выделения"
+                    onChange={(event) =>
+                      updateSelectionStyle({
+                        fill:
+                          event.currentTarget.value.trim() === ""
+                            ? null
+                            : event.currentTarget.value,
+                      })
+                    }
+                    value={selectedStyle.fill ?? ""}
+                  />
+                </label>
+                <label>
+                  Обводка
+                  <input
+                    aria-label="Обводка выделения"
+                    onChange={(event) =>
+                      updateSelectionStyle({
+                        stroke:
+                          event.currentTarget.value.trim() === ""
+                            ? null
+                            : event.currentTarget.value,
+                      })
+                    }
+                    value={selectedStyle.stroke ?? ""}
+                  />
+                </label>
+                <label>
+                  Толщина
+                  <input
+                    aria-label="Толщина обводки"
+                    min="0"
+                    onChange={(event) => {
+                      if (Number.isFinite(event.currentTarget.valueAsNumber)) {
+                        updateSelectionStyle({
+                          strokeWidth: event.currentTarget.valueAsNumber,
+                        });
+                      }
+                    }}
+                    step="0.5"
+                    type="number"
+                    value={selectedStyle.strokeWidth}
+                  />
+                </label>
+                <label>
+                  Прозрачность
+                  <input
+                    aria-label="Прозрачность выделения"
+                    max="1"
+                    min="0"
+                    onChange={(event) =>
+                      updateSelectionStyle({
+                        opacity: event.currentTarget.valueAsNumber,
+                      })
+                    }
+                    step="0.05"
+                    type="range"
+                    value={selectedStyle.opacity}
+                  />
+                </label>
+              </div>
+            )}
           </aside>
         )}
 

@@ -107,6 +107,12 @@ export interface SetSelectionLockCommand extends CommandMetadata {
   readonly objectIds: readonly BoardObjectId[];
 }
 
+export interface SetSelectionStyleCommand extends CommandMetadata {
+  readonly kind: "core.selection.set-style";
+  readonly objectIds: readonly BoardObjectId[];
+  readonly style: VisualStyleOverride;
+}
+
 export type LayerReorderMode = "back" | "backward" | "forward" | "front";
 
 export interface ReorderLayersCommand extends CommandMetadata {
@@ -147,6 +153,7 @@ export type BoardCommand =
   | ReorderLayersCommand
   | SetGeometryVisualStyleCommand
   | SetSelectionLockCommand
+  | SetSelectionStyleCommand
   | SetLayerVisibilityCommand
   | TranslateGeometryImportCommand
   | SetViewportCommand;
@@ -168,6 +175,7 @@ export const boardCommandKinds = [
   "core.layers.set-visibility",
   "core.selection.move",
   "core.selection.set-lock",
+  "core.selection.set-style",
   "core.viewport.set",
   "core.document.rename",
 ] as const satisfies readonly BoardCommand["kind"][];

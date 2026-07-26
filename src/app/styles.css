@@ -496,6 +496,32 @@ button {
   gap: 7px;
 }
 
+.selection-inspector .style-inspector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e6e8;
+}
+
+.style-inspector label {
+  display: grid;
+  gap: 4px;
+  color: #667780;
+  font-size: 0.64rem;
+}
+
+.style-inspector input {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid #cbd4d8;
+  border-radius: 7px;
+  color: #31454f;
+  background: #fff;
+}
+
 .selection-inspector button {
   min-height: 32px;
   padding: 0 10px;

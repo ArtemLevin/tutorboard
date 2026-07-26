@@ -29,6 +29,7 @@ import type {
   ReorderLayersCommand,
   SetGeometryVisualStyleCommand,
   SetSelectionLockCommand,
+  SetSelectionStyleCommand,
   SetLayerVisibilityCommand,
   SetViewportCommand,
   TranslateGeometryImportCommand,
@@ -384,6 +385,59 @@ function setLayerVisibility(
   }
   return accept(document, {
     ...document,
+    objects,
+    updatedAt: command.timestamp,
+  });
+}
+
+function setSelectionStyle(
+  document: BoardDocument,
+  command: SetSelectionStyleCommand,
+): CommandResult {
+  const selected = selectObjects(document, command.objectIds);
+  if (!selected.ok) {
+    return selected.result;
+  }
+  if (Object.keys(command.style).length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Style command requires at least one property.",
+    );
+  }
+  const objects = { ...document.objects };
+  const geometryImports = { ...document.geometryImports };
+  for (const object of selected.objects) {
+    if (object.source.kind === "user") {
+      objects[object.id] = {
+        ...object,
+        style: { ...object.style, ...command.style },
+      };
+      continue;
+    }
+    const record = ownValue(geometryImports, object.source.importId);
+    if (record === undefined) {
+      return failure(
+        document,
+        "command.import-missing",
+        "Style command references a missing geometry import.",
+      );
+    }
+    const current = ownValue(record.visualOverrides, object.id);
+    geometryImports[record.id] = {
+      ...record,
+      visualOverrides: {
+        ...record.visualOverrides,
+        [object.id]: {
+          ...(current ?? identityTransform),
+          style: { ...current?.style, ...command.style },
+        },
+      },
+    };
+  }
+  return accept(document, {
+    ...document,
+    geometryImports,
     objects,
     updatedAt: command.timestamp,
   });
@@ -1368,6 +1422,8 @@ export function reduceBoardDocument(
       return moveSelection(document, command);
     case "core.selection.set-lock":
       return setSelectionLock(document, command);
+    case "core.selection.set-style":
+      return setSelectionStyle(document, command);
     case "core.viewport.set":
       return setViewport(document, command);
     case "core.document.rename":

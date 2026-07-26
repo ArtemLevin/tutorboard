@@ -79,6 +79,7 @@ export {
   type LayerReorderMode,
   type SetGeometryVisualStyleCommand,
   type SetSelectionLockCommand,
+  type SetSelectionStyleCommand,
   type SetLayerVisibilityCommand,
   type SetViewportCommand,
   type TranslateGeometryImportCommand,
