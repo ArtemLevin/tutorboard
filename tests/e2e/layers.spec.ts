@@ -29,6 +29,7 @@ test("manages visibility, z-order and user groups from the layers UI", async ({
   await expect(
     layers.getByRole("button", { name: /Показать object:/ }),
   ).toHaveCount(1);
+  await layers.getByRole("button", { name: /Показать object:/ }).click();
   await layers
     .getByRole("button", { name: /На задний план object:/ })
     .first()
