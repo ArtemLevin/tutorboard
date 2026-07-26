@@ -73,9 +73,13 @@ export {
   type MoveObjectsCommand,
   type MoveSelectionCommand,
   type PasteContentCommand,
+  type RemoveGroupsCommand,
   type RenameDocumentCommand,
+  type ReorderLayersCommand,
+  type LayerReorderMode,
   type SetGeometryVisualStyleCommand,
   type SetSelectionLockCommand,
+  type SetLayerVisibilityCommand,
   type SetViewportCommand,
   type TranslateGeometryImportCommand,
 } from "./board/commands/commands";

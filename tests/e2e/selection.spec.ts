@@ -66,9 +66,13 @@ test("supports additive selection, lock and delete", async ({ page }) => {
   await page.keyboard.up("Shift");
   await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
 
-  await page.getByRole("button", { name: "Заблокировать" }).click();
+  await page
+    .getByRole("button", { name: "Заблокировать", exact: true })
+    .click();
   await expect(page.getByText("Перемещение заблокировано")).toBeVisible();
-  await page.getByRole("button", { name: "Разблокировать" }).click();
+  await page
+    .getByRole("button", { name: "Разблокировать", exact: true })
+    .click();
   await page.getByRole("button", { name: "Удалить" }).click();
 
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
