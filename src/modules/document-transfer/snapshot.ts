@@ -1,0 +1,140 @@
+import {
+  selectBoardScene,
+  type BoardDocument,
+  type BoardObject,
+  type BoardRenderItem,
+  type Transform2D,
+} from "../../core/public";
+import { renderSafeMathLabel } from "../../shared/safe-math-label";
+
+export interface BoardSnapshotOptions {
+  readonly height?: number;
+  readonly width?: number;
+}
+
+const defaultSnapshot = { height: 720, width: 1280 } as const;
+
+function escapeXml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function number(value: number): string {
+  return Object.is(value, -0) ? "0" : String(value);
+}
+
+function transformAttribute(transform: Transform2D): string {
+  return [
+    `translate(${number(transform.translation.x)} ${number(transform.translation.y)})`,
+    `rotate(${number(transform.rotation)})`,
+    `scale(${number(transform.scale.x)} ${number(transform.scale.y)})`,
+  ].join(" ");
+}
+
+function styleAttributes(object: BoardObject): string {
+  return [
+    `fill="${object.style.fill === null ? "none" : escapeXml(object.style.fill)}"`,
+    `opacity="${number(object.style.opacity)}"`,
+    `stroke="${object.style.stroke === null ? "none" : escapeXml(object.style.stroke)}"`,
+    `stroke-width="${number(object.style.strokeWidth)}"`,
+  ].join(" ");
+}
+
+function objectMarkup(object: BoardObject): string {
+  const common = `${styleAttributes(object)} transform="translate(${number(object.position.x)} ${number(object.position.y)}) rotate(${number(object.rotation)}) scale(${number(object.scale.x)} ${number(object.scale.y)})"`;
+  switch (object.kind) {
+    case "drawing.pen-stroke":
+      return `<polyline ${common} points="${object.points.map(({ x, y }) => `${number(x)},${number(y)}`).join(" ")}"/>`;
+    case "drawing.line":
+      return `<line ${common}${object.lineStyle === "dashed" ? ' stroke-dasharray="10 6"' : ""} x1="0" y1="0" x2="${number(object.end.x)}" y2="${number(object.end.y)}"/>`;
+    case "drawing.rectangle":
+      return `<rect ${common} height="${number(object.size.height)}" rx="8" width="${number(object.size.width)}"/>`;
+    case "drawing.ellipse":
+      return `<ellipse ${common} cx="0" cy="0" rx="${number(object.radius.x)}" ry="${number(object.radius.y)}"/>`;
+    case "drawing.text": {
+      const label = renderSafeMathLabel(object.text);
+      const lines = label.displayText.split(/\r?\n/u);
+      return `<text aria-label="${escapeXml(label.accessibleText)}" font-family="Inter,ui-sans-serif,system-ui" font-size="22" ${common}>${lines.map((line, index) => `<tspan x="0" dy="${index === 0 ? "0" : "1.35em"}">${escapeXml(line)}</tspan>`).join("")}</text>`;
+    }
+    case "svg-import.svg":
+      return `<g ${common}>${object.sanitizedSvg}</g>`;
+  }
+}
+
+function itemMarkup(item: BoardRenderItem): string {
+  return item.transforms.reduceRight(
+    (content, transform) =>
+      `<g transform="${transformAttribute(transform)}">${content}</g>`,
+    objectMarkup(item.object),
+  );
+}
+
+export function renderBoardSnapshotSvg(
+  document: BoardDocument,
+  options: BoardSnapshotOptions = {},
+): string {
+  const height = options.height ?? defaultSnapshot.height;
+  const width = options.width ?? defaultSnapshot.width;
+  if (
+    !Number.isFinite(height) ||
+    !Number.isFinite(width) ||
+    height <= 0 ||
+    width <= 0
+  ) {
+    throw new RangeError("Snapshot dimensions must be positive.");
+  }
+  const scene = selectBoardScene(document);
+  const visibleItems = scene.items.filter(({ object }) => object.visible);
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(document.title)}" viewBox="0 0 ${number(width)} ${number(height)}">`,
+    '<rect width="100%" height="100%" fill="#f8fafc"/>',
+    `<g transform="translate(${number(scene.viewport.offset.x)} ${number(scene.viewport.offset.y)}) scale(${number(scene.viewport.zoom)})">`,
+    visibleItems.map(itemMarkup).join(""),
+    "</g>",
+    "</svg>",
+  ].join("");
+}
+
+export async function renderBoardSnapshotPng(
+  document: BoardDocument,
+  options: BoardSnapshotOptions = {},
+): Promise<Blob> {
+  const height = options.height ?? defaultSnapshot.height;
+  const width = options.width ?? defaultSnapshot.width;
+  const svg = renderBoardSnapshotSvg(document, { height, width });
+  const source = new Blob([svg], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(source);
+  try {
+    const image = new Image();
+    image.decoding = "async";
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () =>
+        reject(new Error("The SVG snapshot could not be rasterized."));
+      image.src = url;
+    });
+    const canvas = window.document.createElement("canvas");
+    canvas.height = height;
+    canvas.width = width;
+    const context = canvas.getContext("2d");
+    if (context === null) {
+      throw new Error("A 2D canvas context is unavailable.");
+    }
+    context.drawImage(image, 0, 0, width, height);
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob === null) {
+          reject(new Error("The PNG snapshot could not be encoded."));
+        } else {
+          resolve(blob);
+        }
+      }, "image/png");
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}

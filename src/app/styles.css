@@ -52,6 +52,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  min-width: 0;
   padding: 0 22px;
   border-bottom: 1px solid #cbd4d8;
   background: rgb(248 249 249 / 94%);
@@ -99,10 +100,13 @@ button {
 
 .canvas-actions {
   gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .tool-button {
   display: inline-flex;
+  flex: 0 0 auto;
   min-height: 38px;
   align-items: center;
   gap: 8px;

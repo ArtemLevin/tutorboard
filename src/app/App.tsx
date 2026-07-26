@@ -125,6 +125,9 @@ export interface AppProps {
   readonly geometryOsClient?: GeometryOsClient;
   readonly initialDocument?: BoardDocument;
   readonly onDocumentChange?: (document: BoardDocument) => void;
+  readonly onExportDocument?: (document: BoardDocument) => void;
+  readonly onExportPngSnapshot?: (document: BoardDocument) => void;
+  readonly onExportSvgSnapshot?: (document: BoardDocument) => void;
   readonly onExportDiagnostics?: () => void;
   readonly onImportDocument?: (file: File) => void;
   readonly onRetryPersistence?: () => void;
@@ -147,6 +150,9 @@ export function App({
   geometryOsClient,
   initialDocument,
   onDocumentChange,
+  onExportDocument,
+  onExportPngSnapshot,
+  onExportSvgSnapshot,
   onExportDiagnostics,
   onImportDocument,
   onRetryPersistence,
@@ -1134,6 +1140,33 @@ export function App({
                 type="file"
               />
             </label>
+          )}
+          {onExportDocument === undefined ? null : (
+            <button
+              className="tool-button"
+              onClick={() => onExportDocument(document)}
+              type="button"
+            >
+              Экспорт JSON
+            </button>
+          )}
+          {onExportSvgSnapshot === undefined ? null : (
+            <button
+              className="tool-button"
+              onClick={() => onExportSvgSnapshot(document)}
+              type="button"
+            >
+              Снимок SVG
+            </button>
+          )}
+          {onExportPngSnapshot === undefined ? null : (
+            <button
+              className="tool-button"
+              onClick={() => onExportPngSnapshot(document)}
+              type="button"
+            >
+              Снимок PNG
+            </button>
           )}
           {onExportDiagnostics === undefined ? null : (
             <button
