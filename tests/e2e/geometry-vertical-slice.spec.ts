@@ -69,7 +69,7 @@ async function latestImportTranslation(page: import("@playwright/test").Page) {
 test("imports the triangle-altitude fixture atomically and restores it", async ({
   page,
 }) => {
-  await page.route("http://localhost:8000/**", async (route) => {
+  await page.route("http://127.0.0.1:4173/geometryos/**", async (route) => {
     const request = route.request();
     const origin = request.headers().origin ?? "http://127.0.0.1:4173";
     const corsHeaders = {
@@ -78,15 +78,11 @@ test("imports the triangle-altitude fixture atomically and restores it", async (
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Expose-Headers": "x-request-id",
     };
-    if (request.method() === "OPTIONS") {
-      await route.fulfill({ headers: corsHeaders, status: 200 });
-      return;
-    }
     const requestId = request.headers()["x-request-id"];
     if (requestId === undefined) {
       throw new Error("GeometryOS request ID is missing.");
     }
-    const pathname = new URL(request.url()).pathname;
+    const pathname = new URL(request.url()).pathname.replace("/geometryos", "");
     const body =
       pathname === "/ready"
         ? {
