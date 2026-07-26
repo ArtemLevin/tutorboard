@@ -173,7 +173,7 @@ jobs:
 
       - name: Build production bundle
         env:
-          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos
+          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4180
         run: npm run build
 
       - name: Run browser smoke
