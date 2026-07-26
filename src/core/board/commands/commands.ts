@@ -1,4 +1,5 @@
 import type { BoardGroup } from "../groups";
+import type { GeometryImportRecord } from "../geometry-imports";
 import type {
   ActorId,
   BoardObjectId,
@@ -23,6 +24,13 @@ export interface AddObjectsCommand extends CommandMetadata {
 export interface AddGroupCommand extends CommandMetadata {
   readonly group: BoardGroup;
   readonly kind: "core.groups.add";
+}
+
+export interface ImportGeometryCommand extends CommandMetadata {
+  readonly group: BoardGroup;
+  readonly importRecord: GeometryImportRecord;
+  readonly kind: "core.geometry.import";
+  readonly objects: readonly BoardObject[];
 }
 
 export interface MoveObjectsCommand extends CommandMetadata {
@@ -70,6 +78,7 @@ export type BoardCommand =
   | AddGroupCommand
   | AddObjectsCommand
   | DeleteObjectsCommand
+  | ImportGeometryCommand
   | MoveGroupCommand
   | MoveObjectsCommand
   | MoveSelectionCommand
@@ -80,6 +89,7 @@ export type BoardCommand =
 export const boardCommandKinds = [
   "core.objects.add",
   "core.groups.add",
+  "core.geometry.import",
   "core.objects.move",
   "core.groups.move",
   "core.objects.delete",

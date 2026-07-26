@@ -34,6 +34,8 @@ try {
 const requiredExports = [
   "validateGenerateRequest",
   "validateGenerateResponse",
+  "validateLayoutRequest",
+  "validateLayoutResponse",
   "validateProblemDetail",
 ];
 for (const name of requiredExports) {
@@ -57,6 +59,18 @@ const cases = [
     validator: validators.validateGenerateResponse,
     valid: readFixture("generate-success.response.json"),
     invalid: { status: "success", schema_version: "0.2.0" },
+  },
+  {
+    label: "layout request",
+    validator: validators.validateLayoutRequest,
+    valid: readFixture("layout-success.request.json"),
+    invalid: { schema_version: "0.3.0" },
+  },
+  {
+    label: "layout response",
+    validator: validators.validateLayoutResponse,
+    valid: readFixture("layout-success.response.json"),
+    invalid: { status: "success", layout_schema_version: "0.1.0" },
   },
   {
     label: "problem detail",

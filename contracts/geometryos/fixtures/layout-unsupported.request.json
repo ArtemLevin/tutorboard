@@ -1,0 +1,14 @@
+{
+  "constraints": [],
+  "construction_steps": [],
+  "metadata": {},
+  "objects": [
+    {
+      "id": "A",
+      "label": "A",
+      "type": "point"
+    }
+  ],
+  "scene_type": "2d",
+  "schema_version": "0.2.0"
+}

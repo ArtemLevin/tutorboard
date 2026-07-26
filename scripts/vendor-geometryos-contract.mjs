@@ -9,12 +9,12 @@ const repositoryRoot = path.resolve(
 );
 const contractRoot = path.join(repositoryRoot, "contracts/geometryos");
 const sourceRepository = "ArtemLevin/geometryos";
-const sourceCommit = "49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c";
+const sourceCommit = "fe5ece9f7138044d638114907fe9aaecfd14e924";
 const expected = {
-  openApi: "4507f5c2da15e70a5836198e4d9af709f382f6f73e766b10e7a78e7a1d12e549",
+  openApi: "eda2e6a4ab1e6e96b0c3561574695637a0be060ff68ba6a0e7b5432e989d94e9",
   girSchema: "dae399fa8a23458802760807c64f7b412d46ba81bb62b248cea136d714987993",
   fixtureManifest:
-    "8777c49f8abbc7fec7e667b3fb475a781ed2c05523ce1e32e85387ea3b50782c",
+    "23c1cdd94a5cf9212c538bbc6ff423d1eb8580aebba092f9c7647ad74d3c0538",
 };
 const headers = process.env.GITHUB_TOKEN
   ? {

@@ -1,7 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createGeometryOsHttpClient } from "../../../../src/adapters/geometryos-http/public";
-import { geometryOsRequestId } from "../../../../src/core/public";
+import {
+  geometryOsRequestId,
+  type JsonValue,
+} from "../../../../src/core/public";
+import layoutInvalidRequestJson from "../../../../contracts/geometryos/fixtures/layout-invalid.request.json?raw";
+import layoutInvalidJson from "../../../../contracts/geometryos/fixtures/layout-invalid.response.json?raw";
+import layoutSuccessRequestJson from "../../../../contracts/geometryos/fixtures/layout-success.request.json?raw";
+import layoutSuccessJson from "../../../../contracts/geometryos/fixtures/layout-success.response.json?raw";
+import layoutUnsupportedRequestJson from "../../../../contracts/geometryos/fixtures/layout-unsupported.request.json?raw";
+import layoutUnsupportedJson from "../../../../contracts/geometryos/fixtures/layout-unsupported.response.json?raw";
 
 const requestId = geometryOsRequestId("tutorboard-test-request");
 const canonicalGir = {
@@ -51,6 +60,14 @@ const problem = {
   request_id: requestId,
   errors: [],
 };
+const layoutSuccessRequest = JSON.parse(layoutSuccessRequestJson) as JsonValue;
+const layoutUnsupportedRequest = JSON.parse(
+  layoutUnsupportedRequestJson,
+) as JsonValue;
+const layoutInvalidRequest = JSON.parse(layoutInvalidRequestJson) as JsonValue;
+const layoutSuccess = JSON.parse(layoutSuccessJson) as unknown;
+const layoutUnsupported = JSON.parse(layoutUnsupportedJson) as unknown;
+const layoutInvalid = JSON.parse(layoutInvalidJson) as unknown;
 
 function response(
   body: unknown,
@@ -78,6 +95,7 @@ function client(
     createRequestId: () => requestId,
     fetch: fetchImplementation,
     generateTimeoutMs: overrides.timeout ?? 1000,
+    layoutTimeoutMs: overrides.timeout ?? 1000,
     maxResponseBytes: overrides.limit ?? 1024 * 1024,
   });
 }
@@ -113,6 +131,77 @@ describe("GeometryOS HTTP client", () => {
       mode: "strict",
     });
     expect(result).toMatchObject({ kind: "success", requestId });
+  });
+
+  it("sends canonical GIR to layout and normalizes the versioned document", async () => {
+    const fetchMock = vi.fn<typeof globalThis.fetch>(
+      resolvedFetch(layoutSuccess),
+    );
+    const task = client(fetchMock).startLayout({
+      canonicalGir: layoutSuccessRequest,
+    });
+    const result = await task.result;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const call = fetchMock.mock.calls[0];
+    if (call === undefined) {
+      throw new Error("Expected one GeometryOS layout request.");
+    }
+    const [url, init] = call;
+    const requestedUrl =
+      typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+    expect(requestedUrl).toBe("https://geometry.example.test/api/v1/layout");
+    if (typeof init?.body !== "string") {
+      throw new TypeError("Expected a JSON string layout request body.");
+    }
+    expect(JSON.parse(init.body)).toEqual(layoutSuccessRequest);
+    expect(result).toMatchObject({
+      kind: "success",
+      requestId,
+      layoutDocument: {
+        schemaVersion: "0.1.0",
+        sourceGirSchemaVersion: "0.2.0",
+        points: { A: { x: 120, y: 40 } },
+      },
+    });
+  });
+
+  it("keeps unsupported and invalid layout outcomes typed", async () => {
+    const unsupportedResult = await client(
+      resolvedFetch(layoutUnsupported),
+    ).startLayout({
+      canonicalGir: layoutUnsupportedRequest,
+    }).result;
+    expect(unsupportedResult.kind).toBe("unsupported");
+    if (unsupportedResult.kind === "unsupported") {
+      expect(
+        unsupportedResult.diagnostics.some(
+          (item) => item.code === "layout_requires_triangle",
+        ),
+      ).toBe(true);
+    }
+
+    await expect(
+      client(resolvedFetch(layoutInvalid)).startLayout({
+        canonicalGir: layoutInvalidRequest,
+      }).result,
+    ).resolves.toMatchObject({
+      kind: "invalid-scene",
+      failureStage: "draft_validation",
+    });
+  });
+
+  it("rejects invalid layout GIR before network access", async () => {
+    const fetchMock = vi.fn<typeof globalThis.fetch>();
+    await expect(
+      client(fetchMock).startLayout({
+        canonicalGir: { schema_version: "0.3.0" },
+      }).result,
+    ).resolves.toMatchObject({
+      kind: "invalid-request",
+      code: "geometryos.layout-request-invalid",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("keeps clarification separate from failures", async () => {

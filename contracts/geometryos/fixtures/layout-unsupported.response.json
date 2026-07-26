@@ -1,0 +1,41 @@
+{
+  "canonical_gir": {
+    "constraints": [],
+    "construction_steps": [],
+    "metadata": {},
+    "objects": [
+      {
+        "id": "A",
+        "label": "A",
+        "type": "point"
+      }
+    ],
+    "scene_type": "2d",
+    "schema_version": "0.2.0"
+  },
+  "diagnostics": [
+    {
+      "code": "layout_point_unplaced",
+      "constraint_ids": [],
+      "message": "Layout 0.1 cannot derive a position for this point.",
+      "object_ids": [
+        "A"
+      ]
+    },
+    {
+      "code": "layout_requires_triangle",
+      "constraint_ids": [],
+      "message": "Layout 0.1 requires exactly one triangle object.",
+      "object_ids": []
+    }
+  ],
+  "failure_stage": null,
+  "layout": null,
+  "layout_schema_version": "0.1.0",
+  "status": "unsupported",
+  "validation_report": {
+    "is_valid": true,
+    "issues": [],
+    "warnings": []
+  }
+}

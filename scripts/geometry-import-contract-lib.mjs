@@ -41,6 +41,17 @@ const allowedCoreBindings = new Set([
   "boardObjectId",
   "groupId",
 ]);
+const layoutImportCoreBindings = new Set([
+  "BoardGroup",
+  "BoardObject",
+  "CommandMetadata",
+  "GeometryImportRecord",
+  "GeometryOsLayoutDocument",
+  "GeometryOsLayoutResult",
+  "ImportGeometryCommand",
+  "Vec2",
+  "identityTransform",
+]);
 const forbiddenCalls = new Set([
   "Date.now",
   "Math.random",
@@ -170,8 +181,12 @@ function verifyPureModuleBoundary() {
         continue;
       }
       if (target === corePublic) {
+        const allowedBindings =
+          path.basename(filePath) === "layout-import.ts"
+            ? new Set([...allowedCoreBindings, ...layoutImportCoreBindings])
+            : allowedCoreBindings;
         for (const binding of coreBindings(statement)) {
-          if (!allowedCoreBindings.has(binding)) {
+          if (!allowedBindings.has(binding)) {
             violations.push(`${filePath}: forbidden core binding ${binding}`);
           }
         }
@@ -209,7 +224,10 @@ function verifyPureModuleBoundary() {
       if (
         ts.isIdentifier(node) &&
         forbiddenGlobals.has(node.text) &&
-        !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)
+        !(
+          ts.isPropertyAccessExpression(node.parent) &&
+          node.parent.name === node
+        )
       ) {
         violations.push(`${filePath}: browser global ${node.text}`);
       }
@@ -235,7 +253,6 @@ function hashFile(filePath) {
     .digest("hex");
 }
 
-
 function schemaMemberName(member, sourceFile) {
   if (!ts.isPropertySignature(member) || member.name === undefined) {
     return null;
@@ -251,7 +268,7 @@ function referencedSchemaNames(node, sourceFile) {
   function visit(current) {
     if (ts.isIndexedAccessTypeNode(current)) {
       const text = current.getText(sourceFile);
-      const match = text.match(/^components\[\"schemas\"\]\[\"([^\"]+)\"\]$/);
+      const match = text.match(/^components\["schemas"\]\["([^"]+)"\]$/);
       if (match?.[1] !== undefined) {
         names.add(match[1]);
       }
@@ -322,9 +339,7 @@ function generateGirTypes(source) {
     .sort()
     .map((name) => {
       const member = membersByName.get(name);
-      const lines = source
-        .slice(member.getFullStart(), member.end)
-        .split("\n");
+      const lines = source.slice(member.getFullStart(), member.end).split("\n");
       while (lines.length > 0 && lines[0].trim().length === 0) {
         lines.shift();
       }
@@ -334,10 +349,7 @@ function generateGirTypes(source) {
           .map((line) => line.match(/^ */)?.[0].length ?? 0),
       );
       return lines
-        .map(
-          (line) =>
-            `    ${line.slice(Math.min(baseline, line.length))}`,
-        )
+        .map((line) => `    ${line.slice(Math.min(baseline, line.length))}`)
         .join("\n");
     })
     .join("\n");
@@ -395,9 +407,7 @@ function extractGirValidator(source) {
       statement.name?.text === functionName,
   );
   if (declaration === undefined) {
-    throw new Error(
-      `Generated validator function is missing: ${functionName}`,
-    );
+    throw new Error(`Generated validator function is missing: ${functionName}`);
   }
   const evaluated = sourceFile.statements.find((statement) => {
     if (!ts.isExpressionStatement(statement)) {
@@ -485,7 +495,9 @@ async function verifyRuntime() {
     ),
   );
   if (!module.validateGirScene(response.gir)) {
-    throw new Error("Generated GIR validator rejected the pinned success fixture.");
+    throw new Error(
+      "Generated GIR validator rejected the pinned success fixture.",
+    );
   }
   const invalid = { ...response.gir };
   delete invalid.objects;
@@ -493,7 +505,9 @@ async function verifyRuntime() {
     throw new Error("Generated GIR validator accepted an invalid scene.");
   }
   if (!Array.isArray(module.validateGirScene.errors)) {
-    throw new Error("Generated GIR validator did not expose validation errors.");
+    throw new Error(
+      "Generated GIR validator did not expose validation errors.",
+    );
   }
 }
 

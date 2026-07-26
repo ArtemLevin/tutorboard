@@ -3,9 +3,9 @@ export const geometryOsContractMetadata = {
   consumerContract: "tutorboard/v1",
   girSchemaVersion: "0.2.0",
   openApiSha256:
-    "4507f5c2da15e70a5836198e4d9af709f382f6f73e766b10e7a78e7a1d12e549",
+    "eda2e6a4ab1e6e96b0c3561574695637a0be060ff68ba6a0e7b5432e989d94e9",
   openApiVersion: "1.0.0",
   serviceVersion: "0.2.0",
-  sourceCommit: "49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c",
+  sourceCommit: "fe5ece9f7138044d638114907fe9aaecfd14e924",
   sourceRepository: "ArtemLevin/geometryos",
 } as const;

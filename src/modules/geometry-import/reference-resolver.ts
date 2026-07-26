@@ -74,14 +74,7 @@ function requireObject(
     );
     return;
   }
-  addReference(
-    references,
-    sourceCategory,
-    sourceId,
-    role,
-    "object",
-    targetId,
-  );
+  addReference(references, sourceCategory, sourceId, role, "object", targetId);
 }
 
 function requireConstraint(
@@ -216,7 +209,12 @@ function resolveObjectReferences(
         }
         break;
       case "triangle":
-        requireDistinct(value.vertices, diagnostics, value.id, `${base}/vertices`);
+        requireDistinct(
+          value.vertices,
+          diagnostics,
+          value.id,
+          `${base}/vertices`,
+        );
         value.vertices.forEach((targetId, targetIndex) =>
           requireObject(
             indexes,
@@ -318,7 +316,12 @@ function resolveConstraintReferences(
         break;
       case "parallel":
       case "perpendicular":
-        requireDistinct(value.objects, diagnostics, value.id, `${base}/objects`);
+        requireDistinct(
+          value.objects,
+          diagnostics,
+          value.id,
+          `${base}/objects`,
+        );
         value.objects.forEach((targetId, targetIndex) =>
           requireObject(
             indexes,
@@ -334,7 +337,12 @@ function resolveConstraintReferences(
         );
         break;
       case "equal_length":
-        requireDistinct(value.objects, diagnostics, value.id, `${base}/objects`);
+        requireDistinct(
+          value.objects,
+          diagnostics,
+          value.id,
+          `${base}/objects`,
+        );
         value.objects.forEach((targetId, targetIndex) =>
           requireObject(
             indexes,
@@ -355,7 +363,12 @@ function resolveConstraintReferences(
         break;
       case "intersection":
         object("point", value.point, pointKinds);
-        requireDistinct(value.objects, diagnostics, value.id, `${base}/objects`);
+        requireDistinct(
+          value.objects,
+          diagnostics,
+          value.id,
+          `${base}/objects`,
+        );
         value.objects.forEach((targetId, targetIndex) =>
           requireObject(
             indexes,
@@ -372,7 +385,11 @@ function resolveConstraintReferences(
         break;
       case "altitude":
         object("from_point", value.from_point, pointKinds);
-        object("to_object", value.to_object, new Set<ObjectKind>(["line", "segment"]));
+        object(
+          "to_object",
+          value.to_object,
+          new Set<ObjectKind>(["line", "segment"]),
+        );
         object("foot", value.foot, pointKinds);
         object("segment", value.segment, segmentKinds);
         break;
@@ -451,4 +468,3 @@ export function resolveReferences(
       compareString(left.targetId, right.targetId),
   );
 }
-

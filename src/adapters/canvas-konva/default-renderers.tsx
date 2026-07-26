@@ -64,6 +64,7 @@ const renderers: readonly KonvaObjectRenderer[] = [
         <Line
           {...commonShapeProps(line)}
           {...strokeProps(line)}
+          {...(line.lineStyle === "dashed" ? { dash: [10, 6] } : {})}
           lineCap="round"
           points={[0, 0, line.end.x, line.end.y]}
         />

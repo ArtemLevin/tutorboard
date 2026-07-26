@@ -15,6 +15,7 @@ import type {
   AddObjectsCommand,
   BoardCommand,
   DeleteObjectsCommand,
+  ImportGeometryCommand,
   MoveGroupCommand,
   MoveObjectsCommand,
   MoveSelectionCommand,
@@ -28,6 +29,7 @@ export type CommandErrorCode =
   | "command.empty"
   | "command.group-exists"
   | "command.group-missing"
+  | "command.import-exists"
   | "command.imported-object-delete-unsupported"
   | "command.imported-object-move-unsupported"
   | "command.imported-group-move-unsupported"
@@ -209,6 +211,97 @@ function addGroup(
       [command.group.id]: command.group,
     },
     objects: attachObjectsToGroup(document, command.group),
+  });
+}
+
+function sameIds(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === right.length &&
+    new Set(left).size === left.length &&
+    new Set(right).size === right.length &&
+    left.every((id) => right.includes(id))
+  );
+}
+
+function importGeometry(
+  document: BoardDocument,
+  command: ImportGeometryCommand,
+): CommandResult {
+  if (command.objects.length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Geometry import requires at least one board object.",
+    );
+  }
+  if (
+    ownValue(document.geometryImports, command.importRecord.id) !== undefined
+  ) {
+    return failure(
+      document,
+      "command.import-exists",
+      "Geometry import ID already exists.",
+    );
+  }
+  if (ownValue(document.groups, command.group.id) !== undefined) {
+    return failure(
+      document,
+      "command.group-exists",
+      "Geometry import root group already exists.",
+    );
+  }
+
+  const objectIds = command.objects.map((object) => object.id);
+  if (hasDuplicates(objectIds)) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "Geometry import contains duplicate board object IDs.",
+    );
+  }
+  if (objectIds.some((id) => ownValue(document.objects, id) !== undefined)) {
+    return failure(
+      document,
+      "command.object-exists",
+      "Geometry import collides with an existing board object.",
+    );
+  }
+  if (
+    command.importRecord.rootGroupId !== command.group.id ||
+    !sameIds(command.group.objectIds, objectIds) ||
+    !sameIds(command.importRecord.boardObjectIds, objectIds) ||
+    command.objects.some(
+      (object) =>
+        object.groupId !== command.group.id ||
+        object.source.kind !== "geometryos" ||
+        object.source.importId !== command.importRecord.id,
+    )
+  ) {
+    return failure(
+      document,
+      "command.invalid",
+      "Geometry import record, group and objects are inconsistent.",
+    );
+  }
+
+  const objects = { ...document.objects };
+  for (const object of command.objects) {
+    objects[object.id] = object;
+  }
+
+  return accept(document, {
+    ...document,
+    updatedAt: command.timestamp,
+    objects,
+    order: [...document.order, ...objectIds],
+    groups: {
+      ...document.groups,
+      [command.group.id]: command.group,
+    },
+    geometryImports: {
+      ...document.geometryImports,
+      [command.importRecord.id]: command.importRecord,
+    },
   });
 }
 
@@ -709,6 +802,8 @@ export function reduceBoardDocument(
       return addObjects(document, command);
     case "core.groups.add":
       return addGroup(document, command);
+    case "core.geometry.import":
+      return importGeometry(document, command);
     case "core.objects.move":
       return moveObjects(document, command);
     case "core.groups.move":

@@ -18,6 +18,9 @@ export type GeometryImportDiagnosticCode =
   | "geometry-import.explicit-segment-reused"
   | "geometry-import.generated-id-too-long"
   | "geometry-import.invalid-gir"
+  | "geometry-import.layout-element-missing"
+  | "geometry-import.layout-reference-missing"
+  | "geometry-import.layout-source-mismatch"
   | "geometry-import.missing-reference"
   | "geometry-import.no-supported-visual-entities"
   | "geometry-import.reference-kind-mismatch"
@@ -37,6 +40,9 @@ export type GeometryImportFailureCode = Extract<
   | "geometry-import.duplicate-object-id"
   | "geometry-import.generated-id-too-long"
   | "geometry-import.invalid-gir"
+  | "geometry-import.layout-element-missing"
+  | "geometry-import.layout-reference-missing"
+  | "geometry-import.layout-source-mismatch"
   | "geometry-import.missing-reference"
   | "geometry-import.no-supported-visual-entities"
   | "geometry-import.reference-kind-mismatch"
@@ -92,9 +98,7 @@ export interface LabelSemanticCandidate {
 }
 
 export type GeometrySemanticCandidate =
-  | LabelSemanticCandidate
-  | PointSemanticCandidate
-  | SegmentSemanticCandidate;
+  LabelSemanticCandidate | PointSemanticCandidate | SegmentSemanticCandidate;
 
 export interface GeometrySemanticProvenance {
   readonly primaryGirEntityId: string;

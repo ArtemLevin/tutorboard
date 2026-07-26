@@ -24,6 +24,61 @@ export interface GeometryOsNotice {
   readonly message: string;
 }
 
+export interface GeometryOsLayoutDiagnostic {
+  readonly code: string;
+  readonly constraintIds: readonly string[];
+  readonly message: string;
+  readonly objectIds: readonly string[];
+}
+
+export interface GeometryOsLayoutSource {
+  readonly index: number | null;
+  readonly objectId: string;
+  readonly role: "auto_label" | "gir_object" | "triangle_edge";
+}
+
+export interface GeometryOsLayoutPoint {
+  readonly id: string;
+  readonly label: string | null;
+  readonly source: GeometryOsLayoutSource;
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface GeometryOsLayoutSegment {
+  readonly end: string;
+  readonly id: string;
+  readonly source: GeometryOsLayoutSource;
+  readonly start: string;
+  readonly style: "dashed" | "solid";
+}
+
+export interface GeometryOsLayoutLabel {
+  readonly dx: number;
+  readonly dy: number;
+  readonly id: string;
+  readonly source: GeometryOsLayoutSource;
+  readonly target: string;
+  readonly text: string;
+}
+
+export interface GeometryOsLayoutDocument {
+  readonly coordinateSpace: {
+    readonly origin: "top_left";
+    readonly unit: "abstract";
+    readonly xDirection: "right";
+    readonly yDirection: "down";
+  };
+  readonly height: number;
+  readonly labels: readonly GeometryOsLayoutLabel[];
+  readonly points: Readonly<Record<string, GeometryOsLayoutPoint>>;
+  readonly schemaVersion: "0.1.0";
+  readonly segments: readonly GeometryOsLayoutSegment[];
+  readonly sourceGirSchemaVersion: "0.2.0";
+  readonly sourceGirSha256: string;
+  readonly width: number;
+}
+
 export interface GeometryOsValidationIssue {
   readonly code: string;
   readonly message: string;
@@ -53,6 +108,7 @@ export type GeometryOsIncompatibleContractCode =
   | "geometryos.response-schema-mismatch"
   | "geometryos.response-too-large"
   | "geometryos.unsupported-gir-version"
+  | "geometryos.unsupported-layout-version"
   | "geometryos.wrong-content-type";
 
 export type GeometryOsGenerateResult =
@@ -127,14 +183,67 @@ export interface GeometryOsGenerateInput {
   readonly prompt: string;
 }
 
+type GeometryOsSharedFailureResult = Extract<
+  GeometryOsGenerateResult,
+  | { readonly kind: "cancelled" }
+  | { readonly kind: "incompatible-contract" }
+  | { readonly kind: "problem" }
+  | { readonly kind: "transport-failure" }
+>;
+
+export type GeometryOsLayoutResult =
+  | {
+      readonly canonicalGir: JsonValue;
+      readonly diagnostics: readonly GeometryOsLayoutDiagnostic[];
+      readonly kind: "success";
+      readonly layoutDocument: GeometryOsLayoutDocument;
+      readonly rawResponse: JsonValue;
+      readonly requestId: GeometryOsRequestId;
+      readonly validationReport: GeometryOsValidationReport;
+    }
+  | {
+      readonly canonicalGir: JsonValue;
+      readonly diagnostics: readonly GeometryOsLayoutDiagnostic[];
+      readonly kind: "unsupported";
+      readonly rawResponse: JsonValue;
+      readonly requestId: GeometryOsRequestId;
+      readonly validationReport: GeometryOsValidationReport;
+    }
+  | {
+      readonly canonicalGir: JsonValue;
+      readonly diagnostics: readonly GeometryOsLayoutDiagnostic[];
+      readonly failureStage: "draft_validation" | "normalized_validation";
+      readonly kind: "invalid-scene";
+      readonly rawResponse: JsonValue;
+      readonly requestId: GeometryOsRequestId;
+      readonly validationReport: GeometryOsValidationReport;
+    }
+  | GeometryOsSharedFailureResult
+  | {
+      readonly code: "geometryos.layout-request-invalid";
+      readonly kind: "invalid-request";
+      readonly requestId: GeometryOsRequestId;
+    };
+
+export interface GeometryOsLayoutInput {
+  readonly canonicalGir: JsonValue;
+}
+
 export interface GeometryOsGenerateTask {
   readonly requestId: GeometryOsRequestId;
   readonly result: Promise<GeometryOsGenerateResult>;
   readonly cancel: () => void;
 }
 
+export interface GeometryOsLayoutTask {
+  readonly cancel: () => void;
+  readonly requestId: GeometryOsRequestId;
+  readonly result: Promise<GeometryOsLayoutResult>;
+}
+
 export interface GeometryOsClient {
   readonly startGenerate: (
     input: GeometryOsGenerateInput,
   ) => GeometryOsGenerateTask;
+  readonly startLayout: (input: GeometryOsLayoutInput) => GeometryOsLayoutTask;
 }

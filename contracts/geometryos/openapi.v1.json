@@ -182,6 +182,41 @@
         "title": "ApiAmbiguity",
         "type": "object"
       },
+      "ApiLayoutDiagnostic": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "constraint_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Constraint Ids",
+            "type": "array"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "object_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Object Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ApiLayoutDiagnostic",
+        "type": "object"
+      },
       "ApiWarning": {
         "additionalProperties": false,
         "properties": {
@@ -1166,6 +1201,404 @@
           "target"
         ],
         "title": "LabelObject",
+        "type": "object"
+      },
+      "LayoutCoordinateSpace": {
+        "additionalProperties": false,
+        "properties": {
+          "origin": {
+            "const": "top_left",
+            "title": "Origin",
+            "type": "string"
+          },
+          "unit": {
+            "const": "abstract",
+            "title": "Unit",
+            "type": "string"
+          },
+          "x_direction": {
+            "const": "right",
+            "title": "X Direction",
+            "type": "string"
+          },
+          "y_direction": {
+            "const": "down",
+            "title": "Y Direction",
+            "type": "string"
+          }
+        },
+        "required": [
+          "origin",
+          "x_direction",
+          "y_direction",
+          "unit"
+        ],
+        "title": "LayoutCoordinateSpace",
+        "type": "object"
+      },
+      "LayoutDocument": {
+        "$id": "https://geometryos.dev/schemas/layout-0.1.schema.json",
+        "additionalProperties": false,
+        "properties": {
+          "coordinate_space": {
+            "$ref": "#/components/schemas/LayoutCoordinateSpace"
+          },
+          "height": {
+            "default": 220,
+            "title": "Height",
+            "type": "number"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutLabel"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "points": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LayoutPoint"
+            },
+            "title": "Points",
+            "type": "object"
+          },
+          "schema_version": {
+            "const": "0.1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutSegment"
+            },
+            "title": "Segments",
+            "type": "array"
+          },
+          "source_gir_schema_version": {
+            "const": "0.2.0",
+            "title": "Source Gir Schema Version",
+            "type": "string"
+          },
+          "source_gir_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Gir Sha256",
+            "type": "string"
+          },
+          "width": {
+            "default": 280,
+            "title": "Width",
+            "type": "number"
+          }
+        },
+        "required": [
+          "points",
+          "segments",
+          "schema_version",
+          "source_gir_schema_version",
+          "source_gir_sha256",
+          "coordinate_space"
+        ],
+        "title": "LayoutDocument",
+        "type": "object",
+        "x-layout-schema-version": "0.1.0"
+      },
+      "LayoutInvalidSceneResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_gir": {
+            "$ref": "#/components/schemas/GirScene"
+          },
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/ApiLayoutDiagnostic"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "failure_stage": {
+            "enum": [
+              "draft_validation",
+              "normalized_validation"
+            ],
+            "title": "Failure Stage",
+            "type": "string"
+          },
+          "layout": {
+            "title": "Layout",
+            "type": "null"
+          },
+          "layout_schema_version": {
+            "const": "0.1.0",
+            "default": "0.1.0",
+            "title": "Layout Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "const": "invalid_scene",
+            "title": "Status",
+            "type": "string"
+          },
+          "validation_report": {
+            "$ref": "#/components/schemas/ValidationReport"
+          }
+        },
+        "required": [
+          "status",
+          "canonical_gir",
+          "validation_report",
+          "failure_stage"
+        ],
+        "title": "LayoutInvalidSceneResponse",
+        "type": "object"
+      },
+      "LayoutLabel": {
+        "additionalProperties": false,
+        "properties": {
+          "dx": {
+            "default": 6,
+            "title": "Dx",
+            "type": "number"
+          },
+          "dy": {
+            "default": -6,
+            "title": "Dy",
+            "type": "number"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/LayoutSource"
+          },
+          "target": {
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "target",
+          "text",
+          "source"
+        ],
+        "title": "LayoutLabel",
+        "type": "object"
+      },
+      "LayoutPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "source": {
+            "$ref": "#/components/schemas/LayoutSource"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "x",
+          "y",
+          "source"
+        ],
+        "title": "LayoutPoint",
+        "type": "object"
+      },
+      "LayoutSegment": {
+        "additionalProperties": false,
+        "properties": {
+          "end": {
+            "minLength": 1,
+            "title": "End",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/LayoutSource"
+          },
+          "start": {
+            "minLength": 1,
+            "title": "Start",
+            "type": "string"
+          },
+          "style": {
+            "default": "solid",
+            "enum": [
+              "solid",
+              "dashed"
+            ],
+            "title": "Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "start",
+          "end",
+          "source"
+        ],
+        "title": "LayoutSegment",
+        "type": "object"
+      },
+      "LayoutSource": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index"
+          },
+          "object_id": {
+            "minLength": 1,
+            "title": "Object Id",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/LayoutSourceRole"
+          }
+        },
+        "required": [
+          "object_id",
+          "role"
+        ],
+        "title": "LayoutSource",
+        "type": "object"
+      },
+      "LayoutSourceRole": {
+        "enum": [
+          "gir_object",
+          "triangle_edge",
+          "auto_label"
+        ],
+        "title": "LayoutSourceRole",
+        "type": "string"
+      },
+      "LayoutSuccessResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_gir": {
+            "$ref": "#/components/schemas/GirScene"
+          },
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/ApiLayoutDiagnostic"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "failure_stage": {
+            "title": "Failure Stage",
+            "type": "null"
+          },
+          "layout": {
+            "$ref": "#/components/schemas/LayoutDocument"
+          },
+          "layout_schema_version": {
+            "const": "0.1.0",
+            "default": "0.1.0",
+            "title": "Layout Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          },
+          "validation_report": {
+            "$ref": "#/components/schemas/ValidationReport"
+          }
+        },
+        "required": [
+          "status",
+          "canonical_gir",
+          "validation_report",
+          "layout"
+        ],
+        "title": "LayoutSuccessResponse",
+        "type": "object"
+      },
+      "LayoutUnsupportedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_gir": {
+            "$ref": "#/components/schemas/GirScene"
+          },
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/ApiLayoutDiagnostic"
+            },
+            "minItems": 1,
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "failure_stage": {
+            "title": "Failure Stage",
+            "type": "null"
+          },
+          "layout": {
+            "title": "Layout",
+            "type": "null"
+          },
+          "layout_schema_version": {
+            "const": "0.1.0",
+            "default": "0.1.0",
+            "title": "Layout Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "const": "unsupported",
+            "title": "Status",
+            "type": "string"
+          },
+          "validation_report": {
+            "$ref": "#/components/schemas/ValidationReport"
+          }
+        },
+        "required": [
+          "status",
+          "canonical_gir",
+          "validation_report",
+          "diagnostics"
+        ],
+        "title": "LayoutUnsupportedResponse",
         "type": "object"
       },
       "LineObject": {
@@ -2183,6 +2616,127 @@
         ]
       }
     },
+    "/api/v1/layout": {
+      "post": {
+        "description": "Validate and normalize canonical GIR, then return Layout Document 0.1. Semantically invalid and unsupported scenes are typed HTTP 200 domain outcomes.",
+        "operationId": "geometryos_v1_layout",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GeometryOsRequestId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GirScene"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "discriminator": {
+                    "mapping": {
+                      "invalid_scene": "#/components/schemas/LayoutInvalidSceneResponse",
+                      "success": "#/components/schemas/LayoutSuccessResponse",
+                      "unsupported": "#/components/schemas/LayoutUnsupportedResponse"
+                    },
+                    "propertyName": "status"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/LayoutSuccessResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LayoutUnsupportedResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LayoutInvalidSceneResponse"
+                    }
+                  ],
+                  "title": "Response Geometryos V1 Layout"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Request or GIR validation failed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected internal error.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Service is alive but not ready to accept application traffic.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Operation exceeded its configured time limit.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/GeometryOsRequestId"
+              }
+            }
+          }
+        },
+        "summary": "Create a deterministic Layout Document",
+        "tags": [
+          "Layout"
+        ]
+      }
+    },
     "/api/v1/render/svg": {
       "post": {
         "description": "Validate and normalize a GIR scene, then return deterministic SVG content.",
@@ -2584,6 +3138,10 @@
     {
       "description": "Validate GIR structure and semantics.",
       "name": "Validation"
+    },
+    {
+      "description": "Create a deterministic Layout Document from validated GIR.",
+      "name": "Layout"
     },
     {
       "description": "Render validated canonical GIR.",

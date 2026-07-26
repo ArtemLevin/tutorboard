@@ -171,10 +171,15 @@ function normalizeStandaloneEsm(source) {
 
 function generateValidators(openapi) {
   const components = openapi.components.schemas;
-  const responseSchema =
+  const generateResponseSchema =
     openapi.paths["/api/v1/generate"].post.responses["200"].content[
       "application/json"
     ].schema;
+  const layoutOperation = openapi.paths["/api/v1/layout"].post;
+  const layoutRequestSchema =
+    layoutOperation.requestBody.content["application/json"].schema;
+  const layoutResponseSchema =
+    layoutOperation.responses["200"].content["application/json"].schema;
   const ajv = new Ajv2020({
     allErrors: true,
     allowUnionTypes: true,
@@ -185,6 +190,8 @@ function generateValidators(openapi) {
   const schemaIds = {
     validateGenerateRequest: "urn:tutorboard:geometryos:generate-request",
     validateGenerateResponse: "urn:tutorboard:geometryos:generate-response",
+    validateLayoutRequest: "urn:tutorboard:geometryos:layout-request",
+    validateLayoutResponse: "urn:tutorboard:geometryos:layout-response",
     validateProblemDetail: "urn:tutorboard:geometryos:problem-detail",
   };
   ajv.addSchema(
@@ -196,9 +203,23 @@ function generateValidators(openapi) {
   );
   ajv.addSchema(
     bundledSchema(
-      responseSchema,
+      generateResponseSchema,
       components,
       schemaIds.validateGenerateResponse,
+    ),
+  );
+  ajv.addSchema(
+    bundledSchema(
+      layoutRequestSchema,
+      components,
+      schemaIds.validateLayoutRequest,
+    ),
+  );
+  ajv.addSchema(
+    bundledSchema(
+      layoutResponseSchema,
+      components,
+      schemaIds.validateLayoutResponse,
     ),
   );
   ajv.addSchema(
@@ -268,7 +289,7 @@ export function generateContract(outputRoot = repositoryRoot) {
   );
   fs.writeFileSync(
     path.join(generatedRoot, "geometryos.validators.d.mts"),
-    `export interface GeneratedValidationError {\n  readonly instancePath: string;\n  readonly keyword: string;\n  readonly message?: string;\n  readonly params: unknown;\n  readonly schemaPath: string;\n}\n\nexport interface GeneratedValidator {\n  (value: unknown): boolean;\n  readonly errors?: readonly GeneratedValidationError[] | null;\n}\n\nexport const validateGenerateRequest: GeneratedValidator;\nexport const validateGenerateResponse: GeneratedValidator;\nexport const validateProblemDetail: GeneratedValidator;\n`,
+    `export interface GeneratedValidationError {\n  readonly instancePath: string;\n  readonly keyword: string;\n  readonly message?: string;\n  readonly params: unknown;\n  readonly schemaPath: string;\n}\n\nexport interface GeneratedValidator {\n  (value: unknown): boolean;\n  readonly errors?: readonly GeneratedValidationError[] | null;\n}\n\nexport const validateGenerateRequest: GeneratedValidator;\nexport const validateGenerateResponse: GeneratedValidator;\nexport const validateLayoutRequest: GeneratedValidator;\nexport const validateLayoutResponse: GeneratedValidator;\nexport const validateProblemDetail: GeneratedValidator;\n`,
   );
   writeMetadata(outputRoot, manifest);
   const prettier = path.join(

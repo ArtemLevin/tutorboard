@@ -27,9 +27,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function validateCanonicalGir(
-  value: JsonValue,
-): CanonicalGirValidation {
+export function validateCanonicalGir(value: JsonValue): CanonicalGirValidation {
   if (isRecord(value) && typeof value.schema_version === "string") {
     if (value.schema_version !== "0.2.0") {
       return {
@@ -40,9 +38,11 @@ export function validateCanonicalGir(
   }
 
   if (!validateGirScene(value)) {
-    const issuePaths = [...new Set(
-      (validateGirScene.errors ?? []).map((error) => error.instancePath),
-    )].sort();
+    const issuePaths = [
+      ...new Set(
+        (validateGirScene.errors ?? []).map((error) => error.instancePath),
+      ),
+    ].sort();
     return { status: "invalid", issuePaths };
   }
 
