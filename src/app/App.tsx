@@ -11,13 +11,13 @@ import {
   boardDocumentSchemaVersion,
   boardObjectId,
   commandId,
+  createBoardSceneSelector,
   createEmptyBoardDocument,
   documentId,
   geometryImportId,
   groupId,
   reduceBoardDocument,
   screenToWorld,
-  selectBoardScene,
   type BoardDocument,
   type BoardCommand,
   type BoardObjectId,
@@ -197,7 +197,11 @@ export function App({
     [],
   );
   const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);
-  const scene = useMemo(() => selectBoardScene(document), [document]);
+  const sceneSelector = useMemo(() => createBoardSceneSelector(), []);
+  const scene = useMemo(
+    () => sceneSelector(document),
+    [document, sceneSelector],
+  );
   const layers = useMemo(() => selectLayers(document), [document]);
   const drawingPreview = useMemo(
     () => getDrawingPreview(drawingState),

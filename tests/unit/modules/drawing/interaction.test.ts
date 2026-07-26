@@ -14,6 +14,7 @@ import {
   createAddDrawingObjectCommand,
   getDrawingPreview,
   reduceDrawingInteraction,
+  simplifyStroke,
   type DrawingInteractionState,
   type DrawingToolId,
   type UserDrawingObject,
@@ -46,6 +47,18 @@ function draw(
 }
 
 describe("drawing interaction state machine", () => {
+  it("simplifies dense strokes while retaining endpoints and corners", () => {
+    const points = Array.from({ length: 1_001 }, (_value, index) => ({
+      x: index,
+      y: index === 500 ? 40 : 0,
+    }));
+    const simplified = simplifyStroke(points, 0.75);
+    expect(simplified.length).toBeLessThan(10);
+    expect(simplified[0]).toBe(points[0]);
+    expect(simplified.at(-1)).toBe(points.at(-1));
+    expect(simplified).toContain(points[500]);
+  });
+
   it("samples pen points in world space and completes one object", () => {
     const started = reduceDrawingInteraction(idle, {
       kind: "start",

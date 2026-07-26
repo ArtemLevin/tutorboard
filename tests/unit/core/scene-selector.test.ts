@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  batchBoardRenderItems,
+  createBoardSceneSelector,
   groupId,
   readBoardDocument,
   selectBoardScene,
+  selectVisibleBoardItems,
 } from "../../../src/core/public";
 import { loadBoardFixture, loadGeometryImportFixture } from "./helpers";
 
@@ -51,5 +54,53 @@ describe("board scene selector", () => {
       expect.objectContaining({ translation: { x: 320, y: 180 } }),
       expect.objectContaining({ translation: { x: 8, y: -3 } }),
     ]);
+  });
+
+  it("reuses unchanged render items and bounds its cache to the current document", () => {
+    const read = readBoardDocument(loadBoardFixture());
+    expect(read.status).toBe("ok");
+    if (read.status !== "ok") {
+      return;
+    }
+    const selector = createBoardSceneSelector();
+    const first = selector(read.document);
+    const changed = {
+      ...read.document,
+      title: "Changed without touching objects",
+    };
+    const second = selector(changed);
+    expect(second).not.toBe(first);
+    expect(second.items[0]).toBe(first.items[0]);
+    expect(selector.cacheSize()).toBe(changed.order.length);
+
+    const empty = {
+      ...changed,
+      objects: {},
+      order: [],
+    };
+    expect(selector(empty).items).toEqual([]);
+    expect(selector.cacheSize()).toBe(0);
+    selector.reset();
+    expect(selector.cacheSize()).toBe(0);
+  });
+
+  it("culls hidden and offscreen items before stable render batching", () => {
+    const read = readBoardDocument(loadBoardFixture());
+    expect(read.status).toBe("ok");
+    if (read.status !== "ok") {
+      return;
+    }
+    const scene = selectBoardScene(read.document);
+    const visible = selectVisibleBoardItems(
+      scene.items,
+      { offset: { x: 0, y: 0 }, zoom: 1 },
+      { height: 100, overscan: 0, width: 100 },
+    );
+    expect(visible.length).toBeLessThanOrEqual(scene.items.length);
+    expect(visible.every(({ object }) => object.visible)).toBe(true);
+    expect(batchBoardRenderItems(scene.items, 1)).toHaveLength(
+      scene.items.length,
+    );
+    expect(() => batchBoardRenderItems(scene.items, 0)).toThrow(RangeError);
   });
 });

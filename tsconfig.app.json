@@ -21,5 +21,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["src", "tests/architecture", "tests/contracts", "tests/unit"]
+  "include": [
+    "src",
+    "tests/architecture",
+    "tests/contracts",
+    "tests/performance",
+    "tests/unit"
+  ]
 }

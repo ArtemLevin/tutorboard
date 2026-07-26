@@ -92,9 +92,14 @@ export {
   type CommandResult,
 } from "./board/commands/reducer";
 export {
+  batchBoardRenderItems,
+  createBoardSceneSelector,
   selectBoardScene,
   selectGroupObjects,
   selectOrderedObjects,
+  selectVisibleBoardItems,
+  type BoardSceneSelector,
+  type BoardViewportSize,
   type BoardRenderItem,
   type BoardSceneReadModel,
 } from "./board/selectors";
