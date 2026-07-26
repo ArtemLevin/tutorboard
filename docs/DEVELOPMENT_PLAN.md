@@ -361,7 +361,6 @@ GIR → Board adapter
 - add geometry import command;
 - center in current viewport;
 - automatic selection;
-- group movement;
 - autosave/reload;
 - request diagnostics.
 
@@ -372,9 +371,12 @@ E2E proves:
 1. prompt entered;
 2. GeometryOS fixture/live response received;
 3. A/B/C/H objects created;
-4. group moved;
+4. import autosaved;
 5. page reloaded;
 6. position preserved.
+
+Group movement remains the first acceptance item of PR 2.11 so the vertical
+slice does not bypass the explicit visual-versus-mathematical movement policy.
 
 ## PR 2.11 — Movement experiment
 

@@ -7,12 +7,24 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import generateSuccessJson from "../../contracts/geometryos/fixtures/generate-success.response.json?raw";
+import layoutSuccessJson from "../../contracts/geometryos/fixtures/layout-success.response.json?raw";
 import type {
   BoardStageProps,
   SelectionPointerStartSample,
   WorldPointerSample,
 } from "../adapters/canvas-konva/public";
+import { createGeometryOsHttpClient } from "../adapters/geometryos-http/public";
+import { geometryOsRequestId } from "../core/public";
 import { App } from "./App";
+
+function requestUrl(input: RequestInfo | URL): string {
+  return typeof input === "string"
+    ? input
+    : input instanceof URL
+      ? input.href
+      : input.url;
+}
 
 vi.mock("../adapters/canvas-konva/public", () => ({
   BoardStage: (props: BoardStageProps) => {
@@ -155,5 +167,62 @@ describe("App", () => {
     expect(
       screen.getByRole("complementary", { name: "Выделенные объекты" }),
     ).toBeInTheDocument();
+  });
+
+  it("runs the GeometryOS vertical flow and selects one atomic import", async () => {
+    const generateSuccess = JSON.parse(generateSuccessJson) as unknown;
+    const layoutSuccess = JSON.parse(layoutSuccessJson) as unknown;
+    let sequence = 0;
+    const geometryOsClient = createGeometryOsHttpClient({
+      baseUrl: "https://geometry.example.test",
+      createRequestId: () =>
+        geometryOsRequestId(`tutorboard-app-${++sequence}`),
+      fetch: (input, init) => {
+        const url = requestUrl(input);
+        const requestId = new Headers(init?.headers).get("X-Request-ID");
+        if (requestId === null) {
+          throw new Error("Expected GeometryOS request correlation.");
+        }
+        const body = url.endsWith("/ready")
+          ? {
+              checks: [
+                { name: "lifecycle", status: "pass" },
+                { name: "executor", status: "pass" },
+              ],
+              status: "ready",
+            }
+          : url.endsWith("/generate")
+            ? generateSuccess
+            : layoutSuccess;
+        return Promise.resolve(
+          new Response(JSON.stringify(body), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "X-Request-ID": requestId,
+            },
+          }),
+        );
+      },
+    });
+    render(<App geometryOsClient={geometryOsClient} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Построить" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("geometry-prompt-status")).toHaveTextContent(
+        "Построение добавлено: 12 объектов",
+      ),
+    );
+    expect(screen.getByTestId("object-count")).toHaveTextContent("16 объекта");
+    expect(screen.getByTestId("selection-count")).toHaveTextContent(
+      "12 выбрано",
+    );
+    expect(screen.getByTestId("geometry-import-count")).toHaveTextContent(
+      "1 построений",
+    );
+    expect(screen.getByTestId("geometry-request-id")).toHaveTextContent(
+      "tutorboard-app-3",
+    );
   });
 });

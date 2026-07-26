@@ -45,7 +45,7 @@ BoardDocument
 | Компонент                | Текущее состояние                                                                                                          | Ближайшая поставка                                         |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | GeometryOS               | API v1/GIR `0.2.0`, Layout Document `0.1.0` и стабильный `POST /api/v1/layout` опубликованы                                | Consumer integration hardening                            |
-| TutorBoard               | Pure GIR mapping и атомарный Layout-to-Board import в `BoardDocument 0.2` реализованы                                      | PR 2.10 vertical slice                                    |
+| TutorBoard               | Prompt → readiness → generate → layout → atomic import → autosave/reload vertical slice реализован                         | PR 2.11 movement policy                                   |
 | tutor-assistant-web      | Серверная платформа пользователей, занятий, BBB, evidence, материалов и production-операций                                | Поздняя Phase 4 integration через gateway                  |
 | tutor-assistant          | Desktop recording/transcription application                                                                                | Lesson evidence integration на поздних фазах               |
 | students-26-27           | Репозиторий учебных страниц и опубликованных файлов                                                                        | Consumer lesson artifacts                                  |
@@ -64,7 +64,10 @@ BoardDocument
 - deterministic GIR semantic mapping;
 - Layout-to-Board placement в редактируемые line/ellipse/text objects;
 - единая атомарная `core.geometry.import` command с provenance и persistence
-  round-trip.
+  round-trip;
+- GeometryOS prompt panel с loading, clarification, domain failure, retry,
+  cancellation и request-ID diagnostics;
+- автоматическое центрирование и выделение импортированного построения.
 
 Pinned consumer contract закреплён на GeometryOS commit
 `fe5ece9f7138044d638114907fe9aaecfd14e924`: OpenAPI, GIR schema, Layout
@@ -73,8 +76,7 @@ compile-time DTOs вместе с standalone runtime validators.
 
 ### Критический путь
 
-`TutorBoard 2.10 vertical slice`
-→ `TutorBoard 2.11 movement policy`
+`TutorBoard 2.11 movement policy`
 → `TutorBoard 2.12 Phase 2 report`.
 
 PR 2.9 разделён намеренно и обе его части теперь реализованы:
@@ -589,7 +591,12 @@ GeometryOS: http://localhost:8000
 
 ```text
 VITE_APP_STAGE=development | test | production
+VITE_GEOMETRYOS_BASE_URL=http://localhost:8000
 ```
+
+`VITE_GEOMETRYOS_BASE_URL` используется только для development/spike browser
+flow и не должен содержать credentials, query или fragment. Production route
+через platform gateway остаётся отдельным решением поздней фазы.
 
 ---
 

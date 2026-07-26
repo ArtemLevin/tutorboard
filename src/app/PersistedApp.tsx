@@ -6,6 +6,7 @@ import {
   type BoardDocument,
   type BoardDocumentRepository,
   type DocumentId,
+  type GeometryOsClient,
   type LocalRevisionId,
 } from "../core/public";
 import {
@@ -19,6 +20,7 @@ import { App, createInitialDocument, type AppPersistenceStatus } from "./App";
 const localDocumentId = documentId("document:local-board");
 
 interface PersistedAppProps {
+  readonly geometryOsClient: GeometryOsClient;
   readonly repository: BoardDocumentRepository;
 }
 
@@ -89,6 +91,7 @@ interface WorkspaceProps {
   readonly notice: string | null;
   readonly persistedDocument: BoardDocument | null;
   readonly repository: BoardDocumentRepository;
+  readonly geometryOsClient: GeometryOsClient;
 }
 
 function PersistedWorkspace({
@@ -97,6 +100,7 @@ function PersistedWorkspace({
   notice,
   persistedDocument,
   repository,
+  geometryOsClient,
 }: WorkspaceProps) {
   const [activeDocument, setActiveDocument] = useState(initialDocument);
   const [autosaveState, setAutosaveState] = useState<LocalAutosaveState>({
@@ -156,6 +160,7 @@ function PersistedWorkspace({
 
   return (
     <App
+      geometryOsClient={geometryOsClient}
       initialDocument={activeDocument}
       key={workspaceKey}
       onDocumentChange={handleDocumentChange}
@@ -257,7 +262,10 @@ function RecoveryScreen({
   );
 }
 
-export function PersistedApp({ repository }: PersistedAppProps) {
+export function PersistedApp({
+  geometryOsClient,
+  repository,
+}: PersistedAppProps) {
   const [bootstrap, setBootstrap] = useState<BootstrapState>({
     kind: "loading",
   });
@@ -346,6 +354,7 @@ export function PersistedApp({ repository }: PersistedAppProps) {
     return (
       <PersistedWorkspace
         document={createInitialDocument()}
+        geometryOsClient={geometryOsClient}
         initialRevisionId={null}
         notice={`${bootstrap.code}: ${bootstrap.message}`}
         persistedDocument={null}
@@ -356,6 +365,7 @@ export function PersistedApp({ repository }: PersistedAppProps) {
   return (
     <PersistedWorkspace
       document={bootstrap.document}
+      geometryOsClient={geometryOsClient}
       initialRevisionId={bootstrap.initialRevisionId}
       notice={bootstrap.notice}
       persistedDocument={bootstrap.persistedDocument}

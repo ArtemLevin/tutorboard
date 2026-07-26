@@ -36,6 +36,7 @@ TutorBoard завершил основную инфраструктурную ч
 | PR 2.9A  | завершён | pure GIR semantic plan, deterministic identities, references, mapping и diagnostics                      |
 | G-10/11  | завершён | Layout Document `0.1.0` и стабильный `POST /api/v1/layout` в GeometryOS                                  |
 | PR 2.9B  | завершён | Layout-to-Board placement, editable primitives и атомарный geometry import                               |
+| PR 2.10  | завершён | prompt/readiness/generate/layout/import UI flow, selection и autosave/reload evidence                    |
 
 Текущий stored contract — `BoardDocument 0.2`. Canvas runtime, selection,
 preview и transport state не сериализуются. Canonical GIR хранится отдельно от
@@ -43,11 +44,10 @@ Board objects и не восстанавливается из SVG или пол�
 
 ### 2.2. Подтверждённые блокеры
 
-1. **GeometryOS client ещё не скомпонован с UI.** Generate/layout adapters и
-   атомарный import существуют, но prompt flow, clarification UI и retry
-   orchestration появятся в PR 2.10.
-2. **Общий vertical slice не закрыт.** Цепочка
-   `text → GIR → Layout Document → BoardDocument → canvas` пока не доказана.
+1. **Movement policy ещё не принят.** Построение автоматически выделяется, но
+   group translation и visual overrides остаются заблокированы до PR 2.11.
+2. **Technical Spike report не закрыт.** Нужны movement evidence,
+   change-classification ADR и итоговый Phase 2 report.
 
 ### 2.3. Обязательный execution order
 
@@ -111,10 +111,12 @@ Scope:
   либо document остаётся неизменным;
 - migration только если stored union действительно меняется.
 
-#### TutorBoard PR 2.10 — полный GeometryOS vertical slice
+#### TutorBoard PR 2.10 — полный GeometryOS vertical slice — завершён
 
-Prompt → readiness → generate → layout → import → select → move → autosave →
-reload. Обязательный fixture: «Построй треугольник ABC и высоту AH».
+Prompt → readiness → generate → layout → import → select → autosave → reload.
+Обязательный fixture: «Построй треугольник ABC и высоту AH». Group movement
+остаётся в PR 2.11 согласно ADR-008, чтобы UI orchestration не ослабляла
+принятую semantic/visual policy.
 
 #### TutorBoard PR 2.11 — visual versus mathematical movement
 
@@ -134,8 +136,8 @@ schema/fixtures в release bundle и опубликовав consumer upgrade gui
 
 ### 2.4. Правила параллельной разработки
 
-- PR 2.8.2, 2.9A, GeometryOS G-10/G-11 и PR 2.9B закрыты.
-- Следующий TutorBoard owner — PR 2.10 vertical slice.
+- PR 2.8.2, 2.9A, GeometryOS G-10/G-11, PR 2.9B и PR 2.10 закрыты.
+- Следующий TutorBoard owner — PR 2.11 movement policy.
 - TutorBoard не создаёт общий layout solver и не парсит SVG ради семантики.
 - GeometryOS не хранит BoardDocument, viewport или пользовательские overrides.
 

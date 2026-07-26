@@ -31,6 +31,11 @@ export interface GeometryOsLayoutDiagnostic {
   readonly objectIds: readonly string[];
 }
 
+export interface GeometryOsReadinessCheck {
+  readonly name: string;
+  readonly status: "fail" | "pass";
+}
+
 export interface GeometryOsLayoutSource {
   readonly index: number | null;
   readonly objectId: string;
@@ -191,6 +196,20 @@ type GeometryOsSharedFailureResult = Extract<
   | { readonly kind: "transport-failure" }
 >;
 
+export type GeometryOsReadinessResult =
+  | {
+      readonly checks: readonly GeometryOsReadinessCheck[];
+      readonly kind: "ready";
+      readonly requestId: GeometryOsRequestId;
+    }
+  | {
+      readonly checks: readonly GeometryOsReadinessCheck[];
+      readonly kind: "not-ready";
+      readonly requestId: GeometryOsRequestId;
+      readonly retryable: true;
+    }
+  | GeometryOsSharedFailureResult;
+
 export type GeometryOsLayoutResult =
   | {
       readonly canonicalGir: JsonValue;
@@ -241,7 +260,14 @@ export interface GeometryOsLayoutTask {
   readonly result: Promise<GeometryOsLayoutResult>;
 }
 
+export interface GeometryOsReadinessTask {
+  readonly cancel: () => void;
+  readonly requestId: GeometryOsRequestId;
+  readonly result: Promise<GeometryOsReadinessResult>;
+}
+
 export interface GeometryOsClient {
+  readonly startReadiness: () => GeometryOsReadinessTask;
   readonly startGenerate: (
     input: GeometryOsGenerateInput,
   ) => GeometryOsGenerateTask;

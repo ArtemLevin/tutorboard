@@ -5,6 +5,7 @@ import {
   validateLayoutRequest as generatedValidateLayoutRequest,
   validateLayoutResponse as generatedValidateLayoutResponse,
   validateProblemDetail as generatedValidateProblemDetail,
+  validateReadinessResponse as generatedValidateReadinessResponse,
   type GeneratedValidator,
 } from "./generated/geometryos.validators.mjs";
 
@@ -19,6 +20,7 @@ export type LayoutResponseDto =
   | components["schemas"]["LayoutSuccessResponse"]
   | components["schemas"]["LayoutUnsupportedResponse"];
 export type ProblemDetailDto = components["schemas"]["ProblemDetail"];
+export type ReadinessResponseDto = components["schemas"]["ReadinessResponse"];
 
 function issuePaths(validator: GeneratedValidator): readonly string[] {
   return [
@@ -100,5 +102,20 @@ export function validateProblemDetail(value: unknown):
   return {
     valid: false,
     issuePaths: issuePaths(generatedValidateProblemDetail),
+  };
+}
+
+export function validateReadinessResponse(value: unknown):
+  | { readonly valid: true; readonly value: ReadinessResponseDto }
+  | {
+      readonly valid: false;
+      readonly issuePaths: readonly string[];
+    } {
+  if (generatedValidateReadinessResponse(value)) {
+    return { valid: true, value: value as ReadinessResponseDto };
+  }
+  return {
+    valid: false,
+    issuePaths: issuePaths(generatedValidateReadinessResponse),
   };
 }

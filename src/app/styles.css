@@ -284,6 +284,123 @@ button {
   font-size: 0.72rem;
 }
 
+.geometry-prompt-panel {
+  position: absolute;
+  z-index: 4;
+  bottom: 18px;
+  left: 18px;
+  display: grid;
+  width: min(390px, calc(100% - 36px));
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgb(132 147 153 / 42%);
+  border-radius: 16px;
+  color: #526069;
+  background: rgb(255 255 255 / 95%);
+  box-shadow: 0 16px 40px rgb(37 51 58 / 14%);
+  backdrop-filter: blur(18px);
+  font-size: 0.72rem;
+}
+
+.geometry-prompt-panel form,
+.geometry-prompt-panel label,
+.geometry-prompt-status {
+  display: grid;
+  gap: 6px;
+}
+
+.geometry-prompt-panel label strong {
+  color: #253740;
+  font-size: 0.82rem;
+}
+
+.geometry-prompt-panel label span {
+  color: #71808a;
+}
+
+.geometry-prompt-panel textarea {
+  width: 100%;
+  min-height: 54px;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid #cbd4d8;
+  border-radius: 10px;
+  color: #253740;
+  background: #fff;
+  line-height: 1.35;
+}
+
+.geometry-prompt-panel textarea:focus-visible,
+.geometry-prompt-panel button:focus-visible {
+  outline: 3px solid rgb(44 113 130 / 25%);
+  outline-offset: 2px;
+}
+
+.geometry-prompt-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.geometry-prompt-panel button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #b8c6cb;
+  border-radius: 9px;
+  color: #31454f;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.geometry-prompt-panel button:first-child {
+  border-color: #2c7182;
+  color: #fff;
+  background: #2c7182;
+}
+
+.geometry-prompt-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.geometry-prompt-status {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid #e0e6e8;
+}
+
+.geometry-prompt-status code {
+  overflow: hidden;
+  color: #6a7981;
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.geometry-prompt-status.is-success {
+  color: #2f684e;
+}
+
+.geometry-prompt-status.is-error {
+  color: #923f37;
+}
+
+.geometry-prompt-status ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.geometry-prompt-status li button {
+  min-height: 30px;
+  color: #2c6170;
+  background: #f4f8f8;
+}
+
 .selection-inspector strong {
   color: #253740;
   font-size: 0.78rem;
@@ -396,6 +513,7 @@ button {
 
 .persistence-notice {
   bottom: 18px;
+  left: 426px;
   max-width: 680px;
   border: 1px solid #9fbfb1;
   color: #315847;
@@ -520,6 +638,19 @@ button {
     top: 78px;
     right: 12px;
     min-width: 190px;
+  }
+
+  .geometry-prompt-panel {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+  }
+
+  .persistence-notice {
+    right: 12px;
+    bottom: 220px;
+    left: 12px;
   }
 
   .text-tool-input input {

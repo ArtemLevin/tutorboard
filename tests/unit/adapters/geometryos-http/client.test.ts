@@ -97,6 +97,7 @@ function client(
     generateTimeoutMs: overrides.timeout ?? 1000,
     layoutTimeoutMs: overrides.timeout ?? 1000,
     maxResponseBytes: overrides.limit ?? 1024 * 1024,
+    readinessTimeoutMs: overrides.timeout ?? 1000,
   });
 }
 
@@ -104,7 +105,55 @@ function resolvedFetch(body: unknown): typeof globalThis.fetch {
   return () => Promise.resolve(response(body));
 }
 
+function requestUrl(input: RequestInfo | URL): string {
+  return typeof input === "string"
+    ? input
+    : input instanceof URL
+      ? input.href
+      : input.url;
+}
+
 describe("GeometryOS HTTP client", () => {
+  it("checks readiness with correlation and keeps not-ready typed", async () => {
+    const fetchMock = vi.fn<typeof globalThis.fetch>(() =>
+      Promise.resolve(
+        response(
+          {
+            checks: [
+              { name: "lifecycle", status: "pass" },
+              { name: "executor", status: "pass" },
+            ],
+            status: "ready",
+          },
+          { responseRequestId: requestId },
+        ),
+      ),
+    );
+    const result = await client(fetchMock).startReadiness().result;
+    expect(result).toMatchObject({ kind: "ready", requestId });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const call = fetchMock.mock.calls[0];
+    if (call === undefined) {
+      throw new Error("Expected one GeometryOS readiness request.");
+    }
+    expect(requestUrl(call[0])).toBe("https://geometry.example.test/ready");
+    expect(call[1]?.method).toBe("GET");
+
+    await expect(
+      client(() =>
+        Promise.resolve(
+          response(
+            {
+              checks: [{ name: "executor", status: "fail" }],
+              status: "not_ready",
+            },
+            { status: 503 },
+          ),
+        ),
+      ).startReadiness().result,
+    ).resolves.toMatchObject({ kind: "not-ready", retryable: true });
+  });
+
   it("sends the pinned generate request once and normalizes success", async () => {
     const fetchMock = vi.fn<typeof globalThis.fetch>(resolvedFetch(success));
     const task = client(fetchMock).startGenerate({

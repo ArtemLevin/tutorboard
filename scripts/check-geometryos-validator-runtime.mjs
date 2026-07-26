@@ -37,6 +37,7 @@ const requiredExports = [
   "validateLayoutRequest",
   "validateLayoutResponse",
   "validateProblemDetail",
+  "validateReadinessResponse",
 ];
 for (const name of requiredExports) {
   if (typeof validators[name] !== "function") {
@@ -71,6 +72,18 @@ const cases = [
     validator: validators.validateLayoutResponse,
     valid: readFixture("layout-success.response.json"),
     invalid: { status: "success", layout_schema_version: "0.1.0" },
+  },
+  {
+    label: "readiness response",
+    validator: validators.validateReadinessResponse,
+    valid: {
+      checks: [
+        { name: "lifecycle", status: "pass" },
+        { name: "executor", status: "pass" },
+      ],
+      status: "ready",
+    },
+    invalid: { checks: [], status: "starting" },
   },
   {
     label: "problem detail",

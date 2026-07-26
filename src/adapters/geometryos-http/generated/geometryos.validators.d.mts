@@ -16,3 +16,4 @@ export const validateGenerateResponse: GeneratedValidator;
 export const validateLayoutRequest: GeneratedValidator;
 export const validateLayoutResponse: GeneratedValidator;
 export const validateProblemDetail: GeneratedValidator;
+export const validateReadinessResponse: GeneratedValidator;
