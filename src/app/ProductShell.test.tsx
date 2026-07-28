@@ -34,10 +34,12 @@ vi.mock("./PersistedApp", () => ({
 }));
 
 const environment: AppEnvironment = {
+  boardApiBaseUrl: "/api/v1",
   features: {
     developmentDiagnostics: true,
     documentSnapshots: true,
     geometryPrompt: true,
+    serverSync: false,
   },
   geometryOsBaseUrl: "https://geometry.example.test",
   stage: "test",

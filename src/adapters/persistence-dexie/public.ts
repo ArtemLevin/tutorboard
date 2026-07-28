@@ -6,3 +6,8 @@ export {
   DexieBoardDocumentRepository,
   localPersistenceMigrations,
 } from "./repository";
+export {
+  defaultBoardSyncDatabaseName,
+  DexiePendingBoardCommandQueue,
+  createDexiePendingBoardCommandQueue,
+} from "./sync-queue";

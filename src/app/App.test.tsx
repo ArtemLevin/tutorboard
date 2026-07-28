@@ -15,7 +15,7 @@ import type {
   WorldPointerSample,
 } from "../adapters/canvas-konva/public";
 import { createGeometryOsHttpClient } from "../adapters/geometryos-http/public";
-import { geometryOsRequestId } from "../core/public";
+import { actorId, geometryOsRequestId } from "../core/public";
 import { App } from "./App";
 
 function requestUrl(input: RequestInfo | URL): string {
@@ -110,6 +110,27 @@ describe("App", () => {
 
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
     expect(screen.getByTestId("interaction-state")).toHaveTextContent("idle");
+  });
+
+  it("emits successful mutations with the authenticated command actor", () => {
+    const onCommandCommitted = vi.fn();
+    render(
+      <App
+        commandActorId={actorId("user:server-tutor")}
+        historyEnabled={false}
+        onCommandCommitted={onCommandCommitted}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+
+    expect(onCommandCommitted).toHaveBeenCalledTimes(1);
+    expect(onCommandCommitted.mock.calls[0]?.[0]).toMatchObject({
+      actorId: "user:server-tutor",
+      kind: "core.objects.add",
+    });
+    expect(screen.getByRole("button", { name: /Отменить/ })).toBeDisabled();
   });
 
   it("undoes and redoes one completed gesture as one history item", () => {

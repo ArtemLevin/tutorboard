@@ -20,6 +20,8 @@ import {
   screenToWorld,
   type BoardDocument,
   type BoardCommand,
+  type CommandResult,
+  type ActorId,
   type BoardObjectId,
   type BoardRenderItem,
   type GeometryOsClient,
@@ -105,14 +107,6 @@ type ActiveToolId =
   typeof navigationToolId | typeof selectionToolId | DrawingToolId;
 const initialDrawingState: DrawingInteractionState = { kind: "idle" };
 
-function createLocalCommandMetadata(): CommandMetadata {
-  return {
-    actorId: localActorId,
-    id: commandId(`command:${crypto.randomUUID()}`),
-    timestamp: new Date().toISOString(),
-  };
-}
-
 export interface AppPersistenceStatus {
   readonly detail?: string;
   readonly kind:
@@ -122,8 +116,12 @@ export interface AppPersistenceStatus {
 }
 
 export interface AppProps {
+  readonly commandActorId?: ActorId;
   readonly geometryOsClient?: GeometryOsClient | undefined;
+  readonly historyEnabled?: boolean;
   readonly initialDocument?: BoardDocument;
+  readonly onCommandCommitted?:
+    ((command: BoardCommand, document: BoardDocument) => void) | undefined;
   readonly onDocumentChange?: (document: BoardDocument) => void;
   readonly onExportDocument?: ((document: BoardDocument) => void) | undefined;
   readonly onExportPngSnapshot?:
@@ -135,6 +133,7 @@ export interface AppProps {
   readonly onRetryPersistence?: () => void;
   readonly persistenceNotice?: string | null;
   readonly persistenceStatus?: AppPersistenceStatus;
+  readonly readOnly?: boolean;
 }
 
 // The persistence bootstrap reuses this deterministic seed without importing UI state.
@@ -149,8 +148,11 @@ export function createInitialDocument(): BoardDocument {
 }
 
 export function App({
+  commandActorId = localActorId,
   geometryOsClient,
+  historyEnabled = true,
   initialDocument,
+  onCommandCommitted,
   onDocumentChange,
   onExportDocument,
   onExportPngSnapshot,
@@ -160,6 +162,7 @@ export function App({
   onRetryPersistence,
   persistenceNotice = null,
   persistenceStatus = { kind: "idle", label: "Локальное сохранение" },
+  readOnly = false,
 }: AppProps = {}) {
   const [boardState, setBoardState] = useState(() => ({
     commandError: null as string | null,
@@ -246,23 +249,84 @@ export function App({
     onDocumentChange?.(document);
   }, [document, onDocumentChange]);
 
+  const createCommandMetadata = useCallback(
+    (): CommandMetadata => ({
+      actorId: commandActorId,
+      id: commandId(`command:${crypto.randomUUID()}`),
+      timestamp: new Date().toISOString(),
+    }),
+    [commandActorId],
+  );
+
+  const commitCommand = useCallback(
+    (command: BoardCommand): CommandResult => {
+      if (readOnly) {
+        const result: CommandResult = {
+          document: documentRef.current,
+          error: {
+            code: "command.invalid",
+            message: "Доска открыта только для чтения.",
+          },
+          ok: false,
+        };
+        setBoardState((current) => ({
+          ...current,
+          commandError: result.error.message,
+        }));
+        return result;
+      }
+      const result = reduceBoardDocument(documentRef.current, command);
+      if (!result.ok) {
+        setBoardState((current) => ({
+          ...current,
+          commandError: result.error.message,
+        }));
+        return result;
+      }
+      documentRef.current = result.document;
+      setBoardState((current) => ({
+        commandError: null,
+        history: commitDocumentHistory(current.history, result.document),
+      }));
+      onCommandCommitted?.(command, result.document);
+      return result;
+    },
+    [onCommandCommitted, readOnly],
+  );
+
   const undo = useCallback(() => {
+    if (!historyEnabled) {
+      setBoardState((current) => ({
+        ...current,
+        commandError:
+          "Отмена будет доступна после добавления синхронизируемой undo-команды в board/v1.",
+      }));
+      return;
+    }
     setBoardState((current) => {
       const next = undoDocumentHistory(current.history);
       return next === current.history
         ? current
         : { commandError: null, history: next };
     });
-  }, []);
+  }, [historyEnabled]);
 
   const redo = useCallback(() => {
+    if (!historyEnabled) {
+      setBoardState((current) => ({
+        ...current,
+        commandError:
+          "Повтор будет доступен после добавления синхронизируемой undo-команды в board/v1.",
+      }));
+      return;
+    }
     setBoardState((current) => {
       const next = redoDocumentHistory(current.history);
       return next === current.history
         ? current
         : { commandError: null, history: next };
     });
-  }, []);
+  }, [historyEnabled]);
 
   const copySelection = useCallback(() => {
     const copied = copyBoardSelection(
@@ -287,14 +351,8 @@ export function App({
       setClipboardNotice("Нет объектов для вырезания");
       return;
     }
-    const timestamp = new Date().toISOString();
-    const result = reduceBoardDocument(
-      current,
-      createCutContentCommand(copied.payload, {
-        actorId: localActorId,
-        id: commandId(`command:${crypto.randomUUID()}`),
-        timestamp,
-      }),
+    const result = commitCommand(
+      createCutContentCommand(copied.payload, createCommandMetadata()),
     );
     if (!result.ok) {
       setClipboardNotice(result.error.message);
@@ -302,17 +360,13 @@ export function App({
     }
     setClipboard(copied.payload);
     setClipboardNotice(`Вырезано: ${copied.payload.order.length}`);
-    setBoardState((latest) => ({
-      commandError: null,
-      history: commitDocumentHistory(latest.history, result.document),
-    }));
     const cleared: SelectionState = {
       interaction: { kind: "idle" },
       selectedObjectIds: [],
     };
     selectionStateRef.current = cleared;
     setSelectionState(cleared);
-  }, []);
+  }, [commitCommand, createCommandMetadata]);
 
   const pasteClipboard = useCallback(() => {
     if (clipboard === null) {
@@ -326,7 +380,7 @@ export function App({
     const command = createPasteContentCommand(
       clipboard,
       {
-        actorId: localActorId,
+        actorId: commandActorId,
         id: commandId(`command:${token}`),
         timestamp: new Date().toISOString(),
       },
@@ -338,15 +392,11 @@ export function App({
           boardObjectId(`object:paste:${token}:${objectSequence++}`),
       },
     );
-    const result = reduceBoardDocument(documentRef.current, command);
+    const result = commitCommand(command);
     if (!result.ok) {
       setClipboardNotice(result.error.message);
       return;
     }
-    setBoardState((latest) => ({
-      commandError: null,
-      history: commitDocumentHistory(latest.history, result.document),
-    }));
     const selected: SelectionState = {
       interaction: { kind: "idle" },
       selectedObjectIds: command.objects.map(({ id }) => id),
@@ -355,23 +405,7 @@ export function App({
     setSelectionState(selected);
     setActiveTool(selectionToolId);
     setClipboardNotice(`Вставлено: ${command.objects.length}`);
-  }, [clipboard]);
-
-  const commitCommand = useCallback((command: BoardCommand) => {
-    const result = reduceBoardDocument(documentRef.current, command);
-    if (!result.ok) {
-      setBoardState((current) => ({
-        ...current,
-        commandError: result.error.message,
-      }));
-      return false;
-    }
-    setBoardState((current) => ({
-      commandError: null,
-      history: commitDocumentHistory(current.history, result.document),
-    }));
-    return true;
-  }, []);
+  }, [clipboard, commandActorId, commitCommand]);
 
   const selectLayer = useCallback(
     (objectId: BoardObjectId) => {
@@ -389,27 +423,23 @@ export function App({
   const reorderLayer = useCallback(
     (objectId: BoardObjectId, mode: "back" | "front") => {
       commitCommand(
-        createReorderLayersCommand(
-          createLocalCommandMetadata(),
-          [objectId],
-          mode,
-        ),
+        createReorderLayersCommand(createCommandMetadata(), [objectId], mode),
       );
     },
-    [commitCommand],
+    [commitCommand, createCommandMetadata],
   );
 
   const toggleLayerVisibility = useCallback(
     (objectId: BoardObjectId, visible: boolean) => {
       commitCommand(
         createSetLayerVisibilityCommand(
-          createLocalCommandMetadata(),
+          createCommandMetadata(),
           [objectId],
           visible,
         ),
       );
     },
-    [commitCommand],
+    [commitCommand, createCommandMetadata],
   );
 
   const toggleLayerLock = useCallback(
@@ -417,14 +447,14 @@ export function App({
       const current = documentRef.current;
       commitCommand(
         createSetSelectionLockCommand(
-          createLocalCommandMetadata(),
+          createCommandMetadata(),
           current,
           expandSelectionObjectIds(current, [objectId]),
           locked,
         ),
       );
     },
-    [commitCommand],
+    [commitCommand, createCommandMetadata],
   );
 
   const groupSelection = useCallback(() => {
@@ -441,23 +471,23 @@ export function App({
     }
     commitCommand(
       createGroupSelectionCommand(
-        createLocalCommandMetadata(),
+        createCommandMetadata(),
         groupId(`group:${crypto.randomUUID()}`),
         objectIds,
       ),
     );
-  }, [commitCommand]);
+  }, [commitCommand, createCommandMetadata]);
 
   const ungroupSelection = useCallback(() => {
     const current = documentRef.current;
     commitCommand(
       createUngroupSelectionCommand(
-        createLocalCommandMetadata(),
+        createCommandMetadata(),
         current,
         selectionStateRef.current.selectedObjectIds,
       ),
     );
-  }, [commitCommand]);
+  }, [commitCommand, createCommandMetadata]);
 
   const updateSelectionStyle = useCallback(
     (style: VisualStyleOverride) => {
@@ -466,13 +496,13 @@ export function App({
       }
       commitCommand(
         createSetSelectionStyleCommand(
-          createLocalCommandMetadata(),
+          createCommandMetadata(),
           selectionStateRef.current.selectedObjectIds,
           style,
         ),
       );
     },
-    [commitCommand],
+    [commitCommand, createCommandMetadata],
   );
 
   const updateSelectedText = useCallback(
@@ -482,85 +512,45 @@ export function App({
         return;
       }
       commitCommand(
-        createUpdateTextCommand(createLocalCommandMetadata(), objectId, text),
+        createUpdateTextCommand(createCommandMetadata(), objectId, text),
       );
     },
-    [commitCommand],
+    [commitCommand, createCommandMetadata],
   );
 
-  const commitViewport = useCallback((viewport: ViewportState) => {
-    const timestamp = new Date().toISOString();
-    setBoardState((current) => {
-      const result = reduceBoardDocument(current.history.present, {
-        id: commandId(crypto.randomUUID()),
-        actorId: localActorId,
-        timestamp,
+  const commitViewport = useCallback(
+    (viewport: ViewportState) => {
+      commitCommand({
+        ...createCommandMetadata(),
         kind: "core.viewport.set",
         viewport,
       });
-      if (!result.ok) {
-        return { ...current, commandError: result.error.message };
-      }
+    },
+    [commitCommand, createCommandMetadata],
+  );
 
-      return {
-        commandError: null,
-        history: commitDocumentHistory(current.history, result.document),
-      };
-    });
-  }, []);
-
-  const commitDrawingObject = useCallback((object: UserDrawingObject) => {
-    const timestamp = new Date().toISOString();
-    setBoardState((current) => {
-      const result = reduceBoardDocument(
-        current.history.present,
-        createAddDrawingObjectCommand(
-          {
-            actorId: localActorId,
-            id: commandId(`command:${crypto.randomUUID()}`),
-            timestamp,
-          },
-          object,
-        ),
+  const commitDrawingObject = useCallback(
+    (object: UserDrawingObject) => {
+      commitCommand(
+        createAddDrawingObjectCommand(createCommandMetadata(), object),
       );
-      if (!result.ok) {
-        return { ...current, commandError: result.error.message };
-      }
-
-      return {
-        commandError: null,
-        history: commitDocumentHistory(current.history, result.document),
-      };
-    });
-  }, []);
+    },
+    [commitCommand, createCommandMetadata],
+  );
 
   const commitSelectionMove = useCallback(
     (completed: CompletedSelectionMove) => {
-      const timestamp = new Date().toISOString();
-      setBoardState((current) => {
-        const result = reduceBoardDocument(
-          current.history.present,
-          createMoveSelectionCommand(
-            {
-              actorId: localActorId,
-              id: commandId(`command:${crypto.randomUUID()}`),
-              timestamp,
-            },
-            current.history.present,
-            completed.objectIds,
-            completed.delta,
-          ),
-        );
-        if (!result.ok) {
-          return { ...current, commandError: result.error.message };
-        }
-        return {
-          commandError: null,
-          history: commitDocumentHistory(current.history, result.document),
-        };
-      });
+      const current = documentRef.current;
+      commitCommand(
+        createMoveSelectionCommand(
+          createCommandMetadata(),
+          current,
+          completed.objectIds,
+          completed.delta,
+        ),
+      );
     },
-    [],
+    [commitCommand, createCommandMetadata],
   );
 
   const closeShortcuts = useCallback(() => {
@@ -682,30 +672,14 @@ export function App({
         selectionStateRef.current.interaction.kind === "idle"
       ) {
         event.preventDefault();
-        const timestamp = new Date().toISOString();
-        setBoardState((current) => {
-          const result = reduceBoardDocument(
-            current.history.present,
-            createDeleteSelectionCommand(
-              {
-                actorId: localActorId,
-                id: commandId(`command:${crypto.randomUUID()}`),
-                timestamp,
-              },
-              current.history.present,
-              selectionStateRef.current.selectedObjectIds,
-            ),
-          );
-          return result.ok
-            ? {
-                commandError: null,
-                history: commitDocumentHistory(
-                  current.history,
-                  result.document,
-                ),
-              }
-            : { ...current, commandError: result.error.message };
-        });
+        const current = documentRef.current;
+        commitCommand(
+          createDeleteSelectionCommand(
+            createCommandMetadata(),
+            current,
+            selectionStateRef.current.selectedObjectIds,
+          ),
+        );
         return;
       }
       const tool = drawingTools.find(
@@ -722,11 +696,13 @@ export function App({
   }, [
     activateTool,
     closeShortcuts,
+    commitCommand,
     commitSelectionMove,
     copySelection,
     cutSelection,
     pasteClipboard,
     redo,
+    createCommandMetadata,
     shortcutsOpen,
     undo,
   ]);
@@ -859,121 +835,89 @@ export function App({
     [applySelectionAction],
   );
 
-  const setSelectionLock = useCallback((locked: boolean) => {
-    const timestamp = new Date().toISOString();
-    setBoardState((current) => {
-      const result = reduceBoardDocument(
-        current.history.present,
+  const setSelectionLock = useCallback(
+    (locked: boolean) => {
+      const current = documentRef.current;
+      commitCommand(
         createSetSelectionLockCommand(
-          {
-            actorId: localActorId,
-            id: commandId(`command:${crypto.randomUUID()}`),
-            timestamp,
-          },
-          current.history.present,
+          createCommandMetadata(),
+          current,
           selectionStateRef.current.selectedObjectIds,
           locked,
         ),
       );
-      return result.ok
-        ? {
-            commandError: null,
-            history: commitDocumentHistory(current.history, result.document),
-          }
-        : { ...current, commandError: result.error.message };
-    });
-  }, []);
+    },
+    [commitCommand, createCommandMetadata],
+  );
 
   const deleteSelection = useCallback(() => {
-    const timestamp = new Date().toISOString();
-    setBoardState((current) => {
-      const result = reduceBoardDocument(
-        current.history.present,
-        createDeleteSelectionCommand(
-          {
-            actorId: localActorId,
-            id: commandId(`command:${crypto.randomUUID()}`),
-            timestamp,
-          },
-          current.history.present,
-          selectionStateRef.current.selectedObjectIds,
-        ),
-      );
-      return result.ok
-        ? {
-            commandError: null,
-            history: commitDocumentHistory(current.history, result.document),
-          }
-        : { ...current, commandError: result.error.message };
-    });
-  }, []);
-
-  const importSvgFile = useCallback(async (file: File) => {
-    if (file.size > svgImportLimits.maxInputBytes) {
-      setSvgDiagnostic("svg.input-too-large: SVG превышает допустимый размер.");
-      return;
-    }
-
-    let source: string;
-    try {
-      source = await file.text();
-    } catch {
-      setSvgDiagnostic("svg.read-failed: Не удалось прочитать SVG-файл.");
-      return;
-    }
-
     const current = documentRef.current;
-    const workspace = workspaceRef.current?.getBoundingClientRect();
-    const center = screenToWorld(
-      {
-        x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
-        y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
-      },
-      current.viewport,
-    );
-    const objectId = boardObjectId(`object:${crypto.randomUUID()}`);
-    const created = createSvgObject({ center, id: objectId, source });
-    if (created.status === "error") {
-      setSvgDiagnostic(
-        `${created.diagnostic.code}: SVG содержит небезопасные или неподдерживаемые данные.`,
-      );
-      return;
-    }
-
-    const timestamp = new Date().toISOString();
-    const result = reduceBoardDocument(
-      current,
-      createAddSvgObjectCommand(
-        {
-          actorId: localActorId,
-          id: commandId(`command:${crypto.randomUUID()}`),
-          timestamp,
-        },
-        created.object,
+    commitCommand(
+      createDeleteSelectionCommand(
+        createCommandMetadata(),
+        current,
+        selectionStateRef.current.selectedObjectIds,
       ),
     );
-    if (!result.ok) {
-      setBoardState((latest) => ({
-        ...latest,
-        commandError: result.error.message,
-      }));
-      return;
-    }
+  }, [commitCommand, createCommandMetadata]);
 
-    documentRef.current = result.document;
-    setBoardState((latest) => ({
-      commandError: null,
-      history: commitDocumentHistory(latest.history, result.document),
-    }));
-    const selected: SelectionState = {
-      interaction: { kind: "idle" },
-      selectedObjectIds: [objectId],
-    };
-    selectionStateRef.current = selected;
-    setSelectionState(selected);
-    setActiveTool(selectionToolId);
-    setSvgDiagnostic(null);
-  }, []);
+  const importSvgFile = useCallback(
+    async (file: File) => {
+      if (file.size > svgImportLimits.maxInputBytes) {
+        setSvgDiagnostic(
+          "svg.input-too-large: SVG превышает допустимый размер.",
+        );
+        return;
+      }
+
+      let source: string;
+      try {
+        source = await file.text();
+      } catch {
+        setSvgDiagnostic("svg.read-failed: Не удалось прочитать SVG-файл.");
+        return;
+      }
+
+      const current = documentRef.current;
+      const workspace = workspaceRef.current?.getBoundingClientRect();
+      const center = screenToWorld(
+        {
+          x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
+          y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
+        },
+        current.viewport,
+      );
+      const objectId = boardObjectId(`object:${crypto.randomUUID()}`);
+      const created = createSvgObject({ center, id: objectId, source });
+      if (created.status === "error") {
+        setSvgDiagnostic(
+          `${created.diagnostic.code}: SVG содержит небезопасные или неподдерживаемые данные.`,
+        );
+        return;
+      }
+
+      const result = commitCommand(
+        createAddSvgObjectCommand(createCommandMetadata(), created.object),
+      );
+      if (!result.ok) {
+        setBoardState((latest) => ({
+          ...latest,
+          commandError: result.error.message,
+        }));
+        return;
+      }
+
+      const selected: SelectionState = {
+        interaction: { kind: "idle" },
+        selectedObjectIds: [objectId],
+      };
+      selectionStateRef.current = selected;
+      setSelectionState(selected);
+      setActiveTool(selectionToolId);
+      setSvgDiagnostic(null);
+    },
+    [commitCommand, createCommandMetadata],
+  );
 
   const applyGeometryPromptResult = useCallback(
     (result: GeometryPromptResult) => {
@@ -1007,8 +951,7 @@ export function App({
         return;
       }
 
-      const current = documentRef.current;
-      const applied = reduceBoardDocument(current, result.command);
+      const applied = commitCommand(result.command);
       if (!applied.ok) {
         setGeometryPromptState({
           kind: "failure",
@@ -1019,11 +962,6 @@ export function App({
         });
         return;
       }
-      documentRef.current = applied.document;
-      setBoardState((latest) => ({
-        commandError: null,
-        history: commitDocumentHistory(latest.history, applied.document),
-      }));
       const selected: SelectionState = {
         interaction: { kind: "idle" },
         selectedObjectIds: [...result.command.importRecord.boardObjectIds],
@@ -1039,7 +977,7 @@ export function App({
         });
       }
     },
-    [],
+    [commitCommand],
   );
 
   const runGeometryPrompt = useCallback(() => {
@@ -1057,7 +995,7 @@ export function App({
       current.viewport,
     );
     const operation = startGeometryPrompt({
-      actorId: localActorId,
+      actorId: commandActorId,
       client: geometryOsClient,
       createToken: () => crypto.randomUUID(),
       now: () => new Date().toISOString(),
@@ -1075,7 +1013,12 @@ export function App({
       geometryOperationRef.current = null;
       applyGeometryPromptResult(result);
     });
-  }, [applyGeometryPromptResult, geometryOsClient, geometryPrompt]);
+  }, [
+    applyGeometryPromptResult,
+    commandActorId,
+    geometryOsClient,
+    geometryPrompt,
+  ]);
 
   const resetViewport = () => {
     commitViewport({ offset: { x: 160, y: 90 }, zoom: 1 });
@@ -1136,7 +1079,7 @@ export function App({
           <button
             aria-label="Отменить (Ctrl+Z)"
             className="tool-button"
-            disabled={history.past.length === 0}
+            disabled={!historyEnabled || history.past.length === 0}
             onClick={undo}
             type="button"
           >
@@ -1145,7 +1088,7 @@ export function App({
           <button
             aria-label="Повторить (Ctrl+Shift+Z)"
             className="tool-button"
-            disabled={history.future.length === 0}
+            disabled={!historyEnabled || history.future.length === 0}
             onClick={redo}
             type="button"
           >

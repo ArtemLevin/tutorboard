@@ -1,0 +1,595 @@
+import {
+  createEmptyBoardDocument,
+  reduceBoardDocument,
+  serializeBoardDocument,
+  type ActorId,
+  type BoardCommand,
+  type BoardDocument,
+  type BoardSessionContext,
+  type BoardSyncRepository,
+  type ConfirmedBoardHead,
+  type DocumentId,
+  type PendingBoardCommand,
+  type PendingBoardCommandQueue,
+  type ServerBoardCommandBatch,
+} from "../../core/public";
+
+export type BoardSyncState =
+  | { readonly kind: "bootstrapping" }
+  | {
+      readonly actorId: ActorId;
+      readonly document: BoardDocument;
+      readonly kind: "ready";
+      readonly network: "offline" | "online";
+      readonly pendingCount: number;
+      readonly revision: number;
+      readonly role: BoardSessionContext["role"];
+    }
+  | {
+      readonly code: string;
+      readonly document: BoardDocument | null;
+      readonly kind: "recovery-required";
+      readonly message: string;
+      readonly pendingCount: number;
+    }
+  | {
+      readonly code: string;
+      readonly kind: "failure";
+      readonly message: string;
+    };
+
+export interface BoardSyncEngineOptions {
+  readonly createIdempotencyKey: () => string;
+  readonly documentId: DocumentId;
+  readonly lessonId: string;
+  readonly now: () => string;
+  readonly onStateChange: (state: BoardSyncState) => void;
+  readonly queue: PendingBoardCommandQueue;
+  readonly repository: BoardSyncRepository;
+}
+
+interface ReplayedPending {
+  readonly document: BoardDocument;
+  readonly items: readonly PendingBoardCommand[];
+}
+
+class SyncRecoveryError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "SyncRecoveryError";
+  }
+}
+
+function canonicalDocument(document: BoardDocument): string {
+  const serialized = serializeBoardDocument(document);
+  if (!serialized.ok) {
+    throw new SyncRecoveryError(
+      "board.sync.invalid-document",
+      "Локальный документ не прошёл проверку перед синхронизацией.",
+    );
+  }
+  return serialized.json;
+}
+
+export async function boardDocumentSha256(
+  document: BoardDocument,
+): Promise<string> {
+  const bytes = new TextEncoder().encode(canonicalDocument(document));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function nextTimestamp(current: string, candidate: string): string {
+  const currentTime = Date.parse(current);
+  const candidateTime = Date.parse(candidate);
+  return new Date(
+    Math.max(
+      Number.isNaN(currentTime) ? 0 : currentTime + 1,
+      Number.isNaN(candidateTime) ? 0 : candidateTime,
+    ),
+  ).toISOString();
+}
+
+function rebaseCommand(
+  document: BoardDocument,
+  command: BoardCommand,
+  now: string,
+): BoardCommand {
+  const initial = reduceBoardDocument(document, command);
+  if (initial.ok) {
+    return command;
+  }
+  if (initial.error.code !== "command.stale-timestamp") {
+    throw new SyncRecoveryError(
+      "board.sync.rebase-failed",
+      `Локальная команда ${command.id} конфликтует с удалёнными изменениями: ${initial.error.message}`,
+    );
+  }
+  const rebased = {
+    ...command,
+    timestamp: nextTimestamp(document.updatedAt, now),
+  } as BoardCommand;
+  const retried = reduceBoardDocument(document, rebased);
+  if (!retried.ok) {
+    throw new SyncRecoveryError(
+      "board.sync.rebase-failed",
+      `Локальная команда ${command.id} не может быть переиграна: ${retried.error.message}`,
+    );
+  }
+  return rebased;
+}
+
+function applyCommand(
+  document: BoardDocument,
+  command: BoardCommand,
+): BoardDocument {
+  const result = reduceBoardDocument(document, command);
+  if (!result.ok) {
+    throw new SyncRecoveryError(
+      "board.sync.remote-command-invalid",
+      `Команда ${command.id} не применяется: ${result.error.message}`,
+    );
+  }
+  return result.document;
+}
+
+async function applyRemoteBatches(
+  start: ConfirmedBoardHead,
+  batches: readonly ServerBoardCommandBatch[],
+): Promise<ConfirmedBoardHead> {
+  let head = start;
+  for (const batch of batches) {
+    if (
+      batch.baseRevision !== head.revision ||
+      batch.revision !== head.revision + 1 ||
+      batch.envelope.documentId !== head.documentId ||
+      batch.envelope.baseRevision !== batch.baseRevision ||
+      batch.envelope.idempotencyKey !== batch.idempotencyKey
+    ) {
+      throw new SyncRecoveryError(
+        "board.sync.revision-gap",
+        "Удалённый журнал команд содержит разрыв ревизий.",
+      );
+    }
+    let document = head.document;
+    for (const command of batch.envelope.commands) {
+      document = applyCommand(document, command);
+    }
+    const sha256 = await boardDocumentSha256(document);
+    if (sha256 !== batch.envelope.expectedDocumentSha256) {
+      throw new SyncRecoveryError(
+        "board.sync.sha-mismatch",
+        "Контрольная сумма удалённой ревизии не совпадает.",
+      );
+    }
+    head = {
+      document,
+      documentId: head.documentId,
+      revision: batch.revision,
+      session: head.session,
+      sha256,
+    };
+  }
+  return head;
+}
+
+function replayPending(
+  head: ConfirmedBoardHead,
+  pending: readonly PendingBoardCommand[],
+  now: () => string,
+): ReplayedPending {
+  let document = head.document;
+  const items: PendingBoardCommand[] = [];
+  for (const item of pending) {
+    const command = rebaseCommand(document, item.command, now());
+    document = applyCommand(document, command);
+    items.push({ ...item, command });
+  }
+  return { document, items };
+}
+
+function retryable(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "retryable" in error &&
+    (error as { readonly retryable?: unknown }).retryable === true
+  );
+}
+
+function message(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "Неизвестная ошибка синхронизации.";
+}
+
+export class BoardSyncEngine {
+  readonly #createIdempotencyKey: () => string;
+  readonly #documentId: DocumentId;
+  readonly #lessonId: string;
+  readonly #now: () => string;
+  readonly #onStateChange: (state: BoardSyncState) => void;
+  readonly #queue: PendingBoardCommandQueue;
+  readonly #repository: BoardSyncRepository;
+  #context: BoardSessionContext | null = null;
+  #confirmed: ConfirmedBoardHead | null = null;
+  #document: BoardDocument | null = null;
+  #pending: readonly PendingBoardCommand[] = [];
+  #serial: Promise<void> = Promise.resolve();
+
+  constructor(options: BoardSyncEngineOptions) {
+    this.#createIdempotencyKey = options.createIdempotencyKey;
+    this.#documentId = options.documentId;
+    this.#lessonId = options.lessonId;
+    this.#now = options.now;
+    this.#onStateChange = options.onStateChange;
+    this.#queue = options.queue;
+    this.#repository = options.repository;
+  }
+
+  bootstrap(): Promise<void> {
+    this.#serial = this.#serial.then(() => this.#bootstrap());
+    return this.#serial;
+  }
+
+  queue(command: BoardCommand, document: BoardDocument): Promise<void> {
+    this.#serial = this.#serial
+      .then(async () => {
+        if (this.#context === null || this.#confirmed === null) {
+          throw new Error("Board sync engine is not ready.");
+        }
+        if (
+          command.actorId !== this.#context.actorId ||
+          document.id !== this.#documentId
+        ) {
+          throw new SyncRecoveryError(
+            "board.sync.actor-or-document-mismatch",
+            "Команда не соответствует активному пользователю или доске.",
+          );
+        }
+        const queued = await this.#queue.enqueue(
+          this.#documentId,
+          this.#createIdempotencyKey(),
+          command,
+        );
+        this.#pending = [...this.#pending, queued];
+        this.#document = document;
+        this.#emitReady(navigator.onLine ? "online" : "offline");
+        if (navigator.onLine) {
+          await this.#synchronize();
+        }
+      })
+      .catch((error: unknown) => {
+        this.#recover(
+          error instanceof SyncRecoveryError
+            ? error.code
+            : "board.sync.queue-failed",
+          message(error),
+        );
+      });
+    return this.#serial;
+  }
+
+  synchronize(): Promise<void> {
+    this.#serial = this.#serial.then(() =>
+      this.#context === null || this.#context.csrfToken === ""
+        ? this.#bootstrap()
+        : this.#synchronize(),
+    );
+    return this.#serial;
+  }
+
+  async #bootstrap(): Promise<void> {
+    this.#onStateChange({ kind: "bootstrapping" });
+    this.#pending = await this.#queue.list(this.#documentId);
+    try {
+      this.#context = await this.#repository.context();
+      if (this.#context.role === "admin" || this.#context.role === "tutor") {
+        await this.#repository.ensureBoard(
+          this.#lessonId,
+          this.#documentId,
+          this.#context.csrfToken,
+        );
+      }
+      const recovery = await this.#repository.load(this.#documentId);
+      if (recovery.snapshot === null && recovery.board.currentRevision > 0) {
+        throw new SyncRecoveryError(
+          "board.sync.missing-base-snapshot",
+          "На сервере есть команды, но отсутствует базовый снимок ревизии 0.",
+        );
+      }
+      let head: ConfirmedBoardHead;
+      if (recovery.snapshot === null) {
+        if (this.#context.role === "parent") {
+          throw new SyncRecoveryError(
+            "board.sync.missing-base-snapshot",
+            "Для доски только для чтения отсутствует базовый снимок.",
+          );
+        }
+        const createdAt = this.#now();
+        const document = createEmptyBoardDocument({
+          createdAt,
+          id: this.#documentId,
+          title: "Доска занятия",
+        });
+        const sha256 = await boardDocumentSha256(document);
+        await this.#repository.saveSnapshot(
+          this.#documentId,
+          0,
+          document,
+          sha256,
+          this.#context.csrfToken,
+        );
+        head = {
+          document,
+          documentId: this.#documentId,
+          revision: 0,
+          session: {
+            actorId: this.#context.actorId,
+            organizationId: this.#context.organizationId,
+            role: this.#context.role,
+          },
+          sha256,
+        };
+      } else {
+        if (
+          recovery.snapshot.documentId !== this.#documentId ||
+          recovery.snapshot.revision > recovery.board.currentRevision
+        ) {
+          throw new SyncRecoveryError(
+            "board.sync.invalid-snapshot",
+            "Базовый снимок не соответствует активной доске.",
+          );
+        }
+        const sha256 = await boardDocumentSha256(recovery.snapshot.document);
+        if (sha256 !== recovery.snapshot.documentSha256) {
+          throw new SyncRecoveryError(
+            "board.sync.snapshot-sha-mismatch",
+            "Контрольная сумма базового снимка не совпадает.",
+          );
+        }
+        head = {
+          document: recovery.snapshot.document,
+          documentId: this.#documentId,
+          revision: recovery.snapshot.revision,
+          session: {
+            actorId: this.#context.actorId,
+            organizationId: this.#context.organizationId,
+            role: this.#context.role,
+          },
+          sha256,
+        };
+      }
+      head = await applyRemoteBatches(head, recovery.commandBatches);
+      await this.#acknowledgeRemoteDuplicates(recovery.commandBatches);
+      if (head.revision !== recovery.board.currentRevision) {
+        throw new SyncRecoveryError(
+          "board.sync.incomplete-recovery",
+          "Сервер вернул неполный журнал восстановления.",
+        );
+      }
+      this.#confirmed = head;
+      await this.#queue.saveHead(head);
+      const replayed = replayPending(head, this.#pending, this.#now);
+      this.#pending = replayed.items;
+      await this.#queue.replace(this.#documentId, this.#pending);
+      this.#document = replayed.document;
+      this.#emitReady("online");
+      await this.#synchronize();
+    } catch (error) {
+      const cached = await this.#queue.loadHead(this.#documentId);
+      if (cached !== null && (retryable(error) || !navigator.onLine)) {
+        this.#confirmed = cached;
+        this.#context = {
+          ...cached.session,
+          csrfToken: "",
+        };
+        const replayed = replayPending(cached, this.#pending, this.#now);
+        this.#pending = replayed.items;
+        this.#document = replayed.document;
+        this.#emitReady("offline");
+        return;
+      }
+      if (error instanceof SyncRecoveryError) {
+        this.#recover(error.code, error.message);
+        return;
+      }
+      this.#onStateChange({
+        code: "board.sync.bootstrap-failed",
+        kind: "failure",
+        message: message(error),
+      });
+    }
+  }
+
+  async #synchronize(): Promise<void> {
+    if (
+      this.#context === null ||
+      this.#confirmed === null ||
+      this.#document === null
+    ) {
+      return;
+    }
+    try {
+      await this.#pullAll();
+      let safety = 0;
+      while (this.#pending.length > 0) {
+        if (++safety > 1_000) {
+          throw new SyncRecoveryError(
+            "board.sync.loop-limit",
+            "Синхронизация превысила безопасный предел повторов.",
+          );
+        }
+        const replayed = replayPending(
+          this.#confirmed,
+          this.#pending,
+          this.#now,
+        );
+        this.#pending = replayed.items;
+        await this.#queue.replace(this.#documentId, this.#pending);
+        this.#document = replayed.document;
+        const first = this.#pending[0];
+        if (first === undefined) {
+          break;
+        }
+        const applied = applyCommand(this.#confirmed.document, first.command);
+        const sha256 = await boardDocumentSha256(applied);
+        const result = await this.#repository.push(
+          {
+            actorId: this.#context.actorId,
+            baseRevision: this.#confirmed.revision,
+            commands: [first.command],
+            documentId: this.#documentId,
+            expectedDocumentSha256: sha256,
+            idempotencyKey: first.idempotencyKey,
+            schemaVersion: "1.0",
+          },
+          this.#context.csrfToken,
+        );
+        if (result.status === "conflict") {
+          this.#confirmed = await applyRemoteBatches(
+            this.#confirmed,
+            result.missingCommandBatches,
+          );
+          if (
+            result.hasMore ||
+            this.#confirmed.revision < result.currentRevision
+          ) {
+            await this.#pullAll();
+          }
+          continue;
+        }
+        if (
+          result.revision !== this.#confirmed.revision + 1 ||
+          result.currentDocumentSha256 !== sha256
+        ) {
+          throw new SyncRecoveryError(
+            "board.sync.invalid-acceptance",
+            "Подтверждение сервера не соответствует отправленной ревизии.",
+          );
+        }
+        this.#confirmed = {
+          document: applied,
+          documentId: this.#documentId,
+          revision: result.revision,
+          session: this.#confirmed.session,
+          sha256,
+        };
+        await this.#queue.acknowledge(this.#documentId, first.sequence);
+        this.#pending = this.#pending.slice(1);
+        await this.#queue.saveHead(this.#confirmed);
+      }
+      const replayed = replayPending(this.#confirmed, this.#pending, this.#now);
+      this.#pending = replayed.items;
+      this.#document = replayed.document;
+      this.#emitReady("online");
+    } catch (error) {
+      if (error instanceof SyncRecoveryError || !retryable(error)) {
+        this.#recover(
+          error instanceof SyncRecoveryError
+            ? error.code
+            : "board.sync.non-retryable",
+          message(error),
+        );
+        return;
+      }
+      this.#emitReady("offline");
+    }
+  }
+
+  async #pullAll(): Promise<void> {
+    if (this.#confirmed === null) {
+      return;
+    }
+    let hasMore = true;
+    let reportedCurrentRevision = this.#confirmed.revision;
+    while (hasMore) {
+      const page = await this.#repository.pull(
+        this.#documentId,
+        this.#confirmed.revision,
+      );
+      this.#confirmed = await applyRemoteBatches(this.#confirmed, page.items);
+      await this.#acknowledgeRemoteDuplicates(page.items);
+      await this.#queue.saveHead(this.#confirmed);
+      hasMore = page.hasMore;
+      reportedCurrentRevision = page.currentRevision;
+      if (page.items.length === 0 && hasMore) {
+        throw new SyncRecoveryError(
+          "board.sync.empty-page",
+          "Сервер сообщил о продолжении журнала без следующей ревизии.",
+        );
+      }
+    }
+    if (this.#confirmed.revision !== reportedCurrentRevision) {
+      throw new SyncRecoveryError(
+        "board.sync.incomplete-command-page",
+        "Сервер не вернул все заявленные ревизии доски.",
+      );
+    }
+  }
+
+  async #acknowledgeRemoteDuplicates(
+    batches: readonly ServerBoardCommandBatch[],
+  ): Promise<void> {
+    if (this.#pending.length === 0 || batches.length === 0) {
+      return;
+    }
+    const byKey = new Map(
+      batches.map((batch) => [batch.idempotencyKey, batch] as const),
+    );
+    const remaining: PendingBoardCommand[] = [];
+    for (const item of this.#pending) {
+      const accepted = byKey.get(item.idempotencyKey);
+      if (accepted === undefined) {
+        remaining.push(item);
+        continue;
+      }
+      if (
+        accepted.envelope.commands.length !== 1 ||
+        JSON.stringify(accepted.envelope.commands[0]) !==
+          JSON.stringify(item.command)
+      ) {
+        throw new SyncRecoveryError(
+          "board.sync.idempotency-mismatch",
+          "Серверная команда с локальным idempotency key имеет другое содержимое.",
+        );
+      }
+      await this.#queue.acknowledge(this.#documentId, item.sequence);
+    }
+    this.#pending = remaining;
+  }
+
+  #emitReady(network: "offline" | "online"): void {
+    if (
+      this.#context === null ||
+      this.#confirmed === null ||
+      this.#document === null
+    ) {
+      return;
+    }
+    this.#onStateChange({
+      actorId: this.#context.actorId,
+      document: this.#document,
+      kind: "ready",
+      network,
+      pendingCount: this.#pending.length,
+      revision: this.#confirmed.revision,
+      role: this.#context.role,
+    });
+  }
+
+  #recover(code: string, recoveryMessage: string): void {
+    this.#onStateChange({
+      code,
+      document: this.#document,
+      kind: "recovery-required",
+      message: recoveryMessage,
+      pendingCount: this.#pending.length,
+    });
+  }
+}

@@ -176,6 +176,7 @@ jobs:
 
       - name: Build production bundle
         env:
+          VITE_FEATURE_SERVER_SYNC: "true"
           VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos
         run: npm run build
 

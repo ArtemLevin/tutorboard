@@ -11,12 +11,16 @@ import {
 import {
   boardDocumentSchemaVersion,
   type BoardDocumentRepository,
+  type BoardSyncRepository,
+  type DocumentId,
   type GeometryOsClient,
+  type PendingBoardCommandQueue,
 } from "../core/public";
 import { geometryOsAdapterContractVersion } from "../adapters/geometryos-http/public";
 import { persistenceAdapterContractVersion } from "../adapters/persistence-dexie/public";
 import { canvasAdapterContractVersion } from "../adapters/canvas-konva/public";
 import { PersistedApp, type ProductNotification } from "./PersistedApp";
+import { SyncedApp } from "./SyncedApp";
 import type { AppEnvironment } from "./configuration/environment";
 
 export type ProductRoute = "board" | "diagnostics" | "documents" | "settings";
@@ -87,10 +91,18 @@ export class ProductErrorBoundary extends Component<
   }
 }
 
+export interface ProductServerSync {
+  readonly documentId: DocumentId;
+  readonly lessonId: string;
+  readonly queue: PendingBoardCommandQueue;
+  readonly repository: BoardSyncRepository;
+}
+
 interface ProductShellProps {
   readonly environment: AppEnvironment;
   readonly geometryOsClient: GeometryOsClient;
   readonly repository: BoardDocumentRepository;
+  readonly serverSync?: ProductServerSync | undefined;
 }
 
 interface NotificationRecord extends ProductNotification {
@@ -144,8 +156,8 @@ function DocumentsPage() {
         <p className="product-eyebrow">Локальная библиотека</p>
         <h1>Документы</h1>
         <p>
-          Сейчас TutorBoard работает как надёжное single-user приложение.
-          Серверный список занятий подключается на Phase 4.
+          TutorBoard поддерживает локальные документы и доски, открытые из
+          контекста занятия.
         </p>
       </header>
       <section aria-label="Локальные документы" className="document-grid">
@@ -251,6 +263,7 @@ export function ProductShell({
   environment,
   geometryOsClient,
   repository,
+  serverSync,
 }: ProductShellProps) {
   const [route, setRoute] = useState(() =>
     resolveProductRoute(window.location.hash),
@@ -302,16 +315,30 @@ export function ProductShell({
       <div className="product-content">
         <ProductErrorBoundary key={effectiveRoute}>
           {effectiveRoute === "board" ? (
-            <PersistedApp
-              enableSnapshots={environment.features.documentSnapshots}
-              geometryOsClient={
-                environment.features.geometryPrompt
-                  ? geometryOsClient
-                  : undefined
-              }
-              onNotification={notify}
-              repository={repository}
-            />
+            environment.features.serverSync && serverSync !== undefined ? (
+              <SyncedApp
+                documentId={serverSync.documentId}
+                geometryOsClient={
+                  environment.features.geometryPrompt
+                    ? geometryOsClient
+                    : undefined
+                }
+                lessonId={serverSync.lessonId}
+                queue={serverSync.queue}
+                repository={serverSync.repository}
+              />
+            ) : (
+              <PersistedApp
+                enableSnapshots={environment.features.documentSnapshots}
+                geometryOsClient={
+                  environment.features.geometryPrompt
+                    ? geometryOsClient
+                    : undefined
+                }
+                onNotification={notify}
+                repository={repository}
+              />
+            )
           ) : effectiveRoute === "documents" ? (
             <DocumentsPage />
           ) : effectiveRoute === "settings" ? (
