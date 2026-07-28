@@ -228,6 +228,7 @@ describe("BoardSyncEngine", () => {
       },
       commandBatches: [],
       snapshot: {
+        createdAt: "2026-07-28T18:00:00.000Z",
         document: initialDocument,
         documentId: expectedDocumentId,
         documentSha256: initialSha,
@@ -340,6 +341,7 @@ describe("BoardSyncEngine", () => {
       },
       commandBatches: [],
       snapshot: {
+        createdAt: "2026-07-28T18:00:00.000Z",
         document: initialDocument,
         documentId: expectedDocumentId,
         documentSha256: initialSha,
@@ -425,6 +427,7 @@ describe("BoardSyncEngine", () => {
         },
       ],
       snapshot: {
+        createdAt: "2026-07-28T18:00:00.000Z",
         document: initialDocument,
         documentId: expectedDocumentId,
         documentSha256: initialSha,
@@ -471,6 +474,7 @@ describe("BoardSyncEngine", () => {
       },
       commandBatches: [],
       snapshot: {
+        createdAt: "2026-07-28T18:00:00.000Z",
         document: initialDocument,
         documentId: expectedDocumentId,
         documentSha256: initialSha,

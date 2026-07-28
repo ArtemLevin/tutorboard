@@ -269,6 +269,7 @@ export function createBoardHttpRepository(
           commandBatches: z.array(commandBatchSchema),
           snapshot: z
             .object({
+              createdAt: z.string().min(1).max(64),
               document: z.unknown(),
               documentId: identifierSchema,
               documentSha256: sha256Schema,

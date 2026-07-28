@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import snapshotFixture from "../../../../contracts/board/v1/fixtures/board-snapshot.json" with { type: "json" };
 
 import {
   BoardHttpError,
@@ -120,6 +121,35 @@ describe("Board HTTP repository", () => {
       hasMore: false,
       status: "conflict",
     });
+  });
+
+  it("loads the canonical snapshot contract including createdAt", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        board: {
+          currentDocumentSha256: snapshotFixture.documentSha256,
+          currentRevision: snapshotFixture.revision,
+          documentId: snapshotFixture.documentId,
+          lastSnapshotRevision: snapshotFixture.revision,
+          lessonId: "lesson:lesson-01",
+          snapshotDue: false,
+          studentId: "student:lesson-01",
+        },
+        commandBatches: [],
+        snapshot: snapshotFixture,
+      }),
+    );
+    const repository = createBoardHttpRepository({
+      fetch: request,
+      origin: "https://tutor.example.test",
+    });
+
+    const recovery = await repository.load(
+      documentId(snapshotFixture.documentId),
+    );
+
+    expect(recovery.snapshot?.createdAt).toBe(snapshotFixture.createdAt);
+    expect(recovery.snapshot?.document.id).toBe(snapshotFixture.documentId);
   });
 
   it("rejects a cross-origin API configuration and classifies transport errors", async () => {

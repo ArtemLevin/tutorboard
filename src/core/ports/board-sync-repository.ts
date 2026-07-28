@@ -45,6 +45,7 @@ export interface BoardServerRecovery {
   readonly board: ServerBoardDescriptor;
   readonly commandBatches: readonly ServerBoardCommandBatch[];
   readonly snapshot: {
+    readonly createdAt: string;
     readonly document: BoardDocument;
     readonly documentId: DocumentId;
     readonly documentSha256: string;
