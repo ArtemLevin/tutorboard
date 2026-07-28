@@ -1,6 +1,7 @@
 export type AppStage = "development" | "test" | "production";
 
 export interface AppEnvironment {
+  readonly boardApiBaseUrl: string;
   readonly features: AppFeatureFlags;
   readonly geometryOsBaseUrl: string;
   readonly stage: AppStage;
@@ -10,12 +11,14 @@ export interface AppFeatureFlags {
   readonly developmentDiagnostics: boolean;
   readonly documentSnapshots: boolean;
   readonly geometryPrompt: boolean;
+  readonly serverSync: boolean;
 }
 
 export interface AppFeatureFlagInput {
   readonly developmentDiagnostics?: string | undefined;
   readonly documentSnapshots?: string | undefined;
   readonly geometryPrompt?: string | undefined;
+  readonly serverSync?: string | undefined;
 }
 
 const stages = new Set<AppStage>(["development", "test", "production"]);
@@ -45,7 +48,9 @@ export function readEnvironment(
     developmentDiagnostics: import.meta.env.VITE_FEATURE_DEV_DIAGNOSTICS,
     documentSnapshots: import.meta.env.VITE_FEATURE_DOCUMENT_SNAPSHOTS,
     geometryPrompt: import.meta.env.VITE_FEATURE_GEOMETRY_PROMPT,
+    serverSync: import.meta.env.VITE_FEATURE_SERVER_SYNC,
   },
+  boardApiBaseUrl: string | undefined = import.meta.env.VITE_BOARD_API_BASE_URL,
 ): AppEnvironment {
   const stage = value ?? "development";
 
@@ -65,7 +70,21 @@ export function readEnvironment(
     throw new Error("VITE_GEOMETRYOS_BASE_URL must be a public HTTP(S) URL.");
   }
 
+  const boardApiUrl = new URL(boardApiBaseUrl ?? "/api/v1", "http://localhost");
+  if (
+    boardApiUrl.origin !== "http://localhost" ||
+    boardApiUrl.username !== "" ||
+    boardApiUrl.password !== "" ||
+    boardApiUrl.search !== "" ||
+    boardApiUrl.hash !== ""
+  ) {
+    throw new Error(
+      "VITE_BOARD_API_BASE_URL must be a same-origin path without credentials.",
+    );
+  }
+
   return {
+    boardApiBaseUrl: boardApiUrl.pathname.replace(/\/+$/u, ""),
     features: {
       developmentDiagnostics: booleanFlag(
         "VITE_FEATURE_DEV_DIAGNOSTICS",
@@ -81,6 +100,11 @@ export function readEnvironment(
         "VITE_FEATURE_GEOMETRY_PROMPT",
         featureInput.geometryPrompt,
         true,
+      ),
+      serverSync: booleanFlag(
+        "VITE_FEATURE_SERVER_SYNC",
+        featureInput.serverSync,
+        stage === "production",
       ),
     },
     geometryOsBaseUrl: geometryOsUrl.href.replace(/\/$/, ""),

@@ -132,6 +132,20 @@ export {
   type SaveBoardDocumentInput,
   type SaveBoardDocumentResult,
 } from "./ports/board-document-repository";
+export type {
+  BoardAccessRole,
+  BoardCommandEnvelope,
+  BoardCommandPage,
+  BoardServerRecovery,
+  BoardSessionContext,
+  BoardSyncRepository,
+  ConfirmedBoardHead,
+  PendingBoardCommand,
+  PendingBoardCommandQueue,
+  PushBoardCommandsResult,
+  ServerBoardCommandBatch,
+  ServerBoardDescriptor,
+} from "./ports/board-sync-repository";
 
 export type { JsonPrimitive, JsonValue } from "./board/json";
 

@@ -46,7 +46,7 @@ BoardDocument
 | Компонент                | Текущее состояние                                                                                                     | Ближайшая поставка                           |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | GeometryOS               | API v1/GIR `0.2.0`, Layout Document `0.1.0` и стабильный `POST /api/v1/layout` опубликованы                           | Consumer integration hardening               |
-| TutorBoard               | Phase 3 Product Foundation завершена: автономная доска, история, transfer, performance, accessibility и product shell | Phase 4 platform integration                 |
+| TutorBoard               | Phase 3 завершена; `board/v1`, server repository, durable offline queue и revision rebase реализованы                 | Phase 4 collaboration hardening              |
 | tutor-assistant-web      | Серверная платформа пользователей, занятий, BBB, evidence, материалов и production-операций                           | Поздняя Phase 4 integration через gateway    |
 | tutor-assistant          | Desktop recording/transcription application                                                                           | Lesson evidence integration на поздних фазах |
 | students-26-27           | Репозиторий учебных страниц и опубликованных файлов                                                                   | Consumer lesson artifacts                    |
@@ -64,6 +64,10 @@ BoardDocument
 - keyboard workflow, shortcut help, reduced motion и visible focus;
 - offline product shell с routes, settings, notifications и diagnostics;
 - append-only Dexie revisions, autosave, optimistic conflict и recovery;
+- lesson-bound bootstrap через `lessonId`/`documentId`;
+- same-origin HTTP `BoardSyncRepository` с session CSRF;
+- durable очередь неподтверждённых команд и offline → reconnect;
+- pull/push server revisions, SHA-256 verification и rebase после `409`;
 - bounded deny-by-default SVG import;
 - pinned OpenAPI/GIR/fixture artifacts и generated runtime validation;
 - bounded GeometryOS HTTP adapter с typed generate/layout results и request correlation;
@@ -94,10 +98,26 @@ PR 2.9 разделён намеренно и обе его части тепе�
 
 ### Следующие фазы
 
-TutorBoard подключается к tutor-assistant-web через gateway,
-получает server revisions/offline synchronization, collaboration, lesson
-evidence и production hardening. Advanced semantic drag и AI modifications
-начинаются только после стабилизации этих контрактов.
+TutorBoard подключается к tutor-assistant-web через same-origin gateway и уже
+поддерживает server revisions/offline synchronization. Следующие поставки:
+WebSocket collaboration, lesson evidence и production hardening. Advanced
+semantic drag и AI modifications начинаются только после стабилизации этих
+контрактов.
+
+### Запуск серверного режима
+
+Локальный режим остаётся default для development. Для открытия доски занятия:
+
+```text
+VITE_FEATURE_SERVER_SYNC=true
+VITE_BOARD_API_BASE_URL=/api/v1
+/?lessonId=lesson:...&documentId=document:...#/board
+```
+
+`VITE_BOARD_API_BASE_URL` принимает только same-origin path. Сессия и
+`X-CSRF-Token` выдаются `tutor-assistant-web`; токены не хранятся в IndexedDB.
+Подробные решения и ограничения зафиксированы в
+`docs/adr/ADR-011-server-board-sync.md`.
 
 ## Зачем нужен TutorBoard
 
