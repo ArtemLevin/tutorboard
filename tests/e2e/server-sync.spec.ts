@@ -123,9 +123,16 @@ test("keeps a local command offline, reconnects, and restores the confirmed revi
   await page.goto(
     `/?lessonId=${encodeURIComponent(lessonId)}&documentId=${encodeURIComponent(documentId)}#/board`,
   );
-  await expect(page.getByTestId("persistence-status")).toHaveText(
-    "Синхронизировано · r7",
-  );
+  await expect(
+    page.getByRole("heading", { name: "Подключаем доску занятия" }),
+  ).toBeHidden();
+  const initialStatus = page.getByTestId("persistence-status");
+  if ((await initialStatus.count()) === 0) {
+    throw new Error(
+      `Server-sync bootstrap did not render the workspace:\n${await page.locator("body").innerText()}`,
+    );
+  }
+  await expect(initialStatus).toHaveText("Синхронизировано · r7");
   await expect(page.getByTestId("object-count")).toHaveText("2 объекта");
 
   await context.setOffline(true);
