@@ -275,6 +275,50 @@ export class BoardSyncEngine {
     return this.#serial;
   }
 
+  apply(commands: readonly BoardCommand[]): Promise<void> {
+    this.#serial = this.#serial
+      .then(async () => {
+        if (
+          this.#context === null ||
+          this.#confirmed === null ||
+          this.#document === null
+        ) {
+          throw new Error("Board sync engine is not ready.");
+        }
+        let document = this.#document;
+        for (const candidate of commands) {
+          if (candidate.actorId !== this.#context.actorId) {
+            throw new SyncRecoveryError(
+              "board.sync.actor-or-document-mismatch",
+              "Команда отмены не принадлежит активному пользователю.",
+            );
+          }
+          const command = rebaseCommand(document, candidate, this.#now());
+          document = applyCommand(document, command);
+          const queued = await this.#queue.enqueue(
+            this.#documentId,
+            this.#createIdempotencyKey(),
+            command,
+          );
+          this.#pending = [...this.#pending, queued];
+        }
+        this.#document = document;
+        this.#emitReady(navigator.onLine ? "online" : "offline");
+        if (navigator.onLine) {
+          await this.#synchronize();
+        }
+      })
+      .catch((error: unknown) => {
+        this.#recover(
+          error instanceof SyncRecoveryError
+            ? error.code
+            : "board.sync.undo-failed",
+          message(error),
+        );
+      });
+    return this.#serial;
+  }
+
   synchronize(): Promise<void> {
     this.#serial = this.#serial.then(() =>
       this.#context === null || this.#context.csrfToken === ""

@@ -6,9 +6,12 @@ import {
   readBoardDocument,
   type BoardCommand,
   type BoardCommandPage,
+  type BoardCollaborationTicket,
+  type BoardEvidenceDescriptor,
+  type BoardPlatformRepository,
+  type BoardRevisionDescriptor,
   type BoardServerRecovery,
   type BoardSessionContext,
-  type BoardSyncRepository,
   type PushBoardCommandsResult,
   type ServerBoardCommandBatch,
   type ServerBoardDescriptor,
@@ -18,13 +21,17 @@ const identifierSchema = z.string().min(1).max(128);
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
 const boardDescriptorSchema = z
   .object({
+    archivedAt: z.string().min(1).max(64).nullable().optional(),
+    createdAt: z.string().min(1).max(64).optional(),
     currentDocumentSha256: z.string(),
     currentRevision: z.number().int().nonnegative(),
     documentId: identifierSchema,
     lastSnapshotRevision: z.number().int().nonnegative(),
     lessonId: identifierSchema,
+    schemaVersion: z.literal("1.0").optional(),
     snapshotDue: z.boolean(),
     studentId: identifierSchema,
+    updatedAt: z.string().min(1).max(64).optional(),
   })
   .strict();
 const commandSchema = z
@@ -48,7 +55,7 @@ const envelopeSchema = z
   .strict();
 const commandBatchSchema = z
   .object({
-    actorUserId: identifierSchema,
+    actorUserId: identifierSchema.nullable(),
     baseRevision: z.number().int().nonnegative(),
     createdAt: z.string().min(1).max(64),
     envelope: envelopeSchema,
@@ -63,6 +70,54 @@ const contextSchema = z
     organizationId: identifierSchema,
     role: z.enum(["admin", "parent", "student", "tutor"]),
     userId: identifierSchema,
+  })
+  .strict();
+const revisionSchema = z
+  .object({
+    actorUserId: identifierSchema.nullable(),
+    createdAt: z.string().min(1).max(64),
+    documentSha256: z.string(),
+    revision: z.number().int().nonnegative(),
+    snapshotAvailable: z.boolean(),
+  })
+  .strict();
+const transcriptLinkSchema = z
+  .object({
+    endMs: z.number().int().nonnegative().optional(),
+    label: z.string().min(1).max(160),
+    startMs: z.number().int().nonnegative(),
+  })
+  .strict();
+const evidenceSchema = z
+  .object({
+    artifacts: z
+      .object({
+        manifest: z.string().startsWith("/"),
+        png: z.string().startsWith("/").nullable(),
+        svg: z.string().startsWith("/"),
+      })
+      .strict(),
+    documentId: identifierSchema,
+    documentSchemaVersion: z.string().min(1).max(16),
+    documentSha256: sha256Schema,
+    evidenceId: identifierSchema,
+    finalizedAt: z.string().min(1).max(64),
+    lessonId: identifierSchema,
+    manifestSha256: sha256Schema,
+    publishedAt: z.string().min(1).max(64).nullable(),
+    revision: z.number().int().nonnegative(),
+    revokedAt: z.string().min(1).max(64).nullable(),
+    schemaVersion: z.literal("1.0"),
+    studentId: identifierSchema,
+    transcriptLinks: z.array(transcriptLinkSchema).max(100),
+  })
+  .strict();
+const collaborationTicketSchema = z
+  .object({
+    expiresInSeconds: z.number().int().positive().max(120),
+    protocolVersion: z.literal("1.0"),
+    ticket: z.string().min(1).max(256),
+    websocketPath: z.string().startsWith("/").max(512),
   })
   .strict();
 
@@ -120,6 +175,23 @@ function parseDescriptor(value: unknown): ServerBoardDescriptor {
   }
   return {
     ...parsed.data,
+    archivedAt: parsed.data.archivedAt ?? null,
+    documentId: documentId(parsed.data.documentId),
+  };
+}
+
+function parseEvidence(value: unknown): BoardEvidenceDescriptor {
+  const parsed = evidenceSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new BoardHttpError(
+      "board.http.invalid-evidence",
+      "Сервер вернул несовместимое свидетельство занятия.",
+      200,
+      false,
+    );
+  }
+  return {
+    ...parsed.data,
     documentId: documentId(parsed.data.documentId),
   };
 }
@@ -166,7 +238,7 @@ function problemMessage(value: unknown, fallback: string): string {
 
 export function createBoardHttpRepository(
   options: BoardHttpClientOptions = {},
-): BoardSyncRepository {
+): BoardPlatformRepository {
   const request = options.fetch ?? globalThis.fetch;
   const origin =
     options.origin ??
@@ -253,6 +325,30 @@ export function createBoardHttpRepository(
       return parseDescriptor(
         await requireSuccess(response, "Не удалось открыть доску занятия."),
       );
+    },
+
+    async listBoards(lessonId, includeArchived = true) {
+      const response = await send(
+        `/lessons/${encodeURIComponent(lessonId)}/boards?includeArchived=${String(includeArchived)}`,
+      );
+      const parsed = z
+        .object({
+          items: z.array(boardDescriptorSchema),
+          lessonId: identifierSchema,
+        })
+        .strict()
+        .safeParse(
+          await requireSuccess(response, "Не удалось получить доски занятия."),
+        );
+      if (!parsed.success || parsed.data.lessonId !== lessonId) {
+        throw new BoardHttpError(
+          "board.http.invalid-board-list",
+          "Сервер вернул несовместимый список досок.",
+          response.status,
+          false,
+        );
+      }
+      return parsed.data.items.map(parseDescriptor);
     },
 
     async load(expectedDocumentId): Promise<BoardServerRecovery> {
@@ -445,6 +541,194 @@ export function createBoardHttpRepository(
         );
       }
       return { ...accepted.data, status: "accepted" };
+    },
+
+    async archive(expectedDocumentId, csrfToken) {
+      const response = await send(
+        `/boards/${encodeURIComponent(expectedDocumentId)}/archive`,
+        {
+          headers: { "X-CSRF-Token": csrfToken },
+          method: "POST",
+        },
+      );
+      return parseDescriptor(
+        await requireSuccess(response, "Не удалось архивировать доску."),
+      );
+    },
+
+    async unarchive(expectedDocumentId, csrfToken) {
+      const response = await send(
+        `/boards/${encodeURIComponent(expectedDocumentId)}/unarchive`,
+        {
+          headers: { "X-CSRF-Token": csrfToken },
+          method: "POST",
+        },
+      );
+      return parseDescriptor(
+        await requireSuccess(response, "Не удалось восстановить доску."),
+      );
+    },
+
+    async listRevisions(
+      expectedDocumentId,
+    ): Promise<readonly BoardRevisionDescriptor[]> {
+      const response = await send(
+        `/boards/${encodeURIComponent(expectedDocumentId)}/revisions`,
+      );
+      const parsed = z
+        .object({
+          currentRevision: z.number().int().nonnegative(),
+          documentId: identifierSchema,
+          items: z.array(revisionSchema).max(500),
+        })
+        .strict()
+        .safeParse(
+          await requireSuccess(response, "Не удалось получить историю доски."),
+        );
+      if (!parsed.success || parsed.data.documentId !== expectedDocumentId) {
+        throw new BoardHttpError(
+          "board.http.invalid-revisions",
+          "Сервер вернул несовместимую историю доски.",
+          response.status,
+          false,
+        );
+      }
+      return parsed.data.items;
+    },
+
+    async collaborationTicket(
+      expectedDocumentId,
+      clientId,
+      csrfToken,
+    ): Promise<BoardCollaborationTicket> {
+      const response = await send(
+        `/boards/${encodeURIComponent(expectedDocumentId)}/collaboration-ticket`,
+        {
+          body: JSON.stringify({ clientId }),
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken,
+          },
+          method: "POST",
+        },
+      );
+      const parsed = collaborationTicketSchema.safeParse(
+        await requireSuccess(
+          response,
+          "Не удалось подключить совместное редактирование.",
+        ),
+      );
+      if (!parsed.success) {
+        throw new BoardHttpError(
+          "board.http.invalid-collaboration-ticket",
+          "Сервер вернул несовместимый WebSocket ticket.",
+          response.status,
+          false,
+        );
+      }
+      return parsed.data;
+    },
+
+    async recordClientEvent(event, csrfToken): Promise<void> {
+      const response = await send("/boards/client-events", {
+        body: JSON.stringify(event),
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
+        },
+        method: "POST",
+      });
+      if (!response.ok) {
+        const payload = await responseJson(response);
+        throw new BoardHttpError(
+          `board.http.${response.status}`,
+          problemMessage(payload, "Не удалось записать техническую метрику."),
+          response.status,
+          true,
+        );
+      }
+    },
+
+    async finalizeEvidence(
+      expectedDocumentId,
+      revision,
+      documentSha256,
+      previewSvg,
+      previewPngBase64,
+      transcriptLinks,
+      csrfToken,
+    ) {
+      const response = await send(
+        `/boards/${encodeURIComponent(expectedDocumentId)}/evidence`,
+        {
+          body: JSON.stringify({
+            documentSha256,
+            previewPngBase64,
+            previewSvg,
+            revision,
+            schemaVersion: "1.0",
+            transcriptLinks,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken,
+          },
+          method: "POST",
+        },
+      );
+      return parseEvidence(
+        await requireSuccess(response, "Не удалось зафиксировать итог доски."),
+      );
+    },
+
+    async listEvidence(lessonId) {
+      const response = await send(
+        `/lessons/${encodeURIComponent(lessonId)}/board-evidence`,
+      );
+      const parsed = z
+        .object({
+          items: z.array(evidenceSchema),
+          lessonId: identifierSchema,
+        })
+        .strict()
+        .safeParse(
+          await requireSuccess(response, "Не удалось получить итоги занятия."),
+        );
+      if (!parsed.success || parsed.data.lessonId !== lessonId) {
+        throw new BoardHttpError(
+          "board.http.invalid-evidence-list",
+          "Сервер вернул несовместимый список итогов.",
+          response.status,
+          false,
+        );
+      }
+      return parsed.data.items.map(parseEvidence);
+    },
+
+    async publishEvidence(evidenceId, csrfToken) {
+      const response = await send(
+        `/board-evidence/${encodeURIComponent(evidenceId)}/publish`,
+        {
+          headers: { "X-CSRF-Token": csrfToken },
+          method: "POST",
+        },
+      );
+      return parseEvidence(
+        await requireSuccess(response, "Не удалось опубликовать итог."),
+      );
+    },
+
+    async revokeEvidence(evidenceId, csrfToken) {
+      const response = await send(
+        `/board-evidence/${encodeURIComponent(evidenceId)}/revoke`,
+        {
+          headers: { "X-CSRF-Token": csrfToken },
+          method: "POST",
+        },
+      );
+      return parseEvidence(
+        await requireSuccess(response, "Не удалось отозвать итог."),
+      );
     },
   };
 }

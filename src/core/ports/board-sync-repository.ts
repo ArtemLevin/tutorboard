@@ -22,7 +22,7 @@ export interface BoardCommandEnvelope {
 }
 
 export interface ServerBoardCommandBatch {
-  readonly actorUserId: string;
+  readonly actorUserId: string | null;
   readonly baseRevision: number;
   readonly createdAt: string;
   readonly envelope: BoardCommandEnvelope;
@@ -32,6 +32,7 @@ export interface ServerBoardCommandBatch {
 }
 
 export interface ServerBoardDescriptor {
+  readonly archivedAt: string | null;
   readonly currentDocumentSha256: string;
   readonly currentRevision: number;
   readonly documentId: DocumentId;
@@ -39,6 +40,58 @@ export interface ServerBoardDescriptor {
   readonly lessonId: string;
   readonly snapshotDue: boolean;
   readonly studentId: string;
+}
+
+export interface BoardRevisionDescriptor {
+  readonly actorUserId: string | null;
+  readonly createdAt: string;
+  readonly documentSha256: string;
+  readonly revision: number;
+  readonly snapshotAvailable: boolean;
+}
+
+export interface BoardEvidenceDescriptor {
+  readonly artifacts: {
+    readonly manifest: string;
+    readonly png: string | null;
+    readonly svg: string;
+  };
+  readonly documentId: DocumentId;
+  readonly documentSchemaVersion: string;
+  readonly documentSha256: string;
+  readonly evidenceId: string;
+  readonly finalizedAt: string;
+  readonly lessonId: string;
+  readonly manifestSha256: string;
+  readonly publishedAt: string | null;
+  readonly revision: number;
+  readonly revokedAt: string | null;
+  readonly schemaVersion: "1.0";
+  readonly studentId: string;
+  readonly transcriptLinks: readonly BoardTranscriptLink[];
+}
+
+export interface BoardTranscriptLink {
+  readonly endMs?: number | undefined;
+  readonly label: string;
+  readonly startMs: number;
+}
+
+export interface BoardCollaborationTicket {
+  readonly expiresInSeconds: number;
+  readonly protocolVersion: "1.0";
+  readonly ticket: string;
+  readonly websocketPath: string;
+}
+
+export interface BoardClientEvent {
+  readonly durationMs?: number;
+  readonly name:
+    | "board.load"
+    | "board.sync"
+    | "collaboration.connection"
+    | "evidence.finalize";
+  readonly outcome: "failure" | "offline" | "recovered" | "success";
 }
 
 export interface BoardServerRecovery {
@@ -97,6 +150,53 @@ export interface BoardSyncRepository {
     envelope: BoardCommandEnvelope,
     csrfToken: string,
   ) => Promise<PushBoardCommandsResult>;
+}
+
+export interface BoardPlatformRepository extends BoardSyncRepository {
+  readonly archive: (
+    documentId: DocumentId,
+    csrfToken: string,
+  ) => Promise<ServerBoardDescriptor>;
+  readonly collaborationTicket: (
+    documentId: DocumentId,
+    clientId: string,
+    csrfToken: string,
+  ) => Promise<BoardCollaborationTicket>;
+  readonly finalizeEvidence: (
+    documentId: DocumentId,
+    revision: number,
+    documentSha256: string,
+    previewSvg: string,
+    previewPngBase64: string,
+    transcriptLinks: readonly BoardTranscriptLink[],
+    csrfToken: string,
+  ) => Promise<BoardEvidenceDescriptor>;
+  readonly listBoards: (
+    lessonId: string,
+    includeArchived?: boolean,
+  ) => Promise<readonly ServerBoardDescriptor[]>;
+  readonly listEvidence: (
+    lessonId: string,
+  ) => Promise<readonly BoardEvidenceDescriptor[]>;
+  readonly listRevisions: (
+    documentId: DocumentId,
+  ) => Promise<readonly BoardRevisionDescriptor[]>;
+  readonly publishEvidence: (
+    evidenceId: string,
+    csrfToken: string,
+  ) => Promise<BoardEvidenceDescriptor>;
+  readonly recordClientEvent: (
+    event: BoardClientEvent,
+    csrfToken: string,
+  ) => Promise<void>;
+  readonly revokeEvidence: (
+    evidenceId: string,
+    csrfToken: string,
+  ) => Promise<BoardEvidenceDescriptor>;
+  readonly unarchive: (
+    documentId: DocumentId,
+    csrfToken: string,
+  ) => Promise<ServerBoardDescriptor>;
 }
 
 export interface PendingBoardCommand {

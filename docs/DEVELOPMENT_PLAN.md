@@ -551,6 +551,10 @@ Target baseline:
 
 # 9. Фаза 4. Интеграция с tutor-assistant-web
 
+## Статус
+
+Завершена в коде. Решение: ADR-012.
+
 ## Цель
 
 Подключить TutorBoard к существующей identity, tenant, student и lesson model вместо создания собственного backend.
@@ -674,6 +678,10 @@ Implement:
 
 # 10. Фаза 5. Server Persistence and History
 
+## Статус
+
+Завершена в коде и service-backed CI.
+
 ## Цель
 
 Перенести source of truth документа из IndexedDB в versioned platform storage, сохранив offline recovery.
@@ -748,6 +756,10 @@ For non-collaborative conflicts:
 ---
 
 # 11. Фаза 6. Real-time Collaboration
+
+## Статус
+
+Завершена в коде на server-ordered command log; решение: ADR-013.
 
 ## Цель
 
@@ -859,6 +871,10 @@ Presence is ephemeral and not part of BoardDocument.
 
 # 12. Фаза 7. Lesson Evidence and Materials
 
+## Статус
+
+Завершена в коде; решение: ADR-014.
+
 ## Цель
 
 Включить доску в существующий post-lesson workflow tutor-assistant-web.
@@ -934,6 +950,11 @@ Transition adapter for existing static publication:
 ---
 
 # 13. Фаза 8. Production Readiness
+
+## Статус
+
+Release-контур реализован; реальное staging/production approval выполняется
+операционно после публикации образов. Решение: ADR-015.
 
 ## Цель
 
@@ -1487,10 +1508,13 @@ TutorBoard 1.0 считается готовым, когда:
 
 # 24. Ближайшее действие
 
-PR 2.1–2.6 завершены. Следующий практический этап — **PR 2.7 Safe SVG
-insertion**.
+Фазы 1–8 реализованы. Ближайшее действие — completion gate двух репозиториев,
+публикация draft PR, затем staging:
 
-Он должен добавить строгую sanitization boundary, byte/node/depth/dimension
-limits, вычисление bounds, selection/movement и явные invalid-input diagnostics.
-SVG остаётся untrusted visual Board object и не используется как источник
-математической семантики.
+1. PostgreSQL/Redis/MinIO integration и migration reversibility;
+2. Chromium/Firefox multi-client/offline E2E и container scan;
+3. публикация immutable backend/TutorBoard images;
+4. blue/green staging smoke, load и backup/restore drill;
+5. ручное production approval.
+
+Phase 9 остаётся отдельным post-1.0 roadmap и не расширяет текущий release.

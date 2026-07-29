@@ -14,7 +14,7 @@ describe("readEnvironment", () => {
           geometryPrompt: true,
           serverSync: stage === "production",
         },
-        geometryOsBaseUrl: "http://localhost:8000",
+        geometryOsBaseUrl: `${window.location.origin}/api/v1/geometryos`,
         stage,
       });
     },

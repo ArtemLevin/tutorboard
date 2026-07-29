@@ -12,14 +12,17 @@ TutorBoard отвечает за интерактивное представле
 tutor-assistant-web отвечает за пользователей, занятия, доступ, хранение и бизнес-процессы.
 ```
 
-Архитектурный Technical Spike завершён. Текущий default path — автономное
-single-user приложение Product Foundation:
+Архитектурный Technical Spike и продуктовые фазы 3–8 завершены в коде.
+Development сохраняет автономный режим; production открывает lesson-bound
+совместную доску через платформу:
 
 ```text
 текстовый запрос
     ↓
 TutorBoard
-    ↓ HTTP API v1
+    ↓ same-origin /api/v1/geometryos
+tutor-assistant-web
+    ↓ internal HTTP API v1
 GeometryOS
     ↓
 канонический GIR 0.2
@@ -46,8 +49,8 @@ BoardDocument
 | Компонент                | Текущее состояние                                                                                                     | Ближайшая поставка                           |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | GeometryOS               | API v1/GIR `0.2.0`, Layout Document `0.1.0` и стабильный `POST /api/v1/layout` опубликованы                           | Consumer integration hardening               |
-| TutorBoard               | Phase 3 завершена; `board/v1`, server repository, durable offline queue и revision rebase реализованы                 | Phase 4 collaboration hardening              |
-| tutor-assistant-web      | Серверная платформа пользователей, занятий, BBB, evidence, материалов и production-операций                           | Поздняя Phase 4 integration через gateway    |
+| TutorBoard               | Phases 3–8: server sync, collaboration, evidence UI и immutable production image                                      | Staging/release approval                      |
+| tutor-assistant-web      | Board persistence/API, WebSocket rooms, GeometryOS gateway, immutable evidence, portal и blue/green routing            | Staging load/restore drill                    |
 | tutor-assistant          | Desktop recording/transcription application                                                                           | Lesson evidence integration на поздних фазах |
 | students-26-27           | Репозиторий учебных страниц и опубликованных файлов                                                                   | Consumer lesson artifacts                    |
 | Latexed / DocumentEngine | Проверка, компиляция и экспорт TEX/PDF/HTML                                                                           | Post-lesson material pipeline                |
@@ -86,8 +89,8 @@ compile-time DTOs вместе с standalone runtime validators.
 
 ### Критический путь
 
-`TutorBoard Phase 3 Product Foundation` (выполнена)
-→ `Phase 4 tutor-assistant-web integration contract`.
+Source completion gate → draft PR двух репозиториев → immutable images →
+staging smoke/load/restore drill → manual production approval.
 
 PR 2.9 разделён намеренно и обе его части теперь реализованы:
 
@@ -615,7 +618,7 @@ GeometryOS: http://localhost:8000
 
 ```text
 VITE_APP_STAGE=development | test | production
-VITE_GEOMETRYOS_BASE_URL=http://localhost:8000
+VITE_GEOMETRYOS_BASE_URL=/api/v1/geometryos/
 VITE_FEATURE_DEV_DIAGNOSTICS=true
 VITE_FEATURE_DOCUMENT_SNAPSHOTS=true
 VITE_FEATURE_GEOMETRY_PROMPT=true

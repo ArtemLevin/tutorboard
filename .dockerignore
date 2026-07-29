@@ -1,0 +1,9 @@
+.git
+.github
+.agent
+dist
+node_modules
+playwright-report
+test-results
+tests
+tools

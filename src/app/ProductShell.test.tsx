@@ -1,7 +1,20 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { BoardDocumentRepository, GeometryOsClient } from "../core/public";
+import {
+  actorId,
+  documentId,
+  type BoardDocumentRepository,
+  type BoardPlatformRepository,
+  type GeometryOsClient,
+  type PendingBoardCommandQueue,
+} from "../core/public";
 import {
   ProductErrorBoundary,
   ProductShell,
@@ -105,5 +118,53 @@ describe("ProductShell", () => {
       screen.getByRole("button", { name: "Открыть диагностику" }),
     );
     expect(window.location.hash).toBe("#/diagnostics");
+  });
+
+  it("opens the selected lesson board and hides management from students", async () => {
+    window.location.hash = "#/documents";
+    const platformRepository = {
+      context: vi.fn().mockResolvedValue({
+        actorId: actorId("actor:student"),
+        csrfToken: "csrf",
+        organizationId: "organization:1",
+        role: "student",
+      }),
+      listBoards: vi.fn().mockResolvedValue([
+        {
+          archivedAt: null,
+          currentDocumentSha256: "a".repeat(64),
+          currentRevision: 4,
+          documentId: documentId("document:second"),
+          lastSnapshotRevision: 3,
+          lessonId: "lesson:42",
+          snapshotDue: false,
+          studentId: "student:1",
+        },
+      ]),
+    } as unknown as BoardPlatformRepository;
+    render(
+      <ProductShell
+        environment={{
+          ...environment,
+          features: { ...environment.features, serverSync: true },
+        }}
+        geometryOsClient={geometryOsClient}
+        repository={repository}
+        serverSync={{
+          documentId: documentId("document:first"),
+          lessonId: "lesson:42",
+          queue: {} as PendingBoardCommandQueue,
+          repository: platformRepository,
+        }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Открыть" })).toHaveAttribute(
+        "href",
+        "?lessonId=lesson%3A42&documentId=document%3Asecond#/board",
+      ),
+    );
+    expect(screen.queryByRole("button", { name: "В архив" })).toBeNull();
   });
 });

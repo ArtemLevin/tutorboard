@@ -169,4 +169,100 @@ describe("Board HTTP repository", () => {
       retryable: true,
     } satisfies Partial<BoardHttpError>);
   });
+
+  it("validates archive, collaboration, history and evidence contracts", async () => {
+    const descriptor = {
+      archivedAt: null,
+      createdAt: "2026-07-28T18:00:00.000Z",
+      currentDocumentSha256: envelope.expectedDocumentSha256,
+      currentRevision: 1,
+      documentId: envelope.documentId,
+      lastSnapshotRevision: 1,
+      lessonId: "lesson:1",
+      schemaVersion: "1.0",
+      snapshotDue: false,
+      studentId: "student:1",
+      updatedAt: "2026-07-28T18:00:00.000Z",
+    };
+    const evidence = {
+      artifacts: {
+        manifest: "/api/v1/board-evidence/evidence:1/manifest",
+        png: null,
+        svg: "/api/v1/board-evidence/evidence:1/svg",
+      },
+      documentId: envelope.documentId,
+      documentSchemaVersion: "1.0",
+      documentSha256: envelope.expectedDocumentSha256,
+      evidenceId: "evidence:1",
+      finalizedAt: "2026-07-28T18:00:00.000Z",
+      lessonId: "lesson:1",
+      manifestSha256:
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      publishedAt: null,
+      revision: 1,
+      revokedAt: null,
+      schemaVersion: "1.0",
+      studentId: "student:1",
+      transcriptLinks: [],
+    };
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({ items: [descriptor], lessonId: "lesson:1" }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          expiresInSeconds: 30,
+          protocolVersion: "1.0",
+          ticket: "opaque",
+          websocketPath: "/api/v1/boards/document/collaboration",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          currentRevision: 1,
+          documentId: envelope.documentId,
+          items: [
+            {
+              actorUserId: "user:tutor",
+              createdAt: "2026-07-28T18:00:00.000Z",
+              documentSha256: envelope.expectedDocumentSha256,
+              revision: 1,
+              snapshotAvailable: true,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(evidence));
+    const repository = createBoardHttpRepository({
+      fetch: request,
+      origin: "https://tutor.example.test",
+    });
+
+    const boards = await repository.listBoards("lesson:1");
+    expect(boards[0]?.archivedAt).toBeNull();
+    const ticket = await repository.collaborationTicket(
+      envelope.documentId,
+      "browser:1",
+      "csrf",
+    );
+    expect(ticket.ticket).toBe("opaque");
+    expect(await repository.listRevisions(envelope.documentId)).toHaveLength(1);
+    const finalized = await repository.finalizeEvidence(
+      envelope.documentId,
+      1,
+      envelope.expectedDocumentSha256,
+      '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+      "",
+      [],
+      "csrf",
+    );
+    expect(finalized.evidenceId).toBe("evidence:1");
+    expect(request.mock.calls[3]?.[1]?.method).toBe("POST");
+    expect(
+      (request.mock.calls[3]?.[1]?.headers as Record<string, string>)[
+        "X-CSRF-Token"
+      ],
+    ).toBe("csrf");
+  });
 });

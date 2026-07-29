@@ -11,10 +11,12 @@ import {
 import {
   boardDocumentSchemaVersion,
   type BoardDocumentRepository,
-  type BoardSyncRepository,
+  type BoardPlatformRepository,
+  type BoardRevisionDescriptor,
   type DocumentId,
   type GeometryOsClient,
   type PendingBoardCommandQueue,
+  type ServerBoardDescriptor,
 } from "../core/public";
 import { geometryOsAdapterContractVersion } from "../adapters/geometryos-http/public";
 import { persistenceAdapterContractVersion } from "../adapters/persistence-dexie/public";
@@ -95,7 +97,7 @@ export interface ProductServerSync {
   readonly documentId: DocumentId;
   readonly lessonId: string;
   readonly queue: PendingBoardCommandQueue;
-  readonly repository: BoardSyncRepository;
+  readonly repository: BoardPlatformRepository;
 }
 
 interface ProductShellProps {
@@ -149,34 +151,147 @@ function ProductNavigation({
   );
 }
 
-function DocumentsPage() {
+function DocumentsPage({
+  serverSync,
+}: {
+  readonly serverSync?: ProductServerSync | undefined;
+}) {
+  const [documents, setDocuments] = useState<readonly ServerBoardDescriptor[]>(
+    [],
+  );
+  const [revisions, setRevisions] = useState<
+    readonly BoardRevisionDescriptor[]
+  >([]);
+  const [revisionDocumentId, setRevisionDocumentId] =
+    useState<DocumentId | null>(null);
+  const [canManage, setCanManage] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const refresh = useCallback(async () => {
+    if (serverSync === undefined) {
+      return;
+    }
+    try {
+      const [items, context] = await Promise.all([
+        serverSync.repository.listBoards(serverSync.lessonId, true),
+        serverSync.repository.context(),
+      ]);
+      setDocuments(items);
+      setCanManage(context.role === "admin" || context.role === "tutor");
+    } catch (error) {
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : "Не удалось получить документы занятия.",
+      );
+    }
+  }, [serverSync]);
+  useEffect(() => {
+    const load = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(load);
+  }, [refresh]);
+  const setArchived = async (
+    document: ServerBoardDescriptor,
+    archived: boolean,
+  ) => {
+    if (serverSync === undefined) {
+      return;
+    }
+    const context = await serverSync.repository.context();
+    if (archived) {
+      await serverSync.repository.archive(
+        document.documentId,
+        context.csrfToken,
+      );
+    } else {
+      await serverSync.repository.unarchive(
+        document.documentId,
+        context.csrfToken,
+      );
+    }
+    setStatus(archived ? "Доска перенесена в архив." : "Доска восстановлена.");
+    await refresh();
+  };
   return (
     <main className="product-page" tabIndex={-1}>
       <header>
-        <p className="product-eyebrow">Локальная библиотека</p>
+        <p className="product-eyebrow">
+          {serverSync === undefined ? "Локальная библиотека" : "Занятие"}
+        </p>
         <h1>Документы</h1>
         <p>
-          TutorBoard поддерживает локальные документы и доски, открытые из
-          контекста занятия.
+          {serverSync === undefined
+            ? "TutorBoard поддерживает локальные документы и доски, открытые из контекста занятия."
+            : "Архив, история точных серверных ревизий и переход к активной доске занятия."}
         </p>
       </header>
       <section aria-label="Локальные документы" className="document-grid">
-        <article>
-          <span aria-hidden="true">▦</span>
-          <div>
-            <h2>TutorBoard canvas</h2>
-            <p>Автосохранение · BoardDocument 1.0</p>
-          </div>
-          <a href="#/board">Открыть доску</a>
-        </article>
-        <article className="document-placeholder">
-          <span aria-hidden="true">＋</span>
-          <div>
-            <h2>Новый документ</h2>
-            <p>Появится вместе с lesson context и серверным repository.</p>
-          </div>
-        </article>
+        {serverSync === undefined ? (
+          <article>
+            <span aria-hidden="true">▦</span>
+            <div>
+              <h2>TutorBoard canvas</h2>
+              <p>Автосохранение · BoardDocument 1.0</p>
+            </div>
+            <a href="#/board">Открыть доску</a>
+          </article>
+        ) : documents.length === 0 ? (
+          <article className="document-placeholder">
+            <span aria-hidden="true">↻</span>
+            <div>
+              <h2>Доски не найдены</h2>
+              <p>Откройте доску занятия, чтобы создать первую ревизию.</p>
+            </div>
+          </article>
+        ) : (
+          documents.map((document) => (
+            <article key={document.documentId}>
+              <span aria-hidden="true">▦</span>
+              <div>
+                <h2>{document.documentId}</h2>
+                <p>
+                  Ревизия {document.currentRevision}
+                  {document.archivedAt === null ? "" : " · архив"}
+                </p>
+                {revisions.length > 0 &&
+                document.documentId === revisionDocumentId ? (
+                  <small>{revisions.length} сохранённых точек истории</small>
+                ) : null}
+              </div>
+              <div className="document-actions">
+                <a
+                  href={`?lessonId=${encodeURIComponent(serverSync.lessonId)}&documentId=${encodeURIComponent(document.documentId)}#/board`}
+                >
+                  Открыть
+                </a>
+                <button
+                  onClick={() =>
+                    void serverSync.repository
+                      .listRevisions(document.documentId)
+                      .then((items) => {
+                        setRevisionDocumentId(document.documentId);
+                        setRevisions(items);
+                      })
+                  }
+                  type="button"
+                >
+                  История
+                </button>
+                {canManage ? (
+                  <button
+                    onClick={() =>
+                      void setArchived(document, document.archivedAt === null)
+                    }
+                    type="button"
+                  >
+                    {document.archivedAt === null ? "В архив" : "Восстановить"}
+                  </button>
+                ) : null}
+              </div>
+            </article>
+          ))
+        )}
       </section>
+      {status === null ? null : <p role="status">{status}</p>}
     </main>
   );
 }
@@ -340,7 +455,7 @@ export function ProductShell({
               />
             )
           ) : effectiveRoute === "documents" ? (
-            <DocumentsPage />
+            <DocumentsPage serverSync={serverSync} />
           ) : effectiveRoute === "settings" ? (
             <SettingsPage environment={environment} />
           ) : (

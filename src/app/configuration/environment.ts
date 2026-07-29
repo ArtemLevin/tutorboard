@@ -58,7 +58,12 @@ export function readEnvironment(
     throw new Error(`Unsupported VITE_APP_STAGE: ${stage}`);
   }
 
-  const geometryOsUrl = new URL(geometryOsBaseUrl ?? "http://localhost:8000");
+  const runtimeOrigin =
+    typeof window === "undefined" ? "http://localhost" : window.location.origin;
+  const geometryOsUrl = new URL(
+    geometryOsBaseUrl ?? "/api/v1/geometryos/",
+    runtimeOrigin,
+  );
   if (
     (geometryOsUrl.protocol !== "http:" &&
       geometryOsUrl.protocol !== "https:") ||
