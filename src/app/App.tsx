@@ -120,8 +120,15 @@ export interface AppProps {
   readonly geometryOsClient?: GeometryOsClient | undefined;
   readonly historyEnabled?: boolean;
   readonly initialDocument?: BoardDocument;
+  readonly collaborativeUndoAvailable?: boolean;
+  readonly onCollaborativeUndo?: () => void;
   readonly onCommandCommitted?:
-    ((command: BoardCommand, document: BoardDocument) => void) | undefined;
+    | ((
+        command: BoardCommand,
+        document: BoardDocument,
+        previousDocument: BoardDocument,
+      ) => void)
+    | undefined;
   readonly onDocumentChange?: (document: BoardDocument) => void;
   readonly onExportDocument?: ((document: BoardDocument) => void) | undefined;
   readonly onExportPngSnapshot?:
@@ -130,10 +137,23 @@ export interface AppProps {
     ((document: BoardDocument) => void) | undefined;
   readonly onExportDiagnostics?: () => void;
   readonly onImportDocument?: (file: File) => void;
+  readonly onPresenceChange?: (presence: {
+    readonly cursor?: { readonly x: number; readonly y: number };
+    readonly selectedObjectIds: readonly string[];
+    readonly viewport: {
+      readonly x: number;
+      readonly y: number;
+      readonly zoom: number;
+    };
+  }) => void;
   readonly onRetryPersistence?: () => void;
   readonly persistenceNotice?: string | null;
   readonly persistenceStatus?: AppPersistenceStatus;
   readonly readOnly?: boolean;
+  readonly remoteCursors?: readonly {
+    readonly actorId: string;
+    readonly point: { readonly x: number; readonly y: number };
+  }[];
 }
 
 // The persistence bootstrap reuses this deterministic seed without importing UI state.
@@ -149,20 +169,24 @@ export function createInitialDocument(): BoardDocument {
 
 export function App({
   commandActorId = localActorId,
+  collaborativeUndoAvailable = false,
   geometryOsClient,
   historyEnabled = true,
   initialDocument,
   onCommandCommitted,
+  onCollaborativeUndo,
   onDocumentChange,
   onExportDocument,
   onExportPngSnapshot,
   onExportSvgSnapshot,
   onExportDiagnostics,
   onImportDocument,
+  onPresenceChange,
   onRetryPersistence,
   persistenceNotice = null,
   persistenceStatus = { kind: "idle", label: "Локальное сохранение" },
   readOnly = false,
+  remoteCursors = [],
 }: AppProps = {}) {
   const [boardState, setBoardState] = useState(() => ({
     commandError: null as string | null,
@@ -213,6 +237,22 @@ export function App({
     () => sceneSelector(document),
     [document, sceneSelector],
   );
+  useEffect(() => {
+    onPresenceChange?.({
+      selectedObjectIds: selectionState.selectedObjectIds,
+      viewport: {
+        x: document.viewport.offset.x,
+        y: document.viewport.offset.y,
+        zoom: document.viewport.zoom,
+      },
+    });
+  }, [
+    document.viewport.offset.x,
+    document.viewport.offset.y,
+    document.viewport.zoom,
+    onPresenceChange,
+    selectionState.selectedObjectIds,
+  ]);
   const layers = useMemo(() => selectLayers(document), [document]);
   const drawingPreview = useMemo(
     () => getDrawingPreview(drawingState),
@@ -275,7 +315,8 @@ export function App({
         }));
         return result;
       }
-      const result = reduceBoardDocument(documentRef.current, command);
+      const previousDocument = documentRef.current;
+      const result = reduceBoardDocument(previousDocument, command);
       if (!result.ok) {
         setBoardState((current) => ({
           ...current,
@@ -288,7 +329,7 @@ export function App({
         commandError: null,
         history: commitDocumentHistory(current.history, result.document),
       }));
-      onCommandCommitted?.(command, result.document);
+      onCommandCommitted?.(command, result.document, previousDocument);
       return result;
     },
     [onCommandCommitted, readOnly],
@@ -296,11 +337,14 @@ export function App({
 
   const undo = useCallback(() => {
     if (!historyEnabled) {
-      setBoardState((current) => ({
-        ...current,
-        commandError:
-          "Отмена будет доступна после добавления синхронизируемой undo-команды в board/v1.",
-      }));
+      if (collaborativeUndoAvailable && onCollaborativeUndo !== undefined) {
+        onCollaborativeUndo();
+      } else {
+        setBoardState((current) => ({
+          ...current,
+          commandError: "Нет собственной обратимой операции для отмены.",
+        }));
+      }
       return;
     }
     setBoardState((current) => {
@@ -309,7 +353,7 @@ export function App({
         ? current
         : { commandError: null, history: next };
     });
-  }, [historyEnabled]);
+  }, [collaborativeUndoAvailable, historyEnabled, onCollaborativeUndo]);
 
   const redo = useCallback(() => {
     if (!historyEnabled) {
@@ -1079,7 +1123,11 @@ export function App({
           <button
             aria-label="Отменить (Ctrl+Z)"
             className="tool-button"
-            disabled={!historyEnabled || history.past.length === 0}
+            disabled={
+              historyEnabled
+                ? history.past.length === 0
+                : !collaborativeUndoAvailable
+            }
             onClick={undo}
             type="button"
           >
@@ -1314,6 +1362,17 @@ export function App({
           onWorldPointerCancel={cancelDrawing}
           onWorldPointerFinish={finishDrawing}
           onWorldPointerMove={moveDrawing}
+          onWorldPointerHover={(cursor) =>
+            onPresenceChange?.({
+              cursor,
+              selectedObjectIds: selectionStateRef.current.selectedObjectIds,
+              viewport: {
+                x: documentRef.current.viewport.offset.x,
+                y: documentRef.current.viewport.offset.y,
+                zoom: documentRef.current.viewport.zoom,
+              },
+            })
+          }
           onWorldPointerStart={startDrawing}
           onSelectionPointerCancel={cancelSelection}
           onSelectionPointerFinish={finishSelection}
@@ -1323,6 +1382,7 @@ export function App({
           panMode={activeTool === navigationToolId}
           previewItems={previewItems}
           registry={registry}
+          remoteCursors={remoteCursors}
           scene={scene}
           selectedObjectIds={selectionState.selectedObjectIds}
           selectionBounds={selectionBounds}

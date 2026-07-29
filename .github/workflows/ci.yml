@@ -38,6 +38,9 @@ jobs:
       - name: Verify pinned GeometryOS contract
         run: npm run geometryos:check
 
+      - name: Verify board contract
+        run: npm run board-contract:check
+
       - name: Check formatting
         run: npm run format:check
 
@@ -46,6 +49,9 @@ jobs:
 
       - name: Type-check
         run: npm run typecheck
+
+      - name: Audit production dependency threshold
+        run: npm audit --audit-level=high
 
       - name: Run unit tests
         run: |
@@ -171,8 +177,8 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium firefox
 
       - name: Build production bundle
         env:
@@ -182,3 +188,67 @@ jobs:
 
       - name: Run browser smoke
         run: npm run e2e
+
+  production-image:
+    name: Production image
+    needs: [quality, e2e-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Build immutable TutorBoard image
+        run: |
+          docker build \
+            --build-arg BUILD_REVISION=${GITHUB_SHA} \
+            --build-arg BUILD_VERSION=0.1.0 \
+            --tag tutorboard:${GITHUB_SHA} \
+            .
+
+      - name: Assert non-root read-only runtime
+        run: |
+          test "$(docker inspect --format '{{.Config.User}}' tutorboard:${GITHUB_SHA})" = "101"
+          docker run --detach \
+            --name tutorboard-release \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --publish 127.0.0.1:18080:8080 \
+            tutorboard:${GITHUB_SHA}
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs tutorboard-release
+          exit 1
+
+      - name: Scan production image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: tutorboard:${{ github.sha }}
+          format: sarif
+          output: trivy-tutorboard.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          limit-severities-for-sarif: true
+
+      - name: Upload Trivy results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-tutorboard.sarif
+
+      - name: Capture container diagnostics
+        if: always()
+        run: |
+          docker logs tutorboard-release || true
+          docker rm --force tutorboard-release || true

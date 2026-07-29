@@ -15,6 +15,24 @@
 
 ## 2. Текущее состояние и ближайшая последовательность
 
+### 2.0. Актуальный baseline 2026-07-28
+
+Историческая разбивка PR 2.x ниже сохранена как traceability. Фактический
+продуктовый baseline:
+
+| Фаза | Статус | Результат |
+| --- | --- | --- |
+| 1–3 | завершены | GeometryOS contract, `BoardDocument 1.0`, полотно, инструменты, history, transfer, accessibility и performance |
+| 4 | завершена | lesson launch/embed, session context, role capabilities и same-origin GeometryOS gateway |
+| 5 | завершена | server revisions, snapshots, archive/history, durable offline queue, `409` rebase и recovery |
+| 6 | завершена в коде | tenant-scoped WebSocket revision signals, ephemeral presence, reconnect и own-operation undo |
+| 7 | завершена в коде | immutable board evidence, materials context, portal publication/revocation и static export |
+| 8 | завершена в release-контуре | CSP, privacy-safe telemetry, SLO/runbooks, immutable image, blue/green routing, Chromium/Firefox и security scan |
+
+`BoardDocument 1.0`, GIR `0.2.0` и Layout Document `0.1.0` не изменены фазами
+4–8. Production activation остаётся отдельным ручным operational gate:
+публикация образов, staging smoke/load, restore drill и approval.
+
 ### 2.1. Доставленный baseline
 
 TutorBoard завершил основную инфраструктурную часть Technical Spike:
@@ -38,9 +56,9 @@ TutorBoard завершил основную инфраструктурную ч
 | PR 2.9B  | завершён | Layout-to-Board placement, editable primitives и атомарный geometry import                               |
 | PR 2.10  | завершён | prompt/readiness/generate/layout/import UI flow, selection и autosave/reload evidence                    |
 | PR 2.11  | завершён | visual group translation, label/style overrides и deny-by-default semantic edits                         |
-| PR 2.12  | готовится | Phase 2 report, coordinate/change boundaries, contract proposals и Phase 3 backlog                        |
+| PR 2.12  | завершён | Phase 2 report, coordinate/change boundaries, contract proposals и Phase 3 backlog                        |
 
-Текущий stored contract — `BoardDocument 0.2`. Canvas runtime, selection,
+Текущий stored contract — `BoardDocument 1.0`. Canvas runtime, selection,
 preview и transport state не сериализуются. Canonical GIR хранится отдельно от
 Board objects и не восстанавливается из SVG или пользовательских transforms.
 
@@ -499,6 +517,32 @@ interface TutorBoardModuleDefinition {
 | `SEC-009` | Student artifacts не содержат technical metadata                     | publication test     |
 | `SEC-010` | Feature flags не предоставляют permissions                           | security review      |
 
+### 6.8. Collaboration
+
+| ID | Инвариант | Основное enforcement |
+| --- | --- | --- |
+| `COLL-001` | Durable command log — единственный порядок изменений | convergence tests |
+| `COLL-002` | Room key включает tenant и document | cross-tenant broker test |
+| `COLL-003` | WebSocket ticket короткоживущий и одноразовый | API test |
+| `COLL-004` | Presence ephemeral и не сериализуется | architecture/round-trip |
+| `COLL-005` | Потеря WebSocket не влияет на HTTP recovery | reconnect E2E |
+| `COLL-006` | Undo обращает только точную собственную операцию | inverse-command tests |
+| `COLL-007` | Geometry import распространяется атомарной command | command/replay tests |
+| `COLL-008` | Message size/rate и stale sequence bounded | protocol tests |
+
+### 6.9. Evidence and release
+
+| ID | Инвариант | Основное enforcement |
+| --- | --- | --- |
+| `EVID-001` | Evidence связан с exact available snapshot revision | API/DB test |
+| `EVID-002` | Manifest и previews immutable и SHA-verified | storage round-trip |
+| `EVID-003` | Live edit не переписывает historical evidence | unique/idempotency test |
+| `EVID-004` | Student видит только published non-revoked artifact | authorization test |
+| `EVID-005` | Public export не раскрывает storage/tenant metadata | export fixture |
+| `REL-001` | Frontend image immutable, non-root и secret-free | container gate |
+| `REL-002` | Backend/frontend переключаются одним slot | compose/script test |
+| `REL-003` | Rollback не удаляет revisions/snapshots/evidence | runbook + restore drill |
+
 ## 7. Extension contracts
 
 ### 7.1. Новый object kind
@@ -579,9 +623,13 @@ memory, Dexie или HTTP. Для любой реализации определ
 | auth, tenant, publication                                   | `security-review`                         |
 | WebSocket, operation replay, retries                        | `concurrency-review`                      |
 | platform durable schema                                     | `database-review`                         |
+| lesson launch, embed, same-origin gateway                    | `platform-integration`                    |
+| collaboration, presence, own-operation undo                  | `collaboration-protocol`                  |
+| final revision, evidence, publication/export                 | `lesson-evidence`                         |
+| image, proxy, SLO, rollback, release                         | `production-release`                      |
 
-Skills для platform integration, collaboration protocol, lesson evidence и
-production release создаются вместе с соответствующей фазой, а не заранее.
+Фазовые skills существуют и обязаны применяться вместе с базовыми specialist
+review при затрагивании соответствующих поверхностей.
 
 ## 9. Verification routing
 

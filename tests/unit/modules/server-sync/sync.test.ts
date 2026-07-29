@@ -91,6 +91,7 @@ class MemoryQueue implements PendingBoardCommandQueue {
 class FakeRepository implements BoardSyncRepository {
   readonly pushed: BoardCommandEnvelope[] = [];
   descriptor: ServerBoardDescriptor = {
+    archivedAt: null,
     currentDocumentSha256: "",
     currentRevision: 0,
     documentId: expectedDocumentId,
@@ -499,6 +500,38 @@ describe("BoardSyncEngine", () => {
     expect(states.at(-1)).toMatchObject({
       kind: "ready",
       role: "parent",
+    });
+  });
+
+  it("queues collaborative undo as an ordinary confirmed command", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const repository = new FakeRepository();
+    const states: BoardSyncState[] = [];
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => "client:undo",
+      documentId: expectedDocumentId,
+      lessonId: "lesson:1",
+      now: () => "2026-07-28T18:03:00.000Z",
+      onStateChange: (state) => states.push(state),
+      queue: new MemoryQueue(),
+      repository,
+    });
+    await engine.bootstrap();
+
+    await engine.apply([
+      rename("command:undo", "2026-07-28T18:02:00.000Z", "Restored title"),
+    ]);
+
+    expect(repository.pushed).toHaveLength(1);
+    expect(repository.pushed[0]?.commands[0]).toMatchObject({
+      kind: "core.document.rename",
+      title: "Restored title",
+    });
+    expect(states.at(-1)).toMatchObject({
+      document: { title: "Restored title" },
+      kind: "ready",
+      pendingCount: 0,
+      revision: 1,
     });
   });
 });

@@ -7,7 +7,7 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { Group, Layer, Rect, Stage } from "react-konva";
+import { Circle, Group, Layer, Rect, Stage, Text } from "react-konva";
 
 import {
   boardObjectId,
@@ -88,6 +88,7 @@ export interface BoardStageProps {
   readonly onWorldPointerCancel: (pointerId: number) => void;
   readonly onWorldPointerFinish: (sample: WorldPointerSample) => void;
   readonly onWorldPointerMove: (sample: WorldPointerSample) => void;
+  readonly onWorldPointerHover?: (point: Vec2) => void;
   readonly onWorldPointerStart: (sample: WorldPointerSample) => void;
   readonly onSelectionPointerCancel: (pointerId: number) => void;
   readonly onSelectionPointerFinish: (sample: WorldPointerSample) => void;
@@ -98,6 +99,10 @@ export interface BoardStageProps {
   readonly panMode: boolean;
   readonly previewItems?: readonly BoardRenderItem[];
   readonly registry: KonvaRendererRegistry;
+  readonly remoteCursors?: readonly {
+    readonly actorId: string;
+    readonly point: Vec2;
+  }[];
   readonly scene: BoardSceneReadModel;
   readonly selectedObjectIds?: readonly BoardObjectId[];
   readonly selectionBounds?: readonly BoardSelectionBounds[];
@@ -183,6 +188,7 @@ export function BoardStage({
   onWorldPointerCancel,
   onWorldPointerFinish,
   onWorldPointerMove,
+  onWorldPointerHover,
   onWorldPointerStart,
   onSelectionPointerCancel,
   onSelectionPointerFinish,
@@ -191,6 +197,7 @@ export function BoardStage({
   panMode,
   previewItems = [],
   registry,
+  remoteCursors = [],
   scene,
   selectedObjectIds = [],
   selectionBounds = [],
@@ -217,6 +224,7 @@ export function BoardStage({
     start: onSelectionPointerStart,
   });
   const viewportRef = useRef(scene.viewport);
+  const worldPointerHoverRef = useRef(onWorldPointerHover);
   const spacePressedRef = useRef(false);
   const [previewViewport, setPreviewViewport] = useState(scene.viewport);
   const [isPanning, setIsPanning] = useState(false);
@@ -401,7 +409,20 @@ export function BoardStage({
   }, [onViewportCommit]);
 
   useEffect(() => {
+    worldPointerHoverRef.current = onWorldPointerHover;
+  }, [onWorldPointerHover]);
+  useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
+      const root = rootRef.current;
+      if (
+        root !== null &&
+        event.target instanceof Node &&
+        root.contains(event.target)
+      ) {
+        worldPointerHoverRef.current?.(
+          screenToWorld(elementPoint(event, root), viewportRef.current),
+        );
+      }
       const drawingSession = drawingSessionRef.current;
       if (
         drawingSession !== null &&
@@ -834,6 +855,24 @@ export function BoardStage({
                 y={selectionMarquee.y}
               />
             )}
+            {remoteCursors.map(({ actorId, point }) => (
+              <Group key={actorId} x={point.x} y={point.y}>
+                <Circle
+                  fill="#7c3aed"
+                  radius={6 / previewViewport.zoom}
+                  stroke="#ffffff"
+                  strokeWidth={2 / previewViewport.zoom}
+                />
+                <Text
+                  fill="#5b21b6"
+                  fontSize={12 / previewViewport.zoom}
+                  listening={false}
+                  text={actorId}
+                  x={10 / previewViewport.zoom}
+                  y={-18 / previewViewport.zoom}
+                />
+              </Group>
+            ))}
           </Group>
         </Layer>
       </Stage>
