@@ -25,8 +25,8 @@ The result unions keep readiness, HTTP 200 domain outcomes, Problem Details, tra
 Pinned producer:
 
 - repository `ArtemLevin/geometryos`;
-- commit `fe5ece9f7138044d638114907fe9aaecfd14e924`;
-- GeometryOS service `0.2.0`;
+- commit `84ae403ef06f5183091f8862307f3c458f464b87`;
+- GeometryOS service `0.3.0`;
 - HTTP API `v1` / `1.0.0`;
 - GIR `0.2.0`;
 - Layout Document `0.1.0`;

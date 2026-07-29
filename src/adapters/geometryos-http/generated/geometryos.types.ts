@@ -1009,6 +1009,16 @@ export interface components {
      *       "type": "urn:geometryos:problem:service-unavailable"
      *     }
      * @example {
+     *       "code": "service_overloaded",
+     *       "detail": "GeometryOS has reached its configured concurrent operation limit.",
+     *       "errors": [],
+     *       "instance": "/api/v1/generate",
+     *       "request_id": "tutorboard-contract",
+     *       "status": 503,
+     *       "title": "Service overloaded",
+     *       "type": "urn:geometryos:problem:service-overloaded"
+     *     }
+     * @example {
      *       "code": "internal_error",
      *       "detail": "An unexpected internal error occurred.",
      *       "errors": [],
@@ -1386,7 +1396,7 @@ export interface operations {
           "application/problem+json": components["schemas"]["ProblemDetail"];
         };
       };
-      /** @description Service is alive but not ready to accept application traffic. */
+      /** @description Service is not ready or has exhausted its operation capacity. */
       503: {
         headers: {
           "X-Request-ID": components["headers"]["GeometryOsRequestId"];
@@ -1457,7 +1467,7 @@ export interface operations {
           "application/problem+json": components["schemas"]["ProblemDetail"];
         };
       };
-      /** @description Service is alive but not ready to accept application traffic. */
+      /** @description Service is not ready or has exhausted its operation capacity. */
       503: {
         headers: {
           "X-Request-ID": components["headers"]["GeometryOsRequestId"];
@@ -1525,7 +1535,7 @@ export interface operations {
           "application/problem+json": components["schemas"]["ProblemDetail"];
         };
       };
-      /** @description Service is alive but not ready to accept application traffic. */
+      /** @description Service is not ready or has exhausted its operation capacity. */
       503: {
         headers: {
           "X-Request-ID": components["headers"]["GeometryOsRequestId"];
@@ -1593,7 +1603,7 @@ export interface operations {
           "application/problem+json": components["schemas"]["ProblemDetail"];
         };
       };
-      /** @description Service is alive but not ready to accept application traffic. */
+      /** @description Service is not ready or has exhausted its operation capacity. */
       503: {
         headers: {
           "X-Request-ID": components["headers"]["GeometryOsRequestId"];
@@ -1661,7 +1671,7 @@ export interface operations {
           "application/problem+json": components["schemas"]["ProblemDetail"];
         };
       };
-      /** @description Service is alive but not ready to accept application traffic. */
+      /** @description Service is not ready or has exhausted its operation capacity. */
       503: {
         headers: {
           "X-Request-ID": components["headers"]["GeometryOsRequestId"];

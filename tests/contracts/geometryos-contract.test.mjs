@@ -159,7 +159,7 @@ describe("pinned GeometryOS contract", () => {
     ).toHaveLength(3);
   });
 
-  it("publishes browser correlation and service-unavailable contracts", () => {
+  it("publishes browser correlation and retryable 503 contracts", () => {
     const openapi = json(path.join(root, "openapi.v1.json"));
     const operation = openapi.paths["/api/v1/generate"].post;
     expect(openapi.components.parameters.GeometryOsRequestId).toMatchObject({
@@ -198,6 +198,19 @@ describe("pinned GeometryOS contract", () => {
     expect(
       validateProblemDetail(
         json(path.join(root, "fixtures/service-unavailable.problem.json")),
+      ).valid,
+    ).toBe(true);
+    expect(fixtureManifest.cases).toContainEqual(
+      expect.objectContaining({
+        id: "service-overloaded",
+        path: "/api/v1/generate",
+        response: "service-overloaded.problem.json",
+        status: 503,
+      }),
+    );
+    expect(
+      validateProblemDetail(
+        json(path.join(root, "fixtures/service-overloaded.problem.json")),
       ).valid,
     ).toBe(true);
   });

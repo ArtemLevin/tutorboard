@@ -113,7 +113,7 @@ TutorBoard
 
 ## Обязательные результаты
 
-- GeometryOS `0.2.0`;
+- GeometryOS `0.3.0`;
 - HTTP API v1;
 - GIR `0.2.0`;
 - deterministic OpenAPI artifact;

@@ -1943,6 +1943,16 @@
             "type": "urn:geometryos:problem:service-unavailable"
           },
           {
+            "code": "service_overloaded",
+            "detail": "GeometryOS has reached its configured concurrent operation limit.",
+            "errors": [],
+            "instance": "/api/v1/generate",
+            "request_id": "tutorboard-contract",
+            "status": 503,
+            "title": "Service overloaded",
+            "type": "urn:geometryos:problem:service-overloaded"
+          },
+          {
             "code": "internal_error",
             "detail": "An unexpected internal error occurred.",
             "errors": [],
@@ -2476,7 +2486,7 @@
     "x-geometryos-api-major": "v1",
     "x-geometryos-consumer-contract": "tutorboard/v1",
     "x-geometryos-gir-schema-version": "0.2.0",
-    "x-geometryos-service-version": "0.2.0"
+    "x-geometryos-service-version": "0.3.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -2587,7 +2597,7 @@
                 }
               }
             },
-            "description": "Service is alive but not ready to accept application traffic.",
+            "description": "Service is not ready or has exhausted its operation capacity.",
             "headers": {
               "X-Request-ID": {
                 "$ref": "#/components/headers/GeometryOsRequestId"
@@ -2708,7 +2718,7 @@
                 }
               }
             },
-            "description": "Service is alive but not ready to accept application traffic.",
+            "description": "Service is not ready or has exhausted its operation capacity.",
             "headers": {
               "X-Request-ID": {
                 "$ref": "#/components/headers/GeometryOsRequestId"
@@ -2810,7 +2820,7 @@
                 }
               }
             },
-            "description": "Service is alive but not ready to accept application traffic.",
+            "description": "Service is not ready or has exhausted its operation capacity.",
             "headers": {
               "X-Request-ID": {
                 "$ref": "#/components/headers/GeometryOsRequestId"
@@ -2912,7 +2922,7 @@
                 }
               }
             },
-            "description": "Service is alive but not ready to accept application traffic.",
+            "description": "Service is not ready or has exhausted its operation capacity.",
             "headers": {
               "X-Request-ID": {
                 "$ref": "#/components/headers/GeometryOsRequestId"
@@ -3014,7 +3024,7 @@
                 }
               }
             },
-            "description": "Service is alive but not ready to accept application traffic.",
+            "description": "Service is not ready or has exhausted its operation capacity.",
             "headers": {
               "X-Request-ID": {
                 "$ref": "#/components/headers/GeometryOsRequestId"
