@@ -90,7 +90,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ArtemLevin/geometryos
-          ref: fe5ece9f7138044d638114907fe9aaecfd14e924
+          ref: 84ae403ef06f5183091f8862307f3c458f464b87
           path: geometryos-source
           persist-credentials: false
 
@@ -110,8 +110,8 @@ jobs:
         run: |
           docker build \
             --tag geometryos-contract-smoke:${GITHUB_SHA} \
-            --build-arg BUILD_REVISION=fe5ece9f7138044d638114907fe9aaecfd14e924 \
-            --build-arg BUILD_VERSION=0.2.0 \
+            --build-arg BUILD_REVISION=84ae403ef06f5183091f8862307f3c458f464b87 \
+            --build-arg BUILD_VERSION=0.3.0 \
             geometryos-source
 
       - name: Start hardened GeometryOS container

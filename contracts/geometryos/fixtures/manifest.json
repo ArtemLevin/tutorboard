@@ -131,6 +131,16 @@
       "status": 504
     },
     {
+      "id": "service-overloaded",
+      "media_type": "application/problem+json",
+      "method": "POST",
+      "mode": "injected_capacity",
+      "path": "/api/v1/generate",
+      "request": "generate-success.request.json",
+      "response": "service-overloaded.problem.json",
+      "status": 503
+    },
+    {
       "id": "internal-error",
       "media_type": "application/problem+json",
       "method": "POST",

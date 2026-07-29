@@ -1,15 +1,15 @@
 # GeometryOS contract baseline
 
 - Status: verified, including Layout Document 0.1
-- Date: 2026-07-26
+- Date: 2026-07-29
 - GeometryOS repository commit:
-  `fe5ece9f7138044d638114907fe9aaecfd14e924`
+  `84ae403ef06f5183091f8862307f3c458f464b87`
 
 ## Pinned contracts
 
 | Contract | Version | Evidence |
 |---|---|---|
-| GeometryOS service | `0.2.0` | release manifest and OpenAPI metadata |
+| GeometryOS service | `0.3.0` | release manifest and OpenAPI metadata |
 | HTTP API | `v1` / `1.0.0` | `schemas/openapi.v1.json` |
 | GIR | `0.2.0` | GIR schema and generated response fixtures |
 | Layout Document | `0.1.0` | OpenAPI schemas and executable layout fixtures |
@@ -19,13 +19,13 @@ Pinned artifact hashes:
 
 ```text
 OpenAPI v1
-eda2e6a4ab1e6e96b0c3561574695637a0be060ff68ba6a0e7b5432e989d94e9
+079ba1b2f24c20b3518011f50573f5d87ecac3ca02f514df78eeb60b507155fa
 
 GIR 0.2 JSON Schema
 dae399fa8a23458802760807c64f7b412d46ba81bb62b248cea136d714987993
 
 TutorBoard v1 fixture manifest
-23c1cdd94a5cf9212c538bbc6ff423d1eb8580aebba092f9c7647ad74d3c0538
+59837f74a018580e2e82136d997120a977e5d8ced961989a55e1a60e6d9e0ca2
 ```
 
 These hashes are the immutable Gate 0/PR 2.8.1 evidence. Normal CI never downloads a mutable GeometryOS branch: generation uses the committed artifacts, while the live gate checks out the exact source commit.
@@ -55,6 +55,7 @@ These hashes are the immutable Gate 0/PR 2.8.1 evidence. Normal CI never downloa
 | domain error | HTTP 200 JSON | show supported-domain diagnostic |
 | invalid request | HTTP 422 Problem Details | correct request; no automatic retry |
 | unavailable | HTTP 503 or network failure | retryable with bounded backoff |
+| overloaded | HTTP 503 Problem Details | retryable with bounded backoff |
 | operation timeout | HTTP 504 Problem Details | retryable because generation is side-effect-free |
 | internal error | HTTP 500 Problem Details | diagnostic with request ID |
 | incompatible API/GIR | client boundary rejection | preserve payload for diagnosis; do not import |

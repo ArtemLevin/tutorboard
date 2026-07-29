@@ -1,0 +1,10 @@
+{
+  "code": "service_overloaded",
+  "detail": "GeometryOS has reached its configured concurrent operation limit.",
+  "errors": [],
+  "instance": "/api/v1/generate",
+  "request_id": "tutorboard-contract",
+  "status": 503,
+  "title": "Service overloaded",
+  "type": "urn:geometryos:problem:service-overloaded"
+}
