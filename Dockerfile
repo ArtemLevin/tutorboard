@@ -19,7 +19,7 @@ RUN npm run build \
       "{\"version\":\"${BUILD_VERSION}\",\"revision\":\"${BUILD_REVISION}\"}" \
       > dist/build.json
 
-FROM nginxinc/nginx-unprivileged:1.28.0-alpine3.21
+FROM ghcr.io/nginx/nginx-unprivileged:1.30.4-alpine3.24@sha256:44e36330f74d4f3a1d4e222acca9e23b401fb87811a7597024502bb759c4dd49
 
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
