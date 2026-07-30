@@ -1,3 +1,5 @@
+import { resolveSmartInkReleaseGate } from "../../shared/smart-ink-release";
+
 export type AppStage = "development" | "test" | "production";
 
 export interface AppEnvironment {
@@ -12,6 +14,7 @@ export interface AppFeatureFlags {
   readonly documentSnapshots: boolean;
   readonly geometryPrompt: boolean;
   readonly serverSync: boolean;
+  readonly smartInk: boolean;
   readonly smartInkDiagnostics: boolean;
 }
 
@@ -20,6 +23,7 @@ export interface AppFeatureFlagInput {
   readonly documentSnapshots?: string | undefined;
   readonly geometryPrompt?: string | undefined;
   readonly serverSync?: string | undefined;
+  readonly smartInk?: string | undefined;
   readonly smartInkDiagnostics?: string | undefined;
 }
 
@@ -51,6 +55,7 @@ export function readEnvironment(
     documentSnapshots: import.meta.env.VITE_FEATURE_DOCUMENT_SNAPSHOTS,
     geometryPrompt: import.meta.env.VITE_FEATURE_GEOMETRY_PROMPT,
     serverSync: import.meta.env.VITE_FEATURE_SERVER_SYNC,
+    smartInk: import.meta.env.VITE_FEATURE_SMART_INK,
     smartInkDiagnostics: import.meta.env.VITE_FEATURE_SMART_INK_DIAGNOSTICS,
   },
   boardApiBaseUrl: string | undefined = import.meta.env.VITE_BOARD_API_BASE_URL,
@@ -91,6 +96,13 @@ export function readEnvironment(
     );
   }
 
+  const smartInk = resolveSmartInkReleaseGate(stage, featureInput.smartInk);
+  const smartInkDiagnostics = booleanFlag(
+    "VITE_FEATURE_SMART_INK_DIAGNOSTICS",
+    featureInput.smartInkDiagnostics,
+    stage !== "production",
+  );
+
   return {
     boardApiBaseUrl: boardApiUrl.pathname.replace(/\/+$/u, ""),
     features: {
@@ -114,11 +126,8 @@ export function readEnvironment(
         featureInput.serverSync,
         stage === "production",
       ),
-      smartInkDiagnostics: booleanFlag(
-        "VITE_FEATURE_SMART_INK_DIAGNOSTICS",
-        featureInput.smartInkDiagnostics,
-        stage !== "production",
-      ),
+      smartInk,
+      smartInkDiagnostics: smartInk && smartInkDiagnostics,
     },
     geometryOsBaseUrl: geometryOsUrl.href.replace(/\/$/, ""),
     stage: stage as AppStage,

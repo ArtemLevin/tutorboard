@@ -55,6 +55,18 @@ sample is marked through `captureDiagnostics.labelStatus=unreviewed`; its
 provisional class must be checked before it is merged into a calibrated corpus.
 The production stage disables the panel by default.
 
+## Production release gate
+
+`VITE_FEATURE_SMART_INK` controls registration of the Smart Ink tool. Development
+and test stages enable it by default. Production disables it until reviewed
+Chromium and Firefox evidence closes the Phase 9 quality gate. Diagnostics are
+available only when both Smart Ink and its diagnostics flag are enabled.
+
+The gate changes product availability while preserving existing board objects,
+command readers and stored document compatibility. Promotion and rollback are
+documented in
+[`SMART_INK_RELEASE_GATE.md`](SMART_INK_RELEASE_GATE.md).
+
 ## Quality boundary
 
 The checked-in Chromium corpus remains development evidence. Firefox capture

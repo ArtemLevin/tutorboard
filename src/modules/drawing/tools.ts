@@ -1,4 +1,5 @@
 import type { ObjectStyle } from "../../core/public";
+import { currentSmartInkReleaseGate } from "../../shared/smart-ink-release";
 
 export const drawingToolIds = [
   "drawing.pen",
@@ -21,7 +22,7 @@ export interface DrawingToolDefinition {
   readonly shortcut: string;
 }
 
-export const drawingTools: readonly DrawingToolDefinition[] = [
+const allDrawingTools: readonly DrawingToolDefinition[] = [
   {
     capability: "board.write",
     icon: "✎",
@@ -65,6 +66,12 @@ export const drawingTools: readonly DrawingToolDefinition[] = [
     shortcut: "T",
   },
 ];
+
+const smartInkEnabled = currentSmartInkReleaseGate();
+
+export const drawingTools: readonly DrawingToolDefinition[] = smartInkEnabled
+  ? allDrawingTools
+  : allDrawingTools.filter((tool) => tool.id !== "drawing.smart-ink");
 
 export const drawingStyleDefaults = {
   ellipse: {

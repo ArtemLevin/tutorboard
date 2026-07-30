@@ -1,0 +1,45 @@
+name: Smart Ink production gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  production-gate:
+    name: Production Smart Ink gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Build production-gated bundle
+        env:
+          VITE_APP_STAGE: production
+          VITE_FEATURE_SERVER_SYNC: "true"
+          VITE_FEATURE_SMART_INK: "false"
+          VITE_FEATURE_SMART_INK_DIAGNOSTICS: "false"
+          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos
+        run: npm run build
+
+      - name: Verify Chromium and Firefox release behavior
+        env:
+          SMART_INK_RELEASE_GATE: disabled
+        run: npx playwright test tests/e2e/smart-ink-release-gate.spec.ts
