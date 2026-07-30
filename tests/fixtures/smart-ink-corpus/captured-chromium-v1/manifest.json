@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "tutorboard.smart-ink-captured-evidence/0.1",
+  "generatedOn": "2026-07-30",
+  "configuration": {
+    "ambiguityMargin": 0.04,
+    "minimumConfidence": 0.34,
+    "sampleCount": 96
+  },
+  "capture": {
+    "browser": "chromium",
+    "classCounts": {
+      "circle": 22,
+      "ellipse": 31,
+      "line": 21,
+      "negative": 99,
+      "rectangle": 23,
+      "square": 23,
+      "triangle": 22
+    },
+    "deviceProfile": "windows-laptop",
+    "pointerType": "pen",
+    "sampleCount": 241
+  },
+  "artifacts": [
+    {
+      "path": "corpus.json.gz",
+      "sha256": "20c0e5a0c1a8aafd258c44a160f1d10b72b870832b01083b925dbcb4ee5713cf"
+    },
+    {
+      "path": "baseline-report.v3.json",
+      "sha256": "0d497a07c8c09fe70eab72de0607760cafc319a1259763dbbd9d1b89775e3d32"
+    },
+    {
+      "path": "development-report.v4.json",
+      "sha256": "bd93013cc0bdcec79b23cf023b92a055d08a2bdc7f8af17b2d9883b37594aa68"
+    }
+  ],
+  "result": {
+    "chromiumEvidenceRecorded": true,
+    "developmentFalsePositiveRate": 0,
+    "developmentMacroPrecision": 0.964372,
+    "firefoxEvidenceRecorded": false,
+    "productionGateComplete": false,
+    "recognizerVersion": "tutorboard.smart-ink-geometric/0.4-spike"
+  }
+}
