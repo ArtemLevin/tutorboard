@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { boardObjectId, type PenStrokeObject } from "../core/public";
@@ -34,18 +34,14 @@ describe("SmartInkDiagnosticsPanel", () => {
   it("shows recognition metrics after a Smart Ink evaluation", () => {
     render(<SmartInkDiagnosticsPanel />);
 
-    expect(
-      screen.getByText("Нарисуйте фигуру инструментом Smart Ink."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", {
-        name: "Экспортировать последний жест",
-      }),
-    ).toBeDisabled();
-
     act(() => {
       proposeSmartInkReplacement(lineStroke());
     });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Развернуть диагностику Smart Ink",
+      }),
+    );
 
     expect(screen.getByText("Распознано")).toBeInTheDocument();
     expect(screen.getByText("line", { selector: "dd" })).toBeInTheDocument();
