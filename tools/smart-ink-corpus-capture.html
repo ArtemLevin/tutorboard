@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TutorBoard Smart Ink corpus capture</title>
+    <style>
+      :root {
+        color: #172033;
+        background: #f4f6fb;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px;
+      }
+
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+      }
+
+      p {
+        margin: 0 0 16px;
+        color: #526078;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      select,
+      input,
+      button {
+        min-height: 38px;
+        border: 1px solid #c6cede;
+        border-radius: 8px;
+        background: white;
+        color: inherit;
+        font: inherit;
+      }
+
+      input,
+      select {
+        padding: 0 10px;
+      }
+
+      .checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        align-self: end;
+        min-height: 38px;
+      }
+
+      .checkbox input {
+        min-height: auto;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border: 2px solid #7b88a3;
+        border-radius: 12px;
+        background: white;
+        cursor: crosshair;
+        touch-action: none;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      button {
+        padding: 0 14px;
+        cursor: pointer;
+      }
+
+      button.primary {
+        border-color: #2457d6;
+        background: #2457d6;
+        color: white;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+
+      .status {
+        min-height: 24px;
+        margin-top: 12px;
+        font-size: 14px;
+      }
+
+      .counts {
+        margin-top: 8px;
+        color: #526078;
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Smart Ink corpus capture</h1>
+      <p>
+        Нарисуйте один штрих, проверьте метку и добавьте пример. Данные остаются
+        в памяти браузера до экспорта JSON.
+      </p>
+
+      <section class="controls" aria-label="Параметры примера">
+        <label>
+          Ожидаемый класс
+          <select id="expected-kind">
+            <option value="line">Линия</option>
+            <option value="circle">Окружность</option>
+            <option value="ellipse">Эллипс</option>
+            <option value="rectangle">Прямоугольник</option>
+            <option value="square">Квадрат</option>
+            <option value="triangle">Треугольник</option>
+            <option value="negative">Не фигура</option>
+          </select>
+        </label>
+
+        <label>
+          Браузер
+          <select id="browser">
+            <option value="chromium">Chromium / Chrome / Edge</option>
+            <option value="firefox">Firefox</option>
+            <option value="other">Другой</option>
+          </select>
+        </label>
+
+        <label>
+          Профиль устройства
+          <select id="device-profile">
+            <option value="windows-laptop">Windows-ноутбук</option>
+            <option value="windows-desktop">Windows-десктоп</option>
+            <option value="tablet">Планшет</option>
+            <option value="other-device">Другое устройство</option>
+          </select>
+        </label>
+
+        <label class="checkbox">
+          <input id="allow-sibling" type="checkbox" checked />
+          Допускать парный класс
+        </label>
+      </section>
+
+      <canvas
+        id="capture"
+        width="960"
+        height="540"
+        aria-label="Область рисования одного штриха"
+      ></canvas>
+
+      <section class="actions" aria-label="Действия с корпусом">
+        <button id="add" class="primary" disabled>Добавить пример</button>
+        <button id="discard" disabled>Перерисовать</button>
+        <button id="undo" disabled>Удалить последний</button>
+        <button id="import">Объединить с JSON</button>
+        <button id="export" disabled>Экспортировать JSON</button>
+        <input
+          id="import-file"
+          type="file"
+          accept="application/json,.json"
+          hidden
+        />
+      </section>
+
+      <div id="status" class="status" role="status" aria-live="polite">
+        Проведите один штрих.
+      </div>
+      <div id="counts" class="counts">Всего: 0</div>
+    </main>
+
+    <script>
+      const schemaVersion = "tutorboard.smart-ink-corpus/0.1";
+      const primitiveKinds = [
+        "line",
+        "circle",
+        "ellipse",
+        "rectangle",
+        "square",
+        "triangle",
+      ];
+      const pairedKind = {
+        circle: "ellipse",
+        ellipse: "circle",
+        rectangle: "square",
+        square: "rectangle",
+      };
+
+      const canvas = document.querySelector("#capture");
+      const context = canvas.getContext("2d");
+      const expectedKind = document.querySelector("#expected-kind");
+      const browser = document.querySelector("#browser");
+      const deviceProfile = document.querySelector("#device-profile");
+      const allowSibling = document.querySelector("#allow-sibling");
+      const addButton = document.querySelector("#add");
+      const discardButton = document.querySelector("#discard");
+      const undoButton = document.querySelector("#undo");
+      const importButton = document.querySelector("#import");
+      const exportButton = document.querySelector("#export");
+      const importFile = document.querySelector("#import-file");
+      const status = document.querySelector("#status");
+      const counts = document.querySelector("#counts");
+
+      const samples = [];
+      let active = null;
+      let pending = null;
+
+      if (navigator.userAgent.includes("Firefox")) {
+        browser.value = "firefox";
+      } else if (
+        navigator.userAgent.includes("Chrom") ||
+        navigator.userAgent.includes("Edg")
+      ) {
+        browser.value = "chromium";
+      } else {
+        browser.value = "other";
+      }
+
+      function canvasPoint(event) {
+        const bounds = canvas.getBoundingClientRect();
+        return {
+          x: ((event.clientX - bounds.left) * canvas.width) / bounds.width,
+          y: ((event.clientY - bounds.top) * canvas.height) / bounds.height,
+        };
+      }
+
+      function eventBatch(event) {
+        const coalesced =
+          typeof event.getCoalescedEvents === "function"
+            ? event.getCoalescedEvents()
+            : [];
+        return (coalesced.length > 0 ? coalesced : [event]).map(canvasPoint);
+      }
+
+      function clearCanvas() {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
+      function drawSegment(from, to) {
+        context.strokeStyle = "#172033";
+        context.lineWidth = 3;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.beginPath();
+        context.moveTo(from.x, from.y);
+        context.lineTo(to.x, to.y);
+        context.stroke();
+      }
+
+      function appendPoints(points) {
+        for (const point of points) {
+          const previous = active.points.at(-1);
+          if (previous && (previous.x !== point.x || previous.y !== point.y)) {
+            drawSegment(previous, point);
+          }
+          if (!previous || previous.x !== point.x || previous.y !== point.y) {
+            active.points.push(point);
+          }
+        }
+      }
+
+      function updateControls(message) {
+        addButton.disabled = pending === null;
+        discardButton.disabled = pending === null && active === null;
+        undoButton.disabled = samples.length === 0;
+        exportButton.disabled = samples.length === 0;
+        allowSibling.disabled = !(expectedKind.value in pairedKind);
+        status.textContent = message;
+
+        const perKind = Object.fromEntries(
+          [...primitiveKinds, "negative"].map((kind) => [kind, 0]),
+        );
+        for (const sample of samples) {
+          perKind[sample.expectedKind] += 1;
+        }
+        counts.textContent = [
+          `Всего: ${samples.length}`,
+          ...Object.entries(perKind).map(
+            ([kind, count]) => `${kind}: ${count}`,
+          ),
+        ].join(" · ");
+      }
+
+      function resetPending(message = "Проведите один штрих.") {
+        pending = null;
+        clearCanvas();
+        updateControls(message);
+      }
+
+      function randomSampleId(kind) {
+        const value =
+          typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : Array.from(crypto.getRandomValues(new Uint32Array(4)))
+                .map((part) => part.toString(16).padStart(8, "0"))
+                .join("-");
+        return `captured-${kind}-${value}`;
+      }
+
+      function cancelActive(message) {
+        if (active !== null) {
+          const pointerId = active.pointerId;
+          active = null;
+          if (canvas.hasPointerCapture(pointerId)) {
+            canvas.releasePointerCapture(pointerId);
+          }
+        }
+        resetPending(message);
+      }
+
+      canvas.addEventListener("pointerdown", (event) => {
+        if (active !== null || event.button !== 0) {
+          return;
+        }
+        resetPending("Запись штриха…");
+        canvas.setPointerCapture(event.pointerId);
+        active = {
+          pointerId: event.pointerId,
+          pointerType: ["mouse", "pen", "touch"].includes(event.pointerType)
+            ? event.pointerType
+            : "mouse",
+          points: [],
+          startedAt: performance.now(),
+        };
+        appendPoints(eventBatch(event));
+        event.preventDefault();
+      });
+
+      canvas.addEventListener("pointermove", (event) => {
+        if (active === null || event.pointerId !== active.pointerId) {
+          return;
+        }
+        appendPoints(eventBatch(event));
+        event.preventDefault();
+      });
+
+      canvas.addEventListener("pointerup", (event) => {
+        if (active === null || event.pointerId !== active.pointerId) {
+          return;
+        }
+        appendPoints(eventBatch(event));
+        const completed = active;
+        active = null;
+        if (canvas.hasPointerCapture(event.pointerId)) {
+          canvas.releasePointerCapture(event.pointerId);
+        }
+        if (completed.points.length < 2) {
+          resetPending("Слишком короткий штрих — попробуйте ещё раз.");
+          return;
+        }
+        pending = {
+          durationMs: Math.max(
+            0,
+            Math.round(performance.now() - completed.startedAt),
+          ),
+          pointerType: completed.pointerType,
+          points: completed.points,
+        };
+        updateControls(
+          `Штрих записан: ${completed.points.length} точек. Проверьте метку.`,
+        );
+        event.preventDefault();
+      });
+
+      canvas.addEventListener("pointercancel", () => {
+        cancelActive("Pointer capture отменён; частичный штрих не сохранён.");
+      });
+
+      canvas.addEventListener("lostpointercapture", () => {
+        if (active !== null) {
+          cancelActive("Pointer capture потерян; частичный штрих не сохранён.");
+        }
+      });
+
+      window.addEventListener("blur", () => {
+        if (active !== null) {
+          cancelActive("Окно потеряло фокус; частичный штрих не сохранён.");
+        }
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          cancelActive("Штрих отменён.");
+        }
+      });
+
+      expectedKind.addEventListener("change", () => {
+        updateControls(
+          pending === null
+            ? "Проведите один штрих."
+            : "Метка изменена; можно добавить пример.",
+        );
+      });
+
+      addButton.addEventListener("click", () => {
+        if (pending === null) {
+          return;
+        }
+        const kind = expectedKind.value;
+        const acceptableKinds =
+          kind === "negative"
+            ? []
+            : [
+                kind,
+                ...(allowSibling.checked && kind in pairedKind
+                  ? [pairedKind[kind]]
+                  : []),
+              ];
+        samples.push({
+          acceptableKinds,
+          expectedKind: kind,
+          id: randomSampleId(kind),
+          metadata: {
+            browser: browser.value,
+            deviceProfile: deviceProfile.value,
+            durationMs: pending.durationMs,
+            pointerType: pending.pointerType,
+          },
+          points: pending.points.map(({ x, y }) => ({
+            x: Number(x.toFixed(3)),
+            y: Number(y.toFixed(3)),
+          })),
+          provenance: "captured",
+          shouldPropose: kind !== "negative",
+        });
+        resetPending("Пример добавлен. Нарисуйте следующий.");
+      });
+
+      discardButton.addEventListener("click", () => {
+        cancelActive("Штрих удалён. Нарисуйте новый.");
+      });
+
+      undoButton.addEventListener("click", () => {
+        samples.pop();
+        updateControls("Последний пример удалён.");
+      });
+
+      importButton.addEventListener("click", () => {
+        importFile.click();
+      });
+
+      importFile.addEventListener("change", async () => {
+        const file = importFile.files?.[0];
+        importFile.value = "";
+        if (!file) {
+          return;
+        }
+        try {
+          const imported = JSON.parse(await file.text());
+          if (
+            imported.schemaVersion !== schemaVersion ||
+            !Array.isArray(imported.samples)
+          ) {
+            throw new Error("Несовместимый corpus JSON.");
+          }
+          const existingIds = new Set(samples.map(({ id }) => id));
+          for (const sample of imported.samples) {
+            if (typeof sample.id !== "string" || existingIds.has(sample.id)) {
+              throw new Error("JSON содержит отсутствующий или повторный id.");
+            }
+            samples.push(sample);
+            existingIds.add(sample.id);
+          }
+          updateControls(`Добавлено примеров: ${imported.samples.length}.`);
+        } catch (error) {
+          updateControls(
+            error instanceof Error
+              ? `Ошибка импорта: ${error.message}`
+              : "Ошибка импорта JSON.",
+          );
+        }
+      });
+
+      exportButton.addEventListener("click", () => {
+        const content = JSON.stringify({ samples, schemaVersion }, null, 2);
+        const blob = new Blob([content], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "smart-ink-corpus.json";
+        link.click();
+        URL.revokeObjectURL(url);
+        updateControls(`Экспортировано примеров: ${samples.length}.`);
+      });
+
+      updateControls("Проведите один штрих.");
+    </script>
+  </body>
+</html>

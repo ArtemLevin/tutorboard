@@ -19,3 +19,8 @@ Implemented modules:
   command adapter;
 - `geometry-prompt` owns the cancellable readiness → generate → layout → import
   application workflow without React, HTTP DTOs or document mutation.
+- `smart-ink-spike` is an intentionally non-persistent Phase 9 experiment. It
+  owns deterministic single-stroke preprocessing, six geometric fits and
+  ambiguity scoring together with the versioned corpus benchmark; it does not
+  mutate `BoardDocument` or render previews. Synthetic fixtures cannot satisfy
+  the captured-data production gate.
