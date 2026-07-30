@@ -40,6 +40,10 @@ jobs:
               '"             <div>\\n               <button\\n                 onClick={() => setSelectionLock(!selectedLocked)}\\n"',
               '"            <div>\\n              <button\\n                onClick={() => setSelectionLock(!selectedLocked)}\\n"',
           )
+          source = source.replace(
+              '"                 <dt>Стрелки / Shift+стрелки</dt>\\n                 <dd>Перемещение выделения на 1 / 10 единиц</dd>\\n"',
+              '"                <dt>Стрелки / Shift+стрелки</dt>\\n                <dd>Перемещение выделения на 1 / 10 единиц</dd>\\n"',
+          )
           path.write_text(source, encoding='utf-8')
           PY
           python scripts/apply-selection-transform.py
