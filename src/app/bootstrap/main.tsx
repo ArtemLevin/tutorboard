@@ -43,7 +43,8 @@ createRoot(root).render(
       repository={repository}
       serverSync={serverSync}
     />
-    {environment.features.smartInkDiagnostics ? (
+    {environment.features.smartInk &&
+    environment.features.smartInkDiagnostics ? (
       <SmartInkDiagnosticsPanel />
     ) : null}
   </StrictMode>,
