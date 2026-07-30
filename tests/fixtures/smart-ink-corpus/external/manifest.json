@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "tutorboard.smart-ink-evidence/0.1",
+  "generatedOn": "2026-07-30",
+  "configuration": {
+    "calibrationRatio": 0.7,
+    "maxPerInput": 80,
+    "seed": 90210
+  },
+  "sources": {
+    "quickdraw": {
+      "attribution": "The Quick, Draw! Dataset, Google LLC, CC BY 4.0",
+      "categories": [
+        {
+          "bytes": 121157759,
+          "category": "line",
+          "eligibleRecords": 126570,
+          "etag": "dfe2d327d1fd6c07b8f243d2184cc71a"
+        },
+        {
+          "bytes": 211682317,
+          "category": "circle",
+          "eligibleRecords": 109496,
+          "etag": "6dfcccb8aa01febb5e336b49530139dd"
+        },
+        {
+          "bytes": 254336594,
+          "category": "square",
+          "eligibleRecords": 95576,
+          "etag": "d27280922bac85b5d64ad2593e8abf9b"
+        },
+        {
+          "bytes": 203542261,
+          "category": "triangle",
+          "eligibleRecords": 90006,
+          "etag": "5c651ab007ab68df18095656f6117273"
+        },
+        {
+          "bytes": 271344938,
+          "category": "squiggle",
+          "eligibleRecords": 85163,
+          "etag": "3acef08e64a90668adcc455533e11afb"
+        },
+        {
+          "bytes": 236194151,
+          "category": "zigzag",
+          "eligibleRecords": 105263,
+          "etag": "ceb84c4c5a8b6f28571f3727124aa265"
+        },
+        {
+          "bytes": 338601445,
+          "category": "star",
+          "eligibleRecords": 105371,
+          "etag": "6a35c508b34d9508e0190b01c4d4a825"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "rawBaseUrl": "https://storage.googleapis.com/quickdraw_dataset/full/raw",
+      "repository": "https://github.com/googlecreativelab/quickdraw-dataset"
+    },
+    "hds": {
+      "attribution": "Hand-drawn Shapes Dataset © 2022 Francois Robert, CC BY 4.0",
+      "commit": "a01f80248c156c56a83b2678453e410bdcc6a342",
+      "importReports": [
+        {
+          "examined": 82,
+          "imported": 80,
+          "rejected": 2,
+          "sourceKind": "ellipse"
+        },
+        {
+          "examined": 99,
+          "imported": 80,
+          "rejected": 19,
+          "sourceKind": "other"
+        },
+        {
+          "examined": 86,
+          "imported": 80,
+          "rejected": 6,
+          "sourceKind": "rectangle"
+        },
+        {
+          "examined": 85,
+          "imported": 80,
+          "rejected": 5,
+          "sourceKind": "triangle"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "repository": "https://github.com/frobertpixto/hand-drawn-shapes-dataset"
+    }
+  },
+  "artifacts": [
+    {
+      "classCounts": {
+        "circle": 80,
+        "line": 80,
+        "negative": 240,
+        "square": 80,
+        "triangle": 80
+      },
+      "path": "quickdraw.seed-90210.json.gz",
+      "sampleCount": 560,
+      "sha256": "8200fa981949b180a34902cd69e944dc05ab506653f705348e3d547cb4058d0b"
+    },
+    {
+      "classCounts": {
+        "ellipse": 80,
+        "negative": 80,
+        "rectangle": 80,
+        "triangle": 80
+      },
+      "path": "hds.seed-90210.json.gz",
+      "sampleCount": 320,
+      "sha256": "d901207b3e747b8aa524962f4fdc6211e87dacef21669e8501ade575d0b2c553"
+    },
+    {
+      "path": "calibration-report.seed-90210.json",
+      "sha256": "120766988a0883504fb3510ba2a737748ea0eeb05870c817315f8561f0f17a79"
+    }
+  ],
+  "result": {
+    "ambiguityMargin": 0.2,
+    "calibrationGatePassed": false,
+    "holdoutFalsePositiveRate": 0.104167,
+    "holdoutMacroPrecision": 0.547619,
+    "minimumConfidence": 0.6,
+    "productionGateEvaluated": false
+  }
+}

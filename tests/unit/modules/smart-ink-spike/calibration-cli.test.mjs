@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { gzipSync } from "node:zlib";
 
 import { describe, expect, it } from "vitest";
 
@@ -59,39 +60,58 @@ function externalCorpus() {
 }
 
 describe("Phase 9 Smart Ink calibration CLI", () => {
-  it("writes a point-free calibration report", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "tutorboard-calibration-"));
-    try {
-      const input = join(directory, "corpus.json");
-      const output = join(directory, "report.json");
-      await writeFile(input, JSON.stringify(externalCorpus()), "utf8");
-
-      const { stdout } = await execFileAsync(
-        process.execPath,
-        [
-          "scripts/calibrate-smart-ink-corpus.mjs",
-          "--input",
-          input,
-          "--seed",
-          "90210",
-          "--minimum-per-class",
-          "2",
-          "--minimum-negatives",
-          "10",
-          "--output",
-          output,
-        ],
-        { cwd: process.cwd() },
+  it.each([
+    ["JSON", false],
+    ["deterministic gzip", true],
+  ])(
+    "writes a point-free calibration report from %s",
+    async (_, compressed) => {
+      const directory = await mkdtemp(
+        join(tmpdir(), "tutorboard-calibration-"),
       );
-      const serialized = await readFile(output, "utf8");
-      const report = JSON.parse(serialized);
+      try {
+        const input = join(
+          directory,
+          compressed ? "corpus.json.gz" : "corpus.json",
+        );
+        const output = join(directory, "report.json");
+        const serializedCorpus = JSON.stringify(externalCorpus());
+        await writeFile(
+          input,
+          compressed
+            ? gzipSync(serializedCorpus, { mtime: 0 })
+            : serializedCorpus,
+        );
 
-      expect(report.schemaVersion).toBe("tutorboard.smart-ink-calibration/0.1");
-      expect(report.selectedOptions.minimumConfidence).toBeGreaterThan(0);
-      expect(serialized).not.toContain('"points"');
-      expect(stdout).toContain("Selected minimumConfidence=");
-    } finally {
-      await rm(directory, { force: true, recursive: true });
-    }
-  });
+        const { stdout } = await execFileAsync(
+          process.execPath,
+          [
+            "scripts/calibrate-smart-ink-corpus.mjs",
+            "--input",
+            input,
+            "--seed",
+            "90210",
+            "--minimum-per-class",
+            "2",
+            "--minimum-negatives",
+            "10",
+            "--output",
+            output,
+          ],
+          { cwd: process.cwd() },
+        );
+        const serialized = await readFile(output, "utf8");
+        const report = JSON.parse(serialized);
+
+        expect(report.schemaVersion).toBe(
+          "tutorboard.smart-ink-calibration/0.1",
+        );
+        expect(report.selectedOptions.minimumConfidence).toBeGreaterThan(0);
+        expect(serialized).not.toContain('"points"');
+        expect(stdout).toContain("Selected minimumConfidence=");
+      } finally {
+        await rm(directory, { force: true, recursive: true });
+      }
+    },
+  );
 });

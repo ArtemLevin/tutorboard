@@ -161,6 +161,9 @@ function acceptableKinds(kind) {
 }
 
 async function validateVertices(root, candidate) {
+  if (candidate.sourceKind === "other") {
+    return;
+  }
   const vertexPath = join(
     root,
     candidate.participant,
@@ -173,7 +176,7 @@ async function validateVertices(root, candidate) {
     throw new Error("invalid companion vertex file");
   }
   const content = (await readFile(vertexPath, "utf8")).trim();
-  const vertices =
+  let vertices =
     content.length === 0
       ? []
       : content.split(/\r?\n/).map((line) => {
@@ -188,17 +191,16 @@ async function validateVertices(root, candidate) {
           }
           return values;
         });
-  const expectedVertexCount =
-    candidate.sourceKind === "triangle"
-      ? 3
-      : candidate.sourceKind === "other"
-        ? undefined
-        : 4;
   if (
-    (expectedVertexCount !== undefined &&
-      vertices.length !== expectedVertexCount) ||
-    vertices.length > 32
+    candidate.sourceKind === "triangle" &&
+    vertices.length === 4 &&
+    vertices[0][0] === vertices[3][0] &&
+    vertices[0][1] === vertices[3][1]
   ) {
+    vertices = vertices.slice(0, 3);
+  }
+  const expectedVertexCount = candidate.sourceKind === "triangle" ? 3 : 4;
+  if (vertices.length !== expectedVertexCount || vertices.length > 32) {
     throw new Error("unexpected HDS vertex count");
   }
 }
