@@ -37,13 +37,14 @@ function lineStroke(): PenStrokeObject {
 
 describe("Smart Ink diagnostics", () => {
   it("publishes a reproducible record for every proposal evaluation", () => {
-    let diagnostic: SmartInkDiagnosticRecord | null = null;
+    const diagnostics: SmartInkDiagnosticRecord[] = [];
     const unsubscribe = subscribeSmartInkDiagnostics((record) => {
-      diagnostic = record;
+      diagnostics.push(record);
     });
 
     const result = proposeSmartInkReplacement(lineStroke());
     unsubscribe();
+    const diagnostic = diagnostics[0];
 
     expect(result.status).toBe("proposed");
     expect(diagnostic).toMatchObject({
