@@ -13,6 +13,7 @@ describe("readEnvironment", () => {
           documentSnapshots: true,
           geometryPrompt: true,
           serverSync: stage === "production",
+          smartInkDiagnostics: stage !== "production",
         },
         geometryOsBaseUrl: `${window.location.origin}/api/v1/geometryos`,
         stage,
@@ -34,6 +35,7 @@ describe("readEnvironment", () => {
         documentSnapshots: true,
         geometryPrompt: true,
         serverSync: false,
+        smartInkDiagnostics: true,
       },
       geometryOsBaseUrl: "https://geometry.example.test",
       stage: "test",
@@ -50,16 +52,23 @@ describe("readEnvironment", () => {
         documentSnapshots: "false",
         geometryPrompt: "0",
         serverSync: "true",
+        smartInkDiagnostics: "true",
       }).features,
     ).toEqual({
       developmentDiagnostics: true,
       documentSnapshots: false,
       geometryPrompt: false,
       serverSync: true,
+      smartInkDiagnostics: true,
     });
     expect(() =>
       readEnvironment("test", undefined, { geometryPrompt: "perhaps" }),
     ).toThrow("VITE_FEATURE_GEOMETRY_PROMPT");
+    expect(() =>
+      readEnvironment("test", undefined, {
+        smartInkDiagnostics: "perhaps",
+      }),
+    ).toThrow("VITE_FEATURE_SMART_INK_DIAGNOSTICS");
   });
 
   it("accepts only a same-origin board API path", () => {
