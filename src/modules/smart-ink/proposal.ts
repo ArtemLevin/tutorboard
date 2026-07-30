@@ -11,12 +11,20 @@ import {
   type SmartInkPrimitiveKind,
   type SmartInkProposal,
 } from "../smart-ink-spike/public";
+import {
+  recordSmartInkDiagnostic,
+  smartInkDiagnosticSchemaVersion,
+  type SmartInkDiagnosticReason,
+} from "./diagnostics";
 
 const minimumGeometrySize = 0.001;
-const minimumCircleAxisRatio = 0.75;
-const minimumCircleCandidateConfidence = 0.25;
-const canvasRecognizerOptions = {
+
+export const smartInkCanvasRecognitionPolicy = {
   ambiguityMargin: 0.02,
+  circle: {
+    minimumAxisRatio: 0.75,
+    minimumCandidateConfidence: 0.25,
+  },
   minimumConfidence: 0.34,
   sampleCount: 96,
 } as const;
@@ -213,26 +221,56 @@ function selectCanvasCandidate(
   const axisRatio = candidate.diagnostics.axisRatio;
   return circle !== undefined &&
     axisRatio !== undefined &&
-    axisRatio >= minimumCircleAxisRatio &&
-    circle.confidence >= minimumCircleCandidateConfidence
+    axisRatio >= smartInkCanvasRecognitionPolicy.circle.minimumAxisRatio &&
+    circle.confidence >=
+      smartInkCanvasRecognitionPolicy.circle.minimumCandidateConfidence
     ? circle
     : candidate;
+}
+
+function diagnosticReason(
+  recognizer: SmartInkProposal,
+  candidate: SmartInkCandidate | undefined,
+  replacement: BoardObject | null,
+): SmartInkDiagnosticReason {
+  if (recognizer.status === "ambiguous") {
+    return "recognizer-ambiguous";
+  }
+  if (recognizer.status === "unrecognized" || candidate === undefined) {
+    return "recognizer-unrecognized";
+  }
+  return replacement === null
+    ? "replacement-not-renderable"
+    : "proposal-created";
 }
 
 export function proposeSmartInkReplacement(
   stroke: PenStrokeObject,
 ): SmartInkBoardProposalResult {
-  const recognizer = recognizeSmartInkStroke(
-    stroke.id,
-    strokeWorldPoints(stroke),
-    canvasRecognizerOptions,
-  );
+  const points = strokeWorldPoints(stroke);
+  const recognizer = recognizeSmartInkStroke(stroke.id, points, {
+    ambiguityMargin: smartInkCanvasRecognitionPolicy.ambiguityMargin,
+    minimumConfidence: smartInkCanvasRecognitionPolicy.minimumConfidence,
+    sampleCount: smartInkCanvasRecognitionPolicy.sampleCount,
+  });
   const candidate = selectCanvasCandidate(recognizer);
-  if (candidate === undefined) {
-    return { recognizer, status: "skipped" };
-  }
-  const replacement = createSmartInkReplacementObject(stroke, candidate);
-  if (replacement === null) {
+  const replacement =
+    candidate === undefined
+      ? null
+      : createSmartInkReplacementObject(stroke, candidate);
+
+  recordSmartInkDiagnostic({
+    outcome: replacement === null ? "skipped" : "proposed",
+    points: points.map((point) => ({ ...point })),
+    reason: diagnosticReason(recognizer, candidate, replacement),
+    recognizer,
+    replacementKind: replacement?.kind ?? null,
+    schemaVersion: smartInkDiagnosticSchemaVersion,
+    selectedCandidateKind: candidate?.kind ?? null,
+    sourcePointCount: stroke.points.length,
+  });
+
+  if (candidate === undefined || replacement === null) {
     return { recognizer, status: "skipped" };
   }
   return {
