@@ -1,0 +1,31 @@
+name: Smart Ink format helper
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run format
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smart-ink-formatted-${{ github.sha }}
+          path: |
+            src/app/smart-ink-diagnostics-export.test.ts
+            src/app/smart-ink-diagnostics-export.ts
+            src/app/SmartInkDiagnosticsPanel.test.tsx
+            src/app/SmartInkDiagnosticsPanel.tsx
+            tests/e2e/smart-ink-diagnostics.spec.ts
+          if-no-files-found: error
+          retention-days: 1
