@@ -1,0 +1,310 @@
+name: Smart Ink release gate helper
+
+on:
+  push:
+    branches:
+      - agent/phase9-smart-ink-release-gate
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'chore: prepare Smart Ink release gate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: agent/phase9-smart-ink-release-gate
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Apply release gate patch
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}: {old[:80]!r}")
+              file.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace_once(
+              "src/app/configuration/environment.ts",
+              '  readonly serverSync: boolean;\n  readonly smartInkDiagnostics: boolean;',
+              '  readonly serverSync: boolean;\n  readonly smartInk: boolean;\n  readonly smartInkDiagnostics: boolean;',
+          )
+          replace_once(
+              "src/app/configuration/environment.ts",
+              '  readonly serverSync?: string | undefined;\n  readonly smartInkDiagnostics?: string | undefined;',
+              '  readonly serverSync?: string | undefined;\n  readonly smartInk?: string | undefined;\n  readonly smartInkDiagnostics?: string | undefined;',
+          )
+          replace_once(
+              "src/app/configuration/environment.ts",
+              '    serverSync: import.meta.env.VITE_FEATURE_SERVER_SYNC,\n    smartInkDiagnostics: import.meta.env.VITE_FEATURE_SMART_INK_DIAGNOSTICS,',
+              '    serverSync: import.meta.env.VITE_FEATURE_SERVER_SYNC,\n    smartInk: import.meta.env.VITE_FEATURE_SMART_INK,\n    smartInkDiagnostics: import.meta.env.VITE_FEATURE_SMART_INK_DIAGNOSTICS,',
+          )
+          replace_once(
+              "src/app/configuration/environment.ts",
+              '  return {\n    boardApiBaseUrl: boardApiUrl.pathname.replace(/\\/+$/u, ""),',
+              '  const smartInk = booleanFlag(\n    "VITE_FEATURE_SMART_INK",\n    featureInput.smartInk,\n    stage !== "production",\n  );\n  const smartInkDiagnostics = booleanFlag(\n    "VITE_FEATURE_SMART_INK_DIAGNOSTICS",\n    featureInput.smartInkDiagnostics,\n    stage !== "production",\n  );\n\n  return {\n    boardApiBaseUrl: boardApiUrl.pathname.replace(/\\/+$/u, ""),',
+          )
+          replace_once(
+              "src/app/configuration/environment.ts",
+              '      smartInkDiagnostics: booleanFlag(\n        "VITE_FEATURE_SMART_INK_DIAGNOSTICS",\n        featureInput.smartInkDiagnostics,\n        stage !== "production",\n      ),',
+              '      smartInk,\n      smartInkDiagnostics: smartInk && smartInkDiagnostics,',
+          )
+
+          env_test = Path("src/app/configuration/environment.test.ts")
+          text = env_test.read_text(encoding="utf-8")
+          text = text.replace(
+              '          serverSync: stage === "production",\n          smartInkDiagnostics: stage !== "production",',
+              '          serverSync: stage === "production",\n          smartInk: stage !== "production",\n          smartInkDiagnostics: stage !== "production",',
+          )
+          text = text.replace(
+              '        serverSync: false,\n        smartInkDiagnostics: true,',
+              '        serverSync: false,\n        smartInk: true,\n        smartInkDiagnostics: true,',
+          )
+          text = text.replace(
+              '        serverSync: "true",\n        smartInkDiagnostics: "true",',
+              '        serverSync: "true",\n        smartInk: "true",\n        smartInkDiagnostics: "true",',
+          )
+          text = text.replace(
+              '      serverSync: true,\n      smartInkDiagnostics: true,',
+              '      serverSync: true,\n      smartInk: true,\n      smartInkDiagnostics: true,',
+          )
+          marker = '''    expect(() =>\n      readEnvironment("test", undefined, {\n        smartInkDiagnostics: "perhaps",\n      }),\n    ).toThrow("VITE_FEATURE_SMART_INK_DIAGNOSTICS");\n'''
+          addition = marker + '''    expect(() =>\n      readEnvironment("test", undefined, { smartInk: "perhaps" }),\n    ).toThrow("VITE_FEATURE_SMART_INK");\n    expect(\n      readEnvironment("test", undefined, {\n        smartInk: "false",\n        smartInkDiagnostics: "true",\n      }).features,\n    ).toMatchObject({ smartInk: false, smartInkDiagnostics: false });\n'''
+          if text.count(marker) != 1:
+              raise SystemExit("environment.test.ts marker mismatch")
+          env_test.write_text(text.replace(marker, addition, 1), encoding="utf-8")
+
+          replace_once(
+              "src/vite-env.d.ts",
+              '  readonly VITE_FEATURE_SERVER_SYNC?: "0" | "1" | "false" | "true";\n  readonly VITE_FEATURE_SMART_INK_DIAGNOSTICS?: "0" | "1" | "false" | "true";',
+              '  readonly VITE_FEATURE_SERVER_SYNC?: "0" | "1" | "false" | "true";\n  readonly VITE_FEATURE_SMART_INK?: "0" | "1" | "false" | "true";\n  readonly VITE_FEATURE_SMART_INK_DIAGNOSTICS?: "0" | "1" | "false" | "true";',
+          )
+          replace_once(
+              ".env.example",
+              'VITE_FEATURE_SERVER_SYNC=false\nVITE_FEATURE_SMART_INK_DIAGNOSTICS=true',
+              'VITE_FEATURE_SERVER_SYNC=false\nVITE_FEATURE_SMART_INK=true\nVITE_FEATURE_SMART_INK_DIAGNOSTICS=true',
+          )
+          replace_once(
+              "Dockerfile",
+              'ARG BUILD_VERSION=0.1.0\nENV VITE_APP_STAGE=production',
+              'ARG BUILD_VERSION=0.1.0\nARG VITE_FEATURE_SMART_INK=false\nENV VITE_APP_STAGE=production',
+          )
+          replace_once(
+              "Dockerfile",
+              '    VITE_FEATURE_GEOMETRY_PROMPT=true \\\n    VITE_FEATURE_SERVER_SYNC=true',
+              '    VITE_FEATURE_GEOMETRY_PROMPT=true \\\n    VITE_FEATURE_SERVER_SYNC=true \\\n    VITE_FEATURE_SMART_INK=${VITE_FEATURE_SMART_INK} \\\n    VITE_FEATURE_SMART_INK_DIAGNOSTICS=false',
+          )
+          replace_once(
+              "src/app/bootstrap/main.tsx",
+              '    {environment.features.smartInkDiagnostics ? (',
+              '    {environment.features.smartInk &&\n    environment.features.smartInkDiagnostics ? (',
+          )
+
+          replace_once(
+              "src/app/ProductShell.tsx",
+              '                repository={serverSync.repository}\n              />',
+              '                repository={serverSync.repository}\n                smartInkEnabled={environment.features.smartInk}\n              />',
+          )
+          replace_once(
+              "src/app/ProductShell.tsx",
+              '                repository={repository}\n              />',
+              '                repository={repository}\n                smartInkEnabled={environment.features.smartInk}\n              />',
+          )
+
+          replace_once(
+              "src/app/PersistedApp.tsx",
+              '  readonly repository: BoardDocumentRepository;\n}',
+              '  readonly repository: BoardDocumentRepository;\n  readonly smartInkEnabled?: boolean;\n}',
+          )
+          replace_once(
+              "src/app/PersistedApp.tsx",
+              '  readonly onNotification:\n    ((notification: ProductNotification) => void) | undefined;\n}',
+              '  readonly onNotification:\n    ((notification: ProductNotification) => void) | undefined;\n  readonly smartInkEnabled: boolean;\n}',
+          )
+          replace_once(
+              "src/app/PersistedApp.tsx",
+              '  enableSnapshots,\n  onNotification,\n}: WorkspaceProps)',
+              '  enableSnapshots,\n  onNotification,\n  smartInkEnabled,\n}: WorkspaceProps)',
+          )
+          replace_once(
+              "src/app/PersistedApp.tsx",
+              '      persistenceStatus={statusView(autosaveState)}\n    />',
+              '      persistenceStatus={statusView(autosaveState)}\n      smartInkEnabled={smartInkEnabled}\n    />',
+          )
+          replace_once(
+              "src/app/PersistedApp.tsx",
+              '  onNotification,\n  repository,\n}: PersistedAppProps)',
+              '  onNotification,\n  repository,\n  smartInkEnabled = true,\n}: PersistedAppProps)',
+          )
+          text = Path("src/app/PersistedApp.tsx").read_text(encoding="utf-8")
+          text = text.replace(
+              '        repository={repository}\n      />',
+              '        repository={repository}\n        smartInkEnabled={smartInkEnabled}\n      />',
+          )
+          text = text.replace(
+              '      repository={repository}\n    />',
+              '      repository={repository}\n      smartInkEnabled={smartInkEnabled}\n    />',
+          )
+          Path("src/app/PersistedApp.tsx").write_text(text, encoding="utf-8")
+
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '  readonly repository: BoardPlatformRepository;\n}',
+              '  readonly repository: BoardPlatformRepository;\n  readonly smartInkEnabled?: boolean;\n}',
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '  queue,\n  repository,\n}: SyncedAppProps)',
+              '  queue,\n  repository,\n  smartInkEnabled = true,\n}: SyncedAppProps)',
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '        remoteCursors={participants.flatMap((participant) =>',
+              '        smartInkEnabled={smartInkEnabled}\n        remoteCursors={participants.flatMap((participant) =>',
+          )
+
+          replace_once(
+              "src/app/App.tsx",
+              '  readonly geometryOsClient?: GeometryOsClient | undefined;\n  readonly historyEnabled?: boolean;',
+              '  readonly geometryOsClient?: GeometryOsClient | undefined;\n  readonly historyEnabled?: boolean;\n  readonly smartInkEnabled?: boolean;',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '  readOnly = false,\n  remoteCursors = [],\n}: AppProps = {})',
+              '  readOnly = false,\n  remoteCursors = [],\n  smartInkEnabled = true,\n}: AppProps = {})',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '  const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);\n  const sceneSelector = useMemo(() => createBoardSceneSelector(), []);',
+              '  const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);\n  const availableDrawingTools = useMemo(\n    () =>\n      smartInkEnabled\n        ? drawingTools\n        : drawingTools.filter((tool) => tool.id !== "drawing.smart-ink"),\n    [smartInkEnabled],\n  );\n  const sceneSelector = useMemo(() => createBoardSceneSelector(), []);',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '          committed.ok &&\n          requestSmartInk &&',
+              '          committed.ok &&\n          smartInkEnabled &&\n          requestSmartInk &&',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '    [commitCommand, commitDrawingObject, createCommandMetadata],',
+              '    [\n      commitCommand,\n      commitDrawingObject,\n      createCommandMetadata,\n      smartInkEnabled,\n    ],',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '    (tool: ActiveToolId) => {\n      applyDrawingAction({ kind: "cancel" });',
+              '    (tool: ActiveToolId) => {\n      if (!smartInkEnabled && tool === "drawing.smart-ink") {\n        return;\n      }\n      applyDrawingAction({ kind: "cancel" });',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '    [applyDrawingAction],\n  );\n\n  useEffect(() => {\n    const handleShortcut',
+              '    [applyDrawingAction, smartInkEnabled],\n  );\n\n  useEffect(() => {\n    if (!smartInkEnabled && activeTool === "drawing.smart-ink") {\n      activateTool(navigationToolId);\n    }\n  }, [activeTool, activateTool, smartInkEnabled]);\n\n  useEffect(() => {\n    const handleShortcut',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '      const tool = drawingTools.find(',
+              '      const tool = availableDrawingTools.find(',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '    activateTool,\n    closeShortcuts,',
+              '    activateTool,\n    availableDrawingTools,\n    closeShortcuts,',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '        activeTool === "drawing.smart-ink",',
+              '        smartInkEnabled && activeTool === "drawing.smart-ink",',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '    [activeTool, applyDrawingAction],',
+              '    [activeTool, applyDrawingAction, smartInkEnabled],',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '                <dt>V / H / P / I / R / E / T</dt>',
+              '                <dt>\n                  {smartInkEnabled\n                    ? "V / H / P / I / R / E / T"\n                    : "V / H / P / R / E / T"}\n                </dt>',
+          )
+          replace_once(
+              "src/app/App.tsx",
+              '          {drawingTools.map((tool) => (',
+              '          {availableDrawingTools.map((tool) => (',
+          )
+
+          product_test = Path("src/app/ProductShell.test.tsx")
+          product_text = product_test.read_text(encoding="utf-8")
+          product_text = product_text.replace(
+              '    serverSync: false,\n  },',
+              '    serverSync: false,\n    smartInk: true,\n    smartInkDiagnostics: true,\n  },',
+          )
+          product_test.write_text(product_text, encoding="utf-8")
+
+          replace_once(
+              "package.json",
+              '    "e2e": "playwright test",',
+              '    "e2e": "playwright test",\n    "e2e:smart-ink-release-gate": "playwright test tests/e2e/smart-ink-release-gate.spec.ts",',
+          )
+
+          replace_once(
+              ".github/workflows/ci.yml",
+              '        env:\n          VITE_FEATURE_SERVER_SYNC: "true"\n          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos\n        run: npm run build\n\n      - name: Run browser smoke\n        run: npm run e2e',
+              '        env:\n          VITE_APP_STAGE: test\n          VITE_FEATURE_SERVER_SYNC: "true"\n          VITE_FEATURE_SMART_INK: "true"\n          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos\n        run: npm run build\n\n      - name: Run browser smoke\n        run: npm run e2e\n\n      - name: Build production Smart Ink gated bundle\n        env:\n          VITE_APP_STAGE: production\n          VITE_FEATURE_SERVER_SYNC: "true"\n          VITE_FEATURE_SMART_INK: "false"\n          VITE_FEATURE_SMART_INK_DIAGNOSTICS: "false"\n          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos\n        run: npm run build\n\n      - name: Verify production Smart Ink release gate\n        env:\n          SMART_INK_EXPECTED: disabled\n        run: npm run e2e:smart-ink-release-gate',
+          )
+
+          Path("src/app/SmartInkReleaseGate.test.tsx").write_text(
+              '''import { cleanup, fireEvent, render, screen } from "@testing-library/react";\nimport { afterEach, describe, expect, it, vi } from "vitest";\n\nimport type {\n  BoardStageProps,\n  WorldPointerSample,\n} from "../adapters/canvas-konva/public";\nimport { App } from "./App";\n\nvi.mock("../adapters/canvas-konva/public", () => ({\n  BoardStage: (props: BoardStageProps) => {\n    const start: WorldPointerSample = {\n      point: { x: 10, y: 20 },\n      pointerId: 1,\n      pressure: 0.5,\n    };\n    const finish: WorldPointerSample = {\n      point: { x: 80, y: 20 },\n      pointerId: 1,\n      pressure: 0.5,\n    };\n    return (\n      <div aria-label="Бесконечное полотно TutorBoard" role="application">\n        <button\n          onClick={() => {\n            props.onWorldPointerStart(start);\n            props.onWorldPointerMove(finish);\n            props.onWorldPointerFinish(finish);\n          }}\n          type="button"\n        >\n          Завершить тестовый жест\n        </button>\n      </div>\n    );\n  },\n  createDefaultKonvaRendererRegistry: () => ({}),\n}));\n\nafterEach(cleanup);\n\ndescribe("Smart Ink release gate", () => {\n  it("hides the tool and ignores its shortcut when disabled", () => {\n    render(<App smartInkEnabled={false} />);\n\n    expect(\n      screen.queryByRole("button", { name: "Smart Ink (I)" }),\n    ).not.toBeInTheDocument();\n\n    fireEvent.keyDown(window, { key: "i" });\n    fireEvent.click(\n      screen.getByRole("button", { name: "Завершить тестовый жест" }),\n    );\n\n    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");\n    fireEvent.click(screen.getByRole("button", { name: "Горячие клавиши" }));\n    expect(screen.getByText("V / H / P / R / E / T")).toBeInTheDocument();\n  });\n\n  it("keeps the development tool and shortcut available when enabled", () => {\n    render(<App smartInkEnabled />);\n\n    const tool = screen.getByRole("button", { name: "Smart Ink (I)" });\n    expect(tool).toBeInTheDocument();\n    fireEvent.keyDown(window, { key: "i" });\n    expect(tool).toHaveAttribute("aria-pressed", "true");\n  });\n});\n''',
+              encoding="utf-8",
+          )
+
+          Path("src/app/ProductShell.smart-ink-gate.test.tsx").write_text(
+              '''import { cleanup, render, screen } from "@testing-library/react";\nimport { afterEach, describe, expect, it, vi } from "vitest";\n\nimport {\n  documentId,\n  type BoardDocumentRepository,\n  type BoardPlatformRepository,\n  type GeometryOsClient,\n  type PendingBoardCommandQueue,\n} from "../core/public";\nimport { ProductShell } from "./ProductShell";\nimport type { AppEnvironment } from "./configuration/environment";\n\nvi.mock("./PersistedApp", () => ({\n  PersistedApp: ({\n    smartInkEnabled,\n  }: {\n    readonly smartInkEnabled?: boolean;\n  }) => (\n    <div data-testid="local-smart-ink-gate">\n      {smartInkEnabled ? "enabled" : "disabled"}\n    </div>\n  ),\n}));\n\nvi.mock("./SyncedApp", () => ({\n  SyncedApp: ({\n    smartInkEnabled,\n  }: {\n    readonly smartInkEnabled?: boolean;\n  }) => (\n    <div data-testid="server-smart-ink-gate">\n      {smartInkEnabled ? "enabled" : "disabled"}\n    </div>\n  ),\n}));\n\nconst geometryOsClient = {} as GeometryOsClient;\nconst repository = {} as BoardDocumentRepository;\n\nfunction environment(smartInk: boolean, serverSync: boolean): AppEnvironment {\n  return {\n    boardApiBaseUrl: "/api/v1",\n    features: {\n      developmentDiagnostics: false,\n      documentSnapshots: true,\n      geometryPrompt: true,\n      serverSync,\n      smartInk,\n      smartInkDiagnostics: false,\n    },\n    geometryOsBaseUrl: "https://geometry.example.test",\n    stage: "production",\n  };\n}\n\nafterEach(() => {\n  cleanup();\n  window.location.hash = "";\n});\n\ndescribe("ProductShell Smart Ink release gate", () => {\n  it("propagates the disabled production gate to local mode", () => {\n    render(\n      <ProductShell\n        environment={environment(false, false)}\n        geometryOsClient={geometryOsClient}\n        repository={repository}\n      />,\n    );\n\n    expect(screen.getByTestId("local-smart-ink-gate")).toHaveTextContent(\n      "disabled",\n    );\n  });\n\n  it("propagates the enabled gate to server mode", () => {\n    render(\n      <ProductShell\n        environment={environment(true, true)}\n        geometryOsClient={geometryOsClient}\n        repository={repository}\n        serverSync={{\n          documentId: documentId("document:release-gate"),\n          lessonId: "lesson:release-gate",\n          queue: {} as PendingBoardCommandQueue,\n          repository: {} as BoardPlatformRepository,\n        }}\n      />,\n    );\n\n    expect(screen.getByTestId("server-smart-ink-gate")).toHaveTextContent(\n      "enabled",\n    );\n  });\n});\n''',
+              encoding="utf-8",
+          )
+
+          Path("tests/e2e/smart-ink-release-gate.spec.ts").write_text(
+              '''import { expect, test } from "@playwright/test";\n\ntest.skip(\n  process.env.SMART_INK_EXPECTED !== "disabled",\n  "Runs only against the production Smart Ink gated bundle.",\n);\n\ntest("keeps Smart Ink unavailable in the production release candidate", async ({\n  page,\n}) => {\n  await page.goto("/");\n  await expect(\n    page.getByRole("application", {\n      name: "Бесконечное полотно TutorBoard",\n    }),\n  ).toBeVisible();\n\n  await expect(\n    page.getByRole("button", { name: "Smart Ink (I)" }),\n  ).toHaveCount(0);\n  await page.keyboard.press("i");\n  await expect(\n    page.getByLabel("Подсказка по навигации").getByText("Навигация"),\n  ).toBeVisible();\n  await expect(page.getByTestId("interaction-state")).toHaveText("idle");\n  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");\n});\n''',
+              encoding="utf-8",
+          )
+
+          Path("docs/architecture/SMART_INK_RELEASE_GATE.md").write_text(
+              '''# Smart Ink production release gate\n\n## Purpose\n\n`VITE_FEATURE_SMART_INK` separates the shipped Smart Ink code and command-reader\ncompatibility from product availability. Development and test stages enable the\ntool by default. Production keeps it disabled until cross-browser captured\nevidence closes the Phase 9 quality gate.\n\n## Effective behavior\n\nWhen the flag is disabled:\n\n- the Smart Ink toolbar action is absent;\n- shortcut `I` has no effect;\n- the recognizer and automatic replacement path are not invoked;\n- the Smart Ink diagnostics subscriber is not mounted;\n- existing `core.objects.replace` commands and normalized board objects remain\n  readable;\n- `BoardDocument 1.0`, stored revisions and collaboration contracts remain\n  unchanged.\n\n`VITE_FEATURE_SMART_INK_DIAGNOSTICS` is subordinate to the main release flag. A\ndiagnostics request cannot activate Smart Ink by itself.\n\n## Stage defaults\n\n| Stage | Smart Ink | Diagnostics |\n| --- | --- | --- |\n| development | enabled | enabled |\n| test | enabled | enabled |\n| production | disabled | disabled |\n\nProduction images accept the build argument\n`--build-arg VITE_FEATURE_SMART_INK=true` for a later approved promotion. The\ndefault image remains gated.\n\n## Verification\n\nThe repository verifies both sides of the gate:\n\n1. unit tests cover strict environment parsing and subordinate diagnostics;\n2. component tests cover hidden toolbar, inert shortcut and local/server prop\n   propagation;\n3. the regular browser smoke builds the test-stage enabled bundle;\n4. a second Chromium/Firefox smoke rebuilds the production bundle with Smart Ink\n   disabled and verifies the gated UI;\n5. the immutable production image uses the disabled default.\n\n## Rollback\n\nRebuild or redeploy with `VITE_FEATURE_SMART_INK=false`. Stored documents require\nno migration, because the gate controls tool availability only.\n''',
+              encoding="utf-8",
+          )
+
+          smart_ink_doc = Path("docs/architecture/SMART_INK.md")
+          smart_text = smart_ink_doc.read_text(encoding="utf-8")
+          appendix = '''\n\n## Production release gate\n\nTool availability is controlled by `VITE_FEATURE_SMART_INK`. Development and\ntest enable it by default; production disables it until the captured Chromium\nand Firefox gate is approved. Diagnostics are mounted only when both Smart Ink\nand `VITE_FEATURE_SMART_INK_DIAGNOSTICS` are enabled. See\n[`SMART_INK_RELEASE_GATE.md`](SMART_INK_RELEASE_GATE.md).\n'''
+          if "## Production release gate" not in smart_text:
+              smart_ink_doc.write_text(smart_text.rstrip() + appendix, encoding="utf-8")
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Format changed files
+        run: npm run format
+      - name: Lint
+        run: npm run lint
+      - name: Type-check
+        run: npm run typecheck
+      - name: Run focused tests
+        run: >-
+          npx vitest run
+          src/app/configuration/environment.test.ts
+          src/app/SmartInkReleaseGate.test.tsx
+          src/app/ProductShell.smart-ink-gate.test.tsx
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add . ':!.github/workflows/smart-ink-release-gate-helper.yml'
+          git commit -m "feat: add Smart Ink production release gate"
+          git push origin HEAD:agent/phase9-smart-ink-release-gate
