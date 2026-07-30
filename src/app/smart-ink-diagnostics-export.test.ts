@@ -77,9 +77,7 @@ describe("Smart Ink diagnostic export", () => {
 
   it("detects supported browsers and creates stable filenames", () => {
     expect(detectSmartInkBrowser("Mozilla/5.0 Firefox/153.0")).toBe("firefox");
-    expect(detectSmartInkBrowser("Mozilla/5.0 Chrome/140.0")).toBe(
-      "chromium",
-    );
+    expect(detectSmartInkBrowser("Mozilla/5.0 Chrome/140.0")).toBe("chromium");
     expect(detectSmartInkBrowser("custom-agent")).toBe("other");
     expect(smartInkDiagnosticFilename("2026-07-30T17:30:00.000Z")).toBe(
       "smart-ink-diagnostic-2026-07-30T17-30-00-000Z.json",
