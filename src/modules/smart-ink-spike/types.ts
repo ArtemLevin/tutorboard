@@ -52,7 +52,7 @@ export type SmartInkProposalStatus =
 export interface SmartInkProposal {
   readonly candidates: readonly SmartInkCandidate[];
   readonly diagnostics: readonly string[];
-  readonly recognizerVersion: "tutorboard.smart-ink-geometric/0.1-spike";
+  readonly recognizerVersion: "tutorboard.smart-ink-geometric/0.3-spike";
   readonly sampledPointCount: number;
   readonly schemaVersion: "tutorboard.smart-ink-proposal/0.1-spike";
   readonly sourceStrokeId: string;
@@ -81,6 +81,19 @@ export const smartInkExternalDatasets = ["hds", "quickdraw"] as const;
 
 export type SmartInkExternalDataset = (typeof smartInkExternalDatasets)[number];
 
+export const smartInkQuickDrawCategories = [
+  "circle",
+  "line",
+  "square",
+  "triangle",
+  "squiggle",
+  "star",
+  "zigzag",
+] as const;
+
+export type SmartInkQuickDrawCategory =
+  (typeof smartInkQuickDrawCategories)[number];
+
 export const smartInkTraceOrigins = [
   "raster-contour",
   "recorded-trajectory",
@@ -108,6 +121,7 @@ export interface SmartInkCorpusSample {
     readonly deviceProfile: SmartInkCorpusDeviceProfile;
     readonly durationMs: number;
     readonly pointerType: SmartInkCorpusPointerType;
+    readonly sourceCategory?: SmartInkQuickDrawCategory;
     readonly sourceDataset?: SmartInkExternalDataset;
     readonly sourceGroupId?: string;
     readonly traceOrigin?: SmartInkTraceOrigin;
@@ -216,4 +230,33 @@ export interface SmartInkCalibrationReport {
     >
   >;
   readonly split: SmartInkCalibrationSplitSummary;
+}
+
+export interface SmartInkIndependentHoldoutOptions {
+  readonly minimumNegatives: number;
+  readonly minimumPerClass: number;
+  readonly seed: number;
+}
+
+export interface SmartInkIndependentHoldoutResult {
+  readonly corpus: SmartInkCorpus;
+  readonly excludedDevelopmentGroupCount: number;
+  readonly excludedDevelopmentSampleCount: number;
+  readonly selectedCounts: Readonly<Record<SmartInkCorpusExpectedKind, number>>;
+  readonly selectedGroupCount: number;
+}
+
+export interface SmartInkIndependentNegativeHoldoutOptions {
+  readonly minimumPerCategory: number;
+  readonly seed: number;
+}
+
+export interface SmartInkIndependentNegativeHoldoutResult {
+  readonly corpus: SmartInkCorpus;
+  readonly excludedDevelopmentGroupCount: number;
+  readonly excludedDevelopmentSampleCount: number;
+  readonly selectedCategoryCounts: Readonly<
+    Record<"squiggle" | "star" | "zigzag", number>
+  >;
+  readonly selectedGroupCount: number;
 }

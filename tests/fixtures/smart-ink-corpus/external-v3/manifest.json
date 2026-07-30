@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "tutorboard.smart-ink-evidence/0.3",
+  "generatedOn": "2026-07-30",
+  "configuration": {
+    "ambiguityMargin": 0.04,
+    "holdoutSeed": 260730,
+    "minimumConfidence": 0.34,
+    "minimumPerNegativeCategory": 80,
+    "sampleCount": 96
+  },
+  "developmentEvidence": {
+    "quickdrawSeed90210Sha256": "8200fa981949b180a34902cd69e944dc05ab506653f705348e3d547cb4058d0b",
+    "v2HoldoutSeed170731Sha256": "f7f2d4be3c4e90714a66287fdddc70df620d80fd6a178c73e3c7d3ec3358bcaf"
+  },
+  "source": {
+    "attribution": "The Quick, Draw! Dataset, Google LLC, CC BY 4.0",
+    "categories": [
+      {
+        "category": "squiggle",
+        "eligibleRecords": 85163,
+        "selectedRecords": 80
+      },
+      {
+        "category": "star",
+        "eligibleRecords": 105371,
+        "selectedRecords": 80
+      },
+      {
+        "category": "zigzag",
+        "eligibleRecords": 105263,
+        "selectedRecords": 80
+      }
+    ],
+    "license": "CC-BY-4.0",
+    "rawBaseUrl": "https://storage.googleapis.com/quickdraw_dataset/full/raw",
+    "repository": "https://github.com/googlecreativelab/quickdraw-dataset",
+    "seed": 260730
+  },
+  "holdout": {
+    "categoryCounts": {
+      "squiggle": 80,
+      "star": 80,
+      "zigzag": 80
+    },
+    "developmentGroupOverlap": 0,
+    "developmentSampleOverlap": 0,
+    "sampleCount": 240,
+    "sourceGroupCount": 240
+  },
+  "artifacts": [
+    {
+      "path": "negative-holdout.seed-260730.json.gz",
+      "sha256": "e717bb5517bc9b9deca1e558cacfdc698234ef04f8db94a533158f4343fff127"
+    },
+    {
+      "path": "negative-holdout-report.seed-260730.json",
+      "sha256": "abf3851be9c984aaaeaa39ff4dfcef4a12adc838438b5da2314b1ff0d91b2baf"
+    },
+    {
+      "path": "v2-regression-report.seed-170731.json",
+      "sha256": "98465bbccebfcbe76c6c3d45a691ad2ecac03b87a67bc30add9ffc338db9a6b1"
+    }
+  ],
+  "result": {
+    "falsePositiveCount": 1,
+    "falsePositiveRate": 0.004167,
+    "independentNegativeGatePassed": true,
+    "productionGateEvaluated": false,
+    "recognizerVersion": "tutorboard.smart-ink-geometric/0.3-spike",
+    "v2RegressionGatePassed": true
+  }
+}

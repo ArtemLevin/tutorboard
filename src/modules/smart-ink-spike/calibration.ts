@@ -24,6 +24,7 @@ const defaultMinimumNegatives = 60;
 const maximumGridSize = 128;
 
 interface ScoredSample {
+  readonly acceptableKinds: readonly SmartInkPrimitiveKind[];
   readonly expectedKind: SmartInkCorpusExpectedKind;
   readonly gap: number;
   readonly secondKind: SmartInkPrimitiveKind;
@@ -133,8 +134,8 @@ function integerOption(
 }
 
 function defaultConfidenceGrid(): readonly number[] {
-  return Array.from({ length: 46 }, (_, index) =>
-    Number((0.35 + index * 0.01).toFixed(2)),
+  return Array.from({ length: 56 }, (_, index) =>
+    Number((0.25 + index * 0.01).toFixed(2)),
   );
 }
 
@@ -239,6 +240,7 @@ function scoreCorpus(
     const second = proposal.candidates[1];
     if (first === undefined || second === undefined) {
       return {
+        acceptableKinds: sample.acceptableKinds,
         expectedKind: sample.expectedKind,
         gap: 1,
         secondKind: "line",
@@ -247,6 +249,7 @@ function scoreCorpus(
       };
     }
     return {
+      acceptableKinds: sample.acceptableKinds,
       expectedKind: sample.expectedKind,
       gap: first.confidence - second.confidence,
       secondKind: second.kind,
@@ -262,8 +265,9 @@ function evaluateSearchCandidate(
   ambiguityMargin: number,
 ): SearchMetrics {
   const predicted = new Map<SmartInkPrimitiveKind, number>();
+  const predictionAccepted = new Map<SmartInkPrimitiveKind, number>();
   const support = new Map<SmartInkPrimitiveKind, number>();
-  const truePositive = new Map<SmartInkPrimitiveKind, number>();
+  const expectedAccepted = new Map<SmartInkPrimitiveKind, number>();
   let ambiguityCount = 0;
   let falsePositiveCount = 0;
   let negativeCount = 0;
@@ -274,6 +278,20 @@ function evaluateSearchCandidate(
 
   for (const sample of samples) {
     const recognized = sample.topConfidence >= minimumConfidence;
+    if (
+      sample.expectedKind === "circle" ||
+      sample.expectedKind === "ellipse" ||
+      sample.expectedKind === "rectangle" ||
+      sample.expectedKind === "square"
+    ) {
+      specializedCount += 1;
+      if (
+        sample.acceptableKinds.includes(sample.topKind) ||
+        sample.acceptableKinds.includes(sample.secondKind)
+      ) {
+        specializedTop2Count += 1;
+      }
+    }
     if (recognized && sample.gap < ambiguityMargin) {
       ambiguityCount += 1;
     }
@@ -285,14 +303,6 @@ function evaluateSearchCandidate(
           sample.expectedKind,
           (support.get(sample.expectedKind) ?? 0) + 1,
         );
-        if (
-          sample.expectedKind === "circle" ||
-          sample.expectedKind === "ellipse" ||
-          sample.expectedKind === "rectangle" ||
-          sample.expectedKind === "square"
-        ) {
-          specializedCount += 1;
-        }
       } else {
         negativeCount += 1;
       }
@@ -311,31 +321,24 @@ function evaluateSearchCandidate(
       sample.expectedKind,
       (support.get(sample.expectedKind) ?? 0) + 1,
     );
-    if (sample.topKind === sample.expectedKind) {
-      truePositive.set(
-        sample.expectedKind,
-        (truePositive.get(sample.expectedKind) ?? 0) + 1,
+    if (sample.acceptableKinds.includes(sample.topKind)) {
+      predictionAccepted.set(
+        sample.topKind,
+        (predictionAccepted.get(sample.topKind) ?? 0) + 1,
       );
-    }
-    if (
-      sample.expectedKind === "circle" ||
-      sample.expectedKind === "ellipse" ||
-      sample.expectedKind === "rectangle" ||
-      sample.expectedKind === "square"
-    ) {
-      specializedCount += 1;
-      if (
-        sample.topKind === sample.expectedKind ||
-        sample.secondKind === sample.expectedKind
-      ) {
-        specializedTop2Count += 1;
-      }
+      expectedAccepted.set(
+        sample.expectedKind,
+        (expectedAccepted.get(sample.expectedKind) ?? 0) + 1,
+      );
     }
   }
 
   const perClass = smartInkPrimitiveKinds.map((kind) => ({
-    precision: ratio(truePositive.get(kind) ?? 0, predicted.get(kind) ?? 0),
-    recall: ratio(truePositive.get(kind) ?? 0, support.get(kind) ?? 0),
+    precision: ratio(
+      predictionAccepted.get(kind) ?? 0,
+      predicted.get(kind) ?? 0,
+    ),
+    recall: ratio(expectedAccepted.get(kind) ?? 0, support.get(kind) ?? 0),
   }));
   return {
     ambiguityRate: roundMetric(ratio(ambiguityCount, samples.length)),

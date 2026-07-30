@@ -22,6 +22,10 @@ runtime-валидируется функцией `parseSmartInkCorpus`; син�
 себя за capture конкретного браузера. Подбор и ограничения датасетов описаны в
 [`SMART_INK_DATASETS.md`](SMART_INK_DATASETS.md).
 
+Для Quick, Draw! импортёр может сохранить закрытую `sourceCategory`. Она
+нужна для сбалансированной проверки отрицательных классов и допускает только
+проверенные отображения `squiggle`, `star`, `zigzag` в `negative`.
+
 Runtime boundary допускает не более 1000 образцов, 4096 точек на образец и
 длительность одного штриха не более 300 секунд. Невалидный corpus отклоняется
 целиком до benchmark.
@@ -97,6 +101,10 @@ reviewable-набором fixtures.
 - false-positive rate не выше `0.02`;
 - specialized top-2 accuracy не ниже `0.98`;
 - unrecognized rate не выше `0.10`;
+
+Top-2 измеряется независимо от confidence threshold: проверяется наличие одной
+из явно допустимых интерпретаций в первых двух кандидатах. Confidence-отказ
+учитывается отдельной метрикой unrecognized rate.
 - p95 не выше `150 ms`.
 
 Gate вычисляет итоговые метрики только по `captured`-образцам. Synthetic
@@ -113,6 +121,12 @@ latency production-gate.
 holdout. Порог выбирается только по calibration; holdout оценивается один раз
 после выбора. Отчёт `tutorboard.smart-ink-calibration/0.1` не содержит точек
 штрихов.
+
+После изменения только логики отклонения допускается отдельный независимый
+negative holdout. Он обязан исключить все ранее виденные sample/group ID,
+сохранить одинаковые квоты `squiggle`, `star`, `zigzag` и оцениваться
+единожды после заморозки recognizer. Такой отчёт подтверждает FPR; результаты
+положительных классов закрепляются отдельной regression-проверкой.
 
 Запуск синтетической regression baseline:
 

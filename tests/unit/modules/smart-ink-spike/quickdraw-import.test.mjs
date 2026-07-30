@@ -93,6 +93,7 @@ describe("Phase 9 Quick, Draw! corpus importer", () => {
           browser: "other",
           deviceProfile: "other-device",
           pointerType: "unknown",
+          sourceCategory: "circle",
           sourceDataset: "quickdraw",
           sourceGroupId: expect.stringMatching(
             /^quickdraw-group-[a-f0-9]{20}$/,

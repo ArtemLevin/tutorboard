@@ -172,6 +172,56 @@ function distance(left, right) {
   return Math.hypot(right.x - left.x, right.y - left.y);
 }
 
+function convexHull(points) {
+  const sorted = [...points].sort((left, right) =>
+    left.x === right.x ? left.y - right.y : left.x - right.x,
+  );
+  const cross = (origin, left, right) =>
+    (left.x - origin.x) * (right.y - origin.y) -
+    (left.y - origin.y) * (right.x - origin.x);
+  const half = [];
+  const append = (point) => {
+    while (half.length >= 2 && cross(half.at(-2), half.at(-1), point) <= 0) {
+      half.pop();
+    }
+    half.push(point);
+  };
+  for (const point of sorted) {
+    append(point);
+  }
+  const lowerLength = half.length;
+  for (let index = sorted.length - 2; index > 0; index -= 1) {
+    append(sorted[index]);
+  }
+  if (half.length > lowerLength) {
+    half.pop();
+  }
+  return half;
+}
+
+function perimeter(points) {
+  let result = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    result += distance(points[index], points[(index + 1) % points.length]);
+  }
+  return result;
+}
+
+function assertContourQuality(points) {
+  const hull = convexHull(points);
+  const hullArea = Math.abs(polygonArea(hull));
+  const hullPerimeter = perimeter(hull);
+  const solidity =
+    hullArea === 0 ? 0 : Math.abs(polygonArea(points)) / hullArea;
+  const perimeterRatio =
+    hullPerimeter === 0
+      ? Number.POSITIVE_INFINITY
+      : perimeter(points) / hullPerimeter;
+  if (solidity < 0.3 || perimeterRatio > 1.7) {
+    throw new Error("HDS raster contour is too concave or fragmented.");
+  }
+}
+
 function resampleClosed(points, pointCount) {
   const closed = [...points, points[0]];
   const cumulative = [0];
@@ -271,5 +321,10 @@ export function extractHdsDominantContour(raster, options = {}) {
     throw new Error("HDS raster has no sufficiently dominant component.");
   }
 
-  return resampleClosed(traceBoundary(dominant, width, height), pointCount);
+  const contour = resampleClosed(
+    traceBoundary(dominant, width, height),
+    pointCount,
+  );
+  assertContourQuality(contour);
+  return contour;
 }

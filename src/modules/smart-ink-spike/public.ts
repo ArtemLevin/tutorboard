@@ -1,5 +1,12 @@
-export { recognizeSmartInkStroke } from "./recognizer";
+export {
+  recognizeSmartInkStroke,
+  smartInkRecognizerVersion,
+} from "./recognizer";
 export { humanizeSmartInkPrimitive } from "./humanizer";
+export {
+  buildIndependentSmartInkHoldout,
+  buildIndependentSmartInkNegativeHoldout,
+} from "./holdout";
 export { calibrateSmartInkRecognizer } from "./calibration";
 export {
   assessSmartInkCalibrationGate,
@@ -14,6 +21,7 @@ export {
   smartInkCorpusSchemaVersion,
   smartInkExternalDatasets,
   smartInkPrimitiveKinds,
+  smartInkQuickDrawCategories,
   smartInkTraceOrigins,
   type FittedCircle,
   type FittedEllipse,
@@ -35,10 +43,15 @@ export {
   type SmartInkCorpusSample,
   type SmartInkFittedGeometry,
   type SmartInkHumanizationOptions,
+  type SmartInkIndependentHoldoutOptions,
+  type SmartInkIndependentHoldoutResult,
+  type SmartInkIndependentNegativeHoldoutOptions,
+  type SmartInkIndependentNegativeHoldoutResult,
   type SmartInkPrimitiveKind,
   type SmartInkProductionGateAssessment,
   type SmartInkProposal,
   type SmartInkProposalStatus,
   type SmartInkRecognizerOptions,
+  type SmartInkQuickDrawCategory,
   type SmartInkTraceOrigin,
 } from "./types";

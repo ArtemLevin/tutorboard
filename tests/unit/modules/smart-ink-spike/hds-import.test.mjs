@@ -11,6 +11,7 @@ import {
   parseSmartInkCorpus,
   recognizeSmartInkStroke,
 } from "../../../../src/modules/smart-ink-spike/public.ts";
+import { importHdsCorpus } from "../../../../scripts/import-hds-corpus.mjs";
 import { extractHdsDominantContour } from "../../../../scripts/lib/hds-contour.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -93,10 +94,20 @@ describe("Phase 9 HDS contour adapter", () => {
       });
       expect(corpus.samples[0].id).not.toContain("user.test");
       expect(corpus.samples[0].points).toHaveLength(128);
-      expect(
+      expect(corpus.samples[0].acceptableKinds).toContain(
         recognizeSmartInkStroke(corpus.samples[0].id, corpus.samples[0].points)
           .candidates[0]?.kind,
-      ).toBe("rectangle");
+      );
+      const excluded = await importHdsCorpus({
+        excludedSourceGroupIds: new Set([
+          corpus.samples[0].metadata.sourceGroupId,
+        ]),
+        includeOther: false,
+        maxPerKind: 1,
+        root,
+        seed: 123,
+      });
+      expect(excluded.corpus.samples).toHaveLength(0);
     } finally {
       await rm(directory, { force: true, recursive: true });
     }
@@ -166,6 +177,7 @@ describe("Phase 9 HDS contour adapter", () => {
           root,
           "--max-per-kind",
           "1",
+          "--include-other",
           "--seed",
           "123",
           "--output",
