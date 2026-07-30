@@ -27,11 +27,8 @@ export function resolveSmartInkReleaseGate(
 }
 
 export function currentSmartInkReleaseGate(): boolean {
-  const stage =
-    import.meta.env.VITE_APP_STAGE ??
-    (import.meta.env.PROD ? "production" : "development");
   return resolveSmartInkReleaseGate(
-    stage,
+    import.meta.env.VITE_APP_STAGE,
     import.meta.env.VITE_FEATURE_SMART_INK,
   );
 }
