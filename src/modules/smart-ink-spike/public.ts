@@ -1,0 +1,32 @@
+export { recognizeSmartInkStroke } from "./recognizer";
+export {
+  assessSmartInkProductionGate,
+  assertSmartInkCorpus,
+  evaluateSmartInkCorpus,
+  parseSmartInkCorpus,
+} from "./corpus";
+export {
+  smartInkCorpusDeviceProfiles,
+  smartInkCorpusSchemaVersion,
+  smartInkPrimitiveKinds,
+  type FittedCircle,
+  type FittedEllipse,
+  type FittedLine,
+  type FittedPolygon,
+  type SmartInkBenchmarkMetrics,
+  type SmartInkCandidate,
+  type SmartInkClassMetrics,
+  type SmartInkCorpus,
+  type SmartInkCorpusBrowser,
+  type SmartInkCorpusDeviceProfile,
+  type SmartInkCorpusExpectedKind,
+  type SmartInkCorpusPointerType,
+  type SmartInkCorpusProvenance,
+  type SmartInkCorpusSample,
+  type SmartInkFittedGeometry,
+  type SmartInkPrimitiveKind,
+  type SmartInkProductionGateAssessment,
+  type SmartInkProposal,
+  type SmartInkProposalStatus,
+  type SmartInkRecognizerOptions,
+} from "./types";
