@@ -311,6 +311,31 @@ precision `0.973757`, macro recall `0.945833`, specialized top-2 `0.98125`
 and positive unrecognized rate `0.033333`. The v3 independent result confirms
 the FPR objective. Chromium/Firefox capture remains the production gate.
 
+### Recognizer v4 captured Chromium development evidence
+
+`tests/fixtures/smart-ink-corpus/captured-chromium-v1/` records 241 pen
+strokes captured on a Windows laptop in Chrome/Chromium. The observed corpus
+contains 142 positive examples across all six classes and 99 negative
+examples.
+
+Recognizer v3 reached macro precision `0.94098`, macro recall `0.952591`,
+specialized top-2 `1`, positive unrecognized rate `0.021127` and FPR
+`0.040404`. The four false positives were three visibly incomplete polygon
+boundaries and one concave self-intersecting loop.
+
+Recognizer v4 adds two targeted closed-shape validity penalties:
+
+- a low-closure, short-perimeter, corner-concentrated partial boundary;
+- the conjunction of reduced hull solidity and inconsistent turning.
+
+On the observed Chromium development corpus, v4 reaches macro precision
+`0.964372`, macro recall `0.952591`, specialized top-2 `1`, positive
+unrecognized rate `0.021127` and FPR `0`. The previously committed v2 and v3
+external evidence reproduces without metric changes.
+
+This Chromium corpus is development evidence. Firefox capture remains a
+separate future platform validation, so the production gate stays open.
+
 ## Humanized geometric generator
 
 `humanizeSmartInkPrimitive` creates deterministic stress data from an intended

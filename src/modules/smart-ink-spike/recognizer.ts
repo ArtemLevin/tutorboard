@@ -13,7 +13,7 @@ import type {
 } from "./types";
 
 export const smartInkRecognizerVersion =
-  "tutorboard.smart-ink-geometric/0.3-spike";
+  "tutorboard.smart-ink-geometric/0.4-spike";
 const proposalSchemaVersion = "tutorboard.smart-ink-proposal/0.1-spike";
 const epsilon = 1e-9;
 const maximumInputPointCount = 16_384;
@@ -366,13 +366,25 @@ function closedShapePenalty(analysis: StrokeAnalysis): number {
   const excessiveWinding = Math.max(0, analysis.turningRevolutions - 1.3) * 2.5;
   const insufficientWinding =
     Math.max(0, 0.55 - analysis.turningRevolutions) * 1.5;
+  const incompleteBoundaryPenalty =
+    analysis.closedness < 0.2 &&
+    analysis.hullPerimeterRatio < 0.9 &&
+    analysis.cornerConcentration > 0.65
+      ? 0.35
+      : 0;
+  const concaveTurningPenalty =
+    Math.max(0, 0.84 - analysis.hullSolidity) *
+    Math.max(0, 0.65 - analysis.turningConsistency) *
+    80;
   return (
     closurePenalty +
     excessivePerimeter +
     concavityPenalty +
     inconsistentTurning +
     excessiveWinding +
-    insufficientWinding
+    insufficientWinding +
+    incompleteBoundaryPenalty +
+    concaveTurningPenalty
   );
 }
 

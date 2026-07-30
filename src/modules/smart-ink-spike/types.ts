@@ -52,7 +52,7 @@ export type SmartInkProposalStatus =
 export interface SmartInkProposal {
   readonly candidates: readonly SmartInkCandidate[];
   readonly diagnostics: readonly string[];
-  readonly recognizerVersion: "tutorboard.smart-ink-geometric/0.3-spike";
+  readonly recognizerVersion: "tutorboard.smart-ink-geometric/0.4-spike";
   readonly sampledPointCount: number;
   readonly schemaVersion: "tutorboard.smart-ink-proposal/0.1-spike";
   readonly sourceStrokeId: string;

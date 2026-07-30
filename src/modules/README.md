@@ -27,4 +27,6 @@ Implemented modules:
   impersonate browser capture, and synthetic fixtures cannot satisfy either
   human-data gate. Quick, Draw! trajectories and reconstructed HDS contours
   retain distinct trace provenance; automatic confidence calibration uses a
-  deterministic group-safe calibration/holdout split.
+  deterministic group-safe calibration/holdout split. Captured Chromium
+  development evidence additionally exercises incomplete-boundary and concave
+  turning rejection while Firefox remains a separate platform gate.
