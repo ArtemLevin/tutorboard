@@ -31,7 +31,9 @@ const statusLabels = {
   unrecognized: "Не распознано",
 } as const;
 
-const reasonLabels: Readonly<Record<SmartInkDiagnosticRecord["reason"], string>> = {
+const reasonLabels: Readonly<
+  Record<SmartInkDiagnosticRecord["reason"], string>
+> = {
   "proposal-created": "Создана замена BoardDocument",
   "recognizer-ambiguous": "Два кандидата имеют близкую уверенность",
   "recognizer-unrecognized": "Уверенность ниже порога",
@@ -230,7 +232,8 @@ export function SmartInkDiagnosticsPanel() {
                 </div>
               </dl>
               <small>
-                Policy: confidence {smartInkCanvasRecognitionPolicy.minimumConfidence}
+                Policy: confidence{" "}
+                {smartInkCanvasRecognitionPolicy.minimumConfidence}
                 {" · "}margin {smartInkCanvasRecognitionPolicy.ambiguityMargin}
                 {" · "}samples {smartInkCanvasRecognitionPolicy.sampleCount}
               </small>
