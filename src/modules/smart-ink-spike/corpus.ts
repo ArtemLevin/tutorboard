@@ -1,7 +1,9 @@
 import {
   smartInkCorpusDeviceProfiles,
   smartInkCorpusSchemaVersion,
+  smartInkExternalDatasets,
   smartInkPrimitiveKinds,
+  smartInkTraceOrigins,
   type SmartInkBenchmarkMetrics,
   type SmartInkClassMetrics,
   type SmartInkCorpus,
@@ -19,6 +21,7 @@ const maximumCorpusSampleCount = 1_000;
 const maximumCorpusPointsPerSample = 4_096;
 const maximumCorpusDurationMs = 300_000;
 const maximumCorpusIdLength = 160;
+const maximumSourceGroupIdLength = 96;
 const specializedKinds = new Set<SmartInkPrimitiveKind>([
   "circle",
   "ellipse",
@@ -148,7 +151,11 @@ function assertCorpusSample(
       `Smart Ink corpus sample ${input.id} must define shouldPropose.`,
     );
   }
-  if (input.provenance !== "captured" && input.provenance !== "synthetic") {
+  if (
+    input.provenance !== "captured" &&
+    input.provenance !== "external-human" &&
+    input.provenance !== "synthetic"
+  ) {
     throw new Error(
       `Smart Ink corpus sample ${input.id} has unsupported provenance.`,
     );
@@ -214,7 +221,8 @@ function assertCorpusSample(
   if (
     metadata.pointerType !== "mouse" &&
     metadata.pointerType !== "pen" &&
-    metadata.pointerType !== "touch"
+    metadata.pointerType !== "touch" &&
+    metadata.pointerType !== "unknown"
   ) {
     throw new Error(
       `Smart Ink corpus sample ${input.id} has unsupported pointerType.`,
@@ -226,6 +234,81 @@ function assertCorpusSample(
   ) {
     throw new Error(
       `Captured Smart Ink corpus sample ${input.id} cannot use synthetic device metadata.`,
+    );
+  }
+  if (
+    metadata.sourceDataset !== undefined &&
+    (typeof metadata.sourceDataset !== "string" ||
+      !smartInkExternalDatasets.some(
+        (dataset) => dataset === metadata.sourceDataset,
+      ))
+  ) {
+    throw new Error(
+      `Smart Ink corpus sample ${input.id} has unsupported sourceDataset.`,
+    );
+  }
+  if (
+    metadata.sourceGroupId !== undefined &&
+    (typeof metadata.sourceGroupId !== "string" ||
+      metadata.sourceGroupId.length < 12 ||
+      metadata.sourceGroupId.length > maximumSourceGroupIdLength ||
+      !/^(?:hds|quickdraw)-group-[a-f0-9]{16,64}$/.test(metadata.sourceGroupId))
+  ) {
+    throw new Error(
+      `Smart Ink corpus sample ${input.id} has invalid sourceGroupId.`,
+    );
+  }
+  if (
+    metadata.traceOrigin !== undefined &&
+    (typeof metadata.traceOrigin !== "string" ||
+      !smartInkTraceOrigins.some(
+        (traceOrigin) => traceOrigin === metadata.traceOrigin,
+      ))
+  ) {
+    throw new Error(
+      `Smart Ink corpus sample ${input.id} has unsupported traceOrigin.`,
+    );
+  }
+  if (
+    input.provenance === "external-human" &&
+    (metadata.sourceDataset === undefined ||
+      metadata.sourceGroupId === undefined ||
+      metadata.traceOrigin === undefined ||
+      metadata.browser !== "other" ||
+      metadata.deviceProfile !== "other-device" ||
+      metadata.pointerType !== "unknown")
+  ) {
+    throw new Error(
+      `External Smart Ink corpus sample ${input.id} must use dataset-only metadata.`,
+    );
+  }
+  if (
+    input.provenance !== "external-human" &&
+    (metadata.sourceDataset !== undefined ||
+      metadata.sourceGroupId !== undefined ||
+      metadata.traceOrigin !== undefined)
+  ) {
+    throw new Error(
+      `Smart Ink corpus sample ${input.id} cannot attach an external dataset.`,
+    );
+  }
+  if (
+    input.provenance === "external-human" &&
+    ((metadata.sourceDataset === "quickdraw" &&
+      metadata.traceOrigin !== "recorded-trajectory") ||
+      (metadata.sourceDataset === "hds" &&
+        metadata.traceOrigin !== "raster-contour"))
+  ) {
+    throw new Error(
+      `External Smart Ink corpus sample ${input.id} has inconsistent trace provenance.`,
+    );
+  }
+  if (
+    input.provenance !== "external-human" &&
+    metadata.pointerType === "unknown"
+  ) {
+    throw new Error(
+      `Smart Ink corpus sample ${input.id} must identify its pointer type.`,
     );
   }
   if (
@@ -454,6 +537,63 @@ export function assessSmartInkProductionGate(
   }
 
   const eligibilityFailureCount = failures.length;
+  failures.push(...findSmartInkQualityFailures(metrics));
+
+  return {
+    eligible: eligibilityFailureCount === 0,
+    failures,
+    metrics,
+    passed: failures.length === 0,
+  };
+}
+
+export function assessSmartInkCalibrationGate(
+  corpus: SmartInkCorpus,
+  options: SmartInkRecognizerOptions = {},
+  now: () => number = () => globalThis.performance.now(),
+): SmartInkProductionGateAssessment {
+  assertSmartInkCorpus(corpus);
+  const humanCorpus: SmartInkCorpus = {
+    samples: corpus.samples.filter(
+      (sample) => sample.provenance !== "synthetic",
+    ),
+    schemaVersion: smartInkCorpusSchemaVersion,
+  };
+  const metrics = evaluateSmartInkCorpus(humanCorpus, options, now);
+  const failures: string[] = [];
+
+  for (const kind of smartInkPrimitiveKinds) {
+    const humanCount = humanCorpus.samples.filter(
+      (sample) => sample.expectedKind === kind,
+    ).length;
+    if (humanCount < productionMinimumPerClass) {
+      failures.push(`human-${kind}:${humanCount}/${productionMinimumPerClass}`);
+    }
+  }
+  const humanNegatives = humanCorpus.samples.filter(
+    (sample) => sample.expectedKind === "negative",
+  ).length;
+  if (humanNegatives < productionMinimumNegatives) {
+    failures.push(
+      `human-negative:${humanNegatives}/${productionMinimumNegatives}`,
+    );
+  }
+
+  const eligibilityFailureCount = failures.length;
+  failures.push(...findSmartInkQualityFailures(metrics));
+
+  return {
+    eligible: eligibilityFailureCount === 0,
+    failures,
+    metrics,
+    passed: failures.length === 0,
+  };
+}
+
+export function findSmartInkQualityFailures(
+  metrics: SmartInkBenchmarkMetrics,
+): readonly string[] {
+  const failures: string[] = [];
   if (metrics.macroPrecision < 0.94) {
     failures.push(`macro-precision:${metrics.macroPrecision}<0.94`);
   }
@@ -469,11 +609,5 @@ export function assessSmartInkProductionGate(
   if (metrics.latencyMs.p95 > 150) {
     failures.push(`latency-p95:${metrics.latencyMs.p95}>150`);
   }
-
-  return {
-    eligible: eligibilityFailureCount === 0,
-    failures,
-    metrics,
-    passed: failures.length === 0,
-  };
+  return failures;
 }
