@@ -7,7 +7,15 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { Circle, Group, Layer, Rect, Stage, Text } from "react-konva";
+import {
+  Circle,
+  Group,
+  Layer,
+  Rect,
+  Stage,
+  Text,
+  Transformer,
+} from "react-konva";
 
 import {
   boardObjectId,
@@ -83,6 +91,13 @@ export interface BoardSelectionBounds {
   readonly rect: BoardSelectionRect;
 }
 
+export interface BoardObjectTransformSnapshot {
+  readonly objectId: BoardObjectId;
+  readonly position: Vec2;
+  readonly rotation: number;
+  readonly scale: Vec2;
+}
+
 export interface BoardStageProps {
   readonly drawingModeKey: string | null;
   readonly onWorldPointerCancel: (pointerId: number) => void;
@@ -95,6 +110,9 @@ export interface BoardStageProps {
   readonly onSelectionPointerMove: (sample: WorldPointerSample) => void;
   readonly onSelectionPointerStart: (
     sample: SelectionPointerStartSample,
+  ) => void;
+  readonly onSelectionTransform?: (
+    transforms: readonly BoardObjectTransformSnapshot[],
   ) => void;
   readonly panMode: boolean;
   readonly previewItems?: readonly BoardRenderItem[];
@@ -109,6 +127,7 @@ export interface BoardStageProps {
   readonly selectionMarquee?: BoardSelectionRect | null;
   readonly selectionModeKey: string | null;
   readonly selectionPreviewDelta?: Vec2 | null;
+  readonly transformableObjectIds?: readonly BoardObjectId[];
   readonly onViewportCommit: (viewport: ViewportState) => void;
 }
 
@@ -171,6 +190,17 @@ function renderItem(
   );
 }
 
+function isTransformerTarget(target: Konva.Node): boolean {
+  let current: Konva.Node | null = target;
+  while (current !== null) {
+    if (current.getClassName() === "Transformer") {
+      return true;
+    }
+    current = current.getParent();
+  }
+  return false;
+}
+
 function objectIdFromTarget(target: Konva.Node): BoardObjectId | null {
   let current: Konva.Node | null = target;
   while (current !== null) {
@@ -194,6 +224,7 @@ export function BoardStage({
   onSelectionPointerFinish,
   onSelectionPointerMove,
   onSelectionPointerStart,
+  onSelectionTransform,
   panMode,
   previewItems = [],
   registry,
@@ -204,9 +235,11 @@ export function BoardStage({
   selectionMarquee = null,
   selectionModeKey,
   selectionPreviewDelta = null,
+  transformableObjectIds = [],
 }: BoardStageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
+  const transformerRef = useRef<Konva.Transformer>(null);
   const panSessionRef = useRef<PanSession | null>(null);
   const drawingSessionRef = useRef<DrawingSession | null>(null);
   const selectionSessionRef = useRef<SelectionSession | null>(null);
@@ -230,6 +263,7 @@ export function BoardStage({
   const [isPanning, setIsPanning] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [isTransforming, setIsTransforming] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
   const size = useElementSize(rootRef);
   const visibleItemBatches = useMemo(
@@ -239,6 +273,56 @@ export function BoardStage({
       ),
     [previewViewport, scene.items, size],
   );
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    const transformer = transformerRef.current;
+    if (stage === null || transformer === null) {
+      return;
+    }
+    const allowed = new Set(transformableObjectIds);
+    const nodes = stage.find(".board-transform-target").filter((node) => {
+      const objectId = objectIdFromTarget(node);
+      return objectId !== null && allowed.has(objectId);
+    });
+    transformer.nodes(nodes);
+    transformer.getLayer()?.batchDraw();
+  }, [previewViewport, scene.items, transformableObjectIds]);
+
+  const finishTransform = useCallback(() => {
+    const transformer = transformerRef.current;
+    setIsTransforming(false);
+    if (transformer === null) {
+      return;
+    }
+    const transforms = transformer.nodes().flatMap((node) => {
+      const objectId = objectIdFromTarget(node);
+      const values = [
+        node.x(),
+        node.y(),
+        node.rotation(),
+        node.scaleX(),
+        node.scaleY(),
+      ];
+      if (
+        objectId === null ||
+        values.some((value) => !Number.isFinite(value))
+      ) {
+        return [];
+      }
+      return [
+        {
+          objectId,
+          position: { x: node.x(), y: node.y() },
+          rotation: node.rotation(),
+          scale: { x: node.scaleX(), y: node.scaleY() },
+        },
+      ];
+    });
+    if (transforms.length > 0) {
+      onSelectionTransform?.(transforms);
+    }
+  }, [onSelectionTransform]);
 
   useEffect(() => {
     worldPointerCallbacksRef.current = {
@@ -631,6 +715,10 @@ export function BoardStage({
   }, [finishSelection, scene.viewport]);
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
+    if (isTransformerTarget(event.target)) {
+      commitWheel();
+      return;
+    }
     if (
       panSessionRef.current !== null ||
       drawingSessionRef.current !== null ||
@@ -757,15 +845,16 @@ export function BoardStage({
     }
   };
 
-  const cursor = isPanning
-    ? "grabbing"
-    : panMode || spacePressed
-      ? "grab"
-      : selectionModeKey !== null
-        ? "default"
-        : drawingModeKey === null
+  const cursor =
+    isPanning || isTransforming
+      ? "grabbing"
+      : panMode || spacePressed
+        ? "grab"
+        : selectionModeKey !== null
           ? "default"
-          : "crosshair";
+          : drawingModeKey === null
+            ? "default"
+            : "crosshair";
   const selected = new Set(selectedObjectIds);
 
   return (
@@ -776,6 +865,8 @@ export function BoardStage({
       data-drawing={isDrawing}
       data-panning={isPanning}
       data-selecting={isSelecting}
+      data-transformable-count={transformableObjectIds.length}
+      data-transforming={isTransforming}
       data-testid="board-stage"
       role="application"
       style={{ cursor }}
@@ -830,19 +921,21 @@ export function BoardStage({
             x={previewViewport.offset.x}
             y={previewViewport.offset.y}
           >
-            {selectionBounds.map(({ id, rect }) => (
-              <Rect
-                dash={[7 / previewViewport.zoom, 4 / previewViewport.zoom]}
-                fill="rgba(44, 113, 130, 0.05)"
-                height={rect.height}
-                key={id}
-                stroke="#2c7182"
-                strokeWidth={1.5 / previewViewport.zoom}
-                width={rect.width}
-                x={rect.x + (selectionPreviewDelta?.x ?? 0)}
-                y={rect.y + (selectionPreviewDelta?.y ?? 0)}
-              />
-            ))}
+            {selectionBounds
+              .filter(({ id }) => !transformableObjectIds.includes(id))
+              .map(({ id, rect }) => (
+                <Rect
+                  dash={[7 / previewViewport.zoom, 4 / previewViewport.zoom]}
+                  fill="rgba(44, 113, 130, 0.05)"
+                  height={rect.height}
+                  key={id}
+                  stroke="#2c7182"
+                  strokeWidth={1.5 / previewViewport.zoom}
+                  width={rect.width}
+                  x={rect.x + (selectionPreviewDelta?.x ?? 0)}
+                  y={rect.y + (selectionPreviewDelta?.y ?? 0)}
+                />
+              ))}
             {selectionMarquee === null ? null : (
               <Rect
                 dash={[7 / previewViewport.zoom, 4 / previewViewport.zoom]}
@@ -873,6 +966,46 @@ export function BoardStage({
                 />
               </Group>
             ))}
+          </Group>
+        </Layer>
+        <Layer>
+          <Group
+            scaleX={previewViewport.zoom}
+            scaleY={previewViewport.zoom}
+            x={previewViewport.offset.x}
+            y={previewViewport.offset.y}
+          >
+            <Transformer
+              ref={transformerRef}
+              anchorFill="#ffffff"
+              anchorSize={9 / previewViewport.zoom}
+              anchorStroke="#2c7182"
+              anchorStrokeWidth={1.5 / previewViewport.zoom}
+              borderStroke="#2c7182"
+              borderStrokeWidth={1.5 / previewViewport.zoom}
+              boundBoxFunc={(oldBox, newBox) =>
+                Math.abs(newBox.width) < 8 / previewViewport.zoom ||
+                Math.abs(newBox.height) < 8 / previewViewport.zoom
+                  ? oldBox
+                  : newBox
+              }
+              enabledAnchors={[
+                "top-left",
+                "top-center",
+                "top-right",
+                "middle-left",
+                "middle-right",
+                "bottom-left",
+                "bottom-center",
+                "bottom-right",
+              ]}
+              flipEnabled={false}
+              onTransformEnd={finishTransform}
+              onTransformStart={() => setIsTransforming(true)}
+              rotateAnchorOffset={26 / previewViewport.zoom}
+              rotationSnapTolerance={5}
+              rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
+            />
           </Group>
         </Layer>
       </Stage>

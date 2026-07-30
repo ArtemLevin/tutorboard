@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BoardStage,
   createDefaultKonvaRendererRegistry,
+  type BoardObjectTransformSnapshot,
   type SelectionPointerStartSample,
   type WorldPointerSample,
 } from "../adapters/canvas-konva/public";
@@ -78,6 +79,7 @@ import {
   createDeleteSelectionCommand,
   createMoveSelectionCommand,
   createSetSelectionLockCommand,
+  createTransformSelectionCommand,
   expandSelectionObjectIds,
   getSelectionMarquee,
   getSelectionPreviewDelta,
@@ -601,6 +603,67 @@ export function App({
       );
     },
     [commitCommand, createCommandMetadata],
+  );
+
+  const commitSelectionTransform = useCallback(
+    (transforms: readonly BoardObjectTransformSnapshot[]) => {
+      if (transforms.length === 0) {
+        return;
+      }
+      const current = documentRef.current;
+      let command: BoardCommand;
+      try {
+        command = createTransformSelectionCommand(
+          createCommandMetadata(),
+          current,
+          transforms,
+        );
+      } catch (error) {
+        setBoardState((latest) => ({
+          ...latest,
+          commandError:
+            error instanceof Error ? error.message : "Transform is invalid.",
+        }));
+        return;
+      }
+      const result = commitCommand(command);
+      if (result.ok) {
+        setAccessibilityNotice("Размер или поворот выделения изменён");
+      }
+    },
+    [commitCommand, createCommandMetadata],
+  );
+
+  const transformSelectionBy = useCallback(
+    (scaleFactor: number, rotationDelta: number) => {
+      const current = documentRef.current;
+      const transforms = selectionStateRef.current.selectedObjectIds.flatMap(
+        (objectId) => {
+          const object = current.objects[objectId];
+          if (
+            object === undefined ||
+            object.locked ||
+            object.groupId !== null ||
+            object.source.kind !== "user"
+          ) {
+            return [];
+          }
+          return [
+            {
+              objectId,
+              position: object.position,
+              rotation: object.rotation + rotationDelta,
+              scale: {
+                x: Math.min(100, Math.max(0.05, object.scale.x * scaleFactor)),
+                y: Math.min(100, Math.max(0.05, object.scale.y * scaleFactor)),
+              },
+            },
+          ];
+        },
+      );
+      commitSelectionTransform(transforms);
+    },
+    [commitSelectionTransform],
   );
 
   const closeShortcuts = useCallback(() => {
@@ -1131,6 +1194,18 @@ export function App({
       : undefined;
   const selectedEditableText =
     selectedTextId === undefined ? undefined : document.objects[selectedTextId];
+  const transformableObjectIds =
+    activeTool === selectionToolId &&
+    selectionState.interaction.kind === "idle" &&
+    selectedObjects.length > 0 &&
+    selectedObjects.every(
+      (object) =>
+        !object.locked &&
+        object.groupId === null &&
+        object.source.kind === "user",
+    )
+      ? selectionState.selectedObjectIds
+      : [];
   const canGroup =
     selectedObjects.length >= 2 &&
     selectedObjects.every(
@@ -1352,6 +1427,10 @@ export function App({
                 <dd>Перемещение выделения на 1 / 10 единиц</dd>
               </div>
               <div>
+                <dt>Маркеры рамки выделения</dt>
+                <dd>Изменение размера и поворот</dd>
+              </div>
+              <div>
                 <dt>Ctrl/Cmd + C, X, V</dt>
                 <dd>Копирование, вырезание и вставка</dd>
               </div>
@@ -1433,6 +1512,7 @@ export function App({
           onSelectionPointerFinish={finishSelection}
           onSelectionPointerMove={moveSelection}
           onSelectionPointerStart={startSelection}
+          onSelectionTransform={commitSelectionTransform}
           onViewportCommit={commitViewport}
           panMode={activeTool === navigationToolId}
           previewItems={previewItems}
@@ -1446,6 +1526,7 @@ export function App({
             activeTool === selectionToolId ? selectionToolId : null
           }
           selectionPreviewDelta={renderedSelectionPreviewDelta}
+          transformableObjectIds={transformableObjectIds}
         />
 
         <GeometryPromptPanel
@@ -1639,9 +1720,36 @@ export function App({
             <strong>Выделено: {selectionState.selectedObjectIds.length}</strong>
             <span>
               {selectedLocked
-                ? "Перемещение заблокировано"
-                : "Перетащите выделение для перемещения"}
+                ? "Трансформация заблокирована"
+                : transformableObjectIds.length > 0
+                  ? "Тяните маркеры рамки для размера и поворота"
+                  : "Перетащите выделение для перемещения"}
             </span>
+            {transformableObjectIds.length === 0 ? null : (
+              <div className="transform-actions">
+                <button
+                  aria-label="Уменьшить выделение на 10%"
+                  onClick={() => transformSelectionBy(0.9, 0)}
+                  type="button"
+                >
+                  −10%
+                </button>
+                <button
+                  aria-label="Увеличить выделение на 10%"
+                  onClick={() => transformSelectionBy(1.1, 0)}
+                  type="button"
+                >
+                  +10%
+                </button>
+                <button
+                  aria-label="Повернуть выделение на 15 градусов"
+                  onClick={() => transformSelectionBy(1, 15)}
+                  type="button"
+                >
+                  ↻ 15°
+                </button>
+              </div>
+            )}
             <div>
               <button
                 onClick={() => setSelectionLock(!selectedLocked)}
@@ -1760,6 +1868,10 @@ export function App({
         </span>
         <span data-testid="first-object-position">
           Объект: {firstObject?.position.x ?? 0}, {firstObject?.position.y ?? 0}
+        </span>
+        <span data-testid="first-object-transform">
+          Масштаб: {firstObject?.scale.x ?? 1}, {firstObject?.scale.y ?? 1} ·
+          Поворот: {firstObject?.rotation ?? 0}°
         </span>
         <span data-testid="object-count">{document.order.length} объекта</span>
         <span data-testid="interaction-state">{drawingState.kind}</span>

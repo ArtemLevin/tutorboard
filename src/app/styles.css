@@ -662,6 +662,10 @@ textarea:focus-visible,
   font-size: 0.74rem;
 }
 
+.board-stage[data-transforming="true"] {
+  user-select: none;
+}
+
 .selection-inspector {
   position: absolute;
   z-index: 3;
@@ -678,6 +682,26 @@ textarea:focus-visible,
   box-shadow: 0 14px 36px rgb(37 51 58 / 12%);
   backdrop-filter: blur(16px);
   font-size: 0.72rem;
+}
+
+.transform-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.transform-actions button {
+  min-height: 30px;
+  border: 1px solid #cbd4d8;
+  border-radius: 8px;
+  color: #245d6b;
+  background: #f7fbfb;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.transform-actions button:hover {
+  background: #eaf4f5;
 }
 
 .layers-panel {

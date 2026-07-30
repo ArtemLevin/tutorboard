@@ -52,6 +52,7 @@ export function SvgRenderer({ object }: SvgRendererProps) {
   const failed = isCurrentSource && loadState.failed;
   const common = {
     height: object.size.height,
+    name: "board-transform-target",
     opacity: object.style.opacity,
     rotation: object.rotation,
     scaleX: object.scale.x,
