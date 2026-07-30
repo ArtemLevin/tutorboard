@@ -36,6 +36,10 @@ jobs:
               '"               {selectedLocked\\n                 ? \\\"Перемещение заблокировано\\\"\\n                 : \\\"Перетащите выделение для перемещения\\\"}\\n"',
               '"              {selectedLocked\\n                ? \\\"Перемещение заблокировано\\\"\\n                : \\\"Перетащите выделение для перемещения\\\"}\\n"',
           )
+          source = source.replace(
+              '"             <div>\\n               <button\\n                 onClick={() => setSelectionLock(!selectedLocked)}\\n"',
+              '"            <div>\\n              <button\\n                onClick={() => setSelectionLock(!selectedLocked)}\\n"',
+          )
           path.write_text(source, encoding='utf-8')
           PY
           python scripts/apply-selection-transform.py
