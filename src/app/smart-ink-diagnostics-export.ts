@@ -82,10 +82,10 @@ export function createSmartInkDiagnosticExport(
   const positive =
     record.outcome === "proposed" && record.selectedCandidateKind !== null;
   const expectedKind = positive
-    ? record.selectedCandidateKind!
+    ? record.selectedCandidateKind
     : ("negative" as const);
   const acceptableKinds: readonly SmartInkPrimitiveKind[] = positive
-    ? [record.selectedCandidateKind!]
+    ? [record.selectedCandidateKind]
     : [];
 
   return {
