@@ -1317,6 +1317,47 @@
       ],
       "type": "object"
     },
+    "ReplaceObjectsCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "actorId": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "kind": {
+          "const": "core.objects.replace"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "originals": {
+          "items": {
+            "$ref": "#/$defs/BoardObject"
+          },
+          "type": "array",
+          "minItems": 1
+        },
+        "replacements": {
+          "items": {
+            "$ref": "#/$defs/BoardObject"
+          },
+          "type": "array",
+          "minItems": 1
+        }
+      },
+      "required": [
+        "actorId",
+        "id",
+        "kind",
+        "timestamp",
+        "originals",
+        "replacements"
+      ],
+      "type": "object"
+    },
     "RenameDocumentCommand": {
       "additionalProperties": false,
       "properties": {
@@ -1685,6 +1726,9 @@
         },
         {
           "$ref": "#/$defs/ReorderLayersCommand"
+        },
+        {
+          "$ref": "#/$defs/ReplaceObjectsCommand"
         },
         {
           "$ref": "#/$defs/SetGeometryVisualStyleCommand"

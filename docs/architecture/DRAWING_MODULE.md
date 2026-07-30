@@ -5,12 +5,12 @@ existing `BoardDocument 0.1` object kinds; it does not change the stored schema.
 
 ## Ownership
 
-| Owner                     | Responsibility                                                        |
-| ------------------------- | --------------------------------------------------------------------- |
-| `modules/drawing`         | Tool IDs, definitions, defaults, pure state machine and command factory |
-| `adapters/canvas-konva`   | Canvas-local pointer normalization, capture lifecycle and preview rendering |
-| `app`                     | Active tool, runtime state, ID/time/actor creation and reducer commit |
-| `core`                    | Stored object contracts, validation, serialization and add reducer    |
+| Owner                   | Responsibility                                                              |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `modules/drawing`       | Tool IDs, definitions, defaults, pure state machine and command factory     |
+| `adapters/canvas-konva` | Canvas-local pointer normalization, capture lifecycle and preview rendering |
+| `app`                   | Active tool, runtime state, ID/time/actor creation and reducer commit       |
+| `core`                  | Stored object contracts, validation, serialization and add reducer          |
 
 Dependencies stay directed inward:
 
@@ -25,9 +25,10 @@ imports the drawing module, commands, the reducer, or `BoardDocument`.
 
 ## Public tool contract
 
-The module publishes five namespaced IDs:
+The module publishes six namespaced IDs:
 
 - `drawing.pen`;
+- `drawing.smart-ink`;
 - `drawing.line`;
 - `drawing.rectangle`;
 - `drawing.ellipse`;
@@ -48,6 +49,10 @@ idle -> drawing-pen | drawing-shape | placing-text
 Every action contains an explicit pointer ID and world point. A mismatched
 pointer cannot complete another pointer's interaction. Empty text and
 zero-sized geometry produce diagnostic codes without user content.
+
+`drawing.smart-ink` shares the pen sampling lifecycle. After the completed
+stroke is committed, the app asks the Smart Ink module for a versioned
+recognizer proposal.
 
 ## Preview and commit
 
@@ -77,10 +82,10 @@ migration decision.
 
 ## Enforcement
 
-| Invariants                                      | Evidence                                                   |
-| ----------------------------------------------- | ---------------------------------------------------------- |
-| `ARCH-001`, `ARCH-002`, `ARCH-004`              | import-boundary checks for module/core/adapter public APIs |
-| `DOC-001`, `DOC-006`, `DOC-011`, `DOC-012`      | strict schema, serialization fixture and command reducer   |
-| `CMD-002`, `CMD-004`, `CMD-008`                 | composition/unit tests and browser gesture scenarios       |
-| `CANVAS-003`, `CANVAS-004`, `CANVAS-009`        | pointer unit test and browser capture/cancel scenarios      |
-| `CANVAS-010`                                    | state-machine and tool-switch browser scenarios             |
+| Invariants                                 | Evidence                                                   |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| `ARCH-001`, `ARCH-002`, `ARCH-004`         | import-boundary checks for module/core/adapter public APIs |
+| `DOC-001`, `DOC-006`, `DOC-011`, `DOC-012` | strict schema, serialization fixture and command reducer   |
+| `CMD-002`, `CMD-004`, `CMD-008`            | composition/unit tests and browser gesture scenarios       |
+| `CANVAS-003`, `CANVAS-004`, `CANVAS-009`   | pointer unit test and browser capture/cancel scenarios     |
+| `CANVAS-010`                               | state-machine and tool-switch browser scenarios            |

@@ -17,6 +17,7 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 
 The manifest hashes every schema and canonical fixture. Run
 `npm run board-contract:check` to verify freshness and executable validation.
+The supported command matrix is recorded in `COMPATIBILITY.md`.
 
 ## Compatibility policy
 

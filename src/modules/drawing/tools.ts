@@ -2,6 +2,7 @@ import type { ObjectStyle } from "../../core/public";
 
 export const drawingToolIds = [
   "drawing.pen",
+  "drawing.smart-ink",
   "drawing.line",
   "drawing.rectangle",
   "drawing.ellipse",
@@ -27,6 +28,13 @@ export const drawingTools: readonly DrawingToolDefinition[] = [
     id: "drawing.pen",
     label: "Перо",
     shortcut: "P",
+  },
+  {
+    capability: "board.write",
+    icon: "✦",
+    id: "drawing.smart-ink",
+    label: "Smart Ink",
+    shortcut: "I",
   },
   {
     capability: "board.write",
@@ -72,6 +80,12 @@ export const drawingStyleDefaults = {
     strokeWidth: 3,
   },
   pen: {
+    fill: null,
+    opacity: 1,
+    stroke: "#245d6b",
+    strokeWidth: 3,
+  },
+  smartInk: {
     fill: null,
     opacity: 1,
     stroke: "#245d6b",

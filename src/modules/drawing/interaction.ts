@@ -31,7 +31,10 @@ interface ShapeInteraction extends InteractionBase {
   readonly kind: "drawing-shape";
   readonly start: Vec2;
   readonly style: ObjectStyle;
-  readonly tool: Exclude<DrawingToolId, "drawing.pen" | "drawing.text">;
+  readonly tool: Exclude<
+    DrawingToolId,
+    "drawing.pen" | "drawing.smart-ink" | "drawing.text"
+  >;
 }
 
 interface TextInteraction extends InteractionBase {
@@ -250,12 +253,16 @@ function startInteraction(
 
   switch (action.tool) {
     case "drawing.pen":
+    case "drawing.smart-ink":
       return transition({
         kind: "drawing-pen",
         objectId: action.objectId,
         pointerId: action.pointerId,
         points: [action.point],
-        style: drawingStyleDefaults.pen,
+        style:
+          action.tool === "drawing.smart-ink"
+            ? drawingStyleDefaults.smartInk
+            : drawingStyleDefaults.pen,
       });
     case "drawing.line":
     case "drawing.rectangle":

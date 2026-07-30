@@ -30,3 +30,7 @@ Implemented modules:
   deterministic group-safe calibration/holdout split. Captured Chromium
   development evidence additionally exercises incomplete-boundary and concave
   turning rejection while Firefox remains a separate platform gate.
+- `smart-ink` adapts a recognized single stroke into BoardDocument 1.0
+  primitives, owns the proposal snapshot and creates one atomic
+  `core.objects.replace` acceptance command. The app retains the source stroke
+  until the teacher accepts the preview.

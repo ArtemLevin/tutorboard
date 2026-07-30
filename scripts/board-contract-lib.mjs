@@ -311,6 +311,10 @@ const commands = {
       uniqueItems: true,
     }),
   }),
+  ReplaceObjectsCommand: command("core.objects.replace", {
+    originals: array(reference("BoardObject"), { minItems: 1 }),
+    replacements: array(reference("BoardObject"), { minItems: 1 }),
+  }),
   RenameDocumentCommand: command("core.document.rename", {
     title: { maxLength: 256, minLength: 1, type: "string" },
   }),
@@ -473,6 +477,7 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 
 The manifest hashes every schema and canonical fixture. Run
 \`npm run board-contract:check\` to verify freshness and executable validation.
+The supported command matrix is recorded in \`COMPATIBILITY.md\`.
 
 ## Compatibility policy
 
@@ -486,6 +491,19 @@ The manifest hashes every schema and canonical fixture. Run
 
 Unknown major versions and unknown persistent command/object kinds must be
 rejected explicitly. Consumers must never silently discard unknown data.
+`;
+
+const compatibility = `# Board command compatibility
+
+| Capability | Command kind | TutorBoard reader | Server reader |
+| --- | --- | --- | --- |
+| Base board editing | Existing \`core.*\` command set | 0.1.0+ | board/v1 |
+| Atomic Smart Ink acceptance | \`core.objects.replace\` | This release+ | board/v1 with replace support |
+
+\`core.objects.replace\` carries complete original and replacement snapshots.
+Older strict readers reject this command explicitly. Deployments using server
+sync must update the board/v1 reader before enabling Smart Ink for shared
+boards.
 `;
 
 function canonicalJson(value) {
@@ -526,6 +544,37 @@ function readBoardDocumentFixture() {
 function fixtures() {
   const document = readBoardDocumentFixture();
   const documentHash = sha256(canonicalPayload(document));
+  const smartInkStroke = {
+    groupId: null,
+    id: "object:smart-ink-01",
+    kind: "drawing.pen-stroke",
+    locked: false,
+    points: [
+      { x: 10, y: 40 },
+      { x: 40, y: 10 },
+      { x: 70, y: 40 },
+      { x: 40, y: 70 },
+      { x: 10, y: 40 },
+    ],
+    position: { x: 0, y: 0 },
+    rotation: 0,
+    scale: { x: 1, y: 1 },
+    source: { kind: "user" },
+    style: {
+      fill: null,
+      opacity: 1,
+      stroke: "#245d6b",
+      strokeWidth: 3,
+    },
+    visible: true,
+  };
+  const smartInkCircle = {
+    ...smartInkStroke,
+    kind: "drawing.ellipse",
+    position: { x: 40, y: 40 },
+    radius: { x: 30, y: 30 },
+  };
+  delete smartInkCircle.points;
   return {
     "fixtures/board-command-envelope.json": {
       actorId: "actor:tutor-01",
@@ -537,6 +586,14 @@ function fixtures() {
           kind: "core.document.rename",
           timestamp: "2026-07-28T17:00:00.000Z",
           title: "Linear functions: lesson summary",
+        },
+        {
+          actorId: "actor:tutor-01",
+          id: "command:smart-ink-09",
+          kind: "core.objects.replace",
+          originals: [smartInkStroke],
+          replacements: [smartInkCircle],
+          timestamp: "2026-07-28T17:00:01.000Z",
         },
       ],
       documentId: document.id,
@@ -588,6 +645,7 @@ export function generateBoardContract(outputRoot = contractRoot) {
         canonicalJson(fixture),
       ]),
     ),
+    "COMPATIBILITY.md": compatibility,
     "README.md": readme,
   };
   fs.mkdirSync(path.join(outputRoot, "fixtures"), { recursive: true });
