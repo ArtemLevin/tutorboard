@@ -18,8 +18,7 @@ export interface SmartInkPointerMetadata {
   readonly pointerType: SmartInkCorpusPointerType;
 }
 
-export interface SmartInkDiagnosticExportMetadata
-  extends SmartInkPointerMetadata {
+export interface SmartInkDiagnosticExportMetadata extends SmartInkPointerMetadata {
   readonly browser: SmartInkCorpusBrowser;
   readonly capturedAt: string;
   readonly deviceProfile?: SmartInkCorpusDeviceProfile;
@@ -53,7 +52,10 @@ function boundedPoints(
   });
 }
 
-function sampleId(record: SmartInkDiagnosticRecord, capturedAt: string): string {
+function sampleId(
+  record: SmartInkDiagnosticRecord,
+  capturedAt: string,
+): string {
   const timestamp = capturedAt.replace(/[^0-9]/gu, "").slice(0, 17);
   const source = record.recognizer.sourceStrokeId
     .replace(/[^a-zA-Z0-9_-]/gu, "-")
@@ -61,7 +63,9 @@ function sampleId(record: SmartInkDiagnosticRecord, capturedAt: string): string 
   return `captured-${timestamp}-${source}`.slice(0, 160);
 }
 
-export function detectSmartInkBrowser(userAgent: string): SmartInkCorpusBrowser {
+export function detectSmartInkBrowser(
+  userAgent: string,
+): SmartInkCorpusBrowser {
   if (/firefox/iu.test(userAgent)) {
     return "firefox";
   }
