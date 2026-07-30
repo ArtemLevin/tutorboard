@@ -5,7 +5,7 @@ on:
     branches:
       - main
     types:
-      - opened
+      - synchronize
 
 permissions:
   contents: write
@@ -26,6 +26,10 @@ jobs:
       - name: Extract and apply prepared patch
         shell: bash
         run: |
+          if grep -q 'readonly smartInk: boolean' src/app/configuration/environment.ts; then
+            echo "Smart Ink release gate patch already applied."
+            exit 0
+          fi
           python <<'PY'
           from pathlib import Path
           from textwrap import dedent
@@ -37,12 +41,38 @@ jobs:
           start_marker = "        run: |\n"
           start = workflow.index(start_marker, step) + len(start_marker)
           end = workflow.index("      - name: Install dependencies", start)
+          script = dedent(workflow[start:end]).replace(
+              "if count != 1:",
+              "if count < 1:",
+          )
           Path("/tmp/apply-smart-ink-release-gate.sh").write_text(
-              dedent(workflow[start:end]),
+              script,
               encoding="utf-8",
           )
           PY
           bash /tmp/apply-smart-ink-release-gate.sh
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path("src/app/App.tsx")
+          text = path.read_text(encoding="utf-8")
+          block = '''  useEffect(() => {
+    if (!smartInkEnabled && activeTool === "drawing.smart-ink") {
+      activateTool(navigationToolId);
+    }
+  }, [activeTool, activateTool, smartInkEnabled]);
+
+'''
+          if text.count(block) != 1:
+              raise SystemExit("App.tsx release-gate effect marker mismatch")
+          path.write_text(text.replace(block, "", 1), encoding="utf-8")
+          PY
+      - name: Remove one-time helpers
+        run: |
+          rm .github/workflows/smart-ink-release-gate-helper.yml
+          rm .github/workflows/smart-ink-release-gate-pr-helper.yml
+          rm .github/workflows/smart-ink-release-gate-retry.yml
+          rm -f .smart-ink-release-gate-trigger
       - name: Install dependencies
         run: npm ci
       - name: Format changed files
@@ -60,10 +90,12 @@ jobs:
       - name: Commit patch
         shell: bash
         run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add . \
-            ':!.github/workflows/smart-ink-release-gate-helper.yml' \
-            ':!.github/workflows/smart-ink-release-gate-pr-helper.yml'
+          git add .
           git commit -m "feat: add Smart Ink production release gate"
           git push origin HEAD:agent/phase9-smart-ink-release-gate
