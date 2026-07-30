@@ -136,4 +136,60 @@ describe("Phase 9 HDS contour adapter", () => {
       }),
     ).toThrow("no sufficiently dominant component");
   });
+
+  it("accepts HDS triangle closure rows and other samples without vertices", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "tutorboard-hds-layout-"));
+    try {
+      const root = join(directory, "data");
+      for (const kind of ["triangle", "other"]) {
+        const imageDirectory = join(root, "user.test", "images", kind);
+        await mkdir(imageDirectory, { recursive: true });
+        await writeFile(
+          join(imageDirectory, `${kind}.test.0001.png`),
+          PNG.sync.write(rectanglePng()),
+        );
+      }
+      const vertexDirectory = join(root, "user.test", "vertices", "triangle");
+      await mkdir(vertexDirectory, { recursive: true });
+      await writeFile(
+        join(vertexDirectory, "triangle.test.0001.csv"),
+        "0.2,0.75\n0.5,0.2\n0.8,0.75\n0.2,0.75",
+        "utf8",
+      );
+      const output = join(directory, "hds.json");
+
+      await execFileAsync(
+        process.execPath,
+        [
+          "scripts/import-hds-corpus.mjs",
+          "--root",
+          root,
+          "--max-per-kind",
+          "1",
+          "--seed",
+          "123",
+          "--output",
+          output,
+        ],
+        { cwd: process.cwd() },
+      );
+      const corpus = parseSmartInkCorpus(
+        JSON.parse(await readFile(output, "utf8")),
+      );
+
+      expect(corpus.samples).toHaveLength(2);
+      expect(
+        corpus.samples.map(({ expectedKind }) => expectedKind).sort(),
+      ).toEqual(["negative", "triangle"]);
+      expect(
+        corpus.samples.find(({ expectedKind }) => expectedKind === "negative"),
+      ).toMatchObject({
+        acceptableKinds: [],
+        provenance: "external-human",
+        shouldPropose: false,
+      });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
 });

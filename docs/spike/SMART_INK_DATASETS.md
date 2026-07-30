@@ -147,7 +147,10 @@ The importer:
 - scans only the documented `user.*/images/<kind>/*.png` layout and skips
   symlinks;
 - bounds file count, PNG bytes, dimensions, vertex CSV and corpus size;
-- verifies three triangle vertices or four ellipse/rectangle vertices;
+- verifies three triangle vertices, tolerating HDS's repeated closing row, or
+  four ellipse/rectangle vertices;
+- accepts `other` without a companion vertex file, matching the published HDS
+  layout;
 - uses the raster only for the contour and never substitutes labelled ideal
   vertices;
 - rejects low-contrast, fragmented or degenerate images;
@@ -169,6 +172,9 @@ npm run smart-ink:calibrate -- \
   --output tests/fixtures/smart-ink-corpus/local/calibration-report.json
 ```
 
+Calibration inputs may use plain JSON or deterministic `.json.gz`; both
+compressed and expanded sizes are bounded.
+
 The calibration pipeline:
 
 1. removes all `synthetic` samples;
@@ -184,6 +190,23 @@ The calibration pipeline:
 
 Pass `--require-pass` when a non-zero exit status is required for automation.
 The default quotas remain 40 examples per positive class and 60 negatives.
+
+### Committed baseline
+
+The reproducible evidence snapshot lives in
+`tests/fixtures/smart-ink-corpus/external/`. It contains 560 Quick, Draw!
+trajectories and 320 HDS contours, plus a source/checksum manifest and a
+point-free calibration report.
+
+The seed-90210 run satisfies evidence quotas and finds no feasible quality-gate
+candidate. It selects `minimumConfidence=0.60` and
+`ambiguityMargin=0.20`; holdout macro precision is `0.547619`, holdout
+false-positive rate is `0.104167`, specialized top-2 accuracy is `0.3125` and
+the positive unrecognized rate is `0.49697`.
+
+This run is a measured development baseline. Its holdout has been observed.
+Recognizer tuning therefore requires a newly sampled, disjoint final holdout
+before reporting a gate result.
 
 ## Humanized geometric generator
 

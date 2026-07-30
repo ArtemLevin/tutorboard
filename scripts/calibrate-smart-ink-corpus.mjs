@@ -1,5 +1,6 @@
 import { stat, readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+import { gunzipSync } from "node:zlib";
 
 import { createServer } from "vite";
 
@@ -135,7 +136,16 @@ async function readJson(path) {
       `Calibration input must be a file no larger than ${maximumInputBytes} bytes: ${path}`,
     );
   }
-  return JSON.parse(await readFile(path, "utf8"));
+  const bytes = await readFile(path);
+  const content = path.endsWith(".gz")
+    ? gunzipSync(bytes, { maxOutputLength: maximumInputBytes }).toString("utf8")
+    : bytes.toString("utf8");
+  if (Buffer.byteLength(content, "utf8") > maximumInputBytes) {
+    throw new Error(
+      `Calibration input expands beyond ${maximumInputBytes} bytes: ${path}`,
+    );
+  }
+  return JSON.parse(content);
 }
 
 async function main(arguments_) {
