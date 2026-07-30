@@ -1,18 +1,15 @@
 name: Smart Ink release gate retry
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
-    types:
-      - synchronize
+      - agent/phase9-smart-ink-release-gate
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    if: github.event.pull_request.head.ref == 'agent/phase9-smart-ink-release-gate'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -72,6 +69,7 @@ jobs:
           rm .github/workflows/smart-ink-release-gate-helper.yml
           rm .github/workflows/smart-ink-release-gate-pr-helper.yml
           rm .github/workflows/smart-ink-release-gate-retry.yml
+          rm -f .smart-ink-release-gate-trigger
       - name: Install dependencies
         run: npm ci
       - name: Format changed files
