@@ -2,7 +2,9 @@ import { readFile } from "node:fs/promises";
 
 import { expect, test } from "@playwright/test";
 
-test("shows and exports Smart Ink recognition diagnostics", async ({ page }) => {
+test("shows and exports Smart Ink recognition diagnostics", async ({
+  page,
+}) => {
   await page.goto("/");
   const diagnostics = page.getByRole("complementary", {
     name: "Диагностика Smart Ink",
