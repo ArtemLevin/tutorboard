@@ -6,6 +6,7 @@ on:
       - main
     types:
       - opened
+      - synchronize
 
 permissions:
   contents: write
@@ -31,6 +32,10 @@ jobs:
           path = Path('scripts/apply-selection-transform.py')
           source = path.read_text(encoding='utf-8')
           source = source.replace('"   const canGroup =\\n"', '"  const canGroup =\\n"')
+          source = source.replace(
+              '"               {selectedLocked\\n                 ? \\\"Перемещение заблокировано\\\"\\n                 : \\\"Перетащите выделение для перемещения\\\"}\\n"',
+              '"              {selectedLocked\\n                ? \\\"Перемещение заблокировано\\\"\\n                : \\\"Перетащите выделение для перемещения\\\"}\\n"',
+          )
           path.write_text(source, encoding='utf-8')
           PY
           python scripts/apply-selection-transform.py
