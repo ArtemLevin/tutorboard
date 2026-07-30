@@ -38,6 +38,7 @@ export {
   type SvgObject,
   type SvgViewBox,
   type TextObject,
+  type UserObjectSource,
 } from "./board/objects";
 export {
   migrateBoardDocument01To10,
@@ -74,6 +75,7 @@ export {
   type MoveSelectionCommand,
   type PasteContentCommand,
   type RemoveGroupsCommand,
+  type ReplaceObjectsCommand,
   type RenameDocumentCommand,
   type ReorderLayersCommand,
   type LayerReorderMode,

@@ -24,6 +24,7 @@ import type {
   MoveObjectsCommand,
   MoveSelectionCommand,
   PasteContentCommand,
+  ReplaceObjectsCommand,
   RemoveGroupsCommand,
   RenameDocumentCommand,
   ReorderLayersCommand,
@@ -86,6 +87,40 @@ function isFiniteVec2(value: Vec2): boolean {
 
 function hasDuplicates(values: readonly string[]): boolean {
   return new Set(values).size !== values.length;
+}
+
+function structurallyEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) {
+    return true;
+  }
+  if (
+    typeof left !== "object" ||
+    left === null ||
+    typeof right !== "object" ||
+    right === null
+  ) {
+    return false;
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => structurallyEqual(value, right[index]))
+    );
+  }
+  const leftRecord = left as Readonly<Record<string, unknown>>;
+  const rightRecord = right as Readonly<Record<string, unknown>>;
+  const leftKeys = Object.keys(leftRecord).sort();
+  const rightKeys = Object.keys(rightRecord).sort();
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key, index) =>
+        key === rightKeys[index] &&
+        structurallyEqual(leftRecord[key], rightRecord[key]),
+    )
+  );
 }
 
 function validateMetadata(
@@ -203,6 +238,120 @@ function addObjects(
     objects,
     groups,
     order,
+  });
+}
+
+function replaceObjects(
+  document: BoardDocument,
+  command: ReplaceObjectsCommand,
+): CommandResult {
+  if (command.originals.length === 0 || command.replacements.length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Replace objects command requires originals and replacements.",
+    );
+  }
+
+  const originalIds = command.originals.map(({ id }) => id);
+  const replacementIds = command.replacements.map(({ id }) => id);
+  if (hasDuplicates(originalIds) || hasDuplicates(replacementIds)) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "Replace objects command contains duplicate IDs.",
+    );
+  }
+
+  const current = originalIds.map((id) => ownValue(document.objects, id));
+  if (current.some((object) => object === undefined)) {
+    return failure(
+      document,
+      "command.object-missing",
+      "Replace objects command references a missing original.",
+    );
+  }
+  const currentObjects = current.filter(
+    (object): object is BoardObject => object !== undefined,
+  );
+  if (
+    currentObjects.some(
+      (object, index) => !structurallyEqual(object, command.originals[index]),
+    )
+  ) {
+    return failure(
+      document,
+      "command.invalid",
+      "Replace objects command contains a stale original snapshot.",
+    );
+  }
+  if (
+    currentObjects.some(
+      (object) =>
+        object.locked ||
+        object.groupId !== null ||
+        object.source.kind !== "user",
+    )
+  ) {
+    return failure(
+      document,
+      "command.locked",
+      "Only unlocked, ungrouped user objects can be replaced.",
+    );
+  }
+  if (
+    command.replacements.some(
+      (object) => object.groupId !== null || object.source.kind !== "user",
+    )
+  ) {
+    return failure(
+      document,
+      "command.invalid",
+      "Replacement objects must be ungrouped user objects.",
+    );
+  }
+
+  const originalIdSet = new Set(originalIds);
+  if (
+    replacementIds.some(
+      (id) =>
+        !originalIdSet.has(id) && ownValue(document.objects, id) !== undefined,
+    )
+  ) {
+    return failure(
+      document,
+      "command.object-exists",
+      "Replace objects command collides with an existing object ID.",
+    );
+  }
+
+  const originalIndexes = originalIds.map((id) => document.order.indexOf(id));
+  if (originalIndexes.some((index) => index < 0)) {
+    return failure(
+      document,
+      "command.object-missing",
+      "Replace objects command references an unordered original.",
+    );
+  }
+  const insertionIndex = Math.min(...originalIndexes);
+  const remainingOrder = document.order.filter((id) => !originalIdSet.has(id));
+  const objects = { ...document.objects };
+  for (const id of originalIds) {
+    delete objects[id];
+  }
+  for (const object of command.replacements) {
+    objects[object.id] = object;
+  }
+
+  return accept(document, {
+    ...document,
+    objects,
+    order: [
+      ...remainingOrder.slice(0, insertionIndex),
+      ...replacementIds,
+      ...remainingOrder.slice(insertionIndex),
+    ],
+    updatedAt: command.timestamp,
   });
 }
 
@@ -1437,6 +1586,8 @@ export function reduceBoardDocument(
   switch (command.kind) {
     case "core.objects.add":
       return addObjects(document, command);
+    case "core.objects.replace":
+      return replaceObjects(document, command);
     case "core.clipboard.cut":
       return cutContent(document, command);
     case "core.clipboard.paste":

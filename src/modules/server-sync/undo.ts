@@ -45,6 +45,15 @@ export function invertOwnBoardCommand(
           objectIds: command.objects.map(({ id }) => id),
         },
       ];
+    case "core.objects.replace":
+      return [
+        {
+          ...meta(),
+          kind: command.kind,
+          originals: command.replacements,
+          replacements: command.originals,
+        },
+      ];
     case "core.objects.delete": {
       const deleted = objects(before, command.objectIds);
       if (

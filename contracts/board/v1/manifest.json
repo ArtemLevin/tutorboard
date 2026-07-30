@@ -1,7 +1,7 @@
 {
   "artifacts": {
     "board-command-envelope.schema.json": {
-      "sha256": "b10698d989086a4322ef07aa32af124b72d791b1a1df4c9cf5709cb05c94aa9e"
+      "sha256": "53f0eb26c0b2b7d3b37b88e3aa7afbd000d5cd45e04e4c324a36333ca1886b43"
     },
     "board-document.schema.json": {
       "sha256": "41ddc9564c02d09d9720940eb8678a6aa8748b531eaa8828682769ef55288901"
@@ -12,8 +12,11 @@
     "board-snapshot.schema.json": {
       "sha256": "af19d75131e8955fbe35fc070bceb3317cd7dc83e26852897cb538f3622d02e2"
     },
+    "COMPATIBILITY.md": {
+      "sha256": "d9439b47991d6dbd36783948c81ffb01cfae0adef9d7084faf84d7eaac6c3ae2"
+    },
     "fixtures/board-command-envelope.json": {
-      "sha256": "ead2f66866194c5d413d8b0698b595d24d900c00bf57d5e31489dcdd67acb08f"
+      "sha256": "ff73ad4ea01d8fc69e4d61a84b2343f85ed3188f20d4568f7dc90562fef4ff8a"
     },
     "fixtures/board-document.json": {
       "sha256": "df5442a1e13e3af31b47091d83ddf12f8a083c38f8eed8046725363fe0a2ba76"
@@ -25,7 +28,7 @@
       "sha256": "1063c046140562425eb33e11a317359e2b0c8274a09ae04cde7aaa13de64032a"
     },
     "README.md": {
-      "sha256": "5f195bf96feb6ba8f046df40241d30ebb706e4f8e3e9edcb8ef7a0d47229e0b3"
+      "sha256": "b4439c611ce3513cbceb5e9d683cf4c73792bff0a6bf9bb5713f82c71a6cbbf7"
     }
   },
   "contract": "board/v1",

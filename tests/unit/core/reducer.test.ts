@@ -33,6 +33,69 @@ function addObjects(
 }
 
 describe("BoardDocument reducer", () => {
+  it("replaces one user object atomically at the same layer position", () => {
+    const original = rectangle("rough");
+    const seeded = addObjects(emptyDocument(), "seed-replace", [
+      rectangle("back"),
+      original,
+      rectangle("front"),
+    ]);
+    expect(seeded.ok).toBe(true);
+    if (!seeded.ok) {
+      return;
+    }
+    const replacement = {
+      groupId: original.groupId,
+      id: original.id,
+      kind: "drawing.ellipse" as const,
+      locked: original.locked,
+      position: original.position,
+      radius: { x: 60, y: 40 },
+      rotation: original.rotation,
+      scale: original.scale,
+      source: original.source,
+      style: original.style,
+      visible: original.visible,
+    };
+    const result = reduceBoardDocument(seeded.document, {
+      ...metadata("replace", "2026-07-24T12:02:00.000Z"),
+      kind: "core.objects.replace",
+      originals: [original],
+      replacements: [replacement],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.document.order).toEqual([
+        "object:back",
+        "object:rough",
+        "object:front",
+      ]);
+      expect(result.document.objects[original.id]).toEqual(replacement);
+    }
+  });
+
+  it("rejects an object replacement when its original snapshot is stale", () => {
+    const original = rectangle("stale");
+    const seeded = addObjects(emptyDocument(), "seed-stale", [original]);
+    expect(seeded.ok).toBe(true);
+    if (!seeded.ok) {
+      return;
+    }
+    const result = reduceBoardDocument(seeded.document, {
+      ...metadata("replace-stale", "2026-07-24T12:02:00.000Z"),
+      kind: "core.objects.replace",
+      originals: [{ ...original, visible: false }],
+      replacements: [{ ...original, position: { x: 10, y: 10 } }],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.document).toBe(seeded.document);
+    if (!result.ok) {
+      expect(result.error.code).toBe("command.invalid");
+    }
+  });
+
   it("adds objects atomically at the requested z-order index", () => {
     const first = addObjects(
       emptyDocument(),

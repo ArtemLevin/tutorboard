@@ -25,6 +25,12 @@ export interface AddObjectsCommand extends CommandMetadata {
   readonly objects: readonly BoardObject[];
 }
 
+export interface ReplaceObjectsCommand extends CommandMetadata {
+  readonly kind: "core.objects.replace";
+  readonly originals: readonly BoardObject[];
+  readonly replacements: readonly BoardObject[];
+}
+
 export interface AddGroupCommand extends CommandMetadata {
   readonly group: BoardGroup;
   readonly kind: "core.groups.add";
@@ -154,6 +160,7 @@ export type BoardCommand =
   | MoveObjectsCommand
   | MoveSelectionCommand
   | PasteContentCommand
+  | ReplaceObjectsCommand
   | RemoveGroupsCommand
   | RenameDocumentCommand
   | ReorderLayersCommand
@@ -167,6 +174,7 @@ export type BoardCommand =
 
 export const boardCommandKinds = [
   "core.objects.add",
+  "core.objects.replace",
   "core.clipboard.cut",
   "core.clipboard.paste",
   "core.groups.add",

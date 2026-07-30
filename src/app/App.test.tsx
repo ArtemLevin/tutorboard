@@ -149,6 +149,47 @@ describe("App", () => {
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
   });
 
+  it("previews, accepts and atomically undoes a Smart Ink replacement", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Smart Ink (I)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+
+    expect(
+      screen.getByRole("complementary", {
+        name: "Предложение Smart Ink",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+
+    fireEvent.click(screen.getByRole("button", { name: "Принять" }));
+    expect(
+      screen.queryByRole("complementary", {
+        name: "Предложение Smart Ink",
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("drawing.line")).toBeInTheDocument();
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("2/0");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
+    expect(screen.getByText("drawing.pen-stroke")).toBeInTheDocument();
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");
+  });
+
+  it("keeps the original Smart Ink stroke when the proposal is rejected", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Smart Ink (I)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    fireEvent.click(screen.getByRole("button", { name: "Отклонить" }));
+
+    expect(screen.getByText("drawing.pen-stroke")).toBeInTheDocument();
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+    expect(screen.getByText(/предложение отклонено/iu)).toBeInTheDocument();
+  });
+
   it("copies, pastes and cuts a deterministic selection closure", () => {
     render(<App />);
 

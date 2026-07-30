@@ -29,6 +29,49 @@ const undoMetadata = {
 };
 
 describe("collaborative own-operation undo", () => {
+  it("inverts one atomic object replacement with its snapshots", () => {
+    const original = rectangle("smart-ink");
+    const before = apply(emptyDocument(), [
+      {
+        ...metadata("seed"),
+        kind: "core.objects.add",
+        objects: [original],
+      },
+    ]);
+    const replacement = {
+      groupId: original.groupId,
+      id: original.id,
+      kind: "drawing.ellipse" as const,
+      locked: original.locked,
+      position: original.position,
+      radius: { x: 60, y: 40 },
+      rotation: original.rotation,
+      scale: original.scale,
+      source: original.source,
+      style: original.style,
+      visible: original.visible,
+    };
+    const command: BoardCommand = {
+      ...metadata("replace", "2026-07-24T12:02:00.000Z"),
+      kind: "core.objects.replace",
+      originals: [original],
+      replacements: [replacement],
+    };
+    const after = apply(before, [command]);
+    const inverse = invertOwnBoardCommand(command, before, undoMetadata);
+    const restored = apply(after, inverse);
+
+    expect(inverse).toEqual([
+      expect.objectContaining({
+        kind: "core.objects.replace",
+        originals: [replacement],
+        replacements: [original],
+      }),
+    ]);
+    expect(restored.objects).toEqual(before.objects);
+    expect(restored.order).toEqual(before.order);
+  });
+
   it("turns an object add into a command-log delete", () => {
     const before = emptyDocument();
     const command: BoardCommand = {
