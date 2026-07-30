@@ -53,6 +53,7 @@ const environment: AppEnvironment = {
     documentSnapshots: true,
     geometryPrompt: true,
     serverSync: false,
+    smartInkDiagnostics: true,
   },
   geometryOsBaseUrl: "https://geometry.example.test",
   stage: "test",

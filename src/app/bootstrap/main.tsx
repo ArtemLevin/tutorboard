@@ -8,6 +8,7 @@ import {
   createDexiePendingBoardCommandQueue,
 } from "../../adapters/persistence-dexie/public";
 import { ProductShell } from "../ProductShell";
+import { SmartInkDiagnosticsPanel } from "../SmartInkDiagnosticsPanel";
 import { readEnvironment } from "../configuration/environment";
 import { readLessonBoardContext } from "../configuration/lesson-context";
 
@@ -42,5 +43,8 @@ createRoot(root).render(
       repository={repository}
       serverSync={serverSync}
     />
+    {environment.features.smartInkDiagnostics ? (
+      <SmartInkDiagnosticsPanel />
+    ) : null}
   </StrictMode>,
 );

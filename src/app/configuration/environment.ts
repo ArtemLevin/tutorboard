@@ -12,6 +12,7 @@ export interface AppFeatureFlags {
   readonly documentSnapshots: boolean;
   readonly geometryPrompt: boolean;
   readonly serverSync: boolean;
+  readonly smartInkDiagnostics: boolean;
 }
 
 export interface AppFeatureFlagInput {
@@ -19,6 +20,7 @@ export interface AppFeatureFlagInput {
   readonly documentSnapshots?: string | undefined;
   readonly geometryPrompt?: string | undefined;
   readonly serverSync?: string | undefined;
+  readonly smartInkDiagnostics?: string | undefined;
 }
 
 const stages = new Set<AppStage>(["development", "test", "production"]);
@@ -49,6 +51,7 @@ export function readEnvironment(
     documentSnapshots: import.meta.env.VITE_FEATURE_DOCUMENT_SNAPSHOTS,
     geometryPrompt: import.meta.env.VITE_FEATURE_GEOMETRY_PROMPT,
     serverSync: import.meta.env.VITE_FEATURE_SERVER_SYNC,
+    smartInkDiagnostics: import.meta.env.VITE_FEATURE_SMART_INK_DIAGNOSTICS,
   },
   boardApiBaseUrl: string | undefined = import.meta.env.VITE_BOARD_API_BASE_URL,
 ): AppEnvironment {
@@ -110,6 +113,11 @@ export function readEnvironment(
         "VITE_FEATURE_SERVER_SYNC",
         featureInput.serverSync,
         stage === "production",
+      ),
+      smartInkDiagnostics: booleanFlag(
+        "VITE_FEATURE_SMART_INK_DIAGNOSTICS",
+        featureInput.smartInkDiagnostics,
+        stage !== "production",
       ),
     },
     geometryOsBaseUrl: geometryOsUrl.href.replace(/\/$/, ""),
