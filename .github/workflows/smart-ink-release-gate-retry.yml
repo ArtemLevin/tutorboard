@@ -51,6 +51,22 @@ jobs:
           )
           PY
           bash /tmp/apply-smart-ink-release-gate.sh
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path("src/app/App.tsx")
+          text = path.read_text(encoding="utf-8")
+          block = '''  useEffect(() => {
+    if (!smartInkEnabled && activeTool === "drawing.smart-ink") {
+      activateTool(navigationToolId);
+    }
+  }, [activeTool, activateTool, smartInkEnabled]);
+
+'''
+          if text.count(block) != 1:
+              raise SystemExit("App.tsx release-gate effect marker mismatch")
+          path.write_text(text.replace(block, "", 1), encoding="utf-8")
+          PY
       - name: Remove one-time helpers
         run: |
           rm .github/workflows/smart-ink-release-gate-helper.yml
