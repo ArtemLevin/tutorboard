@@ -2,10 +2,12 @@ export {
   createDeleteSelectionCommand,
   createMoveSelectionCommand,
   createSetSelectionLockCommand,
+  createTransformSelectionCommand,
   expandSelectionObjectIds,
   resolveSelectionTargets,
   selectionIsLocked,
   type ResolvedSelectionTargets,
+  type SelectionObjectTransform,
 } from "./commands";
 export {
   selectObjectIdsInRect,

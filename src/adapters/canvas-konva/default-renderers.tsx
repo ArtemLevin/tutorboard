@@ -21,6 +21,7 @@ function expectKind<Kind extends BoardObjectKind>(
 
 function commonShapeProps(object: BoardObject) {
   return {
+    name: "board-transform-target",
     opacity: object.style.opacity,
     rotation: object.rotation,
     scaleX: object.scale.x,

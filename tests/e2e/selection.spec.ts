@@ -97,3 +97,33 @@ test("selects objects with a marquee and cancels preview with Escape", async ({
   await page.mouse.up();
   await expect(page.getByTestId("selection-count")).toHaveText("3 выбрано");
 });
+
+test("scales and rotates a selected figure with undo support", async ({
+  page,
+}) => {
+  const rectangle = await stagePoint(page, 350, 250);
+  await page.mouse.click(rectangle.x, rectangle.y);
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-transformable-count",
+    "1",
+  );
+
+  await page
+    .getByRole("button", { name: "Увеличить выделение на 10%" })
+    .click();
+  await page
+    .getByRole("button", { name: "Повернуть выделение на 15 градусов" })
+    .click();
+  await expect(page.getByTestId("first-object-transform")).toHaveText(
+    "Масштаб: 1.1, 1.1 · Поворот: 15°",
+  );
+
+  await page.keyboard.press("Control+z");
+  await expect(page.getByTestId("first-object-transform")).toHaveText(
+    "Масштаб: 1.1, 1.1 · Поворот: 0°",
+  );
+  await page.keyboard.press("Control+z");
+  await expect(page.getByTestId("first-object-transform")).toHaveText(
+    "Масштаб: 1, 1 · Поворот: 0°",
+  );
+});
