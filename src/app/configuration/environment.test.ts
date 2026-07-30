@@ -13,6 +13,7 @@ describe("readEnvironment", () => {
           documentSnapshots: true,
           geometryPrompt: true,
           serverSync: stage === "production",
+          smartInk: stage !== "production",
           smartInkDiagnostics: stage !== "production",
         },
         geometryOsBaseUrl: `${window.location.origin}/api/v1/geometryos`,
@@ -35,6 +36,7 @@ describe("readEnvironment", () => {
         documentSnapshots: true,
         geometryPrompt: true,
         serverSync: false,
+        smartInk: true,
         smartInkDiagnostics: true,
       },
       geometryOsBaseUrl: "https://geometry.example.test",
@@ -52,6 +54,7 @@ describe("readEnvironment", () => {
         documentSnapshots: "false",
         geometryPrompt: "0",
         serverSync: "true",
+        smartInk: "true",
         smartInkDiagnostics: "true",
       }).features,
     ).toEqual({
@@ -59,16 +62,32 @@ describe("readEnvironment", () => {
       documentSnapshots: false,
       geometryPrompt: false,
       serverSync: true,
+      smartInk: true,
       smartInkDiagnostics: true,
     });
     expect(() =>
       readEnvironment("test", undefined, { geometryPrompt: "perhaps" }),
     ).toThrow("VITE_FEATURE_GEOMETRY_PROMPT");
     expect(() =>
+      readEnvironment("test", undefined, { smartInk: "perhaps" }),
+    ).toThrow("VITE_FEATURE_SMART_INK");
+    expect(() =>
       readEnvironment("test", undefined, {
         smartInkDiagnostics: "perhaps",
       }),
     ).toThrow("VITE_FEATURE_SMART_INK_DIAGNOSTICS");
+  });
+
+  it("keeps diagnostics subordinate to the Smart Ink release flag", () => {
+    expect(
+      readEnvironment("test", undefined, {
+        smartInk: "false",
+        smartInkDiagnostics: "true",
+      }).features,
+    ).toMatchObject({
+      smartInk: false,
+      smartInkDiagnostics: false,
+    });
   });
 
   it("accepts only a same-origin board API path", () => {
