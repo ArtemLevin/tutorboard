@@ -69,7 +69,7 @@ test("supports additive selection, lock and delete", async ({ page }) => {
   await page
     .getByRole("button", { name: "Заблокировать", exact: true })
     .click();
-  await expect(page.getByText("Перемещение заблокировано")).toBeVisible();
+  await expect(page.getByText("Трансформация заблокирована")).toBeVisible();
   await page
     .getByRole("button", { name: "Разблокировать", exact: true })
     .click();
