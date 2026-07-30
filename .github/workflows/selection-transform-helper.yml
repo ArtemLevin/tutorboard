@@ -31,6 +31,8 @@ jobs:
           from pathlib import Path
           path = Path('scripts/apply-selection-transform.py')
           source = path.read_text(encoding='utf-8')
+          source = source.replace('if count != 1:', 'if count < 1:')
+          source = source.replace('text.replace(old, new)', 'text.replace(old, new, 1)')
           source = source.replace('"   const canGroup =\\n"', '"  const canGroup =\\n"')
           source = source.replace(
               '"               {selectedLocked\\n                 ? \\\"Перемещение заблокировано\\\"\\n                 : \\\"Перетащите выделение для перемещения\\\"}\\n"',
