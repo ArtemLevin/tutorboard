@@ -1,10 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import {
-  boardObjectId,
-  type PenStrokeObject,
-} from "../core/public";
+import { boardObjectId, type PenStrokeObject } from "../core/public";
 import { proposeSmartInkReplacement } from "../modules/smart-ink/public";
 import { SmartInkDiagnosticsPanel } from "./SmartInkDiagnosticsPanel";
 
