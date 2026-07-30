@@ -222,6 +222,14 @@ GeometryOS или production UI.
 - synthetic samples не входят в calibration или production evidence;
 - external-human samples не открывают Chromium/Firefox production gate.
 
+Seeded external evidence теперь зафиксировано в
+`tests/fixtures/smart-ink-corpus/external/`: 880 псевдонимизированных образцов,
+source fingerprints, SHA-256 manifest и point-free calibration report.
+Baseline удовлетворяет corpus quotas, но quality gate не проходит:
+holdout macro precision `0.547619`, false-positive rate `0.104167`.
+Этот holdout считается раскрытым development evidence; следующий recognizer
+increment обязан использовать новую disjoint final sample.
+
 До captured corpus gate запрещено менять persistent schema, автоматически
 заменять strokes либо объявлять Smart Ink production-ready.
 
