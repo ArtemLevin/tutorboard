@@ -128,6 +128,8 @@ The importer:
   claimed browser;
 - records `traceOrigin=recorded-trajectory` and a hashed per-drawing
   `sourceGroupId`;
+- records the reviewed public `sourceCategory` so negative confirmation can
+  preserve equal `squiggle`, `star` and `zigzag` quotas;
 - creates a new output file and refuses to overwrite an existing one.
 
 ## HDS contour import
@@ -155,9 +157,28 @@ The importer:
   vertices;
 - rejects low-contrast, fragmented or degenerate images;
 - hashes file and participant identities;
-- maps HDS `other` to `negative`;
+- maps explicitly opted-in HDS `other` samples to `negative`;
 - records `sourceDataset=hds` and `traceOrigin=raster-contour`;
 - creates a new output file and refuses to overwrite an existing one.
+
+Recognizer-v2 evidence changed the default HDS policy. `other` is now excluded:
+its label describes the full raster, while dominant-contour reconstruction may
+retain only a circle or rectangle from a composite drawing. Pass
+`--include-other` only for adapter research. The contour adapter also rejects
+outputs with solidity below `0.30` or a contour-to-hull perimeter ratio above
+`1.70`.
+
+Use `--exclude-corpus` to remove already observed HDS participant groups before
+reservoir selection:
+
+```bash
+npm run smart-ink:corpus:hds -- \
+  --root /data/hand-drawn-shapes-dataset/data \
+  --exclude-corpus tests/fixtures/smart-ink-corpus/external/hds.seed-90210.json.gz \
+  --max-per-kind 80 \
+  --seed 170731 \
+  --output /tmp/hds-independent.json
+```
 
 ## Automatic confidence calibration
 
@@ -207,6 +228,88 @@ the positive unrecognized rate is `0.49697`.
 This run is a measured development baseline. Its holdout has been observed.
 Recognizer tuning therefore requires a newly sampled, disjoint final holdout
 before reporting a gate result.
+
+### Recognizer v2 independent holdout
+
+`tests/fixtures/smart-ink-corpus/external-v2/` records a group-disjoint
+seed-170731 holdout generated after recognizer-v2 thresholds were frozen.
+Build and evaluate the holdout with:
+
+```bash
+npm run smart-ink:holdout:build -- \
+  --development tests/fixtures/smart-ink-corpus/external/quickdraw.seed-90210.json.gz \
+  --development tests/fixtures/smart-ink-corpus/external/hds.seed-90210.json.gz \
+  --candidate /tmp/quickdraw.seed-170731.json \
+  --candidate /tmp/hds-independent.seed-170731.json \
+  --minimum-per-class 40 \
+  --minimum-negatives 120 \
+  --seed 170731 \
+  --output /tmp/holdout.seed-170731.json
+
+npm run smart-ink:holdout:evaluate -- \
+  --input /tmp/holdout.seed-170731.json \
+  --minimum-confidence 0.34 \
+  --ambiguity-margin 0.04 \
+  --sample-count 96 \
+  --output /tmp/holdout-report.seed-170731.json
+```
+
+The 360-sample holdout has no sample or source-group overlap with development.
+It reaches macro precision `0.962123`, macro recall `0.945833`, specialized
+top-2 `0.98125`, unrecognized rate `0.033333` and p95 latency `1.090428 ms`.
+Four of 120 negatives receive a proposal, so FPR is `0.033333` and the
+calibration gate remains closed.
+
+Specialized top-2 is threshold-independent and intent-aware: it checks whether
+the ranked pair contains one of the sample's explicitly acceptable
+circle/ellipse or square/rectangle interpretations. Unrecognized rate measures
+confidence rejection separately.
+
+### Recognizer v3 independent negative confirmation
+
+Recognizer v3 strengthens the shared validity loss for closed primitives:
+low hull solidity, inconsistent turning, excessive contour-to-hull length and
+insufficient winding reduce every closed-shape candidate consistently. The
+confidence thresholds remain frozen at `0.34/0.04`.
+
+Generate a fresh category-labelled candidate pool, exclude all v1/v2 evidence,
+build equal quotas and evaluate once:
+
+```bash
+npm run smart-ink:corpus:quickdraw -- \
+  --official negative=squiggle \
+  --official negative=star \
+  --official negative=zigzag \
+  --max-per-input 90 \
+  --seed 260730 \
+  --output /tmp/quickdraw-negative-candidates.seed-260730.json
+
+npm run smart-ink:negative-holdout:build -- \
+  --development tests/fixtures/smart-ink-corpus/external/quickdraw.seed-90210.json.gz \
+  --development tests/fixtures/smart-ink-corpus/external-v2/holdout.seed-170731.json.gz \
+  --candidate /tmp/quickdraw-negative-candidates.seed-260730.json \
+  --minimum-per-category 80 \
+  --seed 260730 \
+  --output /tmp/negative-holdout.seed-260730.json
+
+npm run smart-ink:negative-holdout:evaluate -- \
+  --input /tmp/negative-holdout.seed-260730.json \
+  --minimum-confidence 0.34 \
+  --ambiguity-margin 0.04 \
+  --sample-count 96 \
+  --minimum-negatives 240 \
+  --output /tmp/negative-holdout-report.seed-260730.json \
+  --require-pass
+```
+
+The committed seed-260730 confirmation contains 240 previously unseen
+Quick, Draw! trajectories, 80 from each negative category. One near-perfect
+line receives a proposal: FPR is `0.004167`, below the `0.02` target.
+
+Re-evaluation of the observed v2 holdout with recognizer v3 preserves macro
+precision `0.973757`, macro recall `0.945833`, specialized top-2 `0.98125`
+and positive unrecognized rate `0.033333`. The v3 independent result confirms
+the FPR objective. Chromium/Firefox capture remains the production gate.
 
 ## Humanized geometric generator
 

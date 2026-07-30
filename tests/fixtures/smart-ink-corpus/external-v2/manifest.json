@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "tutorboard.smart-ink-evidence/0.2",
+  "generatedOn": "2026-07-30",
+  "configuration": {
+    "ambiguityMargin": 0.04,
+    "holdoutSeed": 170731,
+    "minimumConfidence": 0.34,
+    "minimumNegatives": 120,
+    "minimumPerClass": 40,
+    "sampleCount": 96
+  },
+  "developmentEvidence": {
+    "hdsSha256": "d901207b3e747b8aa524962f4fdc6211e87dacef21669e8501ade575d0b2c553",
+    "quickdrawSha256": "8200fa981949b180a34902cd69e944dc05ab506653f705348e3d547cb4058d0b"
+  },
+  "sources": {
+    "quickdraw": {
+      "attribution": "The Quick, Draw! Dataset, Google LLC, CC BY 4.0",
+      "license": "CC-BY-4.0",
+      "seed": 170731
+    },
+    "hds": {
+      "attribution": "Hand-drawn Shapes Dataset © 2022 Francois Robert, CC BY 4.0",
+      "commit": "a01f80248c156c56a83b2678453e410bdcc6a342",
+      "excludedDevelopmentGroups": true,
+      "includedKinds": [
+        "ellipse",
+        "rectangle",
+        "triangle"
+      ],
+      "license": "CC-BY-4.0",
+      "seed": 170731
+    }
+  },
+  "holdout": {
+    "classCounts": {
+      "circle": 40,
+      "ellipse": 40,
+      "line": 40,
+      "negative": 120,
+      "rectangle": 40,
+      "square": 40,
+      "triangle": 40
+    },
+    "datasetCounts": {
+      "hds": 106,
+      "quickdraw": 254
+    },
+    "developmentGroupOverlap": 0,
+    "developmentSampleOverlap": 0,
+    "sampleCount": 360,
+    "sourceGroupCount": 257
+  },
+  "artifacts": [
+    {
+      "path": "holdout.seed-170731.json.gz",
+      "sha256": "f7f2d4be3c4e90714a66287fdddc70df620d80fd6a178c73e3c7d3ec3358bcaf"
+    },
+    {
+      "path": "holdout-report.seed-170731.json",
+      "sha256": "9937a324b268d008d866c26bb06cd28a460ee294fed33c295fe59e316375a2d5"
+    }
+  ],
+  "result": {
+    "calibrationGatePassed": false,
+    "falsePositiveRate": 0.033333,
+    "macroPrecision": 0.962123,
+    "macroRecall": 0.945833,
+    "productionGateEvaluated": false,
+    "specializedTop2Accuracy": 0.98125,
+    "unrecognizedRate": 0.033333
+  }
+}

@@ -276,6 +276,7 @@ function parseRawRecord(line, targetKind, expectedWord) {
       deviceProfile: "other-device",
       durationMs,
       pointerType: "unknown",
+      sourceCategory: record.word,
       sourceDataset: "quickdraw",
       sourceGroupId: `quickdraw-group-${digest}`,
       traceOrigin: "recorded-trajectory",

@@ -42,12 +42,6 @@ function counts(corpus) {
   return result;
 }
 
-function withoutLatency(metrics) {
-  const deterministic = { ...metrics };
-  delete deterministic.latencyMs;
-  return deterministic;
-}
-
 describe("Phase 9 committed external-human evidence", () => {
   it("matches the pinned source manifest and pseudonymized corpus contract", async () => {
     const manifest = await readJson("manifest.json");
@@ -79,7 +73,7 @@ describe("Phase 9 committed external-human evidence", () => {
     }
   });
 
-  it("reproduces the point-free baseline report except runtime latency", async () => {
+  it("keeps the v1 report immutable while v2 uses the same group split", async () => {
     const quickDraw = parseSmartInkCorpus(
       await readJson("quickdraw.seed-90210.json.gz"),
     );
@@ -95,20 +89,12 @@ describe("Phase 9 committed external-human evidence", () => {
 
     expect(actual.eligible).toBe(true);
     expect(actual.passed).toBe(false);
-    expect(actual.selectedOptions).toEqual(committed.selectedOptions);
-    expect(actual.failures).toEqual(committed.failures);
+    expect(committed.selectedOptions).toEqual({
+      ambiguityMargin: 0.2,
+      minimumConfidence: 0.6,
+      sampleCount: 96,
+    });
+    expect(actual.selectedOptions).not.toEqual(committed.selectedOptions);
     expect(actual.split).toEqual(committed.split);
-    expect(withoutLatency(actual.calibrationMetrics)).toEqual(
-      withoutLatency(committed.calibrationMetrics),
-    );
-    expect(withoutLatency(actual.holdoutMetrics)).toEqual(
-      withoutLatency(committed.holdoutMetrics),
-    );
-    expect(actual.fullEvidenceAssessment.failures).toEqual(
-      committed.fullEvidenceAssessment.failures,
-    );
-    expect(withoutLatency(actual.fullEvidenceAssessment.metrics)).toEqual(
-      withoutLatency(committed.fullEvidenceAssessment.metrics),
-    );
   });
 });

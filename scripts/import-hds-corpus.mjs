@@ -2,17 +2,20 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, extname, join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
+import { gunzipSync } from "node:zlib";
 
 import { PNG } from "pngjs";
 
 import { extractHdsDominantContour } from "./lib/hds-contour.mjs";
 
 const schemaVersion = "tutorboard.smart-ink-corpus/0.1";
-const sourceKinds = new Set(["ellipse", "other", "rectangle", "triangle"]);
+const positiveSourceKinds = ["ellipse", "rectangle", "triangle"];
+const supportedSourceKinds = new Set([...positiveSourceKinds, "other"]);
 const maximumFiles = 100_000;
 const maximumImageBytes = 1_000_000;
 const maximumVertexBytes = 16_384;
 const maximumSamples = 1_000;
+const maximumExclusionBytes = 25_000_000;
 
 function usage() {
   return [
@@ -21,10 +24,13 @@ function usage() {
     "Usage:",
     "  node scripts/import-hds-corpus.mjs \\",
     "    --root /path/hand-drawn-shapes-dataset/data \\",
+    "    --exclude-corpus /path/development.json.gz \\",
     "    --max-per-kind 80 --seed 90210 --output /path/hds.json",
     "",
     "The adapter hashes participant and file identities, validates companion",
     "vertex CSV files, and records traceOrigin=raster-contour.",
+    "HDS `other` is excluded by default because raster contour extraction",
+    "can discard semantic context. Use --include-other for adapter research.",
   ].join("\n");
 }
 
@@ -45,6 +51,8 @@ function parsePositiveInteger(value, option, maximum) {
 }
 
 function parseArguments(arguments_) {
+  const excludeCorpora = [];
+  let includeOther = false;
   let maxPerKind = 80;
   let output;
   let root;
@@ -52,10 +60,29 @@ function parseArguments(arguments_) {
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
     if (argument === "--help" || argument === "-h") {
-      return { help: true, maxPerKind, output, root, seed };
+      return {
+        excludeCorpora,
+        help: true,
+        includeOther,
+        maxPerKind,
+        output,
+        root,
+        seed,
+      };
+    }
+    if (argument === "--include-other") {
+      includeOther = true;
+      continue;
     }
     if (argument === "--root") {
       root = readOptionValue(arguments_, index, "--root");
+      index += 1;
+      continue;
+    }
+    if (argument === "--exclude-corpus") {
+      excludeCorpora.push(
+        readOptionValue(arguments_, index, "--exclude-corpus"),
+      );
       index += 1;
       continue;
     }
@@ -63,7 +90,7 @@ function parseArguments(arguments_) {
       maxPerKind = parsePositiveInteger(
         readOptionValue(arguments_, index, "--max-per-kind"),
         "--max-per-kind",
-        Math.floor(maximumSamples / sourceKinds.size),
+        Math.floor(maximumSamples / supportedSourceKinds.size),
       );
       index += 1;
       continue;
@@ -87,7 +114,15 @@ function parseArguments(arguments_) {
   if (root === undefined || output === undefined) {
     throw new Error("--root and --output are required.");
   }
-  return { help: false, maxPerKind, output, root, seed };
+  return {
+    excludeCorpora,
+    help: false,
+    includeOther,
+    maxPerKind,
+    output,
+    root,
+    seed,
+  };
 }
 
 function digest(value) {
@@ -134,7 +169,7 @@ function classifyPath(root, path) {
   if (
     parts.length !== 4 ||
     parts[1] !== "images" ||
-    !sourceKinds.has(parts[2])
+    !supportedSourceKinds.has(parts[2])
   ) {
     return undefined;
   }
@@ -253,9 +288,20 @@ function rankedCandidates(candidates, seed) {
 }
 
 export async function importHdsCorpus(configuration) {
+  const sourceKinds = configuration.includeOther
+    ? [...positiveSourceKinds, "other"]
+    : positiveSourceKinds;
+  const excludedSourceGroupIds =
+    configuration.excludedSourceGroupIds ?? new Set();
   const candidates = (await walkFiles(configuration.root))
     .map((path) => classifyPath(configuration.root, path))
-    .filter((candidate) => candidate !== undefined);
+    .filter(
+      (candidate) =>
+        candidate !== undefined &&
+        !excludedSourceGroupIds.has(
+          `hds-group-${digest(`hds-participant:${candidate.participant}`)}`,
+        ),
+    );
   const samples = [];
   const reports = [];
   for (const sourceKind of sourceKinds) {
@@ -292,13 +338,51 @@ export async function importHdsCorpus(configuration) {
   };
 }
 
+async function excludedGroups(paths) {
+  const groups = new Set();
+  for (const path of paths) {
+    const information = await stat(path);
+    if (!information.isFile() || information.size > maximumExclusionBytes) {
+      throw new Error(`HDS exclusion corpus is too large or invalid: ${path}`);
+    }
+    const bytes = await readFile(path);
+    const content = path.endsWith(".gz")
+      ? gunzipSync(bytes, { maxOutputLength: maximumExclusionBytes }).toString(
+          "utf8",
+        )
+      : bytes.toString("utf8");
+    const input = JSON.parse(content);
+    if (
+      input === null ||
+      typeof input !== "object" ||
+      !Array.isArray(input.samples) ||
+      input.samples.length > maximumSamples
+    ) {
+      throw new Error(`HDS exclusion corpus has an invalid shape: ${path}`);
+    }
+    for (const sample of input.samples) {
+      const group = sample?.metadata?.sourceGroupId;
+      if (
+        typeof group === "string" &&
+        /^hds-group-[a-f0-9]{16,64}$/.test(group)
+      ) {
+        groups.add(group);
+      }
+    }
+  }
+  return groups;
+}
+
 async function main(arguments_) {
   const configuration = parseArguments(arguments_);
   if (configuration.help) {
     process.stdout.write(`${usage()}\n`);
     return;
   }
-  const result = await importHdsCorpus(configuration);
+  const result = await importHdsCorpus({
+    ...configuration,
+    excludedSourceGroupIds: await excludedGroups(configuration.excludeCorpora),
+  });
   await writeFile(
     configuration.output,
     `${JSON.stringify(result.corpus, undefined, 2)}\n`,

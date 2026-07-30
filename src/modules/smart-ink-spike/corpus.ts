@@ -3,6 +3,7 @@ import {
   smartInkCorpusSchemaVersion,
   smartInkExternalDatasets,
   smartInkPrimitiveKinds,
+  smartInkQuickDrawCategories,
   smartInkTraceOrigins,
   type SmartInkBenchmarkMetrics,
   type SmartInkClassMetrics,
@@ -237,6 +238,17 @@ function assertCorpusSample(
     );
   }
   if (
+    metadata.sourceCategory !== undefined &&
+    (typeof metadata.sourceCategory !== "string" ||
+      !smartInkQuickDrawCategories.some(
+        (category) => category === metadata.sourceCategory,
+      ))
+  ) {
+    throw new Error(
+      `Smart Ink corpus sample ${input.id} has unsupported sourceCategory.`,
+    );
+  }
+  if (
     metadata.sourceDataset !== undefined &&
     (typeof metadata.sourceDataset !== "string" ||
       !smartInkExternalDatasets.some(
@@ -284,7 +296,8 @@ function assertCorpusSample(
   }
   if (
     input.provenance !== "external-human" &&
-    (metadata.sourceDataset !== undefined ||
+    (metadata.sourceCategory !== undefined ||
+      metadata.sourceDataset !== undefined ||
       metadata.sourceGroupId !== undefined ||
       metadata.traceOrigin !== undefined)
   ) {
@@ -301,6 +314,19 @@ function assertCorpusSample(
   ) {
     throw new Error(
       `External Smart Ink corpus sample ${input.id} has inconsistent trace provenance.`,
+    );
+  }
+  if (
+    metadata.sourceCategory !== undefined &&
+    (metadata.sourceDataset !== "quickdraw" ||
+      (input.expectedKind === "negative"
+        ? metadata.sourceCategory !== "squiggle" &&
+          metadata.sourceCategory !== "star" &&
+          metadata.sourceCategory !== "zigzag"
+        : metadata.sourceCategory !== input.expectedKind))
+  ) {
+    throw new Error(
+      `External Smart Ink corpus sample ${input.id} has inconsistent sourceCategory.`,
     );
   }
   if (
@@ -372,8 +398,9 @@ export function evaluateSmartInkCorpus(
 
   const confusionMatrix = createConfusionMatrix();
   const durations: number[] = [];
+  const acceptedExpectedCounts = new Map<SmartInkPrimitiveKind, number>();
+  const acceptedPredictionCounts = new Map<SmartInkPrimitiveKind, number>();
   const predictionCounts = new Map<SmartInkPrimitiveKind, number>();
-  const truePositiveCounts = new Map<SmartInkPrimitiveKind, number>();
   const supportCounts = new Map<SmartInkPrimitiveKind, number>();
   let ambiguousCount = 0;
   let falsePositiveCount = 0;
@@ -416,19 +443,25 @@ export function evaluateSmartInkCorpus(
       sample.expectedKind,
       (supportCounts.get(sample.expectedKind) ?? 0) + 1,
     );
-    if (prediction === sample.expectedKind) {
-      truePositiveCounts.set(
+    if (
+      prediction !== "unrecognized" &&
+      sample.acceptableKinds.includes(prediction)
+    ) {
+      acceptedExpectedCounts.set(
         sample.expectedKind,
-        (truePositiveCounts.get(sample.expectedKind) ?? 0) + 1,
+        (acceptedExpectedCounts.get(sample.expectedKind) ?? 0) + 1,
+      );
+      acceptedPredictionCounts.set(
+        prediction,
+        (acceptedPredictionCounts.get(prediction) ?? 0) + 1,
       );
     }
     if (specializedKinds.has(sample.expectedKind)) {
       specializedCount += 1;
       if (
-        proposal.status !== "unrecognized" &&
         proposal.candidates
           .slice(0, 2)
-          .some(({ kind }) => kind === sample.expectedKind)
+          .some(({ kind }) => sample.acceptableKinds.includes(kind))
       ) {
         specializedTop2Count += 1;
       }
@@ -438,12 +471,13 @@ export function evaluateSmartInkCorpus(
   const classMetrics = Object.fromEntries(
     smartInkPrimitiveKinds.map((kind) => {
       const support = supportCounts.get(kind) ?? 0;
-      const truePositive = truePositiveCounts.get(kind) ?? 0;
+      const truePositive = acceptedExpectedCounts.get(kind) ?? 0;
       const predicted = predictionCounts.get(kind) ?? 0;
+      const acceptedPredictions = acceptedPredictionCounts.get(kind) ?? 0;
       const metrics: SmartInkClassMetrics = {
         falseNegative: support - truePositive,
-        falsePositive: predicted - truePositive,
-        precision: roundMetric(ratio(truePositive, predicted)),
+        falsePositive: predicted - acceptedPredictions,
+        precision: roundMetric(ratio(acceptedPredictions, predicted)),
         recall: roundMetric(ratio(truePositive, support)),
         support,
         truePositive,
