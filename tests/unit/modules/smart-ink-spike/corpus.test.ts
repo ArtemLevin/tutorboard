@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  assessSmartInkCalibrationGate,
   assessSmartInkProductionGate,
   assertSmartInkCorpus,
   evaluateSmartInkCorpus,
@@ -184,5 +185,80 @@ describe("Phase 9 Smart Ink corpus benchmark", () => {
 
     expect(assessment.metrics.sampleCount).toBe(1);
     expect(assessment.metrics.positiveCount).toBe(1);
+  });
+
+  it("accepts bounded external-human metadata without treating it as browser capture", () => {
+    const corpus = createSyntheticBenchmarkCorpus();
+    const circle = corpus.samples.find(
+      ({ expectedKind }) => expectedKind === "circle",
+    )!;
+    const external = {
+      ...circle,
+      id: "external-circle",
+      metadata: {
+        browser: "other" as const,
+        deviceProfile: "other-device" as const,
+        durationMs: 620,
+        pointerType: "unknown" as const,
+        sourceDataset: "quickdraw" as const,
+        sourceGroupId: "quickdraw-group-0123456789abcdef",
+        traceOrigin: "recorded-trajectory" as const,
+      },
+      provenance: "external-human" as const,
+    };
+    const mixed = { ...corpus, samples: [...corpus.samples, external] };
+
+    expect(() => parseSmartInkCorpus(mixed)).not.toThrow();
+    expect(assessSmartInkCalibrationGate(mixed).metrics.sampleCount).toBe(1);
+    expect(assessSmartInkProductionGate(mixed).metrics.sampleCount).toBe(0);
+  });
+
+  it("rejects external records that impersonate known browser capture", () => {
+    const corpus = createSyntheticBenchmarkCorpus();
+    const circle = corpus.samples.find(
+      ({ expectedKind }) => expectedKind === "circle",
+    )!;
+    const external = {
+      ...circle,
+      metadata: {
+        browser: "chromium",
+        deviceProfile: "windows-laptop",
+        durationMs: 620,
+        pointerType: "mouse",
+        sourceDataset: "quickdraw",
+        sourceGroupId: "quickdraw-group-0123456789abcdef",
+        traceOrigin: "recorded-trajectory",
+      },
+      provenance: "external-human",
+    };
+
+    expect(() =>
+      parseSmartInkCorpus({ ...corpus, samples: [external] }),
+    ).toThrow("dataset-only metadata");
+  });
+
+  it("rejects inconsistent external trajectory provenance", () => {
+    const corpus = createSyntheticBenchmarkCorpus();
+    const rectangle = corpus.samples.find(
+      ({ expectedKind }) => expectedKind === "rectangle",
+    )!;
+    const inconsistent = {
+      ...rectangle,
+      id: "external-inconsistent",
+      metadata: {
+        browser: "other",
+        deviceProfile: "other-device",
+        durationMs: 0,
+        pointerType: "unknown",
+        sourceDataset: "hds",
+        sourceGroupId: "hds-group-0123456789abcdef",
+        traceOrigin: "recorded-trajectory",
+      },
+      provenance: "external-human",
+    };
+
+    expect(() =>
+      parseSmartInkCorpus({ ...corpus, samples: [inconsistent] }),
+    ).toThrow("inconsistent trace provenance");
   });
 });

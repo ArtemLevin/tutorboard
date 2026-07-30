@@ -204,6 +204,27 @@ production direct-browser access к GeometryOS не выбираются зар�
 Все перечисленные gates доказаны к PR 2.12; ссылки и ограничения собраны в
 `docs/PHASE_2_REPORT.md`.
 
+### 2.7. Phase 9 Smart Ink experimental gate
+
+PR #32 доставил изолированный six-class recognizer, corpus contract, benchmark
+и локальный browser capture, не изменяя `BoardDocument 1.0`, collaboration,
+GeometryOS или production UI.
+
+Следующий experimental increment автоматизирует evidence preparation:
+
+- Quick, Draw! raw trajectories импортируются потоково и сохраняют отдельное
+  `recorded-trajectory` provenance;
+- HDS PNG импортируются только как `raster-contour`, без подмены контура
+  идеальными vertex labels;
+- external identities хэшируются, а HDS-образцы группируются по автору;
+- confidence calibration выполняется на deterministic group-safe split;
+- holdout не участвует в подборе `minimumConfidence` и `ambiguityMargin`;
+- synthetic samples не входят в calibration или production evidence;
+- external-human samples не открывают Chromium/Firefox production gate.
+
+До captured corpus gate запрещено менять persistent schema, автоматически
+заменять strokes либо объявлять Smart Ink production-ready.
+
 ## 3. Целевая архитектура
 
 TutorBoard развивается как модульный frontend-монолит:

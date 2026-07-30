@@ -70,11 +70,23 @@ export const smartInkCorpusSchemaVersion =
 
 export type SmartInkCorpusExpectedKind = SmartInkPrimitiveKind | "negative";
 
-export type SmartInkCorpusProvenance = "captured" | "synthetic";
+export type SmartInkCorpusProvenance =
+  "captured" | "external-human" | "synthetic";
 
 export type SmartInkCorpusBrowser = "chromium" | "firefox" | "other";
 
-export type SmartInkCorpusPointerType = "mouse" | "pen" | "touch";
+export type SmartInkCorpusPointerType = "mouse" | "pen" | "touch" | "unknown";
+
+export const smartInkExternalDatasets = ["hds", "quickdraw"] as const;
+
+export type SmartInkExternalDataset = (typeof smartInkExternalDatasets)[number];
+
+export const smartInkTraceOrigins = [
+  "raster-contour",
+  "recorded-trajectory",
+] as const;
+
+export type SmartInkTraceOrigin = (typeof smartInkTraceOrigins)[number];
 
 export const smartInkCorpusDeviceProfiles = [
   "windows-laptop",
@@ -96,6 +108,9 @@ export interface SmartInkCorpusSample {
     readonly deviceProfile: SmartInkCorpusDeviceProfile;
     readonly durationMs: number;
     readonly pointerType: SmartInkCorpusPointerType;
+    readonly sourceDataset?: SmartInkExternalDataset;
+    readonly sourceGroupId?: string;
+    readonly traceOrigin?: SmartInkTraceOrigin;
   };
   readonly points: readonly Vec2[];
   readonly provenance: SmartInkCorpusProvenance;
@@ -147,4 +162,58 @@ export interface SmartInkProductionGateAssessment {
   readonly failures: readonly string[];
   readonly metrics: SmartInkBenchmarkMetrics;
   readonly passed: boolean;
+}
+
+export interface SmartInkHumanizationOptions {
+  readonly height?: number;
+  readonly pointCount?: number;
+  readonly rotation?: number;
+  readonly seed: number;
+  readonly width?: number;
+}
+
+export interface SmartInkCalibrationOptions {
+  readonly ambiguityMargins?: readonly number[];
+  readonly calibrationRatio?: number;
+  readonly minimumConfidences?: readonly number[];
+  readonly minimumNegatives?: number;
+  readonly minimumPerClass?: number;
+  readonly sampleCount?: number;
+  readonly seed: number;
+  readonly targetAmbiguityRate?: number;
+}
+
+export interface SmartInkCalibrationSplitSummary {
+  readonly calibrationCount: number;
+  readonly calibrationCounts: Readonly<
+    Record<SmartInkCorpusExpectedKind, number>
+  >;
+  readonly calibrationGroupCount: number;
+  readonly holdoutCount: number;
+  readonly holdoutCounts: Readonly<Record<SmartInkCorpusExpectedKind, number>>;
+  readonly holdoutGroupCount: number;
+  readonly sharedGroupCount: 0;
+}
+
+export interface SmartInkCalibrationReport {
+  readonly calibrationMetrics: SmartInkBenchmarkMetrics;
+  readonly eligible: boolean;
+  readonly failures: readonly string[];
+  readonly fullEvidenceAssessment: SmartInkProductionGateAssessment;
+  readonly holdoutMetrics: SmartInkBenchmarkMetrics;
+  readonly passed: boolean;
+  readonly schemaVersion: "tutorboard.smart-ink-calibration/0.1";
+  readonly search: {
+    readonly candidateCount: number;
+    readonly feasibleCandidateCount: number;
+    readonly selectedOnCalibrationOnly: true;
+  };
+  readonly seed: number;
+  readonly selectedOptions: Required<
+    Pick<
+      SmartInkRecognizerOptions,
+      "ambiguityMargin" | "minimumConfidence" | "sampleCount"
+    >
+  >;
+  readonly split: SmartInkCalibrationSplitSummary;
 }

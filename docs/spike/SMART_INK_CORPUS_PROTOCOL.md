@@ -10,6 +10,18 @@ Corpus имеет версию `tutorboard.smart-ink-corpus/0.1`. Внешний
 runtime-валидируется функцией `parseSmartInkCorpus`; синтетические fixtures
 помечены как `synthetic` и не могут открыть production-gate.
 
+Допускаются три происхождения:
+
+- `captured` — человек рисовал непосредственно в capture-странице TutorBoard;
+- `external-human` — реальный рисунок импортирован из атрибутированного
+  публичного датасета; `traceOrigin` различает записанную траекторию и
+  восстановленный растровый контур;
+- `synthetic` — идеальная или человекоподобная аппроксимация.
+
+`external-human` может участвовать в calibration-gate, но не может выдавать
+себя за capture конкретного браузера. Подбор и ограничения датасетов описаны в
+[`SMART_INK_DATASETS.md`](SMART_INK_DATASETS.md).
+
 Runtime boundary допускает не более 1000 образцов, 4096 точек на образец и
 длительность одного штриха не более 300 секунд. Невалидный corpus отклоняется
 целиком до benchmark.
@@ -88,7 +100,19 @@ reviewable-набором fixtures.
 - p95 не выше `150 ms`.
 
 Gate вычисляет итоговые метрики только по `captured`-образцам. Synthetic
-fixtures не входят в precision, false-positive rate или latency production-gate.
+fixtures и `external-human` не входят в precision, false-positive rate или
+latency production-gate.
+
+`assessSmartInkCalibrationGate` использует совместно `captured` и
+`external-human`, требует тот же минимум классов и те же пороги качества, но не
+утверждает поддержку Chromium/Firefox. Это позволяет калибровать confidence по
+открытым человеческим данным, сохраняя отдельный platform gate.
+
+`calibrateSmartInkRecognizer` выполняет детерминированный group-safe split.
+Образцы одного `sourceGroupId` не могут одновременно попасть в calibration и
+holdout. Порог выбирается только по calibration; holdout оценивается один раз
+после выбора. Отчёт `tutorboard.smart-ink-calibration/0.1` не содержит точек
+штрихов.
 
 Запуск синтетической regression baseline:
 
