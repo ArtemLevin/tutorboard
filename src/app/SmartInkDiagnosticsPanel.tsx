@@ -62,7 +62,7 @@ function isBoardPointerEvent(event: PointerEvent): boolean {
 }
 
 export function SmartInkDiagnosticsPanel() {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [view, setView] = useState<SmartInkDiagnosticView | null>(null);
 
   useEffect(() => {
