@@ -1,7 +1,7 @@
 # Smart Ink main-canvas integration
 
 This Phase 9 increment connects recognizer `0.4-spike` to TutorBoard's main
-canvas while preserving explicit teacher control.
+canvas with immediate correction for confidently recognized figures.
 
 ## Ownership
 
@@ -9,19 +9,19 @@ canvas while preserving explicit teacher control.
 | ------------------------- | -------------------------------------------------------------------------------- |
 | `modules/smart-ink-spike` | Deterministic single-stroke recognition and confidence                           |
 | `modules/smart-ink`       | Mapping fitted geometry to BoardDocument objects and acceptance command creation |
-| `app`                     | Tool selection, proposal state, preview panel and user decisions                 |
+| `app`                     | Tool selection, recognition policy and automatic replacement command             |
 | `core`                    | Atomic deterministic object replacement                                          |
-| `canvas-konva`            | Rendering the source stroke and proposal preview                                 |
+| `canvas-konva`            | Pointer sampling and rendering committed board objects                           |
 
 ## State flow
 
 1. `drawing.smart-ink` samples one stroke through the standard pen state
    machine.
 2. Pointer completion commits the source `drawing.pen-stroke`.
-3. A recognized proposal is rendered in green above the stored stroke.
-4. Reject and Escape close the proposal while preserving the stroke.
-5. Accept emits one `core.objects.replace` command carrying complete original
-   and replacement snapshots.
+3. A recognized proposal immediately emits one `core.objects.replace` command
+   carrying complete original and replacement snapshots.
+4. Ambiguous and unrecognized input keeps the original stroke.
+5. No proposal panel or acceptance prompt is rendered.
 6. Local history undo restores the source snapshot. Collaborative undo emits
    the same command with the snapshot arrays reversed.
 
@@ -34,8 +34,14 @@ The source and replacement reuse the same object ID, so layer position and
 selection references stay stable. The reducer rejects missing, locked, grouped,
 imported and stale source snapshots.
 
+The canvas uses the Chromium-calibrated thresholds
+`minimumConfidence=0.34`, `ambiguityMargin=0.02` and `sampleCount=96`.
+Near-round ellipses with a minor-to-major axis ratio of at least `0.75` use the
+circle fit when its confidence is at least `0.25`. This widens tolerance for
+hand-drawn circles while keeping visibly elongated ellipses distinct.
+
 ## Quality boundary
 
 The checked-in Chromium corpus remains development evidence. Firefox capture
-is still required to close the cross-browser production gate. The proposal UX
-therefore always requires explicit acceptance and exposes rejection.
+is still required to close the cross-browser production gate. Auto-correction
+only runs for the recognizer's `recognized` status; other input stays as ink.

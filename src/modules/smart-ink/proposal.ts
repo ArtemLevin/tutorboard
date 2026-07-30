@@ -13,6 +13,13 @@ import {
 } from "../smart-ink-spike/public";
 
 const minimumGeometrySize = 0.001;
+const minimumCircleAxisRatio = 0.75;
+const minimumCircleCandidateConfidence = 0.25;
+const canvasRecognizerOptions = {
+  ambiguityMargin: 0.02,
+  minimumConfidence: 0.34,
+  sampleCount: 96,
+} as const;
 
 const primitiveLabels: Readonly<Record<SmartInkPrimitiveKind, string>> = {
   circle: "Окружность",
@@ -190,15 +197,38 @@ function previewStyle(style: ObjectStyle): ObjectStyle {
   };
 }
 
+function selectCanvasCandidate(
+  recognizer: SmartInkProposal,
+): SmartInkCandidate | undefined {
+  const candidate = recognizer.candidates[0];
+  if (recognizer.status !== "recognized" || candidate === undefined) {
+    return undefined;
+  }
+  if (candidate.kind !== "ellipse") {
+    return candidate;
+  }
+  const circle = recognizer.candidates.find(
+    (alternative) => alternative.kind === "circle",
+  );
+  const axisRatio = candidate.diagnostics.axisRatio;
+  return circle !== undefined &&
+    axisRatio !== undefined &&
+    axisRatio >= minimumCircleAxisRatio &&
+    circle.confidence >= minimumCircleCandidateConfidence
+    ? circle
+    : candidate;
+}
+
 export function proposeSmartInkReplacement(
   stroke: PenStrokeObject,
 ): SmartInkBoardProposalResult {
   const recognizer = recognizeSmartInkStroke(
     stroke.id,
     strokeWorldPoints(stroke),
+    canvasRecognizerOptions,
   );
-  const candidate = recognizer.candidates[0];
-  if (recognizer.status !== "recognized" || candidate === undefined) {
+  const candidate = selectCanvasCandidate(recognizer);
+  if (candidate === undefined) {
     return { recognizer, status: "skipped" };
   }
   const replacement = createSmartInkReplacementObject(stroke, candidate);

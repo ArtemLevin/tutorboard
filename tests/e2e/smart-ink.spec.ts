@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("previews, accepts and undoes Smart Ink on the main canvas", async ({
+test("automatically accepts and undoes Smart Ink on the main canvas", async ({
   page,
 }) => {
   await page.goto("/");
@@ -29,18 +29,18 @@ test("previews, accepts and undoes Smart Ink on the main canvas", async ({
   }
   await page.mouse.up();
 
-  const proposal = page.getByRole("complementary", {
-    name: "Предложение Smart Ink",
-  });
-  await expect(proposal).toBeVisible();
-  await expect(proposal).toContainText("Окружность");
-  await expect(page.getByText("drawing.pen-stroke")).toBeVisible();
-  await expect(page.getByTestId("history-depth")).toHaveText("1/0");
-
-  await proposal.getByRole("button", { name: "Принять" }).click();
-  await expect(proposal).toBeHidden();
+  await expect(
+    page.getByRole("complementary", {
+      name: "Предложение Smart Ink",
+    }),
+  ).toHaveCount(0);
   await expect(page.getByText("drawing.ellipse")).toBeVisible();
   await expect(page.getByTestId("history-depth")).toHaveText("2/0");
+  await expect(
+    page.getByRole("complementary", {
+      name: "Предложение Smart Ink",
+    }),
+  ).toHaveCount(0);
 
   await page.keyboard.press("Control+z");
   await expect(page.getByText("drawing.pen-stroke")).toBeVisible();

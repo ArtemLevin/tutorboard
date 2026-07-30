@@ -61,7 +61,6 @@ import {
   createAcceptSmartInkProposalCommand,
   proposeSmartInkReplacement,
   smartInkProposalStillApplies,
-  type SmartInkBoardProposal,
 } from "../modules/smart-ink/public";
 import {
   createGroupSelectionCommand,
@@ -204,8 +203,6 @@ export function App({
   const [drawingDiagnostic, setDrawingDiagnostic] = useState<string | null>(
     null,
   );
-  const [smartInkProposal, setSmartInkProposal] =
-    useState<SmartInkBoardProposal | null>(null);
   const [smartInkNotice, setSmartInkNotice] = useState<string | null>(null);
   const [selectionState, setSelectionState] = useState(initialSelectionState);
   const selectionStateRef = useRef<SelectionState>(initialSelectionState);
@@ -267,16 +264,13 @@ export function App({
     () => getDrawingPreview(drawingState),
     [drawingState],
   );
-  const previewItems = useMemo<readonly BoardRenderItem[]>(() => {
-    const items: BoardRenderItem[] = [];
-    if (drawingPreview !== null) {
-      items.push({ object: drawingPreview, transforms: [] });
-    }
-    if (smartInkProposal !== null) {
-      items.push({ object: smartInkProposal.preview, transforms: [] });
-    }
-    return items;
-  }, [drawingPreview, smartInkProposal]);
+  const previewItems = useMemo<readonly BoardRenderItem[]>(
+    () =>
+      drawingPreview === null
+        ? []
+        : [{ object: drawingPreview, transforms: [] }],
+    [drawingPreview],
+  );
   const selectionPreviewDelta = useMemo(
     () => getSelectionPreviewDelta(selectionState),
     [selectionState],
@@ -348,7 +342,6 @@ export function App({
   );
 
   const undo = useCallback(() => {
-    setSmartInkProposal(null);
     if (!historyEnabled) {
       if (collaborativeUndoAvailable && onCollaborativeUndo !== undefined) {
         onCollaborativeUndo();
@@ -369,7 +362,6 @@ export function App({
   }, [collaborativeUndoAvailable, historyEnabled, onCollaborativeUndo]);
 
   const redo = useCallback(() => {
-    setSmartInkProposal(null);
     if (!historyEnabled) {
       setBoardState((current) => ({
         ...current,
@@ -631,10 +623,29 @@ export function App({
         ) {
           const proposed = proposeSmartInkReplacement(result.completedObject);
           if (proposed.status === "proposed") {
-            setSmartInkProposal(proposed.proposal);
-            setSmartInkNotice(null);
+            const current =
+              documentRef.current.objects[proposed.proposal.original.id];
+            if (
+              current?.kind === "drawing.pen-stroke" &&
+              smartInkProposalStillApplies(proposed.proposal, current)
+            ) {
+              const accepted = commitCommand(
+                createAcceptSmartInkProposalCommand(
+                  createCommandMetadata(),
+                  proposed.proposal,
+                ),
+              );
+              setSmartInkNotice(
+                accepted.ok
+                  ? null
+                  : "Smart Ink: автокоррекция фигуры завершилась ошибкой.",
+              );
+            } else {
+              setSmartInkNotice(
+                "Smart Ink: исходный штрих изменился до автокоррекции.",
+              );
+            }
           } else {
-            setSmartInkProposal(null);
             setSmartInkNotice(
               proposed.recognizer.status === "ambiguous"
                 ? "Smart Ink: форма неоднозначна, исходный штрих сохранён."
@@ -644,13 +655,12 @@ export function App({
         }
       }
     },
-    [commitDrawingObject],
+    [commitCommand, commitDrawingObject, createCommandMetadata],
   );
 
   const activateTool = useCallback(
     (tool: ActiveToolId) => {
       applyDrawingAction({ kind: "cancel" });
-      setSmartInkProposal(null);
       setSmartInkNotice(null);
       const selectionResult = reduceSelectionInteraction(
         selectionStateRef.current,
@@ -704,12 +714,6 @@ export function App({
       if (event.key === "Escape" && shortcutsOpen) {
         event.preventDefault();
         closeShortcuts();
-        return;
-      }
-      if (event.key === "Escape" && smartInkProposal !== null) {
-        event.preventDefault();
-        setSmartInkProposal(null);
-        setSmartInkNotice("Smart Ink: предложение отклонено.");
         return;
       }
       if (event.key === "?") {
@@ -788,7 +792,6 @@ export function App({
     redo,
     createCommandMetadata,
     shortcutsOpen,
-    smartInkProposal,
     undo,
   ]);
 
@@ -807,7 +810,6 @@ export function App({
         return;
       }
       if (activeTool === "drawing.smart-ink") {
-        setSmartInkProposal(null);
         setSmartInkNotice(null);
       }
       applyDrawingAction({
@@ -926,41 +928,6 @@ export function App({
     },
     [applySelectionAction],
   );
-
-  const acceptSmartInkProposal = useCallback(() => {
-    if (smartInkProposal === null) {
-      return;
-    }
-    const current = documentRef.current.objects[smartInkProposal.original.id];
-    if (
-      current?.kind !== "drawing.pen-stroke" ||
-      !smartInkProposalStillApplies(smartInkProposal, current)
-    ) {
-      setSmartInkProposal(null);
-      setSmartInkNotice(
-        "Smart Ink: исходный штрих изменился, предложение закрыто.",
-      );
-      return;
-    }
-    const result = commitCommand(
-      createAcceptSmartInkProposalCommand(
-        createCommandMetadata(),
-        smartInkProposal,
-      ),
-    );
-    if (!result.ok) {
-      return;
-    }
-    setSmartInkProposal(null);
-    setSmartInkNotice(
-      `Smart Ink: ${smartInkProposal.label.toLowerCase()} принята. Ctrl+Z восстановит исходный штрих.`,
-    );
-  }, [commitCommand, createCommandMetadata, smartInkProposal]);
-
-  const rejectSmartInkProposal = useCallback(() => {
-    setSmartInkProposal(null);
-    setSmartInkNotice("Smart Ink: предложение отклонено.");
-  }, []);
 
   const setSelectionLock = useCallback(
     (locked: boolean) => {
@@ -1499,44 +1466,6 @@ export function App({
           prompt={geometryPrompt}
           state={geometryPromptState}
         />
-
-        {smartInkProposal === null ? null : (
-          <aside
-            aria-label="Предложение Smart Ink"
-            className="smart-ink-proposal"
-          >
-            <div className="smart-ink-proposal-heading">
-              <span aria-hidden="true">✦</span>
-              <div>
-                <strong>Smart Ink</strong>
-                <span>Предпросмотр поверх исходного штриха</span>
-              </div>
-            </div>
-            <dl>
-              <div>
-                <dt>Фигура</dt>
-                <dd>{smartInkProposal.label}</dd>
-              </div>
-              <div>
-                <dt>Уверенность</dt>
-                <dd>
-                  {Math.round(smartInkProposal.candidate.confidence * 100)}%
-                </dd>
-              </div>
-            </dl>
-            <div className="smart-ink-proposal-actions">
-              <button onClick={acceptSmartInkProposal} type="button">
-                Принять
-              </button>
-              <button onClick={rejectSmartInkProposal} type="button">
-                Отклонить
-              </button>
-            </div>
-            <span>
-              Escape — отклонить · Ctrl+Z после принятия — вернуть штрих
-            </span>
-          </aside>
-        )}
 
         <aside aria-label="Слои" className="layers-panel">
           <div className="layers-panel-header">
