@@ -10,6 +10,10 @@ full original and replacement snapshots and emits `core.objects.replace`. Local
 history and collaborative journals therefore receive one atomic deterministic
 command, and undo restores the exact previous transform.
 
+The selection inspector also provides accessible controls for 10% reduction, 10%
+enlargement and 15-degree clockwise rotation. These controls use the same snapshot
+command as direct manipulation of the canvas handles.
+
 Imported GeometryOS objects and grouped or locked objects do not expose transform
 handles. Their provenance and group-level semantics remain governed by their
 existing explicit commands. The Transformer disables flips and enforces a minimum
