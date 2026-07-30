@@ -1,0 +1,26 @@
+name: Format Smart Ink release test
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx prettier tests/e2e/smart-ink-release-gate.spec.ts --write
+      - uses: actions/upload-artifact@v4
+        with:
+          name: formatted-smart-ink-release
+          path: tests/e2e/smart-ink-release-gate.spec.ts
+          if-no-files-found: error
+          retention-days: 1
