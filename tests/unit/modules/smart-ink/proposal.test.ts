@@ -8,7 +8,7 @@ import {
   createSmartInkReplacementObject,
   proposeSmartInkReplacement,
 } from "../../../../src/modules/smart-ink/public";
-import type { SmartInkCandidate } from "../../../../src/modules/smart-ink-spike/public";
+import { type SmartInkCandidate } from "../../../../src/modules/smart-ink-spike/public";
 import { positiveStrokes } from "../smart-ink-spike/corpus-fixtures";
 
 function stroke(points = positiveStrokes.circle): PenStrokeObject {
@@ -59,6 +59,30 @@ describe("Smart Ink board proposal", () => {
         strokeWidth: 4,
       });
       expect(result.proposal.original.kind).toBe("drawing.pen-stroke");
+    }
+  });
+
+  it("accepts a wider near-circle range as a circle", () => {
+    const points = Array.from({ length: 97 }, (_, index) => {
+      const angle = (index / 96) * Math.PI * 2;
+      return {
+        x: Math.cos(angle) * 62,
+        y: Math.sin(angle) * 46,
+      };
+    });
+    const result = proposeSmartInkReplacement(stroke(points));
+
+    expect(result.status).toBe("proposed");
+    if (result.status === "proposed") {
+      expect(result.proposal.candidate.kind).toBe("circle");
+      expect(result.proposal.replacement).toMatchObject({
+        kind: "drawing.ellipse",
+      });
+      if (result.proposal.replacement.kind === "drawing.ellipse") {
+        expect(result.proposal.replacement.radius.x).toBe(
+          result.proposal.replacement.radius.y,
+        );
+      }
     }
   });
 
