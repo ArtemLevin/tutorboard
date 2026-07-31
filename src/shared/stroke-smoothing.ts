@@ -108,7 +108,10 @@ export function normalizeStrokePoints(
   for (const point of points) {
     if (!finitePoint(point)) continue;
     const previous = filtered.at(-1);
-    if (previous === undefined || distance(previous, point) >= minimumDistance) {
+    if (
+      previous === undefined ||
+      distance(previous, point) >= minimumDistance
+    ) {
       filtered.push(point);
     }
   }
@@ -185,10 +188,7 @@ export function buildCatmullRomSpline(
     1,
     Math.floor((maximum - 1) / (points.length - 1)),
   );
-  const subdivisions = Math.min(
-    requestedSubdivisions,
-    maximumSubdivisions,
-  );
+  const subdivisions = Math.min(requestedSubdivisions, maximumSubdivisions);
   const output: StrokePoint[] = [points[0]!];
   const lastIndex = points.length - 1;
 
@@ -222,7 +222,8 @@ export function resolveStrokeSmoothingQuality(
     minimumSubdivisions,
     Math.floor(options.maxSubdivisions ?? 12),
   );
-  const zoomGain = zoomBucket < 1.5 ? 0 : zoomBucket < 3 ? 2 : zoomBucket < 6 ? 4 : 6;
+  const zoomGain =
+    zoomBucket < 1.5 ? 0 : zoomBucket < 3 ? 2 : zoomBucket < 6 ? 4 : 6;
   const lengthGain = length < 80 ? 0 : length < 240 ? 1 : 2;
 
   return {

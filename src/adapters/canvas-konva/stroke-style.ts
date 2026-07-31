@@ -135,10 +135,7 @@ function renderSampleCount(
   return Math.min(4096, Math.max(minimum, Math.ceil(length / spacing)));
 }
 
-export function createWavySegment(
-  end: Vec2,
-  zoom = 1,
-): readonly number[] {
+export function createWavySegment(end: Vec2, zoom = 1): readonly number[] {
   const length = Math.hypot(end.x, end.y);
   if (length === 0) return [0, 0, 0, 0];
   const normalX = -end.y / length;
@@ -212,9 +209,7 @@ export function createSketchPath(
       : 0.22 + Math.sin(progress * Math.PI) * 0.78;
     const distanceAlong = pathDistances[index] ?? 0;
     const noise =
-      Math.sin(
-        (distanceAlong + 1) * (0.17 + seed * 0.0017) + seed * 0.37,
-      ) *
+      Math.sin((distanceAlong + 1) * (0.17 + seed * 0.0017) + seed * 0.37) *
         0.68 +
       Math.cos(
         (distanceAlong + 1) * (0.071 + seed * 0.0011) + point.x * 0.011,

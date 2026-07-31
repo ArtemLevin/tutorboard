@@ -152,12 +152,7 @@ function sketchPoints(
   const renderPoints = closed
     ? source
     : buildSmoothStrokePoints(source, { zoom });
-  return createSketchPath(
-    renderPoints,
-    pass.intensity,
-    pass.seed,
-    closed,
-  );
+  return createSketchPath(renderPoints, pass.intensity, pass.seed, closed);
 }
 
 const renderers: readonly KonvaObjectRenderer[] = [
@@ -173,12 +168,7 @@ const renderers: readonly KonvaObjectRenderer[] = [
         return renderSketchPath(
           stroke,
           (pass) =>
-            createSketchPath(
-              smoothed,
-              pass.intensity,
-              pass.seed,
-              false,
-            ),
+            createSketchPath(smoothed, pass.intensity, pass.seed, false),
           false,
         );
       }

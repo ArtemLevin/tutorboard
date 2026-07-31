@@ -98,9 +98,7 @@ export function renderBoardSnapshotSvg(
     `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(document.title)}" viewBox="0 0 ${number(width)} ${number(height)}">`,
     '<rect width="100%" height="100%" fill="#f8fafc"/>',
     `<g transform="translate(${number(scene.viewport.offset.x)} ${number(scene.viewport.offset.y)}) scale(${number(scene.viewport.zoom)})">`,
-    visibleItems
-      .map((item) => itemMarkup(item, scene.viewport.zoom))
-      .join(""),
+    visibleItems.map((item) => itemMarkup(item, scene.viewport.zoom)).join(""),
     "</g>",
     "</svg>",
   ].join("");
