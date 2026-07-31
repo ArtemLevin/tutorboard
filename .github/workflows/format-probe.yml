@@ -1,0 +1,23 @@
+name: Stroke style format probe
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  format-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Show formatter diff
+        run: |
+          npx prettier --write src/app/StrokeStylePalette.tsx
+          git diff -- src/app/StrokeStylePalette.tsx
+          test -z "$(git status --short src/app/StrokeStylePalette.tsx)"
