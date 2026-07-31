@@ -9,7 +9,7 @@ import { expect, test } from "@playwright/test";
 const safeSvg =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80"><rect width="160" height="80" fill="#335577"/><text x="20" y="48">SVG</text></svg>';
 
-async function storedSvgExists(page: import("@playwright/test").Page) {
+async function storedEmbeddedSvgExists(page: import("@playwright/test").Page) {
   return await page.evaluate(async () => {
     const request = indexedDB.open("tutorboard-local-v1");
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -35,7 +35,9 @@ async function storedSvgExists(page: import("@playwright/test").Page) {
           objects: Record<string, Record<string, unknown>>;
         };
         return Object.values(document.objects).some(
-          (object) => object.kind === "svg-import.svg",
+          (object) =>
+            object.kind === "image.embedded" &&
+            object.mimeType === "image/svg+xml",
         );
       });
     } finally {
@@ -44,7 +46,7 @@ async function storedSvgExists(page: import("@playwright/test").Page) {
   });
 }
 
-async function tamperStoredSvg(page: import("@playwright/test").Page) {
+async function tamperStoredEmbeddedSvg(page: import("@playwright/test").Page) {
   await page.evaluate(async () => {
     const request = indexedDB.open("tutorboard-local-v1");
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -75,12 +77,15 @@ async function tamperStoredSvg(page: import("@playwright/test").Page) {
         objects: Record<string, Record<string, unknown>>;
       };
       const svg = Object.values(document.objects).find(
-        (object) => object.kind === "svg-import.svg",
+        (object) =>
+          object.kind === "image.embedded" &&
+          object.mimeType === "image/svg+xml",
       );
-      if (svg === undefined || typeof svg.sanitizedSvg !== "string") {
-        throw new Error("No stored SVG exists.");
+      if (svg === undefined || typeof svg.dataUrl !== "string") {
+        throw new Error("No stored embedded SVG exists.");
       }
-      svg.sanitizedSvg = `${svg.sanitizedSvg}<script />`;
+      svg.dataUrl =
+        "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==";
       store.put({ ...latest, serializedDocument: JSON.stringify(document) });
       await new Promise<void>((resolve, reject) => {
         transaction.oncomplete = () => resolve();
@@ -105,8 +110,10 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test("inserts, selects and restores one safe SVG object", async ({ page }) => {
-  await page.getByLabel("Вставить SVG").setInputFiles({
+test("inserts, selects and restores one safe embedded SVG", async ({
+  page,
+}) => {
+  await page.getByLabel("Вставить изображения").setInputFiles({
     buffer: Buffer.from(safeSvg),
     mimeType: "image/svg+xml",
     name: "safe.svg",
@@ -114,6 +121,10 @@ test("inserts, selects and restores one safe SVG object", async ({ page }) => {
 
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-transformable-count",
+    "1",
+  );
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Сохранено локально",
   );
@@ -125,7 +136,7 @@ test("inserts, selects and restores one safe SVG object", async ({ page }) => {
 test("rejects executable SVG without mutating the document", async ({
   page,
 }) => {
-  await page.getByLabel("Вставить SVG").setInputFiles({
+  await page.getByLabel("Вставить изображения").setInputFiles({
     buffer: Buffer.from(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><script>alert(1)</script></svg>',
     ),
@@ -133,33 +144,31 @@ test("rejects executable SVG without mutating the document", async ({
     name: "unsafe.svg",
   });
 
-  await expect(page.getByRole("alert")).toContainText("SVG не вставлен");
+  await expect(page.getByRole("alert")).toContainText(
+    "Изображение не вставлено",
+  );
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
 });
 
-test("opens recovery UI instead of rendering a tampered stored SVG", async ({
-  page,
-}) => {
-  await page.getByLabel("Вставить SVG").setInputFiles({
+test("falls back after a tampered embedded SVG revision", async ({ page }) => {
+  await page.getByLabel("Вставить изображения").setInputFiles({
     buffer: Buffer.from(safeSvg),
     mimeType: "image/svg+xml",
     name: "safe.svg",
   });
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await expect
-    .poll(() => storedSvgExists(page), {
-      message: "Wait for the SVG revision to reach IndexedDB before tampering.",
+    .poll(() => storedEmbeddedSvgExists(page), {
+      message: "Wait for the embedded SVG revision to reach IndexedDB.",
     })
     .toBe(true);
-  await tamperStoredSvg(page);
+  await tamperStoredEmbeddedSvg(page);
 
   await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "Требуется восстановление доски" }),
-  ).toBeVisible();
   await expect(
     page.getByRole("application", {
       name: "Бесконечное полотно TutorBoard",
     }),
-  ).toHaveCount(0);
+  ).toBeVisible();
+  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
 });

@@ -26,6 +26,7 @@ import {
   type BoardObjectId,
   type BoardRenderItem,
   type GeometryOsClient,
+  type Vec2,
   type CommandMetadata,
   type VisualStyleOverride,
   type ViewportState,
@@ -71,11 +72,6 @@ import {
   selectLayers,
 } from "../modules/layers/public";
 import {
-  createAddSvgObjectCommand,
-  createSvgObject,
-  svgImportLimits,
-} from "../modules/svg-import/public";
-import {
   createDeleteSelectionCommand,
   createMoveSelectionCommand,
   createSetSelectionLockCommand,
@@ -101,6 +97,13 @@ import {
   isEditableTextObject,
 } from "../modules/text-editing/public";
 import { ColorPalette } from "./ColorPalette";
+import {
+  createEmbeddedImageObject,
+  embeddedImageAccept,
+  embeddedImageImportLimits,
+  isSupportedEmbeddedImageCandidate,
+  prepareEmbeddedImageFile,
+} from "./image-import";
 import { StrokeStylePalette } from "./StrokeStylePalette";
 import { readEnvironment } from "./configuration/environment";
 import {
@@ -211,7 +214,7 @@ export function App({
   const [selectionState, setSelectionState] = useState(initialSelectionState);
   const selectionStateRef = useRef<SelectionState>(initialSelectionState);
   const [textDraft, setTextDraft] = useState("Новый текст");
-  const [svgDiagnostic, setSvgDiagnostic] = useState<string | null>(null);
+  const [imageDiagnostic, setImageDiagnostic] = useState<string | null>(null);
   const [clipboard, setClipboard] = useState<BoardClipboardPayload | null>(
     null,
   );
@@ -229,6 +232,7 @@ export function App({
     useState<GeometryPromptViewState>({ kind: "idle" });
   const geometryOperationRef = useRef<GeometryPromptOperation | null>(null);
   const workspaceRef = useRef<HTMLElement>(null);
+  const lastPointerWorldRef = useRef<Vec2 | null>(null);
   const { commandError, history } = boardState;
   const document = history.present;
   const documentRef = useRef(document);
@@ -738,6 +742,117 @@ export function App({
     [applyDrawingAction],
   );
 
+  const importImageFiles = useCallback(
+    async (files: readonly File[]) => {
+      const candidates = files
+        .filter(isSupportedEmbeddedImageCandidate)
+        .slice(0, embeddedImageImportLimits.maxFilesPerBatch);
+      if (candidates.length === 0) {
+        setImageDiagnostic(
+          "image.unsupported-format: Поддерживаются PNG, JPEG/JPG, SVG и GIF.",
+        );
+        return;
+      }
+      const totalBytes = candidates.reduce((sum, file) => sum + file.size, 0);
+      if (totalBytes > embeddedImageImportLimits.maxBatchBytes) {
+        setImageDiagnostic(
+          "image.batch-too-large: Общий размер вставки превышает 24 МБ.",
+        );
+        return;
+      }
+
+      const current = documentRef.current;
+      const workspace = workspaceRef.current?.getBoundingClientRect();
+      const fallbackCenter = screenToWorld(
+        {
+          x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
+          y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
+        },
+        current.viewport,
+      );
+      const baseCenter = lastPointerWorldRef.current ?? fallbackCenter;
+      const objects = [];
+      const diagnostics: string[] = [];
+      for (const [index, file] of candidates.entries()) {
+        const prepared = await prepareEmbeddedImageFile(file);
+        if (prepared.status === "error") {
+          diagnostics.push(`${file.name}: ${prepared.code}`);
+          continue;
+        }
+        objects.push(
+          createEmbeddedImageObject({
+            center: {
+              x: baseCenter.x + index * 24,
+              y: baseCenter.y + index * 24,
+            },
+            id: boardObjectId(`object:${crypto.randomUUID()}`),
+            prepared: prepared.value,
+          }),
+        );
+      }
+
+      if (objects.length === 0) {
+        setImageDiagnostic(
+          diagnostics.length > 0
+            ? `Изображения отклонены: ${diagnostics.join("; ")}`
+            : "Не удалось подготовить изображения.",
+        );
+        return;
+      }
+      const result = commitCommand({
+        ...createCommandMetadata(),
+        kind: "core.objects.add",
+        objects,
+      });
+      if (!result.ok) {
+        setImageDiagnostic(result.error.message);
+        return;
+      }
+      const selected: SelectionState = {
+        interaction: { kind: "idle" },
+        selectedObjectIds: objects.map(({ id }) => id),
+      };
+      selectionStateRef.current = selected;
+      setSelectionState(selected);
+      setActiveTool(selectionToolId);
+      setClipboardNotice(`Вставлено изображений: ${objects.length}`);
+      setImageDiagnostic(
+        diagnostics.length === 0
+          ? null
+          : `Часть файлов пропущена: ${diagnostics.join("; ")}`,
+      );
+    },
+    [commitCommand, createCommandMetadata],
+  );
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      const editing =
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        (event.target instanceof HTMLElement && event.target.isContentEditable);
+      if (editing) {
+        return;
+      }
+      const files = [...(event.clipboardData?.items ?? [])].flatMap((item) => {
+        if (item.kind !== "file") {
+          return [];
+        }
+        const file = item.getAsFile();
+        return file === null ? [] : [file];
+      });
+      const images = files.filter(isSupportedEmbeddedImageCandidate);
+      event.preventDefault();
+      if (images.length > 0) {
+        void importImageFiles(images);
+      } else {
+        pasteClipboard();
+      }
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [importImageFiles, pasteClipboard]);
+
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
       const editing =
@@ -767,8 +882,6 @@ export function App({
           return;
         }
         if (key === "v") {
-          event.preventDefault();
-          pasteClipboard();
           return;
         }
       }
@@ -1023,64 +1136,6 @@ export function App({
     );
   }, [commitCommand, createCommandMetadata]);
 
-  const importSvgFile = useCallback(
-    async (file: File) => {
-      if (file.size > svgImportLimits.maxInputBytes) {
-        setSvgDiagnostic(
-          "svg.input-too-large: SVG превышает допустимый размер.",
-        );
-        return;
-      }
-
-      let source: string;
-      try {
-        source = await file.text();
-      } catch {
-        setSvgDiagnostic("svg.read-failed: Не удалось прочитать SVG-файл.");
-        return;
-      }
-
-      const current = documentRef.current;
-      const workspace = workspaceRef.current?.getBoundingClientRect();
-      const center = screenToWorld(
-        {
-          x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
-          y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
-        },
-        current.viewport,
-      );
-      const objectId = boardObjectId(`object:${crypto.randomUUID()}`);
-      const created = createSvgObject({ center, id: objectId, source });
-      if (created.status === "error") {
-        setSvgDiagnostic(
-          `${created.diagnostic.code}: SVG содержит небезопасные или неподдерживаемые данные.`,
-        );
-        return;
-      }
-
-      const result = commitCommand(
-        createAddSvgObjectCommand(createCommandMetadata(), created.object),
-      );
-      if (!result.ok) {
-        setBoardState((latest) => ({
-          ...latest,
-          commandError: result.error.message,
-        }));
-        return;
-      }
-
-      const selected: SelectionState = {
-        interaction: { kind: "idle" },
-        selectedObjectIds: [objectId],
-      };
-      selectionStateRef.current = selected;
-      setSelectionState(selected);
-      setActiveTool(selectionToolId);
-      setSvgDiagnostic(null);
-    },
-    [commitCommand, createCommandMetadata],
-  );
-
   const applyGeometryPromptResult = useCallback(
     (result: GeometryPromptResult) => {
       if (result.kind === "cancelled") {
@@ -1295,16 +1350,18 @@ export function App({
             type="button"
           >
             Вставить
-          </button>
+          </button>{" "}
           <label className="tool-button file-tool-button">
-            Вставить SVG
+            Вставить изображение
             <input
-              accept="image/svg+xml,.svg"
-              aria-label="Вставить SVG"
+              accept={embeddedImageAccept}
+              aria-label="Вставить изображения"
+              disabled={readOnly}
+              multiple
               onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
-                if (file !== undefined) {
-                  void importSvgFile(file);
+                const files = [...(event.currentTarget.files ?? [])];
+                if (files.length > 0) {
+                  void importImageFiles(files);
                 }
                 event.currentTarget.value = "";
               }}
@@ -1437,7 +1494,7 @@ export function App({
               </div>
               <div>
                 <dt>Ctrl/Cmd + C, X, V</dt>
-                <dd>Копирование, вырезание и вставка</dd>
+                <dd>Копирование объектов и вставка объектов или изображений</dd>
               </div>
               <div>
                 <dt>Ctrl/Cmd + Z / Shift+Z</dt>
@@ -1461,11 +1518,11 @@ export function App({
           <div className="persistence-notice" role="status">
             {persistenceNotice}
           </div>
-        )}
-        {svgDiagnostic === null ? null : (
+        )}{" "}
+        {imageDiagnostic === null ? null : (
           <div className="persistence-alert" role="alert">
-            <strong>SVG не вставлен</strong>
-            <span>{svgDiagnostic}</span>
+            <strong>Изображение не вставлено</strong>
+            <span>{imageDiagnostic}</span>
           </div>
         )}
         {clipboardNotice === null ? null : (
@@ -1501,7 +1558,8 @@ export function App({
           onWorldPointerCancel={cancelDrawing}
           onWorldPointerFinish={finishDrawing}
           onWorldPointerMove={moveDrawing}
-          onWorldPointerHover={(cursor) =>
+          onWorldPointerHover={(cursor) => {
+            lastPointerWorldRef.current = cursor;
             onPresenceChange?.({
               cursor,
               selectedObjectIds: selectionStateRef.current.selectedObjectIds,
@@ -1510,8 +1568,8 @@ export function App({
                 y: documentRef.current.viewport.offset.y,
                 zoom: documentRef.current.viewport.zoom,
               },
-            })
-          }
+            });
+          }}
           onWorldPointerStart={startDrawing}
           onPanModeRequest={() => activateTool(navigationToolId)}
           onSelectionPointerCancel={cancelSelection}
@@ -1534,7 +1592,6 @@ export function App({
           selectionPreviewDelta={renderedSelectionPreviewDelta}
           transformableObjectIds={transformableObjectIds}
         />
-
         <GeometryPromptPanel
           available={geometryOsClient !== undefined}
           onCancel={() => geometryOperationRef.current?.cancel()}
@@ -1553,7 +1610,6 @@ export function App({
           prompt={geometryPrompt}
           state={geometryPromptState}
         />
-
         <aside aria-label="Слои" className="layers-panel">
           <div className="layers-panel-header">
             <strong>Слои</strong>
@@ -1630,7 +1686,6 @@ export function App({
             </ol>
           )}
         </aside>
-
         <div
           aria-label="Инструменты рисования"
           className="drawing-toolbar"
@@ -1694,7 +1749,6 @@ export function App({
             </label>
           ) : null}
         </div>
-
         <aside className="canvas-help" aria-label="Подсказка по навигации">
           <strong>
             {activeTool === navigationToolId
@@ -1717,7 +1771,6 @@ export function App({
           <span>Правая кнопка / Space / средняя кнопка — перемещение</span>
           <span>Escape — отменить действие</span>
         </aside>
-
         {selectionState.selectedObjectIds.length === 0 ? null : (
           <aside
             className="selection-inspector"
@@ -1841,7 +1894,6 @@ export function App({
             )}
           </aside>
         )}
-
         <div className="coordinate-chip" aria-live="polite">
           <span data-testid="viewport-zoom">
             {Math.round(document.viewport.zoom * 100)}%

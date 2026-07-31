@@ -144,6 +144,7 @@ function verifySourceParity() {
   ).sort();
   const schemaObjectKinds = [
     "EllipseObject",
+    "EmbeddedImageObject",
     "LineObject",
     "PenStrokeObject",
     "RectangleObject",

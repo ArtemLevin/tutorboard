@@ -3,6 +3,7 @@ import { Ellipse, Group, Line, Rect, Text } from "react-konva";
 
 import type { BoardObject, BoardObjectKind, Vec2 } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
+import { EmbeddedImageRenderer } from "./embedded-image-renderer";
 import { SvgRenderer } from "./svg-renderer";
 import {
   KonvaRendererRegistry,
@@ -231,6 +232,14 @@ const renderers: readonly KonvaObjectRenderer[] = [
           radiusX={ellipse.radius.x}
           radiusY={ellipse.radius.y}
         />
+      );
+    },
+  },
+  {
+    kind: "image.embedded",
+    render(object) {
+      return (
+        <EmbeddedImageRenderer object={expectKind(object, "image.embedded")} />
       );
     },
   },

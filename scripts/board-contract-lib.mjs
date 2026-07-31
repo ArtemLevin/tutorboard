@@ -118,6 +118,25 @@ const ellipse = boardObject("drawing.ellipse", {
 const text = boardObject("drawing.text", {
   text: { maxLength: 100_000, type: "string" },
 });
+const embeddedImage = boardObject("image.embedded", {
+  contentSha256: { pattern: sha256Pattern, type: "string" },
+  dataUrl: {
+    maxLength: 12 * 1024 * 1024,
+    minLength: 1,
+    pattern: "^data:image/(?:png|jpeg|gif|svg\\+xml);base64,[A-Za-z0-9+/=]+$",
+    type: "string",
+  },
+  fileName: { maxLength: 256, minLength: 1, type: "string" },
+  intrinsicSize: strictObject({
+    height: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+    width: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+  }),
+  mimeType: { enum: ["image/png", "image/jpeg", "image/svg+xml", "image/gif"] },
+  size: strictObject({
+    height: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+    width: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+  }),
+});
 const svgViewBox = strictObject({
   height: { exclusiveMinimum: 0, maximum: 1_000_000, type: "number" },
   width: { exclusiveMinimum: 0, maximum: 1_000_000, type: "number" },
@@ -144,6 +163,7 @@ const boardObjectUnion = {
     reference("RectangleObject"),
     reference("EllipseObject"),
     reference("TextObject"),
+    reference("EmbeddedImageObject"),
     reference("SvgObject"),
   ],
 };
@@ -218,6 +238,7 @@ const boardDefinitions = {
   BoardGroup: boardGroup,
   BoardObject: boardObjectUnion,
   EllipseObject: ellipse,
+  EmbeddedImageObject: embeddedImage,
   GeometryImportRecord: geometryImportRecord,
   GeometryOsObjectSource: geometryOsSource,
   Identifier: identifier,
