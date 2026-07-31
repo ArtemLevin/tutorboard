@@ -1,1 +1,0 @@
-Trigger clean CI for the direct selection and right-button pan implementation.
