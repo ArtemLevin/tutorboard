@@ -258,11 +258,11 @@ test("selects selectively with a freeform lasso", async ({ page }) => {
 
   await traceLasso(
     [
-      [620, 190],
-      [750, 190],
-      [750, 340],
-      [620, 340],
-      [620, 190],
+      [600, 100],
+      [760, 100],
+      [760, 360],
+      [600, 360],
+      [600, 100],
     ],
     "Shift",
   );
@@ -270,18 +270,18 @@ test("selects selectively with a freeform lasso", async ({ page }) => {
 
   await traceLasso(
     [
-      [470, 150],
-      [610, 150],
-      [610, 340],
-      [470, 340],
-      [470, 150],
+      [450, 100],
+      [610, 100],
+      [610, 360],
+      [450, 360],
+      [450, 100],
     ],
     "Alt",
   );
   await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
 
-  const start = await stagePoint(page, 250, 150);
-  const next = await stagePoint(page, 430, 150);
+  const start = await stagePoint(page, 250, 100);
+  const next = await stagePoint(page, 430, 100);
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(next.x, next.y, { steps: 3 });
