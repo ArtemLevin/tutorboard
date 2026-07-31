@@ -9,6 +9,7 @@ import type {
 import { isValidIdentifier } from "../identifiers";
 import {
   boardObjectKinds,
+  embeddedImageMimeTypes,
   strokeStyles,
   svgSanitizerPolicyVersion,
 } from "../objects";
@@ -132,6 +133,22 @@ const textSchema = z
     text: z.string().max(100_000),
   })
   .strict();
+const embeddedImageObjectSchema = z
+  .object({
+    ...objectBase,
+    contentSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    dataUrl: z
+      .string()
+      .min(1)
+      .max(12 * 1024 * 1024)
+      .regex(/^data:image\/(?:png|jpeg|gif|svg\+xml);base64,[A-Za-z0-9+/=]+$/u),
+    fileName: z.string().min(1).max(256),
+    intrinsicSize: svgSizeSchema,
+    kind: z.literal("image.embedded"),
+    mimeType: z.enum(embeddedImageMimeTypes),
+    size: svgSizeSchema,
+  })
+  .strict();
 const svgViewBoxSchema = z
   .object({
     height: finiteNumberSchema.positive().max(1_000_000),
@@ -167,6 +184,7 @@ const objectSchema = z.discriminatedUnion("kind", [
   rectangleSchema,
   ellipseSchema,
   textSchema,
+  embeddedImageObjectSchema,
   svgObjectSchema,
 ]);
 const groupSchema = z

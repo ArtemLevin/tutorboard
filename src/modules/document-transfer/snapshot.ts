@@ -60,6 +60,8 @@ function objectMarkup(object: BoardObject): string {
       const lines = label.displayText.split(/\r?\n/u);
       return `<text aria-label="${escapeXml(label.accessibleText)}" font-family="Inter,ui-sans-serif,system-ui" font-size="22" ${common}>${lines.map((line, index) => `<tspan x="0" dy="${index === 0 ? "0" : "1.35em"}">${escapeXml(line)}</tspan>`).join("")}</text>`;
     }
+    case "image.embedded":
+      return `<image ${common} height="${number(object.size.height)}" href="${escapeXml(object.dataUrl)}" preserveAspectRatio="none" width="${number(object.size.width)}"/>`;
     case "svg-import.svg":
       return `<g ${common}>${object.sanitizedSvg}</g>`;
   }

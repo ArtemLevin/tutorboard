@@ -9,10 +9,20 @@ export const boardObjectKinds = [
   "drawing.rectangle",
   "drawing.ellipse",
   "drawing.text",
+  "image.embedded",
   "svg-import.svg",
 ] as const;
 
 export type BoardObjectKind = (typeof boardObjectKinds)[number];
+
+export const embeddedImageMimeTypes = [
+  "image/png",
+  "image/jpeg",
+  "image/svg+xml",
+  "image/gif",
+] as const;
+
+export type EmbeddedImageMimeType = (typeof embeddedImageMimeTypes)[number];
 
 export interface UserObjectSource {
   readonly kind: "user";
@@ -86,6 +96,16 @@ export interface TextObject extends BoardObjectBase {
   readonly text: string;
 }
 
+export interface EmbeddedImageObject extends BoardObjectBase {
+  readonly contentSha256: string;
+  readonly dataUrl: string;
+  readonly fileName: string;
+  readonly intrinsicSize: Size2;
+  readonly kind: "image.embedded";
+  readonly mimeType: EmbeddedImageMimeType;
+  readonly size: Size2;
+}
+
 export interface SvgViewBox {
   readonly height: number;
   readonly width: number;
@@ -103,6 +123,7 @@ export interface SvgObject extends BoardObjectBase {
 
 export type BoardObject =
   | EllipseObject
+  | EmbeddedImageObject
   | LineObject
   | PenStrokeObject
   | RectangleObject

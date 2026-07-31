@@ -234,6 +234,7 @@ function localObjectPoints(object: BoardObject): readonly Vec2[] {
     case "drawing.line":
       return [{ x: 0, y: 0 }, object.end];
     case "drawing.rectangle":
+    case "image.embedded":
     case "svg-import.svg":
       return [
         { x: 0, y: 0 },

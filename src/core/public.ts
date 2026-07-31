@@ -26,12 +26,15 @@ export type {
 } from "./board/geometry-imports";
 export {
   boardObjectKinds,
+  embeddedImageMimeTypes,
   strokeStyles,
   svgSanitizerPolicyVersion,
   type BoardObject,
   type BoardObjectKind,
   type BoardObjectSource,
   type EllipseObject,
+  type EmbeddedImageMimeType,
+  type EmbeddedImageObject,
   type LineObject,
   type ObjectStyle,
   type PenStrokeObject,
