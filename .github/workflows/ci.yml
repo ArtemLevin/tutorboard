@@ -252,3 +252,68 @@ jobs:
         run: |
           docker logs tutorboard-release || true
           docker rm --force tutorboard-release || true
+
+# BEGIN SMOOTH LASSO PATCH JOB
+  apply-smooth-lasso-fix:
+    name: Apply smooth lasso fix
+    if: github.event_name == 'pull_request' && github.head_ref == 'fix/smooth-lasso-curves'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: fix/smooth-lasso-curves
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply product patch
+        run: |
+          python <<'RUNNER'
+          from pathlib import Path
+          from textwrap import dedent
+
+          workflow = Path('.github/workflows/apply-smooth-lasso-fix.yml').read_text(encoding='utf-8')
+          start_marker = "          python <<'PY'\n"
+          end_marker = "\n          PY\n\n      - name: Format and verify"
+          start = workflow.index(start_marker) + len(start_marker)
+          end = workflow.index(end_marker, start)
+          script = dedent(workflow[start:end])
+          exec(compile(script, 'apply-smooth-lasso-fix', 'exec'), {'__name__': '__main__'})
+          RUNNER
+
+      - name: Format and verify
+        run: |
+          npm run format
+          npm run lint
+          npm run typecheck
+          npm run test -- src/shared/stroke-smoothing.test.ts
+
+      - name: Commit clean product change
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          ci = Path('.github/workflows/ci.yml')
+          marker = '\n# BEGIN SMOOTH LASSO PATCH JOB\n'
+          source = ci.read_text(encoding='utf-8')
+          assert marker in source
+          ci.write_text(source.split(marker, 1)[0].rstrip() + '\n', encoding='utf-8')
+          Path('.github/workflows/apply-smooth-lasso-fix.yml').unlink()
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: render lasso as a smooth continuous curve"
+          git push origin HEAD:fix/smooth-lasso-curves
