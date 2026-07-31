@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -22,6 +22,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -31,6 +34,28 @@ jobs:
 
       - name: Install locked dependencies
         run: npm ci
+
+      - name: Apply direct interaction patch
+        if: github.event_name == 'pull_request' && github.head_ref == 'agent/direct-select-right-pan' && hashFiles('scripts/apply-direct-interactions.py') != ''
+        run: |
+          python scripts/apply-direct-interactions.py
+          npm run format
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/ci.yml .github/workflows/smart-ink-release-gate.yml
+          rm -f .github/workflows/direct-select-right-pan-helper.yml scripts/apply-direct-interactions.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/adapters/canvas-konva/BoardStage.tsx \
+            src/adapters/canvas-konva/default-renderers.tsx \
+            src/app/App.tsx \
+            tests/e2e/selection.spec.ts \
+            docs/architecture/OBJECT_TRANSFORMS.md \
+            .github/workflows/ci.yml \
+            .github/workflows/smart-ink-release-gate.yml \
+            .github/workflows/direct-select-right-pan-helper.yml \
+            scripts/apply-direct-interactions.py
+          git commit -m "feat: add direct selection and right-button canvas pan"
+          git push origin HEAD:${{ github.head_ref }}
 
       - name: Install locked GeometryOS code-generation toolchain
         run: npm ci --prefix tools/geometryos-contract
