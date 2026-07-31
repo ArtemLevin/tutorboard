@@ -1,0 +1,48 @@
+name: Fix image import test
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-test:
+    if: github.event.pull_request.head.ref == 'feature-embedded-image-import'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature-embedded-image-import
+          fetch-depth: 0
+      - name: Fix fetch mock and remove workflow
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          path = Path('src/app/App.test.tsx')
+          text = path.read_text(encoding='utf-8')
+          old = 'const fetchMock = vi.fn(async (input: RequestInfo | URL) => {'
+          new = 'const fetchMock = vi.fn((input: RequestInfo | URL) => {'
+          if text.count(old) != 1:
+              raise SystemExit('fetch mock anchor mismatch')
+          text = text.replace(old, new)
+          text = text.replace(
+              'return new Response(generateSuccessJson, {\n          headers: { "Content-Type": "application/json" },\n          status: 200,\n        });',
+              'return Promise.resolve(\n          new Response(generateSuccessJson, {\n            headers: { "Content-Type": "application/json" },\n            status: 200,\n          }),\n        );',
+          )
+          text = text.replace(
+              'return new Response(layoutSuccessJson, {\n          headers: { "Content-Type": "application/json" },\n          status: 200,\n        });',
+              'return Promise.resolve(\n          new Response(layoutSuccessJson, {\n            headers: { "Content-Type": "application/json" },\n            status: 200,\n          }),\n        );',
+          )
+          text = text.replace(
+              'return new Response("not found", { status: 404 });',
+              'return Promise.resolve(new Response("not found", { status: 404 }));',
+          )
+          path.write_text(text, encoding='utf-8')
+          Path('.github/workflows/fix-image-import-test.yml').unlink()
+          PY
+          git add -A
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "test: return promises from GeometryOS mock"
+          git push origin HEAD:feature-embedded-image-import
