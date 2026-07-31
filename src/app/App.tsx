@@ -100,6 +100,7 @@ import {
   createUpdateTextCommand,
   isEditableTextObject,
 } from "../modules/text-editing/public";
+import { ColorPalette } from "./ColorPalette";
 import { readEnvironment } from "./configuration/environment";
 import {
   GeometryPromptPanel,
@@ -1781,36 +1782,17 @@ export function App({
                     />
                   </label>
                 ) : null}
-                <label>
-                  Заливка
-                  <input
-                    aria-label="Заливка выделения"
-                    onChange={(event) =>
-                      updateSelectionStyle({
-                        fill:
-                          event.currentTarget.value.trim() === ""
-                            ? null
-                            : event.currentTarget.value,
-                      })
-                    }
-                    value={selectedStyle.fill ?? ""}
-                  />
-                </label>
-                <label>
-                  Обводка
-                  <input
-                    aria-label="Обводка выделения"
-                    onChange={(event) =>
-                      updateSelectionStyle({
-                        stroke:
-                          event.currentTarget.value.trim() === ""
-                            ? null
-                            : event.currentTarget.value,
-                      })
-                    }
-                    value={selectedStyle.stroke ?? ""}
-                  />
-                </label>
+                <ColorPalette
+                  allowNone
+                  label="Заливка"
+                  onChange={(fill) => updateSelectionStyle({ fill })}
+                  value={selectedStyle.fill}
+                />
+                <ColorPalette
+                  label="Обводка"
+                  onChange={(stroke) => updateSelectionStyle({ stroke })}
+                  value={selectedStyle.stroke}
+                />
                 <label>
                   Толщина
                   <input
