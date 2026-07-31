@@ -265,14 +265,14 @@ describe("App", () => {
     trigger.focus();
     fireEvent.click(trigger);
     expect(
-      screen.getByRole("dialog", { name: "Горячие клавиши TutorBoard" }),
+      screen.getByRole("dialog", { name: "Горячие клавиши" }),
     ).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(trigger).toHaveFocus();
   });
 
   it("runs the GeometryOS vertical flow and selects one atomic import", async () => {
-    const requestId = geometryOsRequestId("request:unit");
+    const requestId = geometryOsRequestId("tutorboard-request:unit");
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = requestUrl(input);
       if (url.endsWith("/api/v1/generate")) {
