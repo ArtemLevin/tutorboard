@@ -3,6 +3,13 @@ set -euo pipefail
 
 base64 --decode scripts/apply-coordinate-plot-pr1.py.gz.b64 | gzip --decompress > scripts/apply-coordinate-plot-pr1.py
 python3 scripts/apply-coordinate-plot-pr1.py apply
+python3 - <<'PY'
+from pathlib import Path
+path = Path("src/adapters/canvas-konva/coordinate-plot-placeholder-renderer.tsx")
+content = path.read_text(encoding="utf-8")
+content = content.replace('join("\n")', 'join("\\n")')
+path.write_text(content, encoding="utf-8")
+PY
 
 npm ci
 npm run format
