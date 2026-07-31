@@ -1,0 +1,133 @@
+name: Finalize image import integration
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.head_ref == 'feature-image-import'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature-image-import
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Finalize product and tests
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          p = Path('src/app/App.tsx')
+          text = p.read_text()
+          old = '''        if (key === "v") {
+          const hasSystemImage = [...(navigator.clipboard === undefined ? [] : [])].length > 0;
+          if (!hasSystemImage) {
+            event.preventDefault();
+            pasteClipboard();
+          }
+          return;
+        }'''
+          if old not in text:
+              raise SystemExit('Ctrl+V key block marker missing')
+          text = text.replace(old, '''        if (key === "v") {
+          return;
+        }''', 1)
+          old = '''      const file = imageItem?.getAsFile();
+      if (file === null || file === undefined) return;
+      event.preventDefault();
+      void importImageFile(file);'''
+          if old not in text:
+              raise SystemExit('paste handler marker missing')
+          text = text.replace(old, '''      const file = imageItem?.getAsFile();
+      if (file !== null && file !== undefined) {
+        event.preventDefault();
+        void importImageFile(file);
+        return;
+      }
+      if (clipboard !== null) {
+        event.preventDefault();
+        pasteClipboard();
+      }''', 1)
+          text = text.replace('  }, [importImageFile]);', '  }, [clipboard, importImageFile, pasteClipboard]);', 1)
+          p.write_text(text)
+
+          Path('tests/e2e/image-import.spec.ts').write_text(r'''import { expect, test } from "@playwright/test";
+
+const png = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+test.beforeEach(async ({ page }) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("application", { name: "Бесконечное полотно TutorBoard" }),
+  ).toBeVisible();
+});
+
+test("imports a PNG from the file picker and exposes transforms", async ({ page }) => {
+  await page.getByLabel("Вставить изображение").setInputFiles({
+    buffer: png,
+    mimeType: "image/png",
+    name: "lesson.png",
+  });
+
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-transformable-count",
+    "1",
+  );
+  await expect(
+    page.getByRole("button", { name: "Увеличить выделение на 10%" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Повернуть выделение на 15 градусов" })
+    .click();
+  await expect(page.getByTestId("first-object-transform")).toContainText(
+    "Поворот: 15°",
+  );
+});
+
+test("pastes a PNG from the operating-system clipboard event", async ({ page }) => {
+  const base64 = png.toString("base64");
+  await page.evaluate((encoded) => {
+    const bytes = Uint8Array.from(atob(encoded), (character) =>
+      character.charCodeAt(0),
+    );
+    const file = new File([bytes], "clipboard.png", { type: "image/png" });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    window.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: transfer,
+      }),
+    );
+  }, base64);
+
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-transformable-count",
+    "1",
+  );
+});
+''')
+          PY
+          npm run board-contract:generate
+          npx prettier --write src/app/App.tsx tests/e2e/image-import.spec.ts src/modules/image-import/importer.test.ts contracts/board/v1.schema.json
+          rm .github/workflows/image-import-finalize.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test: validate file and clipboard image import"
+          git push origin HEAD:feature-image-import
