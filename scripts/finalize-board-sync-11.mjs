@@ -12,6 +12,18 @@ function patch(path, changes) {
   fs.writeFileSync(path, source);
 }
 
+function replaceCount(path, search, replacement, expectedCount) {
+  let source = fs.readFileSync(path, "utf8");
+  const count = source.split(search).length - 1;
+  if (count !== expectedCount) {
+    throw new Error(
+      `${path}: expected ${expectedCount} occurrences of ${search}, received ${count}.`,
+    );
+  }
+  source = source.replaceAll(search, replacement);
+  fs.writeFileSync(path, source);
+}
+
 patch("src/core/ports/board-sync-repository.ts", [
   [
     '  readonly idempotencyKey: string;\n  readonly schemaVersion: "1.0";\n}',
@@ -50,3 +62,18 @@ patch("src/modules/server-sync/sync.ts", [
     "outgoing envelope version",
   ],
 ]);
+
+patch("tests/unit/adapters/board-http/client.test.ts", [
+  [
+    '  idempotencyKey: "client:batch-1",\n  schemaVersion: "1.0",',
+    '  idempotencyKey: "client:batch-1",\n  schemaVersion: "1.1",',
+    "command envelope fixture version",
+  ],
+]);
+
+replaceCount(
+  "tests/unit/modules/server-sync/sync.test.ts",
+  'schemaVersion: "1.0"',
+  'schemaVersion: "1.1"',
+  6,
+);
