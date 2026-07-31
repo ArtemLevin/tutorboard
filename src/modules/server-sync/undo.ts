@@ -54,6 +54,16 @@ export function invertOwnBoardCommand(
           replacements: command.originals,
         },
       ];
+    case "core.coordinate-plot.update":
+      return [
+        {
+          ...meta(),
+          expected: command.replacement,
+          kind: command.kind,
+          objectId: command.objectId,
+          replacement: command.expected,
+        },
+      ];
     case "core.objects.delete": {
       const deleted = objects(before, command.objectIds);
       if (

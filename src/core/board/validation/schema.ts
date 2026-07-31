@@ -1,10 +1,20 @@
 import { z } from "zod";
 
+import {
+  coordinatePlotExpressionLanguage,
+  maximumCoordinatePlotParameters,
+  maximumCoordinatePlotSeries,
+  maximumPlotExpressionLength,
+  plotLegendPositions,
+  plotLineStyles,
+} from "../coordinate-plot";
 import type {
   BoardObjectId,
   DocumentId,
   GeometryImportId,
   GroupId,
+  PlotParameterId,
+  PlotSeriesId,
 } from "../identifiers";
 import { isValidIdentifier } from "../identifiers";
 import {
@@ -27,6 +37,12 @@ const geometryImportIdSchema = identifierSchema.transform(
   (value) => value as GeometryImportId,
 );
 const groupIdSchema = identifierSchema.transform((value) => value as GroupId);
+const plotParameterIdSchema = identifierSchema.transform(
+  (value) => value as PlotParameterId,
+);
+const plotSeriesIdSchema = identifierSchema.transform(
+  (value) => value as PlotSeriesId,
+);
 const timestampSchema = z.iso.datetime({ offset: true });
 const finiteNumberSchema = z.number().finite();
 const vec2Schema = z
@@ -171,6 +187,129 @@ const svgObjectSchema = z
   })
   .strict();
 
+const plotExpressionSchema = z
+  .string()
+  .min(1)
+  .max(maximumPlotExpressionLength)
+  .refine((value) => value.trim().length > 0, "Expression cannot be blank");
+const plotSeriesStyleSchema = z
+  .object({
+    lineStyle: z.enum(plotLineStyles),
+    opacity: finiteNumberSchema.min(0).max(1),
+    stroke: z.string().min(1).max(256),
+    strokeWidth: finiteNumberSchema.min(0.25).max(32),
+  })
+  .strict();
+const explicitPlotSeriesSchema = z
+  .object({
+    domain: z
+      .object({
+        maxExpression: plotExpressionSchema.nullable(),
+        minExpression: plotExpressionSchema.nullable(),
+      })
+      .strict(),
+    expression: plotExpressionSchema,
+    id: plotSeriesIdSchema,
+    kind: z.literal("explicit"),
+    name: z.string().min(1).max(128),
+    style: plotSeriesStyleSchema,
+    visible: z.boolean(),
+  })
+  .strict();
+const parametricPlotSeriesSchema = z
+  .object({
+    closed: z.boolean(),
+    id: plotSeriesIdSchema,
+    kind: z.literal("parametric"),
+    name: z.string().min(1).max(128),
+    parameterName: z.literal("t"),
+    range: z
+      .object({
+        maxExpression: plotExpressionSchema,
+        minExpression: plotExpressionSchema,
+      })
+      .strict(),
+    style: plotSeriesStyleSchema,
+    visible: z.boolean(),
+    xExpression: plotExpressionSchema,
+    yExpression: plotExpressionSchema,
+  })
+  .strict();
+const plotParameterSchema = z
+  .object({
+    id: plotParameterIdSchema,
+    max: finiteNumberSchema.nullable(),
+    min: finiteNumberSchema.nullable(),
+    name: z.string().min(1).max(32),
+    step: finiteNumberSchema.nullable(),
+    value: finiteNumberSchema,
+  })
+  .strict();
+const coordinatePlotDefinitionSchema = z
+  .object({
+    axes: z
+      .object({
+        showArrows: z.boolean(),
+        showLabels: z.boolean(),
+        showXAxis: z.boolean(),
+        showYAxis: z.boolean(),
+        xLabel: z.string().max(32),
+        yLabel: z.string().max(32),
+      })
+      .strict(),
+    coordinateViewport: z
+      .object({
+        equalScale: z.boolean(),
+        xMax: finiteNumberSchema,
+        xMin: finiteNumberSchema,
+        yMax: finiteNumberSchema,
+        yMin: finiteNumberSchema,
+      })
+      .strict(),
+    expressionLanguage: z.literal(coordinatePlotExpressionLanguage),
+    grid: z
+      .object({
+        automaticStep: z.boolean(),
+        majorVisible: z.boolean(),
+        minorVisible: z.boolean(),
+        visible: z.boolean(),
+        xStep: finiteNumberSchema.nullable(),
+        yStep: finiteNumberSchema.nullable(),
+      })
+      .strict(),
+    legend: z
+      .object({
+        position: z.enum(plotLegendPositions),
+        visible: z.boolean(),
+      })
+      .strict(),
+    parameters: z
+      .array(plotParameterSchema)
+      .max(maximumCoordinatePlotParameters),
+    series: z
+      .array(
+        z.discriminatedUnion("kind", [
+          explicitPlotSeriesSchema,
+          parametricPlotSeriesSchema,
+        ]),
+      )
+      .max(maximumCoordinatePlotSeries),
+    size: z
+      .object({
+        height: finiteNumberSchema.min(100).max(16_384),
+        width: finiteNumberSchema.min(120).max(16_384),
+      })
+      .strict(),
+  })
+  .strict();
+const coordinatePlotObjectSchema = z
+  .object({
+    ...objectBase,
+    definition: coordinatePlotDefinitionSchema,
+    kind: z.literal("math.coordinate-plot"),
+  })
+  .strict();
+
 const legacyObjectSchema = z.discriminatedUnion("kind", [
   penStrokeSchema,
   lineSchema,
@@ -178,7 +317,7 @@ const legacyObjectSchema = z.discriminatedUnion("kind", [
   ellipseSchema,
   textSchema,
 ]);
-const objectSchema = z.discriminatedUnion("kind", [
+const objectSchema10 = z.discriminatedUnion("kind", [
   penStrokeSchema,
   lineSchema,
   rectangleSchema,
@@ -186,6 +325,16 @@ const objectSchema = z.discriminatedUnion("kind", [
   textSchema,
   embeddedImageObjectSchema,
   svgObjectSchema,
+]);
+const objectSchema11 = z.discriminatedUnion("kind", [
+  penStrokeSchema,
+  lineSchema,
+  rectangleSchema,
+  ellipseSchema,
+  textSchema,
+  embeddedImageObjectSchema,
+  svgObjectSchema,
+  coordinatePlotObjectSchema,
 ]);
 const groupSchema = z
   .object({
@@ -225,8 +374,9 @@ const geometryImportSchema = z
   .strict();
 
 function documentSchema(
-  schemaVersion: "0.1" | "0.2" | "1.0",
-  storedObjectSchema: typeof legacyObjectSchema | typeof objectSchema,
+  schemaVersion: "0.1" | "0.2" | "1.0" | "1.1",
+  storedObjectSchema:
+    typeof legacyObjectSchema | typeof objectSchema10 | typeof objectSchema11,
 ) {
   return z
     .object({
@@ -245,8 +395,9 @@ function documentSchema(
 }
 
 export const boardDocumentSchema01 = documentSchema("0.1", legacyObjectSchema);
-export const boardDocumentSchema02 = documentSchema("0.2", objectSchema);
-export const boardDocumentSchema = documentSchema("1.0", objectSchema);
+export const boardDocumentSchema02 = documentSchema("0.2", objectSchema10);
+export const boardDocumentSchema10 = documentSchema("1.0", objectSchema10);
+export const boardDocumentSchema = documentSchema("1.1", objectSchema11);
 
 export const legacyBoardObjectKinds = new Set<string>([
   "drawing.pen-stroke",
@@ -254,5 +405,14 @@ export const legacyBoardObjectKinds = new Set<string>([
   "drawing.rectangle",
   "drawing.ellipse",
   "drawing.text",
+]);
+export const knownBoardObjectKinds10 = new Set<string>([
+  "drawing.pen-stroke",
+  "drawing.line",
+  "drawing.rectangle",
+  "drawing.ellipse",
+  "drawing.text",
+  "image.embedded",
+  "svg-import.svg",
 ]);
 export const knownBoardObjectKinds = new Set<string>(boardObjectKinds);

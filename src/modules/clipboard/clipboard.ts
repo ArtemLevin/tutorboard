@@ -13,7 +13,7 @@ import {
   type Vec2,
 } from "../../core/public";
 
-export const boardClipboardSchemaVersion = "1.0" as const;
+export const boardClipboardSchemaVersion = "1.1" as const;
 export const defaultPasteOffset: Vec2 = { x: 24, y: 24 };
 
 export interface BoardClipboardPayload {

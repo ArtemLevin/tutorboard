@@ -87,11 +87,18 @@ function localSelectionPath(object: BoardObject): SelectionPath {
     case "drawing.line":
       return { closed: false, points: [{ x: 0, y: 0 }, object.end] };
     case "drawing.rectangle":
+    case "math.coordinate-plot":
     case "image.embedded":
     case "svg-import.svg":
       return {
         closed: true,
-        points: rectanglePoints({ x: 0, y: 0, ...object.size }),
+        points: rectanglePoints({
+          x: 0,
+          y: 0,
+          ...(object.kind === "math.coordinate-plot"
+            ? object.definition.size
+            : object.size),
+        }),
       };
     case "drawing.ellipse": {
       const samples = Math.min(

@@ -45,7 +45,7 @@
           "uniqueItems": true
         },
         "schemaVersion": {
-          "const": "1.0"
+          "const": "1.1"
         },
         "title": {
           "maxLength": 256,
@@ -125,8 +125,251 @@
         },
         {
           "$ref": "#/$defs/SvgObject"
+        },
+        {
+          "$ref": "#/$defs/CoordinatePlotObject"
         }
       ]
+    },
+    "CoordinatePlotDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "axes": {
+          "additionalProperties": false,
+          "properties": {
+            "showArrows": {
+              "type": "boolean"
+            },
+            "showLabels": {
+              "type": "boolean"
+            },
+            "showXAxis": {
+              "type": "boolean"
+            },
+            "showYAxis": {
+              "type": "boolean"
+            },
+            "xLabel": {
+              "maxLength": 32,
+              "type": "string"
+            },
+            "yLabel": {
+              "maxLength": 32,
+              "type": "string"
+            }
+          },
+          "required": [
+            "showArrows",
+            "showLabels",
+            "showXAxis",
+            "showYAxis",
+            "xLabel",
+            "yLabel"
+          ],
+          "type": "object"
+        },
+        "coordinateViewport": {
+          "additionalProperties": false,
+          "properties": {
+            "equalScale": {
+              "type": "boolean"
+            },
+            "xMax": {
+              "type": "number"
+            },
+            "xMin": {
+              "type": "number"
+            },
+            "yMax": {
+              "type": "number"
+            },
+            "yMin": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "equalScale",
+            "xMax",
+            "xMin",
+            "yMax",
+            "yMin"
+          ],
+          "type": "object"
+        },
+        "expressionLanguage": {
+          "const": "tutorboard-expression/1"
+        },
+        "grid": {
+          "additionalProperties": false,
+          "properties": {
+            "automaticStep": {
+              "type": "boolean"
+            },
+            "majorVisible": {
+              "type": "boolean"
+            },
+            "minorVisible": {
+              "type": "boolean"
+            },
+            "visible": {
+              "type": "boolean"
+            },
+            "xStep": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "yStep": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "automaticStep",
+            "majorVisible",
+            "minorVisible",
+            "visible",
+            "xStep",
+            "yStep"
+          ],
+          "type": "object"
+        },
+        "legend": {
+          "additionalProperties": false,
+          "properties": {
+            "position": {
+              "enum": [
+                "top-left",
+                "top-right",
+                "bottom-left",
+                "bottom-right"
+              ]
+            },
+            "visible": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "position",
+            "visible"
+          ],
+          "type": "object"
+        },
+        "parameters": {
+          "items": {
+            "$ref": "#/$defs/PlotParameter"
+          },
+          "type": "array",
+          "maxItems": 32
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/PlotSeries"
+          },
+          "type": "array",
+          "maxItems": 32
+        },
+        "size": {
+          "additionalProperties": false,
+          "properties": {
+            "height": {
+              "maximum": 16384,
+              "minimum": 100,
+              "type": "number"
+            },
+            "width": {
+              "maximum": 16384,
+              "minimum": 120,
+              "type": "number"
+            }
+          },
+          "required": [
+            "height",
+            "width"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "axes",
+        "coordinateViewport",
+        "expressionLanguage",
+        "grid",
+        "legend",
+        "parameters",
+        "series",
+        "size"
+      ],
+      "type": "object"
+    },
+    "CoordinatePlotObject": {
+      "additionalProperties": false,
+      "properties": {
+        "groupId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "position": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "scale": {
+          "$ref": "#/$defs/PositiveVec2"
+        },
+        "source": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/UserObjectSource"
+            },
+            {
+              "$ref": "#/$defs/GeometryOsObjectSource"
+            }
+          ]
+        },
+        "style": {
+          "$ref": "#/$defs/ObjectStyle"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "kind": {
+          "const": "math.coordinate-plot"
+        },
+        "definition": {
+          "$ref": "#/$defs/CoordinatePlotDefinition"
+        }
+      },
+      "required": [
+        "groupId",
+        "id",
+        "locked",
+        "position",
+        "rotation",
+        "scale",
+        "source",
+        "style",
+        "visible",
+        "kind",
+        "definition"
+      ],
+      "type": "object"
     },
     "EllipseObject": {
       "additionalProperties": false,
@@ -539,6 +782,235 @@
       },
       "required": [
         "fill",
+        "opacity",
+        "stroke",
+        "strokeWidth"
+      ],
+      "type": "object"
+    },
+    "ExplicitPlotSeries": {
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "additionalProperties": false,
+          "properties": {
+            "maxExpression": {
+              "anyOf": [
+                {
+                  "maxLength": 2000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "minExpression": {
+              "anyOf": [
+                {
+                  "maxLength": 2000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "maxExpression",
+            "minExpression"
+          ],
+          "type": "object"
+        },
+        "expression": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "kind": {
+          "const": "explicit"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/PlotSeriesStyle"
+        },
+        "visible": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "domain",
+        "expression",
+        "id",
+        "kind",
+        "name",
+        "style",
+        "visible"
+      ],
+      "type": "object"
+    },
+    "ParametricPlotSeries": {
+      "additionalProperties": false,
+      "properties": {
+        "closed": {
+          "type": "boolean"
+        },
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "kind": {
+          "const": "parametric"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "parameterName": {
+          "const": "t"
+        },
+        "range": {
+          "additionalProperties": false,
+          "properties": {
+            "maxExpression": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "minExpression": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "maxExpression",
+            "minExpression"
+          ],
+          "type": "object"
+        },
+        "style": {
+          "$ref": "#/$defs/PlotSeriesStyle"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "xExpression": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "yExpression": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "closed",
+        "id",
+        "kind",
+        "name",
+        "parameterName",
+        "range",
+        "style",
+        "visible",
+        "xExpression",
+        "yExpression"
+      ],
+      "type": "object"
+    },
+    "PlotParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "max": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "min": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "name": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "step": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "max",
+        "min",
+        "name",
+        "step",
+        "value"
+      ],
+      "type": "object"
+    },
+    "PlotSeries": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ExplicitPlotSeries"
+        },
+        {
+          "$ref": "#/$defs/ParametricPlotSeries"
+        }
+      ]
+    },
+    "PlotSeriesStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "lineStyle": {
+          "enum": [
+            "solid",
+            "dashed",
+            "dash-dot"
+          ]
+        },
+        "opacity": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "stroke": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "strokeWidth": {
+          "maximum": 32,
+          "minimum": 0.25,
+          "type": "number"
+        }
+      },
+      "required": [
+        "lineStyle",
         "opacity",
         "stroke",
         "strokeWidth"
@@ -1786,6 +2258,43 @@
       ],
       "type": "object"
     },
+    "UpdateCoordinatePlotCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "actorId": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "kind": {
+          "const": "core.coordinate-plot.update"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "expected": {
+          "$ref": "#/$defs/CoordinatePlotDefinition"
+        },
+        "objectId": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "replacement": {
+          "$ref": "#/$defs/CoordinatePlotDefinition"
+        }
+      },
+      "required": [
+        "actorId",
+        "id",
+        "kind",
+        "timestamp",
+        "expected",
+        "objectId",
+        "replacement"
+      ],
+      "type": "object"
+    },
     "UpdateTextCommand": {
       "additionalProperties": false,
       "properties": {
@@ -1883,6 +2392,9 @@
           "$ref": "#/$defs/TranslateGeometryImportCommand"
         },
         {
+          "$ref": "#/$defs/UpdateCoordinatePlotCommand"
+        },
+        {
           "$ref": "#/$defs/UpdateTextCommand"
         }
       ]
@@ -1922,7 +2434,7 @@
       "type": "string"
     },
     "schemaVersion": {
-      "const": "1.0"
+      "const": "1.1"
     }
   },
   "required": [

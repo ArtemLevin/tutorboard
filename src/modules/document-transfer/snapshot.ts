@@ -56,6 +56,8 @@ function objectMarkup(object: BoardObject, zoom: number): string {
       return `<line ${common}${object.lineStyle === "dashed" ? ' stroke-dasharray="10 6"' : ""} x1="0" y1="0" x2="${number(object.end.x)}" y2="${number(object.end.y)}"/>`;
     case "drawing.rectangle":
       return `<rect ${common} height="${number(object.size.height)}" rx="8" width="${number(object.size.width)}"/>`;
+    case "math.coordinate-plot":
+      return `<g ${common} aria-label="Coordinate plot with ${object.definition.series.length} series"><rect height="${number(object.definition.size.height)}" rx="8" width="${number(object.definition.size.width)}"/><line x1="0" y1="${number(object.definition.size.height / 2)}" x2="${number(object.definition.size.width)}" y2="${number(object.definition.size.height / 2)}"/><line x1="${number(object.definition.size.width / 2)}" y1="0" x2="${number(object.definition.size.width / 2)}" y2="${number(object.definition.size.height)}"/></g>`;
     case "drawing.ellipse":
       return `<ellipse ${common} cx="0" cy="0" rx="${number(object.radius.x)}" ry="${number(object.radius.y)}"/>`;
     case "drawing.text": {

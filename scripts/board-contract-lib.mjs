@@ -156,6 +156,93 @@ const svgObject = boardObject("svg-import.svg", {
   }),
   viewBox: reference("SvgViewBox"),
 });
+const plotSeriesStyle = strictObject({
+  lineStyle: { enum: ["solid", "dashed", "dash-dot"] },
+  opacity: { maximum: 1, minimum: 0, type: "number" },
+  stroke: { maxLength: 256, minLength: 1, type: "string" },
+  strokeWidth: { maximum: 32, minimum: 0.25, type: "number" },
+});
+const plotExpression = { maxLength: 2_000, minLength: 1, type: "string" };
+const explicitPlotSeries = strictObject({
+  domain: strictObject({
+    maxExpression: { anyOf: [plotExpression, { type: "null" }] },
+    minExpression: { anyOf: [plotExpression, { type: "null" }] },
+  }),
+  expression: plotExpression,
+  id: reference("Identifier"),
+  kind: { const: "explicit" },
+  name: { maxLength: 128, minLength: 1, type: "string" },
+  style: reference("PlotSeriesStyle"),
+  visible: { type: "boolean" },
+});
+const parametricPlotSeries = strictObject({
+  closed: { type: "boolean" },
+  id: reference("Identifier"),
+  kind: { const: "parametric" },
+  name: { maxLength: 128, minLength: 1, type: "string" },
+  parameterName: { const: "t" },
+  range: strictObject({
+    maxExpression: plotExpression,
+    minExpression: plotExpression,
+  }),
+  style: reference("PlotSeriesStyle"),
+  visible: { type: "boolean" },
+  xExpression: plotExpression,
+  yExpression: plotExpression,
+});
+const plotSeries = {
+  oneOf: [reference("ExplicitPlotSeries"), reference("ParametricPlotSeries")],
+};
+const plotParameter = strictObject({
+  id: reference("Identifier"),
+  max: { type: ["number", "null"] },
+  min: { type: ["number", "null"] },
+  name: { maxLength: 32, minLength: 1, type: "string" },
+  step: { type: ["number", "null"] },
+  value: finiteNumber,
+});
+const coordinatePlotDefinition = strictObject({
+  axes: strictObject({
+    showArrows: { type: "boolean" },
+    showLabels: { type: "boolean" },
+    showXAxis: { type: "boolean" },
+    showYAxis: { type: "boolean" },
+    xLabel: { maxLength: 32, type: "string" },
+    yLabel: { maxLength: 32, type: "string" },
+  }),
+  coordinateViewport: strictObject({
+    equalScale: { type: "boolean" },
+    xMax: finiteNumber,
+    xMin: finiteNumber,
+    yMax: finiteNumber,
+    yMin: finiteNumber,
+  }),
+  expressionLanguage: { const: "tutorboard-expression/1" },
+  grid: strictObject({
+    automaticStep: { type: "boolean" },
+    majorVisible: { type: "boolean" },
+    minorVisible: { type: "boolean" },
+    visible: { type: "boolean" },
+    xStep: { type: ["number", "null"] },
+    yStep: { type: ["number", "null"] },
+  }),
+  legend: strictObject({
+    position: {
+      enum: ["top-left", "top-right", "bottom-left", "bottom-right"],
+    },
+    visible: { type: "boolean" },
+  }),
+  parameters: array(reference("PlotParameter"), { maxItems: 32 }),
+  series: array(reference("PlotSeries"), { maxItems: 32 }),
+  size: strictObject({
+    height: { maximum: 16_384, minimum: 100, type: "number" },
+    width: { maximum: 16_384, minimum: 120, type: "number" },
+  }),
+});
+const coordinatePlotObject = boardObject("math.coordinate-plot", {
+  definition: reference("CoordinatePlotDefinition"),
+});
+
 const boardObjectUnion = {
   oneOf: [
     reference("PenStrokeObject"),
@@ -165,6 +252,7 @@ const boardObjectUnion = {
     reference("TextObject"),
     reference("EmbeddedImageObject"),
     reference("SvgObject"),
+    reference("CoordinatePlotObject"),
   ],
 };
 const boardGroup = strictObject({
@@ -227,7 +315,7 @@ const boardDocument = strictObject({
   id: reference("Identifier"),
   objects: record(reference("BoardObject")),
   order: array(reference("Identifier"), { uniqueItems: true }),
-  schemaVersion: { const: "1.0" },
+  schemaVersion: { const: "1.1" },
   title: { maxLength: 256, minLength: 1, type: "string" },
   updatedAt: timestamp,
   viewport: reference("Viewport"),
@@ -237,6 +325,8 @@ const boardDefinitions = {
   BoardDocument: boardDocument,
   BoardGroup: boardGroup,
   BoardObject: boardObjectUnion,
+  CoordinatePlotDefinition: coordinatePlotDefinition,
+  CoordinatePlotObject: coordinatePlotObject,
   EllipseObject: ellipse,
   EmbeddedImageObject: embeddedImage,
   GeometryImportRecord: geometryImportRecord,
@@ -244,6 +334,11 @@ const boardDefinitions = {
   Identifier: identifier,
   LineObject: line,
   ObjectStyle: objectStyle,
+  ExplicitPlotSeries: explicitPlotSeries,
+  ParametricPlotSeries: parametricPlotSeries,
+  PlotParameter: plotParameter,
+  PlotSeries: plotSeries,
+  PlotSeriesStyle: plotSeriesStyle,
   PenStrokeObject: penStroke,
   PositiveVec2: positiveVec2,
   RectangleObject: rectangle,
@@ -377,6 +472,11 @@ const commands = {
     delta: reference("Vec2"),
     importId: reference("Identifier"),
   }),
+  UpdateCoordinatePlotCommand: command("core.coordinate-plot.update", {
+    expected: reference("CoordinatePlotDefinition"),
+    objectId: reference("Identifier"),
+    replacement: reference("CoordinatePlotDefinition"),
+  }),
   UpdateTextCommand: command("core.text.update", {
     objectId: reference("Identifier"),
     text: { maxLength: 100_000, type: "string" },
@@ -423,7 +523,7 @@ export const schemas = {
         pattern: "^[A-Za-z0-9._:-]+$",
         type: "string",
       },
-      schemaVersion: { const: "1.0" },
+      schemaVersion: { const: "1.1" },
     }),
     commandDefinitions,
   ),
@@ -460,7 +560,7 @@ export const schemas = {
       }),
       importId: reference("Identifier"),
       prompt: { maxLength: 100_000, minLength: 1, type: "string" },
-      schemaVersion: { const: "1.0" },
+      schemaVersion: { const: "1.1" },
     }),
     { Identifier: identifier },
   ),
@@ -473,7 +573,7 @@ export const schemas = {
       documentId: reference("Identifier"),
       documentSha256: { pattern: sha256Pattern, type: "string" },
       revision: nonNegativeInteger,
-      schemaVersion: { const: "1.0" },
+      schemaVersion: { const: "1.1" },
     }),
     boardDefinitions,
   ),
