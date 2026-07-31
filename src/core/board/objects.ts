@@ -27,11 +27,24 @@ export interface GeometryOsObjectSource {
 
 export type BoardObjectSource = GeometryOsObjectSource | UserObjectSource;
 
+export const strokeStyles = [
+  "thin",
+  "thick",
+  "dashed",
+  "dash-dot",
+  "wavy",
+  "hand-pencil",
+  "hand-pen",
+] as const;
+
+export type StrokeStyle = (typeof strokeStyles)[number];
+
 export interface ObjectStyle {
   readonly fill: string | null;
   readonly opacity: number;
   readonly stroke: string | null;
   readonly strokeWidth: number;
+  readonly strokeStyle?: StrokeStyle;
 }
 
 interface BoardObjectBase {

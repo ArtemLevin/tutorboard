@@ -26,6 +26,7 @@ export type {
 } from "./board/geometry-imports";
 export {
   boardObjectKinds,
+  strokeStyles,
   svgSanitizerPolicyVersion,
   type BoardObject,
   type BoardObjectKind,
@@ -36,6 +37,7 @@ export {
   type PenStrokeObject,
   type RectangleObject,
   type SvgObject,
+  type StrokeStyle,
   type SvgViewBox,
   type TextObject,
   type UserObjectSource,
