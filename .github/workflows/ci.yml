@@ -16,7 +16,7 @@ concurrency:
 jobs:
   apply-image-import:
     name: Apply embedded image import
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.sha == 'fa260179f77608ac7586054f8ba534507134c4a4'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'feature-embedded-image-import'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
