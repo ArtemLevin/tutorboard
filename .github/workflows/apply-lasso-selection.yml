@@ -30,7 +30,7 @@ jobs:
         run: npm ci
 
       - name: Apply lasso integration
-        run: node scripts/apply-lasso-selection.mjs
+        run: python3 scripts/apply-lasso-selection.py
 
       - name: Format changed sources
         run: |
@@ -57,6 +57,7 @@ jobs:
       - name: Commit product changes
         run: |
           rm -f scripts/apply-lasso-selection.mjs
+          rm -f scripts/apply-lasso-selection.py
           rm -f .github/workflows/apply-lasso-selection.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
