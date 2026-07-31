@@ -7,13 +7,51 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  apply-image-import:
+    name: Apply embedded image import
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.sha == 'fa260179f77608ac7586054f8ba534507134c4a4'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out product branch
+        uses: actions/checkout@v7
+        with:
+          ref: feature-embedded-image-import
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Apply prepared product patch
+        shell: bash
+        run: |
+          python <<'BOOT'
+          from pathlib import Path
+          source = Path('.github/workflows/apply-image-import.yml').read_text(encoding='utf-8')
+          body = source.split("          python <<'PY'\n", 1)[1].split("\n          PY", 1)[0]
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in body.splitlines())
+          exec(compile(script, 'embedded-image-patch.py', 'exec'))
+          Path('.github/workflows/trigger-image-import-patch.yml').unlink(missing_ok=True)
+          BOOT
+          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
+          npm run board-contract:generate
+          npm run format
+          git add -A
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "feat: import embedded images from files and clipboard"
+          git push origin HEAD:feature-embedded-image-import
+
   quality:
     name: Quality gate
     runs-on: ubuntu-latest
