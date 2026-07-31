@@ -50,14 +50,22 @@ test("pastes an image file from the system clipboard event", async ({
     const file = new File([bytes], "clipboard.png", {
       type: "image/png",
     });
-    const transfer = new DataTransfer();
-    transfer.items.add(file);
-    document.dispatchEvent(
-      new ClipboardEvent("paste", {
-        bubbles: true,
-        clipboardData: transfer,
-      }),
-    );
+    const pasteEvent = new Event("paste", {
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(pasteEvent, "clipboardData", {
+      value: {
+        items: [
+          {
+            getAsFile: () => file,
+            kind: "file",
+            type: file.type,
+          },
+        ],
+      },
+    });
+    window.dispatchEvent(pasteEvent);
   }, base64);
 
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
