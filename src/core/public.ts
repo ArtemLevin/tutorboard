@@ -48,6 +48,27 @@ export {
   type PlotSeriesKind,
   type PlotSeriesStyle,
 } from "./board/coordinate-plot";
+export {
+  compilePlotExpression,
+  evaluatePlotExpression,
+  expressionDiagnosticCodes,
+  maximumEvaluationOperations,
+  maximumExpressionAstDepth,
+  maximumExpressionAstNodes,
+  maximumExpressionLength,
+  maximumExpressionTokens,
+  maximumFunctionArguments,
+  normalizePlotExpression,
+  plotExpressionContexts,
+  type CompiledPlotExpression,
+  type CompilePlotExpressionOptions,
+  type CompilePlotExpressionResult,
+  type ExpressionDiagnostic,
+  type ExpressionDiagnosticCode,
+  type PlotEvaluationResult,
+  type PlotEvaluationUndefinedReason,
+  type PlotExpressionContext,
+} from "./plot-expression/public";
 export type {
   GeometryImportRecord,
   VisualOverride,

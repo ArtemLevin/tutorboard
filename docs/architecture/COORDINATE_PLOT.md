@@ -16,7 +16,13 @@ A plane may hold up to 32 independent series. Each series has a stable local ide
 
 ## Rendering boundary
 
-PR 1 provides a safe placeholder renderer with axes, a lightweight grid and a legend. The renderer never evaluates expressions. The parser, adaptive sampler and production curve renderer are separate follow-up modules.
+PR 1 provides a safe placeholder renderer with axes, a lightweight grid and a legend. The renderer never evaluates expressions. The adaptive sampler and production curve renderer remain separate follow-up modules.
+
+## Expression engine
+
+PR 2 provides the pure TypeScript `tutorboard-expression/1` tokenizer, Pratt parser, contextual compiler and budgeted evaluator. It supports explicit and parametric variables, shared parameters, school-style implicit multiplication, Unicode notation, structured source-span diagnostics and controlled undefined results. Compiled expressions are opaque and transient. The module has no React, Konva, DOM, storage, networking or dynamic-code dependency.
+
+Expression compilation remains outside BoardDocument validation. A malformed series can therefore be reopened and corrected while the document, unrelated objects and sibling series remain available. The complete grammar and limits are specified in `COORDINATE_PLOT_EXPRESSION_LANGUAGE.md`; ADR-012 records the security and dependency decision.
 
 ## Selection and clipboard
 
@@ -24,8 +30,8 @@ Marquee and lasso use the transformed rectangular object extent. The generic cli
 
 ## Transfer compatibility
 
-SVG and PNG board snapshots include the coordinate-plane frame and axes without evaluating stored formulas. This keeps document export deterministic during the domain-model stage and provides a stable placeholder until the numerical renderer is introduced.
+SVG and PNG board snapshots include the coordinate-plane frame and axes without evaluating stored formulas. This keeps document export deterministic until the production numerical renderer is introduced.
 
 ## Release verification
 
-The release gate checks schema migration, nested domain limits, stale-safe updates, collaborative undo, Board sync transport, clipboard identity preservation, transformed marquee and lasso selection, renderer registration, contract freshness, browser smoke, production image hardening and security scanning.
+The release gate checks schema migration, nested domain limits, stale-safe updates, collaborative undo, Board sync transport, clipboard identity preservation, transformed marquee and lasso selection, renderer registration, expression grammar, contextual variables, evaluation domains, security payloads, contract freshness, browser smoke, production image hardening and security scanning.
