@@ -3,9 +3,9 @@ import { useId, useRef, useState } from "react";
 import type { StrokeStyle } from "../core/public";
 import "./stroke-style-palette.css";
 
-const defaultStrokeStyle: StrokeStyle = "thin";
+const defaultOption = { label: "Тонкая", value: "thin" } as const;
 const options: readonly { label: string; value: StrokeStyle }[] = [
-  { label: "Тонкая", value: "thin" },
+  defaultOption,
   { label: "Толстая", value: "thick" },
   { label: "Пунктирная", value: "dashed" },
   { label: "Точка-пунктир", value: "dash-dot" },
@@ -24,9 +24,9 @@ export function StrokeStylePalette({
   const [open, setOpen] = useState(false);
   const menuId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const selectedValue = value ?? defaultStrokeStyle;
+  const selectedValue = value ?? defaultOption.value;
   const selectedOption =
-    options.find((option) => option.value === selectedValue) ?? options[0];
+    options.find((option) => option.value === selectedValue) ?? defaultOption;
 
   return (
     <fieldset
