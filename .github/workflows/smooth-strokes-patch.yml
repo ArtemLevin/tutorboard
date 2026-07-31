@@ -24,15 +24,56 @@ jobs:
       - name: Apply corrected integration patch
         run: |
           python3 <<'PY'
+          import re
           from pathlib import Path
+
+          stage = Path('src/adapters/canvas-konva/BoardStage.tsx')
+          text = stage.read_text()
+          text, count = re.subn(
+              r'(options:\s*\{\s*readonly interactive: boolean;\s*readonly previewDelta\?: Vec2 \| null;)(\s*\},)',
+              r'\1\n    readonly zoom: number;\2',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit('BoardStage options marker missing')
+          text = text.replace(
+              '{applyTransforms(registry.render(item), item.transforms)}',
+              '''{applyTransforms(
+                registry.render(item, { zoom: options.zoom }),
+                item.transforms,
+              )}'''.replace('              ', ''),
+              1,
+          )
+          text, count = re.subn(
+              r'(interactive: true,\n)(\s*)(previewDelta:)',
+              r'\1\2zoom: previewViewport.zoom,\n\2\3',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit('BoardStage interactive render marker missing')
+          text, count = re.subn(
+              r'renderItem\(item, registry, \{ interactive: false \}\)',
+              '''renderItem(item, registry, {
+                interactive: false,
+                zoom: previewViewport.zoom,
+              })'''.replace('              ', ''),
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit('BoardStage preview render marker missing')
+          stage.write_text(text)
 
           lines = Path('.github/workflows/smooth-strokes-patch-v2.yml').read_text().splitlines()
           start = next(index for index, line in enumerate(lines) if line.strip() == "python3 <<'PY'") + 1
           finish = next(index for index in range(start, len(lines)) if lines[index].strip() == 'PY')
-          body = []
-          for line in lines[start:finish]:
-              body.append(line[10:] if line.startswith('          ') else line)
+          body = [line[10:] if line.startswith('          ') else line for line in lines[start:finish]]
           code = '\n'.join(body) + '\n'
+          section_start = code.index('replace(\n    "src/adapters/canvas-konva/BoardStage.tsx"')
+          section_finish = code.index('renderer = Path("src/adapters/canvas-konva/default-renderers.tsx")')
+          code = code[:section_start] + code[section_finish:]
           exec(compile(code, 'smooth-strokes-patch-v2', 'exec'))
           PY
           npx prettier --write src/shared/stroke-smoothing.ts src/shared/stroke-smoothing.test.ts src/adapters/canvas-konva/renderer-registry.tsx src/adapters/canvas-konva/BoardStage.tsx src/adapters/canvas-konva/default-renderers.tsx src/adapters/canvas-konva/stroke-style.ts src/modules/document-transfer/snapshot.ts tests/e2e/stroke-smoothing.spec.ts docs/architecture/STROKE_SMOOTHING.md
