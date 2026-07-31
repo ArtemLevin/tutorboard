@@ -175,7 +175,7 @@ test("right drag switches to canvas movement and pans the viewport", async ({
   await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
 });
 
-test("chooses all seven line styles from a popover", async ({ page }) => {
+test("chooses all eight line styles from a popover", async ({ page }) => {
   const rectangle = await stagePoint(page, 350, 250);
   await page.mouse.click(rectangle.x, rectangle.y);
 
@@ -188,8 +188,9 @@ test("chooses all seven line styles from a popover", async ({ page }) => {
     "Пунктирная",
     "Точка-пунктир",
     "Волнистая",
-    "Карандаш",
-    "Ручка",
+    "Карандаш — скетчбук",
+    "Ручка — скетчбук",
+    "Маркер",
   ]) {
     const trigger = page.getByRole("button", { name: /^Стиль линии:/ });
     await trigger.click();
@@ -203,7 +204,7 @@ test("chooses all seven line styles from a popover", async ({ page }) => {
     ).toBeVisible();
   }
 
-  const trigger = page.getByRole("button", { name: "Стиль линии: Ручка" });
+  const trigger = page.getByRole("button", { name: "Стиль линии: Маркер" });
   await trigger.click();
   await expect(menu).toBeVisible();
   await page.keyboard.press("Escape");
