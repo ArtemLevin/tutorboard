@@ -272,21 +272,25 @@ describe("App", () => {
   });
 
   it("runs the GeometryOS vertical flow and selects one atomic import", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = requestUrl(input);
       if (url.endsWith("/api/v1/generate")) {
-        return new Response(generateSuccessJson, {
-          headers: { "Content-Type": "application/json" },
-          status: 200,
-        });
+        return Promise.resolve(
+          new Response(generateSuccessJson, {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          }),
+        );
       }
       if (url.endsWith("/api/v1/layout")) {
-        return new Response(layoutSuccessJson, {
-          headers: { "Content-Type": "application/json" },
-          status: 200,
-        });
+        return Promise.resolve(
+          new Response(layoutSuccessJson, {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          }),
+        );
       }
-      return new Response("not found", { status: 404 });
+      return Promise.resolve(new Response("not found", { status: 404 }));
     });
     const client = createGeometryOsHttpClient({
       baseUrl: "https://geometryos.example.test",
