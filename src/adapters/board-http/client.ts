@@ -50,7 +50,7 @@ const envelopeSchema = z
     documentId: identifierSchema,
     expectedDocumentSha256: sha256Schema,
     idempotencyKey: z.string().min(1).max(128),
-    schemaVersion: z.literal("1.0"),
+    schemaVersion: z.literal("1.1"),
   })
   .strict();
 const commandBatchSchema = z
@@ -370,7 +370,7 @@ export function createBoardHttpRepository(
               documentId: identifierSchema,
               documentSha256: sha256Schema,
               revision: z.number().int().nonnegative(),
-              schemaVersion: z.literal("1.0"),
+              schemaVersion: z.literal("1.1"),
             })
             .strict()
             .nullable(),
@@ -460,7 +460,7 @@ export function createBoardHttpRepository(
             documentId: expectedDocumentId,
             documentSha256,
             revision,
-            schemaVersion: "1.0",
+            schemaVersion: "1.1",
           }),
           headers: {
             "Content-Type": "application/json",

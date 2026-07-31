@@ -35,7 +35,7 @@ const envelope: BoardCommandEnvelope = {
   expectedDocumentSha256:
     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   idempotencyKey: "client:batch-1",
-  schemaVersion: "1.0",
+  schemaVersion: "1.1",
 };
 
 describe("Board HTTP repository", () => {
