@@ -150,9 +150,7 @@ test("rejects executable SVG without mutating the document", async ({
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
 });
 
-test("opens recovery UI for a tampered stored embedded SVG", async ({
-  page,
-}) => {
+test("falls back after a tampered embedded SVG revision", async ({ page }) => {
   await page.getByLabel("Вставить изображения").setInputFiles({
     buffer: Buffer.from(safeSvg),
     mimeType: "image/svg+xml",
@@ -168,11 +166,9 @@ test("opens recovery UI for a tampered stored embedded SVG", async ({
 
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Требуется восстановление доски" }),
-  ).toBeVisible();
-  await expect(
     page.getByRole("application", {
       name: "Бесконечное полотно TutorBoard",
     }),
-  ).toHaveCount(0);
+  ).toBeVisible();
+  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
 });
