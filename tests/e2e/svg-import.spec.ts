@@ -46,9 +46,7 @@ async function storedEmbeddedSvgExists(page: import("@playwright/test").Page) {
   });
 }
 
-async function tamperStoredEmbeddedSvg(
-  page: import("@playwright/test").Page,
-) {
+async function tamperStoredEmbeddedSvg(page: import("@playwright/test").Page) {
   await page.evaluate(async () => {
     const request = indexedDB.open("tutorboard-local-v1");
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -86,7 +84,8 @@ async function tamperStoredEmbeddedSvg(
       if (svg === undefined || typeof svg.dataUrl !== "string") {
         throw new Error("No stored embedded SVG exists.");
       }
-      svg.dataUrl = "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==";
+      svg.dataUrl =
+        "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==";
       store.put({ ...latest, serializedDocument: JSON.stringify(document) });
       await new Promise<void>((resolve, reject) => {
         transaction.oncomplete = () => resolve();
@@ -111,7 +110,9 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test("inserts, selects and restores one safe embedded SVG", async ({ page }) => {
+test("inserts, selects and restores one safe embedded SVG", async ({
+  page,
+}) => {
   await page.getByLabel("Вставить изображения").setInputFiles({
     buffer: Buffer.from(safeSvg),
     mimeType: "image/svg+xml",
