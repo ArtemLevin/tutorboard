@@ -16,7 +16,10 @@ npm run architecture
 npm run build
 
 python3 scripts/apply-coordinate-plot-pr1.py cleanup
-rm -f scripts/apply-coordinate-plot-pr1.py.gz.b64 scripts/run-coordinate-plot-pr1-integration.sh
+rm -f \
+  .github/workflows/coordinate-plot-pr1.yml \
+  scripts/apply-coordinate-plot-pr1.py.gz.b64 \
+  scripts/run-coordinate-plot-pr1-integration.sh
 
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
