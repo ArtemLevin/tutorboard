@@ -190,7 +190,7 @@ jobs:
                         )}
           '''
               source = source[:start] + new_lasso + source[end:]
-          assert "dash={[7 / previewViewport.zoom, 4 / previewViewport.zoom]}\n                fill=\"rgba(44, 113, 130, 0.09)\"" not in source[source.index("smoothedSelectionLasso"):]
+          assert lasso_start not in source
           board.write_text(source, encoding="utf-8")
 
           tests = Path("src/shared/stroke-smoothing.test.ts")
