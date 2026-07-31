@@ -272,12 +272,16 @@ describe("App", () => {
   });
 
   it("runs the GeometryOS vertical flow and selects one atomic import", async () => {
+    const requestId = geometryOsRequestId("request:unit");
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = requestUrl(input);
       if (url.endsWith("/api/v1/generate")) {
         return Promise.resolve(
           new Response(generateSuccessJson, {
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-Request-ID": requestId,
+            },
             status: 200,
           }),
         );
@@ -285,7 +289,10 @@ describe("App", () => {
       if (url.endsWith("/api/v1/layout")) {
         return Promise.resolve(
           new Response(layoutSuccessJson, {
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-Request-ID": requestId,
+            },
             status: 200,
           }),
         );
@@ -294,14 +301,10 @@ describe("App", () => {
     });
     const client = createGeometryOsHttpClient({
       baseUrl: "https://geometryos.example.test",
-      fetchImpl: fetchMock,
+      createRequestId: () => requestId,
+      fetch: fetchMock,
     });
-    render(
-      <App
-        geometryOsClient={client}
-        requestIdFactory={() => geometryOsRequestId("request:unit")}
-      />,
-    );
+    render(<App geometryOsClient={client} />);
 
     fireEvent.change(screen.getByLabelText("Запрос GeometryOS"), {
       target: { value: "Построй треугольник ABC" },
