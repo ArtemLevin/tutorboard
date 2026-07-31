@@ -155,8 +155,7 @@ const renderers: readonly KonvaObjectRenderer[] = [
       if (isSketchStrokeStyle(line.style.strokeStyle)) {
         return renderSketchPath(
           line,
-          (pass) =>
-            createHandDrawnSegment(line.end, pass.intensity, pass.seed),
+          (pass) => createHandDrawnSegment(line.end, pass.intensity, pass.seed),
           false,
         );
       }
