@@ -34,7 +34,6 @@ export function StrokeStylePalette({
             type="button"
           >
             <span aria-hidden="true" className="stroke-style-preview" />
-            <span>{option.label}</span>
           </button>
         ))}
       </div>
