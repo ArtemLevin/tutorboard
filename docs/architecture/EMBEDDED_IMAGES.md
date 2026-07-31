@@ -1,6 +1,6 @@
 # Embedded images
 
-TutorBoard accepts PNG, JPEG/JPG, sanitized SVG, and GIF through the local file picker or the browser paste event. Each accepted file becomes an `image.embedded` user object and follows the ordinary `core.objects.add`, selection, transform, clipboard, undo/redo, persistence, and collaboration paths. During `Ctrl/Cmd+V`, supported system-clipboard image files take priority; the internal TutorBoard object clipboard remains the fallback when the event contains no image file.
+TutorBoard accepts PNG, JPEG/JPG, sanitized SVG, and GIF through the local file picker or the browser paste event. Each accepted file becomes an `image.embedded` user object and follows the ordinary `core.objects.add`, selection, transform, clipboard, undo/redo, persistence, and collaboration paths. During `Ctrl/Cmd+V`, supported system-clipboard image files take priority; the internal TutorBoard object clipboard remains the fallback when the event contains no image file. Native paste behavior is preserved while focus is inside an input, textarea, or editable text region.
 
 Binary signatures determine raster formats. SVG crosses the existing sanitizer before storage. Each file is limited to 8 MiB, a batch to 24 MiB and 12 files, dimensions to 16,384 pixels per side, and decoded area to 64 megapixels. The document stores a portable base64 data URL, intrinsic dimensions, normalized file name, MIME type, and SHA-256 digest.
 
