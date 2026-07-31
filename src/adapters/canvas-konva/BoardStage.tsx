@@ -728,7 +728,14 @@ export function BoardStage({
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
     const isRightButton = event.evt.button === 2;
-    if (!isRightButton && isTransformerTarget(event.target)) {
+    const isLassoAreaModifier =
+      selectionModeKey === "selection.lasso" &&
+      (event.evt.shiftKey || event.evt.altKey);
+    if (
+      !isRightButton &&
+      isTransformerTarget(event.target) &&
+      !isLassoAreaModifier
+    ) {
       commitWheel();
       return;
     }
@@ -740,7 +747,9 @@ export function BoardStage({
       return;
     }
 
-    const hitObjectId = objectIdFromTarget(event.target);
+    const hitObjectId = isLassoAreaModifier
+      ? null
+      : objectIdFromTarget(event.target);
     const isMiddleButton = event.evt.button === 1;
     const isLeftButton = event.evt.button === 0;
     const shouldSelectHitObject = isLeftButton && hitObjectId !== null;

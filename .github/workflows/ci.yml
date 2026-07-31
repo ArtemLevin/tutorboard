@@ -7,89 +7,13 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  apply-lasso-modifier-fix:
-    name: Apply lasso modifier fix
-    if: github.head_ref == 'feature/lasso-selection'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Check out feature branch
-        uses: actions/checkout@v7
-        with:
-          ref: feature/lasso-selection
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Install locked dependencies
-        run: npm ci
-
-      - name: Prioritize modified lasso gestures
-        run: |
-          python3 <<'PY'
-          from pathlib import Path
-
-          path = Path("src/adapters/canvas-konva/BoardStage.tsx")
-          text = path.read_text()
-          old = '''  const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
-              const isRightButton = event.evt.button === 2;
-              if (!isRightButton && isTransformerTarget(event.target)) {
-                commitWheel();
-                return;
-              }'''.replace("              ", "")
-          new = '''  const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
-              const isRightButton = event.evt.button === 2;
-              const isLassoAreaModifier =
-                selectionModeKey === "selection.lasso" &&
-                (event.evt.shiftKey || event.evt.altKey);
-              if (
-                !isRightButton &&
-                isTransformerTarget(event.target) &&
-                !isLassoAreaModifier
-              ) {
-                commitWheel();
-                return;
-              }'''.replace("              ", "")
-          if old not in text:
-              raise SystemExit("pointer-down transformer marker missing")
-          text = text.replace(old, new, 1)
-          old = "    const hitObjectId = objectIdFromTarget(event.target);"
-          new = '''    const hitObjectId = isLassoAreaModifier
-              ? null
-              : objectIdFromTarget(event.target);'''.replace("              ", "")
-          if old not in text:
-              raise SystemExit("hit-object marker missing")
-          path.write_text(text.replace(old, new, 1))
-          PY
-          npx prettier --write src/adapters/canvas-konva/BoardStage.tsx
-
-      - name: Verify modifier gesture fix
-        run: |
-          npm run lint
-          npm run typecheck
-          npm run test -- src/modules/selection/interaction-lasso.test.ts src/modules/selection/geometry-lasso.test.ts
-
-      - name: Commit product fix
-        run: |
-          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "fix: prioritize modified lasso gestures"
-          git push origin HEAD:feature/lasso-selection
-
   quality:
     name: Quality gate
     runs-on: ubuntu-latest
