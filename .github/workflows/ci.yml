@@ -306,10 +306,10 @@ jobs:
           from pathlib import Path
 
           ci = Path('.github/workflows/ci.yml')
-          marker = '\n# BEGIN SMOOTH LASSO PATCH JOB\n'
+          marker = '# BEGIN SMOOTH LASSO PATCH JOB'
           source = ci.read_text(encoding='utf-8')
-          assert marker in source
-          ci.write_text(source.split(marker, 1)[0].rstrip() + '\n', encoding='utf-8')
+          index = source.index(marker)
+          ci.write_text(source[:index].rstrip() + '\n', encoding='utf-8')
           Path('.github/workflows/apply-smooth-lasso-fix.yml').unlink()
           PY
           git config user.name "github-actions[bot]"
