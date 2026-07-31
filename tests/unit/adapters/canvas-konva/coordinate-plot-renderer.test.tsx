@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createDefaultKonvaRendererRegistry } from "../../../../src/adapters/canvas-konva/public";
 import {
   boardObjectId,
+  plotSeriesId,
   type BoardRenderItem,
   type CoordinatePlotObject,
 } from "../../../../src/core/public";
@@ -39,7 +40,7 @@ const plot: CoordinatePlotObject = {
       {
         domain: { maxExpression: null, minExpression: null },
         expression: "x^2",
-        id: "series-parabola" as never,
+        id: plotSeriesId("series-parabola"),
         kind: "explicit",
         name: "Парабола",
         style: {
@@ -52,7 +53,7 @@ const plot: CoordinatePlotObject = {
       },
       {
         closed: true,
-        id: "series-circle" as never,
+        id: plotSeriesId("series-circle"),
         kind: "parametric",
         name: "Окружность",
         parameterName: "t",
