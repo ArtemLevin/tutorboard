@@ -44,6 +44,22 @@ replacement = '''    case "core.coordinate-plot.update":
 if marker not in content:
     raise SystemExit("undo coordinate plot marker missing")
 undo.write_text(content.replace(marker, replacement), encoding="utf-8")
+
+app_test = Path("src/app/App.test.tsx")
+content = app_test.read_text(encoding="utf-8")
+app_test.write_text(content.replace('BoardDocument 1.0', 'BoardDocument 1.1'), encoding="utf-8")
+
+contract_test = Path("tests/contracts/public-adapter-contracts.test.ts")
+content = contract_test.read_text(encoding="utf-8")
+content = content.replace('pins the document and adapter boundaries to 1.0', 'pins the document boundary to 1.1 and adapter boundaries to 1.0')
+content = content.replace('board: "1.0",', 'board: "1.1",')
+contract_test.write_text(content, encoding="utf-8")
+
+board_test = Path("tests/unit/core/board-document.test.ts")
+content = board_test.read_text(encoding="utf-8")
+content = content.replace('describe("BoardDocument 1.0"', 'describe("BoardDocument 1.1"')
+content = content.replace('result.document.schemaVersion).toBe("1.0")', 'result.document.schemaVersion).toBe("1.1")')
+board_test.write_text(content, encoding="utf-8")
 PY
 
 npm ci
