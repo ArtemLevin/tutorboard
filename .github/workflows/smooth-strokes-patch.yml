@@ -21,50 +21,11 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Apply integration patch
+      - name: Apply corrected integration patch
         run: |
           python3 <<'PY'
           import re
           from pathlib import Path
-
-          def replace(path: str, old: str, new: str, count: int = 1):
-              file = Path(path)
-              text = file.read_text()
-              if old not in text:
-                  raise SystemExit(f"marker missing in {path}: {old[:100]!r}")
-              file.write_text(text.replace(old, new, count))
-
-          registry = Path('src/adapters/canvas-konva/renderer-registry.tsx')
-          text = registry.read_text()
-          text = text.replace(
-              '''export interface KonvaObjectRenderer {
-            readonly kind: BoardObjectKind;
-            render(object: BoardObject): ReactElement;
-          }'''.replace('          ', ''),
-              '''export interface KonvaRenderContext {
-            readonly zoom: number;
-          }
-
-          export interface KonvaObjectRenderer {
-            readonly kind: BoardObjectKind;
-            render(object: BoardObject, context: KonvaRenderContext): ReactElement;
-          }'''.replace('          ', ''),
-              1,
-          )
-          text = text.replace(
-              '  render(item: BoardRenderItem): ReactElement {',
-              '''  render(
-            item: BoardRenderItem,
-            context: KonvaRenderContext = { zoom: 1 },
-          ): ReactElement {'''.replace('          ', ''),
-              1,
-          )
-          text = text.replace(
-              '    return renderer.render(item.object);',
-              '    return renderer.render(item.object, context);',
-              1,
-          )
-          registry.write_text(text)
 
           stage = Path('src/adapters/canvas-konva/BoardStage.tsx')
           text = stage.read_text()
@@ -79,9 +40,9 @@ jobs:
           text = text.replace(
               '{applyTransforms(registry.render(item), item.transforms)}',
               '''{applyTransforms(
-            registry.render(item, { zoom: options.zoom }),
-            item.transforms,
-          )}'''.replace('          ', ''),
+                registry.render(item, { zoom: options.zoom }),
+                item.transforms,
+              )}'''.replace('              ', ''),
               1,
           )
           text, count = re.subn(
@@ -95,9 +56,9 @@ jobs:
           text, count = re.subn(
               r'renderItem\(item, registry, \{ interactive: false \}\)',
               '''renderItem(item, registry, {
-            interactive: false,
-            zoom: previewViewport.zoom,
-          })'''.replace('          ', ''),
+                interactive: false,
+                zoom: previewViewport.zoom,
+              })'''.replace('              ', ''),
               text,
               count=1,
           )
@@ -105,398 +66,19 @@ jobs:
               raise SystemExit('BoardStage preview marker missing')
           stage.write_text(text)
 
-          renderer = Path('src/adapters/canvas-konva/default-renderers.tsx')
-          text = renderer.read_text()
-          text = text.replace(
-              'import { renderSafeMathLabel } from "../../shared/safe-math-label";\n',
-              '''import { renderSafeMathLabel } from "../../shared/safe-math-label";
-          import {
-            buildCachedSmoothStrokePoints,
-            buildSmoothStrokePoints,
-            flattenStrokePoints,
-          } from "../../shared/stroke-smoothing";
-          '''.replace('          ', ''),
-              1,
+          lines = Path('.github/workflows/smooth-strokes-patch-v2.yml').read_text().splitlines()
+          start = next(index for index, line in enumerate(lines) if line.strip() == "python3 <<'PY'") + 1
+          finish = next(index for index in range(start, len(lines)) if lines[index].strip() == 'PY')
+          body = [line[10:] if line.startswith('          ') else line for line in lines[start:finish]]
+          code = '\n'.join(body) + '\n'
+          board_start = code.index('replace(\n    "src/adapters/canvas-konva/BoardStage.tsx"')
+          renderer_start = code.index('renderer = Path("src/adapters/canvas-konva/default-renderers.tsx")')
+          code = code[:board_start] + code[renderer_start:]
+          code = code.replace(
+              "r'  \\\{\\n    kind: \"drawing\\.line\",[\\s\\S]*?\\n  \\\},\\n  \\\{',",
+              "r'\\{\\n    kind: \"drawing\\.line\",[\\s\\S]*?\\n  \\\},\\n  \\\{',",
           )
-          text, count = re.subn(
-              r'function linePoints\([\s\S]*?\n\}\n\nfunction sketchPassLine',
-              '''function linePoints(
-            object: Extract<BoardObject, { readonly kind: "drawing.line" }>,
-            zoom: number,
-          ): readonly number[] {
-            return object.style.strokeStyle === "wavy"
-              ? createWavySegment(object.end, zoom)
-              : [0, 0, object.end.x, object.end.y];
-          }
-
-          function pointPairs(points: readonly number[]): readonly Vec2[] {
-            const output: Vec2[] = [];
-            for (let index = 0; index + 1 < points.length; index += 2) {
-              output.push({ x: points[index]!, y: points[index + 1]! });
-            }
-            return output;
-          }
-
-          function smoothFlatPoints(
-            points: readonly number[],
-            zoom: number,
-          ): readonly number[] {
-            return flattenStrokePoints(
-              buildSmoothStrokePoints(pointPairs(points), { zoom }),
-            );
-          }
-
-          function sketchPassLine'''.replace('          ', ''),
-              text,
-              count=1,
-          )
-          if count != 1:
-              raise SystemExit('linePoints block missing')
-          text = text.replace(
-              '      tension={object.style.strokeStyle === "hand-pen" && !closed ? 0.12 : 0}',
-              '      perfectDrawEnabled\n      tension={0}',
-              1,
-          )
-          text, count = re.subn(
-              r'function sketchPoints\([\s\S]*?\n\}\n\nconst renderers:',
-              '''function sketchPoints(
-            source: readonly Vec2[],
-            pass: SketchPass,
-            closed: boolean,
-            zoom = 1,
-          ): readonly number[] {
-            const renderPoints = closed
-              ? source
-              : buildSmoothStrokePoints(source, { zoom });
-            return createSketchPath(
-              renderPoints,
-              pass.intensity,
-              pass.seed,
-              closed,
-            );
-          }
-
-          const renderers:'''.replace('          ', ''),
-              text,
-              count=1,
-          )
-          if count != 1:
-              raise SystemExit('sketchPoints block missing')
-
-          pen_block = '''  {
-            kind: "drawing.pen-stroke",
-            render(object, context) {
-              const stroke = expectKind(object, "drawing.pen-stroke");
-              const smoothed = buildCachedSmoothStrokePoints(
-                stroke.points,
-                context.zoom,
-              );
-              if (isSketchStrokeStyle(stroke.style.strokeStyle)) {
-                return renderSketchPath(
-                  stroke,
-                  (pass) => sketchPoints(smoothed, pass, false, context.zoom),
-                  false,
-                );
-              }
-              return (
-                <Line
-                  {...commonShapeProps(stroke)}
-                  {...strokeProps(stroke)}
-                  perfectDrawEnabled
-                  points={[...flattenStrokePoints(smoothed)]}
-                  tension={0}
-                />
-              );
-            },
-          },
-          {'''.replace('          ', '')
-          text, count = re.subn(
-              r'  \{\n    kind: "drawing\.pen-stroke",[\s\S]*?\n  \},\n  \{',
-              pen_block,
-              text,
-              count=1,
-          )
-          if count != 1:
-              raise SystemExit('pen renderer block missing')
-
-          line_block = '''  {
-            kind: "drawing.line",
-            render(object, context) {
-              const line = expectKind(object, "drawing.line");
-              if (isSketchStrokeStyle(line.style.strokeStyle)) {
-                return renderSketchPath(
-                  line,
-                  (pass) =>
-                    smoothFlatPoints(
-                      createHandDrawnSegment(
-                        line.end,
-                        pass.intensity,
-                        pass.seed,
-                        context.zoom,
-                      ),
-                      context.zoom,
-                    ),
-                  false,
-                );
-              }
-              return (
-                <Line
-                  {...commonShapeProps(line)}
-                  {...strokeProps(line)}
-                  {...(line.lineStyle === "dashed" &&
-                  line.style.strokeStyle === undefined
-                    ? { dash: [10, 6] }
-                    : {})}
-                  perfectDrawEnabled
-                  points={[...linePoints(line, context.zoom)]}
-                />
-              );
-            },
-          },
-          {'''.replace('          ', '')
-          text, count = re.subn(
-              r'  \{\n    kind: "drawing\.line",[\s\S]*?\n  \},\n  \{',
-              line_block,
-              text,
-              count=1,
-          )
-          if count != 1:
-              raise SystemExit('line renderer block missing')
-          renderer.write_text(text)
-
-          style = Path('src/adapters/canvas-konva/stroke-style.ts')
-          text = style.read_text()
-          text = text.replace(
-              'export function createWavySegment(end: Vec2): readonly number[] {',
-              '''export function createWavySegment(
-            end: Vec2,
-            zoom = 1,
-          ): readonly number[] {'''.replace('          ', ''),
-              1,
-          )
-          text = text.replace(
-              '  const samples = Math.max(12, Math.ceil(length / 8));',
-              '''  const renderZoom = Math.min(8, Math.max(0.1, zoom));
-            const samples = Math.min(
-              4096,
-              Math.max(
-                12,
-                Math.ceil(length / Math.max(1.5, 8 / Math.sqrt(renderZoom))),
-              ),
-            );'''.replace('          ', ''),
-              1,
-          )
-          text = text.replace(
-              'function segmentPoints(end: Vec2): readonly Vec2[] {',
-              'function segmentPoints(end: Vec2, zoom = 1): readonly Vec2[] {',
-              1,
-          )
-          text = text.replace(
-              '  const samples = Math.max(8, Math.ceil(length / 12));',
-              '''  const renderZoom = Math.min(8, Math.max(0.1, zoom));
-            const samples = Math.min(
-              4096,
-              Math.max(
-                8,
-                Math.ceil(length / Math.max(1.5, 12 / Math.sqrt(renderZoom))),
-              ),
-            );'''.replace('          ', ''),
-              1,
-          )
-          sketch_function = '''export function createSketchPath(
-            sourcePoints: readonly Vec2[],
-            intensity: number,
-            seed: number,
-            closed = false,
-          ): readonly number[] {
-            if (sourcePoints.length === 0) return [0, 0, 0, 0];
-            if (sourcePoints.length === 1) {
-              const point = sourcePoints[0];
-              return point === undefined ? [0, 0, 0, 0] : [point.x, point.y];
-            }
-
-            const lastIndex = sourcePoints.length - 1;
-            const pathDistances: number[] = [0];
-            for (let index = 1; index < sourcePoints.length; index += 1) {
-              const previous = sourcePoints[index - 1];
-              const point = sourcePoints[index];
-              pathDistances.push(
-                (pathDistances[index - 1] ?? 0) +
-                  (previous === undefined || point === undefined
-                    ? 0
-                    : Math.hypot(point.x - previous.x, point.y - previous.y)),
-              );
-            }
-            const output: number[] = [];
-            for (let index = 0; index < sourcePoints.length; index += 1) {
-              const point = sourcePoints[index];
-              if (point === undefined) continue;
-              const previous =
-                sourcePoints[index === 0 ? (closed ? lastIndex : 0) : index - 1] ?? point;
-              const next =
-                sourcePoints[
-                  index === lastIndex ? (closed ? 0 : lastIndex) : index + 1
-                ] ?? point;
-              const tangentX = next.x - previous.x;
-              const tangentY = next.y - previous.y;
-              const tangentLength = Math.hypot(tangentX, tangentY) || 1;
-              const normalX = -tangentY / tangentLength;
-              const normalY = tangentX / tangentLength;
-              const progress = lastIndex === 0 ? 0 : index / lastIndex;
-              const endpointEnvelope = closed
-                ? 1
-                : 0.22 + Math.sin(progress * Math.PI) * 0.78;
-              const distanceAlong = pathDistances[index] ?? 0;
-              const noise =
-                Math.sin(
-                  (distanceAlong + 1) * (0.17 + seed * 0.0017) + seed * 0.37,
-                ) * 0.68 +
-                Math.cos(
-                  (distanceAlong + 1) * (0.071 + seed * 0.0011) + point.x * 0.011,
-                ) * 0.32;
-              const offset = noise * intensity * endpointEnvelope;
-              output.push(point.x + normalX * offset, point.y + normalY * offset);
-            }
-            return output;
-          }
-
-          export function createHandDrawnSegment(
-            end: Vec2,
-            intensity: number,
-            seed = 0,
-            zoom = 1,
-          ): readonly number[] {
-            return createSketchPath(segmentPoints(end, zoom), intensity, seed);
-          }
-          '''.replace('          ', '')
-          text, count = re.subn(
-              r'export function createSketchPath\([\s\S]*?\n\}\n\nexport function createHandDrawnSegment\([\s\S]*?\n\}\n',
-              sketch_function,
-              text,
-              count=1,
-          )
-          if count != 1:
-              raise SystemExit('sketch function block missing')
-          style.write_text(text)
-
-          smoothing = Path('src/shared/stroke-smoothing.ts')
-          text = smoothing.read_text()
-          text, count = re.subn(
-              r'  const smoothed = buildSmoothStrokePoints\(rawPoints, \{[\s\S]*?\n  \}\);',
-              '''  const smoothed = buildSmoothStrokePoints(rawPoints, {
-            zoom: quality.zoomBucket,
-          });'''.replace('          ', ''),
-              text,
-              count=1,
-          )
-          if count != 1:
-              raise SystemExit('smoothing cache block missing')
-          smoothing.write_text(text)
-
-          snapshot = Path('src/modules/document-transfer/snapshot.ts')
-          text = snapshot.read_text()
-          text = text.replace(
-              'import { renderSafeMathLabel } from "../../shared/safe-math-label";\n',
-              'import { renderSafeMathLabel } from "../../shared/safe-math-label";\nimport { buildSmoothStrokePoints } from "../../shared/stroke-smoothing";\n',
-              1,
-          )
-          text = text.replace(
-              'function objectMarkup(object: BoardObject): string {',
-              'function objectMarkup(object: BoardObject, zoom: number): string {',
-              1,
-          )
-          text, count = re.subn(
-              r'    case "drawing\.pen-stroke":\n      return `<polyline \$\{common\} points="\$\{object\.points\.map\([\s\S]*?</polyline>`;?',
-              '''    case "drawing.pen-stroke": {
-            const points = buildSmoothStrokePoints(object.points, { zoom });
-            return `<polyline ${common} stroke-linecap="round" stroke-linejoin="round" points="${points.map(({ x, y }) => `${number(x)},${number(y)}`).join(" ")}"/>`;
-          }'''.replace('          ', ''),
-              text,
-              count=1,
-          )
-          if count != 1:
-              old = '''    case "drawing.pen-stroke":
-            return `<polyline ${common} points="${object.points.map(({ x, y }) => `${number(x)},${number(y)}`).join(" ")}"/>`;'''.replace('          ', '')
-              new = '''    case "drawing.pen-stroke": {
-            const points = buildSmoothStrokePoints(object.points, { zoom });
-            return `<polyline ${common} stroke-linecap="round" stroke-linejoin="round" points="${points.map(({ x, y }) => `${number(x)},${number(y)}`).join(" ")}"/>`;
-          }'''.replace('          ', '')
-              if old not in text:
-                  raise SystemExit('snapshot pen block missing')
-              text = text.replace(old, new, 1)
-          text = text.replace(
-              'function itemMarkup(item: BoardRenderItem): string {',
-              'function itemMarkup(item: BoardRenderItem, zoom: number): string {',
-              1,
-          )
-          text = text.replace(
-              '    objectMarkup(item.object),',
-              '    objectMarkup(item.object, zoom),',
-              1,
-          )
-          text = text.replace(
-              '    visibleItems.map(itemMarkup).join(""),',
-              '    visibleItems.map((item) => itemMarkup(item, scene.viewport.zoom)).join(""),',
-              1,
-          )
-          snapshot.write_text(text)
-
-          Path('tests/e2e/stroke-smoothing.spec.ts').write_text(r'''import { expect, test } from "@playwright/test";
-          import type { Page } from "@playwright/test";
-
-          async function stagePoint(page: Page, x: number, y: number) {
-            const bounds = await page.getByTestId("board-stage").boundingBox();
-            expect(bounds).not.toBeNull();
-            if (bounds === null) throw new Error("Canvas has no bounds.");
-            return { x: bounds.x + x, y: bounds.y + y };
-          }
-
-          test("keeps a freehand stroke transformable through high zoom", async ({ page }) => {
-            await page.goto("/");
-            await expect(
-              page.getByRole("application", {
-                name: "Бесконечное полотно TutorBoard",
-              }),
-            ).toBeVisible();
-            await page.getByRole("button", { name: "Перо (P)" }).click();
-            const points = [[260, 320], [300, 270], [350, 310], [410, 250], [470, 300]] as const;
-            const first = await stagePoint(page, points[0][0], points[0][1]);
-            await page.mouse.move(first.x, first.y);
-            await page.mouse.down();
-            for (const [x, y] of points.slice(1)) {
-              const point = await stagePoint(page, x, y);
-              await page.mouse.move(point.x, point.y, { steps: 6 });
-            }
-            await page.mouse.up();
-            await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-            await page.getByRole("button", { name: "Выделение (V)" }).click();
-            const hit = await stagePoint(page, 350, 310);
-            await page.mouse.click(hit.x, hit.y);
-            await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
-            const zoomPoint = await stagePoint(page, 380, 290);
-            await page.mouse.move(zoomPoint.x, zoomPoint.y);
-            for (let index = 0; index < 18; index += 1) {
-              await page.mouse.wheel(0, -240);
-            }
-            await expect(page.getByTestId("viewport-zoom")).not.toHaveText("100%");
-            await expect(page.getByTestId("board-stage")).toHaveAttribute(
-              "data-transformable-count",
-              "1",
-            );
-            await page.getByRole("button", { name: "Увеличить выделение на 10%" }).click();
-            await page.getByRole("button", { name: "Повернуть выделение на 15 градусов" }).click();
-            await expect(page.getByTestId("first-object-transform")).toHaveText(
-              "Масштаб: 1.1, 1.1 · Поворот: 15°",
-            );
-          });
-          '''.replace('          ', ''))
-
-          Path('docs/architecture/STROKE_SMOOTHING.md').write_text('''# Stroke smoothing
-
-          Freehand `drawing.pen-stroke` objects retain their original BoardDocument points. Rendering uses deterministic resampling and Catmull–Rom interpolation from `src/shared/stroke-smoothing.ts`. Detail increases in quarter-step zoom buckets up to the canvas maximum, while bounded point budgets protect responsiveness.
-
-          The shared implementation serves Konva and document snapshots. Pencil and pen sketchbook passes use a smoothed support curve, and marker strokes use the same curve with their wide translucent style. Straight lines and strict geometric primitives retain exact geometry. Cached results are keyed by the immutable source point array and zoom bucket.
-          '''.replace('          ', ''))
+          exec(compile(code, 'smooth-strokes-patch-v2', 'exec'))
           PY
           npx prettier --write src/shared/stroke-smoothing.ts src/shared/stroke-smoothing.test.ts src/adapters/canvas-konva/renderer-registry.tsx src/adapters/canvas-konva/BoardStage.tsx src/adapters/canvas-konva/default-renderers.tsx src/adapters/canvas-konva/stroke-style.ts src/modules/document-transfer/snapshot.ts tests/e2e/stroke-smoothing.spec.ts docs/architecture/STROKE_SMOOTHING.md
           npm run typecheck
