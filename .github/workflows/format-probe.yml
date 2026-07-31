@@ -1,0 +1,23 @@
+name: Sketchbook stroke format probe
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  format-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Show formatter diff
+        run: |
+          npx prettier --write src/adapters/canvas-konva/default-renderers.tsx src/adapters/canvas-konva/stroke-style.ts
+          git diff -- src/adapters/canvas-konva/default-renderers.tsx src/adapters/canvas-konva/stroke-style.ts
+          test -z "$(git status --short src/adapters/canvas-konva/default-renderers.tsx src/adapters/canvas-konva/stroke-style.ts)"
