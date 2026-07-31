@@ -10,8 +10,9 @@ const options: readonly { label: string; value: StrokeStyle }[] = [
   { label: "Пунктирная", value: "dashed" },
   { label: "Точка-пунктир", value: "dash-dot" },
   { label: "Волнистая", value: "wavy" },
-  { label: "Карандаш", value: "hand-pencil" },
-  { label: "Ручка", value: "hand-pen" },
+  { label: "Карандаш — скетчбук", value: "hand-pencil" },
+  { label: "Ручка — скетчбук", value: "hand-pen" },
+  { label: "Маркер", value: "marker" },
 ];
 
 export function StrokeStylePalette({
