@@ -211,3 +211,81 @@ test("chooses all eight line styles from a popover", async ({ page }) => {
   await expect(menu).toHaveCount(0);
   await expect(trigger).toBeFocused();
 });
+
+test("selects selectively with a freeform lasso", async ({ page }) => {
+  await page.getByRole("button", { name: "Лассо (L)" }).click();
+  await expect(page.getByRole("button", { name: "Лассо (L)" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  const traceLasso = async (
+    points: readonly (readonly [number, number])[],
+    modifier?: "Alt" | "Shift",
+  ) => {
+    if (modifier !== undefined) await page.keyboard.down(modifier);
+    const first = await stagePoint(page, points[0]![0], points[0]![1]);
+    await page.mouse.move(first.x, first.y);
+    await page.mouse.down();
+    for (const [x, y] of points.slice(1)) {
+      const point = await stagePoint(page, x, y);
+      await page.mouse.move(point.x, point.y, { steps: 3 });
+    }
+    await expect(page.getByTestId("board-stage")).toHaveAttribute(
+      "data-lassoing",
+      "true",
+    );
+    await page.mouse.up();
+    if (modifier !== undefined) await page.keyboard.up(modifier);
+    await expect(page.getByTestId("board-stage")).toHaveAttribute(
+      "data-lassoing",
+      "false",
+    );
+  };
+
+  await traceLasso([
+    [250, 150],
+    [610, 150],
+    [610, 340],
+    [250, 340],
+    [250, 150],
+  ]);
+  await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-transformable-count",
+    "2",
+  );
+
+  await traceLasso(
+    [
+      [620, 190],
+      [750, 190],
+      [750, 340],
+      [620, 340],
+      [620, 190],
+    ],
+    "Shift",
+  );
+  await expect(page.getByTestId("selection-count")).toHaveText("3 выбрано");
+
+  await traceLasso(
+    [
+      [470, 150],
+      [610, 150],
+      [610, 340],
+      [470, 340],
+      [470, 150],
+    ],
+    "Alt",
+  );
+  await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
+
+  const start = await stagePoint(page, 250, 150);
+  const next = await stagePoint(page, 430, 150);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(next.x, next.y, { steps: 3 });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
+});

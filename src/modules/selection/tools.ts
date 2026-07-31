@@ -18,8 +18,7 @@ export const lassoSelectionTool = {
 } as const;
 
 export type SelectionToolId =
-  | typeof lassoSelectionToolId
-  | typeof selectionToolId;
+  typeof lassoSelectionToolId | typeof selectionToolId;
 
 export function isSelectionToolId(value: string): value is SelectionToolId {
   return value === selectionToolId || value === lassoSelectionToolId;

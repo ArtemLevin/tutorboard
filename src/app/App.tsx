@@ -77,19 +77,25 @@ import {
   createSetSelectionLockCommand,
   createTransformSelectionCommand,
   expandSelectionObjectIds,
+  getSelectionLasso,
   getSelectionMarquee,
   getSelectionPreviewDelta,
   initialSelectionState,
+  isSelectionToolId,
+  lassoSelectionTool,
+  lassoSelectionToolId,
   normalizeRect,
   reduceSelectionInteraction,
   selectionIsLocked,
   selectionTool,
   selectionToolId,
+  selectObjectIdsInLasso,
   selectObjectIdsInRect,
   selectSelectionBounds,
   type CompletedSelectionMove,
   type SelectionAction,
   type SelectionState,
+  type SelectionToolId,
 } from "../modules/selection/public";
 import { createSetSelectionStyleCommand } from "../modules/styling/public";
 import {
@@ -115,8 +121,7 @@ import "./styles.css";
 const environment = readEnvironment();
 const localActorId = actorId("actor:local-teacher");
 const navigationToolId = "navigation.pan" as const;
-type ActiveToolId =
-  typeof navigationToolId | typeof selectionToolId | DrawingToolId;
+type ActiveToolId = typeof navigationToolId | SelectionToolId | DrawingToolId;
 const initialDrawingState: DrawingInteractionState = { kind: "idle" };
 
 export interface AppPersistenceStatus {
@@ -285,6 +290,10 @@ export function App({
   );
   const selectionMarquee = useMemo(
     () => getSelectionMarquee(selectionState),
+    [selectionState],
+  );
+  const selectionLasso = useMemo(
+    () => getSelectionLasso(selectionState),
     [selectionState],
   );
   const selectionBounds = useMemo(
@@ -928,6 +937,12 @@ export function App({
         );
         return;
       }
+      if (
+        event.key.toLowerCase() === lassoSelectionTool.shortcut.toLowerCase()
+      ) {
+        activateTool(lassoSelectionToolId);
+        return;
+      }
       if (event.key.toLowerCase() === selectionTool.shortcut.toLowerCase()) {
         activateTool(selectionToolId);
         return;
@@ -1051,7 +1066,7 @@ export function App({
 
   const startSelection = useCallback(
     (sample: SelectionPointerStartSample) => {
-      if (sample.objectId !== null && activeTool !== selectionToolId) {
+      if (sample.objectId !== null && !isSelectionToolId(activeTool)) {
         activateTool(selectionToolId);
       }
       const hitObjectIds =
@@ -1060,6 +1075,9 @@ export function App({
           : expandSelectionObjectIds(document, [sample.objectId]);
       applySelectionAction({
         additive: sample.additive,
+        areaKind: activeTool === lassoSelectionToolId ? "lasso" : "marquee",
+        areaOperation:
+          sample.areaOperation ?? (sample.additive ? "add" : "replace"),
         hitObjectIds,
         kind: "start",
         point: sample.point,
@@ -1083,7 +1101,7 @@ export function App({
   const finishSelection = useCallback(
     (sample: WorldPointerSample) => {
       const interaction = selectionStateRef.current.interaction;
-      const marqueeObjectIds =
+      const areaObjectIds =
         interaction.kind === "marquee"
           ? expandSelectionObjectIds(
               document,
@@ -1092,13 +1110,26 @@ export function App({
                 normalizeRect(interaction.start, sample.point),
               ),
             )
-          : undefined;
+          : interaction.kind === "lasso"
+            ? expandSelectionObjectIds(
+                document,
+                selectObjectIdsInLasso(scene, [
+                  ...interaction.points,
+                  sample.point,
+                ]),
+              )
+            : undefined;
       applySelectionAction({
         kind: "finish",
-        ...(marqueeObjectIds === undefined ? {} : { marqueeObjectIds }),
+        ...(areaObjectIds === undefined ? {} : { areaObjectIds }),
         point: sample.point,
         pointerId: sample.pointerId,
       });
+      if (interaction.kind === "lasso") {
+        setAccessibilityNotice(
+          `Лассо завершено: выбрано ${areaObjectIds?.length ?? 0}`,
+        );
+      }
     },
     [applySelectionAction, document, scene],
   );
@@ -1255,7 +1286,7 @@ export function App({
   const selectedEditableText =
     selectedTextId === undefined ? undefined : document.objects[selectedTextId];
   const transformableObjectIds =
-    activeTool === selectionToolId &&
+    isSelectionToolId(activeTool) &&
     selectionState.interaction.kind === "idle" &&
     selectedObjects.length > 0 &&
     selectedObjects.every(
@@ -1481,7 +1512,7 @@ export function App({
             </div>
             <dl>
               <div>
-                <dt>V / H / P / I / R / E / T</dt>
+                <dt>V / L / H / P / I / R / E / T</dt>
                 <dd>Выбор инструмента</dd>
               </div>
               <div>
@@ -1585,10 +1616,9 @@ export function App({
           scene={scene}
           selectedObjectIds={selectionState.selectedObjectIds}
           selectionBounds={selectionBounds}
+          selectionLasso={selectionLasso}
           selectionMarquee={selectionMarquee}
-          selectionModeKey={
-            activeTool === selectionToolId ? selectionToolId : null
-          }
+          selectionModeKey={isSelectionToolId(activeTool) ? activeTool : null}
           selectionPreviewDelta={renderedSelectionPreviewDelta}
           transformableObjectIds={transformableObjectIds}
         />
@@ -1719,6 +1749,20 @@ export function App({
           >
             <span aria-hidden="true">{selectionTool.icon}</span>
           </button>
+          <button
+            aria-label={`${lassoSelectionTool.label} (${lassoSelectionTool.shortcut})`}
+            aria-pressed={activeTool === lassoSelectionToolId}
+            className={
+              activeTool === lassoSelectionToolId
+                ? "drawing-tool is-active"
+                : "drawing-tool"
+            }
+            onClick={() => activateTool(lassoSelectionToolId)}
+            title={`${lassoSelectionTool.label} · ${lassoSelectionTool.shortcut}`}
+            type="button"
+          >
+            <span aria-hidden="true">{lassoSelectionTool.icon}</span>
+          </button>
           <span aria-hidden="true" className="toolbar-divider" />
           {drawingTools.map((tool) => (
             <button
@@ -1755,18 +1799,22 @@ export function App({
               ? "Навигация"
               : activeTool === selectionToolId
                 ? "Выделение"
-                : activeTool === "drawing.smart-ink"
-                  ? "Smart Ink"
-                  : "Создание объекта"}
+                : activeTool === lassoSelectionToolId
+                  ? "Лассо"
+                  : activeTool === "drawing.smart-ink"
+                    ? "Smart Ink"
+                    : "Создание объекта"}
           </strong>
           <span>
             {activeTool === navigationToolId
               ? "Потяните полотно для перемещения"
               : activeTool === selectionToolId
                 ? "Клик, Shift+клик или рамка выделения"
-                : activeTool === "drawing.smart-ink"
-                  ? "Нарисуйте фигуру одним непрерывным штрихом"
-                  : "Потяните или нажмите на полотно"}
+                : activeTool === lassoSelectionToolId
+                  ? "Обведите объекты; Shift добавляет, Alt исключает"
+                  : activeTool === "drawing.smart-ink"
+                    ? "Нарисуйте фигуру одним непрерывным штрихом"
+                    : "Потяните или нажмите на полотно"}
           </span>
           <span>Правая кнопка / Space / средняя кнопка — перемещение</span>
           <span>Escape — отменить действие</span>

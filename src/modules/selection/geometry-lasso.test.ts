@@ -101,9 +101,9 @@ describe("lasso geometry", () => {
     const distant = rectangle("object:distant", 100, 100, 30, 30);
     const hidden = rectangle("object:hidden", 15, 15, 10, 10, false);
 
-    expect(selectObjectIdsInLasso(scene([first, distant, hidden]), square)).toEqual([
-      first.id,
-    ]);
+    expect(
+      selectObjectIdsInLasso(scene([first, distant, hidden]), square),
+    ).toEqual([first.id]);
   });
 
   it("selects a large filled object when the lasso lies inside it", () => {

@@ -40,10 +40,7 @@ interface LassoInteraction {
 }
 
 export type SelectionInteraction =
-  | DragInteraction
-  | IdleInteraction
-  | LassoInteraction
-  | MarqueeInteraction;
+  DragInteraction | IdleInteraction | LassoInteraction | MarqueeInteraction;
 
 export interface SelectionState {
   readonly interaction: SelectionInteraction;
@@ -207,9 +204,7 @@ export function getSelectionMarquee(state: SelectionState): Rect2 | null {
 export function getSelectionLasso(
   state: SelectionState,
 ): readonly Vec2[] | null {
-  return state.interaction.kind === "lasso"
-    ? state.interaction.points
-    : null;
+  return state.interaction.kind === "lasso" ? state.interaction.points : null;
 }
 
 export function reduceSelectionInteraction(
@@ -256,7 +251,8 @@ export function reduceSelectionInteraction(
     if (action.hitObjectIds.length === 0) {
       const operation =
         action.areaOperation ?? (action.additive ? "add" : "replace");
-      const baseObjectIds = areaBaseSelection(
+      const baseObjectIds = state.selectedObjectIds;
+      const selectedObjectIds = areaBaseSelection(
         state.selectedObjectIds,
         operation,
       );
@@ -269,7 +265,7 @@ export function reduceSelectionInteraction(
             pointerId: action.pointerId,
             points: [action.point],
           },
-          selectedObjectIds: baseObjectIds,
+          selectedObjectIds,
         });
       }
       return transition({
@@ -281,7 +277,7 @@ export function reduceSelectionInteraction(
           pointerId: action.pointerId,
           start: action.point,
         },
-        selectedObjectIds: baseObjectIds,
+        selectedObjectIds,
       });
     }
 
@@ -327,8 +323,7 @@ export function reduceSelectionInteraction(
   }
 
   if (interaction.kind === "marquee" || interaction.kind === "lasso") {
-    const areaObjectIds =
-      action.areaObjectIds ?? action.marqueeObjectIds ?? [];
+    const areaObjectIds = action.areaObjectIds ?? action.marqueeObjectIds ?? [];
     return transition({
       interaction: { kind: "idle" },
       selectedObjectIds: applyAreaSelection(

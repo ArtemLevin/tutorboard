@@ -6,7 +6,7 @@ import type {
   Transform2D,
   Vec2,
 } from "../../core/public";
-import { normalizeRect, type Rect2 } from "./interaction";
+import type { Rect2 } from "./interaction";
 
 interface SelectionPath {
   readonly closed: boolean;
@@ -56,7 +56,9 @@ function rectanglePoints(rect: Rect2): readonly Vec2[] {
   ];
 }
 
-function textBounds(object: Extract<BoardObject, { kind: "drawing.text" }>): Rect2 {
+function textBounds(
+  object: Extract<BoardObject, { kind: "drawing.text" }>,
+): Rect2 {
   const lines = object.text.split(/\r?\n/u);
   return {
     height: Math.max(1, lines.length) * 29.7,
@@ -220,10 +222,7 @@ function segmentsIntersect(
   );
 }
 
-export function pointInPolygon(
-  point: Vec2,
-  polygon: readonly Vec2[],
-): boolean {
+export function pointInPolygon(point: Vec2, polygon: readonly Vec2[]): boolean {
   if (polygon.length < 3) {
     return false;
   }
@@ -260,16 +259,17 @@ export function lassoPolygonArea(points: readonly Vec2[]): number {
   return Math.abs(area) / 2;
 }
 
-export function normalizeLassoPoints(
-  points: readonly Vec2[],
-): readonly Vec2[] {
+export function normalizeLassoPoints(points: readonly Vec2[]): readonly Vec2[] {
   const normalized: Vec2[] = [];
   for (const point of points.slice(0, maximumLassoPoints)) {
     if (!finitePoint(point)) {
       continue;
     }
     const previous = normalized.at(-1);
-    if (previous === undefined || pointDistance(previous, point) > geometryEpsilon) {
+    if (
+      previous === undefined ||
+      pointDistance(previous, point) > geometryEpsilon
+    ) {
       normalized.push(point);
     }
   }
@@ -315,12 +315,7 @@ function pathIntersectsPolygon(
   const polygonSegments = pathSegments(polygonPath);
   return objectSegments.some(([objectStart, objectFinish]) =>
     polygonSegments.some(([lassoStart, lassoFinish]) =>
-      segmentsIntersect(
-        objectStart,
-        objectFinish,
-        lassoStart,
-        lassoFinish,
-      ),
+      segmentsIntersect(objectStart, objectFinish, lassoStart, lassoFinish),
     ),
   );
 }

@@ -12,7 +12,9 @@ const first = boardObjectId("object:first");
 const second = boardObjectId("object:second");
 const third = boardObjectId("object:third");
 
-function selected(...selectedObjectIds: readonly (typeof first)[]): SelectionState {
+function selected(
+  ...selectedObjectIds: readonly (typeof first)[]
+): SelectionState {
   return { interaction: { kind: "idle" }, selectedObjectIds };
 }
 
