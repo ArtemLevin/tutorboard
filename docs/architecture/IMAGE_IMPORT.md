@@ -6,4 +6,4 @@ Imported images are unlocked user objects. They participate in selection, moveme
 
 Clipboard image payloads take precedence over TutorBoard's internal object clipboard. When the operating-system clipboard contains no image, Ctrl/Cmd+V continues to paste copied board objects.
 
-The same Konva Transformer used for figures provides image resize and rotation handles.
+The same Konva Transformer used for figures provides image resize and rotation handles. A newly inserted image is selected automatically and placed at the visible canvas center.
