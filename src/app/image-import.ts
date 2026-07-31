@@ -45,6 +45,12 @@ function startsWith(bytes: Uint8Array, signature: readonly number[]): boolean {
   return signature.every((value, index) => bytes[index] === value);
 }
 
+function arrayBufferBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
 export function imageMimeFromBytes(
   bytes: Uint8Array,
   textPrefix = "",
@@ -130,7 +136,7 @@ function decodeImage(dataUrl: string): Promise<Size2> {
 }
 
 async function sha256(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const digest = await crypto.subtle.digest("SHA-256", arrayBufferBytes(bytes));
   return [...new Uint8Array(digest)]
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
@@ -195,7 +201,7 @@ export async function prepareEmbeddedImageFile(
     let temporaryDataUrl: string;
     try {
       temporaryDataUrl = await readAsDataUrl(
-        new Blob([bytes], { type: mimeType }),
+        new Blob([arrayBufferBytes(bytes)], { type: mimeType }),
       );
       intrinsicSize = await decodeImage(temporaryDataUrl);
     } catch {
@@ -213,7 +219,9 @@ export async function prepareEmbeddedImageFile(
     );
   }
 
-  const dataUrl = await readAsDataUrl(new Blob([bytes], { type: mimeType }));
+  const dataUrl = await readAsDataUrl(
+    new Blob([arrayBufferBytes(bytes)], { type: mimeType }),
+  );
   return {
     status: "ok",
     value: {
