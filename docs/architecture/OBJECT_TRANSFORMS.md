@@ -19,3 +19,12 @@ handles. Their provenance and group-level semantics remain governed by their
 existing explicit commands. The Transformer disables flips and enforces a minimum
 on-screen box size. Rotation snaps to 45-degree increments within five degrees;
 free rotation remains available outside that tolerance.
+
+## Direct canvas gestures
+
+- A primary-button press on a rendered object starts selection from every toolbar mode.
+- Thin strokes use an expanded hit region while their visual stroke stays unchanged.
+- A selected unlocked user object immediately exposes move, resize, and rotation controls.
+- A secondary-button drag starts viewport panning and activates the hand tool.
+- Middle-button and Space-drag viewport navigation remain available.
+

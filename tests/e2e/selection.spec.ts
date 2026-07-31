@@ -127,3 +127,50 @@ test("scales and rotates a selected figure with undo support", async ({
     "Масштаб: 1, 1 · Поворот: 0°",
   );
 });
+
+test("selects a figure contour directly from another tool", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  await expect(
+    page.getByRole("button", { name: "Прямоугольник (R)" }),
+  ).toHaveAttribute("aria-pressed", "true");
+
+  const contour = await stagePoint(page, 300, 250);
+  await page.mouse.click(contour.x, contour.y);
+
+  await expect(
+    page.getByRole("button", { name: "Выделение (V)" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-transformable-count",
+    "1",
+  );
+  await expect(
+    page.getByRole("button", { name: "Увеличить выделение на 10%" }),
+  ).toBeVisible();
+});
+
+test("right drag switches to canvas movement and pans the viewport", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  const start = await stagePoint(page, 650, 430);
+  const finish = await stagePoint(page, 720, 480);
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down({ button: "right" });
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-panning",
+    "true",
+  );
+  await page.mouse.move(finish.x, finish.y, { steps: 5 });
+  await page.mouse.up({ button: "right" });
+
+  await expect(
+    page.getByRole("button", { name: "Перемещение (H)" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("viewport-offset")).toHaveText("x 230 · y 140");
+  await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
+});

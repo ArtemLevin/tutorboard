@@ -21,6 +21,7 @@ function expectKind<Kind extends BoardObjectKind>(
 
 function commonShapeProps(object: BoardObject) {
   return {
+    hitStrokeWidth: Math.max(14, object.style.strokeWidth),
     name: "board-transform-target",
     opacity: object.style.opacity,
     rotation: object.rotation,
