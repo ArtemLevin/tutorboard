@@ -44,10 +44,4 @@ for (const name of [
   source = source.replaceAll(`${name} 1.0`, `${name} 1.1`);
 }
 
-replaceOnce(
-  "| Atomic Smart Ink acceptance | `core.objects.replace` | This release+ | board/v1 with replace support |",
-  "| Atomic Smart Ink acceptance | `core.objects.replace` | This release+ | board/v1 with replace support |\n| Coordinate plot definition edit | `core.coordinate-plot.update` | BoardDocument 1.1+ | board/v1 with coordinate plot support |",
-  "compatibility matrix",
-);
-
 fs.writeFileSync(path, source);
