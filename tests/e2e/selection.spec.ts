@@ -175,9 +175,13 @@ test("right drag switches to canvas movement and pans the viewport", async ({
   await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
 });
 
-test("applies all seven line styles to a selected figure", async ({ page }) => {
+test("chooses all seven line styles from a popover", async ({ page }) => {
   const rectangle = await stagePoint(page, 350, 250);
   await page.mouse.click(rectangle.x, rectangle.y);
+
+  const menu = page.getByRole("menu", { name: "Стиль линии" });
+  await expect(menu).toHaveCount(0);
+
   for (const label of [
     "Тонкая",
     "Толстая",
@@ -187,8 +191,22 @@ test("applies all seven line styles to a selected figure", async ({ page }) => {
     "Карандаш",
     "Ручка",
   ]) {
-    const option = page.getByRole("button", { name: `Стиль линии: ${label}` });
+    const trigger = page.getByRole("button", { name: /^Стиль линии:/ });
+    await trigger.click();
+    await expect(menu).toBeVisible();
+
+    const option = page.getByRole("menuitemradio", { name: label });
     await option.click();
-    await expect(option).toHaveAttribute("aria-pressed", "true");
+    await expect(menu).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: `Стиль линии: ${label}` }),
+    ).toBeVisible();
   }
+
+  const trigger = page.getByRole("button", { name: "Стиль линии: Ручка" });
+  await trigger.click();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(trigger).toBeFocused();
 });
