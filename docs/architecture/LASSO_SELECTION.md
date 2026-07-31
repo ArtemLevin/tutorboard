@@ -9,6 +9,7 @@ TutorBoard exposes `selection.lasso` as a first-class selection tool with shortc
 - Plain drag replaces the current selection.
 - `Shift` adds matching objects to the current selection.
 - `Alt` removes matching objects from the current selection.
+- Modified `Shift` and `Alt` gestures prioritize the lasso polygon over selected-object Transformer controls.
 - `Escape`, pointer cancellation, viewport changes and window blur restore the selection that existed before the gesture.
 - Primary-button interaction on an object keeps direct selection and movement behavior.
 - Right button, middle button and `Space` retain canvas panning behavior.
