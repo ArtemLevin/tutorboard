@@ -36,6 +36,25 @@ jobs:
           sed -i 's/import { normalizeRect, type Rect2 } from "\.\/interaction";/import type { Rect2 } from "\.\/interaction";/' src/modules/selection/geometry.ts
           sed -i 's/readonly areaOperation: BoardSelectionAreaOperation;/readonly areaOperation?: BoardSelectionAreaOperation;/' src/adapters/canvas-konva/BoardStage.tsx
           sed -i 's/areaOperation: sample.areaOperation,/areaOperation: sample.areaOperation ?? (sample.additive ? "add" : "replace"),/' src/app/App.tsx
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path("src/modules/selection/interaction.ts")
+          text = path.read_text()
+          old = '''      const baseObjectIds = areaBaseSelection(
+                  state.selectedObjectIds,
+                  operation,
+                );'''
+          new = '''      const baseObjectIds = state.selectedObjectIds;
+                const selectedObjectIds = areaBaseSelection(
+                  state.selectedObjectIds,
+                  operation,
+                );'''
+          if old not in text:
+              raise SystemExit("lasso base selection marker missing")
+          text = text.replace(old, new, 1)
+          text = text.replace("selectedObjectIds: baseObjectIds,", "selectedObjectIds,", 2)
+          path.write_text(text)
+          PY
 
       - name: Format changed sources
         run: |
