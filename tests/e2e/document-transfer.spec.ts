@@ -16,7 +16,7 @@ test("exports deterministic document and diagnostic snapshots", async ({
   const exported = JSON.parse(await readFile(jsonPath, "utf8")) as {
     schemaVersion?: unknown;
   };
-  expect(exported.schemaVersion).toBe("1.0");
+  expect(exported.schemaVersion).toBe("1.1");
 
   const svgDownloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Снимок SVG" }).click();

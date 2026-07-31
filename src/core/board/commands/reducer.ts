@@ -1,3 +1,4 @@
+import { validateCoordinatePlotDefinition } from "../coordinate-plot";
 import type { BoardDocument } from "../document";
 import type { GeometryImportRecord, VisualOverride } from "../geometry-imports";
 import type { BoardGroup } from "../groups";
@@ -34,6 +35,7 @@ import type {
   SetLayerVisibilityCommand,
   SetViewportCommand,
   TranslateGeometryImportCommand,
+  UpdateCoordinatePlotCommand,
   UpdateTextCommand,
 } from "./commands";
 
@@ -55,6 +57,7 @@ export type CommandErrorCode =
   | "command.locked"
   | "command.object-exists"
   | "command.object-missing"
+  | "command.stale-object"
   | "command.stale-timestamp";
 
 export interface CommandError {
@@ -590,6 +593,60 @@ function setSelectionStyle(
     ...document,
     geometryImports,
     objects,
+    updatedAt: command.timestamp,
+  });
+}
+
+function updateCoordinatePlot(
+  document: BoardDocument,
+  command: UpdateCoordinatePlotCommand,
+): CommandResult {
+  const object = ownValue(document.objects, command.objectId);
+  if (object === undefined) {
+    return failure(
+      document,
+      "command.object-missing",
+      "Coordinate plot update references a missing object.",
+    );
+  }
+  if (object.kind !== "math.coordinate-plot" || object.source.kind !== "user") {
+    return failure(
+      document,
+      "command.invalid",
+      "Coordinate plot update must target a user coordinate plot.",
+    );
+  }
+  if (
+    object.locked ||
+    (object.groupId !== null &&
+      ownValue(document.groups, object.groupId)?.locked === true)
+  ) {
+    return failure(
+      document,
+      "command.locked",
+      "Locked coordinate plots cannot be updated.",
+    );
+  }
+  if (!structurallyEqual(object.definition, command.expected)) {
+    return failure(
+      document,
+      "command.stale-object",
+      "Coordinate plot changed since the editor snapshot was created.",
+    );
+  }
+  if (validateCoordinatePlotDefinition(command.replacement).length > 0) {
+    return failure(
+      document,
+      "command.invalid",
+      "Coordinate plot replacement violates domain invariants.",
+    );
+  }
+  return accept(document, {
+    ...document,
+    objects: {
+      ...document.objects,
+      [object.id]: { ...object, definition: command.replacement },
+    },
     updatedAt: command.timestamp,
   });
 }
@@ -1626,6 +1683,8 @@ export function reduceBoardDocument(
       return renameDocument(document, command);
     case "core.text.update":
       return updateText(document, command);
+    case "core.coordinate-plot.update":
+      return updateCoordinatePlot(document, command);
     default:
       return assertNever(command);
   }

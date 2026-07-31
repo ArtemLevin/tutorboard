@@ -4,6 +4,7 @@ import {
   type BoardObject,
   type BoardObjectId,
   type CommandMetadata,
+  type CoordinatePlotDefinition,
   type CutContentCommand,
   type DocumentId,
   type GeometryImportId,
@@ -13,7 +14,7 @@ import {
   type Vec2,
 } from "../../core/public";
 
-export const boardClipboardSchemaVersion = "1.0" as const;
+export const boardClipboardSchemaVersion = "1.1" as const;
 export const defaultPasteOffset: Vec2 = { x: 24, y: 24 };
 
 export interface BoardClipboardPayload {
@@ -123,6 +124,33 @@ function translated(position: Vec2, offset: Vec2): Vec2 {
   return { x: position.x + offset.x, y: position.y + offset.y };
 }
 
+function copyCoordinatePlotDefinition(
+  definition: CoordinatePlotDefinition,
+): CoordinatePlotDefinition {
+  return {
+    axes: { ...definition.axes },
+    coordinateViewport: { ...definition.coordinateViewport },
+    expressionLanguage: definition.expressionLanguage,
+    grid: { ...definition.grid },
+    legend: { ...definition.legend },
+    parameters: definition.parameters.map((parameter) => ({ ...parameter })),
+    series: definition.series.map((series) =>
+      series.kind === "explicit"
+        ? {
+            ...series,
+            domain: { ...series.domain },
+            style: { ...series.style },
+          }
+        : {
+            ...series,
+            range: { ...series.range },
+            style: { ...series.style },
+          },
+    ),
+    size: { ...definition.size },
+  };
+}
+
 export function createPasteContentCommand(
   payload: BoardClipboardPayload,
   metadata: CommandMetadata,
@@ -162,8 +190,15 @@ export function createPasteContentCommand(
             importId:
               importIds.get(object.source.importId) ?? object.source.importId,
           };
+    const copied =
+      object.kind === "math.coordinate-plot"
+        ? {
+            ...object,
+            definition: copyCoordinatePlotDefinition(object.definition),
+          }
+        : object;
     return {
-      ...object,
+      ...copied,
       groupId,
       id: remapObjectId(object.id),
       position:

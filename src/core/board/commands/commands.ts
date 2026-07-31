@@ -1,3 +1,4 @@
+import type { CoordinatePlotDefinition } from "../coordinate-plot";
 import type { BoardGroup } from "../groups";
 import type {
   GeometryImportRecord,
@@ -149,6 +150,13 @@ export interface UpdateTextCommand extends CommandMetadata {
   readonly text: string;
 }
 
+export interface UpdateCoordinatePlotCommand extends CommandMetadata {
+  readonly expected: CoordinatePlotDefinition;
+  readonly kind: "core.coordinate-plot.update";
+  readonly objectId: BoardObjectId;
+  readonly replacement: CoordinatePlotDefinition;
+}
+
 export type BoardCommand =
   | AddGroupCommand
   | AddObjectsCommand
@@ -169,6 +177,7 @@ export type BoardCommand =
   | SetSelectionStyleCommand
   | SetLayerVisibilityCommand
   | TranslateGeometryImportCommand
+  | UpdateCoordinatePlotCommand
   | UpdateTextCommand
   | SetViewportCommand;
 
@@ -194,4 +203,5 @@ export const boardCommandKinds = [
   "core.viewport.set",
   "core.document.rename",
   "core.text.update",
+  "core.coordinate-plot.update",
 ] as const satisfies readonly BoardCommand["kind"][];

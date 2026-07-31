@@ -13,6 +13,8 @@ export type CommandId = Brand<string, "CommandId">;
 export type DocumentId = Brand<string, "DocumentId">;
 export type GeometryImportId = Brand<string, "GeometryImportId">;
 export type GroupId = Brand<string, "GroupId">;
+export type PlotParameterId = Brand<string, "PlotParameterId">;
+export type PlotSeriesId = Brand<string, "PlotSeriesId">;
 
 export function isValidIdentifier(value: string): boolean {
   return identifierPattern.test(value) && !unsafeRecordKeys.has(value);
@@ -51,4 +53,12 @@ export function geometryImportId(value: string): GeometryImportId {
 
 export function groupId(value: string): GroupId {
   return toIdentifier(value, "GroupId");
+}
+
+export function plotParameterId(value: string): PlotParameterId {
+  return toIdentifier(value, "PlotParameterId");
+}
+
+export function plotSeriesId(value: string): PlotSeriesId {
+  return toIdentifier(value, "PlotSeriesId");
 }

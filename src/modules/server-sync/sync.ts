@@ -491,7 +491,7 @@ export class BoardSyncEngine {
             documentId: this.#documentId,
             expectedDocumentSha256: sha256,
             idempotencyKey: first.idempotencyKey,
-            schemaVersion: "1.0",
+            schemaVersion: "1.1",
           },
           this.#context.csrfToken,
         );

@@ -1,3 +1,4 @@
+import { validateCoordinatePlotDefinition } from "../coordinate-plot";
 import type { BoardDocument } from "../document";
 import type { BoardGroup } from "../groups";
 import type { GeometryImportRecord } from "../geometry-imports";
@@ -379,6 +380,21 @@ function validateGeometryImports(
   return issues;
 }
 
+function validateCoordinatePlots(
+  document: BoardDocument,
+): readonly ValidationIssue[] {
+  return definedObjects(document).flatMap((object) => {
+    if (object.kind !== "math.coordinate-plot") return [];
+    return validateCoordinatePlotDefinition(object.definition).map((item) =>
+      issue(
+        item.code,
+        `objects.${object.id}.definition.${item.path}`,
+        item.message,
+      ),
+    );
+  });
+}
+
 function validateTimestamps(
   document: BoardDocument,
 ): readonly ValidationIssue[] {
@@ -421,6 +437,7 @@ export function validateBoardDocument(input: unknown): BoardDocumentValidation {
     ...validateOrder(document),
     ...validateGroups(document),
     ...validateGeometryImports(document),
+    ...validateCoordinatePlots(document),
     ...validateTimestamps(document),
   ];
 

@@ -156,6 +156,93 @@ const svgObject = boardObject("svg-import.svg", {
   }),
   viewBox: reference("SvgViewBox"),
 });
+const plotSeriesStyle = strictObject({
+  lineStyle: { enum: ["solid", "dashed", "dash-dot"] },
+  opacity: { maximum: 1, minimum: 0, type: "number" },
+  stroke: { maxLength: 256, minLength: 1, type: "string" },
+  strokeWidth: { maximum: 32, minimum: 0.25, type: "number" },
+});
+const plotExpression = { maxLength: 2_000, minLength: 1, type: "string" };
+const explicitPlotSeries = strictObject({
+  domain: strictObject({
+    maxExpression: { anyOf: [plotExpression, { type: "null" }] },
+    minExpression: { anyOf: [plotExpression, { type: "null" }] },
+  }),
+  expression: plotExpression,
+  id: reference("Identifier"),
+  kind: { const: "explicit" },
+  name: { maxLength: 128, minLength: 1, type: "string" },
+  style: reference("PlotSeriesStyle"),
+  visible: { type: "boolean" },
+});
+const parametricPlotSeries = strictObject({
+  closed: { type: "boolean" },
+  id: reference("Identifier"),
+  kind: { const: "parametric" },
+  name: { maxLength: 128, minLength: 1, type: "string" },
+  parameterName: { const: "t" },
+  range: strictObject({
+    maxExpression: plotExpression,
+    minExpression: plotExpression,
+  }),
+  style: reference("PlotSeriesStyle"),
+  visible: { type: "boolean" },
+  xExpression: plotExpression,
+  yExpression: plotExpression,
+});
+const plotSeries = {
+  oneOf: [reference("ExplicitPlotSeries"), reference("ParametricPlotSeries")],
+};
+const plotParameter = strictObject({
+  id: reference("Identifier"),
+  max: { type: ["number", "null"] },
+  min: { type: ["number", "null"] },
+  name: { maxLength: 32, minLength: 1, type: "string" },
+  step: { type: ["number", "null"] },
+  value: finiteNumber,
+});
+const coordinatePlotDefinition = strictObject({
+  axes: strictObject({
+    showArrows: { type: "boolean" },
+    showLabels: { type: "boolean" },
+    showXAxis: { type: "boolean" },
+    showYAxis: { type: "boolean" },
+    xLabel: { maxLength: 32, type: "string" },
+    yLabel: { maxLength: 32, type: "string" },
+  }),
+  coordinateViewport: strictObject({
+    equalScale: { type: "boolean" },
+    xMax: finiteNumber,
+    xMin: finiteNumber,
+    yMax: finiteNumber,
+    yMin: finiteNumber,
+  }),
+  expressionLanguage: { const: "tutorboard-expression/1" },
+  grid: strictObject({
+    automaticStep: { type: "boolean" },
+    majorVisible: { type: "boolean" },
+    minorVisible: { type: "boolean" },
+    visible: { type: "boolean" },
+    xStep: { type: ["number", "null"] },
+    yStep: { type: ["number", "null"] },
+  }),
+  legend: strictObject({
+    position: {
+      enum: ["top-left", "top-right", "bottom-left", "bottom-right"],
+    },
+    visible: { type: "boolean" },
+  }),
+  parameters: array(reference("PlotParameter"), { maxItems: 32 }),
+  series: array(reference("PlotSeries"), { maxItems: 32 }),
+  size: strictObject({
+    height: { maximum: 16_384, minimum: 100, type: "number" },
+    width: { maximum: 16_384, minimum: 120, type: "number" },
+  }),
+});
+const coordinatePlotObject = boardObject("math.coordinate-plot", {
+  definition: reference("CoordinatePlotDefinition"),
+});
+
 const boardObjectUnion = {
   oneOf: [
     reference("PenStrokeObject"),
@@ -165,6 +252,7 @@ const boardObjectUnion = {
     reference("TextObject"),
     reference("EmbeddedImageObject"),
     reference("SvgObject"),
+    reference("CoordinatePlotObject"),
   ],
 };
 const boardGroup = strictObject({
@@ -227,7 +315,7 @@ const boardDocument = strictObject({
   id: reference("Identifier"),
   objects: record(reference("BoardObject")),
   order: array(reference("Identifier"), { uniqueItems: true }),
-  schemaVersion: { const: "1.0" },
+  schemaVersion: { const: "1.1" },
   title: { maxLength: 256, minLength: 1, type: "string" },
   updatedAt: timestamp,
   viewport: reference("Viewport"),
@@ -237,6 +325,8 @@ const boardDefinitions = {
   BoardDocument: boardDocument,
   BoardGroup: boardGroup,
   BoardObject: boardObjectUnion,
+  CoordinatePlotDefinition: coordinatePlotDefinition,
+  CoordinatePlotObject: coordinatePlotObject,
   EllipseObject: ellipse,
   EmbeddedImageObject: embeddedImage,
   GeometryImportRecord: geometryImportRecord,
@@ -244,6 +334,11 @@ const boardDefinitions = {
   Identifier: identifier,
   LineObject: line,
   ObjectStyle: objectStyle,
+  ExplicitPlotSeries: explicitPlotSeries,
+  ParametricPlotSeries: parametricPlotSeries,
+  PlotParameter: plotParameter,
+  PlotSeries: plotSeries,
+  PlotSeriesStyle: plotSeriesStyle,
   PenStrokeObject: penStroke,
   PositiveVec2: positiveVec2,
   RectangleObject: rectangle,
@@ -377,6 +472,11 @@ const commands = {
     delta: reference("Vec2"),
     importId: reference("Identifier"),
   }),
+  UpdateCoordinatePlotCommand: command("core.coordinate-plot.update", {
+    expected: reference("CoordinatePlotDefinition"),
+    objectId: reference("Identifier"),
+    replacement: reference("CoordinatePlotDefinition"),
+  }),
   UpdateTextCommand: command("core.text.update", {
     objectId: reference("Identifier"),
     text: { maxLength: 100_000, type: "string" },
@@ -404,7 +504,7 @@ function rootSchema(id, title, root, definitions) {
 export const schemas = {
   "board-command-envelope.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-command-envelope.schema.json",
-    "BoardCommandEnvelope 1.0",
+    "BoardCommandEnvelope 1.1",
     strictObject({
       actorId: reference("Identifier"),
       baseRevision: nonNegativeInteger,
@@ -423,19 +523,19 @@ export const schemas = {
         pattern: "^[A-Za-z0-9._:-]+$",
         type: "string",
       },
-      schemaVersion: { const: "1.0" },
+      schemaVersion: { const: "1.1" },
     }),
     commandDefinitions,
   ),
   "board-document.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-document.schema.json",
-    "BoardDocument 1.0",
+    "BoardDocument 1.1",
     reference("BoardDocument"),
     boardDefinitions,
   ),
   "board-geometry-import.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-geometry-import.schema.json",
-    "BoardGeometryImport 1.0",
+    "BoardGeometryImport 1.1",
     strictObject({
       baseRevision: nonNegativeInteger,
       commandId: reference("Identifier"),
@@ -460,20 +560,20 @@ export const schemas = {
       }),
       importId: reference("Identifier"),
       prompt: { maxLength: 100_000, minLength: 1, type: "string" },
-      schemaVersion: { const: "1.0" },
+      schemaVersion: { const: "1.1" },
     }),
     { Identifier: identifier },
   ),
   "board-snapshot.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-snapshot.schema.json",
-    "BoardSnapshot 1.0",
+    "BoardSnapshot 1.1",
     strictObject({
       createdAt: timestamp,
       document: reference("BoardDocument"),
       documentId: reference("Identifier"),
       documentSha256: { pattern: sha256Pattern, type: "string" },
       revision: nonNegativeInteger,
-      schemaVersion: { const: "1.0" },
+      schemaVersion: { const: "1.1" },
     }),
     boardDefinitions,
   ),
@@ -488,12 +588,12 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 
 ## Artifacts
 
-- \`BoardDocument 1.0\` is the canonical persisted board state.
-- \`BoardCommandEnvelope 1.0\` carries one atomic, idempotent command batch
+- \`BoardDocument 1.1\` is the canonical persisted board state.
+- \`BoardCommandEnvelope 1.1\` carries one atomic, idempotent command batch
   against a known base revision.
-- \`BoardSnapshot 1.0\` binds a canonical document to a server revision and
+- \`BoardSnapshot 1.1\` binds a canonical document to a server revision and
   SHA-256 digest.
-- \`BoardGeometryImport 1.0\` records GeometryOS GIR/Layout provenance without
+- \`BoardGeometryImport 1.1\` records GeometryOS GIR/Layout provenance without
   adding transport state to \`BoardDocument\`.
 
 The manifest hashes every schema and canonical fixture. Run
@@ -563,7 +663,7 @@ function readBoardDocumentFixture() {
 }
 
 function fixtures() {
-  const document = readBoardDocumentFixture();
+  const document = { ...readBoardDocumentFixture(), schemaVersion: "1.1" };
   const documentHash = sha256(canonicalPayload(document));
   const smartInkStroke = {
     groupId: null,
@@ -620,7 +720,7 @@ function fixtures() {
       documentId: document.id,
       expectedDocumentSha256: documentHash,
       idempotencyKey: "client:tutor-01:batch-08",
-      schemaVersion: "1.0",
+      schemaVersion: "1.1",
     },
     "fixtures/board-document.json": document,
     "fixtures/board-geometry-import.json": {
@@ -639,7 +739,7 @@ function fixtures() {
       },
       importId: "import:geometry-08",
       prompt: "Постройте треугольник ABC.",
-      schemaVersion: "1.0",
+      schemaVersion: "1.1",
     },
     "fixtures/board-snapshot.json": {
       createdAt: "2026-07-28T17:00:00.000Z",
@@ -647,7 +747,7 @@ function fixtures() {
       documentId: document.id,
       documentSha256: documentHash,
       revision: 7,
-      schemaVersion: "1.0",
+      schemaVersion: "1.1",
     },
   };
 }

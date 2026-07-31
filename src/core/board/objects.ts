@@ -1,3 +1,4 @@
+import type { CoordinatePlotDefinition } from "./coordinate-plot";
 import type { BoardObjectId, GeometryImportId, GroupId } from "./identifiers";
 import type { Size2, Vec2 } from "./primitives";
 
@@ -11,6 +12,7 @@ export const boardObjectKinds = [
   "drawing.text",
   "image.embedded",
   "svg-import.svg",
+  "math.coordinate-plot",
 ] as const;
 
 export type BoardObjectKind = (typeof boardObjectKinds)[number];
@@ -106,6 +108,11 @@ export interface EmbeddedImageObject extends BoardObjectBase {
   readonly size: Size2;
 }
 
+export interface CoordinatePlotObject extends BoardObjectBase {
+  readonly definition: CoordinatePlotDefinition;
+  readonly kind: "math.coordinate-plot";
+}
+
 export interface SvgViewBox {
   readonly height: number;
   readonly width: number;
@@ -122,6 +129,7 @@ export interface SvgObject extends BoardObjectBase {
 }
 
 export type BoardObject =
+  | CoordinatePlotObject
   | EllipseObject
   | EmbeddedImageObject
   | LineObject

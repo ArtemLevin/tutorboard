@@ -8,6 +8,7 @@ import {
   buildSmoothStrokePoints,
   flattenStrokePoints,
 } from "../../shared/stroke-smoothing";
+import { CoordinatePlotPlaceholderRenderer } from "./coordinate-plot-placeholder-renderer";
 import { EmbeddedImageRenderer } from "./embedded-image-renderer";
 import { SvgRenderer } from "./svg-renderer";
 import {
@@ -275,6 +276,16 @@ const renderers: readonly KonvaObjectRenderer[] = [
           {...strokeProps(ellipse)}
           radiusX={ellipse.radius.x}
           radiusY={ellipse.radius.y}
+        />
+      );
+    },
+  },
+  {
+    kind: "math.coordinate-plot",
+    render(object) {
+      return (
+        <CoordinatePlotPlaceholderRenderer
+          object={expectKind(object, "math.coordinate-plot")}
         />
       );
     },

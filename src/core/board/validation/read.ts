@@ -1,10 +1,15 @@
 import { boardDocumentSchemaVersion, type BoardDocument } from "../document";
 import {
-  migrateBoardDocument01To10,
-  migrateBoardDocument02To10,
+  migrateBoardDocument01To11,
+  migrateBoardDocument02To11,
+  migrateBoardDocument10To11,
 } from "../migrations";
 import type { ValidationIssue } from "./validate";
-import { knownBoardObjectKinds, legacyBoardObjectKinds } from "./schema";
+import {
+  knownBoardObjectKinds,
+  knownBoardObjectKinds10,
+  legacyBoardObjectKinds,
+} from "./schema";
 import { validateBoardDocument } from "./validate";
 
 export type BoardDocumentReadResult =
@@ -61,18 +66,29 @@ export function readBoardDocument(raw: unknown): BoardDocumentReadResult {
     if (objectKinds.length > 0) {
       return { status: "incompatible-object", raw, objectKinds };
     }
-    const migrated = migrateBoardDocument01To10(raw);
+    const migrated = migrateBoardDocument01To11(raw);
     return migrated.ok
       ? { status: "ok", document: migrated.document }
       : { status: "invalid-document", raw, issues: migrated.issues };
   }
 
   if (schemaVersion === "0.2") {
-    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds);
+    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds10);
     if (objectKinds.length > 0) {
       return { status: "incompatible-object", raw, objectKinds };
     }
-    const migrated = migrateBoardDocument02To10(raw);
+    const migrated = migrateBoardDocument02To11(raw);
+    return migrated.ok
+      ? { status: "ok", document: migrated.document }
+      : { status: "invalid-document", raw, issues: migrated.issues };
+  }
+
+  if (schemaVersion === "1.0") {
+    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds10);
+    if (objectKinds.length > 0) {
+      return { status: "incompatible-object", raw, objectKinds };
+    }
+    const migrated = migrateBoardDocument10To11(raw);
     return migrated.ok
       ? { status: "ok", document: migrated.document }
       : { status: "invalid-document", raw, issues: migrated.issues };

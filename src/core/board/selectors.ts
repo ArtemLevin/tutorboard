@@ -234,13 +234,35 @@ function localObjectPoints(object: BoardObject): readonly Vec2[] {
     case "drawing.line":
       return [{ x: 0, y: 0 }, object.end];
     case "drawing.rectangle":
+    case "math.coordinate-plot":
     case "image.embedded":
     case "svg-import.svg":
       return [
         { x: 0, y: 0 },
-        { x: object.size.width, y: 0 },
-        { x: object.size.width, y: object.size.height },
-        { x: 0, y: object.size.height },
+        {
+          x:
+            object.kind === "math.coordinate-plot"
+              ? object.definition.size.width
+              : object.size.width,
+          y: 0,
+        },
+        {
+          x:
+            object.kind === "math.coordinate-plot"
+              ? object.definition.size.width
+              : object.size.width,
+          y:
+            object.kind === "math.coordinate-plot"
+              ? object.definition.size.height
+              : object.size.height,
+        },
+        {
+          x: 0,
+          y:
+            object.kind === "math.coordinate-plot"
+              ? object.definition.size.height
+              : object.size.height,
+        },
       ];
     case "drawing.ellipse":
       return [

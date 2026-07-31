@@ -5,12 +5,16 @@ export {
   documentId,
   geometryImportId,
   groupId,
+  plotParameterId,
+  plotSeriesId,
   type ActorId,
   type BoardObjectId,
   type CommandId,
   type DocumentId,
   type GeometryImportId,
   type GroupId,
+  type PlotParameterId,
+  type PlotSeriesId,
 } from "./board/identifiers";
 export {
   boardDocumentSchemaVersion,
@@ -19,6 +23,31 @@ export {
   type CreateBoardDocumentInput,
 } from "./board/document";
 export type { BoardGroup } from "./board/groups";
+export {
+  coordinatePlotExpressionLanguage,
+  maximumCoordinatePlotExpressionBudget,
+  maximumCoordinatePlotParameters,
+  maximumCoordinatePlotSeries,
+  maximumPlotExpressionLength,
+  plotLegendPositions,
+  plotLineStyles,
+  plotSeriesKinds,
+  validateCoordinatePlotDefinition,
+  type CoordinatePlotAxes,
+  type CoordinatePlotDefinition,
+  type CoordinatePlotDefinitionIssue,
+  type CoordinatePlotGrid,
+  type CoordinatePlotLegend,
+  type CoordinatePlotViewport,
+  type ExplicitPlotSeries,
+  type ParametricPlotSeries,
+  type PlotLegendPosition,
+  type PlotLineStyle,
+  type PlotParameter,
+  type PlotSeries,
+  type PlotSeriesKind,
+  type PlotSeriesStyle,
+} from "./board/coordinate-plot";
 export type {
   GeometryImportRecord,
   VisualOverride,
@@ -32,6 +61,7 @@ export {
   type BoardObject,
   type BoardObjectKind,
   type BoardObjectSource,
+  type CoordinatePlotObject,
   type EllipseObject,
   type EmbeddedImageMimeType,
   type EmbeddedImageObject,
@@ -47,7 +77,10 @@ export {
 } from "./board/objects";
 export {
   migrateBoardDocument01To10,
+  migrateBoardDocument01To11,
   migrateBoardDocument02To10,
+  migrateBoardDocument02To11,
+  migrateBoardDocument10To11,
   type BoardDocumentMigrationResult,
 } from "./board/migrations";
 export {
@@ -90,6 +123,7 @@ export {
   type SetLayerVisibilityCommand,
   type SetViewportCommand,
   type TranslateGeometryImportCommand,
+  type UpdateCoordinatePlotCommand,
   type UpdateTextCommand,
 } from "./board/commands/commands";
 export {
