@@ -937,6 +937,9 @@ export function App({
 
   const startSelection = useCallback(
     (sample: SelectionPointerStartSample) => {
+      if (sample.objectId !== null && activeTool !== selectionToolId) {
+        activateTool(selectionToolId);
+      }
       const hitObjectIds =
         sample.objectId === null
           ? []
@@ -949,7 +952,7 @@ export function App({
         pointerId: sample.pointerId,
       });
     },
-    [applySelectionAction, document],
+    [activeTool, activateTool, applySelectionAction, document],
   );
 
   const moveSelection = useCallback(
@@ -1509,6 +1512,7 @@ export function App({
             })
           }
           onWorldPointerStart={startDrawing}
+          onPanModeRequest={() => activateTool(navigationToolId)}
           onSelectionPointerCancel={cancelSelection}
           onSelectionPointerFinish={finishSelection}
           onSelectionPointerMove={moveSelection}
@@ -1709,7 +1713,7 @@ export function App({
                   ? "Нарисуйте фигуру одним непрерывным штрихом"
                   : "Потяните или нажмите на полотно"}
           </span>
-          <span>Space / средняя кнопка — временное перемещение</span>
+          <span>Правая кнопка / Space / средняя кнопка — перемещение</span>
           <span>Escape — отменить действие</span>
         </aside>
 

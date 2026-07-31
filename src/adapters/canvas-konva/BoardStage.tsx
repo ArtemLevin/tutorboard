@@ -40,7 +40,7 @@ const zoomBounds = { minimum: 0.1, maximum: 8 } as const;
 const zoomStep = 1.08;
 const wheelCommitDelayMs = 120;
 
-type PanSource = "hand" | "middle" | "space";
+type PanSource = "hand" | "middle" | "right" | "space";
 
 interface PanSession {
   readonly captureElement: HTMLElement;
@@ -100,6 +100,7 @@ export interface BoardObjectTransformSnapshot {
 
 export interface BoardStageProps {
   readonly drawingModeKey: string | null;
+  readonly onPanModeRequest?: () => void;
   readonly onWorldPointerCancel: (pointerId: number) => void;
   readonly onWorldPointerFinish: (sample: WorldPointerSample) => void;
   readonly onWorldPointerMove: (sample: WorldPointerSample) => void;
@@ -214,6 +215,7 @@ function objectIdFromTarget(target: Konva.Node): BoardObjectId | null {
 
 export function BoardStage({
   drawingModeKey,
+  onPanModeRequest,
   onViewportCommit,
   onWorldPointerCancel,
   onWorldPointerFinish,
@@ -715,7 +717,8 @@ export function BoardStage({
   }, [finishSelection, scene.viewport]);
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
-    if (isTransformerTarget(event.target)) {
+    const isRightButton = event.evt.button === 2;
+    if (!isRightButton && isTransformerTarget(event.target)) {
       commitWheel();
       return;
     }
@@ -727,15 +730,19 @@ export function BoardStage({
       return;
     }
 
+    const hitObjectId = objectIdFromTarget(event.target);
     const isMiddleButton = event.evt.button === 1;
     const isLeftButton = event.evt.button === 0;
-    const source: PanSource | null = isMiddleButton
-      ? "middle"
-      : isLeftButton && spacePressedRef.current
-        ? "space"
-        : isLeftButton && panMode
-          ? "hand"
-          : null;
+    const shouldSelectHitObject = isLeftButton && hitObjectId !== null;
+    const source: PanSource | null = isRightButton
+      ? "right"
+      : isMiddleButton
+        ? "middle"
+        : isLeftButton && spacePressedRef.current
+          ? "space"
+          : isLeftButton && panMode && !shouldSelectHitObject
+            ? "hand"
+            : null;
     if (source === null) {
       if (!isLeftButton) {
         return;
@@ -749,7 +756,7 @@ export function BoardStage({
       }
       const captureElement = stage.container();
       captureElement.setPointerCapture(event.evt.pointerId);
-      if (selectionModeKey !== null) {
+      if (selectionModeKey !== null || hitObjectId !== null) {
         const session: SelectionSession = {
           captureElement,
           pointerId: event.evt.pointerId,
@@ -760,7 +767,7 @@ export function BoardStage({
         selectionPointerCallbacksRef.current.start({
           ...selectionWorldSample(event.evt, session),
           additive: event.evt.shiftKey,
-          objectId: objectIdFromTarget(event.target),
+          objectId: hitObjectId,
         });
         return;
       }
@@ -791,6 +798,9 @@ export function BoardStage({
     const captureElement = stage.container();
     captureElement.setPointerCapture(event.evt.pointerId);
     const viewport = previewViewport;
+    if (source === "right") {
+      onPanModeRequest?.();
+    }
     panSessionRef.current = {
       captureElement,
       pointerId: event.evt.pointerId,
