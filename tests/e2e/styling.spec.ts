@@ -15,9 +15,25 @@ test("edits the persisted style of a selected object", async ({ page }) => {
   await page.getByRole("button", { name: "Выделение (V)" }).click();
   await page.mouse.click(bounds.x + 320, bounds.y + 235);
 
-  const fill = page.getByRole("textbox", { name: "Заливка выделения" });
-  await fill.fill("#336699");
-  await expect(fill).toHaveValue("#336699");
+  await expect(
+    page.getByRole("button", {
+      name: /Заливка: (Чёрный|Красный|Синий|Зелёный|Жёлтый)/,
+    }),
+  ).toHaveCount(5);
+  await expect(
+    page.getByRole("button", {
+      name: /Обводка: (Чёрный|Красный|Синий|Зелёный|Жёлтый)/,
+    }),
+  ).toHaveCount(5);
+
+  const blueFill = page.getByRole("button", { name: "Заливка: Синий" });
+  await blueFill.click();
+  await expect(blueFill).toHaveAttribute("aria-pressed", "true");
+
+  const greenStroke = page.getByRole("button", { name: "Обводка: Зелёный" });
+  await greenStroke.click();
+  await expect(greenStroke).toHaveAttribute("aria-pressed", "true");
+
   await page.getByRole("spinbutton", { name: "Толщина обводки" }).fill("6");
   await expect(
     page.getByRole("spinbutton", { name: "Толщина обводки" }),
