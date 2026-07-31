@@ -1,0 +1,49 @@
+name: Format coordinate plot lifecycle tests
+
+on:
+  pull_request:
+    types: [synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: format-coordinate-plot-tests-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'feature/coordinate-plot-domain-model'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out pull request branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Format lifecycle tests
+        run: |
+          npm ci
+          npx prettier --write \
+            tests/unit/adapters/canvas-konva/coordinate-plot-renderer.test.tsx \
+            tests/unit/modules/clipboard/coordinate-plot-clipboard.test.ts
+          npm run format:check
+
+      - name: Commit clean formatted tests
+        run: |
+          rm -f .github/workflows/format-coordinate-plot-tests.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test: format coordinate plot lifecycle coverage"
+          git push
