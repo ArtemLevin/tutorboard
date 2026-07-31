@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildCachedSmoothStrokePoints,
   buildCatmullRomSpline,
+  buildClosedCatmullRomSpline,
+  buildSmoothClosedStrokePoints,
   buildSmoothStrokePoints,
   normalizeStrokePoints,
   pathLength,
@@ -94,5 +96,40 @@ describe("stroke smoothing", () => {
     const first = buildCachedSmoothStrokePoints(points, 3.01);
     const second = buildCachedSmoothStrokePoints(points, 3.1);
     expect(second).toBe(first);
+  });
+
+  it("builds a smooth periodic loop with a continuous seam", () => {
+    const loop = [
+      { x: 0, y: 0 },
+      { x: 60, y: 0 },
+      { x: 80, y: 30 },
+      { x: 60, y: 60 },
+      { x: 0, y: 60 },
+      { x: -20, y: 30 },
+      { x: 0, y: 0 },
+    ] as const;
+    const direct = buildClosedCatmullRomSpline(loop, {
+      subdivisions: 6,
+    });
+    const result = buildSmoothClosedStrokePoints(loop, {
+      maxOutputPoints: 2_000,
+      zoom: 1,
+    });
+    expect(direct[0]).toEqual(direct.at(-1));
+    expect(result[0]).toEqual(result.at(-1));
+    expect(result.length).toBeGreaterThan(loop.length);
+    expect(
+      result.every(({ x, y }) => Number.isFinite(x) && Number.isFinite(y)),
+    ).toBe(true);
+
+    const before = result.at(-2)!;
+    const seam = result[0]!;
+    const after = result[1]!;
+    const incoming = { x: seam.x - before.x, y: seam.y - before.y };
+    const outgoing = { x: after.x - seam.x, y: after.y - seam.y };
+    const cosine =
+      (incoming.x * outgoing.x + incoming.y * outgoing.y) /
+      (Math.hypot(incoming.x, incoming.y) * Math.hypot(outgoing.x, outgoing.y));
+    expect(cosine).toBeGreaterThan(0.85);
   });
 });

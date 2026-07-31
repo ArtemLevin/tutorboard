@@ -27,9 +27,11 @@ Selection uses transformed object geometry instead of only axis-aligned bounds:
 
 An object matches when its path enters the lasso, its closed contour overlaps the lasso, or one closed polygon contains the other.
 
-## Performance contract
+## Performance and rendering contract
 
-The interaction reducer filters near-duplicate samples and caps a gesture at 4096 points. Geometry evaluation also normalizes finite points and enforces the same cap. Selection runs once when the pointer is released; the live gesture renders only the polygon preview.
+The interaction reducer filters near-duplicate samples and caps a gesture at 4096 points. Geometry evaluation also normalizes finite points and enforces the same cap. Selection runs once when the pointer is released.
+
+The live gesture uses evenly resampled points and a periodic Catmull–Rom spline. Its final point joins the first point with continuous direction, so the preview has no angular closing seam. A wide translucent pass under a narrow solid pass gives the contour the visual weight of a thread or physical lasso. Stroke width remains stable across zoom levels. Hit testing continues to use the bounded raw polygon, keeping selection behavior deterministic.
 
 ## Compatibility
 
