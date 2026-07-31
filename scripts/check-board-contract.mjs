@@ -143,6 +143,7 @@ function verifySourceParity() {
     "boardObjectKinds",
   ).sort();
   const schemaObjectKinds = [
+    "CoordinatePlotObject",
     "EllipseObject",
     "EmbeddedImageObject",
     "LineObject",
