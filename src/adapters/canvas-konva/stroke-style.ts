@@ -172,8 +172,9 @@ export function createSketchPath(
     const previous =
       sourcePoints[index === 0 ? (closed ? lastIndex : 0) : index - 1] ?? point;
     const next =
-      sourcePoints[index === lastIndex ? (closed ? 0 : lastIndex) : index + 1] ??
-      point;
+      sourcePoints[
+        index === lastIndex ? (closed ? 0 : lastIndex) : index + 1
+      ] ?? point;
     const tangentX = next.x - previous.x;
     const tangentY = next.y - previous.y;
     const tangentLength = Math.hypot(tangentX, tangentY) || 1;
@@ -184,10 +185,8 @@ export function createSketchPath(
       ? 1
       : 0.22 + Math.sin(progress * Math.PI) * 0.78;
     const noise =
-      Math.sin((index + 1) * (12.9898 + seed * 0.071) + seed * 0.37) *
-        0.68 +
-      Math.cos((index + 1) * (4.123 + seed * 0.053) + point.x * 0.011) *
-        0.32;
+      Math.sin((index + 1) * (12.9898 + seed * 0.071) + seed * 0.37) * 0.68 +
+      Math.cos((index + 1) * (4.123 + seed * 0.053) + point.x * 0.011) * 0.32;
     const offset = noise * intensity * endpointEnvelope;
     output.push(point.x + normalX * offset, point.y + normalY * offset);
   }
@@ -219,10 +218,7 @@ export function createRectangleContour(size: Size2): readonly Vec2[] {
   };
   appendEdge({ x: 0, y: 0 }, { x: size.width, y: 0 });
   appendEdge({ x: size.width, y: 0 }, { x: size.width, y: size.height });
-  appendEdge(
-    { x: size.width, y: size.height },
-    { x: 0, y: size.height },
-  );
+  appendEdge({ x: size.width, y: size.height }, { x: 0, y: size.height });
   appendEdge({ x: 0, y: size.height }, { x: 0, y: 0 });
   return points;
 }
