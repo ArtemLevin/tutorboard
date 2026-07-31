@@ -21,7 +21,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Apply corrected integration patch
+      - name: Finalize zoom integration and tests
         run: |
           python3 <<'PY'
           import re
@@ -36,9 +36,12 @@ jobs:
               count=1,
           )
           if count != 1:
-              raise SystemExit('BoardStage options marker missing')
+              raise SystemExit('BoardStage render options marker missing')
+          marker = '{applyTransforms(registry.render(item), item.transforms)}'
+          if marker not in text:
+              raise SystemExit('BoardStage registry marker missing')
           text = text.replace(
-              '{applyTransforms(registry.render(item), item.transforms)}',
+              marker,
               '''{applyTransforms(
                 registry.render(item, { zoom: options.zoom }),
                 item.transforms,
@@ -66,19 +69,95 @@ jobs:
               raise SystemExit('BoardStage preview marker missing')
           stage.write_text(text)
 
-          lines = Path('.github/workflows/smooth-strokes-patch-v2.yml').read_text().splitlines()
-          start = next(index for index, line in enumerate(lines) if line.strip() == "python3 <<'PY'") + 1
-          finish = next(index for index in range(start, len(lines)) if lines[index].strip() == 'PY')
-          body = [line[10:] if line.startswith('          ') else line for line in lines[start:finish]]
-          code = '\n'.join(body) + '\n'
-          board_start = code.index('replace(\n    "src/adapters/canvas-konva/BoardStage.tsx"')
-          renderer_start = code.index('renderer = Path("src/adapters/canvas-konva/default-renderers.tsx")')
-          code = code[:board_start] + code[renderer_start:]
-          code = code.replace(
-              "r'  \\\{\\n    kind: \"drawing\\.line\",[\\s\\S]*?\\n  \\\},\\n  \\\{',",
-              "r'\\{\\n    kind: \"drawing\\.line\",[\\s\\S]*?\\n  \\\},\\n  \\\{',",
-          )
-          exec(compile(code, 'smooth-strokes-patch-v2', 'exec'))
+          smoothing = Path('src/shared/stroke-smoothing.ts')
+          text = smoothing.read_text()
+          old = '''  const smoothed = buildSmoothStrokePoints(rawPoints, {
+            maxOutputPoints: quality.maxOutputPoints,
+            maxSubdivisions: quality.subdivisions,
+            minPointDistance: quality.minPointDistance,
+            minSubdivisions: quality.subdivisions,
+            baseSegmentLength: quality.targetSegmentLength,
+            zoom: quality.zoomBucket,
+          });'''.replace('          ', '')
+          new = '''  const smoothed = buildSmoothStrokePoints(rawPoints, {
+            zoom: quality.zoomBucket,
+          });'''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('stroke smoothing cache marker missing')
+          smoothing.write_text(text.replace(old, new, 1))
+
+          Path('tests/e2e/stroke-smoothing.spec.ts').write_text(r'''import { expect, test } from "@playwright/test";
+          import type { Page } from "@playwright/test";
+
+          async function stagePoint(page: Page, x: number, y: number) {
+            const bounds = await page.getByTestId("board-stage").boundingBox();
+            expect(bounds).not.toBeNull();
+            if (bounds === null) throw new Error("Canvas has no bounds.");
+            return { x: bounds.x + x, y: bounds.y + y };
+          }
+
+          test("keeps a smoothed freehand stroke transformable at high zoom", async ({
+            page,
+          }) => {
+            await page.goto("/");
+            await expect(
+              page.getByRole("application", {
+                name: "Бесконечное полотно TutorBoard",
+              }),
+            ).toBeVisible();
+
+            await page.getByRole("button", { name: "Перо (P)" }).click();
+            const samples = [
+              [260, 320],
+              [300, 270],
+              [350, 310],
+              [410, 250],
+              [470, 300],
+            ] as const;
+            const first = await stagePoint(page, samples[0][0], samples[0][1]);
+            await page.mouse.move(first.x, first.y);
+            await page.mouse.down();
+            for (const [x, y] of samples.slice(1)) {
+              const point = await stagePoint(page, x, y);
+              await page.mouse.move(point.x, point.y, { steps: 6 });
+            }
+            await page.mouse.up();
+            await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+
+            await page.getByRole("button", { name: "drawing.pen-stroke" }).click();
+            await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+
+            const zoomPoint = await stagePoint(page, 380, 290);
+            await page.mouse.move(zoomPoint.x, zoomPoint.y);
+            for (let index = 0; index < 18; index += 1) {
+              await page.mouse.wheel(0, -240);
+            }
+            await expect(page.getByTestId("viewport-zoom")).not.toHaveText("100%");
+            await expect(page.getByTestId("board-stage")).toHaveAttribute(
+              "data-transformable-count",
+              "1",
+            );
+
+            await page
+              .getByRole("button", { name: "Увеличить выделение на 10%" })
+              .click();
+            await page
+              .getByRole("button", {
+                name: "Повернуть выделение на 15 градусов",
+              })
+              .click();
+            await expect(page.getByTestId("first-object-transform")).toHaveText(
+              "Масштаб: 1.1, 1.1 · Поворот: 15°",
+            );
+          });
+          '''.replace('          ', ''))
+
+          Path('docs/architecture/STROKE_SMOOTHING.md').write_text('''# Stroke smoothing
+
+          Freehand `drawing.pen-stroke` objects retain their original BoardDocument points. Rendering uses deterministic resampling and Catmull–Rom interpolation from `src/shared/stroke-smoothing.ts`. Detail increases in quarter-step zoom buckets through the canvas maximum, while bounded point budgets protect responsiveness.
+
+          The shared implementation serves Konva and document snapshots. Pencil and pen sketchbook passes use a smoothed support curve. Marker strokes use the same support curve with their wide translucent style. Wavy and hand-drawn line sampling increases with zoom. Strict geometric primitives retain exact geometry. Cached results are keyed by the immutable source point array and zoom bucket.
+          '''.replace('          ', ''))
           PY
           npx prettier --write src/shared/stroke-smoothing.ts src/shared/stroke-smoothing.test.ts src/adapters/canvas-konva/renderer-registry.tsx src/adapters/canvas-konva/BoardStage.tsx src/adapters/canvas-konva/default-renderers.tsx src/adapters/canvas-konva/stroke-style.ts src/modules/document-transfer/snapshot.ts tests/e2e/stroke-smoothing.spec.ts docs/architecture/STROKE_SMOOTHING.md
           npm run typecheck
@@ -88,5 +167,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "feat: smooth freehand strokes at high zoom"
+          git commit -m "feat: finalize adaptive stroke smoothing"
           git push origin HEAD:feature-smooth-freehand-strokes
