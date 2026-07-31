@@ -207,6 +207,46 @@ export function buildCatmullRomSpline(
   return output;
 }
 
+export function buildClosedCatmullRomSpline(
+  points: readonly StrokePoint[],
+  options: CatmullRomOptions,
+): readonly StrokePoint[] {
+  const finite = points.filter(finitePoint);
+  if (finite.length <= 2) return [...finite];
+  const first = finite[0]!;
+  const last = finite.at(-1)!;
+  const source =
+    finite.length > 3 && distance(first, last) <= 0.001
+      ? finite.slice(0, -1)
+      : finite;
+  if (source.length <= 2) return [...source];
+
+  const requestedSubdivisions = Math.max(1, Math.floor(options.subdivisions));
+  const maximum = Math.max(
+    source.length + 1,
+    Math.floor(options.maxOutputPoints ?? defaultMaximumOutputPoints),
+  );
+  const maximumSubdivisions = Math.max(
+    1,
+    Math.floor((maximum - 1) / source.length),
+  );
+  const subdivisions = Math.min(requestedSubdivisions, maximumSubdivisions);
+  const output: StrokePoint[] = [];
+
+  for (let index = 0; index < source.length; index += 1) {
+    const p0 = source[(index - 1 + source.length) % source.length]!;
+    const p1 = source[index]!;
+    const p2 = source[(index + 1) % source.length]!;
+    const p3 = source[(index + 2) % source.length]!;
+    for (let step = 0; step < subdivisions; step += 1) {
+      output.push(catmullRomPoint(p0, p1, p2, p3, step / subdivisions));
+    }
+  }
+
+  if (output.length > 0) output.push(output[0]!);
+  return output;
+}
+
 export function resolveStrokeSmoothingQuality(
   points: readonly StrokePoint[],
   options: SmoothStrokeOptions,
@@ -263,6 +303,44 @@ export function buildSmoothStrokePoints(
     targetSegmentLength: quality.targetSegmentLength,
   });
   return buildCatmullRomSpline(normalized, {
+    maxOutputPoints: quality.maxOutputPoints,
+    subdivisions: quality.subdivisions,
+  });
+}
+
+export function buildSmoothClosedStrokePoints(
+  rawPoints: readonly StrokePoint[],
+  options: SmoothStrokeOptions,
+): readonly StrokePoint[] {
+  const finite = rawPoints.filter(finitePoint);
+  if (finite.length <= 2) return finite;
+  const first = finite[0]!;
+  const last = finite.at(-1)!;
+  const source =
+    finite.length > 3 && distance(first, last) <= 0.001
+      ? finite.slice(0, -1)
+      : finite;
+  if (source.length <= 2) return source;
+
+  const quality = resolveStrokeSmoothingQuality(
+    [...source, source[0]!],
+    options,
+  );
+  const normalizedLoop = normalizeStrokePoints([...source, source[0]!], {
+    maxInsertedPointsPerSegment: 24,
+    maxNormalizedPoints: Math.min(
+      defaultMaximumNormalizedPoints,
+      quality.maxOutputPoints,
+    ),
+    minPointDistance: quality.minPointDistance,
+    targetSegmentLength: quality.targetSegmentLength,
+  });
+  const normalized =
+    normalizedLoop.length > 1 &&
+    distance(normalizedLoop[0]!, normalizedLoop.at(-1)!) <= 0.001
+      ? normalizedLoop.slice(0, -1)
+      : normalizedLoop;
+  return buildClosedCatmullRomSpline(normalized, {
     maxOutputPoints: quality.maxOutputPoints,
     subdivisions: quality.subdivisions,
   });

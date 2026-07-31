@@ -32,6 +32,10 @@ import {
   type Vec2,
   type ViewportState,
 } from "../../core/public";
+import {
+  buildSmoothClosedStrokePoints,
+  flattenStrokePoints,
+} from "../../shared/stroke-smoothing";
 import { BoardGrid } from "./grid";
 import { clientPoint, elementPoint } from "./pointer";
 import type { KonvaRendererRegistry } from "./renderer-registry";
@@ -284,6 +288,19 @@ export function BoardStage({
         selectVisibleBoardItems(scene.items, previewViewport, size),
       ),
     [previewViewport, scene.items, size],
+  );
+  const smoothedSelectionLasso = useMemo(
+    () =>
+      selectionLasso === null || selectionLasso.length < 3
+        ? selectionLasso
+        : buildSmoothClosedStrokePoints(selectionLasso, {
+            baseSegmentLength: 6,
+            maxOutputPoints: 8_000,
+            maxSubdivisions: 8,
+            minSubdivisions: 4,
+            zoom: previewViewport.zoom,
+          }),
+    [previewViewport.zoom, selectionLasso],
   );
 
   useEffect(() => {
@@ -990,17 +1007,29 @@ export function BoardStage({
                 y={selectionMarquee.y}
               />
             )}
-            {selectionLasso === null || selectionLasso.length < 2 ? null : (
-              <Line
-                closed={selectionLasso.length > 2}
-                dash={[7 / previewViewport.zoom, 4 / previewViewport.zoom]}
-                fill="rgba(44, 113, 130, 0.09)"
-                lineCap="round"
-                lineJoin="round"
-                points={selectionLasso.flatMap(({ x, y }) => [x, y])}
-                stroke="#2c7182"
-                strokeWidth={1.5 / previewViewport.zoom}
-              />
+            {smoothedSelectionLasso === null ||
+            smoothedSelectionLasso.length < 2 ? null : (
+              <>
+                <Line
+                  closed={smoothedSelectionLasso.length > 2}
+                  lineCap="round"
+                  lineJoin="round"
+                  perfectDrawEnabled
+                  points={[...flattenStrokePoints(smoothedSelectionLasso)]}
+                  stroke="rgba(44, 113, 130, 0.2)"
+                  strokeWidth={6 / previewViewport.zoom}
+                />
+                <Line
+                  closed={smoothedSelectionLasso.length > 2}
+                  fill="rgba(44, 113, 130, 0.07)"
+                  lineCap="round"
+                  lineJoin="round"
+                  perfectDrawEnabled
+                  points={[...flattenStrokePoints(smoothedSelectionLasso)]}
+                  stroke="#2c7182"
+                  strokeWidth={2 / previewViewport.zoom}
+                />
+              </>
             )}
             {remoteCursors.map(({ actorId, point }) => (
               <Group key={actorId} x={point.x} y={point.y}>

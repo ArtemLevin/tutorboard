@@ -29,7 +29,7 @@ An object matches when its path enters the lasso, its closed contour overlaps th
 
 ## Performance contract
 
-The interaction reducer filters near-duplicate samples and caps a gesture at 4096 points. Geometry evaluation also normalizes finite points and enforces the same cap. Selection runs once when the pointer is released; the live gesture renders only the polygon preview.
+The interaction reducer filters near-duplicate samples and caps a gesture at 4096 points. Geometry evaluation also normalizes finite points and enforces the same cap. Selection runs once when the pointer is released. The live gesture renders a periodic Catmull–Rom preview with a continuous double stroke, while hit testing keeps the bounded raw polygon.
 
 ## Compatibility
 
