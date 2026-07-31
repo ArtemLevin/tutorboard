@@ -143,7 +143,8 @@ describe("coordinate plot clipboard lifecycle", () => {
 
     expect(pasted.ok).toBe(true);
     if (!pasted.ok) return;
-    const duplicate = pasted.document.objects[boardObjectId("copy:plot-source")];
+    const duplicate =
+      pasted.document.objects[boardObjectId("copy:plot-source")];
     expect(duplicate?.kind).toBe("math.coordinate-plot");
     if (duplicate?.kind !== "math.coordinate-plot") return;
 
