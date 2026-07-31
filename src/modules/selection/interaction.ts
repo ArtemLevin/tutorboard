@@ -251,33 +251,32 @@ export function reduceSelectionInteraction(
     if (action.hitObjectIds.length === 0) {
       const operation =
         action.areaOperation ?? (action.additive ? "add" : "replace");
-      const baseObjectIds = state.selectedObjectIds;
-      const selectedObjectIds = areaBaseSelection(
+      const previewObjectIds = areaBaseSelection(
         state.selectedObjectIds,
         operation,
       );
       if (action.areaKind === "lasso") {
         return transition({
           interaction: {
-            baseObjectIds,
+            baseObjectIds: state.selectedObjectIds,
             kind: "lasso",
             operation,
             pointerId: action.pointerId,
             points: [action.point],
           },
-          selectedObjectIds,
+          selectedObjectIds: previewObjectIds,
         });
       }
       return transition({
         interaction: {
-          baseObjectIds,
+          baseObjectIds: previewObjectIds,
           current: action.point,
           kind: "marquee",
           operation,
           pointerId: action.pointerId,
           start: action.point,
         },
-        selectedObjectIds,
+        selectedObjectIds: previewObjectIds,
       });
     }
 
