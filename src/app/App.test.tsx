@@ -247,7 +247,7 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("moves a selection by keyboard and restores focus after shortcut help", () => {
+  it("moves a selection by keyboard and closes shortcut help with Escape", () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
@@ -268,13 +268,36 @@ describe("App", () => {
       screen.getByRole("dialog", { name: "Горячие клавиши" }),
     ).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(trigger).toHaveFocus();
+    expect(
+      screen.queryByRole("dialog", { name: "Горячие клавиши" }),
+    ).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 
   it("runs the GeometryOS vertical flow and selects one atomic import", async () => {
     const requestId = geometryOsRequestId("tutorboard-request:unit");
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = requestUrl(input);
+      if (url.endsWith("/ready")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              checks: [
+                { name: "lifecycle", status: "pass" },
+                { name: "executor", status: "pass" },
+              ],
+              status: "ready",
+            }),
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "X-Request-ID": requestId,
+              },
+              status: 200,
+            },
+          ),
+        );
+      }
       if (url.endsWith("/api/v1/generate")) {
         return Promise.resolve(
           new Response(generateSuccessJson, {
