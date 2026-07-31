@@ -6,9 +6,13 @@ import type {
   BoardRenderItem,
 } from "../../core/public";
 
+export interface KonvaRenderContext {
+  readonly zoom: number;
+}
+
 export interface KonvaObjectRenderer {
   readonly kind: BoardObjectKind;
-  render(object: BoardObject): ReactElement;
+  render(object: BoardObject, context: KonvaRenderContext): ReactElement;
 }
 
 export class KonvaRendererRegistry {
@@ -27,12 +31,15 @@ export class KonvaRendererRegistry {
     this.#renderers = byKind;
   }
 
-  render(item: BoardRenderItem): ReactElement {
+  render(
+    item: BoardRenderItem,
+    context: KonvaRenderContext = { zoom: 1 },
+  ): ReactElement {
     const renderer = this.#renderers.get(item.object.kind);
     if (renderer === undefined) {
       throw new Error(`Missing Konva renderer for ${item.object.kind}.`);
     }
 
-    return renderer.render(item.object);
+    return renderer.render(item.object, context);
   }
 }

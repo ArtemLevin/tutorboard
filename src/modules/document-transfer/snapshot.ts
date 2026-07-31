@@ -6,6 +6,7 @@ import {
   type Transform2D,
 } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
+import { buildSmoothStrokePoints } from "../../shared/stroke-smoothing";
 
 export interface BoardSnapshotOptions {
   readonly height?: number;
@@ -44,11 +45,13 @@ function styleAttributes(object: BoardObject): string {
   ].join(" ");
 }
 
-function objectMarkup(object: BoardObject): string {
+function objectMarkup(object: BoardObject, zoom: number): string {
   const common = `${styleAttributes(object)} transform="translate(${number(object.position.x)} ${number(object.position.y)}) rotate(${number(object.rotation)}) scale(${number(object.scale.x)} ${number(object.scale.y)})"`;
   switch (object.kind) {
-    case "drawing.pen-stroke":
-      return `<polyline ${common} points="${object.points.map(({ x, y }) => `${number(x)},${number(y)}`).join(" ")}"/>`;
+    case "drawing.pen-stroke": {
+      const points = buildSmoothStrokePoints(object.points, { zoom });
+      return `<polyline ${common} stroke-linecap="round" stroke-linejoin="round" points="${points.map(({ x, y }) => `${number(x)},${number(y)}`).join(" ")}"/>`;
+    }
     case "drawing.line":
       return `<line ${common}${object.lineStyle === "dashed" ? ' stroke-dasharray="10 6"' : ""} x1="0" y1="0" x2="${number(object.end.x)}" y2="${number(object.end.y)}"/>`;
     case "drawing.rectangle":
@@ -67,11 +70,11 @@ function objectMarkup(object: BoardObject): string {
   }
 }
 
-function itemMarkup(item: BoardRenderItem): string {
+function itemMarkup(item: BoardRenderItem, zoom: number): string {
   return item.transforms.reduceRight(
     (content, transform) =>
       `<g transform="${transformAttribute(transform)}">${content}</g>`,
-    objectMarkup(item.object),
+    objectMarkup(item.object, zoom),
   );
 }
 
@@ -95,7 +98,7 @@ export function renderBoardSnapshotSvg(
     `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(document.title)}" viewBox="0 0 ${number(width)} ${number(height)}">`,
     '<rect width="100%" height="100%" fill="#f8fafc"/>',
     `<g transform="translate(${number(scene.viewport.offset.x)} ${number(scene.viewport.offset.y)}) scale(${number(scene.viewport.zoom)})">`,
-    visibleItems.map(itemMarkup).join(""),
+    visibleItems.map((item) => itemMarkup(item, scene.viewport.zoom)).join(""),
     "</g>",
     "</svg>",
   ].join("");

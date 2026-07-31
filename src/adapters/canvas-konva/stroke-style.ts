@@ -124,12 +124,23 @@ export function isSketchStrokeStyle(
   return style === "hand-pencil" || style === "hand-pen";
 }
 
-export function createWavySegment(end: Vec2): readonly number[] {
+function renderSampleCount(
+  length: number,
+  baseSpacing: number,
+  minimum: number,
+  zoom: number,
+): number {
+  const renderZoom = Math.min(8, Math.max(0.1, zoom));
+  const spacing = Math.max(1.5, baseSpacing / Math.sqrt(renderZoom));
+  return Math.min(4096, Math.max(minimum, Math.ceil(length / spacing)));
+}
+
+export function createWavySegment(end: Vec2, zoom = 1): readonly number[] {
   const length = Math.hypot(end.x, end.y);
   if (length === 0) return [0, 0, 0, 0];
   const normalX = -end.y / length;
   const normalY = end.x / length;
-  const samples = Math.max(12, Math.ceil(length / 8));
+  const samples = renderSampleCount(length, 8, 12, zoom);
   const points: number[] = [];
   for (let index = 0; index <= samples; index += 1) {
     const progress = index / samples;
@@ -143,9 +154,9 @@ export function createWavySegment(end: Vec2): readonly number[] {
   return points;
 }
 
-function segmentPoints(end: Vec2): readonly Vec2[] {
+function segmentPoints(end: Vec2, zoom = 1): readonly Vec2[] {
   const length = Math.hypot(end.x, end.y);
-  const samples = Math.max(8, Math.ceil(length / 12));
+  const samples = renderSampleCount(length, 12, 8, zoom);
   return Array.from({ length: samples + 1 }, (_, index) => {
     const progress = index / samples;
     return { x: end.x * progress, y: end.y * progress };
@@ -165,6 +176,18 @@ export function createSketchPath(
   }
 
   const lastIndex = sourcePoints.length - 1;
+  const pathDistances: number[] = [0];
+  for (let index = 1; index < sourcePoints.length; index += 1) {
+    const previous = sourcePoints[index - 1];
+    const point = sourcePoints[index];
+    pathDistances.push(
+      (pathDistances[index - 1] ?? 0) +
+        (previous === undefined || point === undefined
+          ? 0
+          : Math.hypot(point.x - previous.x, point.y - previous.y)),
+    );
+  }
+
   const output: number[] = [];
   for (let index = 0; index < sourcePoints.length; index += 1) {
     const point = sourcePoints[index];
@@ -184,9 +207,14 @@ export function createSketchPath(
     const endpointEnvelope = closed
       ? 1
       : 0.22 + Math.sin(progress * Math.PI) * 0.78;
+    const distanceAlong = pathDistances[index] ?? 0;
     const noise =
-      Math.sin((index + 1) * (12.9898 + seed * 0.071) + seed * 0.37) * 0.68 +
-      Math.cos((index + 1) * (4.123 + seed * 0.053) + point.x * 0.011) * 0.32;
+      Math.sin((distanceAlong + 1) * (0.17 + seed * 0.0017) + seed * 0.37) *
+        0.68 +
+      Math.cos(
+        (distanceAlong + 1) * (0.071 + seed * 0.0011) + point.x * 0.011,
+      ) *
+        0.32;
     const offset = noise * intensity * endpointEnvelope;
     output.push(point.x + normalX * offset, point.y + normalY * offset);
   }
@@ -197,8 +225,9 @@ export function createHandDrawnSegment(
   end: Vec2,
   intensity: number,
   seed = 0,
+  zoom = 1,
 ): readonly number[] {
-  return createSketchPath(segmentPoints(end), intensity, seed);
+  return createSketchPath(segmentPoints(end, zoom), intensity, seed);
 }
 
 export function createRectangleContour(size: Size2): readonly Vec2[] {

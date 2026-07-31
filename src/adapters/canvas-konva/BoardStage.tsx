@@ -175,6 +175,7 @@ function renderItem(
   options: {
     readonly interactive: boolean;
     readonly previewDelta?: Vec2 | null;
+    readonly zoom: number;
   },
 ): ReactElement {
   return (
@@ -186,7 +187,10 @@ function renderItem(
       x={options.previewDelta?.x ?? 0}
       y={options.previewDelta?.y ?? 0}
     >
-      {applyTransforms(registry.render(item), item.transforms)}
+      {applyTransforms(
+        registry.render(item, { zoom: options.zoom }),
+        item.transforms,
+      )}
     </Group>
   );
 }
@@ -912,6 +916,7 @@ export function BoardStage({
                 {batch.map((item) =>
                   renderItem(item, registry, {
                     interactive: true,
+                    zoom: previewViewport.zoom,
                     previewDelta: selected.has(item.object.id)
                       ? selectionPreviewDelta
                       : null,
@@ -920,7 +925,10 @@ export function BoardStage({
               </Group>
             ))}
             {previewItems.map((item) =>
-              renderItem(item, registry, { interactive: false }),
+              renderItem(item, registry, {
+                interactive: false,
+                zoom: previewViewport.zoom,
+              }),
             )}
           </Group>
         </Layer>

@@ -3,6 +3,11 @@ import { Ellipse, Group, Line, Rect, Text } from "react-konva";
 
 import type { BoardObject, BoardObjectKind, Vec2 } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
+import {
+  buildCachedSmoothStrokePoints,
+  buildSmoothStrokePoints,
+  flattenStrokePoints,
+} from "../../shared/stroke-smoothing";
 import { EmbeddedImageRenderer } from "./embedded-image-renderer";
 import { SvgRenderer } from "./svg-renderer";
 import {
@@ -68,10 +73,28 @@ function strokeProps(object: BoardObject) {
 
 function linePoints(
   object: Extract<BoardObject, { readonly kind: "drawing.line" }>,
+  zoom: number,
 ): readonly number[] {
   return object.style.strokeStyle === "wavy"
-    ? createWavySegment(object.end)
+    ? createWavySegment(object.end, zoom)
     : [0, 0, object.end.x, object.end.y];
+}
+
+function pointPairs(points: readonly number[]): readonly Vec2[] {
+  const output: Vec2[] = [];
+  for (let index = 0; index + 1 < points.length; index += 2) {
+    output.push({ x: points[index]!, y: points[index + 1]! });
+  }
+  return output;
+}
+
+function smoothFlatPoints(
+  points: readonly number[],
+  zoom: number,
+): readonly number[] {
+  return flattenStrokePoints(
+    buildSmoothStrokePoints(pointPairs(points), { zoom }),
+  );
 }
 
 function sketchPassLine(
@@ -92,9 +115,10 @@ function sketchPassLine(
       lineJoin="round"
       listening={index === 0}
       opacity={object.style.opacity * pass.opacityMultiplier}
+      perfectDrawEnabled
       points={[...points]}
       strokeWidth={pass.strokeWidth}
-      tension={object.style.strokeStyle === "hand-pen" && !closed ? 0.12 : 0}
+      tension={0}
     />
   );
 }
@@ -123,19 +147,28 @@ function sketchPoints(
   source: readonly Vec2[],
   pass: SketchPass,
   closed: boolean,
+  zoom = 1,
 ): readonly number[] {
-  return createSketchPath(source, pass.intensity, pass.seed, closed);
+  const renderPoints = closed
+    ? source
+    : buildSmoothStrokePoints(source, { zoom });
+  return createSketchPath(renderPoints, pass.intensity, pass.seed, closed);
 }
 
 const renderers: readonly KonvaObjectRenderer[] = [
   {
     kind: "drawing.pen-stroke",
-    render(object) {
+    render(object, context) {
       const stroke = expectKind(object, "drawing.pen-stroke");
+      const smoothed = buildCachedSmoothStrokePoints(
+        stroke.points,
+        context.zoom,
+      );
       if (isSketchStrokeStyle(stroke.style.strokeStyle)) {
         return renderSketchPath(
           stroke,
-          (pass) => sketchPoints(stroke.points, pass, false),
+          (pass) =>
+            createSketchPath(smoothed, pass.intensity, pass.seed, false),
           false,
         );
       }
@@ -143,7 +176,8 @@ const renderers: readonly KonvaObjectRenderer[] = [
         <Line
           {...commonShapeProps(stroke)}
           {...strokeProps(stroke)}
-          points={stroke.points.flatMap(({ x, y }) => [x, y])}
+          perfectDrawEnabled
+          points={[...flattenStrokePoints(smoothed)]}
           tension={0}
         />
       );
@@ -151,12 +185,21 @@ const renderers: readonly KonvaObjectRenderer[] = [
   },
   {
     kind: "drawing.line",
-    render(object) {
+    render(object, context) {
       const line = expectKind(object, "drawing.line");
       if (isSketchStrokeStyle(line.style.strokeStyle)) {
         return renderSketchPath(
           line,
-          (pass) => createHandDrawnSegment(line.end, pass.intensity, pass.seed),
+          (pass) =>
+            smoothFlatPoints(
+              createHandDrawnSegment(
+                line.end,
+                pass.intensity,
+                pass.seed,
+                context.zoom,
+              ),
+              context.zoom,
+            ),
           false,
         );
       }
@@ -168,7 +211,8 @@ const renderers: readonly KonvaObjectRenderer[] = [
           line.style.strokeStyle === undefined
             ? { dash: [10, 6] }
             : {})}
-          points={[...linePoints(line)]}
+          perfectDrawEnabled
+          points={[...linePoints(line, context.zoom)]}
         />
       );
     },
