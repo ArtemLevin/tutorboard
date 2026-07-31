@@ -2402,7 +2402,7 @@
   },
   "$id": "https://contracts.tutorboard.dev/board/v1/board-command-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "BoardCommandEnvelope 1.0",
+  "title": "BoardCommandEnvelope 1.1",
   "additionalProperties": false,
   "properties": {
     "actorId": {

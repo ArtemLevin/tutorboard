@@ -97,7 +97,7 @@
     }
   ],
   "documentId": "document:lesson-01",
-  "expectedDocumentSha256": "5ea2a9a564a5caeeae20f0725867dee80606358c751022dd0ded1f6a82af1407",
+  "expectedDocumentSha256": "86491953e1c4584a2fe9520995e71d1b8d283c5ee9dec55a25ad038c7e6d551b",
   "idempotencyKey": "client:tutor-01:batch-08",
-  "schemaVersion": "1.0"
+  "schemaVersion": "1.1"
 }

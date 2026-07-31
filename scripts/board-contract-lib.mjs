@@ -504,7 +504,7 @@ function rootSchema(id, title, root, definitions) {
 export const schemas = {
   "board-command-envelope.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-command-envelope.schema.json",
-    "BoardCommandEnvelope 1.0",
+    "BoardCommandEnvelope 1.1",
     strictObject({
       actorId: reference("Identifier"),
       baseRevision: nonNegativeInteger,
@@ -529,13 +529,13 @@ export const schemas = {
   ),
   "board-document.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-document.schema.json",
-    "BoardDocument 1.0",
+    "BoardDocument 1.1",
     reference("BoardDocument"),
     boardDefinitions,
   ),
   "board-geometry-import.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-geometry-import.schema.json",
-    "BoardGeometryImport 1.0",
+    "BoardGeometryImport 1.1",
     strictObject({
       baseRevision: nonNegativeInteger,
       commandId: reference("Identifier"),
@@ -566,7 +566,7 @@ export const schemas = {
   ),
   "board-snapshot.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-snapshot.schema.json",
-    "BoardSnapshot 1.0",
+    "BoardSnapshot 1.1",
     strictObject({
       createdAt: timestamp,
       document: reference("BoardDocument"),
@@ -588,12 +588,12 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 
 ## Artifacts
 
-- \`BoardDocument 1.0\` is the canonical persisted board state.
-- \`BoardCommandEnvelope 1.0\` carries one atomic, idempotent command batch
+- \`BoardDocument 1.1\` is the canonical persisted board state.
+- \`BoardCommandEnvelope 1.1\` carries one atomic, idempotent command batch
   against a known base revision.
-- \`BoardSnapshot 1.0\` binds a canonical document to a server revision and
+- \`BoardSnapshot 1.1\` binds a canonical document to a server revision and
   SHA-256 digest.
-- \`BoardGeometryImport 1.0\` records GeometryOS GIR/Layout provenance without
+- \`BoardGeometryImport 1.1\` records GeometryOS GIR/Layout provenance without
   adding transport state to \`BoardDocument\`.
 
 The manifest hashes every schema and canonical fixture. Run
@@ -663,7 +663,7 @@ function readBoardDocumentFixture() {
 }
 
 function fixtures() {
-  const document = readBoardDocumentFixture();
+  const document = { ...readBoardDocumentFixture(), schemaVersion: "1.1" };
   const documentHash = sha256(canonicalPayload(document));
   const smartInkStroke = {
     groupId: null,
@@ -720,7 +720,7 @@ function fixtures() {
       documentId: document.id,
       expectedDocumentSha256: documentHash,
       idempotencyKey: "client:tutor-01:batch-08",
-      schemaVersion: "1.0",
+      schemaVersion: "1.1",
     },
     "fixtures/board-document.json": document,
     "fixtures/board-geometry-import.json": {
@@ -739,7 +739,7 @@ function fixtures() {
       },
       importId: "import:geometry-08",
       prompt: "Постройте треугольник ABC.",
-      schemaVersion: "1.0",
+      schemaVersion: "1.1",
     },
     "fixtures/board-snapshot.json": {
       createdAt: "2026-07-28T17:00:00.000Z",
@@ -747,7 +747,7 @@ function fixtures() {
       documentId: document.id,
       documentSha256: documentHash,
       revision: 7,
-      schemaVersion: "1.0",
+      schemaVersion: "1.1",
     },
   };
 }

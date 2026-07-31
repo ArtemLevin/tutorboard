@@ -1,34 +1,34 @@
 {
   "artifacts": {
     "board-command-envelope.schema.json": {
-      "sha256": "c75186f04d3b7034b99d1132ea53053cd1a6125bb210f7ad874aacef56acd856"
+      "sha256": "590b4bd57f60e43e686d2225cae24218374bd9ac7236e19a545d355f9fcc35d4"
     },
     "board-document.schema.json": {
-      "sha256": "13e9a61720edbe8efbfcfebd6e6f9265e672bec496353d0a7520f6763c987243"
+      "sha256": "976b6624806c897590180163e9918ba837dcefb21aaf0d44f46a48c90352da1a"
     },
     "board-geometry-import.schema.json": {
-      "sha256": "f3a5b31cd7714883db2f7183e9d68501892f2dda9a9756cbbdbd3353e9529c72"
+      "sha256": "73d7a2b6a840641bd2d4782b706d3a9be39ead30bc32e42bec298523a52fc802"
     },
     "board-snapshot.schema.json": {
-      "sha256": "fe40638ea3352e184432fd627fff116906f3869bb2bd257c7f0c2dd516938a35"
+      "sha256": "54f2694871eaed93a488ba2cc57cda17a4321af67fde226a5d89d8700cfed94d"
     },
     "COMPATIBILITY.md": {
       "sha256": "d9439b47991d6dbd36783948c81ffb01cfae0adef9d7084faf84d7eaac6c3ae2"
     },
     "fixtures/board-command-envelope.json": {
-      "sha256": "ff73ad4ea01d8fc69e4d61a84b2343f85ed3188f20d4568f7dc90562fef4ff8a"
+      "sha256": "172617d6011e1444fa74b4303e4e17578a31f7eb7965a767b1b2ec92f9015afb"
     },
     "fixtures/board-document.json": {
-      "sha256": "df5442a1e13e3af31b47091d83ddf12f8a083c38f8eed8046725363fe0a2ba76"
+      "sha256": "288ff873d62310cc04ce60fb945dd53fcb9f7aa11945f8348300f2ea42d47448"
     },
     "fixtures/board-geometry-import.json": {
-      "sha256": "e8131807a14ed0b79dc501f6ce9d64930de82d3853ef97f24636feb2f316e808"
+      "sha256": "82620ee99393d31eb4a052bd567f90401e1897118237126aee522e495f5aa8d8"
     },
     "fixtures/board-snapshot.json": {
-      "sha256": "1063c046140562425eb33e11a317359e2b0c8274a09ae04cde7aaa13de64032a"
+      "sha256": "8b18740b2e9e665a116d09b544122c2dcafb672b405c9acd25cc2c0d9a88ff89"
     },
     "README.md": {
-      "sha256": "b4439c611ce3513cbceb5e9d683cf4c73792bff0a6bf9bb5713f82c71a6cbbf7"
+      "sha256": "18ced188140e8ff72758b1b8875422c03a3d2f2d94ffb69a79d376c9dc9340e8"
     }
   },
   "contract": "board/v1",

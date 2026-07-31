@@ -1503,6 +1503,6 @@
   },
   "$id": "https://contracts.tutorboard.dev/board/v1/board-document.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "BoardDocument 1.0",
+  "title": "BoardDocument 1.1",
   "$ref": "#/$defs/BoardDocument"
 }

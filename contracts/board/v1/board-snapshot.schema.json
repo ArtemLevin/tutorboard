@@ -1503,7 +1503,7 @@
   },
   "$id": "https://contracts.tutorboard.dev/board/v1/board-snapshot.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "BoardSnapshot 1.0",
+  "title": "BoardSnapshot 1.1",
   "additionalProperties": false,
   "properties": {
     "createdAt": {
