@@ -1,0 +1,921 @@
+name: Apply embedded image import
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.ref == 'feature-embedded-image-import'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature-embedded-image-import
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Apply product patch
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit(f"missing patch anchor in {path}: {old[:100]!r}")
+              target.write_text(text.replace(old, new), encoding="utf-8")
+
+          Path("src/app/image-import.ts").write_text(r'''import type {
+            BoardObjectId,
+            EmbeddedImageMimeType,
+            EmbeddedImageObject,
+            Size2,
+            Vec2,
+          } from "../core/public";
+          import { sanitizeSvg } from "../modules/svg-import/public";
+
+          export const embeddedImageImportLimits = {
+            maxBatchBytes: 24 * 1024 * 1024,
+            maxDimension: 16_384,
+            maxFileBytes: 8 * 1024 * 1024,
+            maxFilesPerBatch: 12,
+            maxPixels: 64_000_000,
+            maximumDisplay: { height: 480, width: 720 },
+            minimumDisplaySide: 96,
+          } as const;
+
+          export const embeddedImageAccept =
+            ".png,.jpeg,.jpg,.svg,.gif,image/png,image/jpeg,image/svg+xml,image/gif";
+
+          export interface PreparedEmbeddedImage {
+            readonly contentSha256: string;
+            readonly dataUrl: string;
+            readonly fileName: string;
+            readonly intrinsicSize: Size2;
+            readonly mimeType: EmbeddedImageMimeType;
+            readonly size: Size2;
+          }
+
+          export type PrepareEmbeddedImageResult =
+            | { readonly status: "ok"; readonly value: PreparedEmbeddedImage }
+            | {
+                readonly code: string;
+                readonly message: string;
+                readonly status: "error";
+              };
+
+          function error(code: string, message: string): PrepareEmbeddedImageResult {
+            return { code, message, status: "error" };
+          }
+
+          function startsWith(bytes: Uint8Array, signature: readonly number[]): boolean {
+            return signature.every((value, index) => bytes[index] === value);
+          }
+
+          export function imageMimeFromBytes(
+            bytes: Uint8Array,
+            textPrefix = "",
+          ): EmbeddedImageMimeType | null {
+            if (startsWith(bytes, [137, 80, 78, 71, 13, 10, 26, 10])) {
+              return "image/png";
+            }
+            if (startsWith(bytes, [255, 216, 255])) {
+              return "image/jpeg";
+            }
+            if (
+              startsWith(bytes, [71, 73, 70, 56, 55, 97]) ||
+              startsWith(bytes, [71, 73, 70, 56, 57, 97])
+            ) {
+              return "image/gif";
+            }
+            const normalized = textPrefix.replace(/^\uFEFF/u, "").trimStart();
+            if (/^(?:<\?xml[^>]*>\s*)?<svg(?:\s|>)/iu.test(normalized)) {
+              return "image/svg+xml";
+            }
+            return null;
+          }
+
+          export function isSupportedEmbeddedImageCandidate(file: File): boolean {
+            return (
+              ["image/png", "image/jpeg", "image/svg+xml", "image/gif"].includes(
+                file.type.toLowerCase(),
+              ) || /\.(?:png|jpe?g|svg|gif)$/iu.test(file.name)
+            );
+          }
+
+          export function fitEmbeddedImageSize(intrinsic: Size2): Size2 {
+            const { maximumDisplay, minimumDisplaySide } = embeddedImageImportLimits;
+            const maxScale = Math.min(
+              maximumDisplay.width / intrinsic.width,
+              maximumDisplay.height / intrinsic.height,
+            );
+            const desiredScale = Math.max(
+              1,
+              minimumDisplaySide / Math.min(intrinsic.width, intrinsic.height),
+            );
+            const scale = Math.min(maxScale, desiredScale);
+            return {
+              height: Math.max(1, intrinsic.height * scale),
+              width: Math.max(1, intrinsic.width * scale),
+            };
+          }
+
+          function safeFileName(value: string): string {
+            const name = value
+              .split(/[\\/]/u)
+              .at(-1)
+              ?.replace(/[\u0000-\u001f\u007f]/gu, "")
+              .trim()
+              .slice(0, 256);
+            return name && name.length > 0 ? name : "image";
+          }
+
+          function readAsDataUrl(blob: Blob): Promise<string> {
+            return new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onerror = () => reject(new Error("image.read-failed"));
+              reader.onload = () =>
+                typeof reader.result === "string"
+                  ? resolve(reader.result)
+                  : reject(new Error("image.read-failed"));
+              reader.readAsDataURL(blob);
+            });
+          }
+
+          function decodeImage(dataUrl: string): Promise<Size2> {
+            return new Promise((resolve, reject) => {
+              const image = new Image();
+              image.decoding = "async";
+              image.onerror = () => reject(new Error("image.decode-failed"));
+              image.onload = () =>
+                resolve({ height: image.naturalHeight, width: image.naturalWidth });
+              image.src = dataUrl;
+            });
+          }
+
+          async function sha256(bytes: Uint8Array): Promise<string> {
+            const digest = await crypto.subtle.digest("SHA-256", bytes);
+            return [...new Uint8Array(digest)]
+              .map((value) => value.toString(16).padStart(2, "0"))
+              .join("");
+          }
+
+          function validIntrinsicSize(size: Size2): boolean {
+            return (
+              Number.isFinite(size.width) &&
+              Number.isFinite(size.height) &&
+              size.width > 0 &&
+              size.height > 0 &&
+              size.width <= embeddedImageImportLimits.maxDimension &&
+              size.height <= embeddedImageImportLimits.maxDimension &&
+              size.width * size.height <= embeddedImageImportLimits.maxPixels
+            );
+          }
+
+          export async function prepareEmbeddedImageFile(
+            file: File,
+          ): Promise<PrepareEmbeddedImageResult> {
+            if (file.size <= 0) {
+              return error("image.empty-file", "Файл изображения пуст.");
+            }
+            if (file.size > embeddedImageImportLimits.maxFileBytes) {
+              return error(
+                "image.input-too-large",
+                "Размер одного изображения превышает 8 МБ.",
+              );
+            }
+
+            let originalBytes: Uint8Array;
+            try {
+              originalBytes = new Uint8Array(await file.arrayBuffer());
+            } catch {
+              return error("image.read-failed", "Не удалось прочитать изображение.");
+            }
+            const textPrefix = new TextDecoder().decode(
+              originalBytes.subarray(0, Math.min(originalBytes.length, 4096)),
+            );
+            const mimeType = imageMimeFromBytes(originalBytes, textPrefix);
+            if (mimeType === null) {
+              return error(
+                "image.unsupported-format",
+                "Поддерживаются PNG, JPEG/JPG, SVG и GIF.",
+              );
+            }
+
+            let bytes = originalBytes;
+            let intrinsicSize: Size2;
+            if (mimeType === "image/svg+xml") {
+              const source = new TextDecoder().decode(originalBytes);
+              const sanitized = sanitizeSvg(source);
+              if (sanitized.status === "error") {
+                return error(
+                  sanitized.diagnostic.code,
+                  "SVG содержит небезопасные или неподдерживаемые данные.",
+                );
+              }
+              bytes = new TextEncoder().encode(sanitized.value.sanitizedSvg);
+              intrinsicSize = sanitized.value.size;
+            } else {
+              let temporaryDataUrl: string;
+              try {
+                temporaryDataUrl = await readAsDataUrl(
+                  new Blob([bytes], { type: mimeType }),
+                );
+                intrinsicSize = await decodeImage(temporaryDataUrl);
+              } catch {
+                return error(
+                  "image.decode-failed",
+                  "Файл повреждён или браузер не смог его декодировать.",
+                );
+              }
+            }
+
+            if (!validIntrinsicSize(intrinsicSize)) {
+              return error(
+                "image.dimension-limit-exceeded",
+                "Размеры изображения превышают допустимый предел.",
+              );
+            }
+
+            const dataUrl = await readAsDataUrl(new Blob([bytes], { type: mimeType }));
+            return {
+              status: "ok",
+              value: {
+                contentSha256: await sha256(bytes),
+                dataUrl,
+                fileName: safeFileName(file.name),
+                intrinsicSize,
+                mimeType,
+                size: fitEmbeddedImageSize(intrinsicSize),
+              },
+            };
+          }
+
+          export function createEmbeddedImageObject(input: {
+            readonly center: Vec2;
+            readonly id: BoardObjectId;
+            readonly prepared: PreparedEmbeddedImage;
+          }): EmbeddedImageObject {
+            return {
+              contentSha256: input.prepared.contentSha256,
+              dataUrl: input.prepared.dataUrl,
+              fileName: input.prepared.fileName,
+              groupId: null,
+              id: input.id,
+              intrinsicSize: input.prepared.intrinsicSize,
+              kind: "image.embedded",
+              locked: false,
+              mimeType: input.prepared.mimeType,
+              position: {
+                x: input.center.x - input.prepared.size.width / 2,
+                y: input.center.y - input.prepared.size.height / 2,
+              },
+              rotation: 0,
+              scale: { x: 1, y: 1 },
+              size: input.prepared.size,
+              source: { kind: "user" },
+              style: {
+                fill: null,
+                opacity: 1,
+                stroke: null,
+                strokeWidth: 0,
+              },
+              visible: true,
+            };
+          }
+          ''', encoding="utf-8")
+
+          Path("src/adapters/canvas-konva/embedded-image-renderer.tsx").write_text(r'''import Konva from "konva";
+          import { useEffect, useRef, useState } from "react";
+          import { Group, Image as KonvaImage, Rect } from "react-konva";
+
+          import type { EmbeddedImageObject } from "../../core/public";
+
+          export function EmbeddedImageRenderer({
+            object,
+          }: {
+            readonly object: EmbeddedImageObject;
+          }) {
+            const [image, setImage] = useState<HTMLImageElement | null>(null);
+            const [failed, setFailed] = useState(false);
+            const imageRef = useRef<Konva.Image>(null);
+
+            useEffect(() => {
+              const element = new Image();
+              let active = true;
+              element.decoding = "async";
+              element.onload = () => {
+                if (active) {
+                  setFailed(false);
+                  setImage(element);
+                }
+              };
+              element.onerror = () => {
+                if (active) {
+                  setFailed(true);
+                  setImage(null);
+                }
+              };
+              element.src = object.dataUrl;
+              return () => {
+                active = false;
+                element.src = "";
+              };
+            }, [object.dataUrl]);
+
+            useEffect(() => {
+              if (object.mimeType !== "image/gif" || image === null) {
+                return;
+              }
+              let frame = 0;
+              const draw = () => {
+                imageRef.current?.getLayer()?.batchDraw();
+                frame = window.requestAnimationFrame(draw);
+              };
+              frame = window.requestAnimationFrame(draw);
+              return () => window.cancelAnimationFrame(frame);
+            }, [image, object.mimeType]);
+
+            return (
+              <Group
+                name="board-transform-target"
+                opacity={object.style.opacity}
+                rotation={object.rotation}
+                scaleX={object.scale.x}
+                scaleY={object.scale.y}
+                visible={object.visible}
+                x={object.position.x}
+                y={object.position.y}
+              >
+                <Rect
+                  fill="rgba(15, 23, 42, 0.001)"
+                  height={object.size.height}
+                  width={object.size.width}
+                />
+                {image === null ? (
+                  <Rect
+                    dash={[8, 6]}
+                    fill={failed ? "rgba(239, 68, 68, 0.08)" : "rgba(148, 163, 184, 0.08)"}
+                    height={object.size.height}
+                    listening={false}
+                    stroke={failed ? "#dc2626" : "#94a3b8"}
+                    strokeWidth={1}
+                    width={object.size.width}
+                  />
+                ) : (
+                  <KonvaImage
+                    height={object.size.height}
+                    image={image}
+                    listening={false}
+                    perfectDrawEnabled={false}
+                    ref={imageRef}
+                    width={object.size.width}
+                  />
+                )}
+              </Group>
+            );
+          }
+          ''', encoding="utf-8")
+
+          Path("src/app/image-import.test.ts").write_text(r'''import { describe, expect, it } from "vitest";
+
+          import {
+            fitEmbeddedImageSize,
+            imageMimeFromBytes,
+          } from "./image-import";
+
+          describe("embedded image import", () => {
+            it("detects supported signatures", () => {
+              expect(
+                imageMimeFromBytes(
+                  new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+                ),
+              ).toBe("image/png");
+              expect(imageMimeFromBytes(new Uint8Array([255, 216, 255]))).toBe(
+                "image/jpeg",
+              );
+              expect(
+                imageMimeFromBytes(
+                  new Uint8Array([71, 73, 70, 56, 57, 97]),
+                ),
+              ).toBe("image/gif");
+              expect(imageMimeFromBytes(new Uint8Array(), "<svg viewBox='0 0 1 1'>")).toBe(
+                "image/svg+xml",
+              );
+            });
+
+            it("fits large and tiny images into a usable preserved ratio", () => {
+              expect(fitEmbeddedImageSize({ height: 2000, width: 4000 })).toEqual({
+                height: 360,
+                width: 720,
+              });
+              expect(fitEmbeddedImageSize({ height: 1, width: 1 })).toEqual({
+                height: 96,
+                width: 96,
+              });
+            });
+          });
+          ''', encoding="utf-8")
+
+          Path("tests/e2e/image-import.spec.ts").write_text(r'''import { expect, test } from "@playwright/test";
+
+          const png1x1 = Buffer.from(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z8WQAAAAASUVORK5CYII=",
+            "base64",
+          );
+
+          test.beforeEach(async ({ page }) => {
+            await page.goto("/");
+            await expect(
+              page.getByRole("application", {
+                name: "Бесконечное полотно TutorBoard",
+              }),
+            ).toBeVisible();
+          });
+
+          test("imports a local image and transforms it", async ({ page }) => {
+            const chooser = page.getByLabel("Вставить изображения");
+            await chooser.setInputFiles({
+              buffer: png1x1,
+              mimeType: "image/png",
+              name: "pixel.png",
+            });
+
+            await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+            await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+            await expect(page.getByTestId("board-stage")).toHaveAttribute(
+              "data-transformable-count",
+              "1",
+            );
+            await page
+              .getByRole("button", { name: "Увеличить выделение на 10%" })
+              .click();
+            await page
+              .getByRole("button", { name: "Повернуть выделение на 15 градусов" })
+              .click();
+            await expect(page.getByTestId("first-object-transform")).toHaveText(
+              "Масштаб: 1.1, 1.1 · Поворот: 15°",
+            );
+          });
+
+          test("pastes an image file from the system clipboard event", async ({
+            page,
+          }) => {
+            const base64 = png1x1.toString("base64");
+            await page.evaluate((encoded) => {
+              const bytes = Uint8Array.from(atob(encoded), (value) =>
+                value.charCodeAt(0),
+              );
+              const file = new File([bytes], "clipboard.png", {
+                type: "image/png",
+              });
+              const transfer = new DataTransfer();
+              transfer.items.add(file);
+              document.dispatchEvent(
+                new ClipboardEvent("paste", {
+                  bubbles: true,
+                  clipboardData: transfer,
+                }),
+              );
+            }, base64);
+
+            await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+            await expect(page.getByText("Вставлено изображений: 1")).toBeVisible();
+            await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+          });
+          ''', encoding="utf-8")
+
+          Path("docs/architecture/EMBEDDED_IMAGES.md").write_text(r'''# Embedded images
+
+          TutorBoard accepts PNG, JPEG/JPG, sanitized SVG, and GIF through the local file picker or the browser paste event. Each accepted file becomes an `image.embedded` user object and follows the ordinary `core.objects.add`, selection, transform, clipboard, undo/redo, persistence, and collaboration paths.
+
+          Binary signatures determine raster formats. SVG crosses the existing sanitizer before storage. Each file is limited to 8 MiB, a batch to 24 MiB and 12 files, dimensions to 16,384 pixels per side, and decoded area to 64 megapixels. The document stores a portable base64 data URL, intrinsic dimensions, normalized file name, MIME type, and SHA-256 digest.
+
+          Imported images are placed at the last canvas pointer position, or at the viewport center when no pointer sample exists. Multiple images receive a small cascade offset. Small assets are enlarged to a usable minimum display size, while large assets are fitted within 720 × 480 world units with their aspect ratio preserved.
+
+          Animated GIFs keep browser animation through periodic Konva layer redraws. SVG diagnostic snapshots embed the validated data URL. Transparent pixels remain selectable through a rectangular hit area. Images use the standard Transformer, including move, resize, rotation, keyboard movement, lock, grouping, layers, copy/cut/paste, and delete.
+          ''', encoding="utf-8")
+
+          replace(
+              "src/core/board/objects.ts",
+              '  "drawing.text",\n  "svg-import.svg",',
+              '  "drawing.text",\n  "image.embedded",\n  "svg-import.svg",',
+          )
+          replace(
+              "src/core/board/objects.ts",
+              'export type BoardObjectKind = (typeof boardObjectKinds)[number];\n',
+              '''export type BoardObjectKind = (typeof boardObjectKinds)[number];
+
+          export const embeddedImageMimeTypes = [
+            "image/png",
+            "image/jpeg",
+            "image/svg+xml",
+            "image/gif",
+          ] as const;
+
+          export type EmbeddedImageMimeType = (typeof embeddedImageMimeTypes)[number];
+''',
+          )
+          replace(
+              "src/core/board/objects.ts",
+              'export interface SvgViewBox {',
+              '''export interface EmbeddedImageObject extends BoardObjectBase {
+            readonly contentSha256: string;
+            readonly dataUrl: string;
+            readonly fileName: string;
+            readonly intrinsicSize: Size2;
+            readonly kind: "image.embedded";
+            readonly mimeType: EmbeddedImageMimeType;
+            readonly size: Size2;
+          }
+
+          export interface SvgViewBox {''',
+          )
+          replace(
+              "src/core/board/objects.ts",
+              'export type BoardObject =\n  | EllipseObject',
+              'export type BoardObject =\n  | EllipseObject\n  | EmbeddedImageObject',
+          )
+
+          replace(
+              "src/core/public.ts",
+              '  boardObjectKinds,\n  strokeStyles,',
+              '  boardObjectKinds,\n  embeddedImageMimeTypes,\n  strokeStyles,',
+          )
+          replace(
+              "src/core/public.ts",
+              '  type EllipseObject,\n  type LineObject,',
+              '  type EllipseObject,\n  type EmbeddedImageMimeType,\n  type EmbeddedImageObject,\n  type LineObject,',
+          )
+
+          replace(
+              "src/core/board/validation/schema.ts",
+              '  boardObjectKinds,\n  strokeStyles,',
+              '  boardObjectKinds,\n  embeddedImageMimeTypes,\n  strokeStyles,',
+          )
+          replace(
+              "src/core/board/validation/schema.ts",
+              'const svgViewBoxSchema = z',
+              '''const embeddedImageObjectSchema = z
+            .object({
+              ...objectBase,
+              contentSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+              dataUrl: z
+                .string()
+                .min(1)
+                .max(12 * 1024 * 1024)
+                .regex(/^data:image\\/(?:png|jpeg|gif|svg\\+xml);base64,[A-Za-z0-9+/=]+$/u),
+              fileName: z.string().min(1).max(256),
+              intrinsicSize: svgSizeSchema,
+              kind: z.literal("image.embedded"),
+              mimeType: z.enum(embeddedImageMimeTypes),
+              size: svgSizeSchema,
+            })
+            .strict();
+          const svgViewBoxSchema = z''',
+          )
+          replace(
+              "src/core/board/validation/schema.ts",
+              '  textSchema,\n  svgObjectSchema,',
+              '  textSchema,\n  embeddedImageObjectSchema,\n  svgObjectSchema,',
+          )
+
+          replace(
+              "src/core/board/selectors.ts",
+              '    case "drawing.rectangle":\n    case "svg-import.svg":',
+              '    case "drawing.rectangle":\n    case "image.embedded":\n    case "svg-import.svg":',
+          )
+
+          replace(
+              "src/adapters/canvas-konva/default-renderers.tsx",
+              'import { SvgRenderer } from "./svg-renderer";',
+              'import { EmbeddedImageRenderer } from "./embedded-image-renderer";\nimport { SvgRenderer } from "./svg-renderer";',
+          )
+          replace(
+              "src/adapters/canvas-konva/default-renderers.tsx",
+              '  {\n    kind: "svg-import.svg",',
+              '''  {
+            kind: "image.embedded",
+            render(object) {
+              return (
+                <EmbeddedImageRenderer object={expectKind(object, "image.embedded")} />
+              );
+            },
+          },
+          {
+            kind: "svg-import.svg",''',
+          )
+
+          replace(
+              "src/modules/document-transfer/snapshot.ts",
+              '    case "svg-import.svg":\n      return `<g ${common}>${object.sanitizedSvg}</g>`;',
+              '''    case "image.embedded":
+              return `<image ${common} height="${number(object.size.height)}" href="${escapeXml(object.dataUrl)}" preserveAspectRatio="none" width="${number(object.size.width)}"/>`;
+            case "svg-import.svg":
+              return `<g ${common}>${object.sanitizedSvg}</g>`;''',
+          )
+
+          replace(
+              "scripts/board-contract-lib.mjs",
+              'const svgViewBox = strictObject({',
+              '''const embeddedImage = boardObject("image.embedded", {
+            contentSha256: { pattern: sha256Pattern, type: "string" },
+            dataUrl: {
+              maxLength: 12 * 1024 * 1024,
+              minLength: 1,
+              pattern: "^data:image/(?:png|jpeg|gif|svg\\\\+xml);base64,[A-Za-z0-9+/=]+$",
+              type: "string",
+            },
+            fileName: { maxLength: 256, minLength: 1, type: "string" },
+            intrinsicSize: strictObject({
+              height: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+              width: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+            }),
+            mimeType: { enum: ["image/png", "image/jpeg", "image/svg+xml", "image/gif"] },
+            size: strictObject({
+              height: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+              width: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+            }),
+          });
+          const svgViewBox = strictObject({''',
+          )
+          replace(
+              "scripts/board-contract-lib.mjs",
+              '    reference("TextObject"),\n    reference("SvgObject"),',
+              '    reference("TextObject"),\n    reference("EmbeddedImageObject"),\n    reference("SvgObject"),',
+          )
+          replace(
+              "scripts/board-contract-lib.mjs",
+              '  EllipseObject: ellipse,\n  GeometryImportRecord:',
+              '  EllipseObject: ellipse,\n  EmbeddedImageObject: embeddedImage,\n  GeometryImportRecord:',
+          )
+
+          replace(
+              "src/app/App.tsx",
+              '  type BoardRenderItem,\n  type GeometryOsClient,',
+              '  type BoardRenderItem,\n  type GeometryOsClient,\n  type Vec2,',
+          )
+          replace(
+              "src/app/App.tsx",
+              '''import {
+            createAddSvgObjectCommand,
+            createSvgObject,
+            svgImportLimits,
+          } from "../modules/svg-import/public";
+''',
+              '',
+          )
+          replace(
+              "src/app/App.tsx",
+              'import { ColorPalette } from "./ColorPalette";',
+              '''import { ColorPalette } from "./ColorPalette";
+          import {
+            createEmbeddedImageObject,
+            embeddedImageAccept,
+            embeddedImageImportLimits,
+            isSupportedEmbeddedImageCandidate,
+            prepareEmbeddedImageFile,
+          } from "./image-import";''',
+          )
+          replace(
+              "src/app/App.tsx",
+              '  const [svgDiagnostic, setSvgDiagnostic] = useState<string | null>(null);',
+              '  const [imageDiagnostic, setImageDiagnostic] = useState<string | null>(null);',
+          )
+          replace(
+              "src/app/App.tsx",
+              '  const workspaceRef = useRef<HTMLElement>(null);',
+              '  const workspaceRef = useRef<HTMLElement>(null);\n  const lastPointerWorldRef = useRef<Vec2 | null>(null);',
+          )
+
+          import_callback = r'''  const importImageFiles = useCallback(
+            async (files: readonly File[]) => {
+              const candidates = files
+                .filter(isSupportedEmbeddedImageCandidate)
+                .slice(0, embeddedImageImportLimits.maxFilesPerBatch);
+              if (candidates.length === 0) {
+                setImageDiagnostic("image.unsupported-format: Поддерживаются PNG, JPEG/JPG, SVG и GIF.");
+                return;
+              }
+              const totalBytes = candidates.reduce((sum, file) => sum + file.size, 0);
+              if (totalBytes > embeddedImageImportLimits.maxBatchBytes) {
+                setImageDiagnostic("image.batch-too-large: Общий размер вставки превышает 24 МБ.");
+                return;
+              }
+
+              const current = documentRef.current;
+              const workspace = workspaceRef.current?.getBoundingClientRect();
+              const fallbackCenter = screenToWorld(
+                {
+                  x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
+                  y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
+                },
+                current.viewport,
+              );
+              const baseCenter = lastPointerWorldRef.current ?? fallbackCenter;
+              const objects = [];
+              const diagnostics: string[] = [];
+              for (const [index, file] of candidates.entries()) {
+                const prepared = await prepareEmbeddedImageFile(file);
+                if (prepared.status === "error") {
+                  diagnostics.push(`${file.name}: ${prepared.code}`);
+                  continue;
+                }
+                objects.push(
+                  createEmbeddedImageObject({
+                    center: {
+                      x: baseCenter.x + index * 24,
+                      y: baseCenter.y + index * 24,
+                    },
+                    id: boardObjectId(`object:${crypto.randomUUID()}`),
+                    prepared: prepared.value,
+                  }),
+                );
+              }
+
+              if (objects.length === 0) {
+                setImageDiagnostic(
+                  diagnostics.length > 0
+                    ? `Изображения отклонены: ${diagnostics.join("; ")}`
+                    : "Не удалось подготовить изображения.",
+                );
+                return;
+              }
+              const result = commitCommand({
+                ...createCommandMetadata(),
+                kind: "core.objects.add",
+                objects,
+              });
+              if (!result.ok) {
+                setImageDiagnostic(result.error.message);
+                return;
+              }
+              const selected: SelectionState = {
+                interaction: { kind: "idle" },
+                selectedObjectIds: objects.map(({ id }) => id),
+              };
+              selectionStateRef.current = selected;
+              setSelectionState(selected);
+              setActiveTool(selectionToolId);
+              setClipboardNotice(`Вставлено изображений: ${objects.length}`);
+              setImageDiagnostic(
+                diagnostics.length === 0
+                  ? null
+                  : `Часть файлов пропущена: ${diagnostics.join("; ")}`,
+              );
+            },
+            [commitCommand, createCommandMetadata],
+          );
+
+          useEffect(() => {
+            const handlePaste = (event: ClipboardEvent) => {
+              const editing =
+                event.target instanceof HTMLInputElement ||
+                event.target instanceof HTMLTextAreaElement ||
+                (event.target instanceof HTMLElement && event.target.isContentEditable);
+              if (editing) {
+                return;
+              }
+              const files = [...(event.clipboardData?.items ?? [])].flatMap((item) => {
+                if (item.kind !== "file") {
+                  return [];
+                }
+                const file = item.getAsFile();
+                return file === null ? [] : [file];
+              });
+              const images = files.filter(isSupportedEmbeddedImageCandidate);
+              event.preventDefault();
+              if (images.length > 0) {
+                void importImageFiles(images);
+              } else {
+                pasteClipboard();
+              }
+            };
+            window.addEventListener("paste", handlePaste);
+            return () => window.removeEventListener("paste", handlePaste);
+          }, [importImageFiles, pasteClipboard]);
+
+'''
+          replace(
+              "src/app/App.tsx",
+              '  useEffect(() => {\n    const handleShortcut = (event: KeyboardEvent) => {',
+              import_callback + '  useEffect(() => {\n    const handleShortcut = (event: KeyboardEvent) => {',
+          )
+          replace(
+              "src/app/App.tsx",
+              '''        if (key === "v") {
+              event.preventDefault();
+              pasteClipboard();
+              return;
+            }''',
+              '''        if (key === "v") {
+              return;
+            }''',
+          )
+
+          start = Path("src/app/App.tsx").read_text(encoding="utf-8")
+          old_start = start.index('  const importSvgFile = useCallback(')
+          old_end = start.index('\n\n  const applyGeometryPromptResult', old_start)
+          start = start[:old_start] + start[old_end + 2:]
+          Path("src/app/App.tsx").write_text(start, encoding="utf-8")
+
+          replace(
+              "src/app/App.tsx",
+              '''          <label className="tool-button file-tool-button">
+                Вставить SVG
+                <input
+                  accept="image/svg+xml,.svg"
+                  aria-label="Вставить SVG"
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    if (file !== undefined) {
+                      void importSvgFile(file);
+                    }
+                    event.currentTarget.value = "";
+                  }}
+                  type="file"
+                />
+              </label>''',
+              '''          <label className="tool-button file-tool-button">
+                Вставить изображение
+                <input
+                  accept={embeddedImageAccept}
+                  aria-label="Вставить изображения"
+                  disabled={readOnly}
+                  multiple
+                  onChange={(event) => {
+                    const files = [...(event.currentTarget.files ?? [])];
+                    if (files.length > 0) {
+                      void importImageFiles(files);
+                    }
+                    event.currentTarget.value = "";
+                  }}
+                  type="file"
+                />
+              </label>''',
+          )
+          replace(
+              "src/app/App.tsx",
+              '''        {svgDiagnostic === null ? null : (
+              <div className="persistence-alert" role="alert">
+                <strong>SVG не вставлен</strong>
+                <span>{svgDiagnostic}</span>
+              </div>
+            )}''',
+              '''        {imageDiagnostic === null ? null : (
+              <div className="persistence-alert" role="alert">
+                <strong>Изображение не вставлено</strong>
+                <span>{imageDiagnostic}</span>
+              </div>
+            )}''',
+          )
+          replace(
+              "src/app/App.tsx",
+              '''          onWorldPointerHover={(cursor) =>
+                onPresenceChange?.({
+                  cursor,
+                  selectedObjectIds: selectionStateRef.current.selectedObjectIds,
+                  viewport: {
+                    x: documentRef.current.viewport.offset.x,
+                    y: documentRef.current.viewport.offset.y,
+                    zoom: documentRef.current.viewport.zoom,
+                  },
+                })
+              }''',
+              '''          onWorldPointerHover={(cursor) => {
+                lastPointerWorldRef.current = cursor;
+                onPresenceChange?.({
+                  cursor,
+                  selectedObjectIds: selectionStateRef.current.selectedObjectIds,
+                  viewport: {
+                    x: documentRef.current.viewport.offset.x,
+                    y: documentRef.current.viewport.offset.y,
+                    zoom: documentRef.current.viewport.zoom,
+                  },
+                });
+              }}''',
+          )
+          replace(
+              "src/app/App.tsx",
+              '<dd>Копирование, вырезание и вставка</dd>',
+              '<dd>Копирование объектов и вставка объектов или изображений</dd>',
+          )
+
+          Path(".github/workflows/apply-image-import.yml").unlink()
+          PY
+          npm run board-contract:generate
+          npm run format
+          git add -A
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "feat: import embedded images from files and clipboard"
+          git push origin HEAD:feature-embedded-image-import
