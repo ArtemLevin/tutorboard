@@ -43,6 +43,7 @@ function localBounds(object: BoardObject): Rect2 {
     case "drawing.line":
       return normalizeRect({ x: 0, y: 0 }, object.end);
     case "drawing.rectangle":
+    case "image.embedded":
       return { x: 0, y: 0, ...object.size };
     case "drawing.ellipse":
       return {
