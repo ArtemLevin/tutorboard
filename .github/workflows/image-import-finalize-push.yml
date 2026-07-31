@@ -1,7 +1,7 @@
-name: Finalize image import
+name: Finalize image import after merge
 
 on:
-  pull_request:
+  push:
     branches: [main]
 
 permissions:
@@ -9,12 +9,11 @@ permissions:
 
 jobs:
   finalize:
-    if: github.head_ref == 'feature-image-import-final'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: feature-image-import-final
+          ref: main
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
@@ -165,4 +164,4 @@ test("pastes a PNG from the operating-system clipboard event", async ({ page }) 
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "feat: finalize image import contract and tests"
-          git push origin HEAD:feature-image-import-final
+          git push origin HEAD:main
