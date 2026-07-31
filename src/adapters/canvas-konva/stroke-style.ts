@@ -1,9 +1,17 @@
-import type { StrokeStyle, Vec2 } from "../../core/public";
+import type { Size2, StrokeStyle, Vec2 } from "../../core/public";
 
 export interface ResolvedStrokeStyle {
   readonly dash?: readonly number[];
-  readonly lineCap: "butt" | "round";
+  readonly lineCap: "butt" | "round" | "square";
   readonly opacityMultiplier: number;
+  readonly strokeWidth: number;
+}
+
+export interface SketchPass {
+  readonly dash?: readonly number[];
+  readonly intensity: number;
+  readonly opacityMultiplier: number;
+  readonly seed: number;
   readonly strokeWidth: number;
 }
 
@@ -32,16 +40,21 @@ export function resolveStrokeStyle(
       };
     case "hand-pencil":
       return {
-        dash: [2, 1],
         lineCap: "round",
-        opacityMultiplier: 0.72,
+        opacityMultiplier: 1,
         strokeWidth: Math.max(1.5, fallbackWidth),
       };
     case "hand-pen":
       return {
         lineCap: "round",
-        opacityMultiplier: 0.94,
+        opacityMultiplier: 1,
         strokeWidth: Math.max(2.5, fallbackWidth),
+      };
+    case "marker":
+      return {
+        lineCap: "square",
+        opacityMultiplier: 0.38,
+        strokeWidth: Math.max(10, fallbackWidth * 3.2),
       };
     case "wavy":
       return {
@@ -56,6 +69,59 @@ export function resolveStrokeStyle(
         strokeWidth: fallbackWidth,
       };
   }
+}
+
+export function resolveSketchPasses(
+  style: StrokeStyle | undefined,
+  fallbackWidth: number,
+): readonly SketchPass[] {
+  switch (style) {
+    case "hand-pencil":
+      return [
+        {
+          intensity: 2.8,
+          opacityMultiplier: 0.42,
+          seed: 11,
+          strokeWidth: Math.max(1.1, fallbackWidth * 0.65),
+        },
+        {
+          intensity: 1.8,
+          opacityMultiplier: 0.3,
+          seed: 29,
+          strokeWidth: Math.max(0.8, fallbackWidth * 0.45),
+        },
+        {
+          dash: [1, 2],
+          intensity: 0.9,
+          opacityMultiplier: 0.2,
+          seed: 47,
+          strokeWidth: Math.max(0.55, fallbackWidth * 0.28),
+        },
+      ];
+    case "hand-pen":
+      return [
+        {
+          intensity: 1.15,
+          opacityMultiplier: 0.88,
+          seed: 7,
+          strokeWidth: Math.max(2.2, fallbackWidth),
+        },
+        {
+          intensity: 0.75,
+          opacityMultiplier: 0.24,
+          seed: 23,
+          strokeWidth: Math.max(0.9, fallbackWidth * 0.35),
+        },
+      ];
+    default:
+      return [];
+  }
+}
+
+export function isSketchStrokeStyle(
+  style: StrokeStyle | undefined,
+): style is "hand-pencil" | "hand-pen" {
+  return style === "hand-pencil" || style === "hand-pen";
 }
 
 export function createWavySegment(end: Vec2): readonly number[] {
@@ -77,26 +143,93 @@ export function createWavySegment(end: Vec2): readonly number[] {
   return points;
 }
 
+function segmentPoints(end: Vec2): readonly Vec2[] {
+  const length = Math.hypot(end.x, end.y);
+  const samples = Math.max(8, Math.ceil(length / 12));
+  return Array.from({ length: samples + 1 }, (_, index) => {
+    const progress = index / samples;
+    return { x: end.x * progress, y: end.y * progress };
+  });
+}
+
+export function createSketchPath(
+  sourcePoints: readonly Vec2[],
+  intensity: number,
+  seed: number,
+  closed = false,
+): readonly number[] {
+  if (sourcePoints.length === 0) return [0, 0, 0, 0];
+  if (sourcePoints.length === 1) {
+    const point = sourcePoints[0];
+    return point === undefined ? [0, 0, 0, 0] : [point.x, point.y];
+  }
+
+  const lastIndex = sourcePoints.length - 1;
+  const output: number[] = [];
+  for (let index = 0; index < sourcePoints.length; index += 1) {
+    const point = sourcePoints[index];
+    if (point === undefined) continue;
+    const previous =
+      sourcePoints[index === 0 ? (closed ? lastIndex : 0) : index - 1] ?? point;
+    const next =
+      sourcePoints[
+        index === lastIndex ? (closed ? 0 : lastIndex) : index + 1
+      ] ?? point;
+    const tangentX = next.x - previous.x;
+    const tangentY = next.y - previous.y;
+    const tangentLength = Math.hypot(tangentX, tangentY) || 1;
+    const normalX = -tangentY / tangentLength;
+    const normalY = tangentX / tangentLength;
+    const progress = lastIndex === 0 ? 0 : index / lastIndex;
+    const endpointEnvelope = closed
+      ? 1
+      : 0.22 + Math.sin(progress * Math.PI) * 0.78;
+    const noise =
+      Math.sin((index + 1) * (12.9898 + seed * 0.071) + seed * 0.37) * 0.68 +
+      Math.cos((index + 1) * (4.123 + seed * 0.053) + point.x * 0.011) * 0.32;
+    const offset = noise * intensity * endpointEnvelope;
+    output.push(point.x + normalX * offset, point.y + normalY * offset);
+  }
+  return output;
+}
+
 export function createHandDrawnSegment(
   end: Vec2,
   intensity: number,
+  seed = 0,
 ): readonly number[] {
-  const length = Math.hypot(end.x, end.y);
-  if (length === 0) return [0, 0, 0, 0];
-  const normalX = -end.y / length;
-  const normalY = end.x / length;
-  const samples = Math.max(8, Math.ceil(length / 14));
-  const points: number[] = [];
-  for (let index = 0; index <= samples; index += 1) {
-    const progress = index / samples;
-    const deterministicNoise =
-      Math.sin(index * 12.9898 + length * 0.017) * 0.65 +
-      Math.sin(index * 4.123 + end.x * 0.011) * 0.35;
-    const offset = deterministicNoise * intensity;
-    points.push(
-      end.x * progress + normalX * offset,
-      end.y * progress + normalY * offset,
-    );
-  }
+  return createSketchPath(segmentPoints(end), intensity, seed);
+}
+
+export function createRectangleContour(size: Size2): readonly Vec2[] {
+  const stepsPerEdge = Math.max(
+    4,
+    Math.ceil(Math.max(size.width, size.height) / 32),
+  );
+  const points: Vec2[] = [];
+  const appendEdge = (from: Vec2, to: Vec2) => {
+    for (let index = 0; index < stepsPerEdge; index += 1) {
+      const progress = index / stepsPerEdge;
+      points.push({
+        x: from.x + (to.x - from.x) * progress,
+        y: from.y + (to.y - from.y) * progress,
+      });
+    }
+  };
+  appendEdge({ x: 0, y: 0 }, { x: size.width, y: 0 });
+  appendEdge({ x: size.width, y: 0 }, { x: size.width, y: size.height });
+  appendEdge({ x: size.width, y: size.height }, { x: 0, y: size.height });
+  appendEdge({ x: 0, y: size.height }, { x: 0, y: 0 });
   return points;
+}
+
+export function createEllipseContour(radius: Vec2): readonly Vec2[] {
+  const samples = Math.max(36, Math.ceil(Math.max(radius.x, radius.y) / 3));
+  return Array.from({ length: samples }, (_, index) => {
+    const angle = (index / samples) * Math.PI * 2;
+    return {
+      x: Math.cos(angle) * radius.x,
+      y: Math.sin(angle) * radius.y,
+    };
+  });
 }
