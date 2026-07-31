@@ -69,23 +69,6 @@ jobs:
               raise SystemExit('BoardStage preview marker missing')
           stage.write_text(text)
 
-          smoothing = Path('src/shared/stroke-smoothing.ts')
-          text = smoothing.read_text()
-          old = '''  const smoothed = buildSmoothStrokePoints(rawPoints, {
-            maxOutputPoints: quality.maxOutputPoints,
-            maxSubdivisions: quality.subdivisions,
-            minPointDistance: quality.minPointDistance,
-            minSubdivisions: quality.subdivisions,
-            baseSegmentLength: quality.targetSegmentLength,
-            zoom: quality.zoomBucket,
-          });'''.replace('          ', '')
-          new = '''  const smoothed = buildSmoothStrokePoints(rawPoints, {
-            zoom: quality.zoomBucket,
-          });'''.replace('          ', '')
-          if old not in text:
-              raise SystemExit('stroke smoothing cache marker missing')
-          smoothing.write_text(text.replace(old, new, 1))
-
           Path('tests/e2e/stroke-smoothing.spec.ts').write_text(r'''import { expect, test } from "@playwright/test";
           import type { Page } from "@playwright/test";
 
