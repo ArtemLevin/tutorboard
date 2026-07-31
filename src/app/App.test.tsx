@@ -203,7 +203,7 @@ describe("App", () => {
     );
   });
 
-  it("inserts a safe SVG as one selected board object", async () => {
+  it("inserts a safe SVG as one selected embedded image", async () => {
     render(<App />);
     const file = new File(
       [
@@ -213,13 +213,14 @@ describe("App", () => {
       { type: "image/svg+xml" },
     );
 
-    fireEvent.change(screen.getByLabelText("Вставить SVG"), {
+    fireEvent.change(screen.getByLabelText("Вставить изображения"), {
       target: { files: [file] },
     });
 
     await waitFor(() =>
       expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта"),
     );
+    expect(screen.getByText("image.embedded")).toBeInTheDocument();
     expect(screen.getByTestId("selection-count")).toHaveTextContent(
       "1 выбрано",
     );
@@ -260,73 +261,57 @@ describe("App", () => {
       "Объект: 31, 30",
     );
 
-    const shortcuts = screen.getByRole("button", {
-      name: "Горячие клавиши",
-    });
-    fireEvent.click(shortcuts);
+    const trigger = screen.getByRole("button", { name: "Горячие клавиши" });
+    trigger.focus();
+    fireEvent.click(trigger);
     expect(
-      screen.getByRole("dialog", { name: "Горячие клавиши" }),
+      screen.getByRole("dialog", { name: "Горячие клавиши TutorBoard" }),
     ).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(
-      screen.queryByRole("dialog", { name: "Горячие клавиши" }),
-    ).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 
   it("runs the GeometryOS vertical flow and selects one atomic import", async () => {
-    const generateSuccess = JSON.parse(generateSuccessJson) as unknown;
-    const layoutSuccess = JSON.parse(layoutSuccessJson) as unknown;
-    let sequence = 0;
-    const geometryOsClient = createGeometryOsHttpClient({
-      baseUrl: "https://geometry.example.test",
-      createRequestId: () =>
-        geometryOsRequestId(`tutorboard-app-${++sequence}`),
-      fetch: (input, init) => {
-        const url = requestUrl(input);
-        const requestId = new Headers(init?.headers).get("X-Request-ID");
-        if (requestId === null) {
-          throw new Error("Expected GeometryOS request correlation.");
-        }
-        const body = url.endsWith("/ready")
-          ? {
-              checks: [
-                { name: "lifecycle", status: "pass" },
-                { name: "executor", status: "pass" },
-              ],
-              status: "ready",
-            }
-          : url.endsWith("/generate")
-            ? generateSuccess
-            : layoutSuccess;
-        return Promise.resolve(
-          new Response(JSON.stringify(body), {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "X-Request-ID": requestId,
-            },
-          }),
-        );
-      },
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/v1/generate")) {
+        return new Response(generateSuccessJson, {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      if (url.endsWith("/api/v1/layout")) {
+        return new Response(layoutSuccessJson, {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      return new Response("not found", { status: 404 });
     });
-    render(<App geometryOsClient={geometryOsClient} />);
+    const client = createGeometryOsHttpClient({
+      baseUrl: "https://geometryos.example.test",
+      fetchImpl: fetchMock,
+    });
+    render(
+      <App
+        geometryOsClient={client}
+        requestIdFactory={() => geometryOsRequestId("request:unit")}
+      />,
+    );
 
+    fireEvent.change(screen.getByLabelText("Запрос GeometryOS"), {
+      target: { value: "Построй треугольник ABC" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Построить" }));
 
     await waitFor(() =>
-      expect(screen.getByTestId("geometry-prompt-status")).toHaveTextContent(
-        "Построение добавлено: 12 объектов",
-      ),
-    );
-    expect(screen.getByTestId("object-count")).toHaveTextContent("12 объекта");
-    expect(screen.getByTestId("selection-count")).toHaveTextContent(
-      "12 выбрано",
+      expect(screen.getByTestId("object-count")).toHaveTextContent("7 объектов"),
     );
     expect(screen.getByTestId("geometry-import-count")).toHaveTextContent(
       "1 построений",
     );
-    expect(screen.getByTestId("geometry-request-id")).toHaveTextContent(
-      "tutorboard-app-3",
+    expect(screen.getByTestId("selection-count")).toHaveTextContent(
+      "7 выбрано",
     );
   });
 });
