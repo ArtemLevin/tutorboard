@@ -1,0 +1,293 @@
+name: Five color palette implementation helper
+
+on:
+  push:
+    branches:
+      - agent/five-color-palette
+
+permissions:
+  contents: write
+
+concurrency:
+  group: five-color-palette-helper
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: agent/five-color-palette
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply palette implementation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              content = file.read_text(encoding="utf-8")
+              count = content.count(old)
+              if count != 1:
+                  raise RuntimeError(f"{path}: expected one match, found {count}")
+              file.write_text(content.replace(old, new, 1), encoding="utf-8")
+
+          app = "src/app/App.tsx"
+          replace_once(
+              app,
+              'const initialDrawingState: DrawingInteractionState = { kind: "idle" };\n',
+              '''const initialDrawingState: DrawingInteractionState = { kind: "idle" };
+
+const primaryStyleColors = [
+  { label: "Чёрный", value: "#111827" },
+  { label: "Красный", value: "#dc2626" },
+  { label: "Синий", value: "#2563eb" },
+  { label: "Зелёный", value: "#16a34a" },
+  { label: "Жёлтый", value: "#facc15" },
+] as const;
+
+interface ColorPaletteProps {
+  readonly allowNone?: boolean;
+  readonly label: string;
+  readonly onChange: (color: string | null) => void;
+  readonly value: string | null;
+}
+
+function ColorPalette({
+  allowNone = false,
+  label,
+  onChange,
+  value,
+}: ColorPaletteProps) {
+  return (
+    <fieldset className="color-palette">
+      <legend>{label}</legend>
+      <div className="color-palette-options">
+        {primaryStyleColors.map((color) => (
+          <button
+            aria-label={`${label}: ${color.label}`}
+            aria-pressed={value === color.value}
+            className="color-swatch"
+            key={color.value}
+            onClick={() => onChange(color.value)}
+            style={{ backgroundColor: color.value }}
+            title={color.label}
+            type="button"
+          />
+        ))}
+        {allowNone ? (
+          <button
+            aria-label={`${label}: Без цвета`}
+            aria-pressed={value === null}
+            className="color-swatch color-swatch-none"
+            onClick={() => onChange(null)}
+            title="Без заливки"
+            type="button"
+          />
+        ) : null}
+      </div>
+    </fieldset>
+  );
+}
+''',
+          )
+
+          old_controls = '''                <label>
+                  Заливка
+                  <input
+                    aria-label="Заливка выделения"
+                    onChange={(event) =>
+                      updateSelectionStyle({
+                        fill:
+                          event.currentTarget.value.trim() === ""
+                            ? null
+                            : event.currentTarget.value,
+                      })
+                    }
+                    value={selectedStyle.fill ?? ""}
+                  />
+                </label>
+                <label>
+                  Обводка
+                  <input
+                    aria-label="Обводка выделения"
+                    onChange={(event) =>
+                      updateSelectionStyle({
+                        stroke:
+                          event.currentTarget.value.trim() === ""
+                            ? null
+                            : event.currentTarget.value,
+                      })
+                    }
+                    value={selectedStyle.stroke ?? ""}
+                  />
+                </label>
+'''
+          new_controls = '''                <ColorPalette
+                  allowNone
+                  label="Заливка"
+                  onChange={(fill) => updateSelectionStyle({ fill })}
+                  value={selectedStyle.fill}
+                />
+                <ColorPalette
+                  label="Обводка"
+                  onChange={(stroke) => updateSelectionStyle({ stroke })}
+                  value={selectedStyle.stroke}
+                />
+'''
+          replace_once(app, old_controls, new_controls)
+
+          css = "src/app/styles.css"
+          replace_once(
+              css,
+              '''.style-inspector .text-content-editor {
+  grid-column: 1 / -1;
+}
+
+''',
+              '''.style-inspector .text-content-editor {
+  grid-column: 1 / -1;
+}
+
+.style-inspector .color-palette {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.color-palette legend {
+  margin-bottom: 4px;
+  padding: 0;
+  color: #667780;
+  font-size: 0.64rem;
+}
+
+.style-inspector .color-palette-options {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  gap: 7px;
+}
+
+.color-swatch {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #b9c5ca;
+  cursor: pointer;
+}
+
+.color-swatch:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 2px #7f949d;
+}
+
+.color-swatch:focus-visible {
+  outline: 3px solid rgb(44 113 130 / 28%);
+  outline-offset: 3px;
+}
+
+.color-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 3px #2c7182;
+}
+
+.color-swatch[aria-pressed="true"]::after {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  content: "✓";
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 75%);
+}
+
+.color-swatch-none {
+  overflow: hidden;
+  background: #fff;
+}
+
+.color-swatch-none::before {
+  position: absolute;
+  top: 13px;
+  left: 2px;
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: #dc2626;
+  content: "";
+  transform: rotate(-45deg);
+}
+
+''',
+          )
+
+          test = "tests/e2e/styling.spec.ts"
+          replace_once(
+              test,
+              '''  const fill = page.getByRole("textbox", { name: "Заливка выделения" });
+  await fill.fill("#336699");
+  await expect(fill).toHaveValue("#336699");
+''',
+              '''  await expect(
+    page.getByRole("button", {
+      name: /Заливка: (Чёрный|Красный|Синий|Зелёный|Жёлтый)/,
+    }),
+  ).toHaveCount(5);
+  await expect(
+    page.getByRole("button", {
+      name: /Обводка: (Чёрный|Красный|Синий|Зелёный|Жёлтый)/,
+    }),
+  ).toHaveCount(5);
+
+  const blueFill = page.getByRole("button", { name: "Заливка: Синий" });
+  await blueFill.click();
+  await expect(blueFill).toHaveAttribute("aria-pressed", "true");
+
+  const greenStroke = page.getByRole("button", { name: "Обводка: Зелёный" });
+  await greenStroke.click();
+  await expect(greenStroke).toHaveAttribute("aria-pressed", "true");
+''',
+          )
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format changed files
+        run: npm exec prettier -- --write src/app/App.tsx src/app/styles.css tests/e2e/styling.spec.ts
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Remove helper workflow
+        run: rm .github/workflows/five-color-palette-helper.yml
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/App.tsx src/app/styles.css tests/e2e/styling.spec.ts .github/workflows/five-color-palette-helper.yml
+          git commit -m "feat: replace color codes with five-color palette"
+          git push origin HEAD:agent/five-color-palette
