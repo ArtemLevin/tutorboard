@@ -4,7 +4,7 @@ TutorBoard stores one coordinate plane as one `math.coordinate-plot` board objec
 
 ## Versioning
 
-BoardDocument 1.1 introduces the object. Readers migrate 0.1, 0.2 and 1.0 documents into 1.1 without changing existing board content. Formula strings are stored with `tutorboard-expression/1`; parsing and numerical evaluation belong to later modules.
+BoardDocument 1.1 introduces the object. Readers migrate 0.1, 0.2 and 1.0 documents into 1.1 without changing existing board content. Formula strings are stored with `tutorboard-expression/1`; parsing and numerical evaluation belong to later modules. Generated document, command-envelope, snapshot and geometry-import fixtures exercise the 1.1 boundary, while the dedicated 1.0 fixture remains available for migration tests.
 
 ## Multi-series contract
 
