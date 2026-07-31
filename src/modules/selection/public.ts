@@ -10,11 +10,16 @@ export {
   type SelectionObjectTransform,
 } from "./commands";
 export {
+  lassoPolygonArea,
+  normalizeLassoPoints,
+  pointInPolygon,
+  selectObjectIdsInLasso,
   selectObjectIdsInRect,
   selectSelectionBounds,
   type SelectionBounds,
 } from "./geometry";
 export {
+  getSelectionLasso,
   getSelectionMarquee,
   getSelectionPreviewDelta,
   initialSelectionState,
@@ -23,8 +28,17 @@ export {
   type CompletedSelectionMove,
   type Rect2,
   type SelectionAction,
+  type SelectionAreaKind,
+  type SelectionAreaOperation,
   type SelectionInteraction,
   type SelectionState,
   type SelectionTransition,
 } from "./interaction";
-export { selectionTool, selectionToolId } from "./tools";
+export {
+  isSelectionToolId,
+  lassoSelectionTool,
+  lassoSelectionToolId,
+  selectionTool,
+  selectionToolId,
+  type SelectionToolId,
+} from "./tools";

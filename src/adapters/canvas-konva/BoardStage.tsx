@@ -11,6 +11,7 @@ import {
   Circle,
   Group,
   Layer,
+  Line,
   Rect,
   Stage,
   Text,
@@ -74,8 +75,11 @@ export interface WorldPointerSample {
   readonly pressure: number;
 }
 
+export type BoardSelectionAreaOperation = "add" | "replace" | "subtract";
+
 export interface SelectionPointerStartSample extends WorldPointerSample {
   readonly additive: boolean;
+  readonly areaOperation?: BoardSelectionAreaOperation;
   readonly objectId: BoardObjectId | null;
 }
 
@@ -125,6 +129,7 @@ export interface BoardStageProps {
   readonly scene: BoardSceneReadModel;
   readonly selectedObjectIds?: readonly BoardObjectId[];
   readonly selectionBounds?: readonly BoardSelectionBounds[];
+  readonly selectionLasso?: readonly Vec2[] | null;
   readonly selectionMarquee?: BoardSelectionRect | null;
   readonly selectionModeKey: string | null;
   readonly selectionPreviewDelta?: Vec2 | null;
@@ -238,6 +243,7 @@ export function BoardStage({
   scene,
   selectedObjectIds = [],
   selectionBounds = [],
+  selectionLasso = null,
   selectionMarquee = null,
   selectionModeKey,
   selectionPreviewDelta = null,
@@ -722,7 +728,14 @@ export function BoardStage({
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
     const isRightButton = event.evt.button === 2;
-    if (!isRightButton && isTransformerTarget(event.target)) {
+    const isLassoAreaModifier =
+      selectionModeKey === "selection.lasso" &&
+      (event.evt.shiftKey || event.evt.altKey);
+    if (
+      !isRightButton &&
+      isTransformerTarget(event.target) &&
+      !isLassoAreaModifier
+    ) {
       commitWheel();
       return;
     }
@@ -734,7 +747,9 @@ export function BoardStage({
       return;
     }
 
-    const hitObjectId = objectIdFromTarget(event.target);
+    const hitObjectId = isLassoAreaModifier
+      ? null
+      : objectIdFromTarget(event.target);
     const isMiddleButton = event.evt.button === 1;
     const isLeftButton = event.evt.button === 0;
     const shouldSelectHitObject = isLeftButton && hitObjectId !== null;
@@ -771,6 +786,11 @@ export function BoardStage({
         selectionPointerCallbacksRef.current.start({
           ...selectionWorldSample(event.evt, session),
           additive: event.evt.shiftKey,
+          areaOperation: event.evt.altKey
+            ? "subtract"
+            : event.evt.shiftKey
+              ? "add"
+              : "replace",
           objectId: hitObjectId,
         });
         return;
@@ -864,11 +884,13 @@ export function BoardStage({
       ? "grabbing"
       : panMode || spacePressed
         ? "grab"
-        : selectionModeKey !== null
-          ? "default"
-          : drawingModeKey === null
+        : selectionModeKey === "selection.lasso"
+          ? "crosshair"
+          : selectionModeKey !== null
             ? "default"
-            : "crosshair";
+            : drawingModeKey === null
+              ? "default"
+              : "crosshair";
   const selected = new Set(selectedObjectIds);
 
   return (
@@ -877,6 +899,8 @@ export function BoardStage({
       aria-label="Бесконечное полотно TutorBoard"
       className="board-stage"
       data-drawing={isDrawing}
+      data-lasso-points={selectionLasso?.length ?? 0}
+      data-lassoing={selectionLasso !== null}
       data-panning={isPanning}
       data-selecting={isSelecting}
       data-transformable-count={transformableObjectIds.length}
@@ -964,6 +988,18 @@ export function BoardStage({
                 width={selectionMarquee.width}
                 x={selectionMarquee.x}
                 y={selectionMarquee.y}
+              />
+            )}
+            {selectionLasso === null || selectionLasso.length < 2 ? null : (
+              <Line
+                closed={selectionLasso.length > 2}
+                dash={[7 / previewViewport.zoom, 4 / previewViewport.zoom]}
+                fill="rgba(44, 113, 130, 0.09)"
+                lineCap="round"
+                lineJoin="round"
+                points={selectionLasso.flatMap(({ x, y }) => [x, y])}
+                stroke="#2c7182"
+                strokeWidth={1.5 / previewViewport.zoom}
               />
             )}
             {remoteCursors.map(({ actorId, point }) => (
