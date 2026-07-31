@@ -1,0 +1,46 @@
+name: Trigger embedded image patch
+
+on:
+  push:
+    branches:
+      - feature-embedded-image-import
+
+permissions:
+  contents: write
+
+concurrency:
+  group: embedded-image-patch
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'chore: trigger embedded image patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature-embedded-image-import
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Apply prepared patch
+        shell: bash
+        run: |
+          python <<'BOOT'
+          from pathlib import Path
+          source = Path('.github/workflows/apply-image-import.yml').read_text(encoding='utf-8')
+          body = source.split("          python <<'PY'\n", 1)[1].split("\n          PY", 1)[0]
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in body.splitlines())
+          exec(compile(script, 'embedded-image-patch.py', 'exec'))
+          Path('.github/workflows/trigger-image-import-patch.yml').unlink()
+          BOOT
+          npm run board-contract:generate
+          npm run format
+          git add -A
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "feat: import embedded images from files and clipboard"
+          git push origin HEAD:feature-embedded-image-import
