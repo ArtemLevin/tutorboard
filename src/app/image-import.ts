@@ -94,13 +94,16 @@ export function fitEmbeddedImageSize(intrinsic: Size2): Size2 {
 }
 
 function safeFileName(value: string): string {
-  const name = value
-    .split(/[\\/]/u)
-    .at(-1)
-    ?.replace(/[\u0000-\u001f\u007f]/gu, "")
+  const leaf = value.split(/[\\/]/u).at(-1) ?? "";
+  const printable = [...leaf]
+    .filter((character) => {
+      const code = character.charCodeAt(0);
+      return code > 31 && code !== 127;
+    })
+    .join("")
     .trim()
     .slice(0, 256);
-  return name && name.length > 0 ? name : "image";
+  return printable.length > 0 ? printable : "image";
 }
 
 function readAsDataUrl(blob: Blob): Promise<string> {
