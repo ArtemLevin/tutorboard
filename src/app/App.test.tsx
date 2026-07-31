@@ -305,7 +305,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Построить" }));
 
     await waitFor(() =>
-      expect(screen.getByTestId("object-count")).toHaveTextContent("7 объектов"),
+      expect(screen.getByTestId("object-count")).toHaveTextContent(
+        "7 объектов",
+      ),
     );
     expect(screen.getByTestId("geometry-import-count")).toHaveTextContent(
       "1 построений",
