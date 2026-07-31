@@ -336,14 +336,14 @@ describe("App", () => {
 
     await waitFor(() =>
       expect(screen.getByTestId("object-count")).toHaveTextContent(
-        "7 объектов",
+        "12 объекта",
       ),
     );
     expect(screen.getByTestId("geometry-import-count")).toHaveTextContent(
       "1 построений",
     );
     expect(screen.getByTestId("selection-count")).toHaveTextContent(
-      "7 выбрано",
+      "12 выбрано",
     );
   });
 });
