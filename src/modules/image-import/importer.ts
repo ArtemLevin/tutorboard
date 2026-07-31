@@ -20,12 +20,15 @@ export const supportedImageMimeTypes = [
   "image/gif",
 ] as const;
 
-export type SupportedImageMimeType =
-  (typeof supportedImageMimeTypes)[number];
+export type SupportedImageMimeType = (typeof supportedImageMimeTypes)[number];
 
 export type CreateImageObjectResult =
   | { readonly object: ImageObject; readonly status: "ok" }
-  | { readonly code: string; readonly message: string; readonly status: "error" };
+  | {
+      readonly code: string;
+      readonly message: string;
+      readonly status: "error";
+    };
 
 function fittedSize(source: Size2): Size2 {
   const ratio = Math.min(
@@ -40,9 +43,7 @@ function fittedSize(source: Size2): Size2 {
 }
 
 export function isSupportedRasterImage(file: File): boolean {
-  return supportedImageMimeTypes.includes(
-    file.type as SupportedImageMimeType,
-  );
+  return supportedImageMimeTypes.includes(file.type as SupportedImageMimeType);
 }
 
 export function createImageObject(input: {

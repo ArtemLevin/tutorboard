@@ -3,6 +3,7 @@ import { Ellipse, Group, Line, Rect, Text } from "react-konva";
 
 import type { BoardObject, BoardObjectKind, Vec2 } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
+import { ImageRenderer } from "./image-renderer";
 import { SvgRenderer } from "./svg-renderer";
 import {
   KonvaRendererRegistry,
@@ -232,6 +233,12 @@ const renderers: readonly KonvaObjectRenderer[] = [
           radiusY={ellipse.radius.y}
         />
       );
+    },
+  },
+  {
+    kind: "media.image",
+    render(object) {
+      return <ImageRenderer object={expectKind(object, "media.image")} />;
     },
   },
   {

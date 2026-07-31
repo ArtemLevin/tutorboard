@@ -32,6 +32,7 @@ export {
   type BoardObjectKind,
   type BoardObjectSource,
   type EllipseObject,
+  type ImageObject,
   type LineObject,
   type ObjectStyle,
   type PenStrokeObject,

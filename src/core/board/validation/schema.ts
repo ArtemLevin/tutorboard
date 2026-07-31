@@ -140,6 +140,20 @@ const svgViewBoxSchema = z
     y: finiteNumberSchema,
   })
   .strict();
+const imageObjectSchema = z
+  .object({
+    ...objectBase,
+    dataUrl: z
+      .string()
+      .startsWith("data:image/")
+      .max(12 * 1024 * 1024),
+    kind: z.literal("media.image"),
+    mimeType: z.enum(["image/png", "image/jpeg", "image/gif"]),
+    name: z.string().max(256),
+    naturalSize: svgSizeSchema,
+    size: svgSizeSchema,
+  })
+  .strict();
 const svgObjectSchema = z
   .object({
     ...objectBase,
@@ -168,6 +182,7 @@ const objectSchema = z.discriminatedUnion("kind", [
   ellipseSchema,
   textSchema,
   svgObjectSchema,
+  imageObjectSchema,
 ]);
 const groupSchema = z
   .object({

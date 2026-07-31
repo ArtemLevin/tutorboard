@@ -71,6 +71,13 @@ import {
   selectLayers,
 } from "../modules/layers/public";
 import {
+  createAddImageObjectCommand,
+  createImageObject,
+  imageImportLimits,
+  isSupportedRasterImage,
+  type SupportedImageMimeType,
+} from "../modules/image-import/public";
+import {
   createAddSvgObjectCommand,
   createSvgObject,
   svgImportLimits,
@@ -212,6 +219,7 @@ export function App({
   const selectionStateRef = useRef<SelectionState>(initialSelectionState);
   const [textDraft, setTextDraft] = useState("Новый текст");
   const [svgDiagnostic, setSvgDiagnostic] = useState<string | null>(null);
+  const [imageDiagnostic, setImageDiagnostic] = useState<string | null>(null);
   const [clipboard, setClipboard] = useState<BoardClipboardPayload | null>(
     null,
   );
@@ -767,8 +775,12 @@ export function App({
           return;
         }
         if (key === "v") {
-          event.preventDefault();
-          pasteClipboard();
+          const hasSystemImage =
+            [...(navigator.clipboard === undefined ? [] : [])].length > 0;
+          if (!hasSystemImage) {
+            event.preventDefault();
+            pasteClipboard();
+          }
           return;
         }
       }
@@ -1081,6 +1093,123 @@ export function App({
     [commitCommand, createCommandMetadata],
   );
 
+  const importImageFile = useCallback(
+    async (file: File) => {
+      if (
+        file.type === "image/svg+xml" ||
+        file.name.toLowerCase().endsWith(".svg")
+      ) {
+        await importSvgFile(file);
+        return;
+      }
+      if (!isSupportedRasterImage(file)) {
+        setImageDiagnostic(
+          "image.unsupported-type: Поддерживаются PNG, JPEG, JPG, GIF и SVG.",
+        );
+        return;
+      }
+      if (file.size > imageImportLimits.maxFileBytes) {
+        setImageDiagnostic("image.input-too-large: Файл превышает 8 МБ.");
+        return;
+      }
+      let dataUrl: string;
+      try {
+        dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error("read failed"));
+          reader.onload = () =>
+            typeof reader.result === "string"
+              ? resolve(reader.result)
+              : reject(new Error("invalid result"));
+          reader.readAsDataURL(file);
+        });
+      } catch {
+        setImageDiagnostic(
+          "image.read-failed: Не удалось прочитать изображение.",
+        );
+        return;
+      }
+      let naturalSize: { width: number; height: number };
+      try {
+        naturalSize = await new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onerror = () => reject(new Error("decode failed"));
+          image.onload = () =>
+            resolve({ width: image.naturalWidth, height: image.naturalHeight });
+          image.src = dataUrl;
+        });
+      } catch {
+        setImageDiagnostic(
+          "image.decode-failed: Формат изображения повреждён или не поддерживается браузером.",
+        );
+        return;
+      }
+      const current = documentRef.current;
+      const workspace = workspaceRef.current?.getBoundingClientRect();
+      const center = screenToWorld(
+        {
+          x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
+          y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
+        },
+        current.viewport,
+      );
+      const objectId = boardObjectId(`object:${crypto.randomUUID()}`);
+      const created = createImageObject({
+        center,
+        dataUrl,
+        id: objectId,
+        mimeType: file.type as SupportedImageMimeType,
+        name: file.name || "Изображение",
+        naturalSize,
+      });
+      if (created.status === "error") {
+        setImageDiagnostic(`${created.code}: ${created.message}`);
+        return;
+      }
+      const result = commitCommand(
+        createAddImageObjectCommand(createCommandMetadata(), created.object),
+      );
+      if (!result.ok) {
+        setImageDiagnostic(result.error.message);
+        return;
+      }
+      const selected: SelectionState = {
+        interaction: { kind: "idle" },
+        selectedObjectIds: [objectId],
+      };
+      selectionStateRef.current = selected;
+      setSelectionState(selected);
+      setActiveTool(selectionToolId);
+      setImageDiagnostic(null);
+      setAccessibilityNotice(
+        `Изображение вставлено: ${file.name || "из буфера обмена"}`,
+      );
+    },
+    [commitCommand, createCommandMetadata, importSvgFile],
+  );
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return;
+      }
+      const imageItem = [...(event.clipboardData?.items ?? [])].find((item) =>
+        item.type.startsWith("image/"),
+      );
+      const file = imageItem?.getAsFile();
+      if (file === null || file === undefined) return;
+      event.preventDefault();
+      void importImageFile(file);
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [importImageFile]);
+
   const applyGeometryPromptResult = useCallback(
     (result: GeometryPromptResult) => {
       if (result.kind === "cancelled") {
@@ -1297,14 +1426,14 @@ export function App({
             Вставить
           </button>
           <label className="tool-button file-tool-button">
-            Вставить SVG
+            Вставить изображение
             <input
-              accept="image/svg+xml,.svg"
-              aria-label="Вставить SVG"
+              accept="image/png,image/jpeg,image/gif,image/svg+xml,.png,.jpeg,.jpg,.gif,.svg"
+              aria-label="Вставить изображение"
               onChange={(event) => {
                 const file = event.currentTarget.files?.[0];
                 if (file !== undefined) {
-                  void importSvgFile(file);
+                  void importImageFile(file);
                 }
                 event.currentTarget.value = "";
               }}
@@ -1437,7 +1566,7 @@ export function App({
               </div>
               <div>
                 <dt>Ctrl/Cmd + C, X, V</dt>
-                <dd>Копирование, вырезание и вставка</dd>
+                <dd>Копирование объектов и вставка изображений из буфера</dd>
               </div>
               <div>
                 <dt>Ctrl/Cmd + Z / Shift+Z</dt>
@@ -1460,6 +1589,12 @@ export function App({
         {persistenceNotice === null ? null : (
           <div className="persistence-notice" role="status">
             {persistenceNotice}
+          </div>
+        )}
+        {imageDiagnostic === null ? null : (
+          <div className="persistence-alert" role="alert">
+            <strong>Изображение не вставлено</strong>
+            <span>{imageDiagnostic}</span>
           </div>
         )}
         {svgDiagnostic === null ? null : (

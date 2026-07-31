@@ -10,6 +10,7 @@ export const boardObjectKinds = [
   "drawing.ellipse",
   "drawing.text",
   "svg-import.svg",
+  "media.image",
 ] as const;
 
 export type BoardObjectKind = (typeof boardObjectKinds)[number];
@@ -93,6 +94,15 @@ export interface SvgViewBox {
   readonly y: number;
 }
 
+export interface ImageObject extends BoardObjectBase {
+  readonly dataUrl: string;
+  readonly kind: "media.image";
+  readonly mimeType: "image/gif" | "image/jpeg" | "image/png";
+  readonly name: string;
+  readonly naturalSize: Size2;
+  readonly size: Size2;
+}
+
 export interface SvgObject extends BoardObjectBase {
   readonly kind: "svg-import.svg";
   readonly sanitizedSvg: string;
@@ -103,6 +113,7 @@ export interface SvgObject extends BoardObjectBase {
 
 export type BoardObject =
   | EllipseObject
+  | ImageObject
   | LineObject
   | PenStrokeObject
   | RectangleObject
