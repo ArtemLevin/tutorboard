@@ -12,7 +12,7 @@ A plane may hold up to 32 independent series. Each series has a stable local ide
 
 ## Editing and collaboration
 
-`core.coordinate-plot.update` replaces the definition while preserving board identity and transforms. The command carries an expected snapshot, allowing the reducer to reject stale collaborative edits. Locked objects and members of locked groups remain protected.
+`core.coordinate-plot.update` replaces the definition while preserving board identity and transforms. The command carries an expected snapshot, allowing the reducer to reject stale collaborative edits. Locked objects and members of locked groups remain protected. Collaborative undo swaps the command's expected and replacement definitions, so one accepted edit has one deterministic inverse.
 
 ## Rendering boundary
 
@@ -21,3 +21,7 @@ PR 1 provides a safe placeholder renderer with axes, a lightweight grid and a le
 ## Selection and clipboard
 
 Marquee and lasso use the transformed rectangular object extent. The generic clipboard remaps only the global board object identifier and position; internal series and parameter identifiers remain local to the copied plane.
+
+## Transfer compatibility
+
+SVG and PNG board snapshots include the coordinate-plane frame and axes without evaluating stored formulas. This keeps document export deterministic during the domain-model stage and provides a stable placeholder until the numerical renderer is introduced.
