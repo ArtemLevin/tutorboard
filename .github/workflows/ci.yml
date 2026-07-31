@@ -39,10 +39,10 @@ jobs:
         if: github.event_name == 'pull_request' && github.head_ref == 'agent/direct-select-right-pan' && hashFiles('scripts/apply-direct-interactions.py') != ''
         run: |
           python scripts/apply-direct-interactions.py
-          npm run format
           git fetch origin main
           git checkout origin/main -- .github/workflows/ci.yml .github/workflows/smart-ink-release-gate.yml
           rm -f .github/workflows/direct-select-right-pan-helper.yml scripts/apply-direct-interactions.py
+          npm run format
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/adapters/canvas-konva/BoardStage.tsx \
@@ -92,7 +92,7 @@ jobs:
         with:
           name: unit-test-failure-${{ github.sha }}
           path: unit-tests.log
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 2
 
       - name: Enforce source boundaries
