@@ -54,7 +54,9 @@ export function StrokeStylePalette({
         >
           <span aria-hidden="true" className="stroke-style-preview" />
           <span>{selectedOption.label}</span>
-          <span aria-hidden="true" className="stroke-style-chevron">▾</span>
+          <span aria-hidden="true" className="stroke-style-chevron">
+            ▾
+          </span>
         </button>
 
         {open ? (
