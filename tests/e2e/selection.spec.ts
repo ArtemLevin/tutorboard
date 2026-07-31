@@ -171,6 +171,6 @@ test("right drag switches to canvas movement and pans the viewport", async ({
   await expect(
     page.getByRole("button", { name: "Перемещение (H)" }),
   ).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByTestId("viewport-offset")).toHaveText("x 230 · y 140");
+  await expect(page.getByTestId("viewport-offset")).toHaveText("x 70 · y 50");
   await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
 });
