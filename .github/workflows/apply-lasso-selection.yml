@@ -34,6 +34,8 @@ jobs:
           python3 scripts/apply-lasso-selection.py
           rm -f scripts/apply-lasso-selection.mjs
           sed -i 's/import { normalizeRect, type Rect2 } from "\.\/interaction";/import type { Rect2 } from "\.\/interaction";/' src/modules/selection/geometry.ts
+          sed -i 's/readonly areaOperation: BoardSelectionAreaOperation;/readonly areaOperation?: BoardSelectionAreaOperation;/' src/adapters/canvas-konva/BoardStage.tsx
+          sed -i 's/areaOperation: sample.areaOperation,/areaOperation: sample.areaOperation ?? (sample.additive ? "add" : "replace"),/' src/app/App.tsx
 
       - name: Format changed sources
         run: |
