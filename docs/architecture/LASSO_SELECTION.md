@@ -33,3 +33,5 @@ The interaction reducer filters near-duplicate samples and caps a gesture at 409
 ## Compatibility
 
 The lasso updates the existing `SelectionState`. Selected objects therefore continue through the established move, resize, rotate, styling, grouping, clipboard, delete, lock, persistence and collaboration paths.
+
+The release gate exercises replace, additive, subtractive and cancellation journeys in Chromium and Firefox.
