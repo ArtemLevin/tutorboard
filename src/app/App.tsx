@@ -101,6 +101,7 @@ import {
   isEditableTextObject,
 } from "../modules/text-editing/public";
 import { ColorPalette } from "./ColorPalette";
+import { StrokeStylePalette } from "./StrokeStylePalette";
 import { readEnvironment } from "./configuration/environment";
 import {
   GeometryPromptPanel,
@@ -1797,8 +1798,14 @@ export function App({
                   onChange={(stroke) => updateSelectionStyle({ stroke })}
                   value={selectedStyle.stroke}
                 />
+                <StrokeStylePalette
+                  onChange={(strokeStyle) =>
+                    updateSelectionStyle({ strokeStyle })
+                  }
+                  value={selectedStyle.strokeStyle}
+                />
                 <label>
-                  Толщина
+                  Пользовательская толщина
                   <input
                     aria-label="Толщина обводки"
                     min="0"

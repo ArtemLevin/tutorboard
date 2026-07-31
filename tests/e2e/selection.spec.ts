@@ -174,3 +174,21 @@ test("right drag switches to canvas movement and pans the viewport", async ({
   await expect(page.getByTestId("viewport-offset")).toHaveText("x 70 · y 50");
   await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
 });
+
+test("applies all seven line styles to a selected figure", async ({ page }) => {
+  const rectangle = await stagePoint(page, 350, 250);
+  await page.mouse.click(rectangle.x, rectangle.y);
+  for (const label of [
+    "Тонкая",
+    "Толстая",
+    "Пунктирная",
+    "Точка-пунктир",
+    "Волнистая",
+    "Карандаш",
+    "Ручка",
+  ]) {
+    const option = page.getByRole("button", { name: `Стиль линии: ${label}` });
+    await option.click();
+    await expect(option).toHaveAttribute("aria-pressed", "true");
+  }
+});

@@ -7,7 +7,11 @@ import type {
   GroupId,
 } from "../identifiers";
 import { isValidIdentifier } from "../identifiers";
-import { boardObjectKinds, svgSanitizerPolicyVersion } from "../objects";
+import {
+  boardObjectKinds,
+  strokeStyles,
+  svgSanitizerPolicyVersion,
+} from "../objects";
 
 const identifierSchema = z
   .string()
@@ -67,6 +71,7 @@ const styleSchema = z
     opacity: finiteNumberSchema.min(0).max(1),
     stroke: z.string().max(256).nullable(),
     strokeWidth: finiteNumberSchema.nonnegative(),
+    strokeStyle: z.enum(strokeStyles).optional(),
   })
   .strict();
 const sourceSchema = z.discriminatedUnion("kind", [
