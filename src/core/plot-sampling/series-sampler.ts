@@ -97,17 +97,6 @@ export function sampleSeries(input: {
       readonly ok: true;
       readonly sample: SampledPlotSeries;
     } {
-  const key = cacheKey({
-    bindings: input.bindings,
-    boardZoom: input.parent.boardZoom,
-    definition: input.definition,
-    options: input.options,
-    pixelSize: input.parent.pixelSize,
-    series: input.series,
-  });
-  const cached = input.parent.cache?.get(key);
-  if (cached !== undefined) return { cacheHit: true, ok: true, sample: cached };
-
   const compiled =
     input.series.kind === "explicit"
       ? compileExplicit({
@@ -122,6 +111,18 @@ export function sampleSeries(input: {
           series: input.series,
         });
   if (!compiled.ok) return compiled;
+
+  const key = cacheKey({
+    bindingNames: compiled.bindingNames,
+    bindings: input.bindings,
+    boardZoom: input.parent.boardZoom,
+    definition: input.definition,
+    options: input.options,
+    pixelSize: input.parent.pixelSize,
+    series: input.series,
+  });
+  const cached = input.parent.cache?.get(key);
+  if (cached !== undefined) return { cacheHit: true, ok: true, sample: cached };
 
   const common = {
     boardZoom: input.parent.boardZoom,

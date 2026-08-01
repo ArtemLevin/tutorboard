@@ -216,6 +216,15 @@ export function CoordinatePlotRenderer({
     },
     [],
   );
+  useEffect(() => {
+    if (editing) return;
+    viewportDragRef.current = null;
+    viewportPinchRef.current = null;
+    cursorPressedRef.current = false;
+    if (cursorContainerRef.current !== null) {
+      cursorContainerRef.current.style.cursor = "";
+    }
+  }, [editing]);
   const model = useMemo(
     () =>
       createCoordinatePlotRenderModel({

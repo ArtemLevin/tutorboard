@@ -140,6 +140,10 @@ describe("coordinate plot expression compiler", () => {
       context: "explicit-domain",
       parameterNames: ["1a"],
     });
+    const leadingUnderscore = compilePlotExpression("1", {
+      context: "explicit-domain",
+      parameterNames: ["_a"],
+    });
     const duplicate = compilePlotExpression("1", {
       context: "explicit-domain",
       parameterNames: ["a", "a"],
@@ -147,6 +151,7 @@ describe("coordinate plot expression compiler", () => {
 
     expect(reserved.ok).toBe(false);
     expect(invalid.ok).toBe(false);
+    expect(leadingUnderscore.ok).toBe(false);
     expect(duplicate.ok).toBe(false);
     if (!reserved.ok) {
       expect(reserved.diagnostics[0]?.code).toBe(

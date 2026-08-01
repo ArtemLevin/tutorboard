@@ -102,6 +102,23 @@ describe("coordinate plot editor model", () => {
     expect(invalid.parameters[2]?.name).toBe("c");
   });
 
+  it("skips expression-language reserved names during automatic generation", () => {
+    let definition = createPlot().definition;
+    const names: string[] = [];
+    for (let index = 0; index < 26; index += 1) {
+      definition = addCoordinatePlotParameter(
+        definition,
+        plotParameterId(`parameter-generated-${index}`),
+      );
+      names.push(definition.parameters.at(-1)!.name);
+    }
+
+    expect(names).not.toContain("e");
+    expect(names).not.toContain("t");
+    expect(names).not.toContain("x");
+    expect(new Set(names).size).toBe(names.length);
+  });
+
   it("switches a series kind while preserving identity and style", () => {
     const plot = createPlot();
     const original = plot.definition.series[0]!;
@@ -141,6 +158,26 @@ describe("coordinate plot editor model", () => {
           !blocking && code === "expression.unknown-identifier",
       ),
     ).toBe(true);
+  });
+
+  it("fits an explicit domain that starts outside the current viewport", () => {
+    const plot = createPlot();
+    const explicit = plot.definition.series[0]!;
+    if (explicit.kind !== "explicit")
+      throw new Error("Expected explicit series.");
+    const fitted = fitCoordinatePlotDefinition({
+      ...plot.definition,
+      series: [
+        {
+          ...explicit,
+          domain: { maxExpression: "30", minExpression: "20" },
+          expression: "x",
+        },
+      ],
+    });
+
+    expect(fitted.coordinateViewport.xMin).toBeLessThan(20);
+    expect(fitted.coordinateViewport.xMax).toBeGreaterThan(30);
   });
 
   it("fits sampled geometry with padding", () => {

@@ -19,6 +19,7 @@ export {
   maximumInitialSamplingIntervals,
   maximumSamplePointsPerCoordinatePlot,
   maximumSamplePointsPerSeries,
+  maximumSamplingEvaluationsPerCoordinatePlot,
   maximumSamplingCacheEntries,
   maximumSamplingEvaluationsPerSeries,
 } from "./limits";

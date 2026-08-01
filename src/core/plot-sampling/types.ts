@@ -98,6 +98,7 @@ export const plotSamplingDiagnosticCodes = [
   "sampling.invalid-range",
   "sampling.invalid-parameter-value",
   "sampling.expression-evaluation-failed",
+  "sampling.total-evaluation-limit",
   "sampling.total-point-limit",
 ] as const;
 
@@ -125,6 +126,7 @@ export interface CoordinatePlotSeriesSamplingResult {
 }
 
 export interface CoordinatePlotSamplingOptions {
+  readonly maximumTotalEvaluations?: number | undefined;
   readonly maximumTotalPoints?: number | undefined;
   readonly sampling?: PlotSamplingOptions | undefined;
 }

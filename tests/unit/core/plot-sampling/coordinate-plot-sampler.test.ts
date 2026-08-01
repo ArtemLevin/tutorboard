@@ -138,6 +138,53 @@ describe("coordinate plot sampling orchestration", () => {
     expect(second.series[2]!.sample).toBe(first.series[2]!.sample);
   });
 
+  it("keeps cache hits for series that do not use the changed parameter", () => {
+    const cache = createPlotSamplingCache();
+    const firstDefinition = definition();
+    const first = sampleCoordinatePlotDefinition({
+      ...baseInput,
+      cache,
+      definition: firstDefinition,
+    });
+    const second = sampleCoordinatePlotDefinition({
+      ...baseInput,
+      cache,
+      definition: {
+        ...firstDefinition,
+        parameters: firstDefinition.parameters.map((parameter) => ({
+          ...parameter,
+          value: parameter.value + 1,
+        })),
+      },
+    });
+
+    expect(first.cacheHits).toBe(0);
+    expect(second.series[0]!.cacheHit).toBe(false);
+    expect(second.series[2]!.cacheHit).toBe(true);
+  });
+
+  it("enforces an evaluation budget before sampling later siblings", () => {
+    const result = sampleCoordinatePlotDefinition({
+      ...baseInput,
+      definition: definition(),
+      options: { maximumTotalEvaluations: 10 },
+    });
+    const evaluations = result.series.reduce(
+      (total, item) => total + (item.sample?.metrics.evaluationCount ?? 0),
+      0,
+    );
+
+    expect(evaluations).toBeLessThanOrEqual(10);
+    expect(result.truncated).toBe(true);
+    expect(
+      result.series.some(({ diagnostics }) =>
+        diagnostics.some(
+          ({ code }) => code === "sampling.total-evaluation-limit",
+        ),
+      ),
+    ).toBe(true);
+  });
+
   it("enforces the per-plane point budget across sibling series", () => {
     const result = sampleCoordinatePlotDefinition({
       ...baseInput,

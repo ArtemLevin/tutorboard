@@ -1,3 +1,4 @@
+import { reservedPlotExpressionNames } from "../plot-expression/functions";
 import type { PlotParameterId, PlotSeriesId } from "./identifiers";
 import type { Size2 } from "./primitives";
 
@@ -116,7 +117,18 @@ export interface CoordinatePlotDefinitionIssue {
   readonly path: string;
 }
 
-const parameterNamePattern = /^[A-Za-z][A-Za-z0-9_]{0,31}$/u;
+export const plotParameterNamePattern = /^[A-Za-z][A-Za-z0-9_]{0,31}$/u;
+
+export type PlotParameterNameIssueCode = "duplicate" | "reserved" | "syntax";
+
+export function validatePlotParameterName(
+  name: string,
+  existingNames: readonly string[] = [],
+): PlotParameterNameIssueCode | null {
+  if (!plotParameterNamePattern.test(name)) return "syntax";
+  if (reservedPlotExpressionNames.has(name)) return "reserved";
+  return existingNames.includes(name) ? "duplicate" : null;
+}
 
 function duplicateValues(values: readonly string[]): readonly string[] {
   const seen = new Set<string>();
@@ -200,11 +212,18 @@ export function validateCoordinatePlotDefinition(
     );
   }
   definition.parameters.forEach((parameter, index) => {
-    if (!parameterNamePattern.test(parameter.name)) {
+    const nameIssue = validatePlotParameterName(parameter.name);
+    if (nameIssue === "syntax") {
       add(
         "plot.invalid-parameter-name",
         `parameters.${index}.name`,
         "Parameter name must begin with a Latin letter and contain only letters, digits or underscores.",
+      );
+    } else if (nameIssue === "reserved") {
+      add(
+        "plot.reserved-parameter-name",
+        `parameters.${index}.name`,
+        `Parameter name ${parameter.name} is reserved by the expression language.`,
       );
     }
     if (

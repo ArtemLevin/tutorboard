@@ -1,10 +1,12 @@
 import {
   compilePlotExpression,
   coordinatePlotExpressionLanguage,
+  evaluatePlotExpression,
   maximumCoordinatePlotParameters,
   maximumCoordinatePlotSeries,
   sampleCoordinatePlotDefinition,
   validateCoordinatePlotDefinition,
+  validatePlotParameterName,
   type BoardObjectId,
   type CoordinatePlotDefinition,
   type CoordinatePlotObject,
@@ -211,12 +213,12 @@ export function removeCoordinatePlotSeries(
 }
 
 function nextParameterName(parameters: readonly PlotParameter[]): string {
-  const names = new Set(parameters.map(({ name }) => name));
+  const names = parameters.map(({ name }) => name);
   for (const candidate of "abcdefghijklmnopqrstuvwxyz") {
-    if (!names.has(candidate) && candidate !== "e") return candidate;
+    if (validatePlotParameterName(candidate, names) === null) return candidate;
   }
   let index = 1;
-  while (names.has(`a${index}`)) index += 1;
+  while (validatePlotParameterName(`a${index}`, names) !== null) index += 1;
   return `a${index}`;
 }
 
@@ -225,8 +227,12 @@ function requestedParameterName(
   requestedName: string | undefined,
 ): string | null {
   const name = requestedName?.trim() ?? "";
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) return null;
-  return parameters.some((parameter) => parameter.name === name) ? null : name;
+  return validatePlotParameterName(
+    name,
+    parameters.map((parameter) => parameter.name),
+  ) === null
+    ? name
+    : null;
 }
 
 export function addCoordinatePlotParameter(
@@ -366,38 +372,128 @@ export function validateCoordinatePlotEditorDefinition(
   return [...structural, ...expressions];
 }
 
+const maximumFitExpansionFactor = 100;
+
+function evaluateFitBound(
+  source: string | null,
+  fallback: number,
+  parameterNames: readonly string[],
+  bindings: Readonly<Record<string, number>>,
+): number | null {
+  if (source === null) return fallback;
+  const compiled = compilePlotExpression(source, {
+    context: "explicit-domain",
+    parameterNames,
+  });
+  if (!compiled.ok) return null;
+  const evaluated = evaluatePlotExpression(compiled.expression, bindings);
+  return evaluated.kind === "value" && Number.isFinite(evaluated.value)
+    ? evaluated.value
+    : null;
+}
+
+function fitSamplingViewport(
+  definition: CoordinatePlotDefinition,
+): CoordinatePlotViewport {
+  const current = definition.coordinateViewport;
+  const parameterNames = definition.parameters.map(({ name }) => name);
+  const bindings = Object.fromEntries(
+    definition.parameters.map(({ name, value }) => [name, value]),
+  );
+  const ranges = definition.series.flatMap((series) => {
+    if (!series.visible || series.kind !== "explicit") return [];
+    const minimum = evaluateFitBound(
+      series.domain.minExpression,
+      current.xMin,
+      parameterNames,
+      bindings,
+    );
+    const maximum = evaluateFitBound(
+      series.domain.maxExpression,
+      current.xMax,
+      parameterNames,
+      bindings,
+    );
+    return minimum !== null && maximum !== null && minimum < maximum
+      ? [{ maximum, minimum }]
+      : [];
+  });
+  if (ranges.length === 0) return current;
+  const requestedMinimum = Math.min(...ranges.map(({ minimum }) => minimum));
+  const requestedMaximum = Math.max(...ranges.map(({ maximum }) => maximum));
+  const currentSpan = Math.max(1e-6, current.xMax - current.xMin);
+  const maximumSpan = currentSpan * maximumFitExpansionFactor;
+  const requestedSpan = requestedMaximum - requestedMinimum;
+  if (!(requestedSpan > maximumSpan)) {
+    return { ...current, xMax: requestedMaximum, xMin: requestedMinimum };
+  }
+  const center = (requestedMinimum + requestedMaximum) / 2;
+  return {
+    ...current,
+    xMax: center + maximumSpan / 2,
+    xMin: center - maximumSpan / 2,
+  };
+}
+
+function paddedFitRange(
+  minimum: number,
+  maximum: number,
+  referenceMinimum: number,
+  referenceMaximum: number,
+): { readonly maximum: number; readonly minimum: number } {
+  const rawSpan = Math.max(1e-6, maximum - minimum);
+  const padding = Math.max(rawSpan * 0.08, 0.25);
+  const paddedMinimum = minimum - padding;
+  const paddedMaximum = maximum + padding;
+  const referenceSpan = Math.max(1e-6, referenceMaximum - referenceMinimum);
+  const maximumSpan = referenceSpan * maximumFitExpansionFactor;
+  if (paddedMaximum - paddedMinimum <= maximumSpan) {
+    return { maximum: paddedMaximum, minimum: paddedMinimum };
+  }
+  const center = (minimum + maximum) / 2;
+  return {
+    maximum: center + maximumSpan / 2,
+    minimum: center - maximumSpan / 2,
+  };
+}
+
 export function fitCoordinatePlotDefinition(
   definition: CoordinatePlotDefinition,
 ): CoordinatePlotDefinition {
+  const samplingViewport = fitSamplingViewport(definition);
   const sampled = sampleCoordinatePlotDefinition({
     boardZoom: 1,
-    definition,
+    definition: { ...definition, coordinateViewport: samplingViewport },
     pixelSize: definition.size,
   });
   const bounds = sampled.series.flatMap(({ sample, status }) =>
     sample?.dataBounds === null ||
     sample?.dataBounds === undefined ||
-    (status !== "sampled" && status !== "truncated")
+    (status !== "sampled" && status !== "truncated" && status !== "empty")
       ? []
       : [sample.dataBounds],
   );
   if (bounds.length === 0) return definition;
-  const xMin = Math.min(...bounds.map((item) => item.xMin));
-  const xMax = Math.max(...bounds.map((item) => item.xMax));
-  const yMin = Math.min(...bounds.map((item) => item.yMin));
-  const yMax = Math.max(...bounds.map((item) => item.yMax));
-  const xSpan = Math.max(1e-6, xMax - xMin);
-  const ySpan = Math.max(1e-6, yMax - yMin);
-  const xPadding = Math.max(xSpan * 0.08, 0.25);
-  const yPadding = Math.max(ySpan * 0.08, 0.25);
+  const x = paddedFitRange(
+    Math.min(...bounds.map((item) => item.xMin)),
+    Math.max(...bounds.map((item) => item.xMax)),
+    samplingViewport.xMin,
+    samplingViewport.xMax,
+  );
+  const y = paddedFitRange(
+    Math.min(...bounds.map((item) => item.yMin)),
+    Math.max(...bounds.map((item) => item.yMax)),
+    definition.coordinateViewport.yMin,
+    definition.coordinateViewport.yMax,
+  );
   return {
     ...definition,
     coordinateViewport: {
       ...definition.coordinateViewport,
-      xMax: xMax + xPadding,
-      xMin: xMin - xPadding,
-      yMax: yMax + yPadding,
-      yMin: yMin - yPadding,
+      xMax: x.maximum,
+      xMin: x.minimum,
+      yMax: y.maximum,
+      yMin: y.minimum,
     },
   };
 }

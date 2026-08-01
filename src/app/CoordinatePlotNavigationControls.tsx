@@ -1,4 +1,8 @@
-import type { PointerEvent as ReactPointerEvent, ReactElement } from "react";
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactElement,
+} from "react";
 
 import type { CoordinatePlotZoomAxis } from "../adapters/canvas-konva/public";
 import "./CoordinatePlotNavigationControls.css";
@@ -22,6 +26,17 @@ export interface CoordinatePlotNavigationControlsProps {
   readonly onZoomOut: () => void;
 }
 
+function focusAxisButton(
+  event: ReactKeyboardEvent<HTMLButtonElement>,
+  index: number,
+): void {
+  const buttons =
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+      '[role="radio"]',
+    );
+  buttons?.item(index).focus();
+}
+
 export function CoordinatePlotNavigationControls({
   axis,
   onAxisChange,
@@ -32,6 +47,26 @@ export function CoordinatePlotNavigationControls({
 }: CoordinatePlotNavigationControlsProps): ReactElement {
   const stopPointerPropagation = (event: ReactPointerEvent<HTMLElement>) =>
     event.stopPropagation();
+  const handleAxisKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    const last = axisOptions.length - 1;
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? last
+          : event.key === "ArrowRight" || event.key === "ArrowDown"
+            ? (index + 1) % axisOptions.length
+            : event.key === "ArrowLeft" || event.key === "ArrowUp"
+              ? (index - 1 + axisOptions.length) % axisOptions.length
+              : null;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    onAxisChange(axisOptions[nextIndex]!.axis);
+    focusAxisButton(event, nextIndex);
+  };
 
   return (
     <div
@@ -78,13 +113,14 @@ export function CoordinatePlotNavigationControls({
         className="plot-navigation-axis"
         role="radiogroup"
       >
-        {axisOptions.map((option) => (
+        {axisOptions.map((option, index) => (
           <button
             aria-checked={axis === option.axis}
             aria-label={option.label}
             className={axis === option.axis ? "is-active" : undefined}
             key={option.axis}
             onClick={() => onAxisChange(option.axis)}
+            onKeyDown={(event) => handleAxisKeyDown(event, index)}
             role="radio"
             tabIndex={axis === option.axis ? 0 : -1}
             type="button"
