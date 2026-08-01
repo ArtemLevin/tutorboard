@@ -54,17 +54,41 @@ jobs:
               source_lines = file.read_text(encoding="utf-8").splitlines()
               old_lines = old.splitlines()
               old_signature = [line.strip() for line in old_lines]
-              matches = []
+
+              def exact(candidate: list[str]) -> bool:
+                  return [line.strip() for line in candidate] == old_signature
+
+              def prefix(candidate: list[str]) -> bool:
+                  for actual, expected in zip(candidate, old_signature):
+                      actual = actual.strip()
+                      if expected == "":
+                          if actual != "":
+                              return False
+                      elif not actual.startswith(expected):
+                          return False
+                  return True
+
+              exact_matches = []
+              prefix_matches = []
               for index in range(0, len(source_lines) - len(old_lines) + 1):
                   candidate = source_lines[index:index + len(old_lines)]
-                  if [line.strip() for line in candidate] == old_signature:
-                      matches.append(index)
+                  if exact(candidate):
+                      exact_matches.append(index)
+                  elif prefix(candidate):
+                      prefix_matches.append(index)
+              matches = exact_matches if exact_matches else prefix_matches
               if len(matches) != 1:
                   raise SystemExit(
                       f"Expected one structural match in {path}, found {len(matches)}: {old_signature[:3]!r}"
                   )
-              replacement = [line.strip() for line in new.splitlines()]
               start = matches[0]
+              replacement = [line.strip() for line in new.splitlines()]
+              actual_last = source_lines[start + len(old_lines) - 1].strip()
+              expected_last = old_signature[-1]
+              if actual_last.startswith(expected_last):
+                  suffix = actual_last[len(expected_last):]
+                  if suffix and replacement:
+                      replacement[-1] += suffix
               source_lines[start:start + len(old_lines)] = replacement
               file.write_text("\\n".join(source_lines) + "\\n", encoding="utf-8")
 
