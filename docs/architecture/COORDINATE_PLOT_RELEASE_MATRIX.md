@@ -1,5 +1,7 @@
 # Coordinate plot release matrix
 
+Browser requirements are verified through the production Playwright lifecycle. Indirect entries are covered by deterministic integration tests using the same BoardDocument and command contracts.
+
 | Boundary | Chromium | Firefox | Unit/integration | Production image |
 |---|---:|---:|---:|---:|
 | Create explicit series | required | required | required | bundled |
