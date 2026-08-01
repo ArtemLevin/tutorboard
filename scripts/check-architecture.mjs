@@ -11,6 +11,7 @@ const repositoryRoot = path.resolve(
 );
 const srcRoot = path.join(repositoryRoot, "src");
 const plotExpressionRoot = path.join(srcRoot, "core", "plot-expression");
+const plotSamplingRoot = path.join(srcRoot, "core", "plot-sampling");
 
 function collectFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -19,16 +20,17 @@ function collectFiles(directory) {
   });
 }
 
+function externalImports(sourceText) {
+  return [...sourceText.matchAll(/(?:\bfrom\s+|\bimport\s*)(["'])([^"']+)\1/gu)]
+    .map((match) => match[2])
+    .filter((specifier) => !specifier.startsWith("."));
+}
+
 function plotExpressionViolations(filePath) {
   const sourceText = fs.readFileSync(filePath, "utf8");
   const violations = [];
-  const externalImports = [
-    ...sourceText.matchAll(/(?:\bfrom\s+|\bimport\s*)(["'])([^"']+)\1/gu),
-  ]
-    .map((match) => match[2])
-    .filter((specifier) => !specifier.startsWith("."));
 
-  for (const specifier of externalImports) {
+  for (const specifier of externalImports(sourceText)) {
     violations.push({
       filePath,
       invariant: "PLOT-001",
@@ -54,6 +56,44 @@ function plotExpressionViolations(filePath) {
   return violations;
 }
 
+function plotSamplingViolations(filePath) {
+  const sourceText = fs.readFileSync(filePath, "utf8");
+  const violations = [];
+
+  for (const specifier of externalImports(sourceText)) {
+    violations.push({
+      filePath,
+      invariant: "PLOT-003",
+      message: "the numerical sampler may import only relative core modules",
+      specifier,
+    });
+  }
+
+  for (const [pattern, specifier] of [
+    [
+      /\b(?:window|document|localStorage|sessionStorage|indexedDB)\b/u,
+      "browser state",
+    ],
+    [/\b(?:XMLHttpRequest|WebSocket|fetch)\b/u, "network API"],
+    [/\b(?:Date\.now|Math\.random|performance\.now)\b/u, "nondeterminism"],
+    [/\b(?:setTimeout|setInterval|queueMicrotask)\b/u, "scheduler API"],
+    [/\beval\s*\(/u, "eval"],
+    [/\b(?:new\s+)?Function\s*\(/u, "Function"],
+    [/\bimport\s*\(/u, "dynamic import"],
+  ]) {
+    if (pattern.test(sourceText)) {
+      violations.push({
+        filePath,
+        invariant: "PLOT-004",
+        message:
+          "the numerical sampler must remain deterministic and worker-compatible",
+        specifier,
+      });
+    }
+  }
+  return violations;
+}
+
 const sourceFiles = collectFiles(srcRoot).filter(isSourceFile);
 const violations = [
   ...sourceFiles.flatMap((filePath) =>
@@ -68,6 +108,9 @@ const violations = [
       filePath.startsWith(`${plotExpressionRoot}${path.sep}`),
     )
     .flatMap(plotExpressionViolations),
+  ...sourceFiles
+    .filter((filePath) => filePath.startsWith(`${plotSamplingRoot}${path.sep}`))
+    .flatMap(plotSamplingViolations),
 ];
 
 if (violations.length > 0) {

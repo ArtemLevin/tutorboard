@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   boardObjectId,
+  compilePlotExpression,
   createBoardSceneSelector,
   createEmptyBoardDocument,
   documentId,
+  sampleExplicitSeries,
   selectVisibleBoardItems,
   type BoardDocument,
   type RectangleObject,
@@ -97,5 +99,31 @@ describe("Phase 3 performance budgets", () => {
     }
     selector.reset();
     expect(selector.cacheSize()).toBe(0);
+  });
+
+  it("samples a high-detail coordinate curve within bounded CI budgets", () => {
+    const compiled = compilePlotExpression("sin(20*x)/(1+x^2)", {
+      context: "explicit-function",
+      parameterNames: [],
+    });
+    expect(compiled.ok).toBe(true);
+    if (!compiled.ok) throw new Error(compiled.diagnostics[0]?.message);
+
+    const startedAt = performance.now();
+    const sample = sampleExplicitSeries({
+      boardZoom: 2,
+      domain: { max: 20, min: -20 },
+      expression: compiled.expression,
+      parameters: {},
+      pixelSize: { height: 720, width: 1_280 },
+      viewport: { xMax: 20, xMin: -20, yMax: 2, yMin: -2 },
+    });
+    const elapsed = performance.now() - startedAt;
+
+    expect(sample.stopReason).toBeNull();
+    expect(sample.metrics.pointCount).toBeGreaterThan(200);
+    expect(sample.metrics.pointCount).toBeLessThanOrEqual(12_000);
+    expect(sample.metrics.evaluationCount).toBeLessThanOrEqual(50_000);
+    expect(elapsed).toBeLessThan(1_000);
   });
 });
