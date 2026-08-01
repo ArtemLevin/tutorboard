@@ -29,7 +29,7 @@ test("creates and persists explicit and parametric plot series", async ({
   const path = await download.path();
   expect(path).not.toBeNull();
 
-  const document = JSON.parse(await readFile(path!, "utf8")) as {
+  const document = JSON.parse(await readFile(path, "utf8")) as {
     readonly objects: Readonly<
       Record<
         string,
