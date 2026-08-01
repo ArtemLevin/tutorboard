@@ -67,21 +67,6 @@ from pathlib import Path
 renderer_path = Path("src/adapters/canvas-konva/coordinate-plot-renderer.tsx")
 renderer = renderer_path.read_text(encoding="utf-8")
 
-old_cursor = ''' + '"""' + '''  const cursorContainerRef = useRef<HTMLElement | null>(null);
-  const setPlotCursor = (node: Konva.Node, cursor: "" | "grab" | "grabbing") => {
-    const container = node.getStage()?.container();
-    if (container === undefined) return;
-    cursorContainerRef.current = container;
-    container.style.cursor = cursor;
-  };
-  useEffect(
-    () => () => {
-      if (cursorContainerRef.current !== null) {
-        cursorContainerRef.current.style.cursor = "";
-      }
-    },
-    [],
-  );''' + '"""' + '''
 new_cursor = ''' + '"""' + '''  const cursorContainerRef = useRef<HTMLElement | null>(null);
   const cursorCleanupRef = useRef<(() => void) | null>(null);
   const cursorPressedRef = useRef(false);
@@ -129,9 +114,11 @@ new_cursor = ''' + '"""' + '''  const cursorContainerRef = useRef<HTMLElement | 
     },
     [],
   );''' + '"""' + '''
-if renderer.count(old_cursor) != 1:
-    raise SystemExit("native cursor lifecycle anchor failed")
-renderer = renderer.replace(old_cursor, new_cursor, 1)
+cursor_start_marker = "  const cursorContainerRef = useRef<HTMLElement | null>(null);"
+cursor_end_marker = "\\n  const model = useMemo("
+cursor_start = renderer.index(cursor_start_marker)
+cursor_end = renderer.index(cursor_end_marker, cursor_start)
+renderer = renderer[:cursor_start] + new_cursor + renderer[cursor_end:]
 
 old = ''' + '"""' + '''            onTouchCancel={(event) => {
               viewportPinchRef.current = null;
@@ -149,12 +136,6 @@ new = ''' + '"""' + '''            onTouchCancel={() => {
 if renderer.count(old) != 1:
     raise SystemExit("touch cancel cleanup anchor failed")
 renderer = renderer.replace(old, new, 1)
-
-old_enter = ''' + '"""' + '''            onMouseEnter={(event) => setPlotCursor(event.currentTarget, "grab")}''' + '"""' + '''
-new_enter = ''' + '"""' + '''            onMouseEnter={(event) => setPlotCursor(event.currentTarget, "grab")}''' + '"""' + '''
-if renderer.count(old_enter) != 1:
-    raise SystemExit("mouse enter cursor anchor failed")
-renderer = renderer.replace(old_enter, new_enter, 1)
 
 old_pointer = ''' + '"""' + '''            onPointerDown={(event) => {
               event.cancelBubble = true;
