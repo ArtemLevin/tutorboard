@@ -70,23 +70,28 @@ function updateViewport(
 function fieldIssues(
   issues: readonly CoordinatePlotEditorIssue[],
   field: string,
+  includeDescendants = true,
 ): readonly CoordinatePlotEditorIssue[] {
   if (field === "") return issues;
   return issues.filter(
-    (issue) => issue.field === field || issue.field.startsWith(`${field}.`),
+    (issue) =>
+      issue.field === field ||
+      (includeDescendants && issue.field.startsWith(`${field}.`)),
   );
 }
 
 function IssueList({
   field,
   id,
+  includeDescendants = true,
   issues,
 }: {
   readonly field: string;
   readonly id?: string;
+  readonly includeDescendants?: boolean;
   readonly issues: readonly CoordinatePlotEditorIssue[];
 }): ReactElement | null {
-  const relevant = fieldIssues(issues, field);
+  const relevant = fieldIssues(issues, field, includeDescendants);
   return relevant.length === 0 ? null : (
     <ul className="plot-editor-issues" id={id}>
       {relevant.map((issue, index) => (
@@ -102,11 +107,12 @@ function issueAttributes(
   issues: readonly CoordinatePlotEditorIssue[],
   field: string,
   issueId: string,
+  includeDescendants = true,
 ): {
   readonly "aria-describedby"?: string;
   readonly "aria-invalid"?: true;
 } {
-  return fieldIssues(issues, field).length === 0
+  return fieldIssues(issues, field, includeDescendants).length === 0
     ? {}
     : { "aria-describedby": issueId, "aria-invalid": true };
 }
@@ -436,13 +442,22 @@ function SeriesEditor({
 
 function ParameterEditor({
   definition,
+  issues,
   onChange,
   parameter,
 }: {
   readonly definition: CoordinatePlotDefinition;
+  readonly issues: readonly CoordinatePlotEditorIssue[];
   readonly onChange: (definition: CoordinatePlotDefinition) => void;
   readonly parameter: PlotParameter;
 }): ReactElement {
+  const index = definition.parameters.findIndex(
+    ({ id }) => id === parameter.id,
+  );
+  const prefix = `parameters.${index}`;
+  const nameIssueId = `plot-parameter-${index}-name-issues`;
+  const rangeIssueId = `plot-parameter-${index}-range-issues`;
+  const stepIssueId = `plot-parameter-${index}-step-issues`;
   const replace = (replacement: PlotParameter) =>
     onChange(updateCoordinatePlotParameter(definition, replacement));
   const sliderAvailable =
@@ -457,6 +472,7 @@ function ParameterEditor({
         <label>
           Имя
           <input
+            {...issueAttributes(issues, `${prefix}.name`, nameIssueId, false)}
             aria-label={`Имя параметра ${parameter.id}`}
             maxLength={32}
             onChange={(event) =>
@@ -482,6 +498,7 @@ function ParameterEditor({
         <label>
           Min
           <input
+            {...issueAttributes(issues, prefix, rangeIssueId, false)}
             onChange={(event) =>
               replace({
                 ...parameter,
@@ -496,6 +513,7 @@ function ParameterEditor({
         <label>
           Max
           <input
+            {...issueAttributes(issues, prefix, rangeIssueId, false)}
             onChange={(event) =>
               replace({
                 ...parameter,
@@ -510,6 +528,7 @@ function ParameterEditor({
         <label>
           Шаг
           <input
+            {...issueAttributes(issues, `${prefix}.step`, stepIssueId, false)}
             min="0"
             onChange={(event) =>
               replace({
@@ -532,6 +551,24 @@ function ParameterEditor({
           Удалить
         </button>
       </div>
+      <IssueList
+        field={`${prefix}.name`}
+        id={nameIssueId}
+        includeDescendants={false}
+        issues={issues}
+      />
+      <IssueList
+        field={prefix}
+        id={rangeIssueId}
+        includeDescendants={false}
+        issues={issues}
+      />
+      <IssueList
+        field={`${prefix}.step`}
+        id={stepIssueId}
+        includeDescendants={false}
+        issues={issues}
+      />
       {sliderAvailable ? (
         <input
           aria-label={`Ползунок параметра ${parameter.name}`}
@@ -1136,13 +1173,18 @@ export function CoordinatePlotEditorPanel({
               definition.parameters.map((parameter) => (
                 <ParameterEditor
                   definition={definition}
+                  issues={issues}
                   key={parameter.id}
                   onChange={onDefinitionChange}
                   parameter={parameter}
                 />
               ))
             )}
-            <IssueList field="parameters" issues={issues} />
+            <IssueList
+              field="parameters"
+              includeDescendants={false}
+              issues={issues}
+            />
           </div>
         </details>
 

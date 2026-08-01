@@ -15,6 +15,7 @@ import {
 } from "../core/public";
 import {
   createDefaultCoordinatePlotObject,
+  validateCoordinatePlotEditorDefinition,
   type CoordinatePlotEditorIssue,
 } from "../modules/coordinate-plot-editor/public";
 import { CoordinatePlotEditorPanel } from "./CoordinatePlotEditorPanel";
@@ -33,11 +34,13 @@ function createDefinition() {
 }
 
 function renderPanel({
+  definition = createDefinition(),
   dirty = true,
   issues = [],
   onClose = vi.fn<() => void>(),
   onSave = vi.fn<() => boolean>(() => true),
 }: {
+  readonly definition?: CoordinatePlotDefinition;
   readonly dirty?: boolean;
   readonly issues?: readonly CoordinatePlotEditorIssue[];
   readonly onClose?: () => void;
@@ -45,7 +48,7 @@ function renderPanel({
 } = {}) {
   render(
     <CoordinatePlotEditorPanel
-      definition={createDefinition()}
+      definition={definition}
       dirty={dirty}
       issues={issues}
       onAddParameter={vi.fn()}
@@ -116,6 +119,38 @@ describe("CoordinatePlotEditorPanel accessibility and safety", () => {
     expect(document.getElementById(issueId ?? "")).toHaveTextContent(
       "Неизвестный идентификатор q.",
     );
+  });
+
+  it("links parameter diagnostics to name, range and step fields", () => {
+    const definition: CoordinatePlotDefinition = {
+      ...createDefinition(),
+      parameters: [
+        {
+          id: plotParameterId("invalid-parameter"),
+          max: -1,
+          min: 1,
+          name: "1bad",
+          step: 0,
+          value: 1,
+        },
+      ],
+    };
+    renderPanel({
+      definition,
+      issues: validateCoordinatePlotEditorDefinition(definition),
+    });
+
+    const name = screen.getByLabelText("Имя параметра invalid-parameter");
+    const minimum = screen.getByLabelText("Min");
+    const maximum = screen.getByLabelText("Max");
+    const step = screen.getByLabelText("Шаг");
+
+    for (const field of [name, minimum, maximum, step]) {
+      expect(field).toHaveAttribute("aria-invalid", "true");
+      const issueId = field.getAttribute("aria-describedby");
+      expect(issueId).toBeTruthy();
+      expect(document.getElementById(issueId ?? "")).not.toBeNull();
+    }
   });
 
   it("protects a dirty draft and supports all close decisions", () => {
