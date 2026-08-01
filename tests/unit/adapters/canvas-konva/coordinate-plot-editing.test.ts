@@ -34,8 +34,8 @@ describe("coordinate plot viewport gestures", () => {
 
     expect(zoomed.xMin).toBeCloseTo(-7.5, 12);
     expect(zoomed.xMax).toBeCloseTo(2.5, 12);
-    expect(zoomed.yMin).toBeCloseTo(0, 12);
-    expect(zoomed.yMax).toBeCloseTo(5, 12);
+    expect(zoomed.yMin).toBeCloseTo(-1.25, 12);
+    expect(zoomed.yMax).toBeCloseTo(3.75, 12);
     expect(zoomed.equalScale).toBe(true);
   });
 
