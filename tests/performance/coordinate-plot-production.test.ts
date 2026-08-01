@@ -70,13 +70,13 @@ describe("coordinate plot production budgets", () => {
 
     const coldStartedAt = performance.now();
     const cold = definitions.map((definition, index) =>
-      sampleDefinition(definition, caches[index]!),
+      sampleDefinition(definition, caches[index]),
     );
     const coldElapsed = performance.now() - coldStartedAt;
 
     const warmStartedAt = performance.now();
     const warm = definitions.map((definition, index) =>
-      sampleDefinition(definition, caches[index]!),
+      sampleDefinition(definition, caches[index]),
     );
     const warmElapsed = performance.now() - warmStartedAt;
 
