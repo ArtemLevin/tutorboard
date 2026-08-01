@@ -10,7 +10,29 @@ start = source.index(step) + len(step)
 end = source.index('\n      - name: Commit implementation and visual baselines', start)
 lines = source[start:end].splitlines()
 script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
-Path('/tmp/ux3-implementation.sh').write_text(script, encoding='utf-8')
+script = script.replace(
+    'import type { ReactElement } from "react";',
+    'import type { PointerEvent as ReactPointerEvent, ReactElement } from "react";',
+    1,
+).replace(
+    'React.PointerEvent<HTMLElement>',
+    'ReactPointerEvent<HTMLElement>',
+    1,
+)
+brittle = '''if renderer.count(old_legend) != 1:
+    raise SystemExit(f"coordinate-plot-renderer.tsx: legend block count {renderer.count(old_legend)}")
+renderer = renderer.replace(old_legend, new_legend_block, 1)
+'''
+structural = '''legend_start_marker = "      {definition.legend.visible && visibleSeries.length > 0 && ("
+legend_end_marker = "\\n      {editing ? ("
+legend_start = renderer.index(legend_start_marker)
+legend_end = renderer.index(legend_end_marker, legend_start)
+renderer = renderer[:legend_start] + new_legend_block + renderer[legend_end:]
+'''
+if brittle not in script:
+    raise SystemExit('UX3 bootstrap legend patch anchor is missing')
+script = script.replace(brittle, structural, 1)
+Path('/tmp/ux3-implementation.sh').write_text('set -euo pipefail\n' + script, encoding='utf-8')
 PY
 
 bash /tmp/ux3-implementation.sh
