@@ -2,11 +2,29 @@ import type { ReactElement } from "react";
 
 import type {
   BoardObject,
+  BoardObjectId,
   BoardObjectKind,
   BoardRenderItem,
+  CoordinatePlotDefinition,
+  CoordinatePlotViewport,
+  PlotSeriesId,
 } from "../../core/public";
 
+export interface CoordinatePlotRenderInteraction {
+  readonly activeObjectId: BoardObjectId | null;
+  readonly definitionOverride?: CoordinatePlotDefinition | undefined;
+  readonly onEditRequest?: ((objectId: BoardObjectId) => void) | undefined;
+  readonly onSelectedSeriesChange?:
+    | ((objectId: BoardObjectId, seriesId: PlotSeriesId | null) => void)
+    | undefined;
+  readonly onViewportChange?:
+    | ((objectId: BoardObjectId, viewport: CoordinatePlotViewport) => void)
+    | undefined;
+  readonly selectedSeriesId: PlotSeriesId | null;
+}
+
 export interface KonvaRenderContext {
+  readonly coordinatePlot?: CoordinatePlotRenderInteraction | undefined;
   readonly zoom: number;
 }
 
