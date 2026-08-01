@@ -61,6 +61,40 @@ script, count = re.subn(
 )
 if count != 1:
     raise SystemExit('UX3 bootstrap CI patch block is missing')
+fixes = '''python - <<'PYFIX'
+from pathlib import Path
+
+renderer_path = Path("src/adapters/canvas-konva/coordinate-plot-renderer.tsx")
+renderer = renderer_path.read_text(encoding="utf-8")
+old = ''' + '"""' + '''            onTouchCancel={(event) => {
+              viewportPinchRef.current = null;
+              viewportDragRef.current = null;
+              setPlotCursor(event.currentTarget, "");
+            }}''' + '"""' + '''
+new = ''' + '"""' + '''            onTouchCancel={() => {
+              viewportPinchRef.current = null;
+              viewportDragRef.current = null;
+              if (cursorContainerRef.current !== null) {
+                cursorContainerRef.current.style.cursor = "";
+              }
+            }}''' + '"""' + '''
+if renderer.count(old) != 1:
+    raise SystemExit("touch cancel cleanup anchor failed")
+renderer_path.write_text(renderer.replace(old, new, 1), encoding="utf-8")
+
+spec_path = Path("tests/e2e/coordinate-plot-production.spec.ts")
+spec = spec_path.read_text(encoding="utf-8")
+old_spec = 'const target = document.querySelector<HTMLElement>(".konvajs-content");'
+new_spec = 'const target = window.document.querySelector<HTMLElement>(".konvajs-content");'
+if spec.count(old_spec) != 1:
+    raise SystemExit("browser document anchor failed")
+spec_path.write_text(spec.replace(old_spec, new_spec, 1), encoding="utf-8")
+PYFIX
+npx prettier --write src/adapters/canvas-konva/coordinate-plot-renderer.tsx tests/e2e/coordinate-plot-production.spec.ts
+'''
+if script.count('npm run typecheck') != 1:
+    raise SystemExit('UX3 bootstrap typecheck command is missing')
+script = script.replace('npm run typecheck', fixes + 'npm run typecheck', 1)
 Path('/tmp/ux3-implementation.sh').write_text('set -euo pipefail\n' + script, encoding='utf-8')
 PY
 
