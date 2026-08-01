@@ -57,11 +57,12 @@ jobs:
 
           test_path = Path("src/app/CoordinatePlotEditorPanel.test.tsx")
           test_source = test_path.read_text(encoding="utf-8")
-          section = test_source.index(
+
+          insertion_section = test_source.index(
               '  it("inserts functions around the selected expression and explains radians"'
           )
           formula_line = '    const formula = screen.getByLabelText("Формула явной функции");'
-          formula_start = test_source.index(formula_line, section)
+          formula_start = test_source.index(formula_line, insertion_section)
           formula_end = formula_start + len(formula_line)
           typed_formula = '''    const formula = screen.getByLabelText(
               "Формула явной функции",
@@ -71,6 +72,7 @@ jobs:
               + typed_formula
               + test_source[formula_end:]
           )
+
           test_source = test_source.replace(
               '''  it("supports WAI-ARIA tabs and localized enum values", () => {''',
               '''  it("supports WAI-ARIA tabs and localized enum values", async () => {''',
@@ -86,21 +88,25 @@ jobs:
               '''    await waitFor(() => expect(view).toHaveFocus());''',
               1,
           )
-          cta_marker = '''    fireEvent.click(
-              screen.getByRole("button", { name: "Создать параметр «q»" }),
-            );'''
-          cta_replacement = '''    await waitFor(() =>
+
+          cta_section = test_source.index(
+              '  it("creates an unknown parameter, opens its tab and focuses its name"'
+          )
+          button_marker = 'screen.getByRole("button", { name: "Создать параметр «q»" })'
+          button_position = test_source.index(button_marker, cta_section)
+          click_start = test_source.rfind("    fireEvent.click(", cta_section, button_position)
+          if click_start < 0:
+              raise SystemExit("Unable to locate CTA click")
+          initial_focus = '''    await waitFor(() =>
               expect(screen.getByLabelText("Формула явной функции")).toHaveFocus(),
             );
-            fireEvent.click(
-              screen.getByRole("button", { name: "Создать параметр «q»" }),
-            );'''
-          if test_source.count(cta_marker) != 1:
-              raise SystemExit(f"Expected one CTA marker, found {test_source.count(cta_marker)}")
-          test_path.write_text(
-              test_source.replace(cta_marker, cta_replacement, 1),
-              encoding="utf-8",
+            '''
+          test_source = (
+              test_source[:click_start]
+              + initial_focus
+              + test_source[click_start:]
           )
+          test_path.write_text(test_source, encoding="utf-8")
           PY
 
       - name: Format and verify targeted implementation
