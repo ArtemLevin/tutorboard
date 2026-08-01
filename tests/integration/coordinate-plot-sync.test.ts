@@ -156,13 +156,7 @@ class MemorySyncRepository implements BoardSyncRepository {
     });
   }
 
-  saveSnapshot(
-    _documentId: DocumentId,
-    _revision: number,
-    _document: BoardDocument,
-    _documentSha256: string,
-    _csrfToken: string,
-  ): Promise<void> {
+  saveSnapshot(): Promise<void> {
     return Promise.resolve();
   }
 
