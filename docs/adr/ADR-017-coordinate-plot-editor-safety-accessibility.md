@@ -15,7 +15,8 @@ without complete programmatic relationships between fields and diagnostics.
 ## Decision
 
 1. Every dirty close request opens an `alertdialog` with three explicit
-   outcomes: continue editing, discard and close, or save and close.
+   outcomes: continue editing, discard and close, or save and close. Save and
+   close remains disabled while structural validation issues block persistence.
 2. A dirty session cannot be silently replaced by an edit request for another
    coordinate plot.
 3. `Ctrl+Enter` and `Cmd+Enter` save the current valid dirty draft from any
