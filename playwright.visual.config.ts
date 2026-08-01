@@ -18,7 +18,6 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
     colorScheme: "light",
     locale: "ru-RU",
-    reducedMotion: "reduce",
     trace: "retain-on-failure",
   },
   webServer: {
