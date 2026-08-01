@@ -39,4 +39,10 @@ old='''  `function nullableNumber(value: string): number | null {\\n  if (value.
 new='''  `function NumberDraftInput({\\n'''
 rep(old,new)
 
+# Fit may use finite data bounds from fully clipped geometry.
+rep(
+'''(status !== "sampled" && status !== "truncated")\\n''',
+'''(status !== "sampled" && status !== "truncated" && status !== "empty")\\n''',
+)
+
 p.write_text(s)
