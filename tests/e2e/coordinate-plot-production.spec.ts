@@ -43,9 +43,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await expect(firstFormula).toHaveValue("sin(x)");
 
   await firstFormula.fill("a*x^2");
-  await editor
-    .getByRole("button", { name: "Создать параметр «a»" })
-    .click();
+  await editor.getByRole("button", { name: "Создать параметр «a»" }).click();
   const parametersTab = editor.getByRole("tab", { name: "Параметры (1)" });
   await expect(parametersTab).toHaveAttribute("aria-selected", "true");
   await expect(editor.getByLabel(/Имя параметра/)).toHaveValue("a");
@@ -90,9 +88,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await page.getByRole("button", { name: "math.coordinate-plot" }).click();
   await page.keyboard.press("Enter");
   await expect(editor).toBeVisible();
-  await expect(editor.getByLabel("Формула явной функции")).toHaveValue(
-    "a*x^2",
-  );
+  await expect(editor.getByLabel("Формула явной функции")).toHaveValue("a*x^2");
   await expect(editor.getByLabel("Показывать График 2")).not.toBeChecked();
 
   await editor.getByRole("tab", { name: "Вид" }).click();
