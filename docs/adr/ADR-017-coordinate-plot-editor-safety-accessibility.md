@@ -30,6 +30,17 @@ without complete programmatic relationships between fields and diagnostics.
 7. The panel provides a consistent `:focus-visible` treatment and touch-sized
    controls at the mobile breakpoint.
 
+## Verification contract
+
+- Unit tests cover initial and restored focus, all close decisions, keyboard
+  save, ARIA diagnostic relationships, and icon-only accessible names.
+- Playwright covers dirty Escape handling, draft continuation and discard,
+  clean close after keyboard save, restored focus, and field diagnostics.
+- The browser scenarios run through the repository Chromium and Firefox
+  matrix together with the existing coordinate-plot production lifecycle.
+- Strict TypeScript, ESLint, Prettier, architecture checks, production build,
+  and the existing Smart Ink and image gates remain required.
+
 ## Consequences
 
 - Live preview remains transient and BoardDocument schema `1.1` is unchanged.
