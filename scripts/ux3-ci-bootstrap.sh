@@ -3,13 +3,13 @@ set -euo pipefail
 
 python - <<'PY'
 from pathlib import Path
-from textwrap import dedent
 
 source = Path('.github/workflows/ux3-implementation.yml').read_text(encoding='utf-8')
 step = '      - name: Implement canvas navigation, mobile UX and visual matrix\n        run: |\n'
 start = source.index(step) + len(step)
 end = source.index('\n      - name: Commit implementation and visual baselines', start)
-script = dedent(source[start:end])
+lines = source[start:end].splitlines()
+script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
 Path('/tmp/ux3-implementation.sh').write_text(script, encoding='utf-8')
 PY
 
