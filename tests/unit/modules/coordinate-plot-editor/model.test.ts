@@ -65,6 +65,43 @@ describe("coordinate plot editor model", () => {
     });
   });
 
+  it("creates a parameter with an explicitly requested identifier", () => {
+    const plot = createPlot();
+    const definition = addCoordinatePlotParameter(
+      plot.definition,
+      plotParameterId("parameter-k"),
+      "k",
+    );
+
+    expect(definition.parameters[0]).toMatchObject({
+      id: "parameter-k",
+      name: "k",
+      value: 1,
+    });
+  });
+
+  it("falls back to a generated name for duplicate or invalid requests", () => {
+    const plot = createPlot();
+    const withA = addCoordinatePlotParameter(
+      plot.definition,
+      plotParameterId("parameter-a"),
+      "a",
+    );
+    const duplicate = addCoordinatePlotParameter(
+      withA,
+      plotParameterId("parameter-duplicate"),
+      "a",
+    );
+    const invalid = addCoordinatePlotParameter(
+      duplicate,
+      plotParameterId("parameter-invalid"),
+      "1bad",
+    );
+
+    expect(duplicate.parameters[1]?.name).toBe("b");
+    expect(invalid.parameters[2]?.name).toBe("c");
+  });
+
   it("switches a series kind while preserving identity and style", () => {
     const plot = createPlot();
     const original = plot.definition.series[0]!;

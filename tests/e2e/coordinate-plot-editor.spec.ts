@@ -26,7 +26,7 @@ test("creates and persists explicit and parametric plot series", async ({
   expect(editorZIndex).toBeGreaterThan(diagnosticsZIndex);
 
   await page.getByLabel("Формула явной функции").fill("x^3-2*x");
-  await page.getByRole("button", { name: "+ Параметрическая" }).click();
+  await page.getByRole("button", { name: "+ Параметрическая кривая" }).click();
   await page.getByLabel("Параметрическая формула x").fill("2*cos(t)");
   await page.getByLabel("Параметрическая формула y").fill("2*sin(t)");
   await page.getByRole("button", { name: "Сохранить" }).click();

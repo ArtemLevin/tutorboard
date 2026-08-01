@@ -140,9 +140,10 @@ describe("CoordinatePlotEditorPanel accessibility and safety", () => {
       issues: validateCoordinatePlotEditorDefinition(definition),
     });
 
+    fireEvent.click(screen.getByRole("tab", { name: "Параметры (1)" }));
     const name = screen.getByLabelText("Имя параметра invalid-parameter");
-    const minimum = screen.getByLabelText("Min");
-    const maximum = screen.getByLabelText("Max");
+    const minimum = screen.getByLabelText("Минимум");
+    const maximum = screen.getByLabelText("Максимум");
     const step = screen.getByLabelText("Шаг");
 
     for (const field of [name, minimum, maximum, step]) {

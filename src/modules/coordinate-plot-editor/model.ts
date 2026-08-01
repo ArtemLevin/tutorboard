@@ -220,9 +220,19 @@ function nextParameterName(parameters: readonly PlotParameter[]): string {
   return `a${index}`;
 }
 
+function requestedParameterName(
+  parameters: readonly PlotParameter[],
+  requestedName: string | undefined,
+): string | null {
+  const name = requestedName?.trim() ?? "";
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) return null;
+  return parameters.some((parameter) => parameter.name === name) ? null : name;
+}
+
 export function addCoordinatePlotParameter(
   definition: CoordinatePlotDefinition,
   id: PlotParameterId,
+  requestedName?: string,
 ): CoordinatePlotDefinition {
   if (definition.parameters.length >= maximumCoordinatePlotParameters) {
     return definition;
@@ -231,7 +241,9 @@ export function addCoordinatePlotParameter(
     id,
     max: 10,
     min: -10,
-    name: nextParameterName(definition.parameters),
+    name:
+      requestedParameterName(definition.parameters, requestedName) ??
+      nextParameterName(definition.parameters),
     step: 0.1,
     value: 1,
   };

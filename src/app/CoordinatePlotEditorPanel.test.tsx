@@ -1,4 +1,11 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -7,10 +14,22 @@ import {
   plotSeriesId,
   type CoordinatePlotDefinition,
 } from "../core/public";
-import { createDefaultCoordinatePlotObject } from "../modules/coordinate-plot-editor/public";
+import {
+  addCoordinatePlotParameter,
+  createDefaultCoordinatePlotObject,
+  validateCoordinatePlotEditorDefinition,
+} from "../modules/coordinate-plot-editor/public";
 import { CoordinatePlotEditorPanel } from "./CoordinatePlotEditorPanel";
 
 afterEach(cleanup);
+
+function inputByLabel(label: string): HTMLInputElement {
+  const element = screen.getByLabelText(label);
+  if (!(element instanceof HTMLInputElement)) {
+    throw new Error(`Expected an input labelled ${label}.`);
+  }
+  return element;
+}
 
 function createDefinition() {
   return createDefaultCoordinatePlotObject({
@@ -21,6 +40,34 @@ function createDefinition() {
       seriesId: () => plotSeriesId("panel-series"),
     },
   }).definition;
+}
+
+function PanelHarness({ initialDefinition = createDefinition() }) {
+  const [definition, setDefinition] = useState(initialDefinition);
+  let parameterSequence = definition.parameters.length;
+  return (
+    <CoordinatePlotEditorPanel
+      definition={definition}
+      dirty
+      issues={validateCoordinatePlotEditorDefinition(definition)}
+      onAddParameter={(name) => {
+        setDefinition((current) =>
+          addCoordinatePlotParameter(
+            current,
+            plotParameterId(`harness-parameter-${parameterSequence++}`),
+            name,
+          ),
+        );
+      }}
+      onAddSeries={vi.fn()}
+      onClose={vi.fn()}
+      onDefinitionChange={setDefinition}
+      onSave={vi.fn(() => true)}
+      onSelectedSeriesChange={vi.fn()}
+      readOnly={false}
+      selectedSeriesId={plotSeriesId("panel-series")}
+    />
+  );
 }
 
 describe("CoordinatePlotEditorPanel", () => {
@@ -45,7 +92,7 @@ describe("CoordinatePlotEditorPanel", () => {
         onAddSeries={vi.fn()}
         onClose={vi.fn()}
         onDefinitionChange={onDefinitionChange}
-        onSave={vi.fn()}
+        onSave={vi.fn(() => true)}
         onSelectedSeriesChange={vi.fn()}
         readOnly={false}
         selectedSeriesId={plotSeriesId("panel-series")}
@@ -84,19 +131,101 @@ describe("CoordinatePlotEditorPanel", () => {
         onAddSeries={onAddSeries}
         onClose={vi.fn()}
         onDefinitionChange={vi.fn()}
-        onSave={vi.fn()}
+        onSave={vi.fn(() => false)}
         onSelectedSeriesChange={vi.fn()}
         readOnly={false}
         selectedSeriesId={plotSeriesId("panel-series")}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "+ y=f(x)" }));
-    fireEvent.click(screen.getByRole("button", { name: "+ Параметрическая" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Явная функция" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "+ Параметрическая кривая" }),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Параметры (0)" }));
     fireEvent.click(screen.getByRole("button", { name: "Добавить параметр" }));
 
     expect(onAddSeries.mock.calls).toEqual([["explicit"], ["parametric"]]);
-    expect(onAddParameter).toHaveBeenCalledTimes(1);
+    expect(onAddParameter).toHaveBeenCalledWith();
     expect(screen.getByRole("button", { name: "Сохранить" })).toBeDisabled();
+  });
+
+  it("supports WAI-ARIA tabs and localized enum values", async () => {
+    render(<PanelHarness />);
+
+    const functions = screen.getByRole("tab", { name: "Функции" });
+    const parameters = screen.getByRole("tab", { name: "Параметры (0)" });
+    const view = screen.getByRole("tab", { name: "Вид" });
+    expect(functions).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.keyDown(functions, { key: "ArrowRight" });
+    expect(parameters).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(parameters).toHaveFocus());
+
+    fireEvent.keyDown(parameters, { key: "End" });
+    expect(view).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(view).toHaveFocus());
+
+    fireEvent.click(functions);
+    const lineStyle = screen.getByLabelText("Стиль линии");
+    expect(lineStyle).toHaveTextContent("Сплошная");
+    expect(lineStyle).toHaveTextContent("Штриховая");
+    expect(lineStyle).toHaveTextContent("Штрихпунктирная");
+
+    fireEvent.click(view);
+    const legend = screen.getByLabelText("Положение легенды");
+    expect(legend).toHaveTextContent("Сверху справа");
+    expect(screen.getByText("X: от")).toBeInTheDocument();
+    expect(screen.getByText("Y: до")).toBeInTheDocument();
+  });
+
+  it("inserts functions around the selected expression and explains radians", async () => {
+    render(<PanelHarness />);
+
+    const formula = inputByLabel("Формула явной функции");
+    fireEvent.change(formula, { target: { value: "x+1" } });
+    formula.focus();
+    formula.setSelectionRange(0, 1);
+    fireEvent.click(screen.getByRole("button", { name: "Вставить sin" }));
+
+    await waitFor(() => expect(formula).toHaveValue("sin(x)+1"));
+    expect(formula).toHaveFocus();
+    expect(
+      screen.getByText(/Тригонометрические функции используют радианы/),
+    ).toBeInTheDocument();
+
+    formula.setSelectionRange(formula.value.length, formula.value.length);
+    fireEvent.click(screen.getByRole("button", { name: "Вставить pi" }));
+    await waitFor(() => expect(formula).toHaveValue("sin(x)+1pi"));
+  });
+
+  it("creates an unknown parameter, opens its tab and focuses its name", async () => {
+    const initial = createDefinition();
+    const series = initial.series[0];
+    if (series?.kind !== "explicit")
+      throw new Error("Expected explicit series");
+    render(
+      <PanelHarness
+        initialDefinition={{
+          ...initial,
+          series: [{ ...series, expression: "q*x" }],
+        }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Формула явной функции")).toHaveFocus(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Создать параметр «q»" }),
+    );
+
+    const parameters = screen.getByRole("tab", { name: "Параметры (1)" });
+    expect(parameters).toHaveAttribute("aria-selected", "true");
+    const name = await screen.findByLabelText(
+      "Имя параметра harness-parameter-0",
+    );
+    expect(name).toHaveValue("q");
+    await waitFor(() => expect(name).toHaveFocus());
   });
 });

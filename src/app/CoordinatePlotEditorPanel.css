@@ -4,7 +4,7 @@
   right: 16px;
   z-index: 30;
   display: flex;
-  width: min(430px, calc(100% - 32px));
+  width: min(500px, calc(100% - 32px));
   max-height: calc(100% - 32px);
   flex-direction: column;
   overflow: hidden;
@@ -47,11 +47,68 @@
   font-size: 20px;
 }
 
+.plot-editor-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(248, 250, 252, 0.96);
+}
+
+.plot-editor-tabs button {
+  border-color: transparent;
+  background: transparent;
+  color: #475569;
+  font-weight: 700;
+}
+
+.plot-editor-tabs button[aria-selected="true"] {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
 .plot-editor-scroll {
   display: grid;
   gap: 10px;
   overflow: auto;
   padding: 12px;
+}
+
+.plot-editor-scroll > section[hidden] {
+  display: none;
+}
+
+.plot-editor-tab-content {
+  display: grid;
+  gap: 10px;
+}
+
+.plot-editor-section-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.plot-editor-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plot-editor-section-heading > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.plot-editor-section-heading span {
+  color: #64748b;
+  font-size: 12px;
 }
 
 .coordinate-plot-editor-panel details {
@@ -198,6 +255,92 @@
   line-height: 1.45;
 }
 
+.plot-editor-hint code,
+.plot-expression-help code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.plot-expression-help {
+  border-color: rgba(37, 99, 235, 0.22) !important;
+  background: #f8fbff !important;
+}
+
+.plot-expression-help summary {
+  padding: 8px 10px;
+  color: #1e40af;
+  font-size: 12px;
+}
+
+.plot-expression-help > div {
+  display: grid;
+  gap: 6px;
+  padding: 0 10px 10px;
+}
+
+.plot-expression-help p {
+  margin: 0;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.plot-expression-help .plot-radian-hint {
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.plot-expression-field {
+  display: grid;
+  gap: 6px;
+}
+
+.plot-expression-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.plot-expression-tools button {
+  min-height: 28px;
+  padding: 3px 8px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+
+.plot-parameter-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plot-parameter-cta button {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.plot-editor-empty-state {
+  display: grid;
+  gap: 4px;
+  padding: 18px;
+  border: 1px dashed rgba(100, 116, 139, 0.4);
+  border-radius: 12px;
+  color: #475569;
+  text-align: center;
+}
+
+.plot-editor-empty-state strong {
+  color: #0f172a;
+}
+
 .plot-series-list {
   display: grid;
   gap: 5px;
@@ -237,8 +380,7 @@
 }
 
 .plot-series-editor {
-  padding-top: 8px;
-  border-top: 1px solid rgba(148, 163, 184, 0.28);
+  padding-top: 2px;
 }
 
 .plot-parameter-row {
@@ -247,6 +389,7 @@
   padding: 9px;
   border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 10px;
+  background: #fff;
 }
 
 .plot-parameter-slider {
@@ -286,27 +429,6 @@
 
 .plot-editor-footer button:last-child {
   margin-left: auto;
-}
-
-@media (max-width: 900px) {
-  .coordinate-plot-editor-panel {
-    top: auto;
-    bottom: 12px;
-    left: 12px;
-    right: 12px;
-    width: auto;
-    max-height: min(72vh, 620px);
-  }
-
-  .plot-editor-grid.viewport-grid,
-  .plot-editor-grid.style-grid,
-  .plot-editor-checks {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .plot-editor-grid.parameter-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 .coordinate-plot-editor-panel :focus-visible {
@@ -378,6 +500,29 @@
 }
 
 @media (max-width: 900px) {
+  .coordinate-plot-editor-panel {
+    top: auto;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: min(78vh, 680px);
+  }
+
+  .plot-editor-section-heading {
+    display: grid;
+  }
+
+  .plot-editor-grid.viewport-grid,
+  .plot-editor-grid.style-grid,
+  .plot-editor-checks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plot-editor-grid.parameter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .coordinate-plot-editor-panel button,
   .coordinate-plot-editor-panel input,
   .coordinate-plot-editor-panel select {
@@ -387,5 +532,9 @@
   .plot-editor-heading button {
     width: 44px;
     height: 44px;
+  }
+
+  .plot-expression-tools button {
+    min-height: 40px;
   }
 }

@@ -4,6 +4,7 @@ import {
   useId,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactElement,
   type RefObject,
 } from "react";
@@ -30,12 +31,49 @@ import {
 } from "../modules/coordinate-plot-editor/public";
 import "./CoordinatePlotEditorPanel.css";
 
+type CoordinatePlotEditorTab = "functions" | "parameters" | "view";
+type QuickExpressionToken = "abs" | "cos" | "pi" | "sin" | "sqrt";
+
+const editorTabs: readonly {
+  readonly id: CoordinatePlotEditorTab;
+  readonly label: string;
+}[] = [
+  { id: "functions", label: "Функции" },
+  { id: "parameters", label: "Параметры" },
+  { id: "view", label: "Вид" },
+];
+
+const quickExpressionTokens: readonly QuickExpressionToken[] = [
+  "sin",
+  "cos",
+  "sqrt",
+  "abs",
+  "pi",
+];
+
+const lineStyleLabels: Readonly<
+  Record<PlotSeries["style"]["lineStyle"], string>
+> = {
+  "dash-dot": "Штрихпунктирная",
+  dashed: "Штриховая",
+  solid: "Сплошная",
+};
+
+const legendPositionLabels: Readonly<
+  Record<CoordinatePlotDefinition["legend"]["position"], string>
+> = {
+  "bottom-left": "Снизу слева",
+  "bottom-right": "Снизу справа",
+  "top-left": "Сверху слева",
+  "top-right": "Сверху справа",
+};
+
 export interface CoordinatePlotEditorPanelProps {
   readonly definition: CoordinatePlotDefinition;
   readonly dirty: boolean;
   readonly fallbackFocusRef?: RefObject<HTMLElement | null>;
   readonly issues: readonly CoordinatePlotEditorIssue[];
-  readonly onAddParameter: () => void;
+  readonly onAddParameter: (name?: string) => void;
   readonly onAddSeries: (kind: PlotSeries["kind"]) => void;
   readonly onClose: () => void;
   readonly onDefinitionChange: (definition: CoordinatePlotDefinition) => void;
@@ -117,26 +155,218 @@ function issueAttributes(
     : { "aria-describedby": issueId, "aria-invalid": true };
 }
 
+function unknownParameterNames(
+  issues: readonly CoordinatePlotEditorIssue[],
+  field: string,
+  source: string,
+  existingNames: readonly string[],
+): readonly string[] {
+  const existing = new Set(existingNames);
+  return [
+    ...new Set(
+      fieldIssues(issues, field, false).flatMap((issue) => {
+        if (
+          issue.code !== "expression.unknown-identifier" ||
+          issue.start === null ||
+          issue.end === null ||
+          issue.start < 0 ||
+          issue.end <= issue.start ||
+          issue.end > source.length
+        ) {
+          return [];
+        }
+        const candidate = source.slice(issue.start, issue.end);
+        return /^[A-Za-z_][A-Za-z0-9_]*$/.test(candidate) &&
+          !existing.has(candidate)
+          ? [candidate]
+          : [];
+      }),
+    ),
+  ];
+}
+
+function insertionResult(
+  source: string,
+  start: number,
+  end: number,
+  token: QuickExpressionToken,
+): {
+  readonly next: string;
+  readonly selectionEnd: number;
+  readonly selectionStart: number;
+} {
+  const selected = source.slice(start, end);
+  if (token === "pi") {
+    const next = `${source.slice(0, start)}pi${source.slice(end)}`;
+    return { next, selectionEnd: start + 2, selectionStart: start + 2 };
+  }
+  const replacement = `${token}(${selected})`;
+  const next = `${source.slice(0, start)}${replacement}${source.slice(end)}`;
+  const argumentStart = start + token.length + 1;
+  return {
+    next,
+    selectionEnd:
+      selected.length === 0 ? argumentStart : argumentStart + selected.length,
+    selectionStart: argumentStart,
+  };
+}
+
+function ExpressionField({
+  ariaLabel,
+  existingParameterNames,
+  field,
+  initialFocus = false,
+  issueId,
+  issues,
+  label,
+  onCreateParameter,
+  onSourceChange,
+  parameterLimitReached,
+  placeholder,
+  showTools = false,
+  source,
+}: {
+  readonly ariaLabel: string;
+  readonly existingParameterNames: readonly string[];
+  readonly field: string;
+  readonly initialFocus?: boolean;
+  readonly issueId: string;
+  readonly issues: readonly CoordinatePlotEditorIssue[];
+  readonly label: string;
+  readonly onCreateParameter: (name: string) => void;
+  readonly onSourceChange: (source: string) => void;
+  readonly parameterLimitReached: boolean;
+  readonly placeholder?: string;
+  readonly showTools?: boolean;
+  readonly source: string;
+}): ReactElement {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const unknownNames = unknownParameterNames(
+    issues,
+    field,
+    source,
+    existingParameterNames,
+  );
+
+  const insertToken = (token: QuickExpressionToken) => {
+    const input = inputRef.current;
+    const start = input?.selectionStart ?? source.length;
+    const end = input?.selectionEnd ?? start;
+    const result = insertionResult(source, start, end, token);
+    onSourceChange(result.next);
+    queueMicrotask(() => {
+      const current = inputRef.current;
+      current?.focus();
+      current?.setSelectionRange(result.selectionStart, result.selectionEnd);
+    });
+  };
+
+  return (
+    <div className="plot-expression-field">
+      <label>
+        {label}
+        <input
+          {...issueAttributes(issues, field, issueId, false)}
+          aria-label={ariaLabel}
+          data-plot-editor-initial-focus={initialFocus ? "true" : undefined}
+          maxLength={2_000}
+          onChange={(event) => onSourceChange(event.currentTarget.value)}
+          placeholder={placeholder}
+          ref={inputRef}
+          spellCheck={false}
+          value={source}
+        />
+      </label>
+      {showTools ? (
+        <div
+          aria-label={`Быстрые вставки для поля «${label}»`}
+          className="plot-expression-tools"
+          role="toolbar"
+        >
+          {quickExpressionTokens.map((token) => (
+            <button
+              aria-label={`Вставить ${token}`}
+              key={token}
+              onClick={() => insertToken(token)}
+              onMouseDown={(event) => event.preventDefault()}
+              type="button"
+            >
+              {token === "pi" ? "π" : `${token}( )`}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <IssueList
+        field={field}
+        id={issueId}
+        includeDescendants={false}
+        issues={issues}
+      />
+      {unknownNames.length === 0 ? null : (
+        <div
+          className="plot-parameter-cta"
+          role="group"
+          aria-label="Создание параметров из формулы"
+        >
+          {unknownNames.map((name) => (
+            <button
+              disabled={parameterLimitReached}
+              key={name}
+              onClick={() => onCreateParameter(name)}
+              type="button"
+            >
+              Создать параметр «{name}»
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FormulaSyntaxHelp(): ReactElement {
+  return (
+    <details className="plot-expression-help">
+      <summary>Краткая справка по формулам</summary>
+      <div>
+        <p>
+          Используйте <code>+</code>, <code>-</code>, <code>*</code>,{" "}
+          <code>/</code> и <code>^</code>. Пример: <code>2*x^2-3*x+1</code>.
+        </p>
+        <p>
+          Доступны <code>sin(x)</code>, <code>cos(x)</code>,{" "}
+          <code>sqrt(x)</code>, <code>abs(x)</code> и константа <code>pi</code>.
+        </p>
+        <p className="plot-radian-hint">
+          Тригонометрические функции используют радианы: <code>pi</code>{" "}
+          соответствует 180°.
+        </p>
+      </div>
+    </details>
+  );
+}
+
 function SeriesEditor({
   definition,
   issues,
   onChange,
+  onCreateParameter,
   series,
 }: {
   readonly definition: CoordinatePlotDefinition;
   readonly issues: readonly CoordinatePlotEditorIssue[];
   readonly onChange: (definition: CoordinatePlotDefinition) => void;
+  readonly onCreateParameter: (name: string) => void;
   readonly series: PlotSeries;
 }): ReactElement {
   const index = definition.series.findIndex(({ id }) => id === series.id);
   const prefix = `series.${index}`;
-  const expressionIssueId = `plot-series-${index}-expression-issues`;
-  const domainIssueId = `plot-series-${index}-domain-issues`;
-  const xExpressionIssueId = `plot-series-${index}-x-expression-issues`;
-  const yExpressionIssueId = `plot-series-${index}-y-expression-issues`;
-  const rangeIssueId = `plot-series-${index}-range-issues`;
+  const parameterNames = definition.parameters.map(({ name }) => name);
+  const parameterLimitReached =
+    definition.parameters.length >= maximumCoordinatePlotParameters;
   const replace = (replacement: PlotSeries) =>
     onChange(updateCoordinatePlotSeries(definition, replacement));
+
   return (
     <div className="plot-series-editor" data-series-kind={series.kind}>
       <div className="plot-editor-grid two-columns">
@@ -151,7 +381,7 @@ function SeriesEditor({
           />
         </label>
         <label>
-          Тип
+          Тип функции
           <select
             onChange={(event) =>
               onChange(
@@ -164,183 +394,144 @@ function SeriesEditor({
             }
             value={series.kind}
           >
-            <option value="explicit">y = f(x)</option>
-            <option value="parametric">Параметрическая</option>
+            <option value="explicit">Явная: y = f(x)</option>
+            <option value="parametric">Параметрическая: x(t), y(t)</option>
           </select>
         </label>
       </div>
 
+      <FormulaSyntaxHelp />
+
       {series.kind === "explicit" ? (
         <>
-          <label>
-            Формула y =
-            <input
-              {...issueAttributes(
-                issues,
-                `${prefix}.expression`,
-                expressionIssueId,
-              )}
-              aria-label="Формула явной функции"
-              data-plot-editor-initial-focus
-              maxLength={2_000}
-              onChange={(event) =>
-                replace({ ...series, expression: event.currentTarget.value })
-              }
-              spellCheck={false}
-              value={series.expression}
-            />
-          </label>
-          <IssueList
+          <ExpressionField
+            ariaLabel="Формула явной функции"
+            existingParameterNames={parameterNames}
             field={`${prefix}.expression`}
-            id={expressionIssueId}
+            initialFocus
+            issueId={`plot-series-${index}-expression-issues`}
             issues={issues}
+            label="Формула y ="
+            onCreateParameter={onCreateParameter}
+            onSourceChange={(expression) => replace({ ...series, expression })}
+            parameterLimitReached={parameterLimitReached}
+            showTools
+            source={series.expression}
           />
           <div className="plot-editor-grid two-columns">
-            <label>
-              X от
-              <input
-                {...issueAttributes(issues, `${prefix}.domain`, domainIssueId)}
-                aria-label="Минимум области явной функции"
-                maxLength={2_000}
-                onChange={(event) =>
-                  replace({
-                    ...series,
-                    domain: {
-                      ...series.domain,
-                      minExpression:
-                        event.currentTarget.value.trim() === ""
-                          ? null
-                          : event.currentTarget.value,
-                    },
-                  })
-                }
-                placeholder="авто"
-                spellCheck={false}
-                value={series.domain.minExpression ?? ""}
-              />
-            </label>
-            <label>
-              X до
-              <input
-                {...issueAttributes(issues, `${prefix}.domain`, domainIssueId)}
-                aria-label="Максимум области явной функции"
-                maxLength={2_000}
-                onChange={(event) =>
-                  replace({
-                    ...series,
-                    domain: {
-                      ...series.domain,
-                      maxExpression:
-                        event.currentTarget.value.trim() === ""
-                          ? null
-                          : event.currentTarget.value,
-                    },
-                  })
-                }
-                placeholder="авто"
-                spellCheck={false}
-                value={series.domain.maxExpression ?? ""}
-              />
-            </label>
+            <ExpressionField
+              ariaLabel="Начало области определения по X"
+              existingParameterNames={parameterNames}
+              field={`${prefix}.domain.minExpression`}
+              issueId={`plot-series-${index}-domain-min-issues`}
+              issues={issues}
+              label="Область по X: от"
+              onCreateParameter={onCreateParameter}
+              onSourceChange={(value) =>
+                replace({
+                  ...series,
+                  domain: {
+                    ...series.domain,
+                    minExpression: value.trim() === "" ? null : value,
+                  },
+                })
+              }
+              parameterLimitReached={parameterLimitReached}
+              placeholder="автоматически"
+              source={series.domain.minExpression ?? ""}
+            />
+            <ExpressionField
+              ariaLabel="Конец области определения по X"
+              existingParameterNames={parameterNames}
+              field={`${prefix}.domain.maxExpression`}
+              issueId={`plot-series-${index}-domain-max-issues`}
+              issues={issues}
+              label="Область по X: до"
+              onCreateParameter={onCreateParameter}
+              onSourceChange={(value) =>
+                replace({
+                  ...series,
+                  domain: {
+                    ...series.domain,
+                    maxExpression: value.trim() === "" ? null : value,
+                  },
+                })
+              }
+              parameterLimitReached={parameterLimitReached}
+              placeholder="автоматически"
+              source={series.domain.maxExpression ?? ""}
+            />
           </div>
-          <IssueList
-            field={`${prefix}.domain`}
-            id={domainIssueId}
-            issues={issues}
-          />
         </>
       ) : (
         <>
-          <label>
-            x(t)
-            <input
-              {...issueAttributes(
-                issues,
-                `${prefix}.xExpression`,
-                xExpressionIssueId,
-              )}
-              aria-label="Параметрическая формула x"
-              data-plot-editor-initial-focus
-              maxLength={2_000}
-              onChange={(event) =>
-                replace({ ...series, xExpression: event.currentTarget.value })
-              }
-              spellCheck={false}
-              value={series.xExpression}
-            />
-          </label>
-          <IssueList
+          <ExpressionField
+            ariaLabel="Параметрическая формула x"
+            existingParameterNames={parameterNames}
             field={`${prefix}.xExpression`}
-            id={xExpressionIssueId}
+            initialFocus
+            issueId={`plot-series-${index}-x-expression-issues`}
             issues={issues}
+            label="Координата x(t)"
+            onCreateParameter={onCreateParameter}
+            onSourceChange={(xExpression) =>
+              replace({ ...series, xExpression })
+            }
+            parameterLimitReached={parameterLimitReached}
+            showTools
+            source={series.xExpression}
           />
-          <label>
-            y(t)
-            <input
-              {...issueAttributes(
-                issues,
-                `${prefix}.yExpression`,
-                yExpressionIssueId,
-              )}
-              aria-label="Параметрическая формула y"
-              maxLength={2_000}
-              onChange={(event) =>
-                replace({ ...series, yExpression: event.currentTarget.value })
-              }
-              spellCheck={false}
-              value={series.yExpression}
-            />
-          </label>
-          <IssueList
+          <ExpressionField
+            ariaLabel="Параметрическая формула y"
+            existingParameterNames={parameterNames}
             field={`${prefix}.yExpression`}
-            id={yExpressionIssueId}
+            issueId={`plot-series-${index}-y-expression-issues`}
             issues={issues}
+            label="Координата y(t)"
+            onCreateParameter={onCreateParameter}
+            onSourceChange={(yExpression) =>
+              replace({ ...series, yExpression })
+            }
+            parameterLimitReached={parameterLimitReached}
+            showTools
+            source={series.yExpression}
           />
           <div className="plot-editor-grid two-columns">
-            <label>
-              t от
-              <input
-                {...issueAttributes(issues, `${prefix}.range`, rangeIssueId)}
-                aria-label="Минимум параметра t"
-                maxLength={2_000}
-                onChange={(event) =>
-                  replace({
-                    ...series,
-                    range: {
-                      ...series.range,
-                      minExpression: event.currentTarget.value,
-                    },
-                  })
-                }
-                spellCheck={false}
-                value={series.range.minExpression}
-              />
-            </label>
-            <label>
-              t до
-              <input
-                {...issueAttributes(issues, `${prefix}.range`, rangeIssueId)}
-                aria-label="Максимум параметра t"
-                maxLength={2_000}
-                onChange={(event) =>
-                  replace({
-                    ...series,
-                    range: {
-                      ...series.range,
-                      maxExpression: event.currentTarget.value,
-                    },
-                  })
-                }
-                spellCheck={false}
-                value={series.range.maxExpression}
-              />
-            </label>
+            <ExpressionField
+              ariaLabel="Начало диапазона параметра t"
+              existingParameterNames={parameterNames}
+              field={`${prefix}.range.minExpression`}
+              issueId={`plot-series-${index}-range-min-issues`}
+              issues={issues}
+              label="Параметр t: от"
+              onCreateParameter={onCreateParameter}
+              onSourceChange={(minExpression) =>
+                replace({
+                  ...series,
+                  range: { ...series.range, minExpression },
+                })
+              }
+              parameterLimitReached={parameterLimitReached}
+              source={series.range.minExpression}
+            />
+            <ExpressionField
+              ariaLabel="Конец диапазона параметра t"
+              existingParameterNames={parameterNames}
+              field={`${prefix}.range.maxExpression`}
+              issueId={`plot-series-${index}-range-max-issues`}
+              issues={issues}
+              label="Параметр t: до"
+              onCreateParameter={onCreateParameter}
+              onSourceChange={(maxExpression) =>
+                replace({
+                  ...series,
+                  range: { ...series.range, maxExpression },
+                })
+              }
+              parameterLimitReached={parameterLimitReached}
+              source={series.range.maxExpression}
+            />
           </div>
-          <IssueList
-            field={`${prefix}.range`}
-            id={rangeIssueId}
-            issues={issues}
-          />
           <label className="plot-editor-check">
             <input
               checked={series.closed}
@@ -349,7 +540,7 @@ function SeriesEditor({
               }
               type="checkbox"
             />
-            Замкнуть кривую
+            Соединить начало и конец кривой
           </label>
         </>
       )}
@@ -392,8 +583,9 @@ function SeriesEditor({
           />
         </label>
         <label>
-          Линия
+          Стиль линии
           <select
+            aria-label="Стиль линии"
             onChange={(event) =>
               replace({
                 ...series,
@@ -408,7 +600,7 @@ function SeriesEditor({
           >
             {plotLineStyles.map((lineStyle) => (
               <option key={lineStyle} value={lineStyle}>
-                {lineStyle}
+                {lineStyleLabels[lineStyle]}
               </option>
             ))}
           </select>
@@ -466,6 +658,7 @@ function ParameterEditor({
     parameter.step !== null &&
     parameter.min < parameter.max &&
     parameter.step > 0;
+
   return (
     <div className="plot-parameter-row">
       <div className="plot-editor-grid parameter-grid">
@@ -474,6 +667,7 @@ function ParameterEditor({
           <input
             {...issueAttributes(issues, `${prefix}.name`, nameIssueId, false)}
             aria-label={`Имя параметра ${parameter.id}`}
+            data-parameter-name={parameter.name}
             maxLength={32}
             onChange={(event) =>
               replace({ ...parameter, name: event.currentTarget.value })
@@ -496,9 +690,10 @@ function ParameterEditor({
           />
         </label>
         <label>
-          Min
+          Минимум
           <input
             {...issueAttributes(issues, prefix, rangeIssueId, false)}
+            aria-label="Минимум"
             onChange={(event) =>
               replace({
                 ...parameter,
@@ -511,9 +706,10 @@ function ParameterEditor({
           />
         </label>
         <label>
-          Max
+          Максимум
           <input
             {...issueAttributes(issues, prefix, rangeIssueId, false)}
+            aria-label="Максимум"
             onChange={(event) =>
               replace({
                 ...parameter,
@@ -593,6 +789,554 @@ function ParameterEditor({
   );
 }
 
+function FunctionsTab({
+  definition,
+  issues,
+  onAddSeries,
+  onChange,
+  onCreateParameter,
+  onSelectedSeriesChange,
+  selectedSeries,
+  selectedSeriesId,
+}: {
+  readonly definition: CoordinatePlotDefinition;
+  readonly issues: readonly CoordinatePlotEditorIssue[];
+  readonly onAddSeries: (kind: PlotSeries["kind"]) => void;
+  readonly onChange: (definition: CoordinatePlotDefinition) => void;
+  readonly onCreateParameter: (name: string) => void;
+  readonly onSelectedSeriesChange: (seriesId: PlotSeriesId | null) => void;
+  readonly selectedSeries: PlotSeries | null;
+  readonly selectedSeriesId: PlotSeriesId | null;
+}): ReactElement {
+  return (
+    <div className="plot-editor-tab-content">
+      <div className="plot-editor-section-card">
+        <div className="plot-editor-section-heading">
+          <div>
+            <strong>Функции и кривые</strong>
+            <span>{definition.series.length} серий</span>
+          </div>
+          <div className="plot-editor-actions compact">
+            <button
+              disabled={definition.series.length >= maximumCoordinatePlotSeries}
+              onClick={() => onAddSeries("explicit")}
+              type="button"
+            >
+              + Явная функция
+            </button>
+            <button
+              disabled={definition.series.length >= maximumCoordinatePlotSeries}
+              onClick={() => onAddSeries("parametric")}
+              type="button"
+            >
+              + Параметрическая кривая
+            </button>
+          </div>
+        </div>
+        <ol className="plot-series-list">
+          {definition.series.map((series) => (
+            <li
+              className={series.id === selectedSeries?.id ? "is-selected" : ""}
+              key={series.id}
+            >
+              <input
+                aria-label={`Показывать ${series.name}`}
+                checked={series.visible}
+                onChange={(event) =>
+                  onChange(
+                    updateCoordinatePlotSeries(definition, {
+                      ...series,
+                      visible: event.currentTarget.checked,
+                    }),
+                  )
+                }
+                type="checkbox"
+              />
+              <button
+                aria-pressed={series.id === selectedSeries?.id}
+                className="plot-series-name"
+                onClick={() => onSelectedSeriesChange(series.id)}
+                type="button"
+              >
+                {series.name || "Без названия"}
+              </button>
+              <button
+                aria-label={`Удалить серию ${
+                  series.name || `№${definition.series.indexOf(series) + 1}`
+                }`}
+                onClick={() => {
+                  const next = removeCoordinatePlotSeries(
+                    definition,
+                    series.id,
+                  );
+                  onChange(next);
+                  if (selectedSeriesId === series.id) {
+                    onSelectedSeriesChange(next.series[0]?.id ?? null);
+                  }
+                }}
+                type="button"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="plot-editor-section-card">
+        {selectedSeries === null ? (
+          <p>Добавьте первую функцию или кривую.</p>
+        ) : (
+          <SeriesEditor
+            definition={definition}
+            issues={issues}
+            onChange={onChange}
+            onCreateParameter={onCreateParameter}
+            series={selectedSeries}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ParametersTab({
+  definition,
+  issues,
+  onAddParameter,
+  onChange,
+}: {
+  readonly definition: CoordinatePlotDefinition;
+  readonly issues: readonly CoordinatePlotEditorIssue[];
+  readonly onAddParameter: (name?: string) => void;
+  readonly onChange: (definition: CoordinatePlotDefinition) => void;
+}): ReactElement {
+  return (
+    <div className="plot-editor-tab-content">
+      <div className="plot-editor-section-card">
+        <div className="plot-editor-section-heading">
+          <div>
+            <strong>Общие параметры</strong>
+            <span>{definition.parameters.length} параметров</span>
+          </div>
+          <button
+            disabled={
+              definition.parameters.length >= maximumCoordinatePlotParameters
+            }
+            onClick={() => onAddParameter()}
+            type="button"
+          >
+            Добавить параметр
+          </button>
+        </div>
+        <p className="plot-editor-hint">
+          Параметры доступны во всех функциях. Пример: <code>y=a*x^2+b</code>.
+        </p>
+      </div>
+      {definition.parameters.length === 0 ? (
+        <div className="plot-editor-empty-state">
+          <strong>Параметров пока нет</strong>
+          <span>
+            Введите имя в формулу и используйте кнопку создания рядом с ошибкой
+            либо добавьте параметр вручную.
+          </span>
+        </div>
+      ) : (
+        definition.parameters.map((parameter) => (
+          <ParameterEditor
+            definition={definition}
+            issues={issues}
+            key={parameter.id}
+            onChange={onChange}
+            parameter={parameter}
+          />
+        ))
+      )}
+      <IssueList
+        field="parameters"
+        includeDescendants={false}
+        issues={issues}
+      />
+    </div>
+  );
+}
+
+function ViewTab({
+  definition,
+  issues,
+  onChange,
+}: {
+  readonly definition: CoordinatePlotDefinition;
+  readonly issues: readonly CoordinatePlotEditorIssue[];
+  readonly onChange: (definition: CoordinatePlotDefinition) => void;
+}): ReactElement {
+  const viewportIssueId = "plot-editor-viewport-issues";
+  const gridIssueId = "plot-editor-grid-issues";
+  const viewportFields = [
+    { ariaLabel: "Минимальная граница X", key: "xMin", label: "X: от" },
+    { ariaLabel: "Максимальная граница X", key: "xMax", label: "X: до" },
+    { ariaLabel: "Минимальная граница Y", key: "yMin", label: "Y: от" },
+    { ariaLabel: "Максимальная граница Y", key: "yMax", label: "Y: до" },
+  ] as const;
+
+  return (
+    <div className="plot-editor-tab-content">
+      <div className="plot-editor-section-card">
+        <div className="plot-editor-section-heading">
+          <div>
+            <strong>Диапазон координат</strong>
+            <span>Видимая область графика</span>
+          </div>
+          <div className="plot-editor-actions compact">
+            <button
+              onClick={() => onChange(fitCoordinatePlotDefinition(definition))}
+              type="button"
+            >
+              Вместить графики
+            </button>
+            <button
+              onClick={() => onChange(resetCoordinatePlotViewport(definition))}
+              type="button"
+            >
+              Стандартный диапазон
+            </button>
+          </div>
+        </div>
+        <div className="plot-editor-grid viewport-grid">
+          {viewportFields.map(({ ariaLabel, key, label }) => (
+            <label key={key}>
+              {label}
+              <input
+                {...issueAttributes(
+                  issues,
+                  "coordinateViewport",
+                  viewportIssueId,
+                )}
+                aria-label={ariaLabel}
+                onChange={(event) =>
+                  onChange(
+                    updateViewport(
+                      definition,
+                      key,
+                      numberValue(
+                        event.currentTarget.value,
+                        definition.coordinateViewport[key],
+                      ),
+                    ),
+                  )
+                }
+                step="any"
+                type="number"
+                value={definition.coordinateViewport[key]}
+              />
+            </label>
+          ))}
+        </div>
+        <label className="plot-editor-check">
+          <input
+            checked={definition.coordinateViewport.equalScale}
+            onChange={(event) =>
+              onChange({
+                ...definition,
+                coordinateViewport: {
+                  ...definition.coordinateViewport,
+                  equalScale: event.currentTarget.checked,
+                },
+              })
+            }
+            type="checkbox"
+          />
+          Одинаковый масштаб по X и Y
+        </label>
+        <p className="plot-editor-hint">
+          На плоскости: перетаскивание сдвигает диапазон, колесо масштабирует,
+          Shift+колесо меняет X, Alt+колесо меняет Y.
+        </p>
+        <IssueList
+          field="coordinateViewport"
+          id={viewportIssueId}
+          issues={issues}
+        />
+      </div>
+
+      <div className="plot-editor-section-card">
+        <div className="plot-editor-section-heading">
+          <div>
+            <strong>Сетка и оси</strong>
+            <span>Линии, подписи и шаг делений</span>
+          </div>
+        </div>
+        <div className="plot-editor-checks">
+          <label>
+            <input
+              checked={definition.grid.visible}
+              onChange={(event) =>
+                onChange({
+                  ...definition,
+                  grid: {
+                    ...definition.grid,
+                    visible: event.currentTarget.checked,
+                  },
+                })
+              }
+              type="checkbox"
+            />
+            Сетка
+          </label>
+          <label>
+            <input
+              checked={definition.grid.majorVisible}
+              onChange={(event) =>
+                onChange({
+                  ...definition,
+                  grid: {
+                    ...definition.grid,
+                    majorVisible: event.currentTarget.checked,
+                  },
+                })
+              }
+              type="checkbox"
+            />
+            Основные линии
+          </label>
+          <label>
+            <input
+              checked={definition.grid.minorVisible}
+              onChange={(event) =>
+                onChange({
+                  ...definition,
+                  grid: {
+                    ...definition.grid,
+                    minorVisible: event.currentTarget.checked,
+                  },
+                })
+              }
+              type="checkbox"
+            />
+            Промежуточные линии
+          </label>
+          <label>
+            <input
+              checked={definition.grid.automaticStep}
+              onChange={(event) =>
+                onChange({
+                  ...definition,
+                  grid: {
+                    ...definition.grid,
+                    automaticStep: event.currentTarget.checked,
+                    xStep: event.currentTarget.checked
+                      ? null
+                      : (definition.grid.xStep ?? 1),
+                    yStep: event.currentTarget.checked
+                      ? null
+                      : (definition.grid.yStep ?? 1),
+                  },
+                })
+              }
+              type="checkbox"
+            />
+            Автоматический шаг
+          </label>
+          <label>
+            <input
+              checked={definition.axes.showXAxis}
+              onChange={(event) =>
+                onChange({
+                  ...definition,
+                  axes: {
+                    ...definition.axes,
+                    showXAxis: event.currentTarget.checked,
+                  },
+                })
+              }
+              type="checkbox"
+            />
+            Ось X
+          </label>
+          <label>
+            <input
+              checked={definition.axes.showYAxis}
+              onChange={(event) =>
+                onChange({
+                  ...definition,
+                  axes: {
+                    ...definition.axes,
+                    showYAxis: event.currentTarget.checked,
+                  },
+                })
+              }
+              type="checkbox"
+            />
+            Ось Y
+          </label>
+          <label>
+            <input
+              checked={definition.axes.showLabels}
+              onChange={(event) =>
+                onChange({
+                  ...definition,
+                  axes: {
+                    ...definition.axes,
+                    showLabels: event.currentTarget.checked,
+                  },
+                })
+              }
+              type="checkbox"
+            />
+            Подписи осей
+          </label>
+          <label>
+            <input
+              checked={definition.axes.showArrows}
+              onChange={(event) =>
+                onChange({
+                  ...definition,
+                  axes: {
+                    ...definition.axes,
+                    showArrows: event.currentTarget.checked,
+                  },
+                })
+              }
+              type="checkbox"
+            />
+            Стрелки
+          </label>
+        </div>
+        {definition.grid.automaticStep ? null : (
+          <div className="plot-editor-grid two-columns">
+            <label>
+              Шаг сетки по X
+              <input
+                {...issueAttributes(issues, "grid", gridIssueId)}
+                min="0.000000001"
+                onChange={(event) =>
+                  onChange({
+                    ...definition,
+                    grid: {
+                      ...definition.grid,
+                      xStep: numberValue(
+                        event.currentTarget.value,
+                        definition.grid.xStep ?? 1,
+                      ),
+                    },
+                  })
+                }
+                step="any"
+                type="number"
+                value={definition.grid.xStep ?? 1}
+              />
+            </label>
+            <label>
+              Шаг сетки по Y
+              <input
+                {...issueAttributes(issues, "grid", gridIssueId)}
+                min="0.000000001"
+                onChange={(event) =>
+                  onChange({
+                    ...definition,
+                    grid: {
+                      ...definition.grid,
+                      yStep: numberValue(
+                        event.currentTarget.value,
+                        definition.grid.yStep ?? 1,
+                      ),
+                    },
+                  })
+                }
+                step="any"
+                type="number"
+                value={definition.grid.yStep ?? 1}
+              />
+            </label>
+          </div>
+        )}
+        <div className="plot-editor-grid two-columns">
+          <label>
+            Подпись оси X
+            <input
+              maxLength={24}
+              onChange={(event) =>
+                onChange({
+                  ...definition,
+                  axes: {
+                    ...definition.axes,
+                    xLabel: event.currentTarget.value,
+                  },
+                })
+              }
+              value={definition.axes.xLabel}
+            />
+          </label>
+          <label>
+            Подпись оси Y
+            <input
+              maxLength={24}
+              onChange={(event) =>
+                onChange({
+                  ...definition,
+                  axes: {
+                    ...definition.axes,
+                    yLabel: event.currentTarget.value,
+                  },
+                })
+              }
+              value={definition.axes.yLabel}
+            />
+          </label>
+        </div>
+        <IssueList field="grid" id={gridIssueId} issues={issues} />
+      </div>
+
+      <div className="plot-editor-section-card">
+        <div className="plot-editor-section-heading">
+          <div>
+            <strong>Легенда</strong>
+            <span>Названия и положение списка функций</span>
+          </div>
+        </div>
+        <label className="plot-editor-check">
+          <input
+            checked={definition.legend.visible}
+            onChange={(event) =>
+              onChange({
+                ...definition,
+                legend: {
+                  ...definition.legend,
+                  visible: event.currentTarget.checked,
+                },
+              })
+            }
+            type="checkbox"
+          />
+          Показывать легенду
+        </label>
+        <label>
+          Положение легенды
+          <select
+            aria-label="Положение легенды"
+            onChange={(event) =>
+              onChange({
+                ...definition,
+                legend: {
+                  ...definition.legend,
+                  position: event.currentTarget
+                    .value as CoordinatePlotDefinition["legend"]["position"],
+                },
+              })
+            }
+            value={definition.legend.position}
+          >
+            {plotLegendPositions.map((position) => (
+              <option key={position} value={position}>
+                {legendPositionLabels[position]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 export function CoordinatePlotEditorPanel({
   definition,
   dirty,
@@ -617,7 +1361,12 @@ export function CoordinatePlotEditorPanel({
       ? document.activeElement
       : null,
   );
+  const [activeTab, setActiveTab] =
+    useState<CoordinatePlotEditorTab>("functions");
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
+  const [pendingParameterFocus, setPendingParameterFocus] = useState<
+    string | null
+  >(null);
   const selectedSeries =
     definition.series.find(({ id }) => id === selectedSeriesId) ??
     definition.series[0] ??
@@ -625,8 +1374,6 @@ export function CoordinatePlotEditorPanel({
   const blockingIssues = issues.filter(({ blocking }) => blocking);
   const expressionIssues = issues.filter(({ blocking }) => !blocking);
   const canSave = dirty && !readOnly && blockingIssues.length === 0;
-  const viewportIssueId = `${editorId}-viewport-issues`;
-  const gridIssueId = `${editorId}-grid-issues`;
 
   const focusEditor = useCallback((preferred: HTMLElement | null = null) => {
     const target =
@@ -637,6 +1384,57 @@ export function CoordinatePlotEditorPanel({
           ) ?? editorRef.current);
     target?.focus();
   }, []);
+
+  const selectTab = useCallback(
+    (tab: CoordinatePlotEditorTab, focusTab = false) => {
+      setActiveTab(tab);
+      if (focusTab) {
+        queueMicrotask(() =>
+          editorRef.current
+            ?.querySelector<HTMLButtonElement>(`[data-editor-tab="${tab}"]`)
+            ?.focus(),
+        );
+      }
+    },
+    [],
+  );
+
+  const handleTabKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    tab: CoordinatePlotEditorTab,
+  ) => {
+    const index = editorTabs.findIndex(({ id }) => id === tab);
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % editorTabs.length;
+    if (event.key === "ArrowLeft") {
+      nextIndex = (index - 1 + editorTabs.length) % editorTabs.length;
+    }
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = editorTabs.length - 1;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    selectTab(editorTabs[nextIndex]!.id, true);
+  };
+
+  const createParameterFromFormula = useCallback(
+    (name: string) => {
+      if (definition.parameters.some((parameter) => parameter.name === name)) {
+        setPendingParameterFocus(name);
+        selectTab("parameters");
+        return;
+      }
+      if (
+        definition.parameters.length >= maximumCoordinatePlotParameters ||
+        !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)
+      ) {
+        return;
+      }
+      setPendingParameterFocus(name);
+      selectTab("parameters");
+      onAddParameter(name);
+    },
+    [definition.parameters, onAddParameter, selectTab],
+  );
 
   const requestClose = useCallback(() => {
     if (!dirty) {
@@ -676,6 +1474,19 @@ export function CoordinatePlotEditorPanel({
       });
     };
   }, [fallbackFocusRef, focusEditor]);
+
+  useEffect(() => {
+    if (activeTab !== "parameters" || pendingParameterFocus === null) return;
+    const target = [
+      ...(editorRef.current?.querySelectorAll<HTMLInputElement>(
+        "[data-parameter-name]",
+      ) ?? []),
+    ].find((input) => input.dataset.parameterName === pendingParameterFocus);
+    if (target === undefined) return;
+    target.focus();
+    target.select();
+    setPendingParameterFocus(null);
+  }, [activeTab, definition.parameters, pendingParameterFocus]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -726,467 +1537,75 @@ export function CoordinatePlotEditorPanel({
         </button>
       </header>
 
+      <div
+        aria-label="Разделы редактора графика"
+        className="plot-editor-tabs"
+        role="tablist"
+      >
+        {editorTabs.map((tab) => (
+          <button
+            aria-controls={`${editorId}-panel-${tab.id}`}
+            aria-selected={activeTab === tab.id}
+            data-editor-tab={tab.id}
+            id={`${editorId}-tab-${tab.id}`}
+            key={tab.id}
+            onClick={() => selectTab(tab.id)}
+            onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
+            role="tab"
+            tabIndex={activeTab === tab.id ? 0 : -1}
+            type="button"
+          >
+            {tab.label}
+            {tab.id === "parameters"
+              ? ` (${definition.parameters.length})`
+              : ""}
+          </button>
+        ))}
+      </div>
+
       <div className="plot-editor-scroll">
-        <details open>
-          <summary>Координатная система</summary>
-          <div className="plot-editor-section">
-            <div className="plot-editor-grid viewport-grid">
-              {(["xMin", "xMax", "yMin", "yMax"] as const).map((key) => (
-                <label key={key}>
-                  {key}
-                  <input
-                    {...issueAttributes(
-                      issues,
-                      "coordinateViewport",
-                      viewportIssueId,
-                    )}
-                    aria-label={`Граница ${key}`}
-                    onChange={(event) =>
-                      onDefinitionChange(
-                        updateViewport(
-                          definition,
-                          key,
-                          numberValue(
-                            event.currentTarget.value,
-                            definition.coordinateViewport[key],
-                          ),
-                        ),
-                      )
-                    }
-                    step="any"
-                    type="number"
-                    value={definition.coordinateViewport[key]}
-                  />
-                </label>
-              ))}
-            </div>
-            <label className="plot-editor-check">
-              <input
-                checked={definition.coordinateViewport.equalScale}
-                onChange={(event) =>
-                  onDefinitionChange({
-                    ...definition,
-                    coordinateViewport: {
-                      ...definition.coordinateViewport,
-                      equalScale: event.currentTarget.checked,
-                    },
-                  })
-                }
-                type="checkbox"
-              />
-              Одинаковый масштаб осей
-            </label>
-            <div className="plot-editor-actions compact">
-              <button
-                onClick={() =>
-                  onDefinitionChange(fitCoordinatePlotDefinition(definition))
-                }
-                type="button"
-              >
-                Вместить графики
-              </button>
-              <button
-                onClick={() =>
-                  onDefinitionChange(resetCoordinatePlotViewport(definition))
-                }
-                type="button"
-              >
-                Стандартный масштаб
-              </button>
-            </div>
-            <p className="plot-editor-hint">
-              На плоскости: перетаскивание сдвигает диапазон, колесо
-              масштабирует, Shift+колесо меняет X, Alt+колесо меняет Y.
-            </p>
-            <IssueList
-              field="coordinateViewport"
-              id={viewportIssueId}
-              issues={issues}
-            />
-          </div>
-        </details>
-
-        <details>
-          <summary>Сетка, оси и легенда</summary>
-          <div className="plot-editor-section">
-            <div className="plot-editor-checks">
-              <label>
-                <input
-                  checked={definition.grid.visible}
-                  onChange={(event) =>
-                    onDefinitionChange({
-                      ...definition,
-                      grid: {
-                        ...definition.grid,
-                        visible: event.currentTarget.checked,
-                      },
-                    })
-                  }
-                  type="checkbox"
-                />
-                Сетка
-              </label>
-              <label>
-                <input
-                  checked={definition.grid.majorVisible}
-                  onChange={(event) =>
-                    onDefinitionChange({
-                      ...definition,
-                      grid: {
-                        ...definition.grid,
-                        majorVisible: event.currentTarget.checked,
-                      },
-                    })
-                  }
-                  type="checkbox"
-                />
-                Основные линии
-              </label>
-              <label>
-                <input
-                  checked={definition.grid.minorVisible}
-                  onChange={(event) =>
-                    onDefinitionChange({
-                      ...definition,
-                      grid: {
-                        ...definition.grid,
-                        minorVisible: event.currentTarget.checked,
-                      },
-                    })
-                  }
-                  type="checkbox"
-                />
-                Промежуточные линии
-              </label>
-              <label>
-                <input
-                  checked={definition.grid.automaticStep}
-                  onChange={(event) =>
-                    onDefinitionChange({
-                      ...definition,
-                      grid: {
-                        ...definition.grid,
-                        automaticStep: event.currentTarget.checked,
-                        xStep: event.currentTarget.checked
-                          ? null
-                          : (definition.grid.xStep ?? 1),
-                        yStep: event.currentTarget.checked
-                          ? null
-                          : (definition.grid.yStep ?? 1),
-                      },
-                    })
-                  }
-                  type="checkbox"
-                />
-                Автоматический шаг
-              </label>
-              <label>
-                <input
-                  checked={definition.axes.showXAxis}
-                  onChange={(event) =>
-                    onDefinitionChange({
-                      ...definition,
-                      axes: {
-                        ...definition.axes,
-                        showXAxis: event.currentTarget.checked,
-                      },
-                    })
-                  }
-                  type="checkbox"
-                />
-                Ось X
-              </label>
-              <label>
-                <input
-                  checked={definition.axes.showYAxis}
-                  onChange={(event) =>
-                    onDefinitionChange({
-                      ...definition,
-                      axes: {
-                        ...definition.axes,
-                        showYAxis: event.currentTarget.checked,
-                      },
-                    })
-                  }
-                  type="checkbox"
-                />
-                Ось Y
-              </label>
-              <label>
-                <input
-                  checked={definition.axes.showLabels}
-                  onChange={(event) =>
-                    onDefinitionChange({
-                      ...definition,
-                      axes: {
-                        ...definition.axes,
-                        showLabels: event.currentTarget.checked,
-                      },
-                    })
-                  }
-                  type="checkbox"
-                />
-                Подписи
-              </label>
-              <label>
-                <input
-                  checked={definition.axes.showArrows}
-                  onChange={(event) =>
-                    onDefinitionChange({
-                      ...definition,
-                      axes: {
-                        ...definition.axes,
-                        showArrows: event.currentTarget.checked,
-                      },
-                    })
-                  }
-                  type="checkbox"
-                />
-                Стрелки
-              </label>
-              <label>
-                <input
-                  checked={definition.legend.visible}
-                  onChange={(event) =>
-                    onDefinitionChange({
-                      ...definition,
-                      legend: {
-                        ...definition.legend,
-                        visible: event.currentTarget.checked,
-                      },
-                    })
-                  }
-                  type="checkbox"
-                />
-                Легенда
-              </label>
-            </div>
-            {definition.grid.automaticStep ? null : (
-              <div className="plot-editor-grid two-columns">
-                <label>
-                  Шаг X
-                  <input
-                    {...issueAttributes(issues, "grid", gridIssueId)}
-                    min="0.000000001"
-                    onChange={(event) =>
-                      onDefinitionChange({
-                        ...definition,
-                        grid: {
-                          ...definition.grid,
-                          xStep: numberValue(
-                            event.currentTarget.value,
-                            definition.grid.xStep ?? 1,
-                          ),
-                        },
-                      })
-                    }
-                    step="any"
-                    type="number"
-                    value={definition.grid.xStep ?? 1}
-                  />
-                </label>
-                <label>
-                  Шаг Y
-                  <input
-                    {...issueAttributes(issues, "grid", gridIssueId)}
-                    min="0.000000001"
-                    onChange={(event) =>
-                      onDefinitionChange({
-                        ...definition,
-                        grid: {
-                          ...definition.grid,
-                          yStep: numberValue(
-                            event.currentTarget.value,
-                            definition.grid.yStep ?? 1,
-                          ),
-                        },
-                      })
-                    }
-                    step="any"
-                    type="number"
-                    value={definition.grid.yStep ?? 1}
-                  />
-                </label>
-              </div>
-            )}
-            <div className="plot-editor-grid two-columns">
-              <label>
-                Подпись X
-                <input
-                  maxLength={24}
-                  onChange={(event) =>
-                    onDefinitionChange({
-                      ...definition,
-                      axes: {
-                        ...definition.axes,
-                        xLabel: event.currentTarget.value,
-                      },
-                    })
-                  }
-                  value={definition.axes.xLabel}
-                />
-              </label>
-              <label>
-                Подпись Y
-                <input
-                  maxLength={24}
-                  onChange={(event) =>
-                    onDefinitionChange({
-                      ...definition,
-                      axes: {
-                        ...definition.axes,
-                        yLabel: event.currentTarget.value,
-                      },
-                    })
-                  }
-                  value={definition.axes.yLabel}
-                />
-              </label>
-            </div>
-            <label>
-              Положение легенды
-              <select
-                onChange={(event) =>
-                  onDefinitionChange({
-                    ...definition,
-                    legend: {
-                      ...definition.legend,
-                      position: event.currentTarget
-                        .value as CoordinatePlotDefinition["legend"]["position"],
-                    },
-                  })
-                }
-                value={definition.legend.position}
-              >
-                {plotLegendPositions.map((position) => (
-                  <option key={position} value={position}>
-                    {position}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <IssueList field="grid" id={gridIssueId} issues={issues} />
-          </div>
-        </details>
-
-        <details open>
-          <summary>Серии ({definition.series.length})</summary>
-          <div className="plot-editor-section">
-            <div className="plot-editor-actions compact">
-              <button
-                disabled={
-                  definition.series.length >= maximumCoordinatePlotSeries
-                }
-                onClick={() => onAddSeries("explicit")}
-                type="button"
-              >
-                + y=f(x)
-              </button>
-              <button
-                disabled={
-                  definition.series.length >= maximumCoordinatePlotSeries
-                }
-                onClick={() => onAddSeries("parametric")}
-                type="button"
-              >
-                + Параметрическая
-              </button>
-            </div>
-            <ol className="plot-series-list">
-              {definition.series.map((series) => (
-                <li
-                  className={
-                    series.id === selectedSeries?.id ? "is-selected" : ""
-                  }
-                  key={series.id}
-                >
-                  <input
-                    aria-label={`Показывать ${series.name}`}
-                    checked={series.visible}
-                    onChange={(event) =>
-                      onDefinitionChange(
-                        updateCoordinatePlotSeries(definition, {
-                          ...series,
-                          visible: event.currentTarget.checked,
-                        }),
-                      )
-                    }
-                    type="checkbox"
-                  />
-                  <button
-                    className="plot-series-name"
-                    onClick={() => onSelectedSeriesChange(series.id)}
-                    type="button"
-                  >
-                    {series.name || "Без названия"}
-                  </button>
-                  <button
-                    aria-label={`Удалить серию ${
-                      series.name || `№${definition.series.indexOf(series) + 1}`
-                    }`}
-                    onClick={() => {
-                      const next = removeCoordinatePlotSeries(
-                        definition,
-                        series.id,
-                      );
-                      onDefinitionChange(next);
-                      if (selectedSeriesId === series.id)
-                        onSelectedSeriesChange(next.series[0]?.id ?? null);
-                    }}
-                    type="button"
-                  >
-                    <span aria-hidden="true">×</span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-            {selectedSeries === null ? (
-              <p>Добавьте первую серию.</p>
-            ) : (
-              <SeriesEditor
-                definition={definition}
-                issues={issues}
-                onChange={onDefinitionChange}
-                series={selectedSeries}
-              />
-            )}
-          </div>
-        </details>
-
-        <details>
-          <summary>Параметры ({definition.parameters.length})</summary>
-          <div className="plot-editor-section">
-            <button
-              disabled={
-                definition.parameters.length >= maximumCoordinatePlotParameters
-              }
-              onClick={onAddParameter}
-              type="button"
-            >
-              Добавить параметр
-            </button>
-            {definition.parameters.length === 0 ? (
-              <p className="plot-editor-hint">
-                Параметры общие для всех серий. Пример: y=a*x^2+b.
-              </p>
-            ) : (
-              definition.parameters.map((parameter) => (
-                <ParameterEditor
-                  definition={definition}
-                  issues={issues}
-                  key={parameter.id}
-                  onChange={onDefinitionChange}
-                  parameter={parameter}
-                />
-              ))
-            )}
-            <IssueList
-              field="parameters"
-              includeDescendants={false}
-              issues={issues}
-            />
-          </div>
-        </details>
+        <section
+          aria-labelledby={`${editorId}-tab-functions`}
+          hidden={activeTab !== "functions"}
+          id={`${editorId}-panel-functions`}
+          role="tabpanel"
+        >
+          <FunctionsTab
+            definition={definition}
+            issues={issues}
+            onAddSeries={onAddSeries}
+            onChange={onDefinitionChange}
+            onCreateParameter={createParameterFromFormula}
+            onSelectedSeriesChange={onSelectedSeriesChange}
+            selectedSeries={selectedSeries}
+            selectedSeriesId={selectedSeriesId}
+          />
+        </section>
+        <section
+          aria-labelledby={`${editorId}-tab-parameters`}
+          hidden={activeTab !== "parameters"}
+          id={`${editorId}-panel-parameters`}
+          role="tabpanel"
+        >
+          <ParametersTab
+            definition={definition}
+            issues={issues}
+            onAddParameter={onAddParameter}
+            onChange={onDefinitionChange}
+          />
+        </section>
+        <section
+          aria-labelledby={`${editorId}-tab-view`}
+          hidden={activeTab !== "view"}
+          id={`${editorId}-panel-view`}
+          role="tabpanel"
+        >
+          <ViewTab
+            definition={definition}
+            issues={issues}
+            onChange={onDefinitionChange}
+          />
+        </section>
 
         {expressionIssues.length === 0 ? null : (
           <div className="plot-editor-warning" role="status">
