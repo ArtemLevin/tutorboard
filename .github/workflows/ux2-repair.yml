@@ -1,0 +1,45 @@
+name: UX2 repair
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    name: Repair plot discovery test lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/coordinate-plot-ux-structure-discovery
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Remove redundant assertion and verify
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/app/CoordinatePlotEditorPanel.test.tsx")
+          source = path.read_text(encoding="utf-8")
+          old = ''') as HTMLInputElement;'''
+          if source.count(old) != 1:
+              raise SystemExit(f"Expected one redundant assertion, found {source.count(old)}")
+          path.write_text(source.replace(old, ");", 1), encoding="utf-8")
+          PY
+          npx prettier --write src/app/CoordinatePlotEditorPanel.test.tsx
+          npx eslint src/app/CoordinatePlotEditorPanel.test.tsx --max-warnings=0
+          npm run typecheck
+      - name: Push repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/CoordinatePlotEditorPanel.test.tsx
+          git commit -m "test: remove redundant formula input assertion"
+          git push origin HEAD:feature/coordinate-plot-ux-structure-discovery
