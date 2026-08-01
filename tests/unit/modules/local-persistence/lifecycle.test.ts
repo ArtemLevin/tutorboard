@@ -10,18 +10,12 @@ describe("local autosave lifecycle flush", () => {
   it("flushes on hidden visibility and page exit, then detaches cleanly", () => {
     const documentTarget = new VisibilityTarget();
     const windowTarget = new EventTarget();
-    const flush = vi.fn(async () => undefined);
+    const flush = vi.fn(() => Promise.resolve());
     const dispose = bindLocalAutosaveLifecycleFlush(
       { flush },
       {
-        documentTarget: documentTarget as unknown as Pick<
-          Document,
-          "addEventListener" | "removeEventListener" | "visibilityState"
-        >,
-        windowTarget: windowTarget as unknown as Pick<
-          Window,
-          "addEventListener" | "removeEventListener"
-        >,
+        documentTarget,
+        windowTarget,
       },
     );
 
