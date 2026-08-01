@@ -1,5 +1,7 @@
 import type { ReactElement } from "react";
 
+import type { CoordinatePlotZoomAxis } from "./coordinate-plot-editing";
+
 import type {
   BoardObject,
   BoardObjectId,
@@ -21,6 +23,7 @@ export interface CoordinatePlotRenderInteraction {
     | ((objectId: BoardObjectId, viewport: CoordinatePlotViewport) => void)
     | undefined;
   readonly selectedSeriesId: PlotSeriesId | null;
+  readonly zoomAxis?: CoordinatePlotZoomAxis | undefined;
 }
 
 export interface KonvaRenderContext {

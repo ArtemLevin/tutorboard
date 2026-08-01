@@ -9,7 +9,8 @@ import {
 
 const maximumTickCount = 512;
 const minimumLegendWidth = 132;
-const maximumLegendWidth = 280;
+const maximumLegendWidth = 260;
+const maximumLegendRows = 8;
 const legendRowHeight = 24;
 
 export interface PlotRenderTick {
@@ -29,7 +30,9 @@ export interface PlotGridRenderModel {
 
 export interface PlotLegendLayout {
   readonly height: number;
+  readonly hiddenRowCount: number;
   readonly rowHeight: number;
+  readonly visibleRowCount: number;
   readonly width: number;
   readonly x: number;
   readonly y: number;
@@ -243,21 +246,47 @@ export function createPlotLegendLayout(
   size: Size2,
 ): PlotLegendLayout {
   const margin = 10;
+  const availableWidth = Math.max(72, size.width - margin * 2);
+  const minimumWidth = Math.min(minimumLegendWidth, availableWidth);
+  const maximumWidth = Math.min(
+    availableWidth,
+    maximumLegendWidth,
+    Math.max(minimumWidth, size.width * 0.48),
+  );
   const longest = names.reduce(
     (length, name) => Math.max(length, name.length),
     0,
   );
-  const width = clamp(
-    58 + longest * 7,
-    minimumLegendWidth,
-    Math.min(maximumLegendWidth, Math.max(minimumLegendWidth, size.width - 20)),
+  const width = clamp(58 + longest * 7, minimumWidth, maximumWidth);
+  const availableHeight = Math.max(34, size.height - margin * 2);
+  const maximumHeight = Math.min(
+    availableHeight,
+    Math.max(58, size.height * 0.48),
   );
-  const height = Math.max(34, 12 + names.length * legendRowHeight);
+  const rowCapacity = Math.max(
+    1,
+    Math.min(
+      maximumLegendRows,
+      Math.floor((maximumHeight - 12) / legendRowHeight),
+    ),
+  );
+  const overflow = names.length > rowCapacity;
+  const visibleRowCount = overflow
+    ? Math.max(0, rowCapacity - 1)
+    : names.length;
+  const hiddenRowCount = names.length - visibleRowCount;
+  const renderedRowCount = visibleRowCount + (hiddenRowCount > 0 ? 1 : 0);
+  const height = Math.min(
+    availableHeight,
+    Math.max(34, 12 + renderedRowCount * legendRowHeight),
+  );
   const right = position.endsWith("right");
   const bottom = position.startsWith("bottom");
   return {
     height,
+    hiddenRowCount,
     rowHeight: legendRowHeight,
+    visibleRowCount,
     width,
     x: right ? Math.max(margin, size.width - width - margin) : margin,
     y: bottom ? Math.max(margin, size.height - height - margin) : margin,

@@ -20,6 +20,7 @@
   "include": [
     "eslint.config.js",
     "playwright.config.ts",
+    "playwright.visual.config.ts",
     "vite.config.ts",
     "tests/e2e"
   ]

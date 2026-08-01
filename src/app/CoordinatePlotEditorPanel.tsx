@@ -1048,8 +1048,9 @@ function ViewTab({
           Одинаковый масштаб по X и Y
         </label>
         <p className="plot-editor-hint">
-          На плоскости: перетаскивание сдвигает диапазон, колесо масштабирует,
-          Shift+колесо меняет X, Alt+колесо меняет Y.
+          На плоскости: перетаскивание сдвигает диапазон, колесо и жест двумя
+          пальцами масштабируют. Режим XY, X или Y выбирается на панели над
+          полотном; Shift и Alt временно переключают масштабирование на X или Y.
         </p>
         <IssueList
           field="coordinateViewport"
@@ -1332,6 +1333,55 @@ function ViewTab({
             ))}
           </select>
         </label>
+      </div>
+
+      <div
+        className="plot-editor-section-card"
+        data-testid="renderer-status-help"
+      >
+        <div className="plot-editor-section-heading">
+          <div>
+            <strong>Статусы построения</strong>
+            <span>Что означают отметки рядом с функциями</span>
+          </div>
+        </div>
+        <ul className="plot-renderer-status-list">
+          <li data-renderer-status="sampled">
+            <span aria-hidden="true">✓</span>
+            <div>
+              <strong>Построено</strong>
+              <small>Полный рассчитанный график отображён.</small>
+            </div>
+          </li>
+          <li data-renderer-status="truncated">
+            <span aria-hidden="true">…</span>
+            <div>
+              <strong>Лимит детализации</strong>
+              <small>
+                Безопасный лимит точек или вычислений остановил дальнейшее
+                уточнение.
+              </small>
+            </div>
+          </li>
+          <li data-renderer-status="invalid">
+            <span aria-hidden="true">⚠</span>
+            <div>
+              <strong>Ошибка</strong>
+              <small>
+                Формула, область определения или диапазон не вычисляются.
+              </small>
+            </div>
+          </li>
+          <li data-renderer-status="aborted">
+            <span aria-hidden="true">×</span>
+            <div>
+              <strong>Отменено</strong>
+              <small>
+                Устаревшее построение остановлено после нового изменения.
+              </small>
+            </div>
+          </li>
+        </ul>
       </div>
     </div>
   );

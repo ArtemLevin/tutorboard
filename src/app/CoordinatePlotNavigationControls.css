@@ -1,0 +1,75 @@
+.coordinate-plot-navigation {
+  position: absolute;
+  z-index: 24;
+  top: 18px;
+  left: 82px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgb(132 147 153 / 42%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 14px 36px rgb(37 51 58 / 14%);
+  backdrop-filter: blur(16px);
+}
+
+.plot-navigation-actions,
+.plot-navigation-axis {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.plot-navigation-axis {
+  padding-left: 6px;
+  border-left: 1px solid #d8dfe1;
+}
+
+.coordinate-plot-navigation button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid #cbd4d8;
+  border-radius: 9px;
+  color: #31454f;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.coordinate-plot-navigation button:hover {
+  border-color: #2c7182;
+  background: #eef7f8;
+}
+
+.coordinate-plot-navigation button[role="radio"] {
+  min-width: 32px;
+  padding: 0 7px;
+}
+
+.coordinate-plot-navigation button.is-active {
+  border-color: #1d4ed8;
+  color: #fff;
+  background: #2563eb;
+}
+
+.coordinate-plot-navigation :focus-visible {
+  outline: 3px solid rgb(37 99 235 / 28%);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .coordinate-plot-navigation {
+    top: 74px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+    overflow-x: auto;
+  }
+
+  .coordinate-plot-navigation button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

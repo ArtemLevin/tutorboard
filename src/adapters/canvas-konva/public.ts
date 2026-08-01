@@ -12,6 +12,7 @@ export {
 } from "./BoardStage";
 export {
   panCoordinatePlotViewport,
+  pinchCoordinatePlotViewport,
   zoomCoordinatePlotViewportAt,
   type CoordinatePlotZoomAxis,
 } from "./coordinate-plot-editing";

@@ -38,7 +38,9 @@
     "geometryos:check": "node scripts/check-geometryos-contract.mjs",
     "geometryos:validator-smoke": "node scripts/check-geometryos-validator-runtime.mjs",
     "geometryos:live-smoke": "node scripts/geometryos-live-contract-smoke.mjs",
-    "geometryos:live-browser": "playwright test --config playwright.geometryos.config.mjs"
+    "geometryos:live-browser": "playwright test --config playwright.geometryos.config.mjs",
+    "e2e:plot-visual": "playwright test --config playwright.visual.config.ts",
+    "e2e:plot-visual:update": "playwright test --config playwright.visual.config.ts --update-snapshots"
   },
   "dependencies": {
     "dexie": "4.4.4",

@@ -1,0 +1,68 @@
+import { expect, test } from "@playwright/test";
+
+const databaseName = "tutorboard-local-v1";
+
+async function resetLocalDatabase(page: import("@playwright/test").Page) {
+  await page.goto("/");
+  await page.evaluate(async (name) => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(name);
+      request.onsuccess = () => resolve();
+      request.onerror = () =>
+        reject(request.error ?? new Error("IndexedDB deletion failed"));
+      request.onblocked = () => reject(new Error("IndexedDB deletion blocked"));
+    });
+  }, databaseName);
+  await page.reload();
+}
+
+test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
+  await resetLocalDatabase(page);
+  await page
+    .getByRole("button", { name: "Создать координатную плоскость (G)" })
+    .click();
+
+  const editor = page.getByRole("complementary", {
+    name: "Редактор координатной плоскости",
+  });
+  await expect(editor).toBeVisible();
+  await expect(
+    page.getByRole("toolbar", { name: "Навигация координатной плоскости" }),
+  ).toBeVisible();
+
+  const mobile = testInfo.project.name.includes("mobile");
+  if (mobile) {
+    const viewport = page.viewportSize();
+    const box = await editor.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeLessThanOrEqual(1);
+    expect(box!.y).toBeLessThanOrEqual(1);
+    expect(box!.width).toBeGreaterThanOrEqual((viewport?.width ?? 0) - 2);
+    expect(box!.height).toBeGreaterThanOrEqual((viewport?.height ?? 0) - 2);
+  }
+
+  await expect(page).toHaveScreenshot("coordinate-plot-functions.png", {
+    fullPage: true,
+  });
+
+  await editor.getByRole("tab", { name: "Вид" }).click();
+  await expect(editor.getByTestId("renderer-status-help")).toBeVisible();
+  await expect(page).toHaveScreenshot("coordinate-plot-view-statuses.png", {
+    fullPage: true,
+  });
+
+  if (!mobile) {
+    await editor.getByRole("tab", { name: "Функции" }).click();
+    for (let index = 0; index < 11; index += 1) {
+      await editor.getByRole("button", { name: "+ Явная функция" }).click();
+    }
+    await editor.getByRole("button", { name: "Сохранить" }).click();
+    await editor
+      .getByRole("button", { name: "Закрыть редактор графика" })
+      .click();
+    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+    await expect(page).toHaveScreenshot("coordinate-plot-bounded-legend.png", {
+      fullPage: true,
+    });
+  }
+});
