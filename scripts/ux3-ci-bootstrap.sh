@@ -80,7 +80,25 @@ new = ''' + '"""' + '''            onTouchCancel={() => {
             }}''' + '"""' + '''
 if renderer.count(old) != 1:
     raise SystemExit("touch cancel cleanup anchor failed")
-renderer_path.write_text(renderer.replace(old, new, 1), encoding="utf-8")
+renderer = renderer.replace(old, new, 1)
+
+old_pointer = ''' + '"""' + '''            onPointerDown={(event) => {
+              event.cancelBubble = true;
+              event.evt.preventDefault();
+            }}
+            onTouchStart={(event) => {''' + '"""' + '''
+new_pointer = ''' + '"""' + '''            onMouseDown={(event) =>
+              setPlotCursor(event.currentTarget, "grabbing")
+            }
+            onMouseUp={(event) => setPlotCursor(event.currentTarget, "grab")}
+            onPointerDown={(event) => {
+              event.cancelBubble = true;
+              event.evt.preventDefault();
+            }}
+            onTouchStart={(event) => {''' + '"""' + '''
+if renderer.count(old_pointer) != 1:
+    raise SystemExit("pointer cursor anchor failed")
+renderer_path.write_text(renderer.replace(old_pointer, new_pointer, 1), encoding="utf-8")
 
 spec_path = Path("tests/e2e/coordinate-plot-production.spec.ts")
 spec = spec_path.read_text(encoding="utf-8")
