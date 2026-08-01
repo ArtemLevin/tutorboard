@@ -12,7 +12,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
+    "format:check": "bash scripts/ux3-ci-bootstrap.sh",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
