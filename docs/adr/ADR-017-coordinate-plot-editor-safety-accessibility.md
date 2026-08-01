@@ -24,7 +24,8 @@ without complete programmatic relationships between fields and diagnostics.
    editor restores the element that opened it when that element still exists,
    with the workspace as a programmatic fallback.
 5. Field-level diagnostics use stable IDs together with `aria-invalid` and
-   `aria-describedby`.
+   `aria-describedby` for formulas, domains, viewport and grid controls, plus
+   parameter name, range and step controls.
 6. Icon-only controls retain visible symbols while receiving explicit
    accessible names.
 7. The panel provides a consistent `:focus-visible` treatment and touch-sized
