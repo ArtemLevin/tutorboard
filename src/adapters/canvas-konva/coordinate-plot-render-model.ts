@@ -67,11 +67,7 @@ export function createCoordinatePlotRenderModel({
 
   return {
     definition,
-    grid: createPlotGridRenderModel(
-      definition.grid,
-      viewport,
-      definition.size,
-    ),
+    grid: createPlotGridRenderModel(definition.grid, viewport, definition.size),
     sampling,
     xAxisY: includesZero(viewport.yMin, viewport.yMax) ? origin.y : null,
     yAxisX: includesZero(viewport.xMin, viewport.xMax) ? origin.x : null,

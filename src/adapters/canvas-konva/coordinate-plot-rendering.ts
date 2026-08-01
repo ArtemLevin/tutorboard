@@ -202,26 +202,12 @@ export function createPlotGridRenderModel(
   const majorYValues = enumeratePlotTicks(viewport.yMin, viewport.yMax, yStep);
   const minorXStep = xStep / 5;
   const minorYStep = yStep / 5;
-  const minorX = enumeratePlotTicks(
-    viewport.xMin,
-    viewport.xMax,
-    minorXStep,
-  )
+  const minorX = enumeratePlotTicks(viewport.xMin, viewport.xMax, minorXStep)
     .filter((value) => !alignedWithStep(value, xStep))
-    .map(
-      (value) =>
-        plotDataToLocalPoint({ x: value, y: 0 }, viewport, size).x,
-    );
-  const minorY = enumeratePlotTicks(
-    viewport.yMin,
-    viewport.yMax,
-    minorYStep,
-  )
+    .map((value) => plotDataToLocalPoint({ x: value, y: 0 }, viewport, size).x);
+  const minorY = enumeratePlotTicks(viewport.yMin, viewport.yMax, minorYStep)
     .filter((value) => !alignedWithStep(value, yStep))
-    .map(
-      (value) =>
-        plotDataToLocalPoint({ x: 0, y: value }, viewport, size).y,
-    );
+    .map((value) => plotDataToLocalPoint({ x: 0, y: value }, viewport, size).y);
 
   return {
     majorX: renderTicks(majorXValues, "x", viewport, size, xStep),
@@ -257,7 +243,10 @@ export function createPlotLegendLayout(
   size: Size2,
 ): PlotLegendLayout {
   const margin = 10;
-  const longest = names.reduce((length, name) => Math.max(length, name.length), 0);
+  const longest = names.reduce(
+    (length, name) => Math.max(length, name.length),
+    0,
+  );
   const width = clamp(
     58 + longest * 7,
     minimumLegendWidth,

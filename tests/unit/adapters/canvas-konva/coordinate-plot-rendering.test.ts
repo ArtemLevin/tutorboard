@@ -129,9 +129,9 @@ describe("coordinate plot rendering geometry", () => {
     expect(grid.yStep).toBe(2);
     expect(grid.majorX.some(({ label }) => label === "0")).toBe(true);
     expect(grid.minorX.length).toBeGreaterThan(grid.majorX.length);
-    expect(grid.minorY.every((position) => position >= 0 && position <= 320)).toBe(
-      true,
-    );
+    expect(
+      grid.minorY.every((position) => position >= 0 && position <= 320),
+    ).toBe(true);
     expect(formatPlotTick(-0, 0.1)).toBe("0");
     expect(formatPlotTick(12_500_000, 1_000_000)).toContain("e");
   });

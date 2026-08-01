@@ -22,8 +22,7 @@ const axisLabelFontSize = 13;
 export interface CoordinatePlotRendererProps {
   readonly object: CoordinatePlotObject;
   readonly onSelectedSeriesChange?:
-    | ((seriesId: PlotSeriesId | null) => void)
-    | undefined;
+    ((seriesId: PlotSeriesId | null) => void) | undefined;
   readonly selectedSeriesId?: PlotSeriesId | null | undefined;
   readonly zoom: number;
 }
@@ -93,8 +92,9 @@ export function CoordinatePlotRenderer({
 }: CoordinatePlotRendererProps): ReactElement {
   const [internalSelectedSeriesId, setInternalSelectedSeriesId] =
     useState<PlotSeriesId | null>(null);
-  const [hoveredSeriesId, setHoveredSeriesId] =
-    useState<PlotSeriesId | null>(null);
+  const [hoveredSeriesId, setHoveredSeriesId] = useState<PlotSeriesId | null>(
+    null,
+  );
   const model = useMemo(
     () =>
       createCoordinatePlotRenderModel({
@@ -106,9 +106,7 @@ export function CoordinatePlotRenderer({
   );
   const resultBySeriesId = useMemo(
     () =>
-      new Map(
-        model.sampling.series.map((result) => [result.seriesId, result]),
-      ),
+      new Map(model.sampling.series.map((result) => [result.seriesId, result])),
     [model.sampling.series],
   );
   const controlled = selectedSeriesId !== undefined;
@@ -282,7 +280,8 @@ export function CoordinatePlotRenderer({
           )}
         {visibleSeries.flatMap((series) => {
           const result = resultBySeriesId.get(series.id);
-          if (result?.sample === null || result?.sample === undefined) return [];
+          if (result?.sample === null || result?.sample === undefined)
+            return [];
           const selected = highlightedSeriesId === series.id;
           const dash = plotLineDash(
             series.style.lineStyle,
