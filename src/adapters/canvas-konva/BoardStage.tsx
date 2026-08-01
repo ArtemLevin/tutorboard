@@ -38,7 +38,10 @@ import {
 } from "../../shared/stroke-smoothing";
 import { BoardGrid } from "./grid";
 import { clientPoint, elementPoint } from "./pointer";
-import type { KonvaRendererRegistry } from "./renderer-registry";
+import type {
+  CoordinatePlotRenderInteraction,
+  KonvaRendererRegistry,
+} from "./renderer-registry";
 import { useElementSize } from "./use-element-size";
 
 const zoomBounds = { minimum: 0.1, maximum: 8 } as const;
@@ -107,6 +110,8 @@ export interface BoardObjectTransformSnapshot {
 }
 
 export interface BoardStageProps {
+  readonly coordinatePlotInteraction?:
+    CoordinatePlotRenderInteraction | undefined;
   readonly drawingModeKey: string | null;
   readonly onPanModeRequest?: () => void;
   readonly onWorldPointerCancel: (pointerId: number) => void;
@@ -182,6 +187,8 @@ function renderItem(
   item: BoardRenderItem,
   registry: KonvaRendererRegistry,
   options: {
+    readonly coordinatePlotInteraction?:
+      CoordinatePlotRenderInteraction | undefined;
     readonly interactive: boolean;
     readonly previewDelta?: Vec2 | null;
     readonly zoom: number;
@@ -197,7 +204,12 @@ function renderItem(
       y={options.previewDelta?.y ?? 0}
     >
       {applyTransforms(
-        registry.render(item, { zoom: options.zoom }),
+        registry.render(item, {
+          zoom: options.zoom,
+          ...(options.coordinatePlotInteraction === undefined
+            ? {}
+            : { coordinatePlot: options.coordinatePlotInteraction }),
+        }),
         item.transforms,
       )}
     </Group>
@@ -227,6 +239,7 @@ function objectIdFromTarget(target: Konva.Node): BoardObjectId | null {
 }
 
 export function BoardStage({
+  coordinatePlotInteraction,
   drawingModeKey,
   onPanModeRequest,
   onViewportCommit,
@@ -915,6 +928,10 @@ export function BoardStage({
       ref={rootRef}
       aria-label="Бесконечное полотно TutorBoard"
       className="board-stage"
+      data-coordinate-plot-editing={
+        coordinatePlotInteraction?.activeObjectId !== null &&
+        coordinatePlotInteraction?.activeObjectId !== undefined
+      }
       data-drawing={isDrawing}
       data-lasso-points={selectionLasso?.length ?? 0}
       data-lassoing={selectionLasso !== null}
@@ -956,6 +973,7 @@ export function BoardStage({
               <Group key={`render-batch-${batchIndex}`}>
                 {batch.map((item) =>
                   renderItem(item, registry, {
+                    coordinatePlotInteraction,
                     interactive: true,
                     zoom: previewViewport.zoom,
                     previewDelta: selected.has(item.object.id)

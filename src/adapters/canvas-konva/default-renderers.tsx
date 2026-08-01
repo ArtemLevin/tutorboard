@@ -283,10 +283,32 @@ const renderers: readonly KonvaObjectRenderer[] = [
   {
     kind: "math.coordinate-plot",
     render(object, context) {
+      const plot = expectKind(object, "math.coordinate-plot");
+      const interaction = context.coordinatePlot;
+      const editing = interaction?.activeObjectId === plot.id;
+      const renderedPlot =
+        editing && interaction.definitionOverride !== undefined
+          ? { ...plot, definition: interaction.definitionOverride }
+          : plot;
       return (
         <CoordinatePlotRenderer
-          object={expectKind(object, "math.coordinate-plot")}
+          editing={editing}
+          object={renderedPlot}
           zoom={context.zoom}
+          {...(interaction?.onEditRequest === undefined
+            ? {}
+            : {
+                onEditRequest: () => interaction.onEditRequest?.(plot.id),
+              })}
+          {...(!editing
+            ? {}
+            : {
+                onSelectedSeriesChange: (seriesId) =>
+                  interaction?.onSelectedSeriesChange?.(plot.id, seriesId),
+                onViewportChange: (viewport) =>
+                  interaction?.onViewportChange?.(plot.id, viewport),
+                selectedSeriesId: interaction?.selectedSeriesId ?? null,
+              })}
         />
       );
     },
