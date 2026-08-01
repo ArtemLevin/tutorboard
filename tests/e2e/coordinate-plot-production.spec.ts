@@ -32,21 +32,23 @@ test("persists, restores, duplicates and exports a production coordinate plot", 
   await expect(editor).toBeVisible();
 
   await page.getByLabel("Формула явной функции").fill("a*x^2");
-  await page.getByText(/^Параметры \(0\)$/).click();
+  await page.getByRole("tab", { name: "Параметры (0)" }).click();
   await page.getByRole("button", { name: "Добавить параметр" }).click();
 
-  await page.getByRole("button", { name: "+ y=f(x)" }).click();
+  await page.getByRole("tab", { name: "Функции" }).click();
+  await page.getByRole("button", { name: "+ Явная функция" }).click();
   await page.getByLabel("Формула явной функции").fill("2*x+1");
 
-  await page.getByRole("button", { name: "+ Параметрическая" }).click();
+  await page.getByRole("button", { name: "+ Параметрическая кривая" }).click();
   await page.getByLabel("Параметрическая формула x").fill("3*cos(t)");
   await page.getByLabel("Параметрическая формула y").fill("3*sin(t)");
 
   await page.getByLabel("Показывать График 2").uncheck();
-  await page.getByLabel("Граница xMin").fill("-18");
-  await page.getByLabel("Граница xMax").fill("24");
-  await page.getByLabel("Граница yMin").fill("-9");
-  await page.getByLabel("Граница yMax").fill("11");
+  await page.getByRole("tab", { name: "Вид" }).click();
+  await page.getByLabel("Минимальная граница X").fill("-18");
+  await page.getByLabel("Максимальная граница X").fill("24");
+  await page.getByLabel("Минимальная граница Y").fill("-9");
+  await page.getByLabel("Максимальная граница Y").fill("11");
 
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByTestId("persistence-status")).toHaveText(
@@ -61,13 +63,15 @@ test("persists, restores, duplicates and exports a production coordinate plot", 
   await page.keyboard.press("Enter");
   await expect(editor).toBeVisible();
   await expect(page.getByLabel("Формула явной функции")).toHaveValue("a*x^2");
-  await expect(page.getByLabel("Граница xMin")).toHaveValue("-18");
-  await expect(page.getByLabel("Граница xMax")).toHaveValue("24");
-  await expect(page.getByLabel("Граница yMin")).toHaveValue("-9");
-  await expect(page.getByLabel("Граница yMax")).toHaveValue("11");
   await expect(page.getByLabel("Показывать График 2")).not.toBeChecked();
 
-  await page.getByText(/^Параметры \(1\)$/).click();
+  await page.getByRole("tab", { name: "Вид" }).click();
+  await expect(page.getByLabel("Минимальная граница X")).toHaveValue("-18");
+  await expect(page.getByLabel("Максимальная граница X")).toHaveValue("24");
+  await expect(page.getByLabel("Минимальная граница Y")).toHaveValue("-9");
+  await expect(page.getByLabel("Максимальная граница Y")).toHaveValue("11");
+
+  await page.getByRole("tab", { name: "Параметры (1)" }).click();
   await expect(page.getByLabel(/Имя параметра/)).toHaveValue("a");
 
   await page.getByRole("button", { name: "Закрыть редактор графика" }).click();
