@@ -18,6 +18,29 @@ async function resetLocalDatabase(page: import("@playwright/test").Page) {
   await page.reload();
 }
 
+async function localRevisionCount(
+  page: import("@playwright/test").Page,
+): Promise<number> {
+  return page.evaluate(async (name) => {
+    return new Promise<number>((resolve, reject) => {
+      const request = indexedDB.open(name);
+      request.onerror = () =>
+        reject(request.error ?? new Error("IndexedDB open failed"));
+      request.onsuccess = () => {
+        const database = request.result;
+        const transaction = database.transaction("revisions", "readonly");
+        const countRequest = transaction.objectStore("revisions").count();
+        countRequest.onerror = () =>
+          reject(countRequest.error ?? new Error("Revision count failed"));
+        countRequest.onsuccess = () => {
+          database.close();
+          resolve(countRequest.result);
+        };
+      };
+    });
+  }, databaseName);
+}
+
 test("discovers, persists, restores, duplicates and exports a production coordinate plot", async ({
   page,
 }) => {
@@ -30,6 +53,10 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     name: "Редактор координатной плоскости",
   });
   await expect(editor).toBeVisible();
+  const persistenceStatus = page.getByTestId("persistence-status");
+  await expect(persistenceStatus).toHaveText(
+    /Сохранено локально|Сохранено повторно/,
+  );
 
   await editor.getByText("Краткая справка по формулам").click();
   await expect(
@@ -74,8 +101,12 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await editor.getByLabel("Минимальная граница Y").fill("-9");
   await editor.getByLabel("Максимальная граница Y").fill("11");
 
+  const revisionCountBeforeSave = await localRevisionCount(page);
   await editor.getByRole("button", { name: "Сохранить" }).click();
-  await expect(page.getByTestId("persistence-status")).toHaveText(
+  await expect
+    .poll(() => localRevisionCount(page))
+    .toBeGreaterThan(revisionCountBeforeSave);
+  await expect(persistenceStatus).toHaveText(
     /Сохранено локально|Сохранено повторно/,
   );
   await editor
