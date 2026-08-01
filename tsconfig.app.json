@@ -25,6 +25,8 @@
     "src",
     "tests/architecture",
     "tests/contracts",
+    "tests/fixtures",
+    "tests/integration",
     "tests/performance",
     "tests/unit"
   ]
