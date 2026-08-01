@@ -60,7 +60,9 @@ test("persists, restores, duplicates and exports a production coordinate plot", 
   await page.getByRole("button", { name: "math.coordinate-plot" }).click();
   await page.keyboard.press("Enter");
   await expect(editor).toBeVisible();
-  await expect(page.getByLabel("Формула явной функции")).toHaveValue("a*x^2");
+  await expect(page.getByLabel("Формула явной функции")).toHaveValue(
+    "a*x^2",
+  );
   await expect(page.getByLabel("Граница xMin")).toHaveValue("-18");
   await expect(page.getByLabel("Граница xMax")).toHaveValue("24");
   await expect(page.getByLabel("Граница yMin")).toHaveValue("-9");
@@ -93,7 +95,10 @@ test("persists, restores, duplicates and exports a production coordinate plot", 
         {
           readonly definition?: {
             readonly coordinateViewport?: Record<string, unknown>;
-            readonly parameters?: readonly { readonly id: string; readonly name: string }[];
+            readonly parameters?: readonly {
+              readonly id: string;
+              readonly name: string;
+            }[];
             readonly series?: readonly {
               readonly expression?: string;
               readonly id: string;
