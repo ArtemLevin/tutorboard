@@ -1,0 +1,18 @@
+export {
+  addCoordinatePlotParameter,
+  addCoordinatePlotSeries,
+  createDefaultCoordinatePlotObject,
+  createExplicitPlotSeries,
+  createParametricPlotSeries,
+  fitCoordinatePlotDefinition,
+  removeCoordinatePlotParameter,
+  removeCoordinatePlotSeries,
+  replaceCoordinatePlotSeriesKind,
+  resetCoordinatePlotViewport,
+  standardCoordinatePlotViewport,
+  updateCoordinatePlotParameter,
+  updateCoordinatePlotSeries,
+  validateCoordinatePlotEditorDefinition,
+  type CoordinatePlotEditorIssue,
+  type CoordinatePlotIdFactory,
+} from "./model";
