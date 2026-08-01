@@ -1,0 +1,1343 @@
+name: UX3 implementation
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/ux3-implementation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/coordinate-plot-ux-canvas-mobile
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Implement canvas navigation, mobile UX and visual matrix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              source = file.read_text(encoding="utf-8")
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one anchor, found {count}: {old[:90]!r}")
+              file.write_text(source.replace(old, new, 1), encoding="utf-8")
+
+          Path("src/app/CoordinatePlotNavigationControls.tsx").write_text(r'''import type { ReactElement } from "react";
+
+import type { CoordinatePlotZoomAxis } from "../adapters/canvas-konva/public";
+import "./CoordinatePlotNavigationControls.css";
+
+const axisOptions: readonly {
+  readonly axis: CoordinatePlotZoomAxis;
+  readonly label: string;
+  readonly shortLabel: string;
+}[] = [
+  { axis: "both", label: "Обе оси", shortLabel: "XY" },
+  { axis: "x", label: "Только ось X", shortLabel: "X" },
+  { axis: "y", label: "Только ось Y", shortLabel: "Y" },
+];
+
+export interface CoordinatePlotNavigationControlsProps {
+  readonly axis: CoordinatePlotZoomAxis;
+  readonly onAxisChange: (axis: CoordinatePlotZoomAxis) => void;
+  readonly onFit: () => void;
+  readonly onReset: () => void;
+  readonly onZoomIn: () => void;
+  readonly onZoomOut: () => void;
+}
+
+export function CoordinatePlotNavigationControls({
+  axis,
+  onAxisChange,
+  onFit,
+  onReset,
+  onZoomIn,
+  onZoomOut,
+}: CoordinatePlotNavigationControlsProps): ReactElement {
+  const stopPointerPropagation = (event: React.PointerEvent<HTMLElement>) =>
+    event.stopPropagation();
+
+  return (
+    <div
+      aria-label="Навигация координатной плоскости"
+      className="coordinate-plot-navigation"
+      data-testid="coordinate-plot-navigation"
+      onPointerDown={stopPointerPropagation}
+      role="toolbar"
+    >
+      <div aria-label="Масштаб графика" className="plot-navigation-actions" role="group">
+        <button aria-label="Приблизить график" onClick={onZoomIn} title="Приблизить" type="button">
+          <span aria-hidden="true">+</span>
+        </button>
+        <button aria-label="Отдалить график" onClick={onZoomOut} title="Отдалить" type="button">
+          <span aria-hidden="true">−</span>
+        </button>
+        <button aria-label="Сбросить диапазон графика" onClick={onReset} type="button">
+          Сброс
+        </button>
+        <button aria-label="Вместить все графики" onClick={onFit} type="button">
+          Вместить
+        </button>
+      </div>
+      <div
+        aria-label="Ось масштабирования"
+        className="plot-navigation-axis"
+        role="radiogroup"
+      >
+        {axisOptions.map((option) => (
+          <button
+            aria-checked={axis === option.axis}
+            aria-label={option.label}
+            className={axis === option.axis ? "is-active" : undefined}
+            key={option.axis}
+            onClick={() => onAxisChange(option.axis)}
+            role="radio"
+            tabIndex={axis === option.axis ? 0 : -1}
+            type="button"
+          >
+            {option.shortLabel}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+''', encoding="utf-8")
+
+          Path("src/app/CoordinatePlotNavigationControls.css").write_text(r'''.coordinate-plot-navigation {
+  position: absolute;
+  z-index: 24;
+  top: 18px;
+  left: 82px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgb(132 147 153 / 42%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 14px 36px rgb(37 51 58 / 14%);
+  backdrop-filter: blur(16px);
+}
+
+.plot-navigation-actions,
+.plot-navigation-axis {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.plot-navigation-axis {
+  padding-left: 6px;
+  border-left: 1px solid #d8dfe1;
+}
+
+.coordinate-plot-navigation button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid #cbd4d8;
+  border-radius: 9px;
+  color: #31454f;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.coordinate-plot-navigation button:hover {
+  border-color: #2c7182;
+  background: #eef7f8;
+}
+
+.coordinate-plot-navigation button[role="radio"] {
+  min-width: 32px;
+  padding: 0 7px;
+}
+
+.coordinate-plot-navigation button.is-active {
+  border-color: #1d4ed8;
+  color: #fff;
+  background: #2563eb;
+}
+
+.coordinate-plot-navigation :focus-visible {
+  outline: 3px solid rgb(37 99 235 / 28%);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .coordinate-plot-navigation {
+    top: 74px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+    overflow-x: auto;
+  }
+
+  .coordinate-plot-navigation button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+''', encoding="utf-8")
+
+          Path("src/app/CoordinatePlotNavigationControls.test.tsx").write_text(r'''import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import { CoordinatePlotNavigationControls } from "./CoordinatePlotNavigationControls";
+
+describe("CoordinatePlotNavigationControls", () => {
+  it("exposes visible navigation actions and an accessible axis mode", () => {
+    const onAxisChange = vi.fn();
+    const onFit = vi.fn();
+    const onReset = vi.fn();
+    const onZoomIn = vi.fn();
+    const onZoomOut = vi.fn();
+
+    render(
+      <CoordinatePlotNavigationControls
+        axis="both"
+        onAxisChange={onAxisChange}
+        onFit={onFit}
+        onReset={onReset}
+        onZoomIn={onZoomIn}
+        onZoomOut={onZoomOut}
+      />,
+    );
+
+    expect(
+      screen.getByRole("toolbar", { name: "Навигация координатной плоскости" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Обе оси" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Приблизить график" }));
+    fireEvent.click(screen.getByRole("button", { name: "Отдалить график" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сбросить диапазон графика" }));
+    fireEvent.click(screen.getByRole("button", { name: "Вместить все графики" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Только ось X" }));
+
+    expect(onZoomIn).toHaveBeenCalledOnce();
+    expect(onZoomOut).toHaveBeenCalledOnce();
+    expect(onReset).toHaveBeenCalledOnce();
+    expect(onFit).toHaveBeenCalledOnce();
+    expect(onAxisChange).toHaveBeenCalledWith("x");
+  });
+});
+''', encoding="utf-8")
+
+          editing = Path("src/adapters/canvas-konva/coordinate-plot-editing.ts")
+          source = editing.read_text(encoding="utf-8")
+          if "pinchCoordinatePlotViewport" not in source:
+              source += r'''
+
+function pointDistance(left: Vec2, right: Vec2): number {
+  return Math.hypot(right.x - left.x, right.y - left.y);
+}
+
+function pointMidpoint(left: Vec2, right: Vec2): Vec2 {
+  return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
+}
+
+export function pinchCoordinatePlotViewport(
+  viewport: CoordinatePlotViewport,
+  size: Size2,
+  startTouches: readonly [Vec2, Vec2],
+  currentTouches: readonly [Vec2, Vec2],
+  axis: CoordinatePlotZoomAxis = "both",
+): CoordinatePlotViewport {
+  const startDistance = pointDistance(startTouches[0], startTouches[1]);
+  const currentDistance = pointDistance(currentTouches[0], currentTouches[1]);
+  if (!(startDistance > 1e-6) || !(currentDistance > 1e-6)) return viewport;
+
+  const startMidpoint = pointMidpoint(startTouches[0], startTouches[1]);
+  const currentMidpoint = pointMidpoint(currentTouches[0], currentTouches[1]);
+  const zoomed = zoomCoordinatePlotViewportAt(
+    viewport,
+    size,
+    startMidpoint,
+    clamp(startDistance / currentDistance, 0.05, 20),
+    axis,
+  );
+  return panCoordinatePlotViewport(zoomed, size, {
+    x: currentMidpoint.x - startMidpoint.x,
+    y: currentMidpoint.y - startMidpoint.y,
+  });
+}
+'''
+              editing.write_text(source, encoding="utf-8")
+
+          replace_once(
+              "src/adapters/canvas-konva/public.ts",
+              "  panCoordinatePlotViewport,\n  zoomCoordinatePlotViewportAt,",
+              "  panCoordinatePlotViewport,\n  pinchCoordinatePlotViewport,\n  zoomCoordinatePlotViewportAt,",
+          )
+
+          replace_once(
+              "src/adapters/canvas-konva/renderer-registry.tsx",
+              'import type { ReactElement } from "react";\n',
+              'import type { ReactElement } from "react";\n\nimport type { CoordinatePlotZoomAxis } from "./coordinate-plot-editing";\n',
+          )
+          replace_once(
+              "src/adapters/canvas-konva/renderer-registry.tsx",
+              "  readonly selectedSeriesId: PlotSeriesId | null;\n}",
+              "  readonly selectedSeriesId: PlotSeriesId | null;\n  readonly zoomAxis?: CoordinatePlotZoomAxis | undefined;\n}",
+          )
+
+          replace_once(
+              "src/adapters/canvas-konva/default-renderers.tsx",
+              "          editing={editing}\n          object={renderedPlot}\n          zoom={context.zoom}",
+              "          editing={editing}\n          object={renderedPlot}\n          zoom={context.zoom}\n          zoomAxis={interaction?.zoomAxis ?? \"both\"}",
+          )
+
+          rendering_path = Path("src/adapters/canvas-konva/coordinate-plot-rendering.ts")
+          rendering = rendering_path.read_text(encoding="utf-8")
+          rendering = rendering.replace(
+              "const maximumLegendWidth = 280;\nconst legendRowHeight = 24;",
+              "const maximumLegendWidth = 260;\nconst maximumLegendRows = 8;\nconst legendRowHeight = 24;",
+              1,
+          )
+          rendering = rendering.replace(
+              "export interface PlotLegendLayout {\n  readonly height: number;\n  readonly rowHeight: number;\n  readonly width: number;\n  readonly x: number;\n  readonly y: number;\n}",
+              "export interface PlotLegendLayout {\n  readonly height: number;\n  readonly hiddenRowCount: number;\n  readonly rowHeight: number;\n  readonly visibleRowCount: number;\n  readonly width: number;\n  readonly x: number;\n  readonly y: number;\n}",
+              1,
+          )
+          new_legend = r'''export function createPlotLegendLayout(
+  position: PlotLegendPosition,
+  names: readonly string[],
+  size: Size2,
+): PlotLegendLayout {
+  const margin = 10;
+  const availableWidth = Math.max(72, size.width - margin * 2);
+  const minimumWidth = Math.min(minimumLegendWidth, availableWidth);
+  const maximumWidth = Math.min(
+    availableWidth,
+    maximumLegendWidth,
+    Math.max(minimumWidth, size.width * 0.48),
+  );
+  const longest = names.reduce(
+    (length, name) => Math.max(length, name.length),
+    0,
+  );
+  const width = clamp(58 + longest * 7, minimumWidth, maximumWidth);
+  const availableHeight = Math.max(34, size.height - margin * 2);
+  const maximumHeight = Math.min(availableHeight, Math.max(58, size.height * 0.48));
+  const rowCapacity = Math.max(
+    1,
+    Math.min(maximumLegendRows, Math.floor((maximumHeight - 12) / legendRowHeight)),
+  );
+  const overflow = names.length > rowCapacity;
+  const visibleRowCount = overflow ? Math.max(0, rowCapacity - 1) : names.length;
+  const hiddenRowCount = names.length - visibleRowCount;
+  const renderedRowCount = visibleRowCount + (hiddenRowCount > 0 ? 1 : 0);
+  const height = Math.min(
+    availableHeight,
+    Math.max(34, 12 + renderedRowCount * legendRowHeight),
+  );
+  const right = position.endsWith("right");
+  const bottom = position.startsWith("bottom");
+  return {
+    height,
+    hiddenRowCount,
+    rowHeight: legendRowHeight,
+    visibleRowCount,
+    width,
+    x: right ? Math.max(margin, size.width - width - margin) : margin,
+    y: bottom ? Math.max(margin, size.height - height - margin) : margin,
+  };
+}
+'''
+          rendering, count = re.subn(
+              r"export function createPlotLegendLayout\([\s\S]*?\n}\n?$",
+              new_legend,
+              rendering,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("coordinate-plot-rendering.ts: legend function anchor failed")
+          rendering_path.write_text(rendering, encoding="utf-8")
+
+          renderer_path = Path("src/adapters/canvas-konva/coordinate-plot-renderer.tsx")
+          renderer = renderer_path.read_text(encoding="utf-8")
+          renderer = renderer.replace(
+              'import { useMemo, useRef, useState, type ReactElement } from "react";',
+              'import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";',
+              1,
+          )
+          renderer = renderer.replace(
+              "  panCoordinatePlotViewport,\n  zoomCoordinatePlotViewportAt,",
+              "  panCoordinatePlotViewport,\n  pinchCoordinatePlotViewport,\n  zoomCoordinatePlotViewportAt,\n  type CoordinatePlotZoomAxis,",
+              1,
+          )
+          renderer = renderer.replace(
+              "interface PlotViewportDragSession {\n  readonly startPointer: Vec2;\n  readonly startViewport: CoordinatePlotViewport;\n}\n",
+              "interface PlotViewportDragSession {\n  readonly startPointer: Vec2;\n  readonly startViewport: CoordinatePlotViewport;\n}\n\ninterface PlotViewportPinchSession {\n  readonly startTouches: readonly [Vec2, Vec2];\n  readonly startViewport: CoordinatePlotViewport;\n}\n",
+              1,
+          )
+          renderer = renderer.replace(
+              "function localPointer(node: Konva.Node): Vec2 | null {\n  const stage = node.getStage();\n  const pointer = stage?.getPointerPosition();\n  if (pointer === null || pointer === undefined) return null;\n  const local = node.getAbsoluteTransform().copy().invert().point(pointer);\n  return Number.isFinite(local.x) && Number.isFinite(local.y) ? local : null;\n}\n",
+              r'''function localPointer(node: Konva.Node): Vec2 | null {
+  const stage = node.getStage();
+  const pointer = stage?.getPointerPosition();
+  if (pointer === null || pointer === undefined) return null;
+  const local = node.getAbsoluteTransform().copy().invert().point(pointer);
+  return Number.isFinite(local.x) && Number.isFinite(local.y) ? local : null;
+}
+
+function localClientPointer(
+  node: Konva.Node,
+  clientX: number,
+  clientY: number,
+): Vec2 | null {
+  const stage = node.getStage();
+  const container = stage?.container();
+  if (stage === null || stage === undefined || container === undefined) return null;
+  const bounds = container.getBoundingClientRect();
+  const local = node
+    .getAbsoluteTransform()
+    .copy()
+    .invert()
+    .point({ x: clientX - bounds.left, y: clientY - bounds.top });
+  return Number.isFinite(local.x) && Number.isFinite(local.y) ? local : null;
+}
+
+function localTouchPair(
+  node: Konva.Node,
+  touches: TouchList,
+): readonly [Vec2, Vec2] | null {
+  const first = touches.item(0);
+  const second = touches.item(1);
+  if (first === null || second === null) return null;
+  const firstPoint = localClientPointer(node, first.clientX, first.clientY);
+  const secondPoint = localClientPointer(node, second.clientX, second.clientY);
+  return firstPoint === null || secondPoint === null
+    ? null
+    : [firstPoint, secondPoint];
+}
+''',
+              1,
+          )
+          renderer = renderer.replace(
+              "  readonly zoom: number;\n}",
+              "  readonly zoom: number;\n  readonly zoomAxis?: CoordinatePlotZoomAxis | undefined;\n}",
+              1,
+          )
+          renderer = renderer.replace(
+              "  selectedSeriesId,\n  zoom,\n}: CoordinatePlotRendererProps): ReactElement {",
+              "  selectedSeriesId,\n  zoom,\n  zoomAxis = \"both\",\n}: CoordinatePlotRendererProps): ReactElement {",
+              1,
+          )
+          renderer = renderer.replace(
+              "  const viewportDragRef = useRef<PlotViewportDragSession | null>(null);\n  const model = useMemo(",
+              r'''  const viewportDragRef = useRef<PlotViewportDragSession | null>(null);
+  const viewportPinchRef = useRef<PlotViewportPinchSession | null>(null);
+  const cursorContainerRef = useRef<HTMLElement | null>(null);
+  const setPlotCursor = (node: Konva.Node, cursor: "" | "grab" | "grabbing") => {
+    const container = node.getStage()?.container();
+    if (container === undefined) return;
+    cursorContainerRef.current = container;
+    container.style.cursor = cursor;
+  };
+  useEffect(
+    () => () => {
+      if (cursorContainerRef.current !== null) {
+        cursorContainerRef.current.style.cursor = "";
+      }
+    },
+    [],
+  );
+  const model = useMemo(''',
+              1,
+          )
+          renderer = renderer.replace(
+              '          const axis = event.evt.shiftKey\n            ? "x"\n            : event.evt.altKey\n              ? "y"\n              : "both";',
+              '          const axis = event.evt.shiftKey\n            ? "x"\n            : event.evt.altKey\n              ? "y"\n              : zoomAxis;',
+              1,
+          )
+          renderer = renderer.replace(
+              "  const problematicSeriesCount = sampling.series.filter(\n    ({ status }) => status === \"invalid\" || status === \"truncated\",\n  ).length;",
+              "  const problematicSeriesCount = sampling.series.filter(\n    ({ status }) =>\n      status === \"invalid\" || status === \"truncated\" || status === \"aborted\",\n  ).length;\n  const legendSeries = visibleSeries.slice(0, legend.visibleRowCount);",
+              1,
+          )
+          renderer = renderer.replace(
+              '            name="coordinate-plot-pan-surface"\n            onDragEnd={(event) => {',
+              r'''            name="coordinate-plot-pan-surface"
+            onMouseEnter={(event) => setPlotCursor(event.currentTarget, "grab")}
+            onMouseLeave={(event) => {
+              if (
+                viewportDragRef.current === null &&
+                viewportPinchRef.current === null
+              ) {
+                setPlotCursor(event.currentTarget, "");
+              }
+            }}
+            onDragEnd={(event) => {
+              setPlotCursor(event.currentTarget, "grab");''',
+              1,
+          )
+          renderer = renderer.replace(
+              "            onDragStart={(event) => {\n              event.cancelBubble = true;",
+              "            onDragStart={(event) => {\n              event.cancelBubble = true;\n              setPlotCursor(event.currentTarget, \"grabbing\");",
+              1,
+          )
+          renderer = renderer.replace(
+              "            onPointerDown={(event) => {\n              event.cancelBubble = true;\n              event.evt.preventDefault();\n            }}\n            width={width}",
+              r'''            onPointerDown={(event) => {
+              event.cancelBubble = true;
+              event.evt.preventDefault();
+            }}
+            onTouchStart={(event) => {
+              if (event.evt.touches.length < 2) return;
+              event.cancelBubble = true;
+              event.evt.preventDefault();
+              const touches = localTouchPair(event.currentTarget, event.evt.touches);
+              if (touches === null) return;
+              event.currentTarget.stopDrag();
+              viewportDragRef.current = null;
+              viewportPinchRef.current = {
+                startTouches: touches,
+                startViewport: definition.coordinateViewport,
+              };
+              setPlotCursor(event.currentTarget, "grabbing");
+            }}
+            onTouchMove={(event) => {
+              const session = viewportPinchRef.current;
+              if (session === null || event.evt.touches.length < 2) return;
+              event.cancelBubble = true;
+              event.evt.preventDefault();
+              const touches = localTouchPair(event.currentTarget, event.evt.touches);
+              if (touches === null) return;
+              onViewportChange(
+                pinchCoordinatePlotViewport(
+                  session.startViewport,
+                  definition.size,
+                  session.startTouches,
+                  touches,
+                  zoomAxis,
+                ),
+              );
+            }}
+            onTouchEnd={(event) => {
+              if (event.evt.touches.length >= 2) return;
+              viewportPinchRef.current = null;
+              setPlotCursor(event.currentTarget, "grab");
+            }}
+            onTouchCancel={(event) => {
+              viewportPinchRef.current = null;
+              viewportDragRef.current = null;
+              setPlotCursor(event.currentTarget, "");
+            }}
+            width={width}''',
+              1,
+          )
+          old_legend = r'''      {definition.legend.visible && visibleSeries.length > 0 && (
+        <Group x={legend.x} y={legend.y}>
+          <Rect
+            cornerRadius={8}
+            fill="rgba(255,255,255,0.94)"
+            height={legend.height}
+            shadowBlur={8}
+            shadowColor="rgba(15,23,42,0.18)"
+            shadowOffsetY={2}
+            stroke="rgba(100,116,139,0.45)"
+            strokeWidth={1}
+            width={legend.width}
+          />
+          {visibleSeries.map((series, index) => {
+            const selected = resolvedSelectedSeriesId === series.id;
+            const result = resultBySeriesId.get(series.id);
+            const dash = plotLineDash(
+              series.style.lineStyle,
+              series.style.strokeWidth,
+            );
+            const rowY = 6 + index * legend.rowHeight;
+            return (
+              <Group
+                key={series.id}
+                name="coordinate-plot-legend-row"
+                onClick={() => selectSeries(series.id)}
+                onMouseEnter={() => setHoveredSeriesId(series.id)}
+                onMouseLeave={() =>
+                  setHoveredSeriesId((current) =>
+                    current === series.id ? null : current,
+                  )
+                }
+                onPointerDown={(event) => {
+                  if (!editing) return;
+                  event.cancelBubble = true;
+                  event.evt.preventDefault();
+                }}
+                onTap={() => selectSeries(series.id)}
+                y={rowY}
+              >
+                <Rect
+                  cornerRadius={5}
+                  fill={selected ? "rgba(59,130,246,0.12)" : "transparent"}
+                  height={legend.rowHeight - 2}
+                  width={legend.width - 8}
+                  x={4}
+                />
+                <Line
+                  {...optionalDash(dash)}
+                  lineCap="round"
+                  listening={false}
+                  opacity={series.style.opacity}
+                  points={[12, 11, 42, 11]}
+                  stroke={series.style.stroke}
+                  strokeWidth={series.style.strokeWidth}
+                />
+                <Text
+                  ellipsis
+                  fill="#0f172a"
+                  fontSize={12}
+                  fontStyle={selected ? "bold" : "normal"}
+                  height={legend.rowHeight - 2}
+                  listening={false}
+                  text={`${seriesStatusLabel(result)}${series.name}`}
+                  verticalAlign="middle"
+                  width={Math.max(0, legend.width - 58)}
+                  x={50}
+                />
+              </Group>
+            );
+          })}
+        </Group>
+      )}'''
+          new_legend_block = r'''      {definition.legend.visible && visibleSeries.length > 0 && (
+        <Group x={legend.x} y={legend.y}>
+          <Rect
+            cornerRadius={8}
+            fill="rgba(255,255,255,0.94)"
+            height={legend.height}
+            shadowBlur={8}
+            shadowColor="rgba(15,23,42,0.18)"
+            shadowOffsetY={2}
+            stroke="rgba(100,116,139,0.45)"
+            strokeWidth={1}
+            width={legend.width}
+          />
+          {legendSeries.map((series, index) => {
+            const selected = resolvedSelectedSeriesId === series.id;
+            const result = resultBySeriesId.get(series.id);
+            const dash = plotLineDash(
+              series.style.lineStyle,
+              series.style.strokeWidth,
+            );
+            const rowY = 6 + index * legend.rowHeight;
+            return (
+              <Group
+                key={series.id}
+                name="coordinate-plot-legend-row"
+                onClick={() => selectSeries(series.id)}
+                onMouseEnter={() => setHoveredSeriesId(series.id)}
+                onMouseLeave={() =>
+                  setHoveredSeriesId((current) =>
+                    current === series.id ? null : current,
+                  )
+                }
+                onPointerDown={(event) => {
+                  if (!editing) return;
+                  event.cancelBubble = true;
+                  event.evt.preventDefault();
+                }}
+                onTap={() => selectSeries(series.id)}
+                y={rowY}
+              >
+                <Rect
+                  cornerRadius={5}
+                  fill={selected ? "rgba(59,130,246,0.12)" : "transparent"}
+                  height={legend.rowHeight - 2}
+                  width={legend.width - 8}
+                  x={4}
+                />
+                <Line
+                  {...optionalDash(dash)}
+                  lineCap="round"
+                  listening={false}
+                  opacity={series.style.opacity}
+                  points={[12, 11, 42, 11]}
+                  stroke={series.style.stroke}
+                  strokeWidth={series.style.strokeWidth}
+                />
+                <Text
+                  ellipsis
+                  fill="#0f172a"
+                  fontSize={12}
+                  fontStyle={selected ? "bold" : "normal"}
+                  height={legend.rowHeight - 2}
+                  listening={false}
+                  text={`${seriesStatusLabel(result)}${series.name}`}
+                  verticalAlign="middle"
+                  width={Math.max(0, legend.width - 58)}
+                  x={50}
+                />
+              </Group>
+            );
+          })}
+          {legend.hiddenRowCount > 0 ? (
+            <Group
+              listening={false}
+              name="coordinate-plot-legend-overflow"
+              y={6 + legend.visibleRowCount * legend.rowHeight}
+            >
+              <Rect
+                cornerRadius={5}
+                fill="rgba(241,245,249,0.96)"
+                height={legend.rowHeight - 2}
+                width={legend.width - 8}
+                x={4}
+              />
+              <Text
+                align="center"
+                fill="#475569"
+                fontSize={12}
+                fontStyle="bold"
+                height={legend.rowHeight - 2}
+                text={`Ещё ${legend.hiddenRowCount}`}
+                verticalAlign="middle"
+                width={legend.width - 12}
+                x={6}
+              />
+            </Group>
+          ) : null}
+        </Group>
+      )}'''
+          if renderer.count(old_legend) != 1:
+              raise SystemExit(f"coordinate-plot-renderer.tsx: legend block count {renderer.count(old_legend)}")
+          renderer = renderer.replace(old_legend, new_legend_block, 1)
+          renderer_path.write_text(renderer, encoding="utf-8")
+
+          app_path = Path("src/app/App.tsx")
+          app = app_path.read_text(encoding="utf-8")
+          app = app.replace(
+              "  BoardStage,\n  createDefaultKonvaRendererRegistry,",
+              "  BoardStage,\n  createDefaultKonvaRendererRegistry,\n  zoomCoordinatePlotViewportAt,",
+              1,
+          )
+          app = app.replace(
+              "  type CoordinatePlotRenderInteraction,",
+              "  type CoordinatePlotRenderInteraction,\n  type CoordinatePlotZoomAxis,",
+              1,
+          )
+          app = app.replace(
+              "  createDefaultCoordinatePlotObject,\n  validateCoordinatePlotEditorDefinition,",
+              "  createDefaultCoordinatePlotObject,\n  fitCoordinatePlotDefinition,\n  resetCoordinatePlotViewport,\n  validateCoordinatePlotEditorDefinition,",
+              1,
+          )
+          app = app.replace(
+              'import { CoordinatePlotEditorPanel } from "./CoordinatePlotEditorPanel";\n',
+              'import { CoordinatePlotEditorPanel } from "./CoordinatePlotEditorPanel";\nimport { CoordinatePlotNavigationControls } from "./CoordinatePlotNavigationControls";\n',
+              1,
+          )
+          app = app.replace(
+              "  readonly selectedSeriesId: PlotSeriesId | null;\n}",
+              "  readonly selectedSeriesId: PlotSeriesId | null;\n  readonly zoomAxis: CoordinatePlotZoomAxis;\n}",
+              1,
+          )
+          app = app.replace(
+              "          object.definition.series[0]?.id ??\n          null,\n      });",
+              "          object.definition.series[0]?.id ??\n          null,\n        zoomAxis: \"both\",\n      });",
+              1,
+          )
+          anchor = r'''  const saveCoordinatePlotEditor = useCallback((): boolean => {'''
+          navigation_callbacks = r'''  const setCoordinatePlotZoomAxis = useCallback(
+    (zoomAxis: CoordinatePlotZoomAxis) => {
+      setCoordinatePlotEditor((current) =>
+        current === null ? null : { ...current, zoomAxis },
+      );
+    },
+    [],
+  );
+
+  const zoomCoordinatePlotEditor = useCallback((factor: number) => {
+    setCoordinatePlotEditor((current) => {
+      if (current === null) return null;
+      const size = current.draft.size;
+      return {
+        ...current,
+        draft: {
+          ...current.draft,
+          coordinateViewport: zoomCoordinatePlotViewportAt(
+            current.draft.coordinateViewport,
+            size,
+            { x: size.width / 2, y: size.height / 2 },
+            factor,
+            current.zoomAxis,
+          ),
+        },
+      };
+    });
+  }, []);
+
+  const resetCoordinatePlotEditorViewport = useCallback(() => {
+    setCoordinatePlotEditor((current) =>
+      current === null
+        ? null
+        : { ...current, draft: resetCoordinatePlotViewport(current.draft) },
+    );
+  }, []);
+
+  const fitCoordinatePlotEditorViewport = useCallback(() => {
+    setCoordinatePlotEditor((current) =>
+      current === null
+        ? null
+        : { ...current, draft: fitCoordinatePlotDefinition(current.draft) },
+    );
+  }, []);
+
+'''
+          if app.count(anchor) != 1:
+              raise SystemExit("App.tsx: save editor anchor failed")
+          app = app.replace(anchor, navigation_callbacks + anchor, 1)
+          app = app.replace(
+              "      selectedSeriesId: coordinatePlotEditor?.selectedSeriesId ?? null,",
+              "      selectedSeriesId: coordinatePlotEditor?.selectedSeriesId ?? null,\n      zoomAxis: coordinatePlotEditor?.zoomAxis ?? \"both\",",
+              1,
+          )
+          controls_anchor = r'''        {coordinatePlotEditor === null ? null : (
+          <CoordinatePlotEditorPanel'''
+          controls = r'''        {coordinatePlotEditor === null ? null : (
+          <CoordinatePlotNavigationControls
+            axis={coordinatePlotEditor.zoomAxis}
+            onAxisChange={setCoordinatePlotZoomAxis}
+            onFit={fitCoordinatePlotEditorViewport}
+            onReset={resetCoordinatePlotEditorViewport}
+            onZoomIn={() => zoomCoordinatePlotEditor(1 / 1.25)}
+            onZoomOut={() => zoomCoordinatePlotEditor(1.25)}
+          />
+        )}
+        {coordinatePlotEditor === null ? null : (
+          <CoordinatePlotEditorPanel'''
+          if app.count(controls_anchor) != 1:
+              raise SystemExit("App.tsx: editor JSX anchor failed")
+          app = app.replace(controls_anchor, controls, 1)
+          app_path.write_text(app, encoding="utf-8")
+
+          panel_path = Path("src/app/CoordinatePlotEditorPanel.tsx")
+          panel = panel_path.read_text(encoding="utf-8")
+          panel = panel.replace(
+              "          На плоскости: перетаскивание сдвигает диапазон, колесо масштабирует,\n          Shift+колесо меняет X, Alt+колесо меняет Y.",
+              "          На плоскости: перетаскивание сдвигает диапазон, колесо и жест двумя\n          пальцами масштабируют. Режим XY, X или Y выбирается на панели над полотном;\n          Shift и Alt временно переключают масштабирование на X или Y.",
+              1,
+          )
+          legend_card_end = r'''        </label>
+      </div>
+    </div>
+  );
+}
+
+export function CoordinatePlotEditorPanel'''
+          status_card = r'''        </label>
+      </div>
+
+      <div className="plot-editor-section-card" data-testid="renderer-status-help">
+        <div className="plot-editor-section-heading">
+          <div>
+            <strong>Статусы построения</strong>
+            <span>Что означают отметки рядом с функциями</span>
+          </div>
+        </div>
+        <ul className="plot-renderer-status-list">
+          <li data-renderer-status="sampled">
+            <span aria-hidden="true">✓</span>
+            <div><strong>Построено</strong><small>Полный рассчитанный график отображён.</small></div>
+          </li>
+          <li data-renderer-status="truncated">
+            <span aria-hidden="true">…</span>
+            <div><strong>Лимит детализации</strong><small>Безопасный лимит точек или вычислений остановил дальнейшее уточнение.</small></div>
+          </li>
+          <li data-renderer-status="invalid">
+            <span aria-hidden="true">⚠</span>
+            <div><strong>Ошибка</strong><small>Формула, область определения или диапазон не вычисляются.</small></div>
+          </li>
+          <li data-renderer-status="aborted">
+            <span aria-hidden="true">×</span>
+            <div><strong>Отменено</strong><small>Устаревшее построение остановлено после нового изменения.</small></div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+export function CoordinatePlotEditorPanel'''
+          if panel.count(legend_card_end) != 1:
+              raise SystemExit(f"Panel status anchor count {panel.count(legend_card_end)}")
+          panel = panel.replace(legend_card_end, status_card, 1)
+          panel_path.write_text(panel, encoding="utf-8")
+
+          css_path = Path("src/app/CoordinatePlotEditorPanel.css")
+          css = css_path.read_text(encoding="utf-8")
+          css += r'''
+
+.plot-renderer-status-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plot-renderer-status-list li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.plot-renderer-status-list li > span {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 8px;
+  color: #334155;
+  background: #e2e8f0;
+  font-weight: 800;
+}
+
+.plot-renderer-status-list li[data-renderer-status="truncated"] > span,
+.plot-renderer-status-list li[data-renderer-status="invalid"] > span {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.plot-renderer-status-list li[data-renderer-status="aborted"] > span {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.plot-renderer-status-list li > div {
+  display: grid;
+  gap: 2px;
+}
+
+.plot-renderer-status-list small {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+@media (max-width: 640px), (max-width: 900px) and (max-height: 520px) {
+  .coordinate-plot-editor-panel {
+    position: fixed;
+    z-index: 100;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-height: none;
+    padding-top: env(safe-area-inset-top);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    border: 0;
+    border-radius: 0;
+    background: #f8fafc;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .plot-editor-heading,
+  .plot-editor-tabs,
+  .plot-editor-footer {
+    position: relative;
+    z-index: 2;
+    flex: 0 0 auto;
+  }
+
+  .plot-editor-scroll {
+    min-height: 0;
+    flex: 1 1 auto;
+    overscroll-behavior: contain;
+  }
+
+  .plot-editor-grid.two-columns,
+  .plot-editor-grid.viewport-grid,
+  .plot-editor-grid.style-grid,
+  .plot-editor-grid.parameter-grid,
+  .plot-editor-checks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plot-editor-footer {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+'''
+          css_path.write_text(css, encoding="utf-8")
+
+          editing_test = Path("tests/unit/adapters/canvas-konva/coordinate-plot-editing.test.ts")
+          text = editing_test.read_text(encoding="utf-8")
+          text = text.replace(
+              "  panCoordinatePlotViewport,\n  zoomCoordinatePlotViewportAt,",
+              "  panCoordinatePlotViewport,\n  pinchCoordinatePlotViewport,\n  zoomCoordinatePlotViewportAt,",
+              1,
+          )
+          test_anchor = r'''  it("ignores malformed gesture inputs", () => {'''
+          pinch_test = r'''  it("combines pinch distance and midpoint movement with the selected axis", () => {
+    const pinched = pinchCoordinatePlotViewport(
+      viewport,
+      size,
+      [
+        { x: 300, y: 200 },
+        { x: 500, y: 200 },
+      ],
+      [
+        { x: 260, y: 230 },
+        { x: 580, y: 230 },
+      ],
+      "x",
+    );
+
+    expect(pinched.xMax - pinched.xMin).toBeCloseTo(12.5, 12);
+    expect(pinched.yMax - pinched.yMin).toBeCloseTo(10, 12);
+    expect(pinched.yMin).toBeCloseTo(-4.25, 12);
+    expect(pinched.yMax).toBeCloseTo(5.75, 12);
+    expect(pinched.equalScale).toBe(false);
+  });
+
+  it("ignores a degenerate pinch gesture", () => {
+    expect(
+      pinchCoordinatePlotViewport(
+        viewport,
+        size,
+        [
+          { x: 1, y: 1 },
+          { x: 1, y: 1 },
+        ],
+        [
+          { x: 0, y: 0 },
+          { x: 10, y: 10 },
+        ],
+      ),
+    ).toBe(viewport);
+  });
+
+'''
+          if text.count(test_anchor) != 1:
+              raise SystemExit("editing test anchor failed")
+          editing_test.write_text(text.replace(test_anchor, pinch_test + test_anchor, 1), encoding="utf-8")
+
+          rendering_test = Path("tests/unit/adapters/canvas-konva/coordinate-plot-rendering.test.ts")
+          text = rendering_test.read_text(encoding="utf-8")
+          text = text.replace(
+              "    expect(layout.y + layout.height).toBeLessThanOrEqual(310);",
+              "    expect(layout.y + layout.height).toBeLessThanOrEqual(310);\n    expect(layout.visibleRowCount).toBe(2);\n    expect(layout.hiddenRowCount).toBe(0);\n\n    const crowded = createPlotLegendLayout(\n      \"top-left\",\n      Array.from({ length: 20 }, (_, index) => `Очень длинная функция ${index + 1}`),\n      { height: 320, width: 640 },\n    );\n    expect(crowded.visibleRowCount).toBeLessThanOrEqual(7);\n    expect(crowded.hiddenRowCount).toBeGreaterThan(0);\n    expect(crowded.width).toBeLessThanOrEqual(260);\n    expect(crowded.height).toBeLessThanOrEqual(320 * 0.48);",
+              1,
+          )
+          rendering_test.write_text(text, encoding="utf-8")
+
+          package = json.loads(Path("package.json").read_text(encoding="utf-8"))
+          scripts = package["scripts"]
+          scripts["e2e:plot-visual"] = "playwright test --config playwright.visual.config.ts"
+          scripts["e2e:plot-visual:update"] = "playwright test --config playwright.visual.config.ts --update-snapshots"
+          Path("package.json").write_text(json.dumps(package, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+          Path("playwright.visual.config.ts").write_text(r'''import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./tests/e2e",
+  testMatch: "coordinate-plot-visual.spec.ts",
+  fullyParallel: false,
+  forbidOnly: Boolean(process.env.CI),
+  retries: 0,
+  reporter: process.env.CI ? "github" : "list",
+  expect: {
+    toHaveScreenshot: {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.002,
+    },
+  },
+  use: {
+    baseURL: "http://127.0.0.1:4173",
+    colorScheme: "light",
+    locale: "ru-RU",
+    reducedMotion: "reduce",
+    trace: "retain-on-failure",
+  },
+  webServer: {
+    command: "npm run preview -- --host 127.0.0.1 --port 4173",
+    url: "http://127.0.0.1:4173",
+    reuseExistingServer: !process.env.CI,
+  },
+  projects: [
+    {
+      name: "visual-chromium-desktop",
+      use: { browserName: "chromium", viewport: { height: 900, width: 1440 } },
+    },
+    {
+      name: "visual-firefox-desktop",
+      use: { browserName: "firefox", viewport: { height: 900, width: 1440 } },
+    },
+    {
+      name: "visual-chromium-mobile-portrait",
+      use: {
+        ...devices["Pixel 7"],
+        browserName: "chromium",
+        viewport: { height: 844, width: 390 },
+      },
+    },
+    {
+      name: "visual-chromium-mobile-landscape",
+      use: {
+        browserName: "chromium",
+        hasTouch: true,
+        isMobile: true,
+        viewport: { height: 390, width: 844 },
+      },
+    },
+  ],
+});
+''', encoding="utf-8")
+
+          Path("tests/e2e/coordinate-plot-visual.spec.ts").write_text(r'''import { expect, test } from "@playwright/test";
+
+const databaseName = "tutorboard-local-v1";
+
+async function resetLocalDatabase(page: import("@playwright/test").Page) {
+  await page.goto("/");
+  await page.evaluate(async (name) => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(name);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error ?? new Error("IndexedDB deletion failed"));
+      request.onblocked = () => reject(new Error("IndexedDB deletion blocked"));
+    });
+  }, databaseName);
+  await page.reload();
+}
+
+test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
+  await resetLocalDatabase(page);
+  await page.getByRole("button", { name: "Создать координатную плоскость (G)" }).click();
+
+  const editor = page.getByRole("complementary", {
+    name: "Редактор координатной плоскости",
+  });
+  await expect(editor).toBeVisible();
+  await expect(
+    page.getByRole("toolbar", { name: "Навигация координатной плоскости" }),
+  ).toBeVisible();
+
+  const mobile = testInfo.project.name.includes("mobile");
+  if (mobile) {
+    const viewport = page.viewportSize();
+    const box = await editor.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeLessThanOrEqual(1);
+    expect(box!.y).toBeLessThanOrEqual(1);
+    expect(box!.width).toBeGreaterThanOrEqual((viewport?.width ?? 0) - 2);
+    expect(box!.height).toBeGreaterThanOrEqual((viewport?.height ?? 0) - 2);
+  }
+
+  await expect(page).toHaveScreenshot("coordinate-plot-functions.png", {
+    fullPage: true,
+  });
+
+  await editor.getByRole("tab", { name: "Вид" }).click();
+  await expect(editor.getByTestId("renderer-status-help")).toBeVisible();
+  await expect(page).toHaveScreenshot("coordinate-plot-view-statuses.png", {
+    fullPage: true,
+  });
+
+  if (!mobile) {
+    await editor.getByRole("tab", { name: "Функции" }).click();
+    for (let index = 0; index < 11; index += 1) {
+      await editor.getByRole("button", { name: "+ Явная функция" }).click();
+    }
+    await editor.getByRole("button", { name: "Сохранить" }).click();
+    await editor.getByRole("button", { name: "Закрыть редактор графика" }).click();
+    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+    await expect(page).toHaveScreenshot("coordinate-plot-bounded-legend.png", {
+      fullPage: true,
+    });
+  }
+});
+''', encoding="utf-8")
+
+          production_spec = Path("tests/e2e/coordinate-plot-production.spec.ts")
+          spec = production_spec.read_text(encoding="utf-8")
+          insert_after = r'''  await expect(editor).toBeVisible();
+  const persistenceStatus = page.getByTestId("persistence-status");'''
+          navigation_e2e = r'''  await expect(editor).toBeVisible();
+  const persistenceStatus = page.getByTestId("persistence-status");
+  const navigation = page.getByRole("toolbar", {
+    name: "Навигация координатной плоскости",
+  });
+  await expect(navigation).toBeVisible();
+  await navigation.getByRole("radio", { name: "Только ось X" }).click();
+  await expect(
+    navigation.getByRole("radio", { name: "Только ось X" }),
+  ).toHaveAttribute("aria-checked", "true");
+
+  await editor.getByRole("tab", { name: "Вид" }).click();
+  const xMinimum = editor.getByLabel("Минимальная граница X");
+  const yMinimum = editor.getByLabel("Минимальная граница Y");
+  const initialXMinimum = Number(await xMinimum.inputValue());
+  const initialYMinimum = Number(await yMinimum.inputValue());
+  await navigation.getByRole("button", { name: "Приблизить график" }).click();
+  await expect.poll(async () => Number(await xMinimum.inputValue())).not.toBe(
+    initialXMinimum,
+  );
+  await expect(yMinimum).toHaveValue(String(initialYMinimum));
+  await navigation.getByRole("button", { name: "Сбросить диапазон графика" }).click();
+  await navigation.getByRole("button", { name: "Вместить все графики" }).click();
+  await expect(editor.getByTestId("renderer-status-help")).toContainText(
+    "Лимит детализации",
+  );
+
+  const stage = page.locator(".konvajs-content");
+  const stageBox = await stage.boundingBox();
+  expect(stageBox).not.toBeNull();
+  const plotPoint = {
+    x: stageBox!.x + stageBox!.width / 2 - 100,
+    y: stageBox!.y + stageBox!.height / 2 + 80,
+  };
+  await page.mouse.move(plotPoint.x, plotPoint.y);
+  await expect(stage).toHaveCSS("cursor", "grab");
+  await page.mouse.down();
+  await page.mouse.move(plotPoint.x + 24, plotPoint.y + 12);
+  await expect(stage).toHaveCSS("cursor", "grabbing");
+  await page.mouse.up();
+  await expect(stage).toHaveCSS("cursor", "grab");
+  await navigation.getByRole("button", { name: "Сбросить диапазон графика" }).click();
+
+  if (test.info().project.name === "chromium") {
+    const beforePinchX = Number(await xMinimum.inputValue());
+    const beforePinchY = Number(await yMinimum.inputValue());
+    await page.evaluate(({ x, y }) => {
+      const target = document.querySelector<HTMLElement>(".konvajs-content");
+      if (target === null) throw new Error("Konva stage is missing");
+      const touch = (identifier: number, clientX: number, clientY: number) =>
+        new Touch({ identifier, target, clientX, clientY });
+      const start = [touch(1, x - 50, y), touch(2, x + 50, y)];
+      const moved = [touch(1, x - 95, y + 10), touch(2, x + 95, y + 10)];
+      target.dispatchEvent(
+        new TouchEvent("touchstart", {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: start,
+          targetTouches: start,
+          touches: start,
+        }),
+      );
+      target.dispatchEvent(
+        new TouchEvent("touchmove", {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: moved,
+          targetTouches: moved,
+          touches: moved,
+        }),
+      );
+      target.dispatchEvent(
+        new TouchEvent("touchend", {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: moved,
+          targetTouches: [],
+          touches: [],
+        }),
+      );
+    }, plotPoint);
+    await expect.poll(async () => Number(await xMinimum.inputValue())).not.toBe(
+      beforePinchX,
+    );
+    await expect(yMinimum).toHaveValue(String(beforePinchY));
+  }
+  await navigation.getByRole("button", { name: "Сбросить диапазон графика" }).click();
+  await editor.getByRole("tab", { name: "Функции" }).click();'''
+          if spec.count(insert_after) != 1:
+              raise SystemExit(f"production spec initial anchor count {spec.count(insert_after)}")
+          spec = spec.replace(insert_after, navigation_e2e, 1)
+          production_spec.write_text(spec, encoding="utf-8")
+
+          ci_path = Path(".github/workflows/ci.yml")
+          ci = ci_path.read_text(encoding="utf-8")
+          lifecycle = r'''      - name: Run Chromium and Firefox coordinate plot lifecycle
+        run: |
+          set -o pipefail
+          npm run e2e:plot-production 2>&1 | tee coordinate-plot-browser.log
+'''
+          visual_step = lifecycle + r'''
+      - name: Run coordinate plot visual regression matrix
+        run: |
+          set -o pipefail
+          npm run e2e:plot-visual 2>&1 | tee coordinate-plot-visual.log
+'''
+          if ci.count(lifecycle) != 1:
+              raise SystemExit("ci lifecycle anchor failed")
+          ci = ci.replace(lifecycle, visual_step, 1)
+          ci = ci.replace(
+              "            coordinate-plot-browser.log\n            test-results",
+              "            coordinate-plot-browser.log\n            coordinate-plot-visual.log\n            test-results",
+              1,
+          )
+          ci_path.write_text(ci, encoding="utf-8")
+          PY
+          npx prettier --write \
+            src/app/CoordinatePlotNavigationControls.tsx \
+            src/app/CoordinatePlotNavigationControls.css \
+            src/app/CoordinatePlotNavigationControls.test.tsx \
+            src/app/App.tsx \
+            src/app/CoordinatePlotEditorPanel.tsx \
+            src/app/CoordinatePlotEditorPanel.css \
+            src/adapters/canvas-konva/coordinate-plot-editing.ts \
+            src/adapters/canvas-konva/coordinate-plot-renderer.tsx \
+            src/adapters/canvas-konva/coordinate-plot-rendering.ts \
+            src/adapters/canvas-konva/default-renderers.tsx \
+            src/adapters/canvas-konva/public.ts \
+            src/adapters/canvas-konva/renderer-registry.tsx \
+            tests/unit/adapters/canvas-konva/coordinate-plot-editing.test.ts \
+            tests/unit/adapters/canvas-konva/coordinate-plot-rendering.test.ts \
+            tests/e2e/coordinate-plot-production.spec.ts \
+            tests/e2e/coordinate-plot-visual.spec.ts \
+            playwright.visual.config.ts \
+            package.json \
+            .github/workflows/ci.yml
+          npm run typecheck
+          npx vitest run \
+            src/app/CoordinatePlotNavigationControls.test.tsx \
+            src/app/CoordinatePlotEditorPanel.test.tsx \
+            src/app/CoordinatePlotEditorPanel.accessibility.test.tsx \
+            tests/unit/adapters/canvas-konva/coordinate-plot-editing.test.ts \
+            tests/unit/adapters/canvas-konva/coordinate-plot-rendering.test.ts \
+            tests/unit/adapters/canvas-konva/coordinate-plot-renderer.test.tsx
+          npx playwright install --with-deps chromium firefox
+          npm run build
+          npm run e2e:plot-production
+          npm run e2e:plot-visual:update
+          npm run e2e:plot-visual
+      - name: Commit implementation and visual baselines
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src \
+            tests \
+            package.json \
+            playwright.visual.config.ts \
+            .github/workflows/ci.yml
+          git commit -m "feat: add coordinate plot canvas and mobile UX"
+          git push origin HEAD:feature/coordinate-plot-ux-canvas-mobile
