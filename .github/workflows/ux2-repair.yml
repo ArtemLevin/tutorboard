@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   repair:
-    name: Repair plot discovery test lint
+    name: Repair plot discovery test typing
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -22,29 +22,47 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Type the formula query and verify
+      - name: Narrow the formula input and verify
         run: |
           python - <<'PY'
           from pathlib import Path
+
           path = Path("src/app/CoordinatePlotEditorPanel.test.tsx")
           source = path.read_text(encoding="utf-8")
-          old = '''    const formula = screen.getByLabelText(
-              "Формула явной функции",
-            ) as HTMLInputElement;'''
-          new = '''    const formula = screen.getByLabelText<HTMLInputElement>(
-              "Формула явной функции",
-            );'''
-          if source.count(old) != 1:
-              raise SystemExit(f"Expected one formula query, found {source.count(old)}")
-          path.write_text(source.replace(old, new, 1), encoding="utf-8")
+
+          helper_anchor = "afterEach(cleanup);\n"
+          helper = '''
+
+          function inputByLabel(label: string): HTMLInputElement {
+            const element = screen.getByLabelText(label);
+            if (!(element instanceof HTMLInputElement)) {
+              throw new Error(`Expected an input labelled ${label}.`);
+            }
+            return element;
+          }
+          '''
+          if "function inputByLabel(" not in source:
+              if source.count(helper_anchor) != 1:
+                  raise SystemExit("Unable to locate test helper anchor")
+              source = source.replace(helper_anchor, helper_anchor + helper, 1)
+
+          section = source.index(
+              '  it("inserts functions around the selected expression and explains radians"'
+          )
+          declaration_start = source.index("    const formula = ", section)
+          declaration_end = source.index(";\n", declaration_start) + 1
+          replacement = '''    const formula = inputByLabel("Формула явной функции");'''
+          source = source[:declaration_start] + replacement + source[declaration_end:]
+          path.write_text(source, encoding="utf-8")
           PY
           npx prettier --write src/app/CoordinatePlotEditorPanel.test.tsx
           npx eslint src/app/CoordinatePlotEditorPanel.test.tsx --max-warnings=0
           npm run typecheck
+          npx vitest run src/app/CoordinatePlotEditorPanel.test.tsx
       - name: Push repair
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/app/CoordinatePlotEditorPanel.test.tsx
-          git commit -m "test: type coordinate plot formula query"
+          git commit -m "test: narrow coordinate plot formula input"
           git push origin HEAD:feature/coordinate-plot-ux-structure-discovery
