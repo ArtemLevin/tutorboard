@@ -5,7 +5,10 @@ export interface LocalAutosaveLifecycleBinding {
     Document,
     "addEventListener" | "removeEventListener" | "visibilityState"
   >;
-  readonly windowTarget: Pick<Window, "addEventListener" | "removeEventListener">;
+  readonly windowTarget: Pick<
+    Window,
+    "addEventListener" | "removeEventListener"
+  >;
 }
 
 export function bindLocalAutosaveLifecycleFlush(
