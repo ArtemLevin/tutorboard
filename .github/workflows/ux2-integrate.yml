@@ -57,17 +57,19 @@ jobs:
 
           test_path = Path("src/app/CoordinatePlotEditorPanel.test.tsx")
           test_source = test_path.read_text(encoding="utf-8")
-          old = '''    const formula = screen.getByLabelText("Формула явной функции");
-            fireEvent.change(formula, { target: { value: "x+1" } });'''
-          new = '''    const formula = screen.getByLabelText(
+          section = test_source.index(
+              '  it("inserts functions around the selected expression and explains radians"'
+          )
+          formula_line = '    const formula = screen.getByLabelText("Формула явной функции");'
+          formula_start = test_source.index(formula_line, section)
+          formula_end = formula_start + len(formula_line)
+          typed_formula = '''    const formula = screen.getByLabelText(
               "Формула явной функции",
-            ) as HTMLInputElement;
-            fireEvent.change(formula, { target: { value: "x+1" } });'''
-          if test_source.count(old) != 1:
-              raise SystemExit(
-                  f"Expected one caret test formula declaration, found {test_source.count(old)}"
-              )
-          test_path.write_text(test_source.replace(old, new, 1), encoding="utf-8")
+            ) as HTMLInputElement;'''
+          test_path.write_text(
+              test_source[:formula_start] + typed_formula + test_source[formula_end:],
+              encoding="utf-8",
+          )
           PY
 
       - name: Format and verify targeted implementation
