@@ -1,8 +1,4 @@
-import type {
-  CoordinatePlotViewport,
-  Size2,
-  Vec2,
-} from "../../core/public";
+import type { CoordinatePlotViewport, Size2, Vec2 } from "../../core/public";
 
 export type CoordinatePlotZoomAxis = "both" | "x" | "y";
 

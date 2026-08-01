@@ -4,6 +4,7 @@ import {
   BoardStage,
   createDefaultKonvaRendererRegistry,
   type BoardObjectTransformSnapshot,
+  type CoordinatePlotRenderInteraction,
   type SelectionPointerStartSample,
   type WorldPointerSample,
 } from "../adapters/canvas-konva/public";
@@ -17,6 +18,8 @@ import {
   documentId,
   geometryImportId,
   groupId,
+  plotParameterId,
+  plotSeriesId,
   reduceBoardDocument,
   screenToWorld,
   type BoardDocument,
@@ -28,6 +31,8 @@ import {
   type GeometryOsClient,
   type Vec2,
   type CommandMetadata,
+  type CoordinatePlotDefinition,
+  type PlotSeriesId,
   type VisualStyleOverride,
   type ViewportState,
 } from "../core/public";
@@ -102,7 +107,14 @@ import {
   createUpdateTextCommand,
   isEditableTextObject,
 } from "../modules/text-editing/public";
+import {
+  addCoordinatePlotParameter,
+  addCoordinatePlotSeries,
+  createDefaultCoordinatePlotObject,
+  validateCoordinatePlotEditorDefinition,
+} from "../modules/coordinate-plot-editor/public";
 import { ColorPalette } from "./ColorPalette";
+import { CoordinatePlotEditorPanel } from "./CoordinatePlotEditorPanel";
 import {
   createEmbeddedImageObject,
   embeddedImageAccept,
@@ -123,6 +135,13 @@ const localActorId = actorId("actor:local-teacher");
 const navigationToolId = "navigation.pan" as const;
 type ActiveToolId = typeof navigationToolId | SelectionToolId | DrawingToolId;
 const initialDrawingState: DrawingInteractionState = { kind: "idle" };
+
+interface CoordinatePlotEditorSession {
+  readonly draft: CoordinatePlotDefinition;
+  readonly expected: CoordinatePlotDefinition;
+  readonly objectId: BoardObjectId;
+  readonly selectedSeriesId: PlotSeriesId | null;
+}
 
 export interface AppPersistenceStatus {
   readonly detail?: string;
@@ -218,6 +237,8 @@ export function App({
   const [smartInkNotice, setSmartInkNotice] = useState<string | null>(null);
   const [selectionState, setSelectionState] = useState(initialSelectionState);
   const selectionStateRef = useRef<SelectionState>(initialSelectionState);
+  const [coordinatePlotEditor, setCoordinatePlotEditor] =
+    useState<CoordinatePlotEditorSession | null>(null);
   const [textDraft, setTextDraft] = useState("Новый текст");
   const [imageDiagnostic, setImageDiagnostic] = useState<string | null>(null);
   const [clipboard, setClipboard] = useState<BoardClipboardPayload | null>(
@@ -751,6 +772,189 @@ export function App({
     [applyDrawingAction],
   );
 
+  const beginCoordinatePlotEditing = useCallback(
+    (objectId: BoardObjectId) => {
+      const current = documentRef.current;
+      const object = current.objects[objectId];
+      const groupLocked =
+        object?.groupId === null || object?.groupId === undefined
+          ? false
+          : current.groups[object.groupId]?.locked === true;
+      if (
+        object?.kind !== "math.coordinate-plot" ||
+        object.source.kind !== "user" ||
+        object.locked ||
+        groupLocked
+      ) {
+        setBoardState((latest) => ({
+          ...latest,
+          commandError:
+            "Для редактирования выберите разблокированную пользовательскую координатную плоскость.",
+        }));
+        return;
+      }
+      const selected: SelectionState = {
+        interaction: { kind: "idle" },
+        selectedObjectIds: [object.id],
+      };
+      selectionStateRef.current = selected;
+      setSelectionState(selected);
+      activateTool(selectionToolId);
+      setCoordinatePlotEditor({
+        draft: object.definition,
+        expected: object.definition,
+        objectId: object.id,
+        selectedSeriesId:
+          object.definition.series.find(({ visible }) => visible)?.id ??
+          object.definition.series[0]?.id ??
+          null,
+      });
+    },
+    [activateTool],
+  );
+
+  const createCoordinatePlot = useCallback(() => {
+    const current = documentRef.current;
+    const workspace = workspaceRef.current?.getBoundingClientRect();
+    const center =
+      lastPointerWorldRef.current ??
+      screenToWorld(
+        {
+          x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
+          y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
+        },
+        current.viewport,
+      );
+    const token = crypto.randomUUID();
+    let seriesSequence = 0;
+    let parameterSequence = 0;
+    const object = createDefaultCoordinatePlotObject({
+      center,
+      ids: {
+        objectId: boardObjectId(`object:plot:${token}`),
+        parameterId: () =>
+          plotParameterId(`plot-parameter:${token}:${parameterSequence++}`),
+        seriesId: () =>
+          plotSeriesId(`plot-series:${token}:${seriesSequence++}`),
+      },
+    });
+    const result = commitCommand({
+      ...createCommandMetadata(),
+      kind: "core.objects.add",
+      objects: [object],
+    });
+    if (result.ok) beginCoordinatePlotEditing(object.id);
+  }, [beginCoordinatePlotEditing, commitCommand, createCommandMetadata]);
+
+  const updateCoordinatePlotDraft = useCallback(
+    (definition: CoordinatePlotDefinition) => {
+      setCoordinatePlotEditor((current) =>
+        current === null ? null : { ...current, draft: definition },
+      );
+    },
+    [],
+  );
+
+  const selectCoordinatePlotSeries = useCallback(
+    (objectId: BoardObjectId, seriesId: PlotSeriesId | null) => {
+      setCoordinatePlotEditor((current) =>
+        current === null || current.objectId !== objectId
+          ? current
+          : { ...current, selectedSeriesId: seriesId },
+      );
+    },
+    [],
+  );
+
+  const updateCoordinatePlotViewport = useCallback(
+    (
+      objectId: BoardObjectId,
+      viewport: CoordinatePlotDefinition["coordinateViewport"],
+    ) => {
+      setCoordinatePlotEditor((current) =>
+        current === null || current.objectId !== objectId
+          ? current
+          : {
+              ...current,
+              draft: {
+                ...current.draft,
+                coordinateViewport: viewport,
+              },
+            },
+      );
+    },
+    [],
+  );
+
+  const saveCoordinatePlotEditor = useCallback(() => {
+    const session = coordinatePlotEditor;
+    if (session === null) return;
+    const result = commitCommand({
+      ...createCommandMetadata(),
+      expected: session.expected,
+      kind: "core.coordinate-plot.update",
+      objectId: session.objectId,
+      replacement: session.draft,
+    });
+    if (!result.ok) return;
+    setCoordinatePlotEditor((current) =>
+      current === null || current.objectId !== session.objectId
+        ? current
+        : {
+            ...current,
+            expected: session.draft,
+          },
+    );
+    setAccessibilityNotice("Координатная плоскость сохранена");
+  }, [commitCommand, coordinatePlotEditor, createCommandMetadata]);
+
+  const addCoordinatePlotEditorSeries = useCallback(
+    (kind: "explicit" | "parametric") => {
+      const id = plotSeriesId(`plot-series:${crypto.randomUUID()}`);
+      setCoordinatePlotEditor((current) => {
+        if (current === null) return null;
+        const draft = addCoordinatePlotSeries(current.draft, kind, id);
+        return {
+          ...current,
+          draft,
+          selectedSeriesId: id,
+        };
+      });
+    },
+    [],
+  );
+
+  const addCoordinatePlotEditorParameter = useCallback(() => {
+    const id = plotParameterId(`plot-parameter:${crypto.randomUUID()}`);
+    setCoordinatePlotEditor((current) =>
+      current === null
+        ? null
+        : {
+            ...current,
+            draft: addCoordinatePlotParameter(current.draft, id),
+          },
+    );
+  }, []);
+
+  const coordinatePlotInteraction = useMemo<CoordinatePlotRenderInteraction>(
+    () => ({
+      activeObjectId: coordinatePlotEditor?.objectId ?? null,
+      selectedSeriesId: coordinatePlotEditor?.selectedSeriesId ?? null,
+      ...(coordinatePlotEditor === null
+        ? {}
+        : { definitionOverride: coordinatePlotEditor.draft }),
+      onEditRequest: beginCoordinatePlotEditing,
+      onSelectedSeriesChange: selectCoordinatePlotSeries,
+      onViewportChange: updateCoordinatePlotViewport,
+    }),
+    [
+      beginCoordinatePlotEditing,
+      coordinatePlotEditor,
+      selectCoordinatePlotSeries,
+      updateCoordinatePlotViewport,
+    ],
+  );
+
   const importImageFiles = useCallback(
     async (files: readonly File[]) => {
       const candidates = files
@@ -868,6 +1072,25 @@ export function App({
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement ||
         (event.target instanceof HTMLElement && event.target.isContentEditable);
+      if (event.key === "Escape" && coordinatePlotEditor !== null) {
+        event.preventDefault();
+        setCoordinatePlotEditor(null);
+        return;
+      }
+      if (
+        event.key === "Enter" &&
+        !editing &&
+        selectionStateRef.current.selectedObjectIds.length === 1
+      ) {
+        const objectId = selectionStateRef.current.selectedObjectIds[0]!;
+        if (
+          documentRef.current.objects[objectId]?.kind === "math.coordinate-plot"
+        ) {
+          event.preventDefault();
+          beginCoordinatePlotEditing(objectId);
+          return;
+        }
+      }
       const accelerator = event.ctrlKey || event.metaKey;
       if (accelerator && !event.altKey && !editing) {
         const key = event.key.toLowerCase();
@@ -910,6 +1133,11 @@ export function App({
       }
       if (event.key.toLowerCase() === "h") {
         activateTool(navigationToolId);
+        return;
+      }
+      if (event.key.toLowerCase() === "g") {
+        event.preventDefault();
+        createCoordinatePlot();
         return;
       }
       const arrowDelta = {
@@ -976,7 +1204,10 @@ export function App({
     return () => window.removeEventListener("keydown", handleShortcut);
   }, [
     activateTool,
+    beginCoordinatePlotEditing,
     closeShortcuts,
+    coordinatePlotEditor,
+    createCoordinatePlot,
     commitCommand,
     commitSelectionMove,
     copySelection,
@@ -1279,6 +1510,11 @@ export function App({
   const selectedStyle = scene.items.find(({ object }) =>
     selectionState.selectedObjectIds.includes(object.id),
   )?.object.style;
+  const selectedCoordinatePlot =
+    selectedObjects.length === 1 &&
+    selectedObjects[0]?.kind === "math.coordinate-plot"
+      ? selectedObjects[0]
+      : null;
   const selectedTextId =
     selectionState.selectedObjectIds.length === 1
       ? selectionState.selectedObjectIds[0]
@@ -1286,6 +1522,7 @@ export function App({
   const selectedEditableText =
     selectedTextId === undefined ? undefined : document.objects[selectedTextId];
   const transformableObjectIds =
+    coordinatePlotEditor === null &&
     isSelectionToolId(activeTool) &&
     selectionState.interaction.kind === "idle" &&
     selectedObjects.length > 0 &&
@@ -1399,6 +1636,15 @@ export function App({
               type="file"
             />
           </label>
+          <button
+            aria-label="Создать координатную плоскость (G)"
+            className="tool-button"
+            disabled={readOnly}
+            onClick={createCoordinatePlot}
+            type="button"
+          >
+            График
+          </button>
           {onImportDocument === undefined ? null : (
             <label className="tool-button file-tool-button">
               Импорт JSON
@@ -1512,8 +1758,12 @@ export function App({
             </div>
             <dl>
               <div>
-                <dt>V / L / H / P / I / R / E / T</dt>
-                <dd>Выбор инструмента</dd>
+                <dt>V / L / H / P / I / R / E / T / G</dt>
+                <dd>Выбор инструмента и создание графика</dd>
+              </div>
+              <div>
+                <dt>Enter / двойной щелчок / Escape</dt>
+                <dd>Открыть или закрыть редактор координатной плоскости</dd>
               </div>
               <div>
                 <dt>Стрелки / Shift+стрелки</dt>
@@ -1585,6 +1835,7 @@ export function App({
           </div>
         ) : null}
         <BoardStage
+          coordinatePlotInteraction={coordinatePlotInteraction}
           drawingModeKey={isDrawingToolId(activeTool) ? activeTool : null}
           onWorldPointerCancel={cancelDrawing}
           onWorldPointerFinish={finishDrawing}
@@ -1622,6 +1873,28 @@ export function App({
           selectionPreviewDelta={renderedSelectionPreviewDelta}
           transformableObjectIds={transformableObjectIds}
         />
+        {coordinatePlotEditor === null ? null : (
+          <CoordinatePlotEditorPanel
+            definition={coordinatePlotEditor.draft}
+            dirty={coordinatePlotEditor.draft !== coordinatePlotEditor.expected}
+            issues={validateCoordinatePlotEditorDefinition(
+              coordinatePlotEditor.draft,
+            )}
+            onAddParameter={addCoordinatePlotEditorParameter}
+            onAddSeries={addCoordinatePlotEditorSeries}
+            onClose={() => setCoordinatePlotEditor(null)}
+            onDefinitionChange={updateCoordinatePlotDraft}
+            onSave={saveCoordinatePlotEditor}
+            onSelectedSeriesChange={(seriesId) =>
+              selectCoordinatePlotSeries(
+                coordinatePlotEditor.objectId,
+                seriesId,
+              )
+            }
+            readOnly={readOnly}
+            selectedSeriesId={coordinatePlotEditor.selectedSeriesId}
+          />
+        )}
         <GeometryPromptPanel
           available={geometryOsClient !== undefined}
           onCancel={() => geometryOperationRef.current?.cancel()}
@@ -1795,26 +2068,30 @@ export function App({
         </div>
         <aside className="canvas-help" aria-label="Подсказка по навигации">
           <strong>
-            {activeTool === navigationToolId
-              ? "Навигация"
-              : activeTool === selectionToolId
-                ? "Выделение"
-                : activeTool === lassoSelectionToolId
-                  ? "Лассо"
-                  : activeTool === "drawing.smart-ink"
-                    ? "Smart Ink"
-                    : "Создание объекта"}
+            {coordinatePlotEditor !== null
+              ? "Редактор графика"
+              : activeTool === navigationToolId
+                ? "Навигация"
+                : activeTool === selectionToolId
+                  ? "Выделение"
+                  : activeTool === lassoSelectionToolId
+                    ? "Лассо"
+                    : activeTool === "drawing.smart-ink"
+                      ? "Smart Ink"
+                      : "Создание объекта"}
           </strong>
           <span>
-            {activeTool === navigationToolId
-              ? "Потяните полотно для перемещения"
-              : activeTool === selectionToolId
-                ? "Клик, Shift+клик или рамка выделения"
-                : activeTool === lassoSelectionToolId
-                  ? "Обведите объекты; Shift добавляет, Alt исключает"
-                  : activeTool === "drawing.smart-ink"
-                    ? "Нарисуйте фигуру одним непрерывным штрихом"
-                    : "Потяните или нажмите на полотно"}
+            {coordinatePlotEditor !== null
+              ? "Тяните внутри плоскости; колесо меняет внутренний масштаб"
+              : activeTool === navigationToolId
+                ? "Потяните полотно для перемещения"
+                : activeTool === selectionToolId
+                  ? "Клик, Shift+клик или рамка выделения"
+                  : activeTool === lassoSelectionToolId
+                    ? "Обведите объекты; Shift добавляет, Alt исключает"
+                    : activeTool === "drawing.smart-ink"
+                      ? "Нарисуйте фигуру одним непрерывным штрихом"
+                      : "Потяните или нажмите на полотно"}
           </span>
           <span>Правая кнопка / Space / средняя кнопка — перемещение</span>
           <span>Escape — отменить действие</span>
@@ -1868,6 +2145,17 @@ export function App({
                 Удалить
               </button>
             </div>
+            {selectedCoordinatePlot === null ||
+            selectedCoordinatePlot.source.kind !== "user" ? null : (
+              <button
+                onClick={() =>
+                  beginCoordinatePlotEditing(selectedCoordinatePlot.id)
+                }
+                type="button"
+              >
+                Редактировать график
+              </button>
+            )}
             {selectedStyle === undefined ? null : (
               <div className="style-inspector">
                 {isEditableTextObject(selectedEditableText) ? (

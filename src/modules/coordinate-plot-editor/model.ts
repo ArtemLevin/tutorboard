@@ -156,7 +156,8 @@ export function addCoordinatePlotSeries(
   kind: PlotSeries["kind"],
   id: PlotSeriesId,
 ): CoordinatePlotDefinition {
-  if (definition.series.length >= maximumCoordinatePlotSeries) return definition;
+  if (definition.series.length >= maximumCoordinatePlotSeries)
+    return definition;
   const index = definition.series.length;
   const series =
     kind === "explicit"

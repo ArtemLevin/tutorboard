@@ -401,10 +401,7 @@ function ParameterEditor({
             onChange={(event) =>
               replace({
                 ...parameter,
-                value: numberValue(
-                  event.currentTarget.value,
-                  parameter.value,
-                ),
+                value: numberValue(event.currentTarget.value, parameter.value),
               })
             }
             step="any"
@@ -518,9 +515,15 @@ export function CoordinatePlotEditorPanel({
       <header className="plot-editor-heading">
         <div>
           <strong>Редактирование координатной плоскости</strong>
-          <span>{dirty ? "Есть несохранённые изменения" : "Изменения сохранены"}</span>
+          <span>
+            {dirty ? "Есть несохранённые изменения" : "Изменения сохранены"}
+          </span>
         </div>
-        <button aria-label="Закрыть редактор графика" onClick={onClose} type="button">
+        <button
+          aria-label="Закрыть редактор графика"
+          onClick={onClose}
+          type="button"
+        >
           ×
         </button>
       </header>
@@ -589,8 +592,8 @@ export function CoordinatePlotEditorPanel({
               </button>
             </div>
             <p className="plot-editor-hint">
-              На плоскости: перетаскивание сдвигает диапазон, колесо масштабирует,
-              Shift+колесо меняет X, Alt+колесо меняет Y.
+              На плоскости: перетаскивание сдвигает диапазон, колесо
+              масштабирует, Shift+колесо меняет X, Alt+колесо меняет Y.
             </p>
             <IssueList field="coordinateViewport" issues={issues} />
           </div>
@@ -600,30 +603,257 @@ export function CoordinatePlotEditorPanel({
           <summary>Сетка, оси и легенда</summary>
           <div className="plot-editor-section">
             <div className="plot-editor-checks">
-              <label><input checked={definition.grid.visible} onChange={(event) => onDefinitionChange({ ...definition, grid: { ...definition.grid, visible: event.currentTarget.checked } })} type="checkbox" />Сетка</label>
-              <label><input checked={definition.grid.majorVisible} onChange={(event) => onDefinitionChange({ ...definition, grid: { ...definition.grid, majorVisible: event.currentTarget.checked } })} type="checkbox" />Основные линии</label>
-              <label><input checked={definition.grid.minorVisible} onChange={(event) => onDefinitionChange({ ...definition, grid: { ...definition.grid, minorVisible: event.currentTarget.checked } })} type="checkbox" />Промежуточные линии</label>
-              <label><input checked={definition.grid.automaticStep} onChange={(event) => onDefinitionChange({ ...definition, grid: { ...definition.grid, automaticStep: event.currentTarget.checked, xStep: event.currentTarget.checked ? null : (definition.grid.xStep ?? 1), yStep: event.currentTarget.checked ? null : (definition.grid.yStep ?? 1) } })} type="checkbox" />Автоматический шаг</label>
-              <label><input checked={definition.axes.showXAxis} onChange={(event) => onDefinitionChange({ ...definition, axes: { ...definition.axes, showXAxis: event.currentTarget.checked } })} type="checkbox" />Ось X</label>
-              <label><input checked={definition.axes.showYAxis} onChange={(event) => onDefinitionChange({ ...definition, axes: { ...definition.axes, showYAxis: event.currentTarget.checked } })} type="checkbox" />Ось Y</label>
-              <label><input checked={definition.axes.showLabels} onChange={(event) => onDefinitionChange({ ...definition, axes: { ...definition.axes, showLabels: event.currentTarget.checked } })} type="checkbox" />Подписи</label>
-              <label><input checked={definition.axes.showArrows} onChange={(event) => onDefinitionChange({ ...definition, axes: { ...definition.axes, showArrows: event.currentTarget.checked } })} type="checkbox" />Стрелки</label>
-              <label><input checked={definition.legend.visible} onChange={(event) => onDefinitionChange({ ...definition, legend: { ...definition.legend, visible: event.currentTarget.checked } })} type="checkbox" />Легенда</label>
+              <label>
+                <input
+                  checked={definition.grid.visible}
+                  onChange={(event) =>
+                    onDefinitionChange({
+                      ...definition,
+                      grid: {
+                        ...definition.grid,
+                        visible: event.currentTarget.checked,
+                      },
+                    })
+                  }
+                  type="checkbox"
+                />
+                Сетка
+              </label>
+              <label>
+                <input
+                  checked={definition.grid.majorVisible}
+                  onChange={(event) =>
+                    onDefinitionChange({
+                      ...definition,
+                      grid: {
+                        ...definition.grid,
+                        majorVisible: event.currentTarget.checked,
+                      },
+                    })
+                  }
+                  type="checkbox"
+                />
+                Основные линии
+              </label>
+              <label>
+                <input
+                  checked={definition.grid.minorVisible}
+                  onChange={(event) =>
+                    onDefinitionChange({
+                      ...definition,
+                      grid: {
+                        ...definition.grid,
+                        minorVisible: event.currentTarget.checked,
+                      },
+                    })
+                  }
+                  type="checkbox"
+                />
+                Промежуточные линии
+              </label>
+              <label>
+                <input
+                  checked={definition.grid.automaticStep}
+                  onChange={(event) =>
+                    onDefinitionChange({
+                      ...definition,
+                      grid: {
+                        ...definition.grid,
+                        automaticStep: event.currentTarget.checked,
+                        xStep: event.currentTarget.checked
+                          ? null
+                          : (definition.grid.xStep ?? 1),
+                        yStep: event.currentTarget.checked
+                          ? null
+                          : (definition.grid.yStep ?? 1),
+                      },
+                    })
+                  }
+                  type="checkbox"
+                />
+                Автоматический шаг
+              </label>
+              <label>
+                <input
+                  checked={definition.axes.showXAxis}
+                  onChange={(event) =>
+                    onDefinitionChange({
+                      ...definition,
+                      axes: {
+                        ...definition.axes,
+                        showXAxis: event.currentTarget.checked,
+                      },
+                    })
+                  }
+                  type="checkbox"
+                />
+                Ось X
+              </label>
+              <label>
+                <input
+                  checked={definition.axes.showYAxis}
+                  onChange={(event) =>
+                    onDefinitionChange({
+                      ...definition,
+                      axes: {
+                        ...definition.axes,
+                        showYAxis: event.currentTarget.checked,
+                      },
+                    })
+                  }
+                  type="checkbox"
+                />
+                Ось Y
+              </label>
+              <label>
+                <input
+                  checked={definition.axes.showLabels}
+                  onChange={(event) =>
+                    onDefinitionChange({
+                      ...definition,
+                      axes: {
+                        ...definition.axes,
+                        showLabels: event.currentTarget.checked,
+                      },
+                    })
+                  }
+                  type="checkbox"
+                />
+                Подписи
+              </label>
+              <label>
+                <input
+                  checked={definition.axes.showArrows}
+                  onChange={(event) =>
+                    onDefinitionChange({
+                      ...definition,
+                      axes: {
+                        ...definition.axes,
+                        showArrows: event.currentTarget.checked,
+                      },
+                    })
+                  }
+                  type="checkbox"
+                />
+                Стрелки
+              </label>
+              <label>
+                <input
+                  checked={definition.legend.visible}
+                  onChange={(event) =>
+                    onDefinitionChange({
+                      ...definition,
+                      legend: {
+                        ...definition.legend,
+                        visible: event.currentTarget.checked,
+                      },
+                    })
+                  }
+                  type="checkbox"
+                />
+                Легенда
+              </label>
             </div>
             {definition.grid.automaticStep ? null : (
               <div className="plot-editor-grid two-columns">
-                <label>Шаг X<input min="0.000000001" onChange={(event) => onDefinitionChange({ ...definition, grid: { ...definition.grid, xStep: numberValue(event.currentTarget.value, definition.grid.xStep ?? 1) } })} step="any" type="number" value={definition.grid.xStep ?? 1} /></label>
-                <label>Шаг Y<input min="0.000000001" onChange={(event) => onDefinitionChange({ ...definition, grid: { ...definition.grid, yStep: numberValue(event.currentTarget.value, definition.grid.yStep ?? 1) } })} step="any" type="number" value={definition.grid.yStep ?? 1} /></label>
+                <label>
+                  Шаг X
+                  <input
+                    min="0.000000001"
+                    onChange={(event) =>
+                      onDefinitionChange({
+                        ...definition,
+                        grid: {
+                          ...definition.grid,
+                          xStep: numberValue(
+                            event.currentTarget.value,
+                            definition.grid.xStep ?? 1,
+                          ),
+                        },
+                      })
+                    }
+                    step="any"
+                    type="number"
+                    value={definition.grid.xStep ?? 1}
+                  />
+                </label>
+                <label>
+                  Шаг Y
+                  <input
+                    min="0.000000001"
+                    onChange={(event) =>
+                      onDefinitionChange({
+                        ...definition,
+                        grid: {
+                          ...definition.grid,
+                          yStep: numberValue(
+                            event.currentTarget.value,
+                            definition.grid.yStep ?? 1,
+                          ),
+                        },
+                      })
+                    }
+                    step="any"
+                    type="number"
+                    value={definition.grid.yStep ?? 1}
+                  />
+                </label>
               </div>
             )}
             <div className="plot-editor-grid two-columns">
-              <label>Подпись X<input maxLength={24} onChange={(event) => onDefinitionChange({ ...definition, axes: { ...definition.axes, xLabel: event.currentTarget.value } })} value={definition.axes.xLabel} /></label>
-              <label>Подпись Y<input maxLength={24} onChange={(event) => onDefinitionChange({ ...definition, axes: { ...definition.axes, yLabel: event.currentTarget.value } })} value={definition.axes.yLabel} /></label>
+              <label>
+                Подпись X
+                <input
+                  maxLength={24}
+                  onChange={(event) =>
+                    onDefinitionChange({
+                      ...definition,
+                      axes: {
+                        ...definition.axes,
+                        xLabel: event.currentTarget.value,
+                      },
+                    })
+                  }
+                  value={definition.axes.xLabel}
+                />
+              </label>
+              <label>
+                Подпись Y
+                <input
+                  maxLength={24}
+                  onChange={(event) =>
+                    onDefinitionChange({
+                      ...definition,
+                      axes: {
+                        ...definition.axes,
+                        yLabel: event.currentTarget.value,
+                      },
+                    })
+                  }
+                  value={definition.axes.yLabel}
+                />
+              </label>
             </div>
             <label>
               Положение легенды
-              <select onChange={(event) => onDefinitionChange({ ...definition, legend: { ...definition.legend, position: event.currentTarget.value as CoordinatePlotDefinition["legend"]["position"] } })} value={definition.legend.position}>
-                {plotLegendPositions.map((position) => <option key={position} value={position}>{position}</option>)}
+              <select
+                onChange={(event) =>
+                  onDefinitionChange({
+                    ...definition,
+                    legend: {
+                      ...definition.legend,
+                      position: event.currentTarget
+                        .value as CoordinatePlotDefinition["legend"]["position"],
+                    },
+                  })
+                }
+                value={definition.legend.position}
+              >
+                {plotLegendPositions.map((position) => (
+                  <option key={position} value={position}>
+                    {position}
+                  </option>
+                ))}
               </select>
             </label>
             <IssueList field="grid" issues={issues} />
@@ -634,34 +864,118 @@ export function CoordinatePlotEditorPanel({
           <summary>Серии ({definition.series.length})</summary>
           <div className="plot-editor-section">
             <div className="plot-editor-actions compact">
-              <button disabled={definition.series.length >= maximumCoordinatePlotSeries} onClick={() => onAddSeries("explicit")} type="button">+ y=f(x)</button>
-              <button disabled={definition.series.length >= maximumCoordinatePlotSeries} onClick={() => onAddSeries("parametric")} type="button">+ Параметрическая</button>
+              <button
+                disabled={
+                  definition.series.length >= maximumCoordinatePlotSeries
+                }
+                onClick={() => onAddSeries("explicit")}
+                type="button"
+              >
+                + y=f(x)
+              </button>
+              <button
+                disabled={
+                  definition.series.length >= maximumCoordinatePlotSeries
+                }
+                onClick={() => onAddSeries("parametric")}
+                type="button"
+              >
+                + Параметрическая
+              </button>
             </div>
             <ol className="plot-series-list">
               {definition.series.map((series) => (
-                <li className={series.id === selectedSeries?.id ? "is-selected" : ""} key={series.id}>
-                  <input aria-label={`Показывать ${series.name}`} checked={series.visible} onChange={(event) => onDefinitionChange(updateCoordinatePlotSeries(definition, { ...series, visible: event.currentTarget.checked }))} type="checkbox" />
-                  <button className="plot-series-name" onClick={() => onSelectedSeriesChange(series.id)} type="button">{series.name || "Без названия"}</button>
-                  <button aria-label={`Удалить ${series.name}`} onClick={() => { const next = removeCoordinatePlotSeries(definition, series.id); onDefinitionChange(next); if (selectedSeriesId === series.id) onSelectedSeriesChange(next.series[0]?.id ?? null); }} type="button">×</button>
+                <li
+                  className={
+                    series.id === selectedSeries?.id ? "is-selected" : ""
+                  }
+                  key={series.id}
+                >
+                  <input
+                    aria-label={`Показывать ${series.name}`}
+                    checked={series.visible}
+                    onChange={(event) =>
+                      onDefinitionChange(
+                        updateCoordinatePlotSeries(definition, {
+                          ...series,
+                          visible: event.currentTarget.checked,
+                        }),
+                      )
+                    }
+                    type="checkbox"
+                  />
+                  <button
+                    className="plot-series-name"
+                    onClick={() => onSelectedSeriesChange(series.id)}
+                    type="button"
+                  >
+                    {series.name || "Без названия"}
+                  </button>
+                  <button
+                    aria-label={`Удалить ${series.name}`}
+                    onClick={() => {
+                      const next = removeCoordinatePlotSeries(
+                        definition,
+                        series.id,
+                      );
+                      onDefinitionChange(next);
+                      if (selectedSeriesId === series.id)
+                        onSelectedSeriesChange(next.series[0]?.id ?? null);
+                    }}
+                    type="button"
+                  >
+                    ×
+                  </button>
                 </li>
               ))}
             </ol>
-            {selectedSeries === null ? <p>Добавьте первую серию.</p> : <SeriesEditor definition={definition} issues={issues} onChange={onDefinitionChange} series={selectedSeries} />}
+            {selectedSeries === null ? (
+              <p>Добавьте первую серию.</p>
+            ) : (
+              <SeriesEditor
+                definition={definition}
+                issues={issues}
+                onChange={onDefinitionChange}
+                series={selectedSeries}
+              />
+            )}
           </div>
         </details>
 
         <details>
           <summary>Параметры ({definition.parameters.length})</summary>
           <div className="plot-editor-section">
-            <button disabled={definition.parameters.length >= maximumCoordinatePlotParameters} onClick={onAddParameter} type="button">Добавить параметр</button>
-            {definition.parameters.length === 0 ? <p className="plot-editor-hint">Параметры общие для всех серий. Пример: y=a*x^2+b.</p> : definition.parameters.map((parameter) => <ParameterEditor definition={definition} key={parameter.id} onChange={onDefinitionChange} parameter={parameter} />)}
+            <button
+              disabled={
+                definition.parameters.length >= maximumCoordinatePlotParameters
+              }
+              onClick={onAddParameter}
+              type="button"
+            >
+              Добавить параметр
+            </button>
+            {definition.parameters.length === 0 ? (
+              <p className="plot-editor-hint">
+                Параметры общие для всех серий. Пример: y=a*x^2+b.
+              </p>
+            ) : (
+              definition.parameters.map((parameter) => (
+                <ParameterEditor
+                  definition={definition}
+                  key={parameter.id}
+                  onChange={onDefinitionChange}
+                  parameter={parameter}
+                />
+              ))
+            )}
             <IssueList field="parameters" issues={issues} />
           </div>
         </details>
 
         {expressionIssues.length === 0 ? null : (
           <div className="plot-editor-warning" role="status">
-            В формулах найдено предупреждений: {expressionIssues.length}. Остальные серии продолжают отображаться.
+            В формулах найдено предупреждений: {expressionIssues.length}.
+            Остальные серии продолжают отображаться.
           </div>
         )}
         {blockingIssues.length === 0 ? null : (
@@ -673,8 +987,17 @@ export function CoordinatePlotEditorPanel({
       </div>
 
       <footer className="plot-editor-footer">
-        <button onClick={onClose} type="button">Закрыть</button>
-        <button className="primary" disabled={readOnly || blockingIssues.length > 0 || !dirty} onClick={onSave} type="button">Сохранить</button>
+        <button onClick={onClose} type="button">
+          Закрыть
+        </button>
+        <button
+          className="primary"
+          disabled={readOnly || blockingIssues.length > 0 || !dirty}
+          onClick={onSave}
+          type="button"
+        >
+          Сохранить
+        </button>
       </footer>
     </aside>
   );

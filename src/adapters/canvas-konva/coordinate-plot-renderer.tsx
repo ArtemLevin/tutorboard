@@ -1,13 +1,20 @@
-import { useMemo, useState, type ReactElement } from "react";
+import Konva from "konva";
+import { useMemo, useRef, useState, type ReactElement } from "react";
 import { Arrow, Group, Line, Rect, Text } from "react-konva";
 
 import {
   createPlotSamplingCache,
   type CoordinatePlotObject,
   type CoordinatePlotSeriesSamplingResult,
+  type CoordinatePlotViewport,
   type PlotSeries,
   type PlotSeriesId,
+  type Vec2,
 } from "../../core/public";
+import {
+  panCoordinatePlotViewport,
+  zoomCoordinatePlotViewportAt,
+} from "./coordinate-plot-editing";
 import { createCoordinatePlotRenderModel } from "./coordinate-plot-render-model";
 import {
   createPlotLegendLayout,
@@ -18,11 +25,29 @@ import {
 const coordinatePlotSamplingCache = createPlotSamplingCache();
 const tickFontSize = 11;
 const axisLabelFontSize = 13;
+const plotWheelZoomStep = 1.12;
+
+interface PlotViewportDragSession {
+  readonly startPointer: Vec2;
+  readonly startViewport: CoordinatePlotViewport;
+}
+
+function localPointer(node: Konva.Node): Vec2 | null {
+  const stage = node.getStage();
+  const pointer = stage?.getPointerPosition();
+  if (pointer === null || pointer === undefined) return null;
+  const local = node.getAbsoluteTransform().copy().invert().point(pointer);
+  return Number.isFinite(local.x) && Number.isFinite(local.y) ? local : null;
+}
 
 export interface CoordinatePlotRendererProps {
+  readonly editing?: boolean | undefined;
   readonly object: CoordinatePlotObject;
+  readonly onEditRequest?: (() => void) | undefined;
   readonly onSelectedSeriesChange?:
     ((seriesId: PlotSeriesId | null) => void) | undefined;
+  readonly onViewportChange?:
+    ((viewport: CoordinatePlotViewport) => void) | undefined;
   readonly selectedSeriesId?: PlotSeriesId | null | undefined;
   readonly zoom: number;
 }
@@ -85,8 +110,11 @@ function seriesOpacity(
 }
 
 export function CoordinatePlotRenderer({
+  editing = false,
   object,
+  onEditRequest,
   onSelectedSeriesChange,
+  onViewportChange,
   selectedSeriesId,
   zoom,
 }: CoordinatePlotRendererProps): ReactElement {
@@ -95,6 +123,7 @@ export function CoordinatePlotRenderer({
   const [hoveredSeriesId, setHoveredSeriesId] = useState<PlotSeriesId | null>(
     null,
   );
+  const viewportDragRef = useRef<PlotViewportDragSession | null>(null);
   const model = useMemo(
     () =>
       createCoordinatePlotRenderModel({
@@ -150,6 +179,11 @@ export function CoordinatePlotRenderer({
   return (
     <Group
       name="board-transform-target coordinate-plot-root"
+      onDblClick={(event) => {
+        if (onEditRequest === undefined) return;
+        event.cancelBubble = true;
+        onEditRequest();
+      }}
       opacity={object.style.opacity}
       rotation={object.rotation}
       scaleX={object.scale.x}
@@ -159,7 +193,35 @@ export function CoordinatePlotRenderer({
       y={object.position.y}
     >
       <Rect fill={fill} height={height} width={width} />
-      <Group clipHeight={height} clipWidth={width} clipX={0} clipY={0}>
+      <Group
+        clipHeight={height}
+        clipWidth={width}
+        clipX={0}
+        clipY={0}
+        onWheel={(event) => {
+          if (!editing || onViewportChange === undefined) return;
+          event.cancelBubble = true;
+          event.evt.preventDefault();
+          const pointer = localPointer(event.currentTarget);
+          if (pointer === null) return;
+          const direction =
+            (event.evt.deltaY < 0 ? -1 : 1) * (event.evt.ctrlKey ? -1 : 1);
+          const axis = event.evt.shiftKey
+            ? "x"
+            : event.evt.altKey
+              ? "y"
+              : "both";
+          onViewportChange(
+            zoomCoordinatePlotViewportAt(
+              definition.coordinateViewport,
+              definition.size,
+              pointer,
+              direction < 0 ? 1 / plotWheelZoomStep : plotWheelZoomStep,
+              axis,
+            ),
+          );
+        }}
+      >
         {definition.grid.visible &&
           definition.grid.minorVisible &&
           grid.minorX.map((position, index) => (
@@ -278,6 +340,62 @@ export function CoordinatePlotRenderer({
               y={2}
             />
           )}
+        {editing && onViewportChange !== undefined ? (
+          <Rect
+            dragBoundFunc={() => ({ x: 0, y: 0 })}
+            draggable
+            fill="rgba(15,23,42,0.001)"
+            height={height}
+            name="coordinate-plot-pan-surface"
+            onDragEnd={(event) => {
+              event.cancelBubble = true;
+              const session = viewportDragRef.current;
+              const pointer = localPointer(event.currentTarget);
+              viewportDragRef.current = null;
+              if (session === null || pointer === null) return;
+              onViewportChange(
+                panCoordinatePlotViewport(
+                  session.startViewport,
+                  definition.size,
+                  {
+                    x: pointer.x - session.startPointer.x,
+                    y: pointer.y - session.startPointer.y,
+                  },
+                ),
+              );
+            }}
+            onDragMove={(event) => {
+              event.cancelBubble = true;
+              const session = viewportDragRef.current;
+              const pointer = localPointer(event.currentTarget);
+              if (session === null || pointer === null) return;
+              onViewportChange(
+                panCoordinatePlotViewport(
+                  session.startViewport,
+                  definition.size,
+                  {
+                    x: pointer.x - session.startPointer.x,
+                    y: pointer.y - session.startPointer.y,
+                  },
+                ),
+              );
+            }}
+            onDragStart={(event) => {
+              event.cancelBubble = true;
+              const pointer = localPointer(event.currentTarget);
+              if (pointer === null) return;
+              viewportDragRef.current = {
+                startPointer: pointer,
+                startViewport: definition.coordinateViewport,
+              };
+            }}
+            onPointerDown={(event) => {
+              event.cancelBubble = true;
+              event.evt.preventDefault();
+            }}
+            width={width}
+          />
+        ) : null}
         {visibleSeries.flatMap((series) => {
           const result = resultBySeriesId.get(series.id);
           if (result?.sample === null || result?.sample === undefined)
@@ -322,6 +440,11 @@ export function CoordinatePlotRenderer({
                     current === series.id ? null : current,
                   )
                 }
+                onPointerDown={(event) => {
+                  if (!editing) return;
+                  event.cancelBubble = true;
+                  event.evt.preventDefault();
+                }}
                 onTap={() => selectSeries(series.id)}
                 opacity={seriesOpacity(series, highlightedSeriesId)}
                 perfectDrawEnabled={false}
@@ -373,6 +496,11 @@ export function CoordinatePlotRenderer({
                     current === series.id ? null : current,
                   )
                 }
+                onPointerDown={(event) => {
+                  if (!editing) return;
+                  event.cancelBubble = true;
+                  event.evt.preventDefault();
+                }}
                 onTap={() => selectSeries(series.id)}
                 y={rowY}
               >
@@ -409,6 +537,19 @@ export function CoordinatePlotRenderer({
           })}
         </Group>
       )}
+      {editing ? (
+        <Text
+          align="center"
+          fill="#1d4ed8"
+          fontSize={12}
+          fontStyle="bold"
+          listening={false}
+          text="Редактирование координатной плоскости"
+          width={Math.max(0, width - 32)}
+          x={16}
+          y={8}
+        />
+      ) : null}
       {problematicSeriesCount > 0 && (
         <Text
           fill="#b45309"

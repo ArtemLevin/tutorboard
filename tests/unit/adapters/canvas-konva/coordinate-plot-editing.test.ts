@@ -65,7 +65,11 @@ describe("coordinate plot viewport gestures", () => {
 
   it("ignores malformed gesture inputs", () => {
     expect(
-      panCoordinatePlotViewport(viewport, { height: 0, width: 800 }, { x: 1, y: 1 }),
+      panCoordinatePlotViewport(
+        viewport,
+        { height: 0, width: 800 },
+        { x: 1, y: 1 },
+      ),
     ).toBe(viewport);
     expect(
       zoomCoordinatePlotViewportAt(viewport, size, { x: 1, y: 1 }, Number.NaN),

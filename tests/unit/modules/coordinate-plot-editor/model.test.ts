@@ -85,7 +85,8 @@ describe("coordinate plot editor model", () => {
   it("separates blocking domain issues from editable formula diagnostics", () => {
     const plot = createPlot();
     const explicit = plot.definition.series[0]!;
-    if (explicit.kind !== "explicit") throw new Error("Expected explicit series.");
+    if (explicit.kind !== "explicit")
+      throw new Error("Expected explicit series.");
     const definition = {
       ...plot.definition,
       coordinateViewport: {
