@@ -5,6 +5,7 @@ import type {
   PersistenceOperationId,
   SaveBoardDocumentInput,
 } from "../../core/public";
+import { bindLocalAutosaveLifecycleFlush } from "./lifecycle";
 
 export type LocalAutosaveState =
   | { readonly kind: "idle" }
@@ -56,6 +57,7 @@ export class LocalDocumentAutosave {
   #queuedDocument: BoardDocument | null = null;
   #revisionId: LocalRevisionId | null;
   #timer: ReturnType<typeof setTimeout> | null = null;
+  #unbindLifecycleFlush: (() => void) | null = null;
 
   constructor(options: LocalAutosaveOptions) {
     this.#createOperationId = options.createOperationId;
@@ -65,6 +67,13 @@ export class LocalDocumentAutosave {
     this.#onStateChange = options.onStateChange;
     this.#repository = options.repository;
     this.#revisionId = options.initialRevisionId;
+
+    if (typeof document !== "undefined" && typeof window !== "undefined") {
+      this.#unbindLifecycleFlush = bindLocalAutosaveLifecycleFlush(this, {
+        documentTarget: document,
+        windowTarget: window,
+      });
+    }
   }
 
   schedule(document: BoardDocument): void {
@@ -99,6 +108,8 @@ export class LocalDocumentAutosave {
   }
 
   dispose(): void {
+    this.#unbindLifecycleFlush?.();
+    this.#unbindLifecycleFlush = null;
     this.#disposed = true;
     if (this.#timer !== null) {
       clearTimeout(this.#timer);

@@ -189,9 +189,56 @@ jobs:
       - name: Run browser smoke
         run: npm run e2e
 
+  coordinate-plot-production:
+    name: Coordinate plot production gate
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run coordinate plot integration and performance gate
+        run: |
+          set -o pipefail
+          npm run plot:production 2>&1 | tee coordinate-plot-production.log
+
+      - name: Install release browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Run Chromium and Firefox coordinate plot lifecycle
+        run: |
+          set -o pipefail
+          npm run e2e:plot-production 2>&1 | tee coordinate-plot-browser.log
+
+      - name: Upload coordinate plot failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coordinate-plot-production-failure-${{ github.sha }}
+          path: |
+            coordinate-plot-production.log
+            coordinate-plot-browser.log
+            test-results
+          if-no-files-found: warn
+          retention-days: 7
+
   production-image:
     name: Production image
-    needs: [quality, e2e-smoke]
+    needs: [quality, e2e-smoke, coordinate-plot-production]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
