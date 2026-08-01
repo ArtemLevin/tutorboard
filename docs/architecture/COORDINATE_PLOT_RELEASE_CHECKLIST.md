@@ -1,5 +1,7 @@
 # Coordinate plot release checklist
 
+This checklist is marked complete only after the dedicated PR 6 job and every existing TutorBoard release gate succeed on the same head commit.
+
 ## Functional scope
 
 - [ ] Create a coordinate plane from the toolbar and `G` shortcut.
