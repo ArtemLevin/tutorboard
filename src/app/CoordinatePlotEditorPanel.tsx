@@ -7,7 +7,6 @@ import {
   plotLineStyles,
   type CoordinatePlotDefinition,
   type PlotParameter,
-  type PlotParameterId,
   type PlotSeries,
   type PlotSeriesId,
 } from "../core/public";
@@ -466,19 +465,19 @@ function ParameterEditor({
         <input
           aria-label={`Ползунок параметра ${parameter.name}`}
           className="plot-parameter-slider"
-          max={parameter.max!}
-          min={parameter.min!}
+          max={parameter.max}
+          min={parameter.min}
           onChange={(event) =>
             replace({
               ...parameter,
               value: numberValue(event.currentTarget.value, parameter.value),
             })
           }
-          step={parameter.step!}
+          step={parameter.step}
           type="range"
           value={Math.max(
-            parameter.min!,
-            Math.min(parameter.max!, parameter.value),
+            parameter.min,
+            Math.min(parameter.max, parameter.value),
           )}
         />
       ) : null}
