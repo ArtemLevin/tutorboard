@@ -129,3 +129,7 @@ Browser tests cover:
 - Smart Ink, GeometryOS and production-image gates remain green;
 - review comments and review threads are resolved;
 - the PR is squash-merged into `main`.
+
+## Implementation status
+
+Implementation is in progress on `feature/coordinate-plot-ux-canvas-mobile`. The draft PR remains gated until the interaction, mobile, visual-regression and production checks all pass on a clean product-only diff.
