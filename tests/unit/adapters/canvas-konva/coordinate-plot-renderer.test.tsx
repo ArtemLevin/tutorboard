@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { createDefaultKonvaRendererRegistry } from "../../../../src/adapters/canvas-konva/public";
+import {
+  CoordinatePlotRenderer,
+  createDefaultKonvaRendererRegistry,
+} from "../../../../src/adapters/canvas-konva/public";
 import {
   boardObjectId,
   plotSeriesId,
@@ -88,13 +91,14 @@ const plot: CoordinatePlotObject = {
   visible: true,
 };
 
-describe("coordinate plot placeholder renderer", () => {
-  it("registers the object kind and returns a safe render element", () => {
+describe("coordinate plot production renderer", () => {
+  it("registers the object kind and forwards board zoom", () => {
     const item: BoardRenderItem = { object: plot, transforms: [] };
     const registry = createDefaultKonvaRendererRegistry();
 
     expect(() => registry.render(item, { zoom: 4 })).not.toThrow();
     const element = registry.render(item, { zoom: 4 });
-    expect(element.props).toMatchObject({ object: plot });
+    expect(element.type).toBe(CoordinatePlotRenderer);
+    expect(element.props).toMatchObject({ object: plot, zoom: 4 });
   });
 });
