@@ -1,4 +1,12 @@
-import type { ReactElement } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactElement,
+  type RefObject,
+} from "react";
 
 import {
   maximumCoordinatePlotParameters,
@@ -25,12 +33,13 @@ import "./CoordinatePlotEditorPanel.css";
 export interface CoordinatePlotEditorPanelProps {
   readonly definition: CoordinatePlotDefinition;
   readonly dirty: boolean;
+  readonly fallbackFocusRef?: RefObject<HTMLElement | null>;
   readonly issues: readonly CoordinatePlotEditorIssue[];
   readonly onAddParameter: () => void;
   readonly onAddSeries: (kind: PlotSeries["kind"]) => void;
   readonly onClose: () => void;
   readonly onDefinitionChange: (definition: CoordinatePlotDefinition) => void;
-  readonly onSave: () => void;
+  readonly onSave: () => boolean;
   readonly onSelectedSeriesChange: (seriesId: PlotSeriesId | null) => void;
   readonly readOnly: boolean;
   readonly selectedSeriesId: PlotSeriesId | null;
@@ -62,6 +71,7 @@ function fieldIssues(
   issues: readonly CoordinatePlotEditorIssue[],
   field: string,
 ): readonly CoordinatePlotEditorIssue[] {
+  if (field === "") return issues;
   return issues.filter(
     (issue) => issue.field === field || issue.field.startsWith(`${field}.`),
   );
@@ -69,14 +79,16 @@ function fieldIssues(
 
 function IssueList({
   field,
+  id,
   issues,
 }: {
   readonly field: string;
+  readonly id?: string;
   readonly issues: readonly CoordinatePlotEditorIssue[];
 }): ReactElement | null {
   const relevant = fieldIssues(issues, field);
   return relevant.length === 0 ? null : (
-    <ul className="plot-editor-issues">
+    <ul className="plot-editor-issues" id={id}>
       {relevant.map((issue, index) => (
         <li key={`${issue.code}-${issue.start ?? "field"}-${index}`}>
           {issue.message}
@@ -84,6 +96,19 @@ function IssueList({
       ))}
     </ul>
   );
+}
+
+function issueAttributes(
+  issues: readonly CoordinatePlotEditorIssue[],
+  field: string,
+  issueId: string,
+): {
+  readonly "aria-describedby"?: string;
+  readonly "aria-invalid"?: true;
+} {
+  return fieldIssues(issues, field).length === 0
+    ? {}
+    : { "aria-describedby": issueId, "aria-invalid": true };
 }
 
 function SeriesEditor({
@@ -99,6 +124,11 @@ function SeriesEditor({
 }): ReactElement {
   const index = definition.series.findIndex(({ id }) => id === series.id);
   const prefix = `series.${index}`;
+  const expressionIssueId = `plot-series-${index}-expression-issues`;
+  const domainIssueId = `plot-series-${index}-domain-issues`;
+  const xExpressionIssueId = `plot-series-${index}-x-expression-issues`;
+  const yExpressionIssueId = `plot-series-${index}-y-expression-issues`;
+  const rangeIssueId = `plot-series-${index}-range-issues`;
   const replace = (replacement: PlotSeries) =>
     onChange(updateCoordinatePlotSeries(definition, replacement));
   return (
@@ -139,7 +169,13 @@ function SeriesEditor({
           <label>
             Формула y =
             <input
+              {...issueAttributes(
+                issues,
+                `${prefix}.expression`,
+                expressionIssueId,
+              )}
               aria-label="Формула явной функции"
+              data-plot-editor-initial-focus
               maxLength={2_000}
               onChange={(event) =>
                 replace({ ...series, expression: event.currentTarget.value })
@@ -148,11 +184,16 @@ function SeriesEditor({
               value={series.expression}
             />
           </label>
-          <IssueList field={`${prefix}.expression`} issues={issues} />
+          <IssueList
+            field={`${prefix}.expression`}
+            id={expressionIssueId}
+            issues={issues}
+          />
           <div className="plot-editor-grid two-columns">
             <label>
               X от
               <input
+                {...issueAttributes(issues, `${prefix}.domain`, domainIssueId)}
                 aria-label="Минимум области явной функции"
                 maxLength={2_000}
                 onChange={(event) =>
@@ -175,6 +216,7 @@ function SeriesEditor({
             <label>
               X до
               <input
+                {...issueAttributes(issues, `${prefix}.domain`, domainIssueId)}
                 aria-label="Максимум области явной функции"
                 maxLength={2_000}
                 onChange={(event) =>
@@ -195,14 +237,24 @@ function SeriesEditor({
               />
             </label>
           </div>
-          <IssueList field={`${prefix}.domain`} issues={issues} />
+          <IssueList
+            field={`${prefix}.domain`}
+            id={domainIssueId}
+            issues={issues}
+          />
         </>
       ) : (
         <>
           <label>
             x(t)
             <input
+              {...issueAttributes(
+                issues,
+                `${prefix}.xExpression`,
+                xExpressionIssueId,
+              )}
               aria-label="Параметрическая формула x"
+              data-plot-editor-initial-focus
               maxLength={2_000}
               onChange={(event) =>
                 replace({ ...series, xExpression: event.currentTarget.value })
@@ -211,10 +263,19 @@ function SeriesEditor({
               value={series.xExpression}
             />
           </label>
-          <IssueList field={`${prefix}.xExpression`} issues={issues} />
+          <IssueList
+            field={`${prefix}.xExpression`}
+            id={xExpressionIssueId}
+            issues={issues}
+          />
           <label>
             y(t)
             <input
+              {...issueAttributes(
+                issues,
+                `${prefix}.yExpression`,
+                yExpressionIssueId,
+              )}
               aria-label="Параметрическая формула y"
               maxLength={2_000}
               onChange={(event) =>
@@ -224,11 +285,16 @@ function SeriesEditor({
               value={series.yExpression}
             />
           </label>
-          <IssueList field={`${prefix}.yExpression`} issues={issues} />
+          <IssueList
+            field={`${prefix}.yExpression`}
+            id={yExpressionIssueId}
+            issues={issues}
+          />
           <div className="plot-editor-grid two-columns">
             <label>
               t от
               <input
+                {...issueAttributes(issues, `${prefix}.range`, rangeIssueId)}
                 aria-label="Минимум параметра t"
                 maxLength={2_000}
                 onChange={(event) =>
@@ -247,6 +313,7 @@ function SeriesEditor({
             <label>
               t до
               <input
+                {...issueAttributes(issues, `${prefix}.range`, rangeIssueId)}
                 aria-label="Максимум параметра t"
                 maxLength={2_000}
                 onChange={(event) =>
@@ -263,7 +330,11 @@ function SeriesEditor({
               />
             </label>
           </div>
-          <IssueList field={`${prefix}.range`} issues={issues} />
+          <IssueList
+            field={`${prefix}.range`}
+            id={rangeIssueId}
+            issues={issues}
+          />
           <label className="plot-editor-check">
             <input
               checked={series.closed}
@@ -488,6 +559,7 @@ function ParameterEditor({
 export function CoordinatePlotEditorPanel({
   definition,
   dirty,
+  fallbackFocusRef,
   issues,
   onAddParameter,
   onAddSeries,
@@ -498,32 +570,122 @@ export function CoordinatePlotEditorPanel({
   readOnly,
   selectedSeriesId,
 }: CoordinatePlotEditorPanelProps): ReactElement {
+  const editorId = useId();
+  const editorRef = useRef<HTMLElement>(null);
+  const confirmationReturnFocusRef = useRef<HTMLElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(
+    typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement !== document.body
+      ? document.activeElement
+      : null,
+  );
+  const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const selectedSeries =
     definition.series.find(({ id }) => id === selectedSeriesId) ??
     definition.series[0] ??
     null;
   const blockingIssues = issues.filter(({ blocking }) => blocking);
   const expressionIssues = issues.filter(({ blocking }) => !blocking);
+  const canSave = dirty && !readOnly && blockingIssues.length === 0;
+  const viewportIssueId = `${editorId}-viewport-issues`;
+  const gridIssueId = `${editorId}-grid-issues`;
+
+  const focusEditor = useCallback((preferred: HTMLElement | null = null) => {
+    const target =
+      preferred?.isConnected === true
+        ? preferred
+        : (editorRef.current?.querySelector<HTMLElement>(
+            "[data-plot-editor-initial-focus]",
+          ) ?? editorRef.current);
+    target?.focus();
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (!dirty) {
+      onClose();
+      return;
+    }
+    confirmationReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setCloseConfirmationOpen(true);
+  }, [dirty, onClose]);
+
+  const continueEditing = useCallback(() => {
+    const preferred = confirmationReturnFocusRef.current;
+    setCloseConfirmationOpen(false);
+    queueMicrotask(() => focusEditor(preferred));
+  }, [focusEditor]);
+
+  useEffect(() => {
+    let mounted = true;
+    const original = returnFocusRef.current;
+    const fallback = fallbackFocusRef?.current ?? null;
+    queueMicrotask(() => {
+      if (mounted) focusEditor();
+    });
+    return () => {
+      mounted = false;
+      queueMicrotask(() => {
+        const target =
+          original?.isConnected === true
+            ? original
+            : fallback?.isConnected === true
+              ? fallback
+              : null;
+        target?.focus();
+      });
+    };
+  }, [fallbackFocusRef, focusEditor]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const accelerator = event.ctrlKey || event.metaKey;
+      if (accelerator && !event.altKey && event.key === "Enter") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (canSave) onSave();
+        return;
+      }
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (closeConfirmationOpen) {
+        continueEditing();
+      } else {
+        requestClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canSave, closeConfirmationOpen, continueEditing, onSave, requestClose]);
 
   return (
     <aside
+      aria-describedby={`${editorId}-status`}
       aria-label="Редактор координатной плоскости"
       className="coordinate-plot-editor-panel"
       data-testid="coordinate-plot-editor"
+      ref={editorRef}
+      tabIndex={-1}
     >
       <header className="plot-editor-heading">
         <div>
-          <strong>Редактирование координатной плоскости</strong>
-          <span>
+          <strong id={`${editorId}-title`}>
+            Редактирование координатной плоскости
+          </strong>
+          <span aria-live="polite" id={`${editorId}-status`}>
             {dirty ? "Есть несохранённые изменения" : "Изменения сохранены"}
           </span>
         </div>
         <button
           aria-label="Закрыть редактор графика"
-          onClick={onClose}
+          onClick={requestClose}
           type="button"
         >
-          ×
+          <span aria-hidden="true">×</span>
         </button>
       </header>
 
@@ -536,6 +698,11 @@ export function CoordinatePlotEditorPanel({
                 <label key={key}>
                   {key}
                   <input
+                    {...issueAttributes(
+                      issues,
+                      "coordinateViewport",
+                      viewportIssueId,
+                    )}
                     aria-label={`Граница ${key}`}
                     onChange={(event) =>
                       onDefinitionChange(
@@ -594,7 +761,11 @@ export function CoordinatePlotEditorPanel({
               На плоскости: перетаскивание сдвигает диапазон, колесо
               масштабирует, Shift+колесо меняет X, Alt+колесо меняет Y.
             </p>
-            <IssueList field="coordinateViewport" issues={issues} />
+            <IssueList
+              field="coordinateViewport"
+              id={viewportIssueId}
+              issues={issues}
+            />
           </div>
         </details>
 
@@ -758,6 +929,7 @@ export function CoordinatePlotEditorPanel({
                 <label>
                   Шаг X
                   <input
+                    {...issueAttributes(issues, "grid", gridIssueId)}
                     min="0.000000001"
                     onChange={(event) =>
                       onDefinitionChange({
@@ -779,6 +951,7 @@ export function CoordinatePlotEditorPanel({
                 <label>
                   Шаг Y
                   <input
+                    {...issueAttributes(issues, "grid", gridIssueId)}
                     min="0.000000001"
                     onChange={(event) =>
                       onDefinitionChange({
@@ -855,7 +1028,7 @@ export function CoordinatePlotEditorPanel({
                 ))}
               </select>
             </label>
-            <IssueList field="grid" issues={issues} />
+            <IssueList field="grid" id={gridIssueId} issues={issues} />
           </div>
         </details>
 
@@ -911,7 +1084,9 @@ export function CoordinatePlotEditorPanel({
                     {series.name || "Без названия"}
                   </button>
                   <button
-                    aria-label={`Удалить ${series.name}`}
+                    aria-label={`Удалить серию ${
+                      series.name || `№${definition.series.indexOf(series) + 1}`
+                    }`}
                     onClick={() => {
                       const next = removeCoordinatePlotSeries(
                         definition,
@@ -923,7 +1098,7 @@ export function CoordinatePlotEditorPanel({
                     }}
                     type="button"
                   >
-                    ×
+                    <span aria-hidden="true">×</span>
                   </button>
                 </li>
               ))}
@@ -986,18 +1161,82 @@ export function CoordinatePlotEditorPanel({
       </div>
 
       <footer className="plot-editor-footer">
-        <button onClick={onClose} type="button">
+        <button onClick={requestClose} type="button">
           Закрыть
         </button>
         <button
           className="primary"
-          disabled={readOnly || blockingIssues.length > 0 || !dirty}
-          onClick={onSave}
+          disabled={!canSave}
+          onClick={() => {
+            onSave();
+          }}
           type="button"
         >
           Сохранить
         </button>
       </footer>
+
+      {closeConfirmationOpen ? (
+        <div className="plot-editor-confirmation-backdrop">
+          <section
+            aria-describedby={`${editorId}-close-description`}
+            aria-labelledby={`${editorId}-close-title`}
+            aria-modal="true"
+            className="plot-editor-confirmation"
+            onKeyDown={(event) => {
+              if (event.key !== "Tab") return;
+              const buttons = [
+                ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                  "button:not(:disabled)",
+                ),
+              ];
+              if (buttons.length === 0) return;
+              const activeIndex = buttons.indexOf(
+                document.activeElement as HTMLButtonElement,
+              );
+              const nextIndex = event.shiftKey
+                ? activeIndex <= 0
+                  ? buttons.length - 1
+                  : activeIndex - 1
+                : activeIndex === buttons.length - 1
+                  ? 0
+                  : activeIndex + 1;
+              event.preventDefault();
+              buttons[nextIndex]?.focus();
+            }}
+            role="alertdialog"
+          >
+            <h2 id={`${editorId}-close-title`}>Несохранённые изменения</h2>
+            <p id={`${editorId}-close-description`}>
+              Черновик координатной плоскости изменён. Выберите, как завершить
+              редактирование.
+            </p>
+            {blockingIssues.length > 0 ? (
+              <p className="plot-editor-confirmation-note" role="status">
+                Сохранение станет доступно после исправления структурных ошибок.
+              </p>
+            ) : null}
+            <div className="plot-editor-confirmation-actions">
+              <button autoFocus onClick={continueEditing} type="button">
+                Продолжить редактирование
+              </button>
+              <button className="danger" onClick={onClose} type="button">
+                Закрыть без сохранения
+              </button>
+              <button
+                className="primary"
+                disabled={!canSave}
+                onClick={() => {
+                  if (onSave()) onClose();
+                }}
+                type="button"
+              >
+                Сохранить и закрыть
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </aside>
   );
 }

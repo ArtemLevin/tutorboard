@@ -774,6 +774,21 @@ export function App({
 
   const beginCoordinatePlotEditing = useCallback(
     (objectId: BoardObjectId) => {
+      if (
+        coordinatePlotEditor !== null &&
+        coordinatePlotEditor.objectId === objectId
+      ) {
+        return;
+      }
+      if (
+        coordinatePlotEditor !== null &&
+        coordinatePlotEditor.draft !== coordinatePlotEditor.expected
+      ) {
+        setAccessibilityNotice(
+          "Сначала сохраните или закройте текущий редактор координатной плоскости.",
+        );
+        return;
+      }
       const current = documentRef.current;
       const object = current.objects[objectId];
       const groupLocked =
@@ -810,7 +825,7 @@ export function App({
           null,
       });
     },
-    [activateTool],
+    [activateTool, coordinatePlotEditor],
   );
 
   const createCoordinatePlot = useCallback(() => {
@@ -886,9 +901,18 @@ export function App({
     [],
   );
 
-  const saveCoordinatePlotEditor = useCallback(() => {
+  const saveCoordinatePlotEditor = useCallback((): boolean => {
     const session = coordinatePlotEditor;
-    if (session === null) return;
+    if (
+      session === null ||
+      readOnly ||
+      session.draft === session.expected ||
+      validateCoordinatePlotEditorDefinition(session.draft).some(
+        ({ blocking }) => blocking,
+      )
+    ) {
+      return false;
+    }
     const result = commitCommand({
       ...createCommandMetadata(),
       expected: session.expected,
@@ -896,7 +920,7 @@ export function App({
       objectId: session.objectId,
       replacement: session.draft,
     });
-    if (!result.ok) return;
+    if (!result.ok) return false;
     setCoordinatePlotEditor((current) =>
       current === null || current.objectId !== session.objectId
         ? current
@@ -906,7 +930,8 @@ export function App({
           },
     );
     setAccessibilityNotice("Координатная плоскость сохранена");
-  }, [commitCommand, coordinatePlotEditor, createCommandMetadata]);
+    return true;
+  }, [commitCommand, coordinatePlotEditor, createCommandMetadata, readOnly]);
 
   const addCoordinatePlotEditorSeries = useCallback(
     (kind: "explicit" | "parametric") => {
@@ -1073,8 +1098,6 @@ export function App({
         event.target instanceof HTMLTextAreaElement ||
         (event.target instanceof HTMLElement && event.target.isContentEditable);
       if (event.key === "Escape" && coordinatePlotEditor !== null) {
-        event.preventDefault();
-        setCoordinatePlotEditor(null);
         return;
       }
       if (
@@ -1794,6 +1817,7 @@ export function App({
         className="workspace"
         aria-label="Рабочая область доски"
         ref={workspaceRef}
+        tabIndex={-1}
       >
         {persistenceNotice === null ? null : (
           <div className="persistence-notice" role="status">
@@ -1876,6 +1900,8 @@ export function App({
         {coordinatePlotEditor === null ? null : (
           <CoordinatePlotEditorPanel
             definition={coordinatePlotEditor.draft}
+            fallbackFocusRef={workspaceRef}
+            key={coordinatePlotEditor.objectId}
             dirty={coordinatePlotEditor.draft !== coordinatePlotEditor.expected}
             issues={validateCoordinatePlotEditorDefinition(
               coordinatePlotEditor.draft,
