@@ -11,6 +11,11 @@ export {
   type WorldPointerSample,
 } from "./BoardStage";
 export {
+  panCoordinatePlotViewport,
+  zoomCoordinatePlotViewportAt,
+  type CoordinatePlotZoomAxis,
+} from "./coordinate-plot-editing";
+export {
   createCoordinatePlotRenderModel,
   type CoordinatePlotRenderModel,
   type CreateCoordinatePlotRenderModelInput,
@@ -35,5 +40,7 @@ export {
 export { createDefaultKonvaRendererRegistry } from "./default-renderers";
 export {
   KonvaRendererRegistry,
+  type CoordinatePlotRenderInteraction,
   type KonvaObjectRenderer,
+  type KonvaRenderContext,
 } from "./renderer-registry";
