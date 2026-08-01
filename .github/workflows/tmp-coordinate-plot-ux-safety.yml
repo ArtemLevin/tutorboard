@@ -1,0 +1,61 @@
+name: Apply coordinate plot UX safety
+
+on:
+  push:
+    branches:
+      - feature/coordinate-plot-ux-safety-accessibility
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/coordinate-plot-ux-safety-accessibility
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Reconstruct and verify patch
+        run: |
+          cat .github/tmp/coordinate-plot-ux-patch.* > /tmp/patch.b64
+          base64 --decode /tmp/patch.b64 > /tmp/apply_patch.py
+          echo "5a2cc74bd03a35c01b4c85309a05073aa96e198e8ee4513ff1f06e3241217c18  /tmp/apply_patch.py" | sha256sum --check -
+
+      - name: Apply deterministic patch
+        run: python /tmp/apply_patch.py
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format changed sources
+        run: npm run format
+
+      - name: Verify types and lint
+        run: |
+          npm run typecheck
+          npm run lint
+
+      - name: Run editor unit tests
+        run: npm run test -- src/app/CoordinatePlotEditorPanel.test.tsx src/app/CoordinatePlotEditorPanel.accessibility.test.tsx
+
+      - name: Commit implementation and remove temporary transport
+        run: |
+          git rm .github/workflows/tmp-coordinate-plot-ux-safety.yml
+          git rm .github/tmp/coordinate-plot-ux-patch.*
+          git add src/app/App.tsx src/app/CoordinatePlotEditorPanel.tsx src/app/CoordinatePlotEditorPanel.css
+          git add src/app/CoordinatePlotEditorPanel.accessibility.test.tsx
+          git add tests/e2e/coordinate-plot-accessibility.spec.ts
+          git add docs/adr/ADR-017-coordinate-plot-editor-safety-accessibility.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat: harden coordinate plot editor UX"
+          git push origin HEAD:feature/coordinate-plot-ux-safety-accessibility
