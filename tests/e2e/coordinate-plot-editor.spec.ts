@@ -10,11 +10,20 @@ test("creates and persists explicit and parametric plot series", async ({
   await page
     .getByRole("button", { name: "Создать координатную плоскость (G)" })
     .click();
-  await expect(
-    page.getByRole("complementary", {
-      name: "Редактор координатной плоскости",
-    }),
-  ).toBeVisible();
+  const editor = page.getByRole("complementary", {
+    name: "Редактор координатной плоскости",
+  });
+  await expect(editor).toBeVisible();
+
+  const editorZIndex = await editor.evaluate((element) =>
+    Number.parseInt(getComputedStyle(element).zIndex, 10),
+  );
+  const diagnosticsZIndex = await page
+    .getByRole("complementary", { name: "Диагностика Smart Ink" })
+    .evaluate((element) =>
+      Number.parseInt(getComputedStyle(element).zIndex, 10),
+    );
+  expect(editorZIndex).toBeGreaterThan(diagnosticsZIndex);
 
   await page.getByLabel("Формула явной функции").fill("x^3-2*x");
   await page.getByRole("button", { name: "+ Параметрическая" }).click();
