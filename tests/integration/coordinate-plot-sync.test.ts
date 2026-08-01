@@ -362,6 +362,9 @@ describe("coordinate plot server synchronization production lifecycle", () => {
       revision: 3,
     });
     if (converged?.kind !== "ready") throw new Error("Expected ready state.");
-    expect(converged.document).toEqual(afterAdd);
+    expect(converged.document).toEqual({
+      ...afterAdd,
+      updatedAt: "2026-08-01T08:12:00.000Z",
+    });
   });
 });
