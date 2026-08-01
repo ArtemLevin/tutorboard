@@ -279,7 +279,7 @@ function ExpressionField({
       </label>
       {showTools ? (
         <div
-          aria-label={`Быстрые вставки: ${ariaLabel}`}
+          aria-label={`Быстрые вставки для поля «${label}»`}
           className="plot-expression-tools"
           role="toolbar"
         >
