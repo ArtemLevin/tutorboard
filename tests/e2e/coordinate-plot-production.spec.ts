@@ -32,6 +32,7 @@ test("persists, restores, duplicates and exports a production coordinate plot", 
   await expect(editor).toBeVisible();
 
   await page.getByLabel("Формула явной функции").fill("a*x^2");
+  await page.getByText(/^Параметры \(0\)$/).click();
   await page.getByRole("button", { name: "Добавить параметр" }).click();
 
   await page.getByRole("button", { name: "+ y=f(x)" }).click();
@@ -67,7 +68,7 @@ test("persists, restores, duplicates and exports a production coordinate plot", 
   await expect(page.getByLabel("Показывать График 2")).not.toBeChecked();
 
   await page.getByText(/^Параметры \(1\)$/).click();
-  await expect(page.getByLabel("Имя параметра")).toHaveValue("a");
+  await expect(page.getByLabel(/Имя параметра/)).toHaveValue("a");
 
   await page.getByRole("button", { name: "Закрыть редактор графика" }).click();
   await page.keyboard.press("Control+C");
