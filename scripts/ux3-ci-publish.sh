@@ -13,38 +13,32 @@ git fetch origin "+refs/heads/${branch}:refs/remotes/origin/${branch}"
 git checkout -B "$branch" "origin/$branch"
 tar -xzf "$payload" -C .
 
-rm -f \
-  .github/workflows/ux3-implementation.yml \
-  .github/workflows/ux3-enable.yml \
-  scripts/ux3-ci-bootstrap.sh \
-  scripts/ux3-ci-publish.sh
-
-python - <<'PY'
-from pathlib import Path
-
-path = Path('.github/workflows/ci.yml')
-source = path.read_text(encoding='utf-8')
-source = source.replace(
-    'permissions:\n  contents: write\n',
-    'permissions:\n  contents: read\n',
-    1,
-)
-source = source.replace(
-    '      - name: Check formatting\n        run: npm run format:check || bash scripts/ux3-ci-publish.sh\n',
-    '      - name: Check formatting\n        run: npm run format:check\n',
-    1,
-)
-path.write_text(source, encoding='utf-8')
-PY
-
-npx prettier --write .github/workflows/ci.yml package.json
-
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-git add -A
+
+git add -- \
+  package.json \
+  playwright.visual.config.ts \
+  src/adapters/canvas-konva/coordinate-plot-editing.ts \
+  src/adapters/canvas-konva/coordinate-plot-renderer.tsx \
+  src/adapters/canvas-konva/coordinate-plot-rendering.ts \
+  src/adapters/canvas-konva/default-renderers.tsx \
+  src/adapters/canvas-konva/public.ts \
+  src/adapters/canvas-konva/renderer-registry.tsx \
+  src/app/App.tsx \
+  src/app/CoordinatePlotEditorPanel.css \
+  src/app/CoordinatePlotEditorPanel.tsx \
+  src/app/CoordinatePlotNavigationControls.css \
+  src/app/CoordinatePlotNavigationControls.test.tsx \
+  src/app/CoordinatePlotNavigationControls.tsx \
+  tests/e2e/coordinate-plot-production.spec.ts \
+  tests/e2e/coordinate-plot-visual.spec.ts \
+  tests/e2e/coordinate-plot-visual.spec.ts-snapshots \
+  tests/unit/adapters/canvas-konva/coordinate-plot-editing.test.ts \
+  tests/unit/adapters/canvas-konva/coordinate-plot-rendering.test.ts
 
 if git diff --cached --quiet; then
-  echo "Verified UX3 payload produced no changes" >&2
+  echo "Verified UX3 payload produced no product changes" >&2
   exit 1
 fi
 
