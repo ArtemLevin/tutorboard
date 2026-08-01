@@ -7,12 +7,11 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { BoardStageProps } from "../adapters/canvas-konva/public";
 import type { BoardDocument, BoardObject } from "../core/public";
 import { App } from "./App";
 
 vi.mock("../adapters/canvas-konva/public", () => ({
-  BoardStage: (_props: BoardStageProps) => (
+  BoardStage: () => (
     <div aria-label="Бесконечное полотно TutorBoard" role="application" />
   ),
   createDefaultKonvaRendererRegistry: () => ({}),
