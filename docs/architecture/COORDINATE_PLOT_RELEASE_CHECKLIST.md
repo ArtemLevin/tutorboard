@@ -1,6 +1,6 @@
 # Coordinate plot release checklist
 
-This checklist is marked complete only after the dedicated PR 6 job and every existing TutorBoard release gate succeed on the same head commit.
+This checklist is marked complete only after the dedicated PR 6 job and every existing TutorBoard release gate succeed on the same head commit. The final rerun includes the exact collaborative-undo timestamp contract.
 
 ## Functional scope
 
