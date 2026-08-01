@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for PR 6.
+Accepted for implementation in PR 6.
 
 ## Context
 
