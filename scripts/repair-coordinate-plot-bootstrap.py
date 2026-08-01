@@ -45,4 +45,7 @@ rep(
 '''(status !== "sampled" && status !== "truncated" && status !== "empty")\\n''',
 )
 
+# Restore the tracked generator before the workflow removes it from the product commit.
+s += '''\nconst { execFileSync } = await import("node:child_process");\nexecFileSync("git", [\n  "checkout",\n  "origin/fix/coordinate-plot-critical-review-findings",\n  "--",\n  "scripts/apply-coordinate-plot-review-fixes.mjs",\n]);\n'''
+
 p.write_text(s)
