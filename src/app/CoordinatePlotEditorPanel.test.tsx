@@ -1,7 +1,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { boardObjectId, plotParameterId, plotSeriesId } from "../core/public";
+import {
+  boardObjectId,
+  plotParameterId,
+  plotSeriesId,
+  type CoordinatePlotDefinition,
+} from "../core/public";
 import { createDefaultCoordinatePlotObject } from "../modules/coordinate-plot-editor/public";
 import { CoordinatePlotEditorPanel } from "./CoordinatePlotEditorPanel";
 
@@ -20,7 +25,8 @@ function createDefinition() {
 
 describe("CoordinatePlotEditorPanel", () => {
   it("edits the selected formula and surfaces local diagnostics", () => {
-    const onDefinitionChange = vi.fn();
+    const onDefinitionChange =
+      vi.fn<(definition: CoordinatePlotDefinition) => void>();
     render(
       <CoordinatePlotEditorPanel
         definition={createDefinition()}
@@ -58,7 +64,8 @@ describe("CoordinatePlotEditorPanel", () => {
     });
 
     expect(onDefinitionChange).toHaveBeenCalledTimes(1);
-    expect(onDefinitionChange.mock.calls[0]?.[0].series[0]).toMatchObject({
+    const changedDefinition = onDefinitionChange.mock.calls[0]?.[0];
+    expect(changedDefinition?.series[0]).toMatchObject({
       expression: "sin(x)",
       kind: "explicit",
     });
