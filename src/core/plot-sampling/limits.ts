@@ -4,6 +4,7 @@ export const maximumAdaptiveSamplingDepth = 12;
 export const maximumSamplePointsPerSeries = 12_000;
 export const maximumSamplePointsPerCoordinatePlot = 80_000;
 export const maximumSamplingEvaluationsPerSeries = 50_000;
+export const maximumSamplingEvaluationsPerCoordinatePlot = 100_000;
 export const maximumSamplingCacheEntries = 64;
 export const maximumInitialSamplingIntervals = 128;
 

@@ -38,12 +38,17 @@ describe("CoordinatePlotNavigationControls", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Вместить все графики" }),
     );
-    fireEvent.click(screen.getByRole("radio", { name: "Только ось X" }));
+    const both = screen.getByRole("radio", { name: "Обе оси" });
+    const xOnly = screen.getByRole("radio", { name: "Только ось X" });
+    fireEvent.click(xOnly);
+    both.focus();
+    fireEvent.keyDown(both, { key: "ArrowRight" });
 
     expect(onZoomIn).toHaveBeenCalledOnce();
     expect(onZoomOut).toHaveBeenCalledOnce();
     expect(onReset).toHaveBeenCalledOnce();
     expect(onFit).toHaveBeenCalledOnce();
     expect(onAxisChange).toHaveBeenCalledWith("x");
+    expect(xOnly).toHaveFocus();
   });
 });

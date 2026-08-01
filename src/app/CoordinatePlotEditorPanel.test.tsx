@@ -179,6 +179,18 @@ describe("CoordinatePlotEditorPanel", () => {
     expect(screen.getByText("Y: до")).toBeInTheDocument();
   });
 
+  it("preserves intermediate numeric text until the field is committed", () => {
+    render(<PanelHarness />);
+    fireEvent.click(screen.getByRole("tab", { name: "Вид" }));
+    const minimumX = inputByLabel("Минимальная граница X");
+
+    fireEvent.change(minimumX, { target: { value: "-" } });
+    expect(minimumX).toHaveValue("-");
+    fireEvent.change(minimumX, { target: { value: "-12.5" } });
+    fireEvent.blur(minimumX);
+    expect(minimumX).toHaveValue("-12.5");
+  });
+
   it("inserts functions around the selected expression and explains radians", async () => {
     render(<PanelHarness />);
 

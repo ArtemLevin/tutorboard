@@ -1,3 +1,4 @@
+import { validatePlotParameterName } from "../board/coordinate-plot";
 import type { ExpressionNode } from "./ast";
 import { expressionDiagnostic } from "./diagnostics";
 import {
@@ -15,8 +16,6 @@ import {
   type ExpressionDiagnostic,
 } from "./types";
 
-const parameterNamePattern = /^[A-Za-z][A-Za-z0-9_]{0,31}$/u;
-
 function allowedIndependentVariable(
   context: CompilePlotExpressionOptions["context"],
 ): "t" | "x" | null {
@@ -31,7 +30,8 @@ function validateParameterNames(
   const diagnostics: ExpressionDiagnostic[] = [];
   const seen = new Set<string>();
   for (const parameterName of parameterNames) {
-    if (!parameterNamePattern.test(parameterName)) {
+    const issue = validatePlotParameterName(parameterName, [...seen]);
+    if (issue === "syntax") {
       diagnostics.push(
         expressionDiagnostic(
           "expression.invalid-parameter-name",
@@ -40,7 +40,7 @@ function validateParameterNames(
           0,
         ),
       );
-    } else if (reservedPlotExpressionNames.has(parameterName)) {
+    } else if (issue === "reserved") {
       diagnostics.push(
         expressionDiagnostic(
           "expression.reserved-parameter-name",
@@ -49,7 +49,7 @@ function validateParameterNames(
           0,
         ),
       );
-    } else if (seen.has(parameterName)) {
+    } else if (issue === "duplicate") {
       diagnostics.push(
         expressionDiagnostic(
           "expression.duplicate-parameter-name",

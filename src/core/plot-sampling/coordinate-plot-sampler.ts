@@ -1,6 +1,9 @@
 import {
   coordinatePlotSamplerVersion,
   maximumSamplePointsPerCoordinatePlot,
+  maximumSamplePointsPerSeries,
+  maximumSamplingEvaluationsPerCoordinatePlot,
+  maximumSamplingEvaluationsPerSeries,
 } from "./limits";
 import {
   diagnostic,
@@ -8,12 +11,38 @@ import {
   invalidParameterDiagnostics,
   parameterBindings,
 } from "./preparation";
-import { resultStatus, sampleSeries, truncateSample } from "./series-sampler";
+import { emptySample, resultStatus, sampleSeries } from "./series-sampler";
 import type {
   CoordinatePlotSamplingInput,
   CoordinatePlotSamplingResult,
   CoordinatePlotSeriesSamplingResult,
+  PlotSamplingDiagnostic,
+  PlotSamplingStopReason,
+  SampledPlotSeries,
 } from "./types";
+
+function resolvedBudget(
+  requested: number | undefined,
+  fallback: number,
+  maximum: number,
+  minimum: number,
+): number {
+  return Math.max(
+    minimum,
+    Math.min(
+      maximum,
+      Math.floor(
+        requested !== undefined && Number.isFinite(requested)
+          ? requested
+          : fallback,
+      ),
+    ),
+  );
+}
+
+function exhaustedSample(reason: PlotSamplingStopReason): SampledPlotSeries {
+  return { ...emptySample(), stopReason: reason, truncated: true };
+}
 
 export function sampleCoordinatePlotDefinition(
   input: CoordinatePlotSamplingInput,
@@ -23,21 +52,33 @@ export function sampleCoordinatePlotDefinition(
   const commonDiagnostics = [...geometryDiagnostics, ...parameterDiagnostics];
   const parameterNames = input.definition.parameters.map(({ name }) => name);
   const bindings = parameterBindings(input.definition);
-  const requestedTotalPoints = input.options?.maximumTotalPoints;
-  const totalLimit = Math.max(
+  const totalPointLimit = resolvedBudget(
+    input.options?.maximumTotalPoints,
+    maximumSamplePointsPerCoordinatePlot,
+    maximumSamplePointsPerCoordinatePlot,
     2,
-    Math.min(
-      maximumSamplePointsPerCoordinatePlot,
-      Math.floor(
-        requestedTotalPoints !== undefined &&
-          Number.isFinite(requestedTotalPoints)
-          ? requestedTotalPoints
-          : maximumSamplePointsPerCoordinatePlot,
-      ),
-    ),
+  );
+  const totalEvaluationLimit = resolvedBudget(
+    input.options?.maximumTotalEvaluations,
+    maximumSamplingEvaluationsPerCoordinatePlot,
+    maximumSamplingEvaluationsPerCoordinatePlot,
+    1,
+  );
+  const seriesPointLimit = resolvedBudget(
+    input.options?.sampling?.pointLimit,
+    maximumSamplePointsPerSeries,
+    maximumSamplePointsPerSeries,
+    2,
+  );
+  const seriesEvaluationLimit = resolvedBudget(
+    input.options?.sampling?.maximumEvaluations,
+    maximumSamplingEvaluationsPerSeries,
+    maximumSamplingEvaluationsPerSeries,
+    1,
   );
   const results: CoordinatePlotSeriesSamplingResult[] = [];
   let totalPointCount = 0;
+  let consumedEvaluationCount = 0;
   let cacheHits = 0;
   let truncated = false;
 
@@ -64,10 +105,50 @@ export function sampleCoordinatePlotDefinition(
       });
       continue;
     }
+
+    const remainingPoints = Math.max(0, totalPointLimit - totalPointCount);
+    const remainingEvaluations = Math.max(
+      0,
+      totalEvaluationLimit - consumedEvaluationCount,
+    );
+    if (remainingPoints < 2 || remainingEvaluations < 1) {
+      const pointLimitReached = remainingPoints < 2;
+      const reason = pointLimitReached ? "point-limit" : "evaluation-limit";
+      results.push({
+        cacheHit: false,
+        diagnostics: [
+          diagnostic(
+            pointLimitReached
+              ? "sampling.total-point-limit"
+              : "sampling.total-evaluation-limit",
+            "series",
+            pointLimitReached
+              ? "The coordinate plot reached its total sampled-point limit."
+              : "The coordinate plot reached its total evaluation limit.",
+          ),
+        ],
+        kind: series.kind,
+        sample: exhaustedSample(reason),
+        seriesId: series.id,
+        status: "truncated",
+      });
+      truncated = true;
+      continue;
+    }
+
+    const effectivePointLimit = Math.min(seriesPointLimit, remainingPoints);
+    const effectiveEvaluationLimit = Math.min(
+      seriesEvaluationLimit,
+      remainingEvaluations,
+    );
     const sampled = sampleSeries({
       bindings,
       definition: input.definition,
-      options: input.options?.sampling,
+      options: {
+        ...input.options?.sampling,
+        maximumEvaluations: effectiveEvaluationLimit,
+        pointLimit: effectivePointLimit,
+      },
       parameterNames,
       parent: input,
       series,
@@ -83,25 +164,40 @@ export function sampleCoordinatePlotDefinition(
       });
       continue;
     }
+
     if (sampled.cacheHit) cacheHits += 1;
-    const remaining = Math.max(0, totalLimit - totalPointCount);
-    const sample = truncateSample(sampled.sample, remaining);
-    if (sample.metrics.pointCount < sampled.sample.metrics.pointCount) {
-      truncated = true;
-    }
+    const sample = sampled.sample;
     totalPointCount += sample.metrics.pointCount;
+    if (!sampled.cacheHit) {
+      consumedEvaluationCount += sample.metrics.evaluationCount;
+    }
     const status = resultStatus(sample);
     if (status === "truncated" || status === "aborted") truncated = true;
-    const diagnostics =
-      remaining < sampled.sample.metrics.pointCount
-        ? [
-            diagnostic(
-              "sampling.total-point-limit",
-              "series",
-              "The coordinate plot reached its total sampled-point limit.",
-            ),
-          ]
-        : [];
+    const diagnostics: PlotSamplingDiagnostic[] = [];
+    if (
+      sample.stopReason === "point-limit" &&
+      effectivePointLimit < seriesPointLimit
+    ) {
+      diagnostics.push(
+        diagnostic(
+          "sampling.total-point-limit",
+          "series",
+          "The coordinate plot reached its total sampled-point limit.",
+        ),
+      );
+    }
+    if (
+      sample.stopReason === "evaluation-limit" &&
+      effectiveEvaluationLimit < seriesEvaluationLimit
+    ) {
+      diagnostics.push(
+        diagnostic(
+          "sampling.total-evaluation-limit",
+          "series",
+          "The coordinate plot reached its total evaluation limit.",
+        ),
+      );
+    }
     results.push({
       cacheHit: sampled.cacheHit,
       diagnostics,

@@ -153,6 +153,7 @@ export function invalidGeometryDiagnostics(input: {
 }
 
 export function cacheKey(input: {
+  readonly bindingNames: readonly string[];
   readonly boardZoom: number;
   readonly bindings: Readonly<Record<string, number>>;
   readonly definition: CoordinatePlotDefinition;
@@ -174,14 +175,35 @@ export function cacheKey(input: {
           xExpression: input.series.xExpression,
           yExpression: input.series.yExpression,
         };
+  const bindings = Object.fromEntries(
+    input.bindingNames.flatMap((name) =>
+      Object.hasOwn(input.bindings, name)
+        ? [[name, input.bindings[name]!]]
+        : [],
+    ),
+  );
   return createPlotSamplingCacheKey({
-    bindings: input.bindings,
+    bindings,
     boardZoom: input.boardZoom,
     options: input.options ?? {},
     pixelSize: input.pixelSize,
     series: seriesGeometry,
     viewport: input.definition.coordinateViewport,
   });
+}
+
+function referencedParameterNames(
+  sources: readonly string[],
+  parameterNames: readonly string[],
+): readonly string[] {
+  const allowed = new Set(parameterNames);
+  const referenced = new Set<string>();
+  for (const source of sources) {
+    for (const identifier of source.match(/[A-Za-z_][A-Za-z0-9_]*/gu) ?? []) {
+      if (allowed.has(identifier)) referenced.add(identifier);
+    }
+  }
+  return [...referenced].sort();
 }
 
 export function compileExplicit(input: {
@@ -191,6 +213,7 @@ export function compileExplicit(input: {
   readonly series: ExplicitPlotSeries;
 }):
   | {
+      readonly bindingNames: readonly string[];
       readonly domain: { readonly max: number; readonly min: number } | null;
       readonly expression: CompiledPlotExpression;
       readonly ok: true;
@@ -264,6 +287,14 @@ export function compileExplicit(input: {
     input.definition.coordinateViewport.xMax,
   );
   return {
+    bindingNames: referencedParameterNames(
+      [
+        input.series.expression,
+        input.series.domain.minExpression ?? "",
+        input.series.domain.maxExpression ?? "",
+      ],
+      input.parameterNames,
+    ),
     domain: minimum < maximum ? { max: maximum, min: minimum } : null,
     expression: expression.expression,
     ok: true,
@@ -276,6 +307,7 @@ export function compileParametric(input: {
   readonly series: ParametricPlotSeries;
 }):
   | {
+      readonly bindingNames: readonly string[];
       readonly ok: true;
       readonly range: { readonly max: number; readonly min: number };
       readonly xExpression: CompiledPlotExpression;
@@ -349,6 +381,15 @@ export function compileParametric(input: {
     };
   }
   return {
+    bindingNames: referencedParameterNames(
+      [
+        input.series.xExpression,
+        input.series.yExpression,
+        input.series.range.minExpression,
+        input.series.range.maxExpression,
+      ],
+      input.parameterNames,
+    ),
     ok: true,
     range: { max: maximumValue.value, min: minimumValue.value },
     xExpression: xExpression.expression,

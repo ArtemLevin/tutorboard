@@ -4,6 +4,7 @@ import {
   useId,
   useRef,
   useState,
+  type InputHTMLAttributes,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactElement,
   type RefObject,
@@ -88,10 +89,65 @@ function numberValue(value: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function nullableNumber(value: string): number | null {
-  if (value.trim() === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+function NumberDraftInput({
+  inputProps = {},
+  nullable = false,
+  onCommit,
+  value,
+}: {
+  readonly inputProps?: Omit<
+    InputHTMLAttributes<HTMLInputElement>,
+    "onBlur" | "onChange" | "onKeyDown" | "type" | "value"
+  >;
+  readonly nullable?: boolean;
+  readonly onCommit: (value: number | null) => void;
+  readonly value: number | null;
+}): ReactElement {
+  const format = (current: number | null) =>
+    current === null ? "" : String(current);
+  const [draft, setDraft] = useState(() => format(value));
+  const focusedRef = useRef(false);
+  useEffect(() => {
+    if (!focusedRef.current) setDraft(format(value));
+  }, [value]);
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (nullable && trimmed === "") {
+      onCommit(null);
+      return;
+    }
+    const parsed = Number(trimmed);
+    if (trimmed !== "" && Number.isFinite(parsed)) {
+      onCommit(parsed);
+      setDraft(String(parsed));
+      return;
+    }
+    setDraft(format(value));
+  };
+
+  return (
+    <input
+      {...inputProps}
+      inputMode="decimal"
+      onBlur={() => {
+        focusedRef.current = false;
+        commit();
+      }}
+      onChange={(event) => setDraft(event.currentTarget.value)}
+      onFocus={() => {
+        focusedRef.current = true;
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+      type="text"
+      value={draft}
+    />
+  );
 }
 
 function updateViewport(
@@ -677,64 +733,48 @@ function ParameterEditor({
         </label>
         <label>
           Значение
-          <input
-            onChange={(event) =>
-              replace({
-                ...parameter,
-                value: numberValue(event.currentTarget.value, parameter.value),
-              })
-            }
-            step="any"
-            type="number"
+          <NumberDraftInput
+            inputProps={{ "aria-label": "Значение" }}
+            onCommit={(value) => {
+              if (value !== null) replace({ ...parameter, value });
+            }}
             value={parameter.value}
           />
         </label>
         <label>
           Минимум
-          <input
-            {...issueAttributes(issues, prefix, rangeIssueId, false)}
-            aria-label="Минимум"
-            onChange={(event) =>
-              replace({
-                ...parameter,
-                min: nullableNumber(event.currentTarget.value),
-              })
-            }
-            step="any"
-            type="number"
-            value={parameter.min ?? ""}
+          <NumberDraftInput
+            inputProps={{
+              ...issueAttributes(issues, prefix, rangeIssueId, false),
+              "aria-label": "Минимум",
+            }}
+            nullable
+            onCommit={(min) => replace({ ...parameter, min })}
+            value={parameter.min}
           />
         </label>
         <label>
           Максимум
-          <input
-            {...issueAttributes(issues, prefix, rangeIssueId, false)}
-            aria-label="Максимум"
-            onChange={(event) =>
-              replace({
-                ...parameter,
-                max: nullableNumber(event.currentTarget.value),
-              })
-            }
-            step="any"
-            type="number"
-            value={parameter.max ?? ""}
+          <NumberDraftInput
+            inputProps={{
+              ...issueAttributes(issues, prefix, rangeIssueId, false),
+              "aria-label": "Максимум",
+            }}
+            nullable
+            onCommit={(max) => replace({ ...parameter, max })}
+            value={parameter.max}
           />
         </label>
         <label>
           Шаг
-          <input
-            {...issueAttributes(issues, `${prefix}.step`, stepIssueId, false)}
-            min="0"
-            onChange={(event) =>
-              replace({
-                ...parameter,
-                step: nullableNumber(event.currentTarget.value),
-              })
-            }
-            step="any"
-            type="number"
-            value={parameter.step ?? ""}
+          <NumberDraftInput
+            inputProps={{
+              ...issueAttributes(issues, `${prefix}.step`, stepIssueId, false),
+              min: "0",
+            }}
+            nullable
+            onCommit={(step) => replace({ ...parameter, step })}
+            value={parameter.step}
           />
         </label>
         <button
@@ -1005,27 +1045,20 @@ function ViewTab({
           {viewportFields.map(({ ariaLabel, key, label }) => (
             <label key={key}>
               {label}
-              <input
-                {...issueAttributes(
-                  issues,
-                  "coordinateViewport",
-                  viewportIssueId,
-                )}
-                aria-label={ariaLabel}
-                onChange={(event) =>
-                  onChange(
-                    updateViewport(
-                      definition,
-                      key,
-                      numberValue(
-                        event.currentTarget.value,
-                        definition.coordinateViewport[key],
-                      ),
-                    ),
-                  )
-                }
-                step="any"
-                type="number"
+              <NumberDraftInput
+                inputProps={{
+                  ...issueAttributes(
+                    issues,
+                    "coordinateViewport",
+                    viewportIssueId,
+                  ),
+                  "aria-label": ariaLabel,
+                }}
+                onCommit={(value) => {
+                  if (value !== null) {
+                    onChange(updateViewport(definition, key, value));
+                  }
+                }}
                 value={definition.coordinateViewport[key]}
               />
             </label>
@@ -1206,45 +1239,37 @@ function ViewTab({
           <div className="plot-editor-grid two-columns">
             <label>
               Шаг сетки по X
-              <input
-                {...issueAttributes(issues, "grid", gridIssueId)}
-                min="0.000000001"
-                onChange={(event) =>
-                  onChange({
-                    ...definition,
-                    grid: {
-                      ...definition.grid,
-                      xStep: numberValue(
-                        event.currentTarget.value,
-                        definition.grid.xStep ?? 1,
-                      ),
-                    },
-                  })
-                }
-                step="any"
-                type="number"
+              <NumberDraftInput
+                inputProps={{
+                  ...issueAttributes(issues, "grid", gridIssueId),
+                  min: "0.000000001",
+                }}
+                onCommit={(xStep) => {
+                  if (xStep !== null) {
+                    onChange({
+                      ...definition,
+                      grid: { ...definition.grid, xStep },
+                    });
+                  }
+                }}
                 value={definition.grid.xStep ?? 1}
               />
             </label>
             <label>
               Шаг сетки по Y
-              <input
-                {...issueAttributes(issues, "grid", gridIssueId)}
-                min="0.000000001"
-                onChange={(event) =>
-                  onChange({
-                    ...definition,
-                    grid: {
-                      ...definition.grid,
-                      yStep: numberValue(
-                        event.currentTarget.value,
-                        definition.grid.yStep ?? 1,
-                      ),
-                    },
-                  })
-                }
-                step="any"
-                type="number"
+              <NumberDraftInput
+                inputProps={{
+                  ...issueAttributes(issues, "grid", gridIssueId),
+                  min: "0.000000001",
+                }}
+                onCommit={(yStep) => {
+                  if (yStep !== null) {
+                    onChange({
+                      ...definition,
+                      grid: { ...definition.grid, yStep },
+                    });
+                  }
+                }}
                 value={definition.grid.yStep ?? 1}
               />
             </label>
