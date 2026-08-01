@@ -1,11 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  boardObjectId,
-  plotParameterId,
-  plotSeriesId,
-} from "../core/public";
+import { boardObjectId, plotParameterId, plotSeriesId } from "../core/public";
 import { createDefaultCoordinatePlotObject } from "../modules/coordinate-plot-editor/public";
 import { CoordinatePlotEditorPanel } from "./CoordinatePlotEditorPanel";
 
@@ -89,9 +85,7 @@ describe("CoordinatePlotEditorPanel", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "+ y=f(x)" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "+ Параметрическая" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "+ Параметрическая" }));
     fireEvent.click(screen.getByRole("button", { name: "Добавить параметр" }));
 
     expect(onAddSeries.mock.calls).toEqual([["explicit"], ["parametric"]]);

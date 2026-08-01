@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { BoardStageProps } from "../adapters/canvas-konva/public";
@@ -16,7 +22,9 @@ afterEach(cleanup);
 
 function coordinatePlot(document: BoardDocument) {
   const object = Object.values(document.objects).find(
-    (candidate): candidate is Extract<
+    (
+      candidate,
+    ): candidate is Extract<
       BoardObject,
       { readonly kind: "math.coordinate-plot" }
     > => candidate.kind === "math.coordinate-plot",
@@ -71,7 +79,9 @@ describe("coordinate plot editor application workflow", () => {
     });
     expect(screen.getByTestId("history-depth")).toHaveTextContent("2/0");
 
-    const savedDocument = onDocumentChange.mock.calls.at(-1)?.[0] as BoardDocument;
+    const savedDocument = onDocumentChange.mock.calls.at(
+      -1,
+    )?.[0] as BoardDocument;
     expect(coordinatePlot(savedDocument).definition.series[0]).toMatchObject({
       expression: "x^3-2*x",
     });
