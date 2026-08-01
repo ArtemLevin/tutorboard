@@ -66,8 +66,39 @@ jobs:
           typed_formula = '''    const formula = screen.getByLabelText(
               "Формула явной функции",
             ) as HTMLInputElement;'''
+          test_source = (
+              test_source[:formula_start]
+              + typed_formula
+              + test_source[formula_end:]
+          )
+          test_source = test_source.replace(
+              '''  it("supports WAI-ARIA tabs and localized enum values", () => {''',
+              '''  it("supports WAI-ARIA tabs and localized enum values", async () => {''',
+              1,
+          )
+          test_source = test_source.replace(
+              '''    expect(parameters).toHaveFocus();''',
+              '''    await waitFor(() => expect(parameters).toHaveFocus());''',
+              1,
+          )
+          test_source = test_source.replace(
+              '''    expect(view).toHaveFocus();''',
+              '''    await waitFor(() => expect(view).toHaveFocus());''',
+              1,
+          )
+          cta_marker = '''    fireEvent.click(
+              screen.getByRole("button", { name: "Создать параметр «q»" }),
+            );'''
+          cta_replacement = '''    await waitFor(() =>
+              expect(screen.getByLabelText("Формула явной функции")).toHaveFocus(),
+            );
+            fireEvent.click(
+              screen.getByRole("button", { name: "Создать параметр «q»" }),
+            );'''
+          if test_source.count(cta_marker) != 1:
+              raise SystemExit(f"Expected one CTA marker, found {test_source.count(cta_marker)}")
           test_path.write_text(
-              test_source[:formula_start] + typed_formula + test_source[formula_end:],
+              test_source.replace(cta_marker, cta_replacement, 1),
               encoding="utf-8",
           )
           PY
