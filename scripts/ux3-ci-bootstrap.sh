@@ -19,6 +19,11 @@ script = script.replace(
     'ReactPointerEvent<HTMLElement>',
     1,
 )
+script = script.replace(
+    "\n<CoordinatePlotEditorPanel'''",
+    "\n          <CoordinatePlotEditorPanel'''",
+    1,
+)
 brittle = '''if renderer.count(old_legend) != 1:
     raise SystemExit(f"coordinate-plot-renderer.tsx: legend block count {renderer.count(old_legend)}")
 renderer = renderer.replace(old_legend, new_legend_block, 1)
