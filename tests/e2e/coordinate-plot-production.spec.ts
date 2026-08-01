@@ -10,7 +10,8 @@ async function resetLocalDatabase(page: import("@playwright/test").Page) {
     await new Promise<void>((resolve, reject) => {
       const request = indexedDB.deleteDatabase(name);
       request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      request.onerror = () =>
+        reject(request.error ?? new Error("IndexedDB deletion failed"));
       request.onblocked = () => reject(new Error("IndexedDB deletion blocked"));
     });
   }, databaseName);
