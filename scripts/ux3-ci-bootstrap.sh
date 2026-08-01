@@ -25,6 +25,32 @@ script = script.replace(
     "\n          <CoordinatePlotEditorPanel'''",
     1,
 )
+script = script.replace(
+    '  const yMinimum = editor.getByLabel("Минимальная граница Y");\n  const initialXMinimum',
+    '  const yMinimum = editor.getByLabel("Минимальная граница Y");\n  const yMaximum = editor.getByLabel("Максимальная граница Y");\n  const initialXMinimum',
+    1,
+)
+script = script.replace(
+    '''    const beforePinchY = Number(await yMinimum.inputValue());''',
+    '''    const beforePinchY = Number(await yMinimum.inputValue());
+    const beforePinchYSpan =
+      Number(await yMaximum.inputValue()) - beforePinchY;''',
+    1,
+)
+script = script.replace(
+    '''    await expect(yMinimum).toHaveValue(String(beforePinchY));''',
+    '''    await expect
+      .poll(async () => Number(await yMinimum.inputValue()))
+      .not.toBe(beforePinchY);
+    await expect
+      .poll(async () => {
+        const currentMinimum = Number(await yMinimum.inputValue());
+        const currentMaximum = Number(await yMaximum.inputValue());
+        return Math.abs(currentMaximum - currentMinimum - beforePinchYSpan);
+      })
+      .toBeLessThan(1e-8);''',
+    1,
+)
 brittle = '''if renderer.count(old_legend) != 1:
     raise SystemExit(f"coordinate-plot-renderer.tsx: legend block count {renderer.count(old_legend)}")
 renderer = renderer.replace(old_legend, new_legend_block, 1)
