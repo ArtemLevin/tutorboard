@@ -23,6 +23,14 @@ import { CoordinatePlotEditorPanel } from "./CoordinatePlotEditorPanel";
 
 afterEach(cleanup);
 
+function inputByLabel(label: string): HTMLInputElement {
+  const element = screen.getByLabelText(label);
+  if (!(element instanceof HTMLInputElement)) {
+    throw new Error(`Expected an input labelled ${label}.`);
+  }
+  return element;
+}
+
 function createDefinition() {
   return createDefaultCoordinatePlotObject({
     center: { x: 320, y: 210 },
@@ -174,9 +182,7 @@ describe("CoordinatePlotEditorPanel", () => {
   it("inserts functions around the selected expression and explains radians", async () => {
     render(<PanelHarness />);
 
-    const formula = screen.getByLabelText(
-      "Формула явной функции",
-    ) as HTMLInputElement;
+    const formula = inputByLabel("Формула явной функции");
     fireEvent.change(formula, { target: { value: "x+1" } });
     formula.focus();
     formula.setSelectionRange(0, 1);
