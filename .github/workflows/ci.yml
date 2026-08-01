@@ -32,11 +32,13 @@ jobs:
             tests/fixtures/coordinate-plot-production.ts \
             tests/integration/coordinate-plot-persistence.test.ts
 
-      - name: Restore production workflow and push
+      - name: Push formatted product files
         run: |
-          git show 22924939a1a65b8a86842773b717ec76343d18b7:.github/workflows/ci.yml > .github/workflows/ci.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add \
+            tests/e2e/coordinate-plot-production.spec.ts \
+            tests/fixtures/coordinate-plot-production.ts \
+            tests/integration/coordinate-plot-persistence.test.ts
           git commit -m "style: normalize coordinate plot production files"
           git push origin HEAD:feature/coordinate-plot-production-gate
