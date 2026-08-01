@@ -4,6 +4,10 @@
 
 PR 6 closes the first production increment for `math.coordinate-plot`. It proves that the object survives the complete TutorBoard lifecycle under release constraints: browser editing, local persistence, recovery, command synchronization, bounded numerical work, production packaging and operational support.
 
+## Implementation status
+
+The deterministic fixtures, targeted integration suites, lifecycle autosave flush, Chromium/Firefox scenario and dedicated CI job are implemented on PR #60. Completion still requires one shared head commit with every release gate green.
+
 ## Release invariants
 
 - BoardDocument remains `1.1`.
