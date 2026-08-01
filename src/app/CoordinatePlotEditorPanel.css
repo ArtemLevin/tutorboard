@@ -308,3 +308,84 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.coordinate-plot-editor-panel :focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.coordinate-plot-editor-panel summary:focus-visible {
+  border-radius: 8px;
+}
+
+.plot-editor-confirmation-backdrop {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(3px);
+}
+
+.plot-editor-confirmation {
+  display: grid;
+  width: min(360px, 100%);
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.28);
+}
+
+.plot-editor-confirmation h2,
+.plot-editor-confirmation p {
+  margin: 0;
+}
+
+.plot-editor-confirmation h2 {
+  font-size: 18px;
+}
+
+.plot-editor-confirmation p {
+  color: #475569;
+  line-height: 1.5;
+}
+
+.plot-editor-confirmation-note {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412 !important;
+  font-size: 12px;
+}
+
+.plot-editor-confirmation-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.coordinate-plot-editor-panel button.danger {
+  border-color: #b91c1c;
+  color: #991b1b;
+}
+
+.coordinate-plot-editor-panel button.danger:hover:not(:disabled) {
+  border-color: #991b1b;
+  background: #fef2f2;
+}
+
+@media (max-width: 900px) {
+  .coordinate-plot-editor-panel button,
+  .coordinate-plot-editor-panel input,
+  .coordinate-plot-editor-panel select {
+    min-height: 44px;
+  }
+
+  .plot-editor-heading button {
+    width: 44px;
+    height: 44px;
+  }
+}
