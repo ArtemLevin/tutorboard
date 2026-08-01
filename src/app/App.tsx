@@ -949,14 +949,14 @@ export function App({
     [],
   );
 
-  const addCoordinatePlotEditorParameter = useCallback(() => {
+  const addCoordinatePlotEditorParameter = useCallback((name?: string) => {
     const id = plotParameterId(`plot-parameter:${crypto.randomUUID()}`);
     setCoordinatePlotEditor((current) =>
       current === null
         ? null
         : {
             ...current,
-            draft: addCoordinatePlotParameter(current.draft, id),
+            draft: addCoordinatePlotParameter(current.draft, id, name),
           },
     );
   }, []);

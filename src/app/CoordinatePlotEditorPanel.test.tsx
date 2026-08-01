@@ -142,7 +142,7 @@ describe("CoordinatePlotEditorPanel", () => {
     expect(screen.getByRole("button", { name: "Сохранить" })).toBeDisabled();
   });
 
-  it("supports WAI-ARIA tabs and localized enum values", () => {
+  it("supports WAI-ARIA tabs and localized enum values", async () => {
     render(<PanelHarness />);
 
     const functions = screen.getByRole("tab", { name: "Функции" });
@@ -152,11 +152,11 @@ describe("CoordinatePlotEditorPanel", () => {
 
     fireEvent.keyDown(functions, { key: "ArrowRight" });
     expect(parameters).toHaveAttribute("aria-selected", "true");
-    expect(parameters).toHaveFocus();
+    await waitFor(() => expect(parameters).toHaveFocus());
 
     fireEvent.keyDown(parameters, { key: "End" });
     expect(view).toHaveAttribute("aria-selected", "true");
-    expect(view).toHaveFocus();
+    await waitFor(() => expect(view).toHaveFocus());
 
     fireEvent.click(functions);
     const lineStyle = screen.getByLabelText("Стиль линии");
@@ -174,7 +174,9 @@ describe("CoordinatePlotEditorPanel", () => {
   it("inserts functions around the selected expression and explains radians", async () => {
     render(<PanelHarness />);
 
-    const formula = screen.getByLabelText("Формула явной функции");
+    const formula = screen.getByLabelText(
+      "Формула явной функции",
+    ) as HTMLInputElement;
     fireEvent.change(formula, { target: { value: "x+1" } });
     formula.focus();
     formula.setSelectionRange(0, 1);
@@ -194,7 +196,8 @@ describe("CoordinatePlotEditorPanel", () => {
   it("creates an unknown parameter, opens its tab and focuses its name", async () => {
     const initial = createDefinition();
     const series = initial.series[0];
-    if (series?.kind !== "explicit") throw new Error("Expected explicit series");
+    if (series?.kind !== "explicit")
+      throw new Error("Expected explicit series");
     render(
       <PanelHarness
         initialDefinition={{
@@ -204,13 +207,18 @@ describe("CoordinatePlotEditorPanel", () => {
       />,
     );
 
+    await waitFor(() =>
+      expect(screen.getByLabelText("Формула явной функции")).toHaveFocus(),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Создать параметр «q»" }),
     );
 
     const parameters = screen.getByRole("tab", { name: "Параметры (1)" });
     expect(parameters).toHaveAttribute("aria-selected", "true");
-    const name = await screen.findByLabelText("Имя параметра harness-parameter-0");
+    const name = await screen.findByLabelText(
+      "Имя параметра harness-parameter-0",
+    );
     expect(name).toHaveValue("q");
     await waitFor(() => expect(name).toHaveFocus());
   });

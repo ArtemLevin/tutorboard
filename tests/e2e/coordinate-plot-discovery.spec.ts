@@ -15,7 +15,9 @@ test("discovers formulas, creates a parameter and uses localized view controls",
   const formula = editor.getByLabel("Формула явной функции");
   await expect(functionsTab).toHaveAttribute("aria-selected", "true");
   await expect(formula).toBeFocused();
-  await expect(editor.getByText(/Тригонометрические функции используют радианы/)).toBeVisible();
+  await expect(
+    editor.getByText(/Тригонометрические функции используют радианы/),
+  ).toBeVisible();
 
   await formula.fill("x");
   await formula.selectText();

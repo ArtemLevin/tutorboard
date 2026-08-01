@@ -205,7 +205,8 @@ function insertionResult(
   const argumentStart = start + token.length + 1;
   return {
     next,
-    selectionEnd: selected.length === 0 ? argumentStart : argumentStart + selected.length,
+    selectionEnd:
+      selected.length === 0 ? argumentStart : argumentStart + selected.length,
     selectionStart: argumentStart,
   };
 }
@@ -277,7 +278,11 @@ function ExpressionField({
         />
       </label>
       {showTools ? (
-        <div aria-label={`Быстрые вставки: ${ariaLabel}`} className="plot-expression-tools" role="toolbar">
+        <div
+          aria-label={`Быстрые вставки: ${ariaLabel}`}
+          className="plot-expression-tools"
+          role="toolbar"
+        >
           {quickExpressionTokens.map((token) => (
             <button
               aria-label={`Вставить ${token}`}
@@ -291,9 +296,18 @@ function ExpressionField({
           ))}
         </div>
       ) : null}
-      <IssueList field={field} id={issueId} includeDescendants={false} issues={issues} />
+      <IssueList
+        field={field}
+        id={issueId}
+        includeDescendants={false}
+        issues={issues}
+      />
       {unknownNames.length === 0 ? null : (
-        <div className="plot-parameter-cta" role="group" aria-label="Создание параметров из формулы">
+        <div
+          className="plot-parameter-cta"
+          role="group"
+          aria-label="Создание параметров из формулы"
+        >
           {unknownNames.map((name) => (
             <button
               disabled={parameterLimitReached}
@@ -316,13 +330,16 @@ function FormulaSyntaxHelp(): ReactElement {
       <summary>Краткая справка по формулам</summary>
       <div>
         <p>
-          Используйте <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code> и <code>^</code>. Пример: <code>2*x^2-3*x+1</code>.
+          Используйте <code>+</code>, <code>-</code>, <code>*</code>,{" "}
+          <code>/</code> и <code>^</code>. Пример: <code>2*x^2-3*x+1</code>.
         </p>
         <p>
-          Доступны <code>sin(x)</code>, <code>cos(x)</code>, <code>sqrt(x)</code>, <code>abs(x)</code> и константа <code>pi</code>.
+          Доступны <code>sin(x)</code>, <code>cos(x)</code>,{" "}
+          <code>sqrt(x)</code>, <code>abs(x)</code> и константа <code>pi</code>.
         </p>
         <p className="plot-radian-hint">
-          Тригонометрические функции используют радианы: <code>pi</code> соответствует 180°.
+          Тригонометрические функции используют радианы: <code>pi</code>{" "}
+          соответствует 180°.
         </p>
       </div>
     </details>
@@ -457,7 +474,9 @@ function SeriesEditor({
             issues={issues}
             label="Координата x(t)"
             onCreateParameter={onCreateParameter}
-            onSourceChange={(xExpression) => replace({ ...series, xExpression })}
+            onSourceChange={(xExpression) =>
+              replace({ ...series, xExpression })
+            }
             parameterLimitReached={parameterLimitReached}
             showTools
             source={series.xExpression}
@@ -470,7 +489,9 @@ function SeriesEditor({
             issues={issues}
             label="Координата y(t)"
             onCreateParameter={onCreateParameter}
-            onSourceChange={(yExpression) => replace({ ...series, yExpression })}
+            onSourceChange={(yExpression) =>
+              replace({ ...series, yExpression })
+            }
             parameterLimitReached={parameterLimitReached}
             showTools
             source={series.yExpression}
@@ -815,9 +836,7 @@ function FunctionsTab({
         <ol className="plot-series-list">
           {definition.series.map((series) => (
             <li
-              className={
-                series.id === selectedSeries?.id ? "is-selected" : ""
-              }
+              className={series.id === selectedSeries?.id ? "is-selected" : ""}
               key={series.id}
             >
               <input
@@ -846,7 +865,10 @@ function FunctionsTab({
                   series.name || `№${definition.series.indexOf(series) + 1}`
                 }`}
                 onClick={() => {
-                  const next = removeCoordinatePlotSeries(definition, series.id);
+                  const next = removeCoordinatePlotSeries(
+                    definition,
+                    series.id,
+                  );
                   onChange(next);
                   if (selectedSeriesId === series.id) {
                     onSelectedSeriesChange(next.series[0]?.id ?? null);
@@ -1050,7 +1072,10 @@ function ViewTab({
               onChange={(event) =>
                 onChange({
                   ...definition,
-                  grid: { ...definition.grid, visible: event.currentTarget.checked },
+                  grid: {
+                    ...definition.grid,
+                    visible: event.currentTarget.checked,
+                  },
                 })
               }
               type="checkbox"
@@ -1117,7 +1142,10 @@ function ViewTab({
               onChange={(event) =>
                 onChange({
                   ...definition,
-                  axes: { ...definition.axes, showXAxis: event.currentTarget.checked },
+                  axes: {
+                    ...definition.axes,
+                    showXAxis: event.currentTarget.checked,
+                  },
                 })
               }
               type="checkbox"
@@ -1130,7 +1158,10 @@ function ViewTab({
               onChange={(event) =>
                 onChange({
                   ...definition,
-                  axes: { ...definition.axes, showYAxis: event.currentTarget.checked },
+                  axes: {
+                    ...definition.axes,
+                    showYAxis: event.currentTarget.checked,
+                  },
                 })
               }
               type="checkbox"
@@ -1143,7 +1174,10 @@ function ViewTab({
               onChange={(event) =>
                 onChange({
                   ...definition,
-                  axes: { ...definition.axes, showLabels: event.currentTarget.checked },
+                  axes: {
+                    ...definition.axes,
+                    showLabels: event.currentTarget.checked,
+                  },
                 })
               }
               type="checkbox"
@@ -1156,7 +1190,10 @@ function ViewTab({
               onChange={(event) =>
                 onChange({
                   ...definition,
-                  axes: { ...definition.axes, showArrows: event.currentTarget.checked },
+                  axes: {
+                    ...definition.axes,
+                    showArrows: event.currentTarget.checked,
+                  },
                 })
               }
               type="checkbox"
@@ -1220,7 +1257,10 @@ function ViewTab({
               onChange={(event) =>
                 onChange({
                   ...definition,
-                  axes: { ...definition.axes, xLabel: event.currentTarget.value },
+                  axes: {
+                    ...definition.axes,
+                    xLabel: event.currentTarget.value,
+                  },
                 })
               }
               value={definition.axes.xLabel}
@@ -1233,7 +1273,10 @@ function ViewTab({
               onChange={(event) =>
                 onChange({
                   ...definition,
-                  axes: { ...definition.axes, yLabel: event.currentTarget.value },
+                  axes: {
+                    ...definition.axes,
+                    yLabel: event.currentTarget.value,
+                  },
                 })
               }
               value={definition.axes.yLabel}
@@ -1256,7 +1299,10 @@ function ViewTab({
             onChange={(event) =>
               onChange({
                 ...definition,
-                legend: { ...definition.legend, visible: event.currentTarget.checked },
+                legend: {
+                  ...definition.legend,
+                  visible: event.currentTarget.checked,
+                },
               })
             }
             type="checkbox"
@@ -1491,7 +1537,11 @@ export function CoordinatePlotEditorPanel({
         </button>
       </header>
 
-      <div aria-label="Разделы редактора графика" className="plot-editor-tabs" role="tablist">
+      <div
+        aria-label="Разделы редактора графика"
+        className="plot-editor-tabs"
+        role="tablist"
+      >
         {editorTabs.map((tab) => (
           <button
             aria-controls={`${editorId}-panel-${tab.id}`}
@@ -1506,7 +1556,9 @@ export function CoordinatePlotEditorPanel({
             type="button"
           >
             {tab.label}
-            {tab.id === "parameters" ? ` (${definition.parameters.length})` : ""}
+            {tab.id === "parameters"
+              ? ` (${definition.parameters.length})`
+              : ""}
           </button>
         ))}
       </div>
