@@ -28,4 +28,6 @@ Formula input also needs immediate feedback. Invalid text must remain editable s
 
 A complete edit session contributes one semantic undo step. Collaborative stale checks remain active because Save carries the definition captured when the session opened. Formula typing and parameter-slider motion update the visual preview without flooding command history or server synchronization.
 
+Release verification covers model operations, diagnostics, internal viewport gestures, renderer-context propagation, creation and save commands, undo/redo compatibility, Chromium and Firefox smoke, production image hardening and security scanning.
+
 PR 6 can focus on final cross-browser persistence, recovery, synchronization and performance evidence. Future worker-backed sampling or parameter animation can reuse the same transient draft and renderer context contracts.
