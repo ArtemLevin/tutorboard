@@ -82,6 +82,20 @@ if renderer.count(old) != 1:
     raise SystemExit("touch cancel cleanup anchor failed")
 renderer = renderer.replace(old, new, 1)
 
+old_enter = ''' + '"""' + '''            onMouseEnter={(event) => setPlotCursor(event.currentTarget, "grab")}''' + '"""' + '''
+new_enter = ''' + '"""' + '''            onMouseEnter={(event) =>
+              setPlotCursor(
+                event.currentTarget,
+                viewportDragRef.current !== null ||
+                  viewportPinchRef.current !== null
+                  ? "grabbing"
+                  : "grab",
+              )
+            }''' + '"""' + '''
+if renderer.count(old_enter) != 1:
+    raise SystemExit("mouse enter cursor anchor failed")
+renderer = renderer.replace(old_enter, new_enter, 1)
+
 old_pointer = ''' + '"""' + '''            onPointerDown={(event) => {
               event.cancelBubble = true;
               event.evt.preventDefault();
