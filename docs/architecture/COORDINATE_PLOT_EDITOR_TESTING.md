@@ -12,6 +12,7 @@ The PR 5 gate verifies:
 - pointer-anchored pan and zoom calculations;
 - React panel callbacks and save availability;
 - App creation, stale-safe save and semantic undo;
+- editor stacking above Smart Ink diagnostics;
 - Chromium and Firefox creation of two series followed by JSON export;
 - the existing board, GeometryOS, Smart Ink, production image and security gates.
 
@@ -27,4 +28,4 @@ The PR 5 gate verifies:
 8. Reload the saved document and confirm formulas, ranges, parameters and viewport values.
 9. Repeat the interaction in Chromium and Firefox.
 
-The outer board Transformer stays unavailable while internal plot editing is active. `Escape` closes the transient session without committing its current draft.
+The plot editor stays above development diagnostics while active. The outer board Transformer stays unavailable during internal plot editing. `Escape` closes the transient session without committing its current draft.
