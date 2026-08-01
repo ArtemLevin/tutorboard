@@ -3,17 +3,13 @@ import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  DexieBoardDocumentRepository,
-} from "../../src/adapters/persistence-dexie/public";
+import { DexieBoardDocumentRepository } from "../../src/adapters/persistence-dexie/public";
 import {
   boardObjectId,
   persistenceOperationId,
   type BoardDocument,
 } from "../../src/core/public";
-import {
-  createCoordinatePlotProductionDocument,
-} from "../fixtures/coordinate-plot-production";
+import { createCoordinatePlotProductionDocument } from "../fixtures/coordinate-plot-production";
 
 const openRepositories: DexieBoardDocumentRepository[] = [];
 const openDatabases: Dexie[] = [];
@@ -28,9 +24,7 @@ function createRepository(name: string): DexieBoardDocumentRepository {
   return repository;
 }
 
-function changedCoordinatePlotDocument(
-  document: BoardDocument,
-): BoardDocument {
+function changedCoordinatePlotDocument(document: BoardDocument): BoardDocument {
   const objectId = boardObjectId("release-plot:0");
   const object = document.objects[objectId];
   if (object?.kind !== "math.coordinate-plot") {

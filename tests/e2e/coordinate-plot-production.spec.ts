@@ -50,9 +50,7 @@ test("persists, restores, duplicates and exports a production coordinate plot", 
   await expect(page.getByTestId("persistence-status")).toHaveText(
     /Сохранено локально|Сохранено повторно/,
   );
-  await page
-    .getByRole("button", { name: "Закрыть редактор графика" })
-    .click();
+  await page.getByRole("button", { name: "Закрыть редактор графика" }).click();
 
   await page.reload();
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
@@ -60,9 +58,7 @@ test("persists, restores, duplicates and exports a production coordinate plot", 
   await page.getByRole("button", { name: "math.coordinate-plot" }).click();
   await page.keyboard.press("Enter");
   await expect(editor).toBeVisible();
-  await expect(page.getByLabel("Формула явной функции")).toHaveValue(
-    "a*x^2",
-  );
+  await expect(page.getByLabel("Формула явной функции")).toHaveValue("a*x^2");
   await expect(page.getByLabel("Граница xMin")).toHaveValue("-18");
   await expect(page.getByLabel("Граница xMax")).toHaveValue("24");
   await expect(page.getByLabel("Граница yMin")).toHaveValue("-9");
@@ -72,9 +68,7 @@ test("persists, restores, duplicates and exports a production coordinate plot", 
   await page.getByText(/^Параметры \(1\)$/).click();
   await expect(page.getByLabel("Имя параметра")).toHaveValue("a");
 
-  await page
-    .getByRole("button", { name: "Закрыть редактор графика" })
-    .click();
+  await page.getByRole("button", { name: "Закрыть редактор графика" }).click();
   await page.keyboard.press("Control+C");
   await page.keyboard.press("Control+V");
   await expect(page.getByTestId("object-count")).toHaveText("2 объекта");

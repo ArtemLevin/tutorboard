@@ -12,9 +12,7 @@ import {
   type PlotSeries,
   type PlotSeriesStyle,
 } from "../../src/core/public";
-import {
-  createDefaultCoordinatePlotObject,
-} from "../../src/modules/coordinate-plot-editor/public";
+import { createDefaultCoordinatePlotObject } from "../../src/modules/coordinate-plot-editor/public";
 
 const palette = [
   "#2563eb",
