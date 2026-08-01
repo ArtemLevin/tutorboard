@@ -40,6 +40,54 @@ jobs:
       - name: Apply deterministic patch
         run: python /tmp/apply_patch.py
 
+      - name: Tighten accessibility test types
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/app/CoordinatePlotEditorPanel.accessibility.test.tsx")
+          text = path.read_text(encoding="utf-8")
+          text = text.replace(
+              'import { createDefaultCoordinatePlotObject } from "../modules/coordinate-plot-editor/public";',
+              '''import {
+            createDefaultCoordinatePlotObject,
+            type CoordinatePlotEditorIssue,
+          } from "../modules/coordinate-plot-editor/public";''',
+          )
+          text = text.replace(
+              '''function renderPanel({
+            dirty = true,
+            issues = [],
+            onClose = vi.fn(),
+            onSave = vi.fn(() => true),
+          }: {
+            readonly dirty?: boolean;
+            readonly issues?: readonly {
+              readonly blocking: boolean;
+              readonly code: string;
+              readonly end?: number;
+              readonly field: string;
+              readonly message: string;
+              readonly start?: number;
+            }[];
+            readonly onClose?: ReturnType<typeof vi.fn>;
+            readonly onSave?: ReturnType<typeof vi.fn>;
+          } = {}) {''',
+              '''function renderPanel({
+            dirty = true,
+            issues = [],
+            onClose = vi.fn<() => void>(),
+            onSave = vi.fn<() => boolean>(() => true),
+          }: {
+            readonly dirty?: boolean;
+            readonly issues?: readonly CoordinatePlotEditorIssue[];
+            readonly onClose?: () => void;
+            readonly onSave?: () => boolean;
+          } = {}) {''',
+          )
+          path.write_text(text, encoding="utf-8")
+          PY
+
       - name: Install dependencies
         run: npm ci
 
