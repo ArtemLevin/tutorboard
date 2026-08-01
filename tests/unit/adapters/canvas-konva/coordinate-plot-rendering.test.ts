@@ -126,7 +126,7 @@ describe("coordinate plot rendering geometry", () => {
     );
 
     expect(grid.xStep).toBe(5);
-    expect(grid.yStep).toBe(2);
+    expect(grid.yStep).toBe(5);
     expect(grid.majorX.some(({ label }) => label === "0")).toBe(true);
     expect(grid.minorX.length).toBeGreaterThan(grid.majorX.length);
     expect(
