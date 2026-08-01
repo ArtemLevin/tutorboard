@@ -3,6 +3,7 @@ set -euo pipefail
 
 python - <<'PY'
 from pathlib import Path
+import re
 
 source = Path('.github/workflows/ux3-implementation.yml').read_text(encoding='utf-8')
 step = '      - name: Implement canvas navigation, mobile UX and visual matrix\n        run: |\n'
@@ -37,6 +38,29 @@ renderer = renderer[:legend_start] + new_legend_block + renderer[legend_end:]
 if brittle not in script:
     raise SystemExit('UX3 bootstrap legend patch anchor is missing')
 script = script.replace(brittle, structural, 1)
+ci_structural = '''lifecycle_command = "          npm run e2e:plot-production 2>&1 | tee coordinate-plot-browser.log"
+visual_command = lifecycle_command + "\\n\\n      - name: Run coordinate plot visual regression matrix\\n        run: |\\n          set -o pipefail\\n          npm run e2e:plot-visual 2>&1 | tee coordinate-plot-visual.log"
+if ci.count(lifecycle_command) != 1:
+    raise SystemExit("ci lifecycle command anchor failed")
+ci = ci.replace(lifecycle_command, visual_command, 1)
+artifact_marker = "            coordinate-plot-browser.log\\n            test-results"
+if ci.count(artifact_marker) != 1:
+    raise SystemExit("ci artifact anchor failed")
+ci = ci.replace(
+    artifact_marker,
+    "            coordinate-plot-browser.log\\n            coordinate-plot-visual.log\\n            test-results",
+    1,
+)
+ci_path.write_text(ci, encoding="utf-8")
+'''
+script, count = re.subn(
+    r'if ci\.count\(lifecycle\) != 1:[\s\S]*?ci_path\.write_text\(ci, encoding="utf-8"\)\n',
+    lambda _: ci_structural,
+    script,
+    count=1,
+)
+if count != 1:
+    raise SystemExit('UX3 bootstrap CI patch block is missing')
 Path('/tmp/ux3-implementation.sh').write_text('set -euo pipefail\n' + script, encoding='utf-8')
 PY
 
