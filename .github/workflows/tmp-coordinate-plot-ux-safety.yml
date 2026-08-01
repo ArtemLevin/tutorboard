@@ -40,21 +40,21 @@ jobs:
       - name: Apply deterministic patch
         run: python /tmp/apply_patch.py
 
-      - name: Tighten accessibility test types
+      - name: Tighten implementation types and hooks
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          path = Path("src/app/CoordinatePlotEditorPanel.accessibility.test.tsx")
-          text = path.read_text(encoding="utf-8")
-          text = text.replace(
+          test_path = Path("src/app/CoordinatePlotEditorPanel.accessibility.test.tsx")
+          test_text = test_path.read_text(encoding="utf-8")
+          test_text = test_text.replace(
               'import { createDefaultCoordinatePlotObject } from "../modules/coordinate-plot-editor/public";',
               '''import {
             createDefaultCoordinatePlotObject,
             type CoordinatePlotEditorIssue,
           } from "../modules/coordinate-plot-editor/public";''',
           )
-          text = text.replace(
+          test_text = test_text.replace(
               '''function renderPanel({
             dirty = true,
             issues = [],
@@ -85,7 +85,167 @@ jobs:
             readonly onSave?: () => boolean;
           } = {}) {''',
           )
-          path.write_text(text, encoding="utf-8")
+          test_path.write_text(test_text, encoding="utf-8")
+
+          panel_path = Path("src/app/CoordinatePlotEditorPanel.tsx")
+          panel_text = panel_path.read_text(encoding="utf-8")
+          panel_text = panel_text.replace(
+              '''import {
+            useEffect,''',
+              '''import {
+            useCallback,
+            useEffect,''',
+              1,
+          )
+          old_block = '''  const focusEditor = (preferred: HTMLElement | null = null) => {
+            const target =
+              preferred?.isConnected === true
+                ? preferred
+                : editorRef.current?.querySelector<HTMLElement>(
+                    "[data-plot-editor-initial-focus]",
+                  ) ?? editorRef.current;
+            target?.focus();
+          };
+
+          const requestClose = () => {
+            if (!dirty) {
+              onClose();
+              return;
+            }
+            confirmationReturnFocusRef.current =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+            setCloseConfirmationOpen(true);
+          };
+
+          const continueEditing = () => {
+            const preferred = confirmationReturnFocusRef.current;
+            setCloseConfirmationOpen(false);
+            queueMicrotask(() => focusEditor(preferred));
+          };
+
+          useEffect(() => {
+            let mounted = true;
+            queueMicrotask(() => {
+              if (mounted) focusEditor();
+            });
+            return () => {
+              mounted = false;
+              const original = returnFocusRef.current;
+              const fallback = fallbackFocusRef?.current ?? null;
+              queueMicrotask(() => {
+                const target =
+                  original?.isConnected === true
+                    ? original
+                    : fallback?.isConnected === true
+                      ? fallback
+                      : null;
+                target?.focus();
+              });
+            };
+          }, [fallbackFocusRef]);
+
+          useEffect(() => {
+            const handleKeyDown = (event: KeyboardEvent) => {
+              const accelerator = event.ctrlKey || event.metaKey;
+              if (accelerator && !event.altKey && event.key === "Enter") {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if (canSave) onSave();
+                return;
+              }
+              if (event.key !== "Escape") return;
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              if (closeConfirmationOpen) {
+                continueEditing();
+              } else {
+                requestClose();
+              }
+            };
+            window.addEventListener("keydown", handleKeyDown);
+            return () => window.removeEventListener("keydown", handleKeyDown);
+          }, [canSave, closeConfirmationOpen, dirty, onClose, onSave]);'''
+          new_block = '''  const focusEditor = useCallback((preferred: HTMLElement | null = null) => {
+            const target =
+              preferred?.isConnected === true
+                ? preferred
+                : editorRef.current?.querySelector<HTMLElement>(
+                    "[data-plot-editor-initial-focus]",
+                  ) ?? editorRef.current;
+            target?.focus();
+          }, []);
+
+          const requestClose = useCallback(() => {
+            if (!dirty) {
+              onClose();
+              return;
+            }
+            confirmationReturnFocusRef.current =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+            setCloseConfirmationOpen(true);
+          }, [dirty, onClose]);
+
+          const continueEditing = useCallback(() => {
+            const preferred = confirmationReturnFocusRef.current;
+            setCloseConfirmationOpen(false);
+            queueMicrotask(() => focusEditor(preferred));
+          }, [focusEditor]);
+
+          useEffect(() => {
+            let mounted = true;
+            const original = returnFocusRef.current;
+            const fallback = fallbackFocusRef?.current ?? null;
+            queueMicrotask(() => {
+              if (mounted) focusEditor();
+            });
+            return () => {
+              mounted = false;
+              queueMicrotask(() => {
+                const target =
+                  original?.isConnected === true
+                    ? original
+                    : fallback?.isConnected === true
+                      ? fallback
+                      : null;
+                target?.focus();
+              });
+            };
+          }, [fallbackFocusRef, focusEditor]);
+
+          useEffect(() => {
+            const handleKeyDown = (event: KeyboardEvent) => {
+              const accelerator = event.ctrlKey || event.metaKey;
+              if (accelerator && !event.altKey && event.key === "Enter") {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if (canSave) onSave();
+                return;
+              }
+              if (event.key !== "Escape") return;
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              if (closeConfirmationOpen) {
+                continueEditing();
+              } else {
+                requestClose();
+              }
+            };
+            window.addEventListener("keydown", handleKeyDown);
+            return () => window.removeEventListener("keydown", handleKeyDown);
+          }, [
+            canSave,
+            closeConfirmationOpen,
+            continueEditing,
+            onSave,
+            requestClose,
+          ]);'''
+          if old_block not in panel_text:
+              raise SystemExit("Expected hook block was not found")
+          panel_path.write_text(panel_text.replace(old_block, new_block, 1), encoding="utf-8")
           PY
 
       - name: Install dependencies
