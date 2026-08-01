@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -42,7 +42,7 @@ jobs:
         run: npm run board-contract:check
 
       - name: Check formatting
-        run: npm run format:check || bash scripts/ux3-ci-publish.sh
+        run: npm run format:check
 
       - name: Lint
         run: npm run lint
@@ -224,6 +224,11 @@ jobs:
           set -o pipefail
           npm run e2e:plot-production 2>&1 | tee coordinate-plot-browser.log
 
+      - name: Run coordinate plot visual regression matrix
+        run: |
+          set -o pipefail
+          npm run e2e:plot-visual 2>&1 | tee coordinate-plot-visual.log
+
       - name: Upload coordinate plot failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
@@ -232,6 +237,7 @@ jobs:
           path: |
             coordinate-plot-production.log
             coordinate-plot-browser.log
+            coordinate-plot-visual.log
             test-results
           if-no-files-found: warn
           retention-days: 7
