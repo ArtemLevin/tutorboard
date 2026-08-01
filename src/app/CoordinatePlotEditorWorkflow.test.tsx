@@ -26,7 +26,8 @@ function coordinatePlot(document: BoardDocument) {
     ): candidate is Extract<
       BoardObject,
       { readonly kind: "math.coordinate-plot" }
-    > => candidate.kind === "math.coordinate-plot",
+    > =>
+      candidate !== undefined && candidate.kind === "math.coordinate-plot",
   );
   if (object === undefined) throw new Error("Coordinate plot was not created.");
   return object;
