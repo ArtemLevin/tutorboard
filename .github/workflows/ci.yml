@@ -2,183 +2,300 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  bootstrap:
-    name: Integrate coordinate plot production gate
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: feature/coordinate-plot-production-gate
-          fetch-depth: 0
-      - uses: actions/setup-node@v6
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci
-      - name: Integrate durability and release workflow
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install locked GeometryOS code-generation toolchain
+        run: npm ci --prefix tools/geometryos-contract
+
+      - name: Verify pinned GeometryOS contract
+        run: npm run geometryos:check
+
+      - name: Verify board contract
+        run: npm run board-contract:check
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Audit production dependency threshold
+        run: npm audit --audit-level=high
+
+      - name: Run unit tests
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          import subprocess
+          set -o pipefail
+          npm run test 2>&1 | tee unit-tests.log
 
-          def replace_once(path: str, old: str, new: str) -> None:
-              file = Path(path)
-              source = file.read_text(encoding="utf-8")
-              if source.count(old) != 1:
-                  raise SystemExit(
-                      f"Expected one match in {path}, found {source.count(old)}: {old[:100]!r}"
-                  )
-              file.write_text(source.replace(old, new, 1), encoding="utf-8")
+      - name: Enforce performance budgets
+        run: npm run performance
 
-          replace_once(
-              "src/app/PersistedApp.tsx",
-              '''import {
-            importLocalDocumentJson,
-            LocalDocumentAutosave,
-            type LocalAutosaveState,
-          } from "../modules/local-persistence/public";''',
-              '''import {
-            bindLocalAutosaveLifecycleFlush,
-            importLocalDocumentJson,
-            LocalDocumentAutosave,
-            type LocalAutosaveState,
-          } from "../modules/local-persistence/public";''',
-          )
-          replace_once(
-              "src/app/PersistedApp.tsx",
-              '''  useEffect(() => {
-            const autosave = autosaveRef.current;
-            return () => autosave?.dispose();
-          }, []);''',
-              '''  useEffect(() => {
-            const autosave = autosaveRef.current;
-            if (autosave === null) return undefined;
-            const unbindLifecycleFlush = bindLocalAutosaveLifecycleFlush(
-              autosave,
-              {
-                documentTarget: document,
-                windowTarget: window,
-              },
-            );
-            return () => {
-              unbindLifecycleFlush();
-              void autosave.flush().finally(() => autosave.dispose());
-            };
-          }, []);''',
-          )
+      - name: Upload unit-test failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-failure-${{ github.sha }}
+          path: unit-tests.log
+          if-no-files-found: error
+          retention-days: 2
 
-          plan = Path("PLOT_PLAN.txt")
-          plan_source = plan.read_text(encoding="utf-8")
-          status = '''
+      - name: Enforce source boundaries
+        run: npm run architecture
 
-16. Статус реализации
+      - name: Build production bundle
+        run: npm run build
 
-PR 1 — доменная модель: завершён.
-PR 2 — язык выражений: завершён.
-PR 3 — численный построитель: завершён.
-PR 4 — Konva renderer: завершён.
-PR 5 — пользовательский интерфейс: завершён.
-PR 6 — production gate: реализуется в PR #60.
+  geometryos-live-contract:
+    name: GeometryOS live browser contract
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
-Production gate фиксирует Chromium и Firefox, performance budgets, IndexedDB round-trip и recovery, offline/online synchronization, collaborative inverse, production image и эксплуатационную документацию.
-'''
-          if "16. Статус реализации" not in plan_source:
-              plan.write_text(plan_source.rstrip() + status + "\n", encoding="utf-8")
+    steps:
+      - name: Check out TutorBoard
+        uses: actions/checkout@v7
 
-          ci = subprocess.check_output(
-              ["git", "show", "origin/main:.github/workflows/ci.yml"],
-              text=True,
-          )
-          marker = '''  production-image:
-            name: Production image
-            needs: [quality, e2e-smoke]'''
-          replacement = '''  coordinate-plot-production:
-            name: Coordinate plot production gate
-            needs: quality
-            runs-on: ubuntu-latest
-            timeout-minutes: 20
+      - name: Check out pinned GeometryOS source
+        uses: actions/checkout@v7
+        with:
+          repository: ArtemLevin/geometryos
+          ref: 84ae403ef06f5183091f8862307f3c458f464b87
+          path: geometryos-source
+          persist-credentials: false
 
-            steps:
-              - name: Check out repository
-                uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
 
-              - name: Set up Node.js
-                uses: actions/setup-node@v6
-                with:
-                  node-version-file: .nvmrc
-                  cache: npm
+      - name: Install locked dependencies
+        run: npm ci
 
-              - name: Install locked dependencies
-                run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
 
-              - name: Run coordinate plot integration and performance gate
-                run: |
-                  set -o pipefail
-                  npm run plot:production 2>&1 | tee coordinate-plot-production.log
-
-              - name: Install release browsers
-                run: npx playwright install --with-deps chromium firefox
-
-              - name: Build production bundle
-                run: npm run build
-
-              - name: Run Chromium and Firefox coordinate plot lifecycle
-                run: |
-                  set -o pipefail
-                  npm run e2e:plot-production 2>&1 | tee coordinate-plot-browser.log
-
-              - name: Upload coordinate plot failure evidence
-                if: failure()
-                uses: actions/upload-artifact@v4
-                with:
-                  name: coordinate-plot-production-failure-${{ github.sha }}
-                  path: |
-                    coordinate-plot-production.log
-                    coordinate-plot-browser.log
-                    test-results
-                  if-no-files-found: warn
-                  retention-days: 7
-
-          production-image:
-            name: Production image
-            needs: [quality, e2e-smoke, coordinate-plot-production]'''
-          if marker not in ci:
-              raise SystemExit("Unable to locate production image marker in CI")
-          Path(".github/workflows/ci.yml").write_text(
-              ci.replace(marker, replacement, 1),
-              encoding="utf-8",
-          )
-          PY
-      - name: Apply repository formatting
+      - name: Build pinned GeometryOS image
         run: |
-          npx prettier --write \
-            .github/workflows/ci.yml \
-            PLOT_PLAN.txt \
-            package.json \
-            src/app/PersistedApp.tsx \
-            src/modules/local-persistence/lifecycle.ts \
-            src/modules/local-persistence/public.ts \
-            tests/fixtures/coordinate-plot-production.ts \
-            tests/integration/coordinate-plot-persistence.test.ts \
-            tests/integration/coordinate-plot-sync.test.ts \
-            tests/performance/coordinate-plot-production.test.ts \
-            tests/unit/modules/local-persistence/lifecycle.test.ts \
-            tests/e2e/coordinate-plot-production.spec.ts
-      - name: Verify strict TypeScript and targeted gate
+          docker build \
+            --tag geometryos-contract-smoke:${GITHUB_SHA} \
+            --build-arg BUILD_REVISION=84ae403ef06f5183091f8862307f3c458f464b87 \
+            --build-arg BUILD_VERSION=0.3.0 \
+            geometryos-source
+
+      - name: Start hardened GeometryOS container
         run: |
-          npm run typecheck
-          npm run plot:production
-      - name: Commit integrated production gate
+          docker run --detach \
+            --name tutorboard-geometryos-contract \
+            --publish 127.0.0.1:18000:8000 \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --env GEOMETRYOS_CORS_ALLOWED_ORIGINS=http://localhost:5173 \
+            geometryos-contract-smoke:${GITHUB_SHA}
+
+      - name: Verify live protocol contract
+        env:
+          GEOMETRYOS_ALLOWED_ORIGIN: http://localhost:5173
+          GEOMETRYOS_BASE_URL: http://127.0.0.1:18000
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "test: integrate coordinate plot production gate"
-          git push origin HEAD:feature/coordinate-plot-production-gate
+          set -o pipefail
+          npm run geometryos:live-smoke 2>&1 | tee geometryos-live-protocol.log
+
+      - name: Verify live browser contract
+        env:
+          GEOMETRYOS_BASE_URL: http://127.0.0.1:18000
+        run: |
+          set -o pipefail
+          npm run geometryos:live-browser 2>&1 | tee geometryos-live-browser.log
+
+      - name: Upload live-contract failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: geometryos-live-contract-failure-${{ github.sha }}
+          path: |
+            geometryos-live-protocol.log
+            geometryos-live-browser.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Capture container diagnostics
+        if: always()
+        run: |
+          docker logs tutorboard-geometryos-contract || true
+          docker rm --force tutorboard-geometryos-contract || true
+
+  e2e-smoke:
+    name: Browser smoke
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Build production bundle
+        env:
+          VITE_FEATURE_SERVER_SYNC: "true"
+          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos
+        run: npm run build
+
+      - name: Run browser smoke
+        run: npm run e2e
+
+  coordinate-plot-production:
+    name: Coordinate plot production gate
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run coordinate plot integration and performance gate
+        run: |
+          set -o pipefail
+          npm run plot:production 2>&1 | tee coordinate-plot-production.log
+
+      - name: Install release browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Run Chromium and Firefox coordinate plot lifecycle
+        run: |
+          set -o pipefail
+          npm run e2e:plot-production 2>&1 | tee coordinate-plot-browser.log
+
+      - name: Upload coordinate plot failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coordinate-plot-production-failure-${{ github.sha }}
+          path: |
+            coordinate-plot-production.log
+            coordinate-plot-browser.log
+            test-results
+          if-no-files-found: warn
+          retention-days: 7
+
+  production-image:
+    name: Production image
+    needs: [quality, e2e-smoke, coordinate-plot-production]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Build immutable TutorBoard image
+        run: |
+          docker build \
+            --build-arg BUILD_REVISION=${GITHUB_SHA} \
+            --build-arg BUILD_VERSION=0.1.0 \
+            --tag tutorboard:${GITHUB_SHA} \
+            .
+
+      - name: Assert non-root read-only runtime
+        run: |
+          test "$(docker inspect --format '{{.Config.User}}' tutorboard:${GITHUB_SHA})" = "101"
+          docker run --detach \
+            --name tutorboard-release \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --publish 127.0.0.1:18080:8080 \
+            tutorboard:${GITHUB_SHA}
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs tutorboard-release
+          exit 1
+
+      - name: Scan production image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: tutorboard:${{ github.sha }}
+          format: sarif
+          output: trivy-tutorboard.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          limit-severities-for-sarif: true
+
+      - name: Upload Trivy results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-tutorboard.sarif
+
+      - name: Capture container diagnostics
+        if: always()
+        run: |
+          docker logs tutorboard-release || true
+          docker rm --force tutorboard-release || true
