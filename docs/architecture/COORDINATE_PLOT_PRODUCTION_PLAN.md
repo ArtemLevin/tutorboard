@@ -6,7 +6,7 @@ PR 6 closes the first production increment for `math.coordinate-plot`. It proves
 
 ## Implementation status
 
-The deterministic fixtures, targeted integration suites, lifecycle autosave flush, Chromium/Firefox scenario and dedicated CI job are implemented on PR #60. Completion still requires one shared head commit with every release gate green.
+Completed on PR #60. Deterministic fixtures, targeted integration suites, lifecycle autosave flush, Chromium/Firefox lifecycle, dedicated CI evidence, production image hardening and operations documentation all passed on the same code head. The final documentation-only head reruns the release matrix before squash merge.
 
 ## Release invariants
 
