@@ -1,0 +1,112 @@
+name: UX2 durability repair
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/coordinate-plot-ux-structure-discovery
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Wait for the exact persisted revision
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/e2e/coordinate-plot-production.spec.ts")
+          source = path.read_text(encoding="utf-8")
+          helper_anchor = '''async function resetLocalDatabase(page: import("@playwright/test").Page) {
+          '''
+          helper_position = source.index(helper_anchor)
+          test_position = source.index('\ntest("discovers, persists', helper_position)
+          helper = '''
+
+          async function localRevisionCount(
+            page: import("@playwright/test").Page,
+          ): Promise<number> {
+            return page.evaluate(async (name) => {
+              return new Promise<number>((resolve, reject) => {
+                const request = indexedDB.open(name);
+                request.onerror = () =>
+                  reject(request.error ?? new Error("IndexedDB open failed"));
+                request.onsuccess = () => {
+                  const database = request.result;
+                  const transaction = database.transaction("revisions", "readonly");
+                  const countRequest = transaction.objectStore("revisions").count();
+                  countRequest.onerror = () =>
+                    reject(
+                      countRequest.error ?? new Error("Revision count failed"),
+                    );
+                  countRequest.onsuccess = () => {
+                    database.close();
+                    resolve(countRequest.result);
+                  };
+                };
+              });
+            }, databaseName);
+          }
+          '''
+          if "async function localRevisionCount(" not in source:
+              source = source[:test_position] + helper + source[test_position:]
+
+          visible_marker = '''  await expect(editor).toBeVisible();
+
+          await editor.getByText("Краткая справка по формулам").click();'''
+          visible_replacement = '''  await expect(editor).toBeVisible();
+          const persistenceStatus = page.getByTestId("persistence-status");
+          await expect(persistenceStatus).toHaveText(
+            /Сохранено локально|Сохранено повторно/,
+          );
+
+          await editor.getByText("Краткая справка по формулам").click();'''
+          if source.count(visible_marker) != 1:
+              raise SystemExit(
+                  f"Expected one initial editor marker, found {source.count(visible_marker)}"
+              )
+          source = source.replace(visible_marker, visible_replacement, 1)
+
+          save_marker = '''  await editor.getByRole("button", { name: "Сохранить" }).click();
+          await expect(page.getByTestId("persistence-status")).toHaveText(
+            /Сохранено локально|Сохранено повторно/,
+          );'''
+          save_replacement = '''  const revisionCountBeforeSave = await localRevisionCount(page);
+          await editor.getByRole("button", { name: "Сохранить" }).click();
+          await expect
+            .poll(() => localRevisionCount(page))
+            .toBeGreaterThan(revisionCountBeforeSave);
+          await expect(persistenceStatus).toHaveText(
+            /Сохранено локально|Сохранено повторно/,
+          );'''
+          if source.count(save_marker) != 1:
+              raise SystemExit(
+                  f"Expected one save marker, found {source.count(save_marker)}"
+              )
+          path.write_text(
+              source.replace(save_marker, save_replacement, 1),
+              encoding="utf-8",
+          )
+          PY
+          npx prettier --write tests/e2e/coordinate-plot-production.spec.ts
+          npm run typecheck
+          npx playwright install --with-deps chromium firefox
+          npm run build
+          npm run e2e:plot-production
+      - name: Push durability repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/e2e/coordinate-plot-production.spec.ts
+          git commit -m "test: await persisted coordinate plot revision"
+          git push origin HEAD:feature/coordinate-plot-ux-structure-discovery
