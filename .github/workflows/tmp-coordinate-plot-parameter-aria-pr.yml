@@ -42,7 +42,6 @@ jobs:
 
       - name: Commit implementation and remove temporary transport
         run: |
-          git rm .github/workflows/tmp-coordinate-plot-parameter-aria.yml
           git rm .github/workflows/tmp-coordinate-plot-parameter-aria-pr.yml
           git rm .github/tmp/coordinate-plot-parameter-aria.py
           git add src/app/CoordinatePlotEditorPanel.tsx src/app/CoordinatePlotEditorPanel.accessibility.test.tsx
