@@ -66,6 +66,73 @@ from pathlib import Path
 
 renderer_path = Path("src/adapters/canvas-konva/coordinate-plot-renderer.tsx")
 renderer = renderer_path.read_text(encoding="utf-8")
+
+old_cursor = ''' + '"""' + '''  const cursorContainerRef = useRef<HTMLElement | null>(null);
+  const setPlotCursor = (node: Konva.Node, cursor: "" | "grab" | "grabbing") => {
+    const container = node.getStage()?.container();
+    if (container === undefined) return;
+    cursorContainerRef.current = container;
+    container.style.cursor = cursor;
+  };
+  useEffect(
+    () => () => {
+      if (cursorContainerRef.current !== null) {
+        cursorContainerRef.current.style.cursor = "";
+      }
+    },
+    [],
+  );''' + '"""' + '''
+new_cursor = ''' + '"""' + '''  const cursorContainerRef = useRef<HTMLElement | null>(null);
+  const cursorCleanupRef = useRef<(() => void) | null>(null);
+  const cursorPressedRef = useRef(false);
+  const bindCursorContainer = (container: HTMLElement) => {
+    if (cursorContainerRef.current === container) return;
+    cursorCleanupRef.current?.();
+    const handlePointerDown = () => {
+      cursorPressedRef.current = true;
+      if (container.style.cursor === "grab") {
+        container.style.cursor = "grabbing";
+      }
+    };
+    const handlePointerEnd = () => {
+      cursorPressedRef.current = false;
+      if (container.style.cursor === "grabbing") {
+        container.style.cursor = "grab";
+      }
+    };
+    container.addEventListener("pointerdown", handlePointerDown, true);
+    window.addEventListener("pointerup", handlePointerEnd, true);
+    window.addEventListener("pointercancel", handlePointerEnd, true);
+    cursorContainerRef.current = container;
+    cursorCleanupRef.current = () => {
+      container.removeEventListener("pointerdown", handlePointerDown, true);
+      window.removeEventListener("pointerup", handlePointerEnd, true);
+      window.removeEventListener("pointercancel", handlePointerEnd, true);
+    };
+  };
+  const setPlotCursor = (node: Konva.Node, cursor: "" | "grab" | "grabbing") => {
+    const container = node.getStage()?.container();
+    if (container === undefined) return;
+    bindCursorContainer(container);
+    container.style.cursor =
+      cursor === "grab" && cursorPressedRef.current ? "grabbing" : cursor;
+  };
+  useEffect(
+    () => () => {
+      cursorCleanupRef.current?.();
+      cursorCleanupRef.current = null;
+      cursorPressedRef.current = false;
+      if (cursorContainerRef.current !== null) {
+        cursorContainerRef.current.style.cursor = "";
+      }
+      cursorContainerRef.current = null;
+    },
+    [],
+  );''' + '"""' + '''
+if renderer.count(old_cursor) != 1:
+    raise SystemExit("native cursor lifecycle anchor failed")
+renderer = renderer.replace(old_cursor, new_cursor, 1)
+
 old = ''' + '"""' + '''            onTouchCancel={(event) => {
               viewportPinchRef.current = null;
               viewportDragRef.current = null;
@@ -74,6 +141,7 @@ old = ''' + '"""' + '''            onTouchCancel={(event) => {
 new = ''' + '"""' + '''            onTouchCancel={() => {
               viewportPinchRef.current = null;
               viewportDragRef.current = null;
+              cursorPressedRef.current = false;
               if (cursorContainerRef.current !== null) {
                 cursorContainerRef.current.style.cursor = "";
               }
@@ -83,15 +151,7 @@ if renderer.count(old) != 1:
 renderer = renderer.replace(old, new, 1)
 
 old_enter = ''' + '"""' + '''            onMouseEnter={(event) => setPlotCursor(event.currentTarget, "grab")}''' + '"""' + '''
-new_enter = ''' + '"""' + '''            onMouseEnter={(event) =>
-              setPlotCursor(
-                event.currentTarget,
-                viewportDragRef.current !== null ||
-                  viewportPinchRef.current !== null
-                  ? "grabbing"
-                  : "grab",
-              )
-            }''' + '"""' + '''
+new_enter = ''' + '"""' + '''            onMouseEnter={(event) => setPlotCursor(event.currentTarget, "grab")}''' + '"""' + '''
 if renderer.count(old_enter) != 1:
     raise SystemExit("mouse enter cursor anchor failed")
 renderer = renderer.replace(old_enter, new_enter, 1)
@@ -101,13 +161,10 @@ old_pointer = ''' + '"""' + '''            onPointerDown={(event) => {
               event.evt.preventDefault();
             }}
             onTouchStart={(event) => {''' + '"""' + '''
-new_pointer = ''' + '"""' + '''            onMouseDown={(event) =>
-              setPlotCursor(event.currentTarget, "grabbing")
-            }
-            onMouseUp={(event) => setPlotCursor(event.currentTarget, "grab")}
-            onPointerDown={(event) => {
+new_pointer = ''' + '"""' + '''            onPointerDown={(event) => {
               event.cancelBubble = true;
               event.evt.preventDefault();
+              setPlotCursor(event.currentTarget, "grabbing");
             }}
             onTouchStart={(event) => {''' + '"""' + '''
 if renderer.count(old_pointer) != 1:
