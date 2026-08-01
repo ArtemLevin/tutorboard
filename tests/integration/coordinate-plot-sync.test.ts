@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   actorId,
-  boardDocumentSha256,
   boardObjectId,
   commandId,
   createEmptyBoardDocument,
@@ -25,6 +24,7 @@ import {
 } from "../../src/core/public";
 import {
   BoardSyncEngine,
+  boardDocumentSha256,
   invertOwnBoardCommand,
   type BoardSyncState,
 } from "../../src/modules/server-sync/public";
@@ -35,34 +35,39 @@ class MemoryQueue implements PendingBoardCommandQueue {
   head: ConfirmedBoardHead | null = null;
   sequence = 0;
 
-  async acknowledge(_documentId: DocumentId, sequence: number): Promise<void> {
+  acknowledge(_documentId: DocumentId, sequence: number): Promise<void> {
     this.items = this.items.filter((item) => item.sequence !== sequence);
+    return Promise.resolve();
   }
 
-  async enqueue(
+  enqueue(
     documentId: DocumentId,
     idempotencyKey: string,
     command: BoardCommand,
   ): Promise<PendingBoardCommand> {
-    const item = {
+    const item: PendingBoardCommand = {
       command,
       documentId,
       idempotencyKey,
       sequence: ++this.sequence,
     };
     this.items.push(item);
-    return item;
+    return Promise.resolve(item);
   }
 
-  async list(documentId: DocumentId): Promise<readonly PendingBoardCommand[]> {
-    return this.items.filter((item) => item.documentId === documentId);
+  list(documentId: DocumentId): Promise<readonly PendingBoardCommand[]> {
+    return Promise.resolve(
+      this.items.filter((item) => item.documentId === documentId),
+    );
   }
 
-  async loadHead(documentId: DocumentId): Promise<ConfirmedBoardHead | null> {
-    return this.head?.documentId === documentId ? this.head : null;
+  loadHead(documentId: DocumentId): Promise<ConfirmedBoardHead | null> {
+    return Promise.resolve(
+      this.head?.documentId === documentId ? this.head : null,
+    );
   }
 
-  async replace(
+  replace(
     documentId: DocumentId,
     commands: readonly PendingBoardCommand[],
   ): Promise<void> {
@@ -70,10 +75,12 @@ class MemoryQueue implements PendingBoardCommandQueue {
       ...this.items.filter((item) => item.documentId !== documentId),
       ...commands,
     ];
+    return Promise.resolve();
   }
 
-  async saveHead(head: ConfirmedBoardHead): Promise<void> {
+  saveHead(head: ConfirmedBoardHead): Promise<void> {
     this.head = head;
+    return Promise.resolve();
   }
 }
 
@@ -106,12 +113,19 @@ class MemorySyncRepository implements BoardSyncRepository {
     };
   }
 
-  async context(): Promise<BoardSessionContext> {
-    return this.contextValue;
+  context(): Promise<BoardSessionContext> {
+    return Promise.resolve(this.contextValue);
   }
 
-  async ensureBoard(): Promise<ServerBoardDescriptor> {
-    return this.descriptor();
+  ensureBoard(
+    lessonId: string,
+    documentIdValue: DocumentId,
+    csrfToken: string,
+  ): Promise<ServerBoardDescriptor> {
+    expect(lessonId).toBe(this.lessonId);
+    expect(documentIdValue).toBe(this.baseDocument.id);
+    expect(csrfToken).toBe(this.contextValue.csrfToken);
+    return Promise.resolve(this.descriptor());
   }
 
   async load(documentIdValue: DocumentId): Promise<BoardServerRecovery> {
@@ -131,33 +145,42 @@ class MemorySyncRepository implements BoardSyncRepository {
     };
   }
 
-  async pull(
+  pull(
     _documentId: DocumentId,
     afterRevision: number,
   ): Promise<BoardCommandPage> {
-    return {
+    return Promise.resolve({
       currentRevision: this.batches.length,
       hasMore: false,
       items: this.batches.filter(({ revision }) => revision > afterRevision),
-    };
+    });
   }
 
-  async saveSnapshot(): Promise<void> {}
-
-  async push(
-    envelope: BoardCommandEnvelope,
+  saveSnapshot(
+    _documentId: DocumentId,
+    _revision: number,
+    _document: BoardDocument,
+    _documentSha256: string,
     _csrfToken: string,
+  ): Promise<void> {
+    return Promise.resolve();
+  }
+
+  push(
+    envelope: BoardCommandEnvelope,
+    csrfToken: string,
   ): Promise<PushBoardCommandsResult> {
+    expect(csrfToken).toBe(this.contextValue.csrfToken);
     this.pushed.push(envelope);
     if (envelope.baseRevision !== this.batches.length) {
-      return {
+      return Promise.resolve({
         currentRevision: this.batches.length,
         hasMore: false,
         missingCommandBatches: this.batches.filter(
           ({ revision }) => revision > envelope.baseRevision,
         ),
         status: "conflict",
-      };
+      });
     }
     const revision = this.batches.length + 1;
     this.currentSha256 = envelope.expectedDocumentSha256;
@@ -170,12 +193,12 @@ class MemorySyncRepository implements BoardSyncRepository {
       payloadSha256: `payload:${revision}`,
       revision,
     });
-    return {
+    return Promise.resolve({
       currentDocumentSha256: envelope.expectedDocumentSha256,
       revision,
       snapshotDue: false,
       status: "accepted",
-    };
+    });
   }
 }
 
@@ -303,7 +326,7 @@ describe("coordinate plot server synchronization production lifecycle", () => {
 
     const inverse = invertOwnBoardCommand(update, afterAdd, {
       actorId: repository.contextValue.actorId,
-      createId: () => "command:plot-sync:undo",
+      createId: () => commandId("command:plot-sync:undo"),
       now: () => "2026-08-01T08:12:00.000Z",
     });
     expect(inverse).toHaveLength(1);
