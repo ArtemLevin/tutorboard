@@ -30,12 +30,12 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          path = Path("src/app/App.tsx")
-          source = path.read_text(encoding="utf-8")
+          app_path = Path("src/app/App.tsx")
+          app_source = app_path.read_text(encoding="utf-8")
           start_marker = "  const addCoordinatePlotEditorParameter = useCallback("
           end_marker = "\n\n  const coordinatePlotInteraction"
-          start = source.index(start_marker)
-          end = source.index(end_marker, start)
+          start = app_source.index(start_marker)
+          end = app_source.index(end_marker, start)
           replacement = '''  const addCoordinatePlotEditorParameter = useCallback(
             (name?: string) => {
               const id = plotParameterId(`plot-parameter:${crypto.randomUUID()}`);
@@ -50,10 +50,24 @@ jobs:
             },
             [],
           );'''
-          path.write_text(
-              source[:start] + replacement + source[end:],
+          app_path.write_text(
+              app_source[:start] + replacement + app_source[end:],
               encoding="utf-8",
           )
+
+          test_path = Path("src/app/CoordinatePlotEditorPanel.test.tsx")
+          test_source = test_path.read_text(encoding="utf-8")
+          old = '''    const formula = screen.getByLabelText("Формула явной функции");
+            fireEvent.change(formula, { target: { value: "x+1" } });'''
+          new = '''    const formula = screen.getByLabelText(
+              "Формула явной функции",
+            ) as HTMLInputElement;
+            fireEvent.change(formula, { target: { value: "x+1" } });'''
+          if test_source.count(old) != 1:
+              raise SystemExit(
+                  f"Expected one caret test formula declaration, found {test_source.count(old)}"
+              )
+          test_path.write_text(test_source.replace(old, new, 1), encoding="utf-8")
           PY
 
       - name: Format and verify targeted implementation
