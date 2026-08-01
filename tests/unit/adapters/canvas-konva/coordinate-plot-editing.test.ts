@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   panCoordinatePlotViewport,
+  pinchCoordinatePlotViewport,
   zoomCoordinatePlotViewportAt,
 } from "../../../../src/adapters/canvas-konva/coordinate-plot-editing";
 
@@ -61,6 +62,45 @@ describe("coordinate plot viewport gestures", () => {
     expect(vertical.xMax - vertical.xMin).toBe(20);
     expect(vertical.yMax - vertical.yMin).toBe(20);
     expect(vertical.equalScale).toBe(false);
+  });
+
+  it("combines pinch distance and midpoint movement with the selected axis", () => {
+    const pinched = pinchCoordinatePlotViewport(
+      viewport,
+      size,
+      [
+        { x: 300, y: 200 },
+        { x: 500, y: 200 },
+      ],
+      [
+        { x: 260, y: 230 },
+        { x: 580, y: 230 },
+      ],
+      "x",
+    );
+
+    expect(pinched.xMax - pinched.xMin).toBeCloseTo(12.5, 12);
+    expect(pinched.yMax - pinched.yMin).toBeCloseTo(10, 12);
+    expect(pinched.yMin).toBeCloseTo(-4.25, 12);
+    expect(pinched.yMax).toBeCloseTo(5.75, 12);
+    expect(pinched.equalScale).toBe(false);
+  });
+
+  it("ignores a degenerate pinch gesture", () => {
+    expect(
+      pinchCoordinatePlotViewport(
+        viewport,
+        size,
+        [
+          { x: 1, y: 1 },
+          { x: 1, y: 1 },
+        ],
+        [
+          { x: 0, y: 0 },
+          { x: 10, y: 10 },
+        ],
+      ),
+    ).toBe(viewport);
   });
 
   it("ignores malformed gesture inputs", () => {

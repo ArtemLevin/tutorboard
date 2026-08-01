@@ -295,6 +295,7 @@ const renderers: readonly KonvaObjectRenderer[] = [
           editing={editing}
           object={renderedPlot}
           zoom={context.zoom}
+          zoomAxis={interaction?.zoomAxis ?? "both"}
           {...(interaction?.onEditRequest === undefined
             ? {}
             : {

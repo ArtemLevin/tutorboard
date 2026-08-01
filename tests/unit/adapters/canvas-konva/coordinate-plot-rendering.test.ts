@@ -172,5 +172,20 @@ describe("coordinate plot rendering geometry", () => {
     );
     expect(layout.x + layout.width).toBeLessThanOrEqual(630);
     expect(layout.y + layout.height).toBeLessThanOrEqual(310);
+    expect(layout.visibleRowCount).toBe(2);
+    expect(layout.hiddenRowCount).toBe(0);
+
+    const crowded = createPlotLegendLayout(
+      "top-left",
+      Array.from(
+        { length: 20 },
+        (_, index) => `Очень длинная функция ${index + 1}`,
+      ),
+      { height: 320, width: 640 },
+    );
+    expect(crowded.visibleRowCount).toBeLessThanOrEqual(7);
+    expect(crowded.hiddenRowCount).toBeGreaterThan(0);
+    expect(crowded.width).toBeLessThanOrEqual(260);
+    expect(crowded.height).toBeLessThanOrEqual(320 * 0.48);
   });
 });

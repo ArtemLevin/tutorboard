@@ -1,5 +1,5 @@
 import Konva from "konva";
-import { useMemo, useRef, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { Arrow, Group, Line, Rect, Text } from "react-konva";
 
 import {
@@ -13,7 +13,9 @@ import {
 } from "../../core/public";
 import {
   panCoordinatePlotViewport,
+  pinchCoordinatePlotViewport,
   zoomCoordinatePlotViewportAt,
+  type CoordinatePlotZoomAxis,
 } from "./coordinate-plot-editing";
 import { createCoordinatePlotRenderModel } from "./coordinate-plot-render-model";
 import {
@@ -32,12 +34,49 @@ interface PlotViewportDragSession {
   readonly startViewport: CoordinatePlotViewport;
 }
 
+interface PlotViewportPinchSession {
+  readonly startTouches: readonly [Vec2, Vec2];
+  readonly startViewport: CoordinatePlotViewport;
+}
+
 function localPointer(node: Konva.Node): Vec2 | null {
   const stage = node.getStage();
   const pointer = stage?.getPointerPosition();
   if (pointer === null || pointer === undefined) return null;
   const local = node.getAbsoluteTransform().copy().invert().point(pointer);
   return Number.isFinite(local.x) && Number.isFinite(local.y) ? local : null;
+}
+
+function localClientPointer(
+  node: Konva.Node,
+  clientX: number,
+  clientY: number,
+): Vec2 | null {
+  const stage = node.getStage();
+  const container = stage?.container();
+  if (stage === null || stage === undefined || container === undefined)
+    return null;
+  const bounds = container.getBoundingClientRect();
+  const local = node
+    .getAbsoluteTransform()
+    .copy()
+    .invert()
+    .point({ x: clientX - bounds.left, y: clientY - bounds.top });
+  return Number.isFinite(local.x) && Number.isFinite(local.y) ? local : null;
+}
+
+function localTouchPair(
+  node: Konva.Node,
+  touches: TouchList,
+): readonly [Vec2, Vec2] | null {
+  const first = touches.item(0);
+  const second = touches.item(1);
+  if (first === null || second === null) return null;
+  const firstPoint = localClientPointer(node, first.clientX, first.clientY);
+  const secondPoint = localClientPointer(node, second.clientX, second.clientY);
+  return firstPoint === null || secondPoint === null
+    ? null
+    : [firstPoint, secondPoint];
 }
 
 export interface CoordinatePlotRendererProps {
@@ -50,6 +89,7 @@ export interface CoordinatePlotRendererProps {
     ((viewport: CoordinatePlotViewport) => void) | undefined;
   readonly selectedSeriesId?: PlotSeriesId | null | undefined;
   readonly zoom: number;
+  readonly zoomAxis?: CoordinatePlotZoomAxis | undefined;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -117,6 +157,7 @@ export function CoordinatePlotRenderer({
   onViewportChange,
   selectedSeriesId,
   zoom,
+  zoomAxis = "both",
 }: CoordinatePlotRendererProps): ReactElement {
   const [internalSelectedSeriesId, setInternalSelectedSeriesId] =
     useState<PlotSeriesId | null>(null);
@@ -124,6 +165,57 @@ export function CoordinatePlotRenderer({
     null,
   );
   const viewportDragRef = useRef<PlotViewportDragSession | null>(null);
+  const viewportPinchRef = useRef<PlotViewportPinchSession | null>(null);
+  const cursorContainerRef = useRef<HTMLElement | null>(null);
+  const cursorCleanupRef = useRef<(() => void) | null>(null);
+  const cursorPressedRef = useRef(false);
+  const bindCursorContainer = (container: HTMLElement) => {
+    if (cursorContainerRef.current === container) return;
+    cursorCleanupRef.current?.();
+    const handlePointerDown = () => {
+      cursorPressedRef.current = true;
+      if (container.style.cursor === "grab") {
+        container.style.cursor = "grabbing";
+      }
+    };
+    const handlePointerEnd = () => {
+      cursorPressedRef.current = false;
+      if (container.style.cursor === "grabbing") {
+        container.style.cursor = "grab";
+      }
+    };
+    container.addEventListener("pointerdown", handlePointerDown, true);
+    window.addEventListener("pointerup", handlePointerEnd, true);
+    window.addEventListener("pointercancel", handlePointerEnd, true);
+    cursorContainerRef.current = container;
+    cursorCleanupRef.current = () => {
+      container.removeEventListener("pointerdown", handlePointerDown, true);
+      window.removeEventListener("pointerup", handlePointerEnd, true);
+      window.removeEventListener("pointercancel", handlePointerEnd, true);
+    };
+  };
+  const setPlotCursor = (
+    node: Konva.Node,
+    cursor: "" | "grab" | "grabbing",
+  ) => {
+    const container = node.getStage()?.container();
+    if (container === undefined) return;
+    bindCursorContainer(container);
+    container.style.cursor =
+      cursor === "grab" && cursorPressedRef.current ? "grabbing" : cursor;
+  };
+  useEffect(
+    () => () => {
+      cursorCleanupRef.current?.();
+      cursorCleanupRef.current = null;
+      cursorPressedRef.current = false;
+      if (cursorContainerRef.current !== null) {
+        cursorContainerRef.current.style.cursor = "";
+      }
+      cursorContainerRef.current = null;
+    },
+    [],
+  );
   const model = useMemo(
     () =>
       createCoordinatePlotRenderModel({
@@ -168,8 +260,10 @@ export function CoordinatePlotRenderer({
   const xTickY = clamp((xAxisY ?? height) + 4, 2, Math.max(2, height - 17));
   const yTickX = clamp((yAxisX ?? 0) - 58, 2, Math.max(2, width - 60));
   const problematicSeriesCount = sampling.series.filter(
-    ({ status }) => status === "invalid" || status === "truncated",
+    ({ status }) =>
+      status === "invalid" || status === "truncated" || status === "aborted",
   ).length;
+  const legendSeries = visibleSeries.slice(0, legend.visibleRowCount);
 
   const selectSeries = (seriesId: PlotSeriesId | null) => {
     if (!controlled) setInternalSelectedSeriesId(seriesId);
@@ -210,7 +304,7 @@ export function CoordinatePlotRenderer({
             ? "x"
             : event.evt.altKey
               ? "y"
-              : "both";
+              : zoomAxis;
           onViewportChange(
             zoomCoordinatePlotViewportAt(
               definition.coordinateViewport,
@@ -347,7 +441,17 @@ export function CoordinatePlotRenderer({
             fill="rgba(15,23,42,0.001)"
             height={height}
             name="coordinate-plot-pan-surface"
+            onMouseEnter={(event) => setPlotCursor(event.currentTarget, "grab")}
+            onMouseLeave={(event) => {
+              if (
+                viewportDragRef.current === null &&
+                viewportPinchRef.current === null
+              ) {
+                setPlotCursor(event.currentTarget, "");
+              }
+            }}
             onDragEnd={(event) => {
+              setPlotCursor(event.currentTarget, "grab");
               event.cancelBubble = true;
               const session = viewportDragRef.current;
               const pointer = localPointer(event.currentTarget);
@@ -382,6 +486,7 @@ export function CoordinatePlotRenderer({
             }}
             onDragStart={(event) => {
               event.cancelBubble = true;
+              setPlotCursor(event.currentTarget, "grabbing");
               const pointer = localPointer(event.currentTarget);
               if (pointer === null) return;
               viewportDragRef.current = {
@@ -392,6 +497,57 @@ export function CoordinatePlotRenderer({
             onPointerDown={(event) => {
               event.cancelBubble = true;
               event.evt.preventDefault();
+              setPlotCursor(event.currentTarget, "grabbing");
+            }}
+            onTouchStart={(event) => {
+              if (event.evt.touches.length < 2) return;
+              event.cancelBubble = true;
+              event.evt.preventDefault();
+              const touches = localTouchPair(
+                event.currentTarget,
+                event.evt.touches,
+              );
+              if (touches === null) return;
+              event.currentTarget.stopDrag();
+              viewportDragRef.current = null;
+              viewportPinchRef.current = {
+                startTouches: touches,
+                startViewport: definition.coordinateViewport,
+              };
+              setPlotCursor(event.currentTarget, "grabbing");
+            }}
+            onTouchMove={(event) => {
+              const session = viewportPinchRef.current;
+              if (session === null || event.evt.touches.length < 2) return;
+              event.cancelBubble = true;
+              event.evt.preventDefault();
+              const touches = localTouchPair(
+                event.currentTarget,
+                event.evt.touches,
+              );
+              if (touches === null) return;
+              onViewportChange(
+                pinchCoordinatePlotViewport(
+                  session.startViewport,
+                  definition.size,
+                  session.startTouches,
+                  touches,
+                  zoomAxis,
+                ),
+              );
+            }}
+            onTouchEnd={(event) => {
+              if (event.evt.touches.length >= 2) return;
+              viewportPinchRef.current = null;
+              setPlotCursor(event.currentTarget, "grab");
+            }}
+            onTouchCancel={() => {
+              viewportPinchRef.current = null;
+              viewportDragRef.current = null;
+              cursorPressedRef.current = false;
+              if (cursorContainerRef.current !== null) {
+                cursorContainerRef.current.style.cursor = "";
+              }
             }}
             width={width}
           />
@@ -477,7 +633,7 @@ export function CoordinatePlotRenderer({
             strokeWidth={1}
             width={legend.width}
           />
-          {visibleSeries.map((series, index) => {
+          {legendSeries.map((series, index) => {
             const selected = resolvedSelectedSeriesId === series.id;
             const result = resultBySeriesId.get(series.id);
             const dash = plotLineDash(
@@ -535,6 +691,32 @@ export function CoordinatePlotRenderer({
               </Group>
             );
           })}
+          {legend.hiddenRowCount > 0 ? (
+            <Group
+              listening={false}
+              name="coordinate-plot-legend-overflow"
+              y={6 + legend.visibleRowCount * legend.rowHeight}
+            >
+              <Rect
+                cornerRadius={5}
+                fill="rgba(241,245,249,0.96)"
+                height={legend.rowHeight - 2}
+                width={legend.width - 8}
+                x={4}
+              />
+              <Text
+                align="center"
+                fill="#475569"
+                fontSize={12}
+                fontStyle="bold"
+                height={legend.rowHeight - 2}
+                text={`Ещё ${legend.hiddenRowCount}`}
+                verticalAlign="middle"
+                width={legend.width - 12}
+                x={6}
+              />
+            </Group>
+          ) : null}
         </Group>
       )}
       {editing ? (

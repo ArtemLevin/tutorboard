@@ -54,6 +54,112 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   });
   await expect(editor).toBeVisible();
   const persistenceStatus = page.getByTestId("persistence-status");
+  const navigation = page.getByRole("toolbar", {
+    name: "Навигация координатной плоскости",
+  });
+  await expect(navigation).toBeVisible();
+  await navigation.getByRole("radio", { name: "Только ось X" }).click();
+  await expect(
+    navigation.getByRole("radio", { name: "Только ось X" }),
+  ).toHaveAttribute("aria-checked", "true");
+
+  await editor.getByRole("tab", { name: "Вид" }).click();
+  const xMinimum = editor.getByLabel("Минимальная граница X");
+  const yMinimum = editor.getByLabel("Минимальная граница Y");
+  const yMaximum = editor.getByLabel("Максимальная граница Y");
+  const initialXMinimum = Number(await xMinimum.inputValue());
+  const initialYMinimum = Number(await yMinimum.inputValue());
+  await navigation.getByRole("button", { name: "Приблизить график" }).click();
+  await expect
+    .poll(async () => Number(await xMinimum.inputValue()))
+    .not.toBe(initialXMinimum);
+  await expect(yMinimum).toHaveValue(String(initialYMinimum));
+  await navigation
+    .getByRole("button", { name: "Сбросить диапазон графика" })
+    .click();
+  await navigation
+    .getByRole("button", { name: "Вместить все графики" })
+    .click();
+  await expect(editor.getByTestId("renderer-status-help")).toContainText(
+    "Лимит детализации",
+  );
+
+  const stage = page.locator(".konvajs-content");
+  const stageBox = await stage.boundingBox();
+  expect(stageBox).not.toBeNull();
+  const plotPoint = {
+    x: stageBox!.x + stageBox!.width / 2 - 100,
+    y: stageBox!.y + stageBox!.height / 2 + 80,
+  };
+  await page.mouse.move(plotPoint.x, plotPoint.y);
+  await expect(stage).toHaveCSS("cursor", "grab");
+  await page.mouse.down();
+  await page.mouse.move(plotPoint.x + 24, plotPoint.y + 12);
+  await expect(stage).toHaveCSS("cursor", "grabbing");
+  await page.mouse.up();
+  await expect(stage).toHaveCSS("cursor", "grab");
+  await navigation
+    .getByRole("button", { name: "Сбросить диапазон графика" })
+    .click();
+
+  if (test.info().project.name === "chromium") {
+    const beforePinchX = Number(await xMinimum.inputValue());
+    const beforePinchY = Number(await yMinimum.inputValue());
+    const beforePinchYSpan = Number(await yMaximum.inputValue()) - beforePinchY;
+    await page.evaluate(({ x, y }) => {
+      const target =
+        window.document.querySelector<HTMLElement>(".konvajs-content");
+      if (target === null) throw new Error("Konva stage is missing");
+      const touch = (identifier: number, clientX: number, clientY: number) =>
+        new Touch({ identifier, target, clientX, clientY });
+      const start = [touch(1, x - 50, y), touch(2, x + 50, y)];
+      const moved = [touch(1, x - 95, y + 10), touch(2, x + 95, y + 10)];
+      target.dispatchEvent(
+        new TouchEvent("touchstart", {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: start,
+          targetTouches: start,
+          touches: start,
+        }),
+      );
+      target.dispatchEvent(
+        new TouchEvent("touchmove", {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: moved,
+          targetTouches: moved,
+          touches: moved,
+        }),
+      );
+      target.dispatchEvent(
+        new TouchEvent("touchend", {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: moved,
+          targetTouches: [],
+          touches: [],
+        }),
+      );
+    }, plotPoint);
+    await expect
+      .poll(async () => Number(await xMinimum.inputValue()))
+      .not.toBe(beforePinchX);
+    await expect
+      .poll(async () => Number(await yMinimum.inputValue()))
+      .not.toBe(beforePinchY);
+    await expect
+      .poll(async () => {
+        const currentMinimum = Number(await yMinimum.inputValue());
+        const currentMaximum = Number(await yMaximum.inputValue());
+        return Math.abs(currentMaximum - currentMinimum - beforePinchYSpan);
+      })
+      .toBeLessThan(1e-8);
+  }
+  await navigation
+    .getByRole("button", { name: "Сбросить диапазон графика" })
+    .click();
+  await editor.getByRole("tab", { name: "Функции" }).click();
   await expect(persistenceStatus).toHaveText(
     /Сохранено локально|Сохранено повторно/,
   );

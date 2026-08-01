@@ -3,8 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BoardStage,
   createDefaultKonvaRendererRegistry,
+  zoomCoordinatePlotViewportAt,
   type BoardObjectTransformSnapshot,
   type CoordinatePlotRenderInteraction,
+  type CoordinatePlotZoomAxis,
   type SelectionPointerStartSample,
   type WorldPointerSample,
 } from "../adapters/canvas-konva/public";
@@ -111,10 +113,13 @@ import {
   addCoordinatePlotParameter,
   addCoordinatePlotSeries,
   createDefaultCoordinatePlotObject,
+  fitCoordinatePlotDefinition,
+  resetCoordinatePlotViewport,
   validateCoordinatePlotEditorDefinition,
 } from "../modules/coordinate-plot-editor/public";
 import { ColorPalette } from "./ColorPalette";
 import { CoordinatePlotEditorPanel } from "./CoordinatePlotEditorPanel";
+import { CoordinatePlotNavigationControls } from "./CoordinatePlotNavigationControls";
 import {
   createEmbeddedImageObject,
   embeddedImageAccept,
@@ -141,6 +146,7 @@ interface CoordinatePlotEditorSession {
   readonly expected: CoordinatePlotDefinition;
   readonly objectId: BoardObjectId;
   readonly selectedSeriesId: PlotSeriesId | null;
+  readonly zoomAxis: CoordinatePlotZoomAxis;
 }
 
 export interface AppPersistenceStatus {
@@ -823,6 +829,7 @@ export function App({
           object.definition.series.find(({ visible }) => visible)?.id ??
           object.definition.series[0]?.id ??
           null,
+        zoomAxis: "both",
       });
     },
     [activateTool, coordinatePlotEditor],
@@ -901,6 +908,51 @@ export function App({
     [],
   );
 
+  const setCoordinatePlotZoomAxis = useCallback(
+    (zoomAxis: CoordinatePlotZoomAxis) => {
+      setCoordinatePlotEditor((current) =>
+        current === null ? null : { ...current, zoomAxis },
+      );
+    },
+    [],
+  );
+
+  const zoomCoordinatePlotEditor = useCallback((factor: number) => {
+    setCoordinatePlotEditor((current) => {
+      if (current === null) return null;
+      const size = current.draft.size;
+      return {
+        ...current,
+        draft: {
+          ...current.draft,
+          coordinateViewport: zoomCoordinatePlotViewportAt(
+            current.draft.coordinateViewport,
+            size,
+            { x: size.width / 2, y: size.height / 2 },
+            factor,
+            current.zoomAxis,
+          ),
+        },
+      };
+    });
+  }, []);
+
+  const resetCoordinatePlotEditorViewport = useCallback(() => {
+    setCoordinatePlotEditor((current) =>
+      current === null
+        ? null
+        : { ...current, draft: resetCoordinatePlotViewport(current.draft) },
+    );
+  }, []);
+
+  const fitCoordinatePlotEditorViewport = useCallback(() => {
+    setCoordinatePlotEditor((current) =>
+      current === null
+        ? null
+        : { ...current, draft: fitCoordinatePlotDefinition(current.draft) },
+    );
+  }, []);
+
   const saveCoordinatePlotEditor = useCallback((): boolean => {
     const session = coordinatePlotEditor;
     if (
@@ -965,6 +1017,7 @@ export function App({
     () => ({
       activeObjectId: coordinatePlotEditor?.objectId ?? null,
       selectedSeriesId: coordinatePlotEditor?.selectedSeriesId ?? null,
+      zoomAxis: coordinatePlotEditor?.zoomAxis ?? "both",
       ...(coordinatePlotEditor === null
         ? {}
         : { definitionOverride: coordinatePlotEditor.draft }),
@@ -1897,6 +1950,16 @@ export function App({
           selectionPreviewDelta={renderedSelectionPreviewDelta}
           transformableObjectIds={transformableObjectIds}
         />
+        {coordinatePlotEditor === null ? null : (
+          <CoordinatePlotNavigationControls
+            axis={coordinatePlotEditor.zoomAxis}
+            onAxisChange={setCoordinatePlotZoomAxis}
+            onFit={fitCoordinatePlotEditorViewport}
+            onReset={resetCoordinatePlotEditorViewport}
+            onZoomIn={() => zoomCoordinatePlotEditor(1 / 1.25)}
+            onZoomOut={() => zoomCoordinatePlotEditor(1.25)}
+          />
+        )}
         {coordinatePlotEditor === null ? null : (
           <CoordinatePlotEditorPanel
             definition={coordinatePlotEditor.draft}

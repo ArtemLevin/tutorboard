@@ -79,3 +79,37 @@ export function zoomCoordinatePlotViewportAt(
     yMin: anchorY - (1 - yRatio) * nextYSpan,
   };
 }
+
+function pointDistance(left: Vec2, right: Vec2): number {
+  return Math.hypot(right.x - left.x, right.y - left.y);
+}
+
+function pointMidpoint(left: Vec2, right: Vec2): Vec2 {
+  return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
+}
+
+export function pinchCoordinatePlotViewport(
+  viewport: CoordinatePlotViewport,
+  size: Size2,
+  startTouches: readonly [Vec2, Vec2],
+  currentTouches: readonly [Vec2, Vec2],
+  axis: CoordinatePlotZoomAxis = "both",
+): CoordinatePlotViewport {
+  const startDistance = pointDistance(startTouches[0], startTouches[1]);
+  const currentDistance = pointDistance(currentTouches[0], currentTouches[1]);
+  if (!(startDistance > 1e-6) || !(currentDistance > 1e-6)) return viewport;
+
+  const startMidpoint = pointMidpoint(startTouches[0], startTouches[1]);
+  const currentMidpoint = pointMidpoint(currentTouches[0], currentTouches[1]);
+  const zoomed = zoomCoordinatePlotViewportAt(
+    viewport,
+    size,
+    startMidpoint,
+    clamp(startDistance / currentDistance, 0.05, 20),
+    axis,
+  );
+  return panCoordinatePlotViewport(zoomed, size, {
+    x: currentMidpoint.x - startMidpoint.x,
+    y: currentMidpoint.y - startMidpoint.y,
+  });
+}
