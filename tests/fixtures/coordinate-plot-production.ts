@@ -12,7 +12,9 @@ import {
   type PlotSeries,
   type PlotSeriesStyle,
 } from "../../src/core/public";
-import { createDefaultCoordinatePlotObject } from "../../src/modules/coordinate-plot-editor/public";
+import {
+  createDefaultCoordinatePlotObject,
+} from "../../src/modules/coordinate-plot-editor/public";
 
 const palette = [
   "#2563eb",
@@ -39,7 +41,10 @@ function explicitSeries(
   seed: number,
   index: number,
   expression: string,
-  domain: { readonly minExpression: string | null; readonly maxExpression: string | null } = {
+  domain: {
+    readonly maxExpression: string | null;
+    readonly minExpression: string | null;
+  } = {
     maxExpression: null,
     minExpression: null,
   },
@@ -92,12 +97,10 @@ export function createCoordinatePlotProductionDefinition(
     explicitSeries(seed, 1, "2*sin(x)"),
     explicitSeries(seed, 2, "cos(2*x)+sin(x/2)"),
     explicitSeries(seed, 3, "1/x"),
-    explicitSeries(
-      seed,
-      4,
-      "sqrt(16-x^2)",
-      { maxExpression: "4", minExpression: "-4" },
-    ),
+    explicitSeries(seed, 4, "sqrt(16-x^2)", {
+      maxExpression: "4",
+      minExpression: "-4",
+    }),
     explicitSeries(seed, 5, "a*sin(b*x)"),
     explicitSeries(seed, 6, "abs(x)-3"),
     explicitSeries(seed, 7, "ln(abs(x)+0.2)"),
