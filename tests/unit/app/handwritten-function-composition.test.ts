@@ -184,9 +184,9 @@ describe("handwritten function composition", () => {
     });
     expect(added.ok).toBe(true);
     if (!added.ok) return;
-    expect(handwrittenFunctionSourceStillApplies(added.document, sourceObjects)).toBe(
-      true,
-    );
+    expect(
+      handwrittenFunctionSourceStillApplies(added.document, sourceObjects),
+    ).toBe(true);
 
     const replaced = reduceBoardDocument(
       added.document,

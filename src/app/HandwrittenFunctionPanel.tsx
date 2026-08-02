@@ -87,7 +87,9 @@ export function HandwrittenFunctionPanel({
 
       <div className="handwritten-function-summary">
         <span>Штрихов: {completedStrokeCount(session)}</span>
-        <span>{sourcePersisted ? "Штрихи сохранены" : "Черновик на полотне"}</span>
+        <span>
+          {sourcePersisted ? "Штрихи сохранены" : "Черновик на полотне"}
+        </span>
       </div>
 
       {!recognizerAvailable ? (

@@ -44,9 +44,7 @@ export function createHandwrittenFunctionStrokeObjects(input: {
   readonly strokes: readonly HandwrittenFunctionStroke[];
 }): readonly PenStrokeObject[] {
   return input.strokes.map((stroke, index) => {
-    const points = simplifyStroke(
-      stroke.points.map(({ x, y }) => ({ x, y })),
-    );
+    const points = simplifyStroke(stroke.points.map(({ x, y }) => ({ x, y })));
     if (points.length < 2) {
       throw new Error("Handwritten function stroke has no drawable geometry.");
     }
@@ -158,7 +156,10 @@ export function handwrittenFunctionSourceStillApplies(
     originals.length > 0 &&
     originals.every((original) => {
       const current = document.objects[original.id];
-      return current?.kind === "drawing.pen-stroke" && sameSnapshot(current, original);
+      return (
+        current?.kind === "drawing.pen-stroke" &&
+        sameSnapshot(current, original)
+      );
     })
   );
 }

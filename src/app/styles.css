@@ -1252,3 +1252,158 @@ textarea:focus-visible,
     transition-duration: 0.01ms !important;
   }
 }
+
+.handwritten-function-panel {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  z-index: 18;
+  width: min(34rem, calc(100% - 2rem));
+  transform: translateX(-50%);
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  box-shadow: 0 1.2rem 3rem rgb(15 23 42 / 18%);
+  backdrop-filter: blur(12px);
+}
+
+.handwritten-function-heading,
+.handwritten-function-summary,
+.handwritten-function-actions,
+.handwritten-function-parameters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.handwritten-function-heading > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.handwritten-function-heading span,
+.handwritten-function-summary,
+.handwritten-function-guidance,
+.handwritten-function-expression + small,
+.handwritten-function-candidates button span,
+.handwritten-function-diagnostic {
+  color: var(--muted-text);
+  font-size: 0.82rem;
+}
+
+.handwritten-function-heading > button {
+  align-self: start;
+  min-width: 2rem;
+  min-height: 2rem;
+  border-radius: 999px;
+}
+
+.handwritten-function-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.handwritten-function-actions button,
+.handwritten-function-build,
+.handwritten-function-candidates button {
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: var(--panel-strong);
+}
+
+.handwritten-function-actions button:first-child,
+.handwritten-function-build {
+  background: var(--accent);
+  color: white;
+  border-color: transparent;
+}
+
+.handwritten-function-candidates {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.handwritten-function-candidates > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.45rem;
+}
+
+.handwritten-function-candidates button {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: start;
+  padding: 0.6rem 0.7rem;
+  text-align: left;
+}
+
+.handwritten-function-candidates button[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.handwritten-function-expression {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+}
+
+.handwritten-function-expression input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.handwritten-function-parameters {
+  justify-content: flex-start;
+}
+
+.handwritten-function-error,
+.handwritten-function-diagnostic {
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.6rem;
+}
+
+.handwritten-function-error {
+  background: rgb(220 38 38 / 10%);
+  color: var(--danger, #b91c1c);
+}
+
+.handwritten-function-diagnostic {
+  background: rgb(37 99 235 / 9%);
+}
+
+.handwritten-function-build {
+  justify-self: end;
+  padding: 0.65rem 1rem;
+  font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .handwritten-function-panel {
+    top: 0.5rem;
+    width: calc(100% - 1rem);
+    max-height: calc(100% - 1rem);
+    overflow: auto;
+  }
+
+  .handwritten-function-expression {
+    grid-template-columns: 1fr;
+  }
+
+  .handwritten-function-build {
+    justify-self: stretch;
+  }
+}
