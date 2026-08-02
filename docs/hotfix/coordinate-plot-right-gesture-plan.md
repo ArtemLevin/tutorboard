@@ -82,13 +82,17 @@ The hotfix removes the merged debug workflow and trigger file from `main`.
 
 ## Verification record
 
-The implementation has passed the preliminary local-equivalent gate in GitHub Actions:
+The implementation has passed the preliminary and focused gates in GitHub Actions:
 
 - Prettier formatting;
 - ESLint with zero warnings;
 - TypeScript project typecheck;
 - 90 Vitest files and 425 tests;
 - production Vite build;
-- Smart Ink production behavior in Chromium and Firefox.
+- Smart Ink production behavior in Chromium and Firefox;
+- coordinate-plot functional lifecycle in Chromium and Firefox;
+- coordinate-plot visual regression matrix, including mobile landscape;
+- GeometryOS live browser contract;
+- focused Chromium and Firefox smoke for board background pan, figure contour settings and high-zoom stroke settings.
 
-The browser and complete release matrix remain mandatory before the pull request can leave draft status.
+The final complete release matrix remains mandatory before the pull request can leave draft status.
