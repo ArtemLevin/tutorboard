@@ -7,10 +7,12 @@ interface ImportMetaEnv {
   readonly VITE_FEATURE_DOCUMENT_SNAPSHOTS?: "0" | "1" | "false" | "true";
   readonly VITE_FEATURE_GEOMETRY_PROMPT?: "0" | "1" | "false" | "true";
   readonly VITE_FEATURE_HANDWRITTEN_FUNCTIONS?: "0" | "1" | "false" | "true";
+  readonly VITE_FEATURE_MATH_INK_RECOGNITION?: "0" | "1" | "false" | "true";
   readonly VITE_FEATURE_SERVER_SYNC?: "0" | "1" | "false" | "true";
   readonly VITE_FEATURE_SMART_INK?: "0" | "1" | "false" | "true";
   readonly VITE_FEATURE_SMART_INK_DIAGNOSTICS?: "0" | "1" | "false" | "true";
   readonly VITE_BOARD_API_BASE_URL?: string;
+  readonly VITE_MATH_INK_API_BASE_URL?: string;
 }
 
 interface ImportMeta {

@@ -268,9 +268,11 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
     }
   }
 
-  if (!(
-    importer.layer === "adapters" && importer.owner === "geometryos-http"
-  )) {
+  const networkAdapter =
+    importer.layer === "adapters" &&
+    (importer.owner === "geometryos-http" ||
+      importer.owner === "math-ink-http");
+  if (!networkAdapter) {
     for (const source of collectDirectFetchUsage(sourceFile)) {
       violations.push(
         violation(
@@ -426,8 +428,15 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
       continue;
     }
 
+    const consumesMathInkPort =
+      importer.layer === "adapters" &&
+      importer.owner === "math-ink-http" &&
+      target.layer === "modules" &&
+      target.owner === "handwritten-function" &&
+      isPublicModuleImport(specifier);
     if (
       importer.layer === "adapters" &&
+      !consumesMathInkPort &&
       (target.layer === "modules" ||
         (target.layer === "adapters" && target.owner !== importer.owner))
     ) {

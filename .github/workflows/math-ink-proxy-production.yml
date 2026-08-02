@@ -1,0 +1,152 @@
+name: Math ink proxy production gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: math-ink-proxy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  proxy:
+    name: Production Math ink proxy gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run focused adapter and proxy tests
+        run: npm run handwriting:pr4
+
+      - name: Build proxy image
+        run: |
+          docker build \
+            --file Dockerfile.math-ink-proxy \
+            --tag tutorboard-math-ink-proxy:${GITHUB_SHA} \
+            .
+
+      - name: Assert non-root image configuration
+        run: |
+          test "$(docker inspect --format '{{.Config.User}}' tutorboard-math-ink-proxy:${GITHUB_SHA})" = "node"
+
+      - name: Start mock Mathpix upstream
+        run: |
+          node tests/fixtures/mathpix-mock-server.mjs > mathpix-mock.log 2>&1 &
+          echo $! > mathpix-mock.pid
+          for attempt in $(seq 1 30); do
+            if curl --silent --output /dev/null --request POST \
+              --header 'Content-Type: application/json' \
+              --header 'app_id: ci-app-id' \
+              --header 'app_key: ci-app-key' \
+              --data '{"metadata":{"improve_mathpix":false},"strokes":{"strokes":{"x":[[0,1]],"y":[[0,1]]}}}' \
+              http://127.0.0.1:19090/v3/strokes; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat mathpix-mock.log
+          exit 1
+
+      - name: Verify configured read-only container
+        run: |
+          docker run --detach \
+            --name tutorboard-math-ink-proxy \
+            --network host \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --env MATHPIX_APP_ID=ci-app-id \
+            --env MATHPIX_APP_KEY=ci-app-key \
+            --env MATHPIX_API_URL=http://127.0.0.1:19090/v3/strokes \
+            --env MATH_INK_ALLOW_INSECURE_UPSTREAM=true \
+            tutorboard-math-ink-proxy:${GITHUB_SHA}
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8787/readyz; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header 'X-TutorBoard-Request-Id: recognition:ci' \
+            --data @- \
+            http://127.0.0.1:8787/v1/recognize <<'JSON'
+          {
+            "normalization":{"originX":0,"originY":0,"scale":100},
+            "normalizedHeight":1,
+            "normalizedWidth":1,
+            "recognitionId":"recognition:ci",
+            "schemaVersion":"tutorboard.math-ink-request/0.1",
+            "sessionId":"session:ci",
+            "sourceBounds":{"height":100,"maxX":100,"maxY":100,"minX":0,"minY":0,"width":100},
+            "strokes":[{"id":"stroke:ci","points":[{"timeMs":0,"x":0,"y":0},{"timeMs":10,"x":1,"y":1}]}]
+          }
+          JSON
+
+      - name: Build recognition-enabled frontend and exclude provider secrets
+        env:
+          VITE_FEATURE_HANDWRITTEN_FUNCTIONS: "true"
+          VITE_FEATURE_MATH_INK_RECOGNITION: "true"
+        run: |
+          export MATHPIX_APP_ID=frontend-secret-app-id
+          export MATHPIX_APP_KEY=frontend-secret-app-key
+          npm run build
+          ! grep --recursive --fixed-strings 'frontend-secret-app-id' dist
+          ! grep --recursive --fixed-strings 'frontend-secret-app-key' dist
+
+      - name: Install release browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Verify automatic recognition in Chromium and Firefox
+        env:
+          MATH_INK_E2E_REQUIRED: "true"
+        run: npx playwright test tests/e2e/math-ink-recognition-production.spec.ts
+
+      - name: Scan proxy image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: tutorboard-math-ink-proxy:${{ github.sha }}
+          format: sarif
+          output: trivy-math-ink-proxy.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          limit-severities-for-sarif: true
+
+      - name: Upload Trivy results
+        if: ${{ always() && hashFiles('trivy-math-ink-proxy.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-math-ink-proxy.sarif
+
+      - name: Capture diagnostics
+        if: always()
+        run: |
+          docker logs tutorboard-math-ink-proxy || true
+          docker rm --force tutorboard-math-ink-proxy || true
+          cat mathpix-mock.log || true
+          if test -f mathpix-mock.pid; then
+            kill "$(cat mathpix-mock.pid)" || true
+          fi

@@ -13,11 +13,13 @@ describe("readEnvironment", () => {
           documentSnapshots: true,
           geometryPrompt: true,
           handwrittenFunctions: stage !== "production",
+          mathInkRecognition: false,
           serverSync: stage === "production",
           smartInk: stage !== "production",
           smartInkDiagnostics: stage !== "production",
         },
         geometryOsBaseUrl: `${window.location.origin}/api/v1/geometryos`,
+        mathInkApiBaseUrl: "/api/v1/math-ink",
         stage,
       });
     },
@@ -37,11 +39,13 @@ describe("readEnvironment", () => {
         documentSnapshots: true,
         geometryPrompt: true,
         handwrittenFunctions: true,
+        mathInkRecognition: false,
         serverSync: false,
         smartInk: true,
         smartInkDiagnostics: true,
       },
       geometryOsBaseUrl: "https://geometry.example.test",
+      mathInkApiBaseUrl: "/api/v1/math-ink",
       stage: "test",
     });
     expect(() =>
@@ -56,6 +60,7 @@ describe("readEnvironment", () => {
         documentSnapshots: "false",
         geometryPrompt: "0",
         handwrittenFunctions: "true",
+        mathInkRecognition: "true",
         serverSync: "true",
         smartInk: "true",
         smartInkDiagnostics: "true",
@@ -65,6 +70,7 @@ describe("readEnvironment", () => {
       documentSnapshots: false,
       geometryPrompt: false,
       handwrittenFunctions: true,
+      mathInkRecognition: true,
       serverSync: true,
       smartInk: true,
       smartInkDiagnostics: true,
@@ -75,6 +81,9 @@ describe("readEnvironment", () => {
     expect(() =>
       readEnvironment("test", undefined, { handwrittenFunctions: "perhaps" }),
     ).toThrow("VITE_FEATURE_HANDWRITTEN_FUNCTIONS");
+    expect(() =>
+      readEnvironment("test", undefined, { mathInkRecognition: "perhaps" }),
+    ).toThrow("VITE_FEATURE_MATH_INK_RECOGNITION");
     expect(() =>
       readEnvironment("test", undefined, { smartInk: "perhaps" }),
     ).toThrow("VITE_FEATURE_SMART_INK");
@@ -97,11 +106,16 @@ describe("readEnvironment", () => {
     });
   });
 
-  it("accepts only a same-origin board API path", () => {
-    expect(
-      readEnvironment("test", undefined, {}, "/platform/api/v1")
-        .boardApiBaseUrl,
-    ).toBe("/platform/api/v1");
+  it("accepts only same-origin board and math ink API paths", () => {
+    const configured = readEnvironment(
+      "test",
+      undefined,
+      {},
+      "/platform/api/v1",
+      "/platform/api/v1/math-ink",
+    );
+    expect(configured.boardApiBaseUrl).toBe("/platform/api/v1");
+    expect(configured.mathInkApiBaseUrl).toBe("/platform/api/v1/math-ink");
     expect(() =>
       readEnvironment(
         "test",
@@ -110,5 +124,23 @@ describe("readEnvironment", () => {
         "https://boards.example.test/api/v1",
       ),
     ).toThrow("VITE_BOARD_API_BASE_URL");
+    expect(() =>
+      readEnvironment(
+        "test",
+        undefined,
+        {},
+        "/api/v1",
+        "https://api.mathpix.com/v3/strokes",
+      ),
+    ).toThrow("VITE_MATH_INK_API_BASE_URL");
+    expect(() =>
+      readEnvironment(
+        "test",
+        undefined,
+        {},
+        "/api/v1",
+        "/api/v1/math-ink?token=secret",
+      ),
+    ).toThrow("VITE_MATH_INK_API_BASE_URL");
   });
 });

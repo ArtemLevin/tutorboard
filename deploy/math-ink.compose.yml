@@ -1,0 +1,39 @@
+services:
+  tutorboard:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        VITE_FEATURE_HANDWRITTEN_FUNCTIONS: "true"
+        VITE_FEATURE_MATH_INK_RECOGNITION: "true"
+    depends_on:
+      math-ink-proxy:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+
+  math-ink-proxy:
+    build:
+      context: ..
+      dockerfile: Dockerfile.math-ink-proxy
+    environment:
+      MATHPIX_APP_ID: ${MATHPIX_APP_ID:?set MATHPIX_APP_ID}
+      MATHPIX_APP_KEY: ${MATHPIX_APP_KEY:?set MATHPIX_APP_KEY}
+      MATH_INK_MAX_CONCURRENCY: "4"
+      MATH_INK_PROVIDER_TIMEOUT_MS: "10000"
+      MATH_INK_RATE_LIMIT: "30"
+      MATH_INK_RATE_WINDOW_MS: "60000"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp

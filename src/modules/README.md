@@ -39,5 +39,7 @@ Implemented modules:
   constrained LaTeX/JIIX conversion, production expression validation,
   parameter discovery, candidate ranking and an abort-safe fake recognizer. The
   application layer owns canvas events, source-ink persistence, editable review,
-  coordinate-plot composition and history. Provider networking and credentials
-  remain an adapter responsibility.
+  coordinate-plot composition and history. `adapters/math-ink-http` implements
+  the public recognizer port through a same-origin bounded contract, while the
+  separate `services/math-ink-proxy` process owns Mathpix DTOs, credentials,
+  privacy metadata, quotas, retry policy and operational diagnostics.
