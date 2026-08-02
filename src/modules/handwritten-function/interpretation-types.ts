@@ -17,14 +17,10 @@ export const handwrittenFunctionInterpretationLimits = {
 } as const;
 
 export type HandwrittenFunctionInterpretationStatus =
-  | "accepted"
-  | "ambiguous"
-  | "rejected";
+  "accepted" | "ambiguous" | "rejected";
 
 export type HandwrittenFunctionInterpretationDiagnosticSeverity =
-  | "error"
-  | "info"
-  | "warning";
+  "error" | "info" | "warning";
 
 export type HandwrittenFunctionInterpretationDiagnosticCode =
   | "handwriting.interpretation.ambiguous"

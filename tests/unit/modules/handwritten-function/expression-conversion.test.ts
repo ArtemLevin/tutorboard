@@ -29,10 +29,7 @@ describe("handwritten function expression conversion", () => {
 
   it("converts nested LaTeX fractions, roots, powers and functions", () => {
     expect(
-      convert(
-        String.raw`f(x)=\frac{x+1}{\sqrt{x^{2}+4}}+\sin{x}+\pi`,
-        "latex",
-      ),
+      convert(String.raw`f(x)=\frac{x+1}{\sqrt{x^{2}+4}}+\sin{x}+\pi`, "latex"),
     ).toEqual({
       expression: "((x+1)/(sqrt(x^(2)+4)))+sin(x)+pi",
       ok: true,

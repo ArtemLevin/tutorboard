@@ -2,7 +2,10 @@ import {
   handwrittenFunctionInterpretationLimits,
   type HandwrittenFunctionInterpretationDiagnosticCode,
 } from "./interpretation-types";
-import type { MathInkRecognitionCandidate, MathInkRecognitionFormat } from "./types";
+import type {
+  MathInkRecognitionCandidate,
+  MathInkRecognitionFormat,
+} from "./types";
 
 export interface HandwrittenFunctionConversionDiagnostic {
   readonly code: HandwrittenFunctionInterpretationDiagnosticCode;
@@ -211,7 +214,9 @@ class LatexReader {
   }
 
   private checkDepth(depth: number): void {
-    if (depth > handwrittenFunctionInterpretationLimits.maximumConversionDepth) {
+    if (
+      depth > handwrittenFunctionInterpretationLimits.maximumConversionDepth
+    ) {
       throw failure(
         "handwriting.interpretation.latex-depth-limit",
         `Глубина LaTeX превышает ${handwrittenFunctionInterpretationLimits.maximumConversionDepth} уровней.`,
@@ -408,7 +413,10 @@ class LatexReader {
       return this.readRequiredGroup(depth + 1, command);
     }
     if (command === "operatorname") {
-      const name = this.readRequiredGroup(depth + 1, command).replace(/\s+/gu, "");
+      const name = this.readRequiredGroup(depth + 1, command).replace(
+        /\s+/gu,
+        "",
+      );
       const mapped = latexFunctionCommands[name];
       if (mapped !== undefined) return mapped;
     }
@@ -472,7 +480,9 @@ function extractJiixStrings(root: unknown): readonly JiixStringCandidate[] {
       );
     }
     if (typeof value === "string") {
-      if (jiixPreferredKeys.includes(key as (typeof jiixPreferredKeys)[number])) {
+      if (
+        jiixPreferredKeys.includes(key as (typeof jiixPreferredKeys)[number])
+      ) {
         strings.push({ key, value });
         if (
           strings.length >

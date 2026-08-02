@@ -94,9 +94,9 @@ describe("handwritten function interpretation", () => {
 
     expect(result.status).toBe("accepted");
     expect(result.selected?.expression).toBe("x^2");
-    expect(result.candidates.map(({ candidateIndex }) => candidateIndex)).toEqual([
-      1, 0, 2,
-    ]);
+    expect(
+      result.candidates.map(({ candidateIndex }) => candidateIndex),
+    ).toEqual([1, 0, 2]);
   });
 
   it("uses format, parameter count and provider order as stable tie breakers", () => {

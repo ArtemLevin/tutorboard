@@ -48,7 +48,10 @@ function conversionDiagnostic(
   diagnostic: ReturnType<
     typeof convertHandwrittenFunctionCandidate
   > extends infer Result
-    ? Result extends { readonly ok: false; readonly diagnostic: infer Diagnostic }
+    ? Result extends {
+        readonly ok: false;
+        readonly diagnostic: infer Diagnostic;
+      }
       ? Diagnostic
       : never
     : never,
@@ -150,7 +153,8 @@ function interpretCandidate(
   }
 
   const invalidParameter = parameters.find(
-    (name, index) => validatePlotParameterName(name, parameters.slice(0, index)) !== null,
+    (name, index) =>
+      validatePlotParameterName(name, parameters.slice(0, index)) !== null,
   );
   if (invalidParameter !== undefined) {
     return {
@@ -203,8 +207,10 @@ const formatRank = {
   "plot-expression": 2,
 } as const;
 
-function confidence(candidate: HandwrittenFunctionInterpretedCandidate): number {
-  return candidate.confidence ?? Number.NEGATIVE_INFINITY;
+function confidence(
+  candidate: HandwrittenFunctionInterpretedCandidate,
+): number {
+  return candidate.confidence ?? -1;
 }
 
 function rankCandidates(
@@ -216,14 +222,17 @@ function rankCandidates(
     const formatDifference =
       formatRank[right.sourceFormat] - formatRank[left.sourceFormat];
     if (formatDifference !== 0) return formatDifference;
-    const parameterDifference = left.parameters.length - right.parameters.length;
+    const parameterDifference =
+      left.parameters.length - right.parameters.length;
     return parameterDifference !== 0
       ? parameterDifference
       : left.candidateIndex - right.candidateIndex;
   });
 }
 
-function canonicalKey(candidate: HandwrittenFunctionInterpretedCandidate): string {
+function canonicalKey(
+  candidate: HandwrittenFunctionInterpretedCandidate,
+): string {
   return `${candidate.normalizedExpression.replace(/\s+/gu, "")}\u0000${candidate.parameters.join("\u0000")}`;
 }
 
