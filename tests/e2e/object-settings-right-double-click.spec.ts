@@ -1,9 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import {
-  openCoordinatePlotEditorByRightDoubleClick,
-  rightDoubleClickBoardCenter,
-} from "./coordinate-plot-interaction";
+import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction";
 
 test("opens figure and graph settings only after a right-button double-click", async ({
   page,
@@ -78,6 +75,4 @@ test("a right drag remains board panning", async ({ page }) => {
       name: "Редактор координатной плоскости",
     }),
   ).toBeHidden();
-
-  await rightDoubleClickBoardCenter(page);
 });

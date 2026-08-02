@@ -884,7 +884,7 @@ export function App({
     (objectId: BoardObjectId) => {
       const current = documentRef.current;
       const object = current.objects[objectId];
-      if (object === undefined || object.source.kind !== "user") return;
+      if (object === undefined) return;
       if (object.kind === "math.coordinate-plot") {
         setSelectionInspectorObjectId(null);
         beginCoordinatePlotEditing(objectId);
