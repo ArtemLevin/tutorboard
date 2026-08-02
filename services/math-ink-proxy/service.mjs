@@ -47,15 +47,26 @@ function defaultSleep(delayMs, signal) {
       reject(signal.reason ?? new Error("Operation aborted."));
       return;
     }
-    const timer = setTimeout(resolve, delayMs);
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        reject(signal.reason ?? new Error("Operation aborted."));
-      },
-      { once: true },
-    );
+    let timer;
+    let settled = false;
+    const cleanup = () => {
+      if (timer !== undefined) clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
+    };
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+    const abort = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(signal.reason ?? new Error("Operation aborted."));
+    };
+    timer = setTimeout(finish, delayMs);
+    signal.addEventListener("abort", abort, { once: true });
   });
 }
 
@@ -248,6 +259,9 @@ export function createMathInkProxyService(options) {
         providerAttemptTimeoutMs,
       );
       let response;
+      let responseBody;
+      let operationError;
+      let retryDelay = null;
       try {
         response = await fetchImplementation(apiUrl, {
           body,
@@ -259,15 +273,34 @@ export function createMathInkProxyService(options) {
           method: "POST",
           signal: attemptSignal.signal,
         });
+        if (transientProviderStatuses.has(response.status) && attempt === 0) {
+          retryDelay = retryAfterMs(response, retryDelayMs);
+          await response.body?.cancel().catch(() => undefined);
+        } else {
+          responseBody = await readBoundedResponse(
+            response,
+            mathInkProxyLimits.maximumResponseBytes,
+          );
+        }
       } catch (error) {
-        const timedOut = attemptSignal.timedOut();
+        operationError = error;
+      } finally {
         attemptSignal.cleanup();
-        if (signal.aborted) throw error;
+      }
+
+      if (signal.aborted) {
+        throw operationError ?? signal.reason ?? new Error("Operation aborted.");
+      }
+      if (retryDelay !== null) {
+        await sleep(retryDelay, signal);
+        continue;
+      }
+      if (operationError !== undefined) {
         if (attempt === 0) {
           await sleep(retryDelayMs, signal);
           continue;
         }
-        return timedOut
+        return attemptSignal.timedOut()
           ? problem(
               "math-ink.provider-timeout",
               504,
@@ -285,18 +318,16 @@ export function createMathInkProxyService(options) {
               requestId,
             );
       }
-      attemptSignal.cleanup();
-
-      if (transientProviderStatuses.has(response.status) && attempt === 0) {
-        await response.body?.cancel().catch(() => undefined);
-        await sleep(retryAfterMs(response, retryDelayMs), signal);
-        continue;
+      if (response === undefined || responseBody === undefined) {
+        return problem(
+          "math-ink.provider-invalid-response",
+          502,
+          "Invalid provider response",
+          "Mathpix returned an incomplete response.",
+          false,
+          requestId,
+        );
       }
-
-      const responseBody = await readBoundedResponse(
-        response,
-        mathInkProxyLimits.maximumResponseBytes,
-      );
       if (responseBody.status !== "ok") {
         return problem(
           "math-ink.provider-invalid-response",
