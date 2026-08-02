@@ -6,7 +6,9 @@ function replaceOnce(source, search, replacement, label) {
   if (source.indexOf(search, index + search.length) >= 0) {
     throw new Error(`Patch anchor is not unique: ${label}`);
   }
-  return source.slice(0, index) + replacement + source.slice(index + search.length);
+  return (
+    source.slice(0, index) + replacement + source.slice(index + search.length)
+  );
 }
 
 function patchFile(path, transform) {
@@ -964,7 +966,9 @@ interface CoordinatePlotEditorSession {
   return source;
 });
 
-patchFile("src/app/styles.css", (source) => `${source}\n
+patchFile(
+  "src/app/styles.css",
+  (source) => `${source}\n
 .handwritten-function-panel {
   position: absolute;
   top: 1rem;
@@ -1119,7 +1123,8 @@ patchFile("src/app/styles.css", (source) => `${source}\n
     justify-self: stretch;
   }
 }
-`);
+`,
+);
 
 patchFile("src/app/App.test.tsx", (initial) => {
   let source = initial;
