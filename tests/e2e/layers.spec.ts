@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { rightDoubleClickAt } from "./coordinate-plot-interaction.js";
 
 test("manages visibility, z-order and user groups from the layers UI", async ({
   page,
@@ -41,6 +42,7 @@ test("manages visibility, z-order and user groups from the layers UI", async ({
   await page.mouse.click(bounds.x + 490, bounds.y + 250);
   await page.keyboard.up("Shift");
   await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
+  await rightDoubleClickAt(page, { x: bounds.x + 490, y: bounds.y + 250 });
 
   await page.getByRole("button", { name: "Сгруппировать" }).click();
   await expect(page.getByTestId("group-count")).toHaveText("1 групп");

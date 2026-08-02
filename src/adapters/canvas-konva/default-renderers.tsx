@@ -296,10 +296,17 @@ const renderers: readonly KonvaObjectRenderer[] = [
           object={renderedPlot}
           zoom={context.zoom}
           zoomAxis={interaction?.zoomAxis ?? "both"}
-          {...(interaction?.onEditRequest === undefined
+          {...(interaction?.onSettingsRequest === undefined
             ? {}
             : {
-                onEditRequest: () => interaction.onEditRequest?.(plot.id),
+                onSettingsRequest: () =>
+                  interaction.onSettingsRequest?.(plot.id),
+              })}
+          {...(interaction?.onViewportCommit === undefined
+            ? {}
+            : {
+                onViewportCommit: (viewport) =>
+                  interaction.onViewportCommit?.(plot.id, viewport) ?? false,
               })}
           {...(!editing
             ? {}

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { rightDoubleClickAt } from "./coordinate-plot-interaction.js";
 
 test("automatically accepts and undoes Smart Ink on the main canvas", async ({
   page,
@@ -84,6 +85,7 @@ test("transforms a figure created by Smart Ink", async ({ page }) => {
 
   await page.getByRole("button", { name: "Выделение (V)" }).click();
   await page.mouse.click(center.x, center.y);
+  await rightDoubleClickAt(page, center);
   await page
     .getByRole("button", { name: "Повернуть выделение на 15 градусов" })
     .click();

@@ -948,6 +948,49 @@ export function App({
     [],
   );
 
+  const commitCoordinatePlotViewport = useCallback(
+    (
+      objectId: BoardObjectId,
+      viewport: CoordinatePlotDefinition["coordinateViewport"],
+    ): boolean => {
+      const current = documentRef.current;
+      const object = current.objects[objectId];
+      if (
+        readOnly ||
+        object?.kind !== "math.coordinate-plot" ||
+        object.source.kind !== "user" ||
+        object.locked ||
+        (object.groupId !== null &&
+          current.groups[object.groupId]?.locked === true)
+      ) {
+        return false;
+      }
+      const expected = object.definition;
+      const previous = expected.coordinateViewport;
+      if (
+        previous.equalScale === viewport.equalScale &&
+        previous.xMax === viewport.xMax &&
+        previous.xMin === viewport.xMin &&
+        previous.yMax === viewport.yMax &&
+        previous.yMin === viewport.yMin
+      ) {
+        return true;
+      }
+      const result = commitCommand({
+        ...createCommandMetadata(),
+        expected,
+        kind: "core.coordinate-plot.update",
+        objectId,
+        replacement: { ...expected, coordinateViewport: viewport },
+      });
+      if (result.ok) {
+        setAccessibilityNotice("Диапазон координатной плоскости изменён");
+      }
+      return result.ok;
+    },
+    [commitCommand, createCommandMetadata, readOnly],
+  );
+
   const setCoordinatePlotZoomAxis = useCallback(
     (zoomAxis: CoordinatePlotZoomAxis) => {
       setCoordinatePlotEditor((current) =>
@@ -1062,10 +1105,14 @@ export function App({
         ? {}
         : { definitionOverride: coordinatePlotEditor.draft }),
       onSelectedSeriesChange: selectCoordinatePlotSeries,
+      onSettingsRequest: requestObjectSettings,
       onViewportChange: updateCoordinatePlotViewport,
+      onViewportCommit: commitCoordinatePlotViewport,
     }),
     [
+      commitCoordinatePlotViewport,
       coordinatePlotEditor,
+      requestObjectSettings,
       selectCoordinatePlotSeries,
       updateCoordinatePlotViewport,
     ],

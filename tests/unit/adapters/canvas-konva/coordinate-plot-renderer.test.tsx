@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CoordinatePlotRenderer,
   createDefaultKonvaRendererRegistry,
+  type CoordinatePlotRendererProps,
 } from "../../../../src/adapters/canvas-konva/public";
 import {
   boardObjectId,
@@ -92,6 +93,30 @@ const plot: CoordinatePlotObject = {
 };
 
 describe("coordinate plot production renderer", () => {
+  it("wires distinct settings, draft navigation and direct commit callbacks", () => {
+    const item: BoardRenderItem = { object: plot, transforms: [] };
+    const registry = createDefaultKonvaRendererRegistry();
+    const onSettingsRequest = () => undefined;
+    const onViewportChange = () => undefined;
+    const onViewportCommit = () => true;
+    const element = registry.render(item, {
+      coordinatePlot: {
+        activeObjectId: null,
+        onSettingsRequest,
+        onViewportChange,
+        onViewportCommit,
+        selectedSeriesId: null,
+      },
+      zoom: 2,
+    });
+
+    expect(element.type).toBe(CoordinatePlotRenderer);
+    const props = element.props as CoordinatePlotRendererProps;
+    expect(props.onSettingsRequest).toBeTypeOf("function");
+    expect(props.onViewportCommit).toBeTypeOf("function");
+    expect(props.onViewportChange).toBeUndefined();
+  });
+
   it("registers the object kind and forwards board zoom", () => {
     const item: BoardRenderItem = { object: plot, transforms: [] };
     const registry = createDefaultKonvaRendererRegistry();

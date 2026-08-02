@@ -1,44 +1,64 @@
 import { expect, type Page } from "@playwright/test";
 
-async function dispatchRightClick(
+export interface ScreenPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+export async function stageCenter(page: Page): Promise<ScreenPoint> {
+  const bounds = await page.getByTestId("board-stage").boundingBox();
+  if (bounds === null) throw new Error("Expected TutorBoard stage bounds");
+  return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+}
+
+export async function rightDoubleClickAt(
   page: Page,
-  pointerId: number,
+  point: ScreenPoint,
 ): Promise<void> {
-  await page.evaluate((id) => {
-    const container = document.querySelector<HTMLElement>(".konvajs-content");
-    if (container === null) throw new Error("Expected Konva stage container");
-    const bounds = container.getBoundingClientRect();
-    const clientX = bounds.left + bounds.width / 2;
-    const clientY = bounds.top + bounds.height / 2;
-    for (const [type, buttons] of [
-      ["pointerdown", 2],
-      ["pointerup", 0],
-    ] as const) {
-      container.dispatchEvent(
-        new PointerEvent(type, {
-          bubbles: true,
-          button: 2,
-          buttons,
-          cancelable: true,
-          clientX,
-          clientY,
-          pointerId: id,
-          pointerType: "mouse",
-        }),
-      );
-    }
-  }, pointerId);
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.up({ button: "right" });
+  await page.waitForTimeout(70);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.up({ button: "right" });
+}
+
+async function coordinatePlotEntryPoints(page: Page): Promise<ScreenPoint[]> {
+  const bounds = await page.getByTestId("board-stage").boundingBox();
+  if (bounds === null) throw new Error("Expected TutorBoard stage bounds");
+  const point = (xRatio: number, yRatio: number): ScreenPoint => ({
+    x: bounds.x + bounds.width * xRatio,
+    y: bounds.y + bounds.height * yRatio,
+  });
+  return [
+    point(0.5, 0.5),
+    point(0.65, 0.35),
+    point(0.5, 0.35),
+    point(0.65, 0.6),
+    point(0.35, 0.35),
+    point(0.35, 0.6),
+  ];
 }
 
 export async function openCoordinatePlotEditorByRightDoubleClick(
   page: Page,
+  point?: ScreenPoint,
 ): Promise<void> {
-  await dispatchRightClick(page, 41);
-  await page.waitForTimeout(60);
-  await dispatchRightClick(page, 42);
-  await expect(
-    page.getByRole("complementary", {
-      name: "Редактор координатной плоскости",
-    }),
-  ).toBeVisible();
+  const editor = page.getByRole("complementary", {
+    name: "Редактор координатной плоскости",
+  });
+  const points =
+    point === undefined ? await coordinatePlotEntryPoints(page) : [point];
+
+  for (const candidate of points) {
+    await rightDoubleClickAt(page, candidate);
+    try {
+      await editor.waitFor({ state: "visible", timeout: 750 });
+      return;
+    } catch {
+      // Continue through stage points covered by responsive overlays.
+    }
+  }
+
+  await expect(editor).toBeVisible();
 }

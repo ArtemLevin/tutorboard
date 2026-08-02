@@ -83,6 +83,25 @@ vi.mock("../adapters/canvas-konva/public", () => ({
         >
           Открыть настройки объекта
         </button>
+        <button
+          onClick={() => {
+            const objectId = props.scene.items.find(
+              ({ object }) => object.kind === "math.coordinate-plot",
+            )?.object.id;
+            if (objectId !== undefined) {
+              props.coordinatePlotInteraction?.onViewportCommit?.(objectId, {
+                equalScale: true,
+                xMax: 8,
+                xMin: -12,
+                yMax: 11,
+                yMin: -9,
+              });
+            }
+          }}
+          type="button"
+        >
+          Переместить график
+        </button>
       </div>
     );
   },
@@ -292,6 +311,27 @@ describe("App", () => {
         name: "Редактор координатной плоскости",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("commits a closed coordinate plot pan as one semantic history item", () => {
+    const onCommandCommitted = vi.fn();
+    render(<App onCommandCommitted={onCommandCommitted} />);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Создать координатную плоскость (G)",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Переместить график" }));
+
+    expect(onCommandCommitted).toHaveBeenCalledTimes(2);
+    expect(onCommandCommitted.mock.calls[1]?.[0]).toMatchObject({
+      kind: "core.coordinate-plot.update",
+      replacement: {
+        coordinateViewport: { xMin: -12, xMax: 8, yMin: -9, yMax: 11 },
+      },
+    });
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("2/0");
   });
 
   it("moves a selection by keyboard and closes shortcut help with Escape", () => {
