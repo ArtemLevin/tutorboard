@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: handwritten-function-pr3-patch
+  cancel-in-progress: false
+
 jobs:
   patch:
     if: ${{ !contains(github.event.head_commit.message, '[skip-pr3-patch]') }}
