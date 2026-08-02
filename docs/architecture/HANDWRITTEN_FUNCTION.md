@@ -8,7 +8,8 @@
 | `app/App` | Toolbar entry, pointer routing, operation cancellation, editable confirmation, accessibility and history composition |
 | `app/handwritten-function-composition` | Pure stroke materialization, draft validation, coordinate-plot construction and replace-command creation |
 | `app/HandwrittenFunctionPanel` | Non-modal review, candidate choice, manual correction and build controls |
-| future recognition adapter | Provider DTOs, credentials, HTTP, quota and timeout policy |
+| `adapters/math-ink-http` | Same-origin `MathInkRecognizer`, browser timeout, abort propagation and bounded proxy-response validation |
+| `services/math-ink-proxy` | Mathpix DTOs, credentials, privacy metadata, upstream timeout/retry, load guards and sanitized diagnostics |
 
 The feature module remains transient. It owns no `BoardDocument`, board command,
 React component, Konva node, storage record or network request. It imports
@@ -22,10 +23,12 @@ tutorboard.handwritten-function-session/0.1
 tutorboard.math-ink-request/0.1
 tutorboard.math-ink-result/0.1
 tutorboard.handwritten-function-interpretation/0.1
+tutorboard.math-ink-proxy-result/0.1
 ```
 
 Session state is an in-memory TypeScript contract. Recognition request, provider
-result and interpretation versions are independent from BoardDocument 1.1.
+result, proxy result and interpretation versions are independent from
+BoardDocument 1.1.
 
 ## Capture lifecycle
 
@@ -178,12 +181,102 @@ object. Composition then:
 The preview and final object share the same definition. The preview uses reduced
 opacity and stays outside BoardDocument.
 
+## Mathpix adapter path
+
+```text
+App
+  -> MathInkRecognizer
+  -> adapters/math-ink-http
+  -> POST /api/v1/math-ink/recognize
+  -> Nginx
+  -> services/math-ink-proxy
+  -> POST https://api.mathpix.com/v3/strokes
+```
+
+The browser adapter accepts only a same-origin base path. It serializes the
+versioned TutorBoard request, applies a 15-second operation timeout, propagates the
+caller's `AbortSignal`, bounds request and response bodies and validates both
+success and problem DTOs before returning a recognition result.
+
+The browser bundle contains no provider credentials or provider-specific request
+shape. `ProductShell` passes the recognizer into local and synchronized
+workspaces through the existing optional `App` port.
+
+## Proxy contract and provider translation
+
+The proxy exposes `POST /v1/recognize`. Nginx publishes the same operation at
+`/api/v1/math-ink/recognize`.
+
+Normalized coordinates are converted into Mathpix integer arrays:
+
+```text
+mathpix x = round(normalized x * 10_000)
+mathpix y = round(normalized y * 10_000)
+```
+
+Stroke order and point order are preserved. The provider payload uses the
+Mathpix double-nested `strokes.strokes.x/y` shape, requests `latex_styled` and
+`text`, and always sends:
+
+```json
+{
+  "metadata": {
+    "improve_mathpix": false
+  }
+}
+```
+
+`latex_styled` has priority over `text`. Only matching outer math delimiters are
+removed. The normalized candidate enters the feature module as `format: "latex"`
+and remains subject to the PR 2 conversion and compiler limits.
+
+## Proxy reliability and load protection
+
+The proxy owns `MATHPIX_APP_ID` and `MATHPIX_APP_KEY`. They stay outside Vite
+variables, image build arguments, response bodies and structured logs.
+
+Each provider attempt has a 10-second timeout covering headers and body. At most
+one retry is allowed for transport failure, HTTP 429 and HTTP 502/503/504.
+Numeric `Retry-After` values are capped at two seconds. Caller disconnect,
+service shutdown and browser abort propagate to the upstream operation.
+
+The service rejects work beyond:
+
+- 256 KiB request or response body;
+- 128 strokes;
+- 4,096 points per stroke;
+- 16,384 points total;
+- four concurrent upstream requests by default;
+- 30 requests per client per minute by default.
+
+Concurrency overflow fails immediately; the service introduces no unbounded
+queue. Stable RFC 9457-style problem codes describe validation, quota,
+authentication, provider and timeout failures.
+
+Structured logs contain request ID, duration, outcome and status. Coordinates,
+expressions, provider response bodies and credentials are excluded.
+
 ## Feature exposure
 
 `VITE_FEATURE_HANDWRITTEN_FUNCTIONS` follows the shared boolean flag parser.
 Development and test enable the workflow by default. Production requires an
 explicit enable value. Read-only boards disable the toolbar entry and mutating
 controls.
+
+`VITE_FEATURE_MATH_INK_RECOGNITION` is disabled by default in every stage.
+Automatic recognition is composed only when both handwritten functions and math
+ink recognition are enabled. `VITE_MATH_INK_API_BASE_URL` accepts only a
+same-origin path and defaults to `/api/v1/math-ink`.
+
+## Deployment boundary
+
+`Dockerfile.math-ink-proxy` creates a dedicated Node 24 non-root image. The proxy
+supports read-only filesystems and exposes `/healthz` and `/readyz`. Readiness
+requires configured Mathpix credentials.
+
+The TutorBoard Nginx image forwards only the exact recognition path to the
+optional service. The handwritten tool and manual correction workflow remain
+usable when the proxy is absent or automatic recognition is disabled.
 
 ## Safety limits
 
@@ -198,6 +291,7 @@ and evaluation limits.
 The feature module has no dynamic code, direct network API, browser state,
 storage access, scheduler dependency or nondeterministic ID/time source.
 Application composition owns browser state and injects all external operations.
+Provider networking is confined to the adapter and proxy boundaries.
 
 ## Recognizer port
 
@@ -213,11 +307,5 @@ interface MathInkRecognizer {
 ```
 
 The fake recognizer clones requests and results, observes abort before and after
-one asynchronous boundary and exposes captured requests for tests.
-
-## Provider adapter boundary
-
-A future provider adapter may implement the recognizer port through MyScript,
-Mathpix or another service. It will own provider DTOs, authentication, backend
-proxying, retry policy, quotas and evidence collection. Canvas, interpretation,
-plot composition and history require no provider-specific changes.
+one asynchronous boundary and exposes captured requests for tests. The production
+adapter implements the same port through the TutorBoard-owned proxy contract.
