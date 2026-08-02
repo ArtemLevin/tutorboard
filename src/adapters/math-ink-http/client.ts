@@ -270,6 +270,7 @@ async function executeRecognition(
   }, options.timeoutMs);
 
   let response: Response;
+  let text: string;
   try {
     response = await options.fetch(options.endpoint, {
       body,
@@ -281,7 +282,9 @@ async function executeRecognition(
       method: "POST",
       signal: controller.signal,
     });
+    text = await readBoundedText(response, options.maximumResponseBytes);
   } catch (error) {
+    if (error instanceof MathInkHttpError) throw error;
     if (callerSignal.aborted) throw error;
     if (timedOut) {
       throw new MathInkHttpError(
@@ -300,7 +303,6 @@ async function executeRecognition(
     callerSignal.removeEventListener("abort", abortFromCaller);
   }
 
-  const text = await readBoundedText(response, options.maximumResponseBytes);
   const mediaType = contentType(response);
   if (response.status !== 200) {
     if (mediaType !== "application/problem+json") {
