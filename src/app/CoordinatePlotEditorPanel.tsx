@@ -9,6 +9,7 @@ import {
   type ReactElement,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
   maximumCoordinatePlotParameters,
@@ -1904,139 +1905,143 @@ export function CoordinatePlotEditorPanel({
         </>
       )}
 
-      {advancedOpen ? (
-        <div className="plot-editor-advanced-backdrop">
-          <section
-            aria-describedby={`${editorId}-advanced-status`}
-            aria-label="Расширенные настройки графика"
-            aria-modal="true"
-            className="coordinate-plot-editor-panel coordinate-plot-advanced-dialog"
-            data-testid="coordinate-plot-advanced-editor"
-            onKeyDown={trapDialogFocus}
-            ref={advancedDialogRef}
-            role="dialog"
-            tabIndex={-1}
-          >
-            <header className="plot-editor-heading">
-              <div>
-                <strong>Расширенные настройки графика</strong>
-                <span aria-live="polite" id={`${editorId}-advanced-status`}>
-                  {dirty
-                    ? "Черновик содержит изменения"
-                    : "Изменения сохранены"}
-                </span>
-              </div>
-              <button
-                aria-label="Вернуться к базовым настройкам"
-                onClick={closeAdvanced}
-                type="button"
+      {advancedOpen
+        ? createPortal(
+            <div className="plot-editor-advanced-backdrop">
+              <section
+                aria-describedby={`${editorId}-advanced-status`}
+                aria-label="Расширенные настройки графика"
+                aria-modal="true"
+                className="coordinate-plot-editor-panel coordinate-plot-advanced-dialog"
+                data-testid="coordinate-plot-advanced-editor"
+                onKeyDown={trapDialogFocus}
+                ref={advancedDialogRef}
+                role="dialog"
+                tabIndex={-1}
               >
-                <span aria-hidden="true">×</span>
-              </button>
-            </header>
+                <header className="plot-editor-heading">
+                  <div>
+                    <strong>Расширенные настройки графика</strong>
+                    <span aria-live="polite" id={`${editorId}-advanced-status`}>
+                      {dirty
+                        ? "Черновик содержит изменения"
+                        : "Изменения сохранены"}
+                    </span>
+                  </div>
+                  <button
+                    aria-label="Вернуться к базовым настройкам"
+                    onClick={closeAdvanced}
+                    type="button"
+                  >
+                    <span aria-hidden="true">×</span>
+                  </button>
+                </header>
 
-            <div
-              aria-label="Разделы расширенного редактора графика"
-              className="plot-editor-tabs"
-              role="tablist"
-            >
-              {editorTabs.map((tab) => (
-                <button
-                  aria-controls={`${editorId}-panel-${tab.id}`}
-                  aria-selected={activeTab === tab.id}
-                  data-editor-tab={tab.id}
-                  id={`${editorId}-tab-${tab.id}`}
-                  key={tab.id}
-                  onClick={() => selectTab(tab.id)}
-                  onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
-                  role="tab"
-                  tabIndex={activeTab === tab.id ? 0 : -1}
-                  type="button"
+                <div
+                  aria-label="Разделы расширенного редактора графика"
+                  className="plot-editor-tabs"
+                  role="tablist"
                 >
-                  {tab.label}
-                  {tab.id === "parameters"
-                    ? ` (${definition.parameters.length})`
-                    : ""}
-                </button>
-              ))}
-            </div>
-
-            <div className="plot-editor-scroll">
-              <section
-                aria-labelledby={`${editorId}-tab-functions`}
-                hidden={activeTab !== "functions"}
-                id={`${editorId}-panel-functions`}
-                role="tabpanel"
-              >
-                <FunctionsTab
-                  definition={definition}
-                  issues={issues}
-                  onAddSeries={onAddSeries}
-                  onChange={onDefinitionChange}
-                  onCreateParameter={createAdvancedParameterFromFormula}
-                  onSelectedSeriesChange={onSelectedSeriesChange}
-                  selectedSeries={selectedSeries}
-                  selectedSeriesId={selectedSeriesId}
-                />
-              </section>
-              <section
-                aria-labelledby={`${editorId}-tab-parameters`}
-                hidden={activeTab !== "parameters"}
-                id={`${editorId}-panel-parameters`}
-                role="tabpanel"
-              >
-                <ParametersTab
-                  definition={definition}
-                  issues={issues}
-                  onAddParameter={onAddParameter}
-                  onChange={onDefinitionChange}
-                />
-              </section>
-              <section
-                aria-labelledby={`${editorId}-tab-view`}
-                hidden={activeTab !== "view"}
-                id={`${editorId}-panel-view`}
-                role="tabpanel"
-              >
-                <ViewTab
-                  definition={definition}
-                  issues={issues}
-                  onChange={onDefinitionChange}
-                />
-              </section>
-
-              {expressionIssues.length === 0 ? null : (
-                <div className="plot-editor-warning" role="status">
-                  В формулах найдено предупреждений: {expressionIssues.length}.
-                  Остальные серии продолжают отображаться.
+                  {editorTabs.map((tab) => (
+                    <button
+                      aria-controls={`${editorId}-panel-${tab.id}`}
+                      aria-selected={activeTab === tab.id}
+                      data-editor-tab={tab.id}
+                      id={`${editorId}-tab-${tab.id}`}
+                      key={tab.id}
+                      onClick={() => selectTab(tab.id)}
+                      onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
+                      role="tab"
+                      tabIndex={activeTab === tab.id ? 0 : -1}
+                      type="button"
+                    >
+                      {tab.label}
+                      {tab.id === "parameters"
+                        ? ` (${definition.parameters.length})`
+                        : ""}
+                    </button>
+                  ))}
                 </div>
-              )}
-              {blockingIssues.length === 0 ? null : (
-                <div className="plot-editor-error" role="alert">
-                  Исправьте структурные ошибки перед сохранением.
-                  <IssueList field="" issues={blockingIssues} />
-                </div>
-              )}
-            </div>
 
-            <footer className="plot-editor-footer">
-              <button onClick={closeAdvanced} type="button">
-                К базовым настройкам
-              </button>
-              <button
-                className="primary"
-                disabled={!canSave}
-                onClick={() => {
-                  onSave();
-                }}
-                type="button"
-              >
-                Сохранить
-              </button>
-            </footer>
-          </section>
-        </div>
-      ) : null}
+                <div className="plot-editor-scroll">
+                  <section
+                    aria-labelledby={`${editorId}-tab-functions`}
+                    hidden={activeTab !== "functions"}
+                    id={`${editorId}-panel-functions`}
+                    role="tabpanel"
+                  >
+                    <FunctionsTab
+                      definition={definition}
+                      issues={issues}
+                      onAddSeries={onAddSeries}
+                      onChange={onDefinitionChange}
+                      onCreateParameter={createAdvancedParameterFromFormula}
+                      onSelectedSeriesChange={onSelectedSeriesChange}
+                      selectedSeries={selectedSeries}
+                      selectedSeriesId={selectedSeriesId}
+                    />
+                  </section>
+                  <section
+                    aria-labelledby={`${editorId}-tab-parameters`}
+                    hidden={activeTab !== "parameters"}
+                    id={`${editorId}-panel-parameters`}
+                    role="tabpanel"
+                  >
+                    <ParametersTab
+                      definition={definition}
+                      issues={issues}
+                      onAddParameter={onAddParameter}
+                      onChange={onDefinitionChange}
+                    />
+                  </section>
+                  <section
+                    aria-labelledby={`${editorId}-tab-view`}
+                    hidden={activeTab !== "view"}
+                    id={`${editorId}-panel-view`}
+                    role="tabpanel"
+                  >
+                    <ViewTab
+                      definition={definition}
+                      issues={issues}
+                      onChange={onDefinitionChange}
+                    />
+                  </section>
+
+                  {expressionIssues.length === 0 ? null : (
+                    <div className="plot-editor-warning" role="status">
+                      В формулах найдено предупреждений:{" "}
+                      {expressionIssues.length}. Остальные серии продолжают
+                      отображаться.
+                    </div>
+                  )}
+                  {blockingIssues.length === 0 ? null : (
+                    <div className="plot-editor-error" role="alert">
+                      Исправьте структурные ошибки перед сохранением.
+                      <IssueList field="" issues={blockingIssues} />
+                    </div>
+                  )}
+                </div>
+
+                <footer className="plot-editor-footer">
+                  <button onClick={closeAdvanced} type="button">
+                    К базовым настройкам
+                  </button>
+                  <button
+                    className="primary"
+                    disabled={!canSave}
+                    onClick={() => {
+                      onSave();
+                    }}
+                    type="button"
+                  >
+                    Сохранить
+                  </button>
+                </footer>
+              </section>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {closeConfirmationOpen ? (
         <div className="plot-editor-confirmation-backdrop">
