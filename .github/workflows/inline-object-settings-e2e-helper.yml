@@ -1,0 +1,36 @@
+name: Inline object settings E2E helper
+
+on:
+  push:
+    branches:
+      - feature/object-settings-right-double-click
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/object-settings-right-double-click
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Inline typed helpers
+        run: node scripts/inline-object-settings-e2e-helper.mjs
+      - name: Format changed tests
+        run: npx --yes prettier@3.9.6 --write "tests/e2e/*.ts"
+      - name: Commit product-only changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/e2e
+          git rm tests/e2e/coordinate-plot-interaction.ts .github/workflows/inline-object-settings-e2e-helper.yml scripts/inline-object-settings-e2e-helper.mjs
+          git commit -m "fix: inline typed browser interaction helpers"
+          git push origin HEAD:feature/object-settings-right-double-click
