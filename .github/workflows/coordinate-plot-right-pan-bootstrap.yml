@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feature/coordinate-plot-right-drag-pan
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -60,4 +63,4 @@ jobs:
           git commit -m "feat: pan coordinate plots with the right mouse button [skip right-pan bootstrap]"
           git push origin HEAD:feature/coordinate-plot-right-drag-pan
 
-# bootstrap-trigger: 2026-08-02
+# bootstrap-trigger: 2026-08-02-pr
