@@ -120,6 +120,8 @@ jobs:
         run: npx playwright install --with-deps chromium firefox
 
       - name: Verify automatic recognition in Chromium and Firefox
+        env:
+          MATH_INK_E2E_REQUIRED: "true"
         run: npx playwright test tests/e2e/math-ink-recognition-production.spec.ts
 
       - name: Scan proxy image
