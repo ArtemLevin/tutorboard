@@ -31,14 +31,14 @@ test.describe("handwritten function production workflow", () => {
       .getByRole("button", { name: "Рукописная функция (F)" })
       .click();
     await drawStroke(page, [
-      { x: 260, y: 330 },
-      { x: 300, y: 280 },
-      { x: 340, y: 330 },
+      { x: 160, y: 500 },
+      { x: 210, y: 450 },
+      { x: 260, y: 500 },
     ]);
     await drawStroke(page, [
-      { x: 355, y: 270 },
-      { x: 390, y: 305 },
-      { x: 355, y: 340 },
+      { x: 280, y: 445 },
+      { x: 325, y: 485 },
+      { x: 280, y: 535 },
     ]);
 
     await expect(page.getByText("Штрихов: 2")).toBeVisible();
