@@ -9,3 +9,13 @@ if (!source.includes(strictGuard)) {
 source = source.replace(strictGuard, "");
 await writeFile(path, source);
 await import("./apply-coordinate-plot-right-drag-pan.mjs");
+
+const testPath = "tests/e2e/coordinate-plot-right-pan.spec.ts";
+let testSource = await readFile(testPath, "utf8");
+testSource = testSource
+  .replaceAll("beforePlot.definition.size", "beforePlot.definition!.size")
+  .replace(
+    "afterPlot.definition.coordinateViewport.xMin",
+    "afterPlot.definition!.coordinateViewport.xMin",
+  );
+await writeFile(testPath, testSource);
