@@ -1,0 +1,41 @@
+name: Apply handwritten function PR 4 patch
+
+on:
+  push:
+    branches:
+      - feat/mathpix-math-ink-adapter
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: feat/mathpix-math-ink-adapter
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply composition patch
+        run: node scripts/apply-handwritten-pr4-patch.mjs
+      - name: Format product files
+        run: npx prettier --write src/app/ProductShell.tsx src/app/PersistedApp.tsx src/app/SyncedApp.tsx src/app/bootstrap/main.tsx src/app/bootstrap/math-ink.ts src/adapters/math-ink-http services/math-ink-proxy tests/node/math-ink-proxy.test.mjs package.json scripts/architecture-rules.mjs
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .
+          git commit -m "feat: compose Mathpix recognition runtime"
+          git push origin HEAD:feat/mathpix-math-ink-adapter
