@@ -22,6 +22,13 @@ interface ExportedCoordinatePlotDocument {
   };
 }
 
+interface ClientRectBounds {
+  readonly bottom: number;
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+}
+
 async function exportDocument(
   page: Page,
 ): Promise<ExportedCoordinatePlotDocument> {
@@ -35,7 +42,9 @@ async function exportDocument(
   ) as ExportedCoordinatePlotDocument;
 }
 
-async function coordinatePlotClientCenter(page: Page) {
+async function coordinatePlotClientBounds(
+  page: Page,
+): Promise<ClientRectBounds> {
   const document = await exportDocument(page);
   const plot = Object.values(document.objects).find(
     ({ kind }) => kind === "math.coordinate-plot",
@@ -45,65 +54,74 @@ async function coordinatePlotClientCenter(page: Page) {
   }
   const stageBounds = await page.getByTestId("board-stage").boundingBox();
   if (stageBounds === null) throw new Error("Expected TutorBoard stage bounds");
+  const left =
+    stageBounds.x +
+    document.viewport.offset.x +
+    plot.position.x * document.viewport.zoom;
+  const top =
+    stageBounds.y +
+    document.viewport.offset.y +
+    plot.position.y * document.viewport.zoom;
   return {
-    x:
-      stageBounds.x +
-      document.viewport.offset.x +
-      (plot.position.x + (plot.definition.size.width * plot.scale.x) / 2) *
-        document.viewport.zoom,
-    y:
-      stageBounds.y +
-      document.viewport.offset.y +
-      (plot.position.y + (plot.definition.size.height * plot.scale.y) / 2) *
-        document.viewport.zoom,
+    bottom:
+      top +
+      plot.definition.size.height * plot.scale.y * document.viewport.zoom,
+    left,
+    right:
+      left +
+      plot.definition.size.width * plot.scale.x * document.viewport.zoom,
+    top,
   };
 }
 
 async function dispatchRightClick(
   page: Page,
-  point: { readonly x: number; readonly y: number },
+  plotBounds: ClientRectBounds,
   pointerId: number,
 ): Promise<void> {
   await page.evaluate(
-    ({ clientX, clientY, id }) => {
-      const target = document.elementFromPoint(clientX, clientY);
-      if (target === null) throw new Error("Expected pointer target");
-      target.dispatchEvent(
-        new PointerEvent("pointerdown", {
-          bubbles: true,
-          button: 2,
-          buttons: 2,
-          cancelable: true,
-          clientX,
-          clientY,
-          pointerId: id,
-          pointerType: "mouse",
-        }),
-      );
-      target.dispatchEvent(
-        new PointerEvent("pointerup", {
-          bubbles: true,
-          button: 2,
-          buttons: 0,
-          cancelable: true,
-          clientX,
-          clientY,
-          pointerId: id,
-          pointerType: "mouse",
-        }),
-      );
+    ({ bounds, id }) => {
+      const container = document.querySelector<HTMLElement>(".konvajs-content");
+      if (container === null) throw new Error("Expected Konva stage container");
+      const canvasBounds = container.getBoundingClientRect();
+      const left = Math.max(bounds.left, canvasBounds.left);
+      const right = Math.min(bounds.right, canvasBounds.right);
+      const top = Math.max(bounds.top, canvasBounds.top);
+      const bottom = Math.min(bounds.bottom, canvasBounds.bottom);
+      if (!(left < right) || !(top < bottom)) {
+        throw new Error("Expected a visible coordinate plot area");
+      }
+      const clientX = left + (right - left) * 0.5;
+      const clientY = top + (bottom - top) * 0.65;
+      for (const [type, buttons] of [
+        ["pointerdown", 2],
+        ["pointerup", 0],
+      ] as const) {
+        container.dispatchEvent(
+          new PointerEvent(type, {
+            bubbles: true,
+            button: 2,
+            buttons,
+            cancelable: true,
+            clientX,
+            clientY,
+            pointerId: id,
+            pointerType: "mouse",
+          }),
+        );
+      }
     },
-    { clientX: point.x, clientY: point.y, id: pointerId },
+    { bounds: plotBounds, id: pointerId },
   );
 }
 
 export async function openCoordinatePlotEditorByRightDoubleClick(
   page: Page,
 ): Promise<void> {
-  const point = await coordinatePlotClientCenter(page);
-  await dispatchRightClick(page, point, 41);
+  const plotBounds = await coordinatePlotClientBounds(page);
+  await dispatchRightClick(page, plotBounds, 41);
   await page.waitForTimeout(60);
-  await dispatchRightClick(page, point, 42);
+  await dispatchRightClick(page, plotBounds, 42);
   await expect(
     page.getByRole("complementary", {
       name: "Редактор координатной плоскости",
