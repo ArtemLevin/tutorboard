@@ -40,6 +40,10 @@ test("creates and persists explicit and parametric plot series", async ({
   await advancedEditor.getByLabel("Параметрическая формула x").fill("2*cos(t)");
   await advancedEditor.getByLabel("Параметрическая формула y").fill("2*sin(t)");
   await advancedEditor.getByRole("button", { name: "Сохранить" }).click();
+  await advancedEditor
+    .getByRole("button", { name: "К базовым настройкам", exact: true })
+    .click();
+  await expect(advancedEditor).toBeHidden();
   await expect(editor.getByText("Изменения сохранены")).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
