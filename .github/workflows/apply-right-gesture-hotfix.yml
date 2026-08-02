@@ -96,7 +96,17 @@ jobs:
         run: npm ci
       - name: Format changed files
         run: npm run format
-      - name: Type-check
+      - name: Publish generated hotfix source
+        shell: bash
+        run: |
+          rm -f scripts/apply-right-gesture-hotfix.mjs
+          rm -f .github/workflows/apply-right-gesture-hotfix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: implement coordinate plot right gesture hotfix"
+          git push origin HEAD:hotfix/right-gesture-final
+      - name: Type-check generated source
         run: npm run typecheck
       - name: Run unit tests
         run: npm run test
@@ -117,13 +127,3 @@ jobs:
           tests/e2e/smart-ink.spec.ts
           tests/e2e/layers.spec.ts
           --reporter=list
-      - name: Commit verified hotfix
-        shell: bash
-        run: |
-          rm -f scripts/apply-right-gesture-hotfix.mjs
-          rm -f .github/workflows/apply-right-gesture-hotfix.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "fix: restore coordinate plot right gestures"
-          git push origin HEAD:hotfix/right-gesture-final
