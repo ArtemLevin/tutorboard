@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import type { AppEnvironment } from "../configuration/environment";
 import { createConfiguredMathInkRecognizer } from "./math-ink";
 
