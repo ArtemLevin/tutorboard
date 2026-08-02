@@ -37,12 +37,8 @@ test("creates and persists explicit and parametric plot series", async ({
   await advancedEditor
     .getByRole("button", { name: "+ Параметрическая кривая" })
     .click();
-  await advancedEditor
-    .getByLabel("Параметрическая формула x")
-    .fill("2*cos(t)");
-  await advancedEditor
-    .getByLabel("Параметрическая формула y")
-    .fill("2*sin(t)");
+  await advancedEditor.getByLabel("Параметрическая формула x").fill("2*cos(t)");
+  await advancedEditor.getByLabel("Параметрическая формула y").fill("2*sin(t)");
   await advancedEditor.getByRole("button", { name: "Сохранить" }).click();
   await expect(editor.getByText("Изменения сохранены")).toBeVisible();
 
