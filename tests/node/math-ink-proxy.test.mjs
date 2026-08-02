@@ -76,9 +76,9 @@ function serviceOptions(overrides = {}) {
 describe("math ink proxy contract", () => {
   it("validates bounded TutorBoard requests", () => {
     expect(validateMathInkRequest(request())).toMatchObject({ valid: true });
-    expect(
-      validateMathInkRequest(request({ unexpected: true })),
-    ).toMatchObject({ valid: false });
+    expect(validateMathInkRequest(request({ unexpected: true }))).toMatchObject(
+      { valid: false },
+    );
     expect(
       validateMathInkRequest(
         request({
@@ -132,9 +132,7 @@ describe("math ink proxy contract", () => {
     ).toEqual({
       valid: true,
       value: {
-        candidates: [
-          { confidence: 0.9, expression: "x^2", format: "latex" },
-        ],
+        candidates: [{ confidence: 0.9, expression: "x^2", format: "latex" }],
         diagnostics: [],
         provider: "mathpix",
         providerRequestId: "provider:1",
@@ -196,9 +194,7 @@ describe("math ink proxy service", () => {
       .mockResolvedValueOnce(providerResponse({}, 503))
       .mockResolvedValueOnce(providerResponse());
     const sleep = vi.fn(async () => undefined);
-    const service = createMathInkProxyService(
-      serviceOptions({ fetch, sleep }),
-    );
+    const service = createMathInkProxyService(serviceOptions({ fetch, sleep }));
 
     const result = await service.recognize({
       clientKey: "client:1",

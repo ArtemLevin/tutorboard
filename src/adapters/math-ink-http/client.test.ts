@@ -38,9 +38,7 @@ const request: MathInkRecognitionRequest = {
 function resultResponse(overrides: Record<string, unknown> = {}): Response {
   return new Response(
     JSON.stringify({
-      candidates: [
-        { confidence: 0.98, expression: "x^2", format: "latex" },
-      ],
+      candidates: [{ confidence: 0.98, expression: "x^2", format: "latex" }],
       diagnostics: [],
       provider: "mathpix",
       providerRequestId: "provider:1",
@@ -78,9 +76,7 @@ describe("math ink HTTP recognizer", () => {
     });
     expect(JSON.parse(String(init?.body))).toEqual(request);
     expect(result).toMatchObject({
-      candidates: [
-        { confidence: 0.98, expression: "x^2", format: "latex" },
-      ],
+      candidates: [{ confidence: 0.98, expression: "x^2", format: "latex" }],
       recognizerId: "mathpix.strokes.via-tutorboard-proxy",
       status: "recognized",
     });

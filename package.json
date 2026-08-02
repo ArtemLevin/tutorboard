@@ -11,8 +11,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
@@ -44,7 +44,9 @@
     "geometryos:live-smoke": "node scripts/geometryos-live-contract-smoke.mjs",
     "geometryos:live-browser": "playwright test --config playwright.geometryos.config.mjs",
     "e2e:plot-visual": "playwright test --config playwright.visual.config.ts",
-    "e2e:plot-visual:update": "playwright test --config playwright.visual.config.ts --update-snapshots"
+    "e2e:plot-visual:update": "playwright test --config playwright.visual.config.ts --update-snapshots",
+    "handwriting:pr4": "vitest run src/adapters/math-ink-http/client.test.ts tests/node/math-ink-proxy.test.mjs --reporter=verbose",
+    "math-ink-proxy:start": "node services/math-ink-proxy/server.mjs"
   },
   "dependencies": {
     "dexie": "4.4.4",

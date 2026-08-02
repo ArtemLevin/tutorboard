@@ -1,5 +1,4 @@
-export const mathInkRequestSchemaVersion =
-  "tutorboard.math-ink-request/0.1";
+export const mathInkRequestSchemaVersion = "tutorboard.math-ink-request/0.1";
 export const mathInkProxyResultSchemaVersion =
   "tutorboard.math-ink-proxy-result/0.1";
 export const mathInkProxyServiceVersion = "1.0.0";
@@ -27,14 +26,7 @@ const requestKeys = new Set([
   "strokes",
 ]);
 const normalizationKeys = new Set(["originX", "originY", "scale"]);
-const boundsKeys = new Set([
-  "height",
-  "maxX",
-  "maxY",
-  "minX",
-  "minY",
-  "width",
-]);
+const boundsKeys = new Set(["height", "maxX", "maxY", "minX", "minY", "width"]);
 const strokeKeys = new Set(["id", "points"]);
 const pointKeys = new Set(["timeMs", "x", "y"]);
 
@@ -117,7 +109,9 @@ export function validateMathInkRequest(value) {
     value.normalizedWidth < 0 ||
     value.normalizedWidth > 1
   ) {
-    issues.push(issue("/normalizedWidth", "normalized width must be in [0, 1]"));
+    issues.push(
+      issue("/normalizedWidth", "normalized width must be in [0, 1]"),
+    );
   }
   if (
     !finiteNumber(value.normalizedHeight) ||
@@ -132,7 +126,9 @@ export function validateMathInkRequest(value) {
     !isRecord(value.normalization) ||
     !hasOnlyKeys(value.normalization, normalizationKeys)
   ) {
-    issues.push(issue("/normalization", "normalization must be a strict object"));
+    issues.push(
+      issue("/normalization", "normalization must be a strict object"),
+    );
   } else {
     for (const key of normalizationKeys) {
       if (!finiteNumber(value.normalization[key])) {
@@ -171,7 +167,9 @@ export function validateMathInkRequest(value) {
         return;
       }
       if (!validIdentifier(stroke.id) || strokeIds.has(stroke.id)) {
-        issues.push(issue(`${strokePath}/id`, "stroke identifier is invalid or repeated"));
+        issues.push(
+          issue(`${strokePath}/id`, "stroke identifier is invalid or repeated"),
+        );
       } else {
         strokeIds.add(stroke.id);
       }
@@ -206,14 +204,18 @@ export function validateMathInkRequest(value) {
           point.y < 0 ||
           point.y > 1
         ) {
-          issues.push(issue(pointPath, "point coordinates must be finite in [0, 1]"));
+          issues.push(
+            issue(pointPath, "point coordinates must be finite in [0, 1]"),
+          );
         }
         if (
           !finiteNumber(point.timeMs) ||
           point.timeMs < 0 ||
           point.timeMs < previousTime
         ) {
-          issues.push(issue(`${pointPath}/timeMs`, "point time must be monotonic"));
+          issues.push(
+            issue(`${pointPath}/timeMs`, "point time must be monotonic"),
+          );
         } else {
           previousTime = point.timeMs;
         }
@@ -276,7 +278,9 @@ export function stripOuterMathDelimiters(value) {
 }
 
 function boundedString(value, maximum) {
-  return typeof value === "string" && value.length > 0 && value.length <= maximum
+  return typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maximum
     ? value
     : null;
 }

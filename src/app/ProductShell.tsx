@@ -19,6 +19,8 @@ import {
   type ServerBoardDescriptor,
 } from "../core/public";
 import { geometryOsAdapterContractVersion } from "../adapters/geometryos-http/public";
+import { mathInkHttpAdapterContractVersion } from "../adapters/math-ink-http/public";
+import type { MathInkRecognizer } from "../modules/handwritten-function/public";
 import { persistenceAdapterContractVersion } from "../adapters/persistence-dexie/public";
 import { canvasAdapterContractVersion } from "../adapters/canvas-konva/public";
 import { PersistedApp, type ProductNotification } from "./PersistedApp";
@@ -103,6 +105,7 @@ export interface ProductServerSync {
 interface ProductShellProps {
   readonly environment: AppEnvironment;
   readonly geometryOsClient: GeometryOsClient;
+  readonly mathInkRecognizer?: MathInkRecognizer | undefined;
   readonly repository: BoardDocumentRepository;
   readonly serverSync?: ProductServerSync | undefined;
 }
@@ -358,6 +361,10 @@ function DiagnosticsPage({
           <dd>{geometryOsAdapterContractVersion}</dd>
         </div>
         <div>
+          <dt>Math ink adapter</dt>
+          <dd>{mathInkHttpAdapterContractVersion}</dd>
+        </div>
+        <div>
           <dt>Persistence adapter</dt>
           <dd>{persistenceAdapterContractVersion}</dd>
         </div>
@@ -377,6 +384,7 @@ function DiagnosticsPage({
 export function ProductShell({
   environment,
   geometryOsClient,
+  mathInkRecognizer,
   repository,
   serverSync,
 }: ProductShellProps) {
@@ -439,6 +447,7 @@ export function ProductShell({
                     : undefined
                 }
                 lessonId={serverSync.lessonId}
+                mathInkRecognizer={mathInkRecognizer}
                 queue={serverSync.queue}
                 repository={serverSync.repository}
               />
@@ -450,6 +459,7 @@ export function ProductShell({
                     ? geometryOsClient
                     : undefined
                 }
+                mathInkRecognizer={mathInkRecognizer}
                 onNotification={notify}
                 repository={repository}
               />

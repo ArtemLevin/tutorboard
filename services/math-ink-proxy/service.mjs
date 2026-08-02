@@ -19,15 +19,24 @@ function positiveInteger(value, label, maximum) {
 
 function providerUrl(value, allowInsecureUpstream) {
   const url = new URL(value);
-  if (url.username !== "" || url.password !== "" || url.search !== "" || url.hash !== "") {
-    throw new TypeError("Mathpix API URL cannot contain credentials, query or fragment data.");
+  if (
+    url.username !== "" ||
+    url.password !== "" ||
+    url.search !== "" ||
+    url.hash !== ""
+  ) {
+    throw new TypeError(
+      "Mathpix API URL cannot contain credentials, query or fragment data.",
+    );
   }
   if (allowInsecureUpstream) {
     if (url.protocol !== "http:" && url.protocol !== "https:") {
       throw new TypeError("Mathpix API URL must use HTTP or HTTPS.");
     }
   } else if (url.protocol !== "https:" || url.hostname !== "api.mathpix.com") {
-    throw new TypeError("Mathpix API URL must use https://api.mathpix.com in production.");
+    throw new TypeError(
+      "Mathpix API URL must use https://api.mathpix.com in production.",
+    );
   }
   return url;
 }
@@ -148,7 +157,10 @@ function createRateGuard(limit, windowMs, now) {
     if (current.count >= limit) {
       return {
         allowed: false,
-        retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - timestamp) / 1_000)),
+        retryAfterSeconds: Math.max(
+          1,
+          Math.ceil((current.resetAt - timestamp) / 1_000),
+        ),
       };
     }
     current.count += 1;
@@ -223,14 +235,18 @@ export function createMathInkProxyService(options) {
   );
   const now = options.now ?? Date.now;
   const sleep = options.sleep ?? defaultSleep;
-  const logger = options.logger ?? ((entry) => console.log(JSON.stringify(entry)));
+  const logger =
+    options.logger ?? ((entry) => console.log(JSON.stringify(entry)));
   const checkRate = createRateGuard(rateLimitPerWindow, rateLimitWindowMs, now);
   let activeRequests = 0;
 
   async function callProvider(request, requestId, signal) {
     const body = JSON.stringify(createMathpixStrokeRequest(request));
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const attemptSignal = createAttemptSignal(signal, providerAttemptTimeoutMs);
+      const attemptSignal = createAttemptSignal(
+        signal,
+        providerAttemptTimeoutMs,
+      );
       let response;
       try {
         response = await fetchImplementation(apiUrl, {

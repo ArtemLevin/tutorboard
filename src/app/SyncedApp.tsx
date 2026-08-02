@@ -24,12 +24,14 @@ import {
   renderBoardSnapshotPng,
   renderBoardSnapshotSvg,
 } from "../modules/document-transfer/public";
+import type { MathInkRecognizer } from "../modules/handwritten-function/public";
 import { App, type AppPersistenceStatus } from "./App";
 
 interface SyncedAppProps {
   readonly documentId: DocumentId;
   readonly geometryOsClient?: GeometryOsClient | undefined;
   readonly lessonId: string;
+  readonly mathInkRecognizer?: MathInkRecognizer | undefined;
   readonly queue: PendingBoardCommandQueue;
   readonly repository: BoardPlatformRepository;
 }
@@ -86,6 +88,7 @@ export function SyncedApp({
   documentId,
   geometryOsClient,
   lessonId,
+  mathInkRecognizer,
   queue,
   repository,
 }: SyncedAppProps) {
@@ -432,6 +435,7 @@ export function SyncedApp({
         historyEnabled={false}
         initialDocument={state.document}
         key={workspaceKey}
+        mathInkRecognizer={mathInkRecognizer}
         onCollaborativeUndo={() => {
           const inverse = undoStackRef.current.at(-1);
           if (inverse === undefined) {

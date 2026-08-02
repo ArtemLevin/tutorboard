@@ -56,7 +56,11 @@ export class MathInkHttpError extends Error {
   }
 }
 
-function positiveInteger(value: number, label: string, maximum: number): number {
+function positiveInteger(
+  value: number,
+  label: string,
+  maximum: number,
+): number {
   if (!Number.isSafeInteger(value) || value <= 0 || value > maximum) {
     throw new RangeError(
       `${label} must be a positive integer no greater than ${maximum}.`,
@@ -93,7 +97,9 @@ function resolveEndpoint(baseUrl: string, origin: string): URL {
   return new URL("recognize", url);
 }
 
-function resolveOptions(options: MathInkHttpRecognizerOptions): ResolvedOptions {
+function resolveOptions(
+  options: MathInkHttpRecognizerOptions,
+): ResolvedOptions {
   const configuredFetch = options.fetch;
   if (configuredFetch === undefined && typeof globalThis.fetch !== "function") {
     throw new Error("Fetch is required by the math ink HTTP adapter.");
@@ -211,18 +217,17 @@ function problemMessage(problem: MathInkProblemDto): string {
       "Автоматическое распознавание пока не настроено.",
     "math-ink.rate-limited":
       "Слишком много запросов распознавания. Повторите попытку позже.",
-    "math-ink.request-too-large": "Рукописная функция содержит слишком много данных.",
+    "math-ink.request-too-large":
+      "Рукописная функция содержит слишком много данных.",
   };
   return messages[problem.code] ?? problem.detail;
 }
 
-function candidateFromDto(
-  candidate: {
-    readonly confidence?: number | undefined;
-    readonly expression: string;
-    readonly format: "jiix" | "latex" | "plot-expression";
-  },
-): MathInkRecognitionCandidate {
+function candidateFromDto(candidate: {
+  readonly confidence?: number | undefined;
+  readonly expression: string;
+  readonly format: "jiix" | "latex" | "plot-expression";
+}): MathInkRecognitionCandidate {
   return candidate.confidence === undefined
     ? { expression: candidate.expression, format: candidate.format }
     : {
@@ -306,7 +311,9 @@ async function executeRecognition(
         response.status,
       );
     }
-    const parsed = mathInkProblemSchema.safeParse(parseJson(text, response.status));
+    const parsed = mathInkProblemSchema.safeParse(
+      parseJson(text, response.status),
+    );
     if (!parsed.success || parsed.data.status !== response.status) {
       throw new MathInkHttpError(
         "math-ink.problem-schema-mismatch",

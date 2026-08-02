@@ -13,7 +13,9 @@ function integerEnvironment(name, fallback, maximum) {
   if (raw === undefined || raw === "") return fallback;
   const value = Number(raw);
   if (!Number.isSafeInteger(value) || value <= 0 || value > maximum) {
-    throw new Error(`${name} must be a positive integer no greater than ${maximum}.`);
+    throw new Error(
+      `${name} must be a positive integer no greater than ${maximum}.`,
+    );
   }
   return value;
 }
@@ -173,7 +175,10 @@ export function createMathInkProxyHttpServer(options) {
       return;
     }
 
-    const body = await readJsonBody(request, mathInkProxyLimits.maximumBodyBytes);
+    const body = await readJsonBody(
+      request,
+      mathInkProxyLimits.maximumBodyBytes,
+    );
     if (body.status !== "ok") {
       const tooLarge = body.status === "too-large";
       jsonResponse(
@@ -237,8 +242,16 @@ export function createMathInkProxyHttpServer(options) {
 function runtimeService() {
   const appId = process.env.MATHPIX_APP_ID;
   const appKey = process.env.MATHPIX_APP_KEY;
-  if (appId === undefined || appId === "" || appKey === undefined || appKey === "") {
-    return { configured: false, service: createUnconfiguredMathInkProxyService() };
+  if (
+    appId === undefined ||
+    appId === "" ||
+    appKey === undefined ||
+    appKey === ""
+  ) {
+    return {
+      configured: false,
+      service: createUnconfiguredMathInkProxyService(),
+    };
   }
   return {
     configured: true,
@@ -259,21 +272,13 @@ function runtimeService() {
         10_000,
         60_000,
       ),
-      rateLimitPerWindow: integerEnvironment(
-        "MATH_INK_RATE_LIMIT",
-        30,
-        10_000,
-      ),
+      rateLimitPerWindow: integerEnvironment("MATH_INK_RATE_LIMIT", 30, 10_000),
       rateLimitWindowMs: integerEnvironment(
         "MATH_INK_RATE_WINDOW_MS",
         60_000,
         3_600_000,
       ),
-      retryDelayMs: integerEnvironment(
-        "MATH_INK_RETRY_DELAY_MS",
-        150,
-        2_000,
-      ),
+      retryDelayMs: integerEnvironment("MATH_INK_RETRY_DELAY_MS", 150, 2_000),
     }),
   };
 }

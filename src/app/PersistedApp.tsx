@@ -19,6 +19,7 @@ import {
   LocalDocumentAutosave,
   type LocalAutosaveState,
 } from "../modules/local-persistence/public";
+import type { MathInkRecognizer } from "../modules/handwritten-function/public";
 import { validateStoredSvgDocument } from "../modules/svg-import/public";
 import { App, createInitialDocument, type AppPersistenceStatus } from "./App";
 
@@ -32,6 +33,7 @@ export interface ProductNotification {
 interface PersistedAppProps {
   readonly enableSnapshots?: boolean;
   readonly geometryOsClient?: GeometryOsClient | undefined;
+  readonly mathInkRecognizer?: MathInkRecognizer | undefined;
   readonly onNotification?:
     ((notification: ProductNotification) => void) | undefined;
   readonly repository: BoardDocumentRepository;
@@ -116,6 +118,7 @@ interface WorkspaceProps {
   readonly repository: BoardDocumentRepository;
   readonly enableSnapshots: boolean;
   readonly geometryOsClient: GeometryOsClient | undefined;
+  readonly mathInkRecognizer: MathInkRecognizer | undefined;
   readonly onNotification:
     ((notification: ProductNotification) => void) | undefined;
 }
@@ -127,6 +130,7 @@ function PersistedWorkspace({
   persistedDocument,
   repository,
   geometryOsClient,
+  mathInkRecognizer,
   enableSnapshots,
   onNotification,
 }: WorkspaceProps) {
@@ -258,6 +262,7 @@ function PersistedWorkspace({
       geometryOsClient={geometryOsClient}
       initialDocument={activeDocument}
       key={workspaceKey}
+      mathInkRecognizer={mathInkRecognizer}
       onDocumentChange={handleDocumentChange}
       onExportDocument={exportDocument}
       onExportDiagnostics={() => void exportDiagnostics()}
@@ -367,6 +372,7 @@ function RecoveryScreen({
 export function PersistedApp({
   enableSnapshots = true,
   geometryOsClient,
+  mathInkRecognizer,
   onNotification,
   repository,
 }: PersistedAppProps) {
@@ -461,6 +467,7 @@ export function PersistedApp({
         enableSnapshots={enableSnapshots}
         geometryOsClient={geometryOsClient}
         initialRevisionId={null}
+        mathInkRecognizer={mathInkRecognizer}
         notice={`${bootstrap.code}: ${bootstrap.message}`}
         persistedDocument={null}
         onNotification={onNotification}
@@ -474,6 +481,7 @@ export function PersistedApp({
       enableSnapshots={enableSnapshots}
       geometryOsClient={geometryOsClient}
       initialRevisionId={bootstrap.initialRevisionId}
+      mathInkRecognizer={mathInkRecognizer}
       notice={bootstrap.notice}
       persistedDocument={bootstrap.persistedDocument}
       onNotification={onNotification}
