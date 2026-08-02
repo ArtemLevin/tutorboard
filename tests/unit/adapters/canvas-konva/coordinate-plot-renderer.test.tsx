@@ -92,6 +92,29 @@ const plot: CoordinatePlotObject = {
 };
 
 describe("coordinate plot production renderer", () => {
+  it("wires distinct settings, draft navigation and direct commit callbacks", () => {
+    const item: BoardRenderItem = { object: plot, transforms: [] };
+    const registry = createDefaultKonvaRendererRegistry();
+    const onSettingsRequest = () => undefined;
+    const onViewportChange = () => undefined;
+    const onViewportCommit = () => true;
+    const element = registry.render(item, {
+      coordinatePlot: {
+        activeObjectId: null,
+        onSettingsRequest,
+        onViewportChange,
+        onViewportCommit,
+        selectedSeriesId: null,
+      },
+      zoom: 2,
+    });
+
+    expect(element.type).toBe(CoordinatePlotRenderer);
+    expect(element.props.onSettingsRequest).toBeTypeOf("function");
+    expect(element.props.onViewportCommit).toBeTypeOf("function");
+    expect(element.props.onViewportChange).toBeUndefined();
+  });
+
   it("registers the object kind and forwards board zoom", () => {
     const item: BoardRenderItem = { object: plot, transforms: [] };
     const registry = createDefaultKonvaRendererRegistry();

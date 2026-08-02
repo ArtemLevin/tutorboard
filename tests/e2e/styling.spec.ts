@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { rightDoubleClickAt } from "./coordinate-plot-interaction.js";
 
 test("edits the persisted style of a selected object", async ({ page }) => {
   await page.goto("/");
@@ -13,7 +14,9 @@ test("edits the persisted style of a selected object", async ({ page }) => {
   await page.mouse.move(bounds.x + 390, bounds.y + 290, { steps: 4 });
   await page.mouse.up();
   await page.getByRole("button", { name: "Выделение (V)" }).click();
-  await page.mouse.click(bounds.x + 320, bounds.y + 235);
+  const objectPoint = { x: bounds.x + 320, y: bounds.y + 235 };
+  await page.mouse.click(objectPoint.x, objectPoint.y);
+  await rightDoubleClickAt(page, objectPoint);
 
   await expect(
     page.getByRole("button", {

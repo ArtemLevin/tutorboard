@@ -1,41 +1,33 @@
 import { expect, type Page } from "@playwright/test";
 
-async function dispatchRightClick(
+export interface ScreenPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+export async function stageCenter(page: Page): Promise<ScreenPoint> {
+  const bounds = await page.getByTestId("board-stage").boundingBox();
+  if (bounds === null) throw new Error("Expected TutorBoard stage bounds");
+  return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+}
+
+export async function rightDoubleClickAt(
   page: Page,
-  pointerId: number,
+  point: ScreenPoint,
 ): Promise<void> {
-  await page.evaluate((id) => {
-    const container = document.querySelector<HTMLElement>(".konvajs-content");
-    if (container === null) throw new Error("Expected Konva stage container");
-    const bounds = container.getBoundingClientRect();
-    const clientX = bounds.left + bounds.width / 2;
-    const clientY = bounds.top + bounds.height / 2;
-    for (const [type, buttons] of [
-      ["pointerdown", 2],
-      ["pointerup", 0],
-    ] as const) {
-      container.dispatchEvent(
-        new PointerEvent(type, {
-          bubbles: true,
-          button: 2,
-          buttons,
-          cancelable: true,
-          clientX,
-          clientY,
-          pointerId: id,
-          pointerType: "mouse",
-        }),
-      );
-    }
-  }, pointerId);
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.up({ button: "right" });
+  await page.waitForTimeout(70);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.up({ button: "right" });
 }
 
 export async function openCoordinatePlotEditorByRightDoubleClick(
   page: Page,
+  point?: ScreenPoint,
 ): Promise<void> {
-  await dispatchRightClick(page, 41);
-  await page.waitForTimeout(60);
-  await dispatchRightClick(page, 42);
+  await rightDoubleClickAt(page, point ?? (await stageCenter(page)));
   await expect(
     page.getByRole("complementary", {
       name: "Редактор координатной плоскости",

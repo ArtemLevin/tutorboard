@@ -11,6 +11,7 @@ test("protects a dirty plot draft and restores focus after discard", async ({
     name: "Создать координатную плоскость (G)",
   });
   await createButton.click();
+  await openCoordinatePlotEditorByRightDoubleClick(page);
 
   const editor = page.getByTestId("coordinate-plot-editor");
   const formula = page.getByLabel("Формула явной функции");
@@ -46,6 +47,7 @@ test("saves a plot with Ctrl+Enter and closes cleanly with Escape", async ({
     name: "Создать координатную плоскость (G)",
   });
   await createButton.click();
+  await openCoordinatePlotEditorByRightDoubleClick(page);
 
   const editor = page.getByTestId("coordinate-plot-editor");
   const formula = page.getByLabel("Формула явной функции");

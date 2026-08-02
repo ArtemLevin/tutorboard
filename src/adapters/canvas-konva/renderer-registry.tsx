@@ -15,12 +15,15 @@ import type {
 export interface CoordinatePlotRenderInteraction {
   readonly activeObjectId: BoardObjectId | null;
   readonly definitionOverride?: CoordinatePlotDefinition | undefined;
-  readonly onEditRequest?: ((objectId: BoardObjectId) => void) | undefined;
+  readonly onSettingsRequest?: ((objectId: BoardObjectId) => void) | undefined;
   readonly onSelectedSeriesChange?:
     | ((objectId: BoardObjectId, seriesId: PlotSeriesId | null) => void)
     | undefined;
   readonly onViewportChange?:
     | ((objectId: BoardObjectId, viewport: CoordinatePlotViewport) => void)
+    | undefined;
+  readonly onViewportCommit?:
+    | ((objectId: BoardObjectId, viewport: CoordinatePlotViewport) => boolean)
     | undefined;
   readonly selectedSeriesId: PlotSeriesId | null;
   readonly zoomAxis?: CoordinatePlotZoomAxis | undefined;

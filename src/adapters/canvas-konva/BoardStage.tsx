@@ -53,6 +53,7 @@ const rightDoubleClickDistancePx = 8;
 type PanSource = "hand" | "middle" | "right" | "space";
 
 interface PanSession {
+  activated: boolean;
   readonly captureElement: HTMLElement;
   readonly pointerId: number;
   readonly source: PanSource;
@@ -592,14 +593,17 @@ export function BoardStage({
 
       event.preventDefault();
       const current = clientPoint(event);
-      if (
-        session.source === "right" &&
-        Math.hypot(
-          current.x - session.startPoint.x,
-          current.y - session.startPoint.y,
-        ) > rightDoubleClickDistancePx
-      ) {
+      const displacement = Math.hypot(
+        current.x - session.startPoint.x,
+        current.y - session.startPoint.y,
+      );
+      if (session.source === "right" && !session.activated) {
+        if (displacement <= rightDoubleClickDistancePx) {
+          return;
+        }
+        session.activated = true;
         rightClickCandidateRef.current = null;
+        onPanModeRequest?.();
       }
       const viewport = panViewport(session.startViewport, {
         x: current.x - session.startPoint.x,
@@ -687,6 +691,7 @@ export function BoardStage({
     finishDrawing,
     finishPan,
     finishSelection,
+    onPanModeRequest,
     selectionWorldSample,
     worldSample,
   ]);
@@ -909,10 +914,8 @@ export function BoardStage({
     const captureElement = stage.container();
     captureElement.setPointerCapture(event.evt.pointerId);
     const viewport = previewViewport;
-    if (source === "right") {
-      onPanModeRequest?.();
-    }
     panSessionRef.current = {
+      activated: source !== "right",
       captureElement,
       pointerId: event.evt.pointerId,
       source,

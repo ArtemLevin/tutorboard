@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { rightDoubleClickAt } from "./coordinate-plot-interaction.js";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -65,6 +66,7 @@ test("supports additive selection, lock and delete", async ({ page }) => {
   await page.mouse.click(focus.x, focus.y);
   await page.keyboard.up("Shift");
   await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
+  await rightDoubleClickAt(page, focus);
 
   await page
     .getByRole("button", { name: "Заблокировать", exact: true })
@@ -107,6 +109,7 @@ test("scales and rotates a selected figure with undo support", async ({
     "data-transformable-count",
     "1",
   );
+  await rightDoubleClickAt(page, rectangle);
 
   await page
     .getByRole("button", { name: "Увеличить выделение на 10%" })
@@ -149,6 +152,10 @@ test("selects a figure contour directly from another tool", async ({
   );
   await expect(
     page.getByRole("button", { name: "Увеличить выделение на 10%" }),
+  ).toBeHidden();
+  await rightDoubleClickAt(page, contour);
+  await expect(
+    page.getByRole("button", { name: "Увеличить выделение на 10%" }),
   ).toBeVisible();
 });
 
@@ -178,6 +185,7 @@ test("right drag switches to canvas movement and pans the viewport", async ({
 test("chooses all eight line styles from a popover", async ({ page }) => {
   const rectangle = await stagePoint(page, 350, 250);
   await page.mouse.click(rectangle.x, rectangle.y);
+  await rightDoubleClickAt(page, rectangle);
 
   const menu = page.getByRole("menu", { name: "Стиль линии" });
   await expect(menu).toHaveCount(0);

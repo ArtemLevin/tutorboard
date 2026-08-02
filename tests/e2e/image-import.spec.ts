@@ -1,4 +1,8 @@
 import { expect, test } from "@playwright/test";
+import {
+  rightDoubleClickAt,
+  stageCenter,
+} from "./coordinate-plot-interaction.js";
 
 const png1x1 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z8WQAAAAASUVORK5CYII=",
@@ -28,6 +32,7 @@ test("imports a local image and transforms it", async ({ page }) => {
     "data-transformable-count",
     "1",
   );
+  await rightDoubleClickAt(page, await stageCenter(page));
   await page
     .getByRole("button", { name: "Увеличить выделение на 10%" })
     .click();
