@@ -118,19 +118,6 @@ export interface CoordinatePlotRendererProps {
   readonly zoomAxis?: CoordinatePlotZoomAxis | undefined;
 }
 
-function sameCoordinateViewport(
-  left: CoordinatePlotViewport,
-  right: CoordinatePlotViewport,
-): boolean {
-  return (
-    left.equalScale === right.equalScale &&
-    left.xMax === right.xMax &&
-    left.xMin === right.xMin &&
-    left.yMax === right.yMax &&
-    left.yMin === right.yMin
-  );
-}
-
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(maximum, value));
 }
@@ -326,9 +313,8 @@ export function CoordinatePlotRenderer({
       }
       if (session.moved) {
         if (!editingRef.current) {
-          const accepted =
-            viewportCommitRef.current?.(session.latestViewport) ?? false;
-          if (!accepted) setDirectViewportPreview(null);
+          viewportCommitRef.current?.(session.latestViewport);
+          setDirectViewportPreview(null);
         }
         return;
       }
@@ -482,17 +468,6 @@ export function CoordinatePlotRenderer({
       cursorContainerRef.current.style.cursor = "";
     }
   }, [editing, finishRightViewportGesture]);
-  useEffect(() => {
-    if (
-      directViewportPreview !== null &&
-      sameCoordinateViewport(
-        object.definition.coordinateViewport,
-        directViewportPreview,
-      )
-    ) {
-      setDirectViewportPreview(null);
-    }
-  }, [directViewportPreview, object.definition.coordinateViewport]);
   const renderedObject = useMemo(
     () =>
       directViewportPreview === null
