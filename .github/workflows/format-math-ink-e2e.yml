@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: format-math-ink-e2e
+  cancel-in-progress: false
+
 jobs:
   format:
     if: github.actor != 'github-actions[bot]'
