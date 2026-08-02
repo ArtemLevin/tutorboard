@@ -39,7 +39,7 @@ The current full editor remains available inside a modal dialog:
 - grid, axes and legend;
 - renderer status guidance.
 
-The dialog uses the same draft object as the basic panel and returns to the basic panel without discarding edits.
+The dialog uses the same draft object as the basic panel and returns to the basic panel without discarding edits. It is rendered through a React portal under `document.body`, so the compact side-panel boundary cannot clip its tabs or controls.
 
 ## Accessibility
 
@@ -76,4 +76,4 @@ Merge requires the complete existing release matrix: quality gate, browser smoke
 
 ## Implementation record
 
-The implementation contains the compact formula/parameter surface, shared draft state, modal detailed editor, default parameterized plot, focus routing, and migrated component coverage. The primary explicit series is narrowed through a dedicated type predicate so the basic formula field remains type-safe. Accessibility scenarios that inspect exact parameter fields or series action buttons now enter the detailed dialog explicitly. The production browser flow verifies the basic default formula and slider, opens the detailed dialog, adds parameter `b`, persists both parameters, restores the shared draft, duplicates the graph, and validates JSON export. The full repository CI run is the source of truth for the next correction pass.
+The implementation contains the compact formula/parameter surface, shared draft state, modal detailed editor, default parameterized plot, focus routing, and migrated component coverage. The primary explicit series is narrowed through a dedicated type predicate so the basic formula field remains type-safe. Accessibility scenarios that inspect exact parameter fields or series action buttons now enter the detailed dialog explicitly. The production browser flow verifies the basic default formula and slider, opens the detailed dialog, adds parameter `b`, persists both parameters, restores the shared draft, duplicates the graph, and validates JSON export. The detailed dialog uses a body-level portal to preserve a real full-viewport interaction surface. The full repository CI run is the source of truth for the next correction pass.
