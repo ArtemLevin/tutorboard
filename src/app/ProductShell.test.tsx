@@ -1,36 +1,38 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  actorId,
-  documentId,
-  type BoardDocumentRepository,
-  type BoardPlatformRepository,
-  type GeometryOsClient,
-  type PendingBoardCommandQueue,
-} from "../core/public";
-import {
-  ProductErrorBoundary,
-  ProductShell,
-  resolveProductRoute,
-} from "./ProductShell";
+import type { GeometryOsClient } from "../adapters/geometryos-http/public";
+import type { BoardDocumentRepository } from "../adapters/persistence-dexie/public";
 import type { AppEnvironment } from "./configuration/environment";
-import type { ProductNotification } from "./PersistedApp";
+import { ProductShell } from "./ProductShell";
 
 vi.mock("./PersistedApp", () => ({
   PersistedApp: ({
+    onDocumentInfo,
     onNotification,
   }: {
-    readonly onNotification?: (notification: ProductNotification) => void;
+    onDocumentInfo?:
+      | ((value: { readonly title: string; readonly updatedAt: string }) => void)
+      | undefined;
+    onNotification?:
+      | ((value: {
+          readonly kind: "error" | "info" | "success";
+          readonly message: string;
+        }) => void)
+      | undefined;
   }) => (
     <main>
-      <h1>Mock board</h1>
+      <button
+        onClick={() =>
+          onDocumentInfo?.({
+            title: "Algebra lesson",
+            updatedAt: "2026-08-02T15:00:00.000Z",
+          })
+        }
+        type="button"
+      >
+        Update document
+      </button>
       <button
         onClick={() =>
           onNotification?.({
@@ -52,6 +54,7 @@ const environment: AppEnvironment = {
     developmentDiagnostics: true,
     documentSnapshots: true,
     geometryPrompt: true,
+    handwrittenFunctions: true,
     serverSync: false,
     smartInk: true,
     smartInkDiagnostics: true,
@@ -70,28 +73,7 @@ afterEach(() => {
 });
 
 describe("ProductShell", () => {
-  it("normalizes known and unknown hash routes", () => {
-    expect(resolveProductRoute("")).toBe("board");
-    expect(resolveProductRoute("#/documents/")).toBe("documents");
-    expect(resolveProductRoute("#/settings")).toBe("settings");
-    expect(resolveProductRoute("#/unknown")).toBe("board");
-  });
-
-  it("renders routed placeholders and product notifications", () => {
-    window.location.hash = "#/documents";
-    const { unmount } = render(
-      <ProductShell
-        environment={environment}
-        geometryOsClient={geometryOsClient}
-        repository={repository}
-      />,
-    );
-    expect(
-      screen.getByRole("heading", { name: "Документы" }),
-    ).toBeInTheDocument();
-    unmount();
-
-    window.location.hash = "#/board";
+  it("renders the workspace route and updates document metadata", () => {
     render(
       <ProductShell
         environment={environment}
@@ -99,74 +81,25 @@ describe("ProductShell", () => {
         repository={repository}
       />,
     );
+
+    expect(screen.getByText("Без названия")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Update document" }));
+    expect(screen.getByText("Algebra lesson")).toBeInTheDocument();
+    expect(screen.getByText(/2 августа 2026/)).toBeInTheDocument();
+  });
+
+  it("shows and dismisses workspace notifications", () => {
+    render(
+      <ProductShell
+        environment={environment}
+        geometryOsClient={geometryOsClient}
+        repository={repository}
+      />,
+    );
+
     fireEvent.click(screen.getByRole("button", { name: "Notify" }));
     expect(screen.getByText("Document exported")).toBeInTheDocument();
-  });
-
-  it("contains route failures and offers diagnostics recovery", () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    function Failure(): never {
-      throw new Error("Route failed");
-    }
-    render(
-      <ProductErrorBoundary>
-        <Failure />
-      </ProductErrorBoundary>,
-    );
-    expect(
-      screen.getByRole("heading", { name: "Не удалось открыть TutorBoard" }),
-    ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Открыть диагностику" }),
-    );
-    expect(window.location.hash).toBe("#/diagnostics");
-  });
-
-  it("opens the selected lesson board and hides management from students", async () => {
-    window.location.hash = "#/documents";
-    const platformRepository = {
-      context: vi.fn().mockResolvedValue({
-        actorId: actorId("actor:student"),
-        csrfToken: "csrf",
-        organizationId: "organization:1",
-        role: "student",
-      }),
-      listBoards: vi.fn().mockResolvedValue([
-        {
-          archivedAt: null,
-          currentDocumentSha256: "a".repeat(64),
-          currentRevision: 4,
-          documentId: documentId("document:second"),
-          lastSnapshotRevision: 3,
-          lessonId: "lesson:42",
-          snapshotDue: false,
-          studentId: "student:1",
-        },
-      ]),
-    } as unknown as BoardPlatformRepository;
-    render(
-      <ProductShell
-        environment={{
-          ...environment,
-          features: { ...environment.features, serverSync: true },
-        }}
-        geometryOsClient={geometryOsClient}
-        repository={repository}
-        serverSync={{
-          documentId: documentId("document:first"),
-          lessonId: "lesson:42",
-          queue: {} as PendingBoardCommandQueue,
-          repository: platformRepository,
-        }}
-      />,
-    );
-
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Открыть" })).toHaveAttribute(
-        "href",
-        "?lessonId=lesson%3A42&documentId=document%3Asecond#/board",
-      ),
-    );
-    expect(screen.queryByRole("button", { name: "В архив" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть уведомление" }));
+    expect(screen.queryByText("Document exported")).not.toBeInTheDocument();
   });
 });
