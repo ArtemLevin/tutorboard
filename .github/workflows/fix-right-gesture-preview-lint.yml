@@ -1,0 +1,44 @@
+name: Fix right gesture preview lint
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - hotfix/right-gesture-final
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: hotfix/right-gesture-final
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: node --check scripts/fix-right-gesture-preview-lint.mjs
+      - run: node scripts/fix-right-gesture-preview-lint.mjs
+      - run: npm ci
+      - run: npm run format
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - name: Commit verified lint fix
+        shell: bash
+        run: |
+          rm -f scripts/fix-right-gesture-preview-lint.mjs
+          rm -f .github/workflows/fix-right-gesture-preview-lint.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: finalize right gesture preview lifecycle"
+          git push origin HEAD:hotfix/right-gesture-final
