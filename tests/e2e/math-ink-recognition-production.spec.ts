@@ -59,6 +59,17 @@ test.describe("Mathpix proxy browser composition", () => {
     await handwrittenTool.click();
     await expect(handwrittenTool).toHaveAttribute("aria-pressed", "true");
 
+    const recognize = page.getByRole("button", { name: "Распознать" });
+    if ((await recognize.count()) === 0) {
+      if (process.env.MATH_INK_E2E_REQUIRED === "true") {
+        throw new Error(
+          "The Math ink production gate requires automatic recognition.",
+        );
+      }
+      test.skip(true, "Automatic Math ink recognition is disabled in this build.");
+      return;
+    }
+
     await drawStroke(page, [
       { x: 75, y: 220 },
       { x: 125, y: 170 },
@@ -66,7 +77,7 @@ test.describe("Mathpix proxy browser composition", () => {
     ]);
     await expect(page.getByText("Штрихов: 1")).toBeVisible();
 
-    await page.getByRole("button", { name: "Распознать" }).click();
+    await recognize.click();
     const expression = page.getByRole("textbox", { name: "Функция y =" });
     await expect(expression).toHaveValue("x^(2)+1");
     expect(proxyRequest).toMatchObject({
