@@ -73,7 +73,9 @@ test.describe("handwritten function production workflow", () => {
     await expect(page.getByText("Штрихов: 2")).toBeVisible();
 
     await page.getByRole("button", { name: "Сохранить штрихи" }).click();
-    await expect(page.getByText("Штрихи сохранены")).toBeVisible();
+    await expect(
+      page.getByText("Штрихи сохранены", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByTestId("object-count")).toContainText("2 объекта");
 
     const expression = page.getByRole("textbox", { name: "Функция y =" });
