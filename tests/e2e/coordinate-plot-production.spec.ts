@@ -61,11 +61,9 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await expect(
     page.getByRole("dialog", { name: "Расширенные настройки графика" }),
   ).toBeHidden();
-  await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
   const advancedEditor = page.getByRole("dialog", {
     name: "Расширенные настройки графика",
   });
-  await expect(advancedEditor).toBeVisible();
   const persistenceStatus = page.getByTestId("persistence-status");
   const navigation = page.getByRole("toolbar", {
     name: "Навигация координатной плоскости",
@@ -75,27 +73,30 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await expect(
     navigation.getByRole("radio", { name: "Только ось X" }),
   ).toHaveAttribute("aria-checked", "true");
+  await navigation.getByRole("button", { name: "Приблизить график" }).click();
 
+  await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
+  await expect(advancedEditor).toBeVisible();
   await advancedEditor.getByRole("tab", { name: "Вид" }).click();
   const xMinimum = advancedEditor.getByLabel("Минимальная граница X");
   const yMinimum = advancedEditor.getByLabel("Минимальная граница Y");
   const yMaximum = advancedEditor.getByLabel("Максимальная граница Y");
-  const initialXMinimum = Number(await xMinimum.inputValue());
-  const initialYMinimum = Number(await yMinimum.inputValue());
-  await navigation.getByRole("button", { name: "Приблизить график" }).click();
-  await expect
-    .poll(async () => Number(await xMinimum.inputValue()))
-    .not.toBe(initialXMinimum);
-  await expect(yMinimum).toHaveValue(String(initialYMinimum));
+  await expect(xMinimum).not.toHaveValue("-10");
+  await expect(yMinimum).toHaveValue("-7");
+  await expect(
+    advancedEditor.getByTestId("renderer-status-help"),
+  ).toContainText("Лимит детализации");
+  await advancedEditor
+    .getByRole("button", { name: "К базовым настройкам" })
+    .click();
+  await expect(advancedEditor).toBeHidden();
+
   await navigation
     .getByRole("button", { name: "Сбросить диапазон графика" })
     .click();
   await navigation
     .getByRole("button", { name: "Вместить все графики" })
     .click();
-  await expect(
-    advancedEditor.getByTestId("renderer-status-help"),
-  ).toContainText("Лимит детализации");
 
   const stage = page.locator(".konvajs-content");
   const stageBox = await stage.boundingBox();
@@ -116,9 +117,17 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     .click();
 
   if (test.info().project.name === "chromium") {
+    await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
+    await expect(advancedEditor).toBeVisible();
+    await advancedEditor.getByRole("tab", { name: "Вид" }).click();
     const beforePinchX = Number(await xMinimum.inputValue());
     const beforePinchY = Number(await yMinimum.inputValue());
     const beforePinchYSpan = Number(await yMaximum.inputValue()) - beforePinchY;
+    await advancedEditor
+      .getByRole("button", { name: "К базовым настройкам" })
+      .click();
+    await expect(advancedEditor).toBeHidden();
+
     await page.evaluate(({ x, y }) => {
       const target =
         window.document.querySelector<HTMLElement>(".konvajs-content");
@@ -155,6 +164,10 @@ test("discovers, persists, restores, duplicates and exports a production coordin
         }),
       );
     }, plotPoint);
+
+    await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
+    await expect(advancedEditor).toBeVisible();
+    await advancedEditor.getByRole("tab", { name: "Вид" }).click();
     await expect
       .poll(async () => Number(await xMinimum.inputValue()))
       .not.toBe(beforePinchX);
@@ -168,10 +181,17 @@ test("discovers, persists, restores, duplicates and exports a production coordin
         return Math.abs(currentMaximum - currentMinimum - beforePinchYSpan);
       })
       .toBeLessThan(1e-8);
+    await advancedEditor
+      .getByRole("button", { name: "К базовым настройкам" })
+      .click();
+    await expect(advancedEditor).toBeHidden();
   }
+
   await navigation
     .getByRole("button", { name: "Сбросить диапазон графика" })
     .click();
+  await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
+  await expect(advancedEditor).toBeVisible();
   await advancedEditor.getByRole("tab", { name: "Функции" }).click();
   await expect(persistenceStatus).toHaveText(
     /Сохранено локально|Сохранено повторно/,
