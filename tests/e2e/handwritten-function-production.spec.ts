@@ -25,7 +25,8 @@ async function drawStroke(
   }
   const clientPoint = { x: box.x + first.x, y: box.y + first.y };
   const targetsCanvas = await canvas.evaluate(
-    (element, point) => element.contains(document.elementFromPoint(point.x, point.y)),
+    (element, point) =>
+      element.contains(document.elementFromPoint(point.x, point.y)),
     clientPoint,
   );
   if (!targetsCanvas) {
