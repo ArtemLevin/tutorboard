@@ -58,10 +58,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm scripts/apply-coordinate-plot-right-drag-pan.mjs
-          git rm scripts/run-coordinate-plot-right-drag-pan-bootstrap.mjs
+          git rm -f scripts/apply-coordinate-plot-right-drag-pan.mjs
+          git rm -f scripts/run-coordinate-plot-right-drag-pan-bootstrap.mjs
           git add src tests docs
           git commit -m "feat: pan coordinate plots with the right mouse button [skip right-pan bootstrap]"
           git push origin HEAD:feature/coordinate-plot-right-drag-pan
 
-# bootstrap-trigger: 2026-08-02-pr-2
+# bootstrap-trigger: 2026-08-02-pr-3
