@@ -5,13 +5,14 @@
 | Boundary | Responsibility |
 | --- | --- |
 | `modules/handwritten-function` | Multi-stroke session, recognition contracts, bounded syntax conversion, production expression validation and candidate ranking |
-| future canvas composition | Pointer capture, Escape, tool switching and previews |
-| future recognition adapter | Provider DTOs, credentials, HTTP and timeout policy |
-| future plot composition | Coordinate-plot creation and atomic source-stroke replacement |
+| `app/App` | Toolbar entry, pointer routing, operation cancellation, editable confirmation, accessibility and history composition |
+| `app/handwritten-function-composition` | Pure stroke materialization, draft validation, coordinate-plot construction and replace-command creation |
+| `app/HandwrittenFunctionPanel` | Non-modal review, candidate choice, manual correction and build controls |
+| future recognition adapter | Provider DTOs, credentials, HTTP, quota and timeout policy |
 
-The module is transient. It owns no `BoardDocument`, board command, React
-component, Konva node, storage record or network request. It imports production
-math semantics only through `../../core/public`.
+The feature module remains transient. It owns no `BoardDocument`, board command,
+React component, Konva node, storage record or network request. It imports
+production math semantics only through `../../core/public`.
 
 ## Public identifiers and versions
 
@@ -35,11 +36,14 @@ accepted. Completed strokes remain immutable.
 
 `cancel-stroke` models `pointercancel`, capture loss or an explicit current-stroke
 cancel. It removes the active stroke and preserves earlier strokes.
-`cancel-session` models Escape or a tool switch when the complete capture should
-be discarded.
+`cancel-session` discards a complete transient capture when the caller explicitly
+chooses that policy.
 
 `complete-input` is accepted only with at least one completed stroke and no
 active pointer. It computes source bounds and enters `ready`.
+
+Application composition uses preservation semantics for Escape and tool changes:
+completed strokes are materialized before the session is closed.
 
 ## Recognition lifecycle
 
@@ -49,8 +53,11 @@ response from an earlier provider call returns a stale-recognition diagnostic an
 leaves state unchanged.
 
 `reopen-input` returns ready, recognizing, resolved or failed input to collecting
-state with the completed strokes intact. Application composition must abort the
+state with the completed strokes intact. Application composition aborts the
 corresponding provider operation when leaving recognizing state.
+
+`App` accepts an optional `MathInkRecognizer`. Provider absence activates the
+manual correction path after source ink has been saved.
 
 ## Stroke normalization
 
@@ -110,6 +117,9 @@ and remain within `maximumCoordinatePlotParameters`.
 A second compile with those names must succeed. Conversion output that fails the
 production compiler never becomes an interpreted candidate.
 
+Every manual edit is wrapped as one native recognition candidate and passed
+through the same interpretation pipeline.
+
 ## Candidate ranking
 
 Valid candidates are ordered by confidence, source format preference, parameter
@@ -119,6 +129,61 @@ ambiguity decisions while remaining visible in the candidate list.
 One candidate becomes selected when it is unique or has a decisive confidence
 lead. Close distinct candidates produce `ambiguous`. An upstream `unrecognized`
 status also requires confirmation even when one converted candidate compiles.
+
+## Canvas workflow
+
+```text
+transient strokes
+  -> one core.objects.add command
+  -> recognition or manual draft
+  -> interpreted candidate
+  -> transient coordinate-plot preview
+  -> one core.objects.replace command
+```
+
+The dedicated `math.handwritten-function` tool is exposed through the toolbar and
+shortcut `F`. BoardStage supplies world-space samples to the session reducer.
+Transient pen-stroke objects render through the normal registry before source ink
+is persisted.
+
+The confirmation panel remains non-modal. It shows workflow state, source stroke
+count, valid candidates, expression text, discovered parameters and diagnostics.
+
+## Source ink and history
+
+Completed strokes are materialized as ordinary user `drawing.pen-stroke` objects
+in one command. Their IDs remain bounded and deterministic; the composition
+helper validates caller IDs and provides a compact stroke-derived fallback when a
+factory exceeds the BoardDocument identifier contract.
+
+The graph command contains exact persisted stroke snapshots as `originals` and
+one coordinate plot as the replacement. The reducer verifies those snapshots.
+One undo restores every source stroke, and one redo restores the graph.
+
+Recognition failure, provider absence, Escape and tool changes preserve completed
+ink. Explicit clear removes persisted source objects through a delete command.
+
+## Coordinate-plot composition
+
+A graph is created from the source-ink center using the default coordinate-plot
+object. Composition then:
+
+- retains one explicit series;
+- assigns the validated expression;
+- creates parameters in first-occurrence order;
+- uses parameter defaults `min=-10`, `max=10`, `value=1`, `step=0.1`;
+- names the series `Рукописная функция`;
+- fits the coordinate viewport through `fitCoordinatePlotDefinition`.
+
+The preview and final object share the same definition. The preview uses reduced
+opacity and stays outside BoardDocument.
+
+## Feature exposure
+
+`VITE_FEATURE_HANDWRITTEN_FUNCTIONS` follows the shared boolean flag parser.
+Development and test enable the workflow by default. Production requires an
+explicit enable value. Read-only boards disable the toolbar entry and mutating
+controls.
 
 ## Safety limits
 
@@ -130,8 +195,9 @@ conversion depth, JIIX depth, JIIX nodes and extracted JIIX strings. The final
 expression remains subject to all `tutorboard-expression/1` token, AST, length
 and evaluation limits.
 
-The module has no dynamic code, direct network API, browser state, storage access,
-scheduler dependency or nondeterministic ID/time source.
+The feature module has no dynamic code, direct network API, browser state,
+storage access, scheduler dependency or nondeterministic ID/time source.
+Application composition owns browser state and injects all external operations.
 
 ## Recognizer port
 
@@ -149,8 +215,9 @@ interface MathInkRecognizer {
 The fake recognizer clones requests and results, observes abort before and after
 one asynchronous boundary and exposes captured requests for tests.
 
-## PR 3 composition boundary
+## Provider adapter boundary
 
-Application composition will own the recognizer operation, editable confirmation
-surface and graph construction. It may consume `HandwrittenFunctionInterpretation`
-without parsing provider formats or repeating expression validation.
+A future provider adapter may implement the recognizer port through MyScript,
+Mathpix or another service. It will own provider DTOs, authentication, backend
+proxying, retry policy, quotas and evidence collection. Canvas, interpretation,
+plot composition and history require no provider-specific changes.
