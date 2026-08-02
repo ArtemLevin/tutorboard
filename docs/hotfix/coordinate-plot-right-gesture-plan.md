@@ -79,3 +79,13 @@ Merge is allowed only after these checks succeed:
 ## Cleanup
 
 The hotfix removes the merged debug workflow and trigger file from `main`.
+
+## Verification record
+
+The implementation has passed the preliminary local-equivalent gate in GitHub Actions:
+
+- TypeScript project typecheck;
+- 90 Vitest files and 425 tests;
+- production Vite build.
+
+The browser and complete release matrix remain mandatory before the pull request can leave draft status.
