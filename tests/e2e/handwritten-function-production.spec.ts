@@ -5,18 +5,22 @@ async function drawStroke(
   points: readonly { readonly x: number; readonly y: number }[],
 ): Promise<void> {
   const canvas = page.locator(".konvajs-content").first();
+  const boardStage = page.getByTestId("board-stage");
   await expect(canvas).toBeVisible();
   const box = await canvas.boundingBox();
   if (box === null) throw new Error("TutorBoard canvas has no layout box.");
   const [first, ...rest] = points;
-  if (first === undefined)
+  if (first === undefined) {
     throw new Error("Stroke requires at least one point.");
+  }
   await page.mouse.move(box.x + first.x, box.y + first.y);
   await page.mouse.down();
+  await expect(boardStage).toHaveAttribute("data-drawing", "true");
   for (const point of rest) {
     await page.mouse.move(box.x + point.x, box.y + point.y, { steps: 4 });
   }
   await page.mouse.up();
+  await expect(boardStage).toHaveAttribute("data-drawing", "false");
 }
 
 test.describe("handwritten function production workflow", () => {
@@ -24,23 +28,31 @@ test.describe("handwritten function production workflow", () => {
     page,
   }) => {
     await page.goto("/");
+    const handwrittenTool = page.getByRole("button", {
+      name: "Рукописная функция (F)",
+    });
+    await expect(handwrittenTool).toBeVisible();
+
+    await handwrittenTool.click();
+    await expect(handwrittenTool).toHaveAttribute("aria-pressed", "true");
     await expect(
-      page.getByRole("button", { name: "Рукописная функция (F)" }),
+      page.getByRole("complementary", { name: "Рукописная функция" }),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Рукописная функция (F)" }).click();
     await drawStroke(page, [
       { x: 160, y: 500 },
       { x: 210, y: 450 },
       { x: 260, y: 500 },
     ]);
+    await expect(page.getByText("Штрихов: 1")).toBeVisible();
+
     await drawStroke(page, [
       { x: 280, y: 445 },
       { x: 325, y: 485 },
       { x: 280, y: 535 },
     ]);
-
     await expect(page.getByText("Штрихов: 2")).toBeVisible();
+
     await page.getByRole("button", { name: "Сохранить штрихи" }).click();
     await expect(page.getByText("Штрихи сохранены")).toBeVisible();
     await expect(page.getByTestId("object-count")).toContainText("2 объекта");
