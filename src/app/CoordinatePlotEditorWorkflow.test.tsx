@@ -7,18 +7,13 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  BoardDocument,
-  BoardObject,
-  BoardObjectId,
-} from "../core/public";
+import type { BoardDocument, BoardObject, BoardObjectId } from "../core/public";
 import { App } from "./App";
 
 vi.mock("../adapters/canvas-konva/public", () => ({
   BoardStage: (props: {
     readonly onObjectSettingsRequest?:
-      | ((objectId: BoardObjectId) => void)
-      | undefined;
+      ((objectId: BoardObjectId) => void) | undefined;
     readonly scene: {
       readonly items: readonly {
         readonly object: { readonly id: BoardObjectId };
