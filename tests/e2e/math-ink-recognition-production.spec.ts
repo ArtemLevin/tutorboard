@@ -66,7 +66,10 @@ test.describe("Mathpix proxy browser composition", () => {
           "The Math ink production gate requires automatic recognition.",
         );
       }
-      test.skip(true, "Automatic Math ink recognition is disabled in this build.");
+      test.skip(
+        true,
+        "Automatic Math ink recognition is disabled in this build.",
+      );
       return;
     }
 
