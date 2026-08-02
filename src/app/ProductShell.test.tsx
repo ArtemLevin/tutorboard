@@ -53,11 +53,13 @@ const environment: AppEnvironment = {
     documentSnapshots: true,
     geometryPrompt: true,
     handwrittenFunctions: true,
+    mathInkRecognition: true,
     serverSync: false,
     smartInk: true,
     smartInkDiagnostics: true,
   },
   geometryOsBaseUrl: "https://geometry.example.test",
+  mathInkApiBaseUrl: "/api/v1/math-ink",
   stage: "test",
 };
 
