@@ -4,10 +4,7 @@ import {
   mathInkRecognitionRequestSchemaVersion,
   type MathInkRecognitionRequest,
 } from "../../modules/handwritten-function/public";
-import {
-  createMathInkHttpRecognizer,
-  mathInkRequestIdHeader,
-} from "./public";
+import { createMathInkHttpRecognizer, mathInkRequestIdHeader } from "./public";
 import { mathInkProxyResultSchemaVersion } from "./validation";
 
 const request: MathInkRecognitionRequest = {
