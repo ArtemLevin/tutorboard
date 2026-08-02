@@ -1929,7 +1929,7 @@ export function CoordinatePlotEditorPanel({
                     </span>
                   </div>
                   <button
-                    aria-label="Вернуться к базовым настройкам"
+                    aria-label="Закрыть расширенные настройки"
                     onClick={closeAdvanced}
                     type="button"
                   >

@@ -87,7 +87,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     advancedEditor.getByTestId("renderer-status-help"),
   ).toContainText("Лимит детализации");
   await advancedEditor
-    .getByRole("button", { name: "К базовым настройкам" })
+    .getByRole("button", { name: "К базовым настройкам", exact: true })
     .click();
   await expect(advancedEditor).toBeHidden();
 
@@ -124,7 +124,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     const beforePinchY = Number(await yMinimum.inputValue());
     const beforePinchYSpan = Number(await yMaximum.inputValue()) - beforePinchY;
     await advancedEditor
-      .getByRole("button", { name: "К базовым настройкам" })
+      .getByRole("button", { name: "К базовым настройкам", exact: true })
       .click();
     await expect(advancedEditor).toBeHidden();
 
@@ -182,7 +182,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
       })
       .toBeLessThan(1e-8);
     await advancedEditor
-      .getByRole("button", { name: "К базовым настройкам" })
+      .getByRole("button", { name: "К базовым настройкам", exact: true })
       .click();
     await expect(advancedEditor).toBeHidden();
   }
@@ -260,7 +260,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     /Сохранено локально|Сохранено повторно/,
   );
   await advancedEditor
-    .getByRole("button", { name: "К базовым настройкам" })
+    .getByRole("button", { name: "К базовым настройкам", exact: true })
     .click();
   await editor
     .getByRole("button", { name: "Закрыть редактор графика" })
@@ -302,7 +302,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await expect(restoredParameterNames.nth(1)).toHaveValue("b");
 
   await advancedEditor
-    .getByRole("button", { name: "К базовым настройкам" })
+    .getByRole("button", { name: "К базовым настройкам", exact: true })
     .click();
   await editor
     .getByRole("button", { name: "Закрыть редактор графика" })

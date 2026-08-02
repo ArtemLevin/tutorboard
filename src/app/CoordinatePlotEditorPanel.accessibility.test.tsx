@@ -217,7 +217,7 @@ describe("CoordinatePlotEditorPanel accessibility and safety", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: "Вернуться к базовым настройкам",
+        name: "Закрыть расширенные настройки",
       }),
     ).toBeInTheDocument();
   });
