@@ -23,14 +23,42 @@ export async function rightDoubleClickAt(
   await page.mouse.up({ button: "right" });
 }
 
+async function coordinatePlotEntryPoints(page: Page): Promise<ScreenPoint[]> {
+  const bounds = await page.getByTestId("board-stage").boundingBox();
+  if (bounds === null) throw new Error("Expected TutorBoard stage bounds");
+  const point = (xRatio: number, yRatio: number): ScreenPoint => ({
+    x: bounds.x + bounds.width * xRatio,
+    y: bounds.y + bounds.height * yRatio,
+  });
+  return [
+    point(0.5, 0.5),
+    point(0.65, 0.35),
+    point(0.5, 0.35),
+    point(0.65, 0.6),
+    point(0.35, 0.35),
+    point(0.35, 0.6),
+  ];
+}
+
 export async function openCoordinatePlotEditorByRightDoubleClick(
   page: Page,
   point?: ScreenPoint,
 ): Promise<void> {
-  await rightDoubleClickAt(page, point ?? (await stageCenter(page)));
-  await expect(
-    page.getByRole("complementary", {
-      name: "Редактор координатной плоскости",
-    }),
-  ).toBeVisible();
+  const editor = page.getByRole("complementary", {
+    name: "Редактор координатной плоскости",
+  });
+  const points =
+    point === undefined ? await coordinatePlotEntryPoints(page) : [point];
+
+  for (const candidate of points) {
+    await rightDoubleClickAt(page, candidate);
+    try {
+      await editor.waitFor({ state: "visible", timeout: 750 });
+      return;
+    } catch {
+      // Continue through stage points covered by responsive overlays.
+    }
+  }
+
+  await expect(editor).toBeVisible();
 }
