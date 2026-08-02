@@ -48,7 +48,8 @@ The dialog uses the same draft object as the basic panel and returns to the basi
 - move focus into the detailed dialog on open and return focus to the trigger on close;
 - keep WAI-ARIA tabs and keyboard navigation inside the detailed dialog;
 - keep close confirmation as a separate alert dialog;
-- provide visible labels and output text for the parameter slider.
+- provide visible labels and output text for the parameter slider;
+- expose distinct accessible names for the dialog close icon and the footer return action.
 
 ## Verification
 
@@ -76,4 +77,4 @@ Merge requires the complete existing release matrix: quality gate, browser smoke
 
 ## Implementation record
 
-The implementation contains the compact formula/parameter surface, shared draft state, modal detailed editor, default parameterized plot, focus routing, and migrated component coverage. The primary explicit series is narrowed through a dedicated type predicate so the basic formula field remains type-safe. Accessibility scenarios that inspect exact parameter fields or series action buttons now enter the detailed dialog explicitly. The production browser flow verifies the basic default formula and slider, adds parameter `b`, persists both parameters, restores the shared draft, duplicates the graph, and validates JSON export. Canvas navigation and gestures run on the basic surface; the detailed modal opens afterward to inspect exact viewport values. The detailed dialog uses a body-level portal to preserve a real full-viewport interaction surface. The complete repository CI matrix remains the source of truth before merge.
+The implementation contains the compact formula/parameter surface, shared draft state, modal detailed editor, default parameterized plot, focus routing, and migrated component coverage. The primary explicit series is narrowed through a dedicated type predicate so the basic formula field remains type-safe. Accessibility scenarios that inspect exact parameter fields or series action buttons now enter the detailed dialog explicitly. The production browser flow verifies the basic default formula and slider, adds parameter `b`, persists both parameters, restores the shared draft, duplicates the graph, and validates JSON export. Canvas navigation and gestures run on the basic surface; the detailed modal opens afterward to inspect exact viewport values. The detailed dialog uses a body-level portal to preserve a real full-viewport interaction surface. Its close icon is labelled `Закрыть расширенные настройки`, while the footer action remains `К базовым настройкам`. The complete repository CI matrix remains the source of truth before merge.
