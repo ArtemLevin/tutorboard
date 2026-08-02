@@ -1,5 +1,12 @@
 import Konva from "konva";
-import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 import { Arrow, Group, Line, Rect, Text } from "react-konva";
 
 import {
@@ -37,6 +44,13 @@ interface PlotViewportDragSession {
 interface PlotViewportPinchSession {
   readonly startTouches: readonly [Vec2, Vec2];
   readonly startViewport: CoordinatePlotViewport;
+}
+
+interface PlotViewportRightDragSession extends PlotViewportDragSession {
+  readonly captureElement: HTMLElement;
+  readonly node: Konva.Node;
+  readonly pointerId: number;
+  readonly size: { readonly height: number; readonly width: number };
 }
 
 function localPointer(node: Konva.Node): Vec2 | null {
@@ -166,9 +180,16 @@ export function CoordinatePlotRenderer({
   );
   const viewportDragRef = useRef<PlotViewportDragSession | null>(null);
   const viewportPinchRef = useRef<PlotViewportPinchSession | null>(null);
+  const viewportRightDragRef = useRef<PlotViewportRightDragSession | null>(
+    null,
+  );
+  const viewportChangeRef = useRef(onViewportChange);
   const cursorContainerRef = useRef<HTMLElement | null>(null);
   const cursorCleanupRef = useRef<(() => void) | null>(null);
   const cursorPressedRef = useRef(false);
+  useEffect(() => {
+    viewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
   const bindCursorContainer = (container: HTMLElement) => {
     if (cursorContainerRef.current === container) return;
     cursorCleanupRef.current?.();
@@ -204,6 +225,114 @@ export function CoordinatePlotRenderer({
     container.style.cursor =
       cursor === "grab" && cursorPressedRef.current ? "grabbing" : cursor;
   };
+
+  const finishRightViewportDrag = useCallback((event?: PointerEvent) => {
+    const session = viewportRightDragRef.current;
+    if (session === null) return;
+    viewportRightDragRef.current = null;
+    if (session.captureElement.hasPointerCapture(session.pointerId)) {
+      session.captureElement.releasePointerCapture(session.pointerId);
+    }
+    cursorPressedRef.current = false;
+    const pointer =
+      event === undefined
+        ? null
+        : localClientPointer(session.node, event.clientX, event.clientY);
+    const inside =
+      pointer !== null &&
+      pointer.x >= 0 &&
+      pointer.x <= session.size.width &&
+      pointer.y >= 0 &&
+      pointer.y <= session.size.height;
+    session.captureElement.style.cursor = inside ? "grab" : "";
+  }, []);
+
+  const startRightViewportDrag = useCallback(
+    (
+      event: Konva.KonvaEventObject<PointerEvent>,
+      startViewport: CoordinatePlotViewport,
+      size: { readonly height: number; readonly width: number },
+    ) => {
+      if (
+        event.evt.button !== 2 ||
+        viewportChangeRef.current === undefined ||
+        viewportRightDragRef.current !== null
+      ) {
+        return false;
+      }
+      event.cancelBubble = true;
+      event.evt.preventDefault();
+      event.evt.stopPropagation();
+      const pointer = localPointer(event.currentTarget);
+      const container = event.currentTarget.getStage()?.container();
+      if (pointer === null || container === undefined) return false;
+      event.currentTarget.stopDrag();
+      viewportDragRef.current = null;
+      viewportPinchRef.current = null;
+      bindCursorContainer(container);
+      container.setPointerCapture(event.evt.pointerId);
+      viewportRightDragRef.current = {
+        captureElement: container,
+        node: event.currentTarget,
+        pointerId: event.evt.pointerId,
+        size,
+        startPointer: pointer,
+        startViewport,
+      };
+      cursorPressedRef.current = true;
+      container.style.cursor = "grabbing";
+      return true;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const session = viewportRightDragRef.current;
+      if (session === null || session.pointerId !== event.pointerId) return;
+      if ((event.buttons & 2) === 0) {
+        finishRightViewportDrag(event);
+        return;
+      }
+      event.preventDefault();
+      const pointer = localClientPointer(
+        session.node,
+        event.clientX,
+        event.clientY,
+      );
+      if (pointer === null) return;
+      viewportChangeRef.current?.(
+        panCoordinatePlotViewport(session.startViewport, session.size, {
+          x: pointer.x - session.startPointer.x,
+          y: pointer.y - session.startPointer.y,
+        }),
+      );
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      if (viewportRightDragRef.current?.pointerId === event.pointerId) {
+        finishRightViewportDrag(event);
+      }
+    };
+    const handlePointerCancel = (event: PointerEvent) => {
+      if (viewportRightDragRef.current?.pointerId === event.pointerId) {
+        finishRightViewportDrag();
+      }
+    };
+    const handleBlur = () => finishRightViewportDrag();
+    window.addEventListener("pointermove", handlePointerMove, {
+      passive: false,
+    });
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerCancel);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerCancel);
+      window.removeEventListener("blur", handleBlur);
+      finishRightViewportDrag();
+    };
+  }, [finishRightViewportDrag]);
   useEffect(
     () => () => {
       cursorCleanupRef.current?.();
@@ -220,11 +349,12 @@ export function CoordinatePlotRenderer({
     if (editing) return;
     viewportDragRef.current = null;
     viewportPinchRef.current = null;
+    finishRightViewportDrag();
     cursorPressedRef.current = false;
     if (cursorContainerRef.current !== null) {
       cursorContainerRef.current.style.cursor = "";
     }
-  }, [editing]);
+  }, [editing, finishRightViewportDrag]);
   const model = useMemo(
     () =>
       createCoordinatePlotRenderModel({
@@ -504,6 +634,15 @@ export function CoordinatePlotRenderer({
               };
             }}
             onPointerDown={(event) => {
+              if (
+                startRightViewportDrag(
+                  event,
+                  definition.coordinateViewport,
+                  definition.size,
+                )
+              ) {
+                return;
+              }
               event.cancelBubble = true;
               event.evt.preventDefault();
               setPlotCursor(event.currentTarget, "grabbing");
@@ -607,6 +746,15 @@ export function CoordinatePlotRenderer({
                 }
                 onPointerDown={(event) => {
                   if (!editing) return;
+                  if (
+                    startRightViewportDrag(
+                      event,
+                      definition.coordinateViewport,
+                      definition.size,
+                    )
+                  ) {
+                    return;
+                  }
                   event.cancelBubble = true;
                   event.evt.preventDefault();
                 }}
