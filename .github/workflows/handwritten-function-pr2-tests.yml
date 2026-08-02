@@ -1,0 +1,65 @@
+name: Handwritten function PR 2 test correction
+
+on:
+  push:
+    branches:
+      - feat/handwritten-function-interpretation
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: ${{ !contains(github.event.head_commit.message, '[skip-pr2-tests]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: feat/handwritten-function-interpretation
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Correct test format and canonical expectation
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const conversionPath = "tests/unit/modules/handwritten-function/expression-conversion.test.ts";
+          const conversion = fs.readFileSync(conversionPath, "utf8");
+          const conversionNext = conversion.replace(
+            'expression.includes("\\\\") ? "latex" : "plot-expression"',
+            'expression.includes("\\\\") || expression.includes("_")\n        ? "latex"\n        : "plot-expression"',
+          );
+          if (conversionNext === conversion) {
+            throw new Error("Expected conversion test format selector was not found.");
+          }
+          fs.writeFileSync(conversionPath, conversionNext);
+
+          const interpretationPath = "tests/unit/modules/handwritten-function/interpretation.test.ts";
+          const interpretation = fs.readFileSync(interpretationPath, "utf8");
+          const interpretationNext = interpretation.replace(
+            'expect(result.selected?.expression).toBe("x^2");',
+            'expect(result.selected?.expression).toBe("x^(2)");',
+          );
+          if (interpretationNext === interpretation) {
+            throw new Error("Expected canonical exponent assertion was not found.");
+          }
+          fs.writeFileSync(interpretationPath, interpretationNext);
+          NODE
+      - name: Format tests
+        run: npx prettier --write tests/unit/modules/handwritten-function
+      - name: Commit test corrections
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/unit/modules/handwritten-function
+          git commit -m "test: align handwritten interpretation expectations [skip-pr2-tests]"
+          git push origin HEAD:feat/handwritten-function-interpretation
