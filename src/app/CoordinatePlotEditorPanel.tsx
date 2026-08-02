@@ -1474,10 +1474,15 @@ export function CoordinatePlotEditorPanel({
     definition.series.find(({ id }) => id === selectedSeriesId) ??
     definition.series[0] ??
     null;
-  const basicSeries =
+  const basicSeries: Extract<PlotSeries, { readonly kind: "explicit" }> | null =
     selectedSeries?.kind === "explicit"
       ? selectedSeries
-      : (definition.series.find(({ kind }) => kind === "explicit") ?? null);
+      : (definition.series.find(
+          (
+            series,
+          ): series is Extract<PlotSeries, { readonly kind: "explicit" }> =>
+            series.kind === "explicit",
+        ) ?? null);
   const basicSeriesIndex =
     basicSeries === null
       ? -1
