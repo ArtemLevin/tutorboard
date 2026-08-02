@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 async function drawStroke(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   points: readonly { readonly x: number; readonly y: number }[],
 ): Promise<void> {
   const canvas = page.locator(".konvajs-content").first();
