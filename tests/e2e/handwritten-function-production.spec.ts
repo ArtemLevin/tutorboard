@@ -13,7 +13,25 @@ async function drawStroke(
   if (first === undefined) {
     throw new Error("Stroke requires at least one point.");
   }
-  await page.mouse.move(box.x + first.x, box.y + first.y);
+  for (const point of points) {
+    if (
+      point.x < 0 ||
+      point.y < 0 ||
+      point.x >= box.width ||
+      point.y >= box.height
+    ) {
+      throw new Error("Stroke point is outside the TutorBoard canvas.");
+    }
+  }
+  const clientPoint = { x: box.x + first.x, y: box.y + first.y };
+  const targetsCanvas = await canvas.evaluate(
+    (element, point) => element.contains(document.elementFromPoint(point.x, point.y)),
+    clientPoint,
+  );
+  if (!targetsCanvas) {
+    throw new Error("Stroke start is covered by another interface element.");
+  }
+  await page.mouse.move(clientPoint.x, clientPoint.y);
   await page.mouse.down();
   await expect(boardStage).toHaveAttribute("data-drawing", "true");
   for (const point of rest) {
@@ -40,16 +58,16 @@ test.describe("handwritten function production workflow", () => {
     ).toBeVisible();
 
     await drawStroke(page, [
-      { x: 160, y: 500 },
-      { x: 210, y: 450 },
-      { x: 260, y: 500 },
+      { x: 70, y: 220 },
+      { x: 120, y: 170 },
+      { x: 170, y: 220 },
     ]);
     await expect(page.getByText("Штрихов: 1")).toBeVisible();
 
     await drawStroke(page, [
-      { x: 280, y: 445 },
-      { x: 325, y: 485 },
-      { x: 280, y: 535 },
+      { x: 190, y: 165 },
+      { x: 235, y: 205 },
+      { x: 190, y: 255 },
     ]);
     await expect(page.getByText("Штрихов: 2")).toBeVisible();
 
