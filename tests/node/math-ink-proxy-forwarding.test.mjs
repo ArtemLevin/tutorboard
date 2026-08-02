@@ -4,8 +4,12 @@ import { once } from "node:events";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { mathInkProxyResultSchemaVersion } from "../../services/math-ink-proxy/contract.mjs";
-import { createMathInkProxyHttpServer } from "../../services/math-ink-proxy/server.mjs";
+import {
+  mathInkProxyResultSchemaVersion,
+} from "../../services/math-ink-proxy/contract.mjs";
+import {
+  createMathInkProxyHttpServer,
+} from "../../services/math-ink-proxy/server.mjs";
 
 function recognitionRequest() {
   return {
