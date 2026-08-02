@@ -30,64 +30,82 @@ jobs:
         run: npm ci
       - name: Compact handwritten stroke object IDs
         run: |
-          node --input-type=module <<'NODE'
+          set +e
+          node --input-type=module <<'NODE' > pr3-id-fix.log 2>&1
           import fs from "node:fs";
           const path = "src/app/App.tsx";
           let source = fs.readFileSync(path, "utf8");
-          const oldHelper = `function handwrittenStrokeObjectId(
-            sessionId: string,
-            stroke: HandwrittenFunctionStroke,
-            index: number,
-          ): BoardObjectId {
-            return boardObjectId(
-              \`object:handwritten-function:\${sessionId}:\${index}:\${stroke.id}\`,
-            );
-          }`.replace(/^ {10}/gm, "");
-          const newHelper = `function handwrittenStrokeObjectId(
-            sessionId: string,
-            index: number,
-          ): BoardObjectId {
-            const sessionToken = sessionId.slice(-36);
-            return boardObjectId(\`object:hf:\${sessionToken}:\${index}\`);
-          }`.replace(/^ {10}/gm, "");
-          if (!source.includes(oldHelper)) {
-            throw new Error("Expected handwritten stroke ID helper was not found.");
-          }
-          source = source.replace(oldHelper, newHelper);
-          const oldPreview = `objectId: (stroke, index) =>
+          const replacements = [
+            [
+              `function handwrittenStrokeObjectId(
+  sessionId: string,
+  stroke: HandwrittenFunctionStroke,
+  index: number,
+): BoardObjectId {
+  return boardObjectId(
+    \`object:handwritten-function:\${sessionId}:\${index}:\${stroke.id}\`,
+  );
+}`,
+              `function handwrittenStrokeObjectId(
+  sessionId: string,
+  index: number,
+): BoardObjectId {
+  const sessionToken = sessionId.slice(-36);
+  return boardObjectId(\`object:hf:\${sessionToken}:\${index}\`);
+}`,
+              "helper",
+            ],
+            [
+              `objectId: (stroke, index) =>
                 handwrittenStrokeObjectId(
                   handwrittenFunctionState.sessionId,
                   stroke,
                   index,
-                ),`;
-          const newPreview = `objectId: (_stroke, index) =>
+                ),`,
+              `objectId: (_stroke, index) =>
                 handwrittenStrokeObjectId(
                   handwrittenFunctionState.sessionId,
                   index,
-                ),`;
-          if (!source.includes(oldPreview)) {
-            throw new Error("Expected handwritten preview ID call was not found.");
+                ),`,
+              "preview call",
+            ],
+            [
+              `objectId: (stroke, index) =>
+            handwrittenStrokeObjectId(state.sessionId, stroke, index),`,
+              `objectId: (_stroke, index) =>
+            handwrittenStrokeObjectId(state.sessionId, index),`,
+              "materialization call",
+            ],
+          ];
+          for (const [before, after, label] of replacements) {
+            if (!source.includes(before)) {
+              throw new Error(`Expected ${label} was not found.`);
+            }
+            source = source.replace(before, after);
           }
-          source = source.replace(oldPreview, newPreview);
-          const oldMaterialize = `objectId: (stroke, index) =>
-            handwrittenStrokeObjectId(state.sessionId, stroke, index),`;
-          const newMaterialize = `objectId: (_stroke, index) =>
-            handwrittenStrokeObjectId(state.sessionId, index),`;
-          if (!source.includes(oldMaterialize)) {
-            throw new Error("Expected handwritten materialization ID call was not found.");
-          }
-          source = source.replace(oldMaterialize, newMaterialize);
           fs.writeFileSync(path, source);
           NODE
-      - name: Format and verify focused workflow
+          status=$?
+          cat pr3-id-fix.log
+          if [ "$status" -ne 0 ]; then
+            mkdir -p docs/diagnostics
+            cp pr3-id-fix.log docs/diagnostics/HANDWRITTEN_FUNCTION_PR3_ID_FIX.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/diagnostics/HANDWRITTEN_FUNCTION_PR3_ID_FIX.txt
+            git commit -m "chore: capture handwritten ID fix failure [skip-pr3-id-fix]"
+            git push origin HEAD:feat/handwritten-function-workflow
+            exit "$status"
+          fi
+      - name: Format and commit fix
         run: |
           npx prettier --write src/app/App.tsx
-          npm run typecheck
-          npm run handwriting:pr3
-      - name: Commit fix
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/app/App.tsx
           git commit -m "fix: compact handwritten stroke object IDs [skip-pr3-id-fix]"
           git push origin HEAD:feat/handwritten-function-workflow
+      - name: Verify focused workflow
+        run: |
+          npm run typecheck
+          npm run handwriting:pr3
