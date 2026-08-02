@@ -1,4 +1,4 @@
-import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction";
+import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction.js";
 
 import { readFile } from "node:fs/promises";
 

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction";
+import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction.js";
 
 test("opens figure and graph settings only after a right-button double-click", async ({
   page,
