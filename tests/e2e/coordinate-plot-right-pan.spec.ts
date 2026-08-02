@@ -54,11 +54,11 @@ function plotScreenPoint(document: ExportedPlotDocument) {
   return {
     x:
       document.viewport.offset.x +
-      (plot.position.x + plot.definition.size.width * 0.3) *
+      (plot.position.x + plot.definition!.size.width * 0.3) *
         document.viewport.zoom,
     y:
       document.viewport.offset.y +
-      (plot.position.y + plot.definition.size.height * 0.6) *
+      (plot.position.y + plot.definition!.size.height * 0.6) *
         document.viewport.zoom,
   };
 }
@@ -93,15 +93,15 @@ test("right-button drag pans a closed graph as one history item while the board 
   const afterPlot = coordinatePlot(after);
   expect(after.viewport).toEqual(before.viewport);
   expect(afterPlot.position).toEqual(beforePlot.position);
-  expect(afterPlot.definition.coordinateViewport.xMin).not.toBe(
-    beforePlot.definition.coordinateViewport.xMin,
+  expect(afterPlot.definition!.coordinateViewport.xMin).not.toBe(
+    beforePlot.definition!.coordinateViewport.xMin,
   );
 
   await page.keyboard.press("Control+z");
   await expect(page.getByTestId("history-depth")).toHaveText("1/1");
   const undone = await exportDocument(page);
-  expect(coordinatePlot(undone).definition.coordinateViewport).toEqual(
-    beforePlot.definition.coordinateViewport,
+  expect(coordinatePlot(undone).definition!.coordinateViewport).toEqual(
+    beforePlot.definition!.coordinateViewport,
   );
 });
 

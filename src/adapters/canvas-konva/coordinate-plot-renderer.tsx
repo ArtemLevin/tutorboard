@@ -832,7 +832,7 @@ export function CoordinatePlotRenderer({
                 event.evt.touches,
               );
               if (touches === null) return;
-              onViewportChange(
+              onViewportChange?.(
                 pinchCoordinatePlotViewport(
                   session.startViewport,
                   definition.size,
