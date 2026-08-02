@@ -8,17 +8,43 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
-path = Path("tests/e2e/coordinate-plot-production.spec.ts")
+path = Path("src/app/CoordinatePlotEditorPanel.tsx")
 text = path.read_text(encoding="utf-8")
 text = replace_once(
     text,
-    '''  await editor
-    .getByRole("button", { name: "+ Параметрическая кривая" })
-    .click();''',
-    '''  await advancedEditor
-    .getByRole("button", { name: "+ Параметрическая кривая" })
-    .click();''',
-    "parametric curve advanced scope",
+    '''} from "react";
+
+import {''',
+    '''} from "react";
+import { createPortal } from "react-dom";
+
+import {''',
+    "react dom portal import",
+)
+text = replace_once(
+    text,
+    '''      {advancedOpen ? (
+        <div className="plot-editor-advanced-backdrop">''',
+    '''      {advancedOpen
+        ? createPortal(
+            <div className="plot-editor-advanced-backdrop">''',
+    "advanced portal start",
+)
+text = replace_once(
+    text,
+    '''          </section>
+        </div>
+      ) : null}
+
+      {closeConfirmationOpen ? (''',
+    '''          </section>
+        </div>,
+            document.body,
+          )
+        : null}
+
+      {closeConfirmationOpen ? (''',
+    "advanced portal end",
 )
 path.write_text(text, encoding="utf-8")
-print("Finished production editor scoping")
+print("Portaled advanced graph settings to document.body")
