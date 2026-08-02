@@ -140,6 +140,9 @@ describe("CoordinatePlotEditorPanel accessibility and safety", () => {
       issues: validateCoordinatePlotEditorDefinition(definition),
     });
 
+    fireEvent.click(
+      screen.getByRole("button", { name: /Расширенные настройки/ }),
+    );
     fireEvent.click(screen.getByRole("tab", { name: "Параметры (1)" }));
     const name = screen.getByLabelText("Имя параметра invalid-parameter");
     const minimum = screen.getByLabelText("Минимум");
@@ -206,8 +209,16 @@ describe("CoordinatePlotEditorPanel accessibility and safety", () => {
     expect(
       screen.getByRole("button", { name: "Закрыть редактор графика" }),
     ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Расширенные настройки/ }),
+    );
     expect(
       screen.getByRole("button", { name: "Удалить серию График 1" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Вернуться к базовым настройкам",
+      }),
     ).toBeInTheDocument();
   });
 });
