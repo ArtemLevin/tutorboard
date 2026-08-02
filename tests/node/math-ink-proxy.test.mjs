@@ -177,7 +177,7 @@ describe("math ink proxy service", () => {
       },
       status: 200,
     });
-    const [_url, init] = fetch.mock.calls[0];
+    const [, init] = fetch.mock.calls[0];
     expect(init.headers).toMatchObject({
       app_id: "app-id-secret",
       app_key: "app-key-secret",
