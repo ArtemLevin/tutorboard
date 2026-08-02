@@ -59,13 +59,51 @@ async function coordinatePlotClientCenter(page: Page) {
   };
 }
 
+async function dispatchRightClick(
+  page: Page,
+  point: { readonly x: number; readonly y: number },
+  pointerId: number,
+): Promise<void> {
+  await page.evaluate(
+    ({ clientX, clientY, id }) => {
+      const target = document.elementFromPoint(clientX, clientY);
+      if (target === null) throw new Error("Expected pointer target");
+      target.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          bubbles: true,
+          button: 2,
+          buttons: 2,
+          cancelable: true,
+          clientX,
+          clientY,
+          pointerId: id,
+          pointerType: "mouse",
+        }),
+      );
+      target.dispatchEvent(
+        new PointerEvent("pointerup", {
+          bubbles: true,
+          button: 2,
+          buttons: 0,
+          cancelable: true,
+          clientX,
+          clientY,
+          pointerId: id,
+          pointerType: "mouse",
+        }),
+      );
+    },
+    { clientX: point.x, clientY: point.y, id: pointerId },
+  );
+}
+
 export async function openCoordinatePlotEditorByRightDoubleClick(
   page: Page,
 ): Promise<void> {
   const point = await coordinatePlotClientCenter(page);
-  await page.mouse.click(point.x, point.y, { button: "right" });
+  await dispatchRightClick(page, point, 41);
   await page.waitForTimeout(60);
-  await page.mouse.click(point.x, point.y, { button: "right" });
+  await dispatchRightClick(page, point, 42);
   await expect(
     page.getByRole("complementary", {
       name: "Редактор координатной плоскости",
