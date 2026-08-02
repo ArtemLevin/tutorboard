@@ -12,6 +12,7 @@ describe("readEnvironment", () => {
           developmentDiagnostics: stage !== "production",
           documentSnapshots: true,
           geometryPrompt: true,
+          handwrittenFunctions: stage !== "production",
           serverSync: stage === "production",
           smartInk: stage !== "production",
           smartInkDiagnostics: stage !== "production",
@@ -35,6 +36,7 @@ describe("readEnvironment", () => {
         developmentDiagnostics: true,
         documentSnapshots: true,
         geometryPrompt: true,
+        handwrittenFunctions: true,
         serverSync: false,
         smartInk: true,
         smartInkDiagnostics: true,
@@ -53,6 +55,7 @@ describe("readEnvironment", () => {
         developmentDiagnostics: "1",
         documentSnapshots: "false",
         geometryPrompt: "0",
+        handwrittenFunctions: "true",
         serverSync: "true",
         smartInk: "true",
         smartInkDiagnostics: "true",
@@ -61,6 +64,7 @@ describe("readEnvironment", () => {
       developmentDiagnostics: true,
       documentSnapshots: false,
       geometryPrompt: false,
+      handwrittenFunctions: true,
       serverSync: true,
       smartInk: true,
       smartInkDiagnostics: true,
@@ -68,6 +72,9 @@ describe("readEnvironment", () => {
     expect(() =>
       readEnvironment("test", undefined, { geometryPrompt: "perhaps" }),
     ).toThrow("VITE_FEATURE_GEOMETRY_PROMPT");
+    expect(() =>
+      readEnvironment("test", undefined, { handwrittenFunctions: "perhaps" }),
+    ).toThrow("VITE_FEATURE_HANDWRITTEN_FUNCTIONS");
     expect(() =>
       readEnvironment("test", undefined, { smartInk: "perhaps" }),
     ).toThrow("VITE_FEATURE_SMART_INK");

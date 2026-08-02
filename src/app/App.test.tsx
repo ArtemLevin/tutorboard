@@ -16,6 +16,10 @@ import type {
 } from "../adapters/canvas-konva/public";
 import { createGeometryOsHttpClient } from "../adapters/geometryos-http/public";
 import { actorId, geometryOsRequestId } from "../core/public";
+import {
+  createFakeMathInkRecognizer,
+  mathInkRecognitionResultSchemaVersion,
+} from "../modules/handwritten-function/public";
 import { App } from "./App";
 
 function requestUrl(input: RequestInfo | URL): string {
@@ -196,6 +200,66 @@ describe("App", () => {
 
     fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
     expect(screen.getByText("drawing.pen-stroke")).toBeInTheDocument();
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");
+  });
+
+  it("captures, recognizes, builds and atomically undoes a handwritten function", async () => {
+    const onCommandCommitted = vi.fn();
+    const recognizer = createFakeMathInkRecognizer({
+      result: {
+        candidates: [
+          {
+            confidence: 0.98,
+            expression: "x^2-1",
+            format: "plot-expression",
+          },
+        ],
+        diagnostics: [],
+        recognizerId: "test.handwriting",
+        recognizerVersion: "1",
+        schemaVersion: mathInkRecognitionResultSchemaVersion,
+        status: "recognized",
+      },
+    });
+    render(
+      <App
+        mathInkRecognizer={recognizer}
+        onCommandCommitted={onCommandCommitted}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Рукописная функция (F)" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    expect(screen.getByText("Штрихов: 2")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Распознать" }));
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Функция y =" })).toHaveValue(
+        "x^2-1",
+      ),
+    );
+    expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
+    expect(recognizer.getRequests()).toHaveLength(1);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Функция y =" }), {
+      target: { value: "a*x^2+b" },
+    });
+    expect(screen.getByText("a, b")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Построить график" }));
+
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(screen.getByText("math.coordinate-plot")).toBeInTheDocument();
+    expect(onCommandCommitted.mock.calls.at(-1)?.[0]).toMatchObject({
+      kind: "core.objects.replace",
+    });
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("2/0");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
+    expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
+    expect(screen.getAllByText("drawing.pen-stroke")).toHaveLength(2);
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");
   });
 

@@ -35,6 +35,7 @@ import {
   type CommandMetadata,
   type CoordinatePlotDefinition,
   type PlotSeriesId,
+  type PenStrokeObject,
   type VisualStyleOverride,
   type ViewportState,
 } from "../core/public";
@@ -117,7 +118,30 @@ import {
   resetCoordinatePlotViewport,
   validateCoordinatePlotEditorDefinition,
 } from "../modules/coordinate-plot-editor/public";
+import {
+  calculateHandwrittenFunctionBounds,
+  createMathInkRecognitionRequest,
+  handwrittenFunctionToolId,
+  initialHandwrittenFunctionSessionState,
+  interpretMathInkRecognitionResult,
+  isMathInkRecognitionAbortError,
+  reduceHandwrittenFunctionSession,
+  type HandwrittenFunctionInterpretation,
+  type HandwrittenFunctionSessionAction,
+  type HandwrittenFunctionSessionDiagnosticCode,
+  type HandwrittenFunctionSessionState,
+  type HandwrittenFunctionStroke,
+  type MathInkRecognizer,
+} from "../modules/handwritten-function/public";
 import { ColorPalette } from "./ColorPalette";
+import { HandwrittenFunctionPanel } from "./HandwrittenFunctionPanel";
+import {
+  createHandwrittenFunctionPlotObject,
+  createHandwrittenFunctionReplaceCommand,
+  createHandwrittenFunctionStrokeObjects,
+  handwrittenFunctionSourceStillApplies,
+  interpretHandwrittenFunctionDraft,
+} from "./handwritten-function-composition";
 import { CoordinatePlotEditorPanel } from "./CoordinatePlotEditorPanel";
 import { CoordinatePlotNavigationControls } from "./CoordinatePlotNavigationControls";
 import {
@@ -138,8 +162,43 @@ import "./styles.css";
 const environment = readEnvironment();
 const localActorId = actorId("actor:local-teacher");
 const navigationToolId = "navigation.pan" as const;
-type ActiveToolId = typeof navigationToolId | SelectionToolId | DrawingToolId;
+type ActiveToolId =
+  | typeof navigationToolId
+  | typeof handwrittenFunctionToolId
+  | SelectionToolId
+  | DrawingToolId;
 const initialDrawingState: DrawingInteractionState = { kind: "idle" };
+
+function handwrittenSessionDiagnosticMessage(
+  code: HandwrittenFunctionSessionDiagnosticCode,
+): string {
+  const messages: Record<HandwrittenFunctionSessionDiagnosticCode, string> = {
+    "handwriting.active-stroke": "Завершите текущий штрих.",
+    "handwriting.duration-limit": "Ввод занял слишком много времени.",
+    "handwriting.empty-session": "Добавьте хотя бы один штрих.",
+    "handwriting.empty-stroke": "Короткий штрих пропущен.",
+    "handwriting.invalid-action": "Действие недоступно в текущем состоянии.",
+    "handwriting.invalid-identifier":
+      "Внутренний идентификатор ввода некорректен.",
+    "handwriting.invalid-point": "Координаты штриха некорректны.",
+    "handwriting.point-limit": "Достигнут предел точек рукописной функции.",
+    "handwriting.pointer-mismatch": "Активный указатель изменился.",
+    "handwriting.stale-recognition":
+      "Получен устаревший результат распознавания.",
+    "handwriting.stroke-limit": "Достигнут предел количества штрихов.",
+  };
+  return messages[code];
+}
+
+function handwrittenStrokeObjectId(
+  sessionId: string,
+  stroke: HandwrittenFunctionStroke,
+  index: number,
+): BoardObjectId {
+  return boardObjectId(
+    `object:handwritten-function:${sessionId}:${index}:${stroke.id}`,
+  );
+}
 
 interface CoordinatePlotEditorSession {
   readonly draft: CoordinatePlotDefinition;
@@ -161,6 +220,7 @@ export interface AppProps {
   readonly commandActorId?: ActorId;
   readonly geometryOsClient?: GeometryOsClient | undefined;
   readonly historyEnabled?: boolean;
+  readonly mathInkRecognizer?: MathInkRecognizer | undefined;
   readonly initialDocument?: BoardDocument;
   readonly collaborativeUndoAvailable?: boolean;
   readonly onCollaborativeUndo?: () => void;
@@ -214,6 +274,7 @@ export function App({
   collaborativeUndoAvailable = false,
   geometryOsClient,
   historyEnabled = true,
+  mathInkRecognizer,
   initialDocument,
   onCommandCommitted,
   onCollaborativeUndo,
@@ -241,6 +302,30 @@ export function App({
     null,
   );
   const [smartInkNotice, setSmartInkNotice] = useState<string | null>(null);
+  const [handwrittenFunctionState, setHandwrittenFunctionState] =
+    useState<HandwrittenFunctionSessionState>(
+      initialHandwrittenFunctionSessionState,
+    );
+  const handwrittenFunctionStateRef = useRef<HandwrittenFunctionSessionState>(
+    initialHandwrittenFunctionSessionState,
+  );
+  const [
+    handwrittenFunctionSourceObjects,
+    setHandwrittenFunctionSourceObjects,
+  ] = useState<readonly PenStrokeObject[] | null>(null);
+  const handwrittenFunctionSourceObjectsRef = useRef<
+    readonly PenStrokeObject[] | null
+  >(null);
+  const [
+    handwrittenFunctionInterpretation,
+    setHandwrittenFunctionInterpretation,
+  ] = useState<HandwrittenFunctionInterpretation | null>(null);
+  const [handwrittenFunctionDraft, setHandwrittenFunctionDraft] = useState("");
+  const [handwrittenFunctionDiagnostic, setHandwrittenFunctionDiagnostic] =
+    useState<string | null>(null);
+  const handwrittenFunctionRecognitionAbortRef = useRef<AbortController | null>(
+    null,
+  );
   const [selectionState, setSelectionState] = useState(initialSelectionState);
   const selectionStateRef = useRef<SelectionState>(initialSelectionState);
   const [coordinatePlotEditor, setCoordinatePlotEditor] =
@@ -276,6 +361,7 @@ export function App({
   useEffect(
     () => () => {
       geometryOperationRef.current?.cancel();
+      handwrittenFunctionRecognitionAbortRef.current?.abort();
     },
     [],
   );
@@ -306,12 +392,147 @@ export function App({
     () => getDrawingPreview(drawingState),
     [drawingState],
   );
-  const previewItems = useMemo<readonly BoardRenderItem[]>(
+  const handwrittenFunctionStrokes = useMemo<
+    readonly HandwrittenFunctionStroke[]
+  >(() => {
+    if (handwrittenFunctionState.kind === "idle") return [];
+    const active =
+      handwrittenFunctionState.kind === "collecting"
+        ? handwrittenFunctionState.activeStroke
+        : null;
+    return active !== null && active.points.length >= 2
+      ? [
+          ...handwrittenFunctionState.strokes,
+          { id: active.id, points: active.points },
+        ]
+      : handwrittenFunctionState.strokes;
+  }, [handwrittenFunctionState]);
+  const handwrittenFunctionBounds = useMemo(
     () =>
-      drawingPreview === null
+      handwrittenFunctionState.kind === "idle"
+        ? null
+        : handwrittenFunctionState.kind === "collecting"
+          ? calculateHandwrittenFunctionBounds(handwrittenFunctionStrokes)
+          : handwrittenFunctionState.bounds,
+    [handwrittenFunctionState, handwrittenFunctionStrokes],
+  );
+  const handwrittenFunctionDraftInterpretation = useMemo(
+    () =>
+      handwrittenFunctionDraft.trim().length === 0
+        ? null
+        : interpretHandwrittenFunctionDraft(handwrittenFunctionDraft),
+    [handwrittenFunctionDraft],
+  );
+  const handwrittenFunctionDraftCandidate =
+    handwrittenFunctionDraftInterpretation?.status === "accepted"
+      ? handwrittenFunctionDraftInterpretation.selected
+      : null;
+  const handwrittenFunctionDraftIssue = useMemo(() => {
+    if (handwrittenFunctionDraft.trim().length === 0) {
+      return handwrittenFunctionSourceObjects === null
+        ? null
+        : "Введите функцию для построения графика.";
+    }
+    if (handwrittenFunctionDraftCandidate !== null) return null;
+    return (
+      handwrittenFunctionDraftInterpretation?.diagnostics.find(
+        ({ severity, code }) =>
+          severity === "error" &&
+          code !== "handwriting.interpretation.no-valid-candidate",
+      )?.message ?? "Выражение пока нельзя построить."
+    );
+  }, [
+    handwrittenFunctionDraft,
+    handwrittenFunctionDraftCandidate,
+    handwrittenFunctionDraftInterpretation,
+    handwrittenFunctionSourceObjects,
+  ]);
+  const handwrittenFunctionPlotObject = useMemo(() => {
+    if (
+      handwrittenFunctionBounds === null ||
+      handwrittenFunctionDraftCandidate === null ||
+      handwrittenFunctionState.kind === "idle"
+    ) {
+      return null;
+    }
+    const sessionId = handwrittenFunctionState.sessionId;
+    return createHandwrittenFunctionPlotObject({
+      bounds: handwrittenFunctionBounds,
+      candidate: handwrittenFunctionDraftCandidate,
+      ids: {
+        objectId: boardObjectId(
+          `object:handwritten-function-plot:${sessionId}`,
+        ),
+        parameterId: (_name, index) =>
+          plotParameterId(
+            `plot-parameter:handwritten-function:${sessionId}:${index}`,
+          ),
+        seriesId: plotSeriesId(`plot-series:handwritten-function:${sessionId}`),
+      },
+    });
+  }, [
+    handwrittenFunctionBounds,
+    handwrittenFunctionDraftCandidate,
+    handwrittenFunctionState,
+  ]);
+  const handwrittenFunctionSourceApplies = useMemo(
+    () =>
+      handwrittenFunctionSourceObjects !== null &&
+      handwrittenFunctionSourceStillApplies(
+        document,
+        handwrittenFunctionSourceObjects,
+      ),
+    [document, handwrittenFunctionSourceObjects],
+  );
+  const handwrittenFunctionPreviewItems = useMemo<
+    readonly BoardRenderItem[]
+  >(() => {
+    const inkItems =
+      handwrittenFunctionSourceObjects !== null ||
+      handwrittenFunctionState.kind === "idle"
         ? []
-        : [{ object: drawingPreview, transforms: [] }],
-    [drawingPreview],
+        : createHandwrittenFunctionStrokeObjects({
+            ids: {
+              objectId: (stroke, index) =>
+                handwrittenStrokeObjectId(
+                  handwrittenFunctionState.sessionId,
+                  stroke,
+                  index,
+                ),
+            },
+            strokes: handwrittenFunctionStrokes,
+          }).map((object) => ({ object, transforms: [] }));
+    const plotItems =
+      handwrittenFunctionSourceObjects === null ||
+      handwrittenFunctionPlotObject === null
+        ? []
+        : [
+            {
+              object: {
+                ...handwrittenFunctionPlotObject,
+                style: {
+                  ...handwrittenFunctionPlotObject.style,
+                  opacity: 0.72,
+                },
+              },
+              transforms: [],
+            },
+          ];
+    return [...inkItems, ...plotItems];
+  }, [
+    handwrittenFunctionPlotObject,
+    handwrittenFunctionSourceObjects,
+    handwrittenFunctionState,
+    handwrittenFunctionStrokes,
+  ]);
+  const previewItems = useMemo<readonly BoardRenderItem[]>(
+    () => [
+      ...(drawingPreview === null
+        ? []
+        : [{ object: drawingPreview, transforms: [] }]),
+      ...handwrittenFunctionPreviewItems,
+    ],
+    [drawingPreview, handwrittenFunctionPreviewItems],
   );
   const selectionPreviewDelta = useMemo(
     () => getSelectionPreviewDelta(selectionState),
@@ -765,8 +986,290 @@ export function App({
     [commitCommand, commitDrawingObject, createCommandMetadata],
   );
 
+  const applyHandwrittenFunctionAction = useCallback(
+    (
+      action: HandwrittenFunctionSessionAction,
+    ): HandwrittenFunctionSessionState => {
+      const result = reduceHandwrittenFunctionSession(
+        handwrittenFunctionStateRef.current,
+        action,
+      );
+      handwrittenFunctionStateRef.current = result.state;
+      setHandwrittenFunctionState(result.state);
+      if (result.diagnostic !== null) {
+        setHandwrittenFunctionDiagnostic(
+          handwrittenSessionDiagnosticMessage(result.diagnostic),
+        );
+      }
+      return result.state;
+    },
+    [],
+  );
+
+  const closeHandwrittenFunctionState = useCallback(() => {
+    handwrittenFunctionRecognitionAbortRef.current?.abort();
+    handwrittenFunctionRecognitionAbortRef.current = null;
+    handwrittenFunctionStateRef.current =
+      initialHandwrittenFunctionSessionState;
+    setHandwrittenFunctionState(initialHandwrittenFunctionSessionState);
+    handwrittenFunctionSourceObjectsRef.current = null;
+    setHandwrittenFunctionSourceObjects(null);
+    setHandwrittenFunctionInterpretation(null);
+    setHandwrittenFunctionDraft("");
+    setHandwrittenFunctionDiagnostic(null);
+  }, []);
+
+  const materializeHandwrittenFunctionInk = useCallback(
+    (
+      state: Exclude<
+        HandwrittenFunctionSessionState,
+        { readonly kind: "idle" }
+      >,
+    ): readonly PenStrokeObject[] | null => {
+      const existing = handwrittenFunctionSourceObjectsRef.current;
+      if (existing !== null) return existing;
+      if (state.strokes.length === 0) return null;
+      const objects = createHandwrittenFunctionStrokeObjects({
+        ids: {
+          objectId: (stroke, index) =>
+            handwrittenStrokeObjectId(state.sessionId, stroke, index),
+        },
+        strokes: state.strokes,
+      });
+      const committed = commitCommand({
+        ...createCommandMetadata(),
+        kind: "core.objects.add",
+        objects,
+      });
+      if (!committed.ok) {
+        setHandwrittenFunctionDiagnostic(committed.error.message);
+        return null;
+      }
+      handwrittenFunctionSourceObjectsRef.current = objects;
+      setHandwrittenFunctionSourceObjects(objects);
+      return objects;
+    },
+    [commitCommand, createCommandMetadata],
+  );
+
+  const preserveHandwrittenFunctionInk = useCallback((): boolean => {
+    handwrittenFunctionRecognitionAbortRef.current?.abort();
+    let state = handwrittenFunctionStateRef.current;
+    if (
+      state.kind === "collecting" &&
+      state.activeStroke !== null &&
+      state.activeStroke.points.length >= 2
+    ) {
+      const point = state.activeStroke.points.at(-1)!;
+      state = applyHandwrittenFunctionAction({
+        kind: "finish-stroke",
+        point,
+        pointerId: state.activeStroke.pointerId,
+      });
+    }
+    if (
+      state.kind !== "idle" &&
+      state.strokes.length > 0 &&
+      handwrittenFunctionSourceObjectsRef.current === null &&
+      materializeHandwrittenFunctionInk(state) === null
+    ) {
+      return false;
+    }
+    closeHandwrittenFunctionState();
+    setAccessibilityNotice("Рукописные штрихи оставлены на доске");
+    return true;
+  }, [
+    applyHandwrittenFunctionAction,
+    closeHandwrittenFunctionState,
+    materializeHandwrittenFunctionInk,
+  ]);
+
+  const clearHandwrittenFunction = useCallback(() => {
+    handwrittenFunctionRecognitionAbortRef.current?.abort();
+    const originals = handwrittenFunctionSourceObjectsRef.current;
+    if (originals !== null) {
+      const objectIds = originals
+        .map(({ id }) => id)
+        .filter((id) => documentRef.current.objects[id] !== undefined);
+      if (objectIds.length > 0) {
+        const removed = commitCommand({
+          ...createCommandMetadata(),
+          kind: "core.objects.delete",
+          objectIds,
+        });
+        if (!removed.ok) {
+          setHandwrittenFunctionDiagnostic(removed.error.message);
+          return;
+        }
+      }
+    }
+    closeHandwrittenFunctionState();
+    setAccessibilityNotice("Рукописный ввод очищен");
+  }, [closeHandwrittenFunctionState, commitCommand, createCommandMetadata]);
+
+  const recognizeHandwrittenFunction = useCallback(() => {
+    let state = handwrittenFunctionStateRef.current;
+    if (state.kind === "idle" || state.kind === "recognizing") return;
+    if (state.kind === "resolved" || state.kind === "failed") {
+      state = applyHandwrittenFunctionAction({ kind: "reopen-input" });
+    }
+    if (state.kind === "collecting") {
+      state = applyHandwrittenFunctionAction({ kind: "complete-input" });
+    }
+    if (state.kind !== "ready") return;
+    const sourceObjects = materializeHandwrittenFunctionInk(state);
+    if (sourceObjects === null) return;
+    if (mathInkRecognizer === undefined) {
+      setHandwrittenFunctionDiagnostic(
+        "Штрихи сохранены. Введите функцию вручную.",
+      );
+      setAccessibilityNotice("Штрихи сохранены для ручного ввода функции");
+      return;
+    }
+
+    handwrittenFunctionRecognitionAbortRef.current?.abort();
+    const recognitionId = `recognition:${crypto.randomUUID()}`;
+    const request = createMathInkRecognitionRequest(state, recognitionId);
+    const started = applyHandwrittenFunctionAction({
+      kind: "recognition-started",
+      recognitionId,
+    });
+    if (started.kind !== "recognizing") return;
+    const controller = new AbortController();
+    handwrittenFunctionRecognitionAbortRef.current = controller;
+    setHandwrittenFunctionDiagnostic(null);
+    void mathInkRecognizer
+      .recognize(request, controller.signal)
+      .then((result) => {
+        const current = handwrittenFunctionStateRef.current;
+        if (
+          controller.signal.aborted ||
+          current.kind !== "recognizing" ||
+          current.recognitionId !== recognitionId
+        ) {
+          return;
+        }
+        const resolved = applyHandwrittenFunctionAction({
+          kind: "recognition-resolved",
+          recognitionId,
+          result,
+        });
+        if (resolved.kind !== "resolved") return;
+        const interpreted = interpretMathInkRecognitionResult(result);
+        setHandwrittenFunctionInterpretation(interpreted);
+        const expression =
+          interpreted.selected?.expression ??
+          interpreted.candidates[0]?.expression ??
+          "";
+        setHandwrittenFunctionDraft(expression);
+        setHandwrittenFunctionDiagnostic(
+          interpreted.status === "accepted"
+            ? null
+            : interpreted.status === "ambiguous"
+              ? "Проверьте выбранный вариант или исправьте выражение."
+              : "Введите функцию вручную или повторите распознавание.",
+        );
+        setAccessibilityNotice(
+          interpreted.status === "accepted"
+            ? "Рукописная функция распознана"
+            : "Результат распознавания требует проверки",
+        );
+      })
+      .catch((error: unknown) => {
+        if (
+          controller.signal.aborted ||
+          isMathInkRecognitionAbortError(error)
+        ) {
+          return;
+        }
+        const current = handwrittenFunctionStateRef.current;
+        if (
+          current.kind !== "recognizing" ||
+          current.recognitionId !== recognitionId
+        ) {
+          return;
+        }
+        applyHandwrittenFunctionAction({
+          error: {
+            code: "handwriting.recognition-failed",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Распознавание завершилось ошибкой.",
+            retryable: true,
+          },
+          kind: "recognition-failed",
+          recognitionId,
+        });
+        setHandwrittenFunctionDiagnostic(
+          error instanceof Error
+            ? error.message
+            : "Распознавание завершилось ошибкой.",
+        );
+        setAccessibilityNotice(
+          "Распознавание завершилось ошибкой; штрихи сохранены",
+        );
+      })
+      .finally(() => {
+        if (handwrittenFunctionRecognitionAbortRef.current === controller) {
+          handwrittenFunctionRecognitionAbortRef.current = null;
+        }
+      });
+  }, [
+    applyHandwrittenFunctionAction,
+    materializeHandwrittenFunctionInk,
+    mathInkRecognizer,
+  ]);
+
+  const buildHandwrittenFunctionPlot = useCallback(() => {
+    const originals = handwrittenFunctionSourceObjectsRef.current;
+    if (
+      originals === null ||
+      handwrittenFunctionPlotObject === null ||
+      !handwrittenFunctionSourceStillApplies(documentRef.current, originals)
+    ) {
+      setHandwrittenFunctionDiagnostic(
+        "Исходные штрихи изменились. Запустите ввод заново.",
+      );
+      return;
+    }
+    const result = commitCommand(
+      createHandwrittenFunctionReplaceCommand(
+        createCommandMetadata(),
+        originals,
+        handwrittenFunctionPlotObject,
+      ),
+    );
+    if (!result.ok) {
+      setHandwrittenFunctionDiagnostic(result.error.message);
+      return;
+    }
+    closeHandwrittenFunctionState();
+    const selected: SelectionState = {
+      interaction: { kind: "idle" },
+      selectedObjectIds: [handwrittenFunctionPlotObject.id],
+    };
+    selectionStateRef.current = selected;
+    setSelectionState(selected);
+    setSelectionInspectorObjectId(null);
+    setActiveTool(selectionToolId);
+    setAccessibilityNotice("График рукописной функции построен");
+  }, [
+    closeHandwrittenFunctionState,
+    commitCommand,
+    createCommandMetadata,
+    handwrittenFunctionPlotObject,
+  ]);
+
   const activateTool = useCallback(
     (tool: ActiveToolId) => {
+      if (
+        activeTool === handwrittenFunctionToolId &&
+        tool !== handwrittenFunctionToolId &&
+        !preserveHandwrittenFunctionInk()
+      ) {
+        return;
+      }
       applyDrawingAction({ kind: "cancel" });
       setSmartInkNotice(null);
       const selectionResult = reduceSelectionInteraction(
@@ -778,7 +1281,7 @@ export function App({
       setSelectionInspectorObjectId(null);
       setActiveTool(tool);
     },
-    [applyDrawingAction],
+    [activeTool, applyDrawingAction, preserveHandwrittenFunctionInk],
   );
 
   const beginCoordinatePlotEditing = useCallback(
@@ -1235,6 +1738,15 @@ export function App({
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement ||
         (event.target instanceof HTMLElement && event.target.isContentEditable);
+      if (
+        event.key === "Escape" &&
+        (activeTool === handwrittenFunctionToolId ||
+          handwrittenFunctionState.kind !== "idle")
+      ) {
+        event.preventDefault();
+        activateTool(navigationToolId);
+        return;
+      }
       if (event.key === "Escape" && coordinatePlotEditor !== null) {
         return;
       }
@@ -1285,6 +1797,15 @@ export function App({
       if (event.key.toLowerCase() === "g") {
         event.preventDefault();
         createCoordinatePlot();
+        return;
+      }
+      if (
+        event.key.toLowerCase() === "f" &&
+        environment.features.handwrittenFunctions &&
+        !readOnly
+      ) {
+        event.preventDefault();
+        activateTool(handwrittenFunctionToolId);
         return;
       }
       const arrowDelta = {
@@ -1351,10 +1872,13 @@ export function App({
     return () => window.removeEventListener("keydown", handleShortcut);
   }, [
     activateTool,
+    activeTool,
     closeShortcuts,
     coordinatePlotEditor,
     createCoordinatePlot,
     commitCommand,
+    handwrittenFunctionState.kind,
+    readOnly,
     commitSelectionMove,
     copySelection,
     cutSelection,
@@ -1388,8 +1912,76 @@ export function App({
     selectionState.selectedObjectIds,
   ]);
 
+  const startHandwrittenFunctionStroke = useCallback(
+    (sample: WorldPointerSample) => {
+      let state = handwrittenFunctionStateRef.current;
+      const point = {
+        timeMs: performance.now(),
+        x: sample.point.x,
+        y: sample.point.y,
+      };
+      if (state.kind === "idle") {
+        state = applyHandwrittenFunctionAction({
+          kind: "begin",
+          sessionId: `handwriting-session:${crypto.randomUUID()}`,
+          startedAtMs: point.timeMs,
+        });
+      }
+      if (state.kind !== "collecting") return;
+      setHandwrittenFunctionDiagnostic(null);
+      applyHandwrittenFunctionAction({
+        kind: "start-stroke",
+        point,
+        pointerId: sample.pointerId,
+        strokeId: `handwriting-stroke:${crypto.randomUUID()}`,
+      });
+    },
+    [applyHandwrittenFunctionAction],
+  );
+
+  const moveHandwrittenFunctionStroke = useCallback(
+    (sample: WorldPointerSample) => {
+      applyHandwrittenFunctionAction({
+        kind: "append-point",
+        point: {
+          timeMs: performance.now(),
+          x: sample.point.x,
+          y: sample.point.y,
+        },
+        pointerId: sample.pointerId,
+      });
+    },
+    [applyHandwrittenFunctionAction],
+  );
+
+  const finishHandwrittenFunctionStroke = useCallback(
+    (sample: WorldPointerSample) => {
+      applyHandwrittenFunctionAction({
+        kind: "finish-stroke",
+        point: {
+          timeMs: performance.now(),
+          x: sample.point.x,
+          y: sample.point.y,
+        },
+        pointerId: sample.pointerId,
+      });
+    },
+    [applyHandwrittenFunctionAction],
+  );
+
+  const cancelHandwrittenFunctionStroke = useCallback(
+    (pointerId: number) => {
+      applyHandwrittenFunctionAction({ kind: "cancel-stroke", pointerId });
+    },
+    [applyHandwrittenFunctionAction],
+  );
+
   const startDrawing = useCallback(
     (sample: WorldPointerSample) => {
+      if (activeTool === handwrittenFunctionToolId) {
+        startHandwrittenFunctionStroke(sample);
+        return;
+      }
       if (!isDrawingToolId(activeTool)) {
         return;
       }
@@ -1405,22 +1997,30 @@ export function App({
         tool: activeTool,
       });
     },
-    [activeTool, applyDrawingAction, textDraft],
+    [activeTool, applyDrawingAction, startHandwrittenFunctionStroke, textDraft],
   );
 
   const moveDrawing = useCallback(
     (sample: WorldPointerSample) => {
+      if (activeTool === handwrittenFunctionToolId) {
+        moveHandwrittenFunctionStroke(sample);
+        return;
+      }
       applyDrawingAction({
         kind: "move",
         point: sample.point,
         pointerId: sample.pointerId,
       });
     },
-    [applyDrawingAction],
+    [activeTool, applyDrawingAction, moveHandwrittenFunctionStroke],
   );
 
   const finishDrawing = useCallback(
     (sample: WorldPointerSample) => {
+      if (activeTool === handwrittenFunctionToolId) {
+        finishHandwrittenFunctionStroke(sample);
+        return;
+      }
       applyDrawingAction(
         {
           kind: "finish",
@@ -1430,14 +2030,18 @@ export function App({
         activeTool === "drawing.smart-ink",
       );
     },
-    [activeTool, applyDrawingAction],
+    [activeTool, applyDrawingAction, finishHandwrittenFunctionStroke],
   );
 
   const cancelDrawing = useCallback(
     (pointerId: number) => {
+      if (activeTool === handwrittenFunctionToolId) {
+        cancelHandwrittenFunctionStroke(pointerId);
+        return;
+      }
       applyDrawingAction({ kind: "cancel", pointerId });
     },
-    [applyDrawingAction],
+    [activeTool, applyDrawingAction, cancelHandwrittenFunctionStroke],
   );
 
   const applySelectionAction = useCallback(
@@ -1709,6 +2313,23 @@ export function App({
   const canUngroup =
     selectedGroupIds.length > 0 &&
     selectedGroupIds.every((id) => !importRootGroupIds.has(id));
+  const handwrittenFunctionCanRecognize =
+    handwrittenFunctionState.kind !== "idle" &&
+    handwrittenFunctionState.kind !== "recognizing" &&
+    handwrittenFunctionState.strokes.length > 0 &&
+    (handwrittenFunctionState.kind !== "collecting" ||
+      handwrittenFunctionState.activeStroke === null) &&
+    (mathInkRecognizer !== undefined ||
+      handwrittenFunctionSourceObjects === null);
+  const handwrittenFunctionCanBuild =
+    handwrittenFunctionState.kind !== "recognizing" &&
+    handwrittenFunctionDraftCandidate !== null &&
+    handwrittenFunctionPlotObject !== null &&
+    handwrittenFunctionSourceApplies;
+  const handwrittenFunctionPanelOpen =
+    environment.features.handwrittenFunctions &&
+    (activeTool === handwrittenFunctionToolId ||
+      handwrittenFunctionState.kind !== "idle");
   const selectionInspectorOpen =
     coordinatePlotEditor === null &&
     selectionInspectorObjectId !== null &&
@@ -1917,7 +2538,7 @@ export function App({
             </div>
             <dl>
               <div>
-                <dt>V / L / H / P / I / R / E / T / G</dt>
+                <dt>V / L / H / P / I / R / E / T / F / G</dt>
                 <dd>Выбор инструмента и создание графика</dd>
               </div>
               <div>
@@ -1996,7 +2617,12 @@ export function App({
         ) : null}
         <BoardStage
           coordinatePlotInteraction={coordinatePlotInteraction}
-          drawingModeKey={isDrawingToolId(activeTool) ? activeTool : null}
+          drawingModeKey={
+            isDrawingToolId(activeTool) ||
+            activeTool === handwrittenFunctionToolId
+              ? activeTool
+              : null
+          }
           onWorldPointerCancel={cancelDrawing}
           onWorldPointerFinish={finishDrawing}
           onWorldPointerMove={moveDrawing}
@@ -2044,6 +2670,26 @@ export function App({
             onZoomOut={() => zoomCoordinatePlotEditor(1.25)}
           />
         )}
+        {handwrittenFunctionPanelOpen ? (
+          <HandwrittenFunctionPanel
+            canBuild={handwrittenFunctionCanBuild}
+            canRecognize={handwrittenFunctionCanRecognize}
+            diagnostic={handwrittenFunctionDiagnostic}
+            draftCandidate={handwrittenFunctionDraftCandidate}
+            draftExpression={handwrittenFunctionDraft}
+            draftIssue={handwrittenFunctionDraftIssue}
+            interpretation={handwrittenFunctionInterpretation}
+            onBuild={buildHandwrittenFunctionPlot}
+            onCandidateSelect={setHandwrittenFunctionDraft}
+            onClear={clearHandwrittenFunction}
+            onDraftChange={setHandwrittenFunctionDraft}
+            onKeepInk={() => activateTool(navigationToolId)}
+            onRecognize={recognizeHandwrittenFunction}
+            recognizerAvailable={mathInkRecognizer !== undefined}
+            session={handwrittenFunctionState}
+            sourcePersisted={handwrittenFunctionSourceObjects !== null}
+          />
+        ) : null}
         {coordinatePlotEditor === null ? null : (
           <CoordinatePlotEditorPanel
             definition={coordinatePlotEditor.draft}
@@ -2210,6 +2856,23 @@ export function App({
             <span aria-hidden="true">{lassoSelectionTool.icon}</span>
           </button>
           <span aria-hidden="true" className="toolbar-divider" />
+          {environment.features.handwrittenFunctions ? (
+            <button
+              aria-label="Рукописная функция (F)"
+              aria-pressed={activeTool === handwrittenFunctionToolId}
+              className={
+                activeTool === handwrittenFunctionToolId
+                  ? "drawing-tool is-active"
+                  : "drawing-tool"
+              }
+              disabled={readOnly}
+              onClick={() => activateTool(handwrittenFunctionToolId)}
+              title="Рукописная функция · F"
+              type="button"
+            >
+              <span aria-hidden="true">ƒ</span>
+            </button>
+          ) : null}
           {drawingTools.map((tool) => (
             <button
               aria-label={`${tool.label} (${tool.shortcut})`}
@@ -2243,28 +2906,32 @@ export function App({
           <strong>
             {coordinatePlotEditor !== null
               ? "Редактор графика"
-              : activeTool === navigationToolId
-                ? "Навигация"
-                : activeTool === selectionToolId
-                  ? "Выделение"
-                  : activeTool === lassoSelectionToolId
-                    ? "Лассо"
-                    : activeTool === "drawing.smart-ink"
-                      ? "Smart Ink"
-                      : "Создание объекта"}
+              : activeTool === handwrittenFunctionToolId
+                ? "Рукописная функция"
+                : activeTool === navigationToolId
+                  ? "Навигация"
+                  : activeTool === selectionToolId
+                    ? "Выделение"
+                    : activeTool === lassoSelectionToolId
+                      ? "Лассо"
+                      : activeTool === "drawing.smart-ink"
+                        ? "Smart Ink"
+                        : "Создание объекта"}
           </strong>
           <span>
             {coordinatePlotEditor !== null
               ? "Тяните внутри плоскости; колесо меняет внутренний масштаб"
-              : activeTool === navigationToolId
-                ? "Потяните полотно для перемещения"
-                : activeTool === selectionToolId
-                  ? "Клик, Shift+клик или рамка выделения"
-                  : activeTool === lassoSelectionToolId
-                    ? "Обведите объекты; Shift добавляет, Alt исключает"
-                    : activeTool === "drawing.smart-ink"
-                      ? "Нарисуйте фигуру одним непрерывным штрихом"
-                      : "Потяните или нажмите на полотно"}
+              : activeTool === handwrittenFunctionToolId
+                ? "Нарисуйте формулу несколькими штрихами и нажмите «Распознать»"
+                : activeTool === navigationToolId
+                  ? "Потяните полотно для перемещения"
+                  : activeTool === selectionToolId
+                    ? "Клик, Shift+клик или рамка выделения"
+                    : activeTool === lassoSelectionToolId
+                      ? "Обведите объекты; Shift добавляет, Alt исключает"
+                      : activeTool === "drawing.smart-ink"
+                        ? "Нарисуйте фигуру одним непрерывным штрихом"
+                        : "Потяните или нажмите на полотно"}
           </span>
           <span>Правая кнопка / Space / средняя кнопка — перемещение</span>
           <span>Escape — отменить действие</span>

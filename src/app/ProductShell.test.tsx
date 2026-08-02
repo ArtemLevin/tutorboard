@@ -52,6 +52,7 @@ const environment: AppEnvironment = {
     developmentDiagnostics: true,
     documentSnapshots: true,
     geometryPrompt: true,
+    handwrittenFunctions: true,
     serverSync: false,
     smartInk: true,
     smartInkDiagnostics: true,

@@ -37,6 +37,7 @@ Implemented modules:
 - `handwritten-function` owns the transient bounded multi-stroke session,
   aspect-preserving request normalization, provider-neutral math-ink contracts,
   constrained LaTeX/JIIX conversion, production expression validation,
-  parameter discovery, candidate ranking and an abort-safe fake recognizer. It
-  does not own canvas events, networking, graph construction or BoardDocument
-  mutation.
+  parameter discovery, candidate ranking and an abort-safe fake recognizer. The
+  application layer owns canvas events, source-ink persistence, editable review,
+  coordinate-plot composition and history. Provider networking and credentials
+  remain an adapter responsibility.
