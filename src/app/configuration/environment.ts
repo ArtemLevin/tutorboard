@@ -13,6 +13,7 @@ export interface AppFeatureFlags {
   readonly developmentDiagnostics: boolean;
   readonly documentSnapshots: boolean;
   readonly geometryPrompt: boolean;
+  readonly handwrittenFunctions: boolean;
   readonly serverSync: boolean;
   readonly smartInk: boolean;
   readonly smartInkDiagnostics: boolean;
@@ -22,6 +23,7 @@ export interface AppFeatureFlagInput {
   readonly developmentDiagnostics?: string | undefined;
   readonly documentSnapshots?: string | undefined;
   readonly geometryPrompt?: string | undefined;
+  readonly handwrittenFunctions?: string | undefined;
   readonly serverSync?: string | undefined;
   readonly smartInk?: string | undefined;
   readonly smartInkDiagnostics?: string | undefined;
@@ -54,6 +56,7 @@ export function readEnvironment(
     developmentDiagnostics: import.meta.env.VITE_FEATURE_DEV_DIAGNOSTICS,
     documentSnapshots: import.meta.env.VITE_FEATURE_DOCUMENT_SNAPSHOTS,
     geometryPrompt: import.meta.env.VITE_FEATURE_GEOMETRY_PROMPT,
+    handwrittenFunctions: import.meta.env.VITE_FEATURE_HANDWRITTEN_FUNCTIONS,
     serverSync: import.meta.env.VITE_FEATURE_SERVER_SYNC,
     smartInk: import.meta.env.VITE_FEATURE_SMART_INK,
     smartInkDiagnostics: import.meta.env.VITE_FEATURE_SMART_INK_DIAGNOSTICS,
@@ -120,6 +123,11 @@ export function readEnvironment(
         "VITE_FEATURE_GEOMETRY_PROMPT",
         featureInput.geometryPrompt,
         true,
+      ),
+      handwrittenFunctions: booleanFlag(
+        "VITE_FEATURE_HANDWRITTEN_FUNCTIONS",
+        featureInput.handwrittenFunctions,
+        stage !== "production",
       ),
       serverSync: booleanFlag(
         "VITE_FEATURE_SERVER_SYNC",
