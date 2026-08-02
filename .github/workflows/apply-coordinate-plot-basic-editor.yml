@@ -1,0 +1,67 @@
+name: Apply coordinate plot basic editor
+
+on:
+  push:
+    branches:
+      - feature/coordinate-plot-basic-editor
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    if: github.actor != 'github-actions[bot]' && contains(github.event.head_commit.message, 'run coordinate plot basic editor patch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/coordinate-plot-basic-editor
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Validate patcher syntax
+        run: python3 -m py_compile scripts/apply-coordinate-plot-basic-editor.py
+
+      - name: Apply two-level editor patch
+        run: python3 scripts/apply-coordinate-plot-basic-editor.py
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Format changed sources
+        run: npm run format
+
+      - name: Commit implementation before verification
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src tests
+          git diff --cached --check
+          git commit -m "feat: add compact coordinate plot settings" || true
+          git push origin HEAD:feature/coordinate-plot-basic-editor
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm run test
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Install Chromium and Firefox
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Run focused editor browser coverage
+        run: npx playwright test tests/e2e/coordinate-plot-accessibility.spec.ts tests/e2e/object-settings-right-double-click.spec.ts --project=chromium --project=firefox --reporter=list
