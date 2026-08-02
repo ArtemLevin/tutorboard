@@ -64,12 +64,10 @@ async function coordinatePlotClientBounds(
     plot.position.y * document.viewport.zoom;
   return {
     bottom:
-      top +
-      plot.definition.size.height * plot.scale.y * document.viewport.zoom,
+      top + plot.definition.size.height * plot.scale.y * document.viewport.zoom,
     left,
     right:
-      left +
-      plot.definition.size.width * plot.scale.x * document.viewport.zoom,
+      left + plot.definition.size.width * plot.scale.x * document.viewport.zoom,
     top,
   };
 }

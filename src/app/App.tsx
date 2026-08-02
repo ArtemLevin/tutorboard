@@ -2220,7 +2220,6 @@ export function App({
                       : "Потяните или нажмите на полотно"}
           </span>
           <span>Правая кнопка / Space / средняя кнопка — перемещение</span>
-          <span>Двойной щелчок правой кнопкой по объекту — настройки</span>
           <span>Escape — отменить действие</span>
         </aside>
         {!selectionInspectorOpen ? null : (
