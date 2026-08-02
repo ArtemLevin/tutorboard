@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import http from "node:http";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import { mathInkProxyLimits, mathInkProxyServiceVersion } from "./contract.mjs";
 import {
@@ -283,7 +284,7 @@ function runtimeService() {
   };
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = integerEnvironment("MATH_INK_PROXY_PORT", 8787, 65_535);
   const runtime = runtimeService();
   const server = createMathInkProxyHttpServer(runtime);
