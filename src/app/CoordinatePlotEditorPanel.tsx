@@ -1697,8 +1697,10 @@ export function CoordinatePlotEditorPanel({
   return (
     <aside
       aria-describedby={advancedOpen ? undefined : `${editorId}-status`}
+      aria-hidden={advancedOpen || undefined}
       aria-label="Редактор координатной плоскости"
       className="coordinate-plot-editor-panel coordinate-plot-basic-editor-panel"
+      data-advanced-open={advancedOpen ? "true" : "false"}
       data-testid="coordinate-plot-editor"
       ref={basicPanelRef}
       tabIndex={-1}

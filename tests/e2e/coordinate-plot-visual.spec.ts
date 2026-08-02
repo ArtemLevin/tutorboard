@@ -50,9 +50,7 @@ test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
     fullPage: true,
   });
 
-  await editor
-    .getByRole("button", { name: /Расширенные настройки/ })
-    .click();
+  await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
   const advancedEditor = page.getByRole("dialog", {
     name: "Расширенные настройки графика",
   });
