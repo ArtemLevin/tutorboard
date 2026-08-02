@@ -1,10 +1,11 @@
+import { describe, expect, it, vi } from "vitest";
+
 import {
   mathInkRecognitionRequestSchemaVersion,
   type MathInkRecognitionRequest,
 } from "../../modules/handwritten-function/public";
 import {
   createMathInkHttpRecognizer,
-  MathInkHttpError,
   mathInkRequestIdHeader,
 } from "./public";
 import { mathInkProxyResultSchemaVersion } from "./validation";
@@ -54,7 +55,13 @@ function resultResponse(overrides: Record<string, unknown> = {}): Response {
 
 describe("math ink HTTP recognizer", () => {
   it("sends the provider-neutral request to the same-origin proxy", async () => {
-    const fetch = vi.fn(async () => resultResponse());
+    let capturedInput: RequestInfo | URL | undefined;
+    let capturedInit: RequestInit | undefined;
+    const fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      capturedInput = input;
+      capturedInit = init;
+      return Promise.resolve(resultResponse());
+    });
     const recognizer = createMathInkHttpRecognizer({
       baseUrl: "/api/v1/math-ink",
       fetch,
@@ -67,14 +74,15 @@ describe("math ink HTTP recognizer", () => {
     );
 
     expect(fetch).toHaveBeenCalledOnce();
-    const [url, init] = fetch.mock.calls[0]!;
-    expect(String(url)).toBe("https://board.example/api/v1/math-ink/recognize");
-    expect(init?.method).toBe("POST");
-    expect(init?.headers).toMatchObject({
+    expect(String(capturedInput)).toBe(
+      "https://board.example/api/v1/math-ink/recognize",
+    );
+    expect(capturedInit?.method).toBe("POST");
+    expect(capturedInit?.headers).toMatchObject({
       "Content-Type": "application/json",
       [mathInkRequestIdHeader]: request.recognitionId,
     });
-    expect(JSON.parse(String(init?.body))).toEqual(request);
+    expect(JSON.parse(String(capturedInit?.body))).toEqual(request);
     expect(result).toMatchObject({
       candidates: [{ confidence: 0.98, expression: "x^2", format: "latex" }],
       recognizerId: "mathpix.strokes.via-tutorboard-proxy",
@@ -102,28 +110,30 @@ describe("math ink HTTP recognizer", () => {
   it("maps bounded proxy problems to typed errors", async () => {
     const recognizer = createMathInkHttpRecognizer({
       baseUrl: "/api/v1/math-ink",
-      fetch: async () =>
-        new Response(
-          JSON.stringify({
-            code: "math-ink.proxy-busy",
-            detail: "busy",
-            requestId: request.recognitionId,
-            retryable: true,
-            status: 503,
-            title: "Proxy busy",
-            type: "https://tutorboard.local/problems/math-ink.proxy-busy",
-          }),
-          {
-            headers: { "Content-Type": "application/problem+json" },
-            status: 503,
-          },
+      fetch: () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              code: "math-ink.proxy-busy",
+              detail: "busy",
+              requestId: request.recognitionId,
+              retryable: true,
+              status: 503,
+              title: "Proxy busy",
+              type: "https://tutorboard.local/problems/math-ink.proxy-busy",
+            }),
+            {
+              headers: { "Content-Type": "application/problem+json" },
+              status: 503,
+            },
+          ),
         ),
       origin: "https://board.example",
     });
 
     await expect(
       recognizer.recognize(request, new AbortController().signal),
-    ).rejects.toMatchObject<MathInkHttpError>({
+    ).rejects.toMatchObject({
       code: "math-ink.proxy-busy",
       retryable: true,
     });
@@ -132,7 +142,8 @@ describe("math ink HTTP recognizer", () => {
   it("rejects response request ID mismatches", async () => {
     const recognizer = createMathInkHttpRecognizer({
       baseUrl: "/api/v1/math-ink",
-      fetch: async () => resultResponse({ requestId: "recognition:other" }),
+      fetch: () =>
+        Promise.resolve(resultResponse({ requestId: "recognition:other" })),
       origin: "https://board.example",
     });
 
@@ -184,14 +195,16 @@ describe("math ink HTTP recognizer", () => {
   it("rejects oversized declared responses before parsing", async () => {
     const recognizer = createMathInkHttpRecognizer({
       baseUrl: "/api/v1/math-ink",
-      fetch: async () =>
-        new Response("{}", {
-          headers: {
-            "Content-Length": "1000",
-            "Content-Type": "application/json",
-          },
-          status: 200,
-        }),
+      fetch: () =>
+        Promise.resolve(
+          new Response("{}", {
+            headers: {
+              "Content-Length": "1000",
+              "Content-Type": "application/json",
+            },
+            status: 200,
+          }),
+        ),
       maximumResponseBytes: 64,
       origin: "https://board.example",
     });
