@@ -1,7 +1,5 @@
-import type {
-  ExpressionDiagnosticCode,
-  MathInkRecognitionFormat,
-} from "./types";
+import type { ExpressionDiagnosticCode } from "../../core/public";
+import type { MathInkRecognitionFormat } from "./types";
 
 export const handwrittenFunctionInterpretationSchemaVersion =
   "tutorboard.handwritten-function-interpretation/0.1" as const;
@@ -40,6 +38,7 @@ export type HandwrittenFunctionInterpretationDiagnosticCode =
   | "handwriting.interpretation.parameter-limit"
   | "handwriting.interpretation.provider"
   | "handwriting.interpretation.source-too-long"
+  | "handwriting.interpretation.unsupported-function"
   | "handwriting.interpretation.unsupported-relation"
   | ExpressionDiagnosticCode;
 
