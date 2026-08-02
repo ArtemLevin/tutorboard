@@ -13,11 +13,12 @@ export async function rightDoubleClickBoardCenter(page: Page): Promise<void> {
   await page.mouse.click(point.x, point.y, { button: "right" });
 }
 
-export async function openCoordinatePlotEditorByRightDoubleClick(page: Page) {
+export async function openCoordinatePlotEditorByRightDoubleClick(
+  page: Page,
+): Promise<void> {
   await rightDoubleClickBoardCenter(page);
   const editor = page.getByRole("complementary", {
     name: "Редактор координатной плоскости",
   });
   await expect(editor).toBeVisible();
-  return editor;
 }
