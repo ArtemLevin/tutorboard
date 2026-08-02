@@ -83,9 +83,19 @@ describe("CoordinatePlotEditorPanel", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Расширенные настройки/ }),
     );
+    const advanced = screen.getByRole("dialog", {
+      name: "Расширенные настройки графика",
+    });
+    expect(advanced).toBeInTheDocument();
     expect(
-      screen.getByRole("dialog", { name: "Расширенные настройки графика" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /Расширенные настройки/ }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "К базовым настройкам" }),
+    );
+    expect(advanced).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Формула явной функции")).toHaveValue("2*x+a");
   });
 
   it("edits the selected formula and surfaces local diagnostics", () => {

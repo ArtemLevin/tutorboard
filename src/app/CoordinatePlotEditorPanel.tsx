@@ -1417,7 +1417,7 @@ function focusableDialogElements(root: HTMLElement): HTMLElement[] {
     ...root.querySelectorAll<HTMLElement>(
       'button:not(:disabled), input:not(:disabled), select:not(:disabled), summary, [tabindex]:not([tabindex="-1"])',
     ),
-  ].filter((element) => !element.hasAttribute("hidden"));
+  ].filter((element) => element.closest("[hidden]") === null);
 }
 
 function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>): void {
@@ -1505,7 +1505,7 @@ export function CoordinatePlotEditorPanel({
       preferred?.isConnected === true
         ? preferred
         : (basicPanelRef.current?.querySelector<HTMLElement>(
-            "[data-plot-basic-initial-focus]",
+            "[data-plot-editor-initial-focus]",
           ) ?? basicPanelRef.current);
     target?.focus();
   }, []);
@@ -1690,209 +1690,214 @@ export function CoordinatePlotEditorPanel({
 
   return (
     <aside
-      aria-describedby={`${editorId}-status`}
+      aria-describedby={advancedOpen ? undefined : `${editorId}-status`}
       aria-label="Редактор координатной плоскости"
       className="coordinate-plot-editor-panel coordinate-plot-basic-editor-panel"
       data-testid="coordinate-plot-editor"
       ref={basicPanelRef}
       tabIndex={-1}
     >
-      <header className="plot-editor-heading plot-basic-heading">
-        <div>
-          <strong id={`${editorId}-title`}>Настройки графика</strong>
-          <span aria-live="polite" id={`${editorId}-status`}>
-            {dirty ? "Есть несохранённые изменения" : "Изменения сохранены"}
-          </span>
-        </div>
-        <button
-          aria-label="Закрыть редактор графика"
-          onClick={requestClose}
-          type="button"
-        >
-          <span aria-hidden="true">×</span>
-        </button>
-      </header>
-
-      <div className="plot-editor-basic-scroll">
-        <section
-          className="plot-basic-card"
-          aria-labelledby={`${editorId}-formula-title`}
-        >
-          <div className="plot-basic-card-heading">
+      {advancedOpen ? null : (
+        <>
+          <header className="plot-editor-heading plot-basic-heading">
             <div>
-              <strong id={`${editorId}-formula-title`}>Формула</strong>
-              <span>Основной график</span>
-            </div>
-            {basicSeries === null ? null : (
-              <span className="plot-basic-series-name">
-                {basicSeries.name || "Без названия"}
-              </span>
-            )}
-          </div>
-          {basicSeries === null ? (
-            <div className="plot-editor-empty-state plot-basic-empty-state">
-              <strong>Используется сложный тип кривой</strong>
-              <span>
-                Параметрические кривые и наборы без явной функции доступны в
-                расширенных настройках.
+              <strong id={`${editorId}-title`}>Настройки графика</strong>
+              <span aria-live="polite" id={`${editorId}-status`}>
+                {dirty ? "Есть несохранённые изменения" : "Изменения сохранены"}
               </span>
             </div>
-          ) : (
-            <>
-              <ExpressionField
-                ariaLabel="Формула явной функции"
-                existingParameterNames={definition.parameters.map(
-                  ({ name }) => name,
+            <button
+              aria-label="Закрыть редактор графика"
+              onClick={requestClose}
+              type="button"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          </header>
+
+          <div className="plot-editor-basic-scroll">
+            <section
+              className="plot-basic-card"
+              aria-labelledby={`${editorId}-formula-title`}
+            >
+              <div className="plot-basic-card-heading">
+                <div>
+                  <strong id={`${editorId}-formula-title`}>Формула</strong>
+                  <span>Основной график</span>
+                </div>
+                {basicSeries === null ? null : (
+                  <span className="plot-basic-series-name">
+                    {basicSeries.name || "Без названия"}
+                  </span>
                 )}
-                field={`series.${basicSeriesIndex}.expression`}
-                initialFocus
-                issueId={`${editorId}-basic-formula-issues`}
-                issues={issues}
-                label="f(x) ="
-                onCreateParameter={createBasicParameterFromFormula}
-                onSourceChange={(expression) =>
-                  onDefinitionChange(
-                    updateCoordinatePlotSeries(definition, {
-                      ...basicSeries,
-                      expression,
-                    }),
-                  )
-                }
-                parameterLimitReached={
-                  definition.parameters.length >=
-                  maximumCoordinatePlotParameters
-                }
-                source={basicSeries.expression}
-              />
-              <p className="plot-editor-hint plot-basic-example">
-                Пример: <code>2*x+a</code>
-              </p>
-            </>
-          )}
-        </section>
+              </div>
+              {basicSeries === null ? (
+                <div className="plot-editor-empty-state plot-basic-empty-state">
+                  <strong>Используется сложный тип кривой</strong>
+                  <span>
+                    Параметрические кривые и наборы без явной функции доступны в
+                    расширенных настройках.
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <ExpressionField
+                    ariaLabel="Формула явной функции"
+                    existingParameterNames={definition.parameters.map(
+                      ({ name }) => name,
+                    )}
+                    field={`series.${basicSeriesIndex}.expression`}
+                    initialFocus
+                    issueId={`${editorId}-basic-formula-issues`}
+                    issues={issues}
+                    label="f(x) ="
+                    onCreateParameter={createBasicParameterFromFormula}
+                    onSourceChange={(expression) =>
+                      onDefinitionChange(
+                        updateCoordinatePlotSeries(definition, {
+                          ...basicSeries,
+                          expression,
+                        }),
+                      )
+                    }
+                    parameterLimitReached={
+                      definition.parameters.length >=
+                      maximumCoordinatePlotParameters
+                    }
+                    source={basicSeries.expression}
+                  />
+                  <p className="plot-editor-hint plot-basic-example">
+                    Пример: <code>2*x+a</code>
+                  </p>
+                </>
+              )}
+            </section>
 
-        <section
-          className="plot-basic-card"
-          aria-labelledby={`${editorId}-parameter-title`}
-        >
-          <div className="plot-basic-card-heading">
-            <div>
-              <strong id={`${editorId}-parameter-title`}>Параметр</strong>
-              <span>Быстрое управление графиком</span>
-            </div>
-            {basicParameter === null ? null : (
-              <output
-                className="plot-basic-parameter-value"
-                htmlFor={`${editorId}-basic-parameter-slider`}
-              >
-                {basicParameter.name} = {basicParameter.value}
-              </output>
-            )}
-          </div>
-          {basicParameter === null ? (
-            <div className="plot-basic-add-parameter">
-              <p className="plot-editor-hint">
-                Добавьте параметр <code>a</code> и используйте его в формуле.
-              </p>
-              <button
-                disabled={
-                  definition.parameters.length >=
-                  maximumCoordinatePlotParameters
-                }
-                onClick={() => onAddParameter("a")}
-                type="button"
-              >
-                Добавить параметр a
-              </button>
-            </div>
-          ) : basicParameterSliderAvailable ? (
-            <div className="plot-basic-slider-block">
-              <div className="plot-basic-slider-row">
-                <span>{basicParameter.min}</span>
-                <input
-                  aria-label={`Ползунок параметра ${basicParameter.name}`}
-                  id={`${editorId}-basic-parameter-slider`}
-                  max={basicParameter.max ?? undefined}
-                  min={basicParameter.min ?? undefined}
-                  onChange={(event) =>
-                    onDefinitionChange(
-                      updateCoordinatePlotParameter(definition, {
-                        ...basicParameter,
-                        value: numberValue(
-                          event.currentTarget.value,
+            <section
+              className="plot-basic-card"
+              aria-labelledby={`${editorId}-parameter-title`}
+            >
+              <div className="plot-basic-card-heading">
+                <div>
+                  <strong id={`${editorId}-parameter-title`}>Параметр</strong>
+                  <span>Быстрое управление графиком</span>
+                </div>
+                {basicParameter === null ? null : (
+                  <output
+                    className="plot-basic-parameter-value"
+                    htmlFor={`${editorId}-basic-parameter-slider`}
+                  >
+                    {basicParameter.name} = {basicParameter.value}
+                  </output>
+                )}
+              </div>
+              {basicParameter === null ? (
+                <div className="plot-basic-add-parameter">
+                  <p className="plot-editor-hint">
+                    Добавьте параметр <code>a</code> и используйте его в
+                    формуле.
+                  </p>
+                  <button
+                    disabled={
+                      definition.parameters.length >=
+                      maximumCoordinatePlotParameters
+                    }
+                    onClick={() => onAddParameter("a")}
+                    type="button"
+                  >
+                    Добавить параметр a
+                  </button>
+                </div>
+              ) : basicParameterSliderAvailable ? (
+                <div className="plot-basic-slider-block">
+                  <div className="plot-basic-slider-row">
+                    <span>{basicParameter.min}</span>
+                    <input
+                      aria-label={`Ползунок параметра ${basicParameter.name}`}
+                      id={`${editorId}-basic-parameter-slider`}
+                      max={basicParameter.max ?? undefined}
+                      min={basicParameter.min ?? undefined}
+                      onChange={(event) =>
+                        onDefinitionChange(
+                          updateCoordinatePlotParameter(definition, {
+                            ...basicParameter,
+                            value: numberValue(
+                              event.currentTarget.value,
+                              basicParameter.value,
+                            ),
+                          }),
+                        )
+                      }
+                      step={basicParameter.step ?? undefined}
+                      type="range"
+                      value={Math.max(
+                        basicParameter.min ?? basicParameter.value,
+                        Math.min(
+                          basicParameter.max ?? basicParameter.value,
                           basicParameter.value,
                         ),
-                      }),
-                    )
-                  }
-                  step={basicParameter.step ?? undefined}
-                  type="range"
-                  value={Math.max(
-                    basicParameter.min ?? basicParameter.value,
-                    Math.min(
-                      basicParameter.max ?? basicParameter.value,
-                      basicParameter.value,
-                    ),
-                  )}
-                />
-                <span>{basicParameter.max}</span>
+                      )}
+                    />
+                    <span>{basicParameter.max}</span>
+                  </div>
+                  <IssueList
+                    field={`parameters.${basicParameterIndex}`}
+                    issues={issues}
+                  />
+                </div>
+              ) : (
+                <div className="plot-editor-warning">
+                  Для параметра требуется корректный минимум, максимум и шаг.
+                  Точные значения доступны в расширенных настройках.
+                </div>
+              )}
+            </section>
+
+            {additionalSeries === 0 && additionalParameters === 0 ? null : (
+              <p className="plot-basic-complexity-summary">
+                Дополнительно: {additionalSeries} серий и {additionalParameters}{" "}
+                параметров. Полный список доступен в расширенных настройках.
+              </p>
+            )}
+
+            {blockingIssues.length === 0 ? null : (
+              <div className="plot-editor-error" role="alert">
+                Исправьте структурные ошибки перед сохранением.
+                <IssueList field="" issues={blockingIssues} />
               </div>
-              <IssueList
-                field={`parameters.${basicParameterIndex}`}
-                issues={issues}
-              />
-            </div>
-          ) : (
-            <div className="plot-editor-warning">
-              Для параметра требуется корректный минимум, максимум и шаг. Точные
-              значения доступны в расширенных настройках.
-            </div>
-          )}
-        </section>
+            )}
 
-        {additionalSeries === 0 && additionalParameters === 0 ? null : (
-          <p className="plot-basic-complexity-summary">
-            Дополнительно: {additionalSeries} серий и {additionalParameters}{" "}
-            параметров. Полный список доступен в расширенных настройках.
-          </p>
-        )}
-
-        {blockingIssues.length === 0 ? null : (
-          <div className="plot-editor-error" role="alert">
-            Исправьте структурные ошибки перед сохранением.
-            <IssueList field="" issues={blockingIssues} />
+            <button
+              className="plot-basic-advanced-action"
+              onClick={() => setAdvancedOpen(true)}
+              ref={advancedTriggerRef}
+              type="button"
+            >
+              <span>
+                <strong>Расширенные настройки</strong>
+                <small>Серии, параметры, оси, сетка, диапазоны и стили</small>
+              </span>
+              <span aria-hidden="true">→</span>
+            </button>
           </div>
-        )}
 
-        <button
-          className="plot-basic-advanced-action"
-          onClick={() => setAdvancedOpen(true)}
-          ref={advancedTriggerRef}
-          type="button"
-        >
-          <span>
-            <strong>Расширенные настройки</strong>
-            <small>Серии, параметры, оси, сетка, диапазоны и стили</small>
-          </span>
-          <span aria-hidden="true">→</span>
-        </button>
-      </div>
-
-      <footer className="plot-editor-footer plot-basic-footer">
-        <button onClick={requestClose} type="button">
-          Закрыть
-        </button>
-        <button
-          className="primary"
-          disabled={!canSave}
-          onClick={() => {
-            onSave();
-          }}
-          type="button"
-        >
-          Сохранить
-        </button>
-      </footer>
+          <footer className="plot-editor-footer plot-basic-footer">
+            <button onClick={requestClose} type="button">
+              Закрыть
+            </button>
+            <button
+              className="primary"
+              disabled={!canSave}
+              onClick={() => {
+                onSave();
+              }}
+              type="button"
+            >
+              Сохранить
+            </button>
+          </footer>
+        </>
+      )}
 
       {advancedOpen ? (
         <div className="plot-editor-advanced-backdrop">
