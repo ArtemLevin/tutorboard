@@ -1,0 +1,32 @@
+name: Format proxy forwarding test
+
+on:
+  push:
+    branches:
+      - feat/mathpix-math-ink-adapter
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feat/mathpix-math-ink-adapter
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write tests/node/math-ink-proxy-forwarding.test.mjs
+      - run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tests/node/math-ink-proxy-forwarding.test.mjs
+          git commit -m "chore: format proxy forwarding test"
+          git push origin HEAD:feat/mathpix-math-ink-adapter
