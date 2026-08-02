@@ -76,4 +76,4 @@ Merge requires the complete existing release matrix: quality gate, browser smoke
 
 ## Implementation record
 
-The first implementation pass now contains the compact formula/parameter surface, shared draft state, modal detailed editor, default parameterized plot, focus routing, and migrated component coverage. The full repository CI run is the source of truth for the next correction pass.
+The implementation contains the compact formula/parameter surface, shared draft state, modal detailed editor, default parameterized plot, focus routing, and migrated component coverage. The primary explicit series is narrowed through a dedicated type predicate so the basic formula field remains type-safe. The full repository CI run is the source of truth for the next correction pass.
