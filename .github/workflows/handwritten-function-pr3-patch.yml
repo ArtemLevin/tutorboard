@@ -28,16 +28,17 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Normalize patch anchors
+      - name: Apply application workflow patch when needed
         run: |
+          if grep -q "handwrittenFunctionToolId" src/app/App.tsx; then
+            exit 0
+          fi
           node --input-type=module <<'NODE'
           import fs from "node:fs";
           const path = "scripts/apply-handwritten-function-pr3.mjs";
           const source = fs.readFileSync(path, "utf8");
           fs.writeFileSync(path, source.replaceAll("\\\\n", "\\n"));
           NODE
-      - name: Apply application workflow patch
-        run: |
           set +e
           node scripts/apply-handwritten-function-pr3.mjs > pr3-patch.log 2>&1
           status=$?
@@ -53,12 +54,24 @@ jobs:
             exit "$status"
           fi
       - name: Format changed files
-        run: npx prettier --write src/app tests/unit/app package.json
+        run: |
+          npx prettier --write \
+            src/app \
+            tests/unit/app \
+            scripts/apply-handwritten-function-pr3.mjs \
+            package.json
       - name: Commit generated patch
         run: |
+          if git diff --quiet; then
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/app tests/unit/app package.json
+          git add \
+            src/app \
+            tests/unit/app \
+            scripts/apply-handwritten-function-pr3.mjs \
+            package.json
           git commit -m "feat: compose handwritten function canvas workflow [skip-pr3-patch]"
           git push origin HEAD:feat/handwritten-function-workflow
       - name: Run focused type and test checks
