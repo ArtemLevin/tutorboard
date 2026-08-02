@@ -289,7 +289,9 @@ export function createMathInkProxyService(options) {
       }
 
       if (signal.aborted) {
-        throw operationError ?? signal.reason ?? new Error("Operation aborted.");
+        throw (
+          operationError ?? signal.reason ?? new Error("Operation aborted.")
+        );
       }
       if (retryDelay !== null) {
         await sleep(retryDelay, signal);
