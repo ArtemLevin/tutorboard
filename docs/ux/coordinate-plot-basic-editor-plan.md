@@ -73,3 +73,7 @@ The dialog uses the same draft object as the basic panel and returns to the basi
 ### Release
 
 Merge requires the complete existing release matrix: quality gate, browser smoke, coordinate-plot production gate and visual matrix, GeometryOS live contract, Smart Ink production gate, and production image.
+
+## Implementation record
+
+The first implementation pass now contains the compact formula/parameter surface, shared draft state, modal detailed editor, default parameterized plot, focus routing, and migrated component coverage. The full repository CI run is the source of truth for the next correction pass.
