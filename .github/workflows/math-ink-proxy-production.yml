@@ -17,7 +17,7 @@ jobs:
   proxy:
     name: Production Math ink proxy gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
@@ -105,7 +105,7 @@ jobs:
           }
           JSON
 
-      - name: Verify frontend build excludes provider secrets
+      - name: Build recognition-enabled frontend and exclude provider secrets
         env:
           VITE_FEATURE_HANDWRITTEN_FUNCTIONS: "true"
           VITE_FEATURE_MATH_INK_RECOGNITION: "true"
@@ -115,6 +115,12 @@ jobs:
           npm run build
           ! grep --recursive --fixed-strings 'frontend-secret-app-id' dist
           ! grep --recursive --fixed-strings 'frontend-secret-app-key' dist
+
+      - name: Install release browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Verify automatic recognition in Chromium and Firefox
+        run: npx playwright test tests/e2e/math-ink-recognition-production.spec.ts
 
       - name: Scan proxy image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
