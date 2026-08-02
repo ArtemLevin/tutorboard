@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -53,9 +54,9 @@ const interpretation: HandwrittenFunctionInterpretation = {
 };
 
 function renderPanel(
-  overrides: Partial<React.ComponentProps<typeof HandwrittenFunctionPanel>> = {},
+  overrides: Partial<ComponentProps<typeof HandwrittenFunctionPanel>> = {},
 ) {
-  const props: React.ComponentProps<typeof HandwrittenFunctionPanel> = {
+  const props: ComponentProps<typeof HandwrittenFunctionPanel> = {
     canBuild: true,
     canRecognize: true,
     diagnostic: null,
