@@ -33,7 +33,7 @@ jobs:
         run: npm ci
 
       - name: Apply right-pan implementation
-        run: node scripts/apply-coordinate-plot-right-drag-pan.mjs
+        run: node scripts/run-coordinate-plot-right-drag-pan-bootstrap.mjs
 
       - name: Format
         run: npm run format
@@ -59,8 +59,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm scripts/apply-coordinate-plot-right-drag-pan.mjs
+          git rm scripts/run-coordinate-plot-right-drag-pan-bootstrap.mjs
           git add src tests docs
           git commit -m "feat: pan coordinate plots with the right mouse button [skip right-pan bootstrap]"
           git push origin HEAD:feature/coordinate-plot-right-drag-pan
 
-# bootstrap-trigger: 2026-08-02-pr
+# bootstrap-trigger: 2026-08-02-pr-2
