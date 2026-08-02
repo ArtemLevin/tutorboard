@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: format-pr4-tests
+  cancel-in-progress: false
+
 jobs:
   format:
     if: github.actor != 'github-actions[bot]'
