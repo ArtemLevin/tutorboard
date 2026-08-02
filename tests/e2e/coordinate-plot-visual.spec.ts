@@ -1,3 +1,5 @@
+import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction";
+
 import { expect, test } from "@playwright/test";
 
 const databaseName = "tutorboard-local-v1";
@@ -21,6 +23,7 @@ test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
   await page
     .getByRole("button", { name: "Создать координатную плоскость (G)" })
     .click();
+  await openCoordinatePlotEditorByRightDoubleClick(page);
 
   const editor = page.getByRole("complementary", {
     name: "Редактор координатной плоскости",

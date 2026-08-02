@@ -1,3 +1,5 @@
+import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction";
+
 import { readFile } from "node:fs/promises";
 
 import { expect, test } from "@playwright/test";
@@ -49,6 +51,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await page
     .getByRole("button", { name: "Создать координатную плоскость (G)" })
     .click();
+  await openCoordinatePlotEditorByRightDoubleClick(page);
   const editor = page.getByRole("complementary", {
     name: "Редактор координатной плоскости",
   });
@@ -223,7 +226,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
 
   await page.getByRole("button", { name: "math.coordinate-plot" }).click();
-  await page.keyboard.press("Enter");
+  await openCoordinatePlotEditorByRightDoubleClick(page);
   await expect(editor).toBeVisible();
   await expect(editor.getByLabel("Формула явной функции")).toHaveValue("a*x^2");
   await expect(editor.getByLabel("Показывать График 2")).not.toBeChecked();
