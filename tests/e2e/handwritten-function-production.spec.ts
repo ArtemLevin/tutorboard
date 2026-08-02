@@ -9,7 +9,8 @@ async function drawStroke(
   const box = await canvas.boundingBox();
   if (box === null) throw new Error("TutorBoard canvas has no layout box.");
   const [first, ...rest] = points;
-  if (first === undefined) throw new Error("Stroke requires at least one point.");
+  if (first === undefined)
+    throw new Error("Stroke requires at least one point.");
   await page.mouse.move(box.x + first.x, box.y + first.y);
   await page.mouse.down();
   for (const point of rest) {
@@ -27,9 +28,7 @@ test.describe("handwritten function production workflow", () => {
       page.getByRole("button", { name: "Рукописная функция (F)" }),
     ).toBeVisible();
 
-    await page
-      .getByRole("button", { name: "Рукописная функция (F)" })
-      .click();
+    await page.getByRole("button", { name: "Рукописная функция (F)" }).click();
     await drawStroke(page, [
       { x: 160, y: 500 },
       { x: 210, y: 450 },

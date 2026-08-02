@@ -93,8 +93,6 @@ describe("handwritten function workflow safeguards", () => {
     );
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
     expect(screen.getByText("Штрихи сохранены")).toBeInTheDocument();
-    expect(
-      screen.getByRole("textbox", { name: "Функция y =" }),
-    ).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: "Функция y =" })).toBeEnabled();
   });
 });
