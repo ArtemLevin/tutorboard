@@ -32,7 +32,7 @@ jobs:
       - name: Apply composition patch
         run: node scripts/apply-handwritten-pr4-patch.mjs
       - name: Format product files
-        run: npx prettier --write src/app/ProductShell.tsx src/app/PersistedApp.tsx src/app/SyncedApp.tsx src/app/bootstrap/main.tsx src/app/bootstrap/math-ink.ts src/adapters/math-ink-http services/math-ink-proxy tests/node/math-ink-proxy.test.mjs package.json scripts/architecture-rules.mjs
+        run: npx prettier --write scripts/apply-handwritten-pr4-patch.mjs src/app/ProductShell.tsx src/app/PersistedApp.tsx src/app/SyncedApp.tsx src/app/bootstrap/main.tsx src/app/bootstrap/math-ink.ts src/adapters/math-ink-http services/math-ink-proxy tests/node/math-ink-proxy.test.mjs package.json scripts/architecture-rules.mjs
       - name: Commit patch
         run: |
           if git diff --quiet; then
@@ -41,5 +41,5 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add .
-          git commit -m "feat: compose Mathpix recognition runtime"
+          git commit -m "chore: format Mathpix recognition runtime"
           git push origin HEAD:feat/mathpix-math-ink-adapter
