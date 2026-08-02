@@ -12,7 +12,10 @@ vi.mock("./PersistedApp", () => ({
     onNotification,
   }: {
     onDocumentInfo?:
-      | ((value: { readonly title: string; readonly updatedAt: string }) => void)
+      | ((value: {
+          readonly title: string;
+          readonly updatedAt: string;
+        }) => void)
       | undefined;
     onNotification?:
       | ((value: {
@@ -99,7 +102,9 @@ describe("ProductShell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Notify" }));
     expect(screen.getByText("Document exported")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Закрыть уведомление" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Закрыть уведомление" }),
+    );
     expect(screen.queryByText("Document exported")).not.toBeInTheDocument();
   });
 });
