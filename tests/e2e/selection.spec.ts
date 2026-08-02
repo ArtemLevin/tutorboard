@@ -153,7 +153,8 @@ test("selects a figure contour directly from another tool", async ({
   await expect(
     page.getByRole("button", { name: "Увеличить выделение на 10%" }),
   ).toBeHidden();
-  await rightDoubleClickAt(page, contour);
+  const interior = await stagePoint(page, 350, 250);
+  await rightDoubleClickAt(page, interior);
   await expect(
     page.getByRole("button", { name: "Увеличить выделение на 10%" }),
   ).toBeVisible();

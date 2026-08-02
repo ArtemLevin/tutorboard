@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { rightDoubleClickAt } from "./coordinate-plot-interaction.js";
 
 async function stagePoint(page: Page, x: number, y: number) {
   const bounds = await page.getByTestId("board-stage").boundingBox();
@@ -38,6 +39,11 @@ test("keeps a smoothed freehand stroke transformable at high zoom", async ({
 
   await page.getByRole("button", { name: "drawing.pen-stroke" }).click();
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+  const settingsPoint = await stagePoint(page, 350, 310);
+  await rightDoubleClickAt(page, settingsPoint);
+  await expect(
+    page.getByRole("button", { name: "Увеличить выделение на 10%" }),
+  ).toBeVisible();
 
   const zoomPoint = await stagePoint(page, 380, 290);
   await page.mouse.move(zoomPoint.x, zoomPoint.y);

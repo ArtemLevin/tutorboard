@@ -286,6 +286,7 @@ export function BoardStage({
   const selectionSessionRef = useRef<SelectionSession | null>(null);
   const wheelSessionRef = useRef<WheelSession | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
+  const panModeRequestRef = useRef(onPanModeRequest);
   const worldPointerCallbacksRef = useRef({
     cancel: onWorldPointerCancel,
     finish: onWorldPointerFinish,
@@ -378,6 +379,10 @@ export function BoardStage({
       onSelectionTransform?.(transforms);
     }
   }, [onSelectionTransform]);
+
+  useEffect(() => {
+    panModeRequestRef.current = onPanModeRequest;
+  }, [onPanModeRequest]);
 
   useEffect(() => {
     worldPointerCallbacksRef.current = {
@@ -603,7 +608,7 @@ export function BoardStage({
         }
         session.activated = true;
         rightClickCandidateRef.current = null;
-        onPanModeRequest?.();
+        panModeRequestRef.current?.();
       }
       const viewport = panViewport(session.startViewport, {
         x: current.x - session.startPoint.x,
@@ -691,7 +696,6 @@ export function BoardStage({
     finishDrawing,
     finishPan,
     finishSelection,
-    onPanModeRequest,
     selectionWorldSample,
     worldSample,
   ]);
