@@ -1,0 +1,51 @@
+name: Handwritten function PR 2 formatter
+
+on:
+  push:
+    branches:
+      - feat/handwritten-function-interpretation
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: ${{ !contains(github.event.head_commit.message, '[skip-pr2-format]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: feat/handwritten-function-interpretation
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply review fix
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const path = "src/modules/handwritten-function/interpretation.ts";
+          const source = fs.readFileSync(path, "utf8");
+          const next = source.replace(
+            "return candidate.confidence ?? Number.NEGATIVE_INFINITY;",
+            "return candidate.confidence ?? -1;",
+          );
+          if (next === source) throw new Error("Expected confidence fallback was not found.");
+          fs.writeFileSync(path, next);
+          NODE
+      - name: Format PR 2 files
+        run: npx prettier --write src/modules/handwritten-function tests/unit/modules/handwritten-function
+      - name: Commit formatting
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/modules/handwritten-function tests/unit/modules/handwritten-function
+          git commit -m "style: format handwritten interpretation [skip-pr2-format]"
+          git push origin HEAD:feat/handwritten-function-interpretation
