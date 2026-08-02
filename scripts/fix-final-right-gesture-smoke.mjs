@@ -44,6 +44,15 @@ await patch("src/adapters/canvas-konva/BoardStage.tsx", (content) => {
   return next;
 });
 
+await patch("tests/e2e/object-settings-right-double-click.spec.ts", (content) =>
+  replaceOnce(
+    content,
+    `test("a right drag remains board panning", async ({ page }) => {\n  await page.goto("/");\n  await page\n    .getByRole("button", { name: "Создать координатную плоскость (G)" })\n    .click();\n  const before = await page.getByTestId("viewport-offset").textContent();\n  const stage = page.getByTestId("board-stage");\n  const bounds = await stage.boundingBox();\n  if (bounds === null) throw new Error("Expected TutorBoard stage bounds");\n  await page.mouse.move(bounds.x + 40, bounds.y + 40);\n  await page.mouse.down({ button: "right" });\n  await page.mouse.move(bounds.x + 140, bounds.y + 100, { steps: 8 });\n  await page.mouse.up({ button: "right" });\n  await expect(page.getByTestId("viewport-offset")).not.toHaveText(\n    before ?? "",\n  );\n  await expect(\n    page.getByRole("complementary", {\n      name: "Редактор координатной плоскости",\n    }),\n  ).toBeHidden();\n});`,
+    `test("a right drag remains board panning", async ({ page }) => {\n  await page.goto("/");\n  const before = await page.getByTestId("viewport-offset").textContent();\n  const stage = page.getByTestId("board-stage");\n  const bounds = await stage.boundingBox();\n  if (bounds === null) throw new Error("Expected TutorBoard stage bounds");\n  const start = {\n    x: bounds.x + bounds.width * 0.45,\n    y: bounds.y + bounds.height * 0.5,\n  };\n  const finish = { x: start.x + 100, y: start.y + 60 };\n  await page.mouse.move(start.x, start.y);\n  await page.mouse.down({ button: "right" });\n  await page.mouse.move(finish.x, finish.y, { steps: 8 });\n  await expect(stage).toHaveAttribute("data-panning", "true");\n  await page.mouse.up({ button: "right" });\n  await expect(page.getByTestId("viewport-offset")).not.toHaveText(\n    before ?? "",\n  );\n  await expect(\n    page.getByRole("button", { name: "Перемещение (H)" }),\n  ).toHaveAttribute("aria-pressed", "true");\n});`,
+    "board background pan scenario",
+  ),
+);
+
 await patch("tests/e2e/selection.spec.ts", (content) =>
   replaceOnce(
     content,
