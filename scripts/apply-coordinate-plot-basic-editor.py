@@ -33,15 +33,41 @@ text = replace_once(
     "initial advanced editor entry",
 )
 text = text.replace('editor.getByRole("tab",', 'advancedEditor.getByRole("tab",')
-text = text.replace('editor.getByLabel("Минимальная граница X")', 'advancedEditor.getByLabel("Минимальная граница X")')
-text = text.replace('editor.getByLabel("Максимальная граница X")', 'advancedEditor.getByLabel("Максимальная граница X")')
-text = text.replace('editor.getByLabel("Минимальная граница Y")', 'advancedEditor.getByLabel("Минимальная граница Y")')
-text = text.replace('editor.getByLabel("Максимальная граница Y")', 'advancedEditor.getByLabel("Максимальная граница Y")')
-text = text.replace('editor.getByTestId("renderer-status-help")', 'advancedEditor.getByTestId("renderer-status-help")')
-text = text.replace('editor.getByText("Краткая справка по формулам")', 'advancedEditor.getByText("Краткая справка по формулам")')
-text = text.replace('editor.getByText(/Тригонометрические функции используют радианы/)', 'advancedEditor.getByText(/Тригонометрические функции используют радианы/)')
-text = text.replace('editor.getByLabel("Формула явной функции")', 'advancedEditor.getByLabel("Формула явной функции")')
-text = text.replace('editor.getByRole("button", { name: "Вставить sin" })', 'advancedEditor.getByRole("button", { name: "Вставить sin" })')
+for label in (
+    "Минимальная граница X",
+    "Максимальная граница X",
+    "Минимальная граница Y",
+    "Максимальная граница Y",
+    "Стиль линии",
+    "Параметрическая формула x",
+    "Параметрическая формула y",
+    "Показывать График 2",
+    "Положение легенды",
+):
+    text = text.replace(
+        f'editor.getByLabel("{label}")',
+        f'advancedEditor.getByLabel("{label}")',
+    )
+text = text.replace(
+    'editor.getByTestId("renderer-status-help")',
+    'advancedEditor.getByTestId("renderer-status-help")',
+)
+text = text.replace(
+    'editor.getByText("Краткая справка по формулам")',
+    'advancedEditor.getByText("Краткая справка по формулам")',
+)
+text = text.replace(
+    'editor.getByText(/Тригонометрические функции используют радианы/)',
+    'advancedEditor.getByText(/Тригонометрические функции используют радианы/)',
+)
+text = text.replace(
+    'editor.getByLabel("Формула явной функции")',
+    'advancedEditor.getByLabel("Формула явной функции")',
+)
+text = text.replace(
+    'editor.getByRole("button", { name: "Вставить sin" })',
+    'advancedEditor.getByRole("button", { name: "Вставить sin" })',
+)
 text = replace_once(
     text,
     '''  await firstFormula.fill("a*x^2");
@@ -65,15 +91,16 @@ text = replace_once(
   await expect(addedParameterName).toBeFocused();''',
     "second parameter flow",
 )
-text = text.replace('editor.getByLabel("Стиль линии")', 'advancedEditor.getByLabel("Стиль линии")')
-text = text.replace('editor.getByRole("button", { name: "+ Явная функция" })', 'advancedEditor.getByRole("button", { name: "+ Явная функция" })')
-text = text.replace('editor.getByRole("button", { name: "+ Параметрическая кривая" })', 'advancedEditor.getByRole("button", { name: "+ Параметрическая кривая" })')
-text = text.replace('editor.getByLabel("Параметрическая формула x")', 'advancedEditor.getByLabel("Параметрическая формула x")')
-text = text.replace('editor.getByLabel("Параметрическая формула y")', 'advancedEditor.getByLabel("Параметрическая формула y")')
-text = text.replace('editor.getByLabel("Показывать График 2")', 'advancedEditor.getByLabel("Показывать График 2")')
+text = text.replace(
+    'editor.getByRole("button", { name: "+ Явная функция" })',
+    'advancedEditor.getByRole("button", { name: "+ Явная функция" })',
+)
+text = text.replace(
+    'editor.getByRole("button", { name: "+ Параметрическая кривая" })',
+    'advancedEditor.getByRole("button", { name: "+ Параметрическая кривая" })',
+)
 text = text.replace('editor.getByText("X: от")', 'advancedEditor.getByText("X: от")')
 text = text.replace('editor.getByText("Y: до")', 'advancedEditor.getByText("Y: до")')
-text = text.replace('editor.getByLabel("Положение легенды")', 'advancedEditor.getByLabel("Положение легенды")')
 text = replace_once(
     text,
     '''  await editor.getByRole("button", { name: "Сохранить" }).click();''',
@@ -126,10 +153,12 @@ text = replace_once(
     .getByRole("button", { name: "Закрыть редактор графика" })
     .click();''',
     '''  await advancedEditor.getByRole("tab", { name: "Параметры (2)" }).click();
-  await expect(advancedEditor.locator("[data-parameter-name]")).toHaveValues([
-    "a",
-    "b",
-  ]);
+  const restoredParameterNames = advancedEditor.locator(
+    "[data-parameter-name]",
+  );
+  await expect(restoredParameterNames).toHaveCount(2);
+  await expect(restoredParameterNames.nth(0)).toHaveValue("a");
+  await expect(restoredParameterNames.nth(1)).toHaveValue("b");
 
   await advancedEditor
     .getByRole("button", { name: "К базовым настройкам" })
@@ -150,6 +179,18 @@ text = replace_once(
       expect.objectContaining({ name: "b" }),
     ]);''',
     "exported parameter assertions",
+)
+text = replace_once(
+    text,
+    '''  await expect(advancedEditor.getByLabel("Формула явной функции")).toHaveValue(
+    "2*x+a",
+  );
+  await expect(editor.getByLabel("Ползунок параметра a")).toBeVisible();''',
+    '''  await expect(editor.getByLabel("Формула явной функции")).toHaveValue(
+    "2*x+a",
+  );
+  await expect(editor.getByLabel("Ползунок параметра a")).toBeVisible();''',
+    "keep initial formula scoped to basic editor",
 )
 path.write_text(text, encoding="utf-8")
 
