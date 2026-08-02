@@ -25,10 +25,26 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - name: Correct patcher generated-text tokens
+        shell: bash
         run: |
           sed -i 's/Увеличить выделение on 10%/Увеличить выделение на 10%/g' scripts/apply-right-gesture-hotfix.mjs
           sed -i 's/`core.coordinate-plot.update`/core.coordinate-plot.update/g' scripts/apply-right-gesture-hotfix.mjs
           sed -i 's/`BoardStage`/BoardStage/g' scripts/apply-right-gesture-hotfix.mjs
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/apply-right-gesture-hotfix.mjs")
+          content = path.read_text(encoding="utf-8")
+          needle = '''  content = replaceOnce(
+              content,
+              `      finishRightViewportDrag();`,
+              `      finishRightViewportGesture(undefined, false);`,
+              "plot cleanup gesture",
+            );
+          '''
+          if needle not in content:
+              raise SystemExit("Missing redundant plot cleanup patch block")
+          path.write_text(content.replace(needle, "", 1), encoding="utf-8")
+          PY
           node --check scripts/apply-right-gesture-hotfix.mjs
       - name: Apply source and test changes
         run: node scripts/apply-right-gesture-hotfix.mjs
