@@ -158,7 +158,8 @@ function removeFunctionWrapper(source: string): string {
 
 function finishExpression(source: string): string {
   const replaced = convertSuperscripts(source)
-    .replace(/[\[\]]/gu, (character) => (character === "[" ? "(" : ")"))
+    .replaceAll("[", "(")
+    .replaceAll("]", ")")
     .replace(/\u00a0/gu, " ")
     .replace(/\u2212|\u2013|\u2014/gu, "-")
     .replace(/\u00d7|\u00b7|\u22c5/gu, "*")

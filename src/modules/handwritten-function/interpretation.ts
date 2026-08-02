@@ -87,7 +87,11 @@ function parameterNamesFromDiagnostics(
 function unknownIdentifierCall(
   expression: string,
   diagnostics: readonly ExpressionDiagnostic[],
-): { readonly end: number; readonly name: string; readonly start: number } | null {
+): {
+  readonly end: number;
+  readonly name: string;
+  readonly start: number;
+} | null {
   for (const diagnostic of diagnostics) {
     if (diagnostic.code !== "expression.unknown-identifier") continue;
     const name = expression.slice(diagnostic.start, diagnostic.end);

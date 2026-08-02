@@ -52,6 +52,7 @@ describe("handwritten function interpretation", () => {
       recognition([
         { expression: "sqrt()", format: "plot-expression" },
         { expression: "sin*x", format: "plot-expression" },
+        { expression: "foo(x)", format: "plot-expression" },
       ]),
     );
 
@@ -60,6 +61,7 @@ describe("handwritten function interpretation", () => {
       expect.arrayContaining([
         "expression.function-requires-parentheses",
         "expression.invalid-function-arity",
+        "handwriting.interpretation.unsupported-function",
         "handwriting.interpretation.no-valid-candidate",
       ]),
     );
