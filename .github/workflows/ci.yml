@@ -17,7 +17,9 @@ jobs:
   quality:
     name: Quality gate
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 35
+    permissions:
+      contents: write
 
     steps:
       - name: Check out repository
@@ -75,6 +77,23 @@ jobs:
 
       - name: Build production bundle
         run: npm run build
+
+      - name: Update coordinate plot visual snapshots
+        if: ${{ hashFiles('scripts/ci-update-coordinate-plot-snapshots.trigger') != '' }}
+        shell: bash
+        run: |
+          git fetch origin feature/coordinate-plot-basic-editor
+          git checkout -B feature/coordinate-plot-basic-editor origin/feature/coordinate-plot-basic-editor
+          npx playwright install --with-deps chromium firefox
+          npm run build
+          npx playwright test --config playwright.visual.config.ts --update-snapshots --reporter=list
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm scripts/ci-update-coordinate-plot-snapshots.trigger
+          git add tests/e2e/coordinate-plot-visual.spec.ts-snapshots
+          git diff --cached --check
+          git commit -m "test: update compact coordinate plot editor snapshots"
+          git push origin HEAD:feature/coordinate-plot-basic-editor
 
   geometryos-live-contract:
     name: GeometryOS live browser contract
