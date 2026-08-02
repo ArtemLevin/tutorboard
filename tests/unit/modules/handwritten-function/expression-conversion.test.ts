@@ -56,7 +56,9 @@ describe("handwritten function expression conversion", () => {
   ] as const)("rejects unsupported input %s", (expression, code) => {
     const result = convert(
       expression,
-      expression.includes("\\") ? "latex" : "plot-expression",
+      expression.includes("\\") || expression.includes("_")
+        ? "latex"
+        : "plot-expression",
     );
     expect(result.ok).toBe(false);
     if (result.ok) return;
