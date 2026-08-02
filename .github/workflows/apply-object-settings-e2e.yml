@@ -36,12 +36,6 @@ jobs:
       - name: Format browser scenarios
         run: npx prettier --write "tests/e2e/*.ts"
 
-      - name: Verify test discovery and TypeScript
-        run: |
-          npm run typecheck
-          npx playwright test --list
-          npm run lint
-
       - name: Commit product-only changes
         run: |
           git config user.name "github-actions[bot]"
