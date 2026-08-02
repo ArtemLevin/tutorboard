@@ -213,7 +213,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await advancedEditor.getByRole("button", { name: "+ Явная функция" }).click();
   await advancedEditor.getByLabel("Формула явной функции").fill("2*x+1");
 
-  await editor
+  await advancedEditor
     .getByRole("button", { name: "+ Параметрическая кривая" })
     .click();
   await advancedEditor.getByLabel("Параметрическая формула x").fill("3*cos(t)");
