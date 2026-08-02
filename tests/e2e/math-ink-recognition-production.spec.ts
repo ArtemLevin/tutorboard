@@ -68,7 +68,7 @@ test.describe("Mathpix proxy browser composition", () => {
 
     await page.getByRole("button", { name: "Распознать" }).click();
     const expression = page.getByRole("textbox", { name: "Функция y =" });
-    await expect(expression).toHaveValue("x^2+1");
+    await expect(expression).toHaveValue("x^(2)+1");
     expect(proxyRequest).toMatchObject({
       schemaVersion: "tutorboard.math-ink-request/0.1",
       strokes: [expect.objectContaining({ id: expect.any(String) })],
