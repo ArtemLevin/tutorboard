@@ -7,12 +7,32 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { BoardDocument, BoardObject } from "../core/public";
+import type { BoardDocument, BoardObject, BoardObjectId } from "../core/public";
 import { App } from "./App";
 
 vi.mock("../adapters/canvas-konva/public", () => ({
-  BoardStage: () => (
-    <div aria-label="Бесконечное полотно TutorBoard" role="application" />
+  BoardStage: (props: {
+    readonly onObjectSettingsRequest?:
+      ((objectId: BoardObjectId) => void) | undefined;
+    readonly scene: {
+      readonly items: readonly {
+        readonly object: { readonly id: BoardObjectId };
+      }[];
+    };
+  }) => (
+    <div aria-label="Бесконечное полотно TutorBoard" role="application">
+      <button
+        onClick={() => {
+          const objectId = props.scene.items[0]?.object.id;
+          if (objectId !== undefined) {
+            props.onObjectSettingsRequest?.(objectId);
+          }
+        }}
+        type="button"
+      >
+        Открыть настройки объекта
+      </button>
+    </div>
   ),
   createDefaultKonvaRendererRegistry: () => ({}),
 }));
@@ -33,7 +53,7 @@ function coordinatePlot(document: BoardDocument) {
 }
 
 describe("coordinate plot editor application workflow", () => {
-  it("creates, previews, saves and undoes one semantic plot edit", async () => {
+  it("creates, explicitly opens, previews, saves and undoes one semantic plot edit", async () => {
     const onCommandCommitted = vi.fn();
     const onDocumentChange = vi.fn();
     render(
@@ -50,14 +70,23 @@ describe("coordinate plot editor application workflow", () => {
     );
 
     expect(
-      screen.getByRole("complementary", {
+      screen.queryByRole("complementary", {
         name: "Редактор координатной плоскости",
       }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
     expect(onCommandCommitted.mock.calls[0]?.[0]).toMatchObject({
       kind: "core.objects.add",
     });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть настройки объекта" }),
+    );
+    expect(
+      screen.getByRole("complementary", {
+        name: "Редактор координатной плоскости",
+      }),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Формула явной функции"), {
       target: { value: "x^3-2*x" },
@@ -99,15 +128,26 @@ describe("coordinate plot editor application workflow", () => {
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");
   });
 
-  it("opens the selected coordinate plot editor with Enter", () => {
+  it("keeps the selected coordinate plot editor closed on Enter", () => {
     render(<App />);
 
     fireEvent.keyDown(window, { key: "g" });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Закрыть редактор графика" }),
-    );
-    fireEvent.keyDown(window, { key: "Enter" });
+    expect(
+      screen.queryByRole("complementary", {
+        name: "Редактор координатной плоскости",
+      }),
+    ).not.toBeInTheDocument();
 
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(
+      screen.queryByRole("complementary", {
+        name: "Редактор координатной плоскости",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть настройки объекта" }),
+    );
     expect(
       screen.getByRole("complementary", {
         name: "Редактор координатной плоскости",

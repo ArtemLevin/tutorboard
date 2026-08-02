@@ -1,3 +1,5 @@
+import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction.js";
+
 import { expect, test } from "@playwright/test";
 
 test("protects a dirty plot draft and restores focus after discard", async ({
@@ -68,6 +70,7 @@ test("exposes formula diagnostics through ARIA relationships", async ({
   await page
     .getByRole("button", { name: "Создать координатную плоскость (G)" })
     .click();
+  await openCoordinatePlotEditorByRightDoubleClick(page);
   const formula = page.getByLabel("Формула явной функции");
   await formula.fill("q*x");
 

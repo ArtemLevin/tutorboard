@@ -1,3 +1,5 @@
+import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction.js";
+
 import { readFile } from "node:fs/promises";
 
 import { expect, test } from "@playwright/test";
@@ -10,6 +12,7 @@ test("creates and persists explicit and parametric plot series", async ({
   await page
     .getByRole("button", { name: "Создать координатную плоскость (G)" })
     .click();
+  await openCoordinatePlotEditorByRightDoubleClick(page);
   const editor = page.getByRole("complementary", {
     name: "Редактор координатной плоскости",
   });

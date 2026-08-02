@@ -1,3 +1,5 @@
+import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction.js";
+
 import { readFile } from "node:fs/promises";
 
 import { expect, test, type Page } from "@playwright/test";
@@ -50,6 +52,7 @@ test("right-button drag pans the active graph while the board stays fixed", asyn
   await page
     .getByRole("button", { name: "Создать координатную плоскость (G)" })
     .click();
+  await openCoordinatePlotEditorByRightDoubleClick(page);
   await expect(
     page.getByRole("complementary", {
       name: "Редактор координатной плоскости",
