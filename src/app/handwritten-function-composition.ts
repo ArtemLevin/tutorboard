@@ -1,4 +1,5 @@
 import {
+  boardObjectId,
   maximumCoordinatePlotParameters,
   type BoardDocument,
   type BoardObjectId,
@@ -39,6 +40,19 @@ export interface HandwrittenFunctionPlotIdFactory {
   readonly seriesId: PlotSeriesId;
 }
 
+function resolveHandwrittenStrokeObjectId(
+  factory: HandwrittenFunctionStrokeIdFactory,
+  stroke: HandwrittenFunctionStroke,
+  index: number,
+): BoardObjectId {
+  try {
+    return boardObjectId(factory.objectId(stroke, index));
+  } catch {
+    const strokeToken = stroke.id.slice(-36);
+    return boardObjectId(`object:hf:${strokeToken}:${index}`);
+  }
+}
+
 export function createHandwrittenFunctionStrokeObjects(input: {
   readonly ids: HandwrittenFunctionStrokeIdFactory;
   readonly strokes: readonly HandwrittenFunctionStroke[];
@@ -50,7 +64,7 @@ export function createHandwrittenFunctionStrokeObjects(input: {
     }
     return {
       groupId: null,
-      id: input.ids.objectId(stroke, index),
+      id: resolveHandwrittenStrokeObjectId(input.ids, stroke, index),
       kind: "drawing.pen-stroke",
       locked: false,
       points,
