@@ -12,6 +12,22 @@ export {
   type FakeMathInkRecognizer,
 } from "./fake-recognizer";
 export {
+  convertHandwrittenFunctionCandidate,
+  type HandwrittenFunctionConversionDiagnostic,
+  type HandwrittenFunctionConversionResult,
+} from "./expression-conversion";
+export { interpretMathInkRecognitionResult } from "./interpretation";
+export {
+  handwrittenFunctionInterpretationLimits,
+  handwrittenFunctionInterpretationSchemaVersion,
+  type HandwrittenFunctionInterpretation,
+  type HandwrittenFunctionInterpretationDiagnostic,
+  type HandwrittenFunctionInterpretationDiagnosticCode,
+  type HandwrittenFunctionInterpretationDiagnosticSeverity,
+  type HandwrittenFunctionInterpretationStatus,
+  type HandwrittenFunctionInterpretedCandidate,
+} from "./interpretation-types";
+export {
   handwrittenFunctionLimits,
   handwrittenFunctionSessionSchemaVersion,
   handwrittenFunctionToolId,
