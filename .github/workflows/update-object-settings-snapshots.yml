@@ -1,0 +1,38 @@
+name: Update object settings visual snapshots
+
+on:
+  push:
+    branches:
+      - feature/object-settings-right-double-click
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/object-settings-right-double-click
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write tests/e2e/coordinate-plot-interaction.ts
+      - run: npx playwright install --with-deps chromium firefox
+      - run: npm run build
+      - run: npm run e2e:plot-visual:update
+      - name: Commit updated snapshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/e2e/coordinate-plot-interaction.ts tests/e2e/coordinate-plot-visual.spec.ts-snapshots
+          git rm .github/workflows/update-object-settings-snapshots.yml
+          git commit -m "test: update object settings visual snapshots"
+          git push origin HEAD:feature/object-settings-right-double-click
