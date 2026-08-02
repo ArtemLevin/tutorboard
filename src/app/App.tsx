@@ -245,6 +245,8 @@ export function App({
   const selectionStateRef = useRef<SelectionState>(initialSelectionState);
   const [coordinatePlotEditor, setCoordinatePlotEditor] =
     useState<CoordinatePlotEditorSession | null>(null);
+  const [selectionInspectorObjectId, setSelectionInspectorObjectId] =
+    useState<BoardObjectId | null>(null);
   const [textDraft, setTextDraft] = useState("Новый текст");
   const [imageDiagnostic, setImageDiagnostic] = useState<string | null>(null);
   const [clipboard, setClipboard] = useState<BoardClipboardPayload | null>(
@@ -773,6 +775,7 @@ export function App({
       );
       selectionStateRef.current = selectionResult.state;
       setSelectionState(selectionResult.state);
+      setSelectionInspectorObjectId(null);
       setActiveTool(tool);
     },
     [applyDrawingAction],
@@ -821,6 +824,7 @@ export function App({
       selectionStateRef.current = selected;
       setSelectionState(selected);
       activateTool(selectionToolId);
+      setSelectionInspectorObjectId(null);
       setCoordinatePlotEditor({
         draft: object.definition,
         expected: object.definition,
@@ -865,8 +869,44 @@ export function App({
       kind: "core.objects.add",
       objects: [object],
     });
-    if (result.ok) beginCoordinatePlotEditing(object.id);
-  }, [beginCoordinatePlotEditing, commitCommand, createCommandMetadata]);
+    if (!result.ok) return;
+    activateTool(selectionToolId);
+    const selected: SelectionState = {
+      interaction: { kind: "idle" },
+      selectedObjectIds: [object.id],
+    };
+    selectionStateRef.current = selected;
+    setSelectionState(selected);
+    setSelectionInspectorObjectId(null);
+  }, [activateTool, commitCommand, createCommandMetadata]);
+
+  const requestObjectSettings = useCallback(
+    (objectId: BoardObjectId) => {
+      const current = documentRef.current;
+      const object = current.objects[objectId];
+      if (object === undefined || object.source.kind !== "user") return;
+      if (object.kind === "math.coordinate-plot") {
+        setSelectionInspectorObjectId(null);
+        beginCoordinatePlotEditing(objectId);
+        return;
+      }
+      activateTool(selectionToolId);
+      const selected: SelectionState = {
+        interaction: { kind: "idle" },
+        selectedObjectIds: selectionStateRef.current.selectedObjectIds.includes(
+          objectId,
+        )
+          ? selectionStateRef.current.selectedObjectIds
+          : expandSelectionObjectIds(current, [objectId]),
+      };
+      selectionStateRef.current = selected;
+      setSelectionState(selected);
+      setCoordinatePlotEditor(null);
+      setSelectionInspectorObjectId(objectId);
+      setAccessibilityNotice("Настройки объекта открыты");
+    },
+    [activateTool, beginCoordinatePlotEditing],
+  );
 
   const updateCoordinatePlotDraft = useCallback(
     (definition: CoordinatePlotDefinition) => {
@@ -1021,12 +1061,10 @@ export function App({
       ...(coordinatePlotEditor === null
         ? {}
         : { definitionOverride: coordinatePlotEditor.draft }),
-      onEditRequest: beginCoordinatePlotEditing,
       onSelectedSeriesChange: selectCoordinatePlotSeries,
       onViewportChange: updateCoordinatePlotViewport,
     }),
     [
-      beginCoordinatePlotEditing,
       coordinatePlotEditor,
       selectCoordinatePlotSeries,
       updateCoordinatePlotViewport,
@@ -1153,20 +1191,6 @@ export function App({
       if (event.key === "Escape" && coordinatePlotEditor !== null) {
         return;
       }
-      if (
-        event.key === "Enter" &&
-        !editing &&
-        selectionStateRef.current.selectedObjectIds.length === 1
-      ) {
-        const objectId = selectionStateRef.current.selectedObjectIds[0]!;
-        if (
-          documentRef.current.objects[objectId]?.kind === "math.coordinate-plot"
-        ) {
-          event.preventDefault();
-          beginCoordinatePlotEditing(objectId);
-          return;
-        }
-      }
       const accelerator = event.ctrlKey || event.metaKey;
       if (accelerator && !event.altKey && !editing) {
         const key = event.key.toLowerCase();
@@ -1280,7 +1304,6 @@ export function App({
     return () => window.removeEventListener("keydown", handleShortcut);
   }, [
     activateTool,
-    beginCoordinatePlotEditing,
     closeShortcuts,
     coordinatePlotEditor,
     createCoordinatePlot,
@@ -1303,6 +1326,20 @@ export function App({
     selectionStateRef.current = result.state;
     setSelectionState(result.state);
   }, [document.order]);
+
+  useEffect(() => {
+    if (
+      selectionInspectorObjectId !== null &&
+      (!Object.hasOwn(document.objects, selectionInspectorObjectId) ||
+        !selectionState.selectedObjectIds.includes(selectionInspectorObjectId))
+    ) {
+      setSelectionInspectorObjectId(null);
+    }
+  }, [
+    document.objects,
+    selectionInspectorObjectId,
+    selectionState.selectedObjectIds,
+  ]);
 
   const startDrawing = useCallback(
     (sample: WorldPointerSample) => {
@@ -1586,11 +1623,6 @@ export function App({
   const selectedStyle = scene.items.find(({ object }) =>
     selectionState.selectedObjectIds.includes(object.id),
   )?.object.style;
-  const selectedCoordinatePlot =
-    selectedObjects.length === 1 &&
-    selectedObjects[0]?.kind === "math.coordinate-plot"
-      ? selectedObjects[0]
-      : null;
   const selectedTextId =
     selectionState.selectedObjectIds.length === 1
       ? selectionState.selectedObjectIds[0]
@@ -1630,6 +1662,10 @@ export function App({
   const canUngroup =
     selectedGroupIds.length > 0 &&
     selectedGroupIds.every((id) => !importRootGroupIds.has(id));
+  const selectionInspectorOpen =
+    coordinatePlotEditor === null &&
+    selectionInspectorObjectId !== null &&
+    selectionState.selectedObjectIds.includes(selectionInspectorObjectId);
 
   return (
     <main className="board-app">
@@ -1838,8 +1874,8 @@ export function App({
                 <dd>Выбор инструмента и создание графика</dd>
               </div>
               <div>
-                <dt>Enter / двойной щелчок / Escape</dt>
-                <dd>Открыть или закрыть редактор координатной плоскости</dd>
+                <dt>Двойной щелчок правой кнопкой</dt>
+                <dd>Открыть настройки фигуры или редактор графика</dd>
               </div>
               <div>
                 <dt>Стрелки / Shift+стрелки</dt>
@@ -1930,6 +1966,7 @@ export function App({
             });
           }}
           onWorldPointerStart={startDrawing}
+          onObjectSettingsRequest={requestObjectSettings}
           onPanModeRequest={() => activateTool(navigationToolId)}
           onSelectionPointerCancel={cancelSelection}
           onSelectionPointerFinish={finishSelection}
@@ -2183,14 +2220,26 @@ export function App({
                       : "Потяните или нажмите на полотно"}
           </span>
           <span>Правая кнопка / Space / средняя кнопка — перемещение</span>
+          <span>Двойной щелчок правой кнопкой по объекту — настройки</span>
           <span>Escape — отменить действие</span>
         </aside>
-        {selectionState.selectedObjectIds.length === 0 ? null : (
+        {!selectionInspectorOpen ? null : (
           <aside
             className="selection-inspector"
             aria-label="Выделенные объекты"
           >
-            <strong>Выделено: {selectionState.selectedObjectIds.length}</strong>
+            <div className="selection-inspector-heading">
+              <strong>
+                Выделено: {selectionState.selectedObjectIds.length}
+              </strong>
+              <button
+                aria-label="Закрыть настройки объекта"
+                onClick={() => setSelectionInspectorObjectId(null)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
             <span>
               {selectedLocked
                 ? "Трансформация заблокирована"
@@ -2234,17 +2283,6 @@ export function App({
                 Удалить
               </button>
             </div>
-            {selectedCoordinatePlot === null ||
-            selectedCoordinatePlot.source.kind !== "user" ? null : (
-              <button
-                onClick={() =>
-                  beginCoordinatePlotEditing(selectedCoordinatePlot.id)
-                }
-                type="button"
-              >
-                Редактировать график
-              </button>
-            )}
             {selectedStyle === undefined ? null : (
               <div className="style-inspector">
                 {isEditableTextObject(selectedEditableText) ? (

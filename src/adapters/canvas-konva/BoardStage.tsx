@@ -47,6 +47,8 @@ import { useElementSize } from "./use-element-size";
 const zoomBounds = { minimum: 0.1, maximum: 8 } as const;
 const zoomStep = 1.08;
 const wheelCommitDelayMs = 120;
+const rightDoubleClickDelayMs = 450;
+const rightDoubleClickDistancePx = 8;
 
 type PanSource = "hand" | "middle" | "right" | "space";
 
@@ -57,6 +59,12 @@ interface PanSession {
   readonly startPoint: Vec2;
   readonly startViewport: ViewportState;
   latestViewport: ViewportState;
+}
+
+interface RightClickCandidate {
+  readonly objectId: BoardObjectId;
+  readonly point: Vec2;
+  readonly timestamp: number;
 }
 
 interface WheelSession {
@@ -113,6 +121,8 @@ export interface BoardStageProps {
   readonly coordinatePlotInteraction?:
     CoordinatePlotRenderInteraction | undefined;
   readonly drawingModeKey: string | null;
+  readonly onObjectSettingsRequest?:
+    ((objectId: BoardObjectId) => void) | undefined;
   readonly onPanModeRequest?: () => void;
   readonly onWorldPointerCancel: (pointerId: number) => void;
   readonly onWorldPointerFinish: (sample: WorldPointerSample) => void;
@@ -241,6 +251,7 @@ function objectIdFromTarget(target: Konva.Node): BoardObjectId | null {
 export function BoardStage({
   coordinatePlotInteraction,
   drawingModeKey,
+  onObjectSettingsRequest,
   onPanModeRequest,
   onViewportCommit,
   onWorldPointerCancel,
@@ -273,6 +284,7 @@ export function BoardStage({
   const drawingSessionRef = useRef<DrawingSession | null>(null);
   const selectionSessionRef = useRef<SelectionSession | null>(null);
   const wheelSessionRef = useRef<WheelSession | null>(null);
+  const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
   const worldPointerCallbacksRef = useRef({
     cancel: onWorldPointerCancel,
     finish: onWorldPointerFinish,
@@ -580,6 +592,15 @@ export function BoardStage({
 
       event.preventDefault();
       const current = clientPoint(event);
+      if (
+        session.source === "right" &&
+        Math.hypot(
+          current.x - session.startPoint.x,
+          current.y - session.startPoint.y,
+        ) > rightDoubleClickDistancePx
+      ) {
+        rightClickCandidateRef.current = null;
+      }
       const viewport = panViewport(session.startViewport, {
         x: current.x - session.startPoint.x,
         y: current.y - session.startPoint.y,
@@ -637,6 +658,7 @@ export function BoardStage({
       }
     };
     const handleBlur = () => {
+      rightClickCandidateRef.current = null;
       finishDrawing(false);
       finishSelection(false);
       finishPan(false);
@@ -716,6 +738,7 @@ export function BoardStage({
         wheelSessionRef.current = null;
         window.clearTimeout(wheelSession.timeoutId);
       }
+      rightClickCandidateRef.current = null;
     },
     [releaseCapture],
   );
@@ -780,6 +803,40 @@ export function BoardStage({
     const hitObjectId = isLassoAreaModifier
       ? null
       : objectIdFromTarget(event.target);
+    if (isRightButton && onObjectSettingsRequest !== undefined) {
+      const point = clientPoint(event.evt);
+      const previous = rightClickCandidateRef.current;
+      const elapsed =
+        previous === null
+          ? Number.POSITIVE_INFINITY
+          : event.evt.timeStamp - previous.timestamp;
+      const sameObject = previous?.objectId === hitObjectId;
+      const withinDistance =
+        previous !== null &&
+        Math.hypot(point.x - previous.point.x, point.y - previous.point.y) <=
+          rightDoubleClickDistancePx;
+      if (
+        hitObjectId !== null &&
+        sameObject &&
+        elapsed >= 0 &&
+        elapsed <= rightDoubleClickDelayMs &&
+        withinDistance
+      ) {
+        rightClickCandidateRef.current = null;
+        commitWheel();
+        event.cancelBubble = true;
+        event.evt.preventDefault();
+        event.evt.stopPropagation();
+        onObjectSettingsRequest(hitObjectId);
+        return;
+      }
+      rightClickCandidateRef.current =
+        hitObjectId === null
+          ? null
+          : { objectId: hitObjectId, point, timestamp: event.evt.timeStamp };
+    } else if (isRightButton) {
+      rightClickCandidateRef.current = null;
+    }
     const isMiddleButton = event.evt.button === 1;
     const isLeftButton = event.evt.button === 0;
     const shouldSelectHitObject = isLeftButton && hitObjectId !== null;

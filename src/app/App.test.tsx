@@ -72,6 +72,17 @@ vi.mock("../adapters/canvas-konva/public", () => ({
         >
           Переместить выделение
         </button>
+        <button
+          onClick={() => {
+            const objectId = props.scene.items[0]?.object.id;
+            if (objectId !== undefined) {
+              props.onObjectSettingsRequest?.(objectId);
+            }
+          }}
+          type="button"
+        >
+          Открыть настройки объекта
+        </button>
       </div>
     );
   },
@@ -243,7 +254,43 @@ describe("App", () => {
       "Объект: 30, 30",
     );
     expect(
+      screen.queryByRole("complementary", { name: "Выделенные объекты" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть настройки объекта" }),
+    );
+    expect(
       screen.getByRole("complementary", { name: "Выделенные объекты" }),
+    ).toBeInTheDocument();
+  });
+
+  it("creates a graph without opening its editor and opens it on settings request", () => {
+    render(<App />);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Создать координатную плоскость (G)",
+      }),
+    );
+    expect(
+      screen.queryByRole("complementary", {
+        name: "Редактор координатной плоскости",
+      }),
+    ).not.toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(
+      screen.queryByRole("complementary", {
+        name: "Редактор координатной плоскости",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть настройки объекта" }),
+    );
+    expect(
+      screen.getByRole("complementary", {
+        name: "Редактор координатной плоскости",
+      }),
     ).toBeInTheDocument();
   });
 
