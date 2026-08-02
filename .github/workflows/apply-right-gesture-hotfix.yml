@@ -1,6 +1,9 @@
 name: Apply right gesture hotfix
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - hotfix/right-gesture-final
