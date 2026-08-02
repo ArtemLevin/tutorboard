@@ -1412,6 +1412,30 @@ function ViewTab({
   );
 }
 
+function focusableDialogElements(root: HTMLElement): HTMLElement[] {
+  return [
+    ...root.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), summary, [tabindex]:not([tabindex="-1"])',
+    ),
+  ].filter((element) => !element.hasAttribute("hidden"));
+}
+
+function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>): void {
+  if (event.key !== "Tab") return;
+  const elements = focusableDialogElements(event.currentTarget);
+  if (elements.length === 0) return;
+  const activeIndex = elements.indexOf(document.activeElement as HTMLElement);
+  const nextIndex = event.shiftKey
+    ? activeIndex <= 0
+      ? elements.length - 1
+      : activeIndex - 1
+    : activeIndex === elements.length - 1
+      ? 0
+      : activeIndex + 1;
+  event.preventDefault();
+  elements[nextIndex]?.focus();
+}
+
 export function CoordinatePlotEditorPanel({
   definition,
   dirty,
@@ -1427,7 +1451,9 @@ export function CoordinatePlotEditorPanel({
   selectedSeriesId,
 }: CoordinatePlotEditorPanelProps): ReactElement {
   const editorId = useId();
-  const editorRef = useRef<HTMLElement>(null);
+  const basicPanelRef = useRef<HTMLElement>(null);
+  const advancedDialogRef = useRef<HTMLElement>(null);
+  const advancedTriggerRef = useRef<HTMLButtonElement>(null);
   const confirmationReturnFocusRef = useRef<HTMLElement | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(
     typeof document !== "undefined" &&
@@ -1438,25 +1464,57 @@ export function CoordinatePlotEditorPanel({
   );
   const [activeTab, setActiveTab] =
     useState<CoordinatePlotEditorTab>("functions");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const [pendingParameterFocus, setPendingParameterFocus] = useState<
     string | null
   >(null);
+  const advancedWasOpenRef = useRef(false);
   const selectedSeries =
     definition.series.find(({ id }) => id === selectedSeriesId) ??
     definition.series[0] ??
     null;
+  const basicSeries =
+    selectedSeries?.kind === "explicit"
+      ? selectedSeries
+      : (definition.series.find(({ kind }) => kind === "explicit") ?? null);
+  const basicSeriesIndex =
+    basicSeries === null
+      ? -1
+      : definition.series.findIndex(({ id }) => id === basicSeries.id);
+  const basicParameter = definition.parameters[0] ?? null;
+  const basicParameterIndex =
+    basicParameter === null
+      ? -1
+      : definition.parameters.findIndex(({ id }) => id === basicParameter.id);
+  const basicParameterSliderAvailable =
+    basicParameter !== null &&
+    basicParameter.min !== null &&
+    basicParameter.max !== null &&
+    basicParameter.step !== null &&
+    basicParameter.min < basicParameter.max &&
+    basicParameter.step > 0;
   const blockingIssues = issues.filter(({ blocking }) => blocking);
   const expressionIssues = issues.filter(({ blocking }) => !blocking);
   const canSave = dirty && !readOnly && blockingIssues.length === 0;
+  const additionalSeries = Math.max(0, definition.series.length - 1);
+  const additionalParameters = Math.max(0, definition.parameters.length - 1);
 
-  const focusEditor = useCallback((preferred: HTMLElement | null = null) => {
+  const focusBasic = useCallback((preferred: HTMLElement | null = null) => {
     const target =
       preferred?.isConnected === true
         ? preferred
-        : (editorRef.current?.querySelector<HTMLElement>(
-            "[data-plot-editor-initial-focus]",
-          ) ?? editorRef.current);
+        : (basicPanelRef.current?.querySelector<HTMLElement>(
+            "[data-plot-basic-initial-focus]",
+          ) ?? basicPanelRef.current);
+    target?.focus();
+  }, []);
+
+  const focusAdvanced = useCallback(() => {
+    const target =
+      advancedDialogRef.current?.querySelector<HTMLElement>(
+        "[data-plot-editor-initial-focus]",
+      ) ?? advancedDialogRef.current;
     target?.focus();
   }, []);
 
@@ -1465,7 +1523,7 @@ export function CoordinatePlotEditorPanel({
       setActiveTab(tab);
       if (focusTab) {
         queueMicrotask(() =>
-          editorRef.current
+          advancedDialogRef.current
             ?.querySelector<HTMLButtonElement>(`[data-editor-tab="${tab}"]`)
             ?.focus(),
         );
@@ -1491,11 +1549,13 @@ export function CoordinatePlotEditorPanel({
     selectTab(editorTabs[nextIndex]!.id, true);
   };
 
-  const createParameterFromFormula = useCallback(
-    (name: string) => {
+  const addParameterFromFormula = useCallback(
+    (name: string, revealAdvancedParameter: boolean) => {
       if (definition.parameters.some((parameter) => parameter.name === name)) {
-        setPendingParameterFocus(name);
-        selectTab("parameters");
+        if (revealAdvancedParameter) {
+          setPendingParameterFocus(name);
+          selectTab("parameters");
+        }
         return;
       }
       if (
@@ -1504,11 +1564,23 @@ export function CoordinatePlotEditorPanel({
       ) {
         return;
       }
-      setPendingParameterFocus(name);
-      selectTab("parameters");
+      if (revealAdvancedParameter) {
+        setPendingParameterFocus(name);
+        selectTab("parameters");
+      }
       onAddParameter(name);
     },
     [definition.parameters, onAddParameter, selectTab],
+  );
+
+  const createBasicParameterFromFormula = useCallback(
+    (name: string) => addParameterFromFormula(name, false),
+    [addParameterFromFormula],
+  );
+
+  const createAdvancedParameterFromFormula = useCallback(
+    (name: string) => addParameterFromFormula(name, true),
+    [addParameterFromFormula],
   );
 
   const requestClose = useCallback(() => {
@@ -1526,15 +1598,19 @@ export function CoordinatePlotEditorPanel({
   const continueEditing = useCallback(() => {
     const preferred = confirmationReturnFocusRef.current;
     setCloseConfirmationOpen(false);
-    queueMicrotask(() => focusEditor(preferred));
-  }, [focusEditor]);
+    queueMicrotask(() => focusBasic(preferred));
+  }, [focusBasic]);
+
+  const closeAdvanced = useCallback(() => {
+    setAdvancedOpen(false);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
     const original = returnFocusRef.current;
     const fallback = fallbackFocusRef?.current ?? null;
     queueMicrotask(() => {
-      if (mounted) focusEditor();
+      if (mounted) focusBasic();
     });
     return () => {
       mounted = false;
@@ -1548,12 +1624,29 @@ export function CoordinatePlotEditorPanel({
         target?.focus();
       });
     };
-  }, [fallbackFocusRef, focusEditor]);
+  }, [fallbackFocusRef, focusBasic]);
 
   useEffect(() => {
-    if (activeTab !== "parameters" || pendingParameterFocus === null) return;
+    if (advancedOpen) {
+      advancedWasOpenRef.current = true;
+      queueMicrotask(focusAdvanced);
+      return;
+    }
+    if (!advancedWasOpenRef.current) return;
+    advancedWasOpenRef.current = false;
+    queueMicrotask(() => advancedTriggerRef.current?.focus());
+  }, [advancedOpen, focusAdvanced]);
+
+  useEffect(() => {
+    if (
+      !advancedOpen ||
+      activeTab !== "parameters" ||
+      pendingParameterFocus === null
+    ) {
+      return;
+    }
     const target = [
-      ...(editorRef.current?.querySelectorAll<HTMLInputElement>(
+      ...(advancedDialogRef.current?.querySelectorAll<HTMLInputElement>(
         "[data-parameter-name]",
       ) ?? []),
     ].find((input) => input.dataset.parameterName === pendingParameterFocus);
@@ -1561,7 +1654,7 @@ export function CoordinatePlotEditorPanel({
     target.focus();
     target.select();
     setPendingParameterFocus(null);
-  }, [activeTab, definition.parameters, pendingParameterFocus]);
+  }, [activeTab, advancedOpen, definition.parameters, pendingParameterFocus]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1577,28 +1670,36 @@ export function CoordinatePlotEditorPanel({
       event.stopImmediatePropagation();
       if (closeConfirmationOpen) {
         continueEditing();
+      } else if (advancedOpen) {
+        closeAdvanced();
       } else {
         requestClose();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [canSave, closeConfirmationOpen, continueEditing, onSave, requestClose]);
+  }, [
+    advancedOpen,
+    canSave,
+    closeAdvanced,
+    closeConfirmationOpen,
+    continueEditing,
+    onSave,
+    requestClose,
+  ]);
 
   return (
     <aside
       aria-describedby={`${editorId}-status`}
       aria-label="Редактор координатной плоскости"
-      className="coordinate-plot-editor-panel"
+      className="coordinate-plot-editor-panel coordinate-plot-basic-editor-panel"
       data-testid="coordinate-plot-editor"
-      ref={editorRef}
+      ref={basicPanelRef}
       tabIndex={-1}
     >
-      <header className="plot-editor-heading">
+      <header className="plot-editor-heading plot-basic-heading">
         <div>
-          <strong id={`${editorId}-title`}>
-            Редактирование координатной плоскости
-          </strong>
+          <strong id={`${editorId}-title`}>Настройки графика</strong>
           <span aria-live="polite" id={`${editorId}-status`}>
             {dirty ? "Есть несохранённые изменения" : "Изменения сохранены"}
           </span>
@@ -1612,91 +1713,172 @@ export function CoordinatePlotEditorPanel({
         </button>
       </header>
 
-      <div
-        aria-label="Разделы редактора графика"
-        className="plot-editor-tabs"
-        role="tablist"
-      >
-        {editorTabs.map((tab) => (
-          <button
-            aria-controls={`${editorId}-panel-${tab.id}`}
-            aria-selected={activeTab === tab.id}
-            data-editor-tab={tab.id}
-            id={`${editorId}-tab-${tab.id}`}
-            key={tab.id}
-            onClick={() => selectTab(tab.id)}
-            onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
-            role="tab"
-            tabIndex={activeTab === tab.id ? 0 : -1}
-            type="button"
-          >
-            {tab.label}
-            {tab.id === "parameters"
-              ? ` (${definition.parameters.length})`
-              : ""}
-          </button>
-        ))}
-      </div>
-
-      <div className="plot-editor-scroll">
+      <div className="plot-editor-basic-scroll">
         <section
-          aria-labelledby={`${editorId}-tab-functions`}
-          hidden={activeTab !== "functions"}
-          id={`${editorId}-panel-functions`}
-          role="tabpanel"
+          className="plot-basic-card"
+          aria-labelledby={`${editorId}-formula-title`}
         >
-          <FunctionsTab
-            definition={definition}
-            issues={issues}
-            onAddSeries={onAddSeries}
-            onChange={onDefinitionChange}
-            onCreateParameter={createParameterFromFormula}
-            onSelectedSeriesChange={onSelectedSeriesChange}
-            selectedSeries={selectedSeries}
-            selectedSeriesId={selectedSeriesId}
-          />
-        </section>
-        <section
-          aria-labelledby={`${editorId}-tab-parameters`}
-          hidden={activeTab !== "parameters"}
-          id={`${editorId}-panel-parameters`}
-          role="tabpanel"
-        >
-          <ParametersTab
-            definition={definition}
-            issues={issues}
-            onAddParameter={onAddParameter}
-            onChange={onDefinitionChange}
-          />
-        </section>
-        <section
-          aria-labelledby={`${editorId}-tab-view`}
-          hidden={activeTab !== "view"}
-          id={`${editorId}-panel-view`}
-          role="tabpanel"
-        >
-          <ViewTab
-            definition={definition}
-            issues={issues}
-            onChange={onDefinitionChange}
-          />
-        </section>
-
-        {expressionIssues.length === 0 ? null : (
-          <div className="plot-editor-warning" role="status">
-            В формулах найдено предупреждений: {expressionIssues.length}.
-            Остальные серии продолжают отображаться.
+          <div className="plot-basic-card-heading">
+            <div>
+              <strong id={`${editorId}-formula-title`}>Формула</strong>
+              <span>Основной график</span>
+            </div>
+            {basicSeries === null ? null : (
+              <span className="plot-basic-series-name">
+                {basicSeries.name || "Без названия"}
+              </span>
+            )}
           </div>
+          {basicSeries === null ? (
+            <div className="plot-editor-empty-state plot-basic-empty-state">
+              <strong>Используется сложный тип кривой</strong>
+              <span>
+                Параметрические кривые и наборы без явной функции доступны в
+                расширенных настройках.
+              </span>
+            </div>
+          ) : (
+            <>
+              <ExpressionField
+                ariaLabel="Формула явной функции"
+                existingParameterNames={definition.parameters.map(
+                  ({ name }) => name,
+                )}
+                field={`series.${basicSeriesIndex}.expression`}
+                initialFocus
+                issueId={`${editorId}-basic-formula-issues`}
+                issues={issues}
+                label="f(x) ="
+                onCreateParameter={createBasicParameterFromFormula}
+                onSourceChange={(expression) =>
+                  onDefinitionChange(
+                    updateCoordinatePlotSeries(definition, {
+                      ...basicSeries,
+                      expression,
+                    }),
+                  )
+                }
+                parameterLimitReached={
+                  definition.parameters.length >=
+                  maximumCoordinatePlotParameters
+                }
+                source={basicSeries.expression}
+              />
+              <p className="plot-editor-hint plot-basic-example">
+                Пример: <code>2*x+a</code>
+              </p>
+            </>
+          )}
+        </section>
+
+        <section
+          className="plot-basic-card"
+          aria-labelledby={`${editorId}-parameter-title`}
+        >
+          <div className="plot-basic-card-heading">
+            <div>
+              <strong id={`${editorId}-parameter-title`}>Параметр</strong>
+              <span>Быстрое управление графиком</span>
+            </div>
+            {basicParameter === null ? null : (
+              <output
+                className="plot-basic-parameter-value"
+                htmlFor={`${editorId}-basic-parameter-slider`}
+              >
+                {basicParameter.name} = {basicParameter.value}
+              </output>
+            )}
+          </div>
+          {basicParameter === null ? (
+            <div className="plot-basic-add-parameter">
+              <p className="plot-editor-hint">
+                Добавьте параметр <code>a</code> и используйте его в формуле.
+              </p>
+              <button
+                disabled={
+                  definition.parameters.length >=
+                  maximumCoordinatePlotParameters
+                }
+                onClick={() => onAddParameter("a")}
+                type="button"
+              >
+                Добавить параметр a
+              </button>
+            </div>
+          ) : basicParameterSliderAvailable ? (
+            <div className="plot-basic-slider-block">
+              <div className="plot-basic-slider-row">
+                <span>{basicParameter.min}</span>
+                <input
+                  aria-label={`Ползунок параметра ${basicParameter.name}`}
+                  id={`${editorId}-basic-parameter-slider`}
+                  max={basicParameter.max ?? undefined}
+                  min={basicParameter.min ?? undefined}
+                  onChange={(event) =>
+                    onDefinitionChange(
+                      updateCoordinatePlotParameter(definition, {
+                        ...basicParameter,
+                        value: numberValue(
+                          event.currentTarget.value,
+                          basicParameter.value,
+                        ),
+                      }),
+                    )
+                  }
+                  step={basicParameter.step ?? undefined}
+                  type="range"
+                  value={Math.max(
+                    basicParameter.min ?? basicParameter.value,
+                    Math.min(
+                      basicParameter.max ?? basicParameter.value,
+                      basicParameter.value,
+                    ),
+                  )}
+                />
+                <span>{basicParameter.max}</span>
+              </div>
+              <IssueList
+                field={`parameters.${basicParameterIndex}`}
+                issues={issues}
+              />
+            </div>
+          ) : (
+            <div className="plot-editor-warning">
+              Для параметра требуется корректный минимум, максимум и шаг. Точные
+              значения доступны в расширенных настройках.
+            </div>
+          )}
+        </section>
+
+        {additionalSeries === 0 && additionalParameters === 0 ? null : (
+          <p className="plot-basic-complexity-summary">
+            Дополнительно: {additionalSeries} серий и {additionalParameters}{" "}
+            параметров. Полный список доступен в расширенных настройках.
+          </p>
         )}
+
         {blockingIssues.length === 0 ? null : (
           <div className="plot-editor-error" role="alert">
             Исправьте структурные ошибки перед сохранением.
             <IssueList field="" issues={blockingIssues} />
           </div>
         )}
+
+        <button
+          className="plot-basic-advanced-action"
+          onClick={() => setAdvancedOpen(true)}
+          ref={advancedTriggerRef}
+          type="button"
+        >
+          <span>
+            <strong>Расширенные настройки</strong>
+            <small>Серии, параметры, оси, сетка, диапазоны и стили</small>
+          </span>
+          <span aria-hidden="true">→</span>
+        </button>
       </div>
 
-      <footer className="plot-editor-footer">
+      <footer className="plot-editor-footer plot-basic-footer">
         <button onClick={requestClose} type="button">
           Закрыть
         </button>
@@ -1712,6 +1894,140 @@ export function CoordinatePlotEditorPanel({
         </button>
       </footer>
 
+      {advancedOpen ? (
+        <div className="plot-editor-advanced-backdrop">
+          <section
+            aria-describedby={`${editorId}-advanced-status`}
+            aria-label="Расширенные настройки графика"
+            aria-modal="true"
+            className="coordinate-plot-editor-panel coordinate-plot-advanced-dialog"
+            data-testid="coordinate-plot-advanced-editor"
+            onKeyDown={trapDialogFocus}
+            ref={advancedDialogRef}
+            role="dialog"
+            tabIndex={-1}
+          >
+            <header className="plot-editor-heading">
+              <div>
+                <strong>Расширенные настройки графика</strong>
+                <span aria-live="polite" id={`${editorId}-advanced-status`}>
+                  {dirty
+                    ? "Черновик содержит изменения"
+                    : "Изменения сохранены"}
+                </span>
+              </div>
+              <button
+                aria-label="Вернуться к базовым настройкам"
+                onClick={closeAdvanced}
+                type="button"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </header>
+
+            <div
+              aria-label="Разделы расширенного редактора графика"
+              className="plot-editor-tabs"
+              role="tablist"
+            >
+              {editorTabs.map((tab) => (
+                <button
+                  aria-controls={`${editorId}-panel-${tab.id}`}
+                  aria-selected={activeTab === tab.id}
+                  data-editor-tab={tab.id}
+                  id={`${editorId}-tab-${tab.id}`}
+                  key={tab.id}
+                  onClick={() => selectTab(tab.id)}
+                  onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
+                  role="tab"
+                  tabIndex={activeTab === tab.id ? 0 : -1}
+                  type="button"
+                >
+                  {tab.label}
+                  {tab.id === "parameters"
+                    ? ` (${definition.parameters.length})`
+                    : ""}
+                </button>
+              ))}
+            </div>
+
+            <div className="plot-editor-scroll">
+              <section
+                aria-labelledby={`${editorId}-tab-functions`}
+                hidden={activeTab !== "functions"}
+                id={`${editorId}-panel-functions`}
+                role="tabpanel"
+              >
+                <FunctionsTab
+                  definition={definition}
+                  issues={issues}
+                  onAddSeries={onAddSeries}
+                  onChange={onDefinitionChange}
+                  onCreateParameter={createAdvancedParameterFromFormula}
+                  onSelectedSeriesChange={onSelectedSeriesChange}
+                  selectedSeries={selectedSeries}
+                  selectedSeriesId={selectedSeriesId}
+                />
+              </section>
+              <section
+                aria-labelledby={`${editorId}-tab-parameters`}
+                hidden={activeTab !== "parameters"}
+                id={`${editorId}-panel-parameters`}
+                role="tabpanel"
+              >
+                <ParametersTab
+                  definition={definition}
+                  issues={issues}
+                  onAddParameter={onAddParameter}
+                  onChange={onDefinitionChange}
+                />
+              </section>
+              <section
+                aria-labelledby={`${editorId}-tab-view`}
+                hidden={activeTab !== "view"}
+                id={`${editorId}-panel-view`}
+                role="tabpanel"
+              >
+                <ViewTab
+                  definition={definition}
+                  issues={issues}
+                  onChange={onDefinitionChange}
+                />
+              </section>
+
+              {expressionIssues.length === 0 ? null : (
+                <div className="plot-editor-warning" role="status">
+                  В формулах найдено предупреждений: {expressionIssues.length}.
+                  Остальные серии продолжают отображаться.
+                </div>
+              )}
+              {blockingIssues.length === 0 ? null : (
+                <div className="plot-editor-error" role="alert">
+                  Исправьте структурные ошибки перед сохранением.
+                  <IssueList field="" issues={blockingIssues} />
+                </div>
+              )}
+            </div>
+
+            <footer className="plot-editor-footer">
+              <button onClick={closeAdvanced} type="button">
+                К базовым настройкам
+              </button>
+              <button
+                className="primary"
+                disabled={!canSave}
+                onClick={() => {
+                  onSave();
+                }}
+                type="button"
+              >
+                Сохранить
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+
       {closeConfirmationOpen ? (
         <div className="plot-editor-confirmation-backdrop">
           <section
@@ -1719,27 +2035,7 @@ export function CoordinatePlotEditorPanel({
             aria-labelledby={`${editorId}-close-title`}
             aria-modal="true"
             className="plot-editor-confirmation"
-            onKeyDown={(event) => {
-              if (event.key !== "Tab") return;
-              const buttons = [
-                ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
-                  "button:not(:disabled)",
-                ),
-              ];
-              if (buttons.length === 0) return;
-              const activeIndex = buttons.indexOf(
-                document.activeElement as HTMLButtonElement,
-              );
-              const nextIndex = event.shiftKey
-                ? activeIndex <= 0
-                  ? buttons.length - 1
-                  : activeIndex - 1
-                : activeIndex === buttons.length - 1
-                  ? 0
-                  : activeIndex + 1;
-              event.preventDefault();
-              buttons[nextIndex]?.focus();
-            }}
+            onKeyDown={trapDialogFocus}
             role="alertdialog"
           >
             <h2 id={`${editorId}-close-title`}>Несохранённые изменения</h2>

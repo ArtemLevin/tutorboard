@@ -33,9 +33,16 @@ describe("coordinate plot editor model", () => {
     expect(plot.kind).toBe("math.coordinate-plot");
     expect(plot.definition.series).toHaveLength(1);
     expect(plot.definition.series[0]).toMatchObject({
-      expression: "x^2",
+      expression: "2*x+a",
       kind: "explicit",
       visible: true,
+    });
+    expect(plot.definition.parameters[0]).toMatchObject({
+      name: "a",
+      value: 1,
+      min: -10,
+      max: 10,
+      step: 0.1,
     });
     expect(plot.position).toEqual({ x: 80, y: 90 });
   });
@@ -49,7 +56,8 @@ describe("coordinate plot editor model", () => {
     );
     const withParameter = addCoordinatePlotParameter(
       withSeries,
-      plotParameterId("parameter-a"),
+      plotParameterId("parameter-b"),
+      "b",
     );
 
     expect(withParameter.series[1]).toMatchObject({
@@ -58,9 +66,9 @@ describe("coordinate plot editor model", () => {
       xExpression: "3*cos(t)",
       yExpression: "3*sin(t)",
     });
-    expect(withParameter.parameters[0]).toMatchObject({
-      id: "parameter-a",
-      name: "a",
+    expect(withParameter.parameters[1]).toMatchObject({
+      id: "parameter-b",
+      name: "b",
       value: 1,
     });
   });
@@ -73,7 +81,7 @@ describe("coordinate plot editor model", () => {
       "k",
     );
 
-    expect(definition.parameters[0]).toMatchObject({
+    expect(definition.parameters[1]).toMatchObject({
       id: "parameter-k",
       name: "k",
       value: 1,
@@ -82,13 +90,8 @@ describe("coordinate plot editor model", () => {
 
   it("falls back to a generated name for duplicate or invalid requests", () => {
     const plot = createPlot();
-    const withA = addCoordinatePlotParameter(
-      plot.definition,
-      plotParameterId("parameter-a"),
-      "a",
-    );
     const duplicate = addCoordinatePlotParameter(
-      withA,
+      plot.definition,
       plotParameterId("parameter-duplicate"),
       "a",
     );

@@ -107,6 +107,7 @@ export function createDefaultCoordinatePlotObject(input: {
   readonly ids: CoordinatePlotIdFactory;
 }): CoordinatePlotObject {
   const size = { height: 420, width: 640 } as const;
+  const defaultSeries = createExplicitPlotSeries(input.ids.seriesId(), 0);
   return {
     definition: {
       axes: {
@@ -128,8 +129,17 @@ export function createDefaultCoordinatePlotObject(input: {
         yStep: null,
       },
       legend: { position: "top-right", visible: true },
-      parameters: [],
-      series: [createExplicitPlotSeries(input.ids.seriesId(), 0)],
+      parameters: [
+        {
+          id: input.ids.parameterId(),
+          max: 10,
+          min: -10,
+          name: "a",
+          step: 0.1,
+          value: 1,
+        },
+      ],
+      series: [{ ...defaultSeries, expression: "2*x+a" }],
       size,
     },
     groupId: null,
