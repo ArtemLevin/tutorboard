@@ -71,7 +71,11 @@ describe("math ink HTTP recognizer", () => {
     );
 
     expect(fetch).toHaveBeenCalledOnce();
-    expect(String(capturedInput)).toBe(
+    expect(capturedInput).toBeInstanceOf(URL);
+    if (!(capturedInput instanceof URL)) {
+      throw new Error("Expected the adapter to call fetch with a URL.");
+    }
+    expect(capturedInput.href).toBe(
       "https://board.example/api/v1/math-ink/recognize",
     );
     expect(capturedInit?.method).toBe("POST");
@@ -79,7 +83,12 @@ describe("math ink HTTP recognizer", () => {
       "Content-Type": "application/json",
       [mathInkRequestIdHeader]: request.recognitionId,
     });
-    expect(JSON.parse(String(capturedInit?.body))).toEqual(request);
+    const capturedBody = capturedInit?.body;
+    expect(typeof capturedBody).toBe("string");
+    if (typeof capturedBody !== "string") {
+      throw new Error("Expected the adapter request body to be JSON text.");
+    }
+    expect(JSON.parse(capturedBody)).toEqual(request);
     expect(result).toMatchObject({
       candidates: [{ confidence: 0.98, expression: "x^2", format: "latex" }],
       recognizerId: "mathpix.strokes.via-tutorboard-proxy",
