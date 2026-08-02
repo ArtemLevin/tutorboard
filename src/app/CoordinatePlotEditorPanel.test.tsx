@@ -71,6 +71,33 @@ function PanelHarness({ initialDefinition = createDefinition() }) {
 }
 
 describe("CoordinatePlotEditorPanel", () => {
+  it("shows a compact formula and primary parameter before advanced settings", () => {
+    render(<PanelHarness />);
+
+    expect(screen.getByLabelText("Формула явной функции")).toHaveValue("2*x+a");
+    expect(screen.getByLabelText("Ползунок параметра a")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Расширенные настройки графика" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Расширенные настройки/ }),
+    );
+    const advanced = screen.getByRole("dialog", {
+      name: "Расширенные настройки графика",
+    });
+    expect(advanced).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Расширенные настройки/ }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "К базовым настройкам" }),
+    );
+    expect(advanced).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Формула явной функции")).toHaveValue("2*x+a");
+  });
+
   it("edits the selected formula and surfaces local diagnostics", () => {
     const onDefinitionChange =
       vi.fn<(definition: CoordinatePlotDefinition) => void>();
@@ -138,11 +165,14 @@ describe("CoordinatePlotEditorPanel", () => {
       />,
     );
 
+    fireEvent.click(
+      screen.getByRole("button", { name: /Расширенные настройки/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "+ Явная функция" }));
     fireEvent.click(
       screen.getByRole("button", { name: "+ Параметрическая кривая" }),
     );
-    fireEvent.click(screen.getByRole("tab", { name: "Параметры (0)" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Параметры (1)" }));
     fireEvent.click(screen.getByRole("button", { name: "Добавить параметр" }));
 
     expect(onAddSeries.mock.calls).toEqual([["explicit"], ["parametric"]]);
@@ -153,8 +183,12 @@ describe("CoordinatePlotEditorPanel", () => {
   it("supports WAI-ARIA tabs and localized enum values", async () => {
     render(<PanelHarness />);
 
+    fireEvent.click(
+      screen.getByRole("button", { name: /Расширенные настройки/ }),
+    );
+
     const functions = screen.getByRole("tab", { name: "Функции" });
-    const parameters = screen.getByRole("tab", { name: "Параметры (0)" });
+    const parameters = screen.getByRole("tab", { name: "Параметры (1)" });
     const view = screen.getByRole("tab", { name: "Вид" });
     expect(functions).toHaveAttribute("aria-selected", "true");
 
@@ -181,6 +215,9 @@ describe("CoordinatePlotEditorPanel", () => {
 
   it("preserves intermediate numeric text until the field is committed", () => {
     render(<PanelHarness />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Расширенные настройки/ }),
+    );
     fireEvent.click(screen.getByRole("tab", { name: "Вид" }));
     const minimumX = inputByLabel("Минимальная граница X");
 
@@ -194,6 +231,9 @@ describe("CoordinatePlotEditorPanel", () => {
   it("inserts functions around the selected expression and explains radians", async () => {
     render(<PanelHarness />);
 
+    fireEvent.click(
+      screen.getByRole("button", { name: /Расширенные настройки/ }),
+    );
     const formula = inputByLabel("Формула явной функции");
     fireEvent.change(formula, { target: { value: "x+1" } });
     formula.focus();
@@ -225,6 +265,9 @@ describe("CoordinatePlotEditorPanel", () => {
       />,
     );
 
+    fireEvent.click(
+      screen.getByRole("button", { name: /Расширенные настройки/ }),
+    );
     await waitFor(() =>
       expect(screen.getByLabelText("Формула явной функции")).toHaveFocus(),
     );
@@ -232,10 +275,10 @@ describe("CoordinatePlotEditorPanel", () => {
       screen.getByRole("button", { name: "Создать параметр «q»" }),
     );
 
-    const parameters = screen.getByRole("tab", { name: "Параметры (1)" });
+    const parameters = screen.getByRole("tab", { name: "Параметры (2)" });
     expect(parameters).toHaveAttribute("aria-selected", "true");
     const name = await screen.findByLabelText(
-      "Имя параметра harness-parameter-0",
+      "Имя параметра harness-parameter-1",
     );
     expect(name).toHaveValue("q");
     await waitFor(() => expect(name).toHaveFocus());

@@ -56,6 +56,14 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     name: "Редактор координатной плоскости",
   });
   await expect(editor).toBeVisible();
+  await expect(editor.getByLabel("Формула явной функции")).toHaveValue("2*x+a");
+  await expect(editor.getByLabel("Ползунок параметра a")).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "Расширенные настройки графика" }),
+  ).toBeHidden();
+  const advancedEditor = page.getByRole("dialog", {
+    name: "Расширенные настройки графика",
+  });
   const persistenceStatus = page.getByTestId("persistence-status");
   const navigation = page.getByRole("toolbar", {
     name: "Навигация координатной плоскости",
@@ -65,27 +73,30 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await expect(
     navigation.getByRole("radio", { name: "Только ось X" }),
   ).toHaveAttribute("aria-checked", "true");
-
-  await editor.getByRole("tab", { name: "Вид" }).click();
-  const xMinimum = editor.getByLabel("Минимальная граница X");
-  const yMinimum = editor.getByLabel("Минимальная граница Y");
-  const yMaximum = editor.getByLabel("Максимальная граница Y");
-  const initialXMinimum = Number(await xMinimum.inputValue());
-  const initialYMinimum = Number(await yMinimum.inputValue());
   await navigation.getByRole("button", { name: "Приблизить график" }).click();
-  await expect
-    .poll(async () => Number(await xMinimum.inputValue()))
-    .not.toBe(initialXMinimum);
-  await expect(yMinimum).toHaveValue(String(initialYMinimum));
+
+  await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
+  await expect(advancedEditor).toBeVisible();
+  await advancedEditor.getByRole("tab", { name: "Вид" }).click();
+  const xMinimum = advancedEditor.getByLabel("Минимальная граница X");
+  const yMinimum = advancedEditor.getByLabel("Минимальная граница Y");
+  const yMaximum = advancedEditor.getByLabel("Максимальная граница Y");
+  await expect(xMinimum).not.toHaveValue("-10");
+  await expect(yMinimum).toHaveValue("-7");
+  await expect(
+    advancedEditor.getByTestId("renderer-status-help"),
+  ).toContainText("Лимит детализации");
+  await advancedEditor
+    .getByRole("button", { name: "К базовым настройкам", exact: true })
+    .click();
+  await expect(advancedEditor).toBeHidden();
+
   await navigation
     .getByRole("button", { name: "Сбросить диапазон графика" })
     .click();
   await navigation
     .getByRole("button", { name: "Вместить все графики" })
     .click();
-  await expect(editor.getByTestId("renderer-status-help")).toContainText(
-    "Лимит детализации",
-  );
 
   const stage = page.locator(".konvajs-content");
   const stageBox = await stage.boundingBox();
@@ -106,9 +117,17 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     .click();
 
   if (test.info().project.name === "chromium") {
+    await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
+    await expect(advancedEditor).toBeVisible();
+    await advancedEditor.getByRole("tab", { name: "Вид" }).click();
     const beforePinchX = Number(await xMinimum.inputValue());
     const beforePinchY = Number(await yMinimum.inputValue());
     const beforePinchYSpan = Number(await yMaximum.inputValue()) - beforePinchY;
+    await advancedEditor
+      .getByRole("button", { name: "К базовым настройкам", exact: true })
+      .click();
+    await expect(advancedEditor).toBeHidden();
+
     await page.evaluate(({ x, y }) => {
       const target =
         window.document.querySelector<HTMLElement>(".konvajs-content");
@@ -145,6 +164,10 @@ test("discovers, persists, restores, duplicates and exports a production coordin
         }),
       );
     }, plotPoint);
+
+    await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
+    await expect(advancedEditor).toBeVisible();
+    await advancedEditor.getByRole("tab", { name: "Вид" }).click();
     await expect
       .poll(async () => Number(await xMinimum.inputValue()))
       .not.toBe(beforePinchX);
@@ -158,66 +181,87 @@ test("discovers, persists, restores, duplicates and exports a production coordin
         return Math.abs(currentMaximum - currentMinimum - beforePinchYSpan);
       })
       .toBeLessThan(1e-8);
+    await advancedEditor
+      .getByRole("button", { name: "К базовым настройкам", exact: true })
+      .click();
+    await expect(advancedEditor).toBeHidden();
   }
+
   await navigation
     .getByRole("button", { name: "Сбросить диапазон графика" })
     .click();
-  await editor.getByRole("tab", { name: "Функции" }).click();
+  await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
+  await expect(advancedEditor).toBeVisible();
+  await advancedEditor.getByRole("tab", { name: "Функции" }).click();
   await expect(persistenceStatus).toHaveText(
     /Сохранено локально|Сохранено повторно/,
   );
 
-  await editor.getByText("Краткая справка по формулам").click();
+  await advancedEditor.getByText("Краткая справка по формулам").click();
   await expect(
-    editor.getByText(/Тригонометрические функции используют радианы/),
+    advancedEditor.getByText(/Тригонометрические функции используют радианы/),
   ).toBeVisible();
 
-  const firstFormula = editor.getByLabel("Формула явной функции");
+  const firstFormula = advancedEditor.getByLabel("Формула явной функции");
   await firstFormula.fill("x");
   await firstFormula.selectText();
-  await editor.getByRole("button", { name: "Вставить sin" }).click();
+  await advancedEditor.getByRole("button", { name: "Вставить sin" }).click();
   await expect(firstFormula).toHaveValue("sin(x)");
 
-  await firstFormula.fill("a*x^2");
-  await editor.getByRole("button", { name: "Создать параметр «a»" }).click();
-  const parametersTab = editor.getByRole("tab", { name: "Параметры (1)" });
+  await firstFormula.fill("b*x^2");
+  await advancedEditor
+    .getByRole("button", { name: "Создать параметр «b»" })
+    .click();
+  const parametersTab = advancedEditor.getByRole("tab", {
+    name: "Параметры (2)",
+  });
   await expect(parametersTab).toHaveAttribute("aria-selected", "true");
-  await expect(editor.getByLabel(/Имя параметра/)).toHaveValue("a");
-  await expect(editor.getByLabel(/Имя параметра/)).toBeFocused();
+  const addedParameterName = advancedEditor
+    .locator("[data-parameter-name]")
+    .last();
+  await expect(addedParameterName).toHaveValue("b");
+  await expect(addedParameterName).toBeFocused();
 
-  await editor.getByRole("tab", { name: "Функции" }).click();
-  await expect(editor.getByLabel("Стиль линии")).toContainText("Сплошная");
-  await expect(editor.getByLabel("Стиль линии")).toContainText("Штриховая");
+  await advancedEditor.getByRole("tab", { name: "Функции" }).click();
+  await expect(advancedEditor.getByLabel("Стиль линии")).toContainText(
+    "Сплошная",
+  );
+  await expect(advancedEditor.getByLabel("Стиль линии")).toContainText(
+    "Штриховая",
+  );
 
-  await editor.getByRole("button", { name: "+ Явная функция" }).click();
-  await editor.getByLabel("Формула явной функции").fill("2*x+1");
+  await advancedEditor.getByRole("button", { name: "+ Явная функция" }).click();
+  await advancedEditor.getByLabel("Формула явной функции").fill("2*x+1");
 
-  await editor
+  await advancedEditor
     .getByRole("button", { name: "+ Параметрическая кривая" })
     .click();
-  await editor.getByLabel("Параметрическая формула x").fill("3*cos(t)");
-  await editor.getByLabel("Параметрическая формула y").fill("3*sin(t)");
+  await advancedEditor.getByLabel("Параметрическая формула x").fill("3*cos(t)");
+  await advancedEditor.getByLabel("Параметрическая формула y").fill("3*sin(t)");
 
-  await editor.getByLabel("Показывать График 2").uncheck();
-  await editor.getByRole("tab", { name: "Вид" }).click();
-  await expect(editor.getByText("X: от")).toBeVisible();
-  await expect(editor.getByText("Y: до")).toBeVisible();
-  await expect(editor.getByLabel("Положение легенды")).toContainText(
+  await advancedEditor.getByLabel("Показывать График 2").uncheck();
+  await advancedEditor.getByRole("tab", { name: "Вид" }).click();
+  await expect(advancedEditor.getByText("X: от")).toBeVisible();
+  await expect(advancedEditor.getByText("Y: до")).toBeVisible();
+  await expect(advancedEditor.getByLabel("Положение легенды")).toContainText(
     "Сверху справа",
   );
-  await editor.getByLabel("Минимальная граница X").fill("-18");
-  await editor.getByLabel("Максимальная граница X").fill("24");
-  await editor.getByLabel("Минимальная граница Y").fill("-9");
-  await editor.getByLabel("Максимальная граница Y").fill("11");
+  await advancedEditor.getByLabel("Минимальная граница X").fill("-18");
+  await advancedEditor.getByLabel("Максимальная граница X").fill("24");
+  await advancedEditor.getByLabel("Минимальная граница Y").fill("-9");
+  await advancedEditor.getByLabel("Максимальная граница Y").fill("11");
 
   const revisionCountBeforeSave = await localRevisionCount(page);
-  await editor.getByRole("button", { name: "Сохранить" }).click();
+  await advancedEditor.getByRole("button", { name: "Сохранить" }).click();
   await expect
     .poll(() => localRevisionCount(page))
     .toBeGreaterThan(revisionCountBeforeSave);
   await expect(persistenceStatus).toHaveText(
     /Сохранено локально|Сохранено повторно/,
   );
+  await advancedEditor
+    .getByRole("button", { name: "К базовым настройкам", exact: true })
+    .click();
   await editor
     .getByRole("button", { name: "Закрыть редактор графика" })
     .click();
@@ -228,18 +272,38 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await page.getByRole("button", { name: "math.coordinate-plot" }).click();
   await openCoordinatePlotEditorByRightDoubleClick(page);
   await expect(editor).toBeVisible();
-  await expect(editor.getByLabel("Формула явной функции")).toHaveValue("a*x^2");
-  await expect(editor.getByLabel("Показывать График 2")).not.toBeChecked();
+  await expect(editor.getByLabel("Формула явной функции")).toHaveValue("b*x^2");
+  await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
+  await expect(advancedEditor).toBeVisible();
+  await expect(
+    advancedEditor.getByLabel("Показывать График 2"),
+  ).not.toBeChecked();
 
-  await editor.getByRole("tab", { name: "Вид" }).click();
-  await expect(editor.getByLabel("Минимальная граница X")).toHaveValue("-18");
-  await expect(editor.getByLabel("Максимальная граница X")).toHaveValue("24");
-  await expect(editor.getByLabel("Минимальная граница Y")).toHaveValue("-9");
-  await expect(editor.getByLabel("Максимальная граница Y")).toHaveValue("11");
+  await advancedEditor.getByRole("tab", { name: "Вид" }).click();
+  await expect(advancedEditor.getByLabel("Минимальная граница X")).toHaveValue(
+    "-18",
+  );
+  await expect(advancedEditor.getByLabel("Максимальная граница X")).toHaveValue(
+    "24",
+  );
+  await expect(advancedEditor.getByLabel("Минимальная граница Y")).toHaveValue(
+    "-9",
+  );
+  await expect(advancedEditor.getByLabel("Максимальная граница Y")).toHaveValue(
+    "11",
+  );
 
-  await editor.getByRole("tab", { name: "Параметры (1)" }).click();
-  await expect(editor.getByLabel(/Имя параметра/)).toHaveValue("a");
+  await advancedEditor.getByRole("tab", { name: "Параметры (2)" }).click();
+  const restoredParameterNames = advancedEditor.locator(
+    "[data-parameter-name]",
+  );
+  await expect(restoredParameterNames).toHaveCount(2);
+  await expect(restoredParameterNames.nth(0)).toHaveValue("a");
+  await expect(restoredParameterNames.nth(1)).toHaveValue("b");
 
+  await advancedEditor
+    .getByRole("button", { name: "К базовым настройкам", exact: true })
+    .click();
   await editor
     .getByRole("button", { name: "Закрыть редактор графика" })
     .click();
@@ -295,7 +359,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     });
     expect(plot.definition?.series).toEqual([
       expect.objectContaining({
-        expression: "a*x^2",
+        expression: "b*x^2",
         kind: "explicit",
         visible: true,
       }),
@@ -313,6 +377,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     ]);
     expect(plot.definition?.parameters).toEqual([
       expect.objectContaining({ name: "a" }),
+      expect.objectContaining({ name: "b" }),
     ]);
   }
   expect(plots[0]?.id).not.toBe(plots[1]?.id);

@@ -122,7 +122,7 @@ describe("coordinate plot editor application workflow", () => {
     await waitFor(() => {
       const reverted = onDocumentChange.mock.calls.at(-1)?.[0] as BoardDocument;
       expect(coordinatePlot(reverted).definition.series[0]).toMatchObject({
-        expression: "x^2",
+        expression: "2*x+a",
       });
     });
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");
