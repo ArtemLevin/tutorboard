@@ -39,7 +39,7 @@
 
 - During direct plot panning, the renderer keeps a transient viewport preview.
 - On pointerup, `App` sends one `core.coordinate-plot.update` command with the original definition as `expected` and the final viewport as `replacement.coordinateViewport`.
-- The renderer retains the preview until the committed document catches up, preventing a one-frame snapback.
+- The preview and committed document update are completed in the same pointerup batch, preventing a one-frame snapback.
 - Editor-open navigation continues to update the editor draft and remains part of the explicit editor save workflow.
 
 ## Verification matrix
@@ -84,8 +84,11 @@ The hotfix removes the merged debug workflow and trigger file from `main`.
 
 The implementation has passed the preliminary local-equivalent gate in GitHub Actions:
 
+- Prettier formatting;
+- ESLint with zero warnings;
 - TypeScript project typecheck;
 - 90 Vitest files and 425 tests;
-- production Vite build.
+- production Vite build;
+- Smart Ink production behavior in Chromium and Firefox.
 
 The browser and complete release matrix remain mandatory before the pull request can leave draft status.
