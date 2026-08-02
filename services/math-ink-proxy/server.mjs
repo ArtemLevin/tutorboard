@@ -61,7 +61,8 @@ function requestIdentifier(request) {
 function clientKey(request) {
   const forwarded = request.headers["x-forwarded-for"];
   if (typeof forwarded === "string" && forwarded.length > 0) {
-    return forwarded.split(",", 1)[0].trim().slice(0, 128);
+    const hops = forwarded.split(",");
+    return (hops.at(-1)?.trim() || "unknown").slice(0, 128);
   }
   return request.socket.remoteAddress?.slice(0, 128) ?? "unknown";
 }
