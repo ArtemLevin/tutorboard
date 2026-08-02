@@ -6,6 +6,7 @@ export interface AppEnvironment {
   readonly boardApiBaseUrl: string;
   readonly features: AppFeatureFlags;
   readonly geometryOsBaseUrl: string;
+  readonly mathInkApiBaseUrl: string;
   readonly stage: AppStage;
 }
 
@@ -14,6 +15,7 @@ export interface AppFeatureFlags {
   readonly documentSnapshots: boolean;
   readonly geometryPrompt: boolean;
   readonly handwrittenFunctions: boolean;
+  readonly mathInkRecognition: boolean;
   readonly serverSync: boolean;
   readonly smartInk: boolean;
   readonly smartInkDiagnostics: boolean;
@@ -24,6 +26,7 @@ export interface AppFeatureFlagInput {
   readonly documentSnapshots?: string | undefined;
   readonly geometryPrompt?: string | undefined;
   readonly handwrittenFunctions?: string | undefined;
+  readonly mathInkRecognition?: string | undefined;
   readonly serverSync?: string | undefined;
   readonly smartInk?: string | undefined;
   readonly smartInkDiagnostics?: string | undefined;
@@ -48,6 +51,20 @@ function booleanFlag(
   throw new Error(`${name} must be true, false, 1 or 0.`);
 }
 
+function sameOriginPath(name: string, value: string): string {
+  const url = new URL(value, "http://localhost");
+  if (
+    url.origin !== "http://localhost" ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.search !== "" ||
+    url.hash !== ""
+  ) {
+    throw new Error(`${name} must be a same-origin path without credentials.`);
+  }
+  return url.pathname.replace(/\/+$/u, "");
+}
+
 export function readEnvironment(
   value: string | undefined = import.meta.env.VITE_APP_STAGE,
   geometryOsBaseUrl: string | undefined = import.meta.env
@@ -57,11 +74,14 @@ export function readEnvironment(
     documentSnapshots: import.meta.env.VITE_FEATURE_DOCUMENT_SNAPSHOTS,
     geometryPrompt: import.meta.env.VITE_FEATURE_GEOMETRY_PROMPT,
     handwrittenFunctions: import.meta.env.VITE_FEATURE_HANDWRITTEN_FUNCTIONS,
+    mathInkRecognition: import.meta.env.VITE_FEATURE_MATH_INK_RECOGNITION,
     serverSync: import.meta.env.VITE_FEATURE_SERVER_SYNC,
     smartInk: import.meta.env.VITE_FEATURE_SMART_INK,
     smartInkDiagnostics: import.meta.env.VITE_FEATURE_SMART_INK_DIAGNOSTICS,
   },
   boardApiBaseUrl: string | undefined = import.meta.env.VITE_BOARD_API_BASE_URL,
+  mathInkApiBaseUrl: string | undefined = import.meta.env
+    .VITE_MATH_INK_API_BASE_URL,
 ): AppEnvironment {
   const stage = value ?? "development";
 
@@ -86,19 +106,6 @@ export function readEnvironment(
     throw new Error("VITE_GEOMETRYOS_BASE_URL must be a public HTTP(S) URL.");
   }
 
-  const boardApiUrl = new URL(boardApiBaseUrl ?? "/api/v1", "http://localhost");
-  if (
-    boardApiUrl.origin !== "http://localhost" ||
-    boardApiUrl.username !== "" ||
-    boardApiUrl.password !== "" ||
-    boardApiUrl.search !== "" ||
-    boardApiUrl.hash !== ""
-  ) {
-    throw new Error(
-      "VITE_BOARD_API_BASE_URL must be a same-origin path without credentials.",
-    );
-  }
-
   const smartInk = resolveSmartInkReleaseGate(stage, featureInput.smartInk);
   const smartInkDiagnostics = booleanFlag(
     "VITE_FEATURE_SMART_INK_DIAGNOSTICS",
@@ -107,7 +114,10 @@ export function readEnvironment(
   );
 
   return {
-    boardApiBaseUrl: boardApiUrl.pathname.replace(/\/+$/u, ""),
+    boardApiBaseUrl: sameOriginPath(
+      "VITE_BOARD_API_BASE_URL",
+      boardApiBaseUrl ?? "/api/v1",
+    ),
     features: {
       developmentDiagnostics: booleanFlag(
         "VITE_FEATURE_DEV_DIAGNOSTICS",
@@ -129,6 +139,11 @@ export function readEnvironment(
         featureInput.handwrittenFunctions,
         stage !== "production",
       ),
+      mathInkRecognition: booleanFlag(
+        "VITE_FEATURE_MATH_INK_RECOGNITION",
+        featureInput.mathInkRecognition,
+        false,
+      ),
       serverSync: booleanFlag(
         "VITE_FEATURE_SERVER_SYNC",
         featureInput.serverSync,
@@ -138,6 +153,10 @@ export function readEnvironment(
       smartInkDiagnostics: smartInk && smartInkDiagnostics,
     },
     geometryOsBaseUrl: geometryOsUrl.href.replace(/\/$/, ""),
+    mathInkApiBaseUrl: sameOriginPath(
+      "VITE_MATH_INK_API_BASE_URL",
+      mathInkApiBaseUrl ?? "/api/v1/math-ink",
+    ),
     stage: stage as AppStage,
   };
 }
