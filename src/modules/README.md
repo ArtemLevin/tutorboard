@@ -35,6 +35,8 @@ Implemented modules:
   `core.objects.replace` acceptance command. The app retains the source stroke
   until the teacher accepts the preview.
 - `handwritten-function` owns the transient bounded multi-stroke session,
-  aspect-preserving recognition request normalization, provider-neutral math-ink
-  contracts and an abort-safe deterministic fake recognizer. It does not own
-  canvas events, networking, expression conversion or BoardDocument mutation.
+  aspect-preserving request normalization, provider-neutral math-ink contracts,
+  constrained LaTeX/JIIX conversion, production expression validation,
+  parameter discovery, candidate ranking and an abort-safe fake recognizer. It
+  does not own canvas events, networking, graph construction or BoardDocument
+  mutation.
