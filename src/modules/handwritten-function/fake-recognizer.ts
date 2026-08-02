@@ -35,7 +35,9 @@ function cloneRequest(
   };
 }
 
-function cloneResult(result: MathInkRecognitionResult): MathInkRecognitionResult {
+function cloneResult(
+  result: MathInkRecognitionResult,
+): MathInkRecognitionResult {
   return {
     ...result,
     candidates: result.candidates.map((candidate) => ({ ...candidate })),

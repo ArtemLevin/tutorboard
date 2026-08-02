@@ -30,7 +30,11 @@ function begin(): HandwrittenFunctionSessionState {
 function addStroke(
   state: HandwrittenFunctionSessionState,
   input: {
-    readonly end: { readonly timeMs: number; readonly x: number; readonly y: number };
+    readonly end: {
+      readonly timeMs: number;
+      readonly x: number;
+      readonly y: number;
+    };
     readonly pointerId: number;
     readonly start: {
       readonly timeMs: number;
@@ -166,8 +170,7 @@ describe("handwritten function session", () => {
     const tooLate = reduceHandwrittenFunctionSession(state, {
       kind: "append-point",
       point: {
-        timeMs:
-          1_000 + handwrittenFunctionLimits.maximumSessionDurationMs + 1,
+        timeMs: 1_000 + handwrittenFunctionLimits.maximumSessionDurationMs + 1,
         x: 1,
         y: 1,
       },
@@ -215,8 +218,7 @@ describe("handwritten function session", () => {
       sessionId: "session:point-limit",
       startedAtMs: 1_000,
       strokes: [],
-      updatedAtMs:
-        1_000 + handwrittenFunctionLimits.maximumPointsPerStroke - 1,
+      updatedAtMs: 1_000 + handwrittenFunctionLimits.maximumPointsPerStroke - 1,
     };
     expect(
       reduceHandwrittenFunctionSession(pointLimited, {

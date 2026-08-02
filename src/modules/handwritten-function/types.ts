@@ -78,9 +78,7 @@ export interface MathInkRecognitionDiagnostic {
 }
 
 export type MathInkRecognitionStatus =
-  | "ambiguous"
-  | "recognized"
-  | "unrecognized";
+  "ambiguous" | "recognized" | "unrecognized";
 
 export interface MathInkRecognitionResult {
   readonly candidates: readonly MathInkRecognitionCandidate[];
@@ -129,14 +127,12 @@ export interface HandwrittenFunctionReadyState extends HandwrittenFunctionCaptur
   readonly kind: "ready";
 }
 
-export interface HandwrittenFunctionRecognizingState
-  extends HandwrittenFunctionCapture {
+export interface HandwrittenFunctionRecognizingState extends HandwrittenFunctionCapture {
   readonly kind: "recognizing";
   readonly recognitionId: string;
 }
 
-export interface HandwrittenFunctionResolvedState
-  extends HandwrittenFunctionCapture {
+export interface HandwrittenFunctionResolvedState extends HandwrittenFunctionCapture {
   readonly kind: "resolved";
   readonly recognitionId: string;
   readonly result: MathInkRecognitionResult;
