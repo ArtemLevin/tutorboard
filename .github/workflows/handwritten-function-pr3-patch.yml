@@ -28,6 +28,14 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Normalize patch anchors
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const path = "scripts/apply-handwritten-function-pr3.mjs";
+          const source = fs.readFileSync(path, "utf8");
+          fs.writeFileSync(path, source.replaceAll("\\\\n", "\\n"));
+          NODE
       - name: Apply application workflow patch
         run: |
           set +e
