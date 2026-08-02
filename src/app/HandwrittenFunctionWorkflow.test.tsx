@@ -74,7 +74,8 @@ describe("handwritten function workflow safeguards", () => {
   it("preserves source ink when recognition fails", async () => {
     const recognizer: MathInkRecognizer = {
       id: "test.failing-recognizer",
-      recognize: () => Promise.reject(new Error("Recognition service unavailable")),
+      recognize: () =>
+        Promise.reject(new Error("Recognition service unavailable")),
       version: "1",
     };
     render(<App mathInkRecognizer={recognizer} />);
