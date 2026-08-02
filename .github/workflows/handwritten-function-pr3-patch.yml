@@ -1,0 +1,41 @@
+name: Handwritten function PR 3 patch
+
+on:
+  push:
+    branches:
+      - feat/handwritten-function-workflow
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[skip-pr3-patch]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: feat/handwritten-function-workflow
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply application workflow patch
+        run: node scripts/apply-handwritten-function-pr3.mjs
+      - name: Format changed files
+        run: npx prettier --write src/app tests/unit/app package.json
+      - name: Run focused type and test checks
+        run: |
+          npm run typecheck
+          npm run handwriting:pr3
+      - name: Commit generated patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app tests/unit/app package.json
+          git commit -m "feat: compose handwritten function canvas workflow [skip-pr3-patch]"
+          git push origin HEAD:feat/handwritten-function-workflow
