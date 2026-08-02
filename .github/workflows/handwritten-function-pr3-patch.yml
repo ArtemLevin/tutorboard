@@ -32,10 +32,6 @@ jobs:
         run: node scripts/apply-handwritten-function-pr3.mjs
       - name: Format changed files
         run: npx prettier --write src/app tests/unit/app package.json
-      - name: Run focused type and test checks
-        run: |
-          npm run typecheck
-          npm run handwriting:pr3
       - name: Commit generated patch
         run: |
           git config user.name "github-actions[bot]"
@@ -43,3 +39,7 @@ jobs:
           git add src/app tests/unit/app package.json
           git commit -m "feat: compose handwritten function canvas workflow [skip-pr3-patch]"
           git push origin HEAD:feat/handwritten-function-workflow
+      - name: Run focused type and test checks
+        run: |
+          npm run typecheck
+          npm run handwriting:pr3
