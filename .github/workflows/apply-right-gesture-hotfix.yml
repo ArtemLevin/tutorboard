@@ -1,0 +1,62 @@
+name: Apply right gesture hotfix
+
+on:
+  push:
+    branches:
+      - hotfix/right-gesture-final
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: hotfix/right-gesture-final
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Correct patcher locale token
+        run: sed -i 's/Увеличить выделение on 10%/Увеличить выделение на 10%/g' scripts/apply-right-gesture-hotfix.mjs
+      - name: Apply source and test changes
+        run: node scripts/apply-right-gesture-hotfix.mjs
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Format changed files
+        run: npm run format
+      - name: Type-check
+        run: npm run typecheck
+      - name: Run unit tests
+        run: npm run test
+      - name: Build production bundle
+        run: npm run build
+      - name: Install release browsers
+        run: npx playwright install --with-deps chromium firefox
+      - name: Run focused browser regression matrix
+        run: >-
+          npx playwright test
+          tests/e2e/coordinate-plot-right-pan.spec.ts
+          tests/e2e/object-settings-right-double-click.spec.ts
+          tests/e2e/coordinate-plot-accessibility.spec.ts
+          tests/e2e/selection.spec.ts
+          tests/e2e/styling.spec.ts
+          tests/e2e/text-editing.spec.ts
+          tests/e2e/image-import.spec.ts
+          tests/e2e/smart-ink.spec.ts
+          tests/e2e/layers.spec.ts
+          --reporter=list
+      - name: Commit verified hotfix
+        shell: bash
+        run: |
+          rm -f scripts/apply-right-gesture-hotfix.mjs
+          rm -f .github/workflows/apply-right-gesture-hotfix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: restore coordinate plot right gestures"
+          git push origin HEAD:hotfix/right-gesture-final
