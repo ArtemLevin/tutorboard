@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createFakeMathInkRecognizer,
   createMathInkRecognitionRequest,
-  isMathInkRecognitionAbortError,
+  MathInkRecognitionAbortError,
   mathInkRecognitionRequestSchemaVersion,
   mathInkRecognitionResultSchemaVersion,
   type HandwrittenFunctionReadyState,
@@ -123,12 +123,14 @@ describe("math ink recognition boundary", () => {
     preAborted.abort();
     await expect(
       provider.recognize(request, preAborted.signal),
-    ).rejects.toSatisfy(isMathInkRecognitionAbortError);
+    ).rejects.toBeInstanceOf(MathInkRecognitionAbortError);
 
     const inFlight = new AbortController();
     const operation = provider.recognize(request, inFlight.signal);
     inFlight.abort();
-    await expect(operation).rejects.toSatisfy(isMathInkRecognitionAbortError);
+    await expect(operation).rejects.toBeInstanceOf(
+      MathInkRecognitionAbortError,
+    );
     expect(provider.getRequests()).toEqual([]);
   });
 });
