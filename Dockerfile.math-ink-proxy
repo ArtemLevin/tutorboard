@@ -1,0 +1,14 @@
+FROM node:24.13.0-alpine3.23
+
+WORKDIR /app
+ENV NODE_ENV=production \
+    MATH_INK_PROXY_PORT=8787
+
+COPY services/math-ink-proxy ./services/math-ink-proxy
+
+USER node
+EXPOSE 8787
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:8787/healthz || exit 1
+
+CMD ["node", "services/math-ink-proxy/server.mjs"]
