@@ -1,24 +1,74 @@
+import { readFile } from "node:fs/promises";
+
 import { expect, type Page } from "@playwright/test";
 
-export async function rightDoubleClickBoardCenter(page: Page): Promise<void> {
-  const stage = page.getByTestId("board-stage");
-  const bounds = await stage.boundingBox();
-  if (bounds === null) throw new Error("Expected TutorBoard stage bounds");
-  const point = {
-    x: bounds.x + bounds.width / 2,
-    y: bounds.y + bounds.height / 2,
+interface ExportedCoordinatePlotDocument {
+  readonly objects: Readonly<
+    Record<
+      string,
+      {
+        readonly definition?: {
+          readonly size: { readonly height: number; readonly width: number };
+        };
+        readonly kind?: string;
+        readonly position: { readonly x: number; readonly y: number };
+        readonly scale: { readonly x: number; readonly y: number };
+      }
+    >
+  >;
+  readonly viewport: {
+    readonly offset: { readonly x: number; readonly y: number };
+    readonly zoom: number;
   };
-  await page.mouse.click(point.x, point.y, { button: "right" });
-  await page.waitForTimeout(60);
-  await page.mouse.click(point.x, point.y, { button: "right" });
+}
+
+async function exportDocument(
+  page: Page,
+): Promise<ExportedCoordinatePlotDocument> {
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Экспорт JSON" }).click();
+  const download = await downloadPromise;
+  const path = await download.path();
+  if (path === null) throw new Error("Expected exported board document");
+  return JSON.parse(
+    await readFile(path, "utf8"),
+  ) as ExportedCoordinatePlotDocument;
+}
+
+async function coordinatePlotClientCenter(page: Page) {
+  const document = await exportDocument(page);
+  const plot = Object.values(document.objects).find(
+    ({ kind }) => kind === "math.coordinate-plot",
+  );
+  if (plot?.definition === undefined) {
+    throw new Error("Expected coordinate plot in exported document");
+  }
+  const stageBounds = await page.getByTestId("board-stage").boundingBox();
+  if (stageBounds === null) throw new Error("Expected TutorBoard stage bounds");
+  return {
+    x:
+      stageBounds.x +
+      document.viewport.offset.x +
+      (plot.position.x + (plot.definition.size.width * plot.scale.x) / 2) *
+        document.viewport.zoom,
+    y:
+      stageBounds.y +
+      document.viewport.offset.y +
+      (plot.position.y + (plot.definition.size.height * plot.scale.y) / 2) *
+        document.viewport.zoom,
+  };
 }
 
 export async function openCoordinatePlotEditorByRightDoubleClick(
   page: Page,
 ): Promise<void> {
-  await rightDoubleClickBoardCenter(page);
-  const editor = page.getByRole("complementary", {
-    name: "Редактор координатной плоскости",
-  });
-  await expect(editor).toBeVisible();
+  const point = await coordinatePlotClientCenter(page);
+  await page.mouse.click(point.x, point.y, { button: "right" });
+  await page.waitForTimeout(60);
+  await page.mouse.click(point.x, point.y, { button: "right" });
+  await expect(
+    page.getByRole("complementary", {
+      name: "Редактор координатной плоскости",
+    }),
+  ).toBeVisible();
 }
