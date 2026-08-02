@@ -29,6 +29,10 @@ test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
     name: "Редактор координатной плоскости",
   });
   await expect(editor).toBeVisible();
+  await expect(editor.getByLabel("Формула явной функции")).toHaveValue(
+    "2*x+a",
+  );
+  await expect(editor.getByLabel("Ползунок параметра a")).toBeVisible();
   await expect(
     page.getByRole("toolbar", { name: "Навигация координатной плоскости" }),
   ).toBeVisible();
@@ -48,18 +52,32 @@ test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
     fullPage: true,
   });
 
-  await editor.getByRole("tab", { name: "Вид" }).click();
-  await expect(editor.getByTestId("renderer-status-help")).toBeVisible();
+  await editor
+    .getByRole("button", { name: /Расширенные настройки/ })
+    .click();
+  const advancedEditor = page.getByRole("dialog", {
+    name: "Расширенные настройки графика",
+  });
+  await expect(advancedEditor).toBeVisible();
+  await advancedEditor.getByRole("tab", { name: "Вид" }).click();
+  await expect(
+    advancedEditor.getByTestId("renderer-status-help"),
+  ).toBeVisible();
   await expect(page).toHaveScreenshot("coordinate-plot-view-statuses.png", {
     fullPage: true,
   });
 
   if (!mobile) {
-    await editor.getByRole("tab", { name: "Функции" }).click();
+    await advancedEditor.getByRole("tab", { name: "Функции" }).click();
     for (let index = 0; index < 11; index += 1) {
-      await editor.getByRole("button", { name: "+ Явная функция" }).click();
+      await advancedEditor
+        .getByRole("button", { name: "+ Явная функция" })
+        .click();
     }
-    await editor.getByRole("button", { name: "Сохранить" }).click();
+    await advancedEditor.getByRole("button", { name: "Сохранить" }).click();
+    await advancedEditor
+      .getByRole("button", { name: "К базовым настройкам", exact: true })
+      .click();
     await editor
       .getByRole("button", { name: "Закрыть редактор графика" })
       .click();
