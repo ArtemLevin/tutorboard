@@ -28,12 +28,23 @@ test("creates and persists explicit and parametric plot series", async ({
     );
   expect(editorZIndex).toBeGreaterThan(diagnosticsZIndex);
 
-  await page.getByLabel("Формула явной функции").fill("x^3-2*x");
-  await page.getByRole("button", { name: "+ Параметрическая кривая" }).click();
-  await page.getByLabel("Параметрическая формула x").fill("2*cos(t)");
-  await page.getByLabel("Параметрическая формула y").fill("2*sin(t)");
-  await page.getByRole("button", { name: "Сохранить" }).click();
-  await expect(page.getByText("Изменения сохранены")).toBeVisible();
+  await editor.getByLabel("Формула явной функции").fill("x^3-2*x");
+  await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
+  const advancedEditor = page.getByRole("dialog", {
+    name: "Расширенные настройки графика",
+  });
+  await expect(advancedEditor).toBeVisible();
+  await advancedEditor
+    .getByRole("button", { name: "+ Параметрическая кривая" })
+    .click();
+  await advancedEditor
+    .getByLabel("Параметрическая формула x")
+    .fill("2*cos(t)");
+  await advancedEditor
+    .getByLabel("Параметрическая формула y")
+    .fill("2*sin(t)");
+  await advancedEditor.getByRole("button", { name: "Сохранить" }).click();
+  await expect(editor.getByText("Изменения сохранены")).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Экспорт JSON" }).click();
