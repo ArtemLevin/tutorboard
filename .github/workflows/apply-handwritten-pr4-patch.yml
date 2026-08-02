@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: handwritten-pr4-patch
+  cancel-in-progress: false
+
 jobs:
   patch:
     if: github.actor != 'github-actions[bot]'
