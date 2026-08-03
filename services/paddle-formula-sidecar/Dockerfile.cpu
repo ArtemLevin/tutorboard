@@ -31,11 +31,7 @@ RUN python -m pip install --upgrade pip \
     && python -m pip install \
       --upgrade \
       --requirement requirements-security.txt \
-    && python -m pip check \
-    && site_packages="$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" \
-    && paddle_sbom_dirs="$(find "$site_packages" -type d -path '*/paddlepaddle*.dist-info/sboms' -print)" \
-    && test -n "$paddle_sbom_dirs" \
-    && printf '%s\n' "$paddle_sbom_dirs" | xargs rm -rf
+    && python -m pip check
 
 RUN useradd \
       --create-home \
