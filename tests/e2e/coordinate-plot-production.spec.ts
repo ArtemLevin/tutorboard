@@ -48,7 +48,12 @@ test("discovers, persists, restores, duplicates and exports a production coordin
 }) => {
   await resetLocalDatabase(page);
 
-  await page.keyboard.press("g");
+  const mathTools = page.getByRole("button", { name: "Математика" });
+  await expect(mathTools).toBeVisible();
+  await mathTools.click();
+  await page
+    .getByRole("menuitemradio", { name: "Координатная плоскость (G)" })
+    .click();
   await openCoordinatePlotEditorByRightDoubleClick(page);
   const editor = page.getByRole("complementary", {
     name: "Редактор координатной плоскости",
