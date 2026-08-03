@@ -5,7 +5,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   actorId,
@@ -85,6 +85,22 @@ const mathInkRecognizers = {
   paddleocr: recognizer("paddleocr.via-tutorboard-gateway"),
   "yandex-ai-studio": recognizer("yandex-ai-studio.via-tutorboard-gateway"),
 } as const;
+
+beforeEach(() => {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn((query: string): MediaQueryList => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      matches: false,
+      media: query,
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    })),
+  });
+});
 
 afterEach(() => {
   cleanup();
