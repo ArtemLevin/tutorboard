@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import {
   BoardStage,
@@ -152,6 +159,9 @@ import {
   prepareEmbeddedImageFile,
 } from "./image-import";
 import { StrokeStylePalette } from "./StrokeStylePalette";
+import { BoardSettingsDialog } from "./board-chrome/BoardSettingsDialog";
+import { BoardToolDock } from "./board-chrome/BoardToolDock";
+import { useDrawingToolPreferences } from "./board-chrome/tool-preferences";
 import { readEnvironment } from "./configuration/environment";
 import {
   GeometryPromptPanel,
@@ -252,6 +262,7 @@ export interface AppProps {
   readonly persistenceNotice?: string | null;
   readonly persistenceStatus?: AppPersistenceStatus;
   readonly readOnly?: boolean;
+  readonly settingsExtra?: ReactNode;
   readonly remoteCursors?: readonly {
     readonly actorId: string;
     readonly point: { readonly x: number; readonly y: number };
@@ -289,6 +300,7 @@ export function App({
   persistenceNotice = null,
   persistenceStatus = { kind: "idle", label: "Локальное сохранение" },
   readOnly = false,
+  settingsExtra,
   remoteCursors = [],
 }: AppProps = {}) {
   const [boardState, setBoardState] = useState(() => ({
@@ -333,6 +345,7 @@ export function App({
   const [selectionInspectorObjectId, setSelectionInspectorObjectId] =
     useState<BoardObjectId | null>(null);
   const [textDraft, setTextDraft] = useState("Новый текст");
+  const { styleFor, updateStyle } = useDrawingToolPreferences();
   const [imageDiagnostic, setImageDiagnostic] = useState<string | null>(null);
   const [clipboard, setClipboard] = useState<BoardClipboardPayload | null>(
     null,
@@ -342,6 +355,8 @@ export function App({
     null,
   );
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [geometryPromptOpen, setGeometryPromptOpen] = useState(false);
   const shortcutsButtonRef = useRef<HTMLButtonElement>(null);
   const shortcutsDialogRef = useRef<HTMLElement>(null);
   const [geometryPrompt, setGeometryPrompt] = useState(
@@ -1738,6 +1753,16 @@ export function App({
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement ||
         (event.target instanceof HTMLElement && event.target.isContentEditable);
+      if (event.key === "Escape" && settingsOpen) {
+        event.preventDefault();
+        setSettingsOpen(false);
+        return;
+      }
+      if (event.key === "Escape" && geometryPromptOpen) {
+        event.preventDefault();
+        setGeometryPromptOpen(false);
+        return;
+      }
       if (
         event.key === "Escape" &&
         (activeTool === handwrittenFunctionToolId ||
@@ -1877,8 +1902,10 @@ export function App({
     coordinatePlotEditor,
     createCoordinatePlot,
     commitCommand,
+    geometryPromptOpen,
     handwrittenFunctionState.kind,
     readOnly,
+    settingsOpen,
     commitSelectionMove,
     copySelection,
     cutSelection,
@@ -1993,11 +2020,18 @@ export function App({
         objectId: boardObjectId(`object:${crypto.randomUUID()}`),
         point: sample.point,
         pointerId: sample.pointerId,
+        style: styleFor(activeTool),
         text: textDraft,
         tool: activeTool,
       });
     },
-    [activeTool, applyDrawingAction, startHandwrittenFunctionStroke, textDraft],
+    [
+      activeTool,
+      applyDrawingAction,
+      startHandwrittenFunctionStroke,
+      styleFor,
+      textDraft,
+    ],
   );
 
   const moveDrawing = useCallback(
@@ -2336,273 +2370,37 @@ export function App({
     selectionState.selectedObjectIds.includes(selectionInspectorObjectId);
 
   return (
-    <main className="board-app">
-      <header className="topbar">
-        <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true">
-            T
-          </span>
-          <div>
-            <h1>TutorBoard</h1>
-            <p>Интерактивное полотно · {environment.stage}</p>
-          </div>
-        </div>
-
-        <div
-          className="canvas-actions"
-          aria-label="Управление полотном"
-          role="toolbar"
-        >
-          <button
-            aria-label="Отменить (Ctrl+Z)"
-            className="tool-button"
-            disabled={
-              historyEnabled
-                ? history.past.length === 0
-                : !collaborativeUndoAvailable
-            }
-            onClick={undo}
-            type="button"
-          >
-            Отменить
-          </button>
-          <button
-            aria-label="Повторить (Ctrl+Shift+Z)"
-            className="tool-button"
-            disabled={!historyEnabled || history.future.length === 0}
-            onClick={redo}
-            type="button"
-          >
-            Повторить
-          </button>
-          <button
-            className="tool-button"
-            disabled={selectionState.selectedObjectIds.length === 0}
-            onClick={copySelection}
-            type="button"
-          >
-            Копировать
-          </button>
-          <button
-            className="tool-button"
-            disabled={selectionState.selectedObjectIds.length === 0}
-            onClick={cutSelection}
-            type="button"
-          >
-            Вырезать
-          </button>
-          <button
-            className="tool-button"
-            disabled={clipboard === null}
-            onClick={pasteClipboard}
-            type="button"
-          >
-            Вставить
-          </button>{" "}
-          <label className="tool-button file-tool-button">
-            Вставить изображение
-            <input
-              accept={embeddedImageAccept}
-              aria-label="Вставить изображения"
-              disabled={readOnly}
-              multiple
-              onChange={(event) => {
-                const files = [...(event.currentTarget.files ?? [])];
-                if (files.length > 0) {
-                  void importImageFiles(files);
-                }
-                event.currentTarget.value = "";
-              }}
-              type="file"
-            />
-          </label>
-          <button
-            aria-label="Создать координатную плоскость (G)"
-            className="tool-button"
-            disabled={readOnly}
-            onClick={createCoordinatePlot}
-            type="button"
-          >
-            График
-          </button>
-          {onImportDocument === undefined ? null : (
-            <label className="tool-button file-tool-button">
-              Импорт JSON
-              <input
-                accept="application/json,.json"
-                aria-label="Импорт документа JSON"
-                onChange={(event) => {
-                  const file = event.currentTarget.files?.[0];
-                  if (file !== undefined) {
-                    onImportDocument(file);
-                  }
-                  event.currentTarget.value = "";
-                }}
-                type="file"
-              />
-            </label>
-          )}
-          {onExportDocument === undefined ? null : (
-            <button
-              className="tool-button"
-              onClick={() => onExportDocument(document)}
-              type="button"
-            >
-              Экспорт JSON
-            </button>
-          )}
-          {onExportSvgSnapshot === undefined ? null : (
-            <button
-              className="tool-button"
-              onClick={() => onExportSvgSnapshot(document)}
-              type="button"
-            >
-              Снимок SVG
-            </button>
-          )}
-          {onExportPngSnapshot === undefined ? null : (
-            <button
-              className="tool-button"
-              onClick={() => onExportPngSnapshot(document)}
-              type="button"
-            >
-              Снимок PNG
-            </button>
-          )}
-          <button
-            aria-expanded={shortcutsOpen}
-            aria-haspopup="dialog"
-            className="tool-button"
-            onClick={() => setShortcutsOpen(true)}
-            ref={shortcutsButtonRef}
-            type="button"
-          >
-            Горячие клавиши
-          </button>
-          {onExportDiagnostics === undefined ? null : (
-            <button
-              className="tool-button"
-              onClick={onExportDiagnostics}
-              type="button"
-            >
-              Диагностика
-            </button>
-          )}
-          <button
-            className="tool-button"
-            onClick={(event) => {
-              resetViewport();
-              event.currentTarget.blur();
-            }}
-            type="button"
-          >
-            Центрировать
-          </button>
-        </div>
-      </header>
-
-      {shortcutsOpen ? (
-        <div
-          className="dialog-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeShortcuts();
-            }
-          }}
-        >
-          <section
-            aria-labelledby="shortcuts-title"
-            aria-modal="true"
-            className="shortcuts-dialog"
-            onKeyDown={(event) => {
-              if (event.key === "Tab") {
-                event.preventDefault();
-                shortcutsDialogRef.current
-                  ?.querySelector<HTMLButtonElement>("button")
-                  ?.focus();
-              }
-            }}
-            ref={shortcutsDialogRef}
-            role="dialog"
-          >
-            <div className="dialog-heading">
-              <h2 id="shortcuts-title">Горячие клавиши</h2>
-              <button
-                aria-label="Закрыть горячие клавиши"
-                autoFocus
-                onClick={closeShortcuts}
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-            <dl>
-              <div>
-                <dt>V / L / H / P / I / R / E / T / F / G</dt>
-                <dd>Выбор инструмента и создание графика</dd>
-              </div>
-              <div>
-                <dt>Двойной щелчок правой кнопкой</dt>
-                <dd>Открыть настройки фигуры или редактор графика</dd>
-              </div>
-              <div>
-                <dt>Стрелки / Shift+стрелки</dt>
-                <dd>Перемещение выделения на 1 / 10 единиц</dd>
-              </div>
-              <div>
-                <dt>Маркеры рамки выделения</dt>
-                <dd>Изменение размера и поворот</dd>
-              </div>
-              <div>
-                <dt>Ctrl/Cmd + C, X, V</dt>
-                <dd>Копирование объектов и вставка объектов или изображений</dd>
-              </div>
-              <div>
-                <dt>Ctrl/Cmd + Z / Shift+Z</dt>
-                <dd>Отмена и повтор</dd>
-              </div>
-              <div>
-                <dt>Delete / Escape / ?</dt>
-                <dd>Удаление, отмена действия и эта справка</dd>
-              </div>
-            </dl>
-          </section>
-        </div>
-      ) : null}
-
+    <main className="board-app board-app--minimal">
+      <h1 className="visually-hidden">TutorBoard</h1>
       <section
-        className="workspace"
+        className="workspace board-workspace--minimal"
         aria-label="Рабочая область доски"
         ref={workspaceRef}
         tabIndex={-1}
       >
         {persistenceNotice === null ? null : (
-          <div className="persistence-notice" role="status">
+          <div className="board-toast is-info" role="status">
             {persistenceNotice}
           </div>
-        )}{" "}
+        )}
         {imageDiagnostic === null ? null : (
-          <div className="persistence-alert" role="alert">
-            <strong>Изображение не вставлено</strong>
-            <span>{imageDiagnostic}</span>
+          <div className="board-toast is-error" role="alert">
+            {imageDiagnostic}
           </div>
         )}
         {clipboardNotice === null ? null : (
-          <div className="clipboard-notice" role="status">
+          <div className="board-toast is-info" role="status">
             {clipboardNotice}
           </div>
         )}
         {smartInkNotice === null ? null : (
-          <div className="smart-ink-notice" role="status">
+          <div className="board-toast is-info" role="status">
             {smartInkNotice}
           </div>
         )}
-        <div aria-atomic="true" aria-live="polite" className="visually-hidden">
-          {accessibilityNotice}
-        </div>
         {persistenceStatus.kind === "error" ||
         persistenceStatus.kind === "conflict" ? (
-          <div className="persistence-alert" role="alert">
+          <div className="board-toast is-error" role="alert">
             <strong>{persistenceStatus.label}</strong>
             {persistenceStatus.detail === undefined ? null : (
               <span>{persistenceStatus.detail}</span>
@@ -2610,11 +2408,14 @@ export function App({
             {persistenceStatus.retryable === true &&
             onRetryPersistence !== undefined ? (
               <button onClick={onRetryPersistence} type="button">
-                Повторить сохранение
+                Повторить
               </button>
             ) : null}
           </div>
         ) : null}
+        <div aria-atomic="true" aria-live="polite" className="visually-hidden">
+          {accessibilityNotice}
+        </div>
         <BoardStage
           coordinatePlotInteraction={coordinatePlotInteraction}
           drawingModeKey={
@@ -2661,14 +2462,40 @@ export function App({
           transformableObjectIds={transformableObjectIds}
         />
         {coordinatePlotEditor === null ? null : (
-          <CoordinatePlotNavigationControls
-            axis={coordinatePlotEditor.zoomAxis}
-            onAxisChange={setCoordinatePlotZoomAxis}
-            onFit={fitCoordinatePlotEditorViewport}
-            onReset={resetCoordinatePlotEditorViewport}
-            onZoomIn={() => zoomCoordinatePlotEditor(1 / 1.25)}
-            onZoomOut={() => zoomCoordinatePlotEditor(1.25)}
-          />
+          <>
+            <CoordinatePlotNavigationControls
+              axis={coordinatePlotEditor.zoomAxis}
+              onAxisChange={setCoordinatePlotZoomAxis}
+              onFit={fitCoordinatePlotEditorViewport}
+              onReset={resetCoordinatePlotEditorViewport}
+              onZoomIn={() => zoomCoordinatePlotEditor(1 / 1.25)}
+              onZoomOut={() => zoomCoordinatePlotEditor(1.25)}
+            />
+            <CoordinatePlotEditorPanel
+              definition={coordinatePlotEditor.draft}
+              fallbackFocusRef={workspaceRef}
+              key={coordinatePlotEditor.objectId}
+              dirty={
+                coordinatePlotEditor.draft !== coordinatePlotEditor.expected
+              }
+              issues={validateCoordinatePlotEditorDefinition(
+                coordinatePlotEditor.draft,
+              )}
+              onAddParameter={addCoordinatePlotEditorParameter}
+              onAddSeries={addCoordinatePlotEditorSeries}
+              onClose={() => setCoordinatePlotEditor(null)}
+              onDefinitionChange={updateCoordinatePlotDraft}
+              onSave={saveCoordinatePlotEditor}
+              onSelectedSeriesChange={(seriesId) =>
+                selectCoordinatePlotSeries(
+                  coordinatePlotEditor.objectId,
+                  seriesId,
+                )
+              }
+              readOnly={readOnly}
+              selectedSeriesId={coordinatePlotEditor.selectedSeriesId}
+            />
+          </>
         )}
         {handwrittenFunctionPanelOpen ? (
           <HandwrittenFunctionPanel
@@ -2690,434 +2517,358 @@ export function App({
             sourcePersisted={handwrittenFunctionSourceObjects !== null}
           />
         ) : null}
-        {coordinatePlotEditor === null ? null : (
-          <CoordinatePlotEditorPanel
-            definition={coordinatePlotEditor.draft}
-            fallbackFocusRef={workspaceRef}
-            key={coordinatePlotEditor.objectId}
-            dirty={coordinatePlotEditor.draft !== coordinatePlotEditor.expected}
-            issues={validateCoordinatePlotEditorDefinition(
-              coordinatePlotEditor.draft,
-            )}
-            onAddParameter={addCoordinatePlotEditorParameter}
-            onAddSeries={addCoordinatePlotEditorSeries}
-            onClose={() => setCoordinatePlotEditor(null)}
-            onDefinitionChange={updateCoordinatePlotDraft}
-            onSave={saveCoordinatePlotEditor}
-            onSelectedSeriesChange={(seriesId) =>
-              selectCoordinatePlotSeries(
-                coordinatePlotEditor.objectId,
-                seriesId,
-              )
-            }
-            readOnly={readOnly}
-            selectedSeriesId={coordinatePlotEditor.selectedSeriesId}
-          />
-        )}
-        <GeometryPromptPanel
-          available={geometryOsClient !== undefined}
-          onCancel={() => geometryOperationRef.current?.cancel()}
-          onChooseClarification={(option) => {
-            setGeometryPrompt(option);
-            setGeometryPromptState({ kind: "idle" });
-          }}
-          onPromptChange={(prompt) => {
-            setGeometryPrompt(prompt);
-            if (geometryPromptState.kind !== "running") {
+        {geometryPromptOpen ? (
+          <GeometryPromptPanel
+            available={geometryOsClient !== undefined}
+            onCancel={() => geometryOperationRef.current?.cancel()}
+            onChooseClarification={(option) => {
+              setGeometryPrompt(option);
               setGeometryPromptState({ kind: "idle" });
-            }
-          }}
-          onRetry={runGeometryPrompt}
-          onSubmit={runGeometryPrompt}
-          prompt={geometryPrompt}
-          state={geometryPromptState}
+            }}
+            onPromptChange={(prompt) => {
+              setGeometryPrompt(prompt);
+              if (geometryPromptState.kind !== "running")
+                setGeometryPromptState({ kind: "idle" });
+            }}
+            onRetry={runGeometryPrompt}
+            onSubmit={runGeometryPrompt}
+            prompt={geometryPrompt}
+            state={geometryPromptState}
+          />
+        ) : null}
+        <BoardToolDock
+          activeStyle={
+            isDrawingToolId(activeTool) ? styleFor(activeTool) : null
+          }
+          activeTool={activeTool}
+          canRedo={historyEnabled && history.future.length > 0}
+          canUndo={
+            historyEnabled
+              ? history.past.length > 0
+              : collaborativeUndoAvailable
+          }
+          drawingTools={drawingTools}
+          geometryAvailable={geometryOsClient !== undefined}
+          geometryOpen={geometryPromptOpen}
+          handwrittenFunctionsEnabled={
+            environment.features.handwrittenFunctions
+          }
+          imageAccept={embeddedImageAccept}
+          onActivate={(tool) => activateTool(tool as ActiveToolId)}
+          onCreatePlot={createCoordinatePlot}
+          onDeleteSelection={deleteSelection}
+          onGeometryToggle={() => setGeometryPromptOpen((current) => !current)}
+          onImageFiles={(files) => void importImageFiles(files)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onRedo={redo}
+          onSelectionLockChange={setSelectionLock}
+          onSelectionStyleChange={updateSelectionStyle}
+          onStyleChange={updateStyle}
+          onTextDraftChange={setTextDraft}
+          onUndo={undo}
+          readOnly={readOnly}
+          selectedCount={selectionState.selectedObjectIds.length}
+          selectedLocked={selectedLocked}
+          selectedStyle={selectedStyle}
+          selectionInspectorOpen={selectionInspectorOpen}
+          settingsOpen={settingsOpen}
+          textDraft={textDraft}
         />
-        <aside aria-label="Слои" className="layers-panel">
-          <div className="layers-panel-header">
-            <strong>Слои</strong>
-            <span>{layers.length}</span>
-          </div>
-          <div className="layers-group-actions">
-            <button disabled={!canGroup} onClick={groupSelection} type="button">
-              Сгруппировать
-            </button>
-            <button
-              disabled={!canUngroup}
-              onClick={ungroupSelection}
-              type="button"
-            >
-              Разгруппировать
-            </button>
-          </div>
-          {layers.length === 0 ? (
-            <p>На доске пока нет объектов</p>
-          ) : (
-            <ol className="layers-list">
-              {layers.map((layer) => (
-                <li key={layer.id}>
-                  <button
-                    aria-pressed={selectionState.selectedObjectIds.includes(
-                      layer.id,
-                    )}
-                    className="layer-name"
-                    onClick={() => selectLayer(layer.id)}
-                    type="button"
-                  >
-                    {layer.kind}
-                  </button>
-                  <button
-                    aria-label={
-                      layer.visible
-                        ? `Скрыть ${layer.id}`
-                        : `Показать ${layer.id}`
-                    }
-                    onClick={() =>
-                      toggleLayerVisibility(layer.id, !layer.visible)
-                    }
-                    type="button"
-                  >
-                    {layer.visible ? "◉" : "○"}
-                  </button>
-                  <button
-                    aria-label={
-                      layer.locked
-                        ? `Разблокировать слой ${layer.id}`
-                        : `Заблокировать слой ${layer.id}`
-                    }
-                    onClick={() => toggleLayerLock(layer.id, !layer.locked)}
-                    type="button"
-                  >
-                    {layer.locked ? "🔒" : "🔓"}
-                  </button>
-                  <button
-                    aria-label={`На передний план ${layer.id}`}
-                    onClick={() => reorderLayer(layer.id, "front")}
-                    type="button"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    aria-label={`На задний план ${layer.id}`}
-                    onClick={() => reorderLayer(layer.id, "back")}
-                    type="button"
-                  >
-                    ↓
-                  </button>
-                </li>
-              ))}
-            </ol>
-          )}
-        </aside>
-        <div
-          aria-label="Инструменты рисования"
-          className="drawing-toolbar"
-          role="toolbar"
+        <BoardSettingsDialog
+          onClose={() => setSettingsOpen(false)}
+          open={settingsOpen}
+          statusKind={persistenceStatus.kind}
+          statusLabel={persistenceStatus.label}
         >
-          <button
-            aria-label="Перемещение (H)"
-            aria-pressed={activeTool === navigationToolId}
-            className={
-              activeTool === navigationToolId
-                ? "drawing-tool is-active"
-                : "drawing-tool"
-            }
-            onClick={() => activateTool(navigationToolId)}
-            title="Перемещение · H"
-            type="button"
-          >
-            <span aria-hidden="true">✋</span>
-          </button>
-          <button
-            aria-label={`${selectionTool.label} (${selectionTool.shortcut})`}
-            aria-pressed={activeTool === selectionToolId}
-            className={
-              activeTool === selectionToolId
-                ? "drawing-tool is-active"
-                : "drawing-tool"
-            }
-            onClick={() => activateTool(selectionToolId)}
-            title={`${selectionTool.label} · ${selectionTool.shortcut}`}
-            type="button"
-          >
-            <span aria-hidden="true">{selectionTool.icon}</span>
-          </button>
-          <button
-            aria-label={`${lassoSelectionTool.label} (${lassoSelectionTool.shortcut})`}
-            aria-pressed={activeTool === lassoSelectionToolId}
-            className={
-              activeTool === lassoSelectionToolId
-                ? "drawing-tool is-active"
-                : "drawing-tool"
-            }
-            onClick={() => activateTool(lassoSelectionToolId)}
-            title={`${lassoSelectionTool.label} · ${lassoSelectionTool.shortcut}`}
-            type="button"
-          >
-            <span aria-hidden="true">{lassoSelectionTool.icon}</span>
-          </button>
-          <span aria-hidden="true" className="toolbar-divider" />
-          {environment.features.handwrittenFunctions ? (
-            <button
-              aria-label="Рукописная функция (F)"
-              aria-pressed={activeTool === handwrittenFunctionToolId}
-              className={
-                activeTool === handwrittenFunctionToolId
-                  ? "drawing-tool is-active"
-                  : "drawing-tool"
-              }
-              disabled={readOnly}
-              onClick={() => activateTool(handwrittenFunctionToolId)}
-              title="Рукописная функция · F"
-              type="button"
-            >
-              <span aria-hidden="true">ƒ</span>
-            </button>
-          ) : null}
-          {drawingTools.map((tool) => (
-            <button
-              aria-label={`${tool.label} (${tool.shortcut})`}
-              aria-pressed={activeTool === tool.id}
-              className={
-                activeTool === tool.id
-                  ? "drawing-tool is-active"
-                  : "drawing-tool"
-              }
-              key={tool.id}
-              onClick={() => activateTool(tool.id)}
-              title={`${tool.label} · ${tool.shortcut}`}
-              type="button"
-            >
-              <span aria-hidden="true">{tool.icon}</span>
-            </button>
-          ))}
-          {activeTool === "drawing.text" ? (
-            <label className="text-tool-input">
-              <span>Текст</span>
-              <input
-                aria-label="Содержимое текста"
-                maxLength={100_000}
-                onChange={(event) => setTextDraft(event.target.value)}
-                value={textDraft}
-              />
-            </label>
-          ) : null}
-        </div>
-        <aside className="canvas-help" aria-label="Подсказка по навигации">
-          <strong>
-            {coordinatePlotEditor !== null
-              ? "Редактор графика"
-              : activeTool === handwrittenFunctionToolId
-                ? "Рукописная функция"
-                : activeTool === navigationToolId
-                  ? "Навигация"
-                  : activeTool === selectionToolId
-                    ? "Выделение"
-                    : activeTool === lassoSelectionToolId
-                      ? "Лассо"
-                      : activeTool === "drawing.smart-ink"
-                        ? "Smart Ink"
-                        : "Создание объекта"}
-          </strong>
-          <span>
-            {coordinatePlotEditor !== null
-              ? "Тяните внутри плоскости; колесо меняет внутренний масштаб"
-              : activeTool === handwrittenFunctionToolId
-                ? "Нарисуйте формулу несколькими штрихами и нажмите «Распознать»"
-                : activeTool === navigationToolId
-                  ? "Потяните полотно для перемещения"
-                  : activeTool === selectionToolId
-                    ? "Клик, Shift+клик или рамка выделения"
-                    : activeTool === lassoSelectionToolId
-                      ? "Обведите объекты; Shift добавляет, Alt исключает"
-                      : activeTool === "drawing.smart-ink"
-                        ? "Нарисуйте фигуру одним непрерывным штрихом"
-                        : "Потяните или нажмите на полотно"}
-          </span>
-          <span>Правая кнопка / Space / средняя кнопка — перемещение</span>
-          <span>Escape — отменить действие</span>
-        </aside>
-        {!selectionInspectorOpen ? null : (
-          <aside
-            className="selection-inspector"
-            aria-label="Выделенные объекты"
-          >
-            <div className="selection-inspector-heading">
-              <strong>
-                Выделено: {selectionState.selectedObjectIds.length}
-              </strong>
+          <section className="board-settings-section">
+            <h3>Документ</h3>
+            <p>{document.title}</p>
+            <p>
+              {persistenceStatus.label}
+              {persistenceStatus.detail === undefined
+                ? ""
+                : ` · ${persistenceStatus.detail}`}
+            </p>
+            <div className="board-settings-actions">
               <button
-                aria-label="Закрыть настройки объекта"
-                onClick={() => setSelectionInspectorObjectId(null)}
+                disabled={selectionState.selectedObjectIds.length === 0}
+                onClick={copySelection}
                 type="button"
               >
-                ×
+                Копировать
               </button>
-            </div>
-            <span>
-              {selectedLocked
-                ? "Трансформация заблокирована"
-                : transformableObjectIds.length > 0
-                  ? "Тяните маркеры рамки для размера и поворота"
-                  : "Перетащите выделение для перемещения"}
-            </span>
-            {transformableObjectIds.length === 0 ? null : (
-              <div className="transform-actions">
-                <button
-                  aria-label="Уменьшить выделение на 10%"
-                  onClick={() => transformSelectionBy(0.9, 0)}
-                  type="button"
-                >
-                  −10%
-                </button>
-                <button
-                  aria-label="Увеличить выделение на 10%"
-                  onClick={() => transformSelectionBy(1.1, 0)}
-                  type="button"
-                >
-                  +10%
-                </button>
-                <button
-                  aria-label="Повернуть выделение на 15 градусов"
-                  onClick={() => transformSelectionBy(1, 15)}
-                  type="button"
-                >
-                  ↻ 15°
-                </button>
-              </div>
-            )}
-            <div>
               <button
-                onClick={() => setSelectionLock(!selectedLocked)}
+                disabled={selectionState.selectedObjectIds.length === 0}
+                onClick={cutSelection}
                 type="button"
               >
-                {selectedLocked ? "Разблокировать" : "Заблокировать"}
+                Вырезать
               </button>
-              <button onClick={deleteSelection} type="button">
-                Удалить
+              <button
+                disabled={clipboard === null}
+                onClick={pasteClipboard}
+                type="button"
+              >
+                Вставить
               </button>
-            </div>
-            {selectedStyle === undefined ? null : (
-              <div className="style-inspector">
-                {isEditableTextObject(selectedEditableText) ? (
-                  <label className="text-content-editor">
-                    Текст или формула
-                    <textarea
-                      aria-label="Редактор текста"
-                      defaultValue={selectedEditableText.text}
-                      key={`${selectedEditableText.id}:${selectedEditableText.text}`}
-                      maxLength={100_000}
-                      onBlur={(event) =>
-                        updateSelectedText(
-                          selectedEditableText.id,
-                          event.currentTarget.value,
-                        )
-                      }
-                      rows={3}
-                    />
-                  </label>
-                ) : null}
-                <ColorPalette
-                  allowNone
-                  label="Заливка"
-                  onChange={(fill) => updateSelectionStyle({ fill })}
-                  value={selectedStyle.fill}
-                />
-                <ColorPalette
-                  label="Обводка"
-                  onChange={(stroke) => updateSelectionStyle({ stroke })}
-                  value={selectedStyle.stroke}
-                />
-                <StrokeStylePalette
-                  onChange={(strokeStyle) =>
-                    updateSelectionStyle({ strokeStyle })
-                  }
-                  value={selectedStyle.strokeStyle}
-                />
-                <label>
-                  Пользовательская толщина
+              {onImportDocument === undefined ? null : (
+                <label className="board-settings-file">
+                  Импорт JSON
                   <input
-                    aria-label="Толщина обводки"
-                    min="0"
+                    accept="application/json,.json"
+                    aria-label="Импорт документа JSON"
                     onChange={(event) => {
-                      if (Number.isFinite(event.currentTarget.valueAsNumber)) {
-                        updateSelectionStyle({
-                          strokeWidth: event.currentTarget.valueAsNumber,
-                        });
-                      }
+                      const file = event.currentTarget.files?.[0];
+                      if (file !== undefined) onImportDocument(file);
+                      event.currentTarget.value = "";
                     }}
-                    step="0.5"
-                    type="number"
-                    value={selectedStyle.strokeWidth}
+                    type="file"
                   />
                 </label>
-                <label>
-                  Прозрачность
-                  <input
-                    aria-label="Прозрачность выделения"
-                    max="1"
-                    min="0"
-                    onChange={(event) =>
-                      updateSelectionStyle({
-                        opacity: event.currentTarget.valueAsNumber,
-                      })
-                    }
-                    step="0.05"
-                    type="range"
-                    value={selectedStyle.opacity}
-                  />
-                </label>
-              </div>
+              )}
+              {onExportDocument === undefined ? null : (
+                <button
+                  onClick={() => onExportDocument(document)}
+                  type="button"
+                >
+                  Экспорт JSON
+                </button>
+              )}
+              {onExportSvgSnapshot === undefined ? null : (
+                <button
+                  onClick={() => onExportSvgSnapshot(document)}
+                  type="button"
+                >
+                  Снимок SVG
+                </button>
+              )}
+              {onExportPngSnapshot === undefined ? null : (
+                <button
+                  onClick={() => onExportPngSnapshot(document)}
+                  type="button"
+                >
+                  Снимок PNG
+                </button>
+              )}
+            </div>
+          </section>
+          <section className="board-settings-section">
+            <h3>
+              Объекты и слои <span>{layers.length}</span>
+            </h3>
+            <div className="board-settings-actions">
+              <button
+                disabled={!canGroup}
+                onClick={groupSelection}
+                type="button"
+              >
+                Сгруппировать
+              </button>
+              <button
+                disabled={!canUngroup}
+                onClick={ungroupSelection}
+                type="button"
+              >
+                Разгруппировать
+              </button>
+            </div>
+            {layers.length === 0 ? (
+              <p>На доске пока нет объектов.</p>
+            ) : (
+              <ol className="board-settings-layers">
+                {layers.map((layer) => (
+                  <li key={layer.id}>
+                    <button
+                      className="layer-name"
+                      onClick={() => selectLayer(layer.id)}
+                      type="button"
+                    >
+                      {layer.kind}
+                    </button>
+                    <button
+                      aria-label={
+                        layer.visible
+                          ? `Скрыть ${layer.id}`
+                          : `Показать ${layer.id}`
+                      }
+                      onClick={() =>
+                        toggleLayerVisibility(layer.id, !layer.visible)
+                      }
+                      type="button"
+                    >
+                      {layer.visible ? "◉" : "○"}
+                    </button>
+                    <button
+                      aria-label={
+                        layer.locked
+                          ? `Разблокировать слой ${layer.id}`
+                          : `Заблокировать слой ${layer.id}`
+                      }
+                      onClick={() => toggleLayerLock(layer.id, !layer.locked)}
+                      type="button"
+                    >
+                      {layer.locked ? "🔒" : "🔓"}
+                    </button>
+                    <button
+                      aria-label={`На передний план ${layer.id}`}
+                      onClick={() => reorderLayer(layer.id, "front")}
+                      type="button"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      aria-label={`На задний план ${layer.id}`}
+                      onClick={() => reorderLayer(layer.id, "back")}
+                      type="button"
+                    >
+                      ↓
+                    </button>
+                  </li>
+                ))}
+              </ol>
             )}
-          </aside>
-        )}
-        <div className="coordinate-chip" aria-live="polite">
-          <span data-testid="viewport-zoom">
-            {Math.round(document.viewport.zoom * 100)}%
+          </section>
+          <section className="board-settings-section">
+            <h3>Вид</h3>
+            <dl className="board-settings-facts">
+              <div>
+                <dt>Масштаб</dt>
+                <dd>{Math.round(document.viewport.zoom * 100)}%</dd>
+              </div>
+              <div>
+                <dt>Положение</dt>
+                <dd>
+                  x {Math.round(document.viewport.offset.x)} · y{" "}
+                  {Math.round(document.viewport.offset.y)}
+                </dd>
+              </div>
+            </dl>
+            <button onClick={resetViewport} type="button">
+              Центрировать доску
+            </button>
+          </section>
+          {settingsExtra}
+          <section className="board-settings-section">
+            <h3>Справка и приложение</h3>
+            <div className="board-settings-actions">
+              <button
+                aria-expanded={shortcutsOpen}
+                aria-haspopup="dialog"
+                onClick={() => setShortcutsOpen(true)}
+                ref={shortcutsButtonRef}
+                type="button"
+              >
+                Горячие клавиши
+              </button>
+              {onExportDiagnostics === undefined ? null : (
+                <button onClick={onExportDiagnostics} type="button">
+                  Диагностика
+                </button>
+              )}
+              <a href="#/documents">Все документы</a>
+              <a href="#/settings">Настройки приложения</a>
+              {environment.features.developmentDiagnostics ? (
+                <a href="#/diagnostics">Диагностика приложения</a>
+              ) : null}
+            </div>
+            <p>
+              BoardDocument {boardDocumentSchemaVersion} · {environment.stage}
+            </p>
+          </section>
+        </BoardSettingsDialog>
+        {shortcutsOpen ? (
+          <div
+            className="dialog-backdrop"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeShortcuts();
+            }}
+          >
+            <section
+              aria-labelledby="shortcuts-title"
+              aria-modal="true"
+              className="shortcuts-dialog"
+              ref={shortcutsDialogRef}
+              role="dialog"
+            >
+              <div className="dialog-heading">
+                <h2 id="shortcuts-title">Горячие клавиши</h2>
+                <button
+                  aria-label="Закрыть горячие клавиши"
+                  autoFocus
+                  onClick={closeShortcuts}
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+              <dl>
+                <div>
+                  <dt>H / V / A / P / I / L / R / E / T / F / G</dt>
+                  <dd>Инструменты и график</dd>
+                </div>
+                <div>
+                  <dt>Двойной щелчок правой кнопкой</dt>
+                  <dd>Настройки объекта</dd>
+                </div>
+                <div>
+                  <dt>Ctrl/Cmd + C, X, V</dt>
+                  <dd>Буфер обмена</dd>
+                </div>
+                <div>
+                  <dt>Ctrl/Cmd + Z / Shift+Z</dt>
+                  <dd>Отмена и повтор</dd>
+                </div>
+                <div>
+                  <dt>Delete / Escape / ?</dt>
+                  <dd>Удалить, закрыть, открыть справку</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
+        ) : null}
+        <div
+          className="visually-hidden"
+          data-testid="minimal-board-diagnostics"
+        >
+          <span>BoardDocument {boardDocumentSchemaVersion}</span>
+          <span data-testid="first-object-position">
+            Объект: {firstObject?.position.x ?? 0},{" "}
+            {firstObject?.position.y ?? 0}
           </span>
-          <span aria-hidden="true">·</span>
-          <span data-testid="viewport-offset">
-            x {Math.round(document.viewport.offset.x)} · y{" "}
-            {Math.round(document.viewport.offset.y)}
+          <span data-testid="first-object-transform">
+            Масштаб: {firstObject?.scale.x ?? 1}, {firstObject?.scale.y ?? 1} ·
+            Поворот: {firstObject?.rotation ?? 0}°
           </span>
+          <span data-testid="object-count">
+            {document.order.length} объекта
+          </span>
+          <span data-testid="interaction-state">{drawingState.kind}</span>
+          <span data-testid="history-depth">
+            {history.past.length}/{history.future.length}
+          </span>
+          <span data-testid="selection-count">
+            {selectionState.selectedObjectIds.length} выбрано
+          </span>
+          <span data-testid="geometry-import-count">
+            {Object.keys(document.geometryImports).length} построений
+          </span>
+          <span data-testid="group-count">
+            {Object.keys(document.groups).length} групп
+          </span>
+          <span data-testid="persistence-status">
+            {persistenceStatus.label}
+          </span>
+          {layers.map((layer) => (
+            <span key={layer.id}>{layer.kind}</span>
+          ))}
+          {drawingDiagnostic === null ? null : (
+            <span data-testid="drawing-diagnostic">{drawingDiagnostic}</span>
+          )}
+          {commandError === null ? null : (
+            <span role="alert">{commandError}</span>
+          )}
         </div>
       </section>
-
-      <footer className="statusbar">
-        <span>
-          <i className="status-dot" aria-hidden="true" />
-          BoardDocument {boardDocumentSchemaVersion}
-        </span>
-        <span data-testid="first-object-position">
-          Объект: {firstObject?.position.x ?? 0}, {firstObject?.position.y ?? 0}
-        </span>
-        <span data-testid="first-object-transform">
-          Масштаб: {firstObject?.scale.x ?? 1}, {firstObject?.scale.y ?? 1} ·
-          Поворот: {firstObject?.rotation ?? 0}°
-        </span>
-        <span data-testid="object-count">{document.order.length} объекта</span>
-        <span data-testid="interaction-state">{drawingState.kind}</span>
-        <span data-testid="history-depth">
-          {history.past.length}/{history.future.length}
-        </span>
-        <span data-testid="selection-count">
-          {selectionState.selectedObjectIds.length} выбрано
-        </span>
-        <span data-testid="geometry-import-count">
-          {Object.keys(document.geometryImports).length} построений
-        </span>
-        <span data-testid="group-count">
-          {Object.keys(document.groups).length} групп
-        </span>
-        <span data-testid="persistence-status">{persistenceStatus.label}</span>
-        {drawingDiagnostic === null ? null : (
-          <span data-testid="drawing-diagnostic">{drawingDiagnostic}</span>
-        )}
-        {commandError === null ? null : (
-          <span className="command-error" role="alert">
-            {commandError}
-          </span>
-        )}
-      </footer>
     </main>
   );
 }

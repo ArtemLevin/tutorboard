@@ -272,6 +272,7 @@ describe("App", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Переместить выделение" }),
     );
+    fireEvent.click(screen.getByRole("button", { name: "Настройки доски" }));
     fireEvent.click(screen.getByRole("button", { name: "Копировать" }));
     fireEvent.click(screen.getByRole("button", { name: "Вставить" }));
 
@@ -412,6 +413,7 @@ describe("App", () => {
       "Объект: 31, 30",
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Настройки доски" }));
     const trigger = screen.getByRole("button", { name: "Горячие клавиши" });
     trigger.focus();
     fireEvent.click(trigger);
@@ -480,6 +482,9 @@ describe("App", () => {
     });
     render(<App geometryOsClient={client} />);
 
+    fireEvent.click(
+      screen.getByRole("button", { name: "Построение GeometryOS" }),
+    );
     fireEvent.change(screen.getByLabelText("Запрос GeometryOS"), {
       target: { value: "Построй треугольник ABC" },
     });

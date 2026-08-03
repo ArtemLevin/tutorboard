@@ -471,12 +471,17 @@ export function ProductShell({
   const diagnosticsEnabled = environment.features.developmentDiagnostics;
   const effectiveRoute =
     route === "diagnostics" && !diagnosticsEnabled ? "board" : route;
+  const boardRoute = effectiveRoute === "board";
   return (
-    <div className="product-shell">
-      <ProductNavigation
-        diagnosticsEnabled={diagnosticsEnabled}
-        route={effectiveRoute}
-      />
+    <div
+      className={boardRoute ? "product-shell is-board-route" : "product-shell"}
+    >
+      {boardRoute ? null : (
+        <ProductNavigation
+          diagnosticsEnabled={diagnosticsEnabled}
+          route={effectiveRoute}
+        />
+      )}
       <div className="product-content">
         <ProductErrorBoundary key={effectiveRoute}>
           {effectiveRoute === "board" ? (

@@ -5,7 +5,7 @@ import type {
   Vec2,
 } from "../../core/public";
 
-import { drawingStyleDefaults, type DrawingToolId } from "./tools";
+import type { DrawingToolId } from "./tools";
 import { simplifyStroke } from "./stroke-simplification";
 
 const maximumPenPoints = 100_000;
@@ -59,6 +59,7 @@ export type DrawingAction =
       readonly objectId: BoardObjectId;
       readonly point: Vec2;
       readonly pointerId: number;
+      readonly style: ObjectStyle;
       readonly text: string;
       readonly tool: DrawingToolId;
     }
@@ -259,10 +260,7 @@ function startInteraction(
         objectId: action.objectId,
         pointerId: action.pointerId,
         points: [action.point],
-        style:
-          action.tool === "drawing.smart-ink"
-            ? drawingStyleDefaults.smartInk
-            : drawingStyleDefaults.pen,
+        style: action.style,
       });
     case "drawing.line":
     case "drawing.rectangle":
@@ -273,12 +271,7 @@ function startInteraction(
         objectId: action.objectId,
         pointerId: action.pointerId,
         start: action.point,
-        style:
-          action.tool === "drawing.line"
-            ? drawingStyleDefaults.line
-            : action.tool === "drawing.rectangle"
-              ? drawingStyleDefaults.rectangle
-              : drawingStyleDefaults.ellipse,
+        style: action.style,
         tool: action.tool,
       });
     case "drawing.text": {
@@ -291,7 +284,7 @@ function startInteraction(
         objectId: action.objectId,
         pointerId: action.pointerId,
         position: action.point,
-        style: drawingStyleDefaults.text,
+        style: action.style,
         text,
       });
     }
