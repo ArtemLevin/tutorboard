@@ -28,7 +28,8 @@ The application shell hides product navigation only for the board route. Other
 routes retain normal navigation. Server-session controls are supplied to the
 board settings sheet instead of consuming permanent vertical space. Escape
 closes the topmost nested overlay first, then the settings sheet on a subsequent
-press.
+press. Contextual options expose a named region so keyboard and assistive
+technology users can distinguish them from the permanent toolbar.
 
 ## Consequences
 
