@@ -1,0 +1,32 @@
+name: Apply PR5 abort fix
+
+on:
+  push:
+    branches:
+      - feat/configurable-formula-recognition
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feat/configurable-formula-recognition
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: node scripts/apply-pr5-abort-fix.mjs
+      - run: npx prettier --write src/adapters/math-ink-http/client.ts
+      - run: rm scripts/apply-pr5-abort-fix.mjs .github/workflows/pr5-abort-fix.yml
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add --all
+          git commit -m "fix: abort formula recognition before fetch"
+          git push origin HEAD:feat/configurable-formula-recognition
