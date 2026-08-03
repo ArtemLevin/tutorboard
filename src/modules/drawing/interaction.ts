@@ -31,6 +31,7 @@ interface ShapeInteraction extends InteractionBase {
   readonly kind: "drawing-shape";
   readonly start: Vec2;
   readonly style: ObjectStyle;
+  readonly polygonSides: number;
   readonly tool: Exclude<
     DrawingToolId,
     "drawing.pen" | "drawing.smart-ink" | "drawing.text"
@@ -59,6 +60,7 @@ export type DrawingAction =
       readonly objectId: BoardObjectId;
       readonly point: Vec2;
       readonly pointerId: number;
+      readonly polygonSides?: number;
       readonly style: ObjectStyle;
       readonly text: string;
       readonly tool: DrawingToolId;
@@ -213,6 +215,36 @@ function completeShape(
         radius,
       };
     }
+    case "drawing.polygon": {
+      const radius = {
+        x: Math.abs(delta.x) / 2,
+        y: Math.abs(delta.y) / 2,
+      };
+      if (radius.x < minimumGeometrySize || radius.y < minimumGeometrySize) {
+        return null;
+      }
+      const sides = Math.min(24, Math.max(3, Math.round(state.polygonSides)));
+      const points = Array.from({ length: sides }, (_, index) => {
+        const angle = -Math.PI / 2 + (index * Math.PI * 2) / sides;
+        return {
+          x: Math.cos(angle) * radius.x,
+          y: Math.sin(angle) * radius.y,
+        };
+      });
+      points.push(points[0]!);
+      return {
+        ...userObjectBase(
+          state.objectId,
+          {
+            x: (state.start.x + point.x) / 2,
+            y: (state.start.y + point.y) / 2,
+          },
+          state.style,
+        ),
+        kind: "drawing.pen-stroke",
+        points,
+      };
+    }
   }
 }
 
@@ -265,11 +297,13 @@ function startInteraction(
     case "drawing.line":
     case "drawing.rectangle":
     case "drawing.ellipse":
+    case "drawing.polygon":
       return transition({
         current: action.point,
         kind: "drawing-shape",
         objectId: action.objectId,
         pointerId: action.pointerId,
+        polygonSides: action.polygonSides ?? 5,
         start: action.point,
         style: action.style,
         tool: action.tool,

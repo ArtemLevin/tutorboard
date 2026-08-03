@@ -161,24 +161,40 @@ const renderers: readonly KonvaObjectRenderer[] = [
     kind: "drawing.pen-stroke",
     render(object, context) {
       const stroke = expectKind(object, "drawing.pen-stroke");
-      const smoothed = buildCachedSmoothStrokePoints(
-        stroke.points,
-        context.zoom,
-      );
+      const first = stroke.points[0];
+      const last = stroke.points.at(-1);
+      const closed =
+        first !== undefined &&
+        last !== undefined &&
+        Math.hypot(first.x - last.x, first.y - last.y) < 0.001;
+      const renderPoints = closed
+        ? stroke.points
+        : buildCachedSmoothStrokePoints(stroke.points, context.zoom);
       if (isSketchStrokeStyle(stroke.style.strokeStyle)) {
         return renderSketchPath(
           stroke,
           (pass) =>
-            createSketchPath(smoothed, pass.intensity, pass.seed, false),
-          false,
+            createSketchPath(renderPoints, pass.intensity, pass.seed, closed),
+          closed,
+          closed && stroke.style.fill !== null ? (
+            <Line
+              {...fillProps(stroke)}
+              closed
+              listening={false}
+              opacity={stroke.style.opacity}
+              points={[...flattenStrokePoints(renderPoints)]}
+            />
+          ) : null,
         );
       }
       return (
         <Line
           {...commonShapeProps(stroke)}
+          {...fillProps(stroke)}
           {...strokeProps(stroke)}
+          closed={closed}
           perfectDrawEnabled
-          points={[...flattenStrokePoints(smoothed)]}
+          points={[...flattenStrokePoints(renderPoints)]}
           tension={0}
         />
       );

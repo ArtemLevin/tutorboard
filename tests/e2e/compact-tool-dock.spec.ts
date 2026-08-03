@@ -1,0 +1,77 @@
+import { expect, test } from "@playwright/test";
+
+test.beforeEach(async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("board-stage")).toBeVisible();
+});
+
+test("opens every grouped menu exclusively and restores focus after Escape", async ({
+  page,
+}) => {
+  const groups = [
+    ["Выделение", "Меню выделения"],
+    ["Рисование", "Меню рисования"],
+    ["Фигуры", "Меню фигур"],
+    ["Математика", "Меню математики"],
+    ["ИИ-инструменты", "Меню ИИ"],
+    ["Медиа", "Меню медиа"],
+  ] as const;
+
+  for (const [triggerName, menuName] of groups) {
+    const trigger = page.getByRole("button", { name: triggerName });
+    await trigger.click();
+    await expect(page.getByRole("menu", { name: menuName })).toBeVisible();
+    await expect(page.getByRole("menu")).toHaveCount(1);
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  }
+
+  const mediaTrigger = page.getByRole("button", { name: "Медиа" });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(mediaTrigger).toBeFocused();
+});
+
+test("creates a configurable regular polygon from the Shapes menu", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Фигуры" }).click();
+  await page
+    .getByRole("spinbutton", { name: "Количество сторон многоугольника" })
+    .fill("8");
+  await page.getByRole("button", { name: "Выбрать" }).click();
+
+  const stage = page.getByTestId("board-stage");
+  const bounds = await stage.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (bounds === null) throw new Error("Canvas has no bounds.");
+  await page.mouse.move(bounds.x + 300, bounds.y + 180);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 460, bounds.y + 320, { steps: 5 });
+  await page.mouse.up();
+
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+  await expect(page.getByText("drawing.pen-stroke")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Фигуры" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
+test("shows an ephemeral laser pointer without adding board objects", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Лазерная указка (K)" }).click();
+  const stage = page.getByTestId("board-stage");
+  const bounds = await stage.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (bounds === null) throw new Error("Canvas has no bounds.");
+  await page.mouse.move(bounds.x + 420, bounds.y + 220);
+
+  await expect(stage).toHaveAttribute("data-laser-active", "true");
+  await expect(stage).toHaveAttribute("data-laser-visible", "true");
+  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+
+  await page.keyboard.press("h");
+  await expect(stage).toHaveAttribute("data-laser-active", "false");
+  await expect(stage).toHaveAttribute("data-laser-visible", "false");
+});

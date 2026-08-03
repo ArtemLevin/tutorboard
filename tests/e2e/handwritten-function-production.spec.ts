@@ -47,13 +47,10 @@ test.describe("handwritten function production workflow", () => {
     page,
   }) => {
     await page.goto("/");
-    const handwrittenTool = page.getByRole("button", {
-      name: "Рукописная функция (F)",
-    });
-    await expect(handwrittenTool).toBeVisible();
-
-    await handwrittenTool.click();
-    await expect(handwrittenTool).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("f");
+    await expect(
+      page.getByRole("button", { name: "ИИ-инструменты" }),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect(
       page.getByRole("complementary", { name: "Рукописная функция" }),
     ).toBeVisible();

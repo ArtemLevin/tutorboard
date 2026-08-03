@@ -35,6 +35,8 @@ function styleFor(tool: DrawingToolId) {
       return drawingStyleDefaults.rectangle;
     case "drawing.ellipse":
       return drawingStyleDefaults.ellipse;
+    case "drawing.polygon":
+      return drawingStyleDefaults.polygon;
     case "drawing.text":
       return drawingStyleDefaults.text;
   }
@@ -136,6 +138,33 @@ describe("drawing interaction state machine", () => {
       position: { x: 10, y: 50 },
       radius: { x: 20, y: 30 },
     });
+  });
+
+  it("builds a closed regular polygon with bounded side count", () => {
+    const started = reduceDrawingInteraction(idle, {
+      kind: "start",
+      objectId: boardObjectId("object:polygon"),
+      point: { x: 0, y: 0 },
+      pointerId: 11,
+      polygonSides: 6,
+      style: styleFor("drawing.polygon"),
+      text: "",
+      tool: "drawing.polygon",
+    });
+    const completed = reduceDrawingInteraction(started.state, {
+      kind: "finish",
+      point: { x: 120, y: 80 },
+      pointerId: 11,
+    });
+    expect(completed.completedObject).toMatchObject({
+      kind: "drawing.pen-stroke",
+      position: { x: 60, y: 40 },
+    });
+    if (completed.completedObject?.kind !== "drawing.pen-stroke") return;
+    expect(completed.completedObject.points).toHaveLength(7);
+    expect(completed.completedObject.points[0]).toEqual(
+      completed.completedObject.points.at(-1),
+    );
   });
 
   it("places trimmed text at the completed pointer position", () => {

@@ -54,6 +54,7 @@
     "dexie": "4.4.4",
     "dompurify": "3.4.12",
     "konva": "10.3.0",
+    "pdf-lib": "1.17.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-konva": "19.2.5",

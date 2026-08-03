@@ -39,4 +39,13 @@ test("exports deterministic document and diagnostic snapshots", async ({
   expect(pngPath).not.toBeNull();
   const png = await readFile(pngPath);
   expect([...png.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+
+  const pdfDownloadPromise = page.waitForEvent("download");
+  await settings.getByRole("button", { name: "Сохранить PDF" }).click();
+  const pdfDownload = await pdfDownloadPromise;
+  expect(pdfDownload.suggestedFilename()).toBe("tutorboard-board.pdf");
+  const pdfPath = await pdfDownload.path();
+  expect(pdfPath).not.toBeNull();
+  const pdf = await readFile(pdfPath);
+  expect(pdf.subarray(0, 5).toString("ascii")).toBe("%PDF-");
 });

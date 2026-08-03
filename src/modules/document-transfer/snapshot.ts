@@ -49,8 +49,17 @@ function objectMarkup(object: BoardObject, zoom: number): string {
   const common = `${styleAttributes(object)} transform="translate(${number(object.position.x)} ${number(object.position.y)}) rotate(${number(object.rotation)}) scale(${number(object.scale.x)} ${number(object.scale.y)})"`;
   switch (object.kind) {
     case "drawing.pen-stroke": {
-      const points = buildSmoothStrokePoints(object.points, { zoom });
-      return `<polyline ${common} stroke-linecap="round" stroke-linejoin="round" points="${points.map(({ x, y }) => `${number(x)},${number(y)}`).join(" ")}"/>`;
+      const first = object.points[0];
+      const last = object.points.at(-1);
+      const closed =
+        first !== undefined &&
+        last !== undefined &&
+        Math.hypot(first.x - last.x, first.y - last.y) < 0.001;
+      const points = closed
+        ? object.points
+        : buildSmoothStrokePoints(object.points, { zoom });
+      const tag = closed ? "polygon" : "polyline";
+      return `<${tag} ${common} stroke-linecap="round" stroke-linejoin="round" points="${points.map(({ x, y }) => `${number(x)},${number(y)}`).join(" ")}"/>`;
     }
     case "drawing.line":
       return `<line ${common}${object.lineStyle === "dashed" ? ' stroke-dasharray="10 6"' : ""} x1="0" y1="0" x2="${number(object.end.x)}" y2="${number(object.end.y)}"/>`;
@@ -144,4 +153,46 @@ export async function renderBoardSnapshotPng(
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+export async function renderBoardSnapshotPdf(
+  document: BoardDocument,
+  options: BoardSnapshotOptions = {},
+): Promise<Blob> {
+  const { PDFDocument, rgb } = await import("pdf-lib");
+  const width = options.width ?? defaultSnapshot.width;
+  const height = options.height ?? defaultSnapshot.height;
+  const png = await renderBoardSnapshotPng(document, { height, width });
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(document.title);
+  pdf.setCreator("TutorBoard");
+  pdf.setProducer("TutorBoard PDF export");
+  const pageWidth = 841.89;
+  const pageHeight = 595.28;
+  const margin = 24;
+  const page = pdf.addPage([pageWidth, pageHeight]);
+  page.drawRectangle({
+    color: rgb(248 / 255, 250 / 255, 252 / 255),
+    height: pageHeight,
+    width: pageWidth,
+    x: 0,
+    y: 0,
+  });
+  const image = await pdf.embedPng(await png.arrayBuffer());
+  const scale = Math.min(
+    (pageWidth - margin * 2) / image.width,
+    (pageHeight - margin * 2) / image.height,
+  );
+  const renderedWidth = image.width * scale;
+  const renderedHeight = image.height * scale;
+  page.drawImage(image, {
+    height: renderedHeight,
+    width: renderedWidth,
+    x: (pageWidth - renderedWidth) / 2,
+    y: (pageHeight - renderedHeight) / 2,
+  });
+  const bytes = await pdf.save();
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return new Blob([copy], { type: "application/pdf" });
 }

@@ -136,7 +136,7 @@ test("keeps a local command offline, reconnects, and restores the confirmed revi
   await expect(page.getByTestId("object-count")).toHaveText("2 объекта");
 
   await context.setOffline(true);
-  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  await page.keyboard.press("r");
   const stage = page.getByTestId("board-stage");
   const bounds = await stage.boundingBox();
   if (bounds === null) {
@@ -163,4 +163,29 @@ test("keeps a local command offline, reconnects, and restores the confirmed revi
     "Синхронизировано · r8",
   );
   await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
+});
+
+test("copies a stable lesson-bound link for collaborators", async ({
+  context,
+  page,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await installBoardApi(page);
+  await page.goto(
+    `/?lessonId=${encodeURIComponent(lessonId)}&documentId=${encodeURIComponent(documentId)}#/board`,
+  );
+  await expect(page.getByTestId("persistence-status")).toHaveText(
+    "Синхронизировано · r7",
+  );
+
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await page
+    .getByRole("button", { name: "Копировать ссылку на доску" })
+    .click();
+  await expect(page.getByText("Ссылка на доску скопирована.")).toBeVisible();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  const url = new URL(copied);
+  expect(url.searchParams.get("lessonId")).toBe(lessonId);
+  expect(url.searchParams.get("documentId")).toBe(documentId);
+  expect(url.hash).toBe("#/board");
 });

@@ -63,6 +63,8 @@ export function defaultDrawingToolStyle(tool: DrawingToolId): ObjectStyle {
       return { ...drawingStyleDefaults.rectangle, strokeStyle: "thin" };
     case "drawing.ellipse":
       return { ...drawingStyleDefaults.ellipse, strokeStyle: "thin" };
+    case "drawing.polygon":
+      return { ...drawingStyleDefaults.polygon, strokeStyle: "thin" };
     case "drawing.text":
       return { ...drawingStyleDefaults.text };
   }
@@ -116,6 +118,10 @@ export function normalizeDrawingToolPreferences(
       "drawing.ellipse": normalizeDrawingToolStyle(
         "drawing.ellipse",
         tools["drawing.ellipse"],
+      ),
+      "drawing.polygon": normalizeDrawingToolStyle(
+        "drawing.polygon",
+        tools["drawing.polygon"],
       ),
       "drawing.text": normalizeDrawingToolStyle(
         "drawing.text",

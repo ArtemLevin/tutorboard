@@ -48,9 +48,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
 }) => {
   await resetLocalDatabase(page);
 
-  await page
-    .getByRole("button", { name: "Создать координатную плоскость (G)" })
-    .click();
+  await page.keyboard.press("g");
   await openCoordinatePlotEditorByRightDoubleClick(page);
   const editor = page.getByRole("complementary", {
     name: "Редактор координатной плоскости",

@@ -8,7 +8,7 @@ test("supports keyboard movement, shortcut help and focus restoration", async ({
     page.getByRole("toolbar", { name: "Инструменты доски" }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  await page.keyboard.press("r");
   const bounds = await page.getByTestId("board-stage").boundingBox();
   expect(bounds).not.toBeNull();
   if (bounds === null) throw new Error("Canvas has no bounds.");
@@ -16,7 +16,7 @@ test("supports keyboard movement, shortcut help and focus restoration", async ({
   await page.mouse.down();
   await page.mouse.move(bounds.x + 400, bounds.y + 300);
   await page.mouse.up();
-  await page.getByRole("button", { name: "Выделение (V)" }).click();
+  await page.keyboard.press("v");
   await page.mouse.click(bounds.x + 350, bounds.y + 250);
 
   await page.keyboard.press("ArrowRight");

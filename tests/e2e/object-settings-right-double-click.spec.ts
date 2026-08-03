@@ -17,7 +17,7 @@ test("opens figure and graph settings only after a right-button double-click", a
     name: "Первичные настройки выделения",
   });
 
-  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  await page.keyboard.press("r");
   await page.mouse.move(center.x - 70, center.y - 50);
   await page.mouse.down();
   await page.mouse.move(center.x + 70, center.y + 50, { steps: 6 });
@@ -33,9 +33,7 @@ test("opens figure and graph settings only after a right-button double-click", a
   await page.keyboard.press("Escape");
   await expect(selectionSettings).toBeHidden();
 
-  await page
-    .getByRole("button", { name: "Создать координатную плоскость (G)" })
-    .click();
+  await page.keyboard.press("g");
   await expect(page.getByTestId("object-count")).toHaveText("2 объекта");
   await expect(
     page.getByRole("complementary", {

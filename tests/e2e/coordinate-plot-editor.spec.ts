@@ -9,9 +9,7 @@ test("creates and persists explicit and parametric plot series", async ({
 }) => {
   await page.goto("/");
 
-  await page
-    .getByRole("button", { name: "Создать координатную плоскость (G)" })
-    .click();
+  await page.keyboard.press("g");
   await openCoordinatePlotEditorByRightDoubleClick(page);
   const editor = page.getByRole("complementary", {
     name: "Редактор координатной плоскости",

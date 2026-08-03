@@ -7,10 +7,10 @@ test("protects a dirty plot draft and restores focus after discard", async ({
 }) => {
   await page.goto("/");
 
-  const createButton = page.getByRole("button", {
-    name: "Создать координатную плоскость (G)",
+  const workspace = page.getByRole("region", {
+    name: "Рабочая область доски",
   });
-  await createButton.click();
+  await page.keyboard.press("g");
   await openCoordinatePlotEditorByRightDoubleClick(page);
 
   const editor = page.getByTestId("coordinate-plot-editor");
@@ -35,7 +35,7 @@ test("protects a dirty plot draft and restores focus after discard", async ({
   await page.getByRole("button", { name: "Закрыть без сохранения" }).click();
 
   await expect(editor).toBeHidden();
-  await expect(createButton).toBeFocused();
+  await expect(workspace).toBeFocused();
 });
 
 test("saves a plot with Ctrl+Enter and closes cleanly with Escape", async ({
@@ -43,10 +43,10 @@ test("saves a plot with Ctrl+Enter and closes cleanly with Escape", async ({
 }) => {
   await page.goto("/");
 
-  const createButton = page.getByRole("button", {
-    name: "Создать координатную плоскость (G)",
+  const workspace = page.getByRole("region", {
+    name: "Рабочая область доски",
   });
-  await createButton.click();
+  await page.keyboard.press("g");
   await openCoordinatePlotEditorByRightDoubleClick(page);
 
   const editor = page.getByTestId("coordinate-plot-editor");
@@ -61,7 +61,7 @@ test("saves a plot with Ctrl+Enter and closes cleanly with Escape", async ({
 
   await page.keyboard.press("Escape");
   await expect(editor).toBeHidden();
-  await expect(createButton).toBeFocused();
+  await expect(workspace).toBeFocused();
 });
 
 test("exposes formula diagnostics through ARIA relationships", async ({
@@ -69,9 +69,7 @@ test("exposes formula diagnostics through ARIA relationships", async ({
 }) => {
   await page.goto("/");
 
-  await page
-    .getByRole("button", { name: "Создать координатную плоскость (G)" })
-    .click();
+  await page.keyboard.press("g");
   await openCoordinatePlotEditorByRightDoubleClick(page);
   const formula = page.getByLabel("Формула явной функции");
   await formula.fill("q*x");

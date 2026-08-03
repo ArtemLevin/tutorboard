@@ -81,11 +81,10 @@ for (const provider of providers) {
     await page.getByRole("radio", { name: provider.label }).click();
     await page.getByRole("link", { name: "Доска" }).click();
 
-    const handwrittenTool = page.getByRole("button", {
-      name: "Рукописная функция (F)",
-    });
-    await handwrittenTool.click();
-    await expect(handwrittenTool).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("f");
+    await expect(
+      page.getByRole("button", { name: "ИИ-инструменты" }),
+    ).toHaveAttribute("aria-pressed", "true");
 
     const recognize = page.getByRole("button", { name: "Распознать" });
     if ((await recognize.count()) === 0) {

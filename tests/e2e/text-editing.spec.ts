@@ -9,7 +9,7 @@ test("edits text as one committed history item", async ({ page }) => {
   expect(bounds).not.toBeNull();
   if (bounds === null) throw new Error("Canvas has no bounds.");
   await page.mouse.click(bounds.x + 320, bounds.y + 240);
-  await page.getByRole("button", { name: "Выделение (V)" }).click();
+  await page.keyboard.press("v");
   const textPoint = { x: bounds.x + 330, y: bounds.y + 250 };
   await page.mouse.click(textPoint.x, textPoint.y);
   await rightDoubleClickAt(page, textPoint);

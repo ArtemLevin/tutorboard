@@ -10,7 +10,7 @@ test("manages visibility, z-order and user groups from the settings sheet", asyn
   if (bounds === null) throw new Error("Canvas has no bounds.");
 
   const draw = async (tool: "Прямоугольник (R)" | "Эллипс (E)", x: number) => {
-    await page.getByRole("button", { name: tool }).click();
+    await page.keyboard.press(tool === "Прямоугольник (R)" ? "r" : "e");
     await page.mouse.move(bounds.x + x, bounds.y + 160);
     await page.mouse.down();
     await page.mouse.move(bounds.x + x + 100, bounds.y + 260, { steps: 4 });
@@ -39,7 +39,7 @@ test("manages visibility, z-order and user groups from the settings sheet", asyn
     .getByRole("button", { name: "Закрыть настройки доски" })
     .click();
 
-  await page.getByRole("button", { name: "Выделение (V)" }).click();
+  await page.keyboard.press("v");
   await page.mouse.click(bounds.x + 270, bounds.y + 210);
   await page.keyboard.down("Shift");
   await page.mouse.click(bounds.x + 490, bounds.y + 210);
