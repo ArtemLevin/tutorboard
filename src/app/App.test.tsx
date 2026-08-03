@@ -338,13 +338,13 @@ describe("App", () => {
       "Объект: 30, 30",
     );
     expect(
-      screen.queryByRole("complementary", { name: "Выделенные объекты" }),
+      screen.queryByRole("region", { name: "Первичные настройки выделения" }),
     ).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Открыть настройки объекта" }),
     );
     expect(
-      screen.getByRole("complementary", { name: "Выделенные объекты" }),
+      screen.getByRole("region", { name: "Первичные настройки выделения" }),
     ).toBeInTheDocument();
   });
 

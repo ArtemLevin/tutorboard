@@ -1751,6 +1751,11 @@ export function App({
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement ||
         (event.target instanceof HTMLElement && event.target.isContentEditable);
+      if (event.key === "Escape" && shortcutsOpen) {
+        event.preventDefault();
+        closeShortcuts();
+        return;
+      }
       if (event.key === "Escape" && settingsOpen) {
         event.preventDefault();
         setSettingsOpen(false);
@@ -1800,12 +1805,6 @@ export function App({
         }
       }
       if (event.altKey || event.ctrlKey || event.metaKey || editing) {
-        return;
-      }
-
-      if (event.key === "Escape" && shortcutsOpen) {
-        event.preventDefault();
-        closeShortcuts();
         return;
       }
       if (event.key === "?") {
@@ -2585,7 +2584,9 @@ export function App({
           textDraft={textDraft}
         />
         <BoardSettingsDialog
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => {
+            if (!shortcutsOpen) setSettingsOpen(false);
+          }}
           open={settingsOpen}
           statusKind={persistenceStatus.kind}
           statusLabel={persistenceStatus.label}
