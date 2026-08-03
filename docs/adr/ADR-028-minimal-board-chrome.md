@@ -34,6 +34,8 @@ board settings sheet instead of consuming permanent vertical space.
 - Tool preferences remain local to one browser installation.
 - Existing command and persistence boundaries stay intact.
 - Visual and browser tests must target the dock and settings sheet contracts.
+- Selected text, style, lock, deletion and quick transforms remain available in
+  the contextual dock surface.
 
 ## Release contract
 
