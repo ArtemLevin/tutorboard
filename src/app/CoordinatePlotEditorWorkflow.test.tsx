@@ -63,9 +63,10 @@ describe("coordinate plot editor application workflow", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Математика" }));
     fireEvent.click(
-      screen.getByRole("button", {
-        name: "Создать координатную плоскость (G)",
+      screen.getByRole("menuitemradio", {
+        name: "Координатная плоскость (G)",
       }),
     );
 

@@ -17,8 +17,9 @@ test("keeps Smart Ink unavailable in the production release candidate", async ({
 
   const toolDock = page.getByRole("toolbar", { name: "Инструменты доски" });
   await expect(toolDock).toBeVisible();
+  await toolDock.getByRole("button", { name: "ИИ-инструменты" }).click();
   await expect(
-    toolDock.getByRole("button", { name: "Smart Ink (I)" }),
+    page.getByRole("menuitemradio", { name: "Smart Ink (I)" }),
   ).toHaveCount(0);
   await expect(page.getByLabel("Smart Ink diagnostics")).toHaveCount(0);
 

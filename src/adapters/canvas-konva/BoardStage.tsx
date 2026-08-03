@@ -124,6 +124,8 @@ export interface BoardStageProps {
   readonly coordinatePlotInteraction?:
     CoordinatePlotRenderInteraction | undefined;
   readonly drawingModeKey: string | null;
+  readonly laserActive?: boolean;
+  readonly laserPoint?: Vec2 | null;
   readonly onObjectSettingsRequest?:
     ((objectId: BoardObjectId) => void) | undefined;
   readonly onPanModeRequest?: () => void;
@@ -254,6 +256,8 @@ function objectIdFromTarget(target: Konva.Node): BoardObjectId | null {
 export function BoardStage({
   coordinatePlotInteraction,
   drawingModeKey,
+  laserActive = false,
+  laserPoint = null,
   onObjectSettingsRequest,
   onPanModeRequest,
   onViewportCommit,
@@ -1023,15 +1027,17 @@ export function BoardStage({
   const cursor =
     isPanning || isTransforming
       ? "grabbing"
-      : panMode || spacePressed
-        ? "grab"
-        : selectionModeKey === "selection.lasso"
-          ? "crosshair"
-          : selectionModeKey !== null
-            ? "default"
-            : drawingModeKey === null
+      : laserActive
+        ? "none"
+        : panMode || spacePressed
+          ? "grab"
+          : selectionModeKey === "selection.lasso"
+            ? "crosshair"
+            : selectionModeKey !== null
               ? "default"
-              : "crosshair";
+              : drawingModeKey === null
+                ? "default"
+                : "crosshair";
   const selected = new Set(selectedObjectIds);
 
   return (
@@ -1047,6 +1053,8 @@ export function BoardStage({
       data-drawing={isDrawing}
       data-lasso-points={selectionLasso?.length ?? 0}
       data-lassoing={selectionLasso !== null}
+      data-laser-active={laserActive}
+      data-laser-visible={laserPoint !== null}
       data-panning={isPanning}
       data-selecting={isSelecting}
       data-transformable-count={transformableObjectIds.length}
@@ -1179,6 +1187,23 @@ export function BoardStage({
                 />
               </Group>
             ))}
+            {laserPoint === null ? null : (
+              <Group x={laserPoint.x} y={laserPoint.y}>
+                <Circle
+                  fill="rgba(239, 68, 68, 0.22)"
+                  radius={15 / previewViewport.zoom}
+                />
+                <Circle
+                  fill="#ef4444"
+                  radius={5 / previewViewport.zoom}
+                  shadowBlur={12 / previewViewport.zoom}
+                  shadowColor="#ef4444"
+                  shadowOpacity={0.9}
+                  stroke="#ffffff"
+                  strokeWidth={1.5 / previewViewport.zoom}
+                />
+              </Group>
+            )}
           </Group>
         </Layer>
         <Layer>

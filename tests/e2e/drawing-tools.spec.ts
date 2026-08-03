@@ -27,7 +27,7 @@ test("creates one normalized primitive per completed gesture", async ({
 }) => {
   const count = page.getByTestId("object-count");
   await expect(count).toHaveText("0 объекта");
-  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  await page.keyboard.press("r");
 
   const start = await canvasPoint(page, 0.72, 0.42);
   const end = await canvasPoint(page, 0.55, 0.25);
@@ -47,7 +47,7 @@ test("creates one normalized primitive per completed gesture", async ({
 test("Escape and tool switching discard runtime preview", async ({ page }) => {
   const count = page.getByTestId("object-count");
   const stage = page.getByTestId("board-stage");
-  await page.getByRole("button", { name: "Эллипс (E)" }).click();
+  await page.keyboard.press("e");
 
   const start = await canvasPoint(page, 0.55, 0.3);
   const end = await canvasPoint(page, 0.7, 0.42);
@@ -61,11 +61,11 @@ test("Escape and tool switching discard runtime preview", async ({ page }) => {
   await expect(count).toHaveText("0 объекта");
   await expect(stage).toHaveAttribute("data-drawing", "false");
 
-  await page.getByRole("button", { name: "Линия (L)" }).click();
+  await page.keyboard.press("l");
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 3 });
-  await page.getByRole("button", { name: "Перо (P)" }).dispatchEvent("click");
+  await page.keyboard.press("p");
   await page.mouse.up();
 
   await expect(count).toHaveText("0 объекта");
@@ -75,7 +75,7 @@ test("Escape and tool switching discard runtime preview", async ({ page }) => {
 
 test("creates pen and text objects through their tools", async ({ page }) => {
   const count = page.getByTestId("object-count");
-  await page.getByRole("button", { name: "Перо (P)" }).click();
+  await page.keyboard.press("p");
   const start = await canvasPoint(page, 0.5, 0.32);
   const end = await canvasPoint(page, 0.68, 0.2);
   await page.mouse.move(start.x, start.y);
@@ -84,7 +84,8 @@ test("creates pen and text objects through their tools", async ({ page }) => {
   await page.mouse.up();
   await expect(count).toHaveText("1 объекта");
 
-  await page.getByRole("button", { name: "Текст (T)" }).click();
+  await page.getByRole("button", { name: "Рисование" }).click();
+  await page.getByRole("menuitemradio", { name: "Текст (T)" }).click();
   await page
     .getByRole("textbox", { name: "Содержимое текста" })
     .fill("Угол ABC");

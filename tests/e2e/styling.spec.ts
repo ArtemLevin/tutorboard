@@ -3,7 +3,9 @@ import { rightDoubleClickAt } from "./coordinate-plot-interaction.js";
 
 test("edits the persisted style of a selected object", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.getByRole("button", { name: "Фигуры" }).click();
+  await page.getByRole("menuitemradio", { name: "Прямоугольник (R)" }).click();
   const bounds = await page.getByTestId("board-stage").boundingBox();
   expect(bounds).not.toBeNull();
   if (bounds === null) {
@@ -13,7 +15,8 @@ test("edits the persisted style of a selected object", async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(bounds.x + 390, bounds.y + 290, { steps: 4 });
   await page.mouse.up();
-  await page.getByRole("button", { name: "Выделение (V)" }).click();
+  await page.getByRole("button", { name: "Выделение" }).click();
+  await page.getByRole("menuitemradio", { name: "Выделение (V)" }).click();
   const objectPoint = { x: bounds.x + 320, y: bounds.y + 235 };
   await page.mouse.click(objectPoint.x, objectPoint.y);
   await rightDoubleClickAt(page, objectPoint);

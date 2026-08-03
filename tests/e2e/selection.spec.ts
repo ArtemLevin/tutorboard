@@ -13,7 +13,9 @@ test.beforeEach(async ({ page }) => {
     start: { x: number; y: number },
     finish = start,
   ) => {
-    await page.getByRole("button", { name: tool }).click();
+    await page.keyboard.press(
+      tool === "Прямоугольник (R)" ? "r" : tool === "Эллипс (E)" ? "e" : "t",
+    );
     const from = await stagePoint(page, start.x, start.y);
     const to = await stagePoint(page, finish.x, finish.y);
     await page.mouse.move(from.x, from.y);
@@ -24,7 +26,7 @@ test.beforeEach(async ({ page }) => {
   await draw("Прямоугольник (R)", { x: 300, y: 160 }, { x: 400, y: 260 });
   await draw("Эллипс (E)", { x: 500, y: 160 }, { x: 560, y: 220 });
   await draw("Текст (T)", { x: 650, y: 210 });
-  await page.getByRole("button", { name: "Выделение (V)" }).click();
+  await page.keyboard.press("v");
 });
 
 async function stagePoint(page: Page, x: number, y: number) {
@@ -129,12 +131,13 @@ test("scales and rotates a selected figure with undo support", async ({
 test("uses the explicit selection tool for an existing figure", async ({
   page,
 }) => {
-  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
-  await expect(
-    page.getByRole("button", { name: "Прямоугольник (R)" }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("r");
+  await expect(page.getByRole("button", { name: "Фигуры" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 
-  await page.getByRole("button", { name: "Выделение (V)" }).click();
+  await page.keyboard.press("v");
   const rectangle = await stagePoint(page, 350, 210);
   await page.mouse.click(rectangle.x, rectangle.y);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
@@ -147,7 +150,7 @@ test("uses the explicit selection tool for an existing figure", async ({
 test("right drag switches to canvas movement and pans the viewport", async ({
   page,
 }) => {
-  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  await page.keyboard.press("r");
   const start = await stagePoint(page, 650, 350);
   const finish = await stagePoint(page, 720, 400);
   await page.mouse.move(start.x, start.y);
@@ -187,7 +190,8 @@ test("chooses all eight line styles from a popover", async ({ page }) => {
 });
 
 test("selects selectively with a freeform lasso", async ({ page }) => {
-  await page.getByRole("button", { name: "Лассо (L)" }).click();
+  await page.getByRole("button", { name: "Выделение" }).click();
+  await page.getByRole("menuitemradio", { name: "Лассо (L)" }).click();
   const traceLasso = async (
     points: readonly (readonly [number, number])[],
     modifier?: "Alt" | "Shift",

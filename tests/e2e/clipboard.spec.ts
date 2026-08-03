@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 
 test("copies, pastes, cuts and restores one selection", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.getByRole("button", { name: "Фигуры" }).click();
+  await page.getByRole("menuitemradio", { name: "Прямоугольник (R)" }).click();
   const bounds = await page.getByTestId("board-stage").boundingBox();
   expect(bounds).not.toBeNull();
   if (bounds === null) {
@@ -15,7 +17,8 @@ test("copies, pastes, cuts and restores one selection", async ({ page }) => {
   await page.mouse.move(finish.x, finish.y, { steps: 4 });
   await page.mouse.up();
 
-  await page.getByRole("button", { name: "Выделение (V)" }).click();
+  await page.getByRole("button", { name: "Выделение" }).click();
+  await page.getByRole("menuitemradio", { name: "Выделение (V)" }).click();
   await page.mouse.click(bounds.x + 320, bounds.y + 230);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
 

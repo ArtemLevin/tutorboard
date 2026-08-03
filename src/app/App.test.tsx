@@ -55,7 +55,22 @@ vi.mock("../adapters/canvas-konva/public", () => ({
       pressure: 0,
     };
     return (
-      <div aria-label="Бесконечное полотно TutorBoard" role="application">
+      <div
+        aria-label="Бесконечное полотно TutorBoard"
+        data-laser-active={props.laserActive}
+        data-laser-point={
+          props.laserPoint === null || props.laserPoint === undefined
+            ? "none"
+            : `${props.laserPoint.x},${props.laserPoint.y}`
+        }
+        role="application"
+      >
+        <button
+          onClick={() => props.onWorldPointerHover?.(finish.point)}
+          type="button"
+        >
+          Навести указку
+        </button>
         <button
           onClick={() => {
             props.onWorldPointerStart(start);
@@ -114,6 +129,11 @@ vi.mock("../adapters/canvas-konva/public", () => ({
 
 afterEach(cleanup);
 
+function chooseTool(menu: string, tool: string): void {
+  fireEvent.click(screen.getByRole("button", { name: menu }));
+  fireEvent.click(screen.getByRole("menuitemradio", { name: tool }));
+}
+
 describe("App", () => {
   it("composes the infinite canvas workspace", () => {
     render(<App />);
@@ -139,11 +159,101 @@ describe("App", () => {
   it("composes a drawing gesture into one document command", () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
+    chooseTool("Фигуры", "Прямоугольник (R)");
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
 
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
     expect(screen.getByTestId("interaction-state")).toHaveTextContent("idle");
+  });
+
+  it("opens every compact tool menu exclusively and closes it with Escape", () => {
+    render(<App />);
+
+    const expected = [
+      ["Выделение", "Меню выделения"],
+      ["Рисование", "Меню рисования"],
+      ["Фигуры", "Меню фигур"],
+      ["Математика", "Меню математики"],
+      ["ИИ-инструменты", "Меню ИИ"],
+      ["Медиа", "Меню медиа"],
+    ] as const;
+    for (const [trigger, menu] of expected) {
+      fireEvent.click(screen.getByRole("button", { name: trigger }));
+      expect(screen.getByRole("menu", { name: menu })).toBeInTheDocument();
+      expect(screen.getAllByRole("menu")).toHaveLength(1);
+    }
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("creates preset and configurable regular polygons", () => {
+    const onCommandCommitted = vi.fn();
+    render(<App onCommandCommitted={onCommandCommitted} />);
+
+    chooseTool("Фигуры", "Шестиугольник");
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    const firstCommand = onCommandCommitted.mock.calls[0]?.[0] as {
+      readonly objects: readonly {
+        readonly kind: string;
+        readonly points: readonly unknown[];
+      }[];
+    };
+    expect(firstCommand.objects[0]).toMatchObject({
+      kind: "drawing.pen-stroke",
+    });
+    expect(firstCommand.objects[0]?.points).toHaveLength(7);
+
+    fireEvent.click(screen.getByRole("button", { name: "Фигуры" }));
+    fireEvent.change(
+      screen.getByRole("spinbutton", {
+        name: "Количество сторон многоугольника",
+      }),
+      { target: { value: "9" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать" }));
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    const secondCommand = onCommandCommitted.mock.calls[1]?.[0] as {
+      readonly objects: readonly { readonly points: readonly unknown[] }[];
+    };
+    expect(secondCommand.objects[0]?.points).toHaveLength(10);
+  });
+
+  it("uses an ephemeral laser pointer without changing the document", () => {
+    render(<App />);
+    const canvas = screen.getByRole("application", {
+      name: "Бесконечное полотно TutorBoard",
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Лазерная указка (K)" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Навести указку" }));
+    expect(canvas).toHaveAttribute("data-laser-active", "true");
+    expect(canvas).toHaveAttribute("data-laser-point", "70,80");
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+
+    fireEvent.keyDown(window, { key: "h" });
+    expect(canvas).toHaveAttribute("data-laser-active", "false");
+    expect(canvas).toHaveAttribute("data-laser-point", "none");
+  });
+
+  it("exposes PDF export and board sharing from document settings", () => {
+    const onExportPdfSnapshot = vi.fn();
+    const onShareBoard = vi.fn();
+    render(
+      <App
+        onExportPdfSnapshot={onExportPdfSnapshot}
+        onShareBoard={onShareBoard}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Настройки доски" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить PDF" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Копировать ссылку на доску" }),
+    );
+    expect(onExportPdfSnapshot).toHaveBeenCalledTimes(1);
+    expect(onShareBoard).toHaveBeenCalledTimes(1);
   });
 
   it("emits successful mutations with the authenticated command actor", () => {
@@ -156,7 +266,7 @@ describe("App", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
+    chooseTool("Фигуры", "Прямоугольник (R)");
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
 
     expect(onCommandCommitted).toHaveBeenCalledTimes(1);
@@ -170,7 +280,7 @@ describe("App", () => {
   it("undoes and redoes one completed gesture as one history item", () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
+    chooseTool("Фигуры", "Прямоугольник (R)");
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
 
@@ -186,7 +296,7 @@ describe("App", () => {
   it("automatically accepts and atomically undoes a recognized Smart Ink figure", () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Smart Ink (I)" }));
+    chooseTool("ИИ-инструменты", "Smart Ink (I)");
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
 
     expect(
@@ -228,9 +338,7 @@ describe("App", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Рукописная функция (F)" }),
-    );
+    chooseTool("ИИ-инструменты", "Рукописная функция (F)");
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
     expect(screen.getByText("Штрихов: 2")).toBeInTheDocument();
@@ -266,9 +374,9 @@ describe("App", () => {
   it("copies, pastes and cuts a deterministic selection closure", () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
+    chooseTool("Фигуры", "Прямоугольник (R)");
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
-    fireEvent.click(screen.getByRole("button", { name: "Выделение (V)" }));
+    chooseTool("Выделение", "Выделение (V)");
     fireEvent.click(
       screen.getByRole("button", { name: "Переместить выделение" }),
     );
@@ -300,6 +408,7 @@ describe("App", () => {
 
   it("inserts a safe SVG as one selected embedded image", async () => {
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Медиа" }));
     const file = new File(
       [
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><rect width="80" height="40" /></svg>',
@@ -324,9 +433,9 @@ describe("App", () => {
   it("selects and moves one object through one document command", () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
+    chooseTool("Фигуры", "Прямоугольник (R)");
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
-    fireEvent.click(screen.getByRole("button", { name: "Выделение (V)" }));
+    chooseTool("Выделение", "Выделение (V)");
     fireEvent.click(
       screen.getByRole("button", { name: "Переместить выделение" }),
     );
@@ -351,11 +460,7 @@ describe("App", () => {
   it("creates a graph without opening its editor and opens it on settings request", () => {
     render(<App />);
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Создать координатную плоскость (G)",
-      }),
-    );
+    chooseTool("Математика", "Координатная плоскость (G)");
     expect(
       screen.queryByRole("complementary", {
         name: "Редактор координатной плоскости",
@@ -382,11 +487,7 @@ describe("App", () => {
     const onCommandCommitted = vi.fn();
     render(<App onCommandCommitted={onCommandCommitted} />);
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Создать координатную плоскость (G)",
-      }),
-    );
+    chooseTool("Математика", "Координатная плоскость (G)");
     fireEvent.click(screen.getByRole("button", { name: "Переместить график" }));
 
     expect(onCommandCommitted).toHaveBeenCalledTimes(2);
@@ -402,9 +503,9 @@ describe("App", () => {
   it("moves a selection by keyboard and closes shortcut help with Escape", () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Прямоугольник (R)" }));
+    chooseTool("Фигуры", "Прямоугольник (R)");
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
-    fireEvent.click(screen.getByRole("button", { name: "Выделение (V)" }));
+    chooseTool("Выделение", "Выделение (V)");
     fireEvent.click(
       screen.getByRole("button", { name: "Переместить выделение" }),
     );
@@ -482,9 +583,7 @@ describe("App", () => {
     });
     render(<App geometryOsClient={client} />);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Построение GeometryOS" }),
-    );
+    chooseTool("ИИ-инструменты", "Построение GeometryOS");
     fireEvent.change(screen.getByLabelText("Запрос GeometryOS"), {
       target: { value: "Построй треугольник ABC" },
     });

@@ -19,7 +19,7 @@ test("keeps a smoothed freehand stroke transformable at high zoom", async ({
     }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Перо (P)" }).click();
+  await page.keyboard.press("p");
   const samples = [
     [260, 320],
     [300, 270],
@@ -37,7 +37,7 @@ test("keeps a smoothed freehand stroke transformable at high zoom", async ({
   await page.mouse.up();
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
 
-  await page.getByRole("button", { name: "Выделение (V)" }).click();
+  await page.keyboard.press("v");
   const settingsPoint = await stagePoint(page, 350, 310);
   await page.mouse.click(settingsPoint.x, settingsPoint.y);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");

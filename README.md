@@ -58,16 +58,22 @@ BoardDocument
 ### Что уже работает в TutorBoard
 
 - infinite canvas, pan, pointer-centred zoom и adaptive grid;
-- pen, line, rectangle, ellipse и text;
+- компактная панель с группами «Рисование», «Фигуры», «Математика», «ИИ» и
+  «Медиа»;
+- pen, line, rectangle, ellipse, triangle и правильные n-угольники;
+- импорт PNG/JPEG/SVG и анимированных GIF;
+- эфемерная лазерная указка для объяснений без изменения документа;
 - click/Shift/marquee selection, movement, lock и delete;
 - versioned `BoardDocument 1.0` и command-only mutation boundary;
 - bounded undo/redo, clipboard, layers, groups and visual styling;
-- deterministic `.tutorboard.json` import/export и SVG/PNG snapshots;
+- deterministic `.tutorboard.json` import/export и SVG/PNG/PDF snapshots;
 - viewport culling, incremental selectors и 5,000-object CI benchmark;
 - keyboard workflow, shortcut help, reduced motion и visible focus;
 - offline product shell с routes, settings, notifications и diagnostics;
 - append-only Dexie revisions, autosave, optimistic conflict и recovery;
 - lesson-bound bootstrap через `lessonId`/`documentId`;
+- копирование ссылки на lesson-bound доску, WebSocket presence, удалённые
+  курсоры и одновременное редактирование;
 - same-origin HTTP `BoardSyncRepository` с session CSRF;
 - durable очередь неподтверждённых команд и offline → reconnect;
 - pull/push server revisions, SHA-256 verification и rebase после `409`;
@@ -102,9 +108,9 @@ PR 2.9 разделён намеренно и обе его части тепе�
 ### Следующие фазы
 
 TutorBoard подключается к tutor-assistant-web через same-origin gateway и уже
-поддерживает server revisions/offline synchronization. Следующие поставки:
-WebSocket collaboration, lesson evidence и production hardening. Advanced
-semantic drag и AI modifications начинаются только после стабилизации этих
+поддерживает server revisions, offline synchronization и WebSocket
+collaboration. Следующие поставки: lesson evidence и production hardening.
+Advanced semantic drag и AI modifications начинаются после стабилизации этих
 контрактов.
 
 ### Запуск серверного режима

@@ -170,8 +170,10 @@ import "./styles.css";
 const environment = readEnvironment();
 const localActorId = actorId("actor:local-teacher");
 const navigationToolId = "navigation.pan" as const;
+const laserToolId = "presentation.laser" as const;
 type ActiveToolId =
   | typeof navigationToolId
+  | typeof laserToolId
   | typeof handwrittenFunctionToolId
   | SelectionToolId
   | DrawingToolId;
@@ -243,10 +245,13 @@ export interface AppProps {
   readonly onExportDocument?: ((document: BoardDocument) => void) | undefined;
   readonly onExportPngSnapshot?:
     ((document: BoardDocument) => void) | undefined;
+  readonly onExportPdfSnapshot?:
+    ((document: BoardDocument) => void) | undefined;
   readonly onExportSvgSnapshot?:
     ((document: BoardDocument) => void) | undefined;
   readonly onExportDiagnostics?: () => void;
   readonly onImportDocument?: (file: File) => void;
+  readonly onShareBoard?: (() => void) | undefined;
   readonly onPresenceChange?: (presence: {
     readonly cursor?: { readonly x: number; readonly y: number };
     readonly selectedObjectIds: readonly string[];
@@ -290,9 +295,11 @@ export function App({
   onDocumentChange,
   onExportDocument,
   onExportPngSnapshot,
+  onExportPdfSnapshot,
   onExportSvgSnapshot,
   onExportDiagnostics,
   onImportDocument,
+  onShareBoard,
   onPresenceChange,
   onRetryPersistence,
   persistenceNotice = null,
@@ -343,6 +350,8 @@ export function App({
   const [selectionInspectorObjectId, setSelectionInspectorObjectId] =
     useState<BoardObjectId | null>(null);
   const [textDraft, setTextDraft] = useState("Новый текст");
+  const [polygonSides, setPolygonSides] = useState(5);
+  const [laserPoint, setLaserPoint] = useState<Vec2 | null>(null);
   const { styleFor, updateStyle } = useDrawingToolPreferences();
   const [imageDiagnostic, setImageDiagnostic] = useState<string | null>(null);
   const [clipboard, setClipboard] = useState<BoardClipboardPayload | null>(
@@ -1294,6 +1303,7 @@ export function App({
       selectionStateRef.current = selectionResult.state;
       setSelectionState(selectionResult.state);
       setSelectionInspectorObjectId(null);
+      if (tool !== laserToolId) setLaserPoint(null);
       setActiveTool(tool);
     },
     [activeTool, applyDrawingAction, preserveHandwrittenFunctionInk],
@@ -1841,6 +1851,11 @@ export function App({
         createCoordinatePlot();
         return;
       }
+      if (event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        activateTool(laserToolId);
+        return;
+      }
       if (
         event.key.toLowerCase() === "f" &&
         environment.features.handwrittenFunctions &&
@@ -2023,6 +2038,10 @@ export function App({
 
   const startDrawing = useCallback(
     (sample: WorldPointerSample) => {
+      if (activeTool === laserToolId) {
+        setLaserPoint(sample.point);
+        return;
+      }
       if (activeTool === handwrittenFunctionToolId) {
         startHandwrittenFunctionStroke(sample);
         return;
@@ -2037,6 +2056,7 @@ export function App({
         kind: "start",
         objectId: boardObjectId(`object:${crypto.randomUUID()}`),
         point: sample.point,
+        polygonSides,
         pointerId: sample.pointerId,
         style: styleFor(activeTool),
         text: textDraft,
@@ -2046,6 +2066,7 @@ export function App({
     [
       activeTool,
       applyDrawingAction,
+      polygonSides,
       startHandwrittenFunctionStroke,
       styleFor,
       textDraft,
@@ -2054,6 +2075,10 @@ export function App({
 
   const moveDrawing = useCallback(
     (sample: WorldPointerSample) => {
+      if (activeTool === laserToolId) {
+        setLaserPoint(sample.point);
+        return;
+      }
       if (activeTool === handwrittenFunctionToolId) {
         moveHandwrittenFunctionStroke(sample);
         return;
@@ -2069,6 +2094,10 @@ export function App({
 
   const finishDrawing = useCallback(
     (sample: WorldPointerSample) => {
+      if (activeTool === laserToolId) {
+        setLaserPoint(null);
+        return;
+      }
       if (activeTool === handwrittenFunctionToolId) {
         finishHandwrittenFunctionStroke(sample);
         return;
@@ -2087,6 +2116,10 @@ export function App({
 
   const cancelDrawing = useCallback(
     (pointerId: number) => {
+      if (activeTool === laserToolId) {
+        setLaserPoint(null);
+        return;
+      }
       if (activeTool === handwrittenFunctionToolId) {
         cancelHandwrittenFunctionStroke(pointerId);
         return;
@@ -2438,15 +2471,19 @@ export function App({
           coordinatePlotInteraction={coordinatePlotInteraction}
           drawingModeKey={
             isDrawingToolId(activeTool) ||
-            activeTool === handwrittenFunctionToolId
+            activeTool === handwrittenFunctionToolId ||
+            activeTool === laserToolId
               ? activeTool
               : null
           }
+          laserActive={activeTool === laserToolId}
+          laserPoint={laserPoint}
           onWorldPointerCancel={cancelDrawing}
           onWorldPointerFinish={finishDrawing}
           onWorldPointerMove={moveDrawing}
           onWorldPointerHover={(cursor) => {
             lastPointerWorldRef.current = cursor;
+            if (activeTool === laserToolId) setLaserPoint(cursor);
             onPresenceChange?.({
               cursor,
               selectedObjectIds: selectionStateRef.current.selectedObjectIds,
@@ -2577,7 +2614,11 @@ export function App({
           onDeleteSelection={deleteSelection}
           onGeometryToggle={() => setGeometryPromptOpen((current) => !current)}
           onImageFiles={(files) => void importImageFiles(files)}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => {
+            setGeometryPromptOpen(false);
+            setSettingsOpen(true);
+          }}
+          onPolygonSidesChange={setPolygonSides}
           onRedo={redo}
           canTransformSelection={transformableObjectIds.length > 0}
           onSelectionLockChange={setSelectionLock}
@@ -2592,6 +2633,7 @@ export function App({
           onTextDraftChange={setTextDraft}
           onUndo={undo}
           readOnly={readOnly}
+          polygonSides={polygonSides}
           selectedCount={selectionState.selectedObjectIds.length}
           selectedLocked={selectedLocked}
           selectedStyle={selectedStyle}
@@ -2680,6 +2722,27 @@ export function App({
                   type="button"
                 >
                   Снимок PNG
+                </button>
+              )}
+              {onExportPdfSnapshot === undefined ? null : (
+                <button
+                  onClick={() => onExportPdfSnapshot(document)}
+                  type="button"
+                >
+                  Сохранить PDF
+                </button>
+              )}
+              {onShareBoard === undefined ? (
+                <button
+                  disabled
+                  title="Откройте доску из занятия, чтобы включить совместную работу"
+                  type="button"
+                >
+                  Совместная ссылка
+                </button>
+              ) : (
+                <button onClick={onShareBoard} type="button">
+                  Копировать ссылку на доску
                 </button>
               )}
             </div>
@@ -2835,7 +2898,7 @@ export function App({
               </div>
               <dl>
                 <div>
-                  <dt>H / V / A / P / I / L / R / E / T / F / G</dt>
+                  <dt>H / V / A / P / I / L / R / E / N / T / F / G / K</dt>
                   <dd>Инструменты и график</dd>
                 </div>
                 <div>

@@ -81,11 +81,13 @@ for (const provider of providers) {
     await page.getByRole("radio", { name: provider.label }).click();
     await page.getByRole("link", { name: "Доска" }).click();
 
-    const handwrittenTool = page.getByRole("button", {
-      name: "Рукописная функция (F)",
-    });
-    await handwrittenTool.click();
-    await expect(handwrittenTool).toHaveAttribute("aria-pressed", "true");
+    const aiTools = page.getByRole("button", { name: "ИИ-инструменты" });
+    await expect(aiTools).toBeVisible();
+    await aiTools.click();
+    await page
+      .getByRole("menuitemradio", { name: "Рукописная функция (F)" })
+      .click();
+    await expect(aiTools).toHaveAttribute("aria-pressed", "true");
 
     const recognize = page.getByRole("button", { name: "Распознать" });
     if ((await recognize.count()) === 0) {

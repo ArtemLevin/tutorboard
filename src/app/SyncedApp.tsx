@@ -22,10 +22,12 @@ import {
 } from "../modules/server-sync/public";
 import {
   renderBoardSnapshotPng,
+  renderBoardSnapshotPdf,
   renderBoardSnapshotSvg,
 } from "../modules/document-transfer/public";
 import type { MathInkRecognizer } from "../modules/handwritten-function/public";
 import { App, type AppPersistenceStatus } from "./App";
+import { copyBoardShareUrl } from "./board-chrome/board-share";
 
 interface SyncedAppProps {
   readonly documentId: DocumentId;
@@ -52,6 +54,15 @@ function downloadRecovery(document: BoardDocument): void {
   const url = URL.createObjectURL(blob);
   const anchor = window.document.createElement("a");
   anchor.download = "tutorboard-unsynced-recovery.json";
+  anchor.href = url;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadBlob(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = window.document.createElement("a");
+  anchor.download = filename;
   anchor.href = url;
   anchor.click();
   URL.revokeObjectURL(url);
@@ -406,6 +417,22 @@ export function SyncedApp({
           renderedDocumentRef.current = document;
         }}
         onPresenceChange={(presence) => collaboration.updatePresence(presence)}
+        onExportPdfSnapshot={(document) => {
+          setEvidenceStatus("Создаём PDF доски…");
+          void renderBoardSnapshotPdf(document)
+            .then((blob) => {
+              downloadBlob("tutorboard-board.pdf", blob);
+              setEvidenceStatus("PDF доски сохранён.");
+            })
+            .catch(() => setEvidenceStatus("Не удалось создать PDF доски."));
+        }}
+        onShareBoard={() => {
+          void copyBoardShareUrl(window.location)
+            .then(() => setEvidenceStatus("Ссылка на доску скопирована."))
+            .catch(() =>
+              setEvidenceStatus("Браузер не разрешил скопировать ссылку."),
+            );
+        }}
         persistenceNotice={
           state.network === "offline"
             ? "Изменения сохраняются локально и будут отправлены после восстановления связи."

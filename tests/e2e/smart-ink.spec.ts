@@ -13,7 +13,7 @@ test("automatically accepts and undoes Smart Ink on the main canvas", async ({
     throw new Error("Canvas has no bounds.");
   }
 
-  await page.getByRole("button", { name: "Smart Ink (I)" }).click();
+  await page.keyboard.press("i");
   const center = {
     x: bounds.x + bounds.width * 0.58,
     y: bounds.y + bounds.height * 0.48,
@@ -65,7 +65,7 @@ test("transforms a figure created by Smart Ink", async ({ page }) => {
     throw new Error("Canvas has no bounds.");
   }
 
-  await page.getByRole("button", { name: "Smart Ink (I)" }).click();
+  await page.keyboard.press("i");
   const center = {
     x: bounds.x + bounds.width * 0.55,
     y: bounds.y + bounds.height * 0.45,
@@ -83,7 +83,7 @@ test("transforms a figure created by Smart Ink", async ({ page }) => {
   await page.mouse.up();
   await expect(page.getByText("drawing.ellipse")).toBeVisible();
 
-  await page.getByRole("button", { name: "Выделение (V)" }).click();
+  await page.keyboard.press("v");
   await page.mouse.click(center.x, center.y);
   await rightDoubleClickAt(page, center);
   await page

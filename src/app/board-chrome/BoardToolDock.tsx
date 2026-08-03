@@ -1,4 +1,10 @@
-import { useRef, type ChangeEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from "react";
 
 import type { ObjectStyle } from "../../core/public";
 import {
@@ -9,6 +15,7 @@ import {
 import {
   lassoSelectionTool,
   lassoSelectionToolId,
+  isSelectionToolId,
   selectionTool,
   selectionToolId,
 } from "../../modules/selection/public";
@@ -31,12 +38,14 @@ interface BoardToolDockProps {
   readonly onImageFiles: (files: readonly File[]) => void;
   readonly onOpenSettings: () => void;
   readonly onRedo: () => void;
+  readonly onPolygonSidesChange: (sides: number) => void;
   readonly onStyleChange: (
     tool: DrawingToolId,
     patch: Partial<ObjectStyle>,
   ) => void;
   readonly onUndo: () => void;
   readonly readOnly: boolean;
+  readonly polygonSides: number;
   readonly selectedCount: number;
   readonly selectedLocked: boolean;
   readonly selectedStyle: ObjectStyle | undefined;
@@ -58,6 +67,42 @@ interface BoardToolDockProps {
 
 function ToolButton({
   active = false,
+  expanded,
+  disabled = false,
+  hasPopup,
+  icon,
+  label,
+  onClick,
+}: {
+  readonly active?: boolean;
+  readonly expanded?: boolean;
+  readonly disabled?: boolean;
+  readonly hasPopup?: "menu";
+  readonly icon: string;
+  readonly label: string;
+  readonly onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      aria-pressed={active}
+      aria-expanded={expanded}
+      aria-haspopup={hasPopup}
+      className={active ? "dock-tool is-active" : "dock-tool"}
+      disabled={disabled}
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      <span aria-hidden="true">{icon}</span>
+    </button>
+  );
+}
+
+type DockMenuId = "ai" | "drawing" | "math" | "media" | "selection" | "shapes";
+
+function MenuItem({
+  active = false,
   disabled = false,
   icon,
   label,
@@ -71,15 +116,15 @@ function ToolButton({
 }) {
   return (
     <button
-      aria-label={label}
-      aria-pressed={active}
-      className={active ? "dock-tool is-active" : "dock-tool"}
+      aria-checked={active}
+      className={active ? "dock-menu-item is-active" : "dock-menu-item"}
       disabled={disabled}
       onClick={onClick}
-      title={label}
+      role="menuitemradio"
       type="button"
     >
       <span aria-hidden="true">{icon}</span>
+      <span>{label}</span>
     </button>
   );
 }
@@ -147,7 +192,10 @@ function StyleControls({
 }
 
 export function BoardToolDock(props: BoardToolDockProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [openMenu, setOpenMenu] = useState<DockMenuId | null>(null);
   const activeDrawingTool = isDrawingToolId(props.activeTool)
     ? props.activeTool
     : null;
@@ -180,11 +228,227 @@ export function BoardToolDock(props: BoardToolDockProps) {
   };
   const allowFill =
     activeDrawingTool === "drawing.rectangle" ||
-    activeDrawingTool === "drawing.ellipse";
+    activeDrawingTool === "drawing.ellipse" ||
+    activeDrawingTool === "drawing.polygon";
+
+  useEffect(() => {
+    if (openMenu === null) return;
+    const closeFromOutside = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !rootRef.current?.contains(event.target)
+      ) {
+        setOpenMenu(null);
+      }
+    };
+    const closeFromEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setOpenMenu(null);
+      menuTriggerRef.current?.focus();
+    };
+    window.addEventListener("pointerdown", closeFromOutside);
+    window.addEventListener("keydown", closeFromEscape, true);
+    return () => {
+      window.removeEventListener("pointerdown", closeFromOutside);
+      window.removeEventListener("keydown", closeFromEscape, true);
+    };
+  }, [openMenu]);
+
+  const toggleMenu = (menu: DockMenuId) => {
+    const trigger = document.activeElement;
+    menuTriggerRef.current =
+      trigger instanceof HTMLButtonElement ? trigger : null;
+    setOpenMenu((current) => (current === menu ? null : menu));
+  };
+  const chooseTool = (tool: string) => {
+    if (props.geometryOpen) props.onGeometryToggle();
+    props.onActivate(tool);
+    setOpenMenu(null);
+  };
+  const tool = (id: DrawingToolId) =>
+    props.drawingTools.find((candidate) => candidate.id === id);
+  const drawingActive = [
+    "drawing.pen",
+    "drawing.line",
+    "drawing.text",
+  ].includes(props.activeTool);
+  const shapesActive = [
+    "drawing.rectangle",
+    "drawing.ellipse",
+    "drawing.polygon",
+  ].includes(props.activeTool);
+  const aiActive =
+    props.activeTool === "drawing.smart-ink" ||
+    props.activeTool === "math.handwritten-function" ||
+    props.geometryOpen;
+
+  const drawingMenuItems = [
+    tool("drawing.pen"),
+    tool("drawing.line"),
+    tool("drawing.text"),
+  ].filter((item): item is DrawingToolDefinition => item !== undefined);
 
   return (
-    <div className="board-tool-dock-shell">
-      {props.selectionInspectorOpen && props.selectedStyle !== undefined ? (
+    <div className="board-tool-dock-shell" ref={rootRef}>
+      {openMenu === "selection" ? (
+        <section aria-label="Меню выделения" className="dock-menu" role="menu">
+          <MenuItem
+            active={props.activeTool === selectionToolId}
+            icon={selectionTool.icon}
+            label={`${selectionTool.label} (${selectionTool.shortcut})`}
+            onClick={() => chooseTool(selectionToolId)}
+          />
+          <MenuItem
+            active={props.activeTool === lassoSelectionToolId}
+            icon={lassoSelectionTool.icon}
+            label={`${lassoSelectionTool.label} (${lassoSelectionTool.shortcut})`}
+            onClick={() => chooseTool(lassoSelectionToolId)}
+          />
+        </section>
+      ) : openMenu === "drawing" ? (
+        <section aria-label="Меню рисования" className="dock-menu" role="menu">
+          {drawingMenuItems.map((item) => (
+            <MenuItem
+              active={props.activeTool === item.id}
+              disabled={props.readOnly}
+              icon={item.icon}
+              key={item.id}
+              label={`${item.label} (${item.shortcut})`}
+              onClick={() => chooseTool(item.id)}
+            />
+          ))}
+        </section>
+      ) : openMenu === "shapes" ? (
+        <section aria-label="Меню фигур" className="dock-menu" role="menu">
+          <MenuItem
+            active={props.activeTool === "drawing.ellipse"}
+            disabled={props.readOnly}
+            icon="○"
+            label="Круг или эллипс (E)"
+            onClick={() => chooseTool("drawing.ellipse")}
+          />
+          <MenuItem
+            active={props.activeTool === "drawing.rectangle"}
+            disabled={props.readOnly}
+            icon="□"
+            label="Прямоугольник (R)"
+            onClick={() => chooseTool("drawing.rectangle")}
+          />
+          {[3, 5, 6].map((sides) => (
+            <MenuItem
+              active={
+                props.activeTool === "drawing.polygon" &&
+                props.polygonSides === sides
+              }
+              disabled={props.readOnly}
+              icon={sides === 3 ? "△" : sides === 5 ? "⬠" : "⬡"}
+              key={sides}
+              label={`${sides === 3 ? "Треугольник" : sides === 5 ? "Пятиугольник" : "Шестиугольник"}`}
+              onClick={() => {
+                props.onPolygonSidesChange(sides);
+                chooseTool("drawing.polygon");
+              }}
+            />
+          ))}
+          <label className="dock-menu-number">
+            <span>N‑угольник</span>
+            <input
+              aria-label="Количество сторон многоугольника"
+              disabled={props.readOnly}
+              max="24"
+              min="3"
+              onChange={(event) =>
+                props.onPolygonSidesChange(
+                  Math.min(
+                    24,
+                    Math.max(3, event.currentTarget.valueAsNumber || 3),
+                  ),
+                )
+              }
+              type="number"
+              value={props.polygonSides}
+            />
+            <button
+              disabled={props.readOnly}
+              onClick={() => chooseTool("drawing.polygon")}
+              type="button"
+            >
+              Выбрать
+            </button>
+          </label>
+        </section>
+      ) : openMenu === "math" ? (
+        <section aria-label="Меню математики" className="dock-menu" role="menu">
+          <MenuItem
+            disabled={props.readOnly}
+            icon="📈"
+            label="Координатная плоскость (G)"
+            onClick={() => {
+              props.onCreatePlot();
+              setOpenMenu(null);
+            }}
+          />
+        </section>
+      ) : openMenu === "ai" ? (
+        <section aria-label="Меню ИИ" className="dock-menu" role="menu">
+          {tool("drawing.smart-ink") === undefined ? null : (
+            <MenuItem
+              active={props.activeTool === "drawing.smart-ink"}
+              disabled={props.readOnly}
+              icon="✦"
+              label="Smart Ink (I)"
+              onClick={() => chooseTool("drawing.smart-ink")}
+            />
+          )}
+          {props.handwrittenFunctionsEnabled ? (
+            <MenuItem
+              active={props.activeTool === "math.handwritten-function"}
+              disabled={props.readOnly}
+              icon="ƒ"
+              label="Рукописная функция (F)"
+              onClick={() => chooseTool("math.handwritten-function")}
+            />
+          ) : null}
+          {props.geometryAvailable ? (
+            <MenuItem
+              active={props.geometryOpen}
+              icon="✧"
+              label="Построение GeometryOS"
+              onClick={() => {
+                props.onGeometryToggle();
+                setOpenMenu(null);
+              }}
+            />
+          ) : null}
+        </section>
+      ) : openMenu === "media" ? (
+        <section aria-label="Меню медиа" className="dock-menu" role="menu">
+          <label
+            className={
+              props.readOnly ? "dock-menu-file is-disabled" : "dock-menu-file"
+            }
+          >
+            <span aria-hidden="true">▧</span>
+            <span>Изображение или GIF</span>
+            <input
+              accept={props.imageAccept}
+              aria-label="Вставить изображения"
+              disabled={props.readOnly}
+              multiple
+              onChange={(event) => {
+                imageChange(event);
+                setOpenMenu(null);
+              }}
+              type="file"
+            />
+          </label>
+          <p className="dock-menu-hint">
+            PNG, JPEG, SVG и анимированные GIF до 8 МБ.
+          </p>
+        </section>
+      ) : props.selectionInspectorOpen && props.selectedStyle !== undefined ? (
         <section
           aria-label="Первичные настройки выделения"
           className="dock-primary-settings"
@@ -312,69 +576,60 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onClick={() => props.onActivate("navigation.pan")}
           />
           <ToolButton
-            active={props.activeTool === selectionToolId}
-            icon={selectionTool.icon}
-            label={`${selectionTool.label} (${selectionTool.shortcut})`}
-            onClick={() => props.onActivate(selectionToolId)}
-          />
-          <ToolButton
-            active={props.activeTool === lassoSelectionToolId}
-            icon={lassoSelectionTool.icon}
-            label={`${lassoSelectionTool.label} (${lassoSelectionTool.shortcut})`}
-            onClick={() => props.onActivate(lassoSelectionToolId)}
+            active={isSelectionToolId(props.activeTool)}
+            expanded={openMenu === "selection"}
+            hasPopup="menu"
+            icon="⌖"
+            label="Выделение"
+            onClick={() => toggleMenu("selection")}
           />
           <span aria-hidden="true" className="dock-divider" />
-          {props.drawingTools.map((tool) => (
-            <ToolButton
-              active={props.activeTool === tool.id}
-              disabled={props.readOnly}
-              icon={tool.icon}
-              key={tool.id}
-              label={`${tool.label} (${tool.shortcut})`}
-              onClick={() => props.onActivate(tool.id)}
-            />
-          ))}
-          <span aria-hidden="true" className="dock-divider" />
           <ToolButton
+            active={drawingActive}
             disabled={props.readOnly}
-            icon="📈"
-            label="Создать координатную плоскость (G)"
-            onClick={props.onCreatePlot}
+            expanded={openMenu === "drawing"}
+            hasPopup="menu"
+            icon="✎"
+            label="Рисование"
+            onClick={() => toggleMenu("drawing")}
           />
-          {props.handwrittenFunctionsEnabled ? (
-            <ToolButton
-              active={props.activeTool === "math.handwritten-function"}
-              disabled={props.readOnly}
-              icon="ƒ"
-              label="Рукописная функция (F)"
-              onClick={() => props.onActivate("math.handwritten-function")}
-            />
-          ) : null}
-          {props.geometryAvailable ? (
-            <ToolButton
-              active={props.geometryOpen}
-              icon="✧"
-              label="Построение GeometryOS"
-              onClick={props.onGeometryToggle}
-            />
-          ) : null}
-          <label
-            className={
-              props.readOnly ? "dock-file-tool is-disabled" : "dock-file-tool"
-            }
-            title="Вставить изображения"
-          >
-            <span aria-hidden="true">▧</span>
-            <span className="visually-hidden">Вставить изображения</span>
-            <input
-              accept={props.imageAccept}
-              aria-label="Вставить изображения"
-              disabled={props.readOnly}
-              multiple
-              onChange={imageChange}
-              type="file"
-            />
-          </label>
+          <ToolButton
+            active={shapesActive}
+            disabled={props.readOnly}
+            expanded={openMenu === "shapes"}
+            hasPopup="menu"
+            icon="◇"
+            label="Фигуры"
+            onClick={() => toggleMenu("shapes")}
+          />
+          <ToolButton
+            expanded={openMenu === "math"}
+            hasPopup="menu"
+            icon="∑"
+            label="Математика"
+            onClick={() => toggleMenu("math")}
+          />
+          <ToolButton
+            active={aiActive}
+            expanded={openMenu === "ai"}
+            hasPopup="menu"
+            icon="✦"
+            label="ИИ-инструменты"
+            onClick={() => toggleMenu("ai")}
+          />
+          <ToolButton
+            expanded={openMenu === "media"}
+            hasPopup="menu"
+            icon="▧"
+            label="Медиа"
+            onClick={() => toggleMenu("media")}
+          />
+          <ToolButton
+            active={props.activeTool === "presentation.laser"}
+            icon="●"
+            label="Лазерная указка (K)"
+            onClick={() => chooseTool("presentation.laser")}
+          />
         </div>
         <span aria-hidden="true" className="dock-divider" />
         <div className="dock-fixed-group">
@@ -382,7 +637,10 @@ export function BoardToolDock(props: BoardToolDockProps) {
             active={props.settingsOpen}
             icon="⚙"
             label="Настройки доски"
-            onClick={props.onOpenSettings}
+            onClick={() => {
+              setOpenMenu(null);
+              props.onOpenSettings();
+            }}
           />
         </div>
       </div>

@@ -11,6 +11,14 @@ export async function stageCenter(page: Page): Promise<ScreenPoint> {
   return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
 }
 
+export async function createCoordinatePlot(page: Page): Promise<void> {
+  await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.getByRole("button", { name: "Математика" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Координатная плоскость (G)" })
+    .click();
+}
+
 export async function rightDoubleClickAt(
   page: Page,
   point: ScreenPoint,

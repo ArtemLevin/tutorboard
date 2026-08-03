@@ -12,6 +12,7 @@ import {
 import {
   exportTutorBoardDocument,
   renderBoardSnapshotPng,
+  renderBoardSnapshotPdf,
   renderBoardSnapshotSvg,
 } from "../modules/document-transfer/public";
 import {
@@ -224,6 +225,31 @@ function PersistedWorkspace({
     [onNotification],
   );
 
+  const exportPdfSnapshot = useCallback(
+    async (document: BoardDocument) => {
+      try {
+        downloadBlob(
+          "tutorboard-board.pdf",
+          await renderBoardSnapshotPdf(document),
+        );
+        setImportError(null);
+        onNotification?.({
+          kind: "success",
+          message: "PDF доски сохранён",
+        });
+      } catch {
+        setImportError(
+          "document-export.pdf-failed: не удалось создать PDF доски.",
+        );
+        onNotification?.({
+          kind: "error",
+          message: "Не удалось создать PDF доски",
+        });
+      }
+    },
+    [onNotification],
+  );
+
   const importDocument = useCallback(
     async (file: File) => {
       const imported = importLocalDocumentJson(
@@ -269,6 +295,11 @@ function PersistedWorkspace({
       onExportPngSnapshot={
         enableSnapshots
           ? (document) => void exportPngSnapshot(document)
+          : undefined
+      }
+      onExportPdfSnapshot={
+        enableSnapshots
+          ? (document) => void exportPdfSnapshot(document)
           : undefined
       }
       onExportSvgSnapshot={enableSnapshots ? exportSnapshot : undefined}

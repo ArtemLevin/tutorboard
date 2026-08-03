@@ -57,7 +57,7 @@ test.beforeEach(async ({ page }) => {
 test("autosaves drawing state and restores it after reload", async ({
   page,
 }) => {
-  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  await page.keyboard.press("r");
   const stage = page.getByTestId("board-stage");
   const bounds = await stage.boundingBox();
   expect(bounds).not.toBeNull();

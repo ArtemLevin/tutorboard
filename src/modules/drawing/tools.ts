@@ -7,6 +7,7 @@ export const drawingToolIds = [
   "drawing.line",
   "drawing.rectangle",
   "drawing.ellipse",
+  "drawing.polygon",
   "drawing.text",
 ] as const;
 
@@ -60,6 +61,13 @@ const allDrawingTools: readonly DrawingToolDefinition[] = [
   },
   {
     capability: "board.write",
+    icon: "⬡",
+    id: "drawing.polygon",
+    label: "Правильный многоугольник",
+    shortcut: "N",
+  },
+  {
+    capability: "board.write",
     icon: "T",
     id: "drawing.text",
     label: "Текст",
@@ -91,6 +99,12 @@ export const drawingStyleDefaults = {
     opacity: 1,
     stroke: "#245d6b",
     strokeWidth: 3,
+  },
+  polygon: {
+    fill: "#f3e7d1",
+    opacity: 1,
+    stroke: "#2c7182",
+    strokeWidth: 2,
   },
   smartInk: {
     fill: null,

@@ -1,4 +1,7 @@
-import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction.js";
+import {
+  createCoordinatePlot,
+  openCoordinatePlotEditorByRightDoubleClick,
+} from "./coordinate-plot-interaction.js";
 
 import { readFile } from "node:fs/promises";
 
@@ -72,9 +75,7 @@ test("right-button drag pans a closed graph as one history item while the board 
   page,
 }) => {
   await page.goto("/");
-  await page
-    .getByRole("button", { name: "Создать координатную плоскость (G)" })
-    .click();
+  await createCoordinatePlot(page);
   await expect(
     page.getByRole("complementary", {
       name: "Редактор координатной плоскости",
@@ -114,10 +115,9 @@ test("single right click keeps the active tool and double click opens graph sett
   page,
 }) => {
   await page.goto("/");
-  await page
-    .getByRole("button", { name: "Создать координатную плоскость (G)" })
-    .click();
-  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  await createCoordinatePlot(page);
+  await page.getByRole("button", { name: "Фигуры" }).click();
+  await page.getByRole("menuitemradio", { name: "Прямоугольник (R)" }).click();
   const document = await exportDocument(page);
   const stageBox = await page.getByTestId("board-stage").boundingBox();
   if (stageBox === null) throw new Error("Expected board stage bounds");
@@ -125,9 +125,10 @@ test("single right click keeps the active tool and double click opens graph sett
   const point = { x: stageBox.x + local.x, y: stageBox.y + local.y };
 
   await page.mouse.click(point.x, point.y, { button: "right" });
-  await expect(
-    page.getByRole("button", { name: "Прямоугольник (R)" }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Фигуры" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await expect(
     page.getByRole("complementary", {
       name: "Редактор координатной плоскости",

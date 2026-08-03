@@ -99,7 +99,7 @@ test("supports temporary Space pan when the hand tool is disabled", async ({
     return;
   }
 
-  await page.getByRole("button", { name: "Перо (P)" }).click();
+  await page.keyboard.press("p");
   await page.keyboard.down("Space");
   await page.mouse.move(
     bounds.x + bounds.width / 2,
@@ -128,7 +128,7 @@ test("supports middle-button pan independently of the hand tool", async ({
     return;
   }
 
-  await page.getByRole("button", { name: "Перо (P)" }).click();
+  await page.keyboard.press("p");
   await page.mouse.move(
     bounds.x + bounds.width / 2,
     bounds.y + bounds.height / 2,

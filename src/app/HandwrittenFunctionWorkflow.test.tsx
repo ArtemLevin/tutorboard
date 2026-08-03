@@ -45,19 +45,24 @@ vi.mock("../adapters/canvas-konva/public", () => ({
 afterEach(cleanup);
 
 describe("handwritten function workflow safeguards", () => {
+  const openHandwrittenTools = () =>
+    fireEvent.click(screen.getByRole("button", { name: "ИИ-инструменты" }));
+
   it("disables the tool for a read-only board", () => {
     render(<App readOnly />);
+    openHandwrittenTools();
 
     expect(
-      screen.getByRole("button", { name: "Рукописная функция (F)" }),
+      screen.getByRole("menuitemradio", { name: "Рукописная функция (F)" }),
     ).toBeDisabled();
   });
 
   it("keeps completed ink when Escape closes the workflow", () => {
     render(<App />);
 
+    openHandwrittenTools();
     fireEvent.click(
-      screen.getByRole("button", { name: "Рукописная функция (F)" }),
+      screen.getByRole("menuitemradio", { name: "Рукописная функция (F)" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Нарисовать штрих" }));
     expect(screen.getByText("Штрихов: 1")).toBeInTheDocument();
@@ -80,8 +85,9 @@ describe("handwritten function workflow safeguards", () => {
     };
     render(<App mathInkRecognizer={recognizer} />);
 
+    openHandwrittenTools();
     fireEvent.click(
-      screen.getByRole("button", { name: "Рукописная функция (F)" }),
+      screen.getByRole("menuitemradio", { name: "Рукописная функция (F)" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Нарисовать штрих" }));
     fireEvent.click(screen.getByRole("button", { name: "Распознать" }));

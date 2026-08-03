@@ -1431,7 +1431,7 @@ textarea:focus-visible,
 }
 .board-tool-dock-shell {
   position: absolute;
-  z-index: 20;
+  z-index: 40;
   left: 50%;
   bottom: max(18px, env(safe-area-inset-bottom));
   display: grid;
@@ -1523,6 +1523,88 @@ textarea:focus-visible,
   background: rgb(255 255 255 / 94%);
   box-shadow: 0 14px 38px rgb(23 42 51 / 15%);
   backdrop-filter: blur(20px);
+}
+.dock-menu {
+  display: grid;
+  width: min(340px, calc(100vw - 28px));
+  max-height: min(52vh, 430px);
+  gap: 4px;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid rgb(105 124 132 / 30%);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 14px 38px rgb(23 42 51 / 16%);
+  backdrop-filter: blur(20px);
+}
+.dock-menu-item,
+.dock-menu-file {
+  display: grid;
+  min-height: 44px;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  color: #31454f;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.dock-menu-item:hover,
+.dock-menu-file:hover,
+.dock-menu-item.is-active {
+  background: #edf3f4;
+}
+.dock-menu-item.is-active {
+  color: #1f6879;
+  font-weight: 800;
+}
+.dock-menu-item:disabled,
+.dock-menu-file.is-disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+.dock-menu-file {
+  position: relative;
+  font-weight: 700;
+}
+.dock-menu-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.dock-menu-number {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 68px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  color: #31454f;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+.dock-menu-number input {
+  min-width: 0;
+  height: 36px;
+  border: 1px solid #c7d2d6;
+  border-radius: 9px;
+  padding: 0 7px;
+}
+.dock-menu-number button {
+  min-height: 36px;
+  border: 1px solid #c7d2d6;
+  border-radius: 9px;
+  background: #fff;
+  cursor: pointer;
+}
+.dock-menu-hint {
+  margin: 4px 10px 6px;
+  color: #687981;
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 .dock-primary-heading,
 .dock-primary-heading > div,
@@ -1749,6 +1831,9 @@ textarea:focus-visible,
   .dock-primary-settings {
     width: calc(100vw - 16px);
     max-height: 42vh;
+  }
+  .dock-menu {
+    width: calc(100vw - 16px);
   }
   .board-settings-dialog {
     width: 100vw;

@@ -8,7 +8,7 @@ test("undoes and redoes a complete drawing gesture", async ({ page }) => {
     }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
+  await page.keyboard.press("r");
   const bounds = await page.getByTestId("board-stage").boundingBox();
   expect(bounds).not.toBeNull();
   if (bounds === null) {

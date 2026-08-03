@@ -19,7 +19,7 @@ test("shows and exports Smart Ink recognition diagnostics", async ({
     throw new Error("Canvas has no bounds.");
   }
 
-  await page.getByRole("button", { name: "Smart Ink (I)" }).click();
+  await page.keyboard.press("i");
   const center = {
     x: bounds.x + bounds.width * 0.52,
     y: bounds.y + bounds.height * 0.42,
