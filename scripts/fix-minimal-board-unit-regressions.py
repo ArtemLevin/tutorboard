@@ -52,10 +52,20 @@ late = '''
         return;
       }
 '''
-# Remove the later duplicate while preserving the newly inserted first branch.
 first = app.find(late)
 second = app.find(late, first + len(late))
 if first < 0 or second < 0:
     raise SystemExit("Escape priority cleanup: duplicate branches not found")
 app = app[:second] + app[second + len(late) :]
+old_dialog = '''        <BoardSettingsDialog
+          onClose={() => setSettingsOpen(false)}
+'''
+new_dialog = '''        <BoardSettingsDialog
+          onClose={() => {
+            if (!shortcutsOpen) setSettingsOpen(false);
+          }}
+'''
+if app.count(old_dialog) != 1:
+    raise SystemExit(f"Nested dialog guard: expected one match, found {app.count(old_dialog)}")
+app = app.replace(old_dialog, new_dialog, 1)
 app_path.write_text(app)
