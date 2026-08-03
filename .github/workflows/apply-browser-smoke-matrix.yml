@@ -1,0 +1,41 @@
+name: Apply browser smoke matrix
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-browser-smoke-matrix
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.head_ref == 'feature/minimal-board-chrome'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/minimal-board-chrome
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: python scripts/split-browser-smoke.py
+      - run: npm ci
+      - run: npm run format:check
+      - name: Commit release gate migration
+        run: |
+          rm -f \
+            .github/workflows/apply-browser-smoke-matrix.yml \
+            scripts/split-browser-smoke.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: split browser smoke by browser"
+          git push origin HEAD:feature/minimal-board-chrome
