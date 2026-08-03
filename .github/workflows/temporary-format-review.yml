@@ -1,0 +1,37 @@
+name: Temporary review formatting
+
+on:
+  push:
+    branches:
+      - fix/paddle-sidecar-critical-review
+    paths:
+      - ".github/workflows/temporary-format-review.yml"
+      - "services/math-ink-proxy/server.mjs"
+      - "tests/node/math-ink-proxy-forwarding.test.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: |
+          npx prettier --write \
+            services/math-ink-proxy/server.mjs \
+            tests/node/math-ink-proxy-forwarding.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: formatted-review-files
+          path: |
+            services/math-ink-proxy/server.mjs
+            tests/node/math-ink-proxy-forwarding.test.mjs
+          if-no-files-found: error
+          retention-days: 1
