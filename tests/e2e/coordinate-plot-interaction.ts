@@ -15,7 +15,7 @@ export async function createCoordinatePlot(page: Page): Promise<void> {
   await expect(page.getByTestId("board-stage")).toBeVisible();
   await page.getByRole("button", { name: "Математика" }).click();
   await page
-    .getByRole("menuitem", { name: "Координатная плоскость (G)" })
+    .getByRole("menuitemradio", { name: "Координатная плоскость (G)" })
     .click();
 }
 

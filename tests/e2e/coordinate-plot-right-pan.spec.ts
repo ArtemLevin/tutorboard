@@ -117,7 +117,7 @@ test("single right click keeps the active tool and double click opens graph sett
   await page.goto("/");
   await createCoordinatePlot(page);
   await page.getByRole("button", { name: "Фигуры" }).click();
-  await page.getByRole("menuitem", { name: "Прямоугольник (R)" }).click();
+  await page.getByRole("menuitemradio", { name: "Прямоугольник (R)" }).click();
   const document = await exportDocument(page);
   const stageBox = await page.getByTestId("board-stage").boundingBox();
   if (stageBox === null) throw new Error("Expected board stage bounds");
