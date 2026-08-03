@@ -33,9 +33,7 @@ RUN python -m pip install --upgrade pip \
       --requirement requirements-security.txt \
     && python -m pip check \
     && python -m pip uninstall --yes pip setuptools wheel \
-    && test ! -e /usr/local/lib/python3.11/site-packages/pip \
-    && test ! -e /usr/local/lib/python3.11/site-packages/setuptools \
-    && test ! -e /usr/local/lib/python3.11/site-packages/wheel
+    && python -c "import importlib.util; assert importlib.util.find_spec('pip') is None; assert importlib.util.find_spec('setuptools') is None; assert importlib.util.find_spec('wheel') is None"
 
 RUN useradd \
       --create-home \
