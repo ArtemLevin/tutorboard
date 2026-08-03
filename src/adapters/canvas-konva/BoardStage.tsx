@@ -56,6 +56,7 @@ type PanSource = "hand" | "middle" | "right" | "space";
 
 interface PanSession {
   activated: boolean;
+  readonly canvasContextEligible: boolean;
   readonly captureElement: HTMLElement;
   readonly pointerId: number;
   readonly source: PanSource;
@@ -262,6 +263,11 @@ function objectIdFromTarget(target: Konva.Node): BoardObjectId | null {
   return null;
 }
 
+function normalizeTransformValue(value: number): number {
+  const normalized = Math.round(value * 1_000_000) / 1_000_000;
+  return Object.is(normalized, -0) ? 0 : normalized;
+}
+
 export function BoardStage({
   coordinatePlotInteraction,
   drawingModeKey,
@@ -305,6 +311,7 @@ export function BoardStage({
   const wheelSessionRef = useRef<WheelSession | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
   const rightDragOccurredRef = useRef(false);
+  const canvasContextMenuRequestRef = useRef(onCanvasContextMenuRequest);
   const panModeRequestRef = useRef(onPanModeRequest);
   const worldPointerCallbacksRef = useRef({
     cancel: onWorldPointerCancel,
@@ -388,9 +395,15 @@ export function BoardStage({
       return [
         {
           objectId,
-          position: { x: node.x(), y: node.y() },
-          rotation: node.rotation(),
-          scale: { x: node.scaleX(), y: node.scaleY() },
+          position: {
+            x: normalizeTransformValue(node.x()),
+            y: normalizeTransformValue(node.y()),
+          },
+          rotation: normalizeTransformValue(node.rotation()),
+          scale: {
+            x: normalizeTransformValue(node.scaleX()),
+            y: normalizeTransformValue(node.scaleY()),
+          },
         },
       ];
     });
@@ -402,6 +415,10 @@ export function BoardStage({
   useLayoutEffect(() => {
     panModeRequestRef.current = onPanModeRequest;
   }, [onPanModeRequest]);
+
+  useLayoutEffect(() => {
+    canvasContextMenuRequestRef.current = onCanvasContextMenuRequest;
+  }, [onCanvasContextMenuRequest]);
 
   useLayoutEffect(() => {
     worldPointerCallbacksRef.current = {
@@ -675,6 +692,20 @@ export function BoardStage({
         return;
       }
       if (panSessionRef.current?.pointerId === event.pointerId) {
+        const session = panSessionRef.current;
+        if (
+          session.source === "right" &&
+          !session.activated &&
+          session.canvasContextEligible
+        ) {
+          canvasContextMenuRequestRef.current?.({
+            clientPoint: clientPoint(event),
+            worldPoint: screenToWorld(
+              elementPoint(event, session.captureElement),
+              session.startViewport,
+            ),
+          });
+        }
         finishPan(true);
       }
     };
@@ -991,6 +1022,10 @@ export function BoardStage({
     const viewport = previewViewport;
     panSessionRef.current = {
       activated: source !== "right",
+      canvasContextEligible:
+        source === "right" &&
+        hitObjectId === null &&
+        !isTransformerTarget(event.target),
       captureElement,
       pointerId: event.evt.pointerId,
       source,
