@@ -325,6 +325,11 @@ async function executeRecognition(
   let response: Response;
   let text: string;
   try {
+    if (controller.signal.aborted) {
+      throw (
+        controller.signal.reason ?? new DOMException("Aborted", "AbortError")
+      );
+    }
     response = await options.fetch(options.endpoint, {
       body,
       headers: {
