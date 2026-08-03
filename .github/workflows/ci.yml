@@ -7,12 +7,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: ci-native-background-selection-${{ github.event.pull_request.number }}
+  group: ci-selection-tool-id-fix-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  apply-native-background-selection:
-    name: Apply native background selection listener
+  apply-selection-tool-id-fix:
+    name: Apply selection tool identifier fix
     if: github.head_ref == 'feature/minimal-board-chrome'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -33,15 +33,15 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Apply native listener fix
+      - name: Align dock selection identifiers
         run: python scripts/apply-native-background-selection-listener.py
 
-      - name: Format product change
-        run: npx prettier --write src/adapters/canvas-konva/BoardStage.tsx
+      - name: Format product changes
+        run: npx prettier --write src/app/board-chrome/BoardToolDock.tsx tests/e2e/selection.spec.ts
 
-      - name: Verify product change
+      - name: Verify product changes
         run: |
-          npx prettier --check src/adapters/canvas-konva/BoardStage.tsx
+          npx prettier --check src/app/board-chrome/BoardToolDock.tsx tests/e2e/selection.spec.ts
           npm run lint
           npm run typecheck
 
@@ -62,12 +62,12 @@ jobs:
 
       - name: Commit product fix
         run: |
-          if git diff --quiet -- src/adapters/canvas-konva/BoardStage.tsx; then
+          if git diff --quiet -- src/app/board-chrome/BoardToolDock.tsx tests/e2e/selection.spec.ts; then
             echo "Product fix is already applied."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/adapters/canvas-konva/BoardStage.tsx
-          git commit -m "fix: listen for empty-canvas selection natively"
+          git add src/app/board-chrome/BoardToolDock.tsx tests/e2e/selection.spec.ts
+          git commit -m "fix: align board selection tool identifiers"
           git push origin HEAD:feature/minimal-board-chrome
