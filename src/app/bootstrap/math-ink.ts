@@ -19,13 +19,14 @@ export function createConfiguredMathInkRecognizers(
   ) {
     return {};
   }
-  return Object.fromEntries(
-    mathInkRecognitionProviders.map((provider) => [
+  const recognizers: Partial<
+    Record<MathInkRecognitionProvider, MathInkRecognizer>
+  > = {};
+  for (const provider of mathInkRecognitionProviders) {
+    recognizers[provider] = createMathInkHttpRecognizer({
+      baseUrl: environment.mathInkApiBaseUrl,
       provider,
-      createMathInkHttpRecognizer({
-        baseUrl: environment.mathInkApiBaseUrl,
-        provider,
-      }),
-    ]),
-  ) as MathInkRecognizerRegistry;
+    });
+  }
+  return recognizers;
 }
