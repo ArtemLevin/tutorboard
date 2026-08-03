@@ -2,3 +2,4 @@
 msgpack==1.2.1
 Pillow==12.3.0
 protobuf==6.33.5
+setuptools==83.0.0
