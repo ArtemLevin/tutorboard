@@ -44,6 +44,10 @@ technology users can distinguish them from the permanent toolbar.
   and Firefox and cover functions, view statuses and bounded legends.
 - Baseline updates run through the production Playwright visual configuration
   and a changed-file scope assertion before commit.
+- Browser smoke runs as independent Chromium and Firefox matrix jobs, with
+  per-browser evidence and time budgets.
+- Hidden accessibility diagnostics retain viewport, history, persistence,
+  selection and object-state evidence without consuming canvas space.
 - Selected text, style, lock, deletion and quick transforms remain available in
   the contextual dock surface.
 
