@@ -294,7 +294,9 @@ function yandexRequest(config, request) {
     normalize: normalizeYandexOcrResponse,
     url: providerUrl(
       config.apiUrl ?? "https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText",
-      { allowedHost: "ocr.api.cloud.yandex.net" },
+      config.allowInsecure === true
+        ? { allowInsecure: true }
+        : { allowedHost: "ocr.api.cloud.yandex.net" },
     ),
   };
 }

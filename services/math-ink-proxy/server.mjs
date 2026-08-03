@@ -284,6 +284,7 @@ function runtimeProviders() {
       ? {}
       : {
           "yandex-ai-studio": {
+            allowInsecure,
             apiKey: yandexApiKey,
             apiUrl: optionalEnvironment("YANDEX_OCR_API_URL"),
             folderId: yandexFolderId,
