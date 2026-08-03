@@ -330,9 +330,7 @@ def _run_inference(model: FormulaModel, image: Image.Image) -> str:
     image_array = np.asarray(image)
     results = list(model.predict(input=image_array, batch_size=1))
     if len(results) != 1:
-        raise RuntimeError(
-            f"Expected one PaddleOCR result, received {len(results)}."
-        )
+        raise RuntimeError(f"Expected one PaddleOCR result, received {len(results)}.")
     return _extract_latex(results[0])
 
 
@@ -439,9 +437,7 @@ def create_app(
             logger.error(
                 json.dumps(
                     {
-                        "durationMs": round(
-                            (time.monotonic() - started) * 1000
-                        ),
+                        "durationMs": round((time.monotonic() - started) * 1000),
                         "event": "paddle-formula.recognition-failed",
                         "requestId": request_id,
                     },
