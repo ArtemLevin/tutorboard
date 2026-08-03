@@ -26,15 +26,16 @@ function request() {
 
 describe("Paddle upstream request correlation", () => {
   it("forwards the TutorBoard request identifier to the sidecar", async () => {
-    const fetch = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          latex: "x+1",
-          modelVersion: "PP-FormulaNet-S",
-          requestId: "recognition:upstream",
-        }),
-        { headers: { "Content-Type": "application/json" }, status: 200 },
-      ),
+    const fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            latex: "x+1",
+            modelVersion: "PP-FormulaNet-S",
+            requestId: "recognition:upstream",
+          }),
+          { headers: { "Content-Type": "application/json" }, status: 200 },
+        ),
     );
     const service = createFormulaRecognitionGatewayService({
       fetch,
