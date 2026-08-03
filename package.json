@@ -45,8 +45,10 @@
     "geometryos:live-browser": "playwright test --config playwright.geometryos.config.mjs",
     "e2e:plot-visual": "playwright test --config playwright.visual.config.ts",
     "e2e:plot-visual:update": "playwright test --config playwright.visual.config.ts --update-snapshots",
-    "handwriting:pr4": "vitest run src/adapters/math-ink-http/client.test.ts tests/node/math-ink-proxy.test.mjs tests/node/math-ink-proxy-forwarding.test.mjs --reporter=verbose",
-    "math-ink-proxy:start": "node services/math-ink-proxy/server.mjs"
+    "handwriting:pr4": "npm run handwriting:pr5",
+    "handwriting:pr5": "vitest run src/adapters/math-ink-http/client.test.ts src/adapters/math-ink-http/rasterization.test.ts src/app/configuration/formula-recognition-settings.test.ts tests/node/math-ink-proxy.test.mjs tests/node/math-ink-proxy-forwarding.test.mjs --reporter=verbose",
+    "formula-recognition-gateway:start": "node services/math-ink-proxy/server.mjs",
+    "math-ink-proxy:start": "npm run formula-recognition-gateway:start"
   },
   "dependencies": {
     "dexie": "4.4.4",

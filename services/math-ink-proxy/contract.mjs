@@ -65,7 +65,11 @@ function issue(path, message) {
 }
 
 function decodedBase64ByteLength(value) {
-  if (typeof value !== "string" || value.length === 0 || value.length % 4 !== 0) {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.length % 4 !== 0
+  ) {
     return null;
   }
   if (!base64Pattern.test(value)) return null;
@@ -141,7 +145,9 @@ export function validateFormulaRecognitionRequest(value) {
       value.source.strokeCount <= 0 ||
       value.source.strokeCount > mathInkProxyLimits.maximumSourceStrokeCount
     ) {
-      issues.push(issue("/source/strokeCount", "stroke count is outside limits"));
+      issues.push(
+        issue("/source/strokeCount", "stroke count is outside limits"),
+      );
     }
     if (
       !Number.isSafeInteger(value.source.pointCount) ||
@@ -192,7 +198,8 @@ function boundedString(value, maximum = 4_096) {
 
 function normalizedResult(provider, expressionSource, metadata = {}) {
   const providerRequestId = boundedString(metadata.providerRequestId, 256);
-  const providerVersion = boundedString(metadata.providerVersion, 128) ?? "unknown";
+  const providerVersion =
+    boundedString(metadata.providerVersion, 128) ?? "unknown";
   const confidence =
     finiteNumber(metadata.confidence) &&
     metadata.confidence >= 0 &&
@@ -248,7 +255,10 @@ function normalizedResult(provider, expressionSource, metadata = {}) {
 
 export function normalizePaddleOcrResponse(payload, requestId) {
   if (!isRecord(payload)) {
-    return { code: "formula-recognition.provider-invalid-response", valid: false };
+    return {
+      code: "formula-recognition.provider-invalid-response",
+      valid: false,
+    };
   }
   const nested = isRecord(payload.result) ? payload.result : null;
   const expression =
@@ -268,10 +278,14 @@ export function normalizePaddleOcrResponse(payload, requestId) {
 
 export function normalizeLocalOcrLlmResponse(payload, requestId) {
   if (!isRecord(payload) || !Array.isArray(payload.choices)) {
-    return { code: "formula-recognition.provider-invalid-response", valid: false };
+    return {
+      code: "formula-recognition.provider-invalid-response",
+      valid: false,
+    };
   }
   const choice = payload.choices[0];
-  const message = isRecord(choice) && isRecord(choice.message) ? choice.message : null;
+  const message =
+    isRecord(choice) && isRecord(choice.message) ? choice.message : null;
   const content = boundedString(message?.content);
   return normalizedResult("local-ocr-llm", content, {
     providerRequestId: payload.id,
@@ -297,11 +311,15 @@ function yandexFullText(payload) {
 
 export function normalizeYandexOcrResponse(payload, requestId) {
   if (!isRecord(payload)) {
-    return { code: "formula-recognition.provider-invalid-response", valid: false };
+    return {
+      code: "formula-recognition.provider-invalid-response",
+      valid: false,
+    };
   }
   return normalizedResult("yandex-ai-studio", yandexFullText(payload), {
     providerRequestId: payload.requestId ?? payload.request_id,
-    providerVersion: payload.modelVersion ?? payload.model_version ?? "math-markdown",
+    providerVersion:
+      payload.modelVersion ?? payload.model_version ?? "math-markdown",
     requestId,
   });
 }

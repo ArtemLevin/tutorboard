@@ -28,7 +28,9 @@ function providerUrl(value, { allowInsecure = false, allowedHost } = {}) {
     url.search !== "" ||
     url.hash !== ""
   ) {
-    throw new TypeError("Provider URL cannot contain credentials, query or fragment data.");
+    throw new TypeError(
+      "Provider URL cannot contain credentials, query or fragment data.",
+    );
   }
   if (allowInsecure) {
     if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -278,7 +280,7 @@ function yandexRequest(config, request) {
   return {
     body: JSON.stringify({
       content: request.image.data,
-      languageCodes: ["*"] ,
+      languageCodes: ["*"],
       mimeType: request.image.mimeType,
       model: "math-markdown",
     }),
@@ -313,7 +315,9 @@ function createProviderRequest(provider, config, request) {
 export function createFormulaRecognitionGatewayService(options) {
   const fetchImplementation = options.fetch ?? globalThis.fetch;
   if (typeof fetchImplementation !== "function") {
-    throw new TypeError("Fetch is required by the formula recognition gateway.");
+    throw new TypeError(
+      "Fetch is required by the formula recognition gateway.",
+    );
   }
   const providers = options.providers ?? {};
   const maximumConcurrentRequests = positiveInteger(

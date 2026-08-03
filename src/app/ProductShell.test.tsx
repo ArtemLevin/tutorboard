@@ -83,9 +83,7 @@ function recognizer(id: string): MathInkRecognizer {
 const mathInkRecognizers = {
   "local-ocr-llm": recognizer("local-ocr-llm.via-tutorboard-gateway"),
   paddleocr: recognizer("paddleocr.via-tutorboard-gateway"),
-  "yandex-ai-studio": recognizer(
-    "yandex-ai-studio.via-tutorboard-gateway",
-  ),
+  "yandex-ai-studio": recognizer("yandex-ai-studio.via-tutorboard-gateway"),
 } as const;
 
 afterEach(() => {
@@ -142,18 +140,16 @@ describe("ProductShell", () => {
     expect(
       screen.getByRole("radio", { name: /PaddleOCR Formula Recognition/u }),
     ).toBeChecked();
-    fireEvent.click(
-      screen.getByRole("radio", { name: /Локальная OCR-LLM/u }),
-    );
+    fireEvent.click(screen.getByRole("radio", { name: /Локальная OCR-LLM/u }));
     expect(
       screen.getByText("Способ распознавания формул сохранён."),
     ).toBeInTheDocument();
 
     window.location.hash = "#/board";
     fireEvent(window, new HashChangeEvent("hashchange"));
-    expect(screen.getByLabelText("Active formula recognizer")).toHaveTextContent(
-      "local-ocr-llm.via-tutorboard-gateway",
-    );
+    expect(
+      screen.getByLabelText("Active formula recognizer"),
+    ).toHaveTextContent("local-ocr-llm.via-tutorboard-gateway");
   });
 
   it("contains route failures and offers diagnostics recovery", () => {

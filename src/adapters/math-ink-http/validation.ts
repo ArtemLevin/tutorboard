@@ -25,11 +25,7 @@ export const mathInkProxyResultSchema = z
   .object({
     candidates: z.array(candidateSchema).max(8),
     diagnostics: z.array(diagnosticSchema).max(16),
-    provider: z.enum([
-      "paddleocr",
-      "local-ocr-llm",
-      "yandex-ai-studio",
-    ]),
+    provider: z.enum(["paddleocr", "local-ocr-llm", "yandex-ai-studio"]),
     providerRequestId: z.string().min(1).max(256).nullable(),
     providerVersion: z.string().min(1).max(128),
     requestId: z.string().min(1).max(256),

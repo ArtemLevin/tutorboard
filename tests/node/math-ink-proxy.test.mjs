@@ -93,9 +93,9 @@ describe("formula recognition gateway contract", () => {
     expect(validateFormulaRecognitionRequest(request())).toMatchObject({
       valid: true,
     });
-    expect(
-      validateFormulaRecognitionRequest(request("unknown")),
-    ).toMatchObject({ valid: false });
+    expect(validateFormulaRecognitionRequest(request("unknown"))).toMatchObject(
+      { valid: false },
+    );
     expect(
       validateFormulaRecognitionRequest(
         request("paddleocr", {
@@ -148,54 +148,53 @@ describe("formula recognition gateway contract", () => {
 });
 
 describe("formula recognition gateway service", () => {
-  it.each([
-    "paddleocr",
-    "local-ocr-llm",
-    "yandex-ai-studio",
-  ])("dispatches and normalizes %s", async (provider) => {
-    const fetch = vi.fn(async () => jsonResponse(providerPayload(provider)));
-    const logger = vi.fn();
-    const service = createFormulaRecognitionGatewayService(
-      serviceOptions({ fetch, logger }),
-    );
+  it.each(["paddleocr", "local-ocr-llm", "yandex-ai-studio"])(
+    "dispatches and normalizes %s",
+    async (provider) => {
+      const fetch = vi.fn(async () => jsonResponse(providerPayload(provider)));
+      const logger = vi.fn();
+      const service = createFormulaRecognitionGatewayService(
+        serviceOptions({ fetch, logger }),
+      );
 
-    const result = await service.recognize({
-      clientKey: "client:1",
-      request: request(provider),
-      requestId: "recognition:test",
-      signal: new AbortController().signal,
-    });
+      const result = await service.recognize({
+        clientKey: "client:1",
+        request: request(provider),
+        requestId: "recognition:test",
+        signal: new AbortController().signal,
+      });
 
-    expect(result).toMatchObject({
-      body: {
-        candidates: [{ expression: "x^2+1", format: "latex" }],
-        provider,
-        schemaVersion: formulaRecognitionResultSchemaVersion,
-        status: "recognized",
-      },
-      status: 200,
-    });
-    const [url, init] = fetch.mock.calls[0];
-    expect(url).toBeInstanceOf(URL);
-    const body = JSON.parse(init.body);
-    if (provider === "paddleocr") {
-      expect(body).toMatchObject({ imageBase64: png, mimeType: "image/png" });
-    }
-    if (provider === "local-ocr-llm") {
-      expect(body.model).toBe("qwen-vl-local");
-      expect(JSON.stringify(body)).toContain("data:image/png;base64,");
-      expect(init.headers.Authorization).toBe("Bearer local-secret");
-    }
-    if (provider === "yandex-ai-studio") {
-      expect(body).toMatchObject({ model: "math-markdown", content: png });
-      expect(init.headers.Authorization).toBe("Api-Key yandex-secret");
-      expect(init.headers["x-data-logging-enabled"]).toBe("false");
-    }
-    const logged = JSON.stringify(logger.mock.calls);
-    expect(logged).not.toContain(png);
-    expect(logged).not.toContain("local-secret");
-    expect(logged).not.toContain("yandex-secret");
-  });
+      expect(result).toMatchObject({
+        body: {
+          candidates: [{ expression: "x^2+1", format: "latex" }],
+          provider,
+          schemaVersion: formulaRecognitionResultSchemaVersion,
+          status: "recognized",
+        },
+        status: 200,
+      });
+      const [url, init] = fetch.mock.calls[0];
+      expect(url).toBeInstanceOf(URL);
+      const body = JSON.parse(init.body);
+      if (provider === "paddleocr") {
+        expect(body).toMatchObject({ imageBase64: png, mimeType: "image/png" });
+      }
+      if (provider === "local-ocr-llm") {
+        expect(body.model).toBe("qwen-vl-local");
+        expect(JSON.stringify(body)).toContain("data:image/png;base64,");
+        expect(init.headers.Authorization).toBe("Bearer local-secret");
+      }
+      if (provider === "yandex-ai-studio") {
+        expect(body).toMatchObject({ model: "math-markdown", content: png });
+        expect(init.headers.Authorization).toBe("Api-Key yandex-secret");
+        expect(init.headers["x-data-logging-enabled"]).toBe("false");
+      }
+      const logged = JSON.stringify(logger.mock.calls);
+      expect(logged).not.toContain(png);
+      expect(logged).not.toContain("local-secret");
+      expect(logged).not.toContain("yandex-secret");
+    },
+  );
 
   it("returns an explicit error for an unconfigured selected provider", async () => {
     const service = createFormulaRecognitionGatewayService(

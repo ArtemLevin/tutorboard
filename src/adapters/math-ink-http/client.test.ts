@@ -75,67 +75,66 @@ function recognizerOptions(
 }
 
 describe("formula recognition HTTP adapter", () => {
-  it.each([
-    "paddleocr",
-    "local-ocr-llm",
-    "yandex-ai-studio",
-  ] as const)("sends a bounded raster request for %s", async (provider) => {
-    let capturedInput: RequestInfo | URL | undefined;
-    let capturedInit: RequestInit | undefined;
-    const fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      capturedInput = input;
-      capturedInit = init;
-      return Promise.resolve(resultResponse(provider));
-    });
-    const recognizer = createMathInkHttpRecognizer(
-      recognizerOptions(provider, fetch),
-    );
+  it.each(["paddleocr", "local-ocr-llm", "yandex-ai-studio"] as const)(
+    "sends a bounded raster request for %s",
+    async (provider) => {
+      let capturedInput: RequestInfo | URL | undefined;
+      let capturedInit: RequestInit | undefined;
+      const fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        capturedInput = input;
+        capturedInit = init;
+        return Promise.resolve(resultResponse(provider));
+      });
+      const recognizer = createMathInkHttpRecognizer(
+        recognizerOptions(provider, fetch),
+      );
 
-    const result = await recognizer.recognize(
-      request,
-      new AbortController().signal,
-    );
+      const result = await recognizer.recognize(
+        request,
+        new AbortController().signal,
+      );
 
-    expect(capturedInput).toBeInstanceOf(URL);
-    if (!(capturedInput instanceof URL)) {
-      throw new Error("Expected the adapter to call fetch with a URL.");
-    }
-    expect(capturedInput.href).toBe(
-      "https://board.example/api/v1/formula-recognition/recognize",
-    );
-    expect(capturedInit?.headers).toMatchObject({
-      "Content-Type": "application/json",
-      [mathInkRequestIdHeader]: request.recognitionId,
-    });
-    const capturedBody = capturedInit?.body;
-    expect(typeof capturedBody).toBe("string");
-    if (typeof capturedBody !== "string") {
-      throw new Error("Expected the adapter request body to be JSON text.");
-    }
-    expect(JSON.parse(capturedBody)).toEqual({
-      image: {
-        data: "iVBORw0KGgo=",
-        height: 200,
-        mimeType: "image/png",
-        width: 400,
-      },
-      provider,
-      recognitionId: request.recognitionId,
-      schemaVersion: "tutorboard.formula-recognition-request/1",
-      sessionId: request.sessionId,
-      source: {
-        normalizedHeight: 0.5,
-        normalizedWidth: 1,
-        pointCount: 2,
-        strokeCount: 1,
-      },
-    });
-    expect(result).toMatchObject({
-      candidates: [{ confidence: 0.98, expression: "x^2", format: "latex" }],
-      recognizerId: `${provider}.via-tutorboard-gateway`,
-      status: "recognized",
-    });
-  });
+      expect(capturedInput).toBeInstanceOf(URL);
+      if (!(capturedInput instanceof URL)) {
+        throw new Error("Expected the adapter to call fetch with a URL.");
+      }
+      expect(capturedInput.href).toBe(
+        "https://board.example/api/v1/formula-recognition/recognize",
+      );
+      expect(capturedInit?.headers).toMatchObject({
+        "Content-Type": "application/json",
+        [mathInkRequestIdHeader]: request.recognitionId,
+      });
+      const capturedBody = capturedInit?.body;
+      expect(typeof capturedBody).toBe("string");
+      if (typeof capturedBody !== "string") {
+        throw new Error("Expected the adapter request body to be JSON text.");
+      }
+      expect(JSON.parse(capturedBody)).toEqual({
+        image: {
+          data: "iVBORw0KGgo=",
+          height: 200,
+          mimeType: "image/png",
+          width: 400,
+        },
+        provider,
+        recognitionId: request.recognitionId,
+        schemaVersion: "tutorboard.formula-recognition-request/1",
+        sessionId: request.sessionId,
+        source: {
+          normalizedHeight: 0.5,
+          normalizedWidth: 1,
+          pointCount: 2,
+          strokeCount: 1,
+        },
+      });
+      expect(result).toMatchObject({
+        candidates: [{ confidence: 0.98, expression: "x^2", format: "latex" }],
+        recognizerId: `${provider}.via-tutorboard-gateway`,
+        status: "recognized",
+      });
+    },
+  );
 
   it("rejects cross-origin and credential-bearing base URLs", () => {
     expect(() =>
