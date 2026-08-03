@@ -11,8 +11,11 @@ test("opens figure and graph settings only after a right-button double-click", a
   if (bounds === null) throw new Error("Expected TutorBoard stage bounds");
   const center = {
     x: bounds.x + bounds.width / 2,
-    y: bounds.y + bounds.height / 2,
+    y: bounds.y + bounds.height * 0.35,
   };
+  const selectionSettings = page.getByRole("region", {
+    name: "Первичные настройки выделения",
+  });
 
   await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
   await page.mouse.move(center.x - 70, center.y - 50);
@@ -20,20 +23,15 @@ test("opens figure and graph settings only after a right-button double-click", a
   await page.mouse.move(center.x + 70, center.y + 50, { steps: 6 });
   await page.mouse.up();
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-  await expect(
-    page.getByRole("complementary", { name: "Выделенные объекты" }),
-  ).toBeHidden();
+  await expect(selectionSettings).toBeHidden();
 
   await page.mouse.click(center.x, center.y, { button: "right" });
-  await expect(
-    page.getByRole("complementary", { name: "Выделенные объекты" }),
-  ).toBeHidden();
+  await expect(selectionSettings).toBeHidden();
   await page.waitForTimeout(60);
   await page.mouse.click(center.x, center.y, { button: "right" });
-  await expect(
-    page.getByRole("complementary", { name: "Выделенные объекты" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Закрыть настройки объекта" }).click();
+  await expect(selectionSettings).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(selectionSettings).toBeHidden();
 
   await page
     .getByRole("button", { name: "Создать координатную плоскость (G)" })
@@ -62,7 +60,7 @@ test("a right drag remains board panning", async ({ page }) => {
   if (bounds === null) throw new Error("Expected TutorBoard stage bounds");
   const start = {
     x: bounds.x + bounds.width * 0.45,
-    y: bounds.y + bounds.height * 0.5,
+    y: bounds.y + bounds.height * 0.4,
   };
   const finish = { x: start.x + 100, y: start.y + 60 };
   await page.mouse.move(start.x, start.y);

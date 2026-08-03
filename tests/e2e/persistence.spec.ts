@@ -83,7 +83,12 @@ test("autosaves drawing state and restores it after reload", async ({
 test("falls back to the last good revision and keeps a recovery notice", async ({
   page,
 }) => {
-  await page.getByRole("button", { name: "Центрировать" }).click();
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  const settings = page.getByRole("dialog", { name: "Настройки доски" });
+  await settings.getByRole("button", { name: "Центрировать доску" }).click();
+  await settings
+    .getByRole("button", { name: "Закрыть настройки доски" })
+    .click();
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Ожидает сохранения",
   );

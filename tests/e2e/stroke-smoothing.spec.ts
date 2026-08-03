@@ -37,9 +37,10 @@ test("keeps a smoothed freehand stroke transformable at high zoom", async ({
   await page.mouse.up();
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
 
-  await page.getByRole("button", { name: "drawing.pen-stroke" }).click();
-  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+  await page.getByRole("button", { name: "Выделение (V)" }).click();
   const settingsPoint = await stagePoint(page, 350, 310);
+  await page.mouse.click(settingsPoint.x, settingsPoint.y);
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
   await rightDoubleClickAt(page, settingsPoint);
   await expect(
     page.getByRole("button", { name: "Увеличить выделение на 10%" }),

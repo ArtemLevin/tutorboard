@@ -25,7 +25,7 @@ test("edits the persisted style of a selected object", async ({ page }) => {
   ).toHaveCount(5);
   await expect(
     page.getByRole("button", {
-      name: /Обводка: (Чёрный|Красный|Синий|Зелёный|Жёлтый)/,
+      name: /Цвет: (Чёрный|Красный|Синий|Зелёный|Жёлтый)/,
     }),
   ).toHaveCount(5);
 
@@ -33,17 +33,17 @@ test("edits the persisted style of a selected object", async ({ page }) => {
   await blueFill.click();
   await expect(blueFill).toHaveAttribute("aria-pressed", "true");
 
-  const greenStroke = page.getByRole("button", { name: "Обводка: Зелёный" });
+  const greenStroke = page.getByRole("button", { name: "Цвет: Зелёный" });
   await greenStroke.click();
   await expect(greenStroke).toHaveAttribute("aria-pressed", "true");
 
-  await page.getByRole("spinbutton", { name: "Толщина обводки" }).fill("6");
+  await page.getByRole("spinbutton", { name: "Толщина инструмента" }).fill("6");
   await expect(
-    page.getByRole("spinbutton", { name: "Толщина обводки" }),
+    page.getByRole("spinbutton", { name: "Толщина инструмента" }),
   ).toHaveValue("6");
 
   await page.keyboard.press("Control+z");
   await expect(
-    page.getByRole("spinbutton", { name: "Толщина обводки" }),
+    page.getByRole("spinbutton", { name: "Толщина инструмента" }),
   ).not.toHaveValue("6");
 });

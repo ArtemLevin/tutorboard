@@ -29,8 +29,8 @@ test("creates one normalized primitive per completed gesture", async ({
   await expect(count).toHaveText("0 объекта");
   await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
 
-  const start = await canvasPoint(page, 0.72, 0.72);
-  const end = await canvasPoint(page, 0.55, 0.55);
+  const start = await canvasPoint(page, 0.72, 0.42);
+  const end = await canvasPoint(page, 0.55, 0.25);
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 4 });
@@ -49,8 +49,8 @@ test("Escape and tool switching discard runtime preview", async ({ page }) => {
   const stage = page.getByTestId("board-stage");
   await page.getByRole("button", { name: "Эллипс (E)" }).click();
 
-  const start = await canvasPoint(page, 0.55, 0.6);
-  const end = await canvasPoint(page, 0.7, 0.72);
+  const start = await canvasPoint(page, 0.55, 0.3);
+  const end = await canvasPoint(page, 0.7, 0.42);
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 3 });
@@ -76,8 +76,8 @@ test("Escape and tool switching discard runtime preview", async ({ page }) => {
 test("creates pen and text objects through their tools", async ({ page }) => {
   const count = page.getByTestId("object-count");
   await page.getByRole("button", { name: "Перо (P)" }).click();
-  const start = await canvasPoint(page, 0.5, 0.62);
-  const end = await canvasPoint(page, 0.68, 0.5);
+  const start = await canvasPoint(page, 0.5, 0.32);
+  const end = await canvasPoint(page, 0.68, 0.2);
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 6 });
@@ -88,7 +88,7 @@ test("creates pen and text objects through their tools", async ({ page }) => {
   await page
     .getByRole("textbox", { name: "Содержимое текста" })
     .fill("Угол ABC");
-  const textPoint = await canvasPoint(page, 0.62, 0.75);
+  const textPoint = await canvasPoint(page, 0.62, 0.4);
   await page.mouse.click(textPoint.x, textPoint.y);
 
   await expect(count).toHaveText("2 объекта");

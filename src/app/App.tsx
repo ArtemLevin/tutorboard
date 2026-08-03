@@ -2860,6 +2860,13 @@ export function App({
           <span data-testid="selection-count">
             {selectionState.selectedObjectIds.length} выбрано
           </span>
+          <span data-testid="viewport-zoom">
+            {Math.round(document.viewport.zoom * 100)}%
+          </span>
+          <span data-testid="viewport-offset">
+            x {Math.round(document.viewport.offset.x)} · y{" "}
+            {Math.round(document.viewport.offset.y)}
+          </span>
           <span data-testid="geometry-import-count">
             {Object.keys(document.geometryImports).length} построений
           </span>

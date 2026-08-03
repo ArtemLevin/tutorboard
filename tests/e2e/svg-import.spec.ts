@@ -144,9 +144,7 @@ test("rejects executable SVG without mutating the document", async ({
     name: "unsafe.svg",
   });
 
-  await expect(page.getByRole("alert")).toContainText(
-    "Изображение не вставлено",
-  );
+  await expect(page.getByRole("alert")).toContainText("Изображения отклонены");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
 });
 

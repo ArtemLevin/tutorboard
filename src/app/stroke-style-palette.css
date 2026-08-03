@@ -170,3 +170,14 @@
   top: 2px;
   transform: rotate(-0.5deg);
 }
+
+/* Minimal board dock stacking contract. */
+.dock-primary-settings {
+  overflow: visible;
+}
+
+@media (max-width: 720px) {
+  .dock-primary-settings {
+    overflow: auto;
+  }
+}
