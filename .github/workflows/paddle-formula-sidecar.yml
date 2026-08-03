@@ -114,7 +114,20 @@ jobs:
           grep --fixed-strings 'PADDLE_FORMULA_ENABLE_MKLDNN: "false"' \
             /tmp/paddle-formula-gpu.yml
 
-      - name: Scan CPU sidecar image
+      - name: Report CPU sidecar vulnerabilities
+        id: vulnerability-scan
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: tutorboard-paddle-formula:${{ github.sha }}
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          scanners: vuln
+
+      - name: Generate Trivy SARIF
+        if: always()
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: tutorboard-paddle-formula:${{ github.sha }}
@@ -122,11 +135,16 @@ jobs:
           output: trivy-paddle-formula.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: "1"
+          exit-code: "0"
           limit-severities-for-sarif: true
+          scanners: vuln
 
       - name: Upload Trivy results
         if: ${{ always() && hashFiles('trivy-paddle-formula.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-paddle-formula.sarif
+
+      - name: Enforce vulnerability threshold
+        if: steps.vulnerability-scan.outcome == 'failure'
+        run: exit 1
