@@ -45,6 +45,21 @@ jobs:
           npm run lint
           npm run typecheck
 
+      - name: Install target browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Build production bundle
+        env:
+          VITE_FEATURE_SERVER_SYNC: "true"
+          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos
+        run: npm run build
+
+      - name: Run selection contract in Chromium
+        run: npm run e2e -- tests/e2e/selection.spec.ts --project=chromium
+
+      - name: Run selection contract in Firefox
+        run: npm run e2e -- tests/e2e/selection.spec.ts --project=firefox
+
       - name: Commit product fix
         run: |
           if git diff --quiet -- src/adapters/canvas-konva/BoardStage.tsx; then
