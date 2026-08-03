@@ -2,9 +2,23 @@ name: Paddle formula sidecar gate
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/paddle-formula-sidecar.yml"
+      - "deploy/math-ink.compose.yml"
+      - "deploy/paddle-formula.compose.yml"
+      - "deploy/paddle-formula.gpu.compose.yml"
+      - "services/math-ink-proxy/**"
+      - "services/paddle-formula-sidecar/**"
   push:
     branches:
       - main
+    paths:
+      - ".github/workflows/paddle-formula-sidecar.yml"
+      - "deploy/math-ink.compose.yml"
+      - "deploy/paddle-formula.compose.yml"
+      - "deploy/paddle-formula.gpu.compose.yml"
+      - "services/math-ink-proxy/**"
+      - "services/paddle-formula-sidecar/**"
 
 permissions:
   contents: read
@@ -17,7 +31,7 @@ jobs:
   sidecar:
     name: Paddle formula sidecar
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
@@ -61,6 +75,21 @@ jobs:
           docker build --check \
             --file services/paddle-formula-sidecar/Dockerfile.gpu \
             .
+
+      - name: Build CPU sidecar image
+        run: |
+          docker build \
+            --file services/paddle-formula-sidecar/Dockerfile.cpu \
+            --tag tutorboard-paddle-formula:${GITHUB_SHA} \
+            .
+
+      - name: Verify CPU image runtime
+        run: |
+          test "$(docker inspect --format '{{.Config.User}}' tutorboard-paddle-formula:${GITHUB_SHA})" = "10001:10001"
+          docker run --rm \
+            --entrypoint python \
+            tutorboard-paddle-formula:${GITHUB_SHA} \
+            -c "import paddle; from paddleocr import FormulaRecognition; import app; print(paddle.__version__, FormulaRecognition.__name__, app.SERVICE_VERSION)"
 
       - name: Validate Compose overlays
         env:
