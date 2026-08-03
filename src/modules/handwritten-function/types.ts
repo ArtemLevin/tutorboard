@@ -5,6 +5,14 @@ export const mathInkRecognitionRequestSchemaVersion =
   "tutorboard.math-ink-request/0.1" as const;
 export const mathInkRecognitionResultSchemaVersion =
   "tutorboard.math-ink-result/0.1" as const;
+export const mathInkRecognitionProviders = [
+  "paddleocr",
+  "local-ocr-llm",
+  "yandex-ai-studio",
+] as const;
+
+export type MathInkRecognitionProvider =
+  (typeof mathInkRecognitionProviders)[number];
 
 export const handwrittenFunctionLimits = {
   maximumSessionDurationMs: 300_000,
@@ -78,7 +86,9 @@ export interface MathInkRecognitionDiagnostic {
 }
 
 export type MathInkRecognitionStatus =
-  "ambiguous" | "recognized" | "unrecognized";
+  | "ambiguous"
+  | "recognized"
+  | "unrecognized";
 
 export interface MathInkRecognitionResult {
   readonly candidates: readonly MathInkRecognitionCandidate[];
@@ -127,12 +137,14 @@ export interface HandwrittenFunctionReadyState extends HandwrittenFunctionCaptur
   readonly kind: "ready";
 }
 
-export interface HandwrittenFunctionRecognizingState extends HandwrittenFunctionCapture {
+export interface HandwrittenFunctionRecognizingState
+  extends HandwrittenFunctionCapture {
   readonly kind: "recognizing";
   readonly recognitionId: string;
 }
 
-export interface HandwrittenFunctionResolvedState extends HandwrittenFunctionCapture {
+export interface HandwrittenFunctionResolvedState
+  extends HandwrittenFunctionCapture {
   readonly kind: "resolved";
   readonly recognitionId: string;
   readonly result: MathInkRecognitionResult;
