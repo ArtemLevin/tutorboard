@@ -98,28 +98,10 @@ jobs:
             --entrypoint python \
             tutorboard-paddle-formula:${GITHUB_SHA} \
             -m pip check
-
-      - name: Collect Paddle wheel metadata paths
-        run: |
           docker run --rm \
-            --entrypoint sh \
+            --entrypoint python \
             tutorboard-paddle-formula:${GITHUB_SHA} \
-            -c '
-              site_packages="$(python -c '\''import sysconfig; print(sysconfig.get_paths()["purelib"])'\'')"
-              find "$site_packages" -type f \
-                \( -iname "*sbom*" -o -iname "*.spdx*" -o -iname "*.cdx*" \) \
-                -print 2>/dev/null
-              grep -RIlE "msgpack.?1\\.1\\.2|setuptools.?70\\.3\\.0|pkg:pypi/msgpack@1\\.1\\.2|pkg:pypi/setuptools@70\\.3\\.0" \
-                "$site_packages" 2>/dev/null || true
-            ' | sort -u | tee paddle-wheel-metadata-paths.txt
-
-      - name: Upload temporary metadata paths
-        uses: actions/upload-artifact@v4
-        with:
-          name: paddle-wheel-metadata-paths
-          path: paddle-wheel-metadata-paths.txt
-          if-no-files-found: error
-          retention-days: 1
+            -c "import pathlib, pip; bom=pathlib.Path(pip.__file__).parent/'_vendor'/'bom.cdx.json'; assert not bom.exists(), bom"
 
       - name: Validate Compose overlays
         env:
