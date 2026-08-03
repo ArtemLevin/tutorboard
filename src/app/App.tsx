@@ -171,6 +171,10 @@ const environment = readEnvironment();
 const localActorId = actorId("actor:local-teacher");
 const navigationToolId = "navigation.pan" as const;
 const laserToolId = "presentation.laser" as const;
+const laserTrailFadeDurationMs = 900;
+const laserTrailFrameMs = 40;
+const laserTrailMaximumPoints = 96;
+const laserTrailMinimumDistance = 1.5;
 type ActiveToolId =
   | typeof navigationToolId
   | typeof laserToolId
@@ -178,6 +182,21 @@ type ActiveToolId =
   | SelectionToolId
   | DrawingToolId;
 const initialDrawingState: DrawingInteractionState = { kind: "idle" };
+
+function appendLaserTrailPoint(
+  points: readonly Vec2[],
+  point: Vec2,
+): readonly Vec2[] {
+  const previous = points.at(-1);
+  if (
+    previous !== undefined &&
+    Math.hypot(point.x - previous.x, point.y - previous.y) <
+      laserTrailMinimumDistance
+  ) {
+    return points;
+  }
+  return [...points.slice(-(laserTrailMaximumPoints - 1)), point];
+}
 
 function handwrittenSessionDiagnosticMessage(
   code: HandwrittenFunctionSessionDiagnosticCode,
@@ -352,6 +371,9 @@ export function App({
   const [textDraft, setTextDraft] = useState("Новый текст");
   const [polygonSides, setPolygonSides] = useState(5);
   const [laserPoint, setLaserPoint] = useState<Vec2 | null>(null);
+  const [laserTrailOpacity, setLaserTrailOpacity] = useState(0);
+  const [laserTrailPoints, setLaserTrailPoints] = useState<readonly Vec2[]>([]);
+  const laserTrailFadeTimerRef = useRef<number | null>(null);
   const { styleFor, updateStyle } = useDrawingToolPreferences();
   const [imageDiagnostic, setImageDiagnostic] = useState<string | null>(null);
   const [clipboard, setClipboard] = useState<BoardClipboardPayload | null>(
@@ -377,6 +399,34 @@ export function App({
   const { commandError, history } = boardState;
   const document = history.present;
   const documentRef = useRef(document);
+
+  const stopLaserTrailFade = useCallback(() => {
+    if (laserTrailFadeTimerRef.current === null) return;
+    window.clearInterval(laserTrailFadeTimerRef.current);
+    laserTrailFadeTimerRef.current = null;
+  }, []);
+
+  const clearLaserTrail = useCallback(() => {
+    stopLaserTrailFade();
+    setLaserTrailOpacity(0);
+    setLaserTrailPoints([]);
+  }, [stopLaserTrailFade]);
+
+  const fadeLaserTrail = useCallback(() => {
+    stopLaserTrailFade();
+    const startedAtMs = performance.now();
+    setLaserTrailOpacity(1);
+    laserTrailFadeTimerRef.current = window.setInterval(() => {
+      const elapsedMs = performance.now() - startedAtMs;
+      const opacity = Math.max(0, 1 - elapsedMs / laserTrailFadeDurationMs);
+      setLaserTrailOpacity(opacity);
+      if (opacity > 0) return;
+      stopLaserTrailFade();
+      setLaserTrailPoints([]);
+    }, laserTrailFrameMs);
+  }, [stopLaserTrailFade]);
+
+  useEffect(() => stopLaserTrailFade, [stopLaserTrailFade]);
   useEffect(() => {
     documentRef.current = document;
   }, [document]);
@@ -1303,10 +1353,18 @@ export function App({
       selectionStateRef.current = selectionResult.state;
       setSelectionState(selectionResult.state);
       setSelectionInspectorObjectId(null);
-      if (tool !== laserToolId) setLaserPoint(null);
+      if (tool !== laserToolId) {
+        setLaserPoint(null);
+        clearLaserTrail();
+      }
       setActiveTool(tool);
     },
-    [activeTool, applyDrawingAction, preserveHandwrittenFunctionInk],
+    [
+      activeTool,
+      applyDrawingAction,
+      clearLaserTrail,
+      preserveHandwrittenFunctionInk,
+    ],
   );
 
   const beginCoordinatePlotEditing = useCallback(
@@ -2039,7 +2097,10 @@ export function App({
   const startDrawing = useCallback(
     (sample: WorldPointerSample) => {
       if (activeTool === laserToolId) {
+        stopLaserTrailFade();
         setLaserPoint(sample.point);
+        setLaserTrailOpacity(1);
+        setLaserTrailPoints([sample.point]);
         return;
       }
       if (activeTool === handwrittenFunctionToolId) {
@@ -2068,6 +2129,7 @@ export function App({
       applyDrawingAction,
       polygonSides,
       startHandwrittenFunctionStroke,
+      stopLaserTrailFade,
       styleFor,
       textDraft,
     ],
@@ -2077,6 +2139,9 @@ export function App({
     (sample: WorldPointerSample) => {
       if (activeTool === laserToolId) {
         setLaserPoint(sample.point);
+        setLaserTrailPoints((points) =>
+          appendLaserTrailPoint(points, sample.point),
+        );
         return;
       }
       if (activeTool === handwrittenFunctionToolId) {
@@ -2095,7 +2160,11 @@ export function App({
   const finishDrawing = useCallback(
     (sample: WorldPointerSample) => {
       if (activeTool === laserToolId) {
+        setLaserTrailPoints((points) =>
+          appendLaserTrailPoint(points, sample.point),
+        );
         setLaserPoint(null);
+        fadeLaserTrail();
         return;
       }
       if (activeTool === handwrittenFunctionToolId) {
@@ -2111,13 +2180,19 @@ export function App({
         activeTool === "drawing.smart-ink",
       );
     },
-    [activeTool, applyDrawingAction, finishHandwrittenFunctionStroke],
+    [
+      activeTool,
+      applyDrawingAction,
+      fadeLaserTrail,
+      finishHandwrittenFunctionStroke,
+    ],
   );
 
   const cancelDrawing = useCallback(
     (pointerId: number) => {
       if (activeTool === laserToolId) {
         setLaserPoint(null);
+        clearLaserTrail();
         return;
       }
       if (activeTool === handwrittenFunctionToolId) {
@@ -2126,7 +2201,12 @@ export function App({
       }
       applyDrawingAction({ kind: "cancel", pointerId });
     },
-    [activeTool, applyDrawingAction, cancelHandwrittenFunctionStroke],
+    [
+      activeTool,
+      applyDrawingAction,
+      cancelHandwrittenFunctionStroke,
+      clearLaserTrail,
+    ],
   );
 
   const applySelectionAction = useCallback(
@@ -2478,6 +2558,8 @@ export function App({
           }
           laserActive={activeTool === laserToolId}
           laserPoint={laserPoint}
+          laserTrailOpacity={laserTrailOpacity}
+          laserTrailPoints={laserTrailPoints}
           onWorldPointerCancel={cancelDrawing}
           onWorldPointerFinish={finishDrawing}
           onWorldPointerMove={moveDrawing}
