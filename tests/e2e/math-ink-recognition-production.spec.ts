@@ -74,7 +74,9 @@ for (const provider of providers) {
 
     await page.goto("/#/settings");
     await expect(
-      page.getByRole("heading", { name: "Распознавание математических формул" }),
+      page.getByRole("heading", {
+        name: "Распознавание математических формул",
+      }),
     ).toBeVisible();
     await page.getByRole("radio", { name: provider.label }).click();
     await page.getByRole("link", { name: "Доска" }).click();
