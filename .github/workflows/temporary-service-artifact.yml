@@ -1,0 +1,22 @@
+name: Temporary gateway service artifact
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/temporary-service-artifact.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gateway-service-source
+          path: services/math-ink-proxy/service.mjs
+          if-no-files-found: error
+          retention-days: 1
