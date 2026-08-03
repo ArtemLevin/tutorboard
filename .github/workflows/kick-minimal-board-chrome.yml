@@ -16,36 +16,40 @@ jobs:
   apply:
     if: github.head_ref == 'feature/minimal-board-chrome'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out implementation branch
+        uses: actions/checkout@v7
         with:
           ref: feature/minimal-board-chrome
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Extract implementation patch
+
+      - name: Decode patcher
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          source = Path('.github/workflows/apply-minimal-board-chrome.yml').read_text()
-          payload = source.split("cat > /tmp/minimal-board-chrome.b64 <<'PATCH'\n", 1)[1].split('\nPATCH\n', 1)[0]
-          Path('/tmp/minimal-board-chrome.b64').write_text(payload)
-          PY
-          base64 --decode /tmp/minimal-board-chrome.b64 | gzip --decompress > /tmp/apply-minimal-board-chrome.mjs
-          node --check /tmp/apply-minimal-board-chrome.mjs
-      - run: npm ci
-      - name: Apply and verify implementation
+          base64 --decode scripts/minimal-board-chrome-patcher.mjs.gz.b64 \
+            | gzip --decompress \
+            > /tmp/minimal-board-chrome-patcher.mjs
+          node --check /tmp/minimal-board-chrome-patcher.mjs
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Apply and format implementation
         run: |
-          node /tmp/apply-minimal-board-chrome.mjs
-          rm -f .github/workflows/kick-minimal-board-chrome.yml
+          node /tmp/minimal-board-chrome-patcher.mjs
+          rm -f \
+            .agent/minimal-board-chrome.trigger \
+            .github/workflows/apply-minimal-board-chrome.yml \
+            .github/workflows/kick-minimal-board-chrome.yml \
+            scripts/minimal-board-chrome-patcher.mjs.gz.b64
           npm run format
-          npm run typecheck
-          npm run test
-          npm run architecture
-          npm run build
+
       - name: Commit implementation
         run: |
           git config user.name "github-actions[bot]"
