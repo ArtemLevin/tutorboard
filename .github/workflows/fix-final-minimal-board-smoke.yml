@@ -33,6 +33,7 @@ jobs:
       - name: Commit final smoke fixes
         run: |
           rm -f \
+            .agent/fix-final-minimal-board-smoke.trigger \
             .github/workflows/fix-final-minimal-board-smoke.yml \
             scripts/fix-final-minimal-board-smoke.py
           git config user.name "github-actions[bot]"
