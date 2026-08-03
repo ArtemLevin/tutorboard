@@ -1,0 +1,41 @@
+name: Fix minimal board unit regressions
+
+on:
+  push:
+    branches:
+      - feature/minimal-board-chrome
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-minimal-board-unit-regressions
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/minimal-board-chrome
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: python scripts/fix-minimal-board-unit-regressions.py
+      - run: npm ci
+      - run: npm run format
+      - run: npx vitest run src/app/App.test.tsx
+      - name: Commit fixes
+        run: |
+          rm -f \
+            .github/workflows/fix-minimal-board-unit-regressions.yml \
+            scripts/fix-minimal-board-unit-regressions.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: align minimal board interaction contracts"
+          git push origin HEAD:feature/minimal-board-chrome
