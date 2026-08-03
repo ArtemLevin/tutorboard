@@ -86,6 +86,10 @@ test("selects objects with a marquee and cancels a later preview with Escape", a
   await page.keyboard.press("Escape");
   await page.mouse.up();
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
+  await expect(
+    page.getByRole("button", { name: "Перемещение (H)" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Выделение (V)" }).click();
 
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
@@ -119,7 +123,7 @@ test("scales and rotates a selected figure with undo support", async ({
   );
 });
 
-test("selects a figure contour directly from another tool", async ({
+test("uses the explicit selection tool for an existing figure", async ({
   page,
 }) => {
   await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
@@ -127,13 +131,11 @@ test("selects a figure contour directly from another tool", async ({
     page.getByRole("button", { name: "Прямоугольник (R)" }),
   ).toHaveAttribute("aria-pressed", "true");
 
-  const contour = await stagePoint(page, 350, 160);
-  await page.mouse.click(contour.x, contour.y);
-  await expect(
-    page.getByRole("button", { name: "Выделение (V)" }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Выделение (V)" }).click();
+  const rectangle = await stagePoint(page, 350, 210);
+  await page.mouse.click(rectangle.x, rectangle.y);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
-  await rightDoubleClickAt(page, await stagePoint(page, 350, 210));
+  await rightDoubleClickAt(page, rectangle);
   await expect(
     page.getByRole("button", { name: "Увеличить выделение на 10%" }),
   ).toBeVisible();

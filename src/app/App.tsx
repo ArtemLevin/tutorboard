@@ -1783,6 +1783,7 @@ export function App({
         });
         selectionStateRef.current = result.state;
         setSelectionState(result.state);
+        activateTool(navigationToolId);
         return;
       }
       if (
