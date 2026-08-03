@@ -310,7 +310,6 @@ export function BoardStage({
   const selectionSessionRef = useRef<SelectionSession | null>(null);
   const wheelSessionRef = useRef<WheelSession | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
-  const rightDragOccurredRef = useRef(false);
   const canvasContextMenuRequestRef = useRef(onCanvasContextMenuRequest);
   const panModeRequestRef = useRef(onPanModeRequest);
   const worldPointerCallbacksRef = useRef({
@@ -671,7 +670,6 @@ export function BoardStage({
           return;
         }
         session.activated = true;
-        rightDragOccurredRef.current = true;
         rightClickCandidateRef.current = null;
         panModeRequestRef.current?.();
       }
@@ -902,9 +900,6 @@ export function BoardStage({
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
     const isRightButton = event.evt.button === 2;
-    if (isRightButton) {
-      rightDragOccurredRef.current = false;
-    }
     const isLassoAreaModifier =
       selectionModeKey === "selection.lasso" &&
       (event.evt.shiftKey || event.evt.altKey);
@@ -1079,30 +1074,6 @@ export function BoardStage({
     }
   };
 
-  const handleContextMenu = (event: Konva.KonvaEventObject<MouseEvent>) => {
-    event.evt.preventDefault();
-    if (rightDragOccurredRef.current) {
-      rightDragOccurredRef.current = false;
-      return;
-    }
-    if (
-      onCanvasContextMenuRequest === undefined ||
-      isTransformerTarget(event.target) ||
-      objectIdFromTarget(event.target) !== null
-    ) {
-      return;
-    }
-    const stage = event.target.getStage();
-    const pointer = stage?.getPointerPosition();
-    if (pointer === null || pointer === undefined) {
-      return;
-    }
-    onCanvasContextMenuRequest({
-      clientPoint: clientPoint(event.evt),
-      worldPoint: screenToWorld(pointer, previewViewport),
-    });
-  };
-
   const cursor =
     isPanning || isTransforming
       ? "grabbing"
@@ -1148,7 +1119,7 @@ export function BoardStage({
       <Stage
         ref={stageRef}
         height={size.height}
-        onContextMenu={handleContextMenu}
+        onContextMenu={(event) => event.evt.preventDefault()}
         onPointerDown={handlePointerDown}
         onWheel={handleWheel}
         width={size.width}
