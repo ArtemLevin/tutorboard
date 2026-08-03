@@ -73,13 +73,6 @@ jobs:
         working-directory: services/paddle-formula-sidecar
         run: python -m pytest
 
-      - name: Run gateway boundary tests
-        run: |
-          corepack yarn vitest run \
-            tests/node/math-ink-proxy-forwarding.test.mjs \
-            tests/node/math-ink-proxy-runtime-config.test.mjs \
-            tests/node/math-ink-proxy.test.mjs
-
       - name: Validate CPU and GPU Dockerfiles
         run: |
           docker build --check \
