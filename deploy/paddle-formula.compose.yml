@@ -1,0 +1,49 @@
+services:
+  math-ink-proxy:
+    depends_on:
+      paddle-formula:
+        condition: service_healthy
+    environment:
+      FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM: "true"
+      PADDLE_OCR_API_TOKEN: ${PADDLE_FORMULA_API_TOKEN:?set PADDLE_FORMULA_API_TOKEN}
+      PADDLE_OCR_API_URL: http://paddle-formula:8080/v1/recognize
+
+  paddle-formula:
+    build:
+      context: ..
+      dockerfile: services/paddle-formula-sidecar/Dockerfile.cpu
+    environment:
+      PADDLE_FORMULA_API_TOKEN: ${PADDLE_FORMULA_API_TOKEN:?set PADDLE_FORMULA_API_TOKEN}
+      PADDLE_FORMULA_CPU_THREADS: ${PADDLE_FORMULA_CPU_THREADS:-8}
+      PADDLE_FORMULA_DEVICE: cpu
+      PADDLE_FORMULA_ENABLE_HPI: ${PADDLE_FORMULA_ENABLE_HPI:-false}
+      PADDLE_FORMULA_ENABLE_MKLDNN: ${PADDLE_FORMULA_ENABLE_MKLDNN:-true}
+      PADDLE_FORMULA_ENGINE: paddle_static
+      PADDLE_FORMULA_MODEL: ${PADDLE_FORMULA_MODEL:-PP-FormulaNet-S}
+      PADDLE_PDX_MODEL_SOURCE: ${PADDLE_PDX_MODEL_SOURCE:-BOS}
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    shm_size: 1gb
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    volumes:
+      - paddle-formula-cache:/home/app/.cache
+      - paddle-formula-models:/home/app/.paddlex
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/readyz', timeout=3)
+      interval: 30s
+      timeout: 5s
+      start_period: 240s
+      retries: 5
+
+volumes:
+  paddle-formula-cache:
+  paddle-formula-models:
