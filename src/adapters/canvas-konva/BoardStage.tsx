@@ -120,6 +120,11 @@ export interface BoardObjectTransformSnapshot {
   readonly scale: Vec2;
 }
 
+export interface CanvasContextMenuRequest {
+  readonly clientPoint: Vec2;
+  readonly worldPoint: Vec2;
+}
+
 export interface BoardStageProps {
   readonly coordinatePlotInteraction?:
     CoordinatePlotRenderInteraction | undefined;
@@ -128,6 +133,8 @@ export interface BoardStageProps {
   readonly laserPoint?: Vec2 | null;
   readonly laserTrailOpacity?: number;
   readonly laserTrailPoints?: readonly Vec2[];
+  readonly onCanvasContextMenuRequest?:
+    ((request: CanvasContextMenuRequest) => void) | undefined;
   readonly onObjectSettingsRequest?:
     ((objectId: BoardObjectId) => void) | undefined;
   readonly onPanModeRequest?: () => void;
@@ -262,6 +269,7 @@ export function BoardStage({
   laserPoint = null,
   laserTrailOpacity = 1,
   laserTrailPoints = [],
+  onCanvasContextMenuRequest,
   onObjectSettingsRequest,
   onPanModeRequest,
   onViewportCommit,
@@ -296,6 +304,7 @@ export function BoardStage({
   const selectionSessionRef = useRef<SelectionSession | null>(null);
   const wheelSessionRef = useRef<WheelSession | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
+  const rightDragOccurredRef = useRef(false);
   const panModeRequestRef = useRef(onPanModeRequest);
   const worldPointerCallbacksRef = useRef({
     cancel: onWorldPointerCancel,
@@ -645,6 +654,7 @@ export function BoardStage({
           return;
         }
         session.activated = true;
+        rightDragOccurredRef.current = true;
         rightClickCandidateRef.current = null;
         panModeRequestRef.current?.();
       }
@@ -848,7 +858,10 @@ export function BoardStage({
       x: event.clientX - bounds.left,
       y: event.clientY - bounds.top,
     });
-    if (hit !== null && objectIdFromTarget(hit) !== null) {
+    if (
+      hit !== null &&
+      (isTransformerTarget(hit) || objectIdFromTarget(hit) !== null)
+    ) {
       return;
     }
     commitWheel();
@@ -858,6 +871,9 @@ export function BoardStage({
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
     const isRightButton = event.evt.button === 2;
+    if (isRightButton) {
+      rightDragOccurredRef.current = false;
+    }
     const isLassoAreaModifier =
       selectionModeKey === "selection.lasso" &&
       (event.evt.shiftKey || event.evt.altKey);
@@ -1028,6 +1044,30 @@ export function BoardStage({
     }
   };
 
+  const handleContextMenu = (event: Konva.KonvaEventObject<MouseEvent>) => {
+    event.evt.preventDefault();
+    if (rightDragOccurredRef.current) {
+      rightDragOccurredRef.current = false;
+      return;
+    }
+    if (
+      onCanvasContextMenuRequest === undefined ||
+      isTransformerTarget(event.target) ||
+      objectIdFromTarget(event.target) !== null
+    ) {
+      return;
+    }
+    const stage = event.target.getStage();
+    const pointer = stage?.getPointerPosition();
+    if (pointer === null || pointer === undefined) {
+      return;
+    }
+    onCanvasContextMenuRequest({
+      clientPoint: clientPoint(event.evt),
+      worldPoint: screenToWorld(pointer, previewViewport),
+    });
+  };
+
   const cursor =
     isPanning || isTransforming
       ? "grabbing"
@@ -1073,7 +1113,7 @@ export function BoardStage({
       <Stage
         ref={stageRef}
         height={size.height}
-        onContextMenu={(event) => event.evt.preventDefault()}
+        onContextMenu={handleContextMenu}
         onPointerDown={handlePointerDown}
         onWheel={handleWheel}
         width={size.width}
