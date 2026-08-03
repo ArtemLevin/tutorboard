@@ -1,4 +1,7 @@
-import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction.js";
+import {
+  createCoordinatePlot,
+  openCoordinatePlotEditorByRightDoubleClick,
+} from "./coordinate-plot-interaction.js";
 
 import { expect, test } from "@playwright/test";
 
@@ -10,7 +13,7 @@ test("protects a dirty plot draft and restores focus after discard", async ({
   const workspace = page.getByRole("region", {
     name: "Рабочая область доски",
   });
-  await page.keyboard.press("g");
+  await createCoordinatePlot(page);
   await openCoordinatePlotEditorByRightDoubleClick(page);
 
   const editor = page.getByTestId("coordinate-plot-editor");
@@ -46,7 +49,7 @@ test("saves a plot with Ctrl+Enter and closes cleanly with Escape", async ({
   const workspace = page.getByRole("region", {
     name: "Рабочая область доски",
   });
-  await page.keyboard.press("g");
+  await createCoordinatePlot(page);
   await openCoordinatePlotEditorByRightDoubleClick(page);
 
   const editor = page.getByTestId("coordinate-plot-editor");
@@ -69,7 +72,7 @@ test("exposes formula diagnostics through ARIA relationships", async ({
 }) => {
   await page.goto("/");
 
-  await page.keyboard.press("g");
+  await createCoordinatePlot(page);
   await openCoordinatePlotEditorByRightDoubleClick(page);
   const formula = page.getByLabel("Формула явной функции");
   await formula.fill("q*x");

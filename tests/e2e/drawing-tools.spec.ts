@@ -84,7 +84,8 @@ test("creates pen and text objects through their tools", async ({ page }) => {
   await page.mouse.up();
   await expect(count).toHaveText("1 объекта");
 
-  await page.getByRole("button", { name: "Текст (T)" }).click();
+  await page.getByRole("button", { name: "Рисование" }).click();
+  await page.getByRole("menuitem", { name: "Текст (T)" }).click();
   await page
     .getByRole("textbox", { name: "Содержимое текста" })
     .fill("Угол ABC");

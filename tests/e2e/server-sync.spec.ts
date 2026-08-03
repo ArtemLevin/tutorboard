@@ -166,10 +166,20 @@ test("keeps a local command offline, reconnects, and restores the confirmed revi
 });
 
 test("copies a stable lesson-bound link for collaborators", async ({
-  context,
   page,
 }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.addInitScript(() => {
+    const state = window as typeof window & { __copiedBoardLink?: string };
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: (value: string) => {
+          state.__copiedBoardLink = value;
+          return Promise.resolve();
+        },
+      },
+    });
+  });
   await installBoardApi(page);
   await page.goto(
     `/?lessonId=${encodeURIComponent(lessonId)}&documentId=${encodeURIComponent(documentId)}#/board`,
@@ -183,7 +193,13 @@ test("copies a stable lesson-bound link for collaborators", async ({
     .getByRole("button", { name: "Копировать ссылку на доску" })
     .click();
   await expect(page.getByText("Ссылка на доску скопирована.")).toBeVisible();
-  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  const copied = await page.evaluate(
+    () =>
+      (window as typeof window & { __copiedBoardLink?: string })
+        .__copiedBoardLink,
+  );
+  expect(copied).toBeTruthy();
+  if (copied === undefined) throw new Error("Expected copied board link");
   const url = new URL(copied);
   expect(url.searchParams.get("lessonId")).toBe(lessonId);
   expect(url.searchParams.get("documentId")).toBe(documentId);

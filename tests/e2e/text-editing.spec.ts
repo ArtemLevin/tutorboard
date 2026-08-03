@@ -3,13 +3,16 @@ import { rightDoubleClickAt } from "./coordinate-plot-interaction.js";
 
 test("edits text as one committed history item", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Текст (T)" }).click();
+  await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.getByRole("button", { name: "Рисование" }).click();
+  await page.getByRole("menuitem", { name: "Текст (T)" }).click();
   await page.getByRole("textbox", { name: "Содержимое текста" }).fill("Before");
   const bounds = await page.getByTestId("board-stage").boundingBox();
   expect(bounds).not.toBeNull();
   if (bounds === null) throw new Error("Canvas has no bounds.");
   await page.mouse.click(bounds.x + 320, bounds.y + 240);
-  await page.keyboard.press("v");
+  await page.getByRole("button", { name: "Выделение" }).click();
+  await page.getByRole("menuitem", { name: "Выделение (V)" }).click();
   const textPoint = { x: bounds.x + 330, y: bounds.y + 250 };
   await page.mouse.click(textPoint.x, textPoint.y);
   await rightDoubleClickAt(page, textPoint);

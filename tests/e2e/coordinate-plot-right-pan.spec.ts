@@ -1,4 +1,7 @@
-import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction.js";
+import {
+  createCoordinatePlot,
+  openCoordinatePlotEditorByRightDoubleClick,
+} from "./coordinate-plot-interaction.js";
 
 import { readFile } from "node:fs/promises";
 
@@ -72,7 +75,7 @@ test("right-button drag pans a closed graph as one history item while the board 
   page,
 }) => {
   await page.goto("/");
-  await page.keyboard.press("g");
+  await createCoordinatePlot(page);
   await expect(
     page.getByRole("complementary", {
       name: "Редактор координатной плоскости",
@@ -112,8 +115,9 @@ test("single right click keeps the active tool and double click opens graph sett
   page,
 }) => {
   await page.goto("/");
-  await page.keyboard.press("g");
-  await page.keyboard.press("r");
+  await createCoordinatePlot(page);
+  await page.getByRole("button", { name: "Фигуры" }).click();
+  await page.getByRole("menuitem", { name: "Прямоугольник (R)" }).click();
   const document = await exportDocument(page);
   const stageBox = await page.getByTestId("board-stage").boundingBox();
   if (stageBox === null) throw new Error("Expected board stage bounds");
