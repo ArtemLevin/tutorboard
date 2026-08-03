@@ -34,3 +34,10 @@ board settings sheet instead of consuming permanent vertical space.
 - Tool preferences remain local to one browser installation.
 - Existing command and persistence boundaries stay intact.
 - Visual and browser tests must target the dock and settings sheet contracts.
+
+## Release contract
+
+The release gate verifies that the board route has one permanent toolbar, that
+the settings gear is its rightmost action, and that local and synchronized
+workspaces preserve drawing, selection, plotting, recognition, recovery and
+evidence workflows across Chromium and Firefox.
