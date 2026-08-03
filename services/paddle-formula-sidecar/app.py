@@ -426,9 +426,7 @@ async def _run_inference_serialized(
     image: Image.Image,
 ) -> str:
     async with lock:
-        inference = asyncio.create_task(
-            asyncio.to_thread(_run_inference, model, image)
-        )
+        inference = asyncio.create_task(asyncio.to_thread(_run_inference, model, image))
         cancellation: asyncio.CancelledError | None = None
         while not inference.done():
             try:
