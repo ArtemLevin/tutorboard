@@ -26,12 +26,17 @@ WORKDIR /app
 
 COPY services/paddle-formula-sidecar/requirements-api.txt ./requirements-api.txt
 COPY services/paddle-formula-sidecar/requirements.txt ./requirements.txt
+COPY services/paddle-formula-sidecar/requirements-security.txt ./requirements-security.txt
 
 RUN python3 -m pip install --upgrade pip \
     && python3 -m pip install \
       paddlepaddle-gpu==3.3.0 \
       --index-url https://www.paddlepaddle.org.cn/packages/stable/cu118/ \
-    && python3 -m pip install --requirement requirements.txt
+    && python3 -m pip install --requirement requirements.txt \
+    && python3 -m pip install \
+      --upgrade \
+      --requirement requirements-security.txt \
+    && python3 -m pip check
 
 RUN useradd \
       --create-home \
