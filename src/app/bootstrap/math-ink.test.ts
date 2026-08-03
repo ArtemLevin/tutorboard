@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AppEnvironment } from "../configuration/environment";
-import { createConfiguredMathInkRecognizer } from "./math-ink";
+import { createConfiguredMathInkRecognizers } from "./math-ink";
 
 function environment(
   features: Partial<AppEnvironment["features"]> = {},
@@ -20,28 +20,36 @@ function environment(
       ...features,
     },
     geometryOsBaseUrl: "https://geometry.example.test",
-    mathInkApiBaseUrl: "/api/v1/math-ink",
+    mathInkApiBaseUrl: "/api/v1/formula-recognition",
     stage: "test",
   };
 }
 
-describe("math ink bootstrap composition", () => {
+describe("formula recognition bootstrap composition", () => {
   it("keeps automatic recognition opt-in", () => {
-    expect(createConfiguredMathInkRecognizer(environment())).toBeUndefined();
+    expect(createConfiguredMathInkRecognizers(environment())).toEqual({});
     expect(
-      createConfiguredMathInkRecognizer(
+      createConfiguredMathInkRecognizers(
         environment({ handwrittenFunctions: false, mathInkRecognition: true }),
       ),
-    ).toBeUndefined();
+    ).toEqual({});
   });
 
-  it("creates the same-origin HTTP recognizer when both flags are enabled", () => {
-    const recognizer = createConfiguredMathInkRecognizer(
+  it("creates one same-origin recognizer for every supported provider", () => {
+    const recognizers = createConfiguredMathInkRecognizers(
       environment({ mathInkRecognition: true }),
     );
-    expect(recognizer).toMatchObject({
-      id: "mathpix.strokes.via-tutorboard-proxy",
-      version: "1.0",
+    expect(recognizers.paddleocr).toMatchObject({
+      id: "paddleocr.via-tutorboard-gateway",
+      version: "2.0",
+    });
+    expect(recognizers["local-ocr-llm"]).toMatchObject({
+      id: "local-ocr-llm.via-tutorboard-gateway",
+      version: "2.0",
+    });
+    expect(recognizers["yandex-ai-studio"]).toMatchObject({
+      id: "yandex-ai-studio.via-tutorboard-gateway",
+      version: "2.0",
     });
   });
 });
