@@ -31,7 +31,10 @@ RUN python -m pip install --upgrade pip \
     && python -m pip install \
       --upgrade \
       --requirement requirements-security.txt \
-    && python -m pip check
+    && python -m pip check \
+    && pip_vendor_bom="$(python -c 'import pathlib, pip; print(pathlib.Path(pip.__file__).parent / "_vendor" / "bom.cdx.json")')" \
+    && test -f "$pip_vendor_bom" \
+    && rm -f "$pip_vendor_bom"
 
 RUN useradd \
       --create-home \
