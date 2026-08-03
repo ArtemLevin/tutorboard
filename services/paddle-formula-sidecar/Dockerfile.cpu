@@ -1,0 +1,50 @@
+FROM python:3.11.14-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    HOME=/home/app \
+    PADDLE_FORMULA_DEVICE=cpu \
+    PADDLE_FORMULA_ENGINE=paddle_static \
+    PADDLE_FORMULA_MODEL=PP-FormulaNet-S \
+    PADDLE_PDX_MODEL_SOURCE=BOS \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+      ca-certificates \
+      libgl1 \
+      libglib2.0-0 \
+      libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY services/paddle-formula-sidecar/requirements-api.txt ./requirements-api.txt
+COPY services/paddle-formula-sidecar/requirements.txt ./requirements.txt
+
+RUN python -m pip install --upgrade pip \
+    && python -m pip install \
+      paddlepaddle==3.3.0 \
+      --index-url https://www.paddlepaddle.org.cn/packages/stable/cpu/ \
+    && python -m pip install --requirement requirements.txt
+
+RUN useradd \
+      --create-home \
+      --home-dir /home/app \
+      --shell /usr/sbin/nologin \
+      --uid 10001 \
+      app \
+    && mkdir -p /home/app/.cache /home/app/.paddlex \
+    && chown -R app:app /home/app
+
+COPY --chown=app:app services/paddle-formula-sidecar/app.py ./app.py
+
+USER 10001:10001
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=5 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)" || exit 1
+
+CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1", "--no-access-log", "--limit-concurrency", "8", "--timeout-keep-alive", "5"]
