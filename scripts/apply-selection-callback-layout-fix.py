@@ -14,10 +14,12 @@ blocks = [
     """  useEffect(() => {\n    worldPointerCallbacksRef.current = {\n      cancel: onWorldPointerCancel,\n      finish: onWorldPointerFinish,\n      move: onWorldPointerMove,\n      start: onWorldPointerStart,\n    };\n  }, [\n    onWorldPointerCancel,\n    onWorldPointerFinish,\n    onWorldPointerMove,\n    onWorldPointerStart,\n  ]);\n""",
     """  useEffect(() => {\n    selectionPointerCallbacksRef.current = {\n      cancel: onSelectionPointerCancel,\n      finish: onSelectionPointerFinish,\n      move: onSelectionPointerMove,\n      start: onSelectionPointerStart,\n    };\n  }, [\n    onSelectionPointerCancel,\n    onSelectionPointerFinish,\n    onSelectionPointerMove,\n    onSelectionPointerStart,\n  ]);\n""",
     """  useEffect(() => {\n    worldPointerHoverRef.current = onWorldPointerHover;\n  }, [onWorldPointerHover]);\n""",
+    """  useEffect(() => {\n    if (drawingSessionRef.current !== null) {\n      finishDrawing(false);\n    }\n  }, [drawingModeKey, finishDrawing]);\n""",
+    """  useEffect(() => {\n    if (selectionSessionRef.current !== null) {\n      finishSelection(false);\n    }\n  }, [finishSelection, selectionModeKey]);\n""",
 ]
 for block in blocks:
     if source.count(block) != 1:
-        raise SystemExit(f"Expected callback-ref block once: {block.splitlines()[1]}")
+        raise SystemExit(f"Expected layout-sensitive effect once: {block.splitlines()[1]}")
     source = source.replace(block, block.replace("useEffect", "useLayoutEffect", 1), 1)
 
 board_stage.write_text(source, encoding="utf-8")
