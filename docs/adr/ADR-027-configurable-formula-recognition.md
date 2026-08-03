@@ -32,3 +32,7 @@ Provider choice changes immediately for the next recognition operation. Existing
 The gateway may expose several configured providers at once. Each deployment can enable only the providers it operates. Browser bundles contain no provider secrets.
 
 OCR quality and latency differ by deployment hardware and model choice. The settings UI communicates processing location and expected profile without promising a fixed accuracy level.
+
+## Verification boundary
+
+Public release gates use deterministic local endpoints for all three provider contracts. They verify request translation, response normalization, provider selection in Chromium and Firefox, browser secret exclusion, read-only/non-root runtime and strict container scanning. Live cloud or model-quality evaluation remains a protected deployment concern with explicit quota, hardware and billing controls.
