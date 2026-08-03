@@ -1,0 +1,4 @@
+fastapi==0.141.1
+numpy>=1.26,<3
+pillow>=11,<13
+uvicorn[standard]>=0.35,<1
