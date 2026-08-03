@@ -26,7 +26,9 @@ deterministic and independent from browser-local preference storage.
 
 The application shell hides product navigation only for the board route. Other
 routes retain normal navigation. Server-session controls are supplied to the
-board settings sheet instead of consuming permanent vertical space.
+board settings sheet instead of consuming permanent vertical space. Escape
+closes the topmost nested overlay first, then the settings sheet on a subsequent
+press.
 
 ## Consequences
 
