@@ -1,0 +1,141 @@
+.formula-recognition-settings {
+  display: grid;
+  max-width: 980px;
+  gap: 22px;
+  padding: 24px;
+  margin-top: 24px;
+  border: 1px solid #cfdbdf;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.formula-recognition-settings h2 {
+  margin: 6px 0 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.45rem;
+}
+
+.formula-recognition-settings > div > p:last-child,
+.formula-recognition-settings-note {
+  margin: 0;
+  color: #60717a;
+  line-height: 1.55;
+}
+
+.formula-recognition-settings fieldset {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  padding: 0;
+  border: 0;
+}
+
+.formula-recognition-provider {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #ced9dd;
+  border-radius: 15px;
+  background: #fbfcfc;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.formula-recognition-provider:hover {
+  border-color: #8eabb4;
+  transform: translateY(-1px);
+}
+
+.formula-recognition-provider.is-selected {
+  border-color: #2c7182;
+  background: #f3f9fa;
+  box-shadow: 0 0 0 3px rgb(44 113 130 / 12%);
+}
+
+.formula-recognition-provider-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.formula-recognition-provider-heading input {
+  margin-top: 4px;
+  accent-color: #2c7182;
+}
+
+.formula-recognition-provider-heading > span {
+  display: grid;
+  gap: 3px;
+}
+
+.formula-recognition-provider-heading strong {
+  color: #253740;
+  line-height: 1.25;
+}
+
+.formula-recognition-provider-heading small {
+  color: #687983;
+}
+
+.formula-recognition-provider-heading em {
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: #285f50;
+  background: #e6f4ee;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.formula-recognition-provider-description {
+  color: #50636d;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.formula-recognition-provider-meta {
+  display: grid;
+  gap: 6px;
+  color: #6b7c84;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.formula-recognition-provider-status {
+  align-self: end;
+  padding-top: 10px;
+  border-top: 1px solid #e3e9eb;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.formula-recognition-provider-status.is-available {
+  color: #327b57;
+}
+
+.formula-recognition-provider-status.is-unavailable {
+  color: #9b5f32;
+}
+
+.formula-recognition-settings-note {
+  padding-top: 16px;
+  border-top: 1px solid #e3e9eb;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 720px) {
+  .formula-recognition-provider-heading {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .formula-recognition-provider-heading em {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
