@@ -98,6 +98,10 @@ jobs:
             --entrypoint python \
             tutorboard-paddle-formula:${GITHUB_SHA} \
             -m pip check
+          docker run --rm \
+            --entrypoint sh \
+            tutorboard-paddle-formula:${GITHUB_SHA} \
+            -c 'site_packages="$(python -c '\''import sysconfig; print(sysconfig.get_paths()["purelib"])'\'')"; test -z "$(find "$site_packages" -type d -path '\''*/paddlepaddle*.dist-info/sboms'\'' -print -quit)"'
 
       - name: Validate Compose overlays
         env:
@@ -118,38 +122,6 @@ jobs:
             /tmp/paddle-formula-gpu.yml
           grep --fixed-strings 'PADDLE_FORMULA_ENABLE_MKLDNN: "false"' \
             /tmp/paddle-formula-gpu.yml
-
-      - name: Generate Trivy JSON diagnostics
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: tutorboard-paddle-formula:${{ github.sha }}
-          format: json
-          output: trivy-paddle-formula.json
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "0"
-          scanners: vuln
-
-      - name: Print exact vulnerability targets
-        run: |
-          jq -r '
-            .Results[]
-            | select(.Vulnerabilities != null)
-            | .Target as $target
-            | .Class as $class
-            | .Type as $type
-            | .Vulnerabilities[]
-            | [$target, $class, $type, .PkgName, .InstalledVersion, .FixedVersion, .VulnerabilityID]
-            | @tsv
-          ' trivy-paddle-formula.json
-
-      - name: Upload temporary Trivy diagnostics
-        uses: actions/upload-artifact@v4
-        with:
-          name: paddle-formula-trivy-json
-          path: trivy-paddle-formula.json
-          if-no-files-found: error
-          retention-days: 1
 
       - name: Enforce CPU sidecar vulnerability threshold
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
