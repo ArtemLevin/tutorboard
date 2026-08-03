@@ -37,8 +37,8 @@ RUN python3 -m pip install --upgrade pip \
       --upgrade \
       --requirement requirements-security.txt \
     && python3 -m pip check \
-    && python3 -m pip uninstall --yes pip setuptools wheel \
-    && python3 -c "import importlib.util; assert importlib.util.find_spec('pip') is None; assert importlib.util.find_spec('setuptools') is None; assert importlib.util.find_spec('wheel') is None"
+    && python3 -m pip uninstall --yes pip wheel \
+    && python3 -c "from importlib.metadata import version; import importlib.util; assert importlib.util.find_spec('pip') is None; assert importlib.util.find_spec('wheel') is None; assert version('setuptools') == '83.0.0'"
 
 RUN useradd \
       --create-home \
