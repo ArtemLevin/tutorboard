@@ -1,0 +1,43 @@
+name: Finalize selection smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalize-selection-smoke
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.head_ref == 'feature/minimal-board-chrome'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/minimal-board-chrome
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: python scripts/finalize-selection-smoke.py
+      - run: npm ci
+      - run: npm run format
+      - run: npm run typecheck
+      - name: Commit final selection contract
+        run: |
+          rm -f \
+            .agent/finalize-selection-smoke.trigger \
+            .github/workflows/finalize-selection-smoke.yml \
+            scripts/finalize-selection-smoke.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: reset selection mode after Escape"
+          git push origin HEAD:feature/minimal-board-chrome
