@@ -73,7 +73,7 @@ docker compose \
   up --build --detach
 ```
 
-The CPU image installs PaddlePaddle 3.3.0 and PaddleOCR 3.7.0. The default model is
+The CPU image installs PaddlePaddle 3.3.1 and PaddleOCR 3.7.0. The default model is
 `PP-FormulaNet-S` with eight CPU threads and MKL-DNN enabled.
 
 ## GPU deployment
