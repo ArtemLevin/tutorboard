@@ -42,7 +42,8 @@ export const formulaRecognitionProviderDescriptors: readonly FormulaRecognitionP
       id: "local-ocr-llm",
       label: "Локальная OCR-LLM",
       location: "local",
-      privacy: "Изображение отправляется только выбранному локальному endpoint.",
+      privacy:
+        "Изображение отправляется только выбранному локальному endpoint.",
       profile: "Гибкая модель · выше требования к памяти",
       recommended: false,
     },

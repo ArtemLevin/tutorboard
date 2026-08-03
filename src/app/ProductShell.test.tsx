@@ -59,7 +59,7 @@ const environment: AppEnvironment = {
     smartInkDiagnostics: true,
   },
   geometryOsBaseUrl: "https://geometry.example.test",
-  mathInkApiBaseUrl: "/api/v1/math-ink",
+  mathInkApiBaseUrl: "/api/v1/formula-recognition",
   stage: "test",
 };
 

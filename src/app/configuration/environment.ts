@@ -155,7 +155,7 @@ export function readEnvironment(
     geometryOsBaseUrl: geometryOsUrl.href.replace(/\/$/, ""),
     mathInkApiBaseUrl: sameOriginPath(
       "VITE_MATH_INK_API_BASE_URL",
-      mathInkApiBaseUrl ?? "/api/v1/math-ink",
+      mathInkApiBaseUrl ?? "/api/v1/formula-recognition",
     ),
     stage: stage as AppStage,
   };
