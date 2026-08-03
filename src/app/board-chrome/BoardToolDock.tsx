@@ -38,6 +38,13 @@ interface BoardToolDockProps {
   readonly onDeleteSelection: () => void;
   readonly onSelectionLockChange: (locked: boolean) => void;
   readonly onSelectionStyleChange: (patch: Partial<ObjectStyle>) => void;
+  readonly canTransformSelection: boolean;
+  readonly onSelectedTextCommit: (value: string) => void;
+  readonly onTransformSelection: (
+    scaleFactor: number,
+    rotationDelta: number,
+  ) => void;
+  readonly selectedText: string | null;
   readonly settingsOpen: boolean;
   readonly textDraft: string;
   readonly onTextDraftChange: (value: string) => void;
@@ -192,6 +199,46 @@ export function BoardToolDock(props: BoardToolDockProps) {
               </button>
             </div>
           </div>
+          {props.selectedText === null ? null : (
+            <label className="dock-text-control">
+              <span>Текст или формула</span>
+              <textarea
+                aria-label="Редактор выбранного текста"
+                defaultValue={props.selectedText}
+                key={props.selectedText}
+                maxLength={100_000}
+                onBlur={(event) =>
+                  props.onSelectedTextCommit(event.currentTarget.value)
+                }
+                rows={2}
+              />
+            </label>
+          )}
+          {props.canTransformSelection ? (
+            <div className="dock-transform-actions">
+              <button
+                aria-label="Уменьшить выделение на 10%"
+                onClick={() => props.onTransformSelection(0.9, 0)}
+                type="button"
+              >
+                −10%
+              </button>
+              <button
+                aria-label="Увеличить выделение на 10%"
+                onClick={() => props.onTransformSelection(1.1, 0)}
+                type="button"
+              >
+                +10%
+              </button>
+              <button
+                aria-label="Повернуть выделение на 15 градусов"
+                onClick={() => props.onTransformSelection(1, 15)}
+                type="button"
+              >
+                ↻ 15°
+              </button>
+            </div>
+          ) : null}
           <StyleControls
             allowFill
             onChange={props.onSelectionStyleChange}

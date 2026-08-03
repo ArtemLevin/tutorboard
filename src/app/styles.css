@@ -1772,3 +1772,23 @@ textarea:focus-visible,
     transition: none;
   }
 }
+
+.dock-transform-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dock-transform-actions button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #cbd4d8;
+  border-radius: 9px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.dock-text-control textarea {
+  width: min(360px, 70vw);
+  resize: vertical;
+}

@@ -140,7 +140,6 @@ import {
   type HandwrittenFunctionStroke,
   type MathInkRecognizer,
 } from "../modules/handwritten-function/public";
-import { ColorPalette } from "./ColorPalette";
 import { HandwrittenFunctionPanel } from "./HandwrittenFunctionPanel";
 import {
   createHandwrittenFunctionPlotObject,
@@ -158,7 +157,6 @@ import {
   isSupportedEmbeddedImageCandidate,
   prepareEmbeddedImageFile,
 } from "./image-import";
-import { StrokeStylePalette } from "./StrokeStylePalette";
 import { BoardSettingsDialog } from "./board-chrome/BoardSettingsDialog";
 import { BoardToolDock } from "./board-chrome/BoardToolDock";
 import { useDrawingToolPreferences } from "./board-chrome/tool-preferences";
@@ -2561,8 +2559,15 @@ export function App({
           onImageFiles={(files) => void importImageFiles(files)}
           onOpenSettings={() => setSettingsOpen(true)}
           onRedo={redo}
+          canTransformSelection={transformableObjectIds.length > 0}
           onSelectionLockChange={setSelectionLock}
           onSelectionStyleChange={updateSelectionStyle}
+          onSelectedTextCommit={(text) => {
+            if (isEditableTextObject(selectedEditableText)) {
+              updateSelectedText(selectedEditableText.id, text);
+            }
+          }}
+          onTransformSelection={transformSelectionBy}
           onStyleChange={updateStyle}
           onTextDraftChange={setTextDraft}
           onUndo={undo}
@@ -2570,6 +2575,11 @@ export function App({
           selectedCount={selectionState.selectedObjectIds.length}
           selectedLocked={selectedLocked}
           selectedStyle={selectedStyle}
+          selectedText={
+            isEditableTextObject(selectedEditableText)
+              ? selectedEditableText.text
+              : null
+          }
           selectionInspectorOpen={selectionInspectorOpen}
           settingsOpen={settingsOpen}
           textDraft={textDraft}
