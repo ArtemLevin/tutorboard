@@ -4,15 +4,13 @@ on:
   push:
     branches:
       - feature/minimal-board-chrome
-    paths:
-      - .agent/apply-selection-callback-layout-fix.trigger
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.event.head_commit.message == 'chore: trigger selection callback layout fix'
+    if: github.event.head_commit.message == 'chore: run selection callback layout fix'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
