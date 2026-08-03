@@ -2,19 +2,27 @@ import {
   mathInkRecognitionResultSchemaVersion,
   type MathInkRecognitionCandidate,
   type MathInkRecognitionDiagnostic,
+  type MathInkRecognitionProvider,
   type MathInkRecognitionRequest,
   type MathInkRecognitionResult,
   type MathInkRecognizer,
 } from "../../modules/handwritten-function/public";
 import {
+  rasterizeMathInkRequest,
+  type MathInkRasterizer,
+} from "./rasterization";
+import {
+  formulaRecognitionResultSchemaVersion,
   mathInkProblemSchema,
   mathInkProxyResultSchema,
   type MathInkProblemDto,
 } from "./validation";
 
-const defaultTimeoutMs = 15_000;
+const formulaRecognitionRequestSchemaVersion =
+  "tutorboard.formula-recognition-request/1" as const;
+const defaultTimeoutMs = 20_000;
 const defaultMaximumResponseBytes = 256 * 1024;
-const maximumRequestBytes = 256 * 1024;
+const maximumRequestBytes = 1024 * 1024;
 const requestIdHeader = "X-TutorBoard-Request-Id";
 
 type FetchLike = (
@@ -27,6 +35,8 @@ export interface MathInkHttpRecognizerOptions {
   readonly fetch?: FetchLike;
   readonly maximumResponseBytes?: number;
   readonly origin?: string;
+  readonly provider: MathInkRecognitionProvider;
+  readonly rasterize?: MathInkRasterizer;
   readonly timeoutMs?: number;
 }
 
@@ -34,6 +44,8 @@ interface ResolvedOptions {
   readonly endpoint: URL;
   readonly fetch: FetchLike;
   readonly maximumResponseBytes: number;
+  readonly provider: MathInkRecognitionProvider;
+  readonly rasterize: MathInkRasterizer;
   readonly timeoutMs: number;
 }
 
@@ -79,7 +91,7 @@ function runtimeOrigin(configuredOrigin: string | undefined): string {
 function resolveEndpoint(baseUrl: string, origin: string): URL {
   const originUrl = new URL(origin);
   if (originUrl.protocol !== "http:" && originUrl.protocol !== "https:") {
-    throw new TypeError("Math ink origin must use HTTP or HTTPS.");
+    throw new TypeError("Formula recognition origin must use HTTP or HTTPS.");
   }
   const url = new URL(baseUrl, originUrl);
   if (
@@ -90,7 +102,7 @@ function resolveEndpoint(baseUrl: string, origin: string): URL {
     url.hash !== ""
   ) {
     throw new TypeError(
-      "Math ink API base URL must be a same-origin path without credentials.",
+      "Formula recognition API base URL must be a same-origin path without credentials.",
     );
   }
   if (!url.pathname.endsWith("/")) url.pathname += "/";
@@ -102,7 +114,7 @@ function resolveOptions(
 ): ResolvedOptions {
   const configuredFetch = options.fetch;
   if (configuredFetch === undefined && typeof globalThis.fetch !== "function") {
-    throw new Error("Fetch is required by the math ink HTTP adapter.");
+    throw new Error("Fetch is required by the formula recognition adapter.");
   }
   return {
     endpoint: resolveEndpoint(options.baseUrl, runtimeOrigin(options.origin)),
@@ -112,12 +124,14 @@ function resolveOptions(
         : (input, init) => configuredFetch(input, init),
     maximumResponseBytes: positiveInteger(
       options.maximumResponseBytes ?? defaultMaximumResponseBytes,
-      "Math ink response limit",
+      "Formula recognition response limit",
       2 * 1024 * 1024,
     ),
+    provider: options.provider,
+    rasterize: options.rasterize ?? rasterizeMathInkRequest,
     timeoutMs: positiveInteger(
       options.timeoutMs ?? defaultTimeoutMs,
-      "Math ink request timeout",
+      "Formula recognition request timeout",
       60_000,
     ),
   };
@@ -133,7 +147,7 @@ async function readBoundedText(
     if (Number.isFinite(parsed) && parsed > maximumBytes) {
       await response.body?.cancel().catch(() => undefined);
       throw new MathInkHttpError(
-        "math-ink.response-too-large",
+        "formula-recognition.response-too-large",
         "Сервис распознавания вернул слишком большой ответ.",
         false,
         response.status,
@@ -152,7 +166,7 @@ async function readBoundedText(
       if (total > maximumBytes) {
         await reader.cancel().catch(() => undefined);
         throw new MathInkHttpError(
-          "math-ink.response-too-large",
+          "formula-recognition.response-too-large",
           "Сервис распознавания вернул слишком большой ответ.",
           false,
           response.status,
@@ -173,7 +187,7 @@ async function readBoundedText(
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
     throw new MathInkHttpError(
-      "math-ink.invalid-utf8",
+      "formula-recognition.invalid-utf8",
       "Сервис распознавания вернул некорректный текстовый ответ.",
       false,
       response.status,
@@ -186,7 +200,7 @@ function parseJson(text: string, status: number): unknown {
     return JSON.parse(text) as unknown;
   } catch {
     throw new MathInkHttpError(
-      "math-ink.invalid-json",
+      "formula-recognition.invalid-json",
       "Сервис распознавания вернул некорректный JSON.",
       false,
       status,
@@ -200,25 +214,26 @@ function contentType(response: Response): string {
 
 function problemMessage(problem: MathInkProblemDto): string {
   const messages: Record<string, string> = {
-    "math-ink.invalid-request": "Рукописный ввод не прошёл проверку сервиса.",
-    "math-ink.provider-authentication":
-      "Сервис распознавания требует проверки конфигурации.",
-    "math-ink.provider-invalid-response":
+    "formula-recognition.invalid-request":
+      "Рукописный ввод не прошёл проверку сервиса.",
+    "formula-recognition.provider-authentication":
+      "Выбранный провайдер требует проверки серверной конфигурации.",
+    "formula-recognition.provider-invalid-response":
       "Провайдер вернул несовместимый результат распознавания.",
-    "math-ink.provider-rate-limited":
-      "Лимит провайдера временно исчерпан. Повторите распознавание позже.",
-    "math-ink.provider-timeout":
-      "Провайдер не успел обработать рукописную функцию.",
-    "math-ink.provider-unavailable":
-      "Провайдер распознавания временно недоступен.",
-    "math-ink.proxy-busy":
+    "formula-recognition.provider-rate-limited":
+      "Лимит выбранного провайдера временно исчерпан.",
+    "formula-recognition.provider-timeout":
+      "Провайдер не успел обработать рукописную формулу.",
+    "formula-recognition.provider-unavailable":
+      "Выбранный провайдер распознавания временно недоступен.",
+    "formula-recognition.provider-unconfigured":
+      "Выбранный способ распознавания пока не настроен на сервере.",
+    "formula-recognition.gateway-busy":
       "Сервис распознавания занят. Повторите попытку позже.",
-    "math-ink.proxy-unconfigured":
-      "Автоматическое распознавание пока не настроено.",
-    "math-ink.rate-limited":
+    "formula-recognition.rate-limited":
       "Слишком много запросов распознавания. Повторите попытку позже.",
-    "math-ink.request-too-large":
-      "Рукописная функция содержит слишком много данных.",
+    "formula-recognition.request-too-large":
+      "Изображение рукописной формулы получилось слишком большим.",
   };
   return messages[problem.code] ?? problem.detail;
 }
@@ -245,20 +260,58 @@ function diagnosticFromDto(diagnostic: {
   return { ...diagnostic };
 }
 
+function totalPointCount(request: MathInkRecognitionRequest): number {
+  return request.strokes.reduce(
+    (count, stroke) => count + stroke.points.length,
+    0,
+  );
+}
+
+async function createRequestBody(
+  options: ResolvedOptions,
+  request: MathInkRecognitionRequest,
+): Promise<string> {
+  let image;
+  try {
+    image = await options.rasterize(request);
+  } catch (error) {
+    throw new MathInkHttpError(
+      "formula-recognition.rasterization-failed",
+      error instanceof Error
+        ? `Не удалось подготовить изображение формулы: ${error.message}`
+        : "Не удалось подготовить изображение формулы.",
+      false,
+    );
+  }
+  const body = JSON.stringify({
+    image,
+    provider: options.provider,
+    recognitionId: request.recognitionId,
+    schemaVersion: formulaRecognitionRequestSchemaVersion,
+    sessionId: request.sessionId,
+    source: {
+      normalizedHeight: request.normalizedHeight,
+      normalizedWidth: request.normalizedWidth,
+      pointCount: totalPointCount(request),
+      strokeCount: request.strokes.length,
+    },
+  });
+  if (new TextEncoder().encode(body).byteLength > maximumRequestBytes) {
+    throw new MathInkHttpError(
+      "formula-recognition.request-too-large",
+      "Изображение рукописной формулы получилось слишком большим.",
+      false,
+    );
+  }
+  return body;
+}
+
 async function executeRecognition(
   options: ResolvedOptions,
   request: MathInkRecognitionRequest,
   callerSignal: AbortSignal,
 ): Promise<MathInkRecognitionResult> {
-  const body = JSON.stringify(request);
-  if (new TextEncoder().encode(body).byteLength > maximumRequestBytes) {
-    throw new MathInkHttpError(
-      "math-ink.request-too-large",
-      "Рукописная функция содержит слишком много данных.",
-      false,
-    );
-  }
-
+  const body = await createRequestBody(options, request);
   const controller = new AbortController();
   let timedOut = false;
   const abortFromCaller = () => controller.abort(callerSignal.reason);
@@ -288,13 +341,13 @@ async function executeRecognition(
     if (callerSignal.aborted) throw error;
     if (timedOut) {
       throw new MathInkHttpError(
-        "math-ink.timeout",
+        "formula-recognition.timeout",
         "Сервис распознавания не ответил вовремя.",
         true,
       );
     }
     throw new MathInkHttpError(
-      "math-ink.network-failure",
+      "formula-recognition.network-failure",
       "Не удалось подключиться к сервису распознавания.",
       true,
     );
@@ -307,7 +360,7 @@ async function executeRecognition(
   if (response.status !== 200) {
     if (mediaType !== "application/problem+json") {
       throw new MathInkHttpError(
-        "math-ink.wrong-content-type",
+        "formula-recognition.wrong-content-type",
         "Сервис распознавания вернул несовместимую ошибку.",
         response.status >= 500,
         response.status,
@@ -318,7 +371,7 @@ async function executeRecognition(
     );
     if (!parsed.success || parsed.data.status !== response.status) {
       throw new MathInkHttpError(
-        "math-ink.problem-schema-mismatch",
+        "formula-recognition.problem-schema-mismatch",
         "Сервис распознавания вернул несовместимую ошибку.",
         response.status >= 500,
         response.status,
@@ -333,16 +386,21 @@ async function executeRecognition(
   }
   if (mediaType !== "application/json") {
     throw new MathInkHttpError(
-      "math-ink.wrong-content-type",
+      "formula-recognition.wrong-content-type",
       "Сервис распознавания вернул несовместимый ответ.",
       false,
       response.status,
     );
   }
   const parsed = mathInkProxyResultSchema.safeParse(parseJson(text, 200));
-  if (!parsed.success || parsed.data.requestId !== request.recognitionId) {
+  if (
+    !parsed.success ||
+    parsed.data.requestId !== request.recognitionId ||
+    parsed.data.provider !== options.provider ||
+    parsed.data.schemaVersion !== formulaRecognitionResultSchemaVersion
+  ) {
     throw new MathInkHttpError(
-      "math-ink.response-schema-mismatch",
+      "formula-recognition.response-schema-mismatch",
       "Сервис распознавания вернул несовместимый результат.",
       false,
       200,
@@ -351,8 +409,8 @@ async function executeRecognition(
   return {
     candidates: parsed.data.candidates.map(candidateFromDto),
     diagnostics: parsed.data.diagnostics.map(diagnosticFromDto),
-    recognizerId: "mathpix.strokes.via-tutorboard-proxy",
-    recognizerVersion: `1.0:${parsed.data.providerVersion}`,
+    recognizerId: `${parsed.data.provider}.via-tutorboard-gateway`,
+    recognizerVersion: `2.0:${parsed.data.providerVersion}`,
     schemaVersion: mathInkRecognitionResultSchemaVersion,
     status: parsed.data.status,
   };
@@ -363,8 +421,8 @@ export function createMathInkHttpRecognizer(
 ): MathInkRecognizer {
   const resolved = resolveOptions(options);
   return {
-    id: "mathpix.strokes.via-tutorboard-proxy",
-    version: "1.0",
+    id: `${resolved.provider}.via-tutorboard-gateway`,
+    version: "2.0",
     recognize: (request, signal) =>
       executeRecognition(resolved, request, signal),
   };
