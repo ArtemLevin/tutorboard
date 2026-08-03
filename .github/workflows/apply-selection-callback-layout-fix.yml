@@ -1,0 +1,45 @@
+name: Apply selection callback layout fix
+
+on:
+  push:
+    branches:
+      - feature/minimal-board-chrome
+    paths:
+      - .agent/apply-selection-callback-layout-fix.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'chore: trigger selection callback layout fix'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/minimal-board-chrome
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Apply callback-ref fix
+        run: python scripts/apply-selection-callback-layout-fix.py
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Format changed files
+        run: npx prettier --write src/adapters/canvas-konva/BoardStage.tsx tests/e2e/selection.spec.ts
+      - name: Verify formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Type-check
+        run: npm run typecheck
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/adapters/canvas-konva/BoardStage.tsx tests/e2e/selection.spec.ts
+          git commit -m "fix: synchronize canvas pointer callbacks before input"
+          git push origin HEAD:feature/minimal-board-chrome
