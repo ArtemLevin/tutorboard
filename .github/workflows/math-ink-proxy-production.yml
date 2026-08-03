@@ -36,7 +36,11 @@ jobs:
         run: npm ci
 
       - name: Run focused adapter and gateway tests
-        run: npm run handwriting:pr5
+        run: |
+          npm run handwriting:pr5
+          npx vitest run \
+            tests/node/math-ink-proxy-request-id.test.mjs \
+            tests/node/math-ink-proxy-runtime-config.test.mjs
 
       - name: Build gateway image
         run: |
@@ -71,11 +75,13 @@ jobs:
             --tmpfs /tmp:rw,noexec,nosuid,size=16m \
             --cap-drop ALL \
             --security-opt no-new-privileges \
-            --env FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM=true \
+            --env PADDLE_OCR_ALLOW_INSECURE_UPSTREAM=true \
             --env PADDLE_OCR_API_URL=http://127.0.0.1:19090/paddle/v1/recognize \
+            --env LOCAL_OCR_LLM_ALLOW_INSECURE_UPSTREAM=true \
             --env LOCAL_OCR_LLM_API_URL=http://127.0.0.1:19090/openai/v1/chat/completions \
             --env LOCAL_OCR_LLM_API_KEY=ci-local-key \
             --env LOCAL_OCR_LLM_MODEL=ci-local-vlm \
+            --env YANDEX_OCR_ALLOW_INSECURE_UPSTREAM=true \
             --env YANDEX_OCR_API_URL=http://127.0.0.1:19090/yandex/ocr/v1/recognizeText \
             --env YANDEX_API_KEY=ci-yandex-key \
             --env YANDEX_FOLDER_ID=ci-folder \
