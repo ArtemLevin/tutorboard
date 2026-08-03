@@ -20,14 +20,17 @@ import numpy as np
 from fastapi import FastAPI, Header, HTTPException, Request, Response
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 SERVICE_NAME = "tutorboard-paddle-formula-sidecar"
-SERVICE_VERSION = "1.0.0"
+SERVICE_VERSION = "1.0.1"
 DEFAULT_MODEL_NAME = "PP-FormulaNet-S"
 DEFAULT_DEVICE = "cpu"
 DEFAULT_ENGINE = "paddle_static"
 MAX_IMAGE_BYTES = 768 * 1024
 MAX_BASE64_CHARACTERS = 1024 * 1024
+MAX_REQUEST_BODY_BYTES = MAX_BASE64_CHARACTERS + 1024
 MAX_IMAGE_SIDE = 768
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9:._-]{1,256}$")
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -52,6 +55,82 @@ class FormulaModel(Protocol):
 
 
 ModelFactory = Callable[["Settings"], FormulaModel]
+
+
+class RequestBodyTooLarge(Exception):
+    pass
+
+
+class RequestBodyLimitMiddleware:
+    def __init__(self, app: ASGIApp, maximum_bytes: int) -> None:
+        self.app = app
+        self.maximum_bytes = maximum_bytes
+
+    async def __call__(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
+        if (
+            scope["type"] != "http"
+            or scope.get("method") != "POST"
+            or scope.get("path") != "/v1/recognize"
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        declared = _scope_header(scope, b"content-length")
+        if declared is not None:
+            try:
+                declared_bytes = int(declared.decode("ascii"))
+            except (UnicodeDecodeError, ValueError):
+                declared_bytes = -1
+            if declared_bytes > self.maximum_bytes:
+                await self._reject(scope, receive, send)
+                return
+
+        total = 0
+        response_started = False
+
+        async def limited_receive() -> Message:
+            nonlocal total
+            message = await receive()
+            if message["type"] == "http.request":
+                total += len(message.get("body", b""))
+                if total > self.maximum_bytes:
+                    raise RequestBodyTooLarge
+            return message
+
+        async def tracking_send(message: Message) -> None:
+            nonlocal response_started
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, tracking_send)
+        except RequestBodyTooLarge:
+            if response_started:
+                raise
+            await self._reject(scope, receive, send)
+
+    async def _reject(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
+        response = JSONResponse(
+            {"detail": "Formula recognition request exceeds the sidecar limit."},
+            status_code=413,
+            headers={
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+        await response(scope, receive, send)
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +212,13 @@ class RecognitionResponse(BaseModel):
     latex: str
     modelVersion: str
     requestId: str
+
+
+def _scope_header(scope: Scope, name: bytes) -> bytes | None:
+    for key, value in scope.get("headers", []):
+        if key.lower() == name:
+            return value
+    return None
 
 
 def _optional_environment(name: str, maximum_length: int) -> str | None:
@@ -334,6 +420,33 @@ def _run_inference(model: FormulaModel, image: Image.Image) -> str:
     return _extract_latex(results[0])
 
 
+async def _run_inference_serialized(
+    lock: asyncio.Lock,
+    model: FormulaModel,
+    image: Image.Image,
+) -> str:
+    async with lock:
+        inference = asyncio.create_task(
+            asyncio.to_thread(_run_inference, model, image)
+        )
+        cancellation: asyncio.CancelledError | None = None
+        while not inference.done():
+            try:
+                await asyncio.shield(inference)
+            except asyncio.CancelledError as error:
+                cancellation = error
+            except Exception:
+                break
+        if cancellation is not None:
+            if not inference.cancelled():
+                try:
+                    inference.result()
+                except Exception:
+                    pass
+            raise cancellation
+        return inference.result()
+
+
 def create_app(
     *,
     settings: Settings | None = None,
@@ -374,6 +487,10 @@ def create_app(
         redoc_url=None,
         openapi_url=None,
         lifespan=lifespan,
+    )
+    app.add_middleware(
+        RequestBodyLimitMiddleware,
+        maximum_bytes=MAX_REQUEST_BODY_BYTES,
     )
     app.state.model = None
     app.state.inference_lock = asyncio.Lock()
@@ -423,15 +540,30 @@ def create_app(
         image = _decode_image(payload)
         started = time.monotonic()
         try:
-            async with app.state.inference_lock:
-                model = cast(FormulaModel | None, app.state.model)
-                if model is None:
-                    raise HTTPException(
-                        status_code=503,
-                        detail="PaddleOCR formula model is unavailable.",
-                    )
-                latex = await asyncio.to_thread(_run_inference, model, image)
+            model = cast(FormulaModel | None, app.state.model)
+            if model is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail="PaddleOCR formula model is unavailable.",
+                )
+            latex = await _run_inference_serialized(
+                app.state.inference_lock,
+                model,
+                image,
+            )
         except HTTPException:
+            raise
+        except asyncio.CancelledError:
+            logger.info(
+                json.dumps(
+                    {
+                        "durationMs": round((time.monotonic() - started) * 1000),
+                        "event": "paddle-formula.request-cancelled",
+                        "requestId": request_id,
+                    },
+                    separators=(",", ":"),
+                )
+            )
             raise
         except Exception as error:
             logger.error(
