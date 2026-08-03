@@ -17,10 +17,11 @@ test("edits text as one committed history item", async ({ page }) => {
   const editor = page.getByRole("textbox", {
     name: "Редактор выбранного текста",
   });
+  const editedText = String.raw`$x^2 + \alpha_1$`;
   await expect(editor).toHaveValue("Before");
-  await editor.fill("$x^2 + \alpha_1$");
+  await editor.fill(editedText);
   await editor.blur();
-  await expect(editor).toHaveValue("$x^2 + \alpha_1$");
+  await expect(editor).toHaveValue(editedText);
 
   await page.keyboard.press("Control+z");
   await expect(
