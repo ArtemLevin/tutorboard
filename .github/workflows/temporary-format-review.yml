@@ -1,9 +1,7 @@
 name: Temporary review formatting
 
 on:
-  push:
-    branches:
-      - fix/paddle-sidecar-critical-review
+  pull_request:
     paths:
       - ".github/workflows/temporary-format-review.yml"
       - "services/math-ink-proxy/server.mjs"
