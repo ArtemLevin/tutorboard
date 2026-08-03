@@ -20,7 +20,9 @@ rightmost gear button.
 
 Tool presets are versioned browser-local preferences. A completed object stores
 its resolved ObjectStyle in BoardDocument, so document schema 1.1, collaboration,
-undo, persistence and export contracts remain unchanged.
+undo, persistence and export contracts remain unchanged. Drawing start actions
+receive the resolved style explicitly, keeping the interaction reducer
+deterministic and independent from browser-local preference storage.
 
 The application shell hides product navigation only for the board route. Other
 routes retain normal navigation. Server-session controls are supplied to the
