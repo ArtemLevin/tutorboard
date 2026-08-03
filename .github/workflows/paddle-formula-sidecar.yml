@@ -9,6 +9,7 @@ on:
       - "deploy/paddle-formula.gpu.compose.yml"
       - "services/math-ink-proxy/**"
       - "services/paddle-formula-sidecar/**"
+      - "tests/node/math-ink-proxy-*.test.mjs"
   push:
     branches:
       - main
@@ -19,6 +20,7 @@ on:
       - "deploy/paddle-formula.gpu.compose.yml"
       - "services/math-ink-proxy/**"
       - "services/paddle-formula-sidecar/**"
+      - "tests/node/math-ink-proxy-*.test.mjs"
 
 permissions:
   contents: read
@@ -71,6 +73,13 @@ jobs:
         working-directory: services/paddle-formula-sidecar
         run: python -m pytest
 
+      - name: Run gateway boundary tests
+        run: |
+          corepack yarn vitest run \
+            tests/node/math-ink-proxy-forwarding.test.mjs \
+            tests/node/math-ink-proxy-runtime-config.test.mjs \
+            tests/node/math-ink-proxy.test.mjs
+
       - name: Validate CPU and GPU Dockerfiles
         run: |
           docker build --check \
@@ -93,15 +102,7 @@ jobs:
           docker run --rm \
             --entrypoint python \
             tutorboard-paddle-formula:${GITHUB_SHA} \
-            -c "from importlib.metadata import version; import paddle; from paddleocr import FormulaRecognition; import app; expected={'PaddlePaddle':'3.3.1','Pillow':'12.3.0','msgpack':'1.2.1','protobuf':'6.33.5','setuptools':'83.0.0','wheel':'0.46.3'}; actual={name:version(name) for name in expected}; assert actual == expected, actual; print(paddle.__version__, FormulaRecognition.__name__, app.SERVICE_VERSION, actual)"
-          docker run --rm \
-            --entrypoint python \
-            tutorboard-paddle-formula:${GITHUB_SHA} \
-            -m pip check
-          docker run --rm \
-            --entrypoint python \
-            tutorboard-paddle-formula:${GITHUB_SHA} \
-            -c "import pathlib, pip; bom=pathlib.Path(pip.__file__).parent/'_vendor'/'bom.cdx.json'; assert not bom.exists(), bom"
+            -c "from importlib.metadata import version; import importlib.util; import paddle; from paddleocr import FormulaRecognition; import app; expected={'PaddlePaddle':'3.3.1','Pillow':'12.3.0','msgpack':'1.2.1','protobuf':'6.33.5'}; actual={name:version(name) for name in expected}; assert actual == expected, actual; assert app.SERVICE_VERSION == '1.0.1'; assert importlib.util.find_spec('pip') is None; assert importlib.util.find_spec('setuptools') is None; assert importlib.util.find_spec('wheel') is None; print(paddle.__version__, FormulaRecognition.__name__, app.SERVICE_VERSION, actual)"
 
       - name: Validate Compose overlays
         env:
@@ -116,12 +117,22 @@ jobs:
             --file deploy/paddle-formula.compose.yml \
             --file deploy/paddle-formula.gpu.compose.yml \
             config > /tmp/paddle-formula-gpu.yml
+          grep --fixed-strings 'PADDLE_OCR_ALLOW_INSECURE_UPSTREAM: "true"' \
+            /tmp/paddle-formula-cpu.yml
+          grep --fixed-strings 'FORMULA_RECOGNITION_TRUSTED_PROXY_HOPS: "1"' \
+            /tmp/paddle-formula-cpu.yml
           grep --fixed-strings 'http://paddle-formula:8080/v1/recognize' \
+            /tmp/paddle-formula-cpu.yml
+          grep --fixed-strings 'YANDEX_OCR_ALLOW_INSECURE_UPSTREAM: "false"' \
             /tmp/paddle-formula-cpu.yml
           grep --fixed-strings 'PADDLE_FORMULA_DEVICE: gpu:0' \
             /tmp/paddle-formula-gpu.yml
           grep --fixed-strings 'PADDLE_FORMULA_ENABLE_MKLDNN: "false"' \
             /tmp/paddle-formula-gpu.yml
+          if grep --fixed-strings 'FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM' \
+            /tmp/paddle-formula-cpu.yml; then
+            exit 1
+          fi
 
       - name: Enforce CPU sidecar vulnerability threshold
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
