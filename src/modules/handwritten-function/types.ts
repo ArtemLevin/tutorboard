@@ -5,6 +5,14 @@ export const mathInkRecognitionRequestSchemaVersion =
   "tutorboard.math-ink-request/0.1" as const;
 export const mathInkRecognitionResultSchemaVersion =
   "tutorboard.math-ink-result/0.1" as const;
+export const mathInkRecognitionProviders = [
+  "paddleocr",
+  "local-ocr-llm",
+  "yandex-ai-studio",
+] as const;
+
+export type MathInkRecognitionProvider =
+  (typeof mathInkRecognitionProviders)[number];
 
 export const handwrittenFunctionLimits = {
   maximumSessionDurationMs: 300_000,

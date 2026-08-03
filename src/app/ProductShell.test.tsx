@@ -5,7 +5,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   actorId,
@@ -15,6 +15,7 @@ import {
   type GeometryOsClient,
   type PendingBoardCommandQueue,
 } from "../core/public";
+import type { MathInkRecognizer } from "../modules/handwritten-function/public";
 import {
   ProductErrorBoundary,
   ProductShell,
@@ -25,12 +26,17 @@ import type { ProductNotification } from "./PersistedApp";
 
 vi.mock("./PersistedApp", () => ({
   PersistedApp: ({
+    mathInkRecognizer,
     onNotification,
   }: {
+    readonly mathInkRecognizer?: MathInkRecognizer;
     readonly onNotification?: (notification: ProductNotification) => void;
   }) => (
     <main>
       <h1>Mock board</h1>
+      <output aria-label="Active formula recognizer">
+        {mathInkRecognizer?.id ?? "manual"}
+      </output>
       <button
         onClick={() =>
           onNotification?.({
@@ -59,15 +65,46 @@ const environment: AppEnvironment = {
     smartInkDiagnostics: true,
   },
   geometryOsBaseUrl: "https://geometry.example.test",
-  mathInkApiBaseUrl: "/api/v1/math-ink",
+  mathInkApiBaseUrl: "/api/v1/formula-recognition",
   stage: "test",
 };
 
 const repository = {} as BoardDocumentRepository;
 const geometryOsClient = {} as GeometryOsClient;
 
+function recognizer(id: string): MathInkRecognizer {
+  return {
+    id,
+    recognize: vi.fn(),
+    version: "test",
+  };
+}
+
+const mathInkRecognizers = {
+  "local-ocr-llm": recognizer("local-ocr-llm.via-tutorboard-gateway"),
+  paddleocr: recognizer("paddleocr.via-tutorboard-gateway"),
+  "yandex-ai-studio": recognizer("yandex-ai-studio.via-tutorboard-gateway"),
+} as const;
+
+beforeEach(() => {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn((query: string): MediaQueryList => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      matches: false,
+      media: query,
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    })),
+  });
+});
+
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
   window.location.hash = "";
   vi.restoreAllMocks();
 });
@@ -104,6 +141,31 @@ describe("ProductShell", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Notify" }));
     expect(screen.getByText("Document exported")).toBeInTheDocument();
+  });
+
+  it("persists an advanced recognition choice and applies it to the board", () => {
+    window.location.hash = "#/settings";
+    render(
+      <ProductShell
+        environment={environment}
+        geometryOsClient={geometryOsClient}
+        mathInkRecognizers={mathInkRecognizers}
+        repository={repository}
+      />,
+    );
+    expect(
+      screen.getByRole("radio", { name: /PaddleOCR Formula Recognition/u }),
+    ).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: /Локальная OCR-LLM/u }));
+    expect(
+      screen.getByText("Способ распознавания формул сохранён."),
+    ).toBeInTheDocument();
+
+    window.location.hash = "#/board";
+    fireEvent(window, new HashChangeEvent("hashchange"));
+    expect(
+      screen.getByLabelText("Active formula recognizer"),
+    ).toHaveTextContent("local-ocr-llm.via-tutorboard-gateway");
   });
 
   it("contains route failures and offers diagnostics recovery", () => {

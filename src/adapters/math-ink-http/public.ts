@@ -1,4 +1,4 @@
-export const mathInkHttpAdapterContractVersion = "1.0" as const;
+export const mathInkHttpAdapterContractVersion = "2.0" as const;
 
 export {
   createMathInkHttpRecognizer,
@@ -6,4 +6,14 @@ export {
   mathInkRequestIdHeader,
   type MathInkHttpRecognizerOptions,
 } from "./client";
-export { mathInkProxyResultSchemaVersion } from "./validation";
+export {
+  calculateMathInkRasterLayout,
+  rasterizeMathInkRequest,
+  type MathInkRasterizer,
+  type MathInkRasterLayout,
+  type RasterizedMathInkImage,
+} from "./rasterization";
+export {
+  formulaRecognitionResultSchemaVersion,
+  mathInkProxyResultSchemaVersion,
+} from "./validation";

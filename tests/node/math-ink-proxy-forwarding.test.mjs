@@ -4,55 +4,52 @@ import { once } from "node:events";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { mathInkProxyResultSchemaVersion } from "../../services/math-ink-proxy/contract.mjs";
-import { createMathInkProxyHttpServer } from "../../services/math-ink-proxy/server.mjs";
+import { formulaRecognitionResultSchemaVersion } from "../../services/math-ink-proxy/contract.mjs";
+import { createFormulaRecognitionGatewayHttpServer } from "../../services/math-ink-proxy/server.mjs";
+
+const png =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3wAAAABJRU5ErkJggg==";
 
 function recognitionRequest() {
   return {
-    normalization: { originX: 0, originY: 0, scale: 100 },
-    normalizedHeight: 1,
-    normalizedWidth: 1,
+    image: { data: png, height: 128, mimeType: "image/png", width: 256 },
+    provider: "paddleocr",
     recognitionId: "recognition:forwarded",
-    schemaVersion: "tutorboard.math-ink-request/0.1",
+    schemaVersion: "tutorboard.formula-recognition-request/1",
     sessionId: "session:forwarded",
-    sourceBounds: {
-      height: 100,
-      maxX: 100,
-      maxY: 100,
-      minX: 0,
-      minY: 0,
-      width: 100,
+    source: {
+      normalizedHeight: 0.5,
+      normalizedWidth: 1,
+      pointCount: 2,
+      strokeCount: 1,
     },
-    strokes: [
-      {
-        id: "stroke:forwarded",
-        points: [
-          { timeMs: 0, x: 0, y: 0 },
-          { timeMs: 10, x: 1, y: 1 },
-        ],
-      },
-    ],
   };
 }
 
-describe("math ink proxy forwarding boundary", () => {
+describe("formula recognition gateway forwarding boundary", () => {
   it("uses the trusted proxy hop as the rate-limit client key", async () => {
     const recognize = vi.fn(async ({ requestId }) => ({
       body: {
         candidates: [],
         diagnostics: [],
-        provider: "mathpix",
+        provider: "paddleocr",
         providerRequestId: null,
         providerVersion: "test",
         requestId,
-        schemaVersion: mathInkProxyResultSchemaVersion,
+        schemaVersion: formulaRecognitionResultSchemaVersion,
         status: "unrecognized",
       },
       status: 200,
     }));
-    const server = createMathInkProxyHttpServer({
-      configured: true,
-      service: { recognize },
+    const server = createFormulaRecognitionGatewayHttpServer({
+      service: {
+        configuredProviders: {
+          "local-ocr-llm": false,
+          paddleocr: true,
+          "yandex-ai-studio": false,
+        },
+        recognize,
+      },
     });
     server.listen(0, "127.0.0.1");
     await once(server, "listening");

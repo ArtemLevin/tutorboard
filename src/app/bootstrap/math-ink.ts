@@ -1,17 +1,32 @@
 import { createMathInkHttpRecognizer } from "../../adapters/math-ink-http/public";
-import type { MathInkRecognizer } from "../../modules/handwritten-function/public";
+import {
+  mathInkRecognitionProviders,
+  type MathInkRecognitionProvider,
+  type MathInkRecognizer,
+} from "../../modules/handwritten-function/public";
 import type { AppEnvironment } from "../configuration/environment";
 
-export function createConfiguredMathInkRecognizer(
+export type MathInkRecognizerRegistry = Readonly<
+  Partial<Record<MathInkRecognitionProvider, MathInkRecognizer>>
+>;
+
+export function createConfiguredMathInkRecognizers(
   environment: AppEnvironment,
-): MathInkRecognizer | undefined {
+): MathInkRecognizerRegistry {
   if (
     !environment.features.handwrittenFunctions ||
     !environment.features.mathInkRecognition
   ) {
-    return undefined;
+    return {};
   }
-  return createMathInkHttpRecognizer({
-    baseUrl: environment.mathInkApiBaseUrl,
-  });
+  const recognizers: Partial<
+    Record<MathInkRecognitionProvider, MathInkRecognizer>
+  > = {};
+  for (const provider of mathInkRecognitionProviders) {
+    recognizers[provider] = createMathInkHttpRecognizer({
+      baseUrl: environment.mathInkApiBaseUrl,
+      provider,
+    });
+  }
+  return recognizers;
 }

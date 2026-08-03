@@ -13,7 +13,7 @@ RUN rm -rf \
 
 WORKDIR /app
 ENV NODE_ENV=production \
-    MATH_INK_PROXY_PORT=8787
+    FORMULA_RECOGNITION_GATEWAY_PORT=8787
 
 COPY services/math-ink-proxy ./services/math-ink-proxy
 

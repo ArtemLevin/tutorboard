@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for handwritten-function PR 4.
+Superseded by ADR-027 for handwritten-function PR 5.
 
 ## Context
 

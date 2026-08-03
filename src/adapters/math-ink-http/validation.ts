@@ -1,7 +1,9 @@
 import { z } from "zod";
 
+export const formulaRecognitionResultSchemaVersion =
+  "tutorboard.formula-recognition-result/1" as const;
 export const mathInkProxyResultSchemaVersion =
-  "tutorboard.math-ink-proxy-result/0.1" as const;
+  formulaRecognitionResultSchemaVersion;
 
 const diagnosticSchema = z
   .object({
@@ -23,11 +25,11 @@ export const mathInkProxyResultSchema = z
   .object({
     candidates: z.array(candidateSchema).max(8),
     diagnostics: z.array(diagnosticSchema).max(16),
-    provider: z.literal("mathpix"),
+    provider: z.enum(["paddleocr", "local-ocr-llm", "yandex-ai-studio"]),
     providerRequestId: z.string().min(1).max(256).nullable(),
     providerVersion: z.string().min(1).max(128),
     requestId: z.string().min(1).max(256),
-    schemaVersion: z.literal(mathInkProxyResultSchemaVersion),
+    schemaVersion: z.literal(formulaRecognitionResultSchemaVersion),
     status: z.enum(["ambiguous", "recognized", "unrecognized"]),
   })
   .strict();

@@ -1,4 +1,4 @@
-name: Math ink proxy production gate
+name: Formula recognition production gate
 
 on:
   pull_request:
@@ -10,14 +10,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: math-ink-proxy-${{ github.workflow }}-${{ github.ref }}
+  group: formula-recognition-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  proxy:
-    name: Production Math ink proxy gate
+  gateway:
+    name: Production formula recognition gateway
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
     permissions:
       contents: read
       security-events: write
@@ -35,118 +35,129 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Run focused adapter and proxy tests
-        run: npm run handwriting:pr4
+      - name: Run focused adapter and gateway tests
+        run: npm run handwriting:pr5
 
-      - name: Build proxy image
+      - name: Build gateway image
         run: |
           docker build \
             --file Dockerfile.math-ink-proxy \
-            --tag tutorboard-math-ink-proxy:${GITHUB_SHA} \
+            --tag tutorboard-formula-recognition:${GITHUB_SHA} \
             .
 
       - name: Assert non-root image configuration
         run: |
-          test "$(docker inspect --format '{{.Config.User}}' tutorboard-math-ink-proxy:${GITHUB_SHA})" = "node"
+          test "$(docker inspect --format '{{.Config.User}}' tutorboard-formula-recognition:${GITHUB_SHA})" = "node"
 
-      - name: Start mock Mathpix upstream
+      - name: Start deterministic provider mocks
         run: |
-          node tests/fixtures/mathpix-mock-server.mjs > mathpix-mock.log 2>&1 &
-          echo $! > mathpix-mock.pid
+          node tests/fixtures/mathpix-mock-server.mjs > formula-recognition-mock.log 2>&1 &
+          echo $! > formula-recognition-mock.pid
           for attempt in $(seq 1 30); do
-            if curl --silent --output /dev/null --request POST \
-              --header 'Content-Type: application/json' \
-              --header 'app_id: ci-app-id' \
-              --header 'app_key: ci-app-key' \
-              --data '{"metadata":{"improve_mathpix":false},"strokes":{"strokes":{"x":[[0,1]],"y":[[0,1]]}}}' \
-              http://127.0.0.1:19090/v3/strokes; then
+            if curl --fail --silent http://127.0.0.1:19090/healthz; then
               exit 0
             fi
             sleep 1
           done
-          cat mathpix-mock.log
+          cat formula-recognition-mock.log
           exit 1
 
-      - name: Verify configured read-only container
+      - name: Verify configured read-only gateway
         run: |
           docker run --detach \
-            --name tutorboard-math-ink-proxy \
+            --name tutorboard-formula-recognition \
             --network host \
             --read-only \
             --tmpfs /tmp:rw,noexec,nosuid,size=16m \
             --cap-drop ALL \
             --security-opt no-new-privileges \
-            --env MATHPIX_APP_ID=ci-app-id \
-            --env MATHPIX_APP_KEY=ci-app-key \
-            --env MATHPIX_API_URL=http://127.0.0.1:19090/v3/strokes \
-            --env MATH_INK_ALLOW_INSECURE_UPSTREAM=true \
-            tutorboard-math-ink-proxy:${GITHUB_SHA}
+            --env FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM=true \
+            --env PADDLE_OCR_API_URL=http://127.0.0.1:19090/paddle/v1/recognize \
+            --env LOCAL_OCR_LLM_API_URL=http://127.0.0.1:19090/openai/v1/chat/completions \
+            --env LOCAL_OCR_LLM_API_KEY=ci-local-key \
+            --env LOCAL_OCR_LLM_MODEL=ci-local-vlm \
+            --env YANDEX_OCR_API_URL=http://127.0.0.1:19090/yandex/ocr/v1/recognizeText \
+            --env YANDEX_API_KEY=ci-yandex-key \
+            --env YANDEX_FOLDER_ID=ci-folder \
+            tutorboard-formula-recognition:${GITHUB_SHA}
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8787/readyz; then
               break
             fi
             sleep 1
           done
-          curl --fail --silent \
-            --request POST \
-            --header 'Content-Type: application/json' \
-            --header 'X-TutorBoard-Request-Id: recognition:ci' \
-            --data @- \
-            http://127.0.0.1:8787/v1/recognize <<'JSON'
+          for provider in paddleocr local-ocr-llm yandex-ai-studio; do
+            curl --fail --silent \
+              --request POST \
+              --header 'Content-Type: application/json' \
+              --header "X-TutorBoard-Request-Id: recognition:ci:${provider}" \
+              --data @- \
+              http://127.0.0.1:8787/v1/recognize <<JSON
           {
-            "normalization":{"originX":0,"originY":0,"scale":100},
-            "normalizedHeight":1,
-            "normalizedWidth":1,
-            "recognitionId":"recognition:ci",
-            "schemaVersion":"tutorboard.math-ink-request/0.1",
+            "image":{
+              "data":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3wAAAABJRU5ErkJggg==",
+              "height":128,
+              "mimeType":"image/png",
+              "width":256
+            },
+            "provider":"${provider}",
+            "recognitionId":"recognition:ci:${provider}",
+            "schemaVersion":"tutorboard.formula-recognition-request/1",
             "sessionId":"session:ci",
-            "sourceBounds":{"height":100,"maxX":100,"maxY":100,"minX":0,"minY":0,"width":100},
-            "strokes":[{"id":"stroke:ci","points":[{"timeMs":0,"x":0,"y":0},{"timeMs":10,"x":1,"y":1}]}]
+            "source":{
+              "normalizedHeight":0.5,
+              "normalizedWidth":1,
+              "pointCount":2,
+              "strokeCount":1
+            }
           }
           JSON
+          done
 
       - name: Build recognition-enabled frontend and exclude provider secrets
         env:
           VITE_FEATURE_HANDWRITTEN_FUNCTIONS: "true"
           VITE_FEATURE_MATH_INK_RECOGNITION: "true"
         run: |
-          export MATHPIX_APP_ID=frontend-secret-app-id
-          export MATHPIX_APP_KEY=frontend-secret-app-key
+          export PADDLE_OCR_API_TOKEN=frontend-paddle-secret
+          export LOCAL_OCR_LLM_API_KEY=frontend-local-secret
+          export YANDEX_API_KEY=frontend-yandex-secret
           npm run build
-          ! grep --recursive --fixed-strings 'frontend-secret-app-id' dist
-          ! grep --recursive --fixed-strings 'frontend-secret-app-key' dist
+          ! grep --recursive --fixed-strings 'frontend-paddle-secret' dist
+          ! grep --recursive --fixed-strings 'frontend-local-secret' dist
+          ! grep --recursive --fixed-strings 'frontend-yandex-secret' dist
 
       - name: Install release browsers
         run: npx playwright install --with-deps chromium firefox
 
-      - name: Verify automatic recognition in Chromium and Firefox
+      - name: Verify all provider choices in Chromium and Firefox
         env:
           MATH_INK_E2E_REQUIRED: "true"
         run: npx playwright test tests/e2e/math-ink-recognition-production.spec.ts
 
-      - name: Scan proxy image
+      - name: Scan gateway image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: tutorboard-math-ink-proxy:${{ github.sha }}
+          image-ref: tutorboard-formula-recognition:${{ github.sha }}
           format: sarif
-          output: trivy-math-ink-proxy.sarif
+          output: trivy-formula-recognition.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
           limit-severities-for-sarif: true
 
       - name: Upload Trivy results
-        if: ${{ always() && hashFiles('trivy-math-ink-proxy.sarif') != '' }}
+        if: ${{ always() && hashFiles('trivy-formula-recognition.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: trivy-math-ink-proxy.sarif
+          sarif_file: trivy-formula-recognition.sarif
 
       - name: Capture diagnostics
         if: always()
         run: |
-          docker logs tutorboard-math-ink-proxy || true
-          docker rm --force tutorboard-math-ink-proxy || true
-          cat mathpix-mock.log || true
-          if test -f mathpix-mock.pid; then
-            kill "$(cat mathpix-mock.pid)" || true
+          docker logs tutorboard-formula-recognition || true
+          docker rm --force tutorboard-formula-recognition || true
+          cat formula-recognition-mock.log || true
+          if test -f formula-recognition-mock.pid; then
+            kill "$(cat formula-recognition-mock.pid)" || true
           fi

@@ -1,130 +1,176 @@
-# Math ink recognition proxy deployment
+# Formula recognition gateway deployment
 
 ## Components
 
-Automatic handwritten-function recognition uses two runtime components:
+Automatic handwritten-function recognition uses two TutorBoard runtime components:
 
-1. the existing TutorBoard static Nginx image;
-2. `Dockerfile.math-ink-proxy`, a Node 24 service that owns Mathpix credentials.
+1. the static unprivileged Nginx application image;
+2. `Dockerfile.math-ink-proxy`, a Node 24 formula-recognition gateway.
 
-The browser sends `tutorboard.math-ink-request/0.1` to the same-origin path
-`/api/v1/math-ink/recognize`. Nginx forwards the request to
-`math-ink-proxy:8787/v1/recognize`.
+The browser rasterizes captured strokes to a bounded PNG and sends
+`tutorboard.formula-recognition-request/1` to
+`/api/v1/formula-recognition/recognize`. Nginx forwards the request to the gateway
+at `math-ink-proxy:8787/v1/recognize`.
 
-## Required configuration
+The gateway can expose any combination of:
 
-Enable both frontend build flags:
+- PaddleOCR Formula Recognition;
+- a local OpenAI-compatible multimodal OCR-LLM;
+- Yandex Vision OCR `math-markdown`.
+
+## Frontend configuration
+
+Enable both build flags:
 
 ```text
 VITE_FEATURE_HANDWRITTEN_FUNCTIONS=true
 VITE_FEATURE_MATH_INK_RECOGNITION=true
 ```
 
-Provide the proxy runtime secrets through the deployment platform:
+The same-origin API base defaults to:
 
 ```text
-MATHPIX_APP_ID
-MATHPIX_APP_KEY
+VITE_MATH_INK_API_BASE_URL=/api/v1/formula-recognition
 ```
 
-Store these values in an orchestrator secret store or protected runtime
-environment. Keep them out of Docker build arguments, Vite variables, source
-files, logs and browser configuration.
+Provider credentials and upstream URLs are runtime gateway settings. Keep them
+out of Vite variables and Docker build arguments.
 
-Optional proxy configuration:
+## Provider configuration
+
+### PaddleOCR
+
+```text
+PADDLE_OCR_API_URL=http://paddle-formula:8080/v1/recognize
+PADDLE_OCR_API_TOKEN=optional-bearer-token
+```
+
+The upstream receives `{ imageBase64, mimeType }` and returns a bounded JSON
+object containing `latex` or `formula`, optional confidence and model version.
+`PP-FormulaNet-S` is the recommended latency-oriented deployment model.
+
+### Local OCR-LLM
+
+```text
+LOCAL_OCR_LLM_API_URL=http://ollama-gateway:11434/v1/chat/completions
+LOCAL_OCR_LLM_MODEL=qwen2.5-vl:7b
+LOCAL_OCR_LLM_API_KEY=optional-bearer-token
+```
+
+The endpoint must implement OpenAI-compatible multimodal chat completions and
+accept image data URLs. The gateway requests one LaTeX expression with
+temperature zero.
+
+### Yandex Cloud OCR
+
+```text
+YANDEX_FOLDER_ID=...
+YANDEX_API_KEY=...
+```
+
+`YANDEX_IAM_TOKEN` can replace `YANDEX_API_KEY`. The gateway calls Yandex Vision
+OCR with model `math-markdown`, `x-folder-id` and
+`x-data-logging-enabled: false`.
+
+## Shared gateway configuration
 
 | Variable | Default | Meaning |
 | --- | ---: | --- |
-| `MATH_INK_PROXY_PORT` | `8787` | HTTP listen port |
-| `MATHPIX_API_URL` | `https://api.mathpix.com/v3/strokes` | Provider endpoint |
-| `MATH_INK_MAX_CONCURRENCY` | `4` | Simultaneous upstream requests |
-| `MATH_INK_PROVIDER_TIMEOUT_MS` | `10000` | One provider attempt deadline |
-| `MATH_INK_RATE_LIMIT` | `30` | Requests per client window |
-| `MATH_INK_RATE_WINDOW_MS` | `60000` | Fixed rate window |
-| `MATH_INK_RETRY_DELAY_MS` | `150` | Fallback retry backoff |
+| `FORMULA_RECOGNITION_GATEWAY_PORT` | `8787` | HTTP listen port |
+| `FORMULA_RECOGNITION_MAX_CONCURRENCY` | `4` | Simultaneous upstream requests |
+| `FORMULA_RECOGNITION_PROVIDER_TIMEOUT_MS` | `15000` | One provider attempt deadline |
+| `FORMULA_RECOGNITION_RATE_LIMIT` | `30` | Requests per client window |
+| `FORMULA_RECOGNITION_RATE_WINDOW_MS` | `60000` | Fixed rate window |
+| `FORMULA_RECOGNITION_RETRY_DELAY_MS` | `150` | Fallback retry delay |
 
-`MATH_INK_ALLOW_INSECURE_UPSTREAM=true` exists for isolated tests with a local
-mock. Production configuration accepts the HTTPS Mathpix hostname.
+`FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM=true` enables HTTP provider URLs for
+trusted local networks and deterministic test environments. Production Yandex
+traffic remains restricted to its official HTTPS host unless this explicit test
+switch is enabled.
 
 ## Example deployment
 
-`deploy/math-ink.compose.yml` demonstrates both containers, read-only filesystems,
-`no-new-privileges`, dropped Linux capabilities and runtime secret injection.
+`deploy/math-ink.compose.yml` demonstrates both TutorBoard containers, read-only
+filesystems, `no-new-privileges`, dropped Linux capabilities and optional runtime
+provider settings.
+
+At least one provider must be configured for readiness to succeed:
 
 ```bash
-MATHPIX_APP_ID='...' MATHPIX_APP_KEY='...' \
+PADDLE_OCR_API_URL='http://paddle-formula:8080/v1/recognize' \
+FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM=true \
   docker compose -f deploy/math-ink.compose.yml up --build
 ```
 
-The static image remains usable when the optional proxy is absent. The handwritten
-function tool retains its manual expression workflow. Requests to the automatic
-recognition endpoint fail closed.
+The handwritten-function tool keeps its editable manual expression path when the
+selected automatic provider is unavailable.
+
+## User selection
+
+The Settings route contains **Расширенные настройки доски** with three provider
+radio cards. The selected provider is stored in the browser under the versioned
+key:
+
+```text
+tutorboard.formula-recognition-settings/1
+```
+
+This preference stays outside `BoardDocument`, command history, collaboration,
+snapshots and document exports. PaddleOCR is the default.
 
 ## Health and readiness
 
-Proxy endpoints:
+Gateway endpoints:
 
 ```text
 GET /healthz
 GET /readyz
 ```
 
-`/healthz` reports process availability. `/readyz` returns `200` only when both
-Mathpix credentials are present. Missing credentials produce the stable
-`math-ink.proxy-unconfigured` problem.
-
-TutorBoard Nginx continues to expose its own `/healthz` endpoint.
+`/healthz` reports process availability. `/readyz` returns a provider map and
+status `200` when at least one provider is configured. Requests for an unavailable
+selected provider return `formula-recognition.provider-unconfigured`.
 
 ## Request protection
 
-The proxy applies the following guards before provider work:
+The gateway applies these guards before provider work:
 
-- 256 KiB HTTP body limit;
-- strict request schema and unknown-property rejection;
-- at most 128 strokes;
-- at most 4,096 points per stroke;
-- at most 16,384 points in total;
-- finite normalized coordinates within `[0, 1]`;
-- monotonic per-stroke time;
-- fixed-window per-client rate limit;
-- bounded upstream concurrency without an unbounded queue.
+- 1 MiB HTTP request limit;
+- strict schema and unknown-property rejection;
+- PNG-only image input;
+- maximum raster side of 768 pixels;
+- maximum decoded image size of 768 KiB;
+- source stroke and point count bounds;
+- fixed-window per-client rate limiting;
+- bounded global concurrency without an unbounded queue.
 
 Each provider attempt has a deadline. One retry is allowed for transport failure,
 HTTP 429 and HTTP 502/503/504. Numeric `Retry-After` values are capped at two
-seconds.
+seconds. Browser abort, client disconnect and process shutdown cancel upstream
+work.
 
 ## Privacy and logging
 
-Every Mathpix request contains:
+Structured logs contain provider identifier, request identifier, duration,
+outcome and HTTP status. They exclude image bytes, strokes, expressions, raw
+provider bodies, model responses and credentials.
 
-```json
-{
-  "metadata": {
-    "improve_mathpix": false
-  }
-}
-```
+Provider secrets stay in the gateway environment. Public CI verifies that sample
+Paddle, local VLM and Yandex secrets are absent from the frontend bundle.
 
-Structured proxy logs contain request identifiers, duration, outcome and HTTP
-status. They exclude coordinates, expressions, provider response bodies,
-`MATHPIX_APP_ID` and `MATHPIX_APP_KEY`.
+## Verification
 
-The browser receives a TutorBoard-owned bounded DTO. Raw provider errors and
-provider payloads stay inside the proxy.
+The production gate uses deterministic local mocks and validates:
 
-## Verification without paid-provider calls
-
-Public CI uses an injected or local mock upstream. It verifies:
-
-- exact coordinate translation;
-- authentication headers inside the proxy boundary;
-- privacy metadata;
-- timeout, abort and retry behavior;
-- stable problem mapping;
+- browser PNG request creation;
+- user provider selection in Chromium and Firefox;
+- PaddleOCR request and response normalization;
+- OpenAI-compatible multimodal payloads;
+- Yandex authentication, folder and disabled-logging headers;
+- timeout, abort, retry, rate and concurrency behavior;
 - non-root and read-only container runtime;
-- health/readiness behavior;
-- secret absence from the frontend bundle;
-- container vulnerability scan.
+- provider-secret exclusion from the frontend bundle;
+- strict HIGH/CRITICAL container vulnerability scanning.
 
-A live Mathpix smoke test belongs in a protected deployment environment with
-explicit quota and billing controls.
+Live provider smoke tests belong in protected deployment environments with
+explicit quota, model and billing controls.

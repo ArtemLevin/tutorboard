@@ -11,7 +11,7 @@ import { ProductShell } from "../ProductShell";
 import { SmartInkDiagnosticsPanel } from "../SmartInkDiagnosticsPanel";
 import { readEnvironment } from "../configuration/environment";
 import { readLessonBoardContext } from "../configuration/lesson-context";
-import { createConfiguredMathInkRecognizer } from "./math-ink";
+import { createConfiguredMathInkRecognizers } from "./math-ink";
 
 const root = document.getElementById("root");
 
@@ -24,7 +24,7 @@ const environment = readEnvironment();
 const geometryOsClient = createGeometryOsHttpClient({
   baseUrl: environment.geometryOsBaseUrl,
 });
-const mathInkRecognizer = createConfiguredMathInkRecognizer(environment);
+const mathInkRecognizers = createConfiguredMathInkRecognizers(environment);
 const lessonContext = readLessonBoardContext(window.location.search);
 const serverSync =
   environment.features.serverSync && lessonContext !== null
@@ -42,7 +42,7 @@ createRoot(root).render(
     <ProductShell
       environment={environment}
       geometryOsClient={geometryOsClient}
-      mathInkRecognizer={mathInkRecognizer}
+      mathInkRecognizers={mathInkRecognizers}
       repository={repository}
       serverSync={serverSync}
     />

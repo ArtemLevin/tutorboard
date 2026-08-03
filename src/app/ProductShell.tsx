@@ -20,11 +20,19 @@ import {
 } from "../core/public";
 import { geometryOsAdapterContractVersion } from "../adapters/geometryos-http/public";
 import { mathInkHttpAdapterContractVersion } from "../adapters/math-ink-http/public";
-import type { MathInkRecognizer } from "../modules/handwritten-function/public";
+import type {
+  MathInkRecognitionProvider,
+  MathInkRecognizer,
+} from "../modules/handwritten-function/public";
 import { persistenceAdapterContractVersion } from "../adapters/persistence-dexie/public";
 import { canvasAdapterContractVersion } from "../adapters/canvas-konva/public";
 import { PersistedApp, type ProductNotification } from "./PersistedApp";
 import { SyncedApp } from "./SyncedApp";
+import { FormulaRecognitionSettingsPanel } from "./FormulaRecognitionSettingsPanel";
+import {
+  readFormulaRecognitionSettings,
+  writeFormulaRecognitionSettings,
+} from "./configuration/formula-recognition-settings";
 import type { AppEnvironment } from "./configuration/environment";
 
 export type ProductRoute = "board" | "diagnostics" | "documents" | "settings";
@@ -105,7 +113,9 @@ export interface ProductServerSync {
 interface ProductShellProps {
   readonly environment: AppEnvironment;
   readonly geometryOsClient: GeometryOsClient;
-  readonly mathInkRecognizer?: MathInkRecognizer | undefined;
+  readonly mathInkRecognizers?:
+    | Readonly<Partial<Record<MathInkRecognitionProvider, MathInkRecognizer>>>
+    | undefined;
   readonly repository: BoardDocumentRepository;
   readonly serverSync?: ProductServerSync | undefined;
 }
@@ -301,8 +311,16 @@ function DocumentsPage({
 
 function SettingsPage({
   environment,
+  onProviderChange,
+  recognizers,
+  selectedProvider,
 }: {
   readonly environment: AppEnvironment;
+  readonly onProviderChange: (provider: MathInkRecognitionProvider) => void;
+  readonly recognizers: Readonly<
+    Partial<Record<MathInkRecognitionProvider, MathInkRecognizer>>
+  >;
+  readonly selectedProvider: MathInkRecognitionProvider;
 }) {
   const reducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)",
@@ -312,10 +330,15 @@ function SettingsPage({
       <header>
         <p className="product-eyebrow">Локальная конфигурация</p>
         <h1>Настройки</h1>
-        <p>Флаги поставки читаются при старте и не изменяют документ.</p>
+        <p>Пользовательские настройки применяются к этой установке браузера.</p>
       </header>
+      <FormulaRecognitionSettingsPanel
+        onProviderChange={onProviderChange}
+        recognizers={recognizers}
+        selectedProvider={selectedProvider}
+      />
       <section aria-labelledby="feature-title">
-        <h2 id="feature-title">Возможности</h2>
+        <h2 id="feature-title">Возможности сборки</h2>
         <dl className="settings-list">
           {Object.entries(environment.features).map(([name, enabled]) => (
             <div key={name}>
@@ -384,7 +407,7 @@ function DiagnosticsPage({
 export function ProductShell({
   environment,
   geometryOsClient,
-  mathInkRecognizer,
+  mathInkRecognizers = {},
   repository,
   serverSync,
 }: ProductShellProps) {
@@ -394,6 +417,12 @@ export function ProductShell({
   const [notifications, setNotifications] = useState<
     readonly NotificationRecord[]
   >([]);
+  const [
+    selectedFormulaRecognitionProvider,
+    setSelectedFormulaRecognitionProvider,
+  ] = useState<MathInkRecognitionProvider>(
+    () => readFormulaRecognitionSettings().provider,
+  );
   const notificationSequenceRef = useRef(0);
   const notificationTimersRef = useRef(new Set<number>());
   useEffect(() => {
@@ -426,6 +455,19 @@ export function ProductShell({
     notificationTimersRef.current.add(timer);
   }, []);
 
+  const selectFormulaRecognitionProvider = useCallback(
+    (provider: MathInkRecognitionProvider) => {
+      const settings = writeFormulaRecognitionSettings(provider);
+      setSelectedFormulaRecognitionProvider(settings.provider);
+      notify({
+        kind: "success",
+        message: "Способ распознавания формул сохранён.",
+      });
+    },
+    [notify],
+  );
+  const mathInkRecognizer =
+    mathInkRecognizers[selectedFormulaRecognitionProvider];
   const diagnosticsEnabled = environment.features.developmentDiagnostics;
   const effectiveRoute =
     route === "diagnostics" && !diagnosticsEnabled ? "board" : route;
@@ -467,7 +509,12 @@ export function ProductShell({
           ) : effectiveRoute === "documents" ? (
             <DocumentsPage serverSync={serverSync} />
           ) : effectiveRoute === "settings" ? (
-            <SettingsPage environment={environment} />
+            <SettingsPage
+              environment={environment}
+              onProviderChange={selectFormulaRecognitionProvider}
+              recognizers={mathInkRecognizers}
+              selectedProvider={selectedFormulaRecognitionProvider}
+            />
           ) : (
             <DiagnosticsPage environment={environment} />
           )}
