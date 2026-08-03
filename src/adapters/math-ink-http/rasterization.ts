@@ -92,8 +92,9 @@ function drawRequest(
 
   for (const stroke of request.strokes) {
     if (stroke.points.length < 2) continue;
-    context.beginPath();
     const first = stroke.points[0];
+    if (first === undefined) continue;
+    context.beginPath();
     context.moveTo(
       layout.padding + first.x * layout.scale,
       layout.padding + first.y * layout.scale,
