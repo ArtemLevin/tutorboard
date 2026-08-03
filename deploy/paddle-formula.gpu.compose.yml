@@ -1,0 +1,12 @@
+services:
+  paddle-formula:
+    build:
+      context: ..
+      dockerfile: services/paddle-formula-sidecar/Dockerfile.gpu
+    environment:
+      PADDLE_FORMULA_DEVICE: gpu:0
+      PADDLE_FORMULA_ENABLE_HPI: ${PADDLE_FORMULA_ENABLE_HPI:-false}
+      PADDLE_FORMULA_PRECISION: ${PADDLE_FORMULA_PRECISION:-fp32}
+      PADDLE_FORMULA_USE_TENSORRT: ${PADDLE_FORMULA_USE_TENSORRT:-false}
+    gpus: all
+    shm_size: 2gb
