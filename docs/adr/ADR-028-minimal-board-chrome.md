@@ -38,7 +38,8 @@ technology users can distinguish them from the permanent toolbar.
 - Advanced operations require an explicit settings action.
 - Tool preferences remain local to one browser installation.
 - Existing command and persistence boundaries stay intact.
-- Visual and browser tests must target the dock and settings sheet contracts.
+- Visual and browser tests target the dock and settings sheet contracts across
+  desktop, mobile portrait and mobile landscape profiles.
 - Selected text, style, lock, deletion and quick transforms remain available in
   the contextual dock surface.
 
