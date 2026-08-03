@@ -269,7 +269,15 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await page.reload();
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
 
-  await page.getByRole("button", { name: "math.coordinate-plot" }).click();
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  const boardSettings = page.getByRole("dialog", { name: "Настройки доски" });
+  await expect(boardSettings).toBeVisible();
+  await boardSettings
+    .getByRole("button", { name: "math.coordinate-plot", exact: true })
+    .click();
+  await boardSettings
+    .getByRole("button", { name: "Закрыть настройки доски" })
+    .click();
   await openCoordinatePlotEditorByRightDoubleClick(page);
   await expect(editor).toBeVisible();
   await expect(editor.getByLabel("Формула явной функции")).toHaveValue("b*x^2");
@@ -314,8 +322,10 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     /Сохранено локально|Сохранено повторно/,
   );
 
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await expect(boardSettings).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Экспорт JSON" }).click();
+  await boardSettings.getByRole("button", { name: "Экспорт JSON" }).click();
   const download = await downloadPromise;
   const path = await download.path();
   expect(path).not.toBeNull();
