@@ -335,11 +335,17 @@ function runtimeProviderUrl(
 }
 
 export function runtimeProviders(environment = process.env) {
+  const legacyAllowInsecure = optionalEnvironment(
+    "FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM",
+    environment,
+  );
   if (
-    optionalEnvironment(
+    legacyAllowInsecure !== undefined &&
+    booleanEnvironment(
       "FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM",
+      false,
       environment,
-    ) !== undefined
+    )
   ) {
     throw new Error(
       "FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM is unsupported. Use a provider-specific insecure-upstream setting.",
