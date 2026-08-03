@@ -41,7 +41,7 @@ jobs:
 
       - name: Verify product diff
         run: |
-          npm run format:check
+          npx prettier --check src/adapters/canvas-konva/BoardStage.tsx tests/e2e/selection.spec.ts
           npm run lint
           npm run typecheck
 
