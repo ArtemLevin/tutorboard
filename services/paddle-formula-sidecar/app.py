@@ -68,7 +68,7 @@ class Settings:
     precision: str = "fp32"
 
     @classmethod
-    def from_environment(cls) -> "Settings":
+    def from_environment(cls) -> Settings:
         return cls(
             model_name=_bounded_environment(
                 "PADDLE_FORMULA_MODEL",
