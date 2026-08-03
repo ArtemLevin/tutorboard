@@ -20,7 +20,12 @@ async function resetLocalDatabase(page: import("@playwright/test").Page) {
 
 test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
   await resetLocalDatabase(page);
-  await page.keyboard.press("g");
+  const mathTools = page.getByRole("button", { name: "Математика" });
+  await expect(mathTools).toBeVisible();
+  await mathTools.click();
+  await page
+    .getByRole("menuitemradio", { name: "Координатная плоскость (G)" })
+    .click();
   await openCoordinatePlotEditorByRightDoubleClick(page);
 
   const editor = page.getByRole("complementary", {

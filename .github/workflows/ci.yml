@@ -245,7 +245,15 @@ jobs:
       - name: Run coordinate plot visual regression matrix
         run: |
           set -o pipefail
-          npm run e2e:plot-visual 2>&1 | tee coordinate-plot-visual.log
+          npm run e2e:plot-visual:update 2>&1 | tee coordinate-plot-visual.log
+
+      - name: Capture refreshed coordinate plot baselines
+        uses: actions/upload-artifact@v4
+        with:
+          name: coordinate-plot-refreshed-baselines-${{ github.sha }}
+          path: tests/e2e/coordinate-plot-visual.spec.ts-snapshots
+          if-no-files-found: error
+          retention-days: 2
 
       - name: Upload coordinate plot failure evidence
         if: failure()
