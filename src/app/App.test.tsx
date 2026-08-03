@@ -63,6 +63,8 @@ vi.mock("../adapters/canvas-konva/public", () => ({
             ? "none"
             : `${props.laserPoint.x},${props.laserPoint.y}`
         }
+        data-laser-trail-opacity={props.laserTrailOpacity}
+        data-laser-trail-points={props.laserTrailPoints?.length ?? 0}
         role="application"
       >
         <button
@@ -70,6 +72,21 @@ vi.mock("../adapters/canvas-konva/public", () => ({
           type="button"
         >
           Навести указку
+        </button>
+        <button
+          onClick={() => {
+            props.onWorldPointerStart(start);
+            props.onWorldPointerMove(finish);
+          }}
+          type="button"
+        >
+          Провести указкой
+        </button>
+        <button
+          onClick={() => props.onWorldPointerFinish(finish)}
+          type="button"
+        >
+          Отпустить указку
         </button>
         <button
           onClick={() => {
@@ -230,11 +247,17 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Навести указку" }));
     expect(canvas).toHaveAttribute("data-laser-active", "true");
     expect(canvas).toHaveAttribute("data-laser-point", "70,80");
+    fireEvent.click(screen.getByRole("button", { name: "Провести указкой" }));
+    expect(canvas).toHaveAttribute("data-laser-trail-points", "2");
+    expect(canvas).toHaveAttribute("data-laser-trail-opacity", "1");
+    fireEvent.click(screen.getByRole("button", { name: "Отпустить указку" }));
+    expect(canvas).toHaveAttribute("data-laser-trail-points", "2");
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
 
     fireEvent.keyDown(window, { key: "h" });
     expect(canvas).toHaveAttribute("data-laser-active", "false");
     expect(canvas).toHaveAttribute("data-laser-point", "none");
+    expect(canvas).toHaveAttribute("data-laser-trail-points", "0");
   });
 
   it("exposes PDF export and board sharing from document settings", () => {

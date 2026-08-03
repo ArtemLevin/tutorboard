@@ -57,7 +57,7 @@ test("creates a configurable regular polygon from the Shapes menu", async ({
   );
 });
 
-test("shows an ephemeral laser pointer without adding board objects", async ({
+test("shows an ephemeral laser trail while dragging without adding board objects", async ({
   page,
 }) => {
   await page.getByRole("button", { name: "Лазерная указка (K)" }).click();
@@ -69,7 +69,19 @@ test("shows an ephemeral laser pointer without adding board objects", async ({
 
   await expect(stage).toHaveAttribute("data-laser-active", "true");
   await expect(stage).toHaveAttribute("data-laser-visible", "true");
+  await expect(stage).toHaveAttribute("data-laser-trail-points", "0");
+
+  await page.mouse.down({ button: "left" });
+  await page.mouse.move(bounds.x + 480, bounds.y + 250, { steps: 4 });
+  await page.mouse.move(bounds.x + 540, bounds.y + 210, { steps: 4 });
+  await expect(stage).not.toHaveAttribute("data-laser-trail-points", "0");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+
+  await page.mouse.up({ button: "left" });
+  await expect(stage).not.toHaveAttribute("data-laser-trail-points", "0");
+  await expect(stage).toHaveAttribute("data-laser-trail-points", "0", {
+    timeout: 2_000,
+  });
 
   await page.keyboard.press("h");
   await expect(stage).toHaveAttribute("data-laser-active", "false");

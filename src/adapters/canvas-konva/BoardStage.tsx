@@ -126,6 +126,8 @@ export interface BoardStageProps {
   readonly drawingModeKey: string | null;
   readonly laserActive?: boolean;
   readonly laserPoint?: Vec2 | null;
+  readonly laserTrailOpacity?: number;
+  readonly laserTrailPoints?: readonly Vec2[];
   readonly onObjectSettingsRequest?:
     ((objectId: BoardObjectId) => void) | undefined;
   readonly onPanModeRequest?: () => void;
@@ -258,6 +260,8 @@ export function BoardStage({
   drawingModeKey,
   laserActive = false,
   laserPoint = null,
+  laserTrailOpacity = 1,
+  laserTrailPoints = [],
   onObjectSettingsRequest,
   onPanModeRequest,
   onViewportCommit,
@@ -1054,6 +1058,8 @@ export function BoardStage({
       data-lasso-points={selectionLasso?.length ?? 0}
       data-lassoing={selectionLasso !== null}
       data-laser-active={laserActive}
+      data-laser-trail-opacity={laserTrailOpacity.toFixed(2)}
+      data-laser-trail-points={laserTrailPoints.length}
       data-laser-visible={laserPoint !== null}
       data-panning={isPanning}
       data-selecting={isSelecting}
@@ -1187,6 +1193,28 @@ export function BoardStage({
                 />
               </Group>
             ))}
+            {laserTrailPoints.slice(1).map((point, index) => {
+              const previous = laserTrailPoints[index];
+              if (previous === undefined) return null;
+              const progress = (index + 1) / (laserTrailPoints.length - 1);
+              return (
+                <Line
+                  key={`laser-trail-${index}`}
+                  lineCap="round"
+                  lineJoin="round"
+                  opacity={
+                    laserTrailOpacity * (0.16 + Math.pow(progress, 1.6) * 0.84)
+                  }
+                  perfectDrawEnabled={false}
+                  points={[previous.x, previous.y, point.x, point.y]}
+                  shadowBlur={(3 + progress * 7) / previewViewport.zoom}
+                  shadowColor="#ef4444"
+                  shadowOpacity={0.72}
+                  stroke="#ef4444"
+                  strokeWidth={(3 + progress * 4) / previewViewport.zoom}
+                />
+              );
+            })}
             {laserPoint === null ? null : (
               <Group x={laserPoint.x} y={laserPoint.y}>
                 <Circle
