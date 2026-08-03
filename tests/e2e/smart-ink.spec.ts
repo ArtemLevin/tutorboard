@@ -98,3 +98,34 @@ test("transforms a figure created by Smart Ink", async ({ page }) => {
     "Масштаб: 1, 1 · Поворот: 0°",
   );
 });
+
+test("keeps unrecognized Smart Ink silently as the original stroke", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const stage = page.getByTestId("board-stage");
+  const bounds = await stage.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (bounds === null) throw new Error("Canvas has no bounds.");
+
+  await page.keyboard.press("i");
+  const points = [
+    [320, 220],
+    [360, 180],
+    [390, 260],
+    [430, 195],
+    [465, 275],
+    [505, 210],
+  ] as const;
+  await page.mouse.move(bounds.x + points[0][0], bounds.y + points[0][1]);
+  await page.mouse.down();
+  for (const [x, y] of points.slice(1)) {
+    await page.mouse.move(bounds.x + x, bounds.y + y, { steps: 3 });
+  }
+  await page.mouse.up();
+
+  await expect(page.getByText("drawing.pen-stroke")).toBeVisible();
+  await expect(
+    page.getByText("Smart Ink: фигура не распознана, исходный штрих сохранён."),
+  ).toHaveCount(0);
+});
