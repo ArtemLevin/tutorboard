@@ -1,34 +1,43 @@
-export const mathInkRequestSchemaVersion = "tutorboard.math-ink-request/0.1";
-export const mathInkProxyResultSchemaVersion =
-  "tutorboard.math-ink-proxy-result/0.1";
-export const mathInkProxyServiceVersion = "1.0.0";
+export const formulaRecognitionRequestSchemaVersion =
+  "tutorboard.formula-recognition-request/1";
+export const formulaRecognitionResultSchemaVersion =
+  "tutorboard.formula-recognition-result/1";
+export const mathInkProxyServiceVersion = "2.0.0";
+export const formulaRecognitionProviders = Object.freeze([
+  "paddleocr",
+  "local-ocr-llm",
+  "yandex-ai-studio",
+]);
 
 export const mathInkProxyLimits = Object.freeze({
-  maximumBodyBytes: 256 * 1024,
+  maximumBodyBytes: 1024 * 1024,
   maximumCandidateCount: 8,
+  maximumDecodedImageBytes: 768 * 1024,
   maximumDiagnosticCount: 16,
-  maximumPointsPerStroke: 4_096,
-  maximumResponseBytes: 256 * 1024,
-  maximumStrokeCount: 128,
-  maximumTotalPointCount: 16_384,
-  providerCoordinateScale: 10_000,
+  maximumImageSide: 768,
+  maximumResponseBytes: 512 * 1024,
+  maximumSourcePointCount: 16_384,
+  maximumSourceStrokeCount: 128,
 });
 
+const providerSet = new Set(formulaRecognitionProviders);
 const identifierPattern = /^[A-Za-z0-9:._-]+$/u;
+const base64Pattern = /^[A-Za-z0-9+/]+={0,2}$/u;
 const requestKeys = new Set([
-  "normalization",
-  "normalizedHeight",
-  "normalizedWidth",
+  "image",
+  "provider",
   "recognitionId",
   "schemaVersion",
   "sessionId",
-  "sourceBounds",
-  "strokes",
+  "source",
 ]);
-const normalizationKeys = new Set(["originX", "originY", "scale"]);
-const boundsKeys = new Set(["height", "maxX", "maxY", "minX", "minY", "width"]);
-const strokeKeys = new Set(["id", "points"]);
-const pointKeys = new Set(["timeMs", "x", "y"]);
+const imageKeys = new Set(["data", "height", "mimeType", "width"]);
+const sourceKeys = new Set([
+  "normalizedHeight",
+  "normalizedWidth",
+  "pointCount",
+  "strokeCount",
+]);
 
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -55,39 +64,16 @@ function issue(path, message) {
   return { message, path };
 }
 
-function validateBounds(value, path, issues) {
-  if (!isRecord(value) || !hasOnlyKeys(value, boundsKeys)) {
-    issues.push(issue(path, "bounds must be a strict object"));
-    return;
+function decodedBase64ByteLength(value) {
+  if (typeof value !== "string" || value.length === 0 || value.length % 4 !== 0) {
+    return null;
   }
-  for (const key of boundsKeys) {
-    if (!finiteNumber(value[key])) {
-      issues.push(issue(`${path}/${key}`, "value must be finite"));
-    }
-  }
-  if (
-    finiteNumber(value.minX) &&
-    finiteNumber(value.maxX) &&
-    value.maxX < value.minX
-  ) {
-    issues.push(issue(path, "maxX must be greater than or equal to minX"));
-  }
-  if (
-    finiteNumber(value.minY) &&
-    finiteNumber(value.maxY) &&
-    value.maxY < value.minY
-  ) {
-    issues.push(issue(path, "maxY must be greater than or equal to minY"));
-  }
-  if (finiteNumber(value.width) && value.width < 0) {
-    issues.push(issue(`${path}/width`, "width must be non-negative"));
-  }
-  if (finiteNumber(value.height) && value.height < 0) {
-    issues.push(issue(`${path}/height`, "height must be non-negative"));
-  }
+  if (!base64Pattern.test(value)) return null;
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+  return (value.length / 4) * 3 - padding;
 }
 
-export function validateMathInkRequest(value) {
+export function validateFormulaRecognitionRequest(value) {
   const issues = [];
   if (!isRecord(value) || !hasOnlyKeys(value, requestKeys)) {
     return {
@@ -95,8 +81,11 @@ export function validateMathInkRequest(value) {
       valid: false,
     };
   }
-  if (value.schemaVersion !== mathInkRequestSchemaVersion) {
+  if (value.schemaVersion !== formulaRecognitionRequestSchemaVersion) {
     issues.push(issue("/schemaVersion", "unsupported schema version"));
+  }
+  if (!providerSet.has(value.provider)) {
+    issues.push(issue("/provider", "unsupported recognition provider"));
   }
   if (!validIdentifier(value.recognitionId)) {
     issues.push(issue("/recognitionId", "invalid recognition identifier"));
@@ -104,160 +93,76 @@ export function validateMathInkRequest(value) {
   if (!validIdentifier(value.sessionId)) {
     issues.push(issue("/sessionId", "invalid session identifier"));
   }
-  if (
-    !finiteNumber(value.normalizedWidth) ||
-    value.normalizedWidth < 0 ||
-    value.normalizedWidth > 1
-  ) {
-    issues.push(
-      issue("/normalizedWidth", "normalized width must be in [0, 1]"),
-    );
-  }
-  if (
-    !finiteNumber(value.normalizedHeight) ||
-    value.normalizedHeight < 0 ||
-    value.normalizedHeight > 1
-  ) {
-    issues.push(
-      issue("/normalizedHeight", "normalized height must be in [0, 1]"),
-    );
-  }
-  if (
-    !isRecord(value.normalization) ||
-    !hasOnlyKeys(value.normalization, normalizationKeys)
-  ) {
-    issues.push(
-      issue("/normalization", "normalization must be a strict object"),
-    );
-  } else {
-    for (const key of normalizationKeys) {
-      if (!finiteNumber(value.normalization[key])) {
-        issues.push(issue(`/normalization/${key}`, "value must be finite"));
-      }
-    }
-    if (
-      finiteNumber(value.normalization.scale) &&
-      value.normalization.scale <= 0
-    ) {
-      issues.push(issue("/normalization/scale", "scale must be positive"));
-    }
-  }
-  validateBounds(value.sourceBounds, "/sourceBounds", issues);
 
-  if (!Array.isArray(value.strokes)) {
-    issues.push(issue("/strokes", "strokes must be an array"));
+  if (!isRecord(value.image) || !hasOnlyKeys(value.image, imageKeys)) {
+    issues.push(issue("/image", "image must be a strict object"));
   } else {
-    if (
-      value.strokes.length === 0 ||
-      value.strokes.length > mathInkProxyLimits.maximumStrokeCount
-    ) {
-      issues.push(
-        issue(
-          "/strokes",
-          `stroke count must be between 1 and ${mathInkProxyLimits.maximumStrokeCount}`,
-        ),
-      );
+    if (value.image.mimeType !== "image/png") {
+      issues.push(issue("/image/mimeType", "only image/png is supported"));
     }
-    let totalPointCount = 0;
-    const strokeIds = new Set();
-    value.strokes.forEach((stroke, strokeIndex) => {
-      const strokePath = `/strokes/${strokeIndex}`;
-      if (!isRecord(stroke) || !hasOnlyKeys(stroke, strokeKeys)) {
-        issues.push(issue(strokePath, "stroke must be a strict object"));
-        return;
-      }
-      if (!validIdentifier(stroke.id) || strokeIds.has(stroke.id)) {
-        issues.push(
-          issue(`${strokePath}/id`, "stroke identifier is invalid or repeated"),
-        );
-      } else {
-        strokeIds.add(stroke.id);
-      }
-      if (!Array.isArray(stroke.points)) {
-        issues.push(issue(`${strokePath}/points`, "points must be an array"));
-        return;
-      }
-      totalPointCount += stroke.points.length;
+    for (const dimension of ["width", "height"]) {
       if (
-        stroke.points.length < 2 ||
-        stroke.points.length > mathInkProxyLimits.maximumPointsPerStroke
+        !Number.isSafeInteger(value.image[dimension]) ||
+        value.image[dimension] <= 0 ||
+        value.image[dimension] > mathInkProxyLimits.maximumImageSide
       ) {
         issues.push(
           issue(
-            `${strokePath}/points`,
-            `point count must be between 2 and ${mathInkProxyLimits.maximumPointsPerStroke}`,
+            `/image/${dimension}`,
+            `image ${dimension} must be between 1 and ${mathInkProxyLimits.maximumImageSide}`,
           ),
         );
       }
-      let previousTime = -1;
-      stroke.points.forEach((point, pointIndex) => {
-        const pointPath = `${strokePath}/points/${pointIndex}`;
-        if (!isRecord(point) || !hasOnlyKeys(point, pointKeys)) {
-          issues.push(issue(pointPath, "point must be a strict object"));
-          return;
-        }
-        if (
-          !finiteNumber(point.x) ||
-          point.x < 0 ||
-          point.x > 1 ||
-          !finiteNumber(point.y) ||
-          point.y < 0 ||
-          point.y > 1
-        ) {
-          issues.push(
-            issue(pointPath, "point coordinates must be finite in [0, 1]"),
-          );
-        }
-        if (
-          !finiteNumber(point.timeMs) ||
-          point.timeMs < 0 ||
-          point.timeMs < previousTime
-        ) {
-          issues.push(
-            issue(`${pointPath}/timeMs`, "point time must be monotonic"),
-          );
-        } else {
-          previousTime = point.timeMs;
-        }
-      });
-    });
-    if (totalPointCount > mathInkProxyLimits.maximumTotalPointCount) {
-      issues.push(
-        issue(
-          "/strokes",
-          `total point count exceeds ${mathInkProxyLimits.maximumTotalPointCount}`,
-        ),
-      );
+    }
+    const decodedBytes = decodedBase64ByteLength(value.image.data);
+    if (
+      decodedBytes === null ||
+      decodedBytes <= 0 ||
+      decodedBytes > mathInkProxyLimits.maximumDecodedImageBytes
+    ) {
+      issues.push(issue("/image/data", "image base64 is invalid or oversized"));
     }
   }
+
+  if (!isRecord(value.source) || !hasOnlyKeys(value.source, sourceKeys)) {
+    issues.push(issue("/source", "source must be a strict object"));
+  } else {
+    for (const dimension of ["normalizedWidth", "normalizedHeight"]) {
+      if (
+        !finiteNumber(value.source[dimension]) ||
+        value.source[dimension] < 0 ||
+        value.source[dimension] > 1
+      ) {
+        issues.push(issue(`/source/${dimension}`, "value must be in [0, 1]"));
+      }
+    }
+    if (
+      !Number.isSafeInteger(value.source.strokeCount) ||
+      value.source.strokeCount <= 0 ||
+      value.source.strokeCount > mathInkProxyLimits.maximumSourceStrokeCount
+    ) {
+      issues.push(issue("/source/strokeCount", "stroke count is outside limits"));
+    }
+    if (
+      !Number.isSafeInteger(value.source.pointCount) ||
+      value.source.pointCount < value.source.strokeCount * 2 ||
+      value.source.pointCount > mathInkProxyLimits.maximumSourcePointCount
+    ) {
+      issues.push(issue("/source/pointCount", "point count is outside limits"));
+    }
+  }
+
   return issues.length === 0
     ? { valid: true, value }
     : { issues, valid: false };
 }
 
-export function createMathpixStrokeRequest(request) {
-  const scale = mathInkProxyLimits.providerCoordinateScale;
-  return {
-    formats: ["latex_styled", "text"],
-    metadata: {
-      improve_mathpix: false,
-      tutorboard_request_id: request.recognitionId,
-    },
-    strokes: {
-      strokes: {
-        x: request.strokes.map((stroke) =>
-          stroke.points.map((point) => Math.round(point.x * scale)),
-        ),
-        y: request.strokes.map((stroke) =>
-          stroke.points.map((point) => Math.round(point.y * scale)),
-        ),
-      },
-    },
-  };
-}
-
 export function stripOuterMathDelimiters(value) {
   let result = value.trim();
+  if (result.startsWith("```")) {
+    result = result.replace(/^```(?:latex|tex|math)?\s*/iu, "");
+    result = result.replace(/\s*```$/u, "").trim();
+  }
   const pairs = [
     ["\\(", "\\)"],
     ["\\[", "\\]"],
@@ -277,28 +182,22 @@ export function stripOuterMathDelimiters(value) {
   return result;
 }
 
-function boundedString(value, maximum) {
+function boundedString(value, maximum = 4_096) {
   return typeof value === "string" &&
-    value.length > 0 &&
+    value.trim().length > 0 &&
     value.length <= maximum
-    ? value
+    ? value.trim()
     : null;
 }
 
-export function normalizeMathpixResponse(payload, requestId) {
-  if (!isRecord(payload)) {
-    return { code: "math-ink.provider-invalid-response", valid: false };
-  }
-  const expressionSource =
-    boundedString(payload.latex_styled, 4_096) ??
-    boundedString(payload.text, 4_096);
-  const providerRequestId = boundedString(payload.request_id, 256);
-  const providerVersion = boundedString(payload.version, 128) ?? "unknown";
+function normalizedResult(provider, expressionSource, metadata = {}) {
+  const providerRequestId = boundedString(metadata.providerRequestId, 256);
+  const providerVersion = boundedString(metadata.providerVersion, 128) ?? "unknown";
   const confidence =
-    finiteNumber(payload.confidence) &&
-    payload.confidence >= 0 &&
-    payload.confidence <= 1
-      ? payload.confidence
+    finiteNumber(metadata.confidence) &&
+    metadata.confidence >= 0 &&
+    metadata.confidence <= 1
+      ? metadata.confidence
       : undefined;
   if (expressionSource === null) {
     return {
@@ -307,23 +206,26 @@ export function normalizeMathpixResponse(payload, requestId) {
         candidates: [],
         diagnostics: [
           {
-            code: "math-ink.provider-unrecognized",
-            message: "Mathpix did not return a mathematical expression.",
+            code: "formula-recognition.provider-unrecognized",
+            message: `${provider} did not return a mathematical expression.`,
             severity: "warning",
           },
         ],
-        provider: "mathpix",
+        provider,
         providerRequestId,
         providerVersion,
-        requestId,
-        schemaVersion: mathInkProxyResultSchemaVersion,
+        requestId: metadata.requestId,
+        schemaVersion: formulaRecognitionResultSchemaVersion,
         status: "unrecognized",
       },
     };
   }
   const expression = stripOuterMathDelimiters(expressionSource);
   if (expression.length === 0 || expression.length > 4_096) {
-    return { code: "math-ink.provider-invalid-response", valid: false };
+    return {
+      code: "formula-recognition.provider-invalid-response",
+      valid: false,
+    };
   }
   const candidate =
     confidence === undefined
@@ -334,12 +236,72 @@ export function normalizeMathpixResponse(payload, requestId) {
     value: {
       candidates: [candidate],
       diagnostics: [],
-      provider: "mathpix",
+      provider,
       providerRequestId,
       providerVersion,
-      requestId,
-      schemaVersion: mathInkProxyResultSchemaVersion,
+      requestId: metadata.requestId,
+      schemaVersion: formulaRecognitionResultSchemaVersion,
       status: "recognized",
     },
   };
+}
+
+export function normalizePaddleOcrResponse(payload, requestId) {
+  if (!isRecord(payload)) {
+    return { code: "formula-recognition.provider-invalid-response", valid: false };
+  }
+  const nested = isRecord(payload.result) ? payload.result : null;
+  const expression =
+    boundedString(payload.latex) ??
+    boundedString(payload.formula) ??
+    boundedString(nested?.latex) ??
+    boundedString(nested?.formula) ??
+    boundedString(nested?.text);
+  return normalizedResult("paddleocr", expression, {
+    confidence: payload.confidence ?? nested?.confidence,
+    providerRequestId: payload.requestId ?? payload.request_id,
+    providerVersion:
+      payload.modelVersion ?? payload.model_version ?? nested?.modelVersion,
+    requestId,
+  });
+}
+
+export function normalizeLocalOcrLlmResponse(payload, requestId) {
+  if (!isRecord(payload) || !Array.isArray(payload.choices)) {
+    return { code: "formula-recognition.provider-invalid-response", valid: false };
+  }
+  const choice = payload.choices[0];
+  const message = isRecord(choice) && isRecord(choice.message) ? choice.message : null;
+  const content = boundedString(message?.content);
+  return normalizedResult("local-ocr-llm", content, {
+    providerRequestId: payload.id,
+    providerVersion: payload.model,
+    requestId,
+  });
+}
+
+function yandexFullText(payload) {
+  if (!isRecord(payload)) return null;
+  const result = isRecord(payload.result) ? payload.result : null;
+  const annotation = isRecord(result?.textAnnotation)
+    ? result.textAnnotation
+    : isRecord(payload.textAnnotation)
+      ? payload.textAnnotation
+      : null;
+  return (
+    boundedString(annotation?.fullText) ??
+    boundedString(result?.fullText) ??
+    boundedString(payload.fullText)
+  );
+}
+
+export function normalizeYandexOcrResponse(payload, requestId) {
+  if (!isRecord(payload)) {
+    return { code: "formula-recognition.provider-invalid-response", valid: false };
+  }
+  return normalizedResult("yandex-ai-studio", yandexFullText(payload), {
+    providerRequestId: payload.requestId ?? payload.request_id,
+    providerVersion: payload.modelVersion ?? payload.model_version ?? "math-markdown",
+    requestId,
+  });
 }
