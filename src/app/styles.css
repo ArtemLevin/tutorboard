@@ -1792,3 +1792,10 @@ textarea:focus-visible,
   width: min(360px, 70vw);
   resize: vertical;
 }
+
+/* Final dock popover stacking contract. */
+@media (min-width: 721px) {
+  .dock-primary-settings {
+    overflow: visible;
+  }
+}

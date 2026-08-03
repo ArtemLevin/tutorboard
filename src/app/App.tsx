@@ -946,7 +946,9 @@ export function App({
 
   const closeShortcuts = useCallback(() => {
     setShortcutsOpen(false);
-    queueMicrotask(() => shortcutsButtonRef.current?.focus());
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => shortcutsButtonRef.current?.focus());
+    });
   }, []);
 
   const applyDrawingAction = useCallback(
@@ -1766,6 +1768,11 @@ export function App({
         setGeometryPromptOpen(false);
         return;
       }
+      if (event.key === "Escape" && selectionInspectorObjectId !== null) {
+        event.preventDefault();
+        setSelectionInspectorObjectId(null);
+        return;
+      }
       if (
         event.key === "Escape" &&
         (activeTool === handwrittenFunctionToolId ||
@@ -1902,6 +1909,7 @@ export function App({
     geometryPromptOpen,
     handwrittenFunctionState.kind,
     readOnly,
+    selectionInspectorObjectId,
     settingsOpen,
     commitSelectionMove,
     copySelection,

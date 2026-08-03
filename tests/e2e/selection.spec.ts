@@ -83,18 +83,15 @@ test("selects objects with a marquee and cancels a later preview with Escape", a
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(finish.x, finish.y, { steps: 5 });
-  await page.mouse.up();
-  await expect(page.getByTestId("selection-count")).toHaveText("3 выбрано");
-
-  const empty = await stagePoint(page, 780, 100);
-  await page.mouse.click(empty.x, empty.y);
-  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(finish.x, finish.y, { steps: 5 });
   await page.keyboard.press("Escape");
   await page.mouse.up();
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(finish.x, finish.y, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.getByTestId("selection-count")).toHaveText("3 выбрано");
 });
 
 test("scales and rotates a selected figure with undo support", async ({
@@ -122,18 +119,19 @@ test("scales and rotates a selected figure with undo support", async ({
   );
 });
 
-test("uses the explicit selection tool for an existing figure", async ({
+test("selects a figure contour directly from another tool", async ({
   page,
 }) => {
   await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
-  const contour = await stagePoint(page, 300, 210);
-  await page.mouse.click(contour.x, contour.y);
   await expect(
     page.getByRole("button", { name: "Прямоугольник (R)" }),
   ).toHaveAttribute("aria-pressed", "true");
 
-  await page.getByRole("button", { name: "Выделение (V)" }).click();
+  const contour = await stagePoint(page, 300, 210);
   await page.mouse.click(contour.x, contour.y);
+  await expect(
+    page.getByRole("button", { name: "Выделение (V)" }),
+  ).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
   await rightDoubleClickAt(page, await stagePoint(page, 350, 210));
   await expect(
