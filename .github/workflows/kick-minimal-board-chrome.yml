@@ -1,0 +1,55 @@
+name: Run minimal board chrome patch
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: run-minimal-board-chrome-patch
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.head_ref == 'feature/minimal-board-chrome'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/minimal-board-chrome
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Extract implementation patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          source = Path('.github/workflows/apply-minimal-board-chrome.yml').read_text()
+          payload = source.split("cat > /tmp/minimal-board-chrome.b64 <<'PATCH'\n", 1)[1].split('\nPATCH\n', 1)[0]
+          Path('/tmp/minimal-board-chrome.b64').write_text(payload)
+          PY
+          base64 --decode /tmp/minimal-board-chrome.b64 | gzip --decompress > /tmp/apply-minimal-board-chrome.mjs
+          node --check /tmp/apply-minimal-board-chrome.mjs
+      - run: npm ci
+      - name: Apply and verify implementation
+        run: |
+          node /tmp/apply-minimal-board-chrome.mjs
+          rm -f .github/workflows/kick-minimal-board-chrome.yml
+          npm run format
+          npm run typecheck
+          npm run test
+          npm run architecture
+          npm run build
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: introduce minimal board chrome"
+          git push origin HEAD:feature/minimal-board-chrome
