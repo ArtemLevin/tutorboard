@@ -40,6 +40,10 @@ async function dragMarquee(page: Page) {
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(finish.x, finish.y, { steps: 5 });
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-selecting",
+    "true",
+  );
   return { finish, start };
 }
 

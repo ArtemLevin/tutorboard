@@ -2,6 +2,7 @@ import Konva from "konva";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -380,11 +381,11 @@ export function BoardStage({
     }
   }, [onSelectionTransform]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     panModeRequestRef.current = onPanModeRequest;
   }, [onPanModeRequest]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     worldPointerCallbacksRef.current = {
       cancel: onWorldPointerCancel,
       finish: onWorldPointerFinish,
@@ -398,7 +399,7 @@ export function BoardStage({
     onWorldPointerStart,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     selectionPointerCallbacksRef.current = {
       cancel: onSelectionPointerCancel,
       finish: onSelectionPointerFinish,
@@ -552,7 +553,7 @@ export function BoardStage({
     }
   }, [onViewportCommit]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     worldPointerHoverRef.current = onWorldPointerHover;
   }, [onWorldPointerHover]);
   useEffect(() => {
@@ -762,13 +763,13 @@ export function BoardStage({
     }
   }, [finishPan, panMode]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (drawingSessionRef.current !== null) {
       finishDrawing(false);
     }
   }, [drawingModeKey, finishDrawing]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (selectionSessionRef.current !== null) {
       finishSelection(false);
     }
