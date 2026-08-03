@@ -10,8 +10,9 @@ async function drawStroke(
   const box = await canvas.boundingBox();
   if (box === null) throw new Error("TutorBoard canvas has no layout box.");
   const [first, ...rest] = points;
-  if (first === undefined)
+  if (first === undefined) {
     throw new Error("Stroke requires at least one point.");
+  }
   const clientPoint = { x: box.x + first.x, y: box.y + first.y };
   await page.mouse.move(clientPoint.x, clientPoint.y);
   await page.mouse.down();
@@ -23,36 +24,61 @@ async function drawStroke(
   await expect(boardStage).toHaveAttribute("data-drawing", "false");
 }
 
-test.describe("Mathpix proxy browser composition", () => {
-  test("recognizes captured ink and builds the provider-derived plot", async ({
-    page,
-  }) => {
-    let proxyRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/math-ink/recognize", async (route) => {
-      proxyRequest = route.request().postDataJSON() as Record<string, unknown>;
-      const recognitionId = proxyRequest.recognitionId;
-      if (typeof recognitionId !== "string") {
-        throw new Error("Recognition request has no ID.");
-      }
-      await route.fulfill({
-        body: JSON.stringify({
-          candidates: [
-            { confidence: 0.99, expression: "x^2+1", format: "latex" },
-          ],
-          diagnostics: [],
-          provider: "mathpix",
-          providerRequestId: "mathpix:e2e",
-          providerVersion: "mock-1",
-          requestId: recognitionId,
-          schemaVersion: "tutorboard.math-ink-proxy-result/0.1",
-          status: "recognized",
-        }),
-        contentType: "application/json",
-        status: 200,
-      });
-    });
+const providers = [
+  {
+    id: "paddleocr",
+    label: /PaddleOCR Formula Recognition/u,
+  },
+  {
+    id: "local-ocr-llm",
+    label: /Локальная OCR-LLM/u,
+  },
+  {
+    id: "yandex-ai-studio",
+    label: /Yandex Cloud OCR/u,
+  },
+] as const;
 
-    await page.goto("/");
+for (const provider of providers) {
+  test(`recognizes captured ink through ${provider.id}`, async ({ page }) => {
+    let gatewayRequest: Record<string, unknown> | null = null;
+    await page.route(
+      "**/api/v1/formula-recognition/recognize",
+      async (route) => {
+        gatewayRequest = route.request().postDataJSON() as Record<
+          string,
+          unknown
+        >;
+        const recognitionId = gatewayRequest.recognitionId;
+        if (typeof recognitionId !== "string") {
+          throw new Error("Recognition request has no ID.");
+        }
+        await route.fulfill({
+          body: JSON.stringify({
+            candidates: [
+              { confidence: 0.99, expression: "x^2+1", format: "latex" },
+            ],
+            diagnostics: [],
+            provider: provider.id,
+            providerRequestId: `${provider.id}:e2e`,
+            providerVersion: "mock-1",
+            requestId: recognitionId,
+            schemaVersion: "tutorboard.formula-recognition-result/1",
+            status: "recognized",
+          }),
+          contentType: "application/json",
+          status: 200,
+        });
+      },
+    );
+
+    await page.goto("/#/settings");
+    await expect(
+      page.getByRole("heading", { name: "Распознавание математических формул" }),
+    ).toBeVisible();
+    await page.getByRole("radio", { name: provider.label }).click();
+    await page.getByRole("link", { name: "Доска" }).click();
+
     const handwrittenTool = page.getByRole("button", {
       name: "Рукописная функция (F)",
     });
@@ -63,12 +89,12 @@ test.describe("Mathpix proxy browser composition", () => {
     if ((await recognize.count()) === 0) {
       if (process.env.MATH_INK_E2E_REQUIRED === "true") {
         throw new Error(
-          "The Math ink production gate requires automatic recognition.",
+          "The formula recognition production gate requires automatic recognition.",
         );
       }
       test.skip(
         true,
-        "Automatic Math ink recognition is disabled in this build.",
+        "Automatic formula recognition is disabled in this build.",
       );
       return;
     }
@@ -83,9 +109,19 @@ test.describe("Mathpix proxy browser composition", () => {
     await recognize.click();
     const expression = page.getByRole("textbox", { name: "Функция y =" });
     await expect(expression).toHaveValue("x^(2)+1");
-    expect(proxyRequest).toMatchObject({
-      schemaVersion: "tutorboard.math-ink-request/0.1",
-      strokes: [expect.objectContaining({ id: expect.any(String) })],
+    expect(gatewayRequest).toMatchObject({
+      image: {
+        data: expect.any(String),
+        height: expect.any(Number),
+        mimeType: "image/png",
+        width: expect.any(Number),
+      },
+      provider: provider.id,
+      schemaVersion: "tutorboard.formula-recognition-request/1",
+      source: {
+        pointCount: expect.any(Number),
+        strokeCount: 1,
+      },
     });
     await expect(page.getByTestId("object-count")).toContainText("1 объекта");
 
@@ -95,4 +131,4 @@ test.describe("Mathpix proxy browser composition", () => {
     await expect(page.getByText("math.coordinate-plot")).toBeVisible();
     await expect(page.getByTestId("object-count")).toContainText("1 объекта");
   });
-});
+}
