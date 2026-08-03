@@ -30,11 +30,16 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Decode patcher
+      - name: Decode verified patcher
         run: |
-          base64 --decode scripts/minimal-board-chrome-patcher.mjs.gz.b64 \
+          cat scripts/minimal-board-chrome-patcher/part-*.b64 > /tmp/minimal-board-chrome-patcher.b64
+          test "$(sha256sum /tmp/minimal-board-chrome-patcher.b64 | cut -d' ' -f1)" = \
+            "6a2c47b2d69b9230692be889733d571e44415655fd13a5e898421434bd9d186c"
+          base64 --decode /tmp/minimal-board-chrome-patcher.b64 \
             | gzip --decompress \
             > /tmp/minimal-board-chrome-patcher.mjs
+          test "$(sha256sum /tmp/minimal-board-chrome-patcher.mjs | cut -d' ' -f1)" = \
+            "277f66900837eba0a17e97aea5c860d1e4998490266523e0727ec4068fa0d532"
           node --check /tmp/minimal-board-chrome-patcher.mjs
 
       - name: Install locked dependencies
@@ -43,10 +48,11 @@ jobs:
       - name: Apply and format implementation
         run: |
           node /tmp/minimal-board-chrome-patcher.mjs
-          rm -f \
+          rm -rf \
             .agent/minimal-board-chrome.trigger \
             .github/workflows/apply-minimal-board-chrome.yml \
             .github/workflows/kick-minimal-board-chrome.yml \
+            scripts/minimal-board-chrome-patcher \
             scripts/minimal-board-chrome-patcher.mjs.gz.b64
           npm run format
 
