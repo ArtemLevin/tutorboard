@@ -25,13 +25,25 @@ describe("formula recognition runtime provider configuration", () => {
     });
   });
 
-  it("rejects the legacy global insecure-upstream switch", () => {
+  it("rejects an enabled legacy global insecure-upstream switch", () => {
     expect(() =>
       runtimeProviders({
         FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM: "true",
         PADDLE_OCR_API_URL: "http://paddle-formula:8080/v1/recognize",
       }),
     ).toThrow("provider-specific insecure-upstream setting");
+  });
+
+  it("tolerates an explicitly disabled legacy switch during migration", () => {
+    expect(
+      runtimeProviders({
+        FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM: "false",
+        PADDLE_OCR_API_URL: "https://paddle.example.test/v1/recognize",
+      }).paddleocr,
+    ).toMatchObject({
+      allowInsecure: false,
+      apiUrl: "https://paddle.example.test/v1/recognize",
+    });
   });
 
   it("fails startup for insecure or malformed provider URLs", () => {
