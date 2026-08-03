@@ -34,6 +34,15 @@ async function stagePoint(page: Page, x: number, y: number) {
   return { x: bounds.x + x, y: bounds.y + y };
 }
 
+async function dragMarquee(page: Page) {
+  const start = await stagePoint(page, 250, 110);
+  const finish = await stagePoint(page, 700, 310);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(finish.x, finish.y, { steps: 5 });
+  return { finish, start };
+}
+
 test("selects and moves an object with a zoom-independent world delta", async ({
   page,
 }) => {
@@ -75,24 +84,17 @@ test("supports additive selection, lock and delete", async ({ page }) => {
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 });
 
-test("selects objects with a marquee and cancels a later preview with Escape", async ({
-  page,
-}) => {
-  const start = await stagePoint(page, 250, 110);
-  const finish = await stagePoint(page, 700, 310);
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(finish.x, finish.y, { steps: 5 });
+test("selects objects with a marquee", async ({ page }) => {
+  await dragMarquee(page);
+  await page.mouse.up();
+  await expect(page.getByTestId("selection-count")).toHaveText("3 выбрано");
+});
+
+test("cancels a marquee preview with Escape", async ({ page }) => {
+  await dragMarquee(page);
   await page.keyboard.press("Escape");
   await page.mouse.up();
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
-  await page.getByRole("button", { name: "Выделение (V)" }).click();
-
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(finish.x, finish.y, { steps: 5 });
-  await page.mouse.up();
-  await expect(page.getByTestId("selection-count")).toHaveText("3 выбрано");
 });
 
 test("scales and rotates a selected figure with undo support", async ({
