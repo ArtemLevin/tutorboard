@@ -5,7 +5,7 @@ source = path.read_text(encoding="utf-8")
 
 source = source.replace("  type PointerEvent as ReactPointerEvent,\n", "", 1)
 
-old_handler = '''  const handleSelectionBackgroundPointerDownCapture = (
+react_fallback = '''  const handleSelectionBackgroundPointerDownCapture = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
     if (
@@ -36,72 +36,8 @@ old_handler = '''  const handleSelectionBackgroundPointerDownCapture = (
   };
 
 '''
-new_handler = '''  const handleSelectionBackgroundPointerDownCapture = useCallback(
-    (event: PointerEvent) => {
-      if (
-        event.button !== 0 ||
-        spacePressedRef.current ||
-        selectionModeKey === null ||
-        panSessionRef.current !== null ||
-        drawingSessionRef.current !== null ||
-        selectionSessionRef.current !== null
-      ) {
-        return;
-      }
-      const stage = stageRef.current;
-      const root = rootRef.current;
-      if (stage === null || root === null) {
-        return;
-      }
-      const container = stage.container();
-      const bounds = container.getBoundingClientRect();
-      const hit = stage.getIntersection({
-        x: event.clientX - bounds.left,
-        y: event.clientY - bounds.top,
-      });
-      if (
-        hit !== null &&
-        ((transformableObjectIds.length > 0 && isTransformerTarget(hit)) ||
-          objectIdFromTarget(hit) !== null)
-      ) {
-        return;
-      }
-      commitWheel();
-      event.preventDefault();
-      beginSelectionSession(event, root, null);
-    },
-    [
-      beginSelectionSession,
-      commitWheel,
-      selectionModeKey,
-      transformableObjectIds.length,
-    ],
-  );
-
-  useEffect(() => {
-    const root = rootRef.current;
-    if (root === null) {
-      return;
-    }
-    root.addEventListener(
-      "pointerdown",
-      handleSelectionBackgroundPointerDownCapture,
-      true,
-    );
-    return () => {
-      root.removeEventListener(
-        "pointerdown",
-        handleSelectionBackgroundPointerDownCapture,
-        true,
-      );
-    };
-  }, [handleSelectionBackgroundPointerDownCapture]);
-
-'''
-if old_handler in source:
-    source = source.replace(old_handler, new_handler, 1)
-elif new_handler not in source:
-    raise SystemExit("Unexpected background selection handler")
+if react_fallback in source:
+    source = source.replace(react_fallback, "", 1)
 
 source = source.replace(
     '      onPointerDownCapture={handleSelectionBackgroundPointerDownCapture}\n',
@@ -126,5 +62,29 @@ if old_transformer_guard in source:
     source = source.replace(old_transformer_guard, new_transformer_guard, 1)
 elif new_transformer_guard not in source:
     raise SystemExit("Unexpected Transformer pointer guard")
+
+stage_marker = '''      >
+        <Layer listening={false}>
+          <Group
+            scaleX={previewViewport.zoom}
+'''
+selection_background = '''      >
+        <Layer listening={selectionModeKey !== null}>
+          <Rect
+            fill="rgba(0, 0, 0, 0.001)"
+            height={size.height}
+            listening={selectionModeKey !== null}
+            name="board-selection-background"
+            width={size.width}
+          />
+        </Layer>
+        <Layer listening={false}>
+          <Group
+            scaleX={previewViewport.zoom}
+'''
+if stage_marker in source:
+    source = source.replace(stage_marker, selection_background, 1)
+elif selection_background not in source:
+    raise SystemExit("Unexpected Stage layer structure")
 
 path.write_text(source, encoding="utf-8")
