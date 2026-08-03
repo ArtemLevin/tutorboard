@@ -15,7 +15,9 @@ test("keeps Smart Ink unavailable in the production release candidate", async ({
     }),
   ).toBeVisible();
 
-  await expect(page.getByRole("button", { name: "Smart Ink (I)" })).toHaveCount(
+  const toolDock = page.getByRole("toolbar", { name: "Инструменты доски" });
+  await expect(toolDock).toBeVisible();
+  await expect(toolDock.getByRole("button", { name: "Smart Ink (I)" })).toHaveCount(
     0,
   );
   await expect(page.getByLabel("Smart Ink diagnostics")).toHaveCount(0);
@@ -23,8 +25,8 @@ test("keeps Smart Ink unavailable in the production release candidate", async ({
   await page.keyboard.press("i");
 
   await expect(
-    page.getByLabel("Подсказка по навигации").getByText("Навигация"),
-  ).toBeVisible();
+    toolDock.getByRole("button", { name: "Перемещение (H)" }),
+  ).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("interaction-state")).toHaveText("idle");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
 });
