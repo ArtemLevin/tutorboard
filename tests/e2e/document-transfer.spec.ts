@@ -6,9 +6,12 @@ test("exports deterministic document and diagnostic snapshots", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  const settings = page.getByRole("dialog", { name: "Настройки доски" });
+  await expect(settings).toBeVisible();
 
   const jsonDownloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Экспорт JSON" }).click();
+  await settings.getByRole("button", { name: "Экспорт JSON" }).click();
   const jsonDownload = await jsonDownloadPromise;
   expect(jsonDownload.suggestedFilename()).toMatch(/\.tutorboard\.json$/u);
   const jsonPath = await jsonDownload.path();
@@ -19,7 +22,7 @@ test("exports deterministic document and diagnostic snapshots", async ({
   expect(exported.schemaVersion).toBe("1.1");
 
   const svgDownloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Снимок SVG" }).click();
+  await settings.getByRole("button", { name: "Снимок SVG" }).click();
   const svgDownload = await svgDownloadPromise;
   expect(svgDownload.suggestedFilename()).toBe("tutorboard-snapshot.svg");
   const svgPath = await svgDownload.path();
@@ -29,7 +32,7 @@ test("exports deterministic document and diagnostic snapshots", async ({
   );
 
   const pngDownloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Снимок PNG" }).click();
+  await settings.getByRole("button", { name: "Снимок PNG" }).click();
   const pngDownload = await pngDownloadPromise;
   expect(pngDownload.suggestedFilename()).toBe("tutorboard-snapshot.png");
   const pngPath = await pngDownload.path();

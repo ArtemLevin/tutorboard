@@ -370,64 +370,6 @@ export function SyncedApp({
 
   return (
     <div className="synced-workspace">
-      <aside
-        aria-label="Совместная работа и итоги"
-        className="collaboration-bar"
-      >
-        <div>
-          <strong>
-            {collaborationStatus === "online"
-              ? `В комнате ${participants.length + 1}`
-              : collaborationStatus === "connecting"
-                ? "Подключение к комнате…"
-                : "Совместная работа офлайн"}
-          </strong>
-          <span>Команды подтверждаются серверными ревизиями.</span>
-        </div>
-        {participants.length === 0 ? null : (
-          <ul aria-label="Участники занятия">
-            {participants.map((participant) => (
-              <li key={participant.clientId}>
-                {participant.actorId} · {participant.role}
-              </li>
-            ))}
-          </ul>
-        )}
-        {canManageEvidence ? (
-          <button onClick={() => void finalizeEvidence()} type="button">
-            Зафиксировать итог
-          </button>
-        ) : null}
-        {evidence.length === 0 ? null : (
-          <ul aria-label="Итоговые ревизии">
-            {evidence.map((item) => {
-              const isPublished =
-                item.publishedAt !== null && item.revokedAt === null;
-              return (
-                <li key={item.evidenceId}>
-                  <a href={item.artifacts.svg} rel="noreferrer" target="_blank">
-                    Ревизия {item.revision}
-                  </a>
-                  <span>{isPublished ? "опубликована" : "черновик"}</span>
-                  {canManageEvidence ? (
-                    <button
-                      onClick={() =>
-                        void setEvidencePublished(item, !isPublished)
-                      }
-                      type="button"
-                    >
-                      {isPublished ? "Отозвать" : "Опубликовать"}
-                    </button>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {evidenceStatus === null ? null : (
-          <span aria-live="polite">{evidenceStatus}</span>
-        )}
-      </aside>
       <App
         collaborativeUndoAvailable={undoCount > 0}
         commandActorId={state.actorId}
@@ -471,6 +413,69 @@ export function SyncedApp({
         }
         persistenceStatus={persistenceStatus(state)}
         readOnly={state.role === "parent"}
+        settingsExtra={
+          <section className="board-settings-section">
+            <h3>Занятие</h3>
+            <p>
+              {collaborationStatus === "online"
+                ? `В комнате ${participants.length + 1}`
+                : collaborationStatus === "connecting"
+                  ? "Подключение к комнате…"
+                  : "Совместная работа офлайн"}
+            </p>
+            <p>
+              Серверная ревизия {state.revision} · ожидают отправки{" "}
+              {state.pendingCount}
+            </p>
+            {participants.length === 0 ? null : (
+              <ul aria-label="Участники занятия">
+                {participants.map((participant) => (
+                  <li key={participant.clientId}>
+                    {participant.actorId} · {participant.role}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canManageEvidence ? (
+              <button onClick={() => void finalizeEvidence()} type="button">
+                Зафиксировать итог
+              </button>
+            ) : null}
+            {evidence.length === 0 ? null : (
+              <ul aria-label="Итоговые ревизии">
+                {evidence.map((item) => {
+                  const isPublished =
+                    item.publishedAt !== null && item.revokedAt === null;
+                  return (
+                    <li key={item.evidenceId}>
+                      <a
+                        href={item.artifacts.svg}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Ревизия {item.revision}
+                      </a>
+                      <span>{isPublished ? " опубликована" : " черновик"}</span>
+                      {canManageEvidence ? (
+                        <button
+                          onClick={() =>
+                            void setEvidencePublished(item, !isPublished)
+                          }
+                          type="button"
+                        >
+                          {isPublished ? "Отозвать" : "Опубликовать"}
+                        </button>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {evidenceStatus === null ? null : (
+              <span aria-live="polite">{evidenceStatus}</span>
+            )}
+          </section>
+        }
         remoteCursors={participants.flatMap((participant) =>
           participant.cursor === null
             ? []

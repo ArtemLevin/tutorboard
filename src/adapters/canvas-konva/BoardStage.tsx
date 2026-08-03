@@ -2,9 +2,11 @@ import Konva from "konva";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
   type ReactElement,
 } from "react";
 import {
@@ -380,11 +382,11 @@ export function BoardStage({
     }
   }, [onSelectionTransform]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     panModeRequestRef.current = onPanModeRequest;
   }, [onPanModeRequest]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     worldPointerCallbacksRef.current = {
       cancel: onWorldPointerCancel,
       finish: onWorldPointerFinish,
@@ -398,7 +400,7 @@ export function BoardStage({
     onWorldPointerStart,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     selectionPointerCallbacksRef.current = {
       cancel: onSelectionPointerCancel,
       finish: onSelectionPointerFinish,
@@ -464,6 +466,34 @@ export function BoardStage({
       pressure: 0,
     }),
     [],
+  );
+
+  const beginSelectionSession = useCallback(
+    (
+      event: PointerEvent,
+      captureElement: HTMLElement,
+      objectId: BoardObjectId | null,
+    ) => {
+      captureElement.setPointerCapture(event.pointerId);
+      const session: SelectionSession = {
+        captureElement,
+        pointerId: event.pointerId,
+        viewport: previewViewport,
+      };
+      selectionSessionRef.current = session;
+      setIsSelecting(true);
+      selectionPointerCallbacksRef.current.start({
+        ...selectionWorldSample(event, session),
+        additive: event.shiftKey,
+        areaOperation: event.altKey
+          ? "subtract"
+          : event.shiftKey
+            ? "add"
+            : "replace",
+        objectId,
+      });
+    },
+    [previewViewport, selectionWorldSample],
   );
 
   const finishDrawing = useCallback(
@@ -552,7 +582,7 @@ export function BoardStage({
     }
   }, [onViewportCommit]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     worldPointerHoverRef.current = onWorldPointerHover;
   }, [onWorldPointerHover]);
   useEffect(() => {
@@ -762,13 +792,13 @@ export function BoardStage({
     }
   }, [finishPan, panMode]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (drawingSessionRef.current !== null) {
       finishDrawing(false);
     }
   }, [drawingModeKey, finishDrawing]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (selectionSessionRef.current !== null) {
       finishSelection(false);
     }
@@ -787,6 +817,36 @@ export function BoardStage({
       finishSelection(false);
     }
   }, [finishSelection, scene.viewport]);
+
+  const handleSelectionBackgroundPointerDownCapture = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    if (
+      event.button !== 0 ||
+      selectionModeKey === null ||
+      panSessionRef.current !== null ||
+      drawingSessionRef.current !== null ||
+      selectionSessionRef.current !== null
+    ) {
+      return;
+    }
+    const stage = stageRef.current;
+    if (stage === null) {
+      return;
+    }
+    const container = stage.container();
+    const bounds = container.getBoundingClientRect();
+    const hit = stage.getIntersection({
+      x: event.clientX - bounds.left,
+      y: event.clientY - bounds.top,
+    });
+    if (hit !== null && objectIdFromTarget(hit) !== null) {
+      return;
+    }
+    commitWheel();
+    event.preventDefault();
+    beginSelectionSession(event.nativeEvent, event.currentTarget, null);
+  };
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
     const isRightButton = event.evt.button === 2;
@@ -855,7 +915,10 @@ export function BoardStage({
         ? "middle"
         : isLeftButton && spacePressedRef.current
           ? "space"
-          : isLeftButton && panMode && !shouldSelectHitObject
+          : isLeftButton &&
+              panMode &&
+              selectionModeKey === null &&
+              !shouldSelectHitObject
             ? "hand"
             : null;
     if (source === null) {
@@ -870,27 +933,11 @@ export function BoardStage({
         return;
       }
       const captureElement = stage.container();
-      captureElement.setPointerCapture(event.evt.pointerId);
       if (selectionModeKey !== null || hitObjectId !== null) {
-        const session: SelectionSession = {
-          captureElement,
-          pointerId: event.evt.pointerId,
-          viewport: previewViewport,
-        };
-        selectionSessionRef.current = session;
-        setIsSelecting(true);
-        selectionPointerCallbacksRef.current.start({
-          ...selectionWorldSample(event.evt, session),
-          additive: event.evt.shiftKey,
-          areaOperation: event.evt.altKey
-            ? "subtract"
-            : event.evt.shiftKey
-              ? "add"
-              : "replace",
-          objectId: hitObjectId,
-        });
+        beginSelectionSession(event.evt, captureElement, hitObjectId);
         return;
       }
+      captureElement.setPointerCapture(event.evt.pointerId);
       if (drawingModeKey === null) {
         releaseCapture({
           captureElement,
@@ -991,6 +1038,7 @@ export function BoardStage({
     <div
       ref={rootRef}
       aria-label="Бесконечное полотно TutorBoard"
+      onPointerDownCapture={handleSelectionBackgroundPointerDownCapture}
       className="board-stage"
       data-coordinate-plot-editing={
         coordinatePlotInteraction?.activeObjectId !== null &&

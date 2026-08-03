@@ -46,8 +46,10 @@ test("creates and persists explicit and parametric plot series", async ({
   await expect(advancedEditor).toBeHidden();
   await expect(editor.getByText("Изменения сохранены")).toBeVisible();
 
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  const settings = page.getByRole("dialog", { name: "Настройки доски" });
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Экспорт JSON" }).click();
+  await settings.getByRole("button", { name: "Экспорт JSON" }).click();
   const download = await downloadPromise;
   const path = await download.path();
   expect(path).not.toBeNull();

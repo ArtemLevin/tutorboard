@@ -31,10 +31,15 @@ interface ExportedPlotDocument {
 }
 
 async function exportDocument(page: Page): Promise<ExportedPlotDocument> {
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  const settings = page.getByRole("dialog", { name: "Настройки доски" });
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Экспорт JSON" }).click();
+  await settings.getByRole("button", { name: "Экспорт JSON" }).click();
   const download = await downloadPromise;
   const path = await download.path();
+  await settings
+    .getByRole("button", { name: "Закрыть настройки доски" })
+    .click();
   if (path === null) throw new Error("Expected exported board document");
   return JSON.parse(await readFile(path, "utf8")) as ExportedPlotDocument;
 }

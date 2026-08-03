@@ -12,6 +12,7 @@ import {
 } from "../../../../src/core/public";
 import {
   createAddDrawingObjectCommand,
+  drawingStyleDefaults,
   getDrawingPreview,
   reduceDrawingInteraction,
   simplifyStroke,
@@ -21,6 +22,23 @@ import {
 } from "../../../../src/modules/drawing/public";
 
 const idle: DrawingInteractionState = { kind: "idle" };
+
+function styleFor(tool: DrawingToolId) {
+  switch (tool) {
+    case "drawing.pen":
+      return drawingStyleDefaults.pen;
+    case "drawing.smart-ink":
+      return drawingStyleDefaults.smartInk;
+    case "drawing.line":
+      return drawingStyleDefaults.line;
+    case "drawing.rectangle":
+      return drawingStyleDefaults.rectangle;
+    case "drawing.ellipse":
+      return drawingStyleDefaults.ellipse;
+    case "drawing.text":
+      return drawingStyleDefaults.text;
+  }
+}
 
 function draw(
   tool: DrawingToolId,
@@ -33,6 +51,7 @@ function draw(
     objectId: boardObjectId(`object:${tool.split(".")[1]}`),
     point: start,
     pointerId: 7,
+    style: styleFor(tool),
     text,
     tool,
   });
@@ -65,6 +84,7 @@ describe("drawing interaction state machine", () => {
       objectId: boardObjectId("object:pen"),
       point: { x: -12.5, y: 24 },
       pointerId: 3,
+      style: styleFor("drawing.pen"),
       text: "",
       tool: "drawing.pen",
     });
@@ -134,6 +154,7 @@ describe("drawing interaction state machine", () => {
       objectId: boardObjectId("object:preview"),
       point: { x: 10, y: 20 },
       pointerId: 5,
+      style: styleFor("drawing.rectangle"),
       text: "",
       tool: "drawing.rectangle",
     });
@@ -165,6 +186,7 @@ describe("drawing interaction state machine", () => {
       objectId: boardObjectId("object:line"),
       point: { x: 2, y: 3 },
       pointerId: 1,
+      style: styleFor("drawing.line"),
       text: "",
       tool: "drawing.line",
     });

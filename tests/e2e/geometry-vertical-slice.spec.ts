@@ -84,6 +84,7 @@ test("imports, moves and restores the triangle-altitude fixture atomically", asy
     "Сохранено локально",
   );
 
+  await page.getByRole("button", { name: "Построение GeometryOS" }).click();
   await page.getByRole("button", { name: "Построить" }).click();
 
   const geometryStatus = page.getByTestId("geometry-prompt-status");
