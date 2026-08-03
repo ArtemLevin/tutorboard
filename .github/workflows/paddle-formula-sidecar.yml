@@ -92,10 +92,65 @@ jobs:
       - name: Verify CPU image runtime
         run: |
           test "$(docker inspect --format '{{.Config.User}}' tutorboard-paddle-formula:${GITHUB_SHA})" = "10001:10001"
-          docker run --rm \
+          docker run --rm --interactive \
             --entrypoint python \
             tutorboard-paddle-formula:${GITHUB_SHA} \
-            -c "from importlib.metadata import distributions, version; from pathlib import Path; import sysconfig; import paddle; from paddleocr import FormulaRecognition; import app; expected={'PaddlePaddle':'3.3.1','Pillow':'12.3.0','msgpack':'1.2.1','protobuf':'6.33.5','setuptools':'83.0.0'}; actual={name:version(name) for name in expected}; records=list(distributions()); installed={distribution.metadata['Name'].lower() for distribution in records if distribution.metadata['Name']}; wheel_locations=[str(Path(distribution.locate_file('')).resolve()) for distribution in records if distribution.metadata['Name'] and distribution.metadata['Name'].lower() == 'wheel']; site_packages=Path(sysconfig.get_paths()['purelib']).resolve(); print({'actual':actual,'installer_distributions':sorted(installed & {'pip','wheel','setuptools'}),'wheel_locations':wheel_locations,'service_version':app.SERVICE_VERSION}); assert actual == expected, {'expected':expected,'actual':actual}; assert app.SERVICE_VERSION == '1.0.1', app.SERVICE_VERSION; assert 'pip' not in installed, installed; assert 'setuptools' in installed, installed; assert not (site_packages / 'wheel').exists(), site_packages / 'wheel'; assert not list(site_packages.glob('wheel-*.dist-info')), list(site_packages.glob('wheel-*.dist-info')); assert all('/setuptools/_vendor' in location.replace('\\','/') for location in wheel_locations), wheel_locations; print(paddle.__version__, FormulaRecognition.__name__)"
+            - <<'PY'
+          from importlib.metadata import distributions, version
+          from pathlib import Path
+          import sysconfig
+
+          import paddle
+          from paddleocr import FormulaRecognition
+          import app
+
+          expected = {
+              "PaddlePaddle": "3.3.1",
+              "Pillow": "12.3.0",
+              "msgpack": "1.2.1",
+              "protobuf": "6.33.5",
+              "setuptools": "83.0.0",
+          }
+          actual = {name: version(name) for name in expected}
+          records = list(distributions())
+          installed = {
+              distribution.metadata["Name"].lower()
+              for distribution in records
+              if distribution.metadata["Name"]
+          }
+          wheel_metadata_paths = [
+              Path(distribution._path).resolve().as_posix()
+              for distribution in records
+              if distribution.metadata["Name"]
+              and distribution.metadata["Name"].lower() == "wheel"
+          ]
+          site_packages = Path(sysconfig.get_paths()["purelib"]).resolve()
+
+          print(
+              {
+                  "actual": actual,
+                  "installer_distributions": sorted(
+                      installed & {"pip", "wheel", "setuptools"}
+                  ),
+                  "wheel_metadata_paths": wheel_metadata_paths,
+                  "service_version": app.SERVICE_VERSION,
+              }
+          )
+
+          assert actual == expected, {"expected": expected, "actual": actual}
+          assert app.SERVICE_VERSION == "1.0.1", app.SERVICE_VERSION
+          assert "pip" not in installed, installed
+          assert "setuptools" in installed, installed
+          assert not (site_packages / "wheel").exists(), site_packages / "wheel"
+          assert not list(site_packages.glob("wheel-*.dist-info")), list(
+              site_packages.glob("wheel-*.dist-info")
+          )
+          assert all(
+              "/setuptools/_vendor/" in path
+              for path in wheel_metadata_paths
+          ), wheel_metadata_paths
+          print(paddle.__version__, FormulaRecognition.__name__)
+          PY
 
       - name: Validate Compose overlays
         env:
