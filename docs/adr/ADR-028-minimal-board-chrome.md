@@ -28,9 +28,11 @@ The application shell hides product navigation only for the board route. Other
 routes retain normal navigation. Server-session controls are supplied to the
 board settings sheet instead of consuming permanent vertical space. Escape
 closes the topmost nested overlay or contextual object surface first, then the
-settings sheet on a subsequent press. Closing nested shortcut help restores
-focus to its trigger. Contextual options expose a named region so keyboard and
-assistive technology users can distinguish them from the permanent toolbar.
+settings sheet on a subsequent press. Escape also cancels an active marquee,
+lasso or object-move preview before it can affect document history. Closing
+nested shortcut help restores focus to its trigger. Contextual options expose a
+named region so keyboard and assistive technology users can distinguish them
+from the permanent toolbar.
 
 ## Consequences
 
