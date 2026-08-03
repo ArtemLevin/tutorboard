@@ -856,7 +856,10 @@ export function BoardStage({
         ? "middle"
         : isLeftButton && spacePressedRef.current
           ? "space"
-          : isLeftButton && panMode && !shouldSelectHitObject
+          : isLeftButton &&
+              panMode &&
+              selectionModeKey === null &&
+              !shouldSelectHitObject
             ? "hand"
             : null;
     if (source === null) {
