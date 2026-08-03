@@ -51,8 +51,12 @@ jobs:
             tests/e2e/coordinate-plot-visual.spec.ts-snapshots \
             | sort > /tmp/actual-visual-files
           printf '%s\n' \
+            tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-bounded-legend-visual-chromium-desktop-linux.png \
+            tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-bounded-legend-visual-firefox-desktop-linux.png \
             tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-chromium-desktop-linux.png \
             tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-firefox-desktop-linux.png \
+            tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-view-statuses-visual-chromium-desktop-linux.png \
+            tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-view-statuses-visual-firefox-desktop-linux.png \
             | sort > /tmp/expected-visual-files
           diff --unified /tmp/expected-visual-files /tmp/actual-visual-files
 
