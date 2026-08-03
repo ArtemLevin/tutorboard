@@ -5,9 +5,10 @@ source = board_stage.read_text(encoding="utf-8")
 
 import_before = """  useCallback,\n  useEffect,\n  useMemo,\n"""
 import_after = """  useCallback,\n  useEffect,\n  useLayoutEffect,\n  useMemo,\n"""
-if source.count(import_before) != 1:
+if import_before in source:
+    source = source.replace(import_before, import_after, 1)
+elif import_after not in source:
     raise SystemExit("Unexpected React import block")
-source = source.replace(import_before, import_after, 1)
 
 blocks = [
     """  useEffect(() => {\n    panModeRequestRef.current = onPanModeRequest;\n  }, [onPanModeRequest]);\n""",
@@ -18,9 +19,11 @@ blocks = [
     """  useEffect(() => {\n    if (selectionSessionRef.current !== null) {\n      finishSelection(false);\n    }\n  }, [finishSelection, selectionModeKey]);\n""",
 ]
 for block in blocks:
-    if source.count(block) != 1:
-        raise SystemExit(f"Expected layout-sensitive effect once: {block.splitlines()[1]}")
-    source = source.replace(block, block.replace("useEffect", "useLayoutEffect", 1), 1)
+    replacement = block.replace("useEffect", "useLayoutEffect", 1)
+    if block in source:
+        source = source.replace(block, replacement, 1)
+    elif replacement not in source:
+        raise SystemExit(f"Unexpected layout-sensitive effect: {block.splitlines()[1]}")
 
 board_stage.write_text(source, encoding="utf-8")
 
@@ -28,7 +31,8 @@ selection_spec = Path("tests/e2e/selection.spec.ts")
 test_source = selection_spec.read_text(encoding="utf-8")
 needle = """  await page.mouse.move(finish.x, finish.y, { steps: 5 });\n  return { finish, start };\n"""
 replacement = """  await page.mouse.move(finish.x, finish.y, { steps: 5 });\n  await expect(page.getByTestId(\"board-stage\")).toHaveAttribute(\n    \"data-selecting\",\n    \"true\",\n  );\n  return { finish, start };\n"""
-if test_source.count(needle) != 1:
+if needle in test_source:
+    test_source = test_source.replace(needle, replacement, 1)
+elif replacement not in test_source:
     raise SystemExit("Unexpected dragMarquee helper")
-test_source = test_source.replace(needle, replacement, 1)
 selection_spec.write_text(test_source, encoding="utf-8")
