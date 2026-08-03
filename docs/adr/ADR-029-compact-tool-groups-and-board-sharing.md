@@ -31,9 +31,11 @@ GIF files use the existing bounded image-import contract and are stored with
 their `image/gif` MIME type. The Konva image renderer keeps animating the
 decoded browser image and requests layer redraws while it is mounted.
 
-The laser pointer is presentation-only overlay state. It never creates a board
-object or command, so it cannot affect undo history, persistence, export or
-remote revisions.
+The laser pointer is presentation-only overlay state. Holding the primary
+pointer button records a bounded 96-point local trail whose older segments are
+fainter; releasing the pointer fades the trail over 900 ms. It never creates a
+board object or command, so it cannot affect undo history, persistence, export
+or remote revisions.
 
 PDF export renders the same bounded viewport snapshot used by PNG export, fits
 it onto a landscape page and downloads an `application/pdf` artifact. The PDF
@@ -53,7 +55,7 @@ contracts; a copied URL grants no additional access by itself.
 - Polygon support ships without a schema migration.
 - Animated GIFs remain normal media objects and participate in persistence and
   collaboration.
-- Laser movement is intentionally local and ephemeral.
+- Laser movement and its fading trail are intentionally local and ephemeral.
 - PDF export adds a lazy-loaded client dependency and captures the current
   viewport.
 - Shared sessions require server-sync configuration and an authorized platform
