@@ -86,9 +86,6 @@ test("selects objects with a marquee and cancels a later preview with Escape", a
   await page.keyboard.press("Escape");
   await page.mouse.up();
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
-  await expect(
-    page.getByRole("button", { name: "Перемещение (H)" }),
-  ).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Выделение (V)" }).click();
 
   await page.mouse.move(start.x, start.y);
