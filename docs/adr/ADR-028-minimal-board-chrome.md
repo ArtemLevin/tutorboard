@@ -40,6 +40,8 @@ technology users can distinguish them from the permanent toolbar.
 - Existing command and persistence boundaries stay intact.
 - Visual and browser tests target the dock and settings sheet contracts across
   desktop, mobile portrait and mobile landscape profiles.
+- Desktop coordinate-plot baselines are committed independently for Chromium
+  and Firefox to preserve renderer-specific release evidence.
 - Selected text, style, lock, deletion and quick transforms remain available in
   the contextual dock surface.
 
