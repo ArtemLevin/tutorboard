@@ -37,34 +37,29 @@ export function calculateMathInkRasterLayout(
   const sourceHeight = boundedDimension(normalizedHeight);
   const longest = Math.max(sourceWidth, sourceHeight);
   const available = maximumCanvasSide - canvasPadding * 2;
-  const scale = Math.max(minimumContentSide / longest, available / longest);
-  const contentWidth = Math.max(
-    minimumContentSide,
-    Math.round(sourceWidth * scale),
+  const requestedScale = Math.max(
+    minimumContentSide / longest,
+    available / longest,
   );
-  const contentHeight = Math.max(
-    minimumContentSide,
-    Math.round(sourceHeight * scale),
-  );
-  const constrainedScale = Math.min(
-    scale,
+  const scale = Math.min(
+    requestedScale,
     available / Math.max(sourceWidth, sourceHeight),
   );
-  const finalContentWidth = Math.min(
+  const contentWidth = Math.min(
     available,
-    Math.max(minimumContentSide, Math.round(sourceWidth * constrainedScale)),
+    Math.max(minimumContentSide, Math.round(sourceWidth * scale)),
   );
-  const finalContentHeight = Math.min(
+  const contentHeight = Math.min(
     available,
-    Math.max(minimumContentSide, Math.round(sourceHeight * constrainedScale)),
+    Math.max(minimumContentSide, Math.round(sourceHeight * scale)),
   );
   return {
-    contentHeight: finalContentHeight,
-    contentWidth: finalContentWidth,
-    height: finalContentHeight + canvasPadding * 2,
+    contentHeight,
+    contentWidth,
+    height: contentHeight + canvasPadding * 2,
     padding: canvasPadding,
-    scale: constrainedScale,
-    width: finalContentWidth + canvasPadding * 2,
+    scale,
+    width: contentWidth + canvasPadding * 2,
   };
 }
 
@@ -132,7 +127,7 @@ async function rasterizeWithOffscreenCanvas(
   };
 }
 
-async function rasterizeWithHtmlCanvas(
+function rasterizeWithHtmlCanvas(
   request: MathInkRecognitionRequest,
   layout: MathInkRasterLayout,
 ): Promise<RasterizedMathInkImage> {
@@ -152,12 +147,12 @@ async function rasterizeWithHtmlCanvas(
   if (!dataUrl.startsWith(prefix)) {
     throw new Error("Canvas returned an unsupported image format.");
   }
-  return {
+  return Promise.resolve({
     data: dataUrl.slice(prefix.length),
     height: layout.height,
     mimeType: "image/png",
     width: layout.width,
-  };
+  });
 }
 
 export const rasterizeMathInkRequest: MathInkRasterizer = async (request) => {
