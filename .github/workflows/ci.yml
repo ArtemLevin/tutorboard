@@ -2,27 +2,26 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: ci-selection-tool-id-fix-${{ github.event.pull_request.number }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  apply-selection-tool-id-fix:
-    name: Apply selection tool identifier fix
-    if: github.head_ref == 'feature/minimal-board-chrome'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - name: Check out feature branch
+      - name: Check out repository
         uses: actions/checkout@v7
-        with:
-          ref: feature/minimal-board-chrome
-          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -33,20 +32,157 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Align dock selection identifiers
-        run: python scripts/apply-native-background-selection-listener.py
+      - name: Install locked GeometryOS code-generation toolchain
+        run: npm ci --prefix tools/geometryos-contract
 
-      - name: Format product changes
-        run: npx prettier --write src/app/board-chrome/BoardToolDock.tsx tests/e2e/selection.spec.ts
+      - name: Verify pinned GeometryOS contract
+        run: npm run geometryos:check
 
-      - name: Verify product changes
+      - name: Verify board contract
+        run: npm run board-contract:check
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Audit production dependency threshold
+        run: npm audit --audit-level=high
+
+      - name: Run unit tests
         run: |
-          npx prettier --check src/app/board-chrome/BoardToolDock.tsx tests/e2e/selection.spec.ts
-          npm run lint
-          npm run typecheck
+          set -o pipefail
+          npm run test 2>&1 | tee unit-tests.log
 
-      - name: Install target browsers
-        run: npx playwright install --with-deps chromium firefox
+      - name: Enforce performance budgets
+        run: npm run performance
+
+      - name: Upload unit-test failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-failure-${{ github.sha }}
+          path: unit-tests.log
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Enforce source boundaries
+        run: npm run architecture
+
+      - name: Build production bundle
+        run: npm run build
+
+  geometryos-live-contract:
+    name: GeometryOS live browser contract
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out TutorBoard
+        uses: actions/checkout@v7
+
+      - name: Check out pinned GeometryOS source
+        uses: actions/checkout@v7
+        with:
+          repository: ArtemLevin/geometryos
+          ref: 84ae403ef06f5183091f8862307f3c458f464b87
+          path: geometryos-source
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build pinned GeometryOS image
+        run: |
+          docker build \
+            --tag geometryos-contract-smoke:${GITHUB_SHA} \
+            --build-arg BUILD_REVISION=84ae403ef06f5183091f8862307f3c458f464b87 \
+            --build-arg BUILD_VERSION=0.3.0 \
+            geometryos-source
+
+      - name: Start hardened GeometryOS container
+        run: |
+          docker run --detach \
+            --name tutorboard-geometryos-contract \
+            --publish 127.0.0.1:18000:8000 \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --env GEOMETRYOS_CORS_ALLOWED_ORIGINS=http://localhost:5173 \
+            geometryos-contract-smoke:${GITHUB_SHA}
+
+      - name: Verify live protocol contract
+        env:
+          GEOMETRYOS_ALLOWED_ORIGIN: http://localhost:5173
+          GEOMETRYOS_BASE_URL: http://127.0.0.1:18000
+        run: |
+          set -o pipefail
+          npm run geometryos:live-smoke 2>&1 | tee geometryos-live-protocol.log
+
+      - name: Verify live browser contract
+        env:
+          GEOMETRYOS_BASE_URL: http://127.0.0.1:18000
+        run: |
+          set -o pipefail
+          npm run geometryos:live-browser 2>&1 | tee geometryos-live-browser.log
+
+      - name: Upload live-contract failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: geometryos-live-contract-failure-${{ github.sha }}
+          path: |
+            geometryos-live-protocol.log
+            geometryos-live-browser.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Capture container diagnostics
+        if: always()
+        run: |
+          docker logs tutorboard-geometryos-contract || true
+          docker rm --force tutorboard-geometryos-contract || true
+
+  e2e-smoke:
+    name: Browser smoke (${{ matrix.browser }})
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install ${{ matrix.browser }}
+        run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Build production bundle
         env:
@@ -54,20 +190,136 @@ jobs:
           VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos
         run: npm run build
 
-      - name: Run selection contract in Chromium
-        run: npm run e2e -- tests/e2e/selection.spec.ts --project=chromium
-
-      - name: Run selection contract in Firefox
-        run: npm run e2e -- tests/e2e/selection.spec.ts --project=firefox
-
-      - name: Commit product fix
+      - name: Run ${{ matrix.browser }} browser smoke
         run: |
-          if git diff --quiet -- src/app/board-chrome/BoardToolDock.tsx tests/e2e/selection.spec.ts; then
-            echo "Product fix is already applied."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/app/board-chrome/BoardToolDock.tsx tests/e2e/selection.spec.ts
-          git commit -m "fix: align board selection tool identifiers"
-          git push origin HEAD:feature/minimal-board-chrome
+          set -o pipefail
+          npm run e2e -- --project=${{ matrix.browser }} 2>&1 \
+            | tee browser-smoke-${{ matrix.browser }}.log
+
+      - name: Upload browser smoke failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-smoke-${{ matrix.browser }}-failure-${{ github.sha }}
+          path: |
+            browser-smoke-${{ matrix.browser }}.log
+            test-results
+          if-no-files-found: warn
+          retention-days: 7
+
+  coordinate-plot-production:
+    name: Coordinate plot production gate
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run coordinate plot integration and performance gate
+        run: |
+          set -o pipefail
+          npm run plot:production 2>&1 | tee coordinate-plot-production.log
+
+      - name: Install release browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Run Chromium and Firefox coordinate plot lifecycle
+        run: |
+          set -o pipefail
+          npm run e2e:plot-production 2>&1 | tee coordinate-plot-browser.log
+
+      - name: Run coordinate plot visual regression matrix
+        run: |
+          set -o pipefail
+          npm run e2e:plot-visual 2>&1 | tee coordinate-plot-visual.log
+
+      - name: Upload coordinate plot failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coordinate-plot-production-failure-${{ github.sha }}
+          path: |
+            coordinate-plot-production.log
+            coordinate-plot-browser.log
+            coordinate-plot-visual.log
+            test-results
+          if-no-files-found: warn
+          retention-days: 7
+
+  production-image:
+    name: Production image
+    needs: [quality, e2e-smoke, coordinate-plot-production]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Build immutable TutorBoard image
+        run: |
+          docker build \
+            --build-arg BUILD_REVISION=${GITHUB_SHA} \
+            --build-arg BUILD_VERSION=0.1.0 \
+            --tag tutorboard:${GITHUB_SHA} \
+            .
+
+      - name: Assert non-root read-only runtime
+        run: |
+          test "$(docker inspect --format '{{.Config.User}}' tutorboard:${GITHUB_SHA})" = "101"
+          docker run --detach \
+            --name tutorboard-release \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --publish 127.0.0.1:18080:8080 \
+            tutorboard:${GITHUB_SHA}
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs tutorboard-release
+          exit 1
+
+      - name: Scan production image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: tutorboard:${{ github.sha }}
+          format: sarif
+          output: trivy-tutorboard.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          limit-severities-for-sarif: true
+
+      - name: Upload Trivy results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-tutorboard.sarif
+
+      - name: Capture container diagnostics
+        if: always()
+        run: |
+          docker logs tutorboard-release || true
+          docker rm --force tutorboard-release || true
