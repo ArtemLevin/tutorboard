@@ -19,7 +19,7 @@ describe("readEnvironment", () => {
           smartInkDiagnostics: stage !== "production",
         },
         geometryOsBaseUrl: `${window.location.origin}/api/v1/geometryos`,
-        mathInkApiBaseUrl: "/api/v1/math-ink",
+        mathInkApiBaseUrl: "/api/v1/formula-recognition",
         stage,
       });
     },
@@ -45,7 +45,7 @@ describe("readEnvironment", () => {
         smartInkDiagnostics: true,
       },
       geometryOsBaseUrl: "https://geometry.example.test",
-      mathInkApiBaseUrl: "/api/v1/math-ink",
+      mathInkApiBaseUrl: "/api/v1/formula-recognition",
       stage: "test",
     });
     expect(() =>
@@ -106,16 +106,18 @@ describe("readEnvironment", () => {
     });
   });
 
-  it("accepts only same-origin board and math ink API paths", () => {
+  it("accepts only same-origin board and formula recognition API paths", () => {
     const configured = readEnvironment(
       "test",
       undefined,
       {},
       "/platform/api/v1",
-      "/platform/api/v1/math-ink",
+      "/platform/api/v1/formula-recognition",
     );
     expect(configured.boardApiBaseUrl).toBe("/platform/api/v1");
-    expect(configured.mathInkApiBaseUrl).toBe("/platform/api/v1/math-ink");
+    expect(configured.mathInkApiBaseUrl).toBe(
+      "/platform/api/v1/formula-recognition",
+    );
     expect(() =>
       readEnvironment(
         "test",
@@ -130,7 +132,7 @@ describe("readEnvironment", () => {
         undefined,
         {},
         "/api/v1",
-        "https://api.mathpix.com/v3/strokes",
+        "https://ocr.example/v1",
       ),
     ).toThrow("VITE_MATH_INK_API_BASE_URL");
     expect(() =>
@@ -139,7 +141,7 @@ describe("readEnvironment", () => {
         undefined,
         {},
         "/api/v1",
-        "/api/v1/math-ink?token=secret",
+        "/api/v1/formula-recognition?token=secret",
       ),
     ).toThrow("VITE_MATH_INK_API_BASE_URL");
   });
