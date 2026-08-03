@@ -77,7 +77,9 @@ styles.write_text(styles_text)
 
 selection = Path("tests/e2e/selection.spec.ts")
 selection_text = selection.read_text()
-old_marquee = '''test("selects objects with a marquee and cancels a later preview with Escape", async ({ page }) => {
+old_marquee = '''test("selects objects with a marquee and cancels a later preview with Escape", async ({
+  page,
+}) => {
   const start = await stagePoint(page, 250, 110);
   const finish = await stagePoint(page, 700, 310);
   await page.mouse.move(start.x, start.y);
@@ -97,7 +99,9 @@ old_marquee = '''test("selects objects with a marquee and cancels a later previe
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 });
 '''
-new_marquee = '''test("selects objects with a marquee and cancels a later preview with Escape", async ({ page }) => {
+new_marquee = '''test("selects objects with a marquee and cancels a later preview with Escape", async ({
+  page,
+}) => {
   const start = await stagePoint(page, 250, 110);
   const finish = await stagePoint(page, 700, 310);
   await page.mouse.move(start.x, start.y);
@@ -117,7 +121,9 @@ new_marquee = '''test("selects objects with a marquee and cancels a later previe
 if selection_text.count(old_marquee) != 1:
     raise SystemExit("marquee contract not found")
 selection_text = selection_text.replace(old_marquee, new_marquee, 1)
-old_direct = '''test("uses the explicit selection tool for an existing figure", async ({ page }) => {
+old_direct = '''test("uses the explicit selection tool for an existing figure", async ({
+  page,
+}) => {
   await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
   const contour = await stagePoint(page, 300, 210);
   await page.mouse.click(contour.x, contour.y);
@@ -134,7 +140,9 @@ old_direct = '''test("uses the explicit selection tool for an existing figure", 
   ).toBeVisible();
 });
 '''
-new_direct = '''test("selects a figure contour directly from another tool", async ({ page }) => {
+new_direct = '''test("selects a figure contour directly from another tool", async ({
+  page,
+}) => {
   await page.getByRole("button", { name: "Прямоугольник (R)" }).click();
   await expect(
     page.getByRole("button", { name: "Прямоугольник (R)" }),
