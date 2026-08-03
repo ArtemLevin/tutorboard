@@ -207,9 +207,7 @@ def test_maps_invalid_model_results_to_bounded_failure(payload: Any) -> None:
         )
 
     assert response.status_code == 502
-    assert response.json() == {
-        "detail": "PaddleOCR formula recognition failed."
-    }
+    assert response.json() == {"detail": "PaddleOCR formula recognition failed."}
 
 
 def test_settings_validate_environment(monkeypatch: pytest.MonkeyPatch) -> None:
