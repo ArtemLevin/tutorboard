@@ -61,7 +61,8 @@ new_handler = '''  const handleSelectionBackgroundPointerDownCapture = useCallba
       });
       if (
         hit !== null &&
-        (isTransformerTarget(hit) || objectIdFromTarget(hit) !== null)
+        ((transformableObjectIds.length > 0 && isTransformerTarget(hit)) ||
+          objectIdFromTarget(hit) !== null)
       ) {
         return;
       }
@@ -69,7 +70,12 @@ new_handler = '''  const handleSelectionBackgroundPointerDownCapture = useCallba
       event.preventDefault();
       beginSelectionSession(event, root, null);
     },
-    [beginSelectionSession, commitWheel, selectionModeKey],
+    [
+      beginSelectionSession,
+      commitWheel,
+      selectionModeKey,
+      transformableObjectIds.length,
+    ],
   );
 
   useEffect(() => {
@@ -102,5 +108,23 @@ source = source.replace(
     "",
     1,
 )
+
+old_transformer_guard = '''    if (
+      !isRightButton &&
+      isTransformerTarget(event.target) &&
+      !isLassoAreaModifier
+    ) {
+'''
+new_transformer_guard = '''    if (
+      !isRightButton &&
+      transformableObjectIds.length > 0 &&
+      isTransformerTarget(event.target) &&
+      !isLassoAreaModifier
+    ) {
+'''
+if old_transformer_guard in source:
+    source = source.replace(old_transformer_guard, new_transformer_guard, 1)
+elif new_transformer_guard not in source:
+    raise SystemExit("Unexpected Transformer pointer guard")
 
 path.write_text(source, encoding="utf-8")
