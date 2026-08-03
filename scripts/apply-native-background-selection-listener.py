@@ -71,7 +71,7 @@ stage_marker = '''      >
 selection_background = '''      >
         <Layer listening={selectionModeKey !== null}>
           <Rect
-            fill="rgba(0, 0, 0, 0.001)"
+            fill="rgba(0, 0, 0, 0.01)"
             height={size.height}
             listening={selectionModeKey !== null}
             name="board-selection-background"
