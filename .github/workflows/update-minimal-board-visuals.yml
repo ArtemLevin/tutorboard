@@ -1,0 +1,66 @@
+name: Update minimal board visual baselines
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-minimal-board-visuals
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.head_ref == 'feature/minimal-board-chrome'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out implementation branch
+        uses: actions/checkout@v7
+        with:
+          ref: feature/minimal-board-chrome
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install desktop release browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Update desktop visual baselines
+        run: |
+          npm run e2e:plot-visual:update -- \
+            --project=visual-chromium-desktop \
+            --project=visual-firefox-desktop
+
+      - name: Validate changed snapshot scope
+        run: |
+          git diff --name-only -- \
+            tests/e2e/coordinate-plot-visual.spec.ts-snapshots \
+            | sort > /tmp/actual-visual-files
+          printf '%s\n' \
+            tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-chromium-desktop-linux.png \
+            tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-firefox-desktop-linux.png \
+            | sort > /tmp/expected-visual-files
+          diff --unified /tmp/expected-visual-files /tmp/actual-visual-files
+
+      - name: Commit approved baselines
+        run: |
+          rm -f .github/workflows/update-minimal-board-visuals.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test: approve minimal board visual baselines"
+          git push origin HEAD:feature/minimal-board-chrome
