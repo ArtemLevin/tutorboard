@@ -42,6 +42,8 @@ technology users can distinguish them from the permanent toolbar.
   desktop, mobile portrait and mobile landscape profiles.
 - Desktop coordinate-plot baselines are committed independently for Chromium
   and Firefox and cover functions, view statuses and bounded legends.
+- Baseline updates run through the production Playwright visual configuration
+  and a changed-file scope assertion before commit.
 - Selected text, style, lock, deletion and quick transforms remain available in
   the contextual dock surface.
 
