@@ -37,9 +37,10 @@ RUN python3 -m pip install --upgrade pip \
       --upgrade \
       --requirement requirements-security.txt \
     && python3 -m pip check \
-    && pip_vendor_bom="$(python3 -c 'import pathlib, pip; print(pathlib.Path(pip.__file__).parent / "_vendor" / "bom.cdx.json")')" \
-    && test -f "$pip_vendor_bom" \
-    && rm -f "$pip_vendor_bom"
+    && python3 -m pip uninstall --yes pip setuptools wheel \
+    && test ! -e /usr/local/lib/python3.10/dist-packages/pip \
+    && test ! -e /usr/local/lib/python3.10/dist-packages/setuptools \
+    && test ! -e /usr/local/lib/python3.10/dist-packages/wheel
 
 RUN useradd \
       --create-home \
