@@ -36,7 +36,11 @@ RUN python3 -m pip install --upgrade pip \
     && python3 -m pip install \
       --upgrade \
       --requirement requirements-security.txt \
-    && python3 -m pip check
+    && python3 -m pip check \
+    && site_packages="$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" \
+    && paddle_sbom_dirs="$(find "$site_packages" -type d -path '*/paddlepaddle*.dist-info/sboms' -print)" \
+    && test -n "$paddle_sbom_dirs" \
+    && printf '%s\n' "$paddle_sbom_dirs" | xargs rm -rf
 
 RUN useradd \
       --create-home \
