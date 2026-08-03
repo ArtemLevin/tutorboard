@@ -33,7 +33,7 @@ RUN python -m pip install --upgrade pip \
       --requirement requirements-security.txt \
     && python -m pip check \
     && python -m pip uninstall --yes pip wheel \
-    && python -c "from importlib.metadata import version; import importlib.util; assert importlib.util.find_spec('pip') is None; assert importlib.util.find_spec('wheel') is None; assert version('setuptools') == '83.0.0'"
+    && python -c "from importlib.metadata import distributions, version; installed={distribution.metadata['Name'].lower() for distribution in distributions() if distribution.metadata['Name']}; assert 'pip' not in installed, installed; assert 'wheel' not in installed, installed; assert version('setuptools') == '83.0.0'"
 
 RUN useradd \
       --create-home \
