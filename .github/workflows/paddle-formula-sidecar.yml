@@ -143,6 +143,14 @@ jobs:
             | @tsv
           ' trivy-paddle-formula.json
 
+      - name: Upload temporary Trivy diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: paddle-formula-trivy-json
+          path: trivy-paddle-formula.json
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Enforce CPU sidecar vulnerability threshold
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
