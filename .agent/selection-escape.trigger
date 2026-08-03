@@ -1,0 +1,1 @@
+apply selection Escape fix
