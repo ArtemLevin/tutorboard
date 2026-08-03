@@ -41,7 +41,7 @@ technology users can distinguish them from the permanent toolbar.
 - Visual and browser tests target the dock and settings sheet contracts across
   desktop, mobile portrait and mobile landscape profiles.
 - Desktop coordinate-plot baselines are committed independently for Chromium
-  and Firefox to preserve renderer-specific release evidence.
+  and Firefox and cover functions, view statuses and bounded legends.
 - Selected text, style, lock, deletion and quick transforms remain available in
   the contextual dock surface.
 
