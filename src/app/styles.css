@@ -1431,7 +1431,7 @@ textarea:focus-visible,
 }
 .board-tool-dock-shell {
   position: absolute;
-  z-index: 20;
+  z-index: 40;
   left: 50%;
   bottom: max(18px, env(safe-area-inset-bottom));
   display: grid;
