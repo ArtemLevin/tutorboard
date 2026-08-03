@@ -99,25 +99,6 @@ jobs:
             tutorboard-paddle-formula:${GITHUB_SHA} \
             -m pip check
 
-      - name: Locate stale package and SBOM metadata
-        run: |
-          docker run --rm \
-            --entrypoint sh \
-            tutorboard-paddle-formula:${GITHUB_SHA} \
-            -c '
-              echo "== SBOM files =="
-              find /usr/local/lib/python3.11 -type f \
-                \( -iname "*.spdx" -o -iname "*.spdx.json" -o -iname "*.cdx" -o -iname "*.cdx.json" \) \
-                -print 2>/dev/null || true
-              echo "== package metadata directories =="
-              find /usr/local/lib/python3.11 -type d \
-                \( -iname "setuptools-*" -o -iname "msgpack-*" -o -iname "jaraco*" \) \
-                -print 2>/dev/null || true
-              echo "== stale version strings =="
-              grep -RIlE "70\\.3\\.0|1\\.1\\.2|5\\.3\\.0" \
-                /usr/local/lib/python3.11 2>/dev/null | head -200 || true
-            '
-
       - name: Validate Compose overlays
         env:
           PADDLE_FORMULA_API_TOKEN: ci-paddle-token
@@ -138,9 +119,7 @@ jobs:
           grep --fixed-strings 'PADDLE_FORMULA_ENABLE_MKLDNN: "false"' \
             /tmp/paddle-formula-gpu.yml
 
-      - name: Report CPU sidecar vulnerabilities
-        id: vulnerability-scan
-        continue-on-error: true
+      - name: Enforce CPU sidecar vulnerability threshold
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: tutorboard-paddle-formula:${{ github.sha }}
@@ -168,7 +147,3 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-paddle-formula.sarif
-
-      - name: Enforce vulnerability threshold
-        if: steps.vulnerability-scan.outcome == 'failure'
-        run: exit 1
