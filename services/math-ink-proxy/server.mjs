@@ -7,7 +7,12 @@ import { fileURLToPath } from "node:url";
 import { mathInkProxyLimits, mathInkProxyServiceVersion } from "./contract.mjs";
 import { createFormulaRecognitionGatewayService } from "./service.mjs";
 
-function integerEnvironment(name, fallback, maximum, environment = process.env) {
+function integerEnvironment(
+  name,
+  fallback,
+  maximum,
+  environment = process.env,
+) {
   const raw = environment[name];
   if (raw === undefined || raw === "") return fallback;
   const value = Number(raw);
@@ -36,11 +41,7 @@ function nonNegativeIntegerEnvironment(
   return value;
 }
 
-function booleanEnvironment(
-  name,
-  fallback = false,
-  environment = process.env,
-) {
+function booleanEnvironment(name, fallback = false, environment = process.env) {
   const raw = environment[name];
   if (raw === undefined || raw === "") return fallback;
   if (raw === "true" || raw === "1") return true;
@@ -103,9 +104,10 @@ function clientKey(request, trustedProxyHops) {
     .filter((value) => value.length > 0);
   const candidateIndex = hops.length - trustedProxyHops;
   if (candidateIndex < 0) return remoteAddress.slice(0, 128);
-  return (
-    normalizedIpAddress(hops[candidateIndex]) ?? remoteAddress
-  ).slice(0, 128);
+  return (normalizedIpAddress(hops[candidateIndex]) ?? remoteAddress).slice(
+    0,
+    128,
+  );
 }
 
 async function readJsonBody(request, maximumBytes) {
@@ -386,10 +388,7 @@ export function runtimeProviders(environment = process.env) {
       : {
           "local-ocr-llm": {
             allowInsecure: localAllowInsecure,
-            apiKey: optionalEnvironment(
-              "LOCAL_OCR_LLM_API_KEY",
-              environment,
-            ),
+            apiKey: optionalEnvironment("LOCAL_OCR_LLM_API_KEY", environment),
             apiUrl: runtimeProviderUrl("LOCAL_OCR_LLM_API_URL", localApiUrl, {
               allowInsecure: localAllowInsecure,
             }),
