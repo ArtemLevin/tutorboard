@@ -6,6 +6,12 @@ import {
   type DrawingToolDefinition,
   type DrawingToolId,
 } from "../../modules/drawing/public";
+import {
+  lassoSelectionTool,
+  lassoSelectionToolId,
+  selectionTool,
+  selectionToolId,
+} from "../../modules/selection/public";
 import { ColorPalette } from "../ColorPalette";
 import { StrokeStylePalette } from "../StrokeStylePalette";
 
@@ -306,16 +312,16 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onClick={() => props.onActivate("navigation.pan")}
           />
           <ToolButton
-            active={props.activeTool === "selection.pointer"}
-            icon="↖"
-            label="Выделение (V)"
-            onClick={() => props.onActivate("selection.pointer")}
+            active={props.activeTool === selectionToolId}
+            icon={selectionTool.icon}
+            label={`${selectionTool.label} (${selectionTool.shortcut})`}
+            onClick={() => props.onActivate(selectionToolId)}
           />
           <ToolButton
-            active={props.activeTool === "selection.lasso"}
-            icon="⌁"
-            label="Лассо (A)"
-            onClick={() => props.onActivate("selection.lasso")}
+            active={props.activeTool === lassoSelectionToolId}
+            icon={lassoSelectionTool.icon}
+            label={`${lassoSelectionTool.label} (${lassoSelectionTool.shortcut})`}
+            onClick={() => props.onActivate(lassoSelectionToolId)}
           />
           <span aria-hidden="true" className="dock-divider" />
           {props.drawingTools.map((tool) => (
