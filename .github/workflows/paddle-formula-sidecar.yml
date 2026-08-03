@@ -48,6 +48,7 @@ jobs:
           cache-dependency-path: |
             services/paddle-formula-sidecar/requirements-api.txt
             services/paddle-formula-sidecar/requirements-dev.txt
+            services/paddle-formula-sidecar/requirements-security.txt
 
       - name: Install sidecar test dependencies
         run: |
@@ -92,7 +93,11 @@ jobs:
           docker run --rm \
             --entrypoint python \
             tutorboard-paddle-formula:${GITHUB_SHA} \
-            -c "import paddle; from paddleocr import FormulaRecognition; import app; print(paddle.__version__, FormulaRecognition.__name__, app.SERVICE_VERSION)"
+            -c "from importlib.metadata import version; import paddle; from paddleocr import FormulaRecognition; import app; expected={'Pillow':'12.3.0','msgpack':'1.2.1','protobuf':'6.33.5','setuptools':'83.0.0','wheel':'0.46.3'}; actual={name:version(name) for name in expected}; assert actual == expected, actual; print(paddle.__version__, FormulaRecognition.__name__, app.SERVICE_VERSION, actual)"
+          docker run --rm \
+            --entrypoint python \
+            tutorboard-paddle-formula:${GITHUB_SHA} \
+            -m pip check
 
       - name: Validate Compose overlays
         env:
