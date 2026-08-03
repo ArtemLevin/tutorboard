@@ -86,10 +86,7 @@ describe("formula recognition gateway forwarding boundary", () => {
       trustedProxyHops: 1,
     });
 
-    const response = await requestServer(
-      server,
-      "198.51.100.9, 203.0.113.7",
-    );
+    const response = await requestServer(server, "198.51.100.9, 203.0.113.7");
 
     expect(response.status).toBe(200);
     expect(recognize).toHaveBeenCalledWith(
