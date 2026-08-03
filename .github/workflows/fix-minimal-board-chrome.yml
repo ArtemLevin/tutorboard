@@ -1,0 +1,42 @@
+name: Fix minimal board chrome
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-minimal-board-chrome
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    if: github.head_ref == 'feature/minimal-board-chrome'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/minimal-board-chrome
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: python scripts/fix-minimal-board-chrome.py
+      - run: npm ci
+      - run: npm run format
+      - run: npm run typecheck
+      - name: Commit fixes
+        run: |
+          rm -f \
+            .github/workflows/fix-minimal-board-chrome.yml \
+            scripts/fix-minimal-board-chrome.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: complete minimal dock selection controls"
+          git push origin HEAD:feature/minimal-board-chrome
