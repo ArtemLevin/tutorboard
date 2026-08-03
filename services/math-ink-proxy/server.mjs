@@ -4,10 +4,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { mathInkProxyLimits, mathInkProxyServiceVersion } from "./contract.mjs";
-import {
-  createMathInkProxyService,
-  createUnconfiguredMathInkProxyService,
-} from "./service.mjs";
+import { createFormulaRecognitionGatewayService } from "./service.mjs";
 
 function integerEnvironment(name, fallback, maximum) {
   const raw = process.env[name];
@@ -27,6 +24,11 @@ function booleanEnvironment(name, fallback = false) {
   if (raw === "true" || raw === "1") return true;
   if (raw === "false" || raw === "0") return false;
   throw new Error(`${name} must be true, false, 1 or 0.`);
+}
+
+function optionalEnvironment(name) {
+  const value = process.env[name];
+  return value === undefined || value === "" ? undefined : value;
 }
 
 function jsonResponse(response, status, body, additionalHeaders = {}) {
@@ -55,7 +57,7 @@ function requestIdentifier(request) {
   ) {
     return supplied;
   }
-  return `proxy:${randomUUID()}`;
+  return `formula:${randomUUID()}`;
 }
 
 function clientKey(request) {
@@ -109,37 +111,38 @@ function localProblem(requestId, code, status, title, detail, retryable) {
   };
 }
 
-export function createMathInkProxyHttpServer(options) {
-  const { configured, service } = options;
+export function createFormulaRecognitionGatewayHttpServer(options) {
+  const { service } = options;
   return http.createServer(async (request, response) => {
     const requestId = requestIdentifier(request);
     response.setHeader("X-TutorBoard-Request-Id", requestId);
 
     if (request.method === "GET" && request.url === "/healthz") {
       jsonResponse(response, 200, {
-        service: "tutorboard-math-ink-proxy",
+        service: "tutorboard-formula-recognition-gateway",
         status: "ok",
         version: mathInkProxyServiceVersion,
       });
       return;
     }
     if (request.method === "GET" && request.url === "/readyz") {
+      const ready = Object.values(service.configuredProviders).some(Boolean);
       jsonResponse(
         response,
-        configured ? 200 : 503,
-        configured
+        ready ? 200 : 503,
+        ready
           ? {
-              provider: "mathpix",
-              service: "tutorboard-math-ink-proxy",
+              providers: service.configuredProviders,
+              service: "tutorboard-formula-recognition-gateway",
               status: "ready",
               version: mathInkProxyServiceVersion,
             }
           : localProblem(
               requestId,
-              "math-ink.proxy-unconfigured",
+              "formula-recognition.gateway-unconfigured",
               503,
-              "Proxy unconfigured",
-              "Mathpix credentials are not configured.",
+              "Gateway unconfigured",
+              "No formula recognition provider is configured.",
               false,
             ),
       );
@@ -151,10 +154,10 @@ export function createMathInkProxyHttpServer(options) {
         404,
         localProblem(
           requestId,
-          "math-ink.route-not-found",
+          "formula-recognition.route-not-found",
           404,
           "Route not found",
-          "The requested proxy route does not exist.",
+          "The requested gateway route does not exist.",
           false,
         ),
       );
@@ -166,7 +169,7 @@ export function createMathInkProxyHttpServer(options) {
         405,
         localProblem(
           requestId,
-          "math-ink.method-not-allowed",
+          "formula-recognition.method-not-allowed",
           405,
           "Method not allowed",
           "Use POST for recognition requests.",
@@ -188,14 +191,16 @@ export function createMathInkProxyHttpServer(options) {
         tooLarge ? 413 : 400,
         localProblem(
           requestId,
-          tooLarge ? "math-ink.request-too-large" : "math-ink.invalid-request",
+          tooLarge
+            ? "formula-recognition.request-too-large"
+            : "formula-recognition.invalid-request",
           tooLarge ? 413 : 400,
           tooLarge ? "Request too large" : "Invalid request",
           body.status === "wrong-content-type"
             ? "Content-Type must be application/json."
             : body.status === "invalid-json"
               ? "The request body is not valid JSON."
-              : "The request body exceeds the proxy limit.",
+              : "The request body exceeds the gateway limit.",
           false,
         ),
       );
@@ -220,7 +225,7 @@ export function createMathInkProxyHttpServer(options) {
       if (controller.signal.aborted || response.destroyed) return;
       console.error(
         JSON.stringify({
-          event: "math-ink.unhandled-error",
+          event: "formula-recognition.unhandled-error",
           message: error instanceof Error ? error.message : "Unknown error",
           requestId,
         }),
@@ -230,10 +235,10 @@ export function createMathInkProxyHttpServer(options) {
         500,
         localProblem(
           requestId,
-          "math-ink.internal-error",
+          "formula-recognition.internal-error",
           500,
           "Internal error",
-          "The recognition proxy could not complete the request.",
+          "The recognition gateway could not complete the request.",
           true,
         ),
       );
@@ -241,60 +246,98 @@ export function createMathInkProxyHttpServer(options) {
   });
 }
 
-function runtimeService() {
-  const appId = process.env.MATHPIX_APP_ID;
-  const appKey = process.env.MATHPIX_APP_KEY;
-  if (
-    appId === undefined ||
-    appId === "" ||
-    appKey === undefined ||
-    appKey === ""
-  ) {
-    return {
-      configured: false,
-      service: createUnconfiguredMathInkProxyService(),
-    };
-  }
+export const createMathInkProxyHttpServer =
+  createFormulaRecognitionGatewayHttpServer;
+
+function runtimeProviders() {
+  const allowInsecure = booleanEnvironment(
+    "FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM",
+  );
+  const paddleApiUrl = optionalEnvironment("PADDLE_OCR_API_URL");
+  const localApiUrl = optionalEnvironment("LOCAL_OCR_LLM_API_URL");
+  const localModel = optionalEnvironment("LOCAL_OCR_LLM_MODEL");
+  const yandexFolderId = optionalEnvironment("YANDEX_FOLDER_ID");
+  const yandexApiKey = optionalEnvironment("YANDEX_API_KEY");
+  const yandexIamToken = optionalEnvironment("YANDEX_IAM_TOKEN");
   return {
-    configured: true,
-    service: createMathInkProxyService({
-      allowInsecureUpstream: booleanEnvironment(
-        "MATH_INK_ALLOW_INSECURE_UPSTREAM",
-      ),
-      apiUrl: process.env.MATHPIX_API_URL,
-      appId,
-      appKey,
-      maximumConcurrentRequests: integerEnvironment(
-        "MATH_INK_MAX_CONCURRENCY",
-        4,
-        64,
-      ),
-      providerAttemptTimeoutMs: integerEnvironment(
-        "MATH_INK_PROVIDER_TIMEOUT_MS",
-        10_000,
-        60_000,
-      ),
-      rateLimitPerWindow: integerEnvironment("MATH_INK_RATE_LIMIT", 30, 10_000),
-      rateLimitWindowMs: integerEnvironment(
-        "MATH_INK_RATE_WINDOW_MS",
-        60_000,
-        3_600_000,
-      ),
-      retryDelayMs: integerEnvironment("MATH_INK_RETRY_DELAY_MS", 150, 2_000),
-    }),
+    ...(paddleApiUrl === undefined
+      ? {}
+      : {
+          paddleocr: {
+            allowInsecure,
+            apiUrl: paddleApiUrl,
+            token: optionalEnvironment("PADDLE_OCR_API_TOKEN"),
+          },
+        }),
+    ...(localApiUrl === undefined || localModel === undefined
+      ? {}
+      : {
+          "local-ocr-llm": {
+            allowInsecure,
+            apiKey: optionalEnvironment("LOCAL_OCR_LLM_API_KEY"),
+            apiUrl: localApiUrl,
+            model: localModel,
+          },
+        }),
+    ...(yandexFolderId === undefined ||
+    (yandexApiKey === undefined && yandexIamToken === undefined)
+      ? {}
+      : {
+          "yandex-ai-studio": {
+            apiKey: yandexApiKey,
+            apiUrl: optionalEnvironment("YANDEX_OCR_API_URL"),
+            folderId: yandexFolderId,
+            iamToken: yandexIamToken,
+          },
+        }),
   };
 }
 
+function runtimeService() {
+  return createFormulaRecognitionGatewayService({
+    maximumConcurrentRequests: integerEnvironment(
+      "FORMULA_RECOGNITION_MAX_CONCURRENCY",
+      4,
+      64,
+    ),
+    providerAttemptTimeoutMs: integerEnvironment(
+      "FORMULA_RECOGNITION_PROVIDER_TIMEOUT_MS",
+      15_000,
+      60_000,
+    ),
+    providers: runtimeProviders(),
+    rateLimitPerWindow: integerEnvironment(
+      "FORMULA_RECOGNITION_RATE_LIMIT",
+      30,
+      10_000,
+    ),
+    rateLimitWindowMs: integerEnvironment(
+      "FORMULA_RECOGNITION_RATE_WINDOW_MS",
+      60_000,
+      3_600_000,
+    ),
+    retryDelayMs: integerEnvironment(
+      "FORMULA_RECOGNITION_RETRY_DELAY_MS",
+      150,
+      2_000,
+    ),
+  });
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const port = integerEnvironment("MATH_INK_PROXY_PORT", 8787, 65_535);
-  const runtime = runtimeService();
-  const server = createMathInkProxyHttpServer(runtime);
+  const port = integerEnvironment(
+    "FORMULA_RECOGNITION_GATEWAY_PORT",
+    8787,
+    65_535,
+  );
+  const service = runtimeService();
+  const server = createFormulaRecognitionGatewayHttpServer({ service });
   server.listen(port, "0.0.0.0", () => {
     console.log(
       JSON.stringify({
-        configured: runtime.configured,
-        event: "math-ink.proxy-started",
+        event: "formula-recognition.gateway-started",
         port,
+        providers: service.configuredProviders,
         version: mathInkProxyServiceVersion,
       }),
     );
