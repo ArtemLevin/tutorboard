@@ -1,1 +1,1 @@
-apply minimal board chrome v3
+apply minimal board chrome v4
