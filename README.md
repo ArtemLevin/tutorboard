@@ -62,7 +62,7 @@ BoardDocument
   «Медиа»;
 - pen, line, rectangle, ellipse, triangle и правильные n-угольники;
 - импорт PNG/JPEG/SVG и анимированных GIF;
-- эфемерная лазерная указка для объяснений без изменения документа;
+- эфемерная лазерная указка с затухающим следом при перетаскивании левой кнопкой мыши, без изменения документа;
 - click/Shift/marquee selection, movement, lock и delete;
 - versioned `BoardDocument 1.0` и command-only mutation boundary;
 - bounded undo/redo, clipboard, layers, groups and visual styling;
