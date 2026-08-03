@@ -127,7 +127,7 @@ test("selects a figure contour directly from another tool", async ({
     page.getByRole("button", { name: "Прямоугольник (R)" }),
   ).toHaveAttribute("aria-pressed", "true");
 
-  const contour = await stagePoint(page, 300, 210);
+  const contour = await stagePoint(page, 350, 160);
   await page.mouse.click(contour.x, contour.y);
   await expect(
     page.getByRole("button", { name: "Выделение (V)" }),

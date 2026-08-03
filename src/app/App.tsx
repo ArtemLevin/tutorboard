@@ -1775,6 +1775,18 @@ export function App({
       }
       if (
         event.key === "Escape" &&
+        selectionStateRef.current.interaction.kind !== "idle"
+      ) {
+        event.preventDefault();
+        const result = reduceSelectionInteraction(selectionStateRef.current, {
+          kind: "cancel",
+        });
+        selectionStateRef.current = result.state;
+        setSelectionState(result.state);
+        return;
+      }
+      if (
+        event.key === "Escape" &&
         (activeTool === handwrittenFunctionToolId ||
           handwrittenFunctionState.kind !== "idle")
       ) {
