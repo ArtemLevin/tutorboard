@@ -212,7 +212,7 @@ function configuredProvider(config) {
   return config !== undefined && config !== null;
 }
 
-function paddleRequest(config, request) {
+function paddleRequest(config, request, requestId) {
   return {
     body: JSON.stringify({
       imageBase64: request.image.data,
@@ -221,6 +221,7 @@ function paddleRequest(config, request) {
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
+      "X-TutorBoard-Request-Id": requestId,
       ...(config.token === undefined
         ? {}
         : { Authorization: `Bearer ${config.token}` }),
@@ -301,10 +302,10 @@ function yandexRequest(config, request) {
   };
 }
 
-function createProviderRequest(provider, config, request) {
+function createProviderRequest(provider, config, request, requestId) {
   switch (provider) {
     case "paddleocr":
-      return paddleRequest(config, request);
+      return paddleRequest(config, request, requestId);
     case "local-ocr-llm":
       return localOcrLlmRequest(config, request);
     case "yandex-ai-studio":
@@ -370,6 +371,7 @@ export function createFormulaRecognitionGatewayService(options) {
       request.provider,
       config,
       request,
+      requestId,
     );
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const attemptSignal = createAttemptSignal(

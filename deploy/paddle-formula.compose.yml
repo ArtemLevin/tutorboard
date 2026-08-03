@@ -4,7 +4,7 @@ services:
       paddle-formula:
         condition: service_healthy
     environment:
-      FORMULA_RECOGNITION_ALLOW_INSECURE_UPSTREAM: "true"
+      PADDLE_OCR_ALLOW_INSECURE_UPSTREAM: "true"
       PADDLE_OCR_API_TOKEN: ${PADDLE_FORMULA_API_TOKEN:?set PADDLE_FORMULA_API_TOKEN}
       PADDLE_OCR_API_URL: http://paddle-formula:8080/v1/recognize
 

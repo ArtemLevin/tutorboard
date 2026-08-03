@@ -32,9 +32,8 @@ RUN python -m pip install --upgrade pip \
       --upgrade \
       --requirement requirements-security.txt \
     && python -m pip check \
-    && pip_vendor_bom="$(python -c 'import pathlib, pip; print(pathlib.Path(pip.__file__).parent / "_vendor" / "bom.cdx.json")')" \
-    && test -f "$pip_vendor_bom" \
-    && rm -f "$pip_vendor_bom"
+    && python -m pip uninstall --yes pip wheel \
+    && python -c "from importlib.metadata import distributions, version; installed={distribution.metadata['Name'].lower() for distribution in distributions() if distribution.metadata['Name']}; assert 'pip' not in installed, installed; assert 'wheel' not in installed, installed; assert version('setuptools') == '83.0.0'"
 
 RUN useradd \
       --create-home \

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import sys
+import threading
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -14,7 +16,12 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app import Settings, create_app
+from app import (
+    MAX_REQUEST_BODY_BYTES,
+    Settings,
+    _run_inference_serialized,
+    create_app,
+)
 
 
 class FakeResult:
@@ -35,6 +42,32 @@ class FakeModel:
     ) -> Iterable[FakeResult]:
         self.calls.append((input.shape, batch_size))
         return [FakeResult(self.payload)]
+
+
+class BlockingModel:
+    def __init__(self) -> None:
+        self.started = threading.Event()
+        self.release = threading.Event()
+        self.guard = threading.Lock()
+        self.active = 0
+        self.maximum_active = 0
+
+    def predict(
+        self,
+        *,
+        input: np.ndarray[Any, Any],
+        batch_size: int,
+    ) -> Iterable[FakeResult]:
+        del input, batch_size
+        with self.guard:
+            self.active += 1
+            self.maximum_active = max(self.maximum_active, self.active)
+        self.started.set()
+        if not self.release.wait(timeout=5):
+            raise RuntimeError("Blocking test model timed out.")
+        with self.guard:
+            self.active -= 1
+        return [FakeResult({"res": {"rec_formula": "x"}})]
 
 
 def png_base64(width: int = 32, height: int = 16) -> str:
@@ -72,7 +105,7 @@ def test_health_readiness_and_success_contract() -> None:
         assert health.json() == {
             "service": "tutorboard-paddle-formula-sidecar",
             "status": "ok",
-            "version": "1.0.0",
+            "version": "1.0.1",
         }
 
         readiness = client.get("/readyz")
@@ -83,7 +116,7 @@ def test_health_readiness_and_success_contract() -> None:
             "model": "PP-FormulaNet-S",
             "service": "tutorboard-paddle-formula-sidecar",
             "status": "ready",
-            "version": "1.0.0",
+            "version": "1.0.1",
         }
 
         response = client.post(
@@ -126,6 +159,52 @@ def test_rejects_missing_or_invalid_bearer_token() -> None:
     assert missing.status_code == 401
     assert invalid.status_code == 401
     assert model.calls == []
+
+
+def test_rejects_oversized_request_before_json_parsing() -> None:
+    model = FakeModel({"res": {"rec_formula": "x"}})
+
+    with configured_client(model, api_token="") as client:
+        response = client.post(
+            "/v1/recognize",
+            content=b"x" * (MAX_REQUEST_BODY_BYTES + 1),
+            headers={"Content-Type": "application/json"},
+        )
+
+    assert response.status_code == 413
+    assert response.json() == {
+        "detail": "Formula recognition request exceeds the sidecar limit."
+    }
+    assert model.calls == []
+
+
+def test_cancelled_request_keeps_paddle_inference_serialized() -> None:
+    model = BlockingModel()
+    image = Image.new("RGB", (8, 8), color="white")
+
+    async def scenario() -> None:
+        lock = asyncio.Lock()
+        first = asyncio.create_task(_run_inference_serialized(lock, model, image))
+        started = await asyncio.to_thread(model.started.wait, 1)
+        assert started is True
+
+        first.cancel()
+        second = asyncio.create_task(_run_inference_serialized(lock, model, image))
+        await asyncio.sleep(0.05)
+
+        assert model.maximum_active == 1
+        assert second.done() is False
+
+        model.release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        assert await second == "x"
+        assert model.maximum_active == 1
+
+    try:
+        asyncio.run(scenario())
+    finally:
+        image.close()
 
 
 @pytest.mark.parametrize(
