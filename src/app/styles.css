@@ -1808,6 +1808,97 @@ textarea:focus-visible,
 .board-toast.is-error {
   border-left: 4px solid #ac433e;
 }
+.canvas-context-menu {
+  position: fixed;
+  z-index: 65;
+  display: grid;
+  width: 216px;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid #c7d2d6;
+  border-radius: 13px;
+  background: rgb(255 255 255 / 98%);
+  box-shadow: 0 16px 42px rgb(17 31 38 / 22%);
+}
+.canvas-context-menu button {
+  display: grid;
+  min-height: 40px;
+  align-items: center;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  grid-template-columns: 24px 1fr;
+  color: #31454f;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+.canvas-context-menu button:hover:not(:disabled),
+.canvas-context-menu button:focus-visible {
+  background: #edf3f4;
+  outline: none;
+}
+.canvas-context-menu button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+.canvas-context-menu button.is-danger {
+  color: #a33e39;
+}
+.canvas-context-menu__separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: #dfe6e8;
+}
+.clear-canvas-backdrop {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(17 31 38 / 32%);
+}
+.clear-canvas-dialog {
+  width: min(400px, 100%);
+  padding: 22px;
+  border: 1px solid #c7d2d6;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(17 31 38 / 26%);
+}
+.clear-canvas-dialog h2 {
+  margin: 0 0 8px;
+  color: #253a43;
+  font-size: 1.15rem;
+}
+.clear-canvas-dialog p {
+  margin: 0 0 20px;
+  color: #60717a;
+  line-height: 1.5;
+}
+.clear-canvas-dialog > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.clear-canvas-dialog button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #c7d2d6;
+  border-radius: 10px;
+  color: #31454f;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+.clear-canvas-dialog button.is-danger {
+  border-color: #a33e39;
+  color: #fff;
+  background: #a33e39;
+}
 .coordinate-plot-editor,
 .handwritten-function-panel,
 .geometry-prompt-panel {
