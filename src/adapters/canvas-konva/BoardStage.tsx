@@ -56,6 +56,7 @@ type PanSource = "hand" | "middle" | "right" | "space";
 
 interface PanSession {
   activated: boolean;
+  readonly canvasContextEligible: boolean;
   readonly captureElement: HTMLElement;
   readonly pointerId: number;
   readonly source: PanSource;
@@ -120,6 +121,11 @@ export interface BoardObjectTransformSnapshot {
   readonly scale: Vec2;
 }
 
+export interface CanvasContextMenuRequest {
+  readonly clientPoint: Vec2;
+  readonly worldPoint: Vec2;
+}
+
 export interface BoardStageProps {
   readonly coordinatePlotInteraction?:
     CoordinatePlotRenderInteraction | undefined;
@@ -128,6 +134,8 @@ export interface BoardStageProps {
   readonly laserPoint?: Vec2 | null;
   readonly laserTrailOpacity?: number;
   readonly laserTrailPoints?: readonly Vec2[];
+  readonly onCanvasContextMenuRequest?:
+    ((request: CanvasContextMenuRequest) => void) | undefined;
   readonly onObjectSettingsRequest?:
     ((objectId: BoardObjectId) => void) | undefined;
   readonly onPanModeRequest?: () => void;
@@ -255,6 +263,11 @@ function objectIdFromTarget(target: Konva.Node): BoardObjectId | null {
   return null;
 }
 
+function normalizeTransformValue(value: number): number {
+  const normalized = Math.round(value * 1_000_000) / 1_000_000;
+  return Object.is(normalized, -0) ? 0 : normalized;
+}
+
 export function BoardStage({
   coordinatePlotInteraction,
   drawingModeKey,
@@ -262,6 +275,7 @@ export function BoardStage({
   laserPoint = null,
   laserTrailOpacity = 1,
   laserTrailPoints = [],
+  onCanvasContextMenuRequest,
   onObjectSettingsRequest,
   onPanModeRequest,
   onViewportCommit,
@@ -296,6 +310,7 @@ export function BoardStage({
   const selectionSessionRef = useRef<SelectionSession | null>(null);
   const wheelSessionRef = useRef<WheelSession | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
+  const canvasContextMenuRequestRef = useRef(onCanvasContextMenuRequest);
   const panModeRequestRef = useRef(onPanModeRequest);
   const worldPointerCallbacksRef = useRef({
     cancel: onWorldPointerCancel,
@@ -379,9 +394,15 @@ export function BoardStage({
       return [
         {
           objectId,
-          position: { x: node.x(), y: node.y() },
-          rotation: node.rotation(),
-          scale: { x: node.scaleX(), y: node.scaleY() },
+          position: {
+            x: normalizeTransformValue(node.x()),
+            y: normalizeTransformValue(node.y()),
+          },
+          rotation: normalizeTransformValue(node.rotation()),
+          scale: {
+            x: normalizeTransformValue(node.scaleX()),
+            y: normalizeTransformValue(node.scaleY()),
+          },
         },
       ];
     });
@@ -393,6 +414,10 @@ export function BoardStage({
   useLayoutEffect(() => {
     panModeRequestRef.current = onPanModeRequest;
   }, [onPanModeRequest]);
+
+  useLayoutEffect(() => {
+    canvasContextMenuRequestRef.current = onCanvasContextMenuRequest;
+  }, [onCanvasContextMenuRequest]);
 
   useLayoutEffect(() => {
     worldPointerCallbacksRef.current = {
@@ -665,6 +690,20 @@ export function BoardStage({
         return;
       }
       if (panSessionRef.current?.pointerId === event.pointerId) {
+        const session = panSessionRef.current;
+        if (
+          session.source === "right" &&
+          !session.activated &&
+          session.canvasContextEligible
+        ) {
+          canvasContextMenuRequestRef.current?.({
+            clientPoint: clientPoint(event),
+            worldPoint: screenToWorld(
+              elementPoint(event, session.captureElement),
+              session.startViewport,
+            ),
+          });
+        }
         finishPan(true);
       }
     };
@@ -848,7 +887,10 @@ export function BoardStage({
       x: event.clientX - bounds.left,
       y: event.clientY - bounds.top,
     });
-    if (hit !== null && objectIdFromTarget(hit) !== null) {
+    if (
+      hit !== null &&
+      (isTransformerTarget(hit) || objectIdFromTarget(hit) !== null)
+    ) {
       return;
     }
     commitWheel();
@@ -975,6 +1017,10 @@ export function BoardStage({
     const viewport = previewViewport;
     panSessionRef.current = {
       activated: source !== "right",
+      canvasContextEligible:
+        source === "right" &&
+        hitObjectId === null &&
+        !isTransformerTarget(event.target),
       captureElement,
       pointerId: event.evt.pointerId,
       source,

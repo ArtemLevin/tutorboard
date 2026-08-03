@@ -12,6 +12,7 @@ import {
   createDefaultKonvaRendererRegistry,
   zoomCoordinatePlotViewportAt,
   type BoardObjectTransformSnapshot,
+  type CanvasContextMenuRequest,
   type CoordinatePlotRenderInteraction,
   type CoordinatePlotZoomAxis,
   type SelectionPointerStartSample,
@@ -159,6 +160,10 @@ import {
 } from "./image-import";
 import { BoardSettingsDialog } from "./board-chrome/BoardSettingsDialog";
 import { BoardToolDock } from "./board-chrome/BoardToolDock";
+import {
+  CanvasContextMenu,
+  ClearCanvasDialog,
+} from "./board-chrome/CanvasContextMenu";
 import { useDrawingToolPreferences } from "./board-chrome/tool-preferences";
 import { readEnvironment } from "./configuration/environment";
 import {
@@ -380,6 +385,10 @@ export function App({
     null,
   );
   const [clipboardNotice, setClipboardNotice] = useState<string | null>(null);
+  const [canvasContextMenu, setCanvasContextMenu] =
+    useState<CanvasContextMenuRequest | null>(null);
+  const [clearCanvasConfirmationOpen, setClearCanvasConfirmationOpen] =
+    useState(false);
   const [accessibilityNotice, setAccessibilityNotice] = useState<string | null>(
     null,
   );
@@ -796,6 +805,35 @@ export function App({
     setClipboardNotice(`Вставлено: ${command.objects.length}`);
   }, [clipboard, commandActorId, commitCommand]);
 
+  const clearCanvas = useCallback(() => {
+    const current = documentRef.current;
+    const copied = copyBoardSelection(current, current.order);
+    if (copied.status === "error") {
+      setClearCanvasConfirmationOpen(false);
+      setCanvasContextMenu(null);
+      return;
+    }
+    const result = commitCommand(
+      createCutContentCommand(copied.payload, createCommandMetadata()),
+    );
+    if (!result.ok) {
+      setClipboardNotice(result.error.message);
+      return;
+    }
+    const cleared: SelectionState = {
+      interaction: { kind: "idle" },
+      selectedObjectIds: [],
+    };
+    selectionStateRef.current = cleared;
+    setSelectionState(cleared);
+    setSelectionInspectorObjectId(null);
+    setClearCanvasConfirmationOpen(false);
+    setCanvasContextMenu(null);
+    setAccessibilityNotice(
+      `Холст очищен: удалено объектов ${copied.payload.order.length}`,
+    );
+  }, [commitCommand, createCommandMetadata]);
+
   const selectLayer = useCallback(
     (objectId: BoardObjectId) => {
       const selected: SelectionState = {
@@ -927,6 +965,44 @@ export function App({
     [commitCommand, createCommandMetadata],
   );
 
+  const insertTextAt = useCallback(
+    (point: Vec2) => {
+      const pointerId = 0;
+      const started = reduceDrawingInteraction(initialDrawingState, {
+        kind: "start",
+        objectId: boardObjectId(`object:${crypto.randomUUID()}`),
+        point,
+        pointerId,
+        style: styleFor("drawing.text"),
+        text: textDraft,
+        tool: "drawing.text",
+      });
+      const finished = reduceDrawingInteraction(started.state, {
+        kind: "finish",
+        point,
+        pointerId,
+      });
+      if (finished.completedObject === null) {
+        setDrawingDiagnostic(finished.diagnostic);
+        return;
+      }
+      const result = commitDrawingObject(finished.completedObject);
+      if (!result.ok) {
+        return;
+      }
+      const selected: SelectionState = {
+        interaction: { kind: "idle" },
+        selectedObjectIds: [finished.completedObject.id],
+      };
+      selectionStateRef.current = selected;
+      setSelectionState(selected);
+      setSelectionInspectorObjectId(finished.completedObject.id);
+      setActiveTool(selectionToolId);
+      setAccessibilityNotice("Текст добавлен");
+    },
+    [commitDrawingObject, styleFor, textDraft],
+  );
+
   const commitSelectionMove = useCallback(
     (completed: CompletedSelectionMove) => {
       const current = documentRef.current;
@@ -1051,7 +1127,7 @@ export function App({
             setSmartInkNotice(
               proposed.recognizer.status === "ambiguous"
                 ? "Smart Ink: форма неоднозначна, исходный штрих сохранён."
-                : "Smart Ink: фигура не распознана, исходный штрих сохранён.",
+                : null,
             );
           }
         }
@@ -2560,6 +2636,10 @@ export function App({
           laserPoint={laserPoint}
           laserTrailOpacity={laserTrailOpacity}
           laserTrailPoints={laserTrailPoints}
+          onCanvasContextMenuRequest={(request) => {
+            setClearCanvasConfirmationOpen(false);
+            setCanvasContextMenu(request);
+          }}
           onWorldPointerCancel={cancelDrawing}
           onWorldPointerFinish={finishDrawing}
           onWorldPointerMove={moveDrawing}
@@ -2598,6 +2678,34 @@ export function App({
           selectionPreviewDelta={renderedSelectionPreviewDelta}
           transformableObjectIds={transformableObjectIds}
         />
+        {canvasContextMenu === null ? null : (
+          <CanvasContextMenu
+            canClear={document.order.length > 0}
+            canPaste={clipboard !== null}
+            disabled={readOnly}
+            onClearRequest={() => {
+              setCanvasContextMenu(null);
+              setClearCanvasConfirmationOpen(true);
+            }}
+            onClose={() => setCanvasContextMenu(null)}
+            onPaste={() => {
+              pasteClipboard();
+              setCanvasContextMenu(null);
+            }}
+            onText={() => {
+              insertTextAt(canvasContextMenu.worldPoint);
+              setCanvasContextMenu(null);
+            }}
+            position={canvasContextMenu.clientPoint}
+          />
+        )}
+        {clearCanvasConfirmationOpen ? (
+          <ClearCanvasDialog
+            objectCount={document.order.length}
+            onCancel={() => setClearCanvasConfirmationOpen(false)}
+            onConfirm={clearCanvas}
+          />
+        ) : null}
         {coordinatePlotEditor === null ? null : (
           <>
             <CoordinatePlotNavigationControls

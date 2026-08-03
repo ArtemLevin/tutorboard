@@ -120,6 +120,17 @@ vi.mock("../adapters/canvas-konva/public", () => ({
           Открыть настройки объекта
         </button>
         <button
+          onClick={() =>
+            props.onCanvasContextMenuRequest?.({
+              clientPoint: { x: 180, y: 140 },
+              worldPoint: { x: 42, y: 56 },
+            })
+          }
+          type="button"
+        >
+          Открыть меню холста
+        </button>
+        <button
           onClick={() => {
             const objectId = props.scene.items.find(
               ({ object }) => object.kind === "math.coordinate-plot",
@@ -412,6 +423,49 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Вырезать" }));
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+  });
+
+  it("creates text, pastes and clears the board from the canvas menu", () => {
+    render(<App />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    const menu = screen.getByRole("menu", { name: "Меню холста" });
+    expect(menu).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Вставить" })).toBeDisabled();
+    expect(
+      screen.getByRole("menuitem", { name: "Очистить холст" }),
+    ).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Текст" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(screen.getByText("drawing.text")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "c" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Вставить" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Очистить холст?" });
+    expect(dialog).toHaveTextContent("Будут удалены все объекты (2)");
+    fireEvent.click(screen.getByRole("button", { name: "Отмена" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Очистить$/ }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
+    expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
   });
 
   it("reports document changes and visible persistence status", () => {

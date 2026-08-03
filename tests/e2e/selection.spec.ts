@@ -128,6 +128,53 @@ test("scales and rotates a selected figure with undo support", async ({
   );
 });
 
+test("resizes a selected figure by dragging a transformer handle", async ({
+  page,
+}) => {
+  const rectangle = await stagePoint(page, 350, 210);
+  await page.mouse.click(rectangle.x, rectangle.y);
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-transformable-count",
+    "1",
+  );
+
+  const handle = await stagePoint(page, 400, 260);
+  const finish = await stagePoint(page, 470, 320);
+  await page.mouse.move(handle.x, handle.y);
+  await page.mouse.down();
+  await page.mouse.move(finish.x, finish.y, { steps: 6 });
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-transforming",
+    "true",
+  );
+  await page.mouse.up();
+
+  await expect(page.getByTestId("first-object-transform")).not.toHaveText(
+    "Масштаб: 1, 1 · Поворот: 0°",
+  );
+  await page.keyboard.press("Control+z");
+  await expect(page.getByTestId("first-object-transform")).toHaveText(
+    "Масштаб: 1, 1 · Поворот: 0°",
+  );
+});
+
+test("rotates a selected figure by dragging the rotation handle", async ({
+  page,
+}) => {
+  const rectangle = await stagePoint(page, 350, 210);
+  await page.mouse.click(rectangle.x, rectangle.y);
+  const rotationHandle = await stagePoint(page, 350, 134);
+  const finish = await stagePoint(page, 426, 210);
+  await page.mouse.move(rotationHandle.x, rotationHandle.y);
+  await page.mouse.down();
+  await page.mouse.move(finish.x, finish.y, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(page.getByTestId("first-object-transform")).toHaveText(
+    "Масштаб: 1, 1 · Поворот: 90°",
+  );
+});
+
 test("uses the explicit selection tool for an existing figure", async ({
   page,
 }) => {
