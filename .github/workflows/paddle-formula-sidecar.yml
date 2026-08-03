@@ -99,6 +99,25 @@ jobs:
             tutorboard-paddle-formula:${GITHUB_SHA} \
             -m pip check
 
+      - name: Locate stale package and SBOM metadata
+        run: |
+          docker run --rm \
+            --entrypoint sh \
+            tutorboard-paddle-formula:${GITHUB_SHA} \
+            -c '
+              echo "== SBOM files =="
+              find /usr/local/lib/python3.11 -type f \
+                \( -iname "*.spdx" -o -iname "*.spdx.json" -o -iname "*.cdx" -o -iname "*.cdx.json" \) \
+                -print 2>/dev/null || true
+              echo "== package metadata directories =="
+              find /usr/local/lib/python3.11 -type d \
+                \( -iname "setuptools-*" -o -iname "msgpack-*" -o -iname "jaraco*" \) \
+                -print 2>/dev/null || true
+              echo "== stale version strings =="
+              grep -RIlE "70\\.3\\.0|1\\.1\\.2|5\\.3\\.0" \
+                /usr/local/lib/python3.11 2>/dev/null | head -200 || true
+            '
+
       - name: Validate Compose overlays
         env:
           PADDLE_FORMULA_API_TOKEN: ci-paddle-token
