@@ -1,6 +1,9 @@
 name: Apply canvas mode gestures
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - feature/canvas-mode-gestures
