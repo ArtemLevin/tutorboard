@@ -1,1 +1,1 @@
-trigger pull_request synchronize
+trigger pull_request synchronize 2
