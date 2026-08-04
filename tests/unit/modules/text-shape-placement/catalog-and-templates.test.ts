@@ -6,6 +6,7 @@ import {
   createEmptyBoardDocument,
   documentId,
   reduceBoardDocument,
+  selectBoardScene,
   type CommandMetadata,
 } from "../../../../src/core/public";
 import {
@@ -13,6 +14,7 @@ import {
   createVertexConstructionCommand,
   inspectTextShapeFigure,
   inspectTextShapeVertex,
+  inspectTextShapeVertexNearPoint,
   resolveTextShape,
   suggestTextShapes,
   textShapeCatalog,
@@ -130,6 +132,24 @@ describe("triangle vertex constructions", () => {
         placement.objects.map(({ id }) => id),
       )?.labelsVisible,
     ).toBe(true);
+
+    const edge = placement.objects.find(
+      (object) => object.kind === "drawing.line",
+    );
+    expect(edge).toBeDefined();
+    if (edge === undefined) return;
+    expect(
+      inspectTextShapeVertexNearPoint({
+        document: placed.document,
+        hitObjectId: edge.id,
+        maximumDistance: 18,
+        point: {
+          x: vertexA.position.x + 100,
+          y: vertexA.position.y + 100,
+        },
+        scene: selectBoardScene(placed.document),
+      })?.vertexName,
+    ).toBe("A");
 
     for (const kind of context?.availableConstructions ?? []) {
       const command = createVertexConstructionCommand({
