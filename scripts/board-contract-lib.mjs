@@ -399,6 +399,10 @@ const commands = {
     delta: reference("Vec2"),
     groupId: reference("Identifier"),
   }),
+  SetGroupTransformCommand: command("core.groups.set-transform", {
+    groupId: reference("Identifier"),
+    transform: reference("Transform2D"),
+  }),
   MoveObjectsCommand: command("core.objects.move", {
     delta: reference("Vec2"),
     objectIds: array(reference("Identifier"), {
