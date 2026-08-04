@@ -6,7 +6,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   snapshot:
@@ -15,12 +15,28 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - name: Upload repository snapshot
-        uses: actions/upload-artifact@v4
         with:
-          name: tutorboard-pr3-source
-          path: |
-            .
-            !.git
-          include-hidden-files: true
-          retention-days: 1
+          fetch-depth: 0
+      - name: Build relevant source manifest
+        run: |
+          {
+            printf '%s\n' '# TutorBoard PR3 source manifest'
+            printf '%s\n' "main_sha=$(git rev-parse HEAD)"
+            printf '%s\n' '## Relevant paths'
+            rg -l --hidden \
+              --glob '!node_modules/**' \
+              --glob '!dist/**' \
+              --glob '!.git/**' \
+              '(BoardDocument|drawing\.pen-stroke|pen-stroke|exportSvg|exportPng|exportPdf|clipboard|persistence|server-sync|websocket|serialize|deserialize|migration|schemaVersion|documentVersion)' \
+              src tests scripts contracts docs package.json | sort
+          } > /tmp/pr3-manifest.txt
+      - name: Publish manifest branch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout --orphan automation-pr3-snapshot
+          git rm -rf .
+          cp /tmp/pr3-manifest.txt PR3_SOURCE_MANIFEST.md
+          git add PR3_SOURCE_MANIFEST.md
+          git commit -m 'chore: publish PR3 source manifest'
+          git push --force origin HEAD:automation/pr3-snapshot
