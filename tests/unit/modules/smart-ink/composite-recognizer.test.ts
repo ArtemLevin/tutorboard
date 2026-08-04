@@ -59,10 +59,12 @@ function rectangle(
   position: Vec2,
   width: number,
   height: number,
+  rotation = 0,
 ): RectangleObject {
   return {
     ...base(position),
     kind: "drawing.rectangle",
+    rotation,
     size: { height, width },
   };
 }
@@ -155,7 +157,7 @@ describe("Smart Ink composite recognizer", () => {
   it("completes cube and cuboid projections", () => {
     const cube = recognize([
       rectangle({ x: 0, y: 20 }, 60, 60),
-      rectangle({ x: 30, y: 0 }, 60, 60),
+      rectangle({ x: 90, y: 60 }, 60, 60, 180),
       line({ x: 0, y: 20 }, { x: 30, y: 0 }),
       line({ x: 60, y: 20 }, { x: 90, y: 0 }),
       line({ x: 60, y: 80 }, { x: 90, y: 60 }),
@@ -186,7 +188,7 @@ describe("Smart Ink composite recognizer", () => {
     }));
     const prism = recognize([
       polygon(firstTriangle),
-      polygon(secondTriangle),
+      polygon([...secondTriangle].reverse()),
       ...firstTriangle.map((point, index) =>
         line(point, secondTriangle[index]!),
       ),
