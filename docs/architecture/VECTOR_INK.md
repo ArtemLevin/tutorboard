@@ -40,6 +40,8 @@ The original world coordinates, object identities, ordering, groups, styles, tra
 
 Clipboard payloads and board command envelopes use schema version `1.2`. Copy and paste deep-copy the complete Vector Ink payload while preserving the canonical geometry. Dexie revisions and server snapshots serialize the same `BoardDocument 1.2` representation. Collaboration commands carry pressure, timestamps, and centerline data through the existing command transport.
 
+Clipboard copies own independent point, sample, and Bézier-segment objects. Mutating or remapping a pasted command therefore cannot alter the source document or the in-memory clipboard payload.
+
 ## Ownership
 
 Board Core owns the persisted sample and centerline contract, canonical generation, migration, and validation. The Konva adapter owns transient and committed canvas surfaces. Document transfer owns SVG composition and the PNG/PDF derivative pipeline. Clipboard, persistence, and collaboration carry validated Core values through their existing ports.
