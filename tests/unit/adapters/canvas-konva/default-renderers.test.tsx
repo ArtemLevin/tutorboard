@@ -4,7 +4,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { Ellipse, Group, Line, Rect } from "react-konva";
+import { Ellipse, Group, Path, Rect } from "react-konva";
 import { describe, expect, it } from "vitest";
 
 import { createDefaultKonvaRendererRegistry } from "../../../../src/adapters/canvas-konva/public";
@@ -96,12 +96,10 @@ describe("default shape hit regions", () => {
     });
     expect(rendered.type).toBe(Group);
     const [fill, contour] = elementChildren(rendered);
-    expect(fill?.type).toBe(Line);
+    expect(fill?.type).toBe(Path);
     expect(fill?.props).toMatchObject({ listening: false });
-    expect(contour?.type).toBe(Line);
-    expect(contour?.props).toMatchObject({
-      fillEnabled: false,
-      hitStrokeWidth: 14,
-    });
+    expect(contour?.type).toBe(Path);
+    expect(contour?.props).toMatchObject({ fill: "#2c7182" });
+    expect(contour?.props.listening).not.toBe(false);
   });
 });
