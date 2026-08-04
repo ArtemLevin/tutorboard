@@ -1,9 +1,9 @@
 name: Apply wet ink PR 2
 
 on:
-  push:
+  pull_request:
     branches:
-      - feature/wet-ink-renderer
+      - main
 
 permissions:
   contents: write
@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: feature/wet-ink-renderer
+          ref: ${{ github.head_ref }}
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
@@ -47,4 +47,4 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
           git commit -m "feat(ink): integrate wet ink renderer"
-          git push origin HEAD:feature/wet-ink-renderer
+          git push origin HEAD:${GITHUB_HEAD_REF}
