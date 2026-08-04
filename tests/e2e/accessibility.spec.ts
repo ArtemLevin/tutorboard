@@ -17,7 +17,7 @@ test("supports keyboard movement, shortcut help and focus restoration", async ({
   await page.mouse.move(bounds.x + 400, bounds.y + 300);
   await page.mouse.up();
   await page.keyboard.press("v");
-  await page.mouse.click(bounds.x + 350, bounds.y + 250);
+  await page.mouse.click(bounds.x + 300, bounds.y + 250);
 
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Shift+ArrowDown");
