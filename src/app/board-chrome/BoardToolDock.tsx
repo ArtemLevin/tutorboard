@@ -588,7 +588,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 +10%
               </button>
               <button
-                aria-label="Повернуть выделение на 15 градусов против часовой стрелки"
+                aria-label="Повернуть выделение против часовой стрелки на 15 градусов"
                 onClick={() => props.onTransformSelection(1, -15)}
                 type="button"
               >
