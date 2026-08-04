@@ -40,7 +40,17 @@ import {
 } from "../../shared/stroke-smoothing";
 import { BoardGrid } from "./grid";
 import { clientPoint, elementPoint } from "./pointer";
-import { collectCoalescedPointerEvents } from "./pointer-samples";
+import {
+  collectCoalescedPointerEvents,
+  collectPredictedPointerEvents,
+  pointerEventInputTimestampMs,
+} from "./pointer-samples";
+import {
+  createKonvaWetInkSurface,
+  WetInkRenderer,
+  type WetInkSample,
+  type WetInkStyle,
+} from "./wet-ink-renderer";
 import type {
   CoordinatePlotRenderInteraction,
   KonvaRendererRegistry,
@@ -95,6 +105,8 @@ export interface WorldPointerSample {
   readonly pressure: number;
 }
 
+interface TimedWorldPointerSample extends WorldPointerSample, WetInkSample {}
+
 export type BoardSelectionAreaOperation = "add" | "replace" | "subtract";
 
 export interface SelectionPointerStartSample extends WorldPointerSample {
@@ -143,6 +155,8 @@ export interface BoardStageProps {
   readonly onWorldPointerCancel: (pointerId: number) => void;
   readonly onWorldPointerFinish: (sample: WorldPointerSample) => void;
   readonly onWorldPointerMove: (sample: WorldPointerSample) => void;
+  readonly onWorldPointerBatch?:
+    ((samples: readonly WorldPointerSample[]) => void) | undefined;
   readonly onWorldPointerHover?: (point: Vec2) => void;
   readonly onWorldPointerStart: (sample: WorldPointerSample) => void;
   readonly onSelectionPointerCancel: (pointerId: number) => void;
@@ -169,6 +183,7 @@ export interface BoardStageProps {
   readonly selectionModeKey: string | null;
   readonly selectionPreviewDelta?: Vec2 | null;
   readonly transformableObjectIds?: readonly BoardObjectId[];
+  readonly wetInkStyle?: WetInkStyle | null;
   readonly onViewportCommit: (viewport: ViewportState) => void;
 }
 
@@ -297,6 +312,7 @@ export function BoardStage({
   onWorldPointerCancel,
   onWorldPointerFinish,
   onWorldPointerMove,
+  onWorldPointerBatch,
   onWorldPointerHover,
   onWorldPointerStart,
   onSelectionPointerCancel,
@@ -316,10 +332,15 @@ export function BoardStage({
   selectionModeKey,
   selectionPreviewDelta = null,
   transformableObjectIds = [],
+  wetInkStyle = null,
 }: BoardStageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
+  const wetInkLayerRef = useRef<Konva.Layer>(null);
+  const wetInkRendererRef = useRef<WetInkRenderer | null>(null);
+  const pendingWorldPointerMovesRef = useRef<WorldPointerSample[]>([]);
+  const worldPointerMoveFrameRef = useRef<number | null>(null);
   const panSessionRef = useRef<PanSession | null>(null);
   const drawingSessionRef = useRef<DrawingSession | null>(null);
   const selectionSessionRef = useRef<SelectionSession | null>(null);
@@ -328,6 +349,7 @@ export function BoardStage({
   const canvasContextMenuRequestRef = useRef(onCanvasContextMenuRequest);
   const panModeRequestRef = useRef(onPanModeRequest);
   const worldPointerCallbacksRef = useRef({
+    batch: onWorldPointerBatch,
     cancel: onWorldPointerCancel,
     finish: onWorldPointerFinish,
     move: onWorldPointerMove,
@@ -349,6 +371,46 @@ export function BoardStage({
   const [isTransforming, setIsTransforming] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
   const size = useElementSize(rootRef);
+
+  useLayoutEffect(() => {
+    const layer = wetInkLayerRef.current;
+    const root = rootRef.current;
+    if (layer === null || root === null) return;
+    const renderer = new WetInkRenderer(createKonvaWetInkSurface(layer), {
+      onClear: () => {
+        root.dataset.wetInkActive = "false";
+        root.dataset.wetInkActualPoints = "0";
+        root.dataset.wetInkPredictedPoints = "0";
+      },
+      onFrame: (report) => {
+        root.dataset.wetInkActualPoints = String(report.actualPointCount);
+        root.dataset.wetInkFrameCount = String(report.frameCount);
+        root.dataset.wetInkLatencyCount = String(report.latency.count);
+        root.dataset.wetInkLatencyLastMs = report.latency.lastMs.toFixed(2);
+        root.dataset.wetInkLatencyMeanMs = report.latency.meanMs.toFixed(2);
+        root.dataset.wetInkLatencyP95Ms = report.latency.p95Ms.toFixed(2);
+        root.dataset.wetInkPredictedPoints = String(report.predictedPointCount);
+      },
+    });
+    wetInkRendererRef.current = renderer;
+    root.dataset.wetInkActive = "false";
+    root.dataset.wetInkFrameCount = "0";
+    root.dataset.wetInkLatencyCount = "0";
+    root.dataset.wetInkLayer = "ready";
+    return () => {
+      renderer.destroy();
+      if (wetInkRendererRef.current === renderer) {
+        wetInkRendererRef.current = null;
+      }
+      root.dataset.wetInkActive = "false";
+      root.dataset.wetInkLayer = "destroyed";
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    wetInkRendererRef.current?.setViewport(previewViewport);
+  }, [previewViewport]);
+
   const visibleItemBatches = useMemo(
     () =>
       batchBoardRenderItems(
@@ -436,12 +498,14 @@ export function BoardStage({
 
   useLayoutEffect(() => {
     worldPointerCallbacksRef.current = {
+      batch: onWorldPointerBatch,
       cancel: onWorldPointerCancel,
       finish: onWorldPointerFinish,
       move: onWorldPointerMove,
       start: onWorldPointerStart,
     };
   }, [
+    onWorldPointerBatch,
     onWorldPointerCancel,
     onWorldPointerFinish,
     onWorldPointerMove,
@@ -491,7 +555,11 @@ export function BoardStage({
   );
 
   const worldSample = useCallback(
-    (event: PointerEvent, session: DrawingSession): WorldPointerSample => ({
+    (
+      event: PointerEvent,
+      session: DrawingSession,
+    ): TimedWorldPointerSample => ({
+      inputTimestampMs: pointerEventInputTimestampMs(event),
       point: screenToWorld(
         elementPoint(event, session.captureElement),
         session.viewport,
@@ -508,20 +576,60 @@ export function BoardStage({
     (
       event: PointerEvent,
       session: DrawingSession,
-    ): readonly WorldPointerSample[] =>
+    ): readonly TimedWorldPointerSample[] =>
       collectCoalescedPointerEvents(event).map((sample) =>
         worldSample(sample, session),
       ),
     [worldSample],
   );
 
-  const emitWorldPointerMoves = useCallback(
+  const predictedWorldSamples = useCallback(
+    (
+      event: PointerEvent,
+      session: DrawingSession,
+    ): readonly TimedWorldPointerSample[] =>
+      collectPredictedPointerEvents(event).map((sample) =>
+        worldSample(sample, session),
+      ),
+    [worldSample],
+  );
+
+  const discardWorldPointerMoves = useCallback(() => {
+    if (worldPointerMoveFrameRef.current !== null) {
+      cancelAnimationFrame(worldPointerMoveFrameRef.current);
+      worldPointerMoveFrameRef.current = null;
+    }
+    pendingWorldPointerMovesRef.current = [];
+  }, []);
+
+  const flushWorldPointerMoves = useCallback(() => {
+    if (worldPointerMoveFrameRef.current !== null) {
+      cancelAnimationFrame(worldPointerMoveFrameRef.current);
+      worldPointerMoveFrameRef.current = null;
+    }
+    const samples = pendingWorldPointerMovesRef.current;
+    pendingWorldPointerMovesRef.current = [];
+    if (samples.length === 0) return;
+    const batch = worldPointerCallbacksRef.current.batch;
+    if (batch !== undefined) {
+      batch(samples);
+      return;
+    }
+    for (const sample of samples) {
+      worldPointerCallbacksRef.current.move(sample);
+    }
+  }, []);
+
+  const enqueueWorldPointerMoves = useCallback(
     (samples: readonly WorldPointerSample[]) => {
-      for (const sample of samples) {
-        worldPointerCallbacksRef.current.move(sample);
-      }
+      if (samples.length === 0) return;
+      pendingWorldPointerMovesRef.current.push(...samples);
+      if (worldPointerMoveFrameRef.current !== null) return;
+      worldPointerMoveFrameRef.current = requestAnimationFrame(() => {
+        flushWorldPointerMoves();
+      });
     },
-    [],
+    [flushWorldPointerMoves],
   );
 
   const selectionWorldSample = useCallback(
@@ -579,17 +687,29 @@ export function BoardStage({
       if (commit && event !== undefined) {
         const samples = worldSamples(event, session);
         const finalSample = samples.at(-1);
+        wetInkRendererRef.current?.finish(samples, []);
         if (finalSample !== undefined) {
-          emitWorldPointerMoves(samples.slice(0, -1));
+          enqueueWorldPointerMoves(samples.slice(0, -1));
+          flushWorldPointerMoves();
           worldPointerCallbacksRef.current.finish(finalSample);
         } else {
+          flushWorldPointerMoves();
           worldPointerCallbacksRef.current.finish(worldSample(event, session));
         }
       } else {
+        discardWorldPointerMoves();
+        wetInkRendererRef.current?.cancel();
         worldPointerCallbacksRef.current.cancel(session.pointerId);
       }
     },
-    [emitWorldPointerMoves, releaseCapture, worldSample, worldSamples],
+    [
+      discardWorldPointerMoves,
+      enqueueWorldPointerMoves,
+      flushWorldPointerMoves,
+      releaseCapture,
+      worldSample,
+      worldSamples,
+    ],
   );
 
   const finishSelection = useCallback(
@@ -678,7 +798,12 @@ export function BoardStage({
         drawingSession.pointerId === event.pointerId
       ) {
         event.preventDefault();
-        emitWorldPointerMoves(worldSamples(event, drawingSession));
+        const samples = worldSamples(event, drawingSession);
+        wetInkRendererRef.current?.append(
+          samples,
+          predictedWorldSamples(event, drawingSession),
+        );
+        enqueueWorldPointerMoves(samples);
         return;
       }
 
@@ -810,10 +935,11 @@ export function BoardStage({
     };
   }, [
     cancelWheel,
-    emitWorldPointerMoves,
+    enqueueWorldPointerMoves,
     finishDrawing,
     finishPan,
     finishSelection,
+    predictedWorldSamples,
     selectionWorldSample,
     worldSamples,
   ]);
@@ -865,9 +991,10 @@ export function BoardStage({
         wheelSessionRef.current = null;
         window.clearTimeout(wheelSession.timeoutId);
       }
+      discardWorldPointerMoves();
       rightClickCandidateRef.current = null;
     },
-    [releaseCapture],
+    [discardWorldPointerMoves, releaseCapture],
   );
 
   useEffect(() => {
@@ -1044,7 +1171,16 @@ export function BoardStage({
       };
       drawingSessionRef.current = session;
       setIsDrawing(true);
-      worldPointerCallbacksRef.current.start(worldSample(event.evt, session));
+      const startSample = worldSample(event.evt, session);
+      if (wetInkStyle !== null) {
+        rootRef.current?.setAttribute("data-wet-ink-active", "true");
+        wetInkRendererRef.current?.begin(
+          startSample,
+          wetInkStyle,
+          session.viewport,
+        );
+      }
+      worldPointerCallbacksRef.current.start(startSample);
       return;
     }
 
@@ -1237,6 +1373,7 @@ export function BoardStage({
             )}
           </Group>
         </Layer>
+        <Layer ref={wetInkLayerRef} listening={false} />
         <Layer listening={false}>
           <Group
             scaleX={previewViewport.zoom}

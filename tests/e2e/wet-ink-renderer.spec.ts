@@ -54,12 +54,16 @@ test("renders active ink on the transient layer and records latency", async ({
 
   const stage = page.getByTestId("board-stage");
   await expect(stage).toHaveAttribute("data-wet-ink-active", "true");
-  await expect.poll(async () =>
-    Number((await stage.getAttribute("data-wet-ink-frame-count")) ?? 0),
-  ).toBeGreaterThan(0);
-  await expect.poll(async () =>
-    Number((await stage.getAttribute("data-wet-ink-latency-count")) ?? 0),
-  ).toBeGreaterThan(0);
+  await expect
+    .poll(async () =>
+      Number((await stage.getAttribute("data-wet-ink-frame-count")) ?? 0),
+    )
+    .toBeGreaterThan(0);
+  await expect
+    .poll(async () =>
+      Number((await stage.getAttribute("data-wet-ink-latency-count")) ?? 0),
+    )
+    .toBeGreaterThan(0);
   const p95 = Number(
     (await stage.getAttribute("data-wet-ink-latency-p95-ms")) ?? "NaN",
   );

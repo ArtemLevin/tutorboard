@@ -112,13 +112,14 @@ describe("WetInkRenderer", () => {
       style,
       viewport,
     );
-    renderer.append([], [
-      { inputTimestampMs: 1, point: { x: 4, y: 4 } },
-      { inputTimestampMs: 2, point: { x: 5, y: 5 } },
-    ]);
-    renderer.append([], [
-      { inputTimestampMs: 3, point: { x: 6, y: 6 } },
-    ]);
+    renderer.append(
+      [],
+      [
+        { inputTimestampMs: 1, point: { x: 4, y: 4 } },
+        { inputTimestampMs: 2, point: { x: 5, y: 5 } },
+      ],
+    );
+    renderer.append([], [{ inputTimestampMs: 3, point: { x: 6, y: 6 } }]);
     clock.step(8);
 
     expect(surface.frames[0]?.actualPoints).toEqual([{ x: 0, y: 0 }]);
@@ -141,12 +142,13 @@ describe("WetInkRenderer", () => {
       style,
       viewport,
     );
-    renderer.finish([
-      { inputTimestampMs: 4, point: { x: 10, y: 10 } },
-    ]);
+    renderer.finish([{ inputTimestampMs: 4, point: { x: 10, y: 10 } }]);
     clock.step(7);
 
-    expect(surface.frames.at(-1)?.actualPoints.at(-1)).toEqual({ x: 10, y: 10 });
+    expect(surface.frames.at(-1)?.actualPoints.at(-1)).toEqual({
+      x: 10,
+      y: 10,
+    });
     expect(clock.pending()).toBe(1);
     clock.step(23);
 

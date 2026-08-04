@@ -63,14 +63,14 @@ describe("predicted pointer samples", () => {
   });
 
   it("normalizes incompatible and future timestamps to performance time", () => {
-    expect(pointerEventInputTimestampMs(pointerEvent({ timeStamp: 95 }), 100)).toBe(
-      95,
-    );
+    expect(
+      pointerEventInputTimestampMs(pointerEvent({ timeStamp: 95 }), 100),
+    ).toBe(95);
     expect(
       pointerEventInputTimestampMs(pointerEvent({ timeStamp: 100_000 }), 100),
     ).toBe(100);
-    expect(pointerEventInputTimestampMs(pointerEvent({ timeStamp: 105 }), 100)).toBe(
-      100,
-    );
+    expect(
+      pointerEventInputTimestampMs(pointerEvent({ timeStamp: 105 }), 100),
+    ).toBe(100);
   });
 });
