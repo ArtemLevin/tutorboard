@@ -8,6 +8,21 @@ async function stagePoint(page: Page, x: number, y: number) {
   return { x: bounds.x + x, y: bounds.y + y };
 }
 
+async function openBoardWithPen(page: Page): Promise<void> {
+  await page.goto("/");
+  await expect(
+    page.getByRole("application", {
+      name: "Бесконечное полотно TutorBoard",
+    }),
+  ).toBeVisible();
+  const stage = page.getByTestId("board-stage");
+  await expect(stage).toHaveAttribute("data-wet-ink-layer", "ready");
+  const drawingMenu = page.getByRole("button", { name: "Рисование" });
+  await drawingMenu.click();
+  await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
+  await expect(drawingMenu).toHaveAttribute("aria-pressed", "true");
+}
+
 async function drawStroke(page: Page): Promise<void> {
   const points = [
     [220, 300],
@@ -54,8 +69,7 @@ test("renders active ink on the transient layer and records latency", async ({
       writable: true,
     });
   });
-  await page.goto("/");
-  await page.keyboard.press("p");
+  await openBoardWithPen(page);
   await drawStroke(page);
 
   const stage = page.getByTestId("board-stage");
@@ -93,8 +107,7 @@ test("draws through the predicted-event fallback", async ({ page }) => {
       writable: true,
     });
   });
-  await page.goto("/");
-  await page.keyboard.press("p");
+  await openBoardWithPen(page);
   await drawStroke(page);
   await page.mouse.up();
 
