@@ -958,7 +958,8 @@ export function BoardStage({
     }
     const isMiddleButton = event.evt.button === 1;
     const isLeftButton = event.evt.button === 0;
-    const shouldSelectHitObject = isLeftButton && hitObjectId !== null;
+    const shouldSelectHitObject =
+      isLeftButton && hitObjectId !== null && drawingModeKey === null;
     const source: PanSource | null = isRightButton
       ? "right"
       : isMiddleButton
@@ -983,7 +984,7 @@ export function BoardStage({
         return;
       }
       const captureElement = stage.container();
-      if (selectionModeKey !== null || hitObjectId !== null) {
+      if (selectionModeKey !== null || shouldSelectHitObject) {
         beginSelectionSession(event.evt, captureElement, hitObjectId);
         return;
       }
