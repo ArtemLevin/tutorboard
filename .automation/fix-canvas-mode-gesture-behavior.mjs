@@ -88,6 +88,24 @@ source = replaceOnce(
 );
 source = replaceOnce(
   source,
+  `    const hitObjectId = isLassoAreaModifier
+      ? null
+      : objectIdFromTarget(event.target);
+`,
+  `    const hitTestStage = event.target.getStage();
+    const hitObjectId = isLassoAreaModifier
+      ? null
+      : isTransformerTarget(event.target) && hitTestStage !== null
+        ? objectIdBelowTransformer(
+            hitTestStage,
+            elementPoint(event.evt, hitTestStage.container()),
+          )
+        : objectIdFromTarget(event.target);
+`,
+  "transformer object hit test",
+);
+source = replaceOnce(
+  source,
   `    const contextObjectId =
       hitObjectId !== null && selectedObjectIds.includes(hitObjectId)
         ? hitObjectId
@@ -96,6 +114,19 @@ source = replaceOnce(
   `    const contextObjectId = hitObjectId;
 `,
   "right-click object context",
+);
+source = replaceOnce(
+  source,
+  `      canvasContextEligible:
+        source === "right" &&
+        !isTransformerTarget(event.target) &&
+        (hitObjectId === null || contextObjectId !== null),
+`,
+  `      canvasContextEligible:
+        source === "right" &&
+        (hitObjectId === null || contextObjectId !== null),
+`,
+  "right-click transformer eligibility",
 );
 source = replaceOnce(
   source,
