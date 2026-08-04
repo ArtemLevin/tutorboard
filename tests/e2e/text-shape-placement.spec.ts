@@ -62,7 +62,9 @@ test("offers triangle constructions after a vertex click", async ({ page }) => {
   await page.mouse.click(center.x, center.y);
   await expect(page.getByTestId("object-count")).toHaveText("9 объекта");
 
-  await page.mouse.click(center.x - 86, center.y + 60);
+  // Aim through the inner half of the vertex hit area so the active
+  // transformer outline keeps its drag affordance along the outer edge.
+  await page.mouse.click(center.x - 86, center.y + 54);
   const actions = page.getByRole("group", {
     name: "Построения из вершины A",
   });
