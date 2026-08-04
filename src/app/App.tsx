@@ -2330,7 +2330,9 @@ export function App({
       applyDrawingAction({
         kind: "start",
         objectId: boardObjectId(`object:${crypto.randomUUID()}`),
-        inputTimestampMs: sample.inputTimestampMs,
+        ...(sample.inputTimestampMs === undefined
+          ? {}
+          : { inputTimestampMs: sample.inputTimestampMs }),
         point: sample.point,
         polygonSides,
         pointerId: sample.pointerId,
@@ -2366,7 +2368,9 @@ export function App({
       }
       applyDrawingAction({
         kind: "move",
-        inputTimestampMs: sample.inputTimestampMs,
+        ...(sample.inputTimestampMs === undefined
+          ? {}
+          : { inputTimestampMs: sample.inputTimestampMs }),
         point: sample.point,
         pointerId: sample.pointerId,
         pressure: sample.pressure,
@@ -2420,7 +2424,9 @@ export function App({
       for (const sample of samples) {
         const result = reduceDrawingInteraction(state, {
           kind: "move",
-          inputTimestampMs: sample.inputTimestampMs,
+          ...(sample.inputTimestampMs === undefined
+            ? {}
+            : { inputTimestampMs: sample.inputTimestampMs }),
           point: sample.point,
           pointerId: sample.pointerId,
           pressure: sample.pressure,
@@ -2452,7 +2458,9 @@ export function App({
       applyDrawingAction(
         {
           kind: "finish",
-          inputTimestampMs: sample.inputTimestampMs,
+          ...(sample.inputTimestampMs === undefined
+            ? {}
+            : { inputTimestampMs: sample.inputTimestampMs }),
           point: sample.point,
           pointerId: sample.pointerId,
           pressure: sample.pressure,

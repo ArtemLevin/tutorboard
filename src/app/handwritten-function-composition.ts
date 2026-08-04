@@ -63,14 +63,26 @@ export function createHandwrittenFunctionStrokeObjects(input: {
     if (points.length < 2) {
       throw new Error("Handwritten function stroke has no drawable geometry.");
     }
-    const retained = new Set(points);
-    const samples = stroke.points
-      .filter((point) => retained.has(point))
-      .map((point) => ({
-        point: { x: point.x, y: point.y },
+    let sourceIndex = 0;
+    const firstTimestampMs = stroke.points[0]!.timeMs;
+    const samples = points.map((point) => {
+      let matchIndex = sourceIndex;
+      while (
+        matchIndex < stroke.points.length &&
+        (stroke.points[matchIndex]!.x !== point.x ||
+          stroke.points[matchIndex]!.y !== point.y)
+      ) {
+        matchIndex += 1;
+      }
+      const boundedIndex = Math.min(matchIndex, stroke.points.length - 1);
+      const sourcePoint = stroke.points[boundedIndex]!;
+      sourceIndex = Math.min(stroke.points.length, boundedIndex + 1);
+      return {
+        point: { ...point },
         pressure: 0.5,
-        timestampMs: Math.max(0, point.timeMs - stroke.points[0]!.timeMs),
-      }));
+        timestampMs: Math.max(0, sourcePoint.timeMs - firstTimestampMs),
+      };
+    });
     return {
       groupId: null,
       id: resolveHandwrittenStrokeObjectId(input.ids, stroke, index),

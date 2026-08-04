@@ -52,7 +52,7 @@ describe("wet ink performance budget", () => {
     const renderer = new WetInkRenderer(surface, { clock });
     const startedAt = performance.now();
     renderer.begin(
-      { inputTimestampMs: 0, point: { x: 0, y: 0 } },
+      { inputTimestampMs: 0, point: { x: 0, y: 0 }, pressure: 0.5 },
       { opacity: 1, stroke: "#000000", strokeWidth: 3 },
       { offset: { x: 0, y: 0 }, zoom: 1 },
     );
@@ -61,6 +61,7 @@ describe("wet ink performance budget", () => {
       const samples = Array.from({ length: 100 }, (_value, index) => ({
         inputTimestampMs: frame * 16 + index / 100,
         point: { x: frame * 100 + index, y: Math.sin(index / 8) * 20 },
+        pressure: 0.5,
       }));
       renderer.append(samples, samples.slice(-8));
       clock.flush(frame * 16 + 16);

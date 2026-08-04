@@ -106,7 +106,8 @@ export interface WorldPointerSample {
   readonly pressure: number;
 }
 
-interface TimedWorldPointerSample extends WorldPointerSample, WetInkSample {}
+type TimedWorldPointerSample = Omit<WorldPointerSample, "inputTimestampMs"> &
+  WetInkSample;
 
 export type BoardSelectionAreaOperation = "add" | "replace" | "subtract";
 

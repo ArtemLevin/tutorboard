@@ -339,7 +339,7 @@ describe("coordinate plot server synchronization production lifecycle", () => {
     expect(
       repository.pushed.every(
         ({ expectedDocumentSha256, schemaVersion }) =>
-          expectedDocumentSha256.length === 64 && schemaVersion === "1.1",
+          expectedDocumentSha256.length === 64 && schemaVersion === "1.2",
       ),
     ).toBe(true);
 
