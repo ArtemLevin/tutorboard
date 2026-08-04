@@ -177,6 +177,7 @@ export {
   type ImportGeometryCommand,
   type OffsetGeometryLabelCommand,
   type MoveGroupCommand,
+  type SetGroupTransformCommand,
   type MoveObjectsCommand,
   type MoveSelectionCommand,
   type PasteContentCommand,
