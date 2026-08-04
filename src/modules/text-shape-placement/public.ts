@@ -17,6 +17,7 @@ export {
   createVertexConstructionCommand,
   inspectTextShapeFigure,
   inspectTextShapeVertex,
+  inspectTextShapeVertexNearPoint,
   type TextShapeFigureContext,
   type TextShapeVertexContext,
   type VertexConstructionKind,
