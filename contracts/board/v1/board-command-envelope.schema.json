@@ -1723,6 +1723,39 @@
       ],
       "type": "object"
     },
+    "SetGroupTransformCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "actorId": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "kind": {
+          "const": "core.groups.set-transform"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "groupId": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform2D"
+        }
+      },
+      "required": [
+        "actorId",
+        "id",
+        "kind",
+        "timestamp",
+        "groupId",
+        "transform"
+      ],
+      "type": "object"
+    },
     "MoveObjectsCommand": {
       "additionalProperties": false,
       "properties": {
@@ -2375,6 +2408,9 @@
         },
         {
           "$ref": "#/$defs/SetGeometryVisualStyleCommand"
+        },
+        {
+          "$ref": "#/$defs/SetGroupTransformCommand"
         },
         {
           "$ref": "#/$defs/SetLayerVisibilityCommand"
