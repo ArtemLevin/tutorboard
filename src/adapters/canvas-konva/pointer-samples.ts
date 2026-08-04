@@ -40,12 +40,11 @@ function appendUnique(output: PointerEvent[], event: PointerEvent): void {
 export function collectCoalescedPointerEvents(
   event: PointerEvent,
 ): readonly PointerEvent[] {
-  const reader = event.getCoalescedEvents;
-  if (typeof reader !== "function") return [event];
+  if (typeof event.getCoalescedEvents !== "function") return [event];
 
   let coalesced: readonly unknown[];
   try {
-    const candidate = reader.call(event) as unknown;
+    const candidate = event.getCoalescedEvents() as unknown;
     coalesced = Array.isArray(candidate) ? candidate : [];
   } catch {
     return [event];
