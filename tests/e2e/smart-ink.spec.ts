@@ -84,7 +84,11 @@ test("transforms a figure created by Smart Ink", async ({ page }) => {
   await expect(page.getByText("drawing.ellipse")).toBeVisible();
 
   await page.keyboard.press("v");
-  const contour = { x: center.x + radius, y: center.y };
+  const contourOffset = radius / Math.sqrt(2);
+  const contour = {
+    x: center.x + contourOffset,
+    y: center.y + contourOffset,
+  };
   await page.mouse.click(contour.x, contour.y);
   await rightDoubleClickAt(page, contour);
   await page
