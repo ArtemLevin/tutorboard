@@ -24,6 +24,15 @@ function replaceAll(path, before, after) {
   write(path, source.split(before).join(after));
 }
 
+function replacePattern(path, pattern, replacement) {
+  const source = read(path);
+  const corrected = source.replace(pattern, replacement);
+  if (corrected === source) {
+    throw new Error(`Expected pattern missing in ${path}: ${String(pattern)}`);
+  }
+  write(path, corrected);
+}
+
 replaceAll(
   "src/adapters/board-http/client.ts",
   'z.literal("1.1")',
@@ -36,15 +45,11 @@ replace(
   'type TimedWorldPointerSample = Omit<\n  WorldPointerSample,\n  "inputTimestampMs"\n> &\n  WetInkSample;',
 );
 
-replaceAll(
+replacePattern(
   "src/app/App.tsx",
-  "        inputTimestampMs: sample.inputTimestampMs,",
-  "        ...(sample.inputTimestampMs === undefined\n          ? {}\n          : { inputTimestampMs: sample.inputTimestampMs }),",
-);
-replaceAll(
-  "src/app/App.tsx",
-  "          inputTimestampMs: sample.inputTimestampMs,",
-  "          ...(sample.inputTimestampMs === undefined\n            ? {}\n            : { inputTimestampMs: sample.inputTimestampMs }),",
+  /^(\s*)inputTimestampMs: sample\.inputTimestampMs,$/gmu,
+  (_match, indent) =>
+    `${indent}...(sample.inputTimestampMs === undefined\n${indent}  ? {}\n${indent}  : { inputTimestampMs: sample.inputTimestampMs }),`,
 );
 
 replace(
