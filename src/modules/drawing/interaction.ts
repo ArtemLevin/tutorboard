@@ -10,6 +10,7 @@ import { simplifyStroke } from "./stroke-simplification";
 
 const maximumPenPoints = 100_000;
 const minimumGeometrySize = 0.001;
+export const penStrokeStorageSimplificationTolerance = 0.1;
 
 export type UserDrawingObject = BoardObject & {
   readonly source: { readonly kind: "user" };
@@ -138,7 +139,10 @@ function completePen(
   state: PenInteraction,
   point: Vec2,
 ): UserDrawingObject | null {
-  const points = simplifyStroke(appendPenPoint(state.points, point));
+  const points = simplifyStroke(
+    appendPenPoint(state.points, point),
+    penStrokeStorageSimplificationTolerance,
+  );
   if (points.length < 2) {
     return null;
   }
