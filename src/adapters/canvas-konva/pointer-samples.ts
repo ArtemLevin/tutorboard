@@ -10,10 +10,19 @@ function samePointerSample(left: PointerEvent, right: PointerEvent): boolean {
   );
 }
 
-function appendUnique(
-  output: PointerEvent[],
-  event: PointerEvent,
-): void {
+function pointerEventLike(value: unknown): value is PointerEvent {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "pointerId" in value &&
+    "clientX" in value &&
+    "clientY" in value &&
+    "pressure" in value &&
+    "timeStamp" in value
+  );
+}
+
+function appendUnique(output: PointerEvent[], event: PointerEvent): void {
   const previous = output.at(-1);
   if (previous === undefined || !samePointerSample(previous, event)) {
     output.push(event);
@@ -34,7 +43,7 @@ export function collectCoalescedPointerEvents(
   const reader = event.getCoalescedEvents;
   if (typeof reader !== "function") return [event];
 
-  let coalesced: readonly PointerEvent[];
+  let coalesced: readonly unknown[];
   try {
     const candidate = reader.call(event) as unknown;
     coalesced = Array.isArray(candidate) ? candidate : [];
@@ -47,10 +56,7 @@ export function collectCoalescedPointerEvents(
   );
   const output: PointerEvent[] = [];
   for (const sample of bounded) {
-    if (
-      sample instanceof PointerEvent &&
-      sample.pointerId === event.pointerId
-    ) {
+    if (pointerEventLike(sample) && sample.pointerId === event.pointerId) {
       appendUnique(output, sample);
     }
   }
