@@ -74,8 +74,7 @@ describe("coalesced pointer samples", () => {
   it("bounds unexpectedly large browser batches", () => {
     const samples = Array.from(
       { length: maximumCoalescedPointerEvents + 50 },
-      (_value, index) =>
-        pointerEvent({ clientX: index, timeStamp: index + 1 }),
+      (_value, index) => pointerEvent({ clientX: index, timeStamp: index + 1 }),
     );
     const dispatched = pointerEvent({
       clientX: 10_000,

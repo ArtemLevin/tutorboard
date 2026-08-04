@@ -505,7 +505,10 @@ export function BoardStage({
   );
 
   const worldSamples = useCallback(
-    (event: PointerEvent, session: DrawingSession): readonly WorldPointerSample[] =>
+    (
+      event: PointerEvent,
+      session: DrawingSession,
+    ): readonly WorldPointerSample[] =>
       collectCoalescedPointerEvents(event).map((sample) =>
         worldSample(sample, session),
       ),

@@ -35,7 +35,9 @@ function containsPoint(
 function expectFiniteStroke(points: readonly StrokePoint[]): void {
   expect(points.length).toBeGreaterThan(2);
   expect(
-    points.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y)),
+    points.every(
+      (point) => Number.isFinite(point.x) && Number.isFinite(point.y),
+    ),
   ).toBe(true);
 }
 
@@ -127,16 +129,16 @@ describe("stroke input fidelity", () => {
     ["S", letterS],
     ["M", letterM],
     ["Ж", letterZhe],
-  ] as const)("keeps the %s glyph continuous and preserves its endpoints", (
-    _name,
-    points,
-  ) => {
-    const smoothed = buildSmoothStrokePoints(points, { zoom: 4 });
-    expectFiniteStroke(smoothed);
-    expect(smoothed[0]).toEqual(points[0]);
-    expect(smoothed.at(-1)).toEqual(points.at(-1));
-    expect(maximumScreenSegment(smoothed, 4)).toBeLessThan(4);
-  });
+  ] as const)(
+    "keeps the %s glyph continuous and preserves its endpoints",
+    (_name, points) => {
+      const smoothed = buildSmoothStrokePoints(points, { zoom: 4 });
+      expectFiniteStroke(smoothed);
+      expect(smoothed[0]).toEqual(points[0]);
+      expect(smoothed.at(-1)).toEqual(points.at(-1));
+      expect(maximumScreenSegment(smoothed, 4)).toBeLessThan(4);
+    },
+  );
 
   it("preserves the sharp vertices of M and the central join of Ж", () => {
     const smoothedM = buildSmoothStrokePoints(letterM, { zoom: 4 });
@@ -163,9 +165,9 @@ describe("stroke input fidelity", () => {
     expectFiniteStroke(smoothed);
     expect(smoothed[0]).toEqual(smoothed.at(-1));
     expect(maximumScreenSegment(smoothed, 4)).toBeLessThan(4);
-    expect(
-      smoothed.some((point) => Math.hypot(point.x, point.y) < 1),
-    ).toBe(true);
+    expect(smoothed.some((point) => Math.hypot(point.x, point.y) < 1)).toBe(
+      true,
+    );
   });
 
   it("caches open and closed render paths independently per zoom bucket", () => {
