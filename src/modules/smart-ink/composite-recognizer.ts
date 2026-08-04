@@ -469,26 +469,70 @@ function snapSegmentsToPairs(
   segments: readonly Segment[],
   pairs: readonly (readonly [Vec2, Vec2])[],
   tolerance: number,
-): readonly LineObject[] | null {
-  const remaining = new Set(pairs.map((_, index) => index));
-  const snapped: LineObject[] = [];
-  for (const segment of segments) {
-    let bestIndex = -1;
-    let bestError = Number.POSITIVE_INFINITY;
-    for (const index of remaining) {
-      const pair = pairs[index]!;
-      const error = segmentPairError(segment, pair[0], pair[1]);
-      if (error < bestError) {
-        bestError = error;
-        bestIndex = index;
+): { readonly error: number; readonly lines: readonly LineObject[] } | null {
+  if (segments.length !== pairs.length) return null;
+  let best:
+    { readonly error: number; readonly mapping: readonly number[] } | undefined;
+
+  const visit = (mapping: readonly number[], remaining: readonly number[]) => {
+    if (remaining.length === 0) {
+      const errors = mapping.map((pairIndex, segmentIndex) => {
+        const pair = pairs[pairIndex]!;
+        return segmentPairError(segments[segmentIndex]!, pair[0], pair[1]);
+      });
+      if (errors.some((error) => error > tolerance)) return;
+      const error = errors.reduce((sum, value) => sum + value, 0);
+      if (best === undefined || error < best.error) best = { error, mapping };
+      return;
+    }
+    for (const pairIndex of remaining) {
+      visit(
+        [...mapping, pairIndex],
+        remaining.filter((value) => value !== pairIndex),
+      );
+    }
+  };
+  visit(
+    [],
+    pairs.map((_, index) => index),
+  );
+  if (best === undefined) return null;
+  return {
+    error: best.error,
+    lines: best.mapping.map((pairIndex, segmentIndex) => {
+      const pair = pairs[pairIndex]!;
+      return canonicalLine(segments[segmentIndex]!, pair[0], pair[1]);
+    }),
+  };
+}
+
+function snapParallelFaces(
+  segments: readonly Segment[],
+  first: readonly Vec2[],
+  second: readonly Vec2[],
+  tolerance: number,
+): { readonly error: number; readonly lines: readonly LineObject[] } | null {
+  if (first.length !== second.length || first.length !== segments.length) {
+    return null;
+  }
+  let best: ReturnType<typeof snapSegmentsToPairs> = null;
+  for (const reversed of [false, true]) {
+    const ordered = reversed ? [...second].reverse() : second;
+    for (let offset = 0; offset < ordered.length; offset += 1) {
+      const pairs = first.map(
+        (vertex, index) =>
+          [vertex, ordered[(index + offset) % ordered.length]!] as const,
+      );
+      const candidate = snapSegmentsToPairs(segments, pairs, tolerance);
+      if (
+        candidate !== null &&
+        (best === null || candidate.error < best.error)
+      ) {
+        best = candidate;
       }
     }
-    if (bestIndex < 0 || bestError > tolerance) return null;
-    remaining.delete(bestIndex);
-    const pair = pairs[bestIndex]!;
-    snapped.push(canonicalLine(segment, pair[0], pair[1]));
   }
-  return remaining.size === 0 ? snapped : null;
+  return best;
 }
 
 function recognizeCylinder(
@@ -533,8 +577,8 @@ function recognizeCylinder(
       { x: centerX + radius.x, y: bottomCenter.y },
     ],
   ];
-  const snappedLines = snapSegmentsToPairs(segments, pairs, radius.x * 0.65);
-  if (snappedLines === null) return null;
+  const snapped = snapSegmentsToPairs(segments, pairs, radius.x * 0.65);
+  if (snapped === null) return null;
   return proposal(
     "cylinder",
     objects,
@@ -543,7 +587,7 @@ function recognizeCylinder(
       if (object === bottom)
         return canonicalEllipse(bottom, bottomCenter, radius);
       const index = segments.findIndex((segment) => segment.object === object);
-      return index < 0 ? object : snappedLines[index]!;
+      return index < 0 ? object : snapped.lines[index]!;
     }),
     0.9,
   );
@@ -565,11 +609,13 @@ function recognizeBox(
   const first = polygons[0]!;
   const second = polygons[1]!;
   const scale = Math.max(rectangles[0]!.size.width, rectangles[0]!.size.height);
-  const pairs = first.vertices.map(
-    (vertex, index) => [vertex, second.vertices[index]!] as const,
+  const snapped = snapParallelFaces(
+    segments,
+    first.vertices,
+    second.vertices,
+    scale * 0.65,
   );
-  const snappedLines = snapSegmentsToPairs(segments, pairs, scale * 0.65);
-  if (snappedLines === null) return null;
+  if (snapped === null) return null;
   const firstSize = rectangles[0]!.size;
   const secondSize = rectangles[1]!.size;
   const sizeDelta = Math.max(
@@ -588,7 +634,7 @@ function recognizeBox(
     objects,
     objects.map((object) => {
       const index = segments.findIndex((segment) => segment.object === object);
-      return index < 0 ? object : snappedLines[index]!;
+      return index < 0 ? object : snapped.lines[index]!;
     }),
     1 - sizeDelta,
   );
@@ -611,17 +657,19 @@ function recognizeTriangularPrism(
       distance(point, polygonCenter(triangles[0]!.vertices)),
     ),
   );
-  const pairs = triangles[0]!.vertices.map(
-    (vertex, index) => [vertex, triangles[1]!.vertices[index]!] as const,
+  const snapped = snapParallelFaces(
+    segments,
+    triangles[0]!.vertices,
+    triangles[1]!.vertices,
+    scale * 0.75,
   );
-  const snappedLines = snapSegmentsToPairs(segments, pairs, scale * 0.75);
-  if (snappedLines === null) return null;
+  if (snapped === null) return null;
   return proposal(
     "triangular-prism",
     objects,
     objects.map((object) => {
       const index = segments.findIndex((segment) => segment.object === object);
-      return index < 0 ? object : snappedLines[index]!;
+      return index < 0 ? object : snapped.lines[index]!;
     }),
     0.88,
   );
@@ -648,14 +696,14 @@ function recognizePyramid(
   const pairs = polygon.vertices.map(
     (vertex) => [shared.apex, vertex] as const,
   );
-  const snappedLines = snapSegmentsToPairs(segments, pairs, scale * 0.75);
-  if (snappedLines === null) return null;
+  const snapped = snapSegmentsToPairs(segments, pairs, scale * 0.75);
+  if (snapped === null) return null;
   return proposal(
     "pyramid",
     objects,
     objects.map((object) => {
       const index = segments.findIndex((segment) => segment.object === object);
-      return index < 0 ? object : snappedLines[index]!;
+      return index < 0 ? object : snapped.lines[index]!;
     }),
     0.86,
   );
