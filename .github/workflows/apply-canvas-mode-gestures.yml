@@ -45,7 +45,9 @@ jobs:
 
       - name: Apply implementation
         if: steps.patch.outputs.needed == 'true'
-        run: node .automation/apply-canvas-mode-gestures.mjs
+        run: |
+          node .automation/apply-canvas-mode-gestures.mjs
+          node .automation/fix-canvas-mode-gesture-tests.mjs
 
       - name: Format and validate
         if: steps.patch.outputs.needed == 'true'
