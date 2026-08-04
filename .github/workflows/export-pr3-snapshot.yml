@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Build source manifest
+      - name: Build source manifests
         run: |
           {
             printf '%s\n' '# TutorBoard PR3 source manifest'
@@ -35,6 +35,16 @@ jobs:
               '(BoardDocument|drawing[.]pen-stroke|pen-stroke|exportSvg|exportPng|exportPdf|clipboard|persistence|server-sync|websocket|serialize|deserialize|migration|schemaVersion|documentVersion)' \
               src tests scripts contracts docs package.json 2>/dev/null | sort || true
           } > /tmp/pr3-manifest.txt
+          {
+            printf '%s\n' '# TutorBoard PR3 reference map'
+            printf '%s\n' "main_sha=$(git rev-parse HEAD)"
+            grep -RInE \
+              --exclude-dir=.git \
+              --exclude-dir=node_modules \
+              --exclude-dir=dist \
+              '(drawing[.]pen-stroke|PenStrokeObject|[.]points|schemaVersion[^\n]*1[.]1|boardClipboardSchemaVersion|renderBoardSnapshot)' \
+              src tests scripts contracts docs 2>/dev/null | head -n 8000 || true
+          } > /tmp/pr3-references.txt
       - name: Publish manifest branch
         run: |
           git config user.name github-actions[bot]
@@ -42,6 +52,7 @@ jobs:
           git checkout --orphan automation-pr3-snapshot
           git rm -rf .
           cp /tmp/pr3-manifest.txt PR3_SOURCE_MANIFEST.md
-          git add PR3_SOURCE_MANIFEST.md
-          git commit -m 'chore: publish PR3 source manifest'
+          cp /tmp/pr3-references.txt PR3_REFERENCE_MAP.md
+          git add PR3_SOURCE_MANIFEST.md PR3_REFERENCE_MAP.md
+          git commit -m 'chore: publish PR3 source maps'
           git push --force origin HEAD:automation/pr3-snapshot
