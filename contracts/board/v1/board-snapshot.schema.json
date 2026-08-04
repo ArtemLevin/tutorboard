@@ -930,6 +930,48 @@
       ],
       "type": "object"
     },
+    "RelationPlotSeries": {
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "fillOpacity": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "kind": {
+          "const": "relation"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/PlotSeriesStyle"
+        },
+        "visible": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "expression",
+        "fillOpacity",
+        "id",
+        "kind",
+        "name",
+        "style",
+        "visible"
+      ],
+      "type": "object"
+    },
     "PlotParameter": {
       "additionalProperties": false,
       "properties": {
@@ -980,6 +1022,9 @@
         },
         {
           "$ref": "#/$defs/ParametricPlotSeries"
+        },
+        {
+          "$ref": "#/$defs/RelationPlotSeries"
         }
       ]
     },
