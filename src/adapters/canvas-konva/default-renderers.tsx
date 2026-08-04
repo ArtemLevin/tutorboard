@@ -47,20 +47,26 @@ function commonTransformProps(object: BoardObject) {
   } as const;
 }
 
-function commonShapeProps(object: BoardObject) {
+function contourStrokeProps(object: BoardObject) {
   const resolved = resolveStrokeStyle(
     object.style.strokeStyle,
     object.style.strokeWidth,
   );
   return {
-    ...commonTransformProps(object),
     ...(resolved.dash === undefined ? {} : { dash: [...resolved.dash] }),
     hitStrokeWidth: Math.max(14, resolved.strokeWidth),
     lineCap: resolved.lineCap,
     lineJoin: "round" as const,
-    name: "board-transform-target",
     opacity: object.style.opacity * resolved.opacityMultiplier,
     strokeWidth: resolved.strokeWidth,
+  } as const;
+}
+
+function commonShapeProps(object: BoardObject) {
+  return {
+    ...commonTransformProps(object),
+    ...contourStrokeProps(object),
+    name: "board-transform-target",
   } as const;
 }
 
@@ -187,14 +193,42 @@ const renderers: readonly KonvaObjectRenderer[] = [
           ) : null,
         );
       }
+      const points = [...flattenStrokePoints(renderPoints)];
+      if (closed && stroke.style.fill !== null) {
+        return (
+          <Group
+            {...commonTransformProps(stroke)}
+            name="board-transform-target"
+          >
+            <Line
+              {...fillProps(stroke)}
+              closed
+              listening={false}
+              opacity={stroke.style.opacity}
+              perfectDrawEnabled
+              points={points}
+              tension={0}
+            />
+            <Line
+              {...contourStrokeProps(stroke)}
+              {...strokeProps(stroke)}
+              closed
+              fillEnabled={false}
+              perfectDrawEnabled
+              points={points}
+              tension={0}
+            />
+          </Group>
+        );
+      }
       return (
         <Line
           {...commonShapeProps(stroke)}
-          {...fillProps(stroke)}
           {...strokeProps(stroke)}
           closed={closed}
+          fillEnabled={false}
           perfectDrawEnabled
-          points={[...flattenStrokePoints(renderPoints)]}
+          points={points}
           tension={0}
         />
       );
@@ -255,14 +289,29 @@ const renderers: readonly KonvaObjectRenderer[] = [
         );
       }
       return (
-        <Rect
-          {...commonShapeProps(rectangle)}
-          {...fillProps(rectangle)}
-          {...strokeProps(rectangle)}
-          cornerRadius={8}
-          height={rectangle.size.height}
-          width={rectangle.size.width}
-        />
+        <Group
+          {...commonTransformProps(rectangle)}
+          name="board-transform-target"
+        >
+          {rectangle.style.fill === null ? null : (
+            <Rect
+              {...fillProps(rectangle)}
+              cornerRadius={8}
+              height={rectangle.size.height}
+              listening={false}
+              opacity={rectangle.style.opacity}
+              width={rectangle.size.width}
+            />
+          )}
+          <Rect
+            {...contourStrokeProps(rectangle)}
+            {...strokeProps(rectangle)}
+            cornerRadius={8}
+            fillEnabled={false}
+            height={rectangle.size.height}
+            width={rectangle.size.width}
+          />
+        </Group>
       );
     },
   },
@@ -286,13 +335,24 @@ const renderers: readonly KonvaObjectRenderer[] = [
         );
       }
       return (
-        <Ellipse
-          {...commonShapeProps(ellipse)}
-          {...fillProps(ellipse)}
-          {...strokeProps(ellipse)}
-          radiusX={ellipse.radius.x}
-          radiusY={ellipse.radius.y}
-        />
+        <Group {...commonTransformProps(ellipse)} name="board-transform-target">
+          {ellipse.style.fill === null ? null : (
+            <Ellipse
+              {...fillProps(ellipse)}
+              listening={false}
+              opacity={ellipse.style.opacity}
+              radiusX={ellipse.radius.x}
+              radiusY={ellipse.radius.y}
+            />
+          )}
+          <Ellipse
+            {...contourStrokeProps(ellipse)}
+            {...strokeProps(ellipse)}
+            fillEnabled={false}
+            radiusX={ellipse.radius.x}
+            radiusY={ellipse.radius.y}
+          />
+        </Group>
       );
     },
   },

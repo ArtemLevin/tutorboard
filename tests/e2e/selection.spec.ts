@@ -52,9 +52,9 @@ async function dragMarquee(page: Page) {
 test("selects and moves an object with a zoom-independent world delta", async ({
   page,
 }) => {
-  const start = await stagePoint(page, 350, 210);
+  const start = await stagePoint(page, 320, 160);
   await page.mouse.click(start.x, start.y);
-  const finish = await stagePoint(page, 420, 250);
+  const finish = await stagePoint(page, 390, 200);
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(finish.x, finish.y, { steps: 5 });
@@ -67,9 +67,9 @@ test("selects and moves an object with a zoom-independent world delta", async ({
 });
 
 test("supports additive selection, lock and delete", async ({ page }) => {
-  const rectangle = await stagePoint(page, 350, 210);
+  const rectangle = await stagePoint(page, 320, 160);
   await page.mouse.click(rectangle.x, rectangle.y);
-  const ellipse = await stagePoint(page, 530, 190);
+  const ellipse = await stagePoint(page, 551, 169);
   await page.keyboard.down("Shift");
   await page.mouse.click(ellipse.x, ellipse.y);
   await page.keyboard.up("Shift");
@@ -106,7 +106,7 @@ test("cancels a marquee preview with Escape", async ({ page }) => {
 test("scales and rotates a selected figure with undo support", async ({
   page,
 }) => {
-  const rectangle = await stagePoint(page, 350, 210);
+  const rectangle = await stagePoint(page, 320, 160);
   await page.mouse.click(rectangle.x, rectangle.y);
   await rightDoubleClickAt(page, rectangle);
   await page
@@ -131,7 +131,7 @@ test("scales and rotates a selected figure with undo support", async ({
 test("resizes a selected figure by dragging a transformer handle", async ({
   page,
 }) => {
-  const rectangle = await stagePoint(page, 350, 210);
+  const rectangle = await stagePoint(page, 320, 160);
   await page.mouse.click(rectangle.x, rectangle.y);
   await expect(page.getByTestId("board-stage")).toHaveAttribute(
     "data-transformable-count",
@@ -161,7 +161,7 @@ test("resizes a selected figure by dragging a transformer handle", async ({
 test("rotates a selected figure by dragging the rotation handle", async ({
   page,
 }) => {
-  const rectangle = await stagePoint(page, 350, 210);
+  const rectangle = await stagePoint(page, 320, 160);
   await page.mouse.click(rectangle.x, rectangle.y);
   const rotationHandle = await stagePoint(page, 350, 134);
   const finish = await stagePoint(page, 426, 210);
@@ -185,7 +185,7 @@ test("uses the explicit selection tool for an existing figure", async ({
   );
 
   await page.keyboard.press("v");
-  const rectangle = await stagePoint(page, 350, 210);
+  const rectangle = await stagePoint(page, 320, 160);
   await page.mouse.click(rectangle.x, rectangle.y);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
   await rightDoubleClickAt(page, rectangle);
@@ -215,7 +215,7 @@ test("right drag switches to canvas movement and pans the viewport", async ({
 });
 
 test("chooses all eight line styles from a popover", async ({ page }) => {
-  const rectangle = await stagePoint(page, 350, 210);
+  const rectangle = await stagePoint(page, 320, 160);
   await page.mouse.click(rectangle.x, rectangle.y);
   await rightDoubleClickAt(page, rectangle);
   const menu = page.getByRole("menu", { name: "Стиль линии" });

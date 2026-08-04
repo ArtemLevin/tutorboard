@@ -24,11 +24,12 @@ test("opens figure and graph settings only after a right-button double-click", a
   await page.mouse.up();
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await expect(selectionSettings).toBeHidden();
+  const contour = { x: center.x - 70, y: center.y };
 
-  await page.mouse.click(center.x, center.y, { button: "right" });
+  await page.mouse.click(contour.x, contour.y, { button: "right" });
   await expect(selectionSettings).toBeHidden();
   await page.waitForTimeout(60);
-  await page.mouse.click(center.x, center.y, { button: "right" });
+  await page.mouse.click(contour.x, contour.y, { button: "right" });
   await expect(selectionSettings).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(selectionSettings).toBeHidden();

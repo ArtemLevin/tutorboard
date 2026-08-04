@@ -19,7 +19,7 @@ test("copies, pastes, cuts and restores one selection", async ({ page }) => {
 
   await page.getByRole("button", { name: "Выделение" }).click();
   await page.getByRole("menuitemradio", { name: "Выделение (V)" }).click();
-  await page.mouse.click(bounds.x + 320, bounds.y + 230);
+  await page.mouse.click(bounds.x + 260, bounds.y + 230);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
 
   await page.keyboard.press("Control+c");

@@ -40,9 +40,9 @@ test("manages visibility, z-order and user groups from the settings sheet", asyn
     .click();
 
   await page.keyboard.press("v");
-  await page.mouse.click(bounds.x + 270, bounds.y + 210);
+  await page.mouse.click(bounds.x + 220, bounds.y + 210);
   await page.keyboard.down("Shift");
-  await page.mouse.click(bounds.x + 490, bounds.y + 210);
+  await page.mouse.click(bounds.x + 540, bounds.y + 210);
   await page.keyboard.up("Shift");
   await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
 
