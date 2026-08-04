@@ -204,6 +204,27 @@ describe("BoardDocument reducer", () => {
           ({ groupId: memberGroupId }) => memberGroupId,
         ),
       ).toEqual([groupId("group:pair"), groupId("group:pair")]);
+
+      const transformed = reduceBoardDocument(moved.document, {
+        ...metadata("transform-group", "2026-07-24T12:04:00.000Z"),
+        groupId: groupId("group:pair"),
+        kind: "core.groups.set-transform",
+        transform: {
+          rotation: 30,
+          scale: { x: 1.25, y: 0.8 },
+          translation: { x: 15, y: -5 },
+        },
+      });
+      expect(transformed.ok).toBe(true);
+      if (transformed.ok) {
+        expect(
+          transformed.document.groups[groupId("group:pair")]?.transform,
+        ).toEqual({
+          rotation: 30,
+          scale: { x: 1.25, y: 0.8 },
+          translation: { x: 15, y: -5 },
+        });
+      }
     }
   });
 
