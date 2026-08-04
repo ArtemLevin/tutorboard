@@ -66,7 +66,7 @@ export function createHandwrittenFunctionStrokeObjects(input: {
     const retained = new Set(points);
     const samples = stroke.points
       .filter((point) => retained.has(point))
-      .map((point, sampleIndex) => ({
+      .map((point) => ({
         point: { x: point.x, y: point.y },
         pressure: 0.5,
         timestampMs: Math.max(0, point.timeMs - stroke.points[0]!.timeMs),

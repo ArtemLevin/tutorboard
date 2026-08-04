@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { DexieBoardDocumentRepository } from "../../../../src/adapters/persistence-dexie/public";
 import {
+  boardObjectId,
   createEmptyBoardDocument,
   documentId,
   persistenceOperationId,
@@ -106,7 +107,7 @@ describe("Vector Ink persistence migration", () => {
     expect(loaded.status).toBe("restored");
     if (loaded.status !== "restored") return;
     expect(loaded.document.schemaVersion).toBe("1.2");
-    const stroke = loaded.document.objects["object:legacy"];
+    const stroke = loaded.document.objects[boardObjectId("object:legacy")];
     expect(stroke?.kind).toBe("drawing.pen-stroke");
     if (stroke?.kind !== "drawing.pen-stroke") return;
     expect(stroke.ink?.version).toBe("1.0");

@@ -47,7 +47,7 @@ function styleAttributes(object: BoardObject): string {
   ].join(" ");
 }
 
-function objectMarkup(object: BoardObject, zoom: number): string {
+function objectMarkup(object: BoardObject): string {
   const common = `${styleAttributes(object)} transform="translate(${number(object.position.x)} ${number(object.position.y)}) rotate(${number(object.rotation)}) scale(${number(object.scale.x)} ${number(object.scale.y)})"`;
   switch (object.kind) {
     case "drawing.pen-stroke": {
@@ -85,11 +85,11 @@ function objectMarkup(object: BoardObject, zoom: number): string {
   }
 }
 
-function itemMarkup(item: BoardRenderItem, zoom: number): string {
+function itemMarkup(item: BoardRenderItem): string {
   return item.transforms.reduceRight(
     (content, transform) =>
       `<g transform="${transformAttribute(transform)}">${content}</g>`,
-    objectMarkup(item.object, zoom),
+    objectMarkup(item.object),
   );
 }
 
@@ -113,7 +113,7 @@ export function renderBoardSnapshotSvg(
     `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(document.title)}" viewBox="0 0 ${number(width)} ${number(height)}">`,
     '<rect width="100%" height="100%" fill="#f8fafc"/>',
     `<g transform="translate(${number(scene.viewport.offset.x)} ${number(scene.viewport.offset.y)}) scale(${number(scene.viewport.zoom)})">`,
-    visibleItems.map((item) => itemMarkup(item, scene.viewport.zoom)).join(""),
+    visibleItems.map((item) => itemMarkup(item)).join(""),
     "</g>",
     "</svg>",
   ].join("");

@@ -11,8 +11,6 @@ import {
 } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
 import {
-  buildCachedSmoothClosedStrokePoints,
-  buildCachedSmoothStrokePoints,
   buildSmoothStrokePoints,
   flattenStrokePoints,
 } from "../../shared/stroke-smoothing";
