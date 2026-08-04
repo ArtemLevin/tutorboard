@@ -14,7 +14,7 @@ import {
   type Vec2,
 } from "../../core/public";
 
-export const boardClipboardSchemaVersion = "1.1" as const;
+export const boardClipboardSchemaVersion = "1.2" as const;
 export const defaultPasteOffset: Vec2 = { x: 24, y: 24 };
 
 export interface BoardClipboardPayload {
@@ -35,6 +35,39 @@ function ownValue<Key extends PropertyKey, Value>(
   key: Key,
 ): Value | undefined {
   return Object.hasOwn(record, key) ? record[key] : undefined;
+}
+
+function copyClipboardObject(object: BoardObject): BoardObject {
+  if (object.kind === "drawing.pen-stroke") {
+    return {
+      ...object,
+      points: object.points.map((point) => ({ ...point })),
+      ...(object.ink === undefined
+        ? {}
+        : {
+            ink: {
+              ...object.ink,
+              centerline: object.ink.centerline.map((segment) => ({
+                control1: { ...segment.control1 },
+                control2: { ...segment.control2 },
+                end: { ...segment.end },
+                start: { ...segment.start },
+              })),
+              samples: object.ink.samples.map((sample) => ({
+                ...sample,
+                point: { ...sample.point },
+              })),
+            },
+          }),
+    };
+  }
+  if (object.kind === "math.coordinate-plot") {
+    return {
+      ...object,
+      definition: copyCoordinatePlotDefinition(object.definition),
+    };
+  }
+  return object;
 }
 
 export function copyBoardSelection(
@@ -82,7 +115,7 @@ export function copyBoardSelection(
   const order = document.order.filter((id) => objectIds.has(id));
   const objects = order.flatMap((id) => {
     const object = ownValue(document.objects, id);
-    return object === undefined ? [] : [object];
+    return object === undefined ? [] : [copyClipboardObject(object)];
   });
   const groupIds = new Set(
     objects.flatMap(({ groupId }) => (groupId === null ? [] : [groupId])),
@@ -200,7 +233,29 @@ export function createPasteContentCommand(
             ...object,
             definition: copyCoordinatePlotDefinition(object.definition),
           }
-        : object;
+        : object.kind === "drawing.pen-stroke"
+          ? {
+              ...object,
+              points: object.points.map((point) => ({ ...point })),
+              ...(object.ink === undefined
+                ? {}
+                : {
+                    ink: {
+                      ...object.ink,
+                      centerline: object.ink.centerline.map((segment) => ({
+                        control1: { ...segment.control1 },
+                        control2: { ...segment.control2 },
+                        end: { ...segment.end },
+                        start: { ...segment.start },
+                      })),
+                      samples: object.ink.samples.map((sample) => ({
+                        ...sample,
+                        point: { ...sample.point },
+                      })),
+                    },
+                  }),
+            }
+          : object;
     return {
       ...copied,
       groupId,

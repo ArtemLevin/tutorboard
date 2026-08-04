@@ -234,7 +234,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: initialSha,
         revision: 0,
-        schemaVersion: "1.1",
+        schemaVersion: "1.2",
       },
     };
     const remoteCommand = rename(
@@ -264,7 +264,7 @@ describe("BoardSyncEngine", () => {
             documentId: expectedDocumentId,
             expectedDocumentSha256: remoteSha,
             idempotencyKey: "remote:one",
-            schemaVersion: "1.1",
+            schemaVersion: "1.2",
           },
           idempotencyKey: "remote:one",
           payloadSha256:
@@ -347,7 +347,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: initialSha,
         revision: 0,
-        schemaVersion: "1.1",
+        schemaVersion: "1.2",
       },
     };
     const states: BoardSyncState[] = [];
@@ -419,7 +419,7 @@ describe("BoardSyncEngine", () => {
             documentId: expectedDocumentId,
             expectedDocumentSha256: acceptedSha,
             idempotencyKey: "client:uncertain",
-            schemaVersion: "1.1",
+            schemaVersion: "1.2",
           },
           idempotencyKey: "client:uncertain",
           payloadSha256:
@@ -433,7 +433,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: initialSha,
         revision: 0,
-        schemaVersion: "1.1",
+        schemaVersion: "1.2",
       },
     };
     const states: BoardSyncState[] = [];
@@ -480,7 +480,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: initialSha,
         revision: 0,
-        schemaVersion: "1.1",
+        schemaVersion: "1.2",
       },
     };
     const states: BoardSyncState[] = [];

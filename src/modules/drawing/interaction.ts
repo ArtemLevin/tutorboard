@@ -2,7 +2,13 @@ import type {
   BoardObject,
   BoardObjectId,
   ObjectStyle,
+  VectorInkSample,
   Vec2,
+} from "../../core/public";
+
+import {
+  createVectorInkData,
+  createVectorInkDataFromPoints,
 } from "../../core/public";
 
 import type { DrawingToolId } from "./tools";
@@ -23,7 +29,8 @@ interface InteractionBase {
 
 interface PenInteraction extends InteractionBase {
   readonly kind: "drawing-pen";
-  readonly points: readonly Vec2[];
+  readonly inputOriginMs: number | null;
+  readonly samples: readonly VectorInkSample[];
   readonly style: ObjectStyle;
 }
 
@@ -59,22 +66,28 @@ export type DrawingAction =
   | {
       readonly kind: "start";
       readonly objectId: BoardObjectId;
+      readonly inputTimestampMs?: number;
       readonly point: Vec2;
       readonly pointerId: number;
       readonly polygonSides?: number;
+      readonly pressure?: number;
       readonly style: ObjectStyle;
       readonly text: string;
       readonly tool: DrawingToolId;
     }
   | {
       readonly kind: "move";
+      readonly inputTimestampMs?: number;
       readonly point: Vec2;
       readonly pointerId: number;
+      readonly pressure?: number;
     }
   | {
       readonly kind: "finish";
+      readonly inputTimestampMs?: number;
       readonly point: Vec2;
       readonly pointerId: number;
+      readonly pressure?: number;
     }
   | {
       readonly kind: "cancel";
@@ -109,16 +122,44 @@ function samePoint(left: Vec2, right: Vec2): boolean {
   return left.x === right.x && left.y === right.y;
 }
 
-function appendPenPoint(points: readonly Vec2[], point: Vec2): readonly Vec2[] {
-  const previous = points.at(-1);
-  if (
-    points.length >= maximumPenPoints ||
-    (previous !== undefined && samePoint(previous, point))
-  ) {
-    return points;
-  }
+function normalizedPressure(value: number | undefined): number {
+  return value === undefined || !Number.isFinite(value)
+    ? 0.5
+    : Math.min(1, Math.max(0, value));
+}
 
-  return [...points, point];
+function appendPenSample(
+  state: Pick<PenInteraction, "inputOriginMs" | "samples">,
+  action: {
+    readonly inputTimestampMs?: number;
+    readonly point: Vec2;
+    readonly pressure?: number;
+  },
+): readonly VectorInkSample[] {
+  const previous = state.samples.at(-1);
+  if (
+    state.samples.length >= maximumPenPoints ||
+    (previous !== undefined && samePoint(previous.point, action.point))
+  ) {
+    return state.samples;
+  }
+  const timestampMs =
+    state.inputOriginMs !== null &&
+    action.inputTimestampMs !== undefined &&
+    Number.isFinite(action.inputTimestampMs)
+      ? Math.max(
+          previous?.timestampMs ?? 0,
+          action.inputTimestampMs - state.inputOriginMs,
+        )
+      : (previous?.timestampMs ?? -8) + 8;
+  return [
+    ...state.samples,
+    {
+      point: action.point,
+      pressure: normalizedPressure(action.pressure),
+      timestampMs: Math.max(0, timestampMs),
+    },
+  ];
 }
 
 function userObjectBase(id: BoardObjectId, position: Vec2, style: ObjectStyle) {
@@ -137,18 +178,25 @@ function userObjectBase(id: BoardObjectId, position: Vec2, style: ObjectStyle) {
 
 function completePen(
   state: PenInteraction,
-  point: Vec2,
+  action: Extract<DrawingAction, { readonly kind: "finish" }>,
 ): UserDrawingObject | null {
+  const appended = appendPenSample(state, action);
+  const rawPoints = appended.map(({ point: samplePoint }) => samplePoint);
   const points = simplifyStroke(
-    appendPenPoint(state.points, point),
+    rawPoints,
     penStrokeStorageSimplificationTolerance,
   );
-  if (points.length < 2) {
+  const retained = new Set(points);
+  const samples = appended.filter(({ point: samplePoint }) =>
+    retained.has(samplePoint),
+  );
+  if (points.length < 2 || samples.length < 2) {
     return null;
   }
 
   return {
     ...userObjectBase(state.objectId, { x: 0, y: 0 }, state.style),
+    ink: createVectorInkData(samples),
     kind: "drawing.pen-stroke",
     points,
   };
@@ -245,6 +293,7 @@ function completeShape(
           },
           state.style,
         ),
+        ink: createVectorInkDataFromPoints(points),
         kind: "drawing.pen-stroke",
         points,
       };
@@ -263,12 +312,13 @@ export function getDrawingPreview(
     case "idle":
       return null;
     case "drawing-pen":
-      return state.points.length < 2
+      return state.samples.length < 2
         ? null
         : {
             ...userObjectBase(state.objectId, { x: 0, y: 0 }, state.style),
+            ink: createVectorInkData(state.samples),
             kind: "drawing.pen-stroke",
-            points: state.points,
+            points: state.samples.map(({ point }) => point),
           };
     case "drawing-shape":
       return previewShape(state);
@@ -295,7 +345,18 @@ function startInteraction(
         kind: "drawing-pen",
         objectId: action.objectId,
         pointerId: action.pointerId,
-        points: [action.point],
+        inputOriginMs:
+          action.inputTimestampMs !== undefined &&
+          Number.isFinite(action.inputTimestampMs)
+            ? action.inputTimestampMs
+            : null,
+        samples: [
+          {
+            point: action.point,
+            pressure: normalizedPressure(action.pressure),
+            timestampMs: 0,
+          },
+        ],
         style: action.style,
       });
     case "drawing.line":
@@ -364,7 +425,7 @@ export function reduceDrawingInteraction(
       case "drawing-pen":
         return transition({
           ...state,
-          points: appendPenPoint(state.points, action.point),
+          samples: appendPenSample(state, action),
         });
       case "drawing-shape":
         return transition({ ...state, current: action.point });
@@ -376,7 +437,7 @@ export function reduceDrawingInteraction(
   let completedObject: UserDrawingObject | null;
   switch (state.kind) {
     case "drawing-pen":
-      completedObject = completePen(state, action.point);
+      completedObject = completePen(state, action);
       break;
     case "drawing-shape":
       completedObject = completeShape(state, action.point);

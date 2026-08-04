@@ -45,7 +45,7 @@
           "uniqueItems": true
         },
         "schemaVersion": {
-          "const": "1.1"
+          "const": "1.2"
         },
         "title": {
           "maxLength": 256,
@@ -1109,6 +1109,9 @@
         "kind": {
           "const": "drawing.pen-stroke"
         },
+        "ink": {
+          "$ref": "#/$defs/VectorInkData"
+        },
         "points": {
           "items": {
             "$ref": "#/$defs/Vec2"
@@ -1129,7 +1132,89 @@
         "style",
         "visible",
         "kind",
+        "ink",
         "points"
+      ],
+      "type": "object"
+    },
+    "CubicBezierSegment": {
+      "additionalProperties": false,
+      "properties": {
+        "control1": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "control2": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "end": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "start": {
+          "$ref": "#/$defs/Vec2"
+        }
+      },
+      "required": [
+        "control1",
+        "control2",
+        "end",
+        "start"
+      ],
+      "type": "object"
+    },
+    "VectorInkData": {
+      "additionalProperties": false,
+      "properties": {
+        "centerline": {
+          "items": {
+            "$ref": "#/$defs/CubicBezierSegment"
+          },
+          "type": "array",
+          "maxItems": 100000,
+          "minItems": 1
+        },
+        "closed": {
+          "type": "boolean"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/$defs/VectorInkSample"
+          },
+          "type": "array",
+          "maxItems": 100000,
+          "minItems": 2
+        },
+        "version": {
+          "const": "1.0"
+        }
+      },
+      "required": [
+        "centerline",
+        "closed",
+        "samples",
+        "version"
+      ],
+      "type": "object"
+    },
+    "VectorInkSample": {
+      "additionalProperties": false,
+      "properties": {
+        "point": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "pressure": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "timestampMs": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "point",
+        "pressure",
+        "timestampMs"
       ],
       "type": "object"
     },

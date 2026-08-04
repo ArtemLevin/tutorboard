@@ -181,7 +181,7 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByText("BoardDocument 1.1")).toBeInTheDocument();
+    expect(screen.getByText("BoardDocument 1.2")).toBeInTheDocument();
   });
 
   it("composes a drawing gesture into one document command", () => {

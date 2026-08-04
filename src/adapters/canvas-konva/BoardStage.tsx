@@ -100,12 +100,14 @@ interface SelectionSession {
 }
 
 export interface WorldPointerSample {
+  readonly inputTimestampMs?: number;
   readonly point: Vec2;
   readonly pointerId: number;
   readonly pressure: number;
 }
 
-interface TimedWorldPointerSample extends WorldPointerSample, WetInkSample {}
+type TimedWorldPointerSample = Omit<WorldPointerSample, "inputTimestampMs"> &
+  WetInkSample;
 
 export type BoardSelectionAreaOperation = "add" | "replace" | "subtract";
 

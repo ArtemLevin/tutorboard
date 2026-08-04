@@ -26,7 +26,7 @@ describe("BoardDocument 1.1", () => {
 
     expect(result.status).toBe("ok");
     if (result.status === "ok") {
-      expect(result.document.schemaVersion).toBe("1.1");
+      expect(result.document.schemaVersion).toBe("1.2");
       expect(selectOrderedObjects(result.document).map(({ id }) => id)).toEqual(
         ["object:line-01", "object:rectangle-01"],
       );
@@ -42,7 +42,7 @@ describe("BoardDocument 1.1", () => {
 
     expect(result.status).toBe("ok");
     if (result.status === "ok") {
-      expect(result.document.schemaVersion).toBe("1.1");
+      expect(result.document.schemaVersion).toBe("1.2");
       expect(result.document.objects).toEqual(originalObjects);
       expect(result.document.order).toEqual(originalOrder);
     }
@@ -57,7 +57,7 @@ describe("BoardDocument 1.1", () => {
 
     expect(result.status).toBe("ok");
     if (result.status === "ok") {
-      expect(result.document.schemaVersion).toBe("1.1");
+      expect(result.document.schemaVersion).toBe("1.2");
     }
   });
 

@@ -1,31 +1,31 @@
 {
   "artifacts": {
     "board-command-envelope.schema.json": {
-      "sha256": "246d3f7e33f89b45d0ccc689690b81e906f3f51d50ca344798538c1292600ebc"
+      "sha256": "a181683f1f213fc949841646b00f519a8adee6da1eca6932aa8a32c459cf4c77"
     },
     "board-document.schema.json": {
-      "sha256": "bbbfd334f361dd96151c36e4ba94360053b8f705dcb38648b841760cb5ba6a84"
+      "sha256": "250e3a6d6fd1d5289464745ca7e254dbad5ad342a027b96b1d10b57d725a91d2"
     },
     "board-geometry-import.schema.json": {
-      "sha256": "73d7a2b6a840641bd2d4782b706d3a9be39ead30bc32e42bec298523a52fc802"
+      "sha256": "30eaf6badb2fae8eb55bb8416c3d55a8c6476e59c130ad6657fb0db10370b599"
     },
     "board-snapshot.schema.json": {
-      "sha256": "d1747d7cef839b6ed5e43fcb1479c7140518b8897c8c3094c97c4cc5c3f0e8e5"
+      "sha256": "d586c4ca572847f7b3455981989ba02ec728721fe94c6b7a539a4dfc3c4fc60e"
     },
     "COMPATIBILITY.md": {
       "sha256": "d9439b47991d6dbd36783948c81ffb01cfae0adef9d7084faf84d7eaac6c3ae2"
     },
     "fixtures/board-command-envelope.json": {
-      "sha256": "172617d6011e1444fa74b4303e4e17578a31f7eb7965a767b1b2ec92f9015afb"
+      "sha256": "4048f1481e0eeb04f1bf2666b1bc9a26701930bab77280d534dc266ec58a1cd2"
     },
     "fixtures/board-document.json": {
-      "sha256": "288ff873d62310cc04ce60fb945dd53fcb9f7aa11945f8348300f2ea42d47448"
+      "sha256": "d189fbd0c01c3fd6332ab6697c07c97a0624cf428dc5e543b6e7e0f1904775c9"
     },
     "fixtures/board-geometry-import.json": {
-      "sha256": "82620ee99393d31eb4a052bd567f90401e1897118237126aee522e495f5aa8d8"
+      "sha256": "7021fc5907b91f22fd24fd7fe7a9d31613a974a08c8cb28e4208d0f295e2cfd4"
     },
     "fixtures/board-snapshot.json": {
-      "sha256": "8b18740b2e9e665a116d09b544122c2dcafb672b405c9acd25cc2c0d9a88ff89"
+      "sha256": "ab4be345da171f0a2878669c05873afca02a584fc48b4d4e42a348489c6c1866"
     },
     "README.md": {
       "sha256": "18ced188140e8ff72758b1b8875422c03a3d2f2d94ffb69a79d376c9dc9340e8"

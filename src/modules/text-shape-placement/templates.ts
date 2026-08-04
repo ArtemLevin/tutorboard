@@ -1,3 +1,5 @@
+import { createVectorInkDataFromPoints } from "../../core/public";
+
 import {
   boardObjectId,
   groupId,
@@ -639,6 +641,10 @@ export function createTextShapePlacementCommand(input: {
   }
   for (const [index, item] of (model.polylines ?? []).entries()) {
     const first = item.points[0]!;
+    const points = item.points.map((point) => ({
+      x: point.x - first.x,
+      y: point.y - first.y,
+    }));
     objects.push({
       ...objectBase(
         boardObjectId(
@@ -647,11 +653,9 @@ export function createTextShapePlacementCommand(input: {
         targetGroupId,
         first,
       ),
+      ink: createVectorInkDataFromPoints(points),
       kind: "drawing.pen-stroke",
-      points: item.points.map((point) => ({
-        x: point.x - first.x,
-        y: point.y - first.y,
-      })),
+      points,
       style: item.hidden ? hiddenEdgeStyle : edgeStyle,
     });
   }

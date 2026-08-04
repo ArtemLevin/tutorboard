@@ -23,6 +23,7 @@ import {
   strokeStyles,
   svgSanitizerPolicyVersion,
 } from "../objects";
+import { vectorInkSchemaVersion } from "../vector-ink";
 
 const identifierSchema = z
   .string()
@@ -113,9 +114,40 @@ const objectBase = {
   style: styleSchema,
   visible: z.boolean(),
 };
+const legacyPenStrokeSchema = z
+  .object({
+    ...objectBase,
+    kind: z.literal("drawing.pen-stroke"),
+    points: z.array(vec2Schema).min(2).max(100_000),
+  })
+  .strict();
+const vectorInkSampleSchema = z
+  .object({
+    point: vec2Schema,
+    pressure: finiteNumberSchema.min(0).max(1),
+    timestampMs: finiteNumberSchema.nonnegative(),
+  })
+  .strict();
+const cubicBezierSegmentSchema = z
+  .object({
+    control1: vec2Schema,
+    control2: vec2Schema,
+    end: vec2Schema,
+    start: vec2Schema,
+  })
+  .strict();
+const vectorInkSchema = z
+  .object({
+    centerline: z.array(cubicBezierSegmentSchema).min(1).max(100_000),
+    closed: z.boolean(),
+    samples: z.array(vectorInkSampleSchema).min(2).max(100_000),
+    version: z.literal(vectorInkSchemaVersion),
+  })
+  .strict();
 const penStrokeSchema = z
   .object({
     ...objectBase,
+    ink: vectorInkSchema,
     kind: z.literal("drawing.pen-stroke"),
     points: z.array(vec2Schema).min(2).max(100_000),
   })
@@ -323,14 +355,14 @@ const coordinatePlotObjectSchema = z
   .strict();
 
 const legacyObjectSchema = z.discriminatedUnion("kind", [
-  penStrokeSchema,
+  legacyPenStrokeSchema,
   lineSchema,
   rectangleSchema,
   ellipseSchema,
   textSchema,
 ]);
 const objectSchema10 = z.discriminatedUnion("kind", [
-  penStrokeSchema,
+  legacyPenStrokeSchema,
   lineSchema,
   rectangleSchema,
   ellipseSchema,
@@ -339,6 +371,16 @@ const objectSchema10 = z.discriminatedUnion("kind", [
   svgObjectSchema,
 ]);
 const objectSchema11 = z.discriminatedUnion("kind", [
+  legacyPenStrokeSchema,
+  lineSchema,
+  rectangleSchema,
+  ellipseSchema,
+  textSchema,
+  embeddedImageObjectSchema,
+  svgObjectSchema,
+  coordinatePlotObjectSchema,
+]);
+const objectSchema12 = z.discriminatedUnion("kind", [
   penStrokeSchema,
   lineSchema,
   rectangleSchema,
@@ -386,9 +428,12 @@ const geometryImportSchema = z
   .strict();
 
 function documentSchema(
-  schemaVersion: "0.1" | "0.2" | "1.0" | "1.1",
+  schemaVersion: "0.1" | "0.2" | "1.0" | "1.1" | "1.2",
   storedObjectSchema:
-    typeof legacyObjectSchema | typeof objectSchema10 | typeof objectSchema11,
+    | typeof legacyObjectSchema
+    | typeof objectSchema10
+    | typeof objectSchema11
+    | typeof objectSchema12,
 ) {
   return z
     .object({
@@ -409,7 +454,8 @@ function documentSchema(
 export const boardDocumentSchema01 = documentSchema("0.1", legacyObjectSchema);
 export const boardDocumentSchema02 = documentSchema("0.2", objectSchema10);
 export const boardDocumentSchema10 = documentSchema("1.0", objectSchema10);
-export const boardDocumentSchema = documentSchema("1.1", objectSchema11);
+export const boardDocumentSchema11 = documentSchema("1.1", objectSchema11);
+export const boardDocumentSchema = documentSchema("1.2", objectSchema12);
 
 export const legacyBoardObjectKinds = new Set<string>([
   "drawing.pen-stroke",
