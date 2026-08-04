@@ -458,7 +458,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
       ) : props.selectionInspectorOpen && props.selectedStyle !== undefined ? (
         <section
           aria-label="Первичные настройки выделения"
-          className="dock-primary-settings"
+          className="dock-primary-settings dock-primary-settings--selection"
         >
           <div className="dock-primary-heading">
             <strong>Выделено: {props.selectedCount}</strong>
