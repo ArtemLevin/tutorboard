@@ -1,7 +1,7 @@
 {
   "artifacts": {
     "board-command-envelope.schema.json": {
-      "sha256": "590b4bd57f60e43e686d2225cae24218374bd9ac7236e19a545d355f9fcc35d4"
+      "sha256": "23048fc532d329a274b489a5eb0cc3f17b6ce1340a4f2c4a3b49a6b43ad3d686"
     },
     "board-document.schema.json": {
       "sha256": "976b6624806c897590180163e9918ba837dcefb21aaf0d44f46a48c90352da1a"
