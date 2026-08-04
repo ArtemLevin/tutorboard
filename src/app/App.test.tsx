@@ -660,8 +660,8 @@ describe("App", () => {
     });
     render(<App geometryOsClient={client} />);
 
-    chooseTool("ИИ-инструменты", "Построение GeometryOS");
-    fireEvent.change(screen.getByLabelText("Запрос GeometryOS"), {
+    chooseTool("ИИ-инструменты", "Построение по тексту");
+    fireEvent.change(screen.getByLabelText("Текст построения"), {
       target: { value: "Построй треугольник ABC" },
     });
     fireEvent.click(
