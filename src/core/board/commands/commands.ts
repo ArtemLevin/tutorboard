@@ -12,7 +12,7 @@ import type {
   GroupId,
 } from "../identifiers";
 import type { BoardObject } from "../objects";
-import type { Vec2, ViewportState } from "../primitives";
+import type { Transform2D, Vec2, ViewportState } from "../primitives";
 
 export interface CommandMetadata {
   readonly actorId: ActorId;
@@ -79,6 +79,12 @@ export interface MoveGroupCommand extends CommandMetadata {
   readonly delta: Vec2;
   readonly groupId: GroupId;
   readonly kind: "core.groups.move";
+}
+
+export interface SetGroupTransformCommand extends CommandMetadata {
+  readonly groupId: GroupId;
+  readonly kind: "core.groups.set-transform";
+  readonly transform: Transform2D;
 }
 
 export interface DeleteObjectsCommand extends CommandMetadata {
@@ -165,6 +171,7 @@ export type BoardCommand =
   | ImportGeometryCommand
   | OffsetGeometryLabelCommand
   | MoveGroupCommand
+  | SetGroupTransformCommand
   | MoveObjectsCommand
   | MoveSelectionCommand
   | PasteContentCommand
@@ -194,6 +201,7 @@ export const boardCommandKinds = [
   "core.geometry.style-override",
   "core.objects.move",
   "core.groups.move",
+  "core.groups.set-transform",
   "core.objects.delete",
   "core.layers.reorder",
   "core.layers.set-visibility",
