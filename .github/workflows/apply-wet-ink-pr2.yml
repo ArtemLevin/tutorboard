@@ -1,0 +1,50 @@
+name: Apply wet ink PR 2
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    if: github.head_ref == 'feature/wet-ink-renderer' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Apply integration transform
+        run: node .automation/apply-wet-ink-pr2.mjs
+      - name: Format changed sources
+        run: |
+          npx prettier --write \
+            src/adapters/canvas-konva/BoardStage.tsx \
+            src/adapters/canvas-konva/pointer-samples.ts \
+            src/adapters/canvas-konva/public.ts \
+            src/adapters/canvas-konva/wet-ink-renderer.ts \
+            src/app/App.tsx \
+            tests/e2e/wet-ink-renderer.spec.ts \
+            tests/performance/wet-ink-renderer.test.ts \
+            tests/unit/adapters/canvas-konva/predicted-pointer-samples.test.ts \
+            tests/unit/adapters/canvas-konva/wet-ink-renderer.test.ts
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run performance
+      - name: Commit integrated implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "feat(ink): integrate wet ink renderer"
+          git push origin HEAD:${GITHUB_HEAD_REF}
