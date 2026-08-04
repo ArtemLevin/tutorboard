@@ -9,7 +9,7 @@ import {
   type GroupId,
 } from "../identifiers";
 import type { BoardObject } from "../objects";
-import { identityTransform, type Vec2 } from "../primitives";
+import { identityTransform, type Transform2D, type Vec2 } from "../primitives";
 import { ownValue } from "../records";
 import { isIsoTimestamp } from "../timestamps";
 import { validateBoardDocument } from "../validation/validate";
@@ -30,6 +30,7 @@ import type {
   RenameDocumentCommand,
   ReorderLayersCommand,
   SetGeometryVisualStyleCommand,
+  SetGroupTransformCommand,
   SetSelectionLockCommand,
   SetSelectionStyleCommand,
   SetLayerVisibilityCommand,
@@ -1262,6 +1263,59 @@ function moveGroup(
   });
 }
 
+function finiteTransform(transform: Transform2D): boolean {
+  return (
+    isFiniteVec2(transform.translation) &&
+    isFiniteVec2(transform.scale) &&
+    Number.isFinite(transform.rotation) &&
+    transform.scale.x > 0 &&
+    transform.scale.y > 0
+  );
+}
+
+function setGroupTransform(
+  document: BoardDocument,
+  command: SetGroupTransformCommand,
+): CommandResult {
+  const group = ownValue(document.groups, command.groupId);
+  if (group === undefined) {
+    return failure(
+      document,
+      "command.group-missing",
+      "Group transform command references a missing group.",
+    );
+  }
+  const members = group.objectIds.flatMap((id) => {
+    const object = ownValue(document.objects, id);
+    return object === undefined ? [] : [object];
+  });
+  if (group.locked || members.some((object) => object.locked)) {
+    return failure(
+      document,
+      "command.locked",
+      "Locked groups or members cannot be transformed.",
+    );
+  }
+  if (
+    geometryImportForGroup(document, group.id) !== undefined ||
+    !finiteTransform(command.transform)
+  ) {
+    return failure(
+      document,
+      "command.invalid",
+      "Group transform is unsupported or invalid.",
+    );
+  }
+  return accept(document, {
+    ...document,
+    updatedAt: command.timestamp,
+    groups: {
+      ...document.groups,
+      [group.id]: { ...group, transform: command.transform },
+    },
+  });
+}
+
 function deleteObjects(
   document: BoardDocument,
   command: DeleteObjectsCommand,
@@ -1665,6 +1719,8 @@ export function reduceBoardDocument(
       return moveObjects(document, command);
     case "core.groups.move":
       return moveGroup(document, command);
+    case "core.groups.set-transform":
+      return setGroupTransform(document, command);
     case "core.objects.delete":
       return deleteObjects(document, command);
     case "core.layers.reorder":
