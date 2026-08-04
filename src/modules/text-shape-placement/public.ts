@@ -1,4 +1,8 @@
 export {
+  createTextShapeContourPointCommand,
+  createTextShapeGroupTransformCommand,
+} from "./figure-actions";
+export {
   normalizeTextShapeQuery,
   resolveTextShape,
   suggestTextShapes,
