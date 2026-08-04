@@ -57,7 +57,7 @@ interface GeometryPromptPanelProps {
 }
 
 const stageLabels: Readonly<Record<GeometryPromptStage, string>> = {
-  readiness: "Проверяем готовность GeometryOS…",
+  readiness: "Проверяем сервис построения по тексту…",
   generate: "Строим математическую модель…",
   layout: "Рассчитываем размещение…",
   import: "Добавляем построение на доску…",
@@ -90,10 +90,7 @@ export function GeometryPromptPanel({
   const running = state.kind === "running";
 
   return (
-    <aside
-      aria-label="Построение через GeometryOS"
-      className="geometry-prompt-panel"
-    >
+    <aside aria-label="Построение по тексту" className="geometry-prompt-panel">
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -101,11 +98,11 @@ export function GeometryPromptPanel({
         }}
       >
         <label htmlFor="geometry-prompt">
-          <strong>Геометрическое построение</strong>
-          <span>Опишите фигуру естественным языком</span>
+          <strong>Построение по тексту</strong>
+          <span>Опишите фигуру, например «угол 37°» или «конус»</span>
         </label>
         <textarea
-          aria-label="Запрос GeometryOS"
+          aria-label="Текст построения"
           disabled={running}
           id="geometry-prompt"
           maxLength={20_000}
@@ -162,8 +159,8 @@ export function GeometryPromptPanel({
 
       {!remoteAvailable && suggestions.length === 0 ? (
         <p className="geometry-prompt-status" role="status">
-          Выберите фигуру из локального каталога. Свободные запросы требуют
-          подключения GeometryOS.
+          Выберите фигуру из локального каталога. Свободные запросы доступны
+          после подключения сервиса построений по тексту.
         </p>
       ) : state.kind === "awaiting-placement" ? (
         <p
@@ -197,7 +194,7 @@ export function GeometryPromptPanel({
           data-testid="geometry-prompt-status"
           role="status"
         >
-          <span>GeometryOS просит уточнить запрос:</span>
+          <span>Уточните текст построения:</span>
           <ul>
             {state.ambiguities.flatMap((item) =>
               item.options.map((option) => (
