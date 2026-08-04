@@ -264,14 +264,27 @@ function insertionResult(
   readonly selectionEnd: number;
   readonly selectionStart: number;
 } {
-  const selected = source.slice(start, end);
+  let selectionStart = start;
+  let selectionEnd = end;
+  if (start === 0 && end === source.length && token !== "pi") {
+    const relation = parsePlotRelation(source);
+    if (
+      relation.ok &&
+      relation.operator === "=" &&
+      relation.leftSource.toLowerCase() === "y"
+    ) {
+      selectionStart = relation.rightStart;
+      selectionEnd = source.length;
+    }
+  }
+  const selected = source.slice(selectionStart, selectionEnd);
   if (token === "pi") {
     const next = `${source.slice(0, start)}pi${source.slice(end)}`;
     return { next, selectionEnd: start + 2, selectionStart: start + 2 };
   }
   const replacement = `${token}(${selected})`;
-  const next = `${source.slice(0, start)}${replacement}${source.slice(end)}`;
-  const argumentStart = start + token.length + 1;
+  const next = `${source.slice(0, selectionStart)}${replacement}${source.slice(selectionEnd)}`;
+  const argumentStart = selectionStart + token.length + 1;
   return {
     next,
     selectionEnd:

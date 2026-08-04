@@ -213,7 +213,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await firstFormula.fill("y=x");
   await firstFormula.selectText();
   await advancedEditor.getByRole("button", { name: "Вставить sin" }).click();
-  await expect(firstFormula).toHaveValue("sin(x)");
+  await expect(firstFormula).toHaveValue("y=sin(x)");
 
   await firstFormula.fill("b*x^2");
   await advancedEditor

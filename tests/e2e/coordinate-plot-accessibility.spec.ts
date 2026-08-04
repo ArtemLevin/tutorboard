@@ -31,7 +31,7 @@ test("protects a dirty plot draft and restores focus after discard", async ({
 
   await page.getByRole("button", { name: "Продолжить редактирование" }).click();
   await expect(confirmation).toBeHidden();
-  await expect(formula).toHaveValue("x^4+1");
+  await expect(formula).toHaveValue("y = x^4+1");
   await expect(formula).toBeFocused();
 
   await page.getByRole("button", { name: "Закрыть редактор графика" }).click();

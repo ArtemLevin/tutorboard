@@ -292,6 +292,12 @@ describe("CoordinatePlotEditorPanel", () => {
     formula.setSelectionRange(formula.value.length, formula.value.length);
     fireEvent.click(screen.getByRole("button", { name: "Вставить pi" }));
     await waitFor(() => expect(formula).toHaveValue("y = sin(x)+1pi"));
+
+    formula.focus();
+    fireEvent.change(formula, { target: { value: "y=x" } });
+    formula.setSelectionRange(0, formula.value.length);
+    fireEvent.click(screen.getByRole("button", { name: "Вставить sin" }));
+    await waitFor(() => expect(formula).toHaveValue("y=sin(x)"));
   });
 
   it("creates an unknown parameter, opens its tab and focuses its name", async () => {
