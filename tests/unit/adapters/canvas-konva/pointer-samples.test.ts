@@ -67,7 +67,7 @@ describe("coalesced pointer samples", () => {
     const dispatched = {
       ...endpoint,
       getCoalescedEvents: () => [foreign, endpoint],
-    } as unknown as PointerEvent;
+    };
     expect(collectCoalescedPointerEvents(dispatched)).toEqual([endpoint]);
   });
 
