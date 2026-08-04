@@ -1,6 +1,7 @@
 export { createAddDrawingObjectCommand } from "./commands";
 export {
   getDrawingPreview,
+  penStrokeStorageSimplificationTolerance,
   reduceDrawingInteraction,
   type DrawingAction,
   type DrawingDiagnosticCode,
