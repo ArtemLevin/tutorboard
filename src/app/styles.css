@@ -1995,6 +1995,30 @@ textarea:focus-visible,
   font-size: 0.76rem;
 }
 
+.dock-generated-label-controls {
+  display: grid;
+  gap: 6px;
+  margin: 9px 0;
+}
+
+.dock-generated-label-controls > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  color: #43565f;
+  font-size: 0.76rem;
+}
+
+.dock-generated-label-controls button {
+  width: 32px;
+  min-height: 30px;
+  border: 1px solid #cbd4d8;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
 .dock-vertex-actions {
   display: grid;
   gap: 6px;
