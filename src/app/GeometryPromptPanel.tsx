@@ -4,9 +4,15 @@ import type {
   GeometryOsRequestId,
 } from "../core/public";
 import type { GeometryPromptStage } from "../modules/geometry-prompt/public";
+import type { TextShapeDefinition } from "../modules/text-shape-placement/public";
 
 export type GeometryPromptViewState =
   | { readonly kind: "idle" }
+  | {
+      readonly kind: "awaiting-placement";
+      readonly label: string;
+      readonly source: "catalog" | "geometryos";
+    }
   | {
       readonly kind: "running";
       readonly requestId: GeometryOsRequestId | null;
@@ -15,7 +21,7 @@ export type GeometryPromptViewState =
   | {
       readonly kind: "success";
       readonly objectCount: number;
-      readonly requestId: GeometryOsRequestId;
+      readonly requestId: GeometryOsRequestId | null;
     }
   | {
       readonly ambiguities: readonly GeometryOsAmbiguity[];
@@ -36,14 +42,18 @@ export type GeometryPromptViewState =
     };
 
 interface GeometryPromptPanelProps {
-  readonly available: boolean;
+  readonly autoLabelVertices: boolean;
   readonly onCancel: () => void;
+  readonly onAutoLabelVerticesChange: (value: boolean) => void;
   readonly onChooseClarification: (option: string) => void;
   readonly onPromptChange: (prompt: string) => void;
   readonly onRetry: () => void;
+  readonly onSuggestionChoose: (definition: TextShapeDefinition) => void;
   readonly onSubmit: () => void;
   readonly prompt: string;
+  readonly remoteAvailable: boolean;
   readonly state: GeometryPromptViewState;
+  readonly suggestions: readonly TextShapeDefinition[];
 }
 
 const stageLabels: Readonly<Record<GeometryPromptStage, string>> = {
@@ -64,14 +74,18 @@ function RequestIdView({
 }
 
 export function GeometryPromptPanel({
-  available,
+  autoLabelVertices,
   onCancel,
+  onAutoLabelVerticesChange,
   onChooseClarification,
   onPromptChange,
   onRetry,
+  onSuggestionChoose,
   onSubmit,
   prompt,
+  remoteAvailable,
   state,
+  suggestions,
 }: GeometryPromptPanelProps) {
   const running = state.kind === "running";
 
@@ -101,10 +115,10 @@ export function GeometryPromptPanel({
         />
         <div className="geometry-prompt-actions">
           <button
-            disabled={!available || running || prompt.trim().length === 0}
+            disabled={running || prompt.trim().length === 0}
             type="submit"
           >
-            Построить
+            Выбрать для размещения
           </button>
           {running ? (
             <button onClick={onCancel} type="button">
@@ -116,11 +130,48 @@ export function GeometryPromptPanel({
             </button>
           ) : null}
         </div>
+        <label className="geometry-prompt-check">
+          <input
+            checked={autoLabelVertices}
+            disabled={running}
+            onChange={(event) =>
+              onAutoLabelVerticesChange(event.currentTarget.checked)
+            }
+            type="checkbox"
+          />
+          <span>Автоматически называть вершины</span>
+        </label>
       </form>
 
-      {!available ? (
+      {suggestions.length === 0 ? null : (
+        <div aria-label="Предложения фигур" className="geometry-suggestions">
+          <span>Подходящие фигуры:</span>
+          <div>
+            {suggestions.map((definition) => (
+              <button
+                key={definition.id}
+                onClick={() => onSuggestionChoose(definition)}
+                type="button"
+              >
+                {definition.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!remoteAvailable && suggestions.length === 0 ? (
         <p className="geometry-prompt-status" role="status">
-          GeometryOS не настроен для этого запуска.
+          Выберите фигуру из локального каталога. Свободные запросы требуют
+          подключения GeometryOS.
+        </p>
+      ) : state.kind === "awaiting-placement" ? (
+        <p
+          aria-live="polite"
+          className="geometry-prompt-status is-success"
+          data-testid="geometry-prompt-status"
+        >
+          Выбрано построение «{state.label}». Щёлкните по месту на доске.
         </p>
       ) : state.kind === "running" ? (
         <p
