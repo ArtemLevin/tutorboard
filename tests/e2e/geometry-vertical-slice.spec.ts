@@ -86,7 +86,7 @@ test("imports, moves and restores the triangle-altitude fixture atomically", asy
 
   await page.getByRole("button", { name: "ИИ-инструменты" }).click();
   await page
-    .getByRole("menuitemradio", { name: "Построение GeometryOS" })
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
     .click();
   await page.getByRole("button", { name: "Выбрать для размещения" }).click();
 
