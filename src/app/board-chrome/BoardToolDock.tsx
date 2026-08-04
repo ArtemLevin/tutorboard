@@ -6,7 +6,7 @@ import {
   type KeyboardEvent,
 } from "react";
 
-import type { ObjectStyle } from "../../core/public";
+import type { ObjectStyle, Vec2 } from "../../core/public";
 import {
   isDrawingToolId,
   type DrawingToolDefinition,
@@ -55,6 +55,7 @@ interface BoardToolDockProps {
   readonly onSelectionLockChange: (locked: boolean) => void;
   readonly onSelectionStyleChange: (patch: Partial<ObjectStyle>) => void;
   readonly onGeneratedFigureLabelsChange: (visible: boolean) => void;
+  readonly onGeneratedFigureLabelsMove: (delta: Vec2) => void;
   readonly onVertexConstruction: (kind: VertexConstructionKind) => void;
   readonly canTransformSelection: boolean;
   readonly onSelectedTextCommit: (value: string) => void;
@@ -421,7 +422,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             <MenuItem
               active={props.geometryOpen}
               icon="✧"
-              label="Построение GeometryOS"
+              label="Построение по тексту"
               onClick={() => {
                 props.onGeometryToggle();
                 setOpenMenu(null);
@@ -476,18 +477,59 @@ export function BoardToolDock(props: BoardToolDockProps) {
             </div>
           </div>
           {props.generatedFigureLabelsVisible === null ? null : (
-            <label className="dock-check-control">
-              <input
-                checked={props.generatedFigureLabelsVisible}
-                onChange={(event) =>
-                  props.onGeneratedFigureLabelsChange(
-                    event.currentTarget.checked,
-                  )
-                }
-                type="checkbox"
-              />
-              <span>Автоматически называть вершины</span>
-            </label>
+            <div className="dock-generated-label-controls">
+              <label className="dock-check-control">
+                <input
+                  checked={props.generatedFigureLabelsVisible}
+                  onChange={(event) =>
+                    props.onGeneratedFigureLabelsChange(
+                      event.currentTarget.checked,
+                    )
+                  }
+                  type="checkbox"
+                />
+                <span>Автоматически называть вершины</span>
+              </label>
+              <div aria-label="Положение названий вершин" role="group">
+                <span>Сдвиг подписей</span>
+                <button
+                  aria-label="Сдвинуть названия вершин влево"
+                  onClick={() =>
+                    props.onGeneratedFigureLabelsMove({ x: -6, y: 0 })
+                  }
+                  type="button"
+                >
+                  ←
+                </button>
+                <button
+                  aria-label="Сдвинуть названия вершин вверх"
+                  onClick={() =>
+                    props.onGeneratedFigureLabelsMove({ x: 0, y: -6 })
+                  }
+                  type="button"
+                >
+                  ↑
+                </button>
+                <button
+                  aria-label="Сдвинуть названия вершин вниз"
+                  onClick={() =>
+                    props.onGeneratedFigureLabelsMove({ x: 0, y: 6 })
+                  }
+                  type="button"
+                >
+                  ↓
+                </button>
+                <button
+                  aria-label="Сдвинуть названия вершин вправо"
+                  onClick={() =>
+                    props.onGeneratedFigureLabelsMove({ x: 6, y: 0 })
+                  }
+                  type="button"
+                >
+                  →
+                </button>
+              </div>
+            </div>
           )}
           {props.selectedVertexName === null ||
           props.vertexConstructions.length === 0 ? null : (
@@ -544,6 +586,13 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 type="button"
               >
                 +10%
+              </button>
+              <button
+                aria-label="Повернуть выделение на 15 градусов против часовой стрелки"
+                onClick={() => props.onTransformSelection(1, -15)}
+                type="button"
+              >
+                ↺ 15°
               </button>
               <button
                 aria-label="Повернуть выделение на 15 градусов"
