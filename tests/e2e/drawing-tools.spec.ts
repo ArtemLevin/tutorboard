@@ -95,3 +95,36 @@ test("creates pen and text objects through their tools", async ({ page }) => {
   await expect(count).toHaveText("2 объекта");
   await expect(page.getByTestId("interaction-state")).toHaveText("idle");
 });
+
+test("draws inside a filled figure and selects it through the contour", async ({
+  page,
+}) => {
+  const count = page.getByTestId("object-count");
+  await page.keyboard.press("e");
+  const outerStart = await canvasPoint(page, 0.35, 0.25);
+  const outerEnd = await canvasPoint(page, 0.65, 0.65);
+  await page.mouse.move(outerStart.x, outerStart.y);
+  await page.mouse.down();
+  await page.mouse.move(outerEnd.x, outerEnd.y, { steps: 5 });
+  await page.mouse.up();
+  await expect(count).toHaveText("1 объекта");
+
+  const innerStart = await canvasPoint(page, 0.47, 0.4);
+  const innerEnd = await canvasPoint(page, 0.54, 0.5);
+  await page.mouse.move(innerStart.x, innerStart.y);
+  await page.mouse.down();
+  await page.mouse.move(innerEnd.x, innerEnd.y, { steps: 4 });
+  await page.mouse.up();
+
+  await expect(count).toHaveText("2 объекта");
+  await expect(page.getByRole("button", { name: "Фигуры" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
+
+  await page.keyboard.press("v");
+  const outerContour = await canvasPoint(page, 0.65, 0.45);
+  await page.mouse.click(outerContour.x, outerContour.y);
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+});
