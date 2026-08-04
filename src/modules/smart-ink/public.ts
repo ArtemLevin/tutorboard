@@ -1,7 +1,14 @@
 export {
+  createAcceptSmartInkCompositeCommand,
   createAcceptSmartInkProposalCommand,
   smartInkProposalStillApplies,
 } from "./commands";
+export {
+  proposeSmartInkComposite,
+  smartInkCompositeRecognizerVersion,
+  type SmartInkCompositeKind,
+  type SmartInkCompositeProposal,
+} from "./composite-recognizer";
 export {
   smartInkDiagnosticSchemaVersion,
   subscribeSmartInkDiagnostics,

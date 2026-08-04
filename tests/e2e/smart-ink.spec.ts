@@ -166,3 +166,39 @@ test("automatically completes a one-stroke arrow", async ({ page }) => {
   await expect(page.getByTestId("history-depth")).toHaveText("2/0");
   await expect(page.getByText("drawing.pen-stroke")).toBeVisible();
 });
+
+test("recognizes and normalizes a multi-stroke sphere", async ({ page }) => {
+  await page.goto("/");
+  const stage = page.getByTestId("board-stage");
+  await expect(stage).toBeVisible();
+  const bounds = await stage.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (bounds === null) throw new Error("Canvas has no bounds.");
+
+  await page.keyboard.press("i");
+  const center = {
+    x: bounds.x + bounds.width * 0.58,
+    y: bounds.y + bounds.height * 0.48,
+  };
+  const drawLoop = async (radiusX: number, radiusY: number) => {
+    await page.mouse.move(center.x + radiusX, center.y);
+    await page.mouse.down();
+    for (let index = 1; index <= 48; index += 1) {
+      const angle = (index / 48) * Math.PI * 2;
+      await page.mouse.move(
+        center.x + Math.cos(angle) * radiusX,
+        center.y + Math.sin(angle) * radiusY,
+      );
+    }
+    await page.mouse.up();
+  };
+
+  await drawLoop(64, 62);
+  await drawLoop(56, 17);
+
+  await expect(page.getByTestId("object-count")).toHaveText("2 объекта");
+  await expect(page.getByTestId("history-depth")).toHaveText("5/0");
+
+  await page.keyboard.press("Control+z");
+  await expect(page.getByTestId("history-depth")).toHaveText("4/1");
+});

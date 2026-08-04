@@ -76,7 +76,9 @@ import {
   undoDocumentHistory,
 } from "../modules/history/public";
 import {
+  createAcceptSmartInkCompositeCommand,
   createAcceptSmartInkProposalCommand,
+  proposeSmartInkComposite,
   proposeSmartInkReplacement,
   smartInkProposalStillApplies,
 } from "../modules/smart-ink/public";
@@ -343,6 +345,7 @@ export function App({
     null,
   );
   const [smartInkNotice, setSmartInkNotice] = useState<string | null>(null);
+  const recentSmartInkObjectIdsRef = useRef<BoardObjectId[]>([]);
   const [handwrittenFunctionState, setHandwrittenFunctionState] =
     useState<HandwrittenFunctionSessionState>(
       initialHandwrittenFunctionSessionState,
@@ -439,6 +442,11 @@ export function App({
   useEffect(() => {
     documentRef.current = document;
   }, [document]);
+  useEffect(() => {
+    if (activeTool !== "drawing.smart-ink") {
+      recentSmartInkObjectIdsRef.current = [];
+    }
+  }, [activeTool]);
   useEffect(
     () => () => {
       geometryOperationRef.current?.cancel();
@@ -1086,6 +1094,36 @@ export function App({
     });
   }, []);
 
+  const applySmartInkComposite = useCallback(
+    (objectId: BoardObjectId) => {
+      const current = documentRef.current;
+      const ids = [
+        ...recentSmartInkObjectIdsRef.current.filter(
+          (id) => current.objects[id] !== undefined && id !== objectId,
+        ),
+        objectId,
+      ].slice(-6);
+      recentSmartInkObjectIdsRef.current = ids;
+      const recentObjects = ids.flatMap((id) => {
+        const object = documentRef.current.objects[id];
+        return object === undefined ? [] : [object];
+      });
+      const composite = proposeSmartInkComposite(recentObjects);
+      if (composite === null) return;
+      const accepted = commitCommand(
+        createAcceptSmartInkCompositeCommand(
+          createCommandMetadata(),
+          composite,
+        ),
+      );
+      if (accepted.ok) {
+        recentSmartInkObjectIdsRef.current = [];
+        setSmartInkNotice(null);
+      }
+    },
+    [commitCommand, createCommandMetadata],
+  );
+
   const applyDrawingAction = useCallback(
     (action: DrawingAction, requestSmartInk = false) => {
       const result = reduceDrawingInteraction(drawingStateRef.current, action);
@@ -1130,10 +1168,16 @@ export function App({
                 : null,
             );
           }
+          applySmartInkComposite(result.completedObject.id);
         }
       }
     },
-    [commitCommand, commitDrawingObject, createCommandMetadata],
+    [
+      applySmartInkComposite,
+      commitCommand,
+      commitDrawingObject,
+      createCommandMetadata,
+    ],
   );
 
   const applyHandwrittenFunctionAction = useCallback(
