@@ -16,12 +16,15 @@ import {
   type ExpressionDiagnostic,
 } from "./types";
 
-function allowedIndependentVariable(
+function allowedIndependentVariables(
   context: CompilePlotExpressionOptions["context"],
-): "t" | "x" | null {
-  if (context === "explicit-function") return "x";
-  if (context === "parametric-x" || context === "parametric-y") return "t";
-  return null;
+): ReadonlySet<string> {
+  if (context === "explicit-function") return new Set(["x"]);
+  if (context === "parametric-x" || context === "parametric-y") {
+    return new Set(["t"]);
+  }
+  if (context === "relation-side") return new Set(["x", "y"]);
+  return new Set();
 }
 
 function validateParameterNames(
@@ -70,7 +73,7 @@ function validateAst(
   parameters: ReadonlySet<string>,
 ): readonly ExpressionDiagnostic[] {
   const diagnostics: ExpressionDiagnostic[] = [];
-  const independentVariable = allowedIndependentVariable(options.context);
+  const independentVariables = allowedIndependentVariables(options.context);
 
   const visit = (node: ExpressionNode): void => {
     switch (node.kind) {
@@ -109,8 +112,8 @@ function validateAst(
       }
       case "variable": {
         if (node.name === "pi" || node.name === "e") return;
-        if (node.name === "x" || node.name === "t") {
-          if (node.name !== independentVariable) {
+        if (node.name === "x" || node.name === "y" || node.name === "t") {
+          if (!independentVariables.has(node.name)) {
             diagnostics.push(
               expressionDiagnostic(
                 "expression.variable-not-allowed",

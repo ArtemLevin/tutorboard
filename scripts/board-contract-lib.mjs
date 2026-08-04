@@ -190,8 +190,21 @@ const parametricPlotSeries = strictObject({
   xExpression: plotExpression,
   yExpression: plotExpression,
 });
+const relationPlotSeries = strictObject({
+  expression: plotExpression,
+  fillOpacity: { maximum: 1, minimum: 0, type: "number" },
+  id: reference("Identifier"),
+  kind: { const: "relation" },
+  name: { maxLength: 128, minLength: 1, type: "string" },
+  style: reference("PlotSeriesStyle"),
+  visible: { type: "boolean" },
+});
 const plotSeries = {
-  oneOf: [reference("ExplicitPlotSeries"), reference("ParametricPlotSeries")],
+  oneOf: [
+    reference("ExplicitPlotSeries"),
+    reference("ParametricPlotSeries"),
+    reference("RelationPlotSeries"),
+  ],
 };
 const plotParameter = strictObject({
   id: reference("Identifier"),
@@ -336,6 +349,7 @@ const boardDefinitions = {
   ObjectStyle: objectStyle,
   ExplicitPlotSeries: explicitPlotSeries,
   ParametricPlotSeries: parametricPlotSeries,
+  RelationPlotSeries: relationPlotSeries,
   PlotParameter: plotParameter,
   PlotSeries: plotSeries,
   PlotSeriesStyle: plotSeriesStyle,

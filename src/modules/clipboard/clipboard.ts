@@ -134,19 +134,23 @@ function copyCoordinatePlotDefinition(
     grid: { ...definition.grid },
     legend: { ...definition.legend },
     parameters: definition.parameters.map((parameter) => ({ ...parameter })),
-    series: definition.series.map((series) =>
-      series.kind === "explicit"
-        ? {
-            ...series,
-            domain: { ...series.domain },
-            style: { ...series.style },
-          }
-        : {
-            ...series,
-            range: { ...series.range },
-            style: { ...series.style },
-          },
-    ),
+    series: definition.series.map((series) => {
+      if (series.kind === "explicit") {
+        return {
+          ...series,
+          domain: { ...series.domain },
+          style: { ...series.style },
+        };
+      }
+      if (series.kind === "parametric") {
+        return {
+          ...series,
+          range: { ...series.range },
+          style: { ...series.style },
+        };
+      }
+      return { ...series, style: { ...series.style } };
+    }),
     size: { ...definition.size },
   };
 }

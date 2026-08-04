@@ -17,7 +17,7 @@ test("protects a dirty plot draft and restores focus after discard", async ({
   await openCoordinatePlotEditorByRightDoubleClick(page);
 
   const editor = page.getByTestId("coordinate-plot-editor");
-  const formula = page.getByLabel("Формула явной функции");
+  const formula = page.getByLabel("Математическое выражение графика");
   await expect(editor).toBeVisible();
   await expect(formula).toBeFocused();
 
@@ -53,8 +53,8 @@ test("saves a plot with Ctrl+Enter and closes cleanly with Escape", async ({
   await openCoordinatePlotEditorByRightDoubleClick(page);
 
   const editor = page.getByTestId("coordinate-plot-editor");
-  const formula = page.getByLabel("Формула явной функции");
-  await formula.fill("sin(x)");
+  const formula = page.getByLabel("Математическое выражение графика");
+  await formula.fill("y=sin(x)");
 
   await page.keyboard.press("Control+Enter");
   await expect(editor.getByText("Изменения сохранены")).toBeVisible();
@@ -74,8 +74,8 @@ test("exposes formula diagnostics through ARIA relationships", async ({
 
   await createCoordinatePlot(page);
   await openCoordinatePlotEditorByRightDoubleClick(page);
-  const formula = page.getByLabel("Формула явной функции");
-  await formula.fill("q*x");
+  const formula = page.getByLabel("Математическое выражение графика");
+  await formula.fill("y=q*x");
 
   await expect(formula).toHaveAttribute("aria-invalid", "true");
   const issueId = await formula.getAttribute("aria-describedby");

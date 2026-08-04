@@ -87,6 +87,7 @@ function blankSample(
 ): SampledPlotSeries {
   return {
     dataBounds: null,
+    fillPolygons: [],
     metrics: {
       breakCount: 0,
       clippedEdgeCount: 0,
@@ -532,6 +533,7 @@ function finalizeSample(state: SamplingState): SampledPlotSeries {
   flushSegment(state);
   return {
     dataBounds: state.dataBounds,
+    fillPolygons: [],
     metrics: {
       breakCount: state.breakCount,
       clippedEdgeCount: state.clippedEdgeCount,

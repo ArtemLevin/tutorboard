@@ -3,11 +3,13 @@ import type {
   ExplicitPlotSeries,
   ParametricPlotSeries,
   PlotSeries,
+  RelationPlotSeries,
 } from "../board/coordinate-plot";
 import type { Size2 } from "../board/primitives";
 import {
   compilePlotExpression,
   evaluatePlotExpression,
+  parsePlotRelation,
   type CompiledPlotExpression,
   type ExpressionDiagnostic,
   type PlotExpressionContext,
@@ -46,13 +48,14 @@ export function diagnostic(
 function expressionDiagnostics(
   field: string,
   diagnostics: readonly ExpressionDiagnostic[],
+  offset = 0,
 ): readonly PlotSamplingDiagnostic[] {
   return diagnostics.map((item) => ({
     code: item.code,
-    end: item.end,
+    end: item.end + offset,
     field,
     message: item.message,
-    start: item.start,
+    start: item.start + offset,
   }));
 }
 
@@ -61,12 +64,13 @@ function compileField(
   context: PlotExpressionContext,
   parameterNames: readonly string[],
   field: string,
+  offset = 0,
 ): CompiledFieldResult {
   const compiled = compilePlotExpression(source, { context, parameterNames });
   return compiled.ok
     ? { expression: compiled.expression, ok: true }
     : {
-        diagnostics: expressionDiagnostics(field, compiled.diagnostics),
+        diagnostics: expressionDiagnostics(field, compiled.diagnostics, offset),
         ok: false,
       };
 }
@@ -161,20 +165,25 @@ export function cacheKey(input: {
   readonly pixelSize: Size2;
   readonly series: PlotSeries;
 }): string {
-  const seriesGeometry =
-    input.series.kind === "explicit"
-      ? {
-          domain: input.series.domain,
-          expression: input.series.expression,
-          kind: input.series.kind,
-        }
-      : {
-          closed: input.series.closed,
-          kind: input.series.kind,
-          range: input.series.range,
-          xExpression: input.series.xExpression,
-          yExpression: input.series.yExpression,
-        };
+  const seriesGeometry = (() => {
+    if (input.series.kind === "explicit") {
+      return {
+        domain: input.series.domain,
+        expression: input.series.expression,
+        kind: input.series.kind,
+      };
+    }
+    if (input.series.kind === "parametric") {
+      return {
+        closed: input.series.closed,
+        kind: input.series.kind,
+        range: input.series.range,
+        xExpression: input.series.xExpression,
+        yExpression: input.series.yExpression,
+      };
+    }
+    return { expression: input.series.expression, kind: input.series.kind };
+  })();
   const bindings = Object.fromEntries(
     input.bindingNames.flatMap((name) =>
       Object.hasOwn(input.bindings, name)
@@ -394,5 +403,64 @@ export function compileParametric(input: {
     range: { max: maximumValue.value, min: minimumValue.value },
     xExpression: xExpression.expression,
     yExpression: yExpression.expression,
+  };
+}
+
+export function compileRelation(input: {
+  readonly parameterNames: readonly string[];
+  readonly series: RelationPlotSeries;
+}):
+  | {
+      readonly bindingNames: readonly string[];
+      readonly leftExpression: CompiledPlotExpression;
+      readonly ok: true;
+      readonly operator: "=" | "<" | "<=" | ">" | ">=";
+      readonly rightExpression: CompiledPlotExpression;
+    }
+  | CompiledFieldFailure {
+  const relation = parsePlotRelation(input.series.expression);
+  if (!relation.ok) {
+    return {
+      diagnostics: [
+        {
+          code: "expression.unexpected-token",
+          end: relation.end,
+          field: "expression",
+          message: relation.message,
+          start: relation.start,
+        },
+      ],
+      ok: false,
+    };
+  }
+  const left = compileField(
+    relation.leftSource,
+    "relation-side",
+    input.parameterNames,
+    "expression",
+    relation.leftStart,
+  );
+  const right = compileField(
+    relation.rightSource,
+    "relation-side",
+    input.parameterNames,
+    "expression",
+    relation.rightStart,
+  );
+  const diagnostics = [left, right].flatMap((result) =>
+    result.ok ? [] : result.diagnostics,
+  );
+  if (diagnostics.length > 0 || !left.ok || !right.ok) {
+    return { diagnostics, ok: false };
+  }
+  return {
+    bindingNames: referencedParameterNames(
+      [relation.leftSource, relation.rightSource],
+      input.parameterNames,
+    ),
+    leftExpression: left.expression,
+    ok: true,
+    operator: relation.operator,
+    rightExpression: right.expression,
   };
 }

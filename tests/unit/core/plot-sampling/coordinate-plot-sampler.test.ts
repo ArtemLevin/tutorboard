@@ -236,4 +236,44 @@ describe("coordinate plot sampling orchestration", () => {
     expect(result.series[0]!.status).toBe("empty");
     expect(result.series[0]!.diagnostics).toEqual([]);
   });
+
+  it("builds implicit closed curves and shaded inequality solutions", () => {
+    const source = definition();
+    const relationStyle = { ...style, stroke: "#7c3aed" };
+    const result = sampleCoordinatePlotDefinition({
+      ...baseInput,
+      definition: {
+        ...source,
+        series: [
+          {
+            expression: "x^2+y^2=9",
+            fillOpacity: 0.16,
+            id: plotSeriesId("implicit-circle"),
+            kind: "relation",
+            name: "Окружность",
+            style: relationStyle,
+            visible: true,
+          },
+          {
+            expression: "y>=x^2-1",
+            fillOpacity: 0.18,
+            id: plotSeriesId("parabola-inequality"),
+            kind: "relation",
+            name: "Решение неравенства",
+            style: relationStyle,
+            visible: true,
+          },
+        ],
+      },
+    });
+
+    expect(result.series.map(({ status }) => status)).toEqual([
+      "sampled",
+      "sampled",
+    ]);
+    expect(result.series[0]?.sample?.segments.length).toBeGreaterThan(0);
+    expect(result.series[0]?.sample?.fillPolygons).toHaveLength(0);
+    expect(result.series[1]?.sample?.segments.length).toBeGreaterThan(0);
+    expect(result.series[1]?.sample?.fillPolygons.length).toBeGreaterThan(0);
+  });
 });

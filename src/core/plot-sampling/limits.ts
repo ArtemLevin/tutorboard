@@ -1,4 +1,4 @@
-export const coordinatePlotSamplerVersion = "tutorboard-sampler/1" as const;
+export const coordinatePlotSamplerVersion = "tutorboard-sampler/2" as const;
 
 export const maximumAdaptiveSamplingDepth = 12;
 export const maximumSamplePointsPerSeries = 12_000;

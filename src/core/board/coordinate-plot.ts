@@ -4,7 +4,7 @@ import type { Size2 } from "./primitives";
 
 export const coordinatePlotExpressionLanguage =
   "tutorboard-expression/1" as const;
-export const plotSeriesKinds = ["explicit", "parametric"] as const;
+export const plotSeriesKinds = ["explicit", "parametric", "relation"] as const;
 export const plotLineStyles = ["solid", "dashed", "dash-dot"] as const;
 export const plotLegendPositions = [
   "top-left",
@@ -98,7 +98,18 @@ export interface ParametricPlotSeries {
   readonly yExpression: string;
 }
 
-export type PlotSeries = ExplicitPlotSeries | ParametricPlotSeries;
+export interface RelationPlotSeries {
+  readonly expression: string;
+  readonly fillOpacity: number;
+  readonly id: PlotSeriesId;
+  readonly kind: "relation";
+  readonly name: string;
+  readonly style: PlotSeriesStyle;
+  readonly visible: boolean;
+}
+
+export type PlotSeries =
+  ExplicitPlotSeries | ParametricPlotSeries | RelationPlotSeries;
 
 export interface CoordinatePlotDefinition {
   readonly axes: CoordinatePlotAxes;
@@ -141,22 +152,26 @@ function duplicateValues(values: readonly string[]): readonly string[] {
 }
 
 function expressions(series: PlotSeries): readonly string[] {
-  return series.kind === "explicit"
-    ? [
-        series.expression,
-        ...(series.domain.minExpression === null
-          ? []
-          : [series.domain.minExpression]),
-        ...(series.domain.maxExpression === null
-          ? []
-          : [series.domain.maxExpression]),
-      ]
-    : [
-        series.xExpression,
-        series.yExpression,
-        series.range.minExpression,
-        series.range.maxExpression,
-      ];
+  if (series.kind === "explicit") {
+    return [
+      series.expression,
+      ...(series.domain.minExpression === null
+        ? []
+        : [series.domain.minExpression]),
+      ...(series.domain.maxExpression === null
+        ? []
+        : [series.domain.maxExpression]),
+    ];
+  }
+  if (series.kind === "parametric") {
+    return [
+      series.xExpression,
+      series.yExpression,
+      series.range.minExpression,
+      series.range.maxExpression,
+    ];
+  }
+  return [series.expression];
 }
 
 export function validateCoordinatePlotDefinition(
@@ -242,6 +257,20 @@ export function validateCoordinatePlotDefinition(
         "plot.invalid-parameter-step",
         `parameters.${index}.step`,
         "Parameter step must be positive.",
+      );
+    }
+  });
+  definition.series.forEach((series, index) => {
+    if (
+      series.kind === "relation" &&
+      (!Number.isFinite(series.fillOpacity) ||
+        series.fillOpacity < 0 ||
+        series.fillOpacity > 1)
+    ) {
+      add(
+        "plot.invalid-fill-opacity",
+        `series.${index}.fillOpacity`,
+        "Relation fill opacity must be between zero and one.",
       );
     }
   });

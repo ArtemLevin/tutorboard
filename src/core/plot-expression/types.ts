@@ -6,6 +6,7 @@ export const plotExpressionContexts = [
   "parametric-x",
   "parametric-y",
   "parametric-range",
+  "relation-side",
 ] as const;
 
 export type PlotExpressionContext = (typeof plotExpressionContexts)[number];

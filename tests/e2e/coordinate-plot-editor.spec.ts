@@ -29,7 +29,7 @@ test("creates and persists explicit and parametric plot series", async ({
     );
   expect(editorZIndex).toBeGreaterThan(diagnosticsZIndex);
 
-  await editor.getByLabel("Формула явной функции").fill("x^3-2*x");
+  await editor.getByLabel("Математическое выражение графика").fill("y=x^3-2*x");
   await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
   const advancedEditor = page.getByRole("dialog", {
     name: "Расширенные настройки графика",

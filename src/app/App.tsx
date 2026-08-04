@@ -42,6 +42,7 @@ import {
   type Vec2,
   type CommandMetadata,
   type CoordinatePlotDefinition,
+  type PlotSeries,
   type PlotSeriesId,
   type PenStrokeObject,
   type VisualStyleOverride,
@@ -139,6 +140,7 @@ import {
   createDefaultCoordinatePlotObject,
   fitCoordinatePlotDefinition,
   resetCoordinatePlotViewport,
+  updateCoordinatePlotSeriesInput,
   validateCoordinatePlotEditorDefinition,
 } from "../modules/coordinate-plot-editor/public";
 import {
@@ -1836,11 +1838,15 @@ export function App({
   }, [commitCommand, coordinatePlotEditor, createCommandMetadata, readOnly]);
 
   const addCoordinatePlotEditorSeries = useCallback(
-    (kind: "explicit" | "parametric") => {
+    (kind: PlotSeries["kind"], expression?: string) => {
       const id = plotSeriesId(`plot-series:${crypto.randomUUID()}`);
       setCoordinatePlotEditor((current) => {
         if (current === null) return null;
-        const draft = addCoordinatePlotSeries(current.draft, kind, id);
+        const added = addCoordinatePlotSeries(current.draft, kind, id);
+        const draft =
+          expression === undefined
+            ? added
+            : updateCoordinatePlotSeriesInput(added, id, expression);
         return {
           ...current,
           draft,
