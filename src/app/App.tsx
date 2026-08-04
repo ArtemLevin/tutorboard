@@ -84,6 +84,8 @@ import {
 } from "../modules/smart-ink/public";
 import {
   createTextShapePlacementCommand,
+  createTextShapeContourPointCommand,
+  createTextShapeGroupTransformCommand,
   createVertexConstructionCommand,
   inspectTextShapeFigure,
   inspectTextShapeVertex,
@@ -432,6 +434,7 @@ export function App({
     useState<PendingGeometryPlacement | null>(null);
   const [vertexConstructionObjectId, setVertexConstructionObjectId] =
     useState<BoardObjectId | null>(null);
+  const contourPointPointerRef = useRef<number | null>(null);
   const [geometryPromptState, setGeometryPromptState] =
     useState<GeometryPromptViewState>({ kind: "idle" });
   const geometryOperationRef = useRef<GeometryPromptOperation | null>(null);
@@ -1096,6 +1099,23 @@ export function App({
   const transformSelectionBy = useCallback(
     (scaleFactor: number, rotationDelta: number) => {
       const current = documentRef.current;
+      const figure = inspectTextShapeFigure(
+        current,
+        selectionStateRef.current.selectedObjectIds,
+      );
+      if (figure !== null) {
+        const command = createTextShapeGroupTransformCommand({
+          document: current,
+          groupId: figure.groupId,
+          metadata: createCommandMetadata(),
+          rotationDelta,
+          scaleFactor,
+        });
+        if (command !== null && commitCommand(command).ok) {
+          setAccessibilityNotice("Размер или поворот фигуры изменён");
+        }
+        return;
+      }
       const transforms = selectionStateRef.current.selectedObjectIds.flatMap(
         (objectId) => {
           const object = current.objects[objectId];
@@ -1122,7 +1142,7 @@ export function App({
       );
       commitSelectionTransform(transforms);
     },
-    [commitSelectionTransform],
+    [commitCommand, commitSelectionTransform, createCommandMetadata],
   );
 
   const closeShortcuts = useCallback(() => {
@@ -2399,6 +2419,27 @@ export function App({
 
   const startSelection = useCallback(
     (sample: SelectionPointerStartSample) => {
+      if (sample.additive && sample.objectId !== null) {
+        const command = createTextShapeContourPointCommand({
+          document: documentRef.current,
+          hitObjectId: sample.objectId,
+          metadata: createCommandMetadata(),
+          token: crypto.randomUUID(),
+          worldPoint: sample.point,
+        });
+        if (command !== null) {
+          contourPointPointerRef.current = sample.pointerId;
+          if (commitCommand(command).ok) {
+            const label = command.objects.find(
+              (object) => object.kind === "drawing.text",
+            );
+            setAccessibilityNotice(
+              `На контуре добавлена точка ${label?.text ?? ""}`.trim(),
+            );
+          }
+          return;
+        }
+      }
       const vertex =
         sample.objectId === null
           ? null
@@ -2431,7 +2472,15 @@ export function App({
         pointerId: sample.pointerId,
       });
     },
-    [activeTool, activateTool, applySelectionAction, document, scene],
+    [
+      activeTool,
+      activateTool,
+      applySelectionAction,
+      commitCommand,
+      createCommandMetadata,
+      document,
+      scene,
+    ],
   );
 
   const moveSelection = useCallback(
@@ -2447,6 +2496,10 @@ export function App({
 
   const finishSelection = useCallback(
     (sample: WorldPointerSample) => {
+      if (contourPointPointerRef.current === sample.pointerId) {
+        contourPointPointerRef.current = null;
+        return;
+      }
       const interaction = selectionStateRef.current.interaction;
       const areaObjectIds =
         interaction.kind === "marquee"
@@ -2483,6 +2536,10 @@ export function App({
 
   const cancelSelection = useCallback(
     (pointerId: number) => {
+      if (contourPointPointerRef.current === pointerId) {
+        contourPointPointerRef.current = null;
+        return;
+      }
       applySelectionAction({ kind: "cancel", pointerId });
     },
     [applySelectionAction],
@@ -2528,6 +2585,28 @@ export function App({
           visible,
         ),
       );
+    },
+    [commitCommand, createCommandMetadata],
+  );
+
+  const moveGeneratedFigureLabels = useCallback(
+    (delta: Vec2) => {
+      const current = documentRef.current;
+      const figure = inspectTextShapeFigure(
+        current,
+        selectionStateRef.current.selectedObjectIds,
+      );
+      if (figure === null || figure.labelObjectIds.length === 0) return;
+      if (
+        commitCommand({
+          ...createCommandMetadata(),
+          delta,
+          kind: "core.objects.move",
+          objectIds: figure.labelObjectIds,
+        }).ok
+      ) {
+        setAccessibilityNotice("Положение подписей вершин изменено");
+      }
     },
     [commitCommand, createCommandMetadata],
   );
@@ -2677,7 +2756,7 @@ export function App({
     setPendingGeometryPlacement({ kind: "geometryos", prompt });
     setGeometryPromptState({
       kind: "awaiting-placement",
-      label: "Построение GeometryOS",
+      label: "Построение по тексту",
       source: "geometryos",
     });
     setActiveTool(geometryPlacementToolId);
@@ -3061,6 +3140,7 @@ export function App({
           onDeleteSelection={deleteSelection}
           onGeometryToggle={() => setGeometryPromptOpen((current) => !current)}
           onGeneratedFigureLabelsChange={setGeneratedFigureLabelsVisible}
+          onGeneratedFigureLabelsMove={moveGeneratedFigureLabels}
           onImageFiles={(files) => void importImageFiles(files)}
           onOpenSettings={() => {
             setGeometryPromptOpen(false);
@@ -3068,7 +3148,10 @@ export function App({
           }}
           onPolygonSidesChange={setPolygonSides}
           onRedo={redo}
-          canTransformSelection={transformableObjectIds.length > 0}
+          canTransformSelection={
+            transformableObjectIds.length > 0 ||
+            selectedTextShapeFigure !== null
+          }
           onSelectionLockChange={setSelectionLock}
           onSelectionStyleChange={updateSelectionStyle}
           onSelectedTextCommit={(text) => {
