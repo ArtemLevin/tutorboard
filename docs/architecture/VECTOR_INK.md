@@ -40,6 +40,20 @@ The original world coordinates, object identities, ordering, groups, styles, tra
 
 Clipboard payloads and board command envelopes use schema version `1.2`. Copy and paste deep-copy the complete Vector Ink payload while preserving the canonical geometry. Dexie revisions and server snapshots serialize the same `BoardDocument 1.2` representation. Collaboration commands carry pressure, timestamps, and centerline data through the existing command transport.
 
+## Verification matrix
+
+The release gate covers:
+
+- deterministic migration from stored `BoardDocument 1.1` revisions;
+- canonical validation of samples, points, timestamps, pressure, and centerline geometry;
+- deep clipboard copy and paste of Vector Ink data;
+- collaboration command and snapshot transport using schema `1.2`;
+- Dexie persistence and reload;
+- canvas wet/dry rendering parity;
+- SVG outline output plus PNG and PDF derivative exports;
+- Chromium and Firefox production smoke;
+- production build, immutable container, read-only runtime, and security scanning.
+
 ## Invariants
 
 - Maximum 100,000 samples per stroke.
