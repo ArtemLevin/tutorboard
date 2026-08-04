@@ -48,6 +48,7 @@ jobs:
         run: |
           node .automation/apply-canvas-mode-gestures.mjs
           node .automation/fix-canvas-mode-gesture-tests.mjs
+          node .automation/fix-canvas-mode-gesture-behavior.mjs
 
       - name: Format and validate
         if: steps.patch.outputs.needed == 'true'
