@@ -1546,6 +1546,26 @@ textarea:focus-visible,
   box-shadow: 0 14px 38px rgb(23 42 51 / 15%);
   backdrop-filter: blur(20px);
 }
+.dock-primary-settings--selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.dock-primary-settings--selection .dock-primary-heading,
+.dock-primary-settings--selection .dock-style-controls,
+.dock-primary-settings--selection .dock-text-control,
+.dock-primary-settings--selection .dock-vertex-actions {
+  flex: 1 0 100%;
+}
+
+.dock-primary-settings--selection .dock-primary-heading,
+.dock-primary-settings--selection .dock-check-control,
+.dock-primary-settings--selection .dock-generated-label-controls,
+.dock-primary-settings--selection .dock-vertex-actions {
+  margin-block: 0;
+}
 .dock-menu {
   display: grid;
   width: min(340px, calc(100vw - 28px));
@@ -1999,6 +2019,13 @@ textarea:focus-visible,
   display: grid;
   gap: 6px;
   margin: 9px 0;
+}
+
+.dock-primary-settings--selection .dock-generated-label-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .dock-generated-label-controls > div {
