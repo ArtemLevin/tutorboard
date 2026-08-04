@@ -17,7 +17,7 @@ test("edits the persisted style of a selected object", async ({ page }) => {
   await page.mouse.up();
   await page.getByRole("button", { name: "Выделение" }).click();
   await page.getByRole("menuitemradio", { name: "Выделение (V)" }).click();
-  const objectPoint = { x: bounds.x + 320, y: bounds.y + 235 };
+  const objectPoint = { x: bounds.x + 250, y: bounds.y + 235 };
   await page.mouse.click(objectPoint.x, objectPoint.y);
   await rightDoubleClickAt(page, objectPoint);
 
