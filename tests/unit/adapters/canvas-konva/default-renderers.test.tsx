@@ -100,6 +100,9 @@ describe("default shape hit regions", () => {
     expect(fill?.props).toMatchObject({ listening: false });
     expect(contour?.type).toBe(Path);
     expect(contour?.props).toMatchObject({ fill: "#2c7182" });
-    expect(contour?.props.listening).not.toBe(false);
+    expect(
+      (contour?.props as { readonly listening?: boolean } | undefined)
+        ?.listening,
+    ).not.toBe(false);
   });
 });
