@@ -56,6 +56,7 @@ import {
 } from "../modules/clipboard/public";
 import {
   createAddDrawingObjectCommand,
+  drawingStyleDefaults,
   drawingTools,
   getDrawingPreview,
   isDrawingToolId,
@@ -666,6 +667,20 @@ export function App({
     ],
     [drawingPreview, handwrittenFunctionPreviewItems],
   );
+  const wetInkStyle = useMemo(() => {
+    const style =
+      activeTool === "drawing.pen" || activeTool === "drawing.smart-ink"
+        ? styleFor(activeTool)
+        : activeTool === handwrittenFunctionToolId
+          ? drawingStyleDefaults.pen
+          : null;
+    if (style === null) return null;
+    return {
+      opacity: style.opacity,
+      stroke: style.stroke ?? drawingStyleDefaults.pen.stroke,
+      strokeWidth: style.strokeWidth,
+    };
+  }, [activeTool, styleFor]);
   const selectionPreviewDelta = useMemo(
     () => getSelectionPreviewDelta(selectionState),
     [selectionState],
@@ -2356,6 +2371,64 @@ export function App({
     [activeTool, applyDrawingAction, moveHandwrittenFunctionStroke],
   );
 
+  const moveDrawingBatch = useCallback(
+    (samples: readonly WorldPointerSample[]) => {
+      if (samples.length === 0) return;
+      if (activeTool === laserToolId) {
+        const finalSample = samples.at(-1)!;
+        setLaserPoint(finalSample.point);
+        setLaserTrailPoints((points) =>
+          samples.reduce(
+            (trail, sample) => appendLaserTrailPoint(trail, sample.point),
+            points,
+          ),
+        );
+        return;
+      }
+      if (activeTool === handwrittenFunctionToolId) {
+        let state = handwrittenFunctionStateRef.current;
+        let diagnostic: HandwrittenFunctionSessionDiagnosticCode | null = null;
+        for (const sample of samples) {
+          const result = reduceHandwrittenFunctionSession(state, {
+            kind: "append-point",
+            point: {
+              timeMs: performance.now(),
+              x: sample.point.x,
+              y: sample.point.y,
+            },
+            pointerId: sample.pointerId,
+          });
+          state = result.state;
+          diagnostic = result.diagnostic ?? diagnostic;
+        }
+        handwrittenFunctionStateRef.current = state;
+        setHandwrittenFunctionState(state);
+        if (diagnostic !== null) {
+          setHandwrittenFunctionDiagnostic(
+            handwrittenSessionDiagnosticMessage(diagnostic),
+          );
+        }
+        return;
+      }
+
+      let state = drawingStateRef.current;
+      let diagnostic: string | null = null;
+      for (const sample of samples) {
+        const result = reduceDrawingInteraction(state, {
+          kind: "move",
+          point: sample.point,
+          pointerId: sample.pointerId,
+        });
+        state = result.state;
+        diagnostic = result.diagnostic;
+      }
+      drawingStateRef.current = state;
+      setDrawingState(state);
+      setDrawingDiagnostic(diagnostic);
+    },
+    [activeTool],
+  );
+
   const finishDrawing = useCallback(
     (sample: WorldPointerSample) => {
       if (activeTool === laserToolId) {
@@ -2971,6 +3044,7 @@ export function App({
             setClearCanvasConfirmationOpen(false);
             setCanvasContextMenu(request);
           }}
+          onWorldPointerBatch={moveDrawingBatch}
           onWorldPointerCancel={cancelDrawing}
           onWorldPointerFinish={finishDrawing}
           onWorldPointerMove={moveDrawing}
@@ -3008,6 +3082,7 @@ export function App({
           selectionModeKey={isSelectionToolId(activeTool) ? activeTool : null}
           selectionPreviewDelta={renderedSelectionPreviewDelta}
           transformableObjectIds={transformableObjectIds}
+          wetInkStyle={wetInkStyle}
         />
         {canvasContextMenu === null ? null : (
           <CanvasContextMenu

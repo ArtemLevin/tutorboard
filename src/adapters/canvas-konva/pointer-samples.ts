@@ -1,4 +1,5 @@
 const maximumCoalescedPointerEvents = 256;
+const maximumPredictedPointerEvents = 64;
 
 function samePointerSample(left: PointerEvent, right: PointerEvent): boolean {
   return (
@@ -63,4 +64,46 @@ export function collectCoalescedPointerEvents(
   return output.length === 0 ? [event] : output;
 }
 
-export { maximumCoalescedPointerEvents };
+type PointerEventWithPrediction = PointerEvent & {
+  readonly getPredictedEvents?: () => readonly PointerEvent[];
+};
+
+/**
+ * Returns a bounded prediction tail for transient rendering. Predictions are
+ * visual hints and never enter BoardDocument or drawing reducers.
+ */
+export function collectPredictedPointerEvents(
+  event: PointerEvent,
+): readonly PointerEvent[] {
+  const candidateEvent = event as PointerEventWithPrediction;
+  if (typeof candidateEvent.getPredictedEvents !== "function") return [];
+
+  let predicted: readonly unknown[];
+  try {
+    const candidate = candidateEvent.getPredictedEvents() as unknown;
+    predicted = Array.isArray(candidate) ? candidate : [];
+  } catch {
+    return [];
+  }
+
+  const output: PointerEvent[] = [];
+  for (const sample of predicted.slice(-maximumPredictedPointerEvents)) {
+    if (pointerEventLike(sample) && sample.pointerId === event.pointerId) {
+      appendUnique(output, sample);
+    }
+  }
+  return output;
+}
+
+export function pointerEventInputTimestampMs(
+  event: PointerEvent,
+  nowMs = performance.now(),
+): number {
+  const timestampMs = event.timeStamp;
+  if (!Number.isFinite(timestampMs) || Math.abs(nowMs - timestampMs) > 60_000) {
+    return nowMs;
+  }
+  return Math.min(nowMs, timestampMs);
+}
+
+export { maximumCoalescedPointerEvents, maximumPredictedPointerEvents };
