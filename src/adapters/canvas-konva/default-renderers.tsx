@@ -4,6 +4,7 @@ import { Ellipse, Group, Line, Rect, Text } from "react-konva";
 import type { BoardObject, BoardObjectKind, Vec2 } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
 import {
+  buildCachedSmoothClosedStrokePoints,
   buildCachedSmoothStrokePoints,
   buildSmoothStrokePoints,
   flattenStrokePoints,
@@ -174,7 +175,7 @@ const renderers: readonly KonvaObjectRenderer[] = [
         last !== undefined &&
         Math.hypot(first.x - last.x, first.y - last.y) < 0.001;
       const renderPoints = closed
-        ? stroke.points
+        ? buildCachedSmoothClosedStrokePoints(stroke.points, context.zoom)
         : buildCachedSmoothStrokePoints(stroke.points, context.zoom);
       if (isSketchStrokeStyle(stroke.style.strokeStyle)) {
         return renderSketchPath(

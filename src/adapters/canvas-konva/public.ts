@@ -41,6 +41,10 @@ export {
 } from "./coordinate-plot-rendering";
 export { createDefaultKonvaRendererRegistry } from "./default-renderers";
 export {
+  collectCoalescedPointerEvents,
+  maximumCoalescedPointerEvents,
+} from "./pointer-samples";
+export {
   KonvaRendererRegistry,
   type CoordinatePlotRenderInteraction,
   type KonvaObjectRenderer,

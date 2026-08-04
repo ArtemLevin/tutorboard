@@ -40,6 +40,7 @@ import {
 } from "../../shared/stroke-smoothing";
 import { BoardGrid } from "./grid";
 import { clientPoint, elementPoint } from "./pointer";
+import { collectCoalescedPointerEvents } from "./pointer-samples";
 import type {
   CoordinatePlotRenderInteraction,
   KonvaRendererRegistry,
@@ -503,6 +504,26 @@ export function BoardStage({
     [],
   );
 
+  const worldSamples = useCallback(
+    (
+      event: PointerEvent,
+      session: DrawingSession,
+    ): readonly WorldPointerSample[] =>
+      collectCoalescedPointerEvents(event).map((sample) =>
+        worldSample(sample, session),
+      ),
+    [worldSample],
+  );
+
+  const emitWorldPointerMoves = useCallback(
+    (samples: readonly WorldPointerSample[]) => {
+      for (const sample of samples) {
+        worldPointerCallbacksRef.current.move(sample);
+      }
+    },
+    [],
+  );
+
   const selectionWorldSample = useCallback(
     (event: PointerEvent, session: SelectionSession): WorldPointerSample => ({
       point: screenToWorld(
@@ -556,12 +577,19 @@ export function BoardStage({
       setPreviewViewport(viewportRef.current);
 
       if (commit && event !== undefined) {
-        worldPointerCallbacksRef.current.finish(worldSample(event, session));
+        const samples = worldSamples(event, session);
+        const finalSample = samples.at(-1);
+        if (finalSample !== undefined) {
+          emitWorldPointerMoves(samples.slice(0, -1));
+          worldPointerCallbacksRef.current.finish(finalSample);
+        } else {
+          worldPointerCallbacksRef.current.finish(worldSample(event, session));
+        }
       } else {
         worldPointerCallbacksRef.current.cancel(session.pointerId);
       }
     },
-    [releaseCapture, worldSample],
+    [emitWorldPointerMoves, releaseCapture, worldSample, worldSamples],
   );
 
   const finishSelection = useCallback(
@@ -650,9 +678,7 @@ export function BoardStage({
         drawingSession.pointerId === event.pointerId
       ) {
         event.preventDefault();
-        worldPointerCallbacksRef.current.move(
-          worldSample(event, drawingSession),
-        );
+        emitWorldPointerMoves(worldSamples(event, drawingSession));
         return;
       }
 
@@ -784,11 +810,12 @@ export function BoardStage({
     };
   }, [
     cancelWheel,
+    emitWorldPointerMoves,
     finishDrawing,
     finishPan,
     finishSelection,
     selectionWorldSample,
-    worldSample,
+    worldSamples,
   ]);
 
   useEffect(() => {
