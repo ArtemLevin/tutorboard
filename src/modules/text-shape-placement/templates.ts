@@ -50,10 +50,15 @@ interface TemplateEllipse {
   readonly radius: Vec2;
 }
 
+interface TemplatePolyline {
+  readonly hidden?: boolean;
+  readonly points: readonly Vec2[];
+}
+
 interface TemplateGeometry {
   readonly edges: readonly TemplateEdge[];
   readonly ellipses?: readonly TemplateEllipse[];
-  readonly polylines?: readonly (readonly Vec2[])[];
+  readonly polylines?: readonly TemplatePolyline[];
   readonly vertices: readonly Vec2[];
   readonly vertexNames?: readonly string[];
 }
@@ -85,6 +90,23 @@ function closedEdges(count: number): readonly TemplateEdge[] {
   }));
 }
 
+function ellipseArc(
+  center: Vec2,
+  radius: Vec2,
+  start: number,
+  finish: number,
+  samples = 25,
+): readonly Vec2[] {
+  return Array.from({ length: samples }, (_, index) => {
+    const progress = index / Math.max(1, samples - 1);
+    const angle = start + (finish - start) * progress;
+    return {
+      x: center.x + Math.cos(angle) * radius.x,
+      y: center.y + Math.sin(angle) * radius.y,
+    };
+  });
+}
+
 function triangleGeometry(
   variant: Extract<TextShapeTemplate, { kind: "triangle" }>["variant"],
 ): TemplateGeometry {
@@ -103,6 +125,16 @@ function triangleGeometry(
       { x: -88, y: 58 },
       { x: 88, y: 58 },
       { x: 0, y: -72 },
+    ],
+    inscribed: [
+      { x: -57.85, y: 68.94 },
+      { x: 57.85, y: 68.94 },
+      { x: 15.63, y: -88.63 },
+    ],
+    circumscribed: [
+      { x: 0, y: -88 },
+      { x: 76.21, y: 44 },
+      { x: -76.21, y: 44 },
     ],
     obtuse: [
       { x: -94, y: 52 },
@@ -125,7 +157,17 @@ function triangleGeometry(
       { x: 12, y: -72 },
     ],
   };
-  return { edges: closedEdges(3), vertices: variants[variant] };
+  return {
+    edges: closedEdges(3),
+    ...(variant === "inscribed"
+      ? { ellipses: [{ center: { x: 0, y: 0 }, radius: { x: 90, y: 90 } }] }
+      : variant === "circumscribed"
+        ? {
+            ellipses: [{ center: { x: 0, y: 0 }, radius: { x: 44, y: 44 } }],
+          }
+        : {}),
+    vertices: variants[variant],
+  };
 }
 
 function quadrilateralGeometry(
@@ -180,8 +222,30 @@ function quadrilateralGeometry(
       { x: 94, y: 58 },
       { x: -94, y: 58 },
     ],
+    "inscribed-trapezoid": [
+      { x: -57.85, y: -68.94 },
+      { x: 57.85, y: -68.94 },
+      { x: 81.57, y: 38.04 },
+      { x: -81.57, y: 38.04 },
+    ],
+    "circumscribed-trapezoid": [
+      { x: -40, y: -60 },
+      { x: 40, y: -60 },
+      { x: 90, y: 60 },
+      { x: -90, y: 60 },
+    ],
   };
-  return { edges: closedEdges(4), vertices: variants[variant] };
+  return {
+    edges: closedEdges(4),
+    ...(variant === "inscribed-trapezoid"
+      ? { ellipses: [{ center: { x: 0, y: 0 }, radius: { x: 90, y: 90 } }] }
+      : variant === "circumscribed-trapezoid"
+        ? {
+            ellipses: [{ center: { x: 0, y: 0 }, radius: { x: 60, y: 60 } }],
+          }
+        : {}),
+    vertices: variants[variant],
+  };
 }
 
 function prismGeometry(sides: number): TemplateGeometry {
@@ -289,12 +353,20 @@ function solidGeometry(
     };
   }
   if (variant === "cone") {
+    const baseCenter = { x: 0, y: 58 };
+    const baseRadius = { x: 82, y: 23 };
     return {
       edges: [
         { start: 0, end: 1 },
         { start: 0, end: 2 },
       ],
-      ellipses: [{ center: { x: 0, y: 58 }, radius: { x: 82, y: 23 } }],
+      polylines: [
+        { points: ellipseArc(baseCenter, baseRadius, 0, Math.PI) },
+        {
+          hidden: true,
+          points: ellipseArc(baseCenter, baseRadius, Math.PI, Math.PI * 2),
+        },
+      ],
       vertices: [
         { x: 0, y: -92 },
         { x: -82, y: 58 },
@@ -304,14 +376,20 @@ function solidGeometry(
   }
   if (variant === "cylinder" || variant === "frustum") {
     const topRadius = variant === "frustum" ? 48 : 78;
+    const bottomCenter = { x: 0, y: 68 };
+    const bottomRadius = { x: 82, y: 24 };
     return {
       edges: [
         { start: 0, end: 2 },
         { start: 1, end: 3 },
       ],
-      ellipses: [
-        { center: { x: 0, y: -68 }, radius: { x: topRadius, y: 22 } },
-        { center: { x: 0, y: 68 }, radius: { x: 82, y: 24 } },
+      ellipses: [{ center: { x: 0, y: -68 }, radius: { x: topRadius, y: 22 } }],
+      polylines: [
+        { points: ellipseArc(bottomCenter, bottomRadius, 0, Math.PI) },
+        {
+          hidden: true,
+          points: ellipseArc(bottomCenter, bottomRadius, Math.PI, Math.PI * 2),
+        },
       ],
       vertices: [
         { x: -topRadius, y: -68 },
@@ -324,21 +402,45 @@ function solidGeometry(
   if (variant === "sphere") {
     return {
       edges: [],
-      ellipses: [
-        { center: { x: 0, y: 0 }, radius: { x: 82, y: 82 } },
-        { center: { x: 0, y: 0 }, radius: { x: 76, y: 23 } },
+      ellipses: [{ center: { x: 0, y: 0 }, radius: { x: 82, y: 82 } }],
+      polylines: [
+        {
+          points: ellipseArc({ x: 0, y: 0 }, { x: 76, y: 23 }, 0, Math.PI),
+        },
+        {
+          hidden: true,
+          points: ellipseArc(
+            { x: 0, y: 0 },
+            { x: 76, y: 23 },
+            Math.PI,
+            Math.PI * 2,
+          ),
+        },
       ],
       vertices: [],
     };
   }
   return {
     edges: [],
-    ellipses: [{ center: { x: 0, y: 24 }, radius: { x: 82, y: 32 } }],
     polylines: [
-      Array.from({ length: 25 }, (_, index) => {
-        const angle = Math.PI + (index * Math.PI) / 24;
-        return { x: Math.cos(angle) * 82, y: Math.sin(angle) * 82 - 8 };
-      }),
+      {
+        points: Array.from({ length: 25 }, (_, index) => {
+          const angle = Math.PI + (index * Math.PI) / 24;
+          return { x: Math.cos(angle) * 82, y: Math.sin(angle) * 82 - 8 };
+        }),
+      },
+      {
+        points: ellipseArc({ x: 0, y: 24 }, { x: 82, y: 32 }, 0, Math.PI),
+      },
+      {
+        hidden: true,
+        points: ellipseArc(
+          { x: 0, y: 24 },
+          { x: 82, y: 32 },
+          Math.PI,
+          Math.PI * 2,
+        ),
+      },
     ],
     vertices: [],
   };
@@ -358,13 +460,14 @@ function geometry(template: TextShapeTemplate): TemplateGeometry {
       };
     case "angle": {
       const degrees =
-        template.variant === "acute"
+        template.degrees ??
+        (template.variant === "acute"
           ? 42
           : template.variant === "right"
             ? 90
             : template.variant === "obtuse"
               ? 132
-              : 64;
+              : 64);
       const radians = (degrees * Math.PI) / 180;
       return {
         edges: [
@@ -396,14 +499,21 @@ function geometry(template: TextShapeTemplate): TemplateGeometry {
         return {
           edges: [],
           polylines: [
-            Array.from({ length: 25 }, (_, index) => {
-              const angle = Math.PI + (index * Math.PI) / 24;
-              return { x: Math.cos(angle) * 88, y: Math.sin(angle) * 88 + 34 };
-            }),
-            [
-              { x: -88, y: 34 },
-              { x: 88, y: 34 },
-            ],
+            {
+              points: Array.from({ length: 25 }, (_, index) => {
+                const angle = Math.PI + (index * Math.PI) / 24;
+                return {
+                  x: Math.cos(angle) * 88,
+                  y: Math.sin(angle) * 88 + 34,
+                };
+              }),
+            },
+            {
+              points: [
+                { x: -88, y: 34 },
+                { x: 88, y: 34 },
+              ],
+            },
           ],
           vertices: [
             { x: -88, y: 34 },
@@ -476,7 +586,7 @@ export function textShapeLabelNameFromObjectId(
   value: BoardObjectId,
 ): string | null {
   return (
-    /^(?:object:text-shape:[^:]+:label|object:text-shape-construction:[^:]+:[^:]+:[^:]+:label):([A-Z][0-9]*)$/.exec(
+    /^(?:object:text-shape:[^:]+:label|object:text-shape-construction:[^:]+:[^:]+:[^:]+:label|object:text-shape-manual:[^:]+:label):([A-Z][0-9]*)$/.exec(
       value,
     )?.[1] ?? null
   );
@@ -527,8 +637,8 @@ export function createTextShapePlacementCommand(input: {
       style: item.hidden ? hiddenEdgeStyle : edgeStyle,
     });
   }
-  for (const [index, points] of (model.polylines ?? []).entries()) {
-    const first = points[0]!;
+  for (const [index, item] of (model.polylines ?? []).entries()) {
+    const first = item.points[0]!;
     objects.push({
       ...objectBase(
         boardObjectId(
@@ -538,11 +648,11 @@ export function createTextShapePlacementCommand(input: {
         first,
       ),
       kind: "drawing.pen-stroke",
-      points: points.map((point) => ({
+      points: item.points.map((point) => ({
         x: point.x - first.x,
         y: point.y - first.y,
       })),
-      style: edgeStyle,
+      style: item.hidden ? hiddenEdgeStyle : edgeStyle,
     });
   }
   for (const [index, point] of model.vertices.entries()) {
