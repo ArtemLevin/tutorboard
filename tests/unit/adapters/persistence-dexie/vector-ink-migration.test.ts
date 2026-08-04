@@ -36,7 +36,9 @@ async function replaceSerializedRevision(
       transaction.onerror = () =>
         reject(transaction.error ?? new Error("IndexedDB transaction failed."));
       transaction.onabort = () =>
-        reject(transaction.error ?? new Error("IndexedDB transaction aborted."));
+        reject(
+          transaction.error ?? new Error("IndexedDB transaction aborted."),
+        );
     });
   } finally {
     database.close();

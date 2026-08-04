@@ -812,6 +812,7 @@ function fixtures() {
     radius: { x: 30, y: 30 },
   };
   delete smartInkCircle.points;
+  delete smartInkCircle.ink;
   return {
     "fixtures/board-command-envelope.json": {
       actorId: "actor:tutor-01",

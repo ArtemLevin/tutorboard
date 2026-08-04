@@ -111,9 +111,7 @@ describe("BoardDocument 1.2 Vector Ink contract", () => {
     if (migrated?.kind !== "drawing.pen-stroke") return;
     expect(migrated.ink?.version).toBe("1.0");
     expect(migrated.ink?.samples.map(({ pressure }) => pressure)).toEqual([
-      0.5,
-      0.5,
-      0.5,
+      0.5, 0.5, 0.5,
     ]);
     expect(first.document).toEqual(second.document);
   });
@@ -161,7 +159,8 @@ describe("BoardDocument 1.2 Vector Ink contract", () => {
     const pasted = reduceBoardDocument(document, command);
     expect(pasted.ok).toBe(true);
     if (!pasted.ok) return;
-    const duplicate = pasted.document.objects[boardObjectId("copy:object:pressure-pen")];
+    const duplicate =
+      pasted.document.objects[boardObjectId("copy:object:pressure-pen")];
     expect(duplicate?.kind).toBe("drawing.pen-stroke");
     if (duplicate?.kind !== "drawing.pen-stroke") return;
     expect(duplicate.ink).toEqual(stroke.ink);
