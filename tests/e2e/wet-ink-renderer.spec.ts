@@ -33,7 +33,11 @@ test("renders active ink on the transient layer and records latency", async ({
     const prototype = PointerEvent.prototype as PointerEvent & {
       getPredictedEvents?: () => PointerEvent[];
     };
-    const original = prototype.getPredictedEvents;
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      prototype,
+      "getPredictedEvents",
+    );
+    const original = originalDescriptor?.value as unknown;
     Reflect.set(window, "__tutorboardPredictedCalls", 0);
     Reflect.defineProperty(prototype, "getPredictedEvents", {
       configurable: true,
@@ -43,7 +47,9 @@ test("renders active ink on the transient layer and records latency", async ({
           "__tutorboardPredictedCalls",
         ) as number;
         Reflect.set(window, "__tutorboardPredictedCalls", calls + 1);
-        return typeof original === "function" ? original.call(this) : [];
+        return typeof original === "function"
+          ? (Reflect.apply(original, this, []) as PointerEvent[])
+          : [];
       },
       writable: true,
     });
