@@ -2,6 +2,7 @@ export type TextShapeTemplate =
   | { readonly kind: "point" }
   | { readonly kind: "line"; readonly mode: "line" | "ray" | "segment" }
   | {
+      readonly degrees?: number;
       readonly kind: "angle";
       readonly variant: "acute" | "obtuse" | "right" | "standard";
     }
@@ -14,7 +15,9 @@ export type TextShapeTemplate =
         | "obtuse"
         | "right"
         | "scalene"
-        | "standard";
+        | "standard"
+        | "inscribed"
+        | "circumscribed";
     }
   | {
       readonly kind: "quadrilateral";
@@ -26,7 +29,9 @@ export type TextShapeTemplate =
         | "right-trapezoid"
         | "square"
         | "trapezoid"
-        | "isosceles-trapezoid";
+        | "isosceles-trapezoid"
+        | "inscribed-trapezoid"
+        | "circumscribed-trapezoid";
     }
   | { readonly kind: "regular-polygon"; readonly sides: number }
   | {
@@ -164,6 +169,28 @@ export const textShapeCatalog: readonly TextShapeDefinition[] = [
       variant: "obtuse",
     },
   ),
+  shape(
+    "inscribed-triangle",
+    "Вписанный треугольник",
+    "2d",
+    [
+      "вписанный треугольник",
+      "треугольник вписанный в окружность",
+      "треугольник в окружности",
+    ],
+    { kind: "triangle", variant: "inscribed" },
+  ),
+  shape(
+    "circumscribed-triangle",
+    "Описанный треугольник",
+    "2d",
+    [
+      "описанный треугольник",
+      "треугольник описанный около окружности",
+      "треугольник вокруг окружности",
+    ],
+    { kind: "triangle", variant: "circumscribed" },
+  ),
   shape("square", "Квадрат", "2d", ["квад", "квадрат"], {
     kind: "quadrilateral",
     variant: "square",
@@ -208,6 +235,28 @@ export const textShapeCatalog: readonly TextShapeDefinition[] = [
     kind: "quadrilateral",
     variant: "kite",
   }),
+  shape(
+    "inscribed-trapezoid",
+    "Вписанная трапеция",
+    "2d",
+    [
+      "вписанная трапеция",
+      "трапеция вписанная в окружность",
+      "трапеция в окружности",
+    ],
+    { kind: "quadrilateral", variant: "inscribed-trapezoid" },
+  ),
+  shape(
+    "circumscribed-trapezoid",
+    "Описанная трапеция",
+    "2d",
+    [
+      "описанная трапеция",
+      "трапеция описанная около окружности",
+      "трапеция вокруг окружности",
+    ],
+    { kind: "quadrilateral", variant: "circumscribed-trapezoid" },
+  ),
   ...[
     [5, "Пятиугольник", ["пятиугольник", "пентагон"]],
     [6, "Шестиугольник", ["шестиугольник", "гексагон"]],
@@ -341,10 +390,37 @@ function terms(definition: TextShapeDefinition): readonly string[] {
   return [definition.label, ...definition.aliases].map(normalizeTextShapeQuery);
 }
 
+function customAngleDefinition(query: string): TextShapeDefinition | undefined {
+  const match = query
+    .toLocaleLowerCase("ru")
+    .replaceAll(",", ".")
+    .match(
+      /(?:^|\s)угол(?:\s+величиной)?\s*(\d+(?:\.\d+)?)\s*(?:°|град(?:ус(?:а|ов)?)?)?/u,
+    );
+  if (match?.[1] === undefined) return undefined;
+  const degrees = Number(match[1]);
+  if (!Number.isFinite(degrees) || degrees <= 0 || degrees >= 180) {
+    return undefined;
+  }
+  const formatted = Number.isInteger(degrees)
+    ? String(degrees)
+    : String(Math.round(degrees * 10) / 10);
+  return shape(
+    `angle-${formatted.replace(".", "-")}`,
+    `Угол ${formatted}°`,
+    "basic",
+    [`угол ${formatted}`, `угол ${formatted} градусов`],
+    { degrees, kind: "angle", variant: "standard" },
+    `Построй угол ${formatted}°`,
+  );
+}
+
 export function suggestTextShapes(
   query: string,
   limit = 8,
 ): readonly TextShapeDefinition[] {
+  const customAngle = customAngleDefinition(query);
+  if (customAngle !== undefined) return [customAngle];
   const normalized = normalizeTextShapeQuery(query);
   if (normalized.length === 0) return textShapeCatalog.slice(0, limit);
   return textShapeCatalog
@@ -364,6 +440,8 @@ export function suggestTextShapes(
 export function resolveTextShape(
   query: string,
 ): TextShapeDefinition | undefined {
+  const customAngle = customAngleDefinition(query);
+  if (customAngle !== undefined) return customAngle;
   const normalized = normalizeTextShapeQuery(query);
   if (normalized.length === 0) return undefined;
   const exact = textShapeCatalog.find((definition) =>
