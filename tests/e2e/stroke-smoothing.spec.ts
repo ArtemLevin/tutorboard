@@ -9,6 +9,19 @@ async function stagePoint(page: Page, x: number, y: number) {
   return { x: bounds.x + x, y: bounds.y + y };
 }
 
+async function openBoardWithPen(page: Page): Promise<void> {
+  await page.goto("/");
+  await expect(
+    page.getByRole("application", {
+      name: "Бесконечное полотно TutorBoard",
+    }),
+  ).toBeVisible();
+  const drawingMenu = page.getByRole("button", { name: "Рисование" });
+  await drawingMenu.click();
+  await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
+  await expect(drawingMenu).toHaveAttribute("aria-pressed", "true");
+}
+
 async function drawFastStroke(
   page: Page,
   samples: readonly (readonly [number, number])[],
@@ -26,14 +39,7 @@ async function drawFastStroke(
 test("keeps a smoothed freehand stroke transformable at high zoom", async ({
   page,
 }) => {
-  await page.goto("/");
-  await expect(
-    page.getByRole("application", {
-      name: "Бесконечное полотно TutorBoard",
-    }),
-  ).toBeVisible();
-
-  await page.keyboard.press("p");
+  await openBoardWithPen(page);
   const samples = [
     [260, 320],
     [300, 270],
@@ -94,9 +100,7 @@ test("draws fast curves when getCoalescedEvents is unavailable", async ({
       writable: true,
     });
   });
-  await page.goto("/");
-  await expect(page.getByTestId("board-stage")).toBeVisible();
-  await page.keyboard.press("p");
+  await openBoardWithPen(page);
   await drawFastStroke(page, [
     [250, 270],
     [310, 225],
@@ -131,8 +135,7 @@ test("consults the coalesced-event API during freehand input", async ({
       writable: true,
     });
   });
-  await page.goto("/");
-  await page.keyboard.press("p");
+  await openBoardWithPen(page);
   await drawFastStroke(page, [
     [260, 320],
     [300, 260],
