@@ -263,6 +263,20 @@ function objectIdFromTarget(target: Konva.Node): BoardObjectId | null {
   return null;
 }
 
+function objectIdBelowTransformer(
+  stage: Konva.Stage,
+  point: Vec2,
+): BoardObjectId | null {
+  const intersections = stage.getAllIntersections(point);
+  for (let index = intersections.length - 1; index >= 0; index -= 1) {
+    const target = intersections[index];
+    if (target === undefined || isTransformerTarget(target)) continue;
+    const objectId = objectIdFromTarget(target);
+    if (objectId !== null) return objectId;
+  }
+  return null;
+}
+
 function normalizeTransformValue(value: number): number {
   const normalized = Math.round(value * 1_000_000) / 1_000_000;
   return Object.is(normalized, -0) ? 0 : normalized;
@@ -1032,6 +1046,37 @@ export function BoardStage({
     setIsPanning(true);
   };
 
+  const handleClick = (event: Konva.KonvaEventObject<MouseEvent>) => {
+    if (
+      event.evt.button !== 0 ||
+      selectionModeKey === null ||
+      !isTransformerTarget(event.target)
+    ) {
+      return;
+    }
+    const stage = event.target.getStage();
+    if (stage === null) return;
+    const captureElement = stage.container();
+    const screenPoint = elementPoint(event.evt, captureElement);
+    const objectId = objectIdBelowTransformer(stage, screenPoint);
+    if (objectId === null) return;
+    const point = screenToWorld(screenPoint, previewViewport);
+    const pointerId = -1;
+    selectionPointerCallbacksRef.current.start({
+      additive: event.evt.shiftKey,
+      areaOperation: event.evt.shiftKey ? "add" : "replace",
+      objectId,
+      point,
+      pointerId,
+      pressure: 0,
+    });
+    selectionPointerCallbacksRef.current.finish({
+      point,
+      pointerId,
+      pressure: 0,
+    });
+  };
+
   const handleWheel = (event: Konva.KonvaEventObject<WheelEvent>) => {
     event.evt.preventDefault();
     if (
@@ -1120,6 +1165,7 @@ export function BoardStage({
       <Stage
         ref={stageRef}
         height={size.height}
+        onClick={handleClick}
         onContextMenu={(event) => event.evt.preventDefault()}
         onPointerDown={handlePointerDown}
         onWheel={handleWheel}
