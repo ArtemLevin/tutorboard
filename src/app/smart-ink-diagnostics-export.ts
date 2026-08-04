@@ -24,19 +24,49 @@ export interface SmartInkDiagnosticExportMetadata extends SmartInkPointerMetadat
   readonly deviceProfile?: SmartInkCorpusDeviceProfile;
 }
 
+interface SmartInkCaptureDiagnostics {
+  readonly exportedAt: string;
+  readonly labelStatus: "unreviewed";
+  readonly outcome: SmartInkDiagnosticRecord["outcome"];
+  readonly policy: typeof smartInkCanvasRecognitionPolicy;
+  readonly reason: SmartInkDiagnosticRecord["reason"];
+  readonly recognizerResult: SmartInkDiagnosticRecord["recognizer"];
+  readonly replacementKind: SmartInkDiagnosticRecord["replacementKind"];
+  readonly selectedCandidateKind: SmartInkDiagnosticRecord["selectedCandidateKind"];
+  readonly sourcePointCount: number;
+}
+
 export interface SmartInkDiagnosticExport extends SmartInkCorpus {
-  readonly captureDiagnostics: {
-    readonly exportedAt: string;
-    readonly labelStatus: "unreviewed";
-    readonly outcome: SmartInkDiagnosticRecord["outcome"];
-    readonly policy: typeof smartInkCanvasRecognitionPolicy;
-    readonly reason: SmartInkDiagnosticRecord["reason"];
-    readonly recognizerResult: SmartInkDiagnosticRecord["recognizer"];
-    readonly replacementKind: SmartInkDiagnosticRecord["replacementKind"];
+  readonly captureDiagnostics: SmartInkCaptureDiagnostics & {
     readonly selectedCandidateKind: SmartInkPrimitiveKind | null;
-    readonly sourcePointCount: number;
   };
 }
+
+export interface SmartInkExtendedDiagnosticExport {
+  readonly captureDiagnostics: SmartInkCaptureDiagnostics & {
+    readonly selectedCandidateKind: "arrow";
+  };
+  readonly samples: readonly [
+    {
+      readonly acceptableKinds: readonly ["arrow"];
+      readonly expectedKind: "arrow";
+      readonly id: string;
+      readonly metadata: {
+        readonly browser: SmartInkCorpusBrowser;
+        readonly deviceProfile: SmartInkCorpusDeviceProfile;
+        readonly durationMs: number;
+        readonly pointerType: SmartInkCorpusPointerType;
+      };
+      readonly points: SmartInkDiagnosticRecord["points"];
+      readonly provenance: "captured";
+      readonly shouldPropose: true;
+    },
+  ];
+  readonly schemaVersion: "tutorboard.smart-ink-extended-corpus/0.1";
+}
+
+export type SmartInkDiagnosticDownload =
+  SmartInkDiagnosticExport | SmartInkExtendedDiagnosticExport;
 
 function boundedPoints(
   points: SmartInkDiagnosticRecord["points"],
@@ -78,7 +108,39 @@ export function detectSmartInkBrowser(
 export function createSmartInkDiagnosticExport(
   record: SmartInkDiagnosticRecord,
   metadata: SmartInkDiagnosticExportMetadata,
-): SmartInkDiagnosticExport {
+): SmartInkDiagnosticDownload {
+  if (record.selectedCandidateKind === "arrow") {
+    return {
+      captureDiagnostics: {
+        exportedAt: metadata.capturedAt,
+        labelStatus: "unreviewed",
+        outcome: record.outcome,
+        policy: smartInkCanvasRecognitionPolicy,
+        reason: record.reason,
+        recognizerResult: record.recognizer,
+        replacementKind: record.replacementKind,
+        selectedCandidateKind: "arrow",
+        sourcePointCount: record.sourcePointCount,
+      },
+      samples: [
+        {
+          acceptableKinds: ["arrow"],
+          expectedKind: "arrow",
+          id: sampleId(record, metadata.capturedAt),
+          metadata: {
+            browser: metadata.browser,
+            deviceProfile: metadata.deviceProfile ?? "other-device",
+            durationMs: Math.max(0, Math.round(metadata.durationMs)),
+            pointerType: metadata.pointerType,
+          },
+          points: boundedPoints(record.points),
+          provenance: "captured",
+          shouldPropose: true,
+        },
+      ],
+      schemaVersion: "tutorboard.smart-ink-extended-corpus/0.1",
+    };
+  }
   const positive =
     record.outcome === "proposed" && record.selectedCandidateKind !== null;
   const expectedKind = positive
@@ -125,7 +187,7 @@ export function smartInkDiagnosticFilename(capturedAt: string): string {
 }
 
 export function downloadSmartInkDiagnostic(
-  diagnostic: SmartInkDiagnosticExport,
+  diagnostic: SmartInkDiagnosticDownload,
   filename: string,
 ): void {
   const blob = new Blob([`${JSON.stringify(diagnostic, null, 2)}\n`], {

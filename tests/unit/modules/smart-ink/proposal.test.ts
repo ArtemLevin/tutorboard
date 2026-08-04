@@ -7,6 +7,7 @@ import {
 import {
   createSmartInkReplacementObject,
   proposeSmartInkReplacement,
+  type SmartInkArrowCandidate,
 } from "../../../../src/modules/smart-ink/public";
 import { type SmartInkCandidate } from "../../../../src/modules/smart-ink-spike/public";
 import { positiveStrokes } from "../smart-ink-spike/corpus-fixtures";
@@ -143,6 +144,23 @@ describe("Smart Ink board proposal", () => {
       "drawing.rectangle",
       "drawing.pen-stroke",
     ]);
+    const arrowCandidate: SmartInkArrowCandidate = {
+      confidence: 0.96,
+      diagnostics: {},
+      fitError: 0.04,
+      geometry: {
+        headLeft: { x: 70, y: 5 },
+        headRight: { x: 72, y: 35 },
+        kind: "arrow",
+        start: { x: 10, y: 20 },
+        tip: { x: 95, y: 20 },
+      },
+      kind: "arrow",
+    };
+    const arrow = createSmartInkReplacementObject(source, arrowCandidate);
+    expect(
+      arrow?.kind === "drawing.pen-stroke" ? arrow.points : undefined,
+    ).toHaveLength(5);
     const triangle = createSmartInkReplacementObject(source, cases[5]!);
     expect(
       triangle?.kind === "drawing.pen-stroke"

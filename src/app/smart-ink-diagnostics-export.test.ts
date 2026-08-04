@@ -83,4 +83,32 @@ describe("Smart Ink diagnostic export", () => {
       "smart-ink-diagnostic-2026-07-30T17-30-00-000Z.json",
     );
   });
+
+  it("exports extended arrow evidence without changing the v0.1 corpus", () => {
+    const exported = createSmartInkDiagnosticExport(
+      {
+        ...recognizedLine,
+        replacementKind: "drawing.pen-stroke",
+        selectedCandidateKind: "arrow",
+      },
+      {
+        browser: "chromium",
+        capturedAt: "2026-08-04T10:00:00.000Z",
+        durationMs: 360,
+        pointerType: "mouse",
+      },
+    );
+
+    expect(exported).toMatchObject({
+      captureDiagnostics: { selectedCandidateKind: "arrow" },
+      samples: [
+        {
+          acceptableKinds: ["arrow"],
+          expectedKind: "arrow",
+          shouldPropose: true,
+        },
+      ],
+      schemaVersion: "tutorboard.smart-ink-extended-corpus/0.1",
+    });
+  });
 });

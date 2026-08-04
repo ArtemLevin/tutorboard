@@ -20,7 +20,7 @@ export interface SmartInkDiagnosticRecord {
   readonly recognizer: SmartInkProposal;
   readonly replacementKind: BoardObjectKind | null;
   readonly schemaVersion: typeof smartInkDiagnosticSchemaVersion;
-  readonly selectedCandidateKind: SmartInkPrimitiveKind | null;
+  readonly selectedCandidateKind: SmartInkPrimitiveKind | "arrow" | null;
   readonly sourcePointCount: number;
 }
 

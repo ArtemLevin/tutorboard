@@ -16,6 +16,11 @@ import {
   smartInkDiagnosticSchemaVersion,
   type SmartInkDiagnosticReason,
 } from "./diagnostics";
+import {
+  recognizeSmartInkArrow,
+  type SmartInkArrowCandidate,
+  type SmartInkArrowProposal,
+} from "./arrow-recognizer";
 
 const minimumGeometrySize = 0.001;
 
@@ -38,8 +43,11 @@ const primitiveLabels: Readonly<Record<SmartInkPrimitiveKind, string>> = {
   triangle: "Треугольник",
 };
 
+export type SmartInkBoardCandidate = SmartInkArrowCandidate | SmartInkCandidate;
+
 export interface SmartInkBoardProposal {
-  readonly candidate: SmartInkCandidate;
+  readonly arrowRecognizer: SmartInkArrowProposal | null;
+  readonly candidate: SmartInkBoardCandidate;
   readonly label: string;
   readonly original: PenStrokeObject;
   readonly preview: BoardObject;
@@ -121,10 +129,39 @@ function base(
 
 export function createSmartInkReplacementObject(
   stroke: PenStrokeObject,
-  candidate: SmartInkCandidate,
+  candidate: SmartInkBoardCandidate,
 ): BoardObject | null {
   const geometry = candidate.geometry;
   switch (geometry.kind) {
+    case "arrow": {
+      const shaftLength = distance(geometry.start, geometry.tip);
+      if (shaftLength < minimumGeometrySize) {
+        return null;
+      }
+      return {
+        ...base(stroke, geometry.start),
+        kind: "drawing.pen-stroke",
+        points: [
+          { x: 0, y: 0 },
+          {
+            x: geometry.tip.x - geometry.start.x,
+            y: geometry.tip.y - geometry.start.y,
+          },
+          {
+            x: geometry.headLeft.x - geometry.start.x,
+            y: geometry.headLeft.y - geometry.start.y,
+          },
+          {
+            x: geometry.tip.x - geometry.start.x,
+            y: geometry.tip.y - geometry.start.y,
+          },
+          {
+            x: geometry.headRight.x - geometry.start.x,
+            y: geometry.headRight.y - geometry.start.y,
+          },
+        ],
+      };
+    }
     case "line": {
       const end = {
         x: geometry.end.x - geometry.start.x,
@@ -230,9 +267,14 @@ function selectCanvasCandidate(
 
 function diagnosticReason(
   recognizer: SmartInkProposal,
-  candidate: SmartInkCandidate | undefined,
+  candidate: SmartInkBoardCandidate | undefined,
   replacement: BoardObject | null,
 ): SmartInkDiagnosticReason {
+  if (candidate?.kind === "arrow") {
+    return replacement === null
+      ? "replacement-not-renderable"
+      : "proposal-created";
+  }
   if (recognizer.status === "ambiguous") {
     return "recognizer-ambiguous";
   }
@@ -253,7 +295,11 @@ export function proposeSmartInkReplacement(
     minimumConfidence: smartInkCanvasRecognitionPolicy.minimumConfidence,
     sampleCount: smartInkCanvasRecognitionPolicy.sampleCount,
   });
-  const candidate = selectCanvasCandidate(recognizer);
+  const primitiveCandidate = selectCanvasCandidate(recognizer);
+  const arrowRecognizer =
+    primitiveCandidate === undefined ? recognizeSmartInkArrow(points) : null;
+  const candidate =
+    primitiveCandidate ?? arrowRecognizer?.candidate ?? undefined;
   const replacement =
     candidate === undefined
       ? null
@@ -275,8 +321,12 @@ export function proposeSmartInkReplacement(
   }
   return {
     proposal: {
+      arrowRecognizer,
       candidate,
-      label: primitiveLabels[candidate.kind],
+      label:
+        candidate.kind === "arrow"
+          ? "Стрелка"
+          : primitiveLabels[candidate.kind],
       original: stroke,
       preview: {
         ...replacement,
