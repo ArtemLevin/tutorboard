@@ -87,6 +87,7 @@ import {
   createVertexConstructionCommand,
   inspectTextShapeFigure,
   inspectTextShapeVertex,
+  inspectTextShapeVertexNearPoint,
   resolveTextShape,
   suggestTextShapes,
   type TextShapeDefinition,
@@ -2401,7 +2402,13 @@ export function App({
       const vertex =
         sample.objectId === null
           ? null
-          : inspectTextShapeVertex(documentRef.current, sample.objectId);
+          : inspectTextShapeVertexNearPoint({
+              document: documentRef.current,
+              hitObjectId: sample.objectId,
+              maximumDistance: 18 / scene.viewport.zoom,
+              point: sample.point,
+              scene,
+            });
       if (sample.objectId !== null && !isSelectionToolId(activeTool)) {
         activateTool(selectionToolId);
       }
@@ -2424,7 +2431,7 @@ export function App({
         pointerId: sample.pointerId,
       });
     },
-    [activeTool, activateTool, applySelectionAction, document],
+    [activeTool, activateTool, applySelectionAction, document, scene],
   );
 
   const moveSelection = useCallback(
