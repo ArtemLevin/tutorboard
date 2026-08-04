@@ -144,21 +144,28 @@ function itemWorldPosition(item: BoardSceneReadModel["items"][number]): Vec2 {
 
 export function inspectTextShapeVertexNearPoint(input: {
   readonly document: BoardDocument;
-  readonly hitObjectId: BoardObjectId;
+  readonly hitObjectId: BoardObjectId | null;
   readonly maximumDistance: number;
   readonly point: Vec2;
   readonly scene: BoardSceneReadModel;
 }): TextShapeVertexContext | null {
-  const direct = inspectTextShapeVertex(input.document, input.hitObjectId);
+  const direct =
+    input.hitObjectId === null
+      ? null
+      : inspectTextShapeVertex(input.document, input.hitObjectId);
   if (direct !== null) return direct;
-  const groupId = input.document.objects[input.hitObjectId]?.groupId;
-  if (groupId === null || groupId === undefined) return null;
+  let groupId: GroupId | null = null;
+  if (input.hitObjectId !== null) {
+    const hitGroupId = input.document.objects[input.hitObjectId]?.groupId;
+    if (hitGroupId === null || hitGroupId === undefined) return null;
+    groupId = hitGroupId;
+  }
 
   let nearest:
     | { readonly context: TextShapeVertexContext; readonly distance: number }
     | undefined;
   for (const item of input.scene.items) {
-    if (item.object.groupId !== groupId) continue;
+    if (groupId !== null && item.object.groupId !== groupId) continue;
     const context = inspectTextShapeVertex(input.document, item.object.id);
     if (context === null) continue;
     const position = itemWorldPosition(item);
