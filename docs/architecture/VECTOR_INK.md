@@ -60,6 +60,8 @@ The release gate covers:
 - Chromium and Firefox production smoke;
 - production build, immutable container, read-only runtime, and security scanning.
 
+The combined coordinate-plot browser gate has a 30-minute execution budget because it installs both release browsers before running lifecycle and visual-regression checks.
+
 ## Invariants
 
 - Maximum 100,000 samples per stroke.
