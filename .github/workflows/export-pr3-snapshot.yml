@@ -1,0 +1,26 @@
+name: Export PR3 source snapshot
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Upload repository snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tutorboard-pr3-source
+          path: |
+            .
+            !.git
+          include-hidden-files: true
+          retention-days: 1
