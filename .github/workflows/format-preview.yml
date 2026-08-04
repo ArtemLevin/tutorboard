@@ -1,9 +1,7 @@
 name: Format preview
 
 on:
-  push:
-    branches:
-      - feature/ink-input-fidelity
+  pull_request:
 
 permissions:
   contents: read
