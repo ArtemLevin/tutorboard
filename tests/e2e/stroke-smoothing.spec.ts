@@ -113,7 +113,6 @@ test("consults the coalesced-event API during freehand input", async ({
   page,
 }) => {
   await page.addInitScript(() => {
-    const original = PointerEvent.prototype.getCoalescedEvents;
     Reflect.defineProperty(window, "__tutorboardCoalescedCalls", {
       configurable: true,
       value: 0,
@@ -121,13 +120,13 @@ test("consults the coalesced-event API during freehand input", async ({
     });
     Reflect.defineProperty(PointerEvent.prototype, "getCoalescedEvents", {
       configurable: true,
-      value(this: PointerEvent) {
+      value() {
         const current = Reflect.get(
           window,
           "__tutorboardCoalescedCalls",
         ) as number;
         Reflect.set(window, "__tutorboardCoalescedCalls", current + 1);
-        return typeof original === "function" ? original.call(this) : [];
+        return [];
       },
       writable: true,
     });
