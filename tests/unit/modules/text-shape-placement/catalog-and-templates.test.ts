@@ -261,6 +261,18 @@ describe("triangle vertex constructions", () => {
         scene: selectBoardScene(placed.document),
       })?.vertexName,
     ).toBe("A");
+    expect(
+      inspectTextShapeVertexNearPoint({
+        document: placed.document,
+        hitObjectId: null,
+        maximumDistance: 18,
+        point: {
+          x: vertexA.position.x + 100,
+          y: vertexA.position.y + 100,
+        },
+        scene: selectBoardScene(placed.document),
+      })?.vertexName,
+    ).toBe("A");
 
     for (const kind of context?.availableConstructions ?? []) {
       const command = createVertexConstructionCommand({
