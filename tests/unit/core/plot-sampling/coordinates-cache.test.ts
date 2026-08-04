@@ -49,6 +49,7 @@ describe("coordinate plot transforms, clipping and cache", () => {
     const cache = createPlotSamplingCache(2);
     const sample = {
       dataBounds: null,
+      fillPolygons: [],
       metrics: {
         breakCount: 0,
         clippedEdgeCount: 0,

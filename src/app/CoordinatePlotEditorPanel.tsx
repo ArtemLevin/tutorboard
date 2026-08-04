@@ -14,14 +14,17 @@ import { createPortal } from "react-dom";
 import {
   maximumCoordinatePlotParameters,
   maximumCoordinatePlotSeries,
+  parsePlotRelation,
   plotLegendPositions,
   plotLineStyles,
   type CoordinatePlotDefinition,
   type PlotParameter,
+  type RelationPlotSeries,
   type PlotSeries,
   type PlotSeriesId,
 } from "../core/public";
 import {
+  coordinatePlotSeriesInput,
   fitCoordinatePlotDefinition,
   removeCoordinatePlotParameter,
   removeCoordinatePlotSeries,
@@ -29,6 +32,7 @@ import {
   resetCoordinatePlotViewport,
   updateCoordinatePlotParameter,
   updateCoordinatePlotSeries,
+  updateCoordinatePlotSeriesInput,
   type CoordinatePlotEditorIssue,
 } from "../modules/coordinate-plot-editor/public";
 import "./CoordinatePlotEditorPanel.css";
@@ -70,13 +74,21 @@ const legendPositionLabels: Readonly<
   "top-right": "Сверху справа",
 };
 
+function relationSupportsFill(
+  series: PlotSeries,
+): series is RelationPlotSeries {
+  if (series.kind !== "relation") return false;
+  const relation = parsePlotRelation(series.expression);
+  return relation.ok && relation.operator !== "=";
+}
+
 export interface CoordinatePlotEditorPanelProps {
   readonly definition: CoordinatePlotDefinition;
   readonly dirty: boolean;
   readonly fallbackFocusRef?: RefObject<HTMLElement | null>;
   readonly issues: readonly CoordinatePlotEditorIssue[];
   readonly onAddParameter: (name?: string) => void;
-  readonly onAddSeries: (kind: PlotSeries["kind"]) => void;
+  readonly onAddSeries: (kind: PlotSeries["kind"], expression?: string) => void;
   readonly onClose: () => void;
   readonly onDefinitionChange: (definition: CoordinatePlotDefinition) => void;
   readonly onSave: () => boolean;
@@ -252,14 +264,27 @@ function insertionResult(
   readonly selectionEnd: number;
   readonly selectionStart: number;
 } {
-  const selected = source.slice(start, end);
+  let selectionStart = start;
+  let selectionEnd = end;
+  if (start === 0 && end === source.length && token !== "pi") {
+    const relation = parsePlotRelation(source);
+    if (
+      relation.ok &&
+      relation.operator === "=" &&
+      relation.leftSource.toLowerCase() === "y"
+    ) {
+      selectionStart = relation.rightStart;
+      selectionEnd = source.length;
+    }
+  }
+  const selected = source.slice(selectionStart, selectionEnd);
   if (token === "pi") {
     const next = `${source.slice(0, start)}pi${source.slice(end)}`;
     return { next, selectionEnd: start + 2, selectionStart: start + 2 };
   }
   const replacement = `${token}(${selected})`;
-  const next = `${source.slice(0, start)}${replacement}${source.slice(end)}`;
-  const argumentStart = start + token.length + 1;
+  const next = `${source.slice(0, selectionStart)}${replacement}${source.slice(selectionEnd)}`;
+  const argumentStart = selectionStart + token.length + 1;
   return {
     next,
     selectionEnd:
@@ -298,6 +323,8 @@ function ExpressionField({
   readonly source: string;
 }): ReactElement {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState(source);
   const unknownNames = unknownParameterNames(
     issues,
     field,
@@ -307,9 +334,11 @@ function ExpressionField({
 
   const insertToken = (token: QuickExpressionToken) => {
     const input = inputRef.current;
-    const start = input?.selectionStart ?? source.length;
+    const start = input?.selectionStart ?? draft.length;
     const end = input?.selectionEnd ?? start;
-    const result = insertionResult(source, start, end, token);
+    const result = insertionResult(draft, start, end, token);
+    setFocused(true);
+    setDraft(result.next);
     onSourceChange(result.next);
     queueMicrotask(() => {
       const current = inputRef.current;
@@ -327,11 +356,21 @@ function ExpressionField({
           aria-label={ariaLabel}
           data-plot-editor-initial-focus={initialFocus ? "true" : undefined}
           maxLength={2_000}
-          onChange={(event) => onSourceChange(event.currentTarget.value)}
+          onBlur={() => {
+            setFocused(false);
+          }}
+          onChange={(event) => {
+            setDraft(event.currentTarget.value);
+            onSourceChange(event.currentTarget.value);
+          }}
+          onFocus={() => {
+            setDraft(source);
+            setFocused(true);
+          }}
           placeholder={placeholder}
           ref={inputRef}
           spellCheck={false}
-          value={source}
+          value={focused ? draft : source}
         />
       </label>
       {showTools ? (
@@ -394,6 +433,10 @@ function FormulaSyntaxHelp(): ReactElement {
           Доступны <code>sin(x)</code>, <code>cos(x)</code>,{" "}
           <code>sqrt(x)</code>, <code>abs(x)</code> и константа <code>pi</code>.
         </p>
+        <p>
+          Выражение можно вводить целиком: <code>y=x^2</code>,{" "}
+          <code>x^2+y^2=25</code> или <code>y&gt;=x^2</code>.
+        </p>
         <p className="plot-radian-hint">
           Тригонометрические функции используют радианы: <code>pi</code>{" "}
           соответствует 180°.
@@ -423,6 +466,8 @@ function SeriesEditor({
     definition.parameters.length >= maximumCoordinatePlotParameters;
   const replace = (replacement: PlotSeries) =>
     onChange(updateCoordinatePlotSeries(definition, replacement));
+  const replaceSource = (source: string) =>
+    onChange(updateCoordinatePlotSeriesInput(definition, series.id, source));
 
   return (
     <div className="plot-series-editor" data-series-kind={series.kind}>
@@ -453,6 +498,7 @@ function SeriesEditor({
           >
             <option value="explicit">Явная: y = f(x)</option>
             <option value="parametric">Параметрическая: x(t), y(t)</option>
+            <option value="relation">Уравнение или неравенство</option>
           </select>
         </label>
       </div>
@@ -462,18 +508,18 @@ function SeriesEditor({
       {series.kind === "explicit" ? (
         <>
           <ExpressionField
-            ariaLabel="Формула явной функции"
+            ariaLabel="Математическое выражение серии"
             existingParameterNames={parameterNames}
             field={`${prefix}.expression`}
             initialFocus
             issueId={`plot-series-${index}-expression-issues`}
             issues={issues}
-            label="Формула y ="
+            label="Математическое выражение"
             onCreateParameter={onCreateParameter}
-            onSourceChange={(expression) => replace({ ...series, expression })}
+            onSourceChange={replaceSource}
             parameterLimitReached={parameterLimitReached}
             showTools
-            source={series.expression}
+            source={coordinatePlotSeriesInput(series)}
           />
           <div className="plot-editor-grid two-columns">
             <ExpressionField
@@ -520,7 +566,7 @@ function SeriesEditor({
             />
           </div>
         </>
-      ) : (
+      ) : series.kind === "parametric" ? (
         <>
           <ExpressionField
             ariaLabel="Параметрическая формула x"
@@ -599,6 +645,50 @@ function SeriesEditor({
             />
             Соединить начало и конец кривой
           </label>
+        </>
+      ) : (
+        <>
+          <ExpressionField
+            ariaLabel="Математическое выражение серии"
+            existingParameterNames={parameterNames}
+            field={`${prefix}.expression`}
+            initialFocus
+            issueId={`plot-series-${index}-relation-issues`}
+            issues={issues}
+            label="Математическое выражение"
+            onCreateParameter={onCreateParameter}
+            onSourceChange={replaceSource}
+            parameterLimitReached={parameterLimitReached}
+            placeholder="x^2+y^2=25 или y>=x^2"
+            showTools
+            source={series.expression}
+          />
+          {relationSupportsFill(series) ? (
+            <label className="plot-editor-check plot-fill-opacity-control">
+              Интенсивность заливки решения
+              <input
+                aria-label="Интенсивность заливки решения"
+                max="0.5"
+                min="0"
+                onChange={(event) =>
+                  replace({
+                    ...series,
+                    fillOpacity: numberValue(
+                      event.currentTarget.value,
+                      series.fillOpacity,
+                    ),
+                  })
+                }
+                step="0.02"
+                type="range"
+                value={series.fillOpacity}
+              />
+            </label>
+          ) : null}
+          <p className="plot-editor-hint">
+            Для неравенств область решения закрашивается, граница строится
+            линией. Уравнения отображаются как замкнутые или открытые кривые.
+          </p>
         </>
       )}
 
@@ -854,7 +944,7 @@ function FunctionsTab({
       <div className="plot-editor-section-card">
         <div className="plot-editor-section-heading">
           <div>
-            <strong>Функции и кривые</strong>
+            <strong>Графики, кривые и области</strong>
             <span>{definition.series.length} серий</span>
           </div>
           <div className="plot-editor-actions compact">
@@ -871,6 +961,13 @@ function FunctionsTab({
               type="button"
             >
               + Параметрическая кривая
+            </button>
+            <button
+              disabled={definition.series.length >= maximumCoordinatePlotSeries}
+              onClick={() => onAddSeries("relation")}
+              type="button"
+            >
+              + Уравнение / неравенство
             </button>
           </div>
         </div>
@@ -1475,15 +1572,7 @@ export function CoordinatePlotEditorPanel({
     definition.series.find(({ id }) => id === selectedSeriesId) ??
     definition.series[0] ??
     null;
-  const basicSeries: Extract<PlotSeries, { readonly kind: "explicit" }> | null =
-    selectedSeries?.kind === "explicit"
-      ? selectedSeries
-      : (definition.series.find(
-          (
-            series,
-          ): series is Extract<PlotSeries, { readonly kind: "explicit" }> =>
-            series.kind === "explicit",
-        ) ?? null);
+  const basicSeries = selectedSeries;
   const basicSeriesIndex =
     basicSeries === null
       ? -1
@@ -1503,7 +1592,6 @@ export function CoordinatePlotEditorPanel({
   const blockingIssues = issues.filter(({ blocking }) => blocking);
   const expressionIssues = issues.filter(({ blocking }) => !blocking);
   const canSave = dirty && !readOnly && blockingIssues.length === 0;
-  const additionalSeries = Math.max(0, definition.series.length - 1);
   const additionalParameters = Math.max(0, definition.parameters.length - 1);
 
   const focusBasic = useCallback((preferred: HTMLElement | null = null) => {
@@ -1730,27 +1818,116 @@ export function CoordinatePlotEditorPanel({
             >
               <div className="plot-basic-card-heading">
                 <div>
-                  <strong id={`${editorId}-formula-title`}>Формула</strong>
-                  <span>Основной график</span>
+                  <strong id={`${editorId}-formula-title`}>Графики</strong>
+                  <span>{definition.series.length} на одной плоскости</span>
                 </div>
-                {basicSeries === null ? null : (
-                  <span className="plot-basic-series-name">
-                    {basicSeries.name || "Без названия"}
-                  </span>
-                )}
+                <div className="plot-basic-add-series-actions">
+                  <button
+                    disabled={
+                      definition.series.length >= maximumCoordinatePlotSeries
+                    }
+                    onClick={() => onAddSeries("explicit", "y=x")}
+                    type="button"
+                  >
+                    + График
+                  </button>
+                  <button
+                    disabled={
+                      definition.series.length >= maximumCoordinatePlotSeries
+                    }
+                    onClick={() => onAddSeries("relation", "x^2+y^2=25")}
+                    type="button"
+                  >
+                    + Окружность
+                  </button>
+                  <button
+                    disabled={
+                      definition.series.length >= maximumCoordinatePlotSeries
+                    }
+                    onClick={() => onAddSeries("relation", "y>=x^2")}
+                    type="button"
+                  >
+                    + Неравенство
+                  </button>
+                </div>
               </div>
+              {definition.series.length === 0 ? null : (
+                <ol
+                  aria-label="Графики на координатной плоскости"
+                  className="plot-basic-series-list"
+                >
+                  {definition.series.map((series) => (
+                    <li
+                      className={
+                        series.id === basicSeries?.id ? "is-selected" : ""
+                      }
+                      key={series.id}
+                    >
+                      <input
+                        aria-label={`Показывать ${series.name}`}
+                        checked={series.visible}
+                        onChange={(event) =>
+                          onDefinitionChange(
+                            updateCoordinatePlotSeries(definition, {
+                              ...series,
+                              visible: event.currentTarget.checked,
+                            }),
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      <button
+                        aria-pressed={series.id === basicSeries?.id}
+                        className="plot-basic-series-select"
+                        onClick={() => onSelectedSeriesChange(series.id)}
+                        type="button"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="plot-basic-series-color"
+                          style={{ backgroundColor: series.style.stroke }}
+                        />
+                        {series.name || "Без названия"}
+                      </button>
+                      <button
+                        aria-label={`Удалить серию ${series.name}`}
+                        onClick={() => {
+                          const next = removeCoordinatePlotSeries(
+                            definition,
+                            series.id,
+                          );
+                          onDefinitionChange(next);
+                          if (series.id === basicSeries?.id) {
+                            onSelectedSeriesChange(next.series[0]?.id ?? null);
+                          }
+                        }}
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              )}
               {basicSeries === null ? (
                 <div className="plot-editor-empty-state plot-basic-empty-state">
-                  <strong>Используется сложный тип кривой</strong>
+                  <strong>Добавьте первый график</strong>
                   <span>
-                    Параметрические кривые и наборы без явной функции доступны в
+                    На одной координатной плоскости доступно до 32 серий.
+                  </span>
+                </div>
+              ) : basicSeries.kind === "parametric" ? (
+                <div className="plot-editor-empty-state plot-basic-empty-state">
+                  <strong>Параметрическая кривая</strong>
+                  <span>
+                    Координаты x(t), y(t) и диапазон параметра доступны в
                     расширенных настройках.
                   </span>
                 </div>
               ) : (
                 <>
                   <ExpressionField
-                    ariaLabel="Формула явной функции"
+                    ariaLabel="Математическое выражение графика"
                     existingParameterNames={definition.parameters.map(
                       ({ name }) => name,
                     )}
@@ -1758,25 +1935,53 @@ export function CoordinatePlotEditorPanel({
                     initialFocus
                     issueId={`${editorId}-basic-formula-issues`}
                     issues={issues}
-                    label="f(x) ="
+                    label="Математическое выражение"
                     onCreateParameter={createBasicParameterFromFormula}
                     onSourceChange={(expression) =>
                       onDefinitionChange(
-                        updateCoordinatePlotSeries(definition, {
-                          ...basicSeries,
+                        updateCoordinatePlotSeriesInput(
+                          definition,
+                          basicSeries.id,
                           expression,
-                        }),
+                        ),
                       )
                     }
                     parameterLimitReached={
                       definition.parameters.length >=
                       maximumCoordinatePlotParameters
                     }
-                    source={basicSeries.expression}
+                    placeholder="y=x^2, x^2+y^2=25 или y>=x^2"
+                    showTools
+                    source={coordinatePlotSeriesInput(basicSeries)}
                   />
                   <p className="plot-editor-hint plot-basic-example">
-                    Пример: <code>2*x+a</code>
+                    Введите выражение целиком. Поддерживаются функции,
+                    уравнения, неравенства и параметры.
                   </p>
+                  {relationSupportsFill(basicSeries) ? (
+                    <label className="plot-basic-fill-control">
+                      <span>Заливка области решения</span>
+                      <input
+                        aria-label="Заливка области решения"
+                        max="0.5"
+                        min="0"
+                        onChange={(event) =>
+                          onDefinitionChange(
+                            updateCoordinatePlotSeries(definition, {
+                              ...basicSeries,
+                              fillOpacity: numberValue(
+                                event.currentTarget.value,
+                                basicSeries.fillOpacity,
+                              ),
+                            }),
+                          )
+                        }
+                        step="0.02"
+                        type="range"
+                        value={basicSeries.fillOpacity}
+                      />
+                    </label>
+                  ) : null}
                 </>
               )}
             </section>
@@ -1861,10 +2066,10 @@ export function CoordinatePlotEditorPanel({
               )}
             </section>
 
-            {additionalSeries === 0 && additionalParameters === 0 ? null : (
+            {additionalParameters === 0 ? null : (
               <p className="plot-basic-complexity-summary">
-                Дополнительно: {additionalSeries} серий и {additionalParameters}{" "}
-                параметров. Полный список доступен в расширенных настройках.
+                Дополнительно: {additionalParameters} параметров. Полный список
+                доступен в расширенных настройках.
               </p>
             )}
 

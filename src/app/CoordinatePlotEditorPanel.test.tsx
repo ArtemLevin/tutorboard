@@ -74,7 +74,9 @@ describe("CoordinatePlotEditorPanel", () => {
   it("shows a compact formula and primary parameter before advanced settings", () => {
     render(<PanelHarness />);
 
-    expect(screen.getByLabelText("Формула явной функции")).toHaveValue("2*x+a");
+    expect(
+      screen.getByLabelText("Математическое выражение графика"),
+    ).toHaveValue("y = 2*x+a");
     expect(screen.getByLabelText("Ползунок параметра a")).toBeInTheDocument();
     expect(
       screen.queryByRole("dialog", { name: "Расширенные настройки графика" }),
@@ -95,7 +97,9 @@ describe("CoordinatePlotEditorPanel", () => {
       screen.getByRole("button", { name: "К базовым настройкам" }),
     );
     expect(advanced).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Формула явной функции")).toHaveValue("2*x+a");
+    expect(
+      screen.getByLabelText("Математическое выражение графика"),
+    ).toHaveValue("y = 2*x+a");
   });
 
   it("edits the selected formula and surfaces local diagnostics", () => {
@@ -133,9 +137,12 @@ describe("CoordinatePlotEditorPanel", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Unknown identifier q.")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Формула явной функции"), {
-      target: { value: "sin(x)" },
-    });
+    fireEvent.change(
+      screen.getByLabelText("Математическое выражение графика"),
+      {
+        target: { value: "y=sin(x)" },
+      },
+    );
 
     expect(onDefinitionChange).toHaveBeenCalledTimes(1);
     const changedDefinition = onDefinitionChange.mock.calls[0]?.[0];
@@ -172,12 +179,48 @@ describe("CoordinatePlotEditorPanel", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "+ Параметрическая кривая" }),
     );
+    fireEvent.click(
+      screen.getByRole("button", { name: "+ Уравнение / неравенство" }),
+    );
     fireEvent.click(screen.getByRole("tab", { name: "Параметры (1)" }));
     fireEvent.click(screen.getByRole("button", { name: "Добавить параметр" }));
 
-    expect(onAddSeries.mock.calls).toEqual([["explicit"], ["parametric"]]);
+    expect(onAddSeries.mock.calls).toEqual([
+      ["explicit"],
+      ["parametric"],
+      ["relation"],
+    ]);
     expect(onAddParameter).toHaveBeenCalledWith();
     expect(screen.getByRole("button", { name: "Сохранить" })).toBeDisabled();
+  });
+
+  it("offers common additional graph types in basic settings", () => {
+    const onAddSeries = vi.fn();
+    render(
+      <CoordinatePlotEditorPanel
+        definition={createDefinition()}
+        dirty={false}
+        issues={[]}
+        onAddParameter={vi.fn()}
+        onAddSeries={onAddSeries}
+        onClose={vi.fn()}
+        onDefinitionChange={vi.fn()}
+        onSave={vi.fn(() => false)}
+        onSelectedSeriesChange={vi.fn()}
+        readOnly={false}
+        selectedSeriesId={plotSeriesId("panel-series")}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "+ График" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Окружность" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Неравенство" }));
+
+    expect(onAddSeries.mock.calls).toEqual([
+      ["explicit", "y=x"],
+      ["relation", "x^2+y^2=25"],
+      ["relation", "y>=x^2"],
+    ]);
   });
 
   it("supports WAI-ARIA tabs and localized enum values", async () => {
@@ -234,13 +277,13 @@ describe("CoordinatePlotEditorPanel", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Расширенные настройки/ }),
     );
-    const formula = inputByLabel("Формула явной функции");
-    fireEvent.change(formula, { target: { value: "x+1" } });
+    const formula = inputByLabel("Математическое выражение серии");
     formula.focus();
-    formula.setSelectionRange(0, 1);
+    fireEvent.change(formula, { target: { value: "y=x+1" } });
+    formula.setSelectionRange(2, 3);
     fireEvent.click(screen.getByRole("button", { name: "Вставить sin" }));
 
-    await waitFor(() => expect(formula).toHaveValue("sin(x)+1"));
+    await waitFor(() => expect(formula).toHaveValue("y=sin(x)+1"));
     expect(formula).toHaveFocus();
     expect(
       screen.getByText(/Тригонометрические функции используют радианы/),
@@ -248,7 +291,13 @@ describe("CoordinatePlotEditorPanel", () => {
 
     formula.setSelectionRange(formula.value.length, formula.value.length);
     fireEvent.click(screen.getByRole("button", { name: "Вставить pi" }));
-    await waitFor(() => expect(formula).toHaveValue("sin(x)+1pi"));
+    await waitFor(() => expect(formula).toHaveValue("y = sin(x)+1pi"));
+
+    formula.focus();
+    fireEvent.change(formula, { target: { value: "y=x" } });
+    formula.setSelectionRange(0, formula.value.length);
+    fireEvent.click(screen.getByRole("button", { name: "Вставить sin" }));
+    await waitFor(() => expect(formula).toHaveValue("y=sin(x)"));
   });
 
   it("creates an unknown parameter, opens its tab and focuses its name", async () => {
@@ -269,7 +318,9 @@ describe("CoordinatePlotEditorPanel", () => {
       screen.getByRole("button", { name: /Расширенные настройки/ }),
     );
     await waitFor(() =>
-      expect(screen.getByLabelText("Формула явной функции")).toHaveFocus(),
+      expect(
+        screen.getByLabelText("Математическое выражение серии"),
+      ).toHaveFocus(),
     );
     fireEvent.click(
       screen.getByRole("button", { name: "Создать параметр «q»" }),

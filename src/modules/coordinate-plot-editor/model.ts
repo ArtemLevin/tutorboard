@@ -4,6 +4,7 @@ import {
   evaluatePlotExpression,
   maximumCoordinatePlotParameters,
   maximumCoordinatePlotSeries,
+  parsePlotRelation,
   sampleCoordinatePlotDefinition,
   validateCoordinatePlotDefinition,
   validatePlotParameterName,
@@ -18,6 +19,7 @@ import {
   type PlotParameterId,
   type PlotSeries,
   type PlotSeriesId,
+  type RelationPlotSeries,
   type Vec2,
 } from "../../core/public";
 
@@ -102,6 +104,26 @@ export function createParametricPlotSeries(
   };
 }
 
+export function createRelationPlotSeries(
+  id: PlotSeriesId,
+  index: number,
+): RelationPlotSeries {
+  return {
+    expression: "x^2+y^2=25",
+    fillOpacity: 0.16,
+    id,
+    kind: "relation",
+    name: `Уравнение ${index + 1}`,
+    style: {
+      lineStyle: "solid",
+      opacity: 1,
+      stroke: seriesColor(index),
+      strokeWidth: 3,
+    },
+    visible: true,
+  };
+}
+
 export function createDefaultCoordinatePlotObject(input: {
   readonly center: Vec2;
   readonly ids: CoordinatePlotIdFactory;
@@ -174,7 +196,9 @@ export function addCoordinatePlotSeries(
   const series =
     kind === "explicit"
       ? createExplicitPlotSeries(id, index)
-      : createParametricPlotSeries(id, index);
+      : kind === "parametric"
+        ? createParametricPlotSeries(id, index)
+        : createRelationPlotSeries(id, index);
   return { ...definition, series: [...definition.series, series] };
 }
 
@@ -189,7 +213,9 @@ export function replaceCoordinatePlotSeriesKind(
   const replacement =
     kind === "explicit"
       ? createExplicitPlotSeries(seriesId, index)
-      : createParametricPlotSeries(seriesId, index);
+      : kind === "parametric"
+        ? createParametricPlotSeries(seriesId, index)
+        : createRelationPlotSeries(seriesId, index);
   const series = [...definition.series];
   series[index] = {
     ...replacement,
@@ -210,6 +236,65 @@ export function updateCoordinatePlotSeries(
   const series = [...definition.series];
   series[index] = replacement;
   return { ...definition, series };
+}
+
+export function coordinatePlotSeriesInput(series: PlotSeries): string {
+  if (series.kind === "explicit") return `y = ${series.expression}`;
+  if (series.kind === "relation") return series.expression;
+  return `x(t) = ${series.xExpression}; y(t) = ${series.yExpression}`;
+}
+
+export function updateCoordinatePlotSeriesInput(
+  definition: CoordinatePlotDefinition,
+  seriesId: PlotSeriesId,
+  source: string,
+): CoordinatePlotDefinition {
+  const index = definition.series.findIndex(({ id }) => id === seriesId);
+  if (index < 0) return definition;
+  const current = definition.series[index]!;
+  if (current.kind === "parametric") return definition;
+  const relation = parsePlotRelation(source);
+  const explicitPrefix = /^\s*y\s*=\s*/iu.exec(source);
+  let replacement: PlotSeries;
+  if (
+    relation.ok &&
+    relation.operator === "=" &&
+    relation.leftSource.toLowerCase() === "y"
+  ) {
+    replacement = {
+      ...createExplicitPlotSeries(current.id, index),
+      expression: relation.rightSource,
+      name: current.name,
+      style: current.style,
+      visible: current.visible,
+    };
+  } else if (explicitPrefix !== null) {
+    replacement = {
+      ...createExplicitPlotSeries(current.id, index),
+      expression: source.slice(explicitPrefix[0].length),
+      name: current.name,
+      style: current.style,
+      visible: current.visible,
+    };
+  } else if (relation.ok || /[=<>≤≥]/u.test(source)) {
+    replacement = {
+      ...createRelationPlotSeries(current.id, index),
+      expression: source,
+      fillOpacity: current.kind === "relation" ? current.fillOpacity : 0.16,
+      name: current.name,
+      style: current.style,
+      visible: current.visible,
+    };
+  } else {
+    replacement = {
+      ...createExplicitPlotSeries(current.id, index),
+      expression: source,
+      name: current.name,
+      style: current.style,
+      visible: current.visible,
+    };
+  }
+  return updateCoordinatePlotSeries(definition, replacement);
 }
 
 export function removeCoordinatePlotSeries(
@@ -310,6 +395,48 @@ function expressionIssue(
   }));
 }
 
+function relationExpressionIssues(
+  field: string,
+  source: string,
+  parameterNames: readonly string[],
+): readonly CoordinatePlotEditorIssue[] {
+  const relation = parsePlotRelation(source);
+  if (!relation.ok) {
+    return [
+      {
+        blocking: false,
+        code: "expression.invalid-relation",
+        end: relation.end,
+        field,
+        message: relation.message,
+        start: relation.start,
+      },
+    ];
+  }
+  return [
+    ...expressionIssue(
+      field,
+      relation.leftSource,
+      "relation-side",
+      parameterNames,
+    ).map((issue) => ({
+      ...issue,
+      end: issue.end === null ? null : issue.end + relation.leftStart,
+      start: issue.start === null ? null : issue.start + relation.leftStart,
+    })),
+    ...expressionIssue(
+      field,
+      relation.rightSource,
+      "relation-side",
+      parameterNames,
+    ).map((issue) => ({
+      ...issue,
+      end: issue.end === null ? null : issue.end + relation.rightStart,
+      start: issue.start === null ? null : issue.start + relation.rightStart,
+    })),
+  ];
+}
+
 export function validateCoordinatePlotEditorDefinition(
   definition: CoordinatePlotDefinition,
 ): readonly CoordinatePlotEditorIssue[] {
@@ -333,7 +460,11 @@ export function validateCoordinatePlotEditorDefinition(
           series.expression,
           "explicit-function",
           parameterNames,
-        ),
+        ).map((issue) => ({
+          ...issue,
+          end: issue.end === null ? null : issue.end + 4,
+          start: issue.start === null ? null : issue.start + 4,
+        })),
         ...(series.domain.minExpression === null
           ? []
           : expressionIssue(
@@ -352,32 +483,39 @@ export function validateCoordinatePlotEditorDefinition(
             )),
       ];
     }
-    return [
-      ...expressionIssue(
-        `${prefix}.xExpression`,
-        series.xExpression,
-        "parametric-x",
-        parameterNames,
-      ),
-      ...expressionIssue(
-        `${prefix}.yExpression`,
-        series.yExpression,
-        "parametric-y",
-        parameterNames,
-      ),
-      ...expressionIssue(
-        `${prefix}.range.minExpression`,
-        series.range.minExpression,
-        "parametric-range",
-        parameterNames,
-      ),
-      ...expressionIssue(
-        `${prefix}.range.maxExpression`,
-        series.range.maxExpression,
-        "parametric-range",
-        parameterNames,
-      ),
-    ];
+    if (series.kind === "parametric") {
+      return [
+        ...expressionIssue(
+          `${prefix}.xExpression`,
+          series.xExpression,
+          "parametric-x",
+          parameterNames,
+        ),
+        ...expressionIssue(
+          `${prefix}.yExpression`,
+          series.yExpression,
+          "parametric-y",
+          parameterNames,
+        ),
+        ...expressionIssue(
+          `${prefix}.range.minExpression`,
+          series.range.minExpression,
+          "parametric-range",
+          parameterNames,
+        ),
+        ...expressionIssue(
+          `${prefix}.range.maxExpression`,
+          series.range.maxExpression,
+          "parametric-range",
+          parameterNames,
+        ),
+      ];
+    }
+    return relationExpressionIssues(
+      `${prefix}.expression`,
+      series.expression,
+      parameterNames,
+    );
   });
   return [...structural, ...expressions];
 }

@@ -835,6 +835,34 @@ export function CoordinatePlotRenderer({
         ) : null}
         {visibleSeries.flatMap((series) => {
           const result = resultBySeriesId.get(series.id);
+          if (
+            series.kind !== "relation" ||
+            result?.sample === null ||
+            result?.sample === undefined
+          ) {
+            return [];
+          }
+          const selected = highlightedSeriesId === series.id;
+          return result.sample.fillPolygons.map((polygon, polygonIndex) => (
+            <Line
+              closed
+              fill={series.style.stroke}
+              key={`${series.id}-fill-${polygonIndex}`}
+              listening={false}
+              opacity={Math.min(
+                1,
+                series.fillOpacity *
+                  seriesOpacity(series, highlightedSeriesId) *
+                  (selected ? 1.2 : 1),
+              )}
+              perfectDrawEnabled={false}
+              points={[...flattenPlotSegment(polygon)]}
+              strokeEnabled={false}
+            />
+          ));
+        })}
+        {visibleSeries.flatMap((series) => {
+          const result = resultBySeriesId.get(series.id);
           if (result?.sample === null || result?.sample === undefined)
             return [];
           const selected = highlightedSeriesId === series.id;

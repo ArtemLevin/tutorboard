@@ -23,7 +23,11 @@ export {
   maximumSamplingCacheEntries,
   maximumSamplingEvaluationsPerSeries,
 } from "./limits";
-export { sampleExplicitSeries, sampleParametricSeries } from "./safe-sampler";
+export {
+  sampleExplicitSeries,
+  sampleParametricSeries,
+  sampleRelationSeries,
+} from "./safe-sampler";
 export {
   plotSamplingDiagnosticCodes,
   type CoordinatePlotSamplingInput,
@@ -33,6 +37,7 @@ export {
   type CoordinatePlotSeriesSamplingStatus,
   type ExplicitPlotSamplingInput,
   type ParametricPlotSamplingInput,
+  type RelationPlotSamplingInput,
   type PlotDataBounds,
   type PlotSamplingAbortSignal,
   type PlotSamplingCache,

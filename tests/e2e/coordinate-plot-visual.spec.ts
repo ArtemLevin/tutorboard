@@ -32,7 +32,9 @@ test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
     name: "Редактор координатной плоскости",
   });
   await expect(editor).toBeVisible();
-  await expect(editor.getByLabel("Формула явной функции")).toHaveValue("2*x+a");
+  await expect(
+    editor.getByLabel("Математическое выражение графика"),
+  ).toHaveValue("y = 2*x+a");
   await expect(editor.getByLabel("Ползунок параметра a")).toBeVisible();
   await expect(
     page.getByRole("toolbar", { name: "Навигация координатной плоскости" }),

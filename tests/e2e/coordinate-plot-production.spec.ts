@@ -59,7 +59,9 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     name: "Редактор координатной плоскости",
   });
   await expect(editor).toBeVisible();
-  await expect(editor.getByLabel("Формула явной функции")).toHaveValue("2*x+a");
+  await expect(
+    editor.getByLabel("Математическое выражение графика"),
+  ).toHaveValue("y = 2*x+a");
   await expect(editor.getByLabel("Ползунок параметра a")).toBeVisible();
   await expect(
     page.getByRole("dialog", { name: "Расширенные настройки графика" }),
@@ -205,11 +207,13 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     advancedEditor.getByText(/Тригонометрические функции используют радианы/),
   ).toBeVisible();
 
-  const firstFormula = advancedEditor.getByLabel("Формула явной функции");
-  await firstFormula.fill("x");
+  const firstFormula = advancedEditor.getByLabel(
+    "Математическое выражение серии",
+  );
+  await firstFormula.fill("y=x");
   await firstFormula.selectText();
   await advancedEditor.getByRole("button", { name: "Вставить sin" }).click();
-  await expect(firstFormula).toHaveValue("sin(x)");
+  await expect(firstFormula).toHaveValue("y=sin(x)");
 
   await firstFormula.fill("b*x^2");
   await advancedEditor
@@ -234,7 +238,9 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   );
 
   await advancedEditor.getByRole("button", { name: "+ Явная функция" }).click();
-  await advancedEditor.getByLabel("Формула явной функции").fill("2*x+1");
+  await advancedEditor
+    .getByLabel("Математическое выражение серии")
+    .fill("y=2*x+1");
 
   await advancedEditor
     .getByRole("button", { name: "+ Параметрическая кривая" })
@@ -283,7 +289,9 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     .click();
   await openCoordinatePlotEditorByRightDoubleClick(page);
   await expect(editor).toBeVisible();
-  await expect(editor.getByLabel("Формула явной функции")).toHaveValue("b*x^2");
+  await expect(
+    editor.getByLabel("Математическое выражение графика"),
+  ).toHaveValue("y = b*x^2");
   await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
   await expect(advancedEditor).toBeVisible();
   await expect(

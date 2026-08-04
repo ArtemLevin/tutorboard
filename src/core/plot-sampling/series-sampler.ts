@@ -7,9 +7,14 @@ import {
   cacheKey,
   compileExplicit,
   compileParametric,
+  compileRelation,
   diagnostic,
 } from "./preparation";
-import { sampleExplicitSeries, sampleParametricSeries } from "./safe-sampler";
+import {
+  sampleExplicitSeries,
+  sampleParametricSeries,
+  sampleRelationSeries,
+} from "./safe-sampler";
 import type {
   CoordinatePlotSamplingInput,
   CoordinatePlotSeriesSamplingResult,
@@ -21,6 +26,7 @@ import type {
 export function emptySample(): SampledPlotSeries {
   return {
     dataBounds: null,
+    fillPolygons: [],
     metrics: {
       breakCount: 0,
       clippedEdgeCount: 0,
@@ -55,10 +61,17 @@ export function truncateSample(
       remaining -= take;
     }
   }
+  const fillPolygons: Vec2[][] = [];
+  for (const polygon of sample.fillPolygons) {
+    if (polygon.length > remaining) break;
+    fillPolygons.push([...polygon]);
+    remaining -= polygon.length;
+  }
   const pointCount = pointLimit - remaining;
   return {
     ...sample,
     metrics: { ...sample.metrics, pointCount },
+    fillPolygons,
     segments,
     stopReason: "point-limit",
     truncated: true,
@@ -77,7 +90,9 @@ export function resultStatus(
     return "invalid";
   }
   if (sample.truncated) return "truncated";
-  return sample.segments.length === 0 ? "empty" : "sampled";
+  return sample.segments.length === 0 && sample.fillPolygons.length === 0
+    ? "empty"
+    : "sampled";
 }
 
 export function sampleSeries(input: {
@@ -97,19 +112,27 @@ export function sampleSeries(input: {
       readonly ok: true;
       readonly sample: SampledPlotSeries;
     } {
-  const compiled =
-    input.series.kind === "explicit"
-      ? compileExplicit({
-          bindings: input.bindings,
-          definition: input.definition,
-          parameterNames: input.parameterNames,
-          series: input.series,
-        })
-      : compileParametric({
-          bindings: input.bindings,
-          parameterNames: input.parameterNames,
-          series: input.series,
-        });
+  const compiled = (() => {
+    if (input.series.kind === "explicit") {
+      return compileExplicit({
+        bindings: input.bindings,
+        definition: input.definition,
+        parameterNames: input.parameterNames,
+        series: input.series,
+      });
+    }
+    if (input.series.kind === "parametric") {
+      return compileParametric({
+        bindings: input.bindings,
+        parameterNames: input.parameterNames,
+        series: input.series,
+      });
+    }
+    return compileRelation({
+      parameterNames: input.parameterNames,
+      series: input.series,
+    });
+  })();
   if (!compiled.ok) return compiled;
 
   const key = cacheKey({
@@ -149,7 +172,14 @@ export function sampleSeries(input: {
             xExpression: compiled.xExpression,
             yExpression: compiled.yExpression,
           })
-        : null;
+        : input.series.kind === "relation" && "leftExpression" in compiled
+          ? sampleRelationSeries({
+              ...common,
+              leftExpression: compiled.leftExpression,
+              operator: compiled.operator,
+              rightExpression: compiled.rightExpression,
+            })
+          : null;
   if (sample === null) {
     return {
       diagnostics: [

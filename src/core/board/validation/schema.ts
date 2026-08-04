@@ -235,6 +235,17 @@ const parametricPlotSeriesSchema = z
     yExpression: plotExpressionSchema,
   })
   .strict();
+const relationPlotSeriesSchema = z
+  .object({
+    expression: plotExpressionSchema,
+    fillOpacity: finiteNumberSchema.min(0).max(1),
+    id: plotSeriesIdSchema,
+    kind: z.literal("relation"),
+    name: z.string().min(1).max(128),
+    style: plotSeriesStyleSchema,
+    visible: z.boolean(),
+  })
+  .strict();
 const plotParameterSchema = z
   .object({
     id: plotParameterIdSchema,
@@ -291,6 +302,7 @@ const coordinatePlotDefinitionSchema = z
         z.discriminatedUnion("kind", [
           explicitPlotSeriesSchema,
           parametricPlotSeriesSchema,
+          relationPlotSeriesSchema,
         ]),
       )
       .max(maximumCoordinatePlotSeries),

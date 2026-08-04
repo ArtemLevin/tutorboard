@@ -10,6 +10,13 @@ export { compilePlotExpression } from "./compiler";
 export { evaluatePlotExpression } from "./evaluator";
 export { normalizePlotExpression } from "./normalization";
 export {
+  parsePlotRelation,
+  plotRelationIsInequality,
+  plotRelationOperators,
+  type ParsePlotRelationResult,
+  type PlotRelationOperator,
+} from "./relation";
+export {
   expressionDiagnosticCodes,
   plotExpressionContexts,
   type CompiledPlotExpression,

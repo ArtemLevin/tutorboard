@@ -11,6 +11,7 @@ import {
   createDefaultCoordinatePlotObject,
   fitCoordinatePlotDefinition,
   replaceCoordinatePlotSeriesKind,
+  updateCoordinatePlotSeriesInput,
   validateCoordinatePlotEditorDefinition,
 } from "../../../../src/modules/coordinate-plot-editor/public";
 
@@ -137,6 +138,41 @@ describe("coordinate plot editor model", () => {
       name: original.name,
       style: original.style,
     });
+  });
+
+  it("accepts complete functions, equations and inequalities", () => {
+    const plot = createPlot();
+    const seriesId = plot.definition.series[0]!.id;
+    const circle = updateCoordinatePlotSeriesInput(
+      plot.definition,
+      seriesId,
+      "x^2+y^2=25",
+    );
+    const inequality = updateCoordinatePlotSeriesInput(
+      circle,
+      seriesId,
+      "y>=x^2",
+    );
+    const explicit = updateCoordinatePlotSeriesInput(
+      inequality,
+      seriesId,
+      "y = sin(x)",
+    );
+
+    expect(circle.series[0]).toMatchObject({
+      expression: "x^2+y^2=25",
+      kind: "relation",
+    });
+    expect(inequality.series[0]).toMatchObject({
+      expression: "y>=x^2",
+      kind: "relation",
+    });
+    expect(explicit.series[0]).toMatchObject({
+      expression: "sin(x)",
+      kind: "explicit",
+    });
+    expect(validateCoordinatePlotEditorDefinition(circle)).toEqual([]);
+    expect(validateCoordinatePlotEditorDefinition(inequality)).toEqual([]);
   });
 
   it("separates blocking domain issues from editable formula diagnostics", () => {

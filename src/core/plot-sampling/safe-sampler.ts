@@ -2,9 +2,11 @@ import {
   sampleExplicitSeries as sampleExplicitSeriesRaw,
   sampleParametricSeries as sampleParametricSeriesRaw,
 } from "./sampler";
+import { sampleRelationSeries as sampleRelationSeriesRaw } from "./relation-sampler";
 import type {
   ExplicitPlotSamplingInput,
   ParametricPlotSamplingInput,
+  RelationPlotSamplingInput,
   PlotSamplingOptions,
   SampledPlotSeries,
 } from "./types";
@@ -40,6 +42,15 @@ export function sampleParametricSeries(
   input: ParametricPlotSamplingInput,
 ): SampledPlotSeries {
   return sampleParametricSeriesRaw({
+    ...input,
+    options: sanitizeOptions(input.options),
+  });
+}
+
+export function sampleRelationSeries(
+  input: RelationPlotSamplingInput,
+): SampledPlotSeries {
+  return sampleRelationSeriesRaw({
     ...input,
     options: sanitizeOptions(input.options),
   });

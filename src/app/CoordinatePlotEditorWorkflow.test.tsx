@@ -89,9 +89,12 @@ describe("coordinate plot editor application workflow", () => {
       }),
     ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Формула явной функции"), {
-      target: { value: "x^3-2*x" },
-    });
+    fireEvent.change(
+      screen.getByLabelText("Математическое выражение графика"),
+      {
+        target: { value: "y=x^3-2*x" },
+      },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
 
     await waitFor(() => expect(onCommandCommitted).toHaveBeenCalledTimes(2));

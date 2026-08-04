@@ -90,7 +90,9 @@ describe("CoordinatePlotEditorPanel accessibility and safety", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Формула явной функции")).toHaveFocus(),
+      expect(
+        screen.getByLabelText("Математическое выражение графика"),
+      ).toHaveFocus(),
     );
 
     unmount();
@@ -112,7 +114,7 @@ describe("CoordinatePlotEditorPanel accessibility and safety", () => {
       ],
     });
 
-    const formula = screen.getByLabelText("Формула явной функции");
+    const formula = screen.getByLabelText("Математическое выражение графика");
     expect(formula).toHaveAttribute("aria-invalid", "true");
     const issueId = formula.getAttribute("aria-describedby");
     expect(issueId).toBeTruthy();
@@ -194,7 +196,7 @@ describe("CoordinatePlotEditorPanel accessibility and safety", () => {
     const onSave = vi.fn(() => true);
     renderPanel({ onSave });
 
-    const formula = screen.getByLabelText("Формула явной функции");
+    const formula = screen.getByLabelText("Математическое выражение графика");
     await waitFor(() => expect(formula).toHaveFocus());
 
     fireEvent.keyDown(window, { ctrlKey: true, key: "Enter" });

@@ -42,6 +42,7 @@ export interface PlotSamplingMetrics {
 
 export interface SampledPlotSeries {
   readonly dataBounds: PlotDataBounds | null;
+  readonly fillPolygons: readonly (readonly Vec2[])[];
   readonly metrics: PlotSamplingMetrics;
   readonly missingBindings: readonly string[];
   readonly segments: readonly (readonly Vec2[])[];
@@ -88,6 +89,12 @@ export interface ParametricPlotSamplingInput extends PlotSamplingBaseInput {
   };
   readonly xExpression: CompiledPlotExpression;
   readonly yExpression: CompiledPlotExpression;
+}
+
+export interface RelationPlotSamplingInput extends PlotSamplingBaseInput {
+  readonly leftExpression: CompiledPlotExpression;
+  readonly operator: "=" | "<" | "<=" | ">" | ">=";
+  readonly rightExpression: CompiledPlotExpression;
 }
 
 export const plotSamplingDiagnosticCodes = [

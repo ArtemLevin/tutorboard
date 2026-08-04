@@ -1,16 +1,16 @@
 {
   "artifacts": {
     "board-command-envelope.schema.json": {
-      "sha256": "23048fc532d329a274b489a5eb0cc3f17b6ce1340a4f2c4a3b49a6b43ad3d686"
+      "sha256": "246d3f7e33f89b45d0ccc689690b81e906f3f51d50ca344798538c1292600ebc"
     },
     "board-document.schema.json": {
-      "sha256": "976b6624806c897590180163e9918ba837dcefb21aaf0d44f46a48c90352da1a"
+      "sha256": "bbbfd334f361dd96151c36e4ba94360053b8f705dcb38648b841760cb5ba6a84"
     },
     "board-geometry-import.schema.json": {
       "sha256": "73d7a2b6a840641bd2d4782b706d3a9be39ead30bc32e42bec298523a52fc802"
     },
     "board-snapshot.schema.json": {
-      "sha256": "54f2694871eaed93a488ba2cc57cda17a4321af67fde226a5d89d8700cfed94d"
+      "sha256": "d1747d7cef839b6ed5e43fcb1479c7140518b8897c8c3094c97c4cc5c3f0e8e5"
     },
     "COMPATIBILITY.md": {
       "sha256": "d9439b47991d6dbd36783948c81ffb01cfae0adef9d7084faf84d7eaac6c3ae2"

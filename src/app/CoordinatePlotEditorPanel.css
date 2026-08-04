@@ -680,6 +680,88 @@
   font-size: 12px;
 }
 
+.plot-basic-add-series-actions {
+  display: flex !important;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px !important;
+}
+
+.plot-basic-add-series-actions button {
+  min-height: 28px;
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.plot-basic-series-list {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 0;
+  padding: 2px 0 5px;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.plot-basic-series-list li {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.plot-basic-series-list li.is-selected {
+  border-color: rgba(37, 99, 235, 0.5);
+  background: #eff6ff;
+}
+
+.plot-basic-series-list input {
+  width: auto;
+  margin-left: 3px;
+}
+
+.plot-basic-series-list button {
+  min-height: 28px;
+  padding: 3px 6px;
+  border: 0;
+  background: transparent;
+}
+
+.plot-basic-series-select {
+  display: flex;
+  max-width: 154px;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plot-basic-series-color {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+}
+
+.plot-basic-fill-control,
+.plot-fill-opacity-control {
+  display: grid;
+  gap: 5px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.plot-basic-fill-control input,
+.plot-fill-opacity-control input {
+  width: 100%;
+  accent-color: #2563eb;
+}
+
 .plot-basic-series-name {
   overflow: hidden;
   max-width: 45%;
@@ -825,5 +907,10 @@
 
   .plot-basic-card-heading {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .plot-basic-add-series-actions {
+    justify-content: flex-start;
   }
 }

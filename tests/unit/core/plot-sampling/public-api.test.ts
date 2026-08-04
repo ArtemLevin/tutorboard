@@ -10,7 +10,7 @@ import {
 
 describe("coordinate plot sampler public API", () => {
   it("is exported through the stable core boundary", () => {
-    expect(coordinatePlotSamplerVersion).toBe("tutorboard-sampler/1");
+    expect(coordinatePlotSamplerVersion).toBe("tutorboard-sampler/2");
     expect(typeof createPlotSamplingCache).toBe("function");
     expect(typeof sampleCoordinatePlotDefinition).toBe("function");
     expect(typeof sampleExplicitSeries).toBe("function");
