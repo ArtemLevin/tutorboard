@@ -103,6 +103,19 @@ export function invertOwnBoardCommand(
           kind: command.kind,
         },
       ];
+    case "core.groups.set-transform": {
+      const group = before.groups[command.groupId];
+      return group === undefined
+        ? []
+        : [
+            {
+              ...meta(),
+              groupId: command.groupId,
+              kind: command.kind,
+              transform: group.transform,
+            },
+          ];
+    }
     case "core.selection.move":
       return [
         {

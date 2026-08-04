@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   commandId,
+  groupId,
+  identityTransform,
   reduceBoardDocument,
   type BoardCommand,
   type BoardDocument,
@@ -86,6 +88,43 @@ describe("collaborative own-operation undo", () => {
     expect(inverse[0]?.kind).toBe("core.objects.delete");
     expect(restored.objects).toEqual(before.objects);
     expect(restored.order).toEqual(before.order);
+  });
+
+  it("restores the previous group transform", () => {
+    const object = rectangle("grouped");
+    const before = apply(emptyDocument(), [
+      { ...metadata("seed"), kind: "core.objects.add", objects: [object] },
+      {
+        ...metadata("group", "2026-07-24T12:01:00.000Z"),
+        group: {
+          id: groupId("group:transform"),
+          locked: false,
+          objectIds: [object.id],
+          transform: identityTransform,
+        },
+        kind: "core.groups.add",
+      },
+    ]);
+    const command: BoardCommand = {
+      ...metadata("transform", "2026-07-24T12:02:00.000Z"),
+      groupId: groupId("group:transform"),
+      kind: "core.groups.set-transform",
+      transform: {
+        rotation: 45,
+        scale: { x: 1.2, y: 1.2 },
+        translation: { x: 20, y: 10 },
+      },
+    };
+    const after = apply(before, [command]);
+    const inverse = invertOwnBoardCommand(command, before, undoMetadata);
+    const restored = apply(after, inverse);
+
+    expect(inverse[0]).toMatchObject({
+      groupId: groupId("group:transform"),
+      kind: "core.groups.set-transform",
+      transform: identityTransform,
+    });
+    expect(restored.groups).toEqual(before.groups);
   });
 
   it("restores ungrouped deletes at their exact layer positions", () => {
