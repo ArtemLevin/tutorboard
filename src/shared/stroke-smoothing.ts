@@ -21,12 +21,14 @@ export interface SmoothStrokeOptions {
   readonly maxSubdivisions?: number;
   readonly minPointDistance?: number;
   readonly minSubdivisions?: number;
+  readonly simplificationTolerance?: number;
   readonly zoom: number;
 }
 
 export interface StrokeSmoothingQuality {
   readonly maxOutputPoints: number;
   readonly minPointDistance: number;
+  readonly simplificationTolerance: number;
   readonly subdivisions: number;
   readonly targetSegmentLength: number;
   readonly zoomBucket: number;
@@ -34,7 +36,11 @@ export interface StrokeSmoothingQuality {
 
 const defaultMaximumOutputPoints = 20_000;
 const defaultMaximumNormalizedPoints = 6_000;
-const cachedStrokes = new WeakMap<
+const cachedOpenStrokes = new WeakMap<
+  readonly StrokePoint[],
+  Map<number, readonly StrokePoint[]>
+>();
+const cachedClosedStrokes = new WeakMap<
   readonly StrokePoint[],
   Map<number, readonly StrokePoint[]>
 >();
@@ -72,6 +78,93 @@ export function pathLength(points: readonly StrokePoint[]): number {
     }
   }
   return length;
+}
+
+function squaredSegmentDistance(
+  point: StrokePoint,
+  start: StrokePoint,
+  end: StrokePoint,
+): number {
+  let x = start.x;
+  let y = start.y;
+  const deltaX = end.x - x;
+  const deltaY = end.y - y;
+  if (deltaX !== 0 || deltaY !== 0) {
+    const ratio = clamp(
+      ((point.x - x) * deltaX + (point.y - y) * deltaY) /
+        (deltaX * deltaX + deltaY * deltaY),
+      0,
+      1,
+    );
+    x += deltaX * ratio;
+    y += deltaY * ratio;
+  }
+  const distanceX = point.x - x;
+  const distanceY = point.y - y;
+  return distanceX * distanceX + distanceY * distanceY;
+}
+
+export function simplifyStrokePoints(
+  points: readonly StrokePoint[],
+  tolerance: number,
+): readonly StrokePoint[] {
+  const finite = points.filter(finitePoint);
+  if (finite.length <= 2 || tolerance <= 0) return finite;
+
+  const retained = new Uint8Array(finite.length);
+  retained[0] = 1;
+  retained[finite.length - 1] = 1;
+  const threshold = tolerance * tolerance;
+  const ranges: Array<readonly [number, number]> = [[0, finite.length - 1]];
+  while (ranges.length > 0) {
+    const [startIndex, endIndex] = ranges.pop()!;
+    let furthestIndex = -1;
+    let furthestDistance = threshold;
+    for (let index = startIndex + 1; index < endIndex; index += 1) {
+      const candidateDistance = squaredSegmentDistance(
+        finite[index]!,
+        finite[startIndex]!,
+        finite[endIndex]!,
+      );
+      if (candidateDistance > furthestDistance) {
+        furthestDistance = candidateDistance;
+        furthestIndex = index;
+      }
+    }
+    if (furthestIndex !== -1) {
+      retained[furthestIndex] = 1;
+      ranges.push([startIndex, furthestIndex], [furthestIndex, endIndex]);
+    }
+  }
+  return finite.filter((_point, index) => retained[index] === 1);
+}
+
+function simplifyClosedStrokePoints(
+  points: readonly StrokePoint[],
+  tolerance: number,
+): readonly StrokePoint[] {
+  if (points.length <= 4 || tolerance <= 0) return points;
+  const first = points[0]!;
+  let oppositeIndex = 1;
+  let oppositeDistance = -1;
+  for (let index = 1; index < points.length; index += 1) {
+    const candidateDistance = distance(first, points[index]!);
+    if (candidateDistance > oppositeDistance) {
+      oppositeDistance = candidateDistance;
+      oppositeIndex = index;
+    }
+  }
+  if (oppositeIndex <= 0 || oppositeIndex >= points.length) return points;
+
+  const firstArc = simplifyStrokePoints(
+    points.slice(0, oppositeIndex + 1),
+    tolerance,
+  );
+  const secondArc = simplifyStrokePoints(
+    [...points.slice(oppositeIndex), first],
+    tolerance,
+  );
+  return [...firstArc.slice(0, -1), ...secondArc.slice(0, -1)];
 }
 
 function evenlyLimitPoints(
@@ -253,6 +346,7 @@ export function resolveStrokeSmoothingQuality(
 ): StrokeSmoothingQuality {
   const zoom = clamp(Number.isFinite(options.zoom) ? options.zoom : 1, 0.1, 8);
   const zoomBucket = Math.round(zoom * 4) / 4;
+  const screenScale = Math.max(0.1, zoomBucket);
   const length = pathLength(points);
   const minimumSubdivisions = Math.max(
     2,
@@ -272,15 +366,15 @@ export function resolveStrokeSmoothingQuality(
       Math.floor(options.maxOutputPoints ?? defaultMaximumOutputPoints),
     ),
     minPointDistance:
-      Math.max(0.05, options.minPointDistance ?? 0.7) /
-      Math.sqrt(Math.max(1, zoomBucket)),
+      Math.max(0.05, options.minPointDistance ?? 0.4) / screenScale,
+    simplificationTolerance:
+      Math.max(0.01, options.simplificationTolerance ?? 0.18) / screenScale,
     subdivisions: Math.min(
       maximumSubdivisions,
       minimumSubdivisions + zoomGain + lengthGain,
     ),
     targetSegmentLength:
-      Math.max(0.75, options.baseSegmentLength ?? 5) /
-      Math.sqrt(Math.max(1, zoomBucket)),
+      Math.max(0.5, options.baseSegmentLength ?? 4) / screenScale,
     zoomBucket,
   };
 }
@@ -293,7 +387,11 @@ export function buildSmoothStrokePoints(
     return rawPoints.filter(finitePoint);
   }
   const quality = resolveStrokeSmoothingQuality(rawPoints, options);
-  const normalized = normalizeStrokePoints(rawPoints, {
+  const simplified = simplifyStrokePoints(
+    rawPoints,
+    quality.simplificationTolerance,
+  );
+  const normalized = normalizeStrokePoints(simplified, {
     maxInsertedPointsPerSegment: 24,
     maxNormalizedPoints: Math.min(
       defaultMaximumNormalizedPoints,
@@ -326,15 +424,22 @@ export function buildSmoothClosedStrokePoints(
     [...source, source[0]!],
     options,
   );
-  const normalizedLoop = normalizeStrokePoints([...source, source[0]!], {
-    maxInsertedPointsPerSegment: 24,
-    maxNormalizedPoints: Math.min(
-      defaultMaximumNormalizedPoints,
-      quality.maxOutputPoints,
-    ),
-    minPointDistance: quality.minPointDistance,
-    targetSegmentLength: quality.targetSegmentLength,
-  });
+  const simplified = simplifyClosedStrokePoints(
+    source,
+    quality.simplificationTolerance,
+  );
+  const normalizedLoop = normalizeStrokePoints(
+    [...simplified, simplified[0]!],
+    {
+      maxInsertedPointsPerSegment: 24,
+      maxNormalizedPoints: Math.min(
+        defaultMaximumNormalizedPoints,
+        quality.maxOutputPoints,
+      ),
+      minPointDistance: quality.minPointDistance,
+      targetSegmentLength: quality.targetSegmentLength,
+    },
+  );
   const normalized =
     normalizedLoop.length > 1 &&
     distance(normalizedLoop[0]!, normalizedLoop.at(-1)!) <= 0.001
@@ -346,24 +451,48 @@ export function buildSmoothClosedStrokePoints(
   });
 }
 
+function cacheFor(
+  cache: WeakMap<readonly StrokePoint[], Map<number, readonly StrokePoint[]>>,
+  rawPoints: readonly StrokePoint[],
+): Map<number, readonly StrokePoint[]> {
+  let byZoom = cache.get(rawPoints);
+  if (byZoom === undefined) {
+    byZoom = new Map();
+    cache.set(rawPoints, byZoom);
+  }
+  return byZoom;
+}
+
 export function buildCachedSmoothStrokePoints(
   rawPoints: readonly StrokePoint[],
   zoom: number,
 ): readonly StrokePoint[] {
   const quality = resolveStrokeSmoothingQuality(rawPoints, { zoom });
-  let byZoom = cachedStrokes.get(rawPoints);
-  if (byZoom === undefined) {
-    byZoom = new Map();
-    cachedStrokes.set(rawPoints, byZoom);
-  }
+  const byZoom = cacheFor(cachedOpenStrokes, rawPoints);
   const cached = byZoom.get(quality.zoomBucket);
   if (cached !== undefined) return cached;
   const smoothed = buildSmoothStrokePoints(rawPoints, {
     maxOutputPoints: quality.maxOutputPoints,
     maxSubdivisions: quality.subdivisions,
-    minPointDistance: quality.minPointDistance,
     minSubdivisions: quality.subdivisions,
-    baseSegmentLength: quality.targetSegmentLength,
+    zoom: quality.zoomBucket,
+  });
+  byZoom.set(quality.zoomBucket, smoothed);
+  return smoothed;
+}
+
+export function buildCachedSmoothClosedStrokePoints(
+  rawPoints: readonly StrokePoint[],
+  zoom: number,
+): readonly StrokePoint[] {
+  const quality = resolveStrokeSmoothingQuality(rawPoints, { zoom });
+  const byZoom = cacheFor(cachedClosedStrokes, rawPoints);
+  const cached = byZoom.get(quality.zoomBucket);
+  if (cached !== undefined) return cached;
+  const smoothed = buildSmoothClosedStrokePoints(rawPoints, {
+    maxOutputPoints: quality.maxOutputPoints,
+    maxSubdivisions: quality.subdivisions,
+    minSubdivisions: quality.subdivisions,
     zoom: quality.zoomBucket,
   });
   byZoom.set(quality.zoomBucket, smoothed);
