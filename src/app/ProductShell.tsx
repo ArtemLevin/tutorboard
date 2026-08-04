@@ -380,7 +380,7 @@ function DiagnosticsPage({
           <dd>{canvasAdapterContractVersion}</dd>
         </div>
         <div>
-          <dt>GeometryOS adapter</dt>
+          <dt>Сервис построения по тексту</dt>
           <dd>{geometryOsAdapterContractVersion}</dd>
         </div>
         <div>
