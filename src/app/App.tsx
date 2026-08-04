@@ -83,6 +83,16 @@ import {
   smartInkProposalStillApplies,
 } from "../modules/smart-ink/public";
 import {
+  createTextShapePlacementCommand,
+  createVertexConstructionCommand,
+  inspectTextShapeFigure,
+  inspectTextShapeVertex,
+  resolveTextShape,
+  suggestTextShapes,
+  type TextShapeDefinition,
+  type VertexConstructionKind,
+} from "../modules/text-shape-placement/public";
+import {
   createGroupSelectionCommand,
   createReorderLayersCommand,
   createSetLayerVisibilityCommand,
@@ -178,6 +188,7 @@ const environment = readEnvironment();
 const localActorId = actorId("actor:local-teacher");
 const navigationToolId = "navigation.pan" as const;
 const laserToolId = "presentation.laser" as const;
+const geometryPlacementToolId = "geometry.text-placement" as const;
 const laserTrailFadeDurationMs = 900;
 const laserTrailFrameMs = 40;
 const laserTrailMaximumPoints = 96;
@@ -185,9 +196,20 @@ const laserTrailMinimumDistance = 1.5;
 type ActiveToolId =
   | typeof navigationToolId
   | typeof laserToolId
+  | typeof geometryPlacementToolId
   | typeof handwrittenFunctionToolId
   | SelectionToolId
   | DrawingToolId;
+
+type PendingGeometryPlacement =
+  | {
+      readonly definition: TextShapeDefinition;
+      readonly kind: "catalog";
+    }
+  | {
+      readonly kind: "geometryos";
+      readonly prompt: string;
+    };
 const initialDrawingState: DrawingInteractionState = { kind: "idle" };
 
 function appendLaserTrailPoint(
@@ -403,9 +425,20 @@ export function App({
   const [geometryPrompt, setGeometryPrompt] = useState(
     "Построй треугольник ABC и высоту AH",
   );
+  const [autoLabelGeometryVertices, setAutoLabelGeometryVertices] =
+    useState(true);
+  const [pendingGeometryPlacement, setPendingGeometryPlacement] =
+    useState<PendingGeometryPlacement | null>(null);
+  const [vertexConstructionObjectId, setVertexConstructionObjectId] =
+    useState<BoardObjectId | null>(null);
   const [geometryPromptState, setGeometryPromptState] =
     useState<GeometryPromptViewState>({ kind: "idle" });
   const geometryOperationRef = useRef<GeometryPromptOperation | null>(null);
+  const lastGeometryOsPlacementRef = useRef<{
+    readonly point: Vec2;
+    readonly prompt: string;
+  } | null>(null);
+  const placePendingGeometryRef = useRef<(point: Vec2) => void>(() => {});
   const workspaceRef = useRef<HTMLElement>(null);
   const lastPointerWorldRef = useRef<Vec2 | null>(null);
   const { commandError, history } = boardState;
@@ -455,6 +488,10 @@ export function App({
     [],
   );
   const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);
+  const geometrySuggestions = useMemo(
+    () => suggestTextShapes(geometryPrompt, 8),
+    [geometryPrompt],
+  );
   const sceneSelector = useMemo(() => createBoardSceneSelector(), []);
   const scene = useMemo(
     () => sceneSelector(document),
@@ -1609,6 +1646,9 @@ export function App({
       setSelectionState(selected);
       setCoordinatePlotEditor(null);
       setSelectionInspectorObjectId(objectId);
+      setVertexConstructionObjectId(
+        inspectTextShapeVertex(current, objectId)?.vertexObjectId ?? null,
+      );
       setAccessibilityNotice("Настройки объекта открыты");
     },
     [activateTool, beginCoordinatePlotEditing],
@@ -2149,6 +2189,14 @@ export function App({
     selectionInspectorObjectId,
     selectionState.selectedObjectIds,
   ]);
+  useEffect(() => {
+    if (
+      vertexConstructionObjectId !== null &&
+      inspectTextShapeVertex(document, vertexConstructionObjectId) === null
+    ) {
+      setVertexConstructionObjectId(null);
+    }
+  }, [document, vertexConstructionObjectId]);
 
   const startHandwrittenFunctionStroke = useCallback(
     (sample: WorldPointerSample) => {
@@ -2216,6 +2264,10 @@ export function App({
 
   const startDrawing = useCallback(
     (sample: WorldPointerSample) => {
+      if (activeTool === geometryPlacementToolId) {
+        placePendingGeometryRef.current(sample.point);
+        return;
+      }
       if (activeTool === laserToolId) {
         stopLaserTrailFade();
         setLaserPoint(sample.point);
@@ -2346,8 +2398,16 @@ export function App({
 
   const startSelection = useCallback(
     (sample: SelectionPointerStartSample) => {
+      const vertex =
+        sample.objectId === null
+          ? null
+          : inspectTextShapeVertex(documentRef.current, sample.objectId);
       if (sample.objectId !== null && !isSelectionToolId(activeTool)) {
         activateTool(selectionToolId);
+      }
+      setVertexConstructionObjectId(vertex?.vertexObjectId ?? null);
+      if (vertex !== null) {
+        setSelectionInspectorObjectId(vertex.vertexObjectId);
       }
       const hitObjectIds =
         sample.objectId === null
@@ -2447,6 +2507,44 @@ export function App({
     );
   }, [commitCommand, createCommandMetadata]);
 
+  const setGeneratedFigureLabelsVisible = useCallback(
+    (visible: boolean) => {
+      const figure = inspectTextShapeFigure(
+        documentRef.current,
+        selectionStateRef.current.selectedObjectIds,
+      );
+      if (figure === null || figure.labelObjectIds.length === 0) return;
+      commitCommand(
+        createSetLayerVisibilityCommand(
+          createCommandMetadata(),
+          figure.labelObjectIds,
+          visible,
+        ),
+      );
+    },
+    [commitCommand, createCommandMetadata],
+  );
+
+  const buildVertexConstruction = useCallback(
+    (kind: VertexConstructionKind) => {
+      const objectId = vertexConstructionObjectId;
+      if (objectId === null) return;
+      const command = createVertexConstructionCommand({
+        document: documentRef.current,
+        kind,
+        metadata: createCommandMetadata(),
+        token: crypto.randomUUID(),
+        vertexObjectId: objectId,
+      });
+      if (command === null) return;
+      const result = commitCommand(command);
+      if (result.ok) {
+        setAccessibilityNotice("Дополнительное построение добавлено");
+      }
+    },
+    [commitCommand, createCommandMetadata, vertexConstructionObjectId],
+  );
+
   const applyGeometryPromptResult = useCallback(
     (result: GeometryPromptResult) => {
       if (result.kind === "cancelled") {
@@ -2508,45 +2606,134 @@ export function App({
     [commitCommand],
   );
 
-  const runGeometryPrompt = useCallback(() => {
-    if (geometryOsClient === undefined) {
+  const runGeometryPromptAt = useCallback(
+    (targetWorldCenter: Vec2, prompt: string) => {
+      if (geometryOsClient === undefined) return;
+      geometryOperationRef.current?.cancel();
+      const enrichedPrompt = `${prompt.trim()}. ${
+        autoLabelGeometryVertices
+          ? "Подпиши все вершины латинскими буквами."
+          : "Оставь вершины без подписей."
+      }`;
+      lastGeometryOsPlacementRef.current = { point: targetWorldCenter, prompt };
+      const operation = startGeometryPrompt({
+        actorId: commandActorId,
+        client: geometryOsClient,
+        createToken: () => crypto.randomUUID(),
+        now: () => new Date().toISOString(),
+        onProgress: (progress) => {
+          setGeometryPromptState({ kind: "running", ...progress });
+        },
+        prompt: enrichedPrompt,
+        targetWorldCenter,
+      });
+      geometryOperationRef.current = operation;
+      void operation.result.then((result) => {
+        if (geometryOperationRef.current !== operation) {
+          return;
+        }
+        geometryOperationRef.current = null;
+        applyGeometryPromptResult(result);
+      });
+    },
+    [
+      applyGeometryPromptResult,
+      autoLabelGeometryVertices,
+      commandActorId,
+      geometryOsClient,
+    ],
+  );
+
+  const armGeometryPlacement = useCallback(() => {
+    const resolved = resolveTextShape(geometryPrompt);
+    if (resolved !== undefined) {
+      setPendingGeometryPlacement({ definition: resolved, kind: "catalog" });
+      setGeometryPromptState({
+        kind: "awaiting-placement",
+        label: resolved.label,
+        source: "catalog",
+      });
+      setActiveTool(geometryPlacementToolId);
       return;
     }
-    geometryOperationRef.current?.cancel();
-    const current = documentRef.current;
-    const workspace = workspaceRef.current?.getBoundingClientRect();
-    const targetWorldCenter = screenToWorld(
-      {
-        x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
-        y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
-      },
-      current.viewport,
-    );
-    const operation = startGeometryPrompt({
-      actorId: commandActorId,
-      client: geometryOsClient,
-      createToken: () => crypto.randomUUID(),
-      now: () => new Date().toISOString(),
-      onProgress: (progress) => {
-        setGeometryPromptState({ kind: "running", ...progress });
-      },
-      prompt: geometryPrompt,
-      targetWorldCenter,
+    if (geometryOsClient === undefined) {
+      setGeometryPromptState({
+        code: "geometryos.unavailable",
+        kind: "failure",
+        requestId: null,
+        retryable: false,
+        stage: "generate",
+      });
+      return;
+    }
+    const prompt = geometryPrompt.trim();
+    setPendingGeometryPlacement({ kind: "geometryos", prompt });
+    setGeometryPromptState({
+      kind: "awaiting-placement",
+      label: "Построение GeometryOS",
+      source: "geometryos",
     });
-    geometryOperationRef.current = operation;
-    void operation.result.then((result) => {
-      if (geometryOperationRef.current !== operation) {
+    setActiveTool(geometryPlacementToolId);
+  }, [geometryOsClient, geometryPrompt]);
+
+  const placePendingGeometry = useCallback(
+    (point: Vec2) => {
+      const pending = pendingGeometryPlacement;
+      if (pending === null) return;
+      setPendingGeometryPlacement(null);
+      if (pending.kind === "geometryos") {
+        setActiveTool(navigationToolId);
+        runGeometryPromptAt(point, pending.prompt);
         return;
       }
-      geometryOperationRef.current = null;
-      applyGeometryPromptResult(result);
-    });
-  }, [
-    applyGeometryPromptResult,
-    commandActorId,
-    geometryOsClient,
-    geometryPrompt,
-  ]);
+      const command = createTextShapePlacementCommand({
+        autoLabelVertices: autoLabelGeometryVertices,
+        definition: pending.definition,
+        metadata: createCommandMetadata(),
+        placement: point,
+        token: crypto.randomUUID(),
+      });
+      const result = commitCommand(command);
+      if (!result.ok) {
+        setGeometryPromptState({
+          code: result.error.code,
+          kind: "failure",
+          requestId: null,
+          retryable: false,
+          stage: "import",
+        });
+        return;
+      }
+      const selected: SelectionState = {
+        interaction: { kind: "idle" },
+        selectedObjectIds: command.objects.map(({ id }) => id),
+      };
+      selectionStateRef.current = selected;
+      setSelectionState(selected);
+      setSelectionInspectorObjectId(command.objects[0]?.id ?? null);
+      setActiveTool(selectionToolId);
+      setGeometryPromptOpen(false);
+      setGeometryPromptState({
+        kind: "success",
+        objectCount: command.objects.length,
+        requestId: null,
+      });
+      setAccessibilityNotice(`${pending.definition.label} построена`);
+    },
+    [
+      autoLabelGeometryVertices,
+      commitCommand,
+      createCommandMetadata,
+      pendingGeometryPlacement,
+      runGeometryPromptAt,
+    ],
+  );
+  placePendingGeometryRef.current = placePendingGeometry;
+
+  const retryGeometryPrompt = useCallback(() => {
+    const previous = lastGeometryOsPlacementRef.current;
+    if (previous !== null) runGeometryPromptAt(previous.point, previous.prompt);
+  }, [runGeometryPromptAt]);
 
   const resetViewport = () => {
     commitViewport({ offset: { x: 160, y: 90 }, zoom: 1 });
@@ -2556,6 +2743,14 @@ export function App({
     const object = document.objects[id];
     return object === undefined ? [] : [object];
   });
+  const selectedTextShapeFigure = inspectTextShapeFigure(
+    document,
+    selectionState.selectedObjectIds,
+  );
+  const selectedTextShapeVertex =
+    vertexConstructionObjectId === null
+      ? null
+      : inspectTextShapeVertex(document, vertexConstructionObjectId);
   const selectedStyle = scene.items.find(({ object }) =>
     selectionState.selectedObjectIds.includes(object.id),
   )?.object.style;
@@ -2672,7 +2867,8 @@ export function App({
           drawingModeKey={
             isDrawingToolId(activeTool) ||
             activeTool === handwrittenFunctionToolId ||
-            activeTool === laserToolId
+            activeTool === laserToolId ||
+            activeTool === geometryPlacementToolId
               ? activeTool
               : null
           }
@@ -2808,8 +3004,9 @@ export function App({
         ) : null}
         {geometryPromptOpen ? (
           <GeometryPromptPanel
-            available={geometryOsClient !== undefined}
+            autoLabelVertices={autoLabelGeometryVertices}
             onCancel={() => geometryOperationRef.current?.cancel()}
+            onAutoLabelVerticesChange={setAutoLabelGeometryVertices}
             onChooseClarification={(option) => {
               setGeometryPrompt(option);
               setGeometryPromptState({ kind: "idle" });
@@ -2819,10 +3016,16 @@ export function App({
               if (geometryPromptState.kind !== "running")
                 setGeometryPromptState({ kind: "idle" });
             }}
-            onRetry={runGeometryPrompt}
-            onSubmit={runGeometryPrompt}
+            onRetry={retryGeometryPrompt}
+            onSubmit={armGeometryPlacement}
+            onSuggestionChoose={(definition) => {
+              setGeometryPrompt(definition.label);
+              setGeometryPromptState({ kind: "idle" });
+            }}
             prompt={geometryPrompt}
+            remoteAvailable={geometryOsClient !== undefined}
             state={geometryPromptState}
+            suggestions={geometrySuggestions}
           />
         ) : null}
         <BoardToolDock
@@ -2837,7 +3040,10 @@ export function App({
               : collaborativeUndoAvailable
           }
           drawingTools={drawingTools}
-          geometryAvailable={geometryOsClient !== undefined}
+          generatedFigureLabelsVisible={
+            selectedTextShapeFigure?.labelsVisible ?? null
+          }
+          geometryAvailable
           geometryOpen={geometryPromptOpen}
           handwrittenFunctionsEnabled={
             environment.features.handwrittenFunctions
@@ -2847,6 +3053,7 @@ export function App({
           onCreatePlot={createCoordinatePlot}
           onDeleteSelection={deleteSelection}
           onGeometryToggle={() => setGeometryPromptOpen((current) => !current)}
+          onGeneratedFigureLabelsChange={setGeneratedFigureLabelsVisible}
           onImageFiles={(files) => void importImageFiles(files)}
           onOpenSettings={() => {
             setGeometryPromptOpen(false);
@@ -2863,6 +3070,7 @@ export function App({
             }
           }}
           onTransformSelection={transformSelectionBy}
+          onVertexConstruction={buildVertexConstruction}
           onStyleChange={updateStyle}
           onTextDraftChange={setTextDraft}
           onUndo={undo}
@@ -2876,9 +3084,13 @@ export function App({
               ? selectedEditableText.text
               : null
           }
+          selectedVertexName={selectedTextShapeVertex?.vertexName ?? null}
           selectionInspectorOpen={selectionInspectorOpen}
           settingsOpen={settingsOpen}
           textDraft={textDraft}
+          vertexConstructions={
+            selectedTextShapeVertex?.availableConstructions ?? []
+          }
         />
         <BoardSettingsDialog
           onClose={() => {
