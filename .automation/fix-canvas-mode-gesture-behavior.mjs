@@ -40,7 +40,7 @@ source = replaceOnce(
             Math.hypot(
               point.x - session.startPoint.x,
               point.y - session.startPoint.y,
-            ) <= panActivationDistancePx;
+            ) <= rightDoubleClickDistancePx;
           if (stationary) {
             const previous = primaryCanvasClickCandidateRef.current;
             const elapsed =
