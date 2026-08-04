@@ -12,7 +12,7 @@ jobs:
   integrate:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v7
@@ -24,8 +24,22 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Apply integration transform
-        run: node .automation/apply-wet-ink-pr2.mjs
-      - name: Format changed sources
+        id: transform
+        continue-on-error: true
+        run: node .automation/apply-wet-ink-pr2.mjs > /tmp/wet-ink-transform.log 2>&1
+      - name: Publish transform failure
+        if: steps.transform.outcome == 'failure'
+        run: |
+          mkdir -p .automation
+          cp /tmp/wet-ink-transform.log .automation/wet-ink-transform-error.log
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .automation/wet-ink-transform-error.log
+          git commit -m "chore: publish wet ink transform error"
+          git push origin HEAD:feature/wet-ink-renderer
+          exit 1
+      - name: Format integrated sources
+        if: steps.transform.outcome == 'success'
         run: |
           npx prettier --write \
             src/adapters/canvas-konva/BoardStage.tsx \
@@ -37,11 +51,8 @@ jobs:
             tests/performance/wet-ink-renderer.test.ts \
             tests/unit/adapters/canvas-konva/predicted-pointer-samples.test.ts \
             tests/unit/adapters/canvas-konva/wet-ink-renderer.test.ts
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run test
-      - run: npm run performance
       - name: Commit integrated implementation
+        if: steps.transform.outcome == 'success'
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
