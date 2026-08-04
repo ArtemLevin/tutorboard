@@ -2330,9 +2330,11 @@ export function App({
       applyDrawingAction({
         kind: "start",
         objectId: boardObjectId(`object:${crypto.randomUUID()}`),
+        inputTimestampMs: sample.inputTimestampMs,
         point: sample.point,
         polygonSides,
         pointerId: sample.pointerId,
+        pressure: sample.pressure,
         style: styleFor(activeTool),
         text: textDraft,
         tool: activeTool,
@@ -2364,8 +2366,10 @@ export function App({
       }
       applyDrawingAction({
         kind: "move",
+        inputTimestampMs: sample.inputTimestampMs,
         point: sample.point,
         pointerId: sample.pointerId,
+        pressure: sample.pressure,
       });
     },
     [activeTool, applyDrawingAction, moveHandwrittenFunctionStroke],
@@ -2416,8 +2420,10 @@ export function App({
       for (const sample of samples) {
         const result = reduceDrawingInteraction(state, {
           kind: "move",
+          inputTimestampMs: sample.inputTimestampMs,
           point: sample.point,
           pointerId: sample.pointerId,
+          pressure: sample.pressure,
         });
         state = result.state;
         diagnostic = result.diagnostic;
@@ -2446,8 +2452,10 @@ export function App({
       applyDrawingAction(
         {
           kind: "finish",
+          inputTimestampMs: sample.inputTimestampMs,
           point: sample.point,
           pointerId: sample.pointerId,
+          pressure: sample.pressure,
         },
         activeTool === "drawing.smart-ink",
       );

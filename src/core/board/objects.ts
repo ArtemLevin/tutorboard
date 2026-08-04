@@ -1,6 +1,7 @@
 import type { CoordinatePlotDefinition } from "./coordinate-plot";
 import type { BoardObjectId, GeometryImportId, GroupId } from "./identifiers";
 import type { Size2, Vec2 } from "./primitives";
+import type { VectorInkData } from "./vector-ink";
 
 export const svgSanitizerPolicyVersion = "tutorboard.svg-sanitizer/1" as const;
 
@@ -73,6 +74,8 @@ interface BoardObjectBase {
 }
 
 export interface PenStrokeObject extends BoardObjectBase {
+  /** Current BoardDocument 1.2 validation requires canonical Vector Ink data. */
+  readonly ink?: VectorInkData;
   readonly kind: "drawing.pen-stroke";
   readonly points: readonly Vec2[];
 }

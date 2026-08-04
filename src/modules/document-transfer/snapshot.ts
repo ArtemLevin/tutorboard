@@ -1,12 +1,14 @@
 import {
+  resolveVectorInkData,
   selectBoardScene,
+  vectorInkCenterlinePathData,
+  vectorInkOutlinePathData,
   type BoardDocument,
   type BoardObject,
   type BoardRenderItem,
   type Transform2D,
 } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
-import { buildSmoothStrokePoints } from "../../shared/stroke-smoothing";
 
 export interface BoardSnapshotOptions {
   readonly height?: number;
@@ -49,17 +51,19 @@ function objectMarkup(object: BoardObject, zoom: number): string {
   const common = `${styleAttributes(object)} transform="translate(${number(object.position.x)} ${number(object.position.y)}) rotate(${number(object.rotation)}) scale(${number(object.scale.x)} ${number(object.scale.y)})"`;
   switch (object.kind) {
     case "drawing.pen-stroke": {
-      const first = object.points[0];
-      const last = object.points.at(-1);
-      const closed =
-        first !== undefined &&
-        last !== undefined &&
-        Math.hypot(first.x - last.x, first.y - last.y) < 0.001;
-      const points = closed
-        ? object.points
-        : buildSmoothStrokePoints(object.points, { zoom });
-      const tag = closed ? "polygon" : "polyline";
-      return `<${tag} ${common} stroke-linecap="round" stroke-linejoin="round" points="${points.map(({ x, y }) => `${number(x)},${number(y)}`).join(" ")}"/>`;
+      const ink = resolveVectorInkData(object);
+      const outline = vectorInkOutlinePathData(ink, object.style.strokeWidth);
+      const centerline = vectorInkCenterlinePathData(ink);
+      const transform = `transform="translate(${number(object.position.x)} ${number(object.position.y)}) rotate(${number(object.rotation)}) scale(${number(object.scale.x)} ${number(object.scale.y)})"`;
+      const fill =
+        ink.closed && object.style.fill !== null && centerline.length > 0
+          ? `<path ${transform} d="${centerline}" fill="${escapeXml(object.style.fill)}" opacity="${number(object.style.opacity)}"/>`
+          : "";
+      const stroke =
+        object.style.stroke !== null && outline.length > 0
+          ? `<path ${transform} d="${outline}" fill="${escapeXml(object.style.stroke)}" opacity="${number(object.style.opacity)}"/>`
+          : "";
+      return `<g data-vector-ink-version="${ink.version}">${fill}${stroke}</g>`;
     }
     case "drawing.line":
       return `<line ${common}${object.lineStyle === "dashed" ? ' stroke-dasharray="10 6"' : ""} x1="0" y1="0" x2="${number(object.end.x)}" y2="${number(object.end.y)}"/>`;

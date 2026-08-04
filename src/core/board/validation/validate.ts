@@ -5,6 +5,7 @@ import type { GeometryImportRecord } from "../geometry-imports";
 import type { BoardObjectId } from "../identifiers";
 import type { BoardObject } from "../objects";
 import { ownValue } from "../records";
+import { vectorInkDataMatchesPoints } from "../vector-ink";
 import { boardDocumentSchema } from "./schema";
 
 export interface ValidationIssue {
@@ -395,6 +396,24 @@ function validateCoordinatePlots(
   });
 }
 
+function validateVectorInk(
+  document: BoardDocument,
+): readonly ValidationIssue[] {
+  return definedObjects(document).flatMap((object) => {
+    if (object.kind !== "drawing.pen-stroke") return [];
+    return object.ink !== undefined &&
+      vectorInkDataMatchesPoints(object.ink, object.points)
+      ? []
+      : [
+          issue(
+            "document.vector-ink-noncanonical",
+            `objects.${object.id}.ink`,
+            "Pen stroke Vector Ink data must match points and canonical cubic geometry.",
+          ),
+        ];
+  });
+}
+
 function validateTimestamps(
   document: BoardDocument,
 ): readonly ValidationIssue[] {
@@ -438,6 +457,7 @@ export function validateBoardDocument(input: unknown): BoardDocumentValidation {
     ...validateGroups(document),
     ...validateGeometryImports(document),
     ...validateCoordinatePlots(document),
+    ...validateVectorInk(document),
     ...validateTimestamps(document),
   ];
 

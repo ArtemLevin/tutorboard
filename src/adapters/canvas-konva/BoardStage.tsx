@@ -100,6 +100,7 @@ interface SelectionSession {
 }
 
 export interface WorldPointerSample {
+  readonly inputTimestampMs?: number;
   readonly point: Vec2;
   readonly pointerId: number;
   readonly pressure: number;

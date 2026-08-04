@@ -1,8 +1,9 @@
 import { boardDocumentSchemaVersion, type BoardDocument } from "../document";
 import {
-  migrateBoardDocument01To11,
-  migrateBoardDocument02To11,
-  migrateBoardDocument10To11,
+  migrateBoardDocument01To12,
+  migrateBoardDocument02To12,
+  migrateBoardDocument10To12,
+  migrateBoardDocument11To12,
 } from "../migrations";
 import type { ValidationIssue } from "./validate";
 import {
@@ -13,10 +14,7 @@ import {
 import { validateBoardDocument } from "./validate";
 
 export type BoardDocumentReadResult =
-  | {
-      readonly document: BoardDocument;
-      readonly status: "ok";
-    }
+  | { readonly document: BoardDocument; readonly status: "ok" }
   | {
       readonly issues: readonly ValidationIssue[];
       readonly raw: unknown;
@@ -41,10 +39,7 @@ function findUnknownObjectKinds(
   raw: unknown,
   knownKinds: ReadonlySet<string>,
 ): readonly string[] {
-  if (!isRecord(raw) || !isRecord(raw.objects)) {
-    return [];
-  }
-
+  if (!isRecord(raw) || !isRecord(raw.objects)) return [];
   const unknownKinds = new Set<string>();
   for (const object of Object.values(raw.objects)) {
     if (
@@ -55,61 +50,54 @@ function findUnknownObjectKinds(
       unknownKinds.add(object.kind);
     }
   }
-
   return [...unknownKinds].sort();
+}
+
+function migratedResult(
+  raw: unknown,
+  migration: (value: unknown) => ReturnType<typeof migrateBoardDocument11To12>,
+): BoardDocumentReadResult {
+  const migrated = migration(raw);
+  return migrated.ok
+    ? { status: "ok", document: migrated.document }
+    : { status: "invalid-document", raw, issues: migrated.issues };
 }
 
 export function readBoardDocument(raw: unknown): BoardDocumentReadResult {
   const schemaVersion = isRecord(raw) ? raw.schemaVersion : undefined;
   if (schemaVersion === "0.1") {
     const objectKinds = findUnknownObjectKinds(raw, legacyBoardObjectKinds);
-    if (objectKinds.length > 0) {
-      return { status: "incompatible-object", raw, objectKinds };
-    }
-    const migrated = migrateBoardDocument01To11(raw);
-    return migrated.ok
-      ? { status: "ok", document: migrated.document }
-      : { status: "invalid-document", raw, issues: migrated.issues };
+    return objectKinds.length > 0
+      ? { status: "incompatible-object", raw, objectKinds }
+      : migratedResult(raw, migrateBoardDocument01To12);
   }
-
   if (schemaVersion === "0.2") {
     const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds10);
-    if (objectKinds.length > 0) {
-      return { status: "incompatible-object", raw, objectKinds };
-    }
-    const migrated = migrateBoardDocument02To11(raw);
-    return migrated.ok
-      ? { status: "ok", document: migrated.document }
-      : { status: "invalid-document", raw, issues: migrated.issues };
+    return objectKinds.length > 0
+      ? { status: "incompatible-object", raw, objectKinds }
+      : migratedResult(raw, migrateBoardDocument02To12);
   }
-
   if (schemaVersion === "1.0") {
     const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds10);
-    if (objectKinds.length > 0) {
-      return { status: "incompatible-object", raw, objectKinds };
-    }
-    const migrated = migrateBoardDocument10To11(raw);
-    return migrated.ok
-      ? { status: "ok", document: migrated.document }
-      : { status: "invalid-document", raw, issues: migrated.issues };
+    return objectKinds.length > 0
+      ? { status: "incompatible-object", raw, objectKinds }
+      : migratedResult(raw, migrateBoardDocument10To12);
   }
-
+  if (schemaVersion === "1.1") {
+    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds);
+    return objectKinds.length > 0
+      ? { status: "incompatible-object", raw, objectKinds }
+      : migratedResult(raw, migrateBoardDocument11To12);
+  }
   if (
     schemaVersion !== undefined &&
     schemaVersion !== boardDocumentSchemaVersion
   ) {
-    return {
-      status: "incompatible-schema",
-      raw,
-      schemaVersion,
-    };
+    return { status: "incompatible-schema", raw, schemaVersion };
   }
-
   const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds);
-  if (objectKinds.length > 0) {
+  if (objectKinds.length > 0)
     return { status: "incompatible-object", raw, objectKinds };
-  }
-
   const validation = validateBoardDocument(raw);
   return validation.valid
     ? { status: "ok", document: validation.document }

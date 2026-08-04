@@ -1,6 +1,12 @@
 import Konva from "konva";
 
-import type { Vec2, ViewportState } from "../../core/public";
+import {
+  createVectorInkData,
+  vectorInkOutlinePathData,
+  type Vec2,
+  type VectorInkSample,
+  type ViewportState,
+} from "../../core/public";
 
 export const maximumWetInkActualPoints = 100_000;
 export const maximumWetInkPredictedPoints = 64;
@@ -15,6 +21,7 @@ export interface WetInkStyle {
 export interface WetInkSample {
   readonly inputTimestampMs: number;
   readonly point: Vec2;
+  readonly pressure: number;
 }
 
 export interface WetInkLatencySnapshot {
@@ -27,7 +34,9 @@ export interface WetInkLatencySnapshot {
 
 export interface WetInkFrame {
   readonly actualPoints: readonly Vec2[];
+  readonly actualSamples: readonly WetInkSample[];
   readonly predictedPoints: readonly Vec2[];
+  readonly predictedSamples: readonly WetInkSample[];
   readonly style: WetInkStyle;
   readonly viewport: ViewportState;
 }
@@ -124,41 +133,44 @@ function samePoint(left: Vec2, right: Vec2): boolean {
   return left.x === right.x && left.y === right.y;
 }
 
-function appendUniquePoint(output: Vec2[], point: Vec2): boolean {
+function appendUniqueSample(
+  output: WetInkSample[],
+  sample: WetInkSample,
+): boolean {
   const previous = output.at(-1);
-  if (previous !== undefined && samePoint(previous, point)) return false;
-  output.push(point);
+  if (previous !== undefined && samePoint(previous.point, sample.point)) {
+    output[output.length - 1] = sample;
+    return false;
+  }
+  output.push(sample);
   return true;
 }
 
-function boundedPredictedPoints(
+function boundedPredictedSamples(
   samples: readonly WetInkSample[],
-): readonly Vec2[] {
-  const output: Vec2[] = [];
+): readonly WetInkSample[] {
+  const output: WetInkSample[] = [];
   for (const sample of samples.slice(-maximumWetInkPredictedPoints)) {
-    appendUniquePoint(output, sample.point);
+    appendUniqueSample(output, sample);
   }
   return output;
 }
 
 export class WetInkRenderer {
-  private readonly actualPoints: Vec2[] = [];
+  private readonly actualSamples: WetInkSample[] = [];
   private active = false;
   private clearAfterPaint = false;
   private frameCount = 0;
   private frameId: number | null = null;
   private readonly latency = new WetInkLatencyTracker();
   private readonly pendingInputTimestampsMs: number[] = [];
-  private predictedPoints: readonly Vec2[] = [];
+  private predictedSamples: readonly WetInkSample[] = [];
   private style: WetInkStyle = {
     opacity: 1,
     stroke: "#245d6b",
     strokeWidth: 3,
   };
-  private viewport: ViewportState = {
-    offset: { x: 0, y: 0 },
-    zoom: 1,
-  };
+  private viewport: ViewportState = { offset: { x: 0, y: 0 }, zoom: 1 };
 
   constructor(
     private readonly surface: WetInkSurface,
@@ -172,9 +184,9 @@ export class WetInkRenderer {
   ): void {
     this.cancelScheduledFrame();
     this.surface.clear();
-    this.actualPoints.length = 0;
+    this.actualSamples.length = 0;
     this.pendingInputTimestampsMs.length = 0;
-    this.predictedPoints = [];
+    this.predictedSamples = [];
     this.active = true;
     this.clearAfterPaint = false;
     this.style = style;
@@ -188,12 +200,12 @@ export class WetInkRenderer {
   ): void {
     if (!this.active) return;
     for (const sample of samples) {
-      if (this.actualPoints.length >= maximumWetInkActualPoints) break;
-      if (appendUniquePoint(this.actualPoints, sample.point)) {
+      if (this.actualSamples.length >= maximumWetInkActualPoints) break;
+      if (appendUniqueSample(this.actualSamples, sample)) {
         this.pendingInputTimestampsMs.push(sample.inputTimestampMs);
       }
     }
-    this.predictedPoints = boundedPredictedPoints(predictedSamples);
+    this.predictedSamples = boundedPredictedSamples(predictedSamples);
     this.scheduleFrame();
   }
 
@@ -216,9 +228,9 @@ export class WetInkRenderer {
     this.cancelScheduledFrame();
     this.active = false;
     this.clearAfterPaint = false;
-    this.actualPoints.length = 0;
+    this.actualSamples.length = 0;
     this.pendingInputTimestampsMs.length = 0;
-    this.predictedPoints = [];
+    this.predictedSamples = [];
     this.surface.clear();
     this.options.onClear?.();
   }
@@ -227,9 +239,9 @@ export class WetInkRenderer {
     this.cancelScheduledFrame();
     this.surface.destroy();
     this.active = false;
-    this.actualPoints.length = 0;
+    this.actualSamples.length = 0;
     this.pendingInputTimestampsMs.length = 0;
-    this.predictedPoints = [];
+    this.predictedSamples = [];
   }
 
   getLatencySnapshot(): WetInkLatencySnapshot {
@@ -243,8 +255,10 @@ export class WetInkRenderer {
       ? frameTimeMs
       : this.clock.now();
     this.surface.draw({
-      actualPoints: this.actualPoints,
-      predictedPoints: this.predictedPoints,
+      actualPoints: this.actualSamples.map(({ point }) => point),
+      actualSamples: this.actualSamples,
+      predictedPoints: this.predictedSamples.map(({ point }) => point),
+      predictedSamples: this.predictedSamples,
       style: this.style,
       viewport: this.viewport,
     });
@@ -255,10 +269,10 @@ export class WetInkRenderer {
     );
     this.pendingInputTimestampsMs.length = 0;
     this.options.onFrame?.({
-      actualPointCount: this.actualPoints.length,
+      actualPointCount: this.actualSamples.length,
       frameCount: this.frameCount,
       latency,
-      predictedPointCount: this.predictedPoints.length,
+      predictedPointCount: this.predictedSamples.length,
       renderedAtMs,
     });
     if (this.clearAfterPaint) {
@@ -270,8 +284,8 @@ export class WetInkRenderer {
   private readonly clearFrame = (): void => {
     this.frameId = null;
     this.active = false;
-    this.actualPoints.length = 0;
-    this.predictedPoints = [];
+    this.actualSamples.length = 0;
+    this.predictedSamples = [];
     this.surface.clear();
     this.options.onClear?.();
   };
@@ -292,44 +306,50 @@ export class WetInkRenderer {
   }
 }
 
-function flattenPoints(points: readonly Vec2[]): number[] {
-  const flattened = new Array<number>(points.length * 2);
-  for (let index = 0; index < points.length; index += 1) {
-    const point = points[index]!;
-    flattened[index * 2] = point.x;
-    flattened[index * 2 + 1] = point.y;
-  }
-  return flattened;
+function vectorSamples(
+  samples: readonly WetInkSample[],
+): readonly VectorInkSample[] {
+  const origin = samples[0]?.inputTimestampMs ?? 0;
+  return samples.map((sample) => ({
+    point: sample.point,
+    pressure: sample.pressure,
+    timestampMs: Math.max(0, sample.inputTimestampMs - origin),
+  }));
+}
+
+function pressureWidth(strokeWidth: number, pressure: number): number {
+  return strokeWidth * (0.35 + 0.9 * Math.min(1, Math.max(0, pressure)));
 }
 
 export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
   const group = new Konva.Group({ listening: false });
-  const actualLine = new Konva.Line({
-    lineCap: "round",
-    lineJoin: "round",
+  const actualPath = new Konva.Path({
     listening: false,
     perfectDrawEnabled: false,
-    tension: 0.32,
     visible: false,
   });
-  const predictedLine = new Konva.Line({
-    lineCap: "round",
-    lineJoin: "round",
+  const predictedPath = new Konva.Path({
     listening: false,
     perfectDrawEnabled: false,
-    tension: 0.32,
     visible: false,
   });
-  group.add(actualLine);
-  group.add(predictedLine);
+  const actualDot = new Konva.Circle({
+    listening: false,
+    perfectDrawEnabled: false,
+    visible: false,
+  });
+  group.add(actualPath);
+  group.add(predictedPath);
+  group.add(actualDot);
   layer.add(group);
 
   return {
     clear() {
-      actualLine.points([]);
-      actualLine.visible(false);
-      predictedLine.points([]);
-      predictedLine.visible(false);
+      actualPath.data("");
+      actualPath.visible(false);
+      predictedPath.data("");
+      predictedPath.visible(false);
+      actualDot.visible(false);
       layer.draw();
     },
     destroy() {
@@ -339,22 +359,46 @@ export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
     draw(frame) {
       group.position(frame.viewport.offset);
       group.scale({ x: frame.viewport.zoom, y: frame.viewport.zoom });
-      actualLine.points(flattenPoints(frame.actualPoints));
-      actualLine.opacity(frame.style.opacity);
-      actualLine.stroke(frame.style.stroke);
-      actualLine.strokeWidth(frame.style.strokeWidth);
-      actualLine.visible(frame.actualPoints.length > 0);
+      const actualInk = createVectorInkData(
+        vectorSamples(frame.actualSamples),
+        false,
+      );
+      const actualData = vectorInkOutlinePathData(
+        actualInk,
+        frame.style.strokeWidth,
+      );
+      actualPath.data(actualData);
+      actualPath.fill(frame.style.stroke);
+      actualPath.opacity(frame.style.opacity);
+      actualPath.visible(actualData.length > 0);
+      const first = frame.actualSamples[0];
+      actualDot.position(first?.point ?? { x: 0, y: 0 });
+      actualDot.radius(
+        first === undefined
+          ? 0
+          : pressureWidth(frame.style.strokeWidth, first.pressure) / 2,
+      );
+      actualDot.fill(frame.style.stroke);
+      actualDot.opacity(frame.style.opacity);
+      actualDot.visible(frame.actualSamples.length === 1);
 
-      const previous = frame.actualPoints.at(-1);
-      const predictedPoints =
+      const previous = frame.actualSamples.at(-1);
+      const predictedSamples =
         previous === undefined
-          ? frame.predictedPoints
-          : [previous, ...frame.predictedPoints];
-      predictedLine.points(flattenPoints(predictedPoints));
-      predictedLine.opacity(Math.min(1, frame.style.opacity * 0.42));
-      predictedLine.stroke(frame.style.stroke);
-      predictedLine.strokeWidth(frame.style.strokeWidth);
-      predictedLine.visible(predictedPoints.length > 1);
+          ? frame.predictedSamples
+          : [previous, ...frame.predictedSamples];
+      const predictedInk = createVectorInkData(
+        vectorSamples(predictedSamples),
+        false,
+      );
+      const predictedData = vectorInkOutlinePathData(
+        predictedInk,
+        frame.style.strokeWidth,
+      );
+      predictedPath.data(predictedData);
+      predictedPath.fill(frame.style.stroke);
+      predictedPath.opacity(Math.min(1, frame.style.opacity * 0.42));
+      predictedPath.visible(predictedData.length > 0);
       layer.draw();
     },
   };

@@ -44,6 +44,29 @@ function array(items, options = {}) {
 
 const identifier = { pattern: identifierPattern, type: "string" };
 const vec2 = strictObject({ x: finiteNumber, y: finiteNumber });
+const vectorInkSample = strictObject({
+  point: reference("Vec2"),
+  pressure: { maximum: 1, minimum: 0, type: "number" },
+  timestampMs: { minimum: 0, type: "number" },
+});
+const cubicBezierSegment = strictObject({
+  control1: reference("Vec2"),
+  control2: reference("Vec2"),
+  end: reference("Vec2"),
+  start: reference("Vec2"),
+});
+const vectorInkData = strictObject({
+  centerline: array(reference("CubicBezierSegment"), {
+    maxItems: 100_000,
+    minItems: 1,
+  }),
+  closed: { type: "boolean" },
+  samples: array(reference("VectorInkSample"), {
+    maxItems: 100_000,
+    minItems: 2,
+  }),
+  version: { const: "1.0" },
+});
 const positiveVec2 = strictObject({ x: positiveNumber, y: positiveNumber });
 const size2 = strictObject({
   height: positiveNumber,
@@ -99,6 +122,7 @@ function boardObject(kind, properties, required = Object.keys(properties)) {
 }
 
 const penStroke = boardObject("drawing.pen-stroke", {
+  ink: reference("VectorInkData"),
   points: array(reference("Vec2"), { maxItems: 100_000, minItems: 2 }),
 });
 const line = boardObject(
@@ -328,7 +352,7 @@ const boardDocument = strictObject({
   id: reference("Identifier"),
   objects: record(reference("BoardObject")),
   order: array(reference("Identifier"), { uniqueItems: true }),
-  schemaVersion: { const: "1.1" },
+  schemaVersion: { const: "1.2" },
   title: { maxLength: 256, minLength: 1, type: "string" },
   updatedAt: timestamp,
   viewport: reference("Viewport"),
@@ -354,6 +378,9 @@ const boardDefinitions = {
   PlotSeries: plotSeries,
   PlotSeriesStyle: plotSeriesStyle,
   PenStrokeObject: penStroke,
+  CubicBezierSegment: cubicBezierSegment,
+  VectorInkData: vectorInkData,
+  VectorInkSample: vectorInkSample,
   PositiveVec2: positiveVec2,
   RectangleObject: rectangle,
   Size2: size2,
@@ -541,7 +568,7 @@ export const schemas = {
         pattern: "^[A-Za-z0-9._:-]+$",
         type: "string",
       },
-      schemaVersion: { const: "1.1" },
+      schemaVersion: { const: "1.2" },
     }),
     commandDefinitions,
   ),
@@ -578,7 +605,7 @@ export const schemas = {
       }),
       importId: reference("Identifier"),
       prompt: { maxLength: 100_000, minLength: 1, type: "string" },
-      schemaVersion: { const: "1.1" },
+      schemaVersion: { const: "1.2" },
     }),
     { Identifier: identifier },
   ),
@@ -591,7 +618,7 @@ export const schemas = {
       documentId: reference("Identifier"),
       documentSha256: { pattern: sha256Pattern, type: "string" },
       revision: nonNegativeInteger,
-      schemaVersion: { const: "1.1" },
+      schemaVersion: { const: "1.2" },
     }),
     boardDefinitions,
   ),
@@ -680,21 +707,92 @@ function readBoardDocumentFixture() {
   );
 }
 
+function legacyVectorInk(points) {
+  const closed =
+    points.length > 2 &&
+    Math.hypot(points[0].x - points.at(-1).x, points[0].y - points.at(-1).y) <
+      0.001;
+  const source = closed ? points.slice(0, -1) : points;
+  const centerline = [];
+  const segment = (previous, start, end, next) => ({
+    start: { ...start },
+    control1: {
+      x: start.x + (end.x - previous.x) / 6,
+      y: start.y + (end.y - previous.y) / 6,
+    },
+    control2: {
+      x: end.x - (next.x - start.x) / 6,
+      y: end.y - (next.y - start.y) / 6,
+    },
+    end: { ...end },
+  });
+  if (closed) {
+    for (let index = 0; index < source.length; index += 1) {
+      centerline.push(
+        segment(
+          source[(index - 1 + source.length) % source.length],
+          source[index],
+          source[(index + 1) % source.length],
+          source[(index + 2) % source.length],
+        ),
+      );
+    }
+  } else {
+    for (let index = 0; index < source.length - 1; index += 1) {
+      centerline.push(
+        segment(
+          source[Math.max(0, index - 1)],
+          source[index],
+          source[index + 1],
+          source[Math.min(source.length - 1, index + 2)],
+        ),
+      );
+    }
+  }
+  return {
+    centerline,
+    closed,
+    samples: points.map((point, index) => ({
+      point: { ...point },
+      pressure: 0.5,
+      timestampMs: index * 8,
+    })),
+    version: "1.0",
+  };
+}
+
+function upgradeVectorInkDocument(document) {
+  return {
+    ...document,
+    objects: Object.fromEntries(
+      Object.entries(document.objects).map(([id, object]) => [
+        id,
+        object.kind === "drawing.pen-stroke"
+          ? { ...object, ink: legacyVectorInk(object.points) }
+          : object,
+      ]),
+    ),
+    schemaVersion: "1.2",
+  };
+}
+
 function fixtures() {
-  const document = { ...readBoardDocumentFixture(), schemaVersion: "1.1" };
+  const document = upgradeVectorInkDocument(readBoardDocumentFixture());
   const documentHash = sha256(canonicalPayload(document));
+  const smartInkPoints = [
+    { x: 10, y: 40 },
+    { x: 40, y: 10 },
+    { x: 70, y: 40 },
+    { x: 40, y: 70 },
+    { x: 10, y: 40 },
+  ];
   const smartInkStroke = {
     groupId: null,
     id: "object:smart-ink-01",
     kind: "drawing.pen-stroke",
+    ink: legacyVectorInk(smartInkPoints),
     locked: false,
-    points: [
-      { x: 10, y: 40 },
-      { x: 40, y: 10 },
-      { x: 70, y: 40 },
-      { x: 40, y: 70 },
-      { x: 10, y: 40 },
-    ],
+    points: smartInkPoints,
     position: { x: 0, y: 0 },
     rotation: 0,
     scale: { x: 1, y: 1 },
@@ -738,7 +836,7 @@ function fixtures() {
       documentId: document.id,
       expectedDocumentSha256: documentHash,
       idempotencyKey: "client:tutor-01:batch-08",
-      schemaVersion: "1.1",
+      schemaVersion: "1.2",
     },
     "fixtures/board-document.json": document,
     "fixtures/board-geometry-import.json": {
@@ -757,7 +855,7 @@ function fixtures() {
       },
       importId: "import:geometry-08",
       prompt: "Постройте треугольник ABC.",
-      schemaVersion: "1.1",
+      schemaVersion: "1.2",
     },
     "fixtures/board-snapshot.json": {
       createdAt: "2026-07-28T17:00:00.000Z",
@@ -765,7 +863,7 @@ function fixtures() {
       documentId: document.id,
       documentSha256: documentHash,
       revision: 7,
-      schemaVersion: "1.1",
+      schemaVersion: "1.2",
     },
   };
 }

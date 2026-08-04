@@ -18,6 +18,126 @@
           "groupId": null,
           "id": "object:smart-ink-01",
           "kind": "drawing.pen-stroke",
+          "ink": {
+            "centerline": [
+              {
+                "start": {
+                  "x": 10,
+                  "y": 40
+                },
+                "control1": {
+                  "x": 10,
+                  "y": 30
+                },
+                "control2": {
+                  "x": 30,
+                  "y": 10
+                },
+                "end": {
+                  "x": 40,
+                  "y": 10
+                }
+              },
+              {
+                "start": {
+                  "x": 40,
+                  "y": 10
+                },
+                "control1": {
+                  "x": 50,
+                  "y": 10
+                },
+                "control2": {
+                  "x": 70,
+                  "y": 30
+                },
+                "end": {
+                  "x": 70,
+                  "y": 40
+                }
+              },
+              {
+                "start": {
+                  "x": 70,
+                  "y": 40
+                },
+                "control1": {
+                  "x": 70,
+                  "y": 50
+                },
+                "control2": {
+                  "x": 50,
+                  "y": 70
+                },
+                "end": {
+                  "x": 40,
+                  "y": 70
+                }
+              },
+              {
+                "start": {
+                  "x": 40,
+                  "y": 70
+                },
+                "control1": {
+                  "x": 30,
+                  "y": 70
+                },
+                "control2": {
+                  "x": 10,
+                  "y": 50
+                },
+                "end": {
+                  "x": 10,
+                  "y": 40
+                }
+              }
+            ],
+            "closed": true,
+            "samples": [
+              {
+                "point": {
+                  "x": 10,
+                  "y": 40
+                },
+                "pressure": 0.5,
+                "timestampMs": 0
+              },
+              {
+                "point": {
+                  "x": 40,
+                  "y": 10
+                },
+                "pressure": 0.5,
+                "timestampMs": 8
+              },
+              {
+                "point": {
+                  "x": 70,
+                  "y": 40
+                },
+                "pressure": 0.5,
+                "timestampMs": 16
+              },
+              {
+                "point": {
+                  "x": 40,
+                  "y": 70
+                },
+                "pressure": 0.5,
+                "timestampMs": 24
+              },
+              {
+                "point": {
+                  "x": 10,
+                  "y": 40
+                },
+                "pressure": 0.5,
+                "timestampMs": 32
+              }
+            ],
+            "version": "1.0"
+          },
           "locked": false,
           "points": [
             {
@@ -67,6 +187,126 @@
           "groupId": null,
           "id": "object:smart-ink-01",
           "kind": "drawing.ellipse",
+          "ink": {
+            "centerline": [
+              {
+                "start": {
+                  "x": 10,
+                  "y": 40
+                },
+                "control1": {
+                  "x": 10,
+                  "y": 30
+                },
+                "control2": {
+                  "x": 30,
+                  "y": 10
+                },
+                "end": {
+                  "x": 40,
+                  "y": 10
+                }
+              },
+              {
+                "start": {
+                  "x": 40,
+                  "y": 10
+                },
+                "control1": {
+                  "x": 50,
+                  "y": 10
+                },
+                "control2": {
+                  "x": 70,
+                  "y": 30
+                },
+                "end": {
+                  "x": 70,
+                  "y": 40
+                }
+              },
+              {
+                "start": {
+                  "x": 70,
+                  "y": 40
+                },
+                "control1": {
+                  "x": 70,
+                  "y": 50
+                },
+                "control2": {
+                  "x": 50,
+                  "y": 70
+                },
+                "end": {
+                  "x": 40,
+                  "y": 70
+                }
+              },
+              {
+                "start": {
+                  "x": 40,
+                  "y": 70
+                },
+                "control1": {
+                  "x": 30,
+                  "y": 70
+                },
+                "control2": {
+                  "x": 10,
+                  "y": 50
+                },
+                "end": {
+                  "x": 10,
+                  "y": 40
+                }
+              }
+            ],
+            "closed": true,
+            "samples": [
+              {
+                "point": {
+                  "x": 10,
+                  "y": 40
+                },
+                "pressure": 0.5,
+                "timestampMs": 0
+              },
+              {
+                "point": {
+                  "x": 40,
+                  "y": 10
+                },
+                "pressure": 0.5,
+                "timestampMs": 8
+              },
+              {
+                "point": {
+                  "x": 70,
+                  "y": 40
+                },
+                "pressure": 0.5,
+                "timestampMs": 16
+              },
+              {
+                "point": {
+                  "x": 40,
+                  "y": 70
+                },
+                "pressure": 0.5,
+                "timestampMs": 24
+              },
+              {
+                "point": {
+                  "x": 10,
+                  "y": 40
+                },
+                "pressure": 0.5,
+                "timestampMs": 32
+              }
+            ],
+            "version": "1.0"
+          },
           "locked": false,
           "position": {
             "x": 40,
@@ -97,7 +337,7 @@
     }
   ],
   "documentId": "document:lesson-01",
-  "expectedDocumentSha256": "86491953e1c4584a2fe9520995e71d1b8d283c5ee9dec55a25ad038c7e6d551b",
+  "expectedDocumentSha256": "0bcfa599419a4af17ad38ec9b05f1ad95e05f75e3024cfc0ffe1cf8572de4ab5",
   "idempotencyKey": "client:tutor-01:batch-08",
-  "schemaVersion": "1.1"
+  "schemaVersion": "1.2"
 }

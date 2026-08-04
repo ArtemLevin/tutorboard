@@ -1,7 +1,14 @@
 import type { ReactElement } from "react";
-import { Ellipse, Group, Line, Rect, Text } from "react-konva";
+import { Ellipse, Group, Line, Path, Rect, Text } from "react-konva";
 
-import type { BoardObject, BoardObjectKind, Vec2 } from "../../core/public";
+import {
+  resolveVectorInkData,
+  vectorInkCenterlinePathData,
+  vectorInkOutlinePathData,
+  type BoardObject,
+  type BoardObjectKind,
+  type Vec2,
+} from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
 import {
   buildCachedSmoothClosedStrokePoints,
@@ -166,72 +173,35 @@ function sketchPoints(
 const renderers: readonly KonvaObjectRenderer[] = [
   {
     kind: "drawing.pen-stroke",
-    render(object, context) {
+    render(object) {
       const stroke = expectKind(object, "drawing.pen-stroke");
-      const first = stroke.points[0];
-      const last = stroke.points.at(-1);
-      const closed =
-        first !== undefined &&
-        last !== undefined &&
-        Math.hypot(first.x - last.x, first.y - last.y) < 0.001;
-      const renderPoints = closed
-        ? buildCachedSmoothClosedStrokePoints(stroke.points, context.zoom)
-        : buildCachedSmoothStrokePoints(stroke.points, context.zoom);
-      if (isSketchStrokeStyle(stroke.style.strokeStyle)) {
-        return renderSketchPath(
-          stroke,
-          (pass) =>
-            createSketchPath(renderPoints, pass.intensity, pass.seed, closed),
-          closed,
-          closed && stroke.style.fill !== null ? (
-            <Line
-              {...fillProps(stroke)}
-              closed
-              listening={false}
-              opacity={stroke.style.opacity}
-              points={[...flattenStrokePoints(renderPoints)]}
-            />
-          ) : null,
-        );
-      }
-      const points = [...flattenStrokePoints(renderPoints)];
-      if (closed && stroke.style.fill !== null) {
-        return (
-          <Group
-            {...commonTransformProps(stroke)}
-            name="board-transform-target"
-          >
-            <Line
-              {...fillProps(stroke)}
-              closed
-              listening={false}
-              opacity={stroke.style.opacity}
-              perfectDrawEnabled
-              points={points}
-              tension={0}
-            />
-            <Line
-              {...contourStrokeProps(stroke)}
-              {...strokeProps(stroke)}
-              closed
-              fillEnabled={false}
-              perfectDrawEnabled
-              points={points}
-              tension={0}
-            />
-          </Group>
-        );
-      }
+      const ink = resolveVectorInkData(stroke);
+      const resolved = resolveStrokeStyle(
+        stroke.style.strokeStyle,
+        stroke.style.strokeWidth,
+      );
+      const outline = vectorInkOutlinePathData(ink, resolved.strokeWidth);
+      const centerline = vectorInkCenterlinePathData(ink);
       return (
-        <Line
-          {...commonShapeProps(stroke)}
-          {...strokeProps(stroke)}
-          closed={closed}
-          fillEnabled={false}
-          perfectDrawEnabled
-          points={points}
-          tension={0}
-        />
+        <Group {...commonTransformProps(stroke)} name="board-transform-target">
+          {ink.closed && stroke.style.fill !== null && centerline.length > 0 ? (
+            <Path
+              data={centerline}
+              fill={stroke.style.fill}
+              listening={false}
+              opacity={stroke.style.opacity}
+              perfectDrawEnabled
+            />
+          ) : null}
+          {stroke.style.stroke === null || outline.length === 0 ? null : (
+            <Path
+              data={outline}
+              fill={stroke.style.stroke}
+              opacity={stroke.style.opacity * resolved.opacityMultiplier}
+              perfectDrawEnabled
+            />
+          )}
+        </Group>
       );
     },
   },

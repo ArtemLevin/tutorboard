@@ -130,6 +130,26 @@ export type {
   VisualStyleOverride,
 } from "./board/geometry-imports";
 export {
+  createCubicBezierCenterline,
+  createLegacyVectorInkSamples,
+  createVectorInkData,
+  createVectorInkDataFromPoints,
+  defaultVectorInkPressure,
+  legacyVectorInkSampleIntervalMs,
+  maximumVectorInkSamples,
+  normalizeVectorInkSamples,
+  resolveVectorInkData,
+  vectorInkCenterlinePathData,
+  vectorInkDataMatchesPoints,
+  vectorInkOutlinePathData,
+  vectorInkSchemaVersion,
+  vectorInkStrokeIsClosed,
+  type CubicBezierSegment,
+  type VectorInkData,
+  type VectorInkSample,
+  type VectorInkStrokeLike,
+} from "./board/vector-ink";
+export {
   boardObjectKinds,
   embeddedImageMimeTypes,
   strokeStyles,
@@ -157,6 +177,10 @@ export {
   migrateBoardDocument02To10,
   migrateBoardDocument02To11,
   migrateBoardDocument10To11,
+  migrateBoardDocument01To12,
+  migrateBoardDocument02To12,
+  migrateBoardDocument10To12,
+  migrateBoardDocument11To12,
   type BoardDocumentMigrationResult,
 } from "./board/migrations";
 export {

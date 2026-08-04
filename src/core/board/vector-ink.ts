@@ -105,7 +105,10 @@ export function normalizeVectorInkSamples(
   let previousTimestamp = -legacyVectorInkSampleIntervalMs;
   for (const sample of samples.slice(0, maximumVectorInkSamples)) {
     if (!finitePoint(sample.point)) continue;
-    const timestampMs = normalizeTimestamp(sample.timestampMs, previousTimestamp);
+    const timestampMs = normalizeTimestamp(
+      sample.timestampMs,
+      previousTimestamp,
+    );
     output.push({
       point: clonePoint(sample.point),
       pressure: clampPressure(sample.pressure),
@@ -195,7 +198,9 @@ export function createVectorInkDataFromPoints(
   );
 }
 
-export function resolveVectorInkData(stroke: VectorInkStrokeLike): VectorInkData {
+export function resolveVectorInkData(
+  stroke: VectorInkStrokeLike,
+): VectorInkData {
   return stroke.ink ?? createVectorInkDataFromPoints(stroke.points);
 }
 
@@ -261,10 +266,7 @@ function centerlineOutlinePoints(ink: VectorInkData): readonly OutlinePoint[] {
   if (ink.centerline.length === 0 || ink.samples.length < 2) return [];
   const sourceSamples =
     ink.closed &&
-    approximatelySamePoint(
-      ink.samples[0]!.point,
-      ink.samples.at(-1)!.point,
-    )
+    approximatelySamePoint(ink.samples[0]!.point, ink.samples.at(-1)!.point)
       ? ink.samples.slice(0, -1)
       : ink.samples;
   const output: OutlinePoint[] = [];
@@ -289,12 +291,17 @@ function centerlineOutlinePoints(ink: VectorInkData): readonly OutlinePoint[] {
   if (ink.closed && output.length > 1) {
     const first = output[0]!;
     const last = output.at(-1)!;
-    if (approximatelySamePoint(first.point, last.point)) return output.slice(0, -1);
+    if (approximatelySamePoint(first.point, last.point))
+      return output.slice(0, -1);
   }
   return output;
 }
 
-function unitTangent(points: readonly OutlinePoint[], index: number, closed: boolean): Vec2 {
+function unitTangent(
+  points: readonly OutlinePoint[],
+  index: number,
+  closed: boolean,
+): Vec2 {
   const previous =
     points[index === 0 ? (closed ? points.length - 1 : 0) : index - 1]!.point;
   const next =
@@ -308,8 +315,9 @@ function unitTangent(points: readonly OutlinePoint[], index: number, closed: boo
 
 function halfWidth(baseWidth: number, pressure: number): number {
   return (
-    Math.max(0, baseWidth) *
-    (minimumOutlinePressureMultiplier + outlinePressureRange * clampPressure(pressure)) /
+    (Math.max(0, baseWidth) *
+      (minimumOutlinePressureMultiplier +
+        outlinePressureRange * clampPressure(pressure))) /
     2
   );
 }
@@ -324,7 +332,8 @@ function capPoints(
   const startAngle = fromLeft ? normalAngle : normalAngle + Math.PI;
   const direction = fromLeft ? 1 : 1;
   return Array.from({ length: outlineCapSteps + 1 }, (_, index) => {
-    const angle = startAngle + direction * (Math.PI * index) / outlineCapSteps;
+    const angle =
+      startAngle + (direction * (Math.PI * index)) / outlineCapSteps;
     return {
       x: center.x + Math.cos(angle) * radius,
       y: center.y + Math.sin(angle) * radius,
@@ -375,7 +384,9 @@ export function vectorInkOutlinePathData(
   if (first === undefined) return "";
   return [
     `M ${number(first.x)} ${number(first.y)}`,
-    ...outline.slice(1).map((point) => `L ${number(point.x)} ${number(point.y)}`),
+    ...outline
+      .slice(1)
+      .map((point) => `L ${number(point.x)} ${number(point.y)}`),
     "Z",
   ].join(" ");
 }

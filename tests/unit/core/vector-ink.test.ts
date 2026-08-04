@@ -19,7 +19,11 @@ describe("Vector Ink 1.0", () => {
     const ink = createVectorInkDataFromPoints(points);
     expect(ink.version).toBe("1.0");
     expect(ink.samples).toHaveLength(points.length);
-    expect(ink.samples.every(({ pressure }) => pressure === defaultVectorInkPressure)).toBe(true);
+    expect(
+      ink.samples.every(
+        ({ pressure }) => pressure === defaultVectorInkPressure,
+      ),
+    ).toBe(true);
     expect(ink.centerline).toHaveLength(2);
     expect(vectorInkDataMatchesPoints(ink, points)).toBe(true);
     expect(vectorInkCenterlinePathData(ink)).toMatch(/^M .* C .* C /u);

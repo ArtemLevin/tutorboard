@@ -1,3 +1,4 @@
+import { createVectorInkDataFromPoints } from "../../core/public";
 import type {
   BoardObject,
   ObjectStyle,
@@ -138,28 +139,30 @@ export function createSmartInkReplacementObject(
       if (shaftLength < minimumGeometrySize) {
         return null;
       }
+      const points = [
+        { x: 0, y: 0 },
+        {
+          x: geometry.tip.x - geometry.start.x,
+          y: geometry.tip.y - geometry.start.y,
+        },
+        {
+          x: geometry.headLeft.x - geometry.start.x,
+          y: geometry.headLeft.y - geometry.start.y,
+        },
+        {
+          x: geometry.tip.x - geometry.start.x,
+          y: geometry.tip.y - geometry.start.y,
+        },
+        {
+          x: geometry.headRight.x - geometry.start.x,
+          y: geometry.headRight.y - geometry.start.y,
+        },
+      ];
       return {
         ...base(stroke, geometry.start),
+        ink: createVectorInkDataFromPoints(points),
         kind: "drawing.pen-stroke",
-        points: [
-          { x: 0, y: 0 },
-          {
-            x: geometry.tip.x - geometry.start.x,
-            y: geometry.tip.y - geometry.start.y,
-          },
-          {
-            x: geometry.headLeft.x - geometry.start.x,
-            y: geometry.headLeft.y - geometry.start.y,
-          },
-          {
-            x: geometry.tip.x - geometry.start.x,
-            y: geometry.tip.y - geometry.start.y,
-          },
-          {
-            x: geometry.headRight.x - geometry.start.x,
-            y: geometry.headRight.y - geometry.start.y,
-          },
-        ],
+        points,
       };
     }
     case "line": {
@@ -217,16 +220,18 @@ export function createSmartInkReplacementObject(
       if (first === undefined || geometry.vertices.length !== 3) {
         return null;
       }
+      const points = [
+        ...geometry.vertices.map((point) => ({
+          x: point.x - first.x,
+          y: point.y - first.y,
+        })),
+        { x: 0, y: 0 },
+      ];
       return {
         ...base(stroke, first),
+        ink: createVectorInkDataFromPoints(points),
         kind: "drawing.pen-stroke",
-        points: [
-          ...geometry.vertices.map((point) => ({
-            x: point.x - first.x,
-            y: point.y - first.y,
-          })),
-          { x: 0, y: 0 },
-        ],
+        points,
       };
     }
   }

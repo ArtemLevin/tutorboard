@@ -1,7 +1,7 @@
 {
   "createdAt": "2026-07-28T17:00:00.000Z",
   "document": {
-    "schemaVersion": "1.1",
+    "schemaVersion": "1.2",
     "id": "document:lesson-01",
     "title": "Linear functions",
     "createdAt": "2026-07-24T12:00:00.000Z",
@@ -101,7 +101,7 @@
     "geometryImports": {}
   },
   "documentId": "document:lesson-01",
-  "documentSha256": "86491953e1c4584a2fe9520995e71d1b8d283c5ee9dec55a25ad038c7e6d551b",
+  "documentSha256": "0bcfa599419a4af17ad38ec9b05f1ad95e05f75e3024cfc0ffe1cf8572de4ab5",
   "revision": 7,
-  "schemaVersion": "1.1"
+  "schemaVersion": "1.2"
 }

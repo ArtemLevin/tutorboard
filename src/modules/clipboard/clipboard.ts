@@ -14,7 +14,7 @@ import {
   type Vec2,
 } from "../../core/public";
 
-export const boardClipboardSchemaVersion = "1.1" as const;
+export const boardClipboardSchemaVersion = "1.2" as const;
 export const defaultPasteOffset: Vec2 = { x: 24, y: 24 };
 
 export interface BoardClipboardPayload {
@@ -200,7 +200,29 @@ export function createPasteContentCommand(
             ...object,
             definition: copyCoordinatePlotDefinition(object.definition),
           }
-        : object;
+        : object.kind === "drawing.pen-stroke"
+          ? {
+              ...object,
+              points: object.points.map((point) => ({ ...point })),
+              ...(object.ink === undefined
+                ? {}
+                : {
+                    ink: {
+                      ...object.ink,
+                      centerline: object.ink.centerline.map((segment) => ({
+                        control1: { ...segment.control1 },
+                        control2: { ...segment.control2 },
+                        end: { ...segment.end },
+                        start: { ...segment.start },
+                      })),
+                      samples: object.ink.samples.map((sample) => ({
+                        ...sample,
+                        point: { ...sample.point },
+                      })),
+                    },
+                  }),
+            }
+          : object;
     return {
       ...copied,
       groupId,
