@@ -664,7 +664,10 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Запрос GeometryOS"), {
       target: { value: "Построй треугольник ABC" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Построить" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать для размещения" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Провести указкой" }));
 
     await waitFor(() =>
       expect(screen.getByTestId("object-count")).toHaveTextContent(

@@ -88,7 +88,15 @@ test("imports, moves and restores the triangle-altitude fixture atomically", asy
   await page
     .getByRole("menuitemradio", { name: "Построение GeometryOS" })
     .click();
-  await page.getByRole("button", { name: "Построить" }).click();
+  await page.getByRole("button", { name: "Выбрать для размещения" }).click();
+
+  const stage = page.getByTestId("board-stage");
+  const stageBounds = await stage.boundingBox();
+  if (stageBounds === null) throw new Error("Expected TutorBoard stage bounds");
+  await page.mouse.click(
+    stageBounds.x + stageBounds.width * 0.58,
+    stageBounds.y + stageBounds.height * 0.42,
+  );
 
   const geometryStatus = page.getByTestId("geometry-prompt-status");
   await expect

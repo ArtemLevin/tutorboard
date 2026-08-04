@@ -846,6 +846,28 @@ textarea:focus-visible,
   gap: 7px;
 }
 
+.geometry-prompt-check {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.geometry-suggestions {
+  display: grid;
+  gap: 6px;
+}
+
+.geometry-suggestions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.geometry-suggestions button {
+  min-height: 30px;
+  color: #2c6170;
+  background: #f4f8f8;
+}
+
 .geometry-prompt-panel button {
   min-height: 34px;
   padding: 0 11px;
@@ -1961,6 +1983,37 @@ textarea:focus-visible,
   border: 1px solid #cbd4d8;
   border-radius: 9px;
   background: #fff;
+  cursor: pointer;
+}
+
+.dock-check-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 9px 0;
+  color: #43565f;
+  font-size: 0.76rem;
+}
+
+.dock-vertex-actions {
+  display: grid;
+  gap: 6px;
+  margin: 9px 0;
+}
+
+.dock-vertex-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dock-vertex-actions button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #c9a7b1;
+  border-radius: 9px;
+  color: #7f2941;
+  background: #fff8fa;
   cursor: pointer;
 }
 

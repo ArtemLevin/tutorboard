@@ -19,6 +19,7 @@ import {
   selectionTool,
   selectionToolId,
 } from "../../modules/selection/public";
+import type { VertexConstructionKind } from "../../modules/text-shape-placement/public";
 import { ColorPalette } from "../ColorPalette";
 import { StrokeStylePalette } from "../StrokeStylePalette";
 
@@ -53,6 +54,8 @@ interface BoardToolDockProps {
   readonly onDeleteSelection: () => void;
   readonly onSelectionLockChange: (locked: boolean) => void;
   readonly onSelectionStyleChange: (patch: Partial<ObjectStyle>) => void;
+  readonly onGeneratedFigureLabelsChange: (visible: boolean) => void;
+  readonly onVertexConstruction: (kind: VertexConstructionKind) => void;
   readonly canTransformSelection: boolean;
   readonly onSelectedTextCommit: (value: string) => void;
   readonly onTransformSelection: (
@@ -60,6 +63,9 @@ interface BoardToolDockProps {
     rotationDelta: number,
   ) => void;
   readonly selectedText: string | null;
+  readonly generatedFigureLabelsVisible: boolean | null;
+  readonly selectedVertexName: string | null;
+  readonly vertexConstructions: readonly VertexConstructionKind[];
   readonly settingsOpen: boolean;
   readonly textDraft: string;
   readonly onTextDraftChange: (value: string) => void;
@@ -469,6 +475,45 @@ export function BoardToolDock(props: BoardToolDockProps) {
               </button>
             </div>
           </div>
+          {props.generatedFigureLabelsVisible === null ? null : (
+            <label className="dock-check-control">
+              <input
+                checked={props.generatedFigureLabelsVisible}
+                onChange={(event) =>
+                  props.onGeneratedFigureLabelsChange(
+                    event.currentTarget.checked,
+                  )
+                }
+                type="checkbox"
+              />
+              <span>Автоматически называть вершины</span>
+            </label>
+          )}
+          {props.selectedVertexName === null ||
+          props.vertexConstructions.length === 0 ? null : (
+            <div
+              aria-label={`Построения из вершины ${props.selectedVertexName}`}
+              className="dock-vertex-actions"
+              role="group"
+            >
+              <strong>Из вершины {props.selectedVertexName}</strong>
+              <div>
+                {props.vertexConstructions.map((kind) => (
+                  <button
+                    key={kind}
+                    onClick={() => props.onVertexConstruction(kind)}
+                    type="button"
+                  >
+                    {kind === "altitude"
+                      ? "Высота"
+                      : kind === "median"
+                        ? "Медиана"
+                        : "Биссектриса"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {props.selectedText === null ? null : (
             <label className="dock-text-control">
               <span>Текст или формула</span>
