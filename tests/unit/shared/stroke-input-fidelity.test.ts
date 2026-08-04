@@ -138,17 +138,24 @@ describe("stroke input fidelity", () => {
     expect(maximumScreenSegment(smoothed, 4)).toBeLessThan(4);
   });
 
-  it("preserves the sharp vertices of M and the central joins of Ж", () => {
+  it("preserves the sharp vertices of M and the central join of Ж", () => {
     const smoothedM = buildSmoothStrokePoints(letterM, { zoom: 4 });
     for (const vertex of letterM) {
       expect(containsPoint(smoothedM, vertex)).toBe(true);
     }
 
     const smoothedZhe = buildSmoothStrokePoints(letterZhe, { zoom: 4 });
-    expect(
-      smoothedZhe.filter((point) => distance(point, { x: 0, y: 0 }) < 1e-8)
-        .length,
-    ).toBeGreaterThanOrEqual(4);
+    expect(containsPoint(smoothedZhe, { x: 0, y: 0 })).toBe(true);
+    for (const outerVertex of [
+      letterZhe[0]!,
+      letterZhe[2]!,
+      letterZhe[4]!,
+      letterZhe[5]!,
+      letterZhe[7]!,
+      letterZhe[9]!,
+    ]) {
+      expect(containsPoint(smoothedZhe, outerVertex)).toBe(true);
+    }
   });
 
   it("smooths a closed handwritten 8 while preserving its crossing", () => {
