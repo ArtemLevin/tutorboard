@@ -4,25 +4,32 @@ import type { Vec2 } from "../../core/public";
 
 export interface CanvasContextMenuProps {
   readonly canClear: boolean;
+  readonly canCopy: boolean;
   readonly canPaste: boolean;
+  readonly context: "canvas" | "selection";
   readonly disabled: boolean;
   readonly onClearRequest: () => void;
   readonly onClose: () => void;
+  readonly onCopy: () => void;
   readonly onPaste: () => void;
   readonly onText: () => void;
   readonly position: Vec2;
 }
 
 const menuWidth = 216;
-const menuHeight = 154;
+const canvasMenuHeight = 154;
+const selectionMenuHeight = 54;
 const viewportMargin = 8;
 
 export function CanvasContextMenu({
   canClear,
+  canCopy,
   canPaste,
+  context,
   disabled,
   onClearRequest,
   onClose,
+  onCopy,
   onPaste,
   onText,
   position,
@@ -33,6 +40,8 @@ export function CanvasContextMenu({
     viewportMargin,
     Math.min(position.x, window.innerWidth - menuWidth - viewportMargin),
   );
+  const menuHeight =
+    context === "selection" ? selectionMenuHeight : canvasMenuHeight;
   const top = Math.max(
     viewportMargin,
     Math.min(position.y, window.innerHeight - menuHeight - viewportMargin),
@@ -64,42 +73,57 @@ export function CanvasContextMenu({
 
   return (
     <section
-      aria-label="Меню холста"
+      aria-label={context === "selection" ? "Меню выделения" : "Меню холста"}
       className="canvas-context-menu"
       ref={menuRef}
       role="menu"
       style={{ left, top }}
     >
-      <button
-        disabled={disabled}
-        onClick={onText}
-        ref={firstItemRef}
-        role="menuitem"
-        type="button"
-      >
-        <span aria-hidden="true">T</span>
-        Текст
-      </button>
-      <button
-        disabled={disabled || !canPaste}
-        onClick={onPaste}
-        role="menuitem"
-        type="button"
-      >
-        <span aria-hidden="true">⌘</span>
-        Вставить
-      </button>
-      <div className="canvas-context-menu__separator" role="separator" />
-      <button
-        className="is-danger"
-        disabled={disabled || !canClear}
-        onClick={onClearRequest}
-        role="menuitem"
-        type="button"
-      >
-        <span aria-hidden="true">×</span>
-        Очистить холст
-      </button>
+      {context === "selection" ? (
+        <button
+          disabled={!canCopy}
+          onClick={onCopy}
+          ref={firstItemRef}
+          role="menuitem"
+          type="button"
+        >
+          <span aria-hidden="true">⧉</span>
+          Копировать
+        </button>
+      ) : (
+        <>
+          <button
+            disabled={disabled}
+            onClick={onText}
+            ref={firstItemRef}
+            role="menuitem"
+            type="button"
+          >
+            <span aria-hidden="true">T</span>
+            Текст
+          </button>
+          <button
+            disabled={disabled || !canPaste}
+            onClick={onPaste}
+            role="menuitem"
+            type="button"
+          >
+            <span aria-hidden="true">⌘</span>
+            Вставить
+          </button>
+          <div className="canvas-context-menu__separator" role="separator" />
+          <button
+            className="is-danger"
+            disabled={disabled || !canClear}
+            onClick={onClearRequest}
+            role="menuitem"
+            type="button"
+          >
+            <span aria-hidden="true">×</span>
+            Очистить холст
+          </button>
+        </>
+      )}
     </section>
   );
 }

@@ -123,6 +123,7 @@ vi.mock("../adapters/canvas-konva/public", () => ({
           onClick={() =>
             props.onCanvasContextMenuRequest?.({
               clientPoint: { x: 180, y: 140 },
+              objectId: null,
               worldPoint: { x: 42, y: 56 },
             })
           }
