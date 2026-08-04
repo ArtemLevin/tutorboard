@@ -99,27 +99,22 @@ source = replaceOnce(
 );
 source = replaceOnce(
   source,
-  `      rightClickCandidateRef.current = null;
-      if (primaryCanvasClickTimeoutRef.current !== null) {
+  `  useEffect(() => {
+    if (primaryCanvasClickTimeoutRef.current !== null) {
+      window.clearTimeout(primaryCanvasClickTimeoutRef.current);
+      primaryCanvasClickTimeoutRef.current = null;
+    }
+  }, [drawingModeKey, panMode, selectionModeKey]);
 `,
-  `      rightClickCandidateRef.current = null;
-      primaryCanvasClickCandidateRef.current = null;
-      if (primaryCanvasClickTimeoutRef.current !== null) {
+  `  useEffect(() => {
+    primaryCanvasClickCandidateRef.current = null;
+    if (primaryCanvasClickTimeoutRef.current !== null) {
+      window.clearTimeout(primaryCanvasClickTimeoutRef.current);
+      primaryCanvasClickTimeoutRef.current = null;
+    }
+  }, [drawingModeKey, panMode, selectionModeKey]);
 `,
-  "blur candidate cleanup",
-);
-source = replaceOnce(
-  source,
-  `      discardWorldPointerMoves();
-      rightClickCandidateRef.current = null;
-      if (primaryCanvasClickTimeoutRef.current !== null) {
-`,
-  `      discardWorldPointerMoves();
-      rightClickCandidateRef.current = null;
-      primaryCanvasClickCandidateRef.current = null;
-      if (primaryCanvasClickTimeoutRef.current !== null) {
-`,
-  "unmount candidate cleanup",
+  "mode change candidate cleanup",
 );
 source = replaceOnce(
   source,
