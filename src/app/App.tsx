@@ -3060,6 +3060,17 @@ export function App({
             setClearCanvasConfirmationOpen(false);
             setCanvasContextMenu(request);
           }}
+          onCanvasPrimaryClickRequest={() => {
+            if (readOnly) return;
+            setCanvasContextMenu(null);
+            activateTool("drawing.smart-ink");
+            setAccessibilityNotice("Включён режим Smart Ink");
+          }}
+          onCanvasPrimaryDoubleClickRequest={() => {
+            setCanvasContextMenu(null);
+            activateTool(selectionToolId);
+            setAccessibilityNotice("Включён режим выделения");
+          }}
           onWorldPointerBatch={moveDrawingBatch}
           onWorldPointerCancel={cancelDrawing}
           onWorldPointerFinish={finishDrawing}
@@ -3103,13 +3114,26 @@ export function App({
         {canvasContextMenu === null ? null : (
           <CanvasContextMenu
             canClear={document.order.length > 0}
+            canCopy={
+              canvasContextMenu.objectId !== null &&
+              selectionState.selectedObjectIds.includes(
+                canvasContextMenu.objectId,
+              )
+            }
             canPaste={clipboard !== null}
+            context={
+              canvasContextMenu.objectId === null ? "canvas" : "selection"
+            }
             disabled={readOnly}
             onClearRequest={() => {
               setCanvasContextMenu(null);
               setClearCanvasConfirmationOpen(true);
             }}
             onClose={() => setCanvasContextMenu(null)}
+            onCopy={() => {
+              copySelection();
+              setCanvasContextMenu(null);
+            }}
             onPaste={() => {
               pasteClipboard();
               setCanvasContextMenu(null);

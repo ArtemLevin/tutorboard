@@ -59,3 +59,37 @@ test("keeps right-drag canvas panning separate from the context menu", async ({
   await expect(page.getByRole("menu", { name: "Меню холста" })).toHaveCount(0);
   await expect(page.getByTestId("viewport-offset")).toHaveText("x 70 · y 50");
 });
+
+test("copies a selected object from its right-click menu", async ({ page }) => {
+  await page.goto("/");
+  const stage = page.getByTestId("board-stage");
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Expected TutorBoard stage bounds");
+  const center = {
+    x: bounds.x + bounds.width / 2,
+    y: bounds.y + bounds.height * 0.38,
+  };
+
+  await page.keyboard.press("r");
+  await page.mouse.move(center.x - 70, center.y - 50);
+  await page.mouse.down();
+  await page.mouse.move(center.x + 70, center.y + 50, { steps: 6 });
+  await page.mouse.up();
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+
+  await page.keyboard.press("v");
+  const contour = { x: center.x - 70, y: center.y };
+  await page.mouse.click(contour.x, contour.y);
+  await page.mouse.click(contour.x, contour.y, { button: "right" });
+
+  const selectionMenu = page.getByRole("menu", { name: "Меню выделения" });
+  await expect(selectionMenu).toBeVisible();
+  await selectionMenu.getByRole("menuitem", { name: "Копировать" }).click();
+  await expect(page.getByText("Скопировано: 1")).toBeVisible();
+
+  await page.mouse.click(bounds.x + 120, bounds.y + 120, { button: "right" });
+  const canvasMenu = page.getByRole("menu", { name: "Меню холста" });
+  await expect(canvasMenu).toBeVisible();
+  await canvasMenu.getByRole("menuitem", { name: "Вставить" }).click();
+  await expect(page.getByTestId("object-count")).toHaveText("2 объекта");
+});
