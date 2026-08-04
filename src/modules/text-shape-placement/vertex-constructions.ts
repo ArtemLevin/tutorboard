@@ -4,6 +4,7 @@ import {
   type BoardDocument,
   type BoardObject,
   type BoardObjectId,
+  type BoardSceneReadModel,
   type CommandMetadata,
   type GroupId,
   type ObjectStyle,
@@ -109,6 +110,70 @@ export function inspectTextShapeVertex(
     vertexName,
     vertexObjectId: objectId,
   };
+}
+
+function transformPoint(
+  point: Vec2,
+  transform: {
+    readonly rotation: number;
+    readonly scale: Vec2;
+    readonly translation: Vec2;
+  },
+): Vec2 {
+  const radians = (transform.rotation * Math.PI) / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const scaled = {
+    x: point.x * transform.scale.x,
+    y: point.y * transform.scale.y,
+  };
+  return {
+    x: scaled.x * cosine - scaled.y * sine + transform.translation.x,
+    y: scaled.x * sine + scaled.y * cosine + transform.translation.y,
+  };
+}
+
+function itemWorldPosition(item: BoardSceneReadModel["items"][number]): Vec2 {
+  return [...item.transforms]
+    .reverse()
+    .reduce(
+      (point, transform) => transformPoint(point, transform),
+      item.object.position,
+    );
+}
+
+export function inspectTextShapeVertexNearPoint(input: {
+  readonly document: BoardDocument;
+  readonly hitObjectId: BoardObjectId;
+  readonly maximumDistance: number;
+  readonly point: Vec2;
+  readonly scene: BoardSceneReadModel;
+}): TextShapeVertexContext | null {
+  const direct = inspectTextShapeVertex(input.document, input.hitObjectId);
+  if (direct !== null) return direct;
+  const groupId = input.document.objects[input.hitObjectId]?.groupId;
+  if (groupId === null || groupId === undefined) return null;
+
+  let nearest:
+    | { readonly context: TextShapeVertexContext; readonly distance: number }
+    | undefined;
+  for (const item of input.scene.items) {
+    if (item.object.groupId !== groupId) continue;
+    const context = inspectTextShapeVertex(input.document, item.object.id);
+    if (context === null) continue;
+    const position = itemWorldPosition(item);
+    const distance = Math.hypot(
+      input.point.x - position.x,
+      input.point.y - position.y,
+    );
+    if (
+      distance <= input.maximumDistance &&
+      (nearest === undefined || distance < nearest.distance)
+    ) {
+      nearest = { context, distance };
+    }
+  }
+  return nearest?.context ?? null;
 }
 
 function vertexObjects(
