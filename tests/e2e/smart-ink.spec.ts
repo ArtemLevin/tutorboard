@@ -134,3 +134,35 @@ test("keeps unrecognized Smart Ink silently as the original stroke", async ({
     page.getByText("Smart Ink: фигура не распознана, исходный штрих сохранён."),
   ).toHaveCount(0);
 });
+
+test("automatically completes a one-stroke arrow", async ({ page }) => {
+  await page.goto("/");
+  const stage = page.getByTestId("board-stage");
+  await expect(stage).toBeVisible();
+  const bounds = await stage.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (bounds === null) throw new Error("Canvas has no bounds.");
+
+  await page.keyboard.press("i");
+  const point = (x: number, y: number) => ({
+    x: bounds.x + x,
+    y: bounds.y + y,
+  });
+  const trace = [
+    point(270, 240),
+    point(520, 240),
+    point(465, 195),
+    point(520, 240),
+    point(465, 285),
+  ];
+  await page.mouse.move(trace[0]!.x, trace[0]!.y);
+  await page.mouse.down();
+  for (const target of trace.slice(1)) {
+    await page.mouse.move(target.x, target.y, { steps: 8 });
+  }
+  await page.mouse.up();
+
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+  await expect(page.getByTestId("history-depth")).toHaveText("2/0");
+  await expect(page.getByText("drawing.pen-stroke")).toBeVisible();
+});
