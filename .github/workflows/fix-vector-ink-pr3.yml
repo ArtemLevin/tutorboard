@@ -1,0 +1,50 @@
+name: Fix Vector Ink PR3
+
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.event.pull_request.head.ref == 'feature/vector-ink-1.0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/vector-ink-1.0
+          fetch-depth: 0
+      - name: Skip after one-shot patch
+        id: patch
+        run: |
+          if [ ! -f .automation/fix-vector-ink-fixture.mjs ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "needed=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v6
+        if: steps.patch.outputs.needed == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        if: steps.patch.outputs.needed == 'true'
+        run: npm ci
+      - name: Apply fixture correction
+        if: steps.patch.outputs.needed == 'true'
+        run: |
+          node .automation/fix-vector-ink-fixture.mjs
+          npm run board-contract:generate
+          npm run format
+          rm -rf .automation
+      - name: Push corrected head
+        if: steps.patch.outputs.needed == 'true'
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'fix(ink): remove pen metadata from shape fixture'
+          git push origin HEAD:feature/vector-ink-1.0
