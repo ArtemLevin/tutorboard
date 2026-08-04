@@ -2440,17 +2440,16 @@ export function App({
           return;
         }
       }
-      const vertex =
-        sample.objectId === null
-          ? null
-          : inspectTextShapeVertexNearPoint({
-              document: documentRef.current,
-              hitObjectId: sample.objectId,
-              maximumDistance: 18 / scene.viewport.zoom,
-              point: sample.point,
-              scene,
-            });
-      if (sample.objectId !== null && !isSelectionToolId(activeTool)) {
+      const vertex = inspectTextShapeVertexNearPoint({
+        document: documentRef.current,
+        hitObjectId: sample.objectId,
+        maximumDistance: 18 / scene.viewport.zoom,
+        point: sample.point,
+        scene,
+      });
+      const effectiveObjectId =
+        sample.objectId ?? vertex?.vertexObjectId ?? null;
+      if (effectiveObjectId !== null && !isSelectionToolId(activeTool)) {
         activateTool(selectionToolId);
       }
       setVertexConstructionObjectId(vertex?.vertexObjectId ?? null);
@@ -2458,9 +2457,9 @@ export function App({
         setSelectionInspectorObjectId(vertex.vertexObjectId);
       }
       const hitObjectIds =
-        sample.objectId === null
+        effectiveObjectId === null
           ? []
-          : expandSelectionObjectIds(document, [sample.objectId]);
+          : expandSelectionObjectIds(document, [effectiveObjectId]);
       applySelectionAction({
         additive: sample.additive,
         areaKind: activeTool === lassoSelectionToolId ? "lasso" : "marquee",
