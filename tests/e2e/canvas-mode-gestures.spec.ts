@@ -107,3 +107,20 @@ test("keeps drag gestures in their active tools", async ({ page }) => {
   await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
   await expect(stage).toHaveAttribute("data-drawing-mode", "none");
 });
+
+test("preserves click placement for text tools", async ({ page }) => {
+  const stage = page.getByTestId("board-stage");
+  const drawingMenu = page.getByRole("button", { name: "Рисование" });
+  await drawingMenu.click();
+  await page.getByRole("menuitemradio", { name: "Текст (T)" }).click();
+  await page
+    .getByRole("textbox", { name: "Содержимое текста" })
+    .fill("Проверка текста");
+
+  const point = await stagePoint(page, 540, 280);
+  await page.mouse.click(point.x, point.y);
+  await page.waitForTimeout(600);
+
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.text");
+});
