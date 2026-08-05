@@ -4,6 +4,7 @@ import {
   actorId,
   commandId,
   createEmptyBoardDocument,
+  reduceBoardDocument,
   documentId,
   type BoardCommand,
   type BoardCommandPage,
@@ -47,6 +48,17 @@ function rename(id: string, timestamp: string, title: string): BoardCommand {
   };
 }
 
+function applied(
+  document: BoardDocument,
+  command: BoardCommand,
+): BoardDocument {
+  const result = reduceBoardDocument(document, command);
+  if (!result.ok) {
+    throw new Error("Test command could not be applied");
+  }
+  return result.document;
+}
+
 async function confirmed(
   document: BoardDocument,
   revision: number,
@@ -69,6 +81,7 @@ function batch(
   baseRevision: number,
   commands: readonly BoardCommand[],
   idempotencyKey = `remote:${revision}`,
+  expectedDocumentSha256 = "a".repeat(64),
 ): ServerBoardCommandBatch {
   return {
     actorUserId: "user:other",
@@ -79,7 +92,7 @@ function batch(
       baseRevision,
       commands,
       documentId: expectedDocumentId,
-      expectedDocumentSha256: "a".repeat(64),
+      expectedDocumentSha256,
       idempotencyKey,
       schemaVersion: "1.2",
     },
@@ -192,7 +205,7 @@ class FakeRepository {
     const page = this.pullPages.shift();
     return Promise.resolve(
       page ?? {
-        currentRevision: this.descriptor.currentRevision,
+        currentRevision: this.recovery.board.currentRevision,
         hasMore: false,
         items: [],
       },
@@ -206,8 +219,8 @@ class FakeRepository {
     const result = this.pushResults.shift();
     return Promise.resolve(
       result ?? {
-        currentDocumentSha256: "c".repeat(64),
-        revision: this.pushed.length,
+        currentDocumentSha256: envelope.expectedDocumentSha256,
+        revision: envelope.baseRevision + 1,
         snapshotDue: false,
         status: "accepted",
       },
@@ -277,6 +290,24 @@ describe("BoardSyncEngine", () => {
   it("rebases an offline command after a 409 and preserves its idempotency key", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     const repository = new FakeRepository();
+    const base = initialDocument();
+    const baseSha256 = await boardDocumentSha256(base);
+    repository.recovery = {
+      board: {
+        ...repository.descriptor,
+        currentDocumentSha256: baseSha256,
+        currentRevision: 0,
+      },
+      commandBatches: [],
+      snapshot: {
+        createdAt: base.createdAt,
+        document: base,
+        documentId: expectedDocumentId,
+        documentSha256: baseSha256,
+        revision: 0,
+        schemaVersion: "1.2",
+      },
+    };
     const remote = rename(
       "command:remote",
       "2026-07-28T18:02:00.000Z",
@@ -285,7 +316,15 @@ describe("BoardSyncEngine", () => {
     repository.pushResults.push({
       currentRevision: 1,
       hasMore: false,
-      missingCommandBatches: [batch(1, 0, [remote])],
+      missingCommandBatches: [
+        batch(
+          1,
+          0,
+          [remote],
+          "remote:1",
+          await boardDocumentSha256(applied(base, remote)),
+        ),
+      ],
       status: "conflict",
     });
     const queue = new MemoryQueue();
@@ -294,6 +333,7 @@ describe("BoardSyncEngine", () => {
       documentId: expectedDocumentId,
       lessonId: "lesson:1",
       now: () => "2026-07-28T18:03:00.000Z",
+      onStateChange: () => undefined,
       queue,
       repository,
     });
@@ -338,6 +378,9 @@ describe("BoardSyncEngine", () => {
       },
     ];
     const repository = new FakeRepository();
+    const contextRequest = vi
+      .spyOn(repository, "context")
+      .mockRejectedValue({ retryable: true });
     const states: BoardSyncState[] = [];
     const engine = new BoardSyncEngine({
       createIdempotencyKey: () => "unused",
@@ -349,10 +392,12 @@ describe("BoardSyncEngine", () => {
       repository,
     });
 
-    const offline = await engine.bootstrap();
-    expect(offline).toMatchObject({
+    await engine.bootstrap();
+    contextRequest.mockRestore();
+    expect(states.at(-1)).toMatchObject({
       document: { title: "Offline" },
-      kind: "offline",
+      kind: "ready",
+      network: "offline",
       pendingCount: 1,
       revision: 3,
     });
@@ -391,7 +436,15 @@ describe("BoardSyncEngine", () => {
         ...repository.descriptor,
         currentRevision: 1,
       },
-      commandBatches: [batch(1, 0, [command], "client:uncertain")],
+      commandBatches: [
+        batch(
+          1,
+          0,
+          [command],
+          "client:uncertain",
+          await boardDocumentSha256(applied(initialDocument(), command)),
+        ),
+      ],
       snapshot: {
         createdAt: initialDocument().createdAt,
         document: initialDocument(),
@@ -401,19 +454,21 @@ describe("BoardSyncEngine", () => {
         schemaVersion: "1.2",
       },
     };
+    const states: BoardSyncState[] = [];
     const engine = new BoardSyncEngine({
       createIdempotencyKey: () => "unused",
       documentId: expectedDocumentId,
       lessonId: "lesson:1",
       now: () => "2026-07-28T18:02:00.000Z",
+      onStateChange: (state) => states.push(state),
       queue,
       repository,
     });
 
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
-    const state = await engine.bootstrap();
+    await engine.bootstrap();
 
-    expect(state).toMatchObject({
+    expect(states.at(-1)).toMatchObject({
       document: { title: "Confirmed elsewhere" },
       kind: "ready",
       pendingCount: 0,
@@ -445,22 +500,24 @@ describe("BoardSyncEngine", () => {
       },
     };
     const ensureBoard = vi.spyOn(repository, "ensureBoard");
+    const states: BoardSyncState[] = [];
     const engine = new BoardSyncEngine({
       createIdempotencyKey: () => "unused",
       documentId: expectedDocumentId,
       lessonId: "lesson:1",
       now: () => "2026-07-28T18:02:00.000Z",
+      onStateChange: (state) => states.push(state),
       queue: new MemoryQueue(),
       repository,
     });
 
-    const state = await engine.bootstrap();
+    await engine.bootstrap();
 
     expect(ensureBoard).not.toHaveBeenCalled();
-    expect(state).toMatchObject({
+    expect(states.at(-1)).toMatchObject({
       document: { title: "Lesson" },
       kind: "ready",
-      readOnly: true,
+      role: "parent",
       revision: 0,
     });
   });
