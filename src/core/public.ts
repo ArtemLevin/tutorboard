@@ -276,10 +276,11 @@ export {
 } from "./ports/board-document-repository";
 export type {
   BoardAccessRole,
-  BoardCommandEnvelope,
-  BoardCommandPage,
-  BoardCollaborationTicket,
   BoardClientEvent,
+  BoardCollaborationTicket,
+  BoardCommandEnvelope,
+  BoardCommandOrder,
+  BoardCommandPage,
   BoardEvidenceDescriptor,
   BoardPlatformRepository,
   BoardRevisionDescriptor,
@@ -288,7 +289,11 @@ export type {
   BoardSyncRepository,
   BoardTranscriptLink,
   ConfirmedBoardHead,
+  LegacyBoardCommandEnvelope,
+  OrderedBoardCommand,
+  OrderedBoardCommandEnvelope,
   PendingBoardCommand,
+  PendingBoardCommandOrderingInput,
   PendingBoardCommandQueue,
   PushBoardCommandsResult,
   ServerBoardCommandBatch,
@@ -323,3 +328,14 @@ export {
   type GeometryOsValidationIssue,
   type GeometryOsValidationReport,
 } from "./ports/geometryos-client";
+
+export {
+  mathInkRequestId,
+  type MathInkCandidate,
+  type MathInkImage,
+  type MathInkProvider,
+  type MathInkRecognizeInput,
+  type MathInkRecognizeResult,
+  type MathInkRecognizer,
+  type MathInkRequestId,
+} from "./ports/math-ink-recognizer";
