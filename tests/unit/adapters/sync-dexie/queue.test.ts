@@ -9,6 +9,7 @@ import {
   createEmptyBoardDocument,
   documentId,
 } from "../../../../src/core/public";
+import { boardDocumentSha256 } from "../../../../src/modules/server-sync/public";
 
 const queues: DexiePendingBoardCommandQueue[] = [];
 
@@ -67,6 +68,7 @@ describe("Dexie pending board command queue", () => {
       id: expectedDocumentId,
       title: "Lesson",
     });
+    const sha256 = await boardDocumentSha256(document);
     await queue.saveHead({
       document,
       documentId: expectedDocumentId,
@@ -76,8 +78,7 @@ describe("Dexie pending board command queue", () => {
         organizationId: "organization:1",
         role: "tutor",
       },
-      sha256:
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      sha256,
     });
 
     expect(await queue.loadHead(expectedDocumentId)).toEqual({
@@ -89,8 +90,7 @@ describe("Dexie pending board command queue", () => {
         organizationId: "organization:1",
         role: "tutor",
       },
-      sha256:
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      sha256,
     });
   });
 });
