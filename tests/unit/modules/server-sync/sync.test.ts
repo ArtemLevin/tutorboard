@@ -38,11 +38,7 @@ function initialDocument(): BoardDocument {
   });
 }
 
-function rename(
-  id: string,
-  timestamp: string,
-  title: string,
-): BoardCommand {
+function rename(id: string, timestamp: string, title: string): BoardCommand {
   return {
     actorId: expectedActorId,
     id: commandId(id),
@@ -309,9 +305,9 @@ describe("BoardSyncEngine", () => {
     ]);
 
     expect(repository.pushed).toHaveLength(2);
-    expect(repository.pushed.map(({ idempotencyKey }) => idempotencyKey)).toEqual(
-      ["client:stable-key", "client:stable-key"],
-    );
+    expect(
+      repository.pushed.map(({ idempotencyKey }) => idempotencyKey),
+    ).toEqual(["client:stable-key", "client:stable-key"]);
     expect(repository.pushed.map(({ baseRevision }) => baseRevision)).toEqual([
       0, 1,
     ]);
