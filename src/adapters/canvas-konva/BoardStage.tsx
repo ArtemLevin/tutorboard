@@ -62,7 +62,7 @@ const zoomStep = 1.08;
 const wheelCommitDelayMs = 120;
 const rightDoubleClickDelayMs = 450;
 const rightDoubleClickDistancePx = 8;
-const canvasPrimaryClickDelayMs = 280;
+const canvasPrimaryClickDelayMs = 500;
 
 type PanSource = "hand" | "middle" | "right" | "space";
 
@@ -76,6 +76,11 @@ interface PanSession {
   readonly startPoint: Vec2;
   readonly startViewport: ViewportState;
   latestViewport: ViewportState;
+}
+
+interface PrimaryCanvasPointerCandidate {
+  readonly pointerId: number;
+  readonly startPoint: Vec2;
 }
 
 interface RightClickCandidate {
@@ -176,6 +181,7 @@ export interface BoardStageProps {
     transforms: readonly BoardObjectTransformSnapshot[],
   ) => void;
   readonly panMode: boolean;
+  readonly primaryCanvasGesturesEnabled?: boolean;
   readonly previewItems?: readonly BoardRenderItem[];
   readonly registry: KonvaRendererRegistry;
   readonly remoteCursors?: readonly {
@@ -330,6 +336,7 @@ export function BoardStage({
   onSelectionPointerStart,
   onSelectionTransform,
   panMode,
+  primaryCanvasGesturesEnabled = false,
   previewItems = [],
   registry,
   remoteCursors = [],
@@ -356,6 +363,8 @@ export function BoardStage({
   const wheelSessionRef = useRef<WheelSession | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
   const primaryCanvasClickTimeoutRef = useRef<number | null>(null);
+  const primaryCanvasPointerCandidateRef =
+    useRef<PrimaryCanvasPointerCandidate | null>(null);
   const primaryCanvasClickCandidateRef = useRef<{
     readonly point: Vec2;
     readonly timestamp: number;
@@ -792,6 +801,56 @@ export function BoardStage({
     }
   }, [onViewportCommit]);
 
+  const clearPendingPrimaryCanvasTap = useCallback(() => {
+    primaryCanvasClickCandidateRef.current = null;
+    if (primaryCanvasClickTimeoutRef.current !== null) {
+      window.clearTimeout(primaryCanvasClickTimeoutRef.current);
+      primaryCanvasClickTimeoutRef.current = null;
+    }
+  }, []);
+
+  const registerPrimaryCanvasTap = useCallback(
+    (event: PointerEvent) => {
+      const point = clientPoint(event);
+      const previous = primaryCanvasClickCandidateRef.current;
+      const elapsed =
+        previous === null
+          ? Number.POSITIVE_INFINITY
+          : event.timeStamp - previous.timestamp;
+      const withinDistance =
+        previous !== null &&
+        Math.hypot(point.x - previous.point.x, point.y - previous.point.y) <=
+          rightDoubleClickDistancePx;
+
+      if (
+        previous !== null &&
+        elapsed >= 0 &&
+        elapsed <= canvasPrimaryClickDelayMs &&
+        withinDistance
+      ) {
+        clearPendingPrimaryCanvasTap();
+        onCanvasPrimaryDoubleClickRequest?.();
+        return;
+      }
+
+      clearPendingPrimaryCanvasTap();
+      primaryCanvasClickCandidateRef.current = {
+        point,
+        timestamp: event.timeStamp,
+      };
+      primaryCanvasClickTimeoutRef.current = window.setTimeout(() => {
+        primaryCanvasClickTimeoutRef.current = null;
+        primaryCanvasClickCandidateRef.current = null;
+        onCanvasPrimaryClickRequest?.();
+      }, canvasPrimaryClickDelayMs);
+    },
+    [
+      clearPendingPrimaryCanvasTap,
+      onCanvasPrimaryClickRequest,
+      onCanvasPrimaryDoubleClickRequest,
+    ],
+  );
+
   useLayoutEffect(() => {
     worldPointerHoverRef.current = onWorldPointerHover;
   }, [onWorldPointerHover]);
@@ -807,6 +866,20 @@ export function BoardStage({
           screenToWorld(elementPoint(event, root), viewportRef.current),
         );
       }
+      const primaryCanvasPointerCandidate =
+        primaryCanvasPointerCandidateRef.current;
+      if (
+        primaryCanvasPointerCandidate !== null &&
+        primaryCanvasPointerCandidate.pointerId === event.pointerId &&
+        Math.hypot(
+          event.clientX - primaryCanvasPointerCandidate.startPoint.x,
+          event.clientY - primaryCanvasPointerCandidate.startPoint.y,
+        ) > rightDoubleClickDistancePx
+      ) {
+        primaryCanvasPointerCandidateRef.current = null;
+        clearPendingPrimaryCanvasTap();
+      }
+
       const drawingSession = drawingSessionRef.current;
       if (
         drawingSession !== null &&
@@ -861,6 +934,33 @@ export function BoardStage({
       setPreviewViewport(viewport);
     };
     const handlePointerUp = (event: PointerEvent) => {
+      const primaryCanvasPointerCandidate =
+        primaryCanvasPointerCandidateRef.current;
+      if (
+        primaryCanvasPointerCandidate !== null &&
+        primaryCanvasPointerCandidate.pointerId === event.pointerId
+      ) {
+        primaryCanvasPointerCandidateRef.current = null;
+        const stationary =
+          Math.hypot(
+            event.clientX - primaryCanvasPointerCandidate.startPoint.x,
+            event.clientY - primaryCanvasPointerCandidate.startPoint.y,
+          ) <= rightDoubleClickDistancePx;
+        if (stationary) {
+          event.preventDefault();
+          if (drawingSessionRef.current?.pointerId === event.pointerId) {
+            finishDrawing(false);
+          } else if (
+            selectionSessionRef.current?.pointerId === event.pointerId
+          ) {
+            finishSelection(false);
+          } else if (panSessionRef.current?.pointerId === event.pointerId) {
+            finishPan(false);
+          }
+          registerPrimaryCanvasTap(event);
+          return;
+        }
+      }
       if (drawingSessionRef.current?.pointerId === event.pointerId) {
         finishDrawing(true, event);
         return;
@@ -871,53 +971,6 @@ export function BoardStage({
       }
       if (panSessionRef.current?.pointerId === event.pointerId) {
         const session = panSessionRef.current;
-        if (session.source === "hand") {
-          const point = clientPoint(event);
-          const stationary =
-            Math.hypot(
-              point.x - session.startPoint.x,
-              point.y - session.startPoint.y,
-            ) <= rightDoubleClickDistancePx;
-          if (stationary) {
-            const previous = primaryCanvasClickCandidateRef.current;
-            const elapsed =
-              previous === null
-                ? Number.POSITIVE_INFINITY
-                : event.timeStamp - previous.timestamp;
-            const withinDistance =
-              previous !== null &&
-              Math.hypot(
-                point.x - previous.point.x,
-                point.y - previous.point.y,
-              ) <= rightDoubleClickDistancePx;
-            if (
-              previous !== null &&
-              elapsed >= 0 &&
-              elapsed <= canvasPrimaryClickDelayMs &&
-              withinDistance
-            ) {
-              primaryCanvasClickCandidateRef.current = null;
-              if (primaryCanvasClickTimeoutRef.current !== null) {
-                window.clearTimeout(primaryCanvasClickTimeoutRef.current);
-                primaryCanvasClickTimeoutRef.current = null;
-              }
-              onCanvasPrimaryDoubleClickRequest?.();
-            } else {
-              primaryCanvasClickCandidateRef.current = {
-                point,
-                timestamp: event.timeStamp,
-              };
-              if (primaryCanvasClickTimeoutRef.current !== null) {
-                window.clearTimeout(primaryCanvasClickTimeoutRef.current);
-              }
-              primaryCanvasClickTimeoutRef.current = window.setTimeout(() => {
-                primaryCanvasClickTimeoutRef.current = null;
-                primaryCanvasClickCandidateRef.current = null;
-                onCanvasPrimaryClickRequest?.();
-              }, canvasPrimaryClickDelayMs);
-            }
-          }
-        }
         if (
           session.source === "right" &&
           !session.activated &&
@@ -947,6 +1000,11 @@ export function BoardStage({
       }
     };
     const handlePointerCancel = (event: PointerEvent) => {
+      if (
+        primaryCanvasPointerCandidateRef.current?.pointerId === event.pointerId
+      ) {
+        primaryCanvasPointerCandidateRef.current = null;
+      }
       if (drawingSessionRef.current?.pointerId === event.pointerId) {
         finishDrawing(false);
         return;
@@ -984,6 +1042,7 @@ export function BoardStage({
     };
     const handleBlur = () => {
       rightClickCandidateRef.current = null;
+      primaryCanvasPointerCandidateRef.current = null;
       if (primaryCanvasClickTimeoutRef.current !== null) {
         window.clearTimeout(primaryCanvasClickTimeoutRef.current);
         primaryCanvasClickTimeoutRef.current = null;
@@ -1021,9 +1080,9 @@ export function BoardStage({
     finishDrawing,
     finishPan,
     finishSelection,
-    onCanvasPrimaryClickRequest,
-    onCanvasPrimaryDoubleClickRequest,
+    clearPendingPrimaryCanvasTap,
     predictedWorldSamples,
+    registerPrimaryCanvasTap,
     selectionWorldSample,
     worldSamples,
   ]);
@@ -1077,6 +1136,7 @@ export function BoardStage({
       }
       discardWorldPointerMoves();
       rightClickCandidateRef.current = null;
+      primaryCanvasPointerCandidateRef.current = null;
       if (primaryCanvasClickTimeoutRef.current !== null) {
         window.clearTimeout(primaryCanvasClickTimeoutRef.current);
         primaryCanvasClickTimeoutRef.current = null;
@@ -1112,12 +1172,9 @@ export function BoardStage({
   }, [finishSelection, selectionModeKey]);
 
   useEffect(() => {
-    primaryCanvasClickCandidateRef.current = null;
-    if (primaryCanvasClickTimeoutRef.current !== null) {
-      window.clearTimeout(primaryCanvasClickTimeoutRef.current);
-      primaryCanvasClickTimeoutRef.current = null;
-    }
-  }, [drawingModeKey, panMode, selectionModeKey]);
+    primaryCanvasPointerCandidateRef.current = null;
+    clearPendingPrimaryCanvasTap();
+  }, [clearPendingPrimaryCanvasTap, drawingModeKey, panMode, selectionModeKey]);
 
   useEffect(() => {
     const session = drawingSessionRef.current;
@@ -1133,20 +1190,28 @@ export function BoardStage({
     }
   }, [finishSelection, scene.viewport]);
 
-  const handleSelectionBackgroundPointerDownCapture = (
+  const handleCanvasPointerDownCapture = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
+    if (event.button !== 0 || !primaryCanvasGesturesEnabled) {
+      primaryCanvasPointerCandidateRef.current = null;
+      clearPendingPrimaryCanvasTap();
+      return;
+    }
     if (
-      event.button !== 0 ||
-      selectionModeKey === null ||
       panSessionRef.current !== null ||
       drawingSessionRef.current !== null ||
       selectionSessionRef.current !== null
     ) {
+      primaryCanvasPointerCandidateRef.current = null;
+      clearPendingPrimaryCanvasTap();
       return;
     }
+
     const stage = stageRef.current;
     if (stage === null) {
+      primaryCanvasPointerCandidateRef.current = null;
+      clearPendingPrimaryCanvasTap();
       return;
     }
     const container = stage.container();
@@ -1159,6 +1224,17 @@ export function BoardStage({
       hit !== null &&
       (isTransformerTarget(hit) || objectIdFromTarget(hit) !== null)
     ) {
+      primaryCanvasPointerCandidateRef.current = null;
+      clearPendingPrimaryCanvasTap();
+      return;
+    }
+
+    primaryCanvasPointerCandidateRef.current = {
+      pointerId: event.pointerId,
+      startPoint: clientPoint(event.nativeEvent),
+    };
+
+    if (selectionModeKey === null) {
       return;
     }
     commitWheel();
@@ -1322,77 +1398,33 @@ export function BoardStage({
 
   const handleClick = (event: Konva.KonvaEventObject<MouseEvent>) => {
     if (
-      event.evt.button === 0 &&
-      selectionModeKey !== null &&
-      isTransformerTarget(event.target)
-    ) {
-      const stage = event.target.getStage();
-      if (stage === null) return;
-      const captureElement = stage.container();
-      const screenPoint = elementPoint(event.evt, captureElement);
-      const objectId = objectIdBelowTransformer(stage, screenPoint);
-      if (objectId === null) return;
-      const point = screenToWorld(screenPoint, previewViewport);
-      const pointerId = -1;
-      selectionPointerCallbacksRef.current.start({
-        additive: event.evt.shiftKey,
-        areaOperation: event.evt.shiftKey ? "add" : "replace",
-        objectId,
-        point,
-        pointerId,
-        pressure: 0,
-      });
-      selectionPointerCallbacksRef.current.finish({
-        point,
-        pointerId,
-        pressure: 0,
-      });
-      return;
-    }
-    if (
       event.evt.button !== 0 ||
-      !panMode ||
-      drawingModeKey !== null ||
-      selectionModeKey !== null ||
-      isTransformerTarget(event.target) ||
-      objectIdFromTarget(event.target) !== null
+      selectionModeKey === null ||
+      !isTransformerTarget(event.target)
     ) {
       return;
     }
-    if (event.evt.detail > 1) {
-      if (primaryCanvasClickTimeoutRef.current !== null) {
-        window.clearTimeout(primaryCanvasClickTimeoutRef.current);
-        primaryCanvasClickTimeoutRef.current = null;
-      }
-      return;
-    }
-    if (primaryCanvasClickTimeoutRef.current !== null) {
-      window.clearTimeout(primaryCanvasClickTimeoutRef.current);
-    }
-    primaryCanvasClickTimeoutRef.current = window.setTimeout(() => {
-      primaryCanvasClickTimeoutRef.current = null;
-      onCanvasPrimaryClickRequest?.();
-    }, canvasPrimaryClickDelayMs);
-  };
-
-  const handleDoubleClick = (event: Konva.KonvaEventObject<MouseEvent>) => {
-    if (
-      event.evt.button !== 0 ||
-      !panMode ||
-      drawingModeKey !== null ||
-      selectionModeKey !== null ||
-      isTransformerTarget(event.target) ||
-      objectIdFromTarget(event.target) !== null
-    ) {
-      return;
-    }
-    if (primaryCanvasClickTimeoutRef.current !== null) {
-      window.clearTimeout(primaryCanvasClickTimeoutRef.current);
-      primaryCanvasClickTimeoutRef.current = null;
-    }
-    event.cancelBubble = true;
-    event.evt.preventDefault();
-    onCanvasPrimaryDoubleClickRequest?.();
+    const stage = event.target.getStage();
+    if (stage === null) return;
+    const captureElement = stage.container();
+    const screenPoint = elementPoint(event.evt, captureElement);
+    const objectId = objectIdBelowTransformer(stage, screenPoint);
+    if (objectId === null) return;
+    const point = screenToWorld(screenPoint, previewViewport);
+    const pointerId = -1;
+    selectionPointerCallbacksRef.current.start({
+      additive: event.evt.shiftKey,
+      areaOperation: event.evt.shiftKey ? "add" : "replace",
+      objectId,
+      point,
+      pointerId,
+      pressure: 0,
+    });
+    selectionPointerCallbacksRef.current.finish({
+      point,
+      pointerId,
+      pressure: 0,
+    });
   };
 
   const handleWheel = (event: Konva.KonvaEventObject<WheelEvent>) => {
@@ -1458,21 +1490,24 @@ export function BoardStage({
     <div
       ref={rootRef}
       aria-label="Бесконечное полотно TutorBoard"
-      onPointerDownCapture={handleSelectionBackgroundPointerDownCapture}
+      onPointerDownCapture={handleCanvasPointerDownCapture}
       className="board-stage"
       data-coordinate-plot-editing={
         coordinatePlotInteraction?.activeObjectId !== null &&
         coordinatePlotInteraction?.activeObjectId !== undefined
       }
       data-drawing={isDrawing}
+      data-drawing-mode={drawingModeKey ?? "none"}
       data-lasso-points={selectionLasso?.length ?? 0}
       data-lassoing={selectionLasso !== null}
       data-laser-active={laserActive}
       data-laser-trail-opacity={laserTrailOpacity.toFixed(2)}
       data-laser-trail-points={laserTrailPoints.length}
       data-laser-visible={laserPoint !== null}
+      data-pan-mode={panMode}
       data-panning={isPanning}
       data-selecting={isSelecting}
+      data-selection-mode={selectionModeKey ?? "none"}
       data-transformable-count={transformableObjectIds.length}
       data-transforming={isTransforming}
       data-testid="board-stage"
@@ -1485,7 +1520,6 @@ export function BoardStage({
         height={size.height}
         onClick={handleClick}
         onContextMenu={(event) => event.evt.preventDefault()}
-        onDblClick={handleDoubleClick}
         onPointerDown={handlePointerDown}
         onWheel={handleWheel}
         width={size.width}
