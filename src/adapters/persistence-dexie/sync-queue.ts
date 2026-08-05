@@ -493,7 +493,9 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
         const valid: PendingBoardCommand[] = [];
         for (let index = 0; index < rows.length; index += 1) {
           const raw = rows[index];
-          const decoded = await decodePending(raw, expectedDocumentId);
+          const decoded = await Dexie.waitFor(
+            decodePending(raw, expectedDocumentId),
+          );
           if (decoded.status === "ok") {
             valid.push(decoded.value.item);
             if (!pendingSchema.safeParse(raw).success) {
