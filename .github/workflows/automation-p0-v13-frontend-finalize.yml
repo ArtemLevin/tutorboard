@@ -1,0 +1,67 @@
+name: Finalize ordered sync tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-and-validate:
+    if: github.event.pull_request.head.ref == 'feature/p0-ordered-envelope-v13'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/p0-ordered-envelope-v13
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Complete BoardSyncEngine fixtures
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("tests/unit/modules/server-sync/sync.test.ts")
+          text = path.read_text(encoding="utf-8")
+          pattern = re.compile(r"new BoardSyncEngine\(\{(?P<body>.*?)\n    \}\);", re.S)
+          patched = 0
+
+          def add_callback(match: re.Match[str]) -> str:
+              global patched
+              body = match.group("body")
+              if "onStateChange:" in body:
+                  return match.group(0)
+              marker = re.search(r"\n      now: \(\) => [^\n]+,", body)
+              if marker is None:
+                  raise SystemExit("BoardSyncEngine fixture without now callback")
+              insert_at = marker.end()
+              body = body[:insert_at] + "\n      onStateChange: () => undefined," + body[insert_at:]
+              patched += 1
+              return "new BoardSyncEngine({" + body + "\n    });"
+
+          updated = pattern.sub(add_callback, text)
+          if patched != 3:
+              raise SystemExit(f"expected to patch 3 fixtures, patched {patched}")
+          path.write_text(updated, encoding="utf-8")
+          PY
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test -- tests/unit/modules/server-sync/sync.test.ts
+      - run: npm run build
+      - name: Commit implementation
+        run: |
+          rm -f .github/workflows/automation-p0-v13-frontend-finalize.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test(sync): complete ordered engine fixtures"
+          git push origin HEAD:feature/p0-ordered-envelope-v13
