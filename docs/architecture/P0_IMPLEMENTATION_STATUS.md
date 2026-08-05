@@ -7,13 +7,22 @@ Implemented in the current change:
 - strict runtime codec for every `BoardCommand` kind;
 - canonical command JSON and SHA-256;
 - bounded command payload validation;
+- runtime decoding at the IndexedDB and Board HTTP trust boundaries;
 - IndexedDB synchronization queue schema v2;
 - lazy migration of readable schema-v1 pending records;
 - per-document and per-actor Lamport clock storage;
 - pending-command quarantine;
 - dependency-gap isolation for the queue tail;
-- cached confirmed-head SHA-256 verification;
-- architecture and corruption regression tests.
+- cached confirmed-head document ID and SHA-256 verification;
+- architecture, migration, corruption, remote-batch and checksum regression tests.
+
+Validation completed for the increment:
+
+- formatting and ESLint;
+- strict TypeScript;
+- full unit and integration suite;
+- architecture boundaries;
+- production build.
 
 ## Remaining P0 increments
 
