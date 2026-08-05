@@ -47,11 +47,96 @@ jobs:
               patched += 1
               return "new BoardSyncEngine({" + body + "\n    });"
 
-          updated = pattern.sub(add_callback, text)
+          text = pattern.sub(add_callback, text)
           if patched != 3:
               raise SystemExit(f"expected to patch 3 fixtures, patched {patched}")
-          path.write_text(updated, encoding="utf-8")
+
+          old_push = '''      result ?? {
+                  currentDocumentSha256: "c".repeat(64),
+                  revision: this.pushed.length,
+                  snapshotDue: false,
+                  status: "accepted",
+                },'''
+          new_push = '''      result ?? {
+                  currentDocumentSha256: envelope.expectedDocumentSha256,
+                  revision: envelope.baseRevision + 1,
+                  snapshotDue: false,
+                  status: "accepted",
+                },'''
+          if old_push not in text:
+              raise SystemExit("fake repository acceptance marker missing")
+          text = text.replace(old_push, new_push, 1)
+
+          old_offline = '''    const offline = await engine.bootstrap();
+              expect(offline).toMatchObject({'''
+          new_offline = '''    await engine.bootstrap();
+              expect(states.at(-1)).toMatchObject({'''
+          if old_offline not in text:
+              raise SystemExit("offline state marker missing")
+          text = text.replace(old_offline, new_offline, 1)
+
+          def replace_after(anchor: str, old: str, new: str) -> None:
+              nonlocal_text = text_holder[0]
+              start = nonlocal_text.find(anchor)
+              if start < 0:
+                  raise SystemExit(f"anchor missing: {anchor}")
+              position = nonlocal_text.find(old, start)
+              if position < 0:
+                  raise SystemExit(f"marker missing after {anchor}: {old[:80]}")
+              text_holder[0] = (
+                  nonlocal_text[:position]
+                  + new
+                  + nonlocal_text[position + len(old):]
+              )
+
+          text_holder = [text]
+          uncertain = 'it("acknowledges an uncertain retry already present in the server journal"'
+          replace_after(
+              uncertain,
+              "    const engine = new BoardSyncEngine({",
+              "    const states: BoardSyncState[] = [];\n    const engine = new BoardSyncEngine({",
+          )
+          replace_after(
+              uncertain,
+              "      onStateChange: () => undefined,",
+              "      onStateChange: (state) => states.push(state),",
+          )
+          replace_after(
+              uncertain,
+              '''    const state = await engine.bootstrap();
+          
+              expect(state).toMatchObject({''',
+              '''    await engine.bootstrap();
+          
+              expect(states.at(-1)).toMatchObject({''',
+          )
+
+          parent = 'it("loads an assigned parent board without attempting to create it"'
+          replace_after(
+              parent,
+              "    const engine = new BoardSyncEngine({",
+              "    const states: BoardSyncState[] = [];\n    const engine = new BoardSyncEngine({",
+          )
+          replace_after(
+              parent,
+              "      onStateChange: () => undefined,",
+              "      onStateChange: (state) => states.push(state),",
+          )
+          replace_after(
+              parent,
+              '''    const state = await engine.bootstrap();
+          
+              expect(ensureBoard).not.toHaveBeenCalled();
+              expect(state).toMatchObject({''',
+              '''    await engine.bootstrap();
+          
+              expect(ensureBoard).not.toHaveBeenCalled();
+              expect(states.at(-1)).toMatchObject({''',
+          )
+
+          path.write_text(text_holder[0], encoding="utf-8")
           PY
+      - run: npx prettier --write tests/unit/modules/server-sync/sync.test.ts
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
