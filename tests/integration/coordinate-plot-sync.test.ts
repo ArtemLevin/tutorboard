@@ -8,7 +8,6 @@ import {
   documentId,
   reduceBoardDocument,
   type BoardCommand,
-  type BoardCommandEnvelope,
   type BoardCommandPage,
   type BoardDocument,
   type BoardServerRecovery,
@@ -16,7 +15,9 @@ import {
   type BoardSyncRepository,
   type ConfirmedBoardHead,
   type DocumentId,
+  type OrderedBoardCommandEnvelope,
   type PendingBoardCommand,
+  type PendingBoardCommandOrderingInput,
   type PendingBoardCommandQueue,
   type PushBoardCommandsResult,
   type ServerBoardCommandBatch,
@@ -44,11 +45,21 @@ class MemoryQueue implements PendingBoardCommandQueue {
     documentId: DocumentId,
     idempotencyKey: string,
     command: BoardCommand,
+    ordering: PendingBoardCommandOrderingInput = {},
   ): Promise<PendingBoardCommand> {
     const item: PendingBoardCommand = {
       command,
       documentId,
       idempotencyKey,
+      order: {
+        baseRevisionAtCreation: ordering.baseRevisionAtCreation ?? 0,
+        lamport:
+          Math.max(
+            ordering.observedLamport ?? 0,
+            ordering.baseRevisionAtCreation ?? 0,
+            this.sequence,
+          ) + 1,
+      },
       sequence: ++this.sequence,
     };
     this.items.push(item);
@@ -86,7 +97,7 @@ class MemoryQueue implements PendingBoardCommandQueue {
 
 class MemorySyncRepository implements BoardSyncRepository {
   readonly batches: ServerBoardCommandBatch[] = [];
-  readonly pushed: BoardCommandEnvelope[] = [];
+  readonly pushed: OrderedBoardCommandEnvelope[] = [];
   readonly contextValue: BoardSessionContext = {
     actorId: actorId("actor:plot-release"),
     csrfToken: "csrf-release",
@@ -161,7 +172,7 @@ class MemorySyncRepository implements BoardSyncRepository {
   }
 
   push(
-    envelope: BoardCommandEnvelope,
+    envelope: OrderedBoardCommandEnvelope,
     csrfToken: string,
   ): Promise<PushBoardCommandsResult> {
     expect(csrfToken).toBe(this.contextValue.csrfToken);
@@ -181,7 +192,8 @@ class MemorySyncRepository implements BoardSyncRepository {
     this.batches.push({
       actorUserId: "user:plot-release",
       baseRevision: envelope.baseRevision,
-      createdAt: envelope.commands[0]?.timestamp ?? this.baseDocument.updatedAt,
+      createdAt:
+        envelope.commands[0]?.command.timestamp ?? this.baseDocument.updatedAt,
       envelope,
       idempotencyKey: envelope.idempotencyKey,
       payloadSha256: `payload:${revision}`,
@@ -331,7 +343,9 @@ describe("coordinate plot server synchronization production lifecycle", () => {
       revision: 3,
     });
 
-    expect(repository.pushed.map(({ commands }) => commands[0]?.kind)).toEqual([
+    expect(
+      repository.pushed.map(({ commands }) => commands[0]?.command.kind),
+    ).toEqual([
       "core.objects.add",
       "core.coordinate-plot.update",
       "core.coordinate-plot.update",
@@ -339,7 +353,7 @@ describe("coordinate plot server synchronization production lifecycle", () => {
     expect(
       repository.pushed.every(
         ({ expectedDocumentSha256, schemaVersion }) =>
-          expectedDocumentSha256.length === 64 && schemaVersion === "1.2",
+          expectedDocumentSha256.length === 64 && schemaVersion === "1.3",
       ),
     ).toBe(true);
 
