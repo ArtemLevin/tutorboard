@@ -11,9 +11,10 @@ import {
   actorId,
   commandId,
   type BoardCommand,
+  type SetViewportCommand,
 } from "../../../../../src/core/public";
 
-function viewportCommand(): BoardCommand {
+function viewportCommand(): SetViewportCommand {
   return {
     actorId: actorId("actor:codec-test"),
     id: commandId("command:codec-test"),
