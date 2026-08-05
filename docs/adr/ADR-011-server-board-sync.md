@@ -43,10 +43,11 @@ reloads or the network fails after an uncertain request outcome.
 
 ## Conflict policy
 
-Remote batches are applied first. Pending local commands are then replayed in
-their durable order. A stale timestamp is moved to the first millisecond after
-the confirmed document timestamp; other reducer conflicts stop automatic
-rebase and open the recovery UI. The local document and pending commands remain
+Remote batches are applied first in server-revision order. Pending local
+commands are then replayed in durable sequence order. Each queued command keeps
+its Lamport value and base revision observed at creation. Wall-clock timestamps
+serve audit and presentation; reducer conflicts stop automatic rebase and open
+the recovery UI. The local document and pending commands remain
 available for export.
 
 ## History limitation

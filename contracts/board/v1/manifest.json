@@ -1,7 +1,7 @@
 {
   "artifacts": {
     "board-command-envelope.schema.json": {
-      "sha256": "a181683f1f213fc949841646b00f519a8adee6da1eca6932aa8a32c459cf4c77"
+      "sha256": "86aed66b975f6746d1ca98f8aa0280bf63d4fa2f93bb0ca5ecee59d26e6cf0d3"
     },
     "board-document.schema.json": {
       "sha256": "250e3a6d6fd1d5289464745ca7e254dbad5ad342a027b96b1d10b57d725a91d2"
@@ -16,7 +16,7 @@
       "sha256": "d9439b47991d6dbd36783948c81ffb01cfae0adef9d7084faf84d7eaac6c3ae2"
     },
     "fixtures/board-command-envelope.json": {
-      "sha256": "4048f1481e0eeb04f1bf2666b1bc9a26701930bab77280d534dc266ec58a1cd2"
+      "sha256": "6024a4939aba5a2e0fe7b6724aea31b502f7d9de249a6ef49ae0625919d01e13"
     },
     "fixtures/board-document.json": {
       "sha256": "d189fbd0c01c3fd6332ab6697c07c97a0624cf428dc5e543b6e7e0f1904775c9"
@@ -33,7 +33,7 @@
   },
   "contract": "board/v1",
   "schemas": {
-    "boardCommandEnvelope": "1.0",
+    "boardCommandEnvelope": "1.3",
     "boardDocument": "1.0",
     "boardGeometryImport": "1.0",
     "boardSnapshot": "1.0"

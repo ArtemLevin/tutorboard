@@ -11,6 +11,7 @@ import {
   type DocumentId,
   type PendingBoardCommand,
   type PendingBoardCommandQueue,
+  type OrderedBoardCommand,
   type ServerBoardCommandBatch,
 } from "../../core/public";
 
@@ -84,44 +85,30 @@ export async function boardDocumentSha256(
     .join("");
 }
 
-function nextTimestamp(current: string, candidate: string): string {
-  const currentTime = Date.parse(current);
-  const candidateTime = Date.parse(candidate);
-  return new Date(
-    Math.max(
-      Number.isNaN(currentTime) ? 0 : currentTime + 1,
-      Number.isNaN(candidateTime) ? 0 : candidateTime,
-    ),
-  ).toISOString();
-}
-
 function rebaseCommand(
   document: BoardDocument,
   command: BoardCommand,
-  now: string,
 ): BoardCommand {
-  const initial = reduceBoardDocument(document, command);
-  if (initial.ok) {
-    return command;
-  }
-  if (initial.error.code !== "command.stale-timestamp") {
+  const result = reduceBoardDocument(document, command);
+  if (!result.ok) {
     throw new SyncRecoveryError(
       "board.sync.rebase-failed",
-      `Локальная команда ${command.id} конфликтует с удалёнными изменениями: ${initial.error.message}`,
+      `Локальная команда ${command.id} конфликтует с удалёнными изменениями: ${result.error.message}`,
     );
   }
-  const rebased = {
-    ...command,
-    timestamp: nextTimestamp(document.updatedAt, now),
-  } as BoardCommand;
-  const retried = reduceBoardDocument(document, rebased);
-  if (!retried.ok) {
-    throw new SyncRecoveryError(
-      "board.sync.rebase-failed",
-      `Локальная команда ${command.id} не может быть переиграна: ${retried.error.message}`,
-    );
-  }
-  return rebased;
+  return command;
+}
+
+function commandsFromBatch(
+  batch: ServerBoardCommandBatch,
+): readonly BoardCommand[] {
+  return batch.envelope.schemaVersion === "1.3"
+    ? batch.envelope.commands.map(({ command }) => command)
+    : batch.envelope.commands;
+}
+
+function orderedFromPending(item: PendingBoardCommand): OrderedBoardCommand {
+  return { command: item.command, order: item.order };
 }
 
 function applyCommand(
@@ -157,7 +144,7 @@ async function applyRemoteBatches(
       );
     }
     let document = head.document;
-    for (const command of batch.envelope.commands) {
+    for (const command of commandsFromBatch(batch)) {
       document = applyCommand(document, command);
     }
     const sha256 = await boardDocumentSha256(document);
@@ -181,12 +168,11 @@ async function applyRemoteBatches(
 function replayPending(
   head: ConfirmedBoardHead,
   pending: readonly PendingBoardCommand[],
-  now: () => string,
 ): ReplayedPending {
   let document = head.document;
   const items: PendingBoardCommand[] = [];
   for (const item of pending) {
-    const command = rebaseCommand(document, item.command, now());
+    const command = rebaseCommand(document, item.command);
     document = applyCommand(document, command);
     items.push({ ...item, command });
   }
@@ -256,6 +242,7 @@ export class BoardSyncEngine {
           this.#documentId,
           this.#createIdempotencyKey(),
           command,
+          { baseRevisionAtCreation: this.#confirmed.revision },
         );
         this.#pending = [...this.#pending, queued];
         this.#document = document;
@@ -293,12 +280,13 @@ export class BoardSyncEngine {
               "Команда отмены не принадлежит активному пользователю.",
             );
           }
-          const command = rebaseCommand(document, candidate, this.#now());
+          const command = rebaseCommand(document, candidate);
           document = applyCommand(document, command);
           const queued = await this.#queue.enqueue(
             this.#documentId,
             this.#createIdempotencyKey(),
             command,
+            { baseRevisionAtCreation: this.#confirmed.revision },
           );
           this.#pending = [...this.#pending, queued];
         }
@@ -419,7 +407,7 @@ export class BoardSyncEngine {
       }
       this.#confirmed = head;
       await this.#queue.saveHead(head);
-      const replayed = replayPending(head, this.#pending, this.#now);
+      const replayed = replayPending(head, this.#pending);
       this.#pending = replayed.items;
       await this.#queue.replace(this.#documentId, this.#pending);
       this.#document = replayed.document;
@@ -433,7 +421,7 @@ export class BoardSyncEngine {
           ...cached.session,
           csrfToken: "",
         };
-        const replayed = replayPending(cached, this.#pending, this.#now);
+        const replayed = replayPending(cached, this.#pending);
         this.#pending = replayed.items;
         this.#document = replayed.document;
         this.#emitReady("offline");
@@ -469,11 +457,7 @@ export class BoardSyncEngine {
             "Синхронизация превысила безопасный предел повторов.",
           );
         }
-        const replayed = replayPending(
-          this.#confirmed,
-          this.#pending,
-          this.#now,
-        );
+        const replayed = replayPending(this.#confirmed, this.#pending);
         this.#pending = replayed.items;
         await this.#queue.replace(this.#documentId, this.#pending);
         this.#document = replayed.document;
@@ -487,11 +471,11 @@ export class BoardSyncEngine {
           {
             actorId: this.#context.actorId,
             baseRevision: this.#confirmed.revision,
-            commands: [first.command],
+            commands: [orderedFromPending(first)],
             documentId: this.#documentId,
             expectedDocumentSha256: sha256,
             idempotencyKey: first.idempotencyKey,
-            schemaVersion: "1.2",
+            schemaVersion: "1.3",
           },
           this.#context.csrfToken,
         );
@@ -528,7 +512,7 @@ export class BoardSyncEngine {
         this.#pending = this.#pending.slice(1);
         await this.#queue.saveHead(this.#confirmed);
       }
-      const replayed = replayPending(this.#confirmed, this.#pending, this.#now);
+      const replayed = replayPending(this.#confirmed, this.#pending);
       this.#pending = replayed.items;
       this.#document = replayed.document;
       this.#emitReady("online");
@@ -593,10 +577,10 @@ export class BoardSyncEngine {
         remaining.push(item);
         continue;
       }
+      const acceptedCommands = commandsFromBatch(accepted);
       if (
-        accepted.envelope.commands.length !== 1 ||
-        JSON.stringify(accepted.envelope.commands[0]) !==
-          JSON.stringify(item.command)
+        acceptedCommands.length !== 1 ||
+        JSON.stringify(acceptedCommands[0]) !== JSON.stringify(item.command)
       ) {
         throw new SyncRecoveryError(
           "board.sync.idempotency-mismatch",

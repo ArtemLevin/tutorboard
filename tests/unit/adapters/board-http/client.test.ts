@@ -9,7 +9,7 @@ import {
   actorId,
   commandId,
   documentId,
-  type BoardCommandEnvelope,
+  type OrderedBoardCommandEnvelope,
 } from "../../../../src/core/public";
 
 function jsonResponse(value: unknown, status = 200): Response {
@@ -19,23 +19,26 @@ function jsonResponse(value: unknown, status = 200): Response {
   });
 }
 
-const envelope: BoardCommandEnvelope = {
+const envelope: OrderedBoardCommandEnvelope = {
   actorId: actorId("user:tutor"),
   baseRevision: 0,
   commands: [
     {
-      actorId: actorId("user:tutor"),
-      id: commandId("command:rename"),
-      kind: "core.document.rename",
-      timestamp: "2026-07-28T18:00:00.000Z",
-      title: "Synced",
+      command: {
+        actorId: actorId("user:tutor"),
+        id: commandId("command:rename"),
+        kind: "core.document.rename",
+        timestamp: "2026-07-28T18:00:00.000Z",
+        title: "Synced",
+      },
+      order: { baseRevisionAtCreation: 0, lamport: 1 },
     },
   ],
   documentId: documentId("document:lesson-1"),
   expectedDocumentSha256:
     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   idempotencyKey: "client:batch-1",
-  schemaVersion: "1.2",
+  schemaVersion: "1.3",
 };
 
 describe("Board HTTP repository", () => {
@@ -93,9 +96,9 @@ describe("Board HTTP repository", () => {
               envelope: {
                 ...envelope,
                 actorId: "user:other",
-                commands: envelope.commands.map((command) => ({
-                  ...command,
-                  actorId: "user:other",
+                commands: envelope.commands.map((item) => ({
+                  ...item,
+                  command: { ...item.command, actorId: "user:other" },
                 })),
                 idempotencyKey: "remote:batch-1",
               },
@@ -281,10 +284,13 @@ describe("Board HTTP repository", () => {
                 actorId: "user:other",
                 commands: [
                   {
-                    actorId: "user:other",
-                    id: "command:malformed",
-                    kind: "core.document.rename",
-                    timestamp: "2026-07-28T18:00:00.000Z",
+                    command: {
+                      actorId: "user:other",
+                      id: "command:malformed",
+                      kind: "core.document.rename",
+                      timestamp: "2026-07-28T18:00:00.000Z",
+                    },
+                    order: { baseRevisionAtCreation: 0, lamport: 1 },
                   },
                 ],
                 idempotencyKey: "remote:malformed",

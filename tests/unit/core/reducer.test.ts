@@ -345,23 +345,24 @@ describe("BoardDocument reducer", () => {
     }
   });
 
-  it("compares timestamps by instant, including timezone offsets", () => {
+  it("accepts clock-skewed commands while keeping updatedAt monotonic", () => {
     const document: BoardDocument = {
       ...emptyDocument(),
       updatedAt: "2026-07-24T09:00:00-04:00",
     };
 
     const result = reduceBoardDocument(document, {
-      ...metadata("stale-offset", "2026-07-24T12:00:00Z"),
+      ...metadata("clock-skew-offset", "2026-07-24T12:00:00Z"),
       kind: "core.document.rename",
-      title: "Too late",
+      title: "Clock-skewed rename",
     });
 
-    expect(result.ok).toBe(false);
-    expect(result.document).toBe(document);
+    expect(result.ok).toBe(true);
     if (!result.ok) {
-      expect(result.error.code).toBe("command.stale-timestamp");
+      return;
     }
+    expect(result.document.title).toBe("Clock-skewed rename");
+    expect(result.document.updatedAt).toBe(document.updatedAt);
   });
 
   it("commits a valid viewport and rejects an invalid one atomically", () => {
