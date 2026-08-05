@@ -1,0 +1,83 @@
+name: Fix ordered envelope test fixtures
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-validate:
+    if: github.event.pull_request.head.ref == 'feature/p0-ordered-envelope-v13'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/p0-ordered-envelope-v13
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Update integration queue and repository fixtures
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/integration/coordinate-plot-sync.test.ts')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('  type BoardCommandEnvelope,\n', '')
+          text = text.replace(
+              '  type PendingBoardCommand,\n  type PendingBoardCommandQueue,\n',
+              '  type OrderedBoardCommandEnvelope,\n  type PendingBoardCommand,\n  type PendingBoardCommandOrderingInput,\n  type PendingBoardCommandQueue,\n',
+          )
+          text = text.replace(
+              '    command: BoardCommand,\n  ): Promise<PendingBoardCommand> {',
+              '    command: BoardCommand,\n    ordering: PendingBoardCommandOrderingInput = {},\n  ): Promise<PendingBoardCommand> {',
+              1,
+          )
+          text = text.replace(
+              '      idempotencyKey,\n      sequence: ++this.sequence,',
+              '      idempotencyKey,\n      order: {\n        baseRevisionAtCreation: ordering.baseRevisionAtCreation ?? 0,\n        lamport: Math.max(\n          ordering.observedLamport ?? 0,\n          ordering.baseRevisionAtCreation ?? 0,\n          this.sequence,\n        ) + 1,\n      },\n      sequence: ++this.sequence,',
+              1,
+          )
+          text = text.replace(
+              '  readonly pushed: BoardCommandEnvelope[] = [];',
+              '  readonly pushed: OrderedBoardCommandEnvelope[] = [];',
+          )
+          text = text.replace(
+              '    envelope: BoardCommandEnvelope,',
+              '    envelope: OrderedBoardCommandEnvelope,',
+          )
+          text = text.replace(
+              '      createdAt: envelope.commands[0]?.timestamp ?? this.baseDocument.updatedAt,',
+              '      createdAt:\n        envelope.commands[0]?.command.timestamp ?? this.baseDocument.updatedAt,',
+          )
+          text = text.replace(
+              'expect(repository.pushed.map(({ commands }) => commands[0]?.kind)).toEqual([',
+              'expect(\n      repository.pushed.map(({ commands }) => commands[0]?.command.kind),\n    ).toEqual([',
+          )
+          text = text.replace(
+              'expectedDocumentSha256.length === 64 && schemaVersion === "1.2",',
+              'expectedDocumentSha256.length === 64 && schemaVersion === "1.3",',
+          )
+          path.write_text(text, encoding='utf-8')
+          PY
+      - run: npm run format
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/automation-p0-v13-test-fixtures.yml
+      - name: Commit fixture updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test(sync): update ordered envelope fixtures"
+          git push origin HEAD:feature/p0-ordered-envelope-v13
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run architecture
+      - run: npm run build
