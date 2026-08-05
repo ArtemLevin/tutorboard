@@ -10,4 +10,6 @@ export {
   defaultBoardSyncDatabaseName,
   DexiePendingBoardCommandQueue,
   createDexiePendingBoardCommandQueue,
+  type PendingCommandQuarantineReason,
+  type QuarantinedPendingBoardCommand,
 } from "./sync-queue";

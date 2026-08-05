@@ -265,4 +265,50 @@ describe("Board HTTP repository", () => {
       ],
     ).toBe("csrf");
   });
+  it("rejects malformed commands in a server conflict batch", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse(
+        {
+          error: { currentRevision: 1 },
+          hasMore: false,
+          missingCommandBatches: [
+            {
+              actorUserId: "user:other",
+              baseRevision: 0,
+              createdAt: "2026-07-28T18:00:00.000Z",
+              envelope: {
+                ...envelope,
+                actorId: "user:other",
+                commands: [
+                  {
+                    actorId: "user:other",
+                    id: "command:malformed",
+                    kind: "core.document.rename",
+                    timestamp: "2026-07-28T18:00:00.000Z",
+                  },
+                ],
+                idempotencyKey: "remote:malformed",
+              },
+              idempotencyKey: "remote:malformed",
+              payloadSha256:
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              revision: 1,
+            },
+          ],
+        },
+        409,
+      ),
+    );
+    const repository = createBoardHttpRepository({
+      fetch: request,
+      origin: "https://tutor.example.test",
+    });
+
+    await expect(repository.push(envelope, "csrf-token")).rejects.toMatchObject(
+      {
+        code: "board.http.invalid-command-batch",
+        retryable: false,
+      } satisfies Partial<BoardHttpError>,
+    );
+  });
 });

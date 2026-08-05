@@ -1,10 +1,10 @@
 import { z } from "zod";
 
+import { readBoardCommand } from "../../core/board/commands/codec/public";
 import {
   actorId,
   documentId,
   readBoardDocument,
-  type BoardCommand,
   type BoardCommandPage,
   type BoardCollaborationTicket,
   type BoardEvidenceDescriptor,
@@ -34,19 +34,11 @@ const boardDescriptorSchema = z
     updatedAt: z.string().min(1).max(64).optional(),
   })
   .strict();
-const commandSchema = z
-  .object({
-    actorId: identifierSchema,
-    id: identifierSchema,
-    kind: z.string().min(1).max(128),
-    timestamp: z.string().min(1).max(64),
-  })
-  .passthrough();
 const envelopeSchema = z
   .object({
     actorId: identifierSchema,
     baseRevision: z.number().int().nonnegative(),
-    commands: z.array(commandSchema).min(1).max(100),
+    commands: z.array(z.unknown()).min(1).max(100),
     documentId: identifierSchema,
     expectedDocumentSha256: sha256Schema,
     idempotencyKey: z.string().min(1).max(128),
@@ -196,6 +188,19 @@ function parseEvidence(value: unknown): BoardEvidenceDescriptor {
   };
 }
 
+function parseServerCommand(value: unknown) {
+  const parsed = readBoardCommand(value);
+  if (parsed.status !== "ok") {
+    throw new BoardHttpError(
+      "board.http.invalid-command-batch",
+      "Сервер вернул пакет с несовместимой командой доски.",
+      200,
+      false,
+    );
+  }
+  return parsed.command;
+}
+
 function parseBatch(value: unknown): ServerBoardCommandBatch {
   const parsed = commandBatchSchema.safeParse(value);
   if (!parsed.success) {
@@ -211,8 +216,7 @@ function parseBatch(value: unknown): ServerBoardCommandBatch {
     envelope: {
       ...parsed.data.envelope,
       actorId: actorId(parsed.data.envelope.actorId),
-      commands: parsed.data.envelope
-        .commands as unknown as readonly BoardCommand[],
+      commands: parsed.data.envelope.commands.map(parseServerCommand),
       documentId: documentId(parsed.data.envelope.documentId),
     },
   };
