@@ -3098,6 +3098,12 @@ export function App({
           onSelectionTransform={commitSelectionTransform}
           onViewportCommit={commitViewport}
           panMode={activeTool === navigationToolId}
+          primaryCanvasGesturesEnabled={
+            activeTool === navigationToolId ||
+            activeTool === "drawing.pen" ||
+            activeTool === "drawing.smart-ink" ||
+            isSelectionToolId(activeTool)
+          }
           previewItems={previewItems}
           registry={registry}
           remoteCursors={remoteCursors}

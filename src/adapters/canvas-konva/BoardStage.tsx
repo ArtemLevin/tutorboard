@@ -181,6 +181,7 @@ export interface BoardStageProps {
     transforms: readonly BoardObjectTransformSnapshot[],
   ) => void;
   readonly panMode: boolean;
+  readonly primaryCanvasGesturesEnabled?: boolean;
   readonly previewItems?: readonly BoardRenderItem[];
   readonly registry: KonvaRendererRegistry;
   readonly remoteCursors?: readonly {
@@ -335,6 +336,7 @@ export function BoardStage({
   onSelectionPointerStart,
   onSelectionTransform,
   panMode,
+  primaryCanvasGesturesEnabled = false,
   previewItems = [],
   registry,
   remoteCursors = [],
@@ -1191,7 +1193,7 @@ export function BoardStage({
   const handleCanvasPointerDownCapture = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
-    if (event.button !== 0) {
+    if (event.button !== 0 || !primaryCanvasGesturesEnabled) {
       primaryCanvasPointerCandidateRef.current = null;
       clearPendingPrimaryCanvasTap();
       return;
