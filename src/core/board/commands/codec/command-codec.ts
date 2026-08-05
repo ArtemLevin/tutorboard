@@ -9,7 +9,6 @@ import {
   type GeometryImportId,
   type GroupId,
 } from "../../identifiers";
-import type { BoardGroup } from "../../groups";
 import { strokeStyles, type BoardObject } from "../../objects";
 import type { GeometryImportRecord } from "../../geometry-imports";
 import type { CoordinatePlotDefinition } from "../../coordinate-plot";
@@ -145,7 +144,7 @@ const boardGroupSchema = z.unknown().transform((value, context) => {
     });
     return z.NEVER;
   }
-  return group as BoardGroup;
+  return group;
 });
 
 const geometryImportSchema = z.unknown().transform((value, context) => {
