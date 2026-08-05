@@ -136,7 +136,7 @@ jobs:
 
           path.write_text(text_holder[0], encoding="utf-8")
           PY
-      - run: npx prettier --write tests/unit/modules/server-sync/sync.test.ts
+      - run: npx prettier --write tests/unit/modules/server-sync/sync.test.ts .github/workflows/automation-p0-v13-frontend-finalize.yml
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
