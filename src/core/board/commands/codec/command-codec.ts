@@ -79,7 +79,7 @@ function forwardIssues(
     context.addIssue({
       code: "custom",
       message: issue.message,
-      path: issue.path,
+      path: [...issue.path],
     });
   }
 }
@@ -113,7 +113,7 @@ const boardObjectSchema = z.unknown().transform((value, context) => {
     });
     return z.NEVER;
   }
-  return object satisfies BoardObject;
+  return object as BoardObject;
 });
 
 const boardGroupSchema = z.unknown().transform((value, context) => {
@@ -145,7 +145,7 @@ const boardGroupSchema = z.unknown().transform((value, context) => {
     });
     return z.NEVER;
   }
-  return group satisfies BoardGroup;
+  return group as BoardGroup;
 });
 
 const geometryImportSchema = z.unknown().transform((value, context) => {
@@ -177,7 +177,7 @@ const geometryImportSchema = z.unknown().transform((value, context) => {
     });
     return z.NEVER;
   }
-  return imported satisfies GeometryImportRecord;
+  return imported as GeometryImportRecord;
 });
 
 const coordinatePlotDefinitionSchema = z
