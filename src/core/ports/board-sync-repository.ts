@@ -11,15 +11,39 @@ export interface BoardSessionContext {
   readonly role: BoardAccessRole;
 }
 
-export interface BoardCommandEnvelope {
+export interface BoardCommandOrder {
+  readonly baseRevisionAtCreation: number;
+  readonly lamport: number;
+}
+
+export interface OrderedBoardCommand {
+  readonly command: BoardCommand;
+  readonly order: BoardCommandOrder;
+}
+
+export interface LegacyBoardCommandEnvelope {
   readonly actorId: ActorId;
   readonly baseRevision: number;
   readonly commands: readonly BoardCommand[];
   readonly documentId: DocumentId;
   readonly expectedDocumentSha256: string;
   readonly idempotencyKey: string;
-  readonly schemaVersion: "1.2";
+  readonly schemaVersion: "1.0" | "1.2";
 }
+
+export interface OrderedBoardCommandEnvelope {
+  readonly actorId: ActorId;
+  readonly baseRevision: number;
+  readonly commands: readonly OrderedBoardCommand[];
+  readonly documentId: DocumentId;
+  readonly expectedDocumentSha256: string;
+  readonly idempotencyKey: string;
+  readonly schemaVersion: "1.3";
+}
+
+export type BoardCommandEnvelope =
+  | LegacyBoardCommandEnvelope
+  | OrderedBoardCommandEnvelope;
 
 export interface ServerBoardCommandBatch {
   readonly actorUserId: string | null;
@@ -147,7 +171,7 @@ export interface BoardSyncRepository {
     csrfToken: string,
   ) => Promise<void>;
   readonly push: (
-    envelope: BoardCommandEnvelope,
+    envelope: OrderedBoardCommandEnvelope,
     csrfToken: string,
   ) => Promise<PushBoardCommandsResult>;
 }
@@ -203,7 +227,13 @@ export interface PendingBoardCommand {
   readonly command: BoardCommand;
   readonly documentId: DocumentId;
   readonly idempotencyKey: string;
+  readonly order: BoardCommandOrder;
   readonly sequence: number;
+}
+
+export interface PendingBoardCommandOrderingInput {
+  readonly baseRevisionAtCreation?: number;
+  readonly observedLamport?: number;
 }
 
 export interface ConfirmedBoardHead {
@@ -225,6 +255,7 @@ export interface PendingBoardCommandQueue {
     documentId: DocumentId,
     idempotencyKey: string,
     command: BoardCommand,
+    ordering?: PendingBoardCommandOrderingInput,
   ) => Promise<PendingBoardCommand>;
   readonly loadHead: (
     documentId: DocumentId,
