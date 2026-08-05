@@ -68,9 +68,7 @@ async function mutatePending(
   try {
     const transaction = database.transaction("pending", "readwrite");
     const store = transaction.objectStore("pending");
-    const raw = await requestResult(
-      store.get([activeDocumentId, sequence]),
-    );
+    const raw = await requestResult(store.get([activeDocumentId, sequence]));
     if (typeof raw !== "object" || raw === null) {
       throw new Error("Expected a pending command record.");
     }
@@ -209,9 +207,9 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
       "dependency-gap",
     ]);
     await expect(reopened.list(activeDocumentId)).resolves.toEqual([]);
-    await expect(reopened.listQuarantined(activeDocumentId)).resolves.toHaveLength(
-      2,
-    );
+    await expect(
+      reopened.listQuarantined(activeDocumentId),
+    ).resolves.toHaveLength(2);
   });
 
   it("detects command hash substitution before replay", async () => {

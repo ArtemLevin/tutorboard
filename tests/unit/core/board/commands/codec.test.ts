@@ -43,9 +43,9 @@ describe("BoardCommand runtime codec", () => {
   });
 
   it("rejects unknown fields and unsupported command kinds", () => {
-    expect(readBoardCommand({ ...viewportCommand(), injected: true })).toMatchObject(
-      { status: "invalid-command" },
-    );
+    expect(
+      readBoardCommand({ ...viewportCommand(), injected: true }),
+    ).toMatchObject({ status: "invalid-command" });
     expect(
       readBoardCommand({
         actorId: "actor:codec-test",
@@ -91,8 +91,8 @@ describe("BoardCommand runtime codec", () => {
       raw: "{",
       status: "invalid-json",
     });
-    expect(readBoardCommandJson(`"${"x".repeat(2 * 1024 * 1024)}"`)).toMatchObject(
-      { status: "too-large" },
-    );
+    expect(
+      readBoardCommandJson(`"${"x".repeat(2 * 1024 * 1024)}"`),
+    ).toMatchObject({ status: "too-large" });
   });
 });

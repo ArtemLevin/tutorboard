@@ -540,23 +540,18 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
             });
           }
           await this.#database.quarantine.bulkAdd(quarantined);
-          const quarantinedSequences = rows
-            .slice(index)
-            .flatMap((item) => {
-              const legacy = legacyPendingSchema.safeParse(item);
-              const current = pendingSchema.safeParse(item);
-              const sequence = current.success
-                ? current.data.sequence
-                : legacy.success
-                  ? legacy.data.sequence
-                  : null;
-              return sequence === null ? [] : [sequence];
-            });
+          const quarantinedSequences = rows.slice(index).flatMap((item) => {
+            const legacy = legacyPendingSchema.safeParse(item);
+            const current = pendingSchema.safeParse(item);
+            const sequence = current.success
+              ? current.data.sequence
+              : legacy.success
+                ? legacy.data.sequence
+                : null;
+            return sequence === null ? [] : [sequence];
+          });
           for (const sequence of quarantinedSequences) {
-            await this.#database.pending.delete([
-              expectedDocumentId,
-              sequence,
-            ]);
+            await this.#database.pending.delete([expectedDocumentId, sequence]);
           }
           break;
         }
@@ -649,8 +644,7 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
             const previous = existing.get(item.sequence);
             return {
               actorId: command.actorId,
-              baseRevisionAtCreation:
-                previous?.baseRevisionAtCreation ?? 0,
+              baseRevisionAtCreation: previous?.baseRevisionAtCreation ?? 0,
               commandJson,
               commandSchemaVersion: boardCommandSchemaVersion,
               commandSha256,

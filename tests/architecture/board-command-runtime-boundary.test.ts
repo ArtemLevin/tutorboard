@@ -24,10 +24,7 @@ describe("BoardCommand runtime boundary", () => {
 
   it("routes pending storage through the versioned command codec", () => {
     const source = fs.readFileSync(
-      path.join(
-        repositoryRoot,
-        "src/adapters/persistence-dexie/sync-queue.ts",
-      ),
+      path.join(repositoryRoot, "src/adapters/persistence-dexie/sync-queue.ts"),
       "utf8",
     );
     expect(source).toContain("readBoardCommandJson");

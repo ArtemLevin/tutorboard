@@ -26,7 +26,9 @@ const identifierSchema = z
   .max(256)
   .refine(isValidIdentifier, "Invalid or unsafe identifier.");
 const actorIdSchema = identifierSchema.transform((value) => value as ActorId);
-const commandIdSchema = identifierSchema.transform((value) => value as CommandId);
+const commandIdSchema = identifierSchema.transform(
+  (value) => value as CommandId,
+);
 const boardObjectIdSchema = identifierSchema.transform(
   (value) => value as BoardObjectId,
 );
@@ -239,9 +241,7 @@ const objectsSchema = z
   .array(boardObjectSchema)
   .min(1)
   .max(maximumBoardCommandObjects);
-const groupsSchema = z
-  .array(boardGroupSchema)
-  .max(maximumBoardCommandObjects);
+const groupsSchema = z.array(boardGroupSchema).max(maximumBoardCommandObjects);
 const importsSchema = z
   .array(geometryImportSchema)
   .max(maximumBoardCommandObjects);
@@ -531,9 +531,7 @@ export function canonicalBoardCommandJson(command: BoardCommand): string {
   return JSON.stringify(canonicalValue(parsed.command));
 }
 
-export function serializeBoardCommand(
-  command: BoardCommand,
-):
+export function serializeBoardCommand(command: BoardCommand):
   | { readonly json: string; readonly ok: true }
   | {
       readonly issues: readonly BoardCommandCodecIssue[];
