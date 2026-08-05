@@ -30,7 +30,9 @@ jobs:
         run: npm ci
 
       - name: Apply reviewed fix
-        run: node .automation/apply-canvas-primary-gesture-fix.mjs
+        run: |
+          node .automation/fix-canvas-primary-gesture-script.mjs
+          node .automation/apply-canvas-primary-gesture-fix.mjs
 
       - name: Format and validate
         run: |
