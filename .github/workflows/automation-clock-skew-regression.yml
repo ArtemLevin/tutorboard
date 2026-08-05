@@ -1,0 +1,88 @@
+name: Align reducer clock-skew regression
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    if: github.event.pull_request.head.ref == 'feature/p0-ordered-envelope-v13'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/p0-ordered-envelope-v13
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Update clock-skew invariant test
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/unit/core/reducer.test.ts")
+          text = path.read_text(encoding="utf-8")
+          old = '''  it("compares timestamps by instant, including timezone offsets", () => {
+              const document: BoardDocument = {
+                ...emptyDocument(),
+                updatedAt: "2026-07-24T09:00:00-04:00",
+              };
+          
+              const result = reduceBoardDocument(document, {
+                ...metadata("stale-offset", "2026-07-24T12:00:00Z"),
+                kind: "core.document.rename",
+                title: "Too late",
+              });
+          
+              expect(result.ok).toBe(false);
+              expect(result.document).toBe(document);
+              if (!result.ok) {
+                expect(result.error.code).toBe("command.stale-timestamp");
+              }
+            });'''
+          new = '''  it("accepts clock-skewed commands while keeping updatedAt monotonic", () => {
+              const document: BoardDocument = {
+                ...emptyDocument(),
+                updatedAt: "2026-07-24T09:00:00-04:00",
+              };
+          
+              const result = reduceBoardDocument(document, {
+                ...metadata("clock-skew-offset", "2026-07-24T12:00:00Z"),
+                kind: "core.document.rename",
+                title: "Clock-skewed rename",
+              });
+          
+              expect(result.ok).toBe(true);
+              if (!result.ok) {
+                return;
+              }
+              expect(result.document.title).toBe("Clock-skewed rename");
+              expect(result.document.updatedAt).toBe(document.updatedAt);
+            });'''
+          if old not in text:
+              raise SystemExit("clock-skew regression marker missing")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+      - run: npx prettier --write tests/unit/core/reducer.test.ts .github/workflows/automation-clock-skew-regression.yml
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run architecture
+      - run: npm run build
+      - name: Commit regression update
+        run: |
+          rm -f .github/workflows/automation-clock-skew-regression.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test(core): assert monotonic timestamps under clock skew"
+          git push origin HEAD:feature/p0-ordered-envelope-v13
