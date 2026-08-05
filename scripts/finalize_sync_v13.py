@@ -139,6 +139,12 @@ async function confirmed(''',
       },''',
         "fake acceptance",
     )
+    text = replace_once(
+        text,
+        "        currentRevision: this.descriptor.currentRevision,",
+        "        currentRevision: this.recovery.board.currentRevision,",
+        "fake pull revision",
+    )
 
     text = replace_once(
         text,
@@ -153,6 +159,31 @@ async function confirmed(''',
     text = replace_after(
         text,
         rebase,
+        "    const remote = rename(",
+        '''    const base = initialDocument();
+    const baseSha256 = await boardDocumentSha256(base);
+    repository.recovery = {
+      board: {
+        ...repository.descriptor,
+        currentDocumentSha256: baseSha256,
+        currentRevision: 0,
+      },
+      commandBatches: [],
+      snapshot: {
+        createdAt: base.createdAt,
+        document: base,
+        documentId: expectedDocumentId,
+        documentSha256: baseSha256,
+        revision: 0,
+        schemaVersion: "1.2",
+      },
+    };
+    const remote = rename(''',
+        "rebase base snapshot",
+    )
+    text = replace_after(
+        text,
+        rebase,
         "missingCommandBatches: [batch(1, 0, [remote])],",
         '''missingCommandBatches: [
         batch(
@@ -160,7 +191,7 @@ async function confirmed(''',
           0,
           [remote],
           "remote:1",
-          await boardDocumentSha256(applied(initialDocument(), remote)),
+          await boardDocumentSha256(applied(base, remote)),
         ),
       ],''',
         "rebase batch",
@@ -186,6 +217,13 @@ async function confirmed(''',
     contextRequest.mockRestore();
     expect(states.at(-1)).toMatchObject({''',
         "offline restore",
+    )
+    text = replace_after(
+        text,
+        offline,
+        '      kind: "offline",',
+        '      kind: "ready",\n      network: "offline",',
+        "offline state",
     )
 
     uncertain = 'it("acknowledges an uncertain retry already present in the server journal"'
