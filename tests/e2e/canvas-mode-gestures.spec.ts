@@ -83,6 +83,30 @@ test("recognizes a realistic slow double click from pen and Smart Ink", async ({
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 });
 
+test("shows a compact dot for pen cursors and keeps crosshair for shape tools", async ({
+  page,
+}) => {
+  const stage = page.getByTestId("board-stage");
+
+  await selectPen(page);
+  await expect(stage).toHaveAttribute("data-cursor-kind", "pen-dot");
+  const penCursor = await stage.evaluate(
+    (element) => getComputedStyle(element).cursor,
+  );
+  expect(penCursor).toContain("url(");
+  expect(penCursor).toContain("4 4, crosshair");
+
+  const point = await stagePoint(page, 480, 260);
+  await page.mouse.click(point.x, point.y);
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
+  await expect(stage).toHaveAttribute("data-cursor-kind", "pen-dot");
+
+  await page.keyboard.press("r");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.rectangle");
+  await expect(stage).toHaveAttribute("data-cursor-kind", "crosshair");
+  await expect(stage).toHaveCSS("cursor", "crosshair");
+});
+
 test("keeps drag gestures in their active tools", async ({ page }) => {
   const stage = page.getByTestId("board-stage");
   const start = await stagePoint(page, 260, 260);
