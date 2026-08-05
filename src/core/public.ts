@@ -328,14 +328,3 @@ export {
   type GeometryOsValidationIssue,
   type GeometryOsValidationReport,
 } from "./ports/geometryos-client";
-
-export {
-  mathInkRequestId,
-  type MathInkCandidate,
-  type MathInkImage,
-  type MathInkProvider,
-  type MathInkRecognizeInput,
-  type MathInkRecognizeResult,
-  type MathInkRecognizer,
-  type MathInkRequestId,
-} from "./ports/math-ink-recognizer";

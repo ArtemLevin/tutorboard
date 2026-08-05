@@ -7,14 +7,15 @@ import {
   documentId,
   reduceBoardDocument,
   type BoardCommand,
-  type BoardCommandEnvelope,
   type BoardCommandPage,
   type BoardServerRecovery,
   type BoardSessionContext,
   type BoardSyncRepository,
   type ConfirmedBoardHead,
   type DocumentId,
+  type OrderedBoardCommandEnvelope,
   type PendingBoardCommand,
+  type PendingBoardCommandOrderingInput,
   type PendingBoardCommandQueue,
   type PushBoardCommandsResult,
   type ServerBoardDescriptor,
@@ -55,11 +56,21 @@ class MemoryQueue implements PendingBoardCommandQueue {
     target: DocumentId,
     idempotencyKey: string,
     command: BoardCommand,
+    ordering: PendingBoardCommandOrderingInput = {},
   ): Promise<PendingBoardCommand> {
     const item = {
       command,
       documentId: target,
       idempotencyKey,
+      order: {
+        baseRevisionAtCreation: ordering.baseRevisionAtCreation ?? 0,
+        lamport:
+          Math.max(
+            ordering.observedLamport ?? 0,
+            ordering.baseRevisionAtCreation ?? 0,
+            this.items.at(-1)?.order.lamport ?? 0,
+          ) + 1,
+      },
       sequence: (this.items.at(-1)?.sequence ?? 0) + 1,
     };
     this.items.push(item);
@@ -89,7 +100,7 @@ class MemoryQueue implements PendingBoardCommandQueue {
 }
 
 class FakeRepository implements BoardSyncRepository {
-  readonly pushed: BoardCommandEnvelope[] = [];
+  readonly pushed: OrderedBoardCommandEnvelope[] = [];
   descriptor: ServerBoardDescriptor = {
     archivedAt: null,
     currentDocumentSha256: "",
@@ -135,7 +146,9 @@ class FakeRepository implements BoardSyncRepository {
     });
   }
 
-  push(envelope: BoardCommandEnvelope): Promise<PushBoardCommandsResult> {
+  push(
+    envelope: OrderedBoardCommandEnvelope,
+  ): Promise<PushBoardCommandsResult> {
     this.pushed.push(envelope);
     return Promise.resolve(
       this.pushResults.shift() ?? {
@@ -301,8 +314,8 @@ describe("BoardSyncEngine", () => {
     expect(repository.pushed[0]?.idempotencyKey).toBe("client:stable-key");
     expect(repository.pushed[1]?.idempotencyKey).toBe("client:stable-key");
     expect(repository.pushed[1]?.baseRevision).toBe(1);
-    expect(repository.pushed[1]?.commands[0]?.timestamp).toBe(
-      "2026-07-28T18:03:00.000Z",
+    expect(repository.pushed[1]?.commands[0]?.command.timestamp).toBe(
+      "2026-07-28T18:01:00.000Z",
     );
     expect(states.at(-1)).toMatchObject({
       document: { title: "Local title" },
