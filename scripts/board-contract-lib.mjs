@@ -16,6 +16,7 @@ const timestamp = { format: "date-time", type: "string" };
 const finiteNumber = { type: "number" };
 const positiveNumber = { exclusiveMinimum: 0, type: "number" };
 const nonNegativeInteger = { minimum: 0, type: "integer" };
+const positiveInteger = { minimum: 1, type: "integer" };
 
 function strictObject(properties, required = Object.keys(properties)) {
   return {
@@ -530,10 +531,20 @@ const commands = {
 const boardCommand = {
   oneOf: Object.keys(commands).sort().map(reference),
 };
+const commandOrder = strictObject({
+  baseRevisionAtCreation: nonNegativeInteger,
+  lamport: positiveInteger,
+});
+const orderedBoardCommand = strictObject({
+  command: reference("BoardCommand"),
+  order: reference("BoardCommandOrder"),
+});
 const commandDefinitions = {
   ...boardDefinitions,
   ...commands,
   BoardCommand: boardCommand,
+  BoardCommandOrder: commandOrder,
+  OrderedBoardCommand: orderedBoardCommand,
 };
 
 function rootSchema(id, title, root, definitions) {
@@ -549,11 +560,11 @@ function rootSchema(id, title, root, definitions) {
 export const schemas = {
   "board-command-envelope.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-command-envelope.schema.json",
-    "BoardCommandEnvelope 1.1",
+    "BoardCommandEnvelope 1.3",
     strictObject({
       actorId: reference("Identifier"),
       baseRevision: nonNegativeInteger,
-      commands: array(reference("BoardCommand"), {
+      commands: array(reference("OrderedBoardCommand"), {
         maxItems: 100,
         minItems: 1,
       }),
@@ -568,7 +579,7 @@ export const schemas = {
         pattern: "^[A-Za-z0-9._:-]+$",
         type: "string",
       },
-      schemaVersion: { const: "1.2" },
+      schemaVersion: { const: "1.3" },
     }),
     commandDefinitions,
   ),
@@ -819,25 +830,31 @@ function fixtures() {
       baseRevision: 7,
       commands: [
         {
-          actorId: "actor:tutor-01",
-          id: "command:rename-08",
-          kind: "core.document.rename",
-          timestamp: "2026-07-28T17:00:00.000Z",
-          title: "Linear functions: lesson summary",
+          command: {
+            actorId: "actor:tutor-01",
+            id: "command:rename-08",
+            kind: "core.document.rename",
+            timestamp: "2026-07-28T17:00:00.000Z",
+            title: "Linear functions: lesson summary",
+          },
+          order: { baseRevisionAtCreation: 7, lamport: 8 },
         },
         {
-          actorId: "actor:tutor-01",
-          id: "command:smart-ink-09",
-          kind: "core.objects.replace",
-          originals: [smartInkStroke],
-          replacements: [smartInkCircle],
-          timestamp: "2026-07-28T17:00:01.000Z",
+          command: {
+            actorId: "actor:tutor-01",
+            id: "command:smart-ink-09",
+            kind: "core.objects.replace",
+            originals: [smartInkStroke],
+            replacements: [smartInkCircle],
+            timestamp: "2026-07-28T17:00:01.000Z",
+          },
+          order: { baseRevisionAtCreation: 7, lamport: 9 },
         },
       ],
       documentId: document.id,
       expectedDocumentSha256: documentHash,
       idempotencyKey: "client:tutor-01:batch-08",
-      schemaVersion: "1.2",
+      schemaVersion: "1.3",
     },
     "fixtures/board-document.json": document,
     "fixtures/board-geometry-import.json": {
@@ -903,7 +920,7 @@ export function generateBoardContract(outputRoot = contractRoot) {
     artifacts,
     contract: "board/v1",
     schemas: {
-      boardCommandEnvelope: "1.0",
+      boardCommandEnvelope: "1.3",
       boardDocument: "1.0",
       boardGeometryImport: "1.0",
       boardSnapshot: "1.0",

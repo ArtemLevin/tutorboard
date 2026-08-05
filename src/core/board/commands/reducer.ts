@@ -58,8 +58,7 @@ export type CommandErrorCode =
   | "command.locked"
   | "command.object-exists"
   | "command.object-missing"
-  | "command.stale-object"
-  | "command.stale-timestamp";
+  | "command.stale-object";
 
 export interface CommandError {
   readonly code: CommandErrorCode;
@@ -137,14 +136,6 @@ function validateMetadata(
     !isIsoTimestamp(command.timestamp)
   ) {
     return failure(document, "command.invalid", "Command metadata is invalid.");
-  }
-
-  if (Date.parse(command.timestamp) < Date.parse(document.updatedAt)) {
-    return failure(
-      document,
-      "command.stale-timestamp",
-      "Command timestamp precedes the current document revision.",
-    );
   }
 
   return null;
@@ -1659,7 +1650,15 @@ function accept(
   original: BoardDocument,
   candidate: BoardDocument,
 ): CommandResult {
-  const validation = validateBoardDocument(candidate);
+  const originalTime = Date.parse(original.updatedAt);
+  const candidateTime = Date.parse(candidate.updatedAt);
+  const normalized =
+    Number.isNaN(originalTime) ||
+    Number.isNaN(candidateTime) ||
+    candidateTime >= originalTime
+      ? candidate
+      : { ...candidate, updatedAt: original.updatedAt };
+  const validation = validateBoardDocument(normalized);
 
   if (!validation.valid) {
     return failure(
@@ -1669,7 +1668,7 @@ function accept(
     );
   }
 
-  return { ok: true, document: candidate };
+  return { ok: true, document: normalized };
 }
 
 function assertNever(command: never): never {

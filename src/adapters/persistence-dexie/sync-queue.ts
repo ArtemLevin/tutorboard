@@ -18,6 +18,7 @@ import {
   type ConfirmedBoardHead,
   type DocumentId,
   type PendingBoardCommand,
+  type PendingBoardCommandOrderingInput,
   type PendingBoardCommandQueue,
 } from "../../core/public";
 
@@ -242,6 +243,10 @@ function pendingItem(
     command,
     documentId: documentId(stored.documentId),
     idempotencyKey: stored.idempotencyKey,
+    order: {
+      baseRevisionAtCreation: stored.baseRevisionAtCreation,
+      lamport: stored.lamport,
+    },
     sequence: stored.sequence,
   };
 }
@@ -415,10 +420,7 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
     expectedDocumentId: DocumentId,
     idempotencyKey: string,
     command: BoardCommand,
-    ordering: {
-      readonly baseRevisionAtCreation?: number;
-      readonly observedLamport?: number;
-    } = {},
+    ordering: PendingBoardCommandOrderingInput = {},
   ): Promise<PendingBoardCommand> {
     const serialized = serializeBoardCommand(command);
     if (!serialized.ok) {
@@ -646,14 +648,16 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
             const previous = existing.get(item.sequence);
             return {
               actorId: command.actorId,
-              baseRevisionAtCreation: previous?.baseRevisionAtCreation ?? 0,
+              baseRevisionAtCreation:
+                previous?.baseRevisionAtCreation ??
+                item.order.baseRevisionAtCreation,
               commandJson,
               commandSchemaVersion: boardCommandSchemaVersion,
               commandSha256,
               documentId: expectedDocumentId,
               enqueuedAt: command.timestamp,
               idempotencyKey: item.idempotencyKey,
-              lamport: previous?.lamport ?? item.sequence,
+              lamport: previous?.lamport ?? item.order.lamport,
               schemaVersion: "2" as const,
               sequence: item.sequence,
             } satisfies StoredPendingCommandV2;

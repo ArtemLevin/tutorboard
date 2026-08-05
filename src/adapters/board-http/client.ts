@@ -34,17 +34,42 @@ const boardDescriptorSchema = z
     updatedAt: z.string().min(1).max(64).optional(),
   })
   .strict();
-const envelopeSchema = z
+const envelopeBase = {
+  actorId: identifierSchema,
+  baseRevision: z.number().int().nonnegative(),
+  documentId: identifierSchema,
+  expectedDocumentSha256: sha256Schema,
+  idempotencyKey: z.string().min(1).max(128),
+} as const;
+const commandOrderSchema = z
   .object({
-    actorId: identifierSchema,
-    baseRevision: z.number().int().nonnegative(),
-    commands: z.array(z.unknown()).min(1).max(100),
-    documentId: identifierSchema,
-    expectedDocumentSha256: sha256Schema,
-    idempotencyKey: z.string().min(1).max(128),
-    schemaVersion: z.literal("1.2"),
+    baseRevisionAtCreation: z.number().int().nonnegative(),
+    lamport: z.number().int().positive(),
   })
   .strict();
+const legacyEnvelopeSchema = z
+  .object({
+    ...envelopeBase,
+    commands: z.array(z.unknown()).min(1).max(100),
+    schemaVersion: z.enum(["1.0", "1.2"]),
+  })
+  .strict();
+const orderedEnvelopeSchema = z
+  .object({
+    ...envelopeBase,
+    commands: z
+      .array(
+        z.object({ command: z.unknown(), order: commandOrderSchema }).strict(),
+      )
+      .min(1)
+      .max(100),
+    schemaVersion: z.literal("1.3"),
+  })
+  .strict();
+const envelopeSchema = z.discriminatedUnion("schemaVersion", [
+  legacyEnvelopeSchema,
+  orderedEnvelopeSchema,
+]);
 const commandBatchSchema = z
   .object({
     actorUserId: identifierSchema.nullable(),
@@ -211,14 +236,26 @@ function parseBatch(value: unknown): ServerBoardCommandBatch {
       false,
     );
   }
+  const envelope = parsed.data.envelope;
   return {
     ...parsed.data,
-    envelope: {
-      ...parsed.data.envelope,
-      actorId: actorId(parsed.data.envelope.actorId),
-      commands: parsed.data.envelope.commands.map(parseServerCommand),
-      documentId: documentId(parsed.data.envelope.documentId),
-    },
+    envelope:
+      envelope.schemaVersion === "1.3"
+        ? {
+            ...envelope,
+            actorId: actorId(envelope.actorId),
+            commands: envelope.commands.map(({ command, order }) => ({
+              command: parseServerCommand(command),
+              order,
+            })),
+            documentId: documentId(envelope.documentId),
+          }
+        : {
+            ...envelope,
+            actorId: actorId(envelope.actorId),
+            commands: envelope.commands.map(parseServerCommand),
+            documentId: documentId(envelope.documentId),
+          },
   };
 }
 

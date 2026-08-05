@@ -2564,11 +2564,45 @@
           "$ref": "#/$defs/UpdateTextCommand"
         }
       ]
+    },
+    "BoardCommandOrder": {
+      "additionalProperties": false,
+      "properties": {
+        "baseRevisionAtCreation": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lamport": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "baseRevisionAtCreation",
+        "lamport"
+      ],
+      "type": "object"
+    },
+    "OrderedBoardCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "$ref": "#/$defs/BoardCommand"
+        },
+        "order": {
+          "$ref": "#/$defs/BoardCommandOrder"
+        }
+      },
+      "required": [
+        "command",
+        "order"
+      ],
+      "type": "object"
     }
   },
   "$id": "https://contracts.tutorboard.dev/board/v1/board-command-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "BoardCommandEnvelope 1.1",
+  "title": "BoardCommandEnvelope 1.3",
   "additionalProperties": false,
   "properties": {
     "actorId": {
@@ -2580,7 +2614,7 @@
     },
     "commands": {
       "items": {
-        "$ref": "#/$defs/BoardCommand"
+        "$ref": "#/$defs/OrderedBoardCommand"
       },
       "type": "array",
       "maxItems": 100,
@@ -2600,7 +2634,7 @@
       "type": "string"
     },
     "schemaVersion": {
-      "const": "1.2"
+      "const": "1.3"
     }
   },
   "required": [

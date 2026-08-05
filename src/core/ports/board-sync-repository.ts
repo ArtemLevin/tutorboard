@@ -42,8 +42,7 @@ export interface OrderedBoardCommandEnvelope {
 }
 
 export type BoardCommandEnvelope =
-  | LegacyBoardCommandEnvelope
-  | OrderedBoardCommandEnvelope;
+  LegacyBoardCommandEnvelope | OrderedBoardCommandEnvelope;
 
 export interface ServerBoardCommandBatch {
   readonly actorUserId: string | null;
