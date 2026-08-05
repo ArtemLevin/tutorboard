@@ -63,6 +63,8 @@ const wheelCommitDelayMs = 120;
 const rightDoubleClickDelayMs = 450;
 const rightDoubleClickDistancePx = 8;
 const canvasPrimaryClickDelayMs = 500;
+const penDotCursor =
+  'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%229%22 height=%229%22 viewBox=%220 0 9 9%22%3E%3Ccircle cx=%224.5%22 cy=%224.5%22 r=%222.25%22 fill=%22%23245d6b%22 stroke=%22%23ffffff%22 stroke-width=%221%22/%3E%3C/svg%3E") 4 4, crosshair';
 
 type PanSource = "hand" | "middle" | "right" | "space";
 
@@ -1470,20 +1472,30 @@ export function BoardStage({
     }
   };
 
-  const cursor =
+  const usesPenDotCursor =
+    drawingModeKey === "drawing.pen" || drawingModeKey === "drawing.smart-ink";
+  const cursorKind =
     isPanning || isTransforming
       ? "grabbing"
       : laserActive
-        ? "none"
+        ? "hidden"
         : panMode || spacePressed
           ? "grab"
           : selectionModeKey === "selection.lasso"
             ? "crosshair"
             : selectionModeKey !== null
               ? "default"
-              : drawingModeKey === null
-                ? "default"
-                : "crosshair";
+              : usesPenDotCursor
+                ? "pen-dot"
+                : drawingModeKey === null
+                  ? "default"
+                  : "crosshair";
+  const cursor =
+    cursorKind === "pen-dot"
+      ? penDotCursor
+      : cursorKind === "hidden"
+        ? "none"
+        : cursorKind;
   const selected = new Set(selectedObjectIds);
 
   return (
@@ -1496,6 +1508,7 @@ export function BoardStage({
         coordinatePlotInteraction?.activeObjectId !== null &&
         coordinatePlotInteraction?.activeObjectId !== undefined
       }
+      data-cursor-kind={cursorKind}
       data-drawing={isDrawing}
       data-drawing-mode={drawingModeKey ?? "none"}
       data-lasso-points={selectionLasso?.length ?? 0}
