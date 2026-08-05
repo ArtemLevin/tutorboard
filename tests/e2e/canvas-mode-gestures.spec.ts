@@ -43,11 +43,13 @@ test("switches to Smart Ink from navigation, pen and selection without creating 
   await page.mouse.click(first.x, first.y);
   await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 
   await selectPen(page);
   await page.mouse.click(second.x, second.y);
   await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 
   await page.keyboard.press("v");
   await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
@@ -55,6 +57,7 @@ test("switches to Smart Ink from navigation, pen and selection without creating 
   await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
   await expect(stage).toHaveAttribute("data-selection-mode", "none");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 });
 
 test("recognizes a realistic slow double click from pen and Smart Ink", async ({
@@ -69,6 +72,7 @@ test("recognizes a realistic slow double click from pen and Smart Ink", async ({
   await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
   await expect(stage).toHaveAttribute("data-drawing-mode", "none");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 
   await page.mouse.click(second.x, second.y);
   await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
@@ -76,6 +80,7 @@ test("recognizes a realistic slow double click from pen and Smart Ink", async ({
   await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
   await expect(stage).toHaveAttribute("data-drawing-mode", "none");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 });
 
 test("keeps drag gestures in their active tools", async ({ page }) => {
