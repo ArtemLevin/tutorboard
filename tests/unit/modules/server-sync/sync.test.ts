@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   actorId,
@@ -8,9 +8,9 @@ import {
   reduceBoardDocument,
   type BoardCommand,
   type BoardCommandPage,
+  type BoardDocument,
   type BoardServerRecovery,
   type BoardSessionContext,
-  type BoardSyncRepository,
   type ConfirmedBoardHead,
   type DocumentId,
   type OrderedBoardCommandEnvelope,
@@ -19,6 +19,7 @@ import {
   type PendingBoardCommandQueue,
   type PushBoardCommandsResult,
   type ServerBoardDescriptor,
+  type ServerBoardCommandBatch,
 } from "../../../../src/core/public";
 import {
   BoardSyncEngine,
@@ -27,20 +28,70 @@ import {
 } from "../../../../src/modules/server-sync/public";
 
 const expectedDocumentId = documentId("document:lesson-1");
-const initialDocument = createEmptyBoardDocument({
-  createdAt: "2026-07-28T18:00:00.000Z",
-  id: expectedDocumentId,
-  title: "Lesson",
-});
-const context: BoardSessionContext = {
-  actorId: actorId("user:tutor"),
-  csrfToken: "csrf",
-  organizationId: "organization:1",
-  role: "tutor",
-};
+const expectedActorId = actorId("user:tutor");
 
-class OfflineError extends Error {
-  readonly retryable = true;
+function initialDocument(): BoardDocument {
+  return createEmptyBoardDocument({
+    createdAt: "2026-07-28T18:00:00.000Z",
+    id: expectedDocumentId,
+    title: "Lesson",
+  });
+}
+
+function rename(
+  id: string,
+  timestamp: string,
+  title: string,
+): BoardCommand {
+  return {
+    actorId: expectedActorId,
+    id: commandId(id),
+    kind: "core.document.rename",
+    timestamp,
+    title,
+  };
+}
+
+async function confirmed(
+  document: BoardDocument,
+  revision: number,
+): Promise<ConfirmedBoardHead> {
+  return {
+    document,
+    documentId: expectedDocumentId,
+    revision,
+    session: {
+      actorId: expectedActorId,
+      organizationId: "organization:1",
+      role: "tutor",
+    },
+    sha256: await boardDocumentSha256(document),
+  };
+}
+
+function batch(
+  revision: number,
+  baseRevision: number,
+  commands: readonly BoardCommand[],
+  idempotencyKey = `remote:${revision}`,
+): ServerBoardCommandBatch {
+  return {
+    actorUserId: "user:other",
+    baseRevision,
+    createdAt: commands[0]?.timestamp ?? "2026-07-28T18:00:00.000Z",
+    envelope: {
+      actorId: actorId("user:other"),
+      baseRevision,
+      commands,
+      documentId: expectedDocumentId,
+      expectedDocumentSha256: "a".repeat(64),
+      idempotencyKey,
+      schemaVersion: "1.2",
+    },
+    idempotencyKey,
+    payloadSha256: "b".repeat(64),
+    revision,
+  };
 }
 
 class MemoryQueue implements PendingBoardCommandQueue {
@@ -53,14 +104,14 @@ class MemoryQueue implements PendingBoardCommandQueue {
   }
 
   enqueue(
-    target: DocumentId,
+    documentIdValue: DocumentId,
     idempotencyKey: string,
     command: BoardCommand,
     ordering: PendingBoardCommandOrderingInput = {},
   ): Promise<PendingBoardCommand> {
-    const item = {
+    const item: PendingBoardCommand = {
       command,
-      documentId: target,
+      documentId: documentIdValue,
       idempotencyKey,
       order: {
         baseRevisionAtCreation: ordering.baseRevisionAtCreation ?? 0,
@@ -78,7 +129,7 @@ class MemoryQueue implements PendingBoardCommandQueue {
   }
 
   list(): Promise<readonly PendingBoardCommand[]> {
-    return Promise.resolve(this.items);
+    return Promise.resolve([...this.items]);
   }
 
   loadHead(): Promise<ConfirmedBoardHead | null> {
@@ -99,11 +150,16 @@ class MemoryQueue implements PendingBoardCommandQueue {
   }
 }
 
-class FakeRepository implements BoardSyncRepository {
-  readonly pushed: OrderedBoardCommandEnvelope[] = [];
+class FakeRepository {
+  contextValue: BoardSessionContext = {
+    actorId: expectedActorId,
+    csrfToken: "csrf-token",
+    organizationId: "organization:1",
+    role: "tutor",
+  };
   descriptor: ServerBoardDescriptor = {
     archivedAt: null,
-    currentDocumentSha256: "",
+    currentDocumentSha256: "0".repeat(64),
     currentRevision: 0,
     documentId: expectedDocumentId,
     lastSnapshotRevision: 0,
@@ -116,21 +172,20 @@ class FakeRepository implements BoardSyncRepository {
     commandBatches: [],
     snapshot: null,
   };
+  pullPages: BoardCommandPage[] = [];
   pushResults: PushBoardCommandsResult[] = [];
-  savedSnapshot = false;
-  contextOffline = false;
-  ensureCalls = 0;
-  sessionContext = context;
+  readonly pushed: OrderedBoardCommandEnvelope[] = [];
+  readonly snapshots: {
+    document: BoardDocument;
+    revision: number;
+    sha256: string;
+  }[] = [];
 
   context(): Promise<BoardSessionContext> {
-    if (this.contextOffline) {
-      return Promise.reject(new OfflineError("offline"));
-    }
-    return Promise.resolve(this.sessionContext);
+    return Promise.resolve(this.contextValue);
   }
 
   ensureBoard(): Promise<ServerBoardDescriptor> {
-    this.ensureCalls += 1;
     return Promise.resolve(this.descriptor);
   }
 
@@ -139,51 +194,45 @@ class FakeRepository implements BoardSyncRepository {
   }
 
   pull(): Promise<BoardCommandPage> {
-    return Promise.resolve({
-      currentRevision: this.descriptor.currentRevision,
-      hasMore: false,
-      items: [],
-    });
+    const page = this.pullPages.shift();
+    return Promise.resolve(
+      page ?? {
+        currentRevision: this.descriptor.currentRevision,
+        hasMore: false,
+        items: [],
+      },
+    );
   }
 
   push(
     envelope: OrderedBoardCommandEnvelope,
   ): Promise<PushBoardCommandsResult> {
     this.pushed.push(envelope);
+    const result = this.pushResults.shift();
     return Promise.resolve(
-      this.pushResults.shift() ?? {
-        currentDocumentSha256: envelope.expectedDocumentSha256,
-        revision: envelope.baseRevision + 1,
+      result ?? {
+        currentDocumentSha256: "c".repeat(64),
+        revision: this.pushed.length,
         snapshotDue: false,
         status: "accepted",
       },
     );
   }
 
-  saveSnapshot(): Promise<void> {
-    this.savedSnapshot = true;
+  saveSnapshot(
+    _documentId: DocumentId,
+    revision: number,
+    document: BoardDocument,
+    sha256: string,
+  ): Promise<void> {
+    this.snapshots.push({ document, revision, sha256 });
     return Promise.resolve();
   }
 }
 
-afterEach(() => {
+beforeEach(() => {
   vi.restoreAllMocks();
 });
-
-function rename(
-  id: string,
-  timestamp: string,
-  title: string,
-  actor = context.actorId,
-): BoardCommand {
-  return {
-    actorId: actor,
-    id: commandId(id),
-    kind: "core.document.rename",
-    timestamp,
-    title,
-  };
-}
 
 describe("BoardSyncEngine", () => {
   it("creates a revision-zero snapshot and confirms queued commands", async () => {
@@ -192,37 +241,37 @@ describe("BoardSyncEngine", () => {
     const queue = new MemoryQueue();
     const states: BoardSyncState[] = [];
     const engine = new BoardSyncEngine({
-      createIdempotencyKey: () => "client:one",
+      createIdempotencyKey: () => "client:rename",
       documentId: expectedDocumentId,
       lessonId: "lesson:1",
-      now: () => "2026-07-28T18:00:00.000Z",
+      now: () => "2026-07-28T18:01:00.000Z",
       onStateChange: (state) => states.push(state),
       queue,
       repository,
     });
 
     await engine.bootstrap();
-    const ready = states.at(-1);
-    expect(ready).toMatchObject({ kind: "ready", revision: 0 });
-    expect(repository.savedSnapshot).toBe(true);
-    if (ready?.kind !== "ready") {
-      throw new Error("Expected ready state.");
-    }
-    const command = rename(
-      "command:local",
-      "2026-07-28T18:01:00.000Z",
-      "Synced lesson",
-    );
-    const applied = reduceBoardDocument(ready.document, command);
-    expect(applied.ok).toBe(true);
-    if (!applied.ok) {
-      throw new Error(applied.error.message);
-    }
+    await engine.apply([
+      rename("command:rename", "2026-07-28T18:01:00.000Z", "Renamed"),
+    ]);
 
-    await engine.queue(command, applied.document);
-
+    expect(repository.snapshots).toHaveLength(1);
     expect(repository.pushed).toHaveLength(1);
-    expect(queue.items).toHaveLength(0);
+    expect(repository.pushed[0]).toMatchObject({
+      baseRevision: 0,
+      commands: [
+        {
+          command: { kind: "core.document.rename", title: "Renamed" },
+          order: { baseRevisionAtCreation: 0, lamport: 1 },
+        },
+      ],
+      schemaVersion: "1.3",
+    });
+    expect(queue.items).toEqual([]);
+    expect(queue.head).toMatchObject({
+      document: { title: "Renamed" },
+      revision: 1,
+    });
     expect(states.at(-1)).toMatchObject({
       kind: "ready",
       pendingCount: 0,
@@ -233,286 +282,189 @@ describe("BoardSyncEngine", () => {
   it("rebases an offline command after a 409 and preserves its idempotency key", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     const repository = new FakeRepository();
-    const queue = new MemoryQueue();
-    const initialSha = await boardDocumentSha256(initialDocument);
-    repository.recovery = {
-      board: {
-        ...repository.descriptor,
-        currentDocumentSha256: initialSha,
-      },
-      commandBatches: [],
-      snapshot: {
-        createdAt: "2026-07-28T18:00:00.000Z",
-        document: initialDocument,
-        documentId: expectedDocumentId,
-        documentSha256: initialSha,
-        revision: 0,
-        schemaVersion: "1.2",
-      },
-    };
-    const remoteCommand = rename(
+    const remote = rename(
       "command:remote",
       "2026-07-28T18:02:00.000Z",
-      "Remote title",
-      actorId("user:other"),
+      "Remote",
     );
-    const remoteApplied = reduceBoardDocument(initialDocument, remoteCommand);
-    expect(remoteApplied.ok).toBe(true);
-    if (!remoteApplied.ok) {
-      throw new Error(remoteApplied.error.message);
-    }
-    const remoteSha = await boardDocumentSha256(remoteApplied.document);
     repository.pushResults.push({
       currentRevision: 1,
       hasMore: false,
-      missingCommandBatches: [
-        {
-          actorUserId: "user:other",
-          baseRevision: 0,
-          createdAt: "2026-07-28T18:02:00.000Z",
-          envelope: {
-            actorId: actorId("user:other"),
-            baseRevision: 0,
-            commands: [remoteCommand],
-            documentId: expectedDocumentId,
-            expectedDocumentSha256: remoteSha,
-            idempotencyKey: "remote:one",
-            schemaVersion: "1.2",
-          },
-          idempotencyKey: "remote:one",
-          payloadSha256:
-            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          revision: 1,
-        },
-      ],
+      missingCommandBatches: [batch(1, 0, [remote])],
       status: "conflict",
     });
-    const states: BoardSyncState[] = [];
+    const queue = new MemoryQueue();
     const engine = new BoardSyncEngine({
       createIdempotencyKey: () => "client:stable-key",
       documentId: expectedDocumentId,
       lessonId: "lesson:1",
       now: () => "2026-07-28T18:03:00.000Z",
-      onStateChange: (state) => states.push(state),
       queue,
       repository,
     });
     await engine.bootstrap();
-    const localCommand = rename(
-      "command:local",
-      "2026-07-28T18:01:00.000Z",
-      "Local title",
-    );
-    const localApplied = reduceBoardDocument(initialDocument, localCommand);
-    if (!localApplied.ok) {
-      throw new Error(localApplied.error.message);
-    }
 
-    await engine.queue(localCommand, localApplied.document);
+    await engine.apply([
+      rename("command:local", "2026-07-28T18:01:00.000Z", "Local"),
+    ]);
 
     expect(repository.pushed).toHaveLength(2);
-    expect(repository.pushed[0]?.idempotencyKey).toBe("client:stable-key");
-    expect(repository.pushed[1]?.idempotencyKey).toBe("client:stable-key");
-    expect(repository.pushed[1]?.baseRevision).toBe(1);
+    expect(repository.pushed.map(({ idempotencyKey }) => idempotencyKey)).toEqual(
+      ["client:stable-key", "client:stable-key"],
+    );
+    expect(repository.pushed.map(({ baseRevision }) => baseRevision)).toEqual([
+      0, 1,
+    ]);
     expect(repository.pushed[1]?.commands[0]?.command.timestamp).toBe(
       "2026-07-28T18:01:00.000Z",
     );
-    expect(states.at(-1)).toMatchObject({
-      document: { title: "Local title" },
-      kind: "ready",
-      pendingCount: 0,
+    expect(queue.head).toMatchObject({
+      document: { title: "Local" },
       revision: 2,
     });
   });
 
   it("boots from the durable cache offline and drains the queue after reconnect", async () => {
-    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
-    const repository = new FakeRepository();
-    repository.contextOffline = true;
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
     const queue = new MemoryQueue();
-    const initialSha = await boardDocumentSha256(initialDocument);
-    queue.head = {
-      document: initialDocument,
-      documentId: expectedDocumentId,
-      revision: 0,
-      session: {
-        actorId: context.actorId,
-        organizationId: context.organizationId,
-        role: context.role,
-      },
-      sha256: initialSha,
-    };
-    const command = rename(
-      "command:offline",
-      "2026-07-28T18:01:00.000Z",
-      "Offline title",
-    );
-    await queue.enqueue(expectedDocumentId, "client:offline", command);
-    repository.recovery = {
-      board: {
-        ...repository.descriptor,
-        currentDocumentSha256: initialSha,
-      },
-      commandBatches: [],
-      snapshot: {
-        createdAt: "2026-07-28T18:00:00.000Z",
-        document: initialDocument,
+    const cachedDocument = initialDocument();
+    queue.head = await confirmed(cachedDocument, 3);
+    queue.items = [
+      {
+        command: rename(
+          "command:cached",
+          "2026-07-28T18:01:00.000Z",
+          "Offline",
+        ),
         documentId: expectedDocumentId,
-        documentSha256: initialSha,
-        revision: 0,
-        schemaVersion: "1.2",
+        idempotencyKey: "client:cached",
+        order: { baseRevisionAtCreation: 3, lamport: 4 },
+        sequence: 1,
       },
-    };
-    const states: BoardSyncState[] = [];
+    ];
+    const repository = new FakeRepository();
     const engine = new BoardSyncEngine({
       createIdempotencyKey: () => "unused",
       documentId: expectedDocumentId,
       lessonId: "lesson:1",
       now: () => "2026-07-28T18:02:00.000Z",
-      onStateChange: (state) => states.push(state),
       queue,
       repository,
     });
 
-    await engine.bootstrap();
-    expect(states.at(-1)).toMatchObject({
-      document: { title: "Offline title" },
-      kind: "ready",
-      network: "offline",
+    const offline = await engine.bootstrap();
+    expect(offline).toMatchObject({
+      document: { title: "Offline" },
+      kind: "offline",
       pendingCount: 1,
+      revision: 3,
     });
 
-    repository.contextOffline = false;
-    online.mockReturnValue(true);
-    await engine.synchronize();
-
-    expect(repository.pushed[0]?.idempotencyKey).toBe("client:offline");
-    expect(queue.items).toHaveLength(0);
-    expect(states.at(-1)).toMatchObject({
-      document: { title: "Offline title" },
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const synced = await engine.sync();
+    expect(synced).toMatchObject({
+      document: { title: "Offline" },
       kind: "ready",
-      network: "online",
       pendingCount: 0,
       revision: 1,
     });
   });
 
   it("acknowledges an uncertain retry already present in the server journal", async () => {
-    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
-    const repository = new FakeRepository();
-    const queue = new MemoryQueue();
-    const initialSha = await boardDocumentSha256(initialDocument);
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
     const command = rename(
       "command:uncertain",
       "2026-07-28T18:01:00.000Z",
-      "Already accepted",
+      "Confirmed elsewhere",
     );
-    const applied = reduceBoardDocument(initialDocument, command);
-    if (!applied.ok) {
-      throw new Error(applied.error.message);
-    }
-    const acceptedSha = await boardDocumentSha256(applied.document);
-    await queue.enqueue(expectedDocumentId, "client:uncertain", command);
-    repository.descriptor = {
-      ...repository.descriptor,
-      currentDocumentSha256: acceptedSha,
-      currentRevision: 1,
-    };
-    repository.recovery = {
-      board: repository.descriptor,
-      commandBatches: [
-        {
-          actorUserId: context.actorId,
-          baseRevision: 0,
-          createdAt: "2026-07-28T18:01:00.000Z",
-          envelope: {
-            actorId: context.actorId,
-            baseRevision: 0,
-            commands: [command],
-            documentId: expectedDocumentId,
-            expectedDocumentSha256: acceptedSha,
-            idempotencyKey: "client:uncertain",
-            schemaVersion: "1.2",
-          },
-          idempotencyKey: "client:uncertain",
-          payloadSha256:
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-          revision: 1,
-        },
-      ],
-      snapshot: {
-        createdAt: "2026-07-28T18:00:00.000Z",
-        document: initialDocument,
+    const queue = new MemoryQueue();
+    queue.head = await confirmed(initialDocument(), 0);
+    queue.items = [
+      {
+        command,
         documentId: expectedDocumentId,
-        documentSha256: initialSha,
+        idempotencyKey: "client:uncertain",
+        order: { baseRevisionAtCreation: 0, lamport: 1 },
+        sequence: 1,
+      },
+    ];
+    const repository = new FakeRepository();
+    repository.recovery = {
+      board: {
+        ...repository.descriptor,
+        currentRevision: 1,
+      },
+      commandBatches: [batch(1, 0, [command], "client:uncertain")],
+      snapshot: {
+        createdAt: initialDocument().createdAt,
+        document: initialDocument(),
+        documentId: expectedDocumentId,
+        documentSha256: await boardDocumentSha256(initialDocument()),
         revision: 0,
         schemaVersion: "1.2",
       },
     };
-    const states: BoardSyncState[] = [];
     const engine = new BoardSyncEngine({
       createIdempotencyKey: () => "unused",
       documentId: expectedDocumentId,
       lessonId: "lesson:1",
       now: () => "2026-07-28T18:02:00.000Z",
-      onStateChange: (state) => states.push(state),
       queue,
       repository,
     });
 
-    await engine.bootstrap();
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const state = await engine.bootstrap();
 
-    expect(repository.pushed).toHaveLength(0);
-    expect(queue.items).toHaveLength(0);
-    expect(states.at(-1)).toMatchObject({
-      document: { title: "Already accepted" },
+    expect(state).toMatchObject({
+      document: { title: "Confirmed elsewhere" },
       kind: "ready",
       pendingCount: 0,
       revision: 1,
     });
+    expect(repository.pushed).toEqual([]);
   });
 
   it("loads an assigned parent board without attempting to create it", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     const repository = new FakeRepository();
-    repository.sessionContext = {
-      ...context,
-      actorId: actorId("user:parent"),
+    repository.contextValue = {
+      ...repository.contextValue,
       role: "parent",
     };
-    const initialSha = await boardDocumentSha256(initialDocument);
     repository.recovery = {
       board: {
         ...repository.descriptor,
-        currentDocumentSha256: initialSha,
+        currentRevision: 0,
       },
       commandBatches: [],
       snapshot: {
-        createdAt: "2026-07-28T18:00:00.000Z",
-        document: initialDocument,
+        createdAt: initialDocument().createdAt,
+        document: initialDocument(),
         documentId: expectedDocumentId,
-        documentSha256: initialSha,
+        documentSha256: await boardDocumentSha256(initialDocument()),
         revision: 0,
         schemaVersion: "1.2",
       },
     };
-    const states: BoardSyncState[] = [];
+    const ensureBoard = vi.spyOn(repository, "ensureBoard");
     const engine = new BoardSyncEngine({
       createIdempotencyKey: () => "unused",
       documentId: expectedDocumentId,
       lessonId: "lesson:1",
       now: () => "2026-07-28T18:02:00.000Z",
-      onStateChange: (state) => states.push(state),
       queue: new MemoryQueue(),
       repository,
     });
 
-    await engine.bootstrap();
+    const state = await engine.bootstrap();
 
-    expect(repository.ensureCalls).toBe(0);
-    expect(states.at(-1)).toMatchObject({
+    expect(ensureBoard).not.toHaveBeenCalled();
+    expect(state).toMatchObject({
+      document: { title: "Lesson" },
       kind: "ready",
-      role: "parent",
+      readOnly: true,
+      revision: 0,
     });
   });
 
@@ -536,7 +488,7 @@ describe("BoardSyncEngine", () => {
     ]);
 
     expect(repository.pushed).toHaveLength(1);
-    expect(repository.pushed[0]?.commands[0]).toMatchObject({
+    expect(repository.pushed[0]?.commands[0]?.command).toMatchObject({
       kind: "core.document.rename",
       title: "Restored title",
     });
