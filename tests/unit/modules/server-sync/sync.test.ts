@@ -5,7 +5,6 @@ import {
   commandId,
   createEmptyBoardDocument,
   documentId,
-  reduceBoardDocument,
   type BoardCommand,
   type BoardCommandPage,
   type BoardDocument,
@@ -339,11 +338,13 @@ describe("BoardSyncEngine", () => {
       },
     ];
     const repository = new FakeRepository();
+    const states: BoardSyncState[] = [];
     const engine = new BoardSyncEngine({
       createIdempotencyKey: () => "unused",
       documentId: expectedDocumentId,
       lessonId: "lesson:1",
       now: () => "2026-07-28T18:02:00.000Z",
+      onStateChange: (state) => states.push(state),
       queue,
       repository,
     });
@@ -357,8 +358,8 @@ describe("BoardSyncEngine", () => {
     });
 
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
-    const synced = await engine.sync();
-    expect(synced).toMatchObject({
+    await engine.synchronize();
+    expect(states.at(-1)).toMatchObject({
       document: { title: "Offline" },
       kind: "ready",
       pendingCount: 0,
