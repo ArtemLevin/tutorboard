@@ -1,0 +1,58 @@
+name: Apply pen dot cursor
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'fix/pen-dot-cursor' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: fix/pen-dot-cursor
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Apply cursor change
+        run: node .automation/apply-pen-dot-cursor.mjs
+
+      - name: Validate source
+        run: |
+          npm run format
+          npm run lint
+          npm run typecheck
+          npm run test
+          npm run build
+
+      - name: Verify cursor behavior in Chromium and Firefox
+        run: |
+          npx playwright install --with-deps chromium firefox
+          npm run e2e -- --project=chromium tests/e2e/canvas-mode-gestures.spec.ts
+          npm run e2e -- --project=firefox tests/e2e/canvas-mode-gestures.spec.ts
+
+      - name: Publish product changes
+        run: |
+          rm -rf .automation
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'fix(canvas): show dot cursor for pen tools'
+          git fetch origin fix/pen-dot-cursor
+          git rebase origin/fix/pen-dot-cursor
+          git push origin HEAD:fix/pen-dot-cursor
