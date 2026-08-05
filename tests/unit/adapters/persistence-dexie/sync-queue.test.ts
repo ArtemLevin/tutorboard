@@ -68,7 +68,9 @@ async function mutatePending(
   try {
     const transaction = database.transaction("pending", "readwrite");
     const store = transaction.objectStore("pending");
-    const raw = await requestResult(store.get([activeDocumentId, sequence]));
+    const raw = await requestResult<unknown>(
+      store.get([activeDocumentId, sequence]) as IDBRequest<unknown>,
+    );
     if (typeof raw !== "object" || raw === null) {
       throw new Error("Expected a pending command record.");
     }
@@ -107,8 +109,10 @@ async function readPendingRecord(
   const database = await requestResult(indexedDB.open(databaseName));
   try {
     const transaction = database.transaction("pending", "readonly");
-    const raw = await requestResult(
-      transaction.objectStore("pending").get([activeDocumentId, sequence]),
+    const raw = await requestResult<unknown>(
+      transaction
+        .objectStore("pending")
+        .get([activeDocumentId, sequence]) as IDBRequest<unknown>,
     );
     await transactionDone(transaction);
     if (typeof raw !== "object" || raw === null) {
