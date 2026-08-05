@@ -1,0 +1,103 @@
+name: Apply Board HTTP command codec
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    if: github.event.pull_request.head.ref == 'feature/p0-command-integrity'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/p0-command-integrity
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Route server command batches through the full codec
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          client = Path('src/adapters/board-http/client.ts')
+          text = client.read_text(encoding='utf-8')
+          text = text.replace(
+              'import { z } from "zod";\n\n',
+              'import { z } from "zod";\n\nimport { readBoardCommand } from "../../core/board/commands/codec/public";\n',
+              1,
+          )
+          text = text.replace('  type BoardCommand,\n', '', 1)
+          text, count = re.subn(
+              r'const commandSchema = z\n  \.object\(\{\n    actorId: identifierSchema,\n    id: identifierSchema,\n    kind: z\.string\(\)\.min\(1\)\.max\(128\),\n    timestamp: z\.string\(\)\.min\(1\)\.max\(64\),\n  \}\)\n  \.passthrough\(\);\n',
+              '',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit('commandSchema block was not found')
+          text = text.replace(
+              '    commands: z.array(commandSchema).min(1).max(100),',
+              '    commands: z.array(z.unknown()).min(1).max(100),',
+              1,
+          )
+          marker = 'function parseBatch(value: unknown): ServerBoardCommandBatch {'
+          helper = '''function parseServerCommand(value: unknown) {\n  const parsed = readBoardCommand(value);\n  if (parsed.status !== "ok") {\n    throw new BoardHttpError(\n      "board.http.invalid-command-batch",\n      "Сервер вернул пакет с несовместимой командой доски.",\n      200,\n      false,\n    );\n  }\n  return parsed.command;\n}\n\n'''
+          if marker not in text:
+              raise SystemExit('parseBatch marker was not found')
+          text = text.replace(marker, helper + marker, 1)
+          old = '''      commands: parsed.data.envelope\n        .commands as unknown as readonly BoardCommand[],'''
+          new = '''      commands: parsed.data.envelope.commands.map(parseServerCommand),'''
+          if old not in text:
+              raise SystemExit('unsafe command cast was not found')
+          text = text.replace(old, new, 1)
+          client.write_text(text, encoding='utf-8')
+
+          architecture = Path('tests/architecture/board-command-runtime-boundary.test.mjs')
+          text = architecture.read_text(encoding='utf-8')
+          text = text.replace(
+              'const runtimeBoundaries = [\n',
+              'const runtimeBoundaries = [\n  "src/adapters/board-http/client.ts",\n',
+              1,
+          )
+          text = text.replace(
+              '    expect(source).toContain("boardCommandSchemaVersion");\n',
+              '    expect(source).toContain("boardCommandSchemaVersion");\n\n    const httpSource = fs.readFileSync(\n      path.join(repositoryRoot, "src/adapters/board-http/client.ts"),\n      "utf8",\n    );\n    expect(httpSource).toContain("readBoardCommand");\n',
+              1,
+          )
+          architecture.write_text(text, encoding='utf-8')
+
+          tests = Path('tests/unit/adapters/board-http/client.test.ts')
+          text = tests.read_text(encoding='utf-8')
+          insertion = '''\n  it("rejects malformed commands in a server conflict batch", async () => {\n    const request = vi.fn<typeof fetch>().mockResolvedValue(\n      jsonResponse(\n        {\n          error: { currentRevision: 1 },\n          hasMore: false,\n          missingCommandBatches: [\n            {\n              actorUserId: "user:other",\n              baseRevision: 0,\n              createdAt: "2026-07-28T18:00:00.000Z",\n              envelope: {\n                ...envelope,\n                actorId: "user:other",\n                commands: [\n                  {\n                    actorId: "user:other",\n                    id: "command:malformed",\n                    kind: "core.document.rename",\n                    timestamp: "2026-07-28T18:00:00.000Z"\n                  }\n                ],\n                idempotencyKey: "remote:malformed",\n              },\n              idempotencyKey: "remote:malformed",\n              payloadSha256:\n                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",\n              revision: 1,\n            },\n          ],\n        },\n        409,\n      ),\n    );\n    const repository = createBoardHttpRepository({\n      fetch: request,\n      origin: "https://tutor.example.test",\n    });\n\n    await expect(repository.push(envelope, "csrf-token")).rejects.toMatchObject({\n      code: "board.http.invalid-command-batch",\n      retryable: false,\n    } satisfies Partial<BoardHttpError>);\n  });\n'''
+          closing = '\n});\n'
+          index = text.rfind(closing)
+          if index < 0:
+              raise SystemExit('test suite closing marker was not found')
+          text = text[:index] + insertion + text[index:]
+          tests.write_text(text, encoding='utf-8')
+          PY
+      - run: npm run format
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/automation-board-http-codec-p0.yml
+      - name: Commit verified boundary integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(sync): validate server BoardCommand batches"
+          git push origin HEAD:feature/p0-command-integrity
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run architecture
+      - run: npm run build
