@@ -9,6 +9,7 @@ const repositoryRoot = path.resolve(
   "../..",
 );
 const runtimeBoundaries = [
+  "src/adapters/board-http/client.ts",
   "src/adapters/persistence-dexie/sync-queue.ts",
   "src/modules/server-sync/sync.ts",
 ];
@@ -34,5 +35,11 @@ describe("BoardCommand runtime boundary", () => {
     expect(source).toContain("readBoardCommandJson");
     expect(source).toContain("boardCommandSha256");
     expect(source).toContain("boardCommandSchemaVersion");
+
+    const httpSource = fs.readFileSync(
+      path.join(repositoryRoot, "src/adapters/board-http/client.ts"),
+      "utf8",
+    );
+    expect(httpSource).toContain("readBoardCommand");
   });
 });
