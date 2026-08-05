@@ -90,9 +90,11 @@ test("shows a compact dot for pen cursors and keeps crosshair for shape tools", 
 
   await selectPen(page);
   await expect(stage).toHaveAttribute("data-cursor-kind", "pen-dot");
-  expect(
-    await stage.evaluate((element) => getComputedStyle(element).cursor),
-  ).toContain("url(");
+  const penCursor = await stage.evaluate(
+    (element) => getComputedStyle(element).cursor,
+  );
+  expect(penCursor).toContain("url(");
+  expect(penCursor).toContain("4 4, crosshair");
 
   const point = await stagePoint(page, 480, 260);
   await page.mouse.click(point.x, point.y);
