@@ -244,7 +244,7 @@ describe("BoardDocument 1.3 solid integration", () => {
         placement: { x: 120, y: 80 },
         token: `${definitionId}-test`,
       });
-      expect(command.solidModels[0]?.definition.kind).toBe(expectedKind);
+      expect(command.solidModels?.[0]?.definition.kind).toBe(expectedKind);
     }
   });
 
