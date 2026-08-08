@@ -365,8 +365,9 @@ describe("BoardSyncEngine", () => {
     const queue = new MemoryQueue();
     const states: BoardSyncState[] = [];
     let key = 0;
-    let releaseFirstPush: ((result: PushBoardCommandsResult) => void) | null =
-      null;
+    let releaseFirstPush: (result: PushBoardCommandsResult) => void = () => {
+      throw new Error("First push was not pending.");
+    };
     vi.spyOn(repository, "push").mockImplementationOnce((envelope) => {
       repository.pushed.push(envelope);
       return new Promise<PushBoardCommandsResult>((resolve) => {
@@ -405,7 +406,7 @@ describe("BoardSyncEngine", () => {
 
     await vi.waitFor(() => expect(queue.items).toHaveLength(2));
     const firstEnvelope = repository.pushed[0]!;
-    releaseFirstPush?.({
+    releaseFirstPush({
       currentDocumentSha256: firstEnvelope.expectedDocumentSha256,
       revision: firstEnvelope.baseRevision + 1,
       snapshotDue: false,
