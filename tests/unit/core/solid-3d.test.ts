@@ -56,13 +56,13 @@ describe("solid 3D geometry core", () => {
   });
 
   it("generates octahedron and truncated-pyramid topology", () => {
-    expect(createSolidTopology({ edgeLength: 2, kind: "octahedron" })).toMatchObject(
-      {
-        vertices: { length: 6 },
-        edges: { length: 12 },
-        faces: { length: 8 },
-      },
-    );
+    expect(
+      createSolidTopology({ edgeLength: 2, kind: "octahedron" }),
+    ).toMatchObject({
+      vertices: { length: 6 },
+      edges: { length: 12 },
+      faces: { length: 8 },
+    });
     expect(
       createSolidTopology({
         bottomBase: regularBase(4, 2),
@@ -230,7 +230,9 @@ describe("BoardDocument 1.3 solid integration", () => {
       ["hemisphere", "hemisphere"],
       ["octahedron", "octahedron"],
     ] as const) {
-      const definition = textShapeCatalog.find(({ id }) => id === definitionId)!;
+      const definition = textShapeCatalog.find(
+        ({ id }) => id === definitionId,
+      )!;
       const command = createTextShapePlacementCommand({
         autoLabelVertices: true,
         definition,
