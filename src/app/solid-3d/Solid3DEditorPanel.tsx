@@ -54,11 +54,15 @@ const solidNames: Readonly<
   cube: "Куб",
   cuboid: "Прямоугольный параллелепипед",
   cylinder: "Цилиндр",
+  hemisphere: "Полусфера",
+  octahedron: "Октаэдр",
   prism: "Призма",
   pyramid: "Пирамида",
+  "regular-polyhedron": "Правильный многогранник",
   sphere: "Сфера",
   tetrahedron: "Тетраэдр",
   "truncated-cone": "Усечённый конус",
+  "truncated-pyramid": "Усечённая пирамида",
 };
 
 function nextLabel(points: readonly Solid3DPoint[]): string {
