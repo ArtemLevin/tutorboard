@@ -359,6 +359,70 @@ describe("BoardSyncEngine", () => {
     });
   });
 
+  it("persists a second edit while the first network push is still pending", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const repository = new FakeRepository();
+    const queue = new MemoryQueue();
+    const states: BoardSyncState[] = [];
+    let key = 0;
+    let releaseFirstPush: (result: PushBoardCommandsResult) => void = () => {
+      throw new Error("First push was not pending.");
+    };
+    vi.spyOn(repository, "push").mockImplementationOnce((envelope) => {
+      repository.pushed.push(envelope);
+      return new Promise<PushBoardCommandsResult>((resolve) => {
+        releaseFirstPush = resolve;
+      });
+    });
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => `client:durable:${++key}`,
+      documentId: expectedDocumentId,
+      lessonId: "lesson:1",
+      now: () => "2026-07-28T18:01:00.000Z",
+      onStateChange: (state) => states.push(state),
+      queue,
+      repository,
+    });
+
+    await engine.bootstrap();
+    const ready = states.at(-1);
+    if (ready?.kind !== "ready") throw new Error("Expected ready sync state");
+    const firstCommand = rename(
+      "command:first",
+      "2026-07-28T18:01:00.000Z",
+      "First",
+    );
+    const firstDocument = applied(ready.document, firstCommand);
+    const first = engine.queue(firstCommand, firstDocument);
+    await vi.waitFor(() => expect(repository.pushed).toHaveLength(1));
+
+    const secondCommand = rename(
+      "command:second",
+      "2026-07-28T18:02:00.000Z",
+      "Second",
+    );
+    const secondDocument = applied(firstDocument, secondCommand);
+    const second = engine.queue(secondCommand, secondDocument);
+
+    await vi.waitFor(() => expect(queue.items).toHaveLength(2));
+    const firstEnvelope = repository.pushed[0]!;
+    releaseFirstPush({
+      currentDocumentSha256: firstEnvelope.expectedDocumentSha256,
+      revision: firstEnvelope.baseRevision + 1,
+      snapshotDue: false,
+      status: "accepted",
+    });
+    await Promise.all([first, second]);
+
+    expect(queue.items).toEqual([]);
+    expect(states.at(-1)).toMatchObject({
+      document: { title: "Second" },
+      kind: "ready",
+      pendingCount: 0,
+      revision: 2,
+    });
+  });
+
   it("boots from the durable cache offline and drains the queue after reconnect", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
     const queue = new MemoryQueue();
@@ -402,13 +466,100 @@ describe("BoardSyncEngine", () => {
       revision: 3,
     });
 
+    const cachedSha256 = await boardDocumentSha256(cachedDocument);
+    repository.recovery = {
+      board: {
+        ...repository.descriptor,
+        currentDocumentSha256: cachedSha256,
+        currentRevision: 3,
+        lastSnapshotRevision: 3,
+      },
+      commandBatches: [],
+      snapshot: {
+        createdAt: cachedDocument.createdAt,
+        document: cachedDocument,
+        documentId: expectedDocumentId,
+        documentSha256: cachedSha256,
+        revision: 3,
+        schemaVersion: "1.4",
+      },
+    };
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     await engine.synchronize();
     expect(states.at(-1)).toMatchObject({
       document: { title: "Offline" },
       kind: "ready",
       pendingCount: 0,
-      revision: 1,
+      revision: 4,
+    });
+  });
+
+  it("fails closed when the server rolls behind the durable head", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const queue = new MemoryQueue();
+    queue.head = await confirmed(initialDocument(), 3);
+    const repository = new FakeRepository();
+    const states: BoardSyncState[] = [];
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => "unused",
+      documentId: expectedDocumentId,
+      lessonId: "lesson:1",
+      now: () => "2026-07-28T18:02:00.000Z",
+      onStateChange: (state) => states.push(state),
+      queue,
+      repository,
+    });
+
+    await engine.bootstrap();
+
+    expect(states.at(-1)).toMatchObject({
+      code: "board.sync.server-rollback",
+      kind: "recovery-required",
+    });
+    expect(queue.head?.revision).toBe(3);
+  });
+
+  it("fails closed on different documents at the same confirmed revision", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const queue = new MemoryQueue();
+    const local = initialDocument();
+    queue.head = await confirmed(local, 3);
+    const server = { ...local, title: "Different server head" };
+    const serverSha256 = await boardDocumentSha256(server);
+    const repository = new FakeRepository();
+    repository.recovery = {
+      board: {
+        ...repository.descriptor,
+        currentDocumentSha256: serverSha256,
+        currentRevision: 3,
+        lastSnapshotRevision: 3,
+      },
+      commandBatches: [],
+      snapshot: {
+        createdAt: server.createdAt,
+        document: server,
+        documentId: expectedDocumentId,
+        documentSha256: serverSha256,
+        revision: 3,
+        schemaVersion: "1.4",
+      },
+    };
+    const states: BoardSyncState[] = [];
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => "unused",
+      documentId: expectedDocumentId,
+      lessonId: "lesson:1",
+      now: () => "2026-07-28T18:02:00.000Z",
+      onStateChange: (state) => states.push(state),
+      queue,
+      repository,
+    });
+
+    await engine.bootstrap();
+
+    expect(states.at(-1)).toMatchObject({
+      code: "board.sync.split-brain",
+      kind: "recovery-required",
     });
   });
 

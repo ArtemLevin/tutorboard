@@ -194,6 +194,12 @@ function message(error: unknown): string {
     : "Неизвестная ошибка синхронизации.";
 }
 
+function orderedPending(
+  pending: readonly PendingBoardCommand[],
+): readonly PendingBoardCommand[] {
+  return [...pending].sort((left, right) => left.sequence - right.sequence);
+}
+
 export class BoardSyncEngine {
   readonly #createIdempotencyKey: () => string;
   readonly #documentId: DocumentId;
@@ -206,6 +212,7 @@ export class BoardSyncEngine {
   #confirmed: ConfirmedBoardHead | null = null;
   #document: BoardDocument | null = null;
   #pending: readonly PendingBoardCommand[] = [];
+  #durableSerial: Promise<void> = Promise.resolve();
   #serial: Promise<void> = Promise.resolve();
 
   constructor(options: BoardSyncEngineOptions) {
@@ -223,29 +230,60 @@ export class BoardSyncEngine {
     return this.#serial;
   }
 
+  #enqueueDurably(
+    command: BoardCommand,
+    baseRevisionAtCreation: number,
+  ): Promise<PendingBoardCommand> {
+    const idempotencyKey = this.#createIdempotencyKey();
+    const pending = this.#durableSerial.then(() =>
+      this.#queue.enqueue(this.#documentId, idempotencyKey, command, {
+        baseRevisionAtCreation,
+      }),
+    );
+    // Keep durable ordering independent from network synchronization. Handling
+    // rejection here also prevents a durable-write failure from becoming an
+    // unhandled promise while the network serial is still busy.
+    this.#durableSerial = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
+  }
+
   queue(command: BoardCommand, document: BoardDocument): Promise<void> {
+    const context = this.#context;
+    const confirmed = this.#confirmed;
+    if (context === null || confirmed === null) {
+      this.#recover(
+        "board.sync.queue-failed",
+        "Board sync engine is not ready.",
+      );
+      return Promise.resolve();
+    }
+    if (
+      command.actorId !== context.actorId ||
+      document.id !== this.#documentId
+    ) {
+      this.#recover(
+        "board.sync.actor-or-document-mismatch",
+        "Команда не соответствует активному пользователю или доске.",
+      );
+      return Promise.resolve();
+    }
+
+    // Begin the IndexedDB write immediately. It must never wait for an older
+    // HTTP pull/push, otherwise a visible edit can exist only in React memory.
+    const durable = this.#enqueueDurably(command, confirmed.revision);
     this.#serial = this.#serial
       .then(async () => {
-        if (this.#context === null || this.#confirmed === null) {
+        const queued = await durable;
+        if (this.#confirmed === null) {
           throw new Error("Board sync engine is not ready.");
         }
-        if (
-          command.actorId !== this.#context.actorId ||
-          document.id !== this.#documentId
-        ) {
-          throw new SyncRecoveryError(
-            "board.sync.actor-or-document-mismatch",
-            "Команда не соответствует активному пользователю или доске.",
-          );
-        }
-        const queued = await this.#queue.enqueue(
-          this.#documentId,
-          this.#createIdempotencyKey(),
-          command,
-          { baseRevisionAtCreation: this.#confirmed.revision },
-        );
-        this.#pending = [...this.#pending, queued];
-        this.#document = document;
+        this.#pending = orderedPending([...this.#pending, queued]);
+        const replayed = replayPending(this.#confirmed, this.#pending);
+        this.#pending = replayed.items;
+        this.#document = replayed.document;
         this.#emitReady(navigator.onLine ? "online" : "offline");
         if (navigator.onLine) {
           await this.#synchronize();
@@ -263,34 +301,56 @@ export class BoardSyncEngine {
   }
 
   apply(commands: readonly BoardCommand[]): Promise<void> {
+    const context = this.#context;
+    const confirmed = this.#confirmed;
+    const currentDocument = this.#document;
+    if (context === null || confirmed === null || currentDocument === null) {
+      this.#recover(
+        "board.sync.undo-failed",
+        "Board sync engine is not ready.",
+      );
+      return Promise.resolve();
+    }
+
+    let preview = currentDocument;
+    const rebased: BoardCommand[] = [];
+    try {
+      for (const candidate of commands) {
+        if (candidate.actorId !== context.actorId) {
+          throw new SyncRecoveryError(
+            "board.sync.actor-or-document-mismatch",
+            "Команда отмены не принадлежит активному пользователю.",
+          );
+        }
+        const command = rebaseCommand(preview, candidate);
+        preview = applyCommand(preview, command);
+        rebased.push(command);
+      }
+    } catch (error) {
+      this.#recover(
+        error instanceof SyncRecoveryError
+          ? error.code
+          : "board.sync.undo-failed",
+        message(error),
+      );
+      return Promise.resolve();
+    }
+
+    const durable = Promise.all(
+      rebased.map((command) =>
+        this.#enqueueDurably(command, confirmed.revision),
+      ),
+    );
     this.#serial = this.#serial
       .then(async () => {
-        if (
-          this.#context === null ||
-          this.#confirmed === null ||
-          this.#document === null
-        ) {
+        const queued = await durable;
+        if (this.#confirmed === null) {
           throw new Error("Board sync engine is not ready.");
         }
-        let document = this.#document;
-        for (const candidate of commands) {
-          if (candidate.actorId !== this.#context.actorId) {
-            throw new SyncRecoveryError(
-              "board.sync.actor-or-document-mismatch",
-              "Команда отмены не принадлежит активному пользователю.",
-            );
-          }
-          const command = rebaseCommand(document, candidate);
-          document = applyCommand(document, command);
-          const queued = await this.#queue.enqueue(
-            this.#documentId,
-            this.#createIdempotencyKey(),
-            command,
-            { baseRevisionAtCreation: this.#confirmed.revision },
-          );
-          this.#pending = [...this.#pending, queued];
-        }
-        this.#document = document;
+        this.#pending = orderedPending([...this.#pending, ...queued]);
+        const replayed = replayPending(this.#confirmed, this.#pending);
+        this.#pending = replayed.items;
+        this.#document = replayed.document;
         this.#emitReady(navigator.onLine ? "online" : "offline");
         if (navigator.onLine) {
           await this.#synchronize();
@@ -319,6 +379,7 @@ export class BoardSyncEngine {
   async #bootstrap(): Promise<void> {
     this.#onStateChange({ kind: "bootstrapping" });
     this.#pending = await this.#queue.list(this.#documentId);
+    const cached = await this.#queue.loadHead(this.#documentId);
     try {
       this.#context = await this.#repository.context();
       if (this.#context.role === "admin" || this.#context.role === "tutor") {
@@ -329,6 +390,12 @@ export class BoardSyncEngine {
         );
       }
       const recovery = await this.#repository.load(this.#documentId);
+      if (cached !== null && recovery.board.currentRevision < cached.revision) {
+        throw new SyncRecoveryError(
+          "board.sync.server-rollback",
+          `Серверная ревизия ${recovery.board.currentRevision} ниже подтверждённой локальной ревизии ${cached.revision}.`,
+        );
+      }
       if (recovery.snapshot === null && recovery.board.currentRevision > 0) {
         throw new SyncRecoveryError(
           "board.sync.missing-base-snapshot",
@@ -405,6 +472,16 @@ export class BoardSyncEngine {
           "Сервер вернул неполный журнал восстановления.",
         );
       }
+      if (
+        cached !== null &&
+        head.revision === cached.revision &&
+        head.sha256 !== cached.sha256
+      ) {
+        throw new SyncRecoveryError(
+          "board.sync.split-brain",
+          "Сервер и локальный durable head имеют разные документы для одной ревизии.",
+        );
+      }
       this.#confirmed = head;
       await this.#queue.saveHead(head);
       const replayed = replayPending(head, this.#pending);
@@ -414,8 +491,11 @@ export class BoardSyncEngine {
       this.#emitReady("online");
       await this.#synchronize();
     } catch (error) {
-      const cached = await this.#queue.loadHead(this.#documentId);
-      if (cached !== null && (retryable(error) || !navigator.onLine)) {
+      if (
+        cached !== null &&
+        !(error instanceof SyncRecoveryError) &&
+        (retryable(error) || !navigator.onLine)
+      ) {
         this.#confirmed = cached;
         this.#context = {
           ...cached.session,
@@ -448,7 +528,13 @@ export class BoardSyncEngine {
       return;
     }
     try {
-      await this.#pullAll();
+      // A pending local command is already based on the most recently
+      // confirmed head. Push it optimistically; a concurrent remote revision
+      // is resolved by the server conflict response. This keeps a later
+      // durable edit independent from a stale pre-push pull.
+      if (this.#pending.length === 0) {
+        await this.#pullAll();
+      }
       let safety = 0;
       while (this.#pending.length > 0) {
         if (++safety > 1_000) {
@@ -480,6 +566,12 @@ export class BoardSyncEngine {
           this.#context.csrfToken,
         );
         if (result.status === "conflict") {
+          if (result.currentRevision < this.#confirmed.revision) {
+            throw new SyncRecoveryError(
+              "board.sync.server-rollback",
+              `Серверная ревизия ${result.currentRevision} ниже подтверждённой локальной ревизии ${this.#confirmed.revision}.`,
+            );
+          }
           this.#confirmed = await applyRemoteBatches(
             this.#confirmed,
             result.missingCommandBatches,
@@ -541,6 +633,12 @@ export class BoardSyncEngine {
         this.#documentId,
         this.#confirmed.revision,
       );
+      if (page.currentRevision < this.#confirmed.revision) {
+        throw new SyncRecoveryError(
+          "board.sync.server-rollback",
+          `Серверная ревизия ${page.currentRevision} ниже подтверждённой локальной ревизии ${this.#confirmed.revision}.`,
+        );
+      }
       this.#confirmed = await applyRemoteBatches(this.#confirmed, page.items);
       await this.#acknowledgeRemoteDuplicates(page.items);
       await this.#queue.saveHead(this.#confirmed);
