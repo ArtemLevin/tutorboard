@@ -11,7 +11,9 @@ export function resolveSolid3DPointPosition(
   point: Solid3DPoint,
 ): Vec3 {
   if (point.anchor.kind !== "analytic-surface") return point.position;
-  return resolveAnalyticSolidPointAnchor(definition, point.anchor) ?? point.position;
+  return (
+    resolveAnalyticSolidPointAnchor(definition, point.anchor) ?? point.position
+  );
 }
 
 export function reprojectSolid3DRecord(
