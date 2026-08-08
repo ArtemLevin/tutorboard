@@ -18,7 +18,18 @@ export type SolidAnalyticSurfaceId =
   | "surface:truncated-cone-bottom"
   | "surface:truncated-cone-top";
 
+export type AnalyticSurfaceAnchor = Extract<
+  SolidPointAnchor,
+  { readonly kind: "analytic-surface" }
+>;
+
+export interface AnalyticSurfaceAnchorResolution {
+  readonly anchor: AnalyticSurfaceAnchor;
+  readonly position: Vec3;
+}
+
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
+const clampUnit = (value: number): number => Math.min(1, Math.max(-1, value));
 const finiteParameter = (
   parameters: readonly number[],
   index: number,
@@ -76,6 +87,45 @@ function revolutionSidePoint(
     y: -height / 2 + height * progress,
     z: Math.sin(angle) * radius,
   };
+}
+
+function analyticAnchor(
+  surfaceId: SolidAnalyticSurfaceId,
+  parameters: readonly number[],
+): AnalyticSurfaceAnchor {
+  return { kind: "analytic-surface", parameters, surfaceId };
+}
+
+function sphericalParameters(
+  point: Vec3,
+  maximumPolarAngle: number,
+): readonly number[] | null {
+  const length = Math.hypot(point.x, point.y, point.z);
+  if (!Number.isFinite(length) || length <= 1e-12) return null;
+  const azimuth = Math.atan2(point.z, point.x);
+  const polar = Math.min(
+    maximumPolarAngle,
+    Math.acos(clampUnit(point.y / length)),
+  );
+  return [azimuth, polar];
+}
+
+function diskParameters(point: Vec3, radius: number): readonly number[] | null {
+  if (!(radius > 0) || !Number.isFinite(radius)) return null;
+  const radial = Math.hypot(point.x, point.z);
+  if (!Number.isFinite(radial)) return null;
+  return [Math.atan2(point.z, point.x), clamp01(radial / radius)];
+}
+
+function revolutionSideParameters(
+  point: Vec3,
+  height: number,
+): readonly number[] | null {
+  if (!(height > 0) || !Number.isFinite(height)) return null;
+  return [
+    Math.atan2(point.z, point.x),
+    clamp01((point.y + height / 2) / height),
+  ];
 }
 
 export function analyticSurfaceIds(
@@ -195,6 +245,64 @@ export function resolveAnalyticSolidPointAnchor(
     case "truncated-pyramid":
       return null;
   }
+}
+
+export function canonicalizeAnalyticSurfaceAnchor(
+  definition: Solid3DDefinition,
+  point: Vec3,
+  surfaceId: SolidAnalyticSurfaceId,
+): AnalyticSurfaceAnchorResolution | null {
+  if (!analyticSurfaceIds(definition).includes(surfaceId)) return null;
+
+  let parameters: readonly number[] | null = null;
+  switch (definition.kind) {
+    case "sphere":
+      if (surfaceId === "surface:sphere")
+        parameters = sphericalParameters(point, Math.PI);
+      break;
+    case "hemisphere":
+      if (surfaceId === "surface:hemisphere-curved")
+        parameters = sphericalParameters(point, Math.PI / 2);
+      if (surfaceId === "surface:hemisphere-base")
+        parameters = diskParameters(point, definition.radius);
+      break;
+    case "cylinder":
+      if (surfaceId === "surface:cylinder-side")
+        parameters = revolutionSideParameters(point, definition.height);
+      if (
+        surfaceId === "surface:cylinder-bottom" ||
+        surfaceId === "surface:cylinder-top"
+      )
+        parameters = diskParameters(point, definition.radius);
+      break;
+    case "cone":
+      if (surfaceId === "surface:cone-side")
+        parameters = revolutionSideParameters(point, definition.height);
+      if (surfaceId === "surface:cone-base")
+        parameters = diskParameters(point, definition.radius);
+      break;
+    case "truncated-cone":
+      if (surfaceId === "surface:truncated-cone-side")
+        parameters = revolutionSideParameters(point, definition.height);
+      if (surfaceId === "surface:truncated-cone-bottom")
+        parameters = diskParameters(point, definition.bottomRadius);
+      if (surfaceId === "surface:truncated-cone-top")
+        parameters = diskParameters(point, definition.topRadius);
+      break;
+    case "cube":
+    case "cuboid":
+    case "octahedron":
+    case "prism":
+    case "pyramid":
+    case "regular-polyhedron":
+    case "tetrahedron":
+    case "truncated-pyramid":
+      break;
+  }
+  if (parameters === null) return null;
+  const anchor = analyticAnchor(surfaceId, parameters);
+  const position = resolveAnalyticSolidPointAnchor(definition, anchor);
+  return position === null ? null : { anchor, position };
 }
 
 export function resolveSolidPointAnchor(
