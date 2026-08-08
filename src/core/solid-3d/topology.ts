@@ -230,7 +230,9 @@ function convexFaces(
           .filter(({ distance }) => distance <= epsilon)
           .map(({ index }) => index);
         if (faceIndexes.length < 3) continue;
-        const key = [...faceIndexes].sort((left, right) => left - right).join(":");
+        const key = [...faceIndexes]
+          .sort((left, right) => left - right)
+          .join(":");
         if (faces.has(key)) continue;
 
         let normal = normal0;
@@ -264,9 +266,7 @@ function convexFaces(
         const a = positions[ordered[0]!]!;
         const b = positions[ordered[1]!]!;
         const c = positions[ordered[2]!]!;
-        if (
-          dot3(cross3(subtract3(b, a), subtract3(c, b)), normal) < 0
-        ) {
+        if (dot3(cross3(subtract3(b, a), subtract3(c, b)), normal) < 0) {
           ordered.reverse();
         }
         faces.set(key, ordered);
