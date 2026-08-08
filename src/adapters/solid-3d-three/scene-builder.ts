@@ -36,7 +36,9 @@ function surfacesFromGroups(
     () => fallback,
   );
   for (const group of geometry.groups) {
-    const surfaceId = surfacesByMaterial[group.materialIndex];
+    const materialIndex = group.materialIndex;
+    if (materialIndex === undefined) continue;
+    const surfaceId = surfacesByMaterial[materialIndex];
     if (surfaceId === undefined) continue;
     const firstTriangle = Math.floor(group.start / 3);
     const endTriangle = Math.min(
