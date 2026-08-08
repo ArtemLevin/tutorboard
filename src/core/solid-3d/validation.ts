@@ -89,7 +89,8 @@ function validAnchorReferences(record: Solid3DRecord): boolean {
   if (topology === null) {
     return record.points.every(
       ({ anchor }) =>
-        anchor.kind === "analytic-surface" && surfaces.has(anchor.surfaceId),
+        anchor.kind === "analytic-surface" &&
+        (anchor.surfaceId === "surface:0" || surfaces.has(anchor.surfaceId)),
     );
   }
   const vertexIds = new Set(topology.vertices.map(({ id }) => id));
