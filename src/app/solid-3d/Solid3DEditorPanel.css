@@ -160,6 +160,231 @@
   color: #9d2f46;
   font-size: 0.86rem;
 }
+.solid-learning-workspace,
+.solid-learning-catalog,
+.solid-learning-summary {
+  padding: 1.15rem 1.25rem 1.5rem;
+  border-top: 1px solid #d8d0c3;
+  background: #fffaf2;
+}
+.solid-learning-workspace > header,
+.solid-learning-heading,
+.solid-learning-filters {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.solid-learning-workspace > header h3,
+.solid-learning-workspace > header span,
+.solid-learning-heading h3,
+.solid-learning-heading p {
+  margin: 0;
+}
+.solid-learning-workspace > header span {
+  color: #8f2f45;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.solid-learning-intro,
+.solid-learning-callout {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-left: 4px solid #8f2f45;
+  border-radius: 8px;
+  background: #f7e9e6;
+}
+.solid-learning-form {
+  display: grid;
+  gap: 0.8rem;
+  max-width: 720px;
+  margin-top: 1rem;
+}
+.solid-learning-form label,
+.solid-learning-filters label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+.solid-learning-form input,
+.solid-learning-form select,
+.solid-learning-filters select,
+.solid-learning-builder select {
+  min-height: 2.35rem;
+  border: 1px solid #9caeb5;
+  border-radius: 7px;
+  padding: 0.35rem 0.5rem;
+  background: white;
+}
+.solid-learning-form button,
+.solid-learning-cards button,
+.solid-learning-builder button,
+.solid-learning-hints button,
+.solid-learning-summary button {
+  width: fit-content;
+  border: 1px solid #8f2f45;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  background: #8f2f45;
+  color: white;
+  font-weight: 700;
+}
+.solid-learning-edge-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+  gap: 0.3rem;
+}
+.solid-learning-edge-choices label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.solid-learning-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.solid-learning-cards article {
+  padding: 0.85rem;
+  border: 1px solid #d5c9b9;
+  border-radius: 12px;
+  background: white;
+}
+.solid-learning-cards h4,
+.solid-learning-cards p {
+  margin: 0.35rem 0;
+}
+.solid-learning-cards span {
+  color: #687980;
+  font-size: 0.75rem;
+}
+.solid-learning-projections {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 1rem 0;
+}
+.solid-learning-projection {
+  margin: 0;
+  padding: 0.4rem;
+  border: 1px solid #d5c9b9;
+  border-radius: 9px;
+  background: white;
+}
+.solid-learning-projection figcaption {
+  margin-bottom: 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.solid-learning-projection svg {
+  width: 100%;
+  height: 150px;
+  overflow: visible;
+}
+.solid-learning-edge {
+  stroke: #314a56;
+  stroke-width: 0.025;
+  vector-effect: non-scaling-stroke;
+}
+.solid-learning-edge.is-hidden {
+  stroke-dasharray: 0.08 0.06;
+  opacity: 0.5;
+}
+.solid-learning-edge.is-highlighted,
+.solid-learning-projection .is-highlighted circle {
+  stroke: #e79000;
+  stroke-width: 0.07;
+}
+.solid-learning-projection circle {
+  fill: #fffaf2;
+  stroke: #314a56;
+  vector-effect: non-scaling-stroke;
+}
+.solid-learning-projection text {
+  fill: #24323a;
+  font-size: 0.16px;
+}
+.solid-learning-section-polygon {
+  fill: rgb(143 47 69 / 22%);
+  stroke: #8f2f45;
+  stroke-width: 0.04;
+  vector-effect: non-scaling-stroke;
+}
+.solid-learning-builder,
+.solid-learning-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: end;
+  margin: 0.75rem 0;
+}
+.solid-learning-builder label {
+  display: grid;
+  gap: 0.2rem;
+}
+.solid-learning-success {
+  color: #17663a;
+  font-weight: 650;
+}
+.solid-learning-dynamic,
+.solid-learning-history {
+  margin: 0.85rem 0;
+  padding: 0.8rem;
+  border: 1px solid #d5c9b9;
+  border-radius: 10px;
+  background: white;
+}
+.solid-learning-dynamic label,
+.solid-learning-history label {
+  display: grid;
+  gap: 0.35rem;
+}
+.solid-learning-dynamic svg {
+  width: min(100%, 620px);
+  height: 150px;
+  border-left: 1px solid #9caeb5;
+  border-bottom: 1px solid #9caeb5;
+}
+.solid-learning-dynamic polyline {
+  fill: none;
+  stroke: #8f2f45;
+  stroke-width: 3;
+}
+.solid-learning-dynamic circle {
+  fill: #e79000;
+}
+.solid-learning-history {
+  margin: 0 1.25rem 1.25rem;
+}
+.solid-learning-history summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.solid-learning-history-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+.solid-learning-history-actions button {
+  border: 1px solid #8f2f45;
+  border-radius: 7px;
+  padding: 0.45rem 0.7rem;
+  background: white;
+  color: #8f2f45;
+}
+.solid-learning-summary dl {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 1fr;
+  max-width: 520px;
+}
+.solid-learning-summary dt,
+.solid-learning-summary dd {
+  margin: 0;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #e3dbcf;
+}
 @media (max-width: 780px) {
   .solid-3d-backdrop {
     padding: 0;
@@ -180,5 +405,22 @@
   .solid-3d-viewport,
   .solid-3d-fallback {
     min-height: 52vh;
+  }
+  .solid-learning-projections {
+    grid-template-columns: 1fr;
+  }
+  .solid-learning-filters,
+  .solid-learning-heading,
+  .solid-learning-workspace > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .solid-3d-editor *,
+  .solid-3d-editor *::before,
+  .solid-3d-editor *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

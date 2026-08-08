@@ -478,6 +478,42 @@ function validateSolidModels(
   });
 }
 
+function validateSolidLearningAttempts(
+  document: BoardDocument,
+): readonly ValidationIssue[] {
+  return Object.entries(document.solidLearningAttempts).flatMap(
+    ([id, attempt]) => {
+      if (attempt === undefined) return [];
+      const issues: ValidationIssue[] = [];
+      if (attempt.id !== id)
+        issues.push(
+          issue(
+            "document.learning-attempt-key-mismatch",
+            `solidLearningAttempts.${id}.id`,
+            "Learning attempt key must equal its ID.",
+          ),
+        );
+      if (ownValue(document.solidModels, attempt.solidId) === undefined)
+        issues.push(
+          issue(
+            "document.learning-attempt-solid-missing",
+            `solidLearningAttempts.${id}.solidId`,
+            "Learning attempt references a missing solid model.",
+          ),
+        );
+      if (Date.parse(attempt.updatedAt) < Date.parse(attempt.startedAt))
+        issues.push(
+          issue(
+            "document.learning-attempt-time-invalid",
+            `solidLearningAttempts.${id}.updatedAt`,
+            "Learning attempt update precedes its start.",
+          ),
+        );
+      return issues;
+    },
+  );
+}
+
 function mapSchemaIssues(
   issues: readonly {
     readonly code: string;
@@ -502,12 +538,17 @@ export function validateBoardDocument(input: unknown): BoardDocumentValidation {
     ...validateRecordIdentity("groups", document.groups),
     ...validateRecordIdentity("geometryImports", document.geometryImports),
     ...validateRecordIdentity("solidModels", document.solidModels),
+    ...validateRecordIdentity(
+      "solidLearningAttempts",
+      document.solidLearningAttempts,
+    ),
     ...validateOrder(document),
     ...validateGroups(document),
     ...validateGeometryImports(document),
     ...validateCoordinatePlots(document),
     ...validateVectorInk(document),
     ...validateSolidModels(document),
+    ...validateSolidLearningAttempts(document),
     ...validateTimestamps(document),
   ];
 

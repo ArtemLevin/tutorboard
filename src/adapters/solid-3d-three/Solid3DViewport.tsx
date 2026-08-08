@@ -4,10 +4,12 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import {
   add3,
+  createSolidTopology,
   distance3,
   scale3,
   subtract3,
   type Solid3DRecord,
+  type SolidElementRef,
   type SolidPointAnchor,
   type SolidSectionResult,
   type Vec3,
@@ -25,6 +27,8 @@ export interface Solid3DViewportProps {
   readonly section: SolidSectionResult | null;
   readonly showSectionFill: boolean;
   readonly showSectionOutline: boolean;
+  readonly highlightedElement?: SolidElementRef | null;
+  readonly onElementHover?: (element: SolidElementRef | null) => void;
 }
 
 function nearestAnchor(
@@ -150,7 +154,73 @@ function sectionObject(
   return root;
 }
 
+function builtHighlight(
+  record: Solid3DRecord,
+  element: SolidElementRef,
+): THREE.Object3D | null {
+  const topology = createSolidTopology(record.definition);
+  const material = new THREE.LineBasicMaterial({ color: 0xf59e0b });
+  if (element.kind === "point") {
+    const point = record.points.find(({ id }) => id === element.id);
+    if (point === undefined) return null;
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.11, 16, 10),
+      new THREE.MeshBasicMaterial({ color: 0xf59e0b }),
+    );
+    marker.position.set(point.position.x, point.position.y, point.position.z);
+    return marker;
+  }
+  if (topology === null) return null;
+  const vertices = new Map(
+    topology.vertices.map((item) => [item.id, item.position]),
+  );
+  if (element.kind === "vertex") {
+    const point = vertices.get(element.id);
+    if (point === undefined) return null;
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.11, 16, 10),
+      new THREE.MeshBasicMaterial({ color: 0xf59e0b }),
+    );
+    marker.position.set(point.x, point.y, point.z);
+    return marker;
+  }
+  const ids =
+    element.kind === "edge"
+      ? (() => {
+          const edge = topology.edges.find(({ id }) => id === element.id);
+          return edge === undefined
+            ? []
+            : [edge.startVertexId, edge.endVertexId];
+        })()
+      : element.kind === "face"
+        ? (topology.faces.find(({ id }) => id === element.id)?.vertexIds ?? [])
+        : [];
+  if (ids.length < 2) return null;
+  const points = ids.flatMap((id) => {
+    const point = vertices.get(id);
+    return point === undefined
+      ? []
+      : [new THREE.Vector3(point.x, point.y, point.z)];
+  });
+  if (element.kind === "face" && points.length > 0)
+    points.push(points[0]!.clone());
+  return new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(points),
+    material,
+  );
+}
+
 export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
+  const {
+    cameraMode,
+    highlightedElement,
+    onElementHover,
+    record,
+    resetToken,
+    section,
+    showSectionFill,
+    showSectionOutline,
+  } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<{
     camera: THREE.Camera;
@@ -161,6 +231,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   } | null>(null);
   const modeRef = useRef(props.mode);
   const onPointPlaceRef = useRef(props.onPointPlace);
+  const onElementHoverRef = useRef(onElementHover);
   const [fallback, setFallback] = useState(!hasWebGLSupport());
 
   useEffect(() => {
@@ -177,6 +248,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   }, [props.onPointPlace]);
 
   useEffect(() => {
+    onElementHoverRef.current = onElementHover;
+  }, [onElementHover]);
+
+  useEffect(() => {
     const container = containerRef.current;
     if (container === null || !hasWebGLSupport()) {
       setFallback(true);
@@ -187,7 +262,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf5f0e7);
     const camera: THREE.Camera =
-      props.cameraMode === "orthographic"
+      cameraMode === "orthographic"
         ? new THREE.OrthographicCamera(
             (-2.8 * width) / height,
             (2.8 * width) / height,
@@ -207,7 +282,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     renderer.setSize(width, height, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.replaceChildren(renderer.domElement);
-    const built = buildSolidScene(props.record.definition);
+    const built = buildSolidScene(record.definition);
     scene.add(built.root, new THREE.HemisphereLight(0xffffff, 0x50606a, 2.1));
     const light = new THREE.DirectionalLight(0xffffff, 2.2);
     light.position.set(5, 7, 4);
@@ -275,8 +350,36 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       );
       onPointPlaceRef.current(placed.position, placed.anchor);
     };
+    const pointerMove = (event: PointerEvent) => {
+      if (onElementHoverRef.current === undefined) return;
+      const bounds = renderer.domElement.getBoundingClientRect();
+      pointer.set(
+        ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+        -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+      );
+      raycaster.params.Line = { threshold: 0.08 };
+      raycaster.setFromCamera(pointer, camera);
+      const hit = raycaster.intersectObjects(built.root.children, true)[0];
+      if (hit === undefined) {
+        onElementHoverRef.current(null);
+        return;
+      }
+      const kind = hit.object.userData.semanticKind as string | undefined;
+      const id = hit.object.userData.semanticId as string | undefined;
+      if ((kind === "vertex" || kind === "edge") && id !== undefined) {
+        onElementHoverRef.current({ id, kind });
+        return;
+      }
+      const faceId = (
+        hit.object.userData.semanticFaceIds as string[] | undefined
+      )?.[hit.faceIndex ?? -1];
+      onElementHoverRef.current(
+        faceId === undefined ? null : { id: faceId, kind: "face" },
+      );
+    };
     renderer.domElement.addEventListener("pointerdown", pointerDown);
     renderer.domElement.addEventListener("click", click);
+    renderer.domElement.addEventListener("pointermove", pointerMove);
     runtimeRef.current = {
       camera,
       controls,
@@ -291,12 +394,13 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       controls.dispose();
       renderer.domElement.removeEventListener("pointerdown", pointerDown);
       renderer.domElement.removeEventListener("click", click);
+      renderer.domElement.removeEventListener("pointermove", pointerMove);
       renderer.domElement.removeEventListener("webglcontextlost", contextLost);
       disposeSolidScene(scene);
       renderer.dispose();
       runtimeRef.current = null;
     };
-  }, [props.cameraMode, props.record.definition, props.resetToken]);
+  }, [cameraMode, record.definition, resetToken]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
@@ -308,7 +412,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     }
     const overlays = new THREE.Group();
     overlays.name = "solid-overlays";
-    for (const point of props.record.points) {
+    for (const point of record.points) {
       const marker = new THREE.Mesh(
         new THREE.SphereGeometry(0.07, 16, 10),
         new THREE.MeshBasicMaterial({ color: 0x7c3aed }),
@@ -316,21 +420,21 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       marker.position.set(point.position.x, point.position.y, point.position.z);
       overlays.add(marker);
     }
-    if (props.section !== null)
-      overlays.add(
-        sectionObject(
-          props.section,
-          props.showSectionFill,
-          props.showSectionOutline,
-        ),
-      );
+    const highlighted = highlightedElement;
+    if (highlighted !== null && highlighted !== undefined) {
+      const highlight = builtHighlight(record, highlighted);
+      if (highlight !== null) overlays.add(highlight);
+    }
+    if (section !== null)
+      overlays.add(sectionObject(section, showSectionFill, showSectionOutline));
     runtime.scene.add(overlays);
     runtime.renderer.render(runtime.scene, runtime.camera);
   }, [
-    props.record.points,
-    props.section,
-    props.showSectionFill,
-    props.showSectionOutline,
+    record,
+    section,
+    showSectionFill,
+    showSectionOutline,
+    highlightedElement,
   ]);
 
   return fallback ? (

@@ -18,6 +18,7 @@ function environment(
       smartInk: true,
       smartInkDiagnostics: true,
       solid3D: true,
+      solid3DLearning: true,
       ...features,
     },
     geometryOsBaseUrl: "https://geometry.example.test",

@@ -9,6 +9,7 @@ import {
   plotLineStyles,
 } from "../coordinate-plot";
 import type {
+  ActorId,
   BoardObjectId,
   DocumentId,
   GeometryImportId,
@@ -16,6 +17,7 @@ import type {
   PlotParameterId,
   PlotSeriesId,
   Solid3DId,
+  SolidLearningAttemptId,
   SolidPointId,
   SolidSectionId,
 } from "../identifiers";
@@ -31,6 +33,7 @@ import { vectorInkSchemaVersion } from "../vector-ink";
 const identifierSchema = z
   .string()
   .refine(isValidIdentifier, "Invalid or unsafe identifier");
+const actorIdSchema = identifierSchema.transform((value) => value as ActorId);
 const boardObjectIdSchema = identifierSchema.transform(
   (value) => value as BoardObjectId,
 );
@@ -49,6 +52,9 @@ const plotSeriesIdSchema = identifierSchema.transform(
 );
 const solid3DIdSchema = identifierSchema.transform(
   (value) => value as Solid3DId,
+);
+const solidLearningAttemptIdSchema = identifierSchema.transform(
+  (value) => value as SolidLearningAttemptId,
 );
 const solidPointIdSchema = identifierSchema.transform(
   (value) => value as SolidPointId,
@@ -587,6 +593,283 @@ const solidRecordSchema = z
   })
   .strict();
 
+const solidElementRefSchema = z.discriminatedUnion("kind", [
+  z.object({ id: identifierSchema, kind: z.literal("vertex") }).strict(),
+  z.object({ id: identifierSchema, kind: z.literal("edge") }).strict(),
+  z.object({ id: identifierSchema, kind: z.literal("face") }).strict(),
+  z.object({ id: identifierSchema, kind: z.literal("point") }).strict(),
+  z
+    .object({ id: identifierSchema, kind: z.literal("section-segment") })
+    .strict(),
+]);
+const learningDiagnosticCodeSchema = z.enum([
+  "points-on-different-faces",
+  "missed-edge-intersection",
+  "wrong-contour-order",
+  "self-intersection",
+  "point-outside-edge",
+  "segment-outside-section-plane",
+  "duplicate-or-collinear-seeds",
+  "invalid-proof-premises",
+  "incorrect-formula",
+  "incorrect-unit",
+]);
+const constructionActionSchema = z.discriminatedUnion("kind", [
+  z
+    .object({ faceId: identifierSchema, kind: z.literal("select-face") })
+    .strict(),
+  z
+    .object({
+      edgeId: identifierSchema,
+      kind: z.literal("add-derived-point"),
+      parameter: finiteNumberSchema,
+    })
+    .strict(),
+  z
+    .object({
+      faceId: identifierSchema,
+      fromPointId: identifierSchema,
+      kind: z.literal("add-trace-segment"),
+      toPointId: identifierSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("close-contour"),
+      orderedPointIds: z.array(identifierSchema).min(3).max(32),
+    })
+    .strict(),
+]);
+const exactValueSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      denominator: z.number().int().positive(),
+      kind: z.literal("rational"),
+      numerator: z.number().int(),
+    })
+    .strict(),
+  z
+    .object({
+      coefficientDenominator: z.number().int().positive(),
+      coefficientNumerator: z.number().int(),
+      kind: z.literal("radical"),
+      radicand: z.number().int().nonnegative(),
+    })
+    .strict(),
+  z.object({ kind: z.literal("decimal"), value: finiteNumberSchema }).strict(),
+]);
+export const solidLearningAttemptSchema = z
+  .object({
+    actorId: actorIdSchema,
+    answers: z
+      .array(
+        z
+          .object({
+            correct: z.boolean(),
+            formulaId: identifierSchema.nullable(),
+            parsed: exactValueSchema.nullable(),
+            raw: z.string().max(256),
+            taskId: identifierSchema,
+            timestamp: timestampSchema,
+            unit: z.string().max(32),
+          })
+          .strict(),
+      )
+      .max(128),
+    checkpoints: z
+      .array(
+        z
+          .object({
+            area: finiteNumberSchema.nonnegative(),
+            parameter: finiteNumberSchema,
+            perimeter: finiteNumberSchema.nonnegative(),
+            timestamp: timestampSchema,
+            vertexCount: z.number().int().nonnegative(),
+          })
+          .strict(),
+      )
+      .max(32),
+    construction: z
+      .object({
+        completed: z.boolean(),
+        trace: z
+          .array(
+            z
+              .object({
+                accepted: z.boolean(),
+                action: constructionActionSchema,
+                diagnosticCode: learningDiagnosticCodeSchema.nullable(),
+                explanation: z.string().max(1_000),
+                id: identifierSchema,
+                timestamp: timestampSchema,
+              })
+              .strict(),
+          )
+          .max(128),
+      })
+      .strict(),
+    diagnostics: z
+      .array(
+        z
+          .object({
+            code: learningDiagnosticCodeSchema,
+            element: solidElementRefSchema.nullable(),
+            id: identifierSchema,
+            message: z.string().max(1_000),
+            timestamp: timestampSchema,
+          })
+          .strict(),
+      )
+      .max(64),
+    hints: z
+      .array(
+        z
+          .object({
+            id: identifierSchema,
+            ladderId: identifierSchema,
+            level: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+            relatedElement: solidElementRefSchema.nullable(),
+            timestamp: timestampSchema,
+          })
+          .strict(),
+      )
+      .max(24),
+    id: solidLearningAttemptIdSchema,
+    mode: z.enum(["guided", "assessment", "teacher-demo"]),
+    phase: z.enum([
+      "intro",
+      "prediction",
+      "construction",
+      "reasoning",
+      "measurement",
+      "reflection",
+      "completed",
+    ]),
+    prediction: z
+      .object({
+        confidence: z.enum(["confident", "unsure", "stuck"]),
+        edgeIds: z.array(identifierSchema).max(64),
+        parallelSidePairs: z
+          .array(z.tuple([identifierSchema, identifierSchema]))
+          .max(32),
+        polygonKind: z.string().max(64),
+        score: finiteNumberSchema.min(0).max(1).nullable(),
+        submitted: z.boolean(),
+        vertexCount: z.number().int().min(3).max(64).nullable(),
+      })
+      .strict()
+      .nullable(),
+    quizAnswers: z.record(identifierSchema, z.string().max(512)),
+    reasoning: z
+      .array(
+        z
+          .object({
+            accepted: z.boolean(),
+            premiseIds: z.array(identifierSchema).max(16),
+            ruleId: identifierSchema,
+            statementId: identifierSchema,
+          })
+          .strict(),
+      )
+      .max(128),
+    result: z
+      .object({
+        completed: z.boolean(),
+        constructionAccuracy: finiteNumberSchema.min(0).max(1),
+        maximumHintLevel: z.number().int().min(0).max(3),
+        measurementAccuracy: finiteNumberSchema.min(0).max(1),
+        predictionScore: finiteNumberSchema.min(0).max(1),
+        quizScore: finiteNumberSchema.min(0).max(1),
+        reasoningAccuracy: finiteNumberSchema.min(0).max(1),
+        skillScores: z.record(
+          z.string().min(1).max(64),
+          finiteNumberSchema.min(0).max(1),
+        ),
+      })
+      .strict()
+      .nullable(),
+    revision: z.number().int().nonnegative(),
+    scenarioId: identifierSchema,
+    scenarioVersion: z.string().min(1).max(32),
+    schemaVersion: z.literal("1.0"),
+    solidId: solid3DIdSchema,
+    startedAt: timestampSchema,
+    updatedAt: timestampSchema,
+  })
+  .strict();
+
+export const solidLearningAttemptActionSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("set-phase"),
+      phase: z.enum([
+        "intro",
+        "prediction",
+        "construction",
+        "reasoning",
+        "measurement",
+        "reflection",
+        "completed",
+      ]),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("submit-prediction"),
+      prediction: solidLearningAttemptSchema.shape.prediction.unwrap(),
+    })
+    .strict(),
+  z
+    .object({
+      entry: solidLearningAttemptSchema.shape.construction.shape.trace.element,
+      kind: z.literal("construction-step"),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("add-reasoning"),
+      step: solidLearningAttemptSchema.shape.reasoning.element,
+    })
+    .strict(),
+  z
+    .object({
+      answer: solidLearningAttemptSchema.shape.answers.element,
+      kind: z.literal("submit-answer"),
+    })
+    .strict(),
+  z
+    .object({
+      hint: solidLearningAttemptSchema.shape.hints.element,
+      kind: z.literal("use-hint"),
+    })
+    .strict(),
+  z
+    .object({
+      diagnostic: solidLearningAttemptSchema.shape.diagnostics.element,
+      kind: z.literal("add-diagnostic"),
+    })
+    .strict(),
+  z
+    .object({
+      checkpoint: solidLearningAttemptSchema.shape.checkpoints.element,
+      kind: z.literal("add-checkpoint"),
+    })
+    .strict(),
+  z
+    .object({
+      answer: z.string().max(512),
+      itemId: identifierSchema,
+      kind: z.literal("answer-quiz"),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("restore"),
+      snapshot: solidLearningAttemptSchema,
+    })
+    .strict(),
+]);
+
 function documentSchema(
   schemaVersion: "0.1" | "0.2" | "1.0" | "1.1" | "1.2",
   storedObjectSchema:
@@ -616,10 +899,19 @@ export const boardDocumentSchema02 = documentSchema("0.2", objectSchema10);
 export const boardDocumentSchema10 = documentSchema("1.0", objectSchema10);
 export const boardDocumentSchema11 = documentSchema("1.1", objectSchema11);
 export const boardDocumentSchema12 = documentSchema("1.2", objectSchema12);
-export const boardDocumentSchema = boardDocumentSchema12
+export const boardDocumentSchema13 = boardDocumentSchema12
   .extend({
     schemaVersion: z.literal("1.3"),
     solidModels: z.record(solid3DIdSchema, solidRecordSchema),
+  })
+  .strict();
+export const boardDocumentSchema = boardDocumentSchema13
+  .extend({
+    schemaVersion: z.literal("1.4"),
+    solidLearningAttempts: z.record(
+      solidLearningAttemptIdSchema,
+      solidLearningAttemptSchema,
+    ),
   })
   .strict();
 

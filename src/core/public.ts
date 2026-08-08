@@ -8,6 +8,7 @@ export {
   plotParameterId,
   plotSeriesId,
   solid3DId,
+  solidLearningAttemptId,
   solidPointId,
   solidSectionId,
   type ActorId,
@@ -19,10 +20,12 @@ export {
   type PlotParameterId,
   type PlotSeriesId,
   type Solid3DId,
+  type SolidLearningAttemptId,
   type SolidPointId,
   type SolidSectionId,
 } from "./board/identifiers";
 export * from "./solid-3d/public";
+export * from "./solid-3d-learning/public";
 export {
   boardDocumentSchemaVersion,
   createEmptyBoardDocument,
@@ -190,6 +193,7 @@ export {
   migrateBoardDocument11To12,
   migrateBoardDocument12To13,
   migrateBoardDocument11To13,
+  migrateBoardDocument13To14,
   type BoardDocumentMigrationResult,
 } from "./board/migrations";
 export {
@@ -238,6 +242,11 @@ export {
   type CreateSolid3DCommand,
   type UpdateSolid3DCommand,
   type ProjectSolid3DSectionCommand,
+  type StartSolid3DLearningCommand,
+  type ActSolid3DLearningCommand,
+  type ResetSolid3DLearningCommand,
+  type CompleteSolid3DLearningCommand,
+  type RemoveSolid3DLearningCommand,
 } from "./board/commands/commands";
 export {
   reduceBoardDocument,

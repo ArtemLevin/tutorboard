@@ -53,6 +53,10 @@ import {
   type Solid3DRecord,
   type SolidSectionResult,
   solid3DId,
+  solidLearningAttemptId,
+  type SolidLearningAttemptAction,
+  type Solid3DLearningScenario,
+  type SolidLearningMode,
 } from "../core/public";
 import {
   copyBoardSelection,
@@ -142,6 +146,14 @@ import {
   createUpdateSolid3DCommand,
   findSolidModelBySelection,
 } from "../modules/solid-3d/public";
+import {
+  createCompleteSolidLearningCommand,
+  createResetSolidLearningCommand,
+  createSolidLearningActionCommand,
+  createStartSolidLearningCommand,
+  selectActiveSolidLearningAttempt,
+  selectSolidLearningAttempts,
+} from "../modules/solid-3d-learning/public";
 import {
   createUpdateTextCommand,
   isEditableTextObject,
@@ -2956,6 +2968,14 @@ export function App({
     solid3DEditorId === null
       ? null
       : (document.solidModels[solid3DEditorId] ?? null);
+  const solid3DLearningAttempt =
+    solid3DEditorRecord === null
+      ? null
+      : selectActiveSolidLearningAttempt(document, solid3DEditorRecord.id);
+  const solid3DLearningAttempts =
+    solid3DEditorRecord === null
+      ? []
+      : selectSolidLearningAttempts(document, solid3DEditorRecord.id);
   const selectedTextShapeVertex =
     vertexConstructionObjectId === null
       ? null
@@ -3238,6 +3258,9 @@ export function App({
             }
           >
             <LazySolid3DEditorPanel
+              learningAttempt={solid3DLearningAttempt}
+              learningAttempts={solid3DLearningAttempts}
+              learningEnabled={environment.features.solid3DLearning}
               onClose={() => setSolid3DEditorId(null)}
               onProject={(sectionId: string, section: SolidSectionResult) => {
                 const sourceGroup =
@@ -3272,6 +3295,64 @@ export function App({
                     expected: current,
                     metadata: createCommandMetadata(),
                     replacement,
+                  }),
+                );
+              }}
+              onLearningStart={(
+                scenario: Solid3DLearningScenario,
+                mode: SolidLearningMode,
+              ) => {
+                const metadata = createCommandMetadata();
+                commitCommand(
+                  createStartSolidLearningCommand({
+                    attemptId: solidLearningAttemptId(
+                      `solid-learning:${crypto.randomUUID()}`,
+                    ),
+                    metadata,
+                    mode,
+                    scenarioId: scenario.id,
+                    scenarioVersion: scenario.version,
+                    solidId: solid3DEditorRecord.id,
+                  }),
+                );
+              }}
+              onLearningAction={(action: SolidLearningAttemptAction) => {
+                const current = selectActiveSolidLearningAttempt(
+                  documentRef.current,
+                  solid3DEditorRecord.id,
+                );
+                if (current === null) return;
+                commitCommand(
+                  createSolidLearningActionCommand({
+                    action,
+                    attempt: current,
+                    metadata: createCommandMetadata(),
+                  }),
+                );
+              }}
+              onLearningReset={() => {
+                const current = selectActiveSolidLearningAttempt(
+                  documentRef.current,
+                  solid3DEditorRecord.id,
+                );
+                if (current === null) return;
+                commitCommand(
+                  createResetSolidLearningCommand({
+                    attempt: current,
+                    metadata: createCommandMetadata(),
+                  }),
+                );
+              }}
+              onLearningComplete={() => {
+                const current = selectActiveSolidLearningAttempt(
+                  documentRef.current,
+                  solid3DEditorRecord.id,
+                );
+                if (current === null) return;
+                commitCommand(
+                  createCompleteSolidLearningCommand({
+                    attempt: current,
+                    metadata: createCommandMetadata(),
                   }),
                 );
               }}

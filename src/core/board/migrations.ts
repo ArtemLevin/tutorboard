@@ -6,6 +6,7 @@ import {
   boardDocumentSchema10,
   boardDocumentSchema11,
   boardDocumentSchema12,
+  boardDocumentSchema13,
 } from "./validation/schema";
 import {
   validateBoardDocument,
@@ -34,6 +35,7 @@ function legacyShape(raw: unknown): unknown {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return raw;
   const legacy = { ...(raw as Record<string, unknown>) };
   delete legacy.solidModels;
+  delete legacy.solidLearningAttempts;
   return legacy;
 }
 
@@ -43,10 +45,23 @@ export function migrateBoardDocument12To13(
   const parsed = boardDocumentSchema12.safeParse(legacyShape(raw));
   if (!parsed.success)
     return { ok: false, issues: schemaIssues(parsed.error.issues) };
+  return migrateBoardDocument13To14({
+    ...parsed.data,
+    schemaVersion: "1.3",
+    solidModels: {},
+  });
+}
+
+export function migrateBoardDocument13To14(
+  raw: unknown,
+): BoardDocumentMigrationResult {
+  const parsed = boardDocumentSchema13.safeParse(raw);
+  if (!parsed.success)
+    return { ok: false, issues: schemaIssues(parsed.error.issues) };
   const validation = validateBoardDocument({
     ...parsed.data,
     schemaVersion: boardDocumentSchemaVersion,
-    solidModels: {},
+    solidLearningAttempts: {},
   });
   return validation.valid
     ? { ok: true, document: validation.document }

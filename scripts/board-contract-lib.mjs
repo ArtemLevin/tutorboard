@@ -459,6 +459,252 @@ const solid3DRecord = strictObject({
   sections: array(reference("Solid3DSectionDefinition"), { maxItems: 8 }),
   source: reference("Solid3DSource"),
 });
+const solidElementRef = {
+  oneOf: ["vertex", "edge", "face", "point", "section-segment"].map((kind) =>
+    strictObject({ id: reference("Identifier"), kind: { const: kind } }),
+  ),
+};
+const learningDiagnosticCode = {
+  enum: [
+    "points-on-different-faces",
+    "missed-edge-intersection",
+    "wrong-contour-order",
+    "self-intersection",
+    "point-outside-edge",
+    "segment-outside-section-plane",
+    "duplicate-or-collinear-seeds",
+    "invalid-proof-premises",
+    "incorrect-formula",
+    "incorrect-unit",
+  ],
+};
+const solidConstructionAction = {
+  oneOf: [
+    strictObject({
+      faceId: reference("Identifier"),
+      kind: { const: "select-face" },
+    }),
+    strictObject({
+      edgeId: reference("Identifier"),
+      kind: { const: "add-derived-point" },
+      parameter: finiteNumber,
+    }),
+    strictObject({
+      faceId: reference("Identifier"),
+      fromPointId: reference("Identifier"),
+      kind: { const: "add-trace-segment" },
+      toPointId: reference("Identifier"),
+    }),
+    strictObject({
+      kind: { const: "close-contour" },
+      orderedPointIds: array(reference("Identifier"), {
+        maxItems: 32,
+        minItems: 3,
+      }),
+    }),
+  ],
+};
+const solidConstructionTraceEntry = strictObject({
+  accepted: { type: "boolean" },
+  action: reference("SolidConstructionAction"),
+  diagnosticCode: {
+    oneOf: [reference("SolidLearningDiagnosticCode"), { type: "null" }],
+  },
+  explanation: { maxLength: 1_000, type: "string" },
+  id: reference("Identifier"),
+  timestamp,
+});
+const exactValue = {
+  oneOf: [
+    strictObject({
+      denominator: positiveInteger,
+      kind: { const: "rational" },
+      numerator: { type: "integer" },
+    }),
+    strictObject({
+      coefficientDenominator: positiveInteger,
+      coefficientNumerator: { type: "integer" },
+      kind: { const: "radical" },
+      radicand: nonNegativeInteger,
+    }),
+    strictObject({ kind: { const: "decimal" }, value: finiteNumber }),
+  ],
+};
+const solidLearningAttempt = strictObject({
+  actorId: reference("Identifier"),
+  answers: array(
+    strictObject({
+      correct: { type: "boolean" },
+      formulaId: { oneOf: [reference("Identifier"), { type: "null" }] },
+      parsed: { oneOf: [reference("ExactValue"), { type: "null" }] },
+      raw: { maxLength: 256, type: "string" },
+      taskId: reference("Identifier"),
+      timestamp,
+      unit: { maxLength: 32, type: "string" },
+    }),
+    { maxItems: 128 },
+  ),
+  checkpoints: array(
+    strictObject({
+      area: { minimum: 0, type: "number" },
+      parameter: finiteNumber,
+      perimeter: { minimum: 0, type: "number" },
+      timestamp,
+      vertexCount: nonNegativeInteger,
+    }),
+    { maxItems: 32 },
+  ),
+  construction: strictObject({
+    completed: { type: "boolean" },
+    trace: array(reference("SolidConstructionTraceEntry"), { maxItems: 128 }),
+  }),
+  diagnostics: array(
+    strictObject({
+      code: reference("SolidLearningDiagnosticCode"),
+      element: { oneOf: [reference("SolidElementRef"), { type: "null" }] },
+      id: reference("Identifier"),
+      message: { maxLength: 1_000, type: "string" },
+      timestamp,
+    }),
+    { maxItems: 64 },
+  ),
+  hints: array(
+    strictObject({
+      id: reference("Identifier"),
+      ladderId: reference("Identifier"),
+      level: { enum: [1, 2, 3] },
+      relatedElement: {
+        oneOf: [reference("SolidElementRef"), { type: "null" }],
+      },
+      timestamp,
+    }),
+    { maxItems: 24 },
+  ),
+  id: reference("Identifier"),
+  mode: { enum: ["guided", "assessment", "teacher-demo"] },
+  phase: {
+    enum: [
+      "intro",
+      "prediction",
+      "construction",
+      "reasoning",
+      "measurement",
+      "reflection",
+      "completed",
+    ],
+  },
+  prediction: {
+    oneOf: [
+      strictObject({
+        confidence: { enum: ["confident", "unsure", "stuck"] },
+        edgeIds: array(reference("Identifier"), { maxItems: 64 }),
+        parallelSidePairs: array(
+          array(reference("Identifier"), { maxItems: 2, minItems: 2 }),
+          { maxItems: 32 },
+        ),
+        polygonKind: { maxLength: 64, type: "string" },
+        score: {
+          oneOf: [{ maximum: 1, minimum: 0, type: "number" }, { type: "null" }],
+        },
+        submitted: { type: "boolean" },
+        vertexCount: {
+          oneOf: [
+            { maximum: 64, minimum: 3, type: "integer" },
+            { type: "null" },
+          ],
+        },
+      }),
+      { type: "null" },
+    ],
+  },
+  quizAnswers: record({ maxLength: 512, type: "string" }),
+  reasoning: array(
+    strictObject({
+      accepted: { type: "boolean" },
+      premiseIds: array(reference("Identifier"), { maxItems: 16 }),
+      ruleId: reference("Identifier"),
+      statementId: reference("Identifier"),
+    }),
+    { maxItems: 128 },
+  ),
+  result: {
+    oneOf: [
+      strictObject({
+        completed: { type: "boolean" },
+        constructionAccuracy: { maximum: 1, minimum: 0, type: "number" },
+        maximumHintLevel: { maximum: 3, minimum: 0, type: "integer" },
+        measurementAccuracy: { maximum: 1, minimum: 0, type: "number" },
+        predictionScore: { maximum: 1, minimum: 0, type: "number" },
+        quizScore: { maximum: 1, minimum: 0, type: "number" },
+        reasoningAccuracy: { maximum: 1, minimum: 0, type: "number" },
+        skillScores: record({ maximum: 1, minimum: 0, type: "number" }),
+      }),
+      { type: "null" },
+    ],
+  },
+  revision: nonNegativeInteger,
+  scenarioId: reference("Identifier"),
+  scenarioVersion: { maxLength: 32, minLength: 1, type: "string" },
+  schemaVersion: { const: "1.0" },
+  solidId: reference("Identifier"),
+  startedAt: timestamp,
+  updatedAt: timestamp,
+});
+const solidLearningAttemptAction = {
+  oneOf: [
+    strictObject({
+      kind: { const: "set-phase" },
+      phase: {
+        enum: [
+          "intro",
+          "prediction",
+          "construction",
+          "reasoning",
+          "measurement",
+          "reflection",
+          "completed",
+        ],
+      },
+    }),
+    strictObject({
+      kind: { const: "submit-prediction" },
+      prediction: solidLearningAttempt.properties.prediction.oneOf[0],
+    }),
+    strictObject({
+      entry: reference("SolidConstructionTraceEntry"),
+      kind: { const: "construction-step" },
+    }),
+    strictObject({
+      kind: { const: "add-reasoning" },
+      step: solidLearningAttempt.properties.reasoning.items,
+    }),
+    strictObject({
+      answer: solidLearningAttempt.properties.answers.items,
+      kind: { const: "submit-answer" },
+    }),
+    strictObject({
+      hint: solidLearningAttempt.properties.hints.items,
+      kind: { const: "use-hint" },
+    }),
+    strictObject({
+      diagnostic: solidLearningAttempt.properties.diagnostics.items,
+      kind: { const: "add-diagnostic" },
+    }),
+    strictObject({
+      checkpoint: solidLearningAttempt.properties.checkpoints.items,
+      kind: { const: "add-checkpoint" },
+    }),
+    strictObject({
+      answer: { maxLength: 512, type: "string" },
+      itemId: reference("Identifier"),
+      kind: { const: "answer-quiz" },
+    }),
+    strictObject({
+      kind: { const: "restore" },
+      snapshot: reference("Solid3DLearningAttempt"),
+    }),
+  ],
+};
 const boardDocument = strictObject({
   createdAt: timestamp,
   geometryImports: record(reference("GeometryImportRecord")),
@@ -466,7 +712,8 @@ const boardDocument = strictObject({
   id: reference("Identifier"),
   objects: record(reference("BoardObject")),
   order: array(reference("Identifier"), { uniqueItems: true }),
-  schemaVersion: { const: "1.3" },
+  schemaVersion: { const: "1.4" },
+  solidLearningAttempts: record(reference("Solid3DLearningAttempt")),
   solidModels: record(reference("Solid3DRecord")),
   title: { maxLength: 256, minLength: 1, type: "string" },
   updatedAt: timestamp,
@@ -508,6 +755,13 @@ const boardDefinitions = {
   Solid3DSectionDefinition: solidSection,
   Solid3DSource: solidSource,
   SolidPointAnchor: solidPointAnchor,
+  ExactValue: exactValue,
+  SolidConstructionAction: solidConstructionAction,
+  SolidConstructionTraceEntry: solidConstructionTraceEntry,
+  SolidElementRef: solidElementRef,
+  SolidLearningAttemptAction: solidLearningAttemptAction,
+  SolidLearningDiagnosticCode: learningDiagnosticCode,
+  Solid3DLearningAttempt: solidLearningAttempt,
   TextObject: text,
   Transform2D: transform2d,
   UserObjectSource: userSource,
@@ -557,6 +811,26 @@ const commands = {
     group: reference("BoardGroup"),
     model: reference("Solid3DRecord"),
     objects: array(reference("BoardObject"), { minItems: 1 }),
+  }),
+  StartSolid3DLearningCommand: command("core.solid-3d-learning.start", {
+    attempt: reference("Solid3DLearningAttempt"),
+  }),
+  ActSolid3DLearningCommand: command("core.solid-3d-learning.act", {
+    action: reference("SolidLearningAttemptAction"),
+    attemptId: reference("Identifier"),
+    expectedRevision: nonNegativeInteger,
+  }),
+  ResetSolid3DLearningCommand: command("core.solid-3d-learning.reset", {
+    attemptId: reference("Identifier"),
+    expectedRevision: nonNegativeInteger,
+  }),
+  CompleteSolid3DLearningCommand: command("core.solid-3d-learning.complete", {
+    attemptId: reference("Identifier"),
+    expectedRevision: nonNegativeInteger,
+  }),
+  RemoveSolid3DLearningCommand: command("core.solid-3d-learning.remove", {
+    attemptId: reference("Identifier"),
+    expectedRevision: nonNegativeInteger,
   }),
   DeleteObjectsCommand: command("core.objects.delete", {
     objectIds: array(reference("Identifier"), {
@@ -708,7 +982,7 @@ function rootSchema(id, title, root, definitions) {
 export const schemas = {
   "board-command-envelope.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-command-envelope.schema.json",
-    "BoardCommandEnvelope 1.3",
+    "BoardCommandEnvelope 1.4",
     strictObject({
       actorId: reference("Identifier"),
       baseRevision: nonNegativeInteger,
@@ -727,13 +1001,13 @@ export const schemas = {
         pattern: "^[A-Za-z0-9._:-]+$",
         type: "string",
       },
-      schemaVersion: { const: "1.3" },
+      schemaVersion: { const: "1.4" },
     }),
     commandDefinitions,
   ),
   "board-document.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-document.schema.json",
-    "BoardDocument 1.3",
+    "BoardDocument 1.4",
     reference("BoardDocument"),
     boardDefinitions,
   ),
@@ -770,14 +1044,14 @@ export const schemas = {
   ),
   "board-snapshot.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-snapshot.schema.json",
-    "BoardSnapshot 1.3",
+    "BoardSnapshot 1.4",
     strictObject({
       createdAt: timestamp,
       document: reference("BoardDocument"),
       documentId: reference("Identifier"),
       documentSha256: { pattern: sha256Pattern, type: "string" },
       revision: nonNegativeInteger,
-      schemaVersion: { const: "1.3" },
+      schemaVersion: { const: "1.4" },
     }),
     boardDefinitions,
   ),
@@ -792,10 +1066,10 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 
 ## Artifacts
 
-- \`BoardDocument 1.3\` is the canonical persisted board state.
-- \`BoardCommandEnvelope 1.3\` carries one atomic, idempotent command batch
+- \`BoardDocument 1.4\` is the canonical persisted board state.
+- \`BoardCommandEnvelope 1.4\` carries one atomic, idempotent command batch
   against a known base revision.
-- \`BoardSnapshot 1.3\` binds a canonical document to a server revision and
+- \`BoardSnapshot 1.4\` binds a canonical document to a server revision and
   SHA-256 digest.
 - \`BoardGeometryImport 1.1\` records GeometryOS GIR/Layout provenance without
   adding transport state to \`BoardDocument\`.
@@ -825,6 +1099,7 @@ const compatibility = `# Board command compatibility
 | Base board editing | Existing \`core.*\` command set | 0.1.0+ | board/v1 |
 | Atomic Smart Ink acceptance | \`core.objects.replace\` | This release+ | board/v1 with replace support |
 | Semantic 3D solids | \`core.solid-3d.*\` | BoardDocument 1.3+ | board/v1.3 reader |
+| 3D learning attempts | \`core.solid-3d-learning.*\` | BoardDocument 1.4+ | board/v1.4 reader |
 
 \`core.objects.replace\` carries complete original and replacement snapshots.
 Older strict readers reject this command explicitly. Deployments using server
@@ -932,8 +1207,9 @@ function upgradeVectorInkDocument(document) {
           : object,
       ]),
     ),
-    schemaVersion: "1.3",
+    schemaVersion: "1.4",
     solidModels: {},
+    solidLearningAttempts: {},
   };
 }
 
@@ -1004,7 +1280,7 @@ function fixtures() {
       documentId: document.id,
       expectedDocumentSha256: documentHash,
       idempotencyKey: "client:tutor-01:batch-08",
-      schemaVersion: "1.3",
+      schemaVersion: "1.4",
     },
     "fixtures/board-document.json": document,
     "fixtures/board-geometry-import.json": {
@@ -1031,7 +1307,7 @@ function fixtures() {
       documentId: document.id,
       documentSha256: documentHash,
       revision: 7,
-      schemaVersion: "1.3",
+      schemaVersion: "1.4",
     },
   };
 }
@@ -1070,10 +1346,10 @@ export function generateBoardContract(outputRoot = contractRoot) {
     artifacts,
     contract: "board/v1",
     schemas: {
-      boardCommandEnvelope: "1.3",
-      boardDocument: "1.0",
+      boardCommandEnvelope: "1.4",
+      boardDocument: "1.4",
       boardGeometryImport: "1.0",
-      boardSnapshot: "1.0",
+      boardSnapshot: "1.4",
     },
   };
   fs.writeFileSync(

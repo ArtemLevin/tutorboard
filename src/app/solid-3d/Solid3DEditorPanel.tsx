@@ -8,16 +8,23 @@ import {
 
 import {
   createSolidTopology,
+  resolveSolidPointAnchor,
   solidPointId,
   solidSectionId,
   type Solid3DPoint,
   type Solid3DRecord,
   type SolidPointAnchor,
   type SolidSectionResult,
+  type Solid3DLearningAttempt,
+  type Solid3DLearningScenario,
+  type SolidElementRef,
+  type SolidLearningAttemptAction,
+  type SolidLearningMode,
   type Vec3,
 } from "../../core/public";
 import { calculateSolidSection } from "../../modules/solid-3d/public";
 import { Solid3DViewport } from "../../adapters/solid-3d-three/public";
+import { Solid3DLearningWorkspace } from "./Solid3DLearningWorkspace";
 import "./Solid3DEditorPanel.css";
 
 export interface Solid3DEditorPanelProps {
@@ -27,6 +34,16 @@ export interface Solid3DEditorPanelProps {
   readonly onUndo: () => void;
   readonly readOnly: boolean;
   readonly record: Solid3DRecord;
+  readonly learningAttempt: Solid3DLearningAttempt | null;
+  readonly learningAttempts: readonly Solid3DLearningAttempt[];
+  readonly learningEnabled: boolean;
+  readonly onLearningAction: (action: SolidLearningAttemptAction) => void;
+  readonly onLearningComplete: () => void;
+  readonly onLearningReset: () => void;
+  readonly onLearningStart: (
+    scenario: Solid3DLearningScenario,
+    mode: SolidLearningMode,
+  ) => void;
 }
 
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -69,7 +86,17 @@ export function Solid3DEditorPanel({
   onUndo,
   readOnly,
   record,
+  learningAttempt,
+  learningAttempts,
+  learningEnabled,
+  onLearningAction,
+  onLearningComplete,
+  onLearningReset,
+  onLearningStart,
 }: Solid3DEditorPanelProps): ReactElement {
+  const [experience, setExperience] = useState<"free" | "learning">(
+    learningAttempt === null ? "free" : "learning",
+  );
   const [mode, setMode] = useState<"points" | "view">("view");
   const [cameraMode, setCameraMode] = useState<"orthographic" | "perspective">(
     "orthographic",
@@ -80,6 +107,8 @@ export function Solid3DEditorPanel({
   const [showSectionFill, setShowSectionFill] = useState(true);
   const [showSectionOutline, setShowSectionOutline] = useState(true);
   const [resetToken, setResetToken] = useState(0);
+  const [highlightedElement, setHighlightedElement] =
+    useState<SolidElementRef | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const selectedTuple = useMemo(
@@ -107,6 +136,66 @@ export function Solid3DEditorPanel({
       : record.sections.find((candidate) =>
           samePointSet(candidate.pointIds, selectedTuple),
         );
+
+  const startLearning = (
+    scenario: Solid3DLearningScenario,
+    learningMode: SolidLearningMode,
+  ) => {
+    const topology = createSolidTopology(record.definition);
+    if (topology !== null && scenario.seedAnchors.length >= 3) {
+      const points = scenario.seedAnchors
+        .slice(0, 3)
+        .flatMap((anchor, index) => {
+          const position = resolveSolidPointAnchor(topology, anchor);
+          return position === null
+            ? []
+            : [
+                {
+                  anchor,
+                  id: solidPointId(
+                    `solid-point:learning:${crypto.randomUUID()}`,
+                  ),
+                  label: letters[index] ?? `P${String(index + 1)}`,
+                  position,
+                } satisfies Solid3DPoint,
+              ];
+        });
+      if (points.length === 3) {
+        const ids = points.map(({ id }) => id) as [
+          Solid3DPoint["id"],
+          Solid3DPoint["id"],
+          Solid3DPoint["id"],
+        ];
+        const provisional: Solid3DRecord = { ...record, points };
+        const calculated = calculateSolidSection(provisional, ids);
+        onRecordChange({
+          ...provisional,
+          sections:
+            calculated.status === "ok"
+              ? [
+                  {
+                    algorithmVersion: "polyhedron-plane/1",
+                    id: solidSectionId(
+                      `solid-section:learning:${crypto.randomUUID()}`,
+                    ),
+                    pointIds: ids,
+                    visible: true,
+                  },
+                ]
+              : [],
+        });
+        setSelectedPointIds(ids);
+      }
+    }
+    onLearningStart(scenario, learningMode);
+  };
+
+  const visibleSection =
+    experience === "free" ||
+    learningAttempt?.mode === "teacher-demo" ||
+    learningAttempt?.prediction?.submitted === true
+      ? section
+      : null;
 
   const placePoint = useCallback(
     (position: Vec3, anchor: SolidPointAnchor) => {
@@ -204,6 +293,21 @@ export function Solid3DEditorPanel({
         </p>
         <div className="solid-3d-toolbar" role="toolbar">
           <button
+            aria-pressed={experience === "free"}
+            onClick={() => setExperience("free")}
+            type="button"
+          >
+            Свободное исследование
+          </button>
+          <button
+            aria-pressed={experience === "learning"}
+            disabled={!learningEnabled}
+            onClick={() => setExperience("learning")}
+            type="button"
+          >
+            Учебная задача
+          </button>
+          <button
             aria-pressed={mode === "view"}
             onClick={() => setMode("view")}
             type="button"
@@ -248,16 +352,18 @@ export function Solid3DEditorPanel({
               onPointPlace={placePoint}
               record={record}
               resetToken={resetToken}
-              section={section}
+              section={visibleSection}
               showSectionFill={showSectionFill}
               showSectionOutline={showSectionOutline}
+              highlightedElement={highlightedElement}
+              onElementHover={setHighlightedElement}
             />
             <div aria-live="polite" className="solid-3d-progress">
               <strong>{selectedPointIds.length} / 3</strong>
               <span>
-                {section === null
+                {visibleSection === null
                   ? "Выберите три допустимые точки"
-                  : `Площадь ${section.area.toFixed(2)} · периметр ${section.perimeter.toFixed(2)}`}
+                  : `Площадь ${visibleSection.area.toFixed(2)} · периметр ${visibleSection.perimeter.toFixed(2)}`}
               </span>
             </div>
           </div>
@@ -379,6 +485,22 @@ export function Solid3DEditorPanel({
             </details>
           </aside>
         </div>
+        {experience === "learning" && learningEnabled ? (
+          <Solid3DLearningWorkspace
+            attempt={learningAttempt}
+            learningAttempts={learningAttempts}
+            highlighted={highlightedElement}
+            onAction={onLearningAction}
+            onComplete={onLearningComplete}
+            onHighlight={setHighlightedElement}
+            onReset={onLearningReset}
+            onRecordChange={onRecordChange}
+            onStart={startLearning}
+            readOnly={readOnly}
+            record={record}
+            section={section}
+          />
+        ) : null}
       </section>
     </div>
   );

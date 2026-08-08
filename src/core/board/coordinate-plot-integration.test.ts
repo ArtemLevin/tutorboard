@@ -97,7 +97,7 @@ describe("coordinate plot integration", () => {
       schemaVersion: "1.0",
     });
     expect(migrated.ok).toBe(true);
-    if (migrated.ok) expect(migrated.document.schemaVersion).toBe("1.3");
+    if (migrated.ok) expect(migrated.document.schemaVersion).toBe("1.4");
   });
 
   it("updates a coordinate plot through a stale-safe command", () => {

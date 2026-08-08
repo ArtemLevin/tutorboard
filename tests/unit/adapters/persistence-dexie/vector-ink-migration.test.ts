@@ -53,7 +53,7 @@ afterEach(async () => {
 });
 
 describe("Vector Ink persistence migration", () => {
-  it("loads a stored BoardDocument 1.1 stroke as canonical 1.3 ink", async () => {
+  it("loads a stored BoardDocument 1.1 stroke as canonical 1.4 ink", async () => {
     const databaseName = `tutorboard-vector-ink-${crypto.randomUUID()}`;
     const repository = new DexieBoardDocumentRepository(databaseName);
     repositories.push(repository);
@@ -106,7 +106,7 @@ describe("Vector Ink persistence migration", () => {
     const loaded = await reopened.load(current.id);
     expect(loaded.status).toBe("restored");
     if (loaded.status !== "restored") return;
-    expect(loaded.document.schemaVersion).toBe("1.3");
+    expect(loaded.document.schemaVersion).toBe("1.4");
     const stroke = loaded.document.objects[boardObjectId("object:legacy")];
     expect(stroke?.kind).toBe("drawing.pen-stroke");
     if (stroke?.kind !== "drawing.pen-stroke") return;

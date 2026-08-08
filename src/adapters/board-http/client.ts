@@ -6,6 +6,7 @@ import {
   documentId,
   readBoardDocument,
   type BoardCommandPage,
+  type BoardCommandEnvelope,
   type BoardCollaborationTicket,
   type BoardEvidenceDescriptor,
   type BoardPlatformRepository,
@@ -63,7 +64,7 @@ const orderedEnvelopeSchema = z
       )
       .min(1)
       .max(100),
-    schemaVersion: z.literal("1.3"),
+    schemaVersion: z.enum(["1.3", "1.4"]),
   })
   .strict();
 const envelopeSchema = z.discriminatedUnion("schemaVersion", [
@@ -239,23 +240,23 @@ function parseBatch(value: unknown): ServerBoardCommandBatch {
   const envelope = parsed.data.envelope;
   return {
     ...parsed.data,
-    envelope:
-      envelope.schemaVersion === "1.3"
-        ? {
-            ...envelope,
-            actorId: actorId(envelope.actorId),
-            commands: envelope.commands.map(({ command, order }) => ({
-              command: parseServerCommand(command),
-              order,
-            })),
-            documentId: documentId(envelope.documentId),
-          }
-        : {
-            ...envelope,
-            actorId: actorId(envelope.actorId),
-            commands: envelope.commands.map(parseServerCommand),
-            documentId: documentId(envelope.documentId),
-          },
+    envelope: (envelope.schemaVersion === "1.3" ||
+    envelope.schemaVersion === "1.4"
+      ? {
+          ...envelope,
+          actorId: actorId(envelope.actorId),
+          commands: envelope.commands.map(({ command, order }) => ({
+            command: parseServerCommand(command),
+            order,
+          })),
+          documentId: documentId(envelope.documentId),
+        }
+      : {
+          ...envelope,
+          actorId: actorId(envelope.actorId),
+          commands: envelope.commands.map(parseServerCommand),
+          documentId: documentId(envelope.documentId),
+        }) as BoardCommandEnvelope,
   };
 }
 
@@ -411,7 +412,7 @@ export function createBoardHttpRepository(
               documentId: identifierSchema,
               documentSha256: sha256Schema,
               revision: z.number().int().nonnegative(),
-              schemaVersion: z.enum(["1.1", "1.2", "1.3"]),
+              schemaVersion: z.enum(["1.1", "1.2", "1.3", "1.4"]),
             })
             .strict()
             .nullable(),
@@ -501,7 +502,7 @@ export function createBoardHttpRepository(
             documentId: expectedDocumentId,
             documentSha256,
             revision,
-            schemaVersion: "1.3",
+            schemaVersion: "1.4",
           }),
           headers: {
             "Content-Type": "application/json",

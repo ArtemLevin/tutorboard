@@ -5,14 +5,16 @@ import type {
   DocumentId,
   GeometryImportId,
   GroupId,
+  SolidLearningAttemptId,
 } from "./identifiers";
 import type { BoardObject } from "./objects";
 import type { Solid3DRecord } from "../solid-3d/definitions";
 import type { Solid3DId } from "./identifiers";
+import type { Solid3DLearningAttempt } from "../solid-3d-learning/types";
 import { defaultViewport, type ViewportState } from "./primitives";
 import { isIsoTimestamp } from "./timestamps";
 
-export const boardDocumentSchemaVersion = "1.3" as const;
+export const boardDocumentSchemaVersion = "1.4" as const;
 
 export interface BoardDocument {
   readonly createdAt: string;
@@ -24,6 +26,9 @@ export interface BoardDocument {
   readonly objects: Readonly<Partial<Record<BoardObjectId, BoardObject>>>;
   readonly order: readonly BoardObjectId[];
   readonly solidModels: Readonly<Partial<Record<Solid3DId, Solid3DRecord>>>;
+  readonly solidLearningAttempts: Readonly<
+    Partial<Record<SolidLearningAttemptId, Solid3DLearningAttempt>>
+  >;
   readonly schemaVersion: typeof boardDocumentSchemaVersion;
   readonly title: string;
   readonly updatedAt: string;
@@ -61,5 +66,6 @@ export function createEmptyBoardDocument(
     groups: {},
     geometryImports: {},
     solidModels: {},
+    solidLearningAttempts: {},
   };
 }

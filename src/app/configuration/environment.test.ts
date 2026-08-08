@@ -18,6 +18,7 @@ describe("readEnvironment", () => {
           smartInk: stage !== "production",
           smartInkDiagnostics: stage !== "production",
           solid3D: stage !== "production",
+          solid3DLearning: stage !== "production",
         },
         geometryOsBaseUrl: `${window.location.origin}/api/v1/geometryos`,
         mathInkApiBaseUrl: "/api/v1/formula-recognition",
@@ -45,6 +46,7 @@ describe("readEnvironment", () => {
         smartInk: true,
         smartInkDiagnostics: true,
         solid3D: true,
+        solid3DLearning: true,
       },
       geometryOsBaseUrl: "https://geometry.example.test",
       mathInkApiBaseUrl: "/api/v1/formula-recognition",
@@ -78,6 +80,7 @@ describe("readEnvironment", () => {
       smartInk: true,
       smartInkDiagnostics: true,
       solid3D: false,
+      solid3DLearning: false,
     });
     expect(() =>
       readEnvironment("test", undefined, { geometryPrompt: "perhaps" }),
