@@ -528,7 +528,13 @@ export class BoardSyncEngine {
       return;
     }
     try {
-      await this.#pullAll();
+      // A pending local command is already based on the most recently
+      // confirmed head. Push it optimistically; a concurrent remote revision
+      // is resolved by the server conflict response. This keeps a later
+      // durable edit independent from a stale pre-push pull.
+      if (this.#pending.length === 0) {
+        await this.#pullAll();
+      }
       let safety = 0;
       while (this.#pending.length > 0) {
         if (++safety > 1_000) {
