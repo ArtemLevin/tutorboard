@@ -6,11 +6,13 @@ export interface CanvasContextMenuProps {
   readonly canClear: boolean;
   readonly canCopy: boolean;
   readonly canPaste: boolean;
+  readonly canOpenSolid3D?: boolean;
   readonly context: "canvas" | "selection";
   readonly disabled: boolean;
   readonly onClearRequest: () => void;
   readonly onClose: () => void;
   readonly onCopy: () => void;
+  readonly onOpenSolid3D?: () => void;
   readonly onPaste: () => void;
   readonly onText: () => void;
   readonly position: Vec2;
@@ -18,18 +20,20 @@ export interface CanvasContextMenuProps {
 
 const menuWidth = 216;
 const canvasMenuHeight = 154;
-const selectionMenuHeight = 54;
+const selectionMenuHeight = 104;
 const viewportMargin = 8;
 
 export function CanvasContextMenu({
   canClear,
   canCopy,
   canPaste,
+  canOpenSolid3D = false,
   context,
   disabled,
   onClearRequest,
   onClose,
   onCopy,
+  onOpenSolid3D = () => {},
   onPaste,
   onText,
   position,
@@ -80,16 +84,24 @@ export function CanvasContextMenu({
       style={{ left, top }}
     >
       {context === "selection" ? (
-        <button
-          disabled={!canCopy}
-          onClick={onCopy}
-          ref={firstItemRef}
-          role="menuitem"
-          type="button"
-        >
-          <span aria-hidden="true">⧉</span>
-          Копировать
-        </button>
+        <>
+          <button
+            disabled={!canCopy}
+            onClick={onCopy}
+            ref={firstItemRef}
+            role="menuitem"
+            type="button"
+          >
+            <span aria-hidden="true">⧉</span>
+            Копировать
+          </button>
+          {canOpenSolid3D ? (
+            <button onClick={onOpenSolid3D} role="menuitem" type="button">
+              <span aria-hidden="true">◇</span>
+              Открыть в 3D
+            </button>
+          ) : null}
+        </>
       ) : (
         <>
           <button

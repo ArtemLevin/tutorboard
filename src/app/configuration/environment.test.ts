@@ -17,6 +17,7 @@ describe("readEnvironment", () => {
           serverSync: stage === "production",
           smartInk: stage !== "production",
           smartInkDiagnostics: stage !== "production",
+          solid3D: stage !== "production",
         },
         geometryOsBaseUrl: `${window.location.origin}/api/v1/geometryos`,
         mathInkApiBaseUrl: "/api/v1/formula-recognition",
@@ -43,6 +44,7 @@ describe("readEnvironment", () => {
         serverSync: false,
         smartInk: true,
         smartInkDiagnostics: true,
+        solid3D: true,
       },
       geometryOsBaseUrl: "https://geometry.example.test",
       mathInkApiBaseUrl: "/api/v1/formula-recognition",
@@ -64,6 +66,7 @@ describe("readEnvironment", () => {
         serverSync: "true",
         smartInk: "true",
         smartInkDiagnostics: "true",
+        solid3D: "false",
       }).features,
     ).toEqual({
       developmentDiagnostics: true,
@@ -74,6 +77,7 @@ describe("readEnvironment", () => {
       serverSync: true,
       smartInk: true,
       smartInkDiagnostics: true,
+      solid3D: false,
     });
     expect(() =>
       readEnvironment("test", undefined, { geometryPrompt: "perhaps" }),
@@ -92,6 +96,9 @@ describe("readEnvironment", () => {
         smartInkDiagnostics: "perhaps",
       }),
     ).toThrow("VITE_FEATURE_SMART_INK_DIAGNOSTICS");
+    expect(() =>
+      readEnvironment("test", undefined, { solid3D: "perhaps" }),
+    ).toThrow("VITE_FEATURE_SOLID_3D");
   });
 
   it("keeps diagnostics subordinate to the Smart Ink release flag", () => {

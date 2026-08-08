@@ -38,6 +38,9 @@ import type {
   TranslateGeometryImportCommand,
   UpdateCoordinatePlotCommand,
   UpdateTextCommand,
+  CreateSolid3DCommand,
+  UpdateSolid3DCommand,
+  ProjectSolid3DSectionCommand,
 } from "./commands";
 
 export type CommandErrorCode =
@@ -58,7 +61,10 @@ export type CommandErrorCode =
   | "command.locked"
   | "command.object-exists"
   | "command.object-missing"
-  | "command.stale-object";
+  | "command.stale-object"
+  | "command.solid-exists"
+  | "command.solid-missing"
+  | "command.stale-solid";
 
 export interface CommandError {
   readonly code: CommandErrorCode;
@@ -220,7 +226,6 @@ function addObjects(
       }
     }
   }
-
   const order = [
     ...document.order.slice(0, atIndex),
     ...ids,
@@ -700,10 +705,12 @@ function pasteContent(
   const objectIds = command.objects.map(({ id }) => id);
   const groupIds = command.groups.map(({ id }) => id);
   const importIds = command.geometryImports.map(({ id }) => id);
+  const solidIds = (command.solidModels ?? []).map(({ id }) => id);
   if (
     hasDuplicates(objectIds) ||
     hasDuplicates(groupIds) ||
-    hasDuplicates(importIds)
+    hasDuplicates(importIds) ||
+    hasDuplicates(solidIds)
   ) {
     return failure(
       document,
@@ -734,6 +741,13 @@ function pasteContent(
       "Clipboard paste collides with an existing geometry import.",
     );
   }
+  if (solidIds.some((id) => ownValue(document.solidModels, id) !== undefined)) {
+    return failure(
+      document,
+      "command.solid-exists",
+      "Clipboard paste collides with an existing solid model.",
+    );
+  }
 
   return accept(document, {
     ...document,
@@ -753,7 +767,158 @@ function pasteContent(
         command.objects.map((object) => [object.id, object]),
       ),
     },
+    solidModels: {
+      ...document.solidModels,
+      ...Object.fromEntries(
+        (command.solidModels ?? []).map((record) => [record.id, record]),
+      ),
+    },
     order: [...document.order, ...objectIds],
+    updatedAt: command.timestamp,
+  });
+}
+
+function createSolid3D(
+  document: BoardDocument,
+  command: CreateSolid3DCommand,
+): CommandResult {
+  if (ownValue(document.solidModels, command.model.id) !== undefined)
+    return failure(
+      document,
+      "command.solid-exists",
+      "Solid model already exists.",
+    );
+  if (ownValue(document.groups, command.group.id) !== undefined)
+    return failure(
+      document,
+      "command.group-exists",
+      "Solid group already exists.",
+    );
+  const objectIds = command.objects.map(({ id }) => id);
+  if (
+    command.objects.length === 0 ||
+    hasDuplicates(objectIds) ||
+    objectIds.some((id) => ownValue(document.objects, id) !== undefined)
+  )
+    return failure(
+      document,
+      "command.invalid",
+      "Solid objects are empty, duplicated or already present.",
+    );
+  if (
+    command.model.rootGroupId !== command.group.id ||
+    !sameIds(command.group.objectIds, objectIds) ||
+    !sameIds(command.model.boardObjectIds, objectIds) ||
+    command.objects.some((object) => object.groupId !== command.group.id)
+  )
+    return failure(
+      document,
+      "command.invalid",
+      "Solid model, group and objects are inconsistent.",
+    );
+  return accept(document, {
+    ...document,
+    groups: { ...document.groups, [command.group.id]: command.group },
+    objects: {
+      ...document.objects,
+      ...Object.fromEntries(
+        command.objects.map((object) => [object.id, object]),
+      ),
+    },
+    order: [...document.order, ...objectIds],
+    solidModels: { ...document.solidModels, [command.model.id]: command.model },
+    updatedAt: command.timestamp,
+  });
+}
+
+function updateSolid3D(
+  document: BoardDocument,
+  command: UpdateSolid3DCommand,
+): CommandResult {
+  const current = ownValue(document.solidModels, command.solidId);
+  if (current === undefined)
+    return failure(
+      document,
+      "command.solid-missing",
+      "Solid model is missing.",
+    );
+  if (!structurallyEqual(current, command.expected))
+    return failure(
+      document,
+      "command.stale-solid",
+      "Solid model changed before this update.",
+    );
+  if (
+    command.replacement.id !== command.solidId ||
+    command.replacement.rootGroupId !== current.rootGroupId ||
+    !sameIds(command.replacement.boardObjectIds, current.boardObjectIds)
+  )
+    return failure(
+      document,
+      "command.invalid",
+      "Solid replacement cannot change document ownership.",
+    );
+  return accept(document, {
+    ...document,
+    solidModels: {
+      ...document.solidModels,
+      [command.solidId]: command.replacement,
+    },
+    updatedAt: command.timestamp,
+  });
+}
+
+function projectSolid3DSection(
+  document: BoardDocument,
+  command: ProjectSolid3DSectionCommand,
+): CommandResult {
+  const solid = ownValue(document.solidModels, command.solidId);
+  if (solid === undefined)
+    return failure(
+      document,
+      "command.solid-missing",
+      "Section projection references a missing solid.",
+    );
+  if (!solid.sections.some((section) => section.id === command.sectionId))
+    return failure(
+      document,
+      "command.invalid",
+      "Section projection references a missing section.",
+    );
+  if (
+    ownValue(document.groups, command.group.id) !== undefined ||
+    command.objects.length < 3
+  )
+    return failure(
+      document,
+      "command.invalid",
+      "Section projection group is invalid.",
+    );
+  const ids = command.objects.map(({ id }) => id);
+  if (
+    hasDuplicates(ids) ||
+    command.objects.some(
+      (object) =>
+        object.groupId !== command.group.id ||
+        ownValue(document.objects, object.id) !== undefined,
+    ) ||
+    !sameIds(command.group.objectIds, ids)
+  )
+    return failure(
+      document,
+      "command.invalid",
+      "Section projection objects are inconsistent.",
+    );
+  return accept(document, {
+    ...document,
+    groups: { ...document.groups, [command.group.id]: command.group },
+    objects: {
+      ...document.objects,
+      ...Object.fromEntries(
+        command.objects.map((object) => [object.id, object]),
+      ),
+    },
+    order: [...document.order, ...ids],
     updatedAt: command.timestamp,
   });
 }
@@ -772,7 +937,8 @@ function cutContent(
   if (
     hasDuplicates(command.objectIds) ||
     hasDuplicates(command.groupIds) ||
-    hasDuplicates(command.geometryImportIds)
+    hasDuplicates(command.geometryImportIds) ||
+    hasDuplicates(command.solidIds ?? [])
   ) {
     return failure(
       document,
@@ -787,6 +953,17 @@ function cutContent(
       document,
       "command.object-missing",
       "Clipboard cut references a missing object.",
+    );
+  }
+  if (
+    (command.solidIds ?? []).some(
+      (id) => ownValue(document.solidModels, id) === undefined,
+    )
+  ) {
+    return failure(
+      document,
+      "command.solid-missing",
+      "Clipboard cut references a missing solid model.",
     );
   }
   if (
@@ -813,6 +990,7 @@ function cutContent(
   const objectSet = new Set(command.objectIds);
   const groupSet = new Set(command.groupIds);
   const importSet = new Set(command.geometryImportIds);
+  const solidSet = new Set(command.solidIds ?? []);
   const objects = Object.fromEntries(
     Object.entries(document.objects).filter(
       ([id]) => !objectSet.has(id as BoardObjectId),
@@ -828,12 +1006,18 @@ function cutContent(
       ([id]) => !importSet.has(id as GeometryImportId),
     ),
   ) as BoardDocument["geometryImports"];
+  const solidModels = Object.fromEntries(
+    Object.entries(document.solidModels).filter(
+      ([id]) => !solidSet.has(id as never),
+    ),
+  ) as BoardDocument["solidModels"];
 
   return accept(document, {
     ...document,
     geometryImports,
     groups,
     objects,
+    solidModels,
     order: document.order.filter((id) => !objectSet.has(id)),
     updatedAt: command.timestamp,
   });
@@ -1343,12 +1527,20 @@ function deleteObjects(
       }
     }
   }
+  const solidModels = Object.fromEntries(
+    Object.entries(document.solidModels).filter(
+      ([, record]) =>
+        record === undefined ||
+        !record.boardObjectIds.every((id) => deleted.has(id)),
+    ),
+  ) as BoardDocument["solidModels"];
 
   return accept(document, {
     ...document,
     updatedAt: command.timestamp,
     objects,
     groups,
+    solidModels,
     order: document.order.filter((id) => !deleted.has(id)),
   });
 }
@@ -1740,6 +1932,12 @@ export function reduceBoardDocument(
       return updateText(document, command);
     case "core.coordinate-plot.update":
       return updateCoordinatePlot(document, command);
+    case "core.solid-3d.create":
+      return createSolid3D(document, command);
+    case "core.solid-3d.update":
+      return updateSolid3D(document, command);
+    case "core.solid-3d.project-section":
+      return projectSolid3DSection(document, command);
     default:
       return assertNever(command);
   }

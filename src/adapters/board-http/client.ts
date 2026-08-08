@@ -411,7 +411,7 @@ export function createBoardHttpRepository(
               documentId: identifierSchema,
               documentSha256: sha256Schema,
               revision: z.number().int().nonnegative(),
-              schemaVersion: z.literal("1.2"),
+              schemaVersion: z.enum(["1.1", "1.2", "1.3"]),
             })
             .strict()
             .nullable(),
@@ -501,7 +501,7 @@ export function createBoardHttpRepository(
             documentId: expectedDocumentId,
             documentSha256,
             revision,
-            schemaVersion: "1.1",
+            schemaVersion: "1.3",
           }),
           headers: {
             "Content-Type": "application/json",

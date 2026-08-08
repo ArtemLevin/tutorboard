@@ -346,6 +346,119 @@ const geometryImportRecord = strictObject({
   visualOverrides: record(reference("VisualOverride")),
   visualTransform: reference("Transform2D"),
 });
+const vec3 = strictObject({
+  x: finiteNumber,
+  y: finiteNumber,
+  z: finiteNumber,
+});
+const solidDefinition = {
+  oneOf: [
+    strictObject({ edgeLength: positiveNumber, kind: { const: "cube" } }),
+    strictObject({ kind: { const: "cuboid" }, size: reference("Vec3") }),
+    strictObject({
+      edgeLength: positiveNumber,
+      kind: { const: "tetrahedron" },
+    }),
+    strictObject({
+      base: array(reference("Vec2"), { maxItems: 256, minItems: 3 }),
+      height: positiveNumber,
+      kind: { const: "prism" },
+    }),
+    strictObject({
+      apex: reference("Vec3"),
+      base: array(reference("Vec2"), { maxItems: 256, minItems: 3 }),
+      kind: { const: "pyramid" },
+    }),
+    strictObject({
+      height: positiveNumber,
+      kind: { const: "cylinder" },
+      radius: positiveNumber,
+    }),
+    strictObject({
+      height: positiveNumber,
+      kind: { const: "cone" },
+      radius: positiveNumber,
+    }),
+    strictObject({
+      bottomRadius: positiveNumber,
+      height: positiveNumber,
+      kind: { const: "truncated-cone" },
+      topRadius: positiveNumber,
+    }),
+    strictObject({ kind: { const: "sphere" }, radius: positiveNumber }),
+  ],
+};
+const solidPointAnchor = {
+  oneOf: [
+    strictObject({
+      kind: { const: "vertex" },
+      vertexId: reference("Identifier"),
+    }),
+    strictObject({
+      edgeId: reference("Identifier"),
+      kind: { const: "edge" },
+      parameter: { maximum: 1, minimum: 0, type: "number" },
+    }),
+    strictObject({
+      faceId: reference("Identifier"),
+      kind: { const: "face" },
+      localCoordinates: reference("Vec2"),
+    }),
+    strictObject({
+      kind: { const: "analytic-surface" },
+      parameters: array(finiteNumber, { maxItems: 8 }),
+      surfaceId: reference("Identifier"),
+    }),
+  ],
+};
+const solidPoint = strictObject({
+  anchor: reference("SolidPointAnchor"),
+  id: reference("Identifier"),
+  label: { maxLength: 32, minLength: 1, type: "string" },
+  position: reference("Vec3"),
+});
+const solidSection = strictObject({
+  algorithmVersion: {
+    enum: ["analytic-plane/1", "polyhedron-plane/1"],
+  },
+  id: reference("Identifier"),
+  pointIds: array(reference("Identifier"), { maxItems: 3, minItems: 3 }),
+  visible: { type: "boolean" },
+});
+const solidProjection = strictObject({
+  hiddenEdgePolicy: { enum: ["dashed", "hidden"] },
+  kind: { enum: ["oblique", "orthographic", "perspective"] },
+  matrix: array(finiteNumber, { maxItems: 16, minItems: 6 }),
+  origin: reference("Vec2"),
+  viewportScale: positiveNumber,
+});
+const solidSource = {
+  oneOf: [
+    strictObject({
+      kind: { const: "text-template" },
+      templateId: { maxLength: 128, minLength: 1, type: "string" },
+    }),
+    strictObject({
+      kind: { const: "smart-ink" },
+      recognizerVersion: { maxLength: 128, minLength: 1, type: "string" },
+    }),
+    strictObject({
+      importId: reference("Identifier"),
+      kind: { const: "geometryos" },
+    }),
+  ],
+};
+const solid3DRecord = strictObject({
+  boardObjectIds: array(reference("Identifier"), { maxItems: 5_000 }),
+  definition: reference("Solid3DDefinition"),
+  id: reference("Identifier"),
+  points: array(reference("Solid3DPoint"), { maxItems: 32 }),
+  projection: reference("Solid3DBoardProjection"),
+  rootGroupId: reference("Identifier"),
+  schemaVersion: { const: "1.0" },
+  sections: array(reference("Solid3DSectionDefinition"), { maxItems: 8 }),
+  source: reference("Solid3DSource"),
+});
 const boardDocument = strictObject({
   createdAt: timestamp,
   geometryImports: record(reference("GeometryImportRecord")),
@@ -353,7 +466,8 @@ const boardDocument = strictObject({
   id: reference("Identifier"),
   objects: record(reference("BoardObject")),
   order: array(reference("Identifier"), { uniqueItems: true }),
-  schemaVersion: { const: "1.2" },
+  schemaVersion: { const: "1.3" },
+  solidModels: record(reference("Solid3DRecord")),
   title: { maxLength: 256, minLength: 1, type: "string" },
   updatedAt: timestamp,
   viewport: reference("Viewport"),
@@ -387,10 +501,18 @@ const boardDefinitions = {
   Size2: size2,
   SvgObject: svgObject,
   SvgViewBox: svgViewBox,
+  Solid3DBoardProjection: solidProjection,
+  Solid3DDefinition: solidDefinition,
+  Solid3DPoint: solidPoint,
+  Solid3DRecord: solid3DRecord,
+  Solid3DSectionDefinition: solidSection,
+  Solid3DSource: solidSource,
+  SolidPointAnchor: solidPointAnchor,
   TextObject: text,
   Transform2D: transform2d,
   UserObjectSource: userSource,
   Vec2: vec2,
+  Vec3: vec3,
   Viewport: viewport,
   VisualOverride: visualOverride,
   VisualStyleOverride: visualStyleOverride,
@@ -421,10 +543,20 @@ const commands = {
     },
     ["objects"],
   ),
-  CutContentCommand: command("core.clipboard.cut", {
-    geometryImportIds: array(reference("Identifier"), { uniqueItems: true }),
-    groupIds: array(reference("Identifier"), { uniqueItems: true }),
-    objectIds: array(reference("Identifier"), { uniqueItems: true }),
+  CutContentCommand: command(
+    "core.clipboard.cut",
+    {
+      geometryImportIds: array(reference("Identifier"), { uniqueItems: true }),
+      groupIds: array(reference("Identifier"), { uniqueItems: true }),
+      objectIds: array(reference("Identifier"), { uniqueItems: true }),
+      solidIds: array(reference("Identifier"), { uniqueItems: true }),
+    },
+    ["geometryImportIds", "groupIds", "objectIds"],
+  ),
+  CreateSolid3DCommand: command("core.solid-3d.create", {
+    group: reference("BoardGroup"),
+    model: reference("Solid3DRecord"),
+    objects: array(reference("BoardObject"), { minItems: 1 }),
   }),
   DeleteObjectsCommand: command("core.objects.delete", {
     objectIds: array(reference("Identifier"), {
@@ -462,10 +594,21 @@ const commands = {
     importId: reference("Identifier"),
     objectId: reference("Identifier"),
   }),
-  PasteContentCommand: command("core.clipboard.paste", {
-    geometryImports: array(reference("GeometryImportRecord")),
-    groups: array(reference("BoardGroup")),
-    objects: array(reference("BoardObject")),
+  PasteContentCommand: command(
+    "core.clipboard.paste",
+    {
+      geometryImports: array(reference("GeometryImportRecord")),
+      groups: array(reference("BoardGroup")),
+      objects: array(reference("BoardObject")),
+      solidModels: array(reference("Solid3DRecord")),
+    },
+    ["geometryImports", "groups", "objects"],
+  ),
+  ProjectSolid3DSectionCommand: command("core.solid-3d.project-section", {
+    group: reference("BoardGroup"),
+    objects: array(reference("BoardObject"), { minItems: 1 }),
+    sectionId: reference("Identifier"),
+    solidId: reference("Identifier"),
   }),
   RemoveGroupsCommand: command("core.groups.remove", {
     groupIds: array(reference("Identifier"), {
@@ -522,6 +665,11 @@ const commands = {
     expected: reference("CoordinatePlotDefinition"),
     objectId: reference("Identifier"),
     replacement: reference("CoordinatePlotDefinition"),
+  }),
+  UpdateSolid3DCommand: command("core.solid-3d.update", {
+    expected: reference("Solid3DRecord"),
+    replacement: reference("Solid3DRecord"),
+    solidId: reference("Identifier"),
   }),
   UpdateTextCommand: command("core.text.update", {
     objectId: reference("Identifier"),
@@ -585,7 +733,7 @@ export const schemas = {
   ),
   "board-document.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-document.schema.json",
-    "BoardDocument 1.1",
+    "BoardDocument 1.3",
     reference("BoardDocument"),
     boardDefinitions,
   ),
@@ -622,14 +770,14 @@ export const schemas = {
   ),
   "board-snapshot.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-snapshot.schema.json",
-    "BoardSnapshot 1.1",
+    "BoardSnapshot 1.3",
     strictObject({
       createdAt: timestamp,
       document: reference("BoardDocument"),
       documentId: reference("Identifier"),
       documentSha256: { pattern: sha256Pattern, type: "string" },
       revision: nonNegativeInteger,
-      schemaVersion: { const: "1.2" },
+      schemaVersion: { const: "1.3" },
     }),
     boardDefinitions,
   ),
@@ -644,10 +792,10 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 
 ## Artifacts
 
-- \`BoardDocument 1.1\` is the canonical persisted board state.
-- \`BoardCommandEnvelope 1.1\` carries one atomic, idempotent command batch
+- \`BoardDocument 1.3\` is the canonical persisted board state.
+- \`BoardCommandEnvelope 1.3\` carries one atomic, idempotent command batch
   against a known base revision.
-- \`BoardSnapshot 1.1\` binds a canonical document to a server revision and
+- \`BoardSnapshot 1.3\` binds a canonical document to a server revision and
   SHA-256 digest.
 - \`BoardGeometryImport 1.1\` records GeometryOS GIR/Layout provenance without
   adding transport state to \`BoardDocument\`.
@@ -676,6 +824,7 @@ const compatibility = `# Board command compatibility
 | --- | --- | --- | --- |
 | Base board editing | Existing \`core.*\` command set | 0.1.0+ | board/v1 |
 | Atomic Smart Ink acceptance | \`core.objects.replace\` | This release+ | board/v1 with replace support |
+| Semantic 3D solids | \`core.solid-3d.*\` | BoardDocument 1.3+ | board/v1.3 reader |
 
 \`core.objects.replace\` carries complete original and replacement snapshots.
 Older strict readers reject this command explicitly. Deployments using server
@@ -783,7 +932,8 @@ function upgradeVectorInkDocument(document) {
           : object,
       ]),
     ),
-    schemaVersion: "1.2",
+    schemaVersion: "1.3",
+    solidModels: {},
   };
 }
 
@@ -881,7 +1031,7 @@ function fixtures() {
       documentId: document.id,
       documentSha256: documentHash,
       revision: 7,
-      schemaVersion: "1.2",
+      schemaVersion: "1.3",
     },
   };
 }

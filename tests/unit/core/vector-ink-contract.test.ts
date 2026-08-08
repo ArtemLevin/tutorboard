@@ -98,14 +98,14 @@ function documentWithStroke(stroke: PenStrokeObject): BoardDocument {
   };
 }
 
-describe("BoardDocument 1.2 Vector Ink contract", () => {
+describe("BoardDocument 1.3 Vector Ink contract", () => {
   it("migrates legacy 1.1 pen strokes deterministically", () => {
     const first = readBoardDocument(legacyDocument11());
     const second = readBoardDocument(legacyDocument11());
     expect(first.status).toBe("ok");
     expect(second.status).toBe("ok");
     if (first.status !== "ok" || second.status !== "ok") return;
-    expect(first.document.schemaVersion).toBe("1.2");
+    expect(first.document.schemaVersion).toBe("1.3");
     const migrated = first.document.objects[boardObjectId("object:legacy-pen")];
     expect(migrated?.kind).toBe("drawing.pen-stroke");
     if (migrated?.kind !== "drawing.pen-stroke") return;
@@ -135,7 +135,7 @@ describe("BoardDocument 1.2 Vector Ink contract", () => {
     expect(copied.status).toBe("ok");
     if (copied.status !== "ok") return;
     expect(copied.payload.schemaVersion).toBe(boardClipboardSchemaVersion);
-    expect(boardClipboardSchemaVersion).toBe("1.2");
+    expect(boardClipboardSchemaVersion).toBe("1.3");
     const copiedStroke = copied.payload.objects[0];
     expect(copiedStroke?.kind).toBe("drawing.pen-stroke");
     if (copiedStroke?.kind !== "drawing.pen-stroke") return;

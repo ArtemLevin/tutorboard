@@ -64,7 +64,7 @@ BoardDocument
 - импорт PNG/JPEG/SVG и анимированных GIF;
 - эфемерная лазерная указка с затухающим следом при перетаскивании левой кнопкой мыши, без изменения документа;
 - click/Shift/marquee selection, movement, lock и delete;
-- versioned `BoardDocument 1.0` и command-only mutation boundary;
+- versioned `BoardDocument 1.3` и command-only mutation boundary;
 - bounded undo/redo, clipboard, layers, groups and visual styling;
 - deterministic `.tutorboard.json` import/export и SVG/PNG/PDF snapshots;
 - viewport culling, incremental selectors и 5,000-object CI benchmark;
@@ -87,6 +87,10 @@ BoardDocument
 - GeometryOS prompt panel с loading, clarification, domain failure, retry,
   cancellation и request-ID diagnostics;
 - автоматическое центрирование и выделение импортированного построения.
+- семантические 3D-модели для школьных тел, ленивое WebGL-окно, точки и
+  автоматические сечения по трём точкам;
+- атомарный перенос двумерной проекции сечения на доску с поддержкой
+  undo/redo, clipboard, persistence и server sync.
 
 Pinned consumer contract закреплён на GeometryOS commit
 `fe5ece9f7138044d638114907fe9aaecfd14e924`: OpenAPI, GIR schema, Layout
@@ -119,6 +123,7 @@ Advanced semantic drag и AI modifications начинаются после ст�
 
 ```text
 VITE_FEATURE_SERVER_SYNC=true
+VITE_FEATURE_SOLID_3D=true
 VITE_BOARD_API_BASE_URL=/api/v1
 /?lessonId=lesson:...&documentId=document:...#/board
 ```

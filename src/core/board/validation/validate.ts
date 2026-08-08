@@ -6,6 +6,7 @@ import type { BoardObjectId } from "../identifiers";
 import type { BoardObject } from "../objects";
 import { ownValue } from "../records";
 import { vectorInkDataMatchesPoints } from "../vector-ink";
+import { validateSolid3DRecord } from "../../solid-3d/validation";
 import { boardDocumentSchema } from "./schema";
 
 export interface ValidationIssue {
@@ -430,6 +431,53 @@ function validateTimestamps(
   ];
 }
 
+function validateSolidModels(
+  document: BoardDocument,
+): readonly ValidationIssue[] {
+  return Object.entries(document.solidModels).flatMap(([id, record]) => {
+    if (record === undefined) return [];
+    const issues: ValidationIssue[] = [];
+    if (record.id !== id)
+      issues.push(
+        issue(
+          "document.solid-key-mismatch",
+          `solidModels.${id}.id`,
+          "Solid record key must equal its ID.",
+        ),
+      );
+    const group = ownValue(document.groups, record.rootGroupId);
+    if (group === undefined)
+      issues.push(
+        issue(
+          "document.solid-group-missing",
+          `solidModels.${id}.rootGroupId`,
+          "Solid record references a missing group.",
+        ),
+      );
+    const members = new Set(group?.objectIds ?? []);
+    if (
+      record.boardObjectIds.some(
+        (objectId) =>
+          ownValue(document.objects, objectId) === undefined ||
+          !members.has(objectId),
+      )
+    )
+      issues.push(
+        issue(
+          "document.solid-object-missing",
+          `solidModels.${id}.boardObjectIds`,
+          "Solid record references missing or unrelated board objects.",
+        ),
+      );
+    issues.push(
+      ...validateSolid3DRecord(record).map((diagnostic) =>
+        issue(diagnostic.code, `solidModels.${id}`, diagnostic.message),
+      ),
+    );
+    return issues;
+  });
+}
+
 function mapSchemaIssues(
   issues: readonly {
     readonly code: string;
@@ -453,11 +501,13 @@ export function validateBoardDocument(input: unknown): BoardDocumentValidation {
     ...validateRecordIdentity("objects", document.objects),
     ...validateRecordIdentity("groups", document.groups),
     ...validateRecordIdentity("geometryImports", document.geometryImports),
+    ...validateRecordIdentity("solidModels", document.solidModels),
     ...validateOrder(document),
     ...validateGroups(document),
     ...validateGeometryImports(document),
     ...validateCoordinatePlots(document),
     ...validateVectorInk(document),
+    ...validateSolidModels(document),
     ...validateTimestamps(document),
   ];
 

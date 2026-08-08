@@ -200,6 +200,7 @@ export function invertOwnBoardCommand(
         },
       ];
     case "core.clipboard.paste":
+      if ((command.solidModels?.length ?? 0) > 0) return [];
       return [
         {
           ...meta(),
@@ -265,6 +266,18 @@ export function invertOwnBoardCommand(
     case "core.clipboard.cut":
     case "core.geometry.style-override":
     case "core.selection.set-style":
+    case "core.solid-3d.create":
+    case "core.solid-3d.project-section":
       return [];
+    case "core.solid-3d.update":
+      return [
+        {
+          ...meta(),
+          expected: command.replacement,
+          kind: command.kind,
+          replacement: command.expected,
+          solidId: command.solidId,
+        },
+      ];
   }
 }

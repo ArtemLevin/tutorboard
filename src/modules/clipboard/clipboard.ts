@@ -10,11 +10,16 @@ import {
   type GeometryImportId,
   type GeometryImportRecord,
   type GroupId,
+  solid3DId,
+  solidPointId,
+  solidSectionId,
+  type Solid3DId,
+  type Solid3DRecord,
   type PasteContentCommand,
   type Vec2,
 } from "../../core/public";
 
-export const boardClipboardSchemaVersion = "1.2" as const;
+export const boardClipboardSchemaVersion = "1.3" as const;
 export const defaultPasteOffset: Vec2 = { x: 24, y: 24 };
 
 export interface BoardClipboardPayload {
@@ -24,6 +29,7 @@ export interface BoardClipboardPayload {
   readonly order: readonly BoardObjectId[];
   readonly schemaVersion: typeof boardClipboardSchemaVersion;
   readonly sourceDocumentId: DocumentId;
+  readonly solidModels?: readonly Solid3DRecord[];
 }
 
 export type CopyBoardSelectionResult =
@@ -133,6 +139,11 @@ export function copyBoardSelection(
     const record = ownValue(document.geometryImports, id);
     return record === undefined ? [] : [record];
   });
+  const solidModels = Object.values(document.solidModels).filter(
+    (record): record is Solid3DRecord =>
+      record !== undefined &&
+      record.boardObjectIds.some((id) => objectIds.has(id)),
+  );
 
   return {
     payload: {
@@ -142,6 +153,7 @@ export function copyBoardSelection(
       order,
       schemaVersion: boardClipboardSchemaVersion,
       sourceDocumentId: document.id,
+      solidModels,
     },
     status: "ok",
   };
@@ -151,6 +163,7 @@ export interface ClipboardIdFactory {
   readonly geometryImport: (sourceId: GeometryImportId) => GeometryImportId;
   readonly group: (sourceId: GroupId) => GroupId;
   readonly object: (sourceId: BoardObjectId) => BoardObjectId;
+  readonly solid3D?: (sourceId: Solid3DId) => Solid3DId;
 }
 
 function translated(position: Vec2, offset: Vec2): Vec2 {
@@ -203,6 +216,15 @@ export function createPasteContentCommand(
   const importIds = new Map(
     payload.geometryImports.map(
       ({ id }) => [id, ids.geometryImport(id)] as const,
+    ),
+  );
+  const solidIds = new Map(
+    (payload.solidModels ?? []).map(
+      ({ id }, index) =>
+        [
+          id,
+          ids.solid3D?.(id) ?? solid3DId(`solid:paste:${String(index)}:${id}`),
+        ] as const,
     ),
   );
   const importRootGroups = new Set(
@@ -304,6 +326,36 @@ export function createPasteContentCommand(
       },
     }),
   );
+  const solidModels = (payload.solidModels ?? []).map(
+    (record): Solid3DRecord => {
+      const id = solidIds.get(record.id) ?? record.id;
+      const pointIds = new Map(
+        record.points.map(
+          (point, index) =>
+            [point.id, solidPointId(`${id}:point:${String(index)}`)] as const,
+        ),
+      );
+      return {
+        ...record,
+        boardObjectIds: record.boardObjectIds.map(remapObjectId),
+        id,
+        points: record.points.map((point) => ({
+          ...point,
+          id: pointIds.get(point.id) ?? point.id,
+        })),
+        rootGroupId: groupIds.get(record.rootGroupId) ?? record.rootGroupId,
+        sections: record.sections.map((section, index) => ({
+          ...section,
+          id: solidSectionId(`${id}:section:${String(index)}`),
+          pointIds: [
+            pointIds.get(section.pointIds[0]) ?? section.pointIds[0],
+            pointIds.get(section.pointIds[1]) ?? section.pointIds[1],
+            pointIds.get(section.pointIds[2]) ?? section.pointIds[2],
+          ],
+        })),
+      };
+    },
+  );
 
   return {
     ...metadata,
@@ -311,6 +363,7 @@ export function createPasteContentCommand(
     groups,
     kind: "core.clipboard.paste",
     objects,
+    solidModels,
   };
 }
 
@@ -324,5 +377,6 @@ export function createCutContentCommand(
     groupIds: payload.groups.map(({ id }) => id),
     kind: "core.clipboard.cut",
     objectIds: payload.order,
+    solidIds: (payload.solidModels ?? []).map(({ id }) => id),
   };
 }

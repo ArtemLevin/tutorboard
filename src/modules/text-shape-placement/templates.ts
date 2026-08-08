@@ -12,6 +12,9 @@ import {
   type ObjectStyle,
   type PasteContentCommand,
   type Vec2,
+  defaultSolidProjection,
+  solid3DId,
+  solidDefinitionFromTemplate,
 } from "../../core/public";
 
 import type { TextShapeDefinition, TextShapeTemplate } from "./catalog";
@@ -693,11 +696,32 @@ export function createTextShapePlacementCommand(input: {
       translation: input.placement,
     },
   };
-  return {
+  const paste: PasteContentCommand = {
     ...input.metadata,
     geometryImports: [],
     groups: [group],
     kind: "core.clipboard.paste",
     objects,
+  };
+  const definition =
+    input.definition.category === "3d"
+      ? solidDefinitionFromTemplate(input.definition.id)
+      : null;
+  if (definition === null) return paste;
+  return {
+    ...paste,
+    solidModels: [
+      {
+        boardObjectIds: objects.map(({ id }) => id),
+        definition,
+        id: solid3DId(`solid:${input.token}:${input.definition.id}`),
+        points: [],
+        projection: { ...defaultSolidProjection, viewportScale: 64 },
+        rootGroupId: targetGroupId,
+        schemaVersion: "1.0",
+        sections: [],
+        source: { kind: "text-template", templateId: input.definition.id },
+      },
+    ],
   };
 }
