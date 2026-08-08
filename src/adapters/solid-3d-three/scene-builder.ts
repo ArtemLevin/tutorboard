@@ -21,7 +21,8 @@ interface BuiltGeometry {
 }
 
 function triangleCount(geometry: THREE.BufferGeometry): number {
-  const count = geometry.index?.count ?? geometry.getAttribute("position").count;
+  const count =
+    geometry.index?.count ?? geometry.getAttribute("position").count;
   return Math.floor(count / 3);
 }
 
@@ -30,7 +31,10 @@ function surfacesFromGroups(
   surfacesByMaterial: Readonly<Partial<Record<number, SolidAnalyticSurfaceId>>>,
   fallback: SolidAnalyticSurfaceId,
 ): readonly SolidAnalyticSurfaceId[] {
-  const surfaces = Array.from({ length: triangleCount(geometry) }, () => fallback);
+  const surfaces = Array.from(
+    { length: triangleCount(geometry) },
+    () => fallback,
+  );
   for (const group of geometry.groups) {
     const surfaceId = surfacesByMaterial[group.materialIndex];
     if (surfaceId === undefined) continue;
@@ -147,7 +151,7 @@ function hemisphereGeometry(
   geometry.addGroup(0, curvedTriangleCount * 3, 0);
   geometry.addGroup(
     curvedTriangleCount * 3,
-    (positions.length / 3 - curvedTriangleCount * 3),
+    positions.length / 3 - curvedTriangleCount * 3,
     1,
   );
   geometry.computeVertexNormals();
@@ -234,7 +238,11 @@ function analyticGeometry(definition: Solid3DDefinition): BuiltGeometry {
       };
     }
     case "cone": {
-      const geometry = new THREE.ConeGeometry(definition.radius, definition.height, 48);
+      const geometry = new THREE.ConeGeometry(
+        definition.radius,
+        definition.height,
+        48,
+      );
       return {
         geometry,
         semanticSurfaceFaceIds: surfacesFromGroups(
@@ -267,7 +275,10 @@ function analyticGeometry(definition: Solid3DDefinition): BuiltGeometry {
     default: {
       const topology = createSolidTopology(definition);
       if (topology === null) throw new Error("Unsupported solid definition.");
-      return { geometry: polyhedronGeometry(topology), semanticSurfaceFaceIds: [] };
+      return {
+        geometry: polyhedronGeometry(topology),
+        semanticSurfaceFaceIds: [],
+      };
     }
   }
 }
