@@ -112,9 +112,10 @@ function resolveLearningAnchor(
 
 function pointAnchorLabel(point: Solid3DPoint): string {
   if (point.anchor.kind !== "analytic-surface") return point.anchor.kind;
-  return analyticSurfaceNames[
-    point.anchor.surfaceId as SolidAnalyticSurfaceId
-  ] ?? "Аналитическая поверхность";
+  return (
+    analyticSurfaceNames[point.anchor.surfaceId as SolidAnalyticSurfaceId] ??
+    "Аналитическая поверхность"
+  );
 }
 
 export function Solid3DEditorPanel({
