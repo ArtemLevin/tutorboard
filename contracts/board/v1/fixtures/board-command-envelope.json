@@ -229,7 +229,7 @@
     }
   ],
   "documentId": "document:lesson-01",
-  "expectedDocumentSha256": "0bcfa599419a4af17ad38ec9b05f1ad95e05f75e3024cfc0ffe1cf8572de4ab5",
+  "expectedDocumentSha256": "1a9946d9ce3883cea4d46e69d794d911a51274cd5a1b28f5bd9741ef93b19b91",
   "idempotencyKey": "client:tutor-01:batch-08",
   "schemaVersion": "1.3"
 }

@@ -17,6 +17,7 @@ function environment(
       serverSync: false,
       smartInk: true,
       smartInkDiagnostics: true,
+      solid3D: true,
       ...features,
     },
     geometryOsBaseUrl: "https://geometry.example.test",

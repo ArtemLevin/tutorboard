@@ -7,6 +7,9 @@ export {
   groupId,
   plotParameterId,
   plotSeriesId,
+  solid3DId,
+  solidPointId,
+  solidSectionId,
   type ActorId,
   type BoardObjectId,
   type CommandId,
@@ -15,7 +18,11 @@ export {
   type GroupId,
   type PlotParameterId,
   type PlotSeriesId,
+  type Solid3DId,
+  type SolidPointId,
+  type SolidSectionId,
 } from "./board/identifiers";
+export * from "./solid-3d/public";
 export {
   boardDocumentSchemaVersion,
   createEmptyBoardDocument,
@@ -181,6 +188,8 @@ export {
   migrateBoardDocument02To12,
   migrateBoardDocument10To12,
   migrateBoardDocument11To12,
+  migrateBoardDocument12To13,
+  migrateBoardDocument11To13,
   type BoardDocumentMigrationResult,
 } from "./board/migrations";
 export {
@@ -226,6 +235,9 @@ export {
   type TranslateGeometryImportCommand,
   type UpdateCoordinatePlotCommand,
   type UpdateTextCommand,
+  type CreateSolid3DCommand,
+  type UpdateSolid3DCommand,
+  type ProjectSolid3DSectionCommand,
 } from "./board/commands/commands";
 export {
   reduceBoardDocument,

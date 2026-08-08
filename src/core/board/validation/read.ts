@@ -4,6 +4,7 @@ import {
   migrateBoardDocument02To12,
   migrateBoardDocument10To12,
   migrateBoardDocument11To12,
+  migrateBoardDocument12To13,
 } from "../migrations";
 import type { ValidationIssue } from "./validate";
 import {
@@ -88,6 +89,12 @@ export function readBoardDocument(raw: unknown): BoardDocumentReadResult {
     return objectKinds.length > 0
       ? { status: "incompatible-object", raw, objectKinds }
       : migratedResult(raw, migrateBoardDocument11To12);
+  }
+  if (schemaVersion === "1.2") {
+    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds);
+    return objectKinds.length > 0
+      ? { status: "incompatible-object", raw, objectKinds }
+      : migratedResult(raw, migrateBoardDocument12To13);
   }
   if (
     schemaVersion !== undefined &&

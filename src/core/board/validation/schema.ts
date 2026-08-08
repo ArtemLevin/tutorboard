@@ -15,6 +15,9 @@ import type {
   GroupId,
   PlotParameterId,
   PlotSeriesId,
+  Solid3DId,
+  SolidPointId,
+  SolidSectionId,
 } from "../identifiers";
 import { isValidIdentifier } from "../identifiers";
 import {
@@ -43,6 +46,15 @@ const plotParameterIdSchema = identifierSchema.transform(
 );
 const plotSeriesIdSchema = identifierSchema.transform(
   (value) => value as PlotSeriesId,
+);
+const solid3DIdSchema = identifierSchema.transform(
+  (value) => value as Solid3DId,
+);
+const solidPointIdSchema = identifierSchema.transform(
+  (value) => value as SolidPointId,
+);
+const solidSectionIdSchema = identifierSchema.transform(
+  (value) => value as SolidSectionId,
 );
 const timestampSchema = z.iso.datetime({ offset: true });
 const finiteNumberSchema = z.number().finite();
@@ -427,6 +439,154 @@ const geometryImportSchema = z
   })
   .strict();
 
+const vec3Schema = z
+  .object({
+    x: finiteNumberSchema,
+    y: finiteNumberSchema,
+    z: finiteNumberSchema,
+  })
+  .strict();
+const solidDefinitionSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      edgeLength: finiteNumberSchema.positive(),
+      kind: z.literal("cube"),
+    })
+    .strict(),
+  z.object({ kind: z.literal("cuboid"), size: vec3Schema }).strict(),
+  z
+    .object({
+      edgeLength: finiteNumberSchema.positive(),
+      kind: z.literal("tetrahedron"),
+    })
+    .strict(),
+  z
+    .object({
+      base: z.array(vec2Schema).min(3).max(256),
+      height: finiteNumberSchema.positive(),
+      kind: z.literal("prism"),
+    })
+    .strict(),
+  z
+    .object({
+      apex: vec3Schema,
+      base: z.array(vec2Schema).min(3).max(256),
+      kind: z.literal("pyramid"),
+    })
+    .strict(),
+  z
+    .object({
+      height: finiteNumberSchema.positive(),
+      kind: z.literal("cylinder"),
+      radius: finiteNumberSchema.positive(),
+    })
+    .strict(),
+  z
+    .object({
+      height: finiteNumberSchema.positive(),
+      kind: z.literal("cone"),
+      radius: finiteNumberSchema.positive(),
+    })
+    .strict(),
+  z
+    .object({
+      bottomRadius: finiteNumberSchema.positive(),
+      height: finiteNumberSchema.positive(),
+      kind: z.literal("truncated-cone"),
+      topRadius: finiteNumberSchema.positive(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("sphere"),
+      radius: finiteNumberSchema.positive(),
+    })
+    .strict(),
+]);
+const solidPointAnchorSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("vertex"), vertexId: identifierSchema }).strict(),
+  z
+    .object({
+      edgeId: identifierSchema,
+      kind: z.literal("edge"),
+      parameter: finiteNumberSchema.min(0).max(1),
+    })
+    .strict(),
+  z
+    .object({
+      faceId: identifierSchema,
+      kind: z.literal("face"),
+      localCoordinates: vec2Schema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("analytic-surface"),
+      parameters: z.array(finiteNumberSchema).max(8),
+      surfaceId: identifierSchema,
+    })
+    .strict(),
+]);
+const solidPointSchema = z
+  .object({
+    anchor: solidPointAnchorSchema,
+    id: solidPointIdSchema,
+    label: z.string().min(1).max(32),
+    position: vec3Schema,
+  })
+  .strict();
+const solidSectionSchema = z
+  .object({
+    algorithmVersion: z.enum(["polyhedron-plane/1", "analytic-plane/1"]),
+    id: solidSectionIdSchema,
+    pointIds: z.tuple([
+      solidPointIdSchema,
+      solidPointIdSchema,
+      solidPointIdSchema,
+    ]),
+    visible: z.boolean(),
+  })
+  .strict();
+const solidProjectionSchema = z
+  .object({
+    hiddenEdgePolicy: z.enum(["dashed", "hidden"]),
+    kind: z.enum(["orthographic", "oblique", "perspective"]),
+    matrix: z.array(finiteNumberSchema).min(6).max(16),
+    origin: vec2Schema,
+    viewportScale: finiteNumberSchema.positive(),
+  })
+  .strict();
+const solidSourceSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("text-template"),
+      templateId: z.string().min(1).max(128),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("smart-ink"),
+      recognizerVersion: z.string().min(1).max(128),
+    })
+    .strict(),
+  z
+    .object({ importId: geometryImportIdSchema, kind: z.literal("geometryos") })
+    .strict(),
+]);
+const solidRecordSchema = z
+  .object({
+    boardObjectIds: z.array(boardObjectIdSchema).max(5_000),
+    definition: solidDefinitionSchema,
+    id: solid3DIdSchema,
+    points: z.array(solidPointSchema).max(32),
+    projection: solidProjectionSchema,
+    rootGroupId: groupIdSchema,
+    schemaVersion: z.literal("1.0"),
+    sections: z.array(solidSectionSchema).max(8),
+    source: solidSourceSchema,
+  })
+  .strict();
+
 function documentSchema(
   schemaVersion: "0.1" | "0.2" | "1.0" | "1.1" | "1.2",
   storedObjectSchema:
@@ -455,7 +615,13 @@ export const boardDocumentSchema01 = documentSchema("0.1", legacyObjectSchema);
 export const boardDocumentSchema02 = documentSchema("0.2", objectSchema10);
 export const boardDocumentSchema10 = documentSchema("1.0", objectSchema10);
 export const boardDocumentSchema11 = documentSchema("1.1", objectSchema11);
-export const boardDocumentSchema = documentSchema("1.2", objectSchema12);
+export const boardDocumentSchema12 = documentSchema("1.2", objectSchema12);
+export const boardDocumentSchema = boardDocumentSchema12
+  .extend({
+    schemaVersion: z.literal("1.3"),
+    solidModels: z.record(solid3DIdSchema, solidRecordSchema),
+  })
+  .strict();
 
 export const legacyBoardObjectKinds = new Set<string>([
   "drawing.pen-stroke",

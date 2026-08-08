@@ -10,9 +10,11 @@ import type {
   CommandId,
   GeometryImportId,
   GroupId,
+  Solid3DId,
 } from "../identifiers";
 import type { BoardObject } from "../objects";
 import type { Transform2D, Vec2, ViewportState } from "../primitives";
+import type { Solid3DRecord } from "../../solid-3d/definitions";
 
 export interface CommandMetadata {
   readonly actorId: ActorId;
@@ -97,6 +99,29 @@ export interface PasteContentCommand extends CommandMetadata {
   readonly groups: readonly BoardGroup[];
   readonly kind: "core.clipboard.paste";
   readonly objects: readonly BoardObject[];
+  readonly solidModels?: readonly Solid3DRecord[];
+}
+
+export interface CreateSolid3DCommand extends CommandMetadata {
+  readonly kind: "core.solid-3d.create";
+  readonly model: Solid3DRecord;
+  readonly group: BoardGroup;
+  readonly objects: readonly BoardObject[];
+}
+
+export interface UpdateSolid3DCommand extends CommandMetadata {
+  readonly expected: Solid3DRecord;
+  readonly kind: "core.solid-3d.update";
+  readonly replacement: Solid3DRecord;
+  readonly solidId: Solid3DId;
+}
+
+export interface ProjectSolid3DSectionCommand extends CommandMetadata {
+  readonly group: BoardGroup;
+  readonly kind: "core.solid-3d.project-section";
+  readonly objects: readonly BoardObject[];
+  readonly sectionId: string;
+  readonly solidId: Solid3DId;
 }
 
 export interface CutContentCommand extends CommandMetadata {
@@ -104,6 +129,7 @@ export interface CutContentCommand extends CommandMetadata {
   readonly groupIds: readonly GroupId[];
   readonly kind: "core.clipboard.cut";
   readonly objectIds: readonly BoardObjectId[];
+  readonly solidIds?: readonly Solid3DId[];
 }
 
 export interface MoveSelectionCommand extends CommandMetadata {
@@ -186,7 +212,10 @@ export type BoardCommand =
   | TranslateGeometryImportCommand
   | UpdateCoordinatePlotCommand
   | UpdateTextCommand
-  | SetViewportCommand;
+  | SetViewportCommand
+  | CreateSolid3DCommand
+  | UpdateSolid3DCommand
+  | ProjectSolid3DSectionCommand;
 
 export const boardCommandKinds = [
   "core.objects.add",
@@ -212,4 +241,7 @@ export const boardCommandKinds = [
   "core.document.rename",
   "core.text.update",
   "core.coordinate-plot.update",
+  "core.solid-3d.create",
+  "core.solid-3d.update",
+  "core.solid-3d.project-section",
 ] as const satisfies readonly BoardCommand["kind"][];

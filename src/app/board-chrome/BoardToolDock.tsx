@@ -52,6 +52,8 @@ interface BoardToolDockProps {
   readonly selectedStyle: ObjectStyle | undefined;
   readonly selectionInspectorOpen: boolean;
   readonly onDeleteSelection: () => void;
+  readonly canOpenSolid3D: boolean;
+  readonly onOpenSolid3D: () => void;
   readonly onSelectionLockChange: (locked: boolean) => void;
   readonly onSelectionStyleChange: (patch: Partial<ObjectStyle>) => void;
   readonly onGeneratedFigureLabelsChange: (visible: boolean) => void;
@@ -475,6 +477,15 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 Удалить
               </button>
             </div>
+            {props.canOpenSolid3D ? (
+              <button
+                className="dock-solid-3d-action"
+                onClick={props.onOpenSolid3D}
+                type="button"
+              >
+                Открыть в 3D
+              </button>
+            ) : null}
           </div>
           {props.generatedFigureLabelsVisible === null ? null : (
             <div className="dock-generated-label-controls">

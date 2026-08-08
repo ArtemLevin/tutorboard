@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -47,6 +49,10 @@ import {
   type PenStrokeObject,
   type VisualStyleOverride,
   type ViewportState,
+  type Solid3DId,
+  type Solid3DRecord,
+  type SolidSectionResult,
+  solid3DId,
 } from "../core/public";
 import {
   copyBoardSelection,
@@ -132,6 +138,11 @@ import {
 } from "../modules/selection/public";
 import { createSetSelectionStyleCommand } from "../modules/styling/public";
 import {
+  createProjectSolid3DSectionCommand,
+  createUpdateSolid3DCommand,
+  findSolidModelBySelection,
+} from "../modules/solid-3d/public";
+import {
   createUpdateTextCommand,
   isEditableTextObject,
 } from "../modules/text-editing/public";
@@ -189,6 +200,12 @@ import {
   type GeometryPromptViewState,
 } from "./GeometryPromptPanel";
 import "./styles.css";
+
+const LazySolid3DEditorPanel = lazy(() =>
+  import("./solid-3d/Solid3DEditorPanel").then((module) => ({
+    default: module.Solid3DEditorPanel,
+  })),
+);
 
 const environment = readEnvironment();
 const localActorId = actorId("actor:local-teacher");
@@ -402,6 +419,9 @@ export function App({
   const selectionStateRef = useRef<SelectionState>(initialSelectionState);
   const [coordinatePlotEditor, setCoordinatePlotEditor] =
     useState<CoordinatePlotEditorSession | null>(null);
+  const [solid3DEditorId, setSolid3DEditorId] = useState<Solid3DId | null>(
+    null,
+  );
   const [selectionInspectorObjectId, setSelectionInspectorObjectId] =
     useState<BoardObjectId | null>(null);
   const [textDraft, setTextDraft] = useState("Новый текст");
@@ -841,6 +861,7 @@ export function App({
     let objectSequence = 0;
     let groupSequence = 0;
     let importSequence = 0;
+    let solidSequence = 0;
     const command = createPasteContentCommand(
       clipboard,
       {
@@ -854,6 +875,7 @@ export function App({
         group: () => groupId(`group:paste:${token}:${groupSequence++}`),
         object: () =>
           boardObjectId(`object:paste:${token}:${objectSequence++}`),
+        solid3D: () => solid3DId(`solid:paste:${token}:${solidSequence++}`),
       },
     );
     const result = commitCommand(command);
@@ -2927,6 +2949,13 @@ export function App({
     document,
     selectionState.selectedObjectIds,
   );
+  const selectedSolid3D = environment.features.solid3D
+    ? findSolidModelBySelection(document, selectionState.selectedObjectIds)
+    : null;
+  const solid3DEditorRecord: Solid3DRecord | null =
+    solid3DEditorId === null
+      ? null
+      : (document.solidModels[solid3DEditorId] ?? null);
   const selectedTextShapeVertex =
     vertexConstructionObjectId === null
       ? null
@@ -3127,6 +3156,7 @@ export function App({
               )
             }
             canPaste={clipboard !== null}
+            canOpenSolid3D={selectedSolid3D !== null}
             context={
               canvasContextMenu.objectId === null ? "canvas" : "selection"
             }
@@ -3138,6 +3168,11 @@ export function App({
             onClose={() => setCanvasContextMenu(null)}
             onCopy={() => {
               copySelection();
+              setCanvasContextMenu(null);
+            }}
+            onOpenSolid3D={() => {
+              if (selectedSolid3D !== null)
+                setSolid3DEditorId(selectedSolid3D.id);
               setCanvasContextMenu(null);
             }}
             onPaste={() => {
@@ -3193,6 +3228,58 @@ export function App({
               selectedSeriesId={coordinatePlotEditor.selectedSeriesId}
             />
           </>
+        )}
+        {solid3DEditorRecord === null ? null : (
+          <Suspense
+            fallback={
+              <div className="board-toast is-info" role="status">
+                Загрузка 3D-редактора…
+              </div>
+            }
+          >
+            <LazySolid3DEditorPanel
+              onClose={() => setSolid3DEditorId(null)}
+              onProject={(sectionId: string, section: SolidSectionResult) => {
+                const sourceGroup =
+                  documentRef.current.groups[solid3DEditorRecord.rootGroupId];
+                const command = createProjectSolid3DSectionCommand({
+                  metadata: createCommandMetadata(),
+                  record: solid3DEditorRecord,
+                  section,
+                  sectionId,
+                  token: crypto.randomUUID(),
+                  translation: {
+                    x: (sourceGroup?.transform.translation.x ?? 0) + 280,
+                    y: sourceGroup?.transform.translation.y ?? 0,
+                  },
+                });
+                const result = commitCommand(command);
+                if (result.ok) {
+                  setAccessibilityNotice("Сечение добавлено на доску");
+                  const selected = {
+                    interaction: { kind: "idle" } as const,
+                    selectedObjectIds: command.objects.map(({ id }) => id),
+                  };
+                  selectionStateRef.current = selected;
+                  setSelectionState(selected);
+                }
+              }}
+              onRecordChange={(replacement: Solid3DRecord) => {
+                const current = documentRef.current.solidModels[replacement.id];
+                if (current === undefined) return;
+                commitCommand(
+                  createUpdateSolid3DCommand({
+                    expected: current,
+                    metadata: createCommandMetadata(),
+                    replacement,
+                  }),
+                );
+              }}
+              onUndo={undo}
+              readOnly={readOnly}
+              record={solid3DEditorRecord}
+            />
+          </Suspense>
         )}
         {handwrittenFunctionPanelOpen ? (
           <HandwrittenFunctionPanel
@@ -3264,6 +3351,11 @@ export function App({
           onActivate={(tool) => activateTool(tool as ActiveToolId)}
           onCreatePlot={createCoordinatePlot}
           onDeleteSelection={deleteSelection}
+          canOpenSolid3D={selectedSolid3D !== null}
+          onOpenSolid3D={() => {
+            if (selectedSolid3D !== null)
+              setSolid3DEditorId(selectedSolid3D.id);
+          }}
           onGeometryToggle={() => setGeometryPromptOpen((current) => !current)}
           onGeneratedFigureLabelsChange={setGeneratedFigureLabelsVisible}
           onGeneratedFigureLabelsMove={moveGeneratedFigureLabels}

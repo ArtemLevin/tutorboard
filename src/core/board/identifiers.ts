@@ -15,6 +15,9 @@ export type GeometryImportId = Brand<string, "GeometryImportId">;
 export type GroupId = Brand<string, "GroupId">;
 export type PlotParameterId = Brand<string, "PlotParameterId">;
 export type PlotSeriesId = Brand<string, "PlotSeriesId">;
+export type Solid3DId = Brand<string, "Solid3DId">;
+export type SolidPointId = Brand<string, "SolidPointId">;
+export type SolidSectionId = Brand<string, "SolidSectionId">;
 
 export function isValidIdentifier(value: string): boolean {
   return identifierPattern.test(value) && !unsafeRecordKeys.has(value);
@@ -61,4 +64,16 @@ export function plotParameterId(value: string): PlotParameterId {
 
 export function plotSeriesId(value: string): PlotSeriesId {
   return toIdentifier(value, "PlotSeriesId");
+}
+
+export function solid3DId(value: string): Solid3DId {
+  return toIdentifier(value, "Solid3DId");
+}
+
+export function solidPointId(value: string): SolidPointId {
+  return toIdentifier(value, "SolidPointId");
+}
+
+export function solidSectionId(value: string): SolidSectionId {
+  return toIdentifier(value, "SolidSectionId");
 }

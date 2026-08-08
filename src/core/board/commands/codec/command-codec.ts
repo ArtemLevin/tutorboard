@@ -8,6 +8,7 @@ import {
   type CommandId,
   type GeometryImportId,
   type GroupId,
+  type Solid3DId,
 } from "../../identifiers";
 import { strokeStyles, type BoardObject } from "../../objects";
 import type { GeometryImportRecord } from "../../geometry-imports";
@@ -34,6 +35,9 @@ const boardObjectIdSchema = identifierSchema.transform(
 const groupIdSchema = identifierSchema.transform((value) => value as GroupId);
 const geometryImportIdSchema = identifierSchema.transform(
   (value) => value as GeometryImportId,
+);
+const solid3DIdSchema = identifierSchema.transform(
+  (value) => value as Solid3DId,
 );
 const timestampSchema = z.iso.datetime({ offset: true });
 const finiteNumberSchema = z.number().finite();
@@ -179,6 +183,38 @@ const geometryImportSchema = z.unknown().transform((value, context) => {
   return imported as GeometryImportRecord;
 });
 
+const solid3DRecordSchema = z.unknown().transform((value, context) => {
+  if (!record(value) || typeof value.id !== "string") {
+    context.addIssue({
+      code: "custom",
+      message: "Solid model requires an identifier.",
+    });
+    return z.NEVER;
+  }
+  const parsed = boardDocumentSchema.shape.solidModels.safeParse({
+    [value.id]: value,
+  });
+  if (!parsed.success) {
+    forwardIssues(
+      context,
+      parsed.error.issues.map((issue) => ({
+        ...issue,
+        path: issue.path.slice(1),
+      })),
+    );
+    return z.NEVER;
+  }
+  const solid = parsed.data[value.id as Solid3DId];
+  if (solid === undefined) {
+    context.addIssue({
+      code: "custom",
+      message: "Solid model could not be decoded.",
+    });
+    return z.NEVER;
+  }
+  return solid;
+});
+
 const coordinatePlotDefinitionSchema = z
   .unknown()
   .transform((value, context) => {
@@ -244,6 +280,9 @@ const groupsSchema = z.array(boardGroupSchema).max(maximumBoardCommandObjects);
 const importsSchema = z
   .array(geometryImportSchema)
   .max(maximumBoardCommandObjects);
+const solidsSchema = z
+  .array(solid3DRecordSchema)
+  .max(maximumBoardCommandObjects);
 
 export const boardCommandSchema = z.discriminatedUnion("kind", [
   z
@@ -269,6 +308,10 @@ export const boardCommandSchema = z.discriminatedUnion("kind", [
       groupIds: groupIdsSchema,
       kind: z.literal("core.clipboard.cut"),
       objectIds: objectIdsSchema,
+      solidIds: z
+        .array(solid3DIdSchema)
+        .max(maximumBoardCommandTargets)
+        .optional(),
     })
     .strict(),
   z
@@ -278,6 +321,7 @@ export const boardCommandSchema = z.discriminatedUnion("kind", [
       groups: groupsSchema,
       kind: z.literal("core.clipboard.paste"),
       objects: objectsSchema,
+      solidModels: solidsSchema.optional(),
     })
     .strict(),
   z
@@ -431,6 +475,34 @@ export const boardCommandSchema = z.discriminatedUnion("kind", [
       kind: z.literal("core.coordinate-plot.update"),
       objectId: boardObjectIdSchema,
       replacement: coordinatePlotDefinitionSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...metadata,
+      group: boardGroupSchema,
+      kind: z.literal("core.solid-3d.create"),
+      model: solid3DRecordSchema,
+      objects: objectsSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...metadata,
+      expected: solid3DRecordSchema,
+      kind: z.literal("core.solid-3d.update"),
+      replacement: solid3DRecordSchema,
+      solidId: solid3DIdSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...metadata,
+      group: boardGroupSchema,
+      kind: z.literal("core.solid-3d.project-section"),
+      objects: objectsSchema,
+      sectionId: identifierSchema,
+      solidId: solid3DIdSchema,
     })
     .strict(),
 ]);

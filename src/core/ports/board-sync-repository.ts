@@ -126,7 +126,7 @@ export interface BoardServerRecovery {
     readonly documentId: DocumentId;
     readonly documentSha256: string;
     readonly revision: number;
-    readonly schemaVersion: "1.2";
+    readonly schemaVersion: "1.1" | "1.2" | "1.3";
   } | null;
 }
 
