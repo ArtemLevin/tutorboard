@@ -1,6 +1,7 @@
 import * as THREE from "three";
 
 import {
+  analyticSurfaceIds,
   createSolidTopology,
   type Solid3DDefinition,
   type SolidTopology,
@@ -28,6 +29,83 @@ function polyhedronGeometry(topology: SolidTopology): THREE.BufferGeometry {
         positions.push(point.x, point.y, point.z);
     }
   }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function hemisphereGeometry(
+  radius: number,
+  radialSegments = 48,
+  verticalSegments = 18,
+): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const point = (polar: number, azimuth: number): THREE.Vector3 => {
+    const horizontal = radius * Math.sin(polar);
+    return new THREE.Vector3(
+      horizontal * Math.cos(azimuth),
+      radius * Math.cos(polar),
+      horizontal * Math.sin(azimuth),
+    );
+  };
+  const pushTriangle = (
+    first: THREE.Vector3,
+    second: THREE.Vector3,
+    third: THREE.Vector3,
+  ): void => {
+    positions.push(
+      first.x,
+      first.y,
+      first.z,
+      second.x,
+      second.y,
+      second.z,
+      third.x,
+      third.y,
+      third.z,
+    );
+  };
+
+  for (let row = 0; row < verticalSegments; row += 1) {
+    const polar0 = (row * Math.PI) / (verticalSegments * 2);
+    const polar1 = ((row + 1) * Math.PI) / (verticalSegments * 2);
+    for (let column = 0; column < radialSegments; column += 1) {
+      const azimuth0 = (column * Math.PI * 2) / radialSegments;
+      const azimuth1 = ((column + 1) * Math.PI * 2) / radialSegments;
+      const topLeft = point(polar0, azimuth0);
+      const topRight = point(polar0, azimuth1);
+      const bottomLeft = point(polar1, azimuth0);
+      const bottomRight = point(polar1, azimuth1);
+      if (row === 0) {
+        pushTriangle(topLeft, bottomRight, bottomLeft);
+      } else {
+        pushTriangle(topLeft, bottomRight, bottomLeft);
+        pushTriangle(topLeft, topRight, bottomRight);
+      }
+    }
+  }
+
+  const center = new THREE.Vector3(0, 0, 0);
+  for (let column = 0; column < radialSegments; column += 1) {
+    const azimuth0 = (column * Math.PI * 2) / radialSegments;
+    const azimuth1 = ((column + 1) * Math.PI * 2) / radialSegments;
+    const current = new THREE.Vector3(
+      radius * Math.cos(azimuth0),
+      0,
+      radius * Math.sin(azimuth0),
+    );
+    const next = new THREE.Vector3(
+      radius * Math.cos(azimuth1),
+      0,
+      radius * Math.sin(azimuth1),
+    );
+    pushTriangle(center, current, next);
+  }
+
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     "position",
@@ -74,6 +152,8 @@ function analyticGeometry(definition: Solid3DDefinition): THREE.BufferGeometry {
   switch (definition.kind) {
     case "sphere":
       return new THREE.SphereGeometry(definition.radius, 48, 28);
+    case "hemisphere":
+      return hemisphereGeometry(definition.radius);
     case "cylinder":
       return new THREE.CylinderGeometry(
         definition.radius,
@@ -125,6 +205,7 @@ export function buildSolidScene(
         ),
       ) ?? [],
     semanticKind: "face",
+    semanticSurfaceIds: analyticSurfaceIds(definition),
   };
   const edges = new THREE.LineSegments(
     new THREE.EdgesGeometry(geometry, 12),
