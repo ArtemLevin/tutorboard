@@ -3,15 +3,12 @@ import {
   type CoordinatePlotDefinition,
   type PlotSeriesId,
 } from "../../core/public";
-import {
-  updateCoordinatePlotSeriesInput as updateModelSeriesInput,
-} from "./model";
+import { updateCoordinatePlotSeriesInput as updateModelSeriesInput } from "./model";
 
 function strictBoundary(expression: string): boolean {
   const relation = parsePlotRelation(expression);
   return (
-    relation.ok &&
-    (relation.operator === "<" || relation.operator === ">")
+    relation.ok && (relation.operator === "<" || relation.operator === ">")
   );
 }
 
