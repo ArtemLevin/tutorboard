@@ -243,7 +243,10 @@ export class BoardSyncEngine {
     // Keep durable ordering independent from network synchronization. Handling
     // rejection here also prevents a durable-write failure from becoming an
     // unhandled promise while the network serial is still busy.
-    this.#durableSerial = pending.then(() => undefined, () => undefined);
+    this.#durableSerial = pending.then(
+      () => undefined,
+      () => undefined,
+    );
     return pending;
   }
 
