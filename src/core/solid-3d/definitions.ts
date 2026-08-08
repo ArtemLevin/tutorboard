@@ -171,8 +171,12 @@ export function solidDefinitionFromTemplate(
       kind: "truncated-cone",
       topRadius: 0.75,
     };
-  if (templateId === "sphere" || templateId === "hemisphere")
-    return { kind: "sphere", radius: 1.4 };
+  if (templateId === "sphere") return { kind: "sphere", radius: 1.4 };
+  // Hemisphere and octahedron currently have accurate static board templates,
+  // while the semantic 3D kernel has no matching definition. Returning null
+  // keeps those templates visual-only and prevents the hemisphere from being
+  // silently treated as a full sphere during section calculations.
+  if (templateId === "hemisphere" || templateId === "octahedron") return null;
   const prism = /^prism-(\d+)$/u.exec(templateId)?.[1];
   if (prism !== undefined) {
     const sides = Number(prism);
