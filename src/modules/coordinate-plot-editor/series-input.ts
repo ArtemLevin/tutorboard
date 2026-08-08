@@ -7,10 +7,7 @@ import { updateCoordinatePlotSeriesInput as updateModelSeriesInput } from "./mod
 
 function strictBoundary(expression: string): boolean {
   const relation = parsePlotRelation(expression);
-  return (
-    relation.ok &&
-    (relation.operator === "<" || relation.operator === ">")
-  );
+  return relation.ok && (relation.operator === "<" || relation.operator === ">");
 }
 
 export function updateCoordinatePlotSeriesInput(
