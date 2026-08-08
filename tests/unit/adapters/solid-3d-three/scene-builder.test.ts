@@ -18,7 +18,9 @@ describe("buildSolidScene", () => {
     const scene = buildSolidScene({ kind: "hemisphere", radius: 2 });
     try {
       expect(scene.topology).toBeNull();
-      expect(scene.mesh.geometry.getAttribute("position").count).toBeGreaterThan(100);
+      expect(
+        scene.mesh.geometry.getAttribute("position").count,
+      ).toBeGreaterThan(100);
       expect(scene.mesh.userData.semanticSurfaceIds).toEqual([
         "surface:hemisphere-curved",
         "surface:hemisphere-base",
@@ -40,7 +42,9 @@ describe("buildSolidScene", () => {
       const scene = buildSolidScene(definition);
       try {
         expect(scene.topology).not.toBeNull();
-        expect(scene.mesh.geometry.getAttribute("position").count).toBeGreaterThan(0);
+        expect(
+          scene.mesh.geometry.getAttribute("position").count,
+        ).toBeGreaterThan(0);
       } finally {
         disposeScene(scene);
       }
