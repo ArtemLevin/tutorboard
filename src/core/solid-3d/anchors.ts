@@ -19,19 +19,27 @@ export type SolidAnalyticSurfaceId =
   | "surface:truncated-cone-top";
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
+const finiteParameter = (
+  parameters: readonly number[],
+  index: number,
+): number | null => {
+  const value = parameters[index];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+};
 
 function diskPoint(
   radius: number,
   y: number,
   parameters: readonly number[],
 ): Vec3 | null {
-  const [angle, radialParameter] = parameters;
-  if (!Number.isFinite(angle) || !Number.isFinite(radialParameter)) return null;
-  const radial = clamp01(radialParameter!) * radius;
+  const angle = finiteParameter(parameters, 0);
+  const radialParameter = finiteParameter(parameters, 1);
+  if (angle === null || radialParameter === null) return null;
+  const radial = clamp01(radialParameter) * radius;
   return {
-    x: Math.cos(angle!) * radial,
+    x: Math.cos(angle) * radial,
     y,
-    z: Math.sin(angle!) * radial,
+    z: Math.sin(angle) * radial,
   };
 }
 
@@ -40,14 +48,15 @@ function sphericalPoint(
   parameters: readonly number[],
   maximumPolarAngle: number,
 ): Vec3 | null {
-  const [azimuth, polarAngle] = parameters;
-  if (!Number.isFinite(azimuth) || !Number.isFinite(polarAngle)) return null;
-  const polar = Math.min(maximumPolarAngle, Math.max(0, polarAngle!));
+  const azimuth = finiteParameter(parameters, 0);
+  const polarAngle = finiteParameter(parameters, 1);
+  if (azimuth === null || polarAngle === null) return null;
+  const polar = Math.min(maximumPolarAngle, Math.max(0, polarAngle));
   const horizontalRadius = radius * Math.sin(polar);
   return {
-    x: horizontalRadius * Math.cos(azimuth!),
+    x: horizontalRadius * Math.cos(azimuth),
     y: radius * Math.cos(polar),
-    z: horizontalRadius * Math.sin(azimuth!),
+    z: horizontalRadius * Math.sin(azimuth),
   };
 }
 
@@ -57,14 +66,15 @@ function revolutionSidePoint(
   height: number,
   parameters: readonly number[],
 ): Vec3 | null {
-  const [angle, heightParameter] = parameters;
-  if (!Number.isFinite(angle) || !Number.isFinite(heightParameter)) return null;
-  const progress = clamp01(heightParameter!);
+  const angle = finiteParameter(parameters, 0);
+  const heightParameter = finiteParameter(parameters, 1);
+  if (angle === null || heightParameter === null) return null;
+  const progress = clamp01(heightParameter);
   const radius = bottomRadius + (topRadius - bottomRadius) * progress;
   return {
-    x: Math.cos(angle!) * radius,
+    x: Math.cos(angle) * radius,
     y: -height / 2 + height * progress,
-    z: Math.sin(angle!) * radius,
+    z: Math.sin(angle) * radius,
   };
 }
 
