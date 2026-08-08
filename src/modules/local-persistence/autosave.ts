@@ -110,11 +110,15 @@ export class LocalDocumentAutosave {
   dispose(): void {
     this.#unbindLifecycleFlush?.();
     this.#unbindLifecycleFlush = null;
-    this.#disposed = true;
     if (this.#timer !== null) {
       clearTimeout(this.#timer);
       this.#timer = null;
     }
+    // SPA navigation can unmount the board without firing pagehide or
+    // visibilitychange. Move the latest debounced document into the durable
+    // save chain before rejecting future schedules.
+    this.#enqueueLatest();
+    this.#disposed = true;
   }
 
   #enqueueLatest(): void {
@@ -132,9 +136,8 @@ export class LocalDocumentAutosave {
 
   #enqueue(task: SaveTask): void {
     const persist = async () => {
-      if (this.#disposed) {
-        return;
-      }
+      // A save already accepted into this chain must be allowed to finish even
+      // after the owning React workspace has unmounted.
       this.#onStateChange({ kind: "saving" });
       const input: SaveBoardDocumentInput = {
         document: task.document,
