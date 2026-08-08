@@ -94,7 +94,8 @@ export function resolveSolidHitAnchor(
   faceIndex: number | undefined,
   semanticSurfaceFaceIds: readonly (SolidAnalyticSurfaceId | null)[],
 ): SolidHitPlacement | null {
-  if (topology !== null) return resolvePolyhedronHit(point, topology, faceIndex);
+  if (topology !== null)
+    return resolvePolyhedronHit(point, topology, faceIndex);
   const surfaceId = semanticSurfaceFaceIds[faceIndex ?? -1];
   return surfaceId === undefined || surfaceId === null
     ? null
