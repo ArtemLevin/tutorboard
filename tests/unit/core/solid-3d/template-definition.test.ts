@@ -10,11 +10,33 @@ describe("solidDefinitionFromTemplate", () => {
     });
   });
 
-  it("does not misrepresent a hemisphere as a full sphere", () => {
-    expect(solidDefinitionFromTemplate("hemisphere")).toBeNull();
+  it("maps hemisphere to its own semantic analytic definition", () => {
+    expect(solidDefinitionFromTemplate("hemisphere")).toEqual({
+      kind: "hemisphere",
+      radius: 1.4,
+    });
   });
 
-  it("keeps octahedron static until the semantic kernel supports it", () => {
-    expect(solidDefinitionFromTemplate("octahedron")).toBeNull();
+  it("maps octahedron to a semantic polyhedron", () => {
+    expect(solidDefinitionFromTemplate("octahedron")).toEqual({
+      edgeLength: 2.6,
+      kind: "octahedron",
+    });
+  });
+
+  it("supports future regular-polyhedron and truncated-pyramid template ids", () => {
+    expect(solidDefinitionFromTemplate("dodecahedron")).toMatchObject({
+      kind: "regular-polyhedron",
+      variant: "dodecahedron",
+    });
+    expect(solidDefinitionFromTemplate("icosahedron")).toMatchObject({
+      kind: "regular-polyhedron",
+      variant: "icosahedron",
+    });
+    expect(solidDefinitionFromTemplate("truncated-pyramid-5")).toMatchObject({
+      bottomBase: { length: 5 },
+      kind: "truncated-pyramid",
+      topBase: { length: 5 },
+    });
   });
 });
