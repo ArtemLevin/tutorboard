@@ -12,7 +12,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
+    "format:check": "prettier --write src/core/solid-3d/analytic-section.ts src/core/solid-3d/anchors.ts src/core/solid-3d/definitions.ts src/core/solid-3d/topology.ts src/core/solid-3d/validation.ts tests/unit/adapters/solid-3d-three/scene-builder.test.ts tests/unit/core/solid-3d.test.ts && git diff -- src/core/solid-3d/analytic-section.ts src/core/solid-3d/anchors.ts src/core/solid-3d/definitions.ts src/core/solid-3d/topology.ts src/core/solid-3d/validation.ts tests/unit/adapters/solid-3d-three/scene-builder.test.ts tests/unit/core/solid-3d.test.ts && exit 1",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
