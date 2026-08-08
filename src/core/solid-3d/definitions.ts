@@ -20,6 +20,21 @@ export interface TetrahedronDefinition {
   readonly kind: "tetrahedron";
   readonly edgeLength: number;
 }
+export interface OctahedronDefinition {
+  readonly kind: "octahedron";
+  readonly edgeLength: number;
+}
+export type RegularPolyhedronVariant =
+  | "tetrahedron"
+  | "cube"
+  | "octahedron"
+  | "dodecahedron"
+  | "icosahedron";
+export interface RegularPolyhedronDefinition {
+  readonly kind: "regular-polyhedron";
+  readonly variant: RegularPolyhedronVariant;
+  readonly edgeLength: number;
+}
 export interface PrismDefinition {
   readonly kind: "prism";
   readonly base: readonly Vec2[];
@@ -29,6 +44,12 @@ export interface PyramidDefinition {
   readonly kind: "pyramid";
   readonly base: readonly Vec2[];
   readonly apex: Vec3;
+}
+export interface TruncatedPyramidDefinition {
+  readonly kind: "truncated-pyramid";
+  readonly bottomBase: readonly Vec2[];
+  readonly topBase: readonly Vec2[];
+  readonly height: number;
 }
 export interface CylinderDefinition {
   readonly kind: "cylinder";
@@ -50,17 +71,25 @@ export interface SphereDefinition {
   readonly kind: "sphere";
   readonly radius: number;
 }
+export interface HemisphereDefinition {
+  readonly kind: "hemisphere";
+  readonly radius: number;
+}
 
 export type Solid3DDefinition =
   | ConeDefinition
   | CubeDefinition
   | CuboidDefinition
   | CylinderDefinition
+  | HemisphereDefinition
+  | OctahedronDefinition
   | PrismDefinition
   | PyramidDefinition
+  | RegularPolyhedronDefinition
   | SphereDefinition
   | TetrahedronDefinition
-  | TruncatedConeDefinition;
+  | TruncatedConeDefinition
+  | TruncatedPyramidDefinition;
 
 export interface SolidVertex {
   readonly id: string;
@@ -153,6 +182,15 @@ export function regularBase(sides: number, radius = 1): readonly Vec2[] {
   });
 }
 
+function regularTruncatedPyramid(sides: number): TruncatedPyramidDefinition {
+  return {
+    bottomBase: regularBase(sides, 1.35),
+    height: 2.8,
+    kind: "truncated-pyramid",
+    topBase: regularBase(sides, 0.75),
+  };
+}
+
 export function solidDefinitionFromTemplate(
   templateId: string,
 ): Solid3DDefinition | null {
@@ -161,6 +199,20 @@ export function solidDefinitionFromTemplate(
     return { kind: "cuboid", size: { x: 3, y: 2, z: 1.7 } };
   if (templateId === "tetrahedron")
     return { edgeLength: 2.6, kind: "tetrahedron" };
+  if (templateId === "octahedron")
+    return { edgeLength: 2.6, kind: "octahedron" };
+  if (templateId === "dodecahedron")
+    return {
+      edgeLength: 2,
+      kind: "regular-polyhedron",
+      variant: "dodecahedron",
+    };
+  if (templateId === "icosahedron")
+    return {
+      edgeLength: 2,
+      kind: "regular-polyhedron",
+      variant: "icosahedron",
+    };
   if (templateId === "cylinder")
     return { height: 3, kind: "cylinder", radius: 1.2 };
   if (templateId === "cone") return { height: 3, kind: "cone", radius: 1.3 };
@@ -172,11 +224,14 @@ export function solidDefinitionFromTemplate(
       topRadius: 0.75,
     };
   if (templateId === "sphere") return { kind: "sphere", radius: 1.4 };
-  // Hemisphere and octahedron currently have accurate static board templates,
-  // while the semantic 3D kernel has no matching definition. Returning null
-  // keeps those templates visual-only and prevents the hemisphere from being
-  // silently treated as a full sphere during section calculations.
-  if (templateId === "hemisphere" || templateId === "octahedron") return null;
+  if (templateId === "hemisphere")
+    return { kind: "hemisphere", radius: 1.4 };
+  if (templateId === "truncated-pyramid") return regularTruncatedPyramid(4);
+  const truncatedPyramid = /^truncated-pyramid-(\d+)$/u.exec(templateId)?.[1];
+  if (truncatedPyramid !== undefined) {
+    const sides = Number(truncatedPyramid);
+    return sides >= 3 && sides <= 32 ? regularTruncatedPyramid(sides) : null;
+  }
   const prism = /^prism-(\d+)$/u.exec(templateId)?.[1];
   if (prism !== undefined) {
     const sides = Number(prism);
