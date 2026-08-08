@@ -37,10 +37,7 @@ describe("buildSolidScene", () => {
         triangleCount(scene.mesh.geometry),
       );
       expect(new Set(scene.semanticSurfaceFaceIds)).toEqual(
-        new Set([
-          "surface:hemisphere-curved",
-          "surface:hemisphere-base",
-        ]),
+        new Set(["surface:hemisphere-curved", "surface:hemisphere-base"]),
       );
     } finally {
       disposeScene(scene);
