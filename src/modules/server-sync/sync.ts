@@ -243,10 +243,7 @@ export class BoardSyncEngine {
     // Keep durable ordering independent from network synchronization. Handling
     // rejection here also prevents a durable-write failure from becoming an
     // unhandled promise while the network serial is still busy.
-    this.#durableSerial = pending.then(
-      () => undefined,
-      () => undefined,
-    );
+    this.#durableSerial = pending.then(() => undefined, () => undefined);
     return pending;
   }
 
@@ -254,10 +251,16 @@ export class BoardSyncEngine {
     const context = this.#context;
     const confirmed = this.#confirmed;
     if (context === null || confirmed === null) {
-      this.#recover("board.sync.queue-failed", "Board sync engine is not ready.");
+      this.#recover(
+        "board.sync.queue-failed",
+        "Board sync engine is not ready.",
+      );
       return Promise.resolve();
     }
-    if (command.actorId !== context.actorId || document.id !== this.#documentId) {
+    if (
+      command.actorId !== context.actorId ||
+      document.id !== this.#documentId
+    ) {
       this.#recover(
         "board.sync.actor-or-document-mismatch",
         "Команда не соответствует активному пользователю или доске.",
@@ -299,7 +302,10 @@ export class BoardSyncEngine {
     const confirmed = this.#confirmed;
     const currentDocument = this.#document;
     if (context === null || confirmed === null || currentDocument === null) {
-      this.#recover("board.sync.undo-failed", "Board sync engine is not ready.");
+      this.#recover(
+        "board.sync.undo-failed",
+        "Board sync engine is not ready.",
+      );
       return Promise.resolve();
     }
 
@@ -381,10 +387,7 @@ export class BoardSyncEngine {
         );
       }
       const recovery = await this.#repository.load(this.#documentId);
-      if (
-        cached !== null &&
-        recovery.board.currentRevision < cached.revision
-      ) {
+      if (cached !== null && recovery.board.currentRevision < cached.revision) {
         throw new SyncRecoveryError(
           "board.sync.server-rollback",
           `Серверная ревизия ${recovery.board.currentRevision} ниже подтверждённой локальной ревизии ${cached.revision}.`,
