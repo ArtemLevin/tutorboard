@@ -3,8 +3,7 @@ import { expect, test } from "@playwright/test";
 test("copies, pastes, cuts and restores one selection", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
-  await page.getByRole("button", { name: "Фигуры" }).click();
-  await page.getByRole("menuitemradio", { name: "Прямоугольник (R)" }).click();
+  await page.keyboard.press("r");
   const bounds = await page.getByTestId("board-stage").boundingBox();
   expect(bounds).not.toBeNull();
   if (bounds === null) {

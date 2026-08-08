@@ -4,8 +4,7 @@ import { rightDoubleClickAt } from "./coordinate-plot-interaction.js";
 test("edits the persisted style of a selected object", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
-  await page.getByRole("button", { name: "Фигуры" }).click();
-  await page.getByRole("menuitemradio", { name: "Прямоугольник (R)" }).click();
+  await page.keyboard.press("r");
   const bounds = await page.getByTestId("board-stage").boundingBox();
   expect(bounds).not.toBeNull();
   if (bounds === null) {

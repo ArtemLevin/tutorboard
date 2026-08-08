@@ -179,9 +179,9 @@ test("uses the explicit selection tool for an existing figure", async ({
   page,
 }) => {
   await page.keyboard.press("r");
-  await expect(page.getByRole("button", { name: "Фигуры" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-drawing-mode",
+    "drawing.rectangle",
   );
 
   await page.keyboard.press("v");
