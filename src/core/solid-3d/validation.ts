@@ -13,7 +13,9 @@ export interface Solid3DDiagnostic {
   readonly message: string;
 }
 
-const finiteBase = (base: readonly { readonly x: number; readonly y: number }[]) =>
+const finiteBase = (
+  base: readonly { readonly x: number; readonly y: number }[],
+) =>
   base.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
 
 const validEdgeLength = (edgeLength: number): boolean =>
