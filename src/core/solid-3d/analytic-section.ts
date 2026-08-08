@@ -91,7 +91,10 @@ function sphereSection(
       };
 }
 
-function clipAboveBase(points: readonly Vec3[], epsilon = 1e-9): readonly Vec3[] {
+function clipAboveBase(
+  points: readonly Vec3[],
+  epsilon = 1e-9,
+): readonly Vec3[] {
   const result: Vec3[] = [];
   for (let index = 0; index < points.length; index += 1) {
     const current = points[index]!;
@@ -119,8 +122,7 @@ function hemisphereSection(
 ): SolidSectionResult | null {
   const circle = sphereCircle(radius, plane, samples);
   if (circle === null) return null;
-  const verticalAmplitude =
-    circle.radius * Math.hypot(circle.u.y, circle.v.y);
+  const verticalAmplitude = circle.radius * Math.hypot(circle.u.y, circle.v.y);
   const minimumY = circle.center.y - verticalAmplitude;
   const maximumY = circle.center.y + verticalAmplitude;
   if (maximumY <= 1e-9) {
