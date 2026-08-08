@@ -93,6 +93,30 @@
   padding: 2rem;
   text-align: center;
 }
+.solid-3d-fallback > div {
+  max-width: 520px;
+}
+.solid-3d-fallback strong {
+  display: block;
+  font-size: 1.05rem;
+}
+.solid-3d-fallback button {
+  padding: 0.55rem 0.85rem;
+  border: 1px solid #8f2f45;
+  border-radius: 8px;
+  color: #fff;
+  background: #8f2f45;
+  cursor: pointer;
+}
+.solid-3d-fallback details {
+  margin-top: 1rem;
+  color: #5e554d;
+  text-align: left;
+}
+.solid-3d-fallback summary {
+  cursor: pointer;
+  text-align: center;
+}
 .solid-3d-progress {
   position: absolute;
   left: 1rem;
