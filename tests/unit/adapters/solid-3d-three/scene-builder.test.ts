@@ -1,12 +1,14 @@
+import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
 import { buildSolidScene } from "../../../../src/adapters/solid-3d-three/scene-builder";
 
 function disposeScene(scene: ReturnType<typeof buildSolidScene>): void {
   scene.root.traverse((object) => {
-    if ("geometry" in object && object.geometry) object.geometry.dispose();
-    if ("material" in object && object.material) {
-      const material = object.material;
+    if ("geometry" in object && object.geometry instanceof THREE.BufferGeometry)
+      object.geometry.dispose();
+    if ("material" in object) {
+      const material = object.material as THREE.Material | THREE.Material[];
       if (Array.isArray(material)) material.forEach((item) => item.dispose());
       else material.dispose();
     }
