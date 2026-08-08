@@ -47,7 +47,9 @@ describe("resolveSolidHitAnchor", () => {
     expect(curved?.anchor).toMatchObject({
       surfaceId: "surface:hemisphere-curved",
     });
-    expect(base?.anchor).toMatchObject({ surfaceId: "surface:hemisphere-base" });
+    expect(base?.anchor).toMatchObject({
+      surfaceId: "surface:hemisphere-base",
+    });
     expect(base?.position.y).toBeCloseTo(0, 10);
   });
 
