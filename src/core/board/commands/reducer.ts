@@ -1,4 +1,10 @@
 import { validateCoordinatePlotDefinition } from "../coordinate-plot";
+import {
+  applySolidLearningAction,
+  resetSolidLearningAttempt,
+  summarizeSolidLearningAttempt,
+} from "../../solid-3d-learning/attempt";
+import type { Solid3DLearningAttempt } from "../../solid-3d-learning/types";
 import type { BoardDocument } from "../document";
 import type { GeometryImportRecord, VisualOverride } from "../geometry-imports";
 import type { BoardGroup } from "../groups";
@@ -41,6 +47,11 @@ import type {
   CreateSolid3DCommand,
   UpdateSolid3DCommand,
   ProjectSolid3DSectionCommand,
+  StartSolid3DLearningCommand,
+  ActSolid3DLearningCommand,
+  ResetSolid3DLearningCommand,
+  CompleteSolid3DLearningCommand,
+  RemoveSolid3DLearningCommand,
 } from "./commands";
 
 export type CommandErrorCode =
@@ -64,7 +75,10 @@ export type CommandErrorCode =
   | "command.stale-object"
   | "command.solid-exists"
   | "command.solid-missing"
-  | "command.stale-solid";
+  | "command.stale-solid"
+  | "command.learning-attempt-exists"
+  | "command.learning-attempt-missing"
+  | "command.stale-learning-attempt";
 
 export interface CommandError {
   readonly code: CommandErrorCode;
@@ -923,6 +937,167 @@ function projectSolid3DSection(
   });
 }
 
+function startSolid3DLearning(
+  document: BoardDocument,
+  command: StartSolid3DLearningCommand,
+): CommandResult {
+  const attempt = command.attempt;
+  if (ownValue(document.solidLearningAttempts, attempt.id) !== undefined)
+    return failure(
+      document,
+      "command.learning-attempt-exists",
+      "Learning attempt already exists.",
+    );
+  if (ownValue(document.solidModels, attempt.solidId) === undefined)
+    return failure(
+      document,
+      "command.solid-missing",
+      "Learning attempt references a missing solid.",
+    );
+  if (
+    attempt.revision !== 0 ||
+    attempt.updatedAt !== command.timestamp ||
+    attempt.startedAt !== command.timestamp ||
+    attempt.actorId !== command.actorId
+  )
+    return failure(
+      document,
+      "command.invalid",
+      "Learning attempt initial state is invalid.",
+    );
+  return accept(document, {
+    ...document,
+    solidLearningAttempts: {
+      ...document.solidLearningAttempts,
+      [attempt.id]: attempt,
+    },
+    updatedAt: command.timestamp,
+  });
+}
+
+function currentLearningAttempt(
+  document: BoardDocument,
+  attemptId: ActSolid3DLearningCommand["attemptId"],
+  expectedRevision: number,
+):
+  | { readonly attempt: Solid3DLearningAttempt }
+  | { readonly result: CommandResult } {
+  const attempt = ownValue(document.solidLearningAttempts, attemptId);
+  if (attempt === undefined)
+    return {
+      result: failure(
+        document,
+        "command.learning-attempt-missing",
+        "Learning attempt is missing.",
+      ),
+    };
+  if (attempt.revision !== expectedRevision)
+    return {
+      result: failure(
+        document,
+        "command.stale-learning-attempt",
+        "Learning attempt changed before this action.",
+      ),
+    };
+  return { attempt };
+}
+
+function replaceLearningAttempt(
+  document: BoardDocument,
+  attempt: Solid3DLearningAttempt,
+  timestamp: string,
+): CommandResult {
+  return accept(document, {
+    ...document,
+    solidLearningAttempts: {
+      ...document.solidLearningAttempts,
+      [attempt.id]: attempt,
+    },
+    updatedAt: timestamp,
+  });
+}
+
+function actSolid3DLearning(
+  document: BoardDocument,
+  command: ActSolid3DLearningCommand,
+): CommandResult {
+  const current = currentLearningAttempt(
+    document,
+    command.attemptId,
+    command.expectedRevision,
+  );
+  if ("result" in current) return current.result;
+  return replaceLearningAttempt(
+    document,
+    applySolidLearningAction(
+      current.attempt,
+      command.action,
+      command.timestamp,
+    ),
+    command.timestamp,
+  );
+}
+
+function resetSolid3DLearning(
+  document: BoardDocument,
+  command: ResetSolid3DLearningCommand,
+): CommandResult {
+  const current = currentLearningAttempt(
+    document,
+    command.attemptId,
+    command.expectedRevision,
+  );
+  if ("result" in current) return current.result;
+  return replaceLearningAttempt(
+    document,
+    resetSolidLearningAttempt(current.attempt, command.timestamp),
+    command.timestamp,
+  );
+}
+
+function completeSolid3DLearning(
+  document: BoardDocument,
+  command: CompleteSolid3DLearningCommand,
+): CommandResult {
+  const current = currentLearningAttempt(
+    document,
+    command.attemptId,
+    command.expectedRevision,
+  );
+  if ("result" in current) return current.result;
+  const result = summarizeSolidLearningAttempt(current.attempt);
+  return replaceLearningAttempt(
+    document,
+    {
+      ...current.attempt,
+      phase: "completed",
+      result,
+      revision: current.attempt.revision + 1,
+      updatedAt: command.timestamp,
+    },
+    command.timestamp,
+  );
+}
+
+function removeSolid3DLearning(
+  document: BoardDocument,
+  command: RemoveSolid3DLearningCommand,
+): CommandResult {
+  const current = currentLearningAttempt(
+    document,
+    command.attemptId,
+    command.expectedRevision,
+  );
+  if ("result" in current) return current.result;
+  const solidLearningAttempts = { ...document.solidLearningAttempts };
+  delete solidLearningAttempts[command.attemptId];
+  return accept(document, {
+    ...document,
+    solidLearningAttempts,
+    updatedAt: command.timestamp,
+  });
+}
+
 function cutContent(
   document: BoardDocument,
   command: CutContentCommand,
@@ -1011,6 +1186,12 @@ function cutContent(
       ([id]) => !solidSet.has(id as never),
     ),
   ) as BoardDocument["solidModels"];
+  const solidLearningAttempts = Object.fromEntries(
+    Object.entries(document.solidLearningAttempts).filter(
+      ([, attempt]) =>
+        attempt === undefined || solidModels[attempt.solidId] !== undefined,
+    ),
+  ) as BoardDocument["solidLearningAttempts"];
 
   return accept(document, {
     ...document,
@@ -1018,6 +1199,7 @@ function cutContent(
     groups,
     objects,
     solidModels,
+    solidLearningAttempts,
     order: document.order.filter((id) => !objectSet.has(id)),
     updatedAt: command.timestamp,
   });
@@ -1534,6 +1716,12 @@ function deleteObjects(
         !record.boardObjectIds.every((id) => deleted.has(id)),
     ),
   ) as BoardDocument["solidModels"];
+  const solidLearningAttempts = Object.fromEntries(
+    Object.entries(document.solidLearningAttempts).filter(
+      ([, attempt]) =>
+        attempt === undefined || solidModels[attempt.solidId] !== undefined,
+    ),
+  ) as BoardDocument["solidLearningAttempts"];
 
   return accept(document, {
     ...document,
@@ -1541,6 +1729,7 @@ function deleteObjects(
     objects,
     groups,
     solidModels,
+    solidLearningAttempts,
     order: document.order.filter((id) => !deleted.has(id)),
   });
 }
@@ -1938,6 +2127,16 @@ export function reduceBoardDocument(
       return updateSolid3D(document, command);
     case "core.solid-3d.project-section":
       return projectSolid3DSection(document, command);
+    case "core.solid-3d-learning.start":
+      return startSolid3DLearning(document, command);
+    case "core.solid-3d-learning.act":
+      return actSolid3DLearning(document, command);
+    case "core.solid-3d-learning.reset":
+      return resetSolid3DLearning(document, command);
+    case "core.solid-3d-learning.complete":
+      return completeSolid3DLearning(document, command);
+    case "core.solid-3d-learning.remove":
+      return removeSolid3DLearning(document, command);
     default:
       return assertNever(command);
   }

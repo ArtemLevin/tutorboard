@@ -11,10 +11,15 @@ import type {
   GeometryImportId,
   GroupId,
   Solid3DId,
+  SolidLearningAttemptId,
 } from "../identifiers";
 import type { BoardObject } from "../objects";
 import type { Transform2D, Vec2, ViewportState } from "../primitives";
 import type { Solid3DRecord } from "../../solid-3d/definitions";
+import type {
+  Solid3DLearningAttempt,
+  SolidLearningAttemptAction,
+} from "../../solid-3d-learning/types";
 
 export interface CommandMetadata {
   readonly actorId: ActorId;
@@ -124,6 +129,36 @@ export interface ProjectSolid3DSectionCommand extends CommandMetadata {
   readonly solidId: Solid3DId;
 }
 
+export interface StartSolid3DLearningCommand extends CommandMetadata {
+  readonly attempt: Solid3DLearningAttempt;
+  readonly kind: "core.solid-3d-learning.start";
+}
+
+export interface ActSolid3DLearningCommand extends CommandMetadata {
+  readonly action: SolidLearningAttemptAction;
+  readonly attemptId: SolidLearningAttemptId;
+  readonly expectedRevision: number;
+  readonly kind: "core.solid-3d-learning.act";
+}
+
+export interface ResetSolid3DLearningCommand extends CommandMetadata {
+  readonly attemptId: SolidLearningAttemptId;
+  readonly expectedRevision: number;
+  readonly kind: "core.solid-3d-learning.reset";
+}
+
+export interface CompleteSolid3DLearningCommand extends CommandMetadata {
+  readonly attemptId: SolidLearningAttemptId;
+  readonly expectedRevision: number;
+  readonly kind: "core.solid-3d-learning.complete";
+}
+
+export interface RemoveSolid3DLearningCommand extends CommandMetadata {
+  readonly attemptId: SolidLearningAttemptId;
+  readonly expectedRevision: number;
+  readonly kind: "core.solid-3d-learning.remove";
+}
+
 export interface CutContentCommand extends CommandMetadata {
   readonly geometryImportIds: readonly GeometryImportId[];
   readonly groupIds: readonly GroupId[];
@@ -215,7 +250,12 @@ export type BoardCommand =
   | SetViewportCommand
   | CreateSolid3DCommand
   | UpdateSolid3DCommand
-  | ProjectSolid3DSectionCommand;
+  | ProjectSolid3DSectionCommand
+  | StartSolid3DLearningCommand
+  | ActSolid3DLearningCommand
+  | ResetSolid3DLearningCommand
+  | CompleteSolid3DLearningCommand
+  | RemoveSolid3DLearningCommand;
 
 export const boardCommandKinds = [
   "core.objects.add",
@@ -244,4 +284,9 @@ export const boardCommandKinds = [
   "core.solid-3d.create",
   "core.solid-3d.update",
   "core.solid-3d.project-section",
+  "core.solid-3d-learning.start",
+  "core.solid-3d-learning.act",
+  "core.solid-3d-learning.reset",
+  "core.solid-3d-learning.complete",
+  "core.solid-3d-learning.remove",
 ] as const satisfies readonly BoardCommand["kind"][];

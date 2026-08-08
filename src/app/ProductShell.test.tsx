@@ -64,6 +64,7 @@ const environment: AppEnvironment = {
     smartInk: true,
     smartInkDiagnostics: true,
     solid3D: true,
+    solid3DLearning: true,
   },
   geometryOsBaseUrl: "https://geometry.example.test",
   mathInkApiBaseUrl: "/api/v1/formula-recognition",

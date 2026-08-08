@@ -279,5 +279,32 @@ export function invertOwnBoardCommand(
           solidId: command.solidId,
         },
       ];
+    case "core.solid-3d-learning.start":
+      return [
+        {
+          ...meta(),
+          attemptId: command.attempt.id,
+          expectedRevision: command.attempt.revision,
+          kind: "core.solid-3d-learning.remove",
+        },
+      ];
+    case "core.solid-3d-learning.act":
+    case "core.solid-3d-learning.reset":
+    case "core.solid-3d-learning.complete": {
+      const attempt = before.solidLearningAttempts[command.attemptId];
+      return attempt === undefined
+        ? []
+        : [
+            {
+              ...meta(),
+              action: { kind: "restore", snapshot: attempt },
+              attemptId: command.attemptId,
+              expectedRevision: attempt.revision + 1,
+              kind: "core.solid-3d-learning.act",
+            },
+          ];
+    }
+    case "core.solid-3d-learning.remove":
+      return [];
   }
 }

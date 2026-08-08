@@ -38,7 +38,7 @@ export interface OrderedBoardCommandEnvelope {
   readonly documentId: DocumentId;
   readonly expectedDocumentSha256: string;
   readonly idempotencyKey: string;
-  readonly schemaVersion: "1.3";
+  readonly schemaVersion: "1.3" | "1.4";
 }
 
 export type BoardCommandEnvelope =
@@ -126,7 +126,7 @@ export interface BoardServerRecovery {
     readonly documentId: DocumentId;
     readonly documentSha256: string;
     readonly revision: number;
-    readonly schemaVersion: "1.1" | "1.2" | "1.3";
+    readonly schemaVersion: "1.1" | "1.2" | "1.3" | "1.4";
   } | null;
 }
 

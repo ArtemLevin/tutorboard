@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_FEATURE_SOLID_3D?: string;
+  readonly VITE_FEATURE_SOLID_3D_LEARNING?: string;
 }
 
 interface ImportMetaEnv {

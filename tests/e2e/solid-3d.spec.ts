@@ -31,6 +31,22 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
   await expect(
     editor.getByRole("button", { name: "Перспективная" }),
   ).toBeVisible();
+  await editor.getByRole("button", { name: "Учебная задача" }).click();
+  await expect(
+    editor.getByRole("heading", { name: "Учебные сценарии" }),
+  ).toBeVisible();
+  await editor.getByRole("button", { name: "Начать" }).first().click();
+  await expect(
+    editor.getByText("Прогноз → построение → объяснение → проверка"),
+  ).toBeVisible();
+  await editor.getByRole("button", { name: "Начать прогноз" }).click();
+  await expect(
+    editor.getByRole("heading", { name: "Сначала предположите" }),
+  ).toBeVisible();
+  await editor.getByRole("button", { name: "Проверить прогноз" }).click();
+  await expect(
+    editor.getByRole("heading", { name: "Постройте сечение по граням" }),
+  ).toBeVisible();
   await editor.getByRole("button", { name: "Закрыть 3D-окно" }).click();
   await expect(editor).toBeHidden();
 });

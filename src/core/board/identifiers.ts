@@ -16,6 +16,7 @@ export type GroupId = Brand<string, "GroupId">;
 export type PlotParameterId = Brand<string, "PlotParameterId">;
 export type PlotSeriesId = Brand<string, "PlotSeriesId">;
 export type Solid3DId = Brand<string, "Solid3DId">;
+export type SolidLearningAttemptId = Brand<string, "SolidLearningAttemptId">;
 export type SolidPointId = Brand<string, "SolidPointId">;
 export type SolidSectionId = Brand<string, "SolidSectionId">;
 
@@ -68,6 +69,10 @@ export function plotSeriesId(value: string): PlotSeriesId {
 
 export function solid3DId(value: string): Solid3DId {
   return toIdentifier(value, "Solid3DId");
+}
+
+export function solidLearningAttemptId(value: string): SolidLearningAttemptId {
+  return toIdentifier(value, "SolidLearningAttemptId");
 }
 
 export function solidPointId(value: string): SolidPointId {

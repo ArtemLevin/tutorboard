@@ -102,9 +102,9 @@ function rebaseCommand(
 function commandsFromBatch(
   batch: ServerBoardCommandBatch,
 ): readonly BoardCommand[] {
-  return batch.envelope.schemaVersion === "1.3"
-    ? batch.envelope.commands.map(({ command }) => command)
-    : batch.envelope.commands;
+  return batch.envelope.commands.map((item) =>
+    "command" in item ? item.command : item,
+  );
 }
 
 function orderedFromPending(item: PendingBoardCommand): OrderedBoardCommand {

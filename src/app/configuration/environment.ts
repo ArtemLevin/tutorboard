@@ -20,6 +20,7 @@ export interface AppFeatureFlags {
   readonly smartInk: boolean;
   readonly smartInkDiagnostics: boolean;
   readonly solid3D: boolean;
+  readonly solid3DLearning: boolean;
 }
 
 export interface AppFeatureFlagInput {
@@ -32,6 +33,7 @@ export interface AppFeatureFlagInput {
   readonly smartInk?: string | undefined;
   readonly smartInkDiagnostics?: string | undefined;
   readonly solid3D?: string | undefined;
+  readonly solid3DLearning?: string | undefined;
 }
 
 const stages = new Set<AppStage>(["development", "test", "production"]);
@@ -81,6 +83,7 @@ export function readEnvironment(
     smartInk: import.meta.env.VITE_FEATURE_SMART_INK,
     smartInkDiagnostics: import.meta.env.VITE_FEATURE_SMART_INK_DIAGNOSTICS,
     solid3D: import.meta.env.VITE_FEATURE_SOLID_3D,
+    solid3DLearning: import.meta.env.VITE_FEATURE_SOLID_3D_LEARNING,
   },
   boardApiBaseUrl: string | undefined = import.meta.env.VITE_BOARD_API_BASE_URL,
   mathInkApiBaseUrl: string | undefined = import.meta.env
@@ -113,6 +116,11 @@ export function readEnvironment(
   const smartInkDiagnostics = booleanFlag(
     "VITE_FEATURE_SMART_INK_DIAGNOSTICS",
     featureInput.smartInkDiagnostics,
+    stage !== "production",
+  );
+  const solid3D = booleanFlag(
+    "VITE_FEATURE_SOLID_3D",
+    featureInput.solid3D,
     stage !== "production",
   );
 
@@ -154,11 +162,14 @@ export function readEnvironment(
       ),
       smartInk,
       smartInkDiagnostics: smartInk && smartInkDiagnostics,
-      solid3D: booleanFlag(
-        "VITE_FEATURE_SOLID_3D",
-        featureInput.solid3D,
-        stage !== "production",
-      ),
+      solid3D,
+      solid3DLearning:
+        solid3D &&
+        booleanFlag(
+          "VITE_FEATURE_SOLID_3D_LEARNING",
+          featureInput.solid3DLearning,
+          stage !== "production",
+        ),
     },
     geometryOsBaseUrl: geometryOsUrl.href.replace(/\/$/, ""),
     mathInkApiBaseUrl: sameOriginPath(

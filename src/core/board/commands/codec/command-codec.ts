@@ -9,11 +9,16 @@ import {
   type GeometryImportId,
   type GroupId,
   type Solid3DId,
+  type SolidLearningAttemptId,
 } from "../../identifiers";
 import { strokeStyles, type BoardObject } from "../../objects";
 import type { GeometryImportRecord } from "../../geometry-imports";
 import type { CoordinatePlotDefinition } from "../../coordinate-plot";
-import { boardDocumentSchema } from "../../validation/schema";
+import {
+  boardDocumentSchema,
+  solidLearningAttemptActionSchema,
+  solidLearningAttemptSchema,
+} from "../../validation/schema";
 
 export const boardCommandSchemaVersion = "1.0" as const;
 export const maximumBoardCommandTargets = 10_000;
@@ -38,6 +43,9 @@ const geometryImportIdSchema = identifierSchema.transform(
 );
 const solid3DIdSchema = identifierSchema.transform(
   (value) => value as Solid3DId,
+);
+const solidLearningAttemptIdSchema = identifierSchema.transform(
+  (value) => value as SolidLearningAttemptId,
 );
 const timestampSchema = z.iso.datetime({ offset: true });
 const finiteNumberSchema = z.number().finite();
@@ -503,6 +511,46 @@ export const boardCommandSchema = z.discriminatedUnion("kind", [
       objects: objectsSchema,
       sectionId: identifierSchema,
       solidId: solid3DIdSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...metadata,
+      attempt: solidLearningAttemptSchema,
+      kind: z.literal("core.solid-3d-learning.start"),
+    })
+    .strict(),
+  z
+    .object({
+      ...metadata,
+      action: solidLearningAttemptActionSchema,
+      attemptId: solidLearningAttemptIdSchema,
+      expectedRevision: z.number().int().nonnegative(),
+      kind: z.literal("core.solid-3d-learning.act"),
+    })
+    .strict(),
+  z
+    .object({
+      ...metadata,
+      attemptId: solidLearningAttemptIdSchema,
+      expectedRevision: z.number().int().nonnegative(),
+      kind: z.literal("core.solid-3d-learning.reset"),
+    })
+    .strict(),
+  z
+    .object({
+      ...metadata,
+      attemptId: solidLearningAttemptIdSchema,
+      expectedRevision: z.number().int().nonnegative(),
+      kind: z.literal("core.solid-3d-learning.complete"),
+    })
+    .strict(),
+  z
+    .object({
+      ...metadata,
+      attemptId: solidLearningAttemptIdSchema,
+      expectedRevision: z.number().int().nonnegative(),
+      kind: z.literal("core.solid-3d-learning.remove"),
     })
     .strict(),
 ]);

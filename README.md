@@ -124,9 +124,15 @@ Advanced semantic drag и AI modifications начинаются после ст�
 ```text
 VITE_FEATURE_SERVER_SYNC=true
 VITE_FEATURE_SOLID_3D=true
+VITE_FEATURE_SOLID_3D_LEARNING=true
 VITE_BOARD_API_BASE_URL=/api/v1
 /?lessonId=lesson:...&documentId=document:...#/board
 ```
+
+`VITE_FEATURE_SOLID_3D_LEARNING` включает учебную лабораторию стереометрии:
+прогноз, связанные проекции, пошаговые сечения, подсказки, точные вычисления,
+доказательства, динамические исследования и аналитику учителя. Флаг действует
+только вместе с `VITE_FEATURE_SOLID_3D`.
 
 `VITE_BOARD_API_BASE_URL` принимает только same-origin path. Сессия и
 `X-CSRF-Token` выдаются `tutor-assistant-web`; токены не хранятся в IndexedDB.
