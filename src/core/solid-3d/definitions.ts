@@ -25,11 +25,7 @@ export interface OctahedronDefinition {
   readonly edgeLength: number;
 }
 export type RegularPolyhedronVariant =
-  | "tetrahedron"
-  | "cube"
-  | "octahedron"
-  | "dodecahedron"
-  | "icosahedron";
+  "tetrahedron" | "cube" | "octahedron" | "dodecahedron" | "icosahedron";
 export interface RegularPolyhedronDefinition {
   readonly kind: "regular-polyhedron";
   readonly variant: RegularPolyhedronVariant;
@@ -224,8 +220,7 @@ export function solidDefinitionFromTemplate(
       topRadius: 0.75,
     };
   if (templateId === "sphere") return { kind: "sphere", radius: 1.4 };
-  if (templateId === "hemisphere")
-    return { kind: "hemisphere", radius: 1.4 };
+  if (templateId === "hemisphere") return { kind: "hemisphere", radius: 1.4 };
   if (templateId === "truncated-pyramid") return regularTruncatedPyramid(4);
   const truncatedPyramid = /^truncated-pyramid-(\d+)$/u.exec(templateId)?.[1];
   if (truncatedPyramid !== undefined) {
