@@ -85,6 +85,26 @@ describe("LocalDocumentAutosave", () => {
     expect(states).toContain("saved");
   });
 
+  it("persists the latest debounced document when the workspace is disposed", async () => {
+    vi.useFakeTimers();
+    const repository = new FakeRepository();
+    const autosave = new LocalDocumentAutosave({
+      createOperationId: () => persistenceOperationId("operation:dispose"),
+      debounceMs: 350,
+      initialRevisionId: null,
+      now: () => "2026-07-24T08:00:00.000Z",
+      onStateChange: () => undefined,
+      repository,
+    });
+
+    autosave.schedule(document("Pending navigation save"));
+    autosave.dispose();
+    await autosave.flush();
+
+    expect(repository.calls).toHaveLength(1);
+    expect(repository.calls[0]?.document.title).toBe("Pending navigation save");
+  });
+
   it("retries an uncertain failure with the same durable operation ID", async () => {
     vi.useFakeTimers();
     const repository = new FakeRepository();
