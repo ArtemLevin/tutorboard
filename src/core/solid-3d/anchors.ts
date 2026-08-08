@@ -124,7 +124,11 @@ export function resolveAnalyticSolidPointAnchor(
         : null;
     case "hemisphere":
       if (anchor.surfaceId === "surface:hemisphere-curved")
-        return sphericalPoint(definition.radius, anchor.parameters, Math.PI / 2);
+        return sphericalPoint(
+          definition.radius,
+          anchor.parameters,
+          Math.PI / 2,
+        );
       return anchor.surfaceId === "surface:hemisphere-base"
         ? diskPoint(definition.radius, 0, anchor.parameters)
         : null;
@@ -137,7 +141,11 @@ export function resolveAnalyticSolidPointAnchor(
           anchor.parameters,
         );
       if (anchor.surfaceId === "surface:cylinder-bottom")
-        return diskPoint(definition.radius, -definition.height / 2, anchor.parameters);
+        return diskPoint(
+          definition.radius,
+          -definition.height / 2,
+          anchor.parameters,
+        );
       return anchor.surfaceId === "surface:cylinder-top"
         ? diskPoint(definition.radius, definition.height / 2, anchor.parameters)
         : null;
@@ -150,7 +158,11 @@ export function resolveAnalyticSolidPointAnchor(
           anchor.parameters,
         );
       return anchor.surfaceId === "surface:cone-base"
-        ? diskPoint(definition.radius, -definition.height / 2, anchor.parameters)
+        ? diskPoint(
+            definition.radius,
+            -definition.height / 2,
+            anchor.parameters,
+          )
         : null;
     case "truncated-cone":
       if (anchor.surfaceId === "surface:truncated-cone-side")
