@@ -39,14 +39,12 @@ interface BoardToolDockProps {
   readonly onImageFiles: (files: readonly File[]) => void;
   readonly onOpenSettings: () => void;
   readonly onRedo: () => void;
-  readonly onPolygonSidesChange: (sides: number) => void;
   readonly onStyleChange: (
     tool: DrawingToolId,
     patch: Partial<ObjectStyle>,
   ) => void;
   readonly onUndo: () => void;
   readonly readOnly: boolean;
-  readonly polygonSides: number;
   readonly selectedCount: number;
   readonly selectedLocked: boolean;
   readonly selectedStyle: ObjectStyle | undefined;
@@ -108,7 +106,7 @@ function ToolButton({
   );
 }
 
-type DockMenuId = "ai" | "drawing" | "math" | "media" | "selection" | "shapes";
+type DockMenuId = "ai" | "drawing" | "math" | "media" | "selection";
 
 function MenuItem({
   active = false,
@@ -283,11 +281,6 @@ export function BoardToolDock(props: BoardToolDockProps) {
     "drawing.line",
     "drawing.text",
   ].includes(props.activeTool);
-  const shapesActive = [
-    "drawing.rectangle",
-    "drawing.ellipse",
-    "drawing.polygon",
-  ].includes(props.activeTool);
   const aiActive =
     props.activeTool === "drawing.smart-ink" ||
     props.activeTool === "math.handwritten-function" ||
@@ -328,65 +321,6 @@ export function BoardToolDock(props: BoardToolDockProps) {
               onClick={() => chooseTool(item.id)}
             />
           ))}
-        </section>
-      ) : openMenu === "shapes" ? (
-        <section aria-label="Меню фигур" className="dock-menu" role="menu">
-          <MenuItem
-            active={props.activeTool === "drawing.ellipse"}
-            disabled={props.readOnly}
-            icon="○"
-            label="Круг или эллипс (E)"
-            onClick={() => chooseTool("drawing.ellipse")}
-          />
-          <MenuItem
-            active={props.activeTool === "drawing.rectangle"}
-            disabled={props.readOnly}
-            icon="□"
-            label="Прямоугольник (R)"
-            onClick={() => chooseTool("drawing.rectangle")}
-          />
-          {[3, 5, 6].map((sides) => (
-            <MenuItem
-              active={
-                props.activeTool === "drawing.polygon" &&
-                props.polygonSides === sides
-              }
-              disabled={props.readOnly}
-              icon={sides === 3 ? "△" : sides === 5 ? "⬠" : "⬡"}
-              key={sides}
-              label={`${sides === 3 ? "Треугольник" : sides === 5 ? "Пятиугольник" : "Шестиугольник"}`}
-              onClick={() => {
-                props.onPolygonSidesChange(sides);
-                chooseTool("drawing.polygon");
-              }}
-            />
-          ))}
-          <label className="dock-menu-number">
-            <span>N‑угольник</span>
-            <input
-              aria-label="Количество сторон многоугольника"
-              disabled={props.readOnly}
-              max="24"
-              min="3"
-              onChange={(event) =>
-                props.onPolygonSidesChange(
-                  Math.min(
-                    24,
-                    Math.max(3, event.currentTarget.valueAsNumber || 3),
-                  ),
-                )
-              }
-              type="number"
-              value={props.polygonSides}
-            />
-            <button
-              disabled={props.readOnly}
-              onClick={() => chooseTool("drawing.polygon")}
-              type="button"
-            >
-              Выбрать
-            </button>
-          </label>
         </section>
       ) : openMenu === "math" ? (
         <section aria-label="Меню математики" className="dock-menu" role="menu">
@@ -697,15 +631,6 @@ export function BoardToolDock(props: BoardToolDockProps) {
             icon="✎"
             label="Рисование"
             onClick={() => toggleMenu("drawing")}
-          />
-          <ToolButton
-            active={shapesActive}
-            disabled={props.readOnly}
-            expanded={openMenu === "shapes"}
-            hasPopup="menu"
-            icon="◇"
-            label="Фигуры"
-            onClick={() => toggleMenu("shapes")}
           />
           <ToolButton
             expanded={openMenu === "math"}

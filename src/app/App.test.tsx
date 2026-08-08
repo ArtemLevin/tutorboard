@@ -183,12 +183,15 @@ describe("App", () => {
       "true",
     );
     expect(screen.getByText("BoardDocument 1.4")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Фигуры" }),
+    ).not.toBeInTheDocument();
   });
 
   it("composes a drawing gesture into one document command", () => {
     render(<App />);
 
-    chooseTool("Фигуры", "Прямоугольник (R)");
+    fireEvent.keyDown(window, { key: "r" });
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
 
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
@@ -201,7 +204,6 @@ describe("App", () => {
     const expected = [
       ["Выделение", "Меню выделения"],
       ["Рисование", "Меню рисования"],
-      ["Фигуры", "Меню фигур"],
       ["Математика", "Меню математики"],
       ["ИИ-инструменты", "Меню ИИ"],
       ["Медиа", "Меню медиа"],
@@ -215,11 +217,11 @@ describe("App", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("creates preset and configurable regular polygons", () => {
+  it("keeps regular polygons available through their keyboard shortcut", () => {
     const onCommandCommitted = vi.fn();
     render(<App onCommandCommitted={onCommandCommitted} />);
 
-    chooseTool("Фигуры", "Шестиугольник");
+    fireEvent.keyDown(window, { key: "n" });
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
     const firstCommand = onCommandCommitted.mock.calls[0]?.[0] as {
       readonly objects: readonly {
@@ -230,21 +232,7 @@ describe("App", () => {
     expect(firstCommand.objects[0]).toMatchObject({
       kind: "drawing.pen-stroke",
     });
-    expect(firstCommand.objects[0]?.points).toHaveLength(7);
-
-    fireEvent.click(screen.getByRole("button", { name: "Фигуры" }));
-    fireEvent.change(
-      screen.getByRole("spinbutton", {
-        name: "Количество сторон многоугольника",
-      }),
-      { target: { value: "9" } },
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать" }));
-    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
-    const secondCommand = onCommandCommitted.mock.calls[1]?.[0] as {
-      readonly objects: readonly { readonly points: readonly unknown[] }[];
-    };
-    expect(secondCommand.objects[0]?.points).toHaveLength(10);
+    expect(firstCommand.objects[0]?.points).toHaveLength(6);
   });
 
   it("uses an ephemeral laser pointer without changing the document", () => {
@@ -301,7 +289,7 @@ describe("App", () => {
       />,
     );
 
-    chooseTool("Фигуры", "Прямоугольник (R)");
+    fireEvent.keyDown(window, { key: "r" });
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
 
     expect(onCommandCommitted).toHaveBeenCalledTimes(1);
@@ -315,7 +303,7 @@ describe("App", () => {
   it("undoes and redoes one completed gesture as one history item", () => {
     render(<App />);
 
-    chooseTool("Фигуры", "Прямоугольник (R)");
+    fireEvent.keyDown(window, { key: "r" });
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
 
@@ -409,7 +397,7 @@ describe("App", () => {
   it("copies, pastes and cuts a deterministic selection closure", () => {
     render(<App />);
 
-    chooseTool("Фигуры", "Прямоугольник (R)");
+    fireEvent.keyDown(window, { key: "r" });
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
     chooseTool("Выделение", "Выделение (V)");
     fireEvent.click(
@@ -511,7 +499,7 @@ describe("App", () => {
   it("selects and moves one object through one document command", () => {
     render(<App />);
 
-    chooseTool("Фигуры", "Прямоугольник (R)");
+    fireEvent.keyDown(window, { key: "r" });
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
     chooseTool("Выделение", "Выделение (V)");
     fireEvent.click(
@@ -581,7 +569,7 @@ describe("App", () => {
   it("moves a selection by keyboard and closes shortcut help with Escape", () => {
     render(<App />);
 
-    chooseTool("Фигуры", "Прямоугольник (R)");
+    fireEvent.keyDown(window, { key: "r" });
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
     chooseTool("Выделение", "Выделение (V)");
     fireEvent.click(

@@ -117,9 +117,9 @@ test("draws inside a filled figure and selects it through the contour", async ({
   await page.mouse.up();
 
   await expect(count).toHaveText("2 объекта");
-  await expect(page.getByRole("button", { name: "Фигуры" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-drawing-mode",
+    "drawing.ellipse",
   );
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 

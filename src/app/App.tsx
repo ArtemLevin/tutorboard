@@ -437,7 +437,7 @@ export function App({
   const [selectionInspectorObjectId, setSelectionInspectorObjectId] =
     useState<BoardObjectId | null>(null);
   const [textDraft, setTextDraft] = useState("Новый текст");
-  const [polygonSides, setPolygonSides] = useState(5);
+  const polygonSides = 5;
   const [laserPoint, setLaserPoint] = useState<Vec2 | null>(null);
   const [laserTrailOpacity, setLaserTrailOpacity] = useState(0);
   const [laserTrailPoints, setLaserTrailPoints] = useState<readonly Vec2[]>([]);
@@ -3445,7 +3445,6 @@ export function App({
             setGeometryPromptOpen(false);
             setSettingsOpen(true);
           }}
-          onPolygonSidesChange={setPolygonSides}
           onRedo={redo}
           canTransformSelection={
             transformableObjectIds.length > 0 ||
@@ -3464,7 +3463,6 @@ export function App({
           onTextDraftChange={setTextDraft}
           onUndo={undo}
           readOnly={readOnly}
-          polygonSides={polygonSides}
           selectedCount={selectionState.selectedObjectIds.length}
           selectedLocked={selectedLocked}
           selectedStyle={selectedStyle}

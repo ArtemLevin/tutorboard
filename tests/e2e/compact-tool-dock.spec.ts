@@ -11,7 +11,6 @@ test("opens every grouped menu exclusively and restores focus after Escape", asy
   const groups = [
     ["Выделение", "Меню выделения"],
     ["Рисование", "Меню рисования"],
-    ["Фигуры", "Меню фигур"],
     ["Математика", "Меню математики"],
     ["ИИ-инструменты", "Меню ИИ"],
     ["Медиа", "Меню медиа"],
@@ -31,16 +30,14 @@ test("opens every grouped menu exclusively and restores focus after Escape", asy
   await expect(mediaTrigger).toBeFocused();
 });
 
-test("creates a configurable regular polygon from the Shapes menu", async ({
+test("hides the Shapes trigger while preserving keyboard shape tools", async ({
   page,
 }) => {
-  await page.getByRole("button", { name: "Фигуры" }).click();
-  await page
-    .getByRole("spinbutton", { name: "Количество сторон многоугольника" })
-    .fill("8");
-  await page.getByRole("button", { name: "Выбрать" }).click();
+  await expect(page.getByRole("button", { name: "Фигуры" })).toHaveCount(0);
+  await page.keyboard.press("n");
 
   const stage = page.getByTestId("board-stage");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.polygon");
   const bounds = await stage.boundingBox();
   expect(bounds).not.toBeNull();
   if (bounds === null) throw new Error("Canvas has no bounds.");
@@ -51,10 +48,6 @@ test("creates a configurable regular polygon from the Shapes menu", async ({
 
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await expect(page.getByText("drawing.pen-stroke")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Фигуры" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
 });
 
 test("shows an ephemeral laser trail while dragging without adding board objects", async ({
