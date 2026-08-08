@@ -14,8 +14,8 @@ export {
   standardCoordinatePlotViewport,
   updateCoordinatePlotParameter,
   updateCoordinatePlotSeries,
-  updateCoordinatePlotSeriesInput,
   validateCoordinatePlotEditorDefinition,
   type CoordinatePlotEditorIssue,
   type CoordinatePlotIdFactory,
 } from "./model";
+export { updateCoordinatePlotSeriesInput } from "./series-input";
