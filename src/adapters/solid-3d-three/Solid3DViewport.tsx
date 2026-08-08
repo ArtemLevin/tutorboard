@@ -16,7 +16,6 @@ import {
 } from "../../core/public";
 import { disposeSolidScene } from "./resource-disposal";
 import { buildSolidScene } from "./scene-builder";
-import { hasWebGLSupport } from "./webgl-capabilities";
 
 export interface Solid3DViewportProps {
   readonly cameraMode: "orthographic" | "perspective";
@@ -30,6 +29,8 @@ export interface Solid3DViewportProps {
   readonly highlightedElement?: SolidElementRef | null;
   readonly onElementHover?: (element: SolidElementRef | null) => void;
 }
+
+type WebGLFailure = "context-lost" | "unavailable";
 
 function nearestAnchor(
   point: Vec3,
@@ -232,7 +233,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const modeRef = useRef(props.mode);
   const onPointPlaceRef = useRef(props.onPointPlace);
   const onElementHoverRef = useRef(onElementHover);
-  const [fallback, setFallback] = useState(!hasWebGLSupport());
+  const [failure, setFailure] = useState<WebGLFailure | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     modeRef.current = props.mode;
@@ -253,10 +255,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (container === null || !hasWebGLSupport()) {
-      setFallback(true);
-      return;
-    }
+    if (container === null) return;
+    let cancelled = false;
     const width = Math.max(320, container.clientWidth);
     const height = Math.max(260, container.clientHeight);
     const scene = new THREE.Scene();
@@ -274,10 +274,21 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         : new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
     camera.position.set(4.8, 3.8, 5.4);
     camera.lookAt(0, 0, 0);
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      powerPreference: "high-performance",
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        failIfMajorPerformanceCaveat: false,
+        powerPreference: "default",
+      });
+    } catch {
+      queueMicrotask(() => {
+        if (!cancelled) setFailure("unavailable");
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -314,7 +325,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     resizeObserver.observe(container);
     const contextLost = (event: Event) => {
       event.preventDefault();
-      setFallback(true);
+      setFailure("context-lost");
     };
     renderer.domElement.addEventListener("webglcontextlost", contextLost);
     const raycaster = new THREE.Raycaster();
@@ -389,6 +400,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     };
     render();
     return () => {
+      cancelled = true;
       resizeObserver.disconnect();
       controls.removeEventListener("change", render);
       controls.dispose();
@@ -398,9 +410,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       renderer.domElement.removeEventListener("webglcontextlost", contextLost);
       disposeSolidScene(scene);
       renderer.dispose();
+      renderer.forceContextLoss();
       runtimeRef.current = null;
     };
-  }, [cameraMode, record.definition, resetToken]);
+  }, [cameraMode, record.definition, resetToken, retryToken]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
@@ -437,9 +450,33 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     highlightedElement,
   ]);
 
-  return fallback ? (
+  return failure !== null ? (
     <div className="solid-3d-fallback" role="status">
-      WebGL недоступен. Координаты и список элементов остаются доступны справа.
+      <div>
+        <strong>
+          {failure === "context-lost"
+            ? "Контекст WebGL был потерян."
+            : "WebGL не удалось запустить."}
+        </strong>
+        <p>Координаты и список элементов остаются доступны справа.</p>
+        <button
+          onClick={() => {
+            setFailure(null);
+            setRetryToken((value) => value + 1);
+          }}
+          type="button"
+        >
+          Повторить запуск 3D
+        </button>
+        <details>
+          <summary>Как проверить браузер</summary>
+          <p>
+            Включите аппаратное ускорение в настройках браузера, перезапустите
+            его и проверьте раздел «Graphics Feature Status» на странице
+            chrome://gpu.
+          </p>
+        </details>
+      </div>
     </div>
   ) : (
     <div
