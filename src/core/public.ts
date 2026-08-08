@@ -142,6 +142,8 @@ export type {
 export {
   createCubicBezierCenterline,
   createLegacyVectorInkSamples,
+  createLinearCubicBezierCenterline,
+  createLinearVectorInkDataFromPoints,
   createVectorInkData,
   createVectorInkDataFromPoints,
   defaultVectorInkPressure,

@@ -1,4 +1,7 @@
-import { createVectorInkDataFromPoints } from "../../core/public";
+import {
+  createLinearVectorInkDataFromPoints,
+  createVectorInkDataFromPoints,
+} from "../../core/public";
 import type {
   BoardObject,
   ObjectStyle,
@@ -229,7 +232,7 @@ export function createSmartInkReplacementObject(
       ];
       return {
         ...base(stroke, first),
-        ink: createVectorInkDataFromPoints(points),
+        ink: createLinearVectorInkDataFromPoints(points),
         kind: "drawing.pen-stroke",
         points,
       };

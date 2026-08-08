@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createLinearVectorInkDataFromPoints,
   createVectorInkData,
   createVectorInkDataFromPoints,
   defaultVectorInkPressure,
@@ -54,5 +55,31 @@ describe("Vector Ink 1.0", () => {
     expect(ink.centerline).toHaveLength(3);
     expect(vectorInkCenterlinePathData(ink).endsWith("Z")).toBe(true);
     expect(vectorInkDataMatchesPoints(ink, points)).toBe(true);
+  });
+
+  it("creates canonical straight segments for a closed polygon", () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 90, y: 0 },
+      { x: 45, y: 72 },
+      { x: 0, y: 0 },
+    ];
+    const ink = createLinearVectorInkDataFromPoints(points);
+    expect(ink.closed).toBe(true);
+    expect(ink.centerline).toHaveLength(3);
+    expect(vectorInkDataMatchesPoints(ink, points)).toBe(true);
+    for (const segment of ink.centerline) {
+      const delta = {
+        x: segment.end.x - segment.start.x,
+        y: segment.end.y - segment.start.y,
+      };
+      for (const control of [segment.control1, segment.control2]) {
+        const relative = {
+          x: control.x - segment.start.x,
+          y: control.y - segment.start.y,
+        };
+        expect(delta.x * relative.y - delta.y * relative.x).toBeCloseTo(0);
+      }
+    }
   });
 });

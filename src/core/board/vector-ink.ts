@@ -174,6 +174,28 @@ export function createCubicBezierCenterline(
   return segments;
 }
 
+function linearCubicSegment(start: Vec2, end: Vec2): CubicBezierSegment {
+  const delta = subtract(end, start);
+  return {
+    start: clonePoint(start),
+    control1: add(start, multiply(delta, 1 / 3)),
+    control2: add(start, multiply(delta, 2 / 3)),
+    end: clonePoint(end),
+  };
+}
+
+export function createLinearCubicBezierCenterline(
+  points: readonly Vec2[],
+  closed = vectorInkStrokeIsClosed(points),
+): readonly CubicBezierSegment[] {
+  const source = uniqueCenterlinePoints(points, closed);
+  if (source.length < 2) return [];
+  const segmentCount = closed ? source.length : source.length - 1;
+  return Array.from({ length: segmentCount }, (_, index) =>
+    linearCubicSegment(source[index]!, source[(index + 1) % source.length]!),
+  );
+}
+
 export function createVectorInkData(
   samples: readonly VectorInkSample[],
   closed?: boolean,
@@ -196,6 +218,19 @@ export function createVectorInkDataFromPoints(
     createLegacyVectorInkSamples(points),
     vectorInkStrokeIsClosed(points),
   );
+}
+
+export function createLinearVectorInkDataFromPoints(
+  points: readonly Vec2[],
+): VectorInkData {
+  const samples = createLegacyVectorInkSamples(points);
+  const closed = vectorInkStrokeIsClosed(points);
+  return {
+    centerline: createLinearCubicBezierCenterline(points, closed),
+    closed,
+    samples,
+    version: vectorInkSchemaVersion,
+  };
 }
 
 export function resolveVectorInkData(
@@ -418,13 +453,24 @@ export function vectorInkDataMatchesPoints(
     }
     previousTimestamp = sample.timestampMs;
   }
-  const expected = createCubicBezierCenterline(points, ink.closed);
-  if (expected.length !== ink.centerline.length) return false;
+  const smooth = createCubicBezierCenterline(points, ink.closed);
+  const linear = createLinearCubicBezierCenterline(points, ink.closed);
+  return (
+    centerlineMatches(ink.centerline, smooth) ||
+    centerlineMatches(ink.centerline, linear)
+  );
+}
+
+function centerlineMatches(
+  actual: readonly CubicBezierSegment[],
+  expected: readonly CubicBezierSegment[],
+): boolean {
+  if (expected.length !== actual.length) return false;
   const fields = ["start", "control1", "control2", "end"] as const;
   for (let index = 0; index < expected.length; index += 1) {
     for (const field of fields) {
       const left = expected[index]![field];
-      const right = ink.centerline[index]![field];
+      const right = actual[index]![field];
       if (
         Math.abs(left.x - right.x) > 1e-6 ||
         Math.abs(left.y - right.y) > 1e-6
