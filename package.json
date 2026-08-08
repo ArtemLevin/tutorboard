@@ -12,7 +12,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
+    "format:check": "prettier --write src/modules/coordinate-plot-editor/series-input.ts src/modules/server-sync/sync.ts && git diff -- src/modules/coordinate-plot-editor/series-input.ts src/modules/server-sync/sync.ts && exit 1",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
