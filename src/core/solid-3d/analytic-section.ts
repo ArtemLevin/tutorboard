@@ -7,6 +7,7 @@ import {
   dot3,
   normalize3,
   scale3,
+  subtract3,
   type Plane3D,
   type Vec3,
 } from "./vectors";
@@ -39,34 +40,122 @@ function basis(normal: Vec3): readonly [Vec3, Vec3] {
   return [first, cross3(normal, first)];
 }
 
-function sphereSection(
+function sphereCircle(
   radius: number,
   plane: Plane3D,
   samples: number,
-): SolidSectionResult | null {
+): {
+  readonly center: Vec3;
+  readonly points: readonly Vec3[];
+  readonly radius: number;
+  readonly u: Vec3;
+  readonly v: Vec3;
+} | null {
   const distance = Math.abs(plane.constant);
   if (distance >= radius) return null;
   const center = scale3(plane.normal, -plane.constant);
   const sectionRadius = Math.sqrt(radius * radius - distance * distance);
   const [u, v] = basis(plane.normal);
-  const points = Array.from({ length: samples }, (_, index) => {
-    const angle = (index * Math.PI * 2) / samples;
-    return add3(
-      center,
-      add3(
-        scale3(u, Math.cos(angle) * sectionRadius),
-        scale3(v, Math.sin(angle) * sectionRadius),
-      ),
-    );
-  });
-  const measured = measure(points, plane);
+  return {
+    center,
+    points: Array.from({ length: samples }, (_, index) => {
+      const angle = (index * Math.PI * 2) / samples;
+      return add3(
+        center,
+        add3(
+          scale3(u, Math.cos(angle) * sectionRadius),
+          scale3(v, Math.sin(angle) * sectionRadius),
+        ),
+      );
+    }),
+    radius: sectionRadius,
+    u,
+    v,
+  };
+}
+
+function sphereSection(
+  radius: number,
+  plane: Plane3D,
+  samples: number,
+): SolidSectionResult | null {
+  const circle = sphereCircle(radius, plane, samples);
+  if (circle === null) return null;
+  const measured = measure(circle.points, plane);
   return measured === null
     ? null
     : {
         ...measured,
-        area: Math.PI * sectionRadius * sectionRadius,
-        perimeter: 2 * Math.PI * sectionRadius,
+        area: Math.PI * circle.radius * circle.radius,
+        perimeter: 2 * Math.PI * circle.radius,
       };
+}
+
+function clipAboveBase(points: readonly Vec3[], epsilon = 1e-9): readonly Vec3[] {
+  const result: Vec3[] = [];
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index]!;
+    const next = points[(index + 1) % points.length]!;
+    const currentInside = current.y >= -epsilon;
+    const nextInside = next.y >= -epsilon;
+    if (currentInside) result.push(current);
+    if (currentInside === nextInside) continue;
+    const denominator = current.y - next.y;
+    if (Math.abs(denominator) <= epsilon) continue;
+    const parameter = current.y / denominator;
+    const intersection = add3(
+      current,
+      scale3(subtract3(next, current), parameter),
+    );
+    result.push({ ...intersection, y: 0 });
+  }
+  return result;
+}
+
+function hemisphereSection(
+  radius: number,
+  plane: Plane3D,
+  samples: number,
+): SolidSectionResult | null {
+  const circle = sphereCircle(radius, plane, samples);
+  if (circle === null) return null;
+  const verticalAmplitude =
+    circle.radius * Math.hypot(circle.u.y, circle.v.y);
+  const minimumY = circle.center.y - verticalAmplitude;
+  const maximumY = circle.center.y + verticalAmplitude;
+  if (maximumY <= 1e-9) {
+    if (Math.abs(maximumY) > 1e-9) return null;
+    return Math.abs(circle.center.y) <= 1e-9
+      ? sphereSection(radius, plane, samples)
+      : null;
+  }
+  if (minimumY >= -1e-9) return sphereSection(radius, plane, samples);
+
+  const clipped = clipAboveBase(circle.points);
+  const measured = measure(clipped, plane);
+  if (measured === null) return null;
+  const gradient = Math.hypot(circle.u.y, circle.v.y);
+  if (gradient <= 1e-12) return measured;
+  const signedCenterDistance = circle.center.y / gradient;
+  const normalized = Math.max(
+    -1,
+    Math.min(1, -signedCenterDistance / circle.radius),
+  );
+  const halfChord = Math.sqrt(
+    Math.max(
+      0,
+      circle.radius * circle.radius -
+        signedCenterDistance * signedCenterDistance,
+    ),
+  );
+  const arcAngle = 2 * Math.acos(normalized);
+  return {
+    ...measured,
+    area:
+      circle.radius * circle.radius * Math.acos(normalized) +
+      signedCenterDistance * halfChord,
+    perimeter: circle.radius * arcAngle + 2 * halfChord,
+  };
 }
 
 function verticalCylinderSection(
@@ -181,6 +270,8 @@ export function intersectAnalyticSolidWithPlane(
   switch (definition.kind) {
     case "sphere":
       return sphereSection(definition.radius, plane, samples);
+    case "hemisphere":
+      return hemisphereSection(definition.radius, plane, samples);
     case "cylinder":
       return Math.abs(plane.normal.y) < 1e-8
         ? verticalCylinderSection(definition.radius, definition.height, plane)
@@ -219,9 +310,12 @@ export function intersectAnalyticSolidWithPlane(
     }
     case "cube":
     case "cuboid":
+    case "octahedron":
     case "prism":
     case "pyramid":
+    case "regular-polyhedron":
     case "tetrahedron":
+    case "truncated-pyramid":
       return null;
   }
 }
