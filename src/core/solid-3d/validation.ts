@@ -83,11 +83,11 @@ function validDefinition(definition: Solid3DDefinition): boolean {
 
 function validAnchorReferences(record: Solid3DRecord): boolean {
   const topology = createSolidTopology(record.definition);
-  const surfaces = new Set(analyticSurfaceIds(record.definition));
+  const surfaces = new Set<string>(analyticSurfaceIds(record.definition));
   if (topology === null) {
     return record.points.every(
       ({ anchor }) =>
-        anchor.kind === "analytic-surface" && surfaces.has(anchor.surfaceId as never),
+        anchor.kind === "analytic-surface" && surfaces.has(anchor.surfaceId),
     );
   }
   const vertexIds = new Set(topology.vertices.map(({ id }) => id));
