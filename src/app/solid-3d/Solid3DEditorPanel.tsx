@@ -8,11 +8,14 @@ import {
 
 import {
   createSolidTopology,
+  resolveAnalyticSolidPointAnchor,
+  resolveSolid3DPointPosition,
   resolveSolidPointAnchor,
   solidPointId,
   solidSectionId,
   type Solid3DPoint,
   type Solid3DRecord,
+  type SolidAnalyticSurfaceId,
   type SolidPointAnchor,
   type SolidSectionResult,
   type Solid3DLearningAttempt,
@@ -65,6 +68,20 @@ const solidNames: Readonly<
   "truncated-pyramid": "Усечённая пирамида",
 };
 
+const analyticSurfaceNames: Readonly<Record<SolidAnalyticSurfaceId, string>> = {
+  "surface:cone-base": "Основание конуса",
+  "surface:cone-side": "Боковая поверхность конуса",
+  "surface:cylinder-bottom": "Нижнее основание цилиндра",
+  "surface:cylinder-side": "Боковая поверхность цилиндра",
+  "surface:cylinder-top": "Верхнее основание цилиндра",
+  "surface:hemisphere-base": "Основание полусферы",
+  "surface:hemisphere-curved": "Сферическая поверхность полусферы",
+  "surface:sphere": "Сферическая поверхность",
+  "surface:truncated-cone-bottom": "Нижнее основание усечённого конуса",
+  "surface:truncated-cone-side": "Боковая поверхность усечённого конуса",
+  "surface:truncated-cone-top": "Верхнее основание усечённого конуса",
+};
+
 function nextLabel(points: readonly Solid3DPoint[]): string {
   const used = new Set(points.map(({ label }) => label));
   return (
@@ -80,6 +97,24 @@ function samePointSet(
   return (
     left.length === right.length &&
     left.every((id) => right.includes(id as never))
+  );
+}
+
+function resolveLearningAnchor(
+  record: Solid3DRecord,
+  anchor: SolidPointAnchor,
+): Vec3 | null {
+  if (anchor.kind === "analytic-surface")
+    return resolveAnalyticSolidPointAnchor(record.definition, anchor);
+  const topology = createSolidTopology(record.definition);
+  return topology === null ? null : resolveSolidPointAnchor(topology, anchor);
+}
+
+function pointAnchorLabel(point: Solid3DPoint): string {
+  if (point.anchor.kind !== "analytic-surface") return point.anchor.kind;
+  return (
+    analyticSurfaceNames[point.anchor.surfaceId as SolidAnalyticSurfaceId] ??
+    "Аналитическая поверхность"
   );
 }
 
@@ -113,6 +148,8 @@ export function Solid3DEditorPanel({
   const [resetToken, setResetToken] = useState(0);
   const [highlightedElement, setHighlightedElement] =
     useState<SolidElementRef | null>(null);
+  const [hoveredSurfaceId, setHoveredSurfaceId] =
+    useState<SolidAnalyticSurfaceId | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const selectedTuple = useMemo(
@@ -145,12 +182,11 @@ export function Solid3DEditorPanel({
     scenario: Solid3DLearningScenario,
     learningMode: SolidLearningMode,
   ) => {
-    const topology = createSolidTopology(record.definition);
-    if (topology !== null && scenario.seedAnchors.length >= 3) {
+    if (scenario.seedAnchors.length >= 3) {
       const points = scenario.seedAnchors
         .slice(0, 3)
         .flatMap((anchor, index) => {
-          const position = resolveSolidPointAnchor(topology, anchor);
+          const position = resolveLearningAnchor(record, anchor);
           return position === null
             ? []
             : [
@@ -178,7 +214,10 @@ export function Solid3DEditorPanel({
             calculated.status === "ok"
               ? [
                   {
-                    algorithmVersion: "polyhedron-plane/1",
+                    algorithmVersion:
+                      createSolidTopology(record.definition) === null
+                        ? "analytic-plane/1"
+                        : "polyhedron-plane/1",
                     id: solidSectionId(
                       `solid-section:learning:${crypto.randomUUID()}`,
                     ),
@@ -352,15 +391,16 @@ export function Solid3DEditorPanel({
           <div className="solid-3d-stage">
             <Solid3DViewport
               cameraMode={cameraMode}
+              highlightedElement={highlightedElement}
               mode={mode}
+              onElementHover={setHighlightedElement}
               onPointPlace={placePoint}
+              onSurfaceHover={setHoveredSurfaceId}
               record={record}
               resetToken={resetToken}
               section={visibleSection}
               showSectionFill={showSectionFill}
               showSectionOutline={showSectionOutline}
-              highlightedElement={highlightedElement}
-              onElementHover={setHighlightedElement}
             />
             <div aria-live="polite" className="solid-3d-progress">
               <strong>{selectedPointIds.length} / 3</strong>
@@ -368,6 +408,9 @@ export function Solid3DEditorPanel({
                 {visibleSection === null
                   ? "Выберите три допустимые точки"
                   : `Площадь ${visibleSection.area.toFixed(2)} · периметр ${visibleSection.perimeter.toFixed(2)}`}
+                {hoveredSurfaceId === null
+                  ? ""
+                  : ` · ${analyticSurfaceNames[hoveredSurfaceId]}`}
               </span>
             </div>
           </div>
@@ -415,7 +458,7 @@ export function Solid3DEditorPanel({
                       }
                       value={point.label}
                     />
-                    <span>{point.anchor.kind}</span>
+                    <span>{pointAnchorLabel(point)}</span>
                     <button
                       aria-label={`Удалить точку ${point.label}`}
                       disabled={readOnly}
@@ -478,13 +521,18 @@ export function Solid3DEditorPanel({
                 {record.sections.length}.
               </p>
               <ul>
-                {record.points.map((point) => (
-                  <li key={point.id}>
-                    {point.label}: x {point.position.x.toFixed(2)}, y{" "}
-                    {point.position.y.toFixed(2)}, z{" "}
-                    {point.position.z.toFixed(2)}
-                  </li>
-                ))}
+                {record.points.map((point) => {
+                  const position = resolveSolid3DPointPosition(
+                    record.definition,
+                    point,
+                  );
+                  return (
+                    <li key={point.id}>
+                      {point.label}: x {position.x.toFixed(2)}, y{" "}
+                      {position.y.toFixed(2)}, z {position.z.toFixed(2)}
+                    </li>
+                  );
+                })}
               </ul>
             </details>
           </aside>

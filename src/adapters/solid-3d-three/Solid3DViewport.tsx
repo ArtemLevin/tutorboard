@@ -3,12 +3,10 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import {
-  add3,
   createSolidTopology,
-  distance3,
-  scale3,
-  subtract3,
+  resolveSolid3DPointPosition,
   type Solid3DRecord,
+  type SolidAnalyticSurfaceId,
   type SolidElementRef,
   type SolidPointAnchor,
   type SolidSectionResult,
@@ -16,11 +14,13 @@ import {
 } from "../../core/public";
 import { disposeSolidScene } from "./resource-disposal";
 import { buildSolidScene } from "./scene-builder";
+import { resolveSolidHitAnchor } from "./semantic-hit";
 
 export interface Solid3DViewportProps {
   readonly cameraMode: "orthographic" | "perspective";
   readonly mode: "points" | "view";
   readonly onPointPlace: (position: Vec3, anchor: SolidPointAnchor) => void;
+  readonly onSurfaceHover?: (surfaceId: SolidAnalyticSurfaceId | null) => void;
   readonly record: Solid3DRecord;
   readonly resetToken: number;
   readonly section: SolidSectionResult | null;
@@ -31,79 +31,6 @@ export interface Solid3DViewportProps {
 }
 
 type WebGLFailure = "context-lost" | "unavailable";
-
-function nearestAnchor(
-  point: Vec3,
-  topology: ReturnType<typeof buildSolidScene>["topology"],
-  faceIndex: number | undefined,
-): { readonly anchor: SolidPointAnchor; readonly position: Vec3 } {
-  if (topology !== null) {
-    const vertex = [...topology.vertices].sort(
-      (a, b) => distance3(a.position, point) - distance3(b.position, point),
-    )[0];
-    if (vertex !== undefined && distance3(vertex.position, point) < 0.2)
-      return {
-        anchor: { kind: "vertex", vertexId: vertex.id },
-        position: vertex.position,
-      };
-    let nearest: {
-      edgeId: string;
-      parameter: number;
-      point: Vec3;
-      distance: number;
-    } | null = null;
-    const vertices = new Map(
-      topology.vertices.map((item) => [item.id, item.position]),
-    );
-    for (const edge of topology.edges) {
-      const start = vertices.get(edge.startVertexId)!;
-      const end = vertices.get(edge.endVertexId)!;
-      const delta = subtract3(end, start);
-      const denominator =
-        delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
-      const raw =
-        denominator === 0
-          ? 0
-          : ((point.x - start.x) * delta.x +
-              (point.y - start.y) * delta.y +
-              (point.z - start.z) * delta.z) /
-            denominator;
-      const parameter = Math.min(1, Math.max(0, raw));
-      const projected = add3(start, scale3(delta, parameter));
-      const distance = distance3(projected, point);
-      if (nearest === null || distance < nearest.distance)
-        nearest = { distance, edgeId: edge.id, parameter, point: projected };
-    }
-    if (nearest !== null && nearest.distance < 0.14)
-      return {
-        anchor: {
-          edgeId: nearest.edgeId,
-          kind: "edge",
-          parameter: nearest.parameter,
-        },
-        position: nearest.point,
-      };
-    const face =
-      topology.faces[faceIndex === undefined ? 0 : Math.floor(faceIndex / 2)] ??
-      topology.faces[0]!;
-    return {
-      anchor: {
-        faceId: face.id,
-        kind: "face",
-        localCoordinates: { x: 0, y: 0 },
-      },
-      position: point,
-    };
-  }
-  return {
-    anchor: {
-      kind: "analytic-surface",
-      parameters: [point.x, point.y, point.z],
-      surfaceId: "surface:0",
-    },
-    position: point,
-  };
-}
 
 function sectionObject(
   section: SolidSectionResult,
@@ -164,11 +91,12 @@ function builtHighlight(
   if (element.kind === "point") {
     const point = record.points.find(({ id }) => id === element.id);
     if (point === undefined) return null;
+    const position = resolveSolid3DPointPosition(record.definition, point);
     const marker = new THREE.Mesh(
       new THREE.SphereGeometry(0.11, 16, 10),
       new THREE.MeshBasicMaterial({ color: 0xf59e0b }),
     );
-    marker.position.set(point.position.x, point.position.y, point.position.z);
+    marker.position.set(position.x, position.y, position.z);
     return marker;
   }
   if (topology === null) return null;
@@ -216,6 +144,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     cameraMode,
     highlightedElement,
     onElementHover,
+    onSurfaceHover,
     record,
     resetToken,
     section,
@@ -233,6 +162,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const modeRef = useRef(props.mode);
   const onPointPlaceRef = useRef(props.onPointPlace);
   const onElementHoverRef = useRef(onElementHover);
+  const onSurfaceHoverRef = useRef(onSurfaceHover);
   const [failure, setFailure] = useState<WebGLFailure | null>(null);
   const [retryToken, setRetryToken] = useState(0);
 
@@ -252,6 +182,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   useEffect(() => {
     onElementHoverRef.current = onElementHover;
   }, [onElementHover]);
+
+  useEffect(() => {
+    onSurfaceHoverRef.current = onSurfaceHover;
+  }, [onSurfaceHover]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -354,15 +288,22 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       const hit = raycaster.intersectObject(built.mesh, false)[0];
       if (hit === undefined) return;
       const local = built.mesh.worldToLocal(hit.point.clone());
-      const placed = nearestAnchor(
+      const placed = resolveSolidHitAnchor(
+        record.definition,
         { x: local.x, y: local.y, z: local.z },
         built.topology,
         hit.faceIndex ?? undefined,
+        built.semanticSurfaceFaceIds,
       );
-      onPointPlaceRef.current(placed.position, placed.anchor);
+      if (placed !== null)
+        onPointPlaceRef.current(placed.position, placed.anchor);
     };
     const pointerMove = (event: PointerEvent) => {
-      if (onElementHoverRef.current === undefined) return;
+      if (
+        onElementHoverRef.current === undefined &&
+        onSurfaceHoverRef.current === undefined
+      )
+        return;
       const bounds = renderer.domElement.getBoundingClientRect();
       pointer.set(
         ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
@@ -370,27 +311,43 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       );
       raycaster.params.Line = { threshold: 0.08 };
       raycaster.setFromCamera(pointer, camera);
+      if (built.topology === null) {
+        const surfaceHit = raycaster.intersectObject(built.mesh, false)[0];
+        const surfaceId =
+          surfaceHit?.faceIndex === undefined || surfaceHit.faceIndex === null
+            ? null
+            : (built.semanticSurfaceFaceIds[surfaceHit.faceIndex] ?? null);
+        onSurfaceHoverRef.current?.(surfaceId);
+        onElementHoverRef.current?.(null);
+        return;
+      }
+      onSurfaceHoverRef.current?.(null);
       const hit = raycaster.intersectObjects(built.root.children, true)[0];
       if (hit === undefined) {
-        onElementHoverRef.current(null);
+        onElementHoverRef.current?.(null);
         return;
       }
       const kind = hit.object.userData.semanticKind as string | undefined;
       const id = hit.object.userData.semanticId as string | undefined;
       if ((kind === "vertex" || kind === "edge") && id !== undefined) {
-        onElementHoverRef.current({ id, kind });
+        onElementHoverRef.current?.({ id, kind });
         return;
       }
       const faceId = (
         hit.object.userData.semanticFaceIds as string[] | undefined
       )?.[hit.faceIndex ?? -1];
-      onElementHoverRef.current(
+      onElementHoverRef.current?.(
         faceId === undefined ? null : { id: faceId, kind: "face" },
       );
+    };
+    const pointerLeave = () => {
+      onElementHoverRef.current?.(null);
+      onSurfaceHoverRef.current?.(null);
     };
     renderer.domElement.addEventListener("pointerdown", pointerDown);
     renderer.domElement.addEventListener("click", click);
     renderer.domElement.addEventListener("pointermove", pointerMove);
+    renderer.domElement.addEventListener("pointerleave", pointerLeave);
     runtimeRef.current = {
       camera,
       controls,
@@ -407,6 +364,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       renderer.domElement.removeEventListener("pointerdown", pointerDown);
       renderer.domElement.removeEventListener("click", click);
       renderer.domElement.removeEventListener("pointermove", pointerMove);
+      renderer.domElement.removeEventListener("pointerleave", pointerLeave);
       renderer.domElement.removeEventListener("webglcontextlost", contextLost);
       disposeSolidScene(scene);
       renderer.dispose();
@@ -426,11 +384,12 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     const overlays = new THREE.Group();
     overlays.name = "solid-overlays";
     for (const point of record.points) {
+      const position = resolveSolid3DPointPosition(record.definition, point);
       const marker = new THREE.Mesh(
         new THREE.SphereGeometry(0.07, 16, 10),
         new THREE.MeshBasicMaterial({ color: 0x7c3aed }),
       );
-      marker.position.set(point.position.x, point.position.y, point.position.z);
+      marker.position.set(position.x, position.y, position.z);
       overlays.add(marker);
     }
     const highlighted = highlightedElement;

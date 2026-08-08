@@ -3,6 +3,7 @@ import {
   intersectPolyhedronWithPlane,
   intersectAnalyticSolidWithPlane,
   planeFromThreePoints,
+  resolveSolid3DPointPosition,
   type Solid3DRecord,
   type SolidSectionResult,
 } from "../../core/public";
@@ -27,9 +28,9 @@ export function calculateSolidSection(
   if (points.some((point) => point === undefined))
     return { code: "solid.section.points-missing", status: "error" };
   const plane = planeFromThreePoints(
-    points[0]!.position,
-    points[1]!.position,
-    points[2]!.position,
+    resolveSolid3DPointPosition(record.definition, points[0]!),
+    resolveSolid3DPointPosition(record.definition, points[1]!),
+    resolveSolid3DPointPosition(record.definition, points[2]!),
   );
   if (plane === null)
     return { code: "solid.section.collinear", status: "error" };

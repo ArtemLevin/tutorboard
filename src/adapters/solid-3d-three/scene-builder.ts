@@ -4,13 +4,51 @@ import {
   analyticSurfaceIds,
   createSolidTopology,
   type Solid3DDefinition,
+  type SolidAnalyticSurfaceId,
   type SolidTopology,
 } from "../../core/public";
 
 export interface BuiltSolidScene {
   readonly mesh: THREE.Mesh;
   readonly root: THREE.Group;
+  readonly semanticSurfaceFaceIds: readonly (SolidAnalyticSurfaceId | null)[];
   readonly topology: SolidTopology | null;
+}
+
+interface BuiltGeometry {
+  readonly geometry: THREE.BufferGeometry;
+  readonly semanticSurfaceFaceIds: readonly (SolidAnalyticSurfaceId | null)[];
+}
+
+function triangleCount(geometry: THREE.BufferGeometry): number {
+  const count =
+    geometry.index?.count ?? geometry.getAttribute("position").count;
+  return Math.floor(count / 3);
+}
+
+function surfacesFromGroups(
+  geometry: THREE.BufferGeometry,
+  surfacesByMaterial: Readonly<Partial<Record<number, SolidAnalyticSurfaceId>>>,
+  fallback: SolidAnalyticSurfaceId,
+): readonly SolidAnalyticSurfaceId[] {
+  const surfaces = Array.from(
+    { length: triangleCount(geometry) },
+    () => fallback,
+  );
+  for (const group of geometry.groups) {
+    const materialIndex = group.materialIndex;
+    if (materialIndex === undefined) continue;
+    const surfaceId = surfacesByMaterial[materialIndex];
+    if (surfaceId === undefined) continue;
+    const firstTriangle = Math.floor(group.start / 3);
+    const endTriangle = Math.min(
+      surfaces.length,
+      Math.ceil((group.start + group.count) / 3),
+    );
+    for (let index = firstTriangle; index < endTriangle; index += 1)
+      surfaces[index] = surfaceId;
+  }
+  return surfaces;
 }
 
 function polyhedronGeometry(topology: SolidTopology): THREE.BufferGeometry {
@@ -42,7 +80,7 @@ function hemisphereGeometry(
   radius: number,
   radialSegments = 48,
   verticalSegments = 18,
-): THREE.BufferGeometry {
+): BuiltGeometry {
   const positions: number[] = [];
   const point = (polar: number, azimuth: number): THREE.Vector3 => {
     const horizontal = radius * Math.sin(polar);
@@ -89,6 +127,7 @@ function hemisphereGeometry(
     }
   }
 
+  const curvedTriangleCount = positions.length / 9;
   const center = new THREE.Vector3(0, 0, 0);
   for (let column = 0; column < radialSegments; column += 1) {
     const azimuth0 = (column * Math.PI * 2) / radialSegments;
@@ -111,8 +150,26 @@ function hemisphereGeometry(
     "position",
     new THREE.Float32BufferAttribute(positions, 3),
   );
+  geometry.addGroup(0, curvedTriangleCount * 3, 0);
+  geometry.addGroup(
+    curvedTriangleCount * 3,
+    positions.length / 3 - curvedTriangleCount * 3,
+    1,
+  );
   geometry.computeVertexNormals();
-  return geometry;
+  return {
+    geometry,
+    semanticSurfaceFaceIds: [
+      ...Array.from(
+        { length: curvedTriangleCount },
+        () => "surface:hemisphere-curved" as const,
+      ),
+      ...Array.from(
+        { length: positions.length / 9 - curvedTriangleCount },
+        () => "surface:hemisphere-base" as const,
+      ),
+    ],
+  };
 }
 
 function semanticObjects(topology: SolidTopology): THREE.Group {
@@ -148,32 +205,82 @@ function semanticObjects(topology: SolidTopology): THREE.Group {
   return root;
 }
 
-function analyticGeometry(definition: Solid3DDefinition): THREE.BufferGeometry {
+function analyticGeometry(definition: Solid3DDefinition): BuiltGeometry {
   switch (definition.kind) {
-    case "sphere":
-      return new THREE.SphereGeometry(definition.radius, 48, 28);
+    case "sphere": {
+      const geometry = new THREE.SphereGeometry(definition.radius, 48, 28);
+      return {
+        geometry,
+        semanticSurfaceFaceIds: Array.from(
+          { length: triangleCount(geometry) },
+          () => "surface:sphere" as const,
+        ),
+      };
+    }
     case "hemisphere":
       return hemisphereGeometry(definition.radius);
-    case "cylinder":
-      return new THREE.CylinderGeometry(
+    case "cylinder": {
+      const geometry = new THREE.CylinderGeometry(
         definition.radius,
         definition.radius,
         definition.height,
         48,
       );
-    case "cone":
-      return new THREE.ConeGeometry(definition.radius, definition.height, 48);
-    case "truncated-cone":
-      return new THREE.CylinderGeometry(
+      return {
+        geometry,
+        semanticSurfaceFaceIds: surfacesFromGroups(
+          geometry,
+          {
+            0: "surface:cylinder-side",
+            1: "surface:cylinder-top",
+            2: "surface:cylinder-bottom",
+          },
+          "surface:cylinder-side",
+        ),
+      };
+    }
+    case "cone": {
+      const geometry = new THREE.ConeGeometry(
+        definition.radius,
+        definition.height,
+        48,
+      );
+      return {
+        geometry,
+        semanticSurfaceFaceIds: surfacesFromGroups(
+          geometry,
+          { 0: "surface:cone-side", 2: "surface:cone-base" },
+          "surface:cone-side",
+        ),
+      };
+    }
+    case "truncated-cone": {
+      const geometry = new THREE.CylinderGeometry(
         definition.topRadius,
         definition.bottomRadius,
         definition.height,
         48,
       );
+      return {
+        geometry,
+        semanticSurfaceFaceIds: surfacesFromGroups(
+          geometry,
+          {
+            0: "surface:truncated-cone-side",
+            1: "surface:truncated-cone-top",
+            2: "surface:truncated-cone-bottom",
+          },
+          "surface:truncated-cone-side",
+        ),
+      };
+    }
     default: {
       const topology = createSolidTopology(definition);
       if (topology === null) throw new Error("Unsupported solid definition.");
-      return polyhedronGeometry(topology);
+      return {
+        geometry: polyhedronGeometry(topology),
+        semanticSurfaceFaceIds: [],
+      };
     }
   }
 }
@@ -182,10 +289,10 @@ export function buildSolidScene(
   definition: Solid3DDefinition,
 ): BuiltSolidScene {
   const topology = createSolidTopology(definition);
-  const geometry =
+  const builtGeometry =
     topology === null
       ? analyticGeometry(definition)
-      : polyhedronGeometry(topology);
+      : { geometry: polyhedronGeometry(topology), semanticSurfaceFaceIds: [] };
   const material = new THREE.MeshStandardMaterial({
     color: 0x91b8c4,
     metalness: 0.03,
@@ -194,7 +301,7 @@ export function buildSolidScene(
     side: THREE.DoubleSide,
     transparent: true,
   });
-  const mesh = new THREE.Mesh(geometry, material);
+  const mesh = new THREE.Mesh(builtGeometry.geometry, material);
   mesh.name = "solid-surface";
   mesh.userData = {
     semanticFaceIds:
@@ -204,16 +311,22 @@ export function buildSolidScene(
           () => face.id,
         ),
       ) ?? [],
-    semanticKind: "face",
+    semanticKind: topology === null ? "analytic-surface" : "face",
+    semanticSurfaceFaceIds: builtGeometry.semanticSurfaceFaceIds,
     semanticSurfaceIds: analyticSurfaceIds(definition),
   };
   const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(geometry, 12),
+    new THREE.EdgesGeometry(builtGeometry.geometry, 12),
     new THREE.LineBasicMaterial({ color: 0x243847 }),
   );
   edges.name = "solid-edges";
   const root = new THREE.Group();
   root.add(mesh, edges);
   if (topology !== null) root.add(semanticObjects(topology));
-  return { mesh, root, topology };
+  return {
+    mesh,
+    root,
+    semanticSurfaceFaceIds: builtGeometry.semanticSurfaceFaceIds,
+    topology,
+  };
 }
