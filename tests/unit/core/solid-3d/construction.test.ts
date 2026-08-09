@@ -4,30 +4,33 @@ import {
   constructionSideCount,
   defaultSolidProjection,
   definitionForSolidConstruction,
+  groupId,
   replaceSolidConstructionBase,
   replaceSolidConstructionDefinition,
+  solid3DId,
+  solidPointId,
   validateSolidConstructionBase,
   type Solid3DRecord,
 } from "../../../../src/core/public";
 
-const record = {
+const record: Solid3DRecord = {
   boardObjectIds: [],
   definition: definitionForSolidConstruction("prism", 4),
-  id: "solid:construction",
+  id: solid3DId("solid:construction"),
   points: [
     {
       anchor: { kind: "vertex", vertexId: "vertex:bottom:0" },
-      id: "solid-point:construction",
+      id: solidPointId("solid-point:construction"),
       label: "A",
       position: { x: 0, y: 0, z: 0 },
     },
   ],
   projection: defaultSolidProjection,
-  rootGroupId: "group:construction",
+  rootGroupId: groupId("group:construction"),
   schemaVersion: "1.0",
   sections: [],
   source: { kind: "text-template", templateId: "prism-4" },
-} as Solid3DRecord;
+};
 
 describe("solid construction studio domain", () => {
   it("creates regular prism, pyramid and truncated-pyramid definitions up to 32 sides", () => {
