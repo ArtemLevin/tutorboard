@@ -7,6 +7,7 @@ import {
   type Solid3DRecord,
   type SolidEditableParameter,
 } from "../../core/public";
+import "./Solid3DParameterEditor.css";
 
 export interface Solid3DParameterEditorProps {
   readonly onRecordChange: (replacement: Solid3DRecord) => void;
@@ -51,7 +52,10 @@ export function Solid3DParameterEditor({
   };
 
   return (
-    <section aria-labelledby="solid-3d-parameters-title" className="solid-3d-parameters">
+    <section
+      aria-labelledby="solid-3d-parameters-title"
+      className="solid-3d-parameters"
+    >
       <h3 id="solid-3d-parameters-title">Размеры</h3>
       <div className="solid-3d-parameter-grid">
         {parameters.map((descriptor) => (
