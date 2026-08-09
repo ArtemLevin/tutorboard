@@ -1,3 +1,5 @@
+@import "./Solid3DSections.css";
+
 .solid-3d-constraint-builder {
   border-top: 1px solid rgba(36, 56, 71, 0.16);
   display: grid;
