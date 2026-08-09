@@ -1,5 +1,10 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   defaultSolidProjection,
@@ -7,6 +12,8 @@ import {
   type Solid3DRecord,
 } from "../../core/public";
 import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
+
+afterEach(() => cleanup());
 
 function cylinderRecord(): Solid3DRecord {
   return {
