@@ -11,10 +11,45 @@ export interface TopologyFaceAnchorResolution {
   readonly position: Vec3;
 }
 
+export interface TopologyFaceAnchorReference {
+  readonly faceId: string;
+  readonly triangleIndex: number | null;
+}
+
 export interface TriangulatedTopologyFace {
   readonly faceId: string;
   readonly triangleIndex: number;
   readonly vertexIds: readonly [string, string, string];
+}
+
+const triangleSuffix = /^(.*):triangle:(\d+)$/u;
+
+export function encodeTopologyFaceAnchorId(
+  faceId: string,
+  triangleIndex: number,
+): string {
+  return `${faceId}:triangle:${String(triangleIndex)}`;
+}
+
+export function decodeTopologyFaceAnchorId(
+  anchorFaceId: string,
+): TopologyFaceAnchorReference {
+  const match = triangleSuffix.exec(anchorFaceId);
+  if (match === null)
+    return { faceId: anchorFaceId, triangleIndex: null };
+  return {
+    faceId: match[1]!,
+    triangleIndex: Number(match[2]),
+  };
+}
+
+export function stableTopologyFaceAnchor(
+  anchor: SolidPointAnchor,
+): anchor is TopologyFaceAnchor {
+  return (
+    anchor.kind === "face" &&
+    decodeTopologyFaceAnchorId(anchor.faceId).triangleIndex !== null
+  );
 }
 
 export function triangulatedTopologyFaces(
@@ -101,10 +136,12 @@ export function canonicalizeTopologyFaceAnchor(
   );
   return {
     anchor: {
-      faceId: triangle.faceId,
+      faceId: encodeTopologyFaceAnchorId(
+        triangle.faceId,
+        triangle.triangleIndex,
+      ),
       kind: "face",
       localCoordinates,
-      triangleIndex: triangle.triangleIndex,
     },
     position,
   };
