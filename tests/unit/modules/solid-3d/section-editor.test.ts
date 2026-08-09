@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   defaultSolidProjection,
+  groupId,
+  solid3DId,
   solidPointId,
+  type Solid3DPoint,
   type Solid3DRecord,
 } from "../../../../src/core/public";
 import {
@@ -11,38 +14,38 @@ import {
   saveSolidSectionFromPoints,
 } from "../../../../src/modules/solid-3d/public";
 
-const points = [
+const points: readonly Solid3DPoint[] = [
   {
-    anchor: { kind: "vertex" as const, vertexId: "vertex:0" },
+    anchor: { kind: "vertex", vertexId: "vertex:0" },
     id: solidPointId("solid-point:editor-a"),
     label: "A",
     position: { x: -1, y: -1, z: -1 },
   },
   {
-    anchor: { kind: "vertex" as const, vertexId: "vertex:1" },
+    anchor: { kind: "vertex", vertexId: "vertex:1" },
     id: solidPointId("solid-point:editor-b"),
     label: "B",
     position: { x: 1, y: -1, z: -1 },
   },
   {
-    anchor: { kind: "vertex" as const, vertexId: "vertex:6" },
+    anchor: { kind: "vertex", vertexId: "vertex:6" },
     id: solidPointId("solid-point:editor-c"),
     label: "C",
     position: { x: 1, y: 1, z: 1 },
   },
 ];
 
-const record = {
+const record: Solid3DRecord = {
   boardObjectIds: [],
   definition: { edgeLength: 2, kind: "cube" },
-  id: "solid:section-editor",
+  id: solid3DId("solid:section-editor"),
   points,
   projection: defaultSolidProjection,
-  rootGroupId: "group:section-editor",
+  rootGroupId: groupId("group:section-editor"),
   schemaVersion: "1.0",
   sections: [],
   source: { kind: "text-template", templateId: "cube" },
-} as Solid3DRecord;
+};
 
 describe("explicit solid section editor", () => {
   it("saves a three-point preview only when requested", () => {
