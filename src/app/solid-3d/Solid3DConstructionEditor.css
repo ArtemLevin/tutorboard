@@ -1,0 +1,56 @@
+.solid-3d-construction {
+  border-bottom: 1px solid rgba(36, 56, 71, 0.16);
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.9rem;
+}
+
+.solid-3d-construction h3 {
+  margin: 0;
+}
+
+.solid-3d-construction > label:not(.solid-3d-construction-mode) {
+  align-items: center;
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: minmax(7rem, 1fr) minmax(7rem, 1fr);
+}
+
+.solid-3d-construction select,
+.solid-3d-construction input {
+  min-width: 0;
+  width: 100%;
+}
+
+.solid-3d-construction-mode {
+  align-items: center;
+  display: flex;
+  gap: 0.45rem;
+}
+
+.solid-3d-construction-mode input {
+  width: auto;
+}
+
+.solid-3d-base-editor {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.solid-3d-base-editor-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.solid-3d-base-row {
+  align-items: center;
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: 1.5rem minmax(0, 1fr) minmax(0, 1fr) 2rem;
+}
+
+.solid-3d-base-row input {
+  font-size: 0.78rem;
+}
