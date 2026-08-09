@@ -394,6 +394,7 @@ export function Solid3DEditorPanel({
             <Solid3DViewport
               cameraMode={cameraMode}
               highlightedElement={highlightedElement}
+              highlightedSurfaceId={hoveredSurfaceId}
               mode={mode}
               onElementHover={setHighlightedElement}
               onModelRotationCommit={
