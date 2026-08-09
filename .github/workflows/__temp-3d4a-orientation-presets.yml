@@ -1,0 +1,49 @@
+name: Temporary 3D-4A orientation presets
+
+on:
+  push:
+    branches:
+      - agent/3d-4a-persistent-transform
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Add 0/90/180 axis presets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/app/solid-3d/Solid3DOrientationEditor.tsx')
+          text = path.read_text()
+          rotate_marker = '''  const rotate = (axis: Axis, delta: number): void => {\n    onRecordChange(\n      withSolid3DModelEulerDegrees(record, {\n        ...current,\n        [axis]: current[axis] + delta,\n      }),\n    );\n  };\n\n'''
+          setter = rotate_marker + '''  const setAxis = (axis: Axis, value: number): void => {\n    onRecordChange(\n      withSolid3DModelEulerDegrees(record, { ...current, [axis]: value }),\n    );\n  };\n\n'''
+          if '  const setAxis = (axis: Axis, value: number): void => {' not in text:
+              if rotate_marker not in text:
+                  raise SystemExit('rotate helper marker missing')
+              text = text.replace(rotate_marker, setter, 1)
+          old = '''              <button\n                disabled={readOnly}\n                onClick={() =>\n                  onRecordChange(\n                    withSolid3DModelEulerDegrees(record, {\n                      ...current,\n                      [axis]: 90,\n                    }),\n                  )\n                }\n                type="button"\n              >\n                90°\n              </button>\n'''
+          new = '''              {[0, 90, 180].map((value) => (\n                <button\n                  disabled={readOnly}\n                  key={value}\n                  onClick={() => setAxis(axis, value)}\n                  type="button"\n                >\n                  {value}°\n                </button>\n              ))}\n'''
+          if old not in text:
+              raise SystemExit('90 degree preset marker missing')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - run: npm run format
+      - name: Commit feature and self-cleanup
+        run: |
+          git rm -f .github/workflows/__temp-3d4a-orientation-presets.yml
+          git rm -f .3d4a-orientation-presets-trigger || true
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "feat(3d): add 0 90 180 degree orientation presets"
+          git push
