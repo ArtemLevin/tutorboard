@@ -1,6 +1,7 @@
 import { analyticSurfaceIds } from "./anchors";
 import type { Solid3DDefinition, Solid3DRecord } from "./definitions";
 import { createSolidTopology } from "./topology";
+import { decodeTopologyFaceAnchorId } from "./topology-anchors";
 import { isFiniteVec3 } from "./vectors";
 
 export type Solid3DDiagnosticCode =
@@ -103,18 +104,19 @@ function validAnchorReferences(record: Solid3DRecord): boolean {
       case "edge":
         return edgeIds.has(anchor.edgeId);
       case "face": {
-        const face = faces.get(anchor.faceId);
+        const reference = decodeTopologyFaceAnchorId(anchor.faceId);
+        const face = faces.get(reference.faceId);
         if (
           face === undefined ||
           !Number.isFinite(anchor.localCoordinates.x) ||
           !Number.isFinite(anchor.localCoordinates.y)
         )
           return false;
-        if (anchor.triangleIndex === undefined) return true;
         return (
-          Number.isInteger(anchor.triangleIndex) &&
-          anchor.triangleIndex >= 0 &&
-          anchor.triangleIndex <= face.vertexIds.length - 3
+          reference.triangleIndex === null ||
+          (Number.isInteger(reference.triangleIndex) &&
+            reference.triangleIndex >= 0 &&
+            reference.triangleIndex <= face.vertexIds.length - 3)
         );
       }
       case "analytic-surface":
