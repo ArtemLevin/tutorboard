@@ -1,7 +1,4 @@
-import type {
-  Solid3DBoardProjection,
-  Solid3DRecord,
-} from "./definitions";
+import type { Solid3DBoardProjection, Solid3DRecord } from "./definitions";
 import type { SolidSectionResult } from "./polyhedron-section";
 import type { Vec3 } from "./vectors";
 

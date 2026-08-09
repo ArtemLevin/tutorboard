@@ -86,7 +86,9 @@ export function Solid3DOrientationEditor({
                 onKeyDown={(event) => {
                   if (event.key === "Enter") event.currentTarget.blur();
                   if (event.key === "Escape") {
-                    event.currentTarget.value = String(roundAngle(current[axis]));
+                    event.currentTarget.value = String(
+                      roundAngle(current[axis]),
+                    );
                     event.currentTarget.blur();
                   }
                 }}
