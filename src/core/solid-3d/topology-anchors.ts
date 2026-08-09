@@ -35,8 +35,7 @@ export function decodeTopologyFaceAnchorId(
   anchorFaceId: string,
 ): TopologyFaceAnchorReference {
   const match = triangleSuffix.exec(anchorFaceId);
-  if (match === null)
-    return { faceId: anchorFaceId, triangleIndex: null };
+  if (match === null) return { faceId: anchorFaceId, triangleIndex: null };
   return {
     faceId: match[1]!,
     triangleIndex: Number(match[2]),
