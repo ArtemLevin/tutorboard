@@ -12,10 +12,12 @@ describe("parametric 3D text placement", () => {
       template: { kind: "prism", sides: 7 },
     });
     expect(resolveTextShape("призма 7")).toMatchObject({ id: "prism-7" });
-    expect(resolveTextShape("пирамида с 11 угольным основанием")).toMatchObject({
-      id: "pyramid-11",
-      template: { kind: "pyramid", sides: 11 },
-    });
+    expect(resolveTextShape("пирамида с 11 угольным основанием")).toMatchObject(
+      {
+        id: "pyramid-11",
+        template: { kind: "pyramid", sides: 11 },
+      },
+    );
   });
 
   it("resolves truncated pyramids and Platonic solids", () => {

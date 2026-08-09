@@ -31,10 +31,16 @@ const record = {
 
 describe("solid construction studio domain", () => {
   it("creates regular prism, pyramid and truncated-pyramid definitions up to 32 sides", () => {
-    expect(constructionSideCount(definitionForSolidConstruction("prism", 7))).toBe(7);
-    expect(constructionSideCount(definitionForSolidConstruction("pyramid", 32))).toBe(32);
     expect(
-      constructionSideCount(definitionForSolidConstruction("truncated-pyramid", 5)),
+      constructionSideCount(definitionForSolidConstruction("prism", 7)),
+    ).toBe(7);
+    expect(
+      constructionSideCount(definitionForSolidConstruction("pyramid", 32)),
+    ).toBe(32);
+    expect(
+      constructionSideCount(
+        definitionForSolidConstruction("truncated-pyramid", 5),
+      ),
     ).toBe(5);
   });
 

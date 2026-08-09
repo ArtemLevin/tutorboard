@@ -57,12 +57,9 @@ export function polygonSignedArea(base: readonly Vec2[]): number {
 export function validateSolidConstructionBase(
   base: readonly Vec2[],
 ): SolidBaseValidation {
-  if (base.length < 3)
-    return { code: "base.too-few-vertices", valid: false };
+  if (base.length < 3) return { code: "base.too-few-vertices", valid: false };
   if (
-    base.some(
-      (point) => !Number.isFinite(point.x) || !Number.isFinite(point.y),
-    )
+    base.some((point) => !Number.isFinite(point.x) || !Number.isFinite(point.y))
   )
     return { code: "base.non-finite", valid: false };
   if (Math.abs(polygonSignedArea(base)) <= 1e-8)
@@ -97,8 +94,7 @@ function regularPolyhedron(
 ): Solid3DDefinition {
   if (variant === "tetrahedron")
     return { edgeLength: 2.6, kind: "tetrahedron" };
-  if (variant === "octahedron")
-    return { edgeLength: 2.6, kind: "octahedron" };
+  if (variant === "octahedron") return { edgeLength: 2.6, kind: "octahedron" };
   if (variant === "cube") return { edgeLength: 2, kind: "cube" };
   return { edgeLength: 2, kind: "regular-polyhedron", variant };
 }

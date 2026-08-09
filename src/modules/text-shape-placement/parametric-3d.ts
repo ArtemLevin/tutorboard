@@ -6,16 +6,16 @@ import {
 } from "./catalog";
 
 const adjectiveSides: Readonly<Record<string, number>> = {
-  "треугольн": 3,
-  "четырехугольн": 4,
-  "пятиугольн": 5,
-  "шестиугольн": 6,
-  "семиугольн": 7,
-  "восьмиугольн": 8,
-  "девятиугольн": 9,
-  "десятиугольн": 10,
-  "одиннадцатиугольн": 11,
-  "двенадцатиугольн": 12,
+  треугольн: 3,
+  четырехугольн: 4,
+  пятиугольн: 5,
+  шестиугольн: 6,
+  семиугольн: 7,
+  восьмиугольн: 8,
+  девятиугольн: 9,
+  десятиугольн: 10,
+  одиннадцатиугольн: 11,
+  двенадцатиугольн: 12,
 };
 
 function sidesFromQuery(normalized: string): number | null {
@@ -67,21 +67,30 @@ function parametricSolid(query: string): TextShapeDefinition | undefined {
     return solidDefinition(
       `truncated-pyramid-${String(sides)}`,
       `Усечённая ${String(sides)}-угольная пирамида`,
-      [`усеченная пирамида ${String(sides)}`, `усечённая пирамида ${String(sides)}`],
+      [
+        `усеченная пирамида ${String(sides)}`,
+        `усечённая пирамида ${String(sides)}`,
+      ],
       { kind: "pyramid", sides },
     );
   if (normalized.includes("призм"))
     return solidDefinition(
       `prism-${String(sides)}`,
       `${String(sides)}-угольная призма`,
-      [`призма ${String(sides)}`, `призма с ${String(sides)} угольным основанием`],
+      [
+        `призма ${String(sides)}`,
+        `призма с ${String(sides)} угольным основанием`,
+      ],
       { kind: "prism", sides },
     );
   if (normalized.includes("пирамид"))
     return solidDefinition(
       `pyramid-${String(sides)}`,
       `${String(sides)}-угольная пирамида`,
-      [`пирамида ${String(sides)}`, `пирамида с ${String(sides)} угольным основанием`],
+      [
+        `пирамида ${String(sides)}`,
+        `пирамида с ${String(sides)} угольным основанием`,
+      ],
       { kind: "pyramid", sides },
     );
   return undefined;
