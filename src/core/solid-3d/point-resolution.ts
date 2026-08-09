@@ -17,7 +17,8 @@ export function resolveSolid3DPointPosition(
 ): Vec3 {
   if (point.anchor.kind === "analytic-surface")
     return (
-      resolveAnalyticSolidPointAnchor(definition, point.anchor) ?? point.position
+      resolveAnalyticSolidPointAnchor(definition, point.anchor) ??
+      point.position
     );
 
   const topology = createSolidTopology(definition);
