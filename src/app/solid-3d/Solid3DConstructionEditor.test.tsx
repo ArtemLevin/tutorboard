@@ -5,21 +5,23 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   defaultSolidProjection,
   definitionForSolidConstruction,
+  groupId,
+  solid3DId,
   type Solid3DRecord,
 } from "../../core/public";
 import { Solid3DConstructionEditor } from "./Solid3DConstructionEditor";
 
-const record = {
+const record: Solid3DRecord = {
   boardObjectIds: [],
   definition: definitionForSolidConstruction("prism", 4),
-  id: "solid:construction-ui",
+  id: solid3DId("solid:construction-ui"),
   points: [],
   projection: defaultSolidProjection,
-  rootGroupId: "group:construction-ui",
+  rootGroupId: groupId("group:construction-ui"),
   schemaVersion: "1.0",
   sections: [],
   source: { kind: "text-template", templateId: "prism-4" },
-} as Solid3DRecord;
+};
 
 afterEach(cleanup);
 
