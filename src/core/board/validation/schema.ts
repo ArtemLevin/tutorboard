@@ -468,6 +468,25 @@ const solidDefinitionSchema = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({
+      edgeLength: finiteNumberSchema.positive(),
+      kind: z.literal("octahedron"),
+    })
+    .strict(),
+  z
+    .object({
+      edgeLength: finiteNumberSchema.positive(),
+      kind: z.literal("regular-polyhedron"),
+      variant: z.enum([
+        "tetrahedron",
+        "cube",
+        "octahedron",
+        "dodecahedron",
+        "icosahedron",
+      ]),
+    })
+    .strict(),
+  z
+    .object({
       base: z.array(vec2Schema).min(3).max(256),
       height: finiteNumberSchema.positive(),
       kind: z.literal("prism"),
@@ -478,6 +497,14 @@ const solidDefinitionSchema = z.discriminatedUnion("kind", [
       apex: vec3Schema,
       base: z.array(vec2Schema).min(3).max(256),
       kind: z.literal("pyramid"),
+    })
+    .strict(),
+  z
+    .object({
+      bottomBase: z.array(vec2Schema).min(3).max(256),
+      height: finiteNumberSchema.positive(),
+      kind: z.literal("truncated-pyramid"),
+      topBase: z.array(vec2Schema).min(3).max(256),
     })
     .strict(),
   z
@@ -505,6 +532,12 @@ const solidDefinitionSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("sphere"),
+      radius: finiteNumberSchema.positive(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("hemisphere"),
       radius: finiteNumberSchema.positive(),
     })
     .strict(),
