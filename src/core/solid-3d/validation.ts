@@ -95,15 +95,28 @@ function validAnchorReferences(record: Solid3DRecord): boolean {
   }
   const vertexIds = new Set(topology.vertices.map(({ id }) => id));
   const edgeIds = new Set(topology.edges.map(({ id }) => id));
-  const faceIds = new Set(topology.faces.map(({ id }) => id));
+  const faces = new Map(topology.faces.map((face) => [face.id, face]));
   return record.points.every(({ anchor }) => {
     switch (anchor.kind) {
       case "vertex":
         return vertexIds.has(anchor.vertexId);
       case "edge":
         return edgeIds.has(anchor.edgeId);
-      case "face":
-        return faceIds.has(anchor.faceId);
+      case "face": {
+        const face = faces.get(anchor.faceId);
+        if (
+          face === undefined ||
+          !Number.isFinite(anchor.localCoordinates.x) ||
+          !Number.isFinite(anchor.localCoordinates.y)
+        )
+          return false;
+        if (anchor.triangleIndex === undefined) return true;
+        return (
+          Number.isInteger(anchor.triangleIndex) &&
+          anchor.triangleIndex >= 0 &&
+          anchor.triangleIndex <= face.vertexIds.length - 3
+        );
+      }
       case "analytic-surface":
         return false;
     }
