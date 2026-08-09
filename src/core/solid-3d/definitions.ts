@@ -25,7 +25,11 @@ export interface OctahedronDefinition {
   readonly edgeLength: number;
 }
 export type RegularPolyhedronVariant =
-  "tetrahedron" | "cube" | "octahedron" | "dodecahedron" | "icosahedron";
+  | "tetrahedron"
+  | "cube"
+  | "octahedron"
+  | "dodecahedron"
+  | "icosahedron";
 export interface RegularPolyhedronDefinition {
   readonly kind: "regular-polyhedron";
   readonly variant: RegularPolyhedronVariant;
@@ -119,6 +123,7 @@ export type SolidPointAnchor =
       readonly kind: "face";
       readonly faceId: string;
       readonly localCoordinates: Vec2;
+      readonly triangleIndex?: number;
     }
   | {
       readonly kind: "analytic-surface";
@@ -211,7 +216,8 @@ export function solidDefinitionFromTemplate(
     };
   if (templateId === "cylinder")
     return { height: 3, kind: "cylinder", radius: 1.2 };
-  if (templateId === "cone") return { height: 3, kind: "cone", radius: 1.3 };
+  if (templateId === "cone")
+    return { height: 3, kind: "cone", radius: 1.3 };
   if (templateId === "frustum")
     return {
       bottomRadius: 1.35,
