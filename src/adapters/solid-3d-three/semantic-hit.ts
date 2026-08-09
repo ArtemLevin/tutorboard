@@ -1,6 +1,7 @@
 import {
   add3,
   canonicalizeAnalyticSurfaceAnchor,
+  canonicalizeTopologyFaceAnchor,
   distance3,
   scale3,
   subtract3,
@@ -20,7 +21,7 @@ function resolvePolyhedronHit(
   point: Vec3,
   topology: SolidTopology,
   faceIndex: number | undefined,
-): SolidHitPlacement {
+): SolidHitPlacement | null {
   const vertex = [...topology.vertices].sort(
     (a, b) => distance3(a.position, point) - distance3(b.position, point),
   )[0];
@@ -68,23 +69,7 @@ function resolvePolyhedronHit(
       position: nearest.point,
     };
 
-  const semanticFaceIds = topology.faces.flatMap((face) =>
-    Array.from(
-      { length: Math.max(1, face.vertexIds.length - 2) },
-      () => face.id,
-    ),
-  );
-  const faceId = semanticFaceIds[faceIndex ?? -1];
-  const face =
-    topology.faces.find(({ id }) => id === faceId) ?? topology.faces[0]!;
-  return {
-    anchor: {
-      faceId: face.id,
-      kind: "face",
-      localCoordinates: { x: 0, y: 0 },
-    },
-    position: point,
-  };
+  return canonicalizeTopologyFaceAnchor(topology, point, faceIndex);
 }
 
 export function resolveSolidHitAnchor(
