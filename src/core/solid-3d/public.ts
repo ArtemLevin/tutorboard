@@ -1,6 +1,7 @@
 export * from "./anchors";
 export * from "./analytic-section";
 export * from "./definitions";
+export * from "./model-transform";
 export * from "./point-resolution";
 export * from "./polyhedron-section";
 export * from "./projection";
