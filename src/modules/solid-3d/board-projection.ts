@@ -3,6 +3,7 @@ import {
   groupId,
   identityTransform,
   projectSolidPoint,
+  transformSolid3DSectionForProjection,
   type BoardGroup,
   type BoardObject,
   type CommandMetadata,
@@ -33,7 +34,11 @@ export function createProjectSolid3DSectionCommand(input: {
   readonly translation: { readonly x: number; readonly y: number };
 }): ProjectSolid3DSectionCommand {
   const targetGroupId = groupId(`group:solid-section:${input.token}`);
-  const projected = input.section.vertices.map((point) =>
+  const transformed = transformSolid3DSectionForProjection(
+    input.record,
+    input.section,
+  );
+  const projected = transformed.vertices.map((point) =>
     projectSolidPoint(point, input.record.projection),
   );
   const objects: BoardObject[] = [];
