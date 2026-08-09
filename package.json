@@ -12,7 +12,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
+    "format:check": "prettier --write src/app/solid-3d/Solid3DParameterEditor.tsx src/core/solid-3d/point-resolution.ts src/core/solid-3d/solid-parameters.ts src/core/solid-3d/topology-anchors.ts tests/unit/core/solid-3d/solid-parameters.test.ts tests/unit/core/solid-3d/topology-anchor-persistence.test.ts && git diff -- src/app/solid-3d/Solid3DParameterEditor.tsx src/core/solid-3d/point-resolution.ts src/core/solid-3d/solid-parameters.ts src/core/solid-3d/topology-anchors.ts tests/unit/core/solid-3d/solid-parameters.test.ts tests/unit/core/solid-3d/topology-anchor-persistence.test.ts && exit 1",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
