@@ -123,7 +123,6 @@ export type SolidPointAnchor =
       readonly kind: "face";
       readonly faceId: string;
       readonly localCoordinates: Vec2;
-      readonly triangleIndex?: number;
     }
   | {
       readonly kind: "analytic-surface";
