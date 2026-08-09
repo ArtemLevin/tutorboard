@@ -101,7 +101,9 @@ describe("stable topology anchor persistence", () => {
         faceId: topology.faces[0]!.id,
         triangleIndex: 1,
       });
-      expect(anchor.localCoordinates).toEqual(placement.anchor.localCoordinates);
+      expect(anchor.localCoordinates).toEqual(
+        placement.anchor.localCoordinates,
+      );
     }
   });
 });
