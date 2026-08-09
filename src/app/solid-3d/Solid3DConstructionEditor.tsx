@@ -167,6 +167,23 @@ export function Solid3DConstructionEditor({
     );
   };
 
+  const moveVertex = (index: number, direction: -1 | 1): void => {
+    const target = index + direction;
+    if (target < 0 || target >= draftBase.length) return;
+    const reorder = (current: Vec2[]): Vec2[] => {
+      const next = [...current];
+      const selected = next[index];
+      const other = next[target];
+      if (selected === undefined || other === undefined) return current;
+      next[index] = other;
+      next[target] = selected;
+      return next;
+    };
+    setDraftBase(reorder);
+    if (record.definition.kind === "truncated-pyramid")
+      setDraftTopBase(reorder);
+  };
+
   const applyBase = (): void => {
     const replacement = replaceSolidConstructionBase(
       record,
@@ -279,14 +296,32 @@ export function Solid3DConstructionEditor({
                 type="number"
                 value={point.y}
               />
-              <button
-                aria-label={`Удалить вершину ${String(index + 1)}`}
-                disabled={readOnly || draftBase.length <= 3}
-                onClick={() => removeVertex(index)}
-                type="button"
-              >
-                ×
-              </button>
+              <div className="solid-3d-base-order">
+                <button
+                  aria-label={`Поднять вершину ${String(index + 1)}`}
+                  disabled={readOnly || index === 0}
+                  onClick={() => moveVertex(index, -1)}
+                  type="button"
+                >
+                  ↑
+                </button>
+                <button
+                  aria-label={`Опустить вершину ${String(index + 1)}`}
+                  disabled={readOnly || index === draftBase.length - 1}
+                  onClick={() => moveVertex(index, 1)}
+                  type="button"
+                >
+                  ↓
+                </button>
+                <button
+                  aria-label={`Удалить вершину ${String(index + 1)}`}
+                  disabled={readOnly || draftBase.length <= 3}
+                  onClick={() => removeVertex(index)}
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
             </div>
           ))}
           {record.definition.kind === "truncated-pyramid" ? (

@@ -63,6 +63,10 @@ describe("Solid3DConstructionEditor", () => {
     fireEvent.click(screen.getByLabelText("Произвольное основание"));
     expect(screen.getByLabelText("X вершины 1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "+ вершина" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Опустить вершину 1" }),
+    ).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Опустить вершину 1" }));
   });
 
   it("locks all structural editing in read-only mode", () => {
