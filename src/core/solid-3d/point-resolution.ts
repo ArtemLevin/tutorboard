@@ -1,19 +1,29 @@
-import { resolveAnalyticSolidPointAnchor } from "./anchors";
+import {
+  resolveAnalyticSolidPointAnchor,
+  resolveSolidPointAnchor,
+} from "./anchors";
 import type {
   Solid3DDefinition,
   Solid3DPoint,
   Solid3DRecord,
 } from "./definitions";
+import { createSolidTopology } from "./topology";
 import type { Vec3 } from "./vectors";
 
 export function resolveSolid3DPointPosition(
   definition: Solid3DDefinition,
   point: Solid3DPoint,
 ): Vec3 {
-  if (point.anchor.kind !== "analytic-surface") return point.position;
-  return (
-    resolveAnalyticSolidPointAnchor(definition, point.anchor) ?? point.position
-  );
+  if (point.anchor.kind === "analytic-surface")
+    return (
+      resolveAnalyticSolidPointAnchor(definition, point.anchor) ?? point.position
+    );
+
+  const topology = createSolidTopology(definition);
+  if (topology === null) return point.position;
+  if (point.anchor.kind === "face" && point.anchor.triangleIndex === undefined)
+    return point.position;
+  return resolveSolidPointAnchor(topology, point.anchor) ?? point.position;
 }
 
 export function reprojectSolid3DRecord(
