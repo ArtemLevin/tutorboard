@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalizeTopologyFaceAnchor,
   createSolidTopology,
+  decodeTopologyFaceAnchorId,
   defaultSolidProjection,
   reprojectSolid3DRecord,
   resolveSolid3DPointPosition,
@@ -55,9 +56,9 @@ describe("stable topology anchors", () => {
 
     const placement = canonicalizeTopologyFaceAnchor(topology, hit, 1);
     expect(placement).not.toBeNull();
-    expect(placement?.anchor).toMatchObject({
+    expect(placement?.anchor.kind).toBe("face");
+    expect(decodeTopologyFaceAnchorId(placement!.anchor.faceId)).toEqual({
       faceId: face.id,
-      kind: "face",
       triangleIndex: 1,
     });
     expect(placement?.anchor.localCoordinates.x).toBeCloseTo(0.23, 10);
