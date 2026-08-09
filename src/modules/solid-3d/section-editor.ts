@@ -8,7 +8,10 @@ import {
   type SolidSectionConstraint,
   type SolidSectionResult,
 } from "../../core/public";
-import { calculateSolidSection, type SolidSectionWorkflowResult } from "./section-workflow";
+import {
+  calculateSolidSection,
+  type SolidSectionWorkflowResult,
+} from "./section-workflow";
 
 export type SolidSectionEditorResult =
   | {
@@ -28,7 +31,11 @@ export type SolidSectionEditorResult =
 
 function appendSection(
   record: Solid3DRecord,
-  pointIds: readonly [Solid3DPoint["id"], Solid3DPoint["id"], Solid3DPoint["id"]],
+  pointIds: readonly [
+    Solid3DPoint["id"],
+    Solid3DPoint["id"],
+    Solid3DPoint["id"],
+  ],
   token: string,
 ): SolidSectionEditorResult {
   const calculated = calculateSolidSection(record, pointIds);
@@ -89,7 +96,10 @@ export function saveConstrainedSolidSection(input: {
   );
   if (originPoint === undefined)
     return { code: "solid.section.points-missing", status: "error" };
-  const origin = resolveSolid3DPointPosition(input.record.definition, originPoint);
+  const origin = resolveSolid3DPointPosition(
+    input.record.definition,
+    originPoint,
+  );
   const materialized = materializeSolidSectionConstraint({
     constraint: input.constraint,
     origin,

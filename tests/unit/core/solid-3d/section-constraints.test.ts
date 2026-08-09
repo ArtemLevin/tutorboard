@@ -84,8 +84,8 @@ describe("semantic constrained section planes", () => {
       size: { x: 5, y: 3, z: 1.5 },
     });
     const selected = resized.points.find(({ id }) => id === point.id)!;
-    const helpers = materialized.helperPoints.map(
-      ({ id }) => resized.points.find((candidate) => candidate.id === id)!,
+    const helpers = materialized.helperPoints.map(({ id }) =>
+      resized.points.find((candidate) => candidate.id === id)!,
     );
     const plane = planeFromThreePoints(
       resolveSolid3DPointPosition(resized.definition, selected),
@@ -127,8 +127,8 @@ describe("semantic constrained section planes", () => {
       { kind: "cuboid", size: { x: 6, y: 2, z: 3 } },
     );
     const selected = resized.points.find(({ id }) => id === point.id)!;
-    const helperPoints = materialized.helperPoints.map(
-      ({ id }) => resized.points.find((candidate) => candidate.id === id)!,
+    const helperPoints = materialized.helperPoints.map(({ id }) =>
+      resized.points.find((candidate) => candidate.id === id)!,
     );
     const plane = planeFromThreePoints(
       resolveSolid3DPointPosition(resized.definition, selected),

@@ -6,13 +6,7 @@ import type {
   Solid3DSectionDefinition,
 } from "./definitions";
 import { createSolidTopology } from "./topology";
-import {
-  add3,
-  cross3,
-  normalize3,
-  subtract3,
-  type Vec3,
-} from "./vectors";
+import { add3, cross3, normalize3, subtract3, type Vec3 } from "./vectors";
 
 export type SolidSectionConstraint =
   | {
@@ -136,9 +130,7 @@ function topologyEdgeDirection(
 
 function perpendicularBasis(direction: Vec3): readonly [Vec3, Vec3] | null {
   const reference =
-    Math.abs(direction.x) < 0.8
-      ? { x: 1, y: 0, z: 0 }
-      : { x: 0, y: 1, z: 0 };
+    Math.abs(direction.x) < 0.8 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
   const first = normalize3(cross3(direction, reference));
   if (first === null) return null;
   const second = normalize3(cross3(direction, first));
@@ -177,10 +169,7 @@ export function constrainedHelperPositions(
   }
   if (code === "ps") {
     return isPlanarAnalyticSurfaceId(referenceId)
-      ? [
-          add3(origin, { x: 1, y: 0, z: 0 }),
-          add3(origin, { x: 0, y: 0, z: 1 }),
-        ]
+      ? [add3(origin, { x: 1, y: 0, z: 0 }), add3(origin, { x: 0, y: 0, z: 1 })]
       : null;
   }
   return null;
@@ -208,7 +197,11 @@ function syntheticHelpers(
           localCoordinates: { x: 0, y: 0 },
         } as const)
       : code === "pe"
-        ? ({ edgeId: referenceId, kind: "edge" as const, parameter: 0.5 } as const)
+        ? ({
+            edgeId: referenceId,
+            kind: "edge" as const,
+            parameter: 0.5,
+          } as const)
         : ({
             kind: "analytic-surface" as const,
             parameters: [],
@@ -270,7 +263,11 @@ export function materializeSolidSectionConstraint(input: {
   const code = constraintCode(input.constraint);
   const helpers =
     input.constraint.kind === "through-edge-and-point"
-      ? edgeHelpers(input.record.definition, input.constraint.edgeId, input.token)
+      ? edgeHelpers(
+          input.record.definition,
+          input.constraint.edgeId,
+          input.token,
+        )
       : input.constraint.kind === "through-point-parallel-face"
         ? syntheticHelpers(
             input.record.definition,

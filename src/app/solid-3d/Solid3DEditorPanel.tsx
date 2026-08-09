@@ -108,7 +108,8 @@ function samePointSet(
   right: readonly string[],
 ): boolean {
   return (
-    left.length === right.length && left.every((id) => right.includes(id as never))
+    left.length === right.length &&
+    left.every((id) => right.includes(id as never))
   );
 }
 
@@ -202,7 +203,8 @@ export function Solid3DEditorPanel({
       ? null
       : calculateSolidSection(record, activeSectionDefinition.pointIds);
   const activeSection =
-    activeSectionResult?.status === "ok" && activeSectionDefinition?.visible === true
+    activeSectionResult?.status === "ok" &&
+    activeSectionDefinition?.visible === true
       ? activeSectionResult.section
       : null;
   const freeVisibleSection = previewSection ?? activeSection;
@@ -235,7 +237,10 @@ export function Solid3DEditorPanel({
           Solid3DPoint["id"],
           Solid3DPoint["id"],
         ];
-        const provisional: Solid3DRecord = { ...record, points: learningPoints };
+        const provisional: Solid3DRecord = {
+          ...record,
+          points: learningPoints,
+        };
         const calculated = calculateSolidSection(provisional, ids);
         const learningSectionId = solidSectionId(
           `solid-section:learning:${crypto.randomUUID()}`,
@@ -355,8 +360,8 @@ export function Solid3DEditorPanel({
           </button>
         </header>
         <p className="visually-hidden" id="solid-3d-description">
-          Вращайте модель, ставьте точки, предварительно просматривайте плоскость
-          и явно сохраняйте нужные сечения.
+          Вращайте модель, ставьте точки, предварительно просматривайте
+          плоскость и явно сохраняйте нужные сечения.
         </p>
         <div className="solid-3d-toolbar" role="toolbar">
           <button
@@ -481,7 +486,8 @@ export function Solid3DEditorPanel({
                             candidate.id === point.id
                               ? {
                                   ...candidate,
-                                  label: event.currentTarget.value || point.label,
+                                  label:
+                                    event.currentTarget.value || point.label,
                                 }
                               : candidate,
                           ),
@@ -540,7 +546,9 @@ export function Solid3DEditorPanel({
               onClick={savePreview}
               type="button"
             >
-              {previewSaved === undefined ? "Создать сечение" : "Сечение сохранено"}
+              {previewSaved === undefined
+                ? "Создать сечение"
+                : "Сечение сохранено"}
             </button>
             <Solid3DSectionConstraintBuilder
               onRecordChange={onRecordChange}
@@ -562,7 +570,9 @@ export function Solid3DEditorPanel({
                   return (
                     <li key={sectionDefinition.id}>
                       <button
-                        aria-pressed={activeSectionDefinition?.id === sectionDefinition.id}
+                        aria-pressed={
+                          activeSectionDefinition?.id === sectionDefinition.id
+                        }
                         onClick={() => setActiveSectionId(sectionDefinition.id)}
                         type="button"
                       >

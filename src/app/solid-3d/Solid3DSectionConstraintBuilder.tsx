@@ -19,10 +19,7 @@ export interface Solid3DSectionConstraintBuilderProps {
 }
 
 type ConstraintMode =
-  | "edge-point"
-  | "parallel-face"
-  | "parallel-surface"
-  | "perpendicular-edge";
+  "edge-point" | "parallel-face" | "parallel-surface" | "perpendicular-edge";
 
 const modeLabels: Readonly<Record<ConstraintMode, string>> = {
   "edge-point": "Через ребро и точку",
@@ -54,7 +51,9 @@ export function Solid3DSectionConstraintBuilder({
     () => createSolidTopology(record.definition),
     [record.definition],
   );
-  const points = record.points.filter((point) => !isSolidSectionHelperPoint(point));
+  const points = record.points.filter(
+    (point) => !isSolidSectionHelperPoint(point),
+  );
   const planarSurfaces = analyticSurfaceIds(record.definition).filter(
     isPlanarAnalyticSurfaceId,
   );

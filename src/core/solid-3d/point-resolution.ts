@@ -69,7 +69,8 @@ export function reprojectSolid3DRecord(
     if (code === null || code === "ep") continue;
     if (solidSectionHelperCode(helpers[1]!) !== code) continue;
     const reference = helperReference(helpers[0]!);
-    if (reference === null || helperReference(helpers[1]!) !== reference) continue;
+    if (reference === null || helperReference(helpers[1]!) !== reference)
+      continue;
     const origin = resolveSolid3DPointPosition(definition, originPoint);
     const helperPositions = constrainedHelperPositions(
       definition,

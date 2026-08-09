@@ -178,9 +178,7 @@ export function Solid3DConstructionEditor({
     const replacement = replaceSolidConstructionBase(
       record,
       draftBase,
-      record.definition.kind === "truncated-pyramid"
-        ? draftTopBase
-        : undefined,
+      record.definition.kind === "truncated-pyramid" ? draftTopBase : undefined,
     );
     if (replacement === null) {
       setMessage(
