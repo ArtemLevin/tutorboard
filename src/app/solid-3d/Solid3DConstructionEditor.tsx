@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type ReactElement } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactElement,
+  type SetStateAction,
+} from "react";
 
 import {
   constructionKindFromDefinition,
@@ -121,11 +128,12 @@ export function Solid3DConstructionEditor({
   };
 
   const updatePoint = (
-    setBase: (updater: (current: Vec2[]) => Vec2[]) => void,
+    setBase: Dispatch<SetStateAction<Vec2[]>>,
     index: number,
     axis: "x" | "y",
     value: string,
   ): void => {
+    if (value.trim().length === 0) return;
     const numeric = Number(value.replace(",", "."));
     if (!Number.isFinite(numeric)) return;
     setBase((current) =>
@@ -158,7 +166,9 @@ export function Solid3DConstructionEditor({
 
   const removeVertex = (index: number): void => {
     if (draftBase.length <= 3) return;
-    setDraftBase((current) => current.filter((_, candidate) => candidate !== index));
+    setDraftBase((current) =>
+      current.filter((_, candidate) => candidate !== index),
+    );
     setDraftTopBase((current) =>
       current.filter((_, candidate) => candidate !== index),
     );
@@ -168,10 +178,14 @@ export function Solid3DConstructionEditor({
     const replacement = replaceSolidConstructionBase(
       record,
       draftBase,
-      record.definition.kind === "truncated-pyramid" ? draftTopBase : undefined,
+      record.definition.kind === "truncated-pyramid"
+        ? draftTopBase
+        : undefined,
     );
     if (replacement === null) {
-      setMessage("Основание должно иметь ненулевую площадь и не пересекать само себя.");
+      setMessage(
+        "Основание должно иметь ненулевую площадь и не пересекать само себя.",
+      );
       return;
     }
     onRecordChange(replacement);
@@ -179,14 +193,19 @@ export function Solid3DConstructionEditor({
   };
 
   return (
-    <section aria-labelledby="solid-3d-construction-title" className="solid-3d-construction">
+    <section
+      aria-labelledby="solid-3d-construction-title"
+      className="solid-3d-construction"
+    >
       <h3 id="solid-3d-construction-title">Конструкция тела</h3>
       <label>
         <span>Тип</span>
         <select
           aria-label="Тип объёмного тела"
           disabled={readOnly}
-          onChange={(event) => changeKind(event.currentTarget.value as SolidConstructionKind)}
+          onChange={(event) =>
+            changeKind(event.currentTarget.value as SolidConstructionKind)
+          }
           value={kind}
         >
           {kinds.map((item) => (
@@ -228,7 +247,11 @@ export function Solid3DConstructionEditor({
         <div className="solid-3d-base-editor">
           <div className="solid-3d-base-editor-heading">
             <strong>Нижнее основание</strong>
-            <button disabled={readOnly || draftBase.length >= 32} onClick={addVertex} type="button">
+            <button
+              disabled={readOnly || draftBase.length >= 32}
+              onClick={addVertex}
+              type="button"
+            >
               + вершина
             </button>
           </div>
@@ -239,7 +262,12 @@ export function Solid3DConstructionEditor({
                 aria-label={`X вершины ${String(index + 1)}`}
                 disabled={readOnly}
                 onChange={(event) =>
-                  updatePoint(setDraftBase, index, "x", event.currentTarget.value)
+                  updatePoint(
+                    setDraftBase,
+                    index,
+                    "x",
+                    event.currentTarget.value,
+                  )
                 }
                 step="0.1"
                 type="number"
@@ -249,7 +277,12 @@ export function Solid3DConstructionEditor({
                 aria-label={`Z вершины ${String(index + 1)}`}
                 disabled={readOnly}
                 onChange={(event) =>
-                  updatePoint(setDraftBase, index, "y", event.currentTarget.value)
+                  updatePoint(
+                    setDraftBase,
+                    index,
+                    "y",
+                    event.currentTarget.value,
+                  )
                 }
                 step="0.1"
                 type="number"
@@ -275,7 +308,12 @@ export function Solid3DConstructionEditor({
                     aria-label={`X верхней вершины ${String(index + 1)}`}
                     disabled={readOnly}
                     onChange={(event) =>
-                      updatePoint(setDraftTopBase, index, "x", event.currentTarget.value)
+                      updatePoint(
+                        setDraftTopBase,
+                        index,
+                        "x",
+                        event.currentTarget.value,
+                      )
                     }
                     step="0.1"
                     type="number"
@@ -285,7 +323,12 @@ export function Solid3DConstructionEditor({
                     aria-label={`Z верхней вершины ${String(index + 1)}`}
                     disabled={readOnly}
                     onChange={(event) =>
-                      updatePoint(setDraftTopBase, index, "y", event.currentTarget.value)
+                      updatePoint(
+                        setDraftTopBase,
+                        index,
+                        "y",
+                        event.currentTarget.value,
+                      )
                     }
                     step="0.1"
                     type="number"
@@ -301,7 +344,8 @@ export function Solid3DConstructionEditor({
               readOnly ||
               !validation.valid ||
               (topValidation !== null && !topValidation.valid) ||
-              (draftTopBase.length > 0 && draftTopBase.length !== draftBase.length)
+              (draftTopBase.length > 0 &&
+                draftTopBase.length !== draftBase.length)
             }
             onClick={applyBase}
             type="button"
