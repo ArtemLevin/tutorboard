@@ -146,7 +146,7 @@ export function Solid3DEditorPanel({
   onLearningReset,
   onLearningStart,
 }: Solid3DEditorPanelProps): ReactElement {
-  const points = visiblePoints(record);
+  const points = useMemo(() => visiblePoints(record), [record.points]);
   const [experience, setExperience] = useState<"free" | "learning">(
     learningAttempt === null ? "free" : "learning",
   );
@@ -168,17 +168,22 @@ export function Solid3DEditorPanel({
   const [hoveredSurfaceId, setHoveredSurfaceId] =
     useState<SolidAnalyticSurfaceId | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const sanitizedSelectedPointIds = useMemo(
+    () =>
+      selectedPointIds.filter((id) => points.some((point) => point.id === id)),
+    [points, selectedPointIds],
+  );
 
   const selectedTuple = useMemo(
     () =>
-      selectedPointIds.length === 3
+      sanitizedSelectedPointIds.length === 3
         ? ([
-            selectedPointIds[0]!,
-            selectedPointIds[1]!,
-            selectedPointIds[2]!,
+            sanitizedSelectedPointIds[0]!,
+            sanitizedSelectedPointIds[1]!,
+            sanitizedSelectedPointIds[2]!,
           ] as [Solid3DPoint["id"], Solid3DPoint["id"], Solid3DPoint["id"]])
         : null,
-    [selectedPointIds],
+    [sanitizedSelectedPointIds],
   );
   const previewResult = useMemo(
     () =>
@@ -285,11 +290,11 @@ export function Solid3DEditorPanel({
         label: nextLabel(points),
         position,
       };
-      const nextSelection = [...selectedPointIds.slice(-2), point.id];
+      const nextSelection = [...sanitizedSelectedPointIds.slice(-2), point.id];
       setSelectedPointIds(nextSelection);
       onRecordChange({ ...record, points: [...record.points, point] });
     },
-    [onRecordChange, points, readOnly, record, selectedPointIds],
+    [onRecordChange, points, readOnly, record, sanitizedSelectedPointIds],
   );
 
   const savePreview = (): void => {
@@ -433,7 +438,7 @@ export function Solid3DEditorPanel({
               showSectionOutline={showSectionOutline}
             />
             <div aria-live="polite" className="solid-3d-progress">
-              <strong>{selectedPointIds.length} / 3</strong>
+              <strong>{sanitizedSelectedPointIds.length} / 3</strong>
               <span>
                 {previewSection !== null
                   ? `Preview · площадь ${previewSection.area.toFixed(2)} · периметр ${previewSection.perimeter.toFixed(2)}`
@@ -461,10 +466,10 @@ export function Solid3DEditorPanel({
                   <li key={point.id}>
                     <input
                       aria-label={`Выбрать точку ${point.label}`}
-                      checked={selectedPointIds.includes(point.id)}
+                      checked={sanitizedSelectedPointIds.includes(point.id)}
                       disabled={
-                        !selectedPointIds.includes(point.id) &&
-                        selectedPointIds.length >= 3
+                        !sanitizedSelectedPointIds.includes(point.id) &&
+                        sanitizedSelectedPointIds.length >= 3
                       }
                       onChange={(event) =>
                         setSelectedPointIds((current) =>
@@ -551,6 +556,9 @@ export function Solid3DEditorPanel({
                 : "Сечение сохранено"}
             </button>
             <Solid3DSectionConstraintBuilder
+              key={`${JSON.stringify(record.definition)}:${points
+                .map(({ id }) => id)
+                .join(",")}`}
               onRecordChange={onRecordChange}
               onSectionCreated={setActiveSectionId}
               readOnly={readOnly || record.sections.length >= 8}

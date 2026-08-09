@@ -4,23 +4,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   defaultSolidProjection,
+  groupId,
   solid3DEulerDegreesFromQuaternion,
+  solid3DId,
   solid3DModelQuaternion,
   type Solid3DRecord,
 } from "../../core/public";
 import { Solid3DOrientationEditor } from "./Solid3DOrientationEditor";
 
-const record = {
+const record: Solid3DRecord = {
   boardObjectIds: [],
   definition: { edgeLength: 2, kind: "cube" },
-  id: "solid:orientation",
+  id: solid3DId("solid:orientation"),
   points: [],
   projection: defaultSolidProjection,
-  rootGroupId: "group:orientation",
+  rootGroupId: groupId("group:orientation"),
   schemaVersion: "1.0",
   sections: [],
   source: { kind: "text-template", templateId: "cube" },
-} as Solid3DRecord;
+};
 
 afterEach(cleanup);
 

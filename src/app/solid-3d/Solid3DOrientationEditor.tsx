@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import {
   identitySolid3DQuaternion,
@@ -25,31 +25,14 @@ export function Solid3DOrientationEditor({
   readOnly,
   record,
 }: Solid3DOrientationEditorProps): ReactElement {
-  const current = useMemo(
-    () => solid3DEulerDegreesFromQuaternion(solid3DModelQuaternion(record)),
-    [record.projection.matrix],
+  const current = solid3DEulerDegreesFromQuaternion(
+    solid3DModelQuaternion(record.projection),
   );
-  const [draft, setDraft] = useState<Record<Axis, string>>(() => ({
-    x: String(roundAngle(current.x)),
-    y: String(roundAngle(current.y)),
-    z: String(roundAngle(current.z)),
-  }));
 
-  useEffect(() => {
-    setDraft({
-      x: String(roundAngle(current.x)),
-      y: String(roundAngle(current.y)),
-      z: String(roundAngle(current.z)),
-    });
-  }, [current.x, current.y, current.z]);
-
-  const commit = (axis: Axis): void => {
-    const value = Number(draft[axis].replace(",", "."));
+  const commit = (axis: Axis, input: HTMLInputElement): void => {
+    const value = Number(input.value.replace(",", "."));
     if (!Number.isFinite(value)) {
-      setDraft((state) => ({
-        ...state,
-        [axis]: String(roundAngle(current[axis])),
-      }));
+      input.value = String(roundAngle(current[axis]));
       return;
     }
     onRecordChange(
@@ -95,23 +78,21 @@ export function Solid3DOrientationEditor({
               <span>{axis.toUpperCase()}°</span>
               <input
                 aria-label={`Поворот ${axis.toUpperCase()}`}
+                defaultValue={String(roundAngle(current[axis]))}
                 disabled={readOnly}
                 inputMode="decimal"
-                onBlur={() => commit(axis)}
-                onChange={(event) =>
-                  setDraft((state) => ({
-                    ...state,
-                    [axis]: event.currentTarget.value,
-                  }))
-                }
+                key={`${axis}:${String(roundAngle(current[axis]))}`}
+                onBlur={(event) => commit(axis, event.currentTarget)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    commit(axis);
+                  if (event.key === "Enter") event.currentTarget.blur();
+                  if (event.key === "Escape") {
+                    event.currentTarget.value = String(
+                      roundAngle(current[axis]),
+                    );
                     event.currentTarget.blur();
                   }
                 }}
                 type="text"
-                value={draft[axis]}
               />
             </label>
             <div className="solid-3d-orientation-nudges">
