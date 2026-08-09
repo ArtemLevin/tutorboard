@@ -4,12 +4,11 @@ export {
 } from "./figure-actions";
 export {
   normalizeTextShapeQuery,
-  resolveTextShape,
-  suggestTextShapes,
   textShapeCatalog,
   type TextShapeDefinition,
   type TextShapeTemplate,
 } from "./catalog";
+export { resolveTextShape, suggestTextShapes } from "./parametric-3d";
 export {
   createTextShapePlacementCommand,
   textShapeIdentityFromGroupId,
