@@ -11,6 +11,7 @@ import {
   serializeBoardDocument,
   solid3DId,
   type BoardDocument,
+  type BoardGroup,
   type Solid3DDefinition,
   type Solid3DRecord,
 } from "../../../../src/core/public";
@@ -35,8 +36,8 @@ describe("expanded semantic solid persistence", () => {
       id: documentId("document:semantic-solids"),
       title: "Expanded semantic solids",
     });
-    const groups: BoardDocument["groups"] = {};
-    const solidModels: BoardDocument["solidModels"] = {};
+    const groups: Record<string, BoardGroup> = {};
+    const solidModels: Record<string, Solid3DRecord> = {};
 
     definitions.forEach((definition, index) => {
       const id = solid3DId(`solid:semantic:${String(index)}`);
@@ -57,7 +58,7 @@ describe("expanded semantic solid persistence", () => {
         schemaVersion: "1.0",
         sections: [],
         source: { kind: "text-template", templateId: definition.kind },
-      } satisfies Solid3DRecord;
+      };
     });
 
     const document: BoardDocument = {
