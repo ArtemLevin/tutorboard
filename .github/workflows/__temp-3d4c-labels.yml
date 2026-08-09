@@ -1,9 +1,11 @@
+# trigger
 name: Temporary 3D-4C persistent labels
 
 on:
   push:
     branches:
       - agent/3d-4c-generalized-sections
+  pull_request:
 
 permissions:
   contents: write
