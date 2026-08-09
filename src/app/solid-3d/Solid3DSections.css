@@ -1,0 +1,26 @@
+.solid-3d-sections {
+  display: grid;
+  gap: 0.45rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.solid-3d-sections li {
+  align-items: center;
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: auto minmax(4.5rem, auto) 1fr auto;
+}
+
+.solid-3d-sections label {
+  align-items: center;
+  display: flex;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+}
+
+.solid-3d-sections button[aria-pressed="true"] {
+  font-weight: 700;
+  outline: 2px solid currentColor;
+}

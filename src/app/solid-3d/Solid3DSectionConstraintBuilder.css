@@ -1,0 +1,26 @@
+@import "./Solid3DSections.css";
+
+.solid-3d-constraint-builder {
+  border-top: 1px solid rgba(36, 56, 71, 0.16);
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+}
+
+.solid-3d-constraint-builder h3,
+.solid-3d-constraint-builder p {
+  margin: 0;
+}
+
+.solid-3d-constraint-builder > label {
+  align-items: center;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(7rem, 1fr) minmax(8rem, 1.4fr);
+}
+
+.solid-3d-constraint-builder select {
+  min-width: 0;
+  width: 100%;
+}

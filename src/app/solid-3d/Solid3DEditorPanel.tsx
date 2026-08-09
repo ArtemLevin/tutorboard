@@ -8,6 +8,7 @@ import {
 
 import {
   createSolidTopology,
+  isSolidSectionHelperPoint,
   resolveAnalyticSolidPointAnchor,
   resolveSolid3DPointPosition,
   resolveSolidPointAnchor,
@@ -26,10 +27,16 @@ import {
   type SolidLearningMode,
   type Vec3,
 } from "../../core/public";
-import { calculateSolidSection } from "../../modules/solid-3d/public";
+import {
+  calculateSolidSection,
+  removeSavedSolidSection,
+  saveSolidSectionFromPoints,
+  setSavedSolidSectionVisibility,
+} from "../../modules/solid-3d/public";
 import { Solid3DViewport } from "../../adapters/solid-3d-three/public";
 import { Solid3DLearningWorkspace } from "./Solid3DLearningWorkspace";
 import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
+import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuilder";
 import "./Solid3DEditorPanel.css";
 
 export interface Solid3DEditorPanelProps {
@@ -52,6 +59,7 @@ export interface Solid3DEditorPanelProps {
 }
 
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const sectionNames = ["α", "β", "γ", "δ", "ε", "ζ", "η", "θ"] as const;
 const solidNames: Readonly<
   Record<Solid3DRecord["definition"]["kind"], string>
 > = {
@@ -83,6 +91,12 @@ const analyticSurfaceNames: Readonly<Record<SolidAnalyticSurfaceId, string>> = {
   "surface:truncated-cone-side": "Боковая поверхность усечённого конуса",
   "surface:truncated-cone-top": "Верхнее основание усечённого конуса",
 };
+
+function visiblePoints(
+  points: readonly Solid3DPoint[],
+): readonly Solid3DPoint[] {
+  return points.filter((point) => !isSolidSectionHelperPoint(point));
+}
 
 function nextLabel(points: readonly Solid3DPoint[]): string {
   const used = new Set(points.map(({ label }) => label));
@@ -135,6 +149,7 @@ export function Solid3DEditorPanel({
   onLearningReset,
   onLearningStart,
 }: Solid3DEditorPanelProps): ReactElement {
+  const points = useMemo(() => visiblePoints(record.points), [record.points]);
   const [experience, setExperience] = useState<"free" | "learning">(
     learningAttempt === null ? "free" : "learning",
   );
@@ -143,7 +158,10 @@ export function Solid3DEditorPanel({
     "orthographic",
   );
   const [selectedPointIds, setSelectedPointIds] = useState<readonly string[]>(
-    () => record.points.slice(-3).map(({ id }) => id),
+    () => points.slice(-3).map(({ id }) => id),
+  );
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(
+    () => record.sections.at(-1)?.id ?? null,
   );
   const [showSectionFill, setShowSectionFill] = useState(true);
   const [showSectionOutline, setShowSectionOutline] = useState(true);
@@ -153,39 +171,58 @@ export function Solid3DEditorPanel({
   const [hoveredSurfaceId, setHoveredSurfaceId] =
     useState<SolidAnalyticSurfaceId | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const sanitizedSelectedPointIds = useMemo(
+    () =>
+      selectedPointIds.filter((id) => points.some((point) => point.id === id)),
+    [points, selectedPointIds],
+  );
 
   const selectedTuple = useMemo(
     () =>
-      selectedPointIds.length === 3
+      sanitizedSelectedPointIds.length === 3
         ? ([
-            selectedPointIds[0]!,
-            selectedPointIds[1]!,
-            selectedPointIds[2]!,
-          ] as const)
+            sanitizedSelectedPointIds[0]!,
+            sanitizedSelectedPointIds[1]!,
+            sanitizedSelectedPointIds[2]!,
+          ] as [Solid3DPoint["id"], Solid3DPoint["id"], Solid3DPoint["id"]])
         : null,
-    [selectedPointIds],
+    [sanitizedSelectedPointIds],
   );
-  const sectionResult = useMemo(
+  const previewResult = useMemo(
     () =>
       selectedTuple === null
         ? null
         : calculateSolidSection(record, selectedTuple),
     [record, selectedTuple],
   );
-  const section = sectionResult?.status === "ok" ? sectionResult.section : null;
-  const sectionDefinition =
+  const previewSection =
+    previewResult?.status === "ok" ? previewResult.section : null;
+  const previewSaved =
     selectedTuple === null
       ? undefined
       : record.sections.find((candidate) =>
           samePointSet(candidate.pointIds, selectedTuple),
         );
+  const activeSectionDefinition =
+    record.sections.find(({ id }) => id === activeSectionId) ??
+    record.sections.at(-1);
+  const activeSectionResult =
+    activeSectionDefinition === undefined
+      ? null
+      : calculateSolidSection(record, activeSectionDefinition.pointIds);
+  const activeSection =
+    activeSectionResult?.status === "ok" &&
+    activeSectionDefinition?.visible === true
+      ? activeSectionResult.section
+      : null;
+  const freeVisibleSection = previewSection ?? activeSection;
 
   const startLearning = (
     scenario: Solid3DLearningScenario,
     learningMode: SolidLearningMode,
   ) => {
     if (scenario.seedAnchors.length >= 3) {
-      const points = scenario.seedAnchors
+      const learningPoints = scenario.seedAnchors
         .slice(0, 3)
         .flatMap((anchor, index) => {
           const position = resolveLearningAnchor(record, anchor);
@@ -202,14 +239,20 @@ export function Solid3DEditorPanel({
                 } satisfies Solid3DPoint,
               ];
         });
-      if (points.length === 3) {
-        const ids = points.map(({ id }) => id) as [
+      if (learningPoints.length === 3) {
+        const ids = learningPoints.map(({ id }) => id) as [
           Solid3DPoint["id"],
           Solid3DPoint["id"],
           Solid3DPoint["id"],
         ];
-        const provisional: Solid3DRecord = { ...record, points };
+        const provisional: Solid3DRecord = {
+          ...record,
+          points: learningPoints,
+        };
         const calculated = calculateSolidSection(provisional, ids);
+        const learningSectionId = solidSectionId(
+          `solid-section:learning:${crypto.randomUUID()}`,
+        );
         onRecordChange({
           ...provisional,
           sections:
@@ -220,9 +263,7 @@ export function Solid3DEditorPanel({
                       createSolidTopology(record.definition) === null
                         ? "analytic-plane/1"
                         : "polyhedron-plane/1",
-                    id: solidSectionId(
-                      `solid-section:learning:${crypto.randomUUID()}`,
-                    ),
+                    id: learningSectionId,
                     pointIds: ids,
                     visible: true,
                   },
@@ -230,6 +271,7 @@ export function Solid3DEditorPanel({
               : [],
         });
         setSelectedPointIds(ids);
+        if (calculated.status === "ok") setActiveSectionId(learningSectionId);
       }
     }
     onLearningStart(scenario, learningMode);
@@ -239,69 +281,62 @@ export function Solid3DEditorPanel({
     experience === "free" ||
     learningAttempt?.mode === "teacher-demo" ||
     learningAttempt?.prediction?.submitted === true
-      ? section
+      ? freeVisibleSection
       : null;
 
   const placePoint = useCallback(
     (position: Vec3, anchor: SolidPointAnchor) => {
-      if (readOnly) return;
+      if (readOnly || record.points.length >= 32) return;
       const point: Solid3DPoint = {
         anchor,
         id: solidPointId(`solid-point:${crypto.randomUUID()}`),
-        label: nextLabel(record.points),
+        label: nextLabel(points),
         position,
       };
-      const nextSelection = [...selectedPointIds.slice(-2), point.id];
-      const nextPoints = [...record.points, point];
-      const provisional: Solid3DRecord = { ...record, points: nextPoints };
-      const nextSection =
-        nextSelection.length === 3
-          ? calculateSolidSection(
-              provisional,
-              nextSelection as [
-                Solid3DPoint["id"],
-                Solid3DPoint["id"],
-                Solid3DPoint["id"],
-              ],
-            )
-          : null;
-      const replacement: Solid3DRecord = {
-        ...provisional,
-        sections:
-          nextSection?.status === "ok"
-            ? [
-                ...record.sections,
-                {
-                  algorithmVersion:
-                    createSolidTopology(record.definition) === null
-                      ? "analytic-plane/1"
-                      : "polyhedron-plane/1",
-                  id: solidSectionId(`solid-section:${crypto.randomUUID()}`),
-                  pointIds: nextSelection as [
-                    Solid3DPoint["id"],
-                    Solid3DPoint["id"],
-                    Solid3DPoint["id"],
-                  ],
-                  visible: true,
-                },
-              ]
-            : record.sections,
-      };
+      const nextSelection = [...sanitizedSelectedPointIds.slice(-2), point.id];
       setSelectedPointIds(nextSelection);
-      onRecordChange(replacement);
+      onRecordChange({ ...record, points: [...record.points, point] });
     },
-    [onRecordChange, readOnly, record, selectedPointIds],
+    [onRecordChange, points, readOnly, record, sanitizedSelectedPointIds],
   );
 
-  const removePoint = (point: Solid3DPoint) => {
-    setSelectedPointIds((current) => current.filter((id) => id !== point.id));
-    onRecordChange({
-      ...record,
-      points: record.points.filter(({ id }) => id !== point.id),
-      sections: record.sections.filter(
-        (candidate) => !candidate.pointIds.includes(point.id),
-      ),
+  const savePreview = (): void => {
+    if (selectedTuple === null || previewSection === null) return;
+    const result = saveSolidSectionFromPoints({
+      pointIds: selectedTuple,
+      record,
+      token: crypto.randomUUID(),
     });
+    if (result.status === "error") return;
+    onRecordChange(result.record);
+    setActiveSectionId(result.sectionId);
+  };
+
+  const removePoint = (point: Solid3DPoint): void => {
+    setSelectedPointIds((current) => current.filter((id) => id !== point.id));
+    let replacement = record;
+    for (const section of record.sections.filter((candidate) =>
+      candidate.pointIds.includes(point.id),
+    )) {
+      replacement = removeSavedSolidSection(replacement, section.id);
+    }
+    replacement = {
+      ...replacement,
+      points: replacement.points.filter(({ id }) => id !== point.id),
+    };
+    if (
+      activeSectionId !== null &&
+      !replacement.sections.some(({ id }) => id === activeSectionId)
+    )
+      setActiveSectionId(replacement.sections.at(-1)?.id ?? null);
+    onRecordChange(replacement);
+  };
+
+  const deleteSection = (sectionId: string): void => {
+    const replacement = removeSavedSolidSection(record, sectionId);
+    if (activeSectionId === sectionId)
+      setActiveSectionId(replacement.sections.at(-1)?.id ?? null);
+    onRecordChange(replacement);
   };
 
   return (
@@ -333,8 +368,8 @@ export function Solid3DEditorPanel({
           </button>
         </header>
         <p className="visually-hidden" id="solid-3d-description">
-          Вращайте модель, ставьте точки на вершинах, рёбрах и гранях, затем
-          перенесите сечение на доску.
+          Вращайте модель, ставьте точки, предварительно просматривайте
+          плоскость и явно сохраняйте нужные сечения.
         </p>
         <div className="solid-3d-toolbar" role="toolbar">
           <button
@@ -357,11 +392,11 @@ export function Solid3DEditorPanel({
             onClick={() => setMode("view")}
             type="button"
           >
-            Вращение
+            Вращение камеры
           </button>
           <button
             aria-pressed={mode === "points"}
-            disabled={readOnly}
+            disabled={readOnly || record.points.length >= 32}
             onClick={() => setMode("points")}
             type="button"
           >
@@ -414,11 +449,13 @@ export function Solid3DEditorPanel({
               showSectionOutline={showSectionOutline}
             />
             <div aria-live="polite" className="solid-3d-progress">
-              <strong>{selectedPointIds.length} / 3</strong>
+              <strong>{sanitizedSelectedPointIds.length} / 3</strong>
               <span>
-                {visibleSection === null
-                  ? "Выберите три допустимые точки"
-                  : `Площадь ${visibleSection.area.toFixed(2)} · периметр ${visibleSection.perimeter.toFixed(2)}`}
+                {previewSection !== null
+                  ? `Preview · площадь ${previewSection.area.toFixed(2)} · периметр ${previewSection.perimeter.toFixed(2)}`
+                  : activeSection !== null
+                    ? `Сохранено · площадь ${activeSection.area.toFixed(2)} · периметр ${activeSection.perimeter.toFixed(2)}`
+                    : "Выберите три допустимые точки"}
                 {hoveredSurfaceId === null
                   ? ""
                   : ` · ${analyticSurfaceNames[hoveredSurfaceId]}`}
@@ -432,18 +469,18 @@ export function Solid3DEditorPanel({
               record={record}
             />
             <h3>Точки</h3>
-            {record.points.length === 0 ? (
+            {points.length === 0 ? (
               <p>Включите режим постановки точек и щёлкните по модели.</p>
             ) : (
               <ol className="solid-3d-points">
-                {record.points.map((point) => (
+                {points.map((point) => (
                   <li key={point.id}>
                     <input
                       aria-label={`Выбрать точку ${point.label}`}
-                      checked={selectedPointIds.includes(point.id)}
+                      checked={sanitizedSelectedPointIds.includes(point.id)}
                       disabled={
-                        !selectedPointIds.includes(point.id) &&
-                        selectedPointIds.length >= 3
+                        !sanitizedSelectedPointIds.includes(point.id) &&
+                        sanitizedSelectedPointIds.length >= 3
                       }
                       onChange={(event) =>
                         setSelectedPointIds((current) =>
@@ -509,23 +546,140 @@ export function Solid3DEditorPanel({
                 Контур сечения
               </label>
             </div>
-            {sectionResult?.status === "error" ? (
+            {previewResult?.status === "error" ? (
               <p className="solid-3d-error" role="alert">
-                Точки совпадают, коллинеарны либо плоскость не пересекает тело.
+                Выбранные точки дают вырожденную плоскость либо плоскость не
+                пересекает тело.
               </p>
             ) : null}
             <button
+              disabled={
+                readOnly ||
+                previewSection === null ||
+                previewSaved !== undefined ||
+                record.sections.length >= 8
+              }
+              onClick={savePreview}
+              type="button"
+            >
+              {previewSaved === undefined
+                ? "Создать сечение"
+                : "Сечение сохранено"}
+            </button>
+            <Solid3DSectionConstraintBuilder
+              key={`${JSON.stringify(record.definition)}:${points
+                .map(({ id }) => id)
+                .join(",")}`}
+              onRecordChange={onRecordChange}
+              onSectionCreated={setActiveSectionId}
+              readOnly={readOnly || record.sections.length >= 8}
+              record={record}
+            />
+            <h3>Сохранённые сечения</h3>
+            {record.sections.length === 0 ? (
+              <p>Сохранённых сечений пока нет.</p>
+            ) : (
+              <ol className="solid-3d-sections">
+                {record.sections.map((sectionDefinition, index) => {
+                  const calculated = calculateSolidSection(
+                    record,
+                    sectionDefinition.pointIds,
+                  );
+                  const name =
+                    sectionDefinition.label ??
+                    sectionNames[index] ??
+                    `S${String(index + 1)}`;
+                  return (
+                    <li key={sectionDefinition.id}>
+                      <button
+                        aria-pressed={
+                          activeSectionDefinition?.id === sectionDefinition.id
+                        }
+                        onClick={() => setActiveSectionId(sectionDefinition.id)}
+                        type="button"
+                      >
+                        {name}
+                      </button>
+                      <input
+                        aria-label={`Имя сечения ${name}`}
+                        disabled={readOnly}
+                        maxLength={32}
+                        onChange={(event) =>
+                          onRecordChange({
+                            ...record,
+                            sections: record.sections.map((candidate) =>
+                              candidate.id === sectionDefinition.id
+                                ? {
+                                    ...candidate,
+                                    label:
+                                      event.currentTarget.value.trim()
+                                        .length === 0
+                                        ? undefined
+                                        : event.currentTarget.value,
+                                  }
+                                : candidate,
+                            ),
+                          })
+                        }
+                        placeholder={name}
+                        value={sectionDefinition.label ?? ""}
+                      />
+                      <label>
+                        <input
+                          aria-label={`Показывать сечение ${name}`}
+                          checked={sectionDefinition.visible}
+                          disabled={readOnly}
+                          onChange={(event) =>
+                            onRecordChange(
+                              setSavedSolidSectionVisibility(
+                                record,
+                                sectionDefinition.id,
+                                event.currentTarget.checked,
+                              ),
+                            )
+                          }
+                          type="checkbox"
+                        />
+                        видно
+                      </label>
+                      <span>
+                        {calculated.status === "ok"
+                          ? `S=${calculated.section.area.toFixed(2)}`
+                          : "требует проверки"}
+                      </span>
+                      <button
+                        aria-label={`Удалить сечение ${name}`}
+                        disabled={readOnly}
+                        onClick={() => deleteSection(sectionDefinition.id)}
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+            <button
               className="solid-3d-project"
               disabled={
-                readOnly || section === null || sectionDefinition === undefined
+                readOnly ||
+                activeSectionDefinition === undefined ||
+                activeSectionResult?.status !== "ok"
               }
               onClick={() => {
-                if (section !== null && sectionDefinition !== undefined)
-                  onProject(sectionDefinition.id, section);
+                if (
+                  activeSectionDefinition !== undefined &&
+                  activeSectionResult?.status === "ok"
+                )
+                  onProject(
+                    activeSectionDefinition.id,
+                    activeSectionResult.section,
+                  );
               }}
               type="button"
             >
-              Отобразить сечение на доске
+              Отобразить выбранное сечение на доске
             </button>
             <details>
               <summary>Доступное описание</summary>
@@ -533,11 +687,10 @@ export function Solid3DEditorPanel({
                 Вершин:{" "}
                 {createSolidTopology(record.definition)?.vertices.length ??
                   "аналитическая поверхность"}
-                ; точек: {record.points.length}; сечений:{" "}
-                {record.sections.length}.
+                ; точек: {points.length}; сечений: {record.sections.length}.
               </p>
               <ul>
-                {record.points.map((point) => {
+                {points.map((point) => {
                   const position = resolveSolid3DPointPosition(
                     record.definition,
                     point,
@@ -566,7 +719,7 @@ export function Solid3DEditorPanel({
             onStart={startLearning}
             readOnly={readOnly}
             record={record}
-            section={section}
+            section={freeVisibleSection}
           />
         ) : null}
       </section>
