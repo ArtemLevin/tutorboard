@@ -271,7 +271,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.replaceChildren(renderer.domElement);
     const built = buildSolidScene(record.definition);
-    const quaternion = solid3DModelQuaternion(record);
+    const quaternion = solid3DModelQuaternion(record.projection);
     built.root.quaternion.set(
       quaternion.x,
       quaternion.y,
@@ -423,12 +423,18 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       renderer.forceContextLoss();
       runtimeRef.current = null;
     };
-  }, [cameraMode, record.definition, resetToken, retryToken]);
+  }, [
+    cameraMode,
+    record.definition,
+    record.projection,
+    resetToken,
+    retryToken,
+  ]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
     if (runtime === null) return;
-    const quaternion = solid3DModelQuaternion(record);
+    const quaternion = solid3DModelQuaternion(record.projection);
     runtime.root.quaternion.set(
       quaternion.x,
       quaternion.y,
@@ -437,7 +443,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     );
     runtime.root.updateMatrixWorld(true);
     runtime.renderer.render(runtime.scene, runtime.camera);
-  }, [record.projection.matrix]);
+  }, [record.projection]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
