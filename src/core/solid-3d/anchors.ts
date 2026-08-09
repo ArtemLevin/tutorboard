@@ -326,9 +326,14 @@ export function resolveSolidPointAnchor(
   if (anchor.kind === "face") {
     const face = topology.faces.find((item) => item.id === anchor.faceId);
     if (face === undefined || face.vertexIds.length < 3) return null;
+    const maximumTriangleIndex = face.vertexIds.length - 3;
+    const triangleIndex = Math.min(
+      maximumTriangleIndex,
+      Math.max(0, Math.floor(anchor.triangleIndex ?? 0)),
+    );
     const first = vertices.get(face.vertexIds[0]!)!;
-    const second = vertices.get(face.vertexIds[1]!)!;
-    const third = vertices.get(face.vertexIds[2]!)!;
+    const second = vertices.get(face.vertexIds[triangleIndex + 1]!)!;
+    const third = vertices.get(face.vertexIds[triangleIndex + 2]!)!;
     return add3(
       first,
       add3(
