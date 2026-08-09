@@ -1,4 +1,4 @@
-import type { Solid3DRecord } from "./definitions";
+import type { Solid3DBoardProjection, Solid3DRecord } from "./definitions";
 import type { SolidSectionResult } from "./polyhedron-section";
 import type { Vec3 } from "./vectors";
 
@@ -93,9 +93,10 @@ export function solid3DEulerDegreesFromQuaternion(
  * original six projection coefficients byte-for-byte for legacy consumers.
  */
 export function solid3DModelQuaternion(
-  record: Solid3DRecord,
+  source: Solid3DRecord | Solid3DBoardProjection,
 ): Solid3DQuaternion {
-  const values = record.projection.matrix.slice(6, 10);
+  const projection = "projection" in source ? source.projection : source;
+  const values = projection.matrix.slice(6, 10);
   if (values.length !== 4 || values.some((value) => !Number.isFinite(value)))
     return identitySolid3DQuaternion;
   const [x, y, z, w] = values;
@@ -151,7 +152,7 @@ export function transformSolid3DSectionForProjection(
   record: Solid3DRecord,
   section: SolidSectionResult,
 ): SolidSectionResult {
-  const quaternion = solid3DModelQuaternion(record);
+  const quaternion = solid3DModelQuaternion(record.projection);
   return {
     ...section,
     vertices: section.vertices.map((point) =>

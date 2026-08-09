@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useMemo,
   useState,
   type Dispatch,
@@ -83,12 +82,6 @@ export function Solid3DConstructionEditor({
     cloneBase(currentTopBase ?? []),
   );
   const [message, setMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDraftBase(cloneBase(currentBase ?? []));
-    setDraftTopBase(cloneBase(currentTopBase ?? []));
-    setMessage(null);
-  }, [record.definition]);
 
   const supportsBase = currentBase !== null;
   const validation = useMemo(

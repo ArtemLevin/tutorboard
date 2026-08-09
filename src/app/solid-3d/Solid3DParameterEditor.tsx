@@ -56,6 +56,7 @@ export function Solid3DParameterEditor({
   return (
     <>
       <Solid3DConstructionEditor
+        key={JSON.stringify(record.definition)}
         onRecordChange={onRecordChange}
         readOnly={readOnly}
         record={record}
