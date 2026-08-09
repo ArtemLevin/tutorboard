@@ -5,6 +5,7 @@ import {
   groupId,
   solid3DId,
   solidPointId,
+  solidSectionId,
   type Solid3DPoint,
   type Solid3DRecord,
 } from "../../../../src/core/public";
@@ -96,5 +97,27 @@ describe("explicit solid section editor", () => {
     if (second.status !== "ok") return;
     expect(second.record.sections).toHaveLength(1);
     expect(second.sectionId).toBe(first.sectionId);
+  });
+
+  it("rejects a ninth saved section before it can violate record limits", () => {
+    const full: Solid3DRecord = {
+      ...record,
+      sections: Array.from({ length: 8 }, (_, index) => ({
+        algorithmVersion: "polyhedron-plane/1" as const,
+        id: solidSectionId(`solid-section:capacity:${String(index)}`),
+        pointIds: [points[0]!.id, points[1]!.id, points[2]!.id],
+        visible: true,
+      })),
+    };
+    const result = saveConstrainedSolidSection({
+      constraint: {
+        edgeId: "edge:0:3",
+        kind: "through-edge-and-point",
+        pointId: points[2]!.id,
+      },
+      record: full,
+      token: "over-limit",
+    });
+    expect(result).toEqual({ code: "solid.section.limit", status: "error" });
   });
 });
