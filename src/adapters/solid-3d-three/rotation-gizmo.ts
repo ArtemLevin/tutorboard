@@ -138,7 +138,8 @@ export class SolidRotationGizmoController {
     this.setPointer(event);
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const hit = this.raycaster.intersectObjects(this.handles, false)[0];
-    const axis = hit?.object.userData.gizmoAxis as SolidRotationAxis | undefined;
+    const axis = hit?.object.userData.gizmoAxis as
+      SolidRotationAxis | undefined;
     if (axis === undefined) return;
     event.preventDefault();
     event.stopImmediatePropagation();
