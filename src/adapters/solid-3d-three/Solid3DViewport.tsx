@@ -5,6 +5,8 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import {
   createSolidTopology,
   resolveSolid3DPointPosition,
+  solid3DModelQuaternion,
+  type Solid3DQuaternion,
   type Solid3DRecord,
   type SolidAnalyticSurfaceId,
   type SolidElementRef,
@@ -15,11 +17,15 @@ import {
 import { disposeSolidScene } from "./resource-disposal";
 import { buildSolidScene } from "./scene-builder";
 import { resolveSolidHitAnchor } from "./semantic-hit";
+import { SolidRotationGizmoController } from "./rotation-gizmo";
 
 export interface Solid3DViewportProps {
   readonly cameraMode: "orthographic" | "perspective";
+  readonly highlightedSurfaceId?: SolidAnalyticSurfaceId | null;
   readonly mode: "points" | "view";
   readonly onPointPlace: (position: Vec3, anchor: SolidPointAnchor) => void;
+  readonly onModelRotationCommit?:
+    ((rotation: Solid3DQuaternion) => void) | undefined;
   readonly onSurfaceHover?: (surfaceId: SolidAnalyticSurfaceId | null) => void;
   readonly record: Solid3DRecord;
   readonly resetToken: number;
@@ -80,6 +86,44 @@ function sectionObject(
   }
   root.renderOrder = 5;
   return root;
+}
+
+function triangleHighlight(
+  geometry: THREE.BufferGeometry,
+  selectedTriangles: readonly boolean[],
+): THREE.Mesh | null {
+  const source = geometry.getAttribute("position");
+  const index = geometry.index;
+  const triangleCount = Math.floor((index?.count ?? source.count) / 3);
+  const positions: number[] = [];
+  for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+    if (!selectedTriangles[triangle]) continue;
+    for (let corner = 0; corner < 3; corner += 1) {
+      const offset = triangle * 3 + corner;
+      const vertex = index?.getX(offset) ?? offset;
+      positions.push(
+        source.getX(vertex),
+        source.getY(vertex),
+        source.getZ(vertex),
+      );
+    }
+  }
+  if (positions.length === 0) return null;
+  const highlightGeometry = new THREE.BufferGeometry();
+  highlightGeometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  return new THREE.Mesh(
+    highlightGeometry,
+    new THREE.MeshBasicMaterial({
+      color: 0xf59e0b,
+      depthWrite: false,
+      opacity: 0.3,
+      side: THREE.DoubleSide,
+      transparent: true,
+    }),
+  );
 }
 
 function builtHighlight(
@@ -143,7 +187,9 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const {
     cameraMode,
     highlightedElement,
+    highlightedSurfaceId,
     onElementHover,
+    onModelRotationCommit,
     onSurfaceHover,
     record,
     resetToken,
@@ -157,12 +203,16 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     controls: OrbitControls;
     mesh: THREE.Mesh;
     renderer: THREE.WebGLRenderer;
+    root: THREE.Group;
     scene: THREE.Scene;
+    semanticSurfaceFaceIds: readonly (SolidAnalyticSurfaceId | null)[];
   } | null>(null);
   const modeRef = useRef(props.mode);
   const onPointPlaceRef = useRef(props.onPointPlace);
+  const onModelRotationCommitRef = useRef(onModelRotationCommit);
   const onElementHoverRef = useRef(onElementHover);
   const onSurfaceHoverRef = useRef(onSurfaceHover);
+  const projectionRef = useRef(record.projection);
   const [failure, setFailure] = useState<WebGLFailure | null>(null);
   const [retryToken, setRetryToken] = useState(0);
 
@@ -180,12 +230,20 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   }, [props.onPointPlace]);
 
   useEffect(() => {
+    onModelRotationCommitRef.current = onModelRotationCommit;
+  }, [onModelRotationCommit]);
+
+  useEffect(() => {
     onElementHoverRef.current = onElementHover;
   }, [onElementHover]);
 
   useEffect(() => {
     onSurfaceHoverRef.current = onSurfaceHover;
   }, [onSurfaceHover]);
+
+  useEffect(() => {
+    projectionRef.current = record.projection;
+  }, [record.projection]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -228,6 +286,13 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.replaceChildren(renderer.domElement);
     const built = buildSolidScene(record.definition);
+    const quaternion = solid3DModelQuaternion(record.projection);
+    built.root.quaternion.set(
+      quaternion.x,
+      quaternion.y,
+      quaternion.z,
+      quaternion.w,
+    );
     scene.add(built.root, new THREE.HemisphereLight(0xffffff, 0x50606a, 2.1));
     const light = new THREE.DirectionalLight(0xffffff, 2.2);
     light.position.set(5, 7, 4);
@@ -239,6 +304,18 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       modeRef.current === "points" ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
     controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
     const render = () => renderer.render(scene, camera);
+    const rotationGizmo =
+      onModelRotationCommitRef.current === undefined
+        ? null
+        : new SolidRotationGizmoController(
+            built.root,
+            camera,
+            renderer.domElement,
+            controls,
+            render,
+            (rotation) => onModelRotationCommitRef.current?.(rotation),
+          );
+    if (rotationGizmo !== null) scene.add(rotationGizmo.group);
     controls.addEventListener("change", render);
     const resizeObserver = new ResizeObserver(() => {
       const nextWidth = Math.max(320, container.clientWidth);
@@ -353,7 +430,9 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       controls,
       mesh: built.mesh,
       renderer,
+      root: built.root,
       scene,
+      semanticSurfaceFaceIds: built.semanticSurfaceFaceIds,
     };
     render();
     return () => {
@@ -366,19 +445,43 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       renderer.domElement.removeEventListener("pointermove", pointerMove);
       renderer.domElement.removeEventListener("pointerleave", pointerLeave);
       renderer.domElement.removeEventListener("webglcontextlost", contextLost);
+      if (rotationGizmo !== null) {
+        scene.remove(rotationGizmo.group);
+        rotationGizmo.dispose();
+      }
       disposeSolidScene(scene);
       renderer.dispose();
       renderer.forceContextLoss();
       runtimeRef.current = null;
     };
-  }, [cameraMode, record.definition, resetToken, retryToken]);
+  }, [
+    cameraMode,
+    record.definition,
+    record.projection,
+    resetToken,
+    retryToken,
+  ]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
     if (runtime === null) return;
-    const old = runtime.scene.getObjectByName("solid-overlays");
+    const quaternion = solid3DModelQuaternion(record.projection);
+    runtime.root.quaternion.set(
+      quaternion.x,
+      quaternion.y,
+      quaternion.z,
+      quaternion.w,
+    );
+    runtime.root.updateMatrixWorld(true);
+    runtime.renderer.render(runtime.scene, runtime.camera);
+  }, [record.projection]);
+
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (runtime === null) return;
+    const old = runtime.root.getObjectByName("solid-overlays");
     if (old !== undefined) {
-      runtime.scene.remove(old);
+      runtime.root.remove(old);
       disposeSolidScene(old);
     }
     const overlays = new THREE.Group();
@@ -396,10 +499,28 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     if (highlighted !== null && highlighted !== undefined) {
       const highlight = builtHighlight(record, highlighted);
       if (highlight !== null) overlays.add(highlight);
+      if (highlighted.kind === "face") {
+        const faceIds = runtime.mesh.userData.semanticFaceIds as
+          readonly string[] | undefined;
+        if (faceIds !== undefined) {
+          const faceFill = triangleHighlight(
+            runtime.mesh.geometry,
+            faceIds.map((id) => id === highlighted.id),
+          );
+          if (faceFill !== null) overlays.add(faceFill);
+        }
+      }
+    }
+    if (highlightedSurfaceId !== null && highlightedSurfaceId !== undefined) {
+      const surfaceFill = triangleHighlight(
+        runtime.mesh.geometry,
+        runtime.semanticSurfaceFaceIds.map((id) => id === highlightedSurfaceId),
+      );
+      if (surfaceFill !== null) overlays.add(surfaceFill);
     }
     if (section !== null)
       overlays.add(sectionObject(section, showSectionFill, showSectionOutline));
-    runtime.scene.add(overlays);
+    runtime.root.add(overlays);
     runtime.renderer.render(runtime.scene, runtime.camera);
   }, [
     record,
@@ -407,6 +528,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     showSectionFill,
     showSectionOutline,
     highlightedElement,
+    highlightedSurfaceId,
   ]);
 
   return failure !== null ? (

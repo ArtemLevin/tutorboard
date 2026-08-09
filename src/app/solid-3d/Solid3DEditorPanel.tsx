@@ -13,6 +13,7 @@ import {
   resolveSolidPointAnchor,
   solidPointId,
   solidSectionId,
+  withSolid3DModelQuaternion,
   type Solid3DPoint,
   type Solid3DRecord,
   type SolidAnalyticSurfaceId,
@@ -393,8 +394,17 @@ export function Solid3DEditorPanel({
             <Solid3DViewport
               cameraMode={cameraMode}
               highlightedElement={highlightedElement}
+              highlightedSurfaceId={hoveredSurfaceId}
               mode={mode}
               onElementHover={setHighlightedElement}
+              onModelRotationCommit={
+                readOnly
+                  ? undefined
+                  : (rotation) =>
+                      onRecordChange(
+                        withSolid3DModelQuaternion(record, rotation),
+                      )
+              }
               onPointPlace={placePoint}
               onSurfaceHover={setHoveredSurfaceId}
               record={record}
