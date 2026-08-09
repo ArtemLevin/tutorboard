@@ -1,0 +1,133 @@
+name: Temporary 3D-4B schema alignment
+
+on:
+  push:
+    branches:
+      - agent/3d-4b-construction-studio
+
+permissions:
+  contents: write
+
+jobs:
+  align:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Extend semantic solid schema
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/core/board/validation/schema.ts')
+          text = path.read_text()
+          start = text.index('const solidDefinitionSchema = z.discriminatedUnion("kind", [')
+          end = text.index('const solidPointAnchorSchema', start)
+          replacement = '''const solidDefinitionSchema = z.discriminatedUnion("kind", [
+            z
+              .object({
+                edgeLength: finiteNumberSchema.positive(),
+                kind: z.literal("cube"),
+              })
+              .strict(),
+            z.object({ kind: z.literal("cuboid"), size: vec3Schema }).strict(),
+            z
+              .object({
+                edgeLength: finiteNumberSchema.positive(),
+                kind: z.literal("tetrahedron"),
+              })
+              .strict(),
+            z
+              .object({
+                edgeLength: finiteNumberSchema.positive(),
+                kind: z.literal("octahedron"),
+              })
+              .strict(),
+            z
+              .object({
+                edgeLength: finiteNumberSchema.positive(),
+                kind: z.literal("regular-polyhedron"),
+                variant: z.enum([
+                  "tetrahedron",
+                  "cube",
+                  "octahedron",
+                  "dodecahedron",
+                  "icosahedron",
+                ]),
+              })
+              .strict(),
+            z
+              .object({
+                base: z.array(vec2Schema).min(3).max(256),
+                height: finiteNumberSchema.positive(),
+                kind: z.literal("prism"),
+              })
+              .strict(),
+            z
+              .object({
+                apex: vec3Schema,
+                base: z.array(vec2Schema).min(3).max(256),
+                kind: z.literal("pyramid"),
+              })
+              .strict(),
+            z
+              .object({
+                bottomBase: z.array(vec2Schema).min(3).max(256),
+                height: finiteNumberSchema.positive(),
+                kind: z.literal("truncated-pyramid"),
+                topBase: z.array(vec2Schema).min(3).max(256),
+              })
+              .strict(),
+            z
+              .object({
+                height: finiteNumberSchema.positive(),
+                kind: z.literal("cylinder"),
+                radius: finiteNumberSchema.positive(),
+              })
+              .strict(),
+            z
+              .object({
+                height: finiteNumberSchema.positive(),
+                kind: z.literal("cone"),
+                radius: finiteNumberSchema.positive(),
+              })
+              .strict(),
+            z
+              .object({
+                bottomRadius: finiteNumberSchema.positive(),
+                height: finiteNumberSchema.positive(),
+                kind: z.literal("truncated-cone"),
+                topRadius: finiteNumberSchema.positive(),
+              })
+              .strict(),
+            z
+              .object({
+                kind: z.literal("sphere"),
+                radius: finiteNumberSchema.positive(),
+              })
+              .strict(),
+            z
+              .object({
+                kind: z.literal("hemisphere"),
+                radius: finiteNumberSchema.positive(),
+              })
+              .strict(),
+          ]);
+          '''
+          path.write_text(text[:start] + replacement + text[end:])
+          PY
+      - run: npm run format -- --ignore-unknown
+      - run: npm run board-contract:generate
+      - run: npm run format -- --ignore-unknown
+      - name: Commit schema and generated contract
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix(3d): align board persistence with semantic solids"
+          git push
