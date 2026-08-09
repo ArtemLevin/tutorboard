@@ -8,6 +8,7 @@ import type {
   Solid3DRecord,
 } from "./definitions";
 import { createSolidTopology } from "./topology";
+import { stableTopologyFaceAnchor } from "./topology-anchors";
 import type { Vec3 } from "./vectors";
 
 export function resolveSolid3DPointPosition(
@@ -21,7 +22,7 @@ export function resolveSolid3DPointPosition(
 
   const topology = createSolidTopology(definition);
   if (topology === null) return point.position;
-  if (point.anchor.kind === "face" && point.anchor.triangleIndex === undefined)
+  if (point.anchor.kind === "face" && !stableTopologyFaceAnchor(point.anchor))
     return point.position;
   return resolveSolidPointAnchor(topology, point.anchor) ?? point.position;
 }
