@@ -49,12 +49,6 @@ export function Solid3DOrientationEditor({
     );
   };
 
-  const setAxis = (axis: Axis, value: number): void => {
-    onRecordChange(
-      withSolid3DModelEulerDegrees(record, { ...current, [axis]: value }),
-    );
-  };
-
   return (
     <section
       aria-labelledby="solid-3d-orientation-title"
@@ -116,16 +110,20 @@ export function Solid3DOrientationEditor({
               >
                 +15°
               </button>
-              {[0, 90, 180].map((value) => (
-                <button
-                  disabled={readOnly}
-                  key={value}
-                  onClick={() => setAxis(axis, value)}
-                  type="button"
-                >
-                  {value}°
-                </button>
-              ))}
+              <button
+                disabled={readOnly}
+                onClick={() =>
+                  onRecordChange(
+                    withSolid3DModelEulerDegrees(record, {
+                      ...current,
+                      [axis]: 90,
+                    }),
+                  )
+                }
+                type="button"
+              >
+                90°
+              </button>
             </div>
           </div>
         ))}

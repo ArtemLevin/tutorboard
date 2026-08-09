@@ -1,0 +1,111 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  boardObjectId,
+  createEmptyBoardDocument,
+  defaultSolidProjection,
+  deserializeBoardDocument,
+  documentId,
+  groupId,
+  identityTransform,
+  regularBase,
+  serializeBoardDocument,
+  solid3DId,
+  type BoardDocument,
+  type BoardGroup,
+  type BoardObject,
+  type BoardObjectId,
+  type Solid3DDefinition,
+  type Solid3DRecord,
+} from "../../../../src/core/public";
+
+const definitions: readonly Solid3DDefinition[] = [
+  { kind: "hemisphere", radius: 1.4 },
+  { edgeLength: 2.5, kind: "octahedron" },
+  { edgeLength: 2, kind: "regular-polyhedron", variant: "dodecahedron" },
+  { edgeLength: 2, kind: "regular-polyhedron", variant: "icosahedron" },
+  {
+    bottomBase: regularBase(5, 1.4),
+    height: 2.8,
+    kind: "truncated-pyramid",
+    topBase: regularBase(5, 0.7),
+  },
+];
+
+describe("expanded semantic solid persistence", () => {
+  it("round-trips every Construction Studio solid through strict board/v1 validation", () => {
+    const empty = createEmptyBoardDocument({
+      createdAt: "2026-08-09T18:20:00.000Z",
+      id: documentId("document:semantic-solids"),
+      title: "Expanded semantic solids",
+    });
+    const groups: Record<string, BoardGroup> = {};
+    const objects: Record<string, BoardObject> = {};
+    const order: BoardObjectId[] = [];
+    const solidModels: Record<string, Solid3DRecord> = {};
+
+    definitions.forEach((definition, index) => {
+      const id = solid3DId(`solid:semantic:${String(index)}`);
+      const rootGroupId = groupId(`group:semantic:${String(index)}`);
+      const objectId = boardObjectId(`object:semantic:${String(index)}`);
+      groups[rootGroupId] = {
+        id: rootGroupId,
+        locked: false,
+        objectIds: [objectId],
+        transform: identityTransform,
+      };
+      objects[objectId] = {
+        end: { x: 1, y: 1 },
+        groupId: rootGroupId,
+        id: objectId,
+        kind: "drawing.line",
+        locked: false,
+        position: { x: index * 12, y: 0 },
+        rotation: 0,
+        scale: { x: 1, y: 1 },
+        source: { kind: "user" },
+        style: {
+          fill: null,
+          opacity: 1,
+          stroke: "#111827",
+          strokeWidth: 2,
+        },
+        visible: true,
+      };
+      order.push(objectId);
+      solidModels[id] = {
+        boardObjectIds: [objectId],
+        definition,
+        id,
+        points: [],
+        projection: defaultSolidProjection,
+        rootGroupId,
+        schemaVersion: "1.0",
+        sections: [],
+        source: { kind: "text-template", templateId: definition.kind },
+      };
+    });
+
+    const document: BoardDocument = {
+      ...empty,
+      groups,
+      objects,
+      order,
+      solidModels,
+    };
+    const serialized = serializeBoardDocument(document);
+    expect(serialized.ok).toBe(true);
+    if (!serialized.ok) return;
+    const restored = deserializeBoardDocument(serialized.json);
+    expect(restored.status).toBe("ok");
+    if (restored.status !== "ok") return;
+    expect(Object.values(restored.document.solidModels)).toHaveLength(
+      definitions.length,
+    );
+    expect(
+      Object.values(restored.document.solidModels).map(
+        (record) => record?.definition.kind,
+      ),
+    ).toEqual(definitions.map(({ kind }) => kind));
+  });
+});

@@ -7,6 +7,7 @@ import {
   type Solid3DRecord,
   type SolidEditableParameter,
 } from "../../core/public";
+import { Solid3DConstructionEditor } from "./Solid3DConstructionEditor";
 import { Solid3DOrientationEditor } from "./Solid3DOrientationEditor";
 import "./Solid3DParameterEditor.css";
 
@@ -54,6 +55,12 @@ export function Solid3DParameterEditor({
 
   return (
     <>
+      <Solid3DConstructionEditor
+        key={JSON.stringify(record.definition)}
+        onRecordChange={onRecordChange}
+        readOnly={readOnly}
+        record={record}
+      />
       <Solid3DOrientationEditor
         onRecordChange={onRecordChange}
         readOnly={readOnly}
