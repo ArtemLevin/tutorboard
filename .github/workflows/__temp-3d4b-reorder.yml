@@ -1,10 +1,11 @@
-# trigger
+# trigger-2
 name: Temporary 3D-4B vertex reordering
 
 on:
   push:
     branches:
       - agent/3d-4b-construction-studio
+  pull_request:
 
 permissions:
   contents: write
