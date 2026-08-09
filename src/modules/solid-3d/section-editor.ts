@@ -13,13 +13,16 @@ import {
   type SolidSectionWorkflowResult,
 } from "./section-workflow";
 
+type SolidSectionWorkflowErrorCode =
+  SolidSectionWorkflowResult extends infer Result
+    ? Result extends { readonly status: "error"; readonly code: infer Code }
+      ? Code
+      : never
+    : never;
+
 export type SolidSectionEditorResult =
   | {
-      readonly code: SolidSectionWorkflowResult extends infer Result
-        ? Result extends { readonly status: "error"; readonly code: infer Code }
-          ? Code
-          : never
-        : never;
+      readonly code: SolidSectionWorkflowErrorCode | "solid.section.limit";
       readonly status: "error";
     }
   | {
@@ -38,13 +41,16 @@ function appendSection(
   ],
   token: string,
 ): SolidSectionEditorResult {
-  const calculated = calculateSolidSection(record, pointIds);
-  if (calculated.status === "error") return calculated;
   const existing = record.sections.find(
     (section) =>
       section.pointIds.length === pointIds.length &&
       section.pointIds.every((id) => pointIds.includes(id)),
   );
+  if (existing === undefined && record.sections.length >= 8)
+    return { code: "solid.section.limit", status: "error" };
+
+  const calculated = calculateSolidSection(record, pointIds);
+  if (calculated.status === "error") return calculated;
   const sectionId =
     existing?.id ?? solidSectionId(`solid-section:explicit:${token}`);
   const sections =
@@ -91,6 +97,9 @@ export function saveConstrainedSolidSection(input: {
   readonly record: Solid3DRecord;
   readonly token: string;
 }): SolidSectionEditorResult {
+  if (input.record.sections.length >= 8 || input.record.points.length + 2 > 32)
+    return { code: "solid.section.limit", status: "error" };
+
   const originPoint = input.record.points.find(
     ({ id }) => id === input.constraint.pointId,
   );
