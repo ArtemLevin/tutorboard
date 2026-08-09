@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   applySolid3DQuaternion,
   defaultSolidProjection,
+  groupId,
   identitySolid3DQuaternion,
   solid3DEulerDegreesFromQuaternion,
+  solid3DId,
   solid3DModelQuaternion,
   solid3DQuaternionFromEulerDegrees,
   transformSolid3DSectionForProjection,
@@ -12,17 +14,17 @@ import {
   type Solid3DRecord,
 } from "../../../../src/core/public";
 
-const record = {
+const record: Solid3DRecord = {
   boardObjectIds: [],
   definition: { edgeLength: 2, kind: "cube" },
-  id: "solid:transform",
+  id: solid3DId("solid:transform"),
   points: [],
   projection: defaultSolidProjection,
-  rootGroupId: "group:transform",
+  rootGroupId: groupId("group:transform"),
   schemaVersion: "1.0",
   sections: [],
   source: { kind: "text-template", templateId: "cube" },
-} as Solid3DRecord;
+};
 
 describe("persistent solid model transform", () => {
   it("treats legacy six-value projections as identity rotation", () => {
