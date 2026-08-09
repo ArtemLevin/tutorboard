@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  boardObjectId,
   createEmptyBoardDocument,
   defaultSolidProjection,
   deserializeBoardDocument,
@@ -12,6 +13,8 @@ import {
   solid3DId,
   type BoardDocument,
   type BoardGroup,
+  type BoardObject,
+  type BoardObjectId,
   type Solid3DDefinition,
   type Solid3DRecord,
 } from "../../../../src/core/public";
@@ -37,19 +40,41 @@ describe("expanded semantic solid persistence", () => {
       title: "Expanded semantic solids",
     });
     const groups: Record<string, BoardGroup> = {};
+    const objects: Record<string, BoardObject> = {};
+    const order: BoardObjectId[] = [];
     const solidModels: Record<string, Solid3DRecord> = {};
 
     definitions.forEach((definition, index) => {
       const id = solid3DId(`solid:semantic:${String(index)}`);
       const rootGroupId = groupId(`group:semantic:${String(index)}`);
+      const objectId = boardObjectId(`object:semantic:${String(index)}`);
       groups[rootGroupId] = {
         id: rootGroupId,
         locked: false,
-        objectIds: [],
+        objectIds: [objectId],
         transform: identityTransform,
       };
+      objects[objectId] = {
+        end: { x: 1, y: 1 },
+        groupId: rootGroupId,
+        id: objectId,
+        kind: "drawing.line",
+        locked: false,
+        position: { x: index * 12, y: 0 },
+        rotation: 0,
+        scale: { x: 1, y: 1 },
+        source: { kind: "user" },
+        style: {
+          fill: null,
+          opacity: 1,
+          stroke: "#111827",
+          strokeWidth: 2,
+        },
+        visible: true,
+      };
+      order.push(objectId);
       solidModels[id] = {
-        boardObjectIds: [],
+        boardObjectIds: [objectId],
         definition,
         id,
         points: [],
@@ -64,6 +89,8 @@ describe("expanded semantic solid persistence", () => {
     const document: BoardDocument = {
       ...empty,
       groups,
+      objects,
+      order,
       solidModels,
     };
     const serialized = serializeBoardDocument(document);
