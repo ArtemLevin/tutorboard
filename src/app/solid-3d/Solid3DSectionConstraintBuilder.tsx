@@ -36,6 +36,8 @@ function errorMessage(code: string): string {
       return "Условие даёт вырожденную плоскость.";
     case "solid.section.outside":
       return "Плоскость не пересекает тело или условие недоступно для этого тела.";
+    case "solid.section.limit":
+      return "Достигнут лимит точек или сохранённых сечений для одной 3D-модели.";
     default:
       return "Сечение построить не удалось.";
   }
