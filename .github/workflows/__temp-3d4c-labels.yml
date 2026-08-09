@@ -1,0 +1,70 @@
+name: Temporary 3D-4C persistent labels
+
+on:
+  push:
+    branches:
+      - agent/3d-4c-generalized-sections
+
+permissions:
+  contents: write
+
+jobs:
+  labels:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Extend section persistence and UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          definitions = Path('src/core/solid-3d/definitions.ts')
+          text = definitions.read_text()
+          marker = '  readonly algorithmVersion: "polyhedron-plane/1" | "analytic-plane/1";\n'
+          if marker not in text:
+              raise SystemExit('section definition marker missing')
+          text = text.replace(marker, marker + '  readonly label?: string;\n', 1)
+          definitions.write_text(text)
+
+          schema = Path('src/core/board/validation/schema.ts')
+          text = schema.read_text()
+          marker = '    id: solidSectionIdSchema,\n    pointIds: z.tuple(['
+          if marker not in text:
+              raise SystemExit('section schema marker missing')
+          text = text.replace(
+              marker,
+              '    id: solidSectionIdSchema,\n    label: z.string().min(1).max(32).optional(),\n    pointIds: z.tuple([',
+              1,
+          )
+          schema.write_text(text)
+
+          panel = Path('src/app/solid-3d/Solid3DEditorPanel.tsx')
+          text = panel.read_text()
+          text = text.replace(
+              '                  const name = sectionNames[index] ?? `S${String(index + 1)}`;\n',
+              '                  const name =\n                    sectionDefinition.label ??\n                    sectionNames[index] ??\n                    `S${String(index + 1)}`;\n',
+              1,
+          )
+          marker = '''                      </button>\n                      <label>\n                        <input\n                          aria-label={`Показывать сечение ${name}`}\n'''
+          replacement = '''                      </button>\n                      <input\n                        aria-label={`Имя сечения ${name}`}\n                        disabled={readOnly}\n                        maxLength={32}\n                        onChange={(event) =>\n                          onRecordChange({\n                            ...record,\n                            sections: record.sections.map((candidate) =>\n                              candidate.id === sectionDefinition.id\n                                ? {\n                                    ...candidate,\n                                    label:\n                                      event.currentTarget.value.trim().length === 0\n                                        ? undefined\n                                        : event.currentTarget.value,\n                                  }\n                                : candidate,\n                            ),\n                          })\n                        }\n                        placeholder={name}\n                        value={sectionDefinition.label ?? ""}\n                      />\n                      <label>\n                        <input\n                          aria-label={`Показывать сечение ${name}`}\n'''
+          if marker not in text:
+              raise SystemExit('saved section label insertion marker missing')
+          panel.write_text(text.replace(marker, replacement, 1))
+          PY
+      - run: npm run format
+      - run: npm run board-contract:generate
+      - run: npm run format
+      - name: Commit persistent labels
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "feat(3d): persist editable section labels"
+          git push
