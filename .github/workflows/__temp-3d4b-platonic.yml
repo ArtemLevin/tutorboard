@@ -1,0 +1,75 @@
+name: Temporary 3D-4B Platonic template completion
+
+on:
+  push:
+    branches:
+      - agent/3d-4b-construction-studio
+
+permissions:
+  contents: write
+
+jobs:
+  complete:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Extend Platonic text templates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          catalog = Path('src/modules/text-shape-placement/catalog.ts')
+          text = catalog.read_text()
+          text = text.replace(
+              '        | "hemisphere"\n        | "octahedron"\n        | "sphere";',
+              '        | "hemisphere"\n        | "octahedron"\n        | "dodecahedron"\n        | "icosahedron"\n        | "sphere";',
+              1,
+          )
+          catalog.write_text(text)
+
+          parametric = Path('src/modules/text-shape-placement/parametric-3d.ts')
+          text = parametric.read_text()
+          text = text.replace(
+              '{ kind: "solid", variant: "octahedron" },\n    );\n  if (normalized === "икосаэдр"',
+              '{ kind: "solid", variant: "dodecahedron" },\n    );\n  if (normalized === "икосаэдр"',
+              1,
+          )
+          second = text.find('{ kind: "solid", variant: "octahedron" },', text.find('икосаэдр'))
+          if second < 0:
+              raise SystemExit('icosahedron template marker not found')
+          text = text[:second] + '{ kind: "solid", variant: "icosahedron" },' + text[second + len('{ kind: "solid", variant: "octahedron" },'):]
+          parametric.write_text(text)
+
+          templates = Path('src/modules/text-shape-placement/templates.ts')
+          text = templates.read_text()
+          text = text.replace(
+              '  defaultSolidProjection,\n  solid3DId,\n  solidDefinitionFromTemplate,',
+              '  createSolidTopology,\n  defaultSolidProjection,\n  projectSolidPoint,\n  solid3DId,\n  solidDefinitionFromTemplate,',
+              1,
+          )
+          marker = 'function solidGeometry(\n'
+          helper = '''function semanticPolyhedronGeometry(\n  templateId: "dodecahedron" | "icosahedron",\n): TemplateGeometry {\n  const definition = solidDefinitionFromTemplate(templateId);\n  const topology =\n    definition === null ? null : createSolidTopology(definition);\n  if (topology === null) return { edges: [], vertices: [] };\n  const indexById = new Map(\n    topology.vertices.map((vertex, index) => [vertex.id, index]),\n  );\n  const vertices = topology.vertices.map((vertex) => {\n    const projected = projectSolidPoint(vertex.position, defaultSolidProjection);\n    return { x: projected.x * 54, y: projected.y * 54 };\n  });\n  const positions = new Map(\n    topology.vertices.map((vertex) => [vertex.id, vertex.position]),\n  );\n  const edges = topology.edges.flatMap((edge) => {\n    const start = indexById.get(edge.startVertexId);\n    const end = indexById.get(edge.endVertexId);\n    const startPosition = positions.get(edge.startVertexId);\n    const endPosition = positions.get(edge.endVertexId);\n    return start === undefined ||\n      end === undefined ||\n      startPosition === undefined ||\n      endPosition === undefined\n      ? []\n      : [\n          {\n            end,\n            hidden: (startPosition.z + endPosition.z) / 2 > 0.35,\n            start,\n          },\n        ];\n  });\n  return { edges, vertices };\n}\n\n'''
+          if marker not in text:
+              raise SystemExit('solidGeometry marker not found')
+          text = text.replace(marker, helper + marker, 1)
+          branch = '''  if (variant === "cube" || variant === "cuboid") {\n    return boxGeometry(variant === "cube");\n  }\n'''
+          replacement = branch + '''  if (variant === "dodecahedron" || variant === "icosahedron") {\n    return semanticPolyhedronGeometry(variant);\n  }\n'''
+          if branch not in text:
+              raise SystemExit('solid geometry branch not found')
+          templates.write_text(text.replace(branch, replacement, 1))
+          PY
+      - run: npm run format
+      - name: Commit Platonic template completion
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix(3d): create correct Platonic text templates"
+          git push
