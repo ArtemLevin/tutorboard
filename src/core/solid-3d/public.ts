@@ -4,6 +4,8 @@ export * from "./definitions";
 export * from "./point-resolution";
 export * from "./polyhedron-section";
 export * from "./projection";
+export * from "./solid-parameters";
 export * from "./topology";
+export * from "./topology-anchors";
 export * from "./validation";
 export * from "./vectors";
