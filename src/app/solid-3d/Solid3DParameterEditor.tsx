@@ -83,7 +83,8 @@ export function Solid3DParameterEditor({
         ))}
       </div>
       <p className="solid-3d-parameter-help">
-        Enter или переход к другому полю применяет размер одной операцией отмены.
+        Enter или переход к другому полю применяет размер одной операцией
+        отмены.
       </p>
       {error === null ? null : (
         <p className="solid-3d-error" role="alert">
