@@ -1,7 +1,4 @@
-import type {
-  Solid3DDefinition,
-  Solid3DRecord,
-} from "./definitions";
+import type { Solid3DDefinition, Solid3DRecord } from "./definitions";
 import { reprojectSolid3DRecord } from "./point-resolution";
 import type { Vec2 } from "./vectors";
 
@@ -88,12 +85,20 @@ export function solidEditableParameters(
     case "prism":
       return [
         parameter("height", "Высота", definition.height),
-        parameter("baseRadius", "Масштаб основания", baseRadius(definition.base)),
+        parameter(
+          "baseRadius",
+          "Масштаб основания",
+          baseRadius(definition.base),
+        ),
       ];
     case "pyramid":
       return [
         parameter("height", "Высота", Math.abs(definition.apex.y)),
-        parameter("baseRadius", "Масштаб основания", baseRadius(definition.base)),
+        parameter(
+          "baseRadius",
+          "Масштаб основания",
+          baseRadius(definition.base),
+        ),
       ];
     case "truncated-pyramid":
       return [
@@ -184,8 +189,7 @@ export function updateSolidDefinitionParameter(
       if (key === "radius") return { ...definition, radius: value };
       return key === "height" ? { ...definition, height: value } : null;
     case "truncated-cone":
-      if (key === "bottomRadius")
-        return { ...definition, bottomRadius: value };
+      if (key === "bottomRadius") return { ...definition, bottomRadius: value };
       if (key === "topRadius") return { ...definition, topRadius: value };
       return key === "height" ? { ...definition, height: value } : null;
     case "sphere":
@@ -199,6 +203,12 @@ export function updateSolidParameter(
   key: SolidEditableParameterKey,
   value: number,
 ): Solid3DRecord | null {
-  const definition = updateSolidDefinitionParameter(record.definition, key, value);
-  return definition === null ? null : reprojectSolid3DRecord(record, definition);
+  const definition = updateSolidDefinitionParameter(
+    record.definition,
+    key,
+    value,
+  );
+  return definition === null
+    ? null
+    : reprojectSolid3DRecord(record, definition);
 }
