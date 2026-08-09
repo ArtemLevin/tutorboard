@@ -12,7 +12,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
-    "format:check": "prettier --write \"src/adapters/solid-3d-three/Solid3DViewport.tsx\" \"src/app/solid-3d/Solid3DOrientationEditor.tsx\" \"src/core/solid-3d/model-transform.ts\" \"tests/unit/core/solid-3d/model-transform.test.ts\" && git diff -- src/adapters/solid-3d-three/Solid3DViewport.tsx src/app/solid-3d/Solid3DOrientationEditor.tsx src/core/solid-3d/model-transform.ts tests/unit/core/solid-3d/model-transform.test.ts && exit 1",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
