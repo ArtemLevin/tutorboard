@@ -6,6 +6,7 @@ import {
   createSolidTopology,
   resolveSolid3DPointPosition,
   solid3DModelQuaternion,
+  type Solid3DQuaternion,
   type Solid3DRecord,
   type SolidAnalyticSurfaceId,
   type SolidElementRef,
@@ -16,12 +17,15 @@ import {
 import { disposeSolidScene } from "./resource-disposal";
 import { buildSolidScene } from "./scene-builder";
 import { resolveSolidHitAnchor } from "./semantic-hit";
+import { SolidRotationGizmoController } from "./rotation-gizmo";
 
 export interface Solid3DViewportProps {
   readonly cameraMode: "orthographic" | "perspective";
   readonly highlightedSurfaceId?: SolidAnalyticSurfaceId | null;
   readonly mode: "points" | "view";
   readonly onPointPlace: (position: Vec3, anchor: SolidPointAnchor) => void;
+  readonly onModelRotationCommit?:
+    ((rotation: Solid3DQuaternion) => void) | undefined;
   readonly onSurfaceHover?: (surfaceId: SolidAnalyticSurfaceId | null) => void;
   readonly record: Solid3DRecord;
   readonly resetToken: number;
@@ -185,6 +189,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     highlightedElement,
     highlightedSurfaceId,
     onElementHover,
+    onModelRotationCommit,
     onSurfaceHover,
     record,
     resetToken,
@@ -204,6 +209,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   } | null>(null);
   const modeRef = useRef(props.mode);
   const onPointPlaceRef = useRef(props.onPointPlace);
+  const onModelRotationCommitRef = useRef(onModelRotationCommit);
   const onElementHoverRef = useRef(onElementHover);
   const onSurfaceHoverRef = useRef(onSurfaceHover);
   const [failure, setFailure] = useState<WebGLFailure | null>(null);
@@ -221,6 +227,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   useEffect(() => {
     onPointPlaceRef.current = props.onPointPlace;
   }, [props.onPointPlace]);
+
+  useEffect(() => {
+    onModelRotationCommitRef.current = onModelRotationCommit;
+  }, [onModelRotationCommit]);
 
   useEffect(() => {
     onElementHoverRef.current = onElementHover;
@@ -289,6 +299,18 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       modeRef.current === "points" ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
     controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
     const render = () => renderer.render(scene, camera);
+    const rotationGizmo =
+      onModelRotationCommitRef.current === undefined
+        ? null
+        : new SolidRotationGizmoController(
+            built.root,
+            camera,
+            renderer.domElement,
+            controls,
+            render,
+            (rotation) => onModelRotationCommitRef.current?.(rotation),
+          );
+    if (rotationGizmo !== null) scene.add(rotationGizmo.group);
     controls.addEventListener("change", render);
     const resizeObserver = new ResizeObserver(() => {
       const nextWidth = Math.max(320, container.clientWidth);
@@ -418,6 +440,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       renderer.domElement.removeEventListener("pointermove", pointerMove);
       renderer.domElement.removeEventListener("pointerleave", pointerLeave);
       renderer.domElement.removeEventListener("webglcontextlost", contextLost);
+      if (rotationGizmo !== null) {
+        scene.remove(rotationGizmo.group);
+        rotationGizmo.dispose();
+      }
       disposeSolidScene(scene);
       renderer.dispose();
       renderer.forceContextLoss();

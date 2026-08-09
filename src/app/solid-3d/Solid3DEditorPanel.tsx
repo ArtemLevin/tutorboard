@@ -14,6 +14,7 @@ import {
   resolveSolidPointAnchor,
   solidPointId,
   solidSectionId,
+  withSolid3DModelQuaternion,
   type Solid3DPoint,
   type Solid3DRecord,
   type SolidAnalyticSurfaceId,
@@ -285,7 +286,7 @@ export function Solid3DEditorPanel({
 
   const placePoint = useCallback(
     (position: Vec3, anchor: SolidPointAnchor) => {
-      if (readOnly) return;
+      if (readOnly || record.points.length >= 32) return;
       const point: Solid3DPoint = {
         anchor,
         id: solidPointId(`solid-point:${crypto.randomUUID()}`),
@@ -395,7 +396,7 @@ export function Solid3DEditorPanel({
           </button>
           <button
             aria-pressed={mode === "points"}
-            disabled={readOnly}
+            disabled={readOnly || record.points.length >= 32}
             onClick={() => setMode("points")}
             type="button"
           >
@@ -431,6 +432,14 @@ export function Solid3DEditorPanel({
               highlightedSurfaceId={hoveredSurfaceId}
               mode={mode}
               onElementHover={setHighlightedElement}
+              onModelRotationCommit={
+                readOnly
+                  ? undefined
+                  : (rotation) =>
+                      onRecordChange(
+                        withSolid3DModelQuaternion(record, rotation),
+                      )
+              }
               onPointPlace={placePoint}
               onSurfaceHover={setHoveredSurfaceId}
               record={record}

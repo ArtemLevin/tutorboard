@@ -51,14 +51,14 @@ function parametricSolid(query: string): TextShapeDefinition | undefined {
       "dodecahedron",
       "Додекаэдр",
       ["додекаэдр", "правильный додекаэдр"],
-      { kind: "solid", variant: "octahedron" },
+      { kind: "solid", variant: "dodecahedron" },
     );
   if (normalized === "икосаэдр" || normalized.includes("икосаэдр"))
     return solidDefinition(
       "icosahedron",
       "Икосаэдр",
       ["икосаэдр", "правильный икосаэдр"],
-      { kind: "solid", variant: "octahedron" },
+      { kind: "solid", variant: "icosahedron" },
     );
 
   const sides = sidesFromQuery(normalized);

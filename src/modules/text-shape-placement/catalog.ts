@@ -48,6 +48,8 @@ export type TextShapeTemplate =
         | "frustum"
         | "hemisphere"
         | "octahedron"
+        | "dodecahedron"
+        | "icosahedron"
         | "sphere";
     }
   | {

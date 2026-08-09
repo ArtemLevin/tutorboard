@@ -12,7 +12,9 @@ import {
   type ObjectStyle,
   type PasteContentCommand,
   type Vec2,
+  createSolidTopology,
   defaultSolidProjection,
+  projectSolidPoint,
   solid3DId,
   solidDefinitionFromTemplate,
 } from "../../core/public";
@@ -326,11 +328,54 @@ function boxGeometry(cube: boolean): TemplateGeometry {
   };
 }
 
+function semanticPolyhedronGeometry(
+  templateId: "dodecahedron" | "icosahedron",
+): TemplateGeometry {
+  const definition = solidDefinitionFromTemplate(templateId);
+  const topology = definition === null ? null : createSolidTopology(definition);
+  if (topology === null) return { edges: [], vertices: [] };
+  const indexById = new Map(
+    topology.vertices.map((vertex, index) => [vertex.id, index]),
+  );
+  const vertices = topology.vertices.map((vertex) => {
+    const projected = projectSolidPoint(
+      vertex.position,
+      defaultSolidProjection,
+    );
+    return { x: projected.x * 54, y: projected.y * 54 };
+  });
+  const positions = new Map(
+    topology.vertices.map((vertex) => [vertex.id, vertex.position]),
+  );
+  const edges = topology.edges.flatMap((edge) => {
+    const start = indexById.get(edge.startVertexId);
+    const end = indexById.get(edge.endVertexId);
+    const startPosition = positions.get(edge.startVertexId);
+    const endPosition = positions.get(edge.endVertexId);
+    return start === undefined ||
+      end === undefined ||
+      startPosition === undefined ||
+      endPosition === undefined
+      ? []
+      : [
+          {
+            end,
+            hidden: (startPosition.z + endPosition.z) / 2 > 0.35,
+            start,
+          },
+        ];
+  });
+  return { edges, vertices };
+}
+
 function solidGeometry(
   variant: Extract<TextShapeTemplate, { kind: "solid" }>["variant"],
 ): TemplateGeometry {
   if (variant === "cube" || variant === "cuboid") {
     return boxGeometry(variant === "cube");
+  }
+  if (variant === "dodecahedron" || variant === "icosahedron") {
+    return semanticPolyhedronGeometry(variant);
   }
   if (variant === "octahedron") {
     const vertices = [
