@@ -1,0 +1,50 @@
+.solid-3d-parameters {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #ddd4c7;
+}
+.solid-3d-parameters h3 {
+  margin: 0 0 0.65rem;
+}
+.solid-3d-parameter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.solid-3d-parameter-grid label {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  color: #53666f;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+.solid-3d-parameter-grid input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.15rem;
+  box-sizing: border-box;
+  border: 1px solid #9caeb5;
+  border-radius: 7px;
+  padding: 0.35rem 0.45rem;
+  background: #fffdf8;
+  color: #24323a;
+}
+.solid-3d-parameter-grid input:focus-visible {
+  outline: 2px solid #8f2f45;
+  outline-offset: 1px;
+}
+.solid-3d-parameter-grid input:disabled {
+  opacity: 0.62;
+}
+.solid-3d-parameter-help {
+  margin: 0.55rem 0 0;
+  color: #687980;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+@media (max-width: 780px) {
+  .solid-3d-parameter-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}

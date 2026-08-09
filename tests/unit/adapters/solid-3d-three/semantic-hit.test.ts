@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveSolidHitAnchor } from "../../../../src/adapters/solid-3d-three/semantic-hit";
-import { createSolidTopology } from "../../../../src/core/public";
+import {
+  createSolidTopology,
+  decodeTopologyFaceAnchorId,
+} from "../../../../src/core/public";
 
 describe("resolveSolidHitAnchor", () => {
   it("creates semantic sphere anchors without surface:0", () => {
@@ -80,5 +83,26 @@ describe("resolveSolidHitAnchor", () => {
       anchor: { kind: "vertex", vertexId: vertex.id },
       position: vertex.position,
     });
+  });
+
+  it("stores the exact fan triangle for polyhedron face hits", () => {
+    const definition = { edgeLength: 2, kind: "cube" } as const;
+    const topology = createSolidTopology(definition)!;
+    const placement = resolveSolidHitAnchor(
+      definition,
+      { x: 0.2, y: -0.4, z: -1 },
+      topology,
+      1,
+      [],
+    );
+    expect(placement?.anchor.kind).toBe("face");
+    if (placement?.anchor.kind === "face") {
+      expect(decodeTopologyFaceAnchorId(placement.anchor.faceId)).toEqual({
+        faceId: topology.faces[0]!.id,
+        triangleIndex: 1,
+      });
+      expect(placement.anchor.localCoordinates.x).toBeCloseTo(0.3, 10);
+      expect(placement.anchor.localCoordinates.y).toBeCloseTo(0.3, 10);
+    }
   });
 });

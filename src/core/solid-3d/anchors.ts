@@ -3,6 +3,7 @@ import type {
   SolidPointAnchor,
   SolidTopology,
 } from "./definitions";
+import { decodeTopologyFaceAnchorId } from "./topology-anchors";
 import { add3, scale3, subtract3, type Vec3 } from "./vectors";
 
 export type SolidAnalyticSurfaceId =
@@ -324,11 +325,17 @@ export function resolveSolidPointAnchor(
     );
   }
   if (anchor.kind === "face") {
-    const face = topology.faces.find((item) => item.id === anchor.faceId);
+    const reference = decodeTopologyFaceAnchorId(anchor.faceId);
+    const face = topology.faces.find((item) => item.id === reference.faceId);
     if (face === undefined || face.vertexIds.length < 3) return null;
+    const maximumTriangleIndex = face.vertexIds.length - 3;
+    const triangleIndex = Math.min(
+      maximumTriangleIndex,
+      Math.max(0, reference.triangleIndex ?? 0),
+    );
     const first = vertices.get(face.vertexIds[0]!)!;
-    const second = vertices.get(face.vertexIds[1]!)!;
-    const third = vertices.get(face.vertexIds[2]!)!;
+    const second = vertices.get(face.vertexIds[triangleIndex + 1]!)!;
+    const third = vertices.get(face.vertexIds[triangleIndex + 2]!)!;
     return add3(
       first,
       add3(

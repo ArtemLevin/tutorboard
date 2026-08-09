@@ -28,6 +28,7 @@ import {
 import { calculateSolidSection } from "../../modules/solid-3d/public";
 import { Solid3DViewport } from "../../adapters/solid-3d-three/public";
 import { Solid3DLearningWorkspace } from "./Solid3DLearningWorkspace";
+import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
 import "./Solid3DEditorPanel.css";
 
 export interface Solid3DEditorPanelProps {
@@ -415,6 +416,11 @@ export function Solid3DEditorPanel({
             </div>
           </div>
           <aside>
+            <Solid3DParameterEditor
+              onRecordChange={onRecordChange}
+              readOnly={readOnly}
+              record={record}
+            />
             <h3>Точки</h3>
             {record.points.length === 0 ? (
               <p>Включите режим постановки точек и щёлкните по модели.</p>
