@@ -24,7 +24,7 @@ function cylinderRecord(): Solid3DRecord {
 
 describe("Solid3DParameterEditor", () => {
   it("commits a valid dimension once on blur", () => {
-    const onRecordChange = vi.fn();
+    const onRecordChange = vi.fn<(replacement: Solid3DRecord) => void>();
     render(
       <Solid3DParameterEditor
         onRecordChange={onRecordChange}
@@ -45,7 +45,7 @@ describe("Solid3DParameterEditor", () => {
   });
 
   it("rejects invalid dimensions without emitting a record", () => {
-    const onRecordChange = vi.fn();
+    const onRecordChange = vi.fn<(replacement: Solid3DRecord) => void>();
     render(
       <Solid3DParameterEditor
         onRecordChange={onRecordChange}
@@ -66,7 +66,7 @@ describe("Solid3DParameterEditor", () => {
   it("disables every dimension input in read-only mode", () => {
     render(
       <Solid3DParameterEditor
-        onRecordChange={vi.fn()}
+        onRecordChange={vi.fn<(replacement: Solid3DRecord) => void>()}
         readOnly
         record={cylinderRecord()}
       />,
