@@ -6,6 +6,7 @@ export * from "./model-transform";
 export * from "./point-resolution";
 export * from "./polyhedron-section";
 export * from "./projection";
+export * from "./section-constraints";
 export * from "./solid-parameters";
 export * from "./topology";
 export * from "./topology-anchors";
