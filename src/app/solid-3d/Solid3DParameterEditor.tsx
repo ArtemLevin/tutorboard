@@ -7,6 +7,7 @@ import {
   type Solid3DRecord,
   type SolidEditableParameter,
 } from "../../core/public";
+import { Solid3DOrientationEditor } from "./Solid3DOrientationEditor";
 import "./Solid3DParameterEditor.css";
 
 export interface Solid3DParameterEditorProps {
@@ -52,45 +53,52 @@ export function Solid3DParameterEditor({
   };
 
   return (
-    <section
-      aria-labelledby="solid-3d-parameters-title"
-      className="solid-3d-parameters"
-    >
-      <h3 id="solid-3d-parameters-title">Размеры</h3>
-      <div className="solid-3d-parameter-grid">
-        {parameters.map((descriptor) => (
-          <label key={`${descriptor.key}:${displayValue(descriptor.value)}`}>
-            <span>{descriptor.label}</span>
-            <input
-              aria-label={descriptor.label}
-              defaultValue={displayValue(descriptor.value)}
-              disabled={readOnly}
-              max={descriptor.max}
-              min={descriptor.min}
-              onBlur={(event) => commit(descriptor, event.currentTarget)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") event.currentTarget.blur();
-                if (event.key === "Escape") {
-                  event.currentTarget.value = displayValue(descriptor.value);
-                  setError(null);
-                  event.currentTarget.blur();
-                }
-              }}
-              step={descriptor.step}
-              type="number"
-            />
-          </label>
-        ))}
-      </div>
-      <p className="solid-3d-parameter-help">
-        Enter или переход к другому полю применяет размер одной операцией
-        отмены.
-      </p>
-      {error === null ? null : (
-        <p className="solid-3d-error" role="alert">
-          {error}
+    <>
+      <Solid3DOrientationEditor
+        onRecordChange={onRecordChange}
+        readOnly={readOnly}
+        record={record}
+      />
+      <section
+        aria-labelledby="solid-3d-parameters-title"
+        className="solid-3d-parameters"
+      >
+        <h3 id="solid-3d-parameters-title">Размеры</h3>
+        <div className="solid-3d-parameter-grid">
+          {parameters.map((descriptor) => (
+            <label key={`${descriptor.key}:${displayValue(descriptor.value)}`}>
+              <span>{descriptor.label}</span>
+              <input
+                aria-label={descriptor.label}
+                defaultValue={displayValue(descriptor.value)}
+                disabled={readOnly}
+                max={descriptor.max}
+                min={descriptor.min}
+                onBlur={(event) => commit(descriptor, event.currentTarget)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                  if (event.key === "Escape") {
+                    event.currentTarget.value = displayValue(descriptor.value);
+                    setError(null);
+                    event.currentTarget.blur();
+                  }
+                }}
+                step={descriptor.step}
+                type="number"
+              />
+            </label>
+          ))}
+        </div>
+        <p className="solid-3d-parameter-help">
+          Enter или переход к другому полю применяет размер одной операцией
+          отмены.
         </p>
-      )}
-    </section>
+        {error === null ? null : (
+          <p className="solid-3d-error" role="alert">
+            {error}
+          </p>
+        )}
+      </section>
+    </>
   );
 }
