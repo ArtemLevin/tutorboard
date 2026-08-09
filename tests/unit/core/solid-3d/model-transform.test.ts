@@ -30,7 +30,11 @@ describe("persistent solid model transform", () => {
   });
 
   it("round-trips Euler orientation through a normalized quaternion", () => {
-    const quaternion = solid3DQuaternionFromEulerDegrees({ x: 30, y: 20, z: -15 });
+    const quaternion = solid3DQuaternionFromEulerDegrees({
+      x: 30,
+      y: 20,
+      z: -15,
+    });
     const euler = solid3DEulerDegreesFromQuaternion(quaternion);
     expect(euler.x).toBeCloseTo(30, 8);
     expect(euler.y).toBeCloseTo(20, 8);

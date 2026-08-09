@@ -23,7 +23,8 @@ export const identitySolid3DQuaternion: Solid3DQuaternion = {
 };
 
 const radians = (degrees: number): number => (degrees * Math.PI) / 180;
-const degrees = (radiansValue: number): number => (radiansValue * 180) / Math.PI;
+const degrees = (radiansValue: number): number =>
+  (radiansValue * 180) / Math.PI;
 
 export function normalizeSolid3DQuaternion(
   quaternion: Solid3DQuaternion,
@@ -72,7 +73,10 @@ export function solid3DEulerDegreesFromQuaternion(
   const cosX = 1 - 2 * (quaternion.x ** 2 + quaternion.y ** 2);
   const sinY = Math.max(
     -1,
-    Math.min(1, 2 * (quaternion.w * quaternion.y - quaternion.z * quaternion.x)),
+    Math.min(
+      1,
+      2 * (quaternion.w * quaternion.y - quaternion.z * quaternion.x),
+    ),
   );
   const sinZ = 2 * (quaternion.w * quaternion.z + quaternion.x * quaternion.y);
   const cosZ = 1 - 2 * (quaternion.y ** 2 + quaternion.z ** 2);
@@ -88,7 +92,9 @@ export function solid3DEulerDegreesFromQuaternion(
  * values. 3D-4 stores the model quaternion in slots 6..9, preserving the
  * original six projection coefficients byte-for-byte for legacy consumers.
  */
-export function solid3DModelQuaternion(record: Solid3DRecord): Solid3DQuaternion {
+export function solid3DModelQuaternion(
+  record: Solid3DRecord,
+): Solid3DQuaternion {
   const values = record.projection.matrix.slice(6, 10);
   if (values.length !== 4 || values.some((value) => !Number.isFinite(value)))
     return identitySolid3DQuaternion;

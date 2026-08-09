@@ -97,7 +97,11 @@ function triangleHighlight(
     for (let corner = 0; corner < 3; corner += 1) {
       const offset = triangle * 3 + corner;
       const vertex = index?.getX(offset) ?? offset;
-      positions.push(source.getX(vertex), source.getY(vertex), source.getZ(vertex));
+      positions.push(
+        source.getX(vertex),
+        source.getY(vertex),
+        source.getZ(vertex),
+      );
     }
   }
   if (positions.length === 0) return null;
@@ -460,8 +464,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       if (highlight !== null) overlays.add(highlight);
       if (highlighted.kind === "face") {
         const faceIds = runtime.mesh.userData.semanticFaceIds as
-          | readonly string[]
-          | undefined;
+          readonly string[] | undefined;
         if (faceIds !== undefined) {
           const faceFill = triangleHighlight(
             runtime.mesh.geometry,

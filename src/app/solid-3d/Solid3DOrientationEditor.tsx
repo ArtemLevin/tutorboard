@@ -46,7 +46,10 @@ export function Solid3DOrientationEditor({
   const commit = (axis: Axis): void => {
     const value = Number(draft[axis].replace(",", "."));
     if (!Number.isFinite(value)) {
-      setDraft((state) => ({ ...state, [axis]: String(roundAngle(current[axis])) }));
+      setDraft((state) => ({
+        ...state,
+        [axis]: String(roundAngle(current[axis])),
+      }));
       return;
     }
     onRecordChange(
@@ -64,7 +67,10 @@ export function Solid3DOrientationEditor({
   };
 
   return (
-    <section aria-labelledby="solid-3d-orientation-title" className="solid-3d-orientation">
+    <section
+      aria-labelledby="solid-3d-orientation-title"
+      className="solid-3d-orientation"
+    >
       <div className="solid-3d-orientation-heading">
         <h3 id="solid-3d-orientation-title">Ориентация тела</h3>
         <button
@@ -79,7 +85,9 @@ export function Solid3DOrientationEditor({
           Сбросить
         </button>
       </div>
-      <p>Поворот сохраняется вместе с моделью и не зависит от положения камеры.</p>
+      <p>
+        Поворот сохраняется вместе с моделью и не зависит от положения камеры.
+      </p>
       <div className="solid-3d-orientation-grid">
         {(["x", "y", "z"] as const).map((axis) => (
           <div className="solid-3d-orientation-axis" key={axis}>
@@ -107,17 +115,28 @@ export function Solid3DOrientationEditor({
               />
             </label>
             <div className="solid-3d-orientation-nudges">
-              <button disabled={readOnly} onClick={() => rotate(axis, -15)} type="button">
+              <button
+                disabled={readOnly}
+                onClick={() => rotate(axis, -15)}
+                type="button"
+              >
                 −15°
               </button>
-              <button disabled={readOnly} onClick={() => rotate(axis, 15)} type="button">
+              <button
+                disabled={readOnly}
+                onClick={() => rotate(axis, 15)}
+                type="button"
+              >
                 +15°
               </button>
               <button
                 disabled={readOnly}
                 onClick={() =>
                   onRecordChange(
-                    withSolid3DModelEulerDegrees(record, { ...current, [axis]: 90 }),
+                    withSolid3DModelEulerDegrees(record, {
+                      ...current,
+                      [axis]: 90,
+                    }),
                   )
                 }
                 type="button"
