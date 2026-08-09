@@ -36,7 +36,7 @@ describe("Solid3DOrientationEditor presets", () => {
         record={record}
       />,
     );
-    fireEvent.click(screen.getAllByRole("button", { name: "180°" })[1]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "180°" })[0]!);
     expect(onRecordChange).toHaveBeenCalledTimes(1);
     const replacement = onRecordChange.mock.calls[0]?.[0];
     expect(replacement).toBeDefined();
