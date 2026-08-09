@@ -3,33 +3,35 @@ import { describe, expect, it } from "vitest";
 import {
   createSolidTopology,
   defaultSolidProjection,
+  groupId,
   materializeSolidSectionConstraint,
   planeFromThreePoints,
   reprojectSolid3DRecord,
   resolveSolid3DPointPosition,
+  solid3DId,
   solidPointId,
   type Solid3DPoint,
   type Solid3DRecord,
 } from "../../../../src/core/public";
 
-const point = {
+const point: Solid3DPoint = {
   anchor: { kind: "vertex", vertexId: "vertex:6" },
   id: solidPointId("solid-point:constraint-origin"),
   label: "P",
   position: { x: 1, y: 1, z: 1 },
-} as Solid3DPoint;
+};
 
-const record = {
+const record: Solid3DRecord = {
   boardObjectIds: [],
   definition: { edgeLength: 2, kind: "cube" },
-  id: "solid:constraints",
+  id: solid3DId("solid:constraints"),
   points: [point],
   projection: defaultSolidProjection,
-  rootGroupId: "group:constraints",
+  rootGroupId: groupId("group:constraints"),
   schemaVersion: "1.0",
   sections: [],
   source: { kind: "text-template", templateId: "cube" },
-} as Solid3DRecord;
+};
 
 const normalizedAbsDot = (
   left: { x: number; y: number; z: number },
@@ -152,7 +154,7 @@ describe("semantic constrained section planes", () => {
   });
 
   it("supports analytic planes parallel to a cylinder base", () => {
-    const cylinder = {
+    const cylinder: Solid3DRecord = {
       ...record,
       definition: { height: 4, kind: "cylinder", radius: 2 },
       points: [
@@ -167,7 +169,7 @@ describe("semantic constrained section planes", () => {
           position: { x: 2, y: 0, z: 0 },
         },
       ],
-    } as Solid3DRecord;
+    };
     const origin = cylinder.points[0]!;
     const result = materializeSolidSectionConstraint({
       constraint: {
