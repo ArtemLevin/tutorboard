@@ -24,7 +24,8 @@ export interface Solid3DViewportProps {
   readonly highlightedSurfaceId?: SolidAnalyticSurfaceId | null;
   readonly mode: "points" | "view";
   readonly onPointPlace: (position: Vec3, anchor: SolidPointAnchor) => void;
-  readonly onModelRotationCommit?: (rotation: Solid3DQuaternion) => void;
+  readonly onModelRotationCommit?:
+    ((rotation: Solid3DQuaternion) => void) | undefined;
   readonly onSurfaceHover?: (surfaceId: SolidAnalyticSurfaceId | null) => void;
   readonly record: Solid3DRecord;
   readonly resetToken: number;
