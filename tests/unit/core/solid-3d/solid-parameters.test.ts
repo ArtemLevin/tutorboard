@@ -60,7 +60,11 @@ describe("solidEditableParameters", () => {
 
   it("rejects invalid and unsupported parameter updates", () => {
     expect(
-      updateSolidDefinitionParameter({ kind: "sphere", radius: 2 }, "radius", 0),
+      updateSolidDefinitionParameter(
+        { kind: "sphere", radius: 2 },
+        "radius",
+        0,
+      ),
     ).toBeNull();
     expect(
       updateSolidDefinitionParameter(
@@ -81,11 +85,7 @@ describe("solidEditableParameters", () => {
       height: 3,
       kind: "prism" as const,
     };
-    const updated = updateSolidDefinitionParameter(
-      definition,
-      "baseRadius",
-      4,
-    );
+    const updated = updateSolidDefinitionParameter(definition, "baseRadius", 4);
     expect(updated?.kind).toBe("prism");
     if (updated?.kind === "prism") {
       expect(updated.base[0]).toEqual({ x: 4, y: 0 });
