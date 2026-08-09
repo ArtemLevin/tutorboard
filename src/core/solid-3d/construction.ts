@@ -59,7 +59,11 @@ export function validateSolidConstructionBase(
 ): SolidBaseValidation {
   if (base.length < 3)
     return { code: "base.too-few-vertices", valid: false };
-  if (base.some((point) => !Number.isFinite(point.x) || !Number.isFinite(point.y)))
+  if (
+    base.some(
+      (point) => !Number.isFinite(point.x) || !Number.isFinite(point.y),
+    )
+  )
     return { code: "base.non-finite", valid: false };
   if (Math.abs(polygonSignedArea(base)) <= 1e-8)
     return { code: "base.zero-area", valid: false };
@@ -91,8 +95,10 @@ export function validateSolidConstructionBase(
 function regularPolyhedron(
   variant: RegularPolyhedronVariant,
 ): Solid3DDefinition {
-  if (variant === "tetrahedron") return { edgeLength: 2.6, kind: "tetrahedron" };
-  if (variant === "octahedron") return { edgeLength: 2.6, kind: "octahedron" };
+  if (variant === "tetrahedron")
+    return { edgeLength: 2.6, kind: "tetrahedron" };
+  if (variant === "octahedron")
+    return { edgeLength: 2.6, kind: "octahedron" };
   if (variant === "cube") return { edgeLength: 2, kind: "cube" };
   return { edgeLength: 2, kind: "regular-polyhedron", variant };
 }
@@ -138,13 +144,14 @@ export function definitionForSolidConstruction(
 export function constructionKindFromDefinition(
   definition: Solid3DDefinition,
 ): SolidConstructionKind {
-  if (definition.kind !== "regular-polyhedron") return definition.kind;
-  return definition.variant === "dodecahedron" || definition.variant === "icosahedron"
+  return definition.kind === "regular-polyhedron"
     ? definition.variant
-    : definition.variant;
+    : definition.kind;
 }
 
-export function constructionSideCount(definition: Solid3DDefinition): number | null {
+export function constructionSideCount(
+  definition: Solid3DDefinition,
+): number | null {
   switch (definition.kind) {
     case "prism":
     case "pyramid":
