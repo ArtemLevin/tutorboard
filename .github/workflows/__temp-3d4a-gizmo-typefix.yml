@@ -1,10 +1,11 @@
-# trigger-2
+# trigger-3
 name: Temporary 3D-4A gizmo type fix
 
 on:
   push:
     branches:
       - agent/3d-4a-persistent-transform
+  pull_request:
 
 permissions:
   contents: write
