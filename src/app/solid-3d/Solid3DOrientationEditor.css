@@ -1,0 +1,51 @@
+.solid-3d-orientation {
+  border-bottom: 1px solid rgba(36, 56, 71, 0.16);
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.9rem;
+}
+
+.solid-3d-orientation-heading {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.solid-3d-orientation-heading h3 {
+  margin: 0;
+}
+
+.solid-3d-orientation > p {
+  color: #52616b;
+  font-size: 0.82rem;
+  margin: 0.35rem 0 0.7rem;
+}
+
+.solid-3d-orientation-grid {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.solid-3d-orientation-axis label {
+  align-items: center;
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: 2.4rem minmax(0, 1fr);
+}
+
+.solid-3d-orientation-axis input {
+  min-width: 0;
+  width: 100%;
+}
+
+.solid-3d-orientation-nudges {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0.35rem 0 0 2.85rem;
+}
+
+.solid-3d-orientation-nudges button {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.4rem;
+}
