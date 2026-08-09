@@ -212,6 +212,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const onModelRotationCommitRef = useRef(onModelRotationCommit);
   const onElementHoverRef = useRef(onElementHover);
   const onSurfaceHoverRef = useRef(onSurfaceHover);
+  const projectionRef = useRef(record.projection);
   const [failure, setFailure] = useState<WebGLFailure | null>(null);
   const [retryToken, setRetryToken] = useState(0);
 
@@ -239,6 +240,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   useEffect(() => {
     onSurfaceHoverRef.current = onSurfaceHover;
   }, [onSurfaceHover]);
+
+  useEffect(() => {
+    projectionRef.current = record.projection;
+  }, [record.projection]);
 
   useEffect(() => {
     const container = containerRef.current;
