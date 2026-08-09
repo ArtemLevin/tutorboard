@@ -91,8 +91,10 @@ const analyticSurfaceNames: Readonly<Record<SolidAnalyticSurfaceId, string>> = {
   "surface:truncated-cone-top": "Верхнее основание усечённого конуса",
 };
 
-function visiblePoints(record: Solid3DRecord): readonly Solid3DPoint[] {
-  return record.points.filter((point) => !isSolidSectionHelperPoint(point));
+function visiblePoints(
+  points: readonly Solid3DPoint[],
+): readonly Solid3DPoint[] {
+  return points.filter((point) => !isSolidSectionHelperPoint(point));
 }
 
 function nextLabel(points: readonly Solid3DPoint[]): string {
@@ -146,7 +148,7 @@ export function Solid3DEditorPanel({
   onLearningReset,
   onLearningStart,
 }: Solid3DEditorPanelProps): ReactElement {
-  const points = useMemo(() => visiblePoints(record), [record.points]);
+  const points = useMemo(() => visiblePoints(record.points), [record.points]);
   const [experience, setExperience] = useState<"free" | "learning">(
     learningAttempt === null ? "free" : "learning",
   );
