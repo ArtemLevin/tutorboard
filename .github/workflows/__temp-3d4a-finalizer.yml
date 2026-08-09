@@ -1,0 +1,123 @@
+name: Temporary authoritative 3D-4A finalizer
+
+on:
+  push:
+    branches:
+      - agent/3d-4a-persistent-transform
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Normalize final 3D-4A implementation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          viewport = Path('src/adapters/solid-3d-three/Solid3DViewport.tsx')
+          text = viewport.read_text()
+          text = text.replace(
+            'this.raycaster.intersectObjects(this.handles, false)[0]',
+            'this.raycaster.intersectObjects([...this.handles], false)[0]',
+          )
+          old_prop = '  readonly onModelRotationCommit?: (rotation: Solid3DQuaternion) => void;'
+          if old_prop in text:
+            text = text.replace(
+              old_prop,
+              '  readonly onModelRotationCommit?: ((rotation: Solid3DQuaternion) => void) | undefined;',
+              1,
+            )
+          ref_marker = '  const onSurfaceHoverRef = useRef(onSurfaceHover);\n'
+          if '  const projectionRef = useRef(record.projection);\n' not in text:
+            if ref_marker not in text:
+              raise SystemExit('projection ref marker missing')
+            text = text.replace(ref_marker, ref_marker + '  const projectionRef = useRef(record.projection);\n', 1)
+          sync_marker = '''  useEffect(() => {\n    onSurfaceHoverRef.current = onSurfaceHover;\n  }, [onSurfaceHover]);\n\n'''
+          if '    projectionRef.current = record.projection;\n' not in text:
+            if sync_marker not in text:
+              raise SystemExit('projection sync marker missing')
+            text = text.replace(
+              sync_marker,
+              sync_marker + '''  useEffect(() => {\n    projectionRef.current = record.projection;\n  }, [record.projection]);\n\n''',
+              1,
+            )
+          needle = 'solid3DModelQuaternion(record.projection)'
+          main_deps = '}, [cameraMode, record.definition, record.projection, resetToken, retryToken]);'
+          if main_deps in text:
+            first = text.find(needle)
+            if first < 0:
+              raise SystemExit('initial rotation marker missing')
+            text = text[:first] + 'solid3DModelQuaternion(projectionRef.current)' + text[first + len(needle):]
+            text = text.replace(
+              main_deps,
+              '}, [cameraMode, record.definition, resetToken, retryToken]);',
+              1,
+            )
+          viewport.write_text(text)
+
+          panel = Path('src/app/solid-3d/Solid3DEditorPanel.tsx')
+          text = panel.read_text()
+          highlight = '              highlightedSurfaceId={hoveredSurfaceId}\n'
+          if highlight not in text:
+            marker = '              highlightedElement={highlightedElement}\n'
+            if marker not in text:
+              raise SystemExit('surface highlight marker missing')
+            text = text.replace(marker, marker + highlight, 1)
+          panel.write_text(text)
+
+          orientation = Path('src/app/solid-3d/Solid3DOrientationEditor.tsx')
+          text = orientation.read_text()
+          rotate_marker = '''  const rotate = (axis: Axis, delta: number): void => {\n    onRecordChange(\n      withSolid3DModelEulerDegrees(record, {\n        ...current,\n        [axis]: current[axis] + delta,\n      }),\n    );\n  };\n\n'''
+          if '  const setAxis = (axis: Axis, value: number): void => {' not in text:
+            if rotate_marker not in text:
+              raise SystemExit('orientation rotate marker missing')
+            text = text.replace(
+              rotate_marker,
+              rotate_marker + '''  const setAxis = (axis: Axis, value: number): void => {\n    onRecordChange(\n      withSolid3DModelEulerDegrees(record, { ...current, [axis]: value }),\n    );\n  };\n\n''',
+              1,
+            )
+          if '{[0, 90, 180].map((value) => (' not in text:
+            old = '''              <button\n                disabled={readOnly}\n                onClick={() =>\n                  onRecordChange(\n                    withSolid3DModelEulerDegrees(record, {\n                      ...current,\n                      [axis]: 90,\n                    }),\n                  )\n                }\n                type="button"\n              >\n                90°\n              </button>\n'''
+            if old not in text:
+              raise SystemExit('orientation preset marker missing')
+            text = text.replace(
+              old,
+              '''              {[0, 90, 180].map((value) => (\n                <button\n                  disabled={readOnly}\n                  key={value}\n                  onClick={() => setAxis(axis, value)}\n                  type="button"\n                >\n                  {value}°\n                </button>\n              ))}\n''',
+              1,
+            )
+          orientation.write_text(text)
+
+          preset_test = Path('src/app/solid-3d/Solid3DOrientationPresets.test.tsx')
+          if preset_test.exists():
+            text = preset_test.read_text().replace(
+              'screen.getAllByRole("button", { name: "180°" })[1]!',
+              'screen.getAllByRole("button", { name: "180°" })[0]!',
+            )
+            preset_test.write_text(text)
+          PY
+      - run: npm run format
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - name: Remove temporary 3D-4A infrastructure
+        run: |
+          find .github/workflows -maxdepth 1 -type f -name '__temp-3d4a-*.yml' -print -delete || true
+          find . -maxdepth 1 -type f -name '.3d4a-*' -print -delete || true
+      - name: Commit finalized clean head
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(3d): finalize persistent rotation interaction lifecycle"
+          git push
