@@ -578,6 +578,7 @@ const solidSectionSchema = z
   .object({
     algorithmVersion: z.enum(["polyhedron-plane/1", "analytic-plane/1"]),
     id: solidSectionIdSchema,
+    label: z.string().min(1).max(32).optional(),
     pointIds: z.tuple([
       solidPointIdSchema,
       solidPointIdSchema,

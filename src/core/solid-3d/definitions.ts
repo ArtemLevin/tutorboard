@@ -137,6 +137,7 @@ export interface Solid3DSectionDefinition {
   readonly id: SolidSectionId;
   readonly pointIds: readonly [SolidPointId, SolidPointId, SolidPointId];
   readonly algorithmVersion: "polyhedron-plane/1" | "analytic-plane/1";
+  readonly label?: string;
   readonly visible: boolean;
 }
 

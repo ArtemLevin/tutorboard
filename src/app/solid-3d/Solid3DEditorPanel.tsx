@@ -576,7 +576,10 @@ export function Solid3DEditorPanel({
                     record,
                     sectionDefinition.pointIds,
                   );
-                  const name = sectionNames[index] ?? `S${String(index + 1)}`;
+                  const name =
+                    sectionDefinition.label ??
+                    sectionNames[index] ??
+                    `S${String(index + 1)}`;
                   return (
                     <li key={sectionDefinition.id}>
                       <button
@@ -588,6 +591,30 @@ export function Solid3DEditorPanel({
                       >
                         {name}
                       </button>
+                      <input
+                        aria-label={`Имя сечения ${name}`}
+                        disabled={readOnly}
+                        maxLength={32}
+                        onChange={(event) =>
+                          onRecordChange({
+                            ...record,
+                            sections: record.sections.map((candidate) =>
+                              candidate.id === sectionDefinition.id
+                                ? {
+                                    ...candidate,
+                                    label:
+                                      event.currentTarget.value.trim()
+                                        .length === 0
+                                        ? undefined
+                                        : event.currentTarget.value,
+                                  }
+                                : candidate,
+                            ),
+                          })
+                        }
+                        placeholder={name}
+                        value={sectionDefinition.label ?? ""}
+                      />
                       <label>
                         <input
                           aria-label={`Показывать сечение ${name}`}
