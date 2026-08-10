@@ -8,6 +8,7 @@ import {
   solid3DEulerDegreesFromQuaternion,
   solid3DId,
   solid3DModelQuaternion,
+  withSolid3DModelEulerDegrees,
   type Solid3DRecord,
 } from "../../core/public";
 import { Solid3DOrientationEditor } from "./Solid3DOrientationEditor";
@@ -46,5 +47,30 @@ describe("Solid3DOrientationEditor presets", () => {
     );
     expect(Math.abs(euler.y)).toBeCloseTo(0, 8);
     expect(Math.abs(euler.x)).toBeCloseTo(180, 8);
+  });
+
+  it("commits a zero degree preset for a rotated axis", () => {
+    const onRecordChange = vi.fn<(replacement: Solid3DRecord) => void>();
+    const rotatedRecord = withSolid3DModelEulerDegrees(record, {
+      x: 45,
+      y: 0,
+      z: 0,
+    });
+    render(
+      <Solid3DOrientationEditor
+        onRecordChange={onRecordChange}
+        readOnly={false}
+        record={rotatedRecord}
+      />,
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: "0°" })[0]!);
+    expect(onRecordChange).toHaveBeenCalledTimes(1);
+    const replacement = onRecordChange.mock.calls[0]?.[0];
+    expect(replacement).toBeDefined();
+    if (replacement === undefined) return;
+    const euler = solid3DEulerDegreesFromQuaternion(
+      solid3DModelQuaternion(replacement),
+    );
+    expect(Math.abs(euler.x)).toBeCloseTo(0, 8);
   });
 });
