@@ -52,10 +52,12 @@ export class LocalDocumentAutosave {
   readonly #repository: BoardDocumentRepository;
   #disposed = false;
   #inFlight: Promise<void> = Promise.resolve();
+  #isSaving = false;
   #lastFailedTask: SaveTask | null = null;
   #lastPersistedDocument: BoardDocument | null;
   #queuedDocument: BoardDocument | null = null;
   #revisionId: LocalRevisionId | null;
+  readonly #tasks: SaveTask[] = [];
   #timer: ReturnType<typeof setTimeout> | null = null;
   #unbindLifecycleFlush: (() => void) | null = null;
 
@@ -135,55 +137,85 @@ export class LocalDocumentAutosave {
   }
 
   #enqueue(task: SaveTask): void {
-    const persist = async () => {
-      // A save already accepted into this chain must be allowed to finish even
-      // after the owning React workspace has unmounted.
-      this.#onStateChange({ kind: "saving" });
-      const input: SaveBoardDocumentInput = {
-        document: task.document,
-        expectedRevisionId: this.#revisionId,
-        operationId: task.operationId,
-        savedAt: task.savedAt,
-      };
-      const result = await this.#repository.save(input);
-      if (result.status === "saved") {
-        this.#revisionId = result.revisionId;
-        this.#lastPersistedDocument = task.document;
-        this.#lastFailedTask = null;
+    this.#tasks.push(task);
+    if (!this.#isSaving) {
+      this.#isSaving = true;
+      // Starting the async drain invokes repository.save synchronously up to
+      // its first durable await. This is essential on pagehide: merely queuing
+      // a Promise microtask can let the browser terminate the page first.
+      this.#inFlight = this.#drain();
+    }
+  }
+
+  async #drain(): Promise<void> {
+    while (this.#tasks.length > 0) {
+      const task = this.#tasks.shift();
+      if (task === undefined) continue;
+      try {
+        await this.#persist(task);
+      } catch (error) {
+        this.#lastFailedTask = task;
         this.#onStateChange({
-          duplicate: result.duplicate,
-          kind: "saved",
-          revisionId: result.revisionId,
-          savedAt: task.savedAt,
-        });
-        return;
-      }
-      if (result.status === "conflict") {
-        this.#lastFailedTask = null;
-        this.#onStateChange({
-          currentRevisionId: result.currentRevisionId,
-          kind: "conflict",
-        });
-        return;
-      }
-      if (result.status === "invalid-document") {
-        this.#lastFailedTask = null;
-        this.#onStateChange({
-          code: "persistence.invalid-document",
+          code: "persistence.save-threw",
           kind: "error",
-          message: result.issues.map((item) => item.code).join(", "),
-          retryable: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unexpected persistence failure.",
+          retryable: true,
         });
-        return;
       }
-      this.#lastFailedTask = task;
-      this.#onStateChange({
-        code: result.code,
-        kind: "error",
-        message: result.message,
-        retryable: true,
-      });
+    }
+    this.#isSaving = false;
+  }
+
+  async #persist(task: SaveTask): Promise<void> {
+    // A save already accepted into this chain must be allowed to finish even
+    // after the owning React workspace has unmounted.
+    this.#onStateChange({ kind: "saving" });
+    const input: SaveBoardDocumentInput = {
+      document: task.document,
+      expectedRevisionId: this.#revisionId,
+      operationId: task.operationId,
+      savedAt: task.savedAt,
     };
-    this.#inFlight = this.#inFlight.then(persist, persist);
+    const result = await this.#repository.save(input);
+    if (result.status === "saved") {
+      this.#revisionId = result.revisionId;
+      this.#lastPersistedDocument = task.document;
+      this.#lastFailedTask = null;
+      this.#onStateChange({
+        duplicate: result.duplicate,
+        kind: "saved",
+        revisionId: result.revisionId,
+        savedAt: task.savedAt,
+      });
+      return;
+    }
+    if (result.status === "conflict") {
+      this.#lastFailedTask = null;
+      this.#onStateChange({
+        currentRevisionId: result.currentRevisionId,
+        kind: "conflict",
+      });
+      return;
+    }
+    if (result.status === "invalid-document") {
+      this.#lastFailedTask = null;
+      this.#onStateChange({
+        code: "persistence.invalid-document",
+        kind: "error",
+        message: result.issues.map((item) => item.code).join(", "),
+        retryable: false,
+      });
+      return;
+    }
+    this.#lastFailedTask = task;
+    this.#onStateChange({
+      code: result.code,
+      kind: "error",
+      message: result.message,
+      retryable: true,
+    });
   }
 }

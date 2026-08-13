@@ -9,7 +9,7 @@ import {
   actorId,
   commandId,
   documentId,
-  type OrderedBoardCommandEnvelope,
+  type CurrentOrderedBoardCommandEnvelope,
 } from "../../../../src/core/public";
 
 function jsonResponse(value: unknown, status = 200): Response {
@@ -19,7 +19,7 @@ function jsonResponse(value: unknown, status = 200): Response {
   });
 }
 
-const envelope: OrderedBoardCommandEnvelope = {
+const envelope: CurrentOrderedBoardCommandEnvelope = {
   actorId: actorId("user:tutor"),
   baseRevision: 0,
   commands: [
@@ -38,7 +38,7 @@ const envelope: OrderedBoardCommandEnvelope = {
   expectedDocumentSha256:
     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   idempotencyKey: "client:batch-1",
-  schemaVersion: "1.3",
+  schemaVersion: "1.4",
 };
 
 describe("Board HTTP repository", () => {

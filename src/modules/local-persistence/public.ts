@@ -9,5 +9,6 @@ export {
 } from "./lifecycle";
 export {
   importLocalDocumentJson,
+  maximumLocalDiagnosticImportRevisions,
   type LocalDocumentImportResult,
 } from "./import";

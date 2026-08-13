@@ -1,5 +1,5 @@
 import {
-  deserializeBoardDocument,
+  readBoardDocument,
   serializeBoardDocument,
   type BoardDocument,
   type ValidationIssue,
@@ -7,6 +7,7 @@ import {
 
 export const tutorBoardDocumentMediaType =
   "application/vnd.tutorboard.document+json" as const;
+export const maximumTutorBoardDocumentImportBytes = 10 * 1024 * 1024;
 
 export type TutorBoardDocumentImportResult =
   | {
@@ -20,7 +21,8 @@ export type TutorBoardDocumentImportResult =
         | "document-import.incompatible-object"
         | "document-import.incompatible-schema"
         | "document-import.invalid-document"
-        | "document-import.invalid-json";
+        | "document-import.invalid-json"
+        | "document-import.too-large";
       readonly message: string;
       readonly objectKinds?: readonly string[];
       readonly schemaVersion?: unknown;
@@ -43,21 +45,24 @@ export type TutorBoardDocumentExportResult =
       readonly status: "error";
     };
 
-function sourceSchemaVersion(json: string): string | null {
-  try {
-    const raw = JSON.parse(json) as unknown;
-    if (
-      typeof raw === "object" &&
-      raw !== null &&
-      "schemaVersion" in raw &&
-      typeof raw.schemaVersion === "string"
-    ) {
-      return raw.schemaVersion;
-    }
-  } catch {
-    return null;
+function sourceSchemaVersion(value: unknown): string | null {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "schemaVersion" in value &&
+    typeof value.schemaVersion === "string"
+  ) {
+    return value.schemaVersion;
   }
   return null;
+}
+
+function exceedsImportLimit(json: string): boolean {
+  return (
+    json.length > maximumTutorBoardDocumentImportBytes ||
+    new TextEncoder().encode(json).byteLength >
+      maximumTutorBoardDocumentImportBytes
+  );
 }
 
 function filenamePart(value: string): string {
@@ -72,8 +77,31 @@ function filenamePart(value: string): string {
 export function importTutorBoardDocument(
   json: string,
 ): TutorBoardDocumentImportResult {
-  const sourceVersion = sourceSchemaVersion(json);
-  const read = deserializeBoardDocument(json);
+  if (exceedsImportLimit(json)) {
+    return {
+      code: "document-import.too-large",
+      message: "The selected document exceeds the 10 MiB import limit.",
+      status: "error",
+    };
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(json) as unknown;
+  } catch {
+    return {
+      code: "document-import.invalid-json",
+      message: "The selected file is not valid JSON.",
+      status: "error",
+    };
+  }
+  return importTutorBoardDocumentValue(value);
+}
+
+export function importTutorBoardDocumentValue(
+  value: unknown,
+): TutorBoardDocumentImportResult {
+  const sourceVersion = sourceSchemaVersion(value);
+  const read = readBoardDocument(value);
   switch (read.status) {
     case "ok":
       return {
@@ -83,12 +111,6 @@ export function importTutorBoardDocument(
           sourceVersion !== read.document.schemaVersion,
         sourceSchemaVersion: sourceVersion ?? read.document.schemaVersion,
         status: "ok",
-      };
-    case "invalid-json":
-      return {
-        code: "document-import.invalid-json",
-        message: "The selected file is not valid JSON.",
-        status: "error",
       };
     case "incompatible-schema":
       return {

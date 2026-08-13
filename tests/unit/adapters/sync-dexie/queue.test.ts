@@ -51,7 +51,11 @@ describe("Dexie pending board command queue", () => {
     expect(remaining.map((item) => item.idempotencyKey)).toEqual([
       "client:second",
     ]);
-    await queue.replace(expectedDocumentId, remaining);
+    await queue.reconcile(
+      expectedDocumentId,
+      remaining,
+      queued.map(({ sequence }) => sequence),
+    );
     const second = remaining[0];
     if (second === undefined) {
       throw new Error("Expected the second queued command.");

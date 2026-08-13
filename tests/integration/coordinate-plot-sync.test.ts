@@ -78,14 +78,18 @@ class MemoryQueue implements PendingBoardCommandQueue {
     );
   }
 
-  replace(
+  reconcile(
     documentId: DocumentId,
     commands: readonly PendingBoardCommand[],
+    knownSequences: readonly number[],
   ): Promise<void> {
+    const known = new Set(knownSequences);
     this.items = [
-      ...this.items.filter((item) => item.documentId !== documentId),
+      ...this.items.filter(
+        (item) => item.documentId !== documentId || !known.has(item.sequence),
+      ),
       ...commands,
-    ];
+    ].sort((left, right) => left.sequence - right.sequence);
     return Promise.resolve();
   }
 
@@ -353,7 +357,7 @@ describe("coordinate plot server synchronization production lifecycle", () => {
     expect(
       repository.pushed.every(
         ({ expectedDocumentSha256, schemaVersion }) =>
-          expectedDocumentSha256.length === 64 && schemaVersion === "1.3",
+          expectedDocumentSha256.length === 64 && schemaVersion === "1.4",
       ),
     ).toBe(true);
 

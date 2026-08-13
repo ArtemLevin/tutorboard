@@ -1,6 +1,8 @@
 export {
   exportTutorBoardDocument,
   importTutorBoardDocument,
+  importTutorBoardDocumentValue,
+  maximumTutorBoardDocumentImportBytes,
   tutorBoardDocumentMediaType,
   type TutorBoardDocumentExportResult,
   type TutorBoardDocumentImportResult,

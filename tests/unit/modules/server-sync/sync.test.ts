@@ -144,11 +144,16 @@ class MemoryQueue implements PendingBoardCommandQueue {
     return Promise.resolve(this.head);
   }
 
-  replace(
+  reconcile(
     _documentId: DocumentId,
     commands: readonly PendingBoardCommand[],
+    knownSequences: readonly number[],
   ): Promise<void> {
-    this.items = [...commands];
+    const known = new Set(knownSequences);
+    this.items = [
+      ...this.items.filter(({ sequence }) => !known.has(sequence)),
+      ...commands,
+    ].sort((left, right) => left.sequence - right.sequence);
     return Promise.resolve();
   }
 
@@ -273,7 +278,7 @@ describe("BoardSyncEngine", () => {
           order: { baseRevisionAtCreation: 0, lamport: 1 },
         },
       ],
-      schemaVersion: "1.3",
+      schemaVersion: "1.4",
     });
     expect(queue.items).toEqual([]);
     expect(queue.head).toMatchObject({
@@ -585,6 +590,9 @@ describe("BoardSyncEngine", () => {
     repository.recovery = {
       board: {
         ...repository.descriptor,
+        currentDocumentSha256: await boardDocumentSha256(
+          applied(initialDocument(), command),
+        ),
         currentRevision: 1,
       },
       commandBatches: [
@@ -638,6 +646,7 @@ describe("BoardSyncEngine", () => {
     repository.recovery = {
       board: {
         ...repository.descriptor,
+        currentDocumentSha256: await boardDocumentSha256(initialDocument()),
         currentRevision: 0,
       },
       commandBatches: [],
@@ -671,6 +680,39 @@ describe("BoardSyncEngine", () => {
       role: "parent",
       revision: 0,
     });
+  });
+
+  it("stops durable and UI side effects after disposal during bootstrap", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const repository = new FakeRepository();
+    let releaseLoad: ((value: BoardServerRecovery) => void) | undefined;
+    vi.spyOn(repository, "load").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseLoad = resolve;
+        }),
+    );
+    const queue = new MemoryQueue();
+    const states: BoardSyncState[] = [];
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => "unused",
+      documentId: expectedDocumentId,
+      lessonId: "lesson:1",
+      now: () => "2026-07-28T18:02:00.000Z",
+      onStateChange: (state) => states.push(state),
+      queue,
+      repository,
+    });
+
+    const bootstrapping = engine.bootstrap();
+    await vi.waitFor(() => expect(releaseLoad).toBeTypeOf("function"));
+    engine.dispose();
+    releaseLoad?.(repository.recovery);
+    await bootstrapping;
+
+    expect(repository.snapshots).toEqual([]);
+    expect(queue.head).toBeNull();
+    expect(states).toEqual([{ kind: "bootstrapping" }]);
   });
 
   it("queues collaborative undo as an ordinary confirmed command", async () => {

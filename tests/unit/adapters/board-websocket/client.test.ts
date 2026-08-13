@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   BoardCollaborationClient,
+  maximumBoardCollaborationMessageCharacters,
+  maximumBoardCollaborationMessagesPerSecond,
   type BoardPresence,
 } from "../../../../src/adapters/board-websocket/public";
 import {
@@ -11,10 +13,14 @@ import {
 } from "../../../../src/core/public";
 
 class FakeSocket extends EventTarget {
+  closeCode: number | null = null;
+  closeReason: string | null = null;
   readonly sent: string[] = [];
   readyState = 0;
 
-  close(): void {
+  close(code = 1000, reason = ""): void {
+    this.closeCode = code;
+    this.closeReason = reason;
     this.readyState = 3;
     this.dispatchEvent(new CloseEvent("close"));
   }
@@ -28,6 +34,10 @@ class FakeSocket extends EventTarget {
     this.dispatchEvent(
       new MessageEvent("message", { data: JSON.stringify(value) }),
     );
+  }
+
+  receiveRaw(value: unknown): void {
+    this.dispatchEvent(new MessageEvent("message", { data: value }));
   }
 
   send(value: string): void {
@@ -99,6 +109,15 @@ describe("Board collaboration WebSocket adapter", () => {
       selectedObjectIds: ["object:1"],
       viewport: { x: 0, y: 0, zoom: 1 },
     });
+    socket.receive({
+      actorId: "actor:other",
+      clientId: "browser:other",
+      cursor: { x: -1, y: -1 },
+      protocolVersion: "1.0",
+      role: "student",
+      sequence: 0,
+      type: "presence.updated",
+    });
     await new Promise((resolve) => window.setTimeout(resolve, 70));
     expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual({
       cursor: { x: 10, y: 20 },
@@ -154,5 +173,87 @@ describe("Board collaboration WebSocket adapter", () => {
     });
     expect(statuses).toContain("online");
     client.stop();
+  });
+
+  it("closes binary, oversized, and rate-exceeding message streams", async () => {
+    const sockets: FakeSocket[] = [];
+    const client = new BoardCollaborationClient({
+      createWebSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+      documentId: documentId("document:lesson"),
+      onPresence: () => undefined,
+      onRevision: () => undefined,
+      onStatus: () => undefined,
+      origin: "https://tutor.example.test",
+      repository: {
+        collaborationTicket: vi.fn().mockResolvedValue({
+          expiresInSeconds: 30,
+          protocolVersion: "1.0",
+          ticket: "ticket",
+          websocketPath: "/collaboration",
+        }),
+        context: vi.fn().mockResolvedValue({
+          actorId: actorId("actor:tutor"),
+          csrfToken: "csrf",
+          organizationId: "organization:1",
+          role: "tutor",
+        }),
+      } as unknown as BoardPlatformRepository,
+    });
+
+    client.start();
+    await vi.waitFor(() => expect(sockets).toHaveLength(1));
+    const oversizedSocket = sockets[0]!;
+    oversizedSocket.receiveRaw(
+      "x".repeat(maximumBoardCollaborationMessageCharacters + 1),
+    );
+    expect(oversizedSocket.closeCode).toBe(1009);
+    oversizedSocket.receiveRaw(new Blob(["binary"]));
+    expect(oversizedSocket.closeCode).toBe(1003);
+
+    client.stop();
+
+    const rateClient = new BoardCollaborationClient({
+      createWebSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+      documentId: documentId("document:lesson"),
+      onPresence: () => undefined,
+      onRevision: () => undefined,
+      onStatus: () => undefined,
+      origin: "https://tutor.example.test",
+      repository: {
+        collaborationTicket: vi.fn().mockResolvedValue({
+          expiresInSeconds: 30,
+          protocolVersion: "1.0",
+          ticket: "ticket:rate",
+          websocketPath: "/collaboration",
+        }),
+        context: vi.fn().mockResolvedValue({
+          actorId: actorId("actor:tutor"),
+          csrfToken: "csrf",
+          organizationId: "organization:1",
+          role: "tutor",
+        }),
+      } as unknown as BoardPlatformRepository,
+    });
+    rateClient.start();
+    await vi.waitFor(() => expect(sockets).toHaveLength(2));
+    const rateSocket = sockets[1]!;
+    for (
+      let index = 0;
+      index <= maximumBoardCollaborationMessagesPerSecond;
+      index += 1
+    ) {
+      rateSocket.receive({ type: "heartbeat.ack" });
+    }
+    expect(rateSocket.closeCode).toBe(1008);
+    expect(rateSocket.closeReason).toBe("Message rate exceeded");
+    rateClient.stop();
   });
 });
