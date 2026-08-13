@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -171,6 +172,46 @@ export function Solid3DEditorPanel({
   const [hoveredSurfaceId, setHoveredSurfaceId] =
     useState<SolidAnalyticSurfaceId | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    const previous =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    closeButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || dialogRef.current === null) return;
+      const focusable = [
+        ...dialogRef.current.querySelectorAll<HTMLElement>(
+          "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex='-1'])",
+        ),
+      ];
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (first === undefined || last === undefined) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      previous?.focus();
+    };
+  }, []);
   const sanitizedSelectedPointIds = useMemo(
     () =>
       selectedPointIds.filter((id) => points.some((point) => point.id === id)),
@@ -351,6 +392,7 @@ export function Solid3DEditorPanel({
         aria-labelledby="solid-3d-title"
         aria-modal="true"
         className="solid-3d-editor"
+        ref={dialogRef}
         role="dialog"
       >
         <header>

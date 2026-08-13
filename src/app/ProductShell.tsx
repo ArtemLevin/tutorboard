@@ -178,11 +178,13 @@ function DocumentsPage({
   const [revisionDocumentId, setRevisionDocumentId] =
     useState<DocumentId | null>(null);
   const [canManage, setCanManage] = useState(false);
+  const [loading, setLoading] = useState(serverSync !== undefined);
   const [status, setStatus] = useState<string | null>(null);
   const refresh = useCallback(async () => {
     if (serverSync === undefined) {
       return;
     }
+    setLoading(true);
     try {
       const [items, context] = await Promise.all([
         serverSync.repository.listBoards(serverSync.lessonId, true),
@@ -196,6 +198,8 @@ function DocumentsPage({
           ? error.message
           : "Не удалось получить документы занятия.",
       );
+    } finally {
+      setLoading(false);
     }
   }, [serverSync]);
   useEffect(() => {
@@ -209,20 +213,30 @@ function DocumentsPage({
     if (serverSync === undefined) {
       return;
     }
-    const context = await serverSync.repository.context();
-    if (archived) {
-      await serverSync.repository.archive(
-        document.documentId,
-        context.csrfToken,
+    try {
+      const context = await serverSync.repository.context();
+      if (archived) {
+        await serverSync.repository.archive(
+          document.documentId,
+          context.csrfToken,
+        );
+      } else {
+        await serverSync.repository.unarchive(
+          document.documentId,
+          context.csrfToken,
+        );
+      }
+      setStatus(
+        archived ? "Доска перенесена в архив." : "Доска восстановлена.",
       );
-    } else {
-      await serverSync.repository.unarchive(
-        document.documentId,
-        context.csrfToken,
+      await refresh();
+    } catch (error) {
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : "Не удалось изменить состояние документа.",
       );
     }
-    setStatus(archived ? "Доска перенесена в архив." : "Доска восстановлена.");
-    await refresh();
   };
   return (
     <main className="product-page" tabIndex={-1}>
@@ -243,9 +257,17 @@ function DocumentsPage({
             <span aria-hidden="true">▦</span>
             <div>
               <h2>TutorBoard canvas</h2>
-              <p>Автосохранение · BoardDocument 1.0</p>
+              <p>Автосохранение · BoardDocument {boardDocumentSchemaVersion}</p>
             </div>
             <a href="#/board">Открыть доску</a>
+          </article>
+        ) : loading ? (
+          <article className="document-placeholder" aria-live="polite">
+            <span aria-hidden="true">↻</span>
+            <div>
+              <h2>Загружаем документы</h2>
+              <p>Получаем актуальный список досок занятия…</p>
+            </div>
           </article>
         ) : documents.length === 0 ? (
           <article className="document-placeholder">
@@ -284,6 +306,13 @@ function DocumentsPage({
                         setRevisionDocumentId(document.documentId);
                         setRevisions(items);
                       })
+                      .catch((error: unknown) =>
+                        setStatus(
+                          error instanceof Error
+                            ? error.message
+                            : "Не удалось загрузить историю документа.",
+                        ),
+                      )
                   }
                   type="button"
                 >
@@ -325,6 +354,20 @@ function SettingsPage({
   const reducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)",
   ).matches;
+  const featureLabels: Readonly<
+    Record<keyof AppEnvironment["features"], string>
+  > = {
+    developmentDiagnostics: "Диагностика разработки",
+    documentSnapshots: "Экспорт снимков документа",
+    geometryPrompt: "Построение по тексту",
+    handwrittenFunctions: "Рукописные функции",
+    mathInkRecognition: "Распознавание формул",
+    serverSync: "Серверная синхронизация",
+    smartInk: "Распознавание фигур Smart Ink",
+    smartInkDiagnostics: "Диагностика Smart Ink",
+    solid3D: "Интерактивная стереометрия",
+    solid3DLearning: "Учебные сценарии стереометрии",
+  };
   return (
     <main className="product-page settings-page" tabIndex={-1}>
       <header>
@@ -342,7 +385,7 @@ function SettingsPage({
         <dl className="settings-list">
           {Object.entries(environment.features).map(([name, enabled]) => (
             <div key={name}>
-              <dt>{name}</dt>
+              <dt>{featureLabels[name as keyof typeof featureLabels]}</dt>
               <dd>{enabled ? "Включено" : "Выключено"}</dd>
             </div>
           ))}

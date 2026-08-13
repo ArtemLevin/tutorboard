@@ -15,11 +15,14 @@ share link.
 
 ## Decision
 
-The permanent dock groups related actions into Selection, Drawing, Shapes,
-Math, AI and Media menus. At most one menu is open. Outside click, tool
+The permanent dock groups related actions into Selection, Drawing, Math, AI
+and Media menus. Shape tools remain visible inside Drawing rather than using a
+separate Shapes trigger. At most one menu is open. Outside click, tool
 selection and Escape close it; Escape restores focus to its trigger. Each menu
 uses a bounded, responsive surface so all entries remain reachable on desktop
-and mobile viewports. Settings remain the rightmost dock action.
+and mobile viewports. Opening a menu moves focus to its first enabled item;
+Arrow, Home and End keys provide roving navigation. Settings remain the
+rightmost dock action.
 
 Regular polygons use the existing closed pen-stroke representation. The
 interaction reducer generates deterministic vertices for 3–24 sides and

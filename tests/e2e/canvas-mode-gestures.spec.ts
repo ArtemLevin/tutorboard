@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByTestId("board-stage")).toBeVisible();
 });
 
-test("switches to Smart Ink from navigation, pen and selection without creating artifacts", async ({
+test("does not change tools after clicks on an empty canvas", async ({
   page,
 }) => {
   const stage = page.getByTestId("board-stage");
@@ -41,26 +41,27 @@ test("switches to Smart Ink from navigation, pen and selection without creating 
 
   await expect(stage).toHaveAttribute("data-pan-mode", "true");
   await page.mouse.click(first.x, first.y);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
+  await expect(stage).toHaveAttribute("data-pan-mode", "true");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "none");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 
   await selectPen(page);
   await page.mouse.click(second.x, second.y);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 
   await page.keyboard.press("v");
   await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
   await page.mouse.click(third.x, third.y);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
-  await expect(stage).toHaveAttribute("data-selection-mode", "none");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "none");
+  await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 });
 
-test("recognizes a realistic slow double click from pen and Smart Ink", async ({
+test("keeps a realistic slow double click in the active tool", async ({
   page,
 }) => {
   const stage = page.getByTestId("board-stage");
@@ -69,16 +70,17 @@ test("recognizes a realistic slow double click from pen and Smart Ink", async ({
 
   await selectPen(page);
   await slowDoubleClick(page, first);
-  await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "none");
+  await expect(stage).toHaveAttribute("data-selection-mode", "none");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 
-  await page.mouse.click(second.x, second.y);
+  await page.keyboard.press("i");
+  await page.mouse.move(second.x, second.y);
   await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
   await slowDoubleClick(page, first);
-  await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "none");
+  await expect(stage).toHaveAttribute("data-selection-mode", "none");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 });
@@ -98,7 +100,7 @@ test("shows a compact dot for pen cursors and keeps crosshair for shape tools", 
 
   const point = await stagePoint(page, 480, 260);
   await page.mouse.click(point.x, point.y);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
   await expect(stage).toHaveAttribute("data-cursor-kind", "pen-dot");
 
   await page.keyboard.press("r");

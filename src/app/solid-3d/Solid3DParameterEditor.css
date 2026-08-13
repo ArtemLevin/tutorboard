@@ -31,7 +31,7 @@
   color: #24323a;
 }
 .solid-3d-parameter-grid input:focus-visible {
-  outline: 2px solid #8f2f45;
+  outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 .solid-3d-parameter-grid input:disabled {

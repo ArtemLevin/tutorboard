@@ -1501,6 +1501,7 @@ export function BoardStage({
   return (
     <div
       ref={rootRef}
+      aria-describedby="tutorboard-canvas-instructions"
       aria-label="Бесконечное полотно TutorBoard"
       onPointerDownCapture={handleCanvasPointerDownCapture}
       className="board-stage"

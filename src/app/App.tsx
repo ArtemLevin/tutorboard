@@ -349,6 +349,7 @@ export interface AppProps {
   readonly persistenceStatus?: AppPersistenceStatus;
   readonly readOnly?: boolean;
   readonly settingsExtra?: ReactNode;
+  readonly contextLabel?: string | undefined;
   readonly remoteCursors?: readonly {
     readonly actorId: string;
     readonly point: { readonly x: number; readonly y: number };
@@ -389,6 +390,7 @@ export function App({
   persistenceStatus = { kind: "idle", label: "Локальное сохранение" },
   readOnly = false,
   settingsExtra,
+  contextLabel = "Локальная доска",
   remoteCursors = [],
 }: AppProps = {}) {
   const [boardState, setBoardState] = useState(() => ({
@@ -1685,15 +1687,8 @@ export function App({
       objects: [object],
     });
     if (!result.ok) return;
-    activateTool(selectionToolId);
-    const selected: SelectionState = {
-      interaction: { kind: "idle" },
-      selectedObjectIds: [object.id],
-    };
-    selectionStateRef.current = selected;
-    setSelectionState(selected);
-    setSelectionInspectorObjectId(null);
-  }, [activateTool, commitCommand, createCommandMetadata]);
+    beginCoordinatePlotEditing(object.id);
+  }, [beginCoordinatePlotEditing, commitCommand, createCommandMetadata]);
 
   const requestObjectSettings = useCallback(
     (objectId: BoardObjectId) => {
@@ -2025,6 +2020,7 @@ export function App({
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
+      if (readOnly) return;
       const editing =
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement ||
@@ -2049,7 +2045,7 @@ export function App({
     };
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, [importImageFiles, pasteClipboard]);
+  }, [importImageFiles, pasteClipboard, readOnly]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -2102,6 +2098,14 @@ export function App({
       if (event.key === "Escape" && coordinatePlotEditor !== null) {
         return;
       }
+      if (
+        shortcutsOpen ||
+        settingsOpen ||
+        clearCanvasConfirmationOpen ||
+        solid3DEditorId !== null
+      ) {
+        return;
+      }
       const accelerator = event.ctrlKey || event.metaKey;
       if (accelerator && !event.altKey && !editing) {
         const key = event.key.toLowerCase();
@@ -2119,7 +2123,7 @@ export function App({
           copySelection();
           return;
         }
-        if (key === "x") {
+        if (key === "x" && !readOnly) {
           event.preventDefault();
           cutSelection();
           return;
@@ -2140,7 +2144,7 @@ export function App({
         activateTool(navigationToolId);
         return;
       }
-      if (event.key.toLowerCase() === "g") {
+      if (event.key.toLowerCase() === "g" && !readOnly) {
         event.preventDefault();
         createCoordinatePlot();
         return;
@@ -2167,6 +2171,7 @@ export function App({
       }[event.key];
       if (
         arrowDelta !== undefined &&
+        !readOnly &&
         selectionStateRef.current.selectedObjectIds.length > 0 &&
         selectionStateRef.current.interaction.kind === "idle" &&
         !selectionIsLocked(
@@ -2196,6 +2201,7 @@ export function App({
       }
       if (
         (event.key === "Delete" || event.key === "Backspace") &&
+        !readOnly &&
         selectionStateRef.current.selectedObjectIds.length > 0 &&
         selectionStateRef.current.interaction.kind === "idle"
       ) {
@@ -2214,7 +2220,7 @@ export function App({
         (candidate) =>
           candidate.shortcut.toLowerCase() === event.key.toLowerCase(),
       );
-      if (tool !== undefined) {
+      if (tool !== undefined && !readOnly) {
         activateTool(tool.id);
       }
     };
@@ -2226,6 +2232,7 @@ export function App({
     activeTool,
     closeShortcuts,
     coordinatePlotEditor,
+    clearCanvasConfirmationOpen,
     createCoordinatePlot,
     commitCommand,
     geometryPromptOpen,
@@ -2233,13 +2240,14 @@ export function App({
     readOnly,
     selectionInspectorObjectId,
     settingsOpen,
+    shortcutsOpen,
+    solid3DEditorId,
     commitSelectionMove,
     copySelection,
     cutSelection,
     pasteClipboard,
     redo,
     createCommandMetadata,
-    shortcutsOpen,
     undo,
   ]);
 
@@ -2539,11 +2547,11 @@ export function App({
       );
       selectionStateRef.current = result.state;
       setSelectionState(result.state);
-      if (result.completedMove !== null) {
+      if (result.completedMove !== null && !readOnly) {
         commitSelectionMove(result.completedMove);
       }
     },
-    [commitSelectionMove],
+    [commitSelectionMove, readOnly],
   );
 
   const startSelection = useCallback(
@@ -2582,9 +2590,7 @@ export function App({
         activateTool(selectionToolId);
       }
       setVertexConstructionObjectId(vertex?.vertexObjectId ?? null);
-      if (vertex !== null) {
-        setSelectionInspectorObjectId(vertex.vertexObjectId);
-      }
+      setSelectionInspectorObjectId(effectiveObjectId);
       const hitObjectIds =
         effectiveObjectId === null
           ? []
@@ -2653,6 +2659,9 @@ export function App({
         point: sample.point,
         pointerId: sample.pointerId,
       });
+      if (areaObjectIds !== undefined) {
+        setSelectionInspectorObjectId(areaObjectIds[0] ?? null);
+      }
       if (interaction.kind === "lasso") {
         setAccessibilityNotice(
           `Лассо завершено: выбрано ${areaObjectIds?.length ?? 0}`,
@@ -3053,40 +3062,95 @@ export function App({
         ref={workspaceRef}
         tabIndex={-1}
       >
-        {persistenceNotice === null ? null : (
-          <div className="board-toast is-info" role="status">
-            {persistenceNotice}
-          </div>
-        )}
-        {imageDiagnostic === null ? null : (
-          <div className="board-toast is-error" role="alert">
-            {imageDiagnostic}
-          </div>
-        )}
-        {clipboardNotice === null ? null : (
-          <div className="board-toast is-info" role="status">
-            {clipboardNotice}
-          </div>
-        )}
-        {smartInkNotice === null ? null : (
-          <div className="board-toast is-info" role="status">
-            {smartInkNotice}
-          </div>
-        )}
-        {persistenceStatus.kind === "error" ||
-        persistenceStatus.kind === "conflict" ? (
-          <div className="board-toast is-error" role="alert">
-            <strong>{persistenceStatus.label}</strong>
-            {persistenceStatus.detail === undefined ? null : (
-              <span>{persistenceStatus.detail}</span>
-            )}
-            {persistenceStatus.retryable === true &&
-            onRetryPersistence !== undefined ? (
-              <button onClick={onRetryPersistence} type="button">
-                Повторить
+        <p className="visually-hidden" id="tutorboard-canvas-instructions">
+          Используйте нижнюю панель для выбора инструмента. Клавиша H включает
+          перемещение, V — выделение, знак вопроса открывает справку по горячим
+          клавишам.
+        </p>
+        <div className="board-toast-stack">
+          {persistenceNotice === null ? null : (
+            <div className="board-toast is-info" role="status">
+              {persistenceNotice}
+            </div>
+          )}
+          {commandError === null ? null : (
+            <div className="board-toast is-error" role="alert">
+              <span>{commandError}</span>
+              <button
+                aria-label="Закрыть сообщение об ошибке"
+                onClick={() =>
+                  setBoardState((current) => ({
+                    ...current,
+                    commandError: null,
+                  }))
+                }
+                type="button"
+              >
+                ×
               </button>
-            ) : null}
-          </div>
+            </div>
+          )}
+          {imageDiagnostic === null ? null : (
+            <div className="board-toast is-error" role="alert">
+              {imageDiagnostic}
+            </div>
+          )}
+          {clipboardNotice === null ? null : (
+            <div className="board-toast is-info" role="status">
+              {clipboardNotice}
+            </div>
+          )}
+          {smartInkNotice === null ? null : (
+            <div className="board-toast is-info" role="status">
+              {smartInkNotice}
+            </div>
+          )}
+          {persistenceStatus.kind === "error" ||
+          persistenceStatus.kind === "conflict" ? (
+            <div className="board-toast is-error" role="alert">
+              <strong>{persistenceStatus.label}</strong>
+              {persistenceStatus.detail === undefined ? null : (
+                <span>{persistenceStatus.detail}</span>
+              )}
+              {persistenceStatus.retryable === true &&
+              onRetryPersistence !== undefined ? (
+                <button onClick={onRetryPersistence} type="button">
+                  Повторить
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        {contextLabel === "Локальная доска" && !readOnly ? null : (
+          <button
+            aria-label={`${document.title}. ${persistenceStatus.label}. Открыть настройки доски`}
+            className="board-context-chip"
+            onClick={() => setSettingsOpen(true)}
+            type="button"
+          >
+            <span
+              aria-hidden="true"
+              className={`board-status-dot is-${persistenceStatus.kind}`}
+            />
+            <span>
+              <strong>{document.title}</strong>
+              <small>
+                {contextLabel} · {persistenceStatus.label}
+                {readOnly ? " · Только просмотр" : ""}
+              </small>
+            </span>
+          </button>
+        )}
+        {document.order.length === 0 ? (
+          <section className="board-empty-state" role="status">
+            <strong>Начните работу на доске</strong>
+            <span>
+              Выберите «Рисование», «Математика» или «ИИ» на панели внизу.
+            </span>
+            <small>
+              Колесо или жест двумя пальцами — масштаб · H — перемещение
+            </small>
+          </section>
         ) : null}
         <div aria-atomic="true" aria-live="polite" className="visually-hidden">
           {accessibilityNotice}
@@ -3108,17 +3172,6 @@ export function App({
           onCanvasContextMenuRequest={(request) => {
             setClearCanvasConfirmationOpen(false);
             setCanvasContextMenu(request);
-          }}
-          onCanvasPrimaryClickRequest={() => {
-            if (readOnly) return;
-            setCanvasContextMenu(null);
-            activateTool("drawing.smart-ink");
-            setAccessibilityNotice("Включён режим Smart Ink");
-          }}
-          onCanvasPrimaryDoubleClickRequest={() => {
-            setCanvasContextMenu(null);
-            activateTool(selectionToolId);
-            setAccessibilityNotice("Включён режим выделения");
           }}
           onWorldPointerBatch={moveDrawingBatch}
           onWorldPointerCancel={cancelDrawing}
@@ -3163,7 +3216,7 @@ export function App({
           selectionMarquee={selectionMarquee}
           selectionModeKey={isSelectionToolId(activeTool) ? activeTool : null}
           selectionPreviewDelta={renderedSelectionPreviewDelta}
-          transformableObjectIds={transformableObjectIds}
+          transformableObjectIds={readOnly ? [] : transformableObjectIds}
           wetInkStyle={wetInkStyle}
         />
         {canvasContextMenu === null ? null : (
@@ -3175,6 +3228,7 @@ export function App({
                 canvasContextMenu.objectId,
               )
             }
+            canEdit={canvasContextMenu.objectId !== null}
             canPaste={clipboard !== null}
             canOpenSolid3D={selectedSolid3D !== null}
             context={
@@ -3188,6 +3242,12 @@ export function App({
             onClose={() => setCanvasContextMenu(null)}
             onCopy={() => {
               copySelection();
+              setCanvasContextMenu(null);
+            }}
+            onEdit={() => {
+              if (canvasContextMenu.objectId !== null) {
+                requestObjectSettings(canvasContextMenu.objectId);
+              }
               setCanvasContextMenu(null);
             }}
             onOpenSolid3D={() => {
@@ -3413,6 +3473,10 @@ export function App({
             isDrawingToolId(activeTool) ? styleFor(activeTool) : null
           }
           activeTool={activeTool}
+          canEditSelection={
+            selectedObjects.length === 1 &&
+            selectedObjects[0]?.kind === "math.coordinate-plot"
+          }
           canRedo={historyEnabled && history.future.length > 0}
           canUndo={
             historyEnabled
@@ -3432,6 +3496,10 @@ export function App({
           onActivate={(tool) => activateTool(tool as ActiveToolId)}
           onCreatePlot={createCoordinatePlot}
           onDeleteSelection={deleteSelection}
+          onEditSelection={() => {
+            const objectId = selectionState.selectedObjectIds[0];
+            if (objectId !== undefined) requestObjectSettings(objectId);
+          }}
           canOpenSolid3D={selectedSolid3D !== null}
           onOpenSolid3D={() => {
             if (selectedSolid3D !== null)
@@ -3505,25 +3573,31 @@ export function App({
                 Копировать
               </button>
               <button
-                disabled={selectionState.selectedObjectIds.length === 0}
+                disabled={
+                  readOnly || selectionState.selectedObjectIds.length === 0
+                }
                 onClick={cutSelection}
                 type="button"
               >
                 Вырезать
               </button>
               <button
-                disabled={clipboard === null}
+                disabled={readOnly || clipboard === null}
                 onClick={pasteClipboard}
                 type="button"
               >
                 Вставить
               </button>
               {onImportDocument === undefined ? null : (
-                <label className="board-settings-file">
+                <label
+                  aria-disabled={readOnly}
+                  className={`board-settings-file${readOnly ? " is-disabled" : ""}`}
+                >
                   Импорт JSON
                   <input
                     accept="application/json,.json"
                     aria-label="Импорт документа JSON"
+                    disabled={readOnly}
                     onChange={(event) => {
                       const file = event.currentTarget.files?.[0];
                       if (file !== undefined) onImportDocument(file);
@@ -3586,14 +3660,14 @@ export function App({
             </h3>
             <div className="board-settings-actions">
               <button
-                disabled={!canGroup}
+                disabled={readOnly || !canGroup}
                 onClick={groupSelection}
                 type="button"
               >
                 Сгруппировать
               </button>
               <button
-                disabled={!canUngroup}
+                disabled={readOnly || !canUngroup}
                 onClick={ungroupSelection}
                 type="button"
               >
@@ -3619,6 +3693,7 @@ export function App({
                           ? `Скрыть ${layer.id}`
                           : `Показать ${layer.id}`
                       }
+                      disabled={readOnly}
                       onClick={() =>
                         toggleLayerVisibility(layer.id, !layer.visible)
                       }
@@ -3632,6 +3707,7 @@ export function App({
                           ? `Разблокировать слой ${layer.id}`
                           : `Заблокировать слой ${layer.id}`
                       }
+                      disabled={readOnly}
                       onClick={() => toggleLayerLock(layer.id, !layer.locked)}
                       type="button"
                     >
@@ -3639,6 +3715,7 @@ export function App({
                     </button>
                     <button
                       aria-label={`На передний план ${layer.id}`}
+                      disabled={readOnly}
                       onClick={() => reorderLayer(layer.id, "front")}
                       type="button"
                     >
@@ -3646,6 +3723,7 @@ export function App({
                     </button>
                     <button
                       aria-label={`На задний план ${layer.id}`}
+                      disabled={readOnly}
                       onClick={() => reorderLayer(layer.id, "back")}
                       type="button"
                     >
@@ -3671,7 +3749,7 @@ export function App({
                 </dd>
               </div>
             </dl>
-            <button onClick={resetViewport} type="button">
+            <button disabled={readOnly} onClick={resetViewport} type="button">
               Центрировать доску
             </button>
           </section>
@@ -3735,8 +3813,8 @@ export function App({
                   <dd>Инструменты и график</dd>
                 </div>
                 <div>
-                  <dt>Двойной щелчок правой кнопкой</dt>
-                  <dd>Настройки объекта</dd>
+                  <dt>Выделение объекта / контекстное меню</dt>
+                  <dd>Настройки и редактирование</dd>
                 </div>
                 <div>
                   <dt>Ctrl/Cmd + C, X, V</dt>
@@ -3799,9 +3877,7 @@ export function App({
           {drawingDiagnostic === null ? null : (
             <span data-testid="drawing-diagnostic">{drawingDiagnostic}</span>
           )}
-          {commandError === null ? null : (
-            <span role="alert">{commandError}</span>
-          )}
+          {commandError === null ? null : <span>{commandError}</span>}
         </div>
       </section>
     </main>

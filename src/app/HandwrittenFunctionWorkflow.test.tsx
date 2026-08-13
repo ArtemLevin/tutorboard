@@ -50,11 +50,13 @@ describe("handwritten function workflow safeguards", () => {
 
   it("disables the tool for a read-only board", () => {
     render(<App readOnly />);
-    openHandwrittenTools();
 
     expect(
-      screen.getByRole("menuitemradio", { name: "Рукописная функция (F)" }),
+      screen.getByRole("button", { name: "ИИ-инструменты" }),
     ).toBeDisabled();
+    expect(
+      screen.queryByRole("menuitemradio", { name: "Рукописная функция (F)" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps completed ink when Escape closes the workflow", () => {

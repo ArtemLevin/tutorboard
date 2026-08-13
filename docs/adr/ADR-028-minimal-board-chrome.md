@@ -12,11 +12,13 @@ the common teaching flow visually dense.
 
 ## Decision
 
-The board route owns one permanent surface: a bottom-centred tool dock. The
-canvas fills the complete route. Primary tool options appear in a contextual
-surface attached to the dock. Document, layer, view, recognition, lesson,
-shortcut and application controls live in a settings sheet opened by the
-rightmost gear button.
+The board route owns one permanent action surface: a bottom-centred tool dock.
+The canvas fills the complete route. A compact document/status control remains
+visible for lesson-bound or read-only sessions so users can verify the current
+document, persistence state and mode without opening settings. Primary tool options appear in a
+contextual surface attached to the dock. Document, layer, view, recognition,
+lesson, shortcut and application controls live in a settings sheet opened by
+the rightmost gear button or the status control.
 
 Tool presets are versioned browser-local preferences. A completed object stores
 its resolved ObjectStyle in BoardDocument, so document schema 1.1, collaboration,
@@ -53,6 +55,8 @@ technology users can distinguish them from the permanent toolbar.
   selection and object-state evidence without consuming canvas space.
 - Selected text, style, lock, deletion and quick transforms remain available in
   the contextual dock surface.
+- Empty boards explain the first available actions without intercepting canvas
+  input.
 
 ## Release contract
 

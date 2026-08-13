@@ -13,8 +13,8 @@
   overflow: auto;
   border: 1px solid #9caeb5;
   border-radius: 18px;
-  background: #fbf7ef;
-  color: #24323a;
+  background: var(--panel);
+  color: var(--text);
   box-shadow: 0 24px 70px rgb(15 23 42 / 34%);
 }
 .solid-3d-editor > header {
@@ -22,11 +22,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid #d8d0c3;
+  border-bottom: 1px solid var(--border);
 }
 .solid-3d-editor header p {
   margin: 0;
-  color: #8f2f45;
+  color: var(--accent);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -41,7 +41,7 @@
   height: 2.25rem;
   border: 0;
   border-radius: 50%;
-  background: #e8dfd1;
+  background: #e8f0f2;
   font-size: 1.5rem;
 }
 .solid-3d-toolbar {
@@ -49,7 +49,7 @@
   flex-wrap: wrap;
   gap: 0.45rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #ddd4c7;
+  border-bottom: 1px solid var(--border);
 }
 .solid-3d-toolbar button,
 .solid-3d-project {
@@ -60,9 +60,9 @@
   color: inherit;
 }
 .solid-3d-toolbar button[aria-pressed="true"] {
-  border-color: #8f2f45;
-  background: #f4e1e5;
-  color: #701f35;
+  border-color: var(--accent);
+  background: #e8f3f5;
+  color: var(--accent-strong);
 }
 .solid-3d-layout {
   display: grid;
@@ -72,7 +72,7 @@
 .solid-3d-stage {
   position: relative;
   min-height: 560px;
-  border-right: 1px solid #ddd4c7;
+  border-right: 1px solid var(--border);
 }
 .solid-3d-viewport {
   width: 100%;
@@ -102,10 +102,10 @@
 }
 .solid-3d-fallback button {
   padding: 0.55rem 0.85rem;
-  border: 1px solid #8f2f45;
+  border: 1px solid var(--accent);
   border-radius: 8px;
   color: #fff;
-  background: #8f2f45;
+  background: var(--accent);
   cursor: pointer;
 }
 .solid-3d-fallback details {
@@ -125,9 +125,9 @@
   gap: 0.7rem;
   align-items: center;
   padding: 0.55rem 0.75rem;
-  border: 1px solid rgb(143 47 69 / 28%);
+  border: 1px solid rgb(40 111 128 / 28%);
   border-radius: 10px;
-  background: rgb(255 253 248 / 90%);
+  background: rgb(255 255 255 / 90%);
   backdrop-filter: blur(5px);
 }
 .solid-3d-layout aside {
@@ -162,7 +162,7 @@
 .solid-3d-points button {
   border: 0;
   background: transparent;
-  color: #9d2f46;
+  color: var(--danger);
   font-size: 1.2rem;
 }
 .solid-3d-options {
@@ -172,8 +172,8 @@
 }
 .solid-3d-project {
   width: 100%;
-  border-color: #8f2f45;
-  background: #8f2f45;
+  border-color: var(--accent);
+  background: var(--accent);
   color: white;
   font-weight: 700;
 }
@@ -181,7 +181,7 @@
   opacity: 0.46;
 }
 .solid-3d-error {
-  color: #9d2f46;
+  color: var(--danger);
   font-size: 0.86rem;
 }
 .solid-learning-workspace,
@@ -189,7 +189,7 @@
 .solid-learning-summary {
   padding: 1.15rem 1.25rem 1.5rem;
   border-top: 1px solid #d8d0c3;
-  background: #fffaf2;
+  background: #f7fafb;
 }
 .solid-learning-workspace > header,
 .solid-learning-heading,
@@ -206,7 +206,7 @@
   margin: 0;
 }
 .solid-learning-workspace > header span {
-  color: #8f2f45;
+  color: var(--accent);
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -214,9 +214,9 @@
 .solid-learning-callout {
   margin-top: 1rem;
   padding: 1rem;
-  border-left: 4px solid #8f2f45;
+  border-left: 4px solid var(--accent);
   border-radius: 8px;
-  background: #f7e9e6;
+  background: #e8f3f5;
 }
 .solid-learning-form {
   display: grid;
@@ -247,10 +247,10 @@
 .solid-learning-hints button,
 .solid-learning-summary button {
   width: fit-content;
-  border: 1px solid #8f2f45;
+  border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
-  background: #8f2f45;
+  background: var(--accent);
   color: white;
   font-weight: 700;
 }
@@ -322,7 +322,7 @@
   stroke-width: 0.07;
 }
 .solid-learning-projection circle {
-  fill: #fffaf2;
+  fill: #f7fafb;
   stroke: #314a56;
   vector-effect: non-scaling-stroke;
 }
@@ -331,8 +331,8 @@
   font-size: 0.16px;
 }
 .solid-learning-section-polygon {
-  fill: rgb(143 47 69 / 22%);
-  stroke: #8f2f45;
+  fill: rgb(40 111 128 / 22%);
+  stroke: var(--accent);
   stroke-width: 0.04;
   vector-effect: non-scaling-stroke;
 }
@@ -373,7 +373,7 @@
 }
 .solid-learning-dynamic polyline {
   fill: none;
-  stroke: #8f2f45;
+  stroke: var(--accent);
   stroke-width: 3;
 }
 .solid-learning-dynamic circle {
@@ -392,11 +392,11 @@
   margin: 0.75rem 0;
 }
 .solid-learning-history-actions button {
-  border: 1px solid #8f2f45;
+  border: 1px solid var(--accent);
   border-radius: 7px;
   padding: 0.45rem 0.7rem;
   background: white;
-  color: #8f2f45;
+  color: var(--accent);
 }
 .solid-learning-summary dl {
   display: grid;

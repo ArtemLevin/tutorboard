@@ -7,11 +7,13 @@ export interface CanvasContextMenuProps {
   readonly canCopy: boolean;
   readonly canPaste: boolean;
   readonly canOpenSolid3D?: boolean;
+  readonly canEdit?: boolean;
   readonly context: "canvas" | "selection";
   readonly disabled: boolean;
   readonly onClearRequest: () => void;
   readonly onClose: () => void;
   readonly onCopy: () => void;
+  readonly onEdit?: () => void;
   readonly onOpenSolid3D?: () => void;
   readonly onPaste: () => void;
   readonly onText: () => void;
@@ -20,7 +22,7 @@ export interface CanvasContextMenuProps {
 
 const menuWidth = 216;
 const canvasMenuHeight = 154;
-const selectionMenuHeight = 104;
+const selectionMenuHeight = 154;
 const viewportMargin = 8;
 
 export function CanvasContextMenu({
@@ -28,11 +30,13 @@ export function CanvasContextMenu({
   canCopy,
   canPaste,
   canOpenSolid3D = false,
+  canEdit = false,
   context,
   disabled,
   onClearRequest,
   onClose,
   onCopy,
+  onEdit = () => {},
   onOpenSolid3D = () => {},
   onPaste,
   onText,
@@ -52,7 +56,9 @@ export function CanvasContextMenu({
   );
 
   useEffect(() => {
-    firstItemRef.current?.focus();
+    menuRef.current
+      ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
+      ?.focus();
     const handlePointerDown = (event: PointerEvent) => {
       if (
         event.target instanceof Node &&
@@ -65,7 +71,28 @@ export function CanvasContextMenu({
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
+        return;
       }
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+      const items = [
+        ...(menuRef.current?.querySelectorAll<HTMLButtonElement>(
+          "button:not(:disabled)",
+        ) ?? []),
+      ];
+      if (items.length === 0) return;
+      event.preventDefault();
+      const current = Math.max(
+        0,
+        items.indexOf(document.activeElement as HTMLButtonElement),
+      );
+      const index =
+        event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? items.length - 1
+            : (current + (event.key === "ArrowDown" ? 1 : -1) + items.length) %
+              items.length;
+      items[index]?.focus();
     };
     window.addEventListener("pointerdown", handlePointerDown, true);
     window.addEventListener("keydown", handleKeyDown);
@@ -86,9 +113,18 @@ export function CanvasContextMenu({
       {context === "selection" ? (
         <>
           <button
+            disabled={!canEdit}
+            onClick={onEdit}
+            ref={firstItemRef}
+            role="menuitem"
+            type="button"
+          >
+            <span aria-hidden="true">✎</span>
+            Редактировать
+          </button>
+          <button
             disabled={!canCopy}
             onClick={onCopy}
-            ref={firstItemRef}
             role="menuitem"
             type="button"
           >
@@ -152,17 +188,42 @@ export function ClearCanvasDialog({
   onConfirm,
 }: ClearCanvasDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    const previous =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     cancelRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
         onCancel();
+        return;
+      }
+      if (event.key !== "Tab" || dialogRef.current === null) return;
+      const items = [
+        ...dialogRef.current.querySelectorAll<HTMLButtonElement>(
+          "button:not(:disabled)",
+        ),
+      ];
+      const first = items[0];
+      const last = items.at(-1);
+      if (first === undefined || last === undefined) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      previous?.focus();
+    };
   }, [onCancel]);
 
   return (
@@ -172,6 +233,7 @@ export function ClearCanvasDialog({
         aria-labelledby="clear-canvas-title"
         aria-modal="true"
         className="clear-canvas-dialog"
+        ref={dialogRef}
         role="alertdialog"
       >
         <h2 id="clear-canvas-title">Очистить холст?</h2>

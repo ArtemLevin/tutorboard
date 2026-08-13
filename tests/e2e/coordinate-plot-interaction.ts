@@ -17,6 +17,12 @@ export async function createCoordinatePlot(page: Page): Promise<void> {
   await page
     .getByRole("menuitemradio", { name: "Координатная плоскость (G)" })
     .click();
+  const editor = page.getByRole("complementary", {
+    name: "Редактор координатной плоскости",
+  });
+  await expect(editor).toBeVisible();
+  await editor.getByRole("button", { name: "Закрыть" }).click();
+  await expect(editor).toBeHidden();
 }
 
 export async function rightDoubleClickAt(
@@ -55,6 +61,7 @@ export async function openCoordinatePlotEditorByRightDoubleClick(
   const editor = page.getByRole("complementary", {
     name: "Редактор координатной плоскости",
   });
+  if (await editor.isVisible()) return;
   const points =
     point === undefined ? await coordinatePlotEntryPoints(page) : [point];
 

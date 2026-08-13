@@ -7,7 +7,7 @@ test("navigates the offline product shell routes", async ({ page }) => {
 
   await page.getByRole("link", { name: "Настройки" }).click();
   await expect(page.getByRole("heading", { name: "Настройки" })).toBeVisible();
-  await expect(page.getByText("documentSnapshots")).toBeVisible();
+  await expect(page.getByText("Экспорт снимков документа")).toBeVisible();
 
   await page.getByRole("link", { name: "Диагностика" }).click();
   await expect(

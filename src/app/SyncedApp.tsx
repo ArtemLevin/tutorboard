@@ -406,6 +406,7 @@ export function SyncedApp({
       <App
         collaborativeUndoAvailable={undoCount > 0}
         commandActorId={state.actorId}
+        contextLabel="Доска занятия"
         geometryOsClient={geometryOsClient}
         historyEnabled={false}
         initialDocument={state.document}

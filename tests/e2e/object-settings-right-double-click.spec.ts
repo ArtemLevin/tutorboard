@@ -1,8 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { openCoordinatePlotEditorByRightDoubleClick } from "./coordinate-plot-interaction.js";
-
-test("opens figure and graph settings only after a right-button double-click", async ({
+test("opens figure settings on selection and graph settings after creation", async ({
   page,
 }) => {
   await page.goto("/");
@@ -23,13 +21,10 @@ test("opens figure and graph settings only after a right-button double-click", a
   await page.mouse.move(center.x + 70, center.y + 50, { steps: 6 });
   await page.mouse.up();
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-  await expect(selectionSettings).toBeHidden();
   const contour = { x: center.x - 70, y: center.y };
 
-  await page.mouse.click(contour.x, contour.y, { button: "right" });
-  await expect(selectionSettings).toBeHidden();
-  await page.waitForTimeout(60);
-  await page.mouse.click(contour.x, contour.y, { button: "right" });
+  await page.keyboard.press("v");
+  await page.mouse.click(contour.x, contour.y);
   await expect(selectionSettings).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(selectionSettings).toBeHidden();
@@ -40,15 +35,7 @@ test("opens figure and graph settings only after a right-button double-click", a
     page.getByRole("complementary", {
       name: "Редактор координатной плоскости",
     }),
-  ).toBeHidden();
-  await page.keyboard.press("Enter");
-  await expect(
-    page.getByRole("complementary", {
-      name: "Редактор координатной плоскости",
-    }),
-  ).toBeHidden();
-
-  await openCoordinatePlotEditorByRightDoubleClick(page);
+  ).toBeVisible();
 });
 
 test("a right drag remains board panning", async ({ page }) => {

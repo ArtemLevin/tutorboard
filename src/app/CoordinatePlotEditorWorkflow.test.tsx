@@ -53,7 +53,7 @@ function coordinatePlot(document: BoardDocument) {
 }
 
 describe("coordinate plot editor application workflow", () => {
-  it("creates, explicitly opens, previews, saves and undoes one semantic plot edit", async () => {
+  it("creates, immediately opens, previews, saves and undoes one semantic plot edit", async () => {
     const onCommandCommitted = vi.fn();
     const onDocumentChange = vi.fn();
     render(
@@ -71,23 +71,14 @@ describe("coordinate plot editor application workflow", () => {
     );
 
     expect(
-      screen.queryByRole("complementary", {
-        name: "Редактор координатной плоскости",
-      }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
-    expect(onCommandCommitted.mock.calls[0]?.[0]).toMatchObject({
-      kind: "core.objects.add",
-    });
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Открыть настройки объекта" }),
-    );
-    expect(
       screen.getByRole("complementary", {
         name: "Редактор координатной плоскости",
       }),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(onCommandCommitted.mock.calls[0]?.[0]).toMatchObject({
+      kind: "core.objects.add",
+    });
 
     fireEvent.change(
       screen.getByLabelText("Математическое выражение графика"),
@@ -132,16 +123,24 @@ describe("coordinate plot editor application workflow", () => {
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");
   });
 
-  it("keeps the selected coordinate plot editor closed on Enter", () => {
+  it("keeps Enter free of hidden graph-editor side effects", () => {
     render(<App />);
 
     fireEvent.keyDown(window, { key: "g" });
     expect(
-      screen.queryByRole("complementary", {
+      screen.getByRole("complementary", {
         name: "Редактор координатной плоскости",
       }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
 
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(
+      screen.getByRole("complementary", {
+        name: "Редактор координатной плоскости",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
     fireEvent.keyDown(window, { key: "Enter" });
     expect(
       screen.queryByRole("complementary", {

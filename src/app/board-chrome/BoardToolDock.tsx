@@ -49,6 +49,8 @@ interface BoardToolDockProps {
   readonly selectedLocked: boolean;
   readonly selectedStyle: ObjectStyle | undefined;
   readonly selectionInspectorOpen: boolean;
+  readonly canEditSelection: boolean;
+  readonly onEditSelection: () => void;
   readonly onDeleteSelection: () => void;
   readonly canOpenSolid3D: boolean;
   readonly onOpenSolid3D: () => void;
@@ -207,6 +209,34 @@ export function BoardToolDock(props: BoardToolDockProps) {
     ? props.activeTool
     : null;
   const handleKeys = (event: KeyboardEvent<HTMLDivElement>) => {
+    const menu = (event.target as HTMLElement).closest<HTMLElement>(
+      '[role="menu"]',
+    );
+    if (menu !== null) {
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+        return;
+      }
+      const items = [
+        ...menu.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), [role="menuitem"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"])',
+        ),
+      ];
+      if (items.length === 0) return;
+      event.preventDefault();
+      const current = Math.max(
+        0,
+        items.indexOf(document.activeElement as HTMLElement),
+      );
+      const index =
+        event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? items.length - 1
+            : (current + (event.key === "ArrowDown" ? 1 : -1) + items.length) %
+              items.length;
+      items[index]?.focus();
+      return;
+    }
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     const buttons = [
       ...(toolbarRef.current?.querySelectorAll<HTMLButtonElement>(
@@ -263,6 +293,18 @@ export function BoardToolDock(props: BoardToolDockProps) {
     };
   }, [openMenu]);
 
+  useEffect(() => {
+    if (openMenu === null) return;
+    const frame = window.requestAnimationFrame(() => {
+      rootRef.current
+        ?.querySelector<HTMLElement>(
+          '[role="menu"] button:not(:disabled), [role="menu"] [role="menuitem"]:not([aria-disabled="true"])',
+        )
+        ?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [openMenu]);
+
   const toggleMenu = (menu: DockMenuId) => {
     const trigger = document.activeElement;
     menuTriggerRef.current =
@@ -276,24 +318,19 @@ export function BoardToolDock(props: BoardToolDockProps) {
   };
   const tool = (id: DrawingToolId) =>
     props.drawingTools.find((candidate) => candidate.id === id);
-  const drawingActive = [
-    "drawing.pen",
-    "drawing.line",
-    "drawing.text",
-  ].includes(props.activeTool);
+  const drawingActive =
+    activeDrawingTool !== null && activeDrawingTool !== "drawing.smart-ink";
   const aiActive =
     props.activeTool === "drawing.smart-ink" ||
     props.activeTool === "math.handwritten-function" ||
     props.geometryOpen;
 
-  const drawingMenuItems = [
-    tool("drawing.pen"),
-    tool("drawing.line"),
-    tool("drawing.text"),
-  ].filter((item): item is DrawingToolDefinition => item !== undefined);
+  const drawingMenuItems = props.drawingTools.filter(
+    ({ id }) => id !== "drawing.smart-ink",
+  );
 
   return (
-    <div className="board-tool-dock-shell" ref={rootRef}>
+    <div className="board-tool-dock-shell" onKeyDown={handleKeys} ref={rootRef}>
       {openMenu === "selection" ? (
         <section aria-label="Меню выделения" className="dock-menu" role="menu">
           <MenuItem
@@ -369,9 +406,22 @@ export function BoardToolDock(props: BoardToolDockProps) {
       ) : openMenu === "media" ? (
         <section aria-label="Меню медиа" className="dock-menu" role="menu">
           <label
+            aria-disabled={props.readOnly}
             className={
               props.readOnly ? "dock-menu-file is-disabled" : "dock-menu-file"
             }
+            onKeyDown={(event) => {
+              if (
+                props.readOnly ||
+                (event.key !== "Enter" && event.key !== " ")
+              ) {
+                return;
+              }
+              event.preventDefault();
+              event.currentTarget.querySelector("input")?.click();
+            }}
+            role="menuitem"
+            tabIndex={props.readOnly ? -1 : 0}
           >
             <span aria-hidden="true">▧</span>
             <span>Изображение или GIF</span>
@@ -385,6 +435,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 setOpenMenu(null);
               }}
               type="file"
+              tabIndex={-1}
             />
           </label>
           <p className="dock-menu-hint">
@@ -400,6 +451,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             <strong>Выделено: {props.selectedCount}</strong>
             <div>
               <button
+                disabled={props.readOnly}
                 onClick={() =>
                   props.onSelectionLockChange(!props.selectedLocked)
                 }
@@ -407,9 +459,18 @@ export function BoardToolDock(props: BoardToolDockProps) {
               >
                 {props.selectedLocked ? "Разблокировать" : "Заблокировать"}
               </button>
-              <button onClick={props.onDeleteSelection} type="button">
+              <button
+                disabled={props.readOnly}
+                onClick={props.onDeleteSelection}
+                type="button"
+              >
                 Удалить
               </button>
+              {props.canEditSelection ? (
+                <button onClick={props.onEditSelection} type="button">
+                  Редактировать график
+                </button>
+              ) : null}
             </div>
             {props.canOpenSolid3D ? (
               <button
@@ -426,6 +487,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               <label className="dock-check-control">
                 <input
                   checked={props.generatedFigureLabelsVisible}
+                  disabled={props.readOnly}
                   onChange={(event) =>
                     props.onGeneratedFigureLabelsChange(
                       event.currentTarget.checked,
@@ -439,6 +501,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 <span>Сдвиг подписей</span>
                 <button
                   aria-label="Сдвинуть названия вершин влево"
+                  disabled={props.readOnly}
                   onClick={() =>
                     props.onGeneratedFigureLabelsMove({ x: -6, y: 0 })
                   }
@@ -448,6 +511,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 </button>
                 <button
                   aria-label="Сдвинуть названия вершин вверх"
+                  disabled={props.readOnly}
                   onClick={() =>
                     props.onGeneratedFigureLabelsMove({ x: 0, y: -6 })
                   }
@@ -457,6 +521,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 </button>
                 <button
                   aria-label="Сдвинуть названия вершин вниз"
+                  disabled={props.readOnly}
                   onClick={() =>
                     props.onGeneratedFigureLabelsMove({ x: 0, y: 6 })
                   }
@@ -466,6 +531,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 </button>
                 <button
                   aria-label="Сдвинуть названия вершин вправо"
+                  disabled={props.readOnly}
                   onClick={() =>
                     props.onGeneratedFigureLabelsMove({ x: 6, y: 0 })
                   }
@@ -487,6 +553,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               <div>
                 {props.vertexConstructions.map((kind) => (
                   <button
+                    disabled={props.readOnly}
                     key={kind}
                     onClick={() => props.onVertexConstruction(kind)}
                     type="button"
@@ -507,6 +574,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               <textarea
                 aria-label="Редактор выбранного текста"
                 defaultValue={props.selectedText}
+                disabled={props.readOnly}
                 key={props.selectedText}
                 maxLength={100_000}
                 onBlur={(event) =>
@@ -520,6 +588,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             <div className="dock-transform-actions">
               <button
                 aria-label="Уменьшить выделение на 10%"
+                disabled={props.readOnly}
                 onClick={() => props.onTransformSelection(0.9, 0)}
                 type="button"
               >
@@ -527,6 +596,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               </button>
               <button
                 aria-label="Увеличить выделение на 10%"
+                disabled={props.readOnly}
                 onClick={() => props.onTransformSelection(1.1, 0)}
                 type="button"
               >
@@ -534,6 +604,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               </button>
               <button
                 aria-label="Повернуть выделение против часовой стрелки на 15 градусов"
+                disabled={props.readOnly}
                 onClick={() => props.onTransformSelection(1, -15)}
                 type="button"
               >
@@ -541,6 +612,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               </button>
               <button
                 aria-label="Повернуть выделение на 15 градусов"
+                disabled={props.readOnly}
                 onClick={() => props.onTransformSelection(1, 15)}
                 type="button"
               >
@@ -548,11 +620,17 @@ export function BoardToolDock(props: BoardToolDockProps) {
               </button>
             </div>
           ) : null}
-          <StyleControls
-            allowFill
-            onChange={props.onSelectionStyleChange}
-            style={props.selectedStyle}
-          />
+          {props.readOnly ? (
+            <p className="dock-read-only-note">
+              Доска доступна только для просмотра.
+            </p>
+          ) : (
+            <StyleControls
+              allowFill
+              onChange={props.onSelectionStyleChange}
+              style={props.selectedStyle}
+            />
+          )}
         </section>
       ) : activeDrawingTool !== null && props.activeStyle !== null ? (
         <section
@@ -588,7 +666,6 @@ export function BoardToolDock(props: BoardToolDockProps) {
       <div
         aria-label="Инструменты доски"
         className="board-tool-dock"
-        onKeyDown={handleKeys}
         ref={toolbarRef}
         role="toolbar"
       >
@@ -634,6 +711,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           />
           <ToolButton
             expanded={openMenu === "math"}
+            disabled={props.readOnly}
             hasPopup="menu"
             icon="∑"
             label="Математика"
@@ -641,6 +719,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           />
           <ToolButton
             active={aiActive}
+            disabled={props.readOnly}
             expanded={openMenu === "ai"}
             hasPopup="menu"
             icon="✦"
@@ -649,6 +728,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           />
           <ToolButton
             expanded={openMenu === "media"}
+            disabled={props.readOnly}
             hasPopup="menu"
             icon="▧"
             label="Медиа"

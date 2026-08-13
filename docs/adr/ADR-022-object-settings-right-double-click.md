@@ -6,17 +6,22 @@
 
 ## Decision
 
-1. Creating a drawing object or coordinate plot leaves its settings closed.
-2. Ordinary selection, Enter and left-button double-click do not open settings.
-3. A right-button double-click on a user object opens the relevant settings surface.
-4. Coordinate plots open the dedicated coordinate-plot editor; other user objects open the selection inspector.
-5. A single right-button press and right-button drag retain board panning.
-6. The double-click recognizer requires the same object, a maximum 450 ms interval and at most 8 px pointer displacement.
-7. A right drag beyond the displacement threshold clears the pending click candidate.
+1. Creating a coordinate plot opens its editor immediately; ordinary drawing
+   objects keep the active creation tool.
+2. Ordinary selection exposes the contextual settings surface.
+3. The selection surface and context menu provide explicit editing actions.
+4. A right-button double-click on a user object remains a compatibility shortcut
+   for the relevant settings surface.
+5. Coordinate plots open the dedicated coordinate-plot editor; other user objects open the selection inspector.
+6. A single right-button press and right-button drag retain board panning.
+7. The double-click recognizer requires the same object, a maximum 450 ms interval and at most 8 px pointer displacement.
+8. A right drag beyond the displacement threshold clears the pending click candidate.
 
 ## Consequences
 
-Object creation remains uninterrupted and configuration becomes an explicit gesture. The existing right-button pan contract remains available, while the second stationary click is consumed before a board pan session starts.
+Configuration is discoverable without memorising a mouse-specific gesture. The
+existing right-button pan contract and double-click shortcut remain available,
+while touch and keyboard users receive equivalent explicit actions.
 
 ## Verification
 

@@ -213,8 +213,48 @@ describe("App", () => {
       expect(screen.getByRole("menu", { name: menu })).toBeInTheDocument();
       expect(screen.getAllByRole("menu")).toHaveLength(1);
     }
+    fireEvent.click(screen.getByRole("button", { name: "Рисование" }));
+    expect(
+      screen.getByRole("menuitemradio", { name: "Прямоугольник (R)" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitemradio", { name: "Эллипс (E)" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitemradio", {
+        name: "Правильный многоугольник (N)",
+      }),
+    ).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("moves focus into dock menus and supports arrow navigation", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Рисование" }));
+    const pen = screen.getByRole("menuitemradio", { name: "Перо (P)" });
+    await waitFor(() => expect(pen).toHaveFocus());
+
+    fireEvent.keyDown(pen, { key: "ArrowDown" });
+    expect(
+      screen.getByRole("menuitemradio", { name: "Линия (L)" }),
+    ).toHaveFocus();
+  });
+
+  it("presents non-mutating controls in read-only mode", () => {
+    render(<App readOnly />);
+
+    expect(screen.getByText(/Только просмотр/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Рисование" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Математика" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "ИИ-инструменты" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Медиа" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Лазерная указка (K)" }),
+    ).toBeEnabled();
   });
 
   it("keeps regular polygons available through their keyboard shortcut", () => {
@@ -513,26 +553,20 @@ describe("App", () => {
       "Объект: 30, 30",
     );
     expect(
-      screen.queryByRole("region", { name: "Первичные настройки выделения" }),
-    ).not.toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Открыть настройки объекта" }),
-    );
-    expect(
       screen.getByRole("region", { name: "Первичные настройки выделения" }),
     ).toBeInTheDocument();
   });
 
-  it("creates a graph without opening its editor and opens it on settings request", () => {
+  it("opens the graph editor immediately and can reopen it explicitly", () => {
     render(<App />);
 
     chooseTool("Математика", "Координатная плоскость (G)");
     expect(
-      screen.queryByRole("complementary", {
+      screen.getByRole("complementary", {
         name: "Редактор координатной плоскости",
       }),
-    ).not.toBeInTheDocument();
-    fireEvent.keyDown(window, { key: "Enter" });
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
     expect(
       screen.queryByRole("complementary", {
         name: "Редактор координатной плоскости",

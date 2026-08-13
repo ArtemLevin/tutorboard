@@ -9,7 +9,7 @@
   margin-bottom: 4px;
   padding: 0;
   color: #667780;
-  font-size: 0.64rem;
+  font-size: 0.72rem;
 }
 
 .style-inspector .color-palette-options {
@@ -27,6 +27,19 @@
   border-radius: 50%;
   box-shadow: 0 0 0 1px #b9c5ca;
   cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .color-swatch {
+    width: 40px;
+    height: 40px;
+  }
+
+  .color-swatch-none::before {
+    top: 18px;
+    left: 5px;
+    width: 28px;
+  }
 }
 
 .color-swatch:hover {

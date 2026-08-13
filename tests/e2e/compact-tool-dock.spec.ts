@@ -30,11 +30,21 @@ test("opens every grouped menu exclusively and restores focus after Escape", asy
   await expect(mediaTrigger).toBeFocused();
 });
 
-test("hides the Shapes trigger while preserving keyboard shape tools", async ({
+test("keeps Shapes grouped inside Drawing without a separate trigger", async ({
   page,
 }) => {
   await expect(page.getByRole("button", { name: "Фигуры" })).toHaveCount(0);
-  await page.keyboard.press("n");
+  await page.getByRole("button", { name: "Рисование" }).click();
+  const menu = page.getByRole("menu", { name: "Меню рисования" });
+  await expect(
+    menu.getByRole("menuitemradio", { name: "Прямоугольник (R)" }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole("menuitemradio", { name: "Эллипс (E)" }),
+  ).toBeVisible();
+  await menu
+    .getByRole("menuitemradio", { name: "Правильный многоугольник (N)" })
+    .click();
 
   const stage = page.getByTestId("board-stage");
   await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.polygon");
