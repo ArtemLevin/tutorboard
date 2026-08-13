@@ -38,7 +38,7 @@ const pairedKind: Readonly<
   square: "rectangle",
 };
 
-type ConfusionPrediction = SmartInkPrimitiveKind | "unrecognized";
+type ConfusionPrediction = SmartInkPrimitiveKind | "ambiguous" | "unrecognized";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -72,6 +72,7 @@ function percentile(sorted: readonly number[], quantile: number): number {
 
 function emptyPredictionRow(): Record<ConfusionPrediction, number> {
   return {
+    ambiguous: 0,
     circle: 0,
     ellipse: 0,
     line: 0,
@@ -415,15 +416,15 @@ export function evaluateSmartInkCorpus(
     durations.push(Math.max(0, now() - started));
 
     const prediction =
-      proposal.status === "unrecognized"
-        ? "unrecognized"
-        : (proposal.candidates[0]?.kind ?? "unrecognized");
+      proposal.status === "recognized"
+        ? (proposal.candidates[0]?.kind ?? "unrecognized")
+        : proposal.status;
     confusionMatrix[sample.expectedKind][prediction] += 1;
 
     if (proposal.status === "ambiguous") {
       ambiguousCount += 1;
     }
-    if (prediction !== "unrecognized") {
+    if (prediction !== "unrecognized" && prediction !== "ambiguous") {
       predictionCounts.set(
         prediction,
         (predictionCounts.get(prediction) ?? 0) + 1,
@@ -432,7 +433,7 @@ export function evaluateSmartInkCorpus(
 
     if (sample.expectedKind === "negative") {
       negativeCount += 1;
-      if (prediction !== "unrecognized") {
+      if (prediction !== "unrecognized" && prediction !== "ambiguous") {
         falsePositiveCount += 1;
       }
       continue;
@@ -445,6 +446,7 @@ export function evaluateSmartInkCorpus(
     );
     if (
       prediction !== "unrecognized" &&
+      prediction !== "ambiguous" &&
       sample.acceptableKinds.includes(prediction)
     ) {
       acceptedExpectedCounts.set(
@@ -628,8 +630,11 @@ export function findSmartInkQualityFailures(
   metrics: SmartInkBenchmarkMetrics,
 ): readonly string[] {
   const failures: string[] = [];
-  if (metrics.macroPrecision < 0.94) {
-    failures.push(`macro-precision:${metrics.macroPrecision}<0.94`);
+  if (metrics.macroPrecision < 0.97) {
+    failures.push(`macro-precision:${metrics.macroPrecision}<0.97`);
+  }
+  if (metrics.macroRecall < 0.9) {
+    failures.push(`macro-recall:${metrics.macroRecall}<0.9`);
   }
   if (metrics.falsePositiveRate > 0.02) {
     failures.push(`false-positive-rate:${metrics.falsePositiveRate}>0.02`);
@@ -639,6 +644,9 @@ export function findSmartInkQualityFailures(
   }
   if (metrics.unrecognizedRate > 0.1) {
     failures.push(`unrecognized-rate:${metrics.unrecognizedRate}>0.1`);
+  }
+  if (metrics.ambiguityRate > 0.1) {
+    failures.push(`ambiguity-rate:${metrics.ambiguityRate}>0.1`);
   }
   if (metrics.latencyMs.p95 > 150) {
     failures.push(`latency-p95:${metrics.latencyMs.p95}>150`);

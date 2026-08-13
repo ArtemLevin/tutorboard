@@ -1,7 +1,8 @@
-# Smart Ink recognizer v3 negative confirmation
+# Smart Ink recognizer v5 regression and negative confirmation
 
 This directory records the independent false-positive confirmation for
-`tutorboard.smart-ink-geometric/0.3-spike`.
+`tutorboard.smart-ink-geometric/0.5-spike`. Historical v3 reports remain in
+the directory for auditability and are not referenced by the current manifest.
 
 The recognizer and thresholds were frozen before seed `260730` was evaluated.
 The negative holdout contains 240 external-human Quick, Draw! trajectories:
@@ -23,11 +24,11 @@ One trajectory is geometrically indistinguishable from a line and receives a
 line proposal. The independent false-positive rate is therefore `0.004167`,
 below the `0.02` target.
 
-`v2-regression-report.seed-170731.json` re-evaluates the already observed v2
-holdout after the validity-loss change. It confirms that macro precision,
-recall, specialized top-2 and positive unrecognized-rate objectives remain
-satisfied. This report is regression evidence; only the seed-260730 negative
-holdout is independent v3 evidence.
+`v2-regression-report.v5.seed-170731.json` re-evaluates the already observed v2
+holdout with family-aware ambiguity and honest acceptance metrics. It records
+macro precision `0.988328`, macro recall `0.933333`, ambiguity `0.016667` and
+false-positive rate `0.008333`. This report is regression evidence; only the
+seed-260730 negative holdout is independent evidence.
 
 Quick, Draw! remains subject to the attribution terms documented in
 `../external/README.md`. The Chromium and Firefox captured-corpus requirement

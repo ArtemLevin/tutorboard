@@ -3,7 +3,7 @@ import {
   evaluateSmartInkCorpus,
   findSmartInkQualityFailures,
 } from "./corpus";
-import { recognizeSmartInkStroke } from "./recognizer";
+import { recognizeSmartInkStroke, smartInkPrimitiveFamily } from "./recognizer";
 import {
   smartInkCorpusSchemaVersion,
   smartInkPrimitiveKinds,
@@ -26,6 +26,7 @@ const maximumGridSize = 128;
 interface ScoredSample {
   readonly acceptableKinds: readonly SmartInkPrimitiveKind[];
   readonly expectedKind: SmartInkCorpusExpectedKind;
+  readonly forceAmbiguous: boolean;
   readonly gap: number;
   readonly secondKind: SmartInkPrimitiveKind;
   readonly topConfidence: number;
@@ -237,11 +238,17 @@ function scoreCorpus(
       sampleCount,
     });
     const first = proposal.candidates[0];
-    const second = proposal.candidates[1];
+    const second = proposal.candidates.find(
+      (candidate) =>
+        first !== undefined &&
+        smartInkPrimitiveFamily(candidate.kind) !==
+          smartInkPrimitiveFamily(first.kind),
+    );
     if (first === undefined || second === undefined) {
       return {
         acceptableKinds: sample.acceptableKinds,
         expectedKind: sample.expectedKind,
+        forceAmbiguous: false,
         gap: 1,
         secondKind: "line",
         topConfidence: -1,
@@ -251,6 +258,9 @@ function scoreCorpus(
     return {
       acceptableKinds: sample.acceptableKinds,
       expectedKind: sample.expectedKind,
+      forceAmbiguous: proposal.diagnostics.some((diagnostic) =>
+        diagnostic.startsWith("ambiguous:smooth-oval:"),
+      ),
       gap: first.confidence - second.confidence,
       secondKind: second.kind,
       topConfidence: first.confidence,
@@ -277,7 +287,10 @@ function evaluateSearchCandidate(
   let unrecognizedCount = 0;
 
   for (const sample of samples) {
-    const recognized = sample.topConfidence >= minimumConfidence;
+    const confident = sample.topConfidence >= minimumConfidence;
+    const ambiguous =
+      confident && (sample.forceAmbiguous || sample.gap < ambiguityMargin);
+    const recognized = confident && !ambiguous;
     if (
       sample.expectedKind === "circle" ||
       sample.expectedKind === "ellipse" ||
@@ -292,13 +305,13 @@ function evaluateSearchCandidate(
         specializedTop2Count += 1;
       }
     }
-    if (recognized && sample.gap < ambiguityMargin) {
+    if (ambiguous) {
       ambiguityCount += 1;
     }
     if (!recognized) {
       if (sample.expectedKind !== "negative") {
         positiveCount += 1;
-        unrecognizedCount += 1;
+        if (!confident) unrecognizedCount += 1;
         support.set(
           sample.expectedKind,
           (support.get(sample.expectedKind) ?? 0) + 1,
@@ -360,10 +373,12 @@ function evaluateSearchCandidate(
 
 function candidateFeasible(metrics: SearchMetrics): boolean {
   return (
-    metrics.macroPrecision >= 0.94 &&
+    metrics.macroPrecision >= 0.97 &&
+    metrics.macroRecall >= 0.9 &&
     metrics.falsePositiveRate <= 0.02 &&
     metrics.specializedTop2Accuracy >= 0.98 &&
-    metrics.unrecognizedRate <= 0.1
+    metrics.unrecognizedRate <= 0.1 &&
+    metrics.ambiguityRate <= 0.1
   );
 }
 
@@ -372,10 +387,12 @@ function candidateScore(
   targetAmbiguityRate: number,
 ): number {
   const constraintPenalty =
-    Math.max(0, 0.94 - metrics.macroPrecision) * 12 +
+    Math.max(0, 0.97 - metrics.macroPrecision) * 12 +
+    Math.max(0, 0.9 - metrics.macroRecall) * 12 +
     Math.max(0, metrics.falsePositiveRate - 0.02) * 18 +
     Math.max(0, 0.98 - metrics.specializedTop2Accuracy) * 8 +
-    Math.max(0, metrics.unrecognizedRate - 0.1) * 8;
+    Math.max(0, metrics.unrecognizedRate - 0.1) * 8 +
+    Math.max(0, metrics.ambiguityRate - 0.1) * 8;
   return (
     metrics.macroRecall -
     metrics.falsePositiveRate * 2 -

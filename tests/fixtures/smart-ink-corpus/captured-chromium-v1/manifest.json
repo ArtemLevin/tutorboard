@@ -1,6 +1,6 @@
 {
   "schemaVersion": "tutorboard.smart-ink-captured-evidence/0.1",
-  "generatedOn": "2026-07-30",
+  "generatedOn": "2026-08-13",
   "configuration": {
     "ambiguityMargin": 0.04,
     "minimumConfidence": 0.34,
@@ -31,16 +31,16 @@
       "sha256": "0d497a07c8c09fe70eab72de0607760cafc319a1259763dbbd9d1b89775e3d32"
     },
     {
-      "path": "development-report.v4.json",
-      "sha256": "bd93013cc0bdcec79b23cf023b92a055d08a2bdc7f8af17b2d9883b37594aa68"
+      "path": "development-report.v5.json",
+      "sha256": "e4eb0dfe598955730900b5a0741b3633428859624a2aa6efb2378c7bc684bd33"
     }
   ],
   "result": {
     "chromiumEvidenceRecorded": true,
     "developmentFalsePositiveRate": 0,
-    "developmentMacroPrecision": 0.964372,
+    "developmentMacroPrecision": 0.992754,
     "firefoxEvidenceRecorded": false,
     "productionGateComplete": false,
-    "recognizerVersion": "tutorboard.smart-ink-geometric/0.4-spike"
+    "recognizerVersion": "tutorboard.smart-ink-geometric/0.5-spike"
   }
 }

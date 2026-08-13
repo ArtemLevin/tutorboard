@@ -99,14 +99,16 @@ describe("Phase 9 Smart Ink v3 independent negative evidence", () => {
       ),
     );
     const committed = await readJson(
-      join(evidenceRoot, "negative-holdout-report.seed-260730.json"),
+      join(evidenceRoot, "negative-holdout-report.v5.seed-260730.json"),
     );
     const actual = evaluateSmartInkCorpus(holdout, committed.options, () => 0);
     const falsePositiveCount = Object.entries(
       actual.confusionMatrix.negative,
     ).reduce(
       (count, [kind, current]) =>
-        kind === "unrecognized" ? count : count + current,
+        kind === "unrecognized" || kind === "ambiguous"
+          ? count
+          : count + current,
       0,
     );
 

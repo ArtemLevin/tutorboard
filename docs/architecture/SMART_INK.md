@@ -1,7 +1,7 @@
 # Smart Ink main-canvas integration
 
-This Phase 9 increment connects recognizer `0.4-spike` to TutorBoard's main
-canvas with immediate correction for confidently recognized figures.
+Recognizer `0.5-spike` connects to TutorBoard's main canvas with immediate
+correction for confident figures and an explicit choice for uncertain ones.
 
 ## Ownership
 
@@ -22,8 +22,9 @@ canvas with immediate correction for confidently recognized figures.
    world points, candidates, confidence, metrics and the active policy version.
 4. A recognized proposal immediately emits one `core.objects.replace` command
    carrying complete original and replacement snapshots.
-5. Ambiguous and unrecognized input keeps the original stroke.
-6. No proposal panel or acceptance prompt is rendered.
+5. Ambiguous input keeps the original stroke and offers two one-click choices,
+   plus an explicit “Оставить штрих” action.
+6. Unrecognized input stays as ink without interruption.
 7. Local history undo restores the source snapshot. Collaborative undo emits
    the same command with the snapshot arrays reversed.
 
@@ -37,10 +38,21 @@ selection references stay stable. The reducer rejects missing, locked, grouped,
 imported and stale source snapshots.
 
 The canvas uses the Chromium-calibrated thresholds
-`minimumConfidence=0.34`, `ambiguityMargin=0.02` and `sampleCount=96`.
+`minimumConfidence=0.34`, `ambiguityMargin=0.04` and `sampleCount=96`.
 Near-round ellipses with a minor-to-major axis ratio of at least `0.75` use the
 circle fit when its confidence is at least `0.25`. This widens tolerance for
 hand-drawn circles while keeping visibly elongated ellipses distinct.
+
+Circle/ellipse and rectangle/square are decision families: sibling variants
+may rank each other, but they do not suppress a confident replacement. Smooth,
+closed oval traces with a competing polygon fit are treated as ambiguous
+instead of being silently converted to a polygon.
+
+Arrows support the common shaft-tip-wing-tip-wing gesture and a continuous
+shaft-tip-wing-wing gesture. Three recent line strokes can form an arrow or a
+triangle; four can form a quadrilateral. Multi-stroke recognition only inspects
+objects completed in the previous six seconds and replaces the whole gesture
+with one atomic history command.
 
 ## Development diagnostics
 
@@ -69,6 +81,8 @@ documented in
 
 ## Quality boundary
 
-The checked-in Chromium corpus remains development evidence. Firefox capture
-is still required to close the cross-browser production gate. Auto-correction
-only runs for the recognizer's `recognized` status; other input stays as ink.
+The checked-in Chromium corpus remains development evidence. Its v5 report has
+macro precision `0.992754`, macro recall `0.952591`, ambiguity `0.016598` and
+zero false positives. The independent v2 regression has macro precision
+`0.988328`, recall `0.933333` and false-positive rate `0.008333`. Firefox and
+broader device evidence are still required to close the production gate.

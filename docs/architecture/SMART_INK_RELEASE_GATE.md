@@ -52,7 +52,19 @@ The repository verifies both release states:
 ## Promotion
 
 Promotion requires the reviewed cross-browser corpus and a passing Phase 9
-production report. After approval, build the release image with:
+production report. An eligible report must satisfy all of the following:
+
+- macro precision at least `0.97`;
+- macro recall at least `0.90`;
+- ambiguity rate at most `0.10`;
+- false-positive rate at most `0.02`;
+- specialized top-2 accuracy at least `0.98`;
+- positive unrecognized rate at most `0.10`;
+- p95 recognition latency at most `150 ms`.
+
+The corpus must also contain at least 40 captured samples per positive class,
+60 captured negatives and both Chromium and Firefox evidence. After approval,
+build the release image with:
 
 ```bash
 docker build --build-arg VITE_FEATURE_SMART_INK=true .

@@ -1,16 +1,20 @@
-import type {
-  BoardObject,
-  EllipseObject,
-  LineObject,
-  PenStrokeObject,
-  RectangleObject,
-  Vec2,
+import {
+  createLinearVectorInkDataFromPoints,
+  type BoardObject,
+  type EllipseObject,
+  type LineObject,
+  type PenStrokeObject,
+  type RectangleObject,
+  type Vec2,
 } from "../../core/public";
 
 export const smartInkCompositeRecognizerVersion =
-  "tutorboard.smart-ink-composite/1.0" as const;
+  "tutorboard.smart-ink-composite/1.1" as const;
 
 export type SmartInkCompositeKind =
+  | "multi-stroke-arrow"
+  | "multi-stroke-triangle"
+  | "multi-stroke-quadrilateral"
   | "inscribed-triangle"
   | "inscribed-quadrilateral"
   | "circumscribed-triangle"
@@ -44,6 +48,9 @@ interface Segment {
 }
 
 const labels: Readonly<Record<SmartInkCompositeKind, string>> = {
+  "multi-stroke-arrow": "Стрелка",
+  "multi-stroke-quadrilateral": "Четырёхугольник",
+  "multi-stroke-triangle": "Треугольник",
   "circumscribed-quadrilateral": "Окружность, вписанная в четырёхугольник",
   "circumscribed-triangle": "Окружность, вписанная в треугольник",
   cone: "Конус",
@@ -200,6 +207,153 @@ function canonicalLine(segment: Segment, start: Vec2, end: Vec2): LineObject {
     rotation: 0,
     scale: { x: 1, y: 1 },
   };
+}
+
+function linearStroke(
+  source: LineObject,
+  points: readonly Vec2[],
+): PenStrokeObject {
+  const first = points[0]!;
+  const local = points.map((point) => subtract(point, first));
+  return {
+    ...source,
+    ink: createLinearVectorInkDataFromPoints(local),
+    kind: "drawing.pen-stroke",
+    points: local,
+    position: first,
+    rotation: 0,
+    scale: { x: 1, y: 1 },
+  };
+}
+
+function connectedCycle(segments: readonly Segment[]): readonly Vec2[] | null {
+  if (segments.length !== 3 && segments.length !== 4) return null;
+  const points = segments.flatMap(({ start, end }) => [start, end]);
+  const diagonal = Math.hypot(
+    Math.max(...points.map(({ x }) => x)) -
+      Math.min(...points.map(({ x }) => x)),
+    Math.max(...points.map(({ y }) => y)) -
+      Math.min(...points.map(({ y }) => y)),
+  );
+  const tolerance = Math.max(6, diagonal * 0.14);
+  const visit = (
+    ordered: readonly {
+      readonly segment: Segment;
+      readonly start: Vec2;
+      readonly end: Vec2;
+    }[],
+    remaining: readonly Segment[],
+  ): readonly Vec2[] | null => {
+    if (remaining.length === 0) {
+      const first = ordered[0]!;
+      const last = ordered.at(-1)!;
+      if (!closeEnough(last.end, first.start, tolerance)) return null;
+      const vertices = ordered.map(({ start }) => start);
+      return vertices.map((vertex, index) => {
+        const previous =
+          ordered[(index + ordered.length - 1) % ordered.length]!;
+        return {
+          x: (vertex.x + previous.end.x) / 2,
+          y: (vertex.y + previous.end.y) / 2,
+        };
+      });
+    }
+    const endpoint = ordered.at(-1)?.end;
+    for (const segment of remaining) {
+      for (const reversed of [false, true]) {
+        const start = reversed ? segment.end : segment.start;
+        const end = reversed ? segment.start : segment.end;
+        if (endpoint !== undefined && !closeEnough(endpoint, start, tolerance))
+          continue;
+        const result = visit(
+          [...ordered, { end, segment, start }],
+          remaining.filter((candidate) => candidate !== segment),
+        );
+        if (result !== null) return result;
+      }
+    }
+    return null;
+  };
+  return visit([], segments);
+}
+
+function recognizeMultiStrokePolygon(
+  objects: readonly BoardObject[],
+): SmartInkCompositeProposal | null {
+  const segments = objects
+    .map(lineSegment)
+    .filter((value): value is Segment => value !== null);
+  if (
+    segments.length !== objects.length ||
+    (segments.length !== 3 && segments.length !== 4)
+  )
+    return null;
+  const vertices = connectedCycle(segments);
+  if (vertices === null) return null;
+  const closed = [...vertices, vertices[0]!];
+  const kind =
+    vertices.length === 3
+      ? "multi-stroke-triangle"
+      : "multi-stroke-quadrilateral";
+  return proposal(
+    kind,
+    objects,
+    [linearStroke(segments[0]!.object, closed)],
+    0.92,
+  );
+}
+
+function recognizeMultiStrokeArrow(
+  objects: readonly BoardObject[],
+): SmartInkCompositeProposal | null {
+  if (objects.length !== 3) return null;
+  const segments = objects
+    .map(lineSegment)
+    .filter((value): value is Segment => value !== null);
+  if (segments.length !== 3) return null;
+  const shaft = [...segments].sort(
+    (left, right) =>
+      distance(right.start, right.end) - distance(left.start, left.end),
+  )[0]!;
+  const wings = segments.filter((segment) => segment !== shaft);
+  const shaftLength = distance(shaft.start, shaft.end);
+  if (shaftLength < 12) return null;
+  for (const reversed of [false, true]) {
+    const start = reversed ? shaft.end : shaft.start;
+    const tip = reversed ? shaft.start : shaft.end;
+    const tolerance = Math.max(6, shaftLength * 0.16);
+    const outer = wings.map((wing) => {
+      if (closeEnough(wing.start, tip, tolerance)) return wing.end;
+      if (closeEnough(wing.end, tip, tolerance)) return wing.start;
+      return null;
+    });
+    if (outer.some((point) => point === null)) continue;
+    const [left, right] = outer as unknown as readonly [Vec2, Vec2];
+    const direction = subtract(tip, start);
+    const wingLeft = subtract(left, tip);
+    const wingRight = subtract(right, tip);
+    const leftRatio = distance(left, tip) / shaftLength;
+    const rightRatio = distance(right, tip) / shaftLength;
+    if (
+      leftRatio < 0.1 ||
+      leftRatio > 0.65 ||
+      rightRatio < 0.1 ||
+      rightRatio > 0.65 ||
+      direction.x * wingLeft.x + direction.y * wingLeft.y >= 0 ||
+      direction.x * wingRight.x + direction.y * wingRight.y >= 0 ||
+      (direction.x * wingLeft.y - direction.y * wingLeft.x) *
+        (direction.x * wingRight.y - direction.y * wingRight.x) >=
+        0
+    )
+      continue;
+    return proposal(
+      "multi-stroke-arrow",
+      objects,
+      [linearStroke(shaft.object, [start, tip, left, tip, right])],
+      0.94,
+    );
+  }
+  return null;
 }
 
 function canonicalEllipse(
@@ -710,6 +864,8 @@ function recognizePyramid(
 }
 
 const recognizers = [
+  recognizeMultiStrokePolygon,
+  recognizeMultiStrokeArrow,
   recognizeBox,
   recognizeTriangularPrism,
   recognizePyramid,

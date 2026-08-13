@@ -73,7 +73,7 @@ describe("Phase 9 Smart Ink negative holdout evaluator", () => {
         failures: [],
         falsePositiveCount: 0,
         passed: true,
-        recognizerVersion: "tutorboard.smart-ink-geometric/0.4-spike",
+        recognizerVersion: "tutorboard.smart-ink-geometric/0.5-spike",
         schemaVersion: "tutorboard.smart-ink-negative-holdout-evaluation/0.1",
       });
       expect(JSON.stringify(report)).not.toContain("points");

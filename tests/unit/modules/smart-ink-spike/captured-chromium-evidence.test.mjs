@@ -108,12 +108,12 @@ describe("Phase 9 Smart Ink captured Chromium development evidence", () => {
     }
   });
 
-  it("reproduces v4 metrics and keeps Firefox as a separate gate", async () => {
+  it("reproduces v5 metrics and keeps Firefox as a separate gate", async () => {
     const corpus = parseSmartInkCorpus(
       await readJson(join(evidenceRoot, "corpus.json.gz")),
     );
     const committed = await readJson(
-      join(evidenceRoot, "development-report.v4.json"),
+      join(evidenceRoot, "development-report.v5.json"),
     );
     const actual = assessSmartInkCalibrationGate(
       corpus,
@@ -122,17 +122,18 @@ describe("Phase 9 Smart Ink captured Chromium development evidence", () => {
     );
 
     expect(smartInkRecognizerVersion).toBe(
-      "tutorboard.smart-ink-geometric/0.4-spike",
+      "tutorboard.smart-ink-geometric/0.5-spike",
     );
     expect(actual.failures).toEqual(committed.failures);
     expect(withoutLatency(actual.metrics)).toEqual(
       withoutLatency(committed.metrics),
     );
     expect(actual.metrics.falsePositiveRate).toBe(0);
-    expect(actual.metrics.macroPrecision).toBe(0.964372);
+    expect(actual.metrics.macroPrecision).toBe(0.992754);
     expect(actual.metrics.macroRecall).toBe(0.952591);
     expect(actual.metrics.specializedTop2Accuracy).toBe(1);
     expect(actual.metrics.unrecognizedRate).toBe(0.021127);
+    expect(actual.metrics.ambiguityRate).toBe(0.016598);
 
     const production = assessSmartInkProductionGate(
       corpus,

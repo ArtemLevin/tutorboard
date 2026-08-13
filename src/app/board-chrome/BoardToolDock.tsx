@@ -374,13 +374,19 @@ export function BoardToolDock(props: BoardToolDockProps) {
       ) : openMenu === "ai" ? (
         <section aria-label="Меню ИИ" className="dock-menu" role="menu">
           {tool("drawing.smart-ink") === undefined ? null : (
-            <MenuItem
-              active={props.activeTool === "drawing.smart-ink"}
-              disabled={props.readOnly}
-              icon="✦"
-              label="Smart Ink (I)"
-              onClick={() => chooseTool("drawing.smart-ink")}
-            />
+            <>
+              <MenuItem
+                active={props.activeTool === "drawing.smart-ink"}
+                disabled={props.readOnly}
+                icon="✦"
+                label="Smart Ink (I)"
+                onClick={() => chooseTool("drawing.smart-ink")}
+              />
+              <p className="dock-menu-hint">
+                Фигуры — одним штрихом; стрелку, треугольник и четырёхугольник
+                можно рисовать по сторонам.
+              </p>
+            </>
           )}
           {props.handwrittenFunctionsEnabled ? (
             <MenuItem

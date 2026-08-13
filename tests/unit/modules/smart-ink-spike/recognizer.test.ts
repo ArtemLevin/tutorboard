@@ -82,7 +82,8 @@ describe("Phase 9 Smart Ink geometric recognizer spike", () => {
       "square",
       "rectangle",
     ]);
-    expect(proposal.status).toBe("ambiguous");
+    expect(proposal.status).toBe("recognized");
+    expect(proposal.diagnostics).toEqual([]);
   });
 
   it("stays comfortably inside the 150 ms spike latency budget", () => {

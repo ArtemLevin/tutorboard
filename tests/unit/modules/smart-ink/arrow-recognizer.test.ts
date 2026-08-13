@@ -31,6 +31,22 @@ const arrow = trace([
   { x: 205, y: 125 },
 ]);
 
+const continuousArrow = trace([
+  { x: 20, y: 80 },
+  { x: 260, y: 80 },
+  { x: 202, y: 32 },
+  { x: 210, y: 126 },
+]);
+
+const mildlyCurvedArrow = trace([
+  { x: 20, y: 80 },
+  { x: 130, y: 70 },
+  { x: 260, y: 80 },
+  { x: 205, y: 35 },
+  { x: 260, y: 80 },
+  { x: 215, y: 125 },
+]);
+
 const nonArrows: readonly { readonly points: readonly Vec2[] }[] = [
   {
     points: [
@@ -62,9 +78,20 @@ describe("extended Smart Ink arrow recognizer", () => {
     const reverse = recognizeSmartInkArrow([...arrow].reverse());
 
     expect(forward.status).toBe("recognized");
-    expect(forward.candidate?.confidence).toBeGreaterThanOrEqual(0.82);
+    expect(forward.candidate?.confidence).toBeGreaterThanOrEqual(0.7);
     expect(reverse.status).toBe("recognized");
     expect(recognizeSmartInkArrow(arrow)).toEqual(forward);
+  });
+
+  it("recognizes a continuous arrowhead without returning to the tip", () => {
+    const result = recognizeSmartInkArrow(continuousArrow);
+
+    expect(result.status).toBe("recognized");
+    expect(result.candidate?.diagnostics.continuousTopology).toBe(1);
+  });
+
+  it("tolerates a mildly curved shaft and asymmetric wings", () => {
+    expect(recognizeSmartInkArrow(mildlyCurvedArrow).status).toBe("recognized");
   });
 
   it.each(nonArrows)("rejects a non-arrow trace", ({ points }) => {
@@ -96,7 +123,7 @@ describe("extended Smart Ink arrow recognizer", () => {
       expect(result.proposal.label).toBe("Стрелка");
       expect(result.proposal.candidate.kind).toBe("arrow");
       expect(result.proposal.arrowRecognizer?.recognizerVersion).toBe(
-        "tutorboard.smart-ink-arrow/1.0",
+        "tutorboard.smart-ink-arrow/1.1",
       );
       expect(result.proposal.replacement.kind).toBe("drawing.pen-stroke");
     }

@@ -1,5 +1,6 @@
 export {
   recognizeSmartInkStroke,
+  smartInkPrimitiveFamily,
   smartInkRecognizerVersion,
 } from "./recognizer";
 export { humanizeSmartInkPrimitive } from "./humanizer";
@@ -48,6 +49,7 @@ export {
   type SmartInkIndependentNegativeHoldoutOptions,
   type SmartInkIndependentNegativeHoldoutResult,
   type SmartInkPrimitiveKind,
+  type SmartInkPrimitiveFamily,
   type SmartInkProductionGateAssessment,
   type SmartInkProposal,
   type SmartInkProposalStatus,

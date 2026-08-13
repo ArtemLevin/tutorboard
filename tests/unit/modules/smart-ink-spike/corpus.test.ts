@@ -49,6 +49,19 @@ describe("Phase 9 Smart Ink corpus benchmark", () => {
     expect(assessment.failures).toContain("captured-browser-missing:firefox");
   });
 
+  it("does not count ambiguous candidates as automatic predictions", () => {
+    const metrics = evaluateSmartInkCorpus(createSyntheticBenchmarkCorpus(), {
+      ambiguityMargin: 1,
+      minimumConfidence: 0,
+    });
+
+    expect(metrics.ambiguityRate).toBe(1);
+    expect(metrics.macroRecall).toBe(0);
+    expect(metrics.falsePositiveRate).toBe(0);
+    expect(metrics.confusionMatrix.circle.ambiguous).toBe(1);
+    expect(metrics.confusionMatrix.negative.ambiguous).toBe(60);
+  });
+
   it("rejects malformed or mislabeled corpus samples", () => {
     const malformed = {
       samples: [

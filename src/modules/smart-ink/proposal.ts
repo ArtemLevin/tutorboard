@@ -11,6 +11,7 @@ import type {
 } from "../../core/public";
 import {
   recognizeSmartInkStroke,
+  smartInkPrimitiveFamily,
   type SmartInkCandidate,
   type SmartInkPrimitiveKind,
   type SmartInkProposal,
@@ -29,7 +30,7 @@ import {
 const minimumGeometrySize = 0.001;
 
 export const smartInkCanvasRecognitionPolicy = {
-  ambiguityMargin: 0.02,
+  ambiguityMargin: 0.04,
   circle: {
     minimumAxisRatio: 0.75,
     minimumCandidateConfidence: 0.25,
@@ -63,6 +64,11 @@ export type SmartInkBoardProposalResult =
   | {
       readonly proposal: SmartInkBoardProposal;
       readonly status: "proposed";
+    }
+  | {
+      readonly alternatives: readonly SmartInkBoardProposal[];
+      readonly recognizer: SmartInkProposal;
+      readonly status: "ambiguous";
     }
   | {
       readonly recognizer: SmartInkProposal;
@@ -250,6 +256,29 @@ function previewStyle(style: ObjectStyle): ObjectStyle {
   };
 }
 
+function boardProposal(
+  stroke: PenStrokeObject,
+  recognizer: SmartInkProposal,
+  candidate: SmartInkBoardCandidate,
+  arrowRecognizer: SmartInkArrowProposal | null,
+): SmartInkBoardProposal | null {
+  const replacement = createSmartInkReplacementObject(stroke, candidate);
+  return replacement === null
+    ? null
+    : {
+        arrowRecognizer,
+        candidate,
+        label:
+          candidate.kind === "arrow"
+            ? "Стрелка"
+            : primitiveLabels[candidate.kind],
+        original: stroke,
+        preview: { ...replacement, style: previewStyle(replacement.style) },
+        recognizer,
+        replacement,
+      };
+}
+
 function selectCanvasCandidate(
   recognizer: SmartInkProposal,
 ): SmartInkCandidate | undefined {
@@ -304,14 +333,43 @@ export function proposeSmartInkReplacement(
     sampleCount: smartInkCanvasRecognitionPolicy.sampleCount,
   });
   const primitiveCandidate = selectCanvasCandidate(recognizer);
+  if (recognizer.status === "ambiguous") {
+    const families = new Set<string>();
+    const alternatives = recognizer.candidates
+      .filter((candidate) => {
+        const family = smartInkPrimitiveFamily(candidate.kind);
+        if (families.has(family)) return false;
+        families.add(family);
+        return true;
+      })
+      .slice(0, 2)
+      .flatMap((candidate) => {
+        const result = boardProposal(stroke, recognizer, candidate, null);
+        return result === null ? [] : [result];
+      });
+    recordSmartInkDiagnostic({
+      outcome: "skipped",
+      points: points.map((point) => ({ ...point })),
+      reason: "recognizer-ambiguous",
+      recognizer,
+      replacementKind: null,
+      schemaVersion: smartInkDiagnosticSchemaVersion,
+      selectedCandidateKind: null,
+      sourcePointCount: stroke.points.length,
+    });
+    return alternatives.length === 0
+      ? { recognizer, status: "skipped" }
+      : { alternatives, recognizer, status: "ambiguous" };
+  }
   const arrowRecognizer =
     primitiveCandidate === undefined ? recognizeSmartInkArrow(points) : null;
   const candidate =
     primitiveCandidate ?? arrowRecognizer?.candidate ?? undefined;
-  const replacement =
+  const proposal =
     candidate === undefined
       ? null
-      : createSmartInkReplacementObject(stroke, candidate);
+      : boardProposal(stroke, recognizer, candidate, arrowRecognizer);
+  const replacement = proposal?.replacement ?? null;
 
   recordSmartInkDiagnostic({
     outcome: replacement === null ? "skipped" : "proposed",
@@ -328,21 +386,7 @@ export function proposeSmartInkReplacement(
     return { recognizer, status: "skipped" };
   }
   return {
-    proposal: {
-      arrowRecognizer,
-      candidate,
-      label:
-        candidate.kind === "arrow"
-          ? "Стрелка"
-          : primitiveLabels[candidate.kind],
-      original: stroke,
-      preview: {
-        ...replacement,
-        style: previewStyle(replacement.style),
-      },
-      recognizer,
-      replacement,
-    },
+    proposal: proposal!,
     status: "proposed",
   };
 }

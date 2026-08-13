@@ -38,6 +38,15 @@ these two patterns. On the same observed development corpus it produces:
 - positive unrecognized rate `0.021127`.
 
 The independent external v2 positive regression and v3 negative holdout remain
-unchanged. Firefox capture stays as a separate future platform validation.
+historical evidence. Recognizer v5 makes ambiguity family-aware and counts only
+automatic acceptance as a prediction. On this corpus it produces:
+
+- macro precision `0.992754`;
+- macro recall `0.952591`;
+- ambiguity rate `0.016598`;
+- false-positive rate `0`;
+- positive unrecognized rate `0.021127`.
+
+Firefox capture stays as a separate future platform validation.
 This directory therefore records Chromium development progress and does not
 close the production gate.

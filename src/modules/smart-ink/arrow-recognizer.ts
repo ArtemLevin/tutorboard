@@ -1,7 +1,7 @@
 import type { Vec2 } from "../../core/public";
 
 export const smartInkArrowRecognizerVersion =
-  "tutorboard.smart-ink-arrow/1.0" as const;
+  "tutorboard.smart-ink-arrow/1.1" as const;
 
 export interface SmartInkArrowGeometry {
   readonly headLeft: Vec2;
@@ -29,7 +29,7 @@ export interface SmartInkArrowProposal {
 
 const epsilon = 1e-9;
 const sampleCount = 96;
-const minimumConfidence = 0.82;
+const minimumConfidence = 0.7;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -259,6 +259,112 @@ function fitDirection(points: readonly Vec2[]): SmartInkArrowCandidate {
   };
 }
 
+function fitContinuousDirection(
+  points: readonly Vec2[],
+): SmartInkArrowCandidate {
+  const start = points[0]!;
+  let tipIndex = Math.floor(points.length * 0.3);
+  let shaftLength = 0;
+  for (
+    let index = tipIndex;
+    index <= Math.ceil(points.length * 0.8);
+    index += 1
+  ) {
+    const length = distance(start, points[index]!);
+    if (length > shaftLength) {
+      shaftLength = length;
+      tipIndex = index;
+    }
+  }
+  const tip = points[tipIndex]!;
+  const headTrace = points.slice(tipIndex + 1);
+  const fallback = headTrace.at(-1) ?? tip;
+  if (headTrace.length < 7 || shaftLength <= epsilon) {
+    return {
+      confidence: 0,
+      diagnostics: { continuousTopologyPenalty: 1 },
+      fitError: 20,
+      geometry: {
+        headLeft: fallback,
+        headRight: fallback,
+        kind: "arrow",
+        start,
+        tip,
+      },
+      kind: "arrow",
+    };
+  }
+  let firstWingIndex = 0;
+  let firstWingLength = 0;
+  for (let index = 0; index < Math.floor(headTrace.length * 0.72); index += 1) {
+    const length = distance(tip, headTrace[index]!);
+    if (length > firstWingLength) {
+      firstWingLength = length;
+      firstWingIndex = index;
+    }
+  }
+  const headLeft = headTrace[firstWingIndex] ?? fallback;
+  const headRight = fallback;
+  const secondWingLength = distance(tip, fallback);
+  const shaft = subtractVector(tip, start);
+  const left = subtractVector(headLeft, tip);
+  const right = subtractVector(headRight, tip);
+  const diagonal = Math.max(
+    epsilon,
+    Math.hypot(
+      Math.max(...points.map(({ x }) => x)) -
+        Math.min(...points.map(({ x }) => x)),
+      Math.max(...points.map(({ y }) => y)) -
+        Math.min(...points.map(({ y }) => y)),
+    ),
+  );
+  const shaftResidual =
+    rms(points.slice(0, tipIndex + 1), [[start, tip]]) / diagonal;
+  const headResidual =
+    rms(headTrace, [
+      [tip, headLeft],
+      [headLeft, headRight],
+    ]) / diagonal;
+  const leftRatio = firstWingLength / shaftLength;
+  const rightRatio = secondWingLength / shaftLength;
+  const backwardLeft =
+    -dot(shaft, left) / Math.max(epsilon, shaftLength * firstWingLength);
+  const backwardRight =
+    -dot(shaft, right) / Math.max(epsilon, shaftLength * secondWingLength);
+  const oppositeSides = cross(shaft, left) * cross(shaft, right) < 0;
+  const plausibleWingLengths = leftRatio >= 0.12 && rightRatio >= 0.12;
+  const loss =
+    shaftResidual * 10 +
+    headResidual * 11 +
+    Math.max(0, 0.12 - leftRatio) * 12 +
+    Math.max(0, leftRatio - 0.62) * 8 +
+    Math.max(0, 0.12 - rightRatio) * 12 +
+    Math.max(0, rightRatio - 0.62) * 8 +
+    Math.max(0, 0.42 - backwardLeft) * 7 +
+    Math.max(0, 0.42 - backwardRight) * 7 +
+    (oppositeSides ? 0 : 4) +
+    (plausibleWingLengths ? 0 : 4);
+  return {
+    confidence: round(Math.exp(-loss)),
+    diagnostics: {
+      backwardLeft: round(backwardLeft),
+      backwardRight: round(backwardRight),
+      continuousTopology: 1,
+      headResidual: round(headResidual),
+      leftWingRatio: round(leftRatio),
+      rightWingRatio: round(rightRatio),
+      shaftResidual: round(shaftResidual),
+    },
+    fitError: round(loss),
+    geometry: { headLeft, headRight, kind: "arrow", start, tip },
+    kind: "arrow",
+  };
+}
+
+function subtractVector(left: Vec2, right: Vec2): Vec2 {
+  return { x: left.x - right.x, y: left.y - right.y };
+}
+
 export function recognizeSmartInkArrow(
   input: readonly Vec2[],
 ): SmartInkArrowProposal {
@@ -276,10 +382,13 @@ export function recognizeSmartInkArrow(
     };
   }
   const points = resample(input);
-  const forward = fitDirection(points);
-  const reverse = fitDirection([...points].reverse());
-  const candidate =
-    forward.confidence >= reverse.confidence ? forward : reverse;
+  const reversePoints = [...points].reverse();
+  const candidate = [
+    fitDirection(points),
+    fitContinuousDirection(points),
+    fitDirection(reversePoints),
+    fitContinuousDirection(reversePoints),
+  ].sort((left, right) => right.confidence - left.confidence)[0]!;
   return {
     candidate: candidate.confidence >= minimumConfidence ? candidate : null,
     diagnostics:

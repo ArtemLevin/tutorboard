@@ -11,6 +11,9 @@ export const smartInkPrimitiveKinds = [
 
 export type SmartInkPrimitiveKind = (typeof smartInkPrimitiveKinds)[number];
 
+export type SmartInkPrimitiveFamily =
+  "line" | "oval" | "quadrilateral" | "triangle";
+
 export interface FittedLine {
   readonly end: Vec2;
   readonly kind: "line";
@@ -52,7 +55,7 @@ export type SmartInkProposalStatus =
 export interface SmartInkProposal {
   readonly candidates: readonly SmartInkCandidate[];
   readonly diagnostics: readonly string[];
-  readonly recognizerVersion: "tutorboard.smart-ink-geometric/0.4-spike";
+  readonly recognizerVersion: "tutorboard.smart-ink-geometric/0.5-spike";
   readonly sampledPointCount: number;
   readonly schemaVersion: "tutorboard.smart-ink-proposal/0.1-spike";
   readonly sourceStrokeId: string;
@@ -153,7 +156,9 @@ export interface SmartInkBenchmarkMetrics {
   readonly confusionMatrix: Readonly<
     Record<
       SmartInkCorpusExpectedKind,
-      Readonly<Record<SmartInkPrimitiveKind | "unrecognized", number>>
+      Readonly<
+        Record<SmartInkPrimitiveKind | "ambiguous" | "unrecognized", number>
+      >
     >
   >;
   readonly falsePositiveRate: number;

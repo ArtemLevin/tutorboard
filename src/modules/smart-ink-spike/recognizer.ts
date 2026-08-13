@@ -8,12 +8,13 @@ import type {
   SmartInkCandidate,
   SmartInkFittedGeometry,
   SmartInkPrimitiveKind,
+  SmartInkPrimitiveFamily,
   SmartInkProposal,
   SmartInkRecognizerOptions,
 } from "./types";
 
 export const smartInkRecognizerVersion =
-  "tutorboard.smart-ink-geometric/0.4-spike";
+  "tutorboard.smart-ink-geometric/0.5-spike";
 const proposalSchemaVersion = "tutorboard.smart-ink-proposal/0.1-spike";
 const epsilon = 1e-9;
 const maximumInputPointCount = 16_384;
@@ -671,6 +672,22 @@ function asCandidate(
   };
 }
 
+export function smartInkPrimitiveFamily(
+  kind: SmartInkPrimitiveKind,
+): SmartInkPrimitiveFamily {
+  switch (kind) {
+    case "circle":
+    case "ellipse":
+      return "oval";
+    case "rectangle":
+    case "square":
+      return "quadrilateral";
+    case "line":
+    case "triangle":
+      return kind;
+  }
+}
+
 function unrecognized(
   sourceStrokeId: string,
   diagnostic: string,
@@ -769,11 +786,25 @@ export function recognizeSmartInkStroke(
   );
 
   const first = candidates[0]!;
-  const second = candidates[1]!;
+  const second =
+    candidates.find(
+      (candidate) =>
+        smartInkPrimitiveFamily(candidate.kind) !==
+        smartInkPrimitiveFamily(first.kind),
+    ) ?? candidates[1]!;
+  const ellipse = candidates.find((candidate) => candidate.kind === "ellipse");
+  const smoothOvalConflict =
+    smartInkPrimitiveFamily(first.kind) !== "oval" &&
+    ellipse !== undefined &&
+    ellipse.confidence >= 0.28 &&
+    analysis.closedness >= 0.8 &&
+    analysis.turningConsistency >= 0.85 &&
+    analysis.turningRevolutions >= 0.85;
   const status =
     first.confidence < minimumConfidence
       ? "unrecognized"
-      : first.confidence - second.confidence < ambiguityMargin
+      : smoothOvalConflict ||
+          first.confidence - second.confidence < ambiguityMargin
         ? "ambiguous"
         : "recognized";
 
@@ -781,7 +812,11 @@ export function recognizeSmartInkStroke(
     candidates,
     diagnostics:
       status === "ambiguous"
-        ? [`ambiguous:${first.kind}:${second.kind}`]
+        ? [
+            smoothOvalConflict
+              ? `ambiguous:smooth-oval:${first.kind}:ellipse`
+              : `ambiguous:${first.kind}:${second.kind}`,
+          ]
         : status === "unrecognized"
           ? ["confidence-below-threshold"]
           : [],

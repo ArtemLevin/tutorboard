@@ -60,10 +60,22 @@ describe("Smart Ink automatic canvas policy", () => {
     const circlesNormalizedAsCircles = circleProposals.filter(
       ({ result }) => result.proposal.candidate.kind === "circle",
     );
+    const ambiguousChoices = results.filter(
+      ({ result }) => result.status === "ambiguous",
+    );
 
     expect(negativeProposals).toHaveLength(0);
-    expect(positiveProposals).toHaveLength(125);
+    expect(positiveProposals).toHaveLength(135);
     expect(circleProposals).toHaveLength(20);
     expect(circlesNormalizedAsCircles).toHaveLength(16);
+    expect(ambiguousChoices).toHaveLength(4);
+    expect(
+      ambiguousChoices.every(
+        ({ result }) =>
+          result.alternatives.length === 2 &&
+          result.alternatives[0].candidate.kind !==
+            result.alternatives[1].candidate.kind,
+      ),
+    ).toBe(true);
   });
 });

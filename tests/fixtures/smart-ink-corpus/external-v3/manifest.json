@@ -1,6 +1,6 @@
 {
   "schemaVersion": "tutorboard.smart-ink-evidence/0.3",
-  "generatedOn": "2026-07-30",
+  "generatedOn": "2026-08-13",
   "configuration": {
     "ambiguityMargin": 0.04,
     "holdoutSeed": 260730,
@@ -53,12 +53,12 @@
       "sha256": "e717bb5517bc9b9deca1e558cacfdc698234ef04f8db94a533158f4343fff127"
     },
     {
-      "path": "negative-holdout-report.seed-260730.json",
-      "sha256": "abf3851be9c984aaaeaa39ff4dfcef4a12adc838438b5da2314b1ff0d91b2baf"
+      "path": "negative-holdout-report.v5.seed-260730.json",
+      "sha256": "0194866af4dc11b021cd20803732024dcfc3d5cee45b480f3d9031ebf25dca1c"
     },
     {
-      "path": "v2-regression-report.seed-170731.json",
-      "sha256": "98465bbccebfcbe76c6c3d45a691ad2ecac03b87a67bc30add9ffc338db9a6b1"
+      "path": "v2-regression-report.v5.seed-170731.json",
+      "sha256": "5e5aeff3ce7c5e08caea95992fe04d8f18057080d81ed5611e70d9242b85cfca"
     }
   ],
   "result": {
@@ -66,7 +66,7 @@
     "falsePositiveRate": 0.004167,
     "independentNegativeGatePassed": true,
     "productionGateEvaluated": false,
-    "recognizerVersion": "tutorboard.smart-ink-geometric/0.3-spike",
+    "recognizerVersion": "tutorboard.smart-ink-geometric/0.5-spike",
     "v2RegressionGatePassed": true
   }
 }

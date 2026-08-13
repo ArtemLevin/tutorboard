@@ -336,6 +336,21 @@ external evidence reproduces without metric changes.
 This Chromium corpus is development evidence. Firefox capture remains a
 separate future platform validation, so the production gate stays open.
 
+### Recognizer v5 family-aware acceptance evidence
+
+Recognizer v5 treats circle/ellipse and square/rectangle as decision families,
+routes smooth oval-versus-polygon conflicts to user choice, and reports
+`ambiguous` separately from automatic acceptance. Historical reports are kept;
+the current manifest points at new v5 reports.
+
+With the runtime policy `minimumConfidence=0.34`, `ambiguityMargin=0.04` and
+`sampleCount=96`, the Chromium development corpus reaches macro precision
+`0.992754`, macro recall `0.952591`, ambiguity `0.016598`, positive
+unrecognized rate `0.021127` and FPR `0`. The independent v2 positive
+regression reaches macro precision `0.988328`, macro recall `0.933333`,
+ambiguity `0.016667` and FPR `0.008333`. The independent negative holdout keeps
+FPR `0.004167`.
+
 ## Humanized geometric generator
 
 `humanizeSmartInkPrimitive` creates deterministic stress data from an intended

@@ -83,7 +83,7 @@ describe("Phase 9 Smart Ink v2 independent evidence", () => {
     ).toBe(257);
   });
 
-  it("keeps the v2 result historical and pins the v3 regression", async () => {
+  it("keeps the v2 result historical and pins the v5 regression", async () => {
     const holdout = parseSmartInkCorpus(
       await readJson(join(evidenceRoot, "holdout.seed-170731.json.gz")),
     );
@@ -91,7 +91,11 @@ describe("Phase 9 Smart Ink v2 independent evidence", () => {
       join(evidenceRoot, "holdout-report.seed-170731.json"),
     );
     const regression = await readJson(
-      join(fixtureRoot, "external-v3", "v2-regression-report.seed-170731.json"),
+      join(
+        fixtureRoot,
+        "external-v3",
+        "v2-regression-report.v5.seed-170731.json",
+      ),
     );
     const actual = assessSmartInkCalibrationGate(holdout, regression.options);
 

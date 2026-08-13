@@ -34,7 +34,7 @@ const recognizedLine: SmartInkDiagnosticRecord = {
       },
     ],
     diagnostics: [],
-    recognizerVersion: "tutorboard.smart-ink-geometric/0.4-spike",
+    recognizerVersion: "tutorboard.smart-ink-geometric/0.5-spike",
     sampledPointCount: 96,
     schemaVersion: "tutorboard.smart-ink-proposal/0.1-spike",
     sourceStrokeId: "object:diagnostic-line",

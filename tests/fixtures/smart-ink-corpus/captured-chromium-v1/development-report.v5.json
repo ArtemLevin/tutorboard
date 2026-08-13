@@ -1,0 +1,157 @@
+{
+  "eligible": false,
+  "failures": [
+    "human-line:21/40",
+    "human-circle:22/40",
+    "human-ellipse:31/40",
+    "human-rectangle:23/40",
+    "human-square:23/40",
+    "human-triangle:22/40"
+  ],
+  "metrics": {
+    "ambiguityRate": 0.016598,
+    "classMetrics": {
+      "line": {
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1,
+        "recall": 1,
+        "support": 21,
+        "truePositive": 21
+      },
+      "circle": {
+        "falseNegative": 2,
+        "falsePositive": 0,
+        "precision": 1,
+        "recall": 0.909091,
+        "support": 22,
+        "truePositive": 20
+      },
+      "ellipse": {
+        "falseNegative": 6,
+        "falsePositive": 0,
+        "precision": 1,
+        "recall": 0.806452,
+        "support": 31,
+        "truePositive": 25
+      },
+      "rectangle": {
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1,
+        "recall": 1,
+        "support": 23,
+        "truePositive": 23
+      },
+      "square": {
+        "falseNegative": 0,
+        "falsePositive": 0,
+        "precision": 1,
+        "recall": 1,
+        "support": 23,
+        "truePositive": 23
+      },
+      "triangle": {
+        "falseNegative": 0,
+        "falsePositive": 1,
+        "precision": 0.956522,
+        "recall": 1,
+        "support": 22,
+        "truePositive": 22
+      }
+    },
+    "confusionMatrix": {
+      "circle": {
+        "ambiguous": 0,
+        "circle": 15,
+        "ellipse": 5,
+        "line": 0,
+        "rectangle": 0,
+        "square": 0,
+        "triangle": 0,
+        "unrecognized": 2
+      },
+      "ellipse": {
+        "ambiguous": 4,
+        "circle": 0,
+        "ellipse": 25,
+        "line": 0,
+        "rectangle": 0,
+        "square": 0,
+        "triangle": 1,
+        "unrecognized": 1
+      },
+      "line": {
+        "ambiguous": 0,
+        "circle": 0,
+        "ellipse": 0,
+        "line": 21,
+        "rectangle": 0,
+        "square": 0,
+        "triangle": 0,
+        "unrecognized": 0
+      },
+      "negative": {
+        "ambiguous": 0,
+        "circle": 0,
+        "ellipse": 0,
+        "line": 0,
+        "rectangle": 0,
+        "square": 0,
+        "triangle": 0,
+        "unrecognized": 99
+      },
+      "rectangle": {
+        "ambiguous": 0,
+        "circle": 0,
+        "ellipse": 0,
+        "line": 0,
+        "rectangle": 19,
+        "square": 4,
+        "triangle": 0,
+        "unrecognized": 0
+      },
+      "square": {
+        "ambiguous": 0,
+        "circle": 0,
+        "ellipse": 0,
+        "line": 0,
+        "rectangle": 1,
+        "square": 22,
+        "triangle": 0,
+        "unrecognized": 0
+      },
+      "triangle": {
+        "ambiguous": 0,
+        "circle": 0,
+        "ellipse": 0,
+        "line": 0,
+        "rectangle": 0,
+        "square": 0,
+        "triangle": 22,
+        "unrecognized": 0
+      }
+    },
+    "falsePositiveRate": 0,
+    "latencyMs": {
+      "p50": 0.426294,
+      "p95": 1.99196,
+      "p99": 6.628731
+    },
+    "macroPrecision": 0.992754,
+    "macroRecall": 0.952591,
+    "negativeCount": 99,
+    "positiveCount": 142,
+    "sampleCount": 241,
+    "specializedTop2Accuracy": 1,
+    "unrecognizedRate": 0.021127
+  },
+  "options": {
+    "ambiguityMargin": 0.04,
+    "minimumConfidence": 0.34,
+    "sampleCount": 96
+  },
+  "passed": false,
+  "recognizerVersion": "tutorboard.smart-ink-geometric/0.5-spike",
+  "schemaVersion": "tutorboard.smart-ink-holdout-evaluation/0.1"
+}

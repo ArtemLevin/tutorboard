@@ -93,6 +93,7 @@ import {
   proposeSmartInkComposite,
   proposeSmartInkReplacement,
   smartInkProposalStillApplies,
+  type SmartInkBoardProposal,
 } from "../modules/smart-ink/public";
 import {
   createTextShapePlacementCommand,
@@ -404,7 +405,12 @@ export function App({
     null,
   );
   const [smartInkNotice, setSmartInkNotice] = useState<string | null>(null);
-  const recentSmartInkObjectIdsRef = useRef<BoardObjectId[]>([]);
+  const [smartInkAlternatives, setSmartInkAlternatives] = useState<
+    readonly SmartInkBoardProposal[]
+  >([]);
+  const recentSmartInkObjectIdsRef = useRef<
+    { readonly completedAt: number; readonly id: BoardObjectId }[]
+  >([]);
   const [handwrittenFunctionState, setHandwrittenFunctionState] =
     useState<HandwrittenFunctionSessionState>(
       initialHandwrittenFunctionSessionState,
@@ -519,6 +525,7 @@ export function App({
   useEffect(() => {
     if (activeTool !== "drawing.smart-ink") {
       recentSmartInkObjectIdsRef.current = [];
+      setSmartInkAlternatives([]);
     }
   }, [activeTool]);
   useEffect(
@@ -1208,14 +1215,18 @@ export function App({
   const applySmartInkComposite = useCallback(
     (objectId: BoardObjectId) => {
       const current = documentRef.current;
-      const ids = [
+      const completedAt = performance.now();
+      const recent = [
         ...recentSmartInkObjectIdsRef.current.filter(
-          (id) => current.objects[id] !== undefined && id !== objectId,
+          (entry) =>
+            completedAt - entry.completedAt <= 6_000 &&
+            current.objects[entry.id] !== undefined &&
+            entry.id !== objectId,
         ),
-        objectId,
+        { completedAt, id: objectId },
       ].slice(-6);
-      recentSmartInkObjectIdsRef.current = ids;
-      const recentObjects = ids.flatMap((id) => {
+      recentSmartInkObjectIdsRef.current = recent;
+      const recentObjects = recent.flatMap(({ id }) => {
         const object = documentRef.current.objects[id];
         return object === undefined ? [] : [object];
       });
@@ -1235,6 +1246,30 @@ export function App({
     [commitCommand, createCommandMetadata],
   );
 
+  const acceptSmartInkAlternative = useCallback(
+    (proposal: SmartInkBoardProposal) => {
+      const current = documentRef.current.objects[proposal.original.id];
+      if (
+        current?.kind !== "drawing.pen-stroke" ||
+        !smartInkProposalStillApplies(proposal, current)
+      ) {
+        setSmartInkAlternatives([]);
+        setSmartInkNotice("Smart Ink: исходный штрих уже изменён.");
+        return;
+      }
+      const accepted = commitCommand(
+        createAcceptSmartInkProposalCommand(createCommandMetadata(), proposal),
+      );
+      setSmartInkAlternatives([]);
+      setSmartInkNotice(
+        accepted.ok
+          ? null
+          : "Smart Ink: не удалось применить выбранную фигуру.",
+      );
+    },
+    [commitCommand, createCommandMetadata],
+  );
+
   const applyDrawingAction = useCallback(
     (action: DrawingAction, requestSmartInk = false) => {
       const result = reduceDrawingInteraction(drawingStateRef.current, action);
@@ -1249,6 +1284,7 @@ export function App({
           result.completedObject.kind === "drawing.pen-stroke"
         ) {
           const proposed = proposeSmartInkReplacement(result.completedObject);
+          setSmartInkAlternatives([]);
           if (proposed.status === "proposed") {
             const current =
               documentRef.current.objects[proposed.proposal.original.id];
@@ -1272,12 +1308,11 @@ export function App({
                 "Smart Ink: исходный штрих изменился до автокоррекции.",
               );
             }
+          } else if (proposed.status === "ambiguous") {
+            setSmartInkAlternatives(proposed.alternatives);
+            setSmartInkNotice(null);
           } else {
-            setSmartInkNotice(
-              proposed.recognizer.status === "ambiguous"
-                ? "Smart Ink: форма неоднозначна, исходный штрих сохранён."
-                : null,
-            );
+            setSmartInkNotice(null);
           }
           applySmartInkComposite(result.completedObject.id);
         }
@@ -3103,6 +3138,32 @@ export function App({
           {smartInkNotice === null ? null : (
             <div className="board-toast is-info" role="status">
               {smartInkNotice}
+            </div>
+          )}
+          {smartInkAlternatives.length === 0 ? null : (
+            <div
+              aria-label="Уточнение Smart Ink"
+              className="board-toast smart-ink-choice"
+              role="group"
+            >
+              <strong>Что вы нарисовали?</strong>
+              <div className="smart-ink-choice-actions">
+                {smartInkAlternatives.map((proposal) => (
+                  <button
+                    key={proposal.candidate.kind}
+                    onClick={() => acceptSmartInkAlternative(proposal)}
+                    type="button"
+                  >
+                    {proposal.label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setSmartInkAlternatives([])}
+                  type="button"
+                >
+                  Оставить штрих
+                </button>
+              </div>
             </div>
           )}
           {persistenceStatus.kind === "error" ||

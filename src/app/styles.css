@@ -1966,6 +1966,36 @@ textarea:focus-visible,
 .board-toast > button:hover {
   background: rgb(105 124 132 / 12%);
 }
+
+.smart-ink-choice {
+  align-items: flex-start;
+  display: grid;
+  gap: 8px;
+}
+
+.smart-ink-choice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.smart-ink-choice-actions button {
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  min-height: 32px;
+  padding: 5px 10px;
+}
+
+.dock-menu-hint {
+  max-width: 250px;
+  margin: 2px 10px 7px;
+  color: var(--muted-text);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
 .canvas-context-menu {
   position: fixed;
   z-index: 65;

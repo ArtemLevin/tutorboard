@@ -88,6 +88,42 @@ function recognize(objects: readonly BoardObject[]) {
 }
 
 describe("Smart Ink composite recognizer", () => {
+  it("joins three separate sides into a clean triangle", () => {
+    const result = recognize([
+      line({ x: 0, y: 80 }, { x: 50, y: 0 }),
+      line({ x: 52, y: 2 }, { x: 102, y: 81 }),
+      line({ x: 100, y: 80 }, { x: 1, y: 82 }),
+    ]);
+
+    expect(result?.kind).toBe("multi-stroke-triangle");
+    expect(result?.originals).toHaveLength(3);
+    expect(result?.replacements).toHaveLength(1);
+    expect(result?.replacements[0]?.kind).toBe("drawing.pen-stroke");
+  });
+
+  it("joins four separate sides into a clean quadrilateral", () => {
+    const result = recognize([
+      line({ x: 0, y: 0 }, { x: 101, y: 1 }),
+      line({ x: 100, y: 0 }, { x: 102, y: 70 }),
+      line({ x: 100, y: 72 }, { x: -1, y: 70 }),
+      line({ x: 1, y: 71 }, { x: 0, y: 0 }),
+    ]);
+
+    expect(result?.kind).toBe("multi-stroke-quadrilateral");
+    expect(result?.replacements).toHaveLength(1);
+  });
+
+  it("joins a shaft and two separate wings into an arrow", () => {
+    const result = recognize([
+      line({ x: 0, y: 50 }, { x: 140, y: 50 }),
+      line({ x: 140, y: 50 }, { x: 108, y: 22 }),
+      line({ x: 139, y: 51 }, { x: 106, y: 82 }),
+    ]);
+
+    expect(result?.kind).toBe("multi-stroke-arrow");
+    expect(result?.replacements).toHaveLength(1);
+  });
+
   it("snaps a triangle inscribed in a circle", () => {
     const circle = ellipse({ x: 0, y: 0 }, { x: 50, y: 50 });
     const triangle = polygon([
