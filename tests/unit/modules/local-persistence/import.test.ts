@@ -6,7 +6,10 @@ import {
   localDiagnosticSchemaVersion,
   serializeBoardDocument,
 } from "../../../../src/core/public";
-import { importLocalDocumentJson } from "../../../../src/modules/local-persistence/public";
+import {
+  importLocalDocumentJson,
+  maximumLocalDiagnosticImportRevisions,
+} from "../../../../src/modules/local-persistence/public";
 
 const expectedId = documentId("document:local-board");
 
@@ -59,5 +62,23 @@ describe("importLocalDocumentJson", () => {
     if (result.status === "ok") {
       expect(result.document.title).toBe("Latest valid");
     }
+  });
+
+  it("rejects diagnostic bundles with an unbounded revision list", () => {
+    expect(
+      importLocalDocumentJson(
+        JSON.stringify({
+          revisions: Array.from(
+            { length: maximumLocalDiagnosticImportRevisions + 1 },
+            (_, sequence) => ({ sequence }),
+          ),
+          schemaVersion: localDiagnosticSchemaVersion,
+        }),
+        expectedId,
+      ),
+    ).toMatchObject({
+      code: "persistence.import-too-complex",
+      status: "error",
+    });
   });
 });

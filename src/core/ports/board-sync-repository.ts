@@ -41,6 +41,13 @@ export interface OrderedBoardCommandEnvelope {
   readonly schemaVersion: "1.3" | "1.4";
 }
 
+export type CurrentOrderedBoardCommandEnvelope = Omit<
+  OrderedBoardCommandEnvelope,
+  "schemaVersion"
+> & {
+  readonly schemaVersion: "1.4";
+};
+
 export type BoardCommandEnvelope =
   LegacyBoardCommandEnvelope | OrderedBoardCommandEnvelope;
 
@@ -170,7 +177,7 @@ export interface BoardSyncRepository {
     csrfToken: string,
   ) => Promise<void>;
   readonly push: (
-    envelope: OrderedBoardCommandEnvelope,
+    envelope: CurrentOrderedBoardCommandEnvelope,
     csrfToken: string,
   ) => Promise<PushBoardCommandsResult>;
 }
@@ -262,9 +269,10 @@ export interface PendingBoardCommandQueue {
   readonly list: (
     documentId: DocumentId,
   ) => Promise<readonly PendingBoardCommand[]>;
-  readonly replace: (
+  readonly reconcile: (
     documentId: DocumentId,
     commands: readonly PendingBoardCommand[],
+    knownSequences: readonly number[],
   ) => Promise<void>;
   readonly saveHead: (head: ConfirmedBoardHead) => Promise<void>;
 }

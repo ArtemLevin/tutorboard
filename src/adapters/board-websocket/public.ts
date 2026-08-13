@@ -1,5 +1,8 @@
 export {
   BoardCollaborationClient,
+  maximumBoardCollaborationMessageCharacters,
+  maximumBoardCollaborationMessagesPerSecond,
+  maximumBoardCollaborationParticipants,
   type BoardCollaborationClientOptions,
   type BoardCollaborationStatus,
   type BoardPresence,

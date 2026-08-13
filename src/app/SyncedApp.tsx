@@ -28,6 +28,7 @@ import {
 import type { MathInkRecognizer } from "../modules/handwritten-function/public";
 import { App, type AppPersistenceStatus } from "./App";
 import { copyBoardShareUrl } from "./board-chrome/board-share";
+import { canFinalizeBoardEvidence } from "./synced-evidence";
 
 interface SyncedAppProps {
   readonly documentId: DocumentId;
@@ -116,6 +117,7 @@ export function SyncedApp({
     [],
   );
   const [evidenceStatus, setEvidenceStatus] = useState<string | null>(null);
+  const [evidenceFinalizing, setEvidenceFinalizing] = useState(false);
   const undoStackRef = useRef<readonly (readonly BoardCommand[])[]>([]);
   const [undoCount, setUndoCount] = useState(0);
   const renderedDocumentRef = useRef<BoardDocument | null>(null);
@@ -151,7 +153,10 @@ export function SyncedApp({
     void engine.bootstrap();
     const reconnect = () => void engine.synchronize();
     window.addEventListener("online", reconnect);
-    return () => window.removeEventListener("online", reconnect);
+    return () => {
+      window.removeEventListener("online", reconnect);
+      engine.dispose();
+    };
   }, [engine]);
   const ready = state.kind === "ready";
   useEffect(() => {
@@ -294,31 +299,46 @@ export function SyncedApp({
 
   const canManageEvidence = state.role === "admin" || state.role === "tutor";
   const finalizeEvidence = async () => {
+    if (!canFinalizeBoardEvidence(state) || evidenceFinalizing) {
+      setEvidenceStatus(
+        "Дождитесь подтверждения всех изменений сервером перед фиксацией итога.",
+      );
+      return;
+    }
+    const evidenceDocument = state.document;
+    const evidenceRevision = state.revision;
+    const evidenceSha256 = state.confirmedSha256;
     const started = performance.now();
+    setEvidenceFinalizing(true);
     setEvidenceStatus("Фиксируем точную ревизию и создаём превью…");
     try {
       const context = await repository.context();
-      const sha256 = await boardDocumentSha256(state.document);
+      const actualSha256 = await boardDocumentSha256(evidenceDocument);
+      if (actualSha256 !== evidenceSha256) {
+        throw new Error(
+          "Документ изменился относительно подтверждённой серверной ревизии.",
+        );
+      }
       await repository.saveSnapshot(
         documentId,
-        state.revision,
-        state.document,
-        sha256,
+        evidenceRevision,
+        evidenceDocument,
+        evidenceSha256,
         context.csrfToken,
       );
-      const svg = renderBoardSnapshotSvg(state.document);
-      const png = await renderBoardSnapshotPng(state.document);
+      const svg = renderBoardSnapshotSvg(evidenceDocument);
+      const png = await renderBoardSnapshotPng(evidenceDocument);
       await repository.finalizeEvidence(
         documentId,
-        state.revision,
-        sha256,
+        evidenceRevision,
+        evidenceSha256,
         svg,
         await blobBase64(png),
         [],
         context.csrfToken,
       );
       setEvidence(await repository.listEvidence(lessonId));
-      setEvidenceStatus(`Итог ревизии ${state.revision} зафиксирован.`);
+      setEvidenceStatus(`Итог ревизии ${evidenceRevision} зафиксирован.`);
       void repository
         .recordClientEvent(
           {
@@ -348,6 +368,8 @@ export function SyncedApp({
           ),
         )
         .catch(() => undefined);
+    } finally {
+      setEvidenceFinalizing(false);
     }
   };
   const setEvidencePublished = async (
@@ -464,8 +486,19 @@ export function SyncedApp({
               </ul>
             )}
             {canManageEvidence ? (
-              <button onClick={() => void finalizeEvidence()} type="button">
-                Зафиксировать итог
+              <button
+                disabled={
+                  !canFinalizeBoardEvidence(state) || evidenceFinalizing
+                }
+                onClick={() => void finalizeEvidence()}
+                title={
+                  canFinalizeBoardEvidence(state)
+                    ? "Зафиксировать подтверждённую серверную ревизию"
+                    : "Сначала синхронизируйте все локальные изменения"
+                }
+                type="button"
+              >
+                {evidenceFinalizing ? "Фиксируем…" : "Зафиксировать итог"}
               </button>
             ) : null}
             {evidence.length === 0 ? null : (

@@ -13,7 +13,10 @@ import {
   stripOuterMathDelimiters,
   validateFormulaRecognitionRequest,
 } from "../../services/math-ink-proxy/contract.mjs";
-import { createFormulaRecognitionGatewayService } from "../../services/math-ink-proxy/service.mjs";
+import {
+  createFormulaRecognitionGatewayService,
+  createRateGuard,
+} from "../../services/math-ink-proxy/service.mjs";
 import { createFormulaRecognitionGatewayHttpServer } from "../../services/math-ink-proxy/server.mjs";
 
 const png =
@@ -148,6 +151,21 @@ describe("formula recognition gateway contract", () => {
 });
 
 describe("formula recognition gateway service", () => {
+  it("keeps the rate-limit client registry bounded", () => {
+    let timestamp = 1_000;
+    const guard = createRateGuard(1, 60_000, () => timestamp, 3);
+    expect(guard("client:1").allowed).toBe(true);
+    expect(guard("client:2").allowed).toBe(true);
+    expect(guard("client:3").allowed).toBe(true);
+    expect(guard("client:4").allowed).toBe(true);
+    // client:1 was the oldest entry and must have been evicted to keep the
+    // registry within its hard cap.
+    expect(guard("client:1").allowed).toBe(true);
+
+    timestamp += 60_001;
+    expect(guard("client:5").allowed).toBe(true);
+  });
+
   it.each(["paddleocr", "local-ocr-llm", "yandex-ai-studio"])(
     "dispatches and normalizes %s",
     async (provider) => {

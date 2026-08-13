@@ -312,6 +312,7 @@ export type {
   BoardSyncRepository,
   BoardTranscriptLink,
   ConfirmedBoardHead,
+  CurrentOrderedBoardCommandEnvelope,
   LegacyBoardCommandEnvelope,
   OrderedBoardCommand,
   OrderedBoardCommandEnvelope,

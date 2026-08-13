@@ -9,6 +9,7 @@ import {
 import {
   exportTutorBoardDocument,
   importTutorBoardDocument,
+  maximumTutorBoardDocumentImportBytes,
   renderBoardSnapshotSvg,
 } from "../../../../src/modules/document-transfer/public";
 
@@ -88,6 +89,17 @@ describe("TutorBoard document transfer", () => {
       ),
     ).toMatchObject({
       code: "document-import.invalid-document",
+      status: "error",
+    });
+  });
+
+  it("rejects an oversized document before parsing", () => {
+    expect(
+      importTutorBoardDocument(
+        " ".repeat(maximumTutorBoardDocumentImportBytes + 1),
+      ),
+    ).toMatchObject({
+      code: "document-import.too-large",
       status: "error",
     });
   });

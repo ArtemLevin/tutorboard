@@ -105,6 +105,26 @@ describe("LocalDocumentAutosave", () => {
     expect(repository.calls[0]?.document.title).toBe("Pending navigation save");
   });
 
+  it("starts the durable save before a pagehide handler returns", async () => {
+    vi.useFakeTimers();
+    const repository = new FakeRepository();
+    const autosave = new LocalDocumentAutosave({
+      createOperationId: () => persistenceOperationId("operation:pagehide"),
+      debounceMs: 350,
+      initialRevisionId: null,
+      now: () => "2026-07-24T08:00:00.000Z",
+      onStateChange: () => undefined,
+      repository,
+    });
+
+    autosave.schedule(document("Pending page exit"));
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(repository.calls).toHaveLength(1);
+    await autosave.flush();
+    autosave.dispose();
+  });
+
   it("retries an uncertain failure with the same durable operation ID", async () => {
     vi.useFakeTimers();
     const repository = new FakeRepository();

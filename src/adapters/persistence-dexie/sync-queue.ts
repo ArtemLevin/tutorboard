@@ -86,6 +86,12 @@ interface StoredActorClock {
   readonly value: number;
 }
 
+interface StoredQueueSequence {
+  readonly documentId: string;
+  readonly updatedAt: string;
+  readonly value: number;
+}
+
 type StoredQuarantinedCommand = QuarantinedPendingBoardCommand;
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -132,6 +138,13 @@ const actorClockSchema = z
     value: z.number().int().nonnegative(),
   })
   .strict();
+const queueSequenceSchema = z
+  .object({
+    documentId: z.string().min(1).max(128),
+    updatedAt: timestampSchema,
+    value: z.number().int().nonnegative(),
+  })
+  .strict();
 
 class TutorBoardSyncDatabase extends Dexie {
   clocks!: Table<StoredActorClock, [string, string]>;
@@ -141,6 +154,7 @@ class TutorBoardSyncDatabase extends Dexie {
     [string, number]
   >;
   quarantine!: Table<StoredQuarantinedCommand, string>;
+  sequences!: Table<StoredQueueSequence, string>;
 
   constructor(name: string) {
     super(name);
@@ -156,6 +170,15 @@ class TutorBoardSyncDatabase extends Dexie {
         "[documentId+sequence],documentId,&[documentId+idempotencyKey],sequence",
       quarantine:
         "id,documentId,capturedAt,reason,[documentId+sequence],commandSha256",
+    });
+    this.version(3).stores({
+      clocks: "[documentId+actorId],documentId,actorId",
+      heads: "documentId",
+      pending:
+        "[documentId+sequence],documentId,&[documentId+idempotencyKey],sequence",
+      quarantine:
+        "id,documentId,capturedAt,reason,[documentId+sequence],commandSha256",
+      sequences: "documentId",
     });
   }
 }
@@ -431,13 +454,22 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
       "rw",
       this.#database.pending,
       this.#database.clocks,
+      this.#database.sequences,
       async () => {
         const existing = await this.#database.pending
           .where("documentId")
           .equals(expectedDocumentId)
           .sortBy("sequence");
         const latestSequence = existing.at(-1);
-        const sequence = (latestSequence?.sequence ?? 0) + 1;
+        const rawSequenceClock =
+          await this.#database.sequences.get(expectedDocumentId);
+        const parsedSequenceClock =
+          queueSequenceSchema.safeParse(rawSequenceClock);
+        const sequence =
+          Math.max(
+            latestSequence?.sequence ?? 0,
+            parsedSequenceClock.success ? parsedSequenceClock.data.value : 0,
+          ) + 1;
         const rawClock = await this.#database.clocks.get([
           expectedDocumentId,
           command.actorId,
@@ -474,6 +506,11 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
           updatedAt: command.timestamp,
           value: lamport,
         });
+        await this.#database.sequences.put({
+          documentId: expectedDocumentId,
+          updatedAt: command.timestamp,
+          value: sequence,
+        });
         return pendingItem(command, stored);
       },
     );
@@ -487,6 +524,7 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
       this.#database.pending,
       this.#database.quarantine,
       this.#database.clocks,
+      this.#database.sequences,
       async () => {
         const rows = await this.#database.pending
           .where("documentId")
@@ -559,6 +597,23 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
           }
           break;
         }
+        const latestValid = valid.at(-1);
+        if (latestValid !== undefined) {
+          const rawSequenceClock =
+            await this.#database.sequences.get(expectedDocumentId);
+          const parsedSequenceClock =
+            queueSequenceSchema.safeParse(rawSequenceClock);
+          if (
+            !parsedSequenceClock.success ||
+            parsedSequenceClock.data.value < latestValid.sequence
+          ) {
+            await this.#database.sequences.put({
+              documentId: expectedDocumentId,
+              updatedAt: latestValid.command.timestamp,
+              value: latestValid.sequence,
+            });
+          }
+        }
         return valid;
       },
     );
@@ -604,15 +659,33 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
     await this.#database.pending.delete([expectedDocumentId, sequence]);
   }
 
-  async replace(
+  async reconcile(
     expectedDocumentId: DocumentId,
     commands: readonly PendingBoardCommand[],
+    knownSequences: readonly number[],
   ): Promise<void> {
+    const known = new Set(knownSequences);
+    if (
+      known.size !== knownSequences.length ||
+      knownSequences.some(
+        (sequence) => !Number.isSafeInteger(sequence) || sequence <= 0,
+      )
+    ) {
+      throw new Error("Known pending command sequences are invalid.");
+    }
+    const remainingSequences = new Set<number>();
     const prepared = await Promise.all(
       commands.map(async (item) => {
         if (item.documentId !== expectedDocumentId) {
           throw new Error("Pending command belongs to another document.");
         }
+        if (
+          !known.has(item.sequence) ||
+          remainingSequences.has(item.sequence)
+        ) {
+          throw new Error("Pending command reconciliation scope is invalid.");
+        }
+        remainingSequences.add(item.sequence);
         const serialized = serializeBoardCommand(item.command);
         if (!serialized.ok) {
           throw new Error("Pending board command is invalid.");
@@ -639,32 +712,45 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
           const parsed = pendingSchema.safeParse(raw);
           if (parsed.success) existing.set(parsed.data.sequence, parsed.data);
         }
-        await this.#database.pending
-          .where("documentId")
-          .equals(expectedDocumentId)
-          .delete();
-        const stored = prepared.map(
+        await this.#database.pending.bulkDelete(
+          knownSequences
+            .filter((sequence) => !remainingSequences.has(sequence))
+            .map((sequence) => [expectedDocumentId, sequence]),
+        );
+        const stored = prepared.flatMap(
           ({ command, commandJson, commandSha256, item }) => {
             const previous = existing.get(item.sequence);
-            return {
-              actorId: command.actorId,
-              baseRevisionAtCreation:
-                previous?.baseRevisionAtCreation ??
-                item.order.baseRevisionAtCreation,
-              commandJson,
-              commandSchemaVersion: boardCommandSchemaVersion,
-              commandSha256,
-              documentId: expectedDocumentId,
-              enqueuedAt: command.timestamp,
-              idempotencyKey: item.idempotencyKey,
-              lamport: previous?.lamport ?? item.order.lamport,
-              schemaVersion: "2" as const,
-              sequence: item.sequence,
-            } satisfies StoredPendingCommandV2;
+            // A missing row was acknowledged by another engine. A row with a
+            // different durable identity may have been enqueued after that
+            // acknowledgement. Neither case may be resurrected or overwritten
+            // by this stale reconciliation snapshot.
+            if (
+              previous === undefined ||
+              previous.idempotencyKey !== item.idempotencyKey
+            ) {
+              return [];
+            }
+            return [
+              {
+                actorId: command.actorId,
+                baseRevisionAtCreation:
+                  previous?.baseRevisionAtCreation ??
+                  item.order.baseRevisionAtCreation,
+                commandJson,
+                commandSchemaVersion: boardCommandSchemaVersion,
+                commandSha256,
+                documentId: expectedDocumentId,
+                enqueuedAt: command.timestamp,
+                idempotencyKey: item.idempotencyKey,
+                lamport: previous?.lamport ?? item.order.lamport,
+                schemaVersion: "2" as const,
+                sequence: item.sequence,
+              } satisfies StoredPendingCommandV2,
+            ];
           },
         );
         if (stored.length > 0) {
-          await this.#database.pending.bulkAdd(stored);
+          await this.#database.pending.bulkPut(stored);
         }
         const clocks = new Map<string, StoredActorClock>();
         for (const item of stored) {

@@ -101,6 +101,50 @@ async function insertLegacyPending(
   }
 }
 
+async function createVersion2QueueDatabase(
+  databaseName: string,
+  activeDocumentId: DocumentId,
+  value: BoardCommand,
+): Promise<void> {
+  const request = indexedDB.open(databaseName, 2);
+  request.onupgradeneeded = () => {
+    const database = request.result;
+    database.createObjectStore("heads", { keyPath: "documentId" });
+    const pending = database.createObjectStore("pending", {
+      keyPath: ["documentId", "sequence"],
+    });
+    pending.createIndex("documentId", "documentId");
+    pending.createIndex(
+      "documentId+idempotencyKey",
+      ["documentId", "idempotencyKey"],
+      { unique: true },
+    );
+    pending.createIndex("sequence", "sequence");
+    const clocks = database.createObjectStore("clocks", {
+      keyPath: ["documentId", "actorId"],
+    });
+    clocks.createIndex("documentId", "documentId");
+    clocks.createIndex("actorId", "actorId");
+    const quarantine = database.createObjectStore("quarantine", {
+      keyPath: "id",
+    });
+    quarantine.createIndex("documentId", "documentId");
+  };
+  const database = await requestResult(request);
+  try {
+    const transaction = database.transaction("pending", "readwrite");
+    transaction.objectStore("pending").add({
+      commandJson: JSON.stringify(value),
+      documentId: activeDocumentId,
+      idempotencyKey: "legacy-v2-key",
+      sequence: 1,
+    });
+    await transactionDone(transaction);
+  } finally {
+    database.close();
+  }
+}
+
 async function readPendingRecord(
   databaseName: string,
   activeDocumentId: DocumentId,
@@ -261,5 +305,82 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
     await expect(
       queue.saveHead({ ...head, sha256: "0".repeat(64) }),
     ).rejects.toThrow("checksum mismatch");
+  });
+
+  it("preserves a command enqueued by another tab during reconciliation", async () => {
+    const databaseName = `sync-queue-${crypto.randomUUID()}`;
+    const activeDocumentId = documentId("document:queue-concurrent");
+    const firstTab = createQueue(databaseName);
+    const secondTab = createQueue(databaseName);
+
+    await firstTab.enqueue(activeDocumentId, "key:first", command(1));
+    const firstTabSnapshot = await firstTab.list(activeDocumentId);
+    const concurrent = await secondTab.enqueue(
+      activeDocumentId,
+      "key:concurrent",
+      command(2),
+    );
+
+    await firstTab.reconcile(
+      activeDocumentId,
+      [],
+      firstTabSnapshot.map(({ sequence }) => sequence),
+    );
+
+    await expect(secondTab.list(activeDocumentId)).resolves.toMatchObject([
+      { idempotencyKey: "key:concurrent", sequence: concurrent.sequence },
+    ]);
+  });
+
+  it("never reuses a sequence or overwrites a replacement durable identity", async () => {
+    const databaseName = `sync-queue-${crypto.randomUUID()}`;
+    const activeDocumentId = documentId("document:queue-sequence-clock");
+    const staleTab = createQueue(databaseName);
+    const activeTab = createQueue(databaseName);
+    const stale = await staleTab.enqueue(
+      activeDocumentId,
+      "key:stale",
+      command(1),
+    );
+
+    await activeTab.acknowledge(activeDocumentId, stale.sequence);
+    const replacement = await activeTab.enqueue(
+      activeDocumentId,
+      "key:replacement",
+      command(2),
+    );
+    expect(replacement.sequence).toBeGreaterThan(stale.sequence);
+
+    await staleTab.reconcile(activeDocumentId, [stale], [stale.sequence]);
+
+    await expect(activeTab.list(activeDocumentId)).resolves.toMatchObject([
+      {
+        idempotencyKey: "key:replacement",
+        sequence: replacement.sequence,
+      },
+    ]);
+  });
+
+  it("lazily seeds the durable sequence clock when upgrading a v2 database", async () => {
+    const databaseName = `sync-queue-${crypto.randomUUID()}`;
+    databaseNames.add(databaseName);
+    const activeDocumentId = documentId("document:queue-v2-upgrade");
+    await createVersion2QueueDatabase(
+      databaseName,
+      activeDocumentId,
+      command(1),
+    );
+    const upgraded = createQueue(databaseName);
+    const legacy = await upgraded.list(activeDocumentId);
+    expect(legacy).toMatchObject([{ sequence: 1 }]);
+    await upgraded.acknowledge(activeDocumentId, 1);
+
+    const next = await upgraded.enqueue(
+      activeDocumentId,
+      "key:after-upgrade",
+      command(2),
+    );
+
+    expect(next.sequence).toBe(2);
   });
 });

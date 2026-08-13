@@ -3,7 +3,13 @@ import {
   type BoardDocument,
   type DocumentId,
 } from "../../core/public";
-import { importTutorBoardDocument } from "../document-transfer/public";
+import {
+  importTutorBoardDocument,
+  importTutorBoardDocumentValue,
+  maximumTutorBoardDocumentImportBytes,
+} from "../document-transfer/public";
+
+export const maximumLocalDiagnosticImportRevisions = 1_000;
 
 export type LocalDocumentImportResult =
   | { readonly document: BoardDocument; readonly status: "ok" }
@@ -17,11 +23,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function readDirectDocument(
-  json: string,
+function readDirectDocumentValue(
+  value: unknown,
   expectedDocumentId: DocumentId,
 ): LocalDocumentImportResult {
-  const read = importTutorBoardDocument(json);
+  const read = importTutorBoardDocumentValue(value);
   if (read.status === "error") {
     return read;
   }
@@ -38,12 +44,18 @@ export function importLocalDocumentJson(
   json: string,
   expectedDocumentId: DocumentId,
 ): LocalDocumentImportResult {
-  const direct = readDirectDocument(json, expectedDocumentId);
-  if (direct.status === "ok") {
-    return direct;
-  }
-
   let raw: unknown;
+  if (
+    json.length > maximumTutorBoardDocumentImportBytes ||
+    new TextEncoder().encode(json).byteLength >
+      maximumTutorBoardDocumentImportBytes
+  ) {
+    return {
+      code: "persistence.import-too-large",
+      message: "Selected file exceeds the 10 MiB import limit.",
+      status: "error",
+    };
+  }
   try {
     raw = JSON.parse(json) as unknown;
   } catch {
@@ -53,6 +65,10 @@ export function importLocalDocumentJson(
       status: "error",
     };
   }
+  const direct = readDirectDocumentValue(raw, expectedDocumentId);
+  if (direct.status === "ok") {
+    return direct;
+  }
   if (
     !isRecord(raw) ||
     raw.schemaVersion !== localDiagnosticSchemaVersion ||
@@ -61,6 +77,13 @@ export function importLocalDocumentJson(
     return {
       code: direct.code,
       message: direct.message,
+      status: "error",
+    };
+  }
+  if (raw.revisions.length > maximumLocalDiagnosticImportRevisions) {
+    return {
+      code: "persistence.import-too-complex",
+      message: "Diagnostic bundle contains too many revisions.",
       status: "error",
     };
   }
@@ -80,10 +103,17 @@ export function importLocalDocumentJson(
     if (typeof candidate.serializedDocument !== "string") {
       continue;
     }
-    const read = readDirectDocument(
-      candidate.serializedDocument,
-      expectedDocumentId,
-    );
+    const imported = importTutorBoardDocument(candidate.serializedDocument);
+    const read =
+      imported.status === "ok"
+        ? {
+            document:
+              imported.document.id === expectedDocumentId
+                ? imported.document
+                : { ...imported.document, id: expectedDocumentId },
+            status: "ok" as const,
+          }
+        : imported;
     if (read.status === "ok") {
       return read;
     }

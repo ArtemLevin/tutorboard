@@ -24,7 +24,7 @@ const boardDescriptorSchema = z
   .object({
     archivedAt: z.string().min(1).max(64).nullable().optional(),
     createdAt: z.string().min(1).max(64).optional(),
-    currentDocumentSha256: z.string(),
+    currentDocumentSha256: sha256Schema,
     currentRevision: z.number().int().nonnegative(),
     documentId: identifierSchema,
     lastSnapshotRevision: z.number().int().nonnegative(),
@@ -94,7 +94,7 @@ const revisionSchema = z
   .object({
     actorUserId: identifierSchema.nullable(),
     createdAt: z.string().min(1).max(64),
-    documentSha256: z.string(),
+    documentSha256: sha256Schema,
     revision: z.number().int().nonnegative(),
     snapshotAvailable: z.boolean(),
   })

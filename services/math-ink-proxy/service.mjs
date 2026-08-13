@@ -160,12 +160,28 @@ function retryAfterMs(response, fallbackMs) {
   return Math.min(2_000, Math.max(0, Math.round(Number(value) * 1_000)));
 }
 
-function createRateGuard(limit, windowMs, now) {
+export function createRateGuard(limit, windowMs, now, maximumClients = 10_000) {
   const clients = new Map();
+  const pruneExpired = (timestamp) => {
+    for (const [key, record] of clients) {
+      if (record.resetAt <= timestamp) clients.delete(key);
+    }
+  };
+  const makeRoom = (timestamp) => {
+    if (clients.size < maximumClients) return;
+    pruneExpired(timestamp);
+    while (clients.size >= maximumClients) {
+      const oldestKey = clients.keys().next().value;
+      if (oldestKey === undefined) break;
+      clients.delete(oldestKey);
+    }
+  };
   return (clientKey) => {
     const timestamp = now();
     const current = clients.get(clientKey);
     if (current === undefined || current.resetAt <= timestamp) {
+      if (current !== undefined) clients.delete(clientKey);
+      makeRoom(timestamp);
       clients.set(clientKey, { count: 1, resetAt: timestamp + windowMs });
       return { allowed: true };
     }
@@ -179,11 +195,6 @@ function createRateGuard(limit, windowMs, now) {
       };
     }
     current.count += 1;
-    if (clients.size > 10_000) {
-      for (const [key, record] of clients) {
-        if (record.resetAt <= timestamp) clients.delete(key);
-      }
-    }
     return { allowed: true };
   };
 }
@@ -338,6 +349,11 @@ export function createFormulaRecognitionGatewayService(options) {
     "Formula recognition rate window",
     60 * 60 * 1_000,
   );
+  const maximumRateLimitClients = positiveInteger(
+    options.maximumRateLimitClients ?? 10_000,
+    "Maximum rate-limit clients",
+    100_000,
+  );
   const providerAttemptTimeoutMs = positiveInteger(
     options.providerAttemptTimeoutMs ?? 15_000,
     "Formula recognition provider attempt timeout",
@@ -352,7 +368,12 @@ export function createFormulaRecognitionGatewayService(options) {
   const sleep = options.sleep ?? defaultSleep;
   const logger =
     options.logger ?? ((entry) => console.log(JSON.stringify(entry)));
-  const checkRate = createRateGuard(rateLimitPerWindow, rateLimitWindowMs, now);
+  const checkRate = createRateGuard(
+    rateLimitPerWindow,
+    rateLimitWindowMs,
+    now,
+    maximumRateLimitClients,
+  );
   let activeRequests = 0;
 
   async function callProvider(request, requestId, signal) {

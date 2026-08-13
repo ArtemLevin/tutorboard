@@ -11,6 +11,7 @@ import {
 } from "../core/public";
 import {
   exportTutorBoardDocument,
+  maximumTutorBoardDocumentImportBytes,
   renderBoardSnapshotPng,
   renderBoardSnapshotPdf,
   renderBoardSnapshotSvg,
@@ -252,6 +253,12 @@ function PersistedWorkspace({
 
   const importDocument = useCallback(
     async (file: File) => {
+      if (file.size > maximumTutorBoardDocumentImportBytes) {
+        const message = "Файл превышает допустимый размер 10 МиБ.";
+        setImportError(message);
+        onNotification?.({ kind: "error", message });
+        return;
+      }
       const imported = importLocalDocumentJson(
         await file.text(),
         localDocumentId,
@@ -338,6 +345,10 @@ function RecoveryScreen({
   };
 
   const importDocument = async (file: File) => {
+    if (file.size > maximumTutorBoardDocumentImportBytes) {
+      setError("Файл превышает допустимый размер 10 МиБ.");
+      return;
+    }
     const result = importLocalDocumentJson(
       await file.text(),
       expectedDocumentId,

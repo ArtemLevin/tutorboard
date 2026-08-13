@@ -24,6 +24,7 @@ export type BoardSyncState =
       readonly network: "offline" | "online";
       readonly pendingCount: number;
       readonly revision: number;
+      readonly confirmedSha256: string;
       readonly role: BoardSessionContext["role"];
     }
   | {
@@ -213,6 +214,7 @@ export class BoardSyncEngine {
   #document: BoardDocument | null = null;
   #pending: readonly PendingBoardCommand[] = [];
   #durableSerial: Promise<void> = Promise.resolve();
+  #disposed = false;
   #serial: Promise<void> = Promise.resolve();
 
   constructor(options: BoardSyncEngineOptions) {
@@ -226,8 +228,13 @@ export class BoardSyncEngine {
   }
 
   bootstrap(): Promise<void> {
+    if (this.#disposed) return Promise.resolve();
     this.#serial = this.#serial.then(() => this.#bootstrap());
     return this.#serial;
+  }
+
+  dispose(): void {
+    this.#disposed = true;
   }
 
   #enqueueDurably(
@@ -251,6 +258,7 @@ export class BoardSyncEngine {
   }
 
   queue(command: BoardCommand, document: BoardDocument): Promise<void> {
+    if (this.#disposed) return Promise.resolve();
     const context = this.#context;
     const confirmed = this.#confirmed;
     if (context === null || confirmed === null) {
@@ -277,6 +285,7 @@ export class BoardSyncEngine {
     this.#serial = this.#serial
       .then(async () => {
         const queued = await durable;
+        if (this.#disposed) return;
         if (this.#confirmed === null) {
           throw new Error("Board sync engine is not ready.");
         }
@@ -301,6 +310,7 @@ export class BoardSyncEngine {
   }
 
   apply(commands: readonly BoardCommand[]): Promise<void> {
+    if (this.#disposed) return Promise.resolve();
     const context = this.#context;
     const confirmed = this.#confirmed;
     const currentDocument = this.#document;
@@ -344,6 +354,7 @@ export class BoardSyncEngine {
     this.#serial = this.#serial
       .then(async () => {
         const queued = await durable;
+        if (this.#disposed) return;
         if (this.#confirmed === null) {
           throw new Error("Board sync engine is not ready.");
         }
@@ -368,6 +379,7 @@ export class BoardSyncEngine {
   }
 
   synchronize(): Promise<void> {
+    if (this.#disposed) return Promise.resolve();
     this.#serial = this.#serial.then(() =>
       this.#context === null || this.#context.csrfToken === ""
         ? this.#bootstrap()
@@ -377,19 +389,25 @@ export class BoardSyncEngine {
   }
 
   async #bootstrap(): Promise<void> {
+    if (this.#disposed) return;
     this.#onStateChange({ kind: "bootstrapping" });
     this.#pending = await this.#queue.list(this.#documentId);
+    if (this.#disposed) return;
     const cached = await this.#queue.loadHead(this.#documentId);
+    if (this.#disposed) return;
     try {
       this.#context = await this.#repository.context();
+      if (this.#disposed) return;
       if (this.#context.role === "admin" || this.#context.role === "tutor") {
         await this.#repository.ensureBoard(
           this.#lessonId,
           this.#documentId,
           this.#context.csrfToken,
         );
+        if (this.#disposed) return;
       }
       const recovery = await this.#repository.load(this.#documentId);
+      if (this.#disposed) return;
       if (cached !== null && recovery.board.currentRevision < cached.revision) {
         throw new SyncRecoveryError(
           "board.sync.server-rollback",
@@ -424,6 +442,7 @@ export class BoardSyncEngine {
           sha256,
           this.#context.csrfToken,
         );
+        if (this.#disposed) return;
         head = {
           document,
           documentId: this.#documentId,
@@ -465,7 +484,18 @@ export class BoardSyncEngine {
         };
       }
       head = await applyRemoteBatches(head, recovery.commandBatches);
+      if (this.#disposed) return;
+      if (
+        recovery.snapshot !== null &&
+        head.sha256 !== recovery.board.currentDocumentSha256
+      ) {
+        throw new SyncRecoveryError(
+          "board.sync.head-sha-mismatch",
+          "Контрольная сумма актуальной серверной ревизии не совпадает.",
+        );
+      }
       await this.#acknowledgeRemoteDuplicates(recovery.commandBatches);
+      if (this.#disposed) return;
       if (head.revision !== recovery.board.currentRevision) {
         throw new SyncRecoveryError(
           "board.sync.incomplete-recovery",
@@ -484,9 +514,15 @@ export class BoardSyncEngine {
       }
       this.#confirmed = head;
       await this.#queue.saveHead(head);
+      if (this.#disposed) return;
+      const knownSequences = this.#pending.map(({ sequence }) => sequence);
       const replayed = replayPending(head, this.#pending);
       this.#pending = replayed.items;
-      await this.#queue.replace(this.#documentId, this.#pending);
+      await this.#queue.reconcile(
+        this.#documentId,
+        this.#pending,
+        knownSequences,
+      );
       this.#document = replayed.document;
       this.#emitReady("online");
       await this.#synchronize();
@@ -520,6 +556,7 @@ export class BoardSyncEngine {
   }
 
   async #synchronize(): Promise<void> {
+    if (this.#disposed) return;
     if (
       this.#context === null ||
       this.#confirmed === null ||
@@ -534,18 +571,25 @@ export class BoardSyncEngine {
       // durable edit independent from a stale pre-push pull.
       if (this.#pending.length === 0) {
         await this.#pullAll();
+        if (this.#disposed) return;
       }
       let safety = 0;
-      while (this.#pending.length > 0) {
+      while (!this.#disposed && this.#pending.length > 0) {
         if (++safety > 1_000) {
           throw new SyncRecoveryError(
             "board.sync.loop-limit",
             "Синхронизация превысила безопасный предел повторов.",
           );
         }
+        const knownSequences = this.#pending.map(({ sequence }) => sequence);
         const replayed = replayPending(this.#confirmed, this.#pending);
         this.#pending = replayed.items;
-        await this.#queue.replace(this.#documentId, this.#pending);
+        await this.#queue.reconcile(
+          this.#documentId,
+          this.#pending,
+          knownSequences,
+        );
+        if (this.#disposed) return;
         this.#document = replayed.document;
         const first = this.#pending[0];
         if (first === undefined) {
@@ -561,10 +605,11 @@ export class BoardSyncEngine {
             documentId: this.#documentId,
             expectedDocumentSha256: sha256,
             idempotencyKey: first.idempotencyKey,
-            schemaVersion: "1.3",
+            schemaVersion: "1.4",
           },
           this.#context.csrfToken,
         );
+        if (this.#disposed) return;
         if (result.status === "conflict") {
           if (result.currentRevision < this.#confirmed.revision) {
             throw new SyncRecoveryError(
@@ -576,11 +621,13 @@ export class BoardSyncEngine {
             this.#confirmed,
             result.missingCommandBatches,
           );
+          if (this.#disposed) return;
           if (
             result.hasMore ||
             this.#confirmed.revision < result.currentRevision
           ) {
             await this.#pullAll();
+            if (this.#disposed) return;
           }
           continue;
         }
@@ -601,6 +648,7 @@ export class BoardSyncEngine {
           sha256,
         };
         await this.#queue.acknowledge(this.#documentId, first.sequence);
+        if (this.#disposed) return;
         this.#pending = this.#pending.slice(1);
         await this.#queue.saveHead(this.#confirmed);
       }
@@ -628,11 +676,12 @@ export class BoardSyncEngine {
     }
     let hasMore = true;
     let reportedCurrentRevision = this.#confirmed.revision;
-    while (hasMore) {
+    while (!this.#disposed && hasMore) {
       const page = await this.#repository.pull(
         this.#documentId,
         this.#confirmed.revision,
       );
+      if (this.#disposed) return;
       if (page.currentRevision < this.#confirmed.revision) {
         throw new SyncRecoveryError(
           "board.sync.server-rollback",
@@ -640,7 +689,9 @@ export class BoardSyncEngine {
         );
       }
       this.#confirmed = await applyRemoteBatches(this.#confirmed, page.items);
+      if (this.#disposed) return;
       await this.#acknowledgeRemoteDuplicates(page.items);
+      if (this.#disposed) return;
       await this.#queue.saveHead(this.#confirmed);
       hasMore = page.hasMore;
       reportedCurrentRevision = page.currentRevision;
@@ -670,6 +721,7 @@ export class BoardSyncEngine {
     );
     const remaining: PendingBoardCommand[] = [];
     for (const item of this.#pending) {
+      if (this.#disposed) return;
       const accepted = byKey.get(item.idempotencyKey);
       if (accepted === undefined) {
         remaining.push(item);
@@ -692,6 +744,7 @@ export class BoardSyncEngine {
 
   #emitReady(network: "offline" | "online"): void {
     if (
+      this.#disposed ||
       this.#context === null ||
       this.#confirmed === null ||
       this.#document === null
@@ -705,11 +758,13 @@ export class BoardSyncEngine {
       network,
       pendingCount: this.#pending.length,
       revision: this.#confirmed.revision,
+      confirmedSha256: this.#confirmed.sha256,
       role: this.#context.role,
     });
   }
 
   #recover(code: string, recoveryMessage: string): void {
+    if (this.#disposed) return;
     this.#onStateChange({
       code,
       document: this.#document,

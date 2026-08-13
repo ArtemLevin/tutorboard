@@ -6,6 +6,10 @@ import type {
   DocumentId,
 } from "../../core/public";
 
+export const maximumBoardCollaborationMessageCharacters = 65_536;
+export const maximumBoardCollaborationMessagesPerSecond = 120;
+export const maximumBoardCollaborationParticipants = 200;
+
 const identifierSchema = z.string().min(1).max(128);
 const readySchema = z
   .object({
@@ -104,11 +108,14 @@ export class BoardCollaborationClient {
   readonly #onStatus: BoardCollaborationClientOptions["onStatus"];
   readonly #origin: string;
   readonly #participants = new Map<string, BoardPresence>();
+  readonly #participantSequences = new Map<string, number>();
   readonly #repository: BoardPlatformRepository;
   #heartbeat: number | null = null;
   #presence: LocalBoardPresence = {};
   #presenceTimer: number | null = null;
   #reconnect: number | null = null;
+  #receivedMessageCount = 0;
+  #receivedMessageWindowStartedAt = 0;
   #sequence = 0;
   #socket: WebSocket | null = null;
   #stopped = true;
@@ -145,6 +152,7 @@ export class BoardCollaborationClient {
     this.#socket?.close(1000, "Client closed");
     this.#socket = null;
     this.#participants.clear();
+    this.#participantSequences.clear();
     this.#onPresence([]);
   }
 
@@ -188,7 +196,11 @@ export class BoardCollaborationClient {
       const socket = this.#createWebSocket(url.href, ["tutorboard.v1"]);
       this.#socket = socket;
       socket.addEventListener("message", (event) => {
-        this.#receive(String(event.data));
+        if (typeof event.data !== "string") {
+          socket.close(1003, "Text messages required");
+          return;
+        }
+        this.#receive(event.data);
       });
       socket.addEventListener("close", () => {
         if (this.#socket === socket) {
@@ -208,6 +220,25 @@ export class BoardCollaborationClient {
   }
 
   #receive(raw: string): void {
+    if (raw.length > maximumBoardCollaborationMessageCharacters) {
+      this.#socket?.close(1009, "Message too large");
+      return;
+    }
+    const timestamp = Date.now();
+    if (
+      timestamp - this.#receivedMessageWindowStartedAt >= 1_000 ||
+      timestamp < this.#receivedMessageWindowStartedAt
+    ) {
+      this.#receivedMessageWindowStartedAt = timestamp;
+      this.#receivedMessageCount = 0;
+    }
+    this.#receivedMessageCount += 1;
+    if (
+      this.#receivedMessageCount > maximumBoardCollaborationMessagesPerSecond
+    ) {
+      this.#socket?.close(1008, "Message rate exceeded");
+      return;
+    }
     let value: unknown;
     try {
       value = JSON.parse(raw);
@@ -225,6 +256,7 @@ export class BoardCollaborationClient {
         return;
       }
       this.#onStatus("online");
+      this.#clearHeartbeat();
       this.#heartbeat = window.setInterval(() => {
         if (this.#socket?.readyState === 1) {
           this.#socket.send('{"type":"heartbeat"}');
@@ -247,9 +279,34 @@ export class BoardCollaborationClient {
       if (presence.data.clientId === this.#clientId) {
         return;
       }
+      const previousSequence = this.#participantSequences.get(
+        presence.data.clientId,
+      );
+      const nextSequence = presence.data.sequence;
+      if (
+        previousSequence !== undefined &&
+        (nextSequence === undefined || nextSequence <= previousSequence)
+      ) {
+        return;
+      }
+      if (
+        previousSequence === undefined &&
+        this.#participantSequences.size >= maximumBoardCollaborationParticipants
+      ) {
+        this.#socket?.close(1008, "Participant limit exceeded");
+        return;
+      }
+      this.#participantSequences.set(presence.data.clientId, nextSequence ?? 0);
       if (presence.data.type === "presence.left") {
         this.#participants.delete(presence.data.clientId);
       } else {
+        if (
+          !this.#participants.has(presence.data.clientId) &&
+          this.#participants.size >= maximumBoardCollaborationParticipants
+        ) {
+          this.#socket?.close(1008, "Participant limit exceeded");
+          return;
+        }
         const previous = this.#participants.get(presence.data.clientId);
         this.#participants.set(presence.data.clientId, {
           actorId: presence.data.actorId,
