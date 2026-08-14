@@ -45,7 +45,7 @@ jobs:
           echo "8ade07f653b8ae6d5a2eea5b669c2e61663e49e67d60b0b9f03edb40a7d181e1  /tmp/refactor-files.b64" | sha256sum --check
           base64 --decode /tmp/refactor-files.b64 | tar -xzf -
 
-      - name: Apply derived-state lint corrections
+      - name: Apply final refactor corrections
         run: |
           python <<'PY'
           from pathlib import Path
@@ -84,6 +84,22 @@ jobs:
               """    vertexObjectId: effectiveVertexObjectId,\n  } as const;\n""",
           )
           geometry.write_text(source)
+
+          rules = Path("scripts/architecture-rules.mjs")
+          source = rules.read_text()
+          old_guard = '      if (target?.layer === "modules" || target?.layer === "adapters") {\n'
+          new_guard = '''      if (\n        (target?.layer === "modules" || target?.layer === "adapters") &&\n        isPublicModuleImport(specifier)\n      ) {\n'''
+          if old_guard not in source:
+              raise SystemExit("APP-001 guard not found")
+          rules.write_text(source.replace(old_guard, new_guard, 1))
+
+          tests = Path("tests/architecture/architecture-rules.test.mjs")
+          source = tests.read_text()
+          anchor = '''  it("requires app composition to use module public contracts", () => {\n    expect(\n      analyze(\n        "app/App.tsx",\n        'import { drawingTools } from "../modules/drawing/tools";',\n      ),\n    ).toEqual([\n      expect.objectContaining({\n        invariant: "ARCH-004",\n      }),\n    ]);\n  });\n\n'''
+          addition = anchor + '''  it("keeps App.tsx as a thin composition root", () => {\n    expect(\n      analyze(\n        "app/App.tsx",\n        'import { drawingTools } from "../modules/drawing/public";',\n      ),\n    ).toEqual([\n      expect.objectContaining({\n        invariant: "APP-001",\n      }),\n    ]);\n  });\n\n'''
+          if anchor not in source:
+              raise SystemExit("architecture test anchor not found")
+          tests.write_text(source.replace(anchor, addition, 1))
           PY
 
       - name: Remove temporary staging transport
