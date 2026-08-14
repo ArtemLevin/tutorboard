@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Pack source
-        run: tar -czf tutorboard-source.tgz src scripts package.json package-lock.json tsconfig.json vite.config.ts vitest.config.ts
+        run: tar -czf tutorboard-source.tgz src scripts package.json package-lock.json tsconfig.json vite.config.ts
       - name: Upload source
         uses: actions/upload-artifact@v4
         with:
