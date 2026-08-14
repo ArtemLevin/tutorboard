@@ -42,10 +42,11 @@ jobs:
           echo "359957ccd6f8cb4bc6d342417b3d6ad580e44824dee8e22300c01682b93e68fc  /tmp/smartink2.tar.gz" | sha256sum -c -
           tar -xzf /tmp/smartink2.tar.gz
 
-      - name: Apply strict-lint corrections
+      - name: Apply compatibility and strict-lint corrections
         run: |
           python - <<'PY'
           from pathlib import Path
+
           recognizer = Path('src/modules/smart-ink/v2/recognizer.ts')
           text = recognizer.read_text()
           text = text.replace('topShape.kind as SmartInkV2ShapeKind', 'topShape.kind')
@@ -62,6 +63,93 @@ jobs:
               'const global = Array.from({ length: smartInkV2FeatureNames.length }, () => 0);',
           )
           training.write_text(text)
+
+          proposal = Path('src/modules/smart-ink/proposal.ts')
+          text = proposal.read_text()
+          old_import = '''import type {
+            SmartInkCandidate,
+            SmartInkPrimitiveKind,
+            SmartInkProposal,
+          } from "../smart-ink-spike/public";'''
+          new_import = '''import {
+            recognizeSmartInkStroke,
+            type SmartInkCandidate,
+            type SmartInkPrimitiveKind,
+            type SmartInkProposal,
+          } from "../smart-ink-spike/public";'''
+          if old_import not in text:
+              raise SystemExit('Smart Ink proposal import patch target missing')
+          text = text.replace(old_import, new_import)
+
+          diagnostic = '''function diagnosticReason(
+            status: SmartInkV2DecisionStatus,
+            candidate: SmartInkBoardCandidate | null,
+            replacement: BoardObject | null,
+          ): SmartInkDiagnosticReason {'''
+          helper = '''function selectCompatibilityCandidate(
+            recognizer: SmartInkProposal,
+          ): SmartInkCandidate | null {
+            const candidate = recognizer.candidates[0];
+            if (recognizer.status !== "recognized" || candidate === undefined) {
+              return null;
+            }
+            if (candidate.kind !== "ellipse") {
+              return candidate;
+            }
+            const circle = recognizer.candidates.find(
+              (alternative) => alternative.kind === "circle",
+            );
+            const axisRatio = candidate.diagnostics.axisRatio;
+            return circle !== undefined &&
+              axisRatio !== undefined &&
+              axisRatio >= smartInkCanvasRecognitionPolicy.circle.minimumAxisRatio &&
+              circle.confidence >=
+                smartInkCanvasRecognitionPolicy.circle.minimumCandidateConfidence
+              ? circle
+              : candidate;
+          }
+
+          function diagnosticReason(
+            status: SmartInkV2DecisionStatus,
+            candidate: SmartInkBoardCandidate | null,
+            replacement: BoardObject | null,
+          ): SmartInkDiagnosticReason {'''
+          if diagnostic not in text:
+              raise SystemExit('Smart Ink compatibility helper patch target missing')
+          text = text.replace(diagnostic, helper)
+
+          old_body = '''  const decision = recognizeSmartInkV2(stroke, points);
+            recordSmartInkV2ShadowDiagnostic(decision);
+            const recognizer = decision.legacyProposal;
+            const arrowRecognizer = decision.arrowProposal;
+            const candidate = decision.candidate;
+            const replacement =
+              candidate === null ? null : createSmartInkReplacementObject(stroke, candidate);'''
+          new_body = '''  const decision = recognizeSmartInkV2(stroke, points);
+            recordSmartInkV2ShadowDiagnostic(decision);
+            const recognizer = recognizeSmartInkStroke(stroke.id, points, {
+              ambiguityMargin: smartInkCanvasRecognitionPolicy.ambiguityMargin,
+              minimumConfidence: smartInkCanvasRecognitionPolicy.minimumConfidence,
+              sampleCount: smartInkCanvasRecognitionPolicy.sampleCount,
+            });
+            const compatibilityCandidate = selectCompatibilityCandidate(recognizer);
+            const arrowRecognizer = decision.arrowProposal;
+            const candidate =
+              decision.candidate?.kind === "arrow"
+                ? decision.candidate
+                : (compatibilityCandidate ?? decision.candidate);
+            const effectiveStatus: SmartInkV2DecisionStatus =
+              candidate === null ? decision.status : "accepted";
+            const replacement =
+              candidate === null ? null : createSmartInkReplacementObject(stroke, candidate);'''
+          if old_body not in text:
+              raise SystemExit('Smart Ink compatibility decision patch target missing')
+          text = text.replace(old_body, new_body)
+          text = text.replace(
+              'reason: diagnosticReason(decision.status, candidate, replacement),',
+              'reason: diagnosticReason(effectiveStatus, candidate, replacement),',
+          )
+          proposal.write_text(text)
           PY
 
       - name: Format changed product files
