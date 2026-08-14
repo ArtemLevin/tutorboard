@@ -58,6 +58,21 @@ export function useBoardDocumentController({
     onDocumentChange?.(document);
   }, [document, onDocumentChange]);
 
+  useEffect(() => {
+    if (documentRef.current === initialDocument) {
+      return;
+    }
+    documentRef.current = initialDocument;
+    setState((current) =>
+      current.history.present === initialDocument
+        ? current
+        : {
+            commandError: null,
+            history: createDocumentHistory(initialDocument),
+          },
+    );
+  }, [initialDocument]);
+
   const getDocument = useCallback(() => documentRef.current, []);
 
   const createCommandMetadata = useCallback(

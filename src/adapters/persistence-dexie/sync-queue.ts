@@ -18,6 +18,7 @@ import {
   type ConfirmedBoardHead,
   type DocumentId,
   type PendingBoardCommand,
+  type PendingBoardCommandConflict,
   type PendingBoardCommandOrderingInput,
   type PendingBoardCommandQueue,
 } from "../../core/public";
@@ -32,6 +33,7 @@ export type PendingCommandQuarantineReason =
   | "invalid-command"
   | "invalid-json"
   | "invalid-storage-record"
+  | "remote-conflict"
   | "unsupported-command-schema";
 
 export interface QuarantinedPendingBoardCommand {
@@ -39,13 +41,14 @@ export interface QuarantinedPendingBoardCommand {
   readonly capturedAt: string;
   readonly commandSha256: string | null;
   readonly documentId: string | null;
+  readonly detail?: string;
   readonly id: string;
   readonly idempotencyKey: string | null;
   readonly issues: readonly BoardCommandCodecIssue[];
   readonly raw: string;
   readonly reason: PendingCommandQuarantineReason;
   readonly sequence: number | null;
-  readonly source: "indexeddb-read";
+  readonly source: "indexeddb-read" | "server-rebase";
 }
 
 interface StoredConfirmedHead {
@@ -647,6 +650,49 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
           .toArray();
         await this.#database.quarantine.bulkDelete(
           rows.filter(({ id }) => allowed.has(id)).map(({ id }) => id),
+        );
+      },
+    );
+  }
+
+  async quarantineConflicts(
+    expectedDocumentId: DocumentId,
+    conflicts: readonly PendingBoardCommandConflict[],
+  ): Promise<void> {
+    if (conflicts.length === 0) {
+      return;
+    }
+    const capturedAt = new Date().toISOString();
+    const records = await Promise.all(
+      conflicts.map(async ({ item, message }) => {
+        if (item.documentId !== expectedDocumentId) {
+          throw new Error("Conflicting command belongs to another document.");
+        }
+        const serialized = serializeBoardCommand(item.command);
+        return {
+          actorId: item.command.actorId,
+          capturedAt,
+          commandSha256: await boardCommandSha256(item.command),
+          detail: message,
+          documentId: expectedDocumentId,
+          id: quarantineId(expectedDocumentId, item.sequence),
+          idempotencyKey: item.idempotencyKey,
+          issues: serialized.ok ? [] : [...serialized.issues],
+          raw: serialized.ok ? serialized.json : safeJson(item.command),
+          reason: "remote-conflict" as const,
+          sequence: item.sequence,
+          source: "server-rebase" as const,
+        } satisfies StoredQuarantinedCommand;
+      }),
+    );
+    await this.#database.transaction(
+      "rw",
+      this.#database.pending,
+      this.#database.quarantine,
+      async () => {
+        await this.#database.quarantine.bulkAdd(records);
+        await this.#database.pending.bulkDelete(
+          conflicts.map(({ item }) => [expectedDocumentId, item.sequence]),
         );
       },
     );

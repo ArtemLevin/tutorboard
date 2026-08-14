@@ -10,6 +10,7 @@ import {
   type ConfirmedBoardHead,
   type DocumentId,
   type PendingBoardCommand,
+  type PendingBoardCommandConflict,
   type PendingBoardCommandQueue,
   type OrderedBoardCommand,
   type ServerBoardCommandBatch,
@@ -23,6 +24,7 @@ export type BoardSyncState =
       readonly kind: "ready";
       readonly network: "offline" | "online";
       readonly pendingCount: number;
+      readonly quarantinedCount: number;
       readonly revision: number;
       readonly confirmedSha256: string;
       readonly role: BoardSessionContext["role"];
@@ -45,12 +47,14 @@ export interface BoardSyncEngineOptions {
   readonly documentId: DocumentId;
   readonly lessonId: string;
   readonly now: () => string;
+  readonly originId?: string;
   readonly onStateChange: (state: BoardSyncState) => void;
   readonly queue: PendingBoardCommandQueue;
   readonly repository: BoardSyncRepository;
 }
 
 interface ReplayedPending {
+  readonly conflicts: readonly PendingBoardCommandConflict[];
   readonly document: BoardDocument;
   readonly items: readonly PendingBoardCommand[];
 }
@@ -84,20 +88,6 @@ export async function boardDocumentSha256(
   return [...new Uint8Array(digest)]
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
-}
-
-function rebaseCommand(
-  document: BoardDocument,
-  command: BoardCommand,
-): BoardCommand {
-  const result = reduceBoardDocument(document, command);
-  if (!result.ok) {
-    throw new SyncRecoveryError(
-      "board.sync.rebase-failed",
-      `Локальная команда ${command.id} конфликтует с удалёнными изменениями: ${result.error.message}`,
-    );
-  }
-  return command;
 }
 
 function commandsFromBatch(
@@ -171,13 +161,21 @@ function replayPending(
   pending: readonly PendingBoardCommand[],
 ): ReplayedPending {
   let document = head.document;
+  const conflicts: PendingBoardCommandConflict[] = [];
   const items: PendingBoardCommand[] = [];
   for (const item of pending) {
-    const command = rebaseCommand(document, item.command);
-    document = applyCommand(document, command);
-    items.push({ ...item, command });
+    const result = reduceBoardDocument(document, item.command);
+    if (!result.ok) {
+      conflicts.push({
+        item,
+        message: `Локальная команда ${item.command.id} конфликтует с удалёнными изменениями: ${result.error.message}`,
+      });
+      continue;
+    }
+    document = result.document;
+    items.push(item);
   }
-  return { document, items };
+  return { conflicts, document, items };
 }
 
 function retryable(error: unknown): boolean {
@@ -206,6 +204,7 @@ export class BoardSyncEngine {
   readonly #documentId: DocumentId;
   readonly #lessonId: string;
   readonly #now: () => string;
+  readonly #originId: string;
   readonly #onStateChange: (state: BoardSyncState) => void;
   readonly #queue: PendingBoardCommandQueue;
   readonly #repository: BoardSyncRepository;
@@ -213,6 +212,9 @@ export class BoardSyncEngine {
   #confirmed: ConfirmedBoardHead | null = null;
   #document: BoardDocument | null = null;
   #pending: readonly PendingBoardCommand[] = [];
+  #quarantinedCount = 0;
+  #networkAvailable =
+    typeof navigator === "undefined" ? true : navigator.onLine;
   #durableSerial: Promise<void> = Promise.resolve();
   #disposed = false;
   #serial: Promise<void> = Promise.resolve();
@@ -222,6 +224,7 @@ export class BoardSyncEngine {
     this.#documentId = options.documentId;
     this.#lessonId = options.lessonId;
     this.#now = options.now;
+    this.#originId = options.originId ?? "origin:legacy-client";
     this.#onStateChange = options.onStateChange;
     this.#queue = options.queue;
     this.#repository = options.repository;
@@ -235,6 +238,16 @@ export class BoardSyncEngine {
 
   dispose(): void {
     this.#disposed = true;
+  }
+
+  setNetworkAvailable(available: boolean): Promise<void> {
+    this.#networkAvailable = available;
+    if (this.#disposed) return Promise.resolve();
+    if (!available) {
+      this.#emitReady("offline");
+      return Promise.resolve();
+    }
+    return this.synchronize();
   }
 
   #enqueueDurably(
@@ -290,11 +303,18 @@ export class BoardSyncEngine {
           throw new Error("Board sync engine is not ready.");
         }
         this.#pending = orderedPending([...this.#pending, queued]);
+        const knownSequences = this.#pending.map(({ sequence }) => sequence);
         const replayed = replayPending(this.#confirmed, this.#pending);
+        await this.#quarantineConflicts(replayed.conflicts);
         this.#pending = replayed.items;
+        await this.#queue.reconcile(
+          this.#documentId,
+          this.#pending,
+          knownSequences,
+        );
         this.#document = replayed.document;
-        this.#emitReady(navigator.onLine ? "online" : "offline");
-        if (navigator.onLine) {
+        this.#emitReady(this.#networkAvailable ? "online" : "offline");
+        if (this.#networkAvailable) {
           await this.#synchronize();
         }
       })
@@ -332,9 +352,12 @@ export class BoardSyncEngine {
             "Команда отмены не принадлежит активному пользователю.",
           );
         }
-        const command = rebaseCommand(preview, candidate);
-        preview = applyCommand(preview, command);
-        rebased.push(command);
+        const result = reduceBoardDocument(preview, candidate);
+        if (!result.ok) {
+          return Promise.resolve();
+        }
+        preview = result.document;
+        rebased.push(candidate);
       }
     } catch (error) {
       this.#recover(
@@ -359,11 +382,18 @@ export class BoardSyncEngine {
           throw new Error("Board sync engine is not ready.");
         }
         this.#pending = orderedPending([...this.#pending, ...queued]);
+        const knownSequences = this.#pending.map(({ sequence }) => sequence);
         const replayed = replayPending(this.#confirmed, this.#pending);
+        await this.#quarantineConflicts(replayed.conflicts);
         this.#pending = replayed.items;
+        await this.#queue.reconcile(
+          this.#documentId,
+          this.#pending,
+          knownSequences,
+        );
         this.#document = replayed.document;
-        this.#emitReady(navigator.onLine ? "online" : "offline");
-        if (navigator.onLine) {
+        this.#emitReady(this.#networkAvailable ? "online" : "offline");
+        if (this.#networkAvailable) {
           await this.#synchronize();
         }
       })
@@ -517,6 +547,7 @@ export class BoardSyncEngine {
       if (this.#disposed) return;
       const knownSequences = this.#pending.map(({ sequence }) => sequence);
       const replayed = replayPending(head, this.#pending);
+      await this.#quarantineConflicts(replayed.conflicts);
       this.#pending = replayed.items;
       await this.#queue.reconcile(
         this.#documentId,
@@ -524,7 +555,7 @@ export class BoardSyncEngine {
         knownSequences,
       );
       this.#document = replayed.document;
-      this.#emitReady("online");
+      this.#emitReady(this.#networkAvailable ? "online" : "offline");
       await this.#synchronize();
     } catch (error) {
       if (
@@ -537,8 +568,15 @@ export class BoardSyncEngine {
           ...cached.session,
           csrfToken: "",
         };
+        const knownSequences = this.#pending.map(({ sequence }) => sequence);
         const replayed = replayPending(cached, this.#pending);
+        await this.#quarantineConflicts(replayed.conflicts);
         this.#pending = replayed.items;
+        await this.#queue.reconcile(
+          this.#documentId,
+          this.#pending,
+          knownSequences,
+        );
         this.#document = replayed.document;
         this.#emitReady("offline");
         return;
@@ -564,6 +602,10 @@ export class BoardSyncEngine {
     ) {
       return;
     }
+    if (!this.#networkAvailable) {
+      this.#emitReady("offline");
+      return;
+    }
     try {
       // A pending local command is already based on the most recently
       // confirmed head. Push it optimistically; a concurrent remote revision
@@ -583,6 +625,7 @@ export class BoardSyncEngine {
         }
         const knownSequences = this.#pending.map(({ sequence }) => sequence);
         const replayed = replayPending(this.#confirmed, this.#pending);
+        await this.#quarantineConflicts(replayed.conflicts);
         this.#pending = replayed.items;
         await this.#queue.reconcile(
           this.#documentId,
@@ -605,7 +648,8 @@ export class BoardSyncEngine {
             documentId: this.#documentId,
             expectedDocumentSha256: sha256,
             idempotencyKey: first.idempotencyKey,
-            schemaVersion: "1.4",
+            originId: this.#originId,
+            schemaVersion: "1.5",
           },
           this.#context.csrfToken,
         );
@@ -652,10 +696,17 @@ export class BoardSyncEngine {
         this.#pending = this.#pending.slice(1);
         await this.#queue.saveHead(this.#confirmed);
       }
+      const knownSequences = this.#pending.map(({ sequence }) => sequence);
       const replayed = replayPending(this.#confirmed, this.#pending);
+      await this.#quarantineConflicts(replayed.conflicts);
       this.#pending = replayed.items;
+      await this.#queue.reconcile(
+        this.#documentId,
+        this.#pending,
+        knownSequences,
+      );
       this.#document = replayed.document;
-      this.#emitReady("online");
+      this.#emitReady(this.#networkAvailable ? "online" : "offline");
     } catch (error) {
       if (error instanceof SyncRecoveryError || !retryable(error)) {
         this.#recover(
@@ -757,10 +808,21 @@ export class BoardSyncEngine {
       kind: "ready",
       network,
       pendingCount: this.#pending.length,
+      quarantinedCount: this.#quarantinedCount,
       revision: this.#confirmed.revision,
       confirmedSha256: this.#confirmed.sha256,
       role: this.#context.role,
     });
+  }
+
+  async #quarantineConflicts(
+    conflicts: readonly PendingBoardCommandConflict[],
+  ): Promise<void> {
+    if (conflicts.length === 0) {
+      return;
+    }
+    await this.#queue.quarantineConflicts?.(this.#documentId, conflicts);
+    this.#quarantinedCount += conflicts.length;
   }
 
   #recover(code: string, recoveryMessage: string): void {

@@ -32,6 +32,7 @@
     "test:watch": "vitest",
     "architecture": "node scripts/check-architecture.mjs",
     "e2e": "playwright test",
+    "e2e:collaboration": "npm run build && playwright test --config playwright.fullstack.config.ts",
     "e2e:plot-production": "playwright test tests/e2e/coordinate-plot-production.spec.ts",
     "e2e:handwriting-production": "playwright test tests/e2e/handwritten-function-production.spec.ts",
     "check": "npm run geometryos:check && npm run board-contract:check && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run performance && npm run architecture && npm run build",

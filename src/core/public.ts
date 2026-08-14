@@ -317,6 +317,7 @@ export type {
   OrderedBoardCommand,
   OrderedBoardCommandEnvelope,
   PendingBoardCommand,
+  PendingBoardCommandConflict,
   PendingBoardCommandOrderingInput,
   PendingBoardCommandQueue,
   PushBoardCommandsResult,

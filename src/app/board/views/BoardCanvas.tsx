@@ -3,14 +3,17 @@ import { useMemo, useState } from "react";
 import {
   BoardStage,
   createDefaultKonvaRendererRegistry,
+  type BoardObjectTransformSnapshot,
   type CanvasContextMenuRequest,
 } from "../../../adapters/canvas-konva/public";
-import type {
-  BoardDocument,
-  BoardObjectId,
-  BoardSceneReadModel,
-  Vec2,
-  ViewportState,
+import {
+  boardObjectId,
+  type BoardDocument,
+  type BoardObjectId,
+  type BoardRenderItem,
+  type BoardSceneReadModel,
+  type Vec2,
+  type ViewportState,
 } from "../../../core/public";
 import {
   drawingStyleDefaults,
@@ -52,12 +55,39 @@ export interface BoardCanvasProps {
   readonly onInspectorClose: () => void;
   readonly onObjectSettingsRequest: (objectId: BoardObjectId) => void;
   readonly onPointerHover: (cursor: Vec2) => void;
+  readonly onTransformPreviewChange: (
+    transforms: readonly BoardObjectTransformSnapshot[] | null,
+  ) => void;
   readonly onViewportCommit: (viewport: ViewportState) => void;
   readonly plots: CoordinatePlotController;
   readonly readOnly: boolean;
   readonly remoteCursors: readonly {
     readonly actorId: string;
     readonly point: { readonly x: number; readonly y: number };
+  }[];
+  readonly remoteInkPreviews: readonly {
+    readonly actorId: string;
+    readonly clientId: string;
+    readonly displayName: string;
+    readonly points: readonly Vec2[];
+    readonly previewId: string;
+    readonly style: {
+      readonly opacity: number;
+      readonly stroke: string;
+      readonly strokeWidth: number;
+    };
+  }[];
+  readonly remoteTransformPreviews: readonly {
+    readonly actorId: string;
+    readonly clientId: string;
+    readonly displayName: string;
+    readonly previewId: string;
+    readonly transforms: readonly {
+      readonly objectId: string;
+      readonly position: Vec2;
+      readonly rotation: number;
+      readonly scale: Vec2;
+    }[];
   }[];
   readonly scene: BoardSceneReadModel;
   readonly selection: BoardSelectionController;
@@ -76,10 +106,13 @@ export function BoardCanvas({
   onInspectorClose,
   onObjectSettingsRequest,
   onPointerHover,
+  onTransformPreviewChange,
   onViewportCommit,
   plots,
   readOnly,
   remoteCursors,
+  remoteInkPreviews,
+  remoteTransformPreviews,
   scene,
   selection,
   solid3D,
@@ -94,8 +127,35 @@ export function BoardCanvas({
         ? []
         : [{ object: drawing.preview, transforms: [] }]),
       ...handwriting.previewItems,
+      ...remoteTransformPreviews.flatMap((preview, previewIndex) =>
+        preview.transforms.flatMap((transform, transformIndex) => {
+          const object = document.objects[transform.objectId as BoardObjectId];
+          if (object === undefined) return [];
+          return [
+            {
+              object: {
+                ...object,
+                id: boardObjectId(`preview:${previewIndex}:${transformIndex}`),
+                position: transform.position,
+                rotation: transform.rotation,
+                scale: transform.scale,
+                style: {
+                  ...object.style,
+                  opacity: Math.min(object.style.opacity, 0.45),
+                },
+              },
+              transforms: [],
+            } satisfies BoardRenderItem,
+          ];
+        }),
+      ),
     ],
-    [drawing.preview, handwriting.previewItems],
+    [
+      document.objects,
+      drawing.preview,
+      handwriting.previewItems,
+      remoteTransformPreviews,
+    ],
   );
   const wetInkStyle = useMemo(() => {
     const style =
@@ -172,7 +232,11 @@ export function BoardCanvas({
         onSelectionPointerFinish={interaction.selectionFinish}
         onSelectionPointerMove={interaction.selectionMove}
         onSelectionPointerStart={interaction.selectionStart}
-        onSelectionTransform={selection.commitTransform}
+        onSelectionTransform={(transforms) => {
+          selection.commitTransform(transforms);
+          onTransformPreviewChange(null);
+        }}
+        onSelectionTransformPreview={onTransformPreviewChange}
         onViewportCommit={onViewportCommit}
         panMode={activeTool === navigationToolId}
         primaryCanvasGesturesEnabled={
@@ -184,6 +248,7 @@ export function BoardCanvas({
         previewItems={previewItems}
         registry={registry}
         remoteCursors={remoteCursors}
+        remoteInkPreviews={remoteInkPreviews}
         scene={scene}
         selectedObjectIds={selection.state.selectedObjectIds}
         selectionBounds={selection.bounds}

@@ -182,6 +182,9 @@ export interface BoardStageProps {
   readonly onSelectionTransform?: (
     transforms: readonly BoardObjectTransformSnapshot[],
   ) => void;
+  readonly onSelectionTransformPreview?: (
+    transforms: readonly BoardObjectTransformSnapshot[] | null,
+  ) => void;
   readonly panMode: boolean;
   readonly primaryCanvasGesturesEnabled?: boolean;
   readonly previewItems?: readonly BoardRenderItem[];
@@ -189,6 +192,18 @@ export interface BoardStageProps {
   readonly remoteCursors?: readonly {
     readonly actorId: string;
     readonly point: Vec2;
+  }[];
+  readonly remoteInkPreviews?: readonly {
+    readonly actorId: string;
+    readonly clientId: string;
+    readonly displayName: string;
+    readonly points: readonly Vec2[];
+    readonly previewId: string;
+    readonly style: {
+      readonly opacity: number;
+      readonly stroke: string;
+      readonly strokeWidth: number;
+    };
   }[];
   readonly scene: BoardSceneReadModel;
   readonly selectedObjectIds?: readonly BoardObjectId[];
@@ -337,11 +352,13 @@ export function BoardStage({
   onSelectionPointerMove,
   onSelectionPointerStart,
   onSelectionTransform,
+  onSelectionTransformPreview,
   panMode,
   primaryCanvasGesturesEnabled = false,
   previewItems = [],
   registry,
   remoteCursors = [],
+  remoteInkPreviews = [],
   scene,
   selectedObjectIds = [],
   selectionBounds = [],
@@ -473,13 +490,12 @@ export function BoardStage({
     transformer.getLayer()?.batchDraw();
   }, [previewViewport, scene.items, transformableObjectIds]);
 
-  const finishTransform = useCallback(() => {
+  const readSelectionTransforms = useCallback(() => {
     const transformer = transformerRef.current;
-    setIsTransforming(false);
     if (transformer === null) {
-      return;
+      return [];
     }
-    const transforms = transformer.nodes().flatMap((node) => {
+    return transformer.nodes().flatMap((node) => {
       const objectId = objectIdFromTarget(node);
       const values = [
         node.x(),
@@ -509,10 +525,20 @@ export function BoardStage({
         },
       ];
     });
+  }, []);
+
+  const previewTransform = useCallback(() => {
+    const transforms = readSelectionTransforms();
+    onSelectionTransformPreview?.(transforms.length === 0 ? null : transforms);
+  }, [onSelectionTransformPreview, readSelectionTransforms]);
+
+  const finishTransform = useCallback(() => {
+    setIsTransforming(false);
+    const transforms = readSelectionTransforms();
     if (transforms.length > 0) {
       onSelectionTransform?.(transforms);
     }
-  }, [onSelectionTransform]);
+  }, [onSelectionTransform, readSelectionTransforms]);
 
   useLayoutEffect(() => {
     panModeRequestRef.current = onPanModeRequest;
@@ -1519,6 +1545,7 @@ export function BoardStage({
       data-laser-visible={laserPoint !== null}
       data-pan-mode={panMode}
       data-panning={isPanning}
+      data-remote-ink-count={remoteInkPreviews.length}
       data-selecting={isSelecting}
       data-selection-mode={selectionModeKey ?? "none"}
       data-transformable-count={transformableObjectIds.length}
@@ -1635,6 +1662,29 @@ export function BoardStage({
                 />
               </>
             )}
+            {remoteInkPreviews.map((preview) =>
+              preview.points.length < 2 ? (
+                <Circle
+                  fill={preview.style.stroke}
+                  key={`${preview.clientId}:${preview.previewId}`}
+                  opacity={preview.style.opacity}
+                  radius={Math.max(1, preview.style.strokeWidth / 2)}
+                  x={preview.points[0]?.x ?? 0}
+                  y={preview.points[0]?.y ?? 0}
+                />
+              ) : (
+                <Line
+                  key={`${preview.clientId}:${preview.previewId}`}
+                  lineCap="round"
+                  lineJoin="round"
+                  opacity={preview.style.opacity}
+                  perfectDrawEnabled={false}
+                  points={[...flattenStrokePoints(preview.points)]}
+                  stroke={preview.style.stroke}
+                  strokeWidth={preview.style.strokeWidth}
+                />
+              ),
+            )}
             {remoteCursors.map(({ actorId, point }) => (
               <Group key={actorId} x={point.x} y={point.y}>
                 <Circle
@@ -1726,8 +1776,12 @@ export function BoardStage({
                 "bottom-right",
               ]}
               flipEnabled={false}
+              onTransform={previewTransform}
               onTransformEnd={finishTransform}
-              onTransformStart={() => setIsTransforming(true)}
+              onTransformStart={() => {
+                setIsTransforming(true);
+                previewTransform();
+              }}
               rotateAnchorOffset={26 / previewViewport.zoom}
               rotationSnapTolerance={5}
               rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}

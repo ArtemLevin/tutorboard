@@ -5,6 +5,11 @@ export {
   maximumBoardCollaborationParticipants,
   type BoardCollaborationClientOptions,
   type BoardCollaborationStatus,
+  type BoardInkPreview,
   type BoardPresence,
+  type BoardTransformPreview,
+  type BoardTransformSnapshot,
+  type LocalBoardInkPreview,
   type LocalBoardPresence,
+  type LocalBoardTransformPreview,
 } from "./client";
