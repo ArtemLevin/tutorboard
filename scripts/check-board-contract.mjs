@@ -162,6 +162,22 @@ function verifySourceParity() {
       `Board object schema does not match source kinds: source=${sourceObjectKinds.join(",")}; schema=${schemaObjectKinds.join(",")}`,
     );
   }
+
+  const sourceStrokeStyles = sourceLiteralArray(
+    "src/core/board/objects.ts",
+    "strokeStyles",
+  ).sort();
+  const schemaStrokeStyles = [
+    ...schemas["board-document.schema.json"].$defs.ObjectStyle.properties
+      .strokeStyle.enum,
+  ].sort();
+  if (
+    JSON.stringify(sourceStrokeStyles) !== JSON.stringify(schemaStrokeStyles)
+  ) {
+    throw new Error(
+      `Board style schema does not match source stroke styles: source=${sourceStrokeStyles.join(",")}; schema=${schemaStrokeStyles.join(",")}`,
+    );
+  }
 }
 
 assertFresh();
