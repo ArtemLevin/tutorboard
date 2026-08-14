@@ -32,10 +32,14 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Apply staged refactor
+      - name: Assemble and verify staged refactor
         run: |
-          base64 --decode .github/app-refactor-files.b64 | tar -xzf -
+          cat .github/refactor-payload/* > /tmp/refactor-files.b64
+          test "$(wc -c < /tmp/refactor-files.b64)" -eq 45108
+          echo "8ade07f653b8ae6d5a2eea5b669c2e61663e49e67d60b0b9f03edb40a7d181e1  /tmp/refactor-files.b64" | sha256sum --check
+          base64 --decode /tmp/refactor-files.b64 | tar -xzf -
           rm .github/app-refactor-files.b64
+          rm -rf .github/refactor-payload
           rm .github/workflows/app-refactor-source-export.yml
 
       - name: Format refactor
