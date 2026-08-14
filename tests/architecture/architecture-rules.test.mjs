@@ -215,6 +215,19 @@ describe("architecture rules", () => {
     ]);
   });
 
+  it("keeps App.tsx as a thin composition root", () => {
+    expect(
+      analyze(
+        "app/App.tsx",
+        'import { drawingTools } from "../modules/drawing/public";',
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        invariant: "APP-001",
+      }),
+    ]);
+  });
+
   it("requires feature modules to use the core public contract", () => {
     expect(
       analyze(

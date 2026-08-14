@@ -222,6 +222,31 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
   );
   const violations = [];
 
+  const importerRelativePath = path
+    .relative(srcRoot, filePath)
+    .split(path.sep)
+    .join("/");
+  if (importerRelativePath === "app/App.tsx") {
+    for (const specifier of collectSpecifiers(sourceFile)) {
+      const targetPath = resolveLocalTarget(filePath, specifier, srcRoot);
+      const target =
+        targetPath === null ? null : sourceLocation(targetPath, srcRoot);
+      if (
+        (target?.layer === "modules" || target?.layer === "adapters") &&
+        isPublicModuleImport(specifier)
+      ) {
+        violations.push(
+          violation(
+            "APP-001",
+            filePath,
+            specifier,
+            "App.tsx is a composition root and cannot depend directly on feature modules or technology adapters",
+          ),
+        );
+      }
+    }
+  }
+
   if (importer.layer === "adapters" && importer.owner === "canvas-konva") {
     const forbiddenBindings = new Set([
       "*",
