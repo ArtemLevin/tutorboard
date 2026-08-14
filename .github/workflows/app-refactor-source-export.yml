@@ -1,25 +1,65 @@
-name: App refactor source export
+name: Apply App decomposition
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - agent/app-decomposition
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: app-decomposition-apply
+  cancel-in-progress: true
 
 jobs:
-  export-source:
+  apply:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - name: Pack source
-        run: tar -czf tutorboard-source.tgz src scripts package.json package-lock.json tsconfig.json vite.config.ts
-      - name: Upload source
-        uses: actions/upload-artifact@v4
+      - name: Check out branch
+        uses: actions/checkout@v7
         with:
-          name: app-refactor-source-${{ github.sha }}
-          path: tutorboard-source.tgz
-          if-no-files-found: error
-          retention-days: 1
+          ref: agent/app-decomposition
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Apply staged refactor
+        run: |
+          base64 --decode .github/app-refactor-files.b64 | tar -xzf -
+          rm .github/app-refactor-files.b64
+          rm .github/workflows/app-refactor-source-export.yml
+
+      - name: Format refactor
+        run: npm run format
+
+      - name: Validate lint
+        run: npm run lint
+
+      - name: Validate types
+        run: npm run typecheck
+
+      - name: Validate unit tests
+        run: npm run test
+
+      - name: Validate architecture
+        run: npm run architecture
+
+      - name: Validate production build
+        run: npm run build
+
+      - name: Commit validated refactor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor(app): decompose board orchestration"
+          git push origin HEAD:agent/app-decomposition
