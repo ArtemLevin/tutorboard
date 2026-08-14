@@ -109,6 +109,7 @@ const commandBatchSchema = z
     lamportMin: z.number().int().positive().optional(),
     payloadSha256: sha256Schema,
     revision: z.number().int().positive(),
+    schemaVersion: z.enum(["1.0", "1.2", "1.3", "1.4", "1.5"]).optional(),
   })
   .strict();
 const contextSchema = z
