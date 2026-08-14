@@ -1,0 +1,18 @@
+name: Smart Ink 2 source export
+on:
+  push:
+    branches: [agent/smart-ink-2]
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Archive source
+        run: tar --exclude=.git -czf /tmp/tutorboard-smart-ink-2-source.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tutorboard-smart-ink-2-source
+          path: /tmp/tutorboard-smart-ink-2-source.tar.gz
+          retention-days: 1
