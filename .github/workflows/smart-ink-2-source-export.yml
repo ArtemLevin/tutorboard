@@ -57,6 +57,10 @@ jobs:
               'Array(smartInkV2FeatureNames.length).fill(0)',
               'Array.from({ length: smartInkV2FeatureNames.length }, () => 0)',
           )
+          text = text.replace(
+              'const global = Array.from({ length: smartInkV2FeatureNames.length }, () => 0) as number[];',
+              'const global = Array.from({ length: smartInkV2FeatureNames.length }, () => 0);',
+          )
           training.write_text(text)
           PY
 
