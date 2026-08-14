@@ -105,6 +105,8 @@ const commandBatchSchema = z
     createdAt: z.string().min(1).max(64),
     envelope: envelopeSchema,
     idempotencyKey: z.string().min(1).max(128),
+    lamportMax: z.number().int().positive().optional(),
+    lamportMin: z.number().int().positive().optional(),
     payloadSha256: sha256Schema,
     revision: z.number().int().positive(),
   })

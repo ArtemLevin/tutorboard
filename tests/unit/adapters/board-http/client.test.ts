@@ -127,6 +127,44 @@ describe("Board HTTP repository", () => {
     });
   });
 
+  it("accepts ordering metadata on a remotely committed batch", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        currentRevision: 1,
+        documentId: envelope.documentId,
+        hasMore: false,
+        items: [
+          {
+            actorUserId: "user:tutor",
+            baseRevision: 0,
+            createdAt: "2026-07-28T18:00:00.000Z",
+            envelope,
+            idempotencyKey: envelope.idempotencyKey,
+            lamportMax: 1,
+            lamportMin: 1,
+            payloadSha256:
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            revision: 1,
+          },
+        ],
+      }),
+    );
+    const repository = createBoardHttpRepository({
+      fetch: request,
+      origin: "https://tutor.example.test",
+    });
+
+    const page = await repository.pull(envelope.documentId, 0);
+
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({
+      baseRevision: 0,
+      lamportMax: 1,
+      lamportMin: 1,
+      revision: 1,
+    });
+  });
+
   it("loads the canonical snapshot contract including createdAt", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({
