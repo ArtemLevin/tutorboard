@@ -213,6 +213,8 @@ export class BoardSyncEngine {
   #document: BoardDocument | null = null;
   #pending: readonly PendingBoardCommand[] = [];
   #quarantinedCount = 0;
+  #networkAvailable =
+    typeof navigator === "undefined" ? true : navigator.onLine;
   #durableSerial: Promise<void> = Promise.resolve();
   #disposed = false;
   #serial: Promise<void> = Promise.resolve();
@@ -236,6 +238,16 @@ export class BoardSyncEngine {
 
   dispose(): void {
     this.#disposed = true;
+  }
+
+  setNetworkAvailable(available: boolean): Promise<void> {
+    this.#networkAvailable = available;
+    if (this.#disposed) return Promise.resolve();
+    if (!available) {
+      this.#emitReady("offline");
+      return Promise.resolve();
+    }
+    return this.synchronize();
   }
 
   #enqueueDurably(
@@ -301,8 +313,8 @@ export class BoardSyncEngine {
           knownSequences,
         );
         this.#document = replayed.document;
-        this.#emitReady(navigator.onLine ? "online" : "offline");
-        if (navigator.onLine) {
+        this.#emitReady(this.#networkAvailable ? "online" : "offline");
+        if (this.#networkAvailable) {
           await this.#synchronize();
         }
       })
@@ -380,8 +392,8 @@ export class BoardSyncEngine {
           knownSequences,
         );
         this.#document = replayed.document;
-        this.#emitReady(navigator.onLine ? "online" : "offline");
-        if (navigator.onLine) {
+        this.#emitReady(this.#networkAvailable ? "online" : "offline");
+        if (this.#networkAvailable) {
           await this.#synchronize();
         }
       })
@@ -543,7 +555,7 @@ export class BoardSyncEngine {
         knownSequences,
       );
       this.#document = replayed.document;
-      this.#emitReady("online");
+      this.#emitReady(this.#networkAvailable ? "online" : "offline");
       await this.#synchronize();
     } catch (error) {
       if (
@@ -588,6 +600,10 @@ export class BoardSyncEngine {
       this.#confirmed === null ||
       this.#document === null
     ) {
+      return;
+    }
+    if (!this.#networkAvailable) {
+      this.#emitReady("offline");
       return;
     }
     try {
@@ -690,7 +706,7 @@ export class BoardSyncEngine {
         knownSequences,
       );
       this.#document = replayed.document;
-      this.#emitReady("online");
+      this.#emitReady(this.#networkAvailable ? "online" : "offline");
     } catch (error) {
       if (error instanceof SyncRecoveryError || !retryable(error)) {
         this.#recover(

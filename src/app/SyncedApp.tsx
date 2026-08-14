@@ -202,10 +202,13 @@ export function SyncedApp({
   useEffect(() => {
     bootstrapStartedRef.current = performance.now();
     void engine.bootstrap();
-    const reconnect = () => void engine.synchronize();
+    const reconnect = () => void engine.setNetworkAvailable(true);
+    const disconnect = () => void engine.setNetworkAvailable(false);
     window.addEventListener("online", reconnect);
+    window.addEventListener("offline", disconnect);
     return () => {
       window.removeEventListener("online", reconnect);
+      window.removeEventListener("offline", disconnect);
       engine.dispose();
     };
   }, [engine]);
