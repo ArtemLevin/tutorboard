@@ -1,0 +1,25 @@
+name: App refactor source export
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Pack source
+        run: tar -czf tutorboard-source.tgz src scripts package.json package-lock.json tsconfig.json vite.config.ts vitest.config.ts
+      - name: Upload source
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-refactor-source-${{ github.sha }}
+          path: tutorboard-source.tgz
+          if-no-files-found: error
+          retention-days: 1
