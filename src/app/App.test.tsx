@@ -20,7 +20,7 @@ import {
   createFakeMathInkRecognizer,
   mathInkRecognitionResultSchemaVersion,
 } from "../modules/handwritten-function/public";
-import { App } from "./App";
+import { App, createInitialDocument } from "./App";
 
 function requestUrl(input: RequestInfo | URL): string {
   return typeof input === "string"
@@ -196,6 +196,34 @@ describe("App", () => {
 
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
     expect(screen.getByTestId("interaction-state")).toHaveTextContent("idle");
+  });
+
+  it("publishes pen motion as an ephemeral preview before the durable command", async () => {
+    const onInkPreviewChange = vi.fn();
+    render(<App onInkPreviewChange={onInkPreviewChange} />);
+
+    fireEvent.keyDown(window, { key: "p" });
+    fireEvent.click(screen.getByRole("button", { name: "Провести указкой" }));
+    await waitFor(() =>
+      expect(onInkPreviewChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phase: "start",
+          points: [
+            { x: 10, y: 20 },
+            { x: 70, y: 80 },
+          ],
+        }),
+      ),
+    );
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+
+    fireEvent.click(screen.getByRole("button", { name: "Отпустить указку" }));
+    await waitFor(() =>
+      expect(onInkPreviewChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ phase: "end" }),
+      ),
+    );
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
   });
 
   it("opens every compact tool menu exclusively and closes it with Escape", () => {
@@ -470,6 +498,46 @@ describe("App", () => {
     expect(screen.getByTestId("persistence-status")).toHaveTextContent(
       "Сохранено локально",
     );
+  });
+
+  it("applies a synchronized document without remounting transient UI", async () => {
+    const initialDocument = createInitialDocument();
+    const synchronizedDocument = {
+      ...initialDocument,
+      title: "Remote lesson title",
+      updatedAt: new Date(
+        Date.parse(initialDocument.updatedAt) + 1_000,
+      ).toISOString(),
+    };
+    const onDocumentChange = vi.fn();
+    const { rerender } = render(
+      <App
+        historyEnabled={false}
+        initialDocument={initialDocument}
+        onDocumentChange={onDocumentChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Настройки доски" }));
+    expect(
+      screen.getByRole("dialog", { name: "Настройки доски" }),
+    ).toBeInTheDocument();
+
+    rerender(
+      <App
+        historyEnabled={false}
+        initialDocument={synchronizedDocument}
+        onDocumentChange={onDocumentChange}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(onDocumentChange).toHaveBeenLastCalledWith(synchronizedDocument),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Настройки доски" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Remote lesson title")).toBeInTheDocument();
   });
 
   it("inserts a safe SVG as one selected embedded image", async () => {

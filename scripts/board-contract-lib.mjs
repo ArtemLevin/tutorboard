@@ -982,7 +982,7 @@ function rootSchema(id, title, root, definitions) {
 export const schemas = {
   "board-command-envelope.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-command-envelope.schema.json",
-    "BoardCommandEnvelope 1.4",
+    "BoardCommandEnvelope 1.5",
     strictObject({
       actorId: reference("Identifier"),
       baseRevision: nonNegativeInteger,
@@ -1001,7 +1001,8 @@ export const schemas = {
         pattern: "^[A-Za-z0-9._:-]+$",
         type: "string",
       },
-      schemaVersion: { const: "1.4" },
+      originId: reference("Identifier"),
+      schemaVersion: { const: "1.5" },
     }),
     commandDefinitions,
   ),
@@ -1067,7 +1068,7 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 ## Artifacts
 
 - \`BoardDocument 1.4\` is the canonical persisted board state.
-- \`BoardCommandEnvelope 1.4\` carries one atomic, idempotent command batch
+- \`BoardCommandEnvelope 1.5\` carries one atomic, idempotent command batch
   against a known base revision.
 - \`BoardSnapshot 1.4\` binds a canonical document to a server revision and
   SHA-256 digest.
@@ -1280,7 +1281,8 @@ function fixtures() {
       documentId: document.id,
       expectedDocumentSha256: documentHash,
       idempotencyKey: "client:tutor-01:batch-08",
-      schemaVersion: "1.4",
+      originId: "origin:tutor-browser-01",
+      schemaVersion: "1.5",
     },
     "fixtures/board-document.json": document,
     "fixtures/board-geometry-import.json": {
@@ -1346,7 +1348,7 @@ export function generateBoardContract(outputRoot = contractRoot) {
     artifacts,
     contract: "board/v1",
     schemas: {
-      boardCommandEnvelope: "1.4",
+      boardCommandEnvelope: "1.5",
       boardDocument: "1.4",
       boardGeometryImport: "1.0",
       boardSnapshot: "1.4",

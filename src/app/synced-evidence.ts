@@ -5,6 +5,7 @@ export function canFinalizeBoardEvidence(state: BoardSyncState): boolean {
     state.kind === "ready" &&
     state.network === "online" &&
     state.pendingCount === 0 &&
+    state.quarantinedCount === 0 &&
     (state.role === "admin" || state.role === "tutor")
   );
 }

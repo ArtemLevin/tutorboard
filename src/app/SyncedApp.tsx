@@ -3,16 +3,19 @@ import { useEffect, useRef, useState } from "react";
 import {
   BoardCollaborationClient,
   type BoardCollaborationStatus,
+  type BoardInkPreview,
   type BoardPresence,
+  type BoardTransformPreview,
 } from "../adapters/board-websocket/public";
-import type {
-  BoardDocument,
-  BoardCommand,
-  BoardEvidenceDescriptor,
-  BoardPlatformRepository,
-  DocumentId,
-  GeometryOsClient,
-  PendingBoardCommandQueue,
+import {
+  reduceBoardDocument,
+  type BoardCommand,
+  type BoardDocument,
+  type BoardEvidenceDescriptor,
+  type BoardPlatformRepository,
+  type DocumentId,
+  type GeometryOsClient,
+  type PendingBoardCommandQueue,
 } from "../core/public";
 import {
   boardDocumentSha256,
@@ -37,6 +40,22 @@ interface SyncedAppProps {
   readonly mathInkRecognizer?: MathInkRecognizer | undefined;
   readonly queue: PendingBoardCommandQueue;
   readonly repository: BoardPlatformRepository;
+}
+
+const boardOriginStorageKey = "tutorboard.collaboration-origin.v1";
+
+function collaborationOriginId(): string {
+  try {
+    const stored = window.localStorage.getItem(boardOriginStorageKey);
+    if (stored !== null && /^origin:[A-Za-z0-9-]{1,120}$/u.test(stored)) {
+      return stored;
+    }
+    const created = `origin:${crypto.randomUUID()}`;
+    window.localStorage.setItem(boardOriginStorageKey, created);
+    return created;
+  } catch {
+    return `origin:${crypto.randomUUID()}`;
+  }
 }
 
 async function blobBase64(blob: Blob): Promise<string> {
@@ -72,6 +91,14 @@ function downloadBlob(filename: string, blob: Blob): void {
 function persistenceStatus(
   state: Extract<BoardSyncState, { kind: "ready" }>,
 ): AppPersistenceStatus {
+  if (state.quarantinedCount > 0) {
+    return {
+      detail:
+        "Конфликтующие локальные изменения изолированы; остальные команды продолжают синхронизацию.",
+      kind: "conflict",
+      label: `Изолировано изменений · ${state.quarantinedCount}`,
+    };
+  }
   if (state.network === "offline") {
     return {
       detail: `${state.pendingCount} локальных команд ожидают подключения.`,
@@ -96,6 +123,21 @@ function persistenceStatus(
   };
 }
 
+function inverseStillApplies(
+  document: BoardDocument,
+  commands: readonly BoardCommand[],
+): boolean {
+  let preview = document;
+  for (const command of commands) {
+    const result = reduceBoardDocument(preview, command);
+    if (!result.ok) {
+      return false;
+    }
+    preview = result.document;
+  }
+  return true;
+}
+
 export function SyncedApp({
   documentId,
   geometryOsClient,
@@ -107,12 +149,17 @@ export function SyncedApp({
   const [state, setState] = useState<BoardSyncState>({
     kind: "bootstrapping",
   });
-  const [workspaceKey, setWorkspaceKey] = useState(0);
   const [collaborationStatus, setCollaborationStatus] =
     useState<BoardCollaborationStatus>("connecting");
   const [participants, setParticipants] = useState<readonly BoardPresence[]>(
     [],
   );
+  const [inkPreviews, setInkPreviews] = useState<readonly BoardInkPreview[]>(
+    [],
+  );
+  const [transformPreviews, setTransformPreviews] = useState<
+    readonly BoardTransformPreview[]
+  >([]);
   const [evidence, setEvidence] = useState<readonly BoardEvidenceDescriptor[]>(
     [],
   );
@@ -125,6 +172,7 @@ export function SyncedApp({
   const loadMeasuredRef = useRef(false);
   const previousCollaborationStatusRef =
     useRef<BoardCollaborationStatus>("connecting");
+  const [originId] = useState(collaborationOriginId);
   const [engine] = useState(
     () =>
       new BoardSyncEngine({
@@ -132,6 +180,7 @@ export function SyncedApp({
         documentId,
         lessonId,
         now: () => new Date().toISOString(),
+        originId,
         onStateChange: setState,
         queue,
         repository,
@@ -141,9 +190,11 @@ export function SyncedApp({
     () =>
       new BoardCollaborationClient({
         documentId,
+        onInkPreviews: setInkPreviews,
         onPresence: setParticipants,
         onRevision: () => void engine.synchronize(),
         onStatus: setCollaborationStatus,
+        onTransformPreviews: setTransformPreviews,
         repository,
       }),
   );
@@ -225,12 +276,13 @@ export function SyncedApp({
     }
     if (JSON.stringify(rendered) !== JSON.stringify(state.document)) {
       renderedDocumentRef.current = state.document;
-      // A remote revision can invalidate the exact inverse of a local
-      // operation. Fail closed instead of undoing through another actor's
-      // subsequent work.
-      undoStackRef.current = [];
-      setUndoCount(0);
-      setWorkspaceKey((current) => current + 1);
+      // Preserve every own inverse that is still valid after the remote
+      // revision. One conflicting object must not erase unrelated undo work.
+      const applicable = undoStackRef.current.filter((commands) =>
+        inverseStillApplies(state.document, commands),
+      );
+      undoStackRef.current = applicable;
+      setUndoCount(applicable.length);
     }
   }, [state]);
 
@@ -409,7 +461,6 @@ export function SyncedApp({
         geometryOsClient={geometryOsClient}
         historyEnabled={false}
         initialDocument={state.document}
-        key={workspaceKey}
         mathInkRecognizer={mathInkRecognizer}
         onCollaborativeUndo={() => {
           const inverse = undoStackRef.current.at(-1);
@@ -439,6 +490,12 @@ export function SyncedApp({
           renderedDocumentRef.current = document;
         }}
         onPresenceChange={(presence) => collaboration.updatePresence(presence)}
+        onInkPreviewChange={(preview) =>
+          collaboration.updateInkPreview(preview)
+        }
+        onTransformPreviewChange={(preview) =>
+          collaboration.updateTransformPreview(preview)
+        }
         onExportPdfSnapshot={(document) => {
           setEvidenceStatus("Создаём PDF доски…");
           void renderBoardSnapshotPdf(document)
@@ -474,13 +531,13 @@ export function SyncedApp({
             </p>
             <p>
               Серверная ревизия {state.revision} · ожидают отправки{" "}
-              {state.pendingCount}
+              {state.pendingCount} · изолировано {state.quarantinedCount}
             </p>
             {participants.length === 0 ? null : (
               <ul aria-label="Участники занятия">
                 {participants.map((participant) => (
                   <li key={participant.clientId}>
-                    {participant.actorId} · {participant.role}
+                    {participant.displayName} · {participant.role}
                   </li>
                 ))}
               </ul>
@@ -541,6 +598,8 @@ export function SyncedApp({
             ? []
             : [{ actorId: participant.actorId, point: participant.cursor }],
         )}
+        remoteInkPreviews={inkPreviews}
+        remoteTransformPreviews={transformPreviews}
       />
     </div>
   );

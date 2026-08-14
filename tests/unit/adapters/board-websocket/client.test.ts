@@ -4,7 +4,9 @@ import {
   BoardCollaborationClient,
   maximumBoardCollaborationMessageCharacters,
   maximumBoardCollaborationMessagesPerSecond,
+  type BoardInkPreview,
   type BoardPresence,
+  type BoardTransformPreview,
 } from "../../../../src/adapters/board-websocket/public";
 import {
   actorId,
@@ -45,7 +47,16 @@ class FakeSocket extends EventTarget {
   }
 }
 
+function parseSocketMessage(value: string): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(value);
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("Expected a WebSocket object message");
+  }
+  return parsed as Record<string, unknown>;
+}
+
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -162,7 +173,9 @@ describe("Board collaboration WebSocket adapter", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
     });
 
-    expect(revisions).toEqual([8]);
+    await new Promise((resolve) => window.setTimeout(resolve, 35));
+
+    expect(revisions).toEqual([7, 8]);
     expect(participants).toHaveLength(2);
     expect(
       participants.find(({ clientId }) => clientId === "browser:other"),
@@ -255,5 +268,275 @@ describe("Board collaboration WebSocket adapter", () => {
     expect(rateSocket.closeCode).toBe(1008);
     expect(rateSocket.closeReason).toBe("Message rate exceeded");
     rateClient.stop();
+  });
+
+  it("hydrates a room snapshot with safe participant names", async () => {
+    const socket = new FakeSocket();
+    const collaborationTicket = vi.fn().mockResolvedValue({
+      expiresInSeconds: 30,
+      protocolVersion: "1.0",
+      ticket: "ticket:snapshot",
+      websocketPath: "/collaboration",
+    });
+    let participants: readonly BoardPresence[] = [];
+    const client = new BoardCollaborationClient({
+      createClientId: () => "browser:self",
+      createWebSocket: () => socket as unknown as WebSocket,
+      documentId: documentId("document:lesson"),
+      onPresence: (value) => {
+        participants = value;
+      },
+      onRevision: () => undefined,
+      onStatus: () => undefined,
+      origin: "https://tutor.example.test",
+      repository: {
+        collaborationTicket,
+        context: vi.fn().mockResolvedValue({
+          actorId: actorId("actor:tutor"),
+          csrfToken: "csrf",
+          organizationId: "organization:1",
+          role: "tutor",
+        }),
+      } as unknown as BoardPlatformRepository,
+    });
+
+    client.start();
+    await vi.waitFor(() => expect(collaborationTicket).toHaveBeenCalled());
+    socket.receive({
+      participants: [
+        {
+          actorId: "actor:student",
+          clientId: "browser:student",
+          cursor: { x: 4, y: 5 },
+          displayName: "Ученик",
+          protocolVersion: "1.1",
+          role: "student",
+          selectedObjectIds: [],
+          sequence: 3,
+        },
+      ],
+      protocolVersion: "1.1",
+      type: "presence.snapshot",
+    });
+
+    expect(participants).toEqual([
+      expect.objectContaining({
+        clientId: "browser:student",
+        displayName: "Ученик",
+      }),
+    ]);
+    client.stop();
+  });
+
+  it("coalesces local previews and expires relayed ink and transform ghosts", async () => {
+    vi.useFakeTimers();
+    const socket = new FakeSocket();
+    let inkPreviews: readonly BoardInkPreview[] = [];
+    let transformPreviews: readonly BoardTransformPreview[] = [];
+    const client = new BoardCollaborationClient({
+      createClientId: () => "browser:self",
+      createWebSocket: () => socket as unknown as WebSocket,
+      documentId: documentId("document:lesson"),
+      onInkPreviews: (value) => {
+        inkPreviews = value;
+      },
+      onPresence: () => undefined,
+      onRevision: () => undefined,
+      onStatus: () => undefined,
+      onTransformPreviews: (value) => {
+        transformPreviews = value;
+      },
+      origin: "https://tutor.example.test",
+      repository: {
+        collaborationTicket: vi.fn().mockResolvedValue({
+          expiresInSeconds: 30,
+          protocolVersion: "1.1",
+          ticket: "ticket:previews",
+          websocketPath: "/collaboration",
+        }),
+        context: vi.fn().mockResolvedValue({
+          actorId: actorId("actor:tutor"),
+          csrfToken: "csrf",
+          organizationId: "organization:1",
+          role: "tutor",
+        }),
+      } as unknown as BoardPlatformRepository,
+    });
+
+    client.start();
+    await vi.advanceTimersByTimeAsync(0);
+    socket.open();
+    socket.receive({
+      clientId: "browser:self",
+      currentRevision: 0,
+      documentId: "document:lesson",
+      heartbeatSeconds: 20,
+      protocolVersion: "1.1",
+      type: "ready",
+    });
+    client.updateInkPreview({
+      phase: "start",
+      points: [{ x: 1, y: 2 }],
+      previewId: "ink:local",
+      style: { opacity: 0.8, stroke: "#123456", strokeWidth: 3 },
+    });
+    client.updateInkPreview({
+      phase: "update",
+      points: [{ x: 3, y: 4 }],
+      previewId: "ink:local",
+    });
+    client.updateInkPreview({
+      phase: "update",
+      points: [{ x: 5, y: 6 }],
+      previewId: "ink:local",
+    });
+    await vi.advanceTimersByTimeAsync(40);
+    client.updateInkPreview({ phase: "end", previewId: "ink:local" });
+    const sent = socket.sent.map(parseSocketMessage);
+    expect(sent.filter((item) => item.type === "preview.ink")).toEqual([
+      expect.objectContaining({
+        phase: "start",
+        points: [{ x: 1, y: 2 }],
+        sequence: 2,
+      }),
+      expect.objectContaining({
+        phase: "update",
+        points: [
+          { x: 3, y: 4 },
+          { x: 5, y: 6 },
+        ],
+        sequence: 3,
+      }),
+      expect.objectContaining({ phase: "end", sequence: 4 }),
+    ]);
+
+    socket.receive({
+      actorId: "actor:student",
+      clientId: "browser:student",
+      displayName: "Ученик",
+      phase: "start",
+      points: [{ x: 10, y: 20 }],
+      previewId: "ink:remote",
+      protocolVersion: "1.1",
+      sequence: 1,
+      style: { opacity: 1, stroke: "#abcdef", strokeWidth: 4 },
+      type: "preview.ink",
+    });
+    socket.receive({
+      actorId: "actor:student",
+      clientId: "browser:student",
+      displayName: "Ученик",
+      phase: "update",
+      points: [{ x: 11, y: 21 }],
+      previewId: "ink:remote",
+      protocolVersion: "1.1",
+      sequence: 2,
+      type: "preview.ink",
+    });
+    socket.receive({
+      actorId: "actor:student",
+      clientId: "browser:student",
+      displayName: "Ученик",
+      phase: "update",
+      previewId: "transform:remote",
+      protocolVersion: "1.1",
+      sequence: 3,
+      transforms: [
+        {
+          objectId: "object:1",
+          position: { x: 30, y: 40 },
+          rotation: 15,
+          scale: { x: 1.2, y: 0.8 },
+        },
+      ],
+      type: "preview.transform",
+    });
+    expect(inkPreviews[0]?.points).toEqual([
+      { x: 10, y: 20 },
+      { x: 11, y: 21 },
+    ]);
+    expect(transformPreviews[0]?.transforms[0]).toMatchObject({
+      objectId: "object:1",
+      rotation: 15,
+    });
+
+    socket.receive({
+      actorId: "actor:student",
+      clientId: "browser:student",
+      displayName: "Ученик",
+      phase: "end",
+      points: [],
+      previewId: "ink:remote",
+      protocolVersion: "1.1",
+      sequence: 4,
+      type: "preview.ink",
+    });
+    await vi.advanceTimersByTimeAsync(750);
+    expect(inkPreviews).toEqual([]);
+    socket.receive({
+      actorId: "actor:student",
+      clientId: "browser:student",
+      displayName: "Ученик",
+      protocolVersion: "1.1",
+      role: "student",
+      type: "presence.left",
+    });
+    expect(transformPreviews).toEqual([]);
+    client.stop();
+  });
+
+  it("times out a missing heartbeat acknowledgement and reconnects with backoff", async () => {
+    vi.useFakeTimers();
+    const sockets: FakeSocket[] = [];
+    const client = new BoardCollaborationClient({
+      createClientId: () => "browser:self",
+      createWebSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+      documentId: documentId("document:lesson"),
+      onPresence: () => undefined,
+      onRevision: () => undefined,
+      onStatus: () => undefined,
+      origin: "https://tutor.example.test",
+      random: () => 0,
+      repository: {
+        collaborationTicket: vi.fn().mockResolvedValue({
+          expiresInSeconds: 30,
+          protocolVersion: "1.0",
+          ticket: "ticket:heartbeat",
+          websocketPath: "/collaboration",
+        }),
+        context: vi.fn().mockResolvedValue({
+          actorId: actorId("actor:tutor"),
+          csrfToken: "csrf",
+          organizationId: "organization:1",
+          role: "tutor",
+        }),
+      } as unknown as BoardPlatformRepository,
+    });
+
+    client.start();
+    await vi.advanceTimersByTimeAsync(0);
+    const socket = sockets[0]!;
+    socket.open();
+    socket.receive({
+      clientId: "browser:self",
+      currentRevision: 0,
+      documentId: "document:lesson",
+      heartbeatSeconds: 1,
+      protocolVersion: "1.0",
+      type: "ready",
+    });
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(socket.sent).toContain('{"type":"heartbeat"}');
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(socket.closeCode).toBe(4000);
+    expect(socket.closeReason).toBe("Heartbeat acknowledgement timed out");
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(sockets).toHaveLength(2);
+    client.stop();
   });
 });

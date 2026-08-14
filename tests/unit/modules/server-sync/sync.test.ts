@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   actorId,
+  boardObjectId,
   commandId,
   createEmptyBoardDocument,
   reduceBoardDocument,
@@ -13,8 +14,9 @@ import {
   type BoardSessionContext,
   type ConfirmedBoardHead,
   type DocumentId,
-  type OrderedBoardCommandEnvelope,
+  type CurrentOrderedBoardCommandEnvelope,
   type PendingBoardCommand,
+  type PendingBoardCommandConflict,
   type PendingBoardCommandOrderingInput,
   type PendingBoardCommandQueue,
   type PushBoardCommandsResult,
@@ -103,6 +105,7 @@ function batch(
 }
 
 class MemoryQueue implements PendingBoardCommandQueue {
+  conflicts: PendingBoardCommandConflict[] = [];
   head: ConfirmedBoardHead | null = null;
   items: PendingBoardCommand[] = [];
 
@@ -157,6 +160,16 @@ class MemoryQueue implements PendingBoardCommandQueue {
     return Promise.resolve();
   }
 
+  quarantineConflicts(
+    _documentId: DocumentId,
+    conflicts: readonly PendingBoardCommandConflict[],
+  ): Promise<void> {
+    this.conflicts.push(...conflicts);
+    const sequences = new Set(conflicts.map(({ item }) => item.sequence));
+    this.items = this.items.filter(({ sequence }) => !sequences.has(sequence));
+    return Promise.resolve();
+  }
+
   saveHead(head: ConfirmedBoardHead): Promise<void> {
     this.head = head;
     return Promise.resolve();
@@ -187,7 +200,7 @@ class FakeRepository {
   };
   pullPages: BoardCommandPage[] = [];
   pushResults: PushBoardCommandsResult[] = [];
-  readonly pushed: OrderedBoardCommandEnvelope[] = [];
+  readonly pushed: CurrentOrderedBoardCommandEnvelope[] = [];
   readonly snapshots: {
     document: BoardDocument;
     revision: number;
@@ -218,7 +231,7 @@ class FakeRepository {
   }
 
   push(
-    envelope: OrderedBoardCommandEnvelope,
+    envelope: CurrentOrderedBoardCommandEnvelope,
   ): Promise<PushBoardCommandsResult> {
     this.pushed.push(envelope);
     const result = this.pushResults.shift();
@@ -278,7 +291,8 @@ describe("BoardSyncEngine", () => {
           order: { baseRevisionAtCreation: 0, lamport: 1 },
         },
       ],
-      schemaVersion: "1.4",
+      originId: "origin:legacy-client",
+      schemaVersion: "1.5",
     });
     expect(queue.items).toEqual([]);
     expect(queue.head).toMatchObject({
@@ -361,6 +375,69 @@ describe("BoardSyncEngine", () => {
     expect(queue.head).toMatchObject({
       document: { title: "Local" },
       revision: 2,
+    });
+  });
+
+  it("quarantines an irreconcilable offline command and continues with independent work", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const queue = new MemoryQueue();
+    queue.items = [
+      {
+        command: {
+          actorId: expectedActorId,
+          id: commandId("command:delete-already-removed"),
+          kind: "core.objects.delete",
+          objectIds: [boardObjectId("object:already-removed")],
+          timestamp: "2026-07-28T18:01:00.000Z",
+        },
+        documentId: expectedDocumentId,
+        idempotencyKey: "client:conflict",
+        order: { baseRevisionAtCreation: 0, lamport: 1 },
+        sequence: 1,
+      },
+      {
+        command: rename(
+          "command:independent-rename",
+          "2026-07-28T18:02:00.000Z",
+          "Independent work",
+        ),
+        documentId: expectedDocumentId,
+        idempotencyKey: "client:independent",
+        order: { baseRevisionAtCreation: 0, lamport: 2 },
+        sequence: 2,
+      },
+    ];
+    const repository = new FakeRepository();
+    const states: BoardSyncState[] = [];
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => "unused",
+      documentId: expectedDocumentId,
+      lessonId: "lesson:1",
+      now: () => "2026-07-28T18:03:00.000Z",
+      onStateChange: (state) => states.push(state),
+      queue,
+      repository,
+    });
+
+    await engine.bootstrap();
+
+    expect(queue.conflicts).toHaveLength(1);
+    expect(queue.conflicts[0]).toMatchObject({
+      item: { idempotencyKey: "client:conflict", sequence: 1 },
+    });
+    expect(queue.conflicts[0]?.message).toContain("конфликтует");
+    expect(queue.items).toEqual([]);
+    expect(repository.pushed).toHaveLength(1);
+    expect(repository.pushed[0]).toMatchObject({
+      idempotencyKey: "client:independent",
+      schemaVersion: "1.5",
+    });
+    expect(states.at(-1)).toMatchObject({
+      document: { title: "Independent work" },
+      kind: "ready",
+      pendingCount: 0,
+      quarantinedCount: 1,
+      revision: 1,
     });
   });
 
