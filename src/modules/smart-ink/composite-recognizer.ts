@@ -1,3 +1,4 @@
+import { createVectorInkDataFromPoints } from "../../core/public";
 import type {
   BoardObject,
   EllipseObject,
@@ -11,6 +12,7 @@ export const smartInkCompositeRecognizerVersion =
   "tutorboard.smart-ink-composite/1.0" as const;
 
 export type SmartInkCompositeKind =
+  | "arrow"
   | "inscribed-triangle"
   | "inscribed-quadrilateral"
   | "circumscribed-triangle"
@@ -44,6 +46,7 @@ interface Segment {
 }
 
 const labels: Readonly<Record<SmartInkCompositeKind, string>> = {
+  arrow: "Стрелка",
   "circumscribed-quadrilateral": "Окружность, вписанная в четырёхугольник",
   "circumscribed-triangle": "Окружность, вписанная в треугольник",
   cone: "Конус",
@@ -412,6 +415,99 @@ function sharedEndpoint(
   return null;
 }
 
+function dot(left: Vec2, right: Vec2): number {
+  return left.x * right.x + left.y * right.y;
+}
+
+function recognizeMultiLineArrow(
+  objects: readonly BoardObject[],
+): SmartInkCompositeProposal | null {
+  if (objects.length !== 3) return null;
+  const segments = objects
+    .map(lineSegment)
+    .filter((value): value is Segment => value !== null);
+  if (segments.length !== 3) return null;
+  const lengths = segments.map((segment) =>
+    distance(segment.start, segment.end),
+  );
+  const shaftIndex = lengths.indexOf(Math.max(...lengths));
+  const shaft = segments[shaftIndex];
+  if (shaft === undefined) return null;
+  const shaftLength = lengths[shaftIndex] ?? 0;
+  if (shaftLength < 16) return null;
+  const wings = segments.filter((_, index) => index !== shaftIndex);
+  if (wings.length !== 2) return null;
+
+  for (const reverse of [false, true]) {
+    const start = reverse ? shaft.end : shaft.start;
+    const tip = reverse ? shaft.start : shaft.end;
+    const shaftVector = subtract(tip, start);
+    const tolerance = Math.max(8, shaftLength * 0.16);
+    const endpoints: Vec2[] = [];
+    let symmetryMinimum = Number.POSITIVE_INFINITY;
+    let symmetryMaximum = 0;
+    let valid = true;
+    const sides: number[] = [];
+    for (const wing of wings) {
+      const startDistance = distance(wing.start, tip);
+      const endDistance = distance(wing.end, tip);
+      const attached = startDistance <= endDistance ? wing.start : wing.end;
+      const outer = startDistance <= endDistance ? wing.end : wing.start;
+      const attachmentDistance = Math.min(startDistance, endDistance);
+      const wingLength = distance(attached, outer);
+      if (
+        attachmentDistance > tolerance ||
+        wingLength < shaftLength * 0.1 ||
+        wingLength > shaftLength * 0.52
+      ) {
+        valid = false;
+        break;
+      }
+      const wingVector = subtract(outer, tip);
+      const normalizedBackward =
+        -dot(shaftVector, wingVector) /
+        Math.max(1e-9, shaftLength * wingLength);
+      if (normalizedBackward < 0.42) {
+        valid = false;
+        break;
+      }
+      sides.push(shaftVector.x * wingVector.y - shaftVector.y * wingVector.x);
+      symmetryMinimum = Math.min(symmetryMinimum, wingLength);
+      symmetryMaximum = Math.max(symmetryMaximum, wingLength);
+      endpoints.push(outer);
+    }
+    if (!valid || endpoints.length !== 2 || sides[0]! * sides[1]! >= 0)
+      continue;
+    const symmetry = symmetryMinimum / Math.max(1e-9, symmetryMaximum);
+    if (symmetry < 0.48) continue;
+    const localTip = subtract(tip, start);
+    const localLeft = subtract(endpoints[0]!, start);
+    const localRight = subtract(endpoints[1]!, start);
+    const points = [{ x: 0, y: 0 }, localTip, localLeft, localTip, localRight];
+    const replacement: PenStrokeObject = {
+      groupId: null,
+      id: shaft.object.id,
+      ink: createVectorInkDataFromPoints(points),
+      kind: "drawing.pen-stroke",
+      locked: false,
+      points,
+      position: start,
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      source: { kind: "user" },
+      style: shaft.object.style,
+      visible: shaft.object.visible,
+    };
+    return proposal(
+      "arrow",
+      objects,
+      [replacement],
+      Math.min(0.99, 0.82 + symmetry * 0.14),
+    );
+  }
+  return null;
+}
+
 function recognizeCone(
   objects: readonly BoardObject[],
 ): SmartInkCompositeProposal | null {
@@ -710,6 +806,7 @@ function recognizePyramid(
 }
 
 const recognizers = [
+  recognizeMultiLineArrow,
   recognizeBox,
   recognizeTriangularPrism,
   recognizePyramid,
