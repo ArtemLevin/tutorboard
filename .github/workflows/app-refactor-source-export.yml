@@ -32,13 +32,63 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Assemble and verify staged refactor
+      - name: Restore verified staged refactor
+        env:
+          SOURCE_COMMIT: bf9354437a7654d3d59a2bdf12c7f5ba10f95a2a
         run: |
-          cat .github/refactor-payload/* > /tmp/refactor-files.b64
+          git fetch --no-tags --depth=1 origin "$SOURCE_COMMIT"
+          : > /tmp/refactor-files.b64
+          for chunk in 00 01 02 03 04; do
+            git show "${SOURCE_COMMIT}:.github/refactor-payload/${chunk}" >> /tmp/refactor-files.b64
+          done
           test "$(wc -c < /tmp/refactor-files.b64)" -eq 45108
           echo "8ade07f653b8ae6d5a2eea5b669c2e61663e49e67d60b0b9f03edb40a7d181e1  /tmp/refactor-files.b64" | sha256sum --check
           base64 --decode /tmp/refactor-files.b64 | tar -xzf -
-          rm .github/app-refactor-files.b64
+
+      - name: Apply derived-state lint corrections
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          app = Path("src/app/App.tsx")
+          source = app.read_text()
+          source = source.replace(
+              """  const selectionInspectorOpen =\n    plots.editor === null &&\n    selectionInspectorObjectId !== null &&\n    selection.state.selectedObjectIds.includes(selectionInspectorObjectId);\n""",
+              """  const selectionInspectorOpen =\n    plots.editor === null &&\n    selectionInspectorObjectId !== null &&\n    Object.hasOwn(document.objects, selectionInspectorObjectId) &&\n    selection.state.selectedObjectIds.includes(selectionInspectorObjectId);\n""",
+          )
+          stale_inspector_effect = """\n  useEffect(() => {\n    if (\n      selectionInspectorObjectId !== null &&\n      (!Object.hasOwn(document.objects, selectionInspectorObjectId) ||\n        !selection.state.selectedObjectIds.includes(selectionInspectorObjectId))\n    ) {\n      setSelectionInspectorObjectId(null);\n    }\n  }, [\n    document.objects,\n    selectionInspectorObjectId,\n    selection.state.selectedObjectIds,\n  ]);\n"""
+          if stale_inspector_effect not in source:
+              raise SystemExit("selection inspector effect not found")
+          app.write_text(source.replace(stale_inspector_effect, "\n"))
+
+          geometry = Path("src/app/board/controllers/useBoardGeometryController.ts")
+          source = geometry.read_text()
+          stale_vertex_effect = """\n  useEffect(() => {\n    if (\n      vertexObjectId !== null &&\n      inspectTextShapeVertex(document, vertexObjectId) === null\n    ) {\n      setVertexObjectId(null);\n    }\n  }, [document, vertexObjectId]);\n"""
+          if stale_vertex_effect not in source:
+              raise SystemExit("stale vertex effect not found")
+          source = source.replace(stale_vertex_effect, "\n")
+          source = source.replace(
+              """  const selectedVertex = useMemo(\n    () =>\n      vertexObjectId === null\n        ? null\n        : inspectTextShapeVertex(document, vertexObjectId),\n    [document, vertexObjectId],\n  );\n""",
+              """  const selectedVertex = useMemo(\n    () =>\n      vertexObjectId === null\n        ? null\n        : inspectTextShapeVertex(document, vertexObjectId),\n    [document, vertexObjectId],\n  );\n  const effectiveVertexObjectId = selectedVertex?.vertexObjectId ?? null;\n""",
+          )
+          source = source.replace(
+              """    (kind: VertexConstructionKind) => {\n      if (vertexObjectId === null) return;\n      const command = createVertexConstructionCommand({\n        document: getDocument(),\n        kind,\n        metadata: createCommandMetadata(),\n        token: crypto.randomUUID(),\n        vertexObjectId,\n      });\n""",
+              """    (kind: VertexConstructionKind) => {\n      if (effectiveVertexObjectId === null) return;\n      const command = createVertexConstructionCommand({\n        document: getDocument(),\n        kind,\n        metadata: createCommandMetadata(),\n        token: crypto.randomUUID(),\n        vertexObjectId: effectiveVertexObjectId,\n      });\n""",
+          )
+          source = source.replace(
+              """    [announce, commitCommand, createCommandMetadata, getDocument, vertexObjectId],\n""",
+              """    [\n      announce,\n      commitCommand,\n      createCommandMetadata,\n      effectiveVertexObjectId,\n      getDocument,\n    ],\n""",
+          )
+          source = source.replace(
+              """    vertexObjectId,\n  } as const;\n""",
+              """    vertexObjectId: effectiveVertexObjectId,\n  } as const;\n""",
+          )
+          geometry.write_text(source)
+          PY
+
+      - name: Remove temporary staging transport
+        run: |
+          rm -f .github/app-refactor-files.b64
           rm -rf .github/refactor-payload
           rm .github/workflows/app-refactor-source-export.yml
 
