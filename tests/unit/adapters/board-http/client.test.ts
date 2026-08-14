@@ -156,6 +156,48 @@ describe("Board HTTP repository", () => {
     expect(recovery.snapshot?.document.id).toBe(snapshotFixture.documentId);
   });
 
+  it("accepts an empty digest only for a pristine revision-zero board", async () => {
+    const initialBoard = {
+      archivedAt: null,
+      createdAt: "2026-07-28T18:00:00.000Z",
+      currentDocumentSha256: "",
+      currentRevision: 0,
+      documentId: envelope.documentId,
+      lastSnapshotRevision: 0,
+      lessonId: "lesson:1",
+      schemaVersion: "1.0",
+      snapshotDue: false,
+      studentId: "student:1",
+      updatedAt: "2026-07-28T18:00:00.000Z",
+    };
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          board: initialBoard,
+          commandBatches: [],
+          snapshot: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          board: { ...initialBoard, currentRevision: 1 },
+          commandBatches: [],
+          snapshot: null,
+        }),
+      );
+    const repository = createBoardHttpRepository({
+      fetch: request,
+      origin: "https://tutor.example.test",
+    });
+
+    const recovery = await repository.load(envelope.documentId);
+    expect(recovery.board.currentDocumentSha256).toBe("");
+    await expect(repository.load(envelope.documentId)).rejects.toMatchObject({
+      code: "board.http.invalid-recovery",
+    } satisfies Partial<BoardHttpError>);
+  });
+
   it("rejects a cross-origin API configuration and classifies transport errors", async () => {
     expect(() =>
       createBoardHttpRepository({

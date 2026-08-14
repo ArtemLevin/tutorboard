@@ -24,7 +24,7 @@ const boardDescriptorSchema = z
   .object({
     archivedAt: z.string().min(1).max(64).nullable().optional(),
     createdAt: z.string().min(1).max(64).optional(),
-    currentDocumentSha256: sha256Schema,
+    currentDocumentSha256: z.union([sha256Schema, z.literal("")]),
     currentRevision: z.number().int().nonnegative(),
     documentId: identifierSchema,
     lastSnapshotRevision: z.number().int().nonnegative(),
@@ -34,7 +34,20 @@ const boardDescriptorSchema = z
     studentId: identifierSchema,
     updatedAt: z.string().min(1).max(64).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((descriptor, context) => {
+    if (
+      descriptor.currentDocumentSha256 === "" &&
+      descriptor.currentRevision !== 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Only a pristine revision-zero board may omit its document digest.",
+        path: ["currentDocumentSha256"],
+      });
+    }
+  });
 const envelopeBase = {
   actorId: identifierSchema,
   baseRevision: z.number().int().nonnegative(),
