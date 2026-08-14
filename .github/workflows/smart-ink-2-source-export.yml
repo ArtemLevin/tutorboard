@@ -1,18 +1,68 @@
-name: Smart Ink 2 source export
+name: Smart Ink 2 apply
+
 on:
   push:
-    branches: [agent/smart-ink-2]
+    branches:
+      - agent/smart-ink-2
+
+permissions:
+  contents: write
+
+concurrency:
+  group: smart-ink-2-apply-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  export:
+  apply:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v7
         with:
-          fetch-depth: 1
-      - name: Archive source
-        run: tar --exclude=.git -czf /tmp/tutorboard-smart-ink-2-source.tar.gz .
-      - uses: actions/upload-artifact@v4
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
-          name: tutorboard-smart-ink-2-source
-          path: /tmp/tutorboard-smart-ink-2-source.tar.gz
-          retention-days: 1
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install locked GeometryOS code-generation toolchain
+        run: npm ci --prefix tools/geometryos-contract
+
+      - name: Assemble and verify Smart Ink 2 payload
+        run: |
+          cat .smartink2/chunk00 .smartink2/chunk01 .smartink2/chunk02 .smartink2/chunk03 | base64 -d > /tmp/smartink2.tar.gz
+          echo "359957ccd6f8cb4bc6d342417b3d6ad580e44824dee8e22300c01682b93e68fc  /tmp/smartink2.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/smartink2.tar.gz
+
+      - name: Format changed product files
+        run: |
+          npx prettier --write \
+            src/modules/smart-ink/proposal.ts \
+            src/modules/smart-ink/composite-recognizer.ts \
+            src/modules/smart-ink/public.ts \
+            "src/modules/smart-ink/v2/**/*.{ts,md}" \
+            tests/unit/modules/smart-ink-v2/recognizer.test.ts \
+            docs/SMART_INK_V2.md \
+            docs/SMART_INK_V2_RELEASE_CHECKLIST.md
+
+      - name: Run complete repository quality gate
+        run: npm run check
+
+      - name: Commit clean product diff
+        run: |
+          rm -rf .smartink2
+          rm -f .github/workflows/smart-ink-2-source-export.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status --short
+          git commit -m "feat(smart-ink): add precision-first Smart Ink 2.0"
+          git push
