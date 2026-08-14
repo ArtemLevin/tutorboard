@@ -67,9 +67,23 @@ const orderedEnvelopeSchema = z
     schemaVersion: z.enum(["1.3", "1.4"]),
   })
   .strict();
+const currentOrderedEnvelopeSchema = z
+  .object({
+    ...envelopeBase,
+    commands: z
+      .array(
+        z.object({ command: z.unknown(), order: commandOrderSchema }).strict(),
+      )
+      .min(1)
+      .max(100),
+    originId: identifierSchema,
+    schemaVersion: z.literal("1.5"),
+  })
+  .strict();
 const envelopeSchema = z.discriminatedUnion("schemaVersion", [
   legacyEnvelopeSchema,
   orderedEnvelopeSchema,
+  currentOrderedEnvelopeSchema,
 ]);
 const commandBatchSchema = z
   .object({
@@ -133,7 +147,7 @@ const evidenceSchema = z
 const collaborationTicketSchema = z
   .object({
     expiresInSeconds: z.number().int().positive().max(120),
-    protocolVersion: z.literal("1.0"),
+    protocolVersion: z.enum(["1.0", "1.1"]),
     ticket: z.string().min(1).max(256),
     websocketPath: z.string().startsWith("/").max(512),
   })
@@ -241,7 +255,8 @@ function parseBatch(value: unknown): ServerBoardCommandBatch {
   return {
     ...parsed.data,
     envelope: (envelope.schemaVersion === "1.3" ||
-    envelope.schemaVersion === "1.4"
+    envelope.schemaVersion === "1.4" ||
+    envelope.schemaVersion === "1.5"
       ? {
           ...envelope,
           actorId: actorId(envelope.actorId),

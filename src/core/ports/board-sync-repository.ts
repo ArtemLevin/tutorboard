@@ -45,11 +45,14 @@ export type CurrentOrderedBoardCommandEnvelope = Omit<
   OrderedBoardCommandEnvelope,
   "schemaVersion"
 > & {
-  readonly schemaVersion: "1.4";
+  readonly originId: string;
+  readonly schemaVersion: "1.5";
 };
 
 export type BoardCommandEnvelope =
-  LegacyBoardCommandEnvelope | OrderedBoardCommandEnvelope;
+  | LegacyBoardCommandEnvelope
+  | OrderedBoardCommandEnvelope
+  | CurrentOrderedBoardCommandEnvelope;
 
 export interface ServerBoardCommandBatch {
   readonly actorUserId: string | null;
@@ -109,7 +112,7 @@ export interface BoardTranscriptLink {
 
 export interface BoardCollaborationTicket {
   readonly expiresInSeconds: number;
-  readonly protocolVersion: "1.0";
+  readonly protocolVersion: "1.0" | "1.1";
   readonly ticket: string;
   readonly websocketPath: string;
 }
@@ -242,6 +245,11 @@ export interface PendingBoardCommandOrderingInput {
   readonly observedLamport?: number;
 }
 
+export interface PendingBoardCommandConflict {
+  readonly item: PendingBoardCommand;
+  readonly message: string;
+}
+
 export interface ConfirmedBoardHead {
   readonly document: BoardDocument;
   readonly documentId: DocumentId;
@@ -273,6 +281,10 @@ export interface PendingBoardCommandQueue {
     documentId: DocumentId,
     commands: readonly PendingBoardCommand[],
     knownSequences: readonly number[],
+  ) => Promise<void>;
+  readonly quarantineConflicts?: (
+    documentId: DocumentId,
+    conflicts: readonly PendingBoardCommandConflict[],
   ) => Promise<void>;
   readonly saveHead: (head: ConfirmedBoardHead) => Promise<void>;
 }

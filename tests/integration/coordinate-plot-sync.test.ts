@@ -15,7 +15,7 @@ import {
   type BoardSyncRepository,
   type ConfirmedBoardHead,
   type DocumentId,
-  type OrderedBoardCommandEnvelope,
+  type CurrentOrderedBoardCommandEnvelope,
   type PendingBoardCommand,
   type PendingBoardCommandOrderingInput,
   type PendingBoardCommandQueue,
@@ -101,7 +101,7 @@ class MemoryQueue implements PendingBoardCommandQueue {
 
 class MemorySyncRepository implements BoardSyncRepository {
   readonly batches: ServerBoardCommandBatch[] = [];
-  readonly pushed: OrderedBoardCommandEnvelope[] = [];
+  readonly pushed: CurrentOrderedBoardCommandEnvelope[] = [];
   readonly contextValue: BoardSessionContext = {
     actorId: actorId("actor:plot-release"),
     csrfToken: "csrf-release",
@@ -176,7 +176,7 @@ class MemorySyncRepository implements BoardSyncRepository {
   }
 
   push(
-    envelope: OrderedBoardCommandEnvelope,
+    envelope: CurrentOrderedBoardCommandEnvelope,
     csrfToken: string,
   ): Promise<PushBoardCommandsResult> {
     expect(csrfToken).toBe(this.contextValue.csrfToken);
@@ -357,7 +357,7 @@ describe("coordinate plot server synchronization production lifecycle", () => {
     expect(
       repository.pushed.every(
         ({ expectedDocumentSha256, schemaVersion }) =>
-          expectedDocumentSha256.length === 64 && schemaVersion === "1.4",
+          expectedDocumentSha256.length === 64 && schemaVersion === "1.5",
       ),
     ).toBe(true);
 

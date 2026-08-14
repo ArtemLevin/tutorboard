@@ -55,6 +55,13 @@ export type { AppPersistenceStatus } from "./board/types";
 const environment = readEnvironment();
 const localActorId = actorId("actor:local-teacher");
 
+interface AppBoardTransformSnapshot {
+  readonly objectId: string;
+  readonly position: Vec2;
+  readonly rotation: number;
+  readonly scale: Vec2;
+}
+
 export interface AppProps {
   readonly commandActorId?: ActorId;
   readonly geometryOsClient?: GeometryOsClient | undefined;
@@ -90,6 +97,21 @@ export interface AppProps {
       readonly zoom: number;
     };
   }) => void;
+  readonly onInkPreviewChange?: (preview: {
+    readonly phase: "cancel" | "end" | "start" | "update";
+    readonly points?: readonly Vec2[];
+    readonly previewId: string;
+    readonly style?: {
+      readonly opacity: number;
+      readonly stroke: string;
+      readonly strokeWidth: number;
+    };
+  }) => void;
+  readonly onTransformPreviewChange?: (preview: {
+    readonly phase: "end" | "update";
+    readonly previewId: string;
+    readonly transforms?: readonly AppBoardTransformSnapshot[];
+  }) => void;
   readonly onRetryPersistence?: () => void;
   readonly persistenceNotice?: string | null;
   readonly persistenceStatus?: AppPersistenceStatus;
@@ -98,6 +120,30 @@ export interface AppProps {
   readonly remoteCursors?: readonly {
     readonly actorId: string;
     readonly point: { readonly x: number; readonly y: number };
+  }[];
+  readonly remoteInkPreviews?: readonly {
+    readonly actorId: string;
+    readonly clientId: string;
+    readonly displayName: string;
+    readonly points: readonly Vec2[];
+    readonly previewId: string;
+    readonly style: {
+      readonly opacity: number;
+      readonly stroke: string;
+      readonly strokeWidth: number;
+    };
+  }[];
+  readonly remoteTransformPreviews?: readonly {
+    readonly actorId: string;
+    readonly clientId: string;
+    readonly displayName: string;
+    readonly previewId: string;
+    readonly transforms: readonly {
+      readonly objectId: string;
+      readonly position: Vec2;
+      readonly rotation: number;
+      readonly scale: Vec2;
+    }[];
   }[];
 }
 
@@ -129,19 +175,26 @@ export function App({
   onExportDiagnostics,
   onImportDocument,
   onShareBoard,
+  onInkPreviewChange,
   onPresenceChange,
+  onTransformPreviewChange,
   onRetryPersistence,
   persistenceNotice = null,
   persistenceStatus = { kind: "idle", label: "Локальное сохранение" },
   readOnly = false,
   settingsExtra,
   remoteCursors = [],
+  remoteInkPreviews = [],
+  remoteTransformPreviews = [],
 }: AppProps = {}) {
+  const [localInitialDocument] = useState(
+    () => initialDocument ?? createInitialDocument(),
+  );
   const documentController = useBoardDocumentController({
     collaborativeUndoAvailable,
     commandActorId,
     historyEnabled,
-    initialDocument: initialDocument ?? createInitialDocument(),
+    initialDocument: initialDocument ?? localInitialDocument,
     onCollaborativeUndo,
     onCommandCommitted,
     onDocumentChange,
@@ -162,6 +215,18 @@ export function App({
   const shortcutsDialogRef = useRef<HTMLElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
   const lastPointerWorldRef = useRef<Vec2 | null>(null);
+  const localInkPreviewRef = useRef<{
+    readonly pointCount: number;
+    readonly previewId: string;
+  } | null>(null);
+  const localTransformPreviewIdRef = useRef<string | null>(null);
+  const onInkPreviewChangeRef = useRef(onInkPreviewChange);
+  const onTransformPreviewChangeRef = useRef(onTransformPreviewChange);
+
+  useEffect(() => {
+    onInkPreviewChangeRef.current = onInkPreviewChange;
+    onTransformPreviewChangeRef.current = onTransformPreviewChange;
+  }, [onInkPreviewChange, onTransformPreviewChange]);
 
   const announce = useCallback((message: string) => {
     setAccessibilityNotice(message);
@@ -214,6 +279,124 @@ export function App({
     documentController,
     onTextInserted: handleTextInserted,
   });
+
+  useEffect(() => {
+    const current = drawing.state;
+    const previous = localInkPreviewRef.current;
+    if (current.kind !== "drawing-pen") {
+      if (previous !== null) {
+        onInkPreviewChangeRef.current?.({
+          phase: "end",
+          previewId: previous.previewId,
+        });
+        localInkPreviewRef.current = null;
+      }
+      return;
+    }
+    const previewId = current.objectId;
+    const points = current.samples.map(({ point }) => point);
+    if (previous === null || previous.previewId !== previewId) {
+      if (previous !== null) {
+        onInkPreviewChangeRef.current?.({
+          phase: "cancel",
+          previewId: previous.previewId,
+        });
+      }
+      onInkPreviewChangeRef.current?.({
+        phase: "start",
+        points: points.slice(-64),
+        previewId,
+        style: {
+          opacity: current.style.opacity,
+          stroke: current.style.stroke ?? "#202020",
+          strokeWidth: current.style.strokeWidth,
+        },
+      });
+    } else if (points.length > previous.pointCount) {
+      onInkPreviewChangeRef.current?.({
+        phase: "update",
+        points: points.slice(previous.pointCount),
+        previewId,
+      });
+    }
+    localInkPreviewRef.current = {
+      pointCount: points.length,
+      previewId,
+    };
+  }, [drawing.state]);
+
+  useEffect(
+    () => () => {
+      const ink = localInkPreviewRef.current;
+      if (ink !== null) {
+        onInkPreviewChangeRef.current?.({
+          phase: "cancel",
+          previewId: ink.previewId,
+        });
+      }
+      const transformId = localTransformPreviewIdRef.current;
+      if (transformId !== null) {
+        onTransformPreviewChangeRef.current?.({
+          phase: "end",
+          previewId: transformId,
+        });
+      }
+    },
+    [],
+  );
+
+  const publishTransformPreview = useCallback(
+    (transforms: readonly AppBoardTransformSnapshot[] | null) => {
+      if (transforms !== null && transforms.length > 0) {
+        const previewId =
+          localTransformPreviewIdRef.current ??
+          `transform:${crypto.randomUUID()}`;
+        localTransformPreviewIdRef.current = previewId;
+        onTransformPreviewChangeRef.current?.({
+          phase: "update",
+          previewId,
+          transforms,
+        });
+        return;
+      }
+      const previewId = localTransformPreviewIdRef.current;
+      if (previewId !== null) {
+        onTransformPreviewChangeRef.current?.({ phase: "end", previewId });
+        localTransformPreviewIdRef.current = null;
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const delta = selection.previewDelta;
+    if (delta === null) {
+      publishTransformPreview(null);
+      return;
+    }
+    publishTransformPreview(
+      selection.state.selectedObjectIds.flatMap((objectId) => {
+        const object = document.objects[objectId];
+        if (object === undefined) return [];
+        return [
+          {
+            objectId,
+            position: {
+              x: object.position.x + delta.x,
+              y: object.position.y + delta.y,
+            },
+            rotation: object.rotation,
+            scale: object.scale,
+          },
+        ];
+      }),
+    );
+  }, [
+    document.objects,
+    publishTransformPreview,
+    selection.previewDelta,
+    selection.state.selectedObjectIds,
+  ]);
 
   const handleObjectsInserted = useCallback(
     (objectIds: readonly BoardObjectId[]) => {
@@ -436,10 +619,13 @@ export function App({
           onInspectorClose={() => setSelectionInspectorObjectId(null)}
           onObjectSettingsRequest={requestObjectSettings}
           onPointerHover={handlePointerHover}
+          onTransformPreviewChange={publishTransformPreview}
           onViewportCommit={commitViewport}
           plots={plots}
           readOnly={readOnly}
           remoteCursors={remoteCursors}
+          remoteInkPreviews={remoteInkPreviews}
+          remoteTransformPreviews={remoteTransformPreviews}
           scene={scene}
           selection={selection}
           solid3D={solid3D}

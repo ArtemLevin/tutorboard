@@ -22,6 +22,7 @@ function ready(
     kind: "ready",
     network: "online",
     pendingCount: 0,
+    quarantinedCount: 0,
     revision: 4,
     role: "tutor",
     ...overrides,
@@ -32,6 +33,9 @@ describe("board evidence finalization guard", () => {
   it("allows only an exact online head without pending commands", () => {
     expect(canFinalizeBoardEvidence(ready())).toBe(true);
     expect(canFinalizeBoardEvidence(ready({ pendingCount: 1 }))).toBe(false);
+    expect(canFinalizeBoardEvidence(ready({ quarantinedCount: 1 }))).toBe(
+      false,
+    );
     expect(canFinalizeBoardEvidence(ready({ network: "offline" }))).toBe(false);
     expect(canFinalizeBoardEvidence(ready({ role: "student" }))).toBe(false);
     expect(canFinalizeBoardEvidence({ kind: "bootstrapping" })).toBe(false);
