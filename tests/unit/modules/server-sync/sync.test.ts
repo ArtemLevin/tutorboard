@@ -567,12 +567,36 @@ describe("BoardSyncEngine", () => {
       },
     };
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
-    await engine.synchronize();
+    await engine.setNetworkAvailable(true);
     expect(states.at(-1)).toMatchObject({
       document: { title: "Offline" },
       kind: "ready",
       pendingCount: 0,
       revision: 4,
+    });
+  });
+
+  it("reports browser connectivity changes immediately", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const repository = new FakeRepository();
+    const states: BoardSyncState[] = [];
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => "unused",
+      documentId: expectedDocumentId,
+      lessonId: "lesson:1",
+      now: () => "2026-07-28T18:02:00.000Z",
+      onStateChange: (state) => states.push(state),
+      queue: new MemoryQueue(),
+      repository,
+    });
+    await engine.bootstrap();
+
+    await engine.setNetworkAvailable(false);
+
+    expect(states.at(-1)).toMatchObject({
+      kind: "ready",
+      network: "offline",
+      revision: 0,
     });
   });
 

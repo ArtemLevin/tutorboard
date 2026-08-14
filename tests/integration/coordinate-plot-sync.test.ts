@@ -255,6 +255,7 @@ describe("coordinate plot server synchronization production lifecycle", () => {
     const states: BoardSyncState[] = [];
     let idempotencyIndex = 0;
     let nowIndex = 0;
+    setOnline(true);
     const engine = new BoardSyncEngine({
       createIdempotencyKey: () => `release-key:${++idempotencyIndex}`,
       documentId: activeDocumentId,
@@ -265,7 +266,6 @@ describe("coordinate plot server synchronization production lifecycle", () => {
       repository,
     });
 
-    setOnline(true);
     await engine.bootstrap();
     expect(states.at(-1)).toMatchObject({
       kind: "ready",
@@ -287,6 +287,7 @@ describe("coordinate plot server synchronization production lifecycle", () => {
     const afterAdd = apply(base, add);
 
     setOnline(false);
+    await engine.setNetworkAvailable(false);
     await engine.queue(add, afterAdd);
     expect(states.at(-1)).toMatchObject({
       kind: "ready",
@@ -297,7 +298,7 @@ describe("coordinate plot server synchronization production lifecycle", () => {
     expect(queue.items).toHaveLength(1);
 
     setOnline(true);
-    await engine.synchronize();
+    await engine.setNetworkAvailable(true);
     expect(states.at(-1)).toMatchObject({
       kind: "ready",
       network: "online",

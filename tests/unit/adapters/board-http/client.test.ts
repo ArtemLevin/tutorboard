@@ -127,6 +127,45 @@ describe("Board HTTP repository", () => {
     });
   });
 
+  it("accepts ordering metadata on a remotely committed batch", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        currentRevision: 1,
+        documentId: envelope.documentId,
+        hasMore: false,
+        items: [
+          {
+            actorUserId: "user:tutor",
+            baseRevision: 0,
+            createdAt: "2026-07-28T18:00:00.000Z",
+            envelope,
+            idempotencyKey: envelope.idempotencyKey,
+            lamportMax: 1,
+            lamportMin: 1,
+            payloadSha256:
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            revision: 1,
+            schemaVersion: "1.5",
+          },
+        ],
+      }),
+    );
+    const repository = createBoardHttpRepository({
+      fetch: request,
+      origin: "https://tutor.example.test",
+    });
+
+    const page = await repository.pull(envelope.documentId, 0);
+
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({
+      baseRevision: 0,
+      lamportMax: 1,
+      lamportMin: 1,
+      revision: 1,
+    });
+  });
+
   it("loads the canonical snapshot contract including createdAt", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({
@@ -154,6 +193,48 @@ describe("Board HTTP repository", () => {
 
     expect(recovery.snapshot?.createdAt).toBe(snapshotFixture.createdAt);
     expect(recovery.snapshot?.document.id).toBe(snapshotFixture.documentId);
+  });
+
+  it("accepts an empty digest only for a pristine revision-zero board", async () => {
+    const initialBoard = {
+      archivedAt: null,
+      createdAt: "2026-07-28T18:00:00.000Z",
+      currentDocumentSha256: "",
+      currentRevision: 0,
+      documentId: envelope.documentId,
+      lastSnapshotRevision: 0,
+      lessonId: "lesson:1",
+      schemaVersion: "1.0",
+      snapshotDue: false,
+      studentId: "student:1",
+      updatedAt: "2026-07-28T18:00:00.000Z",
+    };
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          board: initialBoard,
+          commandBatches: [],
+          snapshot: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          board: { ...initialBoard, currentRevision: 1 },
+          commandBatches: [],
+          snapshot: null,
+        }),
+      );
+    const repository = createBoardHttpRepository({
+      fetch: request,
+      origin: "https://tutor.example.test",
+    });
+
+    const recovery = await repository.load(envelope.documentId);
+    expect(recovery.board.currentDocumentSha256).toBe("");
+    await expect(repository.load(envelope.documentId)).rejects.toMatchObject({
+      code: "board.http.invalid-recovery",
+    } satisfies Partial<BoardHttpError>);
   });
 
   it("rejects a cross-origin API configuration and classifies transport errors", async () => {

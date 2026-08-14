@@ -82,12 +82,26 @@ const viewport = strictObject({
   offset: reference("Vec2"),
   zoom: positiveNumber,
 });
-const objectStyle = strictObject({
-  fill: { type: ["string", "null"], maxLength: 256 },
-  opacity: { maximum: 1, minimum: 0, type: "number" },
-  stroke: { type: ["string", "null"], maxLength: 256 },
-  strokeWidth: { minimum: 0, type: "number" },
-});
+const strokeStyles = [
+  "thin",
+  "thick",
+  "dashed",
+  "dash-dot",
+  "wavy",
+  "hand-pencil",
+  "hand-pen",
+  "marker",
+];
+const objectStyle = strictObject(
+  {
+    fill: { type: ["string", "null"], maxLength: 256 },
+    opacity: { maximum: 1, minimum: 0, type: "number" },
+    stroke: { type: ["string", "null"], maxLength: 256 },
+    strokeWidth: { minimum: 0, type: "number" },
+    strokeStyle: { enum: strokeStyles },
+  },
+  ["fill", "opacity", "stroke", "strokeWidth"],
+);
 const userSource = strictObject({ kind: { const: "user" } });
 const geometryOsSource = strictObject({
   girEntityId: { maxLength: 256, minLength: 1, type: "string" },

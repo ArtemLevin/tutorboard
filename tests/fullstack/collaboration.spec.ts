@@ -1,7 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 const lessonId = "20000000-0000-4000-8000-000000000001";
-const documentId = `document:${lessonId}`;
 const password = "collaboration-e2e-password";
 
 async function login(context: BrowserContext, email: string): Promise<void> {
@@ -23,7 +22,7 @@ async function login(context: BrowserContext, email: string): Promise<void> {
   expect(response.status()).toBe(303);
 }
 
-async function openBoard(page: Page): Promise<void> {
+async function openBoard(page: Page, documentId: string): Promise<void> {
   await page.goto(
     `/?lessonId=${encodeURIComponent(lessonId)}&documentId=${encodeURIComponent(documentId)}#/board`,
   );
@@ -51,7 +50,8 @@ async function draw(
 
 test("tutor and student share live previews, revisions, and reconnect recovery", async ({
   browser,
-}) => {
+}, testInfo) => {
+  const documentId = `document:${lessonId}:attempt-${testInfo.retry}`;
   const tutorContext = await browser.newContext();
   const studentContext = await browser.newContext();
   try {
@@ -60,8 +60,8 @@ test("tutor and student share live previews, revisions, and reconnect recovery",
     const tutor = await tutorContext.newPage();
     const student = await studentContext.newPage();
 
-    await openBoard(tutor);
-    await openBoard(student);
+    await openBoard(tutor, documentId);
+    await openBoard(student, documentId);
     await tutor.getByRole("button", { name: "Настройки доски" }).click();
     await expect(tutor.getByText("В комнате 2")).toBeVisible();
     await tutor.keyboard.press("Escape");
