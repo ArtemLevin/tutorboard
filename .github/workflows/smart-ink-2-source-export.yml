@@ -42,6 +42,24 @@ jobs:
           echo "359957ccd6f8cb4bc6d342417b3d6ad580e44824dee8e22300c01682b93e68fc  /tmp/smartink2.tar.gz" | sha256sum -c -
           tar -xzf /tmp/smartink2.tar.gz
 
+      - name: Apply strict-lint corrections
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          recognizer = Path('src/modules/smart-ink/v2/recognizer.ts')
+          text = recognizer.read_text()
+          text = text.replace('topShape.kind as SmartInkV2ShapeKind', 'topShape.kind')
+          recognizer.write_text(text)
+
+          training = Path('src/modules/smart-ink/v2/training.ts')
+          text = training.read_text()
+          text = text.replace(
+              'Array(smartInkV2FeatureNames.length).fill(0)',
+              'Array.from({ length: smartInkV2FeatureNames.length }, () => 0)',
+          )
+          training.write_text(text)
+          PY
+
       - name: Format changed product files
         run: |
           npx prettier --write \
