@@ -1,766 +1,932 @@
-# TutorBoard execution and architecture plan
+# TutorBoard standalone: план гостевой совместной доски
 
-## 1. Назначение
+> Статус документа: основной execution plan с 2026-08-15.
+>
+> Прежние этапы развития полотна, GeometryOS, Smart Ink и lesson-bound
+> интеграции сохранены в `docs/DEVELOPMENT_PLAN.md`, архитектурных ADR и
+> профильных планах в `docs/architecture/`. Этот документ определяет новый
+> приоритет: самостоятельный TutorBoard, который преподаватель открывает по
+> своей учётной записи, а ученик — без регистрации по секретной ссылке.
 
-Этот файл является текущим исполнимым контрактом разработки TutorBoard. Он
-фиксирует модульные границы, владельцев инвариантов, правила расширения,
-маршрутизацию project skills и ближайшую последовательность поставки.
+## 1. Продуктовое решение
 
-Подробный продуктовый roadmap остаётся в
-[`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md), а эксперименты фазы 2 —
-в [`docs/PHASE_2_TECHNICAL_SPIKE_PLAN.md`](docs/PHASE_2_TECHNICAL_SPIKE_PLAN.md).
-Если документы расходятся в вопросе текущей последовательности работ, этот
-файл определяет ближайший execution order; долгосрочные продуктовые цели
-определяет `docs/DEVELOPMENT_PLAN.md`.
+Первая публичная версия разворачивается как отдельный продукт TutorBoard и
+поддерживает основной сценарий:
 
-## 2. Текущее состояние и ближайшая последовательность
+1. Преподаватель авторизуется.
+2. Преподаватель создаёт новую независимую доску.
+3. Преподаватель выпускает отдельную секретную ссылку для ученика.
+4. Ученик открывает ссылку в браузере без регистрации, логина и пароля.
+5. Ссылка обменивается на ограниченную гостевую сессию только для этой доски.
+6. Преподаватель и ученик синхронно редактируют один документ.
+7. Преподаватель может запретить редактирование, отозвать ссылку, выпустить
+   новую ссылку, архивировать или удалить доску.
 
-### 2.0. Актуальный baseline 2026-07-28
+Авторизация преподавателя остаётся обязательной. Полностью анонимное создание
+досок не допускается, поскольку оно делает невозможными владение, аудит,
+отзыв доступа, защиту от злоупотреблений и восстановление данных.
 
-Историческая разбивка PR 2.x ниже сохранена как traceability. Фактический
-продуктовый baseline:
+### 1.1. Что означает «без авторизации ученика»
 
-| Фаза | Статус | Результат |
-| --- | --- | --- |
-| 1–3 | завершены | GeometryOS contract, `BoardDocument 1.0`, полотно, инструменты, history, transfer, accessibility и performance |
-| 4 | завершена | lesson launch/embed, session context, role capabilities и same-origin GeometryOS gateway |
-| 5 | завершена | server revisions, snapshots, archive/history, durable offline queue, `409` rebase и recovery |
-| 6 | завершена в коде | tenant-scoped WebSocket revision signals, ephemeral presence, reconnect и own-operation undo |
-| 7 | завершена в коде | immutable board evidence, materials context, portal publication/revocation и static export |
-| 8 | завершена в release-контуре | CSP, privacy-safe telemetry, SLO/runbooks, immutable image, blue/green routing, Chromium/Firefox и security scan |
+Ученик не создаёт аккаунт и не вводит персональные данные. После открытия
+секретной ссылки сервер выдаёт браузеру `HttpOnly` guest cookie. Cookie является
+технической сессией доступа, а не пользовательской учётной записью.
 
-`BoardDocument 1.0`, GIR `0.2.0` и Layout Document `0.1.0` не изменены фазами
-4–8. Production activation остаётся отдельным ручным operational gate:
-публикация образов, staging smoke/load, restore drill и approval.
+Нужно явно учитывать ограничение capability-link модели:
 
-### 2.1. Доставленный baseline
+> Любой, кто получил секретную ссылку, может воспользоваться ею до истечения
+> срока или отзыва. Без идентификации ученика невозможно доказать, кому именно
+> была переслана ссылка.
 
-TutorBoard завершил основную инфраструктурную часть Technical Spike:
+Риск ограничивается высокой энтропией секрета, коротким сроком действия,
+board-scoped правами, отзывом, ротацией, аудитом и отсутствием токена в логах.
 
-| Этап     | Статус   | Доставленный результат                                                                                   |
-| -------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| PR 2.0   | завершён | architecture contract, invariant registry и project skills                                               |
-| Gate 0   | завершён | проверены API v1, GIR `0.2.0`, fixtures, Problem Details, request ID и probes GeometryOS                 |
-| PR 2.1   | завершён | React/Vite/strict TypeScript foundation и enforceable module boundaries                                  |
-| PR 2.2   | завершён | `BoardDocument`, commands, reducer, validation, serialization и recovery contract                        |
-| PR 2.3   | завершён | заменяемый Konva adapter, infinite canvas, pan/zoom и coordinate boundary                                |
-| PR 2.4   | завершён | pen, line, rectangle, ellipse и text tools                                                               |
-| PR 2.5   | завершён | selection, marquee, movement, delete, lock и inspector                                                   |
-| PR 2.6   | завершён | Dexie revisions, autosave, optimistic conflict и explicit recovery                                       |
-| PR 2.7   | завершён | bounded deny-by-default SVG import и stored-object revalidation                                          |
-| PR 2.8   | завершён | pinned/generated GeometryOS client, runtime validators и bounded HTTP adapter                            |
-| PR 2.8.1 | смёржен  | producer repin на `49e98394d0c9cdeaf7fdaf45b712dbee3a04a74c`, новый OpenAPI/fixtures и live-contract job |
-| PR 2.8.2 | завершён | executable ESM validators, plain-Node smoke и real Chromium CORS/request-ID/runtime gate                 |
-| PR 2.9A  | завершён | pure GIR semantic plan, deterministic identities, references, mapping и diagnostics                      |
-| G-10/11  | завершён | Layout Document `0.1.0` и стабильный `POST /api/v1/layout` в GeometryOS                                  |
-| PR 2.9B  | завершён | Layout-to-Board placement, editable primitives и атомарный geometry import                               |
-| PR 2.10  | завершён | prompt/readiness/generate/layout/import UI flow, selection и autosave/reload evidence                    |
-| PR 2.11  | завершён | visual group translation, label/style overrides и deny-by-default semantic edits                         |
-| PR 2.12  | завершён | Phase 2 report, coordinate/change boundaries, contract proposals и Phase 3 backlog                        |
+## 2. Цели и границы первой поставки
 
-Текущий stored contract — `BoardDocument 1.0`. Canvas runtime, selection,
-preview и transport state не сериализуются. Canonical GIR хранится отдельно от
-Board objects и не восстанавливается из SVG или пользовательских transforms.
+### 2.1. Обязательные возможности
 
-### 2.2. Открытые границы следующих фаз
+- самостоятельная доска без обязательных `studentId` и `lessonId`;
+- список досок преподавателя;
+- создание, открытие, переименование, архивирование и мягкое удаление;
+- одна или несколько независимых гостевых ссылок на доску;
+- имя ученика, заданное преподавателем при создании ссылки;
+- настраиваемый срок ссылки: 1 час, 24 часа, 7 дней или до отзыва;
+- гостевой вход без промежуточной формы;
+- HTTP push/pull, server revisions, snapshots и offline recovery;
+- WebSocket presence, курсоры, ink/transform preview и reconnect;
+- немедленный запрет новых записей после блокировки ученика;
+- отзыв и ротация ссылки без изменения самой доски;
+- экспорт преподавателем в `.tutorboard.json`, SVG, PNG и PDF;
+- production deployment только board-контура в Yandex Cloud;
+- off-host backup и проверяемый restore drill.
 
-Phase 2 blockers закрыты. Семантическое редактирование GeometryOS, production
-gateway, server source of truth и collaboration явно переданы следующим фазам и
-не маскируются permissive fallback.
+### 2.2. Не входит в первую поставку
 
-### 2.3. Обязательный execution order
+- аккаунты учеников и родителей;
+- каталог учеников и расписание;
+- привязка к занятию как обязательное условие;
+- BigBlueButton;
+- запись и транскрибация урока;
+- портал материалов;
+- генерация учебных PDF/HTML после урока;
+- публичный каталог досок;
+- анонимное создание досок;
+- передача владения доской;
+- end-to-end encryption содержимого доски;
+- CRDT-переписывание существующего revision protocol.
 
-#### TutorBoard PR 2.8.2 — восстановить зелёный live-contract gate — завершён
+## 3. Сохраняемый технический baseline
 
-Доставлено:
+Новая стратегия не отменяет готовую совместную синхронизацию. Без изменения
+основного протокола сохраняются:
 
-- Ajv standalone output fail-closed нормализуется в executable ESM на границе
-  генератора, а неизвестные CommonJS runtime helpers отклоняются;
-- exact Ajv version одинакова в root и isolated code-generation toolchain;
-- committed validators воспроизводимо проверяются plain Node ESM loader и
-  положительными/отрицательными contract fixtures;
-- отдельный protocol probe проверяет readiness, allowed/denied CORS preflight и
-  отсутствие credentials;
-- реальный Chromium выполняет cross-origin POST, читает exposed
-  `X-Request-ID` и валидирует live response тем же generated validator;
-- exact producer commit и hardened read-only container сохранены;
-- Quality gate, Browser smoke и GeometryOS live browser contract прошли в CI
-  run 149; diagnostics не содержат prompt, response body или credentials;
-- BoardDocument, canvas, UI, persistence и geometry import contracts не менялись.
+- `BoardDocument` и command-only mutation boundary;
+- ordered command envelope `1.5`;
+- последовательные server revisions;
+- SHA-256 проверка документа и snapshots;
+- idempotency keys;
+- Lamport ordering по `actorId + originId`;
+- durable IndexedDB queue;
+- offline → reconnect → pull/rebase/push;
+- восстановление после `409` revision conflict;
+- Redis Pub/Sub room broker;
+- ephemeral presence;
+- одноразовые WebSocket tickets;
+- same-origin HTTP и WebSocket;
+- WebSocket Origin validation;
+- ограничение размера и частоты live-сообщений;
+- реальные Chromium/Firefox two-client E2E.
 
-#### GeometryOS G-10 — чистый Layout Document 0.1 — завершён
+Основная работа сосредоточена на новой модели владения и доступа, а не на
+повторной реализации синхронизации.
 
-Выполняется в репозитории GeometryOS и является внешней зависимостью TutorBoard.
-Доставлены versioned coordinate space, canonical GIR SHA-256, provenance, stable
-synthetic IDs, completeness/reference invariants, typed `success` /
-`unsupported` / `invalid_scene`, schema, fixtures и exact benchmarks.
-
-G-10 не включает HTTP endpoint и не меняет GIR `0.2.0`.
-
-#### TutorBoard PR 2.9A — pure GIR semantic adapter — завершён
-
-Может выполняться параллельно с GeometryOS G-10 после зелёного PR 2.8.2.
-
-Scope:
-
-- runtime GIR validation boundary;
-- entity index и reference resolver;
-- stable Board IDs и deterministic root group ID;
-- mapping GIR ID → Board object ID;
-- provenance и explicit unsupported diagnostics;
-- pure `GeometryImportSemanticPlan` без React, HTTP, persistence и coordinates.
-
-Enforcement: `GEO-003`–`GEO-010`, architecture tests и deterministic fixtures.
-
-#### GeometryOS G-11 — HTTP Layout API — завершён
-
-Предпочтительный контракт: `POST /api/v1/layout` для уже существующего canonical
-GIR. Endpoint должен публиковать Layout Document 0.1, typed unsupported/invalid
-outcomes, request ID, readiness, timeout budget, OpenAPI и TutorBoard fixtures.
-
-#### TutorBoard PR 2.9B — Layout-to-Board и атомарный import — завершён
-
-Scope:
-
-- vendored/generated Layout Document types и runtime validator;
-- Layout coordinates → local geometry group coordinates;
-- geometry object renderers и bounds;
-- один namespaced atomic import command;
-- import record, group, objects, order, mapping и provenance добавляются целиком
-  либо document остаётся неизменным;
-- migration только если stored union действительно меняется.
-
-#### TutorBoard PR 2.10 — полный GeometryOS vertical slice — завершён
-
-Prompt → readiness → generate → layout → import → select → autosave → reload.
-Обязательный fixture: «Построй треугольник ABC и высоту AH». Group movement
-остаётся в PR 2.11 согласно ADR-008, чтобы UI orchestration не ослабляла
-принятую semantic/visual policy.
-
-#### TutorBoard PR 2.11 — visual versus mathematical movement
-
-Разрешить group translation, label offsets и style overrides. Individual drag
-constrained geometry points остаётся запрещённым до отдельного semantic edit
-contract. Visual operations не изменяют canonical GIR.
-
-Реализовано в ветке PR 2.11: selection/group translation обновляет только import
-`visualTransform`; label/style changes хранятся в per-object overrides;
-independent/constrained point drag, semantic delete и unknown changes
-deny-by-default. ADR-010 и `CHANGE_CLASSIFICATION.md` фиксируют решение и
-redacted experiment event contract.
-
-#### TutorBoard PR 2.12 — закрытие Technical Spike
-
-Подготовить Phase 2 report, coordinate/mapping/change-classification ADRs,
-зафиксировать временные ограничения и сформировать Phase 3 backlog.
-
-Результат подготовлен: `PHASE_2_REPORT.md`, `COORDINATE_SYSTEMS.md`,
-`GEOMETRYOS_CONTRACT_PROPOSALS.md`, `PHASE_3_BACKLOG.md` и обновлённый
-`GIR_MAPPING.md`. Все no-go gates имеют явное evidence или documented deferred
-owner.
-
-#### GeometryOS G-13 — release 0.3.0
-
-После стабилизации Layout API выпустить GeometryOS `0.3.0`, включив layout
-schema/fixtures в release bundle и опубликовав consumer upgrade guide.
-
-### 2.4. Правила параллельной разработки
-
-- PR 2.8.2, 2.9A, GeometryOS G-10/G-11 и TutorBoard PR 2.9B–2.11 закрыты.
-- После merge PR 2.12 следующий TutorBoard owner — PR 3.1 contract freeze.
-- TutorBoard не создаёт общий layout solver и не парсит SVG ради семантики.
-- GeometryOS не хранит BoardDocument, viewport или пользовательские overrides.
-
-### 2.5. Следующие продуктовые фазы
-
-После PR 2.12 выполняется Phase 3 Product Foundation:
-
-1. contract freeze и `BoardDocument 1.0`;
-2. undo/redo с одним history item на gesture/import;
-3. clipboard и deterministic ID remapping;
-4. layers/object manager;
-5. styling и visual overrides;
-6. text/math labels;
-7. deterministic document import/export;
-8. performance baseline и viewport culling;
-9. accessibility baseline;
-10. product shell, diagnostics и feature flags.
-
-Дальнейший порядок: tutor-assistant-web gateway integration → server revisions и
-offline synchronization → collaboration protocol → lesson evidence → production
-readiness → advanced semantic geometry/AI. CRDT, semantic point drag и
-production direct-browser access к GeometryOS не выбираются заранее.
-
-### 2.6. No-go gates
-
-Запрещено объявлять Technical Spike завершённым, пока:
-
-- Layout Document не versioned и runtime-validated;
-- import не атомарен;
-- canonical GIR/provenance не переживают save/reload;
-- visual movement policy не зафиксирована;
-- обязательный triangle-altitude E2E не проходит через реальный BoardDocument.
-
-Все перечисленные gates доказаны к PR 2.12; ссылки и ограничения собраны в
-`docs/PHASE_2_REPORT.md`.
-
-### 2.7. Phase 9 Smart Ink experimental gate
-
-PR #32 доставил изолированный six-class recognizer, corpus contract, benchmark
-и локальный browser capture, не изменяя `BoardDocument 1.0`, collaboration,
-GeometryOS или production UI.
-
-Следующий experimental increment автоматизирует evidence preparation:
-
-- Quick, Draw! raw trajectories импортируются потоково и сохраняют отдельное
-  `recorded-trajectory` provenance;
-- HDS PNG импортируются только как `raster-contour`, без подмены контура
-  идеальными vertex labels;
-- external identities хэшируются, а HDS-образцы группируются по автору;
-- confidence calibration выполняется на deterministic group-safe split;
-- holdout не участвует в подборе `minimumConfidence` и `ambiguityMargin`;
-- synthetic samples не входят в calibration или production evidence;
-- external-human samples не открывают Chromium/Firefox production gate.
-
-Seeded external evidence теперь зафиксировано в
-`tests/fixtures/smart-ink-corpus/external/`: 880 псевдонимизированных образцов,
-source fingerprints, SHA-256 manifest и point-free calibration report.
-Baseline удовлетворяет corpus quotas, но quality gate не проходит:
-holdout macro precision `0.547619`, false-positive rate `0.104167`.
-Этот holdout считается раскрытым development evidence; следующий recognizer
-increment обязан использовать новую disjoint final sample.
-
-До captured corpus gate запрещено менять persistent schema, автоматически
-заменять strokes либо объявлять Smart Ink production-ready.
-
-## 3. Целевая архитектура
-
-TutorBoard развивается как модульный frontend-монолит:
+## 4. Целевая архитектура
 
 ```text
-Application composition root
-          │
-          ├── feature modules
-          │       └── Board Core / declared ports
-          │
-          └── external adapters
-                  └── Board Core / declared ports
+Internet
+   |
+   v
+Caddy: TLS, security headers, routing, access-log redaction
+   |----------------------|
+   v                      v
+TutorBoard UI         Board API
+                          |-------- PostgreSQL
+                          |-------- Redis
+                          |-------- Yandex Object Storage
+                          `-------- GeometryOS (optional pinned sidecar)
 ```
 
-Модульность означает проверяемые границы и явные контракты, а не только
-структуру каталогов. До отдельного продуктового решения модули подключаются
-статически при сборке. Dynamic plugin ABI, micro-frontends и runtime-загрузка
-стороннего кода не входят в TutorBoard 1.0.
+### 4.1. Runtime-компоненты
 
-### 3.1. Слои
+| Компонент      | Ответственность                                  | Состояние                   |
+| -------------- | ------------------------------------------------ | --------------------------- |
+| Caddy          | TLS, HTTP/3, same-origin routing, headers        | обязателен                  |
+| TutorBoard UI  | полотно и клиент синхронизации                   | обязателен                  |
+| Board API      | owner auth, invitations, commands, snapshots, WS | обязателен                  |
+| PostgreSQL     | доски, команды, приглашения, аудит               | обязателен                  |
+| Redis          | tickets, presence, Pub/Sub, rate limits          | обязателен                  |
+| Object Storage | snapshots и off-host backups                     | обязателен                  |
+| GeometryOS     | построение по тексту                             | опционален в первом rollout |
 
-#### `app`
+Потеря Redis может временно разорвать live-соединения, но не должна приводить к
+потере подтверждённых изменений. Источник истины — PostgreSQL и проверенные
+snapshots в Object Storage.
 
-Единственное место композиции приложения:
+### 4.2. Размещение Board API
 
-- связывает ports с adapters;
-- подключает модули;
-- создаёт application store;
-- конфигурирует routes, feature flags и platform context;
-- валидирует module registrations;
-- запускает bootstrap и recovery UI.
-
-#### `core`
-
-Стабильное ядро доски:
-
-- `BoardDocument`;
-- `BoardObject`, groups и ordering;
-- branded identifiers;
-- commands, events и reducers;
-- coordinate primitives и transforms;
-- schema versioning и validation;
-- общие errors, results, read models и ports.
-
-`core` не импортирует React, Zustand, Konva, Dexie, browser APIs, HTTP clients
-или feature modules.
-
-#### `modules`
-
-Каждый модуль владеет отдельной возможностью и публикует только `public.ts`.
-Подтверждённые модули Technical Spike:
-
-- `drawing`;
-- `selection`;
-- `geometry-import`;
-- `svg-import`;
-- `local-persistence`.
-
-Модули history, styling, text, lesson context, collaboration и evidence
-добавляются только в соответствующих фазах.
-
-#### `adapters`
-
-Технологические реализации declared ports:
-
-- `canvas-konva`;
-- `geometryos-http`;
-- `persistence-dexie`;
-- позднее `platform-board-api`, `collaboration-websocket`, telemetry и export.
-
-#### `shared`
-
-Только действительно общие, стабильные utilities:
-
-- UI primitives;
-- diagnostics;
-- test builders;
-- platform-neutral helpers.
-
-`shared` не становится хранилищем случайной бизнес-логики.
-
-### 3.2. Планируемая структура
+На первом этапе серверная реализация остаётся в `tutor-assistant-web`, чтобы не
+копировать зрелые persistence/collaboration модули. Добавляется отдельный
+профиль запуска:
 
 ```text
-src/
-├── app/
-│   ├── bootstrap/
-│   ├── composition/
-│   ├── configuration/
-│   └── routing/
-├── core/
-│   ├── board/
-│   │   ├── commands/
-│   │   ├── document/
-│   │   ├── events/
-│   │   ├── groups/
-│   │   ├── objects/
-│   │   ├── transforms/
-│   │   └── validation/
-│   ├── contracts/
-│   ├── ports/
-│   └── shared-kernel/
-├── modules/
-│   ├── drawing/
-│   ├── selection/
-│   ├── geometry-import/
-│   ├── svg-import/
-│   └── local-persistence/
-├── adapters/
-│   ├── canvas-konva/
-│   ├── geometryos-http/
-│   └── persistence-dexie/
-├── shared/
-│   ├── diagnostics/
-│   ├── testing/
-│   └── ui/
-└── tests/
-    ├── architecture/
-    ├── contracts/
-    ├── e2e/
-    └── integration/
+APP_PROFILE=board
 ```
 
-Не создавать пустые каталоги для будущих фаз. Новый каталог появляется вместе
-с первым реальным владельцем поведения и проверкой границы.
-
-## 4. Dependency rules
-
-Разрешено:
+Профиль подключает только:
 
 ```text
-app -> modules -> core
-app -> adapters -> core ports
-modules/ui -> shared/ui
-adapters -> shared platform-neutral utilities
+identity + boards + guest-access + audit + health + metrics
 ```
 
-Запрещено:
+Для deployment публикуется самостоятельный образ:
 
 ```text
-core -> app | modules | adapters | React | Konva | Zustand | Dexie
-module A -> module B internals
-adapter -> app
-canvas adapter -> persistence adapter
-GeometryOS client -> Board store
-UI component -> IndexedDB | HTTP | WebSocket directly
+ghcr.io/artemlevin/tutorboard-api:<release>
 ```
 
-Дополнительные правила:
+Выделение API в отдельный репозиторий рассматривается только после production
+стабилизации и отдельного ADR. До этого TutorBoard и Board API развиваются
+согласованными PR в двух репозиториях.
 
-- Межмодульный импорт разрешён только через `public.ts`.
-- Side effects выполняются только через declared ports.
-- Feature modules не читают editable role/tenant state как источник
-  авторизации.
-- Cross-module communication использует public contracts, commands, read
-  models или типизированные domain events.
-- Не вводить универсальный event bus до появления минимум двух реальных
-  потребителей стабильного события.
-- Любое новое dependency edge добавляется вместе с architecture test либо с
-  объяснённым verification gap.
+## 5. Пользовательские сценарии
 
-## 5. Module contract
+### 5.1. Преподаватель создаёт доску
 
-На фазах 2–3 применяется статическое декларативное описание:
+1. Преподаватель открывает `/boards`.
+2. Нажимает «Создать доску».
+3. Вводит название или принимает автоматически предложенное.
+4. API создаёт UUID доски и пустую revision `0`.
+5. UI открывает `/b/<public-board-id>#/board`.
+6. Создание фиксируется в audit log.
 
-```ts
-interface TutorBoardModuleDefinition {
-  readonly id: ModuleId;
-  readonly version: string;
-  readonly requires: readonly PortToken[];
-  readonly contributions: ModuleContribution;
+### 5.2. Преподаватель создаёт ссылку
+
+1. Нажимает «Пригласить ученика».
+2. Указывает отображаемое имя ученика.
+3. Выбирает срок действия.
+4. API создаёт 256-битный случайный token.
+5. В базе сохраняется только HMAC/hash token, не исходное значение.
+6. Полная ссылка возвращается ровно в ответе создания/ротации.
+7. UI копирует её в clipboard и показывает срок действия.
+
+Пример:
+
+```text
+https://board.example.ru/j/3kIFV8c9JQx...opaque-secret...
+```
+
+### 5.3. Ученик открывает ссылку
+
+1. Браузер выполняет `GET /j/<secret>`.
+2. API проверяет token, срок, отзыв, доску и rate limit.
+3. API выдаёт подписанную guest cookie с board scope.
+4. Ответ устанавливает `Cache-Control: no-store`,
+   `Referrer-Policy: no-referrer` и `X-Robots-Tag: noindex, nofollow`.
+5. API выполняет `303` на `/b/<public-board-id>#/board`.
+6. Секрет исчезает из последующих HTTP/WS URL.
+7. TutorBoard получает context и сразу загружает доску.
+
+Ссылка остаётся повторно используемой до срока/отзыва. Одноразовое поглощение
+не выбирается: preview-боты мессенджеров и потеря browser storage могли бы
+необратимо закрыть доступ законному ученику.
+
+### 5.4. Преподаватель отзывает доступ
+
+1. API увеличивает `credential_version` и ставит `revoked_at`.
+2. Новые HTTP/WS tickets больше не выдаются.
+3. Broker публикует `access.revoked` в room.
+4. Активный WebSocket ученика закрывается кодом `4403`.
+5. Следующая запись ученика отклоняется сервером независимо от состояния UI.
+6. Преподаватель может выпустить новую ссылку без создания новой доски.
+
+### 5.5. Преподаватель блокирует редактирование
+
+- чтение и presence сохраняются;
+- `board.write` удаляется из guest capabilities;
+- сервер отклоняет command POST;
+- UI выключает инструменты и показывает режим «Только просмотр»;
+- broker отправляет `access.capabilities.changed` активным клиентам.
+
+## 6. Модель доступа и безопасность
+
+### 6.1. Principal
+
+Board API принимает два типа principal:
+
+- `TeacherPrincipal`: существующая авторизованная учётная запись;
+- `GuestBoardPrincipal`: подписанная board-scoped сессия приглашения.
+
+Пример guest context:
+
+```json
+{
+  "actorId": "guest:9a1d...",
+  "boardId": "board:71e2...",
+  "capabilities": ["board.read", "board.write", "collaboration.connect"],
+  "csrfToken": "opaque-csrf",
+  "displayName": "Ксения",
+  "role": "student"
 }
 ```
 
-Модуль может предоставить:
-
-- object schemas и migrations;
-- command handlers;
-- renderers;
-- tools;
-- inspector sections;
-- import/export codecs;
-- diagnostics;
-- keyboard shortcuts;
-- evidence extractors на поздних фазах.
-
-Инварианты регистрации:
-
-- module ID стабилен и уникален;
-- object kinds и command kinds уникальны;
-- module definition является данными и не выполняет side effects;
-- порядок не зависит от порядка исполнения импортов;
-- порядок UI contributions задаётся явно;
-- duplicate contribution останавливает bootstrap с диагностируемой ошибкой;
-- отключение модуля не удаляет его persisted data;
-- неизвестный object kind не игнорируется и не удаляется;
-- `requires` перечисляет только declared ports, которые связывает composition root;
-- feature flag не заменяет авторизацию.
-
-## 6. Invariant registry
-
-Каждое нетривиальное изменение указывает затронутые invariant IDs. Инвариант
-считается обеспеченным только при наличии владельца и проверяемого enforcement.
-
-### 6.1. Architecture
-
-| ID         | Инвариант                                                          | Основное enforcement   |
-| ---------- | ------------------------------------------------------------------ | ---------------------- |
-| `ARCH-001` | Dependencies направлены к `core`                                   | import-boundary test   |
-| `ARCH-002` | Межмодульные deep imports запрещены                                | lint/architecture test |
-| `ARCH-003` | Side effects доступны только через ports                           | type boundary + review |
-| `ARCH-004` | Composition выполняется только в `app`                             | import-boundary test   |
-| `ARCH-005` | У каждого типа и команды один module owner                         | registry validation    |
-| `ARCH-006` | Новая abstraction требует реального consumer или внешнего contract | architecture review    |
-| `ARCH-007` | Dynamic plugins не входят в 1.0                                    | scope gate             |
-| `ARCH-008` | Ошибка module registration безопасно останавливает bootstrap       | integration test       |
-
-### 6.2. BoardDocument
-
-| ID        | Инвариант                                                    | Основное enforcement  |
-| --------- | ------------------------------------------------------------ | --------------------- |
-| `DOC-001` | `BoardDocument` — единственный сериализуемый source of truth | architecture test     |
-| `DOC-002` | Каждый stored document содержит `schemaVersion`              | runtime schema        |
-| `DOC-003` | Object IDs уникальны и стабильны                             | validator + unit test |
-| `DOC-004` | `order` не содержит отсутствующих/повторных IDs              | validator             |
-| `DOC-005` | Group references указывают на существующие objects           | validator             |
-| `DOC-006` | Runtime selection, hover и drag preview не сериализуются     | round-trip fixture    |
-| `DOC-007` | Stored schema имеет migration или явный incompatible result  | migration tests       |
-| `DOC-008` | Unknown object не удаляется молча                            | recovery test         |
-| `DOC-009` | Corrupted input сохраняется для recovery                     | persistence contract  |
-| `DOC-010` | Canonical GIR не восстанавливается из visual objects         | adapter tests         |
-| `DOC-011` | Document меняется только через command boundary              | architecture test     |
-| `DOC-012` | Canvas runtime никогда не хранится в document                | serialization test    |
-
-### 6.3. Commands and interaction
-
-| ID        | Инвариант                                              | Основное enforcement   |
-| --------- | ------------------------------------------------------ | ---------------------- |
-| `CMD-001` | Command описывает одно атомарное намерение             | reducer tests          |
-| `CMD-002` | Один gesture создаёт одну committed command            | browser integration    |
-| `CMD-003` | Reducer не читает clock, UUID или environment          | unit/architecture test |
-| `CMD-004` | IDs, time и actor поступают через application boundary | command contract       |
-| `CMD-005` | Failed command не оставляет partial mutation           | negative tests         |
-| `CMD-006` | Preconditions проверяются до mutation                  | reducer tests          |
-| `CMD-007` | Persistent command kind имеет module namespace         | schema validation      |
-| `CMD-008` | Cancelled interaction не создаёт object/history        | browser test           |
-
-### 6.4. Canvas and coordinates
-
-| ID           | Инвариант                                             | Основное enforcement   |
-| ------------ | ----------------------------------------------------- | ---------------------- |
-| `CANVAS-001` | Pan/zoom не меняют object world coordinates           | transform tests        |
-| `CANVAS-002` | Zoom сохраняет world point под cursor                 | property/unit test     |
-| `CANVAS-003` | Pointer coordinates нормализуются на boundary         | interaction test       |
-| `CANVAS-004` | Drag preview отделён от committed document            | integration test       |
-| `CANVAS-005` | Movement delta не зависит от zoom                     | browser test           |
-| `CANVAS-006` | Renderer получает immutable read model                | type/architecture test |
-| `CANVAS-007` | Renderer не изменяет store напрямую                   | import/API test        |
-| `CANVAS-008` | DPR влияет на rendering, но не world coordinates      | browser test           |
-| `CANVAS-009` | Pointer capture освобождается при cancel/loss/unmount | browser test           |
-| `CANVAS-010` | Resize/tool switch не оставляют half-created object   | state-machine test     |
-
-### 6.5. GeometryOS
-
-| ID        | Инвариант                                           | Основное enforcement   |
-| --------- | --------------------------------------------------- | ---------------------- |
-| `GEO-001` | DTO генерируются из pinned OpenAPI                  | generated-diff check   |
-| `GEO-002` | External response валидируется на boundary          | contract tests         |
-| `GEO-003` | GIR не используется как UI/store model              | architecture test      |
-| `GEO-004` | GIR-to-Board adapter является pure                  | unit/architecture test |
-| `GEO-005` | Mapping детерминирован при одинаковом input/context | fixture test           |
-| `GEO-006` | GIR ID хранится отдельно от Board object ID         | schema test            |
-| `GEO-007` | Missing/duplicate references дают explicit error    | negative fixtures      |
-| `GEO-008` | Unsupported entity создаёт diagnostic, не догадку   | fixture test           |
-| `GEO-009` | SVG не является primary semantic source             | architecture review    |
-| `GEO-010` | Canonical GIR и provenance сохраняются              | round-trip test        |
-| `GEO-011` | Visual transform не меняет canonical GIR            | adapter test           |
-| `GEO-012` | Incompatible API/GIR version отклоняется            | contract test          |
-| `GEO-013` | Retry не создаёт случайный duplicate import         | integration test       |
-| `GEO-014` | Request ID проходит через полный flow               | contract/E2E           |
-
-### 6.6. Persistence and recovery
-
-| ID            | Инвариант                                             | Основное enforcement  |
-| ------------- | ----------------------------------------------------- | --------------------- |
-| `PERSIST-001` | Save не уничтожает last-good revision                 | repository contract   |
-| `PERSIST-002` | Corruption не приводит к blank screen                 | recovery E2E          |
-| `PERSIST-003` | Autosave failure видим пользователю                   | UI integration        |
-| `PERSIST-004` | Retry не создаёт duplicate revision                   | idempotency test      |
-| `PERSIST-005` | Migration атомарна или имеет safe recovery            | migration test        |
-| `PERSIST-006` | Unknown schema сохраняется для recovery               | compatibility fixture |
-| `PERSIST-007` | Server save использует optimistic concurrency         | API contract          |
-| `PERSIST-008` | Conflict не разрешается silent overwrite              | conflict E2E          |
-| `PERSIST-009` | Offline queue имеет durable operation identity        | repository test       |
-| `PERSIST-010` | После integration IndexedDB не второй source of truth | architecture review   |
-| `PERSIST-011` | Snapshot связан с точной revision                     | evidence contract     |
-| `PERSIST-012` | Archive/delete не ломает immutable evidence           | integration test      |
-
-### 6.7. Security and privacy
-
-| ID        | Инвариант                                                            | Основное enforcement |
-| --------- | -------------------------------------------------------------------- | -------------------- |
-| `SEC-001` | SVG всегда считается untrusted input                                 | security tests       |
-| `SEC-002` | Scripts, event handlers, `foreignObject`, remote resources запрещены | malicious fixtures   |
-| `SEC-003` | SVG имеет byte/node/depth/dimension limits                           | boundary tests       |
-| `SEC-004` | Tokens не сохраняются в localStorage/BoardDocument                   | security review      |
-| `SEC-005` | Tenant/role не берутся из editable client state                      | authorization tests  |
-| `SEC-006` | Authorization проверяется на resource boundary                       | integration tests    |
-| `SEC-007` | Prompt/raw response/board content не логируются по умолчанию         | telemetry tests      |
-| `SEC-008` | Diagnostics используют codes и минимальные metadata                  | review + fixtures    |
-| `SEC-009` | Student artifacts не содержат technical metadata                     | publication test     |
-| `SEC-010` | Feature flags не предоставляют permissions                           | security review      |
-
-### 6.8. Collaboration
-
-| ID | Инвариант | Основное enforcement |
-| --- | --- | --- |
-| `COLL-001` | Durable command log — единственный порядок изменений | convergence tests |
-| `COLL-002` | Room key включает tenant и document | cross-tenant broker test |
-| `COLL-003` | WebSocket ticket короткоживущий и одноразовый | API test |
-| `COLL-004` | Presence ephemeral и не сериализуется | architecture/round-trip |
-| `COLL-005` | Потеря WebSocket не влияет на HTTP recovery | reconnect E2E |
-| `COLL-006` | Undo обращает только точную собственную операцию | inverse-command tests |
-| `COLL-007` | Geometry import распространяется атомарной command | command/replay tests |
-| `COLL-008` | Message size/rate и stale sequence bounded | protocol tests |
-
-### 6.9. Evidence and release
-
-| ID | Инвариант | Основное enforcement |
-| --- | --- | --- |
-| `EVID-001` | Evidence связан с exact available snapshot revision | API/DB test |
-| `EVID-002` | Manifest и previews immutable и SHA-verified | storage round-trip |
-| `EVID-003` | Live edit не переписывает historical evidence | unique/idempotency test |
-| `EVID-004` | Student видит только published non-revoked artifact | authorization test |
-| `EVID-005` | Public export не раскрывает storage/tenant metadata | export fixture |
-| `REL-001` | Frontend image immutable, non-root и secret-free | container gate |
-| `REL-002` | Backend/frontend переключаются одним slot | compose/script test |
-| `REL-003` | Rollback не удаляет revisions/snapshots/evidence | runbook + restore drill |
-
-## 7. Extension contracts
-
-### 7.1. Новый object kind
-
-Модуль обязан предоставить:
-
-- уникальный kind и owner;
-- schema version и runtime validator;
-- renderer и bounds calculator;
-- selection/lock behavior;
-- serialization fixture;
-- migration/unknown-version behavior;
-- inspector contribution;
-- snapshot/export policy.
-
-### 7.2. Новый tool
-
-Модуль обязан предоставить:
-
-- уникальный tool ID;
-- interaction state machine;
-- pointer/keyboard inputs;
-- cancel semantics;
-- command factory;
-- capability requirement;
-- diagnostic codes без user content;
-- unit и browser scenario.
-
-### 7.3. Новый importer
-
-Модуль обязан предоставить:
-
-- trust classification и input validator;
-- size/complexity limits;
-- conversion result;
-- diagnostics и provenance;
-- duplicate/retry policy;
-- recovery behavior.
-
-### 7.4. Persistence adapter
-
-Адаптер реализует declared repository port. Domain не знает, используется
-memory, Dexie или HTTP. Для любой реализации определяются:
-
-- source-of-truth ownership;
-- atomicity boundary;
-- optimistic version/idempotency;
-- retry и conflict policy;
-- last-good state;
-- migration и recovery.
-
-### 7.5. UI contribution
-
-Модуль использует известные slots:
-
-- primary/secondary toolbar;
-- inspector;
-- prompt panel;
-- status bar;
-- context menu;
-- diagnostics panel.
-
-Произвольное изменение application layout из module initialization запрещено.
-
-## 8. Project skill routing
-
-`task-triage` всегда определяет затронутые modules, contracts и invariant IDs.
-Далее подключаются только релевантные skills:
-
-| Поверхность                                                 | Обязательные project skills               |
-| ----------------------------------------------------------- | ----------------------------------------- |
-| modules, dependencies, composition, public contracts        | `tutorboard-architecture`                 |
-| BoardDocument, objects, commands, serialization, migrations | `board-document-evolution`                |
-| canvas, coordinates, tools, selection, pointer lifecycle    | `canvas-interaction-review`               |
-| OpenAPI, GIR, client, adapter, layout, imports              | `geometryos-integration-review`           |
-| Dexie, autosave, revisions, offline, conflicts, restore     | `persistence-recovery-review`             |
-| SVG import/render/export                                    | `svg-security-review` + `security-review` |
-| auth, tenant, publication                                   | `security-review`                         |
-| WebSocket, operation replay, retries                        | `concurrency-review`                      |
-| platform durable schema                                     | `database-review`                         |
-| lesson launch, embed, same-origin gateway                    | `platform-integration`                    |
-| collaboration, presence, own-operation undo                  | `collaboration-protocol`                  |
-| final revision, evidence, publication/export                 | `lesson-evidence`                         |
-| image, proxy, SLO, rollback, release                         | `production-release`                      |
-
-Фазовые skills существуют и обязаны применяться вместе с базовыми specialist
-review при затрагивании соответствующих поверхностей.
-
-## 9. Verification routing
-
-| Изменения                     | Минимальная проверка                                        |
-| ----------------------------- | ----------------------------------------------------------- |
-| `core/**`                     | typecheck, unit, schema fixtures, architecture              |
-| `modules/**`                  | module unit, public API, architecture, relevant integration |
-| `adapters/canvas-konva/**`    | transforms, browser interaction, E2E smoke                  |
-| `adapters/geometryos-http/**` | generated contract, fixtures, error matrix                  |
-| persistence                   | repository contract, migration, corruption/recovery         |
-| SVG                           | malicious fixtures, limits, serialization, browser smoke    |
-| collaboration                 | multi-client convergence, reconnect, duplicate/out-of-order |
-| evidence/publication          | immutability, authorization, metadata minimization          |
-
-До появления `package.json` документационные проверки ограничены:
-
-- валидным Markdown;
-- корректным YAML frontmatter project skills;
-- корректными JSON schemas;
-- отсутствием противоречий в routing и invariant IDs.
-
-## 10. PR contract
-
-Каждый нетривиальный PR содержит:
-
-- одну цель;
-- scope и non-scope;
-- module owner;
-- затронутые invariant IDs;
-- public/stored/external contract impact;
-- migration/recovery impact;
-- security/privacy impact;
-- точные checks и результаты;
-- ADR при изменении долгоживущей границы;
-- screenshots/demo для UI;
-- residual risks.
-
-Нельзя:
-
-- смешивать unrelated module changes;
-- вводить dependency без owner и boundary;
-- менять stored schema без version/migration decision;
-- превращать visual drag в mathematical edit молча;
-- использовать full test suite вместо отсутствующего targeted test;
-- объявлять инвариант обеспеченным только на основании review prose.
-
-## 11. Phase gates
-
-### Gate A — Architecture proven
-
-- vertical slice работает;
-- GIR mapping детерминирован;
-- coordinate ownership решён;
-- local recovery доказан;
-- неизвестные и fallback paths перечислены;
-- нет скрытой зависимости от SVG parsing или canvas runtime.
-
-### Gate B — Single-user foundation
-
-- `BoardDocument 1.0`;
-- undo/redo;
-- import/export;
-- accessibility и performance baselines;
-- modules расширяются через принятые contracts.
-
-### Gate C — Platform-connected and durable
-
-- identity/tenant/lesson приходят из `tutor-assistant-web`;
-- server document является source of truth;
-- optimistic concurrency и conflict UX работают;
-- GeometryOS доступен через platform gateway.
-
-### Gate D — Collaborative classroom
-
-- two-client convergence;
-- reconnect/replay/deduplication;
-- authorization;
-- atomic geometry import;
-- документированные load limits.
-
-### Gate E — Evidence and publication
-
-- finalized revision immutable;
-- evidence связано с точной revision;
-- student видит только published artifacts;
-- технические metadata и PII минимизированы.
-
-### Gate F — Production-ready
-
-- security review;
-- observability и SLO;
-- performance budgets;
-- backup/restore drill;
-- reproducible release и rollback без document loss.
-
-## 12. Принятые ограничения
-
-- Сначала внутренние статические модули, затем при доказанной необходимости
-  dynamic plugins.
-- Сначала command/reducer model, затем history и collaboration protocol.
-- Сначала IndexedDB recovery, затем server source of truth.
-- Сначала deterministic fixture integration, затем optional live GeometryOS E2E.
-- Сначала измеримый performance baseline, затем optimization.
-- Project skills остаются короткими и используют этот файл как единый источник
-  TutorBoard invariants.
+### 6.2. Capability matrix
+
+| Capability              | Teacher |    Guest student |
+| ----------------------- | ------: | ---------------: |
+| `board.read`            |      да |               да |
+| `board.write`           |      да |    настраивается |
+| `collaboration.connect` |      да |               да |
+| `board.export`          |      да | нет по умолчанию |
+| `board.history.read`    |      да |              нет |
+| `board.invites.manage`  |      да |              нет |
+| `board.archive`         |      да |              нет |
+| `board.delete`          |      да |              нет |
+
+Frontend скрывает недоступные действия, но окончательное решение всегда
+принимает backend.
+
+### 6.3. Guest cookie
+
+Cookie содержит только подписанные claims:
+
+```text
+invite_id, board_id, actor_id, credential_version, issued_at, expires_at
+```
+
+Требования:
+
+- `HttpOnly`;
+- `Secure`;
+- `SameSite=Lax`;
+- ограниченный `Path=/`;
+- не содержит исходный invite token;
+- имеет срок не длиннее срока invitation;
+- проверяется по актуальному `credential_version`;
+- не заменяет CSRF token для изменяющих HTTP-запросов.
+
+### 6.4. Защитные инварианты
+
+- недоступная чужая доска отвечает `404`, а не раскрывающим `403`;
+- actor envelope и вложенных commands совпадает с principal;
+- invitation никогда не предоставляет manage capabilities;
+- сырой token не хранится в PostgreSQL, Redis, audit и access logs;
+- `/j/*` исключён из обычного access logging либо путь редактируется;
+- invitation lookup выполняется по HMAC-SHA-256 с server-side pepper;
+- сравнение token digest выполняется constant-time;
+- все изменяющие HTTP endpoints требуют CSRF;
+- production WebSocket без `Origin` запрещён;
+- WebSocket подключается только через одноразовый ticket с TTL 30 секунд;
+- revoke и read-only переключатель проверяются на сервере, а не только в UI;
+- guest не может перечислять доски, приглашения, пользователей и revisions;
+- failed join attempts и command abuse имеют IP/invite rate limits;
+- CSP запрещает непредусмотренные third-party scripts и connections.
+
+## 7. Изменения модели данных
+
+### 7.1. `board_documents`
+
+Добавить:
+
+```text
+owner_user_id            NOT NULL
+title                    NOT NULL
+student_editing_enabled  NOT NULL DEFAULT true
+```
+
+Изменить:
+
+- `student_id` и `lesson_id` перестают быть обязательными для standalone board;
+- удалить обязательный composite FK на `lessons` для новых досок;
+- заменить uniqueness `organization + lesson` на явные ограничения standalone;
+- сохранить `organization_id` для tenant isolation;
+- сохранить текущие revision/snapshot/delete поля.
+
+Lesson-bound доски должны продолжать читаться в переходный период. Миграция не
+удаляет существующие данные и не меняет command payload.
+
+### 7.2. `board_invitations`
+
+```text
+id                       UUID PK
+organization_id          UUID NOT NULL
+board_document_id        VARCHAR NOT NULL
+token_digest             CHAR(64) UNIQUE NOT NULL
+actor_id                 VARCHAR UNIQUE NOT NULL
+display_name             VARCHAR NOT NULL
+role                     VARCHAR NOT NULL DEFAULT 'student'
+credential_version       INTEGER NOT NULL DEFAULT 1
+expires_at               TIMESTAMPTZ NULL
+revoked_at               TIMESTAMPTZ NULL
+created_by               UUID NOT NULL
+created_at               TIMESTAMPTZ NOT NULL
+last_used_at             TIMESTAMPTZ NULL
+use_count                BIGINT NOT NULL DEFAULT 0
+```
+
+Обязательные индексы:
+
+- unique `token_digest`;
+- `(organization_id, board_document_id, revoked_at)`;
+- `(expires_at)` для cleanup;
+- `(actor_id)` для envelope validation/audit.
+
+## 8. API-контракт
+
+### 8.1. Teacher endpoints
+
+| Method   | Path                                              | Назначение                 |
+| -------- | ------------------------------------------------- | -------------------------- |
+| `POST`   | `/api/v1/boards`                                  | создать standalone board   |
+| `GET`    | `/api/v1/boards`                                  | список досок владельца     |
+| `PATCH`  | `/api/v1/boards/{id}`                             | название и student editing |
+| `POST`   | `/api/v1/boards/{id}/archive`                     | архивировать               |
+| `POST`   | `/api/v1/boards/{id}/unarchive`                   | восстановить               |
+| `DELETE` | `/api/v1/boards/{id}`                             | мягкое удаление            |
+| `POST`   | `/api/v1/boards/{id}/invitations`                 | выпустить ссылку           |
+| `GET`    | `/api/v1/boards/{id}/invitations`                 | статусы ссылок без token   |
+| `POST`   | `/api/v1/boards/{id}/invitations/{invite}/revoke` | отозвать                   |
+| `POST`   | `/api/v1/boards/{id}/invitations/{invite}/rotate` | заменить ссылку            |
+
+### 8.2. Guest bootstrap
+
+| Method | Path                     | Назначение                           |
+| ------ | ------------------------ | ------------------------------------ |
+| `GET`  | `/j/{secret}`            | exchange link → guest cookie → 303   |
+| `GET`  | `/api/v1/boards/context` | teacher/guest context и capabilities |
+
+### 8.3. Shared board endpoints
+
+Сохраняются текущие routes:
+
+```text
+GET  /api/v1/boards/{id}
+GET  /api/v1/boards/{id}/commands
+POST /api/v1/boards/{id}/commands
+POST /api/v1/boards/{id}/snapshots
+POST /api/v1/boards/{id}/collaboration-ticket
+WS   /api/v1/boards/{id}/collaboration
+```
+
+Teacher-only evidence/history endpoints скрываются в board-only UI до
+отдельного продуктового решения.
+
+### 8.4. Ошибки
+
+API использует единый Problem Details/JSON error contract:
+
+- `board_not_found`;
+- `invitation_invalid`;
+- `invitation_expired`;
+- `invitation_revoked`;
+- `guest_session_invalid`;
+- `board_read_only`;
+- `board_revision_conflict`;
+- `board_lamport_conflict`;
+- `rate_limit_exceeded`.
+
+Публичная join-страница не различает invalid/expired/revoked для пользователя,
+но метрика и privacy-safe audit должны различать причины.
+
+## 9. Изменения TutorBoard frontend
+
+### 9.1. Bootstrap
+
+- заменить обязательный `lessonId + documentId` на standalone `boardId`;
+- сохранить временное чтение legacy query для обратной совместимости;
+- создать `readBoardLaunchContext()`;
+- открывать synced app по `/b/<boardId>#/board`;
+- context получать до запуска sync engine;
+- не сохранять guest cookie/token в IndexedDB/localStorage;
+- сохранять только безопасный `originId` и локальную command queue.
+
+### 9.2. Share UI
+
+Текущий `copyBoardShareUrl(window.location)` удалить из server-sync режима.
+Вместо этого UI должен:
+
+- вызвать invitation API;
+- показать имя ученика и срок;
+- скопировать возвращённую секретную ссылку;
+- показывать `never used / active / expired / revoked`;
+- позволять revoke/rotate;
+- не отображать старый token после закрытия результата создания.
+
+### 9.3. Teacher workspace
+
+Добавить минимальный `/boards` shell:
+
+- список активных и архивных досок;
+- название и дата последнего изменения;
+- наличие активного ученика;
+- кнопки «Открыть», «Пригласить», «Только просмотр», «Архивировать»;
+- создание доски;
+- empty, loading, offline и error states;
+- keyboard/focus accessibility.
+
+### 9.4. Guest mode
+
+- не показывать login, settings, diagnostics и board list;
+- показывать имя преподавателя/доски только если это разрешено context;
+- скрывать invite, archive, delete, history и evidence actions;
+- при read-only выключать mutation tools;
+- при revoke очищать pending UI, закрывать collaboration и показывать
+  безопасную страницу потери доступа;
+- не отправлять уже запрещённые pending commands после revoke/read-only.
+
+## 10. Изменения Board API
+
+- добавить независимый `create_board()` без Lesson dependency;
+- обобщить `BoardAccessPolicy` на teacher/guest principal;
+- добавить invitation service;
+- добавить signed guest session codec;
+- добавить HMAC token lookup;
+- добавить guest CSRF lifecycle;
+- выдавать существующий one-time collaboration ticket гостю;
+- валидировать board scope и actor для pull/push/snapshot/WS;
+- публиковать `access.revoked` и `access.capabilities.changed`;
+- добавить join/access rate limits;
+- добавить privacy-safe audit events;
+- добавить `APP_PROFILE=board` composition root;
+- исключить classroom, students, portal, BBB, transcription, materials и
+  document-engine routes из board profile;
+- добавить health/readiness dependencies только для PostgreSQL, Redis и S3.
+
+## 11. Пошаговый план PR
+
+Каждый PR должен быть небольшим, мигрируемым и иметь собственный rollback.
+
+### PR B0 — зафиксировать standalone contracts
+
+Репозитории: `tutorboard`, `tutor-assistant-web`.
+
+Scope:
+
+- ADR capability-link access;
+- ADR board-only runtime boundary;
+- OpenAPI draft invitation/context endpoints;
+- capability vocabulary;
+- cookie/token/logging threat model;
+- legacy lesson-bound compatibility policy.
+
+Gate:
+
+- frontend/backend fixtures одинаково понимают context и errors;
+- нет реализации до согласования token lifecycle и revoke semantics.
+
+### PR B1 — отвязать BoardDocument от Lesson
+
+Репозиторий: `tutor-assistant-web`.
+
+Scope:
+
+- additive PostgreSQL migration;
+- owner/title/student-editing fields;
+- nullable legacy lesson/student linkage;
+- standalone create/list/update service;
+- tenant/owner access tests;
+- migration and downgrade smoke.
+
+Gate:
+
+- существующие lesson-bound board tests зелёные;
+- новые standalone board tests зелёные;
+- command and snapshot contracts не изменены;
+- production data migration не удаляет строки.
+
+### PR B2 — invitation и guest session backend
+
+Репозиторий: `tutor-assistant-web`.
+
+Scope:
+
+- `board_invitations` migration;
+- token issue/HMAC lookup;
+- exchange route и guest cookie;
+- capabilities/CSRF context;
+- revoke/rotate/expiry;
+- guest read/write access;
+- WebSocket ticket для guest;
+- audit и rate limits.
+
+Gate:
+
+- raw token отсутствует в DB/log/test snapshots;
+- cross-board запрос возвращает 404;
+- revoke блокирует HTTP и активный WS;
+- read-only блокирует server write;
+- forged/expired/version-mismatched cookie отклоняется.
+
+### PR T1 — standalone board launch
+
+Репозиторий: `tutorboard`.
+
+Scope:
+
+- `boardId` launch context;
+- context-first bootstrap;
+- capability-aware shell;
+- legacy query compatibility;
+- guest-safe routing;
+- unit/component/browser tests.
+
+Gate:
+
+- обычный локальный mode не сломан;
+- teacher и guest открывают один document;
+- guest token не попадает в local storage/IndexedDB;
+- invalid access показывает безопасный UX.
+
+### PR T2 — teacher board list и invitation UI
+
+Репозиторий: `tutorboard`.
+
+Scope:
+
+- board list/create/archive flows;
+- invitation dialog;
+- copy, expiry, revoke и rotate;
+- student editing switch;
+- guest/read-only UI;
+- accessibility и responsive layout.
+
+Gate:
+
+- clipboard failure имеет ручной fallback;
+- token не отображается после закрытия result panel;
+- ученик не видит teacher controls;
+- управление полностью доступно с клавиатуры.
+
+### PR B3/T3 — live revocation и convergence hardening
+
+Репозитории: оба.
+
+Scope:
+
+- `access.revoked`;
+- `access.capabilities.changed`;
+- закрытие WS;
+- остановка pending push;
+- offline/reconnect после смены прав;
+- multi-tab guest origin tests;
+- duplicate/replay/revision conflict matrix.
+
+Gate:
+
+- сервер остаётся авторитетным при устаревшем UI;
+- подтверждённые команды не теряются;
+- запрещённые pending commands не отправляются после восстановления сети.
+
+### PR D1 — board-only containers и local stack
+
+Репозиторий: `tutor-assistant-web` с документацией в `tutorboard`.
+
+Scope:
+
+- `APP_PROFILE=board`;
+- `compose.board.local.yml`;
+- `compose.board.production.yml`;
+- Caddy routes `/`, `/api`, `/j`, `/b`, WebSocket;
+- PostgreSQL, Redis, external S3;
+- migration job;
+- backup/restore commands;
+- pinned GeometryOS profile.
+
+Исключить:
+
+- BBB;
+- Celery workers/scheduler общего приложения;
+- transcription;
+- materials/document engine;
+- portal;
+- ClamAV;
+- internal MinIO при использовании Yandex Object Storage.
+
+Gate:
+
+- compose config render;
+- clean-host bootstrap;
+- non-root containers;
+- secrets только через files/Lockbox;
+- HTTP readiness и WebSocket smoke;
+- backup/isolated restore.
+
+### PR D2 — release CI
+
+Репозитории: оба.
+
+Scope:
+
+- immutable TutorBoard UI image;
+- immutable Board API image;
+- SHA/digest metadata;
+- SBOM и vulnerability scan;
+- Chromium/Firefox two-client guest E2E;
+- PostgreSQL/Redis integration;
+- migration check;
+- production compose validation;
+- запрет `latest`.
+
+Gate:
+
+- release tags разрешаются в `repository@sha256`;
+- runtime deployment state хранит только digests;
+- high/critical vulnerability policy проходит либо имеет оформленное исключение.
+
+### PR D3 — Yandex Cloud staging
+
+Scope:
+
+- отдельный Terraform state;
+- VM, static IP, security group и DNS;
+- отдельный Lockbox;
+- Object Storage snapshots/backups;
+- Ansible board-only playbook;
+- monitoring, budgets и audit trail;
+- staging deployment без production DNS.
+
+Начальный sizing для проверки:
+
+```text
+4 vCPU, 8 GiB RAM, 100 GiB network SSD
+```
+
+Gate:
+
+- полный E2E;
+- load test;
+- Redis/PostgreSQL restart drills;
+- VM reboot drill;
+- real off-host backup;
+- isolated restore;
+- 24-часовой soak без необъяснимых disconnect/data divergence.
+
+### PR D4 — production rollout
+
+Scope:
+
+- отдельные production state/Lockbox/bucket/domain;
+- digest-pinned deploy;
+- preflight без запуска;
+- migration backup;
+- blue/green application switch;
+- smoke и ручная teacher/student приёмка;
+- rollback evidence.
+
+Gate:
+
+- ручное approval после staging;
+- DNS/TLS готовы;
+- dashboard/alerts активны;
+- предыдущие digests сохранены;
+- подтверждён последний restore drill.
+
+## 12. Тестовая стратегия
+
+### 12.1. Unit/property tests
+
+- token entropy/encoding/digest;
+- constant-time comparison wrapper;
+- expiry boundaries и clock skew;
+- capability derivation;
+- cookie signing/tampering/version;
+- actor/origin identity;
+- route/context parsing;
+- read-only UI command boundary;
+- redaction token-shaped paths.
+
+### 12.2. PostgreSQL integration
+
+- standalone create/list/update;
+- tenant and owner isolation;
+- invitation uniqueness;
+- concurrent rotate/revoke;
+- legacy board migration;
+- command revision/idempotency/Lamport invariants;
+- snapshot recovery;
+- soft delete and purge.
+
+### 12.3. Redis/WebSocket integration
+
+- one-time ticket consumption;
+- wrong-board ticket rejection;
+- presence join/leave/expiry;
+- multi-process Pub/Sub;
+- revoke active connection;
+- read-only capability change;
+- Redis restart and reconnect;
+- message size/rate enforcement.
+
+### 12.4. Security tests
+
+- brute-force/rate-limit behavior;
+- token absent from DB, logs, metrics, Sentry и traces;
+- CSRF with guest cookie;
+- Origin mismatch;
+- forged cookie;
+- replayed WebSocket ticket;
+- cross-board enumeration;
+- guest manage endpoint denial;
+- cache/referrer/robots headers;
+- CSP and dependency audit.
+
+### 12.5. Browser E2E
+
+Минимальный release gate:
+
+1. Преподаватель входит в систему.
+2. Создаёт доску и invitation для «Ксения».
+3. Новый browser context открывает ссылку без login screen.
+4. Оба клиента получают один revision `0`.
+5. Оба одновременно рисуют и перемещают разные объекты.
+6. Оба видят presence, курсоры и previews.
+7. Ученик перезагружает страницу и восстанавливает доску.
+8. Ученик работает offline, затем синхронизируется.
+9. Ученик не может открыть соседний board ID.
+10. Teacher включает read-only; guest write блокируется.
+11. Teacher возвращает write; sync продолжается.
+12. Teacher отзывает invitation; active guest теряет доступ.
+13. Новая invitation снова открывает ту же доску.
+14. Teacher экспортирует итоговый документ.
+
+Матрица: Chromium и Firefox в CI; Edge/Chrome/Safari/iPad — ручная staging
+приёмка до production.
+
+### 12.6. Load/chaos gates
+
+- 100 одновременных WebSocket clients;
+- не менее 50 пар teacher/student на независимых досках;
+- burst рисования и transform preview;
+- reconnect storm после Redis restart;
+- PostgreSQL connection exhaustion protection;
+- заполнение disk warning;
+- container/VM restart;
+- backup во время умеренной активности;
+- restore с последующим checksum/revision validation.
+
+## 13. SLO и наблюдаемость
+
+Начальные цели после staging calibration:
+
+| Показатель                         | Цель                                      |
+| ---------------------------------- | ----------------------------------------- |
+| HTTPS availability                 | не ниже 99.5% в месяц                     |
+| подтверждённая команда после `2xx` | не теряется                               |
+| join exchange p95                  | не более 500 мс                           |
+| command commit p95                 | не более 750 мс без учёта клиентской сети |
+| presence/preview delivery p95      | не более 500 мс                           |
+| reconnect to converged state p95   | не более 10 секунд                        |
+| backup RPO                         | не более 24 часов                         |
+| проверяемый restore RTO            | не более 2 часов                          |
+
+Обязательные метрики:
+
+- active WS по role;
+- join success/failure reason без token;
+- issued/active/revoked/expired invitations;
+- command commit/conflict/idempotent retry;
+- collaboration publish latency;
+- reconnect/convergence duration;
+- Redis/PostgreSQL/S3 health;
+- snapshot age/failure/quarantine;
+- backup age/result;
+- disk/memory/CPU/container restarts.
+
+Alerts:
+
+- readiness недоступна;
+- повышенный join failure rate;
+- WebSocket disconnect spike;
+- command conflict spike;
+- oldest pending/snapshot/backup age;
+- PostgreSQL/Redis unavailable;
+- disk ниже установленного порога;
+- restore verification failure.
+
+## 14. Миграция и совместимость
+
+### 14.1. Порядок миграции
+
+1. Выпустить additive DB migration.
+2. Развернуть backend, понимающий legacy и standalone rows.
+3. Оставить старые lesson routes рабочими.
+4. Выпустить TutorBoard с dual launch parser.
+5. Включить standalone creation только после backend readiness.
+6. Перевести production UI на standalone routes.
+7. Наблюдать legacy traffic.
+8. Удалять lesson-specific compatibility только отдельным последующим ADR/PR.
+
+### 14.2. Rollback
+
+- до включения standalone feature старый backend должен читать новую схему;
+- миграция B1 должна иметь проверяемый downgrade без потери legacy rows;
+- invitation tables можно оставить неиспользуемыми при app rollback;
+- frontend rollback не удаляет server data;
+- deploy хранит предыдущие immutable image digests;
+- при failed smoke proxy возвращается на предыдущий slot;
+- schema contract changes не объединяются с необратимым data cleanup.
+
+## 15. Board-only deployment в Yandex Cloud
+
+### 15.1. Изоляция окружений
+
+Staging и production имеют отдельные:
+
+- Terraform state;
+- VM и static IPv4;
+- DNS name;
+- Lockbox secret;
+- PostgreSQL data volumes;
+- Object Storage bucket/prefix;
+- S3 credentials;
+- application secrets;
+- GitHub Environment и runner label.
+
+### 15.2. Сеть
+
+- публичные TCP 80/443 и UDP 443;
+- SSH только с узкого CIDR/VPN;
+- PostgreSQL, Redis и internal metrics не публикуются;
+- outbound HTTPS разрешён для GHCR, S3 и GeometryOS dependencies;
+- Caddy — единственная публичная точка входа.
+
+### 15.3. Secrets
+
+Минимальный production Lockbox:
+
+```text
+app_secret_key
+guest_session_signing_key
+invitation_token_pepper
+postgres_password
+redis_password
+snapshot_s3_secret_key
+backup_s3_secret_key
+ghcr_token
+metrics_bearer_token
+grafana_admin_password
+sentry_dsn
+```
+
+Terraform получает только secret ID и не читает payload. VM service account
+имеет `lockbox.payloadViewer` только на свой environment secret.
+
+## 16. Риски и решения
+
+| Риск                           | Решение                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| Ссылку переслали третьему лицу | revoke/rotate, короткий TTL, audit, одна ссылка на ученика               |
+| Token попал в access log       | redaction/disable path logging для `/j/*`                                |
+| Preview-бот открыл ссылку      | invitation reusable до revoke, cookie выдаётся только конкретному client |
+| Guest cookie украдена          | Secure/HttpOnly/SameSite, CSP, короткий TTL, version revoke              |
+| UI устарел после revoke        | backend validation на каждом write/ticket + WS kick                      |
+| Redis перезапущен              | reconnect и recovery из PostgreSQL/snapshots                             |
+| Два устройства одного ученика  | общий actor, разные `originId`, существующий Lamport contract            |
+| Legacy board сломан миграцией  | additive schema, dual read, migration tests                              |
+| Два backend расходятся         | не копировать board protocol, board-only profile текущего API            |
+| VM потеряна                    | off-host backup, static DNS recovery, restore drill                      |
+
+## 17. Definition of Done первой публичной версии
+
+Поставка завершена только если одновременно выполнены условия:
+
+- преподаватель создаёт standalone board из production UI;
+- invitation содержит не менее 256 бит энтропии;
+- исходный token нигде не хранится и не логируется;
+- ученик открывает доску без аккаунта и login screen;
+- guest principal ограничен ровно одной доской;
+- teacher/student одновременно редактируют без расхождения документа;
+- offline/reconnect сохраняет подтверждённые и pending изменения;
+- read-only и revoke применяются сервером и к активному WS;
+- соседние доски не перечисляются и не раскрываются;
+- Chromium/Firefox E2E, security, migration и load gates зелёные;
+- runtime использует immutable image digests;
+- staging прошёл soak, reboot, backup и isolated restore;
+- production имеет TLS, alerts, budget и audit trail;
+- rollback на предыдущие digests проверен;
+- runbook позволяет другому оператору восстановить сервис без устных знаний.
+
+## 18. Немедленная последовательность работ
+
+1. Выполнить PR B0 и зафиксировать ADR/OpenAPI/capabilities.
+2. Выполнить backend PR B1 с additive migration.
+3. Выполнить backend PR B2 с invitation и guest access.
+4. Выполнить TutorBoard PR T1 с standalone bootstrap.
+5. Выполнить TutorBoard PR T2 с board/invitation UX.
+6. Совместно выполнить B3/T3 и real two-client revoke E2E.
+7. Собрать board-only compose в D1.
+8. Подключить immutable release gates в D2.
+9. Развернуть staging D3, выполнить load/chaos/restore/soak.
+10. После ручного approval выполнить production rollout D4.
+
+Ни один production apply не выполняется до завершения PR B0–D2 и зелёного
+board-only staging preflight.
