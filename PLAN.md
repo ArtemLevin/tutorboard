@@ -1,104 +1,182 @@
-# TutorBoard standalone: план гостевой совместной доски
+# TutorBoard standalone: детализированный план гостевой совместной доски
 
 > Статус документа: основной execution plan с 2026-08-15.
 >
+> Документ обновлён после ревью фактического состояния `main`. Существующий
+> revision-based sync, WebSocket collaboration и durable offline queue считаются
+> зрелым baseline и не переписываются. Основной объём новой работы — standalone
+> ownership, guest capability-link access, security boundaries, principal-scoped
+> local persistence и board-only production deployment.
+>
 > Прежние этапы развития полотна, GeometryOS, Smart Ink и lesson-bound
-> интеграции сохранены в `docs/DEVELOPMENT_PLAN.md`, архитектурных ADR и
-> профильных планах в `docs/architecture/`. Этот документ определяет новый
-> приоритет: самостоятельный TutorBoard, который преподаватель открывает по
-> своей учётной записи, а ученик — без регистрации по секретной ссылке.
+> интеграции сохранены в `docs/DEVELOPMENT_PLAN.md`, ADR и профильных планах в
+> `docs/architecture/`.
 
 ## 1. Продуктовое решение
 
-Первая публичная версия разворачивается как отдельный продукт TutorBoard и
+Первая публичная версия TutorBoard разворачивается как отдельный продукт и
 поддерживает основной сценарий:
 
 1. Преподаватель авторизуется.
-2. Преподаватель создаёт новую независимую доску.
-3. Преподаватель выпускает отдельную секретную ссылку для ученика.
-4. Ученик открывает ссылку в браузере без регистрации, логина и пароля.
-5. Ссылка обменивается на ограниченную гостевую сессию только для этой доски.
-6. Преподаватель и ученик синхронно редактируют один документ.
-7. Преподаватель может запретить редактирование, отозвать ссылку, выпустить
-   новую ссылку, архивировать или удалить доску.
+2. Преподаватель создаёт независимую доску.
+3. Преподаватель выпускает секретную ссылку для конкретного ученика.
+4. Ученик открывает ссылку без регистрации, логина и пароля.
+5. Ссылка обменивается на ограниченную guest session только для этой доски.
+6. Преподаватель и ученик синхронно редактируют один `BoardDocument`.
+7. Преподаватель может перевести ученика в read-only, вернуть write, отозвать
+   или ротировать ссылку без пересоздания доски.
+8. Преподаватель может архивировать, восстановить или мягко удалить доску.
 
-Авторизация преподавателя остаётся обязательной. Полностью анонимное создание
-досок не допускается, поскольку оно делает невозможными владение, аудит,
-отзыв доступа, защиту от злоупотреблений и восстановление данных.
+Авторизация преподавателя обязательна. Анонимное создание досок не допускается:
+оно разрушает модель владения, аудит, отзыв доступа, защиту от злоупотреблений и
+восстановление данных.
 
 ### 1.1. Что означает «без авторизации ученика»
 
-Ученик не создаёт аккаунт и не вводит персональные данные. После открытия
-секретной ссылки сервер выдаёт браузеру `HttpOnly` guest cookie. Cookie является
-технической сессией доступа, а не пользовательской учётной записью.
+Ученик не создаёт учётную запись и не вводит персональные данные. При открытии
+секретной ссылки сервер создаёт техническую board-scoped guest session и
+устанавливает `HttpOnly` cookie. Это credential браузера, а не пользовательский
+аккаунт.
 
-Нужно явно учитывать ограничение capability-link модели:
+Capability-link имеет фундаментальное ограничение:
 
 > Любой, кто получил секретную ссылку, может воспользоваться ею до истечения
-> срока или отзыва. Без идентификации ученика невозможно доказать, кому именно
-> была переслана ссылка.
+> срока или отзыва. Без идентификации невозможно доказать, кому именно была
+> переслана ссылка.
 
-Риск ограничивается высокой энтропией секрета, коротким сроком действия,
-board-scoped правами, отзывом, ротацией, аудитом и отсутствием токена в логах.
+Риск ограничивается высокой энтропией token, коротким TTL, board-scoped
+capabilities, revoke/rotate, audit, rate limits и запретом хранения raw token.
+
+### 1.2. Архитектурные инварианты первой версии
+
+Следующие решения считаются обязательными и не должны размываться в отдельных
+PR:
+
+1. **Существующий sync не переписывается.** Сохраняются ordered commands,
+   sequential server revisions, SHA-256, idempotency, Lamport metadata,
+   snapshots, IndexedDB pending queue, pull/rebase/push и `409` recovery.
+2. **`BoardSyncEngine` синхронизирует существующую доску, но не создаёт её.**
+   Создание board относится к management/API layer. `lessonId` не должен быть
+   обязательной зависимостью sync engine.
+3. **Backend является единственным authority для capabilities.** UI может
+   скрывать или блокировать действия, но любой write, ticket, archive, invite и
+   delete повторно проверяются сервером.
+4. **Durable browser state изолируется по security principal/access scope, а не
+   только по `documentId`.** Teacher cache и guest cache одной доски не
+   считаются одной и той же security областью.
+5. **Смена прав создаёт новый local access epoch.** Pending-команды гостя,
+   созданные до revoke/read-only downgrade, не должны автоматически «оживать»
+   после последующего возврата write.
+6. **Revoke является терминальным состоянием guest client.** После
+   `access.revoked` клиент прекращает reconnect/push и не входит в бесконечный
+   цикл повторного подключения.
+7. **Guest shell имеет route-level least privilege.** Недостаточно скрыть
+   навигацию: недоступные guest routes не должны монтировать teacher-only UI и
+   вызывать teacher-only API.
+8. **Raw invitation token никогда не является runtime identifier.** После
+   `/j/<secret>` он исчезает из URL, не сохраняется в storage и не используется
+   в WebSocket.
+9. **WebSocket ticket остаётся короткоживущим one-time credential.** Его query
+   parameter должен быть redacted из access logs, metrics, traces и error
+   reporting.
+10. **Одна доска может иметь несколько invitations.** Write permission хранится
+    на invitation level; дополнительно board имеет глобальный kill switch для
+    гостевых записей.
 
 ## 2. Цели и границы первой поставки
 
 ### 2.1. Обязательные возможности
 
-- самостоятельная доска без обязательных `studentId` и `lessonId`;
-- список досок преподавателя;
-- создание, открытие, переименование, архивирование и мягкое удаление;
-- одна или несколько независимых гостевых ссылок на доску;
-- имя ученика, заданное преподавателем при создании ссылки;
-- настраиваемый срок ссылки: 1 час, 24 часа, 7 дней или до отзыва;
-- гостевой вход без промежуточной формы;
+- standalone board без обязательных `studentId` и `lessonId`;
+- owner-scoped список досок преподавателя;
+- создание, открытие, переименование, архивирование, восстановление и soft
+  delete;
+- одна или несколько независимых guest invitations на доску;
+- отображаемое имя ученика на invitation;
+- срок ссылки: 1 час, 24 часа, 7 дней или до отзыва;
+- per-invitation `write_enabled`;
+- board-wide `guest_writes_enabled` как аварийный/общий переключатель;
+- guest entry без промежуточной login form;
 - HTTP push/pull, server revisions, snapshots и offline recovery;
-- WebSocket presence, курсоры, ink/transform preview и reconnect;
-- немедленный запрет новых записей после блокировки ученика;
-- отзыв и ротация ссылки без изменения самой доски;
-- экспорт преподавателем в `.tutorboard.json`, SVG, PNG и PDF;
-- production deployment только board-контура в Yandex Cloud;
+- WebSocket presence, cursors, ink/transform previews и reconnect;
+- live read-only/revoke propagation;
+- principal-scoped local durable queue;
+- отзыв и ротация invitation без изменения board id;
+- export преподавателем в `.tutorboard.json`, SVG, PNG и PDF;
+- board-only production deployment в Yandex Cloud;
 - off-host backup и проверяемый restore drill.
 
 ### 2.2. Не входит в первую поставку
 
 - аккаунты учеников и родителей;
 - каталог учеников и расписание;
-- привязка к занятию как обязательное условие;
+- обязательная привязка к lesson;
 - BigBlueButton;
 - запись и транскрибация урока;
 - портал материалов;
 - генерация учебных PDF/HTML после урока;
 - публичный каталог досок;
 - анонимное создание досок;
-- передача владения доской;
-- end-to-end encryption содержимого доски;
-- CRDT-переписывание существующего revision protocol.
+- transfer ownership;
+- end-to-end encryption;
+- CRDT-переписывание revision protocol;
+- отдельный backend-репозиторий TutorBoard до production stabilization;
+- отдельный guest subdomain в обязательном v1 scope. Он остаётся допустимым
+  hardening после первой поставки, если появится session-confusion риск.
 
-## 3. Сохраняемый технический baseline
+## 3. Фактический технический baseline и текущие разрывы
 
-Новая стратегия не отменяет готовую совместную синхронизацию. Без изменения
-основного протокола сохраняются:
+### 3.1. Уже реализованный baseline
+
+В текущем TutorBoard сохраняются без фундаментальной переработки:
 
 - `BoardDocument` и command-only mutation boundary;
 - ordered command envelope `1.5`;
-- последовательные server revisions;
-- SHA-256 проверка документа и snapshots;
+- sequential server revisions;
+- SHA-256 document/snapshot validation;
 - idempotency keys;
 - Lamport ordering по `actorId + originId`;
-- durable IndexedDB queue;
+- `BoardSyncEngine` с bootstrap, pull, optimistic push, rebase и conflict
+  recovery;
+- durable Dexie queue;
+- confirmed head cache;
+- quarantine конфликтующих/повреждённых pending commands;
 - offline → reconnect → pull/rebase/push;
-- восстановление после `409` revision conflict;
-- Redis Pub/Sub room broker;
-- ephemeral presence;
-- одноразовые WebSocket tickets;
-- same-origin HTTP и WebSocket;
-- WebSocket Origin validation;
-- ограничение размера и частоты live-сообщений;
-- реальные Chromium/Firefox two-client E2E.
+- server rollback/split-brain/revision-gap checks;
+- HTTP board adapter с strict runtime validation;
+- WebSocket collaboration ticket;
+- reconnect/heartbeat;
+- presence snapshot/join/leave/update;
+- cursors и selection/viewport presence;
+- ink preview и transform preview;
+- message size/rate/participant limits;
+- Chromium/Firefox collaboration E2E infrastructure.
 
-Основная работа сосредоточена на новой модели владения и доступа, а не на
-повторной реализации синхронизации.
+### 3.2. Текущие разрывы относительно standalone target
+
+До начала публичного rollout необходимо устранить следующие зависимости:
+
+- bootstrap запускает server sync только при `lessonId + documentId`;
+- `ProductServerSync` и `SyncedApp` требуют `lessonId`;
+- `BoardSyncEngine` вызывает `ensureBoard(lessonId, documentId)` и поэтому
+  смешивает создание и синхронизацию;
+- `ServerBoardDescriptor` требует `lessonId` и `studentId`;
+- `BoardSessionContext` содержит role, но не capabilities/access scope;
+- текущий HTTP context schema strict и должен быть версионирован согласованно с
+  backend;
+- `BoardPlatformRepository` объединяет sync, collaboration, evidence, history и
+  management methods;
+- Dexie durable state в основном keyed по `documentId`, что недостаточно после
+  появления teacher/guest principals;
+- pending command metadata не различает access epoch;
+- `App` не имеет общего capability-aware mutation boundary;
+- read-only сейчас нельзя считать полноценным UX state;
+- `copyBoardShareUrl(window.location)` не является invitation flow;
+- `SyncedApp` вызывает lesson/evidence API, недоступные guest principal;
+- WebSocket protocol не имеет terminal `access.revoked` и
+  `access.capabilities.changed` control events;
+- teacher-only routes защищаются в основном структурой UI, а не отдельным
+  route authorization layer.
 
 ## 4. Целевая архитектура
 
@@ -106,7 +184,7 @@ board-scoped правами, отзывом, ротацией, аудитом и
 Internet
    |
    v
-Caddy: TLS, security headers, routing, access-log redaction
+Caddy: TLS, security headers, routing, query/path redaction
    |----------------------|
    v                      v
 TutorBoard UI         Board API
@@ -118,66 +196,141 @@ TutorBoard UI         Board API
 
 ### 4.1. Runtime-компоненты
 
-| Компонент      | Ответственность                                  | Состояние                   |
+| Компонент      | Ответственность                                  | Статус                      |
 | -------------- | ------------------------------------------------ | --------------------------- |
-| Caddy          | TLS, HTTP/3, same-origin routing, headers        | обязателен                  |
-| TutorBoard UI  | полотно и клиент синхронизации                   | обязателен                  |
+| Caddy          | TLS, routing, headers, sensitive URL redaction   | обязателен                  |
+| TutorBoard UI  | canvas, access-aware shell, sync client          | обязателен                  |
 | Board API      | owner auth, invitations, commands, snapshots, WS | обязателен                  |
-| PostgreSQL     | доски, команды, приглашения, аудит               | обязателен                  |
+| PostgreSQL     | boards, commands, invitations, audit             | обязателен                  |
 | Redis          | tickets, presence, Pub/Sub, rate limits          | обязателен                  |
 | Object Storage | snapshots и off-host backups                     | обязателен                  |
-| GeometryOS     | построение по тексту                             | опционален в первом rollout |
+| GeometryOS     | построение по тексту                             | optional first rollout      |
 
-Потеря Redis может временно разорвать live-соединения, но не должна приводить к
-потере подтверждённых изменений. Источник истины — PostgreSQL и проверенные
-snapshots в Object Storage.
+Redis не является источником истины. Его потеря может оборвать live presence и
+WS, но не должна потерять подтверждённые board revisions. Источник истины —
+PostgreSQL плюс проверенные snapshots.
 
-### 4.2. Размещение Board API
+### 4.2. Board API placement
 
 На первом этапе серверная реализация остаётся в `tutor-assistant-web`, чтобы не
-копировать зрелые persistence/collaboration модули. Добавляется отдельный
-профиль запуска:
+копировать зрелые persistence/collaboration modules. Добавляется composition
+profile:
 
 ```text
 APP_PROFILE=board
 ```
 
-Профиль подключает только:
+Он подключает только:
 
 ```text
 identity + boards + guest-access + audit + health + metrics
 ```
 
-Для deployment публикуется самостоятельный образ:
+Deployment image:
 
 ```text
 ghcr.io/artemlevin/tutorboard-api:<release>
 ```
 
-Выделение API в отдельный репозиторий рассматривается только после production
-стабилизации и отдельного ADR. До этого TutorBoard и Board API развиваются
-согласованными PR в двух репозиториях.
+Выделение API в отдельный repo возможно только после production stabilization и
+отдельного ADR.
+
+### 4.3. Frontend bootstrap pipeline
+
+Standalone launch должен стать context-first:
+
+```text
+URL
+ |
+ v
+readBoardLaunchContext()
+ |-------------------------------|
+ | local                         | standalone/legacy
+ v                               v
+PersistedApp              GET /api/v1/boards/context
+                                  |
+                                  v
+                           BoardAccessContext
+                                  |
+                       +----------+----------+
+                       |                     |
+                       v                     v
+                 repository set       cacheScopeId
+                       |                     |
+                       +----------+----------+
+                                  |
+                                  v
+                           BoardSyncEngine
+                                  |
+                                  v
+                              SyncedApp
+```
+
+`BoardLaunchContext` должен различать:
+
+```ts
+type BoardLaunchContext =
+  | { mode: "local" }
+  | { mode: "standalone"; boardId: string }
+  | { mode: "legacy-lesson"; documentId: string; lessonId: string };
+```
+
+Standalone canonical URL:
+
+```text
+/b/<public-board-id>#/board
+```
+
+Legacy query parser сохраняется временно только для backward compatibility.
+
+### 4.4. Repository least-privilege split
+
+Текущий `BoardPlatformRepository` необходимо декомпозировать. Целевая модель:
+
+```ts
+BoardContextRepository
+BoardSyncRepository
+BoardCollaborationRepository
+BoardTeacherManagementRepository
+BoardEvidenceRepository
+```
+
+Правила:
+
+- `BoardSyncEngine` принимает только `BoardSyncRepository`;
+- collaboration client принимает `BoardContextRepository +
+  BoardCollaborationRepository`;
+- guest shell не получает management/evidence interfaces;
+- teacher board list не требует sync engine;
+- evidence остаётся legacy/teacher feature и не монтируется в guest standalone
+  workspace.
+
+Это даёт compile-time least privilege поверх обязательных backend checks.
 
 ## 5. Пользовательские сценарии
 
-### 5.1. Преподаватель создаёт доску
+### 5.1. Teacher создаёт standalone board
 
-1. Преподаватель открывает `/boards`.
-2. Нажимает «Создать доску».
-3. Вводит название или принимает автоматически предложенное.
-4. API создаёт UUID доски и пустую revision `0`.
-5. UI открывает `/b/<public-board-id>#/board`.
-6. Создание фиксируется в audit log.
+1. Teacher открывает `/boards`.
+2. UI получает teacher context.
+3. Teacher нажимает «Создать доску».
+4. `POST /api/v1/boards` создаёт board row и revision `0`.
+5. Ответ содержит public board id, title и access metadata.
+6. UI открывает `/b/<board-id>#/board`.
+7. Sync engine только загружает уже существующую board.
+8. Audit фиксирует `board.created`.
 
-### 5.2. Преподаватель создаёт ссылку
+### 5.2. Teacher создаёт invitation
 
 1. Нажимает «Пригласить ученика».
-2. Указывает отображаемое имя ученика.
-3. Выбирает срок действия.
-4. API создаёт 256-битный случайный token.
-5. В базе сохраняется только HMAC/hash token, не исходное значение.
-6. Полная ссылка возвращается ровно в ответе создания/ротации.
-7. UI копирует её в clipboard и показывает срок действия.
+2. Вводит display name.
+3. Выбирает TTL.
+4. Выбирает initial write permission.
+5. Backend генерирует не менее 256 бит криптографической энтропии.
+6. В PostgreSQL хранится только HMAC digest token.
+7. Raw URL возвращается ровно в create/rotate response.
+8. UI показывает его в transient result panel и копирует в clipboard.
+9. После закрытия panel raw token больше недоступен через list endpoint.
 
 Пример:
 
@@ -185,136 +338,227 @@ ghcr.io/artemlevin/tutorboard-api:<release>
 https://board.example.ru/j/3kIFV8c9JQx...opaque-secret...
 ```
 
-### 5.3. Ученик открывает ссылку
+### 5.3. Guest открывает invitation
 
-1. Браузер выполняет `GET /j/<secret>`.
-2. API проверяет token, срок, отзыв, доску и rate limit.
-3. API выдаёт подписанную guest cookie с board scope.
-4. Ответ устанавливает `Cache-Control: no-store`,
-   `Referrer-Policy: no-referrer` и `X-Robots-Tag: noindex, nofollow`.
-5. API выполняет `303` на `/b/<public-board-id>#/board`.
-6. Секрет исчезает из последующих HTTP/WS URL.
-7. TutorBoard получает context и сразу загружает доску.
+1. `GET /j/<secret>`.
+2. Backend проверяет digest, TTL, revoke, board state и rate limit.
+3. Backend создаёт board-scoped guest session.
+4. Response устанавливает `Cache-Control: no-store`,
+   `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow`.
+5. Guest session cookie не содержит raw invitation token.
+6. Выполняется `303` на `/b/<board-id>#/board`.
+7. Secret отсутствует во всех последующих HTTP/WS URLs.
+8. UI получает `BoardAccessContext` до запуска sync engine.
+9. Guest durable queue создаётся в своём `cacheScopeId`.
 
-Ссылка остаётся повторно используемой до срока/отзыва. Одноразовое поглощение
-не выбирается: preview-боты мессенджеров и потеря browser storage могли бы
-необратимо закрыть доступ законному ученику.
+Invitation reusable до expiry/revoke. Одноразовое поглощение ссылки не
+используется из-за messenger preview bots и риска потерять первый exchange.
 
-### 5.4. Преподаватель отзывает доступ
+### 5.4. Teacher включает read-only
 
-1. API увеличивает `credential_version` и ставит `revoked_at`.
-2. Новые HTTP/WS tickets больше не выдаются.
-3. Broker публикует `access.revoked` в room.
-4. Активный WebSocket ученика закрывается кодом `4403`.
-5. Следующая запись ученика отклоняется сервером независимо от состояния UI.
-6. Преподаватель может выпустить новую ссылку без создания новой доски.
+Capabilities гостя вычисляются как пересечение:
 
-### 5.5. Преподаватель блокирует редактирование
+```text
+invitation.write_enabled
+AND board.guest_writes_enabled
+AND invitation active
+AND board active
+```
 
-- чтение и presence сохраняются;
-- `board.write` удаляется из guest capabilities;
-- сервер отклоняет command POST;
-- UI выключает инструменты и показывает режим «Только просмотр»;
-- broker отправляет `access.capabilities.changed` активным клиентам.
+При downgrade:
 
-## 6. Модель доступа и безопасность
+1. backend атомарно меняет permission state;
+2. увеличивается серверная access version;
+3. новые command POST отклоняются `board_read_only`;
+4. новые collaboration tickets содержат новые permissions;
+5. Redis broker публикует `access.capabilities.changed`;
+6. guest UI отключает mutation tools;
+7. guest local `accessEpoch` меняется;
+8. pending commands старого epoch переходят в quarantine/recovery bucket и не
+   auto-push'ятся при последующем возврате write.
 
-### 6.1. Principal
+Read-only сохраняет board read и presence.
 
-Board API принимает два типа principal:
+### 5.5. Teacher отзывает invitation
 
-- `TeacherPrincipal`: существующая авторизованная учётная запись;
-- `GuestBoardPrincipal`: подписанная board-scoped сессия приглашения.
+1. `revoked_at` устанавливается атомарно;
+2. `credential_version` увеличивается;
+3. новые HTTP guest writes/reads согласно policy отклоняются;
+4. новые WS tickets не выдаются;
+5. broker публикует `access.revoked`;
+6. active WS закрывается `4403`;
+7. collaboration client входит в terminal `revoked` state;
+8. reconnect больше не планируется;
+9. pending guest commands старого scope/epoch не отправляются;
+10. UI показывает безопасный экран «Доступ к доске отозван»;
+11. teacher может создать новую invitation к той же board.
 
-Пример guest context:
+### 5.6. Invitation rotation
+
+Rotation создаёт новый raw token и новый credential version, не меняя board,
+actor history и server revisions. Старый token/session сразу становится
+недействительным. Raw rotated token снова показывается только один раз.
+
+## 6. Principal, capabilities и browser session model
+
+### 6.1. Principals
+
+Board API принимает:
+
+- `TeacherPrincipal` — существующая authenticated account;
+- `GuestBoardPrincipal` — signed board/invitation-scoped session.
+
+Целевой context:
 
 ```json
 {
   "actorId": "guest:9a1d...",
   "boardId": "board:71e2...",
+  "cacheScopeId": "opaque:scope:...",
   "capabilities": ["board.read", "board.write", "collaboration.connect"],
   "csrfToken": "opaque-csrf",
   "displayName": "Ксения",
+  "accessEpoch": "opaque:epoch:...",
   "role": "student"
 }
 ```
 
-### 6.2. Capability matrix
+`cacheScopeId` и `accessEpoch` не являются credentials и могут безопасно
+храниться локально. Они должны быть opaque и не содержать raw invitation token.
 
-| Capability              | Teacher |    Guest student |
-| ----------------------- | ------: | ---------------: |
-| `board.read`            |      да |               да |
-| `board.write`           |      да |    настраивается |
-| `collaboration.connect` |      да |               да |
-| `board.export`          |      да | нет по умолчанию |
-| `board.history.read`    |      да |              нет |
-| `board.invites.manage`  |      да |              нет |
-| `board.archive`         |      да |              нет |
-| `board.delete`          |      да |              нет |
+### 6.2. Capability vocabulary
 
-Frontend скрывает недоступные действия, но окончательное решение всегда
-принимает backend.
-
-### 6.3. Guest cookie
-
-Cookie содержит только подписанные claims:
+Минимальный v1 vocabulary:
 
 ```text
-invite_id, board_id, actor_id, credential_version, issued_at, expires_at
+board.read
+board.write
+collaboration.connect
+board.export
+board.history.read
+board.invites.manage
+board.archive
+board.delete
+board.rename
 ```
+
+| Capability              | Teacher | Guest |
+| ----------------------- | ------: | ----: |
+| `board.read`            |      да |    да |
+| `board.write`           |      да | policy |
+| `collaboration.connect` |      да |    да |
+| `board.export`          |      да |   нет |
+| `board.history.read`    |      да |   нет |
+| `board.invites.manage`  |      да |   нет |
+| `board.archive`         |      да |   нет |
+| `board.delete`          |      да |   нет |
+| `board.rename`          |      да |   нет |
+
+### 6.3. Guest cookie
 
 Требования:
 
 - `HttpOnly`;
 - `Secure`;
 - `SameSite=Lax`;
-- ограниченный `Path=/`;
-- не содержит исходный invite token;
-- имеет срок не длиннее срока invitation;
-- проверяется по актуальному `credential_version`;
-- не заменяет CSRF token для изменяющих HTTP-запросов.
+- предпочтительно `Path=/api/`, поскольку UI не должен читать credential;
+- не содержит raw invite token;
+- срок не длиннее invitation TTL;
+- содержит `invite_id`, `board_id`, `actor_id`, `credential_version`, timestamps;
+- проверяется на каждом guest context/write/ticket request;
+- не заменяет CSRF token для modifying HTTP requests.
 
-### 6.4. Защитные инварианты
+### 6.4. Teacher + guest cookie collision
 
-- недоступная чужая доска отвечает `404`, а не раскрывающим `403`;
-- actor envelope и вложенных commands совпадает с principal;
-- invitation никогда не предоставляет manage capabilities;
-- сырой token не хранится в PostgreSQL, Redis, audit и access logs;
-- `/j/*` исключён из обычного access logging либо путь редактируется;
-- invitation lookup выполняется по HMAC-SHA-256 с server-side pepper;
-- сравнение token digest выполняется constant-time;
-- все изменяющие HTTP endpoints требуют CSRF;
-- production WebSocket без `Origin` запрещён;
-- WebSocket подключается только через одноразовый ticket с TTL 30 секунд;
-- revoke и read-only переключатель проверяются на сервере, а не только в UI;
-- guest не может перечислять доски, приглашения, пользователей и revisions;
-- failed join attempts и command abuse имеют IP/invite rate limits;
-- CSP запрещает непредусмотренные third-party scripts и connections.
+V1 сохраняет один public origin. Необходимо явно определить deterministic
+principal precedence:
 
-## 7. Изменения модели данных
+- валидная teacher auth session имеет приоритет над guest session;
+- открытие invitation авторизованным teacher не должно понижать его привилегии;
+- UI обязан показывать фактический principal из context, а не угадывать его по
+  URL;
+- E2E покрывает coexistence двух cookie types;
+- при выявлении session-confusion в staging допускается отдельный
+  `guest.board.<domain>` через ADR, без изменения board protocol.
 
-### 7.1. `board_documents`
+## 7. Principal-scoped durable persistence
 
-Добавить:
+Это обязательный hardening до включения guest write.
+
+### 7.1. Cache key
+
+Текущего key `documentId` недостаточно. Целевая область:
 
 ```text
-owner_user_id            NOT NULL
-title                    NOT NULL
-student_editing_enabled  NOT NULL DEFAULT true
+(cacheScopeId, documentId)
 ```
 
-Изменить:
+или эквивалентный namespaced DB key.
 
-- `student_id` и `lesson_id` перестают быть обязательными для standalone board;
-- удалить обязательный composite FK на `lessons` для новых досок;
-- заменить uniqueness `organization + lesson` на явные ограничения standalone;
-- сохранить `organization_id` для tenant isolation;
-- сохранить текущие revision/snapshot/delete поля.
+Teacher и guest для одной board имеют разные `cacheScopeId`.
 
-Lesson-bound доски должны продолжать читаться в переходный период. Миграция не
-удаляет существующие данные и не меняет command payload.
+### 7.2. Что scope'ится
 
-### 7.2. `board_invitations`
+По security scope должны быть разделены:
+
+- confirmed heads;
+- pending commands;
+- Lamport clocks;
+- queue sequence;
+- quarantine records;
+- recovery metadata.
+
+Raw guest credential не хранится ни в одном IndexedDB/localStorage record.
+
+### 7.3. Dexie migration
+
+Нужна additive schema migration, условно `tutorboard-sync-v2`/DB version 4:
+
+- новые compound keys включают `cacheScopeId`;
+- legacy teacher rows мигрируются в deterministic legacy scope;
+- migration idempotent;
+- partial migration recoverable;
+- corruption отправляется в quarantine, а не silently drops;
+- downgrade policy документируется до merge.
+
+### 7.4. Access epoch metadata
+
+`PendingBoardCommand` получает **локальное**, не protocol-level поле:
+
+```ts
+accessEpochAtCreation: string
+```
+
+Это поле не добавляется в command envelope `1.5` и не меняет серверный revision
+protocol.
+
+При context epoch change:
+
+- pending current epoch можно продолжать;
+- pending old epoch нельзя auto-push;
+- они перемещаются в quarantine с reason `access-epoch-changed`;
+- teacher может получить recovery/export diagnostics, guest — безопасный status
+  без утечки teacher data.
+
+## 8. Data model backend
+
+### 8.1. `board_documents`
+
+Добавить/изменить:
+
+```text
+owner_user_id            UUID NOT NULL
+title                    VARCHAR NOT NULL
+guest_writes_enabled     BOOLEAN NOT NULL DEFAULT true
+access_version           BIGINT NOT NULL DEFAULT 1
+student_id               NULLABLE for standalone
+lesson_id                NULLABLE for standalone
+```
+
+Сохраняются organization/tenant fields, revision/snapshot/archive/delete data.
+Lesson-bound rows остаются читаемыми в transition period.
+
+### 8.2. `board_invitations`
 
 ```text
 id                       UUID PK
@@ -324,7 +568,9 @@ token_digest             CHAR(64) UNIQUE NOT NULL
 actor_id                 VARCHAR UNIQUE NOT NULL
 display_name             VARCHAR NOT NULL
 role                     VARCHAR NOT NULL DEFAULT 'student'
-credential_version       INTEGER NOT NULL DEFAULT 1
+write_enabled            BOOLEAN NOT NULL DEFAULT true
+credential_version       BIGINT NOT NULL DEFAULT 1
+access_version           BIGINT NOT NULL DEFAULT 1
 expires_at               TIMESTAMPTZ NULL
 revoked_at               TIMESTAMPTZ NULL
 created_by               UUID NOT NULL
@@ -333,40 +579,49 @@ last_used_at             TIMESTAMPTZ NULL
 use_count                BIGINT NOT NULL DEFAULT 0
 ```
 
-Обязательные индексы:
+Индексы:
 
 - unique `token_digest`;
 - `(organization_id, board_document_id, revoked_at)`;
-- `(expires_at)` для cleanup;
-- `(actor_id)` для envelope validation/audit.
+- `(expires_at)`;
+- `(actor_id)`;
+- `(board_document_id, write_enabled, revoked_at)` при подтверждённой пользе
+  query planner.
 
-## 8. API-контракт
+### 8.3. Access epoch derivation
 
-### 8.1. Teacher endpoints
+Backend context возвращает opaque `accessEpoch`, вычисляемый из текущих
+permission versions без раскрытия secret. Изменение board-wide guest permission,
+invitation write, rotate или revoke должно менять epoch.
 
-| Method   | Path                                              | Назначение                 |
-| -------- | ------------------------------------------------- | -------------------------- |
-| `POST`   | `/api/v1/boards`                                  | создать standalone board   |
-| `GET`    | `/api/v1/boards`                                  | список досок владельца     |
-| `PATCH`  | `/api/v1/boards/{id}`                             | название и student editing |
-| `POST`   | `/api/v1/boards/{id}/archive`                     | архивировать               |
-| `POST`   | `/api/v1/boards/{id}/unarchive`                   | восстановить               |
-| `DELETE` | `/api/v1/boards/{id}`                             | мягкое удаление            |
-| `POST`   | `/api/v1/boards/{id}/invitations`                 | выпустить ссылку           |
-| `GET`    | `/api/v1/boards/{id}/invitations`                 | статусы ссылок без token   |
-| `POST`   | `/api/v1/boards/{id}/invitations/{invite}/revoke` | отозвать                   |
-| `POST`   | `/api/v1/boards/{id}/invitations/{invite}/rotate` | заменить ссылку            |
+## 9. API contract
 
-### 8.2. Guest bootstrap
+### 9.1. Teacher management endpoints
 
-| Method | Path                     | Назначение                           |
-| ------ | ------------------------ | ------------------------------------ |
-| `GET`  | `/j/{secret}`            | exchange link → guest cookie → 303   |
-| `GET`  | `/api/v1/boards/context` | teacher/guest context и capabilities |
+| Method   | Path                                              | Назначение |
+| -------- | ------------------------------------------------- | ---------- |
+| `POST`   | `/api/v1/boards`                                  | create standalone board |
+| `GET`    | `/api/v1/boards`                                  | owner board list |
+| `PATCH`  | `/api/v1/boards/{id}`                             | title/global guest write |
+| `POST`   | `/api/v1/boards/{id}/archive`                     | archive |
+| `POST`   | `/api/v1/boards/{id}/unarchive`                   | restore |
+| `DELETE` | `/api/v1/boards/{id}`                             | soft delete |
+| `POST`   | `/api/v1/boards/{id}/invitations`                 | create invitation |
+| `GET`    | `/api/v1/boards/{id}/invitations`                 | statuses without raw token |
+| `PATCH`  | `/api/v1/boards/{id}/invitations/{invite}`        | display/write/expiry policy |
+| `POST`   | `/api/v1/boards/{id}/invitations/{invite}/revoke` | revoke |
+| `POST`   | `/api/v1/boards/{id}/invitations/{invite}/rotate` | rotate |
 
-### 8.3. Shared board endpoints
+### 9.2. Guest bootstrap
 
-Сохраняются текущие routes:
+| Method | Path                     | Назначение |
+| ------ | ------------------------ | ---------- |
+| `GET`  | `/j/{secret}`            | link exchange → guest cookie → 303 |
+| `GET`  | `/api/v1/boards/context` | principal, board, capabilities, csrf, scope/epoch |
+
+### 9.3. Shared sync endpoints
+
+Сохраняются текущие routes и revision semantics:
 
 ```text
 GET  /api/v1/boards/{id}
@@ -377,284 +632,472 @@ POST /api/v1/boards/{id}/collaboration-ticket
 WS   /api/v1/boards/{id}/collaboration
 ```
 
-Teacher-only evidence/history endpoints скрываются в board-only UI до
-отдельного продуктового решения.
+Snapshot creation для guest запрещается, если snapshot endpoint рассматривается
+как privileged maintenance action. Если текущий sync требует snapshot от
+клиента, B0 должен выбрать один contract: либо explicit `board.snapshot.write`
+capability, либо server-owned snapshotting. Нельзя оставлять implicit guest
+privilege.
 
-### 8.4. Ошибки
+### 9.4. Error contract
 
-API использует единый Problem Details/JSON error contract:
+Единый Problem Details/JSON vocabulary:
 
-- `board_not_found`;
-- `invitation_invalid`;
-- `invitation_expired`;
-- `invitation_revoked`;
-- `guest_session_invalid`;
-- `board_read_only`;
-- `board_revision_conflict`;
-- `board_lamport_conflict`;
-- `rate_limit_exceeded`.
+```text
+board_not_found
+board_read_only
+board_deleted
+invitation_invalid
+invitation_expired
+invitation_revoked
+guest_session_invalid
+guest_session_version_mismatch
+board_revision_conflict
+board_lamport_conflict
+access_epoch_changed
+rate_limit_exceeded
+```
 
-Публичная join-страница не различает invalid/expired/revoked для пользователя,
-но метрика и privacy-safe audit должны различать причины.
+Публичный join UX не различает invalid/expired/revoked, но privacy-safe metric
+различает причины.
 
-## 9. Изменения TutorBoard frontend
+## 10. WebSocket access control
 
-### 9.1. Bootstrap
+### 10.1. Existing transport stays
 
-- заменить обязательный `lessonId + documentId` на standalone `boardId`;
-- сохранить временное чтение legacy query для обратной совместимости;
+Сохраняются one-time ticket, same-origin WS, protocol `tutorboard.v1`, heartbeat,
+presence, preview throttling и reconnect strategy.
+
+Ticket requirements:
+
+- TTL 30 s;
+- one-time consumption;
+- board scope;
+- principal/actor scope;
+- client id binding;
+- current capabilities/access version;
+- URL query redaction в Caddy/logging/tracing.
+
+### 10.2. New server control events
+
+Добавить:
+
+```text
+access.capabilities.changed
+access.revoked
+```
+
+`access.capabilities.changed` содержит только безопасный context delta или
+сигнал повторно получить context. Raw token/credential в WS payload запрещён.
+
+`access.revoked` переводит client в terminal state. Код закрытия `4403` не
+должен автоматически запускать reconnect loop.
+
+### 10.3. Offline/reconnect permission check
+
+Перед отправкой durable pending queue после reconnect клиент обязан обновить
+context и сравнить `accessEpoch`. Только после этого разрешён push.
+
+Порядок:
+
+```text
+network online
+ -> context refresh
+ -> epoch/capabilities validation
+ -> pull remote
+ -> rebase permitted pending
+ -> push
+```
+
+а не `network online -> push stale pending`.
+
+## 11. TutorBoard frontend changes
+
+### 11.1. Context-first bootstrap
+
 - создать `readBoardLaunchContext()`;
-- открывать synced app по `/b/<boardId>#/board`;
-- context получать до запуска sync engine;
-- не сохранять guest cookie/token в IndexedDB/localStorage;
-- сохранять только безопасный `originId` и локальную command queue.
+- поддержать standalone `/b/<id>` и временный legacy query;
+- context получать до создания `BoardSyncEngine`;
+- `serverSync` больше не зависит от lesson presence;
+- `BoardSyncEngineOptions` не содержит обязательный `lessonId`;
+- `ensureBoard()` удалить из sync bootstrap;
+- board creation выполняется management layer;
+- guest credential не сохраняется в JS-readable storage.
 
-### 9.2. Share UI
+### 11.2. Capability-aware mutation boundary
 
-Текущий `copyBoardShareUrl(window.location)` удалить из server-sync режима.
-Вместо этого UI должен:
+Ввести единый объект/функцию policy, например:
 
-- вызвать invitation API;
-- показать имя ученика и срок;
-- скопировать возвращённую секретную ссылку;
-- показывать `never used / active / expired / revoked`;
-- позволять revoke/rotate;
-- не отображать старый token после закрытия результата создания.
+```ts
+interface BoardMutationPolicy {
+  readonly canWrite: boolean;
+  readonly reason?: "read-only" | "revoked" | "offline-recovery";
+}
+```
 
-### 9.3. Teacher workspace
+Все mutation entry points должны уважать policy:
 
-Добавить минимальный `/boards` shell:
+- pen/eraser;
+- text create/edit;
+- paste/cut/delete;
+- selection transform;
+- geometry import;
+- Smart Ink acceptance;
+- plot edit;
+- 3D projection commands;
+- undo/redo/collaborative undo;
+- keyboard shortcuts;
+- context-menu writes.
 
-- список активных и архивных досок;
-- название и дата последнего изменения;
-- наличие активного ученика;
-- кнопки «Открыть», «Пригласить», «Только просмотр», «Архивировать»;
-- создание доски;
-- empty, loading, offline и error states;
+Нельзя ограничиться disabled toolbar: command dispatch boundary также проверяет
+write capability.
+
+### 11.3. Teacher board workspace
+
+Минимальный `/boards`:
+
+- active/archive tabs;
+- create board;
+- title, modified time, revision/status;
+- active invitations count;
+- open;
+- invite/manage access;
+- global guest read-only switch;
+- archive/restore/delete;
+- loading/empty/error/offline states;
 - keyboard/focus accessibility.
 
-### 9.4. Guest mode
+### 11.4. Invitation UI
 
-- не показывать login, settings, diagnostics и board list;
-- показывать имя преподавателя/доски только если это разрешено context;
-- скрывать invite, archive, delete, history и evidence actions;
-- при read-only выключать mutation tools;
-- при revoke очищать pending UI, закрывать collaboration и показывать
-  безопасную страницу потери доступа;
-- не отправлять уже запрещённые pending commands после revoke/read-only.
+Удалить `copyBoardShareUrl(window.location)` из server-sync share action.
+Новый flow:
 
-## 10. Изменения Board API
+- create invitation API;
+- display name;
+- expiry;
+- per-invite write switch;
+- copy link;
+- manual fallback при clipboard denial;
+- statuses `never used / active / expired / revoked`;
+- revoke/rotate;
+- raw token показывается только transiently после create/rotate.
 
-- добавить независимый `create_board()` без Lesson dependency;
-- обобщить `BoardAccessPolicy` на teacher/guest principal;
-- добавить invitation service;
-- добавить signed guest session codec;
-- добавить HMAC token lookup;
-- добавить guest CSRF lifecycle;
-- выдавать существующий one-time collaboration ticket гостю;
-- валидировать board scope и actor для pull/push/snapshot/WS;
-- публиковать `access.revoked` и `access.capabilities.changed`;
-- добавить join/access rate limits;
-- добавить privacy-safe audit events;
-- добавить `APP_PROFILE=board` composition root;
-- исключить classroom, students, portal, BBB, transcription, materials и
-  document-engine routes из board profile;
-- добавить health/readiness dependencies только для PostgreSQL, Redis и S3.
+### 11.5. Guest shell
 
-## 11. Пошаговый план PR
+Guest mode:
 
-Каждый PR должен быть небольшим, мигрируемым и иметь собственный rollback.
+- разрешён только board route;
+- teacher navigation не монтируется;
+- settings/diagnostics/documents/history/evidence/invites/archive/delete скрыты и
+  route-guarded;
+- read-only отключает mutation tools и shortcuts;
+- revoke очищает live previews, останавливает collaboration/sync и показывает
+  terminal access-loss page;
+- old-epoch pending commands не auto-push;
+- export гостю отсутствует по умолчанию.
 
-### PR B0 — зафиксировать standalone contracts
+## 12. Board API changes
 
-Репозитории: `tutorboard`, `tutor-assistant-web`.
+- standalone `create_board()` без Lesson dependency;
+- owner/list/update/archive/delete services;
+- generalized `BoardAccessPolicy` для teacher/guest principal;
+- capability derivation;
+- invitation service;
+- CSPRNG token issue + HMAC lookup;
+- constant-time digest compare;
+- signed guest session codec;
+- guest CSRF lifecycle;
+- context endpoint с `cacheScopeId` и `accessEpoch`;
+- guest collaboration ticket;
+- actor/board scope validation для read/push/WS;
+- server-authoritative read-only/revoke;
+- `access.revoked`/`access.capabilities.changed` Pub/Sub;
+- join/write/ticket rate limits;
+- privacy-safe audit events;
+- `APP_PROFILE=board` composition root;
+- board profile исключает classroom, students, portal, BBB, transcription,
+  materials и document engine;
+- health/readiness зависит только от board runtime dependencies.
+
+## 13. Детализированный план PR
+
+Каждый PR должен быть небольшим, additive/migratable и иметь собственный
+rollback. Нельзя объединять фундаментальную security migration и UI feature в
+один PR.
+
+### PR B0 — contracts и threat model
+
+**Repos:** `tutorboard`, `tutor-assistant-web`.
 
 Scope:
 
 - ADR capability-link access;
 - ADR board-only runtime boundary;
-- OpenAPI draft invitation/context endpoints;
-- capability vocabulary;
-- cookie/token/logging threat model;
-- legacy lesson-bound compatibility policy.
+- OpenAPI draft standalone board/invitation/context endpoints;
+- `BoardCapability` vocabulary;
+- versioned `BoardAccessContext` fixture;
+- `cacheScopeId`/`accessEpoch` semantics;
+- teacher+guest cookie precedence;
+- snapshot capability decision;
+- WS revoke/capability event schema;
+- error vocabulary;
+- token/ticket/logging threat model;
+- legacy lesson compatibility policy.
 
 Gate:
 
-- frontend/backend fixtures одинаково понимают context и errors;
-- нет реализации до согласования token lifecycle и revoke semantics.
+- frontend/backend fixtures parse identically;
+- strict Zod/Pydantic/OpenAPI contracts aligned;
+- no raw token appears in fixtures/log examples;
+- revoke/read-only/offline semantics documented before implementation;
+- no implementation PR B1/T0 merges before B0 contract is green.
 
-### PR B1 — отвязать BoardDocument от Lesson
+### PR T0 — frontend security/architecture preparation
 
-Репозиторий: `tutor-assistant-web`.
+**Repo:** `tutorboard`.
+
+Это новый обязательный preparatory PR.
+
+Scope:
+
+- `BoardLaunchContext` abstraction;
+- `BoardAccessContext` и capabilities types;
+- split `BoardPlatformRepository` на least-privilege interfaces;
+- убрать обязательный `lessonId` из `BoardSyncEngine`;
+- удалить board creation/`ensureBoard` responsibility из sync engine;
+- principal-scoped Dexie schema и migration;
+- local `accessEpochAtCreation` pending metadata;
+- new quarantine reason `access-epoch-changed`;
+- capability-aware command/mutation boundary;
+- collaboration status расширить terminal access state;
+- подготовить parsing/control types для WS access events;
+- legacy launch compatibility.
+
+Gate:
+
+- local mode не сломан;
+- legacy lesson server-sync tests зелёные;
+- existing collaboration E2E зелёный;
+- teacher/guest scope unit tests доказывают cache isolation;
+- old epoch pending никогда не auto-push;
+- `BoardSyncEngine` может работать только по `documentId + context`, без lesson
+  creation side effect.
+
+Rollback:
+
+- новая Dexie schema читает legacy data additive way;
+- feature flag позволяет оставить standalone launch выключенным;
+- protocol envelope остаётся `1.5`.
+
+### PR B1 — standalone board persistence/model
+
+**Repo:** `tutor-assistant-web`.
 
 Scope:
 
 - additive PostgreSQL migration;
-- owner/title/student-editing fields;
+- owner/title/global guest write/access version fields;
 - nullable legacy lesson/student linkage;
-- standalone create/list/update service;
-- tenant/owner access tests;
-- migration and downgrade smoke.
+- standalone create/list/update/archive/delete services;
+- owner/tenant policy;
+- API descriptor, compatible с standalone и legacy;
+- migration/downgrade smoke.
 
 Gate:
 
-- существующие lesson-bound board tests зелёные;
-- новые standalone board tests зелёные;
-- command and snapshot contracts не изменены;
-- production data migration не удаляет строки.
+- legacy board tests зелёные;
+- standalone CRUD tests зелёные;
+- cross-owner/tenant read даёт non-enumerating 404;
+- command/snapshot protocol не изменён;
+- migration не удаляет production rows.
 
 ### PR B2 — invitation и guest session backend
 
-Репозиторий: `tutor-assistant-web`.
+**Repo:** `tutor-assistant-web`.
 
 Scope:
 
 - `board_invitations` migration;
-- token issue/HMAC lookup;
-- exchange route и guest cookie;
-- capabilities/CSRF context;
-- revoke/rotate/expiry;
-- guest read/write access;
-- WebSocket ticket для guest;
-- audit и rate limits.
+- 256-bit token issue;
+- HMAC lookup + constant-time compare;
+- `/j/{secret}` exchange;
+- signed guest cookie;
+- guest CSRF;
+- context capabilities/scope/epoch;
+- per-invite write + global board write;
+- expiry/revoke/rotate;
+- guest read/write policy;
+- guest collaboration ticket;
+- audit/rate limits;
+- sensitive URL redaction tests.
 
 Gate:
 
-- raw token отсутствует в DB/log/test snapshots;
-- cross-board запрос возвращает 404;
-- revoke блокирует HTTP и активный WS;
-- read-only блокирует server write;
-- forged/expired/version-mismatched cookie отклоняется.
+- raw token отсутствует в DB/logs/traces/test snapshots;
+- forged/expired/version-mismatched cookie rejected;
+- cross-board request = 404;
+- read-only blocks command POST server-side;
+- revoke blocks HTTP/ticket;
+- teacher+guest cookie precedence deterministic;
+- no teacher management capability leaks to guest.
 
-### PR T1 — standalone board launch
+### PR T1 — standalone launch и guest-safe routing
 
-Репозиторий: `tutorboard`.
+**Repo:** `tutorboard`.
 
 Scope:
 
-- `boardId` launch context;
+- `/b/<boardId>` launch;
 - context-first bootstrap;
-- capability-aware shell;
-- legacy query compatibility;
-- guest-safe routing;
-- unit/component/browser tests.
+- teacher/guest principal rendering;
+- guest route authorization;
+- principal-scoped queue wiring;
+- capability-aware `SyncedApp`;
+- remove lesson/evidence calls from guest composition;
+- safe invalid/expired/revoked UX;
+- browser tests with real backend fixtures.
 
 Gate:
 
-- обычный локальный mode не сломан;
-- teacher и guest открывают один document;
-- guest token не попадает в local storage/IndexedDB;
-- invalid access показывает безопасный UX.
+- teacher и guest открывают один server document;
+- guest token отсутствует в localStorage/IndexedDB;
+- guest cannot mount/call teacher routes/actions;
+- invalid access does not expose board existence;
+- local mode и legacy lesson mode остаются зелёными.
 
 ### PR T2 — teacher board list и invitation UI
 
-Репозиторий: `tutorboard`.
+**Repo:** `tutorboard`.
 
 Scope:
 
-- board list/create/archive flows;
+- `/boards` workspace;
+- create/rename/archive/restore/delete;
 - invitation dialog;
-- copy, expiry, revoke и rotate;
-- student editing switch;
-- guest/read-only UI;
-- accessibility и responsive layout.
+- copy + manual fallback;
+- expiry/status/revoke/rotate;
+- per-invite write;
+- global guest write switch;
+- read-only visual state;
+- accessible keyboard/focus flow;
+- responsive layout.
 
 Gate:
 
-- clipboard failure имеет ручной fallback;
-- token не отображается после закрытия result panel;
-- ученик не видит teacher controls;
-- управление полностью доступно с клавиатуры.
+- raw token не повторно получается list endpoint;
+- token исчезает после закрытия result panel;
+- clipboard failure recoverable;
+- guest не видит teacher controls;
+- keyboard-only management flow проходит E2E/a11y smoke.
 
-### PR B3/T3 — live revocation и convergence hardening
+### PR B3/T3 — live access changes и convergence hardening
 
-Репозитории: оба.
+**Repos:** оба.
 
-Scope:
+Backend scope:
 
-- `access.revoked`;
 - `access.capabilities.changed`;
-- закрытие WS;
-- остановка pending push;
-- offline/reconnect после смены прав;
-- multi-tab guest origin tests;
-- duplicate/replay/revision conflict matrix.
+- `access.revoked`;
+- WS `4403`;
+- server access version publication;
+- ticket invalidation;
+- multi-process Redis propagation.
+
+Frontend scope:
+
+- context refresh на capability event;
+- terminal revoke state;
+- no reconnect loop after revoke;
+- access epoch comparison before reconnect push;
+- quarantine stale pending;
+- read-only mutation boundary;
+- write re-enable only for new/current epoch commands.
 
 Gate:
 
-- сервер остаётся авторитетным при устаревшем UI;
-- подтверждённые команды не теряются;
-- запрещённые pending commands не отправляются после восстановления сети.
+- stale UI cannot bypass server policy;
+- confirmed revisions not lost;
+- old-epoch pending never silently applies later;
+- revoke active WS observed by two-browser E2E;
+- read-only toggle works online/offline/reconnect;
+- multi-tab guest with same actor/different originId converges.
 
-### PR D1 — board-only containers и local stack
+### PR D1 — board-only runtime/containers
 
-Репозиторий: `tutor-assistant-web` с документацией в `tutorboard`.
+**Repo:** primarily `tutor-assistant-web`, deployment docs mirrored in
+`tutorboard`.
 
 Scope:
 
 - `APP_PROFILE=board`;
 - `compose.board.local.yml`;
 - `compose.board.production.yml`;
-- Caddy routes `/`, `/api`, `/j`, `/b`, WebSocket;
-- PostgreSQL, Redis, external S3;
+- Caddy routes `/`, `/api`, `/j`, `/b`, WS;
+- redaction rules for `/j/*` path and `ticket` query;
+- PostgreSQL;
+- Redis;
+- Yandex Object Storage external S3;
 - migration job;
 - backup/restore commands;
-- pinned GeometryOS profile.
+- optional pinned GeometryOS profile.
 
-Исключить:
+Excluded:
 
 - BBB;
-- Celery workers/scheduler общего приложения;
+- general Celery workers/scheduler;
 - transcription;
 - materials/document engine;
 - portal;
 - ClamAV;
-- internal MinIO при использовании Yandex Object Storage.
+- internal MinIO in production.
 
 Gate:
 
 - compose config render;
 - clean-host bootstrap;
 - non-root containers;
-- secrets только через files/Lockbox;
-- HTTP readiness и WebSocket smoke;
-- backup/isolated restore.
+- secrets only files/Lockbox;
+- HTTP readiness + WS smoke;
+- log redaction test;
+- backup + isolated restore.
 
-### PR D2 — release CI
+### PR D2 — release CI and supply-chain gates
 
-Репозитории: оба.
+**Repos:** оба.
 
 Scope:
 
-- immutable TutorBoard UI image;
+- immutable UI image;
 - immutable Board API image;
-- SHA/digest metadata;
-- SBOM и vulnerability scan;
-- Chromium/Firefox two-client guest E2E;
+- image digests + commit metadata;
+- SBOM;
+- vulnerability scan;
+- Chromium/Firefox teacher/guest two-client E2E;
 - PostgreSQL/Redis integration;
 - migration check;
 - production compose validation;
-- запрет `latest`.
+- sensitive-token-log scan;
+- ban `latest`.
 
 Gate:
 
-- release tags разрешаются в `repository@sha256`;
-- runtime deployment state хранит только digests;
-- high/critical vulnerability policy проходит либо имеет оформленное исключение.
+- release state resolves to `repository@sha256`;
+- high/critical policy green or documented exception;
+- guest E2E includes offline/read-only/revoke;
+- migration + rollback smoke green.
 
 ### PR D3 — Yandex Cloud staging
 
 Scope:
 
-- отдельный Terraform state;
-- VM, static IP, security group и DNS;
-- отдельный Lockbox;
+- separate Terraform state;
+- VM/static IP/security group/DNS;
+- Lockbox;
 - Object Storage snapshots/backups;
 - Ansible board-only playbook;
-- monitoring, budgets и audit trail;
-- staging deployment без production DNS.
+- monitoring/budget/audit;
+- staging deployment without production DNS.
 
-Начальный sizing для проверки:
+Initial sizing:
 
 ```text
 4 vCPU, 8 GiB RAM, 100 GiB network SSD
@@ -662,206 +1105,247 @@ Scope:
 
 Gate:
 
-- полный E2E;
+- full functional E2E;
 - load test;
-- Redis/PostgreSQL restart drills;
+- Redis restart drill;
+- PostgreSQL restart drill;
 - VM reboot drill;
 - real off-host backup;
 - isolated restore;
-- 24-часовой soak без необъяснимых disconnect/data divergence.
+- 24h soak without unexplained disconnect/data divergence;
+- no raw invitation/WS ticket in collected logs/traces.
 
 ### PR D4 — production rollout
 
 Scope:
 
-- отдельные production state/Lockbox/bucket/domain;
+- separate production state/Lockbox/bucket/domain;
 - digest-pinned deploy;
-- preflight без запуска;
+- no-apply preflight;
 - migration backup;
 - blue/green application switch;
-- smoke и ручная teacher/student приёмка;
+- smoke + manual teacher/student acceptance;
 - rollback evidence.
 
 Gate:
 
-- ручное approval после staging;
-- DNS/TLS готовы;
-- dashboard/alerts активны;
-- предыдущие digests сохранены;
-- подтверждён последний restore drill.
+- manual approval after staging;
+- DNS/TLS ready;
+- dashboards/alerts active;
+- previous image digests preserved;
+- latest restore drill confirmed;
+- previous slot rollback verified.
 
-## 12. Тестовая стратегия
+## 14. Test strategy
 
-### 12.1. Unit/property tests
+### 14.1. Unit/property
 
 - token entropy/encoding/digest;
-- constant-time comparison wrapper;
-- expiry boundaries и clock skew;
-- capability derivation;
+- constant-time compare wrapper;
+- expiry boundaries/clock skew;
+- capability derivation intersection;
+- teacher/guest principal precedence;
 - cookie signing/tampering/version;
-- actor/origin identity;
-- route/context parsing;
-- read-only UI command boundary;
-- redaction token-shaped paths.
+- route parsing;
+- `cacheScopeId` isolation;
+- access epoch transitions;
+- old epoch quarantine;
+- command mutation policy;
+- WS revoke terminal state;
+- sensitive URL redaction.
 
-### 12.2. PostgreSQL integration
+### 14.2. Frontend persistence tests
+
+- same board teacher/guest produce separate heads/queues;
+- two invitations same board have separate guest scopes;
+- reload resumes correct scope;
+- legacy Dexie migration preserves data;
+- failed migration enters explicit recovery;
+- corrupt pending record quarantined;
+- read-only downgrade quarantines stale guest pending;
+- write restore does not resurrect stale pending;
+- rotate/revoke invalidates old scope.
+
+### 14.3. PostgreSQL integration
 
 - standalone create/list/update;
-- tenant and owner isolation;
+- owner/tenant isolation;
 - invitation uniqueness;
 - concurrent rotate/revoke;
+- concurrent write switch;
 - legacy board migration;
-- command revision/idempotency/Lamport invariants;
+- revision/idempotency/Lamport invariants;
 - snapshot recovery;
-- soft delete and purge.
+- soft delete/purge;
+- access version monotonicity.
 
-### 12.3. Redis/WebSocket integration
+### 14.4. Redis/WebSocket integration
 
 - one-time ticket consumption;
-- wrong-board ticket rejection;
-- presence join/leave/expiry;
+- wrong-board/wrong-client ticket rejection;
+- presence lifecycle;
 - multi-process Pub/Sub;
-- revoke active connection;
+- active revoke;
 - read-only capability change;
-- Redis restart and reconnect;
-- message size/rate enforcement.
+- Redis restart/reconnect;
+- size/rate enforcement;
+- ticket query redaction.
 
-### 12.4. Security tests
+### 14.5. Security tests
 
-- brute-force/rate-limit behavior;
-- token absent from DB, logs, metrics, Sentry и traces;
-- CSRF with guest cookie;
+- brute force/rate limit;
+- raw invitation token absent from DB/log/metrics/Sentry/traces;
+- WS ticket absent from persistent logs/traces;
+- guest CSRF;
 - Origin mismatch;
 - forged cookie;
-- replayed WebSocket ticket;
+- replayed WS ticket;
 - cross-board enumeration;
-- guest manage endpoint denial;
+- guest management denial;
 - cache/referrer/robots headers;
-- CSP and dependency audit.
+- CSP/dependency audit;
+- teacher+guest cookie coexistence;
+- guest route deep-link denial.
 
-### 12.5. Browser E2E
+### 14.6. Browser release E2E
 
-Минимальный release gate:
+Минимальный Chromium + Firefox gate:
 
-1. Преподаватель входит в систему.
-2. Создаёт доску и invitation для «Ксения».
-3. Новый browser context открывает ссылку без login screen.
-4. Оба клиента получают один revision `0`.
-5. Оба одновременно рисуют и перемещают разные объекты.
-6. Оба видят presence, курсоры и previews.
-7. Ученик перезагружает страницу и восстанавливает доску.
-8. Ученик работает offline, затем синхронизируется.
-9. Ученик не может открыть соседний board ID.
-10. Teacher включает read-only; guest write блокируется.
-11. Teacher возвращает write; sync продолжается.
-12. Teacher отзывает invitation; active guest теряет доступ.
-13. Новая invitation снова открывает ту же доску.
-14. Teacher экспортирует итоговый документ.
+1. Teacher login.
+2. Create standalone board.
+3. Create invitation «Ксения».
+4. New isolated browser context opens link without login screen.
+5. Both clients load revision `0`.
+6. Both draw/move different objects concurrently.
+7. Presence/cursors/previews visible.
+8. Guest reload restores same board.
+9. Guest edits offline.
+10. Teacher enables read-only before guest reconnect.
+11. Guest reconnects; old offline writes do not auto-apply.
+12. Teacher restores write; only new commands sync.
+13. Guest cannot open neighboring board id.
+14. Teacher rotates invitation; old session loses authorization according to
+    contract.
+15. New invitation opens same board.
+16. Teacher revokes active invitation; active guest reaches terminal access
+    screen and does not reconnect-loop.
+17. Teacher exports final board.
+18. Same board opened under teacher and guest contexts does not share local
+    durable cache scope.
 
-Матрица: Chromium и Firefox в CI; Edge/Chrome/Safari/iPad — ручная staging
-приёмка до production.
+Manual staging matrix before production: Edge/Chrome/Safari/iPad as available.
 
-### 12.6. Load/chaos gates
+### 14.7. Load/chaos
 
-- 100 одновременных WebSocket clients;
-- не менее 50 пар teacher/student на независимых досках;
-- burst рисования и transform preview;
-- reconnect storm после Redis restart;
+- 100 concurrent WS clients;
+- at least 50 teacher/student pairs on independent boards;
+- drawing/transform preview burst;
+- reconnect storm after Redis restart;
+- permission-change storm on subset of rooms;
 - PostgreSQL connection exhaustion protection;
-- заполнение disk warning;
+- disk warning;
 - container/VM restart;
-- backup во время умеренной активности;
-- restore с последующим checksum/revision validation.
+- backup under moderate activity;
+- restore followed by checksum/revision validation.
 
-## 13. SLO и наблюдаемость
+## 15. Observability and SLO
 
-Начальные цели после staging calibration:
+Initial targets after staging calibration:
 
-| Показатель                         | Цель                                      |
-| ---------------------------------- | ----------------------------------------- |
-| HTTPS availability                 | не ниже 99.5% в месяц                     |
-| подтверждённая команда после `2xx` | не теряется                               |
-| join exchange p95                  | не более 500 мс                           |
-| command commit p95                 | не более 750 мс без учёта клиентской сети |
-| presence/preview delivery p95      | не более 500 мс                           |
-| reconnect to converged state p95   | не более 10 секунд                        |
-| backup RPO                         | не более 24 часов                         |
-| проверяемый restore RTO            | не более 2 часов                          |
+| Показатель | Цель |
+| ---------- | ---- |
+| HTTPS availability | >= 99.5% / month |
+| accepted command after `2xx` | never lost |
+| join exchange p95 | <= 500 ms |
+| command commit p95 | <= 750 ms excluding client network |
+| presence/preview delivery p95 | <= 500 ms |
+| reconnect to converged state p95 | <= 10 s |
+| access revoke propagation p95 | <= 2 s target, calibrate staging |
+| backup RPO | <= 24 h |
+| verified restore RTO | <= 2 h |
 
-Обязательные метрики:
+Metrics:
 
-- active WS по role;
-- join success/failure reason без token;
-- issued/active/revoked/expired invitations;
+- active WS by principal/role;
+- join success/failure reason without token;
+- invitation issued/active/revoked/expired;
+- read-only/revoke propagation latency;
 - command commit/conflict/idempotent retry;
-- collaboration publish latency;
+- stale-access-epoch quarantine count;
 - reconnect/convergence duration;
 - Redis/PostgreSQL/S3 health;
-- snapshot age/failure/quarantine;
+- snapshot age/failure;
+- queue/quarantine age;
 - backup age/result;
-- disk/memory/CPU/container restarts.
+- CPU/memory/disk/container restarts.
 
 Alerts:
 
-- readiness недоступна;
-- повышенный join failure rate;
-- WebSocket disconnect spike;
+- readiness unavailable;
+- join failure spike;
+- WS disconnect spike;
 - command conflict spike;
-- oldest pending/snapshot/backup age;
+- access revoke propagation failure;
+- stale pending/quarantine growth;
 - PostgreSQL/Redis unavailable;
-- disk ниже установленного порога;
+- snapshot/backup too old;
+- low disk;
 - restore verification failure.
 
-## 14. Миграция и совместимость
+## 16. Migration and compatibility
 
-### 14.1. Порядок миграции
+### 16.1. Safe migration order
 
-1. Выпустить additive DB migration.
-2. Развернуть backend, понимающий legacy и standalone rows.
-3. Оставить старые lesson routes рабочими.
-4. Выпустить TutorBoard с dual launch parser.
-5. Включить standalone creation только после backend readiness.
-6. Перевести production UI на standalone routes.
-7. Наблюдать legacy traffic.
-8. Удалять lesson-specific compatibility только отдельным последующим ADR/PR.
+1. Merge B0 contracts.
+2. Merge T0 architectural preparation while standalone remains disabled.
+3. Apply additive backend B1 schema.
+4. Deploy backend understanding both legacy and standalone rows.
+5. Add B2 guest access behind feature flag.
+6. Release T1 dual launch parser/context-first bootstrap.
+7. Enable standalone creation only after backend readiness.
+8. Release T2 management/invitation UX.
+9. Enable B3/T3 live permission events.
+10. Observe legacy traffic before removing lesson-specific compatibility.
 
-### 14.2. Rollback
+### 16.2. Rollback rules
 
-- до включения standalone feature старый backend должен читать новую схему;
-- миграция B1 должна иметь проверяемый downgrade без потери legacy rows;
-- invitation tables можно оставить неиспользуемыми при app rollback;
-- frontend rollback не удаляет server data;
-- deploy хранит предыдущие immutable image digests;
-- при failed smoke proxy возвращается на предыдущий slot;
-- schema contract changes не объединяются с необратимым data cleanup.
+- database changes additive until after production stabilization;
+- old backend must tolerate new nullable/additive columns where possible;
+- invitation table may remain unused after app rollback;
+- frontend rollback never deletes server data;
+- Dexie migration has explicit recovery and does not silently discard queues;
+- image digests for previous release always retained;
+- failed smoke switches proxy back to previous slot;
+- irreversible cleanup never shares PR with contract migration.
 
-## 15. Board-only deployment в Yandex Cloud
+## 17. Board-only Yandex Cloud deployment
 
-### 15.1. Изоляция окружений
+### 17.1. Environment isolation
 
 Staging и production имеют отдельные:
 
 - Terraform state;
-- VM и static IPv4;
-- DNS name;
+- VM/static IP;
+- DNS;
+- security group;
 - Lockbox secret;
-- PostgreSQL data volumes;
+- PostgreSQL data volume/database credentials;
 - Object Storage bucket/prefix;
 - S3 credentials;
 - application secrets;
-- GitHub Environment и runner label.
+- GitHub Environment/runner controls.
 
-### 15.2. Сеть
+### 17.2. Network
 
-- публичные TCP 80/443 и UDP 443;
-- SSH только с узкого CIDR/VPN;
-- PostgreSQL, Redis и internal metrics не публикуются;
-- outbound HTTPS разрешён для GHCR, S3 и GeometryOS dependencies;
-- Caddy — единственная публичная точка входа.
+- public TCP 80/443 and UDP 443 where HTTP/3 enabled;
+- SSH only narrow CIDR/VPN;
+- PostgreSQL/Redis/internal metrics not public;
+- outbound HTTPS for GHCR/S3/optional GeometryOS;
+- Caddy only public ingress.
 
-### 15.3. Secrets
+### 17.3. Secrets
 
-Минимальный production Lockbox:
+Minimum production Lockbox:
 
 ```text
 app_secret_key
@@ -877,56 +1361,91 @@ grafana_admin_password
 sentry_dsn
 ```
 
-Terraform получает только secret ID и не читает payload. VM service account
-имеет `lockbox.payloadViewer` только на свой environment secret.
+Terraform stores only secret IDs, not payload. VM service account has minimal
+`lockbox.payloadViewer` permission for its environment only.
 
-## 16. Риски и решения
+## 18. Risks and mitigations
 
-| Риск                           | Решение                                                                  |
-| ------------------------------ | ------------------------------------------------------------------------ |
-| Ссылку переслали третьему лицу | revoke/rotate, короткий TTL, audit, одна ссылка на ученика               |
-| Token попал в access log       | redaction/disable path logging для `/j/*`                                |
-| Preview-бот открыл ссылку      | invitation reusable до revoke, cookie выдаётся только конкретному client |
-| Guest cookie украдена          | Secure/HttpOnly/SameSite, CSP, короткий TTL, version revoke              |
-| UI устарел после revoke        | backend validation на каждом write/ticket + WS kick                      |
-| Redis перезапущен              | reconnect и recovery из PostgreSQL/snapshots                             |
-| Два устройства одного ученика  | общий actor, разные `originId`, существующий Lamport contract            |
-| Legacy board сломан миграцией  | additive schema, dual read, migration tests                              |
-| Два backend расходятся         | не копировать board protocol, board-only profile текущего API            |
-| VM потеряна                    | off-host backup, static DNS recovery, restore drill                      |
+| Риск | Решение |
+| ---- | ------- |
+| Invitation forwarded | revoke/rotate, TTL, per-invite audit |
+| Raw token in access log | `/j/*` path suppression/redaction + tests |
+| WS ticket in query log | query redaction + 30s one-time ticket |
+| Preview bot opens link | reusable invitation until revoke/expiry |
+| Guest cookie stolen | Secure/HttpOnly/SameSite, short TTL, version revoke |
+| Teacher/guest cookie collision | deterministic teacher precedence + context-driven UI |
+| Teacher and guest share Dexie state | principal-scoped `cacheScopeId` |
+| Old offline writes apply after read-only | local `accessEpoch` quarantine before reconnect push |
+| UI stale after revoke | server checks each write/ticket + WS revoke event |
+| Revoked WS reconnect loop | terminal client state for `4403/access.revoked` |
+| Two devices same guest | same actor, distinct `originId`, existing Lamport ordering |
+| Multiple invitations need different write | per-invitation `write_enabled` + board global kill switch |
+| Legacy board broken by migration | additive schema + dual read + migration tests |
+| Backend duplicated | board-only profile of existing API until stabilization |
+| Redis restart | reconnect + authoritative recovery from PostgreSQL/snapshots |
+| VM loss | off-host backup + restore drill + immutable deployment |
 
-## 17. Definition of Done первой публичной версии
+## 19. Definition of Done первой публичной версии
 
-Поставка завершена только если одновременно выполнены условия:
+Release считается завершённым только если одновременно выполнены условия:
 
-- преподаватель создаёт standalone board из production UI;
-- invitation содержит не менее 256 бит энтропии;
-- исходный token нигде не хранится и не логируется;
-- ученик открывает доску без аккаунта и login screen;
-- guest principal ограничен ровно одной доской;
-- teacher/student одновременно редактируют без расхождения документа;
-- offline/reconnect сохраняет подтверждённые и pending изменения;
-- read-only и revoke применяются сервером и к активному WS;
-- соседние доски не перечисляются и не раскрываются;
+- teacher создаёт standalone board из production UI;
+- invitation использует >=256 bits entropy;
+- raw token нигде не хранится и не логируется;
+- WS ticket не остаётся в persistent logs/traces;
+- guest открывает board без account/login screen;
+- guest principal ограничен board/invitation scope;
+- teacher/guest local durable state изолирован `cacheScopeId`;
+- teacher/student одновременно редактируют без divergence;
+- offline/reconnect сохраняет допустимые pending edits;
+- read-only/revoke не позволяют stale pending автоматически примениться позже;
+- server-authoritative read-only и revoke работают для HTTP и active WS;
+- revoke приводит к terminal guest state без reconnect loop;
+- neighboring boards не перечисляются/не раскрываются;
+- guest routes не монтируют teacher management UI;
 - Chromium/Firefox E2E, security, migration и load gates зелёные;
 - runtime использует immutable image digests;
-- staging прошёл soak, reboot, backup и isolated restore;
-- production имеет TLS, alerts, budget и audit trail;
+- staging прошёл soak, reboot, Redis/PostgreSQL restart, backup и isolated
+  restore;
+- production имеет TLS, dashboards, alerts, budget и audit trail;
 - rollback на предыдущие digests проверен;
 - runbook позволяет другому оператору восстановить сервис без устных знаний.
 
-## 18. Немедленная последовательность работ
+## 20. Немедленная последовательность работ
 
-1. Выполнить PR B0 и зафиксировать ADR/OpenAPI/capabilities.
-2. Выполнить backend PR B1 с additive migration.
-3. Выполнить backend PR B2 с invitation и guest access.
-4. Выполнить TutorBoard PR T1 с standalone bootstrap.
-5. Выполнить TutorBoard PR T2 с board/invitation UX.
-6. Совместно выполнить B3/T3 и real two-client revoke E2E.
-7. Собрать board-only compose в D1.
-8. Подключить immutable release gates в D2.
-9. Развернуть staging D3, выполнить load/chaos/restore/soak.
-10. После ручного approval выполнить production rollout D4.
+Порядок исполнения после этого документа:
 
-Ни один production apply не выполняется до завершения PR B0–D2 и зелёного
-board-only staging preflight.
+1. **B0** — зафиксировать ADR/OpenAPI/context/capability/access-epoch contracts в
+   обоих repos.
+2. **T0** — подготовить TutorBoard: remove lesson from sync core, split
+   repositories, principal-scoped Dexie, mutation policy, terminal access state.
+3. **B1** — additive standalone board migration и owner CRUD.
+4. **B2** — invitation, guest cookie/context, capability enforcement и rate
+   limits.
+5. **T1** — `/b/<id>`, context-first bootstrap и guest-safe routing.
+6. **T2** — teacher `/boards`, invitation UX, per-invite/global read-only.
+7. **B3/T3** — live revoke/read-only, access epoch reconnect gate и real
+   two-client E2E.
+8. **D1** — board-only compose/Caddy/backup stack.
+9. **D2** — immutable release, SBOM/vuln scan, browser/security gates.
+10. **D3** — Yandex Cloud staging, load/chaos/restore/24h soak.
+11. **D4** — manual-approved production rollout with verified rollback.
+
+Production apply запрещён до завершения B0, T0, B1, B2, T1, T2, B3/T3, D1 и
+D2, а также до зелёного staging preflight/restore/soak.
+
+## 21. Практический критерий выбора следующей задачи
+
+При конфликте backlog priorities используется следующий порядок:
+
+```text
+security/access correctness
+    > data durability/convergence
+    > migration/rollback safety
+    > guest/teacher UX completeness
+    > observability/deployment
+    > optional features
+```
+
+Новая feature не должна расширять public surface до закрытия security и
+persistence gates соответствующего предыдущего PR.
