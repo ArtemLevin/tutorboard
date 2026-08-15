@@ -78,8 +78,7 @@ commands created under an older epoch must never auto-push after reconnect.
 - Only an HMAC-SHA-256 digest keyed by a server-side pepper is persisted.
 - The raw token is returned only by create/rotate responses.
 - `GET /j/{secret}` exchanges the link for an `HttpOnly`, `Secure`,
-  `SameSite=Lax` guest cookie and responds with `303` to `/b/{boardId}# /board`
-  (without the space; shown only to avoid accidental linkification here).
+  `SameSite=Lax` guest cookie and responds with `303` to `/b/{boardId}#/board`.
 - The join response uses `Cache-Control: no-store`, `Referrer-Policy:
   no-referrer`, and `X-Robots-Tag: noindex, nofollow`.
 - `/j/*` paths and WebSocket `ticket` query values are redacted from persistent
