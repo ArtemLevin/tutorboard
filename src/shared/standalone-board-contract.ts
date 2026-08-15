@@ -76,6 +76,14 @@ export const standaloneTeacherContextSchema = z
   })
   .strict();
 
+export const standaloneGuestContextSchema = z
+  .object({
+    ...commonContextShape,
+    principalType: z.literal("guest"),
+    role: z.literal("student"),
+  })
+  .strict();
+
 const guestForbiddenCapabilities = new Set<StandaloneBoardCapability>([
   "board.export",
   "board.history.read",
@@ -84,14 +92,15 @@ const guestForbiddenCapabilities = new Set<StandaloneBoardCapability>([
   "board.delete",
 ]);
 
-export const standaloneGuestContextSchema = z
-  .object({
-    ...commonContextShape,
-    principalType: z.literal("guest"),
-    role: z.literal("student"),
-  })
-  .strict()
+export const standaloneBoardAccessContextSchema = z
+  .discriminatedUnion("principalType", [
+    standaloneTeacherContextSchema,
+    standaloneGuestContextSchema,
+  ])
   .superRefine((value, context) => {
+    if (value.principalType !== "guest") {
+      return;
+    }
     for (const capability of value.capabilities) {
       if (guestForbiddenCapabilities.has(capability)) {
         context.addIssue({
@@ -102,11 +111,6 @@ export const standaloneGuestContextSchema = z
       }
     }
   });
-
-export const standaloneBoardAccessContextSchema = z.discriminatedUnion(
-  "principalType",
-  [standaloneTeacherContextSchema, standaloneGuestContextSchema],
-);
 
 export type StandaloneBoardAccessContext = z.infer<
   typeof standaloneBoardAccessContextSchema
