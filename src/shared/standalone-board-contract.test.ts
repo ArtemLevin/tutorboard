@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 import { parseStandaloneBoardAccessContext } from "./standalone-board-contract";
 
 function fixture(name: string): unknown {
-  const url = new URL(`../../contracts/standalone-board/fixtures/${name}`, import.meta.url);
+  const url = new URL(
+    `../../contracts/standalone-board/fixtures/${name}`,
+    import.meta.url,
+  );
   return JSON.parse(readFileSync(url, "utf8")) as unknown;
 }
 
@@ -36,7 +39,10 @@ describe("standalone board access contract", () => {
   it("rejects unknown fields", () => {
     const value = fixture("guest-context.json") as Record<string, unknown>;
     expect(() =>
-      parseStandaloneBoardAccessContext({ ...value, invitationSecret: "forbidden" }),
+      parseStandaloneBoardAccessContext({
+        ...value,
+        invitationSecret: "forbidden",
+      }),
     ).toThrow();
   });
 
