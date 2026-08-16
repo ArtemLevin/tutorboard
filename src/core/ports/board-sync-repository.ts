@@ -1,8 +1,14 @@
 import type { BoardCommand } from "../board/commands/commands";
 import type { BoardDocument } from "../board/document";
 import type { ActorId, DocumentId } from "../board/identifiers";
+import type {
+  BoardAccessRole,
+  BoardCapability,
+  BoardLocalAccessScope,
+  BoardPrincipalType,
+} from "../access/board-access";
 
-export type BoardAccessRole = "admin" | "parent" | "student" | "tutor";
+export type { BoardAccessRole } from "../access/board-access";
 
 export interface BoardSessionContext {
   readonly actorId: ActorId;
@@ -70,9 +76,9 @@ export interface ServerBoardDescriptor {
   readonly currentRevision: number;
   readonly documentId: DocumentId;
   readonly lastSnapshotRevision: number;
-  readonly lessonId: string;
+  readonly lessonId?: string;
   readonly snapshotDue: boolean;
-  readonly studentId: string;
+  readonly studentId?: string;
 }
 
 export interface BoardRevisionDescriptor {
@@ -160,13 +166,13 @@ export type PushBoardCommandsResult =
       readonly status: "conflict";
     };
 
-export interface BoardSyncRepository {
+/** Access bootstrap used by legacy Board API routes until T1/B2 switch to v1 context. */
+export interface BoardAccessRepository {
   readonly context: () => Promise<BoardSessionContext>;
-  readonly ensureBoard: (
-    lessonId: string,
-    documentId: DocumentId,
-    csrfToken: string,
-  ) => Promise<ServerBoardDescriptor>;
+}
+
+/** Revision journal + snapshot transport only. It never creates or manages boards. */
+export interface BoardSyncRepository extends BoardAccessRepository {
   readonly load: (documentId: DocumentId) => Promise<BoardServerRecovery>;
   readonly pull: (
     documentId: DocumentId,
@@ -185,16 +191,43 @@ export interface BoardSyncRepository {
   ) => Promise<PushBoardCommandsResult>;
 }
 
-export interface BoardPlatformRepository extends BoardSyncRepository {
-  readonly archive: (
+/** Legacy lesson lifecycle kept outside BoardSyncEngine during migration. */
+export interface LegacyBoardLifecycleRepository extends BoardAccessRepository {
+  readonly ensureBoard: (
+    lessonId: string,
     documentId: DocumentId,
     csrfToken: string,
   ) => Promise<ServerBoardDescriptor>;
+}
+
+export interface BoardCollaborationRepository extends BoardAccessRepository {
   readonly collaborationTicket: (
     documentId: DocumentId,
     clientId: string,
     csrfToken: string,
   ) => Promise<BoardCollaborationTicket>;
+}
+
+export interface TeacherBoardAdministrationRepository
+  extends BoardAccessRepository {
+  readonly archive: (
+    documentId: DocumentId,
+    csrfToken: string,
+  ) => Promise<ServerBoardDescriptor>;
+  readonly listBoards: (
+    lessonId: string,
+    includeArchived?: boolean,
+  ) => Promise<readonly ServerBoardDescriptor[]>;
+  readonly listRevisions: (
+    documentId: DocumentId,
+  ) => Promise<readonly BoardRevisionDescriptor[]>;
+  readonly unarchive: (
+    documentId: DocumentId,
+    csrfToken: string,
+  ) => Promise<ServerBoardDescriptor>;
+}
+
+export interface BoardEvidenceRepository extends BoardAccessRepository {
   readonly finalizeEvidence: (
     documentId: DocumentId,
     revision: number,
@@ -204,35 +237,37 @@ export interface BoardPlatformRepository extends BoardSyncRepository {
     transcriptLinks: readonly BoardTranscriptLink[],
     csrfToken: string,
   ) => Promise<BoardEvidenceDescriptor>;
-  readonly listBoards: (
-    lessonId: string,
-    includeArchived?: boolean,
-  ) => Promise<readonly ServerBoardDescriptor[]>;
   readonly listEvidence: (
     lessonId: string,
   ) => Promise<readonly BoardEvidenceDescriptor[]>;
-  readonly listRevisions: (
-    documentId: DocumentId,
-  ) => Promise<readonly BoardRevisionDescriptor[]>;
   readonly publishEvidence: (
     evidenceId: string,
     csrfToken: string,
   ) => Promise<BoardEvidenceDescriptor>;
-  readonly recordClientEvent: (
-    event: BoardClientEvent,
-    csrfToken: string,
-  ) => Promise<void>;
   readonly revokeEvidence: (
     evidenceId: string,
     csrfToken: string,
   ) => Promise<BoardEvidenceDescriptor>;
-  readonly unarchive: (
-    documentId: DocumentId,
-    csrfToken: string,
-  ) => Promise<ServerBoardDescriptor>;
 }
 
+export interface BoardTelemetryRepository extends BoardAccessRepository {
+  readonly recordClientEvent: (
+    event: BoardClientEvent,
+    csrfToken: string,
+  ) => Promise<void>;
+}
+
+/** Backwards-compatible composition type for the current HTTP adapter. */
+export interface BoardPlatformRepository
+  extends BoardSyncRepository,
+    LegacyBoardLifecycleRepository,
+    BoardCollaborationRepository,
+    TeacherBoardAdministrationRepository,
+    BoardEvidenceRepository,
+    BoardTelemetryRepository {}
+
 export interface PendingBoardCommand {
+  readonly accessEpochAtCreation?: string;
   readonly command: BoardCommand;
   readonly documentId: DocumentId;
   readonly idempotencyKey: string;
@@ -241,6 +276,7 @@ export interface PendingBoardCommand {
 }
 
 export interface PendingBoardCommandOrderingInput {
+  readonly accessEpochAtCreation?: string;
   readonly baseRevisionAtCreation?: number;
   readonly observedLamport?: number;
 }
@@ -250,11 +286,21 @@ export interface PendingBoardCommandConflict {
   readonly message: string;
 }
 
+export interface ConfirmedBoardSession {
+  readonly accessEpoch?: string;
+  readonly actorId: ActorId;
+  readonly cacheScopeId?: string;
+  readonly capabilities?: readonly BoardCapability[];
+  readonly organizationId: string;
+  readonly principalType?: BoardPrincipalType;
+  readonly role: BoardAccessRole;
+}
+
 export interface ConfirmedBoardHead {
   readonly document: BoardDocument;
   readonly documentId: DocumentId;
   readonly revision: number;
-  readonly session: Omit<BoardSessionContext, "csrfToken">;
+  readonly session: ConfirmedBoardSession;
   readonly sha256: string;
 }
 
@@ -287,4 +333,5 @@ export interface PendingBoardCommandQueue {
     conflicts: readonly PendingBoardCommandConflict[],
   ) => Promise<void>;
   readonly saveHead: (head: ConfirmedBoardHead) => Promise<void>;
+  readonly setAccessScope?: (scope: BoardLocalAccessScope) => Promise<number>;
 }
