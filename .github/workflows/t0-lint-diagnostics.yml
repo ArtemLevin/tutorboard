@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   capture:
-    if: ${{ !contains(github.event.head_commit.message, 'diagnostics: capture T0 lint output') }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out branch
@@ -29,11 +28,14 @@ jobs:
         shell: bash
         run: |
           npm run lint > t0-lint-output.txt 2>&1 || true
-      - name: Commit diagnostic output
+      - name: Commit diagnostic output when changed
         shell: bash
         run: |
+          git add t0-lint-output.txt
+          if git diff --cached --quiet; then
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add t0-lint-output.txt
           git commit -m "diagnostics: capture T0 lint output"
           git push origin HEAD:agent/t0-frontend-security-prep
