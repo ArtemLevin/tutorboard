@@ -1,0 +1,32 @@
+name: B2 contract sync
+
+on:
+  push:
+    branches:
+      - agent/b2-contract-sync
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/b2-contract-sync
+          fetch-depth: 0
+      - name: Mirror backend standalone contract
+        run: |
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/ArtemLevin/tutor-assistant-web/agent/b2-guest-invitations/contracts/standalone-board/openapi.yaml \
+            --output contracts/standalone-board/openapi.yaml
+          rm .github/workflows/b2-contract-sync.yml
+      - name: Commit mirrored contract
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'docs: sync B2 standalone board contract'
+          git push origin HEAD:agent/b2-contract-sync
