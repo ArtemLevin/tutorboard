@@ -207,10 +207,7 @@ export interface LocalBoardTransformPreview {
 }
 
 export type BoardCollaborationStatus =
-  | "connecting"
-  | "offline"
-  | "online"
-  | "revoked";
+  "connecting" | "offline" | "online" | "revoked";
 
 export interface BoardCollaborationClientOptions {
   readonly createClientId?: () => string;
@@ -545,7 +542,9 @@ export class BoardCollaborationClient {
             presence.data.actorId,
           role: presence.data.role,
           selectedObjectIds:
-            presence.data.selectedObjectIds ?? previous?.selectedObjectIds ?? [],
+            presence.data.selectedObjectIds ??
+            previous?.selectedObjectIds ??
+            [],
           viewport: presence.data.viewport ?? previous?.viewport ?? null,
         });
       }

@@ -140,7 +140,10 @@ const headSchema = z
     accessEpoch: accessEpochSchema,
     actorId: z.string().min(1).max(128),
     cacheScopeId: cacheScopeSchema,
-    capabilities: z.array(capabilitySchema).max(boardCapabilities.length).optional(),
+    capabilities: z
+      .array(capabilitySchema)
+      .max(boardCapabilities.length)
+      .optional(),
     documentId: z.string().min(1).max(128),
     organizationId: z.string().min(1).max(128).optional(),
     principalType: z.enum(["guest", "legacy", "teacher"]).optional(),
@@ -261,17 +264,17 @@ class TutorBoardSyncDatabase extends Dexie {
           "[cacheScopeId+documentId+sequence],cacheScopeId,[cacheScopeId+documentId],&[cacheScopeId+documentId+idempotencyKey],sequence,accessEpochAtCreation",
         scopedQuarantine:
           "id,cacheScopeId,[cacheScopeId+documentId],capturedAt,reason,[cacheScopeId+documentId+sequence],commandSha256",
-        scopedSequences:
-          "[cacheScopeId+documentId],cacheScopeId,documentId",
+        scopedSequences: "[cacheScopeId+documentId],cacheScopeId,documentId",
       })
       .upgrade(async (transaction) => {
-        const [heads, pending, clocks, quarantine, sequences] = await Promise.all([
-          transaction.table("heads").toArray(),
-          transaction.table("pending").toArray(),
-          transaction.table("clocks").toArray(),
-          transaction.table("quarantine").toArray(),
-          transaction.table("sequences").toArray(),
-        ]);
+        const [heads, pending, clocks, quarantine, sequences] =
+          await Promise.all([
+            transaction.table("heads").toArray(),
+            transaction.table("pending").toArray(),
+            transaction.table("clocks").toArray(),
+            transaction.table("quarantine").toArray(),
+            transaction.table("sequences").toArray(),
+          ]);
         if (heads.length > 0) {
           await transaction.table("scopedHeads").bulkPut(
             heads.map((value: Record<string, unknown>) => ({
@@ -360,7 +363,10 @@ type DecodePendingResult =
       readonly idempotencyKey: string | null;
       readonly issues: readonly BoardCommandCodecIssue[];
       readonly raw: string;
-      readonly reason: Exclude<PendingCommandQuarantineReason, "dependency-gap">;
+      readonly reason: Exclude<
+        PendingCommandQuarantineReason,
+        "dependency-gap"
+      >;
       readonly sequence: number | null;
       readonly status: "error";
     };
@@ -486,7 +492,11 @@ async function decodePending(
       stored.cacheScopeId !== scope.cacheScopeId ||
       stored.documentId !== expectedDocumentId
     ) {
-      return errorResult(raw, "document-id-mismatch", pendingErrorContext(stored));
+      return errorResult(
+        raw,
+        "document-id-mismatch",
+        pendingErrorContext(stored),
+      );
     }
     if (stored.accessEpochAtCreation !== scope.accessEpoch) {
       return errorResult(
@@ -505,7 +515,11 @@ async function decodePending(
       data.cacheScopeId !== scope.cacheScopeId ||
       data.documentId !== expectedDocumentId
     ) {
-      return errorResult(raw, "document-id-mismatch", pendingErrorContext(data));
+      return errorResult(
+        raw,
+        "document-id-mismatch",
+        pendingErrorContext(data),
+      );
     }
     const stored: StoredPendingCommandV3 = {
       ...data,
@@ -684,7 +698,8 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
         const rawSequenceClock = await this.#database.scopedSequences.get(
           documentScopeKey(scope, expectedDocumentId),
         );
-        const parsedSequenceClock = queueSequenceSchema.safeParse(rawSequenceClock);
+        const parsedSequenceClock =
+          queueSequenceSchema.safeParse(rawSequenceClock);
         const sequence =
           Math.max(
             latestSequence?.sequence ?? 0,
@@ -807,12 +822,14 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
                   : null;
             quarantined.push({
               actorId:
-                current.success || previous.success ? context?.actorId ?? null : null,
+                current.success || previous.success
+                  ? (context?.actorId ?? null)
+                  : null,
               cacheScopeId: scope.cacheScopeId,
               capturedAt,
               commandSha256:
                 current.success || previous.success
-                  ? context?.commandSha256 ?? null
+                  ? (context?.commandSha256 ?? null)
                   : null,
               documentId: context?.documentId ?? expectedDocumentId,
               id: quarantineId(
@@ -852,8 +869,10 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
         const latestValid = valid.at(-1);
         if (latestValid !== undefined) {
           const key = documentScopeKey(scope, expectedDocumentId);
-          const rawSequenceClock = await this.#database.scopedSequences.get(key);
-          const parsedSequenceClock = queueSequenceSchema.safeParse(rawSequenceClock);
+          const rawSequenceClock =
+            await this.#database.scopedSequences.get(key);
+          const parsedSequenceClock =
+            queueSequenceSchema.safeParse(rawSequenceClock);
           if (
             !parsedSequenceClock.success ||
             parsedSequenceClock.data.value < latestValid.sequence
@@ -985,7 +1004,10 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
         if (item.documentId !== expectedDocumentId) {
           throw new Error("Pending command belongs to another document.");
         }
-        if (!known.has(item.sequence) || remainingSequences.has(item.sequence)) {
+        if (
+          !known.has(item.sequence) ||
+          remainingSequences.has(item.sequence)
+        ) {
           throw new Error("Pending command reconciliation scope is invalid.");
         }
         remainingSequences.add(item.sequence);
@@ -1049,7 +1071,8 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
             ];
           },
         );
-        if (stored.length > 0) await this.#database.scopedPending.bulkPut(stored);
+        if (stored.length > 0)
+          await this.#database.scopedPending.bulkPut(stored);
         const clocks = new Map<string, StoredActorClock>();
         for (const item of stored) {
           const previous = clocks.get(item.actorId);

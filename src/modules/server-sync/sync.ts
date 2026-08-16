@@ -214,7 +214,8 @@ function confirmedSession(context: BoardRuntimeAccessContext) {
     actorId: context.actorId,
     cacheScopeId: context.cacheScopeId,
     capabilities: [...context.capabilities],
-    ...(context.principalType === "teacher" || context.principalType === "legacy"
+    ...(context.principalType === "teacher" ||
+    context.principalType === "legacy"
       ? { organizationId: context.organizationId }
       : {}),
     principalType: context.principalType,
@@ -351,15 +352,14 @@ export class BoardSyncEngine {
 
   updateAccessContext(context: BoardRuntimeAccessContext): Promise<void> {
     if (context.boardId !== this.#documentId) {
-      return Promise.reject(new Error("Board access context belongs to another document."));
+      return Promise.reject(
+        new Error("Board access context belongs to another document."),
+      );
     }
     if (this.#disposed) return Promise.resolve();
     this.#serial = this.#serial.then(async () => {
       const current = this.#context;
-      if (
-        current !== null &&
-        current.cacheScopeId !== context.cacheScopeId
-      ) {
+      if (current !== null && current.cacheScopeId !== context.cacheScopeId) {
         throw new SyncRecoveryError(
           "board.sync.access-scope-changed",
           "Изменился security scope доски; требуется новый sync engine.",
@@ -403,7 +403,10 @@ export class BoardSyncEngine {
     const context = this.#context;
     const confirmed = this.#confirmed;
     if (context === null || confirmed === null) {
-      this.#recover("board.sync.queue-failed", "Board sync engine is not ready.");
+      this.#recover(
+        "board.sync.queue-failed",
+        "Board sync engine is not ready.",
+      );
       return Promise.resolve();
     }
     if (!context.capabilities.includes("board.write")) {
@@ -459,7 +462,10 @@ export class BoardSyncEngine {
     const confirmed = this.#confirmed;
     const currentDocument = this.#document;
     if (context === null || confirmed === null || currentDocument === null) {
-      this.#recover("board.sync.undo-failed", "Board sync engine is not ready.");
+      this.#recover(
+        "board.sync.undo-failed",
+        "Board sync engine is not ready.",
+      );
       return Promise.resolve();
     }
     if (!context.capabilities.includes("board.write")) {
@@ -539,7 +545,8 @@ export class BoardSyncEngine {
   }
 
   async #resolveOnlineContext(): Promise<BoardRuntimeAccessContext> {
-    if (this.#providedAccessContext !== null) return this.#providedAccessContext;
+    if (this.#providedAccessContext !== null)
+      return this.#providedAccessContext;
     const session = await this.#repository.context();
     return createLegacyBoardAccessContext(session, this.#documentId);
   }
@@ -704,7 +711,8 @@ export class BoardSyncEngine {
           this.#onStateChange({
             code: "board.sync.offline-context-missing",
             kind: "failure",
-            message: "Не удалось восстановить security context локальной доски.",
+            message:
+              "Не удалось восстановить security context локальной доски.",
           });
           return;
         }
@@ -748,11 +756,7 @@ export class BoardSyncEngine {
     if (removed === 0) return;
     this.#pending = retained;
     this.#quarantinedCount += removed;
-    await this.#queue.reconcile(
-      this.#documentId,
-      retained,
-      knownSequences,
-    );
+    await this.#queue.reconcile(this.#documentId, retained, knownSequences);
   }
 
   async #synchronize(): Promise<void> {

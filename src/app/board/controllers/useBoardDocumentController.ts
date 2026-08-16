@@ -133,7 +133,9 @@ export function useBoardDocumentController({
       }));
       onCommandCommitted?.(command, result.document, previousDocument);
       return result;
-    }, [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation]);
+    },
+    [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],
+  );
 
   const setCommandError = useCallback((message: string | null) => {
     setState((current) => ({ ...current, commandError: message }));

@@ -208,8 +208,7 @@ export interface BoardCollaborationRepository extends BoardAccessRepository {
   ) => Promise<BoardCollaborationTicket>;
 }
 
-export interface TeacherBoardAdministrationRepository
-  extends BoardAccessRepository {
+export interface TeacherBoardAdministrationRepository extends BoardAccessRepository {
   readonly archive: (
     documentId: DocumentId,
     csrfToken: string,
@@ -259,7 +258,8 @@ export interface BoardTelemetryRepository extends BoardAccessRepository {
 
 /** Backwards-compatible composition type for the current HTTP adapter. */
 export interface BoardPlatformRepository
-  extends BoardSyncRepository,
+  extends
+    BoardSyncRepository,
     LegacyBoardLifecycleRepository,
     BoardCollaborationRepository,
     TeacherBoardAdministrationRepository,

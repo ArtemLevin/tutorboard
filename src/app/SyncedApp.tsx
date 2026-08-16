@@ -160,12 +160,18 @@ export function SyncedApp({
   const [state, setState] = useState<BoardSyncState>({ kind: "bootstrapping" });
   const [collaborationStatus, setCollaborationStatus] =
     useState<BoardCollaborationStatus>("connecting");
-  const [participants, setParticipants] = useState<readonly BoardPresence[]>([]);
-  const [inkPreviews, setInkPreviews] = useState<readonly BoardInkPreview[]>([]);
+  const [participants, setParticipants] = useState<readonly BoardPresence[]>(
+    [],
+  );
+  const [inkPreviews, setInkPreviews] = useState<readonly BoardInkPreview[]>(
+    [],
+  );
   const [transformPreviews, setTransformPreviews] = useState<
     readonly BoardTransformPreview[]
   >([]);
-  const [evidence, setEvidence] = useState<readonly BoardEvidenceDescriptor[]>([]);
+  const [evidence, setEvidence] = useState<readonly BoardEvidenceDescriptor[]>(
+    [],
+  );
   const [evidenceStatus, setEvidenceStatus] = useState<string | null>(null);
   const [evidenceFinalizing, setEvidenceFinalizing] = useState(false);
   const undoStackRef = useRef<readonly (readonly BoardCommand[])[]>([]);
@@ -256,7 +262,10 @@ export function SyncedApp({
         .catch(() => undefined);
     }
     if (lessonId !== undefined) {
-      void repository.listEvidence(lessonId).then(setEvidence).catch(() => setEvidence([]));
+      void repository
+        .listEvidence(lessonId)
+        .then(setEvidence)
+        .catch(() => setEvidence([]));
     } else {
       setEvidence([]);
     }
@@ -308,7 +317,9 @@ export function SyncedApp({
     return (
       <main className="recovery-shell">
         <section aria-live="polite" className="recovery-card">
-          <span aria-hidden="true" className="recovery-icon">↻</span>
+          <span aria-hidden="true" className="recovery-icon">
+            ↻
+          </span>
           <h1>Подключаем доску</h1>
           <p>Проверяем серверную ревизию и локальную очередь команд…</p>
         </section>
@@ -320,9 +331,13 @@ export function SyncedApp({
     return (
       <main className="recovery-shell">
         <section className="recovery-card">
-          <span aria-hidden="true" className="recovery-icon">!</span>
+          <span aria-hidden="true" className="recovery-icon">
+            !
+          </span>
           <h1>Не удалось открыть доску</h1>
-          <p role="alert">{state.code}: {state.message}</p>
+          <p role="alert">
+            {state.code}: {state.message}
+          </p>
           <button onClick={() => void engine.bootstrap()} type="button">
             Повторить подключение
           </button>
@@ -335,13 +350,20 @@ export function SyncedApp({
     return (
       <main className="recovery-shell">
         <section className="recovery-card">
-          <span aria-hidden="true" className="recovery-icon">↺</span>
+          <span aria-hidden="true" className="recovery-icon">
+            ↺
+          </span>
           <h1>Требуется восстановление синхронизации</h1>
-          <p role="alert">{state.code}: {state.message}</p>
+          <p role="alert">
+            {state.code}: {state.message}
+          </p>
           <p>Неподтверждённых команд: {state.pendingCount}.</p>
           <div className="recovery-actions">
             {state.document === null ? null : (
-              <button onClick={() => downloadRecovery(state.document!)} type="button">
+              <button
+                onClick={() => downloadRecovery(state.document!)}
+                type="button"
+              >
                 Скачать локальную копию
               </button>
             )}
@@ -355,9 +377,11 @@ export function SyncedApp({
   }
 
   const writeEnabled =
-    state.capabilities.includes("board.write") && collaborationStatus !== "revoked";
+    state.capabilities.includes("board.write") &&
+    collaborationStatus !== "revoked";
   const canManageEvidence =
-    lessonId !== undefined && (state.role === "admin" || state.role === "tutor");
+    lessonId !== undefined &&
+    (state.role === "admin" || state.role === "tutor");
 
   const finalizeEvidence = async () => {
     if (
@@ -494,7 +518,9 @@ export function SyncedApp({
             now: () => new Date().toISOString(),
           });
           if (inverse.length > 0) {
-            undoStackRef.current = [...undoStackRef.current, inverse].slice(-100);
+            undoStackRef.current = [...undoStackRef.current, inverse].slice(
+              -100,
+            );
             setUndoCount(undoStackRef.current.length);
           }
           void engine.queue(command, document);
@@ -503,7 +529,9 @@ export function SyncedApp({
           renderedDocumentRef.current = document;
         }}
         onPresenceChange={(presence) => collaboration.updatePresence(presence)}
-        onInkPreviewChange={(preview) => collaboration.updateInkPreview(preview)}
+        onInkPreviewChange={(preview) =>
+          collaboration.updateInkPreview(preview)
+        }
         onTransformPreviewChange={(preview) =>
           collaboration.updateTransformPreview(preview)
         }
@@ -559,7 +587,9 @@ export function SyncedApp({
             )}
             {canManageEvidence ? (
               <button
-                disabled={!canFinalizeBoardEvidence(state) || evidenceFinalizing}
+                disabled={
+                  !canFinalizeBoardEvidence(state) || evidenceFinalizing
+                }
                 onClick={() => void finalizeEvidence()}
                 title={
                   canFinalizeBoardEvidence(state)
@@ -578,13 +608,19 @@ export function SyncedApp({
                     item.publishedAt !== null && item.revokedAt === null;
                   return (
                     <li key={item.evidenceId}>
-                      <a href={item.artifacts.svg} rel="noreferrer" target="_blank">
+                      <a
+                        href={item.artifacts.svg}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
                         Ревизия {item.revision}
                       </a>
                       <span>{isPublished ? " опубликована" : " черновик"}</span>
                       {canManageEvidence ? (
                         <button
-                          onClick={() => void setEvidencePublished(item, !isPublished)}
+                          onClick={() =>
+                            void setEvidencePublished(item, !isPublished)
+                          }
                           type="button"
                         >
                           {isPublished ? "Отозвать" : "Опубликовать"}

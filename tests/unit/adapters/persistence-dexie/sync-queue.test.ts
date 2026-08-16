@@ -163,11 +163,13 @@ async function readPendingRecord(
   try {
     const transaction = database.transaction("scopedPending", "readonly");
     const raw = await requestResult<unknown>(
-      transaction.objectStore("scopedPending").get([
-        legacyBoardCacheScopeId,
-        activeDocumentId,
-        sequence,
-      ]) as IDBRequest<unknown>,
+      transaction
+        .objectStore("scopedPending")
+        .get([
+          legacyBoardCacheScopeId,
+          activeDocumentId,
+          sequence,
+        ]) as IDBRequest<unknown>,
     );
     await transactionDone(transaction);
     if (typeof raw !== "object" || raw === null) {
@@ -270,7 +272,9 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
       "dependency-gap",
     ]);
     await expect(reopened.list(activeDocumentId)).resolves.toEqual([]);
-    await expect(reopened.listQuarantined(activeDocumentId)).resolves.toHaveLength(2);
+    await expect(
+      reopened.listQuarantined(activeDocumentId),
+    ).resolves.toHaveLength(2);
   });
 
   it("detects command hash substitution before replay", async () => {
@@ -350,7 +354,11 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
     const activeDocumentId = documentId("document:queue-sequence-clock");
     const staleTab = createQueue(databaseName);
     const activeTab = createQueue(databaseName);
-    const stale = await staleTab.enqueue(activeDocumentId, "key:stale", command(1));
+    const stale = await staleTab.enqueue(
+      activeDocumentId,
+      "key:stale",
+      command(1),
+    );
 
     await activeTab.acknowledge(activeDocumentId, stale.sequence);
     const replacement = await activeTab.enqueue(
@@ -374,7 +382,11 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
     const databaseName = `sync-queue-${crypto.randomUUID()}`;
     databaseNames.add(databaseName);
     const activeDocumentId = documentId("document:queue-v2-upgrade");
-    await createVersion2QueueDatabase(databaseName, activeDocumentId, command(1));
+    await createVersion2QueueDatabase(
+      databaseName,
+      activeDocumentId,
+      command(1),
+    );
     const upgraded = createQueue(databaseName);
     const legacy = await upgraded.list(activeDocumentId);
     expect(legacy).toMatchObject([{ sequence: 1 }]);
@@ -434,7 +446,9 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
         idempotencyKey: "new:key",
       },
     ]);
-    await expect(queue.listQuarantined(activeDocumentId)).resolves.toMatchObject([
+    await expect(
+      queue.listQuarantined(activeDocumentId),
+    ).resolves.toMatchObject([
       { idempotencyKey: "old:key", reason: "access-epoch-changed" },
     ]);
   });

@@ -48,12 +48,10 @@ export interface LegacyBoardAccessContext extends BoardAccessContextBase {
 }
 
 export type BoardAccessContext =
-  | GuestBoardAccessContext
-  | TeacherBoardAccessContext;
+  GuestBoardAccessContext | TeacherBoardAccessContext;
 
 export type BoardRuntimeAccessContext =
-  | BoardAccessContext
-  | LegacyBoardAccessContext;
+  BoardAccessContext | LegacyBoardAccessContext;
 
 export interface BoardLocalAccessScope {
   readonly accessEpoch: string;
@@ -82,9 +80,7 @@ export function createLegacyBoardAccessContext(
     cacheScopeId: legacyBoardCacheScopeId,
     capabilities: [
       "board.read",
-      ...(canWrite
-        ? (["board.write", "board.snapshot.write"] as const)
-        : []),
+      ...(canWrite ? (["board.write", "board.snapshot.write"] as const) : []),
       "collaboration.connect",
       ...(session.role === "admin" || session.role === "tutor"
         ? ([
@@ -128,7 +124,9 @@ export const revokedBoardMutationPolicy: BoardMutationPolicy = {
   reason: "revoked",
 };
 
-export function boardMutationPolicyMessage(policy: BoardMutationPolicy): string {
+export function boardMutationPolicyMessage(
+  policy: BoardMutationPolicy,
+): string {
   switch (policy.reason) {
     case "allowed":
       return "";
