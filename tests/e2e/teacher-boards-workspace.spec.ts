@@ -385,14 +385,19 @@ test("teacher manages transient invitation links, expiry and read/write policy",
   const xeniaRow = dialog
     .locator("article.invitation-row")
     .filter({ hasText: "Ксения" });
-  await xeniaRow
-    .getByRole("checkbox", { name: "Разрешить редактирование" })
-    .uncheck();
+  const xeniaWriteCheckbox = xeniaRow.getByRole("checkbox", {
+    name: "Разрешить редактирование",
+  });
+  await xeniaWriteCheckbox.click();
+  await expect.poll(() => xeniaWriteCheckbox.isChecked()).toBe(false);
   await expect
     .poll(
       () =>
-        api.state.invitations.get(initialBoardId)?.[1]?.writeEnabled ??
-        api.state.invitations.get(initialBoardId)?.[0]?.writeEnabled,
+        api.state.invitations
+          .get(initialBoardId)
+          ?.find(
+            (invitation) => invitation.invitationId === initialInvitationId,
+          )?.writeEnabled,
     )
     .toBe(false);
 
@@ -409,11 +414,11 @@ test("teacher manages transient invitation links, expiry and read/write policy",
   await dialog
     .getByRole("button", { name: "Закрыть управление доступом" })
     .click();
-  await algebraCard
-    .getByRole("checkbox", {
-      name: "Разрешать запись гостям, у которых она включена в ссылке",
-    })
-    .uncheck();
+  const boardWriteCheckbox = algebraCard.getByRole("checkbox", {
+    name: "Разрешать запись гостям, у которых она включена в ссылке",
+  });
+  await boardWriteCheckbox.click();
+  await expect.poll(() => boardWriteCheckbox.isChecked()).toBe(false);
   await expect(algebraCard.getByText("Только чтение")).toBeVisible();
   await expect(page.locator("body")).not.toContainText(rotatedSecret);
   await expectSecretAbsentFromDurableBrowserState(page, rotatedSecret);
