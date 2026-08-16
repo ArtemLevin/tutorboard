@@ -17,16 +17,40 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: agent/t2-teacher-board-workspace
-      - name: Align E2E same-origin fixture
+      - name: Apply deterministic preflight fixes
         shell: python
         run: |
           from pathlib import Path
-          path = Path("tests/e2e/teacher-boards-workspace.spec.ts")
-          text = path.read_text()
-          old = "https://127.0.0.1:4173/j/"
-          if text.count(old) != 2:
-              raise SystemExit(f"expected exactly two HTTPS fixture URLs, got {text.count(old)}")
-          path.write_text(text.replace(old, "http://127.0.0.1:4173/j/"))
+
+          e2e = Path("tests/e2e/teacher-boards-workspace.spec.ts")
+          text = e2e.read_text()
+          old_url = "https://127.0.0.1:4173/j/"
+          if text.count(old_url) != 2:
+              raise SystemExit(f"expected exactly two HTTPS fixture URLs, got {text.count(old_url)}")
+          e2e.write_text(text.replace(old_url, "http://127.0.0.1:4173/j/"))
+
+          workspace = Path("src/app/TeacherBoardsWorkspace.tsx")
+          text = workspace.read_text()
+          old = '''  useEffect(() => {
+            const dialog = dialogRef.current;
+            dialog?.showModal();
+            return () => {
+              if (dialog?.open) dialog.close();
+              window.setTimeout(() => returnFocusRef.current?.focus(), 0);
+            };
+          }, []);'''
+          new = '''  useEffect(() => {
+            const dialog = dialogRef.current;
+            const returnFocus = returnFocusRef.current;
+            dialog?.showModal();
+            return () => {
+              if (dialog?.open) dialog.close();
+              window.setTimeout(() => returnFocus?.focus(), 0);
+            };
+          }, []);'''
+          if text.count(old) != 1:
+              raise SystemExit(f"expected one focus cleanup anchor, got {text.count(old)}")
+          workspace.write_text(text.replace(old, new, 1))
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
