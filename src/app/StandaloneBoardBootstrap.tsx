@@ -79,7 +79,6 @@ export function StandaloneBoardBootstrap({
 
   useEffect(() => {
     let active = true;
-    setState({ kind: "loading" });
     void fetchStandaloneBoardAccessContext(boardId, {
       baseUrl: environment.boardApiBaseUrl,
     })
@@ -121,7 +120,10 @@ export function StandaloneBoardBootstrap({
             повторите подключение.
           </p>
           <button
-            onClick={() => setAttempt((value) => value + 1)}
+            onClick={() => {
+              setState({ kind: "loading" });
+              setAttempt((value) => value + 1);
+            }}
             type="button"
           >
             Повторить подключение
