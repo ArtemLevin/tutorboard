@@ -157,15 +157,20 @@ export async function fetchStandaloneBoardAccessContext(
     );
   }
 
-  const common = {
+  if (parsed.data.principalType === "teacher") {
+    return {
+      ...parsed.data,
+      actorId: actorId(parsed.data.actorId),
+      boardId: documentId(parsed.data.boardId),
+      capabilities: [...parsed.data.capabilities],
+    };
+  }
+  return {
     ...parsed.data,
     actorId: actorId(parsed.data.actorId),
     boardId: documentId(parsed.data.boardId),
     capabilities: [...parsed.data.capabilities],
   };
-  return parsed.data.principalType === "teacher"
-    ? { ...common, principalType: "teacher" }
-    : { ...common, principalType: "guest" };
 }
 
 function unsafeMethod(init: RequestInit | undefined): boolean {
