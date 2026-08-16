@@ -9,6 +9,7 @@ import {
 } from "../../adapters/persistence-dexie/public";
 import { ProductShell } from "../ProductShell";
 import { SmartInkDiagnosticsPanel } from "../SmartInkDiagnosticsPanel";
+import { StandaloneBoardBootstrap } from "../StandaloneBoardBootstrap";
 import { readBoardLaunchContext } from "../configuration/board-launch-context";
 import { readEnvironment } from "../configuration/environment";
 import { createConfiguredMathInkRecognizers } from "./math-ink";
@@ -21,30 +22,31 @@ if (root === null) {
 
 const environment = readEnvironment();
 const launchContext = readBoardLaunchContext(window.location);
+const geometryOsClient = createGeometryOsHttpClient({
+  baseUrl: environment.geometryOsBaseUrl,
+});
+const mathInkRecognizers = createConfiguredMathInkRecognizers(environment);
 
 if (launchContext.kind === "standalone") {
+  if (window.location.hash !== "#/board") {
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}#/board`,
+    );
+  }
   createRoot(root).render(
     <StrictMode>
-      <main className="recovery-shell">
-        <section className="recovery-card">
-          <span aria-hidden="true" className="recovery-icon">
-            ↻
-          </span>
-          <h1>Совместная доска готовится к подключению</h1>
-          <p>
-            Маршрут распознан, но standalone access runtime будет включён после
-            серверных этапов B1/B2 и frontend-этапа T1.
-          </p>
-        </section>
-      </main>
+      <StandaloneBoardBootstrap
+        boardId={launchContext.boardId}
+        environment={environment}
+        geometryOsClient={geometryOsClient}
+        mathInkRecognizers={mathInkRecognizers}
+      />
     </StrictMode>,
   );
 } else {
   const repository = createDexieBoardDocumentRepository();
-  const geometryOsClient = createGeometryOsHttpClient({
-    baseUrl: environment.geometryOsBaseUrl,
-  });
-  const mathInkRecognizers = createConfiguredMathInkRecognizers(environment);
   const lessonContext =
     launchContext.kind === "legacy-lesson"
       ? {
