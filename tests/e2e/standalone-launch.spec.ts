@@ -217,7 +217,7 @@ test("opens a read-only guest board through the canonical standalone route", asy
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Синхронизировано · r0",
   );
-  await expect(page.getByTestId("object-count")).toHaveText("0 объектов");
+  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   expect(api.requests.some((entry) => entry.includes("/snapshots"))).toBe(
     false,
   );
