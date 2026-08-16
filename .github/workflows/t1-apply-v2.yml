@@ -1,0 +1,336 @@
+name: T1 apply runtime refactor v2
+
+on:
+  push:
+    branches:
+      - agent/t1-standalone-launch
+    paths:
+      - .github/workflows/t1-apply-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: agent/t1-standalone-launch
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Apply guarded T1 patches
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one anchor, found {count}: {old[:80]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "src/core/ports/board-sync-repository.ts",
+              "  readonly archivedAt: string | null;\n  readonly currentDocumentSha256: string;",
+              "  readonly archivedAt: string | null;\n  readonly createdAt?: string;\n  readonly currentDocumentSha256: string;",
+          )
+          replace_once(
+              "src/core/ports/board-sync-repository.ts",
+              "  readonly studentId?: string;\n}",
+              "  readonly studentId?: string;\n  readonly updatedAt?: string;\n}",
+          )
+
+          replace_once(
+              "src/adapters/board-http/client.ts",
+              "    lessonId: identifierSchema,\n    schemaVersion: z.literal(\"1.0\").optional(),\n    snapshotDue: z.boolean(),\n    studentId: identifierSchema,",
+              "    lessonId: identifierSchema.nullable().optional(),\n    schemaVersion: z.literal(\"1.0\").optional(),\n    snapshotDue: z.boolean(),\n    studentId: identifierSchema.nullable().optional(),",
+          )
+          replace_once(
+              "src/adapters/board-http/client.ts",
+              "  return {\n    ...parsed.data,\n    archivedAt: parsed.data.archivedAt ?? null,\n    documentId: documentId(parsed.data.documentId),\n  };",
+              "  const { lessonId, studentId, ...descriptor } = parsed.data;\n  return {\n    ...descriptor,\n    archivedAt: descriptor.archivedAt ?? null,\n    documentId: documentId(descriptor.documentId),\n    ...(lessonId === null || lessonId === undefined ? {} : { lessonId }),\n    ...(studentId === null || studentId === undefined ? {} : { studentId }),\n  };",
+          )
+
+          sync_path = Path("src/modules/server-sync/sync.ts")
+          sync_text = sync_path.read_text()
+          start = sync_text.index(
+              '      if (recovery.snapshot === null) {\n        if (!this.#context.capabilities.includes("board.snapshot.write")) {'
+          )
+          end_marker = '      } else {\n        if (\n          recovery.snapshot.documentId'
+          end = sync_text.index(end_marker, start)
+          replacement = '''      if (recovery.snapshot === null) {
+            const createdAt = recovery.board.createdAt ?? this.#now();
+            const document = createEmptyBoardDocument({
+              createdAt,
+              id: this.#documentId,
+              title:
+                this.#context.principalType === "legacy"
+                  ? "Доска занятия"
+                  : "Совместная доска",
+            });
+            const sha256 = await boardDocumentSha256(document);
+            if (this.#context.capabilities.includes("board.snapshot.write")) {
+              await this.#repository.saveSnapshot(
+                this.#documentId,
+                0,
+                document,
+                sha256,
+                this.#context.csrfToken,
+              );
+              if (this.#disposed) return;
+            }
+            head = {
+              document,
+              documentId: this.#documentId,
+              revision: 0,
+              session: confirmedSession(this.#context),
+              sha256,
+            };
+          } else {
+            if (
+              recovery.snapshot.documentId'''
+          sync_path.write_text(sync_text[:start] + replacement + sync_text[end + len(end_marker):])
+
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              'import {\n  reduceBoardDocument,',
+              'import type { BoardRuntimeAccessContext } from "../core/access/public";\nimport {\n  reduceBoardDocument,',
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              "interface SyncedAppProps {\n  readonly documentId: DocumentId;",
+              "interface SyncedAppProps {\n  readonly accessContext?: BoardRuntimeAccessContext | undefined;\n  readonly documentId: DocumentId;",
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              "export function SyncedApp({\n  documentId,",
+              "export function SyncedApp({\n  accessContext,\n  documentId,",
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              "      new BoardSyncEngine({\n        createIdempotencyKey:",
+              "      new BoardSyncEngine({\n        accessContext,\n        createIdempotencyKey:",
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '''  const ready = state.kind === "ready";
+          useEffect(() => {
+            if (!ready) return;
+            collaboration.start();
+            if (!loadMeasuredRef.current) {''',
+              '''  const ready = state.kind === "ready";
+          const collaborationEnabled =
+            state.kind === "ready" &&
+            state.capabilities.includes("collaboration.connect");
+          useEffect(() => {
+            if (!ready) return;
+            if (collaborationEnabled) collaboration.start();
+            if (lessonId !== undefined && !loadMeasuredRef.current) {''',
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              "  }, [collaboration, lessonId, ready, repository]);",
+              "  }, [collaboration, collaborationEnabled, lessonId, ready, repository]);",
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              "  useEffect(() => {\n    if (!ready) return;\n    const previous = previousCollaborationStatusRef.current;",
+              "  useEffect(() => {\n    if (!ready || lessonId === undefined) return;\n    const previous = previousCollaborationStatusRef.current;",
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              "  }, [collaborationStatus, ready, repository]);",
+              "  }, [collaborationStatus, lessonId, ready, repository]);",
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '''  const writeEnabled =
+            state.capabilities.includes("board.write") &&''',
+              '''  if (collaborationStatus === "revoked") {
+            return (
+              <main className="recovery-shell">
+                <section className="recovery-card">
+                  <span aria-hidden="true" className="recovery-icon">
+                    !
+                  </span>
+                  <h1>Доступ к доске недоступен</h1>
+                  <p role="alert">
+                    Доступ к совместной доске был отозван. Запросите новую ссылку у преподавателя.
+                  </p>
+                </section>
+              </main>
+            );
+          }
+
+          const writeEnabled =
+            state.capabilities.includes("board.write") &&''',
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '''  const canManageEvidence =
+            lessonId !== undefined &&
+            (state.role === "admin" || state.role === "tutor");''',
+              '''  const canManageEvidence =
+            lessonId !== undefined &&
+            (state.role === "admin" || state.role === "tutor");
+          const principalLabel =
+            state.principalType === "guest"
+              ? `Ученик · ${accessContext?.displayName ?? state.actorId}`
+              : state.principalType === "teacher"
+                ? `Преподаватель · ${accessContext?.displayName ?? state.actorId}`
+                : "Контекст занятия";''',
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '''        onExportPdfSnapshot={(document) => {
+                  setEvidenceStatus("Создаём PDF доски…");
+                  void renderBoardSnapshotPdf(document)
+                    .then((blob) => {
+                      downloadBlob("tutorboard-board.pdf", blob);
+                      setEvidenceStatus("PDF доски сохранён.");
+                    })
+                    .catch(() => setEvidenceStatus("Не удалось создать PDF доски."));
+                }}''',
+              '''        onExportPdfSnapshot={
+                  state.capabilities.includes("board.export")
+                    ? (document) => {
+                        setEvidenceStatus("Создаём PDF доски…");
+                        void renderBoardSnapshotPdf(document)
+                          .then((blob) => {
+                            downloadBlob("tutorboard-board.pdf", blob);
+                            setEvidenceStatus("PDF доски сохранён.");
+                          })
+                          .catch(() =>
+                            setEvidenceStatus("Не удалось создать PDF доски."),
+                          );
+                      }
+                    : undefined
+                }''',
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '''        onShareBoard={() => {
+                  void copyBoardShareUrl(window.location)
+                    .then(() => setEvidenceStatus("Ссылка на доску скопирована."))
+                    .catch(() =>
+                      setEvidenceStatus("Браузер не разрешил скопировать ссылку."),
+                    );
+                }}''',
+              '''        onShareBoard={
+                  lessonId === undefined
+                    ? undefined
+                    : () => {
+                        void copyBoardShareUrl(window.location)
+                          .then(() =>
+                            setEvidenceStatus("Ссылка на доску скопирована."),
+                          )
+                          .catch(() =>
+                            setEvidenceStatus(
+                              "Браузер не разрешил скопировать ссылку.",
+                            ),
+                          );
+                      }
+                }''',
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              "        readOnly={!writeEnabled}\n        settingsExtra={",
+              "        readOnly={!writeEnabled}\n        standaloneMode={accessContext !== undefined}\n        settingsExtra={",
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '''            <h3>{lessonId === undefined ? "Совместная доска" : "Занятие"}</h3>
+                    <p>
+                      {collaborationStatus === "revoked"''',
+              '''            <h3>{lessonId === undefined ? "Совместная доска" : "Занятие"}</h3>
+                    <p>{principalLabel}</p>
+                    {!writeEnabled ? <p>Режим только для чтения</p> : null}
+                    <p>
+                      {collaborationStatus === "revoked"''',
+          )
+
+          replace_once(
+              "src/app/App.tsx",
+              "  readonly settingsExtra?: ReactNode;\n  readonly remoteCursors?:",
+              "  readonly settingsExtra?: ReactNode;\n  readonly standaloneMode?: boolean;\n  readonly remoteCursors?:",
+          )
+          replace_once(
+              "src/app/App.tsx",
+              "  settingsExtra,\n  remoteCursors = [],",
+              "  settingsExtra,\n  standaloneMode = false,\n  remoteCursors = [],",
+          )
+          replace_once(
+              "src/app/App.tsx",
+              "          stage={environment.stage}\n        />",
+              "          stage={environment.stage}\n          standaloneMode={standaloneMode}\n        />",
+          )
+
+          replace_once(
+              "src/app/board/views/BoardSettingsPanel.tsx",
+              "  readonly stage: string;\n}",
+              "  readonly stage: string;\n  readonly standaloneMode?: boolean;\n}",
+          )
+          replace_once(
+              "src/app/board/views/BoardSettingsPanel.tsx",
+              "  stage,\n}: BoardSettingsPanelProps) {",
+              "  stage,\n  standaloneMode = false,\n}: BoardSettingsPanelProps) {",
+          )
+          replace_once(
+              "src/app/board/views/BoardSettingsPanel.tsx",
+              '''          {onShareBoard === undefined ? (
+                    <button
+                      disabled
+                      title="Откройте доску из занятия, чтобы включить совместную работу"
+                      type="button"
+                    >
+                      Совместная ссылка
+                    </button>
+                  ) : (
+                    <button onClick={onShareBoard} type="button">
+                      Копировать ссылку на доску
+                    </button>
+                  )}''',
+              '''          {onShareBoard === undefined ? (
+                    standaloneMode ? null : (
+                      <button
+                        disabled
+                        title="Откройте доску из занятия, чтобы включить совместную работу"
+                        type="button"
+                      >
+                        Совместная ссылка
+                      </button>
+                    )
+                  ) : (
+                    <button onClick={onShareBoard} type="button">
+                      Копировать ссылку на доску
+                    </button>
+                  )}''',
+          )
+          replace_once(
+              "src/app/board/views/BoardSettingsPanel.tsx",
+              '''          <a href="#/documents">Все документы</a>
+                  <a href="#/settings">Настройки приложения</a>
+                  {developmentDiagnostics ? (
+                    <a href="#/diagnostics">Диагностика приложения</a>
+                  ) : null}''',
+              '''          {standaloneMode ? null : (
+                    <>
+                      <a href="#/documents">Все документы</a>
+                      <a href="#/settings">Настройки приложения</a>
+                      {developmentDiagnostics ? (
+                        <a href="#/diagnostics">Диагностика приложения</a>
+                      ) : null}
+                    </>
+                  )}''',
+          )
+      - name: Commit runtime refactor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/ports/board-sync-repository.ts src/adapters/board-http/client.ts src/modules/server-sync/sync.ts src/app/SyncedApp.tsx src/app/App.tsx src/app/board/views/BoardSettingsPanel.tsx
+          git commit -m "feat: wire standalone access context into runtime"
+          git push origin HEAD:agent/t1-standalone-launch
