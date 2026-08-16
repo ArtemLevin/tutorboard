@@ -2,15 +2,16 @@ import { z } from "zod";
 
 import type {
   BoardAccessRole,
-  BoardPlatformRepository,
+  BoardCollaborationRepository,
   DocumentId,
-} from "../../core/public";
+} from "../../core/ports/public";
 
 export const maximumBoardCollaborationMessageCharacters = 32_768;
 export const maximumBoardCollaborationMessagesPerSecond = 30;
 export const maximumBoardCollaborationParticipants = 200;
 
 const identifierSchema = z.string().min(1).max(128);
+const opaqueSecurityValueSchema = z.string().min(8).max(512);
 const protocolVersionSchema = z.enum(["1.0", "1.1"]);
 const pointSchema = z
   .object({ x: z.number().finite(), y: z.number().finite() })
@@ -34,6 +35,23 @@ const revisionSchema = z
     protocolVersion: protocolVersionSchema,
     revision: z.number().int().positive(),
     type: z.literal("board.revision"),
+  })
+  .strict();
+const accessCapabilitiesChangedSchema = z
+  .object({
+    accessEpoch: opaqueSecurityValueSchema,
+    boardId: identifierSchema,
+    refreshRequired: z.literal(true),
+    schemaVersion: z.literal("1.0"),
+    type: z.literal("access.capabilities.changed"),
+  })
+  .strict();
+const accessRevokedSchema = z
+  .object({
+    boardId: identifierSchema,
+    schemaVersion: z.literal("1.0"),
+    terminal: z.literal(true),
+    type: z.literal("access.revoked"),
   })
   .strict();
 const participantSchema = z
@@ -119,6 +137,10 @@ const transformPreviewSchema = z
   })
   .strict();
 
+export type BoardAccessControlEvent =
+  | z.infer<typeof accessCapabilitiesChangedSchema>
+  | z.infer<typeof accessRevokedSchema>;
+
 export interface BoardPresence {
   readonly actorId: string;
   readonly clientId: string;
@@ -184,7 +206,8 @@ export interface LocalBoardTransformPreview {
   readonly transforms?: readonly BoardTransformSnapshot[];
 }
 
-export type BoardCollaborationStatus = "connecting" | "offline" | "online";
+export type BoardCollaborationStatus =
+  "connecting" | "offline" | "online" | "revoked";
 
 export interface BoardCollaborationClientOptions {
   readonly createClientId?: () => string;
@@ -193,6 +216,7 @@ export interface BoardCollaborationClientOptions {
     protocols: readonly string[],
   ) => WebSocket;
   readonly documentId: DocumentId;
+  readonly onAccessEvent?: (event: BoardAccessControlEvent) => void;
   readonly onPresence: (participants: readonly BoardPresence[]) => void;
   readonly onInkPreviews?: (previews: readonly BoardInkPreview[]) => void;
   readonly onRevision: (revision: number) => void;
@@ -201,7 +225,7 @@ export interface BoardCollaborationClientOptions {
     previews: readonly BoardTransformPreview[],
   ) => void;
   readonly origin?: string;
-  readonly repository: BoardPlatformRepository;
+  readonly repository: BoardCollaborationRepository;
   readonly random?: () => number;
 }
 
@@ -212,6 +236,9 @@ export class BoardCollaborationClient {
   >;
   readonly #documentId: DocumentId;
   readonly #inkPreviews = new Map<string, BoardInkPreview>();
+  readonly #onAccessEvent: NonNullable<
+    BoardCollaborationClientOptions["onAccessEvent"]
+  >;
   readonly #onInkPreviews: NonNullable<
     BoardCollaborationClientOptions["onInkPreviews"]
   >;
@@ -224,7 +251,7 @@ export class BoardCollaborationClient {
   readonly #origin: string;
   readonly #participants = new Map<string, BoardPresence>();
   readonly #participantSequences = new Map<string, number>();
-  readonly #repository: BoardPlatformRepository;
+  readonly #repository: BoardCollaborationRepository;
   readonly #random: () => number;
   readonly #transformPreviews = new Map<string, BoardTransformPreview>();
   readonly #previewExpiryTimers = new Map<string, number>();
@@ -242,6 +269,7 @@ export class BoardCollaborationClient {
   #sequence = 0;
   #socket: WebSocket | null = null;
   #stopped = true;
+  #terminalAccessRevoked = false;
   #pendingRevision = 0;
   #revisionTimer: number | null = null;
   #transformPreviewTimer: number | null = null;
@@ -253,6 +281,7 @@ export class BoardCollaborationClient {
       options.createWebSocket ??
       ((url, protocols) => new WebSocket(url, [...protocols]));
     this.#documentId = options.documentId;
+    this.#onAccessEvent = options.onAccessEvent ?? (() => undefined);
     this.#onInkPreviews = options.onInkPreviews ?? (() => undefined);
     this.#onPresence = options.onPresence;
     this.#onRevision = options.onRevision;
@@ -269,9 +298,11 @@ export class BoardCollaborationClient {
   }
 
   start(): void {
-    if (!this.#stopped) {
+    if (this.#terminalAccessRevoked) {
+      this.#onStatus("revoked");
       return;
     }
+    if (!this.#stopped) return;
     this.#stopped = false;
     void this.#connect();
   }
@@ -289,9 +320,7 @@ export class BoardCollaborationClient {
 
   updatePresence(presence: LocalBoardPresence): void {
     this.#presence = { ...this.#presence, ...presence };
-    if (this.#presenceTimer !== null) {
-      return;
-    }
+    if (this.#presenceTimer !== null || this.#terminalAccessRevoked) return;
     this.#presenceTimer = window.setTimeout(() => {
       this.#presenceTimer = null;
       this.#sendPresence();
@@ -299,6 +328,7 @@ export class BoardCollaborationClient {
   }
 
   updateInkPreview(preview: LocalBoardInkPreview): void {
+    if (this.#terminalAccessRevoked) return;
     if (preview.phase === "update") {
       const points = [
         ...(this.#pendingInkPreview?.previewId === preview.previewId
@@ -320,6 +350,7 @@ export class BoardCollaborationClient {
   }
 
   updateTransformPreview(preview: LocalBoardTransformPreview): void {
+    if (this.#terminalAccessRevoked) return;
     if (preview.phase === "update") {
       this.#pendingTransformPreview = preview;
       if (this.#transformPreviewTimer === null) {
@@ -335,9 +366,7 @@ export class BoardCollaborationClient {
   }
 
   async #connect(): Promise<void> {
-    if (this.#stopped) {
-      return;
-    }
+    if (this.#stopped || this.#terminalAccessRevoked) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       this.#onStatus("offline");
       this.#scheduleReconnect();
@@ -351,9 +380,7 @@ export class BoardCollaborationClient {
         this.#clientId,
         context.csrfToken,
       );
-      if (this.#stopped) {
-        return;
-      }
+      if (this.#stopped || this.#terminalAccessRevoked) return;
       const url = new URL(ticket.websocketPath, this.#origin);
       if (url.origin !== new URL(this.#origin).origin) {
         throw new Error("Collaboration WebSocket must be same-origin.");
@@ -369,12 +396,11 @@ export class BoardCollaborationClient {
         }
         this.#receive(event.data);
       });
-      socket.addEventListener("close", () => {
-        if (this.#socket === socket) {
-          this.#socket = null;
-        }
+      socket.addEventListener("close", (event) => {
+        if (this.#socket === socket) this.#socket = null;
         this.#clearHeartbeat();
-        if (!this.#stopped) {
+        if (event.code === 4403) this.#markAccessRevoked();
+        if (!this.#stopped && !this.#terminalAccessRevoked) {
           this.#participants.clear();
           this.#participantSequences.clear();
           this.#onPresence([]);
@@ -385,6 +411,7 @@ export class BoardCollaborationClient {
       });
       socket.addEventListener("error", () => socket.close());
     } catch {
+      if (this.#terminalAccessRevoked || this.#stopped) return;
       this.#onStatus("offline");
       this.#scheduleReconnect();
     }
@@ -417,6 +444,28 @@ export class BoardCollaborationClient {
       this.#socket?.close(1003, "Invalid JSON");
       return;
     }
+
+    const changed = accessCapabilitiesChangedSchema.safeParse(value);
+    if (changed.success) {
+      if (changed.data.boardId !== this.#documentId) {
+        this.#socket?.close(1008, "Room mismatch");
+        return;
+      }
+      this.#onAccessEvent(changed.data);
+      return;
+    }
+    const revoked = accessRevokedSchema.safeParse(value);
+    if (revoked.success) {
+      if (revoked.data.boardId !== this.#documentId) {
+        this.#socket?.close(1008, "Room mismatch");
+        return;
+      }
+      this.#onAccessEvent(revoked.data);
+      this.#markAccessRevoked();
+      this.#socket?.close(4403, "Access revoked");
+      return;
+    }
+
     const ready = readySchema.safeParse(value);
     if (ready.success) {
       if (
@@ -447,9 +496,7 @@ export class BoardCollaborationClient {
     }
     const presence = presenceSchema.safeParse(value);
     if (presence.success) {
-      if (presence.data.clientId === this.#clientId) {
-        return;
-      }
+      if (presence.data.clientId === this.#clientId) return;
       const previousSequence = this.#participantSequences.get(
         presence.data.clientId,
       );
@@ -502,11 +549,7 @@ export class BoardCollaborationClient {
         });
       }
       this.#onPresence([...this.#participants.values()]);
-      if (presence.data.type === "presence.joined") {
-        // Reply with our current ephemeral state so a newly joined client can
-        // discover participants that were already in the room.
-        this.#sendPresence();
-      }
+      if (presence.data.type === "presence.joined") this.#sendPresence();
       return;
     }
     const snapshot = presenceSnapshotSchema.safeParse(value);
@@ -514,9 +557,7 @@ export class BoardCollaborationClient {
       this.#participants.clear();
       this.#participantSequences.clear();
       for (const participant of snapshot.data.participants) {
-        if (participant.clientId === this.#clientId) {
-          continue;
-        }
+        if (participant.clientId === this.#clientId) continue;
         this.#participantSequences.set(
           participant.clientId,
           participant.sequence ?? 0,
@@ -568,9 +609,7 @@ export class BoardCollaborationClient {
         style,
       });
       this.#emitInkPreviews();
-      if (event.phase === "end") {
-        this.#expireRemotePreview(key, "ink");
-      }
+      if (event.phase === "end") this.#expireRemotePreview(key, "ink");
       return;
     }
     const transformPreview = transformPreviewSchema.safeParse(value);
@@ -599,9 +638,7 @@ export class BoardCollaborationClient {
         });
         this.#emitTransformPreviews();
       }
-      if (event.phase === "end") {
-        this.#expireRemotePreview(key, "transform");
-      }
+      if (event.phase === "end") this.#expireRemotePreview(key, "transform");
       return;
     }
     if (
@@ -615,19 +652,26 @@ export class BoardCollaborationClient {
     this.#socket?.close(1003, "Unsupported message");
   }
 
+  #markAccessRevoked(): void {
+    if (this.#terminalAccessRevoked) return;
+    this.#terminalAccessRevoked = true;
+    this.#clearTimers();
+    this.#participants.clear();
+    this.#participantSequences.clear();
+    this.#onPresence([]);
+    this.#clearRemotePreviews();
+    this.#onStatus("revoked");
+  }
+
   #acceptParticipantSequence(clientId: string, sequence: number): boolean {
     const previous = this.#participantSequences.get(clientId);
-    if (previous !== undefined && sequence <= previous) {
-      return false;
-    }
+    if (previous !== undefined && sequence <= previous) return false;
     this.#participantSequences.set(clientId, sequence);
     return true;
   }
 
   #sendInkPreview(preview: LocalBoardInkPreview): void {
-    if (this.#socket?.readyState !== 1) {
-      return;
-    }
+    if (this.#socket?.readyState !== 1 || this.#terminalAccessRevoked) return;
     this.#socket.send(
       JSON.stringify({
         phase: preview.phase,
@@ -641,9 +685,7 @@ export class BoardCollaborationClient {
   }
 
   #sendTransformPreview(preview: LocalBoardTransformPreview): void {
-    if (this.#socket?.readyState !== 1) {
-      return;
-    }
+    if (this.#socket?.readyState !== 1 || this.#terminalAccessRevoked) return;
     this.#socket.send(
       JSON.stringify({
         phase: preview.phase,
@@ -741,9 +783,7 @@ export class BoardCollaborationClient {
   }
 
   #sendPresence(): void {
-    if (this.#socket?.readyState !== 1) {
-      return;
-    }
+    if (this.#socket?.readyState !== 1 || this.#terminalAccessRevoked) return;
     this.#socket.send(
       JSON.stringify({
         ...this.#presence,
@@ -755,7 +795,11 @@ export class BoardCollaborationClient {
   }
 
   #scheduleReconnect(): void {
-    if (this.#stopped || this.#reconnect !== null) {
+    if (
+      this.#stopped ||
+      this.#terminalAccessRevoked ||
+      this.#reconnect !== null
+    ) {
       return;
     }
     const exponential = Math.min(30_000, 500 * 2 ** this.#reconnectAttempt);
@@ -769,9 +813,7 @@ export class BoardCollaborationClient {
 
   #queueRevision(revision: number): void {
     this.#pendingRevision = Math.max(this.#pendingRevision, revision);
-    if (this.#revisionTimer !== null) {
-      return;
-    }
+    if (this.#revisionTimer !== null) return;
     this.#revisionTimer = window.setTimeout(() => {
       this.#revisionTimer = null;
       const pending = this.#pendingRevision;
@@ -781,9 +823,7 @@ export class BoardCollaborationClient {
   }
 
   #sendHeartbeat(heartbeatSeconds: number): void {
-    if (this.#socket?.readyState !== 1) {
-      return;
-    }
+    if (this.#socket?.readyState !== 1 || this.#terminalAccessRevoked) return;
     if (this.#heartbeatAckDeadline !== null) {
       this.#socket.close(4000, "Heartbeat acknowledgement timed out");
       return;

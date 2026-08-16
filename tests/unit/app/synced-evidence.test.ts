@@ -12,7 +12,19 @@ function ready(
   overrides: Partial<Extract<BoardSyncState, { kind: "ready" }>> = {},
 ): Extract<BoardSyncState, { kind: "ready" }> {
   return {
+    accessEpoch: "legacy:access:v1",
     actorId: actorId("actor:tutor"),
+    capabilities: [
+      "board.read",
+      "board.write",
+      "board.snapshot.write",
+      "collaboration.connect",
+      "board.export",
+      "board.history.read",
+      "board.invites.manage",
+      "board.archive",
+      "board.delete",
+    ],
     confirmedSha256: "a".repeat(64),
     document: createEmptyBoardDocument({
       createdAt: "2026-08-12T12:00:00.000Z",
@@ -22,6 +34,7 @@ function ready(
     kind: "ready",
     network: "online",
     pendingCount: 0,
+    principalType: "legacy",
     quarantinedCount: 0,
     revision: 4,
     role: "tutor",

@@ -64,7 +64,7 @@ describe("Dexie pending board command queue", () => {
     expect(await queue.list(expectedDocumentId)).toEqual([]);
   });
 
-  it("round-trips a confirmed server head", async () => {
+  it("round-trips a confirmed server head with access scope metadata", async () => {
     const queue = createQueue();
     const expectedDocumentId = documentId("document:lesson-1");
     const document = createEmptyBoardDocument({
@@ -85,7 +85,7 @@ describe("Dexie pending board command queue", () => {
       sha256,
     });
 
-    expect(await queue.loadHead(expectedDocumentId)).toEqual({
+    expect(await queue.loadHead(expectedDocumentId)).toMatchObject({
       document,
       documentId: expectedDocumentId,
       revision: 4,

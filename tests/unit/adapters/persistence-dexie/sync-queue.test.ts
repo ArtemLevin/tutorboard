@@ -15,6 +15,10 @@ import {
   type ConfirmedBoardHead,
   type DocumentId,
 } from "../../../../src/core/public";
+import {
+  legacyBoardAccessEpoch,
+  legacyBoardCacheScopeId,
+} from "../../../../src/core/access/public";
 import { boardDocumentSha256 } from "../../../../src/modules/server-sync/public";
 
 const queues: DexiePendingBoardCommandQueue[] = [];
@@ -66,10 +70,14 @@ async function mutatePending(
 ): Promise<void> {
   const database = await requestResult(indexedDB.open(databaseName));
   try {
-    const transaction = database.transaction("pending", "readwrite");
-    const store = transaction.objectStore("pending");
+    const transaction = database.transaction("scopedPending", "readwrite");
+    const store = transaction.objectStore("scopedPending");
     const raw = await requestResult<unknown>(
-      store.get([activeDocumentId, sequence]) as IDBRequest<unknown>,
+      store.get([
+        legacyBoardCacheScopeId,
+        activeDocumentId,
+        sequence,
+      ]) as IDBRequest<unknown>,
     );
     if (typeof raw !== "object" || raw === null) {
       throw new Error("Expected a pending command record.");
@@ -88,8 +96,9 @@ async function insertLegacyPending(
 ): Promise<void> {
   const database = await requestResult(indexedDB.open(databaseName));
   try {
-    const transaction = database.transaction("pending", "readwrite");
-    transaction.objectStore("pending").put({
+    const transaction = database.transaction("scopedPending", "readwrite");
+    transaction.objectStore("scopedPending").put({
+      cacheScopeId: legacyBoardCacheScopeId,
       commandJson: JSON.stringify(value),
       documentId: activeDocumentId,
       idempotencyKey: "legacy-key",
@@ -152,11 +161,15 @@ async function readPendingRecord(
 ): Promise<Record<string, unknown>> {
   const database = await requestResult(indexedDB.open(databaseName));
   try {
-    const transaction = database.transaction("pending", "readonly");
+    const transaction = database.transaction("scopedPending", "readonly");
     const raw = await requestResult<unknown>(
       transaction
-        .objectStore("pending")
-        .get([activeDocumentId, sequence]) as IDBRequest<unknown>,
+        .objectStore("scopedPending")
+        .get([
+          legacyBoardCacheScopeId,
+          activeDocumentId,
+          sequence,
+        ]) as IDBRequest<unknown>,
     );
     await transactionDone(transaction);
     if (typeof raw !== "object" || raw === null) {
@@ -185,7 +198,7 @@ afterEach(async () => {
 });
 
 describe("DexiePendingBoardCommandQueue integrity", () => {
-  it("stores canonical commands with hash and monotonic Lamport metadata", async () => {
+  it("stores canonical commands with access epoch and monotonic Lamport metadata", async () => {
     const databaseName = `sync-queue-${crypto.randomUUID()}`;
     const activeDocumentId = documentId("document:queue-integrity");
     const queue = createQueue(databaseName);
@@ -201,16 +214,18 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
     const first = await readPendingRecord(databaseName, activeDocumentId, 1);
     const second = await readPendingRecord(databaseName, activeDocumentId, 2);
     expect(first).toMatchObject({
+      accessEpochAtCreation: legacyBoardAccessEpoch,
       baseRevisionAtCreation: 7,
+      cacheScopeId: legacyBoardCacheScopeId,
       commandSchemaVersion: "1.0",
       lamport: 8,
-      schemaVersion: "2",
+      schemaVersion: "3",
     });
-    expect(second).toMatchObject({ lamport: 9, schemaVersion: "2" });
+    expect(second).toMatchObject({ lamport: 9, schemaVersion: "3" });
     expect(first.commandSha256).toMatch(/^[a-f0-9]{64}$/u);
   });
 
-  it("migrates a readable legacy command lazily into queue schema v2", async () => {
+  it("migrates a readable legacy command lazily into scoped queue schema v3", async () => {
     const databaseName = `sync-queue-${crypto.randomUUID()}`;
     const activeDocumentId = documentId("document:queue-legacy");
     const initial = createQueue(databaseName);
@@ -226,10 +241,12 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
 
     const stored = await readPendingRecord(databaseName, activeDocumentId, 1);
     expect(stored).toMatchObject({
+      accessEpochAtCreation: legacyBoardAccessEpoch,
       actorId: "actor:queue-test",
+      cacheScopeId: legacyBoardCacheScopeId,
       commandSchemaVersion: "1.0",
       lamport: 1,
-      schemaVersion: "2",
+      schemaVersion: "3",
     });
     expect(stored.commandSha256).toMatch(/^[a-f0-9]{64}$/u);
   });
@@ -280,7 +297,7 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
     ]);
   });
 
-  it("verifies the cached confirmed-head document checksum", async () => {
+  it("verifies the scoped cached confirmed-head document checksum", async () => {
     const activeDocumentId = documentId("document:queue-head");
     const document = createEmptyBoardDocument({
       createdAt: "2026-08-05T07:00:00.000Z",
@@ -301,7 +318,7 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
     };
 
     await queue.saveHead(head);
-    await expect(queue.loadHead(activeDocumentId)).resolves.toEqual(head);
+    await expect(queue.loadHead(activeDocumentId)).resolves.toMatchObject(head);
     await expect(
       queue.saveHead({ ...head, sha256: "0".repeat(64) }),
     ).rejects.toThrow("checksum mismatch");
@@ -361,7 +378,7 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
     ]);
   });
 
-  it("lazily seeds the durable sequence clock when upgrading a v2 database", async () => {
+  it("lazily seeds scoped durable sequence clock when upgrading a v2 database", async () => {
     const databaseName = `sync-queue-${crypto.randomUUID()}`;
     databaseNames.add(databaseName);
     const activeDocumentId = documentId("document:queue-v2-upgrade");
@@ -382,5 +399,57 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
     );
 
     expect(next.sequence).toBe(2);
+  });
+
+  it("isolates identical documents between teacher and guest cache scopes", async () => {
+    const databaseName = `sync-queue-${crypto.randomUUID()}`;
+    const activeDocumentId = documentId("document:shared-board");
+    const teacher = createQueue(databaseName);
+    const guest = createQueue(databaseName);
+    await teacher.setAccessScope({
+      accessEpoch: "teacher-access-epoch",
+      cacheScopeId: "teacher-cache-scope",
+    });
+    await guest.setAccessScope({
+      accessEpoch: "guest-access-epoch-1",
+      cacheScopeId: "guest-cache-scope-1",
+    });
+
+    await teacher.enqueue(activeDocumentId, "teacher:key", command(1));
+    await guest.enqueue(activeDocumentId, "guest:key", command(2));
+
+    await expect(teacher.list(activeDocumentId)).resolves.toMatchObject([
+      { idempotencyKey: "teacher:key" },
+    ]);
+    await expect(guest.list(activeDocumentId)).resolves.toMatchObject([
+      { idempotencyKey: "guest:key" },
+    ]);
+  });
+
+  it("quarantines old-epoch pending without blocking new-epoch commands", async () => {
+    const queue = createQueue();
+    const activeDocumentId = documentId("document:epoch-board");
+    await queue.setAccessScope({
+      accessEpoch: "guest-access-epoch-1",
+      cacheScopeId: "guest-cache-scope-1",
+    });
+    await queue.enqueue(activeDocumentId, "old:key", command(1));
+    await queue.setAccessScope({
+      accessEpoch: "guest-access-epoch-2",
+      cacheScopeId: "guest-cache-scope-1",
+    });
+    await queue.enqueue(activeDocumentId, "new:key", command(2));
+
+    await expect(queue.list(activeDocumentId)).resolves.toMatchObject([
+      {
+        accessEpochAtCreation: "guest-access-epoch-2",
+        idempotencyKey: "new:key",
+      },
+    ]);
+    await expect(
+      queue.listQuarantined(activeDocumentId),
+    ).resolves.toMatchObject([
+      { idempotencyKey: "old:key", reason: "access-epoch-changed" },
+    ]);
   });
 });

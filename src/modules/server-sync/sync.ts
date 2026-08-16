@@ -5,7 +5,6 @@ import {
   type ActorId,
   type BoardCommand,
   type BoardDocument,
-  type BoardSessionContext,
   type BoardSyncRepository,
   type ConfirmedBoardHead,
   type DocumentId,
@@ -15,19 +14,27 @@ import {
   type OrderedBoardCommand,
   type ServerBoardCommandBatch,
 } from "../../core/public";
+import {
+  createLegacyBoardAccessContext,
+  type BoardCapability,
+  type BoardRuntimeAccessContext,
+} from "../../core/access/public";
 
 export type BoardSyncState =
   | { readonly kind: "bootstrapping" }
   | {
+      readonly accessEpoch: string;
       readonly actorId: ActorId;
+      readonly capabilities: readonly BoardCapability[];
+      readonly confirmedSha256: string;
       readonly document: BoardDocument;
       readonly kind: "ready";
       readonly network: "offline" | "online";
       readonly pendingCount: number;
+      readonly principalType: BoardRuntimeAccessContext["principalType"];
       readonly quarantinedCount: number;
       readonly revision: number;
-      readonly confirmedSha256: string;
-      readonly role: BoardSessionContext["role"];
+      readonly role: BoardRuntimeAccessContext["role"];
     }
   | {
       readonly code: string;
@@ -43,9 +50,11 @@ export type BoardSyncState =
     };
 
 export interface BoardSyncEngineOptions {
+  readonly accessContext?: BoardRuntimeAccessContext;
   readonly createIdempotencyKey: () => string;
   readonly documentId: DocumentId;
-  readonly lessonId: string;
+  /** @deprecated T0 keeps this input only so legacy callers compile. */
+  readonly lessonId?: string;
   readonly now: () => string;
   readonly originId?: string;
   readonly onStateChange: (state: BoardSyncState) => void;
@@ -199,16 +208,101 @@ function orderedPending(
   return [...pending].sort((left, right) => left.sequence - right.sequence);
 }
 
+function confirmedSession(context: BoardRuntimeAccessContext) {
+  return {
+    accessEpoch: context.accessEpoch,
+    actorId: context.actorId,
+    cacheScopeId: context.cacheScopeId,
+    capabilities: [...context.capabilities],
+    ...(context.principalType === "teacher" ||
+    context.principalType === "legacy"
+      ? { organizationId: context.organizationId }
+      : {}),
+    principalType: context.principalType,
+    role: context.role,
+  } as const;
+}
+
+function cachedLegacyContext(
+  head: ConfirmedBoardHead,
+): BoardRuntimeAccessContext | null {
+  const session = head.session;
+  if (
+    session.accessEpoch !== undefined &&
+    session.cacheScopeId !== undefined &&
+    session.capabilities !== undefined &&
+    session.principalType !== undefined
+  ) {
+    if (session.principalType === "guest") {
+      return {
+        accessEpoch: session.accessEpoch,
+        actorId: session.actorId,
+        boardId: head.documentId,
+        cacheScopeId: session.cacheScopeId,
+        capabilities: session.capabilities,
+        csrfToken: "",
+        displayName: session.actorId,
+        principalType: "guest",
+        role: "student",
+        schemaVersion: "1.0",
+      };
+    }
+    if (session.organizationId === undefined) {
+      return null;
+    }
+    if (session.principalType === "teacher") {
+      if (session.role !== "admin" && session.role !== "tutor") return null;
+      return {
+        accessEpoch: session.accessEpoch,
+        actorId: session.actorId,
+        boardId: head.documentId,
+        cacheScopeId: session.cacheScopeId,
+        capabilities: session.capabilities,
+        csrfToken: "",
+        displayName: session.actorId,
+        organizationId: session.organizationId,
+        principalType: "teacher",
+        role: session.role,
+        schemaVersion: "1.0",
+        userId: session.actorId,
+      };
+    }
+    return {
+      accessEpoch: session.accessEpoch,
+      actorId: session.actorId,
+      boardId: head.documentId,
+      cacheScopeId: session.cacheScopeId,
+      capabilities: session.capabilities,
+      csrfToken: "",
+      displayName: session.actorId,
+      organizationId: session.organizationId,
+      principalType: "legacy",
+      role: session.role,
+      schemaVersion: "legacy",
+    };
+  }
+  if (session.organizationId === undefined) return null;
+  return createLegacyBoardAccessContext(
+    {
+      actorId: session.actorId,
+      csrfToken: "",
+      organizationId: session.organizationId,
+      role: session.role,
+    },
+    head.documentId,
+  );
+}
+
 export class BoardSyncEngine {
   readonly #createIdempotencyKey: () => string;
   readonly #documentId: DocumentId;
-  readonly #lessonId: string;
   readonly #now: () => string;
   readonly #originId: string;
   readonly #onStateChange: (state: BoardSyncState) => void;
+  readonly #providedAccessContext: BoardRuntimeAccessContext | null;
   readonly #queue: PendingBoardCommandQueue;
   readonly #repository: BoardSyncRepository;
-  #context: BoardSessionContext | null = null;
+  #context: BoardRuntimeAccessContext | null = null;
   #confirmed: ConfirmedBoardHead | null = null;
   #document: BoardDocument | null = null;
   #pending: readonly PendingBoardCommand[] = [];
@@ -222,12 +316,18 @@ export class BoardSyncEngine {
   constructor(options: BoardSyncEngineOptions) {
     this.#createIdempotencyKey = options.createIdempotencyKey;
     this.#documentId = options.documentId;
-    this.#lessonId = options.lessonId;
     this.#now = options.now;
     this.#originId = options.originId ?? "origin:legacy-client";
     this.#onStateChange = options.onStateChange;
+    this.#providedAccessContext = options.accessContext ?? null;
     this.#queue = options.queue;
     this.#repository = options.repository;
+    if (
+      this.#providedAccessContext !== null &&
+      this.#providedAccessContext.boardId !== this.#documentId
+    ) {
+      throw new Error("Board access context belongs to another document.");
+    }
   }
 
   bootstrap(): Promise<void> {
@@ -250,19 +350,47 @@ export class BoardSyncEngine {
     return this.synchronize();
   }
 
+  updateAccessContext(context: BoardRuntimeAccessContext): Promise<void> {
+    if (context.boardId !== this.#documentId) {
+      return Promise.reject(
+        new Error("Board access context belongs to another document."),
+      );
+    }
+    if (this.#disposed) return Promise.resolve();
+    this.#serial = this.#serial.then(async () => {
+      const current = this.#context;
+      if (current !== null && current.cacheScopeId !== context.cacheScopeId) {
+        throw new SyncRecoveryError(
+          "board.sync.access-scope-changed",
+          "Изменился security scope доски; требуется новый sync engine.",
+        );
+      }
+      this.#context = context;
+      await this.#queue.setAccessScope?.({
+        accessEpoch: context.accessEpoch,
+        cacheScopeId: context.cacheScopeId,
+      });
+      this.#pending = await this.#queue.list(this.#documentId);
+      await this.#dropStaleOrUnauthorizedPending();
+      await this.#synchronize();
+    });
+    return this.#serial;
+  }
+
   #enqueueDurably(
     command: BoardCommand,
     baseRevisionAtCreation: number,
   ): Promise<PendingBoardCommand> {
     const idempotencyKey = this.#createIdempotencyKey();
+    const accessEpochAtCreation = this.#context?.accessEpoch;
     const pending = this.#durableSerial.then(() =>
       this.#queue.enqueue(this.#documentId, idempotencyKey, command, {
+        ...(accessEpochAtCreation === undefined
+          ? {}
+          : { accessEpochAtCreation }),
         baseRevisionAtCreation,
       }),
     );
-    // Keep durable ordering independent from network synchronization. Handling
-    // rejection here also prevents a durable-write failure from becoming an
-    // unhandled promise while the network serial is still busy.
     this.#durableSerial = pending.then(
       () => undefined,
       () => undefined,
@@ -281,6 +409,9 @@ export class BoardSyncEngine {
       );
       return Promise.resolve();
     }
+    if (!context.capabilities.includes("board.write")) {
+      return Promise.resolve();
+    }
     if (
       command.actorId !== context.actorId ||
       document.id !== this.#documentId
@@ -292,8 +423,6 @@ export class BoardSyncEngine {
       return Promise.resolve();
     }
 
-    // Begin the IndexedDB write immediately. It must never wait for an older
-    // HTTP pull/push, otherwise a visible edit can exist only in React memory.
     const durable = this.#enqueueDurably(command, confirmed.revision);
     this.#serial = this.#serial
       .then(async () => {
@@ -314,9 +443,7 @@ export class BoardSyncEngine {
         );
         this.#document = replayed.document;
         this.#emitReady(this.#networkAvailable ? "online" : "offline");
-        if (this.#networkAvailable) {
-          await this.#synchronize();
-        }
+        if (this.#networkAvailable) await this.#synchronize();
       })
       .catch((error: unknown) => {
         this.#recover(
@@ -341,6 +468,9 @@ export class BoardSyncEngine {
       );
       return Promise.resolve();
     }
+    if (!context.capabilities.includes("board.write")) {
+      return Promise.resolve();
+    }
 
     let preview = currentDocument;
     const rebased: BoardCommand[] = [];
@@ -353,9 +483,7 @@ export class BoardSyncEngine {
           );
         }
         const result = reduceBoardDocument(preview, candidate);
-        if (!result.ok) {
-          return Promise.resolve();
-        }
+        if (!result.ok) return Promise.resolve();
         preview = result.document;
         rebased.push(candidate);
       }
@@ -393,9 +521,7 @@ export class BoardSyncEngine {
         );
         this.#document = replayed.document;
         this.#emitReady(this.#networkAvailable ? "online" : "offline");
-        if (this.#networkAvailable) {
-          await this.#synchronize();
-        }
+        if (this.#networkAvailable) await this.#synchronize();
       })
       .catch((error: unknown) => {
         this.#recover(
@@ -418,24 +544,46 @@ export class BoardSyncEngine {
     return this.#serial;
   }
 
+  async #resolveOnlineContext(): Promise<BoardRuntimeAccessContext> {
+    if (this.#providedAccessContext !== null)
+      return this.#providedAccessContext;
+    const session = await this.#repository.context();
+    return createLegacyBoardAccessContext(session, this.#documentId);
+  }
+
+  async #prepareScope(context: BoardRuntimeAccessContext): Promise<void> {
+    await this.#queue.setAccessScope?.({
+      accessEpoch: context.accessEpoch,
+      cacheScopeId: context.cacheScopeId,
+    });
+  }
+
   async #bootstrap(): Promise<void> {
     if (this.#disposed) return;
     this.#onStateChange({ kind: "bootstrapping" });
-    this.#pending = await this.#queue.list(this.#documentId);
-    if (this.#disposed) return;
-    const cached = await this.#queue.loadHead(this.#documentId);
-    if (this.#disposed) return;
+
+    let cached: ConfirmedBoardHead | null = null;
     try {
-      this.#context = await this.#repository.context();
-      if (this.#disposed) return;
-      if (this.#context.role === "admin" || this.#context.role === "tutor") {
-        await this.#repository.ensureBoard(
-          this.#lessonId,
-          this.#documentId,
-          this.#context.csrfToken,
-        );
-        if (this.#disposed) return;
+      if (this.#providedAccessContext !== null) {
+        this.#context = this.#providedAccessContext;
+        await this.#prepareScope(this.#providedAccessContext);
       }
+      this.#pending = await this.#queue.list(this.#documentId);
+      if (this.#disposed) return;
+      cached = await this.#queue.loadHead(this.#documentId);
+      if (this.#disposed) return;
+
+      if (this.#context === null || this.#context.csrfToken === "") {
+        this.#context = await this.#resolveOnlineContext();
+        if (this.#disposed) return;
+        await this.#prepareScope(this.#context);
+        if (this.#providedAccessContext === null) {
+          this.#pending = await this.#queue.list(this.#documentId);
+          cached = await this.#queue.loadHead(this.#documentId);
+        }
+      }
+      if (this.#disposed) return;
+      await this.#dropStaleOrUnauthorizedPending();
       const recovery = await this.#repository.load(this.#documentId);
       if (this.#disposed) return;
       if (cached !== null && recovery.board.currentRevision < cached.revision) {
@@ -450,9 +598,10 @@ export class BoardSyncEngine {
           "На сервере есть команды, но отсутствует базовый снимок ревизии 0.",
         );
       }
+
       let head: ConfirmedBoardHead;
       if (recovery.snapshot === null) {
-        if (this.#context.role === "parent") {
+        if (!this.#context.capabilities.includes("board.snapshot.write")) {
           throw new SyncRecoveryError(
             "board.sync.missing-base-snapshot",
             "Для доски только для чтения отсутствует базовый снимок.",
@@ -477,11 +626,7 @@ export class BoardSyncEngine {
           document,
           documentId: this.#documentId,
           revision: 0,
-          session: {
-            actorId: this.#context.actorId,
-            organizationId: this.#context.organizationId,
-            role: this.#context.role,
-          },
+          session: confirmedSession(this.#context),
           sha256,
         };
       } else {
@@ -505,11 +650,7 @@ export class BoardSyncEngine {
           document: recovery.snapshot.document,
           documentId: this.#documentId,
           revision: recovery.snapshot.revision,
-          session: {
-            actorId: this.#context.actorId,
-            organizationId: this.#context.organizationId,
-            role: this.#context.role,
-          },
+          session: confirmedSession(this.#context),
           sha256,
         };
       }
@@ -561,13 +702,20 @@ export class BoardSyncEngine {
       if (
         cached !== null &&
         !(error instanceof SyncRecoveryError) &&
-        (retryable(error) || !navigator.onLine)
+        (retryable(error) ||
+          (typeof navigator !== "undefined" && !navigator.onLine))
       ) {
         this.#confirmed = cached;
-        this.#context = {
-          ...cached.session,
-          csrfToken: "",
-        };
+        this.#context = this.#context ?? cachedLegacyContext(cached);
+        if (this.#context === null) {
+          this.#onStateChange({
+            code: "board.sync.offline-context-missing",
+            kind: "failure",
+            message:
+              "Не удалось восстановить security context локальной доски.",
+          });
+          return;
+        }
         const knownSequences = this.#pending.map(({ sequence }) => sequence);
         const replayed = replayPending(cached, this.#pending);
         await this.#quarantineConflicts(replayed.conflicts);
@@ -593,6 +741,24 @@ export class BoardSyncEngine {
     }
   }
 
+  async #dropStaleOrUnauthorizedPending(): Promise<void> {
+    const context = this.#context;
+    if (context === null || this.#pending.length === 0) return;
+    const knownSequences = this.#pending.map(({ sequence }) => sequence);
+    const canWrite = context.capabilities.includes("board.write");
+    const retained = this.#pending.filter(
+      (item) =>
+        canWrite &&
+        (item.accessEpochAtCreation === undefined ||
+          item.accessEpochAtCreation === context.accessEpoch),
+    );
+    const removed = this.#pending.length - retained.length;
+    if (removed === 0) return;
+    this.#pending = retained;
+    this.#quarantinedCount += removed;
+    await this.#queue.reconcile(this.#documentId, retained, knownSequences);
+  }
+
   async #synchronize(): Promise<void> {
     if (this.#disposed) return;
     if (
@@ -607,10 +773,7 @@ export class BoardSyncEngine {
       return;
     }
     try {
-      // A pending local command is already based on the most recently
-      // confirmed head. Push it optimistically; a concurrent remote revision
-      // is resolved by the server conflict response. This keeps a later
-      // durable edit independent from a stale pre-push pull.
+      await this.#dropStaleOrUnauthorizedPending();
       if (this.#pending.length === 0) {
         await this.#pullAll();
         if (this.#disposed) return;
@@ -622,6 +785,10 @@ export class BoardSyncEngine {
             "board.sync.loop-limit",
             "Синхронизация превысила безопасный предел повторов.",
           );
+        }
+        if (!this.#context.capabilities.includes("board.write")) {
+          await this.#dropStaleOrUnauthorizedPending();
+          break;
         }
         const knownSequences = this.#pending.map(({ sequence }) => sequence);
         const replayed = replayPending(this.#confirmed, this.#pending);
@@ -635,8 +802,13 @@ export class BoardSyncEngine {
         if (this.#disposed) return;
         this.#document = replayed.document;
         const first = this.#pending[0];
-        if (first === undefined) {
-          break;
+        if (first === undefined) break;
+        if (
+          first.accessEpochAtCreation !== undefined &&
+          first.accessEpochAtCreation !== this.#context.accessEpoch
+        ) {
+          await this.#dropStaleOrUnauthorizedPending();
+          continue;
         }
         const applied = applyCommand(this.#confirmed.document, first.command);
         const sha256 = await boardDocumentSha256(applied);
@@ -688,7 +860,7 @@ export class BoardSyncEngine {
           document: applied,
           documentId: this.#documentId,
           revision: result.revision,
-          session: this.#confirmed.session,
+          session: confirmedSession(this.#context),
           sha256,
         };
         await this.#queue.acknowledge(this.#documentId, first.sequence);
@@ -722,9 +894,7 @@ export class BoardSyncEngine {
   }
 
   async #pullAll(): Promise<void> {
-    if (this.#confirmed === null) {
-      return;
-    }
+    if (this.#confirmed === null) return;
     let hasMore = true;
     let reportedCurrentRevision = this.#confirmed.revision;
     while (!this.#disposed && hasMore) {
@@ -764,9 +934,7 @@ export class BoardSyncEngine {
   async #acknowledgeRemoteDuplicates(
     batches: readonly ServerBoardCommandBatch[],
   ): Promise<void> {
-    if (this.#pending.length === 0 || batches.length === 0) {
-      return;
-    }
+    if (this.#pending.length === 0 || batches.length === 0) return;
     const byKey = new Map(
       batches.map((batch) => [batch.idempotencyKey, batch] as const),
     );
@@ -803,14 +971,17 @@ export class BoardSyncEngine {
       return;
     }
     this.#onStateChange({
+      accessEpoch: this.#context.accessEpoch,
       actorId: this.#context.actorId,
+      capabilities: [...this.#context.capabilities],
+      confirmedSha256: this.#confirmed.sha256,
       document: this.#document,
       kind: "ready",
       network,
       pendingCount: this.#pending.length,
+      principalType: this.#context.principalType,
       quarantinedCount: this.#quarantinedCount,
       revision: this.#confirmed.revision,
-      confirmedSha256: this.#confirmed.sha256,
       role: this.#context.role,
     });
   }
@@ -818,9 +989,7 @@ export class BoardSyncEngine {
   async #quarantineConflicts(
     conflicts: readonly PendingBoardCommandConflict[],
   ): Promise<void> {
-    if (conflicts.length === 0) {
-      return;
-    }
+    if (conflicts.length === 0) return;
     await this.#queue.quarantineConflicts?.(this.#documentId, conflicts);
     this.#quarantinedCount += conflicts.length;
   }
