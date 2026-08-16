@@ -150,6 +150,7 @@ async function installStandaloneApi(
       await route.fulfill({
         json: {
           expiresInSeconds: 30,
+          protocolVersion: "1.1",
           ticket: principal === "guest" ? guestTicket : "teacher-ticket-e2e",
           websocketPath: `/api/v1/boards/${boardId}/collaboration`,
         },
@@ -200,7 +201,9 @@ test("opens a read-only guest board through the canonical standalone route", asy
   const api = await installStandaloneApi(page, "guest");
   await page.goto(`/b/${encodeURIComponent(boardId)}#/documents`);
 
-  await expect(page).toHaveURL(new RegExp(`/b/${encodeURIComponent(boardId)}#/board$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/b/${encodeURIComponent(boardId)}#/board$`),
+  );
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Синхронизировано · r0",
   );
@@ -213,10 +216,16 @@ test("opens a read-only guest board through the canonical standalone route", asy
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(page.getByText("Ученик · Ксения")).toBeVisible();
   await expect(page.getByText("Режим только для чтения")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Сохранить PDF" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Копировать ссылку на доску" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Сохранить PDF" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Копировать ссылку на доску" }),
+  ).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Все документы" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Настройки приложения" })).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Настройки приложения" }),
+  ).toHaveCount(0);
 
   const durable = await durableBrowserData(page);
   expect(durable).not.toContain(guestCsrf);
@@ -236,7 +245,9 @@ test("opens the same standalone document for a teacher with teacher capabilities
   expect(api.requests.some((entry) => entry.includes("/client-events"))).toBe(false);
 
   await page.getByRole("button", { name: "Настройки доски" }).click();
-  await expect(page.getByText("Преподаватель · Артём Александрович")).toBeVisible();
+  await expect(
+    page.getByText("Преподаватель · Артём Александрович"),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Сохранить PDF" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Все документы" })).toHaveCount(0);
 });
@@ -253,7 +264,9 @@ test("renders a non-enumerating access failure and never loads the board", async
   await expect(page.locator("body")).not.toContainText(boardId);
   expect(
     api.requests.some(
-      (entry) => entry.startsWith("GET /api/v1/boards/") && !entry.includes("/context"),
+      (entry) =>
+        entry.startsWith("GET /api/v1/boards/") &&
+        !entry.includes("/context"),
     ),
   ).toBe(false);
 });
