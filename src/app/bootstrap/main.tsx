@@ -10,6 +10,7 @@ import {
 import { ProductShell } from "../ProductShell";
 import { SmartInkDiagnosticsPanel } from "../SmartInkDiagnosticsPanel";
 import { StandaloneBoardBootstrap } from "../StandaloneBoardBootstrap";
+import { TeacherBoardsBootstrap } from "../TeacherBoardsBootstrap";
 import { readBoardLaunchContext } from "../configuration/board-launch-context";
 import { readEnvironment } from "../configuration/environment";
 import { createConfiguredMathInkRecognizers } from "./math-ink";
@@ -21,13 +22,21 @@ if (root === null) {
 }
 
 const environment = readEnvironment();
+const teacherBoardsRoute =
+  window.location.pathname.replace(/\/+$/u, "") === "/boards";
 const launchContext = readBoardLaunchContext(window.location);
 const geometryOsClient = createGeometryOsHttpClient({
   baseUrl: environment.geometryOsBaseUrl,
 });
 const mathInkRecognizers = createConfiguredMathInkRecognizers(environment);
 
-if (launchContext.kind === "standalone") {
+if (teacherBoardsRoute) {
+  createRoot(root).render(
+    <StrictMode>
+      <TeacherBoardsBootstrap environment={environment} />
+    </StrictMode>,
+  );
+} else if (launchContext.kind === "standalone") {
   if (window.location.hash !== "#/board") {
     window.history.replaceState(
       null,

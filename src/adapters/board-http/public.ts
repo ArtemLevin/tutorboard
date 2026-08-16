@@ -7,3 +7,7 @@ export {
   createStandaloneBoardHttpRepository,
   fetchStandaloneBoardAccessContext,
 } from "./standalone";
+export {
+  createTeacherBoardManagementRepository,
+  fetchTeacherManagementContext,
+} from "./management";
