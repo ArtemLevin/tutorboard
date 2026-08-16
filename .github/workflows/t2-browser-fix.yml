@@ -1,0 +1,89 @@
+name: T2 temporary browser assertion repair
+
+on:
+  push:
+    branches:
+      - agent/t2-teacher-board-workspace
+    paths:
+      - .github/workflows/t2-browser-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: agent/t2-teacher-board-workspace
+      - name: Make async controlled-switch assertions wait for server authority
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("tests/e2e/teacher-boards-workspace.spec.ts")
+          text = path.read_text()
+          old_invite = '''  await xeniaRow
+            .getByRole("checkbox", { name: "Разрешить редактирование" })
+            .uncheck();
+          await expect
+            .poll(
+              () =>
+                api.state.invitations.get(initialBoardId)?.[1]?.writeEnabled ??
+                api.state.invitations.get(initialBoardId)?.[0]?.writeEnabled,
+            )
+            .toBe(false);'''
+          new_invite = '''  const xeniaWriteCheckbox = xeniaRow.getByRole("checkbox", {
+            name: "Разрешить редактирование",
+          });
+          await xeniaWriteCheckbox.click();
+          await expect(xeniaWriteCheckbox).toBeUnchecked();
+          await expect
+            .poll(() =>
+              api.state.invitations
+                .get(initialBoardId)
+                ?.find((invitation) => invitation.invitationId === initialInvitationId)
+                ?.writeEnabled,
+            )
+            .toBe(false);'''
+          if text.count(old_invite) != 1:
+              raise SystemExit(f"invite assertion anchor count={text.count(old_invite)}")
+          text = text.replace(old_invite, new_invite, 1)
+
+          old_board = '''  await algebraCard
+            .getByRole("checkbox", {
+              name: "Разрешать запись гостям, у которых она включена в ссылке",
+            })
+            .uncheck();
+          await expect(algebraCard.getByText("Только чтение")).toBeVisible();'''
+          new_board = '''  const boardWriteCheckbox = algebraCard.getByRole("checkbox", {
+            name: "Разрешать запись гостям, у которых она включена в ссылке",
+          });
+          await boardWriteCheckbox.click();
+          await expect(boardWriteCheckbox).toBeUnchecked();
+          await expect(algebraCard.getByText("Только чтение")).toBeVisible();'''
+          if text.count(old_board) != 1:
+              raise SystemExit(f"board assertion anchor count={text.count(old_board)}")
+          path.write_text(text.replace(old_board, new_board, 1))
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write tests/e2e/teacher-boards-workspace.spec.ts
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+        env:
+          VITE_FEATURE_SERVER_SYNC: "true"
+          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos
+      - run: npx playwright test tests/e2e/teacher-boards-workspace.spec.ts --project=chromium
+      - name: Commit browser assertion repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/e2e/teacher-boards-workspace.spec.ts
+          git commit -m "test: wait for authoritative T2 switch updates"
+          git push origin HEAD:agent/t2-teacher-board-workspace
