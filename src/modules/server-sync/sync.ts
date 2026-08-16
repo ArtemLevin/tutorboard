@@ -601,27 +601,26 @@ export class BoardSyncEngine {
 
       let head: ConfirmedBoardHead;
       if (recovery.snapshot === null) {
-        if (!this.#context.capabilities.includes("board.snapshot.write")) {
-          throw new SyncRecoveryError(
-            "board.sync.missing-base-snapshot",
-            "Для доски только для чтения отсутствует базовый снимок.",
-          );
-        }
-        const createdAt = this.#now();
+        const createdAt = recovery.board.createdAt ?? this.#now();
         const document = createEmptyBoardDocument({
           createdAt,
           id: this.#documentId,
-          title: "Доска занятия",
+          title:
+            this.#context.principalType === "legacy"
+              ? "Доска занятия"
+              : "Совместная доска",
         });
         const sha256 = await boardDocumentSha256(document);
-        await this.#repository.saveSnapshot(
-          this.#documentId,
-          0,
-          document,
-          sha256,
-          this.#context.csrfToken,
-        );
-        if (this.#disposed) return;
+        if (this.#context.capabilities.includes("board.snapshot.write")) {
+          await this.#repository.saveSnapshot(
+            this.#documentId,
+            0,
+            document,
+            sha256,
+            this.#context.csrfToken,
+          );
+          if (this.#disposed) return;
+        }
         head = {
           document,
           documentId: this.#documentId,

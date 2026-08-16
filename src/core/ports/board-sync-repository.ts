@@ -72,6 +72,7 @@ export interface ServerBoardCommandBatch {
 
 export interface ServerBoardDescriptor {
   readonly archivedAt: string | null;
+  readonly createdAt?: string;
   readonly currentDocumentSha256: string;
   readonly currentRevision: number;
   readonly documentId: DocumentId;
@@ -79,6 +80,7 @@ export interface ServerBoardDescriptor {
   readonly lessonId?: string;
   readonly snapshotDue: boolean;
   readonly studentId?: string;
+  readonly updatedAt?: string;
 }
 
 export interface BoardRevisionDescriptor {

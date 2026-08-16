@@ -117,6 +117,7 @@ export interface AppProps {
   readonly persistenceStatus?: AppPersistenceStatus;
   readonly readOnly?: boolean;
   readonly settingsExtra?: ReactNode;
+  readonly standaloneMode?: boolean;
   readonly remoteCursors?: readonly {
     readonly actorId: string;
     readonly point: { readonly x: number; readonly y: number };
@@ -183,6 +184,7 @@ export function App({
   persistenceStatus = { kind: "idle", label: "Локальное сохранение" },
   readOnly = false,
   settingsExtra,
+  standaloneMode = false,
   remoteCursors = [],
   remoteInkPreviews = [],
   remoteTransformPreviews = [],
@@ -693,6 +695,7 @@ export function App({
           shortcutsButtonRef={shortcutsButtonRef}
           shortcutsOpen={shortcutsOpen}
           stage={environment.stage}
+          standaloneMode={standaloneMode}
         />
         {shortcutsOpen ? (
           <BoardShortcutsDialog

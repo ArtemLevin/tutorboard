@@ -8,6 +8,7 @@ import {
   type BoardPresence,
   type BoardTransformPreview,
 } from "../adapters/board-websocket/public";
+import type { BoardRuntimeAccessContext } from "../core/access/public";
 import {
   reduceBoardDocument,
   type BoardCommand,
@@ -47,6 +48,7 @@ type SyncedBoardRepository = BoardCollaborationRepository &
   LegacyBoardLifecycleRepository;
 
 interface SyncedAppProps {
+  readonly accessContext?: BoardRuntimeAccessContext | undefined;
   readonly documentId: DocumentId;
   readonly geometryOsClient?: GeometryOsClient | undefined;
   readonly lessonId?: string | undefined;
@@ -150,6 +152,7 @@ function inverseStillApplies(
 }
 
 export function SyncedApp({
+  accessContext,
   documentId,
   geometryOsClient,
   lessonId,
@@ -185,6 +188,7 @@ export function SyncedApp({
   const [engine] = useState(
     () =>
       new BoardSyncEngine({
+        accessContext,
         createIdempotencyKey: () => `client:${crypto.randomUUID()}`,
         documentId,
         now: () => new Date().toISOString(),
@@ -242,10 +246,13 @@ export function SyncedApp({
   }, [documentId, engine, lessonId, repository]);
 
   const ready = state.kind === "ready";
+  const collaborationEnabled =
+    state.kind === "ready" &&
+    state.capabilities.includes("collaboration.connect");
   useEffect(() => {
     if (!ready) return;
-    collaboration.start();
-    if (!loadMeasuredRef.current) {
+    if (collaborationEnabled) collaboration.start();
+    if (lessonId !== undefined && !loadMeasuredRef.current) {
       loadMeasuredRef.current = true;
       void repository
         .context()
@@ -268,10 +275,10 @@ export function SyncedApp({
         .catch(() => setEvidence([]));
     }
     return () => collaboration.stop();
-  }, [collaboration, lessonId, ready, repository]);
+  }, [collaboration, collaborationEnabled, lessonId, ready, repository]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || lessonId === undefined) return;
     const previous = previousCollaborationStatusRef.current;
     previousCollaborationStatusRef.current = collaborationStatus;
     if (previous === collaborationStatus) return;
@@ -292,7 +299,7 @@ export function SyncedApp({
         ),
       )
       .catch(() => undefined);
-  }, [collaborationStatus, ready, repository]);
+  }, [collaborationStatus, lessonId, ready, repository]);
 
   useEffect(() => {
     if (state.kind !== "ready") return;
@@ -374,12 +381,34 @@ export function SyncedApp({
     );
   }
 
+  if (collaborationStatus === "revoked") {
+    return (
+      <main className="recovery-shell">
+        <section className="recovery-card">
+          <span aria-hidden="true" className="recovery-icon">
+            !
+          </span>
+          <h1>Доступ к доске недоступен</h1>
+          <p role="alert">
+            Доступ к совместной доске был отозван. Запросите новую ссылку у преподавателя.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   const writeEnabled =
     state.capabilities.includes("board.write") &&
     collaborationStatus !== "revoked";
   const canManageEvidence =
     lessonId !== undefined &&
     (state.role === "admin" || state.role === "tutor");
+  const principalLabel =
+    state.principalType === "guest"
+      ? `Ученик · ${accessContext?.displayName ?? state.actorId}`
+      : state.principalType === "teacher"
+        ? `Преподаватель · ${accessContext?.displayName ?? state.actorId}`
+        : "Контекст занятия";
 
   const finalizeEvidence = async () => {
     if (
@@ -533,22 +562,36 @@ export function SyncedApp({
         onTransformPreviewChange={(preview) =>
           collaboration.updateTransformPreview(preview)
         }
-        onExportPdfSnapshot={(document) => {
-          setEvidenceStatus("Создаём PDF доски…");
-          void renderBoardSnapshotPdf(document)
-            .then((blob) => {
-              downloadBlob("tutorboard-board.pdf", blob);
-              setEvidenceStatus("PDF доски сохранён.");
-            })
-            .catch(() => setEvidenceStatus("Не удалось создать PDF доски."));
-        }}
-        onShareBoard={() => {
-          void copyBoardShareUrl(window.location)
-            .then(() => setEvidenceStatus("Ссылка на доску скопирована."))
-            .catch(() =>
-              setEvidenceStatus("Браузер не разрешил скопировать ссылку."),
-            );
-        }}
+        onExportPdfSnapshot={
+          state.capabilities.includes("board.export")
+            ? (document) => {
+                setEvidenceStatus("Создаём PDF доски…");
+                void renderBoardSnapshotPdf(document)
+                  .then((blob) => {
+                    downloadBlob("tutorboard-board.pdf", blob);
+                    setEvidenceStatus("PDF доски сохранён.");
+                  })
+                  .catch(() =>
+                    setEvidenceStatus("Не удалось создать PDF доски."),
+                  );
+              }
+            : undefined
+        }
+        onShareBoard={
+          lessonId === undefined
+            ? undefined
+            : () => {
+                void copyBoardShareUrl(window.location)
+                  .then(() =>
+                    setEvidenceStatus("Ссылка на доску скопирована."),
+                  )
+                  .catch(() =>
+                    setEvidenceStatus(
+                      "Браузер не разрешил скопировать ссылку.",
+                    ),
+                  );
+              }
+        }
         persistenceNotice={
           collaborationStatus === "revoked"
             ? "Доступ к совместной доске отозван. Локальные изменения больше не отправляются."
@@ -558,9 +601,12 @@ export function SyncedApp({
         }
         persistenceStatus={persistenceStatus(state)}
         readOnly={!writeEnabled}
+        standaloneMode={accessContext !== undefined}
         settingsExtra={
           <section className="board-settings-section">
             <h3>{lessonId === undefined ? "Совместная доска" : "Занятие"}</h3>
+            <p>{principalLabel}</p>
+            {!writeEnabled ? <p>Режим только для чтения</p> : null}
             <p>
               {collaborationStatus === "revoked"
                 ? "Доступ отозван"
