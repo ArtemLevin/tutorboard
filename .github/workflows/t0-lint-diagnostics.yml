@@ -1,4 +1,4 @@
-name: T0 lint diagnostics
+name: T0 lint correction
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  capture:
+  correct:
     runs-on: ubuntu-latest
     steps:
       - name: Check out branch
@@ -24,18 +24,22 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: Capture lint output
+      - name: Apply evidence effect correction
+        run: node scripts/t0-remove-evidence-effect.mjs
+      - name: Remove diagnostic output
+        run: rm -f t0-lint-output.txt
+      - name: Format repository
+        run: npm run format
+      - name: Verify lint
+        run: npm run lint
+      - name: Commit correction
         shell: bash
         run: |
-          npm run lint > t0-lint-output.txt 2>&1 || true
-      - name: Commit diagnostic output when changed
-        shell: bash
-        run: |
-          git add t0-lint-output.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
           if git diff --cached --quiet; then
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "diagnostics: capture T0 lint output"
+          git commit -m "fix: avoid synchronous evidence effect update"
           git push origin HEAD:agent/t0-frontend-security-prep
