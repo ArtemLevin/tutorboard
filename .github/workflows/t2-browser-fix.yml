@@ -21,20 +21,15 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import re
 
           path = Path("tests/e2e/teacher-boards-workspace.spec.ts")
           text = path.read_text()
-          old_invite = '''  await xeniaRow
-            .getByRole("checkbox", { name: "Разрешить редактирование" })
-            .uncheck();
-          await expect
-            .poll(
-              () =>
-                api.state.invitations.get(initialBoardId)?.[1]?.writeEnabled ??
-                api.state.invitations.get(initialBoardId)?.[0]?.writeEnabled,
-            )
-            .toBe(false);'''
-          new_invite = '''  const xeniaWriteCheckbox = xeniaRow.getByRole("checkbox", {
+
+          invite_pattern = re.compile(
+              r'''  await xeniaRow\n\s*\.getByRole\("checkbox", \{ name: "Разрешить редактирование" \}\)\n\s*\.uncheck\(\);\n\s*await expect\n\s*\.poll\(\n\s*\(\) =>\n\s*api\.state\.invitations\.get\(initialBoardId\)\?\.\[1\]\?\.writeEnabled \?\?\n\s*api\.state\.invitations\.get\(initialBoardId\)\?\.\[0\]\?\.writeEnabled,\n\s*\)\n\s*\.toBe\(false\);'''
+          )
+          invite_replacement = '''  const xeniaWriteCheckbox = xeniaRow.getByRole("checkbox", {
             name: "Разрешить редактирование",
           });
           await xeniaWriteCheckbox.click();
@@ -47,25 +42,23 @@ jobs:
                 ?.writeEnabled,
             )
             .toBe(false);'''
-          if text.count(old_invite) != 1:
-              raise SystemExit(f"invite assertion anchor count={text.count(old_invite)}")
-          text = text.replace(old_invite, new_invite, 1)
+          text, invite_count = invite_pattern.subn(invite_replacement, text, count=1)
+          if invite_count != 1:
+              raise SystemExit(f"invite assertion match count={invite_count}")
 
-          old_board = '''  await algebraCard
-            .getByRole("checkbox", {
-              name: "Разрешать запись гостям, у которых она включена в ссылке",
-            })
-            .uncheck();
-          await expect(algebraCard.getByText("Только чтение")).toBeVisible();'''
-          new_board = '''  const boardWriteCheckbox = algebraCard.getByRole("checkbox", {
+          board_pattern = re.compile(
+              r'''  await algebraCard\n\s*\.getByRole\("checkbox", \{\n\s*name: "Разрешать запись гостям, у которых она включена в ссылке",\n\s*\}\)\n\s*\.uncheck\(\);\n\s*await expect\(algebraCard\.getByText\("Только чтение"\)\)\.toBeVisible\(\);'''
+          )
+          board_replacement = '''  const boardWriteCheckbox = algebraCard.getByRole("checkbox", {
             name: "Разрешать запись гостям, у которых она включена в ссылке",
           });
           await boardWriteCheckbox.click();
           await expect(boardWriteCheckbox).toBeUnchecked();
           await expect(algebraCard.getByText("Только чтение")).toBeVisible();'''
-          if text.count(old_board) != 1:
-              raise SystemExit(f"board assertion anchor count={text.count(old_board)}")
-          path.write_text(text.replace(old_board, new_board, 1))
+          text, board_count = board_pattern.subn(board_replacement, text, count=1)
+          if board_count != 1:
+              raise SystemExit(f"board assertion match count={board_count}")
+          path.write_text(text)
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
