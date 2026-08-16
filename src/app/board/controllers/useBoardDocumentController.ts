@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   commandId,
@@ -56,11 +56,14 @@ export function useBoardDocumentController({
   }));
   const document = state.history.present;
   const documentRef = useRef(document);
-  const effectiveMutationPolicy =
-    mutationPolicy ??
-    (readOnly
-      ? ({ canWrite: false, reason: "missing-board-write" } as const)
-      : writableBoardMutationPolicy);
+  const effectiveMutationPolicy = useMemo(
+    () =>
+      mutationPolicy ??
+      (readOnly
+        ? ({ canWrite: false, reason: "missing-board-write" } as const)
+        : writableBoardMutationPolicy),
+    [mutationPolicy, readOnly],
+  );
 
   useEffect(() => {
     documentRef.current = document;

@@ -661,15 +661,15 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
     await this.#database.delete();
   }
 
-  async setAccessScope(scope: BoardLocalAccessScope): Promise<number> {
+  setAccessScope(scope: BoardLocalAccessScope): Promise<number> {
     if (
       !cacheScopeSchema.safeParse(scope.cacheScopeId).success ||
       !accessEpochSchema.safeParse(scope.accessEpoch).success
     ) {
-      throw new Error("Board access scope is invalid.");
+      return Promise.reject(new Error("Board access scope is invalid."));
     }
     this.#scope = { ...scope };
-    return 0;
+    return Promise.resolve(0);
   }
 
   async enqueue(
@@ -820,17 +820,21 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
                 : legacy.success
                   ? legacy.data
                   : null;
+            const actorIdValue = current.success
+              ? current.data.actorId
+              : previous.success
+                ? previous.data.actorId
+                : null;
+            const commandSha256Value = current.success
+              ? current.data.commandSha256
+              : previous.success
+                ? previous.data.commandSha256
+                : null;
             quarantined.push({
-              actorId:
-                current.success || previous.success
-                  ? (context?.actorId ?? null)
-                  : null,
+              actorId: actorIdValue,
               cacheScopeId: scope.cacheScopeId,
               capturedAt,
-              commandSha256:
-                current.success || previous.success
-                  ? (context?.commandSha256 ?? null)
-                  : null,
+              commandSha256: commandSha256Value,
               documentId: context?.documentId ?? expectedDocumentId,
               id: quarantineId(
                 scope.cacheScopeId,

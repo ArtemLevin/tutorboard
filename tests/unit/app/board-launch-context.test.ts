@@ -4,9 +4,9 @@ import { readBoardLaunchContext } from "../../../src/app/configuration/board-lau
 
 describe("BoardLaunchContext", () => {
   it("keeps the local entry point local", () => {
-    expect(
-      readBoardLaunchContext({ pathname: "/", search: "" } as Location),
-    ).toEqual({ kind: "local" });
+    expect(readBoardLaunchContext({ pathname: "/", search: "" })).toEqual({
+      kind: "local",
+    });
   });
 
   it("preserves the legacy lesson query contract", () => {
@@ -14,7 +14,7 @@ describe("BoardLaunchContext", () => {
       readBoardLaunchContext({
         pathname: "/",
         search: "?lessonId=lesson%3A1&documentId=document%3Alesson-1",
-      } as Location),
+      }),
     ).toEqual({
       documentId: "document:lesson-1",
       kind: "legacy-lesson",
@@ -27,7 +27,7 @@ describe("BoardLaunchContext", () => {
       readBoardLaunchContext({
         pathname: "/b/document%3Astandalone-1",
         search: "",
-      } as Location),
+      }),
     ).toEqual({
       boardId: "document:standalone-1",
       kind: "standalone",
@@ -39,7 +39,7 @@ describe("BoardLaunchContext", () => {
       readBoardLaunchContext({
         pathname: "/",
         search: "?lessonId=lesson%3A1",
-      } as Location),
+      }),
     ).toThrow("lessonId and documentId");
   });
 });
