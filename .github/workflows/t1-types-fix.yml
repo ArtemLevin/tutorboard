@@ -24,14 +24,7 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-
-          def replace_once(path: str, old: str, new: str) -> None:
-              target = Path(path)
-              text = target.read_text()
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"{path}: expected one anchor, found {count}: {old[:100]!r}")
-              target.write_text(text.replace(old, new, 1))
+          import re
 
           client = Path("src/adapters/board-http/client.ts")
           text = client.read_text()
@@ -50,58 +43,39 @@ jobs:
           };'''
           client.write_text(text[:start] + replacement + text[end + len("  };"):])
 
-          replace_once(
-              "src/app/SyncedApp.tsx",
-              '''      new BoardSyncEngine({
-                accessContext,
-                createIdempotencyKey:''',
-              '''      new BoardSyncEngine({
-                ...(accessContext === undefined ? {} : { accessContext }),
-                createIdempotencyKey:''',
+          synced = Path("src/app/SyncedApp.tsx")
+          text = synced.read_text()
+
+          def sub_once(pattern: str, replacement: str) -> None:
+              global text
+              text, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+              if count != 1:
+                  raise SystemExit(f"SyncedApp: expected one match for {pattern!r}, found {count}")
+
+          sub_once(
+              r'new BoardSyncEngine\(\{\n\s*accessContext,\n\s*createIdempotencyKey:',
+              'new BoardSyncEngine({\n        ...(accessContext === undefined ? {} : { accessContext }),\n        createIdempotencyKey:',
           )
-          replace_once(
-              "src/app/SyncedApp.tsx",
-              '''  const writeEnabled =
-            state.capabilities.includes("board.write") &&
-            collaborationStatus !== "revoked";''',
-              '''  const writeEnabled = state.capabilities.includes("board.write");''',
+          sub_once(
+              r'const writeEnabled =\n\s*state\.capabilities\.includes\("board\.write"\) &&\n\s*collaborationStatus !== "revoked";',
+              'const writeEnabled = state.capabilities.includes("board.write");',
           )
-          replace_once(
-              "src/app/SyncedApp.tsx",
-              '''        persistenceNotice={
-                  collaborationStatus === "revoked"
-                    ? "Доступ к совместной доске отозван. Локальные изменения больше не отправляются."
-                    : state.network === "offline"
-                      ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
-                      : null
-                }''',
-              '''        persistenceNotice={
-                  state.network === "offline"
-                    ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
-                    : null
-                }''',
+          sub_once(
+              r'persistenceNotice=\{\n\s*collaborationStatus === "revoked"\n\s*\? "Доступ к совместной доске отозван\. Локальные изменения больше не отправляются\."\n\s*: state\.network === "offline"\n\s*\? "Изменения сохраняются локально и будут отправлены после восстановления связи\."\n\s*: null\n\s*\}',
+              'persistenceNotice={\n          state.network === "offline"\n            ? "Изменения сохраняются локально и будут отправлены после восстановления связи."\n            : null\n        }',
           )
-          replace_once(
-              "src/app/SyncedApp.tsx",
-              '''              {collaborationStatus === "revoked"
-                        ? "Доступ отозван"
-                        : collaborationStatus === "online"
-                          ? `В комнате ${participants.length + 1}`
-                          : collaborationStatus === "connecting"
-                            ? "Подключение к комнате…"
-                            : "Совместная работа офлайн"}''',
-              '''              {collaborationStatus === "online"
-                        ? `В комнате ${participants.length + 1}`
-                        : collaborationStatus === "connecting"
-                          ? "Подключение к комнате…"
-                          : "Совместная работа офлайн"}''',
+          sub_once(
+              r'\{collaborationStatus === "revoked"\n\s*\? "Доступ отозван"\n\s*: collaborationStatus === "online"\n\s*\? `В комнате \$\{participants\.length \+ 1\}`\n\s*: collaborationStatus === "connecting"\n\s*\? "Подключение к комнате…"\n\s*: "Совместная работа офлайн"\}',
+              '{collaborationStatus === "online"\n                ? `В комнате ${participants.length + 1}`\n                : collaborationStatus === "connecting"\n                  ? "Подключение к комнате…"\n                  : "Совместная работа офлайн"}',
           )
+          synced.write_text(text)
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npx prettier --write src/adapters/board-http/client.ts src/app/SyncedApp.tsx
+      - run: npm run typecheck
       - name: Commit fixes
         run: |
           git config user.name "github-actions[bot]"
