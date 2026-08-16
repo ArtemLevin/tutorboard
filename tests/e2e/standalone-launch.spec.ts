@@ -176,7 +176,8 @@ async function durableBrowserData(page: Page): Promise<string> {
     const local = { ...localStorage };
     const open = indexedDB.open("tutorboard-sync-v1");
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      open.onerror = () => reject(open.error);
+      open.onerror = () =>
+        reject(open.error ?? new Error("Failed to open TutorBoard IndexedDB."));
       open.onsuccess = () => resolve(open.result);
     });
     try {
@@ -188,7 +189,11 @@ async function durableBrowserData(page: Page): Promise<string> {
           (name) =>
             new Promise<[string, unknown[]]>((resolve, reject) => {
               const request = transaction.objectStore(name).getAll();
-              request.onerror = () => reject(request.error);
+              request.onerror = () =>
+                reject(
+                  request.error ??
+                    new Error(`Failed to read IndexedDB store ${name}.`),
+                );
               request.onsuccess = () => resolve([name, request.result]);
             }),
         ),
