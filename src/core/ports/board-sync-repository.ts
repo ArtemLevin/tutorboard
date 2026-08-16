@@ -291,7 +291,7 @@ export interface ConfirmedBoardSession {
   readonly actorId: ActorId;
   readonly cacheScopeId?: string;
   readonly capabilities?: readonly BoardCapability[];
-  readonly organizationId: string;
+  readonly organizationId?: string;
   readonly principalType?: BoardPrincipalType;
   readonly role: BoardAccessRole;
 }
