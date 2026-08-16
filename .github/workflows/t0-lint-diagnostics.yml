@@ -1,0 +1,39 @@
+name: T0 lint diagnostics
+
+on:
+  push:
+    branches:
+      - agent/t0-frontend-security-prep
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    if: ${{ !contains(github.event.head_commit.message, 'diagnostics: capture T0 lint output') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/t0-frontend-security-prep
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Capture lint output
+        shell: bash
+        run: |
+          npm run lint > t0-lint-output.txt 2>&1 || true
+      - name: Commit diagnostic output
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add t0-lint-output.txt
+          git commit -m "diagnostics: capture T0 lint output"
+          git push origin HEAD:agent/t0-frontend-security-prep
