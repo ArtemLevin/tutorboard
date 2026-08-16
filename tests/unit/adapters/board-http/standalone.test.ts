@@ -4,7 +4,7 @@ import {
   createStandaloneBoardHttpRepository,
   fetchStandaloneBoardAccessContext,
 } from "../../../../src/adapters/board-http/public";
-import { documentId } from "../../../../src/core/public";
+import { actorId, documentId } from "../../../../src/core/public";
 
 const expectedBoardId = documentId("board:standalone-01");
 const guestPayload = {
@@ -122,7 +122,7 @@ describe("standalone board HTTP access", () => {
   it("does not add guest epoch headers to teacher requests", async () => {
     const teacherContext = {
       ...guestPayload,
-      actorId: "user:teacher-01",
+      actorId: actorId("user:teacher-01"),
       cacheScopeId: "scope:teacher:standalone-01",
       capabilities: [
         "board.read",
