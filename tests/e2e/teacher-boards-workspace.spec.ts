@@ -38,8 +38,8 @@ const teacherCsrf = "csrf-teacher-t2-e2e";
 const initialBoardId = "board:t2-algebra";
 const archivedBoardId = "board:t2-archive";
 const initialInvitationId = "invite:t2-xenia";
-const createdSecret = "https://127.0.0.1:4173/j/t2-created-secret-never-durable";
-const rotatedSecret = "https://127.0.0.1:4173/j/t2-rotated-secret-never-durable";
+const createdSecret = "http://127.0.0.1:4173/j/t2-created-secret-never-durable";
+const rotatedSecret = "http://127.0.0.1:4173/j/t2-rotated-secret-never-durable";
 
 function initialBoards(): MockBoard[] {
   return [
@@ -252,7 +252,9 @@ async function installManagementApi(
     if (archiveMatch !== null && method === "POST") {
       const boardId = archiveMatch[1] ?? "";
       const action = archiveMatch[2];
-      const index = state.boards.findIndex((board) => board.boardId === boardId);
+      const index = state.boards.findIndex(
+        (board) => board.boardId === boardId,
+      );
       const current = state.boards[index]!;
       const updated = {
         ...current,
@@ -267,7 +269,9 @@ async function installManagementApi(
     const boardMatch = path.match(/^\/api\/v1\/boards\/(.+)$/u);
     if (boardMatch !== null) {
       const boardId = boardMatch[1] ?? "";
-      const index = state.boards.findIndex((board) => board.boardId === boardId);
+      const index = state.boards.findIndex(
+        (board) => board.boardId === boardId,
+      );
       if (index < 0) {
         await route.fulfill({ json: { detail: "not found" }, status: 404 });
         return;
@@ -318,7 +322,9 @@ test("teacher can create a board using the keyboard-only primary flow", async ({
   await expect(page.getByRole("heading", { name: "Мои доски" })).toBeVisible();
 
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "+ Создать доску" })).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "+ Создать доску" }),
+  ).toBeFocused();
   await page.keyboard.press("Enter");
   const title = page.getByRole("textbox", { name: "Название" });
   await expect(title).toBeFocused();
@@ -353,7 +359,10 @@ test("teacher manages transient invitation links, expiry and read/write policy",
 
   const dialog = page.getByRole("dialog", { name: "Алгебра" });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("textbox", { name: "Имя ученика" }).first().fill("София");
+  await dialog
+    .getByRole("textbox", { name: "Имя ученика" })
+    .first()
+    .fill("София");
   await dialog.getByLabel("Срок действия").selectOption("7d");
   await dialog
     .getByRole("checkbox", { name: "Разрешить ученику редактировать доску" })
@@ -364,28 +373,42 @@ test("teacher manages transient invitation links, expiry and read/write policy",
   await expect(secretInput).toHaveValue(createdSecret);
   await dialog.getByRole("button", { name: "Скопировать ссылку" }).click();
   await expect(
-    dialog.getByText("Буфер обмена недоступен. Ссылка выделена — скопируйте её вручную."),
+    dialog.getByText(
+      "Буфер обмена недоступен. Ссылка выделена — скопируйте её вручную.",
+    ),
   ).toBeVisible();
   await dialog.getByRole("button", { name: "Скрыть ссылку" }).click();
   await expect(secretInput).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText(createdSecret);
   await expectSecretAbsentFromDurableBrowserState(page, createdSecret);
 
-  const xeniaRow = dialog.locator("article.invitation-row").filter({ hasText: "Ксения" });
+  const xeniaRow = dialog
+    .locator("article.invitation-row")
+    .filter({ hasText: "Ксения" });
   await xeniaRow
     .getByRole("checkbox", { name: "Разрешить редактирование" })
     .uncheck();
-  await expect.poll(() => api.state.invitations.get(initialBoardId)?.[1]?.writeEnabled ?? api.state.invitations.get(initialBoardId)?.[0]?.writeEnabled).toBe(false);
+  await expect
+    .poll(
+      () =>
+        api.state.invitations.get(initialBoardId)?.[1]?.writeEnabled ??
+        api.state.invitations.get(initialBoardId)?.[0]?.writeEnabled,
+    )
+    .toBe(false);
 
-  await xeniaRow.getByRole("button", { name: "Ротировать и получить новую ссылку" }).click();
-  await expect(dialog.getByRole("textbox", { name: "Гостевая ссылка" })).toHaveValue(
-    rotatedSecret,
-  );
+  await xeniaRow
+    .getByRole("button", { name: "Ротировать и получить новую ссылку" })
+    .click();
+  await expect(
+    dialog.getByRole("textbox", { name: "Гостевая ссылка" }),
+  ).toHaveValue(rotatedSecret);
   await dialog.getByRole("button", { name: "Скрыть ссылку" }).click();
   await xeniaRow.getByRole("button", { name: "Отозвать" }).click();
   await expect(xeniaRow.getByText("Отозвана")).toBeVisible();
 
-  await dialog.getByRole("button", { name: "Закрыть управление доступом" }).click();
+  await dialog
+    .getByRole("button", { name: "Закрыть управление доступом" })
+    .click();
   await algebraCard
     .getByRole("checkbox", {
       name: "Разрешать запись гостям, у которых она включена в ссылке",
@@ -402,7 +425,9 @@ test("teacher can rename, archive, restore and soft-delete a board", async ({
   await installManagementApi(page);
   await page.goto("/boards");
 
-  let algebraCard = page.locator("article.teacher-board-card").filter({ hasText: "Алгебра" });
+  let algebraCard = page
+    .locator("article.teacher-board-card")
+    .filter({ hasText: "Алгебра" });
   await algebraCard.getByRole("button", { name: "Переименовать" }).click();
   const renameDialog = page.getByRole("dialog", { name: "Переименовать" });
   const renameInput = renameDialog.getByRole("textbox", { name: "Название" });
@@ -441,7 +466,9 @@ test("guest principal cannot mount or call teacher management controls", async (
   await expect(
     page.getByRole("heading", { name: "Управление досками недоступно" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "+ Создать доску" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "+ Создать доску" }),
+  ).toHaveCount(0);
   expect(
     api.requests.filter((entry) => !entry.includes("/boards/context")),
   ).toEqual([]);

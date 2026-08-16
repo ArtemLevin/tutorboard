@@ -36,7 +36,10 @@ function formatDate(value: string): string {
 
 function invitationIsActive(invitation: BoardInvitationSummary): boolean {
   if (invitation.revokedAt !== null) return false;
-  return invitation.expiresAt === null || Date.parse(invitation.expiresAt) > Date.now();
+  return (
+    invitation.expiresAt === null ||
+    Date.parse(invitation.expiresAt) > Date.now()
+  );
 }
 
 function invitationStatus(invitation: BoardInvitationSummary): {
@@ -46,7 +49,10 @@ function invitationStatus(invitation: BoardInvitationSummary): {
   if (invitation.revokedAt !== null) {
     return { className: "is-revoked", label: "Отозвана" };
   }
-  if (invitation.expiresAt !== null && Date.parse(invitation.expiresAt) <= Date.now()) {
+  if (
+    invitation.expiresAt !== null &&
+    Date.parse(invitation.expiresAt) <= Date.now()
+  ) {
     return { className: "is-expired", label: "Истекла" };
   }
   if (invitation.useCount === 0) {
@@ -77,15 +83,18 @@ function Modal({
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(
-    typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null),
+    typeof document === "undefined"
+      ? null
+      : (document.activeElement as HTMLElement | null),
   );
 
   useEffect(() => {
     const dialog = dialogRef.current;
+    const returnFocus = returnFocusRef.current;
     dialog?.showModal();
     return () => {
       if (dialog?.open) dialog.close();
-      window.setTimeout(() => returnFocusRef.current?.focus(), 0);
+      window.setTimeout(() => returnFocus?.focus(), 0);
     };
   }, []);
 
@@ -133,7 +142,9 @@ function CreateBoardDialog({
       await onCreate(normalized);
       onClose();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Не удалось создать доску.");
+      setError(
+        caught instanceof Error ? caught.message : "Не удалось создать доску.",
+      );
     } finally {
       setBusy(false);
     }
@@ -196,7 +207,11 @@ function RenameBoardDialog({
       await onRename(normalized);
       onClose();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Не удалось переименовать доску.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Не удалось переименовать доску.",
+      );
     } finally {
       setBusy(false);
     }
@@ -240,7 +255,9 @@ function SecretResultPanel({
   readonly result: BoardInvitationSecretResult;
   readonly onDismiss: () => void;
 }) {
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "manual">("idle");
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "manual">(
+    "idle",
+  );
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -263,7 +280,8 @@ function SecretResultPanel({
       <div>
         <strong>Ссылка готова</strong>
         <p>
-          Она показывается только сейчас. После закрытия получить тот же секрет повторно нельзя.
+          Она показывается только сейчас. После закрытия получить тот же секрет
+          повторно нельзя.
         </p>
       </div>
       <label>
@@ -276,7 +294,11 @@ function SecretResultPanel({
         />
       </label>
       <div className="secret-result__actions">
-        <button className="is-primary" onClick={() => void copy()} type="button">
+        <button
+          className="is-primary"
+          onClick={() => void copy()}
+          type="button"
+        >
           Скопировать ссылку
         </button>
         <button onClick={onDismiss} type="button">
@@ -285,7 +307,9 @@ function SecretResultPanel({
       </div>
       {copyState === "copied" ? <p role="status">Ссылка скопирована.</p> : null}
       {copyState === "manual" ? (
-        <p role="status">Буфер обмена недоступен. Ссылка выделена — скопируйте её вручную.</p>
+        <p role="status">
+          Буфер обмена недоступен. Ссылка выделена — скопируйте её вручную.
+        </p>
       ) : null}
     </section>
   );
@@ -314,7 +338,11 @@ function InvitationRow({
       await operation();
       await onChanged();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Не удалось изменить приглашение.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Не удалось изменить приглашение.",
+      );
     } finally {
       setBusy(false);
     }
@@ -325,7 +353,9 @@ function InvitationRow({
       <header>
         <div>
           <strong>{invitation.displayName}</strong>
-          <span className={`invitation-status ${status.className}`}>{status.label}</span>
+          <span className={`invitation-status ${status.className}`}>
+            {status.label}
+          </span>
         </div>
         <small>
           {invitation.lastUsedAt === null
@@ -348,9 +378,13 @@ function InvitationRow({
           disabled={busy || displayName.trim() === invitation.displayName}
           onClick={() =>
             void execute(() =>
-              repository.updateInvitation(invitation.boardId, invitation.invitationId, {
-                displayName: displayName.trim(),
-              }),
+              repository.updateInvitation(
+                invitation.boardId,
+                invitation.invitationId,
+                {
+                  displayName: displayName.trim(),
+                },
+              ),
             )
           }
           type="button"
@@ -364,9 +398,13 @@ function InvitationRow({
             disabled={busy || invitation.revokedAt !== null}
             onChange={(event) =>
               void execute(() =>
-                repository.updateInvitation(invitation.boardId, invitation.invitationId, {
-                  writeEnabled: event.target.checked,
-                }),
+                repository.updateInvitation(
+                  invitation.boardId,
+                  invitation.invitationId,
+                  {
+                    writeEnabled: event.target.checked,
+                  },
+                ),
               )
             }
             type="checkbox"
@@ -382,9 +420,13 @@ function InvitationRow({
             onChange={(event) => {
               const preset = event.target.value as ExpiryPreset;
               void execute(() =>
-                repository.updateInvitation(invitation.boardId, invitation.invitationId, {
-                  expiresAt: expiryFromPreset(preset),
-                }),
+                repository.updateInvitation(
+                  invitation.boardId,
+                  invitation.invitationId,
+                  {
+                    expiresAt: expiryFromPreset(preset),
+                  },
+                ),
               );
             }}
           >
@@ -423,7 +465,10 @@ function InvitationRow({
           disabled={busy || invitation.revokedAt !== null}
           onClick={() =>
             void execute(() =>
-              repository.revokeInvitation(invitation.boardId, invitation.invitationId),
+              repository.revokeInvitation(
+                invitation.boardId,
+                invitation.invitationId,
+              ),
             )
           }
           type="button"
@@ -447,14 +492,17 @@ function InvitationDialog({
   readonly onInvitationsChanged: () => Promise<void>;
   readonly repository: StandaloneBoardManagementRepository;
 }) {
-  const [invitations, setInvitations] = useState<readonly BoardInvitationSummary[]>([]);
+  const [invitations, setInvitations] = useState<
+    readonly BoardInvitationSummary[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [expiryPreset, setExpiryPreset] = useState<ExpiryPreset>("24h");
   const [writeEnabled, setWriteEnabled] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [secretResult, setSecretResult] = useState<BoardInvitationSecretResult | null>(null);
+  const [secretResult, setSecretResult] =
+    useState<BoardInvitationSecretResult | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -462,7 +510,11 @@ function InvitationDialog({
     try {
       setInvitations(await repository.listInvitations(board.boardId));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Не удалось загрузить приглашения.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Не удалось загрузить приглашения.",
+      );
     } finally {
       setLoading(false);
     }
@@ -497,7 +549,11 @@ function InvitationDialog({
       setDisplayName("");
       await refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Не удалось создать приглашение.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Не удалось создать приглашение.",
+      );
     } finally {
       setCreating(false);
     }
@@ -515,18 +571,31 @@ function InvitationDialog({
           <div>
             <p className="teacher-eyebrow">Доступ ученика</p>
             <h2 id="invitation-dialog-title">{board.title}</h2>
-            <p>Каждая ссылка независима: её права, срок и отзыв не затрагивают другие ссылки.</p>
+            <p>
+              Каждая ссылка независима: её права, срок и отзыв не затрагивают
+              другие ссылки.
+            </p>
           </div>
-          <button aria-label="Закрыть управление доступом" onClick={close} type="button">
+          <button
+            aria-label="Закрыть управление доступом"
+            onClick={close}
+            type="button"
+          >
             ×
           </button>
         </header>
 
         {secretResult === null ? null : (
-          <SecretResultPanel result={secretResult} onDismiss={() => setSecretResult(null)} />
+          <SecretResultPanel
+            result={secretResult}
+            onDismiss={() => setSecretResult(null)}
+          />
         )}
 
-        <form className="invitation-create" onSubmit={(event) => void create(event)}>
+        <form
+          className="invitation-create"
+          onSubmit={(event) => void create(event)}
+        >
           <h3>Новая ссылка</h3>
           <label>
             Имя ученика
@@ -541,7 +610,9 @@ function InvitationDialog({
           <label>
             Срок действия
             <select
-              onChange={(event) => setExpiryPreset(event.target.value as ExpiryPreset)}
+              onChange={(event) =>
+                setExpiryPreset(event.target.value as ExpiryPreset)
+              }
               value={expiryPreset}
             >
               <option value="1h">1 час</option>
@@ -563,7 +634,10 @@ function InvitationDialog({
           </button>
         </form>
 
-        <section aria-labelledby="issued-links-title" className="invitation-list">
+        <section
+          aria-labelledby="issued-links-title"
+          className="invitation-list"
+        >
           <div className="invitation-list__heading">
             <h3 id="issued-links-title">Выданные ссылки</h3>
             <span>{invitations.length}</span>
@@ -601,15 +675,21 @@ export function TeacherBoardsWorkspace({
       }),
     [context, environment.boardApiBaseUrl],
   );
-  const [boards, setBoards] = useState<readonly StandaloneBoardDescriptor[]>([]);
-  const [invitationCounts, setInvitationCounts] = useState<Readonly<Record<string, number>>>({});
+  const [boards, setBoards] = useState<readonly StandaloneBoardDescriptor[]>(
+    [],
+  );
+  const [invitationCounts, setInvitationCounts] = useState<
+    Readonly<Record<string, number>>
+  >({});
   const [tab, setTab] = useState<BoardTab>("active");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [renameBoard, setRenameBoard] = useState<StandaloneBoardDescriptor | null>(null);
-  const [accessBoard, setAccessBoard] = useState<StandaloneBoardDescriptor | null>(null);
+  const [renameBoard, setRenameBoard] =
+    useState<StandaloneBoardDescriptor | null>(null);
+  const [accessBoard, setAccessBoard] =
+    useState<StandaloneBoardDescriptor | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [busyBoardId, setBusyBoardId] = useState<string | null>(null);
 
@@ -634,7 +714,11 @@ export function TeacherBoardsWorkspace({
       );
       setInvitationCounts(Object.fromEntries(countEntries));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Не удалось загрузить доски.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Не удалось загрузить доски.",
+      );
     } finally {
       setLoading(false);
     }
@@ -658,7 +742,9 @@ export function TeacherBoardsWorkspace({
       setDeleteConfirmId(null);
       await refreshBoards();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Не удалось изменить доску.");
+      setError(
+        caught instanceof Error ? caught.message : "Не удалось изменить доску.",
+      );
     } finally {
       setBusyBoardId(null);
     }
@@ -667,7 +753,9 @@ export function TeacherBoardsWorkspace({
   const visibleBoards = boards.filter((board) =>
     tab === "active" ? board.archivedAt === null : board.archivedAt !== null,
   );
-  const activeCount = boards.filter((board) => board.archivedAt === null).length;
+  const activeCount = boards.filter(
+    (board) => board.archivedAt === null,
+  ).length;
   const archivedCount = boards.length - activeCount;
 
   return (
@@ -677,10 +765,15 @@ export function TeacherBoardsWorkspace({
           <p className="teacher-eyebrow">TutorBoard · преподаватель</p>
           <h1>Мои доски</h1>
           <p>
-            Создавайте отдельные доски и выдавайте ученикам ограниченные гостевые ссылки без регистрации.
+            Создавайте отдельные доски и выдавайте ученикам ограниченные
+            гостевые ссылки без регистрации.
           </p>
         </div>
-        <button className="is-primary teacher-create-board" onClick={() => setCreateOpen(true)} type="button">
+        <button
+          className="is-primary teacher-create-board"
+          onClick={() => setCreateOpen(true)}
+          type="button"
+        >
           + Создать доску
         </button>
       </header>
@@ -705,7 +798,11 @@ export function TeacherBoardsWorkspace({
       {status === null ? null : (
         <div className="teacher-status" role="status">
           <span>{status}</span>
-          <button aria-label="Закрыть сообщение" onClick={() => setStatus(null)} type="button">
+          <button
+            aria-label="Закрыть сообщение"
+            onClick={() => setStatus(null)}
+            type="button"
+          >
             ×
           </button>
         </div>
@@ -725,7 +822,9 @@ export function TeacherBoardsWorkspace({
         </section>
       ) : visibleBoards.length === 0 ? (
         <section className="teacher-empty">
-          <strong>{tab === "active" ? "Активных досок пока нет" : "Архив пуст"}</strong>
+          <strong>
+            {tab === "active" ? "Активных досок пока нет" : "Архив пуст"}
+          </strong>
           <p>
             {tab === "active"
               ? "Создайте первую доску и выпустите ссылку для ученика."
@@ -733,22 +832,33 @@ export function TeacherBoardsWorkspace({
           </p>
         </section>
       ) : (
-        <section aria-label={tab === "active" ? "Активные доски" : "Архивные доски"} className="teacher-board-grid">
+        <section
+          aria-label={tab === "active" ? "Активные доски" : "Архивные доски"}
+          className="teacher-board-grid"
+        >
           {visibleBoards.map((board) => {
             const busy = busyBoardId === board.boardId;
             return (
               <article className="teacher-board-card" key={board.boardId}>
                 <header>
                   <div>
-                    <span aria-hidden="true" className="teacher-board-card__icon">▦</span>
+                    <span
+                      aria-hidden="true"
+                      className="teacher-board-card__icon"
+                    >
+                      ▦
+                    </span>
                     <div>
                       <h2>{board.title}</h2>
                       <p>
-                        Ревизия {board.currentRevision} · обновлена {formatDate(board.updatedAt)}
+                        Ревизия {board.currentRevision} · обновлена{" "}
+                        {formatDate(board.updatedAt)}
                       </p>
                     </div>
                   </div>
-                  {board.archivedAt === null ? null : <span className="teacher-board-card__archived">Архив</span>}
+                  {board.archivedAt === null ? null : (
+                    <span className="teacher-board-card__archived">Архив</span>
+                  )}
                 </header>
 
                 <dl className="teacher-board-meta">
@@ -758,7 +868,11 @@ export function TeacherBoardsWorkspace({
                   </div>
                   <div>
                     <dt>Гостевая запись</dt>
-                    <dd>{board.guestWritesEnabled ? "Разрешена по ссылке" : "Только чтение"}</dd>
+                    <dd>
+                      {board.guestWritesEnabled
+                        ? "Разрешена по ссылке"
+                        : "Только чтение"}
+                    </dd>
                   </div>
                 </dl>
 
@@ -769,7 +883,10 @@ export function TeacherBoardsWorkspace({
                     onChange={(event) =>
                       void performBoardAction(
                         board,
-                        () => repository.updateBoard(board.boardId, { guestWritesEnabled: event.target.checked }),
+                        () =>
+                          repository.updateBoard(board.boardId, {
+                            guestWritesEnabled: event.target.checked,
+                          }),
                         event.target.checked
                           ? "Гостевая запись на доске разрешена."
                           : "Все гостевые ссылки переведены в режим чтения.",
@@ -777,17 +894,30 @@ export function TeacherBoardsWorkspace({
                     }
                     type="checkbox"
                   />
-                  <span>Разрешать запись гостям, у которых она включена в ссылке</span>
+                  <span>
+                    Разрешать запись гостям, у которых она включена в ссылке
+                  </span>
                 </label>
 
                 <footer className="teacher-board-actions">
-                  <a className="is-primary" href={`/b/${encodeURIComponent(board.boardId)}#/board`}>
+                  <a
+                    className="is-primary"
+                    href={`/b/${encodeURIComponent(board.boardId)}#/board`}
+                  >
                     Открыть
                   </a>
-                  <button disabled={busy} onClick={() => setAccessBoard(board)} type="button">
+                  <button
+                    disabled={busy}
+                    onClick={() => setAccessBoard(board)}
+                    type="button"
+                  >
                     Доступ и ссылки
                   </button>
-                  <button disabled={busy} onClick={() => setRenameBoard(board)} type="button">
+                  <button
+                    disabled={busy}
+                    onClick={() => setRenameBoard(board)}
+                    type="button"
+                  >
                     Переименовать
                   </button>
                   {board.archivedAt === null ? (
@@ -836,7 +966,10 @@ export function TeacherBoardsWorkspace({
                       >
                         Да, удалить
                       </button>
-                      <button onClick={() => setDeleteConfirmId(null)} type="button">
+                      <button
+                        onClick={() => setDeleteConfirmId(null)}
+                        type="button"
+                      >
                         Отмена
                       </button>
                     </span>

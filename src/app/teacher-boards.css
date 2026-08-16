@@ -3,7 +3,11 @@
   padding: 36px clamp(20px, 4vw, 64px) 56px;
   color: #eef2ff;
   background:
-    radial-gradient(circle at top left, rgb(92 78 175 / 22%), transparent 34rem),
+    radial-gradient(
+      circle at top left,
+      rgb(92 78 175 / 22%),
+      transparent 34rem
+    ),
     linear-gradient(160deg, #121425 0%, #171a2d 52%, #111320 100%);
 }
 

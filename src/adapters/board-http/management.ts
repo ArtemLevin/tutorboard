@@ -11,16 +11,15 @@ import type {
   UpdateBoardInvitationInput,
   UpdateStandaloneBoardInput,
 } from "../../core/ports/standalone-board-management-repository";
-import {
-  BoardHttpError,
-  type BoardHttpClientOptions,
-} from "./client";
+import { BoardHttpError, type BoardHttpClientOptions } from "./client";
 
 const identifierSchema = z.string().min(1).max(128);
-const dateTimeSchema = z.string().refine(
-  (value) => !Number.isNaN(Date.parse(value)),
-  "Expected an ISO date-time.",
-);
+const dateTimeSchema = z
+  .string()
+  .refine(
+    (value) => !Number.isNaN(Date.parse(value)),
+    "Expected an ISO date-time.",
+  );
 
 const teacherManagementContextSchema = z
   .object({
@@ -116,7 +115,9 @@ async function ensureOk(response: Response, message: string): Promise<unknown> {
       `board.management.${response.status}`,
       message,
       response.status,
-      response.status === 408 || response.status === 429 || response.status >= 500,
+      response.status === 408 ||
+        response.status === 429 ||
+        response.status >= 500,
     );
   }
   return payload;
@@ -162,7 +163,10 @@ function parseSecretResult(
     );
   }
   const joinUrl = new URL(parsed.data.joinUrl);
-  if (joinUrl.origin !== new URL(origin).origin || !joinUrl.pathname.startsWith("/j/")) {
+  if (
+    joinUrl.origin !== new URL(origin).origin ||
+    !joinUrl.pathname.startsWith("/j/")
+  ) {
     throw managementError(
       "board.management.invalid-join-url",
       "Сервер вернул небезопасную ссылку приглашения.",
@@ -227,7 +231,8 @@ export function createTeacherBoardManagementRepository(
     const method = (init.method ?? "GET").toUpperCase();
     if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
       headers.set("X-CSRF-Token", context.csrfToken);
-      if (init.body !== undefined) headers.set("Content-Type", "application/json");
+      if (init.body !== undefined)
+        headers.set("Content-Type", "application/json");
     }
     let response: Response;
     try {
@@ -295,7 +300,10 @@ export function createTeacherBoardManagementRepository(
     listBoards: async (includeArchived = false) => {
       const suffix = includeArchived ? "?includeArchived=true" : "";
       const payload = await requestJson(`/boards${suffix}`);
-      const parsed = z.object({ items: z.array(standaloneBoardSchema) }).strict().safeParse(payload);
+      const parsed = z
+        .object({ items: z.array(standaloneBoardSchema) })
+        .strict()
+        .safeParse(payload);
       if (!parsed.success) {
         throw managementError(
           "board.management.invalid-list",
@@ -308,7 +316,10 @@ export function createTeacherBoardManagementRepository(
     },
     listInvitations: async (boardId) => {
       const payload = await requestJson(invitationPath(boardId));
-      const parsed = z.object({ items: z.array(invitationSummarySchema) }).strict().safeParse(payload);
+      const parsed = z
+        .object({ items: z.array(invitationSummarySchema) })
+        .strict()
+        .safeParse(payload);
       if (!parsed.success) {
         throw managementError(
           "board.management.invalid-invitation-list",
@@ -338,7 +349,9 @@ export function createTeacherBoardManagementRepository(
       ),
     unarchiveBoard: async (boardId) =>
       parseBoard(
-        await requestJson(`${boardPath(boardId)}/unarchive`, { method: "POST" }),
+        await requestJson(`${boardPath(boardId)}/unarchive`, {
+          method: "POST",
+        }),
       ),
     updateBoard: async (boardId, input: UpdateStandaloneBoardInput) =>
       parseBoard(

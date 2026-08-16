@@ -22,7 +22,8 @@ if (root === null) {
 }
 
 const environment = readEnvironment();
-const teacherBoardsRoute = window.location.pathname.replace(/\/+$/u, "") === "/boards";
+const teacherBoardsRoute =
+  window.location.pathname.replace(/\/+$/u, "") === "/boards";
 const launchContext = readBoardLaunchContext(window.location);
 const geometryOsClient = createGeometryOsHttpClient({
   baseUrl: environment.geometryOsBaseUrl,

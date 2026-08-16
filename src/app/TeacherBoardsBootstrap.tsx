@@ -73,5 +73,7 @@ export function TeacherBoardsBootstrap({
     );
   }
 
-  return <TeacherBoardsWorkspace context={state.context} environment={environment} />;
+  return (
+    <TeacherBoardsWorkspace context={state.context} environment={environment} />
+  );
 }

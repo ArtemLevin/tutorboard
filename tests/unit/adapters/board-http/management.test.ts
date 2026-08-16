@@ -130,7 +130,9 @@ describe("teacher standalone board management HTTP adapter", () => {
       writeEnabled: true,
     });
 
-    expect(result.joinUrl).toBe("https://board.example.test/j/raw-secret-create");
+    expect(result.joinUrl).toBe(
+      "https://board.example.test/j/raw-secret-create",
+    );
     expect(seen).toEqual([
       { csrf: null, method: "GET" },
       { csrf: contextPayload.csrfToken, method: "POST" },
