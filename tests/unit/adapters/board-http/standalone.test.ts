@@ -12,7 +12,12 @@ const guestPayload = {
   actorId: "guest:standalone-01",
   boardId: expectedBoardId,
   cacheScopeId: "scope:guest:standalone-01",
-  capabilities: ["board.read", "board.write", "board.snapshot.write", "collaboration.connect"],
+  capabilities: [
+    "board.read",
+    "board.write",
+    "board.snapshot.write",
+    "collaboration.connect",
+  ],
   csrfToken: "csrf-guest-standalone-01",
   displayName: "Ксения",
   principalType: "guest",
@@ -85,6 +90,7 @@ describe("standalone board HTTP access", () => {
       return Promise.resolve(
         jsonResponse({
           expiresInSeconds: 30,
+          protocolVersion: "1.1",
           ticket: "ticket-ephemeral-standalone",
           websocketPath: `/api/v1/boards/${expectedBoardId}/collaboration`,
         }),
@@ -140,6 +146,7 @@ describe("standalone board HTTP access", () => {
       return Promise.resolve(
         jsonResponse({
           expiresInSeconds: 30,
+          protocolVersion: "1.1",
           ticket: "ticket-teacher",
           websocketPath: `/api/v1/boards/${expectedBoardId}/collaboration`,
         }),
