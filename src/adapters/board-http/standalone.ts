@@ -24,7 +24,10 @@ const capabilitiesSchema = z
   .max(boardCapabilities.length)
   .superRefine((capabilities, context) => {
     if (new Set(capabilities).size !== capabilities.length) {
-      context.addIssue({ code: "custom", message: "Capabilities must be unique." });
+      context.addIssue({
+        code: "custom",
+        message: "Capabilities must be unique.",
+      });
     }
   });
 
@@ -76,7 +79,9 @@ function normalizedBaseUrl(baseUrl: string, origin: string): string {
 function runtimeOrigin(options: BoardHttpClientOptions): string {
   return (
     options.origin ??
-    (typeof window === "undefined" ? "http://localhost" : window.location.origin)
+    (typeof window === "undefined"
+      ? "http://localhost"
+      : window.location.origin)
   );
 }
 
@@ -136,7 +141,9 @@ export async function fetchStandaloneBoardAccessContext(
       `board.http.${response.status}`,
       "Доступ к доске недоступен.",
       response.status,
-      response.status === 408 || response.status === 429 || response.status >= 500,
+      response.status === 408 ||
+        response.status === 429 ||
+        response.status >= 500,
     );
   }
 

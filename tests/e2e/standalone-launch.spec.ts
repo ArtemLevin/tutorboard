@@ -96,7 +96,10 @@ async function installStandaloneApi(
       return;
     }
 
-    if (pathname === `/api/v1/boards/${boardId}` && request.method() === "GET") {
+    if (
+      pathname === `/api/v1/boards/${boardId}` &&
+      request.method() === "GET"
+    ) {
       await route.fulfill({
         json: { board: descriptor(), commandBatches: [], snapshot: null },
       });
@@ -123,7 +126,9 @@ async function installStandaloneApi(
       request.method() === "POST"
     ) {
       expect(principal).toBe("teacher");
-      expect(new Headers(request.headers()).has("x-board-access-epoch")).toBe(false);
+      expect(new Headers(request.headers()).has("x-board-access-epoch")).toBe(
+        false,
+      );
       const payload = request.postDataJSON() as { documentSha256: string };
       await route.fulfill({
         json: {
@@ -208,21 +213,29 @@ test("opens a read-only guest board through the canonical standalone route", asy
     "Синхронизировано · r0",
   );
   await expect(page.getByTestId("object-count")).toHaveText("0 объектов");
-  expect(api.requests.some((entry) => entry.includes("/snapshots"))).toBe(false);
-  expect(api.requests.some((entry) => entry.includes("/client-events"))).toBe(false);
-  expect(api.requests.some((entry) => entry.includes("/board-evidence"))).toBe(false);
+  expect(api.requests.some((entry) => entry.includes("/snapshots"))).toBe(
+    false,
+  );
+  expect(api.requests.some((entry) => entry.includes("/client-events"))).toBe(
+    false,
+  );
+  expect(api.requests.some((entry) => entry.includes("/board-evidence"))).toBe(
+    false,
+  );
   expect(api.requests.some((entry) => entry.includes("/lessons/"))).toBe(false);
 
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(page.getByText("Ученик · Ксения")).toBeVisible();
   await expect(page.getByText("Режим только для чтения")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Сохранить PDF" }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Сохранить PDF" })).toHaveCount(
+    0,
+  );
   await expect(
     page.getByRole("button", { name: "Копировать ссылку на доску" }),
   ).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Все документы" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Все документы" })).toHaveCount(
+    0,
+  );
   await expect(
     page.getByRole("link", { name: "Настройки приложения" }),
   ).toHaveCount(0);
@@ -242,14 +255,20 @@ test("opens the same standalone document for a teacher with teacher capabilities
     "Синхронизировано · r0",
   );
   expect(api.requests.some((entry) => entry.includes("/snapshots"))).toBe(true);
-  expect(api.requests.some((entry) => entry.includes("/client-events"))).toBe(false);
+  expect(api.requests.some((entry) => entry.includes("/client-events"))).toBe(
+    false,
+  );
 
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(
     page.getByText("Преподаватель · Артём Александрович"),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Сохранить PDF" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Все документы" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Сохранить PDF" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Все документы" })).toHaveCount(
+    0,
+  );
 });
 
 test("renders a non-enumerating access failure and never loads the board", async ({
@@ -265,8 +284,7 @@ test("renders a non-enumerating access failure and never loads the board", async
   expect(
     api.requests.some(
       (entry) =>
-        entry.startsWith("GET /api/v1/boards/") &&
-        !entry.includes("/context"),
+        entry.startsWith("GET /api/v1/boards/") && !entry.includes("/context"),
     ),
   ).toBe(false);
 });

@@ -142,7 +142,9 @@ describe("standalone board HTTP access", () => {
       userId: "user:teacher-01",
     } as const;
     const request = vi.fn<typeof fetch>((_input, init) => {
-      expect(new Headers(init?.headers).has("X-Board-Access-Epoch")).toBe(false);
+      expect(new Headers(init?.headers).has("X-Board-Access-Epoch")).toBe(
+        false,
+      );
       return Promise.resolve(
         jsonResponse({
           expiresInSeconds: 30,

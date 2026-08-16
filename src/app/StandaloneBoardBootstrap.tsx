@@ -117,10 +117,13 @@ export function StandaloneBoardBootstrap({
           </span>
           <h1>Доступ к доске недоступен</h1>
           <p role="alert">
-            Ссылка могла истечь или быть отозвана. Проверьте адрес либо повторите
-            подключение.
+            Ссылка могла истечь или быть отозвана. Проверьте адрес либо
+            повторите подключение.
           </p>
-          <button onClick={() => setAttempt((value) => value + 1)} type="button">
+          <button
+            onClick={() => setAttempt((value) => value + 1)}
+            type="button"
+          >
             Повторить подключение
           </button>
         </section>

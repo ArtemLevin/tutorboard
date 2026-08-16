@@ -390,7 +390,8 @@ export function SyncedApp({
           </span>
           <h1>Доступ к доске недоступен</h1>
           <p role="alert">
-            Доступ к совместной доске был отозван. Запросите новую ссылку у преподавателя.
+            Доступ к совместной доске был отозван. Запросите новую ссылку у
+            преподавателя.
           </p>
         </section>
       </main>
@@ -582,9 +583,7 @@ export function SyncedApp({
             ? undefined
             : () => {
                 void copyBoardShareUrl(window.location)
-                  .then(() =>
-                    setEvidenceStatus("Ссылка на доску скопирована."),
-                  )
+                  .then(() => setEvidenceStatus("Ссылка на доску скопирована."))
                   .catch(() =>
                     setEvidenceStatus(
                       "Браузер не разрешил скопировать ссылку.",
