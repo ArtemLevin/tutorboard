@@ -160,7 +160,9 @@ test("keeps a local command offline, reconnects, and restores the confirmed revi
   await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
 });
 
-test("copies a stable lesson-bound link for collaborators", async ({ page }) => {
+test("copies a stable lesson-bound link for collaborators", async ({
+  page,
+}) => {
   await page.addInitScript(() => {
     const state = window as typeof window & { __copiedBoardLink?: string };
     Object.defineProperty(navigator, "clipboard", {
