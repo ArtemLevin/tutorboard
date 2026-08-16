@@ -188,7 +188,7 @@ export function SyncedApp({
   const [engine] = useState(
     () =>
       new BoardSyncEngine({
-        accessContext,
+        ...(accessContext === undefined ? {} : { accessContext }),
         createIdempotencyKey: () => `client:${crypto.randomUUID()}`,
         documentId,
         now: () => new Date().toISOString(),
@@ -398,9 +398,7 @@ export function SyncedApp({
     );
   }
 
-  const writeEnabled =
-    state.capabilities.includes("board.write") &&
-    collaborationStatus !== "revoked";
+  const writeEnabled = state.capabilities.includes("board.write");
   const canManageEvidence =
     lessonId !== undefined &&
     (state.role === "admin" || state.role === "tutor");
@@ -592,11 +590,9 @@ export function SyncedApp({
               }
         }
         persistenceNotice={
-          collaborationStatus === "revoked"
-            ? "Доступ к совместной доске отозван. Локальные изменения больше не отправляются."
-            : state.network === "offline"
-              ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
-              : null
+          state.network === "offline"
+            ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
+            : null
         }
         persistenceStatus={persistenceStatus(state)}
         readOnly={!writeEnabled}
@@ -607,13 +603,11 @@ export function SyncedApp({
             <p>{principalLabel}</p>
             {!writeEnabled ? <p>Режим только для чтения</p> : null}
             <p>
-              {collaborationStatus === "revoked"
-                ? "Доступ отозван"
-                : collaborationStatus === "online"
-                  ? `В комнате ${participants.length + 1}`
-                  : collaborationStatus === "connecting"
-                    ? "Подключение к комнате…"
-                    : "Совместная работа офлайн"}
+              {collaborationStatus === "online"
+                ? `В комнате ${participants.length + 1}`
+                : collaborationStatus === "connecting"
+                  ? "Подключение к комнате…"
+                  : "Совместная работа офлайн"}
             </p>
             <p>
               Серверная ревизия {state.revision} · ожидают отправки{" "}

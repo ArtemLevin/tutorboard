@@ -221,13 +221,16 @@ function parseDescriptor(value: unknown): ServerBoardDescriptor {
       false,
     );
   }
-  const { lessonId, studentId, ...descriptor } = parsed.data;
+  const { createdAt, lessonId, studentId, updatedAt, ...descriptor } =
+    parsed.data;
   return {
     ...descriptor,
     archivedAt: descriptor.archivedAt ?? null,
     documentId: documentId(descriptor.documentId),
+    ...(createdAt === undefined ? {} : { createdAt }),
     ...(lessonId === null || lessonId === undefined ? {} : { lessonId }),
     ...(studentId === null || studentId === undefined ? {} : { studentId }),
+    ...(updatedAt === undefined ? {} : { updatedAt }),
   };
 }
 
