@@ -99,8 +99,9 @@ describe("collaboration access control", () => {
   it("surfaces capability changes without closing the connection", async () => {
     const socket = new FakeSocket();
     const events: BoardAccessControlEvent[] = [];
+    const createWebSocket = vi.fn(() => socket as unknown as WebSocket);
     const client = new BoardCollaborationClient({
-      createWebSocket: () => socket as unknown as WebSocket,
+      createWebSocket,
       documentId: documentId("document:lesson"),
       onAccessEvent: (event) => events.push(event),
       onPresence: () => undefined,
@@ -124,7 +125,7 @@ describe("collaboration access control", () => {
     });
 
     client.start();
-    await vi.waitFor(() => expect(socket).toBeDefined());
+    await vi.waitFor(() => expect(createWebSocket).toHaveBeenCalledTimes(1));
     socket.receive({
       accessEpoch: "access-epoch-next",
       boardId: "document:lesson",
