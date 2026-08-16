@@ -19,16 +19,28 @@ function validIdentifier(value: string): boolean {
   return identifierPattern.test(value);
 }
 
+function decodePathIdentifier(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    throw new Error("Standalone board path contains an invalid board id.");
+  }
+}
+
 export function readBoardLaunchContext(
   location: Pick<Location, "pathname" | "search">,
 ): BoardLaunchContext {
   const standalone = standaloneBoardPathPattern.exec(location.pathname);
   if (standalone !== null) {
     const rawBoardId = standalone[1];
-    if (rawBoardId === undefined || !validIdentifier(rawBoardId)) {
+    if (rawBoardId === undefined) {
       throw new Error("Standalone board path contains an invalid board id.");
     }
-    return { boardId: documentId(rawBoardId), kind: "standalone" };
+    const decodedBoardId = decodePathIdentifier(rawBoardId);
+    if (!validIdentifier(decodedBoardId)) {
+      throw new Error("Standalone board path contains an invalid board id.");
+    }
+    return { boardId: documentId(decodedBoardId), kind: "standalone" };
   }
 
   const parameters = new URLSearchParams(location.search);
