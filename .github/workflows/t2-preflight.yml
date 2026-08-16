@@ -21,6 +21,7 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import re
 
           e2e = Path("tests/e2e/teacher-boards-workspace.spec.ts")
           text = e2e.read_text()
@@ -31,15 +32,10 @@ jobs:
 
           workspace = Path("src/app/TeacherBoardsWorkspace.tsx")
           text = workspace.read_text()
-          old = '''  useEffect(() => {
-            const dialog = dialogRef.current;
-            dialog?.showModal();
-            return () => {
-              if (dialog?.open) dialog.close();
-              window.setTimeout(() => returnFocusRef.current?.focus(), 0);
-            };
-          }, []);'''
-          new = '''  useEffect(() => {
+          pattern = re.compile(
+              r'useEffect\(\(\) => \{\n\s*const dialog = dialogRef\.current;\n\s*dialog\?\.showModal\(\);\n\s*return \(\) => \{\n\s*if \(dialog\?\.open\) dialog\.close\(\);\n\s*window\.setTimeout\(\(\) => returnFocusRef\.current\?\.focus\(\), 0\);\n\s*\};\n\s*\}, \[\]\);'
+          )
+          replacement = '''useEffect(() => {
             const dialog = dialogRef.current;
             const returnFocus = returnFocusRef.current;
             dialog?.showModal();
@@ -48,9 +44,10 @@ jobs:
               window.setTimeout(() => returnFocus?.focus(), 0);
             };
           }, []);'''
-          if text.count(old) != 1:
-              raise SystemExit(f"expected one focus cleanup anchor, got {text.count(old)}")
-          workspace.write_text(text.replace(old, new, 1))
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f"expected one focus cleanup match, got {count}")
+          workspace.write_text(text)
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
