@@ -32,10 +32,16 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
+function requestUrl(input: RequestInfo | URL): URL {
+  if (typeof input === "string") return new URL(input);
+  if (input instanceof URL) return input;
+  return new URL(input.url);
+}
+
 describe("standalone board HTTP access", () => {
   it("fetches a strict board-scoped guest context", async () => {
     const request = vi.fn<typeof fetch>((input) => {
-      const url = new URL(String(input));
+      const url = requestUrl(input);
       expect(url.pathname).toBe("/api/v1/boards/context");
       expect(url.searchParams.get("boardId")).toBe(expectedBoardId);
       return Promise.resolve(jsonResponse(guestPayload));
@@ -77,7 +83,7 @@ describe("standalone board HTTP access", () => {
 
   it("uses the resolved context locally and adds the guest access epoch to unsafe requests", async () => {
     const request = vi.fn<typeof fetch>((input, init) => {
-      const url = new URL(String(input));
+      const url = requestUrl(input);
       if (url.pathname === "/api/v1/boards/context") {
         return Promise.resolve(jsonResponse(guestPayload));
       }
