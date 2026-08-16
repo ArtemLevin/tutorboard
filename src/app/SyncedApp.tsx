@@ -266,8 +266,6 @@ export function SyncedApp({
         .listEvidence(lessonId)
         .then(setEvidence)
         .catch(() => setEvidence([]));
-    } else {
-      setEvidence([]);
     }
     return () => collaboration.stop();
   }, [collaboration, lessonId, ready, repository]);
