@@ -104,3 +104,13 @@ await replaceOnce(
   );
 `,
 );
+
+await replaceOnce(
+  "tests/unit/adapters/board-websocket/client.test.ts",
+  `import {
+  actorId,
+  documentId,
+  type BoardPlatformRepository,
+} from "../../../../src/core/public";`,
+  `import { actorId, documentId } from "../../../../src/core/public";`,
+);
