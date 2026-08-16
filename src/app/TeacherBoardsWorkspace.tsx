@@ -15,7 +15,7 @@ import type {
   StandaloneBoardDescriptor,
   StandaloneBoardManagementRepository,
   TeacherManagementContext,
-} from "../core/ports/standalone-board-management-repository";
+} from "../core/public";
 import type { AppEnvironment } from "./configuration/environment";
 import "./teacher-boards.css";
 

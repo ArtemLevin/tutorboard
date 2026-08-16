@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { fetchTeacherManagementContext } from "../adapters/board-http/public";
-import type { TeacherManagementContext } from "../core/ports/standalone-board-management-repository";
+import type { TeacherManagementContext } from "../core/public";
 import type { AppEnvironment } from "./configuration/environment";
 import { TeacherBoardsWorkspace } from "./TeacherBoardsWorkspace";
 

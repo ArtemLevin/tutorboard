@@ -1,16 +1,17 @@
 import { z } from "zod";
 
-import { documentId, type DocumentId } from "../../core/public";
-import type {
-  BoardInvitationSecretResult,
-  BoardInvitationSummary,
-  CreateBoardInvitationInput,
-  StandaloneBoardDescriptor,
-  StandaloneBoardManagementRepository,
-  TeacherManagementContext,
-  UpdateBoardInvitationInput,
-  UpdateStandaloneBoardInput,
-} from "../../core/ports/standalone-board-management-repository";
+import {
+  documentId,
+  type BoardInvitationSecretResult,
+  type BoardInvitationSummary,
+  type CreateBoardInvitationInput,
+  type DocumentId,
+  type StandaloneBoardDescriptor,
+  type StandaloneBoardManagementRepository,
+  type TeacherManagementContext,
+  type UpdateBoardInvitationInput,
+  type UpdateStandaloneBoardInput,
+} from "../../core/public";
 import { BoardHttpError, type BoardHttpClientOptions } from "./client";
 
 const identifierSchema = z.string().min(1).max(128);
