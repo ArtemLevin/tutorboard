@@ -1,0 +1,116 @@
+name: T1 strict type fixes
+
+on:
+  push:
+    branches:
+      - agent/t1-standalone-launch
+    paths:
+      - .github/workflows/t1-types-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: agent/t1-standalone-launch
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Apply exact-optional and narrowed-state fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one anchor, found {count}: {old[:100]!r}")
+              target.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "src/adapters/board-http/client.ts",
+              '''  const { lessonId, studentId, ...descriptor } = parsed.data;
+          return {
+            ...descriptor,
+            archivedAt: descriptor.archivedAt ?? null,
+            documentId: documentId(descriptor.documentId),
+            ...(lessonId === null || lessonId === undefined ? {} : { lessonId }),
+            ...(studentId === null || studentId === undefined ? {} : { studentId }),
+          };''',
+              '''  const { createdAt, lessonId, studentId, updatedAt, ...descriptor } = parsed.data;
+          return {
+            ...descriptor,
+            archivedAt: descriptor.archivedAt ?? null,
+            documentId: documentId(descriptor.documentId),
+            ...(createdAt === undefined ? {} : { createdAt }),
+            ...(lessonId === null || lessonId === undefined ? {} : { lessonId }),
+            ...(studentId === null || studentId === undefined ? {} : { studentId }),
+            ...(updatedAt === undefined ? {} : { updatedAt }),
+          };''',
+          )
+
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '''      new BoardSyncEngine({
+                accessContext,
+                createIdempotencyKey:''',
+              '''      new BoardSyncEngine({
+                ...(accessContext === undefined ? {} : { accessContext }),
+                createIdempotencyKey:''',
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '''  const writeEnabled =
+            state.capabilities.includes("board.write") &&
+            collaborationStatus !== "revoked";''',
+              '''  const writeEnabled = state.capabilities.includes("board.write");''',
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '''        persistenceNotice={
+                  collaborationStatus === "revoked"
+                    ? "Доступ к совместной доске отозван. Локальные изменения больше не отправляются."
+                    : state.network === "offline"
+                      ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
+                      : null
+                }''',
+              '''        persistenceNotice={
+                  state.network === "offline"
+                    ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
+                    : null
+                }''',
+          )
+          replace_once(
+              "src/app/SyncedApp.tsx",
+              '''              {collaborationStatus === "revoked"
+                        ? "Доступ отозван"
+                        : collaborationStatus === "online"
+                          ? `В комнате ${participants.length + 1}`
+                          : collaborationStatus === "connecting"
+                            ? "Подключение к комнате…"
+                            : "Совместная работа офлайн"}''',
+              '''              {collaborationStatus === "online"
+                        ? `В комнате ${participants.length + 1}`
+                        : collaborationStatus === "connecting"
+                          ? "Подключение к комнате…"
+                          : "Совместная работа офлайн"}''',
+          )
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write src/adapters/board-http/client.ts src/app/SyncedApp.tsx
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/adapters/board-http/client.ts src/app/SyncedApp.tsx
+          git commit -m "fix: satisfy strict T1 runtime types"
+          git push origin HEAD:agent/t1-standalone-launch
