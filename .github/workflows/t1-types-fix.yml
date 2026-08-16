@@ -33,17 +33,12 @@ jobs:
                   raise SystemExit(f"{path}: expected one anchor, found {count}: {old[:100]!r}")
               target.write_text(text.replace(old, new, 1))
 
-          replace_once(
-              "src/adapters/board-http/client.ts",
-              '''  const { lessonId, studentId, ...descriptor } = parsed.data;
-          return {
-            ...descriptor,
-            archivedAt: descriptor.archivedAt ?? null,
-            documentId: documentId(descriptor.documentId),
-            ...(lessonId === null || lessonId === undefined ? {} : { lessonId }),
-            ...(studentId === null || studentId === undefined ? {} : { studentId }),
-          };''',
-              '''  const { createdAt, lessonId, studentId, updatedAt, ...descriptor } = parsed.data;
+          client = Path("src/adapters/board-http/client.ts")
+          text = client.read_text()
+          start = text.index("  const { lessonId, studentId, ...descriptor } = parsed.data;")
+          end_marker = "  };\n}\n\nfunction parseEvidence"
+          end = text.index(end_marker, start)
+          replacement = '''  const { createdAt, lessonId, studentId, updatedAt, ...descriptor } = parsed.data;
           return {
             ...descriptor,
             archivedAt: descriptor.archivedAt ?? null,
@@ -52,8 +47,8 @@ jobs:
             ...(lessonId === null || lessonId === undefined ? {} : { lessonId }),
             ...(studentId === null || studentId === undefined ? {} : { studentId }),
             ...(updatedAt === undefined ? {} : { updatedAt }),
-          };''',
-          )
+          };'''
+          client.write_text(text[:start] + replacement + text[end + len("  };"):])
 
           replace_once(
               "src/app/SyncedApp.tsx",
