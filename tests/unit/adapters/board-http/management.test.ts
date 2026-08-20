@@ -193,10 +193,13 @@ describe("teacher standalone board management HTTP adapter", () => {
       const request = vi.fn<typeof fetch>(() =>
         Promise.resolve(jsonResponse({ error: "denied" }, status)),
       );
-      const repository = createTeacherBoardManagementRepository(contextPayload, {
-        fetch: request,
-        origin: "https://board.example.test",
-      });
+      const repository = createTeacherBoardManagementRepository(
+        contextPayload,
+        {
+          fetch: request,
+          origin: "https://board.example.test",
+        },
+      );
 
       await expect(repository.listBoards()).rejects.toMatchObject({
         code: `board.management.${status}`,
