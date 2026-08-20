@@ -60,7 +60,7 @@ describe("standalone board HTTP access", () => {
     expect("userId" in context).toBe(false);
   });
 
-  it("rejects a mismatched or over-privileged guest context without exposing details", async () => {
+  it("rejects guest contexts with teacher-only fields without exposing details", async () => {
     const request = vi.fn<typeof fetch>(() =>
       Promise.resolve(
         jsonResponse({
@@ -80,6 +80,59 @@ describe("standalone board HTTP access", () => {
       message: "Доступ к доске недоступен.",
     });
   });
+
+  it("rejects a context scoped to another board", async () => {
+    const request = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        jsonResponse({
+          ...guestPayload,
+          boardId: "board:standalone-other",
+        }),
+      ),
+    );
+
+    await expect(
+      fetchStandaloneBoardAccessContext(expectedBoardId, {
+        fetch: request,
+        origin: "https://board.example.test",
+      }),
+    ).rejects.toMatchObject({
+      code: "board.http.invalid-context",
+      message: "Доступ к доске недоступен.",
+    });
+  });
+
+  it.each([
+    ["missing board.read", ["collaboration.connect"]],
+    ["snapshot without write", ["board.read", "board.snapshot.write"]],
+    ["export", ["board.read", "board.export"]],
+    ["history", ["board.read", "board.history.read"]],
+    ["invitation management", ["board.read", "board.invites.manage"]],
+    ["archive", ["board.read", "board.archive"]],
+    ["delete", ["board.read", "board.delete"]],
+  ])(
+    "rejects guest capability policy violation: %s",
+    async (_label, capabilities) => {
+      const request = vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          jsonResponse({
+            ...guestPayload,
+            capabilities,
+          }),
+        ),
+      );
+
+      await expect(
+        fetchStandaloneBoardAccessContext(expectedBoardId, {
+          fetch: request,
+          origin: "https://board.example.test",
+        }),
+      ).rejects.toMatchObject({
+        code: "board.http.invalid-context",
+        message: "Доступ к доске недоступен.",
+      });
+    },
+  );
 
   it("uses the resolved context locally and adds the guest access epoch to unsafe requests", async () => {
     const request = vi.fn<typeof fetch>((input, init) => {
