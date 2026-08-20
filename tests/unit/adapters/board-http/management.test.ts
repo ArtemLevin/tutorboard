@@ -181,4 +181,64 @@ describe("teacher standalone board management HTTP adapter", () => {
       repository.rotateInvitation(boardId, invitationPayload.invitationId),
     ).rejects.toMatchObject({ code: "board.management.invalid-join-url" });
   });
+
+  it.each([
+    [403, false],
+    [408, true],
+    [429, true],
+    [500, true],
+  ])(
+    "classifies HTTP %i management failures with retryable=%s",
+    async (status, retryable) => {
+      const request = vi.fn<typeof fetch>(() =>
+        Promise.resolve(jsonResponse({ error: "denied" }, status)),
+      );
+      const repository = createTeacherBoardManagementRepository(
+        contextPayload,
+        {
+          fetch: request,
+          origin: "https://board.example.test",
+        },
+      );
+
+      await expect(repository.listBoards()).rejects.toMatchObject({
+        code: `board.management.${status}`,
+        retryable,
+        status,
+      });
+    },
+  );
+
+  it("normalizes transport failures as retryable without leaking the low-level error", async () => {
+    const request = vi.fn<typeof fetch>(() =>
+      Promise.reject(new Error("socket contained private upstream details")),
+    );
+    const repository = createTeacherBoardManagementRepository(contextPayload, {
+      fetch: request,
+      origin: "https://board.example.test",
+    });
+
+    await expect(repository.listBoards()).rejects.toMatchObject({
+      code: "board.management.transport",
+      message: "Не удалось выполнить операцию с доской.",
+      retryable: true,
+      status: null,
+    });
+  });
+
+  it("accepts an empty 204 delete response without attempting JSON parsing", async () => {
+    const request = vi.fn<typeof fetch>((_input, init) => {
+      expect((init?.method ?? "GET").toUpperCase()).toBe("DELETE");
+      expect(new Headers(init?.headers).get("X-CSRF-Token")).toBe(
+        contextPayload.csrfToken,
+      );
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    const repository = createTeacherBoardManagementRepository(contextPayload, {
+      fetch: request,
+      origin: "https://board.example.test",
+    });
+
+    await expect(repository.deleteBoard(boardId)).resolves.toBeUndefined();
+  });
 });

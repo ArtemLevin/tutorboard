@@ -1,69 +1,15 @@
-import { z } from "zod";
-
-import {
-  boardCapabilities,
-  type BoardAccessContext,
-} from "../../core/access/public";
+import type { BoardAccessContext } from "../../core/access/public";
 import { actorId, documentId, type DocumentId } from "../../core/public";
 import type {
   BoardPlatformRepository,
   BoardSessionContext,
 } from "../../core/ports/public";
+import { parseStandaloneBoardAccessContext } from "../../shared/standalone-board-contract";
 import {
   BoardHttpError,
   createBoardHttpRepository,
   type BoardHttpClientOptions,
 } from "./client";
-
-const identifierSchema = z.string().min(1).max(128);
-const opaqueSecurityValueSchema = z.string().min(8).max(512);
-const capabilitySchema = z.enum(boardCapabilities);
-const capabilitiesSchema = z
-  .array(capabilitySchema)
-  .min(1)
-  .max(boardCapabilities.length)
-  .superRefine((capabilities, context) => {
-    if (new Set(capabilities).size !== capabilities.length) {
-      context.addIssue({
-        code: "custom",
-        message: "Capabilities must be unique.",
-      });
-    }
-  });
-
-const commonContextShape = {
-  accessEpoch: opaqueSecurityValueSchema,
-  actorId: identifierSchema,
-  boardId: identifierSchema,
-  cacheScopeId: opaqueSecurityValueSchema,
-  capabilities: capabilitiesSchema,
-  csrfToken: opaqueSecurityValueSchema,
-  displayName: z.string().min(1).max(160),
-  schemaVersion: z.literal("1.0"),
-} as const;
-
-const teacherContextSchema = z
-  .object({
-    ...commonContextShape,
-    organizationId: identifierSchema,
-    principalType: z.literal("teacher"),
-    role: z.enum(["admin", "tutor"]),
-    userId: identifierSchema,
-  })
-  .strict();
-
-const guestContextSchema = z
-  .object({
-    ...commonContextShape,
-    principalType: z.literal("guest"),
-    role: z.literal("student"),
-  })
-  .strict();
-
-const boardAccessContextSchema = z.discriminatedUnion("principalType", [
-  teacherContextSchema,
-  guestContextSchema,
-]);
 
 function normalizedBaseUrl(baseUrl: string, origin: string): string {
   const parsed = new URL(baseUrl, origin);
@@ -147,8 +93,10 @@ export async function fetchStandaloneBoardAccessContext(
     );
   }
 
-  const parsed = boardAccessContextSchema.safeParse(payload);
-  if (!parsed.success || parsed.data.boardId !== expectedBoardId) {
+  let parsed: ReturnType<typeof parseStandaloneBoardAccessContext>;
+  try {
+    parsed = parseStandaloneBoardAccessContext(payload);
+  } catch {
     throw new BoardHttpError(
       "board.http.invalid-context",
       "Доступ к доске недоступен.",
@@ -157,19 +105,28 @@ export async function fetchStandaloneBoardAccessContext(
     );
   }
 
-  if (parsed.data.principalType === "teacher") {
+  if (parsed.boardId !== expectedBoardId) {
+    throw new BoardHttpError(
+      "board.http.invalid-context",
+      "Доступ к доске недоступен.",
+      response.status,
+      false,
+    );
+  }
+
+  if (parsed.principalType === "teacher") {
     return {
-      ...parsed.data,
-      actorId: actorId(parsed.data.actorId),
-      boardId: documentId(parsed.data.boardId),
-      capabilities: [...parsed.data.capabilities],
+      ...parsed,
+      actorId: actorId(parsed.actorId),
+      boardId: documentId(parsed.boardId),
+      capabilities: [...parsed.capabilities],
     };
   }
   return {
-    ...parsed.data,
-    actorId: actorId(parsed.data.actorId),
-    boardId: documentId(parsed.data.boardId),
-    capabilities: [...parsed.data.capabilities],
+    ...parsed,
+    actorId: actorId(parsed.actorId),
+    boardId: documentId(parsed.boardId),
+    capabilities: [...parsed.capabilities],
   };
 }
 
