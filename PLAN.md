@@ -1,23 +1,21 @@
-# TutorBoard standalone: Pilot-first execution plan и Board-only Production Profile
+# TutorBoard standalone: execution plan и Board-only Production Profile
 
 > Статус документа: основной execution plan.
 >
 > Последнее обновление: 2026-08-21.
 >
-> Документ синхронизирован с фактическим состоянием `main` и текущим
-> cross-repository delivery в `tutor-assistant-web`. Ближайшая продуктовая цель —
-> **как можно быстрее получить реальный HTTPS-сервер и провести controlled pilot
-> с одним преподавателем и одним учеником**, не подменяя этим полный production
+> Документ синхронизирован с фактическим состоянием `main` после завершения
+> standalone contracts, backend persistence/guest access, standalone launch,
+> teacher board workspace и test hardening. Ближайшая delivery цель —
+> **Pilot Deployment Gate**: как можно быстрее получить реальный HTTPS-сервер и
+> провести controlled pilot с одним преподавателем и одним учеником. После pilot
+> обязательным остаётся полный **Board-only Production Profile** и production
 > release gate.
->
-> После Pilot Gate проект возвращается к полному **Board-only Production Profile**:
-> B3/T3 convergence hardening, immutable release pipeline, staging/restore/soak и
-> production rollout.
 >
 > Исторические планы по полотну, GeometryOS, Smart Ink и lesson-bound интеграциям
 > остаются в `docs/DEVELOPMENT_PLAN.md` и профильных ADR/документах в
-> `docs/architecture/`. Этот файл определяет текущий порядок работ для standalone
-> TutorBoard.
+> `docs/architecture/`. Этот файл определяет текущий порядок работ для публичного
+> standalone TutorBoard.
 
 ## 1. Продуктовая цель
 
@@ -39,23 +37,9 @@ TutorBoard разворачивается как самостоятельный 
 Анонимное создание досок не допускается. Владение, аудит, revoke и восстановление
 данных привязаны к authenticated teacher principal.
 
-### 1.1. Два delivery gate
-
-Проект разделяет два разных уровня готовности:
-
-1. **Pilot Gate** — один контролируемый реальный сервер, один преподаватель и один
-   ученик. Цель — проверить настоящий пользовательский сценарий на HTTPS-host и
-   получить эксплуатационный feedback без объявления окружения production.
-2. **Production Gate** — полный Board-only Production Profile с P0/P1 security,
-   durability, release, staging, restore, soak и rollback требованиями.
-
-Pilot Gate не отменяет и не ослабляет Production Gate. Он только выносит
-минимально безопасный пользовательский тест перед более дорогим production
-hardening.
-
 ## 2. Неподвижные архитектурные инварианты
 
-Следующие решения обязательны и для pilot, и для production:
+Следующие решения считаются обязательными:
 
 1. **Revision protocol не переписывается.** Сохраняются command envelope `1.5`,
    sequential server revisions, SHA-256 validation, idempotency, Lamport
@@ -67,22 +51,19 @@ hardening.
    сервером.
 4. **Browser durable state изолирован по principal/access scope.** Teacher и
    guest одной доски не используют один security scope.
-5. **Access epoch защищает offline queue.** Старые pending commands не должны
-   автоматически применяться после revoke/read-only downgrade.
+5. **Access epoch защищает offline queue.** Старые pending commands не
+   auto-push'ятся после revoke/read-only downgrade.
 6. **Revoke терминален для guest client.** `access.revoked`/`4403` не должен
    запускать reconnect loop.
 7. **Raw invitation secret не становится runtime identifier.** После
    `/j/<secret>` он исчезает из URL и не сохраняется в browser storage.
 8. **WebSocket ticket остаётся короткоживущим one-time credential** и не
    попадает в persistent logs/traces.
-9. **Guest shell и proxy используют least privilege.** Недостаточно скрыть UI:
-   лишние backend routes не должны быть зарегистрированы или опубликованы.
+9. **Guest shell и production proxy используют least privilege.** Недостаточно
+   скрыть UI: лишние backend routes не должны быть зарегистрированы или
+   опубликованы.
 10. **Backward compatibility full runtime сохраняется.** Board-only profile не
     должен ломать legacy lesson-bound deployment.
-11. **Подтверждённый command после `2xx` не теряется.** Redis не является durable
-    source of truth.
-12. **Production secret material durable.** `APP_SECRET_KEY` не генерируется при
-    каждом deploy и входит в backup/recovery contract.
 
 ## 3. Фактический статус на 2026-08-21
 
@@ -100,56 +81,78 @@ hardening.
 | T3 foundation | MERGED | PR #123: refreshable standalone access context для reconnect/access convergence |
 
 T1/T2 standalone flow уже поддерживает teacher management и guest-link launch.
-Backend B1/B2 содержит standalone persistence, invitation/session model,
+Backend B1/B2 уже содержит standalone persistence, invitation/session model,
 server-authoritative capability checks и collaboration integration.
 
-### 3.2. Текущие release blockers
+### 3.2. Открытые delivery gaps
+
+Текущий delivery разделён на три связанных направления:
+
+1. **Pilot Deployment Gate — ближайший critical path**
+   - вернуть TutorBoard и board-profile backend в green state;
+   - завершить минимальный board-only Compose/Caddy contract;
+   - поднять один реальный HTTPS-host;
+   - выполнить teacher/guest two-browser smoke, reconnect, revoke и API restart;
+   - сделать off-host backup и зафиксировать release manifest;
+   - только после этого провести controlled lesson с одним учеником.
+2. **B3/T3 convergence/access hardening Production Gate**
+   - live capability downgrade/revoke;
+   - reconnect context refresh;
+   - stale access-epoch pending quarantine;
+   - полный two-browser verification для read-only/revoke/offline/reconnect.
+3. **D1–D4 Board-only Production Profile**
+   - strict backend composition;
+   - minimal router/provider surface;
+   - board-only Compose/Caddy;
+   - immutable release pipeline;
+   - staging/restore/chaos;
+   - production rollout.
+
+Pilot Gate не заменяет Production Gate. Он вводит более ранний, контролируемый
+уровень готовности для реального пользовательского теста.
+
+### 3.3. Root cause текущего deployment gap
+
+Существующий backend умеет standalone boards, но production composition пока не
+является board-only:
+
+- module `boards` зависит от `scheduling`;
+- `scheduling` зависит от `students`;
+- `students` зависит от `identity`;
+- текущий `boards/routes.py` смешивает standalone, legacy lesson, evidence и
+  GeometryOS routes;
+- `build_container()` создаёт full-product providers независимо от того,
+  используются ли их routers;
+- существующий production Compose запускает full Tutor Assistant stack;
+- текущий Caddy production template направляет в TutorBoard только `/board/*`,
+  но standalone product требует также `/boards` и `/b/*`.
+
+Следовательно, `ENABLED_MODULES=boards` **не является** Board-only Production
+Profile и не должен использоваться как production shortcut.
+
+### 3.4. Актуальные blockers перед Pilot Gate
 
 #### TutorBoard
 
-`main` содержит PR #123, но финальный PR-head CI этого изменения завершился на
+PR #123 merged в `main`, но его финальный PR-head CI завершился на
 `format:check`: Prettier сообщил drift в
-`src/adapters/board-http/standalone.ts`. Из-за этого downstream lint/typecheck/
-unit/performance/architecture/build в том run не были выполнены.
+`src/adapters/board-http/standalone.ts`. Downstream lint/typecheck/unit/
+performance/architecture/build в этом run не выполнялись.
 
-Следствие: первый шаг Pilot Gate — вернуть текущий frontend HEAD в полный
-зелёный `npm run check`. Нельзя считать release проверенным только потому, что
-изменение уже merged.
+Pilot не использует этот HEAD как проверенный release, пока свежий полный
+`npm run check` не станет green.
 
 #### tutor-assistant-web
 
-Board-only composition развивается в draft PR #31
-`feat: add strict board-only production profile`. В ветке уже присутствуют:
+Board-only composition находится в draft PR #31
+`feat: add strict board-only production profile`. В ветке уже есть
+`APP_PROFILE=board`, minimal board container, standalone routes/access policy,
+board-specific readiness, `compose.board.production.yml` и board Caddy config.
 
-- `APP_PROFILE=full|board`;
-- minimal board container;
-- standalone-only access/router surface;
-- board login/logout;
-- board-specific readiness/metrics;
-- `compose.board.production.yml`;
-- `deploy/board-production/Caddyfile.template`;
-- board profile CI contract.
-
-Текущий `Board profile contract` run красный: один exact route/provider inventory
-тест падает на `_IncludedRouter` без `.path`; после этого Compose/proxy/redaction
-checks пропускаются.
-
-Следствие: второй шаг Pilot Gate — исправить root cause inventory test/route
-inspection и получить green board-profile gate, а не обходить проверку.
-
-### 3.3. Почему текущий production stack нельзя использовать как shortcut
-
-Существующий `tutor-assistant-web/main` production composition остаётся full
-Tutor Assistant stack:
-
-- `boards` связан с legacy/full-product dependencies;
-- production container создаёт лишние providers;
-- full Compose поднимает worker/scheduler и optional product services;
-- текущий production Caddy направляет в TutorBoard только `/board/*`, тогда как
-  standalone flow требует `/boards` и `/b/*`.
-
-Следовательно, `ENABLED_MODULES=boards` и текущий full production Compose не
-считаются допустимым Board-only deployment shortcut.
+Текущий Board profile contract падает в exact route/provider inventory test на
+`_IncludedRouter` без `.path`; последующие Compose/proxy/redaction checks
+пропускаются. Исправление должно восстановить корректную inspection фактических
+FastAPI routes. Ослабление exact allowlist, `skip` или `xfail` не допускаются.
 
 ## 4. Целевая Board-only архитектура
 
@@ -181,17 +184,9 @@ Board API: APP_PROFILE=board
    `-- S3-compatible object storage
 ```
 
-### 4.1. Источники истины
+### 4.1. Разрешённый runtime surface
 
-- PostgreSQL: board metadata, command journal, invitations, audit.
-- Redis: collaboration tickets, presence, Pub/Sub, ephemeral coordination/rate
-  limits.
-- Object storage: canonical snapshots и backup artifacts.
-
-Redis restart может оборвать live WebSocket connections, но не должен терять
-accepted revisions.
-
-### 4.2. Разрешённый runtime surface
+Board profile включает только:
 
 ```text
 identity
@@ -204,7 +199,9 @@ health
 metrics
 ```
 
-### 4.3. Исключённый base runtime surface
+### 4.2. Исключённый runtime surface
+
+В базовом board profile не должны устанавливаться/запускаться:
 
 ```text
 students
@@ -222,59 +219,88 @@ GeometryOS
 DocumentEngine
 ```
 
-GeometryOS, formula recognition и Smart Ink допускаются только как явные
-opt-in dependencies и не входят в минимальный Pilot/Board v1 runtime.
+GeometryOS может быть добавлен позже как отдельный explicit opt-in profile или
+отдельный pinned deployment capability; он не входит в минимальный v1 runtime.
+
+### 4.3. Источники истины
+
+- PostgreSQL: board metadata, command journal, invitations, audit.
+- Redis: collaboration tickets, presence, Pub/Sub, ephemeral coordination/rate
+  limits.
+- Object storage: canonical snapshots и off-host backups.
+
+Redis не является durable source of truth. Его потеря может прервать live
+collaboration, но не должна потерять принятые revisions.
 
 ## 5. Runtime profile contract
 
-First-class configuration:
+Добавить first-class configuration:
 
 ```text
 APP_PROFILE=full   # default, существующее поведение
 APP_PROFILE=board  # strict standalone runtime
 ```
 
-Правила:
+### 5.1. Правила
 
 - unset `APP_PROFILE` эквивалентен `full`;
 - `full` сохраняет текущее поведение;
 - `board` использует фиксированный allowlist composition;
 - неизвестный profile вызывает startup failure;
 - `board` нельзя расширять произвольным `ENABLED_MODULES`;
-- конфликтующая конфигурация fail fast до открытия listener;
-- `APP_PROFILE=board` не является alias для `ENABLED_MODULES=boards`.
+- конфликтующая конфигурация должна fail fast до открытия listener.
 
-### 5.1. Обязательная board configuration
+`APP_PROFILE=board` не является alias для `ENABLED_MODULES=boards`.
+
+### 5.2. Production validation
+
+Для `board` обязательны:
+
+- PostgreSQL + `postgresql+psycopg`;
+- `AUTO_MIGRATE=false`;
+- strong durable `APP_SECRET_KEY`;
+- HTTPS `PUBLIC_BASE_URL`;
+- explicit `TRUSTED_HOSTS`;
+- explicit trusted proxy ranges;
+- secure session cookies;
+- Redis;
+- S3-compatible artifact/snapshot storage;
+- board rate limits;
+- production teacher bootstrap credentials или существующий teacher account;
+- backup configuration.
+
+Не должны требоваться:
+
+- BBB credentials;
+- transcription provider;
+- DocumentEngine;
+- materials provider;
+- ClamAV;
+- GeometryOS.
+
+## 6. D1.1 — разделение standalone и legacy Board API routes
+
+Текущий mixed `modules/boards/routes.py` необходимо декомпозировать по
+responsibility. Конкретные имена файлов могут быть скорректированы по фактическим
+imports, но target ownership должен быть явным:
 
 ```text
-PostgreSQL + postgresql+psycopg
-AUTO_MIGRATE=false
-strong durable APP_SECRET_KEY
-HTTPS PUBLIC_BASE_URL
-explicit TRUSTED_HOSTS
-explicit trusted proxy ranges
-SESSION_COOKIE_SECURE=true
-Redis
-S3-compatible artifact/snapshot storage
-board rate limits
-teacher bootstrap credentials или существующий teacher account
-backup configuration
+modules/boards/
+  standalone_routes.py
+  sync_routes.py
+  legacy_routes.py
+  evidence_routes.py
+  geometry_gateway.py
+  route_support.py
 ```
 
-Не должны требоваться BBB, transcription, DocumentEngine, materials, ClamAV или
-GeometryOS credentials.
+### 6.1. Board profile routes
 
-## 6. D1 — Board-only runtime isolation
-
-### 6.1. D1.1 — standalone и legacy routes
-
-Board profile регистрирует только standalone management, invitation, sync,
-collaboration, identity login/logout, health и metrics routes.
-
-Разрешённый API surface включает:
+Разрешаются:
 
 ```text
 GET    /api/v1/boards/context
+
 POST   /api/v1/boards
 GET    /api/v1/boards
 PATCH  /api/v1/boards/{id}
@@ -298,7 +324,12 @@ POST   /api/v1/boards/{id}/collaboration-ticket
 WS     /api/v1/boards/{id}/collaboration
 ```
 
-В board profile отсутствуют (`404`, не `403`):
+Фактический allowlist должен генерироваться из production router inventory,
+а не поддерживаться только документацией.
+
+### 6.2. Full-only routes
+
+В board profile не должны регистрироваться:
 
 ```text
 /api/v1/lessons/*
@@ -310,10 +341,12 @@ portal routes
 GeometryOS gateway
 ```
 
-Exact allowlist строится из фактического FastAPI router inventory и закрепляется
-автоматизированным тестом.
+Ожидаемое поведение — route отсутствует (`404`), а не `403`.
 
-### 6.2. D1.2 — standalone access policy
+## 7. D1.2 — разделение access policy
+
+Текущий access policy знает одновременно standalone guest, tutor/admin,
+student/parent и `StudentAccess`.
 
 Целевая модель:
 
@@ -322,13 +355,31 @@ StandaloneBoardAccessPolicy
 LegacyBoardAccessPolicy
 ```
 
-`StandaloneBoardAccessPolicy` знает только teacher ownership, guest `boardId`,
-guest capabilities, archived/deleted state и read/write/manage. Он не импортирует
-`StudentAccess`, scheduling или classroom domain.
+`StandaloneBoardAccessPolicy` знает только:
 
-### 6.3. D1.3 — минимальный container
+- teacher admin/tutor ownership;
+- guest `boardId`;
+- guest capabilities;
+- archived/deleted state;
+- read/write/manage.
 
-Board profile создаёт только необходимые компоненты:
+Он не должен импортировать `StudentAccess`, scheduling или classroom domain.
+
+Legacy policy сохраняет существующее lesson-bound поведение.
+
+## 8. D1.3 — минимальный composition container
+
+Отключение router недостаточно. `APP_PROFILE=board` не должен конструировать
+ненужные full-product providers.
+
+Предпочтительная безопасная реализация:
+
+```text
+build_full_container(...)
+build_board_container(...)
+```
+
+Board container создаёт только необходимые компоненты:
 
 ```text
 Database
@@ -341,7 +392,7 @@ S3 ArtifactStorage
 CollaborationBroker
 ```
 
-Не создаются:
+Не должны создаваться:
 
 ```text
 BigBlueButtonClient
@@ -353,28 +404,82 @@ Automation services
 CeleryJobDispatcher
 ```
 
+Если transitional type требует полного container interface, допускаются только
+explicit unavailable adapters, которые fail loudly при вызове. Silent no-op
+providers запрещены.
+
 Redis/distributed collaboration остаётся обязательным даже при отсутствии
 Celery.
 
-### 6.4. D1.4 — board-only Compose
+## 9. D1.4 — board-only production Compose
 
-Отдельный descriptor:
+Создать отдельный deployment descriptor, например:
 
 ```text
 compose.board.production.yml
 deploy/board-production/
 ```
 
-Production target допускает blue/green slots. Pilot target может использовать
-одиночные `board-api` и `tutorboard` services на одной VM, если соблюдены Pilot
-Gate требования ниже.
+Не усложнять существующий full `compose.production.yml` множеством условных
+profiles.
 
-Board-only Compose не содержит worker/scheduler/BBB/transcription/materials/
-DocumentEngine/ClamAV/portal services.
+### 9.1. Обязательные services
 
-### 6.5. D1.5 — Caddy routing и default deny
+```text
+caddy
 
-Public routing explicit:
+board-api-blue
+board-api-green
+
+tutorboard-blue
+tutorboard-green
+
+migration
+
+postgres
+redis
+
+object-storage / external S3
+object-storage-init, если storage локальный
+
+backup
+ops
+```
+
+Observability может быть вынесена в отдельный optional profile:
+
+```text
+prometheus
+grafana
+otel-collector
+```
+
+### 9.2. Запрещённые services
+
+Board-only Compose не содержит:
+
+```text
+worker
+scheduler
+BBB
+transcription
+materials
+DocumentEngine
+ClamAV
+portal
+```
+
+Production Object Storage предпочтительно внешний. Встроенный MinIO допустим
+для local/staging integration, но не должен становиться единственной off-host
+backup destination.
+
+Для Pilot Gate допускается одна VM с одиночными `board-api`/`tutorboard`,
+PostgreSQL, Redis и MinIO containers. Это pilot-specific упрощение и не меняет
+production topology/DoD.
+
+## 10. D1.5 — Caddy routing и default deny
+
+Public routing должен быть explicit:
 
 ```text
 /login
@@ -391,37 +496,46 @@ Public routing explicit:
 /b/*
 /board/*
         -> TutorBoard UI
-
-everything else
-        -> 404
 ```
 
-`/boards` и `/b/*` используют SPA fallback. Общий backend fallback запрещён.
+`/board/*` нужен для static Vite assets; `/boards` и `/b/*` должны использовать
+SPA fallback.
 
-### 6.6. D1.6 — secret-safe proxy/logging
+После explicit handles:
 
-P0 invariants:
+```text
+everything else -> 404
+```
+
+Нельзя оставлять общий backend fallback, который случайно опубликует новые
+full-product routes.
+
+## 11. D1.6 — secret-safe proxy/logging contract
+
+P0 security invariant:
 
 - raw `/j/{secret}` не хранится в persistent access logs;
 - WebSocket `ticket` query не хранится в logs/traces/error reporting;
-- join response: `Cache-Control: no-store`;
+- join response остаётся `Cache-Control: no-store`;
 - `Referrer-Policy: no-referrer`;
 - `X-Robots-Tag: noindex, nofollow`.
 
-Sentinel test:
+Добавить automated sentinel test:
 
 ```text
 /j/INVITATION_SECRET_SENTINEL
 ?ticket=WS_TICKET_SECRET_SENTINEL
 ```
 
-После запросов Caddy/API logs проверяются на отсутствие sentinel values.
+После запросов собрать Caddy/API/OTel logs и доказать отсутствие sentinel
+значений.
 
-### 6.7. D1.7 — readiness и durability
+Privacy test должен выполняться в CI/staging; ручной review конфигурации
+недостаточен.
 
-`/health/live` проверяет процесс.
+## 12. D1.7 — readiness и durability
 
-`/health/ready` проверяет только критические board dependencies:
+Board API readiness должна проверять только критические board dependencies:
 
 ```text
 PostgreSQL
@@ -429,36 +543,65 @@ Redis
 object/snapshot storage
 ```
 
+`/health/live` проверяет процесс.
+`/health/ready` должен становиться unhealthy, если сервис не может безопасно
+обслуживать production board workload.
+
 Durability invariants:
 
-- accepted command после `2xx` переживает API restart;
+- подтверждённый command после `2xx` не теряется;
 - Redis restart не теряет accepted revisions;
+- API restart не теряет board state;
 - snapshot digest проверяется;
-- backup сохраняет board revision и invitation metadata;
-- `APP_SECRET_KEY` сохраняет continuity invitation/session cryptographic state.
+- backup/restore сохраняет board revision и invitation metadata.
 
-### 6.8. D1.8 — TutorBoard board-only build
+### 12.1. Durable secret continuity
 
-Минимальный Pilot/v1 frontend profile:
+Существующий guest access использует server secret material для invitation
+digest/session signing. Поэтому production secret является частью recovery
+contract.
+
+Backup/restore runbook обязан сохранять continuity ключей. Нельзя генерировать
+новый production secret при каждом deploy.
+
+## 13. D1.8 — TutorBoard board-only build configuration
+
+Board-only deployment не должен показывать features, backend которых не
+развёрнут.
+
+Базовый v1 profile:
 
 ```text
 server sync          ON
 document snapshots   ON
 GeometryOS           OFF
-formula recognition  OFF
-Smart Ink            OFF
+formula recognition  OFF, если sidecar не развернут
+Smart Ink            OFF, если production dependency не развернута
 ```
 
-Feature flags задаются release configuration без fork frontend code. Existing
-full build defaults сохраняются.
+Для Pilot Gate formula recognition и Smart Ink выключены, если их production
+dependency отдельно не доказана; они не блокируют первый lesson.
 
-### 6.9. D1.9 — immutable images и release manifest
+Feature flags должны задаваться build/release configuration без fork frontend
+code.
 
-Production release публикует digest-pinned Board API и TutorBoard images.
+Existing full build defaults должны сохраниться для backward compatibility.
 
-Pilot также фиксирует immutable image reference или, как минимум, точный image
-digest после сборки; floating `latest` не используется как единственный способ
-воспроизведения окружения.
+## 14. D1.9 — Board API image
+
+Backend остаётся в `tutor-assistant-web`; отдельный repository сейчас не нужен.
+
+Публикуется board-specific immutable image:
+
+```text
+ghcr.io/artemlevin/tutorboard-api:<release>@sha256:<digest>
+```
+
+Можно использовать тот же Dockerfile/runtime code, но deployment запускается с:
+
+```text
+APP_PROFILE=board
+```
 
 Release manifest фиксирует:
 
@@ -469,12 +612,17 @@ standalone-board contract version
 database migration head
 Board API image digest
 TutorBoard image digest
-deployment date/environment
 ```
 
-### 6.10. D1.10 — board profile CI contract
+Floating `latest` запрещён.
 
-Отдельный job проверяет:
+## 15. D1.10 — board profile CI contract
+
+Добавить отдельный job, который проверяет composition независимо от full suite.
+
+### 15.1. Configuration tests
+
+Проверить:
 
 ```text
 APP_PROFILE unset -> full
@@ -484,40 +632,63 @@ unknown profile   -> startup failure
 board + forbidden enabled module -> startup failure
 ```
 
-Дополнительно проверяется exact route inventory и exact installed
-module/provider inventory.
+### 15.2. Exact route inventory
 
-Текущий failure PR #31 должен быть исправлен на уровне корректной route
-inspection. Skip/xfail/ослабление exact inventory test не допускаются.
+Для `APP_PROFILE=board` получить фактические FastAPI routes и сравнить с
+allowlist.
 
-### 6.11. D1.11 — integration matrix
+Тест должен одновременно доказывать отсутствие:
 
-На PostgreSQL + Redis + S3-compatible storage production gate проверяет:
+```text
+/lessons
+/students
+/schedule
+/classroom
+/materials
+/portal
+GeometryOS routes
+```
+
+Использовать exact allowlist, а не только несколько deny assertions.
+
+### 15.3. Composition inventory
+
+Проверить exact installed module/provider set. Нельзя считать тест достаточным,
+если он проверяет только `"portal" not in modules`.
+
+## 16. D1.11 — integration test matrix
+
+На реальных PostgreSQL + Redis + S3-compatible storage проверить:
 
 1. teacher login;
-2. create/list/rename board;
-3. create invitation;
-4. guest join;
-5. strict teacher/guest contexts;
-6. snapshot и command push/pull;
-7. second-client convergence;
-8. collaboration ticket + WebSocket;
-9. guest write;
-10. global guest-write disable;
-11. per-invitation read-only;
-12. rotate;
-13. revoke;
-14. archive/restore;
-15. soft delete;
-16. API restart recovery;
-17. Redis restart + reconnect;
-18. storage failure readiness.
+2. create standalone board;
+3. list/rename board;
+4. create invitation;
+5. guest join;
+6. strict guest context;
+7. teacher context;
+8. initial snapshot;
+9. command push/pull;
+10. second-client convergence;
+11. collaboration ticket;
+12. WebSocket connect;
+13. guest write;
+14. global guest-write disable;
+15. per-invitation read-only;
+16. rotate;
+17. revoke;
+18. archive/restore;
+19. soft delete;
+20. API restart recovery;
+21. Redis restart + reconnect;
+22. storage failure readiness.
 
-Ни один сценарий не требует scheduling/student/classroom services.
+Ни один из этих сценариев не должен требовать scheduling/student/classroom
+services.
 
-## 7. B3/T3 — live access и offline convergence Production Gate
+## 17. B3/T3 — live access и offline convergence gate
 
-Перед публичным production use закрывается полный behavior:
+Перед production public use должен быть закрыт следующий behavior:
 
 ### Backend
 
@@ -538,7 +709,7 @@ inspection. Skip/xfail/ослабление exact inventory test не допус
 - mutation boundary в read-only;
 - возврат write не resurrect'ит old-epoch commands.
 
-### Required production E2E
+### Required E2E
 
 ```text
 Teacher creates board + writable invitation
@@ -565,69 +736,56 @@ No reconnect loop
 Teacher remains able to work
 ```
 
-## 8. Pilot Deployment Gate — ближайшая delivery цель
+## 18. Pilot Deployment Gate
 
-### 8.1. Цель Pilot Gate
+Pilot Gate — отдельный delivery milestone перед production. Его цель: получить
+реальный HTTPS-host и провести одно controlled занятие с одним учеником, не
+объявляя окружение production.
 
-Получить один реальный HTTPS-host, открыть его преподавателю и одному ученику и
-провести controlled lesson на настоящем standalone flow:
+### 18.1. Допустимые pilot-specific упрощения
+
+До первого lesson не блокируют:
 
 ```text
-teacher login
-   -> /boards
-   -> create board
-   -> create invitation
-   -> guest /j/<secret>
-   -> /b/<boardId>#/board
-   -> bidirectional collaboration
+blue/green production slots
+Kubernetes/multi-node deployment
+full observability stack
+24h soak
+full chaos matrix
+moderate/high load test
+full Chromium + Firefox production matrix
+complete SBOM/release automation
+production Terraform
+formal D2/D3/D4 release pipeline
 ```
 
-Окружение маркируется как `STAGING`/`PILOT`, не как production.
+Допускается одна Linux VM с Docker Compose, Caddy, TutorBoard, Board API,
+PostgreSQL, Redis и MinIO/S3-compatible storage.
 
-### 8.2. Что разрешено упростить для pilot
+Эти упрощения не становятся production contract.
 
-Чтобы pilot не блокировался production infrastructure work, разрешается:
-
-- одна Linux VM вместо multi-node/blue-green;
-- Docker Compose вместо Kubernetes;
-- PostgreSQL, Redis и MinIO/S3-compatible storage на одной VM;
-- один `board-api` container;
-- один `tutorboard` container;
-- Caddy на той же VM;
-- без Prometheus/Grafana/OTel stack;
-- без 24h soak;
-- без полного chaos matrix;
-- без production Terraform automation;
-- без full Chromium + Firefox release matrix, если browser для pilot заранее
-  выбран и smoke выполнен в отдельном guest context.
-
-Эти упрощения не становятся production architecture. После pilot полный D2-D4
-Gate остаётся обязательным.
-
-### 8.3. Что нельзя упростить даже для pilot
+### 18.2. Нельзя упростить даже для pilot
 
 Обязательны:
 
-- HTTPS;
+- HTTPS и real DNS;
 - `APP_PROFILE=board`;
-- exact/default-deny routing;
+- explicit/default-deny Caddy routing;
 - durable PostgreSQL;
-- Redis для collaboration;
+- Redis collaboration;
 - durable `APP_SECRET_KEY`;
 - secure session cookies;
 - invitation/WS secret redaction;
-- `AUTO_MIGRATE=false`;
-- explicit migration step;
-- off-host DB backup перед реальным lesson;
-- teacher и guest в разных browser contexts;
-- подтверждённый bidirectional sync;
+- `AUTO_MIGRATE=false` и explicit migration step;
+- teacher/guest в независимых browser contexts;
+- bidirectional collaboration smoke;
+- reconnect smoke;
+- terminal revoke smoke;
 - API restart persistence smoke;
-- guest revoke smoke;
-- фиксированные frontend/backend SHAs и image digests.
+- off-host PostgreSQL backup до lesson;
+- фиксированные frontend/backend git SHA и image digests.
 
-### 8.4. Pilot infrastructure
-
-Минимальная topology:
+### 18.3. Pilot topology
 
 ```text
 Internet
@@ -643,15 +801,11 @@ Internet
           +-- Redis
           `-- MinIO / S3-compatible storage
 
-backup job
+backup
    `-- PostgreSQL dump -> off-host destination
 ```
 
-Production object storage предпочтительно внешний. Для pilot локальный MinIO
-допустим только при наличии off-host database backup и понимании, что это не
-полный disaster-recovery design.
-
-### 8.5. Pilot runtime configuration
+### 18.4. Pilot runtime configuration
 
 Минимум:
 
@@ -669,7 +823,7 @@ S3-compatible storage credentials
 teacher bootstrap credentials
 ```
 
-Frontend:
+TutorBoard pilot build:
 
 ```text
 server sync          ON
@@ -679,39 +833,39 @@ formula recognition  OFF
 Smart Ink            OFF
 ```
 
-### 8.6. Pilot deployment sequence
+### 18.5. Pilot critical path
 
 ```text
 P1  TutorBoard full quality gate green
     |
 P2  board-profile backend gate green
     |
-P3  APP_PROFILE=board + Compose/Caddy contract green
+P3  APP_PROFILE=board + Compose/Caddy/redaction green
     |
-P4  provision VM + DNS + HTTPS
+P4  real VM + DNS + HTTPS
     |
 P5  explicit migration + teacher account
     |
-P6  teacher /boards smoke
+P6  /boards + board creation
     |
-P7  invitation + guest join smoke
+P7  invitation + isolated guest join
     |
-P8  bidirectional collaboration smoke
+P8  bidirectional collaboration
     |
-P9  refresh/reconnect smoke
+P9  refresh/reconnect
     |
-P10 revoke smoke
+P10 terminal revoke
     |
-P11 API restart persistence smoke
+P11 API restart persistence
     |
-P12 off-host backup + release manifest
+P12 off-host backup + Pilot Release Manifest
     |
 CONTROLLED PILOT LESSON
 ```
 
-### 8.7. P1 — TutorBoard quality gate
+### 18.6. P1 — TutorBoard quality gate
 
-Исправить known formatting failure и выполнить реальные проектные команды:
+Исправить known Prettier drift после PR #123 и выполнить:
 
 ```text
 npm run format:check
@@ -726,35 +880,31 @@ npm run check
 
 Exit criterion: свежий полный quality gate green на pilot frontend SHA.
 
-### 8.8. P2/P3 — backend board profile gate
+### 18.7. P2/P3 — backend board profile gate
 
-Исправить exact route inventory failure PR #31, затем выполнить board profile
-contract, Compose validation, Caddy/proxy contract и secret-redaction checks.
+Исправить exact route inventory failure PR #31 и получить green:
 
-Exit criterion:
+- board profile contract;
+- exact router/provider inventories;
+- board-only Compose validation;
+- Caddy routing/default-deny contract;
+- invitation/WS sentinel redaction checks.
 
-- `APP_PROFILE=board` запускается;
-- route allowlist exact;
-- full-only routes отсутствуют;
-- forbidden providers не создаются;
-- board-only Compose валиден;
-- proxy routes `/boards`, `/b/*`, `/j/*`, `/api/v1/boards/*` корректны;
-- sentinel secrets отсутствуют в persistent logs.
+Exit criterion: `APP_PROFILE=board` запускается без full-only routes/providers и
+имеет доказанный public surface.
 
-### 8.9. P4/P5 — реальный host, миграции и teacher
+### 18.8. P4/P5 — реальный host и data bootstrap
 
-Provision one VM, DNS и TLS. Миграции запускаются отдельно от API startup:
+Provision one VM, DNS и TLS. Миграции выполняются отдельно:
 
 ```text
-backup/preflight
+preflight/backup
    -> migration container
    -> verify migration head
    -> start Board API
 ```
 
-`AUTO_MIGRATE=true` на real pilot host запрещён.
-
-После запуска проверить:
+После запуска:
 
 ```text
 /login
@@ -764,13 +914,10 @@ backup/preflight
 -> list/rename board
 ```
 
-### 8.10. P6-P8 — настоящий teacher/guest smoke
+### 18.9. P6-P8 — teacher/guest real-host smoke
 
 Browser A — authenticated teacher.
-
 Browser B — fresh incognito/isolated profile.
-
-Сценарий:
 
 ```text
 Teacher creates board
@@ -786,9 +933,7 @@ Teacher refresh -> A + B remain
 Guest refresh   -> A + B remain
 ```
 
-### 8.11. P9 — reconnect smoke
-
-Минимум до первого lesson:
+### 18.10. P9 — reconnect smoke
 
 ```text
 Guest connected
@@ -798,10 +943,11 @@ Guest reconnects
 Both clients converge
 ```
 
-Полный read-only/offline-old-epoch scenario остаётся B3/T3 Production Gate, но
-обычный reconnect не должен терять confirmed state или приводить к divergence.
+Полный read-only/offline-old-epoch scenario остаётся B3/T3 Production Gate.
+Обычный reconnect для pilot не должен терять confirmed state или приводить к
+divergence.
 
-### 8.12. P10 — revoke smoke
+### 18.11. P10 — revoke smoke
 
 ```text
 Guest connected
@@ -811,27 +957,24 @@ Guest does not enter reconnect loop
 Teacher continues to work
 ```
 
-Если revoke не работает терминально, Pilot Gate закрыт.
+Если revoke не терминален, Pilot Gate закрыт.
 
-### 8.13. P11 — persistence/restart smoke
-
-После совместного редактирования:
+### 18.12. P11 — restart persistence smoke
 
 ```text
-record board/revision
+Teacher + Guest create content
+record current revision
 restart Board API
 reopen board
 verify content/revision
 ```
 
-Затем отдельным smoke допустимо restart Redis и проверить reconnect. Потеря
-presence/WebSocket допустима; потеря accepted revisions — нет.
+Redis restart может оборвать live connection, но не должен терять accepted
+revisions.
 
-### 8.14. P12 — backup и Pilot Release Manifest
+### 18.13. P12 — backup и Pilot Release Manifest
 
-До первого lesson выполнить off-host PostgreSQL backup.
-
-Сохранить continuity secrets/config и manifest:
+До первого lesson выполнить off-host PostgreSQL backup и зафиксировать:
 
 ```yaml
 frontend_git_sha: <sha>
@@ -846,7 +989,7 @@ deployment_date: <date>
 
 Floating `latest` не считается release record.
 
-### 8.15. Pilot Definition of Done
+### 18.14. Pilot Definition of Done
 
 Controlled pilot разрешён только если одновременно:
 
@@ -858,7 +1001,7 @@ Controlled pilot разрешён только если одновременно
 | P4 | Real DNS + HTTPS работают |
 | P5 | Teacher login и `/boards` работают |
 | P6 | Teacher создаёт board |
-| P7 | Teacher создаёт invitation, guest проходит `/j/...` -> `/b/...` |
+| P7 | Invitation приводит isolated guest из `/j/...` в `/b/...` |
 | P8 | Teacher <-> Guest realtime edits работают |
 | P9 | Refresh/reconnect сохраняет convergence |
 | P10 | Revoke терминально отключает guest |
@@ -868,28 +1011,10 @@ Controlled pilot разрешён только если одновременно
 Если любой P1-P12 не выполнен, реальный lesson не проводится до устранения
 дефекта.
 
-### 8.16. Что не блокирует первый pilot
+## 19. D2 — Board-only release workflow
 
-Следующие production tasks сознательно выполняются после Pilot Gate, если они не
-нужны для устранения конкретного pilot blocker:
-
-```text
-24h soak
-full chaos/restart matrix
-blue/green production slots
-full observability stack
-multi-node API
-moderate/high load test
-full Chromium + Firefox production matrix
-complete SBOM/release automation
-isolated full disaster-recovery drill
-production Terraform
-formal D2/D3/D4 pipeline
-```
-
-## 9. D2 — Board-only release workflow
-
-После успешного pilot создаётся/завершается отдельный production workflow:
+Создать отдельный release workflow вместо расширения full-product release
+pipeline:
 
 ```text
 .github/workflows/board-release.yml
@@ -933,7 +1058,9 @@ post-deploy smoke
 release manifest/tag
 ```
 
-Supply-chain gates для обоих images:
+### 19.1. Supply-chain gates
+
+Для обоих images:
 
 - immutable digest;
 - non-root runtime;
@@ -944,9 +1071,9 @@ Supply-chain gates для обоих images:
 - SBOM;
 - no floating `latest`.
 
-## 10. D3 — production staging после pilot
+## 20. D3 — staging
 
-Production staging имеет отдельные:
+Staging имеет отдельные:
 
 - Terraform state;
 - VM/static IP;
@@ -962,7 +1089,6 @@ Production staging имеет отдельные:
 До production выполнить:
 
 - full teacher/guest E2E;
-- full B3/T3 read-only/rotate/revoke/offline-old-epoch matrix;
 - Redis restart;
 - API/container restart;
 - VM reboot;
@@ -973,13 +1099,11 @@ Production staging имеет отдельные:
 - moderate collaboration load;
 - 24h soak без unexplained divergence/disconnect loops.
 
-Pilot VM может быть переиспользована только если её состояние/configuration
-доказуемо соответствует production staging contract. По умолчанию pilot и
-production staging считаются разными delivery states.
+Initial sizing проверяется измерением, а не фиксируется как production truth.
 
-## 11. D4 — production rollout и rollback
+## 21. D4 — production rollout и rollback
 
-### 11.1. Rollout
+### 21.1. Rollout
 
 1. Freeze immutable backend/frontend digests.
 2. Проверить migration head.
@@ -987,25 +1111,27 @@ production staging считаются разными delivery states.
 4. Развернуть green board-only slot.
 5. Проверить health/readiness.
 6. Выполнить teacher/guest smoke.
-7. Проверить invitation/WS secret redaction.
+7. Проверить invitation secret redaction.
 8. Переключить Caddy на green.
 9. Повторить smoke после switch.
 10. Сохранить release manifest.
 
-### 11.2. Rollback
+### 21.2. Rollback
 
-Rollback application-level и не требует database downgrade:
+Rollback должен быть application-level и не требовать database downgrade:
 
 ```text
 Caddy -> previous known-good slot
 ```
 
-Предыдущие digests и compatible schema сохраняются. Irreversible schema cleanup
-не объединяется с profile rollout и не выполняется до stabilization.
+Предыдущие digests и compatible schema сохраняются.
 
-## 12. Test strategy
+Irreversible schema cleanup не выполняется до production stabilization и не
+объединяется с profile rollout.
 
-### 12.1. Unit/configuration
+## 22. Test strategy
+
+### 22.1. Unit/configuration
 
 - profile parsing;
 - exact module graph;
@@ -1015,7 +1141,7 @@ Caddy -> previous known-good slot
 - feature flag mapping;
 - sensitive URL redaction helpers.
 
-### 12.2. PostgreSQL
+### 22.2. PostgreSQL
 
 - owner/tenant isolation;
 - standalone CRUD;
@@ -1026,7 +1152,7 @@ Caddy -> previous known-good slot
 - soft delete/purge;
 - migration compatibility.
 
-### 12.3. Redis/WebSocket
+### 22.3. Redis/WebSocket
 
 - one-time ticket;
 - wrong board/client rejection;
@@ -1038,45 +1164,30 @@ Caddy -> previous known-good slot
 - reconnect;
 - query-secret redaction.
 
-### 12.4. Browser — Pilot Gate
+### 22.4. Browser
 
-Минимальный real-host browser contract:
+Chromium + Firefox production release gate:
 
 1. teacher login;
 2. `/boards`;
 3. create board;
 4. create invitation;
-5. isolated guest opens `/j/<secret>`;
+5. fresh isolated guest context opens `/j/<secret>`;
 6. redirect to `/b/<boardId>#/board`;
 7. teacher/guest both edit;
-8. refresh;
-9. temporary disconnect/reconnect;
-10. revoke;
-11. terminal guest state;
-12. teacher continues.
-
-### 12.5. Browser — Production Gate
-
-Chromium + Firefox:
-
-1. teacher login;
-2. `/boards`;
-3. create board;
-4. create invitation;
-5. fresh isolated guest join;
-6. teacher/guest both edit;
-7. guest offline;
-8. teacher disables write;
-9. stale pending not applied;
-10. write restored;
-11. only new guest commands sync;
+8. guest offline/reconnect;
+9. read-only while guest offline;
+10. stale pending not applied;
+11. write restored;
 12. rotate;
 13. revoke;
 14. terminal guest state;
 15. teacher continues;
 16. teacher/guest local durable scopes remain isolated.
 
-### 12.6. Security
+Pilot browser subset определён в §18 и не заменяет эту production matrix.
+
+### 22.5. Security
 
 - raw invitation absent from DB/log/metrics/traces;
 - WS ticket absent from persistent logs/traces;
@@ -1089,38 +1200,38 @@ Chromium + Firefox:
 - default-deny proxy routes;
 - dependency/image scanning.
 
-## 13. Risk matrix
+## 23. Risk matrix
 
 | Priority | Риск | Regression guard |
 | --- | --- | --- |
 | P0 | Pilot ошибочно объявлен production | отдельные Pilot/Production DoD и environment marker |
 | P0 | Full/legacy routes доступны в board profile | exact route allowlist |
-| P0 | `/boards` или `/b/*` идут не в SPA | real-host deep-link smoke |
+| P0 | `/boards` или `/b/*` идут не в SPA | production deep-link smoke |
 | P0 | Invitation secret попадает в logs | sentinel log-redaction test |
 | P0 | WS ticket попадает в logs | query sentinel test |
-| P0 | Guest остаётся активным после revoke | HTTP + WS two-browser revoke smoke |
-| P0 | Accepted revision теряется после API restart | persistence restart smoke |
-| P0 | Secret continuity теряется при deploy | durable APP_SECRET_KEY + backup contract |
-| P0 | Guest пишет после revoke/read-only | production HTTP + WS E2E |
+| P0 | Secret rotation ломает старые invitation digests | durable secret continuity + restore |
+| P0 | Collaboration становится process-local | Redis multi-process integration |
+| P0 | Guest пишет после revoke/read-only | HTTP + WS two-browser E2E |
 | P0 | Old offline writes оживают после возврата write | access-epoch quarantine E2E |
 | P1 | Full profile ломается из-за refactor | existing full CI unchanged |
-| P1 | UI показывает feature без backend | board build feature contract |
+| P1 | UI показывает service-backed feature без service | board build feature contract |
 | P1 | snapshot storage down, readiness green | storage-aware readiness |
-| P1 | Pilot data остаётся только на одной VM | off-host database backup |
+| P1 | Pilot data остаётся только на одной VM | off-host PostgreSQL backup |
 | P1 | blue/green ломает existing invitation | pre/post-switch invitation smoke |
-| P2 | board image содержит unused Python modules | acceptable initially if not registered/constructed |
+| P2 | board image физически содержит unused Python modules | acceptable initially if not registered/constructed |
 | P2 | duplicated generic/performance CI cost | optimize after correctness |
 
-## 14. Definition of Done Board-only Production Profile
+## 24. Definition of Done Board-only Production Profile
 
-Production Profile считается реализованным, когда одновременно:
+Profile считается реализованным, когда одновременно:
 
 1. `APP_PROFILE=board` существует как first-class profile.
 2. `APP_PROFILE=full` сохраняет current behavior.
 3. Board route inventory соответствует exact allowlist.
 4. Legacy lesson/student/classroom/materials/portal routes отсутствуют.
 5. Unused full-product providers не конструируются.
-6. BBB/transcription/DocumentEngine/ClamAV/GeometryOS не startup dependencies.
+6. BBB/transcription/DocumentEngine/ClamAV/GeometryOS не являются startup
+   dependencies base profile.
 7. Board-only Compose не запускает workers/scheduler/full-product services.
 8. `/boards`, `/b/*`, `/board/*`, `/j/*`, `/api/v1/boards/*` маршрутизируются
    корректно.
@@ -1134,42 +1245,37 @@ Production Profile считается реализованным, когда о�
 16. Full-product regression suite остаётся green.
 17. Board API и TutorBoard выпускаются immutable digest-pinned images.
 18. Backup + isolated restore доказаны.
-19. Production staging прошёл restart/reconnect/log-redaction/restore/soak gates.
+19. Staging прошёл restart/reconnect/log-redaction/restore/soak gates.
 20. Production rollback на предыдущие digests проверен.
 
-Production apply запрещён до закрытия всех применимых P0/P1 gates, green
-production-staging preflight и свежего isolated restore drill.
+## 25. Текущая последовательность работ
 
-## 15. Текущая последовательность работ
+Ближайший critical path — Pilot-first:
 
-Ближайший critical path теперь Pilot-first:
-
-1. **P1 / frontend** — исправить known Prettier drift после PR #123 и получить
+1. **P1 / TutorBoard** — исправить known Prettier drift после PR #123 и получить
    свежий green `npm run check`.
-2. **P2 / backend** — исправить exact route inventory failure PR #31 без
-   ослабления test contract.
+2. **P2 / tutor-assistant-web** — исправить exact route inventory failure PR #31
+   без ослабления test contract.
 3. **P3 / board profile** — получить green configuration/provider/router,
-   Compose/Caddy и secret-redaction gates; довести PR #31 до merge-ready.
-4. **P4 / infrastructure** — поднять одну pilot VM, DNS и HTTPS.
-5. **P5 / data** — выполнить explicit migrations, зафиксировать migration head,
-   создать/проверить teacher account.
-6. **P6-P8 / real flow** — `/boards`, board creation, invitation, isolated guest
-   join и bidirectional collaboration.
-7. **P9-P11 / resilience** — reconnect, terminal revoke и API restart persistence
-   smoke.
-8. **P12 / recoverability** — off-host backup + Pilot Release Manifest.
+   Compose/Caddy и secret-redaction gates; довести board profile до merge-ready.
+4. **P4** — поднять одну pilot VM, DNS и HTTPS.
+5. **P5** — выполнить explicit migrations и проверить teacher account.
+6. **P6-P8** — `/boards`, board creation, invitation, isolated guest join и
+   bidirectional collaboration.
+7. **P9-P11** — reconnect, terminal revoke и API restart persistence smoke.
+8. **P12** — off-host PostgreSQL backup + Pilot Release Manifest.
 9. **Controlled pilot lesson** — только после green P1-P12.
-10. **B3/T3 Production Gate** — полный read-only/rotate/offline-old-epoch
-    convergence matrix.
-11. **D2** — production release workflow, immutable images, SBOM/scans.
+10. **B3/T3 Production Gate** — закрыть полный live read-only/rotate/revoke/
+    offline-old-epoch convergence scenario.
+11. **D2** — отдельный board release workflow и immutable images.
 12. **D3** — production staging, restart/restore/log scan/load/24h soak.
 13. **D4** — manual-approved production rollout и verified rollback.
 
-Если для прохождения Pilot Gate обнаруживается security/data-integrity defect,
-его исправление становится частью critical path независимо от исходной
-приоритизации.
+Production apply запрещён до закрытия P0/P1 production release gates, green
+staging preflight и свежего isolated restore drill. Pilot-specific упрощения не
+переносятся в production по умолчанию.
 
-## 16. Критерий выбора следующей задачи
+## 26. Критерий выбора следующей задачи
 
 При конфликте backlog priorities:
 
@@ -1180,13 +1286,12 @@ pilot blocker affecting real teacher/guest flow
     > runtime isolation/attack surface
     > migration/rollback safety
     > guest/teacher UX completeness
-    > observability/deployment automation
+    > observability/deployment
     > optional features
 ```
 
 Новая optional feature не расширяет public surface до закрытия соответствующих
 security, durability и deployment gates.
 
-После успешного pilot приоритет автоматически переключается с «получить первый
-реальный lesson» на полный Production Gate; pilot-specific упрощения не
-переносятся в production по умолчанию.
+После успешного pilot приоритет переключается на полный Production Gate; pilot
+не считается основанием для ослабления Production Definition of Done.
