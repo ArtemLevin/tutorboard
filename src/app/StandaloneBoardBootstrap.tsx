@@ -63,6 +63,13 @@ function StandaloneBoardWorkspace({
       }
       mathInkRecognizer={mathInkRecognizer}
       queue={queue}
+      refreshAccessContext={async () => {
+        const refreshed = await fetchStandaloneBoardAccessContext(boardId, {
+          baseUrl: environment.boardApiBaseUrl,
+        });
+        repository.updateAccessContext(refreshed);
+        return refreshed;
+      }}
       repository={repository}
     />
   );

@@ -23,6 +23,7 @@ function environment(
     },
     geometryOsBaseUrl: "https://geometry.example.test",
     mathInkApiBaseUrl: "/api/v1/formula-recognition",
+    profile: "full",
     stage: "test",
   };
 }
