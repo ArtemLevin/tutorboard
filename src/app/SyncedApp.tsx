@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   BoardCollaborationClient,
@@ -8,7 +8,10 @@ import {
   type BoardPresence,
   type BoardTransformPreview,
 } from "../adapters/board-websocket/public";
-import type { BoardRuntimeAccessContext } from "../core/access/public";
+import type {
+  BoardAccessContext,
+  BoardRuntimeAccessContext,
+} from "../core/access/public";
 import {
   reduceBoardDocument,
   type BoardCommand,
@@ -54,8 +57,12 @@ interface SyncedAppProps {
   readonly lessonId?: string | undefined;
   readonly mathInkRecognizer?: MathInkRecognizer | undefined;
   readonly queue: PendingBoardCommandQueue;
+  readonly refreshAccessContext?:
+    (() => Promise<BoardAccessContext>) | undefined;
   readonly repository: SyncedBoardRepository;
 }
+
+type AccessRefreshStatus = "failed" | "idle" | "refreshing" | "revoked";
 
 const boardOriginStorageKey = "tutorboard.collaboration-origin.v1";
 
@@ -151,6 +158,12 @@ function inverseStillApplies(
   return true;
 }
 
+function terminalAccessRefreshFailure(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const status = (error as { readonly status?: unknown }).status;
+  return status === 401 || status === 403 || status === 404 || status === 410;
+}
+
 export function SyncedApp({
   accessContext,
   documentId,
@@ -158,6 +171,7 @@ export function SyncedApp({
   lessonId,
   mathInkRecognizer,
   queue,
+  refreshAccessContext,
   repository,
 }: SyncedAppProps) {
   const [state, setState] = useState<BoardSyncState>({ kind: "bootstrapping" });
@@ -177,6 +191,15 @@ export function SyncedApp({
   );
   const [evidenceStatus, setEvidenceStatus] = useState<string | null>(null);
   const [evidenceFinalizing, setEvidenceFinalizing] = useState(false);
+  const [accessRefreshStatus, setAccessRefreshStatus] =
+    useState<AccessRefreshStatus>("idle");
+  const [currentAccessContext, setCurrentAccessContext] =
+    useState(accessContext);
+  const currentAccessContextRef = useRef(accessContext);
+  const accessRefreshInFlightRef = useRef<Promise<BoardAccessContext> | null>(
+    null,
+  );
+  const expectedAccessEpochRef = useRef<string | undefined>(undefined);
   const undoStackRef = useRef<readonly (readonly BoardCommand[])[]>([]);
   const [undoCount, setUndoCount] = useState(0);
   const renderedDocumentRef = useRef<BoardDocument | null>(null);
@@ -198,21 +221,84 @@ export function SyncedApp({
         repository,
       }),
   );
-  const handleAccessEvent = (event: BoardAccessControlEvent) => {
-    if (event.type === "access.revoked") {
-      engine.dispose();
-      setEvidenceStatus("Доступ к совместной доске отозван.");
-      return;
-    }
-    setEvidenceStatus(
-      "Права доступа к доске изменились. Контекст будет обновлён перед следующей синхронизацией.",
-    );
-  };
+  const refreshStandaloneAccess = useCallback(
+    (expectedAccessEpoch?: string): Promise<BoardAccessContext> => {
+      if (accessRefreshInFlightRef.current !== null) {
+        return accessRefreshInFlightRef.current;
+      }
+      if (expectedAccessEpoch !== undefined) {
+        expectedAccessEpochRef.current = expectedAccessEpoch;
+      }
+      engine.pauseForAccessRefresh();
+      setAccessRefreshStatus("refreshing");
+      setEvidenceStatus("Обновляем права доступа к доске…");
+
+      const previousAccessEpoch = currentAccessContextRef.current?.accessEpoch;
+      const requiredAccessEpoch = expectedAccessEpochRef.current;
+      const refresh = (async () => {
+        if (refreshAccessContext === undefined) {
+          throw new Error("Обновление контекста доступа недоступно.");
+        }
+        const context = await refreshAccessContext();
+        if (
+          requiredAccessEpoch !== undefined &&
+          previousAccessEpoch !== undefined &&
+          requiredAccessEpoch !== previousAccessEpoch &&
+          context.accessEpoch === previousAccessEpoch
+        ) {
+          throw new Error("Сервер вернул устаревший контекст доступа.");
+        }
+        await engine.updateAccessContext(context);
+        currentAccessContextRef.current = context;
+        setCurrentAccessContext(context);
+        expectedAccessEpochRef.current = undefined;
+        setAccessRefreshStatus("idle");
+        setEvidenceStatus(
+          context.capabilities.includes("board.write")
+            ? "Права доступа обновлены."
+            : "Права обновлены: доска доступна только для чтения.",
+        );
+        return context;
+      })()
+        .catch((error: unknown) => {
+          if (terminalAccessRefreshFailure(error)) {
+            engine.dispose();
+            setAccessRefreshStatus("revoked");
+            setEvidenceStatus("Доступ к совместной доске отозван.");
+          } else {
+            setAccessRefreshStatus("failed");
+            setEvidenceStatus(
+              "Не удалось безопасно обновить права. Изменения заблокированы до повторной проверки.",
+            );
+          }
+          throw error;
+        })
+        .finally(() => {
+          accessRefreshInFlightRef.current = null;
+        });
+      accessRefreshInFlightRef.current = refresh;
+      return refresh;
+    },
+    [engine, refreshAccessContext],
+  );
+  const handleAccessEvent = useCallback(
+    (event: BoardAccessControlEvent) => {
+      if (event.type === "access.revoked") {
+        engine.dispose();
+        setAccessRefreshStatus("revoked");
+        setEvidenceStatus("Доступ к совместной доске отозван.");
+        return false;
+      }
+      return refreshStandaloneAccess(event.accessEpoch).then((context) =>
+        context.capabilities.includes("collaboration.connect"),
+      );
+    },
+    [engine, refreshStandaloneAccess],
+  );
   const [collaboration] = useState(
     () =>
       new BoardCollaborationClient({
         documentId,
-        onAccessEvent: handleAccessEvent,
         onInkPreviews: setInkPreviews,
         onPresence: setParticipants,
         onRevision: () => void engine.synchronize(),
@@ -221,6 +307,11 @@ export function SyncedApp({
         repository,
       }),
   );
+
+  useEffect(() => {
+    collaboration.setAccessEventHandler(handleAccessEvent);
+    return () => collaboration.setAccessEventHandler(() => undefined);
+  }, [collaboration, handleAccessEvent]);
 
   useEffect(() => {
     bootstrapStartedRef.current = performance.now();
@@ -381,7 +472,7 @@ export function SyncedApp({
     );
   }
 
-  if (collaborationStatus === "revoked") {
+  if (collaborationStatus === "revoked" || accessRefreshStatus === "revoked") {
     return (
       <main className="recovery-shell">
         <section className="recovery-card">
@@ -398,15 +489,17 @@ export function SyncedApp({
     );
   }
 
-  const writeEnabled = state.capabilities.includes("board.write");
+  const writeEnabled =
+    accessRefreshStatus === "idle" &&
+    state.capabilities.includes("board.write");
   const canManageEvidence =
     lessonId !== undefined &&
     (state.role === "admin" || state.role === "tutor");
   const principalLabel =
     state.principalType === "guest"
-      ? `Ученик · ${accessContext?.displayName ?? state.actorId}`
+      ? `Ученик · ${currentAccessContext?.displayName ?? state.actorId}`
       : state.principalType === "teacher"
-        ? `Преподаватель · ${accessContext?.displayName ?? state.actorId}`
+        ? `Преподаватель · ${currentAccessContext?.displayName ?? state.actorId}`
         : "Контекст занятия";
 
   const finalizeEvidence = async () => {
@@ -590,9 +683,13 @@ export function SyncedApp({
               }
         }
         persistenceNotice={
-          state.network === "offline"
-            ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
-            : null
+          accessRefreshStatus === "refreshing"
+            ? "Права доступа обновляются. Редактирование временно приостановлено."
+            : accessRefreshStatus === "failed"
+              ? "Права доступа не подтверждены. Редактирование заблокировано."
+              : state.network === "offline"
+                ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
+                : null
         }
         persistenceStatus={persistenceStatus(state)}
         readOnly={!writeEnabled}
@@ -601,7 +698,25 @@ export function SyncedApp({
           <section className="board-settings-section">
             <h3>{lessonId === undefined ? "Совместная доска" : "Занятие"}</h3>
             <p>{principalLabel}</p>
-            {!writeEnabled ? <p>Режим только для чтения</p> : null}
+            {accessRefreshStatus === "refreshing" ? (
+              <p>Проверяем обновлённые права доступа…</p>
+            ) : accessRefreshStatus === "failed" ? (
+              <p>
+                Права доступа не подтверждены.
+                <button
+                  onClick={() => {
+                    void refreshStandaloneAccess()
+                      .then(() => collaboration.start())
+                      .catch(() => undefined);
+                  }}
+                  type="button"
+                >
+                  Повторить проверку прав
+                </button>
+              </p>
+            ) : !writeEnabled ? (
+              <p>Режим только для чтения</p>
+            ) : null}
             <p>
               {collaborationStatus === "online"
                 ? `В комнате ${participants.length + 1}`

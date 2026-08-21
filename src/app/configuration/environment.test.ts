@@ -22,6 +22,7 @@ describe("readEnvironment", () => {
         },
         geometryOsBaseUrl: `${window.location.origin}/api/v1/geometryos`,
         mathInkApiBaseUrl: "/api/v1/formula-recognition",
+        profile: "full",
         stage,
       });
     },
@@ -31,6 +32,53 @@ describe("readEnvironment", () => {
     expect(() => readEnvironment("preview")).toThrow(
       "Unsupported VITE_APP_STAGE: preview",
     );
+  });
+
+  it("enforces the minimal board-only feature contract", () => {
+    expect(
+      readEnvironment(
+        "production",
+        undefined,
+        {},
+        undefined,
+        undefined,
+        "board",
+      ),
+    ).toMatchObject({
+      features: {
+        documentSnapshots: true,
+        geometryPrompt: false,
+        handwrittenFunctions: false,
+        mathInkRecognition: false,
+        serverSync: true,
+        smartInk: false,
+        smartInkDiagnostics: false,
+      },
+      profile: "board",
+    });
+
+    expect(() =>
+      readEnvironment(
+        "production",
+        undefined,
+        { geometryPrompt: "true", serverSync: "false" },
+        undefined,
+        undefined,
+        "board",
+      ),
+    ).toThrow(
+      "Board profile feature conflict: VITE_FEATURE_SERVER_SYNC=false, VITE_FEATURE_GEOMETRY_PROMPT=true.",
+    );
+    expect(() =>
+      readEnvironment(
+        "production",
+        undefined,
+        {},
+        undefined,
+        undefined,
+        "unknown",
+      ),
+    ).toThrow("Unsupported VITE_APP_PROFILE: unknown");
   });
 
   it("accepts only public HTTP(S) GeometryOS URLs", () => {
@@ -50,6 +98,7 @@ describe("readEnvironment", () => {
       },
       geometryOsBaseUrl: "https://geometry.example.test",
       mathInkApiBaseUrl: "/api/v1/formula-recognition",
+      profile: "full",
       stage: "test",
     });
     expect(() =>

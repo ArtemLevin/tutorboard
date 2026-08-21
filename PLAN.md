@@ -66,15 +66,15 @@ TutorBoard разворачивается как самостоятельный 
 
 ### 3.1. Завершённые milestones
 
-| Milestone | Статус | Результат |
-| --- | --- | --- |
-| B0 | DONE | frozen standalone-board contracts, capability model, ADR |
-| T0 | DONE | frontend security/architecture preparation |
-| B1 | DONE | standalone board persistence и owner-scoped CRUD |
-| B2 | DONE | invitation, guest session, capabilities, revoke/rotate |
-| T1 | DONE | `/b/<boardId>`, context-first standalone launch |
-| T2 | DONE | `/boards` teacher workspace и invitation management |
-| Test audit | DONE | runtime contract parser unified; 750 Vitest tests green in PR #121 |
+| Milestone  | Статус | Результат                                                          |
+| ---------- | ------ | ------------------------------------------------------------------ |
+| B0         | DONE   | frozen standalone-board contracts, capability model, ADR           |
+| T0         | DONE   | frontend security/architecture preparation                         |
+| B1         | DONE   | standalone board persistence и owner-scoped CRUD                   |
+| B2         | DONE   | invitation, guest session, capabilities, revoke/rotate             |
+| T1         | DONE   | `/b/<boardId>`, context-first standalone launch                    |
+| T2         | DONE   | `/boards` teacher workspace и invitation management                |
+| Test audit | DONE   | runtime contract parser unified; 750 Vitest tests green in PR #121 |
 
 T1/T2 standalone flow уже поддерживает teacher management и guest-link launch.
 Backend B1/B2 уже содержит standalone persistence, invitation/session model,
@@ -85,10 +85,12 @@ server-authoritative capability checks и collaboration integration.
 До production GO остаются два связанных направления:
 
 1. **B3/T3 convergence/access hardening release gate**
-   - live capability downgrade/revoke;
-   - reconnect context refresh;
-   - stale access-epoch pending quarantine;
-   - two-browser verification для read-only/revoke/offline/reconnect.
+   - frontend live capability refresh/revoke handling — DONE;
+   - frontend stale access-epoch quarantine и mutation freeze — DONE;
+   - backend multi-process event publication — pending в
+     `tutor-assistant-web`;
+   - real two-browser verification для read-only/revoke/offline/reconnect —
+     pending cross-repository integration environment.
 2. **D1–D4 Board-only Production Profile**
    - strict backend composition;
    - minimal router/provider surface;
@@ -524,6 +526,11 @@ Backup/restore runbook обязан сохранять continuity ключей. 
 
 ## 13. D1.8 — TutorBoard board-only build configuration
 
+> Frontend status: DONE в TutorBoard. `VITE_APP_PROFILE=board` вводит strict
+> feature contract, Docker build принимает профиль как build argument, отдельный
+> CI job собирает минимальный standalone bundle. Release/deployment wiring с
+> digest-pinned backend image остаётся частью D2.
+
 Board-only deployment не должен показывать features, backend которых не
 развёрнут.
 
@@ -656,13 +663,17 @@ services.
 
 ### Frontend
 
-- refresh context после capability event;
-- terminal revoke state;
-- no reconnect loop after revoke;
-- access epoch check до reconnect push;
-- quarantine stale pending;
-- mutation boundary в read-only;
-- возврат write не resurrect'ит old-epoch commands.
+- [x] refresh context после capability event;
+- [x] terminal revoke state;
+- [x] no reconnect loop after revoke;
+- [x] access epoch check до reconnect push;
+- [x] quarantine stale pending;
+- [x] mutation boundary в read-only;
+- [x] возврат write не resurrect'ит old-epoch commands.
+
+Frontend implementation и локальные regression tests зафиксированы в
+`docs/architecture/T3_ACCESS_CONVERGENCE.md`. Полный milestone остаётся открытым
+до прохождения Required E2E на реальном backend.
 
 ### Required E2E
 
@@ -880,22 +891,22 @@ Chromium + Firefox release gate:
 
 ## 22. Risk matrix
 
-| Priority | Риск | Regression guard |
-| --- | --- | --- |
-| P0 | Full/legacy routes доступны в board profile | exact route allowlist |
-| P0 | `/boards` или `/b/*` идут не в SPA | production deep-link smoke |
-| P0 | Invitation secret попадает в logs | sentinel log-redaction test |
-| P0 | WS ticket попадает в logs | query sentinel test |
-| P0 | Secret rotation ломает старые invitation digests | durable secret continuity + restore |
-| P0 | Collaboration становится process-local | Redis multi-process integration |
-| P0 | Guest пишет после revoke/read-only | HTTP + WS two-browser E2E |
-| P0 | Old offline writes оживают после возврата write | access-epoch quarantine E2E |
-| P1 | Full profile ломается из-за refactor | existing full CI unchanged |
-| P1 | UI показывает service-backed feature без service | board build feature contract |
-| P1 | snapshot storage down, readiness green | storage-aware readiness |
-| P1 | blue/green ломает existing invitation | pre/post-switch invitation smoke |
-| P2 | board image физически содержит unused Python modules | acceptable initially if not registered/constructed |
-| P2 | duplicated generic/performance CI cost | optimize after correctness |
+| Priority | Риск                                                 | Regression guard                                   |
+| -------- | ---------------------------------------------------- | -------------------------------------------------- |
+| P0       | Full/legacy routes доступны в board profile          | exact route allowlist                              |
+| P0       | `/boards` или `/b/*` идут не в SPA                   | production deep-link smoke                         |
+| P0       | Invitation secret попадает в logs                    | sentinel log-redaction test                        |
+| P0       | WS ticket попадает в logs                            | query sentinel test                                |
+| P0       | Secret rotation ломает старые invitation digests     | durable secret continuity + restore                |
+| P0       | Collaboration становится process-local               | Redis multi-process integration                    |
+| P0       | Guest пишет после revoke/read-only                   | HTTP + WS two-browser E2E                          |
+| P0       | Old offline writes оживают после возврата write      | access-epoch quarantine E2E                        |
+| P1       | Full profile ломается из-за refactor                 | existing full CI unchanged                         |
+| P1       | UI показывает service-backed feature без service     | board build feature contract                       |
+| P1       | snapshot storage down, readiness green               | storage-aware readiness                            |
+| P1       | blue/green ломает existing invitation                | pre/post-switch invitation smoke                   |
+| P2       | board image физически содержит unused Python modules | acceptable initially if not registered/constructed |
+| P2       | duplicated generic/performance CI cost               | optimize after correctness                         |
 
 ## 23. Definition of Done Board-only Production Profile
 
@@ -934,7 +945,8 @@ Profile считается реализованным, когда одновре
 4. **D1.4** — создать board-only production Compose.
 5. **D1.5** — реализовать Caddy routing/default deny + secret redaction.
 6. **D1.6** — readiness/durability/secret continuity tests.
-7. **B3/T3 gate** — закрыть live read-only/revoke/offline convergence.
+7. **B3/T3 gate** — выполнить backend event propagation и real two-browser
+   read-only/revoke/offline convergence; frontend implementation завершён.
 8. **D2** — отдельный board release workflow и immutable images.
 9. **D3** — staging deployment, restart/restore/log scan/soak.
 10. **D4** — manual-approved production rollout и verified rollback.

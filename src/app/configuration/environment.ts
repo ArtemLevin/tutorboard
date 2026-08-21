@@ -1,12 +1,14 @@
 import { resolveSmartInkReleaseGate } from "../../shared/smart-ink-release";
 
 export type AppStage = "development" | "test" | "production";
+export type AppProfile = "board" | "full";
 
 export interface AppEnvironment {
   readonly boardApiBaseUrl: string;
   readonly features: AppFeatureFlags;
   readonly geometryOsBaseUrl: string;
   readonly mathInkApiBaseUrl: string;
+  readonly profile: AppProfile;
   readonly stage: AppStage;
 }
 
@@ -37,6 +39,7 @@ export interface AppFeatureFlagInput {
 }
 
 const stages = new Set<AppStage>(["development", "test", "production"]);
+const profiles = new Set<AppProfile>(["board", "full"]);
 
 function booleanFlag(
   name: string,
@@ -88,11 +91,16 @@ export function readEnvironment(
   boardApiBaseUrl: string | undefined = import.meta.env.VITE_BOARD_API_BASE_URL,
   mathInkApiBaseUrl: string | undefined = import.meta.env
     .VITE_MATH_INK_API_BASE_URL,
+  profileValue: string | undefined = import.meta.env.VITE_APP_PROFILE,
 ): AppEnvironment {
   const stage = value ?? "development";
+  const profile = profileValue ?? "full";
 
   if (!stages.has(stage as AppStage)) {
     throw new Error(`Unsupported VITE_APP_STAGE: ${stage}`);
+  }
+  if (!profiles.has(profile as AppProfile)) {
+    throw new Error(`Unsupported VITE_APP_PROFILE: ${profile}`);
   }
 
   const runtimeOrigin =
@@ -112,7 +120,11 @@ export function readEnvironment(
     throw new Error("VITE_GEOMETRYOS_BASE_URL must be a public HTTP(S) URL.");
   }
 
-  const smartInk = resolveSmartInkReleaseGate(stage, featureInput.smartInk);
+  const boardProfile = profile === "board";
+  const smartInk = resolveSmartInkReleaseGate(
+    stage,
+    featureInput.smartInk ?? (boardProfile ? "false" : undefined),
+  );
   const smartInkDiagnostics = booleanFlag(
     "VITE_FEATURE_SMART_INK_DIAGNOSTICS",
     featureInput.smartInkDiagnostics,
@@ -124,58 +136,83 @@ export function readEnvironment(
     stage !== "production",
   );
 
+  const features: AppFeatureFlags = {
+    developmentDiagnostics: booleanFlag(
+      "VITE_FEATURE_DEV_DIAGNOSTICS",
+      featureInput.developmentDiagnostics,
+      stage !== "production",
+    ),
+    documentSnapshots: booleanFlag(
+      "VITE_FEATURE_DOCUMENT_SNAPSHOTS",
+      featureInput.documentSnapshots,
+      true,
+    ),
+    geometryPrompt: booleanFlag(
+      "VITE_FEATURE_GEOMETRY_PROMPT",
+      featureInput.geometryPrompt,
+      !boardProfile,
+    ),
+    handwrittenFunctions: booleanFlag(
+      "VITE_FEATURE_HANDWRITTEN_FUNCTIONS",
+      featureInput.handwrittenFunctions,
+      boardProfile ? false : stage !== "production",
+    ),
+    mathInkRecognition: booleanFlag(
+      "VITE_FEATURE_MATH_INK_RECOGNITION",
+      featureInput.mathInkRecognition,
+      false,
+    ),
+    serverSync: booleanFlag(
+      "VITE_FEATURE_SERVER_SYNC",
+      featureInput.serverSync,
+      boardProfile || stage === "production",
+    ),
+    smartInk,
+    smartInkDiagnostics: smartInk && smartInkDiagnostics,
+    solid3D,
+    solid3DLearning:
+      solid3D &&
+      booleanFlag(
+        "VITE_FEATURE_SOLID_3D_LEARNING",
+        featureInput.solid3DLearning,
+        stage !== "production",
+      ),
+  };
+
+  if (boardProfile) {
+    const conflicts = [
+      ...(features.serverSync ? [] : ["VITE_FEATURE_SERVER_SYNC=false"]),
+      ...(features.documentSnapshots
+        ? []
+        : ["VITE_FEATURE_DOCUMENT_SNAPSHOTS=false"]),
+      ...(features.geometryPrompt ? ["VITE_FEATURE_GEOMETRY_PROMPT=true"] : []),
+      ...(features.handwrittenFunctions
+        ? ["VITE_FEATURE_HANDWRITTEN_FUNCTIONS=true"]
+        : []),
+      ...(features.mathInkRecognition
+        ? ["VITE_FEATURE_MATH_INK_RECOGNITION=true"]
+        : []),
+      ...(features.smartInk ? ["VITE_FEATURE_SMART_INK=true"] : []),
+    ];
+    if (conflicts.length > 0) {
+      throw new Error(
+        `Board profile feature conflict: ${conflicts.join(", ")}.`,
+      );
+    }
+  }
+
   return {
     boardApiBaseUrl: sameOriginPath(
       "VITE_BOARD_API_BASE_URL",
       boardApiBaseUrl ?? "/api/v1",
     ),
-    features: {
-      developmentDiagnostics: booleanFlag(
-        "VITE_FEATURE_DEV_DIAGNOSTICS",
-        featureInput.developmentDiagnostics,
-        stage !== "production",
-      ),
-      documentSnapshots: booleanFlag(
-        "VITE_FEATURE_DOCUMENT_SNAPSHOTS",
-        featureInput.documentSnapshots,
-        true,
-      ),
-      geometryPrompt: booleanFlag(
-        "VITE_FEATURE_GEOMETRY_PROMPT",
-        featureInput.geometryPrompt,
-        true,
-      ),
-      handwrittenFunctions: booleanFlag(
-        "VITE_FEATURE_HANDWRITTEN_FUNCTIONS",
-        featureInput.handwrittenFunctions,
-        stage !== "production",
-      ),
-      mathInkRecognition: booleanFlag(
-        "VITE_FEATURE_MATH_INK_RECOGNITION",
-        featureInput.mathInkRecognition,
-        false,
-      ),
-      serverSync: booleanFlag(
-        "VITE_FEATURE_SERVER_SYNC",
-        featureInput.serverSync,
-        stage === "production",
-      ),
-      smartInk,
-      smartInkDiagnostics: smartInk && smartInkDiagnostics,
-      solid3D,
-      solid3DLearning:
-        solid3D &&
-        booleanFlag(
-          "VITE_FEATURE_SOLID_3D_LEARNING",
-          featureInput.solid3DLearning,
-          stage !== "production",
-        ),
-    },
+    features,
     geometryOsBaseUrl: geometryOsUrl.href.replace(/\/$/, ""),
     mathInkApiBaseUrl: sameOriginPath(
       "VITE_MATH_INK_API_BASE_URL",
       mathInkApiBaseUrl ?? "/api/v1/formula-recognition",
     ),
+    profile: profile as AppProfile,
     stage: stage as AppStage,
   };
 }

@@ -141,6 +141,10 @@ export type BoardAccessControlEvent =
   | z.infer<typeof accessCapabilitiesChangedSchema>
   | z.infer<typeof accessRevokedSchema>;
 
+type BoardAccessEventHandler = (
+  event: BoardAccessControlEvent,
+) => boolean | Promise<boolean | void> | void;
+
 export interface BoardPresence {
   readonly actorId: string;
   readonly clientId: string;
@@ -216,7 +220,7 @@ export interface BoardCollaborationClientOptions {
     protocols: readonly string[],
   ) => WebSocket;
   readonly documentId: DocumentId;
-  readonly onAccessEvent?: (event: BoardAccessControlEvent) => void;
+  readonly onAccessEvent?: BoardAccessEventHandler;
   readonly onPresence: (participants: readonly BoardPresence[]) => void;
   readonly onInkPreviews?: (previews: readonly BoardInkPreview[]) => void;
   readonly onRevision: (revision: number) => void;
@@ -236,9 +240,7 @@ export class BoardCollaborationClient {
   >;
   readonly #documentId: DocumentId;
   readonly #inkPreviews = new Map<string, BoardInkPreview>();
-  readonly #onAccessEvent: NonNullable<
-    BoardCollaborationClientOptions["onAccessEvent"]
-  >;
+  #onAccessEvent: BoardAccessEventHandler;
   readonly #onInkPreviews: NonNullable<
     BoardCollaborationClientOptions["onInkPreviews"]
   >;
@@ -316,6 +318,10 @@ export class BoardCollaborationClient {
     this.#participantSequences.clear();
     this.#onPresence([]);
     this.#clearRemotePreviews();
+  }
+
+  setAccessEventHandler(handler: BoardAccessEventHandler): void {
+    this.#onAccessEvent = handler;
   }
 
   updatePresence(presence: LocalBoardPresence): void {
@@ -451,7 +457,13 @@ export class BoardCollaborationClient {
         this.#socket?.close(1008, "Room mismatch");
         return;
       }
-      this.#onAccessEvent(changed.data);
+      void Promise.resolve()
+        .then(() => this.#onAccessEvent(changed.data))
+        .then((shouldReconnect) => {
+          this.stop();
+          if (shouldReconnect !== false) this.start();
+        })
+        .catch(() => this.stop());
       return;
     }
     const revoked = accessRevokedSchema.safeParse(value);
@@ -460,7 +472,9 @@ export class BoardCollaborationClient {
         this.#socket?.close(1008, "Room mismatch");
         return;
       }
-      this.#onAccessEvent(revoked.data);
+      void Promise.resolve()
+        .then(() => this.#onAccessEvent(revoked.data))
+        .catch(() => undefined);
       this.#markAccessRevoked();
       this.#socket?.close(4403, "Access revoked");
       return;

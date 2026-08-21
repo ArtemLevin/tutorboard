@@ -76,6 +76,34 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
+  board-profile:
+    name: Board-only frontend profile
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify board profile contract
+        run: npm run test -- src/app/configuration/environment.test.ts
+
+      - name: Build minimal standalone bundle
+        env:
+          VITE_APP_PROFILE: board
+          VITE_APP_STAGE: production
+        run: npm run build
+
   geometryos-live-contract:
     name: GeometryOS live browser contract
     needs: quality

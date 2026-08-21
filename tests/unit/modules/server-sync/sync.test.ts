@@ -28,6 +28,10 @@ import {
   boardDocumentSha256,
   type BoardSyncState,
 } from "../../../../src/modules/server-sync/public";
+import type {
+  BoardLocalAccessScope,
+  GuestBoardAccessContext,
+} from "../../../../src/core/access/public";
 
 const expectedDocumentId = documentId("document:lesson-1");
 const expectedActorId = actorId("user:tutor");
@@ -121,6 +125,9 @@ class MemoryQueue implements PendingBoardCommandQueue {
     ordering: PendingBoardCommandOrderingInput = {},
   ): Promise<PendingBoardCommand> {
     const item: PendingBoardCommand = {
+      ...(ordering.accessEpochAtCreation === undefined
+        ? {}
+        : { accessEpochAtCreation: ordering.accessEpochAtCreation }),
       command,
       documentId: documentIdValue,
       idempotencyKey,
@@ -174,6 +181,50 @@ class MemoryQueue implements PendingBoardCommandQueue {
     this.head = head;
     return Promise.resolve();
   }
+}
+
+class AccessScopedMemoryQueue extends MemoryQueue {
+  quarantinedByAccessEpoch = 0;
+  scope: BoardLocalAccessScope | null = null;
+
+  setAccessScope(scope: BoardLocalAccessScope): Promise<number> {
+    this.scope = scope;
+    return Promise.resolve(0);
+  }
+
+  override list(): Promise<readonly PendingBoardCommand[]> {
+    if (this.scope === null) return super.list();
+    const retained = this.items.filter(
+      ({ accessEpochAtCreation }) =>
+        accessEpochAtCreation === undefined ||
+        accessEpochAtCreation === this.scope?.accessEpoch,
+    );
+    this.quarantinedByAccessEpoch += this.items.length - retained.length;
+    this.items = retained;
+    return Promise.resolve([...retained]);
+  }
+}
+
+function guestAccessContext(
+  accessEpoch: string,
+  writable: boolean,
+): GuestBoardAccessContext {
+  return {
+    accessEpoch,
+    actorId: expectedActorId,
+    boardId: expectedDocumentId,
+    cacheScopeId: "scope:guest:sync-test",
+    capabilities: [
+      "board.read",
+      ...(writable ? (["board.write", "board.snapshot.write"] as const) : []),
+      "collaboration.connect",
+    ],
+    csrfToken: `csrf:${accessEpoch}`,
+    displayName: "Guest",
+    principalType: "guest",
+    role: "student",
+    schemaVersion: "1.0",
+  };
 }
 
 class FakeRepository {
@@ -846,5 +897,120 @@ describe("BoardSyncEngine", () => {
       pendingCount: 0,
       revision: 1,
     });
+  });
+
+  it("freezes mutations, quarantines the old access epoch, and rebuilds the visible document", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const repository = new FakeRepository();
+    const queue = new AccessScopedMemoryQueue();
+    const states: BoardSyncState[] = [];
+    let key = 0;
+    const engine = new BoardSyncEngine({
+      accessContext: guestAccessContext("epoch:guest:1", true),
+      createIdempotencyKey: () => `client:guest:${++key}`,
+      documentId: expectedDocumentId,
+      now: () => "2026-08-21T18:00:00.000Z",
+      onStateChange: (state) => states.push(state),
+      queue,
+      repository,
+    });
+    await engine.bootstrap();
+
+    await engine.apply([
+      rename("command:old-epoch", "2026-08-21T18:01:00.000Z", "Old edit"),
+    ]);
+    expect(states.at(-1)).toMatchObject({
+      document: { title: "Old edit" },
+      pendingCount: 1,
+    });
+
+    engine.pauseForAccessRefresh();
+    await engine.apply([
+      rename("command:blocked", "2026-08-21T18:02:00.000Z", "Blocked"),
+    ]);
+    expect(queue.items).toHaveLength(1);
+
+    await engine.updateAccessContext(
+      guestAccessContext("epoch:guest:2", false),
+    );
+
+    expect(queue.items).toEqual([]);
+    expect(queue.quarantinedByAccessEpoch).toBe(1);
+    expect(states.at(-1)).toMatchObject({
+      accessEpoch: "epoch:guest:2",
+      capabilities: ["board.read", "collaboration.connect"],
+      document: { title: "Совместная доска" },
+      pendingCount: 0,
+      quarantinedCount: 1,
+    });
+    expect(queue.head?.session).toMatchObject({
+      accessEpoch: "epoch:guest:2",
+      capabilities: ["board.read", "collaboration.connect"],
+    });
+    expect(repository.pushed).toEqual([]);
+  });
+
+  it("does not resurrect quarantined work when write access returns", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const repository = new FakeRepository();
+    const queue = new AccessScopedMemoryQueue();
+    const states: BoardSyncState[] = [];
+    let key = 0;
+    const engine = new BoardSyncEngine({
+      accessContext: guestAccessContext("epoch:guest:1", true),
+      createIdempotencyKey: () => `client:guest:${++key}`,
+      documentId: expectedDocumentId,
+      now: () => "2026-08-21T18:00:00.000Z",
+      onStateChange: (state) => states.push(state),
+      queue,
+      repository,
+    });
+    await engine.bootstrap();
+    await engine.apply([
+      rename("command:stale", "2026-08-21T18:01:00.000Z", "Stale edit"),
+    ]);
+
+    engine.pauseForAccessRefresh();
+    await engine.updateAccessContext(
+      guestAccessContext("epoch:guest:2", false),
+    );
+    engine.pauseForAccessRefresh();
+    await engine.updateAccessContext(guestAccessContext("epoch:guest:3", true));
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    await engine.setNetworkAvailable(true);
+    await engine.apply([
+      rename("command:fresh", "2026-08-21T18:03:00.000Z", "Fresh edit"),
+    ]);
+
+    expect(repository.pushed).toHaveLength(1);
+    expect(repository.pushed[0]).toMatchObject({
+      commands: [{ command: { title: "Fresh edit" } }],
+      idempotencyKey: "client:guest:2",
+    });
+    expect(states.at(-1)).toMatchObject({
+      accessEpoch: "epoch:guest:3",
+      document: { title: "Fresh edit" },
+      pendingCount: 0,
+      quarantinedCount: 1,
+      revision: 1,
+    });
+  });
+
+  it("rejects a capability change that does not advance the access epoch", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const engine = new BoardSyncEngine({
+      accessContext: guestAccessContext("epoch:guest:1", true),
+      createIdempotencyKey: () => "unused",
+      documentId: expectedDocumentId,
+      now: () => "2026-08-21T18:00:00.000Z",
+      onStateChange: () => undefined,
+      queue: new AccessScopedMemoryQueue(),
+      repository: new FakeRepository(),
+    });
+    await engine.bootstrap();
+
+    await expect(
+      engine.updateAccessContext(guestAccessContext("epoch:guest:1", false)),
+    ).rejects.toMatchObject({ code: "board.sync.access-epoch-not-advanced" });
   });
 });
