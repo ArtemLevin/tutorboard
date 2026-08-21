@@ -11,6 +11,10 @@ import {
   type BoardHttpClientOptions,
 } from "./client";
 
+export interface StandaloneBoardHttpRepository extends BoardPlatformRepository {
+  readonly updateAccessContext: (context: BoardAccessContext) => void;
+}
+
 function normalizedBaseUrl(baseUrl: string, origin: string): string {
   const parsed = new URL(baseUrl, origin);
   if (parsed.origin !== new URL(origin).origin) {
@@ -138,23 +142,36 @@ function unsafeMethod(init: RequestInit | undefined): boolean {
 export function createStandaloneBoardHttpRepository(
   accessContext: BoardAccessContext,
   options: BoardHttpClientOptions = {},
-): BoardPlatformRepository {
+): StandaloneBoardHttpRepository {
   const transport = options.fetch ?? globalThis.fetch;
+  let currentAccessContext = accessContext;
   const scopedFetch: typeof globalThis.fetch = (input, init) => {
-    if (accessContext.principalType !== "guest" || !unsafeMethod(init)) {
+    if (
+      currentAccessContext.principalType !== "guest" ||
+      !unsafeMethod(init)
+    ) {
       return transport(input, init);
     }
     const headers = new Headers(init?.headers);
-    headers.set("X-Board-Access-Epoch", accessContext.accessEpoch);
+    headers.set("X-Board-Access-Epoch", currentAccessContext.accessEpoch);
     return transport(input, { ...init, headers });
   };
   const repository = createBoardHttpRepository({
     ...options,
     fetch: scopedFetch,
   });
-  const session = standaloneSessionContext(accessContext);
   return {
     ...repository,
-    context: () => Promise.resolve(session),
+    context: () =>
+      Promise.resolve(standaloneSessionContext(currentAccessContext)),
+    updateAccessContext: (context) => {
+      if (context.boardId !== accessContext.boardId) {
+        throw new Error("Board access context belongs to another document.");
+      }
+      if (context.cacheScopeId !== accessContext.cacheScopeId) {
+        throw new Error("Board access context changed security scope.");
+      }
+      currentAccessContext = context;
+    },
   };
 }
