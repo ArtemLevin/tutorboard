@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   commandId,
@@ -9,6 +9,11 @@ import {
   type CommandMetadata,
   type CommandResult,
 } from "../../../core/public";
+import {
+  boardMutationPolicyMessage,
+  writableBoardMutationPolicy,
+  type BoardMutationPolicy,
+} from "../../../core/access/public";
 import {
   commitDocumentHistory,
   createDocumentHistory,
@@ -21,6 +26,7 @@ export interface UseBoardDocumentControllerOptions {
   readonly commandActorId: ActorId;
   readonly historyEnabled: boolean;
   readonly initialDocument: BoardDocument;
+  readonly mutationPolicy?: BoardMutationPolicy;
   readonly onCollaborativeUndo?: (() => void) | undefined;
   readonly onCommandCommitted?:
     | ((
@@ -38,6 +44,7 @@ export function useBoardDocumentController({
   commandActorId,
   historyEnabled,
   initialDocument,
+  mutationPolicy,
   onCollaborativeUndo,
   onCommandCommitted,
   onDocumentChange,
@@ -49,6 +56,14 @@ export function useBoardDocumentController({
   }));
   const document = state.history.present;
   const documentRef = useRef(document);
+  const effectiveMutationPolicy = useMemo(
+    () =>
+      mutationPolicy ??
+      (readOnly
+        ? ({ canWrite: false, reason: "missing-board-write" } as const)
+        : writableBoardMutationPolicy),
+    [mutationPolicy, readOnly],
+  );
 
   useEffect(() => {
     documentRef.current = document;
@@ -84,22 +99,26 @@ export function useBoardDocumentController({
     [commandActorId],
   );
 
+  const rejectMutation = useCallback((): CommandResult => {
+    const result: CommandResult = {
+      document: documentRef.current,
+      error: {
+        code: "command.invalid",
+        message: boardMutationPolicyMessage(effectiveMutationPolicy),
+      },
+      ok: false,
+    };
+    setState((current) => ({
+      ...current,
+      commandError: result.error.message,
+    }));
+    return result;
+  }, [effectiveMutationPolicy]);
+
   const commitCommand = useCallback(
     (command: BoardCommand): CommandResult => {
-      if (readOnly) {
-        const result: CommandResult = {
-          document: documentRef.current,
-          error: {
-            code: "command.invalid",
-            message: "Доска открыта только для чтения.",
-          },
-          ok: false,
-        };
-        setState((current) => ({
-          ...current,
-          commandError: result.error.message,
-        }));
-        return result;
+      if (!effectiveMutationPolicy.canWrite) {
+        return rejectMutation();
       }
       const previousDocument = documentRef.current;
       const result = reduceBoardDocument(previousDocument, command);
@@ -118,14 +137,22 @@ export function useBoardDocumentController({
       onCommandCommitted?.(command, result.document, previousDocument);
       return result;
     },
-    [onCommandCommitted, readOnly],
+    [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],
   );
 
   const setCommandError = useCallback((message: string | null) => {
     setState((current) => ({ ...current, commandError: message }));
   }, []);
 
+  const rejectHistoryMutation = useCallback(() => {
+    setCommandError(boardMutationPolicyMessage(effectiveMutationPolicy));
+  }, [effectiveMutationPolicy, setCommandError]);
+
   const undo = useCallback(() => {
+    if (!effectiveMutationPolicy.canWrite) {
+      rejectHistoryMutation();
+      return;
+    }
     if (!historyEnabled) {
       if (collaborativeUndoAvailable && onCollaborativeUndo !== undefined) {
         onCollaborativeUndo();
@@ -142,12 +169,18 @@ export function useBoardDocumentController({
     });
   }, [
     collaborativeUndoAvailable,
+    effectiveMutationPolicy.canWrite,
     historyEnabled,
     onCollaborativeUndo,
+    rejectHistoryMutation,
     setCommandError,
   ]);
 
   const redo = useCallback(() => {
+    if (!effectiveMutationPolicy.canWrite) {
+      rejectHistoryMutation();
+      return;
+    }
     if (!historyEnabled) {
       setCommandError(
         "Повтор будет доступен после добавления синхронизируемой undo-команды в board/v1.",
@@ -160,7 +193,12 @@ export function useBoardDocumentController({
         ? current
         : { commandError: null, history: next };
     });
-  }, [historyEnabled, setCommandError]);
+  }, [
+    effectiveMutationPolicy.canWrite,
+    historyEnabled,
+    rejectHistoryMutation,
+    setCommandError,
+  ]);
 
   return {
     commandError: state.commandError,

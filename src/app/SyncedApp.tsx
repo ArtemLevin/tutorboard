@@ -2,21 +2,29 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   BoardCollaborationClient,
+  type BoardAccessControlEvent,
   type BoardCollaborationStatus,
   type BoardInkPreview,
   type BoardPresence,
   type BoardTransformPreview,
 } from "../adapters/board-websocket/public";
+import type { BoardRuntimeAccessContext } from "../core/access/public";
 import {
   reduceBoardDocument,
   type BoardCommand,
   type BoardDocument,
   type BoardEvidenceDescriptor,
-  type BoardPlatformRepository,
   type DocumentId,
   type GeometryOsClient,
   type PendingBoardCommandQueue,
 } from "../core/public";
+import type {
+  BoardCollaborationRepository,
+  BoardEvidenceRepository,
+  BoardSyncRepository,
+  BoardTelemetryRepository,
+  LegacyBoardLifecycleRepository,
+} from "../core/ports/public";
 import {
   boardDocumentSha256,
   BoardSyncEngine,
@@ -33,13 +41,20 @@ import { App, type AppPersistenceStatus } from "./App";
 import { copyBoardShareUrl } from "./board-chrome/board-share";
 import { canFinalizeBoardEvidence } from "./synced-evidence";
 
+type SyncedBoardRepository = BoardCollaborationRepository &
+  BoardEvidenceRepository &
+  BoardSyncRepository &
+  BoardTelemetryRepository &
+  LegacyBoardLifecycleRepository;
+
 interface SyncedAppProps {
+  readonly accessContext?: BoardRuntimeAccessContext | undefined;
   readonly documentId: DocumentId;
   readonly geometryOsClient?: GeometryOsClient | undefined;
-  readonly lessonId: string;
+  readonly lessonId?: string | undefined;
   readonly mathInkRecognizer?: MathInkRecognizer | undefined;
   readonly queue: PendingBoardCommandQueue;
-  readonly repository: BoardPlatformRepository;
+  readonly repository: SyncedBoardRepository;
 }
 
 const boardOriginStorageKey = "tutorboard.collaboration-origin.v1";
@@ -94,7 +109,7 @@ function persistenceStatus(
   if (state.quarantinedCount > 0) {
     return {
       detail:
-        "Конфликтующие локальные изменения изолированы; остальные команды продолжают синхронизацию.",
+        "Конфликтующие или устаревшие локальные изменения изолированы; остальные команды продолжают синхронизацию.",
       kind: "conflict",
       label: `Изолировано изменений · ${state.quarantinedCount}`,
     };
@@ -130,15 +145,14 @@ function inverseStillApplies(
   let preview = document;
   for (const command of commands) {
     const result = reduceBoardDocument(preview, command);
-    if (!result.ok) {
-      return false;
-    }
+    if (!result.ok) return false;
     preview = result.document;
   }
   return true;
 }
 
 export function SyncedApp({
+  accessContext,
   documentId,
   geometryOsClient,
   lessonId,
@@ -146,9 +160,7 @@ export function SyncedApp({
   queue,
   repository,
 }: SyncedAppProps) {
-  const [state, setState] = useState<BoardSyncState>({
-    kind: "bootstrapping",
-  });
+  const [state, setState] = useState<BoardSyncState>({ kind: "bootstrapping" });
   const [collaborationStatus, setCollaborationStatus] =
     useState<BoardCollaborationStatus>("connecting");
   const [participants, setParticipants] = useState<readonly BoardPresence[]>(
@@ -176,9 +188,9 @@ export function SyncedApp({
   const [engine] = useState(
     () =>
       new BoardSyncEngine({
+        ...(accessContext === undefined ? {} : { accessContext }),
         createIdempotencyKey: () => `client:${crypto.randomUUID()}`,
         documentId,
-        lessonId,
         now: () => new Date().toISOString(),
         originId,
         onStateChange: setState,
@@ -186,10 +198,21 @@ export function SyncedApp({
         repository,
       }),
   );
+  const handleAccessEvent = (event: BoardAccessControlEvent) => {
+    if (event.type === "access.revoked") {
+      engine.dispose();
+      setEvidenceStatus("Доступ к совместной доске отозван.");
+      return;
+    }
+    setEvidenceStatus(
+      "Права доступа к доске изменились. Контекст будет обновлён перед следующей синхронизацией.",
+    );
+  };
   const [collaboration] = useState(
     () =>
       new BoardCollaborationClient({
         documentId,
+        onAccessEvent: handleAccessEvent,
         onInkPreviews: setInkPreviews,
         onPresence: setParticipants,
         onRevision: () => void engine.synchronize(),
@@ -201,7 +224,16 @@ export function SyncedApp({
 
   useEffect(() => {
     bootstrapStartedRef.current = performance.now();
-    void engine.bootstrap();
+    const bootstrap = async () => {
+      if (lessonId !== undefined) {
+        const context = await repository.context();
+        if (context.role === "admin" || context.role === "tutor") {
+          await repository.ensureBoard(lessonId, documentId, context.csrfToken);
+        }
+      }
+      await engine.bootstrap();
+    };
+    void bootstrap().catch(() => void engine.bootstrap());
     const reconnect = () => void engine.setNetworkAvailable(true);
     const disconnect = () => void engine.setNetworkAvailable(false);
     window.addEventListener("online", reconnect);
@@ -211,14 +243,16 @@ export function SyncedApp({
       window.removeEventListener("offline", disconnect);
       engine.dispose();
     };
-  }, [engine]);
+  }, [documentId, engine, lessonId, repository]);
+
   const ready = state.kind === "ready";
+  const collaborationEnabled =
+    state.kind === "ready" &&
+    state.capabilities.includes("collaboration.connect");
   useEffect(() => {
-    if (!ready) {
-      return;
-    }
-    collaboration.start();
-    if (!loadMeasuredRef.current) {
+    if (!ready) return;
+    if (collaborationEnabled) collaboration.start();
+    if (lessonId !== undefined && !loadMeasuredRef.current) {
       loadMeasuredRef.current = true;
       void repository
         .context()
@@ -234,21 +268,20 @@ export function SyncedApp({
         )
         .catch(() => undefined);
     }
-    void repository
-      .listEvidence(lessonId)
-      .then(setEvidence)
-      .catch(() => setEvidence([]));
-    return () => collaboration.stop();
-  }, [collaboration, lessonId, ready, repository]);
-  useEffect(() => {
-    if (!ready) {
-      return;
+    if (lessonId !== undefined) {
+      void repository
+        .listEvidence(lessonId)
+        .then(setEvidence)
+        .catch(() => setEvidence([]));
     }
+    return () => collaboration.stop();
+  }, [collaboration, collaborationEnabled, lessonId, ready, repository]);
+
+  useEffect(() => {
+    if (!ready || lessonId === undefined) return;
     const previous = previousCollaborationStatusRef.current;
     previousCollaborationStatusRef.current = collaborationStatus;
-    if (previous === collaborationStatus) {
-      return;
-    }
+    if (previous === collaborationStatus) return;
     void repository
       .context()
       .then((context) =>
@@ -266,12 +299,10 @@ export function SyncedApp({
         ),
       )
       .catch(() => undefined);
-  }, [collaborationStatus, ready, repository]);
+  }, [collaborationStatus, lessonId, ready, repository]);
 
   useEffect(() => {
-    if (state.kind !== "ready") {
-      return;
-    }
+    if (state.kind !== "ready") return;
     const rendered = renderedDocumentRef.current;
     if (rendered === null) {
       renderedDocumentRef.current = state.document;
@@ -279,8 +310,6 @@ export function SyncedApp({
     }
     if (JSON.stringify(rendered) !== JSON.stringify(state.document)) {
       renderedDocumentRef.current = state.document;
-      // Preserve every own inverse that is still valid after the remote
-      // revision. One conflicting object must not erase unrelated undo work.
       const applicable = undoStackRef.current.filter((commands) =>
         inverseStillApplies(state.document, commands),
       );
@@ -296,7 +325,7 @@ export function SyncedApp({
           <span aria-hidden="true" className="recovery-icon">
             ↻
           </span>
-          <h1>Подключаем доску занятия</h1>
+          <h1>Подключаем доску</h1>
           <p>Проверяем серверную ревизию и локальную очередь команд…</p>
         </section>
       </main>
@@ -352,9 +381,40 @@ export function SyncedApp({
     );
   }
 
-  const canManageEvidence = state.role === "admin" || state.role === "tutor";
+  if (collaborationStatus === "revoked") {
+    return (
+      <main className="recovery-shell">
+        <section className="recovery-card">
+          <span aria-hidden="true" className="recovery-icon">
+            !
+          </span>
+          <h1>Доступ к доске недоступен</h1>
+          <p role="alert">
+            Доступ к совместной доске был отозван. Запросите новую ссылку у
+            преподавателя.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
+  const writeEnabled = state.capabilities.includes("board.write");
+  const canManageEvidence =
+    lessonId !== undefined &&
+    (state.role === "admin" || state.role === "tutor");
+  const principalLabel =
+    state.principalType === "guest"
+      ? `Ученик · ${accessContext?.displayName ?? state.actorId}`
+      : state.principalType === "teacher"
+        ? `Преподаватель · ${accessContext?.displayName ?? state.actorId}`
+        : "Контекст занятия";
+
   const finalizeEvidence = async () => {
-    if (!canFinalizeBoardEvidence(state) || evidenceFinalizing) {
+    if (
+      lessonId === undefined ||
+      !canFinalizeBoardEvidence(state) ||
+      evidenceFinalizing
+    ) {
       setEvidenceStatus(
         "Дождитесь подтверждения всех изменений сервером перед фиксацией итога.",
       );
@@ -427,10 +487,12 @@ export function SyncedApp({
       setEvidenceFinalizing(false);
     }
   };
+
   const setEvidencePublished = async (
     item: BoardEvidenceDescriptor,
     published: boolean,
   ) => {
+    if (lessonId === undefined) return;
     setEvidenceStatus(
       published ? "Публикуем итог ученику…" : "Отзываем публикацию…",
     );
@@ -459,22 +521,22 @@ export function SyncedApp({
   return (
     <div className="synced-workspace">
       <App
-        collaborativeUndoAvailable={undoCount > 0}
+        collaborativeUndoAvailable={writeEnabled && undoCount > 0}
         commandActorId={state.actorId}
         geometryOsClient={geometryOsClient}
         historyEnabled={false}
         initialDocument={state.document}
         mathInkRecognizer={mathInkRecognizer}
         onCollaborativeUndo={() => {
+          if (!writeEnabled) return;
           const inverse = undoStackRef.current.at(-1);
-          if (inverse === undefined) {
-            return;
-          }
+          if (inverse === undefined) return;
           undoStackRef.current = undoStackRef.current.slice(0, -1);
           setUndoCount(undoStackRef.current.length);
           void engine.apply(inverse);
         }}
         onCommandCommitted={(command, document, previousDocument) => {
+          if (!writeEnabled) return;
           renderedDocumentRef.current = document;
           const inverse = invertOwnBoardCommand(command, previousDocument, {
             actorId: state.actorId,
@@ -499,32 +561,47 @@ export function SyncedApp({
         onTransformPreviewChange={(preview) =>
           collaboration.updateTransformPreview(preview)
         }
-        onExportPdfSnapshot={(document) => {
-          setEvidenceStatus("Создаём PDF доски…");
-          void renderBoardSnapshotPdf(document)
-            .then((blob) => {
-              downloadBlob("tutorboard-board.pdf", blob);
-              setEvidenceStatus("PDF доски сохранён.");
-            })
-            .catch(() => setEvidenceStatus("Не удалось создать PDF доски."));
-        }}
-        onShareBoard={() => {
-          void copyBoardShareUrl(window.location)
-            .then(() => setEvidenceStatus("Ссылка на доску скопирована."))
-            .catch(() =>
-              setEvidenceStatus("Браузер не разрешил скопировать ссылку."),
-            );
-        }}
+        onExportPdfSnapshot={
+          state.capabilities.includes("board.export")
+            ? (document) => {
+                setEvidenceStatus("Создаём PDF доски…");
+                void renderBoardSnapshotPdf(document)
+                  .then((blob) => {
+                    downloadBlob("tutorboard-board.pdf", blob);
+                    setEvidenceStatus("PDF доски сохранён.");
+                  })
+                  .catch(() =>
+                    setEvidenceStatus("Не удалось создать PDF доски."),
+                  );
+              }
+            : undefined
+        }
+        onShareBoard={
+          lessonId === undefined
+            ? undefined
+            : () => {
+                void copyBoardShareUrl(window.location)
+                  .then(() => setEvidenceStatus("Ссылка на доску скопирована."))
+                  .catch(() =>
+                    setEvidenceStatus(
+                      "Браузер не разрешил скопировать ссылку.",
+                    ),
+                  );
+              }
+        }
         persistenceNotice={
           state.network === "offline"
             ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
             : null
         }
         persistenceStatus={persistenceStatus(state)}
-        readOnly={state.role === "parent"}
+        readOnly={!writeEnabled}
+        standaloneMode={accessContext !== undefined}
         settingsExtra={
           <section className="board-settings-section">
-            <h3>Занятие</h3>
+            <h3>{lessonId === undefined ? "Совместная доска" : "Занятие"}</h3>
+            <p>{principalLabel}</p>
+            {!writeEnabled ? <p>Режим только для чтения</p> : null}
             <p>
               {collaborationStatus === "online"
                 ? `В комнате ${participants.length + 1}`

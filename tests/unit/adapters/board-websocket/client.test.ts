@@ -8,11 +8,7 @@ import {
   type BoardPresence,
   type BoardTransformPreview,
 } from "../../../../src/adapters/board-websocket/public";
-import {
-  actorId,
-  documentId,
-  type BoardPlatformRepository,
-} from "../../../../src/core/public";
+import { actorId, documentId } from "../../../../src/core/public";
 
 class FakeSocket extends EventTarget {
   closeCode: number | null = null;
@@ -97,7 +93,7 @@ describe("Board collaboration WebSocket adapter", () => {
       repository: {
         collaborationTicket,
         context,
-      } as unknown as BoardPlatformRepository,
+      },
     });
 
     client.start();
@@ -214,7 +210,7 @@ describe("Board collaboration WebSocket adapter", () => {
           organizationId: "organization:1",
           role: "tutor",
         }),
-      } as unknown as BoardPlatformRepository,
+      },
     });
 
     client.start();
@@ -253,7 +249,7 @@ describe("Board collaboration WebSocket adapter", () => {
           organizationId: "organization:1",
           role: "tutor",
         }),
-      } as unknown as BoardPlatformRepository,
+      },
     });
     rateClient.start();
     await vi.waitFor(() => expect(sockets).toHaveLength(2));
@@ -297,7 +293,7 @@ describe("Board collaboration WebSocket adapter", () => {
           organizationId: "organization:1",
           role: "tutor",
         }),
-      } as unknown as BoardPlatformRepository,
+      },
     });
 
     client.start();
@@ -360,7 +356,7 @@ describe("Board collaboration WebSocket adapter", () => {
           organizationId: "organization:1",
           role: "tutor",
         }),
-      } as unknown as BoardPlatformRepository,
+      },
     });
 
     client.start();
@@ -514,7 +510,7 @@ describe("Board collaboration WebSocket adapter", () => {
           organizationId: "organization:1",
           role: "tutor",
         }),
-      } as unknown as BoardPlatformRepository,
+      },
     });
 
     client.start();

@@ -28,10 +28,10 @@ const boardDescriptorSchema = z
     currentRevision: z.number().int().nonnegative(),
     documentId: identifierSchema,
     lastSnapshotRevision: z.number().int().nonnegative(),
-    lessonId: identifierSchema,
+    lessonId: identifierSchema.nullable().optional(),
     schemaVersion: z.literal("1.0").optional(),
     snapshotDue: z.boolean(),
-    studentId: identifierSchema,
+    studentId: identifierSchema.nullable().optional(),
     updatedAt: z.string().min(1).max(64).optional(),
   })
   .strict()
@@ -221,10 +221,16 @@ function parseDescriptor(value: unknown): ServerBoardDescriptor {
       false,
     );
   }
+  const { createdAt, lessonId, studentId, updatedAt, ...descriptor } =
+    parsed.data;
   return {
-    ...parsed.data,
-    archivedAt: parsed.data.archivedAt ?? null,
-    documentId: documentId(parsed.data.documentId),
+    ...descriptor,
+    archivedAt: descriptor.archivedAt ?? null,
+    documentId: documentId(descriptor.documentId),
+    ...(createdAt === undefined ? {} : { createdAt }),
+    ...(lessonId === null || lessonId === undefined ? {} : { lessonId }),
+    ...(studentId === null || studentId === undefined ? {} : { studentId }),
+    ...(updatedAt === undefined ? {} : { updatedAt }),
   };
 }
 

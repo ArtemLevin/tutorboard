@@ -36,6 +36,7 @@ export interface BoardSettingsPanelProps {
   readonly shortcutsButtonRef: RefObject<HTMLButtonElement | null>;
   readonly shortcutsOpen: boolean;
   readonly stage: string;
+  readonly standaloneMode?: boolean;
 }
 
 export function BoardSettingsPanel({
@@ -60,6 +61,7 @@ export function BoardSettingsPanel({
   shortcutsButtonRef,
   shortcutsOpen,
   stage,
+  standaloneMode = false,
 }: BoardSettingsPanelProps) {
   return (
     <BoardSettingsDialog
@@ -135,13 +137,15 @@ export function BoardSettingsPanel({
             </button>
           )}
           {onShareBoard === undefined ? (
-            <button
-              disabled
-              title="Откройте доску из занятия, чтобы включить совместную работу"
-              type="button"
-            >
-              Совместная ссылка
-            </button>
+            standaloneMode ? null : (
+              <button
+                disabled
+                title="Откройте доску из занятия, чтобы включить совместную работу"
+                type="button"
+              >
+                Совместная ссылка
+              </button>
+            )
           ) : (
             <button onClick={onShareBoard} type="button">
               Копировать ссылку на доску
@@ -267,11 +271,15 @@ export function BoardSettingsPanel({
               Диагностика
             </button>
           )}
-          <a href="#/documents">Все документы</a>
-          <a href="#/settings">Настройки приложения</a>
-          {developmentDiagnostics ? (
-            <a href="#/diagnostics">Диагностика приложения</a>
-          ) : null}
+          {standaloneMode ? null : (
+            <>
+              <a href="#/documents">Все документы</a>
+              <a href="#/settings">Настройки приложения</a>
+              {developmentDiagnostics ? (
+                <a href="#/diagnostics">Диагностика приложения</a>
+              ) : null}
+            </>
+          )}
         </div>
         <p>
           BoardDocument {boardDocumentSchemaVersion} · {stage}

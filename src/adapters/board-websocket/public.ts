@@ -3,6 +3,7 @@ export {
   maximumBoardCollaborationMessageCharacters,
   maximumBoardCollaborationMessagesPerSecond,
   maximumBoardCollaborationParticipants,
+  type BoardAccessControlEvent,
   type BoardCollaborationClientOptions,
   type BoardCollaborationStatus,
   type BoardInkPreview,

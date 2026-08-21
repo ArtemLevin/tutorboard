@@ -353,3 +353,15 @@ export {
   type GeometryOsValidationIssue,
   type GeometryOsValidationReport,
 } from "./ports/geometryos-client";
+
+export type {
+  BoardInvitationSecretResult,
+  BoardInvitationSummary,
+  CreateBoardInvitationInput,
+  StandaloneBoardDescriptor,
+  StandaloneBoardManagementRepository,
+  TeacherManagementContext,
+  TeacherManagementRole,
+  UpdateBoardInvitationInput,
+  UpdateStandaloneBoardInput,
+} from "./ports/standalone-board-management-repository";
