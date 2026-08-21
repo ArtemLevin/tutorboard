@@ -1,3 +1,4 @@
+# One-shot implementation helper; the job removes this file after applying the patch.
 name: Agent apply access refresh
 
 on:
