@@ -143,7 +143,7 @@ export type BoardAccessControlEvent =
 
 type BoardAccessEventHandler = (
   event: BoardAccessControlEvent,
-) => Promise<void> | void;
+) => boolean | Promise<boolean | void> | void;
 
 export interface BoardPresence {
   readonly actorId: string;
@@ -459,9 +459,9 @@ export class BoardCollaborationClient {
       }
       void Promise.resolve()
         .then(() => this.#onAccessEvent(changed.data))
-        .then(() => {
+        .then((shouldReconnect) => {
           this.stop();
-          this.start();
+          if (shouldReconnect !== false) this.start();
         })
         .catch(() => this.stop());
       return;

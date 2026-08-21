@@ -196,7 +196,9 @@ export function SyncedApp({
   const [currentAccessContext, setCurrentAccessContext] =
     useState(accessContext);
   const currentAccessContextRef = useRef(accessContext);
-  const accessRefreshInFlightRef = useRef<Promise<void> | null>(null);
+  const accessRefreshInFlightRef = useRef<Promise<BoardAccessContext> | null>(
+    null,
+  );
   const expectedAccessEpochRef = useRef<string | undefined>(undefined);
   const undoStackRef = useRef<readonly (readonly BoardCommand[])[]>([]);
   const [undoCount, setUndoCount] = useState(0);
@@ -220,7 +222,7 @@ export function SyncedApp({
       }),
   );
   const refreshStandaloneAccess = useCallback(
-    (expectedAccessEpoch?: string): Promise<void> => {
+    (expectedAccessEpoch?: string): Promise<BoardAccessContext> => {
       if (accessRefreshInFlightRef.current !== null) {
         return accessRefreshInFlightRef.current;
       }
@@ -256,6 +258,7 @@ export function SyncedApp({
             ? "Права доступа обновлены."
             : "Права обновлены: доска доступна только для чтения.",
         );
+        return context;
       })()
         .catch((error: unknown) => {
           if (terminalAccessRefreshFailure(error)) {
@@ -284,9 +287,11 @@ export function SyncedApp({
         engine.dispose();
         setAccessRefreshStatus("revoked");
         setEvidenceStatus("Доступ к совместной доске отозван.");
-        return;
+        return false;
       }
-      return refreshStandaloneAccess(event.accessEpoch);
+      return refreshStandaloneAccess(event.accessEpoch).then((context) =>
+        context.capabilities.includes("collaboration.connect"),
+      );
     },
     [engine, refreshStandaloneAccess],
   );
@@ -334,7 +339,6 @@ export function SyncedApp({
   const ready = state.kind === "ready";
   const collaborationEnabled =
     state.kind === "ready" &&
-    accessRefreshStatus === "idle" &&
     state.capabilities.includes("collaboration.connect");
   useEffect(() => {
     if (!ready) return;

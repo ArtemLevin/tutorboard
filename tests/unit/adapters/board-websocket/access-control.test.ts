@@ -163,4 +163,48 @@ describe("collaboration access control", () => {
     expect(firstSocket.closeCode).toBe(1000);
     client.stop();
   });
+
+  it("stays stopped when refreshed access removes collaboration", async () => {
+    const sockets: FakeSocket[] = [];
+    const client = new BoardCollaborationClient({
+      createWebSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+      documentId: documentId("document:lesson"),
+      onAccessEvent: () => false,
+      onPresence: () => undefined,
+      onRevision: () => undefined,
+      onStatus: () => undefined,
+      origin: "https://tutor.example.test",
+      repository: {
+        collaborationTicket: vi.fn().mockResolvedValue({
+          expiresInSeconds: 30,
+          protocolVersion: "1.1",
+          ticket: "ticket",
+          websocketPath: "/collaboration",
+        }),
+        context: vi.fn().mockResolvedValue({
+          actorId: actorId("actor:tutor"),
+          csrfToken: "csrf-token",
+          organizationId: "organization:1",
+          role: "tutor",
+        }),
+      },
+    });
+
+    client.start();
+    await vi.waitFor(() => expect(sockets).toHaveLength(1));
+    sockets[0]!.receive({
+      accessEpoch: "access-epoch-next",
+      boardId: "document:lesson",
+      refreshRequired: true,
+      schemaVersion: "1.0",
+      type: "access.capabilities.changed",
+    });
+
+    await vi.waitFor(() => expect(sockets[0]!.closeCode).toBe(1000));
+    expect(sockets).toHaveLength(1);
+  });
 });
