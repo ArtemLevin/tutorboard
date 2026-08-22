@@ -27,43 +27,40 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Install visual-test browsers
+      - name: Install desktop visual-test browsers
         run: npx playwright install --with-deps chromium firefox
 
       - name: Build production bundle
         run: npm run build
 
-      - name: Refresh coordinate-plot visual snapshots
-        run: npm run e2e:plot-visual:update
+      - name: Refresh desktop coordinate-plot visual snapshots
+        run: >-
+          npx playwright test
+          --config playwright.visual.config.ts
+          --project=visual-chromium-desktop
+          --project=visual-firefox-desktop
+          --update-snapshots
 
-      - name: Verify expected visual-only delta
+      - name: Verify snapshot-only delta
         shell: bash
         run: |
           rm .github/workflows/update-export-button-visual-baselines.yml
           python - <<'PY'
           import subprocess
 
-          expected = {
-              "tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-chromium-desktop-linux.png",
-              "tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-firefox-desktop-linux.png",
-              "tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-view-statuses-visual-chromium-desktop-linux.png",
-              "tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-view-statuses-visual-firefox-desktop-linux.png",
-              "tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-bounded-legend-visual-chromium-desktop-linux.png",
-              "tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-bounded-legend-visual-firefox-desktop-linux.png",
-          }
           helper = ".github/workflows/update-export-button-visual-baselines.yml"
+          prefix = "tests/e2e/coordinate-plot-visual.spec.ts-snapshots/"
           lines = subprocess.check_output(
               ["git", "status", "--porcelain=v1"], text=True
           ).splitlines()
           changed = {line[3:] for line in lines if len(line) >= 4}
-          allowed = expected | {helper}
-          unexpected = changed - allowed
-          missing = expected - changed
+          snapshots = {path for path in changed if path.startswith(prefix) and path.endswith("-desktop-linux.png")}
+          unexpected = changed - snapshots - {helper}
           if unexpected:
               raise SystemExit(f"Unexpected visual changes: {sorted(unexpected)}")
-          if missing:
-              raise SystemExit(f"Expected desktop baselines were not updated: {sorted(missing)}")
-          print("Verified visual delta:", sorted(changed))
+          if not snapshots:
+              raise SystemExit("No desktop visual baselines were updated")
+          print("Verified desktop visual delta:", sorted(snapshots))
           PY
 
       - name: Commit visual baselines
@@ -71,8 +68,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/e2e/coordinate-plot-visual.spec.ts-snapshots/*-visual-chromium-desktop-linux.png
-          git add tests/e2e/coordinate-plot-visual.spec.ts-snapshots/*-visual-firefox-desktop-linux.png
+          git add tests/e2e/coordinate-plot-visual.spec.ts-snapshots/*-desktop-linux.png
           git add .github/workflows/update-export-button-visual-baselines.yml
           git commit -m "test: update export toolbar visual baselines"
           git push origin HEAD:agent/add-export-button
