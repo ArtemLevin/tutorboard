@@ -7,15 +7,41 @@ import {
   type BoardObject,
   type BoardRenderItem,
   type Transform2D,
+  type Vec2,
 } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
 
 export interface BoardSnapshotOptions {
   readonly height?: number;
+  readonly padding?: number;
+  readonly pixelRatio?: number;
   readonly width?: number;
 }
 
-const defaultSnapshot = { height: 720, width: 1280 } as const;
+export interface BoardSnapshotBounds {
+  readonly bottom: number;
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+}
+
+export interface BoardSnapshotLayout {
+  readonly contentBounds: BoardSnapshotBounds | null;
+  readonly height: number;
+  readonly padding: number;
+  readonly scale: number;
+  readonly translation: Vec2;
+  readonly width: number;
+}
+
+const emptySnapshot = { height: 720, width: 1280 } as const;
+const defaultLongEdge = 1600;
+const minimumShortEdge = 320;
+const defaultPadding = 48;
+const defaultPixelRatio = 3;
+const maximumRasterEdge = 8192;
+const maximumRasterPixels = 24_000_000;
+const snapshotBackground = "#ffffff";
 
 function escapeXml(value: string): string {
   return value
@@ -93,39 +119,303 @@ function itemMarkup(item: BoardRenderItem): string {
   );
 }
 
-export function renderBoardSnapshotSvg(
+function rotate(point: Vec2, degrees: number): Vec2 {
+  const radians = (degrees * Math.PI) / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  return {
+    x: point.x * cosine - point.y * sine,
+    y: point.x * sine + point.y * cosine,
+  };
+}
+
+function applyTransform(point: Vec2, transform: Transform2D): Vec2 {
+  const rotated = rotate(
+    { x: point.x * transform.scale.x, y: point.y * transform.scale.y },
+    transform.rotation,
+  );
+  return {
+    x: rotated.x + transform.translation.x,
+    y: rotated.y + transform.translation.y,
+  };
+}
+
+function rectangleCorners(bounds: BoardSnapshotBounds): readonly Vec2[] {
+  return [
+    { x: bounds.left, y: bounds.top },
+    { x: bounds.right, y: bounds.top },
+    { x: bounds.right, y: bounds.bottom },
+    { x: bounds.left, y: bounds.bottom },
+  ];
+}
+
+function boundsFromPoints(points: readonly Vec2[]): BoardSnapshotBounds {
+  const safePoints = points.length === 0 ? [{ x: 0, y: 0 }] : points;
+  const xs = safePoints.map(({ x }) => x);
+  const ys = safePoints.map(({ y }) => y);
+  return {
+    bottom: Math.max(...ys),
+    left: Math.min(...xs),
+    right: Math.max(...xs),
+    top: Math.min(...ys),
+  };
+}
+
+function localObjectBounds(object: BoardObject): BoardSnapshotBounds {
+  switch (object.kind) {
+    case "drawing.pen-stroke":
+      return boundsFromPoints(object.points);
+    case "drawing.line":
+      return boundsFromPoints([{ x: 0, y: 0 }, object.end]);
+    case "drawing.rectangle":
+    case "image.embedded":
+    case "svg-import.svg":
+      return {
+        bottom: object.size.height,
+        left: 0,
+        right: object.size.width,
+        top: 0,
+      };
+    case "math.coordinate-plot":
+      return {
+        bottom: object.definition.size.height,
+        left: 0,
+        right: object.definition.size.width,
+        top: 0,
+      };
+    case "drawing.ellipse":
+      return {
+        bottom: object.radius.y,
+        left: -object.radius.x,
+        right: object.radius.x,
+        top: -object.radius.y,
+      };
+    case "drawing.text": {
+      const lines = renderSafeMathLabel(object.text).displayText.split(
+        /\r?\n/u,
+      );
+      const longestLine = Math.max(1, ...lines.map((line) => line.length));
+      return {
+        bottom: Math.max(8, (lines.length - 1) * 30 + 8),
+        left: 0,
+        right: longestLine * 14,
+        top: -24,
+      };
+    }
+  }
+}
+
+function expandBounds(
+  bounds: BoardSnapshotBounds,
+  amount: number,
+): BoardSnapshotBounds {
+  return {
+    bottom: bounds.bottom + amount,
+    left: bounds.left - amount,
+    right: bounds.right + amount,
+    top: bounds.top - amount,
+  };
+}
+
+function itemBounds(item: BoardRenderItem): BoardSnapshotBounds {
+  const local = expandBounds(
+    localObjectBounds(item.object),
+    Math.max(2, item.object.style.strokeWidth / 2 + 1),
+  );
+  const objectTransform: Transform2D = {
+    rotation: item.object.rotation,
+    scale: item.object.scale,
+    translation: item.object.position,
+  };
+  const points = rectangleCorners(local).map((point) => {
+    let transformed = applyTransform(point, objectTransform);
+    for (let index = item.transforms.length - 1; index >= 0; index -= 1) {
+      transformed = applyTransform(transformed, item.transforms[index]!);
+    }
+    return transformed;
+  });
+  return boundsFromPoints(points);
+}
+
+function unionBounds(
+  items: readonly BoardRenderItem[],
+): BoardSnapshotBounds | null {
+  if (items.length === 0) {
+    return null;
+  }
+  const first = itemBounds(items[0]!);
+  return items.slice(1).reduce<BoardSnapshotBounds>((combined, item) => {
+    const current = itemBounds(item);
+    return {
+      bottom: Math.max(combined.bottom, current.bottom),
+      left: Math.min(combined.left, current.left),
+      right: Math.max(combined.right, current.right),
+      top: Math.min(combined.top, current.top),
+    };
+  }, first);
+}
+
+function validatePositiveDimension(value: number, label: string): void {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new RangeError(`${label} must be positive.`);
+  }
+}
+
+function resolveOutputDimensions(
+  bounds: BoardSnapshotBounds | null,
+  options: BoardSnapshotOptions,
+): { readonly height: number; readonly width: number } {
+  const requestedWidth = options.width;
+  const requestedHeight = options.height;
+  if (requestedWidth !== undefined) {
+    validatePositiveDimension(requestedWidth, "Snapshot width");
+  }
+  if (requestedHeight !== undefined) {
+    validatePositiveDimension(requestedHeight, "Snapshot height");
+  }
+  if (requestedWidth !== undefined && requestedHeight !== undefined) {
+    return { height: requestedHeight, width: requestedWidth };
+  }
+  if (bounds === null) {
+    return {
+      height: requestedHeight ?? emptySnapshot.height,
+      width: requestedWidth ?? emptySnapshot.width,
+    };
+  }
+
+  const contentWidth = Math.max(1, bounds.right - bounds.left);
+  const contentHeight = Math.max(1, bounds.bottom - bounds.top);
+  const aspectRatio = contentWidth / contentHeight;
+  if (requestedWidth !== undefined) {
+    return {
+      height: Math.max(1, Math.round(requestedWidth / aspectRatio)),
+      width: requestedWidth,
+    };
+  }
+  if (requestedHeight !== undefined) {
+    return {
+      height: requestedHeight,
+      width: Math.max(1, Math.round(requestedHeight * aspectRatio)),
+    };
+  }
+  return contentWidth >= contentHeight
+    ? {
+        height: Math.max(
+          minimumShortEdge,
+          Math.round(defaultLongEdge / aspectRatio),
+        ),
+        width: defaultLongEdge,
+      }
+    : {
+        height: defaultLongEdge,
+        width: Math.max(
+          minimumShortEdge,
+          Math.round(defaultLongEdge * aspectRatio),
+        ),
+      };
+}
+
+export function resolveBoardSnapshotLayout(
   document: BoardDocument,
   options: BoardSnapshotOptions = {},
-): string {
-  const height = options.height ?? defaultSnapshot.height;
-  const width = options.width ?? defaultSnapshot.width;
-  if (
-    !Number.isFinite(height) ||
-    !Number.isFinite(width) ||
-    height <= 0 ||
-    width <= 0
-  ) {
-    throw new RangeError("Snapshot dimensions must be positive.");
-  }
+): BoardSnapshotLayout {
   const scene = selectBoardScene(document);
   const visibleItems = scene.items.filter(({ object }) => object.visible);
+  const contentBounds = unionBounds(visibleItems);
+  const { height, width } = resolveOutputDimensions(contentBounds, options);
+  const requestedPadding = options.padding ?? defaultPadding;
+  if (!Number.isFinite(requestedPadding) || requestedPadding < 0) {
+    throw new RangeError("Snapshot padding must be non-negative.");
+  }
+  const padding = Math.min(requestedPadding, width * 0.2, height * 0.2);
+  if (contentBounds === null) {
+    return {
+      contentBounds,
+      height,
+      padding,
+      scale: 1,
+      translation: { x: 0, y: 0 },
+      width,
+    };
+  }
+
+  const contentWidth = Math.max(1, contentBounds.right - contentBounds.left);
+  const contentHeight = Math.max(1, contentBounds.bottom - contentBounds.top);
+  const availableWidth = Math.max(1, width - padding * 2);
+  const availableHeight = Math.max(1, height - padding * 2);
+  const scale = Math.min(
+    availableWidth / contentWidth,
+    availableHeight / contentHeight,
+  );
+  return {
+    contentBounds,
+    height,
+    padding,
+    scale,
+    translation: {
+      x: (width - contentWidth * scale) / 2 - contentBounds.left * scale,
+      y: (height - contentHeight * scale) / 2 - contentBounds.top * scale,
+    },
+    width,
+  };
+}
+
+function renderBoardSnapshotSvgWithLayout(
+  document: BoardDocument,
+  layout: BoardSnapshotLayout,
+): string {
+  const scene = selectBoardScene(document);
+  const visibleItems = scene.items.filter(({ object }) => object.visible);
+  const content =
+    visibleItems.length === 0
+      ? ""
+      : `<g transform="translate(${number(layout.translation.x)} ${number(layout.translation.y)}) scale(${number(layout.scale)})">${visibleItems.map((item) => itemMarkup(item)).join("")}</g>`;
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(document.title)}" viewBox="0 0 ${number(width)} ${number(height)}">`,
-    '<rect width="100%" height="100%" fill="#f8fafc"/>',
-    `<g transform="translate(${number(scene.viewport.offset.x)} ${number(scene.viewport.offset.y)}) scale(${number(scene.viewport.zoom)})">`,
-    visibleItems.map((item) => itemMarkup(item)).join(""),
-    "</g>",
+    `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(document.title)}" width="${number(layout.width)}" height="${number(layout.height)}" viewBox="0 0 ${number(layout.width)} ${number(layout.height)}" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">`,
+    `<rect width="100%" height="100%" fill="${snapshotBackground}"/>`,
+    content,
     "</svg>",
   ].join("");
 }
 
-export async function renderBoardSnapshotPng(
+export function renderBoardSnapshotSvg(
   document: BoardDocument,
   options: BoardSnapshotOptions = {},
+): string {
+  return renderBoardSnapshotSvgWithLayout(
+    document,
+    resolveBoardSnapshotLayout(document, options),
+  );
+}
+
+function resolveRasterSize(
+  layout: BoardSnapshotLayout,
+  pixelRatio: number,
+): { readonly height: number; readonly width: number } {
+  validatePositiveDimension(pixelRatio, "Snapshot pixel ratio");
+  const desiredWidth = layout.width * pixelRatio;
+  const desiredHeight = layout.height * pixelRatio;
+  const edgeScale = Math.min(
+    1,
+    maximumRasterEdge / Math.max(desiredWidth, desiredHeight),
+  );
+  const areaScale = Math.min(
+    1,
+    Math.sqrt(maximumRasterPixels / (desiredWidth * desiredHeight)),
+  );
+  const scale = Math.min(edgeScale, areaScale);
+  return {
+    height: Math.max(1, Math.round(desiredHeight * scale)),
+    width: Math.max(1, Math.round(desiredWidth * scale)),
+  };
+}
+
+async function rasterizeBoardSnapshot(
+  document: BoardDocument,
+  options: BoardSnapshotOptions,
 ): Promise<Blob> {
-  const height = options.height ?? defaultSnapshot.height;
-  const width = options.width ?? defaultSnapshot.width;
-  const svg = renderBoardSnapshotSvg(document, { height, width });
+  const layout = resolveBoardSnapshotLayout(document, options);
+  const svg = renderBoardSnapshotSvgWithLayout(document, layout);
   const source = new Blob([svg], { type: "image/svg+xml" });
   const url = URL.createObjectURL(source);
   try {
@@ -137,14 +427,22 @@ export async function renderBoardSnapshotPng(
         reject(new Error("The SVG snapshot could not be rasterized."));
       image.src = url;
     });
+    const raster = resolveRasterSize(
+      layout,
+      options.pixelRatio ?? defaultPixelRatio,
+    );
     const canvas = window.document.createElement("canvas");
-    canvas.height = height;
-    canvas.width = width;
+    canvas.height = raster.height;
+    canvas.width = raster.width;
     const context = canvas.getContext("2d");
     if (context === null) {
       throw new Error("A 2D canvas context is unavailable.");
     }
-    context.drawImage(image, 0, 0, width, height);
+    context.fillStyle = snapshotBackground;
+    context.fillRect(0, 0, raster.width, raster.height);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(image, 0, 0, raster.width, raster.height);
     return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((blob) => {
         if (blob === null) {
@@ -159,41 +457,49 @@ export async function renderBoardSnapshotPng(
   }
 }
 
+export async function renderBoardSnapshotPng(
+  document: BoardDocument,
+  options: BoardSnapshotOptions = {},
+): Promise<Blob> {
+  return rasterizeBoardSnapshot(document, options);
+}
+
 export async function renderBoardSnapshotPdf(
   document: BoardDocument,
   options: BoardSnapshotOptions = {},
 ): Promise<Blob> {
   const { PDFDocument, rgb } = await import("pdf-lib");
-  const width = options.width ?? defaultSnapshot.width;
-  const height = options.height ?? defaultSnapshot.height;
-  const png = await renderBoardSnapshotPng(document, { height, width });
+  const layout = resolveBoardSnapshotLayout(document, options);
+  const png = await rasterizeBoardSnapshot(document, options);
   const pdf = await PDFDocument.create();
   pdf.setTitle(document.title);
   pdf.setCreator("TutorBoard");
   pdf.setProducer("TutorBoard PDF export");
-  const pageWidth = 841.89;
-  const pageHeight = 595.28;
-  const margin = 24;
-  const page = pdf.addPage([pageWidth, pageHeight]);
+
+  const portrait = { height: 841.89, width: 595.28 } as const;
+  const landscape = { height: portrait.width, width: portrait.height } as const;
+  const pageSize = layout.width >= layout.height ? landscape : portrait;
+  const margin = 18;
+  const page = pdf.addPage([pageSize.width, pageSize.height]);
   page.drawRectangle({
-    color: rgb(248 / 255, 250 / 255, 252 / 255),
-    height: pageHeight,
-    width: pageWidth,
+    color: rgb(1, 1, 1),
+    height: pageSize.height,
+    width: pageSize.width,
     x: 0,
     y: 0,
   });
   const image = await pdf.embedPng(await png.arrayBuffer());
   const scale = Math.min(
-    (pageWidth - margin * 2) / image.width,
-    (pageHeight - margin * 2) / image.height,
+    (pageSize.width - margin * 2) / image.width,
+    (pageSize.height - margin * 2) / image.height,
   );
   const renderedWidth = image.width * scale;
   const renderedHeight = image.height * scale;
   page.drawImage(image, {
     height: renderedHeight,
     width: renderedWidth,
-    x: (pageWidth - renderedWidth) / 2,
-    y: (pageHeight - renderedHeight) / 2,
+    x: (pageSize.width - renderedWidth) / 2,
+    y: (pageSize.height - renderedHeight) / 2,
   });
   const bytes = await pdf.save();
   const copy = new Uint8Array(bytes.byteLength);
