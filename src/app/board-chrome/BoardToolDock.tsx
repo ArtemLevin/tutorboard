@@ -35,6 +35,9 @@ interface BoardToolDockProps {
   readonly imageAccept: string;
   readonly onActivate: (tool: string) => void;
   readonly onCreatePlot: () => void;
+  readonly onExportPdfSnapshot?: (() => void) | undefined;
+  readonly onExportPngSnapshot?: (() => void) | undefined;
+  readonly onExportSvgSnapshot?: (() => void) | undefined;
   readonly onGeometryToggle: () => void;
   readonly onImageFiles: (files: readonly File[]) => void;
   readonly onOpenSettings: () => void;
@@ -106,7 +109,7 @@ function ToolButton({
   );
 }
 
-type DockMenuId = "ai" | "drawing" | "math" | "media" | "selection";
+type DockMenuId = "ai" | "drawing" | "export" | "math" | "media" | "selection";
 
 function MenuItem({
   active = false,
@@ -128,6 +131,28 @@ function MenuItem({
       disabled={disabled}
       onClick={onClick}
       role="menuitemradio"
+      type="button"
+    >
+      <span aria-hidden="true">{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function ActionMenuItem({
+  icon,
+  label,
+  onClick,
+}: {
+  readonly icon: string;
+  readonly label: string;
+  readonly onClick: () => void;
+}) {
+  return (
+    <button
+      className="dock-menu-item"
+      onClick={onClick}
+      role="menuitem"
       type="button"
     >
       <span aria-hidden="true">{icon}</span>
@@ -285,6 +310,10 @@ export function BoardToolDock(props: BoardToolDockProps) {
     props.activeTool === "drawing.smart-ink" ||
     props.activeTool === "math.handwritten-function" ||
     props.geometryOpen;
+  const exportAvailable =
+    props.onExportPdfSnapshot !== undefined ||
+    props.onExportPngSnapshot !== undefined ||
+    props.onExportSvgSnapshot !== undefined;
 
   const drawingMenuItems = [
     tool("drawing.pen"),
@@ -294,7 +323,44 @@ export function BoardToolDock(props: BoardToolDockProps) {
 
   return (
     <div className="board-tool-dock-shell" ref={rootRef}>
-      {openMenu === "selection" ? (
+      {openMenu === "export" ? (
+        <section
+          aria-label="Форматы экспорта"
+          className="dock-menu"
+          role="menu"
+        >
+          {props.onExportPngSnapshot === undefined ? null : (
+            <ActionMenuItem
+              icon="▧"
+              label="PNG — изображение"
+              onClick={() => {
+                props.onExportPngSnapshot?.();
+                setOpenMenu(null);
+              }}
+            />
+          )}
+          {props.onExportPdfSnapshot === undefined ? null : (
+            <ActionMenuItem
+              icon="▤"
+              label="PDF — документ"
+              onClick={() => {
+                props.onExportPdfSnapshot?.();
+                setOpenMenu(null);
+              }}
+            />
+          )}
+          {props.onExportSvgSnapshot === undefined ? null : (
+            <ActionMenuItem
+              icon="◇"
+              label="SVG — вектор"
+              onClick={() => {
+                props.onExportSvgSnapshot?.();
+                setOpenMenu(null);
+              }}
+            />
+          )}
+        </section>
+      ) : openMenu === "selection" ? (
         <section aria-label="Меню выделения" className="dock-menu" role="menu">
           <MenuItem
             active={props.activeTool === selectionToolId}
@@ -663,6 +729,15 @@ export function BoardToolDock(props: BoardToolDockProps) {
         </div>
         <span aria-hidden="true" className="dock-divider" />
         <div className="dock-fixed-group">
+          {exportAvailable ? (
+            <ToolButton
+              expanded={openMenu === "export"}
+              hasPopup="menu"
+              icon="⇩"
+              label="Экспорт доски"
+              onClick={() => toggleMenu("export")}
+            />
+          ) : null}
           <ToolButton
             active={props.settingsOpen}
             icon="⚙"

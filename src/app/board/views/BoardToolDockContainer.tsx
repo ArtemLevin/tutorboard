@@ -21,6 +21,9 @@ export interface BoardToolDockContainerProps {
   readonly interaction: BoardInteractionRouter;
   readonly media: BoardMediaController;
   readonly onCreatePlot: () => void;
+  readonly onExportPdfSnapshot?: (() => void) | undefined;
+  readonly onExportPngSnapshot?: (() => void) | undefined;
+  readonly onExportSvgSnapshot?: (() => void) | undefined;
   readonly onOpenSettings: () => void;
   readonly plotEditorOpen: boolean;
   readonly readOnly: boolean;
@@ -41,6 +44,9 @@ export function BoardToolDockContainer({
   interaction,
   media,
   onCreatePlot,
+  onExportPdfSnapshot,
+  onExportPngSnapshot,
+  onExportSvgSnapshot,
   onOpenSettings,
   plotEditorOpen,
   readOnly,
@@ -71,6 +77,9 @@ export function BoardToolDockContainer({
       imageAccept={media.accept}
       onActivate={(tool) => interaction.activate(tool as ActiveToolId)}
       onCreatePlot={onCreatePlot}
+      onExportPdfSnapshot={onExportPdfSnapshot}
+      onExportPngSnapshot={onExportPngSnapshot}
+      onExportSvgSnapshot={onExportSvgSnapshot}
       onDeleteSelection={selection.remove}
       canOpenSolid3D={solid3D.selectedRecord !== null}
       onOpenSolid3D={solid3D.openSelected}
