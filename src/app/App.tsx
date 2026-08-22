@@ -660,6 +660,21 @@ export function App({
           interaction={interaction}
           media={media}
           onCreatePlot={plots.create}
+          onExportPdfSnapshot={
+            onExportPdfSnapshot === undefined
+              ? undefined
+              : () => onExportPdfSnapshot(getDocument())
+          }
+          onExportPngSnapshot={
+            onExportPngSnapshot === undefined
+              ? undefined
+              : () => onExportPngSnapshot(getDocument())
+          }
+          onExportSvgSnapshot={
+            onExportSvgSnapshot === undefined
+              ? undefined
+              : () => onExportSvgSnapshot(getDocument())
+          }
           onOpenSettings={() => {
             geometry.setOpen(false);
             setSettingsOpen(true);

@@ -135,6 +135,7 @@ describe("standalone board HTTP access", () => {
   );
 
   it("uses the resolved context locally and adds the guest access epoch to unsafe requests", async () => {
+    let expectedAccessEpoch: string = guestPayload.accessEpoch;
     const request = vi.fn<typeof fetch>((input, init) => {
       const url = requestUrl(input);
       if (url.pathname === "/api/v1/boards/context") {
@@ -144,7 +145,7 @@ describe("standalone board HTTP access", () => {
         `/api/v1/boards/${encodeURIComponent(expectedBoardId)}/collaboration-ticket`,
       );
       expect(new Headers(init?.headers).get("X-Board-Access-Epoch")).toBe(
-        guestPayload.accessEpoch,
+        expectedAccessEpoch,
       );
       return Promise.resolve(
         jsonResponse({
@@ -176,6 +177,59 @@ describe("standalone board HTTP access", () => {
       context.csrfToken,
     );
     expect(request).toHaveBeenCalledTimes(callsBeforeContext + 1);
+
+    expectedAccessEpoch = "epoch:guest:standalone-02";
+    repository.updateAccessContext({
+      ...context,
+      accessEpoch: "epoch:guest:standalone-02",
+      capabilities: ["board.read", "collaboration.connect"],
+      csrfToken: "csrf-guest-standalone-02",
+    });
+    const refreshedSession = await repository.context();
+    await repository.collaborationTicket(
+      expectedBoardId,
+      "client:standalone-refreshed",
+      refreshedSession.csrfToken,
+    );
+    const refreshedRequest = request.mock.calls.at(-1);
+    expect(
+      new Headers(refreshedRequest?.[1]?.headers).get("X-Board-Access-Epoch"),
+    ).toBe("epoch:guest:standalone-02");
+    expect(refreshedSession.csrfToken).toBe("csrf-guest-standalone-02");
+  });
+
+  it("rejects refreshed contexts that change the durable principal scope", () => {
+    const repository = createStandaloneBoardHttpRepository(
+      { ...guestPayload, actorId: actorId(guestPayload.actorId) },
+      {
+        fetch: vi.fn<typeof fetch>(),
+        origin: "https://board.example.test",
+      },
+    );
+
+    expect(() =>
+      repository.updateAccessContext({
+        ...guestPayload,
+        actorId: actorId("user:unexpected-teacher"),
+        cacheScopeId: guestPayload.cacheScopeId,
+        capabilities: [
+          "board.read",
+          "board.write",
+          "board.snapshot.write",
+          "collaboration.connect",
+          "board.export",
+          "board.history.read",
+          "board.invites.manage",
+          "board.archive",
+          "board.delete",
+        ],
+        displayName: "Unexpected teacher",
+        organizationId: "organization:unexpected",
+        principalType: "teacher",
+        role: "tutor",
+        userId: "user:unexpected-teacher",
+      }),
+    ).toThrow("changed principal type");
   });
 
   it("does not add guest epoch headers to teacher requests", async () => {

@@ -188,6 +188,46 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("exposes board export through a dedicated toolbar icon", () => {
+    const onExportPdfSnapshot = vi.fn();
+    const onExportPngSnapshot = vi.fn();
+    const onExportSvgSnapshot = vi.fn();
+    render(
+      <App
+        onExportPdfSnapshot={onExportPdfSnapshot}
+        onExportPngSnapshot={onExportPngSnapshot}
+        onExportSvgSnapshot={onExportSvgSnapshot}
+      />,
+    );
+
+    const exportButton = screen.getByRole("button", { name: "Экспорт доски" });
+    expect(exportButton).toHaveAttribute("aria-haspopup", "menu");
+    fireEvent.click(exportButton);
+
+    expect(
+      screen.getByRole("menu", { name: "Форматы экспорта" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "PNG — изображение" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "PDF — документ" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "SVG — вектор" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "PNG — изображение" }),
+    );
+    expect(onExportPngSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "document:local-board" }),
+    );
+    expect(
+      screen.queryByRole("menu", { name: "Форматы экспорта" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("composes a drawing gesture into one document command", () => {
     render(<App />);
 

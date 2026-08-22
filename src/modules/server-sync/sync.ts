@@ -223,6 +223,16 @@ function confirmedSession(context: BoardRuntimeAccessContext) {
   } as const;
 }
 
+function sameCapabilities(
+  left: readonly BoardCapability[],
+  right: readonly BoardCapability[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((capability) => right.includes(capability))
+  );
+}
+
 function cachedLegacyContext(
   head: ConfirmedBoardHead,
 ): BoardRuntimeAccessContext | null {
@@ -311,6 +321,7 @@ export class BoardSyncEngine {
     typeof navigator === "undefined" ? true : navigator.onLine;
   #durableSerial: Promise<void> = Promise.resolve();
   #disposed = false;
+  #accessRefreshPending = false;
   #serial: Promise<void> = Promise.resolve();
 
   constructor(options: BoardSyncEngineOptions) {
@@ -350,6 +361,17 @@ export class BoardSyncEngine {
     return this.synchronize();
   }
 
+  /**
+   * Closes the local mutation boundary synchronously while a standalone access
+   * context is being refreshed. The server remains authoritative, but this
+   * prevents a command created after an access-change event from entering the
+   * durable queue with the superseded epoch.
+   */
+  pauseForAccessRefresh(): void {
+    if (this.#disposed) return;
+    this.#accessRefreshPending = true;
+  }
+
   updateAccessContext(context: BoardRuntimeAccessContext): Promise<void> {
     if (context.boardId !== this.#documentId) {
       return Promise.reject(
@@ -357,7 +379,8 @@ export class BoardSyncEngine {
       );
     }
     if (this.#disposed) return Promise.resolve();
-    this.#serial = this.#serial.then(async () => {
+    this.#accessRefreshPending = true;
+    const update = this.#serial.then(async () => {
       const current = this.#context;
       if (current !== null && current.cacheScopeId !== context.cacheScopeId) {
         throw new SyncRecoveryError(
@@ -365,16 +388,56 @@ export class BoardSyncEngine {
           "Изменился security scope доски; требуется новый sync engine.",
         );
       }
+      if (current !== null && current.principalType !== context.principalType) {
+        throw new SyncRecoveryError(
+          "board.sync.principal-changed",
+          "Изменился principal доски; требуется новый sync engine.",
+        );
+      }
+      if (
+        current !== null &&
+        current.accessEpoch === context.accessEpoch &&
+        !sameCapabilities(current.capabilities, context.capabilities)
+      ) {
+        throw new SyncRecoveryError(
+          "board.sync.access-epoch-not-advanced",
+          "Права доски изменились без обновления access epoch.",
+        );
+      }
+      const previousPendingCount = this.#pending.length;
       this.#context = context;
       await this.#queue.setAccessScope?.({
         accessEpoch: context.accessEpoch,
         cacheScopeId: context.cacheScopeId,
       });
       this.#pending = await this.#queue.list(this.#documentId);
+      this.#quarantinedCount += Math.max(
+        0,
+        previousPendingCount - this.#pending.length,
+      );
       await this.#dropStaleOrUnauthorizedPending();
+      if (this.#confirmed !== null) {
+        this.#confirmed = {
+          ...this.#confirmed,
+          session: confirmedSession(context),
+        };
+        const knownSequences = this.#pending.map(({ sequence }) => sequence);
+        const replayed = replayPending(this.#confirmed, this.#pending);
+        await this.#quarantineConflicts(replayed.conflicts);
+        this.#pending = replayed.items;
+        await this.#queue.reconcile(
+          this.#documentId,
+          this.#pending,
+          knownSequences,
+        );
+        this.#document = replayed.document;
+        await this.#queue.saveHead(this.#confirmed);
+      }
+      this.#accessRefreshPending = false;
       await this.#synchronize();
     });
-    return this.#serial;
+    this.#serial = update.catch(() => undefined);
+    return update;
   }
 
   #enqueueDurably(
@@ -399,7 +462,7 @@ export class BoardSyncEngine {
   }
 
   queue(command: BoardCommand, document: BoardDocument): Promise<void> {
-    if (this.#disposed) return Promise.resolve();
+    if (this.#disposed || this.#accessRefreshPending) return Promise.resolve();
     const context = this.#context;
     const confirmed = this.#confirmed;
     if (context === null || confirmed === null) {
@@ -457,7 +520,7 @@ export class BoardSyncEngine {
   }
 
   apply(commands: readonly BoardCommand[]): Promise<void> {
-    if (this.#disposed) return Promise.resolve();
+    if (this.#disposed || this.#accessRefreshPending) return Promise.resolve();
     const context = this.#context;
     const confirmed = this.#confirmed;
     const currentDocument = this.#document;
@@ -535,7 +598,7 @@ export class BoardSyncEngine {
   }
 
   synchronize(): Promise<void> {
-    if (this.#disposed) return Promise.resolve();
+    if (this.#disposed || this.#accessRefreshPending) return Promise.resolve();
     this.#serial = this.#serial.then(() =>
       this.#context === null || this.#context.csrfToken === ""
         ? this.#bootstrap()
@@ -759,7 +822,7 @@ export class BoardSyncEngine {
   }
 
   async #synchronize(): Promise<void> {
-    if (this.#disposed) return;
+    if (this.#disposed || this.#accessRefreshPending) return;
     if (
       this.#context === null ||
       this.#confirmed === null ||
