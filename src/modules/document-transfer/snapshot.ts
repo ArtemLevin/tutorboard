@@ -191,7 +191,9 @@ function localObjectBounds(object: BoardObject): BoardSnapshotBounds {
         top: -object.radius.y,
       };
     case "drawing.text": {
-      const lines = renderSafeMathLabel(object.text).displayText.split(/\r?\n/u);
+      const lines = renderSafeMathLabel(object.text).displayText.split(
+        /\r?\n/u,
+      );
       const longestLine = Math.max(1, ...lines.map((line) => line.length));
       return {
         bottom: Math.max(8, (lines.length - 1) * 30 + 8),
