@@ -1,0 +1,125 @@
+name: Apply export button patch
+
+on:
+  push:
+    branches:
+      - agent/add-export-button
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: agent/add-export-button
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Apply focused UI patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit(f"Expected snippet not found in {path}: {old[:100]!r}")
+              file.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          dock = "src/app/board-chrome/BoardToolDock.tsx"
+          replace_once(
+              dock,
+              '  readonly onCreatePlot: () => void;\n  readonly onGeometryToggle: () => void;\n',
+              '  readonly onCreatePlot: () => void;\n  readonly onExportPdfSnapshot?: (() => void) | undefined;\n  readonly onExportPngSnapshot?: (() => void) | undefined;\n  readonly onExportSvgSnapshot?: (() => void) | undefined;\n  readonly onGeometryToggle: () => void;\n',
+          )
+          replace_once(
+              dock,
+              'type DockMenuId = "ai" | "drawing" | "math" | "media" | "selection";\n',
+              'type DockMenuId =\n  | "ai"\n  | "drawing"\n  | "export"\n  | "math"\n  | "media"\n  | "selection";\n',
+          )
+          replace_once(
+              dock,
+              '\nfunction StyleControls({\n',
+              '''\nfunction ActionMenuItem({\n  icon,\n  label,\n  onClick,\n}: {\n  readonly icon: string;\n  readonly label: string;\n  readonly onClick: () => void;\n}) {\n  return (\n    <button\n      className="dock-menu-item"\n      onClick={onClick}\n      role="menuitem"\n      type="button"\n    >\n      <span aria-hidden="true">{icon}</span>\n      <span>{label}</span>\n    </button>\n  );\n}\n\nfunction StyleControls({\n''',
+          )
+          replace_once(
+              dock,
+              '''  const aiActive =\n    props.activeTool === "drawing.smart-ink" ||\n    props.activeTool === "math.handwritten-function" ||\n    props.geometryOpen;\n\n  const drawingMenuItems = [\n''',
+              '''  const aiActive =\n    props.activeTool === "drawing.smart-ink" ||\n    props.activeTool === "math.handwritten-function" ||\n    props.geometryOpen;\n  const exportAvailable =\n    props.onExportPdfSnapshot !== undefined ||\n    props.onExportPngSnapshot !== undefined ||\n    props.onExportSvgSnapshot !== undefined;\n\n  const drawingMenuItems = [\n''',
+          )
+          replace_once(
+              dock,
+              '''    <div className="board-tool-dock-shell" ref={rootRef}>\n      {openMenu === "selection" ? (\n''',
+              '''    <div className="board-tool-dock-shell" ref={rootRef}>\n      {openMenu === "export" ? (\n        <section aria-label="Форматы экспорта" className="dock-menu" role="menu">\n          {props.onExportPngSnapshot === undefined ? null : (\n            <ActionMenuItem\n              icon="▧"\n              label="PNG — изображение"\n              onClick={() => {\n                props.onExportPngSnapshot?.();\n                setOpenMenu(null);\n              }}\n            />\n          )}\n          {props.onExportPdfSnapshot === undefined ? null : (\n            <ActionMenuItem\n              icon="▤"\n              label="PDF — документ"\n              onClick={() => {\n                props.onExportPdfSnapshot?.();\n                setOpenMenu(null);\n              }}\n            />\n          )}\n          {props.onExportSvgSnapshot === undefined ? null : (\n            <ActionMenuItem\n              icon="◇"\n              label="SVG — вектор"\n              onClick={() => {\n                props.onExportSvgSnapshot?.();\n                setOpenMenu(null);\n              }}\n            />\n          )}\n        </section>\n      ) : openMenu === "selection" ? (\n''',
+          )
+          replace_once(
+              dock,
+              '''        <div className="dock-fixed-group">\n          <ToolButton\n            active={props.settingsOpen}\n''',
+              '''        <div className="dock-fixed-group">\n          {exportAvailable ? (\n            <ToolButton\n              expanded={openMenu === "export"}\n              hasPopup="menu"\n              icon="⇩"\n              label="Экспорт доски"\n              onClick={() => toggleMenu("export")}\n            />\n          ) : null}\n          <ToolButton\n            active={props.settingsOpen}\n''',
+          )
+
+          container = "src/app/board/views/BoardToolDockContainer.tsx"
+          replace_once(
+              container,
+              '  readonly onCreatePlot: () => void;\n  readonly onOpenSettings: () => void;\n',
+              '  readonly onCreatePlot: () => void;\n  readonly onExportPdfSnapshot?: (() => void) | undefined;\n  readonly onExportPngSnapshot?: (() => void) | undefined;\n  readonly onExportSvgSnapshot?: (() => void) | undefined;\n  readonly onOpenSettings: () => void;\n',
+          )
+          replace_once(
+              container,
+              '  onCreatePlot,\n  onOpenSettings,\n',
+              '  onCreatePlot,\n  onExportPdfSnapshot,\n  onExportPngSnapshot,\n  onExportSvgSnapshot,\n  onOpenSettings,\n',
+          )
+          replace_once(
+              container,
+              '      onCreatePlot={onCreatePlot}\n      onDeleteSelection={selection.remove}\n',
+              '      onCreatePlot={onCreatePlot}\n      onExportPdfSnapshot={onExportPdfSnapshot}\n      onExportPngSnapshot={onExportPngSnapshot}\n      onExportSvgSnapshot={onExportSvgSnapshot}\n      onDeleteSelection={selection.remove}\n',
+          )
+
+          app = "src/app/App.tsx"
+          replace_once(
+              app,
+              '''          onCreatePlot={plots.create}\n          onOpenSettings={() => {\n''',
+              '''          onCreatePlot={plots.create}\n          onExportPdfSnapshot={\n            onExportPdfSnapshot === undefined\n              ? undefined\n              : () => onExportPdfSnapshot(getDocument())\n          }\n          onExportPngSnapshot={\n            onExportPngSnapshot === undefined\n              ? undefined\n              : () => onExportPngSnapshot(getDocument())\n          }\n          onExportSvgSnapshot={\n            onExportSvgSnapshot === undefined\n              ? undefined\n              : () => onExportSvgSnapshot(getDocument())\n          }\n          onOpenSettings={() => {\n''',
+          )
+
+          test = "src/app/App.test.tsx"
+          replace_once(
+              test,
+              '''  });\n\n  it("composes a drawing gesture into one document command", () => {\n''',
+              '''  });\n\n  it("exposes board export through a dedicated toolbar icon", () => {\n    const onExportPdfSnapshot = vi.fn();\n    const onExportPngSnapshot = vi.fn();\n    const onExportSvgSnapshot = vi.fn();\n    render(\n      <App\n        onExportPdfSnapshot={onExportPdfSnapshot}\n        onExportPngSnapshot={onExportPngSnapshot}\n        onExportSvgSnapshot={onExportSvgSnapshot}\n      />,\n    );\n\n    const exportButton = screen.getByRole("button", { name: "Экспорт доски" });\n    expect(exportButton).toHaveAttribute("aria-haspopup", "menu");\n    fireEvent.click(exportButton);\n\n    expect(\n      screen.getByRole("menu", { name: "Форматы экспорта" }),\n    ).toBeInTheDocument();\n    expect(\n      screen.getByRole("menuitem", { name: "PNG — изображение" }),\n    ).toBeInTheDocument();\n    expect(\n      screen.getByRole("menuitem", { name: "PDF — документ" }),\n    ).toBeInTheDocument();\n    expect(\n      screen.getByRole("menuitem", { name: "SVG — вектор" }),\n    ).toBeInTheDocument();\n\n    fireEvent.click(\n      screen.getByRole("menuitem", { name: "PNG — изображение" }),\n    );\n    expect(onExportPngSnapshot).toHaveBeenCalledWith(\n      expect.objectContaining({ id: "document:local-board" }),\n    );\n    expect(\n      screen.queryByRole("menu", { name: "Форматы экспорта" }),\n    ).not.toBeInTheDocument();\n  });\n\n  it("composes a drawing gesture into one document command", () => {\n''',
+          )
+
+          Path(".github/workflows/apply-export-button-patch.yml").unlink()
+          PY
+
+      - name: Format changed sources
+        run: npx prettier --write src/app/App.tsx src/app/App.test.tsx src/app/board-chrome/BoardToolDock.tsx src/app/board/views/BoardToolDockContainer.tsx
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run focused UI tests
+        run: npx vitest run src/app/App.test.tsx
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/App.tsx src/app/App.test.tsx src/app/board-chrome/BoardToolDock.tsx src/app/board/views/BoardToolDockContainer.tsx .github/workflows/apply-export-button-patch.yml
+          git commit -m "feat: add dedicated board export button"
+          git push origin HEAD:agent/add-export-button
