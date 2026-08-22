@@ -86,7 +86,10 @@ describe("TutorBoard snapshot layout", () => {
       renderBoardSnapshotSvg(document),
     );
     expect(renderBoardSnapshotSvg(document)).toContain(
-      '<rect width="100%" height="100%" fill="#ffffff"/>',
+      '<rect width="100%" height="100%" fill="#f5f3ee"/>',
+    );
+    expect(renderBoardSnapshotSvg(document)).toContain(
+      'color-interpolation="sRGB" color-interpolation-filters="sRGB"',
     );
     expect(renderBoardSnapshotSvg(document)).not.toContain("#f8fafc");
   });

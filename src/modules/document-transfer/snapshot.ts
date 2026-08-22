@@ -41,7 +41,10 @@ const defaultPadding = 48;
 const defaultPixelRatio = 3;
 const maximumRasterEdge = 8192;
 const maximumRasterPixels = 24_000_000;
-const snapshotBackground = "#ffffff";
+// Keep raster/PDF compositing aligned with the interactive board surface.
+// An explicit sRGB paper colour avoids the washed-out appearance caused by
+// compositing translucent strokes against a different, untagged background.
+const snapshotBackground = "#f5f3ee";
 const defaultTextFill = "#17202a";
 
 function escapeXml(value: string): string {
@@ -377,7 +380,7 @@ function renderBoardSnapshotSvgWithLayout(
       ? ""
       : `<g transform="translate(${number(layout.translation.x)} ${number(layout.translation.y)}) scale(${number(layout.scale)})">${visibleItems.map((item) => itemMarkup(item)).join("")}</g>`;
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(document.title)}" width="${number(layout.width)}" height="${number(layout.height)}" viewBox="0 0 ${number(layout.width)} ${number(layout.height)}" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(document.title)}" width="${number(layout.width)}" height="${number(layout.height)}" viewBox="0 0 ${number(layout.width)} ${number(layout.height)}" color-interpolation="sRGB" color-interpolation-filters="sRGB" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">`,
     `<rect width="100%" height="100%" fill="${snapshotBackground}"/>`,
     content,
     "</svg>",
@@ -440,7 +443,10 @@ async function rasterizeBoardSnapshot(
     const canvas = window.document.createElement("canvas");
     canvas.height = raster.height;
     canvas.width = raster.width;
-    const context = canvas.getContext("2d");
+    const context = canvas.getContext("2d", {
+      alpha: false,
+      colorSpace: "srgb",
+    });
     if (context === null) {
       throw new Error("A 2D canvas context is unavailable.");
     }
