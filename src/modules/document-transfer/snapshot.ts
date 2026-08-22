@@ -42,6 +42,7 @@ const defaultPixelRatio = 3;
 const maximumRasterEdge = 8192;
 const maximumRasterPixels = 24_000_000;
 const snapshotBackground = "#ffffff";
+const defaultTextFill = "#17202a";
 
 function escapeXml(value: string): string {
   return value
@@ -73,14 +74,18 @@ function styleAttributes(object: BoardObject): string {
   ].join(" ");
 }
 
+function objectTransformAttribute(object: BoardObject): string {
+  return `transform="translate(${number(object.position.x)} ${number(object.position.y)}) rotate(${number(object.rotation)}) scale(${number(object.scale.x)} ${number(object.scale.y)})"`;
+}
+
 function objectMarkup(object: BoardObject): string {
-  const common = `${styleAttributes(object)} transform="translate(${number(object.position.x)} ${number(object.position.y)}) rotate(${number(object.rotation)}) scale(${number(object.scale.x)} ${number(object.scale.y)})"`;
+  const common = `${styleAttributes(object)} ${objectTransformAttribute(object)}`;
   switch (object.kind) {
     case "drawing.pen-stroke": {
       const ink = resolveVectorInkData(object);
       const outline = vectorInkOutlinePathData(ink, object.style.strokeWidth);
       const centerline = vectorInkCenterlinePathData(ink);
-      const transform = `transform="translate(${number(object.position.x)} ${number(object.position.y)}) rotate(${number(object.rotation)}) scale(${number(object.scale.x)} ${number(object.scale.y)})"`;
+      const transform = objectTransformAttribute(object);
       const fill =
         ink.closed && object.style.fill !== null && centerline.length > 0
           ? `<path ${transform} d="${centerline}" fill="${escapeXml(object.style.fill)}" opacity="${number(object.style.opacity)}"/>`
@@ -102,7 +107,8 @@ function objectMarkup(object: BoardObject): string {
     case "drawing.text": {
       const label = renderSafeMathLabel(object.text);
       const lines = label.displayText.split(/\r?\n/u);
-      return `<text aria-label="${escapeXml(label.accessibleText)}" font-family="Inter,ui-sans-serif,system-ui" font-size="22" ${common}>${lines.map((line, index) => `<tspan x="0" dy="${index === 0 ? "0" : "1.35em"}">${escapeXml(line)}</tspan>`).join("")}</text>`;
+      const fill = object.style.fill ?? object.style.stroke ?? defaultTextFill;
+      return `<text aria-label="${escapeXml(label.accessibleText)}" fill="${escapeXml(fill)}" font-family="Inter, ui-sans-serif, system-ui" font-size="22" opacity="${number(object.style.opacity)}" stroke="none" ${objectTransformAttribute(object)}>${lines.map((line, index) => `<tspan x="0" dy="${index === 0 ? "0" : "1.35em"}">${escapeXml(line)}</tspan>`).join("")}</text>`;
     }
     case "image.embedded":
       return `<image ${common} height="${number(object.size.height)}" href="${escapeXml(object.dataUrl)}" preserveAspectRatio="none" width="${number(object.size.width)}"/>`;
