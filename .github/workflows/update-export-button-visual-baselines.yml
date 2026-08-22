@@ -1,0 +1,75 @@
+name: Update export button visual baselines
+
+on:
+  push:
+    branches:
+      - agent/add-export-button
+
+permissions:
+  contents: write
+
+jobs:
+  update-baselines:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: agent/add-export-button
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install visual-test browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Refresh coordinate-plot visual snapshots
+        run: npm run e2e:plot-visual:update
+
+      - name: Verify expected visual-only delta
+        shell: bash
+        run: |
+          rm .github/workflows/update-export-button-visual-baselines.yml
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          expected = {
+              "tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-chromium-desktop-linux.png",
+              "tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-firefox-desktop-linux.png",
+          }
+          helper = ".github/workflows/update-export-button-visual-baselines.yml"
+          lines = subprocess.check_output(
+              ["git", "status", "--porcelain=v1"], text=True
+          ).splitlines()
+          changed = {line[3:] for line in lines if len(line) >= 4}
+          allowed = expected | {helper}
+          unexpected = changed - allowed
+          missing = expected - changed
+          if unexpected:
+              raise SystemExit(f"Unexpected visual changes: {sorted(unexpected)}")
+          if missing:
+              raise SystemExit(f"Expected visual baselines were not updated: {sorted(missing)}")
+          print("Verified visual delta:", sorted(changed))
+          PY
+
+      - name: Commit visual baselines
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-chromium-desktop-linux.png
+          git add tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-firefox-desktop-linux.png
+          git add .github/workflows/update-export-button-visual-baselines.yml
+          git commit -m "test: update export toolbar visual baselines"
+          git push origin HEAD:agent/add-export-button
