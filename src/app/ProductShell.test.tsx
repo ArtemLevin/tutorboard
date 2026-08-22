@@ -68,6 +68,7 @@ const environment: AppEnvironment = {
   },
   geometryOsBaseUrl: "https://geometry.example.test",
   mathInkApiBaseUrl: "/api/v1/formula-recognition",
+  profile: "full",
   stage: "test",
 };
 

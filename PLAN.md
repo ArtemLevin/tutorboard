@@ -566,6 +566,11 @@ Backup/restore runbook обязан сохранять continuity ключей. 
 
 ## 13. D1.8 — TutorBoard board-only build configuration
 
+> Frontend status: DONE в TutorBoard. `VITE_APP_PROFILE=board` вводит strict
+> feature contract, Docker build принимает профиль как build argument, отдельный
+> CI job собирает минимальный standalone bundle. Release/deployment wiring с
+> digest-pinned backend image остаётся частью D2.
+
 Board-only deployment не должен показывать features, backend которых не
 развёрнут.
 
@@ -701,13 +706,17 @@ services.
 
 ### Frontend
 
-- refresh context после capability event;
-- terminal revoke state;
-- no reconnect loop after revoke;
-- access epoch check до reconnect push;
-- quarantine stale pending;
-- mutation boundary в read-only;
-- возврат write не resurrect'ит old-epoch commands.
+- [x] refresh context после capability event;
+- [x] terminal revoke state;
+- [x] no reconnect loop after revoke;
+- [x] access epoch check до reconnect push;
+- [x] quarantine stale pending;
+- [x] mutation boundary в read-only;
+- [x] возврат write не resurrect'ит old-epoch commands.
+
+Frontend implementation и локальные regression tests зафиксированы в
+`docs/architecture/T3_ACCESS_CONVERGENCE.md`. Полный milestone остаётся открытым
+до прохождения Required E2E на реальном backend.
 
 ### Required E2E
 

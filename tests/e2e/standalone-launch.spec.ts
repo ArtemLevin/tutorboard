@@ -7,6 +7,10 @@ const guestTicket = "ws-ticket-never-durable-standalone";
 
 interface InstalledApi {
   readonly requests: string[];
+  readonly setGuestAccess: (
+    accessEpoch: string,
+    capabilities: readonly string[],
+  ) => void;
 }
 
 function descriptor() {
@@ -29,6 +33,11 @@ async function installStandaloneApi(
   principal: "guest" | "teacher" | "unavailable",
 ): Promise<InstalledApi> {
   const requests: string[] = [];
+  let guestAccessEpoch = "epoch:guest:e2e-01";
+  let guestCapabilities: readonly string[] = [
+    "board.read",
+    "collaboration.connect",
+  ];
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -53,11 +62,11 @@ async function installStandaloneApi(
       if (principal === "guest") {
         await route.fulfill({
           json: {
-            accessEpoch: "epoch:guest:e2e-01",
+            accessEpoch: guestAccessEpoch,
             actorId: "guest:e2e-01",
             boardId,
             cacheScopeId: "scope:guest:e2e-01",
-            capabilities: ["board.read", "collaboration.connect"],
+            capabilities: guestCapabilities,
             csrfToken: guestCsrf,
             displayName: "Ксения",
             principalType: "guest",
@@ -149,7 +158,7 @@ async function installStandaloneApi(
     ) {
       if (principal === "guest") {
         expect(new Headers(request.headers()).get("x-board-access-epoch")).toBe(
-          "epoch:guest:e2e-01",
+          guestAccessEpoch,
         );
       }
       await route.fulfill({
@@ -168,7 +177,64 @@ async function installStandaloneApi(
       status: 500,
     });
   });
-  return { requests };
+  return {
+    requests,
+    setGuestAccess: (accessEpoch, capabilities) => {
+      guestAccessEpoch = accessEpoch;
+      guestCapabilities = capabilities;
+    },
+  };
+}
+
+async function installControllableWebSocket(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    class ControllableWebSocket extends EventTarget {
+      static readonly CLOSED = 3;
+      static readonly CLOSING = 2;
+      static readonly CONNECTING = 0;
+      static readonly OPEN = 1;
+      static readonly instances: ControllableWebSocket[] = [];
+
+      readonly binaryType = "blob";
+      readonly bufferedAmount = 0;
+      readonly extensions = "";
+      onclose: ((event: CloseEvent) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onopen: ((event: Event) => void) | null = null;
+      readonly protocol = "tutorboard.v1";
+      readyState = ControllableWebSocket.OPEN;
+      readonly url: string;
+
+      constructor(url: string | URL) {
+        super();
+        this.url = String(url);
+        ControllableWebSocket.instances.push(this);
+      }
+
+      close(code = 1000, reason = ""): void {
+        if (this.readyState === ControllableWebSocket.CLOSED) return;
+        this.readyState = ControllableWebSocket.CLOSED;
+        this.dispatchEvent(new CloseEvent("close", { code, reason }));
+      }
+
+      send(): void {}
+    }
+
+    Object.defineProperty(window, "WebSocket", {
+      configurable: true,
+      value: ControllableWebSocket,
+    });
+    Object.assign(window, {
+      __tutorboardEmitAccessEvent: (payload: unknown) => {
+        const socket = ControllableWebSocket.instances.at(-1);
+        socket?.dispatchEvent(
+          new MessageEvent("message", { data: JSON.stringify(payload) }),
+        );
+      },
+      __tutorboardSocketCount: () => ControllableWebSocket.instances.length,
+    });
+  });
 }
 
 async function durableBrowserData(page: Page): Promise<string> {
@@ -274,6 +340,68 @@ test("opens the same standalone document for a teacher with teacher capabilities
   await expect(page.getByRole("link", { name: "Все документы" })).toHaveCount(
     0,
   );
+});
+
+test("refreshes guest capabilities and reconnects collaboration with the new epoch", async ({
+  page,
+}) => {
+  await installControllableWebSocket(page);
+  const api = await installStandaloneApi(page, "guest");
+  await page.goto(`/b/${encodeURIComponent(boardId)}#/board`);
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await expect(page.getByText("Режим только для чтения")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as typeof window & {
+            __tutorboardSocketCount: () => number;
+          }
+        ).__tutorboardSocketCount(),
+      ),
+    )
+    .toBe(1);
+
+  api.setGuestAccess("epoch:guest:e2e-02", [
+    "board.read",
+    "board.write",
+    "board.snapshot.write",
+    "collaboration.connect",
+  ]);
+  await page.evaluate(
+    ({ expectedBoardId }) =>
+      (
+        window as typeof window & {
+          __tutorboardEmitAccessEvent: (payload: unknown) => void;
+        }
+      ).__tutorboardEmitAccessEvent({
+        accessEpoch: "epoch:guest:e2e-02",
+        boardId: expectedBoardId,
+        refreshRequired: true,
+        schemaVersion: "1.0",
+        type: "access.capabilities.changed",
+      }),
+    { expectedBoardId: boardId },
+  );
+
+  await expect(page.getByText("Права доступа обновлены.")).toBeVisible();
+  await expect(page.getByText("Режим только для чтения")).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as typeof window & {
+            __tutorboardSocketCount: () => number;
+          }
+        ).__tutorboardSocketCount(),
+      ),
+    )
+    .toBe(2);
+  expect(
+    api.requests.filter((entry) =>
+      entry.startsWith("GET /api/v1/boards/context"),
+    ),
+  ).toHaveLength(2);
 });
 
 test("renders a non-enumerating access failure and never loads the board", async ({

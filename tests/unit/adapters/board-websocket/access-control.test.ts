@@ -60,7 +60,9 @@ describe("collaboration access control", () => {
         return socket as unknown as WebSocket;
       },
       documentId: documentId("document:lesson"),
-      onAccessEvent: (event) => accessEvents.push(event),
+      onAccessEvent: (event) => {
+        accessEvents.push(event);
+      },
       onPresence: () => undefined,
       onRevision: () => undefined,
       onStatus: (status) => statuses.push(status),
@@ -78,6 +80,7 @@ describe("collaboration access control", () => {
       type: "access.revoked",
     });
 
+    await vi.waitFor(() => expect(accessEvents).toHaveLength(1));
     expect(accessEvents).toEqual([
       {
         boardId: "document:lesson",
@@ -96,14 +99,24 @@ describe("collaboration access control", () => {
     expect(sockets).toHaveLength(1);
   });
 
-  it("surfaces capability changes without closing the connection", async () => {
-    const socket = new FakeSocket();
+  it("refreshes access before reconnecting with a new ticket", async () => {
+    const sockets: FakeSocket[] = [];
     const events: BoardAccessControlEvent[] = [];
-    const createWebSocket = vi.fn(() => socket as unknown as WebSocket);
+    let finishRefresh: () => void = () => undefined;
+    const createWebSocket = vi.fn(() => {
+      const socket = new FakeSocket();
+      sockets.push(socket);
+      return socket as unknown as WebSocket;
+    });
     const client = new BoardCollaborationClient({
       createWebSocket,
       documentId: documentId("document:lesson"),
-      onAccessEvent: (event) => events.push(event),
+      onAccessEvent: (event) => {
+        events.push(event);
+        return new Promise<void>((resolve) => {
+          finishRefresh = resolve;
+        });
+      },
       onPresence: () => undefined,
       onRevision: () => undefined,
       onStatus: () => undefined,
@@ -126,7 +139,8 @@ describe("collaboration access control", () => {
 
     client.start();
     await vi.waitFor(() => expect(createWebSocket).toHaveBeenCalledTimes(1));
-    socket.receive({
+    const firstSocket = sockets[0]!;
+    firstSocket.receive({
       accessEpoch: "access-epoch-next",
       boardId: "document:lesson",
       refreshRequired: true,
@@ -134,13 +148,63 @@ describe("collaboration access control", () => {
       type: "access.capabilities.changed",
     });
 
+    await vi.waitFor(() => expect(events).toHaveLength(1));
     expect(events).toMatchObject([
       {
         accessEpoch: "access-epoch-next",
         type: "access.capabilities.changed",
       },
     ]);
-    expect(socket.closeCode).toBeNull();
+    expect(firstSocket.closeCode).toBeNull();
+    expect(createWebSocket).toHaveBeenCalledTimes(1);
+
+    finishRefresh();
+    await vi.waitFor(() => expect(createWebSocket).toHaveBeenCalledTimes(2));
+    expect(firstSocket.closeCode).toBe(1000);
     client.stop();
+  });
+
+  it("stays stopped when refreshed access removes collaboration", async () => {
+    const sockets: FakeSocket[] = [];
+    const client = new BoardCollaborationClient({
+      createWebSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+      documentId: documentId("document:lesson"),
+      onAccessEvent: () => false,
+      onPresence: () => undefined,
+      onRevision: () => undefined,
+      onStatus: () => undefined,
+      origin: "https://tutor.example.test",
+      repository: {
+        collaborationTicket: vi.fn().mockResolvedValue({
+          expiresInSeconds: 30,
+          protocolVersion: "1.1",
+          ticket: "ticket",
+          websocketPath: "/collaboration",
+        }),
+        context: vi.fn().mockResolvedValue({
+          actorId: actorId("actor:tutor"),
+          csrfToken: "csrf-token",
+          organizationId: "organization:1",
+          role: "tutor",
+        }),
+      },
+    });
+
+    client.start();
+    await vi.waitFor(() => expect(sockets).toHaveLength(1));
+    sockets[0]!.receive({
+      accessEpoch: "access-epoch-next",
+      boardId: "document:lesson",
+      refreshRequired: true,
+      schemaVersion: "1.0",
+      type: "access.capabilities.changed",
+    });
+
+    await vi.waitFor(() => expect(sockets[0]!.closeCode).toBe(1000));
+    expect(sockets).toHaveLength(1);
   });
 });

@@ -146,10 +146,7 @@ export function createStandaloneBoardHttpRepository(
   const transport = options.fetch ?? globalThis.fetch;
   let currentAccessContext = accessContext;
   const scopedFetch: typeof globalThis.fetch = (input, init) => {
-    if (
-      currentAccessContext.principalType !== "guest" ||
-      !unsafeMethod(init)
-    ) {
+    if (currentAccessContext.principalType !== "guest" || !unsafeMethod(init)) {
       return transport(input, init);
     }
     const headers = new Headers(init?.headers);
@@ -170,6 +167,9 @@ export function createStandaloneBoardHttpRepository(
       }
       if (context.cacheScopeId !== accessContext.cacheScopeId) {
         throw new Error("Board access context changed security scope.");
+      }
+      if (context.principalType !== accessContext.principalType) {
+        throw new Error("Board access context changed principal type.");
       }
       currentAccessContext = context;
     },
