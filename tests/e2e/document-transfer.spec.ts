@@ -1,6 +1,19 @@
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 
 import { expect, test } from "@playwright/test";
+
+const { PNG } = createRequire(import.meta.url)("pngjs") as {
+  readonly PNG: {
+    readonly sync: {
+      readonly read: (input: Buffer) => {
+        readonly data: Buffer;
+        readonly height: number;
+        readonly width: number;
+      };
+    };
+  };
+};
 
 test("exports deterministic document and diagnostic snapshots", async ({
   page,
@@ -39,6 +52,14 @@ test("exports deterministic document and diagnostic snapshots", async ({
   expect(pngPath).not.toBeNull();
   const png = await readFile(pngPath);
   expect([...png.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+  const decodedPng = PNG.sync.read(png);
+  const centerOffset =
+    (Math.floor(decodedPng.height / 2) * decodedPng.width +
+      Math.floor(decodedPng.width / 2)) *
+    4;
+  expect([...decodedPng.data.subarray(centerOffset, centerOffset + 4)]).toEqual(
+    [245, 243, 238, 255],
+  );
 
   const pdfDownloadPromise = page.waitForEvent("download");
   await settings.getByRole("button", { name: "Сохранить PDF" }).click();
