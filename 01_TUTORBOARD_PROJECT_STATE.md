@@ -1,4 +1,9 @@
-# TutorBoard — текущее состояние проекта
+# TutorBoard — исторический срез состояния проекта
+
+> Этот документ фиксирует состояние `main` на 10.08.2026 и сохранён как
+> исторический архитектурный срез. Он больше не является источником текущего
+> delivery-статуса. Актуальное состояние продукта и порядок работ находятся в
+> `README.md` и `PLAN.md`.
 
 **Дата среза:** 10.08.2026  
 **Репозиторий:** `ArtemLevin/tutorboard`  
@@ -92,18 +97,18 @@ npm run check
 
 Последняя последовательность крупных поставок:
 
-| PR | Назначение | Состояние |
-|---|---|---|
-| #100 | Smart Ink: прямые стороны распознанного треугольника | merged |
-| #101 | удаление иконки «Фигуры» из toolbar | merged |
-| #102 | durability, sync integrity, strict inequality boundaries, 3D semantics | merged |
-| #103 | расширение semantic 3D geometry kernel | merged |
-| #104 | semantic interaction для analytic 3D surfaces | merged |
-| #105 | parametric editing 3D-тел и stable topology anchors | merged |
-| #106 | persistent model rotation и semantic highlights | merged |
-| #107 | Construction Studio и параметризованные 3D-запросы | merged |
-| #108 | generalized constrained section workflow | merged |
-| #109 | release hardening 3D-4 | merged |
+| PR   | Назначение                                                             | Состояние |
+| ---- | ---------------------------------------------------------------------- | --------- |
+| #100 | Smart Ink: прямые стороны распознанного треугольника                   | merged    |
+| #101 | удаление иконки «Фигуры» из toolbar                                    | merged    |
+| #102 | durability, sync integrity, strict inequality boundaries, 3D semantics | merged    |
+| #103 | расширение semantic 3D geometry kernel                                 | merged    |
+| #104 | semantic interaction для analytic 3D surfaces                          | merged    |
+| #105 | parametric editing 3D-тел и stable topology anchors                    | merged    |
+| #106 | persistent model rotation и semantic highlights                        | merged    |
+| #107 | Construction Studio и параметризованные 3D-запросы                     | merged    |
+| #108 | generalized constrained section workflow                               | merged    |
+| #109 | release hardening 3D-4                                                 | merged    |
 
 Последний commit:
 
