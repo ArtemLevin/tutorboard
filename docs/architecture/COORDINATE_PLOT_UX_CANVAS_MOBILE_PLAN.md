@@ -132,4 +132,7 @@ Browser tests cover:
 
 ## Implementation status
 
-Implementation is in progress on `feature/coordinate-plot-ux-canvas-mobile`. The draft PR remains gated until the interaction, mobile, visual-regression and production checks all pass on a clean product-only diff.
+Implemented on `main`. The interaction, mobile, pinch/axis navigation, bounded
+legend and visual-regression coverage are part of the current coordinate-plot
+production gate; the gate is green on baseline commit
+`09a5af188211f7c5d137c57dab4650526e4c9693`.
