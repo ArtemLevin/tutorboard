@@ -173,9 +173,9 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     };
     expect(invitationResult.joinUrl).toContain("/j/");
     const invitationId = invitationResult.invitation.invitationId;
-    await expect(invitationDialog.getByLabel("Гостевая ссылка")).toHaveValue(
-      invitationResult.joinUrl,
-    );
+    await expect(
+      invitationDialog.getByRole("textbox", { name: "Гостевая ссылка" }),
+    ).toHaveValue(invitationResult.joinUrl);
 
     const teacher = await teacherContext.newPage();
     capturePageDiagnostics(teacher);
