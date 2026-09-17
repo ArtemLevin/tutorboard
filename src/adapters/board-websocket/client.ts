@@ -10,6 +10,14 @@ export const maximumBoardCollaborationMessageCharacters = 32_768;
 export const maximumBoardCollaborationMessagesPerSecond = 30;
 export const maximumBoardCollaborationParticipants = 200;
 
+// Browser clients may initiate a close with code 1000 or an application code
+// in the 3000-4999 range. Protocol error codes such as 1003, 1008 and 1009
+// are valid on received close frames, but passing them to WebSocket.close()
+// throws a DOMException and prevents the reconnect path from completing.
+const invalidMessageCloseCode = 4400;
+const policyViolationCloseCode = 4408;
+const messageTooLargeCloseCode = 4409;
+
 const identifierSchema = z.string().min(1).max(128);
 const opaqueSecurityValueSchema = z.string().min(8).max(512);
 const protocolVersionSchema = z.enum(["1.0", "1.1"]);
@@ -397,7 +405,7 @@ export class BoardCollaborationClient {
       this.#socket = socket;
       socket.addEventListener("message", (event) => {
         if (typeof event.data !== "string") {
-          socket.close(1003, "Text messages required");
+          socket.close(invalidMessageCloseCode, "Text messages required");
           return;
         }
         this.#receive(event.data);
@@ -425,7 +433,7 @@ export class BoardCollaborationClient {
 
   #receive(raw: string): void {
     if (raw.length > maximumBoardCollaborationMessageCharacters) {
-      this.#socket?.close(1009, "Message too large");
+      this.#socket?.close(messageTooLargeCloseCode, "Message too large");
       return;
     }
     const timestamp = Date.now();
@@ -440,21 +448,21 @@ export class BoardCollaborationClient {
     if (
       this.#receivedMessageCount > maximumBoardCollaborationMessagesPerSecond
     ) {
-      this.#socket?.close(1008, "Message rate exceeded");
+      this.#socket?.close(policyViolationCloseCode, "Message rate exceeded");
       return;
     }
     let value: unknown;
     try {
       value = JSON.parse(raw);
     } catch {
-      this.#socket?.close(1003, "Invalid JSON");
+      this.#socket?.close(invalidMessageCloseCode, "Invalid JSON");
       return;
     }
 
     const changed = accessCapabilitiesChangedSchema.safeParse(value);
     if (changed.success) {
       if (changed.data.boardId !== this.#documentId) {
-        this.#socket?.close(1008, "Room mismatch");
+        this.#socket?.close(policyViolationCloseCode, "Room mismatch");
         return;
       }
       void Promise.resolve()
@@ -469,7 +477,7 @@ export class BoardCollaborationClient {
     const revoked = accessRevokedSchema.safeParse(value);
     if (revoked.success) {
       if (revoked.data.boardId !== this.#documentId) {
-        this.#socket?.close(1008, "Room mismatch");
+        this.#socket?.close(policyViolationCloseCode, "Room mismatch");
         return;
       }
       void Promise.resolve()
@@ -486,7 +494,7 @@ export class BoardCollaborationClient {
         ready.data.documentId !== this.#documentId ||
         ready.data.clientId !== this.#clientId
       ) {
-        this.#socket?.close(1008, "Room mismatch");
+        this.#socket?.close(policyViolationCloseCode, "Room mismatch");
         return;
       }
       this.#onStatus("online");
@@ -502,7 +510,7 @@ export class BoardCollaborationClient {
     const revision = revisionSchema.safeParse(value);
     if (revision.success) {
       if (revision.data.documentId !== this.#documentId) {
-        this.#socket?.close(1008, "Room mismatch");
+        this.#socket?.close(policyViolationCloseCode, "Room mismatch");
         return;
       }
       this.#queueRevision(revision.data.revision);
@@ -526,7 +534,10 @@ export class BoardCollaborationClient {
         previousSequence === undefined &&
         this.#participantSequences.size >= maximumBoardCollaborationParticipants
       ) {
-        this.#socket?.close(1008, "Participant limit exceeded");
+        this.#socket?.close(
+          policyViolationCloseCode,
+          "Participant limit exceeded",
+        );
         return;
       }
       if (presence.data.type === "presence.left") {
@@ -542,7 +553,10 @@ export class BoardCollaborationClient {
           !this.#participants.has(presence.data.clientId) &&
           this.#participants.size >= maximumBoardCollaborationParticipants
         ) {
-          this.#socket?.close(1008, "Participant limit exceeded");
+          this.#socket?.close(
+            policyViolationCloseCode,
+            "Participant limit exceeded",
+          );
           return;
         }
         const previous = this.#participants.get(presence.data.clientId);
@@ -608,7 +622,10 @@ export class BoardCollaborationClient {
       const previous = this.#inkPreviews.get(key);
       const style = event.style ?? previous?.style;
       if (style === undefined) {
-        this.#socket?.close(1003, "Ink preview style missing");
+        this.#socket?.close(
+          invalidMessageCloseCode,
+          "Ink preview style missing",
+        );
         return;
       }
       this.#inkPreviews.set(key, {
@@ -663,7 +680,7 @@ export class BoardCollaborationClient {
       this.#clearHeartbeatAckDeadline();
       return;
     }
-    this.#socket?.close(1003, "Unsupported message");
+    this.#socket?.close(invalidMessageCloseCode, "Unsupported message");
   }
 
   #markAccessRevoked(): void {

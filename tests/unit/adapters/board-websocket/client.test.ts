@@ -219,9 +219,9 @@ describe("Board collaboration WebSocket adapter", () => {
     oversizedSocket.receiveRaw(
       "x".repeat(maximumBoardCollaborationMessageCharacters + 1),
     );
-    expect(oversizedSocket.closeCode).toBe(1009);
+    expect(oversizedSocket.closeCode).toBe(4409);
     oversizedSocket.receiveRaw(new Blob(["binary"]));
-    expect(oversizedSocket.closeCode).toBe(1003);
+    expect(oversizedSocket.closeCode).toBe(4400);
 
     client.stop();
 
@@ -261,7 +261,7 @@ describe("Board collaboration WebSocket adapter", () => {
     ) {
       rateSocket.receive({ type: "heartbeat.ack" });
     }
-    expect(rateSocket.closeCode).toBe(1008);
+    expect(rateSocket.closeCode).toBe(4408);
     expect(rateSocket.closeReason).toBe("Message rate exceeded");
     rateClient.stop();
   });

@@ -93,6 +93,12 @@ async function expectRevision(page: Page, revision: number): Promise<void> {
   }
 }
 
+async function expectQuarantinedChange(page: Page): Promise<void> {
+  await expect(page.getByTestId("persistence-status")).toHaveText(
+    "Изолировано изменений · 1",
+  );
+}
+
 async function setInvitationWrite(
   context: BrowserContext,
   boardId: string,
@@ -231,7 +237,7 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     );
 
     await guestContext.setOffline(false);
-    await expectRevision(guest, 3);
+    await expectQuarantinedChange(guest);
     await expect(guest.getByTestId("object-count")).toHaveText("3 объекта");
     await guest.getByRole("button", { name: "Настройки доски" }).click();
     await expect(guest.getByText("Режим только для чтения")).toBeVisible();
@@ -250,7 +256,7 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     await guest.keyboard.press("Escape");
 
     await draw(guest, "p", { x: 760, y: 180 }, { x: 810, y: 300 });
-    await expectRevision(guest, 4);
+    await expectQuarantinedChange(guest);
     await expectRevision(teacher, 4);
     await expect(teacher.getByTestId("object-count")).toHaveText("4 объекта");
 
