@@ -100,7 +100,7 @@ async function expectQuarantinedChange(page: Page): Promise<void> {
 }
 
 async function expectCollaborationOnline(page: Page): Promise<void> {
-  await expect(page.getByText(/^В комнате \\d+$/u)).toBeVisible();
+  await expect(page.getByText(/^В комнате \d+$/u)).toBeVisible();
 }
 
 async function setInvitationWrite(
