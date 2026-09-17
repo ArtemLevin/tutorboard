@@ -281,9 +281,10 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
       teacherCsrf,
       true,
     );
-    await expect(guest.getByText("Права доступа обновлены.")).toBeVisible();
     await guest.getByRole("button", { name: "Настройки доски" }).click();
+    await expect(guest.getByText("Права доступа обновлены.")).toBeVisible();
     await expect(guest.getByText("Режим только для чтения")).toHaveCount(0);
+    await expectCollaborationOnline(guest);
     await guest.keyboard.press("Escape");
 
     await draw(guest, "p", { x: 760, y: 180 }, { x: 810, y: 300 });
