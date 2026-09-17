@@ -1,0 +1,26 @@
+name: Format standalone pilot diagnostic
+
+on:
+  push:
+    branches: [codex/standalone-pilot-e2e]
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Format target and print exact content
+        run: |
+          npx prettier tests/fullstack/standalone-pilot.spec.ts --write
+          echo 'FORMATTED_FILE_BASE64_BEGIN'
+          base64 -w0 tests/fullstack/standalone-pilot.spec.ts
+          echo
+          echo 'FORMATTED_FILE_BASE64_END'
