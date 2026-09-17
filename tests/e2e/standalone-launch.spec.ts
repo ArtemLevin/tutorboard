@@ -134,10 +134,13 @@ async function installStandaloneApi(
       pathname === `/api/v1/boards/${boardId}/snapshots` &&
       request.method() === "POST"
     ) {
-      expect(principal).toBe("teacher");
-      expect(new Headers(request.headers()).has("x-board-access-epoch")).toBe(
-        false,
-      );
+      const headers = new Headers(request.headers());
+      if (principal === "guest") {
+        expect(headers.get("x-board-access-epoch")).toBe(guestAccessEpoch);
+      } else {
+        expect(principal).toBe("teacher");
+        expect(headers.has("x-board-access-epoch")).toBe(false);
+      }
       const payload = request.postDataJSON() as { documentSha256: string };
       await route.fulfill({
         json: {
@@ -427,10 +430,10 @@ test("refreshes guest capabilities changed while the browser was offline", async
   ]);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
 
+  await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(
     page.getByText("Права обновлены: доска доступна только для чтения."),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(page.getByText("Режим только для чтения")).toBeVisible();
   expect(
     api.requests.filter((entry) =>
