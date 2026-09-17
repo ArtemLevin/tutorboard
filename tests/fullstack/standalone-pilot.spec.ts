@@ -2,6 +2,38 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 const password = "standalone-pilot-e2e-password";
 const teacherEmail = "standalone-pilot-teacher@example.test";
+const pageDiagnostics = new WeakMap<Page, string[]>();
+
+function redactDiagnostics(value: string): string {
+  return value.replace(/\/j\/[A-Za-z0-9_-]+/gu, "/j/<redacted>");
+}
+
+function capturePageDiagnostics(page: Page): void {
+  const events: string[] = [];
+  pageDiagnostics.set(page, events);
+  page.on("console", (message) => {
+    if (message.type() === "error" || message.type() === "warning") {
+      events.push(`console.${message.type()}: ${message.text()}`);
+    }
+  });
+  page.on("pageerror", (error) => {
+    events.push(`pageerror: ${error.message}`);
+  });
+  page.on("requestfailed", (request) => {
+    const url = new URL(request.url());
+    events.push(
+      `requestfailed: ${request.method()} ${url.pathname} ${request.failure()?.errorText ?? "unknown"}`,
+    );
+  });
+  page.on("response", (response) => {
+    if (response.status() >= 400) {
+      const url = new URL(response.url());
+      events.push(
+        `response: ${response.status()} ${response.request().method()} ${url.pathname}`,
+      );
+    }
+  });
+}
 
 async function loginTeacher(page: Page): Promise<string> {
   await page.goto("/login?next=/boards");
@@ -41,9 +73,24 @@ async function draw(
 }
 
 async function expectRevision(page: Page, revision: number): Promise<void> {
-  await expect(page.getByTestId("persistence-status")).toHaveText(
-    `Синхронизировано · r${revision}`,
-  );
+  try {
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      `Синхронизировано · r${revision}`,
+    );
+  } catch (error) {
+    const body = redactDiagnostics(
+      (await page.locator("body").innerText()).trim(),
+    );
+    const events = pageDiagnostics.get(page) ?? [];
+    throw new Error(
+      [
+        `Board revision r${revision} was not reached at ${redactDiagnostics(page.url())}.`,
+        `DOM:\n${body.slice(0, 4_000)}`,
+        `Browser events:\n${events.map(redactDiagnostics).join("\n") || "(none)"}`,
+      ].join("\n\n"),
+      { cause: error },
+    );
+  }
 }
 
 async function setInvitationWrite(
@@ -71,6 +118,7 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
 
   try {
     const workspace = await teacherContext.newPage();
+    capturePageDiagnostics(workspace);
     const teacherCsrf = await loginTeacher(workspace);
     await expect(
       workspace.getByRole("heading", { name: "Мои доски" }),
@@ -130,10 +178,12 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     );
 
     const teacher = await teacherContext.newPage();
+    capturePageDiagnostics(teacher);
     await teacher.goto(teacherBoardHref);
     await expectRevision(teacher, 0);
 
     const guest = await guestContext.newPage();
+    capturePageDiagnostics(guest);
     await guest.goto(invitationResult.joinUrl);
     await expect(guest).toHaveURL(
       new RegExp(`/b/${encodeURIComponent(boardId)}#/board$`),
