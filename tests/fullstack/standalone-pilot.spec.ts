@@ -33,6 +33,14 @@ function capturePageDiagnostics(page: Page): void {
       );
     }
   });
+  page.on("websocket", (socket) => {
+    const pathname = new URL(socket.url()).pathname;
+    events.push(`websocket.open: ${pathname}`);
+    socket.on("close", () => events.push(`websocket.close: ${pathname}`));
+    socket.on("socketerror", (error) =>
+      events.push(`websocket.error: ${pathname} ${error}`),
+    );
+  });
 }
 
 async function loginTeacher(page: Page): Promise<string> {
@@ -100,7 +108,22 @@ async function expectQuarantinedChange(page: Page): Promise<void> {
 }
 
 async function expectCollaborationOnline(page: Page): Promise<void> {
-  await expect(page.getByText(/^В комнате \d+$/u)).toBeVisible();
+  try {
+    await expect(page.getByText(/^В комнате \d+$/u)).toBeVisible();
+  } catch (error) {
+    const body = redactDiagnostics(
+      (await page.locator("body").innerText()).trim(),
+    );
+    const events = pageDiagnostics.get(page) ?? [];
+    throw new Error(
+      [
+        `Collaboration did not reconnect at ${redactDiagnostics(page.url())}.`,
+        `DOM:\n${body.slice(0, 4_000)}`,
+        `Browser events:\n${events.map(redactDiagnostics).join("\n") || "(none)"}`,
+      ].join("\n\n"),
+      { cause: error },
+    );
+  }
 }
 
 async function setInvitationWrite(

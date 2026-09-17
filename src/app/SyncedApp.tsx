@@ -370,11 +370,18 @@ export function SyncedApp({
     void bootstrap().catch(() => void engine.bootstrap());
     const reconnect = () => {
       if (refreshAccessContext === undefined) {
-        void engine.setNetworkAvailable(true);
+        void engine.setNetworkAvailable(true).then(() => {
+          collaboration.stop();
+          collaboration.start();
+        });
         return;
       }
       void refreshStandaloneAccess()
         .then(() => engine.setNetworkAvailable(true))
+        .then(() => {
+          collaboration.stop();
+          collaboration.start();
+        })
         .catch(() => undefined);
     };
     const disconnect = () => void engine.setNetworkAvailable(false);
@@ -387,6 +394,7 @@ export function SyncedApp({
     };
   }, [
     documentId,
+    collaboration,
     engine,
     lessonId,
     refreshAccessContext,
