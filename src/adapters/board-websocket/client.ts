@@ -267,6 +267,7 @@ export class BoardCollaborationClient {
   readonly #previewExpiryTimers = new Map<string, number>();
   #heartbeat: number | null = null;
   #heartbeatAckDeadline: number | null = null;
+  #connectionGeneration = 0;
   #presence: LocalBoardPresence = {};
   #presenceTimer: number | null = null;
   #inkPreviewTimer: number | null = null;
@@ -314,14 +315,17 @@ export class BoardCollaborationClient {
     }
     if (!this.#stopped) return;
     this.#stopped = false;
-    void this.#connect();
+    this.#connectionGeneration += 1;
+    void this.#connect(this.#connectionGeneration);
   }
 
   stop(): void {
     this.#stopped = true;
+    this.#connectionGeneration += 1;
     this.#clearTimers();
-    this.#socket?.close(1000, "Client closed");
+    const socket = this.#socket;
     this.#socket = null;
+    socket?.close(1000, "Client closed");
     this.#participants.clear();
     this.#participantSequences.clear();
     this.#onPresence([]);
@@ -379,11 +383,17 @@ export class BoardCollaborationClient {
     this.#sendTransformPreview(preview);
   }
 
-  async #connect(): Promise<void> {
-    if (this.#stopped || this.#terminalAccessRevoked) return;
+  async #connect(generation: number): Promise<void> {
+    if (
+      this.#stopped ||
+      this.#terminalAccessRevoked ||
+      generation !== this.#connectionGeneration
+    ) {
+      return;
+    }
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       this.#onStatus("offline");
-      this.#scheduleReconnect();
+      this.#scheduleReconnect(generation);
       return;
     }
     this.#onStatus("connecting");
@@ -394,7 +404,13 @@ export class BoardCollaborationClient {
         this.#clientId,
         context.csrfToken,
       );
-      if (this.#stopped || this.#terminalAccessRevoked) return;
+      if (
+        this.#stopped ||
+        this.#terminalAccessRevoked ||
+        generation !== this.#connectionGeneration
+      ) {
+        return;
+      }
       const url = new URL(ticket.websocketPath, this.#origin);
       if (url.origin !== new URL(this.#origin).origin) {
         throw new Error("Collaboration WebSocket must be same-origin.");
@@ -404,6 +420,12 @@ export class BoardCollaborationClient {
       const socket = this.#createWebSocket(url.href, ["tutorboard.v1"]);
       this.#socket = socket;
       socket.addEventListener("message", (event) => {
+        if (
+          this.#socket !== socket ||
+          generation !== this.#connectionGeneration
+        ) {
+          return;
+        }
         if (typeof event.data !== "string") {
           socket.close(invalidMessageCloseCode, "Text messages required");
           return;
@@ -411,7 +433,13 @@ export class BoardCollaborationClient {
         this.#receive(event.data);
       });
       socket.addEventListener("close", (event) => {
-        if (this.#socket === socket) this.#socket = null;
+        if (
+          this.#socket !== socket ||
+          generation !== this.#connectionGeneration
+        ) {
+          return;
+        }
+        this.#socket = null;
         this.#clearHeartbeat();
         if (event.code === 4403) this.#markAccessRevoked();
         if (!this.#stopped && !this.#terminalAccessRevoked) {
@@ -420,14 +448,27 @@ export class BoardCollaborationClient {
           this.#onPresence([]);
           this.#clearRemotePreviews();
           this.#onStatus("offline");
-          this.#scheduleReconnect();
+          this.#scheduleReconnect(generation);
         }
       });
-      socket.addEventListener("error", () => socket.close());
+      socket.addEventListener("error", () => {
+        if (
+          this.#socket === socket &&
+          generation === this.#connectionGeneration
+        ) {
+          socket.close();
+        }
+      });
     } catch {
-      if (this.#terminalAccessRevoked || this.#stopped) return;
+      if (
+        this.#terminalAccessRevoked ||
+        this.#stopped ||
+        generation !== this.#connectionGeneration
+      ) {
+        return;
+      }
       this.#onStatus("offline");
-      this.#scheduleReconnect();
+      this.#scheduleReconnect(generation);
     }
   }
 
@@ -825,10 +866,11 @@ export class BoardCollaborationClient {
     );
   }
 
-  #scheduleReconnect(): void {
+  #scheduleReconnect(generation: number): void {
     if (
       this.#stopped ||
       this.#terminalAccessRevoked ||
+      generation !== this.#connectionGeneration ||
       this.#reconnect !== null
     ) {
       return;
@@ -838,7 +880,7 @@ export class BoardCollaborationClient {
     this.#reconnectAttempt = Math.min(this.#reconnectAttempt + 1, 10);
     this.#reconnect = window.setTimeout(() => {
       this.#reconnect = null;
-      void this.#connect();
+      void this.#connect(generation);
     }, delay);
   }
 
@@ -896,15 +938,3 @@ export class BoardCollaborationClient {
     if (this.#presenceTimer !== null) {
       window.clearTimeout(this.#presenceTimer);
       this.#presenceTimer = null;
-    }
-    if (this.#reconnect !== null) {
-      window.clearTimeout(this.#reconnect);
-      this.#reconnect = null;
-    }
-    if (this.#revisionTimer !== null) {
-      window.clearTimeout(this.#revisionTimer);
-      this.#revisionTimer = null;
-      this.#pendingRevision = 0;
-    }
-  }
-}
