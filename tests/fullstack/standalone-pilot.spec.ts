@@ -98,7 +98,8 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     const teacherBoardHref = await boardCard
       .getByRole("link", { name: "Открыть" })
       .getAttribute("href");
-    if (teacherBoardHref === null) throw new Error("Teacher board URL is missing");
+    if (teacherBoardHref === null)
+      throw new Error("Teacher board URL is missing");
 
     await boardCard.getByRole("button", { name: "Доступ и ссылки" }).click();
     const invitationDialog = workspace.getByRole("dialog");
@@ -120,9 +121,9 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     };
     expect(invitationResult.joinUrl).toContain("/j/");
     const invitationId = invitationResult.invitation.invitationId;
-    await expect(
-      invitationDialog.getByLabel("Гостевая ссылка"),
-    ).toHaveValue(invitationResult.joinUrl);
+    await expect(invitationDialog.getByLabel("Гостевая ссылка")).toHaveValue(
+      invitationResult.joinUrl,
+    );
 
     const teacher = await teacherContext.newPage();
     await teacher.goto(teacherBoardHref);
