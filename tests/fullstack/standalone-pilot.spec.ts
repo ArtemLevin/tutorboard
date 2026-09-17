@@ -1,33 +1,20 @@
-import {
-  expect,
-  test,
-  type BrowserContext,
-  type Page,
-} from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 const password = "standalone-pilot-e2e-password";
 const teacherEmail = "standalone-pilot-teacher@example.test";
 
-async function loginTeacher(context: BrowserContext): Promise<string> {
-  const loginPage = await context.request.get("/login");
-  expect(loginPage.ok()).toBe(true);
-  const html = await loginPage.text();
-  const csrf = html.match(/name="csrf_token" value="([^"]+)"/)?.[1];
-  if (csrf === undefined) throw new Error("Login CSRF token is missing");
+async function loginTeacher(page: Page): Promise<string> {
+  await page.goto("/login?next=/boards");
+  await page.getByLabel("Email").fill(teacherEmail);
+  await page.getByLabel("Пароль").fill(password);
+  await Promise.all([
+    page.waitForURL(/\/boards$/),
+    page.getByRole("button", { name: "Продолжить" }).click(),
+  ]);
 
-  const response = await context.request.post("/login", {
-    failOnStatusCode: false,
-    form: {
-      csrf_token: csrf,
-      email: teacherEmail,
-      next: "/boards",
-      password,
-    },
-    maxRedirects: 0,
-  });
-  expect(response.status()).toBe(303);
-
-  const contextResponse = await context.request.get("/api/v1/boards/context");
+  const contextResponse = await page
+    .context()
+    .request.get("/api/v1/boards/context");
   expect(contextResponse.ok()).toBe(true);
   const managementContext = (await contextResponse.json()) as {
     csrfToken: string;
@@ -82,9 +69,8 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
   const guestContext = await browser.newContext();
 
   try {
-    const teacherCsrf = await loginTeacher(teacherContext);
     const workspace = await teacherContext.newPage();
-    await workspace.goto("/boards");
+    const teacherCsrf = await loginTeacher(workspace);
     await expect(
       workspace.getByRole("heading", { name: "Мои доски" }),
     ).toBeVisible();
