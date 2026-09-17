@@ -177,6 +177,8 @@ export function SyncedApp({
   const [state, setState] = useState<BoardSyncState>({ kind: "bootstrapping" });
   const [collaborationStatus, setCollaborationStatus] =
     useState<BoardCollaborationStatus>("connecting");
+  const [collaborationAccessReady, setCollaborationAccessReady] =
+    useState(false);
   const [participants, setParticipants] = useState<readonly BoardPresence[]>(
     [],
   );
@@ -303,7 +305,10 @@ export function SyncedApp({
         onInkPreviews: setInkPreviews,
         onPresence: setParticipants,
         onRevision: () => void engine.synchronize(),
-        onStatus: setCollaborationStatus,
+        onStatus: (status) => {
+          if (status !== "online") setCollaborationAccessReady(false);
+          setCollaborationStatus(status);
+        },
         onTransformPreviews: setTransformPreviews,
         repository,
       }),
@@ -319,11 +324,14 @@ export function SyncedApp({
       refreshAccessAfterCollaborationOfflineRef.current = true;
       return;
     }
+    if (collaborationStatus !== "online") {
+      return;
+    }
     if (
-      collaborationStatus !== "online" ||
       !refreshAccessAfterCollaborationOfflineRef.current ||
       refreshAccessContext === undefined
     ) {
+      setCollaborationAccessReady(true);
       return;
     }
     refreshAccessAfterCollaborationOfflineRef.current = false;
@@ -336,9 +344,11 @@ export function SyncedApp({
         ) {
           collaboration.stop();
           collaboration.start();
+          return;
         }
+        setCollaborationAccessReady(true);
       })
-      .catch(() => undefined);
+      .catch(() => setCollaborationAccessReady(false));
   }, [
     collaboration,
     collaborationStatus,
@@ -539,6 +549,7 @@ export function SyncedApp({
 
   const writeEnabled =
     accessRefreshStatus === "idle" &&
+    (accessContext === undefined || collaborationAccessReady) &&
     state.capabilities.includes("board.write");
   const canManageEvidence =
     lessonId !== undefined &&
@@ -766,7 +777,7 @@ export function SyncedApp({
               <p>Режим только для чтения</p>
             ) : null}
             <p>
-              {collaborationStatus === "online"
+              {collaborationStatus === "online" && collaborationAccessReady
                 ? `В комнате ${participants.length + 1}`
                 : collaborationStatus === "connecting"
                   ? "Подключение к комнате…"

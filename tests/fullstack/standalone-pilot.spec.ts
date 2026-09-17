@@ -216,6 +216,9 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     await guestContext.setOffline(false);
     await expectRevision(guest, 2);
     await expect(guest.getByTestId("object-count")).toHaveText("2 объекта");
+    await guest.getByRole("button", { name: "Настройки доски" }).click();
+    await expect(guest.getByText("В комнате 2")).toBeVisible();
+    await guest.keyboard.press("Escape");
 
     await draw(guest, "p", { x: 610, y: 180 }, { x: 680, y: 340 });
     await expectRevision(guest, 3);
