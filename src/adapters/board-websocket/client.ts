@@ -938,3 +938,15 @@ export class BoardCollaborationClient {
     if (this.#presenceTimer !== null) {
       window.clearTimeout(this.#presenceTimer);
       this.#presenceTimer = null;
+    }
+    if (this.#reconnect !== null) {
+      window.clearTimeout(this.#reconnect);
+      this.#reconnect = null;
+    }
+    if (this.#revisionTimer !== null) {
+      window.clearTimeout(this.#revisionTimer);
+      this.#revisionTimer = null;
+      this.#pendingRevision = 0;
+    }
+  }
+}
