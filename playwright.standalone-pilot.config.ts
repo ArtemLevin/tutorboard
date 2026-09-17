@@ -34,7 +34,7 @@ export default defineConfig({
       cwd: backendRoot,
       reuseExistingServer: false,
       timeout: 60_000,
-      url: "http://127.0.0.1:4181/health/ready",
+      url: "http://127.0.0.1:4181/health/live",
     },
     {
       command:
