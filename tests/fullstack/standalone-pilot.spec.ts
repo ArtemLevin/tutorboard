@@ -241,6 +241,7 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     await expect(guest.getByTestId("object-count")).toHaveText("3 объекта");
     await guest.getByRole("button", { name: "Настройки доски" }).click();
     await expect(guest.getByText("Режим только для чтения")).toBeVisible();
+    await expect(guest.getByText("В комнате 2")).toBeVisible();
     await guest.keyboard.press("Escape");
 
     await setInvitationWrite(

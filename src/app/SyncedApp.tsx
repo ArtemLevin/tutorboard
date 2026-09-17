@@ -207,6 +207,7 @@ export function SyncedApp({
   const loadMeasuredRef = useRef(false);
   const previousCollaborationStatusRef =
     useRef<BoardCollaborationStatus>("connecting");
+  const refreshAccessAfterCollaborationOfflineRef = useRef(false);
   const [originId] = useState(collaborationOriginId);
   const [engine] = useState(
     () =>
@@ -312,6 +313,38 @@ export function SyncedApp({
     collaboration.setAccessEventHandler(handleAccessEvent);
     return () => collaboration.setAccessEventHandler(() => undefined);
   }, [collaboration, handleAccessEvent]);
+
+  useEffect(() => {
+    if (collaborationStatus === "offline") {
+      refreshAccessAfterCollaborationOfflineRef.current = true;
+      return;
+    }
+    if (
+      collaborationStatus !== "online" ||
+      !refreshAccessAfterCollaborationOfflineRef.current ||
+      refreshAccessContext === undefined
+    ) {
+      return;
+    }
+    refreshAccessAfterCollaborationOfflineRef.current = false;
+    const previousAccessEpoch = currentAccessContextRef.current?.accessEpoch;
+    void refreshStandaloneAccess()
+      .then((context) => {
+        if (
+          previousAccessEpoch !== undefined &&
+          context.accessEpoch !== previousAccessEpoch
+        ) {
+          collaboration.stop();
+          collaboration.start();
+        }
+      })
+      .catch(() => undefined);
+  }, [
+    collaboration,
+    collaborationStatus,
+    refreshAccessContext,
+    refreshStandaloneAccess,
+  ]);
 
   useEffect(() => {
     bootstrapStartedRef.current = performance.now();
