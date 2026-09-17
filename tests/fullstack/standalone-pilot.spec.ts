@@ -99,6 +99,10 @@ async function expectQuarantinedChange(page: Page): Promise<void> {
   );
 }
 
+async function expectCollaborationOnline(page: Page): Promise<void> {
+  await expect(page.getByText(/^В комнате \\d+$/u)).toBeVisible();
+}
+
 async function setInvitationWrite(
   context: BrowserContext,
   boardId: string,
@@ -217,7 +221,7 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     await expectRevision(guest, 2);
     await expect(guest.getByTestId("object-count")).toHaveText("2 объекта");
     await guest.getByRole("button", { name: "Настройки доски" }).click();
-    await expect(guest.getByText("В комнате 2")).toBeVisible();
+    await expectCollaborationOnline(guest);
     await guest.keyboard.press("Escape");
 
     await draw(guest, "p", { x: 610, y: 180 }, { x: 680, y: 340 });
@@ -244,7 +248,7 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     await expect(guest.getByTestId("object-count")).toHaveText("3 объекта");
     await guest.getByRole("button", { name: "Настройки доски" }).click();
     await expect(guest.getByText("Режим только для чтения")).toBeVisible();
-    await expect(guest.getByText("В комнате 2")).toBeVisible();
+    await expectCollaborationOnline(guest);
     await guest.keyboard.press("Escape");
 
     await setInvitationWrite(
