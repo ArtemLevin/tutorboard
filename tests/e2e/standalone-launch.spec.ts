@@ -404,6 +404,41 @@ test("refreshes guest capabilities and reconnects collaboration with the new epo
   ).toHaveLength(2);
 });
 
+test("refreshes guest capabilities changed while the browser was offline", async ({
+  page,
+}) => {
+  await installControllableWebSocket(page);
+  const api = await installStandaloneApi(page, "guest");
+  api.setGuestAccess("epoch:guest:e2e-online-01", [
+    "board.read",
+    "board.write",
+    "board.snapshot.write",
+    "collaboration.connect",
+  ]);
+  await page.goto(`/b/${encodeURIComponent(boardId)}#/board`);
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await expect(page.getByText("Режим только для чтения")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+  api.setGuestAccess("epoch:guest:e2e-online-02", [
+    "board.read",
+    "collaboration.connect",
+  ]);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+
+  await expect(
+    page.getByText("Права обновлены: доска доступна только для чтения."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await expect(page.getByText("Режим только для чтения")).toBeVisible();
+  expect(
+    api.requests.filter((entry) =>
+      entry.startsWith("GET /api/v1/boards/context"),
+    ),
+  ).toHaveLength(2);
+});
+
 test("renders a non-enumerating access failure and never loads the board", async ({
   page,
 }) => {

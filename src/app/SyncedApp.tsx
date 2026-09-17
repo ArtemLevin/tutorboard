@@ -325,7 +325,15 @@ export function SyncedApp({
       await engine.bootstrap();
     };
     void bootstrap().catch(() => void engine.bootstrap());
-    const reconnect = () => void engine.setNetworkAvailable(true);
+    const reconnect = () => {
+      if (refreshAccessContext === undefined) {
+        void engine.setNetworkAvailable(true);
+        return;
+      }
+      void refreshStandaloneAccess()
+        .then(() => engine.setNetworkAvailable(true))
+        .catch(() => undefined);
+    };
     const disconnect = () => void engine.setNetworkAvailable(false);
     window.addEventListener("online", reconnect);
     window.addEventListener("offline", disconnect);
@@ -334,7 +342,14 @@ export function SyncedApp({
       window.removeEventListener("offline", disconnect);
       engine.dispose();
     };
-  }, [documentId, engine, lessonId, repository]);
+  }, [
+    documentId,
+    engine,
+    lessonId,
+    refreshAccessContext,
+    refreshStandaloneAccess,
+    repository,
+  ]);
 
   const ready = state.kind === "ready";
   const collaborationEnabled =
