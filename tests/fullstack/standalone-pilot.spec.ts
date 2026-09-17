@@ -1,0 +1,228 @@
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
+
+const password = "standalone-pilot-e2e-password";
+const teacherEmail = "standalone-pilot-teacher@example.test";
+
+async function loginTeacher(context: BrowserContext): Promise<string> {
+  const loginPage = await context.request.get("/login");
+  expect(loginPage.ok()).toBe(true);
+  const html = await loginPage.text();
+  const csrf = html.match(/name="csrf_token" value="([^"]+)"/)?.[1];
+  if (csrf === undefined) throw new Error("Login CSRF token is missing");
+
+  const response = await context.request.post("/login", {
+    failOnStatusCode: false,
+    form: {
+      csrf_token: csrf,
+      email: teacherEmail,
+      next: "/boards",
+      password,
+    },
+    maxRedirects: 0,
+  });
+  expect(response.status()).toBe(303);
+
+  const contextResponse = await context.request.get("/api/v1/boards/context");
+  expect(contextResponse.ok()).toBe(true);
+  const managementContext = (await contextResponse.json()) as {
+    csrfToken: string;
+    principalType: string;
+  };
+  expect(managementContext.principalType).toBe("teacher");
+  return managementContext.csrfToken;
+}
+
+async function draw(
+  page: Page,
+  key: "p" | "r",
+  start: { readonly x: number; readonly y: number },
+  end: { readonly x: number; readonly y: number },
+): Promise<void> {
+  await page.keyboard.press(key);
+  const bounds = await page.getByTestId("board-stage").boundingBox();
+  if (bounds === null) throw new Error("Board stage has no bounds");
+  await page.mouse.move(bounds.x + start.x, bounds.y + start.y);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + end.x, bounds.y + end.y, { steps: 8 });
+  await page.mouse.up();
+}
+
+async function expectRevision(page: Page, revision: number): Promise<void> {
+  await expect(page.getByTestId("persistence-status")).toHaveText(
+    `Синхронизировано · r${revision}`,
+  );
+}
+
+async function setInvitationWrite(
+  context: BrowserContext,
+  boardId: string,
+  invitationId: string,
+  csrfToken: string,
+  writeEnabled: boolean,
+): Promise<void> {
+  const response = await context.request.patch(
+    `/api/v1/boards/${encodeURIComponent(boardId)}/invitations/${encodeURIComponent(invitationId)}`,
+    {
+      data: { writeEnabled },
+      headers: { "x-csrf-token": csrfToken },
+    },
+  );
+  expect(response.ok()).toBe(true);
+}
+
+test("teacher invitation guest collaboration access convergence and revoke", async ({
+  browser,
+}) => {
+  const teacherContext = await browser.newContext();
+  const guestContext = await browser.newContext();
+
+  try {
+    const teacherCsrf = await loginTeacher(teacherContext);
+    const workspace = await teacherContext.newPage();
+    await workspace.goto("/boards");
+    await expect(
+      workspace.getByRole("heading", { name: "Мои доски" }),
+    ).toBeVisible();
+
+    await workspace.getByRole("button", { name: "+ Создать доску" }).click();
+    const createBoardResponsePromise = workspace.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/v1/boards",
+    );
+    const createDialog = workspace.getByRole("dialog");
+    await createDialog.getByLabel("Название").fill("Пилотная доска");
+    await createDialog.getByRole("button", { name: "Создать" }).click();
+    const createdBoard = (await (await createBoardResponsePromise).json()) as {
+      boardId: string;
+    };
+    const boardId = createdBoard.boardId;
+    await expect(
+      workspace.getByRole("heading", { name: "Пилотная доска" }),
+    ).toBeVisible();
+
+    const boardCard = workspace
+      .locator("article.teacher-board-card")
+      .filter({ hasText: "Пилотная доска" });
+    const teacherBoardHref = await boardCard
+      .getByRole("link", { name: "Открыть" })
+      .getAttribute("href");
+    if (teacherBoardHref === null) throw new Error("Teacher board URL is missing");
+
+    await boardCard.getByRole("button", { name: "Доступ и ссылки" }).click();
+    const invitationDialog = workspace.getByRole("dialog");
+    await invitationDialog.getByLabel("Имя ученика").fill("Пилотный ученик");
+    const invitationResponsePromise = workspace.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname ===
+          `/api/v1/boards/${boardId}/invitations`,
+    );
+    await invitationDialog
+      .getByRole("button", { name: "Создать гостевую ссылку" })
+      .click();
+    const invitationResult = (await (
+      await invitationResponsePromise
+    ).json()) as {
+      invitation: { invitationId: string };
+      joinUrl: string;
+    };
+    expect(invitationResult.joinUrl).toContain("/j/");
+    const invitationId = invitationResult.invitation.invitationId;
+    await expect(
+      invitationDialog.getByLabel("Гостевая ссылка"),
+    ).toHaveValue(invitationResult.joinUrl);
+
+    const teacher = await teacherContext.newPage();
+    await teacher.goto(teacherBoardHref);
+    await expectRevision(teacher, 0);
+
+    const guest = await guestContext.newPage();
+    await guest.goto(invitationResult.joinUrl);
+    await expect(guest).toHaveURL(
+      new RegExp(`/b/${encodeURIComponent(boardId)}#/board$`),
+    );
+    await expectRevision(guest, 0);
+    await guest.getByRole("button", { name: "Настройки доски" }).click();
+    await expect(guest.getByText("Ученик · Пилотный ученик")).toBeVisible();
+    await expect(guest.getByText("Режим только для чтения")).toHaveCount(0);
+    await guest.keyboard.press("Escape");
+
+    await draw(teacher, "p", { x: 340, y: 210 }, { x: 520, y: 300 });
+    await expectRevision(teacher, 1);
+    await expectRevision(guest, 1);
+    await expect(guest.getByTestId("object-count")).toHaveText("1 объекта");
+
+    await guestContext.setOffline(true);
+    await expect(guest.getByTestId("persistence-status")).toHaveText(
+      "Автономный режим",
+    );
+    await draw(teacher, "r", { x: 260, y: 360 }, { x: 410, y: 450 });
+    await expectRevision(teacher, 2);
+    await expect(guest.getByTestId("object-count")).toHaveText("1 объекта");
+
+    await guestContext.setOffline(false);
+    await expectRevision(guest, 2);
+    await expect(guest.getByTestId("object-count")).toHaveText("2 объекта");
+
+    await draw(guest, "p", { x: 610, y: 180 }, { x: 680, y: 340 });
+    await expectRevision(guest, 3);
+    await expectRevision(teacher, 3);
+    await expect(teacher.getByTestId("object-count")).toHaveText("3 объекта");
+
+    // Queue one guest mutation under the current access epoch, then change the
+    // invitation while that guest is offline. Reconnect must quarantine the
+    // stale pending command and restore the confirmed r3 document.
+    await guestContext.setOffline(true);
+    await draw(guest, "p", { x: 720, y: 220 }, { x: 760, y: 320 });
+    await expect(guest.getByTestId("object-count")).toHaveText("4 объекта");
+    await setInvitationWrite(
+      teacherContext,
+      boardId,
+      invitationId,
+      teacherCsrf,
+      false,
+    );
+
+    await guestContext.setOffline(false);
+    await expectRevision(guest, 3);
+    await expect(guest.getByTestId("object-count")).toHaveText("3 объекта");
+    await guest.getByRole("button", { name: "Настройки доски" }).click();
+    await expect(guest.getByText("Режим только для чтения")).toBeVisible();
+    await guest.keyboard.press("Escape");
+
+    await setInvitationWrite(
+      teacherContext,
+      boardId,
+      invitationId,
+      teacherCsrf,
+      true,
+    );
+    await expect(guest.getByText("Права доступа обновлены.")).toBeVisible();
+    await guest.getByRole("button", { name: "Настройки доски" }).click();
+    await expect(guest.getByText("Режим только для чтения")).toHaveCount(0);
+    await guest.keyboard.press("Escape");
+
+    await draw(guest, "p", { x: 760, y: 180 }, { x: 810, y: 300 });
+    await expectRevision(guest, 4);
+    await expectRevision(teacher, 4);
+    await expect(teacher.getByTestId("object-count")).toHaveText("4 объекта");
+
+    const revoke = await teacherContext.request.post(
+      `/api/v1/boards/${encodeURIComponent(boardId)}/invitations/${encodeURIComponent(invitationId)}/revoke`,
+      { headers: { "x-csrf-token": teacherCsrf } },
+    );
+    expect(revoke.ok()).toBe(true);
+    await expect(
+      guest.getByRole("heading", { name: "Доступ к доске недоступен" }),
+    ).toBeVisible();
+  } finally {
+    await teacherContext.close();
+    await guestContext.close();
+  }
+});
