@@ -89,18 +89,21 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
       boardId: string;
     };
     const boardId = createdBoard.boardId;
-    await expect(
-      workspace.getByRole("heading", { name: "Пилотная доска" }),
-    ).toBeVisible();
+    const teacherBoardHref = `/b/${encodeURIComponent(boardId)}#/board`;
 
-    const boardCard = workspace
-      .locator("article.teacher-board-card")
-      .filter({ hasText: "Пилотная доска" });
-    const teacherBoardHref = await boardCard
-      .getByRole("link", { name: "Открыть" })
-      .getAttribute("href");
-    if (teacherBoardHref === null)
-      throw new Error("Teacher board URL is missing");
+    await expect(workspace).toHaveURL(
+      new RegExp(`/b/${encodeURIComponent(boardId)}#/board$`),
+    );
+    await expectRevision(workspace, 0);
+
+    await workspace.goto("/boards");
+    await expect(
+      workspace.getByRole("heading", { name: "Мои доски" }),
+    ).toBeVisible();
+    const boardCard = workspace.locator(
+      `article.teacher-board-card:has(a[href="${teacherBoardHref}"])`,
+    );
+    await expect(boardCard).toHaveCount(1);
 
     await boardCard.getByRole("button", { name: "Доступ и ссылки" }).click();
     const invitationDialog = workspace.getByRole("dialog");
