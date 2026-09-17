@@ -18,9 +18,10 @@ async function loginTeacher(page: Page): Promise<string> {
   expect(contextResponse.ok()).toBe(true);
   const managementContext = (await contextResponse.json()) as {
     csrfToken: string;
-    principalType: string;
+    role: string;
   };
-  expect(managementContext.principalType).toBe("teacher");
+  expect(managementContext.role).toBe("admin");
+  expect(managementContext.csrfToken).not.toHaveLength(0);
   return managementContext.csrfToken;
 }
 
