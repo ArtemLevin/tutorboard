@@ -6,6 +6,7 @@ const guestCsrf = "csrf-guest-never-durable-standalone";
 const guestTicket = "ws-ticket-never-durable-standalone";
 
 interface InstalledApi {
+  readonly collaborationClientIds: string[];
   readonly requests: string[];
   readonly setGuestAccess: (
     accessEpoch: string,
@@ -32,6 +33,7 @@ async function installStandaloneApi(
   page: Page,
   principal: "guest" | "teacher" | "unavailable",
 ): Promise<InstalledApi> {
+  const collaborationClientIds: string[] = [];
   const requests: string[] = [];
   let guestAccessEpoch = "epoch:guest:e2e-01";
   let guestCapabilities: readonly string[] = [
@@ -134,10 +136,13 @@ async function installStandaloneApi(
       pathname === `/api/v1/boards/${boardId}/snapshots` &&
       request.method() === "POST"
     ) {
-      expect(principal).toBe("teacher");
-      expect(new Headers(request.headers()).has("x-board-access-epoch")).toBe(
-        false,
-      );
+      const headers = new Headers(request.headers());
+      if (principal === "guest") {
+        expect(headers.get("x-board-access-epoch")).toBe(guestAccessEpoch);
+      } else {
+        expect(principal).toBe("teacher");
+        expect(headers.has("x-board-access-epoch")).toBe(false);
+      }
       const payload = request.postDataJSON() as { documentSha256: string };
       await route.fulfill({
         json: {
@@ -156,6 +161,8 @@ async function installStandaloneApi(
       pathname === `/api/v1/boards/${boardId}/collaboration-ticket` &&
       request.method() === "POST"
     ) {
+      const payload = request.postDataJSON() as { clientId: string };
+      collaborationClientIds.push(payload.clientId);
       if (principal === "guest") {
         expect(new Headers(request.headers()).get("x-board-access-epoch")).toBe(
           guestAccessEpoch,
@@ -178,6 +185,7 @@ async function installStandaloneApi(
     });
   });
   return {
+    collaborationClientIds,
     requests,
     setGuestAccess: (accessEpoch, capabilities) => {
       guestAccessEpoch = accessEpoch;
@@ -232,9 +240,49 @@ async function installControllableWebSocket(page: Page): Promise<void> {
           new MessageEvent("message", { data: JSON.stringify(payload) }),
         );
       },
+      __tutorboardEmitCollaborationMessage: (payload: unknown) => {
+        const socket = ControllableWebSocket.instances.at(-1);
+        socket?.dispatchEvent(
+          new MessageEvent("message", { data: JSON.stringify(payload) }),
+        );
+      },
       __tutorboardSocketCount: () => ControllableWebSocket.instances.length,
     });
   });
+}
+
+async function emitCollaborationReady(
+  page: Page,
+  clientId: string,
+  expectedSocketCount: number,
+): Promise<void> {
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as typeof window & {
+            __tutorboardSocketCount: () => number;
+          }
+        ).__tutorboardSocketCount(),
+      ),
+    )
+    .toBe(expectedSocketCount);
+  await page.evaluate(
+    ({ expectedBoardId, expectedClientId }) =>
+      (
+        window as typeof window & {
+          __tutorboardEmitCollaborationMessage: (payload: unknown) => void;
+        }
+      ).__tutorboardEmitCollaborationMessage({
+        clientId: expectedClientId,
+        currentRevision: 0,
+        documentId: expectedBoardId,
+        heartbeatSeconds: 20,
+        protocolVersion: "1.1",
+        type: "ready",
+      }),
+    { expectedBoardId: boardId, expectedClientId: clientId },
+  );
 }
 
 async function durableBrowserData(page: Page): Promise<string> {
@@ -350,17 +398,8 @@ test("refreshes guest capabilities and reconnects collaboration with the new epo
   await page.goto(`/b/${encodeURIComponent(boardId)}#/board`);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(page.getByText("Режим только для чтения")).toBeVisible();
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        (
-          window as typeof window & {
-            __tutorboardSocketCount: () => number;
-          }
-        ).__tutorboardSocketCount(),
-      ),
-    )
-    .toBe(1);
+  await expect.poll(() => api.collaborationClientIds.length).toBe(1);
+  await emitCollaborationReady(page, api.collaborationClientIds[0]!, 1);
 
   api.setGuestAccess("epoch:guest:e2e-02", [
     "board.read",
@@ -385,18 +424,46 @@ test("refreshes guest capabilities and reconnects collaboration with the new epo
   );
 
   await expect(page.getByText("Права доступа обновлены.")).toBeVisible();
+  await expect.poll(() => api.collaborationClientIds.length).toBe(2);
+  await emitCollaborationReady(page, api.collaborationClientIds[1]!, 2);
   await expect(page.getByText("Режим только для чтения")).toHaveCount(0);
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        (
-          window as typeof window & {
-            __tutorboardSocketCount: () => number;
-          }
-        ).__tutorboardSocketCount(),
-      ),
-    )
-    .toBe(2);
+  expect(
+    api.requests.filter((entry) =>
+      entry.startsWith("GET /api/v1/boards/context"),
+    ),
+  ).toHaveLength(2);
+});
+
+test("refreshes guest capabilities changed while the browser was offline", async ({
+  page,
+}) => {
+  await installControllableWebSocket(page);
+  const api = await installStandaloneApi(page, "guest");
+  api.setGuestAccess("epoch:guest:e2e-online-01", [
+    "board.read",
+    "board.write",
+    "board.snapshot.write",
+    "collaboration.connect",
+  ]);
+  await page.goto(`/b/${encodeURIComponent(boardId)}#/board`);
+  await expect.poll(() => api.collaborationClientIds.length).toBe(1);
+  await emitCollaborationReady(page, api.collaborationClientIds[0]!, 1);
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await expect(page.getByText("Режим только для чтения")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+  api.setGuestAccess("epoch:guest:e2e-online-02", [
+    "board.read",
+    "collaboration.connect",
+  ]);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await expect(
+    page.getByText("Права обновлены: доска доступна только для чтения."),
+  ).toBeVisible();
+  await expect(page.getByText("Режим только для чтения")).toBeVisible();
   expect(
     api.requests.filter((entry) =>
       entry.startsWith("GET /api/v1/boards/context"),
