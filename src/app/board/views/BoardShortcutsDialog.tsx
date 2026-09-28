@@ -1,5 +1,10 @@
 import type { RefObject } from "react";
 
+import {
+  boardShortcutLabel,
+  boardShortcuts,
+} from "../shortcuts/board-shortcuts";
+
 export interface BoardShortcutsDialogProps {
   readonly dialogRef: RefObject<HTMLElement | null>;
   readonly onClose: () => void;
@@ -35,10 +40,12 @@ export function BoardShortcutsDialog({
           </button>
         </div>
         <dl>
-          <div>
-            <dt>H / V / A / P / I / L / R / E / N / T / F / G / K</dt>
-            <dd>Инструменты и график</dd>
-          </div>
+          {boardShortcuts.map((definition) => (
+            <div key={definition.id}>
+              <dt>{boardShortcutLabel(definition.id)}</dt>
+              <dd>{definition.label}</dd>
+            </div>
+          ))}
           <div>
             <dt>Двойной щелчок правой кнопкой</dt>
             <dd>Настройки объекта</dd>
