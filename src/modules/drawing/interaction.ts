@@ -329,16 +329,29 @@ function previewShape(state: ShapeInteraction): UserDrawingObject | null {
   return completeShape(state, state.current, state.modifiers);
 }
 
+export interface DrawingConstraintPreviewFeedback
+  extends DrawingConstraintFeedback {
+  readonly anchor: Vec2;
+  readonly point: Vec2;
+}
+
 export function getDrawingConstraintFeedback(
   state: DrawingInteractionState,
-): DrawingConstraintFeedback | null {
+): DrawingConstraintPreviewFeedback | null {
   if (state.kind !== "drawing-shape") return null;
-  return resolveDrawingConstraint({
+  const resolved = resolveDrawingConstraint({
     current: state.current,
     modifiers: state.modifiers,
     start: state.start,
     tool: state.tool,
-  }).feedback;
+  });
+  return resolved.feedback === null
+    ? null
+    : {
+        ...resolved.feedback,
+        anchor: state.start,
+        point: resolved.point,
+      };
 }
 
 export function getDrawingPreview(
