@@ -85,17 +85,9 @@ export function resolveDrawingConstraint(input: {
     case "drawing.line":
       return constrainLine(input.start, input.current);
     case "drawing.rectangle":
-      return constrainSquareLike(
-        input.start,
-        input.current,
-        "square",
-      );
+      return constrainSquareLike(input.start, input.current, "square");
     case "drawing.ellipse":
-      return constrainSquareLike(
-        input.start,
-        input.current,
-        "circle",
-      );
+      return constrainSquareLike(input.start, input.current, "circle");
     case "drawing.polygon":
       return constrainSquareLike(
         input.start,
