@@ -1,5 +1,6 @@
 export { createAddDrawingObjectCommand } from "./commands";
 export {
+  getDrawingConstraintFeedback,
   getDrawingPreview,
   penStrokeStorageSimplificationTolerance,
   reduceDrawingInteraction,
@@ -9,6 +10,12 @@ export {
   type DrawingTransition,
   type UserDrawingObject,
 } from "./interaction";
+export {
+  resolveDrawingConstraint,
+  type ConstrainedDrawingToolId,
+  type DrawingConstraintFeedback,
+  type DrawingConstraintResult,
+} from "./constraints";
 export { simplifyStroke } from "./stroke-simplification";
 export {
   drawingStyleDefaults,
