@@ -34,6 +34,7 @@ import {
   type Vec2,
   type ViewportState,
 } from "../../core/public";
+import type { InputModifiers } from "../../shared/input-modifiers";
 import {
   buildSmoothClosedStrokePoints,
   flattenStrokePoints,
@@ -110,9 +111,15 @@ interface SelectionSession {
 
 export interface WorldPointerSample {
   readonly inputTimestampMs?: number;
+  readonly modifiers?: InputModifiers;
   readonly point: Vec2;
   readonly pointerId: number;
   readonly pressure: number;
+}
+
+export interface WorldModifierSample {
+  readonly modifiers: InputModifiers;
+  readonly pointerId: number;
 }
 
 type TimedWorldPointerSample = Omit<WorldPointerSample, "inputTimestampMs"> &
@@ -169,6 +176,8 @@ export interface BoardStageProps {
   readonly onWorldPointerCancel: (pointerId: number) => void;
   readonly onWorldPointerFinish: (sample: WorldPointerSample) => void;
   readonly onWorldPointerMove: (sample: WorldPointerSample) => void;
+  readonly onWorldModifiersChange?:
+    ((sample: WorldModifierSample) => void) | undefined;
   readonly onWorldPointerBatch?:
     ((samples: readonly WorldPointerSample[]) => void) | undefined;
   readonly onWorldPointerHover?: (point: Vec2) => void;
@@ -222,6 +231,33 @@ function isEditableTarget(target: EventTarget | null): boolean {
     target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
     (target instanceof HTMLElement && target.isContentEditable)
+  );
+}
+
+function inputModifiersFromEvent(event: {
+  readonly altKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+  readonly shiftKey: boolean;
+}): InputModifiers {
+  return {
+    alt: event.altKey,
+    ctrl: event.ctrlKey,
+    meta: event.metaKey,
+    shift: event.shiftKey,
+  };
+}
+
+function isModifierCode(code: string): boolean {
+  return (
+    code === "AltLeft" ||
+    code === "AltRight" ||
+    code === "ControlLeft" ||
+    code === "ControlRight" ||
+    code === "MetaLeft" ||
+    code === "MetaRight" ||
+    code === "ShiftLeft" ||
+    code === "ShiftRight"
   );
 }
 
@@ -344,6 +380,7 @@ export function BoardStage({
   onWorldPointerCancel,
   onWorldPointerFinish,
   onWorldPointerMove,
+  onWorldModifiersChange,
   onWorldPointerBatch,
   onWorldPointerHover,
   onWorldPointerStart,
@@ -395,6 +432,7 @@ export function BoardStage({
     batch: onWorldPointerBatch,
     cancel: onWorldPointerCancel,
     finish: onWorldPointerFinish,
+    modifiers: onWorldModifiersChange,
     move: onWorldPointerMove,
     start: onWorldPointerStart,
   });
@@ -553,6 +591,7 @@ export function BoardStage({
       batch: onWorldPointerBatch,
       cancel: onWorldPointerCancel,
       finish: onWorldPointerFinish,
+      modifiers: onWorldModifiersChange,
       move: onWorldPointerMove,
       start: onWorldPointerStart,
     };
@@ -560,6 +599,7 @@ export function BoardStage({
     onWorldPointerBatch,
     onWorldPointerCancel,
     onWorldPointerFinish,
+    onWorldModifiersChange,
     onWorldPointerMove,
     onWorldPointerStart,
   ]);
@@ -612,6 +652,7 @@ export function BoardStage({
       session: DrawingSession,
     ): TimedWorldPointerSample => ({
       inputTimestampMs: pointerEventInputTimestampMs(event),
+      modifiers: inputModifiersFromEvent(event),
       point: screenToWorld(
         elementPoint(event, session.captureElement),
         session.viewport,
@@ -1045,7 +1086,17 @@ export function BoardStage({
         finishPan(false);
       }
     };
+    const publishDrawingModifiers = (event: KeyboardEvent) => {
+      if (!isModifierCode(event.code)) return;
+      const session = drawingSessionRef.current;
+      if (session === null) return;
+      worldPointerCallbacksRef.current.modifiers?.({
+        modifiers: inputModifiersFromEvent(event),
+        pointerId: session.pointerId,
+      });
+    };
     const handleKeyDown = (event: KeyboardEvent) => {
+      publishDrawingModifiers(event);
       if (event.code === "Escape") {
         finishDrawing(false);
         finishSelection(false);
@@ -1060,6 +1111,7 @@ export function BoardStage({
       }
     };
     const handleKeyUp = (event: KeyboardEvent) => {
+      publishDrawingModifiers(event);
       if (event.code === "Space") {
         spacePressedRef.current = false;
         setSpacePressed(false);
