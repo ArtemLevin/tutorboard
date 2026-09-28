@@ -128,3 +128,57 @@ test("draws inside a filled figure and selects it through the contour", async ({
   await page.mouse.click(outerContour.x, outerContour.y);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
 });
+
+test("uses collision-free physical shortcuts for line and lasso", async ({
+  page,
+}) => {
+  const stage = page.getByTestId("board-stage");
+
+  await page.keyboard.press("l");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.line");
+
+  await page.keyboard.press("Shift+v");
+  await expect(stage).toHaveAttribute("data-selection-mode", "selection.lasso");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "none");
+
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        code: "KeyL",
+        key: "д",
+      }),
+    );
+  });
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.line");
+});
+
+test("recomputes and releases Shift constraints without pointer movement", async ({
+  page,
+}) => {
+  const stage = page.getByTestId("board-stage");
+  await page.keyboard.press("l");
+
+  const start = await canvasPoint(page, 0.42, 0.38);
+  const end = await canvasPoint(page, 0.64, 0.49);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 4 });
+  await expect(stage).toHaveAttribute("data-constraint-kind", "none");
+
+  await page.keyboard.down("Shift");
+  await expect(stage).toHaveAttribute("data-constraint-kind", "angle");
+  await expect(stage).not.toHaveAttribute("data-constraint-angle", "none");
+
+  await page.keyboard.up("Shift");
+  await expect(stage).toHaveAttribute("data-constraint-kind", "none");
+  await expect(stage).toHaveAttribute("data-constraint-angle", "none");
+
+  await page.keyboard.down("Shift");
+  await expect(stage).toHaveAttribute("data-constraint-kind", "angle");
+  await page.mouse.up();
+  await page.keyboard.up("Shift");
+
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+  await expect(page.getByTestId("interaction-state")).toHaveText("idle");
+});
