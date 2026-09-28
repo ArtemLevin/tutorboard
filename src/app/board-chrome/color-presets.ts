@@ -7,9 +7,3 @@ export const primaryStyleColors = [
 ] as const;
 
 export type PrimaryStyleColor = (typeof primaryStyleColors)[number]["value"];
-
-export function primaryStyleColorByIndex(
-  index: number,
-): PrimaryStyleColor | null {
-  return primaryStyleColors[index]?.value ?? null;
-}
