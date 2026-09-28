@@ -8,6 +8,7 @@ import {
 import {
   createAddDrawingObjectCommand,
   getDrawingConstraintFeedback,
+  getDrawingConstraintPoint,
   getDrawingPreview,
   reduceDrawingInteraction,
   type DrawingAction,
@@ -61,6 +62,10 @@ export function useBoardDrawingController({
   const preview = useMemo(() => getDrawingPreview(state), [state]);
   const constraintFeedback = useMemo(
     () => getDrawingConstraintFeedback(state),
+    [state],
+  );
+  const constraintPoint = useMemo(
+    () => getDrawingConstraintPoint(state),
     [state],
   );
 
@@ -303,6 +308,7 @@ export function useBoardDrawingController({
   return {
     cancel,
     constraintFeedback,
+    constraintPoint,
     diagnostic,
     finish,
     insertTextAt,
