@@ -162,6 +162,11 @@ export interface BoardStageProps {
   readonly coordinatePlotInteraction?:
     CoordinatePlotRenderInteraction | undefined;
   readonly drawingModeKey: string | null;
+  readonly drawingConstraintFeedback?: {
+    readonly anchor: Vec2;
+    readonly label: string;
+    readonly point: Vec2;
+  } | null;
   readonly laserActive?: boolean;
   readonly laserPoint?: Vec2 | null;
   readonly laserTrailOpacity?: number;
@@ -354,6 +359,7 @@ function normalizeTransformValue(value: number): number {
 export function BoardStage({
   coordinatePlotInteraction,
   drawingModeKey,
+  drawingConstraintFeedback = null,
   laserActive = false,
   laserPoint = null,
   laserTrailOpacity = 1,
@@ -1584,6 +1590,7 @@ export function BoardStage({
       }
       data-cursor-kind={cursorKind}
       data-drawing={isDrawing}
+      data-drawing-constraint={drawingConstraintFeedback?.label ?? "none"}
       data-drawing-mode={drawingModeKey ?? "none"}
       data-lasso-points={selectionLasso?.length ?? 0}
       data-lassoing={selectionLasso !== null}
@@ -1707,6 +1714,41 @@ export function BoardStage({
                   points={[...flattenStrokePoints(smoothedSelectionLasso)]}
                   stroke="#2c7182"
                   strokeWidth={2 / previewViewport.zoom}
+                />
+              </>
+            )}
+            {drawingConstraintFeedback === null ? null : (
+              <>
+                <Circle
+                  fill="#ffffff"
+                  radius={4.5 / previewViewport.zoom}
+                  stroke="#2c7182"
+                  strokeWidth={1.5 / previewViewport.zoom}
+                  x={drawingConstraintFeedback.anchor.x}
+                  y={drawingConstraintFeedback.anchor.y}
+                />
+                <Circle
+                  fill="#2c7182"
+                  radius={3.5 / previewViewport.zoom}
+                  stroke="#ffffff"
+                  strokeWidth={1 / previewViewport.zoom}
+                  x={drawingConstraintFeedback.point.x}
+                  y={drawingConstraintFeedback.point.y}
+                />
+                <Text
+                  fill="#245d6b"
+                  fontSize={13 / previewViewport.zoom}
+                  fontStyle="bold"
+                  listening={false}
+                  text={drawingConstraintFeedback.label}
+                  x={
+                    drawingConstraintFeedback.point.x +
+                    10 / previewViewport.zoom
+                  }
+                  y={
+                    drawingConstraintFeedback.point.y -
+                    24 / previewViewport.zoom
+                  }
                 />
               </>
             )}
