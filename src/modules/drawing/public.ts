@@ -1,6 +1,7 @@
 export { createAddDrawingObjectCommand } from "./commands";
 export {
   getDrawingConstraintFeedback,
+  getDrawingConstraintPoint,
   getDrawingPreview,
   penStrokeStorageSimplificationTolerance,
   reduceDrawingInteraction,
