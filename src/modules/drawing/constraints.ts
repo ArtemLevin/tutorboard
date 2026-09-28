@@ -3,6 +3,7 @@ import type { InputModifiers } from "../../shared/input-modifiers";
 import type { DrawingToolId } from "./tools";
 
 export const drawingAngleSnapDegrees = 15;
+export const drawingAngleSnapHysteresisDegrees = 2;
 
 export interface DrawingConstraintFeedback {
   readonly angleDegrees?: number;
@@ -23,16 +24,36 @@ function normalizeDegrees(value: number): number {
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 
-function constrainLine(start: Vec2, current: Vec2): ResolvedDrawingConstraint {
+function angularDistanceDegrees(left: number, right: number): number {
+  return Math.abs(normalizeDegrees(left - right));
+}
+
+function constrainLine(
+  start: Vec2,
+  current: Vec2,
+  previousAngleDegrees: number | null,
+): ResolvedDrawingConstraint {
   const dx = current.x - start.x;
   const dy = current.y - start.y;
   const distance = Math.hypot(dx, dy);
   if (distance === 0) return { feedback: null, point: current };
 
-  const angle = Math.atan2(dy, dx);
-  const step = (drawingAngleSnapDegrees * Math.PI) / 180;
-  const snappedAngle = Math.round(angle / step) * step;
-  const angleDegrees = normalizeDegrees((snappedAngle * 180) / Math.PI);
+  const rawAngleDegrees = normalizeDegrees(
+    (Math.atan2(dy, dx) * 180) / Math.PI,
+  );
+  const nearestAngleDegrees = normalizeDegrees(
+    Math.round(rawAngleDegrees / drawingAngleSnapDegrees) *
+      drawingAngleSnapDegrees,
+  );
+  const holdThreshold =
+    drawingAngleSnapDegrees / 2 + drawingAngleSnapHysteresisDegrees;
+  const angleDegrees =
+    previousAngleDegrees !== null &&
+    angularDistanceDegrees(rawAngleDegrees, previousAngleDegrees) <=
+      holdThreshold
+      ? previousAngleDegrees
+      : nearestAngleDegrees;
+  const snappedAngle = (angleDegrees * Math.PI) / 180;
   return {
     feedback: {
       angleDegrees,
@@ -74,6 +95,7 @@ function constrainSquareLike(
 export function resolveDrawingConstraint(input: {
   readonly current: Vec2;
   readonly modifiers: InputModifiers;
+  readonly previousAngleDegrees?: number | null;
   readonly start: Vec2;
   readonly tool: DrawingToolId;
 }): ResolvedDrawingConstraint {
@@ -83,7 +105,11 @@ export function resolveDrawingConstraint(input: {
 
   switch (input.tool) {
     case "drawing.line":
-      return constrainLine(input.start, input.current);
+      return constrainLine(
+        input.start,
+        input.current,
+        input.previousAngleDegrees ?? null,
+      );
     case "drawing.rectangle":
       return constrainSquareLike(input.start, input.current, "square");
     case "drawing.ellipse":
