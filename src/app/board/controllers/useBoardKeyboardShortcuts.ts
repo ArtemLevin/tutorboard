@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import {
   drawingTools,
   isDrawingToolId,
+  type DrawingToolId,
 } from "../../../modules/drawing/public";
 import { handwrittenFunctionToolId } from "../../../modules/handwritten-function/public";
 import {
@@ -12,7 +13,10 @@ import {
 import { primaryStyleColor } from "../../board-chrome/color-presets";
 import type { ActiveToolId } from "../active-tool";
 import { laserToolId, navigationToolId } from "../active-tool";
-import { resolveBoardShortcut } from "../shortcuts/board-shortcuts";
+import {
+  resolveBoardShortcut,
+  type BoardShortcutAction,
+} from "../shortcuts/board-shortcuts";
 import type { BoardClipboardController } from "./useBoardClipboardController";
 import type { BoardDocumentController } from "./useBoardDocumentController";
 import type { BoardDrawingController } from "./useBoardDrawingController";
@@ -20,6 +24,18 @@ import type { BoardHandwritingController } from "./useBoardHandwritingController
 import type { BoardInteractionRouter } from "./useBoardInteractionRouter";
 import type { BoardSelectionController } from "./useBoardSelectionController";
 import type { CoordinatePlotController } from "./useCoordinatePlotController";
+
+const drawingActionByShortcut: Partial<
+  Record<BoardShortcutAction, DrawingToolId>
+> = {
+  "tool.pen": "drawing.pen",
+  "tool.smart-ink": "drawing.smart-ink",
+  "tool.line": "drawing.line",
+  "tool.rectangle": "drawing.rectangle",
+  "tool.ellipse": "drawing.ellipse",
+  "tool.polygon": "drawing.polygon",
+  "tool.text": "drawing.text",
+};
 
 export interface UseBoardKeyboardShortcutsOptions {
   readonly activeTool: ActiveToolId;
@@ -175,16 +191,7 @@ export function useBoardKeyboardShortcuts({
       const action = resolveBoardShortcut(event, { readOnly });
       if (action === null) return;
 
-      const drawingAction = {
-        "tool.pen": "drawing.pen",
-        "tool.smart-ink": "drawing.smart-ink",
-        "tool.line": "drawing.line",
-        "tool.rectangle": "drawing.rectangle",
-        "tool.ellipse": "drawing.ellipse",
-        "tool.polygon": "drawing.polygon",
-        "tool.text": "drawing.text",
-      }[action];
-
+      const drawingAction = drawingActionByShortcut[action];
       if (drawingAction !== undefined) {
         if (!drawingTools.some(({ id }) => id === drawingAction)) return;
         event.preventDefault();
