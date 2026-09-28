@@ -17,7 +17,13 @@ const style = {
 } as const;
 const shift = { ...noInputModifiers, shift: true };
 
-function start(tool: "drawing.line" | "drawing.rectangle" | "drawing.ellipse" | "drawing.polygon") {
+function start(
+  tool:
+    | "drawing.line"
+    | "drawing.rectangle"
+    | "drawing.ellipse"
+    | "drawing.polygon",
+) {
   return reduceDrawingInteraction(
     { kind: "idle" },
     {
