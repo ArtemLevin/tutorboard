@@ -21,6 +21,10 @@ import {
 } from "../../modules/selection/public";
 import type { VertexConstructionKind } from "../../modules/text-shape-placement/public";
 import { ColorPalette } from "../ColorPalette";
+import {
+  boardShortcutForTool,
+  boardShortcutLabel,
+} from "../board/shortcuts/board-shortcuts";
 import { StrokeStylePalette } from "../StrokeStylePalette";
 
 interface BoardToolDockProps {
@@ -365,13 +369,13 @@ export function BoardToolDock(props: BoardToolDockProps) {
           <MenuItem
             active={props.activeTool === selectionToolId}
             icon={selectionTool.icon}
-            label={`${selectionTool.label} (${selectionTool.shortcut})`}
+            label={`${selectionTool.label} (${boardShortcutForTool(selectionToolId) ?? selectionTool.shortcut})`}
             onClick={() => chooseTool(selectionToolId)}
           />
           <MenuItem
             active={props.activeTool === lassoSelectionToolId}
             icon={lassoSelectionTool.icon}
-            label={`${lassoSelectionTool.label} (${lassoSelectionTool.shortcut})`}
+            label={`${lassoSelectionTool.label} (${boardShortcutForTool(lassoSelectionToolId) ?? lassoSelectionTool.shortcut})`}
             onClick={() => chooseTool(lassoSelectionToolId)}
           />
         </section>
@@ -383,7 +387,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               disabled={props.readOnly}
               icon={item.icon}
               key={item.id}
-              label={`${item.label} (${item.shortcut})`}
+              label={`${item.label} (${boardShortcutForTool(item.id) ?? item.shortcut})`}
               onClick={() => chooseTool(item.id)}
             />
           ))}
@@ -393,7 +397,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           <MenuItem
             disabled={props.readOnly}
             icon="📈"
-            label="Координатная плоскость (G)"
+            label={`Координатная плоскость (${boardShortcutLabel("plot.create")})`}
             onClick={() => {
               props.onCreatePlot();
               setOpenMenu(null);
@@ -407,7 +411,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               active={props.activeTool === "drawing.smart-ink"}
               disabled={props.readOnly}
               icon="✦"
-              label="Smart Ink (I)"
+              label={`Smart Ink (${boardShortcutForTool("drawing.smart-ink") ?? "I"})`}
               onClick={() => chooseTool("drawing.smart-ink")}
             />
           )}
@@ -416,7 +420,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               active={props.activeTool === "math.handwritten-function"}
               disabled={props.readOnly}
               icon="ƒ"
-              label="Рукописная функция (F)"
+              label={`Рукописная функция (${boardShortcutForTool("math.handwritten-function") ?? "F"})`}
               onClick={() => chooseTool("math.handwritten-function")}
             />
           ) : null}
@@ -723,7 +727,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           <ToolButton
             active={props.activeTool === "presentation.laser"}
             icon="●"
-            label="Лазерная указка (K)"
+            label={`Лазерная указка (${boardShortcutForTool("presentation.laser") ?? "K"})`}
             onClick={() => chooseTool("presentation.laser")}
           />
         </div>
