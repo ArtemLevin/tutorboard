@@ -190,6 +190,7 @@ export function BoardCanvas({
     <>
       <BoardStage
         coordinatePlotInteraction={plots.renderInteraction}
+        drawingConstraintFeedback={drawing.constraintFeedback}
         drawingModeKey={
           isDrawingToolId(activeTool) ||
           activeTool === handwrittenFunctionToolId ||
