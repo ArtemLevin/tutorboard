@@ -218,6 +218,7 @@ export function BoardCanvas({
           announce("Включён режим выделения");
         }}
         onWorldPointerBatch={interaction.moveBatch}
+        onWorldModifiersChange={interaction.modifiersChange}
         onWorldPointerCancel={interaction.cancel}
         onWorldPointerFinish={interaction.finish}
         onWorldPointerMove={interaction.move}
