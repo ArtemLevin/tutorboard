@@ -159,6 +159,8 @@ export interface CanvasContextMenuRequest {
 }
 
 export interface BoardStageProps {
+  readonly constraintAngleDegrees?: number | null;
+  readonly constraintKind?: string | null;
   readonly coordinatePlotInteraction?:
     CoordinatePlotRenderInteraction | undefined;
   readonly drawingModeKey: string | null;
@@ -365,6 +367,8 @@ function normalizeTransformValue(value: number): number {
 }
 
 export function BoardStage({
+  constraintAngleDegrees = null,
+  constraintKind = null,
   coordinatePlotInteraction,
   drawingModeKey,
   laserActive = false,
@@ -1582,6 +1586,10 @@ export function BoardStage({
       aria-label="Бесконечное полотно TutorBoard"
       onPointerDownCapture={handleCanvasPointerDownCapture}
       className="board-stage"
+      data-constraint-angle={
+        constraintAngleDegrees === null ? "none" : constraintAngleDegrees
+      }
+      data-constraint-kind={constraintKind ?? "none"}
       data-coordinate-plot-editing={
         coordinatePlotInteraction?.activeObjectId !== null &&
         coordinatePlotInteraction?.activeObjectId !== undefined
