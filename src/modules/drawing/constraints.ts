@@ -89,11 +89,7 @@ export function resolveDrawingConstraint(input: {
     case "drawing.ellipse":
       return constrainSquareLike(input.start, input.current, "circle");
     case "drawing.polygon":
-      return constrainSquareLike(
-        input.start,
-        input.current,
-        "regular-polygon",
-      );
+      return constrainSquareLike(input.start, input.current, "regular-polygon");
     case "drawing.pen":
     case "drawing.smart-ink":
     case "drawing.text":
