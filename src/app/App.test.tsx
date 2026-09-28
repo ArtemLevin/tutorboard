@@ -238,6 +238,22 @@ describe("App", () => {
     expect(screen.getByTestId("interaction-state")).toHaveTextContent("idle");
   });
 
+  it("applies numeric color shortcuts to the active drawing tool", () => {
+    const onCommandCommitted = vi.fn();
+    render(<App onCommandCommitted={onCommandCommitted} />);
+
+    fireEvent.keyDown(window, { code: "KeyL", key: "l" });
+    fireEvent.keyDown(window, { code: "Digit2", key: "2" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+
+    const command = onCommandCommitted.mock.calls[0]?.[0] as {
+      readonly objects: readonly {
+        readonly style: { readonly stroke: string | null };
+      }[];
+    };
+    expect(command.objects[0]?.style.stroke).toBe("#dc2626");
+  });
+
   it("publishes pen motion as an ephemeral preview before the durable command", async () => {
     const onInkPreviewChange = vi.fn();
     render(<App onInkPreviewChange={onInkPreviewChange} />);
