@@ -24,6 +24,7 @@ export {
 
 export {
   drawingAngleSnapDegrees,
+  drawingAngleSnapHysteresisDegrees,
   resolveDrawingConstraint,
   type DrawingConstraintFeedback,
   type ResolvedDrawingConstraint,
