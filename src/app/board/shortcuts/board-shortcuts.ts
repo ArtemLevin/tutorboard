@@ -115,8 +115,7 @@ export function resolveBoardShortcut(
   if (code === null) return null;
   const binding = boardShortcutBindings.find(
     (candidate) =>
-      candidate.code === code &&
-      Boolean(candidate.shift) === event.shiftKey,
+      candidate.code === code && Boolean(candidate.shift) === event.shiftKey,
   );
   if (binding === undefined) return null;
   if (event.repeat && binding.allowRepeat !== true) return null;
