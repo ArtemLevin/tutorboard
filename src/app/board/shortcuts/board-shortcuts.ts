@@ -88,6 +88,7 @@ export interface BoardShortcutEventLike {
   readonly altKey: boolean;
   readonly code: string;
   readonly ctrlKey: boolean;
+  readonly key?: string;
   readonly metaKey: boolean;
   readonly repeat: boolean;
   readonly shiftKey: boolean;
@@ -97,15 +98,24 @@ export interface ResolveBoardShortcutOptions {
   readonly readOnly: boolean;
 }
 
+function legacyCodeFromKey(key: string | undefined): string | null {
+  if (key === undefined || key.length !== 1) return null;
+  if (/^[a-z]$/iu.test(key)) return `Key${key.toUpperCase()}`;
+  if (/^[1-5]$/u.test(key)) return `Digit${key}`;
+  return null;
+}
+
 export function resolveBoardShortcut(
   event: BoardShortcutEventLike,
   options: ResolveBoardShortcutOptions,
 ): BoardShortcutAction | null {
   if (event.altKey || event.ctrlKey || event.metaKey) return null;
 
+  const code = event.code || legacyCodeFromKey(event.key);
+  if (code === null) return null;
   const binding = boardShortcutBindings.find(
     (candidate) =>
-      candidate.code === event.code &&
+      candidate.code === code &&
       Boolean(candidate.shift) === event.shiftKey,
   );
   if (binding === undefined) return null;
