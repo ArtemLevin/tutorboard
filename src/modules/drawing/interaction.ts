@@ -10,7 +10,15 @@ import {
   createVectorInkData,
   createVectorInkDataFromPoints,
 } from "../../core/public";
+import {
+  noInputModifiers,
+  type InputModifiers,
+} from "../../shared/input-modifiers";
 
+import {
+  resolveDrawingConstraint,
+  type DrawingConstraintFeedback,
+} from "./constraints";
 import type { DrawingToolId } from "./tools";
 import { simplifyStroke } from "./stroke-simplification";
 
@@ -35,8 +43,10 @@ interface PenInteraction extends InteractionBase {
 }
 
 interface ShapeInteraction extends InteractionBase {
-  readonly current: Vec2;
+  readonly constraintFeedback: DrawingConstraintFeedback;
   readonly kind: "drawing-shape";
+  readonly modifiers: InputModifiers;
+  readonly rawCurrent: Vec2;
   readonly start: Vec2;
   readonly style: ObjectStyle;
   readonly polygonSides: number;
@@ -67,6 +77,7 @@ export type DrawingAction =
       readonly kind: "start";
       readonly objectId: BoardObjectId;
       readonly inputTimestampMs?: number;
+      readonly modifiers?: InputModifiers;
       readonly point: Vec2;
       readonly pointerId: number;
       readonly polygonSides?: number;
@@ -78,6 +89,7 @@ export type DrawingAction =
   | {
       readonly kind: "move";
       readonly inputTimestampMs?: number;
+      readonly modifiers?: InputModifiers;
       readonly point: Vec2;
       readonly pointerId: number;
       readonly pressure?: number;
@@ -85,9 +97,15 @@ export type DrawingAction =
   | {
       readonly kind: "finish";
       readonly inputTimestampMs?: number;
+      readonly modifiers?: InputModifiers;
       readonly point: Vec2;
       readonly pointerId: number;
       readonly pressure?: number;
+    }
+  | {
+      readonly kind: "modifiers";
+      readonly modifiers: InputModifiers;
+      readonly pointerId: number;
     }
   | {
       readonly kind: "cancel";
@@ -205,10 +223,19 @@ function completePen(
 function completeShape(
   state: ShapeInteraction,
   point: Vec2,
+  modifiers: InputModifiers = state.modifiers,
 ): UserDrawingObject | null {
+  const constrained = resolveDrawingConstraint(
+    state.tool,
+    state.start,
+    point,
+    modifiers,
+    state.constraintFeedback,
+  );
+  const effectivePoint = constrained.point;
   const delta = {
-    x: point.x - state.start.x,
-    y: point.y - state.start.y,
+    x: effectivePoint.x - state.start.x,
+    y: effectivePoint.y - state.start.y,
   };
 
   if (
@@ -236,8 +263,8 @@ function completeShape(
         ...userObjectBase(
           state.objectId,
           {
-            x: Math.min(state.start.x, point.x),
-            y: Math.min(state.start.y, point.y),
+            x: Math.min(state.start.x, effectivePoint.x),
+            y: Math.min(state.start.y, effectivePoint.y),
           },
           state.style,
         ),
@@ -258,8 +285,8 @@ function completeShape(
         ...userObjectBase(
           state.objectId,
           {
-            x: (state.start.x + point.x) / 2,
-            y: (state.start.y + point.y) / 2,
+            x: (state.start.x + effectivePoint.x) / 2,
+            y: (state.start.y + effectivePoint.y) / 2,
           },
           state.style,
         ),
@@ -276,7 +303,7 @@ function completeShape(
         return null;
       }
       const sides = Math.min(24, Math.max(3, Math.round(state.polygonSides)));
-      const points = Array.from({ length: sides }, (_, index) => {
+      const points = Array.from({ length: sides }, (_value, index) => {
         const angle = -Math.PI / 2 + (index * Math.PI * 2) / sides;
         return {
           x: Math.cos(angle) * radius.x,
@@ -288,8 +315,8 @@ function completeShape(
         ...userObjectBase(
           state.objectId,
           {
-            x: (state.start.x + point.x) / 2,
-            y: (state.start.y + point.y) / 2,
+            x: (state.start.x + effectivePoint.x) / 2,
+            y: (state.start.y + effectivePoint.y) / 2,
           },
           state.style,
         ),
@@ -302,7 +329,13 @@ function completeShape(
 }
 
 function previewShape(state: ShapeInteraction): UserDrawingObject | null {
-  return completeShape(state, state.current);
+  return completeShape(state, state.rawCurrent, state.modifiers);
+}
+
+export function getDrawingConstraintFeedback(
+  state: DrawingInteractionState,
+): DrawingConstraintFeedback {
+  return state.kind === "drawing-shape" ? state.constraintFeedback : null;
 }
 
 export function getDrawingPreview(
@@ -362,17 +395,27 @@ function startInteraction(
     case "drawing.line":
     case "drawing.rectangle":
     case "drawing.ellipse":
-    case "drawing.polygon":
+    case "drawing.polygon": {
+      const modifiers = action.modifiers ?? noInputModifiers;
+      const constrained = resolveDrawingConstraint(
+        action.tool,
+        action.point,
+        action.point,
+        modifiers,
+      );
       return transition({
-        current: action.point,
+        constraintFeedback: constrained.feedback,
         kind: "drawing-shape",
+        modifiers,
         objectId: action.objectId,
         pointerId: action.pointerId,
         polygonSides: action.polygonSides ?? 5,
+        rawCurrent: action.point,
         start: action.point,
         style: action.style,
         tool: action.tool,
       });
+    }
     case "drawing.text": {
       const text = action.text.trim();
       if (text.length === 0) {
@@ -408,6 +451,27 @@ export function reduceDrawingInteraction(
     return state.kind === "idle" ? startInteraction(action) : transition(state);
   }
 
+  if (action.kind === "modifiers") {
+    if (
+      state.kind !== "drawing-shape" ||
+      state.pointerId !== action.pointerId
+    ) {
+      return transition(state);
+    }
+    const constrained = resolveDrawingConstraint(
+      state.tool,
+      state.start,
+      state.rawCurrent,
+      action.modifiers,
+      state.constraintFeedback,
+    );
+    return transition({
+      ...state,
+      constraintFeedback: constrained.feedback,
+      modifiers: action.modifiers,
+    });
+  }
+
   if (
     state.kind === "idle" ||
     state.pointerId !== action.pointerId ||
@@ -427,8 +491,22 @@ export function reduceDrawingInteraction(
           ...state,
           samples: appendPenSample(state, action),
         });
-      case "drawing-shape":
-        return transition({ ...state, current: action.point });
+      case "drawing-shape": {
+        const modifiers = action.modifiers ?? state.modifiers;
+        const constrained = resolveDrawingConstraint(
+          state.tool,
+          state.start,
+          action.point,
+          modifiers,
+          state.constraintFeedback,
+        );
+        return transition({
+          ...state,
+          constraintFeedback: constrained.feedback,
+          modifiers,
+          rawCurrent: action.point,
+        });
+      }
       case "placing-text":
         return transition({ ...state, position: action.point });
     }
@@ -440,7 +518,11 @@ export function reduceDrawingInteraction(
       completedObject = completePen(state, action);
       break;
     case "drawing-shape":
-      completedObject = completeShape(state, action.point);
+      completedObject = completeShape(
+        state,
+        action.point,
+        action.modifiers ?? state.modifiers,
+      );
       break;
     case "placing-text":
       completedObject = {
