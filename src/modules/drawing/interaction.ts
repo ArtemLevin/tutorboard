@@ -45,6 +45,7 @@ interface ShapeInteraction extends InteractionBase {
   readonly current: Vec2;
   readonly kind: "drawing-shape";
   readonly modifiers: InputModifiers;
+  readonly snappedAngleDegrees: number | null;
   readonly start: Vec2;
   readonly style: ObjectStyle;
   readonly polygonSides: number;
@@ -211,17 +212,38 @@ function completePen(
   };
 }
 
+function resolveShapeConstraint(
+  state: ShapeInteraction,
+  point: Vec2,
+  modifiers: InputModifiers,
+) {
+  return resolveDrawingConstraint({
+    current: point,
+    modifiers,
+    previousAngleDegrees: state.snappedAngleDegrees,
+    start: state.start,
+    tool: state.tool,
+  });
+}
+
 function constrainedShapePoint(
   state: ShapeInteraction,
   point: Vec2,
   modifiers: InputModifiers,
 ): Vec2 {
-  return resolveDrawingConstraint({
-    current: point,
-    modifiers,
-    start: state.start,
-    tool: state.tool,
-  }).point;
+  return resolveShapeConstraint(state, point, modifiers).point;
+}
+
+function snappedAngleDegrees(
+  state: ShapeInteraction,
+  point: Vec2,
+  modifiers: InputModifiers,
+): number | null {
+  if (!modifiers.shift) return null;
+  return (
+    resolveShapeConstraint(state, point, modifiers).feedback?.angleDegrees ??
+    null
+  );
 }
 
 function completeShape(
@@ -338,12 +360,11 @@ export function getDrawingConstraintFeedback(
   state: DrawingInteractionState,
 ): DrawingConstraintPreviewFeedback | null {
   if (state.kind !== "drawing-shape") return null;
-  const resolved = resolveDrawingConstraint({
-    current: state.current,
-    modifiers: state.modifiers,
-    start: state.start,
-    tool: state.tool,
-  });
+  const resolved = resolveShapeConstraint(
+    state,
+    state.current,
+    state.modifiers,
+  );
   return resolved.feedback === null
     ? null
     : {
@@ -416,6 +437,7 @@ function startInteraction(
         kind: "drawing-shape",
         modifiers: action.modifiers ?? noInputModifiers,
         objectId: action.objectId,
+        snappedAngleDegrees: null,
         pointerId: action.pointerId,
         polygonSides: action.polygonSides ?? 5,
         start: action.point,
@@ -464,7 +486,15 @@ export function reduceDrawingInteraction(
     ) {
       return transition(state);
     }
-    return transition({ ...state, modifiers: action.modifiers });
+    return transition({
+      ...state,
+      modifiers: action.modifiers,
+      snappedAngleDegrees: snappedAngleDegrees(
+        state,
+        state.current,
+        action.modifiers,
+      ),
+    });
   }
 
   if (
@@ -486,12 +516,19 @@ export function reduceDrawingInteraction(
           ...state,
           samples: appendPenSample(state, action),
         });
-      case "drawing-shape":
+      case "drawing-shape": {
+        const modifiers = action.modifiers ?? state.modifiers;
         return transition({
           ...state,
           current: action.point,
-          modifiers: action.modifiers ?? state.modifiers,
+          modifiers,
+          snappedAngleDegrees: snappedAngleDegrees(
+            state,
+            action.point,
+            modifiers,
+          ),
         });
+      }
       case "placing-text":
         return transition({ ...state, position: action.point });
     }
