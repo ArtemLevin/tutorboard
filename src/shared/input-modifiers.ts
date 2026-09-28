@@ -11,15 +11,3 @@ export const noInputModifiers: InputModifiers = {
   meta: false,
   shift: false,
 };
-
-export function sameInputModifiers(
-  left: InputModifiers,
-  right: InputModifiers,
-): boolean {
-  return (
-    left.alt === right.alt &&
-    left.ctrl === right.ctrl &&
-    left.meta === right.meta &&
-    left.shift === right.shift
-  );
-}
