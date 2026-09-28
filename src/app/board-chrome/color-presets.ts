@@ -8,6 +8,8 @@ export const primaryStyleColors = [
 
 export type PrimaryStyleColor = (typeof primaryStyleColors)[number]["value"];
 
-export function primaryStyleColorByIndex(index: number): PrimaryStyleColor | null {
+export function primaryStyleColorByIndex(
+  index: number,
+): PrimaryStyleColor | null {
   return primaryStyleColors[index]?.value ?? null;
 }
