@@ -39,10 +39,9 @@ describe("drawing constraints", () => {
       angleDegrees: 45,
       kind: "angle",
     });
-    expect(Math.hypot(result.point.x - start.x, result.point.y - start.y)).toBeCloseTo(
-      distance,
-      10,
-    );
+    expect(
+      Math.hypot(result.point.x - start.x, result.point.y - start.y),
+    ).toBeCloseTo(distance, 10);
     expect(
       (Math.atan2(result.point.y - start.y, result.point.x - start.x) * 180) /
         Math.PI,
