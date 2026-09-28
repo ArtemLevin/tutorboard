@@ -1,17 +1,16 @@
 import { useEffect } from "react";
 
-import { drawingTools } from "../../../modules/drawing/public";
+import { isDrawingToolId } from "../../../modules/drawing/public";
 import { handwrittenFunctionToolId } from "../../../modules/handwritten-function/public";
-import {
-  lassoSelectionTool,
-  lassoSelectionToolId,
-  selectionTool,
-  selectionToolId,
-} from "../../../modules/selection/public";
 import type { ActiveToolId } from "../active-tool";
-import { laserToolId, navigationToolId } from "../active-tool";
+import { navigationToolId } from "../active-tool";
+import {
+  resolveBoardShortcut,
+  type BoardShortcutInput,
+} from "../shortcuts/board-shortcuts";
 import type { BoardClipboardController } from "./useBoardClipboardController";
 import type { BoardDocumentController } from "./useBoardDocumentController";
+import type { BoardDrawingController } from "./useBoardDrawingController";
 import type { BoardHandwritingController } from "./useBoardHandwritingController";
 import type { BoardInteractionRouter } from "./useBoardInteractionRouter";
 import type { BoardSelectionController } from "./useBoardSelectionController";
@@ -25,6 +24,7 @@ export interface UseBoardKeyboardShortcutsOptions {
   readonly closeSettings: () => void;
   readonly closeShortcuts: () => void;
   readonly documentController: BoardDocumentController;
+  readonly drawing: BoardDrawingController;
   readonly geometryOpen: boolean;
   readonly handwriting: BoardHandwritingController;
   readonly handwrittenFunctionsEnabled: boolean;
@@ -46,6 +46,17 @@ function isEditingTarget(target: EventTarget | null): boolean {
   );
 }
 
+function shortcutInput(event: KeyboardEvent): BoardShortcutInput {
+  return {
+    altKey: event.altKey,
+    code: event.code,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+    repeat: event.repeat,
+    shiftKey: event.shiftKey,
+  };
+}
+
 export function useBoardKeyboardShortcuts({
   activeTool,
   clipboard,
@@ -54,6 +65,7 @@ export function useBoardKeyboardShortcuts({
   closeSettings,
   closeShortcuts,
   documentController,
+  drawing,
   geometryOpen,
   handwriting,
   handwrittenFunctionsEnabled,
@@ -139,29 +151,6 @@ export function useBoardKeyboardShortcuts({
         openShortcuts();
         return;
       }
-      if (event.key.toLowerCase() === "h") {
-        interaction.activate(navigationToolId);
-        return;
-      }
-      if (event.key.toLowerCase() === "g") {
-        event.preventDefault();
-        plots.create();
-        return;
-      }
-      if (event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        interaction.activate(laserToolId);
-        return;
-      }
-      if (
-        event.key.toLowerCase() === "f" &&
-        handwrittenFunctionsEnabled &&
-        !readOnly
-      ) {
-        event.preventDefault();
-        interaction.activate(handwrittenFunctionToolId);
-        return;
-      }
 
       const arrowDelta = {
         ArrowDown: { x: 0, y: event.shiftKey ? 10 : 1 },
@@ -180,16 +169,6 @@ export function useBoardKeyboardShortcuts({
         return;
       }
       if (
-        event.key.toLowerCase() === lassoSelectionTool.shortcut.toLowerCase()
-      ) {
-        interaction.activate(lassoSelectionToolId);
-        return;
-      }
-      if (event.key.toLowerCase() === selectionTool.shortcut.toLowerCase()) {
-        interaction.activate(selectionToolId);
-        return;
-      }
-      if (
         (event.key === "Delete" || event.key === "Backspace") &&
         selection.getState().selectedObjectIds.length > 0 &&
         selection.getState().interaction.kind === "idle"
@@ -198,11 +177,31 @@ export function useBoardKeyboardShortcuts({
         selection.remove();
         return;
       }
-      const tool = drawingTools.find(
-        (candidate) =>
-          candidate.shortcut.toLowerCase() === event.key.toLowerCase(),
-      );
-      if (tool !== undefined) interaction.activate(tool.id);
+
+      const action = resolveBoardShortcut(shortcutInput(event), {
+        handwrittenFunctionsEnabled,
+        readOnly,
+      });
+      if (action === null) return;
+
+      event.preventDefault();
+      switch (action.kind) {
+        case "activate-tool":
+          interaction.activate(action.tool);
+          return;
+        case "create-plot":
+          plots.create();
+          return;
+        case "set-primary-color":
+          if (!isDrawingToolId(activeTool)) return;
+          drawing.updateStyle(
+            activeTool,
+            activeTool === "drawing.text"
+              ? { fill: action.color }
+              : { stroke: action.color },
+          );
+          return;
+      }
     };
 
     window.addEventListener("keydown", handleShortcut);
@@ -214,6 +213,7 @@ export function useBoardKeyboardShortcuts({
     closeInspector,
     closeSettings,
     closeShortcuts,
+    drawing,
     geometryOpen,
     handwriting.state.kind,
     handwrittenFunctionsEnabled,
