@@ -246,7 +246,10 @@ export function useBoardDrawingController({
   );
 
   const modifiersChange = useCallback(
-    (sample: { readonly modifiers: InputModifiers; readonly pointerId: number }) => {
+    (sample: {
+      readonly modifiers: InputModifiers;
+      readonly pointerId: number;
+    }) => {
       applyAction({
         kind: "modifiers",
         modifiers: sample.modifiers,
