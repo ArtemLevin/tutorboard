@@ -34,6 +34,7 @@ import {
   type Vec2,
   type ViewportState,
 } from "../../core/public";
+import type { InputModifiers } from "../../shared/input-modifiers";
 import {
   buildSmoothClosedStrokePoints,
   flattenStrokePoints,
@@ -110,9 +111,15 @@ interface SelectionSession {
 
 export interface WorldPointerSample {
   readonly inputTimestampMs?: number;
+  readonly modifiers?: InputModifiers;
   readonly point: Vec2;
   readonly pointerId: number;
   readonly pressure: number;
+}
+
+export interface WorldModifierSample {
+  readonly modifiers: InputModifiers;
+  readonly pointerId: number;
 }
 
 type TimedWorldPointerSample = Omit<WorldPointerSample, "inputTimestampMs"> &
@@ -169,6 +176,8 @@ export interface BoardStageProps {
   readonly onWorldPointerCancel: (pointerId: number) => void;
   readonly onWorldPointerFinish: (sample: WorldPointerSample) => void;
   readonly onWorldPointerMove: (sample: WorldPointerSample) => void;
+  readonly onWorldModifiersChange?:
+    ((sample: WorldModifierSample) => void) | undefined;
   readonly onWorldPointerBatch?:
     ((samples: readonly WorldPointerSample[]) => void) | undefined;
   readonly onWorldPointerHover?: (point: Vec2) => void;
@@ -223,6 +232,20 @@ function isEditableTarget(target: EventTarget | null): boolean {
     target instanceof HTMLTextAreaElement ||
     (target instanceof HTMLElement && target.isContentEditable)
   );
+}
+
+function readInputModifiers(event: {
+  readonly altKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+  readonly shiftKey: boolean;
+}): InputModifiers {
+  return {
+    alt: event.altKey,
+    ctrl: event.ctrlKey,
+    meta: event.metaKey,
+    shift: event.shiftKey,
+  };
 }
 
 function sameViewport(left: ViewportState, right: ViewportState): boolean {
@@ -344,6 +367,7 @@ export function BoardStage({
   onWorldPointerCancel,
   onWorldPointerFinish,
   onWorldPointerMove,
+  onWorldModifiersChange,
   onWorldPointerBatch,
   onWorldPointerHover,
   onWorldPointerStart,
@@ -394,6 +418,7 @@ export function BoardStage({
   const worldPointerCallbacksRef = useRef({
     batch: onWorldPointerBatch,
     cancel: onWorldPointerCancel,
+    modifiers: onWorldModifiersChange,
     finish: onWorldPointerFinish,
     move: onWorldPointerMove,
     start: onWorldPointerStart,
@@ -552,6 +577,7 @@ export function BoardStage({
     worldPointerCallbacksRef.current = {
       batch: onWorldPointerBatch,
       cancel: onWorldPointerCancel,
+      modifiers: onWorldModifiersChange,
       finish: onWorldPointerFinish,
       move: onWorldPointerMove,
       start: onWorldPointerStart,
@@ -560,6 +586,7 @@ export function BoardStage({
     onWorldPointerBatch,
     onWorldPointerCancel,
     onWorldPointerFinish,
+    onWorldModifiersChange,
     onWorldPointerMove,
     onWorldPointerStart,
   ]);
@@ -612,6 +639,7 @@ export function BoardStage({
       session: DrawingSession,
     ): TimedWorldPointerSample => ({
       inputTimestampMs: pointerEventInputTimestampMs(event),
+      modifiers: readInputModifiers(event),
       point: screenToWorld(
         elementPoint(event, session.captureElement),
         session.viewport,
@@ -1046,6 +1074,16 @@ export function BoardStage({
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
+      const drawingSession = drawingSessionRef.current;
+      if (
+        drawingSession !== null &&
+        ["Alt", "Control", "Meta", "Shift"].includes(event.key)
+      ) {
+        worldPointerCallbacksRef.current.modifiers?.({
+          modifiers: readInputModifiers(event),
+          pointerId: drawingSession.pointerId,
+        });
+      }
       if (event.code === "Escape") {
         finishDrawing(false);
         finishSelection(false);
@@ -1060,6 +1098,16 @@ export function BoardStage({
       }
     };
     const handleKeyUp = (event: KeyboardEvent) => {
+      const drawingSession = drawingSessionRef.current;
+      if (
+        drawingSession !== null &&
+        ["Alt", "Control", "Meta", "Shift"].includes(event.key)
+      ) {
+        worldPointerCallbacksRef.current.modifiers?.({
+          modifiers: readInputModifiers(event),
+          pointerId: drawingSession.pointerId,
+        });
+      }
       if (event.code === "Space") {
         spacePressedRef.current = false;
         setSpacePressed(false);
