@@ -329,8 +329,7 @@ function previewShape(state: ShapeInteraction): UserDrawingObject | null {
   return completeShape(state, state.current, state.modifiers);
 }
 
-export interface DrawingConstraintPreviewFeedback
-  extends DrawingConstraintFeedback {
+export interface DrawingConstraintPreviewFeedback extends DrawingConstraintFeedback {
   readonly anchor: Vec2;
   readonly point: Vec2;
 }
@@ -459,7 +458,10 @@ export function reduceDrawingInteraction(
   }
 
   if (action.kind === "modifiers") {
-    if (state.kind !== "drawing-shape" || state.pointerId !== action.pointerId) {
+    if (
+      state.kind !== "drawing-shape" ||
+      state.pointerId !== action.pointerId
+    ) {
       return transition(state);
     }
     return transition({ ...state, modifiers: action.modifiers });
