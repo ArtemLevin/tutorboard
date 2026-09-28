@@ -195,6 +195,7 @@ export function BoardCanvas({
             : null
         }
         constraintKind={drawing.constraintFeedback?.kind ?? null}
+        constraintPoint={drawing.constraintPoint}
         coordinatePlotInteraction={plots.renderInteraction}
         drawingModeKey={
           isDrawingToolId(activeTool) ||
