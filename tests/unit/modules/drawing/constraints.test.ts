@@ -77,26 +77,35 @@ describe("drawing constraints", () => {
   });
 
   it.each([
-    [{ x: 4, y: 2 }, { x: 4, y: 4 }],
-    [{ x: -4, y: 2 }, { x: -4, y: 4 }],
-    [{ x: 4, y: -2 }, { x: 4, y: -4 }],
-    [{ x: -4, y: -2 }, { x: -4, y: -4 }],
-  ])(
-    "constrains rectangles to squares in every quadrant",
-    (current, point) => {
-      expect(
-        resolveDrawingConstraint(
-          "drawing.rectangle",
-          { x: 0, y: 0 },
-          current,
-          shift,
-        ),
-      ).toEqual({
-        feedback: { kind: "square" },
-        point,
-      });
-    },
-  );
+    [
+      { x: 4, y: 2 },
+      { x: 4, y: 4 },
+    ],
+    [
+      { x: -4, y: 2 },
+      { x: -4, y: 4 },
+    ],
+    [
+      { x: 4, y: -2 },
+      { x: 4, y: -4 },
+    ],
+    [
+      { x: -4, y: -2 },
+      { x: -4, y: -4 },
+    ],
+  ])("constrains rectangles to squares in every quadrant", (current, point) => {
+    expect(
+      resolveDrawingConstraint(
+        "drawing.rectangle",
+        { x: 0, y: 0 },
+        current,
+        shift,
+      ),
+    ).toEqual({
+      feedback: { kind: "square" },
+      point,
+    });
+  });
 
   it("uses a square bounding box for Shift ellipses and polygons", () => {
     expect(
