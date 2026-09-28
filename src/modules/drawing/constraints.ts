@@ -79,9 +79,7 @@ export function resolveDrawingConstraint(
     const rawAngle = degrees(Math.atan2(dy, dx));
     const nearest = Math.round(rawAngle / angleStepDegrees) * angleStepDegrees;
     const previousAngle =
-      previousFeedback?.kind === "angle"
-        ? previousFeedback.angleDegrees
-        : null;
+      previousFeedback?.kind === "angle" ? previousFeedback.angleDegrees : null;
     const snappedAngle =
       previousAngle !== null &&
       angularDistanceDegrees(rawAngle, previousAngle) <=
