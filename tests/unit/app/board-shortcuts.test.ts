@@ -5,6 +5,11 @@ import {
   duplicateBoardShortcutChords,
   resolveBoardShortcut,
 } from "../../../src/app/board/shortcuts/board-shortcuts";
+import { drawingTools } from "../../../src/modules/drawing/public";
+import {
+  lassoSelectionTool,
+  selectionTool,
+} from "../../../src/modules/selection/public";
 
 const input = (
   code: string,
@@ -33,6 +38,18 @@ const context = {
 describe("board shortcut registry", () => {
   it("has no duplicate chords", () => {
     expect(duplicateBoardShortcutChords()).toEqual([]);
+  });
+
+  it("keeps legacy tool metadata aligned with the executable registry", () => {
+    for (const tool of drawingTools) {
+      expect(boardShortcutForTool(tool.id)).toBe(tool.shortcut);
+    }
+    expect(boardShortcutForTool(selectionTool.id)).toBe(
+      selectionTool.shortcut,
+    );
+    expect(boardShortcutForTool(lassoSelectionTool.id)).toBe(
+      lassoSelectionTool.shortcut,
+    );
   });
 
   it("keeps L for line and moves lasso to Shift+V", () => {
