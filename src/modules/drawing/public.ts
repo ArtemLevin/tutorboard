@@ -1,9 +1,11 @@
 export { createAddDrawingObjectCommand } from "./commands";
 export {
+  getDrawingConstraintFeedback,
   getDrawingPreview,
   penStrokeStorageSimplificationTolerance,
   reduceDrawingInteraction,
   type DrawingAction,
+  type DrawingConstraintPreviewFeedback,
   type DrawingDiagnosticCode,
   type DrawingInteractionState,
   type DrawingTransition,
@@ -19,3 +21,10 @@ export {
   type DrawingToolDefinition,
   type DrawingToolId,
 } from "./tools";
+
+export {
+  drawingAngleSnapDegrees,
+  resolveDrawingConstraint,
+  type DrawingConstraintFeedback,
+  type ResolvedDrawingConstraint,
+} from "./constraints";
