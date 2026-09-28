@@ -264,10 +264,7 @@ function isModifierCode(code: string): boolean {
   );
 }
 
-function constraintLabel(
-  kind: string,
-  angleDegrees: number | null,
-): string {
+function constraintLabel(kind: string, angleDegrees: number | null): string {
   if (kind === "angle" && angleDegrees !== null) {
     return `${angleDegrees}°`;
   }
@@ -1772,10 +1769,7 @@ export function BoardStage({
                   fill="#245d6b"
                   fontSize={13 / previewViewport.zoom}
                   listening={false}
-                  text={constraintLabel(
-                    constraintKind,
-                    constraintAngleDegrees,
-                  )}
+                  text={constraintLabel(constraintKind, constraintAngleDegrees)}
                   x={12 / previewViewport.zoom}
                   y={-22 / previewViewport.zoom}
                 />
