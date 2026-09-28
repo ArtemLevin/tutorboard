@@ -341,10 +341,7 @@ export function getDrawingConstraintFeedback(
 export function getDrawingConstraintPoint(
   state: DrawingInteractionState,
 ): Vec2 | null {
-  if (
-    state.kind !== "drawing-shape" ||
-    state.constraintFeedback === null
-  ) {
+  if (state.kind !== "drawing-shape" || state.constraintFeedback === null) {
     return null;
   }
   return resolveDrawingConstraint(
