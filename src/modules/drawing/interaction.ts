@@ -459,10 +459,7 @@ export function reduceDrawingInteraction(
   }
 
   if (action.kind === "modifiers") {
-    if (
-      state.kind !== "drawing-shape" ||
-      state.pointerId !== action.pointerId
-    ) {
+    if (state.kind !== "drawing-shape" || state.pointerId !== action.pointerId) {
       return transition(state);
     }
     return transition({ ...state, modifiers: action.modifiers });
