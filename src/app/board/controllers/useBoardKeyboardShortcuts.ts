@@ -1,17 +1,21 @@
 import { useEffect } from "react";
 
-import { drawingTools } from "../../../modules/drawing/public";
+import {
+  drawingTools,
+  isDrawingToolId,
+} from "../../../modules/drawing/public";
 import { handwrittenFunctionToolId } from "../../../modules/handwritten-function/public";
 import {
-  lassoSelectionTool,
   lassoSelectionToolId,
-  selectionTool,
   selectionToolId,
 } from "../../../modules/selection/public";
+import { primaryStyleColor } from "../../board-chrome/color-presets";
 import type { ActiveToolId } from "../active-tool";
 import { laserToolId, navigationToolId } from "../active-tool";
+import { resolveBoardShortcut } from "../shortcuts/board-shortcuts";
 import type { BoardClipboardController } from "./useBoardClipboardController";
 import type { BoardDocumentController } from "./useBoardDocumentController";
+import type { BoardDrawingController } from "./useBoardDrawingController";
 import type { BoardHandwritingController } from "./useBoardHandwritingController";
 import type { BoardInteractionRouter } from "./useBoardInteractionRouter";
 import type { BoardSelectionController } from "./useBoardSelectionController";
@@ -25,6 +29,7 @@ export interface UseBoardKeyboardShortcutsOptions {
   readonly closeSettings: () => void;
   readonly closeShortcuts: () => void;
   readonly documentController: BoardDocumentController;
+  readonly drawing: BoardDrawingController;
   readonly geometryOpen: boolean;
   readonly handwriting: BoardHandwritingController;
   readonly handwrittenFunctionsEnabled: boolean;
@@ -54,6 +59,7 @@ export function useBoardKeyboardShortcuts({
   closeSettings,
   closeShortcuts,
   documentController,
+  drawing,
   geometryOpen,
   handwriting,
   handwrittenFunctionsEnabled,
@@ -139,29 +145,6 @@ export function useBoardKeyboardShortcuts({
         openShortcuts();
         return;
       }
-      if (event.key.toLowerCase() === "h") {
-        interaction.activate(navigationToolId);
-        return;
-      }
-      if (event.key.toLowerCase() === "g") {
-        event.preventDefault();
-        plots.create();
-        return;
-      }
-      if (event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        interaction.activate(laserToolId);
-        return;
-      }
-      if (
-        event.key.toLowerCase() === "f" &&
-        handwrittenFunctionsEnabled &&
-        !readOnly
-      ) {
-        event.preventDefault();
-        interaction.activate(handwrittenFunctionToolId);
-        return;
-      }
 
       const arrowDelta = {
         ArrowDown: { x: 0, y: event.shiftKey ? 10 : 1 },
@@ -180,16 +163,6 @@ export function useBoardKeyboardShortcuts({
         return;
       }
       if (
-        event.key.toLowerCase() === lassoSelectionTool.shortcut.toLowerCase()
-      ) {
-        interaction.activate(lassoSelectionToolId);
-        return;
-      }
-      if (event.key.toLowerCase() === selectionTool.shortcut.toLowerCase()) {
-        interaction.activate(selectionToolId);
-        return;
-      }
-      if (
         (event.key === "Delete" || event.key === "Backspace") &&
         selection.getState().selectedObjectIds.length > 0 &&
         selection.getState().interaction.kind === "idle"
@@ -198,11 +171,76 @@ export function useBoardKeyboardShortcuts({
         selection.remove();
         return;
       }
-      const tool = drawingTools.find(
-        (candidate) =>
-          candidate.shortcut.toLowerCase() === event.key.toLowerCase(),
-      );
-      if (tool !== undefined) interaction.activate(tool.id);
+
+      const action = resolveBoardShortcut(event, { readOnly });
+      if (action === null) return;
+
+      const drawingAction = {
+        "tool.pen": "drawing.pen",
+        "tool.smart-ink": "drawing.smart-ink",
+        "tool.line": "drawing.line",
+        "tool.rectangle": "drawing.rectangle",
+        "tool.ellipse": "drawing.ellipse",
+        "tool.polygon": "drawing.polygon",
+        "tool.text": "drawing.text",
+      }[action];
+
+      if (drawingAction !== undefined) {
+        if (!drawingTools.some(({ id }) => id === drawingAction)) return;
+        event.preventDefault();
+        interaction.activate(drawingAction);
+        return;
+      }
+
+      if (action.startsWith("color.")) {
+        if (!isDrawingToolId(activeTool)) return;
+        const index = Number(action.slice("color.".length)) - 1;
+        const color = primaryStyleColor(index);
+        if (color === null) return;
+        event.preventDefault();
+        drawing.updateStyle(
+          activeTool,
+          activeTool === "drawing.text" ? { fill: color } : { stroke: color },
+        );
+        return;
+      }
+
+      event.preventDefault();
+      switch (action) {
+        case "tool.pan":
+          interaction.activate(navigationToolId);
+          return;
+        case "tool.select":
+          interaction.activate(selectionToolId);
+          return;
+        case "tool.lasso":
+          interaction.activate(lassoSelectionToolId);
+          return;
+        case "tool.handwritten-function":
+          if (handwrittenFunctionsEnabled && !readOnly) {
+            interaction.activate(handwrittenFunctionToolId);
+          }
+          return;
+        case "tool.laser":
+          interaction.activate(laserToolId);
+          return;
+        case "plot.create":
+          plots.create();
+          return;
+        case "tool.pen":
+        case "tool.smart-ink":
+        case "tool.line":
+        case "tool.rectangle":
+        case "tool.ellipse":
+        case "tool.polygon":
+        case "tool.text":
+        case "color.1":
+        case "color.2":
+        case "color.3":
+        case "color.4":
+        case "color.5":
+          return;
+      }
     };
 
     window.addEventListener("keydown", handleShortcut);
@@ -214,6 +252,7 @@ export function useBoardKeyboardShortcuts({
     closeInspector,
     closeSettings,
     closeShortcuts,
+    drawing,
     geometryOpen,
     handwriting.state.kind,
     handwrittenFunctionsEnabled,
