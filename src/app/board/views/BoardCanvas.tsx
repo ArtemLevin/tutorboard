@@ -189,6 +189,12 @@ export function BoardCanvas({
   return (
     <>
       <BoardStage
+        constraintAngleDegrees={
+          drawing.constraintFeedback?.kind === "angle"
+            ? drawing.constraintFeedback.angleDegrees
+            : null
+        }
+        constraintKind={drawing.constraintFeedback?.kind ?? null}
         coordinatePlotInteraction={plots.renderInteraction}
         drawingModeKey={
           isDrawingToolId(activeTool) ||
