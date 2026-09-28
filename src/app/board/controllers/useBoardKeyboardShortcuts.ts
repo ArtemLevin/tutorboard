@@ -46,10 +46,17 @@ function isEditingTarget(target: EventTarget | null): boolean {
   );
 }
 
+function shortcutCode(event: KeyboardEvent): string {
+  if (event.code.length > 0) return event.code;
+  if (/^[a-z]$/iu.test(event.key)) return `Key${event.key.toUpperCase()}`;
+  if (/^[0-9]$/u.test(event.key)) return `Digit${event.key}`;
+  return "";
+}
+
 function shortcutInput(event: KeyboardEvent): BoardShortcutInput {
   return {
     altKey: event.altKey,
-    code: event.code,
+    code: shortcutCode(event),
     ctrlKey: event.ctrlKey,
     metaKey: event.metaKey,
     repeat: event.repeat,
