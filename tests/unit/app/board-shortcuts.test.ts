@@ -53,6 +53,23 @@ describe("board shortcuts", () => {
     );
   });
 
+  it("keeps key-only synthetic events compatible without weakening physical codes", () => {
+    expect(
+      resolveBoardShortcut(
+        {
+          altKey: false,
+          code: "",
+          ctrlKey: false,
+          key: "r",
+          metaKey: false,
+          repeat: false,
+          shiftKey: false,
+        },
+        { readOnly: false },
+      ),
+    ).toBe("tool.rectangle");
+  });
+
   it("blocks write actions in read-only mode while keeping navigation", () => {
     expect(resolveBoardShortcut(key("KeyP"), { readOnly: true })).toBeNull();
     expect(resolveBoardShortcut(key("KeyG"), { readOnly: true })).toBeNull();
