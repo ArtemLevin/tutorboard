@@ -161,6 +161,7 @@ export interface CanvasContextMenuRequest {
 export interface BoardStageProps {
   readonly constraintAngleDegrees?: number | null;
   readonly constraintKind?: string | null;
+  readonly constraintPoint?: Vec2 | null;
   readonly coordinatePlotInteraction?:
     CoordinatePlotRenderInteraction | undefined;
   readonly drawingModeKey: string | null;
@@ -261,6 +262,19 @@ function isModifierCode(code: string): boolean {
     code === "ShiftLeft" ||
     code === "ShiftRight"
   );
+}
+
+function constraintLabel(
+  kind: string,
+  angleDegrees: number | null,
+): string {
+  if (kind === "angle" && angleDegrees !== null) {
+    return `${angleDegrees}°`;
+  }
+  if (kind === "square") return "квадрат";
+  if (kind === "circle") return "окружность";
+  if (kind === "regular-polygon") return "правильный многоугольник";
+  return "";
 }
 
 function sameViewport(left: ViewportState, right: ViewportState): boolean {
@@ -369,6 +383,7 @@ function normalizeTransformValue(value: number): number {
 export function BoardStage({
   constraintAngleDegrees = null,
   constraintKind = null,
+  constraintPoint = null,
   coordinatePlotInteraction,
   drawingModeKey,
   laserActive = false,
@@ -1744,6 +1759,27 @@ export function BoardStage({
                   strokeWidth={preview.style.strokeWidth}
                 />
               ),
+            )}
+            {constraintKind === null || constraintPoint === null ? null : (
+              <Group x={constraintPoint.x} y={constraintPoint.y}>
+                <Circle
+                  fill="rgba(36, 93, 107, 0.12)"
+                  radius={7 / previewViewport.zoom}
+                  stroke="#245d6b"
+                  strokeWidth={1.5 / previewViewport.zoom}
+                />
+                <Text
+                  fill="#245d6b"
+                  fontSize={13 / previewViewport.zoom}
+                  listening={false}
+                  text={constraintLabel(
+                    constraintKind,
+                    constraintAngleDegrees,
+                  )}
+                  x={12 / previewViewport.zoom}
+                  y={-22 / previewViewport.zoom}
+                />
+              </Group>
             )}
             {remoteCursors.map(({ actorId, point }) => (
               <Group key={actorId} x={point.x} y={point.y}>
