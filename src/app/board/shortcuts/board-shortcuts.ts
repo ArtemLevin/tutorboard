@@ -114,6 +114,26 @@ export function resolveBoardShortcut(
   return binding.action;
 }
 
+const toolActionById: Readonly<Record<string, BoardShortcutAction>> = {
+  "navigation.pan": "tool.pan",
+  "selection.select": "tool.select",
+  "selection.lasso": "tool.lasso",
+  "drawing.pen": "tool.pen",
+  "drawing.smart-ink": "tool.smart-ink",
+  "drawing.line": "tool.line",
+  "drawing.rectangle": "tool.rectangle",
+  "drawing.ellipse": "tool.ellipse",
+  "drawing.polygon": "tool.polygon",
+  "drawing.text": "tool.text",
+  "math.handwritten-function": "tool.handwritten-function",
+  "presentation.laser": "tool.laser",
+};
+
+export function shortcutLabelForTool(toolId: string): string {
+  const action = toolActionById[toolId];
+  return action === undefined ? "" : shortcutLabel(action);
+}
+
 export function shortcutLabel(action: BoardShortcutAction): string {
   return (
     boardShortcutBindings.find((candidate) => candidate.action === action)
