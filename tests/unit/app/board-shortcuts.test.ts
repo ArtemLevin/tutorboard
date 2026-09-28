@@ -44,9 +44,7 @@ describe("board shortcut registry", () => {
     for (const tool of drawingTools) {
       expect(boardShortcutForTool(tool.id)).toBe(tool.shortcut);
     }
-    expect(boardShortcutForTool(selectionTool.id)).toBe(
-      selectionTool.shortcut,
-    );
+    expect(boardShortcutForTool(selectionTool.id)).toBe(selectionTool.shortcut);
     expect(boardShortcutForTool(lassoSelectionTool.id)).toBe(
       lassoSelectionTool.shortcut,
     );
