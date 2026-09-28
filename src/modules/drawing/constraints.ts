@@ -12,15 +12,9 @@ export type DrawingConstraintFeedback =
       readonly angleDegrees: number;
       readonly kind: "angle";
     }
-  | {
-      readonly kind: "square";
-    }
-  | {
-      readonly kind: "circle";
-    }
-  | {
-      readonly kind: "regular-polygon";
-    }
+  | { readonly kind: "square" }
+  | { readonly kind: "circle" }
+  | { readonly kind: "regular-polygon" }
   | null;
 
 export interface DrawingConstraintResult {
