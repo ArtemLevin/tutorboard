@@ -220,6 +220,7 @@ export function BoardCanvas({
         onWorldPointerBatch={interaction.moveBatch}
         onWorldPointerCancel={interaction.cancel}
         onWorldPointerFinish={interaction.finish}
+        onWorldModifiersChange={interaction.modifiersChange}
         onWorldPointerMove={interaction.move}
         onWorldPointerHover={(cursor) => {
           onPointerHover(cursor);
