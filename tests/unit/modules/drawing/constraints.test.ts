@@ -23,37 +23,38 @@ describe("drawing constraints", () => {
       angleDegrees: 45,
       kind: "angle",
     });
-    expect(Math.hypot(resolved.point.x - start.x, resolved.point.y - start.y)).toBeCloseTo(
-      100,
-      8,
-    );
-    expect(Math.atan2(resolved.point.y - start.y, resolved.point.x - start.x)).toBeCloseTo(
-      Math.PI / 4,
-      8,
-    );
+    expect(
+      Math.hypot(resolved.point.x - start.x, resolved.point.y - start.y),
+    ).toBeCloseTo(100, 8);
+    expect(
+      Math.atan2(resolved.point.y - start.y, resolved.point.x - start.x),
+    ).toBeCloseTo(Math.PI / 4, 8);
   });
 
   it.each([
     ["drawing.rectangle", "square"],
     ["drawing.ellipse", "circle"],
     ["drawing.polygon", "regular-polygon"],
-  ] as const)("constrains %s to equal axes in every drag quadrant", (tool, kind) => {
-    for (const current of [
-      { x: 30, y: 80 },
-      { x: -30, y: 80 },
-      { x: 30, y: -80 },
-      { x: -30, y: -80 },
-    ]) {
-      const resolved = resolveDrawingConstraint({
-        current,
-        modifiers: shift,
-        start: { x: 0, y: 0 },
-        tool,
-      });
-      expect(Math.abs(resolved.point.x)).toBe(Math.abs(resolved.point.y));
-      expect(resolved.feedback?.kind).toBe(kind);
-    }
-  });
+  ] as const)(
+    "constrains %s to equal axes in every drag quadrant",
+    (tool, kind) => {
+      for (const current of [
+        { x: 30, y: 80 },
+        { x: -30, y: 80 },
+        { x: 30, y: -80 },
+        { x: -30, y: -80 },
+      ]) {
+        const resolved = resolveDrawingConstraint({
+          current,
+          modifiers: shift,
+          start: { x: 0, y: 0 },
+          tool,
+        });
+        expect(Math.abs(resolved.point.x)).toBe(Math.abs(resolved.point.y));
+        expect(resolved.feedback?.kind).toBe(kind);
+      }
+    },
+  );
 
   it("returns raw geometry immediately when Shift is released", () => {
     const raw = { x: 41, y: 17 };
