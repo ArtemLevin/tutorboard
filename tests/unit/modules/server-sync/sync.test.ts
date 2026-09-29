@@ -319,7 +319,9 @@ describe("BoardSyncEngine", () => {
     const base = initialDocument();
     const legacyJson = serializeBoardDocument14ForCompatibility(base);
     if (legacyJson === null) {
-      throw new Error("Legacy fixture must be representable as BoardDocument 1.4.");
+      throw new Error(
+        "Legacy fixture must be representable as BoardDocument 1.4.",
+      );
     }
     const legacyDigest = await crypto.subtle.digest(
       "SHA-256",
