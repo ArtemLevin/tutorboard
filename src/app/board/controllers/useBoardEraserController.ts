@@ -2,7 +2,6 @@ import { useCallback, useRef, useState } from "react";
 
 import {
   boardObjectId,
-  type BoardObject,
   type Vec2,
 } from "../../../core/public";
 import {
@@ -97,7 +96,7 @@ export function useBoardEraserController({
       const current = getDocument();
       const objects = current.order.flatMap((id) => {
         const object = current.objects[id];
-        return object === undefined ? [] : [object satisfies BoardObject];
+        return object === undefined ? [] : [object];
       });
       const result = eraseDocumentPenStrokes(
         objects,
