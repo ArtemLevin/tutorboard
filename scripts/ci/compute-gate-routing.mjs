@@ -20,6 +20,12 @@ const globalRiskFiles = new Set([
   "vite.config.ts",
 ]);
 
+const boardContractFiles = new Set([
+  "src/core/public.ts",
+  "src/core/board/document.ts",
+  "src/core/board/objects.ts",
+]);
+
 const geometryOsPrefixes = [
   "tools/geometryos-contract/",
   "src/adapters/geometryos-http/",
@@ -122,6 +128,13 @@ export function classifyChangedFiles(changedFiles) {
 
     if (globalRiskFiles.has(path) || hasPrefix(path, globalRiskPaths)) {
       return allEnabled();
+    }
+
+    if (boardContractFiles.has(path)) {
+      routing.geometryos = true;
+      routing.coordinate_plot = true;
+      routing.smart_ink = true;
+      routing.formula_recognition = true;
     }
 
     if (
