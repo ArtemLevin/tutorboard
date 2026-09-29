@@ -1,9 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 
-import {
-  boardObjectId,
-  type Vec2,
-} from "../../../core/public";
+import { boardObjectId, type Vec2 } from "../../../core/public";
 import {
   createEraserCommand,
   eraseDocumentPenStrokes,
