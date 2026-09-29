@@ -27,6 +27,7 @@ export {
 export * from "./solid-3d/public";
 export * from "./solid-3d-learning/public";
 export {
+  boardDocument14SchemaVersion,
   boardDocument15SchemaVersion,
   boardDocumentSchemaVersion,
   createEmptyBoardDocument,
@@ -165,14 +166,17 @@ export {
 } from "./board/vector-ink";
 export {
   boardObjectKinds,
+  boardObjectKinds14,
   boardObjectKinds15,
   embeddedImageMimeTypes,
   mediaAssetMimeTypes,
   strokeStyles,
   svgSanitizerPolicyVersion,
   type BoardObject,
+  type BoardObject14,
   type BoardObject15,
   type BoardObjectKind,
+  type BoardObjectKind14,
   type BoardObjectKind15,
   type BoardObjectSource,
   type CoordinatePlotObject,
