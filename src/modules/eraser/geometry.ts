@@ -218,14 +218,14 @@ export function erasePenStroke(
   const fragments: VectorInkSample[][] = [];
   let current: VectorInkSample[] = [];
   let touched = false;
-  let previousSample = samples[0]!;
+  const firstSample = samples[0]!;
   let previousErased = sampleErased(
     stroke,
-    previousSample,
+    firstSample,
     path,
     radiusWorld,
   );
-  if (!previousErased) appendSample(current, previousSample);
+  if (!previousErased) appendSample(current, firstSample);
   else touched = true;
 
   for (let index = 1; index < samples.length; index += 1) {
@@ -267,12 +267,10 @@ export function erasePenStroke(
       }
       if (!erased) appendSample(current, candidate);
       else touched = true;
-      previousSample = candidate;
       previousErased = erased;
     }
   }
 
-  void previousSample;
   if (current.length >= 2) fragments.push(current);
   if (!touched) return null;
 
