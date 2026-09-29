@@ -343,7 +343,7 @@ describe("BoardSyncEngine", () => {
         },
       ],
       originId: "origin:legacy-client",
-      schemaVersion: "1.5",
+      schemaVersion: "1.6",
     });
     expect(queue.items).toEqual([]);
     expect(queue.head).toMatchObject({
@@ -481,7 +481,7 @@ describe("BoardSyncEngine", () => {
     expect(repository.pushed).toHaveLength(1);
     expect(repository.pushed[0]).toMatchObject({
       idempotencyKey: "client:independent",
-      schemaVersion: "1.5",
+      schemaVersion: "1.6",
     });
     expect(states.at(-1)).toMatchObject({
       document: { title: "Independent work" },
