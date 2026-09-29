@@ -221,12 +221,17 @@ jobs:
       - name: Run ${{ matrix.browser }} browser smoke
         run: |
           set -o pipefail
-          extra_args=()
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            extra_args+=(--retries=0 --max-failures=4 --trace=retain-on-failure)
+            npm run e2e:smoke -- \
+              --project=${{ matrix.browser }} \
+              --retries=0 \
+              --max-failures=4 \
+              --trace=retain-on-failure 2>&1 \
+              | tee browser-smoke-${{ matrix.browser }}.log
+          else
+            npm run e2e -- --project=${{ matrix.browser }} 2>&1 \
+              | tee browser-smoke-${{ matrix.browser }}.log
           fi
-          npm run e2e -- --project=${{ matrix.browser }} "${extra_args[@]}" 2>&1 \
-            | tee browser-smoke-${{ matrix.browser }}.log
 
       - name: Upload browser smoke failure evidence
         if: failure()
