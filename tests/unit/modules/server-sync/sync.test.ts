@@ -22,6 +22,7 @@ import {
   type PushBoardCommandsResult,
   type ServerBoardDescriptor,
   type ServerBoardCommandBatch,
+  serializeBoardDocument14ForCompatibility,
 } from "../../../../src/core/public";
 import {
   BoardSyncEngine,
@@ -312,6 +313,60 @@ beforeEach(() => {
 });
 
 describe("BoardSyncEngine", () => {
+  it("accepts a legacy 1.4 snapshot digest after migrating the document to 1.5", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const repository = new FakeRepository();
+    const base = initialDocument();
+    const legacyJson = serializeBoardDocument14ForCompatibility(base);
+    if (legacyJson === null) {
+      throw new Error("Legacy fixture must be representable as BoardDocument 1.4.");
+    }
+    const legacyDigest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(legacyJson),
+    );
+    const legacySha256 = [...new Uint8Array(legacyDigest)]
+      .map((value) => value.toString(16).padStart(2, "0"))
+      .join("");
+    repository.recovery = {
+      board: {
+        ...repository.descriptor,
+        currentDocumentSha256: legacySha256,
+        currentRevision: 0,
+        lastSnapshotRevision: 0,
+      },
+      commandBatches: [],
+      snapshot: {
+        createdAt: base.createdAt,
+        document: base,
+        documentId: expectedDocumentId,
+        documentSha256: legacySha256,
+        revision: 0,
+        schemaVersion: "1.4",
+      },
+    };
+    const states: BoardSyncState[] = [];
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => "unused",
+      documentId: expectedDocumentId,
+      lessonId: "lesson:1",
+      now: () => "2026-07-28T18:01:00.000Z",
+      onStateChange: (state) => states.push(state),
+      queue: new MemoryQueue(),
+      repository,
+    });
+
+    await engine.bootstrap();
+
+    expect(states.at(-1)).toMatchObject({
+      document: { schemaVersion: "1.5" },
+      kind: "ready",
+      revision: 0,
+    });
+    expect(states.at(-1)).not.toMatchObject({ confirmedSha256: legacySha256 });
+  });
+
+
   it("creates a revision-zero snapshot and confirms queued commands", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     const repository = new FakeRepository();
