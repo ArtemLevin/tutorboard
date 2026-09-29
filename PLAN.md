@@ -95,50 +95,55 @@ server-authoritative capability checks и collaboration integration.
 
 ### 3.2. Открытые delivery gaps
 
-Текущий delivery разделён на три связанных направления:
+Source-side foundation для Pilot Gate существенно продвинулась:
 
-1. **Pilot Deployment Gate — ближайший critical path**
-   - сохранить TutorBoard release candidate в green state;
-   - вернуть board-profile backend в green state;
-   - завершить минимальный board-only Compose/Caddy contract;
-   - поднять один реальный HTTPS-host;
-   - выполнить teacher/guest two-browser smoke, reconnect, revoke и API restart;
-   - сделать off-host backup и зафиксировать release manifest;
-   - только после этого провести controlled lesson с одним учеником.
-2. **B3/T3 convergence/access hardening Production Gate**
-   - live capability downgrade/revoke;
-   - reconnect context refresh;
-   - stale access-epoch pending quarantine;
-   - полный two-browser verification для read-only/revoke/offline/reconnect.
-3. **D1–D4 Board-only Production Profile**
-   - strict backend composition;
-   - minimal router/provider surface;
-   - board-only Compose/Caddy;
-   - immutable release pipeline;
-   - staging/restore/chaos;
-   - production rollout.
+- TutorBoard frontend release baseline green на `c0bf5ba6193972a77d3cdc5b09352a5e27b15066`;
+- backend `APP_PROFILE=board`, exact route/provider checks, board-only Compose,
+  Caddy/release tooling и immutable TutorBoard pin присутствуют в
+  `tutor-assistant-web/main`;
+- на backend release candidate `c2aa42927104510fc802d7dffc28a36872b29880`
+  успешно завершились CI, Production release и TutorBoard standalone release.
 
-Pilot Gate не заменяет Production Gate. Он вводит более ранний, контролируемый
-уровень готовности для реального пользовательского теста.
+Ближайший незакрытый critical path теперь операционный:
+
+1. **Pilot Deployment Gate**
+   - поднять реальную Linux VM, DNS и HTTPS;
+   - выполнить explicit migration и bootstrap teacher account;
+   - провести teacher/guest two-browser smoke;
+   - проверить reconnect, terminal revoke и API restart persistence;
+   - выполнить off-host PostgreSQL backup;
+   - зафиксировать immutable Pilot Release Manifest.
+2. **B3/T3 Production convergence gate**
+   - полный live read-only/rotate/revoke/offline-old-epoch сценарий;
+   - Chromium/Firefox production matrix.
+3. **D3/D4 Production operations**
+   - isolated restore;
+   - log-secret scan;
+   - load/24h soak;
+   - manual-approved rollout и verified rollback.
+
+Board media assets идут отдельным параллельным продуктовым треком и не
+расширяют pilot public surface до прохождения собственных security/storage
+gates.
 
 ### 3.3. Root cause текущего deployment gap
 
-Существующий backend умеет standalone boards, но production composition пока не
-является board-only:
+Текущий deployment gap больше не связан с отсутствием board-only source
+composition. В `tutor-assistant-web/main` уже присутствуют:
 
-- module `boards` зависит от `scheduling`;
-- `scheduling` зависит от `students`;
-- `students` зависит от `identity`;
-- текущий `boards/routes.py` смешивает standalone, legacy lesson, evidence и
-  GeometryOS routes;
-- `build_container()` создаёт full-product providers независимо от того,
-  используются ли их routers;
-- существующий production Compose запускает full Tutor Assistant stack;
-- текущий Caddy production template направляет в TutorBoard только `/board/*`,
-  но standalone product требует также `/boards` и `/b/*`.
+- first-class `APP_PROFILE=board`;
+- отдельный board-profile bootstrap и минимальный container;
+- exact public route inventory;
+- board-only Compose;
+- explicit Caddy/default-deny configuration;
+- release workflow;
+- pilot runbook, backup/restart/restore/smoke tooling;
+- immutable TutorBoard release manifest/pin.
 
-Следовательно, `ENABLED_MODULES=boards` **не является** Board-only Production
-Profile и не должен использоваться как production shortcut.
+Оставшийся разрыв находится между проверенным source/release tooling и реальным
+окружением: VM, DNS/TLS, production secrets, explicit migrations, реальные
+browser smoke/reconnect/revoke/restart проверки, off-host backup и release
+manifest конкретного pilot deployment.
 
 ### 3.4. Актуальные blockers перед Pilot Gate
 
@@ -169,17 +174,17 @@ authority и upload/read API следуют отдельным этапом.
 
 #### tutor-assistant-web
 
-Board-only composition по-прежнему находится в draft PR #31
-`feat: add strict board-only production profile` в
-`ArtemLevin/tutor-assistant-web`. На проверенном head
-`81501a5ed1f90fc8f35826059dbfdbe9d30a9319` три workflow завершены с
-`failure`: Board profile contract, Production release и CI. PR остаётся
-не mergeable и не является release candidate.
+Старый draft PR #31 больше не является источником истины: его ветка разошлась с
+`main`, а актуальная board-only реализация и release tooling уже присутствуют
+в `main` после более поздних поставок. Проверенный backend release candidate
+`c2aa42927104510fc802d7dffc28a36872b29880` имеет green CI, Production
+release и TutorBoard standalone release.
 
-Детальная первопричина этих backend failures в рамках PR #133 повторно не
-расследовалась; следующий backend шаг должен начинаться с актуальных job logs
-PR #31. Ослабление exact allowlist, `skip` или `xfail` для достижения
-зелёного CI не допускаются.
+Следующий backend шаг для Pilot Gate — работа с реальным окружением по
+`deploy/board-production/PILOT_RUNBOOK.md`: configuration preflight, VM/DNS/TLS,
+explicit migration, teacher bootstrap, two-client smoke, reconnect/revoke,
+restart persistence и off-host backup. Ослабление exact allowlist,
+security/redaction checks или release gates не допускается.
 
 ## 4. Целевая Board-only архитектура
 
@@ -1312,27 +1317,30 @@ Profile считается реализованным, когда одновре
 
 Ближайший critical path — Pilot-first:
 
-1. **P1 / TutorBoard** — исправить known Prettier drift после PR #123 и получить
-   свежий green `npm run check`.
-2. **P2 / tutor-assistant-web** — исправить exact route inventory failure PR #31
-   без ослабления test contract.
-3. **P3 / board profile** — получить green configuration/provider/router,
-   Compose/Caddy и secret-redaction gates; довести board profile до merge-ready.
-4. **P4** — поднять одну pilot VM, DNS и HTTPS.
-5. **P5** — выполнить explicit migrations и проверить teacher account.
-6. **P6-P8** — `/boards`, board creation, invitation, isolated guest join и
-   bidirectional collaboration.
-7. **P9-P11** — reconnect, terminal revoke и API restart persistence smoke.
-8. **P12** — off-host PostgreSQL backup + Pilot Release Manifest.
-9. **Controlled pilot lesson** — только после green P1-P12.
-10. **B3/T3 Production Gate** — закрыть полный live read-only/rotate/revoke/
-    offline-old-epoch convergence scenario.
-11. **D2** — отдельный board release workflow и immutable images.
-12. **D3** — production staging, restart/restore/log scan/load/24h soak.
-13. **D4** — manual-approved production rollout и verified rollback.
+1. **P1 / TutorBoard source gate — DONE.** Текущий frontend baseline
+   `c0bf5ba6193972a77d3cdc5b09352a5e27b15066` имеет green core и
+   specialized gates.
+2. **P2/P3 / backend board-profile source gates — DONE.** Board-only runtime,
+   Compose/Caddy, release tooling и immutable frontend pin находятся в
+   `tutor-assistant-web/main`; release candidate
+   `c2aa42927104510fc802d7dffc28a36872b29880` прошёл CI, Production release
+   и TutorBoard standalone release.
+3. **P4** — поднять одну pilot VM, DNS и HTTPS.
+4. **P5** — выполнить configuration preflight, explicit migrations и проверить
+   teacher account.
+5. **P6-P8** — `/boards`, board creation, invitation, isolated guest join и
+   bidirectional collaboration на реальном host.
+6. **P9-P11** — reconnect, terminal revoke и API restart persistence smoke.
+7. **P12** — off-host PostgreSQL backup + immutable Pilot Release Manifest.
+8. **Controlled pilot lesson** — только после green P4-P12 на конкретном
+   deployment.
+9. **B3/T3 Production Gate** — закрыть полный live read-only/rotate/revoke/
+   offline-old-epoch convergence scenario.
+10. **D3** — production staging, isolated restore, log scan, load и 24h soak.
+11. **D4** — manual-approved production rollout и verified rollback.
 
-Production apply запрещён до закрытия P0/P1 production release gates, green
-staging preflight и свежего isolated restore drill. Pilot-specific упрощения не
+Production apply запрещён до закрытия production release gates, green staging
+preflight и свежего isolated restore drill. Pilot-specific упрощения не
 переносятся в production по умолчанию.
 
 ## 26. Board media assets — implementation-ready track
