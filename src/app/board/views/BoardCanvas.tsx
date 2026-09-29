@@ -190,6 +190,7 @@ export function BoardCanvas({
     <>
       <BoardStage
         coordinatePlotInteraction={plots.renderInteraction}
+        drawingConstraintFeedback={drawing.constraintFeedback}
         drawingModeKey={
           isDrawingToolId(activeTool) ||
           activeTool === handwrittenFunctionToolId ||
@@ -218,6 +219,7 @@ export function BoardCanvas({
           announce("Включён режим выделения");
         }}
         onWorldPointerBatch={interaction.moveBatch}
+        onWorldModifiersChange={interaction.modifiersChange}
         onWorldPointerCancel={interaction.cancel}
         onWorldPointerFinish={interaction.finish}
         onWorldPointerMove={interaction.move}

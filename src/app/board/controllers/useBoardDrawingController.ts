@@ -7,6 +7,7 @@ import {
 } from "../../../core/public";
 import {
   createAddDrawingObjectCommand,
+  getDrawingConstraintFeedback,
   getDrawingPreview,
   reduceDrawingInteraction,
   type DrawingAction,
@@ -14,6 +15,7 @@ import {
   type DrawingToolId,
   type UserDrawingObject,
 } from "../../../modules/drawing/public";
+import type { InputModifiers } from "../../../shared/input-modifiers";
 import {
   createAcceptSmartInkCompositeCommand,
   createAcceptSmartInkProposalCommand,
@@ -29,6 +31,7 @@ const polygonSides = 5;
 
 interface DrawingPointerSample {
   readonly inputTimestampMs?: number | undefined;
+  readonly modifiers?: InputModifiers | undefined;
   readonly point: Vec2;
   readonly pointerId: number;
   readonly pressure: number;
@@ -56,6 +59,10 @@ export function useBoardDrawingController({
   const { styleFor, updateStyle } = useDrawingToolPreferences();
 
   const preview = useMemo(() => getDrawingPreview(state), [state]);
+  const constraintFeedback = useMemo(
+    () => getDrawingConstraintFeedback(state),
+    [state],
+  );
 
   const commitObject = useCallback(
     (object: UserDrawingObject) =>
@@ -160,6 +167,9 @@ export function useBoardDrawingController({
         ...(sample.inputTimestampMs === undefined
           ? {}
           : { inputTimestampMs: sample.inputTimestampMs }),
+        ...(sample.modifiers === undefined
+          ? {}
+          : { modifiers: sample.modifiers }),
         point: sample.point,
         polygonSides,
         pointerId: sample.pointerId,
@@ -179,6 +189,9 @@ export function useBoardDrawingController({
         ...(sample.inputTimestampMs === undefined
           ? {}
           : { inputTimestampMs: sample.inputTimestampMs }),
+        ...(sample.modifiers === undefined
+          ? {}
+          : { modifiers: sample.modifiers }),
         point: sample.point,
         pointerId: sample.pointerId,
         pressure: sample.pressure,
@@ -196,6 +209,9 @@ export function useBoardDrawingController({
         ...(sample.inputTimestampMs === undefined
           ? {}
           : { inputTimestampMs: sample.inputTimestampMs }),
+        ...(sample.modifiers === undefined
+          ? {}
+          : { modifiers: sample.modifiers }),
         point: sample.point,
         pointerId: sample.pointerId,
         pressure: sample.pressure,
@@ -216,12 +232,29 @@ export function useBoardDrawingController({
           ...(sample.inputTimestampMs === undefined
             ? {}
             : { inputTimestampMs: sample.inputTimestampMs }),
+          ...(sample.modifiers === undefined
+            ? {}
+            : { modifiers: sample.modifiers }),
           point: sample.point,
           pointerId: sample.pointerId,
           pressure: sample.pressure,
         },
         tool === "drawing.smart-ink",
       );
+    },
+    [applyAction],
+  );
+
+  const modifiersChange = useCallback(
+    (sample: {
+      readonly modifiers: InputModifiers;
+      readonly pointerId: number;
+    }) => {
+      applyAction({
+        kind: "modifiers",
+        modifiers: sample.modifiers,
+        pointerId: sample.pointerId,
+      });
     },
     [applyAction],
   );
@@ -272,9 +305,11 @@ export function useBoardDrawingController({
 
   return {
     cancel,
+    constraintFeedback,
     diagnostic,
     finish,
     insertTextAt,
+    modifiersChange,
     move,
     moveBatch,
     preview,

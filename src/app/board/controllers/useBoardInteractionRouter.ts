@@ -10,6 +10,7 @@ import {
 } from "../../../modules/selection/public";
 import type {
   SelectionPointerStartSample,
+  WorldModifierSample,
   WorldPointerSample,
 } from "../../../adapters/canvas-konva/public";
 import type { BoardSceneReadModel } from "../../../core/public";
@@ -92,6 +93,13 @@ export function useBoardInteractionRouter({
       if (isDrawingToolId(activeTool)) drawing.start(activeTool, sample);
     },
     [activeTool, drawing, geometry, handwriting, laser],
+  );
+
+  const modifiersChange = useCallback(
+    (sample: WorldModifierSample) => {
+      if (isDrawingToolId(activeTool)) drawing.modifiersChange(sample);
+    },
+    [activeTool, drawing],
   );
 
   const move = useCallback(
@@ -208,6 +216,7 @@ export function useBoardInteractionRouter({
     activate,
     cancel,
     finish,
+    modifiersChange,
     move,
     moveBatch,
     selectionCancel,

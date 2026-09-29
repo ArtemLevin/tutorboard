@@ -1,5 +1,7 @@
 import type { RefObject } from "react";
 
+import { shortcutLabel } from "../shortcuts/board-shortcuts";
+
 export interface BoardShortcutsDialogProps {
   readonly dialogRef: RefObject<HTMLElement | null>;
   readonly onClose: () => void;
@@ -36,8 +38,32 @@ export function BoardShortcutsDialog({
         </div>
         <dl>
           <div>
-            <dt>H / V / A / P / I / L / R / E / N / T / F / G / K</dt>
+            <dt>
+              {[
+                shortcutLabel("tool.pan"),
+                shortcutLabel("tool.select"),
+                shortcutLabel("tool.lasso"),
+                shortcutLabel("tool.pen"),
+                shortcutLabel("tool.smart-ink"),
+                shortcutLabel("tool.line"),
+                shortcutLabel("tool.rectangle"),
+                shortcutLabel("tool.ellipse"),
+                shortcutLabel("tool.polygon"),
+                shortcutLabel("tool.text"),
+                shortcutLabel("tool.handwritten-function"),
+                shortcutLabel("plot.create"),
+                shortcutLabel("tool.laser"),
+              ].join(" / ")}
+            </dt>
             <dd>Инструменты и график</dd>
+          </div>
+          <div>
+            <dt>1 / 2 / 3 / 4 / 5</dt>
+            <dd>Основные цвета активного инструмента</dd>
+          </div>
+          <div>
+            <dt>Shift во время построения</dt>
+            <dd>Точная геометрия и привязка фигуры</dd>
           </div>
           <div>
             <dt>Двойной щелчок правой кнопкой</dt>

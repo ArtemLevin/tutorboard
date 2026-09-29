@@ -22,6 +22,55 @@ async function canvasPoint(page: Page, xRatio: number, yRatio: number) {
   };
 }
 
+test("uses distinct physical shortcuts for line, lasso and primary colors", async ({
+  page,
+}) => {
+  const stage = page.getByTestId("board-stage");
+
+  await page.keyboard.press("l");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.line");
+  await expect(stage).toHaveAttribute("data-selection-mode", "none");
+
+  await page.keyboard.press("Shift+v");
+  await expect(stage).toHaveAttribute("data-selection-mode", "selection.lasso");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "none");
+
+  await page.keyboard.press("p");
+  await page.keyboard.press("2");
+  await expect(
+    page.getByRole("button", { name: "Цвет: Красный" }),
+  ).toHaveAttribute("aria-pressed", "true");
+});
+
+test("applies and releases Shift constraints without pointer movement", async ({
+  page,
+}) => {
+  const stage = page.getByTestId("board-stage");
+  const count = page.getByTestId("object-count");
+  await page.keyboard.press("l");
+
+  const start = await canvasPoint(page, 0.35, 0.35);
+  const end = await canvasPoint(page, 0.58, 0.52);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 4 });
+
+  await expect(stage).toHaveAttribute("data-drawing-constraint", "none");
+  await page.keyboard.down("Shift");
+  await expect(stage).not.toHaveAttribute("data-drawing-constraint", "none");
+  await page.keyboard.up("Shift");
+  await expect(stage).toHaveAttribute("data-drawing-constraint", "none");
+
+  await page.keyboard.down("Shift");
+  await expect(stage).not.toHaveAttribute("data-drawing-constraint", "none");
+  await page.mouse.up();
+  await page.keyboard.up("Shift");
+
+  await expect(count).toHaveText("1 объекта");
+  await expect(stage).toHaveAttribute("data-drawing", "false");
+  await expect(stage).toHaveAttribute("data-drawing-constraint", "none");
+});
+
 test("creates one normalized primitive per completed gesture", async ({
   page,
 }) => {
