@@ -100,8 +100,7 @@ describe("CI gate routing", () => {
       routed("src/adapters/math-ink-http/client.ts").formula_recognition,
     ).toBe(true);
     expect(
-      routed("src/app/handwritten-function-composition.ts")
-        .formula_recognition,
+      routed("src/app/handwritten-function-composition.ts").formula_recognition,
     ).toBe(true);
   });
 
