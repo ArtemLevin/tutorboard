@@ -498,10 +498,7 @@ export function reduceDrawingInteraction(
   }
 
   if (action.kind === "text-change") {
-    if (
-      state.kind !== "placing-text" ||
-      state.pointerId !== action.pointerId
-    ) {
+    if (state.kind !== "placing-text" || state.pointerId !== action.pointerId) {
       return transition(state);
     }
     return transition({ ...state, text: action.text });
