@@ -187,11 +187,7 @@ export function useBoardDocumentController({
       }
       return { document: currentDocument, ok: true };
     },
-    [
-      effectiveMutationPolicy.canWrite,
-      onCommandCommitted,
-      rejectMutation,
-    ],
+    [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],
   );
 
   const setCommandError = useCallback((message: string | null) => {
