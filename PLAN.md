@@ -908,6 +908,30 @@ npm run check
 
 Exit criterion: свежий полный quality gate green на pilot frontend SHA.
 
+#### 18.6.1. Frontend CI routing invariant
+
+PR verification разделён по риску:
+
+- каждый PR всегда выполняет Quality, board-profile и Chromium/Firefox
+  `@smoke`;
+- GeometryOS, Coordinate Plot, production image, Smart Ink, Formula Recognition
+  и Paddle sidecar выполняют тяжёлую часть только при изменении их ownership или
+  shared integration boundaries;
+- изменения CI workflows, routing logic, Node/toolchain или dependency lock
+  считаются global CI risk и включают все specialized gates;
+- routing обязан fail closed: ошибка определения diff не превращается в
+  успешный skip;
+- push в `main` сохраняет полный Chromium/Firefox regression и core production
+  gates; существующий Paddle gate остаётся path-specific на `main`;
+- `workflow_dispatch` является explicit full-gate входом для release/pilot
+  verification.
+
+Имена существующих required jobs сохраняются стабильными. Production image не
+зависит от Coordinate Plot gate: оба gate маршрутизируются независимо.
+
+Paddle image security prerequisite закрыт отдельным PR #143 до включения нового
+routing contract в `main`; security threshold при этом не ослаблялся.
+
 ### 18.7. P2/P3 — backend board profile gate
 
 Исправить exact route inventory failure PR #31 и получить green:
