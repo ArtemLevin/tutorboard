@@ -56,6 +56,31 @@ describe("drawing constraints", () => {
     },
   );
 
+  it("holds the snapped line angle through the hysteresis band", () => {
+    const fromAngle = (degrees: number) => ({
+      x: Math.cos((degrees * Math.PI) / 180) * 100,
+      y: Math.sin((degrees * Math.PI) / 180) * 100,
+    });
+
+    const held = resolveDrawingConstraint({
+      current: fromAngle(39),
+      modifiers: shift,
+      previousAngleDegrees: 30,
+      start: { x: 0, y: 0 },
+      tool: "drawing.line",
+    });
+    expect(held.feedback?.angleDegrees).toBe(30);
+
+    const released = resolveDrawingConstraint({
+      current: fromAngle(40),
+      modifiers: shift,
+      previousAngleDegrees: 30,
+      start: { x: 0, y: 0 },
+      tool: "drawing.line",
+    });
+    expect(released.feedback?.angleDegrees).toBe(45);
+  });
+
   it("returns raw geometry immediately when Shift is released", () => {
     const raw = { x: 41, y: 17 };
     expect(
