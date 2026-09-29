@@ -285,6 +285,7 @@ export {
 export {
   deserializeBoardDocument,
   serializeBoardDocument,
+  serializeBoardDocument14ForCompatibility,
   type BoardDocumentDeserializationResult,
   type BoardDocumentSerializationResult,
 } from "./board/serialization/serialization";
