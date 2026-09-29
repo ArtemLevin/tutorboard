@@ -151,6 +151,4 @@ export function useBoardEraserController({
   } as const;
 }
 
-export type BoardEraserController = ReturnType<
-  typeof useBoardEraserController
->;
+export type BoardEraserController = ReturnType<typeof useBoardEraserController>;
