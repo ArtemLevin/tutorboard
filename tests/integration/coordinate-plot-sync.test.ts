@@ -155,7 +155,7 @@ class MemorySyncRepository implements BoardSyncRepository {
         documentId: documentIdValue,
         documentSha256: sha256,
         revision: 0,
-        schemaVersion: "1.2",
+        schemaVersion: "1.5",
       },
     };
   }
