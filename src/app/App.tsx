@@ -30,6 +30,7 @@ import {
 import { useBoardClipboardController } from "./board/controllers/useBoardClipboardController";
 import { useBoardDocumentController } from "./board/controllers/useBoardDocumentController";
 import { useBoardDrawingController } from "./board/controllers/useBoardDrawingController";
+import { useBoardEraserController } from "./board/controllers/useBoardEraserController";
 import { useBoardGeometryController } from "./board/controllers/useBoardGeometryController";
 import { useBoardHandwritingController } from "./board/controllers/useBoardHandwritingController";
 import { useBoardInteractionRouter } from "./board/controllers/useBoardInteractionRouter";
@@ -482,11 +483,16 @@ export function App({
     resolvePlacementCenter,
   });
 
+  const eraser = useBoardEraserController({
+    announce,
+    documentController,
+  });
   const laser = useLaserPointerController();
   const interaction = useBoardInteractionRouter({
     activeTool,
     documentController,
     drawing,
+    eraser,
     geometry,
     handwriting,
     laser,
@@ -616,6 +622,7 @@ export function App({
           clipboard={clipboard}
           document={document}
           drawing={drawing}
+          eraser={eraser}
           handwriting={handwriting}
           interaction={interaction}
           laser={laser}
