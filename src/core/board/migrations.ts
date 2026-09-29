@@ -88,7 +88,7 @@ export function migrateBoardDocument14To15(
     schemaVersion: boardDocumentSchemaVersion,
   });
   return validation.valid
-    ? { ok: true, document: validation.document as BoardDocument15 }
+    ? { ok: true, document: validation.document }
     : { ok: false, issues: validation.issues };
 }
 
