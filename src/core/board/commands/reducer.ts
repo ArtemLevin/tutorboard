@@ -259,11 +259,11 @@ function replaceObjects(
   document: BoardDocument,
   command: ReplaceObjectsCommand,
 ): CommandResult {
-  if (command.originals.length === 0 || command.replacements.length === 0) {
+  if (command.originals.length === 0) {
     return failure(
       document,
       "command.empty",
-      "Replace objects command requires originals and replacements.",
+      "Replace objects command requires at least one original.",
     );
   }
 
