@@ -194,8 +194,8 @@ export function useBoardInteractionRouter({
   );
 
   const selectionStart = useCallback(
-    (sample: SelectionPointerStartSample) => {
-      if (geometry.tryAddContourPoint(sample)) return;
+    (sample: SelectionPointerStartSample): boolean => {
+      if (geometry.tryAddContourPoint(sample)) return true;
       const vertex = geometry.inspectVertexNear(sample, scene);
       const proximityObjectId =
         sample.areaOnly === true || sample.objectId !== null
@@ -235,6 +235,7 @@ export function useBoardInteractionRouter({
         point: sample.point,
         pointerId: sample.pointerId,
       });
+      return hitObjectIds.length > 0;
     },
     [activeTool, activate, documentController, geometry, scene, selection],
   );
