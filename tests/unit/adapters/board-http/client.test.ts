@@ -145,7 +145,7 @@ describe("Board HTTP repository", () => {
             payloadSha256:
               "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             revision: 1,
-            schemaVersion: "1.5",
+            schemaVersion: "1.6",
           },
         ],
       }),
