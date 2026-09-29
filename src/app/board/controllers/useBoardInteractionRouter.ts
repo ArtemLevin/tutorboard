@@ -3,9 +3,12 @@ import { useCallback } from "react";
 import { isDrawingToolId } from "../../../modules/drawing/public";
 import { handwrittenFunctionToolId } from "../../../modules/handwritten-function/public";
 import {
+  aggregateSelectionBounds,
   expandSelectionObjectIds,
   isSelectionToolId,
   lassoSelectionToolId,
+  pointInSelectionBounds,
+  selectTopObjectIdNearPoint,
   selectionToolId,
 } from "../../../modules/selection/public";
 import type {
@@ -167,17 +170,35 @@ export function useBoardInteractionRouter({
     (sample: SelectionPointerStartSample) => {
       if (geometry.tryAddContourPoint(sample)) return;
       const vertex = geometry.inspectVertexNear(sample, scene);
+      const proximityObjectId =
+        sample.areaOnly === true || sample.objectId !== null
+          ? null
+          : selectTopObjectIdNearPoint(
+              scene,
+              sample.point,
+              sample.hitToleranceWorld ?? 0,
+            );
       const effectiveObjectId =
-        sample.objectId ?? vertex?.vertexObjectId ?? null;
+        sample.objectId ?? vertex?.vertexObjectId ?? proximityObjectId;
       if (effectiveObjectId !== null && !isSelectionToolId(activeTool)) {
         activate(selectionToolId);
       }
+      const aggregateBounds =
+        sample.areaOnly === true
+          ? null
+          : aggregateSelectionBounds(
+              selection.bounds,
+              sample.hitToleranceWorld ?? 0,
+            );
       const hitObjectIds =
-        effectiveObjectId === null
-          ? []
-          : expandSelectionObjectIds(documentController.getDocument(), [
+        effectiveObjectId !== null
+          ? expandSelectionObjectIds(documentController.getDocument(), [
               effectiveObjectId,
-            ]);
+            ])
+          : aggregateBounds !== null &&
+              pointInSelectionBounds(sample.point, aggregateBounds)
+            ? selection.getState().selectedObjectIds
+            : [];
       selection.start({
         additive: sample.additive,
         areaKind: activeTool === lassoSelectionToolId ? "lasso" : "marquee",
