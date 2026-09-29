@@ -1,5 +1,5 @@
 import {
-  boardDocument15SchemaVersion,
+  boardDocument14SchemaVersion,
   boardDocumentSchemaVersion,
   type BoardDocument,
   type BoardDocument15,
@@ -12,7 +12,7 @@ import {
   boardDocumentSchema11,
   boardDocumentSchema12,
   boardDocumentSchema13,
-  boardDocumentSchema15,
+  boardDocumentSchema14,
 } from "./validation/schema";
 import {
   validateBoardDocument,
@@ -68,34 +68,28 @@ export function migrateBoardDocument13To14(
   const parsed = boardDocumentSchema13.safeParse(raw);
   if (!parsed.success)
     return { ok: false, issues: schemaIssues(parsed.error.issues) };
-  const validation = validateBoardDocument({
+  return migrateBoardDocument14To15({
     ...parsed.data,
-    schemaVersion: boardDocumentSchemaVersion,
+    schemaVersion: boardDocument14SchemaVersion,
     solidLearningAttempts: {},
   });
-  return validation.valid
-    ? { ok: true, document: validation.document }
-    : { ok: false, issues: validation.issues };
 }
 
-/**
- * Prepares a validated BoardDocument 1.4 for the media-aware 1.5 contract.
- * This migration is feature-dark: the active runtime remains on 1.4 until the
- * snapshot/server contract accepts 1.5 as well.
- */
 export function migrateBoardDocument14To15(
   raw: unknown,
 ): BoardDocument15MigrationResult {
-  const current = validateBoardDocument(raw);
-  if (!current.valid) return { ok: false, issues: current.issues };
+  const parsed = boardDocumentSchema14.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, issues: schemaIssues(parsed.error.issues) };
+  }
 
-  const parsed = boardDocumentSchema15.safeParse({
-    ...current.document,
-    schemaVersion: boardDocument15SchemaVersion,
+  const validation = validateBoardDocument({
+    ...parsed.data,
+    schemaVersion: boardDocumentSchemaVersion,
   });
-  return parsed.success
-    ? { ok: true, document: parsed.data as BoardDocument15 }
-    : { ok: false, issues: schemaIssues(parsed.error.issues) };
+  return validation.valid
+    ? { ok: true, document: validation.document as BoardDocument15 }
+    : { ok: false, issues: validation.issues };
 }
 
 export function migrateBoardDocument11To13(
