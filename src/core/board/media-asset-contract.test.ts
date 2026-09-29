@@ -129,17 +129,15 @@ describe("BoardDocument 1.5 media asset preparation", () => {
 
   it("rejects zero byte size", () => {
     expect(
-      boardDocumentSchema15.safeParse(
-        invalidMediaDocument({ byteSize: 0 }),
-      ).success,
+      boardDocumentSchema15.safeParse(invalidMediaDocument({ byteSize: 0 }))
+        .success,
     ).toBe(false);
   });
 
   it("rejects fractional byte size", () => {
     expect(
-      boardDocumentSchema15.safeParse(
-        invalidMediaDocument({ byteSize: 1.5 }),
-      ).success,
+      boardDocumentSchema15.safeParse(invalidMediaDocument({ byteSize: 1.5 }))
+        .success,
     ).toBe(false);
   });
 
@@ -214,9 +212,9 @@ describe("BoardDocument 1.5 media asset preparation", () => {
 
     expect(migrated.document.schemaVersion).toBe("1.5");
     expect(migrated.document.objects[object.id]).toEqual(object);
-    expect(
-      boardDocumentSchema15.safeParse(migrated.document).success,
-    ).toBe(true);
+    expect(boardDocumentSchema15.safeParse(migrated.document).success).toBe(
+      true,
+    );
   });
 
   it("rejects migration of a semantically invalid 1.4 document", () => {
