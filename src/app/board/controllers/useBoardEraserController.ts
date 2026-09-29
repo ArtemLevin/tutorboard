@@ -108,11 +108,7 @@ export function useBoardEraserController({
 
       const committed = commitCommands(
         result.changes.map(({ original, replacements }) =>
-          createEraserCommand(
-            createCommandMetadata(),
-            [original],
-            replacements,
-          ),
+          createEraserCommand(createCommandMetadata(), [original], replacements),
         ),
       );
       if (committed.ok) {
