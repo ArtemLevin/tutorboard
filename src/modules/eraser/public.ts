@@ -11,6 +11,7 @@ export {
   eraserRadiusPx,
   type EraserFragmentIdFactory,
   type EraserResult,
+  type EraserStrokeChange,
 } from "./geometry";
 
 export const eraserToolId = "editing.eraser" as const;
