@@ -367,3 +367,105 @@ export function selectSelectionBounds(
     .filter((item) => selected.has(item.object.id))
     .map((item) => ({ id: item.object.id, rect: itemBounds(item) }));
 }
+
+function pointToSegmentDistance(
+  point: Vec2,
+  start: Vec2,
+  finish: Vec2,
+): number {
+  const dx = finish.x - start.x;
+  const dy = finish.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared <= geometryEpsilon) return pointDistance(point, start);
+  const ratio = Math.min(
+    1,
+    Math.max(
+      0,
+      ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared,
+    ),
+  );
+  return pointDistance(point, {
+    x: start.x + dx * ratio,
+    y: start.y + dy * ratio,
+  });
+}
+
+function pathDistanceToPoint(path: SelectionPath, point: Vec2): number {
+  const segments = pathSegments(path);
+  if (segments.length === 0) {
+    return path.points[0] === undefined
+      ? Number.POSITIVE_INFINITY
+      : pointDistance(point, path.points[0]);
+  }
+  return Math.min(
+    ...segments.map(([start, finish]) =>
+      pointToSegmentDistance(point, start, finish),
+    ),
+  );
+}
+
+function selectableInterior(object: BoardObject): boolean {
+  if (object.style.fill !== null) return true;
+  return (
+    object.kind === "drawing.text" ||
+    object.kind === "image.embedded" ||
+    object.kind === "svg-import.svg" ||
+    object.kind === "math.coordinate-plot"
+  );
+}
+
+export function selectTopObjectIdNearPoint(
+  scene: BoardSceneReadModel,
+  point: Vec2,
+  tolerance: number,
+): BoardObjectId | null {
+  if (!finitePoint(point) || !Number.isFinite(tolerance) || tolerance < 0) {
+    return null;
+  }
+  for (let index = scene.items.length - 1; index >= 0; index -= 1) {
+    const item = scene.items[index];
+    if (item === undefined || !item.object.visible) continue;
+    const path = transformedSelectionPath(item);
+    if (
+      path.closed &&
+      selectableInterior(item.object) &&
+      pointInPolygon(point, path.points)
+    ) {
+      return item.object.id;
+    }
+    if (pathDistanceToPoint(path, point) <= tolerance) {
+      return item.object.id;
+    }
+  }
+  return null;
+}
+
+export function aggregateSelectionBounds(
+  bounds: readonly SelectionBounds[],
+  padding = 0,
+): Rect2 | null {
+  if (bounds.length === 0 || !Number.isFinite(padding) || padding < 0) {
+    return null;
+  }
+  const left = Math.min(...bounds.map(({ rect }) => rect.x)) - padding;
+  const top = Math.min(...bounds.map(({ rect }) => rect.y)) - padding;
+  const right =
+    Math.max(...bounds.map(({ rect }) => rect.x + rect.width)) + padding;
+  const bottom =
+    Math.max(...bounds.map(({ rect }) => rect.y + rect.height)) + padding;
+  return {
+    height: bottom - top,
+    width: right - left,
+    x: left,
+    y: top,
+  };
+}
+
+export function pointInSelectionBounds(point: Vec2, rect: Rect2): boolean {
+  return (
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height
+  );
+}

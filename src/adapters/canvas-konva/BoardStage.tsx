@@ -129,7 +129,9 @@ export type BoardSelectionAreaOperation = "add" | "replace" | "subtract";
 
 export interface SelectionPointerStartSample extends WorldPointerSample {
   readonly additive: boolean;
+  readonly areaOnly?: boolean;
   readonly areaOperation?: BoardSelectionAreaOperation;
+  readonly hitToleranceWorld?: number;
   readonly objectId: BoardObjectId | null;
 }
 
@@ -167,6 +169,8 @@ export interface BoardStageProps {
     readonly label: string;
     readonly point: Vec2;
   } | null;
+  readonly eraserPoint?: Vec2 | null;
+  readonly eraserRadiusPx?: number;
   readonly laserActive?: boolean;
   readonly laserPoint?: Vec2 | null;
   readonly laserTrailOpacity?: number;
@@ -192,7 +196,7 @@ export interface BoardStageProps {
   readonly onSelectionPointerMove: (sample: WorldPointerSample) => void;
   readonly onSelectionPointerStart: (
     sample: SelectionPointerStartSample,
-  ) => void;
+  ) => boolean | void;
   readonly onSelectionTransform?: (
     transforms: readonly BoardObjectTransformSnapshot[],
   ) => void;
@@ -360,6 +364,8 @@ export function BoardStage({
   coordinatePlotInteraction,
   drawingModeKey,
   drawingConstraintFeedback = null,
+  eraserPoint = null,
+  eraserRadiusPx = 12,
   laserActive = false,
   laserPoint = null,
   laserTrailOpacity = 1,
@@ -735,6 +741,7 @@ export function BoardStage({
       event: PointerEvent,
       captureElement: HTMLElement,
       objectId: BoardObjectId | null,
+      areaOnly = false,
     ) => {
       captureElement.setPointerCapture(event.pointerId);
       const session: SelectionSession = {
@@ -744,16 +751,21 @@ export function BoardStage({
       };
       selectionSessionRef.current = session;
       setIsSelecting(true);
-      selectionPointerCallbacksRef.current.start({
+      const consumed = selectionPointerCallbacksRef.current.start({
         ...selectionWorldSample(event, session),
         additive: event.shiftKey,
+        areaOnly,
         areaOperation: event.altKey
           ? "subtract"
           : event.shiftKey
             ? "add"
             : "replace",
+        hitToleranceWorld: 12 / session.viewport.zoom,
         objectId,
       });
+      if (consumed === true) {
+        primaryCanvasPointerCandidateRef.current = null;
+      }
     },
     [previewViewport, selectionWorldSample],
   );
@@ -1321,7 +1333,13 @@ export function BoardStage({
     }
     commitWheel();
     event.preventDefault();
-    beginSelectionSession(event.nativeEvent, event.currentTarget, null);
+    beginSelectionSession(
+      event.nativeEvent,
+      event.currentTarget,
+      null,
+      selectionModeKey === "selection.lasso" &&
+        (event.shiftKey || event.altKey),
+    );
   };
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
@@ -1421,7 +1439,12 @@ export function BoardStage({
       }
       const captureElement = stage.container();
       if (selectionModeKey !== null || shouldSelectHitObject) {
-        beginSelectionSession(event.evt, captureElement, hitObjectId);
+        beginSelectionSession(
+          event.evt,
+          captureElement,
+          hitObjectId,
+          isLassoAreaModifier,
+        );
         return;
       }
       captureElement.setPointerCapture(event.evt.pointerId);
@@ -1592,6 +1615,7 @@ export function BoardStage({
       data-drawing={isDrawing}
       data-drawing-constraint={drawingConstraintFeedback?.label ?? "none"}
       data-drawing-mode={drawingModeKey ?? "none"}
+      data-eraser-visible={eraserPoint !== null}
       data-lasso-points={selectionLasso?.length ?? 0}
       data-lassoing={selectionLasso !== null}
       data-laser-active={laserActive}
@@ -1716,6 +1740,17 @@ export function BoardStage({
                   strokeWidth={2 / previewViewport.zoom}
                 />
               </>
+            )}
+            {eraserPoint === null ? null : (
+              <Circle
+                fill="rgba(255,255,255,0.35)"
+                listening={false}
+                radius={eraserRadiusPx / previewViewport.zoom}
+                stroke="#245d6b"
+                strokeWidth={1.5 / previewViewport.zoom}
+                x={eraserPoint.x}
+                y={eraserPoint.y}
+              />
             )}
             {drawingConstraintFeedback === null ? null : (
               <>

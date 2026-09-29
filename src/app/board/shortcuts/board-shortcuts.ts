@@ -7,6 +7,7 @@ export type BoardShortcutAction =
   | "tool.line"
   | "tool.rectangle"
   | "tool.ellipse"
+  | "tool.eraser"
   | "tool.polygon"
   | "tool.text"
   | "tool.handwritten-function"
@@ -55,6 +56,12 @@ export const boardShortcutBindings: readonly BoardShortcutBinding[] = [
     action: "tool.ellipse",
     code: "KeyE",
     display: "E",
+    requiresWrite: true,
+  },
+  {
+    action: "tool.eraser",
+    code: "KeyX",
+    display: "X",
     requiresWrite: true,
   },
   {
@@ -132,6 +139,7 @@ const toolActionById: Readonly<Record<string, BoardShortcutAction>> = {
   "drawing.line": "tool.line",
   "drawing.rectangle": "tool.rectangle",
   "drawing.ellipse": "tool.ellipse",
+  "editing.eraser": "tool.eraser",
   "drawing.polygon": "tool.polygon",
   "drawing.text": "tool.text",
   "math.handwritten-function": "tool.handwritten-function",
