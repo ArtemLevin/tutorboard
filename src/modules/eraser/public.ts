@@ -1,5 +1,6 @@
 import type {
   CommandMetadata,
+  DeleteObjectsCommand,
   PenStrokeObject,
   ReplaceObjectsCommand,
 } from "../../core/public";
@@ -14,11 +15,20 @@ export {
 
 export const eraserToolId = "editing.eraser" as const;
 
+export type EraserCommand = DeleteObjectsCommand | ReplaceObjectsCommand;
+
 export function createEraserCommand(
   metadata: CommandMetadata,
   originals: readonly PenStrokeObject[],
   replacements: readonly PenStrokeObject[],
-): ReplaceObjectsCommand {
+): EraserCommand {
+  if (replacements.length === 0) {
+    return {
+      ...metadata,
+      kind: "core.objects.delete",
+      objectIds: originals.map(({ id }) => id),
+    };
+  }
   return {
     ...metadata,
     kind: "core.objects.replace",
