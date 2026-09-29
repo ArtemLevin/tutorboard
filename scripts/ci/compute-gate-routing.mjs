@@ -145,8 +145,8 @@ export function classifyChangedFiles(changedFiles) {
     if (
       hasPrefix(path, coordinatePlotPrefixes) ||
       path === "src/core/board/coordinate-plot.ts" ||
-      (hasFragment(path, "coordinate-plot") ||
-        hasFragment(path, "coordinateplot")) ||
+      hasFragment(path, "coordinate-plot") ||
+      hasFragment(path, "coordinateplot") ||
       path === "playwright.visual.config.ts" ||
       compositionFiles.has(path)
     ) {
