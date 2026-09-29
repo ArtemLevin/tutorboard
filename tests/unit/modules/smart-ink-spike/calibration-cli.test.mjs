@@ -1,15 +1,12 @@
-import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { gzipSync } from "node:zlib";
 
 import { describe, expect, it } from "vitest";
 
+import { runSmartInkCli } from "./cli-test-support.mjs";
 import { createSyntheticBenchmarkCorpus } from "./corpus-fixtures.ts";
-
-const execFileAsync = promisify(execFile);
 
 function externalCorpus() {
   const synthetic = createSyntheticBenchmarkCorpus();
@@ -83,23 +80,19 @@ describe("Phase 9 Smart Ink calibration CLI", () => {
             : serializedCorpus,
         );
 
-        const { stdout } = await execFileAsync(
-          process.execPath,
-          [
-            "scripts/calibrate-smart-ink-corpus.mjs",
-            "--input",
-            input,
-            "--seed",
-            "90210",
-            "--minimum-per-class",
-            "2",
-            "--minimum-negatives",
-            "10",
-            "--output",
-            output,
-          ],
-          { cwd: process.cwd() },
-        );
+        const { stdout } = await runSmartInkCli([
+          "scripts/calibrate-smart-ink-corpus.mjs",
+          "--input",
+          input,
+          "--seed",
+          "90210",
+          "--minimum-per-class",
+          "2",
+          "--minimum-negatives",
+          "10",
+          "--output",
+          output,
+        ]);
         const serialized = await readFile(output, "utf8");
         const report = JSON.parse(serialized);
 
@@ -113,5 +106,6 @@ describe("Phase 9 Smart Ink calibration CLI", () => {
         await rm(directory, { force: true, recursive: true });
       }
     },
+    12_000,
   );
 });

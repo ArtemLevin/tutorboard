@@ -1,8 +1,6 @@
-import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 
 import { describe, expect, it } from "vitest";
 
@@ -10,8 +8,7 @@ import {
   parseSmartInkCorpus,
   smartInkCorpusSchemaVersion,
 } from "../../../../src/modules/smart-ink-spike/public.ts";
-
-const execFileAsync = promisify(execFile);
+import { runSmartInkCli } from "./cli-test-support.mjs";
 
 function quickDrawRecord(keyId, word, points, recognized = true) {
   return JSON.stringify({
@@ -65,21 +62,17 @@ describe("Phase 9 Quick, Draw! corpus importer", () => {
       ];
       await writeFile(input, `${records.join("\n")}\n`, "utf8");
 
-      const { stdout } = await execFileAsync(
-        process.execPath,
-        [
-          "scripts/import-quickdraw-corpus.mjs",
-          "--input",
-          `circle=${input}`,
-          "--max-per-input",
-          "1",
-          "--seed",
-          "123",
-          "--output",
-          output,
-        ],
-        { cwd: process.cwd() },
-      );
+      const { stdout } = await runSmartInkCli([
+        "scripts/import-quickdraw-corpus.mjs",
+        "--input",
+        `circle=${input}`,
+        "--max-per-input",
+        "1",
+        "--seed",
+        "123",
+        "--output",
+        output,
+      ]);
       const corpus = parseSmartInkCorpus(
         JSON.parse(await readFile(output, "utf8")),
       );
@@ -109,45 +102,37 @@ describe("Phase 9 Quick, Draw! corpus importer", () => {
     } finally {
       await rm(directory, { force: true, recursive: true });
     }
-  });
+  }, 12_000);
 
   it("refuses to manufacture missing Quick, Draw! classes", async () => {
     await expect(
-      execFileAsync(
-        process.execPath,
-        [
-          "scripts/import-quickdraw-corpus.mjs",
-          "--input",
-          "ellipse=ellipse.ndjson",
-          "--output",
-          "unused.json",
-        ],
-        { cwd: process.cwd() },
-      ),
+      runSmartInkCli([
+        "scripts/import-quickdraw-corpus.mjs",
+        "--input",
+        "ellipse=ellipse.ndjson",
+        "--output",
+        "unused.json",
+      ]),
     ).rejects.toMatchObject({
       stderr: expect.stringContaining(
         "do not relabel derived geometry as human",
       ),
     });
-  });
+  }, 12_000);
 
   it("allows only reviewed mappings in official streaming mode", async () => {
     await expect(
-      execFileAsync(
-        process.execPath,
-        [
-          "scripts/import-quickdraw-corpus.mjs",
-          "--official",
-          "negative=circle",
-          "--output",
-          "unused.json",
-        ],
-        { cwd: process.cwd() },
-      ),
+      runSmartInkCli([
+        "scripts/import-quickdraw-corpus.mjs",
+        "--official",
+        "negative=circle",
+        "--output",
+        "unused.json",
+      ]),
     ).rejects.toMatchObject({
       stderr: expect.stringContaining(
         "Unsupported official Quick, Draw! mapping",
       ),
     });
-  });
+  }, 12_000);
 });

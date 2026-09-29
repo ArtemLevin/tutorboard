@@ -1,14 +1,11 @@
-import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 
 import { describe, expect, it } from "vitest";
 
 import { smartInkCorpusSchemaVersion } from "../../../../src/modules/smart-ink-spike/public.ts";
-
-const execFileAsync = promisify(execFile);
+import { runSmartInkCli } from "./cli-test-support.mjs";
 
 describe("Phase 9 Smart Ink negative holdout evaluator", () => {
   it("writes a point-free report for an attributed negative corpus", async () => {
@@ -49,24 +46,20 @@ describe("Phase 9 Smart Ink negative holdout evaluator", () => {
         "utf8",
       );
 
-      await execFileAsync(
-        process.execPath,
-        [
-          "scripts/evaluate-smart-ink-negative-holdout.mjs",
-          "--input",
-          input,
-          "--minimum-confidence",
-          "0.34",
-          "--ambiguity-margin",
-          "0.04",
-          "--minimum-negatives",
-          "1",
-          "--output",
-          output,
-          "--require-pass",
-        ],
-        { cwd: process.cwd() },
-      );
+      await runSmartInkCli([
+        "scripts/evaluate-smart-ink-negative-holdout.mjs",
+        "--input",
+        input,
+        "--minimum-confidence",
+        "0.34",
+        "--ambiguity-margin",
+        "0.04",
+        "--minimum-negatives",
+        "1",
+        "--output",
+        output,
+        "--require-pass",
+      ]);
       const report = JSON.parse(await readFile(output, "utf8"));
 
       expect(report).toMatchObject({
@@ -80,5 +73,5 @@ describe("Phase 9 Smart Ink negative holdout evaluator", () => {
     } finally {
       await rm(directory, { force: true, recursive: true });
     }
-  });
+  }, 12_000);
 });

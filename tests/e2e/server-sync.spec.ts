@@ -115,50 +115,51 @@ async function installBoardApi(page: Page) {
   return () => accepted;
 }
 
-test("keeps a local command offline, reconnects, and restores the confirmed revision", async ({
-  context,
-  page,
-}) => {
-  const accepted = await installBoardApi(page);
-  await page.goto(
-    `/?lessonId=${encodeURIComponent(lessonId)}&documentId=${encodeURIComponent(documentId)}#/board`,
-  );
-  await expect(
-    page.getByRole("heading", { name: "Подключаем доску занятия" }),
-  ).toBeHidden();
-  const initialStatus = page.getByTestId("persistence-status");
-  await expect(initialStatus).toHaveText("Синхронизировано · r7");
-  await expect(page.getByTestId("object-count")).toHaveText("2 объекта");
+test(
+  "keeps a local command offline, reconnects, and restores the confirmed revision",
+  { tag: "@smoke" },
+  async ({ context, page }) => {
+    const accepted = await installBoardApi(page);
+    await page.goto(
+      `/?lessonId=${encodeURIComponent(lessonId)}&documentId=${encodeURIComponent(documentId)}#/board`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "Подключаем доску занятия" }),
+    ).toBeHidden();
+    const initialStatus = page.getByTestId("persistence-status");
+    await expect(initialStatus).toHaveText("Синхронизировано · r7");
+    await expect(page.getByTestId("object-count")).toHaveText("2 объекта");
 
-  await context.setOffline(true);
-  await page.keyboard.press("r");
-  const stage = page.getByTestId("board-stage");
-  const bounds = await stage.boundingBox();
-  if (bounds === null) {
-    throw new Error("Canvas has no bounds.");
-  }
-  await page.mouse.move(bounds.x + 620, bounds.y + 180);
-  await page.mouse.down();
-  await page.mouse.move(bounds.x + 730, bounds.y + 260, { steps: 4 });
-  await page.mouse.up();
-  await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
-  await expect(page.getByTestId("persistence-status")).toHaveText(
-    "Автономно · в очереди 1",
-  );
+    await context.setOffline(true);
+    await page.keyboard.press("r");
+    const stage = page.getByTestId("board-stage");
+    const bounds = await stage.boundingBox();
+    if (bounds === null) {
+      throw new Error("Canvas has no bounds.");
+    }
+    await page.mouse.move(bounds.x + 620, bounds.y + 180);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + 730, bounds.y + 260, { steps: 4 });
+    await page.mouse.up();
+    await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Автономно · в очереди 1",
+    );
 
-  await context.setOffline(false);
-  await expect(page.getByTestId("persistence-status")).toHaveText(
-    "Синхронизировано · r8",
-  );
-  expect(accepted()?.baseRevision).toBe(7);
-  expect(accepted()?.commands).toHaveLength(1);
+    await context.setOffline(false);
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Синхронизировано · r8",
+    );
+    expect(accepted()?.baseRevision).toBe(7);
+    expect(accepted()?.commands).toHaveLength(1);
 
-  await page.reload();
-  await expect(page.getByTestId("persistence-status")).toHaveText(
-    "Синхронизировано · r8",
-  );
-  await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
-});
+    await page.reload();
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Синхронизировано · r8",
+    );
+    await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
+  },
+);
 
 test("copies a stable lesson-bound link for collaborators", async ({
   page,

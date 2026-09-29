@@ -54,31 +54,33 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test("autosaves drawing state and restores it after reload", async ({
-  page,
-}) => {
-  await page.keyboard.press("r");
-  const stage = page.getByTestId("board-stage");
-  const bounds = await stage.boundingBox();
-  expect(bounds).not.toBeNull();
-  if (bounds === null) {
-    throw new Error("Canvas has no bounds.");
-  }
-  await page.mouse.move(bounds.x + 620, bounds.y + 180);
-  await page.mouse.down();
-  await page.mouse.move(bounds.x + 730, bounds.y + 260, { steps: 4 });
-  await page.mouse.up();
-  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-  await expect(page.getByTestId("persistence-status")).toHaveText(
-    "Ожидает сохранения",
-  );
-  await expect(page.getByTestId("persistence-status")).toHaveText(
-    "Сохранено локально",
-  );
+test(
+  "autosaves drawing state and restores it after reload",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    await page.keyboard.press("r");
+    const stage = page.getByTestId("board-stage");
+    const bounds = await stage.boundingBox();
+    expect(bounds).not.toBeNull();
+    if (bounds === null) {
+      throw new Error("Canvas has no bounds.");
+    }
+    await page.mouse.move(bounds.x + 620, bounds.y + 180);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + 730, bounds.y + 260, { steps: 4 });
+    await page.mouse.up();
+    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Ожидает сохранения",
+    );
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Сохранено локально",
+    );
 
-  await page.reload();
-  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-});
+    await page.reload();
+    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+  },
+);
 
 test("falls back to the last good revision and keeps a recovery notice", async ({
   page,

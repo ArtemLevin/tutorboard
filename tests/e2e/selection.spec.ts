@@ -242,34 +242,36 @@ test("selects a thin line from nearby canvas without pixel hunting", async ({
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
 });
 
-test("drags a multi-selection from empty space inside its aggregate bounds", async ({
-  page,
-}) => {
-  const rectangle = await stagePoint(page, 320, 180);
-  await page.mouse.click(rectangle.x, rectangle.y);
-  const ellipse = await stagePoint(page, 530, 190);
-  await page.keyboard.down("Shift");
-  await page.mouse.click(ellipse.x, ellipse.y);
-  await page.keyboard.up("Shift");
-  await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
+test(
+  "drags a multi-selection from empty space inside its aggregate bounds",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const rectangle = await stagePoint(page, 320, 180);
+    await page.mouse.click(rectangle.x, rectangle.y);
+    const ellipse = await stagePoint(page, 530, 190);
+    await page.keyboard.down("Shift");
+    await page.mouse.click(ellipse.x, ellipse.y);
+    await page.keyboard.up("Shift");
+    await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
 
-  const aggregateGap = await stagePoint(page, 450, 200);
-  const finish = await stagePoint(page, 490, 230);
-  await page.mouse.move(aggregateGap.x, aggregateGap.y);
-  await page.mouse.down();
-  await page.mouse.move(finish.x, finish.y, { steps: 5 });
-  await page.mouse.up();
+    const aggregateGap = await stagePoint(page, 450, 200);
+    const finish = await stagePoint(page, 490, 230);
+    await page.mouse.move(aggregateGap.x, aggregateGap.y);
+    await page.mouse.down();
+    await page.mouse.move(finish.x, finish.y, { steps: 5 });
+    await page.mouse.up();
 
-  await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
-  await expect(page.getByTestId("first-object-position")).toHaveText(
-    "Объект: 340, 190",
-  );
+    await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
+    await expect(page.getByTestId("first-object-position")).toHaveText(
+      "Объект: 340, 190",
+    );
 
-  await page.keyboard.press("Control+z");
-  await expect(page.getByTestId("first-object-position")).toHaveText(
-    "Объект: 300, 160",
-  );
-});
+    await page.keyboard.press("Control+z");
+    await expect(page.getByTestId("first-object-position")).toHaveText(
+      "Объект: 300, 160",
+    );
+  },
+);
 
 test("does not move a locked multi-selection from its aggregate gap", async ({
   page,

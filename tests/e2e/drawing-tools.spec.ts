@@ -152,34 +152,38 @@ test("Escape and tool switching discard runtime preview", async ({ page }) => {
   await expect(stage).toHaveAttribute("data-drawing", "false");
 });
 
-test("creates pen and text objects through their tools", async ({ page }) => {
-  const count = page.getByTestId("object-count");
-  await page.keyboard.press("p");
-  const start = await canvasPoint(page, 0.5, 0.32);
-  const end = await canvasPoint(page, 0.68, 0.2);
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(end.x, end.y, { steps: 6 });
-  await page.mouse.up();
-  await expect(count).toHaveText("1 объекта");
+test(
+  "creates pen and text objects through their tools",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const count = page.getByTestId("object-count");
+    await page.keyboard.press("p");
+    const start = await canvasPoint(page, 0.5, 0.32);
+    const end = await canvasPoint(page, 0.68, 0.2);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 6 });
+    await page.mouse.up();
+    await expect(count).toHaveText("1 объекта");
 
-  await page.getByRole("button", { name: "Рисование" }).click();
-  await page.getByRole("menuitemradio", { name: "Текст (T)" }).click();
-  await page
-    .getByRole("textbox", { name: "Содержимое текста" })
-    .fill("Угол ABC");
-  const textPoint = await canvasPoint(page, 0.62, 0.4);
-  await page.mouse.click(textPoint.x, textPoint.y);
-  const textEditor = page.getByRole("textbox", {
-    name: "Редактор текста на доске",
-  });
-  await expect(textEditor).toBeVisible();
-  await textEditor.press("Control+Enter");
-  await expect(textEditor).toHaveCount(0);
+    await page.getByRole("button", { name: "Рисование" }).click();
+    await page.getByRole("menuitemradio", { name: "Текст (T)" }).click();
+    await page
+      .getByRole("textbox", { name: "Содержимое текста" })
+      .fill("Угол ABC");
+    const textPoint = await canvasPoint(page, 0.62, 0.4);
+    await page.mouse.click(textPoint.x, textPoint.y);
+    const textEditor = page.getByRole("textbox", {
+      name: "Редактор текста на доске",
+    });
+    await expect(textEditor).toBeVisible();
+    await textEditor.press("Control+Enter");
+    await expect(textEditor).toHaveCount(0);
 
-  await expect(count).toHaveText("2 объекта");
-  await expect(page.getByTestId("interaction-state")).toHaveText("idle");
-});
+    await expect(count).toHaveText("2 объекта");
+    await expect(page.getByTestId("interaction-state")).toHaveText("idle");
+  },
+);
 
 test("draws inside a filled figure and selects it through the contour", async ({
   page,
