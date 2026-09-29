@@ -1,0 +1,31 @@
+name: Temporary board contract regeneration
+
+on:
+  push:
+    branches:
+      - agent/media-m1-contract-activation
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run board-contract:generate
+      - name: Commit generated artifacts and remove temporary workflow
+        run: |
+          rm .github/workflows/tmp-regenerate-board-contract.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add contracts/board/v1 .github/workflows/tmp-regenerate-board-contract.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: refresh generated board contract artifacts"
+          git push origin HEAD:agent/media-m1-contract-activation
