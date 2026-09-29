@@ -36,11 +36,13 @@ export interface BoardDocument {
   readonly viewport: ViewportState;
 }
 
-export interface BoardDocument15
-  extends Omit<BoardDocument, "objects" | "schemaVersion"> {
+export type BoardDocument15 = Omit<
+  BoardDocument,
+  "objects" | "schemaVersion"
+> & {
   readonly objects: Readonly<Partial<Record<BoardObjectId, BoardObject15>>>;
   readonly schemaVersion: typeof boardDocument15SchemaVersion;
-}
+};
 
 export interface CreateBoardDocumentInput {
   readonly createdAt: string;
