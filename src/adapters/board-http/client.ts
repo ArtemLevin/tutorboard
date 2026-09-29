@@ -284,7 +284,8 @@ function parseBatch(value: unknown): ServerBoardCommandBatch {
     ...parsed.data,
     envelope: (envelope.schemaVersion === "1.3" ||
     envelope.schemaVersion === "1.4" ||
-    envelope.schemaVersion === "1.5"
+    envelope.schemaVersion === "1.5" ||
+    envelope.schemaVersion === "1.6"
       ? {
           ...envelope,
           actorId: actorId(envelope.actorId),
