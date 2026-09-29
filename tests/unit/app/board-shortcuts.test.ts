@@ -91,6 +91,18 @@ describe("board shortcuts", () => {
     ).toBeNull();
   });
 
+  it("resolves X to eraser while leaving accelerator X to clipboard handling", () => {
+    expect(resolveBoardShortcut(key("KeyX"), { readOnly: false })).toBe(
+      "tool.eraser",
+    );
+    expect(
+      resolveBoardShortcut(key("KeyX", { ctrlKey: true }), {
+        readOnly: false,
+      }),
+    ).toBeNull();
+    expect(resolveBoardShortcut(key("KeyX"), { readOnly: true })).toBeNull();
+  });
+
   it("resolves the five primary color shortcuts", () => {
     expect(resolveBoardShortcut(key("Digit1"), { readOnly: false })).toBe(
       "color.1",

@@ -30,12 +30,14 @@ import {
 } from "../../board-chrome/CanvasContextMenu";
 import type { ActiveToolId } from "../active-tool";
 import {
+  eraserToolId,
   geometryPlacementToolId,
   laserToolId,
   navigationToolId,
 } from "../active-tool";
 import type { BoardClipboardController } from "../controllers/useBoardClipboardController";
 import type { BoardDrawingController } from "../controllers/useBoardDrawingController";
+import type { BoardEraserController } from "../controllers/useBoardEraserController";
 import type { BoardHandwritingController } from "../controllers/useBoardHandwritingController";
 import type { BoardInteractionRouter } from "../controllers/useBoardInteractionRouter";
 import type { LaserPointerController } from "../controllers/useLaserPointerController";
@@ -49,6 +51,7 @@ export interface BoardCanvasProps {
   readonly clipboard: BoardClipboardController;
   readonly document: BoardDocument;
   readonly drawing: BoardDrawingController;
+  readonly eraser: BoardEraserController;
   readonly handwriting: BoardHandwritingController;
   readonly interaction: BoardInteractionRouter;
   readonly laser: LaserPointerController;
@@ -100,6 +103,7 @@ export function BoardCanvas({
   clipboard,
   document,
   drawing,
+  eraser,
   handwriting,
   interaction,
   laser,
@@ -191,9 +195,12 @@ export function BoardCanvas({
       <BoardStage
         coordinatePlotInteraction={plots.renderInteraction}
         drawingConstraintFeedback={drawing.constraintFeedback}
+        eraserPoint={activeTool === eraserToolId ? eraser.point : null}
+        eraserRadiusPx={eraser.radiusPx}
         drawingModeKey={
           isDrawingToolId(activeTool) ||
           activeTool === handwrittenFunctionToolId ||
+          activeTool === eraserToolId ||
           activeTool === laserToolId ||
           activeTool === geometryPlacementToolId
             ? activeTool
@@ -225,6 +232,7 @@ export function BoardCanvas({
         onWorldPointerMove={interaction.move}
         onWorldPointerHover={(cursor) => {
           onPointerHover(cursor);
+          if (activeTool === eraserToolId) eraser.hover(cursor);
           if (activeTool === laserToolId) laser.hover(cursor);
         }}
         onWorldPointerStart={interaction.start}

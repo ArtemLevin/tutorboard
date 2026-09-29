@@ -5,6 +5,7 @@ import {
   isDrawingToolId,
   type DrawingToolId,
 } from "../../../modules/drawing/public";
+import { eraserToolId } from "../../../modules/eraser/public";
 import { handwrittenFunctionToolId } from "../../../modules/handwritten-function/public";
 import {
   lassoSelectionToolId,
@@ -222,6 +223,9 @@ export function useBoardKeyboardShortcuts({
           return;
         case "tool.lasso":
           interaction.activate(lassoSelectionToolId);
+          return;
+        case "tool.eraser":
+          interaction.activate(eraserToolId);
           return;
         case "tool.handwritten-function":
           if (handwrittenFunctionsEnabled && !readOnly) {

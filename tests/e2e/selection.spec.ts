@@ -194,6 +194,53 @@ test("uses the explicit selection tool for an existing figure", async ({
   ).toBeVisible();
 });
 
+test("selects a thin line from nearby canvas without pixel hunting", async ({
+  page,
+}) => {
+  await page.keyboard.press("l");
+  const start = await stagePoint(page, 280, 360);
+  const finish = await stagePoint(page, 520, 360);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(finish.x, finish.y, { steps: 6 });
+  await page.mouse.up();
+
+  await page.keyboard.press("v");
+  const nearLine = await stagePoint(page, 400, 370);
+  await page.mouse.click(nearLine.x, nearLine.y);
+
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+});
+
+test("drags a multi-selection from empty space inside its aggregate bounds", async ({
+  page,
+}) => {
+  const rectangle = await stagePoint(page, 320, 180);
+  await page.mouse.click(rectangle.x, rectangle.y);
+  const ellipse = await stagePoint(page, 530, 190);
+  await page.keyboard.down("Shift");
+  await page.mouse.click(ellipse.x, ellipse.y);
+  await page.keyboard.up("Shift");
+  await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
+
+  const aggregateGap = await stagePoint(page, 450, 200);
+  const finish = await stagePoint(page, 490, 230);
+  await page.mouse.move(aggregateGap.x, aggregateGap.y);
+  await page.mouse.down();
+  await page.mouse.move(finish.x, finish.y, { steps: 5 });
+  await page.mouse.up();
+
+  await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
+  await expect(page.getByTestId("first-object-position")).toHaveText(
+    "Объект: 340, 190",
+  );
+
+  await page.keyboard.press("Control+z");
+  await expect(page.getByTestId("first-object-position")).toHaveText(
+    "Объект: 300, 160",
+  );
+});
+
 test("right drag switches to canvas movement and pans the viewport", async ({
   page,
 }) => {

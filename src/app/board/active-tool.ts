@@ -1,3 +1,4 @@
+import { eraserToolId } from "../../modules/eraser/public";
 import { handwrittenFunctionToolId } from "../../modules/handwritten-function/public";
 import type { DrawingToolId } from "../../modules/drawing/public";
 import {
@@ -13,8 +14,9 @@ export type ActiveToolId =
   | typeof navigationToolId
   | typeof laserToolId
   | typeof geometryPlacementToolId
+  | typeof eraserToolId
   | typeof handwrittenFunctionToolId
   | SelectionToolId
   | DrawingToolId;
 
-export { handwrittenFunctionToolId, selectionToolId };
+export { eraserToolId, handwrittenFunctionToolId, selectionToolId };

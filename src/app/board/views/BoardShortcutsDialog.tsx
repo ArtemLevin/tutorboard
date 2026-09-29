@@ -48,6 +48,7 @@ export function BoardShortcutsDialog({
                 shortcutLabel("tool.line"),
                 shortcutLabel("tool.rectangle"),
                 shortcutLabel("tool.ellipse"),
+                shortcutLabel("tool.eraser"),
                 shortcutLabel("tool.polygon"),
                 shortcutLabel("tool.text"),
                 shortcutLabel("tool.handwritten-function"),
