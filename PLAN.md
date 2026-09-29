@@ -5,13 +5,15 @@
 > Последнее обновление: 2026-09-29.
 >
 > Документ синхронизирован с фактическим состоянием проекта после standalone
-> contracts, access convergence, controlled-pilot E2E и milestone
-> **Input Foundation + Shape Constraints** (PR #133). Ближайшая delivery цель
-> по-прежнему — **Pilot Deployment Gate**: получить реальный HTTPS-сервер и
-> провести controlled pilot с одним преподавателем и одним учеником. После pilot
+> contracts, access convergence, controlled-pilot E2E, **Input Foundation +
+> Shape Constraints** (PR #133), **Partial eraser + forgiving selection**
+> (PR #134), **Live text + Escape comfort** (PR #135) и CI/performance hardening
+> вплоть до PR #142. Ближайшая delivery цель по-прежнему —
+> **Pilot Deployment Gate**: получить реальный HTTPS-сервер и провести
+> controlled pilot с одним преподавателем и одним учеником. После pilot
 > обязательным остаётся полный **Board-only Production Profile** и production
-> release gate. Следующий отдельный UX-трек доски — partial eraser и forgiving
-> multi-selection поверх стабилизированного input layer.
+> release gate. Следующий отдельный продуктовый трек — board media assets:
+> крупные изображения/GIF и последующий безопасный URL/video import.
 >
 > Исторические планы по полотну, GeometryOS, Smart Ink и lesson-bound интеграциям
 > остаются в `docs/DEVELOPMENT_PLAN.md` и профильных ADR/документах в
@@ -84,6 +86,8 @@ TutorBoard разворачивается как самостоятельный 
 | Export hardening | DONE | PR #126–#129: full-content/high-fidelity PNG/PDF/SVG workflow |
 | Controlled pilot E2E | DONE | PR #131: teacher/guest controlled-pilot browser scenario |
 | Board input comfort | DONE | PR #133: centralized shortcuts, layout-independent tool keys, late-Shift modifier pipeline и shape constraints |
+| Partial eraser + forgiving selection | DONE | PR #134: vector partial eraser, proximity selection и aggregate-bounds drag |
+| Live text + Escape comfort | DONE | PR #135: transient inline text editing, Escape→selection и locked-selection move hardening |
 
 T1/T2 standalone flow уже поддерживает teacher management и guest-link launch.
 Backend B1/B2 уже содержит standalone persistence, invitation/session model,
@@ -140,24 +144,28 @@ Profile и не должен использоваться как production shor
 
 #### TutorBoard
 
-Frontend quality blocker закрыт. Milestone PR #133 проходит полный frontend
-release gate: GeometryOS/Board contract checks, format, lint, TypeScript,
-unit tests, performance budgets, architecture boundaries, production build,
-Chromium/Firefox browser smoke, board-only profile, coordinate-plot production
-gate, production image, Smart Ink production gate и Formula Recognition gate.
+Frontend source baseline находится в green state на текущем `main`
+`c0bf5ba6193972a77d3cdc5b09352a5e27b15066` (PR #142). На этом SHA
+успешно завершены Quality gate, Board-only frontend profile, GeometryOS live
+browser contract, Coordinate Plot production gate, Chromium/Firefox browser
+smoke, Production image, Smart Ink production gate, Formula Recognition gate и
+Paddle sidecar gate.
 
-PR #133 также фиксирует отдельный interaction contract: единый shortcut registry,
-`L` для линии, `Shift+V` для лассо, физические `KeyboardEvent.code`,
-цвета `1..5`, late-Shift и deterministic constraints для line/rectangle/
-ellipse/polygon. BoardDocument schema, command protocol и persistence при этом
-не меняются.
+Interaction milestones PR #133–#135 уже закрыты:
 
-Следующий UX milestone после merge PR #133:
-
-- vector partial eraser для `drawing.pen-stroke` с атомарным undo;
+- centralized shortcuts и layout-independent tool keys;
+- late-Shift + deterministic shape constraints;
+- vector partial eraser с атомарным undo;
 - forgiving selection hit-slop;
-- drag multi-selection за padded aggregate bounds;
-- отдельные browser-level interaction latency budgets при необходимости.
+- drag multi-selection за aggregate bounds;
+- transient inline text editor;
+- `Escape` отменяет text draft и возвращает selection mode.
+
+Следующий отдельный продуктовый блок — board media assets. Архитектурный
+инвариант: крупные media bytes не попадают в BoardCommand, durable pending
+queue, PostgreSQL command journal или BoardSnapshot. Первый runtime increment
+начинается с versioned `media.asset` contract foundation; server-side asset
+authority и upload/read API следуют отдельным этапом.
 
 #### tutor-assistant-web
 
@@ -1327,7 +1335,93 @@ Production apply запрещён до закрытия P0/P1 production release
 staging preflight и свежего isolated restore drill. Pilot-specific упрощения не
 переносятся в production по умолчанию.
 
-## 26. Критерий выбора следующей задачи
+## 26. Board media assets — implementation-ready track
+
+Архитектура больших и URL-import media определена в
+`docs/adr/ADR-032-board-media-assets.md`. Главный инвариант: binary media не
+попадает в BoardCommand, durable pending queue, PostgreSQL command journal или
+BoardSnapshot. Существующий `image.embedded` сохраняется для совместимости.
+
+Фактический root cause текущего лимита:
+
+```text
+local picker                  8 MiB
+embedded dataUrl schema      12 MiB
+BoardCommand JSON codec       2 MiB  <- sync blocker
+backend command request       5 MiB default
+.tutorboard.json import      10 MiB
+```
+
+Поднятие только числовых лимитов запрещено как решение media milestone.
+
+### M1 — contract foundation
+
+- добавить `media.asset` с immutable `assetId/contentSha256/byteSize/mimeType`;
+- BoardDocument/BoardSnapshot → следующая schema revision;
+- ordered command envelope → следующая compatible revision;
+- сохранить чтение существующих `image.embedded` и старых envelope;
+- оставить BoardCommand JSON limit 2 MiB.
+
+Exit: большие media bytes отсутствуют в serialized add/paste command.
+
+### M2 — backend media authority
+
+В `tutor-assistant-web`:
+
+- отдельная `BoardMediaAsset` persistence model с FK на board;
+- private tenant-prefixed storage через существующий ArtifactStorage/S3;
+- upload API с board.write + CSRF/access-epoch;
+- content API с board.read, ETag/nosniff;
+- Range/206 storage/read path для MP4;
+- server-side checksum/MIME/size/image-complexity validation;
+- GIF MIME support в artifact detector;
+- conditional ClamAV gate при включённом board media;
+- command-commit validation всех `media.asset` references;
+- quotas/rate limits и board-retention lifecycle.
+
+Exit: forged/cross-board/quarantined asset refs не могут стать accepted revision.
+
+### M3 — TutorBoard image/GIF asset path
+
+- `BoardMediaRepository` + resolver port;
+- upload-before-command orchestration;
+- `media.asset` renderer для PNG/JPEG/GIF;
+- large file path выше embedded-safe sync threshold;
+- legacy small/local `image.embedded` path остаётся;
+- Chromium/Firefox + reconnect/rebase regression coverage.
+
+Initial deployment defaults: 32 MiB для PNG/JPEG/GIF. Лимит конфигурационный.
+
+### M4 — direct HTTPS URL import + MP4
+
+- direct HTTPS media URL → hardened backend fetch → owned immutable asset;
+- SSRF deny policy для private/loopback/link-local/IPv6 + redirect revalidation;
+- streamed size/time limits и MIME signature validation;
+- MP4 asset до initial 128 MiB configurable limit;
+- local/ephemeral play/pause/seek state;
+- provider pages/iframe/YouTube/Vimeo не входят в этот milestone.
+
+Exit: внешний origin после import больше не участвует в rendering path.
+
+### M5 — portability
+
+- новый portable TutorBoard bundle: `document.json + manifest + assets/*`;
+- legacy `.tutorboard.json` остаётся для self-contained embedded documents;
+- asset-backed board нельзя молча экспортировать как «полный» JSON без bytes;
+- bundle round-trip и integrity checks.
+
+### M6 — optional offline staging
+
+Первый media release требует сеть для первоначального большого upload/URL
+import. После успешного upload обычная command queue сохраняет текущие offline
+гарантии. Durable IndexedDB blob staging добавляется отдельным increment только
+после M1–M5.
+
+Media track может выполняться параллельно Pilot Deployment Gate при условии, что
+он не расширяет pilot public surface до прохождения собственных security,
+storage и browser gates.
+
+## 27. Критерий выбора следующей задачи
 
 При конфликте backlog priorities:
 
