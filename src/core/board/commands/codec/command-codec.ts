@@ -284,6 +284,9 @@ const objectsSchema = z
   .array(boardObjectSchema)
   .min(1)
   .max(maximumBoardCommandObjects);
+const replacementObjectsSchema = z
+  .array(boardObjectSchema)
+  .max(maximumBoardCommandObjects);
 const groupsSchema = z.array(boardGroupSchema).max(maximumBoardCommandObjects);
 const importsSchema = z
   .array(geometryImportSchema)
@@ -306,7 +309,7 @@ export const boardCommandSchema = z.discriminatedUnion("kind", [
       ...metadata,
       kind: z.literal("core.objects.replace"),
       originals: objectsSchema,
-      replacements: objectsSchema,
+      replacements: replacementObjectsSchema,
     })
     .strict(),
   z
