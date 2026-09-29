@@ -59,6 +59,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Show canonical CI router formatting
+        run: |
+          npx prettier --write scripts/ci/compute-gate-routing.mjs
+          git diff -- scripts/ci/compute-gate-routing.mjs
+
       - name: Install locked GeometryOS code-generation toolchain
         run: npm ci --prefix tools/geometryos-contract
 
