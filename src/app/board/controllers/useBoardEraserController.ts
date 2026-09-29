@@ -43,7 +43,7 @@ export function useBoardEraserController({
   announce,
   documentController,
 }: UseBoardEraserControllerOptions) {
-  const { commitCommand, createCommandMetadata, getDocument } =
+  const { commitCommands, createCommandMetadata, getDocument } =
     documentController;
   const sessionRef = useRef<EraserSession | null>(null);
   const [point, setPoint] = useState<Vec2 | null>(null);
@@ -106,11 +106,13 @@ export function useBoardEraserController({
       );
       if (result.originals.length === 0) return;
 
-      const committed = commitCommand(
-        createEraserCommand(
-          createCommandMetadata(),
-          result.originals,
-          result.replacements,
+      const committed = commitCommands(
+        result.changes.map(({ original, replacements }) =>
+          createEraserCommand(
+            createCommandMetadata(),
+            [original],
+            replacements,
+          ),
         ),
       );
       if (committed.ok) {
@@ -121,7 +123,7 @@ export function useBoardEraserController({
         );
       }
     },
-    [announce, commitCommand, createCommandMetadata, getDocument],
+    [announce, commitCommands, createCommandMetadata, getDocument],
   );
 
   const cancel = useCallback((pointerId?: number) => {
