@@ -591,6 +591,13 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 onBlur={(event) =>
                   props.onSelectedTextCommit(event.currentTarget.value)
                 }
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape") return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.currentTarget.value = props.selectedText ?? "";
+                  event.currentTarget.blur();
+                }}
                 rows={2}
               />
             </label>
