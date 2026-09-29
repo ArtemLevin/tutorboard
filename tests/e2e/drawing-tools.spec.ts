@@ -170,6 +170,12 @@ test("creates pen and text objects through their tools", async ({ page }) => {
     .fill("Угол ABC");
   const textPoint = await canvasPoint(page, 0.62, 0.4);
   await page.mouse.click(textPoint.x, textPoint.y);
+  const textEditor = page.getByRole("textbox", {
+    name: "Редактор текста на доске",
+  });
+  await expect(textEditor).toBeVisible();
+  await textEditor.press("Control+Enter");
+  await expect(textEditor).toHaveCount(0);
 
   await expect(count).toHaveText("2 объекта");
   await expect(page.getByTestId("interaction-state")).toHaveText("idle");

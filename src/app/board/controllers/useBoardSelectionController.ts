@@ -107,6 +107,7 @@ export function useBoardSelectionController({
   const commitMove = useCallback(
     (completed: CompletedSelectionMove) => {
       const current = getDocument();
+      if (selectionIsLocked(current, completed.objectIds)) return;
       commitCommand(
         createMoveSelectionCommand(
           createCommandMetadata(),

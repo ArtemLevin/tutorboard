@@ -179,6 +179,62 @@ describe("drawing interaction state machine", () => {
     });
   });
 
+  it("updates a text placement preview without committing it", () => {
+    const started = reduceDrawingInteraction(idle, {
+      kind: "start",
+      objectId: boardObjectId("object:text-preview"),
+      point: { x: 40, y: 60 },
+      pointerId: 12,
+      style: styleFor("drawing.text"),
+      text: "",
+      tool: "drawing.text",
+    });
+    const changed = reduceDrawingInteraction(started.state, {
+      kind: "text-change",
+      pointerId: 12,
+      text: "  Новая формула  ",
+    });
+
+    expect(getDrawingPreview(changed.state)).toMatchObject({
+      kind: "drawing.text",
+      position: { x: 40, y: 60 },
+      text: "  Новая формула  ",
+    });
+    expect(changed.completedObject).toBeNull();
+
+    const completed = reduceDrawingInteraction(changed.state, {
+      kind: "finish",
+      point: { x: 40, y: 60 },
+      pointerId: 12,
+    });
+    expect(completed.completedObject).toMatchObject({
+      kind: "drawing.text",
+      text: "Новая формула",
+    });
+  });
+
+  it("keeps an empty text draft transient and rejects it on commit", () => {
+    const started = reduceDrawingInteraction(idle, {
+      kind: "start",
+      objectId: boardObjectId("object:empty-text-preview"),
+      point: { x: 10, y: 20 },
+      pointerId: 13,
+      style: styleFor("drawing.text"),
+      text: "",
+      tool: "drawing.text",
+    });
+    expect(started.state.kind).toBe("placing-text");
+
+    const completed = reduceDrawingInteraction(started.state, {
+      kind: "finish",
+      point: { x: 10, y: 20 },
+      pointerId: 13,
+    });
+    expect(completed.completedObject).toBeNull();
+    expect(completed.diagnostic).toBe("drawing.empty-text");
+    expect(completed.state).toEqual(idle);
+  });
+
   it("keeps preview runtime-only and cancels without an object", () => {
     const started = reduceDrawingInteraction(idle, {
       kind: "start",

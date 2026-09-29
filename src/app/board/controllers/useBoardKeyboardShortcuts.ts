@@ -120,7 +120,7 @@ export function useBoardKeyboardShortcuts({
       ) {
         event.preventDefault();
         selection.cancel();
-        interaction.activate(navigationToolId);
+        interaction.activate(selectionToolId);
         return;
       }
       if (
@@ -129,10 +129,15 @@ export function useBoardKeyboardShortcuts({
           handwriting.state.kind !== "idle")
       ) {
         event.preventDefault();
-        interaction.activate(navigationToolId);
+        interaction.activate(selectionToolId);
         return;
       }
       if (event.key === "Escape" && plots.editor !== null) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        interaction.activate(selectionToolId);
+        return;
+      }
 
       const accelerator = event.ctrlKey || event.metaKey;
       if (accelerator && !event.altKey && !editing) {
