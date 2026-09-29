@@ -54,6 +54,7 @@ const paddleFormulaPrefixes = [
 
 const compositionFiles = new Set([
   "src/app/App.tsx",
+  "src/app/board-chrome/BoardToolDock.tsx",
   "src/app/configuration/environment.ts",
 ]);
 
@@ -64,7 +65,6 @@ const productionImageFiles = new Set([
 ]);
 
 const smartInkFiles = new Set([
-  "src/app/board-chrome/BoardToolDock.tsx",
   "src/shared/smart-ink-release.ts",
   "tests/e2e/smart-ink-release-gate.spec.ts",
 ]);
