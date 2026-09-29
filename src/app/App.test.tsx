@@ -515,6 +515,14 @@ describe("App", () => {
     ).toBeDisabled();
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Текст" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    const textEditor = screen.getByRole("textbox", {
+      name: "Редактор текста на доске",
+    });
+    expect(textEditor).toHaveValue("Новый текст");
+    fireEvent.change(textEditor, { target: { value: "Новая заметка" } });
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    fireEvent.blur(textEditor);
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
     expect(screen.getByText("drawing.text")).toBeInTheDocument();
 
