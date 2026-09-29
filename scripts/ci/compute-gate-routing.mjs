@@ -54,6 +54,11 @@ const paddleFormulaPrefixes = [
 
 const compositionFiles = new Set([
   "src/app/App.tsx",
+  "src/app/board/active-tool.ts",
+  "src/app/board/controllers/useBoardInteractionRouter.ts",
+  "src/app/board/views/BoardCanvas.tsx",
+  "src/app/board/views/BoardOverlays.tsx",
+  "src/app/board/views/BoardToolDockContainer.tsx",
   "src/app/board-chrome/BoardToolDock.tsx",
   "src/app/configuration/environment.ts",
 ]);
@@ -74,6 +79,8 @@ const formulaRecognitionFiles = new Set([
   "deploy/math-ink.compose.yml",
   "src/app/HandwrittenFunctionPanel.tsx",
   "src/app/HandwrittenFunctionWorkflow.tsx",
+  "src/app/board/views/BoardSettingsPanel.tsx",
+  "src/app/handwritten-function-composition.ts",
   "src/app/configuration/formula-recognition-settings.ts",
   "src/app/configuration/formula-recognition-settings.test.ts",
   "tests/e2e/math-ink-recognition-production.spec.ts",
@@ -129,7 +136,7 @@ export function classifyChangedFiles(changedFiles) {
       hasPrefix(path, geometryOsPrefixes) ||
       path.startsWith("scripts/geometryos-") ||
       path.startsWith("scripts/check-geometryos-") ||
-      hasFragment(path, "geometryos") ||
+      hasFragment(path, "geometry") ||
       compositionFiles.has(path)
     ) {
       routing.geometryos = true;
@@ -138,7 +145,8 @@ export function classifyChangedFiles(changedFiles) {
     if (
       hasPrefix(path, coordinatePlotPrefixes) ||
       path === "src/core/board/coordinate-plot.ts" ||
-      hasFragment(path, "coordinate-plot") ||
+      (hasFragment(path, "coordinate-plot") ||
+        hasFragment(path, "coordinateplot")) ||
       path === "playwright.visual.config.ts" ||
       compositionFiles.has(path)
     ) {
@@ -163,6 +171,8 @@ export function classifyChangedFiles(changedFiles) {
       formulaRecognitionFiles.has(path) ||
       hasFragment(path, "math-ink") ||
       hasFragment(path, "formula-recognition") ||
+      hasFragment(path, "handwriting") ||
+      hasFragment(path, "handwrittenfunction") ||
       path === "deploy/nginx.conf" ||
       compositionFiles.has(path)
     ) {
@@ -250,7 +260,7 @@ if (
     printRouting(routing);
   } catch (error) {
     console.error(
-      error instanceof Error ? error.stack ?? error.message : String(error),
+      error instanceof Error ? (error.stack ?? error.message) : String(error),
     );
     process.exitCode = 1;
   }
