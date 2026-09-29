@@ -24,7 +24,7 @@ import type {
 import { isValidIdentifier } from "../identifiers";
 import {
   boardObjectKinds,
-  boardObjectKinds15,
+  boardObjectKinds14,
   embeddedImageMimeTypes,
   mediaAssetMimeTypes,
   strokeStyles,
@@ -975,14 +975,14 @@ export const boardDocumentSchema14 = boardDocumentSchema13
   })
   .strict();
 
-export const boardDocumentSchema = boardDocumentSchema14;
-
 export const boardDocumentSchema15 = boardDocumentSchema14
   .extend({
     objects: z.record(boardObjectIdSchema, objectSchema15),
     schemaVersion: z.literal("1.5"),
   })
   .strict();
+
+export const boardDocumentSchema = boardDocumentSchema15;
 
 export const legacyBoardObjectKinds = new Set<string>([
   "drawing.pen-stroke",
@@ -1000,5 +1000,6 @@ export const knownBoardObjectKinds10 = new Set<string>([
   "image.embedded",
   "svg-import.svg",
 ]);
+export const knownBoardObjectKinds14 = new Set<string>(boardObjectKinds14);
 export const knownBoardObjectKinds = new Set<string>(boardObjectKinds);
-export const knownBoardObjectKinds15 = new Set<string>(boardObjectKinds15);
+export const knownBoardObjectKinds15 = knownBoardObjectKinds;
