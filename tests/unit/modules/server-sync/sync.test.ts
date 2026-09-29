@@ -361,6 +361,7 @@ describe("BoardSyncEngine", () => {
     await engine.bootstrap();
 
     expect(states.at(-1)).toMatchObject({
+      confirmedSha256: await boardDocumentSha256(base),
       document: { schemaVersion: "1.5" },
       kind: "ready",
       revision: 0,
