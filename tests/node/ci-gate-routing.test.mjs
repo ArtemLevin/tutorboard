@@ -42,6 +42,31 @@ describe("CI gate routing", () => {
     });
   });
 
+  it("routes specialized controllers by their integration ownership", () => {
+    expect(
+      routed("src/app/board/controllers/useBoardGeometryController.ts")
+        .geometryos,
+    ).toBe(true);
+    expect(
+      routed("src/app/board/controllers/useCoordinatePlotController.ts")
+        .coordinate_plot,
+    ).toBe(true);
+    expect(
+      routed("src/app/board/controllers/useBoardHandwritingController.ts")
+        .formula_recognition,
+    ).toBe(true);
+  });
+
+  it("routes high-fan-out overlay composition to all browser integrations", () => {
+    expect(routed("src/app/board/views/BoardOverlays.tsx")).toEqual({
+      ...allFalse,
+      coordinate_plot: true,
+      formula_recognition: true,
+      geometryos: true,
+      smart_ink: true,
+    });
+  });
+
   it("routes production container changes independently from coordinate plot", () => {
     expect(routed("Dockerfile")).toEqual({
       ...allFalse,
@@ -70,9 +95,13 @@ describe("CI gate routing", () => {
     });
   });
 
-  it("routes formula recognition adapter changes", () => {
+  it("routes formula recognition adapter and composition changes", () => {
     expect(
       routed("src/adapters/math-ink-http/client.ts").formula_recognition,
+    ).toBe(true);
+    expect(
+      routed("src/app/handwritten-function-composition.ts")
+        .formula_recognition,
     ).toBe(true);
   });
 
