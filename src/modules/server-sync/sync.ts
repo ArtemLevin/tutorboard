@@ -883,7 +883,7 @@ export class BoardSyncEngine {
             expectedDocumentSha256: sha256,
             idempotencyKey: first.idempotencyKey,
             originId: this.#originId,
-            schemaVersion: "1.5",
+            schemaVersion: "1.6",
           },
           this.#context.csrfToken,
         );
