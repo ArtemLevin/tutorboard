@@ -929,6 +929,9 @@ PR verification разделён по риску:
 Имена существующих required jobs сохраняются стабильными. Production image не
 зависит от Coordinate Plot gate: оба gate маршрутизируются независимо.
 
+Paddle image security prerequisite закрыт отдельным PR #143 до включения нового
+routing contract в `main`; security threshold при этом не ослаблялся.
+
 ### 18.7. P2/P3 — backend board profile gate
 
 Исправить exact route inventory failure PR #31 и получить green:
