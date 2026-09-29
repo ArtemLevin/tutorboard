@@ -334,6 +334,7 @@ export type {
   PendingBoardCommandConflict,
   PendingBoardCommandOrderingInput,
   PendingBoardCommandQueue,
+  PreviousOrderedBoardCommandEnvelope,
   PushBoardCommandsResult,
   ServerBoardCommandBatch,
   ServerBoardDescriptor,
