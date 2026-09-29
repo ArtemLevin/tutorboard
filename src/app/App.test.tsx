@@ -188,6 +188,24 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("erases a pen stroke as one undoable document command", () => {
+    render(<App />);
+
+    fireEvent.keyDown(window, { code: "KeyP", key: "p" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+
+    fireEvent.keyDown(window, { code: "KeyX", key: "x" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("2/0");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");
+  });
+
   it("exposes board export through a dedicated toolbar icon", () => {
     const onExportPdfSnapshot = vi.fn();
     const onExportPngSnapshot = vi.fn();
