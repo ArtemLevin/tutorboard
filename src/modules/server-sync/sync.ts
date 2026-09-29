@@ -2,6 +2,7 @@ import {
   createEmptyBoardDocument,
   reduceBoardDocument,
   serializeBoardDocument,
+  serializeBoardDocument14ForCompatibility,
   type ActorId,
   type BoardCommand,
   type BoardDocument,
@@ -99,6 +100,45 @@ export async function boardDocumentSha256(
     .join("");
 }
 
+async function textSha256(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((item) => item.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function legacyBoardDocument14Sha256(
+  document: BoardDocument,
+): Promise<string> {
+  const serialized = serializeBoardDocument14ForCompatibility(document);
+  if (serialized === null) {
+    throw new SyncRecoveryError(
+      "board.sync.legacy-document-unrepresentable",
+      "Документ нельзя проверить в историческом формате BoardDocument 1.4.",
+    );
+  }
+  return await textSha256(serialized);
+}
+
+async function digestForEnvelope(
+  document: BoardDocument,
+  schemaVersion: string,
+): Promise<string> {
+  return schemaVersion === "1.6"
+    ? await boardDocumentSha256(document)
+    : await legacyBoardDocument14Sha256(document);
+}
+
+async function digestForSnapshot(
+  document: BoardDocument,
+  schemaVersion: string,
+): Promise<string> {
+  return schemaVersion === "1.5"
+    ? await boardDocumentSha256(document)
+    : await legacyBoardDocument14Sha256(document);
+}
+
 function commandsFromBatch(
   batch: ServerBoardCommandBatch,
 ): readonly BoardCommand[] {
@@ -148,7 +188,11 @@ async function applyRemoteBatches(
       document = applyCommand(document, command);
     }
     const sha256 = await boardDocumentSha256(document);
-    if (sha256 !== batch.envelope.expectedDocumentSha256) {
+    const transportSha256 = await digestForEnvelope(
+      document,
+      batch.envelope.schemaVersion,
+    );
+    if (transportSha256 !== batch.envelope.expectedDocumentSha256) {
       throw new SyncRecoveryError(
         "board.sync.sha-mismatch",
         "Контрольная сумма удалённой ревизии не совпадает.",
@@ -702,7 +746,11 @@ export class BoardSyncEngine {
           );
         }
         const sha256 = await boardDocumentSha256(recovery.snapshot.document);
-        if (sha256 !== recovery.snapshot.documentSha256) {
+        const transportSha256 = await digestForSnapshot(
+          recovery.snapshot.document,
+          recovery.snapshot.schemaVersion,
+        );
+        if (transportSha256 !== recovery.snapshot.documentSha256) {
           throw new SyncRecoveryError(
             "board.sync.snapshot-sha-mismatch",
             "Контрольная сумма базового снимка не совпадает.",
@@ -718,14 +766,24 @@ export class BoardSyncEngine {
       }
       head = await applyRemoteBatches(head, recovery.commandBatches);
       if (this.#disposed) return;
-      if (
-        recovery.snapshot !== null &&
-        head.sha256 !== recovery.board.currentDocumentSha256
-      ) {
-        throw new SyncRecoveryError(
-          "board.sync.head-sha-mismatch",
-          "Контрольная сумма актуальной серверной ревизии не совпадает.",
-        );
+      if (recovery.snapshot !== null) {
+        const lastBatch = recovery.commandBatches.at(-1);
+        const serverHeadSha256 =
+          lastBatch === undefined
+            ? await digestForSnapshot(
+                head.document,
+                recovery.snapshot.schemaVersion,
+              )
+            : await digestForEnvelope(
+                head.document,
+                lastBatch.envelope.schemaVersion,
+              );
+        if (serverHeadSha256 !== recovery.board.currentDocumentSha256) {
+          throw new SyncRecoveryError(
+            "board.sync.head-sha-mismatch",
+            "Контрольная сумма актуальной серверной ревизии не совпадает.",
+          );
+        }
       }
       await this.#acknowledgeRemoteDuplicates(recovery.commandBatches);
       if (this.#disposed) return;
