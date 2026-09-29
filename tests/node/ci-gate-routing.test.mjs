@@ -67,6 +67,23 @@ describe("CI gate routing", () => {
     });
   });
 
+  it("routes board document contract changes through browser integrations", () => {
+    expect(routed("src/core/board/document.ts")).toEqual({
+      ...allFalse,
+      coordinate_plot: true,
+      formula_recognition: true,
+      geometryos: true,
+      smart_ink: true,
+    });
+    expect(routed("src/core/board/objects.ts")).toEqual({
+      ...allFalse,
+      coordinate_plot: true,
+      formula_recognition: true,
+      geometryos: true,
+      smart_ink: true,
+    });
+  });
+
   it("routes production container changes independently from coordinate plot", () => {
     expect(routed("Dockerfile")).toEqual({
       ...allFalse,
