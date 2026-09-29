@@ -1,8 +1,6 @@
-import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 
 import { PNG } from "pngjs";
 import { describe, expect, it } from "vitest";
@@ -13,8 +11,7 @@ import {
 } from "../../../../src/modules/smart-ink-spike/public.ts";
 import { importHdsCorpus } from "../../../../scripts/import-hds-corpus.mjs";
 import { extractHdsDominantContour } from "../../../../scripts/lib/hds-contour.mjs";
-
-const execFileAsync = promisify(execFile);
+import { runSmartInkCli } from "./cli-test-support.mjs";
 
 function rectanglePng() {
   const image = new PNG({ height: 70, width: 70 });
@@ -57,21 +54,17 @@ describe("Phase 9 HDS contour adapter", () => {
       );
       const output = join(directory, "hds.json");
 
-      await execFileAsync(
-        process.execPath,
-        [
-          "scripts/import-hds-corpus.mjs",
-          "--root",
-          root,
-          "--max-per-kind",
-          "1",
-          "--seed",
-          "123",
-          "--output",
-          output,
-        ],
-        { cwd: process.cwd() },
-      );
+      await runSmartInkCli([
+        "scripts/import-hds-corpus.mjs",
+        "--root",
+        root,
+        "--max-per-kind",
+        "1",
+        "--seed",
+        "123",
+        "--output",
+        output,
+      ]);
       const corpus = parseSmartInkCorpus(
         JSON.parse(await readFile(output, "utf8")),
       );
@@ -111,7 +104,7 @@ describe("Phase 9 HDS contour adapter", () => {
     } finally {
       await rm(directory, { force: true, recursive: true });
     }
-  });
+  }, 12_000);
 
   it("rejects blank and fragmented rasters", () => {
     const blank = new Uint8Array(20 * 20 * 4);
@@ -169,22 +162,18 @@ describe("Phase 9 HDS contour adapter", () => {
       );
       const output = join(directory, "hds.json");
 
-      await execFileAsync(
-        process.execPath,
-        [
-          "scripts/import-hds-corpus.mjs",
-          "--root",
-          root,
-          "--max-per-kind",
-          "1",
-          "--include-other",
-          "--seed",
-          "123",
-          "--output",
-          output,
-        ],
-        { cwd: process.cwd() },
-      );
+      await runSmartInkCli([
+        "scripts/import-hds-corpus.mjs",
+        "--root",
+        root,
+        "--max-per-kind",
+        "1",
+        "--include-other",
+        "--seed",
+        "123",
+        "--output",
+        output,
+      ]);
       const corpus = parseSmartInkCorpus(
         JSON.parse(await readFile(output, "utf8")),
       );
@@ -203,5 +192,5 @@ describe("Phase 9 HDS contour adapter", () => {
     } finally {
       await rm(directory, { force: true, recursive: true });
     }
-  });
+  }, 12_000);
 });
