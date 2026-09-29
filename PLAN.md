@@ -94,7 +94,8 @@ server-authoritative capability checks и collaboration integration.
 Текущий delivery разделён на три связанных направления:
 
 1. **Pilot Deployment Gate — ближайший critical path**
-   - вернуть TutorBoard и board-profile backend в green state;
+   - сохранить TutorBoard release candidate в green state;
+   - вернуть board-profile backend в green state;
    - завершить минимальный board-only Compose/Caddy contract;
    - поднять один реальный HTTPS-host;
    - выполнить teacher/guest two-browser smoke, reconnect, revoke и API restart;
@@ -160,15 +161,17 @@ ellipse/polygon. BoardDocument schema, command protocol и persistence при э
 
 #### tutor-assistant-web
 
-Board-only composition находится в draft PR #31
-`feat: add strict board-only production profile`. В ветке уже есть
-`APP_PROFILE=board`, minimal board container, standalone routes/access policy,
-board-specific readiness, `compose.board.production.yml` и board Caddy config.
+Board-only composition по-прежнему находится в draft PR #31
+`feat: add strict board-only production profile` в
+`ArtemLevin/tutor-assistant-web`. На проверенном head
+`81501a5ed1f90fc8f35826059dbfdbe9d30a9319` три workflow завершены с
+`failure`: Board profile contract, Production release и CI. PR остаётся
+не mergeable и не является release candidate.
 
-Текущий Board profile contract падает в exact route/provider inventory test на
-`_IncludedRouter` без `.path`; последующие Compose/proxy/redaction checks
-пропускаются. Исправление должно восстановить корректную inspection фактических
-FastAPI routes. Ослабление exact allowlist, `skip` или `xfail` не допускаются.
+Детальная первопричина этих backend failures в рамках PR #133 повторно не
+расследовалась; следующий backend шаг должен начинаться с актуальных job logs
+PR #31. Ослабление exact allowlist, `skip` или `xfail` для достижения
+зелёного CI не допускаются.
 
 ## 4. Целевая Board-only архитектура
 
