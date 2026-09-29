@@ -3,9 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   boardDocument15SchemaVersion,
   createEmptyBoardDocument,
-  type BoardDocument,
-  type BoardDocument15,
 } from "./document";
+import type { BoardDocument, BoardDocument15 } from "./document";
 import { boardObjectId, documentId } from "./identifiers";
 import { migrateBoardDocument14To15 } from "./migrations";
 import {
@@ -13,8 +12,10 @@ import {
   boardObjectKinds15,
   embeddedImageMimeTypes,
   mediaAssetMimeTypes,
-  type EmbeddedImageObject,
-  type MediaAssetObject,
+} from "./objects";
+import type {
+  EmbeddedImageObject,
+  MediaAssetObject,
 } from "./objects";
 import {
   boardDocumentSchema,
@@ -74,16 +75,31 @@ function document15With(object: MediaAssetObject): BoardDocument15 {
   };
 }
 
+function invalidMediaDocument(patch: Record<string, unknown>): unknown {
+  const base = mediaAsset();
+  const object = { ...base, ...patch };
+  return {
+    ...document15With(base),
+    objects: { [base.id]: object },
+  };
+}
+
 describe("BoardDocument 1.5 media asset preparation", () => {
-  it("keeps the active 1.4 object contract unchanged while preparing 1.5", () => {
+  it("keeps the active 1.4 object contract unchanged", () => {
     expect(boardObjectKinds).not.toContain("media.asset");
     expect(boardObjectKinds15).toEqual([...boardObjectKinds, "media.asset"]);
+  });
+
+  it("keeps image.embedded MIME support unchanged", () => {
     expect(embeddedImageMimeTypes).toEqual([
       "image/png",
       "image/jpeg",
       "image/svg+xml",
       "image/gif",
     ]);
+  });
+
+  it("defines the media.asset MIME allowlist", () => {
     expect(mediaAssetMimeTypes).toEqual([
       "image/png",
       "image/jpeg",
@@ -104,38 +120,76 @@ describe("BoardDocument 1.5 media asset preparation", () => {
     ).toBe(false);
   });
 
-  it.each(["dataUrl", "storageKey", "url", "remoteUrl"])(
-    "rejects forbidden media transport field %s",
-    (field) => {
-      const object = { ...mediaAsset(), [field]: "forbidden" };
-      const candidate = {
-        ...document15With(mediaAsset()),
-        objects: { [object.id]: object },
-      };
+  for (const field of ["dataUrl", "storageKey", "url", "remoteUrl"]) {
+    it(`rejects forbidden media transport field ${field}`, () => {
+      expect(
+        boardDocumentSchema15.safeParse(
+          invalidMediaDocument({ [field]: "forbidden" }),
+        ).success,
+      ).toBe(false);
+    });
+  }
 
-      expect(boardDocumentSchema15.safeParse(candidate).success).toBe(false);
-    },
-  );
+  it("rejects zero byte size", () => {
+    expect(
+      boardDocumentSchema15.safeParse(
+        invalidMediaDocument({ byteSize: 0 }),
+      ).success,
+    ).toBe(false);
+  });
 
-  it.each([
-    ["zero bytes", { byteSize: 0 }],
-    ["fractional bytes", { byteSize: 1.5 }],
-    ["unsafe byte count", { byteSize: Number.MAX_SAFE_INTEGER + 1 }],
-    ["invalid asset id", { assetId: "../asset" }],
-    ["uppercase checksum", { contentSha256: "A".repeat(64) }],
-    ["unsupported SVG asset", { mimeType: "image/svg+xml" }],
-    [
-      "oversized intrinsic width",
-      { intrinsicSize: { height: 1, width: 16_385 } },
-    ],
-  ])("rejects %s", (_label, patch) => {
-    const object = { ...mediaAsset(), ...patch };
-    const candidate = {
-      ...document15With(mediaAsset()),
-      objects: { [object.id]: object },
-    };
+  it("rejects fractional byte size", () => {
+    expect(
+      boardDocumentSchema15.safeParse(
+        invalidMediaDocument({ byteSize: 1.5 }),
+      ).success,
+    ).toBe(false);
+  });
 
-    expect(boardDocumentSchema15.safeParse(candidate).success).toBe(false);
+  it("rejects unsafe byte size", () => {
+    expect(
+      boardDocumentSchema15.safeParse(
+        invalidMediaDocument({
+          byteSize: Number.MAX_SAFE_INTEGER + 1,
+        }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("rejects an unsafe asset identifier", () => {
+    expect(
+      boardDocumentSchema15.safeParse(
+        invalidMediaDocument({ assetId: "../asset" }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("rejects an uppercase checksum", () => {
+    expect(
+      boardDocumentSchema15.safeParse(
+        invalidMediaDocument({
+          contentSha256: "A".repeat(64),
+        }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("rejects SVG as an external media asset", () => {
+    expect(
+      boardDocumentSchema15.safeParse(
+        invalidMediaDocument({ mimeType: "image/svg+xml" }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("rejects oversized intrinsic dimensions", () => {
+    expect(
+      boardDocumentSchema15.safeParse(
+        invalidMediaDocument({
+          intrinsicSize: { height: 1, width: 16_385 },
+        }),
+      ).success,
+    ).toBe(false);
   });
 
   it("migrates 1.4 to 1.5 without changing image.embedded", () => {
@@ -160,6 +214,7 @@ describe("BoardDocument 1.5 media asset preparation", () => {
     expect(migrated.ok).toBe(true);
     expect(source.schemaVersion).toBe("1.4");
     if (!migrated.ok) return;
+
     expect(migrated.document.schemaVersion).toBe("1.5");
     expect(migrated.document.objects[object.id]).toEqual(object);
     expect(
@@ -167,7 +222,7 @@ describe("BoardDocument 1.5 media asset preparation", () => {
     ).toBe(true);
   });
 
-  it("does not migrate a structurally valid but semantically invalid 1.4 document", () => {
+  it("rejects migration of a semantically invalid 1.4 document", () => {
     const object: EmbeddedImageObject = {
       ...objectBase(boardObjectId("object:orphan-image")),
       contentSha256: "c".repeat(64),
