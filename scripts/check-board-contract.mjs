@@ -147,6 +147,7 @@ function verifySourceParity() {
     "EllipseObject",
     "EmbeddedImageObject",
     "LineObject",
+    "MediaAssetObject",
     "PenStrokeObject",
     "RectangleObject",
     "SvgObject",
