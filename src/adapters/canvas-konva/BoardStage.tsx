@@ -129,7 +129,9 @@ export type BoardSelectionAreaOperation = "add" | "replace" | "subtract";
 
 export interface SelectionPointerStartSample extends WorldPointerSample {
   readonly additive: boolean;
+  readonly areaOnly?: boolean;
   readonly areaOperation?: BoardSelectionAreaOperation;
+  readonly hitToleranceWorld?: number;
   readonly objectId: BoardObjectId | null;
 }
 
@@ -735,6 +737,7 @@ export function BoardStage({
       event: PointerEvent,
       captureElement: HTMLElement,
       objectId: BoardObjectId | null,
+      areaOnly = false,
     ) => {
       captureElement.setPointerCapture(event.pointerId);
       const session: SelectionSession = {
@@ -747,11 +750,13 @@ export function BoardStage({
       selectionPointerCallbacksRef.current.start({
         ...selectionWorldSample(event, session),
         additive: event.shiftKey,
+        areaOnly,
         areaOperation: event.altKey
           ? "subtract"
           : event.shiftKey
             ? "add"
             : "replace",
+        hitToleranceWorld: 12 / session.viewport.zoom,
         objectId,
       });
     },
@@ -1321,7 +1326,13 @@ export function BoardStage({
     }
     commitWheel();
     event.preventDefault();
-    beginSelectionSession(event.nativeEvent, event.currentTarget, null);
+    beginSelectionSession(
+      event.nativeEvent,
+      event.currentTarget,
+      null,
+      selectionModeKey === "selection.lasso" &&
+        (event.shiftKey || event.altKey),
+    );
   };
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
@@ -1421,7 +1432,12 @@ export function BoardStage({
       }
       const captureElement = stage.container();
       if (selectionModeKey !== null || shouldSelectHitObject) {
-        beginSelectionSession(event.evt, captureElement, hitObjectId);
+        beginSelectionSession(
+          event.evt,
+          captureElement,
+          hitObjectId,
+          isLassoAreaModifier,
+        );
         return;
       }
       captureElement.setPointerCapture(event.evt.pointerId);
