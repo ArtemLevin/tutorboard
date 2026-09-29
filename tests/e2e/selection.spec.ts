@@ -22,10 +22,19 @@ test.beforeEach(async ({ page }) => {
     await page.mouse.down();
     await page.mouse.move(to.x, to.y, { steps: 3 });
     await page.mouse.up();
+    if (tool === "Текст (T)") {
+      const editor = page.getByRole("textbox", {
+        name: "Редактор текста на доске",
+      });
+      await expect(editor).toBeVisible();
+      await editor.press("Control+Enter");
+      await expect(editor).toHaveCount(0);
+    }
   };
   await draw("Прямоугольник (R)", { x: 300, y: 160 }, { x: 400, y: 260 });
   await draw("Эллипс (E)", { x: 500, y: 160 }, { x: 560, y: 220 });
   await draw("Текст (T)", { x: 650, y: 210 });
+  await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
   await page.keyboard.press("v");
 });
 

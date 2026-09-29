@@ -11,6 +11,12 @@ test("edits text as one committed history item", async ({ page }) => {
   expect(bounds).not.toBeNull();
   if (bounds === null) throw new Error("Canvas has no bounds.");
   await page.mouse.click(bounds.x + 320, bounds.y + 240);
+  const placementEditor = page.getByRole("textbox", {
+    name: "Редактор текста на доске",
+  });
+  await expect(placementEditor).toBeVisible();
+  await placementEditor.press("Control+Enter");
+  await expect(placementEditor).toHaveCount(0);
   await page.getByRole("button", { name: "Выделение" }).click();
   await page.getByRole("menuitemradio", { name: "Выделение (V)" }).click();
   const textPoint = { x: bounds.x + 330, y: bounds.y + 250 };

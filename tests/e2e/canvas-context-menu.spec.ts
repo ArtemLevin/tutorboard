@@ -17,6 +17,12 @@ test("uses the empty-canvas context menu for text, paste and clearing", async ({
   await openMenuAt(360, 220);
   await expect(page.getByRole("menuitem", { name: "Вставить" })).toBeDisabled();
   await page.getByRole("menuitem", { name: "Текст" }).click();
+  const textEditor = page.getByRole("textbox", {
+    name: "Редактор текста на доске",
+  });
+  await expect(textEditor).toBeVisible();
+  await textEditor.press("Control+Enter");
+  await expect(textEditor).toHaveCount(0);
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await expect(page.getByTestId("first-object-position")).toHaveText(
     "Объект: 360, 220",

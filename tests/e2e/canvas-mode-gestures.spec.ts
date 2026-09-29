@@ -143,7 +143,13 @@ test("preserves click placement for text tools", async ({ page }) => {
 
   const point = await stagePoint(page, 540, 280);
   await page.mouse.click(point.x, point.y);
-  await page.waitForTimeout(600);
+  const textEditor = page.getByRole("textbox", {
+    name: "Редактор текста на доске",
+  });
+  await expect(textEditor).toBeVisible();
+  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+  await textEditor.press("Control+Enter");
+  await expect(textEditor).toHaveCount(0);
 
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.text");
