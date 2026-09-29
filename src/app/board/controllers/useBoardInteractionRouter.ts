@@ -169,6 +169,7 @@ export function useBoardInteractionRouter({
         eraser.finish(sample);
         return;
       }
+      if (activeTool === "drawing.text") return;
       if (isDrawingToolId(activeTool)) drawing.finish(activeTool, sample);
     },
     [activeTool, drawing, eraser, handwriting, laser],

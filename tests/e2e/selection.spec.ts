@@ -22,10 +22,19 @@ test.beforeEach(async ({ page }) => {
     await page.mouse.down();
     await page.mouse.move(to.x, to.y, { steps: 3 });
     await page.mouse.up();
+    if (tool === "Текст (T)") {
+      const editor = page.getByRole("textbox", {
+        name: "Редактор текста на доске",
+      });
+      await expect(editor).toBeVisible();
+      await editor.press("Control+Enter");
+      await expect(editor).toHaveCount(0);
+    }
   };
   await draw("Прямоугольник (R)", { x: 300, y: 160 }, { x: 400, y: 260 });
   await draw("Эллипс (E)", { x: 500, y: 160 }, { x: 560, y: 220 });
   await draw("Текст (T)", { x: 650, y: 210 });
+  await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
   await page.keyboard.press("v");
 });
 
@@ -101,6 +110,27 @@ test("cancels a marquee preview with Escape", async ({ page }) => {
   await page.keyboard.press("Escape");
   await page.mouse.up();
   await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-selection-mode",
+    "selection.select",
+  );
+});
+
+test("Escape switches a drawing tool to rectangle selection", async ({
+  page,
+}) => {
+  await page.keyboard.press("r");
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-drawing-mode",
+    "drawing.rectangle",
+  );
+
+  await page.keyboard.press("Escape");
+
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-selection-mode",
+    "selection.select",
+  );
 });
 
 test("scales and rotates a selected figure with undo support", async ({
@@ -236,6 +266,35 @@ test("drags a multi-selection from empty space inside its aggregate bounds", asy
   );
 
   await page.keyboard.press("Control+z");
+  await expect(page.getByTestId("first-object-position")).toHaveText(
+    "Объект: 300, 160",
+  );
+});
+
+test("does not move a locked multi-selection from its aggregate gap", async ({
+  page,
+}) => {
+  const rectangle = await stagePoint(page, 320, 180);
+  await page.mouse.click(rectangle.x, rectangle.y);
+  const ellipse = await stagePoint(page, 530, 190);
+  await page.keyboard.down("Shift");
+  await page.mouse.click(ellipse.x, ellipse.y);
+  await page.keyboard.up("Shift");
+  await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
+  const ellipseContour = await stagePoint(page, 551, 169);
+  await rightDoubleClickAt(page, ellipseContour);
+  await page
+    .getByRole("button", { name: "Заблокировать", exact: true })
+    .click();
+
+  const aggregateGap = await stagePoint(page, 450, 200);
+  const finish = await stagePoint(page, 500, 240);
+  await page.mouse.move(aggregateGap.x, aggregateGap.y);
+  await page.mouse.down();
+  await page.mouse.move(finish.x, finish.y, { steps: 5 });
+  await page.mouse.up();
+
+  await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
   await expect(page.getByTestId("first-object-position")).toHaveText(
     "Объект: 300, 160",
   );

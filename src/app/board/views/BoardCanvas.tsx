@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
   BoardStage,
@@ -44,6 +44,56 @@ import type { LaserPointerController } from "../controllers/useLaserPointerContr
 import type { BoardSelectionController } from "../controllers/useBoardSelectionController";
 import type { BoardSolid3DController } from "../controllers/useBoardSolid3DController";
 import type { CoordinatePlotController } from "../controllers/useCoordinatePlotController";
+
+function InlineTextPlacementEditor({
+  onCancel,
+  onChange,
+  onCommit,
+  screenPoint,
+  value,
+}: {
+  readonly onCancel: () => void;
+  readonly onChange: (value: string) => void;
+  readonly onCommit: () => void;
+  readonly screenPoint: Vec2;
+  readonly value: string;
+}) {
+  const cancelOnBlurRef = useRef(false);
+
+  return (
+    <textarea
+      aria-label="Редактор текста на доске"
+      autoFocus
+      className="board-inline-text-editor"
+      data-testid="board-inline-text-editor"
+      maxLength={100_000}
+      onBlur={() => {
+        if (!cancelOnBlurRef.current) onCommit();
+      }}
+      onChange={(event) => onChange(event.currentTarget.value)}
+      onFocus={(event) => event.currentTarget.select()}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          cancelOnBlurRef.current = true;
+          event.preventDefault();
+          event.stopPropagation();
+          onCancel();
+          return;
+        }
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+      rows={2}
+      style={{
+        left: screenPoint.x,
+        top: screenPoint.y,
+      }}
+      value={value}
+    />
+  );
+}
 
 export interface BoardCanvasProps {
   readonly activeTool: ActiveToolId;
@@ -179,6 +229,19 @@ export function BoardCanvas({
     plots.editor === null && isSelectionToolId(activeTool)
       ? selection.transformableObjectIds
       : [];
+  const textPlacement =
+    drawing.state.kind === "placing-text" ? drawing.state : null;
+  const textPlacementScreenPoint =
+    textPlacement === null
+      ? null
+      : {
+          x:
+            textPlacement.position.x * document.viewport.zoom +
+            document.viewport.offset.x,
+          y:
+            textPlacement.position.y * document.viewport.zoom +
+            document.viewport.offset.y,
+        };
 
   const clearCanvas = () => {
     const result = clipboard.clearAll();
@@ -269,6 +332,20 @@ export function BoardCanvas({
         transformableObjectIds={transformableObjectIds}
         wetInkStyle={wetInkStyle}
       />
+      {textPlacement === null || textPlacementScreenPoint === null ? null : (
+        <InlineTextPlacementEditor
+          onCancel={() => {
+            interaction.activate(selectionToolId);
+            announce("Ввод текста отменён");
+          }}
+          onChange={drawing.setTextDraft}
+          onCommit={() => {
+            drawing.commitTextPlacement();
+          }}
+          screenPoint={textPlacementScreenPoint}
+          value={textPlacement.text}
+        />
+      )}
       {contextMenu === null ? null : (
         <CanvasContextMenu
           canClear={document.order.length > 0}

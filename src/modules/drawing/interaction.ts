@@ -100,6 +100,11 @@ export type DrawingAction =
       readonly pointerId: number;
     }
   | {
+      readonly kind: "text-change";
+      readonly pointerId: number;
+      readonly text: string;
+    }
+  | {
       readonly kind: "cancel";
       readonly pointerId?: number;
     };
@@ -444,20 +449,15 @@ function startInteraction(
         style: action.style,
         tool: action.tool,
       });
-    case "drawing.text": {
-      const text = action.text.trim();
-      if (text.length === 0) {
-        return transition(idle, null, "drawing.empty-text");
-      }
+    case "drawing.text":
       return transition({
         kind: "placing-text",
         objectId: action.objectId,
         pointerId: action.pointerId,
         position: action.point,
         style: action.style,
-        text,
+        text: action.text,
       });
-    }
   }
 }
 
@@ -495,6 +495,13 @@ export function reduceDrawingInteraction(
         action.modifiers,
       ),
     });
+  }
+
+  if (action.kind === "text-change") {
+    if (state.kind !== "placing-text" || state.pointerId !== action.pointerId) {
+      return transition(state);
+    }
+    return transition({ ...state, text: action.text });
   }
 
   if (
@@ -546,18 +553,27 @@ export function reduceDrawingInteraction(
         action.modifiers ?? state.modifiers,
       );
       break;
-    case "placing-text":
-      completedObject = {
-        ...userObjectBase(state.objectId, action.point, state.style),
-        kind: "drawing.text",
-        text: state.text,
-      };
+    case "placing-text": {
+      const text = state.text.trim();
+      completedObject =
+        text.length === 0
+          ? null
+          : {
+              ...userObjectBase(state.objectId, action.point, state.style),
+              kind: "drawing.text",
+              text,
+            };
       break;
+    }
   }
 
   return transition(
     idle,
     completedObject,
-    completedObject === null ? "drawing.empty-geometry" : null,
+    completedObject === null
+      ? state.kind === "placing-text"
+        ? "drawing.empty-text"
+        : "drawing.empty-geometry"
+      : null,
   );
 }
