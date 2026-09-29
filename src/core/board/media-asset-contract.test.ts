@@ -13,10 +13,7 @@ import {
   embeddedImageMimeTypes,
   mediaAssetMimeTypes,
 } from "./objects";
-import type {
-  EmbeddedImageObject,
-  MediaAssetObject,
-} from "./objects";
+import type { EmbeddedImageObject, MediaAssetObject } from "./objects";
 import {
   boardDocumentSchema,
   boardDocumentSchema15,
