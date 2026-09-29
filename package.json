@@ -15,7 +15,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b --pretty false",
-    "test": "vitest run",
+    "test": "vitest run --exclude \"tests/performance/**\"",
     "performance": "vitest run tests/performance",
     "plot:production": "vitest run tests/performance/coordinate-plot-production.test.ts tests/integration/coordinate-plot-persistence.test.ts tests/integration/coordinate-plot-sync.test.ts",
     "handwriting:pr1": "vitest run tests/unit/modules/handwritten-function --reporter=verbose",
