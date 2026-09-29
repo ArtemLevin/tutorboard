@@ -27,7 +27,17 @@ export const mediaAssetMimeTypes = [
 
 export type MediaAssetMimeType = (typeof mediaAssetMimeTypes)[number];
 
-export const boardObjectKinds = [...boardObjectKinds14, "media.asset"] as const;
+export const boardObjectKinds = [
+  "drawing.pen-stroke",
+  "drawing.line",
+  "drawing.rectangle",
+  "drawing.ellipse",
+  "drawing.text",
+  "image.embedded",
+  "svg-import.svg",
+  "math.coordinate-plot",
+  "media.asset",
+] as const;
 
 export type BoardObjectKind = (typeof boardObjectKinds)[number];
 
