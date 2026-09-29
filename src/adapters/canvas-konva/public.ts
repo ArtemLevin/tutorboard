@@ -9,6 +9,7 @@ export {
   type BoardSelectionRect,
   type BoardStageProps,
   type SelectionPointerStartSample,
+  type WorldModifierSample,
   type WorldPointerSample,
 } from "./BoardStage";
 export {

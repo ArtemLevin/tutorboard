@@ -10,6 +10,14 @@ export const maximumBoardCollaborationMessageCharacters = 32_768;
 export const maximumBoardCollaborationMessagesPerSecond = 30;
 export const maximumBoardCollaborationParticipants = 200;
 
+// Browser clients may initiate a close with code 1000 or an application code
+// in the 3000-4999 range. Protocol error codes such as 1003, 1008 and 1009
+// are valid on received close frames, but passing them to WebSocket.close()
+// throws a DOMException and prevents the reconnect path from completing.
+const invalidMessageCloseCode = 4400;
+const policyViolationCloseCode = 4408;
+const messageTooLargeCloseCode = 4409;
+
 const identifierSchema = z.string().min(1).max(128);
 const opaqueSecurityValueSchema = z.string().min(8).max(512);
 const protocolVersionSchema = z.enum(["1.0", "1.1"]);
@@ -259,6 +267,7 @@ export class BoardCollaborationClient {
   readonly #previewExpiryTimers = new Map<string, number>();
   #heartbeat: number | null = null;
   #heartbeatAckDeadline: number | null = null;
+  #connectionGeneration = 0;
   #presence: LocalBoardPresence = {};
   #presenceTimer: number | null = null;
   #inkPreviewTimer: number | null = null;
@@ -306,14 +315,17 @@ export class BoardCollaborationClient {
     }
     if (!this.#stopped) return;
     this.#stopped = false;
-    void this.#connect();
+    this.#connectionGeneration += 1;
+    void this.#connect(this.#connectionGeneration);
   }
 
   stop(): void {
     this.#stopped = true;
+    this.#connectionGeneration += 1;
     this.#clearTimers();
-    this.#socket?.close(1000, "Client closed");
+    const socket = this.#socket;
     this.#socket = null;
+    socket?.close(1000, "Client closed");
     this.#participants.clear();
     this.#participantSequences.clear();
     this.#onPresence([]);
@@ -371,11 +383,17 @@ export class BoardCollaborationClient {
     this.#sendTransformPreview(preview);
   }
 
-  async #connect(): Promise<void> {
-    if (this.#stopped || this.#terminalAccessRevoked) return;
+  async #connect(generation: number): Promise<void> {
+    if (
+      this.#stopped ||
+      this.#terminalAccessRevoked ||
+      generation !== this.#connectionGeneration
+    ) {
+      return;
+    }
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       this.#onStatus("offline");
-      this.#scheduleReconnect();
+      this.#scheduleReconnect(generation);
       return;
     }
     this.#onStatus("connecting");
@@ -386,7 +404,13 @@ export class BoardCollaborationClient {
         this.#clientId,
         context.csrfToken,
       );
-      if (this.#stopped || this.#terminalAccessRevoked) return;
+      if (
+        this.#stopped ||
+        this.#terminalAccessRevoked ||
+        generation !== this.#connectionGeneration
+      ) {
+        return;
+      }
       const url = new URL(ticket.websocketPath, this.#origin);
       if (url.origin !== new URL(this.#origin).origin) {
         throw new Error("Collaboration WebSocket must be same-origin.");
@@ -396,14 +420,26 @@ export class BoardCollaborationClient {
       const socket = this.#createWebSocket(url.href, ["tutorboard.v1"]);
       this.#socket = socket;
       socket.addEventListener("message", (event) => {
+        if (
+          this.#socket !== socket ||
+          generation !== this.#connectionGeneration
+        ) {
+          return;
+        }
         if (typeof event.data !== "string") {
-          socket.close(1003, "Text messages required");
+          socket.close(invalidMessageCloseCode, "Text messages required");
           return;
         }
         this.#receive(event.data);
       });
       socket.addEventListener("close", (event) => {
-        if (this.#socket === socket) this.#socket = null;
+        if (
+          this.#socket !== socket ||
+          generation !== this.#connectionGeneration
+        ) {
+          return;
+        }
+        this.#socket = null;
         this.#clearHeartbeat();
         if (event.code === 4403) this.#markAccessRevoked();
         if (!this.#stopped && !this.#terminalAccessRevoked) {
@@ -412,20 +448,33 @@ export class BoardCollaborationClient {
           this.#onPresence([]);
           this.#clearRemotePreviews();
           this.#onStatus("offline");
-          this.#scheduleReconnect();
+          this.#scheduleReconnect(generation);
         }
       });
-      socket.addEventListener("error", () => socket.close());
+      socket.addEventListener("error", () => {
+        if (
+          this.#socket === socket &&
+          generation === this.#connectionGeneration
+        ) {
+          socket.close();
+        }
+      });
     } catch {
-      if (this.#terminalAccessRevoked || this.#stopped) return;
+      if (
+        this.#terminalAccessRevoked ||
+        this.#stopped ||
+        generation !== this.#connectionGeneration
+      ) {
+        return;
+      }
       this.#onStatus("offline");
-      this.#scheduleReconnect();
+      this.#scheduleReconnect(generation);
     }
   }
 
   #receive(raw: string): void {
     if (raw.length > maximumBoardCollaborationMessageCharacters) {
-      this.#socket?.close(1009, "Message too large");
+      this.#socket?.close(messageTooLargeCloseCode, "Message too large");
       return;
     }
     const timestamp = Date.now();
@@ -440,21 +489,21 @@ export class BoardCollaborationClient {
     if (
       this.#receivedMessageCount > maximumBoardCollaborationMessagesPerSecond
     ) {
-      this.#socket?.close(1008, "Message rate exceeded");
+      this.#socket?.close(policyViolationCloseCode, "Message rate exceeded");
       return;
     }
     let value: unknown;
     try {
       value = JSON.parse(raw);
     } catch {
-      this.#socket?.close(1003, "Invalid JSON");
+      this.#socket?.close(invalidMessageCloseCode, "Invalid JSON");
       return;
     }
 
     const changed = accessCapabilitiesChangedSchema.safeParse(value);
     if (changed.success) {
       if (changed.data.boardId !== this.#documentId) {
-        this.#socket?.close(1008, "Room mismatch");
+        this.#socket?.close(policyViolationCloseCode, "Room mismatch");
         return;
       }
       void Promise.resolve()
@@ -469,7 +518,7 @@ export class BoardCollaborationClient {
     const revoked = accessRevokedSchema.safeParse(value);
     if (revoked.success) {
       if (revoked.data.boardId !== this.#documentId) {
-        this.#socket?.close(1008, "Room mismatch");
+        this.#socket?.close(policyViolationCloseCode, "Room mismatch");
         return;
       }
       void Promise.resolve()
@@ -486,7 +535,7 @@ export class BoardCollaborationClient {
         ready.data.documentId !== this.#documentId ||
         ready.data.clientId !== this.#clientId
       ) {
-        this.#socket?.close(1008, "Room mismatch");
+        this.#socket?.close(policyViolationCloseCode, "Room mismatch");
         return;
       }
       this.#onStatus("online");
@@ -502,7 +551,7 @@ export class BoardCollaborationClient {
     const revision = revisionSchema.safeParse(value);
     if (revision.success) {
       if (revision.data.documentId !== this.#documentId) {
-        this.#socket?.close(1008, "Room mismatch");
+        this.#socket?.close(policyViolationCloseCode, "Room mismatch");
         return;
       }
       this.#queueRevision(revision.data.revision);
@@ -526,7 +575,10 @@ export class BoardCollaborationClient {
         previousSequence === undefined &&
         this.#participantSequences.size >= maximumBoardCollaborationParticipants
       ) {
-        this.#socket?.close(1008, "Participant limit exceeded");
+        this.#socket?.close(
+          policyViolationCloseCode,
+          "Participant limit exceeded",
+        );
         return;
       }
       if (presence.data.type === "presence.left") {
@@ -542,7 +594,10 @@ export class BoardCollaborationClient {
           !this.#participants.has(presence.data.clientId) &&
           this.#participants.size >= maximumBoardCollaborationParticipants
         ) {
-          this.#socket?.close(1008, "Participant limit exceeded");
+          this.#socket?.close(
+            policyViolationCloseCode,
+            "Participant limit exceeded",
+          );
           return;
         }
         const previous = this.#participants.get(presence.data.clientId);
@@ -608,7 +663,10 @@ export class BoardCollaborationClient {
       const previous = this.#inkPreviews.get(key);
       const style = event.style ?? previous?.style;
       if (style === undefined) {
-        this.#socket?.close(1003, "Ink preview style missing");
+        this.#socket?.close(
+          invalidMessageCloseCode,
+          "Ink preview style missing",
+        );
         return;
       }
       this.#inkPreviews.set(key, {
@@ -663,7 +721,7 @@ export class BoardCollaborationClient {
       this.#clearHeartbeatAckDeadline();
       return;
     }
-    this.#socket?.close(1003, "Unsupported message");
+    this.#socket?.close(invalidMessageCloseCode, "Unsupported message");
   }
 
   #markAccessRevoked(): void {
@@ -808,10 +866,11 @@ export class BoardCollaborationClient {
     );
   }
 
-  #scheduleReconnect(): void {
+  #scheduleReconnect(generation: number): void {
     if (
       this.#stopped ||
       this.#terminalAccessRevoked ||
+      generation !== this.#connectionGeneration ||
       this.#reconnect !== null
     ) {
       return;
@@ -821,7 +880,7 @@ export class BoardCollaborationClient {
     this.#reconnectAttempt = Math.min(this.#reconnectAttempt + 1, 10);
     this.#reconnect = window.setTimeout(() => {
       this.#reconnect = null;
-      void this.#connect();
+      void this.#connect(generation);
     }, delay);
   }
 

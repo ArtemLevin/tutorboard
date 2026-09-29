@@ -10,9 +10,11 @@ import {
   reduceBoardDocument,
   serializeBoardDocument,
 } from "../../../../src/core/public";
+import { noInputModifiers } from "../../../../src/shared/input-modifiers";
 import {
   createAddDrawingObjectCommand,
   drawingStyleDefaults,
+  getDrawingConstraintFeedback,
   getDrawingPreview,
   reduceDrawingInteraction,
   simplifyStroke,
@@ -207,6 +209,62 @@ describe("drawing interaction state machine", () => {
       state: idle,
     });
     expect(getDrawingPreview(cancelled.state)).toBeNull();
+  });
+
+  it("recomputes a shape immediately when Shift changes mid-gesture", () => {
+    const started = reduceDrawingInteraction(idle, {
+      kind: "start",
+      objectId: boardObjectId("object:late-shift-line"),
+      point: { x: 0, y: 0 },
+      pointerId: 21,
+      style: styleFor("drawing.line"),
+      text: "",
+      tool: "drawing.line",
+    });
+    const moved = reduceDrawingInteraction(started.state, {
+      kind: "move",
+      point: { x: 90, y: 70 },
+      pointerId: 21,
+    });
+    const rawPreview = getDrawingPreview(moved.state);
+    expect(rawPreview).toMatchObject({
+      end: { x: 90, y: 70 },
+      kind: "drawing.line",
+    });
+    expect(getDrawingConstraintFeedback(moved.state)).toBeNull();
+
+    const constrained = reduceDrawingInteraction(moved.state, {
+      kind: "modifiers",
+      modifiers: { ...noInputModifiers, shift: true },
+      pointerId: 21,
+    });
+    const constrainedPreview = getDrawingPreview(constrained.state);
+    expect(constrainedPreview).not.toEqual(rawPreview);
+    expect(getDrawingConstraintFeedback(constrained.state)).toMatchObject({
+      angleDegrees: 45,
+      kind: "angle",
+    });
+
+    const released = reduceDrawingInteraction(constrained.state, {
+      kind: "modifiers",
+      modifiers: noInputModifiers,
+      pointerId: 21,
+    });
+    expect(getDrawingPreview(released.state)).toEqual(rawPreview);
+
+    const constrainedAgain = reduceDrawingInteraction(released.state, {
+      kind: "modifiers",
+      modifiers: { ...noInputModifiers, shift: true },
+      pointerId: 21,
+    });
+    const finalPreview = getDrawingPreview(constrainedAgain.state);
+    const completed = reduceDrawingInteraction(constrainedAgain.state, {
+      kind: "finish",
+      point: { x: 90, y: 70 },
+      pointerId: 21,
+    });
+    expect(completed.completedObject).toEqual(finalPreview);
+    expect(completed.state).toEqual(idle);
   });
 
   it("ignores a different pointer and rejects empty geometry", () => {

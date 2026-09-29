@@ -14,7 +14,7 @@ export const lassoSelectionTool = {
   icon: "⌁",
   id: lassoSelectionToolId,
   label: "Лассо",
-  shortcut: "L",
+  shortcut: "Shift+V",
 } as const;
 
 export type SelectionToolId =

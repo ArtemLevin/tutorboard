@@ -1,10 +1,10 @@
 # TutorBoard — текущее состояние проекта
 
-**Дата среза:** 10.08.2026  
+**Дата среза:** 29.09.2026  
 **Репозиторий:** `ArtemLevin/tutorboard`  
 **Ветка:** `main`  
-**Текущий HEAD:** `133958596dec64ad597614acb597b7ae165d9e91`  
-**Последняя поставка:** PR #109 — `3D-4D: finalize merged 3D-4 release hardening`
+**Срез поставки:** PR #133 — `Input Foundation + Shape Constraints`  
+**Последняя поставка текущего среза:** PR #133 — `feat: harden board input and Shift shape constraints`
 
 ---
 
@@ -88,35 +88,33 @@ npm run check
 
 ## 3. Текущее состояние `main`
 
-На момент среза открытых pull request нет.
-
-Последняя последовательность крупных поставок:
+Текущий delivery-срез включает следующие последующие поставки:
 
 | PR | Назначение | Состояние |
 |---|---|---|
-| #100 | Smart Ink: прямые стороны распознанного треугольника | merged |
-| #101 | удаление иконки «Фигуры» из toolbar | merged |
-| #102 | durability, sync integrity, strict inequality boundaries, 3D semantics | merged |
-| #103 | расширение semantic 3D geometry kernel | merged |
-| #104 | semantic interaction для analytic 3D surfaces | merged |
-| #105 | parametric editing 3D-тел и stable topology anchors | merged |
-| #106 | persistent model rotation и semantic highlights | merged |
-| #107 | Construction Studio и параметризованные 3D-запросы | merged |
-| #108 | generalized constrained section workflow | merged |
-| #109 | release hardening 3D-4 | merged |
+| #110 | critical sync/security hardening | merged |
+| #111 | декомпозиция App orchestration | merged |
+| #112 | precision-first Smart Ink 2.0 | merged |
+| #113 | production-ready realtime collaboration | merged |
+| #114 | board bootstrap и remote sync hardening | merged |
+| #116–#121 | standalone board contracts, security architecture, launch, teacher workspace и test hardening | merged |
+| #123 | board-only production-plan frontend foundation | merged |
+| #125 | standalone access convergence hardening | merged |
+| #126–#129 | board export UX и fidelity hardening | merged |
+| #131 | controlled-pilot teacher/guest E2E | merged |
+| #133 | Input Foundation + Shape Constraints | текущая поставка |
 
-Последний commit:
-
-```text
-133958596dec64ad597614acb597b7ae165d9e91
-3D-4D: finalize merged 3D-4 release hardening (#109)
-```
+PR #132 остаётся отдельным параллельным PR и не является источником истины для
+этого среза. Фактический interaction baseline определяется PR #133 и его
+проверенным diff.
 
 ---
 
 ## 4. CI/CD и release gates
 
-Для текущего HEAD успешно завершены основные workflow.
+Для release candidate PR #133 после final self-review успешно завершаются
+основные workflow; после merge этот набор проверок является release evidence
+для соответствующего состояния `main`.
 
 ### CI
 
@@ -305,6 +303,44 @@ Arrow recognizer запускается после основного primitive 
 Базовые фигуры продолжают существовать в drawing/domain модели и доступны соответствующим пользовательским сценариям и shortcut workflow.
 
 ---
+
+
+### 7.1. Input Foundation + Shape Constraints — 29.09.2026
+
+PR #133 вводит единый interaction contract для solo board workflow:
+
+- централизованный shortcut registry и collision test;
+- `L` — линия, `V` — selection, `Shift+V` — lasso;
+- tool shortcuts используют физический `KeyboardEvent.code`, поэтому не
+  зависят от русской/английской раскладки;
+- `1..5` переключают пять основных цветов активного drawing tool;
+- modifier state (`Shift/Alt/Ctrl/Meta`) проходит через canvas adapter →
+  interaction router → drawing controller → deterministic reducer;
+- late `Shift` пересчитывает preview без дополнительного движения указателя;
+- линия фиксируется с шагом 15° и hysteresis 2°;
+- rectangle + Shift → square;
+- ellipse + Shift → circle;
+- polygon + Shift → equal radii;
+- preview и committed geometry используют один constraint resolver;
+- transient constraint feedback не сохраняется в BoardDocument и не попадает в
+  export/persistence.
+
+Совместимость сохранена:
+
+```text
+BoardDocument schema     unchanged
+command protocol         unchanged
+IndexedDB persistence    unchanged
+server API / WebSocket   unchanged
+export formats           unchanged
+```
+
+Следующий UX scope:
+
+1. partial vector eraser;
+2. forgiving hit testing;
+3. перенос multi-selection за общую padded область;
+4. при необходимости отдельные browser interaction-performance budgets.
 
 ## 8. GeometryOS integration
 
@@ -798,8 +834,8 @@ preview → explicit save → active selection → project to board
 ```text
 repository: ArtemLevin/tutorboard
 branch: main
-head: 133958596dec64ad597614acb597b7ae165d9e91
-state date: 2026-08-10
+delivery reference: PR #133
+state date: 2026-09-29
 ```
 
 Перед следующими крупными изменениями рекомендуется сверять HEAD с этим документом и обновлять разделы состояния при существенном изменении архитектуры, schema version, release gates или UX contract.

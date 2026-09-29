@@ -527,6 +527,7 @@ export function App({
     closeSettings: () => setSettingsOpen(false),
     closeShortcuts,
     documentController,
+    drawing,
     geometryOpen: geometry.open,
     handwriting,
     handwrittenFunctionsEnabled: environment.features.handwrittenFunctions,

@@ -177,6 +177,8 @@ export function SyncedApp({
   const [state, setState] = useState<BoardSyncState>({ kind: "bootstrapping" });
   const [collaborationStatus, setCollaborationStatus] =
     useState<BoardCollaborationStatus>("connecting");
+  const [collaborationAccessReady, setCollaborationAccessReady] =
+    useState(false);
   const [participants, setParticipants] = useState<readonly BoardPresence[]>(
     [],
   );
@@ -207,6 +209,7 @@ export function SyncedApp({
   const loadMeasuredRef = useRef(false);
   const previousCollaborationStatusRef =
     useRef<BoardCollaborationStatus>("connecting");
+  const refreshAccessAfterCollaborationOfflineRef = useRef(false);
   const [originId] = useState(collaborationOriginId);
   const [engine] = useState(
     () =>
@@ -302,7 +305,10 @@ export function SyncedApp({
         onInkPreviews: setInkPreviews,
         onPresence: setParticipants,
         onRevision: () => void engine.synchronize(),
-        onStatus: setCollaborationStatus,
+        onStatus: (status) => {
+          if (status !== "online") setCollaborationAccessReady(false);
+          setCollaborationStatus(status);
+        },
         onTransformPreviews: setTransformPreviews,
         repository,
       }),
@@ -312,6 +318,43 @@ export function SyncedApp({
     collaboration.setAccessEventHandler(handleAccessEvent);
     return () => collaboration.setAccessEventHandler(() => undefined);
   }, [collaboration, handleAccessEvent]);
+
+  useEffect(() => {
+    if (collaborationStatus === "offline") {
+      refreshAccessAfterCollaborationOfflineRef.current = true;
+      return;
+    }
+    if (collaborationStatus !== "online") {
+      return;
+    }
+    if (
+      !refreshAccessAfterCollaborationOfflineRef.current ||
+      refreshAccessContext === undefined
+    ) {
+      setCollaborationAccessReady(true);
+      return;
+    }
+    refreshAccessAfterCollaborationOfflineRef.current = false;
+    const previousAccessEpoch = currentAccessContextRef.current?.accessEpoch;
+    void refreshStandaloneAccess()
+      .then((context) => {
+        if (
+          previousAccessEpoch !== undefined &&
+          context.accessEpoch !== previousAccessEpoch
+        ) {
+          collaboration.stop();
+          collaboration.start();
+          return;
+        }
+        setCollaborationAccessReady(true);
+      })
+      .catch(() => setCollaborationAccessReady(false));
+  }, [
+    collaboration,
+    collaborationStatus,
+    refreshAccessContext,
+    refreshStandaloneAccess,
+  ]);
 
   useEffect(() => {
     bootstrapStartedRef.current = performance.now();
@@ -325,7 +368,22 @@ export function SyncedApp({
       await engine.bootstrap();
     };
     void bootstrap().catch(() => void engine.bootstrap());
-    const reconnect = () => void engine.setNetworkAvailable(true);
+    const reconnect = () => {
+      if (refreshAccessContext === undefined) {
+        void engine.setNetworkAvailable(true).then(() => {
+          collaboration.stop();
+          collaboration.start();
+        });
+        return;
+      }
+      void refreshStandaloneAccess()
+        .then(() => engine.setNetworkAvailable(true))
+        .then(() => {
+          collaboration.stop();
+          collaboration.start();
+        })
+        .catch(() => undefined);
+    };
     const disconnect = () => void engine.setNetworkAvailable(false);
     window.addEventListener("online", reconnect);
     window.addEventListener("offline", disconnect);
@@ -334,7 +392,15 @@ export function SyncedApp({
       window.removeEventListener("offline", disconnect);
       engine.dispose();
     };
-  }, [documentId, engine, lessonId, repository]);
+  }, [
+    documentId,
+    collaboration,
+    engine,
+    lessonId,
+    refreshAccessContext,
+    refreshStandaloneAccess,
+    repository,
+  ]);
 
   const ready = state.kind === "ready";
   const collaborationEnabled =
@@ -491,6 +557,7 @@ export function SyncedApp({
 
   const writeEnabled =
     accessRefreshStatus === "idle" &&
+    (accessContext === undefined || collaborationAccessReady) &&
     state.capabilities.includes("board.write");
   const canManageEvidence =
     lessonId !== undefined &&
@@ -718,7 +785,7 @@ export function SyncedApp({
               <p>Режим только для чтения</p>
             ) : null}
             <p>
-              {collaborationStatus === "online"
+              {collaborationStatus === "online" && collaborationAccessReady
                 ? `В комнате ${participants.length + 1}`
                 : collaborationStatus === "connecting"
                   ? "Подключение к комнате…"

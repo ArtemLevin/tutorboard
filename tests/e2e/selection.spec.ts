@@ -238,7 +238,7 @@ test("chooses all eight line styles from a popover", async ({ page }) => {
 
 test("selects selectively with a freeform lasso", async ({ page }) => {
   await page.getByRole("button", { name: "Выделение" }).click();
-  await page.getByRole("menuitemradio", { name: "Лассо (L)" }).click();
+  await page.getByRole("menuitemradio", { name: "Лассо (Shift+V)" }).click();
   const traceLasso = async (
     points: readonly (readonly [number, number])[],
     modifier?: "Alt" | "Shift",
