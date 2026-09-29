@@ -33,6 +33,15 @@ describe("CI gate routing", () => {
     ).toBe(true);
   });
 
+  it("routes shared canvas changes to every browser integration that depends on it", () => {
+    expect(routed("src/adapters/canvas-konva/BoardStage.tsx")).toEqual({
+      ...allFalse,
+      coordinate_plot: true,
+      formula_recognition: true,
+      geometryos: true,
+    });
+  });
+
   it("routes production container changes independently from coordinate plot", () => {
     expect(routed("Dockerfile")).toEqual({
       ...allFalse,
@@ -48,13 +57,17 @@ describe("CI gate routing", () => {
     });
   });
 
-  it("routes Smart Ink ownership and composition changes", () => {
+  it("routes Smart Ink ownership and high-fan-out composition changes", () => {
     expect(routed("src/modules/smart-ink/v2/recognizer.ts").smart_ink).toBe(
       true,
     );
-    expect(routed("src/app/board-chrome/BoardToolDock.tsx").smart_ink).toBe(
-      true,
-    );
+    expect(routed("src/app/board-chrome/BoardToolDock.tsx")).toEqual({
+      ...allFalse,
+      coordinate_plot: true,
+      formula_recognition: true,
+      geometryos: true,
+      smart_ink: true,
+    });
   });
 
   it("routes formula recognition adapter changes", () => {
