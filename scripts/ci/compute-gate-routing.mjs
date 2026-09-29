@@ -23,6 +23,7 @@ const globalRiskFiles = new Set([
 const geometryOsPrefixes = [
   "tools/geometryos-contract/",
   "src/adapters/geometryos-http/",
+  "src/adapters/canvas-konva/",
   "tests/live/",
 ];
 
@@ -40,6 +41,7 @@ const smartInkPrefixes = [
 ];
 
 const formulaRecognitionPrefixes = [
+  "src/adapters/canvas-konva/",
   "src/adapters/math-ink-http/",
   "src/modules/handwritten-function/",
   "services/math-ink-proxy/",
