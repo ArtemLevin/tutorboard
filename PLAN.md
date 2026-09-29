@@ -84,6 +84,8 @@ TutorBoard разворачивается как самостоятельный 
 | Export hardening | DONE | PR #126–#129: full-content/high-fidelity PNG/PDF/SVG workflow |
 | Controlled pilot E2E | DONE | PR #131: teacher/guest controlled-pilot browser scenario |
 | Board input comfort | DONE | PR #133: centralized shortcuts, layout-independent tool keys, late-Shift modifier pipeline и shape constraints |
+| Partial eraser + forgiving selection | DONE | PR #134: vector partial eraser, proximity selection и aggregate-bounds drag |
+| Live text + Escape comfort | DONE | PR #135: transient inline text editing, Escape→selection и locked-selection move hardening |
 
 T1/T2 standalone flow уже поддерживает teacher management и guest-link launch.
 Backend B1/B2 уже содержит standalone persistence, invitation/session model,
@@ -1303,7 +1305,93 @@ Production apply запрещён до закрытия P0/P1 production release
 staging preflight и свежего isolated restore drill. Pilot-specific упрощения не
 переносятся в production по умолчанию.
 
-## 26. Критерий выбора следующей задачи
+## 26. Board media assets — implementation-ready track
+
+Архитектура больших и URL-import media определена в
+`docs/adr/ADR-032-board-media-assets.md`. Главный инвариант: binary media не
+попадает в BoardCommand, durable pending queue, PostgreSQL command journal или
+BoardSnapshot. Существующий `image.embedded` сохраняется для совместимости.
+
+Фактический root cause текущего лимита:
+
+```text
+local picker                  8 MiB
+embedded dataUrl schema      12 MiB
+BoardCommand JSON codec       2 MiB  <- sync blocker
+backend command request       5 MiB default
+.tutorboard.json import      10 MiB
+```
+
+Поднятие только числовых лимитов запрещено как решение media milestone.
+
+### M1 — contract foundation
+
+- добавить `media.asset` с immutable `assetId/contentSha256/byteSize/mimeType`;
+- BoardDocument/BoardSnapshot → следующая schema revision;
+- ordered command envelope → следующая compatible revision;
+- сохранить чтение существующих `image.embedded` и старых envelope;
+- оставить BoardCommand JSON limit 2 MiB.
+
+Exit: большие media bytes отсутствуют в serialized add/paste command.
+
+### M2 — backend media authority
+
+В `tutor-assistant-web`:
+
+- отдельная `BoardMediaAsset` persistence model с FK на board;
+- private tenant-prefixed storage через существующий ArtifactStorage/S3;
+- upload API с board.write + CSRF/access-epoch;
+- content API с board.read, ETag/nosniff;
+- Range/206 storage/read path для MP4;
+- server-side checksum/MIME/size/image-complexity validation;
+- GIF MIME support в artifact detector;
+- conditional ClamAV gate при включённом board media;
+- command-commit validation всех `media.asset` references;
+- quotas/rate limits и board-retention lifecycle.
+
+Exit: forged/cross-board/quarantined asset refs не могут стать accepted revision.
+
+### M3 — TutorBoard image/GIF asset path
+
+- `BoardMediaRepository` + resolver port;
+- upload-before-command orchestration;
+- `media.asset` renderer для PNG/JPEG/GIF;
+- large file path выше embedded-safe sync threshold;
+- legacy small/local `image.embedded` path остаётся;
+- Chromium/Firefox + reconnect/rebase regression coverage.
+
+Initial deployment defaults: 32 MiB для PNG/JPEG/GIF. Лимит конфигурационный.
+
+### M4 — direct HTTPS URL import + MP4
+
+- direct HTTPS media URL → hardened backend fetch → owned immutable asset;
+- SSRF deny policy для private/loopback/link-local/IPv6 + redirect revalidation;
+- streamed size/time limits и MIME signature validation;
+- MP4 asset до initial 128 MiB configurable limit;
+- local/ephemeral play/pause/seek state;
+- provider pages/iframe/YouTube/Vimeo не входят в этот milestone.
+
+Exit: внешний origin после import больше не участвует в rendering path.
+
+### M5 — portability
+
+- новый portable TutorBoard bundle: `document.json + manifest + assets/*`;
+- legacy `.tutorboard.json` остаётся для self-contained embedded documents;
+- asset-backed board нельзя молча экспортировать как «полный» JSON без bytes;
+- bundle round-trip и integrity checks.
+
+### M6 — optional offline staging
+
+Первый media release требует сеть для первоначального большого upload/URL
+import. После успешного upload обычная command queue сохраняет текущие offline
+гарантии. Durable IndexedDB blob staging добавляется отдельным increment только
+после M1–M5.
+
+Media track может выполняться параллельно Pilot Deployment Gate при условии, что
+он не расширяет pilot public surface до прохождения собственных security,
+storage и browser gates.
+
+## 27. Критерий выбора следующей задачи
 
 При конфликте backlog priorities:
 
