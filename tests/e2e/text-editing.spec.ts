@@ -32,7 +32,6 @@ test("edits text as one committed history item", async ({ page }) => {
   ).toHaveValue("Before");
 });
 
-
 test("edits a new text draft directly on the board before one-step commit", async ({
   page,
 }) => {
