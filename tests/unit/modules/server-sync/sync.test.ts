@@ -368,7 +368,6 @@ describe("BoardSyncEngine", () => {
     expect(states.at(-1)).not.toMatchObject({ confirmedSha256: legacySha256 });
   });
 
-
   it("creates a revision-zero snapshot and confirms queued commands", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     const repository = new FakeRepository();
