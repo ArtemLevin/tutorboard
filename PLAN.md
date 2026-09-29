@@ -906,7 +906,16 @@ CONTROLLED PILOT LESSON
 
 ### 18.6. P1 — TutorBoard quality gate
 
-Исправить known Prettier drift после PR #123 и выполнить:
+**Source gate: DONE** на текущем frontend baseline
+`c0bf5ba6193972a77d3cdc5b09352a5e27b15066`.
+
+На этом SHA green: Quality gate, Board-only frontend profile, GeometryOS live
+browser contract, Coordinate Plot production gate, Chromium/Firefox browser
+smoke, Production image, Smart Ink production gate, Formula Recognition gate и
+Paddle sidecar gate.
+
+Перед конкретным pilot deployment pinned frontend SHA всё равно проходит
+explicit release verification:
 
 ```text
 npm run format:check
@@ -919,7 +928,8 @@ npm run build
 npm run check
 ```
 
-Exit criterion: свежий полный quality gate green на pilot frontend SHA.
+Exit criterion: свежий полный quality gate green именно на SHA, записываемом в
+Pilot Release Manifest.
 
 #### 18.6.1. Frontend CI routing invariant
 
@@ -947,16 +957,24 @@ routing contract в `main`; security threshold при этом не ослабл
 
 ### 18.7. P2/P3 — backend board profile gate
 
-Исправить exact route inventory failure PR #31 и получить green:
+**Source gates: DONE.** Актуальная реализация находится в
+`tutor-assistant-web/main`, а старый draft PR #31 больше не определяет
+состояние проекта.
 
-- board profile contract;
-- exact router/provider inventories;
-- board-only Compose validation;
-- Caddy routing/default-deny contract;
-- invitation/WS sentinel redaction checks.
+Проверенный release candidate
+`c2aa42927104510fc802d7dffc28a36872b29880` завершил успешно:
 
-Exit criterion: `APP_PROFILE=board` запускается без full-only routes/providers и
-имеет доказанный public surface.
+- CI;
+- Production release;
+- TutorBoard standalone release.
+
+В `main` присутствуют board profile contract, exact router/provider
+inventories, board-only Compose, Caddy/default-deny configuration, secret-safe
+release tooling и immutable TutorBoard pin.
+
+Exit criterion для конкретного pilot deployment: эти gates должны быть повторно
+green на pinned backend SHA из Pilot Release Manifest; затем работа переходит к
+P4/P5 real-host bootstrap.
 
 ### 18.8. P4/P5 — реальный host и data bootstrap
 
