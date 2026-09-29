@@ -124,7 +124,10 @@ describe("BoardDocument 1.5 media asset preparation", () => {
     ["invalid asset id", { assetId: "../asset" }],
     ["uppercase checksum", { contentSha256: "A".repeat(64) }],
     ["unsupported SVG asset", { mimeType: "image/svg+xml" }],
-    ["oversized intrinsic width", { intrinsicSize: { height: 1, width: 16_385 } }],
+    [
+      "oversized intrinsic width",
+      { intrinsicSize: { height: 1, width: 16_385 } },
+    ],
   ])("rejects %s", (_label, patch) => {
     const object = { ...mediaAsset(), ...patch };
     const candidate = {
@@ -159,7 +162,9 @@ describe("BoardDocument 1.5 media asset preparation", () => {
     if (!migrated.ok) return;
     expect(migrated.document.schemaVersion).toBe("1.5");
     expect(migrated.document.objects[object.id]).toEqual(object);
-    expect(boardDocumentSchema15.safeParse(migrated.document).success).toBe(true);
+    expect(
+      boardDocumentSchema15.safeParse(migrated.document).success,
+    ).toBe(true);
   });
 
   it("does not migrate a structurally valid but semantically invalid 1.4 document", () => {
