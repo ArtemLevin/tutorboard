@@ -1102,10 +1102,11 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 
 ## Artifacts
 
-- \`BoardDocument 1.4\` is the canonical persisted board state.
-- \`BoardCommandEnvelope 1.5\` carries one atomic, idempotent command batch
+- \`BoardDocument 1.5\` is the canonical persisted board state and supports
+  metadata-only \`media.asset\` references.
+- \`BoardCommandEnvelope 1.6\` carries one atomic, idempotent command batch
   against a known base revision.
-- \`BoardSnapshot 1.4\` binds a canonical document to a server revision and
+- \`BoardSnapshot 1.5\` binds a canonical document to a server revision and
   SHA-256 digest.
 - \`BoardGeometryImport 1.1\` records GeometryOS GIR/Layout provenance without
   adding transport state to \`BoardDocument\`.
@@ -1136,11 +1137,13 @@ const compatibility = `# Board command compatibility
 | Atomic Smart Ink acceptance | \`core.objects.replace\` | This release+ | board/v1 with replace support |
 | Semantic 3D solids | \`core.solid-3d.*\` | BoardDocument 1.3+ | board/v1.3 reader |
 | 3D learning attempts | \`core.solid-3d-learning.*\` | BoardDocument 1.4+ | board/v1.4 reader |
+| Media asset references | object-bearing \`core.*\` commands | BoardDocument 1.5+ | board/v1.5 reader; persistence gated until media authority |
 
 \`core.objects.replace\` carries complete original and replacement snapshots.
 Older strict readers reject this command explicitly. Deployments using server
 sync must update the board/v1 reader before enabling Smart Ink for shared
-boards.
+boards. \`media.asset\` metadata is contract-readable in this release, while
+server persistence rejects it until board media authority is deployed.
 `;
 
 function canonicalJson(value) {
