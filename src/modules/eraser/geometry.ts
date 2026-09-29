@@ -55,7 +55,11 @@ function normalizePath(points: readonly Vec2[]): readonly Vec2[] {
   return result;
 }
 
-function pointToSegmentDistance(point: Vec2, start: Vec2, finish: Vec2): number {
+function pointToSegmentDistance(
+  point: Vec2,
+  start: Vec2,
+  finish: Vec2,
+): number {
   const dx = finish.x - start.x;
   const dy = finish.y - start.y;
   const lengthSquared = dx * dx + dy * dy;
