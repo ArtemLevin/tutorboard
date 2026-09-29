@@ -196,7 +196,7 @@ export interface BoardStageProps {
   readonly onSelectionPointerMove: (sample: WorldPointerSample) => void;
   readonly onSelectionPointerStart: (
     sample: SelectionPointerStartSample,
-  ) => void;
+  ) => boolean | void;
   readonly onSelectionTransform?: (
     transforms: readonly BoardObjectTransformSnapshot[],
   ) => void;
@@ -751,7 +751,7 @@ export function BoardStage({
       };
       selectionSessionRef.current = session;
       setIsSelecting(true);
-      selectionPointerCallbacksRef.current.start({
+      const consumed = selectionPointerCallbacksRef.current.start({
         ...selectionWorldSample(event, session),
         additive: event.shiftKey,
         areaOnly,
@@ -763,6 +763,9 @@ export function BoardStage({
         hitToleranceWorld: 12 / session.viewport.zoom,
         objectId,
       });
+      if (consumed === true) {
+        primaryCanvasPointerCandidateRef.current = null;
+      }
     },
     [previewViewport, selectionWorldSample],
   );
