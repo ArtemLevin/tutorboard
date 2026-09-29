@@ -55,7 +55,7 @@ export function useBoardDrawingController({
   const [diagnostic, setDiagnostic] = useState<string | null>(null);
   const [smartInkNotice, setSmartInkNotice] = useState<string | null>(null);
   const recentSmartInkObjectIdsRef = useRef<BoardObjectId[]>([]);
-  const [textDraft, setTextDraft] = useState("Новый текст");
+  const [textDraft, setTextDraftState] = useState("Новый текст");
   const { styleFor, updateStyle } = useDrawingToolPreferences();
 
   const preview = useMemo(() => getDrawingPreview(state), [state]);
@@ -156,6 +156,20 @@ export function useBoardDrawingController({
       createCommandMetadata,
       getDocument,
     ],
+  );
+
+  const setTextDraft = useCallback(
+    (value: string) => {
+      setTextDraftState(value);
+      const current = stateRef.current;
+      if (current.kind !== "placing-text") return;
+      applyAction({
+        kind: "text-change",
+        pointerId: current.pointerId,
+        text: value,
+      });
+    },
+    [applyAction],
   );
 
   const start = useCallback(
@@ -268,32 +282,38 @@ export function useBoardDrawingController({
     [applyAction],
   );
 
+  const commitTextPlacement = useCallback(() => {
+    const current = stateRef.current;
+    if (current.kind !== "placing-text") return false;
+    const finished = reduceDrawingInteraction(current, {
+      kind: "finish",
+      point: current.position,
+      pointerId: current.pointerId,
+    });
+    stateRef.current = finished.state;
+    setState(finished.state);
+    setDiagnostic(finished.diagnostic);
+    if (finished.completedObject === null) return false;
+    if (!commitObject(finished.completedObject).ok) return false;
+    onTextInserted(finished.completedObject.id);
+    announce("Текст добавлен");
+    return true;
+  }, [announce, commitObject, onTextInserted]);
+
   const insertTextAt = useCallback(
     (point: Vec2) => {
-      const pointerId = 0;
-      const started = reduceDrawingInteraction(initialDrawingState, {
+      if (stateRef.current.kind !== "idle") cancel();
+      applyAction({
         kind: "start",
         objectId: boardObjectId(`object:${crypto.randomUUID()}`),
         point,
-        pointerId,
+        pointerId: 0,
         style: styleFor("drawing.text"),
         text: textDraft,
         tool: "drawing.text",
       });
-      const finished = reduceDrawingInteraction(started.state, {
-        kind: "finish",
-        point,
-        pointerId,
-      });
-      if (finished.completedObject === null) {
-        setDiagnostic(finished.diagnostic);
-        return;
-      }
-      if (!commitObject(finished.completedObject).ok) return;
-      onTextInserted(finished.completedObject.id);
-      announce("Текст добавлен");
     },
-    [announce, commitObject, onTextInserted, styleFor, textDraft],
+    [applyAction, cancel, styleFor, textDraft],
   );
 
   const resetSmartInkSession = useCallback(() => {
@@ -305,6 +325,7 @@ export function useBoardDrawingController({
 
   return {
     cancel,
+    commitTextPlacement,
     constraintFeedback,
     diagnostic,
     finish,
