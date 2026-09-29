@@ -90,9 +90,7 @@ describe("vector partial eraser", () => {
         );
       }
       expect(
-        fragmentSamples.every(
-          ({ pressure }) => pressure >= 0 && pressure <= 1,
-        ),
+        fragmentSamples.every(({ pressure }) => pressure >= 0 && pressure <= 1),
       ).toBe(true);
     }
   });
