@@ -104,8 +104,7 @@ function interpolateSample(
       x: start.point.x + (finish.point.x - start.point.x) * ratio,
       y: start.point.y + (finish.point.y - start.point.y) * ratio,
     },
-    pressure:
-      start.pressure + (finish.pressure - start.pressure) * ratio,
+    pressure: start.pressure + (finish.pressure - start.pressure) * ratio,
     timestampMs:
       start.timestampMs + (finish.timestampMs - start.timestampMs) * ratio,
   };
@@ -156,7 +155,10 @@ function boundarySample(
   return interpolateSample(start, finish, (low + high) / 2);
 }
 
-function strokeBounds(stroke: PenStrokeObject, samples: readonly VectorInkSample[]) {
+function strokeBounds(
+  stroke: PenStrokeObject,
+  samples: readonly VectorInkSample[],
+) {
   const points = samples.map((sample) => worldPoint(stroke, sample.point));
   const xs = points.map(({ x }) => x);
   const ys = points.map(({ y }) => y);
@@ -198,11 +200,7 @@ export function erasePenStroke(
   createFragmentId: EraserFragmentIdFactory,
 ): readonly PenStrokeObject[] | null {
   const path = normalizePath(rawPath);
-  if (
-    path.length === 0 ||
-    !Number.isFinite(radiusWorld) ||
-    radiusWorld <= 0
-  ) {
+  if (path.length === 0 || !Number.isFinite(radiusWorld) || radiusWorld <= 0) {
     return null;
   }
 
@@ -210,7 +208,10 @@ export function erasePenStroke(
   const samples = ink.samples;
   if (samples.length < 2) return null;
   if (
-    !boundsIntersect(strokeBounds(stroke, samples), pathBounds(path, radiusWorld))
+    !boundsIntersect(
+      strokeBounds(stroke, samples),
+      pathBounds(path, radiusWorld),
+    )
   ) {
     return null;
   }
@@ -219,12 +220,7 @@ export function erasePenStroke(
   let current: VectorInkSample[] = [];
   let touched = false;
   const firstSample = samples[0]!;
-  let previousErased = sampleErased(
-    stroke,
-    firstSample,
-    path,
-    radiusWorld,
-  );
+  let previousErased = sampleErased(stroke, firstSample, path, radiusWorld);
   if (!previousErased) appendSample(current, firstSample);
   else touched = true;
 
