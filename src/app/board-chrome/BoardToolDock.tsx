@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import type { ObjectStyle, Vec2 } from "../../core/public";
+import { eraserToolId } from "../../modules/eraser/public";
 import {
   isDrawingToolId,
   type DrawingToolDefinition,
@@ -309,6 +310,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
     "drawing.pen",
     "drawing.line",
     "drawing.text",
+    eraserToolId,
   ].includes(props.activeTool);
   const aiActive =
     props.activeTool === "drawing.smart-ink" ||
@@ -391,6 +393,13 @@ export function BoardToolDock(props: BoardToolDockProps) {
               onClick={() => chooseTool(item.id)}
             />
           ))}
+          <MenuItem
+            active={props.activeTool === eraserToolId}
+            disabled={props.readOnly}
+            icon="⌫"
+            label={`Ластик (${shortcutLabelForTool(eraserToolId)})`}
+            onClick={() => chooseTool(eraserToolId)}
+          />
         </section>
       ) : openMenu === "math" ? (
         <section aria-label="Меню математики" className="dock-menu" role="menu">
