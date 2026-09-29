@@ -2,15 +2,16 @@
 
 > Статус документа: основной execution plan.
 >
-> Последнее обновление: 2026-08-21.
+> Последнее обновление: 2026-09-29.
 >
-> Документ синхронизирован с фактическим состоянием `main` после завершения
-> standalone contracts, backend persistence/guest access, standalone launch,
-> teacher board workspace и test hardening. Ближайшая delivery цель —
-> **Pilot Deployment Gate**: как можно быстрее получить реальный HTTPS-сервер и
+> Документ синхронизирован с фактическим состоянием проекта после standalone
+> contracts, access convergence, controlled-pilot E2E и milestone
+> **Input Foundation + Shape Constraints** (PR #133). Ближайшая delivery цель
+> по-прежнему — **Pilot Deployment Gate**: получить реальный HTTPS-сервер и
 > провести controlled pilot с одним преподавателем и одним учеником. После pilot
 > обязательным остаётся полный **Board-only Production Profile** и production
-> release gate.
+> release gate. Следующий отдельный UX-трек доски — partial eraser и forgiving
+> multi-selection поверх стабилизированного input layer.
 >
 > Исторические планы по полотну, GeometryOS, Smart Ink и lesson-bound интеграциям
 > остаются в `docs/DEVELOPMENT_PLAN.md` и профильных ADR/документах в
@@ -65,7 +66,7 @@ TutorBoard разворачивается как самостоятельный 
 10. **Backward compatibility full runtime сохраняется.** Board-only profile не
     должен ломать legacy lesson-bound deployment.
 
-## 3. Фактический статус на 2026-08-21
+## 3. Фактический статус на 2026-09-29
 
 ### 3.1. Завершённые milestones
 
@@ -79,6 +80,10 @@ TutorBoard разворачивается как самостоятельный 
 | T2 | DONE | `/boards` teacher workspace и invitation management |
 | Test audit | DONE | runtime contract parser unified; 750 Vitest tests green in PR #121 |
 | T3 foundation | MERGED | PR #123: refreshable standalone access context для reconnect/access convergence |
+| Access convergence | DONE | PR #125: revoke/read-only/reconnect convergence hardening |
+| Export hardening | DONE | PR #126–#129: full-content/high-fidelity PNG/PDF/SVG workflow |
+| Controlled pilot E2E | DONE | PR #131: teacher/guest controlled-pilot browser scenario |
+| Board input comfort | DONE | PR #133: centralized shortcuts, layout-independent tool keys, late-Shift modifier pipeline и shape constraints |
 
 T1/T2 standalone flow уже поддерживает teacher management и guest-link launch.
 Backend B1/B2 уже содержит standalone persistence, invitation/session model,
@@ -134,13 +139,24 @@ Profile и не должен использоваться как production shor
 
 #### TutorBoard
 
-PR #123 merged в `main`, но его финальный PR-head CI завершился на
-`format:check`: Prettier сообщил drift в
-`src/adapters/board-http/standalone.ts`. Downstream lint/typecheck/unit/
-performance/architecture/build в этом run не выполнялись.
+Frontend quality blocker закрыт. Milestone PR #133 проходит полный frontend
+release gate: GeometryOS/Board contract checks, format, lint, TypeScript,
+unit tests, performance budgets, architecture boundaries, production build,
+Chromium/Firefox browser smoke, board-only profile, coordinate-plot production
+gate, production image, Smart Ink production gate и Formula Recognition gate.
 
-Pilot не использует этот HEAD как проверенный release, пока свежий полный
-`npm run check` не станет green.
+PR #133 также фиксирует отдельный interaction contract: единый shortcut registry,
+`L` для линии, `Shift+V` для лассо, физические `KeyboardEvent.code`,
+цвета `1..5`, late-Shift и deterministic constraints для line/rectangle/
+ellipse/polygon. BoardDocument schema, command protocol и persistence при этом
+не меняются.
+
+Следующий UX milestone после merge PR #133:
+
+- vector partial eraser для `drawing.pen-stroke` с атомарным undo;
+- forgiving selection hit-slop;
+- drag multi-selection за padded aggregate bounds;
+- отдельные browser-level interaction latency budgets при необходимости.
 
 #### tutor-assistant-web
 
