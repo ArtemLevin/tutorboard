@@ -549,6 +549,29 @@ textarea:focus-visible,
   touch-action: none;
 }
 
+.board-inline-text-editor {
+  position: absolute;
+  z-index: 4;
+  width: min(360px, calc(100vw - 48px));
+  min-width: 180px;
+  min-height: 54px;
+  padding: 8px 10px;
+  border: 1px solid rgb(44 113 130 / 55%);
+  border-radius: 10px;
+  outline: 3px solid rgb(44 113 130 / 14%);
+  color: #1c2a33;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 10px 28px rgb(37 51 58 / 14%);
+  font: inherit;
+  line-height: 1.35;
+  resize: both;
+}
+
+.board-inline-text-editor:focus {
+  border-color: #2c7182;
+  outline-color: rgb(44 113 130 / 24%);
+}
+
 .board-stage[data-panning="true"] {
   user-select: none;
 }
