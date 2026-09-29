@@ -15,7 +15,13 @@ const pointEpsilon = 1e-6;
 
 export const eraserRadiusPx = 12;
 
+export interface EraserStrokeChange {
+  readonly original: PenStrokeObject;
+  readonly replacements: readonly PenStrokeObject[];
+}
+
 export interface EraserResult {
+  readonly changes: readonly EraserStrokeChange[];
   readonly originals: readonly PenStrokeObject[];
   readonly replacements: readonly PenStrokeObject[];
 }
@@ -288,6 +294,7 @@ export function eraseDocumentPenStrokes(
   radiusWorld: number,
   createFragmentId: EraserFragmentIdFactory,
 ): EraserResult {
+  const changes: EraserStrokeChange[] = [];
   const originals: PenStrokeObject[] = [];
   const replacements: PenStrokeObject[] = [];
 
@@ -308,9 +315,10 @@ export function eraseDocumentPenStrokes(
       createFragmentId,
     );
     if (fragments === null) continue;
+    changes.push({ original: object, replacements: fragments });
     originals.push(object);
     replacements.push(...fragments);
   }
 
-  return { originals, replacements };
+  return { changes, originals, replacements };
 }
