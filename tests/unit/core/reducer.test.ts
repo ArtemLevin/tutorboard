@@ -75,6 +75,26 @@ describe("BoardDocument reducer", () => {
     }
   });
 
+  it("atomically replaces an object with nothing", () => {
+    const original = rectangle("erase-all");
+    const seeded = addObjects(emptyDocument(), "seed-erase-all", [original]);
+    expect(seeded.ok).toBe(true);
+    if (!seeded.ok) return;
+
+    const result = reduceBoardDocument(seeded.document, {
+      ...metadata("erase-all", "2026-07-24T12:02:00.000Z"),
+      kind: "core.objects.replace",
+      originals: [original],
+      replacements: [],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.document.order).toEqual([]);
+      expect(result.document.objects).toEqual({});
+    }
+  });
+
   it("rejects an object replacement when its original snapshot is stale", () => {
     const original = rectangle("stale");
     const seeded = addObjects(emptyDocument(), "seed-stale", [original]);
