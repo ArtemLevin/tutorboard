@@ -18,6 +18,19 @@ export const boardObjectKinds = [
 
 export type BoardObjectKind = (typeof boardObjectKinds)[number];
 
+export const mediaAssetMimeTypes = [
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "video/mp4",
+] as const;
+
+export type MediaAssetMimeType = (typeof mediaAssetMimeTypes)[number];
+
+export const boardObjectKinds15 = [...boardObjectKinds, "media.asset"] as const;
+
+export type BoardObjectKind15 = (typeof boardObjectKinds15)[number];
+
 export const embeddedImageMimeTypes = [
   "image/png",
   "image/jpeg",
@@ -111,6 +124,17 @@ export interface EmbeddedImageObject extends BoardObjectBase {
   readonly size: Size2;
 }
 
+export interface MediaAssetObject extends BoardObjectBase {
+  readonly assetId: string;
+  readonly byteSize: number;
+  readonly contentSha256: string;
+  readonly fileName: string;
+  readonly intrinsicSize: Size2;
+  readonly kind: "media.asset";
+  readonly mimeType: MediaAssetMimeType;
+  readonly size: Size2;
+}
+
 export interface CoordinatePlotObject extends BoardObjectBase {
   readonly definition: CoordinatePlotDefinition;
   readonly kind: "math.coordinate-plot";
@@ -140,3 +164,9 @@ export type BoardObject =
   | RectangleObject
   | SvgObject
   | TextObject;
+
+/**
+ * Prepared BoardDocument 1.5 object union. The active 1.4 runtime deliberately
+ * excludes media.asset until the snapshot/server contract is upgraded.
+ */
+export type BoardObject15 = BoardObject | MediaAssetObject;
