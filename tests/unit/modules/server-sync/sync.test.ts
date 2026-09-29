@@ -97,11 +97,18 @@ function batch(
     envelope: {
       actorId: actorId("user:other"),
       baseRevision,
-      commands,
+      commands: commands.map((command, index) => ({
+        command,
+        order: {
+          baseRevisionAtCreation: baseRevision,
+          lamport: index + 1,
+        },
+      })),
       documentId: expectedDocumentId,
       expectedDocumentSha256,
       idempotencyKey,
-      schemaVersion: "1.2",
+      originId: "origin:remote-test",
+      schemaVersion: "1.6",
     },
     idempotencyKey,
     payloadSha256: "b".repeat(64),
@@ -344,7 +351,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: legacySha256,
         revision: 0,
-        schemaVersion: "1.4",
+        schemaVersion: "1.5",
       },
     };
     const states: BoardSyncState[] = [];
@@ -432,7 +439,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: baseSha256,
         revision: 0,
-        schemaVersion: "1.2",
+        schemaVersion: "1.5",
       },
     };
     const remote = rename(
@@ -671,7 +678,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: cachedSha256,
         revision: 3,
-        schemaVersion: "1.4",
+        schemaVersion: "1.5",
       },
     };
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
@@ -819,7 +826,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: await boardDocumentSha256(initialDocument()),
         revision: 0,
-        schemaVersion: "1.2",
+        schemaVersion: "1.5",
       },
     };
     const states: BoardSyncState[] = [];
@@ -865,7 +872,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: await boardDocumentSha256(initialDocument()),
         revision: 0,
-        schemaVersion: "1.2",
+        schemaVersion: "1.5",
       },
     };
     const ensureBoard = vi.spyOn(repository, "ensureBoard");
