@@ -82,6 +82,13 @@ describe("CI gate routing", () => {
       geometryos: true,
       smart_ink: true,
     });
+    expect(routed("src/core/public.ts")).toEqual({
+      ...allFalse,
+      coordinate_plot: true,
+      formula_recognition: true,
+      geometryos: true,
+      smart_ink: true,
+    });
   });
 
   it("routes production container changes independently from coordinate plot", () => {
