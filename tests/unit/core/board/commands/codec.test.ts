@@ -9,6 +9,7 @@ import {
 } from "../../../../../src/core/board/commands/codec/public";
 import {
   actorId,
+  boardObjectId,
   commandId,
   type BoardCommand,
   type SetViewportCommand,
@@ -67,6 +68,40 @@ describe("BoardCommand runtime codec", () => {
         timestamp: "2026-08-05T07:00:00.000Z",
       }),
     ).toMatchObject({ status: "invalid-command" });
+  });
+
+  it("accepts replace commands that delete all originals", () => {
+    const original = {
+      groupId: null,
+      id: boardObjectId("object:codec-delete"),
+      kind: "drawing.line" as const,
+      locked: false,
+      position: { x: 0, y: 0 },
+      end: { x: 40, y: 0 },
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      source: { kind: "user" as const },
+      style: {
+        fill: null,
+        opacity: 1,
+        stroke: "#111827",
+        strokeWidth: 2,
+      },
+      visible: true,
+    };
+    const command = {
+      actorId: actorId("actor:codec-test"),
+      id: commandId("command:replace-empty"),
+      kind: "core.objects.replace" as const,
+      originals: [original],
+      replacements: [],
+      timestamp: "2026-08-05T07:00:00.000Z",
+    };
+
+    expect(readBoardCommand(command)).toEqual({
+      command,
+      status: "ok",
+    });
   });
 
   it("produces a stable SHA-256 independent of property insertion order", async () => {
