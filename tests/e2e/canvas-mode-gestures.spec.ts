@@ -152,5 +152,10 @@ test("preserves click placement for text tools", async ({ page }) => {
   await expect(textEditor).toHaveCount(0);
 
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.text");
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+  await expect(stage).toHaveAttribute(
+    "data-selection-mode",
+    "selection.select",
+  );
+  await expect(stage).toHaveAttribute("data-drawing-mode", "none");
 });

@@ -17,10 +17,8 @@ test("edits text as one committed history item", async ({ page }) => {
   await expect(placementEditor).toBeVisible();
   await placementEditor.press("Control+Enter");
   await expect(placementEditor).toHaveCount(0);
-  await page.getByRole("button", { name: "Выделение" }).click();
-  await page.getByRole("menuitemradio", { name: "Выделение (V)" }).click();
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
   const textPoint = { x: bounds.x + 330, y: bounds.y + 250 };
-  await page.mouse.click(textPoint.x, textPoint.y);
   await rightDoubleClickAt(page, textPoint);
 
   const editor = page.getByRole("textbox", {

@@ -280,7 +280,9 @@ test("does not move a locked multi-selection from its aggregate gap", async ({
   await page.keyboard.down("Shift");
   await page.mouse.click(ellipse.x, ellipse.y);
   await page.keyboard.up("Shift");
-  await rightDoubleClickAt(page, ellipse);
+  await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
+  const ellipseContour = await stagePoint(page, 551, 169);
+  await rightDoubleClickAt(page, ellipseContour);
   await page
     .getByRole("button", { name: "Заблокировать", exact: true })
     .click();
