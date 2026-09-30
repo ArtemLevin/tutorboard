@@ -1343,6 +1343,22 @@ function fixtures() {
           },
           order: { baseRevisionAtCreation: 7, lamport: 9 },
         },
+        {
+          command: {
+            actorId: "actor:tutor-01",
+            changes: [
+              {
+                atIndex: 0,
+                originals: [smartInkStroke],
+                replacements: [smartInkCircle],
+              },
+            ],
+            id: "command:batch-replace-10",
+            kind: "core.objects.batch-replace",
+            timestamp: "2026-07-28T17:00:02.000Z",
+          },
+          order: { baseRevisionAtCreation: 7, lamport: 10 },
+        },
       ],
       documentId: document.id,
       expectedDocumentSha256: documentHash,
