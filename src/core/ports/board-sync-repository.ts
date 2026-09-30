@@ -47,7 +47,7 @@ export interface OrderedBoardCommandEnvelope {
   readonly schemaVersion: "1.3" | "1.4";
 }
 
-export type CurrentOrderedBoardCommandEnvelope = Omit<
+export type PreviousOrderedBoardCommandEnvelope = Omit<
   OrderedBoardCommandEnvelope,
   "schemaVersion"
 > & {
@@ -55,9 +55,17 @@ export type CurrentOrderedBoardCommandEnvelope = Omit<
   readonly schemaVersion: "1.5";
 };
 
+export type CurrentOrderedBoardCommandEnvelope = Omit<
+  PreviousOrderedBoardCommandEnvelope,
+  "schemaVersion"
+> & {
+  readonly schemaVersion: "1.6";
+};
+
 export type BoardCommandEnvelope =
   | LegacyBoardCommandEnvelope
   | OrderedBoardCommandEnvelope
+  | PreviousOrderedBoardCommandEnvelope
   | CurrentOrderedBoardCommandEnvelope;
 
 export interface ServerBoardCommandBatch {
@@ -144,7 +152,7 @@ export interface BoardServerRecovery {
     readonly documentId: DocumentId;
     readonly documentSha256: string;
     readonly revision: number;
-    readonly schemaVersion: "1.1" | "1.2" | "1.3" | "1.4";
+    readonly schemaVersion: "1.1" | "1.2" | "1.3" | "1.4" | "1.5";
   } | null;
 }
 

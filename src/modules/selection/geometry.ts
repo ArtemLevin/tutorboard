@@ -89,6 +89,7 @@ function localSelectionPath(object: BoardObject): SelectionPath {
     case "drawing.rectangle":
     case "math.coordinate-plot":
     case "image.embedded":
+    case "media.asset":
     case "svg-import.svg":
       return {
         closed: true,

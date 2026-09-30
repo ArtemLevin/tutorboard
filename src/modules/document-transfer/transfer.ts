@@ -18,6 +18,7 @@ export type TutorBoardDocumentImportResult =
     }
   | {
       readonly code:
+        | "document-import.asset-bundle-required"
         | "document-import.incompatible-object"
         | "document-import.incompatible-schema"
         | "document-import.invalid-document"
@@ -41,6 +42,11 @@ export type TutorBoardDocumentExportResult =
   | {
       readonly code: "document-export.invalid-document";
       readonly issues: readonly ValidationIssue[];
+      readonly message: string;
+      readonly status: "error";
+    }
+  | {
+      readonly code: "document-export.asset-bundle-required";
       readonly message: string;
       readonly status: "error";
     };
@@ -74,6 +80,12 @@ function filenamePart(value: string): string {
   return normalized.length === 0 ? "board" : normalized;
 }
 
+function containsMediaAssets(document: BoardDocument): boolean {
+  return Object.values(document.objects).some(
+    (object) => object?.kind === "media.asset",
+  );
+}
+
 export function importTutorBoardDocument(
   json: string,
 ): TutorBoardDocumentImportResult {
@@ -104,6 +116,14 @@ export function importTutorBoardDocumentValue(
   const read = readBoardDocument(value);
   switch (read.status) {
     case "ok":
+      if (containsMediaAssets(read.document)) {
+        return {
+          code: "document-import.asset-bundle-required",
+          message:
+            "Asset-backed documents require the portable TutorBoard bundle format.",
+          status: "error",
+        };
+      }
       return {
         document: read.document,
         migrated:
@@ -139,6 +159,14 @@ export function importTutorBoardDocumentValue(
 export function exportTutorBoardDocument(
   document: BoardDocument,
 ): TutorBoardDocumentExportResult {
+  if (containsMediaAssets(document)) {
+    return {
+      code: "document-export.asset-bundle-required",
+      message:
+        "Asset-backed documents require the portable TutorBoard bundle format.",
+      status: "error",
+    };
+  }
   const serialized = serializeBoardDocument(document);
   if (!serialized.ok) {
     return {

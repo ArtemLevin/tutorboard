@@ -1,4 +1,9 @@
-import { boardDocumentSchemaVersion, type BoardDocument } from "./document";
+import {
+  boardDocument14SchemaVersion,
+  boardDocumentSchemaVersion,
+  type BoardDocument,
+  type BoardDocument15,
+} from "./document";
 import { createVectorInkDataFromPoints } from "./vector-ink";
 import {
   boardDocumentSchema01,
@@ -7,6 +12,7 @@ import {
   boardDocumentSchema11,
   boardDocumentSchema12,
   boardDocumentSchema13,
+  boardDocumentSchema14,
 } from "./validation/schema";
 import {
   validateBoardDocument,
@@ -15,6 +21,10 @@ import {
 
 export type BoardDocumentMigrationResult =
   | { readonly document: BoardDocument; readonly ok: true }
+  | { readonly issues: readonly ValidationIssue[]; readonly ok: false };
+
+export type BoardDocument15MigrationResult =
+  | { readonly document: BoardDocument15; readonly ok: true }
   | { readonly issues: readonly ValidationIssue[]; readonly ok: false };
 
 function schemaIssues(
@@ -58,10 +68,24 @@ export function migrateBoardDocument13To14(
   const parsed = boardDocumentSchema13.safeParse(raw);
   if (!parsed.success)
     return { ok: false, issues: schemaIssues(parsed.error.issues) };
+  return migrateBoardDocument14To15({
+    ...parsed.data,
+    schemaVersion: boardDocument14SchemaVersion,
+    solidLearningAttempts: {},
+  });
+}
+
+export function migrateBoardDocument14To15(
+  raw: unknown,
+): BoardDocument15MigrationResult {
+  const parsed = boardDocumentSchema14.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, issues: schemaIssues(parsed.error.issues) };
+  }
+
   const validation = validateBoardDocument({
     ...parsed.data,
     schemaVersion: boardDocumentSchemaVersion,
-    solidLearningAttempts: {},
   });
   return validation.valid
     ? { ok: true, document: validation.document }
@@ -131,13 +155,13 @@ export function migrateBoardDocument01To12(
   });
 }
 
-/** @deprecated Current migrations return BoardDocument 1.2. */
+/** @deprecated Compatibility alias retained for historical callers. */
 export const migrateBoardDocument01To10 = migrateBoardDocument01To12;
-/** @deprecated Current migrations return BoardDocument 1.2. */
+/** @deprecated Compatibility alias retained for historical callers. */
 export const migrateBoardDocument01To11 = migrateBoardDocument01To12;
-/** @deprecated Current migrations return BoardDocument 1.2. */
+/** @deprecated Compatibility alias retained for historical callers. */
 export const migrateBoardDocument02To10 = migrateBoardDocument02To12;
-/** @deprecated Current migrations return BoardDocument 1.2. */
+/** @deprecated Compatibility alias retained for historical callers. */
 export const migrateBoardDocument02To11 = migrateBoardDocument02To12;
-/** @deprecated Current migrations return BoardDocument 1.2. */
+/** @deprecated Compatibility alias retained for historical callers. */
 export const migrateBoardDocument10To11 = migrateBoardDocument10To12;

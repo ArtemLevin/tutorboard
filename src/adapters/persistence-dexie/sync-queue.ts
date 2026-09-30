@@ -1109,6 +1109,10 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
     if (!parsed.success || parsed.data.cacheScopeId !== scope.cacheScopeId) {
       throw new Error("Confirmed board cache is corrupted.");
     }
+    const storedSha256 = await sha256Text(parsed.data.serializedDocument);
+    if (storedSha256 !== parsed.data.sha256) {
+      throw new Error("Confirmed board cache checksum mismatch.");
+    }
     const read = deserializeBoardDocument(parsed.data.serializedDocument);
     if (
       read.status !== "ok" ||
@@ -1117,10 +1121,7 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
     ) {
       throw new Error("Confirmed board cache contains an invalid document.");
     }
-    const actualSha256 = await documentSha256(read.document);
-    if (actualSha256 !== parsed.data.sha256) {
-      throw new Error("Confirmed board cache checksum mismatch.");
-    }
+    const currentSha256 = await documentSha256(read.document);
     return {
       document: read.document,
       documentId: expectedDocumentId,
@@ -1140,7 +1141,7 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
           : { principalType: parsed.data.principalType }),
         role: parsed.data.role,
       },
-      sha256: parsed.data.sha256,
+      sha256: currentSha256,
     };
   }
 

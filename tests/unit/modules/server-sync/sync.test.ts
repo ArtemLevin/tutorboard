@@ -22,6 +22,7 @@ import {
   type PushBoardCommandsResult,
   type ServerBoardDescriptor,
   type ServerBoardCommandBatch,
+  serializeBoardDocument14ForCompatibility,
 } from "../../../../src/core/public";
 import {
   BoardSyncEngine,
@@ -82,6 +83,22 @@ async function confirmed(
   };
 }
 
+async function legacyBoardDocument14Sha256ForTest(
+  document: BoardDocument,
+): Promise<string> {
+  const legacyJson = serializeBoardDocument14ForCompatibility(document);
+  if (legacyJson === null) {
+    throw new Error("Test fixture must be representable as BoardDocument 1.4.");
+  }
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(legacyJson),
+  );
+  return [...new Uint8Array(digest)]
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 function batch(
   revision: number,
   baseRevision: number,
@@ -96,11 +113,18 @@ function batch(
     envelope: {
       actorId: actorId("user:other"),
       baseRevision,
-      commands,
+      commands: commands.map((command, index) => ({
+        command,
+        order: {
+          baseRevisionAtCreation: baseRevision,
+          lamport: index + 1,
+        },
+      })),
       documentId: expectedDocumentId,
       expectedDocumentSha256,
       idempotencyKey,
-      schemaVersion: "1.2",
+      originId: "origin:remote-test",
+      schemaVersion: "1.6",
     },
     idempotencyKey,
     payloadSha256: "b".repeat(64),
@@ -312,6 +336,50 @@ beforeEach(() => {
 });
 
 describe("BoardSyncEngine", () => {
+  it("accepts a legacy 1.4 snapshot digest after migrating the document to 1.5", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const repository = new FakeRepository();
+    const base = initialDocument();
+    const legacySha256 = await legacyBoardDocument14Sha256ForTest(base);
+    repository.recovery = {
+      board: {
+        ...repository.descriptor,
+        currentDocumentSha256: legacySha256,
+        currentRevision: 0,
+        lastSnapshotRevision: 0,
+      },
+      commandBatches: [],
+      snapshot: {
+        createdAt: base.createdAt,
+        document: base,
+        documentId: expectedDocumentId,
+        documentSha256: legacySha256,
+        revision: 0,
+        schemaVersion: "1.4",
+      },
+    };
+    const states: BoardSyncState[] = [];
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => "unused",
+      documentId: expectedDocumentId,
+      lessonId: "lesson:1",
+      now: () => "2026-07-28T18:01:00.000Z",
+      onStateChange: (state) => states.push(state),
+      queue: new MemoryQueue(),
+      repository,
+    });
+
+    await engine.bootstrap();
+
+    expect(states.at(-1)).toMatchObject({
+      confirmedSha256: await boardDocumentSha256(base),
+      document: { schemaVersion: "1.5" },
+      kind: "ready",
+      revision: 0,
+    });
+    expect(states.at(-1)).not.toMatchObject({ confirmedSha256: legacySha256 });
+  });
+
   it("creates a revision-zero snapshot and confirms queued commands", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     const repository = new FakeRepository();
@@ -343,7 +411,7 @@ describe("BoardSyncEngine", () => {
         },
       ],
       originId: "origin:legacy-client",
-      schemaVersion: "1.5",
+      schemaVersion: "1.6",
     });
     expect(queue.items).toEqual([]);
     expect(queue.head).toMatchObject({
@@ -375,7 +443,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: baseSha256,
         revision: 0,
-        schemaVersion: "1.2",
+        schemaVersion: "1.5",
       },
     };
     const remote = rename(
@@ -481,7 +549,7 @@ describe("BoardSyncEngine", () => {
     expect(repository.pushed).toHaveLength(1);
     expect(repository.pushed[0]).toMatchObject({
       idempotencyKey: "client:independent",
-      schemaVersion: "1.5",
+      schemaVersion: "1.6",
     });
     expect(states.at(-1)).toMatchObject({
       document: { title: "Independent work" },
@@ -614,7 +682,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: cachedSha256,
         revision: 3,
-        schemaVersion: "1.4",
+        schemaVersion: "1.5",
       },
     };
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
@@ -682,7 +750,7 @@ describe("BoardSyncEngine", () => {
     const local = initialDocument();
     queue.head = await confirmed(local, 3);
     const server = { ...local, title: "Different server head" };
-    const serverSha256 = await boardDocumentSha256(server);
+    const serverSha256 = await legacyBoardDocument14Sha256ForTest(server);
     const repository = new FakeRepository();
     repository.recovery = {
       board: {
@@ -762,7 +830,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: await boardDocumentSha256(initialDocument()),
         revision: 0,
-        schemaVersion: "1.2",
+        schemaVersion: "1.5",
       },
     };
     const states: BoardSyncState[] = [];
@@ -808,7 +876,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: await boardDocumentSha256(initialDocument()),
         revision: 0,
-        schemaVersion: "1.2",
+        schemaVersion: "1.5",
       },
     };
     const ensureBoard = vi.spyOn(repository, "ensureBoard");

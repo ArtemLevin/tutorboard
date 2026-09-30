@@ -5,7 +5,7 @@ import type { VectorInkData } from "./vector-ink";
 
 export const svgSanitizerPolicyVersion = "tutorboard.svg-sanitizer/1" as const;
 
-export const boardObjectKinds = [
+export const boardObjectKinds14 = [
   "drawing.pen-stroke",
   "drawing.line",
   "drawing.rectangle",
@@ -16,7 +16,34 @@ export const boardObjectKinds = [
   "math.coordinate-plot",
 ] as const;
 
+export type BoardObjectKind14 = (typeof boardObjectKinds14)[number];
+
+export const mediaAssetMimeTypes = [
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "video/mp4",
+] as const;
+
+export type MediaAssetMimeType = (typeof mediaAssetMimeTypes)[number];
+
+export const boardObjectKinds = [
+  "drawing.pen-stroke",
+  "drawing.line",
+  "drawing.rectangle",
+  "drawing.ellipse",
+  "drawing.text",
+  "image.embedded",
+  "svg-import.svg",
+  "math.coordinate-plot",
+  "media.asset",
+] as const;
+
 export type BoardObjectKind = (typeof boardObjectKinds)[number];
+
+export const boardObjectKinds15 = boardObjectKinds;
+
+export type BoardObjectKind15 = BoardObjectKind;
 
 export const embeddedImageMimeTypes = [
   "image/png",
@@ -111,6 +138,17 @@ export interface EmbeddedImageObject extends BoardObjectBase {
   readonly size: Size2;
 }
 
+export interface MediaAssetObject extends BoardObjectBase {
+  readonly assetId: string;
+  readonly byteSize: number;
+  readonly contentSha256: string;
+  readonly fileName: string;
+  readonly intrinsicSize: Size2;
+  readonly kind: "media.asset";
+  readonly mimeType: MediaAssetMimeType;
+  readonly size: Size2;
+}
+
 export interface CoordinatePlotObject extends BoardObjectBase {
   readonly definition: CoordinatePlotDefinition;
   readonly kind: "math.coordinate-plot";
@@ -131,7 +169,7 @@ export interface SvgObject extends BoardObjectBase {
   readonly viewBox: SvgViewBox;
 }
 
-export type BoardObject =
+export type BoardObject14 =
   | CoordinatePlotObject
   | EllipseObject
   | EmbeddedImageObject
@@ -140,3 +178,7 @@ export type BoardObject =
   | RectangleObject
   | SvgObject
   | TextObject;
+
+export type BoardObject = BoardObject14 | MediaAssetObject;
+
+export type BoardObject15 = BoardObject;

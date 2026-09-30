@@ -4,7 +4,9 @@ import legacyDocumentJson from "../../../fixtures/board-document-0.1.json?raw";
 import frozenDocumentJson from "../../../fixtures/board-document-1.0.json?raw";
 import {
   boardDocumentSchemaVersion,
+  boardObjectId,
   serializeBoardDocument,
+  type MediaAssetObject,
 } from "../../../../src/core/public";
 import {
   exportTutorBoardDocument,
@@ -89,6 +91,47 @@ describe("TutorBoard document transfer", () => {
       ),
     ).toMatchObject({
       code: "document-import.invalid-document",
+      status: "error",
+    });
+  });
+
+  it("fails closed for asset-backed legacy JSON transfer", () => {
+    const imported = importTutorBoardDocument(frozenDocumentJson);
+    if (imported.status !== "ok") {
+      throw new Error("Frozen fixture must be readable.");
+    }
+    const id = boardObjectId("object:asset-transfer");
+    const asset: MediaAssetObject = {
+      groupId: null,
+      id,
+      assetId: "asset:transfer",
+      byteSize: 12_345,
+      contentSha256: "a".repeat(64),
+      fileName: "diagram.gif",
+      intrinsicSize: { height: 100, width: 160 },
+      kind: "media.asset",
+      locked: false,
+      mimeType: "image/gif",
+      position: { x: 0, y: 0 },
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      size: { height: 100, width: 160 },
+      source: { kind: "user" },
+      style: { fill: null, opacity: 1, stroke: null, strokeWidth: 0 },
+      visible: true,
+    };
+    const document = {
+      ...imported.document,
+      objects: { ...imported.document.objects, [id]: asset },
+      order: [...imported.document.order, id],
+    };
+
+    expect(exportTutorBoardDocument(document)).toMatchObject({
+      code: "document-export.asset-bundle-required",
+      status: "error",
+    });
+    expect(importTutorBoardDocument(JSON.stringify(document))).toMatchObject({
+      code: "document-import.asset-bundle-required",
       status: "error",
     });
   });

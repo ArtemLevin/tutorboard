@@ -24,7 +24,9 @@ import type {
 import { isValidIdentifier } from "../identifiers";
 import {
   boardObjectKinds,
+  boardObjectKinds14,
   embeddedImageMimeTypes,
+  mediaAssetMimeTypes,
   strokeStyles,
   svgSanitizerPolicyVersion,
 } from "../objects";
@@ -212,6 +214,19 @@ const embeddedImageObjectSchema = z
     intrinsicSize: svgSizeSchema,
     kind: z.literal("image.embedded"),
     mimeType: z.enum(embeddedImageMimeTypes),
+    size: svgSizeSchema,
+  })
+  .strict();
+const mediaAssetObjectSchema = z
+  .object({
+    ...objectBase,
+    assetId: identifierSchema,
+    byteSize: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    contentSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    fileName: z.string().min(1).max(256),
+    intrinsicSize: svgSizeSchema,
+    kind: z.literal("media.asset"),
+    mimeType: z.enum(mediaAssetMimeTypes),
     size: svgSizeSchema,
   })
   .strict();
@@ -405,6 +420,17 @@ const objectSchema12 = z.discriminatedUnion("kind", [
   ellipseSchema,
   textSchema,
   embeddedImageObjectSchema,
+  svgObjectSchema,
+  coordinatePlotObjectSchema,
+]);
+const objectSchema15 = z.discriminatedUnion("kind", [
+  penStrokeSchema,
+  lineSchema,
+  rectangleSchema,
+  ellipseSchema,
+  textSchema,
+  embeddedImageObjectSchema,
+  mediaAssetObjectSchema,
   svgObjectSchema,
   coordinatePlotObjectSchema,
 ]);
@@ -939,7 +965,7 @@ export const boardDocumentSchema13 = boardDocumentSchema12
     solidModels: z.record(solid3DIdSchema, solidRecordSchema),
   })
   .strict();
-export const boardDocumentSchema = boardDocumentSchema13
+export const boardDocumentSchema14 = boardDocumentSchema13
   .extend({
     schemaVersion: z.literal("1.4"),
     solidLearningAttempts: z.record(
@@ -948,6 +974,15 @@ export const boardDocumentSchema = boardDocumentSchema13
     ),
   })
   .strict();
+
+export const boardDocumentSchema15 = boardDocumentSchema14
+  .extend({
+    objects: z.record(boardObjectIdSchema, objectSchema15),
+    schemaVersion: z.literal("1.5"),
+  })
+  .strict();
+
+export const boardDocumentSchema = boardDocumentSchema15;
 
 export const legacyBoardObjectKinds = new Set<string>([
   "drawing.pen-stroke",
@@ -965,4 +1000,6 @@ export const knownBoardObjectKinds10 = new Set<string>([
   "image.embedded",
   "svg-import.svg",
 ]);
+export const knownBoardObjectKinds14 = new Set<string>(boardObjectKinds14);
 export const knownBoardObjectKinds = new Set<string>(boardObjectKinds);
+export const knownBoardObjectKinds15 = knownBoardObjectKinds;

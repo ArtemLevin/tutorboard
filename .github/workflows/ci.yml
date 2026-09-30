@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,10 +19,36 @@ jobs:
     name: Quality gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      coordinate_plot: ${{ steps.route.outputs.coordinate_plot }}
+      formula_recognition: ${{ steps.route.outputs.formula_recognition }}
+      geometryos: ${{ steps.route.outputs.geometryos }}
+      paddle_formula: ${{ steps.route.outputs.paddle_formula }}
+      production_image: ${{ steps.route.outputs.production_image }}
+      smart_ink: ${{ steps.route.outputs.smart_ink }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+
+      - name: Compute CI gate routing
+        id: route
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+              git fetch --no-tags --depth=1 origin "${BASE_SHA}"
+            fi
+            node scripts/ci/compute-gate-routing.mjs \
+              --event pull_request \
+              --base "${BASE_SHA}" \
+              --head "${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
+          else
+            node scripts/ci/compute-gate-routing.mjs \
+              --event "${GITHUB_EVENT_NAME}" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -107,6 +134,7 @@ jobs:
   geometryos-live-contract:
     name: GeometryOS live browser contract
     needs: quality
+    if: needs.quality.outputs.geometryos == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -247,6 +275,7 @@ jobs:
   coordinate-plot-production:
     name: Coordinate plot production gate
     needs: quality
+    if: needs.quality.outputs.coordinate_plot == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -299,7 +328,8 @@ jobs:
 
   production-image:
     name: Production image
-    needs: [quality, e2e-smoke, coordinate-plot-production]
+    needs: [quality, e2e-smoke]
+    if: needs.quality.outputs.production_image == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

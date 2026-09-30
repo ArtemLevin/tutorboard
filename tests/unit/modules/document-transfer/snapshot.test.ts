@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import frozenDocumentJson from "../../../fixtures/board-document-1.0.json?raw";
-import { boardObjectId } from "../../../../src/core/public";
+import {
+  boardObjectId,
+  type MediaAssetObject,
+} from "../../../../src/core/public";
 import { importTutorBoardDocument } from "../../../../src/modules/document-transfer/public";
 import {
   renderBoardSnapshotSvg,
@@ -143,6 +146,39 @@ describe("TutorBoard snapshot layout", () => {
     expect(layout.width).toBe(800);
     expect(layout.height).toBe(600);
     expect(layout.scale).toBeGreaterThan(0);
+  });
+
+  it("renders media assets as safe metadata placeholders", () => {
+    const document = fixtureDocument();
+    const id = boardObjectId("object:snapshot-media");
+    const asset: MediaAssetObject = {
+      groupId: null,
+      id,
+      assetId: "asset:snapshot",
+      byteSize: 32_000,
+      contentSha256: "b".repeat(64),
+      fileName: "lesson<clip>.mp4",
+      intrinsicSize: { height: 720, width: 1280 },
+      kind: "media.asset",
+      locked: false,
+      mimeType: "video/mp4",
+      position: { x: 20, y: 30 },
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      size: { height: 180, width: 320 },
+      source: { kind: "user" },
+      style: { fill: null, opacity: 1, stroke: null, strokeWidth: 0 },
+      visible: true,
+    };
+    const svg = renderBoardSnapshotSvg({
+      ...document,
+      objects: { ...document.objects, [id]: asset },
+      order: [...document.order, id],
+    });
+
+    expect(svg).toContain('data-media-asset-id="asset:snapshot"');
+    expect(svg).toContain("lesson&lt;clip&gt;.mp4");
+    expect(svg).not.toContain("data:image/");
   });
 
   it("renders text with the same stroke-color fallback as the canvas", () => {

@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,16 +27,38 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Compute CI gate routing
+        id: route
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+              git fetch --no-tags --depth=1 origin "${BASE_SHA}"
+            fi
+            node scripts/ci/compute-gate-routing.mjs \
+              --event pull_request \
+              --base "${BASE_SHA}" \
+              --head "${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
+          else
+            node scripts/ci/compute-gate-routing.mjs \
+              --event "${GITHUB_EVENT_NAME}" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Set up Node.js
+        if: steps.route.outputs.formula_recognition == 'true'
         uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - name: Install locked dependencies
+        if: steps.route.outputs.formula_recognition == 'true'
         run: npm ci
 
       - name: Run focused adapter and gateway tests
+        if: steps.route.outputs.formula_recognition == 'true'
         run: |
           npm run handwriting:pr5
           npx vitest run \
@@ -43,6 +66,7 @@ jobs:
             tests/node/math-ink-proxy-runtime-config.test.mjs
 
       - name: Build gateway image
+        if: steps.route.outputs.formula_recognition == 'true'
         run: |
           docker build \
             --file Dockerfile.math-ink-proxy \
@@ -50,10 +74,12 @@ jobs:
             .
 
       - name: Assert non-root image configuration
+        if: steps.route.outputs.formula_recognition == 'true'
         run: |
           test "$(docker inspect --format '{{.Config.User}}' tutorboard-formula-recognition:${GITHUB_SHA})" = "node"
 
       - name: Start deterministic provider mocks
+        if: steps.route.outputs.formula_recognition == 'true'
         run: |
           node tests/fixtures/mathpix-mock-server.mjs > formula-recognition-mock.log 2>&1 &
           echo $! > formula-recognition-mock.pid
@@ -67,6 +93,7 @@ jobs:
           exit 1
 
       - name: Verify configured read-only gateway
+        if: steps.route.outputs.formula_recognition == 'true'
         run: |
           docker run --detach \
             --name tutorboard-formula-recognition \
@@ -121,6 +148,7 @@ jobs:
           done
 
       - name: Build recognition-enabled frontend and exclude provider secrets
+        if: steps.route.outputs.formula_recognition == 'true'
         env:
           VITE_FEATURE_HANDWRITTEN_FUNCTIONS: "true"
           VITE_FEATURE_MATH_INK_RECOGNITION: "true"
@@ -134,14 +162,17 @@ jobs:
           ! grep --recursive --fixed-strings 'frontend-yandex-secret' dist
 
       - name: Install release browsers
+        if: steps.route.outputs.formula_recognition == 'true'
         run: npx playwright install --with-deps chromium firefox
 
       - name: Verify all provider choices in Chromium and Firefox
+        if: steps.route.outputs.formula_recognition == 'true'
         env:
           MATH_INK_E2E_REQUIRED: "true"
         run: npx playwright test tests/e2e/math-ink-recognition-production.spec.ts
 
       - name: Scan gateway image
+        if: steps.route.outputs.formula_recognition == 'true'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: tutorboard-formula-recognition:${{ github.sha }}
@@ -153,13 +184,13 @@ jobs:
           limit-severities-for-sarif: true
 
       - name: Upload Trivy results
-        if: ${{ always() && hashFiles('trivy-formula-recognition.sarif') != '' }}
+        if: ${{ always() && steps.route.outputs.formula_recognition == 'true' && hashFiles('trivy-formula-recognition.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-formula-recognition.sarif
 
       - name: Capture diagnostics
-        if: always()
+        if: ${{ always() && steps.route.outputs.formula_recognition == 'true' }}
         run: |
           docker logs tutorboard-formula-recognition || true
           docker rm --force tutorboard-formula-recognition || true

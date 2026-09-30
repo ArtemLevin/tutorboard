@@ -14,7 +14,9 @@ import type { Solid3DLearningAttempt } from "../solid-3d-learning/types";
 import { defaultViewport, type ViewportState } from "./primitives";
 import { isIsoTimestamp } from "./timestamps";
 
-export const boardDocumentSchemaVersion = "1.4" as const;
+export const boardDocument14SchemaVersion = "1.4" as const;
+export const boardDocumentSchemaVersion = "1.5" as const;
+export const boardDocument15SchemaVersion = boardDocumentSchemaVersion;
 
 export interface BoardDocument {
   readonly createdAt: string;
@@ -34,6 +36,8 @@ export interface BoardDocument {
   readonly updatedAt: string;
   readonly viewport: ViewportState;
 }
+
+export type BoardDocument15 = BoardDocument;
 
 export interface CreateBoardDocumentInput {
   readonly createdAt: string;
