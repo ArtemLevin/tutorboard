@@ -333,7 +333,6 @@ export function BoardCanvas({
         panMode={activeTool === navigationToolId}
         primaryCanvasGesturesEnabled={
           activeTool === navigationToolId ||
-          activeTool === "drawing.pen" ||
           activeTool === "drawing.smart-ink" ||
           isSelectionToolId(activeTool)
         }
