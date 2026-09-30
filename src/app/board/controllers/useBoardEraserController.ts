@@ -175,9 +175,6 @@ function computeEraser(
     hiddenObjects.add(object.id);
   }
 
-  const groupedObjectIds = [...deletedGroups].flatMap(
-    (groupId) => document.groups[groupId]?.objectIds ?? [],
-  );
   return {
     changedPenStrokes,
     deletedGroupIds: [...deletedGroups],
