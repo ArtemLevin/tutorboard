@@ -380,8 +380,21 @@ export function vectorInkOutlinePathData(
   ink: VectorInkData,
   strokeWidth: number,
 ): string {
+  if (strokeWidth <= 0) return "";
+  if (ink.samples.length === 1) {
+    const sample = ink.samples[0]!;
+    const radius = halfWidth(strokeWidth, sample.pressure);
+    if (radius <= 0) return "";
+    const point = sample.point;
+    return [
+      `M ${number(point.x + radius)} ${number(point.y)}`,
+      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(point.x - radius)} ${number(point.y)}`,
+      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(point.x + radius)} ${number(point.y)}`,
+      "Z",
+    ].join(" ");
+  }
   const center = centerlineOutlinePoints(ink);
-  if (center.length < 2 || strokeWidth <= 0) return "";
+  if (center.length < 2) return "";
   const left: Vec2[] = [];
   const right: Vec2[] = [];
   const tangents: Vec2[] = [];
