@@ -230,6 +230,7 @@ export interface BoardStageProps {
   readonly selectionMarquee?: BoardSelectionRect | null;
   readonly selectionModeKey: string | null;
   readonly selectionPreviewDelta?: Vec2 | null;
+  readonly suppressedObjectIds?: readonly BoardObjectId[];
   readonly transformableObjectIds?: readonly BoardObjectId[];
   readonly wetInkStyle?: WetInkStyle | null;
   readonly onViewportCommit: (viewport: ViewportState) => void;
@@ -402,6 +403,7 @@ export function BoardStage({
   selectionMarquee = null,
   selectionModeKey,
   selectionPreviewDelta = null,
+  suppressedObjectIds = [],
   transformableObjectIds = [],
   wetInkStyle = null,
 }: BoardStageProps) {
@@ -491,13 +493,16 @@ export function BoardStage({
     wetInkRendererRef.current?.setViewport(previewViewport);
   }, [previewViewport]);
 
-  const visibleItemBatches = useMemo(
-    () =>
-      batchBoardRenderItems(
-        selectVisibleBoardItems(scene.items, previewViewport, size),
+  const visibleItemBatches = useMemo(() => {
+    const suppressed = new Set(suppressedObjectIds);
+    return batchBoardRenderItems(
+      selectVisibleBoardItems(
+        scene.items.filter(({ object }) => !suppressed.has(object.id)),
+        previewViewport,
+        size,
       ),
-    [previewViewport, scene.items, size],
-  );
+    );
+  }, [previewViewport, scene.items, size, suppressedObjectIds]);
   const smoothedSelectionLasso = useMemo(
     () =>
       selectionLasso === null || selectionLasso.length < 3
