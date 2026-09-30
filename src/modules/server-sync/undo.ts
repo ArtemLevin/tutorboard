@@ -54,6 +54,18 @@ export function invertOwnBoardCommand(
           replacements: command.originals,
         },
       ];
+    case "core.objects.batch-replace":
+      return [
+        {
+          ...meta(),
+          changes: command.changes.map((change) => ({
+            atIndex: change.atIndex,
+            originals: change.replacements,
+            replacements: change.originals,
+          })),
+          kind: command.kind,
+        },
+      ];
     case "core.coordinate-plot.update":
       return [
         {
