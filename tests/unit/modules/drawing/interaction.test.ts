@@ -115,6 +115,40 @@ describe("drawing interaction state machine", () => {
     expect(completed.state).toEqual(idle);
   });
 
+  it("creates a canonical pressure-aware dot from a tap", () => {
+    const started = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:dot"),
+      point: { x: 42, y: 24 },
+      pointerId: 31,
+      pressure: 0.7,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    });
+    const completed = reduceDrawingInteraction(started.state, {
+      inputTimestampMs: 104,
+      kind: "finish",
+      point: { x: 42, y: 24 },
+      pointerId: 31,
+      pressure: 0.8,
+    });
+
+    expect(completed.completedObject).toMatchObject({
+      kind: "drawing.pen-stroke",
+      points: [
+        { x: 42, y: 24 },
+        { x: 42, y: 24 },
+      ],
+    });
+    if (completed.completedObject?.kind !== "drawing.pen-stroke") return;
+    expect(completed.completedObject.ink?.samples).toHaveLength(2);
+    expect(completed.completedObject.ink?.samples[0]?.pressure).toBe(0.7);
+    expect(completed.completedObject.ink?.samples[1]?.pressure).toBe(0.8);
+    expect(completed.completedObject.ink?.centerline).toHaveLength(1);
+  });
+
   it("normalizes a rectangle drawn in reverse", () => {
     expect(
       draw("drawing.rectangle", { x: 140, y: 90 }, { x: 20, y: 30 }),
