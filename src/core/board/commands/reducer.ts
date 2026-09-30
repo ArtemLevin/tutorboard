@@ -422,9 +422,7 @@ function batchReplaceObjects(
       );
     }
 
-    const changeOriginalIds = new Set(
-      change.originals.map(({ id }) => id),
-    );
+    const changeOriginalIds = new Set(change.originals.map(({ id }) => id));
     const originalIndexes = change.originals.map(({ id }) =>
       document.order.indexOf(id),
     );
@@ -479,10 +477,7 @@ function batchReplaceObjects(
     }
 
     for (const replacement of change.replacements) {
-      if (
-        replacement.groupId !== null ||
-        replacement.source.kind !== "user"
-      ) {
+      if (replacement.groupId !== null || replacement.source.kind !== "user") {
         return failure(
           document,
           "command.invalid",

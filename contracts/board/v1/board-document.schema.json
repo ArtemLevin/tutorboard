@@ -3,8 +3,16 @@
     "BatchObjectReplacement": {
       "additionalProperties": false,
       "properties": {
-        "original": {
-          "$ref": "#/$defs/BoardObject"
+        "atIndex": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "originals": {
+          "items": {
+            "$ref": "#/$defs/BoardObject"
+          },
+          "type": "array",
+          "maxItems": 5000
         },
         "replacements": {
           "items": {
@@ -15,7 +23,8 @@
         }
       },
       "required": [
-        "original",
+        "atIndex",
+        "originals",
         "replacements"
       ],
       "type": "object"
