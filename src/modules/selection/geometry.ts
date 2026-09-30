@@ -470,11 +470,7 @@ export function selectObjectIdsNearPath(
   tolerance: number,
 ): readonly BoardObjectId[] {
   const points = rawPoints.filter(finitePoint).slice(0, maximumLassoPoints);
-  if (
-    points.length === 0 ||
-    !Number.isFinite(tolerance) ||
-    tolerance < 0
-  ) {
+  if (points.length === 0 || !Number.isFinite(tolerance) || tolerance < 0) {
     return [];
   }
   const brushPath: SelectionPath = { closed: false, points };
