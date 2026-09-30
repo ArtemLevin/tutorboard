@@ -26,6 +26,12 @@ export interface EraserResult {
   readonly replacements: readonly PenStrokeObject[];
 }
 
+export interface EraserPlan {
+  readonly groupedObjectIds: readonly BoardObjectId[];
+  readonly originals: readonly BoardObject[];
+  readonly replacements: readonly PenStrokeObject[];
+}
+
 export type EraserFragmentIdFactory = (
   original: PenStrokeObject,
   fragmentIndex: number,
@@ -290,6 +296,49 @@ export function erasePenStroke(
         ? { ...stroke.style, fill: null }
         : stroke.style,
   }));
+}
+
+export function planEraserChanges(
+  objects: readonly BoardObject[],
+  touchedObjectIds: readonly BoardObjectId[],
+  path: readonly Vec2[],
+  radiusWorld: number,
+  createFragmentId: EraserFragmentIdFactory,
+): EraserPlan {
+  const touched = new Set(touchedObjectIds);
+  const groupedObjectIds: BoardObjectId[] = [];
+  const originals: BoardObject[] = [];
+  const replacements: PenStrokeObject[] = [];
+
+  for (const object of objects) {
+    if (
+      !touched.has(object.id) ||
+      !object.visible ||
+      object.locked ||
+      object.source.kind !== "user"
+    ) {
+      continue;
+    }
+    if (object.groupId !== null) {
+      groupedObjectIds.push(object.id);
+      continue;
+    }
+    if (object.kind !== "drawing.pen-stroke") {
+      originals.push(object);
+      continue;
+    }
+    const fragments = erasePenStroke(
+      object,
+      path,
+      radiusWorld,
+      createFragmentId,
+    );
+    if (fragments === null) continue;
+    originals.push(object);
+    replacements.push(...fragments);
+  }
+
+  return { groupedObjectIds, originals, replacements };
 }
 
 export function eraseDocumentPenStrokes(

@@ -82,6 +82,42 @@ describe("drawing interaction state machine", () => {
     expect(simplified).toContain(points[500]);
   });
 
+  it("creates a visible pressure-aware dot from a single pen tap", () => {
+    const started = reduceDrawingInteraction(idle, {
+      kind: "start",
+      objectId: boardObjectId("object:dot"),
+      point: { x: 32, y: 48 },
+      pointerId: 31,
+      pressure: 0.8,
+      style: { ...styleFor("drawing.pen"), strokeWidth: 10 },
+      text: "",
+      tool: "drawing.pen",
+    });
+
+    expect(getDrawingPreview(started.state)).toMatchObject({
+      kind: "drawing.ellipse",
+      position: { x: 32, y: 48 },
+    });
+
+    const completed = reduceDrawingInteraction(started.state, {
+      kind: "finish",
+      point: { x: 32, y: 48 },
+      pointerId: 31,
+      pressure: 0.8,
+    });
+    expect(completed.completedObject).toMatchObject({
+      kind: "drawing.ellipse",
+      position: { x: 32, y: 48 },
+      style: { fill: styleFor("drawing.pen").stroke, strokeWidth: 0 },
+    });
+    if (completed.completedObject?.kind === "drawing.ellipse") {
+      expect(completed.completedObject.radius.x).toBeGreaterThan(4);
+      expect(completed.completedObject.radius.x).toBe(
+        completed.completedObject.radius.y,
+      );
+    }
+  });
+
   it("samples pen points in world space and completes one object", () => {
     const started = reduceDrawingInteraction(idle, {
       kind: "start",
