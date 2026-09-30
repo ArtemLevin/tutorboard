@@ -90,15 +90,20 @@ jobs:
         env:
           HEAD_REF: ${{ github.head_ref }}
         run: |
+          git diff --binary HEAD -- contracts/board/v1 src/core tests/unit/core scripts/board-contract-lib.mjs > /tmp/foundation.patch
+          if [ ! -s /tmp/foundation.patch ]; then
+            echo "Foundation outputs already committed."
+            exit 0
+          fi
+          git reset --hard
+          git fetch origin "${HEAD_REF}"
+          git checkout -B "${HEAD_REF}" "origin/${HEAD_REF}"
+          git apply /tmp/foundation.patch
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add contracts/board/v1             src/core/board/document.ts             src/core/board/vector-ink.ts             src/core/board/validation/schema.ts             src/core/board/migrations.ts             src/core/board/validation/read.ts             src/core/board/commands/commands.ts             src/core/board/commands/codec/command-codec.ts             src/core/board/commands/reducer.ts             tests/unit/core/vector-ink.test.ts             tests/unit/core/vector-ink-contract.test.ts             tests/unit/core/reducer.test.ts             scripts/board-contract-lib.mjs
-          if git diff --cached --quiet; then
-            echo "Foundation outputs already committed."
-          else
-            git commit -m "chore: generate and format input foundation"
-            git push origin HEAD:"${HEAD_REF}"
-          fi
+          git add contracts/board/v1 src/core/board tests/unit/core scripts/board-contract-lib.mjs
+          git commit -m "chore: generate and format input foundation"
+          git push origin "${HEAD_REF}"
 
       - name: Verify board contract
         run: npm run board-contract:check
