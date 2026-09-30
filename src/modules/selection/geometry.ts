@@ -328,6 +328,70 @@ function pathIntersectsPolygon(
   );
 }
 
+
+function minimumPathDistance(left: SelectionPath, right: SelectionPath): number {
+  const leftSegments = pathSegments(left);
+  const rightSegments = pathSegments(right);
+  if (leftSegments.length === 0 && rightSegments.length === 0) {
+    return left.points[0] === undefined || right.points[0] === undefined
+      ? Number.POSITIVE_INFINITY
+      : pointDistance(left.points[0], right.points[0]);
+  }
+  if (leftSegments.length === 0) {
+    const point = left.points[0];
+    return point === undefined ? Number.POSITIVE_INFINITY : pathDistanceToPoint(right, point);
+  }
+  if (rightSegments.length === 0) {
+    const point = right.points[0];
+    return point === undefined ? Number.POSITIVE_INFINITY : pathDistanceToPoint(left, point);
+  }
+  let minimum = Number.POSITIVE_INFINITY;
+  for (const [leftStart, leftFinish] of leftSegments) {
+    for (const [rightStart, rightFinish] of rightSegments) {
+      if (segmentsIntersect(leftStart, leftFinish, rightStart, rightFinish)) {
+        return 0;
+      }
+      minimum = Math.min(
+        minimum,
+        pointToSegmentDistance(leftStart, rightStart, rightFinish),
+        pointToSegmentDistance(leftFinish, rightStart, rightFinish),
+        pointToSegmentDistance(rightStart, leftStart, leftFinish),
+        pointToSegmentDistance(rightFinish, leftStart, leftFinish),
+      );
+    }
+  }
+  return minimum;
+}
+
+export function boardRenderItemIntersectsBrushPath(
+  item: BoardRenderItem,
+  rawPath: readonly Vec2[],
+  radius: number,
+): boolean {
+  const pathPoints = rawPath.filter(finitePoint);
+  if (
+    pathPoints.length === 0 ||
+    !Number.isFinite(radius) ||
+    radius < 0 ||
+    !item.object.visible
+  ) {
+    return false;
+  }
+  const objectPath = transformedSelectionPath(item);
+  if (
+    objectPath.closed &&
+    selectableInterior(item.object) &&
+    pathPoints.some((point) => pointInPolygon(point, objectPath.points))
+  ) {
+    return true;
+  }
+  const brushPath: SelectionPath = { closed: false, points: pathPoints };
+  return (
+    minimumPathDistance(objectPath, brushPath) <=
+    radius + item.object.style.strokeWidth / 2
+  );
+}
+
 export interface SelectionBounds {
   readonly id: BoardObjectId;
   readonly rect: Rect2;
