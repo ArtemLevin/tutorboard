@@ -93,6 +93,61 @@ test("creates one normalized primitive per completed gesture", async ({
   );
 });
 
+test(
+  "creates a visible dot from a pen tap without pointer movement",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const count = page.getByTestId("object-count");
+    await page.keyboard.press("p");
+    const point = await canvasPoint(page, 0.45, 0.35);
+    await page.mouse.click(point.x, point.y);
+    await expect(count).toHaveText("1 объекта");
+
+    await page.keyboard.press("Control+z");
+    await expect(count).toHaveText("0 объекта");
+  },
+);
+
+test("erases mixed drawing objects with configurable brush size in one undo step", async ({
+  page,
+}) => {
+  const count = page.getByTestId("object-count");
+
+  await page.keyboard.press("r");
+  const rectangleStart = await canvasPoint(page, 0.3, 0.38);
+  const rectangleEnd = await canvasPoint(page, 0.45, 0.56);
+  await page.mouse.move(rectangleStart.x, rectangleStart.y);
+  await page.mouse.down();
+  await page.mouse.move(rectangleEnd.x, rectangleEnd.y, { steps: 4 });
+  await page.mouse.up();
+
+  await page.keyboard.press("l");
+  const lineStart = await canvasPoint(page, 0.54, 0.47);
+  const lineEnd = await canvasPoint(page, 0.7, 0.47);
+  await page.mouse.move(lineStart.x, lineStart.y);
+  await page.mouse.down();
+  await page.mouse.move(lineEnd.x, lineEnd.y, { steps: 4 });
+  await page.mouse.up();
+  await expect(count).toHaveText("2 объекта");
+
+  await page.keyboard.press("x");
+  const size = page.getByRole("slider", { name: "Размер ластика" });
+  await expect(size).toBeVisible();
+  await size.fill("64");
+  await expect(size).toHaveValue("64");
+
+  const eraseStart = await canvasPoint(page, 0.25, 0.47);
+  const eraseEnd = await canvasPoint(page, 0.75, 0.47);
+  await page.mouse.move(eraseStart.x, eraseStart.y);
+  await page.mouse.down();
+  await page.mouse.move(eraseEnd.x, eraseEnd.y, { steps: 12 });
+  await page.mouse.up();
+
+  await expect(count).toHaveText("0 объекта");
+  await page.keyboard.press("Control+z");
+  await expect(count).toHaveText("2 объекта");
+});
+
 test("partially erases a pen stroke and undoes the gesture atomically", async ({
   page,
 }) => {
