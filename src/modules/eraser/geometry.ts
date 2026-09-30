@@ -478,6 +478,18 @@ function pointInPolygon(point: Vec2, polygon: readonly Vec2[]): boolean {
   return inside;
 }
 
+function pointOnSegment(point: Vec2, start: Vec2, finish: Vec2): boolean {
+  if (Math.abs(crossProduct(start, finish, point)) > pointEpsilon) {
+    return false;
+  }
+  return (
+    point.x >= Math.min(start.x, finish.x) - pointEpsilon &&
+    point.x <= Math.max(start.x, finish.x) + pointEpsilon &&
+    point.y >= Math.min(start.y, finish.y) - pointEpsilon &&
+    point.y <= Math.max(start.y, finish.y) + pointEpsilon
+  );
+}
+
 function segmentsIntersect(
   a0: Vec2,
   a1: Vec2,
@@ -488,7 +500,20 @@ function segmentsIntersect(
   const b = crossProduct(a0, a1, b1);
   const c = crossProduct(b0, b1, a0);
   const d = crossProduct(b0, b1, a1);
-  return a * b <= 0 && c * d <= 0;
+  if (
+    ((a > pointEpsilon && b < -pointEpsilon) ||
+      (a < -pointEpsilon && b > pointEpsilon)) &&
+    ((c > pointEpsilon && d < -pointEpsilon) ||
+      (c < -pointEpsilon && d > pointEpsilon))
+  ) {
+    return true;
+  }
+  return (
+    pointOnSegment(b0, a0, a1) ||
+    pointOnSegment(b1, a0, a1) ||
+    pointOnSegment(a0, b0, b1) ||
+    pointOnSegment(a1, b0, b1)
+  );
 }
 
 function segmentDistance(
@@ -568,15 +593,23 @@ export function eraseDocumentObjects(
     if (group?.locked === true) continue;
 
     if (object.groupId !== null) {
-      for (const memberId of group?.objectIds ?? [object.id]) {
-        const member = document.objects[memberId];
-        if (
-          member !== undefined &&
-          member.source.kind === "user" &&
-          !member.locked
-        ) {
-          deleted.add(member.id);
-        }
+      const members = (group?.objectIds ?? []).map(
+        (memberId) => document.objects[memberId],
+      );
+      if (
+        group === undefined ||
+        members.length === 0 ||
+        members.some(
+          (member) =>
+            member === undefined ||
+            member.locked ||
+            member.source.kind !== "user",
+        )
+      ) {
+        continue;
+      }
+      for (const member of members) {
+        if (member !== undefined) deleted.add(member.id);
       }
       continue;
     }
