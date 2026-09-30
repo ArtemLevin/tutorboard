@@ -506,7 +506,20 @@ export class BoardSyncEngine {
   }
 
   queue(command: BoardCommand, document: BoardDocument): Promise<void> {
-    if (this.#disposed || this.#accessRefreshPending) return Promise.resolve();
+    return this.queueBatch([command], document);
+  }
+
+  queueBatch(
+    commands: readonly BoardCommand[],
+    document: BoardDocument,
+  ): Promise<void> {
+    if (
+      this.#disposed ||
+      this.#accessRefreshPending ||
+      commands.length === 0
+    ) {
+      return Promise.resolve();
+    }
     const context = this.#context;
     const confirmed = this.#confirmed;
     if (context === null || confirmed === null) {
@@ -520,17 +533,21 @@ export class BoardSyncEngine {
       return Promise.resolve();
     }
     if (
-      command.actorId !== context.actorId ||
+      commands.some(({ actorId }) => actorId !== context.actorId) ||
       document.id !== this.#documentId
     ) {
       this.#recover(
         "board.sync.actor-or-document-mismatch",
-        "Команда не соответствует активному пользователю или доске.",
+        "Команды не соответствуют активному пользователю или доске.",
       );
       return Promise.resolve();
     }
 
-    const durable = this.#enqueueDurably(command, confirmed.revision);
+    const durable = Promise.all(
+      commands.map((command) =>
+        this.#enqueueDurably(command, confirmed.revision),
+      ),
+    );
     this.#serial = this.#serial
       .then(async () => {
         const queued = await durable;
@@ -538,7 +555,7 @@ export class BoardSyncEngine {
         if (this.#confirmed === null) {
           throw new Error("Board sync engine is not ready.");
         }
-        this.#pending = orderedPending([...this.#pending, queued]);
+        this.#pending = orderedPending([...this.#pending, ...queued]);
         const knownSequences = this.#pending.map(({ sequence }) => sequence);
         const replayed = replayPending(this.#confirmed, this.#pending);
         await this.#quarantineConflicts(replayed.conflicts);
