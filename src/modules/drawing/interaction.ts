@@ -191,6 +191,19 @@ function userObjectBase(id: BoardObjectId, position: Vec2, style: ObjectStyle) {
   };
 }
 
+function penSamplesFormDot(
+  samples: readonly VectorInkSample[],
+  strokeWidth: number,
+): boolean {
+  const first = samples[0];
+  if (first === undefined) return false;
+  const tolerance = Math.max(1.5, Math.max(0, strokeWidth) * 0.5);
+  return samples.every(
+    ({ point }) =>
+      Math.hypot(point.x - first.point.x, point.y - first.point.y) <= tolerance,
+  );
+}
+
 function penDot(
   state: PenInteraction,
   sample: VectorInkSample,
@@ -218,6 +231,10 @@ function completePen(
   action: Extract<DrawingAction, { readonly kind: "finish" }>,
 ): UserDrawingObject | null {
   const appended = appendPenSample(state, action);
+  if (penSamplesFormDot(appended, state.style.strokeWidth)) {
+    const sample = appended[0];
+    return sample === undefined ? null : penDot(state, sample);
+  }
   const rawPoints = appended.map(({ point: samplePoint }) => samplePoint);
   const points = simplifyStroke(
     rawPoints,
@@ -409,7 +426,7 @@ export function getDrawingPreview(
     case "idle":
       return null;
     case "drawing-pen":
-      if (state.samples.length === 1) {
+      if (penSamplesFormDot(state.samples, state.style.strokeWidth)) {
         return penDot(state, state.samples[0]!);
       }
       return {
