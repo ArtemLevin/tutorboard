@@ -487,6 +487,7 @@ export class BoardSyncEngine {
   #enqueueDurably(
     command: BoardCommand,
     baseRevisionAtCreation: number,
+    batchId?: string,
   ): Promise<PendingBoardCommand> {
     const idempotencyKey = this.#createIdempotencyKey();
     const accessEpochAtCreation = this.#context?.accessEpoch;
@@ -495,6 +496,7 @@ export class BoardSyncEngine {
         ...(accessEpochAtCreation === undefined
           ? {}
           : { accessEpochAtCreation }),
+        ...(batchId === undefined ? {} : { batchId }),
         baseRevisionAtCreation,
       }),
     );
@@ -543,9 +545,11 @@ export class BoardSyncEngine {
       return Promise.resolve();
     }
 
+    const batchId =
+      commands.length > 1 ? this.#createIdempotencyKey() : undefined;
     const durable = Promise.all(
       commands.map((command) =>
-        this.#enqueueDurably(command, confirmed.revision),
+        this.#enqueueDurably(command, confirmed.revision, batchId),
       ),
     );
     this.#serial = this.#serial
@@ -947,16 +951,38 @@ export class BoardSyncEngine {
           await this.#dropStaleOrUnauthorizedPending();
           continue;
         }
-        const applied = applyCommand(this.#confirmed.document, first.command);
+        const batch =
+          first.batchId === undefined
+            ? [first]
+            : this.#pending.slice(
+                0,
+                this.#pending.findIndex(
+                  (item) =>
+                    item.batchId !== first.batchId ||
+                    item.order.baseRevisionAtCreation !==
+                      first.order.baseRevisionAtCreation,
+                ) === -1
+                  ? this.#pending.length
+                  : this.#pending.findIndex(
+                      (item) =>
+                        item.batchId !== first.batchId ||
+                        item.order.baseRevisionAtCreation !==
+                          first.order.baseRevisionAtCreation,
+                    ),
+              );
+        let applied = this.#confirmed.document;
+        for (const item of batch) {
+          applied = applyCommand(applied, item.command);
+        }
         const sha256 = await boardDocumentSha256(applied);
         const result = await this.#repository.push(
           {
             actorId: this.#context.actorId,
             baseRevision: this.#confirmed.revision,
-            commands: [orderedFromPending(first)],
+            commands: batch.map(orderedFromPending),
             documentId: this.#documentId,
             expectedDocumentSha256: sha256,
-            idempotencyKey: first.idempotencyKey,
+            idempotencyKey: first.batchId ?? first.idempotencyKey,
             originId: this.#originId,
             schemaVersion: "1.6",
           },
@@ -1000,9 +1026,11 @@ export class BoardSyncEngine {
           session: confirmedSession(this.#context),
           sha256,
         };
-        await this.#queue.acknowledge(this.#documentId, first.sequence);
-        if (this.#disposed) return;
-        this.#pending = this.#pending.slice(1);
+        for (const item of batch) {
+          await this.#queue.acknowledge(this.#documentId, item.sequence);
+          if (this.#disposed) return;
+        }
+        this.#pending = this.#pending.slice(batch.length);
         await this.#queue.saveHead(this.#confirmed);
       }
       const knownSequences = this.#pending.map(({ sequence }) => sequence);
@@ -1075,27 +1103,38 @@ export class BoardSyncEngine {
     const byKey = new Map(
       batches.map((batch) => [batch.idempotencyKey, batch] as const),
     );
-    const remaining: PendingBoardCommand[] = [];
+    const acknowledged = new Set<number>();
     for (const item of this.#pending) {
-      if (this.#disposed) return;
-      const accepted = byKey.get(item.idempotencyKey);
-      if (accepted === undefined) {
-        remaining.push(item);
-        continue;
-      }
+      if (acknowledged.has(item.sequence)) continue;
+      const accepted = byKey.get(item.batchId ?? item.idempotencyKey);
+      if (accepted === undefined) continue;
+      const local =
+        item.batchId === undefined
+          ? [item]
+          : this.#pending.filter(
+              (candidate) => candidate.batchId === item.batchId,
+            );
       const acceptedCommands = commandsFromBatch(accepted);
       if (
-        acceptedCommands.length !== 1 ||
-        JSON.stringify(acceptedCommands[0]) !== JSON.stringify(item.command)
+        acceptedCommands.length !== local.length ||
+        acceptedCommands.some(
+          (command, index) =>
+            JSON.stringify(command) !== JSON.stringify(local[index]?.command),
+        )
       ) {
         throw new SyncRecoveryError(
           "board.sync.idempotency-mismatch",
           "Серверная команда с локальным idempotency key имеет другое содержимое.",
         );
       }
-      await this.#queue.acknowledge(this.#documentId, item.sequence);
+      for (const candidate of local) {
+        await this.#queue.acknowledge(this.#documentId, candidate.sequence);
+        acknowledged.add(candidate.sequence);
+      }
     }
-    this.#pending = remaining;
+    this.#pending = this.#pending.filter(
+      (item) => !acknowledged.has(item.sequence),
+    );
   }
 
   #emitReady(network: "offline" | "online"): void {
