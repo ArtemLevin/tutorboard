@@ -156,7 +156,7 @@ const cubicBezierSegmentSchema = z
     start: vec2Schema,
   })
   .strict();
-const vectorInkSchema = z
+const vectorInkSchema15 = z
   .object({
     centerline: z.array(cubicBezierSegmentSchema).min(1).max(100_000),
     closed: z.boolean(),
@@ -164,12 +164,54 @@ const vectorInkSchema = z
     version: z.literal(vectorInkSchemaVersion),
   })
   .strict();
+const vectorInkSchema = z
+  .object({
+    centerline: z.array(cubicBezierSegmentSchema).max(100_000),
+    closed: z.boolean(),
+    samples: z.array(vectorInkSampleSchema).min(1).max(100_000),
+    version: z.literal(vectorInkSchemaVersion),
+  })
+  .strict()
+  .superRefine((ink, context) => {
+    if (ink.samples.length === 1) {
+      if (ink.centerline.length !== 0) {
+        context.addIssue({
+          code: "custom",
+          message: "Single-sample Vector Ink dots must not contain centerline segments.",
+          path: ["centerline"],
+        });
+      }
+      if (ink.closed) {
+        context.addIssue({
+          code: "custom",
+          message: "Single-sample Vector Ink dots cannot be closed.",
+          path: ["closed"],
+        });
+      }
+      return;
+    }
+    if (ink.centerline.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Multi-sample Vector Ink requires at least one centerline segment.",
+        path: ["centerline"],
+      });
+    }
+  });
+const penStrokeSchema15 = z
+  .object({
+    ...objectBase,
+    ink: vectorInkSchema15,
+    kind: z.literal("drawing.pen-stroke"),
+    points: z.array(vec2Schema).min(2).max(100_000),
+  })
+  .strict();
 const penStrokeSchema = z
   .object({
     ...objectBase,
     ink: vectorInkSchema,
     kind: z.literal("drawing.pen-stroke"),
-    points: z.array(vec2Schema).min(2).max(100_000),
+    points: z.array(vec2Schema).min(1).max(100_000),
   })
   .strict();
 const lineSchema = z
@@ -414,7 +456,7 @@ const objectSchema11 = z.discriminatedUnion("kind", [
   coordinatePlotObjectSchema,
 ]);
 const objectSchema12 = z.discriminatedUnion("kind", [
-  penStrokeSchema,
+  penStrokeSchema15,
   lineSchema,
   rectangleSchema,
   ellipseSchema,
@@ -424,6 +466,17 @@ const objectSchema12 = z.discriminatedUnion("kind", [
   coordinatePlotObjectSchema,
 ]);
 const objectSchema15 = z.discriminatedUnion("kind", [
+  penStrokeSchema15,
+  lineSchema,
+  rectangleSchema,
+  ellipseSchema,
+  textSchema,
+  embeddedImageObjectSchema,
+  mediaAssetObjectSchema,
+  svgObjectSchema,
+  coordinatePlotObjectSchema,
+]);
+const objectSchema16 = z.discriminatedUnion("kind", [
   penStrokeSchema,
   lineSchema,
   rectangleSchema,
@@ -982,7 +1035,14 @@ export const boardDocumentSchema15 = boardDocumentSchema14
   })
   .strict();
 
-export const boardDocumentSchema = boardDocumentSchema15;
+export const boardDocumentSchema16 = boardDocumentSchema15
+  .extend({
+    objects: z.record(boardObjectIdSchema, objectSchema16),
+    schemaVersion: z.literal("1.6"),
+  })
+  .strict();
+
+export const boardDocumentSchema = boardDocumentSchema16;
 
 export const legacyBoardObjectKinds = new Set<string>([
   "drawing.pen-stroke",
