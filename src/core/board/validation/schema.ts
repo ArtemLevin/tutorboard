@@ -164,12 +164,24 @@ const vectorInkSchema = z
     version: z.literal(vectorInkSchemaVersion),
   })
   .strict();
-const penStrokeSchema = z
+const penStrokeSchema15 = z
   .object({
     ...objectBase,
     ink: vectorInkSchema,
     kind: z.literal("drawing.pen-stroke"),
     points: z.array(vec2Schema).min(2).max(100_000),
+  })
+  .strict();
+const vectorInkSchema16 = vectorInkSchema.extend({
+  centerline: z.array(cubicBezierSegmentSchema).max(100_000),
+  samples: z.array(vectorInkSampleSchema).min(1).max(100_000),
+});
+const penStrokeSchema16 = z
+  .object({
+    ...objectBase,
+    ink: vectorInkSchema16,
+    kind: z.literal("drawing.pen-stroke"),
+    points: z.array(vec2Schema).min(1).max(100_000),
   })
   .strict();
 const lineSchema = z
@@ -414,7 +426,7 @@ const objectSchema11 = z.discriminatedUnion("kind", [
   coordinatePlotObjectSchema,
 ]);
 const objectSchema12 = z.discriminatedUnion("kind", [
-  penStrokeSchema,
+  penStrokeSchema15,
   lineSchema,
   rectangleSchema,
   ellipseSchema,
@@ -424,7 +436,18 @@ const objectSchema12 = z.discriminatedUnion("kind", [
   coordinatePlotObjectSchema,
 ]);
 const objectSchema15 = z.discriminatedUnion("kind", [
-  penStrokeSchema,
+  penStrokeSchema15,
+  lineSchema,
+  rectangleSchema,
+  ellipseSchema,
+  textSchema,
+  embeddedImageObjectSchema,
+  mediaAssetObjectSchema,
+  svgObjectSchema,
+  coordinatePlotObjectSchema,
+]);
+const objectSchema16 = z.discriminatedUnion("kind", [
+  penStrokeSchema16,
   lineSchema,
   rectangleSchema,
   ellipseSchema,
@@ -982,7 +1005,14 @@ export const boardDocumentSchema15 = boardDocumentSchema14
   })
   .strict();
 
-export const boardDocumentSchema = boardDocumentSchema15;
+export const boardDocumentSchema16 = boardDocumentSchema15
+  .extend({
+    objects: z.record(boardObjectIdSchema, objectSchema16),
+    schemaVersion: z.literal("1.6"),
+  })
+  .strict();
+
+export const boardDocumentSchema = boardDocumentSchema16;
 
 export const legacyBoardObjectKinds = new Set<string>([
   "drawing.pen-stroke",
@@ -1003,3 +1033,4 @@ export const knownBoardObjectKinds10 = new Set<string>([
 export const knownBoardObjectKinds14 = new Set<string>(boardObjectKinds14);
 export const knownBoardObjectKinds = new Set<string>(boardObjectKinds);
 export const knownBoardObjectKinds15 = knownBoardObjectKinds;
+export const knownBoardObjectKinds16 = knownBoardObjectKinds;

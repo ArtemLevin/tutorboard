@@ -59,12 +59,11 @@ const cubicBezierSegment = strictObject({
 const vectorInkData = strictObject({
   centerline: array(reference("CubicBezierSegment"), {
     maxItems: 100_000,
-    minItems: 1,
   }),
   closed: { type: "boolean" },
   samples: array(reference("VectorInkSample"), {
     maxItems: 100_000,
-    minItems: 2,
+    minItems: 1,
   }),
   version: { const: "1.0" },
 });
@@ -138,7 +137,7 @@ function boardObject(kind, properties, required = Object.keys(properties)) {
 
 const penStroke = boardObject("drawing.pen-stroke", {
   ink: reference("VectorInkData"),
-  points: array(reference("Vec2"), { maxItems: 100_000, minItems: 2 }),
+  points: array(reference("Vec2"), { maxItems: 100_000, minItems: 1 }),
 });
 const line = boardObject(
   "drawing.line",
@@ -746,7 +745,7 @@ const boardDocument = strictObject({
   id: reference("Identifier"),
   objects: record(reference("BoardObject")),
   order: array(reference("Identifier"), { uniqueItems: true }),
-  schemaVersion: { const: "1.5" },
+  schemaVersion: { const: "1.6" },
   solidLearningAttempts: record(reference("Solid3DLearningAttempt")),
   solidModels: record(reference("Solid3DRecord")),
   title: { maxLength: 256, minLength: 1, type: "string" },
@@ -929,6 +928,15 @@ const commands = {
     originals: array(reference("BoardObject"), { minItems: 1 }),
     replacements: array(reference("BoardObject"), { minItems: 1 }),
   }),
+  RewriteObjectsCommand: command("core.objects.rewrite", {
+    changes: array(
+      strictObject({
+        original: reference("BoardObject"),
+        replacements: array(reference("BoardObject")),
+      }),
+      { minItems: 1, maxItems: 5_000 },
+    ),
+  }),
   RenameDocumentCommand: command("core.document.rename", {
     title: { maxLength: 256, minLength: 1, type: "string" },
   }),
@@ -1017,7 +1025,7 @@ function rootSchema(id, title, root, definitions) {
 export const schemas = {
   "board-command-envelope.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-command-envelope.schema.json",
-    "BoardCommandEnvelope 1.6",
+    "BoardCommandEnvelope 1.7",
     strictObject({
       actorId: reference("Identifier"),
       baseRevision: nonNegativeInteger,
@@ -1037,13 +1045,13 @@ export const schemas = {
         type: "string",
       },
       originId: reference("Identifier"),
-      schemaVersion: { const: "1.6" },
+      schemaVersion: { const: "1.7" },
     }),
     commandDefinitions,
   ),
   "board-document.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-document.schema.json",
-    "BoardDocument 1.5",
+    "BoardDocument 1.6",
     reference("BoardDocument"),
     boardDefinitions,
   ),
@@ -1080,14 +1088,14 @@ export const schemas = {
   ),
   "board-snapshot.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-snapshot.schema.json",
-    "BoardSnapshot 1.5",
+    "BoardSnapshot 1.6",
     strictObject({
       createdAt: timestamp,
       document: reference("BoardDocument"),
       documentId: reference("Identifier"),
       documentSha256: { pattern: sha256Pattern, type: "string" },
       revision: nonNegativeInteger,
-      schemaVersion: { const: "1.5" },
+      schemaVersion: { const: "1.6" },
     }),
     boardDefinitions,
   ),
@@ -1102,11 +1110,11 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 
 ## Artifacts
 
-- \`BoardDocument 1.5\` is the canonical persisted board state and supports
-  metadata-only \`media.asset\` references.
-- \`BoardCommandEnvelope 1.6\` carries one atomic, idempotent command batch
+- \`BoardDocument 1.6\` is the canonical persisted board state, supports
+  metadata-only \`media.asset\` references and canonical single-sample ink dots.
+- \`BoardCommandEnvelope 1.7\` carries one atomic, idempotent command batch
   against a known base revision.
-- \`BoardSnapshot 1.5\` binds a canonical document to a server revision and
+- \`BoardSnapshot 1.6\` binds a canonical document to a server revision and
   SHA-256 digest.
 - \`BoardGeometryImport 1.1\` records GeometryOS GIR/Layout provenance without
   adding transport state to \`BoardDocument\`.
@@ -1138,6 +1146,8 @@ const compatibility = `# Board command compatibility
 | Semantic 3D solids | \`core.solid-3d.*\` | BoardDocument 1.3+ | board/v1.3 reader |
 | 3D learning attempts | \`core.solid-3d-learning.*\` | BoardDocument 1.4+ | board/v1.4 reader |
 | Media asset references | object-bearing \`core.*\` commands | BoardDocument 1.5+ | board/v1.5 reader; persistence gated until media authority |
+| Single-tap ink dots | \`drawing.pen-stroke\` with one Vector Ink sample | BoardDocument 1.6+ | board/v1.6 reader |
+| Atomic mixed erasing | \`core.objects.rewrite\` | BoardCommandEnvelope 1.7+ | board/v1.7 reader |
 
 \`core.objects.replace\` carries complete original and replacement snapshots.
 Older strict readers reject this command explicitly. Deployments using server
@@ -1246,7 +1256,7 @@ function upgradeVectorInkDocument(document) {
           : object,
       ]),
     ),
-    schemaVersion: "1.5",
+    schemaVersion: "1.6",
     solidModels: {},
     solidLearningAttempts: {},
   };
@@ -1320,7 +1330,7 @@ function fixtures() {
       expectedDocumentSha256: documentHash,
       idempotencyKey: "client:tutor-01:batch-08",
       originId: "origin:tutor-browser-01",
-      schemaVersion: "1.6",
+      schemaVersion: "1.7",
     },
     "fixtures/board-document.json": document,
     "fixtures/board-geometry-import.json": {
@@ -1347,7 +1357,7 @@ function fixtures() {
       documentId: document.id,
       documentSha256: documentHash,
       revision: 7,
-      schemaVersion: "1.5",
+      schemaVersion: "1.6",
     },
   };
 }
@@ -1386,10 +1396,10 @@ export function generateBoardContract(outputRoot = contractRoot) {
     artifacts,
     contract: "board/v1",
     schemas: {
-      boardCommandEnvelope: "1.6",
-      boardDocument: "1.5",
+      boardCommandEnvelope: "1.7",
+      boardDocument: "1.6",
       boardGeometryImport: "1.0",
-      boardSnapshot: "1.5",
+      boardSnapshot: "1.6",
     },
   };
   fs.writeFileSync(

@@ -15,8 +15,9 @@ import { defaultViewport, type ViewportState } from "./primitives";
 import { isIsoTimestamp } from "./timestamps";
 
 export const boardDocument14SchemaVersion = "1.4" as const;
-export const boardDocumentSchemaVersion = "1.5" as const;
-export const boardDocument15SchemaVersion = boardDocumentSchemaVersion;
+export const boardDocument15SchemaVersion = "1.5" as const;
+export const boardDocumentSchemaVersion = "1.6" as const;
+export const boardDocument16SchemaVersion = boardDocumentSchemaVersion;
 
 export interface BoardDocument {
   readonly createdAt: string;
@@ -37,7 +38,12 @@ export interface BoardDocument {
   readonly viewport: ViewportState;
 }
 
-export type BoardDocument15 = BoardDocument;
+export type BoardDocument16 = BoardDocument;
+
+/** Historical 1.5 document shape retained for rolling-reader migrations. */
+export type BoardDocument15 = Omit<BoardDocument, "schemaVersion"> & {
+  readonly schemaVersion: typeof boardDocument15SchemaVersion;
+};
 
 export interface CreateBoardDocumentInput {
   readonly createdAt: string;

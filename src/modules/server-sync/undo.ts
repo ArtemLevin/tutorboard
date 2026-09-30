@@ -54,6 +54,45 @@ export function invertOwnBoardCommand(
           replacements: command.originals,
         },
       ];
+    case "core.objects.rewrite": {
+      if (
+        command.changes.some(
+          ({ original, replacements }) =>
+            original.groupId !== null ||
+            replacements.some(({ groupId }) => groupId !== null),
+        )
+      ) {
+        return [];
+      }
+      const replacements = command.changes.flatMap(
+        ({ original, replacements }) =>
+          replacements.length === 0
+            ? []
+            : [
+                {
+                  ...meta(),
+                  kind: "core.objects.replace" as const,
+                  originals: replacements,
+                  replacements: [original],
+                },
+              ],
+      );
+      const additions = command.changes
+        .filter(({ replacements }) => replacements.length === 0)
+        .map(({ original }) => ({
+          index: before.order.indexOf(original.id),
+          original,
+        }))
+        .filter(({ index }) => index >= 0)
+        .sort((left, right) => left.index - right.index)
+        .map(({ index, original }): BoardCommand => ({
+          ...meta(),
+          atIndex: index,
+          kind: "core.objects.add",
+          objects: [original],
+        }));
+      return [...replacements, ...additions];
+    }
     case "core.coordinate-plot.update":
       return [
         {

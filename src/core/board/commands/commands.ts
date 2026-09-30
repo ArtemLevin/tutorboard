@@ -39,6 +39,16 @@ export interface ReplaceObjectsCommand extends CommandMetadata {
   readonly replacements: readonly BoardObject[];
 }
 
+export interface RewriteObjectChange {
+  readonly original: BoardObject;
+  readonly replacements: readonly BoardObject[];
+}
+
+export interface RewriteObjectsCommand extends CommandMetadata {
+  readonly changes: readonly RewriteObjectChange[];
+  readonly kind: "core.objects.rewrite";
+}
+
 export interface AddGroupCommand extends CommandMetadata {
   readonly group: BoardGroup;
   readonly kind: "core.groups.add";
@@ -237,6 +247,7 @@ export type BoardCommand =
   | MoveSelectionCommand
   | PasteContentCommand
   | ReplaceObjectsCommand
+  | RewriteObjectsCommand
   | RemoveGroupsCommand
   | RenameDocumentCommand
   | ReorderLayersCommand
@@ -260,6 +271,7 @@ export type BoardCommand =
 export const boardCommandKinds = [
   "core.objects.add",
   "core.objects.replace",
+  "core.objects.rewrite",
   "core.clipboard.cut",
   "core.clipboard.paste",
   "core.groups.add",

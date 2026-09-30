@@ -32,6 +32,7 @@ import type {
   MoveSelectionCommand,
   PasteContentCommand,
   ReplaceObjectsCommand,
+  RewriteObjectsCommand,
   RemoveGroupsCommand,
   RenameDocumentCommand,
   ReorderLayersCommand,
@@ -365,6 +366,180 @@ function replaceObjects(
       ...replacementIds,
       ...remainingOrder.slice(insertionIndex),
     ],
+    updatedAt: command.timestamp,
+  });
+}
+
+function rewriteObjects(
+  document: BoardDocument,
+  command: RewriteObjectsCommand,
+): CommandResult {
+  if (command.changes.length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Rewrite objects command requires at least one change.",
+    );
+  }
+
+  const originalIds = command.changes.map(({ original }) => original.id);
+  if (hasDuplicates(originalIds)) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "Rewrite objects command contains duplicate originals.",
+    );
+  }
+  const originalIdSet = new Set(originalIds);
+  const currentObjects = command.changes.map(({ original }) =>
+    ownValue(document.objects, original.id),
+  );
+  if (currentObjects.some((object) => object === undefined)) {
+    return failure(
+      document,
+      "command.object-missing",
+      "Rewrite objects command references a missing original.",
+    );
+  }
+  if (
+    currentObjects.some(
+      (object, index) =>
+        object === undefined ||
+        !structurallyEqual(object, command.changes[index]!.original),
+    )
+  ) {
+    return failure(
+      document,
+      "command.stale-object",
+      "Rewrite objects command contains a stale original snapshot.",
+    );
+  }
+
+  const groupedIds = new Set<GroupId>();
+  for (const change of command.changes) {
+    const original = change.original;
+    if (original.locked || original.source.kind !== "user") {
+      return failure(
+        document,
+        "command.locked",
+        "Only unlocked user objects can be rewritten.",
+      );
+    }
+    if (original.groupId !== null) {
+      const group = ownValue(document.groups, original.groupId);
+      if (group === undefined) {
+        return failure(
+          document,
+          "command.group-missing",
+          "Rewrite objects command references a missing group.",
+        );
+      }
+      if (group.locked) {
+        return failure(
+          document,
+          "command.locked",
+          "Locked groups cannot be rewritten.",
+        );
+      }
+      if (change.replacements.length > 0) {
+        return failure(
+          document,
+          "command.invalid",
+          "Grouped objects can only be removed by an atomic rewrite.",
+        );
+      }
+      groupedIds.add(group.id);
+    }
+    if (
+      change.replacements.some(
+        (replacement) =>
+          replacement.groupId !== null || replacement.source.kind !== "user",
+      )
+    ) {
+      return failure(
+        document,
+        "command.invalid",
+        "Rewrite replacements must be ungrouped user objects.",
+      );
+    }
+  }
+
+  for (const groupId of groupedIds) {
+    const group = ownValue(document.groups, groupId);
+    if (
+      group === undefined ||
+      group.objectIds.some((objectId) => !originalIdSet.has(objectId))
+    ) {
+      return failure(
+        document,
+        "command.invalid",
+        "Grouped objects must be rewritten as a complete group.",
+      );
+    }
+  }
+
+  const replacements = command.changes.flatMap(({ replacements }) =>
+    replacements.map((replacement) => replacement),
+  );
+  const replacementIds = replacements.map(({ id }) => id);
+  if (hasDuplicates(replacementIds)) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "Rewrite objects command contains duplicate replacement IDs.",
+    );
+  }
+  if (
+    replacementIds.some(
+      (id) =>
+        !originalIdSet.has(id) && ownValue(document.objects, id) !== undefined,
+    )
+  ) {
+    return failure(
+      document,
+      "command.object-exists",
+      "Rewrite objects command collides with an existing object ID.",
+    );
+  }
+
+  const changesById = new Map(
+    command.changes.map((change) => [change.original.id, change] as const),
+  );
+  const objects = { ...document.objects };
+  for (const id of originalIds) delete objects[id];
+  for (const replacement of replacements) objects[replacement.id] = replacement;
+
+  const groups = { ...document.groups };
+  for (const groupId of groupedIds) delete groups[groupId];
+
+  const order = document.order.flatMap((id) => {
+    const change = changesById.get(id);
+    return change === undefined
+      ? [id]
+      : change.replacements.map(({ id: replacementId }) => replacementId);
+  });
+
+  const solidModels = Object.fromEntries(
+    Object.entries(document.solidModels).filter(
+      ([, record]) =>
+        record === undefined ||
+        !record.boardObjectIds.every((id) => originalIdSet.has(id)),
+    ),
+  ) as BoardDocument["solidModels"];
+  const solidLearningAttempts = Object.fromEntries(
+    Object.entries(document.solidLearningAttempts).filter(
+      ([, attempt]) =>
+        attempt === undefined || solidModels[attempt.solidId] !== undefined,
+    ),
+  ) as BoardDocument["solidLearningAttempts"];
+
+  return accept(document, {
+    ...document,
+    groups,
+    objects,
+    order,
+    solidModels,
+    solidLearningAttempts,
     updatedAt: command.timestamp,
   });
 }
@@ -2079,6 +2254,8 @@ export function reduceBoardDocument(
       return addObjects(document, command);
     case "core.objects.replace":
       return replaceObjects(document, command);
+    case "core.objects.rewrite":
+      return rewriteObjects(document, command);
     case "core.clipboard.cut":
       return cutContent(document, command);
     case "core.clipboard.paste":

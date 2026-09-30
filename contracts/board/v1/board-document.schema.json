@@ -45,7 +45,7 @@
           "uniqueItems": true
         },
         "schemaVersion": {
-          "const": "1.5"
+          "const": "1.6"
         },
         "solidLearningAttempts": {
           "additionalProperties": {
@@ -1287,7 +1287,7 @@
           },
           "type": "array",
           "maxItems": 100000,
-          "minItems": 2
+          "minItems": 1
         }
       },
       "required": [
@@ -1338,8 +1338,7 @@
             "$ref": "#/$defs/CubicBezierSegment"
           },
           "type": "array",
-          "maxItems": 100000,
-          "minItems": 1
+          "maxItems": 100000
         },
         "closed": {
           "type": "boolean"
@@ -1350,7 +1349,7 @@
           },
           "type": "array",
           "maxItems": 100000,
-          "minItems": 2
+          "minItems": 1
         },
         "version": {
           "const": "1.0"
@@ -3488,6 +3487,6 @@
   },
   "$id": "https://contracts.tutorboard.dev/board/v1/board-document.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "BoardDocument 1.5",
+  "title": "BoardDocument 1.6",
   "$ref": "#/$defs/BoardDocument"
 }
