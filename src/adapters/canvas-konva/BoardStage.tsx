@@ -170,6 +170,7 @@ export interface BoardStageProps {
     readonly point: Vec2;
   } | null;
   readonly eraserPoint?: Vec2 | null;
+  readonly eraserPreviewCount?: number;
   readonly eraserRadiusPx?: number;
   readonly laserActive?: boolean;
   readonly laserPoint?: Vec2 | null;
@@ -365,6 +366,7 @@ export function BoardStage({
   drawingModeKey,
   drawingConstraintFeedback = null,
   eraserPoint = null,
+  eraserPreviewCount = 0,
   eraserRadiusPx = 12,
   laserActive = false,
   laserPoint = null,
@@ -1615,6 +1617,7 @@ export function BoardStage({
       data-drawing={isDrawing}
       data-drawing-constraint={drawingConstraintFeedback?.label ?? "none"}
       data-drawing-mode={drawingModeKey ?? "none"}
+      data-eraser-preview-count={eraserPreviewCount}
       data-eraser-visible={eraserPoint !== null}
       data-lasso-points={selectionLasso?.length ?? 0}
       data-lassoing={selectionLasso !== null}
