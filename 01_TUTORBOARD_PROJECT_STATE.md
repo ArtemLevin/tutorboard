@@ -1,12 +1,51 @@
 # TutorBoard — текущее состояние проекта
 
-**Дата среза:** 29.09.2026  
+**Дата среза:** 30.09.2026  
 **Репозиторий:** `ArtemLevin/tutorboard`  
 **Ветка:** `main`  
 **Срез поставки:** PR #133 — `Input Foundation + Shape Constraints`  
 **Последняя поставка текущего среза:** PR #133 — `feat: harden board input and Shift shape constraints`
 
 ---
+
+## 0. P0 build/CI recovery — 30.09.2026
+
+Исходный `main` для recovery-блока: `7f3c29a7b35771f340858cc2d4f9edaff3d3cca2`.
+
+PR #154 (`fix/p0-build-contract-consistency`) восстанавливает build contract и
+обязательные quality gates. Проверенный implementation SHA до синхронизации
+проектной документации:
+
+`02603132f6dd2fae2aeeb92f294b92ac2a122235`
+
+На этом SHA успешно завершён GitHub Actions CI run `36762680350`:
+
+- Quality gate: board/GeometryOS contracts, format, lint, strict typecheck,
+  dependency audit, 832 unit tests, performance budgets, architecture и
+  production build;
+- Board-only frontend profile;
+- Chromium и Firefox browser smoke;
+- GeometryOS live browser contract;
+- Coordinate Plot production gate.
+
+Browser smoke включает оба eraser regression-сценария из
+`tests/e2e/drawing-tools.spec.ts`: mixed editable erase с live preview +
+one-step undo и partial pen-stroke erase + atomic undo.
+
+P0 исправляет:
+
+- optional `batchId` normalization и сохранение при durable queue
+  `reconcile()`;
+- branded `GroupId` / `Solid3DId` в eraser controller;
+- тип `BoardDocument` для server-sync applied accumulator;
+- устаревший тестовый импорт `planEraserChanges` с переносом mixed-erasing
+  coverage на действующий App/controller flow;
+- generator/generated drift board contract docs и manifest hashes;
+- накопленный Prettier drift, блокировавший обязательный quality gate.
+
+Следующий цельный reliability-блок: durable queue grouping, atomicity и command
+ordering. Production readiness также блокируют оставшиеся P1 из operational
+addendum в `03_TUTORBOARD_BACKLOG.md`.
 
 ## 1. Назначение проекта
 

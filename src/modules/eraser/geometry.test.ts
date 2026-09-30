@@ -3,11 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   boardObjectId,
   createVectorInkData,
-  type BoardObject,
   type PenStrokeObject,
   type VectorInkSample,
 } from "../../core/public";
-import { erasePenStroke, planEraserChanges } from "./geometry";
+import { erasePenStroke } from "./geometry";
 
 function stroke(
   samples: readonly VectorInkSample[],
@@ -94,46 +93,6 @@ describe("vector partial eraser", () => {
         fragmentSamples.every(({ pressure }) => pressure >= 0 && pressure <= 1),
       ).toBe(true);
     }
-  });
-
-  it("plans partial pen erasure together with whole-object erasure", () => {
-    const original = stroke(samples());
-    const text: BoardObject = {
-      groupId: null,
-      id: boardObjectId("object:text"),
-      kind: "drawing.text",
-      locked: false,
-      position: { x: 40, y: 40 },
-      rotation: 0,
-      scale: { x: 1, y: 1 },
-      source: { kind: "user" },
-      style: {
-        fill: null,
-        opacity: 1,
-        stroke: "#111827",
-        strokeWidth: 2,
-      },
-      text: "Удалить",
-      visible: true,
-    };
-    const locked: BoardObject = {
-      ...text,
-      id: boardObjectId("object:locked"),
-      locked: true,
-    };
-
-    const plan = planEraserChanges(
-      [original, text, locked],
-      [original.id, text.id, locked.id],
-      [{ x: 50, y: 0 }],
-      8,
-      (source, index) =>
-        index === 0 ? source.id : boardObjectId(`object:fragment-${index}`),
-    );
-
-    expect(plan.originals.map(({ id }) => id)).toEqual([original.id, text.id]);
-    expect(plan.replacements).toHaveLength(2);
-    expect(plan.groupedObjectIds).toEqual([]);
   });
 
   it("erases using world-space geometry after object transforms", () => {
