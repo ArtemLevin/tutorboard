@@ -80,7 +80,10 @@ function InlineTextPlacementEditor({
           onCancel();
           return;
         }
-        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        if (
+          event.key === "Enter" &&
+          (event.shiftKey || event.ctrlKey || event.metaKey)
+        ) {
           event.preventDefault();
           event.currentTarget.blur();
         }
@@ -175,11 +178,31 @@ export function BoardCanvas({
     useState<CanvasContextMenuRequest | null>(null);
   const [clearConfirmationOpen, setClearConfirmationOpen] = useState(false);
   const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);
+  const eraserSuppressedObjectIds = useMemo(
+    () => new Set(eraser.preview?.suppressedObjectIds ?? []),
+    [eraser.preview],
+  );
+  const renderedScene = useMemo(
+    () =>
+      eraserSuppressedObjectIds.size === 0
+        ? scene
+        : {
+            ...scene,
+            items: scene.items.filter(
+              ({ object }) => !eraserSuppressedObjectIds.has(object.id),
+            ),
+          },
+    [eraserSuppressedObjectIds, scene],
+  );
   const previewItems = useMemo(
     () => [
       ...(drawing.preview === null
         ? []
         : [{ object: drawing.preview, transforms: [] }]),
+      ...(eraser.preview?.replacements.map((object) => ({
+        object,
+        transforms: [],
+      })) ?? []),
       ...handwriting.previewItems,
       ...remoteTransformPreviews.flatMap((preview, previewIndex) =>
         preview.transforms.flatMap((transform, transformIndex) => {
@@ -207,6 +230,7 @@ export function BoardCanvas({
     [
       document.objects,
       drawing.preview,
+      eraser.preview,
       handwriting.previewItems,
       remoteTransformPreviews,
     ],
@@ -322,7 +346,7 @@ export function BoardCanvas({
         registry={registry}
         remoteCursors={remoteCursors}
         remoteInkPreviews={remoteInkPreviews}
-        scene={scene}
+        scene={renderedScene}
         selectedObjectIds={selection.state.selectedObjectIds}
         selectionBounds={selection.bounds}
         selectionLasso={selection.lasso}

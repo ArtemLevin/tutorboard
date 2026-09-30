@@ -34,6 +34,7 @@ interface BoardToolDockProps {
   readonly canRedo: boolean;
   readonly canUndo: boolean;
   readonly drawingTools: readonly DrawingToolDefinition[];
+  readonly eraserDiameterPx: number;
   readonly geometryAvailable: boolean;
   readonly geometryOpen: boolean;
   readonly handwrittenFunctionsEnabled: boolean;
@@ -43,6 +44,7 @@ interface BoardToolDockProps {
   readonly onExportPdfSnapshot?: (() => void) | undefined;
   readonly onExportPngSnapshot?: (() => void) | undefined;
   readonly onExportSvgSnapshot?: (() => void) | undefined;
+  readonly onEraserDiameterChange: (diameterPx: number) => void;
   readonly onGeometryToggle: () => void;
   readonly onImageFiles: (files: readonly File[]) => void;
   readonly onOpenSettings: () => void;
@@ -639,6 +641,29 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onChange={props.onSelectionStyleChange}
             style={props.selectedStyle}
           />
+        </section>
+      ) : props.activeTool === eraserToolId ? (
+        <section
+          aria-label="Первичные настройки ластика"
+          className="dock-primary-settings"
+        >
+          <div className="dock-primary-heading">
+            <strong>Ластик</strong>
+          </div>
+          <label className="dock-range-control">
+            <span>Размер: {props.eraserDiameterPx} px</span>
+            <input
+              aria-label="Размер ластика"
+              max="96"
+              min="8"
+              onChange={(event) =>
+                props.onEraserDiameterChange(event.currentTarget.valueAsNumber)
+              }
+              step="4"
+              type="range"
+              value={props.eraserDiameterPx}
+            />
+          </label>
         </section>
       ) : activeDrawingTool !== null && props.activeStyle !== null ? (
         <section
