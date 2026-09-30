@@ -89,9 +89,17 @@ export function migrateBoardDocument14To15(
     ...parsed.data,
     schemaVersion: boardDocument15SchemaVersion,
   });
-  return next.success
+  if (!next.success) {
+    return { ok: false, issues: schemaIssues(next.error.issues) };
+  }
+
+  const semanticValidation = validateBoardDocument({
+    ...next.data,
+    schemaVersion: boardDocumentSchemaVersion,
+  });
+  return semanticValidation.valid
     ? { ok: true, document: next.data as BoardDocument15 }
-    : { ok: false, issues: schemaIssues(next.error.issues) };
+    : { ok: false, issues: semanticValidation.issues };
 }
 
 export function migrateBoardDocument15To16(
