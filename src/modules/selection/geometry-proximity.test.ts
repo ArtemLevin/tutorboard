@@ -114,21 +114,13 @@ describe("forgiving selection geometry", () => {
   });
 
   it("finds multiple objects crossed by an eraser brush path", () => {
-    const first = rectangleObject({
-      id: boardObjectId("object:brush-first"),
-      position: { x: 20, y: 20 },
-      size: { height: 40, width: 40 },
-    });
-    const second = rectangleObject({
-      id: boardObjectId("object:brush-second"),
-      position: { x: 120, y: 20 },
-      size: { height: 40, width: 40 },
-    });
-    const scene = createScene([first, second]);
+    const first = rectangle("object:brush-first", 20, 20, 40, 40);
+    const second = rectangle("object:brush-second", 120, 20, 40, 40);
+    const model = scene([first, second]);
 
     expect(
       selectObjectIdsNearPath(
-        scene,
+        model,
         [
           { x: 0, y: 40 },
           { x: 180, y: 40 },
