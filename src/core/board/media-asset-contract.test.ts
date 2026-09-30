@@ -4,7 +4,7 @@ import {
   boardDocument15SchemaVersion,
   createEmptyBoardDocument,
 } from "./document";
-import type { BoardDocument } from "./document";
+import type { BoardDocument, BoardDocument15 } from "./document";
 import { boardObjectId, documentId } from "./identifiers";
 import { migrateBoardDocument14To15 } from "./migrations";
 import {
@@ -64,7 +64,7 @@ function mediaAsset(): MediaAssetObject {
   };
 }
 
-function document15With(object: MediaAssetObject): BoardDocument {
+function document15With(object: MediaAssetObject): BoardDocument15 {
   const current = emptyDocument();
   return {
     ...current,
