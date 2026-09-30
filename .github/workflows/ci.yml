@@ -69,7 +69,10 @@ jobs:
         run: npm run board-contract:check
 
       - name: Check formatting
-        run: npm run format:check
+        run: |
+          npm run format
+          git diff -- src/app/board/controllers/useBoardEraserController.ts src/modules/eraser/geometry.ts src/modules/selection/geometry.ts src/modules/server-sync/sync.ts
+          exit 1
 
       - name: Lint
         run: npm run lint
