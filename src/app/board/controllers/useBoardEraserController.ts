@@ -7,7 +7,10 @@ import {
   type BoardSceneReadModel,
   type Vec2,
 } from "../../../core/public";
-import { createEraserCommand, planEraserChanges } from "../../../modules/eraser/public";
+import {
+  createEraserCommand,
+  planEraserChanges,
+} from "../../../modules/eraser/public";
 import { selectObjectIdsNearPath } from "../../../modules/selection/public";
 import type { BoardDocumentController } from "./useBoardDocumentController";
 
@@ -93,7 +96,11 @@ export function useBoardEraserController({
     (session: EraserSession, brushPath: readonly Vec2[]) => {
       const current = getDocument();
       const radius = radiusWorld(current.viewport.zoom);
-      for (const objectId of selectObjectIdsNearPath(scene, brushPath, radius)) {
+      for (const objectId of selectObjectIdsNearPath(
+        scene,
+        brushPath,
+        radius,
+      )) {
         session.touchedObjectIds.add(objectId);
       }
     },
