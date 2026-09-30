@@ -770,7 +770,8 @@ const boardDocument = strictObject({
 });
 
 const batchObjectReplacement = strictObject({
-  original: reference("BoardObject"),
+  atIndex: nonNegativeInteger,
+  originals: array(reference("BoardObject"), { maxItems: 5_000 }),
   replacements: array(reference("BoardObject"), { maxItems: 5_000 }),
 });
 
