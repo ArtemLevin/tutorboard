@@ -11,6 +11,7 @@ export {
 } from "./commands";
 export {
   aggregateSelectionBounds,
+  boardRenderItemIntersectsBrushPath,
   lassoPolygonArea,
   normalizeLassoPoints,
   pointInPolygon,
