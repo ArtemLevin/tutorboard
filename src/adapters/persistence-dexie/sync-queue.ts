@@ -197,6 +197,16 @@ const pendingV3Schema = z
     sequence: z.number().int().positive(),
   })
   .strict();
+
+function normalizePendingV3(
+  data: z.infer<typeof pendingV3Schema>,
+): StoredPendingCommandV3 {
+  const { batchId, ...required } = data;
+  return {
+    ...required,
+    ...(batchId === undefined ? {} : { batchId }),
+  };
+}
 const actorClockSchema = z
   .object({
     actorId: z.string().min(1).max(128),
@@ -490,7 +500,7 @@ async function decodePending(
 
   const current = pendingV3Schema.safeParse(raw);
   if (current.success) {
-    const stored = current.data;
+    const stored = normalizePendingV3(current.data);
     if (
       stored.cacheScopeId !== scope.cacheScopeId ||
       stored.documentId !== expectedDocumentId
@@ -1045,7 +1055,10 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
         const existing = new Map<number, StoredPendingCommandV3>();
         for (const raw of existingRows) {
           const parsed = pendingV3Schema.safeParse(raw);
-          if (parsed.success) existing.set(parsed.data.sequence, parsed.data);
+          if (parsed.success) {
+            const normalized = normalizePendingV3(parsed.data);
+            existing.set(normalized.sequence, normalized);
+          }
         }
         await this.#database.scopedPending.bulkDelete(
           knownSequences
