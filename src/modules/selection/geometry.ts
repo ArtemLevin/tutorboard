@@ -410,6 +410,7 @@ function selectableInterior(object: BoardObject): boolean {
   return (
     object.kind === "drawing.text" ||
     object.kind === "image.embedded" ||
+    object.kind === "media.asset" ||
     object.kind === "svg-import.svg" ||
     object.kind === "math.coordinate-plot"
   );
