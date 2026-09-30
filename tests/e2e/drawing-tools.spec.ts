@@ -71,6 +71,20 @@ test("applies and releases Shift constraints without pointer movement", async ({
   await expect(stage).toHaveAttribute("data-drawing-constraint", "none");
 });
 
+test(
+  "single pen tap creates a visible dot",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const count = page.getByTestId("object-count");
+    await page.keyboard.press("p");
+    const point = await canvasPoint(page, 0.5, 0.35);
+    await page.mouse.click(point.x, point.y);
+
+    await expect(count).toHaveText("1 объекта");
+    await expect(page.getByText("drawing.pen-stroke")).toBeVisible();
+  },
+);
+
 test("creates one normalized primitive per completed gesture", async ({
   page,
 }) => {
