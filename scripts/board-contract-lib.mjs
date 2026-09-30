@@ -1110,11 +1110,11 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 
 ## Artifacts
 
-- \`BoardDocument 1.5\` is the canonical persisted board state and supports
-  metadata-only \`media.asset\` references.
-- \`BoardCommandEnvelope 1.6\` carries one atomic, idempotent command batch
+- \`BoardDocument 1.6\` is the canonical persisted board state, supports
+  metadata-only \`media.asset\` references and canonical single-sample ink dots.
+- \`BoardCommandEnvelope 1.7\` carries one atomic, idempotent command batch
   against a known base revision.
-- \`BoardSnapshot 1.5\` binds a canonical document to a server revision and
+- \`BoardSnapshot 1.6\` binds a canonical document to a server revision and
   SHA-256 digest.
 - \`BoardGeometryImport 1.1\` records GeometryOS GIR/Layout provenance without
   adding transport state to \`BoardDocument\`.
@@ -1146,6 +1146,8 @@ const compatibility = `# Board command compatibility
 | Semantic 3D solids | \`core.solid-3d.*\` | BoardDocument 1.3+ | board/v1.3 reader |
 | 3D learning attempts | \`core.solid-3d-learning.*\` | BoardDocument 1.4+ | board/v1.4 reader |
 | Media asset references | object-bearing \`core.*\` commands | BoardDocument 1.5+ | board/v1.5 reader; persistence gated until media authority |
+| Single-tap ink dots | \`drawing.pen-stroke\` with one Vector Ink sample | BoardDocument 1.6+ | board/v1.6 reader |
+| Atomic mixed erasing | \`core.objects.rewrite\` | BoardCommandEnvelope 1.7+ | board/v1.7 reader |
 
 \`core.objects.replace\` carries complete original and replacement snapshots.
 Older strict readers reject this command explicitly. Deployments using server
