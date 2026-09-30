@@ -116,6 +116,28 @@ describe("BoardDocument 1.6 Vector Ink contract", () => {
     expect(first.document).toEqual(second.document);
   });
 
+  it("accepts a canonical single-sample pen dot in BoardDocument 1.6", () => {
+    const dotPoint = { x: 24, y: 36 };
+    const dot: PenStrokeObject = {
+      ...pressureStroke(),
+      id: boardObjectId("object:dot-pen"),
+      ink: createVectorInkData([
+        { point: dotPoint, pressure: 0.8, timestampMs: 0 },
+      ]),
+      points: [dotPoint],
+    };
+    const read = readBoardDocument(documentWithStroke(dot));
+    expect(read.status).toBe("ok");
+    if (read.status !== "ok") return;
+    expect(read.document.schemaVersion).toBe("1.6");
+    const restored = read.document.objects[dot.id];
+    expect(restored?.kind).toBe("drawing.pen-stroke");
+    if (restored?.kind !== "drawing.pen-stroke") return;
+    expect(restored.points).toEqual([dotPoint]);
+    expect(restored.ink?.samples).toHaveLength(1);
+    expect(restored.ink?.centerline).toEqual([]);
+  });
+
   it("uses the same variable-width outline for SVG, PNG and PDF source rendering", () => {
     const svg = renderBoardSnapshotSvg(documentWithStroke(pressureStroke()), {
       height: 180,
