@@ -124,7 +124,7 @@ function batch(
       expectedDocumentSha256,
       idempotencyKey,
       originId: "origin:remote-test",
-      schemaVersion: "1.6",
+      schemaVersion: "1.7",
     },
     idempotencyKey,
     payloadSha256: "b".repeat(64),
@@ -373,7 +373,7 @@ describe("BoardSyncEngine", () => {
 
     expect(states.at(-1)).toMatchObject({
       confirmedSha256: await boardDocumentSha256(base),
-      document: { schemaVersion: "1.5" },
+      document: { schemaVersion: "1.6" },
       kind: "ready",
       revision: 0,
     });
@@ -411,7 +411,7 @@ describe("BoardSyncEngine", () => {
         },
       ],
       originId: "origin:legacy-client",
-      schemaVersion: "1.6",
+      schemaVersion: "1.7",
     });
     expect(queue.items).toEqual([]);
     expect(queue.head).toMatchObject({
@@ -443,7 +443,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: baseSha256,
         revision: 0,
-        schemaVersion: "1.5",
+        schemaVersion: "1.6",
       },
     };
     const remote = rename(
@@ -549,7 +549,7 @@ describe("BoardSyncEngine", () => {
     expect(repository.pushed).toHaveLength(1);
     expect(repository.pushed[0]).toMatchObject({
       idempotencyKey: "client:independent",
-      schemaVersion: "1.6",
+      schemaVersion: "1.7",
     });
     expect(states.at(-1)).toMatchObject({
       document: { title: "Independent work" },
@@ -682,7 +682,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: cachedSha256,
         revision: 3,
-        schemaVersion: "1.5",
+        schemaVersion: "1.6",
       },
     };
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
@@ -830,7 +830,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: await boardDocumentSha256(initialDocument()),
         revision: 0,
-        schemaVersion: "1.5",
+        schemaVersion: "1.6",
       },
     };
     const states: BoardSyncState[] = [];
@@ -876,7 +876,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: await boardDocumentSha256(initialDocument()),
         revision: 0,
-        schemaVersion: "1.5",
+        schemaVersion: "1.6",
       },
     };
     const ensureBoard = vi.spyOn(repository, "ensureBoard");
