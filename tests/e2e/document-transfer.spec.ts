@@ -15,7 +15,7 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
   };
 };
 
-test("exports deterministic document and diagnostic snapshots", async ({
+test("@smoke exports deterministic document and diagnostic snapshots", async ({
   page,
 }) => {
   await page.goto("/");
@@ -32,7 +32,7 @@ test("exports deterministic document and diagnostic snapshots", async ({
   const exported = JSON.parse(await readFile(jsonPath, "utf8")) as {
     schemaVersion?: unknown;
   };
-  expect(exported.schemaVersion).toBe("1.4");
+  expect(exported.schemaVersion).toBe("1.5");
 
   const svgDownloadPromise = page.waitForEvent("download");
   await settings.getByRole("button", { name: "Снимок SVG" }).click();
