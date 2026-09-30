@@ -45,7 +45,6 @@ export function createEraserCommand(
   };
 }
 
-
 export function createBatchEraserCommand(
   metadata: CommandMetadata,
   document: BoardDocument,
