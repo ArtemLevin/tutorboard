@@ -277,6 +277,7 @@ export function BoardCanvas({
         coordinatePlotInteraction={plots.renderInteraction}
         drawingConstraintFeedback={drawing.constraintFeedback}
         eraserPoint={activeTool === eraserToolId ? eraser.point : null}
+        eraserPreviewCount={eraser.preview?.suppressedObjectIds.length ?? 0}
         eraserRadiusPx={eraser.radiusPx}
         drawingModeKey={
           isDrawingToolId(activeTool) ||
