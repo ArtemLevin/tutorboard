@@ -1,39 +1,26 @@
 import type {
   CommandMetadata,
-  DeleteObjectsCommand,
-  PenStrokeObject,
-  ReplaceObjectsCommand,
+  RewriteObjectsCommand,
 } from "../../core/public";
 
 export {
+  eraseBoardSceneObjects,
   eraseDocumentPenStrokes,
   erasePenStroke,
-  eraserRadiusPx,
   type EraserFragmentIdFactory,
+  type EraserObjectChange,
   type EraserResult,
-  type EraserStrokeChange,
 } from "./geometry";
 
 export const eraserToolId = "editing.eraser" as const;
 
-export type EraserCommand = DeleteObjectsCommand | ReplaceObjectsCommand;
-
-export function createEraserCommand(
+export function createEraserRewriteCommand(
   metadata: CommandMetadata,
-  originals: readonly PenStrokeObject[],
-  replacements: readonly PenStrokeObject[],
-): EraserCommand {
-  if (replacements.length === 0) {
-    return {
-      ...metadata,
-      kind: "core.objects.delete",
-      objectIds: originals.map(({ id }) => id),
-    };
-  }
+  changes: RewriteObjectsCommand["changes"],
+): RewriteObjectsCommand {
   return {
     ...metadata,
-    kind: "core.objects.replace",
-    originals,
-    replacements,
+    changes,
+    kind: "core.objects.rewrite",
   };
 }
