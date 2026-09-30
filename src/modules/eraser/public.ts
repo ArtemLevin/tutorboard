@@ -2,6 +2,7 @@ import type {
   CommandMetadata,
   BatchReplaceObjectsCommand,
   BoardDocument,
+  BoardObject,
   BoardObjectId,
   DeleteObjectsCommand,
   PenStrokeObject,
@@ -49,8 +50,8 @@ export function createBatchEraserCommand(
   metadata: CommandMetadata,
   document: BoardDocument,
   changes: readonly {
-    readonly original: PenStrokeObject;
-    readonly replacements: readonly PenStrokeObject[];
+    readonly original: BoardObject;
+    readonly replacements: readonly BoardObject[];
   }[],
 ): BatchReplaceObjectsCommand | null {
   if (changes.length === 0) return null;
