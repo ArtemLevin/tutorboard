@@ -5,7 +5,6 @@ import type {
   BoardObject,
   BoardObjectId,
   DeleteObjectsCommand,
-  PenStrokeObject,
   ReplaceObjectsCommand,
 } from "../../core/public";
 
