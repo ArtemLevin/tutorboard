@@ -5,6 +5,8 @@ import {
   selectBoardScene,
   type BoardObject,
   type BoardObjectId,
+  type GroupId,
+  type Solid3DId,
   type Vec2,
 } from "../../../core/public";
 import { createEraserCommand, erasePenStroke } from "../../../modules/eraser/public";
@@ -38,9 +40,9 @@ interface EraserComputation extends EraserPreview {
       { readonly kind: "drawing.pen-stroke" }
     >[];
   }[];
-  readonly deletedGroupIds: readonly string[];
+  readonly deletedGroupIds: readonly GroupId[];
   readonly deletedObjectIds: readonly BoardObjectId[];
-  readonly deletedSolidIds: readonly string[];
+  readonly deletedSolidIds: readonly Solid3DId[];
 }
 
 const maximumGesturePoints = 4096;
@@ -103,7 +105,7 @@ function computeEraser(
   const radiusWorld = diameterPx / 2 / document.viewport.zoom;
   const scene = selectBoardScene(document);
   const hitIds = selectObjectIdsNearPath(scene, session.path, radiusWorld);
-  const deletedGroups = new Set<string>();
+  const deletedGroups = new Set<GroupId>();
   const deletedObjects = new Set<BoardObjectId>();
   const hiddenObjects = new Set<BoardObjectId>();
   const changedPenStrokes: EraserComputation["changedPenStrokes"][number][] =
