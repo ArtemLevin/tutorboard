@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -68,13 +68,37 @@ jobs:
       - name: Generate board contract for foundation development
         run: npm run board-contract:generate
 
-      - name: Upload generated board contract
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-board-contract-${{ github.sha }}
-          path: contracts/board/v1
-          if-no-files-found: error
-          retention-days: 1
+      - name: Format foundation files
+        if: github.event_name == 'pull_request' && github.head_ref == 'feat/basic-input-foundation' && github.event.pull_request.head.repo.full_name == github.repository
+        run: >-
+          npx prettier --write
+          src/core/board/document.ts
+          src/core/board/vector-ink.ts
+          src/core/board/validation/schema.ts
+          src/core/board/migrations.ts
+          src/core/board/validation/read.ts
+          src/core/board/commands/commands.ts
+          src/core/board/commands/codec/command-codec.ts
+          src/core/board/commands/reducer.ts
+          tests/unit/core/vector-ink.test.ts
+          tests/unit/core/vector-ink-contract.test.ts
+          tests/unit/core/reducer.test.ts
+          scripts/board-contract-lib.mjs
+
+      - name: Commit generated foundation outputs
+        if: github.event_name == 'pull_request' && github.head_ref == 'feat/basic-input-foundation' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add contracts/board/v1             src/core/board/document.ts             src/core/board/vector-ink.ts             src/core/board/validation/schema.ts             src/core/board/migrations.ts             src/core/board/validation/read.ts             src/core/board/commands/commands.ts             src/core/board/commands/codec/command-codec.ts             src/core/board/commands/reducer.ts             tests/unit/core/vector-ink.test.ts             tests/unit/core/vector-ink-contract.test.ts             tests/unit/core/reducer.test.ts             scripts/board-contract-lib.mjs
+          if git diff --cached --quiet; then
+            echo "Foundation outputs already committed."
+          else
+            git commit -m "chore: generate and format input foundation"
+            git push origin HEAD:"${HEAD_REF}"
+          fi
 
       - name: Verify board contract
         run: npm run board-contract:check
