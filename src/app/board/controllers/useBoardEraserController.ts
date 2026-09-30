@@ -7,10 +7,7 @@ import {
   type BoardObjectId,
   type Vec2,
 } from "../../../core/public";
-import {
-  createEraserCommand,
-  erasePenStroke,
-} from "../../../modules/eraser/public";
+import { createEraserCommand, erasePenStroke } from "../../../modules/eraser/public";
 import { selectObjectIdsNearPath } from "../../../modules/selection/public";
 import type { BoardDocumentController } from "./useBoardDocumentController";
 
@@ -32,7 +29,10 @@ export interface EraserPreview {
 
 interface EraserComputation extends EraserPreview {
   readonly changedPenStrokes: readonly {
-    readonly original: Extract<BoardObject, { readonly kind: "drawing.pen-stroke" }>;
+    readonly original: Extract<
+      BoardObject,
+      { readonly kind: "drawing.pen-stroke" }
+    >;
     readonly replacements: readonly Extract<
       BoardObject,
       { readonly kind: "drawing.pen-stroke" }
@@ -105,7 +105,8 @@ function computeEraser(
   const deletedGroups = new Set<string>();
   const deletedObjects = new Set<BoardObjectId>();
   const hiddenObjects = new Set<BoardObjectId>();
-  const changedPenStrokes: EraserComputation["changedPenStrokes"][number][] = [];
+  const changedPenStrokes: EraserComputation["changedPenStrokes"][number][] =
+    [];
 
   for (const id of hitIds) {
     const object = document.objects[id];
@@ -284,11 +285,7 @@ export function useBoardEraserController({
             return [];
           }
           return [
-            createEraserCommand(
-              createCommandMetadata(),
-              [original],
-              replacements,
-            ),
+            createEraserCommand(createCommandMetadata(), [original], replacements),
           ];
         },
       );
@@ -325,13 +322,7 @@ export function useBoardEraserController({
         announce(`Ластик: изменено объектов ${result.hiddenObjectIds.length}`);
       }
     },
-    [
-      announce,
-      commitCommands,
-      createCommandMetadata,
-      diameterPx,
-      getDocument,
-    ],
+    [announce, commitCommands, createCommandMetadata, diameterPx, getDocument],
   );
 
   const cancel = useCallback((pointerId?: number) => {
