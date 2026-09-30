@@ -1289,6 +1289,7 @@ export function BoardStage({
   const handleCanvasPointerDownCapture = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
+    event.currentTarget.focus({ preventScroll: true });
     if (event.button !== 0 || !primaryCanvasGesturesEnabled) {
       primaryCanvasPointerCandidateRef.current = null;
       clearPendingPrimaryCanvasTap();
