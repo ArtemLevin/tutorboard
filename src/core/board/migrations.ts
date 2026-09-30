@@ -1,8 +1,10 @@
 import {
   boardDocument14SchemaVersion,
+  boardDocument15SchemaVersion,
   boardDocumentSchemaVersion,
   type BoardDocument,
   type BoardDocument15,
+  type BoardDocument16,
 } from "./document";
 import { createVectorInkDataFromPoints } from "./vector-ink";
 import {
@@ -13,6 +15,7 @@ import {
   boardDocumentSchema12,
   boardDocumentSchema13,
   boardDocumentSchema14,
+  boardDocumentSchema15,
 } from "./validation/schema";
 import {
   validateBoardDocument,
@@ -25,6 +28,10 @@ export type BoardDocumentMigrationResult =
 
 export type BoardDocument15MigrationResult =
   | { readonly document: BoardDocument15; readonly ok: true }
+  | { readonly issues: readonly ValidationIssue[]; readonly ok: false };
+
+export type BoardDocument16MigrationResult =
+  | { readonly document: BoardDocument16; readonly ok: true }
   | { readonly issues: readonly ValidationIssue[]; readonly ok: false };
 
 function schemaIssues(
@@ -68,11 +75,14 @@ export function migrateBoardDocument13To14(
   const parsed = boardDocumentSchema13.safeParse(raw);
   if (!parsed.success)
     return { ok: false, issues: schemaIssues(parsed.error.issues) };
-  return migrateBoardDocument14To15({
+  const migrated15 = migrateBoardDocument14To15({
     ...parsed.data,
     schemaVersion: boardDocument14SchemaVersion,
     solidLearningAttempts: {},
   });
+  return migrated15.ok
+    ? migrateBoardDocument15To16(migrated15.document)
+    : migrated15;
 }
 
 export function migrateBoardDocument14To15(
@@ -82,7 +92,22 @@ export function migrateBoardDocument14To15(
   if (!parsed.success) {
     return { ok: false, issues: schemaIssues(parsed.error.issues) };
   }
+  return {
+    ok: true,
+    document: {
+      ...parsed.data,
+      schemaVersion: boardDocument15SchemaVersion,
+    } as BoardDocument15,
+  };
+}
 
+export function migrateBoardDocument15To16(
+  raw: unknown,
+): BoardDocument16MigrationResult {
+  const parsed = boardDocumentSchema15.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, issues: schemaIssues(parsed.error.issues) };
+  }
   const validation = validateBoardDocument({
     ...parsed.data,
     schemaVersion: boardDocumentSchemaVersion,
