@@ -9,7 +9,10 @@ import {
   type Solid3DId,
   type Vec2,
 } from "../../../core/public";
-import { createEraserCommand, erasePenStroke } from "../../../modules/eraser/public";
+import {
+  createEraserCommand,
+  erasePenStroke,
+} from "../../../modules/eraser/public";
 import { selectObjectIdsNearPath } from "../../../modules/selection/public";
 import type { BoardDocumentController } from "./useBoardDocumentController";
 
@@ -129,9 +132,7 @@ function computeEraser(
       group.objectIds.some((memberId) => {
         const member = document.objects[memberId];
         return (
-          member === undefined ||
-          member.locked ||
-          member.source.kind !== "user"
+          member === undefined || member.locked || member.source.kind !== "user"
         );
       })
     ) {
@@ -296,7 +297,11 @@ export function useBoardEraserController({
             return [];
           }
           return [
-            createEraserCommand(createCommandMetadata(), [original], replacements),
+            createEraserCommand(
+              createCommandMetadata(),
+              [original],
+              replacements,
+            ),
           ];
         },
       );
