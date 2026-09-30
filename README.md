@@ -13,8 +13,10 @@ tutor-assistant-web отвечает за пользователей, занят
 ```
 
 Архитектурный Technical Spike и продуктовые фазы 3–8 завершены в коде.
-Development сохраняет автономный режим; production открывает lesson-bound
-совместную доску через платформу:
+Development сохраняет автономный режим. Production поддерживает два явно
+разделённых профиля: `full` открывает lesson-bound доску через платформу и
+GeometryOS, а `board` публикует только standalone teacher/guest workflow без
+GeometryOS, распознавания формул и Smart Ink. Полный профиль использует поток:
 
 ```text
 текстовый запрос
@@ -46,14 +48,14 @@ BoardDocument
 
 ## Статус
 
-| Компонент                | Текущее состояние                                                                                                     | Ближайшая поставка                           |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| GeometryOS               | API v1/GIR `0.2.0`, Layout Document `0.1.0` и стабильный `POST /api/v1/layout` опубликованы                           | Consumer integration hardening               |
-| TutorBoard               | Phases 3–8: server sync, collaboration, evidence UI и immutable production image                                      | Staging/release approval                      |
-| tutor-assistant-web      | Board persistence/API, WebSocket rooms, GeometryOS gateway, immutable evidence, portal и blue/green routing            | Staging load/restore drill                    |
-| tutor-assistant          | Desktop recording/transcription application                                                                           | Lesson evidence integration на поздних фазах |
-| students-26-27           | Репозиторий учебных страниц и опубликованных файлов                                                                   | Consumer lesson artifacts                    |
-| Latexed / DocumentEngine | Проверка, компиляция и экспорт TEX/PDF/HTML                                                                           | Post-lesson material pipeline                |
+| Компонент                | Текущее состояние                                                                                                 | Ближайшая поставка                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| GeometryOS               | Service `0.3.0`, API v1, GIR `0.2.0` и Layout Document `0.1.0` закреплены consumer contract                       | Расширение поддерживаемых построений                  |
+| TutorBoard               | Full и strict board profiles, server sync, collaboration, standalone teacher/guest UI, evidence и immutable image | Controlled pilot и внешний staging gate               |
+| tutor-assistant-web      | D1/B3 и D2–D4 tooling: board-only runtime, Redis broker, release workflow, backup/restore и blue/green deploy     | Запуск внешних staging/soak/production approval gates |
+| tutor-assistant          | Desktop recording/transcription application                                                                       | Lesson evidence integration                           |
+| students-26-27           | Репозиторий учебных страниц и опубликованных файлов                                                               | Consumer lesson artifacts                             |
+| Latexed / DocumentEngine | Проверка, компиляция и экспорт TEX/PDF/HTML                                                                       | Provider integration hardening                        |
 
 ### Что уже работает в TutorBoard
 
@@ -64,7 +66,7 @@ BoardDocument
 - импорт PNG/JPEG/SVG и анимированных GIF;
 - эфемерная лазерная указка с затухающим следом при перетаскивании левой кнопкой мыши, без изменения документа;
 - click/Shift/marquee selection, movement, lock и delete;
-- versioned `BoardDocument 1.3` и command-only mutation boundary;
+- versioned `BoardDocument 1.4` и command-only mutation boundary;
 - bounded undo/redo, clipboard, layers, groups and visual styling;
 - deterministic `.tutorboard.json` import/export и SVG/PNG/PDF snapshots;
 - viewport culling, incremental selectors и 5,000-object CI benchmark;
@@ -77,6 +79,9 @@ BoardDocument
 - same-origin HTTP `BoardSyncRepository` с session CSRF;
 - durable очередь неподтверждённых команд и offline → reconnect;
 - pull/push server revisions, SHA-256 verification и rebase после `409`;
+- standalone `/boards` workspace, teacher-owned boards и guest invitation
+  lifecycle с read-only/revoke/rotate;
+- access-epoch isolation, terminal revoke и quarantine старых offline-команд;
 - bounded deny-by-default SVG import;
 - pinned OpenAPI/GIR/fixture artifacts и generated runtime validation;
 - bounded GeometryOS HTTP adapter с typed generate/layout results и request correlation;
@@ -92,15 +97,16 @@ BoardDocument
 - атомарный перенос двумерной проекции сечения на доску с поддержкой
   undo/redo, clipboard, persistence и server sync.
 
-Pinned consumer contract закреплён на GeometryOS commit
-`fe5ece9f7138044d638114907fe9aaecfd14e924`: OpenAPI, GIR schema, Layout
+Pinned consumer contract закреплён на GeometryOS `0.3.0`, commit
+`84ae403ef06f5183091f8862307f3c458f464b87`: OpenAPI, GIR schema, Layout
 Document `0.1.0` и исполняемые fixtures проверяются по SHA-256 и генерируют
 compile-time DTOs вместе с standalone runtime validators.
 
 ### Критический путь
 
-Source completion gate → draft PR двух репозиториев → immutable images →
-staging smoke/load/restore drill → manual production approval.
+Green source/image gates → external staging smoke/load/restore/24h soak →
+manual production approval. До внешнего staging допускается controlled pilot
+на отдельном HTTPS-host с зафиксированными image digests и off-host backup.
 
 PR 2.9 разделён намеренно и обе его части теперь реализованы:
 
@@ -109,13 +115,13 @@ PR 2.9 разделён намеренно и обе его части тепе�
   атомарным document import;
 - coordinates не вычисляются из SVG и не записываются обратно в canonical GIR.
 
-### Следующие фазы
+### Следующая поставка
 
-TutorBoard подключается к tutor-assistant-web через same-origin gateway и уже
-поддерживает server revisions, offline synchronization и WebSocket
-collaboration. Следующие поставки: lesson evidence и production hardening.
-Advanced semantic drag и AI modifications начинаются после стабилизации этих
-контрактов.
+Lesson-bound и standalone интеграции с tutor-assistant-web реализованы вместе с
+server revisions, offline synchronization, WebSocket collaboration и evidence.
+Ближайшая поставка — controlled pilot, затем внешний staging/restore/soak и
+protected production approval. Advanced semantic drag и AI modifications
+остаются отдельным post-1.0 направлением.
 
 ### Запуск серверного режима
 
@@ -292,9 +298,9 @@ Backend выдаёт пользователю права доступа, metadat
 - viewport, selection и interaction state;
 - визуальные transforms и overrides;
 - GIR → Board adapter;
-- локальное сохранение;
-- будущую синхронизацию документов;
-- совместное редактирование на следующих фазах.
+- локальное и серверное сохранение;
+- offline/reconnect-синхронизацию документов;
+- совместное редактирование и access-epoch convergence.
 
 Не должен:
 
@@ -524,7 +530,6 @@ Technical Spike должен определить, какие операции �
 - React;
 - Vite;
 - Konva / react-konva;
-- Zustand;
 - IndexedDB;
 - Dexie;
 - Zod или эквивалентная runtime validation boundary.

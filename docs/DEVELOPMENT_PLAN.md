@@ -91,17 +91,17 @@ TutorBoard
 
 # 5. Модель фаз
 
-| Фаза | Название | Главный результат |
-|---|---|---|
-| 1 | GeometryOS Integration Baseline | стабильный API/GIR/OpenAPI contract |
-| 2 | TutorBoard Technical Spike | доказанный text → GIR → interactive board vertical slice |
-| 3 | Product Foundation | надёжная одиночная доска как самостоятельный frontend |
-| 4 | Platform Integration | TutorBoard связан с tutor-assistant-web и занятиями |
-| 5 | Server Persistence and History | серверные документы, revisions и recovery |
-| 6 | Real-time Collaboration | совместная работа преподавателя и ученика |
-| 7 | Lesson Evidence and Materials | snapshot доски входит в post-lesson workflow |
-| 8 | Production Readiness | security, observability, performance, deployment |
-| 9 | Advanced Geometry and AI | математическое редактирование и интеллектуальные инструменты |
+| Фаза | Название                        | Главный результат                                            |
+| ---- | ------------------------------- | ------------------------------------------------------------ |
+| 1    | GeometryOS Integration Baseline | стабильный API/GIR/OpenAPI contract                          |
+| 2    | TutorBoard Technical Spike      | доказанный text → GIR → interactive board vertical slice     |
+| 3    | Product Foundation              | надёжная одиночная доска как самостоятельный frontend        |
+| 4    | Platform Integration            | TutorBoard связан с tutor-assistant-web и занятиями          |
+| 5    | Server Persistence and History  | серверные документы, revisions и recovery                    |
+| 6    | Real-time Collaboration         | совместная работа преподавателя и ученика                    |
+| 7    | Lesson Evidence and Materials   | snapshot доски входит в post-lesson workflow                 |
+| 8    | Production Readiness            | security, observability, performance, deployment             |
+| 9    | Advanced Geometry and AI        | математическое редактирование и интеллектуальные инструменты |
 
 ---
 
@@ -380,7 +380,8 @@ slice does not bypass the explicit visual-versus-mathematical movement policy.
 
 ## PR 2.11 — Movement experiment
 
-Status: implementation complete, verification pending.
+Status: complete and verified; the final PR 2.11 CI evidence is recorded in
+`docs/PHASE_2_REPORT.md`.
 
 ### Scope
 
@@ -657,13 +658,13 @@ Implement:
 
 ## PR 4.7 — Role-based capabilities
 
-| Capability | Tutor | Student | Parent | Admin |
-|---|---:|---:|---:|---:|
-| View board | yes | assigned lesson | published/read-only | support/audit |
-| Edit board | yes | during allowed session | no | controlled |
-| Run GeometryOS | yes | policy-dependent | no | diagnostics |
-| Export snapshot | yes | optional | no | controlled |
-| Archive document | yes | no | no | yes |
+| Capability       | Tutor |                Student |              Parent |         Admin |
+| ---------------- | ----: | ---------------------: | ------------------: | ------------: |
+| View board       |   yes |        assigned lesson | published/read-only | support/audit |
+| Edit board       |   yes | during allowed session |                  no |    controlled |
+| Run GeometryOS   |   yes |       policy-dependent |                  no |   diagnostics |
+| Export snapshot  |   yes |               optional |                  no |    controlled |
+| Archive document |   yes |                     no |                  no |           yes |
 
 ## Exit criteria фазы 4
 
@@ -1199,15 +1200,15 @@ Rules:
 
 Независимые версии:
 
-| Контракт | Пример |
-|---|---|
-| TutorBoard application | `0.x` → `1.0.0` |
-| BoardDocument schema | `1.0`, `1.1` |
-| Collaboration protocol | `v1` |
-| GeometryOS API | `v1 / 1.0.0` |
-| GIR | `0.2.0`, далее независимо |
-| Platform Board API | `/api/v1/boards` |
-| LessonEvidenceBundle | собственная версия |
+| Контракт               | Пример                    |
+| ---------------------- | ------------------------- |
+| TutorBoard application | `0.x` → `1.0.0`           |
+| BoardDocument schema   | `1.0`, `1.1`              |
+| Collaboration protocol | `v1`                      |
+| GeometryOS API         | `v1 / 1.0.0`              |
+| GIR                    | `0.2.0`, далее независимо |
+| Platform Board API     | `/api/v1/boards`          |
+| LessonEvidenceBundle   | собственная версия        |
 
 Правила:
 
@@ -1508,13 +1509,14 @@ TutorBoard 1.0 считается готовым, когда:
 
 # 24. Ближайшее действие
 
-Фазы 1–8 реализованы. Ближайшее действие — completion gate двух репозиториев,
-публикация draft PR, затем staging:
+Фазы 1–8 и source-level board-only release tooling реализованы. Quality,
+PostgreSQL/Redis/S3, browser, contract и immutable-image gates текущих HEAD
+успешны. Ближайшее действие — выполнить средовые delivery gates:
 
-1. PostgreSQL/Redis/MinIO integration и migration reversibility;
-2. Chromium/Firefox multi-client/offline E2E и container scan;
-3. публикация immutable backend/TutorBoard images;
-4. blue/green staging smoke, load и backup/restore drill;
-5. ручное production approval.
+1. controlled pilot на отдельном HTTPS-host с teacher/guest smoke и off-host
+   backup;
+2. полный cross-repository access-epoch/read-only/revoke сценарий;
+3. blue/green staging smoke, load, isolated restore и 24-hour soak;
+4. ручное protected production approval и проверенный rollback.
 
 Phase 9 остаётся отдельным post-1.0 roadmap и не расширяет текущий release.
