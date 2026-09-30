@@ -75,6 +75,70 @@ describe("BoardDocument reducer", () => {
     }
   });
 
+  it("batch-replaces, deletes and restores objects atomically at exact layer positions", () => {
+    const back = rectangle("back");
+    const stroke = rectangle("stroke");
+    const text = rectangle("text");
+    const front = rectangle("front");
+    const seeded = addObjects(emptyDocument(), "seed-batch", [
+      back,
+      stroke,
+      text,
+      front,
+    ]);
+    expect(seeded.ok).toBe(true);
+    if (!seeded.ok) return;
+
+    const fragmentOne = { ...stroke, id: boardObjectId("object:stroke-a") };
+    const fragmentTwo = { ...stroke, id: boardObjectId("object:stroke-b") };
+    const erased = reduceBoardDocument(seeded.document, {
+      ...metadata("batch-erase", "2026-07-24T12:02:00.000Z"),
+      changes: [
+        {
+          atIndex: 1,
+          originals: [stroke],
+          replacements: [fragmentOne, fragmentTwo],
+        },
+        {
+          atIndex: 2,
+          originals: [text],
+          replacements: [],
+        },
+      ],
+      kind: "core.objects.batch-replace",
+    });
+    expect(erased.ok).toBe(true);
+    if (!erased.ok) return;
+    expect(erased.document.order).toEqual([
+      back.id,
+      fragmentOne.id,
+      fragmentTwo.id,
+      front.id,
+    ]);
+
+    const restored = reduceBoardDocument(erased.document, {
+      ...metadata("batch-restore", "2026-07-24T12:03:00.000Z"),
+      changes: [
+        {
+          atIndex: 1,
+          originals: [fragmentOne, fragmentTwo],
+          replacements: [stroke],
+        },
+        {
+          atIndex: 2,
+          originals: [],
+          replacements: [text],
+        },
+      ],
+      kind: "core.objects.batch-replace",
+    });
+    expect(restored.ok).toBe(true);
+    if (restored.ok) {
+      expect(restored.document.order).toEqual(seeded.document.order);
+      expect(restored.document.objects).toEqual(seeded.document.objects);
+    }
+  });
+
   it("rejects an object replacement when its original snapshot is stale", () => {
     const original = rectangle("stale");
     const seeded = addObjects(emptyDocument(), "seed-stale", [original]);
