@@ -78,6 +78,13 @@ export interface AppProps {
         previousDocument: BoardDocument,
       ) => void)
     | undefined;
+  readonly onCommandsCommitted?:
+    | ((
+        commands: readonly BoardCommand[],
+        document: BoardDocument,
+        previousDocument: BoardDocument,
+      ) => void)
+    | undefined;
   readonly onDocumentChange?: (document: BoardDocument) => void;
   readonly onExportDocument?: ((document: BoardDocument) => void) | undefined;
   readonly onExportPngSnapshot?:
@@ -168,6 +175,7 @@ export function App({
   mathInkRecognizer,
   initialDocument,
   onCommandCommitted,
+  onCommandsCommitted,
   onCollaborativeUndo,
   onDocumentChange,
   onExportDocument,
@@ -200,6 +208,7 @@ export function App({
     initialDocument: initialDocument ?? localInitialDocument,
     onCollaborativeUndo,
     onCommandCommitted,
+    onCommandsCommitted,
     onDocumentChange,
     readOnly,
   });
@@ -660,6 +669,7 @@ export function App({
           collaborativeUndoAvailable={collaborativeUndoAvailable}
           documentController={documentController}
           drawing={drawing}
+          eraser={eraser}
           geometry={geometry}
           handwrittenFunctionsEnabled={
             environment.features.handwrittenFunctions
