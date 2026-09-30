@@ -252,6 +252,27 @@ function orderedPending(
   return [...pending].sort((left, right) => left.sequence - right.sequence);
 }
 
+function pendingBatchPrefix(
+  pending: readonly PendingBoardCommand[],
+): readonly PendingBoardCommand[] {
+  const first = pending[0];
+  if (first === undefined) return [];
+  if (first.batchId === undefined) return [first];
+  let end = 1;
+  while (end < pending.length) {
+    const item = pending[end];
+    if (
+      item === undefined ||
+      item.batchId !== first.batchId ||
+      item.order.baseRevisionAtCreation !== first.order.baseRevisionAtCreation
+    ) {
+      break;
+    }
+    end += 1;
+  }
+  return pending.slice(0, end);
+}
+
 function confirmedSession(context: BoardRuntimeAccessContext) {
   return {
     accessEpoch: context.accessEpoch,
@@ -953,25 +974,7 @@ export class BoardSyncEngine {
           await this.#dropStaleOrUnauthorizedPending();
           continue;
         }
-        const batch =
-          first.batchId === undefined
-            ? [first]
-            : this.#pending.slice(
-                0,
-                this.#pending.findIndex(
-                  (item) =>
-                    item.batchId !== first.batchId ||
-                    item.order.baseRevisionAtCreation !==
-                      first.order.baseRevisionAtCreation,
-                ) === -1
-                  ? this.#pending.length
-                  : this.#pending.findIndex(
-                      (item) =>
-                        item.batchId !== first.batchId ||
-                        item.order.baseRevisionAtCreation !==
-                          first.order.baseRevisionAtCreation,
-                    ),
-              );
+        const batch = pendingBatchPrefix(this.#pending);
         let applied = this.#confirmed.document;
         for (const item of batch) {
           applied = applyCommand(applied, item.command);
