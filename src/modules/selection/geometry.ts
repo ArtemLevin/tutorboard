@@ -415,6 +415,87 @@ function selectableInterior(object: BoardObject): boolean {
   );
 }
 
+function segmentDistance(
+  leftStart: Vec2,
+  leftFinish: Vec2,
+  rightStart: Vec2,
+  rightFinish: Vec2,
+): number {
+  if (segmentsIntersect(leftStart, leftFinish, rightStart, rightFinish)) {
+    return 0;
+  }
+  return Math.min(
+    pointToSegmentDistance(leftStart, rightStart, rightFinish),
+    pointToSegmentDistance(leftFinish, rightStart, rightFinish),
+    pointToSegmentDistance(rightStart, leftStart, leftFinish),
+    pointToSegmentDistance(rightFinish, leftStart, leftFinish),
+  );
+}
+
+function pathNearPath(
+  objectPath: SelectionPath,
+  brushPoints: readonly Vec2[],
+  tolerance: number,
+): boolean {
+  if (brushPoints.length === 0) return false;
+  if (brushPoints.length === 1) {
+    return pathDistanceToPoint(objectPath, brushPoints[0]!) <= tolerance;
+  }
+  const objectSegments = pathSegments(objectPath);
+  if (objectSegments.length === 0) {
+    const point = objectPath.points[0];
+    return (
+      point !== undefined &&
+      brushPoints.some(
+        (brushPoint) => pointDistance(point, brushPoint) <= tolerance,
+      )
+    );
+  }
+  for (let index = 1; index < brushPoints.length; index += 1) {
+    const brushStart = brushPoints[index - 1]!;
+    const brushFinish = brushPoints[index]!;
+    if (
+      objectSegments.some(
+        ([objectStart, objectFinish]) =>
+          segmentDistance(
+            objectStart,
+            objectFinish,
+            brushStart,
+            brushFinish,
+          ) <= tolerance,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function selectObjectIdsNearPath(
+  scene: BoardSceneReadModel,
+  rawPath: readonly Vec2[],
+  tolerance: number,
+): readonly BoardObjectId[] {
+  if (!Number.isFinite(tolerance) || tolerance < 0) return [];
+  const path = rawPath.filter(finitePoint);
+  if (path.length === 0) return [];
+
+  return scene.items
+    .filter((item) => {
+      if (!item.object.visible) return false;
+      const objectPath = transformedSelectionPath(item);
+      if (
+        objectPath.closed &&
+        selectableInterior(item.object) &&
+        path.some((point) => pointInPolygon(point, objectPath.points))
+      ) {
+        return true;
+      }
+      return pathNearPath(objectPath, path, tolerance);
+    })
+    .map((item) => item.object.id);
+}
+
 export function selectTopObjectIdNearPoint(
   scene: BoardSceneReadModel,
   point: Vec2,
