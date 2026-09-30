@@ -625,9 +625,11 @@ export class BoardSyncEngine {
       return Promise.resolve();
     }
 
+    const batchId =
+      rebased.length > 1 ? this.#createIdempotencyKey() : undefined;
     const durable = Promise.all(
       rebased.map((command) =>
-        this.#enqueueDurably(command, confirmed.revision),
+        this.#enqueueDurably(command, confirmed.revision, batchId),
       ),
     );
     this.#serial = this.#serial
