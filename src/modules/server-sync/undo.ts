@@ -31,7 +31,10 @@ function objects(
 }
 
 function invertBatchObjectChanges(
-  command: Extract<BoardCommand, { readonly kind: "core.objects.batch-replace" }>,
+  command: Extract<
+    BoardCommand,
+    { readonly kind: "core.objects.batch-replace" }
+  >,
   before: BoardDocument,
 ) {
   const removedIds = new Set(
