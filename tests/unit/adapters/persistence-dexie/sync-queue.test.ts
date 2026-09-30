@@ -225,6 +225,55 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
     expect(first.commandSha256).toMatch(/^[a-f0-9]{64}$/u);
   });
 
+  it("round-trips optional batch ids without materializing undefined", async () => {
+    const databaseName = `sync-queue-${crypto.randomUUID()}`;
+    const activeDocumentId = documentId("document:queue-batch-id");
+    const queue = createQueue(databaseName);
+
+    const unbatched = await queue.enqueue(
+      activeDocumentId,
+      "key:unbatched",
+      command(1),
+    );
+    const batched = await queue.enqueue(
+      activeDocumentId,
+      "key:batched",
+      command(2),
+      { batchId: "batch:queue-test" },
+    );
+
+    const listed = await queue.list(activeDocumentId);
+    expect(listed).toHaveLength(2);
+    expect(listed[0]).not.toHaveProperty("batchId");
+    expect(listed[1]).toMatchObject({ batchId: "batch:queue-test" });
+
+    await queue.reconcile(
+      activeDocumentId,
+      listed,
+      listed.map(({ sequence }) => sequence),
+    );
+
+    const unbatchedStored = await readPendingRecord(
+      databaseName,
+      activeDocumentId,
+      unbatched.sequence,
+    );
+    const batchedStored = await readPendingRecord(
+      databaseName,
+      activeDocumentId,
+      batched.sequence,
+    );
+    expect(unbatchedStored).not.toHaveProperty("batchId");
+    expect(batchedStored).toMatchObject({ batchId: "batch:queue-test" });
+
+    queue.close();
+    const reopened = createQueue(databaseName);
+    await expect(reopened.list(activeDocumentId)).resolves.toMatchObject([
+      { idempotencyKey: "key:unbatched" },
+      { batchId: "batch:queue-test", idempotencyKey: "key:batched" },
+    ]);
+  });
+
   it("migrates a readable legacy command lazily into scoped queue schema v3", async () => {
     const databaseName = `sync-queue-${crypto.randomUUID()}`;
     const activeDocumentId = documentId("document:queue-legacy");

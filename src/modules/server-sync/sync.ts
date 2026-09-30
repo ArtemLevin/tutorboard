@@ -552,11 +552,7 @@ export class BoardSyncEngine {
     commands: readonly BoardCommand[],
     document: BoardDocument,
   ): Promise<void> {
-    if (
-      this.#disposed ||
-      this.#accessRefreshPending ||
-      commands.length === 0
-    ) {
+    if (this.#disposed || this.#accessRefreshPending || commands.length === 0) {
       return Promise.resolve();
     }
     const context = this.#context;
@@ -991,7 +987,7 @@ export class BoardSyncEngine {
           continue;
         }
         const batch = pendingBatchPrefix(this.#pending);
-        let applied = this.#confirmed.document;
+        let applied: BoardDocument = this.#confirmed.document;
         for (const item of batch) {
           applied = applyCommand(applied, item.command);
         }

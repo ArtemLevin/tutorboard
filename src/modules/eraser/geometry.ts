@@ -346,11 +346,14 @@ interface ObjectPath {
   readonly points: readonly Vec2[];
 }
 
-function transformPoint(point: Vec2, transform: {
-  readonly rotation: number;
-  readonly scale: Vec2;
-  readonly translation: Vec2;
-}): Vec2 {
+function transformPoint(
+  point: Vec2,
+  transform: {
+    readonly rotation: number;
+    readonly scale: Vec2;
+    readonly translation: Vec2;
+  },
+): Vec2 {
   const scaled = {
     x: point.x * transform.scale.x,
     y: point.y * transform.scale.y,
@@ -491,12 +494,7 @@ function pointOnSegment(point: Vec2, start: Vec2, finish: Vec2): boolean {
   );
 }
 
-function segmentsIntersect(
-  a0: Vec2,
-  a1: Vec2,
-  b0: Vec2,
-  b1: Vec2,
-): boolean {
+function segmentsIntersect(a0: Vec2, a1: Vec2, b0: Vec2, b1: Vec2): boolean {
   const a = crossProduct(a0, a1, b0);
   const b = crossProduct(a0, a1, b1);
   const c = crossProduct(b0, b1, a0);
@@ -517,12 +515,7 @@ function segmentsIntersect(
   );
 }
 
-function segmentDistance(
-  a0: Vec2,
-  a1: Vec2,
-  b0: Vec2,
-  b1: Vec2,
-): number {
+function segmentDistance(a0: Vec2, a1: Vec2, b0: Vec2, b1: Vec2): number {
   if (segmentsIntersect(a0, a1, b0, b1)) return 0;
   return Math.min(
     pointToSegmentDistance(a0, b0, b1),

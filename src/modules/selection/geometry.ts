@@ -433,10 +433,7 @@ function segmentDistance(
   );
 }
 
-function pathDistanceToPath(
-  left: SelectionPath,
-  right: SelectionPath,
-): number {
+function pathDistanceToPath(left: SelectionPath, right: SelectionPath): number {
   const leftSegments = pathSegments(left);
   const rightSegments = pathSegments(right);
   if (leftSegments.length === 0) {

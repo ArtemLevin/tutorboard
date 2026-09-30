@@ -15,7 +15,14 @@ import type {
   WorldPointerSample,
 } from "../adapters/canvas-konva/public";
 import { createGeometryOsHttpClient } from "../adapters/geometryos-http/public";
-import { actorId, geometryOsRequestId } from "../core/public";
+import {
+  actorId,
+  boardObjectId,
+  createVectorInkData,
+  geometryOsRequestId,
+  type BoardDocument,
+  type BoardObject,
+} from "../core/public";
 import {
   createFakeMathInkRecognizer,
   mathInkRecognitionResultSchemaVersion,
@@ -205,6 +212,110 @@ describe("App", () => {
     fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
     expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
     expect(screen.getByTestId("history-depth")).toHaveTextContent("2/1");
+  });
+
+  it("commits mixed erasing through the App controller and restores it with one undo", () => {
+    const base = createInitialDocument();
+    const strokeId = boardObjectId("object:eraser-mixed-stroke");
+    const textId = boardObjectId("object:eraser-mixed-text");
+    const lockedId = boardObjectId("object:eraser-mixed-locked");
+    const samples = Array.from({ length: 11 }, (_value, index) => ({
+      point: { x: index * 10, y: 50 },
+      pressure: 0.5,
+      timestampMs: index * 8,
+    }));
+    const stroke: BoardObject = {
+      groupId: null,
+      id: strokeId,
+      ink: createVectorInkData(samples, false),
+      kind: "drawing.pen-stroke",
+      locked: false,
+      points: samples.map(({ point }) => point),
+      position: { x: 0, y: 0 },
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      source: { kind: "user" },
+      style: {
+        fill: null,
+        opacity: 1,
+        stroke: "#111827",
+        strokeWidth: 3,
+      },
+      visible: true,
+    };
+    const text: BoardObject = {
+      groupId: null,
+      id: textId,
+      kind: "drawing.text",
+      locked: false,
+      position: { x: 38, y: 38 },
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      source: { kind: "user" },
+      style: {
+        fill: null,
+        opacity: 1,
+        stroke: "#111827",
+        strokeWidth: 2,
+      },
+      text: "Удалить",
+      visible: true,
+    };
+    const locked: BoardObject = {
+      ...text,
+      id: lockedId,
+      locked: true,
+      position: { x: 48, y: 48 },
+      text: "Оставить",
+    };
+    const initialDocument = {
+      ...base,
+      objects: {
+        [lockedId]: locked,
+        [strokeId]: stroke,
+        [textId]: text,
+      },
+      order: [strokeId, textId, lockedId],
+    };
+    const onDocumentChange = vi.fn<(document: BoardDocument) => void>();
+
+    render(
+      <App
+        initialDocument={initialDocument}
+        onDocumentChange={onDocumentChange}
+      />,
+    );
+
+    fireEvent.keyDown(window, { code: "KeyX", key: "x" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+
+    const erased = onDocumentChange.mock.calls.at(-1)?.[0];
+    expect(erased?.objects[textId]).toBeUndefined();
+    expect(erased?.objects[lockedId]).toMatchObject({
+      id: lockedId,
+      locked: true,
+    });
+    expect(
+      erased?.order.filter(
+        (id) => erased.objects[id]?.kind === "drawing.pen-stroke",
+      ),
+    ).toHaveLength(2);
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
+
+    const restored = onDocumentChange.mock.calls.at(-1)?.[0];
+    expect(restored?.objects[textId]).toMatchObject({ id: textId });
+    expect(restored?.objects[lockedId]).toMatchObject({
+      id: lockedId,
+      locked: true,
+    });
+    expect(
+      restored?.order.filter(
+        (id) => restored.objects[id]?.kind === "drawing.pen-stroke",
+      ),
+    ).toEqual([strokeId]);
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("0/1");
   });
 
   it("exposes board export through a dedicated toolbar icon", () => {

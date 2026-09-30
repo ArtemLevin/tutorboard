@@ -14,6 +14,23 @@
 
 ---
 
+## Operational P1 addendum — 30.09.2026
+
+Этот addendum сохраняет findings последнего production-oriented review отдельно
+от архивной очереди ниже.
+
+| ID | Finding | Статус после P0 |
+| --- | --- | --- |
+| P1-QUEUE-BATCH | Durable queue теряла `batchId` при `reconcile()` | RESOLVED в P0; regression test сохранён |
+| P1-QUEUE-ATOMIC | Grouped action может быть отправлен частично | OPEN |
+| P1-QUEUE-ORDER | Concurrent queue rebuild допускает Lamport order `1,2,2` | OPEN |
+| P1-STRICTMODE | Collaborative board зависает в React StrictMode | OPEN |
+| P1-ACCESS-RECONNECT | Terminal access denial (`HTTP 403`, `retryable=false`) продолжает reconnect loop | OPEN |
+
+Ближайший блок после P0 закрывает queue grouping/atomicity/order и повторно
+проверяет batch identity как инвариант. StrictMode и terminal reconnect остаются
+отдельными P1 до отдельного исправления и regression evidence.
+
 # 1. Назначение документа
 
 Этот документ определяет очередь дальнейшей разработки TutorBoard после завершения серии 3D-релизов до PR #109.

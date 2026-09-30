@@ -2,7 +2,7 @@
 
 > Статус документа: основной execution plan.
 >
-> Последнее обновление: 2026-09-29.
+> Последнее обновление: 2026-09-30.
 >
 > Документ синхронизирован с фактическим состоянием проекта после standalone
 > contracts, access convergence, controlled-pilot E2E, **Input Foundation +
@@ -19,6 +19,25 @@
 > остаются в `docs/DEVELOPMENT_PLAN.md` и профильных ADR/документах в
 > `docs/architecture/`. Этот файл определяет текущий порядок работ для публичного
 > standalone TutorBoard.
+
+## 0. P0 recovery gate — 30.09.2026
+
+Build/CI recovery реализован в PR #154 от baseline
+`7f3c29a7b35771f340858cc2d4f9edaff3d3cca2`. Implementation SHA
+`02603132f6dd2fae2aeeb92f294b92ac2a122235` прошёл полный CI run
+`36762680350`, включая Quality gate, board-only build и Chromium/Firefox
+browser smoke.
+
+Следующий цельный блок:
+
+1. сохранить grouped action как неделимую durable batch;
+2. исключить partial send/ack группы;
+3. восстановить строгий monotonic Lamport ordering при concurrent rebuild;
+4. сохранить idempotency и уже исправленный `batchId` через enqueue/list/
+   reconcile/reopen;
+5. закрыть изменения focused queue/sync tests, затем полным quality gate.
+
+Остальные operational P1 ведутся отдельно в `03_TUTORBOARD_BACKLOG.md`.
 
 ## 1. Продуктовая цель
 

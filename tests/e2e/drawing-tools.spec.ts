@@ -174,35 +174,37 @@ test(
   },
 );
 
-test("partially erases a pen stroke and undoes the gesture atomically", async ({
-  page,
-}) => {
-  const count = page.getByTestId("object-count");
-  const stage = page.getByTestId("board-stage");
+test(
+  "partially erases a pen stroke and undoes the gesture atomically",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const count = page.getByTestId("object-count");
+    const stage = page.getByTestId("board-stage");
 
-  await page.keyboard.press("p");
-  const left = await canvasPoint(page, 0.35, 0.45);
-  const right = await canvasPoint(page, 0.65, 0.45);
-  await page.mouse.move(left.x, left.y);
-  await page.mouse.down();
-  await page.mouse.move(right.x, right.y, { steps: 20 });
-  await page.mouse.up();
-  await expect(count).toHaveText("1 объекта");
+    await page.keyboard.press("p");
+    const left = await canvasPoint(page, 0.35, 0.45);
+    const right = await canvasPoint(page, 0.65, 0.45);
+    await page.mouse.move(left.x, left.y);
+    await page.mouse.down();
+    await page.mouse.move(right.x, right.y, { steps: 20 });
+    await page.mouse.up();
+    await expect(count).toHaveText("1 объекта");
 
-  await page.keyboard.press("x");
-  await expect(stage).toHaveAttribute("data-drawing-mode", "editing.eraser");
-  const eraseTop = await canvasPoint(page, 0.5, 0.38);
-  const eraseBottom = await canvasPoint(page, 0.5, 0.52);
-  await page.mouse.move(eraseTop.x, eraseTop.y);
-  await expect(stage).toHaveAttribute("data-eraser-visible", "true");
-  await page.mouse.down();
-  await page.mouse.move(eraseBottom.x, eraseBottom.y, { steps: 8 });
-  await page.mouse.up();
+    await page.keyboard.press("x");
+    await expect(stage).toHaveAttribute("data-drawing-mode", "editing.eraser");
+    const eraseTop = await canvasPoint(page, 0.5, 0.38);
+    const eraseBottom = await canvasPoint(page, 0.5, 0.52);
+    await page.mouse.move(eraseTop.x, eraseTop.y);
+    await expect(stage).toHaveAttribute("data-eraser-visible", "true");
+    await page.mouse.down();
+    await page.mouse.move(eraseBottom.x, eraseBottom.y, { steps: 8 });
+    await page.mouse.up();
 
-  await expect(count).toHaveText("2 объекта");
-  await page.keyboard.press("Control+z");
-  await expect(count).toHaveText("1 объекта");
-});
+    await expect(count).toHaveText("2 объекта");
+    await page.keyboard.press("Control+z");
+    await expect(count).toHaveText("1 объекта");
+  },
+);
 
 test("Escape and tool switching discard runtime preview", async ({ page }) => {
   const count = page.getByTestId("object-count");

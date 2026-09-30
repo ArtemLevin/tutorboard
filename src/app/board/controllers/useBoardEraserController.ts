@@ -5,9 +5,14 @@ import {
   selectBoardScene,
   type BoardObject,
   type BoardObjectId,
+  type GroupId,
+  type Solid3DId,
   type Vec2,
 } from "../../../core/public";
-import { createEraserCommand, erasePenStroke } from "../../../modules/eraser/public";
+import {
+  createEraserCommand,
+  erasePenStroke,
+} from "../../../modules/eraser/public";
 import { selectObjectIdsNearPath } from "../../../modules/selection/public";
 import type { BoardDocumentController } from "./useBoardDocumentController";
 
@@ -38,9 +43,9 @@ interface EraserComputation extends EraserPreview {
       { readonly kind: "drawing.pen-stroke" }
     >[];
   }[];
-  readonly deletedGroupIds: readonly string[];
+  readonly deletedGroupIds: readonly GroupId[];
   readonly deletedObjectIds: readonly BoardObjectId[];
-  readonly deletedSolidIds: readonly string[];
+  readonly deletedSolidIds: readonly Solid3DId[];
 }
 
 const maximumGesturePoints = 4096;
@@ -103,7 +108,7 @@ function computeEraser(
   const radiusWorld = diameterPx / 2 / document.viewport.zoom;
   const scene = selectBoardScene(document);
   const hitIds = selectObjectIdsNearPath(scene, session.path, radiusWorld);
-  const deletedGroups = new Set<string>();
+  const deletedGroups = new Set<GroupId>();
   const deletedObjects = new Set<BoardObjectId>();
   const hiddenObjects = new Set<BoardObjectId>();
   const changedPenStrokes: EraserComputation["changedPenStrokes"][number][] =
@@ -127,9 +132,7 @@ function computeEraser(
       group.objectIds.some((memberId) => {
         const member = document.objects[memberId];
         return (
-          member === undefined ||
-          member.locked ||
-          member.source.kind !== "user"
+          member === undefined || member.locked || member.source.kind !== "user"
         );
       })
     ) {
@@ -294,7 +297,11 @@ export function useBoardEraserController({
             return [];
           }
           return [
-            createEraserCommand(createCommandMetadata(), [original], replacements),
+            createEraserCommand(
+              createCommandMetadata(),
+              [original],
+              replacements,
+            ),
           ];
         },
       );
