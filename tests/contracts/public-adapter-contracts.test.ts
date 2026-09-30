@@ -19,14 +19,14 @@ import {
 } from "../../src/core/public";
 
 describe("stable public contracts", () => {
-  it("pins the document boundary to 1.5 and adapter boundaries to 1.0", () => {
+  it("pins the document boundary to 1.6 and adapter boundaries to 1.0", () => {
     expect({
       board: boardDocumentSchemaVersion,
       canvas: canvasAdapterContractVersion,
       geometryOs: geometryOsAdapterContractVersion,
       persistence: persistenceAdapterContractVersion,
     }).toEqual({
-      board: "1.5",
+      board: "1.6",
       canvas: "1.0",
       geometryOs: "1.0",
       persistence: "1.0",

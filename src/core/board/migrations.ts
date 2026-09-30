@@ -1,5 +1,6 @@
 import {
   boardDocument14SchemaVersion,
+  boardDocument15SchemaVersion,
   boardDocumentSchemaVersion,
   type BoardDocument,
   type BoardDocument15,
@@ -13,6 +14,7 @@ import {
   boardDocumentSchema12,
   boardDocumentSchema13,
   boardDocumentSchema14,
+  boardDocumentSchema15,
 } from "./validation/schema";
 import {
   validateBoardDocument,
@@ -68,7 +70,7 @@ export function migrateBoardDocument13To14(
   const parsed = boardDocumentSchema13.safeParse(raw);
   if (!parsed.success)
     return { ok: false, issues: schemaIssues(parsed.error.issues) };
-  return migrateBoardDocument14To15({
+  return migrateBoardDocument14To16({
     ...parsed.data,
     schemaVersion: boardDocument14SchemaVersion,
     solidLearningAttempts: {},
@@ -83,6 +85,31 @@ export function migrateBoardDocument14To15(
     return { ok: false, issues: schemaIssues(parsed.error.issues) };
   }
 
+  const next = boardDocumentSchema15.safeParse({
+    ...parsed.data,
+    schemaVersion: boardDocument15SchemaVersion,
+  });
+  if (!next.success) {
+    return { ok: false, issues: schemaIssues(next.error.issues) };
+  }
+
+  const semanticValidation = validateBoardDocument({
+    ...next.data,
+    schemaVersion: boardDocumentSchemaVersion,
+  });
+  return semanticValidation.valid
+    ? { ok: true, document: next.data as BoardDocument15 }
+    : { ok: false, issues: semanticValidation.issues };
+}
+
+export function migrateBoardDocument15To16(
+  raw: unknown,
+): BoardDocumentMigrationResult {
+  const parsed = boardDocumentSchema15.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, issues: schemaIssues(parsed.error.issues) };
+  }
+
   const validation = validateBoardDocument({
     ...parsed.data,
     schemaVersion: boardDocumentSchemaVersion,
@@ -90,6 +117,13 @@ export function migrateBoardDocument14To15(
   return validation.valid
     ? { ok: true, document: validation.document }
     : { ok: false, issues: validation.issues };
+}
+
+export function migrateBoardDocument14To16(
+  raw: unknown,
+): BoardDocumentMigrationResult {
+  const migrated = migrateBoardDocument14To15(raw);
+  return migrated.ok ? migrateBoardDocument15To16(migrated.document) : migrated;
 }
 
 export function migrateBoardDocument11To13(

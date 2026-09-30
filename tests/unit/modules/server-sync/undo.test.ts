@@ -74,6 +74,102 @@ describe("collaborative own-operation undo", () => {
     expect(restored.order).toEqual(before.order);
   });
 
+  it("inverts a mixed batch replacement as one collaborative command", () => {
+    const one = rectangle("batch-one");
+    const two = rectangle("batch-two");
+    const before = apply(emptyDocument(), [
+      {
+        ...metadata("batch-seed"),
+        kind: "core.objects.add",
+        objects: [one, two],
+      },
+    ]);
+    const fragment = {
+      ...one,
+      id: one.id,
+      position: { x: 12, y: 0 },
+    };
+    const command: BoardCommand = {
+      ...metadata("batch-change", "2026-07-24T12:02:00.000Z"),
+      changes: [
+        {
+          atIndex: 0,
+          originals: [one],
+          replacements: [fragment],
+        },
+        {
+          atIndex: 1,
+          originals: [two],
+          replacements: [],
+        },
+      ],
+      kind: "core.objects.batch-replace",
+    };
+    const after = apply(before, [command]);
+    const inverse = invertOwnBoardCommand(command, before, undoMetadata);
+    expect(inverse).toHaveLength(1);
+    expect(inverse[0]).toMatchObject({
+      kind: "core.objects.batch-replace",
+      changes: [
+        {
+          atIndex: 0,
+          originals: [fragment],
+          replacements: [one],
+        },
+        {
+          atIndex: 1,
+          originals: [],
+          replacements: [two],
+        },
+      ],
+    });
+    const restored = apply(after, inverse);
+    expect(restored.objects).toEqual(before.objects);
+    expect(restored.order).toEqual(before.order);
+  });
+
+  it("restores adjacent batch deletions at their exact layer positions", () => {
+    const one = rectangle("adjacent-one");
+    const two = rectangle("adjacent-two");
+    const three = rectangle("adjacent-three");
+    const four = rectangle("adjacent-four");
+    const before = apply(emptyDocument(), [
+      {
+        ...metadata("adjacent-seed"),
+        kind: "core.objects.add",
+        objects: [one, two, three, four],
+      },
+    ]);
+    const command: BoardCommand = {
+      ...metadata("adjacent-delete", "2026-07-24T12:02:00.000Z"),
+      changes: [
+        { atIndex: 1, originals: [two], replacements: [] },
+        { atIndex: 2, originals: [three], replacements: [] },
+      ],
+      kind: "core.objects.batch-replace",
+    };
+
+    const after = apply(before, [command]);
+    expect(after.order).toEqual([one.id, four.id]);
+
+    const inverse = invertOwnBoardCommand(command, before, undoMetadata);
+    expect(inverse).toHaveLength(1);
+    expect(inverse[0]).toMatchObject({
+      kind: "core.objects.batch-replace",
+      changes: [
+        {
+          atIndex: 1,
+          originals: [],
+          replacements: [two, three],
+        },
+      ],
+    });
+
+    const restored = apply(after, inverse);
+    expect(restored.objects).toEqual(before.objects);
+    expect(restored.order).toEqual(before.order);
+  });
+
   it("turns an object add into a command-log delete", () => {
     const before = emptyDocument();
     const command: BoardCommand = {

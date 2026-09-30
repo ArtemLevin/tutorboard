@@ -4,7 +4,10 @@ import {
   readBoardDocument,
   type BoardDocumentReadResult,
 } from "../validation/read";
-import { boardDocumentSchema14 } from "../validation/schema";
+import {
+  boardDocumentSchema14,
+  boardDocumentSchema15,
+} from "../validation/schema";
 import {
   validateBoardDocument,
   type ValidationIssue,
@@ -63,6 +66,25 @@ export function serializeBoardDocument(
  * Canonical 1.4 projection used only to verify pre-1.5 server/cache digests.
  * media.asset has no 1.4 representation and therefore cannot be projected.
  */
+/**
+ * Canonical 1.5 projection used to verify pre-1.6 server/cache digests.
+ * Single-sample Vector Ink dots have no 1.5 representation.
+ */
+export function serializeBoardDocument15ForCompatibility(
+  document: BoardDocument,
+): string | null {
+  const validation = validateBoardDocument(document);
+  if (!validation.valid) return null;
+
+  const legacy = boardDocumentSchema15.safeParse({
+    ...validation.document,
+    schemaVersion: "1.5",
+  });
+  if (!legacy.success) return null;
+
+  return JSON.stringify(canonicalize(legacy.data as unknown as JsonValue));
+}
+
 export function serializeBoardDocument14ForCompatibility(
   document: BoardDocument,
 ): string | null {

@@ -223,7 +223,7 @@ function completePen(
   const samples = appended.filter(({ point: samplePoint }) =>
     retained.has(samplePoint),
   );
-  if (points.length < 2 || samples.length < 2) {
+  if (points.length < 1 || samples.length < 1) {
     return null;
   }
 
