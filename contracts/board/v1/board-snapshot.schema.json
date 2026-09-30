@@ -65,7 +65,7 @@
           "uniqueItems": true
         },
         "schemaVersion": {
-          "const": "1.7"
+          "const": "1.6"
         },
         "solidLearningAttempts": {
           "additionalProperties": {
@@ -3567,7 +3567,7 @@
       "type": "integer"
     },
     "schemaVersion": {
-      "const": "1.5"
+      "const": "1.6"
     }
   },
   "required": [
