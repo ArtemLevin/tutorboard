@@ -551,7 +551,7 @@ export function createBoardHttpRepository(
             documentId: expectedDocumentId,
             documentSha256,
             revision,
-            schemaVersion: "1.5",
+            schemaVersion: "1.6",
           }),
           headers: {
             "Content-Type": "application/json",
