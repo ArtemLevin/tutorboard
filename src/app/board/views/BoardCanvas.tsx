@@ -80,7 +80,10 @@ function InlineTextPlacementEditor({
           onCancel();
           return;
         }
-        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        if (
+          event.key === "Enter" &&
+          (event.shiftKey || event.ctrlKey || event.metaKey)
+        ) {
           event.preventDefault();
           event.currentTarget.blur();
         }
