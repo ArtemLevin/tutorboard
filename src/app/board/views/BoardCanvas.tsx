@@ -183,6 +183,7 @@ export function BoardCanvas({
       ...(drawing.preview === null
         ? []
         : [{ object: drawing.preview, transforms: [] }]),
+      ...eraser.previewItems,
       ...handwriting.previewItems,
       ...remoteTransformPreviews.flatMap((preview, previewIndex) =>
         preview.transforms.flatMap((transform, transformIndex) => {
@@ -210,6 +211,7 @@ export function BoardCanvas({
     [
       document.objects,
       drawing.preview,
+      eraser.previewItems,
       handwriting.previewItems,
       remoteTransformPreviews,
     ],
@@ -332,6 +334,7 @@ export function BoardCanvas({
         selectionMarquee={selection.marquee}
         selectionModeKey={isSelectionToolId(activeTool) ? activeTool : null}
         selectionPreviewDelta={selection.previewDelta}
+        suppressedObjectIds={eraser.suppressedObjectIds}
         transformableObjectIds={transformableObjectIds}
         wetInkStyle={wetInkStyle}
       />
