@@ -114,7 +114,14 @@ export function useBoardEraserController({
       const objects = current.order.flatMap((id) => {
         if (!session.touchedObjectIds.has(id)) return [];
         const object = current.objects[id];
-        return object === undefined ? [] : [object];
+        if (object === undefined) return [];
+        if (
+          object.groupId !== null &&
+          current.groups[object.groupId]?.locked === true
+        ) {
+          return [];
+        }
+        return [object];
       });
       let sequence = 0;
       return planEraserChanges(
