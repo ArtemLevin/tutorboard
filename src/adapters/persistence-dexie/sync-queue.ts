@@ -1079,7 +1079,9 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
                 accessEpochAtCreation:
                   item.accessEpochAtCreation ?? previous.accessEpochAtCreation,
                 actorId: command.actorId,
-                ...(item.batchId === undefined ? {} : { batchId: item.batchId }),
+                ...(item.batchId === undefined
+                  ? {}
+                  : { batchId: item.batchId }),
                 baseRevisionAtCreation: previous.baseRevisionAtCreation,
                 cacheScopeId: scope.cacheScopeId,
                 commandJson,
