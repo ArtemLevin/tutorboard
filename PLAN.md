@@ -5,13 +5,15 @@
 > Последнее обновление: 2026-09-29.
 >
 > Документ синхронизирован с фактическим состоянием проекта после standalone
-> contracts, access convergence, controlled-pilot E2E и milestone
-> **Input Foundation + Shape Constraints** (PR #133). Ближайшая delivery цель
-> по-прежнему — **Pilot Deployment Gate**: получить реальный HTTPS-сервер и
-> провести controlled pilot с одним преподавателем и одним учеником. После pilot
+> contracts, access convergence, controlled-pilot E2E, **Input Foundation +
+> Shape Constraints** (PR #133), **Partial eraser + forgiving selection**
+> (PR #134), **Live text + Escape comfort** (PR #135) и CI/performance hardening
+> вплоть до PR #142. Ближайшая delivery цель по-прежнему —
+> **Pilot Deployment Gate**: получить реальный HTTPS-сервер и провести
+> controlled pilot с одним преподавателем и одним учеником. После pilot
 > обязательным остаётся полный **Board-only Production Profile** и production
-> release gate. Следующий отдельный UX-трек доски — partial eraser и forgiving
-> multi-selection поверх стабилизированного input layer.
+> release gate. Следующий отдельный продуктовый трек — board media assets:
+> крупные изображения/GIF и последующий безопасный URL/video import.
 >
 > Исторические планы по полотну, GeometryOS, Smart Ink и lesson-bound интеграциям
 > остаются в `docs/DEVELOPMENT_PLAN.md` и профильных ADR/документах в
@@ -84,6 +86,8 @@ TutorBoard разворачивается как самостоятельный 
 | Export hardening | DONE | PR #126–#129: full-content/high-fidelity PNG/PDF/SVG workflow |
 | Controlled pilot E2E | DONE | PR #131: teacher/guest controlled-pilot browser scenario |
 | Board input comfort | DONE | PR #133: centralized shortcuts, layout-independent tool keys, late-Shift modifier pipeline и shape constraints |
+| Partial eraser + forgiving selection | DONE | PR #134: vector partial eraser, proximity selection и aggregate-bounds drag |
+| Live text + Escape comfort | DONE | PR #135: transient inline text editing, Escape→selection и locked-selection move hardening |
 
 T1/T2 standalone flow уже поддерживает teacher management и guest-link launch.
 Backend B1/B2 уже содержит standalone persistence, invitation/session model,
@@ -91,87 +95,96 @@ server-authoritative capability checks и collaboration integration.
 
 ### 3.2. Открытые delivery gaps
 
-Текущий delivery разделён на три связанных направления:
+Source-side foundation для Pilot Gate существенно продвинулась:
 
-1. **Pilot Deployment Gate — ближайший critical path**
-   - сохранить TutorBoard release candidate в green state;
-   - вернуть board-profile backend в green state;
-   - завершить минимальный board-only Compose/Caddy contract;
-   - поднять один реальный HTTPS-host;
-   - выполнить teacher/guest two-browser smoke, reconnect, revoke и API restart;
-   - сделать off-host backup и зафиксировать release manifest;
-   - только после этого провести controlled lesson с одним учеником.
-2. **B3/T3 convergence/access hardening Production Gate**
-   - live capability downgrade/revoke;
-   - reconnect context refresh;
-   - stale access-epoch pending quarantine;
-   - полный two-browser verification для read-only/revoke/offline/reconnect.
-3. **D1–D4 Board-only Production Profile**
-   - strict backend composition;
-   - minimal router/provider surface;
-   - board-only Compose/Caddy;
-   - immutable release pipeline;
-   - staging/restore/chaos;
-   - production rollout.
+- TutorBoard frontend release baseline green на `c0bf5ba6193972a77d3cdc5b09352a5e27b15066`;
+- backend `APP_PROFILE=board`, exact route/provider checks, board-only Compose,
+  Caddy/release tooling и immutable TutorBoard pin присутствуют в
+  `tutor-assistant-web/main`;
+- на backend release candidate `c2aa42927104510fc802d7dffc28a36872b29880`
+  успешно завершились CI, Production release и TutorBoard standalone release.
 
-Pilot Gate не заменяет Production Gate. Он вводит более ранний, контролируемый
-уровень готовности для реального пользовательского теста.
+Ближайший незакрытый critical path теперь операционный:
+
+1. **Pilot Deployment Gate**
+   - поднять реальную Linux VM, DNS и HTTPS;
+   - выполнить explicit migration и bootstrap teacher account;
+   - провести teacher/guest two-browser smoke;
+   - проверить reconnect, terminal revoke и API restart persistence;
+   - выполнить off-host PostgreSQL backup;
+   - зафиксировать immutable Pilot Release Manifest.
+2. **B3/T3 Production convergence gate**
+   - полный live read-only/rotate/revoke/offline-old-epoch сценарий;
+   - Chromium/Firefox production matrix.
+3. **D3/D4 Production operations**
+   - isolated restore;
+   - log-secret scan;
+   - load/24h soak;
+   - manual-approved rollout и verified rollback.
+
+Board media assets идут отдельным параллельным продуктовым треком и не
+расширяют pilot public surface до прохождения собственных security/storage
+gates.
 
 ### 3.3. Root cause текущего deployment gap
 
-Существующий backend умеет standalone boards, но production composition пока не
-является board-only:
+Текущий deployment gap больше не связан с отсутствием board-only source
+composition. В `tutor-assistant-web/main` уже присутствуют:
 
-- module `boards` зависит от `scheduling`;
-- `scheduling` зависит от `students`;
-- `students` зависит от `identity`;
-- текущий `boards/routes.py` смешивает standalone, legacy lesson, evidence и
-  GeometryOS routes;
-- `build_container()` создаёт full-product providers независимо от того,
-  используются ли их routers;
-- существующий production Compose запускает full Tutor Assistant stack;
-- текущий Caddy production template направляет в TutorBoard только `/board/*`,
-  но standalone product требует также `/boards` и `/b/*`.
+- first-class `APP_PROFILE=board`;
+- отдельный board-profile bootstrap и минимальный container;
+- exact public route inventory;
+- board-only Compose;
+- explicit Caddy/default-deny configuration;
+- release workflow;
+- pilot runbook, backup/restart/restore/smoke tooling;
+- immutable TutorBoard release manifest/pin.
 
-Следовательно, `ENABLED_MODULES=boards` **не является** Board-only Production
-Profile и не должен использоваться как production shortcut.
+Оставшийся разрыв находится между проверенным source/release tooling и реальным
+окружением: VM, DNS/TLS, production secrets, explicit migrations, реальные
+browser smoke/reconnect/revoke/restart проверки, off-host backup и release
+manifest конкретного pilot deployment.
 
 ### 3.4. Актуальные blockers перед Pilot Gate
 
 #### TutorBoard
 
-Frontend quality blocker закрыт. Milestone PR #133 проходит полный frontend
-release gate: GeometryOS/Board contract checks, format, lint, TypeScript,
-unit tests, performance budgets, architecture boundaries, production build,
-Chromium/Firefox browser smoke, board-only profile, coordinate-plot production
-gate, production image, Smart Ink production gate и Formula Recognition gate.
+Frontend source baseline находится в green state на текущем `main`
+`c0bf5ba6193972a77d3cdc5b09352a5e27b15066` (PR #142). На этом SHA
+успешно завершены Quality gate, Board-only frontend profile, GeometryOS live
+browser contract, Coordinate Plot production gate, Chromium/Firefox browser
+smoke, Production image, Smart Ink production gate, Formula Recognition gate и
+Paddle sidecar gate.
 
-PR #133 также фиксирует отдельный interaction contract: единый shortcut registry,
-`L` для линии, `Shift+V` для лассо, физические `KeyboardEvent.code`,
-цвета `1..5`, late-Shift и deterministic constraints для line/rectangle/
-ellipse/polygon. BoardDocument schema, command protocol и persistence при этом
-не меняются.
+Interaction milestones PR #133–#135 уже закрыты:
 
-Следующий UX milestone после merge PR #133:
-
-- vector partial eraser для `drawing.pen-stroke` с атомарным undo;
+- centralized shortcuts и layout-independent tool keys;
+- late-Shift + deterministic shape constraints;
+- vector partial eraser с атомарным undo;
 - forgiving selection hit-slop;
-- drag multi-selection за padded aggregate bounds;
-- отдельные browser-level interaction latency budgets при необходимости.
+- drag multi-selection за aggregate bounds;
+- transient inline text editor;
+- `Escape` отменяет text draft и возвращает selection mode.
+
+Следующий отдельный продуктовый блок — board media assets. Архитектурный
+инвариант: крупные media bytes не попадают в BoardCommand, durable pending
+queue, PostgreSQL command journal или BoardSnapshot. Первый runtime increment
+начинается с versioned `media.asset` contract foundation; server-side asset
+authority и upload/read API следуют отдельным этапом.
 
 #### tutor-assistant-web
 
-Board-only composition по-прежнему находится в draft PR #31
-`feat: add strict board-only production profile` в
-`ArtemLevin/tutor-assistant-web`. На проверенном head
-`81501a5ed1f90fc8f35826059dbfdbe9d30a9319` три workflow завершены с
-`failure`: Board profile contract, Production release и CI. PR остаётся
-не mergeable и не является release candidate.
+Старый draft PR #31 больше не является источником истины: его ветка разошлась с
+`main`, а актуальная board-only реализация и release tooling уже присутствуют
+в `main` после более поздних поставок. Проверенный backend release candidate
+`c2aa42927104510fc802d7dffc28a36872b29880` имеет green CI, Production
+release и TutorBoard standalone release.
 
-Детальная первопричина этих backend failures в рамках PR #133 повторно не
-расследовалась; следующий backend шаг должен начинаться с актуальных job logs
-PR #31. Ослабление exact allowlist, `skip` или `xfail` для достижения
-зелёного CI не допускаются.
+Следующий backend шаг для Pilot Gate — работа с реальным окружением по
+`deploy/board-production/PILOT_RUNBOOK.md`: configuration preflight, VM/DNS/TLS,
+explicit migration, teacher bootstrap, two-client smoke, reconnect/revoke,
+restart persistence и off-host backup. Ослабление exact allowlist,
+security/redaction checks или release gates не допускается.
 
 ## 4. Целевая Board-only архитектура
 
@@ -893,7 +906,16 @@ CONTROLLED PILOT LESSON
 
 ### 18.6. P1 — TutorBoard quality gate
 
-Исправить known Prettier drift после PR #123 и выполнить:
+**Source gate: DONE** на текущем frontend baseline
+`c0bf5ba6193972a77d3cdc5b09352a5e27b15066`.
+
+На этом SHA green: Quality gate, Board-only frontend profile, GeometryOS live
+browser contract, Coordinate Plot production gate, Chromium/Firefox browser
+smoke, Production image, Smart Ink production gate, Formula Recognition gate и
+Paddle sidecar gate.
+
+Перед конкретным pilot deployment pinned frontend SHA всё равно проходит
+explicit release verification:
 
 ```text
 npm run format:check
@@ -906,7 +928,8 @@ npm run build
 npm run check
 ```
 
-Exit criterion: свежий полный quality gate green на pilot frontend SHA.
+Exit criterion: свежий полный quality gate green именно на SHA, записываемом в
+Pilot Release Manifest.
 
 #### 18.6.1. Frontend CI routing invariant
 
@@ -934,16 +957,24 @@ routing contract в `main`; security threshold при этом не ослабл
 
 ### 18.7. P2/P3 — backend board profile gate
 
-Исправить exact route inventory failure PR #31 и получить green:
+**Source gates: DONE.** Актуальная реализация находится в
+`tutor-assistant-web/main`, а старый draft PR #31 больше не определяет
+состояние проекта.
 
-- board profile contract;
-- exact router/provider inventories;
-- board-only Compose validation;
-- Caddy routing/default-deny contract;
-- invitation/WS sentinel redaction checks.
+Проверенный release candidate
+`c2aa42927104510fc802d7dffc28a36872b29880` завершил успешно:
 
-Exit criterion: `APP_PROFILE=board` запускается без full-only routes/providers и
-имеет доказанный public surface.
+- CI;
+- Production release;
+- TutorBoard standalone release.
+
+В `main` присутствуют board profile contract, exact router/provider
+inventories, board-only Compose, Caddy/default-deny configuration, secret-safe
+release tooling и immutable TutorBoard pin.
+
+Exit criterion для конкретного pilot deployment: эти gates должны быть повторно
+green на pinned backend SHA из Pilot Release Manifest; затем работа переходит к
+P4/P5 real-host bootstrap.
 
 ### 18.8. P4/P5 — реальный host и data bootstrap
 
@@ -1304,30 +1335,119 @@ Profile считается реализованным, когда одновре
 
 Ближайший critical path — Pilot-first:
 
-1. **P1 / TutorBoard** — исправить known Prettier drift после PR #123 и получить
-   свежий green `npm run check`.
-2. **P2 / tutor-assistant-web** — исправить exact route inventory failure PR #31
-   без ослабления test contract.
-3. **P3 / board profile** — получить green configuration/provider/router,
-   Compose/Caddy и secret-redaction gates; довести board profile до merge-ready.
-4. **P4** — поднять одну pilot VM, DNS и HTTPS.
-5. **P5** — выполнить explicit migrations и проверить teacher account.
-6. **P6-P8** — `/boards`, board creation, invitation, isolated guest join и
-   bidirectional collaboration.
-7. **P9-P11** — reconnect, terminal revoke и API restart persistence smoke.
-8. **P12** — off-host PostgreSQL backup + Pilot Release Manifest.
-9. **Controlled pilot lesson** — только после green P1-P12.
-10. **B3/T3 Production Gate** — закрыть полный live read-only/rotate/revoke/
-    offline-old-epoch convergence scenario.
-11. **D2** — отдельный board release workflow и immutable images.
-12. **D3** — production staging, restart/restore/log scan/load/24h soak.
-13. **D4** — manual-approved production rollout и verified rollback.
+1. **P1 / TutorBoard source gate — DONE.** Текущий frontend baseline
+   `c0bf5ba6193972a77d3cdc5b09352a5e27b15066` имеет green core и
+   specialized gates.
+2. **P2/P3 / backend board-profile source gates — DONE.** Board-only runtime,
+   Compose/Caddy, release tooling и immutable frontend pin находятся в
+   `tutor-assistant-web/main`; release candidate
+   `c2aa42927104510fc802d7dffc28a36872b29880` прошёл CI, Production release
+   и TutorBoard standalone release.
+3. **P4** — поднять одну pilot VM, DNS и HTTPS.
+4. **P5** — выполнить configuration preflight, explicit migrations и проверить
+   teacher account.
+5. **P6-P8** — `/boards`, board creation, invitation, isolated guest join и
+   bidirectional collaboration на реальном host.
+6. **P9-P11** — reconnect, terminal revoke и API restart persistence smoke.
+7. **P12** — off-host PostgreSQL backup + immutable Pilot Release Manifest.
+8. **Controlled pilot lesson** — только после green P4-P12 на конкретном
+   deployment.
+9. **B3/T3 Production Gate** — закрыть полный live read-only/rotate/revoke/
+   offline-old-epoch convergence scenario.
+10. **D3** — production staging, isolated restore, log scan, load и 24h soak.
+11. **D4** — manual-approved production rollout и verified rollback.
 
-Production apply запрещён до закрытия P0/P1 production release gates, green
-staging preflight и свежего isolated restore drill. Pilot-specific упрощения не
+Production apply запрещён до закрытия production release gates, green staging
+preflight и свежего isolated restore drill. Pilot-specific упрощения не
 переносятся в production по умолчанию.
 
-## 26. Критерий выбора следующей задачи
+## 26. Board media assets — implementation-ready track
+
+Архитектура больших и URL-import media определена в
+`docs/adr/ADR-032-board-media-assets.md`. Главный инвариант: binary media не
+попадает в BoardCommand, durable pending queue, PostgreSQL command journal или
+BoardSnapshot. Существующий `image.embedded` сохраняется для совместимости.
+
+Фактический root cause текущего лимита:
+
+```text
+local picker                  8 MiB
+embedded dataUrl schema      12 MiB
+BoardCommand JSON codec       2 MiB  <- sync blocker
+backend command request       5 MiB default
+.tutorboard.json import      10 MiB
+```
+
+Поднятие только числовых лимитов запрещено как решение media milestone.
+
+### M1 — contract foundation
+
+- добавить `media.asset` с immutable `assetId/contentSha256/byteSize/mimeType`;
+- BoardDocument/BoardSnapshot → следующая schema revision;
+- ordered command envelope → следующая compatible revision;
+- сохранить чтение существующих `image.embedded` и старых envelope;
+- оставить BoardCommand JSON limit 2 MiB.
+
+Exit: большие media bytes отсутствуют в serialized add/paste command.
+
+### M2 — backend media authority
+
+В `tutor-assistant-web`:
+
+- отдельная `BoardMediaAsset` persistence model с FK на board;
+- private tenant-prefixed storage через существующий ArtifactStorage/S3;
+- upload API с board.write + CSRF/access-epoch;
+- content API с board.read, ETag/nosniff;
+- Range/206 storage/read path для MP4;
+- server-side checksum/MIME/size/image-complexity validation;
+- GIF MIME support в artifact detector;
+- conditional ClamAV gate при включённом board media;
+- command-commit validation всех `media.asset` references;
+- quotas/rate limits и board-retention lifecycle.
+
+Exit: forged/cross-board/quarantined asset refs не могут стать accepted revision.
+
+### M3 — TutorBoard image/GIF asset path
+
+- `BoardMediaRepository` + resolver port;
+- upload-before-command orchestration;
+- `media.asset` renderer для PNG/JPEG/GIF;
+- large file path выше embedded-safe sync threshold;
+- legacy small/local `image.embedded` path остаётся;
+- Chromium/Firefox + reconnect/rebase regression coverage.
+
+Initial deployment defaults: 32 MiB для PNG/JPEG/GIF. Лимит конфигурационный.
+
+### M4 — direct HTTPS URL import + MP4
+
+- direct HTTPS media URL → hardened backend fetch → owned immutable asset;
+- SSRF deny policy для private/loopback/link-local/IPv6 + redirect revalidation;
+- streamed size/time limits и MIME signature validation;
+- MP4 asset до initial 128 MiB configurable limit;
+- local/ephemeral play/pause/seek state;
+- provider pages/iframe/YouTube/Vimeo не входят в этот milestone.
+
+Exit: внешний origin после import больше не участвует в rendering path.
+
+### M5 — portability
+
+- новый portable TutorBoard bundle: `document.json + manifest + assets/*`;
+- legacy `.tutorboard.json` остаётся для self-contained embedded documents;
+- asset-backed board нельзя молча экспортировать как «полный» JSON без bytes;
+- bundle round-trip и integrity checks.
+
+### M6 — optional offline staging
+
+Первый media release требует сеть для первоначального большого upload/URL
+import. После успешного upload обычная command queue сохраняет текущие offline
+гарантии. Durable IndexedDB blob staging добавляется отдельным increment только
+после M1–M5.
+
+Media track может выполняться параллельно Pilot Deployment Gate при условии, что
+он не расширяет pilot public surface до прохождения собственных security,
+storage и browser gates.
+
+## 27. Критерий выбора следующей задачи
 
 При конфликте backlog priorities:
 
