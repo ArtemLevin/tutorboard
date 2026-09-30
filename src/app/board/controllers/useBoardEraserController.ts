@@ -77,9 +77,7 @@ export function useBoardEraserController({
         (original, fragmentIndex) =>
           fragmentIndex === 0
             ? original.id
-            : boardObjectId(
-                `preview:eraser:${original.id}:${fragmentIndex}`,
-              ),
+            : boardObjectId(`preview:eraser:${original.id}:${fragmentIndex}`),
       );
       return {
         replacements: result.replacements,
@@ -92,9 +90,7 @@ export function useBoardEraserController({
   const updatePreview = useCallback(
     (path: readonly Vec2[]) => {
       const next = previewForPath(path);
-      setPreview(
-        next.suppressedObjectIds.length === 0 ? null : next,
-      );
+      setPreview(next.suppressedObjectIds.length === 0 ? null : next);
     },
     [previewForPath],
   );
