@@ -93,6 +93,87 @@ test("creates one normalized primitive per completed gesture", async ({
   );
 });
 
+test(
+  "creates a visible pen dot from a stationary tap",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const count = page.getByTestId("object-count");
+    const stage = page.getByTestId("board-stage");
+    await page.keyboard.press("p");
+    const point = await canvasPoint(page, 0.46, 0.4);
+    await page.mouse.click(point.x, point.y);
+
+    await expect(count).toHaveText("1 объекта");
+    await expect(stage).toHaveAttribute("data-drawing", "false");
+
+    await page.keyboard.press("Control+z");
+    await expect(count).toHaveText("0 объекта");
+  },
+);
+
+test(
+  "erases mixed editable objects in one gesture with live preview and one undo",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const count = page.getByTestId("object-count");
+    const stage = page.getByTestId("board-stage");
+
+    await page.keyboard.press("r");
+    const rectangleStart = await canvasPoint(page, 0.25, 0.3);
+    const rectangleEnd = await canvasPoint(page, 0.4, 0.48);
+    await page.mouse.move(rectangleStart.x, rectangleStart.y);
+    await page.mouse.down();
+    await page.mouse.move(rectangleEnd.x, rectangleEnd.y, { steps: 5 });
+    await page.mouse.up();
+
+    await page.keyboard.press("l");
+    const lineStart = await canvasPoint(page, 0.46, 0.39);
+    const lineEnd = await canvasPoint(page, 0.62, 0.39);
+    await page.mouse.move(lineStart.x, lineStart.y);
+    await page.mouse.down();
+    await page.mouse.move(lineEnd.x, lineEnd.y, { steps: 5 });
+    await page.mouse.up();
+
+    await page.keyboard.press("t");
+    const textPoint = await canvasPoint(page, 0.7, 0.37);
+    await page.mouse.click(textPoint.x, textPoint.y);
+    const editor = page.getByRole("textbox", {
+      name: "Редактор текста на доске",
+    });
+    await editor.fill("erase me");
+    await editor.press("Shift+Enter");
+    await expect(count).toHaveText("3 объекта");
+
+    await page.keyboard.press("x");
+    await expect(stage).toHaveAttribute("data-drawing-mode", "editing.eraser");
+    const eraserSize = page.getByRole("slider", { name: "Размер ластика" });
+    await expect(eraserSize).toHaveValue("24");
+    await eraserSize.evaluate((element) => {
+      const input = element as HTMLInputElement;
+      input.value = "48";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await expect(eraserSize).toHaveValue("48");
+
+    const eraseStart = await canvasPoint(page, 0.2, 0.39);
+    const eraseEnd = await canvasPoint(page, 0.82, 0.39);
+    await page.mouse.move(eraseStart.x, eraseStart.y);
+    await page.mouse.down();
+    await page.mouse.move(eraseEnd.x, eraseEnd.y, { steps: 16 });
+
+    // The durable document is unchanged while the live eraser preview is active.
+    await expect(count).toHaveText("3 объекта");
+    await expect(stage).toHaveAttribute("data-drawing", "true");
+
+    await page.mouse.up();
+    await expect(count).toHaveText("0 объекта");
+
+    await page.keyboard.press("Control+z");
+    await expect(count).toHaveText("3 объекта");
+  },
+);
+
 test("partially erases a pen stroke and undoes the gesture atomically", async ({
   page,
 }) => {
