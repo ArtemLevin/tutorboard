@@ -30,6 +30,19 @@ describe("Vector Ink 1.0", () => {
     expect(vectorInkCenterlinePathData(ink)).toMatch(/^M .* C .* C /u);
   });
 
+  it("renders a single sample as a pressure-aware round dot", () => {
+    const ink = createVectorInkData([
+      { point: { x: 12, y: 18 }, pressure: 0.75, timestampMs: 4 },
+    ]);
+    expect(ink.centerline).toEqual([]);
+    expect(ink.samples).toHaveLength(1);
+    expect(vectorInkDataMatchesPoints(ink, [{ x: 12, y: 18 }])).toBe(true);
+    const outline = vectorInkOutlinePathData(ink, 8);
+    expect(outline).toContain("A ");
+    expect(outline.endsWith("Z")).toBe(true);
+    expect(outline).not.toContain("NaN");
+  });
+
   it("turns pressure into a bounded variable-width outline", () => {
     const ink = createVectorInkData([
       { point: { x: 0, y: 0 }, pressure: 0.1, timestampMs: 0 },
