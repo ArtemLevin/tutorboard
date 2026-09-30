@@ -7,7 +7,7 @@ import type {
   GroupId,
   SolidLearningAttemptId,
 } from "./identifiers";
-import type { BoardObject } from "./objects";
+import type { BoardObject, BoardObject15 } from "./objects";
 import type { Solid3DRecord } from "../solid-3d/definitions";
 import type { Solid3DId } from "./identifiers";
 import type { Solid3DLearningAttempt } from "../solid-3d-learning/types";
@@ -15,6 +15,7 @@ import { defaultViewport, type ViewportState } from "./primitives";
 import { isIsoTimestamp } from "./timestamps";
 
 export const boardDocumentSchemaVersion = "1.4" as const;
+export const boardDocument15SchemaVersion = "1.5" as const;
 
 export interface BoardDocument {
   readonly createdAt: string;
@@ -34,6 +35,14 @@ export interface BoardDocument {
   readonly updatedAt: string;
   readonly viewport: ViewportState;
 }
+
+export type BoardDocument15 = Omit<
+  BoardDocument,
+  "objects" | "schemaVersion"
+> & {
+  readonly objects: Readonly<Partial<Record<BoardObjectId, BoardObject15>>>;
+  readonly schemaVersion: typeof boardDocument15SchemaVersion;
+};
 
 export interface CreateBoardDocumentInput {
   readonly createdAt: string;

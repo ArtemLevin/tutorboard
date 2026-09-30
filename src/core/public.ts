@@ -27,9 +27,11 @@ export {
 export * from "./solid-3d/public";
 export * from "./solid-3d-learning/public";
 export {
+  boardDocument15SchemaVersion,
   boardDocumentSchemaVersion,
   createEmptyBoardDocument,
   type BoardDocument,
+  type BoardDocument15,
   type CreateBoardDocumentInput,
 } from "./board/document";
 export type { BoardGroup } from "./board/groups";
@@ -163,16 +165,22 @@ export {
 } from "./board/vector-ink";
 export {
   boardObjectKinds,
+  boardObjectKinds15,
   embeddedImageMimeTypes,
+  mediaAssetMimeTypes,
   strokeStyles,
   svgSanitizerPolicyVersion,
   type BoardObject,
+  type BoardObject15,
   type BoardObjectKind,
+  type BoardObjectKind15,
   type BoardObjectSource,
   type CoordinatePlotObject,
   type EllipseObject,
   type EmbeddedImageMimeType,
   type EmbeddedImageObject,
+  type MediaAssetMimeType,
+  type MediaAssetObject,
   type LineObject,
   type ObjectStyle,
   type PenStrokeObject,
@@ -196,6 +204,8 @@ export {
   migrateBoardDocument12To13,
   migrateBoardDocument11To13,
   migrateBoardDocument13To14,
+  migrateBoardDocument14To15,
+  type BoardDocument15MigrationResult,
   type BoardDocumentMigrationResult,
 } from "./board/migrations";
 export {

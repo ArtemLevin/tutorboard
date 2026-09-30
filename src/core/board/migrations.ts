@@ -1,4 +1,9 @@
-import { boardDocumentSchemaVersion, type BoardDocument } from "./document";
+import {
+  boardDocument15SchemaVersion,
+  boardDocumentSchemaVersion,
+  type BoardDocument,
+  type BoardDocument15,
+} from "./document";
 import { createVectorInkDataFromPoints } from "./vector-ink";
 import {
   boardDocumentSchema01,
@@ -7,6 +12,7 @@ import {
   boardDocumentSchema11,
   boardDocumentSchema12,
   boardDocumentSchema13,
+  boardDocumentSchema15,
 } from "./validation/schema";
 import {
   validateBoardDocument,
@@ -15,6 +21,10 @@ import {
 
 export type BoardDocumentMigrationResult =
   | { readonly document: BoardDocument; readonly ok: true }
+  | { readonly issues: readonly ValidationIssue[]; readonly ok: false };
+
+export type BoardDocument15MigrationResult =
+  | { readonly document: BoardDocument15; readonly ok: true }
   | { readonly issues: readonly ValidationIssue[]; readonly ok: false };
 
 function schemaIssues(
@@ -66,6 +76,26 @@ export function migrateBoardDocument13To14(
   return validation.valid
     ? { ok: true, document: validation.document }
     : { ok: false, issues: validation.issues };
+}
+
+/**
+ * Prepares a validated BoardDocument 1.4 for the media-aware 1.5 contract.
+ * This migration is feature-dark: the active runtime remains on 1.4 until the
+ * snapshot/server contract accepts 1.5 as well.
+ */
+export function migrateBoardDocument14To15(
+  raw: unknown,
+): BoardDocument15MigrationResult {
+  const current = validateBoardDocument(raw);
+  if (!current.valid) return { ok: false, issues: current.issues };
+
+  const parsed = boardDocumentSchema15.safeParse({
+    ...current.document,
+    schemaVersion: boardDocument15SchemaVersion,
+  });
+  return parsed.success
+    ? { ok: true, document: parsed.data as BoardDocument15 }
+    : { ok: false, issues: schemaIssues(parsed.error.issues) };
 }
 
 export function migrateBoardDocument11To13(
@@ -131,13 +161,13 @@ export function migrateBoardDocument01To12(
   });
 }
 
-/** @deprecated Current migrations return BoardDocument 1.2. */
+/** @deprecated Compatibility alias retained for historical callers. */
 export const migrateBoardDocument01To10 = migrateBoardDocument01To12;
-/** @deprecated Current migrations return BoardDocument 1.2. */
+/** @deprecated Compatibility alias retained for historical callers. */
 export const migrateBoardDocument01To11 = migrateBoardDocument01To12;
-/** @deprecated Current migrations return BoardDocument 1.2. */
+/** @deprecated Compatibility alias retained for historical callers. */
 export const migrateBoardDocument02To10 = migrateBoardDocument02To12;
-/** @deprecated Current migrations return BoardDocument 1.2. */
+/** @deprecated Compatibility alias retained for historical callers. */
 export const migrateBoardDocument02To11 = migrateBoardDocument02To12;
-/** @deprecated Current migrations return BoardDocument 1.2. */
+/** @deprecated Compatibility alias retained for historical callers. */
 export const migrateBoardDocument10To11 = migrateBoardDocument10To12;
