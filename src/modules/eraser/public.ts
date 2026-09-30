@@ -28,8 +28,8 @@ export type EraserCommand = DeleteObjectsCommand | ReplaceObjectsCommand;
 
 export function createEraserCommand(
   metadata: CommandMetadata,
-  originals: readonly PenStrokeObject[],
-  replacements: readonly PenStrokeObject[],
+  originals: readonly BoardObject[],
+  replacements: readonly BoardObject[],
 ): EraserCommand {
   if (replacements.length === 0) {
     return {

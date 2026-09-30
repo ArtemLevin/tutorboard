@@ -393,6 +393,28 @@ export function vectorInkOutlinePathData(
       "Z",
     ].join(" ");
   }
+  const firstSample = ink.samples[0];
+  if (
+    firstSample !== undefined &&
+    ink.samples.length >= 2 &&
+    ink.samples.every(({ point }) =>
+      approximatelySamePoint(point, firstSample.point),
+    )
+  ) {
+    const radius = halfWidth(
+      strokeWidth,
+      ink.samples.reduce((sum, sample) => sum + sample.pressure, 0) /
+        ink.samples.length,
+    );
+    if (radius <= 0) return "";
+    const { x, y } = firstSample.point;
+    return [
+      `M ${number(x + radius)} ${number(y)}`,
+      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(x - radius)} ${number(y)}`,
+      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(x + radius)} ${number(y)}`,
+      "Z",
+    ].join(" ");
+  }
   const center = centerlineOutlinePoints(ink);
   if (center.length < 2) return "";
   const left: Vec2[] = [];

@@ -82,41 +82,6 @@ describe("drawing interaction state machine", () => {
     expect(simplified).toContain(points[500]);
   });
 
-  it("completes a stationary pen tap as a canonical single-sample dot", () => {
-    const started = reduceDrawingInteraction(idle, {
-      kind: "start",
-      objectId: boardObjectId("object:dot"),
-      point: { x: 42, y: 51 },
-      pointerId: 7,
-      pressure: 0.75,
-      style: styleFor("drawing.pen"),
-      text: "",
-      tool: "drawing.pen",
-    });
-    const completed = reduceDrawingInteraction(started.state, {
-      kind: "finish",
-      point: { x: 42, y: 51 },
-      pointerId: 7,
-      pressure: 0.75,
-    });
-
-    expect(completed.diagnostic).toBeNull();
-    expect(completed.completedObject).toMatchObject({
-      kind: "drawing.pen-stroke",
-      points: [{ x: 42, y: 51 }],
-      ink: {
-        centerline: [],
-        closed: false,
-        samples: [
-          {
-            point: { x: 42, y: 51 },
-            pressure: 0.75,
-          },
-        ],
-      },
-    });
-  });
-
   it("samples pen points in world space and completes one object", () => {
     const started = reduceDrawingInteraction(idle, {
       kind: "start",
@@ -148,6 +113,40 @@ describe("drawing interaction state machine", () => {
       ],
     });
     expect(completed.state).toEqual(idle);
+  });
+
+  it("creates a canonical pressure-aware dot from a tap", () => {
+    const started = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:dot"),
+      point: { x: 42, y: 24 },
+      pointerId: 31,
+      pressure: 0.7,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    });
+    const completed = reduceDrawingInteraction(started.state, {
+      inputTimestampMs: 104,
+      kind: "finish",
+      point: { x: 42, y: 24 },
+      pointerId: 31,
+      pressure: 0.8,
+    });
+
+    expect(completed.completedObject).toMatchObject({
+      kind: "drawing.pen-stroke",
+      points: [
+        { x: 42, y: 24 },
+        { x: 42, y: 24 },
+      ],
+    });
+    if (completed.completedObject?.kind !== "drawing.pen-stroke") return;
+    expect(completed.completedObject.ink?.samples).toHaveLength(2);
+    expect(completed.completedObject.ink?.samples[0]?.pressure).toBe(0.7);
+    expect(completed.completedObject.ink?.samples[1]?.pressure).toBe(0.8);
+    expect(completed.completedObject.ink?.centerline).toHaveLength(1);
   });
 
   it("normalizes a rectangle drawn in reverse", () => {

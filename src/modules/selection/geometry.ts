@@ -433,49 +433,47 @@ function segmentDistance(
   );
 }
 
-function pathNearPath(
-  objectPath: SelectionPath,
-  brushPoints: readonly Vec2[],
-  tolerance: number,
-): boolean {
-  if (brushPoints.length === 0) return false;
-  if (brushPoints.length === 1) {
-    return pathDistanceToPoint(objectPath, brushPoints[0]!) <= tolerance;
+function pathDistanceToPath(
+  left: SelectionPath,
+  right: SelectionPath,
+): number {
+  const leftSegments = pathSegments(left);
+  const rightSegments = pathSegments(right);
+  if (leftSegments.length === 0) {
+    const point = left.points[0];
+    return point === undefined
+      ? Number.POSITIVE_INFINITY
+      : pathDistanceToPoint(right, point);
   }
-  const objectSegments = pathSegments(objectPath);
-  if (objectSegments.length === 0) {
-    const point = objectPath.points[0];
-    if (point === undefined) return false;
-    for (const brushPoint of brushPoints) {
-      if (pointDistance(point, brushPoint) <= tolerance) return true;
-    }
-    return false;
+  if (rightSegments.length === 0) {
+    const point = right.points[0];
+    return point === undefined
+      ? Number.POSITIVE_INFINITY
+      : pathDistanceToPoint(left, point);
   }
-  for (let index = 1; index < brushPoints.length; index += 1) {
-    const brushStart = brushPoints[index - 1]!;
-    const brushFinish = brushPoints[index]!;
-    for (const [objectStart, objectFinish] of objectSegments) {
-      const distance = segmentDistance(
-        objectStart,
-        objectFinish,
-        brushStart,
-        brushFinish,
+  let minimum = Number.POSITIVE_INFINITY;
+  for (const [leftStart, leftFinish] of leftSegments) {
+    for (const [rightStart, rightFinish] of rightSegments) {
+      minimum = Math.min(
+        minimum,
+        segmentDistance(leftStart, leftFinish, rightStart, rightFinish),
       );
-      if (distance <= tolerance) return true;
+      if (minimum <= geometryEpsilon) return 0;
     }
   }
-  return false;
+  return minimum;
 }
 
 export function selectObjectIdsNearPath(
   scene: BoardSceneReadModel,
-  rawPath: readonly Vec2[],
+  rawPoints: readonly Vec2[],
   tolerance: number,
 ): readonly BoardObjectId[] {
-  if (!Number.isFinite(tolerance) || tolerance < 0) return [];
-  const path = rawPath.filter(finitePoint);
-  if (path.length === 0) return [];
-
+  const points = rawPoints.filter(finitePoint).slice(0, maximumLassoPoints);
+  if (points.length === 0 || !Number.isFinite(tolerance) || tolerance < 0) {
+    return [];
+  }
+  const brushPath: SelectionPath = { closed: false, points };
   return scene.items
     .filter((item) => {
       if (!item.object.visible) return false;
@@ -483,11 +481,11 @@ export function selectObjectIdsNearPath(
       if (
         objectPath.closed &&
         selectableInterior(item.object) &&
-        path.some((point) => pointInPolygon(point, objectPath.points))
+        points.some((point) => pointInPolygon(point, objectPath.points))
       ) {
         return true;
       }
-      return pathNearPath(objectPath, path, tolerance);
+      return pathDistanceToPath(objectPath, brushPath) <= tolerance;
     })
     .map((item) => item.object.id);
 }

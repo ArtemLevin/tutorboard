@@ -78,6 +78,13 @@ export interface AppProps {
         previousDocument: BoardDocument,
       ) => void)
     | undefined;
+  readonly onCommandsCommitted?:
+    | ((
+        commands: readonly BoardCommand[],
+        document: BoardDocument,
+        previousDocument: BoardDocument,
+      ) => void)
+    | undefined;
   readonly onDocumentChange?: (document: BoardDocument) => void;
   readonly onExportDocument?: ((document: BoardDocument) => void) | undefined;
   readonly onExportPngSnapshot?:
@@ -168,6 +175,7 @@ export function App({
   mathInkRecognizer,
   initialDocument,
   onCommandCommitted,
+  onCommandsCommitted,
   onCollaborativeUndo,
   onDocumentChange,
   onExportDocument,
@@ -200,6 +208,7 @@ export function App({
     initialDocument: initialDocument ?? localInitialDocument,
     onCollaborativeUndo,
     onCommandCommitted,
+    onCommandsCommitted,
     onDocumentChange,
     readOnly,
   });
@@ -486,7 +495,6 @@ export function App({
   const eraser = useBoardEraserController({
     announce,
     documentController,
-    scene,
   });
   const laser = useLaserPointerController();
   const interaction = useBoardInteractionRouter({

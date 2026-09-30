@@ -337,7 +337,39 @@ export function invertOwnBoardCommand(
           ]
         : [];
     }
-    case "core.clipboard.cut":
+    case "core.clipboard.cut": {
+      const cutObjects = objects(before, command.objectIds);
+      const groups = command.groupIds.flatMap((id) => {
+        const group = before.groups[id];
+        return group === undefined ? [] : [group];
+      });
+      const geometryImports = command.geometryImportIds.flatMap((id) => {
+        const record = before.geometryImports[id];
+        return record === undefined ? [] : [record];
+      });
+      const solidModels = (command.solidIds ?? []).flatMap((id) => {
+        const record = before.solidModels[id];
+        return record === undefined ? [] : [record];
+      });
+      if (
+        cutObjects.length !== command.objectIds.length ||
+        groups.length !== command.groupIds.length ||
+        geometryImports.length !== command.geometryImportIds.length ||
+        solidModels.length !== (command.solidIds?.length ?? 0)
+      ) {
+        return [];
+      }
+      return [
+        {
+          ...meta(),
+          geometryImports,
+          groups,
+          kind: "core.clipboard.paste",
+          objects: cutObjects,
+          ...(solidModels.length === 0 ? {} : { solidModels }),
+        },
+      ];
+    }
     case "core.geometry.style-override":
     case "core.selection.set-style":
     case "core.solid-3d.create":

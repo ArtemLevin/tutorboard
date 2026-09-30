@@ -54,12 +54,12 @@ test(
     await expect(editor).toBeVisible();
     await expect(page.getByTestId("object-count")).toContainText("0");
 
-    await editor.fill("Первая");
-    await editor.press("Enter");
-    await editor.type("Вторая");
-    await expect(editor).toHaveValue("Первая\nВторая");
+    await editor.fill(String.raw`$x^2 + \alpha$`);
+    await expect(editor).toHaveValue(String.raw`$x^2 + \alpha$`);
     await expect(page.getByTestId("object-count")).toContainText("0");
 
+    await editor.press("Enter");
+    await expect(editor).toHaveValue(String.raw`$x^2 + \alpha$` + "\n");
     await editor.press("Shift+Enter");
     await expect(editor).toHaveCount(0);
     await expect(page.getByTestId("object-count")).toContainText("1");

@@ -98,6 +98,7 @@ interface StoredPendingCommandV2 {
 interface StoredPendingCommandV3 {
   readonly accessEpochAtCreation: string;
   readonly actorId: string;
+  readonly batchId?: string;
   readonly baseRevisionAtCreation: number;
   readonly cacheScopeId: string;
   readonly commandJson: string;
@@ -182,6 +183,7 @@ const pendingV3Schema = z
   .object({
     accessEpochAtCreation: accessEpochSchema,
     actorId: z.string().min(1).max(128),
+    batchId: z.string().min(1).max(128).optional(),
     baseRevisionAtCreation: z.number().int().nonnegative(),
     cacheScopeId: cacheScopeSchema,
     commandJson: z.string(),
@@ -402,6 +404,7 @@ function pendingItem(
 ): PendingBoardCommand {
   return {
     accessEpochAtCreation: stored.accessEpochAtCreation,
+    ...(stored.batchId === undefined ? {} : { batchId: stored.batchId }),
     command,
     documentId: documentId(stored.documentId),
     idempotencyKey: stored.idempotencyKey,
@@ -726,6 +729,9 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
           accessEpochAtCreation:
             ordering.accessEpochAtCreation ?? scope.accessEpoch,
           actorId: command.actorId,
+          ...(ordering.batchId === undefined
+            ? {}
+            : { batchId: ordering.batchId }),
           baseRevisionAtCreation,
           cacheScopeId: scope.cacheScopeId,
           commandJson: serialized.json,
