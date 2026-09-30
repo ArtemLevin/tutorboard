@@ -284,6 +284,31 @@ const objectsSchema = z
   .array(boardObjectSchema)
   .min(1)
   .max(maximumBoardCommandObjects);
+const replacementObjectsSchema = z
+  .array(boardObjectSchema)
+  .max(maximumBoardCommandObjects);
+const batchObjectReplacementSchema = z
+  .object({
+    original: boardObjectSchema,
+    replacements: replacementObjectsSchema,
+  })
+  .strict();
+const batchObjectReplacementsSchema = z
+  .array(batchObjectReplacementSchema)
+  .min(1)
+  .max(maximumBoardCommandObjects)
+  .superRefine((changes, context) => {
+    const replacementCount = changes.reduce(
+      (total, change) => total + change.replacements.length,
+      0,
+    );
+    if (replacementCount > maximumBoardCommandObjects) {
+      context.addIssue({
+        code: "custom",
+        message: "Batch replacement contains too many replacement objects.",
+      });
+    }
+  });
 const groupsSchema = z.array(boardGroupSchema).max(maximumBoardCommandObjects);
 const importsSchema = z
   .array(geometryImportSchema)
@@ -307,6 +332,13 @@ export const boardCommandSchema = z.discriminatedUnion("kind", [
       kind: z.literal("core.objects.replace"),
       originals: objectsSchema,
       replacements: objectsSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...metadata,
+      changes: batchObjectReplacementsSchema,
+      kind: z.literal("core.objects.batch-replace"),
     })
     .strict(),
   z
