@@ -337,6 +337,7 @@ export function eraseDocumentPenStrokes(
 
 export interface EraserDocumentResult extends EraserResult {
   readonly deletedObjectIds: readonly BoardObjectId[];
+  readonly deletedObjects: readonly BoardObject[];
   readonly suppressedObjectIds: readonly BoardObjectId[];
 }
 
@@ -636,6 +637,11 @@ export function eraseDocumentObjects(
   return {
     changes,
     deletedObjectIds: document.order.filter((id) => deleted.has(id)),
+    deletedObjects: document.order.flatMap((id) => {
+      if (!deleted.has(id)) return [];
+      const object = document.objects[id];
+      return object === undefined ? [] : [object];
+    }),
     originals,
     replacements,
     suppressedObjectIds: document.order.filter(
