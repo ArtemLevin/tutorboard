@@ -552,11 +552,7 @@ export class BoardSyncEngine {
     commands: readonly BoardCommand[],
     document: BoardDocument,
   ): Promise<void> {
-    if (
-      this.#disposed ||
-      this.#accessRefreshPending ||
-      commands.length === 0
-    ) {
+    if (this.#disposed || this.#accessRefreshPending || commands.length === 0) {
       return Promise.resolve();
     }
     const context = this.#context;
