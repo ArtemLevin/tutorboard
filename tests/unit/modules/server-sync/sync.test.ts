@@ -83,6 +83,24 @@ async function confirmed(
   };
 }
 
+async function legacyBoardDocument14Sha256ForTest(
+  document: BoardDocument,
+): Promise<string> {
+  const legacyJson = serializeBoardDocument14ForCompatibility(document);
+  if (legacyJson === null) {
+    throw new Error(
+      "Test fixture must be representable as BoardDocument 1.4.",
+    );
+  }
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(legacyJson),
+  );
+  return [...new Uint8Array(digest)]
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 function batch(
   revision: number,
   baseRevision: number,
@@ -324,19 +342,7 @@ describe("BoardSyncEngine", () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     const repository = new FakeRepository();
     const base = initialDocument();
-    const legacyJson = serializeBoardDocument14ForCompatibility(base);
-    if (legacyJson === null) {
-      throw new Error(
-        "Legacy fixture must be representable as BoardDocument 1.4.",
-      );
-    }
-    const legacyDigest = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(legacyJson),
-    );
-    const legacySha256 = [...new Uint8Array(legacyDigest)]
-      .map((value) => value.toString(16).padStart(2, "0"))
-      .join("");
+    const legacySha256 = await legacyBoardDocument14Sha256ForTest(base);
     repository.recovery = {
       board: {
         ...repository.descriptor,
@@ -351,7 +357,7 @@ describe("BoardSyncEngine", () => {
         documentId: expectedDocumentId,
         documentSha256: legacySha256,
         revision: 0,
-        schemaVersion: "1.5",
+        schemaVersion: "1.4",
       },
     };
     const states: BoardSyncState[] = [];
@@ -746,7 +752,7 @@ describe("BoardSyncEngine", () => {
     const local = initialDocument();
     queue.head = await confirmed(local, 3);
     const server = { ...local, title: "Different server head" };
-    const serverSha256 = await boardDocumentSha256(server);
+    const serverSha256 = await legacyBoardDocument14Sha256ForTest(server);
     const repository = new FakeRepository();
     repository.recovery = {
       board: {
