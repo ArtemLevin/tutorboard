@@ -370,7 +370,6 @@ function replaceObjects(
   });
 }
 
-
 function rewriteObjects(
   document: BoardDocument,
   command: RewriteObjectsCommand,

@@ -229,8 +229,8 @@
     }
   ],
   "documentId": "document:lesson-01",
-  "expectedDocumentSha256": "4f007afca217012e993145c8dc09163b6444dc7ccfe88be3baefc58f6514aab4",
+  "expectedDocumentSha256": "23ed48cda95cef818a15aac5d2db6a041da3fceb10c3db66d64cee41dfeb2800",
   "idempotencyKey": "client:tutor-01:batch-08",
   "originId": "origin:tutor-browser-01",
-  "schemaVersion": "1.6"
+  "schemaVersion": "1.7"
 }
