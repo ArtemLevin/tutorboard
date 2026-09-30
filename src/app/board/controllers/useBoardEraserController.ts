@@ -40,6 +40,7 @@ interface EraserComputation extends EraserPreview {
   }[];
   readonly deletedGroupIds: readonly string[];
   readonly deletedObjectIds: readonly BoardObjectId[];
+  readonly deletedSolidIds: readonly string[];
 }
 
 const maximumGesturePoints = 4096;
@@ -176,10 +177,18 @@ function computeEraser(
     hiddenObjects.add(object.id);
   }
 
+  const deletedSolidIds = Object.values(document.solidModels).flatMap(
+    (solid) =>
+      solid !== undefined && deletedGroups.has(solid.rootGroupId)
+        ? [solid.id]
+        : [],
+  );
+
   return {
     changedPenStrokes,
     deletedGroupIds: [...deletedGroups],
     deletedObjectIds: [...deletedObjects],
+    deletedSolidIds,
     hiddenObjectIds: [...hiddenObjects],
     replacementObjects: changedPenStrokes.flatMap(
       ({ replacements }) => replacements,
@@ -311,7 +320,7 @@ export function useBoardEraserController({
                 objectIds: result.deletedGroupIds.flatMap(
                   (groupId) => current.groups[groupId]?.objectIds ?? [],
                 ),
-                solidIds: [],
+                solidIds: result.deletedSolidIds,
               },
             ]),
       ];
