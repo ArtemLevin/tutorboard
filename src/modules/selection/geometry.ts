@@ -444,28 +444,26 @@ function pathNearPath(
   const objectSegments = pathSegments(objectPath);
   if (objectSegments.length === 0) {
     const point = objectPath.points[0];
-    return (
-      point !== undefined &&
-      brushPoints.some(
-        (brushPoint) => pointDistance(point, brushPoint) <= tolerance,
-      )
-    );
+    if (point === undefined) return false;
+    for (const brushPoint of brushPoints) {
+      if (pointDistance(point, brushPoint) <= tolerance) return true;
+    }
+    return false;
   }
   for (let index = 1; index < brushPoints.length; index += 1) {
     const brushStart = brushPoints[index - 1]!;
     const brushFinish = brushPoints[index]!;
-    if (
-      objectSegments.some(
-        ([objectStart, objectFinish]) =>
-          segmentDistance(
-            objectStart,
-            objectFinish,
-            brushStart,
-            brushFinish,
-          ) <= tolerance,
-      )
-    ) {
-      return true;
+    for (const [objectStart, objectFinish] of objectSegments) {
+      if (
+        segmentDistance(
+          objectStart,
+          objectFinish,
+          brushStart,
+          brushFinish,
+        ) <= tolerance
+      ) {
+        return true;
+      }
     }
   }
   return false;
