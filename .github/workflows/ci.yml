@@ -65,6 +65,17 @@ jobs:
       - name: Verify pinned GeometryOS contract
         run: npm run geometryos:check
 
+      - name: Generate board contract for foundation development
+        run: npm run board-contract:generate
+
+      - name: Upload generated board contract
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-board-contract-${{ github.sha }}
+          path: contracts/board/v1
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Verify board contract
         run: npm run board-contract:check
 
