@@ -88,9 +88,7 @@ async function legacyBoardDocument14Sha256ForTest(
 ): Promise<string> {
   const legacyJson = serializeBoardDocument14ForCompatibility(document);
   if (legacyJson === null) {
-    throw new Error(
-      "Test fixture must be representable as BoardDocument 1.4.",
-    );
+    throw new Error("Test fixture must be representable as BoardDocument 1.4.");
   }
   const digest = await crypto.subtle.digest(
     "SHA-256",
