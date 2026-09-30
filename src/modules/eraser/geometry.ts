@@ -335,7 +335,6 @@ export function eraseDocumentPenStrokes(
   return { changes, originals, replacements };
 }
 
-
 export interface EraserDocumentResult extends EraserResult {
   readonly deletedObjectIds: readonly BoardObjectId[];
   readonly suppressedObjectIds: readonly BoardObjectId[];
@@ -465,9 +464,7 @@ function pointInPolygon(point: Vec2, polygon: readonly Vec2[]): boolean {
   for (let index = 0; index < polygon.length; index += 1) {
     const current = polygon[index]!;
     const previous = polygon[(index + polygon.length - 1) % polygon.length]!;
-    if (
-      pointToSegmentDistance(point, previous, current) <= pointEpsilon
-    ) {
+    if (pointToSegmentDistance(point, previous, current) <= pointEpsilon) {
       return true;
     }
     const crosses =
@@ -528,9 +525,7 @@ function objectTouched(
   }
   const objectSegments = pathSegments(objectPath.points, objectPath.closed);
   const brushSegments =
-    brushPath.length === 1
-      ? []
-      : pathSegments(brushPath, false);
+    brushPath.length === 1 ? [] : pathSegments(brushPath, false);
   if (brushSegments.length === 0) {
     return objectSegments.some(
       ([start, finish]) =>
@@ -540,12 +535,8 @@ function objectTouched(
   return objectSegments.some(([objectStart, objectFinish]) =>
     brushSegments.some(
       ([brushStart, brushFinish]) =>
-        segmentDistance(
-          objectStart,
-          objectFinish,
-          brushStart,
-          brushFinish,
-        ) <= radiusWorld,
+        segmentDistance(objectStart, objectFinish, brushStart, brushFinish) <=
+        radiusWorld,
     ),
   );
 }
