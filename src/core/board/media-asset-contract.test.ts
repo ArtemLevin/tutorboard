@@ -112,7 +112,7 @@ describe("BoardDocument 1.5 media asset activation", () => {
     const candidate = document15With(mediaAsset());
 
     expect(boardDocumentSchema15.safeParse(candidate).success).toBe(true);
-    expect(boardDocumentSchema.safeParse(candidate).success).toBe(true);
+    expect(boardDocumentSchema.safeParse(candidate).success).toBe(false);
     expect(
       boardDocumentSchema14.safeParse({
         ...candidate,
