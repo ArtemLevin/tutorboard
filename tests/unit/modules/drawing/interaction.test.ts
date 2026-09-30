@@ -82,6 +82,39 @@ describe("drawing interaction state machine", () => {
     expect(simplified).toContain(points[500]);
   });
 
+  it("commits a single tap as a canonical pressure-aware pen dot", () => {
+    const started = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:dot"),
+      point: { x: 24, y: 36 },
+      pointerId: 31,
+      pressure: 0.8,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    });
+    expect(getDrawingPreview(started.state)).toMatchObject({
+      kind: "drawing.pen-stroke",
+      points: [{ x: 24, y: 36 }],
+    });
+
+    const completed = reduceDrawingInteraction(started.state, {
+      inputTimestampMs: 110,
+      kind: "finish",
+      point: { x: 24, y: 36 },
+      pointerId: 31,
+      pressure: 0.8,
+    });
+    expect(completed.completedObject).toMatchObject({
+      kind: "drawing.pen-stroke",
+      points: [{ x: 24, y: 36 }],
+    });
+    if (completed.completedObject?.kind !== "drawing.pen-stroke") return;
+    expect(completed.completedObject.ink?.samples).toHaveLength(1);
+    expect(completed.completedObject.ink?.samples[0]?.pressure).toBe(0.8);
+  });
+
   it("samples pen points in world space and completes one object", () => {
     const started = reduceDrawingInteraction(idle, {
       kind: "start",
