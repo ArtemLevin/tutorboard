@@ -30,6 +30,72 @@ function objects(
   });
 }
 
+function invertBatchObjectChanges(
+  command: Extract<
+    BoardCommand,
+    { readonly kind: "core.objects.batch-replace" }
+  >,
+  before: BoardDocument,
+) {
+  const removedIds = new Set(
+    command.changes.flatMap(({ originals }) => originals.map(({ id }) => id)),
+  );
+  const changesByIndex = new Map(
+    command.changes.map((change, index) => [change.atIndex, { change, index }]),
+  );
+  const postIndexes = new Array<number>(command.changes.length);
+  let postIndex = 0;
+
+  for (let index = 0; index <= before.order.length; index += 1) {
+    const entry = changesByIndex.get(index);
+    if (entry !== undefined) {
+      postIndexes[entry.index] = postIndex;
+      postIndex += entry.change.replacements.length;
+    }
+    const objectId = before.order[index];
+    if (objectId !== undefined && !removedIds.has(objectId)) {
+      postIndex += 1;
+    }
+  }
+
+  const inverse = command.changes
+    .map((change, index) => ({
+      atIndex: postIndexes[index]!,
+      originalAtIndex: change.atIndex,
+      originals: change.replacements,
+      replacements: change.originals,
+    }))
+    .sort(
+      (left, right) =>
+        left.atIndex - right.atIndex ||
+        left.originalAtIndex - right.originalAtIndex,
+    );
+
+  return inverse.reduce<
+    {
+      readonly atIndex: number;
+      readonly originals: readonly BoardObject[];
+      readonly replacements: readonly BoardObject[];
+    }[]
+  >((changes, change) => {
+    const previous = changes.at(-1);
+    if (previous === undefined || previous.atIndex !== change.atIndex) {
+      changes.push({
+        atIndex: change.atIndex,
+        originals: change.originals,
+        replacements: change.replacements,
+      });
+      return changes;
+    }
+    changes[changes.length - 1] = {
+      atIndex: previous.atIndex,
+      originals: [...previous.originals, ...change.originals],
+      replacements: [...previous.replacements, ...change.replacements],
+    };
+    return changes;
+  }, []);
+}
+
 export function invertOwnBoardCommand(
   command: BoardCommand,
   before: BoardDocument,
@@ -52,6 +118,14 @@ export function invertOwnBoardCommand(
           kind: command.kind,
           originals: command.replacements,
           replacements: command.originals,
+        },
+      ];
+    case "core.objects.batch-replace":
+      return [
+        {
+          ...meta(),
+          changes: invertBatchObjectChanges(command, before),
+          kind: command.kind,
         },
       ];
     case "core.coordinate-plot.update":
@@ -263,7 +337,39 @@ export function invertOwnBoardCommand(
           ]
         : [];
     }
-    case "core.clipboard.cut":
+    case "core.clipboard.cut": {
+      const cutObjects = objects(before, command.objectIds);
+      const groups = command.groupIds.flatMap((id) => {
+        const group = before.groups[id];
+        return group === undefined ? [] : [group];
+      });
+      const geometryImports = command.geometryImportIds.flatMap((id) => {
+        const record = before.geometryImports[id];
+        return record === undefined ? [] : [record];
+      });
+      const solidModels = (command.solidIds ?? []).flatMap((id) => {
+        const record = before.solidModels[id];
+        return record === undefined ? [] : [record];
+      });
+      if (
+        cutObjects.length !== command.objectIds.length ||
+        groups.length !== command.groupIds.length ||
+        geometryImports.length !== command.geometryImportIds.length ||
+        solidModels.length !== (command.solidIds?.length ?? 0)
+      ) {
+        return [];
+      }
+      return [
+        {
+          ...meta(),
+          geometryImports,
+          groups,
+          kind: "core.clipboard.paste",
+          objects: cutObjects,
+          ...(solidModels.length === 0 ? {} : { solidModels }),
+        },
+      ];
+    }
     case "core.geometry.style-override":
     case "core.selection.set-style":
     case "core.solid-3d.create":

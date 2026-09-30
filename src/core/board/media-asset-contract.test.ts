@@ -4,7 +4,7 @@ import {
   boardDocument15SchemaVersion,
   createEmptyBoardDocument,
 } from "./document";
-import type { BoardDocument } from "./document";
+import type { BoardDocument, BoardDocument15 } from "./document";
 import { boardObjectId, documentId } from "./identifiers";
 import { migrateBoardDocument14To15 } from "./migrations";
 import {
@@ -64,7 +64,7 @@ function mediaAsset(): MediaAssetObject {
   };
 }
 
-function document15With(object: MediaAssetObject): BoardDocument {
+function document15With(object: MediaAssetObject): BoardDocument15 {
   const current = emptyDocument();
   return {
     ...current,
@@ -112,7 +112,7 @@ describe("BoardDocument 1.5 media asset activation", () => {
     const candidate = document15With(mediaAsset());
 
     expect(boardDocumentSchema15.safeParse(candidate).success).toBe(true);
-    expect(boardDocumentSchema.safeParse(candidate).success).toBe(true);
+    expect(boardDocumentSchema.safeParse(candidate).success).toBe(false);
     expect(
       boardDocumentSchema14.safeParse({
         ...candidate,

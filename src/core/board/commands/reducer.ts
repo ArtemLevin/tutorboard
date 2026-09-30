@@ -22,6 +22,7 @@ import { validateBoardDocument } from "../validation/validate";
 import type {
   AddGroupCommand,
   AddObjectsCommand,
+  BatchReplaceObjectsCommand,
   BoardCommand,
   CutContentCommand,
   DeleteObjectsCommand,
@@ -365,6 +366,177 @@ function replaceObjects(
       ...replacementIds,
       ...remainingOrder.slice(insertionIndex),
     ],
+    updatedAt: command.timestamp,
+  });
+}
+
+function batchReplaceObjects(
+  document: BoardDocument,
+  command: BatchReplaceObjectsCommand,
+): CommandResult {
+  if (command.changes.length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Batch replace command requires at least one object change.",
+    );
+  }
+
+  const originalIds = command.changes.flatMap(({ originals }) =>
+    originals.map(({ id }) => id),
+  );
+  const replacementIds = command.changes.flatMap(({ replacements }) =>
+    replacements.map(({ id }) => id),
+  );
+  const indexes = command.changes.map(({ atIndex }) => atIndex);
+  if (
+    hasDuplicates(originalIds) ||
+    hasDuplicates(replacementIds) ||
+    hasDuplicates(indexes.map(String))
+  ) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "Batch replace command contains duplicate object IDs or insertion indexes.",
+    );
+  }
+
+  const originalIdSet = new Set(originalIds);
+  for (const change of command.changes) {
+    if (
+      !Number.isInteger(change.atIndex) ||
+      change.atIndex < 0 ||
+      change.atIndex > document.order.length
+    ) {
+      return failure(
+        document,
+        "command.invalid",
+        "Batch replace insertion index is outside the document order.",
+      );
+    }
+    if (change.originals.length === 0 && change.replacements.length === 0) {
+      return failure(
+        document,
+        "command.empty",
+        "Batch replace changes cannot be empty.",
+      );
+    }
+
+    const changeOriginalIds = new Set(change.originals.map(({ id }) => id));
+    const originalIndexes = change.originals.map(({ id }) =>
+      document.order.indexOf(id),
+    );
+    if (originalIndexes.some((index) => index < 0)) {
+      return failure(
+        document,
+        "command.object-missing",
+        "Batch replace command references an unordered original.",
+      );
+    }
+    if (originalIndexes.length > 0) {
+      const sorted = [...originalIndexes].sort((left, right) => left - right);
+      const contiguous = sorted.every(
+        (value, index) => index === 0 || value === sorted[index - 1]! + 1,
+      );
+      if (!contiguous || sorted[0] !== change.atIndex) {
+        return failure(
+          document,
+          "command.invalid",
+          "Batch replace originals must occupy one contiguous range at atIndex.",
+        );
+      }
+    }
+
+    for (const original of change.originals) {
+      const current = ownValue(document.objects, original.id);
+      if (current === undefined) {
+        return failure(
+          document,
+          "command.object-missing",
+          "Batch replace command references a missing original.",
+        );
+      }
+      if (!structurallyEqual(current, original)) {
+        return failure(
+          document,
+          "command.stale-object",
+          "Batch replace command contains a stale original snapshot.",
+        );
+      }
+      if (
+        current.locked ||
+        current.groupId !== null ||
+        current.source.kind !== "user"
+      ) {
+        return failure(
+          document,
+          "command.locked",
+          "Only unlocked, ungrouped user objects can be batch-replaced.",
+        );
+      }
+    }
+
+    for (const replacement of change.replacements) {
+      if (replacement.groupId !== null || replacement.source.kind !== "user") {
+        return failure(
+          document,
+          "command.invalid",
+          "Batch replacement objects must be ungrouped user objects.",
+        );
+      }
+      if (
+        originalIdSet.has(replacement.id) &&
+        !changeOriginalIds.has(replacement.id)
+      ) {
+        return failure(
+          document,
+          "command.invalid",
+          "A batch replacement cannot reuse another change's original ID.",
+        );
+      }
+      if (
+        !originalIdSet.has(replacement.id) &&
+        ownValue(document.objects, replacement.id) !== undefined
+      ) {
+        return failure(
+          document,
+          "command.object-exists",
+          "Batch replace command collides with an existing object ID.",
+        );
+      }
+    }
+  }
+
+  const objects = { ...document.objects };
+  for (const originalId of originalIds) {
+    delete objects[originalId];
+  }
+  for (const change of command.changes) {
+    for (const replacement of change.replacements) {
+      objects[replacement.id] = replacement;
+    }
+  }
+
+  const removed = new Set(originalIds);
+  const insertions = new Map(
+    command.changes.map((change) => [
+      change.atIndex,
+      change.replacements.map(({ id }) => id),
+    ]),
+  );
+  const order: BoardObjectId[] = [];
+  for (let index = 0; index <= document.order.length; index += 1) {
+    order.push(...(insertions.get(index) ?? []));
+    const id = document.order[index];
+    if (id !== undefined && !removed.has(id)) {
+      order.push(id);
+    }
+  }
+
+  return accept(document, {
+    ...document,
+    objects,
+    order,
     updatedAt: command.timestamp,
   });
 }
@@ -2079,6 +2251,8 @@ export function reduceBoardDocument(
       return addObjects(document, command);
     case "core.objects.replace":
       return replaceObjects(document, command);
+    case "core.objects.batch-replace":
+      return batchReplaceObjects(document, command);
     case "core.clipboard.cut":
       return cutContent(document, command);
     case "core.clipboard.paste":

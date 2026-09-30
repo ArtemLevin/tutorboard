@@ -93,13 +93,17 @@ const previousOrderedEnvelopeSchema = z
     schemaVersion: z.literal("1.5"),
   })
   .strict();
-const currentOrderedEnvelopeSchema = previousOrderedEnvelopeSchema.extend({
+const mediaOrderedEnvelopeSchema = previousOrderedEnvelopeSchema.extend({
   schemaVersion: z.literal("1.6"),
+});
+const currentOrderedEnvelopeSchema = previousOrderedEnvelopeSchema.extend({
+  schemaVersion: z.literal("1.7"),
 });
 const envelopeSchema = z.discriminatedUnion("schemaVersion", [
   legacyEnvelopeSchema,
   orderedEnvelopeSchema,
   previousOrderedEnvelopeSchema,
+  mediaOrderedEnvelopeSchema,
   currentOrderedEnvelopeSchema,
 ]);
 const commandBatchSchema = z
@@ -114,7 +118,7 @@ const commandBatchSchema = z
     payloadSha256: sha256Schema,
     revision: z.number().int().positive(),
     schemaVersion: z
-      .enum(["1.0", "1.2", "1.3", "1.4", "1.5", "1.6"])
+      .enum(["1.0", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7"])
       .optional(),
   })
   .strict();
@@ -285,7 +289,8 @@ function parseBatch(value: unknown): ServerBoardCommandBatch {
     envelope: (envelope.schemaVersion === "1.3" ||
     envelope.schemaVersion === "1.4" ||
     envelope.schemaVersion === "1.5" ||
-    envelope.schemaVersion === "1.6"
+    envelope.schemaVersion === "1.6" ||
+    envelope.schemaVersion === "1.7"
       ? {
           ...envelope,
           actorId: actorId(envelope.actorId),
@@ -456,7 +461,7 @@ export function createBoardHttpRepository(
               documentId: identifierSchema,
               documentSha256: sha256Schema,
               revision: z.number().int().nonnegative(),
-              schemaVersion: z.enum(["1.1", "1.2", "1.3", "1.4", "1.5"]),
+              schemaVersion: z.enum(["1.1", "1.2", "1.3", "1.4", "1.5", "1.6"]),
             })
             .strict()
             .nullable(),
@@ -546,7 +551,7 @@ export function createBoardHttpRepository(
             documentId: expectedDocumentId,
             documentSha256,
             revision,
-            schemaVersion: "1.5",
+            schemaVersion: "1.6",
           }),
           headers: {
             "Content-Type": "application/json",

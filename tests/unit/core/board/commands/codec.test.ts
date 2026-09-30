@@ -9,6 +9,7 @@ import {
 } from "../../../../../src/core/board/commands/codec/public";
 import {
   actorId,
+  boardObjectId,
   commandId,
   type BoardCommand,
   type SetViewportCommand,
@@ -41,6 +42,48 @@ describe("BoardCommand runtime codec", () => {
       command,
       status: "ok",
     });
+  });
+
+  it("round-trips an atomic batch replacement with an empty replacement list", () => {
+    const original = {
+      groupId: null,
+      id: boardObjectId("object:codec-batch"),
+      kind: "drawing.rectangle" as const,
+      locked: false,
+      position: { x: 10, y: 20 },
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      size: { height: 40, width: 60 },
+      source: { kind: "user" as const },
+      style: {
+        fill: null,
+        opacity: 1,
+        stroke: "#111827",
+        strokeWidth: 2,
+      },
+      visible: true,
+    };
+    const command: BoardCommand = {
+      actorId: actorId("actor:codec-test"),
+      changes: [{ atIndex: 0, originals: [original], replacements: [] }],
+      id: commandId("command:codec-batch"),
+      kind: "core.objects.batch-replace",
+      timestamp: "2026-08-05T07:01:00.000Z",
+    };
+
+    const serialized = serializeBoardCommand(command);
+    expect(serialized.ok).toBe(true);
+    if (!serialized.ok) return;
+    expect(readBoardCommandJson(serialized.json)).toEqual({
+      command,
+      status: "ok",
+    });
+    expect(
+      readBoardCommand({
+        ...command,
+        changes: [{ atIndex: 0, originals: [], replacements: [] }],
+      }),
+    ).toMatchObject({ status: "invalid-command" });
   });
 
   it("rejects unknown fields and unsupported command kinds", () => {

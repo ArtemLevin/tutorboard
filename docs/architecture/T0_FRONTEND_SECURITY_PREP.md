@@ -1,10 +1,15 @@
 # T0 — Frontend security and architecture preparation
 
-Status: implemented on `agent/t0-frontend-security-prep`; acceptance is gated by PR CI before merge.
+Status: implemented, verified and merged. This document retains the original T0
+scope; T1–T3 subsequently activated standalone launch, teacher/guest access and
+access-epoch convergence.
 
 ## Purpose
 
-T0 removes frontend assumptions that prevent a safe standalone guest-board runtime. It intentionally does **not** activate guest access. Backend persistence/invitations are B1/B2; standalone context-first composition is T1.
+T0 removed frontend assumptions that prevented a safe standalone guest-board
+runtime. Its original scope intentionally did **not** activate guest access;
+backend persistence/invitations landed in B1/B2 and standalone context-first
+composition in T1.
 
 The command protocol remains `1.5` and the current revision journal is not rewritten.
 
@@ -94,7 +99,8 @@ When the active epoch changes:
 
 The WebSocket adapter understands B0 control events:
 
-- `access.capabilities.changed` — surfaced to composition for a future context refresh;
+- `access.capabilities.changed` — initially surfaced to composition; T3 now
+  connects it to context refresh and access-epoch convergence;
 - `access.revoked` — terminal.
 
 Terminal revoke behavior:
@@ -105,7 +111,8 @@ Terminal revoke behavior:
 4. cancel reconnect timers;
 5. refuse subsequent reconnect/start attempts on the same client instance.
 
-T3 will connect `access.capabilities.changed` to the final context-refresh/reconnect sequence once B2 provides the standalone context endpoint.
+T3 now connects `access.capabilities.changed` to the final
+context-refresh/reconnect sequence through the B2 standalone context endpoint.
 
 ## Compatibility strategy
 

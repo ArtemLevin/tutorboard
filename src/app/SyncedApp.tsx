@@ -711,6 +711,31 @@ export function SyncedApp({
           }
           void engine.queue(command, document);
         }}
+        onCommandsCommitted={(commands, document, previousDocument) => {
+          if (!writeEnabled || commands.length === 0) return;
+          renderedDocumentRef.current = document;
+          let preview = previousDocument;
+          const inverseGroups: (readonly BoardCommand[])[] = [];
+          for (const command of commands) {
+            const inverse = invertOwnBoardCommand(command, preview, {
+              actorId: state.actorId,
+              createId: () => `command:undo:${crypto.randomUUID()}`,
+              now: () => new Date().toISOString(),
+            });
+            const result = reduceBoardDocument(preview, command);
+            if (!result.ok) return;
+            preview = result.document;
+            inverseGroups.unshift(inverse);
+          }
+          const inverse = inverseGroups.flat();
+          if (inverse.length > 0) {
+            undoStackRef.current = [...undoStackRef.current, inverse].slice(
+              -100,
+            );
+            setUndoCount(undoStackRef.current.length);
+          }
+          void engine.queueBatch(commands, document);
+        }}
         onDocumentChange={(document) => {
           renderedDocumentRef.current = document;
         }}

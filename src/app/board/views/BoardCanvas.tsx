@@ -80,7 +80,10 @@ function InlineTextPlacementEditor({
           onCancel();
           return;
         }
-        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        if (
+          event.key === "Enter" &&
+          (event.shiftKey || event.ctrlKey || event.metaKey)
+        ) {
           event.preventDefault();
           event.currentTarget.blur();
         }
@@ -175,8 +178,33 @@ export function BoardCanvas({
     useState<CanvasContextMenuRequest | null>(null);
   const [clearConfirmationOpen, setClearConfirmationOpen] = useState(false);
   const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);
+  const eraserHiddenIds = useMemo(
+    () =>
+      activeTool === eraserToolId && eraser.preview !== null
+        ? new Set(eraser.preview.hiddenObjectIds)
+        : new Set<BoardObjectId>(),
+    [activeTool, eraser.preview],
+  );
+  const renderedScene = useMemo(
+    () =>
+      eraserHiddenIds.size === 0
+        ? scene
+        : {
+            ...scene,
+            items: scene.items.filter(
+              ({ object }) => !eraserHiddenIds.has(object.id),
+            ),
+          },
+    [eraserHiddenIds, scene],
+  );
   const previewItems = useMemo(
     () => [
+      ...(activeTool === eraserToolId && eraser.preview !== null
+        ? eraser.preview.replacementObjects.map((object) => ({
+            object,
+            transforms: [],
+          }))
+        : []),
       ...(drawing.preview === null
         ? []
         : [{ object: drawing.preview, transforms: [] }]),
@@ -205,8 +233,10 @@ export function BoardCanvas({
       ),
     ],
     [
+      activeTool,
       document.objects,
       drawing.preview,
+      eraser.preview,
       handwriting.previewItems,
       remoteTransformPreviews,
     ],
@@ -313,16 +343,13 @@ export function BoardCanvas({
         onViewportCommit={onViewportCommit}
         panMode={activeTool === navigationToolId}
         primaryCanvasGesturesEnabled={
-          activeTool === navigationToolId ||
-          activeTool === "drawing.pen" ||
-          activeTool === "drawing.smart-ink" ||
-          isSelectionToolId(activeTool)
+          activeTool === navigationToolId || isSelectionToolId(activeTool)
         }
         previewItems={previewItems}
         registry={registry}
         remoteCursors={remoteCursors}
         remoteInkPreviews={remoteInkPreviews}
-        scene={scene}
+        scene={renderedScene}
         selectedObjectIds={selection.state.selectedObjectIds}
         selectionBounds={selection.bounds}
         selectionLasso={selection.lasso}

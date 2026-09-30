@@ -10,6 +10,7 @@ import {
   aggregateSelectionBounds,
   pointInSelectionBounds,
   selectSelectionBounds,
+  selectObjectIdsNearPath,
   selectTopObjectIdNearPoint,
 } from "./geometry";
 
@@ -110,5 +111,48 @@ describe("forgiving selection geometry", () => {
     expect(aggregate).not.toBeNull();
     expect(pointInSelectionBounds({ x: 60, y: 20 }, aggregate!)).toBe(true);
     expect(pointInSelectionBounds({ x: 60, y: 50 }, aggregate!)).toBe(false);
+  });
+
+  it("treats media asset interiors as eraser hits", () => {
+    const media: BoardObject = {
+      assetId: "asset:test-media",
+      byteSize: 1024,
+      contentSha256: "a".repeat(64),
+      fileName: "figure.png",
+      groupId: null,
+      id: boardObjectId("object:media"),
+      intrinsicSize: { height: 400, width: 600 },
+      kind: "media.asset",
+      locked: false,
+      mimeType: "image/png",
+      position: { x: 20, y: 30 },
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      size: { height: 100, width: 150 },
+      source: { kind: "user" },
+      style: strokeStyle,
+      visible: true,
+    };
+
+    expect(
+      selectObjectIdsNearPath(scene([media]), [{ x: 80, y: 70 }], 0),
+    ).toEqual([media.id]);
+  });
+
+  it("finds multiple objects crossed by an eraser brush path", () => {
+    const first = rectangle("object:brush-first", 20, 20, 40, 40);
+    const second = rectangle("object:brush-second", 120, 20, 40, 40);
+    const model = scene([first, second]);
+
+    expect(
+      selectObjectIdsNearPath(
+        model,
+        [
+          { x: 0, y: 40 },
+          { x: 180, y: 40 },
+        ],
+        8,
+      ),
+    ).toEqual([first.id, second.id]);
   });
 });

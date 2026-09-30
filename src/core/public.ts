@@ -29,10 +29,12 @@ export * from "./solid-3d-learning/public";
 export {
   boardDocument14SchemaVersion,
   boardDocument15SchemaVersion,
+  boardDocument16SchemaVersion,
   boardDocumentSchemaVersion,
   createEmptyBoardDocument,
   type BoardDocument,
   type BoardDocument15,
+  type BoardDocument16,
   type CreateBoardDocumentInput,
 } from "./board/document";
 export type { BoardGroup } from "./board/groups";
@@ -209,6 +211,8 @@ export {
   migrateBoardDocument11To13,
   migrateBoardDocument13To14,
   migrateBoardDocument14To15,
+  migrateBoardDocument14To16,
+  migrateBoardDocument15To16,
   type BoardDocument15MigrationResult,
   type BoardDocumentMigrationResult,
 } from "./board/migrations";
@@ -231,6 +235,8 @@ export {
   boardCommandKinds,
   type AddGroupCommand,
   type AddObjectsCommand,
+  type BatchObjectReplacement,
+  type BatchReplaceObjectsCommand,
   type BoardCommand,
   type CommandMetadata,
   type CutContentCommand,
@@ -286,6 +292,7 @@ export {
   deserializeBoardDocument,
   serializeBoardDocument,
   serializeBoardDocument14ForCompatibility,
+  serializeBoardDocument15ForCompatibility,
   type BoardDocumentDeserializationResult,
   type BoardDocumentSerializationResult,
 } from "./board/serialization/serialization";
@@ -329,6 +336,7 @@ export type {
   ConfirmedBoardHead,
   CurrentOrderedBoardCommandEnvelope,
   LegacyBoardCommandEnvelope,
+  MediaOrderedBoardCommandEnvelope,
   OrderedBoardCommand,
   OrderedBoardCommandEnvelope,
   PendingBoardCommand,

@@ -39,6 +39,17 @@ export interface ReplaceObjectsCommand extends CommandMetadata {
   readonly replacements: readonly BoardObject[];
 }
 
+export interface BatchObjectReplacement {
+  readonly atIndex: number;
+  readonly originals: readonly BoardObject[];
+  readonly replacements: readonly BoardObject[];
+}
+
+export interface BatchReplaceObjectsCommand extends CommandMetadata {
+  readonly changes: readonly BatchObjectReplacement[];
+  readonly kind: "core.objects.batch-replace";
+}
+
 export interface AddGroupCommand extends CommandMetadata {
   readonly group: BoardGroup;
   readonly kind: "core.groups.add";
@@ -227,6 +238,7 @@ export interface UpdateCoordinatePlotCommand extends CommandMetadata {
 export type BoardCommand =
   | AddGroupCommand
   | AddObjectsCommand
+  | BatchReplaceObjectsCommand
   | CutContentCommand
   | DeleteObjectsCommand
   | ImportGeometryCommand
@@ -260,6 +272,7 @@ export type BoardCommand =
 export const boardCommandKinds = [
   "core.objects.add",
   "core.objects.replace",
+  "core.objects.batch-replace",
   "core.clipboard.cut",
   "core.clipboard.paste",
   "core.groups.add",
