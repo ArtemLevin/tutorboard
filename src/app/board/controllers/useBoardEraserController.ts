@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   boardObjectId,
@@ -81,6 +81,8 @@ export function useBoardEraserController({
   const [point, setPoint] = useState<Vec2 | null>(null);
   const [diameterPx, setDiameterPxState] = useState(readEraserDiameter);
   const [preview, setPreview] = useState<EraserPreview | null>(null);
+  const previewFrameRef = useRef<number | null>(null);
+  const pendingPreviewPathRef = useRef<readonly Vec2[] | null>(null);
 
   const radiusWorld = useCallback(
     (zoom: number) => diameterPx / 2 / zoom,
@@ -116,16 +118,39 @@ export function useBoardEraserController({
 
   const updatePreview = useCallback(
     (path: readonly Vec2[]) => {
-      const plan = buildPlan(path, true);
-      setPreview({
-        replacements: plan.replacements,
-        suppressedObjectIds: [
-          ...plan.originals.map(({ id }) => id),
-          ...plan.groupedObjectIds,
-        ],
+      pendingPreviewPathRef.current = path;
+      if (previewFrameRef.current !== null) return;
+      previewFrameRef.current = window.requestAnimationFrame(() => {
+        previewFrameRef.current = null;
+        const pendingPath = pendingPreviewPathRef.current;
+        pendingPreviewPathRef.current = null;
+        if (pendingPath === null) return;
+        const plan = buildPlan(pendingPath, true);
+        setPreview({
+          replacements: plan.replacements,
+          suppressedObjectIds: [
+            ...plan.originals.map(({ id }) => id),
+            ...plan.groupedObjectIds,
+          ],
+        });
       });
     },
     [buildPlan],
+  );
+
+  const clearPreviewSchedule = useCallback(() => {
+    if (previewFrameRef.current !== null) {
+      window.cancelAnimationFrame(previewFrameRef.current);
+      previewFrameRef.current = null;
+    }
+    pendingPreviewPathRef.current = null;
+  }, []);
+
+  useEffect(
+    () => () => {
+      clearPreviewSchedule();
+    },
+    [clearPreviewSchedule],
   );
 
   const setDiameterPx = useCallback((value: number) => {
@@ -196,6 +221,7 @@ export function useBoardEraserController({
       sessionRef.current = null;
       setPoint(sample.point);
 
+      clearPreviewSchedule();
       const plan = buildPlan(session.path, false);
       setPreview(null);
       const commands = [];
@@ -224,7 +250,13 @@ export function useBoardEraserController({
         );
       }
     },
-    [announce, buildPlan, commitCommands, createCommandMetadata],
+    [
+      announce,
+      buildPlan,
+      clearPreviewSchedule,
+      commitCommands,
+      createCommandMetadata,
+    ],
   );
 
   const cancel = useCallback((pointerId?: number) => {
@@ -236,14 +268,16 @@ export function useBoardEraserController({
       return;
     }
     sessionRef.current = null;
+    clearPreviewSchedule();
     setPreview(null);
-  }, []);
+  }, [clearPreviewSchedule]);
 
   const clear = useCallback(() => {
     sessionRef.current = null;
+    clearPreviewSchedule();
     setPoint(null);
     setPreview(null);
-  }, []);
+  }, [clearPreviewSchedule]);
 
   return {
     cancel,
