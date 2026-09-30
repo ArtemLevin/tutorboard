@@ -96,6 +96,64 @@ describe("BoardDocument reducer", () => {
     }
   });
 
+  it("rewrites mixed objects atomically while preserving layer positions", () => {
+    const first = rectangle("rewrite-first");
+    const second = rectangle("rewrite-second");
+    const third = rectangle("rewrite-third");
+    const seeded = addObjects(emptyDocument(), "seed-rewrite", [
+      first,
+      second,
+      third,
+    ]);
+    expect(seeded.ok).toBe(true);
+    if (!seeded.ok) return;
+    const secondFragment = {
+      ...second,
+      id: boardObjectId("object:rewrite-second-fragment"),
+      position: { x: 40, y: 10 },
+    };
+    const result = reduceBoardDocument(seeded.document, {
+      ...metadata("rewrite", "2026-07-24T12:02:00.000Z"),
+      changes: [
+        { original: first, replacements: [] },
+        { original: second, replacements: [secondFragment] },
+      ],
+      kind: "core.objects.rewrite",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.order).toEqual([
+      "object:rewrite-second-fragment",
+      "object:rewrite-third",
+    ]);
+    expect(result.document.objects[first.id]).toBeUndefined();
+    expect(result.document.objects[second.id]).toBeUndefined();
+    expect(result.document.objects[secondFragment.id]).toEqual(secondFragment);
+  });
+
+  it("rejects the full rewrite when any original snapshot is stale", () => {
+    const first = rectangle("rewrite-stale-first");
+    const second = rectangle("rewrite-stale-second");
+    const seeded = addObjects(emptyDocument(), "seed-rewrite-stale", [
+      first,
+      second,
+    ]);
+    expect(seeded.ok).toBe(true);
+    if (!seeded.ok) return;
+    const result = reduceBoardDocument(seeded.document, {
+      ...metadata("rewrite-stale", "2026-07-24T12:02:00.000Z"),
+      changes: [
+        { original: first, replacements: [] },
+        { original: { ...second, visible: false }, replacements: [] },
+      ],
+      kind: "core.objects.rewrite",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.document).toBe(seeded.document);
+    if (!result.ok) expect(result.error.code).toBe("command.stale-object");
+  });
+
   it("adds objects atomically at the requested z-order index", () => {
     const first = addObjects(
       emptyDocument(),
