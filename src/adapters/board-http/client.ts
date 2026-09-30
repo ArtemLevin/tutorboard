@@ -461,7 +461,7 @@ export function createBoardHttpRepository(
               documentId: identifierSchema,
               documentSha256: sha256Schema,
               revision: z.number().int().nonnegative(),
-              schemaVersion: z.enum(["1.1", "1.2", "1.3", "1.4", "1.5"]),
+              schemaVersion: z.enum(["1.1", "1.2", "1.3", "1.4", "1.5", "1.6"]),
             })
             .strict()
             .nullable(),
