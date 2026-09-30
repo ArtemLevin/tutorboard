@@ -182,7 +182,7 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByText("BoardDocument 1.5")).toBeInTheDocument();
+    expect(screen.getByText("BoardDocument 1.6")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Фигуры" }),
     ).not.toBeInTheDocument();
