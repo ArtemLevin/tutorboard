@@ -22,6 +22,7 @@ import { validateBoardDocument } from "../validation/validate";
 import type {
   AddGroupCommand,
   AddObjectsCommand,
+  BatchReplaceObjectsCommand,
   BoardCommand,
   CutContentCommand,
   DeleteObjectsCommand,
@@ -365,6 +366,120 @@ function replaceObjects(
       ...replacementIds,
       ...remainingOrder.slice(insertionIndex),
     ],
+    updatedAt: command.timestamp,
+  });
+}
+
+function batchReplaceObjects(
+  document: BoardDocument,
+  command: BatchReplaceObjectsCommand,
+): CommandResult {
+  if (command.changes.length === 0) {
+    return failure(
+      document,
+      "command.empty",
+      "Batch replace command requires at least one object change.",
+    );
+  }
+
+  const originalIds = command.changes.map(({ original }) => original.id);
+  const replacementIds = command.changes.flatMap(({ replacements }) =>
+    replacements.map(({ id }) => id),
+  );
+  if (hasDuplicates(originalIds) || hasDuplicates(replacementIds)) {
+    return failure(
+      document,
+      "command.duplicate-id",
+      "Batch replace command contains duplicate object IDs.",
+    );
+  }
+
+  const originalIdSet = new Set(originalIds);
+  for (const change of command.changes) {
+    const current = ownValue(document.objects, change.original.id);
+    if (current === undefined) {
+      return failure(
+        document,
+        "command.object-missing",
+        "Batch replace command references a missing original.",
+      );
+    }
+    if (!structurallyEqual(current, change.original)) {
+      return failure(
+        document,
+        "command.stale-object",
+        "Batch replace command contains a stale original snapshot.",
+      );
+    }
+    if (
+      current.locked ||
+      current.groupId !== null ||
+      current.source.kind !== "user"
+    ) {
+      return failure(
+        document,
+        "command.locked",
+        "Only unlocked, ungrouped user objects can be batch-replaced.",
+      );
+    }
+    for (const replacement of change.replacements) {
+      if (
+        replacement.groupId !== null ||
+        replacement.source.kind !== "user"
+      ) {
+        return failure(
+          document,
+          "command.invalid",
+          "Batch replacement objects must be ungrouped user objects.",
+        );
+      }
+      if (
+        originalIdSet.has(replacement.id) &&
+        replacement.id !== change.original.id
+      ) {
+        return failure(
+          document,
+          "command.invalid",
+          "A batch replacement cannot reuse another change's original ID.",
+        );
+      }
+      if (
+        !originalIdSet.has(replacement.id) &&
+        ownValue(document.objects, replacement.id) !== undefined
+      ) {
+        return failure(
+          document,
+          "command.object-exists",
+          "Batch replace command collides with an existing object ID.",
+        );
+      }
+    }
+  }
+
+  const objects = { ...document.objects };
+  for (const originalId of originalIds) {
+    delete objects[originalId];
+  }
+  for (const change of command.changes) {
+    for (const replacement of change.replacements) {
+      objects[replacement.id] = replacement;
+    }
+  }
+
+  const replacementsByOriginal = new Map(
+    command.changes.map((change) => [change.original.id, change.replacements]),
+  );
+  const order = document.order.flatMap((id) => {
+    const replacements = replacementsByOriginal.get(id);
+    return replacements === undefined
+      ? [id]
+      : replacements.map(({ id: replacementId }) => replacementId);
+  });
+
+  return accept(document, {
+    ...document,
+    objects,
+    order,
     updatedAt: command.timestamp,
   });
 }
@@ -2079,6 +2194,8 @@ export function reduceBoardDocument(
       return addObjects(document, command);
     case "core.objects.replace":
       return replaceObjects(document, command);
+    case "core.objects.batch-replace":
+      return batchReplaceObjects(document, command);
     case "core.clipboard.cut":
       return cutContent(document, command);
     case "core.clipboard.paste":
