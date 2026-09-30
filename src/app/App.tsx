@@ -486,6 +486,7 @@ export function App({
   const eraser = useBoardEraserController({
     announce,
     documentController,
+    scene,
   });
   const laser = useLaserPointerController();
   const interaction = useBoardInteractionRouter({
@@ -660,6 +661,7 @@ export function App({
           collaborativeUndoAvailable={collaborativeUndoAvailable}
           documentController={documentController}
           drawing={drawing}
+          eraser={eraser}
           geometry={geometry}
           handwrittenFunctionsEnabled={
             environment.features.handwrittenFunctions
