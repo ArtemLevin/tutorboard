@@ -40,7 +40,8 @@ export interface ReplaceObjectsCommand extends CommandMetadata {
 }
 
 export interface BatchObjectReplacement {
-  readonly original: BoardObject;
+  readonly atIndex: number;
+  readonly originals: readonly BoardObject[];
   readonly replacements: readonly BoardObject[];
 }
 
