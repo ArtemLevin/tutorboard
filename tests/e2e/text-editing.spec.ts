@@ -58,7 +58,9 @@ test(
     await expect(editor).toHaveValue(String.raw`$x^2 + \alpha$`);
     await expect(page.getByTestId("object-count")).toContainText("0");
 
-    await editor.press("Control+Enter");
+    await editor.press("Enter");
+    await expect(editor).toHaveValue(String.raw`$x^2 + \\alpha$\n`);
+    await editor.press("Shift+Enter");
     await expect(editor).toHaveCount(0);
     await expect(page.getByTestId("object-count")).toContainText("1");
     await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
