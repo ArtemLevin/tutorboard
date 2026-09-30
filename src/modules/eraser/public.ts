@@ -78,3 +78,10 @@ export function createDeleteEraserCommand(
         objectIds,
       };
 }
+
+export {
+  eraserPreferencesStorageKey,
+  normalizeEraserDiameterPx,
+  readEraserDiameterPx,
+  writeEraserDiameterPx,
+} from "./preferences";
