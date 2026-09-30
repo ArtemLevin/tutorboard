@@ -166,15 +166,20 @@ export function useBoardEraserController({
       );
       if (result.suppressedObjectIds.length === 0) return;
 
+      const ungroupedDeletions = result.deletedObjects
+        .filter((object) => object.groupId === null)
+        .map((original) => ({ original, replacements: [] }));
+      const groupedDeletionIds = result.deletedObjects
+        .filter((object) => object.groupId !== null)
+        .map(({ id }) => id);
       const commands = [
-        createBatchEraserCommand(
-          createCommandMetadata(),
-          current,
-          result.changes,
-        ),
+        createBatchEraserCommand(createCommandMetadata(), current, [
+          ...result.changes,
+          ...ungroupedDeletions,
+        ]),
         createDeleteEraserCommand(
           createCommandMetadata(),
-          result.deletedObjectIds,
+          groupedDeletionIds,
         ),
       ].filter((command) => command !== null);
       const committed = commitCommands(commands);
