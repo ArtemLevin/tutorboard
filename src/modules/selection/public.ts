@@ -17,6 +17,7 @@ export {
   pointInSelectionBounds,
   selectObjectIdsInLasso,
   selectObjectIdsInRect,
+  selectObjectIdsNearPath,
   selectSelectionBounds,
   selectTopObjectIdNearPoint,
   type SelectionBounds,
