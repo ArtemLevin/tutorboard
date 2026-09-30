@@ -145,12 +145,7 @@ export function useBoardDocumentController({
       onCommandCommitted?.(command, result.document, previousDocument);
       return result;
     },
-    [
-      effectiveMutationPolicy.canWrite,
-      onCommandCommitted,
-      onCommandsCommitted,
-      rejectMutation,
-    ],
+    [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],
   );
 
   const commitCommands = useCallback(
@@ -208,7 +203,12 @@ export function useBoardDocumentController({
       }
       return { document: currentDocument, ok: true };
     },
-    [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],
+    [
+      effectiveMutationPolicy.canWrite,
+      onCommandCommitted,
+      onCommandsCommitted,
+      rejectMutation,
+    ],
   );
 
   const setCommandError = useCallback((message: string | null) => {
