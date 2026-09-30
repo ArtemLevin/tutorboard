@@ -1,4 +1,4 @@
-name: Input UX foundation generation
+name: Input UX foundation generation  
 
 on:
   push:
