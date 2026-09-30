@@ -289,23 +289,33 @@ const replacementObjectsSchema = z
   .max(maximumBoardCommandObjects);
 const batchObjectReplacementSchema = z
   .object({
-    original: boardObjectSchema,
+    atIndex: z.number().int().nonnegative(),
+    originals: replacementObjectsSchema,
     replacements: replacementObjectsSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((change, context) => {
+    if (change.originals.length === 0 && change.replacements.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Batch replacement changes cannot be empty.",
+      });
+    }
+  });
 const batchObjectReplacementsSchema = z
   .array(batchObjectReplacementSchema)
   .min(1)
   .max(maximumBoardCommandObjects)
   .superRefine((changes, context) => {
-    const replacementCount = changes.reduce(
-      (total, change) => total + change.replacements.length,
+    const objectCount = changes.reduce(
+      (total, change) =>
+        total + change.originals.length + change.replacements.length,
       0,
     );
-    if (replacementCount > maximumBoardCommandObjects) {
+    if (objectCount > maximumBoardCommandObjects * 2) {
       context.addIssue({
         code: "custom",
-        message: "Batch replacement contains too many replacement objects.",
+        message: "Batch replacement contains too many object snapshots.",
       });
     }
   });
