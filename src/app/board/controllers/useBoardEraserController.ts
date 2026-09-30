@@ -304,18 +304,21 @@ export function useBoardEraserController({
     ],
   );
 
-  const cancel = useCallback((pointerId?: number) => {
-    const session = sessionRef.current;
-    if (
-      session === null ||
-      (pointerId !== undefined && session.pointerId !== pointerId)
-    ) {
-      return;
-    }
-    sessionRef.current = null;
-    clearPreviewSchedule();
-    setPreview(null);
-  }, [clearPreviewSchedule]);
+  const cancel = useCallback(
+    (pointerId?: number) => {
+      const session = sessionRef.current;
+      if (
+        session === null ||
+        (pointerId !== undefined && session.pointerId !== pointerId)
+      ) {
+        return;
+      }
+      sessionRef.current = null;
+      clearPreviewSchedule();
+      setPreview(null);
+    },
+    [clearPreviewSchedule],
+  );
 
   const clear = useCallback(() => {
     sessionRef.current = null;
