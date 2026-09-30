@@ -13,7 +13,7 @@
       "sha256": "3af1219482584906beb157739e966506e8e8683ebb669d5f715ff35f5d77b425"
     },
     "COMPATIBILITY.md": {
-      "sha256": "02d2a78dbdfc26b4e96a68462f61ce71cf46d57bf919f433a13ac5787936a90d"
+      "sha256": "4ce22585146c0d8c7dc21391ba3eab75c8fbff7b8ce232d9ec15cb8e6d11e017"
     },
     "fixtures/board-command-envelope.json": {
       "sha256": "6e8cfb3b769fde79bcb114dc7bf4cf34f496d1b589302fc2dde7833132ba8b0e"
@@ -28,7 +28,7 @@
       "sha256": "4cb716a3364a8b1b5ca635cd5065a1001533a72821c3a02e435c56a76d1ec256"
     },
     "README.md": {
-      "sha256": "d6e3fd2e5a4b12359ef80dcdfc1f1b572073ad79b7e3ab9d97bc6e22d1ddc299"
+      "sha256": "bbc1d77222621c2e0904dfe2adbf3b6f2c1087098c2e8d81080567efed5c053e"
     }
   },
   "contract": "board/v1",
