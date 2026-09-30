@@ -278,6 +278,7 @@ export interface BoardPlatformRepository
 
 export interface PendingBoardCommand {
   readonly accessEpochAtCreation?: string;
+  readonly batchId?: string;
   readonly command: BoardCommand;
   readonly documentId: DocumentId;
   readonly idempotencyKey: string;
@@ -288,6 +289,7 @@ export interface PendingBoardCommand {
 export interface PendingBoardCommandOrderingInput {
   readonly accessEpochAtCreation?: string;
   readonly baseRevisionAtCreation?: number;
+  readonly batchId?: string;
   readonly observedLamport?: number;
 }
 
