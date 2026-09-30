@@ -5,6 +5,7 @@ import type { ActiveToolId } from "../active-tool";
 import type { BoardDocumentController } from "../controllers/useBoardDocumentController";
 import type { BoardDrawingController } from "../controllers/useBoardDrawingController";
 import type { BoardGeometryController } from "../controllers/useBoardGeometryController";
+import type { BoardEraserController } from "../controllers/useBoardEraserController";
 import type { BoardInteractionRouter } from "../controllers/useBoardInteractionRouter";
 import type { BoardMediaController } from "../controllers/useBoardMediaController";
 import type { BoardSelectionController } from "../controllers/useBoardSelectionController";
@@ -15,6 +16,7 @@ export interface BoardToolDockContainerProps {
   readonly collaborativeUndoAvailable: boolean;
   readonly documentController: BoardDocumentController;
   readonly drawing: BoardDrawingController;
+  readonly eraser: BoardEraserController;
   readonly geometry: BoardGeometryController;
   readonly handwrittenFunctionsEnabled: boolean;
   readonly historyEnabled: boolean;
@@ -38,6 +40,7 @@ export function BoardToolDockContainer({
   collaborativeUndoAvailable,
   documentController,
   drawing,
+  eraser,
   geometry,
   handwrittenFunctionsEnabled,
   historyEnabled,
@@ -68,6 +71,7 @@ export function BoardToolDockContainer({
         historyEnabled ? history.past.length > 0 : collaborativeUndoAvailable
       }
       drawingTools={drawingTools}
+      eraserDiameterPx={eraser.diameterPx}
       generatedFigureLabelsVisible={
         geometry.selectedFigure?.labelsVisible ?? null
       }
@@ -83,6 +87,7 @@ export function BoardToolDockContainer({
       onDeleteSelection={selection.remove}
       canOpenSolid3D={solid3D.selectedRecord !== null}
       onOpenSolid3D={solid3D.openSelected}
+      onEraserDiameterChange={eraser.setDiameterPx}
       onGeometryToggle={() => geometry.setOpen(!geometry.open)}
       onGeneratedFigureLabelsChange={geometry.setLabelsVisible}
       onGeneratedFigureLabelsMove={geometry.moveLabels}
