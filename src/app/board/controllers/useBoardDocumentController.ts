@@ -35,6 +35,13 @@ export interface UseBoardDocumentControllerOptions {
         previousDocument: BoardDocument,
       ) => void)
     | undefined;
+  readonly onCommandsCommitted?:
+    | ((
+        commands: readonly BoardCommand[],
+        document: BoardDocument,
+        previousDocument: BoardDocument,
+      ) => void)
+    | undefined;
   readonly onDocumentChange?: ((document: BoardDocument) => void) | undefined;
   readonly readOnly: boolean;
 }
@@ -47,6 +54,7 @@ export function useBoardDocumentController({
   mutationPolicy,
   onCollaborativeUndo,
   onCommandCommitted,
+  onCommandsCommitted,
   onDocumentChange,
   readOnly,
 }: UseBoardDocumentControllerOptions) {
@@ -137,7 +145,12 @@ export function useBoardDocumentController({
       onCommandCommitted?.(command, result.document, previousDocument);
       return result;
     },
-    [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],
+    [
+      effectiveMutationPolicy.canWrite,
+      onCommandCommitted,
+      onCommandsCommitted,
+      rejectMutation,
+    ],
   );
 
   const commitCommands = useCallback(
@@ -178,12 +191,20 @@ export function useBoardDocumentController({
         commandError: null,
         history: commitDocumentHistory(current.history, currentDocument),
       }));
-      for (const transition of transitions) {
-        onCommandCommitted?.(
-          transition.command,
-          transition.document,
-          transition.previousDocument,
+      if (onCommandsCommitted !== undefined) {
+        onCommandsCommitted(
+          transitions.map(({ command }) => command),
+          currentDocument,
+          initialDocument,
         );
+      } else {
+        for (const transition of transitions) {
+          onCommandCommitted?.(
+            transition.command,
+            transition.document,
+            transition.previousDocument,
+          );
+        }
       }
       return { document: currentDocument, ok: true };
     },
