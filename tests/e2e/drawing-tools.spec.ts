@@ -142,6 +142,10 @@ test(
   await page.mouse.move(eraseStart.x, eraseStart.y);
   await page.mouse.down();
   await page.mouse.move(eraseEnd.x, eraseEnd.y, { steps: 12 });
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-eraser-preview-count",
+    /^[1-9]\d*$/u,
+  );
   await page.mouse.up();
 
   await expect(count).toHaveText("0 объекта");
