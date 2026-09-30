@@ -20,6 +20,7 @@ import {
   boardObjectId,
   createVectorInkData,
   geometryOsRequestId,
+  type BoardDocument,
   type BoardObject,
 } from "../core/public";
 import {
@@ -276,7 +277,7 @@ describe("App", () => {
       },
       order: [strokeId, textId, lockedId],
     };
-    const onDocumentChange = vi.fn();
+    const onDocumentChange = vi.fn<(document: BoardDocument) => void>();
 
     render(
       <App
