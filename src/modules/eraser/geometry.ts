@@ -1,29 +1,30 @@
 import {
   createVectorInkData,
   resolveVectorInkData,
+  type BoardDocument,
   type BoardObject,
   type BoardObjectId,
+  type BoardRenderItem,
   type PenStrokeObject,
   type VectorInkSample,
   type Vec2,
 } from "../../core/public";
+import { boardRenderItemIntersectsBrushPath } from "../selection/public";
 
 const maximumEraserPathPoints = 4096;
 const maximumSegmentSubdivisions = 64;
 const boundaryRefinementSteps = 10;
 const pointEpsilon = 1e-6;
 
-export const eraserRadiusPx = 12;
-
-export interface EraserStrokeChange {
-  readonly original: PenStrokeObject;
-  readonly replacements: readonly PenStrokeObject[];
+export interface EraserObjectChange {
+  readonly original: BoardObject;
+  readonly replacements: readonly BoardObject[];
 }
 
 export interface EraserResult {
-  readonly changes: readonly EraserStrokeChange[];
-  readonly originals: readonly PenStrokeObject[];
-  readonly replacements: readonly PenStrokeObject[];
+  readonly changes: readonly EraserObjectChange[];
+  readonly originals: readonly BoardObject[];
+  readonly replacements: readonly BoardObject[];
 }
 
 export type EraserFragmentIdFactory = (
@@ -216,6 +217,9 @@ export function erasePenStroke(
 
   const ink = resolveVectorInkData(stroke);
   const samples = ink.samples;
+  if (samples.length === 1) {
+    return sampleErased(stroke, samples[0]!, path, radiusWorld) ? [] : null;
+  }
   if (samples.length < 2) return null;
   if (
     !boundsIntersect(
@@ -298,9 +302,9 @@ export function eraseDocumentPenStrokes(
   radiusWorld: number,
   createFragmentId: EraserFragmentIdFactory,
 ): EraserResult {
-  const changes: EraserStrokeChange[] = [];
-  const originals: PenStrokeObject[] = [];
-  const replacements: PenStrokeObject[] = [];
+  const changes: EraserObjectChange[] = [];
+  const originals: BoardObject[] = [];
+  const replacements: BoardObject[] = [];
 
   for (const object of objects) {
     if (
@@ -321,6 +325,106 @@ export function eraseDocumentPenStrokes(
     if (fragments === null) continue;
     changes.push({ original: object, replacements: fragments });
     originals.push(object);
+    replacements.push(...fragments);
+  }
+
+  return { changes, originals, replacements };
+}
+
+
+export function eraseBoardSceneObjects(
+  document: BoardDocument,
+  items: readonly BoardRenderItem[],
+  path: readonly Vec2[],
+  radiusWorld: number,
+  createFragmentId: EraserFragmentIdFactory,
+): EraserResult {
+  if (
+    path.length === 0 ||
+    !Number.isFinite(radiusWorld) ||
+    radiusWorld <= 0
+  ) {
+    return { changes: [], originals: [], replacements: [] };
+  }
+
+  const itemById = new Map(items.map((item) => [item.object.id, item] as const));
+  const hitIds = new Set<BoardObjectId>();
+  for (const item of items) {
+    const object = item.object;
+    if (
+      !object.visible ||
+      object.locked ||
+      object.source.kind !== "user" ||
+      !boardRenderItemIntersectsBrushPath(item, path, radiusWorld)
+    ) {
+      continue;
+    }
+    hitIds.add(object.id);
+  }
+
+  const wholeDeleteIds = new Set<BoardObjectId>();
+  for (const id of hitIds) {
+    const object = document.objects[id];
+    if (object === undefined) continue;
+    if (object.groupId === null) {
+      if (object.kind !== "drawing.pen-stroke") wholeDeleteIds.add(id);
+      continue;
+    }
+    const group = document.groups[object.groupId];
+    if (group === undefined || group.locked) continue;
+    const members = group.objectIds.flatMap((memberId) => {
+      const member = document.objects[memberId];
+      return member === undefined ? [] : [member];
+    });
+    if (
+      members.length !== group.objectIds.length ||
+      members.some(
+        (member) =>
+          member.locked ||
+          member.source.kind !== "user" ||
+          !member.visible,
+      )
+    ) {
+      continue;
+    }
+    for (const member of members) wholeDeleteIds.add(member.id);
+  }
+
+  const changes: EraserObjectChange[] = [];
+  const originals: BoardObject[] = [];
+  const replacements: BoardObject[] = [];
+  for (const id of document.order) {
+    const original = document.objects[id];
+    if (original === undefined || original.source.kind !== "user") continue;
+    if (wholeDeleteIds.has(id)) {
+      changes.push({ original, replacements: [] });
+      originals.push(original);
+      continue;
+    }
+    if (
+      original.kind !== "drawing.pen-stroke" ||
+      original.groupId !== null ||
+      original.locked ||
+      !original.visible
+    ) {
+      continue;
+    }
+    const item = itemById.get(id);
+    if (
+      item === undefined ||
+      !boardRenderItemIntersectsBrushPath(item, path, radiusWorld)
+    ) {
+      continue;
+    }
+    const fragments = erasePenStroke(
+      original,
+      path,
+      radiusWorld,
+      createFragmentId,
+    );
+    if (fragments === null) continue;
+    changes.push({ original, replacements: fragments });
+    originals.push(original);
     replacements.push(...fragments);
   }
 
