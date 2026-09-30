@@ -183,6 +183,10 @@ export function BoardCanvas({
       ...(drawing.preview === null
         ? []
         : [{ object: drawing.preview, transforms: [] }]),
+      ...(eraser.preview?.replacements.map((object) => ({
+        object,
+        transforms: [],
+      })) ?? []),
       ...handwriting.previewItems,
       ...remoteTransformPreviews.flatMap((preview, previewIndex) =>
         preview.transforms.flatMap((transform, transformIndex) => {
@@ -210,6 +214,7 @@ export function BoardCanvas({
     [
       document.objects,
       drawing.preview,
+      eraser.preview,
       handwriting.previewItems,
       remoteTransformPreviews,
     ],
@@ -245,6 +250,16 @@ export function BoardCanvas({
             textPlacement.position.y * document.viewport.zoom +
             document.viewport.offset.y,
         };
+
+  const displayScene = useMemo(() => {
+    const suppressed = eraser.preview?.suppressedObjectIds;
+    if (suppressed === undefined || suppressed.length === 0) return scene;
+    const ids = new Set(suppressed);
+    return {
+      ...scene,
+      items: scene.items.filter(({ object }) => !ids.has(object.id)),
+    };
+  }, [eraser.preview, scene]);
 
   const clearCanvas = () => {
     const result = clipboard.clearAll();
@@ -325,7 +340,7 @@ export function BoardCanvas({
         registry={registry}
         remoteCursors={remoteCursors}
         remoteInkPreviews={remoteInkPreviews}
-        scene={scene}
+        scene={displayScene}
         selectedObjectIds={selection.state.selectedObjectIds}
         selectionBounds={selection.bounds}
         selectionLasso={selection.lasso}
