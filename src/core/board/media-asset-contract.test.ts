@@ -4,11 +4,12 @@ import {
   boardDocument15SchemaVersion,
   createEmptyBoardDocument,
 } from "./document";
-import type { BoardDocument, BoardDocument15 } from "./document";
+import type { BoardDocument } from "./document";
 import { boardObjectId, documentId } from "./identifiers";
 import { migrateBoardDocument14To15 } from "./migrations";
 import {
   boardObjectKinds,
+  boardObjectKinds14,
   boardObjectKinds15,
   embeddedImageMimeTypes,
   mediaAssetMimeTypes,
@@ -16,6 +17,7 @@ import {
 import type { EmbeddedImageObject, MediaAssetObject } from "./objects";
 import {
   boardDocumentSchema,
+  boardDocumentSchema14,
   boardDocumentSchema15,
 } from "./validation/schema";
 
@@ -62,7 +64,7 @@ function mediaAsset(): MediaAssetObject {
   };
 }
 
-function document15With(object: MediaAssetObject): BoardDocument15 {
+function document15With(object: MediaAssetObject): BoardDocument {
   const current = emptyDocument();
   return {
     ...current,
@@ -81,10 +83,11 @@ function invalidMediaDocument(patch: Record<string, unknown>): unknown {
   };
 }
 
-describe("BoardDocument 1.5 media asset preparation", () => {
-  it("keeps the active 1.4 object contract unchanged", () => {
-    expect(boardObjectKinds).not.toContain("media.asset");
-    expect(boardObjectKinds15).toEqual([...boardObjectKinds, "media.asset"]);
+describe("BoardDocument 1.5 media asset activation", () => {
+  it("activates media.asset while preserving the 1.4 object-kind set", () => {
+    expect(boardObjectKinds14).not.toContain("media.asset");
+    expect(boardObjectKinds).toEqual([...boardObjectKinds14, "media.asset"]);
+    expect(boardObjectKinds15).toEqual(boardObjectKinds);
   });
 
   it("keeps image.embedded MIME support unchanged", () => {
@@ -109,8 +112,9 @@ describe("BoardDocument 1.5 media asset preparation", () => {
     const candidate = document15With(mediaAsset());
 
     expect(boardDocumentSchema15.safeParse(candidate).success).toBe(true);
+    expect(boardDocumentSchema.safeParse(candidate).success).toBe(true);
     expect(
-      boardDocumentSchema.safeParse({
+      boardDocumentSchema14.safeParse({
         ...candidate,
         schemaVersion: "1.4",
       }).success,
@@ -198,10 +202,11 @@ describe("BoardDocument 1.5 media asset preparation", () => {
       mimeType: "image/gif",
       size: { height: 120, width: 120 },
     };
-    const source: BoardDocument = {
+    const source = {
       ...emptyDocument(),
       objects: { [object.id]: object },
       order: [object.id],
+      schemaVersion: "1.4" as const,
     };
 
     const migrated = migrateBoardDocument14To15(source);
@@ -228,10 +233,11 @@ describe("BoardDocument 1.5 media asset preparation", () => {
       mimeType: "image/png",
       size: { height: 1, width: 1 },
     };
-    const invalid: BoardDocument = {
+    const invalid = {
       ...emptyDocument(),
       objects: { [object.id]: object },
       order: [],
+      schemaVersion: "1.4" as const,
     };
 
     const migrated = migrateBoardDocument14To15(invalid);

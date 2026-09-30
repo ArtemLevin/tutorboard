@@ -4,6 +4,7 @@ import {
   readBoardDocument,
   type BoardDocumentReadResult,
 } from "../validation/read";
+import { boardDocumentSchema14 } from "../validation/schema";
 import {
   validateBoardDocument,
   type ValidationIssue,
@@ -56,6 +57,32 @@ export function serializeBoardDocument(
       canonicalize(validation.document as unknown as JsonValue),
     ),
   };
+}
+
+/**
+ * Canonical 1.4 projection used only to verify pre-1.5 server/cache digests.
+ * media.asset has no 1.4 representation and therefore cannot be projected.
+ */
+export function serializeBoardDocument14ForCompatibility(
+  document: BoardDocument,
+): string | null {
+  const validation = validateBoardDocument(document);
+  if (!validation.valid) return null;
+  if (
+    Object.values(validation.document.objects).some(
+      (object) => object?.kind === "media.asset",
+    )
+  ) {
+    return null;
+  }
+
+  const legacy = boardDocumentSchema14.safeParse({
+    ...validation.document,
+    schemaVersion: "1.4",
+  });
+  if (!legacy.success) return null;
+
+  return JSON.stringify(canonicalize(legacy.data as unknown as JsonValue));
 }
 
 export function deserializeBoardDocument(

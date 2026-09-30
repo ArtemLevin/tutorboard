@@ -16,6 +16,7 @@ import {
 } from "../../shared/stroke-smoothing";
 import { CoordinatePlotRenderer } from "./coordinate-plot-renderer";
 import { EmbeddedImageRenderer } from "./embedded-image-renderer";
+import { MediaAssetPlaceholderRenderer } from "./media-asset-placeholder-renderer";
 import { SvgRenderer } from "./svg-renderer";
 import {
   KonvaRendererRegistry,
@@ -371,6 +372,16 @@ const renderers: readonly KonvaObjectRenderer[] = [
     render(object) {
       return (
         <EmbeddedImageRenderer object={expectKind(object, "image.embedded")} />
+      );
+    },
+  },
+  {
+    kind: "media.asset",
+    render(object) {
+      return (
+        <MediaAssetPlaceholderRenderer
+          object={expectKind(object, "media.asset")}
+        />
       );
     },
   },

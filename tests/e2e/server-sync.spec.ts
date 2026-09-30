@@ -11,7 +11,7 @@ interface CapturedEnvelope {
   readonly documentId: string;
   readonly expectedDocumentSha256: string;
   readonly idempotencyKey: string;
-  readonly schemaVersion: "1.0";
+  readonly schemaVersion: "1.6";
 }
 
 async function installBoardApi(page: Page) {

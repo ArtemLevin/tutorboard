@@ -176,6 +176,25 @@ const embeddedImage = boardObject("image.embedded", {
     width: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
   }),
 });
+const mediaAsset = boardObject("media.asset", {
+  assetId: reference("Identifier"),
+  byteSize: {
+    maximum: Number.MAX_SAFE_INTEGER,
+    minimum: 1,
+    type: "integer",
+  },
+  contentSha256: { pattern: sha256Pattern, type: "string" },
+  fileName: { maxLength: 256, minLength: 1, type: "string" },
+  intrinsicSize: strictObject({
+    height: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+    width: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+  }),
+  mimeType: { enum: ["image/png", "image/jpeg", "image/gif", "video/mp4"] },
+  size: strictObject({
+    height: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+    width: { exclusiveMinimum: 0, maximum: 16_384, type: "number" },
+  }),
+});
 const svgViewBox = strictObject({
   height: { exclusiveMinimum: 0, maximum: 1_000_000, type: "number" },
   width: { exclusiveMinimum: 0, maximum: 1_000_000, type: "number" },
@@ -303,6 +322,7 @@ const boardObjectUnion = {
     reference("EllipseObject"),
     reference("TextObject"),
     reference("EmbeddedImageObject"),
+    reference("MediaAssetObject"),
     reference("SvgObject"),
     reference("CoordinatePlotObject"),
   ],
@@ -726,7 +746,7 @@ const boardDocument = strictObject({
   id: reference("Identifier"),
   objects: record(reference("BoardObject")),
   order: array(reference("Identifier"), { uniqueItems: true }),
-  schemaVersion: { const: "1.4" },
+  schemaVersion: { const: "1.5" },
   solidLearningAttempts: record(reference("Solid3DLearningAttempt")),
   solidModels: record(reference("Solid3DRecord")),
   title: { maxLength: 256, minLength: 1, type: "string" },
@@ -742,6 +762,7 @@ const boardDefinitions = {
   CoordinatePlotObject: coordinatePlotObject,
   EllipseObject: ellipse,
   EmbeddedImageObject: embeddedImage,
+  MediaAssetObject: mediaAsset,
   GeometryImportRecord: geometryImportRecord,
   GeometryOsObjectSource: geometryOsSource,
   Identifier: identifier,
@@ -996,7 +1017,7 @@ function rootSchema(id, title, root, definitions) {
 export const schemas = {
   "board-command-envelope.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-command-envelope.schema.json",
-    "BoardCommandEnvelope 1.5",
+    "BoardCommandEnvelope 1.6",
     strictObject({
       actorId: reference("Identifier"),
       baseRevision: nonNegativeInteger,
@@ -1016,13 +1037,13 @@ export const schemas = {
         type: "string",
       },
       originId: reference("Identifier"),
-      schemaVersion: { const: "1.5" },
+      schemaVersion: { const: "1.6" },
     }),
     commandDefinitions,
   ),
   "board-document.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-document.schema.json",
-    "BoardDocument 1.4",
+    "BoardDocument 1.5",
     reference("BoardDocument"),
     boardDefinitions,
   ),
@@ -1059,14 +1080,14 @@ export const schemas = {
   ),
   "board-snapshot.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-snapshot.schema.json",
-    "BoardSnapshot 1.4",
+    "BoardSnapshot 1.5",
     strictObject({
       createdAt: timestamp,
       document: reference("BoardDocument"),
       documentId: reference("Identifier"),
       documentSha256: { pattern: sha256Pattern, type: "string" },
       revision: nonNegativeInteger,
-      schemaVersion: { const: "1.4" },
+      schemaVersion: { const: "1.5" },
     }),
     boardDefinitions,
   ),
@@ -1081,10 +1102,11 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 
 ## Artifacts
 
-- \`BoardDocument 1.4\` is the canonical persisted board state.
-- \`BoardCommandEnvelope 1.5\` carries one atomic, idempotent command batch
+- \`BoardDocument 1.5\` is the canonical persisted board state and supports
+  metadata-only \`media.asset\` references.
+- \`BoardCommandEnvelope 1.6\` carries one atomic, idempotent command batch
   against a known base revision.
-- \`BoardSnapshot 1.4\` binds a canonical document to a server revision and
+- \`BoardSnapshot 1.5\` binds a canonical document to a server revision and
   SHA-256 digest.
 - \`BoardGeometryImport 1.1\` records GeometryOS GIR/Layout provenance without
   adding transport state to \`BoardDocument\`.
@@ -1115,11 +1137,13 @@ const compatibility = `# Board command compatibility
 | Atomic Smart Ink acceptance | \`core.objects.replace\` | This release+ | board/v1 with replace support |
 | Semantic 3D solids | \`core.solid-3d.*\` | BoardDocument 1.3+ | board/v1.3 reader |
 | 3D learning attempts | \`core.solid-3d-learning.*\` | BoardDocument 1.4+ | board/v1.4 reader |
+| Media asset references | object-bearing \`core.*\` commands | BoardDocument 1.5+ | board/v1.5 reader; persistence gated until media authority |
 
 \`core.objects.replace\` carries complete original and replacement snapshots.
 Older strict readers reject this command explicitly. Deployments using server
 sync must update the board/v1 reader before enabling Smart Ink for shared
-boards.
+boards. \`media.asset\` metadata is contract-readable in this release, while
+server persistence rejects it until board media authority is deployed.
 `;
 
 function canonicalJson(value) {
@@ -1222,7 +1246,7 @@ function upgradeVectorInkDocument(document) {
           : object,
       ]),
     ),
-    schemaVersion: "1.4",
+    schemaVersion: "1.5",
     solidModels: {},
     solidLearningAttempts: {},
   };
@@ -1296,7 +1320,7 @@ function fixtures() {
       expectedDocumentSha256: documentHash,
       idempotencyKey: "client:tutor-01:batch-08",
       originId: "origin:tutor-browser-01",
-      schemaVersion: "1.5",
+      schemaVersion: "1.6",
     },
     "fixtures/board-document.json": document,
     "fixtures/board-geometry-import.json": {
@@ -1323,7 +1347,7 @@ function fixtures() {
       documentId: document.id,
       documentSha256: documentHash,
       revision: 7,
-      schemaVersion: "1.4",
+      schemaVersion: "1.5",
     },
   };
 }
@@ -1362,10 +1386,10 @@ export function generateBoardContract(outputRoot = contractRoot) {
     artifacts,
     contract: "board/v1",
     schemas: {
-      boardCommandEnvelope: "1.5",
-      boardDocument: "1.4",
+      boardCommandEnvelope: "1.6",
+      boardDocument: "1.5",
       boardGeometryImport: "1.0",
-      boardSnapshot: "1.4",
+      boardSnapshot: "1.5",
     },
   };
   fs.writeFileSync(

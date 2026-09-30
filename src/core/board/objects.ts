@@ -5,7 +5,7 @@ import type { VectorInkData } from "./vector-ink";
 
 export const svgSanitizerPolicyVersion = "tutorboard.svg-sanitizer/1" as const;
 
-export const boardObjectKinds = [
+export const boardObjectKinds14 = [
   "drawing.pen-stroke",
   "drawing.line",
   "drawing.rectangle",
@@ -16,7 +16,7 @@ export const boardObjectKinds = [
   "math.coordinate-plot",
 ] as const;
 
-export type BoardObjectKind = (typeof boardObjectKinds)[number];
+export type BoardObjectKind14 = (typeof boardObjectKinds14)[number];
 
 export const mediaAssetMimeTypes = [
   "image/png",
@@ -27,9 +27,23 @@ export const mediaAssetMimeTypes = [
 
 export type MediaAssetMimeType = (typeof mediaAssetMimeTypes)[number];
 
-export const boardObjectKinds15 = [...boardObjectKinds, "media.asset"] as const;
+export const boardObjectKinds = [
+  "drawing.pen-stroke",
+  "drawing.line",
+  "drawing.rectangle",
+  "drawing.ellipse",
+  "drawing.text",
+  "image.embedded",
+  "svg-import.svg",
+  "math.coordinate-plot",
+  "media.asset",
+] as const;
 
-export type BoardObjectKind15 = (typeof boardObjectKinds15)[number];
+export type BoardObjectKind = (typeof boardObjectKinds)[number];
+
+export const boardObjectKinds15 = boardObjectKinds;
+
+export type BoardObjectKind15 = BoardObjectKind;
 
 export const embeddedImageMimeTypes = [
   "image/png",
@@ -155,7 +169,7 @@ export interface SvgObject extends BoardObjectBase {
   readonly viewBox: SvgViewBox;
 }
 
-export type BoardObject =
+export type BoardObject14 =
   | CoordinatePlotObject
   | EllipseObject
   | EmbeddedImageObject
@@ -165,8 +179,6 @@ export type BoardObject =
   | SvgObject
   | TextObject;
 
-/**
- * Prepared BoardDocument 1.5 object union. The active 1.4 runtime deliberately
- * excludes media.asset until the snapshot/server contract is upgraded.
- */
-export type BoardObject15 = BoardObject | MediaAssetObject;
+export type BoardObject = BoardObject14 | MediaAssetObject;
+
+export type BoardObject15 = BoardObject;

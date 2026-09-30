@@ -155,7 +155,7 @@ class MemorySyncRepository implements BoardSyncRepository {
         documentId: documentIdValue,
         documentSha256: sha256,
         revision: 0,
-        schemaVersion: "1.2",
+        schemaVersion: "1.5",
       },
     };
   }
@@ -358,7 +358,7 @@ describe("coordinate plot server synchronization production lifecycle", () => {
     expect(
       repository.pushed.every(
         ({ expectedDocumentSha256, schemaVersion }) =>
-          expectedDocumentSha256.length === 64 && schemaVersion === "1.5",
+          expectedDocumentSha256.length === 64 && schemaVersion === "1.6",
       ),
     ).toBe(true);
 
