@@ -343,10 +343,7 @@ export function BoardCanvas({
         onViewportCommit={onViewportCommit}
         panMode={activeTool === navigationToolId}
         primaryCanvasGesturesEnabled={
-          activeTool === navigationToolId ||
-          activeTool === "drawing.pen" ||
-          activeTool === "drawing.smart-ink" ||
-          isSelectionToolId(activeTool)
+          activeTool === navigationToolId || isSelectionToolId(activeTool)
         }
         previewItems={previewItems}
         registry={registry}
