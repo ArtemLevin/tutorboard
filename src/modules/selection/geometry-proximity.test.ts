@@ -10,6 +10,7 @@ import {
   aggregateSelectionBounds,
   pointInSelectionBounds,
   selectSelectionBounds,
+  selectObjectIdsNearPath,
   selectTopObjectIdNearPoint,
 } from "./geometry";
 
@@ -110,5 +111,30 @@ describe("forgiving selection geometry", () => {
     expect(aggregate).not.toBeNull();
     expect(pointInSelectionBounds({ x: 60, y: 20 }, aggregate!)).toBe(true);
     expect(pointInSelectionBounds({ x: 60, y: 50 }, aggregate!)).toBe(false);
+  });
+
+  it("finds multiple objects crossed by an eraser brush path", () => {
+    const first = rectangleObject({
+      id: boardObjectId("object:brush-first"),
+      position: { x: 20, y: 20 },
+      size: { height: 40, width: 40 },
+    });
+    const second = rectangleObject({
+      id: boardObjectId("object:brush-second"),
+      position: { x: 120, y: 20 },
+      size: { height: 40, width: 40 },
+    });
+    const scene = createScene([first, second]);
+
+    expect(
+      selectObjectIdsNearPath(
+        scene,
+        [
+          { x: 0, y: 40 },
+          { x: 180, y: 40 },
+        ],
+        8,
+      ),
+    ).toEqual([first.id, second.id]);
   });
 });
