@@ -197,17 +197,16 @@ function completePen(
 ): UserDrawingObject | null {
   const appended = appendPenSample(state, action);
   const rawPoints = appended.map(({ point: samplePoint }) => samplePoint);
-  const points = simplifyStroke(
-    rawPoints,
-    penStrokeStorageSimplificationTolerance,
-  );
+  if (appended.length === 0) return null;
+  const points =
+    appended.length === 1
+      ? rawPoints
+      : simplifyStroke(rawPoints, penStrokeStorageSimplificationTolerance);
   const retained = new Set(points);
   const samples = appended.filter(({ point: samplePoint }) =>
     retained.has(samplePoint),
   );
-  if (points.length < 2 || samples.length < 2) {
-    return null;
-  }
+  if (points.length === 0 || samples.length === 0) return null;
 
   return {
     ...userObjectBase(state.objectId, { x: 0, y: 0 }, state.style),
@@ -386,7 +385,7 @@ export function getDrawingPreview(
     case "idle":
       return null;
     case "drawing-pen":
-      return state.samples.length < 2
+      return state.samples.length === 0
         ? null
         : {
             ...userObjectBase(state.objectId, { x: 0, y: 0 }, state.style),
