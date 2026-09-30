@@ -365,29 +365,14 @@ export function eraseBoardSceneObjects(
   const wholeDeleteIds = new Set<BoardObjectId>();
   for (const id of hitIds) {
     const object = document.objects[id];
-    if (object === undefined) continue;
-    if (object.groupId === null) {
-      if (object.kind !== "drawing.pen-stroke") wholeDeleteIds.add(id);
-      continue;
-    }
-    const group = document.groups[object.groupId];
-    if (group === undefined || group.locked) continue;
-    const members = group.objectIds.flatMap((memberId) => {
-      const member = document.objects[memberId];
-      return member === undefined ? [] : [member];
-    });
     if (
-      members.length !== group.objectIds.length ||
-      members.some(
-        (member) =>
-          member.locked ||
-          member.source.kind !== "user" ||
-          !member.visible,
-      )
+      object === undefined ||
+      object.groupId !== null ||
+      object.kind === "drawing.pen-stroke"
     ) {
       continue;
     }
-    for (const member of members) wholeDeleteIds.add(member.id);
+    wholeDeleteIds.add(id);
   }
 
   const changes: EraserObjectChange[] = [];
