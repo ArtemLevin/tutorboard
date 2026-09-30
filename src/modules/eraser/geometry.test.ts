@@ -131,10 +131,7 @@ describe("vector partial eraser", () => {
         index === 0 ? source.id : boardObjectId(`object:fragment-${index}`),
     );
 
-    expect(plan.originals.map(({ id }) => id)).toEqual([
-      original.id,
-      text.id,
-    ]);
+    expect(plan.originals.map(({ id }) => id)).toEqual([original.id, text.id]);
     expect(plan.replacements).toHaveLength(2);
     expect(plan.groupedObjectIds).toEqual([]);
   });
