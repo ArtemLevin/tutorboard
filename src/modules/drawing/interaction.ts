@@ -196,6 +196,24 @@ function completePen(
   action: Extract<DrawingAction, { readonly kind: "finish" }>,
 ): UserDrawingObject | null {
   const appended = appendPenSample(state, action);
+  if (appended.length === 1) {
+    const first = appended[0]!;
+    const finishPressure = normalizedPressure(action.pressure);
+    const second: VectorInkSample = {
+      point: first.point,
+      pressure: finishPressure,
+      timestampMs: Math.max(first.timestampMs + 1, first.timestampMs),
+    };
+    const samples = [first, second] as const;
+    const points = [first.point, second.point] as const;
+    return {
+      ...userObjectBase(state.objectId, { x: 0, y: 0 }, state.style),
+      ink: createVectorInkData(samples),
+      kind: "drawing.pen-stroke",
+      points,
+    };
+  }
+
   const rawPoints = appended.map(({ point: samplePoint }) => samplePoint);
   const points = simplifyStroke(
     rawPoints,
