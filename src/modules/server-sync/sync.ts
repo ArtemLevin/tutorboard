@@ -991,7 +991,7 @@ export class BoardSyncEngine {
           continue;
         }
         const batch = pendingBatchPrefix(this.#pending);
-        let applied = this.#confirmed.document;
+        let applied: BoardDocument = this.#confirmed.document;
         for (const item of batch) {
           applied = applyCommand(applied, item.command);
         }
