@@ -113,7 +113,6 @@ describe("forgiving selection geometry", () => {
     expect(pointInSelectionBounds({ x: 60, y: 50 }, aggregate!)).toBe(false);
   });
 
-
   it("treats media asset interiors as eraser hits", () => {
     const media: BoardObject = {
       assetId: "asset:test-media",
