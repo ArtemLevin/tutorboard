@@ -56,18 +56,33 @@ const cubicBezierSegment = strictObject({
   end: reference("Vec2"),
   start: reference("Vec2"),
 });
-const vectorInkData = strictObject({
-  centerline: array(reference("CubicBezierSegment"), {
-    maxItems: 100_000,
-    minItems: 1,
-  }),
-  closed: { type: "boolean" },
-  samples: array(reference("VectorInkSample"), {
-    maxItems: 100_000,
-    minItems: 2,
-  }),
-  version: { const: "1.0" },
-});
+const vectorInkData = {
+  oneOf: [
+    strictObject({
+      centerline: array(reference("CubicBezierSegment"), {
+        maxItems: 0,
+      }),
+      closed: { const: false },
+      samples: array(reference("VectorInkSample"), {
+        maxItems: 1,
+        minItems: 1,
+      }),
+      version: { const: "1.0" },
+    }),
+    strictObject({
+      centerline: array(reference("CubicBezierSegment"), {
+        maxItems: 100_000,
+        minItems: 1,
+      }),
+      closed: { type: "boolean" },
+      samples: array(reference("VectorInkSample"), {
+        maxItems: 100_000,
+        minItems: 2,
+      }),
+      version: { const: "1.0" },
+    }),
+  ],
+};
 const positiveVec2 = strictObject({ x: positiveNumber, y: positiveNumber });
 const size2 = strictObject({
   height: positiveNumber,
@@ -138,7 +153,7 @@ function boardObject(kind, properties, required = Object.keys(properties)) {
 
 const penStroke = boardObject("drawing.pen-stroke", {
   ink: reference("VectorInkData"),
-  points: array(reference("Vec2"), { maxItems: 100_000, minItems: 2 }),
+  points: array(reference("Vec2"), { maxItems: 100_000, minItems: 1 }),
 });
 const line = boardObject(
   "drawing.line",
@@ -746,7 +761,7 @@ const boardDocument = strictObject({
   id: reference("Identifier"),
   objects: record(reference("BoardObject")),
   order: array(reference("Identifier"), { uniqueItems: true }),
-  schemaVersion: { const: "1.5" },
+  schemaVersion: { const: "1.7" },
   solidLearningAttempts: record(reference("Solid3DLearningAttempt")),
   solidModels: record(reference("Solid3DRecord")),
   title: { maxLength: 256, minLength: 1, type: "string" },
@@ -754,7 +769,13 @@ const boardDocument = strictObject({
   viewport: reference("Viewport"),
 });
 
+const batchObjectReplacement = strictObject({
+  original: reference("BoardObject"),
+  replacements: array(reference("BoardObject"), { maxItems: 5_000 }),
+});
+
 const boardDefinitions = {
+  BatchObjectReplacement: batchObjectReplacement,
   BoardDocument: boardDocument,
   BoardGroup: boardGroup,
   BoardObject: boardObjectUnion,
@@ -929,6 +950,12 @@ const commands = {
     originals: array(reference("BoardObject"), { minItems: 1 }),
     replacements: array(reference("BoardObject"), { minItems: 1 }),
   }),
+  BatchReplaceObjectsCommand: command("core.objects.batch-replace", {
+    changes: array(reference("BatchObjectReplacement"), {
+      maxItems: 5_000,
+      minItems: 1,
+    }),
+  }),
   RenameDocumentCommand: command("core.document.rename", {
     title: { maxLength: 256, minLength: 1, type: "string" },
   }),
@@ -1017,7 +1044,7 @@ function rootSchema(id, title, root, definitions) {
 export const schemas = {
   "board-command-envelope.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-command-envelope.schema.json",
-    "BoardCommandEnvelope 1.6",
+    "BoardCommandEnvelope 1.7",
     strictObject({
       actorId: reference("Identifier"),
       baseRevision: nonNegativeInteger,
@@ -1043,7 +1070,7 @@ export const schemas = {
   ),
   "board-document.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-document.schema.json",
-    "BoardDocument 1.5",
+    "BoardDocument 1.6",
     reference("BoardDocument"),
     boardDefinitions,
   ),
@@ -1080,7 +1107,7 @@ export const schemas = {
   ),
   "board-snapshot.schema.json": rootSchema(
     "https://contracts.tutorboard.dev/board/v1/board-snapshot.schema.json",
-    "BoardSnapshot 1.5",
+    "BoardSnapshot 1.6",
     strictObject({
       createdAt: timestamp,
       document: reference("BoardDocument"),
@@ -1246,7 +1273,7 @@ function upgradeVectorInkDocument(document) {
           : object,
       ]),
     ),
-    schemaVersion: "1.5",
+    schemaVersion: "1.6",
     solidModels: {},
     solidLearningAttempts: {},
   };
@@ -1320,7 +1347,7 @@ function fixtures() {
       expectedDocumentSha256: documentHash,
       idempotencyKey: "client:tutor-01:batch-08",
       originId: "origin:tutor-browser-01",
-      schemaVersion: "1.6",
+      schemaVersion: "1.7",
     },
     "fixtures/board-document.json": document,
     "fixtures/board-geometry-import.json": {
@@ -1347,7 +1374,7 @@ function fixtures() {
       documentId: document.id,
       documentSha256: documentHash,
       revision: 7,
-      schemaVersion: "1.5",
+      schemaVersion: "1.6",
     },
   };
 }
@@ -1386,10 +1413,10 @@ export function generateBoardContract(outputRoot = contractRoot) {
     artifacts,
     contract: "board/v1",
     schemas: {
-      boardCommandEnvelope: "1.6",
-      boardDocument: "1.5",
+      boardCommandEnvelope: "1.7",
+      boardDocument: "1.6",
       boardGeometryImport: "1.0",
-      boardSnapshot: "1.5",
+      boardSnapshot: "1.6",
     },
   };
   fs.writeFileSync(
