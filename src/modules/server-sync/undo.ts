@@ -30,6 +30,69 @@ function objects(
   });
 }
 
+function invertBatchObjectChanges(
+  command: Extract<BoardCommand, { readonly kind: "core.objects.batch-replace" }>,
+  before: BoardDocument,
+) {
+  const removedIds = new Set(
+    command.changes.flatMap(({ originals }) => originals.map(({ id }) => id)),
+  );
+  const changesByIndex = new Map(
+    command.changes.map((change, index) => [change.atIndex, { change, index }]),
+  );
+  const postIndexes = new Array<number>(command.changes.length);
+  let postIndex = 0;
+
+  for (let index = 0; index <= before.order.length; index += 1) {
+    const entry = changesByIndex.get(index);
+    if (entry !== undefined) {
+      postIndexes[entry.index] = postIndex;
+      postIndex += entry.change.replacements.length;
+    }
+    const objectId = before.order[index];
+    if (objectId !== undefined && !removedIds.has(objectId)) {
+      postIndex += 1;
+    }
+  }
+
+  const inverse = command.changes
+    .map((change, index) => ({
+      atIndex: postIndexes[index]!,
+      originalAtIndex: change.atIndex,
+      originals: change.replacements,
+      replacements: change.originals,
+    }))
+    .sort(
+      (left, right) =>
+        left.atIndex - right.atIndex ||
+        left.originalAtIndex - right.originalAtIndex,
+    );
+
+  return inverse.reduce<
+    {
+      readonly atIndex: number;
+      readonly originals: readonly BoardObject[];
+      readonly replacements: readonly BoardObject[];
+    }[]
+  >((changes, change) => {
+    const previous = changes.at(-1);
+    if (previous === undefined || previous.atIndex !== change.atIndex) {
+      changes.push({
+        atIndex: change.atIndex,
+        originals: change.originals,
+        replacements: change.replacements,
+      });
+      return changes;
+    }
+    changes[changes.length - 1] = {
+      atIndex: previous.atIndex,
+      originals: [...previous.originals, ...change.originals],
+      replacements: [...previous.replacements, ...change.replacements],
+    };
+    return changes;
+  }, []);
+}
+
 export function invertOwnBoardCommand(
   command: BoardCommand,
   before: BoardDocument,
@@ -58,11 +121,7 @@ export function invertOwnBoardCommand(
       return [
         {
           ...meta(),
-          changes: command.changes.map((change) => ({
-            atIndex: change.atIndex,
-            originals: change.replacements,
-            replacements: change.originals,
-          })),
+          changes: invertBatchObjectChanges(command, before),
           kind: command.kind,
         },
       ];
