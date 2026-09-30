@@ -410,9 +410,88 @@ function selectableInterior(object: BoardObject): boolean {
   return (
     object.kind === "drawing.text" ||
     object.kind === "image.embedded" ||
+    object.kind === "media.asset" ||
     object.kind === "svg-import.svg" ||
     object.kind === "math.coordinate-plot"
   );
+}
+
+function segmentDistance(
+  leftStart: Vec2,
+  leftFinish: Vec2,
+  rightStart: Vec2,
+  rightFinish: Vec2,
+): number {
+  if (segmentsIntersect(leftStart, leftFinish, rightStart, rightFinish)) {
+    return 0;
+  }
+  return Math.min(
+    pointToSegmentDistance(leftStart, rightStart, rightFinish),
+    pointToSegmentDistance(leftFinish, rightStart, rightFinish),
+    pointToSegmentDistance(rightStart, leftStart, leftFinish),
+    pointToSegmentDistance(rightFinish, leftStart, leftFinish),
+  );
+}
+
+function pathDistanceToPath(
+  left: SelectionPath,
+  right: SelectionPath,
+): number {
+  const leftSegments = pathSegments(left);
+  const rightSegments = pathSegments(right);
+  if (leftSegments.length === 0) {
+    const point = left.points[0];
+    return point === undefined
+      ? Number.POSITIVE_INFINITY
+      : pathDistanceToPoint(right, point);
+  }
+  if (rightSegments.length === 0) {
+    const point = right.points[0];
+    return point === undefined
+      ? Number.POSITIVE_INFINITY
+      : pathDistanceToPoint(left, point);
+  }
+  let minimum = Number.POSITIVE_INFINITY;
+  for (const [leftStart, leftFinish] of leftSegments) {
+    for (const [rightStart, rightFinish] of rightSegments) {
+      minimum = Math.min(
+        minimum,
+        segmentDistance(leftStart, leftFinish, rightStart, rightFinish),
+      );
+      if (minimum <= geometryEpsilon) return 0;
+    }
+  }
+  return minimum;
+}
+
+export function selectObjectIdsNearPath(
+  scene: BoardSceneReadModel,
+  rawPoints: readonly Vec2[],
+  tolerance: number,
+): readonly BoardObjectId[] {
+  const points = rawPoints.filter(finitePoint).slice(0, maximumLassoPoints);
+  if (
+    points.length === 0 ||
+    !Number.isFinite(tolerance) ||
+    tolerance < 0
+  ) {
+    return [];
+  }
+  const brushPath: SelectionPath = { closed: false, points };
+  return scene.items
+    .filter((item) => {
+      if (!item.object.visible) return false;
+      const objectPath = transformedSelectionPath(item);
+      if (
+        objectPath.closed &&
+        selectableInterior(item.object) &&
+        points.some((point) => pointInPolygon(point, objectPath.points))
+      ) {
+        return true;
+      }
+      return pathDistanceToPath(objectPath, brushPath) <= tolerance;
+    })
+    .map((item) => item.object.id);
 }
 
 export function selectTopObjectIdNearPoint(
