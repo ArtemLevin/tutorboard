@@ -5,14 +5,21 @@ import type {
   VectorInkSample,
   Vec2,
 } from "../../core/public";
-
 import {
   createVectorInkData,
   createVectorInkDataFromPoints,
 } from "../../core/public";
+import {
+  noInputModifiers,
+  type InputModifiers,
+} from "../../shared/input-modifiers";
 
-import type { DrawingToolId } from "./tools";
+import {
+  resolveDrawingConstraint,
+  type DrawingConstraintFeedback,
+} from "./constraints";
 import { simplifyStroke } from "./stroke-simplification";
+import type { DrawingToolId } from "./tools";
 
 const maximumPenPoints = 100_000;
 const minimumGeometrySize = 0.001;
@@ -37,6 +44,8 @@ interface PenInteraction extends InteractionBase {
 interface ShapeInteraction extends InteractionBase {
   readonly current: Vec2;
   readonly kind: "drawing-shape";
+  readonly modifiers: InputModifiers;
+  readonly snappedAngleDegrees: number | null;
   readonly start: Vec2;
   readonly style: ObjectStyle;
   readonly polygonSides: number;
@@ -62,32 +71,38 @@ export type DrawingInteractionState =
 export type DrawingDiagnosticCode =
   "drawing.empty-geometry" | "drawing.empty-text" | "drawing.invalid-input";
 
+interface DrawingPointerActionBase {
+  readonly inputTimestampMs?: number;
+  readonly modifiers?: InputModifiers;
+  readonly point: Vec2;
+  readonly pointerId: number;
+  readonly pressure?: number;
+}
+
 export type DrawingAction =
-  | {
+  | (DrawingPointerActionBase & {
       readonly kind: "start";
       readonly objectId: BoardObjectId;
-      readonly inputTimestampMs?: number;
-      readonly point: Vec2;
-      readonly pointerId: number;
       readonly polygonSides?: number;
-      readonly pressure?: number;
       readonly style: ObjectStyle;
       readonly text: string;
       readonly tool: DrawingToolId;
-    }
-  | {
+    })
+  | (DrawingPointerActionBase & {
       readonly kind: "move";
-      readonly inputTimestampMs?: number;
-      readonly point: Vec2;
+    })
+  | (DrawingPointerActionBase & {
+      readonly kind: "finish";
+    })
+  | {
+      readonly kind: "modifiers";
+      readonly modifiers: InputModifiers;
       readonly pointerId: number;
-      readonly pressure?: number;
     }
   | {
-      readonly kind: "finish";
-      readonly inputTimestampMs?: number;
-      readonly point: Vec2;
+      readonly kind: "text-change";
       readonly pointerId: number;
-      readonly pressure?: number;
+      readonly text: string;
     }
   | {
       readonly kind: "cancel";
@@ -181,6 +196,24 @@ function completePen(
   action: Extract<DrawingAction, { readonly kind: "finish" }>,
 ): UserDrawingObject | null {
   const appended = appendPenSample(state, action);
+  if (appended.length === 1) {
+    const first = appended[0]!;
+    const finishPressure = normalizedPressure(action.pressure);
+    const second: VectorInkSample = {
+      point: first.point,
+      pressure: finishPressure,
+      timestampMs: Math.max(first.timestampMs + 1, first.timestampMs),
+    };
+    const samples = [first, second] as const;
+    const points = [first.point, second.point] as const;
+    return {
+      ...userObjectBase(state.objectId, { x: 0, y: 0 }, state.style),
+      ink: createVectorInkData(samples),
+      kind: "drawing.pen-stroke",
+      points,
+    };
+  }
+
   const rawPoints = appended.map(({ point: samplePoint }) => samplePoint);
   const points = simplifyStroke(
     rawPoints,
@@ -190,7 +223,7 @@ function completePen(
   const samples = appended.filter(({ point: samplePoint }) =>
     retained.has(samplePoint),
   );
-  if (points.length < 2 || samples.length < 2) {
+  if (points.length < 1 || samples.length < 1) {
     return null;
   }
 
@@ -202,10 +235,46 @@ function completePen(
   };
 }
 
-function completeShape(
+function resolveShapeConstraint(
   state: ShapeInteraction,
   point: Vec2,
+  modifiers: InputModifiers,
+) {
+  return resolveDrawingConstraint({
+    current: point,
+    modifiers,
+    previousAngleDegrees: state.snappedAngleDegrees,
+    start: state.start,
+    tool: state.tool,
+  });
+}
+
+function constrainedShapePoint(
+  state: ShapeInteraction,
+  point: Vec2,
+  modifiers: InputModifiers,
+): Vec2 {
+  return resolveShapeConstraint(state, point, modifiers).point;
+}
+
+function snappedAngleDegrees(
+  state: ShapeInteraction,
+  point: Vec2,
+  modifiers: InputModifiers,
+): number | null {
+  if (!modifiers.shift) return null;
+  return (
+    resolveShapeConstraint(state, point, modifiers).feedback?.angleDegrees ??
+    null
+  );
+}
+
+function completeShape(
+  state: ShapeInteraction,
+  rawPoint: Vec2,
+  modifiers: InputModifiers,
 ): UserDrawingObject | null {
+  const point = constrainedShapePoint(state, rawPoint, modifiers);
   const delta = {
     x: point.x - state.start.x,
     y: point.y - state.start.y,
@@ -276,7 +345,7 @@ function completeShape(
         return null;
       }
       const sides = Math.min(24, Math.max(3, Math.round(state.polygonSides)));
-      const points = Array.from({ length: sides }, (_, index) => {
+      const points = Array.from({ length: sides }, (_value, index) => {
         const angle = -Math.PI / 2 + (index * Math.PI * 2) / sides;
         return {
           x: Math.cos(angle) * radius.x,
@@ -302,7 +371,30 @@ function completeShape(
 }
 
 function previewShape(state: ShapeInteraction): UserDrawingObject | null {
-  return completeShape(state, state.current);
+  return completeShape(state, state.current, state.modifiers);
+}
+
+export interface DrawingConstraintPreviewFeedback extends DrawingConstraintFeedback {
+  readonly anchor: Vec2;
+  readonly point: Vec2;
+}
+
+export function getDrawingConstraintFeedback(
+  state: DrawingInteractionState,
+): DrawingConstraintPreviewFeedback | null {
+  if (state.kind !== "drawing-shape") return null;
+  const resolved = resolveShapeConstraint(
+    state,
+    state.current,
+    state.modifiers,
+  );
+  return resolved.feedback === null
+    ? null
+    : {
+        ...resolved.feedback,
+        anchor: state.start,
+        point: resolved.point,
+      };
 }
 
 export function getDrawingPreview(
@@ -366,27 +458,24 @@ function startInteraction(
       return transition({
         current: action.point,
         kind: "drawing-shape",
+        modifiers: action.modifiers ?? noInputModifiers,
         objectId: action.objectId,
+        snappedAngleDegrees: null,
         pointerId: action.pointerId,
         polygonSides: action.polygonSides ?? 5,
         start: action.point,
         style: action.style,
         tool: action.tool,
       });
-    case "drawing.text": {
-      const text = action.text.trim();
-      if (text.length === 0) {
-        return transition(idle, null, "drawing.empty-text");
-      }
+    case "drawing.text":
       return transition({
         kind: "placing-text",
         objectId: action.objectId,
         pointerId: action.pointerId,
         position: action.point,
         style: action.style,
-        text,
+        text: action.text,
       });
-    }
   }
 }
 
@@ -408,6 +497,31 @@ export function reduceDrawingInteraction(
     return state.kind === "idle" ? startInteraction(action) : transition(state);
   }
 
+  if (action.kind === "modifiers") {
+    if (
+      state.kind !== "drawing-shape" ||
+      state.pointerId !== action.pointerId
+    ) {
+      return transition(state);
+    }
+    return transition({
+      ...state,
+      modifiers: action.modifiers,
+      snappedAngleDegrees: snappedAngleDegrees(
+        state,
+        state.current,
+        action.modifiers,
+      ),
+    });
+  }
+
+  if (action.kind === "text-change") {
+    if (state.kind !== "placing-text" || state.pointerId !== action.pointerId) {
+      return transition(state);
+    }
+    return transition({ ...state, text: action.text });
+  }
+
   if (
     state.kind === "idle" ||
     state.pointerId !== action.pointerId ||
@@ -427,8 +541,19 @@ export function reduceDrawingInteraction(
           ...state,
           samples: appendPenSample(state, action),
         });
-      case "drawing-shape":
-        return transition({ ...state, current: action.point });
+      case "drawing-shape": {
+        const modifiers = action.modifiers ?? state.modifiers;
+        return transition({
+          ...state,
+          current: action.point,
+          modifiers,
+          snappedAngleDegrees: snappedAngleDegrees(
+            state,
+            action.point,
+            modifiers,
+          ),
+        });
+      }
       case "placing-text":
         return transition({ ...state, position: action.point });
     }
@@ -440,20 +565,33 @@ export function reduceDrawingInteraction(
       completedObject = completePen(state, action);
       break;
     case "drawing-shape":
-      completedObject = completeShape(state, action.point);
+      completedObject = completeShape(
+        state,
+        action.point,
+        action.modifiers ?? state.modifiers,
+      );
       break;
-    case "placing-text":
-      completedObject = {
-        ...userObjectBase(state.objectId, action.point, state.style),
-        kind: "drawing.text",
-        text: state.text,
-      };
+    case "placing-text": {
+      const text = state.text.trim();
+      completedObject =
+        text.length === 0
+          ? null
+          : {
+              ...userObjectBase(state.objectId, action.point, state.style),
+              kind: "drawing.text",
+              text,
+            };
       break;
+    }
   }
 
   return transition(
     idle,
     completedObject,
-    completedObject === null ? "drawing.empty-geometry" : null,
+    completedObject === null
+      ? state.kind === "placing-text"
+        ? "drawing.empty-text"
+        : "drawing.empty-geometry"
+      : null,
   );
 }

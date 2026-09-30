@@ -2,14 +2,6 @@ name: Paddle formula sidecar gate
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/paddle-formula-sidecar.yml"
-      - "deploy/math-ink.compose.yml"
-      - "deploy/paddle-formula.compose.yml"
-      - "deploy/paddle-formula.gpu.compose.yml"
-      - "services/math-ink-proxy/**"
-      - "services/paddle-formula-sidecar/**"
-      - "tests/node/math-ink-proxy-*.test.mjs"
   push:
     branches:
       - main
@@ -21,6 +13,7 @@ on:
       - "services/math-ink-proxy/**"
       - "services/paddle-formula-sidecar/**"
       - "tests/node/math-ink-proxy-*.test.mjs"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -42,7 +35,27 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Compute CI gate routing
+        id: route
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+              git fetch --no-tags --depth=1 origin "${BASE_SHA}"
+            fi
+            node scripts/ci/compute-gate-routing.mjs \
+              --event pull_request \
+              --base "${BASE_SHA}" \
+              --head "${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
+          else
+            node scripts/ci/compute-gate-routing.mjs \
+              --event "${GITHUB_EVENT_NAME}" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Set up Python
+        if: steps.route.outputs.paddle_formula == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
@@ -53,27 +66,33 @@ jobs:
             services/paddle-formula-sidecar/requirements-security.txt
 
       - name: Install sidecar test dependencies
+        if: steps.route.outputs.paddle_formula == 'true'
         run: |
           python -m pip install --upgrade pip
           python -m pip install \
             --requirement services/paddle-formula-sidecar/requirements-dev.txt
 
       - name: Check Python formatting
+        if: steps.route.outputs.paddle_formula == 'true'
         working-directory: services/paddle-formula-sidecar
         run: python -m ruff format --check app.py tests
 
       - name: Lint Python
+        if: steps.route.outputs.paddle_formula == 'true'
         working-directory: services/paddle-formula-sidecar
         run: python -m ruff check app.py tests
 
       - name: Compile Python sources
+        if: steps.route.outputs.paddle_formula == 'true'
         run: python -m compileall -q services/paddle-formula-sidecar
 
       - name: Run sidecar contract tests
+        if: steps.route.outputs.paddle_formula == 'true'
         working-directory: services/paddle-formula-sidecar
         run: python -m pytest
 
       - name: Validate CPU and GPU Dockerfiles
+        if: steps.route.outputs.paddle_formula == 'true'
         run: |
           docker build --check \
             --file services/paddle-formula-sidecar/Dockerfile.cpu \
@@ -83,6 +102,7 @@ jobs:
             .
 
       - name: Build CPU sidecar image
+        if: steps.route.outputs.paddle_formula == 'true'
         run: |
           docker build \
             --file services/paddle-formula-sidecar/Dockerfile.cpu \
@@ -90,6 +110,7 @@ jobs:
             .
 
       - name: Verify CPU image runtime
+        if: steps.route.outputs.paddle_formula == 'true'
         run: |
           test "$(docker inspect --format '{{.Config.User}}' tutorboard-paddle-formula:${GITHUB_SHA})" = "10001:10001"
           docker run --rm --interactive \
@@ -153,6 +174,7 @@ jobs:
           PY
 
       - name: Validate Compose overlays
+        if: steps.route.outputs.paddle_formula == 'true'
         env:
           PADDLE_FORMULA_API_TOKEN: ci-paddle-token
         run: |
@@ -183,6 +205,7 @@ jobs:
           fi
 
       - name: Enforce CPU sidecar vulnerability threshold
+        if: steps.route.outputs.paddle_formula == 'true'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: tutorboard-paddle-formula:${{ github.sha }}
@@ -193,7 +216,7 @@ jobs:
           scanners: vuln
 
       - name: Generate Trivy SARIF
-        if: always()
+        if: ${{ always() && steps.route.outputs.paddle_formula == 'true' }}
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: tutorboard-paddle-formula:${{ github.sha }}
@@ -206,7 +229,7 @@ jobs:
           scanners: vuln
 
       - name: Upload Trivy results
-        if: ${{ always() && hashFiles('trivy-paddle-formula.sarif') != '' }}
+        if: ${{ always() && steps.route.outputs.paddle_formula == 'true' && hashFiles('trivy-paddle-formula.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-paddle-formula.sarif

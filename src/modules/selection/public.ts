@@ -10,12 +10,16 @@ export {
   type SelectionObjectTransform,
 } from "./commands";
 export {
+  aggregateSelectionBounds,
   lassoPolygonArea,
   normalizeLassoPoints,
   pointInPolygon,
+  pointInSelectionBounds,
   selectObjectIdsInLasso,
   selectObjectIdsInRect,
+  selectObjectIdsNearPath,
   selectSelectionBounds,
+  selectTopObjectIdNearPoint,
   type SelectionBounds,
 } from "./geometry";
 export {

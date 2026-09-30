@@ -2,6 +2,8 @@ import {
   createEmptyBoardDocument,
   reduceBoardDocument,
   serializeBoardDocument,
+  serializeBoardDocument14ForCompatibility,
+  serializeBoardDocument15ForCompatibility,
   type ActorId,
   type BoardCommand,
   type BoardDocument,
@@ -99,6 +101,60 @@ export async function boardDocumentSha256(
     .join("");
 }
 
+async function textSha256(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((item) => item.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function legacyBoardDocument14Sha256(
+  document: BoardDocument,
+): Promise<string> {
+  const serialized = serializeBoardDocument14ForCompatibility(document);
+  if (serialized === null) {
+    throw new SyncRecoveryError(
+      "board.sync.legacy-document-unrepresentable",
+      "Документ нельзя проверить в историческом формате BoardDocument 1.4.",
+    );
+  }
+  return await textSha256(serialized);
+}
+
+async function legacyBoardDocument15Sha256(
+  document: BoardDocument,
+): Promise<string> {
+  const serialized = serializeBoardDocument15ForCompatibility(document);
+  if (serialized === null) {
+    throw new SyncRecoveryError(
+      "board.sync.legacy-document-unrepresentable",
+      "Документ нельзя проверить в историческом формате BoardDocument 1.5.",
+    );
+  }
+  return await textSha256(serialized);
+}
+
+async function digestForEnvelope(
+  document: BoardDocument,
+  schemaVersion: string,
+): Promise<string> {
+  if (schemaVersion === "1.7") return await boardDocumentSha256(document);
+  if (schemaVersion === "1.6")
+    return await legacyBoardDocument15Sha256(document);
+  return await legacyBoardDocument14Sha256(document);
+}
+
+async function digestForSnapshot(
+  document: BoardDocument,
+  schemaVersion: string,
+): Promise<string> {
+  if (schemaVersion === "1.6") return await boardDocumentSha256(document);
+  if (schemaVersion === "1.5")
+    return await legacyBoardDocument15Sha256(document);
+  return await legacyBoardDocument14Sha256(document);
+}
+
 function commandsFromBatch(
   batch: ServerBoardCommandBatch,
 ): readonly BoardCommand[] {
@@ -148,7 +204,11 @@ async function applyRemoteBatches(
       document = applyCommand(document, command);
     }
     const sha256 = await boardDocumentSha256(document);
-    if (sha256 !== batch.envelope.expectedDocumentSha256) {
+    const transportSha256 = await digestForEnvelope(
+      document,
+      batch.envelope.schemaVersion,
+    );
+    if (transportSha256 !== batch.envelope.expectedDocumentSha256) {
       throw new SyncRecoveryError(
         "board.sync.sha-mismatch",
         "Контрольная сумма удалённой ревизии не совпадает.",
@@ -206,6 +266,27 @@ function orderedPending(
   pending: readonly PendingBoardCommand[],
 ): readonly PendingBoardCommand[] {
   return [...pending].sort((left, right) => left.sequence - right.sequence);
+}
+
+function pendingBatchPrefix(
+  pending: readonly PendingBoardCommand[],
+): readonly PendingBoardCommand[] {
+  const first = pending[0];
+  if (first === undefined) return [];
+  if (first.batchId === undefined) return [first];
+  let end = 1;
+  while (end < pending.length) {
+    const item = pending[end];
+    if (
+      item === undefined ||
+      item.batchId !== first.batchId ||
+      item.order.baseRevisionAtCreation !== first.order.baseRevisionAtCreation
+    ) {
+      break;
+    }
+    end += 1;
+  }
+  return pending.slice(0, end);
 }
 
 function confirmedSession(context: BoardRuntimeAccessContext) {
@@ -443,6 +524,7 @@ export class BoardSyncEngine {
   #enqueueDurably(
     command: BoardCommand,
     baseRevisionAtCreation: number,
+    batchId?: string,
   ): Promise<PendingBoardCommand> {
     const idempotencyKey = this.#createIdempotencyKey();
     const accessEpochAtCreation = this.#context?.accessEpoch;
@@ -451,6 +533,7 @@ export class BoardSyncEngine {
         ...(accessEpochAtCreation === undefined
           ? {}
           : { accessEpochAtCreation }),
+        ...(batchId === undefined ? {} : { batchId }),
         baseRevisionAtCreation,
       }),
     );
@@ -462,7 +545,20 @@ export class BoardSyncEngine {
   }
 
   queue(command: BoardCommand, document: BoardDocument): Promise<void> {
-    if (this.#disposed || this.#accessRefreshPending) return Promise.resolve();
+    return this.queueBatch([command], document);
+  }
+
+  queueBatch(
+    commands: readonly BoardCommand[],
+    document: BoardDocument,
+  ): Promise<void> {
+    if (
+      this.#disposed ||
+      this.#accessRefreshPending ||
+      commands.length === 0
+    ) {
+      return Promise.resolve();
+    }
     const context = this.#context;
     const confirmed = this.#confirmed;
     if (context === null || confirmed === null) {
@@ -476,17 +572,23 @@ export class BoardSyncEngine {
       return Promise.resolve();
     }
     if (
-      command.actorId !== context.actorId ||
+      commands.some(({ actorId }) => actorId !== context.actorId) ||
       document.id !== this.#documentId
     ) {
       this.#recover(
         "board.sync.actor-or-document-mismatch",
-        "Команда не соответствует активному пользователю или доске.",
+        "Команды не соответствуют активному пользователю или доске.",
       );
       return Promise.resolve();
     }
 
-    const durable = this.#enqueueDurably(command, confirmed.revision);
+    const batchId =
+      commands.length > 1 ? this.#createIdempotencyKey() : undefined;
+    const durable = Promise.all(
+      commands.map((command) =>
+        this.#enqueueDurably(command, confirmed.revision, batchId),
+      ),
+    );
     this.#serial = this.#serial
       .then(async () => {
         const queued = await durable;
@@ -494,7 +596,7 @@ export class BoardSyncEngine {
         if (this.#confirmed === null) {
           throw new Error("Board sync engine is not ready.");
         }
-        this.#pending = orderedPending([...this.#pending, queued]);
+        this.#pending = orderedPending([...this.#pending, ...queued]);
         const knownSequences = this.#pending.map(({ sequence }) => sequence);
         const replayed = replayPending(this.#confirmed, this.#pending);
         await this.#quarantineConflicts(replayed.conflicts);
@@ -560,9 +662,11 @@ export class BoardSyncEngine {
       return Promise.resolve();
     }
 
+    const batchId =
+      rebased.length > 1 ? this.#createIdempotencyKey() : undefined;
     const durable = Promise.all(
       rebased.map((command) =>
-        this.#enqueueDurably(command, confirmed.revision),
+        this.#enqueueDurably(command, confirmed.revision, batchId),
       ),
     );
     this.#serial = this.#serial
@@ -702,7 +806,11 @@ export class BoardSyncEngine {
           );
         }
         const sha256 = await boardDocumentSha256(recovery.snapshot.document);
-        if (sha256 !== recovery.snapshot.documentSha256) {
+        const transportSha256 = await digestForSnapshot(
+          recovery.snapshot.document,
+          recovery.snapshot.schemaVersion,
+        );
+        if (transportSha256 !== recovery.snapshot.documentSha256) {
           throw new SyncRecoveryError(
             "board.sync.snapshot-sha-mismatch",
             "Контрольная сумма базового снимка не совпадает.",
@@ -718,14 +826,24 @@ export class BoardSyncEngine {
       }
       head = await applyRemoteBatches(head, recovery.commandBatches);
       if (this.#disposed) return;
-      if (
-        recovery.snapshot !== null &&
-        head.sha256 !== recovery.board.currentDocumentSha256
-      ) {
-        throw new SyncRecoveryError(
-          "board.sync.head-sha-mismatch",
-          "Контрольная сумма актуальной серверной ревизии не совпадает.",
-        );
+      if (recovery.snapshot !== null) {
+        const lastBatch = recovery.commandBatches.at(-1);
+        const serverHeadSha256 =
+          lastBatch === undefined
+            ? await digestForSnapshot(
+                head.document,
+                recovery.snapshot.schemaVersion,
+              )
+            : await digestForEnvelope(
+                head.document,
+                lastBatch.envelope.schemaVersion,
+              );
+        if (serverHeadSha256 !== recovery.board.currentDocumentSha256) {
+          throw new SyncRecoveryError(
+            "board.sync.head-sha-mismatch",
+            "Контрольная сумма актуальной серверной ревизии не совпадает.",
+          );
+        }
       }
       await this.#acknowledgeRemoteDuplicates(recovery.commandBatches);
       if (this.#disposed) return;
@@ -872,18 +990,22 @@ export class BoardSyncEngine {
           await this.#dropStaleOrUnauthorizedPending();
           continue;
         }
-        const applied = applyCommand(this.#confirmed.document, first.command);
+        const batch = pendingBatchPrefix(this.#pending);
+        let applied = this.#confirmed.document;
+        for (const item of batch) {
+          applied = applyCommand(applied, item.command);
+        }
         const sha256 = await boardDocumentSha256(applied);
         const result = await this.#repository.push(
           {
             actorId: this.#context.actorId,
             baseRevision: this.#confirmed.revision,
-            commands: [orderedFromPending(first)],
+            commands: batch.map(orderedFromPending),
             documentId: this.#documentId,
             expectedDocumentSha256: sha256,
-            idempotencyKey: first.idempotencyKey,
+            idempotencyKey: first.batchId ?? first.idempotencyKey,
             originId: this.#originId,
-            schemaVersion: "1.5",
+            schemaVersion: "1.7",
           },
           this.#context.csrfToken,
         );
@@ -925,9 +1047,11 @@ export class BoardSyncEngine {
           session: confirmedSession(this.#context),
           sha256,
         };
-        await this.#queue.acknowledge(this.#documentId, first.sequence);
-        if (this.#disposed) return;
-        this.#pending = this.#pending.slice(1);
+        for (const item of batch) {
+          await this.#queue.acknowledge(this.#documentId, item.sequence);
+          if (this.#disposed) return;
+        }
+        this.#pending = this.#pending.slice(batch.length);
         await this.#queue.saveHead(this.#confirmed);
       }
       const knownSequences = this.#pending.map(({ sequence }) => sequence);
@@ -1000,27 +1124,38 @@ export class BoardSyncEngine {
     const byKey = new Map(
       batches.map((batch) => [batch.idempotencyKey, batch] as const),
     );
-    const remaining: PendingBoardCommand[] = [];
+    const acknowledged = new Set<number>();
     for (const item of this.#pending) {
-      if (this.#disposed) return;
-      const accepted = byKey.get(item.idempotencyKey);
-      if (accepted === undefined) {
-        remaining.push(item);
-        continue;
-      }
+      if (acknowledged.has(item.sequence)) continue;
+      const accepted = byKey.get(item.batchId ?? item.idempotencyKey);
+      if (accepted === undefined) continue;
+      const local =
+        item.batchId === undefined
+          ? [item]
+          : this.#pending.filter(
+              (candidate) => candidate.batchId === item.batchId,
+            );
       const acceptedCommands = commandsFromBatch(accepted);
       if (
-        acceptedCommands.length !== 1 ||
-        JSON.stringify(acceptedCommands[0]) !== JSON.stringify(item.command)
+        acceptedCommands.length !== local.length ||
+        acceptedCommands.some(
+          (command, index) =>
+            JSON.stringify(command) !== JSON.stringify(local[index]?.command),
+        )
       ) {
         throw new SyncRecoveryError(
           "board.sync.idempotency-mismatch",
           "Серверная команда с локальным idempotency key имеет другое содержимое.",
         );
       }
-      await this.#queue.acknowledge(this.#documentId, item.sequence);
+      for (const candidate of local) {
+        await this.#queue.acknowledge(this.#documentId, candidate.sequence);
+        acknowledged.add(candidate.sequence);
+      }
     }
-    this.#pending = remaining;
+    this.#pending = this.#pending.filter(
+      (item) => !acknowledged.has(item.sequence),
+    );
   }
 
   #emitReady(network: "offline" | "online"): void {

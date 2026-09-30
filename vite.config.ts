@@ -16,7 +16,15 @@ export default defineConfig({
               target: boardApiProxyTarget,
               ws: true,
             },
+            "/j": {
+              changeOrigin: true,
+              target: boardApiProxyTarget,
+            },
             "/login": {
+              changeOrigin: true,
+              target: boardApiProxyTarget,
+            },
+            "/logout": {
               changeOrigin: true,
               target: boardApiProxyTarget,
             },

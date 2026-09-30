@@ -5,9 +5,14 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: smart-ink-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   production-gate:
@@ -18,19 +23,42 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Compute CI gate routing
+        id: route
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+              git fetch --no-tags --depth=1 origin "${BASE_SHA}"
+            fi
+            node scripts/ci/compute-gate-routing.mjs \
+              --event pull_request \
+              --base "${BASE_SHA}" \
+              --head "${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
+          else
+            node scripts/ci/compute-gate-routing.mjs \
+              --event "${GITHUB_EVENT_NAME}" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Set up Node.js
+        if: steps.route.outputs.smart_ink == 'true'
         uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - name: Install locked dependencies
+        if: steps.route.outputs.smart_ink == 'true'
         run: npm ci
 
       - name: Install browsers
+        if: steps.route.outputs.smart_ink == 'true'
         run: npx playwright install --with-deps chromium firefox
 
       - name: Build production-gated bundle
+        if: steps.route.outputs.smart_ink == 'true'
         env:
           VITE_APP_STAGE: production
           VITE_FEATURE_SERVER_SYNC: "true"
@@ -40,6 +68,7 @@ jobs:
         run: npm run build
 
       - name: Verify Chromium and Firefox release behavior
+        if: steps.route.outputs.smart_ink == 'true'
         env:
           SMART_INK_RELEASE_GATE: disabled
         run: npx playwright test tests/e2e/smart-ink-release-gate.spec.ts

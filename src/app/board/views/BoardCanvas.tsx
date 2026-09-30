@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
   BoardStage,
@@ -30,12 +30,14 @@ import {
 } from "../../board-chrome/CanvasContextMenu";
 import type { ActiveToolId } from "../active-tool";
 import {
+  eraserToolId,
   geometryPlacementToolId,
   laserToolId,
   navigationToolId,
 } from "../active-tool";
 import type { BoardClipboardController } from "../controllers/useBoardClipboardController";
 import type { BoardDrawingController } from "../controllers/useBoardDrawingController";
+import type { BoardEraserController } from "../controllers/useBoardEraserController";
 import type { BoardHandwritingController } from "../controllers/useBoardHandwritingController";
 import type { BoardInteractionRouter } from "../controllers/useBoardInteractionRouter";
 import type { LaserPointerController } from "../controllers/useLaserPointerController";
@@ -43,12 +45,66 @@ import type { BoardSelectionController } from "../controllers/useBoardSelectionC
 import type { BoardSolid3DController } from "../controllers/useBoardSolid3DController";
 import type { CoordinatePlotController } from "../controllers/useCoordinatePlotController";
 
+function InlineTextPlacementEditor({
+  onCancel,
+  onChange,
+  onCommit,
+  screenPoint,
+  value,
+}: {
+  readonly onCancel: () => void;
+  readonly onChange: (value: string) => void;
+  readonly onCommit: () => void;
+  readonly screenPoint: Vec2;
+  readonly value: string;
+}) {
+  const cancelOnBlurRef = useRef(false);
+
+  return (
+    <textarea
+      aria-label="Редактор текста на доске"
+      autoFocus
+      className="board-inline-text-editor"
+      data-testid="board-inline-text-editor"
+      maxLength={100_000}
+      onBlur={() => {
+        if (!cancelOnBlurRef.current) onCommit();
+      }}
+      onChange={(event) => onChange(event.currentTarget.value)}
+      onFocus={(event) => event.currentTarget.select()}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          cancelOnBlurRef.current = true;
+          event.preventDefault();
+          event.stopPropagation();
+          onCancel();
+          return;
+        }
+        if (
+          event.key === "Enter" &&
+          (event.shiftKey || event.ctrlKey || event.metaKey)
+        ) {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+      rows={2}
+      style={{
+        left: screenPoint.x,
+        top: screenPoint.y,
+      }}
+      value={value}
+    />
+  );
+}
+
 export interface BoardCanvasProps {
   readonly activeTool: ActiveToolId;
   readonly announce: (message: string) => void;
   readonly clipboard: BoardClipboardController;
   readonly document: BoardDocument;
   readonly drawing: BoardDrawingController;
+  readonly eraser: BoardEraserController;
   readonly handwriting: BoardHandwritingController;
   readonly interaction: BoardInteractionRouter;
   readonly laser: LaserPointerController;
@@ -100,6 +156,7 @@ export function BoardCanvas({
   clipboard,
   document,
   drawing,
+  eraser,
   handwriting,
   interaction,
   laser,
@@ -121,8 +178,33 @@ export function BoardCanvas({
     useState<CanvasContextMenuRequest | null>(null);
   const [clearConfirmationOpen, setClearConfirmationOpen] = useState(false);
   const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);
+  const eraserHiddenIds = useMemo(
+    () =>
+      activeTool === eraserToolId && eraser.preview !== null
+        ? new Set(eraser.preview.hiddenObjectIds)
+        : new Set<BoardObjectId>(),
+    [activeTool, eraser.preview],
+  );
+  const renderedScene = useMemo(
+    () =>
+      eraserHiddenIds.size === 0
+        ? scene
+        : {
+            ...scene,
+            items: scene.items.filter(
+              ({ object }) => !eraserHiddenIds.has(object.id),
+            ),
+          },
+    [eraserHiddenIds, scene],
+  );
   const previewItems = useMemo(
     () => [
+      ...(activeTool === eraserToolId && eraser.preview !== null
+        ? eraser.preview.replacementObjects.map((object) => ({
+            object,
+            transforms: [],
+          }))
+        : []),
       ...(drawing.preview === null
         ? []
         : [{ object: drawing.preview, transforms: [] }]),
@@ -151,8 +233,10 @@ export function BoardCanvas({
       ),
     ],
     [
+      activeTool,
       document.objects,
       drawing.preview,
+      eraser.preview,
       handwriting.previewItems,
       remoteTransformPreviews,
     ],
@@ -175,6 +259,19 @@ export function BoardCanvas({
     plots.editor === null && isSelectionToolId(activeTool)
       ? selection.transformableObjectIds
       : [];
+  const textPlacement =
+    drawing.state.kind === "placing-text" ? drawing.state : null;
+  const textPlacementScreenPoint =
+    textPlacement === null
+      ? null
+      : {
+          x:
+            textPlacement.position.x * document.viewport.zoom +
+            document.viewport.offset.x,
+          y:
+            textPlacement.position.y * document.viewport.zoom +
+            document.viewport.offset.y,
+        };
 
   const clearCanvas = () => {
     const result = clipboard.clearAll();
@@ -190,9 +287,13 @@ export function BoardCanvas({
     <>
       <BoardStage
         coordinatePlotInteraction={plots.renderInteraction}
+        drawingConstraintFeedback={drawing.constraintFeedback}
+        eraserPoint={activeTool === eraserToolId ? eraser.point : null}
+        eraserRadiusPx={eraser.radiusPx}
         drawingModeKey={
           isDrawingToolId(activeTool) ||
           activeTool === handwrittenFunctionToolId ||
+          activeTool === eraserToolId ||
           activeTool === laserToolId ||
           activeTool === geometryPlacementToolId
             ? activeTool
@@ -218,11 +319,13 @@ export function BoardCanvas({
           announce("Включён режим выделения");
         }}
         onWorldPointerBatch={interaction.moveBatch}
+        onWorldModifiersChange={interaction.modifiersChange}
         onWorldPointerCancel={interaction.cancel}
         onWorldPointerFinish={interaction.finish}
         onWorldPointerMove={interaction.move}
         onWorldPointerHover={(cursor) => {
           onPointerHover(cursor);
+          if (activeTool === eraserToolId) eraser.hover(cursor);
           if (activeTool === laserToolId) laser.hover(cursor);
         }}
         onWorldPointerStart={interaction.start}
@@ -240,16 +343,13 @@ export function BoardCanvas({
         onViewportCommit={onViewportCommit}
         panMode={activeTool === navigationToolId}
         primaryCanvasGesturesEnabled={
-          activeTool === navigationToolId ||
-          activeTool === "drawing.pen" ||
-          activeTool === "drawing.smart-ink" ||
-          isSelectionToolId(activeTool)
+          activeTool === navigationToolId || isSelectionToolId(activeTool)
         }
         previewItems={previewItems}
         registry={registry}
         remoteCursors={remoteCursors}
         remoteInkPreviews={remoteInkPreviews}
-        scene={scene}
+        scene={renderedScene}
         selectedObjectIds={selection.state.selectedObjectIds}
         selectionBounds={selection.bounds}
         selectionLasso={selection.lasso}
@@ -259,6 +359,20 @@ export function BoardCanvas({
         transformableObjectIds={transformableObjectIds}
         wetInkStyle={wetInkStyle}
       />
+      {textPlacement === null || textPlacementScreenPoint === null ? null : (
+        <InlineTextPlacementEditor
+          onCancel={() => {
+            interaction.activate(selectionToolId);
+            announce("Ввод текста отменён");
+          }}
+          onChange={drawing.setTextDraft}
+          onCommit={() => {
+            drawing.commitTextPlacement();
+          }}
+          screenPoint={textPlacementScreenPoint}
+          value={textPlacement.text}
+        />
+      )}
       {contextMenu === null ? null : (
         <CanvasContextMenu
           canClear={document.order.length > 0}

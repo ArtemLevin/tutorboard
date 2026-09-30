@@ -182,10 +182,29 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByText("BoardDocument 1.4")).toBeInTheDocument();
+    expect(screen.getByText("BoardDocument 1.6")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Фигуры" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("erases multiple pen strokes as one undoable history entry", () => {
+    render(<App />);
+
+    fireEvent.keyDown(window, { code: "KeyP", key: "p" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("2/0");
+
+    fireEvent.keyDown(window, { code: "KeyX", key: "x" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("3/0");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
+    expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("2/1");
   });
 
   it("exposes board export through a dedicated toolbar icon", () => {
@@ -496,6 +515,14 @@ describe("App", () => {
     ).toBeDisabled();
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Текст" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    const textEditor = screen.getByRole("textbox", {
+      name: "Редактор текста на доске",
+    });
+    expect(textEditor).toHaveValue("Новый текст");
+    fireEvent.change(textEditor, { target: { value: "Новая заметка" } });
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    fireEvent.blur(textEditor);
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
     expect(screen.getByText("drawing.text")).toBeInTheDocument();
 

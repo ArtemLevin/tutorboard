@@ -6,11 +6,14 @@ import {
   migrateBoardDocument11To12,
   migrateBoardDocument12To13,
   migrateBoardDocument13To14,
+  migrateBoardDocument14To16,
+  migrateBoardDocument15To16,
 } from "../migrations";
 import type { ValidationIssue } from "./validate";
 import {
   knownBoardObjectKinds,
   knownBoardObjectKinds10,
+  knownBoardObjectKinds14,
   legacyBoardObjectKinds,
 } from "./schema";
 import { validateBoardDocument } from "./validate";
@@ -86,22 +89,34 @@ export function readBoardDocument(raw: unknown): BoardDocumentReadResult {
       : migratedResult(raw, migrateBoardDocument10To12);
   }
   if (schemaVersion === "1.1") {
-    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds);
+    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds14);
     return objectKinds.length > 0
       ? { status: "incompatible-object", raw, objectKinds }
       : migratedResult(raw, migrateBoardDocument11To12);
   }
   if (schemaVersion === "1.2") {
-    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds);
+    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds14);
     return objectKinds.length > 0
       ? { status: "incompatible-object", raw, objectKinds }
       : migratedResult(raw, migrateBoardDocument12To13);
   }
   if (schemaVersion === "1.3") {
-    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds);
+    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds14);
     return objectKinds.length > 0
       ? { status: "incompatible-object", raw, objectKinds }
       : migratedResult(raw, migrateBoardDocument13To14);
+  }
+  if (schemaVersion === "1.4") {
+    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds14);
+    return objectKinds.length > 0
+      ? { status: "incompatible-object", raw, objectKinds }
+      : migratedResult(raw, migrateBoardDocument14To16);
+  }
+  if (schemaVersion === "1.5") {
+    const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds);
+    return objectKinds.length > 0
+      ? { status: "incompatible-object", raw, objectKinds }
+      : migratedResult(raw, migrateBoardDocument15To16);
   }
   if (
     schemaVersion !== undefined &&

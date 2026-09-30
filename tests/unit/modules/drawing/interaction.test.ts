@@ -10,9 +10,11 @@ import {
   reduceBoardDocument,
   serializeBoardDocument,
 } from "../../../../src/core/public";
+import { noInputModifiers } from "../../../../src/shared/input-modifiers";
 import {
   createAddDrawingObjectCommand,
   drawingStyleDefaults,
+  getDrawingConstraintFeedback,
   getDrawingPreview,
   reduceDrawingInteraction,
   simplifyStroke,
@@ -113,6 +115,40 @@ describe("drawing interaction state machine", () => {
     expect(completed.state).toEqual(idle);
   });
 
+  it("creates a canonical pressure-aware dot from a tap", () => {
+    const started = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:dot"),
+      point: { x: 42, y: 24 },
+      pointerId: 31,
+      pressure: 0.7,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    });
+    const completed = reduceDrawingInteraction(started.state, {
+      inputTimestampMs: 104,
+      kind: "finish",
+      point: { x: 42, y: 24 },
+      pointerId: 31,
+      pressure: 0.8,
+    });
+
+    expect(completed.completedObject).toMatchObject({
+      kind: "drawing.pen-stroke",
+      points: [
+        { x: 42, y: 24 },
+        { x: 42, y: 24 },
+      ],
+    });
+    if (completed.completedObject?.kind !== "drawing.pen-stroke") return;
+    expect(completed.completedObject.ink?.samples).toHaveLength(2);
+    expect(completed.completedObject.ink?.samples[0]?.pressure).toBe(0.7);
+    expect(completed.completedObject.ink?.samples[1]?.pressure).toBe(0.8);
+    expect(completed.completedObject.ink?.centerline).toHaveLength(1);
+  });
+
   it("normalizes a rectangle drawn in reverse", () => {
     expect(
       draw("drawing.rectangle", { x: 140, y: 90 }, { x: 20, y: 30 }),
@@ -177,6 +213,62 @@ describe("drawing interaction state machine", () => {
     });
   });
 
+  it("updates a text placement preview without committing it", () => {
+    const started = reduceDrawingInteraction(idle, {
+      kind: "start",
+      objectId: boardObjectId("object:text-preview"),
+      point: { x: 40, y: 60 },
+      pointerId: 12,
+      style: styleFor("drawing.text"),
+      text: "",
+      tool: "drawing.text",
+    });
+    const changed = reduceDrawingInteraction(started.state, {
+      kind: "text-change",
+      pointerId: 12,
+      text: "  Новая формула  ",
+    });
+
+    expect(getDrawingPreview(changed.state)).toMatchObject({
+      kind: "drawing.text",
+      position: { x: 40, y: 60 },
+      text: "  Новая формула  ",
+    });
+    expect(changed.completedObject).toBeNull();
+
+    const completed = reduceDrawingInteraction(changed.state, {
+      kind: "finish",
+      point: { x: 40, y: 60 },
+      pointerId: 12,
+    });
+    expect(completed.completedObject).toMatchObject({
+      kind: "drawing.text",
+      text: "Новая формула",
+    });
+  });
+
+  it("keeps an empty text draft transient and rejects it on commit", () => {
+    const started = reduceDrawingInteraction(idle, {
+      kind: "start",
+      objectId: boardObjectId("object:empty-text-preview"),
+      point: { x: 10, y: 20 },
+      pointerId: 13,
+      style: styleFor("drawing.text"),
+      text: "",
+      tool: "drawing.text",
+    });
+    expect(started.state.kind).toBe("placing-text");
+
+    const completed = reduceDrawingInteraction(started.state, {
+      kind: "finish",
+      point: { x: 10, y: 20 },
+      pointerId: 13,
+    });
+    expect(completed.completedObject).toBeNull();
+    expect(completed.diagnostic).toBe("drawing.empty-text");
+    expect(completed.state).toEqual(idle);
+  });
+
   it("keeps preview runtime-only and cancels without an object", () => {
     const started = reduceDrawingInteraction(idle, {
       kind: "start",
@@ -207,6 +299,62 @@ describe("drawing interaction state machine", () => {
       state: idle,
     });
     expect(getDrawingPreview(cancelled.state)).toBeNull();
+  });
+
+  it("recomputes a shape immediately when Shift changes mid-gesture", () => {
+    const started = reduceDrawingInteraction(idle, {
+      kind: "start",
+      objectId: boardObjectId("object:late-shift-line"),
+      point: { x: 0, y: 0 },
+      pointerId: 21,
+      style: styleFor("drawing.line"),
+      text: "",
+      tool: "drawing.line",
+    });
+    const moved = reduceDrawingInteraction(started.state, {
+      kind: "move",
+      point: { x: 90, y: 70 },
+      pointerId: 21,
+    });
+    const rawPreview = getDrawingPreview(moved.state);
+    expect(rawPreview).toMatchObject({
+      end: { x: 90, y: 70 },
+      kind: "drawing.line",
+    });
+    expect(getDrawingConstraintFeedback(moved.state)).toBeNull();
+
+    const constrained = reduceDrawingInteraction(moved.state, {
+      kind: "modifiers",
+      modifiers: { ...noInputModifiers, shift: true },
+      pointerId: 21,
+    });
+    const constrainedPreview = getDrawingPreview(constrained.state);
+    expect(constrainedPreview).not.toEqual(rawPreview);
+    expect(getDrawingConstraintFeedback(constrained.state)).toMatchObject({
+      angleDegrees: 45,
+      kind: "angle",
+    });
+
+    const released = reduceDrawingInteraction(constrained.state, {
+      kind: "modifiers",
+      modifiers: noInputModifiers,
+      pointerId: 21,
+    });
+    expect(getDrawingPreview(released.state)).toEqual(rawPreview);
+
+    const constrainedAgain = reduceDrawingInteraction(released.state, {
+      kind: "modifiers",
+      modifiers: { ...noInputModifiers, shift: true },
+      pointerId: 21,
+    });
+    const finalPreview = getDrawingPreview(constrainedAgain.state);
+    const completed = reduceDrawingInteraction(constrainedAgain.state, {
+      kind: "finish",
+      point: { x: 90, y: 70 },
+      pointerId: 21,
+    });
+    expect(completed.completedObject).toEqual(finalPreview);
+    expect(completed.state).toEqual(idle);
   });
 
   it("ignores a different pointer and rejects empty geometry", () => {

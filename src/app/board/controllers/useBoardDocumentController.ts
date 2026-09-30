@@ -35,6 +35,13 @@ export interface UseBoardDocumentControllerOptions {
         previousDocument: BoardDocument,
       ) => void)
     | undefined;
+  readonly onCommandsCommitted?:
+    | ((
+        commands: readonly BoardCommand[],
+        document: BoardDocument,
+        previousDocument: BoardDocument,
+      ) => void)
+    | undefined;
   readonly onDocumentChange?: ((document: BoardDocument) => void) | undefined;
   readonly readOnly: boolean;
 }
@@ -47,6 +54,7 @@ export function useBoardDocumentController({
   mutationPolicy,
   onCollaborativeUndo,
   onCommandCommitted,
+  onCommandsCommitted,
   onDocumentChange,
   readOnly,
 }: UseBoardDocumentControllerOptions) {
@@ -140,6 +148,69 @@ export function useBoardDocumentController({
     [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],
   );
 
+  const commitCommands = useCallback(
+    (commands: readonly BoardCommand[]): CommandResult => {
+      if (!effectiveMutationPolicy.canWrite) {
+        return rejectMutation();
+      }
+      const initialDocument = documentRef.current;
+      if (commands.length === 0) {
+        return { document: initialDocument, ok: true };
+      }
+
+      const transitions: {
+        readonly command: BoardCommand;
+        readonly document: BoardDocument;
+        readonly previousDocument: BoardDocument;
+      }[] = [];
+      let currentDocument = initialDocument;
+      for (const command of commands) {
+        const result = reduceBoardDocument(currentDocument, command);
+        if (!result.ok) {
+          setState((current) => ({
+            ...current,
+            commandError: result.error.message,
+          }));
+          return { ...result, document: initialDocument };
+        }
+        transitions.push({
+          command,
+          document: result.document,
+          previousDocument: currentDocument,
+        });
+        currentDocument = result.document;
+      }
+
+      documentRef.current = currentDocument;
+      setState((current) => ({
+        commandError: null,
+        history: commitDocumentHistory(current.history, currentDocument),
+      }));
+      if (onCommandsCommitted !== undefined) {
+        onCommandsCommitted(
+          transitions.map(({ command }) => command),
+          currentDocument,
+          initialDocument,
+        );
+      } else {
+        for (const transition of transitions) {
+          onCommandCommitted?.(
+            transition.command,
+            transition.document,
+            transition.previousDocument,
+          );
+        }
+      }
+      return { document: currentDocument, ok: true };
+    },
+    [
+      effectiveMutationPolicy.canWrite,
+      onCommandCommitted,
+      onCommandsCommitted,
+      rejectMutation,
+    ],
+  );
+
   const setCommandError = useCallback((message: string | null) => {
     setState((current) => ({ ...current, commandError: message }));
   }, []);
@@ -203,6 +274,7 @@ export function useBoardDocumentController({
   return {
     commandError: state.commandError,
     commitCommand,
+    commitCommands,
     createCommandMetadata,
     document,
     getDocument,

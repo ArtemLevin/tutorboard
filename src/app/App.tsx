@@ -30,6 +30,7 @@ import {
 import { useBoardClipboardController } from "./board/controllers/useBoardClipboardController";
 import { useBoardDocumentController } from "./board/controllers/useBoardDocumentController";
 import { useBoardDrawingController } from "./board/controllers/useBoardDrawingController";
+import { useBoardEraserController } from "./board/controllers/useBoardEraserController";
 import { useBoardGeometryController } from "./board/controllers/useBoardGeometryController";
 import { useBoardHandwritingController } from "./board/controllers/useBoardHandwritingController";
 import { useBoardInteractionRouter } from "./board/controllers/useBoardInteractionRouter";
@@ -73,6 +74,13 @@ export interface AppProps {
   readonly onCommandCommitted?:
     | ((
         command: BoardCommand,
+        document: BoardDocument,
+        previousDocument: BoardDocument,
+      ) => void)
+    | undefined;
+  readonly onCommandsCommitted?:
+    | ((
+        commands: readonly BoardCommand[],
         document: BoardDocument,
         previousDocument: BoardDocument,
       ) => void)
@@ -167,6 +175,7 @@ export function App({
   mathInkRecognizer,
   initialDocument,
   onCommandCommitted,
+  onCommandsCommitted,
   onCollaborativeUndo,
   onDocumentChange,
   onExportDocument,
@@ -199,6 +208,7 @@ export function App({
     initialDocument: initialDocument ?? localInitialDocument,
     onCollaborativeUndo,
     onCommandCommitted,
+    onCommandsCommitted,
     onDocumentChange,
     readOnly,
   });
@@ -482,11 +492,16 @@ export function App({
     resolvePlacementCenter,
   });
 
+  const eraser = useBoardEraserController({
+    announce,
+    documentController,
+  });
   const laser = useLaserPointerController();
   const interaction = useBoardInteractionRouter({
     activeTool,
     documentController,
     drawing,
+    eraser,
     geometry,
     handwriting,
     laser,
@@ -527,6 +542,7 @@ export function App({
     closeSettings: () => setSettingsOpen(false),
     closeShortcuts,
     documentController,
+    drawing,
     geometryOpen: geometry.open,
     handwriting,
     handwrittenFunctionsEnabled: environment.features.handwrittenFunctions,
@@ -615,6 +631,7 @@ export function App({
           clipboard={clipboard}
           document={document}
           drawing={drawing}
+          eraser={eraser}
           handwriting={handwriting}
           interaction={interaction}
           laser={laser}
@@ -652,6 +669,7 @@ export function App({
           collaborativeUndoAvailable={collaborativeUndoAvailable}
           documentController={documentController}
           drawing={drawing}
+          eraser={eraser}
           geometry={geometry}
           handwrittenFunctionsEnabled={
             environment.features.handwrittenFunctions

@@ -7,6 +7,7 @@ import {
 } from "../../../core/public";
 import {
   createAddDrawingObjectCommand,
+  getDrawingConstraintFeedback,
   getDrawingPreview,
   reduceDrawingInteraction,
   type DrawingAction,
@@ -14,6 +15,7 @@ import {
   type DrawingToolId,
   type UserDrawingObject,
 } from "../../../modules/drawing/public";
+import type { InputModifiers } from "../../../shared/input-modifiers";
 import {
   createAcceptSmartInkCompositeCommand,
   createAcceptSmartInkProposalCommand,
@@ -29,6 +31,7 @@ const polygonSides = 5;
 
 interface DrawingPointerSample {
   readonly inputTimestampMs?: number | undefined;
+  readonly modifiers?: InputModifiers | undefined;
   readonly point: Vec2;
   readonly pointerId: number;
   readonly pressure: number;
@@ -52,10 +55,14 @@ export function useBoardDrawingController({
   const [diagnostic, setDiagnostic] = useState<string | null>(null);
   const [smartInkNotice, setSmartInkNotice] = useState<string | null>(null);
   const recentSmartInkObjectIdsRef = useRef<BoardObjectId[]>([]);
-  const [textDraft, setTextDraft] = useState("Новый текст");
+  const [textDraft, setTextDraftState] = useState("Новый текст");
   const { styleFor, updateStyle } = useDrawingToolPreferences();
 
   const preview = useMemo(() => getDrawingPreview(state), [state]);
+  const constraintFeedback = useMemo(
+    () => getDrawingConstraintFeedback(state),
+    [state],
+  );
 
   const commitObject = useCallback(
     (object: UserDrawingObject) =>
@@ -151,6 +158,20 @@ export function useBoardDrawingController({
     ],
   );
 
+  const setTextDraft = useCallback(
+    (value: string) => {
+      setTextDraftState(value);
+      const current = stateRef.current;
+      if (current.kind !== "placing-text") return;
+      applyAction({
+        kind: "text-change",
+        pointerId: current.pointerId,
+        text: value,
+      });
+    },
+    [applyAction],
+  );
+
   const start = useCallback(
     (tool: DrawingToolId, sample: DrawingPointerSample) => {
       if (tool === "drawing.smart-ink") setSmartInkNotice(null);
@@ -160,6 +181,9 @@ export function useBoardDrawingController({
         ...(sample.inputTimestampMs === undefined
           ? {}
           : { inputTimestampMs: sample.inputTimestampMs }),
+        ...(sample.modifiers === undefined
+          ? {}
+          : { modifiers: sample.modifiers }),
         point: sample.point,
         polygonSides,
         pointerId: sample.pointerId,
@@ -179,6 +203,9 @@ export function useBoardDrawingController({
         ...(sample.inputTimestampMs === undefined
           ? {}
           : { inputTimestampMs: sample.inputTimestampMs }),
+        ...(sample.modifiers === undefined
+          ? {}
+          : { modifiers: sample.modifiers }),
         point: sample.point,
         pointerId: sample.pointerId,
         pressure: sample.pressure,
@@ -196,6 +223,9 @@ export function useBoardDrawingController({
         ...(sample.inputTimestampMs === undefined
           ? {}
           : { inputTimestampMs: sample.inputTimestampMs }),
+        ...(sample.modifiers === undefined
+          ? {}
+          : { modifiers: sample.modifiers }),
         point: sample.point,
         pointerId: sample.pointerId,
         pressure: sample.pressure,
@@ -216,12 +246,29 @@ export function useBoardDrawingController({
           ...(sample.inputTimestampMs === undefined
             ? {}
             : { inputTimestampMs: sample.inputTimestampMs }),
+          ...(sample.modifiers === undefined
+            ? {}
+            : { modifiers: sample.modifiers }),
           point: sample.point,
           pointerId: sample.pointerId,
           pressure: sample.pressure,
         },
         tool === "drawing.smart-ink",
       );
+    },
+    [applyAction],
+  );
+
+  const modifiersChange = useCallback(
+    (sample: {
+      readonly modifiers: InputModifiers;
+      readonly pointerId: number;
+    }) => {
+      applyAction({
+        kind: "modifiers",
+        modifiers: sample.modifiers,
+        pointerId: sample.pointerId,
+      });
     },
     [applyAction],
   );
@@ -235,32 +282,38 @@ export function useBoardDrawingController({
     [applyAction],
   );
 
+  const commitTextPlacement = useCallback(() => {
+    const current = stateRef.current;
+    if (current.kind !== "placing-text") return false;
+    const finished = reduceDrawingInteraction(current, {
+      kind: "finish",
+      point: current.position,
+      pointerId: current.pointerId,
+    });
+    stateRef.current = finished.state;
+    setState(finished.state);
+    setDiagnostic(finished.diagnostic);
+    if (finished.completedObject === null) return false;
+    if (!commitObject(finished.completedObject).ok) return false;
+    onTextInserted(finished.completedObject.id);
+    announce("Текст добавлен");
+    return true;
+  }, [announce, commitObject, onTextInserted]);
+
   const insertTextAt = useCallback(
     (point: Vec2) => {
-      const pointerId = 0;
-      const started = reduceDrawingInteraction(initialDrawingState, {
+      if (stateRef.current.kind !== "idle") cancel();
+      applyAction({
         kind: "start",
         objectId: boardObjectId(`object:${crypto.randomUUID()}`),
         point,
-        pointerId,
+        pointerId: 0,
         style: styleFor("drawing.text"),
         text: textDraft,
         tool: "drawing.text",
       });
-      const finished = reduceDrawingInteraction(started.state, {
-        kind: "finish",
-        point,
-        pointerId,
-      });
-      if (finished.completedObject === null) {
-        setDiagnostic(finished.diagnostic);
-        return;
-      }
-      if (!commitObject(finished.completedObject).ok) return;
-      onTextInserted(finished.completedObject.id);
-      announce("Текст добавлен");
     },
-    [announce, commitObject, onTextInserted, styleFor, textDraft],
+    [applyAction, cancel, styleFor, textDraft],
   );
 
   const resetSmartInkSession = useCallback(() => {
@@ -272,9 +325,12 @@ export function useBoardDrawingController({
 
   return {
     cancel,
+    commitTextPlacement,
+    constraintFeedback,
     diagnostic,
     finish,
     insertTextAt,
+    modifiersChange,
     move,
     moveBatch,
     preview,

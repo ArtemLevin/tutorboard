@@ -21,6 +21,7 @@
     "eslint.config.js",
     "playwright.config.ts",
     "playwright.fullstack.config.ts",
+    "playwright.standalone-pilot.config.ts",
     "playwright.visual.config.ts",
     "vite.config.ts",
     "tests/e2e",

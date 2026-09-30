@@ -89,6 +89,7 @@ function localSelectionPath(object: BoardObject): SelectionPath {
     case "drawing.rectangle":
     case "math.coordinate-plot":
     case "image.embedded":
+    case "media.asset":
     case "svg-import.svg":
       return {
         closed: true,
@@ -366,4 +367,181 @@ export function selectSelectionBounds(
   return scene.items
     .filter((item) => selected.has(item.object.id))
     .map((item) => ({ id: item.object.id, rect: itemBounds(item) }));
+}
+
+function pointToSegmentDistance(
+  point: Vec2,
+  start: Vec2,
+  finish: Vec2,
+): number {
+  const dx = finish.x - start.x;
+  const dy = finish.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared <= geometryEpsilon) return pointDistance(point, start);
+  const ratio = Math.min(
+    1,
+    Math.max(
+      0,
+      ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared,
+    ),
+  );
+  return pointDistance(point, {
+    x: start.x + dx * ratio,
+    y: start.y + dy * ratio,
+  });
+}
+
+function pathDistanceToPoint(path: SelectionPath, point: Vec2): number {
+  const segments = pathSegments(path);
+  if (segments.length === 0) {
+    return path.points[0] === undefined
+      ? Number.POSITIVE_INFINITY
+      : pointDistance(point, path.points[0]);
+  }
+  return Math.min(
+    ...segments.map(([start, finish]) =>
+      pointToSegmentDistance(point, start, finish),
+    ),
+  );
+}
+
+function selectableInterior(object: BoardObject): boolean {
+  if (object.style.fill !== null) return true;
+  return (
+    object.kind === "drawing.text" ||
+    object.kind === "image.embedded" ||
+    object.kind === "media.asset" ||
+    object.kind === "svg-import.svg" ||
+    object.kind === "math.coordinate-plot"
+  );
+}
+
+function segmentDistance(
+  leftStart: Vec2,
+  leftFinish: Vec2,
+  rightStart: Vec2,
+  rightFinish: Vec2,
+): number {
+  if (segmentsIntersect(leftStart, leftFinish, rightStart, rightFinish)) {
+    return 0;
+  }
+  return Math.min(
+    pointToSegmentDistance(leftStart, rightStart, rightFinish),
+    pointToSegmentDistance(leftFinish, rightStart, rightFinish),
+    pointToSegmentDistance(rightStart, leftStart, leftFinish),
+    pointToSegmentDistance(rightFinish, leftStart, leftFinish),
+  );
+}
+
+function pathDistanceToPath(
+  left: SelectionPath,
+  right: SelectionPath,
+): number {
+  const leftSegments = pathSegments(left);
+  const rightSegments = pathSegments(right);
+  if (leftSegments.length === 0) {
+    const point = left.points[0];
+    return point === undefined
+      ? Number.POSITIVE_INFINITY
+      : pathDistanceToPoint(right, point);
+  }
+  if (rightSegments.length === 0) {
+    const point = right.points[0];
+    return point === undefined
+      ? Number.POSITIVE_INFINITY
+      : pathDistanceToPoint(left, point);
+  }
+  let minimum = Number.POSITIVE_INFINITY;
+  for (const [leftStart, leftFinish] of leftSegments) {
+    for (const [rightStart, rightFinish] of rightSegments) {
+      minimum = Math.min(
+        minimum,
+        segmentDistance(leftStart, leftFinish, rightStart, rightFinish),
+      );
+      if (minimum <= geometryEpsilon) return 0;
+    }
+  }
+  return minimum;
+}
+
+export function selectObjectIdsNearPath(
+  scene: BoardSceneReadModel,
+  rawPoints: readonly Vec2[],
+  tolerance: number,
+): readonly BoardObjectId[] {
+  const points = rawPoints.filter(finitePoint).slice(0, maximumLassoPoints);
+  if (points.length === 0 || !Number.isFinite(tolerance) || tolerance < 0) {
+    return [];
+  }
+  const brushPath: SelectionPath = { closed: false, points };
+  return scene.items
+    .filter((item) => {
+      if (!item.object.visible) return false;
+      const objectPath = transformedSelectionPath(item);
+      if (
+        objectPath.closed &&
+        selectableInterior(item.object) &&
+        points.some((point) => pointInPolygon(point, objectPath.points))
+      ) {
+        return true;
+      }
+      return pathDistanceToPath(objectPath, brushPath) <= tolerance;
+    })
+    .map((item) => item.object.id);
+}
+
+export function selectTopObjectIdNearPoint(
+  scene: BoardSceneReadModel,
+  point: Vec2,
+  tolerance: number,
+): BoardObjectId | null {
+  if (!finitePoint(point) || !Number.isFinite(tolerance) || tolerance < 0) {
+    return null;
+  }
+  for (let index = scene.items.length - 1; index >= 0; index -= 1) {
+    const item = scene.items[index];
+    if (item === undefined || !item.object.visible) continue;
+    const path = transformedSelectionPath(item);
+    if (
+      path.closed &&
+      selectableInterior(item.object) &&
+      pointInPolygon(point, path.points)
+    ) {
+      return item.object.id;
+    }
+    if (pathDistanceToPoint(path, point) <= tolerance) {
+      return item.object.id;
+    }
+  }
+  return null;
+}
+
+export function aggregateSelectionBounds(
+  bounds: readonly SelectionBounds[],
+  padding = 0,
+): Rect2 | null {
+  if (bounds.length === 0 || !Number.isFinite(padding) || padding < 0) {
+    return null;
+  }
+  const left = Math.min(...bounds.map(({ rect }) => rect.x)) - padding;
+  const top = Math.min(...bounds.map(({ rect }) => rect.y)) - padding;
+  const right =
+    Math.max(...bounds.map(({ rect }) => rect.x + rect.width)) + padding;
+  const bottom =
+    Math.max(...bounds.map(({ rect }) => rect.y + rect.height)) + padding;
+  return {
+    height: bottom - top,
+    width: right - left,
+    x: left,
+    y: top,
+  };
+}
+
+export function pointInSelectionBounds(point: Vec2, rect: Rect2): boolean {
+  return (
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height
+  );
 }

@@ -77,7 +77,7 @@ function initialInvitations(): Map<string, MockInvitation[]> {
           boardId: initialBoardId,
           createdAt: "2026-08-16T13:00:00.000Z",
           displayName: "Ксения",
-          expiresAt: "2026-08-23T13:00:00.000Z",
+          expiresAt: "2099-08-23T13:00:00.000Z",
           invitationId: initialInvitationId,
           lastUsedAt: null,
           revokedAt: null,

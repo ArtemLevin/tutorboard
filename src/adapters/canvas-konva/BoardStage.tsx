@@ -34,6 +34,7 @@ import {
   type Vec2,
   type ViewportState,
 } from "../../core/public";
+import type { InputModifiers } from "../../shared/input-modifiers";
 import {
   buildSmoothClosedStrokePoints,
   flattenStrokePoints,
@@ -110,9 +111,15 @@ interface SelectionSession {
 
 export interface WorldPointerSample {
   readonly inputTimestampMs?: number;
+  readonly modifiers?: InputModifiers;
   readonly point: Vec2;
   readonly pointerId: number;
   readonly pressure: number;
+}
+
+export interface WorldModifierSample {
+  readonly modifiers: InputModifiers;
+  readonly pointerId: number;
 }
 
 type TimedWorldPointerSample = Omit<WorldPointerSample, "inputTimestampMs"> &
@@ -122,7 +129,9 @@ export type BoardSelectionAreaOperation = "add" | "replace" | "subtract";
 
 export interface SelectionPointerStartSample extends WorldPointerSample {
   readonly additive: boolean;
+  readonly areaOnly?: boolean;
   readonly areaOperation?: BoardSelectionAreaOperation;
+  readonly hitToleranceWorld?: number;
   readonly objectId: BoardObjectId | null;
 }
 
@@ -155,6 +164,13 @@ export interface BoardStageProps {
   readonly coordinatePlotInteraction?:
     CoordinatePlotRenderInteraction | undefined;
   readonly drawingModeKey: string | null;
+  readonly drawingConstraintFeedback?: {
+    readonly anchor: Vec2;
+    readonly label: string;
+    readonly point: Vec2;
+  } | null;
+  readonly eraserPoint?: Vec2 | null;
+  readonly eraserRadiusPx?: number;
   readonly laserActive?: boolean;
   readonly laserPoint?: Vec2 | null;
   readonly laserTrailOpacity?: number;
@@ -169,6 +185,8 @@ export interface BoardStageProps {
   readonly onWorldPointerCancel: (pointerId: number) => void;
   readonly onWorldPointerFinish: (sample: WorldPointerSample) => void;
   readonly onWorldPointerMove: (sample: WorldPointerSample) => void;
+  readonly onWorldModifiersChange?:
+    ((sample: WorldModifierSample) => void) | undefined;
   readonly onWorldPointerBatch?:
     ((samples: readonly WorldPointerSample[]) => void) | undefined;
   readonly onWorldPointerHover?: (point: Vec2) => void;
@@ -178,7 +196,7 @@ export interface BoardStageProps {
   readonly onSelectionPointerMove: (sample: WorldPointerSample) => void;
   readonly onSelectionPointerStart: (
     sample: SelectionPointerStartSample,
-  ) => void;
+  ) => boolean | void;
   readonly onSelectionTransform?: (
     transforms: readonly BoardObjectTransformSnapshot[],
   ) => void;
@@ -223,6 +241,20 @@ function isEditableTarget(target: EventTarget | null): boolean {
     target instanceof HTMLTextAreaElement ||
     (target instanceof HTMLElement && target.isContentEditable)
   );
+}
+
+function readInputModifiers(event: {
+  readonly altKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+  readonly shiftKey: boolean;
+}): InputModifiers {
+  return {
+    alt: event.altKey,
+    ctrl: event.ctrlKey,
+    meta: event.metaKey,
+    shift: event.shiftKey,
+  };
 }
 
 function sameViewport(left: ViewportState, right: ViewportState): boolean {
@@ -331,6 +363,9 @@ function normalizeTransformValue(value: number): number {
 export function BoardStage({
   coordinatePlotInteraction,
   drawingModeKey,
+  drawingConstraintFeedback = null,
+  eraserPoint = null,
+  eraserRadiusPx = 12,
   laserActive = false,
   laserPoint = null,
   laserTrailOpacity = 1,
@@ -344,6 +379,7 @@ export function BoardStage({
   onWorldPointerCancel,
   onWorldPointerFinish,
   onWorldPointerMove,
+  onWorldModifiersChange,
   onWorldPointerBatch,
   onWorldPointerHover,
   onWorldPointerStart,
@@ -394,6 +430,7 @@ export function BoardStage({
   const worldPointerCallbacksRef = useRef({
     batch: onWorldPointerBatch,
     cancel: onWorldPointerCancel,
+    modifiers: onWorldModifiersChange,
     finish: onWorldPointerFinish,
     move: onWorldPointerMove,
     start: onWorldPointerStart,
@@ -552,6 +589,7 @@ export function BoardStage({
     worldPointerCallbacksRef.current = {
       batch: onWorldPointerBatch,
       cancel: onWorldPointerCancel,
+      modifiers: onWorldModifiersChange,
       finish: onWorldPointerFinish,
       move: onWorldPointerMove,
       start: onWorldPointerStart,
@@ -560,6 +598,7 @@ export function BoardStage({
     onWorldPointerBatch,
     onWorldPointerCancel,
     onWorldPointerFinish,
+    onWorldModifiersChange,
     onWorldPointerMove,
     onWorldPointerStart,
   ]);
@@ -612,6 +651,7 @@ export function BoardStage({
       session: DrawingSession,
     ): TimedWorldPointerSample => ({
       inputTimestampMs: pointerEventInputTimestampMs(event),
+      modifiers: readInputModifiers(event),
       point: screenToWorld(
         elementPoint(event, session.captureElement),
         session.viewport,
@@ -701,6 +741,7 @@ export function BoardStage({
       event: PointerEvent,
       captureElement: HTMLElement,
       objectId: BoardObjectId | null,
+      areaOnly = false,
     ) => {
       captureElement.setPointerCapture(event.pointerId);
       const session: SelectionSession = {
@@ -710,16 +751,21 @@ export function BoardStage({
       };
       selectionSessionRef.current = session;
       setIsSelecting(true);
-      selectionPointerCallbacksRef.current.start({
+      const consumed = selectionPointerCallbacksRef.current.start({
         ...selectionWorldSample(event, session),
         additive: event.shiftKey,
+        areaOnly,
         areaOperation: event.altKey
           ? "subtract"
           : event.shiftKey
             ? "add"
             : "replace",
+        hitToleranceWorld: 12 / session.viewport.zoom,
         objectId,
       });
+      if (consumed === true) {
+        primaryCanvasPointerCandidateRef.current = null;
+      }
     },
     [previewViewport, selectionWorldSample],
   );
@@ -977,10 +1023,11 @@ export function BoardStage({
         if (stationary) {
           event.preventDefault();
           if (drawingSessionRef.current?.pointerId === event.pointerId) {
-            finishDrawing(false);
-          } else if (
-            selectionSessionRef.current?.pointerId === event.pointerId
-          ) {
+            clearPendingPrimaryCanvasTap();
+            finishDrawing(true, event);
+            return;
+          }
+          if (selectionSessionRef.current?.pointerId === event.pointerId) {
             finishSelection(false);
           } else if (panSessionRef.current?.pointerId === event.pointerId) {
             finishPan(false);
@@ -1046,6 +1093,16 @@ export function BoardStage({
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
+      const drawingSession = drawingSessionRef.current;
+      if (
+        drawingSession !== null &&
+        ["Alt", "Control", "Meta", "Shift"].includes(event.key)
+      ) {
+        worldPointerCallbacksRef.current.modifiers?.({
+          modifiers: readInputModifiers(event),
+          pointerId: drawingSession.pointerId,
+        });
+      }
       if (event.code === "Escape") {
         finishDrawing(false);
         finishSelection(false);
@@ -1060,6 +1117,16 @@ export function BoardStage({
       }
     };
     const handleKeyUp = (event: KeyboardEvent) => {
+      const drawingSession = drawingSessionRef.current;
+      if (
+        drawingSession !== null &&
+        ["Alt", "Control", "Meta", "Shift"].includes(event.key)
+      ) {
+        worldPointerCallbacksRef.current.modifiers?.({
+          modifiers: readInputModifiers(event),
+          pointerId: drawingSession.pointerId,
+        });
+      }
       if (event.code === "Space") {
         spacePressedRef.current = false;
         setSpacePressed(false);
@@ -1267,7 +1334,13 @@ export function BoardStage({
     }
     commitWheel();
     event.preventDefault();
-    beginSelectionSession(event.nativeEvent, event.currentTarget, null);
+    beginSelectionSession(
+      event.nativeEvent,
+      event.currentTarget,
+      null,
+      selectionModeKey === "selection.lasso" &&
+        (event.shiftKey || event.altKey),
+    );
   };
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
@@ -1367,7 +1440,12 @@ export function BoardStage({
       }
       const captureElement = stage.container();
       if (selectionModeKey !== null || shouldSelectHitObject) {
-        beginSelectionSession(event.evt, captureElement, hitObjectId);
+        beginSelectionSession(
+          event.evt,
+          captureElement,
+          hitObjectId,
+          isLassoAreaModifier,
+        );
         return;
       }
       captureElement.setPointerCapture(event.evt.pointerId);
@@ -1536,7 +1614,9 @@ export function BoardStage({
       }
       data-cursor-kind={cursorKind}
       data-drawing={isDrawing}
+      data-drawing-constraint={drawingConstraintFeedback?.label ?? "none"}
       data-drawing-mode={drawingModeKey ?? "none"}
+      data-eraser-visible={eraserPoint !== null}
       data-lasso-points={selectionLasso?.length ?? 0}
       data-lassoing={selectionLasso !== null}
       data-laser-active={laserActive}
@@ -1659,6 +1739,52 @@ export function BoardStage({
                   points={[...flattenStrokePoints(smoothedSelectionLasso)]}
                   stroke="#2c7182"
                   strokeWidth={2 / previewViewport.zoom}
+                />
+              </>
+            )}
+            {eraserPoint === null ? null : (
+              <Circle
+                fill="rgba(255,255,255,0.35)"
+                listening={false}
+                radius={eraserRadiusPx / previewViewport.zoom}
+                stroke="#245d6b"
+                strokeWidth={1.5 / previewViewport.zoom}
+                x={eraserPoint.x}
+                y={eraserPoint.y}
+              />
+            )}
+            {drawingConstraintFeedback === null ? null : (
+              <>
+                <Circle
+                  fill="#ffffff"
+                  radius={4.5 / previewViewport.zoom}
+                  stroke="#2c7182"
+                  strokeWidth={1.5 / previewViewport.zoom}
+                  x={drawingConstraintFeedback.anchor.x}
+                  y={drawingConstraintFeedback.anchor.y}
+                />
+                <Circle
+                  fill="#2c7182"
+                  radius={3.5 / previewViewport.zoom}
+                  stroke="#ffffff"
+                  strokeWidth={1 / previewViewport.zoom}
+                  x={drawingConstraintFeedback.point.x}
+                  y={drawingConstraintFeedback.point.y}
+                />
+                <Text
+                  fill="#245d6b"
+                  fontSize={13 / previewViewport.zoom}
+                  fontStyle="bold"
+                  listening={false}
+                  text={drawingConstraintFeedback.label}
+                  x={
+                    drawingConstraintFeedback.point.x +
+                    10 / previewViewport.zoom
+                  }
+                  y={
+                    drawingConstraintFeedback.point.y -
+                    24 / previewViewport.zoom
+                  }
                 />
               </>
             )}

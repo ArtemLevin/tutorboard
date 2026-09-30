@@ -24,7 +24,9 @@ import type {
 import { isValidIdentifier } from "../identifiers";
 import {
   boardObjectKinds,
+  boardObjectKinds14,
   embeddedImageMimeTypes,
+  mediaAssetMimeTypes,
   strokeStyles,
   svgSanitizerPolicyVersion,
 } from "../objects";
@@ -154,7 +156,7 @@ const cubicBezierSegmentSchema = z
     start: vec2Schema,
   })
   .strict();
-const vectorInkSchema = z
+const vectorInkSchema15 = z
   .object({
     centerline: z.array(cubicBezierSegmentSchema).min(1).max(100_000),
     closed: z.boolean(),
@@ -162,12 +164,56 @@ const vectorInkSchema = z
     version: z.literal(vectorInkSchemaVersion),
   })
   .strict();
+const vectorInkSchema = z
+  .object({
+    centerline: z.array(cubicBezierSegmentSchema).max(100_000),
+    closed: z.boolean(),
+    samples: z.array(vectorInkSampleSchema).min(1).max(100_000),
+    version: z.literal(vectorInkSchemaVersion),
+  })
+  .strict()
+  .superRefine((ink, context) => {
+    if (ink.samples.length === 1) {
+      if (ink.centerline.length !== 0) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Single-sample Vector Ink dots must not contain centerline segments.",
+          path: ["centerline"],
+        });
+      }
+      if (ink.closed) {
+        context.addIssue({
+          code: "custom",
+          message: "Single-sample Vector Ink dots cannot be closed.",
+          path: ["closed"],
+        });
+      }
+      return;
+    }
+    if (ink.centerline.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Multi-sample Vector Ink requires at least one centerline segment.",
+        path: ["centerline"],
+      });
+    }
+  });
+const penStrokeSchema15 = z
+  .object({
+    ...objectBase,
+    ink: vectorInkSchema15,
+    kind: z.literal("drawing.pen-stroke"),
+    points: z.array(vec2Schema).min(2).max(100_000),
+  })
+  .strict();
 const penStrokeSchema = z
   .object({
     ...objectBase,
     ink: vectorInkSchema,
     kind: z.literal("drawing.pen-stroke"),
-    points: z.array(vec2Schema).min(2).max(100_000),
+    points: z.array(vec2Schema).min(1).max(100_000),
   })
   .strict();
 const lineSchema = z
@@ -212,6 +258,19 @@ const embeddedImageObjectSchema = z
     intrinsicSize: svgSizeSchema,
     kind: z.literal("image.embedded"),
     mimeType: z.enum(embeddedImageMimeTypes),
+    size: svgSizeSchema,
+  })
+  .strict();
+const mediaAssetObjectSchema = z
+  .object({
+    ...objectBase,
+    assetId: identifierSchema,
+    byteSize: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    contentSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    fileName: z.string().min(1).max(256),
+    intrinsicSize: svgSizeSchema,
+    kind: z.literal("media.asset"),
+    mimeType: z.enum(mediaAssetMimeTypes),
     size: svgSizeSchema,
   })
   .strict();
@@ -399,12 +458,34 @@ const objectSchema11 = z.discriminatedUnion("kind", [
   coordinatePlotObjectSchema,
 ]);
 const objectSchema12 = z.discriminatedUnion("kind", [
+  penStrokeSchema15,
+  lineSchema,
+  rectangleSchema,
+  ellipseSchema,
+  textSchema,
+  embeddedImageObjectSchema,
+  svgObjectSchema,
+  coordinatePlotObjectSchema,
+]);
+const objectSchema15 = z.discriminatedUnion("kind", [
+  penStrokeSchema15,
+  lineSchema,
+  rectangleSchema,
+  ellipseSchema,
+  textSchema,
+  embeddedImageObjectSchema,
+  mediaAssetObjectSchema,
+  svgObjectSchema,
+  coordinatePlotObjectSchema,
+]);
+const objectSchema16 = z.discriminatedUnion("kind", [
   penStrokeSchema,
   lineSchema,
   rectangleSchema,
   ellipseSchema,
   textSchema,
   embeddedImageObjectSchema,
+  mediaAssetObjectSchema,
   svgObjectSchema,
   coordinatePlotObjectSchema,
 ]);
@@ -939,7 +1020,7 @@ export const boardDocumentSchema13 = boardDocumentSchema12
     solidModels: z.record(solid3DIdSchema, solidRecordSchema),
   })
   .strict();
-export const boardDocumentSchema = boardDocumentSchema13
+export const boardDocumentSchema14 = boardDocumentSchema13
   .extend({
     schemaVersion: z.literal("1.4"),
     solidLearningAttempts: z.record(
@@ -948,6 +1029,22 @@ export const boardDocumentSchema = boardDocumentSchema13
     ),
   })
   .strict();
+
+export const boardDocumentSchema15 = boardDocumentSchema14
+  .extend({
+    objects: z.record(boardObjectIdSchema, objectSchema15),
+    schemaVersion: z.literal("1.5"),
+  })
+  .strict();
+
+export const boardDocumentSchema16 = boardDocumentSchema15
+  .extend({
+    objects: z.record(boardObjectIdSchema, objectSchema16),
+    schemaVersion: z.literal("1.6"),
+  })
+  .strict();
+
+export const boardDocumentSchema = boardDocumentSchema16;
 
 export const legacyBoardObjectKinds = new Set<string>([
   "drawing.pen-stroke",
@@ -965,4 +1062,6 @@ export const knownBoardObjectKinds10 = new Set<string>([
   "image.embedded",
   "svg-import.svg",
 ]);
+export const knownBoardObjectKinds14 = new Set<string>(boardObjectKinds14);
 export const knownBoardObjectKinds = new Set<string>(boardObjectKinds);
+export const knownBoardObjectKinds15 = knownBoardObjectKinds;

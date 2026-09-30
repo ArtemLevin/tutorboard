@@ -43,6 +43,20 @@ class FakeSocket extends EventTarget {
   }
 }
 
+class DeferredCloseSocket extends FakeSocket {
+  override close(code = 1000, reason = ""): void {
+    this.closeCode = code;
+    this.closeReason = reason;
+    this.readyState = 3;
+  }
+
+  finishClose(): void {
+    this.dispatchEvent(
+      new CloseEvent("close", { code: this.closeCode ?? 1000 }),
+    );
+  }
+}
+
 function parseSocketMessage(value: string): Record<string, unknown> {
   const parsed: unknown = JSON.parse(value);
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
@@ -219,10 +233,14 @@ describe("Board collaboration WebSocket adapter", () => {
     oversizedSocket.receiveRaw(
       "x".repeat(maximumBoardCollaborationMessageCharacters + 1),
     );
-    expect(oversizedSocket.closeCode).toBe(1009);
-    oversizedSocket.receiveRaw(new Blob(["binary"]));
-    expect(oversizedSocket.closeCode).toBe(1003);
+    expect(oversizedSocket.closeCode).toBe(4409);
 
+    client.stop();
+    client.start();
+    await vi.waitFor(() => expect(sockets).toHaveLength(2));
+    const binarySocket = sockets[1]!;
+    binarySocket.receiveRaw(new Blob(["binary"]));
+    expect(binarySocket.closeCode).toBe(4400);
     client.stop();
 
     const rateClient = new BoardCollaborationClient({
@@ -252,8 +270,8 @@ describe("Board collaboration WebSocket adapter", () => {
       },
     });
     rateClient.start();
-    await vi.waitFor(() => expect(sockets).toHaveLength(2));
-    const rateSocket = sockets[1]!;
+    await vi.waitFor(() => expect(sockets).toHaveLength(3));
+    const rateSocket = sockets[2]!;
     for (
       let index = 0;
       index <= maximumBoardCollaborationMessagesPerSecond;
@@ -261,7 +279,7 @@ describe("Board collaboration WebSocket adapter", () => {
     ) {
       rateSocket.receive({ type: "heartbeat.ack" });
     }
-    expect(rateSocket.closeCode).toBe(1008);
+    expect(rateSocket.closeCode).toBe(4408);
     expect(rateSocket.closeReason).toBe("Message rate exceeded");
     rateClient.stop();
   });
@@ -533,6 +551,73 @@ describe("Board collaboration WebSocket adapter", () => {
 
     await vi.advanceTimersByTimeAsync(500);
     expect(sockets).toHaveLength(2);
+    client.stop();
+  });
+
+  it("ignores a delayed close from a socket replaced by an explicit restart", async () => {
+    vi.useFakeTimers();
+    const sockets: DeferredCloseSocket[] = [];
+    const statuses: string[] = [];
+    const client = new BoardCollaborationClient({
+      createClientId: () => "browser:self",
+      createWebSocket: () => {
+        const socket = new DeferredCloseSocket();
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+      documentId: documentId("document:lesson"),
+      onPresence: () => undefined,
+      onRevision: () => undefined,
+      onStatus: (status) => statuses.push(status),
+      origin: "https://tutor.example.test",
+      random: () => 0,
+      repository: {
+        collaborationTicket: vi.fn().mockResolvedValue({
+          expiresInSeconds: 30,
+          protocolVersion: "1.0",
+          ticket: "ticket:restart",
+          websocketPath: "/collaboration",
+        }),
+        context: vi.fn().mockResolvedValue({
+          actorId: actorId("actor:tutor"),
+          csrfToken: "csrf",
+          organizationId: "organization:1",
+          role: "tutor",
+        }),
+      },
+    });
+
+    client.start();
+    await vi.advanceTimersByTimeAsync(0);
+    const replaced = sockets[0]!;
+    replaced.open();
+    replaced.receive({
+      clientId: "browser:self",
+      currentRevision: 0,
+      documentId: "document:lesson",
+      heartbeatSeconds: 20,
+      protocolVersion: "1.0",
+      type: "ready",
+    });
+
+    client.stop();
+    client.start();
+    await vi.advanceTimersByTimeAsync(0);
+    const current = sockets[1]!;
+    current.open();
+    current.receive({
+      clientId: "browser:self",
+      currentRevision: 0,
+      documentId: "document:lesson",
+      heartbeatSeconds: 20,
+      protocolVersion: "1.0",
+      type: "ready",
+    });
+    replaced.finishClose();
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(sockets).toHaveLength(2);
+    expect(statuses.at(-1)).toBe("online");
     client.stop();
   });
 });

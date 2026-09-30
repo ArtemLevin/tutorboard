@@ -76,7 +76,7 @@ function cubeSection() {
 }
 
 describe("solid 3D learning domain", () => {
-  it("migrates BoardDocument 1.3 to 1.4 without changing solid models", () => {
+  it("migrates BoardDocument 1.3 to current 1.6 without changing solid models", () => {
     const current = createEmptyBoardDocument({
       createdAt: timestamp,
       id: documentId("document:learning-migration"),
@@ -90,7 +90,7 @@ describe("solid 3D learning domain", () => {
     });
     expect(migrated.ok).toBe(true);
     if (migrated.ok) {
-      expect(migrated.document.schemaVersion).toBe("1.4");
+      expect(migrated.document.schemaVersion).toBe("1.6");
       expect(migrated.document.solidLearningAttempts).toEqual({});
     }
   });

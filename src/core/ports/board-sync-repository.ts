@@ -47,7 +47,7 @@ export interface OrderedBoardCommandEnvelope {
   readonly schemaVersion: "1.3" | "1.4";
 }
 
-export type CurrentOrderedBoardCommandEnvelope = Omit<
+export type PreviousOrderedBoardCommandEnvelope = Omit<
   OrderedBoardCommandEnvelope,
   "schemaVersion"
 > & {
@@ -55,9 +55,25 @@ export type CurrentOrderedBoardCommandEnvelope = Omit<
   readonly schemaVersion: "1.5";
 };
 
+export type MediaOrderedBoardCommandEnvelope = Omit<
+  PreviousOrderedBoardCommandEnvelope,
+  "schemaVersion"
+> & {
+  readonly schemaVersion: "1.6";
+};
+
+export type CurrentOrderedBoardCommandEnvelope = Omit<
+  MediaOrderedBoardCommandEnvelope,
+  "schemaVersion"
+> & {
+  readonly schemaVersion: "1.7";
+};
+
 export type BoardCommandEnvelope =
   | LegacyBoardCommandEnvelope
   | OrderedBoardCommandEnvelope
+  | PreviousOrderedBoardCommandEnvelope
+  | MediaOrderedBoardCommandEnvelope
   | CurrentOrderedBoardCommandEnvelope;
 
 export interface ServerBoardCommandBatch {
@@ -144,7 +160,7 @@ export interface BoardServerRecovery {
     readonly documentId: DocumentId;
     readonly documentSha256: string;
     readonly revision: number;
-    readonly schemaVersion: "1.1" | "1.2" | "1.3" | "1.4";
+    readonly schemaVersion: "1.1" | "1.2" | "1.3" | "1.4" | "1.5" | "1.6";
   } | null;
 }
 
@@ -270,6 +286,7 @@ export interface BoardPlatformRepository
 
 export interface PendingBoardCommand {
   readonly accessEpochAtCreation?: string;
+  readonly batchId?: string;
   readonly command: BoardCommand;
   readonly documentId: DocumentId;
   readonly idempotencyKey: string;
@@ -280,6 +297,7 @@ export interface PendingBoardCommand {
 export interface PendingBoardCommandOrderingInput {
   readonly accessEpochAtCreation?: string;
   readonly baseRevisionAtCreation?: number;
+  readonly batchId?: string;
   readonly observedLamport?: number;
 }
 

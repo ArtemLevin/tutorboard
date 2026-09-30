@@ -1,6 +1,7 @@
 FROM node:24.18.0-alpine3.23@sha256:595398b0081eacda8e1c4c5b97b76cd1020e4d58a8ebcb4843b9bca1e79e7436
 
-RUN rm -rf \
+RUN apk upgrade --no-cache \
+    && rm -rf \
       /opt/yarn-* \
       /usr/local/lib/node_modules/corepack \
       /usr/local/lib/node_modules/npm \

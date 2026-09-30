@@ -115,6 +115,8 @@ function objectMarkup(object: BoardObject): string {
     }
     case "image.embedded":
       return `<image ${common} height="${number(object.size.height)}" href="${escapeXml(object.dataUrl)}" preserveAspectRatio="none" width="${number(object.size.width)}"/>`;
+    case "media.asset":
+      return `<g ${objectTransformAttribute(object)} data-media-asset-id="${escapeXml(object.assetId)}"><rect fill="#f2f4f7" height="${number(object.size.height)}" rx="8" stroke="#98a2b3" stroke-width="1" width="${number(object.size.width)}"/><text fill="#475467" font-family="Inter, ui-sans-serif, system-ui" font-size="16" x="16" y="28">${escapeXml(object.fileName)}</text></g>`;
     case "svg-import.svg":
       return `<g ${common}>${object.sanitizedSvg}</g>`;
   }
@@ -178,6 +180,7 @@ function localObjectBounds(object: BoardObject): BoardSnapshotBounds {
       return boundsFromPoints([{ x: 0, y: 0 }, object.end]);
     case "drawing.rectangle":
     case "image.embedded":
+    case "media.asset":
     case "svg-import.svg":
       return {
         bottom: object.size.height,

@@ -1,21 +1,27 @@
 import { useCallback } from "react";
 
 import { isDrawingToolId } from "../../../modules/drawing/public";
+import { eraserToolId } from "../../../modules/eraser/public";
 import { handwrittenFunctionToolId } from "../../../modules/handwritten-function/public";
 import {
+  aggregateSelectionBounds,
   expandSelectionObjectIds,
   isSelectionToolId,
   lassoSelectionToolId,
+  pointInSelectionBounds,
+  selectTopObjectIdNearPoint,
   selectionToolId,
 } from "../../../modules/selection/public";
 import type {
   SelectionPointerStartSample,
+  WorldModifierSample,
   WorldPointerSample,
 } from "../../../adapters/canvas-konva/public";
 import type { BoardSceneReadModel } from "../../../core/public";
 import type { ActiveToolId } from "../active-tool";
 import { geometryPlacementToolId, laserToolId } from "../active-tool";
 import type { BoardDrawingController } from "./useBoardDrawingController";
+import type { BoardEraserController } from "./useBoardEraserController";
 import type { BoardDocumentController } from "./useBoardDocumentController";
 import type { BoardGeometryController } from "./useBoardGeometryController";
 import type { BoardHandwritingController } from "./useBoardHandwritingController";
@@ -26,6 +32,7 @@ export interface UseBoardInteractionRouterOptions {
   readonly activeTool: ActiveToolId;
   readonly documentController: BoardDocumentController;
   readonly drawing: BoardDrawingController;
+  readonly eraser: BoardEraserController;
   readonly geometry: BoardGeometryController;
   readonly handwriting: BoardHandwritingController;
   readonly laser: LaserPointerController;
@@ -39,6 +46,7 @@ export function useBoardInteractionRouter({
   activeTool,
   documentController,
   drawing,
+  eraser,
   geometry,
   handwriting,
   laser,
@@ -57,16 +65,19 @@ export function useBoardInteractionRouter({
         return;
       }
       drawing.cancel();
+      eraser.cancel();
       drawing.setSmartInkNotice(null);
       selection.cancel();
       onInspectorClose();
       if (tool !== "drawing.smart-ink") drawing.resetSmartInkSession();
+      if (tool !== eraserToolId) eraser.clear();
       if (tool !== laserToolId) laser.clear();
       setActiveTool(tool);
     },
     [
       activeTool,
       drawing,
+      eraser,
       handwriting,
       laser,
       onInspectorClose,
@@ -89,9 +100,20 @@ export function useBoardInteractionRouter({
         handwriting.startStroke(sample);
         return;
       }
+      if (activeTool === eraserToolId) {
+        eraser.start(sample);
+        return;
+      }
       if (isDrawingToolId(activeTool)) drawing.start(activeTool, sample);
     },
-    [activeTool, drawing, geometry, handwriting, laser],
+    [activeTool, drawing, eraser, geometry, handwriting, laser],
+  );
+
+  const modifiersChange = useCallback(
+    (sample: WorldModifierSample) => {
+      if (isDrawingToolId(activeTool)) drawing.modifiersChange(sample);
+    },
+    [activeTool, drawing],
   );
 
   const move = useCallback(
@@ -104,9 +126,13 @@ export function useBoardInteractionRouter({
         handwriting.moveStroke(sample);
         return;
       }
+      if (activeTool === eraserToolId) {
+        eraser.move(sample);
+        return;
+      }
       if (isDrawingToolId(activeTool)) drawing.move(sample);
     },
-    [activeTool, drawing, handwriting, laser],
+    [activeTool, drawing, eraser, handwriting, laser],
   );
 
   const moveBatch = useCallback(
@@ -120,9 +146,13 @@ export function useBoardInteractionRouter({
         handwriting.moveStrokeBatch(samples);
         return;
       }
+      if (activeTool === eraserToolId) {
+        eraser.moveBatch(samples);
+        return;
+      }
       if (isDrawingToolId(activeTool)) drawing.moveBatch(samples);
     },
-    [activeTool, drawing, handwriting, laser],
+    [activeTool, drawing, eraser, handwriting, laser],
   );
 
   const finish = useCallback(
@@ -135,9 +165,14 @@ export function useBoardInteractionRouter({
         handwriting.finishStroke(sample);
         return;
       }
+      if (activeTool === eraserToolId) {
+        eraser.finish(sample);
+        return;
+      }
+      if (activeTool === "drawing.text") return;
       if (isDrawingToolId(activeTool)) drawing.finish(activeTool, sample);
     },
-    [activeTool, drawing, handwriting, laser],
+    [activeTool, drawing, eraser, handwriting, laser],
   );
 
   const cancel = useCallback(
@@ -150,26 +185,48 @@ export function useBoardInteractionRouter({
         handwriting.cancelStroke(pointerId);
         return;
       }
+      if (activeTool === eraserToolId) {
+        eraser.cancel(pointerId);
+        return;
+      }
       if (isDrawingToolId(activeTool)) drawing.cancel(pointerId);
     },
-    [activeTool, drawing, handwriting, laser],
+    [activeTool, drawing, eraser, handwriting, laser],
   );
 
   const selectionStart = useCallback(
-    (sample: SelectionPointerStartSample) => {
-      if (geometry.tryAddContourPoint(sample)) return;
+    (sample: SelectionPointerStartSample): boolean => {
+      if (geometry.tryAddContourPoint(sample)) return true;
       const vertex = geometry.inspectVertexNear(sample, scene);
+      const proximityObjectId =
+        sample.areaOnly === true || sample.objectId !== null
+          ? null
+          : selectTopObjectIdNearPoint(
+              scene,
+              sample.point,
+              sample.hitToleranceWorld ?? 0,
+            );
       const effectiveObjectId =
-        sample.objectId ?? vertex?.vertexObjectId ?? null;
+        sample.objectId ?? vertex?.vertexObjectId ?? proximityObjectId;
       if (effectiveObjectId !== null && !isSelectionToolId(activeTool)) {
         activate(selectionToolId);
       }
+      const aggregateBounds =
+        sample.areaOnly === true
+          ? null
+          : aggregateSelectionBounds(
+              selection.bounds,
+              sample.hitToleranceWorld ?? 0,
+            );
       const hitObjectIds =
-        effectiveObjectId === null
-          ? []
-          : expandSelectionObjectIds(documentController.getDocument(), [
+        effectiveObjectId !== null
+          ? expandSelectionObjectIds(documentController.getDocument(), [
               effectiveObjectId,
-            ]);
+            ])
+          : aggregateBounds !== null &&
+              pointInSelectionBounds(sample.point, aggregateBounds)
+            ? selection.getState().selectedObjectIds
+            : [];
       selection.start({
         additive: sample.additive,
         areaKind: activeTool === lassoSelectionToolId ? "lasso" : "marquee",
@@ -179,6 +236,7 @@ export function useBoardInteractionRouter({
         point: sample.point,
         pointerId: sample.pointerId,
       });
+      return hitObjectIds.length > 0;
     },
     [activeTool, activate, documentController, geometry, scene, selection],
   );
@@ -208,6 +266,7 @@ export function useBoardInteractionRouter({
     activate,
     cancel,
     finish,
+    modifiersChange,
     move,
     moveBatch,
     selectionCancel,

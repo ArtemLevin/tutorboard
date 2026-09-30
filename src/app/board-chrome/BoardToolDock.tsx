@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import type { ObjectStyle, Vec2 } from "../../core/public";
+import { eraserToolId } from "../../modules/eraser/public";
 import {
   isDrawingToolId,
   type DrawingToolDefinition,
@@ -21,6 +22,10 @@ import {
 } from "../../modules/selection/public";
 import type { VertexConstructionKind } from "../../modules/text-shape-placement/public";
 import { ColorPalette } from "../ColorPalette";
+import {
+  shortcutLabel,
+  shortcutLabelForTool,
+} from "../board/shortcuts/board-shortcuts";
 import { StrokeStylePalette } from "../StrokeStylePalette";
 
 interface BoardToolDockProps {
@@ -29,6 +34,7 @@ interface BoardToolDockProps {
   readonly canRedo: boolean;
   readonly canUndo: boolean;
   readonly drawingTools: readonly DrawingToolDefinition[];
+  readonly eraserDiameterPx: number;
   readonly geometryAvailable: boolean;
   readonly geometryOpen: boolean;
   readonly handwrittenFunctionsEnabled: boolean;
@@ -38,6 +44,7 @@ interface BoardToolDockProps {
   readonly onExportPdfSnapshot?: (() => void) | undefined;
   readonly onExportPngSnapshot?: (() => void) | undefined;
   readonly onExportSvgSnapshot?: (() => void) | undefined;
+  readonly onEraserDiameterChange: (diameterPx: number) => void;
   readonly onGeometryToggle: () => void;
   readonly onImageFiles: (files: readonly File[]) => void;
   readonly onOpenSettings: () => void;
@@ -305,6 +312,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
     "drawing.pen",
     "drawing.line",
     "drawing.text",
+    eraserToolId,
   ].includes(props.activeTool);
   const aiActive =
     props.activeTool === "drawing.smart-ink" ||
@@ -365,13 +373,13 @@ export function BoardToolDock(props: BoardToolDockProps) {
           <MenuItem
             active={props.activeTool === selectionToolId}
             icon={selectionTool.icon}
-            label={`${selectionTool.label} (${selectionTool.shortcut})`}
+            label={`${selectionTool.label} (${shortcutLabelForTool(selectionToolId)})`}
             onClick={() => chooseTool(selectionToolId)}
           />
           <MenuItem
             active={props.activeTool === lassoSelectionToolId}
             icon={lassoSelectionTool.icon}
-            label={`${lassoSelectionTool.label} (${lassoSelectionTool.shortcut})`}
+            label={`${lassoSelectionTool.label} (${shortcutLabelForTool(lassoSelectionToolId)})`}
             onClick={() => chooseTool(lassoSelectionToolId)}
           />
         </section>
@@ -383,17 +391,24 @@ export function BoardToolDock(props: BoardToolDockProps) {
               disabled={props.readOnly}
               icon={item.icon}
               key={item.id}
-              label={`${item.label} (${item.shortcut})`}
+              label={`${item.label} (${shortcutLabelForTool(item.id)})`}
               onClick={() => chooseTool(item.id)}
             />
           ))}
+          <MenuItem
+            active={props.activeTool === eraserToolId}
+            disabled={props.readOnly}
+            icon="⌫"
+            label={`Ластик (${shortcutLabelForTool(eraserToolId)})`}
+            onClick={() => chooseTool(eraserToolId)}
+          />
         </section>
       ) : openMenu === "math" ? (
         <section aria-label="Меню математики" className="dock-menu" role="menu">
           <MenuItem
             disabled={props.readOnly}
             icon="📈"
-            label="Координатная плоскость (G)"
+            label={`Координатная плоскость (${shortcutLabel("plot.create")})`}
             onClick={() => {
               props.onCreatePlot();
               setOpenMenu(null);
@@ -407,7 +422,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               active={props.activeTool === "drawing.smart-ink"}
               disabled={props.readOnly}
               icon="✦"
-              label="Smart Ink (I)"
+              label={`Smart Ink (${shortcutLabel("tool.smart-ink")})`}
               onClick={() => chooseTool("drawing.smart-ink")}
             />
           )}
@@ -416,7 +431,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               active={props.activeTool === "math.handwritten-function"}
               disabled={props.readOnly}
               icon="ƒ"
-              label="Рукописная функция (F)"
+              label={`Рукописная функция (${shortcutLabel("tool.handwritten-function")})`}
               onClick={() => chooseTool("math.handwritten-function")}
             />
           ) : null}
@@ -578,6 +593,13 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 onBlur={(event) =>
                   props.onSelectedTextCommit(event.currentTarget.value)
                 }
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape") return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.currentTarget.value = props.selectedText ?? "";
+                  event.currentTarget.blur();
+                }}
                 rows={2}
               />
             </label>
@@ -619,6 +641,29 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onChange={props.onSelectionStyleChange}
             style={props.selectedStyle}
           />
+        </section>
+      ) : props.activeTool === eraserToolId ? (
+        <section
+          aria-label="Первичные настройки ластика"
+          className="dock-primary-settings"
+        >
+          <div className="dock-primary-heading">
+            <strong>Ластик</strong>
+          </div>
+          <label className="dock-range-control">
+            <span>Размер · {props.eraserDiameterPx} px</span>
+            <input
+              aria-label="Размер ластика"
+              max="96"
+              min="8"
+              onChange={(event) =>
+                props.onEraserDiameterChange(event.currentTarget.valueAsNumber)
+              }
+              step="4"
+              type="range"
+              value={props.eraserDiameterPx}
+            />
+          </label>
         </section>
       ) : activeDrawingTool !== null && props.activeStyle !== null ? (
         <section
@@ -677,7 +722,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           <ToolButton
             active={props.activeTool === "navigation.pan"}
             icon="✋"
-            label="Перемещение (H)"
+            label={`Перемещение (${shortcutLabel("tool.pan")})`}
             onClick={() => props.onActivate("navigation.pan")}
           />
           <ToolButton
@@ -723,7 +768,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           <ToolButton
             active={props.activeTool === "presentation.laser"}
             icon="●"
-            label="Лазерная указка (K)"
+            label={`Лазерная указка (${shortcutLabel("tool.laser")})`}
             onClick={() => chooseTool("presentation.laser")}
           />
         </div>

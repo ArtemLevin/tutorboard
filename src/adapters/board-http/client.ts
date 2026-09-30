@@ -80,7 +80,7 @@ const orderedEnvelopeSchema = z
     schemaVersion: z.enum(["1.3", "1.4"]),
   })
   .strict();
-const currentOrderedEnvelopeSchema = z
+const previousOrderedEnvelopeSchema = z
   .object({
     ...envelopeBase,
     commands: z
@@ -93,9 +93,17 @@ const currentOrderedEnvelopeSchema = z
     schemaVersion: z.literal("1.5"),
   })
   .strict();
+const mediaOrderedEnvelopeSchema = previousOrderedEnvelopeSchema.extend({
+  schemaVersion: z.literal("1.6"),
+});
+const currentOrderedEnvelopeSchema = previousOrderedEnvelopeSchema.extend({
+  schemaVersion: z.literal("1.7"),
+});
 const envelopeSchema = z.discriminatedUnion("schemaVersion", [
   legacyEnvelopeSchema,
   orderedEnvelopeSchema,
+  previousOrderedEnvelopeSchema,
+  mediaOrderedEnvelopeSchema,
   currentOrderedEnvelopeSchema,
 ]);
 const commandBatchSchema = z
@@ -109,7 +117,9 @@ const commandBatchSchema = z
     lamportMin: z.number().int().positive().optional(),
     payloadSha256: sha256Schema,
     revision: z.number().int().positive(),
-    schemaVersion: z.enum(["1.0", "1.2", "1.3", "1.4", "1.5"]).optional(),
+    schemaVersion: z
+      .enum(["1.0", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7"])
+      .optional(),
   })
   .strict();
 const contextSchema = z
@@ -278,7 +288,9 @@ function parseBatch(value: unknown): ServerBoardCommandBatch {
     ...parsed.data,
     envelope: (envelope.schemaVersion === "1.3" ||
     envelope.schemaVersion === "1.4" ||
-    envelope.schemaVersion === "1.5"
+    envelope.schemaVersion === "1.5" ||
+    envelope.schemaVersion === "1.6" ||
+    envelope.schemaVersion === "1.7"
       ? {
           ...envelope,
           actorId: actorId(envelope.actorId),
@@ -449,7 +461,7 @@ export function createBoardHttpRepository(
               documentId: identifierSchema,
               documentSha256: sha256Schema,
               revision: z.number().int().nonnegative(),
-              schemaVersion: z.enum(["1.1", "1.2", "1.3", "1.4"]),
+              schemaVersion: z.enum(["1.1", "1.2", "1.3", "1.4", "1.5", "1.6"]),
             })
             .strict()
             .nullable(),
@@ -539,7 +551,7 @@ export function createBoardHttpRepository(
             documentId: expectedDocumentId,
             documentSha256,
             revision,
-            schemaVersion: "1.4",
+            schemaVersion: "1.6",
           }),
           headers: {
             "Content-Type": "application/json",

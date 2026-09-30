@@ -39,7 +39,7 @@ const envelope: CurrentOrderedBoardCommandEnvelope = {
     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   idempotencyKey: "client:batch-1",
   originId: "origin:test",
-  schemaVersion: "1.5",
+  schemaVersion: "1.7",
 };
 
 describe("Board HTTP repository", () => {
@@ -145,7 +145,7 @@ describe("Board HTTP repository", () => {
             payloadSha256:
               "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             revision: 1,
-            schemaVersion: "1.5",
+            schemaVersion: "1.6",
           },
         ],
       }),
