@@ -454,16 +454,13 @@ function pathNearPath(
     const brushStart = brushPoints[index - 1]!;
     const brushFinish = brushPoints[index]!;
     for (const [objectStart, objectFinish] of objectSegments) {
-      if (
-        segmentDistance(
-          objectStart,
-          objectFinish,
-          brushStart,
-          brushFinish,
-        ) <= tolerance
-      ) {
-        return true;
-      }
+      const distance = segmentDistance(
+        objectStart,
+        objectFinish,
+        brushStart,
+        brushFinish,
+      );
+      if (distance <= tolerance) return true;
     }
   }
   return false;
