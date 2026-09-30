@@ -108,9 +108,10 @@ test(
   },
 );
 
-test("erases mixed drawing objects with configurable brush size in one undo step", async ({
-  page,
-}) => {
+test(
+  "erases mixed drawing objects with configurable brush size in one undo step",
+  { tag: "@smoke" },
+  async ({ page }) => {
   const count = page.getByTestId("object-count");
 
   await page.keyboard.press("r");
@@ -144,9 +145,10 @@ test("erases mixed drawing objects with configurable brush size in one undo step
   await page.mouse.up();
 
   await expect(count).toHaveText("0 объекта");
-  await page.keyboard.press("Control+z");
-  await expect(count).toHaveText("2 объекта");
-});
+    await page.keyboard.press("Control+z");
+    await expect(count).toHaveText("2 объекта");
+  },
+);
 
 test("partially erases a pen stroke and undoes the gesture atomically", async ({
   page,
