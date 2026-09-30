@@ -20,8 +20,9 @@ interface EraserPointerSample {
 }
 
 interface EraserSession {
-  readonly pointerId: number;
   readonly path: Vec2[];
+  readonly pointerId: number;
+  readonly touchedObjectIds: Set<BoardObjectId>;
 }
 
 export interface EraserPreview {
@@ -49,10 +50,10 @@ function readEraserDiameter(): number {
   }
 }
 
-function appendPoint(path: Vec2[], point: Vec2): void {
+function appendPoint(path: Vec2[], point: Vec2): boolean {
   if (path.length >= maximumGesturePoints) {
     path[path.length - 1] = point;
-    return;
+    return true;
   }
   const previous = path.at(-1);
   if (
@@ -60,7 +61,9 @@ function appendPoint(path: Vec2[], point: Vec2): void {
     Math.hypot(point.x - previous.x, point.y - previous.y) > 0.25
   ) {
     path.push(point);
+    return true;
   }
+  return false;
 }
 
 export interface UseBoardEraserControllerOptions {
@@ -82,26 +85,38 @@ export function useBoardEraserController({
   const [diameterPx, setDiameterPxState] = useState(readEraserDiameter);
   const [preview, setPreview] = useState<EraserPreview | null>(null);
   const previewFrameRef = useRef<number | null>(null);
-  const pendingPreviewPathRef = useRef<readonly Vec2[] | null>(null);
+  const pendingPreviewSessionRef = useRef<EraserSession | null>(null);
 
   const radiusWorld = useCallback(
     (zoom: number) => diameterPx / 2 / zoom,
     [diameterPx],
   );
 
-  const buildPlan = useCallback(
-    (path: readonly Vec2[], previewIds: boolean) => {
+  const collectTouched = useCallback(
+    (session: EraserSession, brushPath: readonly Vec2[]) => {
       const current = getDocument();
       const radius = radiusWorld(current.viewport.zoom);
-      const touchedObjectIds = selectObjectIdsNearPath(scene, path, radius);
+      for (const objectId of selectObjectIdsNearPath(scene, brushPath, radius)) {
+        session.touchedObjectIds.add(objectId);
+      }
+    },
+    [getDocument, radiusWorld, scene],
+  );
+
+  const buildPlan = useCallback(
+    (session: EraserSession, previewIds: boolean) => {
+      const current = getDocument();
+      const radius = radiusWorld(current.viewport.zoom);
+      const objects = current.order.flatMap((id) => {
+        if (!session.touchedObjectIds.has(id)) return [];
+        const object = current.objects[id];
+        return object === undefined ? [] : [object];
+      });
       let sequence = 0;
       return planEraserChanges(
-        current.order.flatMap((id) => {
-          const object = current.objects[id];
-          return object === undefined ? [] : [object];
-        }),
-        touchedObjectIds,
-        path,
+        objects,
+        [...session.touchedObjectIds],
+        session.path,
         radius,
         (original, fragmentIndex) =>
           fragmentIndex === 0
@@ -113,19 +128,19 @@ export function useBoardEraserController({
               ),
       );
     },
-    [getDocument, radiusWorld, scene],
+    [getDocument, radiusWorld],
   );
 
   const updatePreview = useCallback(
-    (path: readonly Vec2[]) => {
-      pendingPreviewPathRef.current = path;
+    (session: EraserSession) => {
+      pendingPreviewSessionRef.current = session;
       if (previewFrameRef.current !== null) return;
       previewFrameRef.current = window.requestAnimationFrame(() => {
         previewFrameRef.current = null;
-        const pendingPath = pendingPreviewPathRef.current;
-        pendingPreviewPathRef.current = null;
-        if (pendingPath === null) return;
-        const plan = buildPlan(pendingPath, true);
+        const pendingSession = pendingPreviewSessionRef.current;
+        pendingPreviewSessionRef.current = null;
+        if (pendingSession === null) return;
+        const plan = buildPlan(pendingSession, true);
         setPreview({
           replacements: plan.replacements,
           suppressedObjectIds: [
@@ -143,7 +158,7 @@ export function useBoardEraserController({
       window.cancelAnimationFrame(previewFrameRef.current);
       previewFrameRef.current = null;
     }
-    pendingPreviewPathRef.current = null;
+    pendingPreviewSessionRef.current = null;
   }, []);
 
   useEffect(
@@ -173,25 +188,34 @@ export function useBoardEraserController({
 
   const start = useCallback(
     (sample: EraserPointerSample) => {
-      sessionRef.current = {
+      const session: EraserSession = {
         path: [sample.point],
         pointerId: sample.pointerId,
+        touchedObjectIds: new Set(),
       };
+      sessionRef.current = session;
+      collectTouched(session, [sample.point]);
       setPoint(sample.point);
-      updatePreview([sample.point]);
+      updatePreview(session);
     },
-    [updatePreview],
+    [collectTouched, updatePreview],
   );
 
   const move = useCallback(
     (sample: EraserPointerSample) => {
       const session = sessionRef.current;
       if (session === null || session.pointerId !== sample.pointerId) return;
-      appendPoint(session.path, sample.point);
+      const previous = session.path.at(-1);
+      if (appendPoint(session.path, sample.point)) {
+        collectTouched(
+          session,
+          previous === undefined ? [sample.point] : [previous, sample.point],
+        );
+      }
       setPoint(sample.point);
-      updatePreview(session.path);
+      updatePreview(session);
     },
-    [updatePreview],
+    [collectTouched, updatePreview],
   );
 
   const moveBatch = useCallback(
@@ -199,30 +223,46 @@ export function useBoardEraserController({
       if (samples.length === 0) return;
       const session = sessionRef.current;
       if (session === null) return;
+      const brushPath: Vec2[] = [];
+      let previous = session.path.at(-1);
       for (const sample of samples) {
-        if (sample.pointerId === session.pointerId) {
-          appendPoint(session.path, sample.point);
+        if (
+          sample.pointerId === session.pointerId &&
+          appendPoint(session.path, sample.point)
+        ) {
+          if (brushPath.length === 0 && previous !== undefined) {
+            brushPath.push(previous);
+          }
+          brushPath.push(sample.point);
+          previous = sample.point;
         }
       }
       const last = samples.at(-1);
       if (last !== undefined && last.pointerId === session.pointerId) {
+        if (brushPath.length > 0) collectTouched(session, brushPath);
         setPoint(last.point);
-        updatePreview(session.path);
+        updatePreview(session);
       }
     },
-    [updatePreview],
+    [collectTouched, updatePreview],
   );
 
   const finish = useCallback(
     (sample: EraserPointerSample) => {
       const session = sessionRef.current;
       if (session === null || session.pointerId !== sample.pointerId) return;
-      appendPoint(session.path, sample.point);
+      const previous = session.path.at(-1);
+      if (appendPoint(session.path, sample.point)) {
+        collectTouched(
+          session,
+          previous === undefined ? [sample.point] : [previous, sample.point],
+        );
+      }
       sessionRef.current = null;
       setPoint(sample.point);
 
       clearPreviewSchedule();
-      const plan = buildPlan(session.path, false);
+      const plan = buildPlan(session, false);
       setPreview(null);
       const commands = [];
       if (plan.originals.length > 0) {
@@ -254,6 +294,7 @@ export function useBoardEraserController({
       announce,
       buildPlan,
       clearPreviewSchedule,
+      collectTouched,
       commitCommands,
       createCommandMetadata,
     ],
