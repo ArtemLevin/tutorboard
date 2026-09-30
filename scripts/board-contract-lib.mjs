@@ -56,17 +56,33 @@ const cubicBezierSegment = strictObject({
   end: reference("Vec2"),
   start: reference("Vec2"),
 });
-const vectorInkData = strictObject({
-  centerline: array(reference("CubicBezierSegment"), {
-    maxItems: 100_000,
-  }),
-  closed: { type: "boolean" },
-  samples: array(reference("VectorInkSample"), {
-    maxItems: 100_000,
-    minItems: 1,
-  }),
-  version: { const: "1.0" },
-});
+const vectorInkData = {
+  oneOf: [
+    strictObject({
+      centerline: array(reference("CubicBezierSegment"), {
+        maxItems: 0,
+      }),
+      closed: { const: false },
+      samples: array(reference("VectorInkSample"), {
+        maxItems: 1,
+        minItems: 1,
+      }),
+      version: { const: "1.0" },
+    }),
+    strictObject({
+      centerline: array(reference("CubicBezierSegment"), {
+        maxItems: 100_000,
+        minItems: 1,
+      }),
+      closed: { type: "boolean" },
+      samples: array(reference("VectorInkSample"), {
+        maxItems: 100_000,
+        minItems: 2,
+      }),
+      version: { const: "1.0" },
+    }),
+  ],
+};
 const positiveVec2 = strictObject({ x: positiveNumber, y: positiveNumber });
 const size2 = strictObject({
   height: positiveNumber,
@@ -753,7 +769,14 @@ const boardDocument = strictObject({
   viewport: reference("Viewport"),
 });
 
+const batchObjectReplacement = strictObject({
+  atIndex: nonNegativeInteger,
+  originals: array(reference("BoardObject"), { maxItems: 5_000 }),
+  replacements: array(reference("BoardObject"), { maxItems: 5_000 }),
+});
+
 const boardDefinitions = {
+  BatchObjectReplacement: batchObjectReplacement,
   BoardDocument: boardDocument,
   BoardGroup: boardGroup,
   BoardObject: boardObjectUnion,
@@ -928,14 +951,11 @@ const commands = {
     originals: array(reference("BoardObject"), { minItems: 1 }),
     replacements: array(reference("BoardObject"), { minItems: 1 }),
   }),
-  RewriteObjectsCommand: command("core.objects.rewrite", {
-    changes: array(
-      strictObject({
-        original: reference("BoardObject"),
-        replacements: array(reference("BoardObject")),
-      }),
-      { minItems: 1, maxItems: 5_000 },
-    ),
+  BatchReplaceObjectsCommand: command("core.objects.batch-replace", {
+    changes: array(reference("BatchObjectReplacement"), {
+      maxItems: 5_000,
+      minItems: 1,
+    }),
   }),
   RenameDocumentCommand: command("core.document.rename", {
     title: { maxLength: 256, minLength: 1, type: "string" },
@@ -1110,11 +1130,11 @@ camelCase field names. Every schema is self-contained and targets JSON Schema
 
 ## Artifacts
 
-- \`BoardDocument 1.6\` is the canonical persisted board state, supports
-  metadata-only \`media.asset\` references and canonical single-sample ink dots.
-- \`BoardCommandEnvelope 1.7\` carries one atomic, idempotent command batch
+- \`BoardDocument 1.5\` is the canonical persisted board state and supports
+  metadata-only \`media.asset\` references.
+- \`BoardCommandEnvelope 1.6\` carries one atomic, idempotent command batch
   against a known base revision.
-- \`BoardSnapshot 1.6\` binds a canonical document to a server revision and
+- \`BoardSnapshot 1.5\` binds a canonical document to a server revision and
   SHA-256 digest.
 - \`BoardGeometryImport 1.1\` records GeometryOS GIR/Layout provenance without
   adding transport state to \`BoardDocument\`.
@@ -1146,8 +1166,6 @@ const compatibility = `# Board command compatibility
 | Semantic 3D solids | \`core.solid-3d.*\` | BoardDocument 1.3+ | board/v1.3 reader |
 | 3D learning attempts | \`core.solid-3d-learning.*\` | BoardDocument 1.4+ | board/v1.4 reader |
 | Media asset references | object-bearing \`core.*\` commands | BoardDocument 1.5+ | board/v1.5 reader; persistence gated until media authority |
-| Single-tap ink dots | \`drawing.pen-stroke\` with one Vector Ink sample | BoardDocument 1.6+ | board/v1.6 reader |
-| Atomic mixed erasing | \`core.objects.rewrite\` | BoardCommandEnvelope 1.7+ | board/v1.7 reader |
 
 \`core.objects.replace\` carries complete original and replacement snapshots.
 Older strict readers reject this command explicitly. Deployments using server
@@ -1324,6 +1342,22 @@ function fixtures() {
             timestamp: "2026-07-28T17:00:01.000Z",
           },
           order: { baseRevisionAtCreation: 7, lamport: 9 },
+        },
+        {
+          command: {
+            actorId: "actor:tutor-01",
+            changes: [
+              {
+                atIndex: 0,
+                originals: [smartInkStroke],
+                replacements: [smartInkCircle],
+              },
+            ],
+            id: "command:batch-replace-10",
+            kind: "core.objects.batch-replace",
+            timestamp: "2026-07-28T17:00:02.000Z",
+          },
+          order: { baseRevisionAtCreation: 7, lamport: 10 },
         },
       ],
       documentId: document.id,

@@ -651,7 +651,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             <strong>Ластик</strong>
           </div>
           <label className="dock-range-control">
-            <span>Размер: {Math.round(props.eraserDiameterPx)} px</span>
+            <span>Размер: {props.eraserDiameterPx} px</span>
             <input
               aria-label="Размер ластика"
               max="96"

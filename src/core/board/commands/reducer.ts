@@ -22,6 +22,7 @@ import { validateBoardDocument } from "../validation/validate";
 import type {
   AddGroupCommand,
   AddObjectsCommand,
+  BatchReplaceObjectsCommand,
   BoardCommand,
   CutContentCommand,
   DeleteObjectsCommand,
@@ -32,7 +33,6 @@ import type {
   MoveSelectionCommand,
   PasteContentCommand,
   ReplaceObjectsCommand,
-  RewriteObjectsCommand,
   RemoveGroupsCommand,
   RenameDocumentCommand,
   ReorderLayersCommand,
@@ -370,176 +370,173 @@ function replaceObjects(
   });
 }
 
-function rewriteObjects(
+function batchReplaceObjects(
   document: BoardDocument,
-  command: RewriteObjectsCommand,
+  command: BatchReplaceObjectsCommand,
 ): CommandResult {
   if (command.changes.length === 0) {
     return failure(
       document,
       "command.empty",
-      "Rewrite objects command requires at least one change.",
+      "Batch replace command requires at least one object change.",
     );
   }
 
-  const originalIds = command.changes.map(({ original }) => original.id);
-  if (hasDuplicates(originalIds)) {
-    return failure(
-      document,
-      "command.duplicate-id",
-      "Rewrite objects command contains duplicate originals.",
-    );
-  }
-  const originalIdSet = new Set(originalIds);
-  const currentObjects = command.changes.map(({ original }) =>
-    ownValue(document.objects, original.id),
+  const originalIds = command.changes.flatMap(({ originals }) =>
+    originals.map(({ id }) => id),
   );
-  if (currentObjects.some((object) => object === undefined)) {
-    return failure(
-      document,
-      "command.object-missing",
-      "Rewrite objects command references a missing original.",
-    );
-  }
+  const replacementIds = command.changes.flatMap(({ replacements }) =>
+    replacements.map(({ id }) => id),
+  );
+  const indexes = command.changes.map(({ atIndex }) => atIndex);
   if (
-    currentObjects.some(
-      (object, index) =>
-        object === undefined ||
-        !structurallyEqual(object, command.changes[index]!.original),
-    )
+    hasDuplicates(originalIds) ||
+    hasDuplicates(replacementIds) ||
+    hasDuplicates(indexes.map(String))
   ) {
     return failure(
       document,
-      "command.stale-object",
-      "Rewrite objects command contains a stale original snapshot.",
+      "command.duplicate-id",
+      "Batch replace command contains duplicate object IDs or insertion indexes.",
     );
   }
 
-  const groupedIds = new Set<GroupId>();
+  const originalIdSet = new Set(originalIds);
   for (const change of command.changes) {
-    const original = change.original;
-    if (original.locked || original.source.kind !== "user") {
+    if (
+      !Number.isInteger(change.atIndex) ||
+      change.atIndex < 0 ||
+      change.atIndex > document.order.length
+    ) {
       return failure(
         document,
-        "command.locked",
-        "Only unlocked user objects can be rewritten.",
+        "command.invalid",
+        "Batch replace insertion index is outside the document order.",
       );
     }
-    if (original.groupId !== null) {
-      const group = ownValue(document.groups, original.groupId);
-      if (group === undefined) {
-        return failure(
-          document,
-          "command.group-missing",
-          "Rewrite objects command references a missing group.",
-        );
-      }
-      if (group.locked) {
-        return failure(
-          document,
-          "command.locked",
-          "Locked groups cannot be rewritten.",
-        );
-      }
-      if (change.replacements.length > 0) {
+    if (change.originals.length === 0 && change.replacements.length === 0) {
+      return failure(
+        document,
+        "command.empty",
+        "Batch replace changes cannot be empty.",
+      );
+    }
+
+    const changeOriginalIds = new Set(change.originals.map(({ id }) => id));
+    const originalIndexes = change.originals.map(({ id }) =>
+      document.order.indexOf(id),
+    );
+    if (originalIndexes.some((index) => index < 0)) {
+      return failure(
+        document,
+        "command.object-missing",
+        "Batch replace command references an unordered original.",
+      );
+    }
+    if (originalIndexes.length > 0) {
+      const sorted = [...originalIndexes].sort((left, right) => left - right);
+      const contiguous = sorted.every(
+        (value, index) => index === 0 || value === sorted[index - 1]! + 1,
+      );
+      if (!contiguous || sorted[0] !== change.atIndex) {
         return failure(
           document,
           "command.invalid",
-          "Grouped objects can only be removed by an atomic rewrite.",
+          "Batch replace originals must occupy one contiguous range at atIndex.",
         );
       }
-      groupedIds.add(group.id);
     }
-    if (
-      change.replacements.some(
-        (replacement) =>
-          replacement.groupId !== null || replacement.source.kind !== "user",
-      )
-    ) {
-      return failure(
-        document,
-        "command.invalid",
-        "Rewrite replacements must be ungrouped user objects.",
-      );
+
+    for (const original of change.originals) {
+      const current = ownValue(document.objects, original.id);
+      if (current === undefined) {
+        return failure(
+          document,
+          "command.object-missing",
+          "Batch replace command references a missing original.",
+        );
+      }
+      if (!structurallyEqual(current, original)) {
+        return failure(
+          document,
+          "command.stale-object",
+          "Batch replace command contains a stale original snapshot.",
+        );
+      }
+      if (
+        current.locked ||
+        current.groupId !== null ||
+        current.source.kind !== "user"
+      ) {
+        return failure(
+          document,
+          "command.locked",
+          "Only unlocked, ungrouped user objects can be batch-replaced.",
+        );
+      }
+    }
+
+    for (const replacement of change.replacements) {
+      if (replacement.groupId !== null || replacement.source.kind !== "user") {
+        return failure(
+          document,
+          "command.invalid",
+          "Batch replacement objects must be ungrouped user objects.",
+        );
+      }
+      if (
+        originalIdSet.has(replacement.id) &&
+        !changeOriginalIds.has(replacement.id)
+      ) {
+        return failure(
+          document,
+          "command.invalid",
+          "A batch replacement cannot reuse another change's original ID.",
+        );
+      }
+      if (
+        !originalIdSet.has(replacement.id) &&
+        ownValue(document.objects, replacement.id) !== undefined
+      ) {
+        return failure(
+          document,
+          "command.object-exists",
+          "Batch replace command collides with an existing object ID.",
+        );
+      }
     }
   }
 
-  for (const groupId of groupedIds) {
-    const group = ownValue(document.groups, groupId);
-    if (
-      group === undefined ||
-      group.objectIds.some((objectId) => !originalIdSet.has(objectId))
-    ) {
-      return failure(
-        document,
-        "command.invalid",
-        "Grouped objects must be rewritten as a complete group.",
-      );
-    }
-  }
-
-  const replacements = command.changes.flatMap(({ replacements }) =>
-    replacements.map((replacement) => replacement),
-  );
-  const replacementIds = replacements.map(({ id }) => id);
-  if (hasDuplicates(replacementIds)) {
-    return failure(
-      document,
-      "command.duplicate-id",
-      "Rewrite objects command contains duplicate replacement IDs.",
-    );
-  }
-  if (
-    replacementIds.some(
-      (id) =>
-        !originalIdSet.has(id) && ownValue(document.objects, id) !== undefined,
-    )
-  ) {
-    return failure(
-      document,
-      "command.object-exists",
-      "Rewrite objects command collides with an existing object ID.",
-    );
-  }
-
-  const changesById = new Map(
-    command.changes.map((change) => [change.original.id, change] as const),
-  );
   const objects = { ...document.objects };
-  for (const id of originalIds) delete objects[id];
-  for (const replacement of replacements) objects[replacement.id] = replacement;
+  for (const originalId of originalIds) {
+    delete objects[originalId];
+  }
+  for (const change of command.changes) {
+    for (const replacement of change.replacements) {
+      objects[replacement.id] = replacement;
+    }
+  }
 
-  const groups = { ...document.groups };
-  for (const groupId of groupedIds) delete groups[groupId];
-
-  const order = document.order.flatMap((id) => {
-    const change = changesById.get(id);
-    return change === undefined
-      ? [id]
-      : change.replacements.map(({ id: replacementId }) => replacementId);
-  });
-
-  const solidModels = Object.fromEntries(
-    Object.entries(document.solidModels).filter(
-      ([, record]) =>
-        record === undefined ||
-        !record.boardObjectIds.every((id) => originalIdSet.has(id)),
-    ),
-  ) as BoardDocument["solidModels"];
-  const solidLearningAttempts = Object.fromEntries(
-    Object.entries(document.solidLearningAttempts).filter(
-      ([, attempt]) =>
-        attempt === undefined || solidModels[attempt.solidId] !== undefined,
-    ),
-  ) as BoardDocument["solidLearningAttempts"];
+  const removed = new Set(originalIds);
+  const insertions = new Map(
+    command.changes.map((change) => [
+      change.atIndex,
+      change.replacements.map(({ id }) => id),
+    ]),
+  );
+  const order: BoardObjectId[] = [];
+  for (let index = 0; index <= document.order.length; index += 1) {
+    order.push(...(insertions.get(index) ?? []));
+    const id = document.order[index];
+    if (id !== undefined && !removed.has(id)) {
+      order.push(id);
+    }
+  }
 
   return accept(document, {
     ...document,
-    groups,
     objects,
     order,
-    solidModels,
-    solidLearningAttempts,
     updatedAt: command.timestamp,
   });
 }
@@ -2254,8 +2251,8 @@ export function reduceBoardDocument(
       return addObjects(document, command);
     case "core.objects.replace":
       return replaceObjects(document, command);
-    case "core.objects.rewrite":
-      return rewriteObjects(document, command);
+    case "core.objects.batch-replace":
+      return batchReplaceObjects(document, command);
     case "core.clipboard.cut":
       return cutContent(document, command);
     case "core.clipboard.paste":

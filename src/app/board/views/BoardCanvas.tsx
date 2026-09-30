@@ -178,6 +178,22 @@ export function BoardCanvas({
     useState<CanvasContextMenuRequest | null>(null);
   const [clearConfirmationOpen, setClearConfirmationOpen] = useState(false);
   const registry = useMemo(() => createDefaultKonvaRendererRegistry(), []);
+  const eraserSuppressedObjectIds = useMemo(
+    () => new Set(eraser.preview?.suppressedObjectIds ?? []),
+    [eraser.preview],
+  );
+  const renderedScene = useMemo(
+    () =>
+      eraserSuppressedObjectIds.size === 0
+        ? scene
+        : {
+            ...scene,
+            items: scene.items.filter(
+              ({ object }) => !eraserSuppressedObjectIds.has(object.id),
+            ),
+          },
+    [eraserSuppressedObjectIds, scene],
+  );
   const previewItems = useMemo(
     () => [
       ...(drawing.preview === null
@@ -251,16 +267,6 @@ export function BoardCanvas({
             document.viewport.offset.y,
         };
 
-  const displayScene = useMemo(() => {
-    const suppressed = eraser.preview?.suppressedObjectIds;
-    if (suppressed === undefined || suppressed.length === 0) return scene;
-    const ids = new Set(suppressed);
-    return {
-      ...scene,
-      items: scene.items.filter(({ object }) => !ids.has(object.id)),
-    };
-  }, [eraser.preview, scene]);
-
   const clearCanvas = () => {
     const result = clipboard.clearAll();
     if (!result.ok) return;
@@ -277,7 +283,6 @@ export function BoardCanvas({
         coordinatePlotInteraction={plots.renderInteraction}
         drawingConstraintFeedback={drawing.constraintFeedback}
         eraserPoint={activeTool === eraserToolId ? eraser.point : null}
-        eraserPreviewCount={eraser.preview?.suppressedObjectIds.length ?? 0}
         eraserRadiusPx={eraser.radiusPx}
         drawingModeKey={
           isDrawingToolId(activeTool) ||
@@ -333,6 +338,7 @@ export function BoardCanvas({
         panMode={activeTool === navigationToolId}
         primaryCanvasGesturesEnabled={
           activeTool === navigationToolId ||
+          activeTool === "drawing.pen" ||
           activeTool === "drawing.smart-ink" ||
           isSelectionToolId(activeTool)
         }
@@ -340,7 +346,7 @@ export function BoardCanvas({
         registry={registry}
         remoteCursors={remoteCursors}
         remoteInkPreviews={remoteInkPreviews}
-        scene={displayScene}
+        scene={renderedScene}
         selectedObjectIds={selection.state.selectedObjectIds}
         selectionBounds={selection.bounds}
         selectionLasso={selection.lasso}

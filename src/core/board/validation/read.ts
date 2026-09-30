@@ -6,7 +6,7 @@ import {
   migrateBoardDocument11To12,
   migrateBoardDocument12To13,
   migrateBoardDocument13To14,
-  migrateBoardDocument14To15,
+  migrateBoardDocument14To16,
   migrateBoardDocument15To16,
 } from "../migrations";
 import type { ValidationIssue } from "./validate";
@@ -108,13 +108,9 @@ export function readBoardDocument(raw: unknown): BoardDocumentReadResult {
   }
   if (schemaVersion === "1.4") {
     const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds14);
-    if (objectKinds.length > 0) {
-      return { status: "incompatible-object", raw, objectKinds };
-    }
-    const migrated15 = migrateBoardDocument14To15(raw);
-    return migrated15.ok
-      ? migratedResult(migrated15.document, migrateBoardDocument15To16)
-      : { status: "invalid-document", raw, issues: migrated15.issues };
+    return objectKinds.length > 0
+      ? { status: "incompatible-object", raw, objectKinds }
+      : migratedResult(raw, migrateBoardDocument14To16);
   }
   if (schemaVersion === "1.5") {
     const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds);

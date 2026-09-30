@@ -4,7 +4,6 @@ import {
   boardDocumentSchemaVersion,
   type BoardDocument,
   type BoardDocument15,
-  type BoardDocument16,
 } from "./document";
 import { createVectorInkDataFromPoints } from "./vector-ink";
 import {
@@ -28,10 +27,6 @@ export type BoardDocumentMigrationResult =
 
 export type BoardDocument15MigrationResult =
   | { readonly document: BoardDocument15; readonly ok: true }
-  | { readonly issues: readonly ValidationIssue[]; readonly ok: false };
-
-export type BoardDocument16MigrationResult =
-  | { readonly document: BoardDocument16; readonly ok: true }
   | { readonly issues: readonly ValidationIssue[]; readonly ok: false };
 
 function schemaIssues(
@@ -75,14 +70,11 @@ export function migrateBoardDocument13To14(
   const parsed = boardDocumentSchema13.safeParse(raw);
   if (!parsed.success)
     return { ok: false, issues: schemaIssues(parsed.error.issues) };
-  const migrated15 = migrateBoardDocument14To15({
+  return migrateBoardDocument14To16({
     ...parsed.data,
     schemaVersion: boardDocument14SchemaVersion,
     solidLearningAttempts: {},
   });
-  return migrated15.ok
-    ? migrateBoardDocument15To16(migrated15.document)
-    : migrated15;
 }
 
 export function migrateBoardDocument14To15(
@@ -92,22 +84,32 @@ export function migrateBoardDocument14To15(
   if (!parsed.success) {
     return { ok: false, issues: schemaIssues(parsed.error.issues) };
   }
-  return {
-    ok: true,
-    document: {
-      ...parsed.data,
-      schemaVersion: boardDocument15SchemaVersion,
-    } as BoardDocument15,
-  };
+
+  const next = boardDocumentSchema15.safeParse({
+    ...parsed.data,
+    schemaVersion: boardDocument15SchemaVersion,
+  });
+  if (!next.success) {
+    return { ok: false, issues: schemaIssues(next.error.issues) };
+  }
+
+  const semanticValidation = validateBoardDocument({
+    ...next.data,
+    schemaVersion: boardDocumentSchemaVersion,
+  });
+  return semanticValidation.valid
+    ? { ok: true, document: next.data as BoardDocument15 }
+    : { ok: false, issues: semanticValidation.issues };
 }
 
 export function migrateBoardDocument15To16(
   raw: unknown,
-): BoardDocument16MigrationResult {
+): BoardDocumentMigrationResult {
   const parsed = boardDocumentSchema15.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, issues: schemaIssues(parsed.error.issues) };
   }
+
   const validation = validateBoardDocument({
     ...parsed.data,
     schemaVersion: boardDocumentSchemaVersion,
@@ -115,6 +117,13 @@ export function migrateBoardDocument15To16(
   return validation.valid
     ? { ok: true, document: validation.document }
     : { ok: false, issues: validation.issues };
+}
+
+export function migrateBoardDocument14To16(
+  raw: unknown,
+): BoardDocumentMigrationResult {
+  const migrated = migrateBoardDocument14To15(raw);
+  return migrated.ok ? migrateBoardDocument15To16(migrated.document) : migrated;
 }
 
 export function migrateBoardDocument11To13(

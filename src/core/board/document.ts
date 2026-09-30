@@ -38,12 +38,10 @@ export interface BoardDocument {
   readonly viewport: ViewportState;
 }
 
-export type BoardDocument16 = BoardDocument;
-
-/** Historical 1.5 document shape retained for rolling-reader migrations. */
 export type BoardDocument15 = Omit<BoardDocument, "schemaVersion"> & {
   readonly schemaVersion: typeof boardDocument15SchemaVersion;
 };
+export type BoardDocument16 = BoardDocument;
 
 export interface CreateBoardDocumentInput {
   readonly createdAt: string;

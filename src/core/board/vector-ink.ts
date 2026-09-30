@@ -385,11 +385,11 @@ export function vectorInkOutlinePathData(
     const sample = ink.samples[0]!;
     const radius = halfWidth(strokeWidth, sample.pressure);
     if (radius <= 0) return "";
-    const { x, y } = sample.point;
+    const point = sample.point;
     return [
-      `M ${number(x + radius)} ${number(y)}`,
-      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(x - radius)} ${number(y)}`,
-      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(x + radius)} ${number(y)}`,
+      `M ${number(point.x + radius)} ${number(point.y)}`,
+      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(point.x - radius)} ${number(point.y)}`,
+      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(point.x + radius)} ${number(point.y)}`,
       "Z",
     ].join(" ");
   }

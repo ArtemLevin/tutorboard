@@ -156,7 +156,7 @@ const cubicBezierSegmentSchema = z
     start: vec2Schema,
   })
   .strict();
-const vectorInkSchema = z
+const vectorInkSchema15 = z
   .object({
     centerline: z.array(cubicBezierSegmentSchema).min(1).max(100_000),
     closed: z.boolean(),
@@ -164,22 +164,54 @@ const vectorInkSchema = z
     version: z.literal(vectorInkSchemaVersion),
   })
   .strict();
+const vectorInkSchema = z
+  .object({
+    centerline: z.array(cubicBezierSegmentSchema).max(100_000),
+    closed: z.boolean(),
+    samples: z.array(vectorInkSampleSchema).min(1).max(100_000),
+    version: z.literal(vectorInkSchemaVersion),
+  })
+  .strict()
+  .superRefine((ink, context) => {
+    if (ink.samples.length === 1) {
+      if (ink.centerline.length !== 0) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Single-sample Vector Ink dots must not contain centerline segments.",
+          path: ["centerline"],
+        });
+      }
+      if (ink.closed) {
+        context.addIssue({
+          code: "custom",
+          message: "Single-sample Vector Ink dots cannot be closed.",
+          path: ["closed"],
+        });
+      }
+      return;
+    }
+    if (ink.centerline.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Multi-sample Vector Ink requires at least one centerline segment.",
+        path: ["centerline"],
+      });
+    }
+  });
 const penStrokeSchema15 = z
   .object({
     ...objectBase,
-    ink: vectorInkSchema,
+    ink: vectorInkSchema15,
     kind: z.literal("drawing.pen-stroke"),
     points: z.array(vec2Schema).min(2).max(100_000),
   })
   .strict();
-const vectorInkSchema16 = vectorInkSchema.extend({
-  centerline: z.array(cubicBezierSegmentSchema).max(100_000),
-  samples: z.array(vectorInkSampleSchema).min(1).max(100_000),
-});
-const penStrokeSchema16 = z
+const penStrokeSchema = z
   .object({
     ...objectBase,
-    ink: vectorInkSchema16,
+    ink: vectorInkSchema,
     kind: z.literal("drawing.pen-stroke"),
     points: z.array(vec2Schema).min(1).max(100_000),
   })
@@ -447,7 +479,7 @@ const objectSchema15 = z.discriminatedUnion("kind", [
   coordinatePlotObjectSchema,
 ]);
 const objectSchema16 = z.discriminatedUnion("kind", [
-  penStrokeSchema16,
+  penStrokeSchema,
   lineSchema,
   rectangleSchema,
   ellipseSchema,
@@ -1033,4 +1065,3 @@ export const knownBoardObjectKinds10 = new Set<string>([
 export const knownBoardObjectKinds14 = new Set<string>(boardObjectKinds14);
 export const knownBoardObjectKinds = new Set<string>(boardObjectKinds);
 export const knownBoardObjectKinds15 = knownBoardObjectKinds;
-export const knownBoardObjectKinds16 = knownBoardObjectKinds;

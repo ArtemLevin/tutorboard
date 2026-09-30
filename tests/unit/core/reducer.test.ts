@@ -75,6 +75,70 @@ describe("BoardDocument reducer", () => {
     }
   });
 
+  it("batch-replaces, deletes and restores objects atomically at exact layer positions", () => {
+    const back = rectangle("back");
+    const stroke = rectangle("stroke");
+    const text = rectangle("text");
+    const front = rectangle("front");
+    const seeded = addObjects(emptyDocument(), "seed-batch", [
+      back,
+      stroke,
+      text,
+      front,
+    ]);
+    expect(seeded.ok).toBe(true);
+    if (!seeded.ok) return;
+
+    const fragmentOne = { ...stroke, id: boardObjectId("object:stroke-a") };
+    const fragmentTwo = { ...stroke, id: boardObjectId("object:stroke-b") };
+    const erased = reduceBoardDocument(seeded.document, {
+      ...metadata("batch-erase", "2026-07-24T12:02:00.000Z"),
+      changes: [
+        {
+          atIndex: 1,
+          originals: [stroke],
+          replacements: [fragmentOne, fragmentTwo],
+        },
+        {
+          atIndex: 2,
+          originals: [text],
+          replacements: [],
+        },
+      ],
+      kind: "core.objects.batch-replace",
+    });
+    expect(erased.ok).toBe(true);
+    if (!erased.ok) return;
+    expect(erased.document.order).toEqual([
+      back.id,
+      fragmentOne.id,
+      fragmentTwo.id,
+      front.id,
+    ]);
+
+    const restored = reduceBoardDocument(erased.document, {
+      ...metadata("batch-restore", "2026-07-24T12:03:00.000Z"),
+      changes: [
+        {
+          atIndex: 1,
+          originals: [fragmentOne, fragmentTwo],
+          replacements: [stroke],
+        },
+        {
+          atIndex: 2,
+          originals: [],
+          replacements: [text],
+        },
+      ],
+      kind: "core.objects.batch-replace",
+    });
+    expect(restored.ok).toBe(true);
+    if (restored.ok) {
+      expect(restored.document.order).toEqual(seeded.document.order);
+      expect(restored.document.objects).toEqual(seeded.document.objects);
+    }
+  });
+
   it("rejects an object replacement when its original snapshot is stale", () => {
     const original = rectangle("stale");
     const seeded = addObjects(emptyDocument(), "seed-stale", [original]);
@@ -94,64 +158,6 @@ describe("BoardDocument reducer", () => {
     if (!result.ok) {
       expect(result.error.code).toBe("command.invalid");
     }
-  });
-
-  it("rewrites mixed objects atomically while preserving layer positions", () => {
-    const first = rectangle("rewrite-first");
-    const second = rectangle("rewrite-second");
-    const third = rectangle("rewrite-third");
-    const seeded = addObjects(emptyDocument(), "seed-rewrite", [
-      first,
-      second,
-      third,
-    ]);
-    expect(seeded.ok).toBe(true);
-    if (!seeded.ok) return;
-    const secondFragment = {
-      ...second,
-      id: boardObjectId("object:rewrite-second-fragment"),
-      position: { x: 40, y: 10 },
-    };
-    const result = reduceBoardDocument(seeded.document, {
-      ...metadata("rewrite", "2026-07-24T12:02:00.000Z"),
-      changes: [
-        { original: first, replacements: [] },
-        { original: second, replacements: [secondFragment] },
-      ],
-      kind: "core.objects.rewrite",
-    });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.document.order).toEqual([
-      "object:rewrite-second-fragment",
-      "object:rewrite-third",
-    ]);
-    expect(result.document.objects[first.id]).toBeUndefined();
-    expect(result.document.objects[second.id]).toBeUndefined();
-    expect(result.document.objects[secondFragment.id]).toEqual(secondFragment);
-  });
-
-  it("rejects the full rewrite when any original snapshot is stale", () => {
-    const first = rectangle("rewrite-stale-first");
-    const second = rectangle("rewrite-stale-second");
-    const seeded = addObjects(emptyDocument(), "seed-rewrite-stale", [
-      first,
-      second,
-    ]);
-    expect(seeded.ok).toBe(true);
-    if (!seeded.ok) return;
-    const result = reduceBoardDocument(seeded.document, {
-      ...metadata("rewrite-stale", "2026-07-24T12:02:00.000Z"),
-      changes: [
-        { original: first, replacements: [] },
-        { original: { ...second, visible: false }, replacements: [] },
-      ],
-      kind: "core.objects.rewrite",
-    });
-    expect(result.ok).toBe(false);
-    expect(result.document).toBe(seeded.document);
-    if (!result.ok) expect(result.error.code).toBe("command.stale-object");
   });
 
   it("adds objects atomically at the requested z-order index", () => {

@@ -30,13 +30,15 @@ describe("Vector Ink 1.0", () => {
     expect(vectorInkCenterlinePathData(ink)).toMatch(/^M .* C .* C /u);
   });
 
-  it("renders a single sample as a pressure-aware round dot", () => {
+  it("represents a pen tap as one canonical sample and renders a dot", () => {
+    const point = { x: 12, y: 18 };
     const ink = createVectorInkData([
-      { point: { x: 12, y: 18 }, pressure: 0.75, timestampMs: 4 },
+      { point, pressure: 0.75, timestampMs: 4 },
     ]);
-    expect(ink.centerline).toEqual([]);
     expect(ink.samples).toHaveLength(1);
-    expect(vectorInkDataMatchesPoints(ink, [{ x: 12, y: 18 }])).toBe(true);
+    expect(ink.centerline).toEqual([]);
+    expect(ink.closed).toBe(false);
+    expect(vectorInkDataMatchesPoints(ink, [point])).toBe(true);
     const outline = vectorInkOutlinePathData(ink, 8);
     expect(outline).toContain("A ");
     expect(outline.endsWith("Z")).toBe(true);

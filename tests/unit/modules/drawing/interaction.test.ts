@@ -82,40 +82,39 @@ describe("drawing interaction state machine", () => {
     expect(simplified).toContain(points[500]);
   });
 
-  it("creates a visible pressure-aware dot from a single pen tap", () => {
+  it("completes a stationary pen tap as a canonical single-sample dot", () => {
     const started = reduceDrawingInteraction(idle, {
       kind: "start",
       objectId: boardObjectId("object:dot"),
-      point: { x: 32, y: 48 },
-      pointerId: 31,
-      pressure: 0.8,
-      style: { ...styleFor("drawing.pen"), strokeWidth: 10 },
+      point: { x: 42, y: 51 },
+      pointerId: 7,
+      pressure: 0.75,
+      style: styleFor("drawing.pen"),
       text: "",
       tool: "drawing.pen",
     });
-
-    expect(getDrawingPreview(started.state)).toMatchObject({
-      kind: "drawing.ellipse",
-      position: { x: 32, y: 48 },
-    });
-
     const completed = reduceDrawingInteraction(started.state, {
       kind: "finish",
-      point: { x: 32, y: 48 },
-      pointerId: 31,
-      pressure: 0.8,
+      point: { x: 42, y: 51 },
+      pointerId: 7,
+      pressure: 0.75,
     });
+
+    expect(completed.diagnostic).toBeNull();
     expect(completed.completedObject).toMatchObject({
-      kind: "drawing.ellipse",
-      position: { x: 32, y: 48 },
-      style: { fill: styleFor("drawing.pen").stroke, strokeWidth: 0 },
+      kind: "drawing.pen-stroke",
+      points: [{ x: 42, y: 51 }],
+      ink: {
+        centerline: [],
+        closed: false,
+        samples: [
+          {
+            point: { x: 42, y: 51 },
+            pressure: 0.75,
+          },
+        ],
+      },
     });
-    if (completed.completedObject?.kind === "drawing.ellipse") {
-      expect(completed.completedObject.radius.x).toBeGreaterThan(4);
-      expect(completed.completedObject.radius.x).toBe(
-        completed.completedObject.radius.y,
-      );
-    }
   });
 
   it("samples pen points in world space and completes one object", () => {

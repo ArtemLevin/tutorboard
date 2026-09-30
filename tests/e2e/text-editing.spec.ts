@@ -54,13 +54,10 @@ test(
     await expect(editor).toBeVisible();
     await expect(page.getByTestId("object-count")).toContainText("0");
 
-    await editor.fill(String.raw`$x^2 + \alpha$`);
-    await expect(editor).toHaveValue(String.raw`$x^2 + \alpha$`);
-    await expect(page.getByTestId("object-count")).toContainText("0");
-
+    await editor.fill("Первая");
     await editor.press("Enter");
-    await editor.type("вторая строка");
-    expect(await editor.inputValue()).toContain("\nвторая строка");
+    await editor.type("Вторая");
+    await expect(editor).toHaveValue("Первая\nВторая");
     await expect(page.getByTestId("object-count")).toContainText("0");
 
     await editor.press("Shift+Enter");

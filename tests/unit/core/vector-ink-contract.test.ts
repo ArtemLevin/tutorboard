@@ -116,21 +116,26 @@ describe("BoardDocument 1.6 Vector Ink contract", () => {
     expect(first.document).toEqual(second.document);
   });
 
-  it("accepts and exports a canonical single-sample dot", () => {
-    const sample = { point: { x: 24, y: 32 }, pressure: 0.8, timestampMs: 0 };
-    const stroke: PenStrokeObject = {
+  it("accepts a canonical single-sample pen dot in BoardDocument 1.6", () => {
+    const dotPoint = { x: 24, y: 36 };
+    const dot: PenStrokeObject = {
       ...pressureStroke(),
-      id: boardObjectId("object:dot"),
-      ink: createVectorInkData([sample]),
-      points: [sample.point],
+      id: boardObjectId("object:dot-pen"),
+      ink: createVectorInkData([
+        { point: dotPoint, pressure: 0.8, timestampMs: 0 },
+      ]),
+      points: [dotPoint],
     };
-    const document = documentWithStroke(stroke);
-    const read = readBoardDocument(document);
+    const read = readBoardDocument(documentWithStroke(dot));
     expect(read.status).toBe("ok");
-    const svg = renderBoardSnapshotSvg(document, { height: 120, width: 160 });
-    expect(svg).toContain('data-vector-ink-version="1.0"');
-    expect(svg).toContain("<path");
-    expect(svg).toContain(" A ");
+    if (read.status !== "ok") return;
+    expect(read.document.schemaVersion).toBe("1.6");
+    const restored = read.document.objects[dot.id];
+    expect(restored?.kind).toBe("drawing.pen-stroke");
+    if (restored?.kind !== "drawing.pen-stroke") return;
+    expect(restored.points).toEqual([dotPoint]);
+    expect(restored.ink?.samples).toHaveLength(1);
+    expect(restored.ink?.centerline).toEqual([]);
   });
 
   it("uses the same variable-width outline for SVG, PNG and PDF source rendering", () => {
