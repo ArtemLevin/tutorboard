@@ -28,7 +28,7 @@
       "sha256": "4cb716a3364a8b1b5ca635cd5065a1001533a72821c3a02e435c56a76d1ec256"
     },
     "README.md": {
-      "sha256": "d6e3fd2e5a4b12359ef80dcdfc1f1b572073ad79b7e3ab9d97bc6e22d1ddc299"
+      "sha256": "bbc1d77222621c2e0904dfe2adbf3b6f2c1087098c2e8d81080567efed5c053e"
     }
   },
   "contract": "board/v1",
