@@ -1023,10 +1023,11 @@ export function BoardStage({
         if (stationary) {
           event.preventDefault();
           if (drawingSessionRef.current?.pointerId === event.pointerId) {
-            finishDrawing(false);
-          } else if (
-            selectionSessionRef.current?.pointerId === event.pointerId
-          ) {
+            clearPendingPrimaryCanvasTap();
+            finishDrawing(true, event);
+            return;
+          }
+          if (selectionSessionRef.current?.pointerId === event.pointerId) {
             finishSelection(false);
           } else if (panSessionRef.current?.pointerId === event.pointerId) {
             finishPan(false);
