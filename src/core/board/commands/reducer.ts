@@ -423,10 +423,7 @@ function batchReplaceObjects(
       );
     }
     for (const replacement of change.replacements) {
-      if (
-        replacement.groupId !== null ||
-        replacement.source.kind !== "user"
-      ) {
+      if (replacement.groupId !== null || replacement.source.kind !== "user") {
         return failure(
           document,
           "command.invalid",

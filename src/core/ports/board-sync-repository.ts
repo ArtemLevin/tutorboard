@@ -160,13 +160,7 @@ export interface BoardServerRecovery {
     readonly documentId: DocumentId;
     readonly documentSha256: string;
     readonly revision: number;
-    readonly schemaVersion:
-      | "1.1"
-      | "1.2"
-      | "1.3"
-      | "1.4"
-      | "1.5"
-      | "1.6";
+    readonly schemaVersion: "1.1" | "1.2" | "1.3" | "1.4" | "1.5" | "1.6";
   } | null;
 }
 

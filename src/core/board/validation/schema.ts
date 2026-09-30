@@ -177,7 +177,8 @@ const vectorInkSchema = z
       if (ink.centerline.length !== 0) {
         context.addIssue({
           code: "custom",
-          message: "Single-sample Vector Ink dots must not contain centerline segments.",
+          message:
+            "Single-sample Vector Ink dots must not contain centerline segments.",
           path: ["centerline"],
         });
       }
@@ -193,7 +194,8 @@ const vectorInkSchema = z
     if (ink.centerline.length === 0) {
       context.addIssue({
         code: "custom",
-        message: "Multi-sample Vector Ink requires at least one centerline segment.",
+        message:
+          "Multi-sample Vector Ink requires at least one centerline segment.",
         path: ["centerline"],
       });
     }

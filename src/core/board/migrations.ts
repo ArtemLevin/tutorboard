@@ -115,9 +115,7 @@ export function migrateBoardDocument14To16(
   raw: unknown,
 ): BoardDocumentMigrationResult {
   const migrated = migrateBoardDocument14To15(raw);
-  return migrated.ok
-    ? migrateBoardDocument15To16(migrated.document)
-    : migrated;
+  return migrated.ok ? migrateBoardDocument15To16(migrated.document) : migrated;
 }
 
 export function migrateBoardDocument11To13(
