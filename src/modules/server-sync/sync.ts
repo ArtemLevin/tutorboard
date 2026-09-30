@@ -3,6 +3,7 @@ import {
   reduceBoardDocument,
   serializeBoardDocument,
   serializeBoardDocument14ForCompatibility,
+  serializeBoardDocument15ForCompatibility,
   type ActorId,
   type BoardCommand,
   type BoardDocument,
@@ -121,22 +122,37 @@ async function legacyBoardDocument14Sha256(
   return await textSha256(serialized);
 }
 
+async function legacyBoardDocument15Sha256(
+  document: BoardDocument,
+): Promise<string> {
+  const serialized = serializeBoardDocument15ForCompatibility(document);
+  if (serialized === null) {
+    throw new SyncRecoveryError(
+      "board.sync.legacy-document-unrepresentable",
+      "Документ нельзя проверить в историческом формате BoardDocument 1.5.",
+    );
+  }
+  return await textSha256(serialized);
+}
+
 async function digestForEnvelope(
   document: BoardDocument,
   schemaVersion: string,
 ): Promise<string> {
-  return schemaVersion === "1.6"
-    ? await boardDocumentSha256(document)
-    : await legacyBoardDocument14Sha256(document);
+  if (schemaVersion === "1.7") return await boardDocumentSha256(document);
+  if (schemaVersion === "1.6")
+    return await legacyBoardDocument15Sha256(document);
+  return await legacyBoardDocument14Sha256(document);
 }
 
 async function digestForSnapshot(
   document: BoardDocument,
   schemaVersion: string,
 ): Promise<string> {
-  return schemaVersion === "1.5"
-    ? await boardDocumentSha256(document)
-    : await legacyBoardDocument14Sha256(document);
+  if (schemaVersion === "1.6") return await boardDocumentSha256(document);
+  if (schemaVersion === "1.5")
+    return await legacyBoardDocument15Sha256(document);
+  return await legacyBoardDocument14Sha256(document);
 }
 
 function commandsFromBatch(
@@ -941,7 +957,7 @@ export class BoardSyncEngine {
             expectedDocumentSha256: sha256,
             idempotencyKey: first.idempotencyKey,
             originId: this.#originId,
-            schemaVersion: "1.6",
+            schemaVersion: "1.7",
           },
           this.#context.csrfToken,
         );
