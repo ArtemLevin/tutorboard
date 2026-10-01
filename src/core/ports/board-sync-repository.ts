@@ -325,6 +325,20 @@ export interface ConfirmedBoardHead {
 }
 
 export interface PendingBoardCommandQueue {
+  /** All entries and their ordering clocks commit in one durable transaction. */
+  readonly enqueueBatch: (
+    documentId: DocumentId,
+    entries: readonly {
+      readonly command: BoardCommand;
+      readonly idempotencyKey: string;
+    }[],
+    ordering?: PendingBoardCommandOrderingInput,
+  ) => Promise<readonly PendingBoardCommand[]>;
+  /** Acknowledges a complete server batch without leaving a partial group. */
+  readonly acknowledgeBatch: (
+    documentId: DocumentId,
+    sequences: readonly number[],
+  ) => Promise<void>;
   readonly acknowledge: (
     documentId: DocumentId,
     sequence: number,

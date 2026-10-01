@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   DexiePendingBoardCommandQueue,
@@ -501,4 +501,155 @@ describe("DexiePendingBoardCommandQueue integrity", () => {
       { idempotencyKey: "old:key", reason: "access-epoch-changed" },
     ]);
   });
+});
+
+describe("P1 durable groups and monotonic clocks", () => {
+  const id = documentId("document:p1");
+  const entries = () =>
+    [1, 2].map((index) => ({
+      command: command(index),
+      idempotencyKey: `key:${index}`,
+    }));
+
+  it("preserves group identity and ordering through reconcile and reopen", async () => {
+    const name = `p1-reopen-${crypto.randomUUID()}`;
+    const queue = createQueue(name);
+    const batch = await queue.enqueueBatch(id, entries(), {
+      batchId: "batch:p1",
+    });
+    await queue.reconcile(
+      id,
+      batch,
+      batch.map(({ sequence }) => sequence),
+    );
+    queue.close();
+    const reopened = createQueue(name);
+    expect(await reopened.list(id)).toEqual(batch);
+    expect(batch.map(({ batchId, order }) => [batchId, order.lamport])).toEqual(
+      [
+        ["batch:p1", 1],
+        ["batch:p1", 2],
+      ],
+    );
+  });
+
+  it("rolls back the first row and both clocks if the second insert violates an IDB constraint", async () => {
+    const name = `p1-abort-${crypto.randomUUID()}`;
+    const queue = createQueue(name);
+    await expect(
+      queue.enqueueBatch(
+        id,
+        entries().map((entry) => ({ ...entry, idempotencyKey: "duplicate" })),
+        { batchId: "batch:p1" },
+      ),
+    ).rejects.toThrow();
+    queue.close();
+    const reopened = createQueue(name);
+    expect(await reopened.list(id)).toEqual([]);
+    const next = await reopened.enqueue(id, "next", command(3));
+    expect(next).toMatchObject({ sequence: 1, order: { lamport: 1 } });
+  });
+
+  it("does not rewind a clock when another tab reconciles an older view or lists after a newer ack", async () => {
+    const name = `p1-tabs-${crypto.randomUUID()}`;
+    const firstTab = createQueue(name);
+    const secondTab = createQueue(name);
+    const first = await firstTab.enqueue(id, "one", command(1));
+    const second = await secondTab.enqueue(id, "two", command(2));
+    await firstTab.reconcile(id, [first], [first.sequence]);
+    await secondTab.acknowledgeBatch(id, [second.sequence]);
+    await firstTab.list(id);
+    const third = await secondTab.enqueue(id, "three", command(3));
+    expect(third.order.lamport).toBe(second.order.lamport + 1);
+    expect((await firstTab.list(id)).map(({ sequence }) => sequence)).toEqual([
+      1, 3,
+    ]);
+  });
+
+  it("allocates non-interleaved sequences and clocks for simultaneous groups in two tabs", async () => {
+    const name = `p1-concurrent-${crypto.randomUUID()}`;
+    const firstTab = createQueue(name);
+    const secondTab = createQueue(name);
+    const groups = await Promise.all([
+      firstTab.enqueueBatch(id, entries(), { batchId: "batch:a" }),
+      secondTab.enqueueBatch(
+        id,
+        entries().map((entry) => ({
+          ...entry,
+          idempotencyKey: `${entry.idempotencyKey}:b`,
+        })),
+        { batchId: "batch:b" },
+      ),
+    ]);
+    for (const group of groups)
+      expect(group[1]!.sequence).toBe(group[0]!.sequence + 1);
+    const stored = await firstTab.list(id);
+    expect(stored.map(({ order }) => order.lamport)).toEqual([1, 2, 3, 4]);
+    await firstTab.acknowledgeBatch(
+      id,
+      groups[0].map(({ sequence }) => sequence),
+    );
+    expect(await secondTab.list(id)).toEqual(groups[1]);
+  });
+});
+
+it("keeps a whole group on an interrupted atomic acknowledgement", async () => {
+  const name = `p1-ack-abort-${crypto.randomUUID()}`;
+  const queue = createQueue(name);
+  const id = documentId("document:p1-ack");
+  const group = await queue.enqueueBatch(
+    id,
+    [1, 2].map((index) => ({
+      command: command(index),
+      idempotencyKey: `key:${index}`,
+    })),
+    { batchId: "batch:ack" },
+  );
+  // The fault injector calls the original with the actual IndexedDB store.
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  const original = IDBObjectStore.prototype.delete;
+  let deletes = 0;
+  const fault = vi
+    .spyOn(IDBObjectStore.prototype, "delete")
+    .mockImplementation(function (this: IDBObjectStore, key) {
+      if (this.name === "scopedPending" && ++deletes === 2)
+        throw new DOMException("Injected failure", "AbortError");
+      return original.call(this, key);
+    });
+  try {
+    await expect(
+      queue.acknowledgeBatch(
+        id,
+        group.map(({ sequence }) => sequence),
+      ),
+    ).rejects.toThrow();
+  } finally {
+    fault.mockRestore();
+  }
+  queue.close();
+  expect(await createQueue(name).list(id)).toEqual(group);
+});
+
+it("quarantines the decoded prefix of a group if its second record is corrupted", async () => {
+  const name = `p1-corrupt-group-${crypto.randomUUID()}`;
+  const queue = createQueue(name);
+  const id = documentId("document:p1-corrupt");
+  const group = await queue.enqueueBatch(
+    id,
+    [1, 2].map((index) => ({
+      command: command(index),
+      idempotencyKey: `key:${index}`,
+    })),
+    { batchId: "batch:corrupt" },
+  );
+  await mutatePending(name, id, group[1]!.sequence, (raw) => ({
+    ...raw,
+    commandSha256: "0".repeat(64),
+  }));
+  expect(await queue.list(id)).toEqual([]);
+  const quarantined = await queue.listQuarantined(id);
+  expect(quarantined.map(({ sequence }) => sequence).sort()).toEqual([1, 2]);
+  expect(quarantined.every(({ raw }) => raw.includes("batch:corrupt"))).toBe(
+    true,
+  );
 });

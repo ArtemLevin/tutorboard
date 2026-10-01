@@ -164,17 +164,83 @@ function terminalAccessRefreshFailure(error: unknown): boolean {
   return status === 401 || status === 403 || status === 404 || status === 410;
 }
 
-export function SyncedApp({
+// Each effect setup owns a fresh engine. React StrictMode may clean up a
+// setup immediately; a disposed instance must never be used by its successor.
+export function SyncedApp(props: SyncedAppProps) {
+  const [state, setState] = useState<BoardSyncState>({ kind: "bootstrapping" });
+  const [runtime, setRuntime] = useState<{
+    engine: BoardSyncEngine;
+    key: string;
+    documentId: DocumentId;
+    queue: PendingBoardCommandQueue;
+    repository: SyncedBoardRepository;
+    accessContext: BoardRuntimeAccessContext | undefined;
+  } | null>(null);
+  const { accessContext, documentId, queue, repository } = props;
+  useEffect(() => {
+    let active = true;
+    const engine = new BoardSyncEngine({
+      ...(accessContext === undefined ? {} : { accessContext }),
+      createIdempotencyKey: () => `client:${crypto.randomUUID()}`,
+      documentId,
+      now: () => new Date().toISOString(),
+      originId: collaborationOriginId(),
+      onStateChange: (next) => {
+        if (active) setState(next);
+      },
+      queue,
+      repository,
+    });
+    // Publish only a setup that survived immediate StrictMode cleanup.
+    queueMicrotask(() => {
+      if (!active) return;
+      setState({ kind: "bootstrapping" });
+      setRuntime({
+        engine,
+        key: crypto.randomUUID(),
+        documentId,
+        queue,
+        repository,
+        accessContext,
+      });
+    });
+    return () => {
+      active = false;
+      engine.dispose();
+    };
+  }, [accessContext, documentId, queue, repository]);
+  if (
+    runtime === null ||
+    runtime.documentId !== documentId ||
+    runtime.queue !== queue ||
+    runtime.repository !== repository ||
+    runtime.accessContext !== accessContext
+  )
+    return null;
+  return (
+    <SyncedWorkspace
+      {...props}
+      engine={runtime.engine}
+      key={runtime.key}
+      state={state}
+    />
+  );
+}
+
+function SyncedWorkspace({
   accessContext,
   documentId,
+  engine,
+  state,
   geometryOsClient,
   lessonId,
   mathInkRecognizer,
-  queue,
   refreshAccessContext,
   repository,
-}: SyncedAppProps) {
-  const [state, setState] = useState<BoardSyncState>({ kind: "bootstrapping" });
+}: SyncedAppProps & {
+  readonly engine: BoardSyncEngine;
+  readonly state: BoardSyncState;
+}) {
   const [collaborationStatus, setCollaborationStatus] =
     useState<BoardCollaborationStatus>("connecting");
   const [collaborationAccessReady, setCollaborationAccessReady] =
@@ -210,20 +276,13 @@ export function SyncedApp({
   const previousCollaborationStatusRef =
     useRef<BoardCollaborationStatus>("connecting");
   const refreshAccessAfterCollaborationOfflineRef = useRef(false);
-  const [originId] = useState(collaborationOriginId);
-  const [engine] = useState(
-    () =>
-      new BoardSyncEngine({
-        ...(accessContext === undefined ? {} : { accessContext }),
-        createIdempotencyKey: () => `client:${crypto.randomUUID()}`,
-        documentId,
-        now: () => new Date().toISOString(),
-        originId,
-        onStateChange: setState,
-        queue,
-        repository,
-      }),
-  );
+  const activeRef = useRef(false);
+  useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+    };
+  }, []);
   const refreshStandaloneAccess = useCallback(
     (expectedAccessEpoch?: string): Promise<BoardAccessContext> => {
       if (accessRefreshInFlightRef.current !== null) {
@@ -243,6 +302,7 @@ export function SyncedApp({
           throw new Error("Обновление контекста доступа недоступно.");
         }
         const context = await refreshAccessContext();
+        if (!activeRef.current) throw new Error("Board workspace was closed.");
         if (
           requiredAccessEpoch !== undefined &&
           previousAccessEpoch !== undefined &&
@@ -252,6 +312,7 @@ export function SyncedApp({
           throw new Error("Сервер вернул устаревший контекст доступа.");
         }
         await engine.updateAccessContext(context);
+        if (!activeRef.current) throw new Error("Board workspace was closed.");
         currentAccessContextRef.current = context;
         setCurrentAccessContext(context);
         expectedAccessEpochRef.current = undefined;
@@ -264,6 +325,7 @@ export function SyncedApp({
         return context;
       })()
         .catch((error: unknown) => {
+          if (!activeRef.current) throw error;
           if (terminalAccessRefreshFailure(error)) {
             engine.dispose();
             setAccessRefreshStatus("revoked");
@@ -316,8 +378,24 @@ export function SyncedApp({
 
   useEffect(() => {
     collaboration.setAccessEventHandler(handleAccessEvent);
-    return () => collaboration.setAccessEventHandler(() => undefined);
-  }, [collaboration, handleAccessEvent]);
+    collaboration.setAccessRefreshHandler(
+      refreshAccessContext === undefined
+        ? undefined
+        : async () => {
+            const context = await refreshStandaloneAccess();
+            return context.capabilities.includes("collaboration.connect");
+          },
+    );
+    return () => {
+      collaboration.setAccessEventHandler(() => undefined);
+      collaboration.setAccessRefreshHandler(undefined);
+    };
+  }, [
+    collaboration,
+    handleAccessEvent,
+    refreshAccessContext,
+    refreshStandaloneAccess,
+  ]);
 
   useEffect(() => {
     if (collaborationStatus === "offline") {
@@ -342,6 +420,7 @@ export function SyncedApp({
           previousAccessEpoch !== undefined &&
           context.accessEpoch !== previousAccessEpoch
         ) {
+          if (!activeRef.current) return;
           collaboration.stop();
           collaboration.start();
           return;
@@ -357,20 +436,28 @@ export function SyncedApp({
   ]);
 
   useEffect(() => {
+    let active = true;
     bootstrapStartedRef.current = performance.now();
     const bootstrap = async () => {
+      if (!active) return;
       if (lessonId !== undefined) {
         const context = await repository.context();
+        if (!active) return;
         if (context.role === "admin" || context.role === "tutor") {
           await repository.ensureBoard(lessonId, documentId, context.csrfToken);
         }
       }
-      await engine.bootstrap();
+      if (active) await engine.bootstrap();
     };
-    void bootstrap().catch(() => void engine.bootstrap());
+    void Promise.resolve()
+      .then(bootstrap)
+      .catch(() => {
+        if (active) void engine.bootstrap();
+      });
     const reconnect = () => {
       if (refreshAccessContext === undefined) {
         void engine.setNetworkAvailable(true).then(() => {
+          if (!activeRef.current) return;
           collaboration.stop();
           collaboration.start();
         });
@@ -379,6 +466,7 @@ export function SyncedApp({
       void refreshStandaloneAccess()
         .then(() => engine.setNetworkAvailable(true))
         .then(() => {
+          if (!activeRef.current) return;
           collaboration.stop();
           collaboration.start();
         })
@@ -388,9 +476,9 @@ export function SyncedApp({
     window.addEventListener("online", reconnect);
     window.addEventListener("offline", disconnect);
     return () => {
+      active = false;
       window.removeEventListener("online", reconnect);
       window.removeEventListener("offline", disconnect);
-      engine.dispose();
     };
   }, [
     documentId,
