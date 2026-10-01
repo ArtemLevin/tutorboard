@@ -41,6 +41,28 @@ class MemoryQueue implements PendingBoardCommandQueue {
     return Promise.resolve();
   }
 
+  acknowledgeBatch(
+    _documentId: DocumentId,
+    sequences: readonly number[],
+  ): Promise<void> {
+    this.items = this.items.filter(
+      (item) => !sequences.includes(item.sequence),
+    );
+    return Promise.resolve();
+  }
+
+  enqueueBatch(
+    documentId: DocumentId,
+    entries: readonly { command: BoardCommand; idempotencyKey: string }[],
+    ordering: PendingBoardCommandOrderingInput = {},
+  ): Promise<readonly PendingBoardCommand[]> {
+    return Promise.all(
+      entries.map(({ command, idempotencyKey }) =>
+        this.enqueue(documentId, idempotencyKey, command, ordering),
+      ),
+    );
+  }
+
   enqueue(
     documentId: DocumentId,
     idempotencyKey: string,
@@ -48,6 +70,7 @@ class MemoryQueue implements PendingBoardCommandQueue {
     ordering: PendingBoardCommandOrderingInput = {},
   ): Promise<PendingBoardCommand> {
     const item: PendingBoardCommand = {
+      ...(ordering.batchId === undefined ? {} : { batchId: ordering.batchId }),
       command,
       documentId,
       idempotencyKey,

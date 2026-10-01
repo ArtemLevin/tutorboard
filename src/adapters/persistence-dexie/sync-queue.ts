@@ -448,7 +448,7 @@ async function validateStoredCommand(
   const read = readBoardCommandJson(stored.commandJson);
   if (read.status !== "ok") {
     return errorResult(
-      stored.commandJson,
+      stored,
       read.status === "invalid-json" ? "invalid-json" : "invalid-command",
       {
         ...pendingErrorContext(stored),
@@ -458,7 +458,7 @@ async function validateStoredCommand(
   }
   if (read.command.actorId !== stored.actorId) {
     return errorResult(
-      stored.commandJson,
+      stored,
       "actor-id-mismatch",
       pendingErrorContext(stored),
     );
@@ -466,7 +466,7 @@ async function validateStoredCommand(
   const actualSha256 = await boardCommandSha256(read.command);
   if (actualSha256 !== stored.commandSha256) {
     return errorResult(
-      stored.commandJson,
+      stored,
       "command-hash-mismatch",
       pendingErrorContext(stored),
     );
@@ -691,12 +691,40 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
     command: BoardCommand,
     ordering: PendingBoardCommandOrderingInput = {},
   ): Promise<PendingBoardCommand> {
-    const serialized = serializeBoardCommand(command);
-    if (!serialized.ok) {
-      throw new Error("Pending board command is invalid.");
-    }
-    const commandSha256 = await boardCommandSha256(command);
+    const items = await this.enqueueBatch(
+      expectedDocumentId,
+      [{ command, idempotencyKey }],
+      ordering,
+    );
+    return items[0]!;
+  }
+
+  async enqueueBatch(
+    expectedDocumentId: DocumentId,
+    entries: readonly {
+      readonly command: BoardCommand;
+      readonly idempotencyKey: string;
+    }[],
+    ordering: PendingBoardCommandOrderingInput = {},
+  ): Promise<readonly PendingBoardCommand[]> {
     const scope = this.#scope;
+    if (entries.length === 0) return [];
+    if (entries.length > 1 && ordering.batchId === undefined) {
+      throw new Error("A durable command group requires a batch id.");
+    }
+    const prepared = await Promise.all(
+      entries.map(async ({ command, idempotencyKey }) => {
+        const serialized = serializeBoardCommand(command);
+        if (!serialized.ok)
+          throw new Error("Pending board command is invalid.");
+        return {
+          command,
+          idempotencyKey,
+          commandJson: serialized.json,
+          commandSha256: await boardCommandSha256(command),
+        };
+      }),
+    );
     return await this.#database.transaction(
       "rw",
       this.#database.scopedPending,
@@ -718,59 +746,86 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
             latestSequence?.sequence ?? 0,
             parsedSequenceClock.success ? parsedSequenceClock.data.value : 0,
           ) + 1;
-        const rawClock = await this.#database.scopedClocks.get([
-          scope.cacheScopeId,
-          expectedDocumentId,
-          command.actorId,
-        ]);
-        const parsedClock = actorClockSchema.safeParse(rawClock);
-        const currentClock = parsedClock.success ? parsedClock.data.value : 0;
-        const baseRevisionAtCreation = Math.max(
-          0,
-          ordering.baseRevisionAtCreation ?? 0,
-        );
-        const lamport =
-          Math.max(
-            currentClock,
-            ordering.observedLamport ?? 0,
+        const items: PendingBoardCommand[] = [];
+        for (const [
+          index,
+          { command, idempotencyKey, commandJson, commandSha256 },
+        ] of prepared.entries()) {
+          const rawClock = await this.#database.scopedClocks.get([
+            scope.cacheScopeId,
+            expectedDocumentId,
+            command.actorId,
+          ]);
+          const parsedClock = actorClockSchema.safeParse(rawClock);
+          const currentClock = parsedClock.success ? parsedClock.data.value : 0;
+          const baseRevisionAtCreation = Math.max(
+            0,
+            ordering.baseRevisionAtCreation ?? 0,
+          );
+          const lamport =
+            Math.max(
+              currentClock,
+              ...existing.flatMap((row) => {
+                const parsed = pendingV3Schema.safeParse(row);
+                return parsed.success && parsed.data.actorId === command.actorId
+                  ? [parsed.data.lamport]
+                  : [];
+              }),
+              ordering.observedLamport ?? 0,
+              baseRevisionAtCreation,
+            ) + 1;
+          const stored: StoredPendingCommandV3 = {
+            accessEpochAtCreation:
+              ordering.accessEpochAtCreation ?? scope.accessEpoch,
+            actorId: command.actorId,
+            ...(ordering.batchId === undefined
+              ? {}
+              : { batchId: ordering.batchId }),
             baseRevisionAtCreation,
-          ) + 1;
-        const stored: StoredPendingCommandV3 = {
-          accessEpochAtCreation:
-            ordering.accessEpochAtCreation ?? scope.accessEpoch,
-          actorId: command.actorId,
-          ...(ordering.batchId === undefined
-            ? {}
-            : { batchId: ordering.batchId }),
-          baseRevisionAtCreation,
-          cacheScopeId: scope.cacheScopeId,
-          commandJson: serialized.json,
-          commandSchemaVersion: boardCommandSchemaVersion,
-          commandSha256,
-          documentId: expectedDocumentId,
-          enqueuedAt: command.timestamp,
-          idempotencyKey,
-          lamport,
-          schemaVersion: "3",
-          sequence,
-        };
-        await this.#database.scopedPending.add(stored);
-        await this.#database.scopedClocks.put({
-          actorId: command.actorId,
-          cacheScopeId: scope.cacheScopeId,
-          documentId: expectedDocumentId,
-          updatedAt: command.timestamp,
-          value: lamport,
-        });
-        await this.#database.scopedSequences.put({
-          cacheScopeId: scope.cacheScopeId,
-          documentId: expectedDocumentId,
-          updatedAt: command.timestamp,
-          value: sequence,
-        });
-        return pendingItem(command, stored);
+            cacheScopeId: scope.cacheScopeId,
+            commandJson,
+            commandSchemaVersion: boardCommandSchemaVersion,
+            commandSha256,
+            documentId: expectedDocumentId,
+            enqueuedAt: command.timestamp,
+            idempotencyKey,
+            lamport,
+            schemaVersion: "3",
+            sequence: sequence + index,
+          };
+          pendingV3Schema.parse(stored);
+          await this.#database.scopedPending.add(stored);
+          await this.#database.scopedClocks.put({
+            actorId: command.actorId,
+            cacheScopeId: scope.cacheScopeId,
+            documentId: expectedDocumentId,
+            updatedAt: command.timestamp,
+            value: lamport,
+          });
+          await this.#database.scopedSequences.put({
+            cacheScopeId: scope.cacheScopeId,
+            documentId: expectedDocumentId,
+            updatedAt: command.timestamp,
+            value: stored.sequence,
+          });
+          items.push(pendingItem(command, stored));
+        }
+        return items;
       },
     );
+  }
+
+  async #advanceClock(clock: StoredActorClock): Promise<void> {
+    const current = actorClockSchema.safeParse(
+      await this.#database.scopedClocks.get([
+        clock.cacheScopeId,
+        clock.documentId,
+        clock.actorId,
+      ]),
+    );
+    if (!current.success || current.data.value < clock.value) {
+      await this.#database.scopedClocks.put(clock);
+    }
   }
 
   async list(
@@ -799,7 +854,7 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
             if (!pendingV3Schema.safeParse(raw).success) {
               await this.#database.scopedPending.put(decoded.value.stored);
             }
-            await this.#database.scopedClocks.put({
+            await this.#advanceClock({
               actorId: decoded.value.stored.actorId,
               cacheScopeId: scope.cacheScopeId,
               documentId: decoded.value.stored.documentId,
@@ -822,10 +877,37 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
             continue;
           }
 
+          // A damaged member invalidates its whole group, including the
+          // already decoded prefix. Keep raw records for explicit recovery.
+          const batchId =
+            raw !== undefined && "batchId" in raw ? raw.batchId : undefined;
+          let quarantineStart = index;
+          if (batchId !== undefined) {
+            while (quarantineStart > 0) {
+              const preceding = rows[quarantineStart - 1];
+              if (
+                preceding === undefined ||
+                !("batchId" in preceding) ||
+                preceding.batchId !== batchId
+              )
+                break;
+              quarantineStart -= 1;
+            }
+          }
+          const groupedSequences = new Set(
+            rows.slice(quarantineStart, index).map(({ sequence }) => sequence),
+          );
+          for (let cursor = valid.length - 1; cursor >= 0; cursor -= 1) {
+            if (groupedSequences.has(valid[cursor]!.sequence))
+              valid.splice(cursor, 1);
+          }
           const quarantined: StoredQuarantinedCommand[] = [
             quarantineRecord(decoded, capturedAt, expectedDocumentId, scope),
           ];
-          for (const dependent of rows.slice(index + 1)) {
+          for (const dependent of [
+            ...rows.slice(quarantineStart, index),
+            ...rows.slice(index + 1),
+          ]) {
             const legacy = legacyPendingSchema.safeParse(dependent);
             const previous = pendingV2Schema.safeParse(dependent);
             const current = pendingV3Schema.safeParse(dependent);
@@ -866,19 +948,21 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
             });
           }
           await this.#database.scopedQuarantine.bulkAdd(quarantined);
-          const quarantinedSequences = rows.slice(index).flatMap((item) => {
-            const legacy = legacyPendingSchema.safeParse(item);
-            const previous = pendingV2Schema.safeParse(item);
-            const current = pendingV3Schema.safeParse(item);
-            const sequence = current.success
-              ? current.data.sequence
-              : previous.success
-                ? previous.data.sequence
-                : legacy.success
-                  ? legacy.data.sequence
-                  : null;
-            return sequence === null ? [] : [sequence];
-          });
+          const quarantinedSequences = rows
+            .slice(quarantineStart)
+            .flatMap((item) => {
+              const legacy = legacyPendingSchema.safeParse(item);
+              const previous = pendingV2Schema.safeParse(item);
+              const current = pendingV3Schema.safeParse(item);
+              const sequence = current.success
+                ? current.data.sequence
+                : previous.success
+                  ? previous.data.sequence
+                  : legacy.success
+                    ? legacy.data.sequence
+                    : null;
+              return sequence === null ? [] : [sequence];
+            });
           for (const sequence of quarantinedSequences) {
             await this.#database.scopedPending.delete(
               pendingKey(scope, expectedDocumentId, sequence),
@@ -998,8 +1082,24 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
     expectedDocumentId: DocumentId,
     sequence: number,
   ): Promise<void> {
-    await this.#database.scopedPending.delete(
-      pendingKey(this.#scope, expectedDocumentId, sequence),
+    await this.acknowledgeBatch(expectedDocumentId, [sequence]);
+  }
+
+  async acknowledgeBatch(
+    expectedDocumentId: DocumentId,
+    sequences: readonly number[],
+  ): Promise<void> {
+    const scope = this.#scope;
+    await this.#database.transaction(
+      "rw",
+      this.#database.scopedPending,
+      async () => {
+        await this.#database.scopedPending.bulkDelete(
+          sequences.map((sequence) =>
+            pendingKey(scope, expectedDocumentId, sequence),
+          ),
+        );
+      },
     );
   }
 
@@ -1079,9 +1179,9 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
                 accessEpochAtCreation:
                   item.accessEpochAtCreation ?? previous.accessEpochAtCreation,
                 actorId: command.actorId,
-                ...(item.batchId === undefined
+                ...(previous.batchId === undefined
                   ? {}
-                  : { batchId: item.batchId }),
+                  : { batchId: previous.batchId }),
                 baseRevisionAtCreation: previous.baseRevisionAtCreation,
                 cacheScopeId: scope.cacheScopeId,
                 commandJson,
@@ -1113,7 +1213,7 @@ export class DexiePendingBoardCommandQueue implements PendingBoardCommandQueue {
           }
         }
         if (clocks.size > 0) {
-          await this.#database.scopedClocks.bulkPut([...clocks.values()]);
+          for (const clock of clocks.values()) await this.#advanceClock(clock);
         }
       },
     );

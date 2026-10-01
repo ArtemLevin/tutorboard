@@ -1,3 +1,4 @@
+import { canonicalBoardCommandJson } from "../../core/board/commands/codec/public";
 import {
   createEmptyBoardDocument,
   reduceBoardDocument,
@@ -232,17 +233,25 @@ function replayPending(
   let document = head.document;
   const conflicts: PendingBoardCommandConflict[] = [];
   const items: PendingBoardCommand[] = [];
-  for (const item of pending) {
-    const result = reduceBoardDocument(document, item.command);
-    if (!result.ok) {
-      conflicts.push({
-        item,
-        message: `Локальная команда ${item.command.id} конфликтует с удалёнными изменениями: ${result.error.message}`,
-      });
-      continue;
+  for (let offset = 0; offset < pending.length;) {
+    const group = pendingBatchPrefix(pending.slice(offset));
+    let preview = document;
+    let failure: string | undefined;
+    for (const item of group) {
+      const result = reduceBoardDocument(preview, item.command);
+      if (!result.ok) {
+        failure = `Локальная группа конфликтует с удалёнными изменениями: ${result.error.message}`;
+        break;
+      }
+      preview = result.document;
     }
-    document = result.document;
-    items.push(item);
+    if (failure === undefined) {
+      document = preview;
+      items.push(...group);
+    } else {
+      for (const item of group) conflicts.push({ item, message: failure });
+    }
+    offset += group.length;
   }
   return { conflicts, document, items };
 }
@@ -462,6 +471,7 @@ export class BoardSyncEngine {
     if (this.#disposed) return Promise.resolve();
     this.#accessRefreshPending = true;
     const update = this.#serial.then(async () => {
+      if (this.#disposed) return;
       const current = this.#context;
       if (current !== null && current.cacheScopeId !== context.cacheScopeId) {
         throw new SyncRecoveryError(
@@ -522,14 +532,17 @@ export class BoardSyncEngine {
   }
 
   #enqueueDurably(
-    command: BoardCommand,
+    commands: readonly BoardCommand[],
     baseRevisionAtCreation: number,
     batchId?: string,
-  ): Promise<PendingBoardCommand> {
-    const idempotencyKey = this.#createIdempotencyKey();
+  ): Promise<readonly PendingBoardCommand[]> {
+    const entries = commands.map((command) => ({
+      command,
+      idempotencyKey: this.#createIdempotencyKey(),
+    }));
     const accessEpochAtCreation = this.#context?.accessEpoch;
     const pending = this.#durableSerial.then(() =>
-      this.#queue.enqueue(this.#documentId, idempotencyKey, command, {
+      this.#queue.enqueueBatch(this.#documentId, entries, {
         ...(accessEpochAtCreation === undefined
           ? {}
           : { accessEpochAtCreation }),
@@ -580,11 +593,7 @@ export class BoardSyncEngine {
 
     const batchId =
       commands.length > 1 ? this.#createIdempotencyKey() : undefined;
-    const durable = Promise.all(
-      commands.map((command) =>
-        this.#enqueueDurably(command, confirmed.revision, batchId),
-      ),
-    );
+    const durable = this.#enqueueDurably(commands, confirmed.revision, batchId);
     this.#serial = this.#serial
       .then(async () => {
         const queued = await durable;
@@ -660,11 +669,7 @@ export class BoardSyncEngine {
 
     const batchId =
       rebased.length > 1 ? this.#createIdempotencyKey() : undefined;
-    const durable = Promise.all(
-      rebased.map((command) =>
-        this.#enqueueDurably(command, confirmed.revision, batchId),
-      ),
-    );
+    const durable = this.#enqueueDurably(rebased, confirmed.revision, batchId);
     this.#serial = this.#serial
       .then(async () => {
         const queued = await durable;
@@ -841,6 +846,12 @@ export class BoardSyncEngine {
           );
         }
       }
+      if (recovery.snapshot !== null) {
+        await this.#acknowledgeSnapshotCoveredPending(
+          recovery.snapshot.revision,
+        );
+      }
+      if (this.#disposed) return;
       await this.#acknowledgeRemoteDuplicates(recovery.commandBatches);
       if (this.#disposed) return;
       if (head.revision !== recovery.board.currentRevision) {
@@ -1018,6 +1029,8 @@ export class BoardSyncEngine {
             result.missingCommandBatches,
           );
           if (this.#disposed) return;
+          await this.#acknowledgeRemoteDuplicates(result.missingCommandBatches);
+          await this.#queue.saveHead(this.#confirmed);
           if (
             result.hasMore ||
             this.#confirmed.revision < result.currentRevision
@@ -1043,10 +1056,11 @@ export class BoardSyncEngine {
           session: confirmedSession(this.#context),
           sha256,
         };
-        for (const item of batch) {
-          await this.#queue.acknowledge(this.#documentId, item.sequence);
-          if (this.#disposed) return;
-        }
+        await this.#queue.acknowledgeBatch(
+          this.#documentId,
+          batch.map(({ sequence }) => sequence),
+        );
+        if (this.#disposed) return;
         this.#pending = this.#pending.slice(batch.length);
         await this.#queue.saveHead(this.#confirmed);
       }
@@ -1113,6 +1127,50 @@ export class BoardSyncEngine {
     }
   }
 
+  /** A newer snapshot can hide an accepted batch whose response was lost. */
+  async #acknowledgeSnapshotCoveredPending(
+    snapshotRevision: number,
+  ): Promise<void> {
+    let cursor = this.#pending.reduce(
+      (revision, item) => Math.min(revision, item.order.baseRevisionAtCreation),
+      snapshotRevision,
+    );
+    const coveredBatches: ServerBoardCommandBatch[] = [];
+    while (!this.#disposed && cursor < snapshotRevision) {
+      const page = await this.#repository.pull(this.#documentId, cursor);
+      if (this.#disposed) return;
+      const covered = page.items.filter(
+        ({ revision }) => revision <= snapshotRevision,
+      );
+      if (covered.length === 0 || page.currentRevision < snapshotRevision) {
+        throw new SyncRecoveryError(
+          "board.sync.incomplete-deduplication-journal",
+          "Не удалось проверить локальные команды, покрытые серверным снимком.",
+        );
+      }
+      for (const batch of covered) {
+        if (
+          batch.baseRevision !== cursor ||
+          batch.revision !== cursor + 1 ||
+          batch.envelope.documentId !== this.#documentId ||
+          batch.envelope.baseRevision !== batch.baseRevision ||
+          batch.envelope.idempotencyKey !== batch.idempotencyKey
+        ) {
+          throw new SyncRecoveryError(
+            "board.sync.revision-gap",
+            "Журнал подтверждения локальных команд содержит разрыв ревизий.",
+          );
+        }
+        cursor = batch.revision;
+      }
+      coveredBatches.push(...covered);
+    }
+    // Do not partially acknowledge history if a later page fails: offline
+    // recovery still needs the complete pending group against the cached head.
+    if (!this.#disposed)
+      await this.#acknowledgeRemoteDuplicates(coveredBatches);
+  }
+
   async #acknowledgeRemoteDuplicates(
     batches: readonly ServerBoardCommandBatch[],
   ): Promise<void> {
@@ -1136,7 +1194,9 @@ export class BoardSyncEngine {
         acceptedCommands.length !== local.length ||
         acceptedCommands.some(
           (command, index) =>
-            JSON.stringify(command) !== JSON.stringify(local[index]?.command),
+            local[index] === undefined ||
+            canonicalBoardCommandJson(command) !==
+              canonicalBoardCommandJson(local[index].command),
         )
       ) {
         throw new SyncRecoveryError(
@@ -1144,10 +1204,11 @@ export class BoardSyncEngine {
           "Серверная команда с локальным idempotency key имеет другое содержимое.",
         );
       }
-      for (const candidate of local) {
-        await this.#queue.acknowledge(this.#documentId, candidate.sequence);
-        acknowledged.add(candidate.sequence);
-      }
+      await this.#queue.acknowledgeBatch(
+        this.#documentId,
+        local.map(({ sequence }) => sequence),
+      );
+      for (const candidate of local) acknowledged.add(candidate.sequence);
     }
     this.#pending = this.#pending.filter(
       (item) => !acknowledged.has(item.sequence),

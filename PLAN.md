@@ -28,16 +28,26 @@ Build/CI recovery реализован в PR #154 от baseline
 `36762680350`, включая Quality gate, board-only build и Chromium/Firefox
 browser smoke.
 
-Следующий цельный блок:
+Operational P1 review закрывается reliability-блоком
+`fix/p1-durable-sync-lifecycle` от `da10527`:
 
-1. сохранить grouped action как неделимую durable batch;
-2. исключить partial send/ack группы;
-3. восстановить строгий monotonic Lamport ordering при concurrent rebuild;
-4. сохранить idempotency и уже исправленный `batchId` через enqueue/list/
-   reconcile/reopen;
-5. закрыть изменения focused queue/sync tests, затем полным quality gate.
+1. `PendingBoardCommandQueue.enqueueBatch` и `acknowledgeBatch` задают
+   транзакционные границы всей группы; `queueBatch` и undo используют этот порт.
+2. Replay/quarantine сохраняет неделимость группы; restart сверяет принятые
+   команды канонически и сохраняет batch idempotency key.
+3. Все rebuild writers сливают Lamport clock через monotonic max, включая
+   `list`, `reconcile` и concurrent enqueue из нескольких вкладок.
+4. React effect владеет отдельным engine/Dexie connection; завершённый setup
+   не публикует состояние в новый workspace.
+5. Ticket denial допускает одно успешное обновление access context и одну
+   повторную выдачу ticket; повторный отказ терминален. Сетевые ошибки сохраняют
+   backoff, `4403` также уведомляет владельца sync engine.
 
-Остальные operational P1 ведутся отдельно в `03_TUTORBOARD_BACKLOG.md`.
+Формат persisted command v3, IndexedDB version 4 и server envelope 1.7
+сохраняются. Новые обязательные методы порта реализованы всеми adapters.
+Контракт, recovery/rollback и regression evidence:
+[`docs/P1_DURABLE_SYNC_REVIEW.md`](docs/P1_DURABLE_SYNC_REVIEW.md).
+Operational findings ведутся в `03_TUTORBOARD_BACKLOG.md`.
 
 ## 1. Продуктовая цель
 

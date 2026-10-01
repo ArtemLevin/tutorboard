@@ -1,3 +1,5 @@
+import "fake-indexeddb/auto";
+import { DexiePendingBoardCommandQueue } from "../../../../src/adapters/persistence-dexie/public";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -159,6 +161,28 @@ class MemoryQueue implements PendingBoardCommandQueue {
     return Promise.resolve();
   }
 
+  acknowledgeBatch(
+    _documentId: DocumentId,
+    sequences: readonly number[],
+  ): Promise<void> {
+    this.items = this.items.filter(
+      (item) => !sequences.includes(item.sequence),
+    );
+    return Promise.resolve();
+  }
+
+  enqueueBatch(
+    documentId: DocumentId,
+    entries: readonly { command: BoardCommand; idempotencyKey: string }[],
+    ordering: PendingBoardCommandOrderingInput = {},
+  ): Promise<readonly PendingBoardCommand[]> {
+    return Promise.all(
+      entries.map(({ command, idempotencyKey }) =>
+        this.enqueue(documentId, idempotencyKey, command, ordering),
+      ),
+    );
+  }
+
   enqueue(
     documentIdValue: DocumentId,
     idempotencyKey: string,
@@ -166,6 +190,7 @@ class MemoryQueue implements PendingBoardCommandQueue {
     ordering: PendingBoardCommandOrderingInput = {},
   ): Promise<PendingBoardCommand> {
     const item: PendingBoardCommand = {
+      ...(ordering.batchId === undefined ? {} : { batchId: ordering.batchId }),
       ...(ordering.accessEpochAtCreation === undefined
         ? {}
         : { accessEpochAtCreation: ordering.accessEpochAtCreation }),
@@ -1141,5 +1166,204 @@ describe("BoardSyncEngine", () => {
     await expect(
       engine.updateAccessContext(guestAccessContext("epoch:guest:1", false)),
     ).rejects.toMatchObject({ code: "board.sync.access-epoch-not-advanced" });
+  });
+});
+
+describe("durable batch recovery with IndexedDB", () => {
+  it.each(["queueBatch", "apply"] as const)(
+    "%s rolls back an IDB failure before any partial action can be recovered and sent",
+    async (method) => {
+      vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+      const name = `p1-engine-abort-${crypto.randomUUID()}`;
+      const queue = new DexiePendingBoardCommandQueue(name);
+      const repository = new FakeRepository();
+      const states: BoardSyncState[] = [];
+      const options = {
+        documentId: expectedDocumentId,
+        now: () => "2026-07-28T18:00:00.000Z",
+        createIdempotencyKey: () => "duplicate-key",
+        onStateChange: (state: BoardSyncState) => states.push(state),
+        queue,
+        repository,
+      };
+      const engine = new BoardSyncEngine(options);
+      let recovered: BoardSyncEngine | undefined;
+      let reopened: DexiePendingBoardCommandQueue | undefined;
+      try {
+        await engine.bootstrap();
+        await engine.setNetworkAvailable(false);
+        const commands = [
+          rename("command:a", "2026-07-28T18:01:00.000Z", "Half action"),
+          rename("command:b", "2026-07-28T18:02:00.000Z", "Full action"),
+        ];
+        if (method === "apply") await engine.apply(commands);
+        else
+          await engine.queueBatch(
+            commands,
+            applied(applied(initialDocument(), commands[0]!), commands[1]!),
+          );
+        expect(states.at(-1)).toMatchObject({ kind: "recovery-required" });
+        engine.dispose();
+        queue.close();
+        reopened = new DexiePendingBoardCommandQueue(name);
+        recovered = new BoardSyncEngine({ ...options, queue: reopened });
+        await recovered.bootstrap();
+        expect(repository.pushed).toEqual([]);
+        expect(await reopened.list(expectedDocumentId)).toEqual([]);
+        expect(states.at(-1)).toMatchObject({ kind: "ready", pendingCount: 0 });
+      } finally {
+        engine.dispose();
+        recovered?.dispose();
+        await (reopened ?? queue).deleteDatabase();
+      }
+    },
+  );
+
+  it.each([false, true])(
+    "acknowledges a lost response after restart with snapshot covering the batch=%s",
+    async (coveredBySnapshot) => {
+      vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+      const name = `p1-engine-restart-${crypto.randomUUID()}`;
+      const queue = new DexiePendingBoardCommandQueue(name);
+      const repository = new FakeRepository();
+      const states: BoardSyncState[] = [];
+      const options = {
+        documentId: expectedDocumentId,
+        now: () => "2026-07-28T18:00:00.000Z",
+        createIdempotencyKey: () => `key:${crypto.randomUUID()}`,
+        onStateChange: (state: BoardSyncState) => states.push(state),
+        queue,
+        repository,
+      };
+      const engine = new BoardSyncEngine(options);
+      let recovered: BoardSyncEngine | undefined;
+      let reopened: DexiePendingBoardCommandQueue | undefined;
+      try {
+        await engine.bootstrap();
+        const snapshot = repository.snapshots[0]!;
+        vi.spyOn(repository, "push").mockImplementationOnce((envelope) => {
+          repository.pushed.push(envelope);
+          repository.recovery = {
+            board: {
+              ...repository.descriptor,
+              currentRevision: 1,
+              currentDocumentSha256: envelope.expectedDocumentSha256,
+            },
+            snapshot: {
+              document: snapshot.document,
+              documentId: expectedDocumentId,
+              createdAt: snapshot.document.createdAt,
+              revision: 0,
+              schemaVersion: "1.6",
+              documentSha256: snapshot.sha256,
+            },
+            commandBatches: [
+              {
+                ...batch(
+                  1,
+                  0,
+                  envelope.commands.map(({ command }) => command),
+                ),
+                envelope,
+                idempotencyKey: envelope.idempotencyKey,
+              },
+            ],
+          };
+          if (coveredBySnapshot) {
+            let finalDocument = snapshot.document;
+            for (const item of envelope.commands)
+              finalDocument = applied(finalDocument, item.command);
+            repository.pullPages.push({
+              currentRevision: 1,
+              hasMore: false,
+              items: repository.recovery.commandBatches,
+            });
+            repository.recovery = {
+              ...repository.recovery,
+              commandBatches: [],
+              snapshot: {
+                document: finalDocument,
+                documentId: expectedDocumentId,
+                createdAt: finalDocument.createdAt,
+                revision: 1,
+                schemaVersion: "1.6",
+                documentSha256: envelope.expectedDocumentSha256,
+              },
+            };
+          }
+          return Promise.reject(
+            Object.assign(new Error("Response lost"), { retryable: true }),
+          );
+        });
+        await engine.apply([
+          rename("command:a", "2026-07-28T18:01:00.000Z", "First"),
+          rename("command:b", "2026-07-28T18:02:00.000Z", "Final"),
+        ]);
+        expect(states.at(-1)).toMatchObject({
+          kind: "ready",
+          pendingCount: 2,
+          network: "offline",
+        });
+        expect(repository.pushed[0]!.commands).toHaveLength(2);
+        engine.dispose();
+        queue.close();
+        reopened = new DexiePendingBoardCommandQueue(name);
+        recovered = new BoardSyncEngine({ ...options, queue: reopened });
+        await recovered.bootstrap();
+        expect(repository.pushed).toHaveLength(1);
+        expect(await reopened.list(expectedDocumentId)).toEqual([]);
+        expect(states.at(-1)).toMatchObject({
+          kind: "ready",
+          revision: 1,
+          pendingCount: 0,
+          document: { title: "Final" },
+        });
+      } finally {
+        engine.dispose();
+        recovered?.dispose();
+        await (reopened ?? queue).deleteDatabase();
+      }
+    },
+  );
+
+  it("quarantines the whole group when one command cannot be rebased", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const queue = new MemoryQueue();
+    const repository = new FakeRepository();
+    const first = rename(
+      "command:a",
+      "2026-07-28T18:01:00.000Z",
+      "Must not apply alone",
+    );
+    const invalid: BoardCommand = {
+      actorId: expectedActorId,
+      id: commandId("command:b"),
+      timestamp: "2026-07-28T18:02:00.000Z",
+      kind: "core.objects.delete",
+      objectIds: [boardObjectId("object:missing")],
+    };
+    await queue.enqueueBatch(
+      expectedDocumentId,
+      [
+        { command: first, idempotencyKey: "a" },
+        { command: invalid, idempotencyKey: "b" },
+      ],
+      { batchId: "batch:conflict" },
+    );
+    const engine = new BoardSyncEngine({
+      documentId: expectedDocumentId,
+      now: () => "2026-07-28T18:00:00.000Z",
+      createIdempotencyKey: () => "unused",
+      onStateChange: () => undefined,
+      queue,
+      repository,
+    });
+    await engine.bootstrap();
+    expect(queue.conflicts.map(({ item }) => item.command.id)).toEqual([
+      first.id,
+      invalid.id,
+    ]);
+    expect(repository.pushed).toEqual([]);
+    engine.dispose();
   });
 });

@@ -241,6 +241,27 @@ export interface BoardCollaborationClientOptions {
   readonly random?: () => number;
 }
 
+function accessDenied(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("status" in error))
+    return false;
+  return (
+    error.status === 401 ||
+    error.status === 403 ||
+    error.status === 404 ||
+    error.status === 410
+  );
+}
+
+function transientAccessRefreshFailure(error: unknown): boolean {
+  return (
+    error instanceof TypeError ||
+    (typeof error === "object" &&
+      error !== null &&
+      "retryable" in error &&
+      error.retryable === true)
+  );
+}
+
 export class BoardCollaborationClient {
   readonly #clientId: string;
   readonly #createWebSocket: NonNullable<
@@ -249,6 +270,8 @@ export class BoardCollaborationClient {
   readonly #documentId: DocumentId;
   readonly #inkPreviews = new Map<string, BoardInkPreview>();
   #onAccessEvent: BoardAccessEventHandler;
+  #refreshAccess: (() => Promise<boolean>) | undefined;
+  #accessRefreshAttempted = false;
   readonly #onInkPreviews: NonNullable<
     BoardCollaborationClientOptions["onInkPreviews"]
   >;
@@ -336,6 +359,18 @@ export class BoardCollaborationClient {
     this.#onAccessEvent = handler;
   }
 
+  setAccessRefreshHandler(handler: (() => Promise<boolean>) | undefined): void {
+    this.#refreshAccess = handler;
+  }
+
+  #isCurrent(generation: number): boolean {
+    return (
+      !this.#stopped &&
+      !this.#terminalAccessRevoked &&
+      generation === this.#connectionGeneration
+    );
+  }
+
   updatePresence(presence: LocalBoardPresence): void {
     this.#presence = { ...this.#presence, ...presence };
     if (this.#presenceTimer !== null || this.#terminalAccessRevoked) return;
@@ -399,6 +434,7 @@ export class BoardCollaborationClient {
     this.#onStatus("connecting");
     try {
       const context = await this.#repository.context();
+      if (!this.#isCurrent(generation)) return;
       const ticket = await this.#repository.collaborationTicket(
         this.#documentId,
         this.#clientId,
@@ -459,12 +495,40 @@ export class BoardCollaborationClient {
           socket.close();
         }
       });
-    } catch {
-      if (
-        this.#terminalAccessRevoked ||
-        this.#stopped ||
-        generation !== this.#connectionGeneration
-      ) {
+    } catch (error) {
+      if (!this.#isCurrent(generation)) return;
+      if (accessDenied(error)) {
+        if (
+          this.#refreshAccess !== undefined &&
+          !this.#accessRefreshAttempted
+        ) {
+          this.#accessRefreshAttempted = true;
+          try {
+            const canConnect = await this.#refreshAccess();
+            if (!this.#isCurrent(generation)) return;
+            if (!canConnect) {
+              this.stop();
+              return;
+            }
+            await this.#connect(generation);
+          } catch (refreshError) {
+            if (!this.#isCurrent(generation)) return;
+            if (accessDenied(refreshError)) {
+              this.#markAccessRevoked();
+            } else if (transientAccessRefreshFailure(refreshError)) {
+              // A failed network refresh did not establish the current rights.
+              this.#accessRefreshAttempted = false;
+              this.#onStatus("offline");
+              this.#scheduleReconnect(generation);
+            } else {
+              // Invalid scope/epoch/context requires explicit recovery.
+              this.stop();
+              this.#onStatus("offline");
+            }
+          }
+          return;
+        }
+        this.#markAccessRevoked();
         return;
       }
       this.#onStatus("offline");
@@ -506,13 +570,21 @@ export class BoardCollaborationClient {
         this.#socket?.close(policyViolationCloseCode, "Room mismatch");
         return;
       }
+      const generation = this.#connectionGeneration;
       void Promise.resolve()
-        .then(() => this.#onAccessEvent(changed.data))
+        .then(() =>
+          this.#isCurrent(generation)
+            ? this.#onAccessEvent(changed.data)
+            : false,
+        )
         .then((shouldReconnect) => {
+          if (!this.#isCurrent(generation)) return;
           this.stop();
           if (shouldReconnect !== false) this.start();
         })
-        .catch(() => this.stop());
+        .catch(() => {
+          if (this.#isCurrent(generation)) this.stop();
+        });
       return;
     }
     const revoked = accessRevokedSchema.safeParse(value);
@@ -521,9 +593,6 @@ export class BoardCollaborationClient {
         this.#socket?.close(policyViolationCloseCode, "Room mismatch");
         return;
       }
-      void Promise.resolve()
-        .then(() => this.#onAccessEvent(revoked.data))
-        .catch(() => undefined);
       this.#markAccessRevoked();
       this.#socket?.close(4403, "Access revoked");
       return;
@@ -540,6 +609,7 @@ export class BoardCollaborationClient {
       }
       this.#onStatus("online");
       this.#reconnectAttempt = 0;
+      this.#accessRefreshAttempted = false;
       this.#clearHeartbeat();
       this.#heartbeat = window.setInterval(() => {
         this.#sendHeartbeat(ready.data.heartbeatSeconds);
@@ -727,6 +797,17 @@ export class BoardCollaborationClient {
   #markAccessRevoked(): void {
     if (this.#terminalAccessRevoked) return;
     this.#terminalAccessRevoked = true;
+    // Ticket denial and close 4403 must also stop the owning sync engine.
+    void Promise.resolve()
+      .then(() =>
+        this.#onAccessEvent({
+          boardId: this.#documentId,
+          schemaVersion: "1.0",
+          terminal: true,
+          type: "access.revoked",
+        }),
+      )
+      .catch(() => undefined);
     this.#clearTimers();
     this.#participants.clear();
     this.#participantSequences.clear();

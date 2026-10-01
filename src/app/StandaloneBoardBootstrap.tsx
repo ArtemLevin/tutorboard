@@ -43,17 +43,25 @@ function StandaloneBoardWorkspace({
       }),
     [context, environment.boardApiBaseUrl],
   );
-  const queue = useMemo(() => createDexiePendingBoardCommandQueue(), []);
+  const [queue, setQueue] = useState<ReturnType<
+    typeof createDexiePendingBoardCommandQueue
+  > | null>(null);
   const selectedProvider = readFormulaRecognitionSettings().provider;
   const mathInkRecognizer = mathInkRecognizers[selectedProvider];
 
-  useEffect(
-    () => () => {
-      queue.close?.();
-    },
-    [queue],
-  );
+  useEffect(() => {
+    let active = true;
+    const ownedQueue = createDexiePendingBoardCommandQueue();
+    queueMicrotask(() => {
+      if (active) setQueue(ownedQueue);
+    });
+    return () => {
+      active = false;
+      ownedQueue.close?.();
+    };
+  }, []);
 
+  if (queue === null) return null;
   return (
     <SyncedApp
       accessContext={context}
