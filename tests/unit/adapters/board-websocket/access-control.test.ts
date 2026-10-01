@@ -208,3 +208,191 @@ describe("collaboration access control", () => {
     expect(sockets).toHaveLength(1);
   });
 });
+
+describe("ticket denial recovery", () => {
+  function setup() {
+    vi.useFakeTimers();
+    const context = {
+      actorId: actorId("actor:tutor"),
+      csrfToken: "old-csrf",
+      organizationId: "organization:1",
+      role: "tutor" as const,
+    };
+    const repository = {
+      context: vi.fn(() => Promise.resolve(context)),
+      collaborationTicket: vi.fn(() =>
+        Promise.resolve({
+          expiresInSeconds: 30,
+          protocolVersion: "1.1" as const,
+          ticket: "ticket",
+          websocketPath: "/collaboration",
+        }),
+      ),
+    };
+    const sockets: FakeSocket[] = [];
+    const onStatus = vi.fn();
+    const onAccessEvent = vi.fn();
+    const client = new BoardCollaborationClient({
+      documentId: documentId("document:lesson"),
+      repository,
+      onStatus,
+      onAccessEvent,
+      onPresence: () => undefined,
+      onRevision: () => undefined,
+      random: () => 0,
+      origin: "https://tutor.example.test",
+      createWebSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+    });
+    return { client, repository, sockets, onStatus, onAccessEvent, context };
+  }
+
+  it.each([401, 403, 404, 410])(
+    "stops on HTTP %s without a refresh handler",
+    async (status) => {
+      const { client, repository, onStatus, onAccessEvent, sockets } = setup();
+      repository.collaborationTicket.mockRejectedValue({
+        status,
+        retryable: false,
+      });
+      client.start();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(repository.collaborationTicket).toHaveBeenCalledTimes(1);
+      expect(onStatus).toHaveBeenLastCalledWith("revoked");
+      expect(onAccessEvent).toHaveBeenCalledTimes(1);
+      expect(onAccessEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "access.revoked" }),
+      );
+      client.stop();
+      client.start();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(repository.collaborationTicket).toHaveBeenCalledTimes(1);
+      expect(sockets).toHaveLength(0);
+    },
+  );
+
+  it("refreshes a stale CSRF context before the second ticket request", async () => {
+    const { client, repository, context, sockets } = setup();
+    repository.collaborationTicket.mockRejectedValueOnce({ status: 403 });
+    const refresh = vi.fn(() => {
+      context.csrfToken = "new-csrf";
+      return Promise.resolve(true);
+    });
+    client.setAccessRefreshHandler(refresh);
+    client.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(repository.collaborationTicket).toHaveBeenLastCalledWith(
+      "document:lesson",
+      expect.any(String),
+      "new-csrf",
+    );
+    expect(sockets).toHaveLength(1);
+    client.stop();
+  });
+
+  it("bounds repeated denial to one refresh and two ticket requests", async () => {
+    const { client, repository, onStatus } = setup();
+    repository.collaborationTicket.mockRejectedValue({ status: 403 });
+    const refresh = vi.fn(() => Promise.resolve(true));
+    client.setAccessRefreshHandler(refresh);
+    client.start();
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(repository.collaborationTicket).toHaveBeenCalledTimes(2);
+    expect(onStatus).toHaveBeenLastCalledWith("revoked");
+    client.stop();
+  });
+
+  it("keeps backoff for temporary ticket and refresh failures", async () => {
+    const { client, repository, sockets, onAccessEvent } = setup();
+    repository.collaborationTicket
+      .mockRejectedValueOnce({ status: 503 })
+      .mockRejectedValueOnce({ status: 403 });
+    client.setAccessRefreshHandler(
+      vi.fn().mockRejectedValueOnce(new TypeError("Network unavailable")),
+    );
+    client.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(repository.collaborationTicket).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(repository.collaborationTicket).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(sockets).toHaveLength(1);
+    expect(onAccessEvent).not.toHaveBeenCalled();
+    client.stop();
+  });
+
+  it("does not reconnect after refresh removes collaboration capability", async () => {
+    const { client, repository, sockets } = setup();
+    repository.collaborationTicket.mockRejectedValue({ status: 403 });
+    client.setAccessRefreshHandler(() => Promise.resolve(false));
+    client.start();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(repository.collaborationTicket).toHaveBeenCalledTimes(1);
+    expect(sockets).toHaveLength(0);
+  });
+
+  it("ignores a denial from an obsolete connection generation", async () => {
+    const { client, repository, sockets, onAccessEvent } = setup();
+    let rejectTicket: (error: unknown) => void = () => undefined;
+    repository.collaborationTicket.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectTicket = reject;
+        }),
+    );
+    client.start();
+    await vi.advanceTimersByTimeAsync(0);
+    client.stop();
+    client.start();
+    await vi.advanceTimersByTimeAsync(0);
+    rejectTicket({ status: 403 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sockets).toHaveLength(1);
+    expect(onAccessEvent).not.toHaveBeenCalled();
+    client.stop();
+  });
+
+  it("notifies the engine owner on terminal close 4403", async () => {
+    const { client, sockets, repository, onAccessEvent } = setup();
+    client.start();
+    await vi.advanceTimersByTimeAsync(0);
+    sockets[0]!.close(4403);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(onAccessEvent).toHaveBeenCalledTimes(1);
+    expect(repository.collaborationTicket).toHaveBeenCalledTimes(1);
+    client.stop();
+  });
+});
+
+it("does not repeatedly refresh an invalid access context after ticket denial", async () => {
+  vi.useFakeTimers();
+  const ticket = vi.fn().mockRejectedValue({ status: 403 });
+  const refresh = vi.fn().mockRejectedValue(new Error("Invalid access epoch"));
+  const client = new BoardCollaborationClient({
+    documentId: documentId("document:lesson"),
+    repository: {
+      context: () =>
+        Promise.resolve({
+          actorId: actorId("actor:tutor"),
+          csrfToken: "csrf",
+          organizationId: "org",
+          role: "tutor",
+        }),
+      collaborationTicket: ticket,
+    },
+    onPresence: () => undefined,
+    onRevision: () => undefined,
+    onStatus: () => undefined,
+  });
+  client.setAccessRefreshHandler(refresh);
+  client.start();
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(ticket).toHaveBeenCalledTimes(1);
+  expect(refresh).toHaveBeenCalledTimes(1);
+  client.stop();
+});

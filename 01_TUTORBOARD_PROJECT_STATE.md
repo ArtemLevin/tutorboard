@@ -43,9 +43,11 @@ P0 исправляет:
 - generator/generated drift board contract docs и manifest hashes;
 - накопленный Prettier drift, блокировавший обязательный quality gate.
 
-Следующий цельный reliability-блок: durable queue grouping, atomicity и command
-ordering. Production readiness также блокируют оставшиеся P1 из operational
-addendum в `03_TUTORBOARD_BACKLOG.md`.
+Reliability-блок от `da10527` закрывает operational P1: atomic group enqueue/ack,
+monotonic Lamport, durable batch identity/restart, StrictMode lifecycle и terminal
+ticket denial. Подробности и проверочные команды — в
+`docs/P1_DURABLE_SYNC_REVIEW.md`; статус review findings — в operational addendum
+`03_TUTORBOARD_BACKLOG.md`. Deployment и controlled pilot gates остаются отдельными.
 
 ## 1. Назначение проекта
 

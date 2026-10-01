@@ -19,17 +19,18 @@
 Этот addendum сохраняет findings последнего production-oriented review отдельно
 от архивной очереди ниже.
 
-| ID | Finding | Статус после P0 |
+| ID | Finding | Статус reliability-блока |
 | --- | --- | --- |
 | P1-QUEUE-BATCH | Durable queue теряла `batchId` при `reconcile()` | RESOLVED в P0; regression test сохранён |
-| P1-QUEUE-ATOMIC | Grouped action может быть отправлен частично | OPEN |
-| P1-QUEUE-ORDER | Concurrent queue rebuild допускает Lamport order `1,2,2` | OPEN |
-| P1-STRICTMODE | Collaborative board зависает в React StrictMode | OPEN |
-| P1-ACCESS-RECONNECT | Terminal access denial (`HTTP 403`, `retryable=false`) продолжает reconnect loop | OPEN |
+| P1-QUEUE-ATOMIC | Grouped action может быть отправлен частично | FIXED: transactional enqueue/ack и group replay |
+| P1-QUEUE-ORDER | Concurrent queue rebuild допускает Lamport order `1,2,2` | FIXED: monotonic clock merge и two-tab regression |
+| P1-STRICTMODE | Collaborative board зависает в React StrictMode | FIXED: effect-owned engine/queue и lifecycle regressions |
+| P1-ACCESS-RECONNECT | Terminal access denial (`HTTP 403`, `retryable=false`) продолжает reconnect loop | FIXED: bounded refresh, terminal denial и generation guards |
 
-Ближайший блок после P0 закрывает queue grouping/atomicity/order и повторно
-проверяет batch identity как инвариант. StrictMode и terminal reconnect остаются
-отдельными P1 до отдельного исправления и regression evidence.
+Reliability-блок `fix/p1-durable-sync-lifecycle` закрывает пять findings этого
+review. Scope, regression evidence, compatibility и ограничения исторического
+восстановления описаны в `docs/P1_DURABLE_SYNC_REVIEW.md`. Продуктовые пункты
+архивного backlog ниже не относятся к этим operational findings.
 
 # 1. Назначение документа
 
