@@ -307,6 +307,34 @@ describe("drawing interaction state machine", () => {
     expect(state.samples).toHaveLength(1);
   });
 
+  it("retains cumulative stationary pressure changes across the noise deadband", () => {
+    let state = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:cumulative-pressure"),
+      point: { x: 15, y: 25 },
+      pointerId: 38,
+      pressure: 0.2,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    }).state;
+
+    for (const [index, pressure] of [0.205, 0.209, 0.212].entries()) {
+      state = reduceDrawingInteraction(state, {
+        inputTimestampMs: 104 + index * 4,
+        kind: "move",
+        point: { x: 15, y: 25 },
+        pointerId: 38,
+        pressure,
+      }).state;
+    }
+
+    expect(state.kind).toBe("drawing-pen");
+    if (state.kind !== "drawing-pen") return;
+    expect(state.samples.map(({ pressure }) => pressure)).toEqual([0.2, 0.212]);
+  });
+
   it("uses default contact pressure when a pen tap reports only zero pressure", () => {
     const started = reduceDrawingInteraction(idle, {
       inputTimestampMs: 100,
