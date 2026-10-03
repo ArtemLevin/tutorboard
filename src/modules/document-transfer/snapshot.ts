@@ -218,7 +218,6 @@ function penStrokeLocalBounds(
   );
 }
 
-
 function localObjectBounds(object: BoardObject): BoardSnapshotBounds {
   switch (object.kind) {
     case "drawing.pen-stroke":
