@@ -50,7 +50,7 @@ test("edits the persisted style of a selected object", async ({ page }) => {
   ).not.toHaveValue("6");
 });
 
-test("keeps numeric stroke width authoritative after style presets", async ({
+test("@smoke keeps numeric stroke width authoritative after style presets", async ({
   page,
 }) => {
   await page.goto("/");
