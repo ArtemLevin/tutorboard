@@ -145,6 +145,7 @@ export type {
   VisualStyleOverride,
 } from "./board/geometry-imports";
 export {
+  createPenStrokeRenderBounds,
   createPenStrokeRenderPaths,
   strokeStyleDashPattern,
   strokeStyleOpacityMultiplier,
@@ -164,12 +165,15 @@ export {
   maximumVectorInkSamples,
   normalizeVectorInkSamples,
   resolveVectorInkData,
+  vectorInkCenterlineBounds,
   vectorInkCenterlinePathData,
   vectorInkDataMatchesPoints,
+  vectorInkOutlineBounds,
   vectorInkOutlinePathData,
   vectorInkSchemaVersion,
   vectorInkStrokeIsClosed,
   type CubicBezierSegment,
+  type VectorInkBounds,
   type VectorInkData,
   type VectorInkSample,
   type VectorInkStrokeLike,
