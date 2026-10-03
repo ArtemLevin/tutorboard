@@ -4,7 +4,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { Ellipse, Group, Path, Rect } from "react-konva";
+import { Ellipse, Group, Line, Path, Rect } from "react-konva";
 import { describe, expect, it } from "vitest";
 
 import { createDefaultKonvaRendererRegistry } from "../../../../src/adapters/canvas-konva/public";
@@ -41,6 +41,32 @@ function elementChildren(element: ReactElement): ReactElement[] {
     (element.props as { readonly children?: ReactNode }).children,
   ).filter(isValidElement);
 }
+
+describe("default stroke width rendering", () => {
+  it.each([
+    ["thin", 0.5],
+    ["thick", 1],
+    ["dashed", 1.5],
+    ["dash-dot", 2.5],
+    ["wavy", 4],
+    ["marker", 3],
+  ] as const)("renders %s lines with the stored numeric width", (strokeStyle, strokeWidth) => {
+    const rendered = render({
+      ...base,
+      id: boardObjectId(`object:width-${strokeStyle}`),
+      kind: "drawing.line",
+      end: { x: 120, y: 20 },
+      style: {
+        ...base.style,
+        strokeStyle,
+        strokeWidth,
+      },
+    });
+
+    expect(rendered.type).toBe(Line);
+    expect(rendered.props).toMatchObject({ strokeWidth });
+  });
+});
 
 describe("default shape hit regions", () => {
   it.each([
