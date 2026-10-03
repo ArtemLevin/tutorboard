@@ -65,7 +65,7 @@ export function resolveStrokeStyle(
       return {
         lineCap: "round",
         opacityMultiplier: 1,
-        strokeWidth: strokeWidth,
+        strokeWidth,
       };
   }
 }
