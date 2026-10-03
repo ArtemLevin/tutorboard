@@ -205,10 +205,12 @@ function canonicalTapSamples(
   ) {
     return null;
   }
-  const contactPressure = Math.max(
-    defaultVectorInkPressure,
+  const peakPressure = Math.max(
+    0,
     ...samples.map(({ pressure }) => pressure),
   );
+  const contactPressure =
+    peakPressure > 0 ? peakPressure : defaultVectorInkPressure;
   const last = samples.at(-1) ?? first;
   return [
     {
