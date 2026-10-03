@@ -118,10 +118,9 @@ test("draws through the predicted-event fallback", async ({ page }) => {
   );
 });
 
-
-test("@smoke keeps wavy style through wet ink and final pen materialization", async ({
-  page,
-}) => {
+test(
+  "@smoke keeps wavy style through wet ink and final pen materialization",
+  async ({ page }) => {
   await openBoardWithPen(page);
 
   const styleTrigger = page.getByRole("button", { name: /Стиль линии:/ });
@@ -145,5 +144,6 @@ test("@smoke keeps wavy style through wet ink and final pen materialization", as
 
   await expect(stage).toHaveAttribute("data-wet-ink-active", "false");
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-  await expect(styleTrigger).toHaveAttribute("aria-label", /Волнистая/);
-});
+    await expect(styleTrigger).toHaveAttribute("aria-label", /Волнистая/);
+  },
+);
