@@ -68,6 +68,17 @@ jobs:
       - name: Verify board contract
         run: npm run board-contract:check
 
+      - name: Diagnose A3.1 formatting
+        if: github.head_ref == 'fix/vector-ink-render-bounds'
+        run: |
+          npm run format
+          git diff -- \
+            src/core/board/pen-stroke-rendering.ts \
+            src/core/board/vector-ink.ts \
+            src/modules/document-transfer/snapshot.ts \
+            tests/unit/modules/document-transfer/snapshot.test.ts
+          git checkout -- .
+
       - name: Check formatting
         run: npm run format:check
 
