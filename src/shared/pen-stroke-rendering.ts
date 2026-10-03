@@ -12,7 +12,7 @@ export interface PenStrokeRenderPath {
   readonly opacityMultiplier: number;
 }
 
-interface SketchPass {
+export interface StrokeStyleSketchPassSpec {
   readonly dash?: readonly number[];
   readonly intensity: number;
   readonly opacityMultiplier: number;
@@ -281,7 +281,9 @@ function dashedPaths(
   return data.length === 0 ? [] : [{ data, opacityMultiplier }];
 }
 
-function sketchPasses(style: StrokeStyle): readonly SketchPass[] {
+export function strokeStyleSketchPassSpecs(
+  style: StrokeStyle | undefined,
+): readonly StrokeStyleSketchPassSpec[] {
   switch (style) {
     case "hand-pencil":
       return [
@@ -310,7 +312,15 @@ function sketchPasses(style: StrokeStyle): readonly SketchPass[] {
   }
 }
 
-export function penStrokeOpacityMultiplier(
+export function strokeStyleDashPattern(
+  style: StrokeStyle | undefined,
+): readonly number[] | undefined {
+  if (style === "dashed") return dashedPattern;
+  if (style === "dash-dot") return dashDotPattern;
+  return undefined;
+}
+
+export function strokeStyleOpacityMultiplier(
   style: StrokeStyle | undefined,
 ): number {
   return style === "marker" ? 0.38 : 1;
@@ -327,7 +337,7 @@ export function createPenStrokeRenderPaths(
   if (style === "dashed" || style === "dash-dot") {
     return dashedPaths(
       normalizedSourceSamples(ink),
-      style === "dashed" ? dashedPattern : dashDotPattern,
+      strokeStyleDashPattern(style) ?? [],
       width,
       1,
     );
@@ -340,7 +350,7 @@ export function createPenStrokeRenderPaths(
 
   if (style === "hand-pencil" || style === "hand-pen") {
     const output: PenStrokeRenderPath[] = [];
-    for (const pass of sketchPasses(style)) {
+    for (const pass of strokeStyleSketchPassSpecs(style)) {
       const samples = sketchSamples(ink, pass.intensity, pass.seed);
       const passWidth = width * pass.widthMultiplier;
       if (pass.dash === undefined) {
@@ -366,5 +376,5 @@ export function createPenStrokeRenderPaths(
   const data = vectorInkOutlinePathData(ink, width);
   return data.length === 0
     ? []
-    : [{ data, opacityMultiplier: penStrokeOpacityMultiplier(style) }];
+    : [{ data, opacityMultiplier: strokeStyleOpacityMultiplier(style) }];
 }
