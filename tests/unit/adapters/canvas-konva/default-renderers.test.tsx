@@ -15,7 +15,7 @@ import {
   type BoardRenderItem,
   type StrokeStyle,
 } from "../../../../src/core/public";
-import { createPenStrokeRenderPaths } from "../../../../src/shared/pen-stroke-rendering";
+import { createPenStrokeRenderPaths } from "../../../../src/core/public";
 
 const base = {
   groupId: null,
