@@ -82,9 +82,7 @@ function resampleByArcLength(
       travelled < segmentLength &&
       output.length < maximumStylizedSamples - 1
     ) {
-      output.push(
-        interpolateSample(start, end, travelled / segmentLength),
-      );
+      output.push(interpolateSample(start, end, travelled / segmentLength));
       travelled += spacing;
     }
     carried =
@@ -212,9 +210,7 @@ function sketchSamples(
         : 0.22 + Math.sin(progress * Math.PI) * 0.78;
       const distanceAlong = pathDistances[index] ?? 0;
       const noise =
-        Math.sin(
-          (distanceAlong + 1) * (0.17 + seed * 0.0017) + seed * 0.37,
-        ) *
+        Math.sin((distanceAlong + 1) * (0.17 + seed * 0.0017) + seed * 0.37) *
           0.68 +
         Math.cos(
           (distanceAlong + 1) * (0.071 + seed * 0.0011) +
@@ -414,12 +410,7 @@ export function createPenStrokeRenderPaths(
         );
       } else {
         output.push(
-          ...dashedPaths(
-            samples,
-            pass.dash,
-            passWidth,
-            pass.opacityMultiplier,
-          ),
+          ...dashedPaths(samples, pass.dash, passWidth, pass.opacityMultiplier),
         );
       }
     }
