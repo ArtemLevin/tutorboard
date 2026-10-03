@@ -47,10 +47,7 @@ function interpolationRatio(
   return (index - startIndex) / (endIndex - startIndex);
 }
 
-function normalizedErrorScore(
-  value: number,
-  tolerance: number,
-): number {
+function normalizedErrorScore(value: number, tolerance: number): number {
   if (tolerance === 0) return value > 0 ? Number.POSITIVE_INFINITY : 0;
   return value / tolerance;
 }
