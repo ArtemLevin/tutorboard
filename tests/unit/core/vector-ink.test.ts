@@ -21,7 +21,9 @@ function closedOutlineSubpaths(path: string) {
   );
 }
 
-function signedArea(points: readonly { readonly x: number; readonly y: number }[]) {
+function signedArea(
+  points: readonly { readonly x: number; readonly y: number }[],
+) {
   return (
     points.reduce((area, point, index) => {
       const next = points[(index + 1) % points.length]!;
@@ -86,8 +88,8 @@ describe("Vector Ink 1.0", () => {
 
     const outline = vectorInkOutlinePathData(ink, 10);
 
-    expect((outline.match(/M /gu) ?? [])).toHaveLength(1);
-    expect((outline.match(/Z/gu) ?? [])).toHaveLength(1);
+    expect(outline.match(/M /gu) ?? []).toHaveLength(1);
+    expect(outline.match(/Z/gu) ?? []).toHaveLength(1);
     expect(outline).toContain("L ");
   });
 
@@ -120,14 +122,14 @@ describe("Vector Ink 1.0", () => {
     const boundaries = closedOutlineSubpaths(outline);
 
     expect(boundaries).toHaveLength(2);
-    expect((outline.match(/M /gu) ?? [])).toHaveLength(2);
-    expect((outline.match(/Z/gu) ?? [])).toHaveLength(2);
+    expect(outline.match(/M /gu) ?? []).toHaveLength(2);
+    expect(outline.match(/Z/gu) ?? []).toHaveLength(2);
     expect(outline).not.toContain("NaN");
     expect(outline).not.toContain("Infinity");
     expect(boundaries.every((boundary) => boundary.length >= 3)).toBe(true);
-    expect(signedArea(boundaries[0]!) * signedArea(boundaries[1]!)).toBeLessThan(
-      0,
-    );
+    expect(
+      signedArea(boundaries[0]!) * signedArea(boundaries[1]!),
+    ).toBeLessThan(0);
   });
 
   it.each([
@@ -163,9 +165,9 @@ describe("Vector Ink 1.0", () => {
     const boundaries = closedOutlineSubpaths(outline);
 
     expect(boundaries).toHaveLength(2);
-    expect(signedArea(boundaries[0]!) * signedArea(boundaries[1]!)).toBeLessThan(
-      0,
-    );
+    expect(
+      signedArea(boundaries[0]!) * signedArea(boundaries[1]!),
+    ).toBeLessThan(0);
   });
 
   it("keeps sharp closed linear polygons finite for thin and thick strokes", () => {
@@ -200,9 +202,9 @@ describe("Vector Ink 1.0", () => {
     const boundaries = closedOutlineSubpaths(outline);
 
     expect(boundaries).toHaveLength(2);
-    expect(signedArea(boundaries[0]!) * signedArea(boundaries[1]!)).toBeLessThan(
-      0,
-    );
+    expect(
+      signedArea(boundaries[0]!) * signedArea(boundaries[1]!),
+    ).toBeLessThan(0);
     expect(outline).not.toContain("NaN");
     expect(outline).not.toContain("Infinity");
   });
