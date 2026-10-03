@@ -10,10 +10,12 @@ import { describe, expect, it } from "vitest";
 import { createDefaultKonvaRendererRegistry } from "../../../../src/adapters/canvas-konva/public";
 import {
   boardObjectId,
+  createVectorInkDataFromPoints,
   type BoardObject,
   type BoardRenderItem,
   type StrokeStyle,
 } from "../../../../src/core/public";
+import { createPenStrokeRenderPaths } from "../../../../src/shared/pen-stroke-rendering";
 
 const base = {
   groupId: null,
@@ -98,6 +100,22 @@ describe("styled pen stroke rendering", () => {
     expect(dashed).toHaveLength(1);
     expect(wavy[0]?.props).not.toMatchObject({ data: solid[0]?.props.data });
     expect(dashed[0]?.props).not.toMatchObject({ data: solid[0]?.props.data });
+  });
+
+  it("uses the exact shared geometry contract for final pen rendering", () => {
+    const object = penStroke("wavy");
+    const [renderedPath] = elementChildren(render(object));
+    const expected = createPenStrokeRenderPaths(
+      createVectorInkDataFromPoints(object.points),
+      object.style.strokeStyle,
+      object.style.strokeWidth,
+    );
+
+    expect(expected).toHaveLength(1);
+    expect(renderedPath?.props).toMatchObject({
+      data: expected[0]?.data,
+      opacity: expected[0]?.opacityMultiplier,
+    });
   });
 
   it("renders bounded deterministic sketch passes for pen strokes", () => {
