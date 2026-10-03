@@ -130,13 +130,15 @@ describe("styled pen stroke rendering", () => {
       ],
     };
     const [contour] = elementChildren(render(object));
-    const data = String(
-      (contour?.props as { readonly data?: unknown } | undefined)?.data ?? "",
-    );
+    const data = (
+      contour?.props as { readonly data?: unknown } | undefined
+    )?.data;
 
     expect(contour?.type).toBe(Path);
-    expect((data.match(/M /gu) ?? [])).toHaveLength(2);
-    expect((data.match(/Z/gu) ?? [])).toHaveLength(2);
+    expect(typeof data).toBe("string");
+    if (typeof data !== "string") return;
+    expect(data.match(/M /gu) ?? []).toHaveLength(2);
+    expect(data.match(/Z/gu) ?? []).toHaveLength(2);
   });
 
   it("renders bounded deterministic sketch passes for pen strokes", () => {
