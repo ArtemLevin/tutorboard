@@ -227,6 +227,33 @@ describe("drawing interaction state machine", () => {
     ).toEqual([0.5, 0.5]);
   });
 
+  it("preserves a deliberate light-pressure pen tap", () => {
+    const started = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:light-pressure-dot"),
+      point: { x: 7, y: 11 },
+      pointerId: 34,
+      pressure: 0.2,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    });
+    const completed = reduceDrawingInteraction(started.state, {
+      inputTimestampMs: 104,
+      kind: "finish",
+      point: { x: 7, y: 11 },
+      pointerId: 34,
+      pressure: 0.2,
+    });
+
+    expect(completed.completedObject?.kind).toBe("drawing.pen-stroke");
+    if (completed.completedObject?.kind !== "drawing.pen-stroke") return;
+    expect(
+      completed.completedObject.ink?.samples.map(({ pressure }) => pressure),
+    ).toEqual([0.2, 0.2]);
+  });
+
   it("normalizes a rectangle drawn in reverse", () => {
     expect(
       draw("drawing.rectangle", { x: 140, y: 90 }, { x: 20, y: 30 }),
