@@ -196,7 +196,6 @@ function sketchSamples(
 ): readonly VectorInkSample[] {
   const source = normalizedSourceSamples(ink);
   const samples = resampleByArcLength(source, sketchBaseSpacing);
-  const distances = cumulativeDistances(samples);
   const lastIndex = Math.max(0, samples.length - 1);
 
   const transformed = transformedSamples(
