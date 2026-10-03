@@ -176,8 +176,9 @@ const renderers: readonly KonvaObjectRenderer[] = [
       const stroke = expectKind(object, "drawing.pen-stroke");
       const ink = resolveVectorInkData(stroke);
       const centerline = vectorInkCenterlinePathData(ink);
+      const strokeColor = stroke.style.stroke;
       const strokePaths =
-        stroke.style.stroke === null
+        strokeColor === null
           ? []
           : createPenStrokeRenderPaths(
               ink,
@@ -195,12 +196,12 @@ const renderers: readonly KonvaObjectRenderer[] = [
               perfectDrawEnabled
             />
           ) : null}
-          {stroke.style.stroke === null
+          {strokeColor === null
             ? null
             : strokePaths.map((path, index) => (
                 <Path
                   data={path.data}
-                  fill={stroke.style.stroke ?? undefined}
+                  fill={strokeColor}
                   key={index}
                   opacity={stroke.style.opacity * path.opacityMultiplier}
                   perfectDrawEnabled
