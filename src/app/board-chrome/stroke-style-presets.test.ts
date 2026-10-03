@@ -3,27 +3,32 @@ import { describe, expect, it } from "vitest";
 import { strokeStyleSelectionPatch } from "./stroke-style-presets";
 
 describe("stroke style selection presets", () => {
-  it.each([
-    ["thin", 2],
-    ["thick", 6],
-    ["marker", 10],
-  ] as const)(
-    "applies the %s recommended width once on selection",
-    (style, width) => {
-      expect(strokeStyleSelectionPatch(style)).toEqual({
-        strokeStyle: style,
-        strokeWidth: width,
-      });
-    },
-  );
+  it("applies recommended widths only to width presets", () => {
+    expect(strokeStyleSelectionPatch("thin")).toEqual({
+      strokeStyle: "thin",
+      strokeWidth: 2,
+    });
+    expect(strokeStyleSelectionPatch("thick")).toEqual({
+      strokeStyle: "thick",
+      strokeWidth: 6,
+    });
+    expect(strokeStyleSelectionPatch("marker")).toEqual({
+      strokeStyle: "marker",
+      strokeWidth: 10,
+    });
+  });
 
-  it.each([
-    "dashed",
-    "dash-dot",
-    "wavy",
-    "hand-pencil",
-    "hand-pen",
-  ] as const)("preserves the current width when selecting %s", (style) => {
-    expect(strokeStyleSelectionPatch(style)).toEqual({ strokeStyle: style });
+  it("preserves current width for character-only styles", () => {
+    const styles = [
+      "dashed",
+      "dash-dot",
+      "wavy",
+      "hand-pencil",
+      "hand-pen",
+    ] as const;
+
+    for (const style of styles) {
+      expect(strokeStyleSelectionPatch(style)).toEqual({ strokeStyle: style });
+    }
   });
 });
