@@ -24,7 +24,7 @@ describe("styled pen stroke performance budget", () => {
 
     const startedAt = performance.now();
     const results = styles.map((style) => ({
-      paths: createPenStrokeRenderPaths(ink, style, 3, 1),
+      paths: createPenStrokeRenderPaths(ink, style, 3),
       style,
     }));
     const elapsedMs = performance.now() - startedAt;
