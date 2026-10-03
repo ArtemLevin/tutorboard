@@ -172,7 +172,7 @@ function sketchPoints(
 const renderers: readonly KonvaObjectRenderer[] = [
   {
     kind: "drawing.pen-stroke",
-    render(object, context) {
+    render(object) {
       const stroke = expectKind(object, "drawing.pen-stroke");
       const ink = resolveVectorInkData(stroke);
       const centerline = vectorInkCenterlinePathData(ink);
@@ -183,7 +183,6 @@ const renderers: readonly KonvaObjectRenderer[] = [
               ink,
               stroke.style.strokeStyle,
               stroke.style.strokeWidth,
-              context.zoom,
             );
       return (
         <Group {...commonTransformProps(stroke)} name="board-transform-target">
