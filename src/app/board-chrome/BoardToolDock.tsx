@@ -195,7 +195,9 @@ function StyleControls({
       ) : null}
       {style.stroke !== null ? (
         <StrokeStylePalette
-          onChange={(strokeStyle) => onChange(strokeStyleSelectionPatch(strokeStyle))}
+          onChange={(strokeStyle) =>
+            onChange(strokeStyleSelectionPatch(strokeStyle))
+          }
           value={style.strokeStyle ?? "thin"}
         />
       ) : null}
