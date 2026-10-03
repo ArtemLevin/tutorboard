@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { createVectorInkData, type StrokeStyle } from "../../src/core/public";
-import { createPenStrokeRenderPaths } from "../../src/shared/pen-stroke-rendering";
+import {
+  createPenStrokeRenderPaths,
+} from "../../src/shared/pen-stroke-rendering";
 
 describe("styled pen stroke performance budget", () => {
   it("materializes long stylized strokes with bounded path-node counts", () => {
