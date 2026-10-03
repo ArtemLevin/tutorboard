@@ -11,6 +11,7 @@ import {
   groupId,
   readBoardDocument,
   reduceBoardDocument,
+  vectorInkOutlinePathData,
   type BoardDocument,
   type PenStrokeObject,
 } from "../../../src/core/public";
@@ -148,6 +149,43 @@ describe("BoardDocument 1.6 Vector Ink contract", () => {
     expect(svg).toContain('fill="#245d6b"');
     expect(svg).not.toContain("polyline");
     expect(svg).not.toContain("NaN");
+  });
+
+  it("exports a closed variable-width outline without seam bridges", () => {
+    const closedPoints = [
+      { x: 0, y: 0 },
+      { x: 200, y: 0 },
+      { x: 100, y: 160 },
+      { x: 0, y: 0 },
+    ] as const;
+    const ink = createVectorInkData(
+      closedPoints.map((point, index) => ({
+        point,
+        pressure: [0.2, 0.95, 0.45, 0.2][index]!,
+        timestampMs: index * 8,
+      })),
+      true,
+    );
+    const stroke: PenStrokeObject = {
+      ...pressureStroke(),
+      id: boardObjectId("object:closed-pressure-pen"),
+      ink,
+      points: closedPoints,
+    };
+    const expectedOutline = vectorInkOutlinePathData(
+      ink,
+      stroke.style.strokeWidth,
+    );
+    const svg = renderBoardSnapshotSvg(documentWithStroke(stroke), {
+      height: 240,
+      width: 320,
+    });
+
+    expect((expectedOutline.match(/M /gu) ?? [])).toHaveLength(2);
+    expect((expectedOutline.match(/Z/gu) ?? [])).toHaveLength(2);
+    expect(svg).toContain(`d="${expectedOutline}"`);
+    expect(svg).not.toContain("NaN");
+    expect(svg).not.toContain("Infinity");
   });
 
   it("deep-copies Vector Ink through clipboard and preserves it after paste", () => {
