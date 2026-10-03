@@ -50,8 +50,9 @@ test("edits the persisted style of a selected object", async ({ page }) => {
   ).not.toHaveValue("6");
 });
 
-
-test("keeps numeric stroke width authoritative after style presets", async ({ page }) => {
+test("keeps numeric stroke width authoritative after style presets", async ({
+  page,
+}) => {
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
   await page.keyboard.press("p");
