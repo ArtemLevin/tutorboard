@@ -428,28 +428,43 @@ export function vectorInkOutlinePathData(
     left.push(add(center[index]!.point, multiply(normal, width)));
     right.push(subtract(center[index]!.point, multiply(normal, width)));
   }
+  if (ink.closed) {
+    const leftFirst = left[0];
+    const rightReversed = right.toReversed();
+    const rightFirst = rightReversed[0];
+    if (leftFirst === undefined || rightFirst === undefined) return "";
+    return [
+      `M ${number(leftFirst.x)} ${number(leftFirst.y)}`,
+      ...left
+        .slice(1)
+        .map((point) => `L ${number(point.x)} ${number(point.y)}`),
+      "Z",
+      `M ${number(rightFirst.x)} ${number(rightFirst.y)}`,
+      ...rightReversed
+        .slice(1)
+        .map((point) => `L ${number(point.x)} ${number(point.y)}`),
+      "Z",
+    ].join(" ");
+  }
+
   const outline: Vec2[] = [...left];
-  if (!ink.closed) {
-    outline.push(
-      ...capPoints(
-        center.at(-1)!.point,
-        tangents.at(-1)!,
-        halfWidth(strokeWidth, center.at(-1)!.pressure),
-        true,
-      ).slice(1),
-    );
-  }
+  outline.push(
+    ...capPoints(
+      center.at(-1)!.point,
+      tangents.at(-1)!,
+      halfWidth(strokeWidth, center.at(-1)!.pressure),
+      true,
+    ).slice(1),
+  );
   outline.push(...right.toReversed());
-  if (!ink.closed) {
-    outline.push(
-      ...capPoints(
-        center[0]!.point,
-        multiply(tangents[0]!, -1),
-        halfWidth(strokeWidth, center[0]!.pressure),
-        true,
-      ).slice(1),
-    );
-  }
+  outline.push(
+    ...capPoints(
+      center[0]!.point,
+      multiply(tangents[0]!, -1),
+      halfWidth(strokeWidth, center[0]!.pressure),
+      true,
+    ).slice(1),
+  );
   const first = outline[0];
   if (first === undefined) return "";
   return [
