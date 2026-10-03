@@ -9,7 +9,7 @@ import {
   type StrokeStyle,
 } from "../../../../src/core/public";
 import { importTutorBoardDocument } from "../../../../src/modules/document-transfer/public";
-import { createPenStrokeRenderPaths } from "../../../../src/shared/pen-stroke-rendering";
+import { createPenStrokeRenderPaths } from "../../../../src/core/public";
 import {
   renderBoardSnapshotSvg,
   resolveBoardSnapshotLayout,
