@@ -85,6 +85,26 @@ describe("styled pen stroke rendering", () => {
     expect(strokeStyleOpacityMultiplier("wavy")).toBe(1);
   });
 
+  it("keeps closed stylized strokes finite and deterministic", () => {
+    const ink = createVectorInkData(
+      [
+        { point: { x: 0, y: 0 }, pressure: 0.5, timestampMs: 0 },
+        { point: { x: 80, y: 0 }, pressure: 0.6, timestampMs: 8 },
+        { point: { x: 40, y: 70 }, pressure: 0.7, timestampMs: 16 },
+        { point: { x: 0, y: 0 }, pressure: 0.5, timestampMs: 24 },
+      ],
+      true,
+    );
+
+    for (const style of ["wavy", "hand-pencil", "hand-pen"] as const) {
+      const first = createPenStrokeRenderPaths(ink, style, 3);
+      const second = createPenStrokeRenderPaths(ink, style, 3);
+      expect(first).toEqual(second);
+      expect(first.length).toBeGreaterThan(0);
+      expect(first.every(({ data }) => !data.includes("NaN"))).toBe(true);
+    }
+  });
+
   it("returns no path for zero width", () => {
     expect(createPenStrokeRenderPaths(lineInk(), "wavy", 0)).toEqual([]);
   });
