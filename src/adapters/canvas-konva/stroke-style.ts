@@ -17,63 +17,62 @@ export interface SketchPass {
 
 export function resolveStrokeStyle(
   style: StrokeStyle | undefined,
-  fallbackWidth: number,
+  strokeWidth: number,
 ): ResolvedStrokeStyle {
   switch (style) {
     case "thin":
-      return { lineCap: "round", opacityMultiplier: 1, strokeWidth: 2 };
     case "thick":
-      return { lineCap: "round", opacityMultiplier: 1, strokeWidth: 6 };
+      return { lineCap: "round", opacityMultiplier: 1, strokeWidth };
     case "dashed":
       return {
         dash: [12, 8],
         lineCap: "round",
         opacityMultiplier: 1,
-        strokeWidth: Math.max(2, fallbackWidth),
+        strokeWidth,
       };
     case "dash-dot":
       return {
         dash: [14, 6, 2, 6],
         lineCap: "round",
         opacityMultiplier: 1,
-        strokeWidth: Math.max(2, fallbackWidth),
+        strokeWidth,
       };
     case "hand-pencil":
       return {
         lineCap: "round",
         opacityMultiplier: 1,
-        strokeWidth: Math.max(1.5, fallbackWidth),
+        strokeWidth,
       };
     case "hand-pen":
       return {
         lineCap: "round",
         opacityMultiplier: 1,
-        strokeWidth: Math.max(2.5, fallbackWidth),
+        strokeWidth,
       };
     case "marker":
       return {
         lineCap: "square",
         opacityMultiplier: 0.38,
-        strokeWidth: Math.max(10, fallbackWidth * 3.2),
+        strokeWidth,
       };
     case "wavy":
       return {
         lineCap: "round",
         opacityMultiplier: 1,
-        strokeWidth: Math.max(2, fallbackWidth),
+        strokeWidth,
       };
     default:
       return {
         lineCap: "round",
         opacityMultiplier: 1,
-        strokeWidth: fallbackWidth,
+        strokeWidth: strokeWidth,
       };
   }
 }
 
 export function resolveSketchPasses(
   style: StrokeStyle | undefined,
-  fallbackWidth: number,
+  strokeWidth: number,
 ): readonly SketchPass[] {
   switch (style) {
     case "hand-pencil":
@@ -82,20 +81,20 @@ export function resolveSketchPasses(
           intensity: 2.8,
           opacityMultiplier: 0.42,
           seed: 11,
-          strokeWidth: Math.max(1.1, fallbackWidth * 0.65),
+          strokeWidth: strokeWidth * 0.65,
         },
         {
           intensity: 1.8,
           opacityMultiplier: 0.3,
           seed: 29,
-          strokeWidth: Math.max(0.8, fallbackWidth * 0.45),
+          strokeWidth: strokeWidth * 0.45,
         },
         {
           dash: [1, 2],
           intensity: 0.9,
           opacityMultiplier: 0.2,
           seed: 47,
-          strokeWidth: Math.max(0.55, fallbackWidth * 0.28),
+          strokeWidth: strokeWidth * 0.28,
         },
       ];
     case "hand-pen":
@@ -104,13 +103,13 @@ export function resolveSketchPasses(
           intensity: 1.15,
           opacityMultiplier: 0.88,
           seed: 7,
-          strokeWidth: Math.max(2.2, fallbackWidth),
+          strokeWidth,
         },
         {
           intensity: 0.75,
           opacityMultiplier: 0.24,
           seed: 23,
-          strokeWidth: Math.max(0.9, fallbackWidth * 0.35),
+          strokeWidth: strokeWidth * 0.35,
         },
       ];
     default:
