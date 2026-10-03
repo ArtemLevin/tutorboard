@@ -405,7 +405,6 @@ export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
         actualInk,
         frame.style.strokeStyle,
         frame.style.strokeWidth,
-        frame.viewport.zoom,
       );
       syncPathPool(group, actualPaths, actualRenderPaths, frame.style, 1);
 
@@ -436,7 +435,6 @@ export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
         predictedInk,
         frame.style.strokeStyle,
         frame.style.strokeWidth,
-        frame.viewport.zoom,
       );
       syncPathPool(
         group,
