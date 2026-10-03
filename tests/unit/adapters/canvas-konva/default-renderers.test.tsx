@@ -118,6 +118,29 @@ describe("styled pen stroke rendering", () => {
     });
   });
 
+  it("renders closed pen strokes as two closed outline boundaries", () => {
+    const object = {
+      ...penStroke("thin"),
+      id: boardObjectId("object:closed-pen"),
+      points: [
+        { x: 0, y: 0 },
+        { x: 200, y: 0 },
+        { x: 100, y: 160 },
+        { x: 0, y: 0 },
+      ],
+    };
+    const [contour] = elementChildren(render(object));
+    const data = (
+      contour?.props as { readonly data?: unknown } | undefined
+    )?.data;
+
+    expect(contour?.type).toBe(Path);
+    expect(typeof data).toBe("string");
+    if (typeof data !== "string") return;
+    expect(data.match(/M /gu) ?? []).toHaveLength(2);
+    expect(data.match(/Z/gu) ?? []).toHaveLength(2);
+  });
+
   it("renders bounded deterministic sketch passes for pen strokes", () => {
     const pencil = elementChildren(render(penStroke("hand-pencil")));
     const handPen = elementChildren(render(penStroke("hand-pen")));
