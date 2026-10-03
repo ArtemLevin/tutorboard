@@ -145,6 +145,14 @@ export type {
   VisualStyleOverride,
 } from "./board/geometry-imports";
 export {
+  createPenStrokeRenderPaths,
+  strokeStyleDashPattern,
+  strokeStyleOpacityMultiplier,
+  strokeStyleSketchPassSpecs,
+  type PenStrokeRenderPath,
+  type StrokeStyleSketchPassSpec,
+} from "./board/pen-stroke-rendering";
+export {
   createCubicBezierCenterline,
   createLegacyVectorInkSamples,
   createLinearCubicBezierCenterline,

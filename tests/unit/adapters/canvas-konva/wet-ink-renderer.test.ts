@@ -102,6 +102,29 @@ describe("WetInkRenderer", () => {
     expect(reports[0]?.frameCount).toBe(1);
   });
 
+  it("preserves strokeStyle on transient wet-ink frames", () => {
+    const clock = new FakeClock();
+    const surface = new FakeSurface();
+    const renderer = new WetInkRenderer(surface, { clock });
+
+    renderer.begin(
+      { inputTimestampMs: 1, point: { x: 0, y: 0 }, pressure: 0.5 },
+      { ...style, strokeStyle: "wavy" },
+      viewport,
+    );
+    renderer.append(
+      [{ inputTimestampMs: 2, point: { x: 40, y: 0 }, pressure: 0.6 }],
+      [],
+    );
+    clock.step(9);
+
+    expect(surface.frames).toHaveLength(1);
+    expect(surface.frames[0]?.style).toMatchObject({
+      strokeStyle: "wavy",
+      strokeWidth: 4,
+    });
+  });
+
   it("replaces predictions without committing them to actual ink", () => {
     const clock = new FakeClock();
     const surface = new FakeSurface();

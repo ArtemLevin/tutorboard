@@ -4,15 +4,18 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { Ellipse, Group, Path, Rect } from "react-konva";
+import { Ellipse, Group, Line, Path, Rect } from "react-konva";
 import { describe, expect, it } from "vitest";
 
 import { createDefaultKonvaRendererRegistry } from "../../../../src/adapters/canvas-konva/public";
 import {
   boardObjectId,
+  createVectorInkDataFromPoints,
   type BoardObject,
   type BoardRenderItem,
+  type StrokeStyle,
 } from "../../../../src/core/public";
+import { createPenStrokeRenderPaths } from "../../../../src/core/public";
 
 const base = {
   groupId: null,
@@ -41,6 +44,122 @@ function elementChildren(element: ReactElement): ReactElement[] {
     (element.props as { readonly children?: ReactNode }).children,
   ).filter(isValidElement);
 }
+
+describe("default stroke width rendering", () => {
+  it.each([
+    ["thin", 0.5],
+    ["thick", 1],
+    ["dashed", 1.5],
+    ["dash-dot", 2.5],
+    ["wavy", 4],
+    ["marker", 3],
+  ] as const)("renders %s lines with the stored numeric width", (strokeStyle, strokeWidth) => {
+    const rendered = render({
+      ...base,
+      id: boardObjectId(`object:width-${strokeStyle}`),
+      kind: "drawing.line",
+      end: { x: 120, y: 20 },
+      style: {
+        ...base.style,
+        strokeStyle,
+        strokeWidth,
+      },
+    });
+
+    expect(rendered.type).toBe(Line);
+    expect(rendered.props).toMatchObject({ strokeWidth });
+  });
+});
+
+describe("styled pen stroke rendering", () => {
+  const penStroke = (strokeStyle: StrokeStyle) =>
+    ({
+      ...base,
+      id: boardObjectId(`object:pen-${strokeStyle}`),
+      kind: "drawing.pen-stroke" as const,
+      points: [
+        { x: 0, y: 0 },
+        { x: 90, y: 0 },
+        { x: 180, y: 0 },
+      ],
+      style: {
+        ...base.style,
+        fill: null,
+        strokeStyle,
+        strokeWidth: 3,
+      },
+    });
+
+  it("renders distinct real geometry for wavy and dashed pen styles", () => {
+    const solid = elementChildren(render(penStroke("thin")));
+    const wavy = elementChildren(render(penStroke("wavy")));
+    const dashed = elementChildren(render(penStroke("dashed")));
+
+    expect(solid).toHaveLength(1);
+    expect(wavy).toHaveLength(1);
+    expect(dashed).toHaveLength(1);
+    expect(wavy[0]).not.toEqual(solid[0]);
+    expect(dashed[0]).not.toEqual(solid[0]);
+  });
+
+  it("uses the exact shared geometry contract for final pen rendering", () => {
+    const object = penStroke("wavy");
+    const [renderedPath] = elementChildren(render(object));
+    const expected = createPenStrokeRenderPaths(
+      createVectorInkDataFromPoints(object.points),
+      object.style.strokeStyle,
+      object.style.strokeWidth,
+    );
+
+    expect(expected).toHaveLength(1);
+    expect(renderedPath?.props).toMatchObject({
+      data: expected[0]?.data,
+      opacity: expected[0]?.opacityMultiplier,
+    });
+  });
+
+  it("renders closed pen strokes as two closed outline boundaries", () => {
+    const object = {
+      ...penStroke("thin"),
+      id: boardObjectId("object:closed-pen"),
+      points: [
+        { x: 0, y: 0 },
+        { x: 200, y: 0 },
+        { x: 100, y: 160 },
+        { x: 0, y: 0 },
+      ],
+    };
+    const [contour] = elementChildren(render(object));
+    const data = (
+      contour?.props as { readonly data?: unknown } | undefined
+    )?.data;
+
+    expect(contour?.type).toBe(Path);
+    expect(typeof data).toBe("string");
+    if (typeof data !== "string") return;
+    expect(data.match(/M /gu) ?? []).toHaveLength(2);
+    expect(data.match(/Z/gu) ?? []).toHaveLength(2);
+  });
+
+  it("renders bounded deterministic sketch passes for pen strokes", () => {
+    const pencil = elementChildren(render(penStroke("hand-pencil")));
+    const handPen = elementChildren(render(penStroke("hand-pen")));
+
+    expect(pencil).toHaveLength(3);
+    expect(handPen).toHaveLength(2);
+    expect(pencil.every((element) => element.type === Path)).toBe(true);
+    expect(handPen.every((element) => element.type === Path)).toBe(true);
+  });
+
+  it("keeps marker opacity aligned with the pen style contract", () => {
+    const [marker] = elementChildren(render(penStroke("marker")));
+    expect(marker?.type).toBe(Path);
+    expect(marker?.props).toMatchObject({
+      fill: "#2c7182",
+      opacity: 0.38,
+    });
+  });
+});
 
 describe("default shape hit regions", () => {
   it.each([

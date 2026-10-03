@@ -1630,6 +1630,7 @@ export function BoardStage({
       data-selection-mode={selectionModeKey ?? "none"}
       data-transformable-count={transformableObjectIds.length}
       data-transforming={isTransforming}
+      data-wet-ink-stroke-style={wetInkStyle?.strokeStyle ?? "none"}
       data-testid="board-stage"
       role="application"
       style={{ cursor }}

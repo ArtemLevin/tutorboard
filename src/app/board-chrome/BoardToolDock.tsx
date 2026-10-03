@@ -27,6 +27,7 @@ import {
   shortcutLabelForTool,
 } from "../board/shortcuts/board-shortcuts";
 import { StrokeStylePalette } from "../StrokeStylePalette";
+import { strokeStyleSelectionPatch } from "./stroke-style-presets";
 
 interface BoardToolDockProps {
   readonly activeStyle: ObjectStyle | null;
@@ -194,7 +195,9 @@ function StyleControls({
       ) : null}
       {style.stroke !== null ? (
         <StrokeStylePalette
-          onChange={(strokeStyle) => onChange({ strokeStyle })}
+          onChange={(strokeStyle) =>
+            onChange(strokeStyleSelectionPatch(strokeStyle))
+          }
           value={style.strokeStyle ?? "thin"}
         />
       ) : null}
@@ -204,9 +207,17 @@ function StyleControls({
           aria-label="Толщина инструмента"
           max="64"
           min="0"
-          onChange={(event) =>
-            onChange({ strokeWidth: event.currentTarget.valueAsNumber })
-          }
+          onChange={(event) => {
+            const strokeWidth = event.currentTarget.valueAsNumber;
+            if (
+              !Number.isFinite(strokeWidth) ||
+              strokeWidth < 0 ||
+              strokeWidth > 64
+            ) {
+              return;
+            }
+            onChange({ strokeWidth });
+          }}
           step="0.5"
           type="number"
           value={style.strokeWidth}

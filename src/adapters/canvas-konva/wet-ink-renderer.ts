@@ -2,10 +2,15 @@ import Konva from "konva";
 
 import {
   createVectorInkData,
-  vectorInkOutlinePathData,
+  type StrokeStyle,
   type Vec2,
   type VectorInkSample,
   type ViewportState,
+} from "../../core/public";
+import {
+  createPenStrokeRenderPaths,
+  strokeStyleOpacityMultiplier,
+  type PenStrokeRenderPath,
 } from "../../core/public";
 
 export const maximumWetInkActualPoints = 100_000;
@@ -15,6 +20,7 @@ export const wetInkLatencyWindowSize = 240;
 export interface WetInkStyle {
   readonly opacity: number;
   readonly stroke: string;
+  readonly strokeStyle?: StrokeStyle;
   readonly strokeWidth: number;
 }
 
@@ -168,6 +174,7 @@ export class WetInkRenderer {
   private style: WetInkStyle = {
     opacity: 1,
     stroke: "#245d6b",
+    strokeStyle: "thin",
     strokeWidth: 3,
   };
   private viewport: ViewportState = { offset: { x: 0, y: 0 }, zoom: 1 };
@@ -321,34 +328,65 @@ function pressureWidth(strokeWidth: number, pressure: number): number {
   return strokeWidth * (0.35 + 0.9 * Math.min(1, Math.max(0, pressure)));
 }
 
+function createPathNode(): Konva.Path {
+  return new Konva.Path({
+    listening: false,
+    perfectDrawEnabled: false,
+    visible: false,
+  });
+}
+
+function syncPathPool(
+  group: Konva.Group,
+  pool: Konva.Path[],
+  paths: readonly PenStrokeRenderPath[],
+  style: WetInkStyle,
+  opacityScale: number,
+): void {
+  while (pool.length < paths.length) {
+    const path = createPathNode();
+    pool.push(path);
+    group.add(path);
+  }
+  for (let index = 0; index < pool.length; index += 1) {
+    const node = pool[index]!;
+    const path = paths[index];
+    if (path === undefined) {
+      node.data("");
+      node.visible(false);
+      continue;
+    }
+    node.data(path.data);
+    node.fill(style.stroke);
+    node.opacity(
+      Math.min(1, style.opacity * path.opacityMultiplier * opacityScale),
+    );
+    node.visible(path.data.length > 0);
+  }
+}
+
 export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
   const group = new Konva.Group({ listening: false });
-  const actualPath = new Konva.Path({
-    listening: false,
-    perfectDrawEnabled: false,
-    visible: false,
-  });
-  const predictedPath = new Konva.Path({
-    listening: false,
-    perfectDrawEnabled: false,
-    visible: false,
-  });
+  const actualPaths: Konva.Path[] = [];
+  const predictedPaths: Konva.Path[] = [];
   const actualDot = new Konva.Circle({
     listening: false,
     perfectDrawEnabled: false,
     visible: false,
   });
-  group.add(actualPath);
-  group.add(predictedPath);
   group.add(actualDot);
   layer.add(group);
 
   return {
     clear() {
-      actualPath.data("");
-      actualPath.visible(false);
-      predictedPath.data("");
-      predictedPath.visible(false);
+      for (const path of actualPaths) {
+        path.data("");
+        path.visible(false);
+      }
+      for (const path of predictedPaths) {
+        path.data("");
+        path.visible(false);
+      }
       actualDot.visible(false);
       layer.draw();
     },
@@ -363,14 +401,13 @@ export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
         vectorSamples(frame.actualSamples),
         false,
       );
-      const actualData = vectorInkOutlinePathData(
+      const actualRenderPaths = createPenStrokeRenderPaths(
         actualInk,
+        frame.style.strokeStyle,
         frame.style.strokeWidth,
       );
-      actualPath.data(actualData);
-      actualPath.fill(frame.style.stroke);
-      actualPath.opacity(frame.style.opacity);
-      actualPath.visible(actualData.length > 0);
+      syncPathPool(group, actualPaths, actualRenderPaths, frame.style, 1);
+
       const first = frame.actualSamples[0];
       actualDot.position(first?.point ?? { x: 0, y: 0 });
       actualDot.radius(
@@ -379,7 +416,10 @@ export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
           : pressureWidth(frame.style.strokeWidth, first.pressure) / 2,
       );
       actualDot.fill(frame.style.stroke);
-      actualDot.opacity(frame.style.opacity);
+      actualDot.opacity(
+        frame.style.opacity *
+          strokeStyleOpacityMultiplier(frame.style.strokeStyle),
+      );
       actualDot.visible(frame.actualSamples.length === 1);
 
       const previous = frame.actualSamples.at(-1);
@@ -391,14 +431,18 @@ export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
         vectorSamples(predictedSamples),
         false,
       );
-      const predictedData = vectorInkOutlinePathData(
+      const predictedRenderPaths = createPenStrokeRenderPaths(
         predictedInk,
+        frame.style.strokeStyle,
         frame.style.strokeWidth,
       );
-      predictedPath.data(predictedData);
-      predictedPath.fill(frame.style.stroke);
-      predictedPath.opacity(Math.min(1, frame.style.opacity * 0.42));
-      predictedPath.visible(predictedData.length > 0);
+      syncPathPool(
+        group,
+        predictedPaths,
+        predictedRenderPaths,
+        frame.style,
+        0.42,
+      );
       layer.draw();
     },
   };

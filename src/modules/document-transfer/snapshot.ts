@@ -2,13 +2,13 @@ import {
   resolveVectorInkData,
   selectBoardScene,
   vectorInkCenterlinePathData,
-  vectorInkOutlinePathData,
   type BoardDocument,
   type BoardObject,
   type BoardRenderItem,
   type Transform2D,
   type Vec2,
 } from "../../core/public";
+import { createPenStrokeRenderPaths } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
 
 export interface BoardSnapshotOptions {
@@ -86,7 +86,6 @@ function objectMarkup(object: BoardObject): string {
   switch (object.kind) {
     case "drawing.pen-stroke": {
       const ink = resolveVectorInkData(object);
-      const outline = vectorInkOutlinePathData(ink, object.style.strokeWidth);
       const centerline = vectorInkCenterlinePathData(ink);
       const transform = objectTransformAttribute(object);
       const fill =
@@ -94,9 +93,18 @@ function objectMarkup(object: BoardObject): string {
           ? `<path ${transform} d="${centerline}" fill="${escapeXml(object.style.fill)}" opacity="${number(object.style.opacity)}"/>`
           : "";
       const stroke =
-        object.style.stroke !== null && outline.length > 0
-          ? `<path ${transform} d="${outline}" fill="${escapeXml(object.style.stroke)}" opacity="${number(object.style.opacity)}"/>`
-          : "";
+        object.style.stroke === null
+          ? ""
+          : createPenStrokeRenderPaths(
+              ink,
+              object.style.strokeStyle,
+              object.style.strokeWidth,
+            )
+              .map(
+                (path) =>
+                  `<path ${transform} d="${path.data}" fill="${escapeXml(object.style.stroke ?? "")}" opacity="${number(object.style.opacity * path.opacityMultiplier)}"/>`,
+              )
+              .join("");
       return `<g data-vector-ink-version="${ink.version}">${fill}${stroke}</g>`;
     }
     case "drawing.line":
@@ -229,10 +237,29 @@ function expandBounds(
   };
 }
 
+function penStrokeDecorationExpansion(object: BoardObject): number {
+  if (object.kind !== "drawing.pen-stroke") return 0;
+  switch (object.style.strokeStyle) {
+    case "wavy":
+      return 3;
+    case "hand-pencil":
+      return 2.8;
+    case "hand-pen":
+      return 1.15;
+    default:
+      return 0;
+  }
+}
+
 function itemBounds(item: BoardRenderItem): BoardSnapshotBounds {
   const local = expandBounds(
     localObjectBounds(item.object),
-    Math.max(2, item.object.style.strokeWidth / 2 + 1),
+    Math.max(
+      2,
+      item.object.style.strokeWidth / 2 +
+        penStrokeDecorationExpansion(item.object) +
+        1,
+    ),
   );
   const objectTransform: Transform2D = {
     rotation: item.object.rotation,
