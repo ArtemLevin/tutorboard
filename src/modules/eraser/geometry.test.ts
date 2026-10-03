@@ -95,6 +95,42 @@ describe("vector partial eraser", () => {
     }
   });
 
+  it("opens a partially erased closed stroke and removes its fill", () => {
+    const closedSamples = [
+      { point: { x: 0, y: 0 }, pressure: 0.3, timestampMs: 0 },
+      { point: { x: 100, y: 0 }, pressure: 0.8, timestampMs: 8 },
+      { point: { x: 100, y: 100 }, pressure: 0.6, timestampMs: 16 },
+      { point: { x: 0, y: 100 }, pressure: 0.5, timestampMs: 24 },
+      { point: { x: 0, y: 0 }, pressure: 0.3, timestampMs: 32 },
+    ] as const;
+    const original = stroke(closedSamples, {
+      ink: createVectorInkData(closedSamples, true),
+      points: closedSamples.map(({ point }) => point),
+      style: {
+        fill: "#fde68a",
+        opacity: 1,
+        stroke: "#111827",
+        strokeWidth: 6,
+      },
+    });
+
+    const fragments = erasePenStroke(
+      original,
+      [{ x: 50, y: 0 }],
+      10,
+      (source, index) =>
+        index === 0 ? source.id : boardObjectId(`object:closed-fragment-${index}`),
+    );
+
+    expect(fragments).not.toBeNull();
+    expect((fragments ?? []).length).toBeGreaterThan(0);
+    for (const fragment of fragments ?? []) {
+      expect(fragment.ink?.closed).toBe(false);
+      expect(fragment.style.fill).toBeNull();
+      expect(fragment.ink?.samples.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
   it("erases using world-space geometry after object transforms", () => {
     const transformed = stroke(samples(), {
       position: { x: 200, y: 100 },
