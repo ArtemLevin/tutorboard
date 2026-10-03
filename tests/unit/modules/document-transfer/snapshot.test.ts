@@ -152,7 +152,9 @@ describe("TutorBoard styled pen snapshot parity", () => {
       fixtureDocumentWithPenStyle("marker", 0.8).document,
     );
 
-    expect(svg).toContain('fill="#7c3aed" opacity="0.304"');
+    expect(svg).toContain(
+      `fill="#7c3aed" opacity="${String(0.8 * 0.38)}"`,
+    );
   });
 
   it("exports deterministic bounded hand-drawn passes", () => {
