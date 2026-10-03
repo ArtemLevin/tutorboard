@@ -119,7 +119,9 @@ describe("vector partial eraser", () => {
       [{ x: 50, y: 0 }],
       10,
       (source, index) =>
-        index === 0 ? source.id : boardObjectId(`object:closed-fragment-${index}`),
+        index === 0
+          ? source.id
+          : boardObjectId(`object:closed-fragment-${index}`),
     );
 
     expect(fragments).not.toBeNull();
