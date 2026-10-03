@@ -12,6 +12,7 @@ import {
   boardObjectId,
   type BoardObject,
   type BoardRenderItem,
+  type StrokeStyle,
 } from "../../../../src/core/public";
 
 const base = {
@@ -69,7 +70,7 @@ describe("default stroke width rendering", () => {
 });
 
 describe("styled pen stroke rendering", () => {
-  const penStroke = (strokeStyle: NonNullable<typeof base.style.strokeStyle>) =>
+  const penStroke = (strokeStyle: StrokeStyle) =>
     ({
       ...base,
       id: boardObjectId(`object:pen-${strokeStyle}`),
