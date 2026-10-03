@@ -325,7 +325,9 @@ function vectorSamples(
 }
 
 function pressureWidth(strokeWidth: number, pressure: number): number {
-  return strokeWidth * (0.35 + 0.9 * Math.min(1, Math.max(0, pressure)));
+  return (
+    strokeWidth * (0.35 + 0.9 * Math.min(1, Math.max(0, pressure)))
+  );
 }
 
 function createPathNode(): Konva.Path {
