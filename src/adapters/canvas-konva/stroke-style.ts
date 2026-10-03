@@ -3,7 +3,7 @@ import {
   strokeStyleDashPattern,
   strokeStyleOpacityMultiplier,
   strokeStyleSketchPassSpecs,
-} from "../../shared/pen-stroke-rendering";
+} from "../../core/public";
 
 export interface ResolvedStrokeStyle {
   readonly dash?: readonly number[];
