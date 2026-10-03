@@ -252,6 +252,7 @@ export function BoardCanvas({
     return {
       opacity: style.opacity,
       stroke: style.stroke ?? drawingStyleDefaults.pen.stroke,
+      strokeStyle: style.strokeStyle,
       strokeWidth: style.strokeWidth,
     };
   }, [activeTool, drawing]);
