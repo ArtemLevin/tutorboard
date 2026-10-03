@@ -9,7 +9,7 @@ import {
 } from "../../core/public";
 import {
   createPenStrokeRenderPaths,
-  penStrokeOpacityMultiplier,
+  strokeStyleOpacityMultiplier,
   type PenStrokeRenderPath,
 } from "../../shared/pen-stroke-rendering";
 
@@ -418,7 +418,7 @@ export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
       actualDot.fill(frame.style.stroke);
       actualDot.opacity(
         frame.style.opacity *
-          penStrokeOpacityMultiplier(frame.style.strokeStyle),
+          strokeStyleOpacityMultiplier(frame.style.strokeStyle),
       );
       actualDot.visible(frame.actualSamples.length === 1);
 
