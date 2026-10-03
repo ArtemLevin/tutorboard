@@ -154,18 +154,33 @@ function wavySamples(ink: VectorInkData): readonly VectorInkSample[] {
   const samples = resampleByArcLength(source, wavyBaseSpacing);
   const distances = cumulativeDistances(samples);
   const total = distances.at(-1) ?? 0;
-  const cycles = Math.max(2, total / 36);
+  const cycles = ink.closed
+    ? Math.max(2, Math.round(total / 36))
+    : Math.max(2, total / 36);
 
-  return transformedSamples(samples, (sample, index, pathDistances) => {
-    const direction = tangent(samples, index, ink.closed);
-    const normal = { x: -direction.y, y: direction.x };
-    const progress = total <= 1e-9 ? 0 : pathDistances[index]! / total;
-    const amplitude = Math.sin(progress * Math.PI * 2 * cycles) * 3;
-    return {
-      x: sample.point.x + normal.x * amplitude,
-      y: sample.point.y + normal.y * amplitude,
-    };
-  });
+  const transformed = transformedSamples(
+    samples,
+    (sample, index, pathDistances) => {
+      const direction = tangent(samples, index, ink.closed);
+      const normal = { x: -direction.y, y: direction.x };
+      const progress = total <= 1e-9 ? 0 : pathDistances[index]! / total;
+      const amplitude = Math.sin(progress * Math.PI * 2 * cycles) * 3;
+      return {
+        x: sample.point.x + normal.x * amplitude,
+        y: sample.point.y + normal.y * amplitude,
+      };
+    },
+  );
+  if (!ink.closed || transformed.length < 2) return transformed;
+  const first = transformed[0]!;
+  const last = transformed.at(-1)!;
+  return [
+    ...transformed.slice(0, -1),
+    {
+      ...last,
+      point: { ...first.point },
+    },
+  ];
 }
 
 function sketchSamples(
@@ -178,28 +193,43 @@ function sketchSamples(
   const distances = cumulativeDistances(samples);
   const lastIndex = Math.max(0, samples.length - 1);
 
-  return transformedSamples(samples, (sample, index, pathDistances) => {
-    const direction = tangent(samples, index, ink.closed);
-    const normal = { x: -direction.y, y: direction.x };
-    const progress = lastIndex === 0 ? 0 : index / lastIndex;
-    const endpointEnvelope = ink.closed
-      ? 1
-      : 0.22 + Math.sin(progress * Math.PI) * 0.78;
-    const distanceAlong = pathDistances[index] ?? 0;
-    const noise =
-      Math.sin((distanceAlong + 1) * (0.17 + seed * 0.0017) + seed * 0.37) *
-        0.68 +
-      Math.cos(
-        (distanceAlong + 1) * (0.071 + seed * 0.0011) +
-          sample.point.x * 0.011,
-      ) *
-        0.32;
-    const offset = noise * intensity * endpointEnvelope;
-    return {
-      x: sample.point.x + normal.x * offset,
-      y: sample.point.y + normal.y * offset,
-    };
-  });
+  const transformed = transformedSamples(
+    samples,
+    (sample, index, pathDistances) => {
+      const direction = tangent(samples, index, ink.closed);
+      const normal = { x: -direction.y, y: direction.x };
+      const progress = lastIndex === 0 ? 0 : index / lastIndex;
+      const endpointEnvelope = ink.closed
+        ? 1
+        : 0.22 + Math.sin(progress * Math.PI) * 0.78;
+      const distanceAlong = pathDistances[index] ?? 0;
+      const noise =
+        Math.sin(
+          (distanceAlong + 1) * (0.17 + seed * 0.0017) + seed * 0.37,
+        ) *
+          0.68 +
+        Math.cos(
+          (distanceAlong + 1) * (0.071 + seed * 0.0011) +
+            sample.point.x * 0.011,
+        ) *
+          0.32;
+      const offset = noise * intensity * endpointEnvelope;
+      return {
+        x: sample.point.x + normal.x * offset,
+        y: sample.point.y + normal.y * offset,
+      };
+    },
+  );
+  if (!ink.closed || transformed.length < 2) return transformed;
+  const first = transformed[0]!;
+  const last = transformed.at(-1)!;
+  return [
+    ...transformed.slice(0, -1),
+    {
+      ...last,
+      point: { ...first.point },
+    },
+  ];
 }
 
 function splitByDashPattern(
