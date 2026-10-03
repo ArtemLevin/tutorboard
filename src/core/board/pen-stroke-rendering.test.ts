@@ -134,12 +134,10 @@ describe("styled pen stroke rendering", () => {
 
     expect(paths).toHaveLength(1);
     expect(paths[0]?.data).toContain("A ");
-    expect(bounds).toEqual({
-      bottom: 23.35,
-      left: 6.65,
-      right: 17.35,
-      top: 12.65,
-    });
+    expect(bounds?.bottom).toBeCloseTo(23.35, 10);
+    expect(bounds?.left).toBeCloseTo(6.65, 10);
+    expect(bounds?.right).toBeCloseTo(17.35, 10);
+    expect(bounds?.top).toBeCloseTo(12.65, 10);
   });
 
   it("returns no path for zero width", () => {
