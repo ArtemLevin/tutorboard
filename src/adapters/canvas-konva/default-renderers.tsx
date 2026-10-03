@@ -8,7 +8,7 @@ import {
   type BoardObjectKind,
   type Vec2,
 } from "../../core/public";
-import { createPenStrokeRenderPaths } from "../../shared/pen-stroke-rendering";
+import { createPenStrokeRenderPaths } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
 import {
   buildSmoothStrokePoints,
