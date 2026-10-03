@@ -118,32 +118,31 @@ test("draws through the predicted-event fallback", async ({ page }) => {
   );
 });
 
-test(
-  "@smoke keeps wavy style through wet ink and final pen materialization",
-  async ({ page }) => {
-    await openBoardWithPen(page);
+test("@smoke keeps wavy style through wet ink and final pen materialization", async ({
+  page,
+}) => {
+  await openBoardWithPen(page);
 
-    const styleTrigger = page.getByRole("button", { name: /Стиль линии:/ });
-    await styleTrigger.click();
-    await page.getByRole("menuitemradio", { name: "Волнистая" }).click();
-    await expect(styleTrigger).toHaveAttribute("aria-label", /Волнистая/);
+  const styleTrigger = page.getByRole("button", { name: /Стиль линии:/ });
+  await styleTrigger.click();
+  await page.getByRole("menuitemradio", { name: "Волнистая" }).click();
+  await expect(styleTrigger).toHaveAttribute("aria-label", /Волнистая/);
 
-    const stage = page.getByTestId("board-stage");
-    await expect(stage).toHaveAttribute("data-wet-ink-stroke-style", "wavy");
+  const stage = page.getByTestId("board-stage");
+  await expect(stage).toHaveAttribute("data-wet-ink-stroke-style", "wavy");
 
-    await drawStroke(page);
+  await drawStroke(page);
 
-    await expect(stage).toHaveAttribute("data-wet-ink-active", "true");
-    await expect
-      .poll(async () =>
-        Number((await stage.getAttribute("data-wet-ink-frame-count")) ?? 0),
-      )
-      .toBeGreaterThan(0);
+  await expect(stage).toHaveAttribute("data-wet-ink-active", "true");
+  await expect
+    .poll(async () =>
+      Number((await stage.getAttribute("data-wet-ink-frame-count")) ?? 0),
+    )
+    .toBeGreaterThan(0);
 
-    await page.mouse.up();
+  await page.mouse.up();
 
-    await expect(stage).toHaveAttribute("data-wet-ink-active", "false");
-    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-    await expect(styleTrigger).toHaveAttribute("aria-label", /Волнистая/);
-  },
-);
+  await expect(stage).toHaveAttribute("data-wet-ink-active", "false");
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+  await expect(styleTrigger).toHaveAttribute("aria-label", /Волнистая/);
+});
