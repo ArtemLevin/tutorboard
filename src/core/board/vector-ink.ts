@@ -383,9 +383,7 @@ function capPoints(
   });
 }
 
-function boundsFromPoints(
-  points: readonly Vec2[],
-): VectorInkBounds | null {
+function boundsFromPoints(points: readonly Vec2[]): VectorInkBounds | null {
   if (points.length === 0) return null;
   let left = points[0]!.x;
   let right = left;
@@ -430,9 +428,7 @@ function stationaryInkCircle(
     ink.samples.reduce((sum, sample) => sum + sample.pressure, 0) /
     ink.samples.length;
   const radius = halfWidth(strokeWidth, pressure);
-  return radius <= 0
-    ? null
-    : { center: firstSample.point, radius };
+  return radius <= 0 ? null : { center: firstSample.point, radius };
 }
 
 function contourPathData(contour: readonly Vec2[]): string {
