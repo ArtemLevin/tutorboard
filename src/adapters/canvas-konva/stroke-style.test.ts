@@ -10,18 +10,22 @@ import {
 } from "./stroke-style";
 
 describe("stroke styles", () => {
-  it.each([
-    "thin",
-    "thick",
-    "dashed",
-    "dash-dot",
-    "wavy",
-    "hand-pencil",
-    "hand-pen",
-    "marker",
-  ] as const)("keeps strokeWidth authoritative for %s", (style) => {
-    expect(resolveStrokeStyle(style, 0.5).strokeWidth).toBe(0.5);
-    expect(resolveStrokeStyle(style, 8).strokeWidth).toBe(8);
+  it("keeps strokeWidth authoritative for every public style", () => {
+    const styles = [
+      "thin",
+      "thick",
+      "dashed",
+      "dash-dot",
+      "wavy",
+      "hand-pencil",
+      "hand-pen",
+      "marker",
+    ] as const;
+
+    for (const style of styles) {
+      expect(resolveStrokeStyle(style, 0.5).strokeWidth).toBe(0.5);
+      expect(resolveStrokeStyle(style, 8).strokeWidth).toBe(8);
+    }
   });
 
   it("keeps visual style metadata independent from numeric width", () => {
@@ -35,20 +39,19 @@ describe("stroke styles", () => {
   });
 
   it("scales sketch passes proportionally to the selected width", () => {
-    expect(
-      resolveSketchPasses("hand-pencil", 0.5).map(
-        (pass) => pass.strokeWidth,
-      ),
-    ).toEqual([0.325, 0.225, 0.14]);
-    expect(
-      resolveSketchPasses("hand-pen", 0.5).map((pass) => pass.strokeWidth),
-    ).toEqual([0.5, 0.175]);
-    expect(
-      resolveSketchPasses("hand-pencil", 4).map((pass) => pass.strokeWidth),
-    ).toEqual([2.6, 1.8, 1.12]);
-    expect(
-      resolveSketchPasses("hand-pen", 4).map((pass) => pass.strokeWidth),
-    ).toEqual([4, 1.4]);
+    const pencilThin = resolveSketchPasses("hand-pencil", 0.5);
+    const penThin = resolveSketchPasses("hand-pen", 0.5);
+    const pencilWide = resolveSketchPasses("hand-pencil", 4);
+    const penWide = resolveSketchPasses("hand-pen", 4);
+
+    expect(pencilThin.map((pass) => pass.strokeWidth)).toEqual([
+      0.325, 0.225, 0.14,
+    ]);
+    expect(penThin.map((pass) => pass.strokeWidth)).toEqual([0.5, 0.175]);
+    expect(pencilWide.map((pass) => pass.strokeWidth)).toEqual([
+      2.6, 1.8, 1.12,
+    ]);
+    expect(penWide.map((pass) => pass.strokeWidth)).toEqual([4, 1.4]);
   });
 
   it("creates deterministic sketchbook paths", () => {
