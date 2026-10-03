@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createVectorInkData } from "../core/public";
 import {
   createPenStrokeRenderPaths,
-  penStrokeOpacityMultiplier,
+  strokeStyleOpacityMultiplier,
 } from "./pen-stroke-rendering";
 
 function lineInk() {
@@ -81,8 +81,8 @@ describe("styled pen stroke rendering", () => {
 
     expect(marker[0]?.data).toBe(solid[0]?.data);
     expect(marker[0]?.opacityMultiplier).toBe(0.38);
-    expect(penStrokeOpacityMultiplier("marker")).toBe(0.38);
-    expect(penStrokeOpacityMultiplier("wavy")).toBe(1);
+    expect(strokeStyleOpacityMultiplier("marker")).toBe(0.38);
+    expect(strokeStyleOpacityMultiplier("wavy")).toBe(1);
   });
 
   it("returns no path for zero width", () => {
