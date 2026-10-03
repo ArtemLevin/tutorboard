@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createVectorInkData } from "./vector-ink";
 import {
+  createPenStrokeRenderBounds,
   createPenStrokeRenderPaths,
   strokeStyleOpacityMultiplier,
 } from "./pen-stroke-rendering";
@@ -103,6 +104,42 @@ describe("styled pen stroke rendering", () => {
       expect(first.length).toBeGreaterThan(0);
       expect(first.every(({ data }) => !data.includes("NaN"))).toBe(true);
     }
+  });
+
+  it("derives deterministic bounds for every stylized pen geometry", () => {
+    const ink = lineInk();
+
+    for (const style of [
+      "dashed",
+      "dash-dot",
+      "wavy",
+      "hand-pencil",
+      "hand-pen",
+      "marker",
+    ] as const) {
+      const first = createPenStrokeRenderBounds(ink, style, 6);
+      const second = createPenStrokeRenderBounds(ink, style, 6);
+      expect(first).toEqual(second);
+      expect(first).not.toBeNull();
+    }
+  });
+
+  it("keeps canonical single-sample taps visible and bounded", () => {
+    const ink = createVectorInkData([
+      { point: { x: 12, y: 18 }, pressure: 0.8, timestampMs: 0 },
+    ]);
+
+    const paths = createPenStrokeRenderPaths(ink, "thin", 10);
+    const bounds = createPenStrokeRenderBounds(ink, "thin", 10);
+
+    expect(paths).toHaveLength(1);
+    expect(paths[0]?.data).toContain("A ");
+    expect(bounds).toEqual({
+      bottom: 23.35,
+      left: 6.65,
+      right: 17.35,
+      top: 12.65,
+    });
   });
 
   it("returns no path for zero width", () => {
