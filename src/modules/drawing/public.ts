@@ -11,7 +11,10 @@ export {
   type DrawingTransition,
   type UserDrawingObject,
 } from "./interaction";
-export { simplifyStroke, simplifyVectorInkSamples } from "./stroke-simplification";
+export {
+  simplifyStroke,
+  simplifyVectorInkSamples,
+} from "./stroke-simplification";
 export {
   drawingStyleDefaults,
   drawingToolIds,
