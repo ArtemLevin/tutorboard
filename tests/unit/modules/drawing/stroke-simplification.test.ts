@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { simplifyVectorInkSamples } from "../../../../src/modules/drawing/public";
+import { simplifyVectorInkSamples } from "../../../../src/modules/drawing/stroke-simplification";
 
 describe("pressure-aware stroke simplification", () => {
   it("retains a pressure extremum on a straight segment", () => {
