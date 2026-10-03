@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import frozenDocumentJson from "../../../fixtures/board-document-1.0.json?raw";
 import {
   boardObjectId,
+  createPenStrokeRenderBounds,
   createVectorInkData,
   type BoardObject,
   type MediaAssetObject,
@@ -106,6 +107,99 @@ function fixtureDocumentWithPenStyle(strokeStyle: StrokeStyle, opacity = 0.8) {
       order: [...document.order, id],
     },
     object,
+  };
+}
+
+function closedHighPressurePen(
+  strokeWidth: number,
+  options: {
+    readonly rotation?: number;
+    readonly scale?: { readonly x: number; readonly y: number };
+    readonly strokeStyle?: StrokeStyle;
+  } = {},
+): Extract<BoardObject, { readonly kind: "drawing.pen-stroke" }> {
+  const id = boardObjectId(
+    `object:closed-high-pressure-${strokeWidth}-${options.strokeStyle ?? "thin"}`,
+  );
+  const samples = [
+    { point: { x: 0, y: 0 }, pressure: 1, timestampMs: 0 },
+    { point: { x: 200, y: 0 }, pressure: 1, timestampMs: 8 },
+    { point: { x: 100, y: 160 }, pressure: 1, timestampMs: 16 },
+    { point: { x: 0, y: 0 }, pressure: 1, timestampMs: 24 },
+  ] as const;
+  return {
+    groupId: null,
+    id,
+    ink: createVectorInkData(samples, true),
+    kind: "drawing.pen-stroke",
+    locked: false,
+    points: samples.map(({ point }) => point),
+    position: { x: -120, y: 75 },
+    rotation: options.rotation ?? 0,
+    scale: options.scale ?? { x: 1, y: 1 },
+    source: { kind: "user" },
+    style: {
+      fill: null,
+      opacity: 1,
+      stroke: "#7c3aed",
+      strokeStyle: options.strokeStyle ?? "thin",
+      strokeWidth,
+    },
+    visible: true,
+  };
+}
+
+function documentOnlyWithObject(object: BoardObject) {
+  const document = fixtureDocument();
+  return {
+    ...document,
+    groups: {},
+    objects: { [object.id]: object },
+    order: [object.id],
+  };
+}
+
+function transformLocalPoint(
+  point: { readonly x: number; readonly y: number },
+  object: Extract<BoardObject, { readonly kind: "drawing.pen-stroke" }>,
+) {
+  const scaled = {
+    x: point.x * object.scale.x,
+    y: point.y * object.scale.y,
+  };
+  const radians = (object.rotation * Math.PI) / 180;
+  return {
+    x:
+      scaled.x * Math.cos(radians) -
+      scaled.y * Math.sin(radians) +
+      object.position.x,
+    y:
+      scaled.x * Math.sin(radians) +
+      scaled.y * Math.cos(radians) +
+      object.position.y,
+  };
+}
+
+function transformedBounds(
+  bounds: {
+    readonly bottom: number;
+    readonly left: number;
+    readonly right: number;
+    readonly top: number;
+  },
+  object: Extract<BoardObject, { readonly kind: "drawing.pen-stroke" }>,
+) {
+  const points = [
+    { x: bounds.left, y: bounds.top },
+    { x: bounds.right, y: bounds.top },
+    { x: bounds.right, y: bounds.bottom },
+    { x: bounds.left, y: bounds.bottom },
+  ].map((point) => transformLocalPoint(point, object));
+  return {
+    bottom: Math.max(...points.map(({ y }) => y)),
+    left: Math.min(...points.map(({ x }) => x)),
+    right: Math.max(...points.map(({ x }) => x)),
+    top: Math.min(...points.map(({ y }) => y)),
   };
 }
 
@@ -227,6 +321,75 @@ describe("TutorBoard snapshot layout", () => {
     expect(bottom).toBeLessThanOrEqual(
       layout.height - layout.padding + epsilon,
     );
+  });
+
+  it.each([24, 64])(
+    "uses exact closed high-pressure bounds at width %s with zero padding",
+    (strokeWidth) => {
+      const object = closedHighPressurePen(strokeWidth);
+      const expected = createPenStrokeRenderBounds(
+        object.ink!,
+        object.style.strokeStyle,
+        object.style.strokeWidth,
+      );
+      const layout = resolveBoardSnapshotLayout(documentOnlyWithObject(object), {
+        padding: 0,
+      });
+
+      expect(expected).not.toBeNull();
+      expect(layout.padding).toBe(0);
+      expect(layout.contentBounds).toEqual(
+        expected === null ? null : transformedBounds(expected, object),
+      );
+      expect(layout.contentBounds?.left).toBeLessThan(object.position.x);
+      expect(layout.contentBounds?.right).toBeGreaterThan(
+        object.position.x + 200,
+      );
+    },
+  );
+
+  it.each(["wavy", "hand-pencil", "hand-pen"] as const)(
+    "uses the shared %s render bounds without snapshot magic margins",
+    (strokeStyle) => {
+      const object = closedHighPressurePen(24, { strokeStyle });
+      const expected = createPenStrokeRenderBounds(
+        object.ink!,
+        strokeStyle,
+        object.style.strokeWidth,
+      );
+      const layout = resolveBoardSnapshotLayout(documentOnlyWithObject(object), {
+        padding: 0,
+      });
+
+      expect(expected).not.toBeNull();
+      expect(layout.contentBounds).toEqual(
+        expected === null ? null : transformedBounds(expected, object),
+      );
+    },
+  );
+
+  it("keeps exact pen render bounds through rotation and non-uniform scale", () => {
+    const object = closedHighPressurePen(64, {
+      rotation: 37,
+      scale: { x: 2.25, y: 0.45 },
+      strokeStyle: "wavy",
+    });
+    const local = createPenStrokeRenderBounds(
+      object.ink!,
+      object.style.strokeStyle,
+      object.style.strokeWidth,
+    );
+    const layout = resolveBoardSnapshotLayout(documentOnlyWithObject(object), {
+      padding: 0,
+    });
+
+    expect(local).not.toBeNull();
+    if (local === null) return;
+    const expected = transformedBounds(local, object);
+    expect(layout.contentBounds?.left).toBeCloseTo(expected.left, 8);
+    expect(layout.contentBounds?.right).toBeCloseTo(expected.right, 8);
+    expect(layout.contentBounds?.top).toBeCloseTo(expected.top, 8);
+    expect(layout.contentBounds?.bottom).toBeCloseTo(expected.bottom, 8);
   });
 
   it("keeps explicitly requested snapshot dimensions", () => {
