@@ -249,10 +249,12 @@ export function BoardCanvas({
           ? drawingStyleDefaults.pen
           : null;
     if (style === null) return null;
+    const strokeStyle =
+      "strokeStyle" in style ? style.strokeStyle : undefined;
     return {
       opacity: style.opacity,
       stroke: style.stroke ?? drawingStyleDefaults.pen.stroke,
-      strokeStyle: style.strokeStyle,
+      ...(strokeStyle === undefined ? {} : { strokeStyle }),
       strokeWidth: style.strokeWidth,
     };
   }, [activeTool, drawing]);
