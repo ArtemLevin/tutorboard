@@ -19,12 +19,14 @@ import {
   resolveDrawingConstraint,
   type DrawingConstraintFeedback,
 } from "./constraints";
-import { simplifyStroke } from "./stroke-simplification";
+import { simplifyVectorInkSamples } from "./stroke-simplification";
 import type { DrawingToolId } from "./tools";
 
 const maximumPenPoints = 100_000;
 const minimumGeometrySize = 0.001;
 export const penStrokeStorageSimplificationTolerance = 0.1;
+const penStrokePressureSimplificationTolerance = 0.05;
+const stationaryPressureNoiseTolerance = 0.01;
 
 export type UserDrawingObject = BoardObject & {
   readonly source: { readonly kind: "user" };
@@ -158,7 +160,8 @@ function appendPenSample(
     state.samples.length >= maximumPenPoints ||
     (previous !== undefined &&
       samePoint(previous.point, action.point) &&
-      previous.pressure === pressure)
+      Math.abs(previous.pressure - pressure) <=
+        stationaryPressureNoiseTolerance)
   ) {
     return state.samples;
   }
@@ -238,18 +241,15 @@ function completePen(
     };
   }
 
-  const rawPoints = appended.map(({ point: samplePoint }) => samplePoint);
-  const points = simplifyStroke(
-    rawPoints,
+  const samples = simplifyVectorInkSamples(
+    appended,
     penStrokeStorageSimplificationTolerance,
+    penStrokePressureSimplificationTolerance,
   );
-  const retained = new Set(points);
-  const samples = appended.filter(({ point: samplePoint }) =>
-    retained.has(samplePoint),
-  );
-  if (points.length < 1 || samples.length < 1) {
+  if (samples.length < 1) {
     return null;
   }
+  const points = samples.map(({ point: samplePoint }) => samplePoint);
 
   return {
     ...userObjectBase(state.objectId, { x: 0, y: 0 }, state.style),

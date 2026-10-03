@@ -200,6 +200,141 @@ describe("drawing interaction state machine", () => {
     expect(Number(move?.[1]) - 42).toBeGreaterThan(1);
   });
 
+  it("preserves a pressure peak through subpixel tap jitter", () => {
+    const started = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:subpixel-pressure-dot"),
+      point: { x: 42, y: 24 },
+      pointerId: 35,
+      pressure: 0,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    });
+    const moved = reduceDrawingInteraction(started.state, {
+      inputTimestampMs: 104,
+      kind: "move",
+      point: { x: 42.03, y: 24.02 },
+      pointerId: 35,
+      pressure: 0.8,
+    });
+    const completed = reduceDrawingInteraction(moved.state, {
+      inputTimestampMs: 108,
+      kind: "finish",
+      point: { x: 42.05, y: 24.03 },
+      pointerId: 35,
+      pressure: 0,
+    });
+
+    expect(completed.completedObject?.kind).toBe("drawing.pen-stroke");
+    if (completed.completedObject?.kind !== "drawing.pen-stroke") return;
+    const ink = completed.completedObject.ink;
+    expect(ink?.samples.map(({ pressure }) => pressure)).toEqual([0, 0.8, 0]);
+    expect(completed.completedObject.points).toContainEqual({
+      x: 42.03,
+      y: 24.02,
+    });
+    if (ink === undefined) return;
+    expect(
+      vectorInkOutlinePathData(
+        ink,
+        completed.completedObject.style.strokeWidth,
+      ),
+    ).not.toContain("NaN");
+  });
+
+  it("preserves pressure extrema on a geometrically straight stroke", () => {
+    const started = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:straight-pressure-stroke"),
+      point: { x: 0, y: 0 },
+      pointerId: 36,
+      pressure: 0.2,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    });
+    const moved = reduceDrawingInteraction(started.state, {
+      inputTimestampMs: 108,
+      kind: "move",
+      point: { x: 50, y: 0 },
+      pointerId: 36,
+      pressure: 0.9,
+    });
+    const completed = reduceDrawingInteraction(moved.state, {
+      inputTimestampMs: 116,
+      kind: "finish",
+      point: { x: 100, y: 0 },
+      pointerId: 36,
+      pressure: 0.2,
+    });
+
+    expect(completed.completedObject?.kind).toBe("drawing.pen-stroke");
+    if (completed.completedObject?.kind !== "drawing.pen-stroke") return;
+    expect(
+      completed.completedObject.ink?.samples.map(({ pressure }) => pressure),
+    ).toEqual([0.2, 0.9, 0.2]);
+    expect(completed.completedObject.points).toContainEqual({ x: 50, y: 0 });
+  });
+
+  it("coalesces stationary pressure noise below the input deadband", () => {
+    let state = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:stationary-pressure-noise"),
+      point: { x: 10, y: 20 },
+      pointerId: 37,
+      pressure: 0.5,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    }).state;
+
+    for (let index = 0; index < 200; index += 1) {
+      state = reduceDrawingInteraction(state, {
+        inputTimestampMs: 101 + index,
+        kind: "move",
+        point: { x: 10, y: 20 },
+        pointerId: 37,
+        pressure: 0.5 + ((index % 5) - 2) * 0.002,
+      }).state;
+    }
+
+    expect(state.kind).toBe("drawing-pen");
+    if (state.kind !== "drawing-pen") return;
+    expect(state.samples).toHaveLength(1);
+  });
+
+  it("retains cumulative stationary pressure changes across the noise deadband", () => {
+    let state = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:cumulative-pressure"),
+      point: { x: 15, y: 25 },
+      pointerId: 38,
+      pressure: 0.2,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    }).state;
+
+    for (const [index, pressure] of [0.205, 0.209, 0.212].entries()) {
+      state = reduceDrawingInteraction(state, {
+        inputTimestampMs: 104 + index * 4,
+        kind: "move",
+        point: { x: 15, y: 25 },
+        pointerId: 38,
+        pressure,
+      }).state;
+    }
+
+    expect(state.kind).toBe("drawing-pen");
+    if (state.kind !== "drawing-pen") return;
+    expect(state.samples.map(({ pressure }) => pressure)).toEqual([0.2, 0.212]);
+  });
+
   it("uses default contact pressure when a pen tap reports only zero pressure", () => {
     const started = reduceDrawingInteraction(idle, {
       inputTimestampMs: 100,
