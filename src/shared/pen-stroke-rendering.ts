@@ -46,7 +46,9 @@ function interpolateSample(
   };
 }
 
-function normalizedSourceSamples(ink: VectorInkData): readonly VectorInkSample[] {
+function normalizedSourceSamples(
+  ink: VectorInkData,
+): readonly VectorInkSample[] {
   if (ink.samples.length === 0) return [];
   if (!ink.closed) return ink.samples;
   const first = ink.samples[0]!;
@@ -80,7 +82,9 @@ function resampleByArcLength(
       travelled < segmentLength &&
       output.length < maximumStylizedSamples - 1
     ) {
-      output.push(interpolateSample(start, end, travelled / segmentLength));
+      output.push(
+        interpolateSample(start, end, travelled / segmentLength),
+      );
       travelled += spacing;
     }
     carried =
@@ -140,7 +144,11 @@ function tangent(
       ?.point ?? samples[index]!.point;
   const next =
     samples[
-      index === lastIndex ? (closed ? Math.min(1, lastIndex) : lastIndex) : index + 1
+      index === lastIndex
+        ? closed
+          ? Math.min(1, lastIndex)
+          : lastIndex
+        : index + 1
     ]?.point ?? samples[index]!.point;
   const delta = { x: next.x - previous.x, y: next.y - previous.y };
   const length = Math.hypot(delta.x, delta.y);
@@ -317,8 +325,18 @@ export function strokeStyleSketchPassSpecs(
   switch (style) {
     case "hand-pencil":
       return [
-        { intensity: 2.8, opacityMultiplier: 0.42, seed: 11, widthMultiplier: 0.65 },
-        { intensity: 1.8, opacityMultiplier: 0.3, seed: 29, widthMultiplier: 0.45 },
+        {
+          intensity: 2.8,
+          opacityMultiplier: 0.42,
+          seed: 11,
+          widthMultiplier: 0.65,
+        },
+        {
+          intensity: 1.8,
+          opacityMultiplier: 0.3,
+          seed: 29,
+          widthMultiplier: 0.45,
+        },
         {
           dash: [1, 2],
           intensity: 0.9,
@@ -329,7 +347,12 @@ export function strokeStyleSketchPassSpecs(
       ];
     case "hand-pen":
       return [
-        { intensity: 1.15, opacityMultiplier: 0.88, seed: 7, widthMultiplier: 1 },
+        {
+          intensity: 1.15,
+          opacityMultiplier: 0.88,
+          seed: 7,
+          widthMultiplier: 1,
+        },
         {
           intensity: 0.75,
           opacityMultiplier: 0.24,
