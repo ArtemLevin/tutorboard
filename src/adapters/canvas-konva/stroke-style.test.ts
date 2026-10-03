@@ -35,14 +35,20 @@ describe("stroke styles", () => {
   });
 
   it("scales sketch passes proportionally to the selected width", () => {
-    expect(resolveSketchPasses("hand-pencil", 0.5).map((pass) => pass.strokeWidth))
-      .toEqual([0.325, 0.225, 0.14]);
-    expect(resolveSketchPasses("hand-pen", 0.5).map((pass) => pass.strokeWidth))
-      .toEqual([0.5, 0.175]);
-    expect(resolveSketchPasses("hand-pencil", 4).map((pass) => pass.strokeWidth))
-      .toEqual([2.6, 1.8, 1.12]);
-    expect(resolveSketchPasses("hand-pen", 4).map((pass) => pass.strokeWidth))
-      .toEqual([4, 1.4]);
+    expect(
+      resolveSketchPasses("hand-pencil", 0.5).map(
+        (pass) => pass.strokeWidth,
+      ),
+    ).toEqual([0.325, 0.225, 0.14]);
+    expect(
+      resolveSketchPasses("hand-pen", 0.5).map((pass) => pass.strokeWidth),
+    ).toEqual([0.5, 0.175]);
+    expect(
+      resolveSketchPasses("hand-pencil", 4).map((pass) => pass.strokeWidth),
+    ).toEqual([2.6, 1.8, 1.12]);
+    expect(
+      resolveSketchPasses("hand-pen", 4).map((pass) => pass.strokeWidth),
+    ).toEqual([4, 1.4]);
   });
 
   it("creates deterministic sketchbook paths", () => {
