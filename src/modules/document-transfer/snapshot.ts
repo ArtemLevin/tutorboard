@@ -237,10 +237,29 @@ function expandBounds(
   };
 }
 
+function penStrokeDecorationExpansion(object: BoardObject): number {
+  if (object.kind !== "drawing.pen-stroke") return 0;
+  switch (object.style.strokeStyle) {
+    case "wavy":
+      return 3;
+    case "hand-pencil":
+      return 2.8;
+    case "hand-pen":
+      return 1.15;
+    default:
+      return 0;
+  }
+}
+
 function itemBounds(item: BoardRenderItem): BoardSnapshotBounds {
   const local = expandBounds(
     localObjectBounds(item.object),
-    Math.max(2, item.object.style.strokeWidth / 2 + 1),
+    Math.max(
+      2,
+      item.object.style.strokeWidth / 2 +
+        penStrokeDecorationExpansion(item.object) +
+        1,
+    ),
   );
   const objectTransform: Transform2D = {
     rotation: item.object.rotation,
