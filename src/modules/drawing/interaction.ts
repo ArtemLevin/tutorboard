@@ -215,8 +215,7 @@ function canonicalTapSamples(
   return [
     {
       ...first,
-      pressure:
-        first.pressure > 0 ? first.pressure : contactPressure,
+      pressure: first.pressure > 0 ? first.pressure : contactPressure,
     },
     {
       point: first.point,
