@@ -9,6 +9,7 @@ import {
   documentId,
   reduceBoardDocument,
   serializeBoardDocument,
+  vectorInkOutlinePathData,
 } from "../../../../src/core/public";
 import { noInputModifiers } from "../../../../src/shared/input-modifiers";
 import {
@@ -147,6 +148,83 @@ describe("drawing interaction state machine", () => {
     expect(completed.completedObject.ink?.samples[0]?.pressure).toBe(0.7);
     expect(completed.completedObject.ink?.samples[1]?.pressure).toBe(0.8);
     expect(completed.completedObject.ink?.centerline).toHaveLength(1);
+  });
+
+  it("preserves stationary pressure and ignores a zero-pressure release for a pen tap", () => {
+    const started = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:stationary-pressure-dot"),
+      point: { x: 42, y: 24 },
+      pointerId: 32,
+      pressure: 0,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    });
+    const moved = reduceDrawingInteraction(started.state, {
+      inputTimestampMs: 104,
+      kind: "move",
+      point: { x: 42, y: 24 },
+      pointerId: 32,
+      pressure: 0.8,
+    });
+
+    expect(moved.state.kind).toBe("drawing-pen");
+    if (moved.state.kind !== "drawing-pen") return;
+    expect(moved.state.samples.map(({ pressure }) => pressure)).toEqual([
+      0, 0.8,
+    ]);
+
+    const completed = reduceDrawingInteraction(moved.state, {
+      inputTimestampMs: 108,
+      kind: "finish",
+      point: { x: 42, y: 24 },
+      pointerId: 32,
+      pressure: 0,
+    });
+    expect(completed.completedObject?.kind).toBe("drawing.pen-stroke");
+    if (completed.completedObject?.kind !== "drawing.pen-stroke") return;
+
+    const ink = completed.completedObject.ink;
+    expect(ink?.samples.map(({ pressure }) => pressure)).toEqual([0.8, 0.8]);
+    expect(ink?.samples).toHaveLength(2);
+    expect(ink?.centerline).toHaveLength(1);
+    if (ink === undefined) return;
+
+    const outline = vectorInkOutlinePathData(
+      ink,
+      completed.completedObject.style.strokeWidth,
+    );
+    const move = /^M ([^ ]+) /u.exec(outline);
+    expect(Number(move?.[1]) - 42).toBeGreaterThan(1);
+  });
+
+  it("uses default contact pressure when a pen tap reports only zero pressure", () => {
+    const started = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:zero-pressure-dot"),
+      point: { x: 12, y: 9 },
+      pointerId: 33,
+      pressure: 0,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    });
+    const completed = reduceDrawingInteraction(started.state, {
+      inputTimestampMs: 104,
+      kind: "finish",
+      point: { x: 12, y: 9 },
+      pointerId: 33,
+      pressure: 0,
+    });
+
+    expect(completed.completedObject?.kind).toBe("drawing.pen-stroke");
+    if (completed.completedObject?.kind !== "drawing.pen-stroke") return;
+    expect(
+      completed.completedObject.ink?.samples.map(({ pressure }) => pressure),
+    ).toEqual([0.5, 0.5]);
   });
 
   it("normalizes a rectangle drawn in reverse", () => {
