@@ -1,4 +1,9 @@
 import type { Size2, StrokeStyle, Vec2 } from "../../core/public";
+import {
+  strokeStyleDashPattern,
+  strokeStyleOpacityMultiplier,
+  strokeStyleSketchPassSpecs,
+} from "../../shared/pen-stroke-rendering";
 
 export interface ResolvedStrokeStyle {
   readonly dash?: readonly number[];
@@ -24,15 +29,9 @@ export function resolveStrokeStyle(
     case "thick":
       return { lineCap: "round", opacityMultiplier: 1, strokeWidth };
     case "dashed":
-      return {
-        dash: [12, 8],
-        lineCap: "round",
-        opacityMultiplier: 1,
-        strokeWidth,
-      };
     case "dash-dot":
       return {
-        dash: [14, 6, 2, 6],
+        dash: strokeStyleDashPattern(style),
         lineCap: "round",
         opacityMultiplier: 1,
         strokeWidth,
@@ -52,7 +51,7 @@ export function resolveStrokeStyle(
     case "marker":
       return {
         lineCap: "square",
-        opacityMultiplier: 0.38,
+        opacityMultiplier: strokeStyleOpacityMultiplier(style),
         strokeWidth,
       };
     case "wavy":
@@ -74,47 +73,13 @@ export function resolveSketchPasses(
   style: StrokeStyle | undefined,
   strokeWidth: number,
 ): readonly SketchPass[] {
-  switch (style) {
-    case "hand-pencil":
-      return [
-        {
-          intensity: 2.8,
-          opacityMultiplier: 0.42,
-          seed: 11,
-          strokeWidth: strokeWidth * 0.65,
-        },
-        {
-          intensity: 1.8,
-          opacityMultiplier: 0.3,
-          seed: 29,
-          strokeWidth: strokeWidth * 0.45,
-        },
-        {
-          dash: [1, 2],
-          intensity: 0.9,
-          opacityMultiplier: 0.2,
-          seed: 47,
-          strokeWidth: strokeWidth * 0.28,
-        },
-      ];
-    case "hand-pen":
-      return [
-        {
-          intensity: 1.15,
-          opacityMultiplier: 0.88,
-          seed: 7,
-          strokeWidth,
-        },
-        {
-          intensity: 0.75,
-          opacityMultiplier: 0.24,
-          seed: 23,
-          strokeWidth: strokeWidth * 0.35,
-        },
-      ];
-    default:
-      return [];
-  }
+  return strokeStyleSketchPassSpecs(style).map((pass) => ({
+    ...(pass.dash === undefined ? {} : { dash: pass.dash }),
+    intensity: pass.intensity,
+    opacityMultiplier: pass.opacityMultiplier,
+    seed: pass.seed,
+    strokeWidth: strokeWidth * pass.widthMultiplier,
+  }));
 }
 
 export function isSketchStrokeStyle(
