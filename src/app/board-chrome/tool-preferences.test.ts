@@ -28,6 +28,30 @@ describe("drawing tool preferences", () => {
     });
   });
 
+  it.each([
+    ["thin", 0.5],
+    ["thick", 1],
+    ["marker", 3],
+    ["wavy", 7.5],
+  ] as const)("preserves a manually selected %s width", (strokeStyle, strokeWidth) => {
+    const value = normalizeDrawingToolPreferences({
+      tools: {
+        "drawing.pen": {
+          fill: null,
+          opacity: 1,
+          stroke: "#245d6b",
+          strokeStyle,
+          strokeWidth,
+        },
+      },
+    });
+
+    expect(value.tools["drawing.pen"]).toMatchObject({
+      strokeStyle,
+      strokeWidth,
+    });
+  });
+
   it("round-trips versioned preferences without entering BoardDocument", () => {
     let stored: string | null = null;
     const storage = {
