@@ -69,7 +69,7 @@ function resampleByArcLength(
   samples: readonly VectorInkSample[],
   spacing: number,
 ): readonly VectorInkSample[] {
-  if (samples.length <= 2) return samples;
+  if (samples.length <= 1) return samples;
   const output: VectorInkSample[] = [samples[0]!];
   let carried = 0;
 
@@ -284,11 +284,11 @@ function dashedPaths(
   strokeWidth: number,
   opacityMultiplier: number,
 ): readonly PenStrokeRenderPath[] {
-  const output: PenStrokeRenderPath[] = [];
-  for (const segment of splitByDashPattern(samples, pattern)) {
-    pushPath(output, outlinePath(segment, strokeWidth), opacityMultiplier);
-  }
-  return output;
+  const data = splitByDashPattern(samples, pattern)
+    .map((segment) => outlinePath(segment, strokeWidth))
+    .filter((path) => path.length > 0)
+    .join(" ");
+  return data.length === 0 ? [] : [{ data, opacityMultiplier }];
 }
 
 function sketchPasses(style: StrokeStyle): readonly SketchPass[] {
