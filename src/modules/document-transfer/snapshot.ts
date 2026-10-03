@@ -1,6 +1,8 @@
 import {
+  createPenStrokeRenderBounds,
   resolveVectorInkData,
   selectBoardScene,
+  vectorInkCenterlineBounds,
   vectorInkCenterlinePathData,
   type BoardDocument,
   type BoardObject,
@@ -180,10 +182,47 @@ function boundsFromPoints(points: readonly Vec2[]): BoardSnapshotBounds {
   };
 }
 
+function unionSnapshotBounds(
+  left: BoardSnapshotBounds | null,
+  right: BoardSnapshotBounds | null,
+): BoardSnapshotBounds | null {
+  if (left === null) return right;
+  if (right === null) return left;
+  return {
+    bottom: Math.max(left.bottom, right.bottom),
+    left: Math.min(left.left, right.left),
+    right: Math.max(left.right, right.right),
+    top: Math.min(left.top, right.top),
+  };
+}
+
+function penStrokeLocalBounds(
+  object: Extract<BoardObject, { readonly kind: "drawing.pen-stroke" }>,
+): BoardSnapshotBounds {
+  const ink = resolveVectorInkData(object);
+  const strokeBounds =
+    object.style.stroke === null
+      ? null
+      : createPenStrokeRenderBounds(
+          ink,
+          object.style.strokeStyle,
+          object.style.strokeWidth,
+        );
+  const fillBounds =
+    ink.closed && object.style.fill !== null
+      ? vectorInkCenterlineBounds(ink)
+      : null;
+  return (
+    unionSnapshotBounds(strokeBounds, fillBounds) ??
+    boundsFromPoints(object.points)
+  );
+}
+
+
 function localObjectBounds(object: BoardObject): BoardSnapshotBounds {
   switch (object.kind) {
     case "drawing.pen-stroke":
-      return boundsFromPoints(object.points);
+      return penStrokeLocalBounds(object);
     case "drawing.line":
       return boundsFromPoints([{ x: 0, y: 0 }, object.end]);
     case "drawing.rectangle":
@@ -237,30 +276,15 @@ function expandBounds(
   };
 }
 
-function penStrokeDecorationExpansion(object: BoardObject): number {
-  if (object.kind !== "drawing.pen-stroke") return 0;
-  switch (object.style.strokeStyle) {
-    case "wavy":
-      return 3;
-    case "hand-pencil":
-      return 2.8;
-    case "hand-pen":
-      return 1.15;
-    default:
-      return 0;
-  }
-}
-
 function itemBounds(item: BoardRenderItem): BoardSnapshotBounds {
-  const local = expandBounds(
-    localObjectBounds(item.object),
-    Math.max(
-      2,
-      item.object.style.strokeWidth / 2 +
-        penStrokeDecorationExpansion(item.object) +
-        1,
-    ),
-  );
+  const objectBounds = localObjectBounds(item.object);
+  const local =
+    item.object.kind === "drawing.pen-stroke"
+      ? objectBounds
+      : expandBounds(
+          objectBounds,
+          Math.max(2, item.object.style.strokeWidth / 2 + 1),
+        );
   const objectTransform: Transform2D = {
     rotation: item.object.rotation,
     scale: item.object.scale,
