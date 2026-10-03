@@ -332,9 +332,12 @@ describe("TutorBoard snapshot layout", () => {
         object.style.strokeStyle,
         object.style.strokeWidth,
       );
-      const layout = resolveBoardSnapshotLayout(documentOnlyWithObject(object), {
-        padding: 0,
-      });
+      const layout = resolveBoardSnapshotLayout(
+        documentOnlyWithObject(object),
+        {
+          padding: 0,
+        },
+      );
 
       expect(expected).not.toBeNull();
       expect(layout.padding).toBe(0);
@@ -348,13 +351,7 @@ describe("TutorBoard snapshot layout", () => {
     },
   );
 
-  it.each([
-    "dashed",
-    "dash-dot",
-    "wavy",
-    "hand-pencil",
-    "hand-pen",
-  ] as const)(
+  it.each(["dashed", "dash-dot", "wavy", "hand-pencil", "hand-pen"] as const)(
     "uses the shared %s render bounds without snapshot magic margins",
     (strokeStyle) => {
       const object = closedHighPressurePen(24, { strokeStyle });
