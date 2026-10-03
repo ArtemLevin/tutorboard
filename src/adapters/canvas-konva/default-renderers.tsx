@@ -4,11 +4,11 @@ import { Ellipse, Group, Line, Path, Rect, Text } from "react-konva";
 import {
   resolveVectorInkData,
   vectorInkCenterlinePathData,
-  vectorInkOutlinePathData,
   type BoardObject,
   type BoardObjectKind,
   type Vec2,
 } from "../../core/public";
+import { createPenStrokeRenderPaths } from "../../shared/pen-stroke-rendering";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
 import {
   buildSmoothStrokePoints,
@@ -172,15 +172,19 @@ function sketchPoints(
 const renderers: readonly KonvaObjectRenderer[] = [
   {
     kind: "drawing.pen-stroke",
-    render(object) {
+    render(object, context) {
       const stroke = expectKind(object, "drawing.pen-stroke");
       const ink = resolveVectorInkData(stroke);
-      const resolved = resolveStrokeStyle(
-        stroke.style.strokeStyle,
-        stroke.style.strokeWidth,
-      );
-      const outline = vectorInkOutlinePathData(ink, resolved.strokeWidth);
       const centerline = vectorInkCenterlinePathData(ink);
+      const strokePaths =
+        stroke.style.stroke === null
+          ? []
+          : createPenStrokeRenderPaths(
+              ink,
+              stroke.style.strokeStyle,
+              stroke.style.strokeWidth,
+              context.zoom,
+            );
       return (
         <Group {...commonTransformProps(stroke)} name="board-transform-target">
           {ink.closed && stroke.style.fill !== null && centerline.length > 0 ? (
@@ -192,14 +196,17 @@ const renderers: readonly KonvaObjectRenderer[] = [
               perfectDrawEnabled
             />
           ) : null}
-          {stroke.style.stroke === null || outline.length === 0 ? null : (
-            <Path
-              data={outline}
-              fill={stroke.style.stroke}
-              opacity={stroke.style.opacity * resolved.opacityMultiplier}
-              perfectDrawEnabled
-            />
-          )}
+          {stroke.style.stroke === null
+            ? null
+            : strokePaths.map((path, index) => (
+                <Path
+                  data={path.data}
+                  fill={stroke.style.stroke ?? undefined}
+                  key={index}
+                  opacity={stroke.style.opacity * path.opacityMultiplier}
+                  perfectDrawEnabled
+                />
+              ))}
         </Group>
       );
     },
