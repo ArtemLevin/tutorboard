@@ -68,16 +68,6 @@ jobs:
       - name: Verify board contract
         run: npm run board-contract:check
 
-      - name: Diagnose A3 formatting
-        if: github.head_ref == 'fix/vector-ink-closed-outline'
-        run: |
-          npm run format
-          git diff -- \
-            src/modules/eraser/geometry.test.ts \
-            tests/unit/core/vector-ink-contract.test.ts \
-            tests/unit/core/vector-ink.test.ts
-          git checkout -- .
-
       - name: Check formatting
         run: npm run format:check
 
