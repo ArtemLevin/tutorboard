@@ -7,12 +7,15 @@ describe("stroke style selection presets", () => {
     ["thin", 2],
     ["thick", 6],
     ["marker", 10],
-  ] as const)("applies the %s recommended width once on selection", (style, width) => {
-    expect(strokeStyleSelectionPatch(style)).toEqual({
-      strokeStyle: style,
-      strokeWidth: width,
-    });
-  });
+  ] as const)(
+    "applies the %s recommended width once on selection",
+    (style, width) => {
+      expect(strokeStyleSelectionPatch(style)).toEqual({
+        strokeStyle: style,
+        strokeWidth: width,
+      });
+    },
+  );
 
   it.each([
     "dashed",
