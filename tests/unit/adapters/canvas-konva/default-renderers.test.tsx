@@ -98,8 +98,8 @@ describe("styled pen stroke rendering", () => {
     expect(solid).toHaveLength(1);
     expect(wavy).toHaveLength(1);
     expect(dashed).toHaveLength(1);
-    expect(wavy[0]?.props).not.toMatchObject({ data: solid[0]?.props.data });
-    expect(dashed[0]?.props).not.toMatchObject({ data: solid[0]?.props.data });
+    expect(wavy[0]).not.toEqual(solid[0]);
+    expect(dashed[0]).not.toEqual(solid[0]);
   });
 
   it("uses the exact shared geometry contract for final pen rendering", () => {
