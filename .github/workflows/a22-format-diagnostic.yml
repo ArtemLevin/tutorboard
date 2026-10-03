@@ -1,0 +1,32 @@
+name: A2.2 format diagnostic
+
+on:
+  push:
+    branches:
+      - fix/pen-stroke-style-rendering
+
+permissions:
+  contents: read
+
+jobs:
+  format-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Format working tree
+        run: npm run format
+
+      - name: Print formatting diff
+        run: |
+          git diff --             src/adapters/canvas-konva/wet-ink-renderer.ts             src/shared/pen-stroke-rendering.ts             tests/e2e/wet-ink-renderer.spec.ts             tests/performance/pen-stroke-style-rendering.test.ts             tests/unit/modules/document-transfer/snapshot.test.ts
