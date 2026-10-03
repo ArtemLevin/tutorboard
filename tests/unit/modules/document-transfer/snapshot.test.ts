@@ -385,12 +385,9 @@ describe("TutorBoard snapshot layout", () => {
       object.style.strokeStyle,
       object.style.strokeWidth,
     );
-    const layout = resolveBoardSnapshotLayout(
-      documentOnlyWithObject(object),
-      {
-        padding: 0,
-      },
-    );
+    const layout = resolveBoardSnapshotLayout(documentOnlyWithObject(object), {
+      padding: 0,
+    });
 
     expect(local).not.toBeNull();
     if (local === null) return;
