@@ -348,7 +348,13 @@ describe("TutorBoard snapshot layout", () => {
     },
   );
 
-  it.each(["wavy", "hand-pencil", "hand-pen"] as const)(
+  it.each([
+    "dashed",
+    "dash-dot",
+    "wavy",
+    "hand-pencil",
+    "hand-pen",
+  ] as const)(
     "uses the shared %s render bounds without snapshot magic margins",
     (strokeStyle) => {
       const object = closedHighPressurePen(24, { strokeStyle });
