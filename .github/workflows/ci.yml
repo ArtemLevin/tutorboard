@@ -68,13 +68,6 @@ jobs:
       - name: Verify board contract
         run: npm run board-contract:check
 
-      - name: Diagnose A3.1 snapshot formatting
-        if: github.head_ref == 'fix/vector-ink-render-bounds'
-        run: |
-          npm run format
-          git diff -- tests/unit/modules/document-transfer/snapshot.test.ts
-          git checkout -- .
-
       - name: Check formatting
         run: npm run format:check
 
