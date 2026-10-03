@@ -11,7 +11,7 @@ import {
   createPenStrokeRenderPaths,
   strokeStyleOpacityMultiplier,
   type PenStrokeRenderPath,
-} from "../../shared/pen-stroke-rendering";
+} from "../../core/public";
 
 export const maximumWetInkActualPoints = 100_000;
 export const maximumWetInkPredictedPoints = 64;
