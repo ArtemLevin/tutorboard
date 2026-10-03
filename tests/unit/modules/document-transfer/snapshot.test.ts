@@ -3,9 +3,13 @@ import { describe, expect, it } from "vitest";
 import frozenDocumentJson from "../../../fixtures/board-document-1.0.json?raw";
 import {
   boardObjectId,
+  createVectorInkData,
+  type BoardObject,
   type MediaAssetObject,
+  type StrokeStyle,
 } from "../../../../src/core/public";
 import { importTutorBoardDocument } from "../../../../src/modules/document-transfer/public";
+import { createPenStrokeRenderPaths } from "../../../../src/core/public";
 import {
   renderBoardSnapshotSvg,
   resolveBoardSnapshotLayout,
@@ -66,6 +70,45 @@ function fixtureDocumentWithText(options: {
   };
 }
 
+function fixtureDocumentWithPenStyle(strokeStyle: StrokeStyle, opacity = 0.8) {
+  const document = fixtureDocument();
+  const id = boardObjectId(`object:snapshot-pen-${strokeStyle}`);
+  const samples = [
+    { point: { x: 20, y: 30 }, pressure: 0.3, timestampMs: 0 },
+    { point: { x: 110, y: 30 }, pressure: 0.8, timestampMs: 8 },
+    { point: { x: 200, y: 30 }, pressure: 0.4, timestampMs: 16 },
+  ] as const;
+  const object: Extract<BoardObject, { readonly kind: "drawing.pen-stroke" }> =
+    {
+      groupId: null,
+      id,
+      ink: createVectorInkData(samples),
+      kind: "drawing.pen-stroke",
+      locked: false,
+      points: samples.map(({ point }) => point),
+      position: { x: 0, y: 0 },
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      source: { kind: "user" },
+      style: {
+        fill: null,
+        opacity,
+        stroke: "#7c3aed",
+        strokeStyle,
+        strokeWidth: 3,
+      },
+      visible: true,
+    };
+  return {
+    document: {
+      ...document,
+      objects: { ...document.objects, [id]: object },
+      order: [...document.order, id],
+    },
+    object,
+  };
+}
+
 function exportedTextMarkup(svg: string): string {
   const markup = svg.match(/<text\b[^>]*>.*?<\/text>/u)?.[0];
   if (markup === undefined) {
@@ -73,6 +116,55 @@ function exportedTextMarkup(svg: string): string {
   }
   return markup;
 }
+
+describe("TutorBoard styled pen snapshot parity", () => {
+  it("exports the same shared wavy geometry as the canvas renderer contract", () => {
+    const { document, object } = fixtureDocumentWithPenStyle("wavy");
+    const expected = createPenStrokeRenderPaths(
+      object.ink!,
+      object.style.strokeStyle,
+      object.style.strokeWidth,
+    );
+    const svg = renderBoardSnapshotSvg(document);
+
+    expect(expected).toHaveLength(1);
+    expect(svg).toContain(`d="${expected[0]?.data}"`);
+    expect(svg).toContain('fill="#7c3aed"');
+  });
+
+  it("exports distinct dashed and dash-dot pen geometry", () => {
+    const dashed = renderBoardSnapshotSvg(
+      fixtureDocumentWithPenStyle("dashed").document,
+    );
+    const dashDot = renderBoardSnapshotSvg(
+      fixtureDocumentWithPenStyle("dash-dot").document,
+    );
+
+    expect(dashed).not.toBe(dashDot);
+    expect((dashed.match(/fill="#7c3aed"/gu) ?? []).length).toBeGreaterThan(0);
+    expect((dashDot.match(/fill="#7c3aed"/gu) ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("preserves marker opacity semantics in exported SVG", () => {
+    const svg = renderBoardSnapshotSvg(
+      fixtureDocumentWithPenStyle("marker", 0.8).document,
+    );
+
+    expect(svg).toContain(`fill="#7c3aed" opacity="${String(0.8 * 0.38)}"`);
+  });
+
+  it("exports deterministic bounded hand-drawn passes", () => {
+    const first = renderBoardSnapshotSvg(
+      fixtureDocumentWithPenStyle("hand-pencil").document,
+    );
+    const second = renderBoardSnapshotSvg(
+      fixtureDocumentWithPenStyle("hand-pencil").document,
+    );
+
+    expect(first).toBe(second);
+    expect((first.match(/fill="#7c3aed"/gu) ?? []).length).toBe(3);
+  });
+});
 
 describe("TutorBoard snapshot layout", () => {
   it("exports the complete board independently of viewport pan and zoom", () => {
