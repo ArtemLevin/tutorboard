@@ -8,6 +8,7 @@ import type {
 import {
   createVectorInkData,
   createVectorInkDataFromPoints,
+  defaultVectorInkPressure,
 } from "../../core/public";
 import {
   noInputModifiers,
@@ -152,9 +153,12 @@ function appendPenSample(
   },
 ): readonly VectorInkSample[] {
   const previous = state.samples.at(-1);
+  const pressure = normalizedPressure(action.pressure);
   if (
     state.samples.length >= maximumPenPoints ||
-    (previous !== undefined && samePoint(previous.point, action.point))
+    (previous !== undefined &&
+      samePoint(previous.point, action.point) &&
+      previous.pressure === pressure)
   ) {
     return state.samples;
   }
@@ -171,7 +175,7 @@ function appendPenSample(
     ...state.samples,
     {
       point: action.point,
-      pressure: normalizedPressure(action.pressure),
+      pressure,
       timestampMs: Math.max(0, timestampMs),
     },
   ];
@@ -191,24 +195,44 @@ function userObjectBase(id: BoardObjectId, position: Vec2, style: ObjectStyle) {
   };
 }
 
+function canonicalTapSamples(
+  samples: readonly VectorInkSample[],
+): readonly [VectorInkSample, VectorInkSample] | null {
+  const first = samples[0];
+  if (
+    first === undefined ||
+    !samples.every((sample) => samePoint(sample.point, first.point))
+  ) {
+    return null;
+  }
+  const peakPressure = Math.max(0, ...samples.map(({ pressure }) => pressure));
+  const contactPressure =
+    peakPressure > 0 ? peakPressure : defaultVectorInkPressure;
+  const last = samples.at(-1) ?? first;
+  return [
+    {
+      ...first,
+      pressure: first.pressure > 0 ? first.pressure : contactPressure,
+    },
+    {
+      point: first.point,
+      pressure: contactPressure,
+      timestampMs: Math.max(first.timestampMs + 1, last.timestampMs),
+    },
+  ];
+}
+
 function completePen(
   state: PenInteraction,
   action: Extract<DrawingAction, { readonly kind: "finish" }>,
 ): UserDrawingObject | null {
   const appended = appendPenSample(state, action);
-  if (appended.length === 1) {
-    const first = appended[0]!;
-    const finishPressure = normalizedPressure(action.pressure);
-    const second: VectorInkSample = {
-      point: first.point,
-      pressure: finishPressure,
-      timestampMs: Math.max(first.timestampMs + 1, first.timestampMs),
-    };
-    const samples = [first, second] as const;
-    const points = [first.point, second.point] as const;
+  const tapSamples = canonicalTapSamples(appended);
+  if (tapSamples !== null) {
+    const points = [tapSamples[0].point, tapSamples[1].point] as const;
     return {
       ...userObjectBase(state.objectId, { x: 0, y: 0 }, state.style),
-      ink: createVectorInkData(samples),
+      ink: createVectorInkData(tapSamples),
       kind: "drawing.pen-stroke",
       points,
     };
