@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createVectorInkData, type StrokeStyle } from "../../src/core/public";
-import {
-  createPenStrokeRenderPaths,
-} from "../../src/shared/pen-stroke-rendering";
+import { createPenStrokeRenderPaths } from "../../src/shared/pen-stroke-rendering";
 
 describe("styled pen stroke performance budget", () => {
   it("materializes long stylized strokes with bounded path-node counts", () => {
@@ -34,7 +32,10 @@ describe("styled pen stroke performance budget", () => {
     for (const { paths, style } of results) {
       expect(paths.length, style).toBeGreaterThan(0);
       expect(paths.length, style).toBeLessThanOrEqual(3);
-      expect(paths.every(({ data }) => data.length > 0), style).toBe(true);
+      expect(
+        paths.every(({ data }) => data.length > 0),
+        style,
+      ).toBe(true);
     }
     expect(elapsedMs).toBeLessThan(750);
   });
