@@ -8,12 +8,8 @@ import {
   type MediaAssetObject,
   type StrokeStyle,
 } from "../../../../src/core/public";
-import {
-  importTutorBoardDocument,
-} from "../../../../src/modules/document-transfer/public";
-import {
-  createPenStrokeRenderPaths,
-} from "../../../../src/shared/pen-stroke-rendering";
+import { importTutorBoardDocument } from "../../../../src/modules/document-transfer/public";
+import { createPenStrokeRenderPaths } from "../../../../src/shared/pen-stroke-rendering";
 import {
   renderBoardSnapshotSvg,
   resolveBoardSnapshotLayout,
@@ -74,10 +70,7 @@ function fixtureDocumentWithText(options: {
   };
 }
 
-function fixtureDocumentWithPenStyle(
-  strokeStyle: StrokeStyle,
-  opacity = 0.8,
-) {
+function fixtureDocumentWithPenStyle(strokeStyle: StrokeStyle, opacity = 0.8) {
   const document = fixtureDocument();
   const id = boardObjectId(`object:snapshot-pen-${strokeStyle}`);
   const samples = [
@@ -85,29 +78,27 @@ function fixtureDocumentWithPenStyle(
     { point: { x: 110, y: 30 }, pressure: 0.8, timestampMs: 8 },
     { point: { x: 200, y: 30 }, pressure: 0.4, timestampMs: 16 },
   ] as const;
-  const object: Extract<
-    BoardObject,
-    { readonly kind: "drawing.pen-stroke" }
-  > = {
-    groupId: null,
-    id,
-    ink: createVectorInkData(samples),
-    kind: "drawing.pen-stroke",
-    locked: false,
-    points: samples.map(({ point }) => point),
-    position: { x: 0, y: 0 },
-    rotation: 0,
-    scale: { x: 1, y: 1 },
-    source: { kind: "user" },
-    style: {
-      fill: null,
-      opacity,
-      stroke: "#7c3aed",
-      strokeStyle,
-      strokeWidth: 3,
-    },
-    visible: true,
-  };
+  const object: Extract<BoardObject, { readonly kind: "drawing.pen-stroke" }> =
+    {
+      groupId: null,
+      id,
+      ink: createVectorInkData(samples),
+      kind: "drawing.pen-stroke",
+      locked: false,
+      points: samples.map(({ point }) => point),
+      position: { x: 0, y: 0 },
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      source: { kind: "user" },
+      style: {
+        fill: null,
+        opacity,
+        stroke: "#7c3aed",
+        strokeStyle,
+        strokeWidth: 3,
+      },
+      visible: true,
+    };
   return {
     document: {
       ...document,
@@ -159,9 +150,7 @@ describe("TutorBoard styled pen snapshot parity", () => {
       fixtureDocumentWithPenStyle("marker", 0.8).document,
     );
 
-    expect(svg).toContain(
-      `fill="#7c3aed" opacity="${String(0.8 * 0.38)}"`,
-    );
+    expect(svg).toContain(`fill="#7c3aed" opacity="${String(0.8 * 0.38)}"`);
   });
 
   it("exports deterministic bounded hand-drawn passes", () => {
