@@ -19,10 +19,7 @@ import {
   resolveDrawingConstraint,
   type DrawingConstraintFeedback,
 } from "./constraints";
-import {
-  simplifyStroke,
-  simplifyVectorInkSamples,
-} from "./stroke-simplification";
+import { simplifyVectorInkSamples } from "./stroke-simplification";
 import type { DrawingToolId } from "./tools";
 
 const maximumPenPoints = 100_000;
