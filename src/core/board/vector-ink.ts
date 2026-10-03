@@ -30,6 +30,13 @@ export interface VectorInkStrokeLike {
   readonly points: readonly Vec2[];
 }
 
+export interface VectorInkBounds {
+  readonly bottom: number;
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+}
+
 const epsilon = 0.001;
 const minimumOutlinePressureMultiplier = 0.35;
 const outlinePressureRange = 0.9;
@@ -376,47 +383,98 @@ function capPoints(
   });
 }
 
-export function vectorInkOutlinePathData(
+function boundsFromPoints(
+  points: readonly Vec2[],
+): VectorInkBounds | null {
+  if (points.length === 0) return null;
+  let left = points[0]!.x;
+  let right = left;
+  let top = points[0]!.y;
+  let bottom = top;
+  for (const point of points.slice(1)) {
+    left = Math.min(left, point.x);
+    right = Math.max(right, point.x);
+    top = Math.min(top, point.y);
+    bottom = Math.max(bottom, point.y);
+  }
+  return { bottom, left, right, top };
+}
+
+function circleBounds(center: Vec2, radius: number): VectorInkBounds {
+  return {
+    bottom: center.y + radius,
+    left: center.x - radius,
+    right: center.x + radius,
+    top: center.y - radius,
+  };
+}
+
+interface StationaryInkCircle {
+  readonly center: Vec2;
+  readonly radius: number;
+}
+
+function stationaryInkCircle(
   ink: VectorInkData,
   strokeWidth: number,
-): string {
-  if (strokeWidth <= 0) return "";
-  if (ink.samples.length === 1) {
-    const sample = ink.samples[0]!;
-    const radius = halfWidth(strokeWidth, sample.pressure);
-    if (radius <= 0) return "";
-    const point = sample.point;
-    return [
-      `M ${number(point.x + radius)} ${number(point.y)}`,
-      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(point.x - radius)} ${number(point.y)}`,
-      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(point.x + radius)} ${number(point.y)}`,
-      "Z",
-    ].join(" ");
-  }
+): StationaryInkCircle | null {
   const firstSample = ink.samples[0];
-  if (
-    firstSample !== undefined &&
-    ink.samples.length >= 2 &&
+  if (firstSample === undefined || strokeWidth <= 0) return null;
+  const stationary =
+    ink.samples.length === 1 ||
     ink.samples.every(({ point }) =>
       approximatelySamePoint(point, firstSample.point),
-    )
-  ) {
-    const radius = halfWidth(
-      strokeWidth,
-      ink.samples.reduce((sum, sample) => sum + sample.pressure, 0) /
-        ink.samples.length,
     );
-    if (radius <= 0) return "";
-    const { x, y } = firstSample.point;
-    return [
-      `M ${number(x + radius)} ${number(y)}`,
-      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(x - radius)} ${number(y)}`,
-      `A ${number(radius)} ${number(radius)} 0 1 0 ${number(x + radius)} ${number(y)}`,
-      "Z",
-    ].join(" ");
+  if (!stationary) return null;
+  const pressure =
+    ink.samples.reduce((sum, sample) => sum + sample.pressure, 0) /
+    ink.samples.length;
+  const radius = halfWidth(strokeWidth, pressure);
+  return radius <= 0
+    ? null
+    : { center: firstSample.point, radius };
+}
+
+function contourPathData(contour: readonly Vec2[]): string {
+  const first = contour[0];
+  if (first === undefined) return "";
+  return [
+    `M ${number(first.x)} ${number(first.y)}`,
+    ...contour
+      .slice(1)
+      .map((point) => `L ${number(point.x)} ${number(point.y)}`),
+    "Z",
+  ].join(" ");
+}
+
+interface VectorInkOutlineGeometry {
+  readonly bounds: VectorInkBounds | null;
+  readonly pathData: string;
+}
+
+function vectorInkOutlineGeometry(
+  ink: VectorInkData,
+  strokeWidth: number,
+): VectorInkOutlineGeometry {
+  if (strokeWidth <= 0) return { bounds: null, pathData: "" };
+
+  const circle = stationaryInkCircle(ink, strokeWidth);
+  if (circle !== null) {
+    const { x, y } = circle.center;
+    const radius = circle.radius;
+    return {
+      bounds: circleBounds(circle.center, radius),
+      pathData: [
+        `M ${number(x + radius)} ${number(y)}`,
+        `A ${number(radius)} ${number(radius)} 0 1 0 ${number(x - radius)} ${number(y)}`,
+        `A ${number(radius)} ${number(radius)} 0 1 0 ${number(x + radius)} ${number(y)}`,
+        "Z",
+      ].join(" "),
+    };
   }
+
   const center = centerlineOutlinePoints(ink);
-  if (center.length < 2) return "";
+  if (center.length < 2) return { bounds: null, pathData: "" };
   const left: Vec2[] = [];
   const right: Vec2[] = [];
   const tangents: Vec2[] = [];
@@ -428,23 +486,15 @@ export function vectorInkOutlinePathData(
     left.push(add(center[index]!.point, multiply(normal, width)));
     right.push(subtract(center[index]!.point, multiply(normal, width)));
   }
+
   if (ink.closed) {
-    const leftFirst = left[0];
     const rightReversed = right.toReversed();
-    const rightFirst = rightReversed[0];
-    if (leftFirst === undefined || rightFirst === undefined) return "";
-    return [
-      `M ${number(leftFirst.x)} ${number(leftFirst.y)}`,
-      ...left
-        .slice(1)
-        .map((point) => `L ${number(point.x)} ${number(point.y)}`),
-      "Z",
-      `M ${number(rightFirst.x)} ${number(rightFirst.y)}`,
-      ...rightReversed
-        .slice(1)
-        .map((point) => `L ${number(point.x)} ${number(point.y)}`),
-      "Z",
-    ].join(" ");
+    return {
+      bounds: boundsFromPoints([...left, ...rightReversed]),
+      pathData: [contourPathData(left), contourPathData(rightReversed)]
+        .filter((path) => path.length > 0)
+        .join(" "),
+    };
   }
 
   const outline: Vec2[] = [...left];
@@ -465,15 +515,40 @@ export function vectorInkOutlinePathData(
       true,
     ).slice(1),
   );
-  const first = outline[0];
-  if (first === undefined) return "";
-  return [
-    `M ${number(first.x)} ${number(first.y)}`,
-    ...outline
-      .slice(1)
-      .map((point) => `L ${number(point.x)} ${number(point.y)}`),
-    "Z",
-  ].join(" ");
+  return {
+    bounds: boundsFromPoints(outline),
+    pathData: contourPathData(outline),
+  };
+}
+
+export function vectorInkCenterlineBounds(
+  ink: VectorInkData,
+): VectorInkBounds | null {
+  if (ink.centerline.length === 0) {
+    return boundsFromPoints(ink.samples.map(({ point }) => point));
+  }
+  return boundsFromPoints(
+    ink.centerline.flatMap((segment) => [
+      segment.start,
+      segment.control1,
+      segment.control2,
+      segment.end,
+    ]),
+  );
+}
+
+export function vectorInkOutlineBounds(
+  ink: VectorInkData,
+  strokeWidth: number,
+): VectorInkBounds | null {
+  return vectorInkOutlineGeometry(ink, strokeWidth).bounds;
+}
+
+export function vectorInkOutlinePathData(
+  ink: VectorInkData,
+  strokeWidth: number,
+): string {
+  return vectorInkOutlineGeometry(ink, strokeWidth).pathData;
 }
 
 export function vectorInkDataMatchesPoints(
