@@ -77,6 +77,20 @@ describe("Vector Ink 1.0", () => {
     expect(outline).not.toContain("Infinity");
   });
 
+  it("keeps open outlines on the existing single-subpath cap contract", () => {
+    const ink = createVectorInkData([
+      { point: { x: 0, y: 0 }, pressure: 0.2, timestampMs: 0 },
+      { point: { x: 80, y: 20 }, pressure: 0.8, timestampMs: 8 },
+      { point: { x: 160, y: 0 }, pressure: 0.4, timestampMs: 16 },
+    ]);
+
+    const outline = vectorInkOutlinePathData(ink, 10);
+
+    expect((outline.match(/M /gu) ?? [])).toHaveLength(1);
+    expect((outline.match(/Z/gu) ?? [])).toHaveLength(1);
+    expect(outline).toContain("L ");
+  });
+
   it("preserves a closed centerline", () => {
     const points = [
       { x: 0, y: 0 },
@@ -169,6 +183,28 @@ describe("Vector Ink 1.0", () => {
       expect(outline).not.toContain("NaN");
       expect(outline).not.toContain("Infinity");
     }
+  });
+
+  it("keeps a variable-pressure freehand closed contour seam-free", () => {
+    const samples = [
+      { point: { x: 10, y: 20 }, pressure: 0.25, timestampMs: 0 },
+      { point: { x: 90, y: -10 }, pressure: 0.65, timestampMs: 8 },
+      { point: { x: 170, y: 45 }, pressure: 0.9, timestampMs: 16 },
+      { point: { x: 135, y: 125 }, pressure: 0.5, timestampMs: 24 },
+      { point: { x: 45, y: 115 }, pressure: 0.75, timestampMs: 32 },
+      { point: { x: 10, y: 20 }, pressure: 0.25, timestampMs: 40 },
+    ] as const;
+    const ink = createVectorInkData(samples, true);
+
+    const outline = vectorInkOutlinePathData(ink, 14);
+    const boundaries = closedOutlineSubpaths(outline);
+
+    expect(boundaries).toHaveLength(2);
+    expect(signedArea(boundaries[0]!) * signedArea(boundaries[1]!)).toBeLessThan(
+      0,
+    );
+    expect(outline).not.toContain("NaN");
+    expect(outline).not.toContain("Infinity");
   });
 
   it("creates canonical straight segments for a closed polygon", () => {
