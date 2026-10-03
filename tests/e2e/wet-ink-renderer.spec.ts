@@ -129,9 +129,11 @@ test("@smoke keeps wavy style through wet ink and final pen materialization", as
   await page.getByRole("menuitemradio", { name: "Волнистая" }).click();
   await expect(styleTrigger).toHaveAttribute("aria-label", /Волнистая/);
 
+  const stage = page.getByTestId("board-stage");
+  await expect(stage).toHaveAttribute("data-wet-ink-stroke-style", "wavy");
+
   await drawStroke(page);
 
-  const stage = page.getByTestId("board-stage");
   await expect(stage).toHaveAttribute("data-wet-ink-active", "true");
   await expect
     .poll(async () =>
