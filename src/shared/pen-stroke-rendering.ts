@@ -26,10 +26,6 @@ const wavyBaseSpacing = 8;
 const sketchBaseSpacing = 12;
 const maximumStylizedSamples = 4096;
 
-function clampZoom(zoom: number): number {
-  return Math.min(8, Math.max(0.1, Number.isFinite(zoom) ? zoom : 1));
-}
-
 function distance(left: Vec2, right: Vec2): number {
   return Math.hypot(right.x - left.x, right.y - left.y);
 }
@@ -153,13 +149,9 @@ function tangent(
     : { x: delta.x / length, y: delta.y / length };
 }
 
-function wavySamples(
-  ink: VectorInkData,
-  zoom: number,
-): readonly VectorInkSample[] {
+function wavySamples(ink: VectorInkData): readonly VectorInkSample[] {
   const source = normalizedSourceSamples(ink);
-  const spacing = Math.max(1.5, wavyBaseSpacing / Math.sqrt(clampZoom(zoom)));
-  const samples = resampleByArcLength(source, spacing);
+  const samples = resampleByArcLength(source, wavyBaseSpacing);
   const distances = cumulativeDistances(samples);
   const total = distances.at(-1) ?? 0;
   const cycles = Math.max(2, total / 36);
@@ -180,11 +172,9 @@ function sketchSamples(
   ink: VectorInkData,
   intensity: number,
   seed: number,
-  zoom: number,
 ): readonly VectorInkSample[] {
   const source = normalizedSourceSamples(ink);
-  const spacing = Math.max(1.5, sketchBaseSpacing / Math.sqrt(clampZoom(zoom)));
-  const samples = resampleByArcLength(source, spacing);
+  const samples = resampleByArcLength(source, sketchBaseSpacing);
   const distances = cumulativeDistances(samples);
   const lastIndex = Math.max(0, samples.length - 1);
 
@@ -330,7 +320,6 @@ export function createPenStrokeRenderPaths(
   ink: VectorInkData,
   style: StrokeStyle | undefined,
   strokeWidth: number,
-  zoom = 1,
 ): readonly PenStrokeRenderPath[] {
   const width = Math.max(0, strokeWidth);
   if (width === 0 || ink.samples.length < 2) return [];
@@ -345,14 +334,14 @@ export function createPenStrokeRenderPaths(
   }
 
   if (style === "wavy") {
-    const data = outlinePath(wavySamples(ink, zoom), width, ink.closed);
+    const data = outlinePath(wavySamples(ink), width, ink.closed);
     return data.length === 0 ? [] : [{ data, opacityMultiplier: 1 }];
   }
 
   if (style === "hand-pencil" || style === "hand-pen") {
     const output: PenStrokeRenderPath[] = [];
     for (const pass of sketchPasses(style)) {
-      const samples = sketchSamples(ink, pass.intensity, pass.seed, zoom);
+      const samples = sketchSamples(ink, pass.intensity, pass.seed);
       const passWidth = width * pass.widthMultiplier;
       if (pass.dash === undefined) {
         pushPath(
