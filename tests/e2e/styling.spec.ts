@@ -49,3 +49,36 @@ test("edits the persisted style of a selected object", async ({ page }) => {
     page.getByRole("spinbutton", { name: "Толщина инструмента" }),
   ).not.toHaveValue("6");
 });
+
+test("@smoke keeps numeric stroke width authoritative after style presets", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.keyboard.press("p");
+
+  const width = page.getByRole("spinbutton", { name: "Толщина инструмента" });
+  const styleTrigger = page.getByRole("button", { name: /Стиль линии:/ });
+
+  await styleTrigger.click();
+  await page.getByRole("menuitemradio", { name: "Толстая" }).click();
+  await expect(width).toHaveValue("6");
+
+  await width.fill("1");
+  await expect(width).toHaveValue("1");
+
+  await styleTrigger.click();
+  await page.getByRole("menuitemradio", { name: "Волнистая" }).click();
+  await expect(width).toHaveValue("1");
+
+  await styleTrigger.click();
+  await page.getByRole("menuitemradio", { name: "Маркер" }).click();
+  await expect(width).toHaveValue("10");
+
+  await width.fill("3");
+  await expect(width).toHaveValue("3");
+
+  await styleTrigger.click();
+  await page.getByRole("menuitemradio", { name: "Точка-пунктир" }).click();
+  await expect(width).toHaveValue("3");
+});
