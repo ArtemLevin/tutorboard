@@ -181,8 +181,8 @@ describe("BoardDocument 1.6 Vector Ink contract", () => {
       width: 320,
     });
 
-    expect((expectedOutline.match(/M /gu) ?? [])).toHaveLength(2);
-    expect((expectedOutline.match(/Z/gu) ?? [])).toHaveLength(2);
+    expect(expectedOutline.match(/M /gu) ?? []).toHaveLength(2);
+    expect(expectedOutline.match(/Z/gu) ?? []).toHaveLength(2);
     expect(svg).toContain(`d="${expectedOutline}"`);
     expect(svg).not.toContain("NaN");
     expect(svg).not.toContain("Infinity");
