@@ -68,6 +68,18 @@ jobs:
       - name: Verify board contract
         run: npm run board-contract:check
 
+      - name: Diagnose A2.2 formatting
+        if: github.head_ref == 'fix/pen-stroke-style-rendering'
+        run: |
+          npm run format
+          git diff -- \
+            src/adapters/canvas-konva/wet-ink-renderer.ts \
+            src/shared/pen-stroke-rendering.ts \
+            tests/e2e/wet-ink-renderer.spec.ts \
+            tests/performance/pen-stroke-style-rendering.test.ts \
+            tests/unit/modules/document-transfer/snapshot.test.ts
+          git checkout -- .
+
       - name: Check formatting
         run: npm run format:check
 
