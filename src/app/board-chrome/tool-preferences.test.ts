@@ -33,8 +33,10 @@ describe("drawing tool preferences", () => {
     ["thick", 1],
     ["marker", 3],
     ["wavy", 7.5],
-  ] as const)("preserves a manually selected %s width", (strokeStyle, strokeWidth) => {
-    const value = normalizeDrawingToolPreferences({
+  ] as const)(
+    "preserves a manually selected %s width",
+    (strokeStyle, strokeWidth) => {
+      const value = normalizeDrawingToolPreferences({
       tools: {
         "drawing.pen": {
           fill: null,
@@ -46,11 +48,12 @@ describe("drawing tool preferences", () => {
       },
     });
 
-    expect(value.tools["drawing.pen"]).toMatchObject({
-      strokeStyle,
-      strokeWidth,
-    });
-  });
+      expect(value.tools["drawing.pen"]).toMatchObject({
+        strokeStyle,
+        strokeWidth,
+      });
+    },
+  );
 
   it("round-trips versioned preferences without entering BoardDocument", () => {
     let stored: string | null = null;
