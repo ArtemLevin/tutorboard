@@ -29,13 +29,15 @@ export function resolveStrokeStyle(
     case "thick":
       return { lineCap: "round", opacityMultiplier: 1, strokeWidth };
     case "dashed":
-    case "dash-dot":
+    case "dash-dot": {
+      const dash = strokeStyleDashPattern(style);
       return {
-        dash: strokeStyleDashPattern(style),
+        ...(dash === undefined ? {} : { dash }),
         lineCap: "round",
         opacityMultiplier: 1,
         strokeWidth,
       };
+    }
     case "hand-pencil":
       return {
         lineCap: "round",
