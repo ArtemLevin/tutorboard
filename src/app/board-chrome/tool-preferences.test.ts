@@ -37,16 +37,16 @@ describe("drawing tool preferences", () => {
     "preserves a manually selected %s width",
     (strokeStyle, strokeWidth) => {
       const value = normalizeDrawingToolPreferences({
-      tools: {
-        "drawing.pen": {
-          fill: null,
-          opacity: 1,
-          stroke: "#245d6b",
-          strokeStyle,
-          strokeWidth,
+        tools: {
+          "drawing.pen": {
+            fill: null,
+            opacity: 1,
+            stroke: "#245d6b",
+            strokeStyle,
+            strokeWidth,
+          },
         },
-      },
-    });
+      });
 
       expect(value.tools["drawing.pen"]).toMatchObject({
         strokeStyle,
