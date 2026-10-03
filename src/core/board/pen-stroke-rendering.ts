@@ -311,10 +311,7 @@ function outlineGeometry(
   const data = vectorInkOutlinePathData(ink, strokeWidth);
   return {
     bounds: vectorInkOutlineBounds(ink, strokeWidth),
-    paths:
-      data.length === 0
-        ? []
-        : [{ data, opacityMultiplier: 1 }],
+    paths: data.length === 0 ? [] : [{ data, opacityMultiplier: 1 }],
   };
 }
 
@@ -335,10 +332,7 @@ function dashedGeometry(
     .join(" ");
   return {
     bounds,
-    paths:
-      data.length === 0
-        ? []
-        : [{ data, opacityMultiplier }],
+    paths: data.length === 0 ? [] : [{ data, opacityMultiplier }],
   };
 }
 
