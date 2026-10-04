@@ -5,8 +5,10 @@ import {
   createVectorInkData,
   createVectorInkDataFromPoints,
   defaultVectorInkPressure,
+  vectorInkCenterlineBounds,
   vectorInkCenterlinePathData,
   vectorInkDataMatchesPoints,
+  vectorInkOutlineBounds,
   vectorInkOutlinePathData,
 } from "../../../src/core/public";
 
@@ -65,6 +67,32 @@ describe("Vector Ink 1.0", () => {
     expect(outline.endsWith("Z")).toBe(true);
     expect(outline).not.toContain("NaN");
   });
+
+  it.each([24, 64])(
+    "derives high-pressure outline bounds from the rendered geometry at width %s",
+    (strokeWidth) => {
+      const ink = createVectorInkData(
+        [
+          { point: { x: 0, y: 0 }, pressure: 1, timestampMs: 0 },
+          { point: { x: 200, y: 0 }, pressure: 1, timestampMs: 8 },
+          { point: { x: 100, y: 160 }, pressure: 1, timestampMs: 16 },
+          { point: { x: 0, y: 0 }, pressure: 1, timestampMs: 24 },
+        ],
+        true,
+      );
+
+      const bounds = vectorInkOutlineBounds(ink, strokeWidth);
+      const centerlineBounds = vectorInkCenterlineBounds(ink);
+
+      expect(bounds).not.toBeNull();
+      expect(centerlineBounds).not.toBeNull();
+      if (bounds === null || centerlineBounds === null) return;
+      expect(bounds.left).toBeLessThan(centerlineBounds.left);
+      expect(bounds.right).toBeGreaterThan(centerlineBounds.right);
+      expect(bounds.top).toBeLessThan(centerlineBounds.top);
+      expect(bounds.bottom).toBeGreaterThan(centerlineBounds.bottom);
+    },
+  );
 
   it("turns pressure into a bounded variable-width outline", () => {
     const ink = createVectorInkData([
