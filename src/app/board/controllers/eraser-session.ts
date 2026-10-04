@@ -93,7 +93,9 @@ function groupEligible(document: BoardDocument, groupId: GroupId): boolean {
   if (group === undefined || group.locked) return false;
   return group.objectIds.every((memberId) => {
     const member = document.objects[memberId];
-    return member !== undefined && !member.locked && member.source.kind === "user";
+    return (
+      member !== undefined && !member.locked && member.source.kind === "user"
+    );
   });
 }
 
