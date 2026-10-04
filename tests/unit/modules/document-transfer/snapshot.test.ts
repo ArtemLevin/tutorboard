@@ -397,9 +397,7 @@ describe("TutorBoard coordinate plot snapshot fidelity", () => {
 
     expect(svg).toContain('data-coordinate-plot-series-id="snapshot-series:0"');
     expect(svg).toContain('data-coordinate-plot-series-id="snapshot-series:2"');
-    expect(svg).not.toContain(
-      `data-coordinate-plot-series-id="${hiddenId}"`,
-    );
+    expect(svg).not.toContain(`data-coordinate-plot-series-id="${hiddenId}"`);
   });
 
   it("exports parameterized, parametric and relation geometry with series styles", () => {
@@ -443,9 +441,7 @@ describe("TutorBoard coordinate plot snapshot fidelity", () => {
     expect(svg).toContain(
       `data-coordinate-plot-series-id="${parameterized.id}"`,
     );
-    expect(svg).toContain(
-      `data-coordinate-plot-series-id="${parametric.id}"`,
-    );
+    expect(svg).toContain(`data-coordinate-plot-series-id="${parametric.id}"`);
     expect(svg).toContain('data-coordinate-plot-series-kind="parametric"');
     expect(svg).toContain(
       'data-coordinate-plot-fill-id="snapshot-series:relation"',
