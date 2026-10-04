@@ -256,6 +256,62 @@ function addObjects(
   });
 }
 
+function finiteObjectTransform(object: BoardObject): boolean {
+  return (
+    isFiniteVec2(object.position) &&
+    isFiniteVec2(object.scale) &&
+    Number.isFinite(object.rotation) &&
+    object.scale.x > 0 &&
+    object.scale.y > 0
+  );
+}
+
+function groupedLineTransformOnly(
+  document: BoardDocument,
+  current: BoardObject,
+  replacement: BoardObject | undefined,
+): boolean {
+  if (
+    replacement === undefined ||
+    current.kind !== "drawing.line" ||
+    replacement.kind !== "drawing.line" ||
+    current.source.kind !== "user" ||
+    replacement.source.kind !== "user" ||
+    current.groupId === null ||
+    replacement.groupId !== current.groupId ||
+    replacement.id !== current.id ||
+    current.locked ||
+    replacement.locked ||
+    !finiteObjectTransform(replacement)
+  ) {
+    return false;
+  }
+  const group = ownValue(document.groups, current.groupId);
+  if (
+    group === undefined ||
+    group.locked ||
+    group.objectIds.some(
+      (objectId) => ownValue(document.objects, objectId)?.locked === true,
+    )
+  ) {
+    return false;
+  }
+
+  const {
+    position: _currentPosition,
+    rotation: _currentRotation,
+    scale: _currentScale,
+    ...currentStatic
+  } = current;
+  const {
+    position: _replacementPosition,
+    rotation: _replacementRotation,
+    scale: _replacementScale,
+    ...replacementStatic
+  } = replacement;
+  return structurallyEqual(currentStatic, replacementStatic);
+}
+
 function replaceObjects(
   document: BoardDocument,
   command: ReplaceObjectsCommand,
@@ -300,29 +356,46 @@ function replaceObjects(
       "Replace objects command contains a stale original snapshot.",
     );
   }
+  const replacementsById = new Map(
+    command.replacements.map((object) => [object.id, object]),
+  );
   if (
-    currentObjects.some(
-      (object) =>
-        object.locked ||
-        object.groupId !== null ||
-        object.source.kind !== "user",
-    )
+    currentObjects.some((object) => {
+      if (
+        !object.locked &&
+        object.groupId === null &&
+        object.source.kind === "user"
+      ) {
+        return false;
+      }
+      return !groupedLineTransformOnly(
+        document,
+        object,
+        replacementsById.get(object.id),
+      );
+    })
   ) {
     return failure(
       document,
       "command.locked",
-      "Only unlocked, ungrouped user objects can be replaced.",
+      "Only unlocked user objects or transform-only grouped lines can be replaced.",
     );
   }
+  const currentById = new Map(currentObjects.map((object) => [object.id, object]));
   if (
-    command.replacements.some(
-      (object) => object.groupId !== null || object.source.kind !== "user",
-    )
+    command.replacements.some((object) => {
+      if (object.groupId === null && object.source.kind === "user") return false;
+      const currentObject = currentById.get(object.id);
+      return (
+        currentObject === undefined ||
+        !groupedLineTransformOnly(document, currentObject, object)
+      );
+    })
   ) {
     return failure(
       document,
       "command.invalid",
-      "Replacement objects must be ungrouped user objects.",
+      "Grouped replacements are limited to transform-only user lines.",
     );
   }
 
