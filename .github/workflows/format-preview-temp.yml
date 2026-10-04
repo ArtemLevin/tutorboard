@@ -1,0 +1,24 @@
+name: Temporary format preview
+
+on:
+  push:
+    branches:
+      - fix/coordinate-plot-export
+
+permissions:
+  contents: read
+
+jobs:
+  format-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Show Prettier diff
+        run: |
+          npx prettier --write tests/e2e/coordinate-plot-production.spec.ts tests/unit/modules/document-transfer/snapshot.test.ts
+          git diff -- tests/e2e/coordinate-plot-production.spec.ts tests/unit/modules/document-transfer/snapshot.test.ts
