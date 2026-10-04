@@ -68,15 +68,6 @@ jobs:
       - name: Verify board contract
         run: npm run board-contract:check
 
-      - name: Diagnose A3.2 formatting
-        if: github.head_ref == 'fix/wet-ink-single-sample-parity'
-        run: |
-          npm run format
-          git diff -- \
-            tests/e2e/wet-ink-renderer.spec.ts \
-            tests/unit/adapters/canvas-konva/wet-ink-renderer.test.ts
-          git checkout -- .
-
       - name: Check formatting
         run: npm run format:check
 
