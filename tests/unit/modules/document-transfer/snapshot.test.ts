@@ -4,6 +4,7 @@ import frozenDocumentJson from "../../../fixtures/board-document-1.0.json?raw";
 import {
   boardObjectId,
   createPenStrokeRenderBounds,
+  createPlotLegendLayout,
   createVectorInkData,
   plotSeriesId,
   type BoardObject,
@@ -449,6 +450,42 @@ describe("TutorBoard coordinate plot snapshot fidelity", () => {
     expect(svg).toContain('stroke-opacity="0.76"');
     expect(svg).toContain("stroke-dasharray=");
     expect(svg).toContain('data-coordinate-plot-legend="true"');
+  });
+
+  it("clips and ellipsizes long legend labels to the interactive usable width", () => {
+    const base = createCoordinatePlotProductionObject(0);
+    const series = base.definition.series.find(({ visible }) => visible);
+    if (series === undefined) {
+      throw new Error("Production fixture must contain a visible series.");
+    }
+    const longName =
+      "Очень длинное имя серии для проверки границ легенды при экспорте";
+    const object: CoordinatePlotObject = {
+      ...base,
+      definition: {
+        ...base.definition,
+        legend: { ...base.definition.legend, visible: true },
+        series: [{ ...series, name: longName }],
+      },
+    };
+    const legend = createPlotLegendLayout(
+      object.definition.legend.position,
+      [longName],
+      object.definition.size,
+    );
+    const usableWidth = Math.max(0, legend.width - 58);
+    const svg = renderBoardSnapshotSvg(documentOnlyWithObject(object));
+    const clip = svg.match(
+      /<clipPath id="coordinate-plot-legend-label-clip-[^"]+"><rect height="[^"]+" width="([^"]+)" x="50" y="0"\/><\/clipPath>/u,
+    );
+    const label = svg.match(
+      /<text aria-label="([^"]+)" clip-path="url\(#coordinate-plot-legend-label-clip-[^)]+\)" data-coordinate-plot-legend-label="true"[^>]*>([^<]*)<\/text>/u,
+    );
+
+    expect(Number(clip?.[1])).toBe(usableWidth);
+    expect(label?.[1]).toBe(longName);
+    expect(label?.[2]).not.toBe(longName);
+    expect(label?.[2]).toMatch(/…$/u);
   });
 });
 
