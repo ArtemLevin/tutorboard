@@ -263,7 +263,6 @@ export function useBoardInteractionRouter({
     [geometry, selection],
   );
 
-
   const resetAfterClear = useCallback(() => {
     resetBoardTransientStateAfterClear({
       drawing,
