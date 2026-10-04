@@ -2,7 +2,9 @@ import type { StrokeStyle } from "./objects";
 import type { Vec2 } from "./primitives";
 import {
   createVectorInkData,
+  vectorInkOutlineBounds,
   vectorInkOutlinePathData,
+  type VectorInkBounds,
   type VectorInkData,
   type VectorInkSample,
 } from "./vector-ink";
@@ -280,38 +282,58 @@ function splitByDashPattern(
   return output;
 }
 
-function outlinePath(
+interface PenStrokeRenderGeometry {
+  readonly bounds: VectorInkBounds | null;
+  readonly paths: readonly PenStrokeRenderPath[];
+}
+
+function unionBounds(
+  left: VectorInkBounds | null,
+  right: VectorInkBounds | null,
+): VectorInkBounds | null {
+  if (left === null) return right;
+  if (right === null) return left;
+  return {
+    bottom: Math.max(left.bottom, right.bottom),
+    left: Math.min(left.left, right.left),
+    right: Math.max(left.right, right.right),
+    top: Math.min(left.top, right.top),
+  };
+}
+
+function outlineGeometry(
   samples: readonly VectorInkSample[],
   strokeWidth: number,
   closed = false,
-): string {
-  if (samples.length < 2) return "";
-  return vectorInkOutlinePathData(
-    createVectorInkData(samples, closed),
-    strokeWidth,
-  );
+): PenStrokeRenderGeometry {
+  if (samples.length === 0) return { bounds: null, paths: [] };
+  const ink = createVectorInkData(samples, closed);
+  const data = vectorInkOutlinePathData(ink, strokeWidth);
+  return {
+    bounds: vectorInkOutlineBounds(ink, strokeWidth),
+    paths: data.length === 0 ? [] : [{ data, opacityMultiplier: 1 }],
+  };
 }
 
-function pushPath(
-  output: PenStrokeRenderPath[],
-  data: string,
-  opacityMultiplier: number,
-): void {
-  if (data.length === 0) return;
-  output.push({ data, opacityMultiplier });
-}
-
-function dashedPaths(
+function dashedGeometry(
   samples: readonly VectorInkSample[],
   pattern: readonly number[],
   strokeWidth: number,
   opacityMultiplier: number,
-): readonly PenStrokeRenderPath[] {
+): PenStrokeRenderGeometry {
+  let bounds: VectorInkBounds | null = null;
   const data = splitByDashPattern(samples, pattern)
-    .map((segment) => outlinePath(segment, strokeWidth))
+    .map((segment) => {
+      const geometry = outlineGeometry(segment, strokeWidth);
+      bounds = unionBounds(bounds, geometry.bounds);
+      return geometry.paths[0]?.data ?? "";
+    })
     .filter((path) => path.length > 0)
     .join(" ");
-  return data.length === 0 ? [] : [{ data, opacityMultiplier }];
+  return {
+    bounds,
+    paths: data.length === 0 ? [] : [{ data, opacityMultiplier }],
+  };
 }
 
 export function strokeStyleSketchPassSpecs(
@@ -374,16 +396,34 @@ export function strokeStyleOpacityMultiplier(
   return style === "marker" ? 0.38 : 1;
 }
 
-export function createPenStrokeRenderPaths(
+function createPenStrokeRenderGeometry(
   ink: VectorInkData,
   style: StrokeStyle | undefined,
   strokeWidth: number,
-): readonly PenStrokeRenderPath[] {
+): PenStrokeRenderGeometry {
   const width = Math.max(0, strokeWidth);
-  if (width === 0 || ink.samples.length < 2) return [];
+  if (width === 0 || ink.samples.length === 0) {
+    return { bounds: null, paths: [] };
+  }
+
+  if (ink.samples.length === 1) {
+    const data = vectorInkOutlinePathData(ink, width);
+    return {
+      bounds: vectorInkOutlineBounds(ink, width),
+      paths:
+        data.length === 0
+          ? []
+          : [
+              {
+                data,
+                opacityMultiplier: strokeStyleOpacityMultiplier(style),
+              },
+            ],
+    };
+  }
 
   if (style === "dashed" || style === "dash-dot") {
-    return dashedPaths(
+    return dashedGeometry(
       normalizedSourceSamples(ink),
       strokeStyleDashPattern(style) ?? [],
       width,
@@ -392,32 +432,66 @@ export function createPenStrokeRenderPaths(
   }
 
   if (style === "wavy") {
-    const data = outlinePath(wavySamples(ink), width, ink.closed);
-    return data.length === 0 ? [] : [{ data, opacityMultiplier: 1 }];
+    return outlineGeometry(wavySamples(ink), width, ink.closed);
   }
 
   if (style === "hand-pencil" || style === "hand-pen") {
-    const output: PenStrokeRenderPath[] = [];
+    let bounds: VectorInkBounds | null = null;
+    const paths: PenStrokeRenderPath[] = [];
     for (const pass of strokeStyleSketchPassSpecs(style)) {
       const samples = sketchSamples(ink, pass.intensity, pass.seed);
       const passWidth = width * pass.widthMultiplier;
+      const geometry =
+        pass.dash === undefined
+          ? outlineGeometry(samples, passWidth, ink.closed)
+          : dashedGeometry(
+              samples,
+              pass.dash,
+              passWidth,
+              pass.opacityMultiplier,
+            );
+      bounds = unionBounds(bounds, geometry.bounds);
       if (pass.dash === undefined) {
-        pushPath(
-          output,
-          outlinePath(samples, passWidth, ink.closed),
-          pass.opacityMultiplier,
+        paths.push(
+          ...geometry.paths.map((path) => ({
+            ...path,
+            opacityMultiplier: pass.opacityMultiplier,
+          })),
         );
       } else {
-        output.push(
-          ...dashedPaths(samples, pass.dash, passWidth, pass.opacityMultiplier),
-        );
+        paths.push(...geometry.paths);
       }
     }
-    return output;
+    return { bounds, paths };
   }
 
   const data = vectorInkOutlinePathData(ink, width);
-  return data.length === 0
-    ? []
-    : [{ data, opacityMultiplier: strokeStyleOpacityMultiplier(style) }];
+  return {
+    bounds: vectorInkOutlineBounds(ink, width),
+    paths:
+      data.length === 0
+        ? []
+        : [
+            {
+              data,
+              opacityMultiplier: strokeStyleOpacityMultiplier(style),
+            },
+          ],
+  };
+}
+
+export function createPenStrokeRenderBounds(
+  ink: VectorInkData,
+  style: StrokeStyle | undefined,
+  strokeWidth: number,
+): VectorInkBounds | null {
+  return createPenStrokeRenderGeometry(ink, style, strokeWidth).bounds;
+}
+
+export function createPenStrokeRenderPaths(
+  ink: VectorInkData,
+  style: StrokeStyle | undefined,
+  strokeWidth: number,
+): readonly PenStrokeRenderPath[] {
+  return createPenStrokeRenderGeometry(ink, style, strokeWidth).paths;
 }
