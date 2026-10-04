@@ -38,7 +38,8 @@ A1 → A2 → A3 → A4 → A5
 | A5 — Coordinate plot export fidelity | RESOLVED | PR #167; PR CI `37194207372` green |
 | B1 — Eraser broad-phase selection | RESOLVED | PR #168; PR CI `37197289434` green |
 | B2 — Incremental eraser gesture | RESOLVED | PR #169; PR CI `37200715401` green; merged as `932371e046cedcee4b55399b7764637352eba858` |
-| B3 — Clear/resource lifecycle | IN REVIEW | PR #170; code-head CI `37204307985` green |
+| B3 — Clear/resource lifecycle | RESOLVED | PR #170; merged as `893c3cb601844e0a827d084579acae3e0a5cfb55` |
+| C1 — Line endpoint rotation | IN REVIEW | PR #171; code-head CI `37209606415` green |
 
 PR #165 дополнительно закрепил актуальный pen-tap contract в Chromium/Firefox
 browser coverage и выровнял right-double-click object settings с forgiving
@@ -577,6 +578,38 @@ Smart Ink, Formula Recognition и Paddle sidecar gates на том же HEAD —
 - длина сохраняется в пределах numerical tolerance;
 - одна drag operation = один undo;
 - keyboard/selection regressions отсутствуют.
+
+### Implementation status — PR #171
+
+- два endpoint handles отображаются для сфокусированной writable user-line;
+- radius и hit area нормализованы через viewport zoom и остаются screen-stable;
+- dragged endpoint задаёт направление, opposite endpoint остаётся фиксированным
+  в world coordinates, world-length сохраняется;
+- pure core geometry учитывает existing object transform и rotated/non-uniform
+  parent transforms;
+- grouped user-line изменяется через строго ограниченный transform-only
+  `core.objects.replace` без новой schema/command kind;
+- pointer capture, Escape, pointercancel, lost capture, blur и viewport change
+  завершают session безопасно; commit происходит один раз на pointer-up;
+- collaboration transform preview сохраняет parent transforms grouped object;
+- generic Transformer остаётся отдельным resize/general-rotation механизмом;
+- read-only/locked line и locked group endpoint editing не получают.
+
+Regression coverage:
+
+- core geometry: оба endpoint, transformed line, rotated/non-uniform parent,
+  degenerate/singular cases;
+- command/reducer: grouped transform-only policy, membership/geometry mutation
+  rejection, line/group locks;
+- Chromium/Firefox smoke: реальный endpoint drag, fixed pivot, preserved length,
+  один undo;
+- browser cancel regression: Escape не создаёт history operation.
+
+Code-head `092c80723fc57b75bc14b7adc7fbcc9cd9dd7331` прошёл PR-CI
+`37209606415`: Quality gate, 177 unit files / 967 tests, 8 performance files /
+13 tests, architecture/build, Chromium/Firefox smoke, Board-only profile,
+GeometryOS live browser contract и Coordinate Plot production/visual gates.
+Smart Ink, Formula Recognition и Paddle sidecar gates на том же HEAD — green.
 
 ### Предлагаемая ветка
 
