@@ -281,122 +281,116 @@ test.beforeEach(async ({ page }) => {
   await installMediaInstrumentation(page);
 });
 
-test(
-  "@media-profile records the C2 media rendering baseline",
-  async ({ page }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "chromium",
-      "Chromium owns C3.0 diagnostic profiling; lifecycle smoke runs cross-browser.",
-    );
+test("@media-profile records the C2 media rendering baseline", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium",
+    "Chromium owns C3.0 diagnostic profiling; lifecycle smoke runs cross-browser.",
+  );
 
-    const largeStaticDataUrl = createLargePngDataUrl();
-    const report = {
-      generatedAt: new Date().toISOString(),
-      scenarios: {
-        static1: await profileDocument(page, { staticCount: 1 }),
-        static5: await profileDocument(page, { staticCount: 5 }),
-        static10: await profileDocument(page, { staticCount: 10 }),
-        highPixelStatic: await profileDocument(page, {
-          largeStaticDataUrl,
-          staticCount: 1,
-        }),
-        gif1: await profileDocument(page, { gifCount: 1 }),
-        gif4: await profileDocument(page, { gifCount: 4 }),
-        gif8: await profileDocument(page, { gifCount: 8 }),
-        mixed: await profileDocument(page, {
-          gifCount: 4,
-          mixed: true,
-          staticCount: 5,
-        }),
-      },
-    };
+  const largeStaticDataUrl = createLargePngDataUrl();
+  const report = {
+    generatedAt: new Date().toISOString(),
+    scenarios: {
+      static1: await profileDocument(page, { staticCount: 1 }),
+      static5: await profileDocument(page, { staticCount: 5 }),
+      static10: await profileDocument(page, { staticCount: 10 }),
+      highPixelStatic: await profileDocument(page, {
+        largeStaticDataUrl,
+        staticCount: 1,
+      }),
+      gif1: await profileDocument(page, { gifCount: 1 }),
+      gif4: await profileDocument(page, { gifCount: 4 }),
+      gif8: await profileDocument(page, { gifCount: 8 }),
+      mixed: await profileDocument(page, {
+        gifCount: 4,
+        mixed: true,
+        staticCount: 5,
+      }),
+    },
+  };
 
-    expect(report.scenarios.gif1.counters.rafCallbacks).toBeGreaterThan(0);
-    expect(report.scenarios.gif4.counters.rafCallbacks).toBeGreaterThan(
-      report.scenarios.gif1.counters.rafCallbacks * 2,
-    );
-    expect(report.scenarios.gif8.counters.rafCallbacks).toBeGreaterThan(
-      report.scenarios.gif4.counters.rafCallbacks * 1.5,
-    );
-    expect(report.scenarios.mixed.counters.drawImageCalls).toBeGreaterThan(
-      report.scenarios.gif4.counters.drawImageCalls,
-    );
+  expect(report.scenarios.gif1.counters.rafCallbacks).toBeGreaterThan(0);
+  expect(report.scenarios.gif4.counters.rafCallbacks).toBeGreaterThan(
+    report.scenarios.gif1.counters.rafCallbacks * 2,
+  );
+  expect(report.scenarios.gif8.counters.rafCallbacks).toBeGreaterThan(
+    report.scenarios.gif4.counters.rafCallbacks * 1.5,
+  );
+  expect(report.scenarios.mixed.counters.drawImageCalls).toBeGreaterThan(
+    report.scenarios.gif4.counters.drawImageCalls,
+  );
 
-    console.info("MEDIA_BROWSER_BASELINE", JSON.stringify(report));
-    await testInfo.attach("media-performance-baseline.json", {
-      body: Buffer.from(JSON.stringify(report, null, 2)),
-      contentType: "application/json",
-    });
-  },
-);
+  console.info("MEDIA_BROWSER_BASELINE", JSON.stringify(report));
+  await testInfo.attach("media-performance-baseline.json", {
+    body: Buffer.from(JSON.stringify(report, null, 2)),
+    contentType: "application/json",
+  });
+});
 
-test(
-  "@smoke GIF redraw lifecycle stops offscreen and resumes after viewport churn",
-  async ({ page }) => {
-    await resetLocalDatabase(page);
-    await importDocument(
-      page,
-      createMediaPerformanceDocument({ gifCount: 1 }),
-    );
-    await expect
-      .poll(async () => (await snapshot(page)).imageSrcAssignments)
-      .toBeGreaterThanOrEqual(1);
+test("@smoke GIF redraw lifecycle stops offscreen and resumes after viewport churn", async ({
+  page,
+}) => {
+  await resetLocalDatabase(page);
+  await importDocument(page, createMediaPerformanceDocument({ gifCount: 1 }));
+  await expect
+    .poll(async () => (await snapshot(page)).imageSrcAssignments)
+    .toBeGreaterThanOrEqual(1);
 
-    await resetProfile(page);
-    await measureFrames(page, 30);
-    const visible = await snapshot(page);
-    expect(visible.rafCallbacks).toBeGreaterThan(10);
+  await resetProfile(page);
+  await measureFrames(page, 30);
+  const visible = await snapshot(page);
+  expect(visible.rafCallbacks).toBeGreaterThan(10);
 
-    const stage = page.getByTestId("board-stage");
-    const bounds = await stage.boundingBox();
-    expect(bounds).not.toBeNull();
-    if (bounds === null) throw new Error("Board stage has no bounds");
+  const stage = page.getByTestId("board-stage");
+  const bounds = await stage.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (bounds === null) throw new Error("Board stage has no bounds");
 
-    await page.mouse.move(bounds.x + bounds.width * 0.75, bounds.y + 260);
-    await page.mouse.down();
-    await page.mouse.move(bounds.x + 40, bounds.y + 260, { steps: 6 });
-    await page.mouse.up();
+  await page.mouse.move(bounds.x + bounds.width * 0.75, bounds.y + 260);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 40, bounds.y + 260, { steps: 6 });
+  await page.mouse.up();
 
-    await resetProfile(page);
-    await measureFrames(page, 30);
-    const offscreen = await snapshot(page);
-    expect(offscreen.rafCallbacks).toBeLessThan(visible.rafCallbacks / 4);
+  await resetProfile(page);
+  await measureFrames(page, 30);
+  const offscreen = await snapshot(page);
+  expect(offscreen.rafCallbacks).toBeLessThan(visible.rafCallbacks / 4);
 
-    await resetProfile(page);
-    await page.mouse.move(bounds.x + 40, bounds.y + 260);
-    await page.mouse.down();
-    await page.mouse.move(bounds.x + bounds.width * 0.75, bounds.y + 260, {
-      steps: 6,
-    });
-    await page.mouse.up();
+  await resetProfile(page);
+  await page.mouse.move(bounds.x + 40, bounds.y + 260);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + bounds.width * 0.75, bounds.y + 260, {
+    steps: 6,
+  });
+  await page.mouse.up();
 
-    await measureFrames(page, 30);
-    const restored = await snapshot(page);
-    expect(restored.rafCallbacks).toBeGreaterThan(10);
-    expect(restored.imageSrcAssignments).toBeGreaterThanOrEqual(1);
-  },
-);
+  await measureFrames(page, 30);
+  const restored = await snapshot(page);
+  expect(restored.rafCallbacks).toBeGreaterThan(10);
+  expect(restored.imageSrcAssignments).toBeGreaterThanOrEqual(1);
+});
 
-test(
-  "@smoke file import decodes raster metadata before renderer mount",
-  async ({ page }) => {
-    await resetLocalDatabase(page);
-    await page.getByRole("button", { name: "Медиа" }).click();
-    await resetProfile(page);
+test("@smoke file import decodes raster metadata before renderer mount", async ({
+  page,
+}) => {
+  await resetLocalDatabase(page);
+  await page.getByRole("button", { name: "Медиа" }).click();
+  await resetProfile(page);
 
-    const onePixelPng = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZC9sAAAAASUVORK5CYII=",
-      "base64",
-    );
-    await page.getByLabel("Вставить изображения").setInputFiles({
-      buffer: onePixelPng,
-      mimeType: "image/png",
-      name: "decode-baseline.png",
-    });
+  const onePixelPng = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZC9sAAAAASUVORK5CYII=",
+    "base64",
+  );
+  await page.getByLabel("Вставить изображения").setInputFiles({
+    buffer: onePixelPng,
+    mimeType: "image/png",
+    name: "decode-baseline.png",
+  });
 
-    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-    await expect
-      .poll(async () => (await snapshot(page)).imageSrcAssignments)
-      .toBeGreaterThanOrEqual(2);
-  },
-);
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+  await expect
+    .poll(async () => (await snapshot(page)).imageSrcAssignments)
+    .toBeGreaterThanOrEqual(2);
+});
