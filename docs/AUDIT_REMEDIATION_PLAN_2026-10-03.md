@@ -40,7 +40,7 @@ A1 → A2 → A3 → A4 → A5
 | B2 — Incremental eraser gesture | RESOLVED | PR #169; PR CI `37200715401` green; merged as `932371e046cedcee4b55399b7764637352eba858` |
 | B3 — Clear/resource lifecycle | RESOLVED | PR #170; merged as `893c3cb601844e0a827d084579acae3e0a5cfb55` |
 | C1 — Line endpoint rotation | RESOLVED | PR #171; merged as `5d88746eb46f7280d89e543ac285c885a1510f6b`; final CI `37214700224` green |
-| C2 — Context-aware image sizing and ±50% | IN PROGRESS | branch `feat/image-sizing-shortcuts` |
+| C2 — Context-aware image sizing and ±50% | RESOLVED | PR #172; merged as `7965d3926d27e3c134efcfd2df52c0571e486a41`; final HEAD `35ad7c697eecf257b7ccdc62cfafac52d2914fef`; CI #2017 green |
 
 PR #165 дополнительно закрепил актуальный pen-tap contract в Chromium/Firefox
 browser coverage и выровнял right-double-click object settings с forgiving
@@ -670,7 +670,25 @@ Coordinate Plot production gate. Smart Ink `37214700284`, Formula Recognition
 - locked/read-only objects не меняются;
 - persistence/reload сохраняет результат.
 
-### Предлагаемая ветка
+### Implementation status — PR #172
+
+- context-aware placement использует selection bounds → median visible media →
+  median visible content → viewport fallback;
+- aspect ratio и viewport-relative clamps сохраняются;
+- `+` / `-` меняют selected media scale ступенями по 50 percentage points,
+  сохраняя центр, rotation и legacy non-uniform scale;
+- multi-selection коммитится одной undoable operation;
+- read-only, locked, mixed non-media selection, text editing и key repeat
+  сохраняют существующие semantics;
+- persisted schema, BoardDocument format и command kinds не изменены;
+- merge commit:
+  `7965d3926d27e3c134efcfd2df52c0571e486a41`;
+- final branch HEAD:
+  `35ad7c697eecf257b7ccdc62cfafac52d2914fef`;
+- CI `37221613258` (#2017), Smart Ink `37221613254`, Formula Recognition
+  `37221613287` и Paddle `37221613252` завершились успешно.
+
+### Реализованная ветка
 
 `feat/image-sizing-shortcuts`
 
