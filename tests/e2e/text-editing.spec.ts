@@ -185,6 +185,43 @@ test(
     });
     await expect(selectedEditor).toHaveValue("IME draft");
     await selectedEditor.fill("Unsaved change");
+    await selectedEditor.evaluate((element) => {
+      element.dispatchEvent(
+        new CompositionEvent("compositionstart", {
+          bubbles: true,
+          data: "あ",
+        }),
+      );
+      element.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          isComposing: true,
+          key: "Enter",
+          shiftKey: true,
+        }),
+      );
+      element.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          isComposing: true,
+          key: "Escape",
+        }),
+      );
+    });
+    await expect(selectedEditor).toBeVisible();
+    await expect(selectedEditor).toHaveValue("Unsaved change");
+    await expect(page.getByTestId("history-depth")).toHaveText("1/0");
+
+    await selectedEditor.evaluate((element) => {
+      element.dispatchEvent(
+        new CompositionEvent("compositionend", {
+          bubbles: true,
+          data: "あ",
+        }),
+      );
+    });
     await selectedEditor.press("Escape");
     await expect(selectedEditor).toHaveValue("IME draft");
     await expect(page.getByTestId("history-depth")).toHaveText("1/0");
