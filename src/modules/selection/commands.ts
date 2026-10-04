@@ -193,7 +193,9 @@ export function createLineEndpointTransformCommand(
     baselineObject.kind !== "drawing.line" ||
     baselineObject.source.kind !== "user"
   ) {
-    throw new TypeError("Line endpoint transform baseline must be a user line.");
+    throw new TypeError(
+      "Line endpoint transform baseline must be a user line.",
+    );
   }
 
   const object = document.objects[transform.objectId];
