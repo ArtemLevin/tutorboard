@@ -59,7 +59,9 @@ Operational findings ведутся в `03_TUTORBOARD_BACKLOG.md`.
 - A3 Vector Ink outline/bounds/Wet Ink parity — PR #161–#163;
 - A4 Unified text keyboard contract — PR #164;
 - browser release-gate drift после нового pen-tap contract — PR #165;
-- A5 Coordinate plot export fidelity — PR #167.
+- A5 Coordinate plot export fidelity — PR #167;
+- B1 Eraser broad-phase selection — PR #168;
+- B2 Incremental eraser gesture — PR #169.
 
 PR #165 восстановил единый 12 px screen-stable proximity contract для selection
 и right-double-click object settings, а устаревшие canvas-mode browser tests
@@ -78,7 +80,18 @@ PR-CI `37194207372` прошёл Quality gate, Coordinate plot integration/perfo
 Chromium/Firefox lifecycle, visual regression matrix, browser smoke,
 GeometryOS contract, Board-only profile и Production image.
 
-Следующий шаг этого remediation train — **B1 Eraser broad-phase selection**.
+PR #168 добавил conservative swept-path AABB broad phase перед exact
+eraser geometry и закрепил sparse/dense performance regressions.
+
+PR #169 перевёл eraser gesture на incremental session: каждый update обрабатывает
+только новые pointer samples, pen fragments сохраняют стабильные IDs, а finish
+reconciliation отбрасывает stale targets перед atomic commit. Eraser preference
+storage унифицирован с backward-compatible чтением numeric/JSON форматов.
+PR-CI `37200381127` прошёл Quality gate, unit/performance suites,
+Chromium/Firefox browser smoke и Board-only profile; standalone Smart Ink,
+Formula Recognition и Paddle gates на том же HEAD также green.
+
+Следующий шаг этого remediation train — **B3 Clear/resource lifecycle**.
 
 ## 1. Продуктовая цель
 

@@ -365,6 +365,8 @@ plot definition
 
 ## B1 — Eraser broad-phase selection
 
+**Статус: RESOLVED — PR #168.**
+
 ### Finding
 
 `selectObjectIdsNearPath` выполняет дорогую pairwise geometry проверку без предварительного bounding-box отсечения.
@@ -417,6 +419,8 @@ expanded swept-path bounds
 
 ## B2 — Incremental eraser gesture
 
+**Статус: RESOLVED — PR #169.**
+
 ### Finding
 
 Каждый move повторно обрабатывает весь накопленный gesture path.
@@ -456,6 +460,24 @@ Session хранит:
 ### Предлагаемая ветка
 
 `perf/eraser-incremental-gesture`
+
+### Реализованный контракт
+
+- session фиксирует baseline document, radius и последнюю обработанную точку;
+- каждый update передаёт geometry только новый delta path;
+- pen fragments эволюционируют последовательно и сохраняют IDs до реального split;
+- обычные объекты и группы аккумулируются один раз;
+- finish reconciliation сравнивает affected snapshots со свежим document;
+- stale object/group/pen targets исключаются из commit;
+- ungrouped delete и pen replacement объединяются через batch-replace;
+- один завершённый gesture публикуется одним `commitCommands()` и остаётся одной
+  undo operation;
+- eraser preferences читают legacy numeric и JSON representation, запись
+  канонизирована в JSON.
+
+PR-CI `37200381127`: unit suite, performance budgets, production build,
+Chromium/Firefox eraser smoke и Board-only profile — green. Smart Ink, Formula
+Recognition и Paddle sidecar gates на том же HEAD — green.
 
 ---
 
