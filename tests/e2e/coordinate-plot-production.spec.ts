@@ -423,8 +423,12 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   expect(svgPath).not.toBeNull();
   const svg = await readFile(svgPath, "utf8");
   expect(svg).toContain("data-coordinate-plot-id=");
-  expect(svg).toContain(`data-coordinate-plot-series-id="${visibleExplicitId}"`);
-  expect(svg).toContain(`data-coordinate-plot-series-id="${parametricId}"`);
+  expect(svg).toContain(
+    `data-coordinate-plot-series-id="${visibleExplicitId}"`,
+  );
+  expect(svg).toContain(
+    `data-coordinate-plot-series-id="${parametricId}"`,
+  );
   expect(svg).toContain('data-coordinate-plot-series-kind="parametric"');
   expect(svg).not.toContain(
     `data-coordinate-plot-series-id="${hiddenExplicitId}"`,
