@@ -35,9 +35,12 @@ describe("embedded image import", () => {
       width: 96,
     });
   });
-  it("uses selection, media, content, then viewport context for placement size", () => {
-    const intrinsic = { height: 900, width: 1600 };
-    const viewportSize = { height: 800, width: 1000 };
+
+  it(
+    "uses selection, media, content, then viewport context for placement size",
+    () => {
+      const intrinsic = { height: 900, width: 1600 };
+      const viewportSize = { height: 800, width: 1000 };
 
     expect(
       resolveEmbeddedImagePlacementSize(intrinsic, {
@@ -67,14 +70,15 @@ describe("embedded image import", () => {
       }),
     ).toEqual({ height: 180, width: 320 });
 
-    expect(
-      resolveEmbeddedImagePlacementSize(intrinsic, {
-        viewportSize,
-        visibleContentBounds: [],
-        visibleMediaBounds: [],
-      }),
-    ).toEqual({ height: 236.25, width: 420 });
-  });
+      expect(
+        resolveEmbeddedImagePlacementSize(intrinsic, {
+          viewportSize,
+          visibleContentBounds: [],
+          visibleMediaBounds: [],
+        }),
+      ).toEqual({ height: 236.25, width: 420 });
+    },
+  );
 
   it("clamps extreme context while preserving the intrinsic aspect ratio", () => {
     const intrinsic = { height: 900, width: 1600 };
@@ -99,8 +103,10 @@ describe("embedded image import", () => {
     ).toEqual({ height: 81, width: 144 });
   });
 
-  it("creates an embedded image around the requested contextual display size", () => {
-    const prepared: PreparedEmbeddedImage = {
+  it(
+    "creates an embedded image around the requested contextual display size",
+    () => {
+      const prepared: PreparedEmbeddedImage = {
       contentSha256: "abc",
       dataUrl: "data:image/png;base64,AA==",
       fileName: "example.png",
@@ -115,9 +121,9 @@ describe("embedded image import", () => {
       prepared,
     });
 
-    expect(object.size).toEqual({ height: 225, width: 400 });
-    expect(object.position).toEqual({ x: 300, y: 287.5 });
-    expect(object.scale).toEqual({ x: 1, y: 1 });
-  });
-
+      expect(object.size).toEqual({ height: 225, width: 400 });
+      expect(object.position).toEqual({ x: 300, y: 287.5 });
+      expect(object.scale).toEqual({ x: 1, y: 1 });
+    },
+  );
 });
