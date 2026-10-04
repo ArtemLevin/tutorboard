@@ -135,19 +135,22 @@ export function createMediaPerformanceDocument(
         index === 0 && options.largeStaticDataUrl !== undefined
           ? options.largeStaticDataUrl
           : mediaPerformancePngDataUrl,
-      intrinsicSize:
-        index === 0 && options.largeStaticDataUrl !== undefined
-          ? { height: 1_024, width: 1_024 }
-          : undefined,
+      ...(index === 0 && options.largeStaticDataUrl !== undefined
+        ? { intrinsicSize: { height: 1_024, width: 1_024 } }
+        : {}),
       kind: "static",
-      offscreen: options.offscreen,
+      ...(options.offscreen === undefined
+        ? {}
+        : { offscreen: options.offscreen }),
     }),
   );
   const gifs = Array.from({ length: gifCount }, (_value, index) =>
     mediaObject(index, {
       dataUrl: mediaPerformanceGifDataUrl,
       kind: "gif",
-      offscreen: options.offscreen,
+      ...(options.offscreen === undefined
+        ? {}
+        : { offscreen: options.offscreen }),
     }),
   );
   const mixedObjects = options.mixed
