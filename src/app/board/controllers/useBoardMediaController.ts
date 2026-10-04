@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   boardObjectId,
   type BoardObjectId,
+  type Size2,
   type Vec2,
 } from "../../../core/public";
 import {
@@ -19,6 +20,7 @@ export interface UseBoardMediaControllerOptions {
   readonly clipboard: BoardClipboardController;
   readonly documentController: BoardDocumentController;
   readonly onImagesInserted: (objectIds: readonly BoardObjectId[]) => void;
+  readonly resolveImageDisplaySize?: ((intrinsicSize: Size2) => Size2) | undefined;
   readonly resolvePlacementCenter: () => Vec2;
 }
 
@@ -26,6 +28,7 @@ export function useBoardMediaController({
   clipboard,
   documentController,
   onImagesInserted,
+  resolveImageDisplaySize,
   resolvePlacementCenter,
 }: UseBoardMediaControllerOptions) {
   const { commitCommand, createCommandMetadata } = documentController;
@@ -65,6 +68,9 @@ export function useBoardMediaController({
               x: baseCenter.x + index * 24,
               y: baseCenter.y + index * 24,
             },
+            displaySize: resolveImageDisplaySize?.(
+              prepared.value.intrinsicSize,
+            ),
             id: boardObjectId(`object:${crypto.randomUUID()}`),
             prepared: prepared.value,
           }),
@@ -100,6 +106,7 @@ export function useBoardMediaController({
       commitCommand,
       createCommandMetadata,
       onImagesInserted,
+      resolveImageDisplaySize,
       resolvePlacementCenter,
     ],
   );
