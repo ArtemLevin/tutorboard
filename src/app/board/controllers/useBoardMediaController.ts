@@ -64,15 +64,16 @@ export function useBoardMediaController({
           diagnostics.push(`${file.name}: ${prepared.code}`);
           continue;
         }
+        const displaySize = resolveImageDisplaySize?.(
+          prepared.value.intrinsicSize,
+        );
         objects.push(
           createEmbeddedImageObject({
             center: {
               x: baseCenter.x + index * 24,
               y: baseCenter.y + index * 24,
             },
-            displaySize: resolveImageDisplaySize?.(
-              prepared.value.intrinsicSize,
-            ),
+            ...(displaySize === undefined ? {} : { displaySize }),
             id: boardObjectId(`object:${crypto.randomUUID()}`),
             prepared: prepared.value,
           }),
