@@ -148,12 +148,16 @@ export function useBoardEraserController({
 
       const committed = commitCommands(commands);
       if (committed.ok) {
-        announce(
-          `Ластик: изменено объектов ${plan.affectedObjectIds.length}`,
-        );
+        announce(`Ластик: изменено объектов ${plan.affectedObjectIds.length}`);
       }
     },
-    [commitCommands, createCommandMetadata, getDocument, updatePreview, announce],
+    [
+      announce,
+      commitCommands,
+      createCommandMetadata,
+      getDocument,
+      updatePreview,
+    ],
   );
 
   const cancel = useCallback((pointerId?: number) => {
