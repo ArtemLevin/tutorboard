@@ -604,7 +604,12 @@ export function BoardStage({
     });
     transformer.nodes(nodes);
     transformer.getLayer()?.batchDraw();
-  }, [previewViewport, scene.items, transformableObjectIds]);
+  }, [
+    lineEndpointPreview,
+    previewViewport,
+    scene.items,
+    transformableObjectIds,
+  ]);
 
   const readSelectionTransforms = useCallback(() => {
     const transformer = transformerRef.current;
