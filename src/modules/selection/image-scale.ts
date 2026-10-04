@@ -1,6 +1,7 @@
 import type {
   BoardDocument,
   BoardObject,
+  BoardObjectId,
   Vec2,
 } from "../../core/public";
 import type { SelectionObjectTransform } from "./commands";
@@ -99,7 +100,7 @@ function transformForScaleStep(
 
 export function createImageScaleStepTransforms(
   document: BoardDocument,
-  objectIds: readonly string[],
+  objectIds: readonly BoardObjectId[],
   direction: ImageScaleStepDirection,
 ): readonly SelectionObjectTransform[] | null {
   if (objectIds.length === 0) return null;
