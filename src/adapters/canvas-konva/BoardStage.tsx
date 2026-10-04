@@ -474,6 +474,10 @@ export function BoardStage({
   } | null>(null);
   const rightContextMenuTimeoutRef = useRef<number | null>(null);
   const canvasContextMenuRequestRef = useRef(onCanvasContextMenuRequest);
+  const lineEndpointCallbacksRef = useRef({
+    commit: onLineEndpointTransform,
+    preview: onLineEndpointTransformPreview,
+  });
   const panModeRequestRef = useRef(onPanModeRequest);
   const worldPointerCallbacksRef = useRef({
     batch: onWorldPointerBatch,
@@ -655,6 +659,13 @@ export function BoardStage({
   useLayoutEffect(() => {
     canvasContextMenuRequestRef.current = onCanvasContextMenuRequest;
   }, [onCanvasContextMenuRequest]);
+
+  useLayoutEffect(() => {
+    lineEndpointCallbacksRef.current = {
+      commit: onLineEndpointTransform,
+      preview: onLineEndpointTransformPreview,
+    };
+  }, [onLineEndpointTransform, onLineEndpointTransformPreview]);
 
   useLayoutEffect(() => {
     worldPointerCallbacksRef.current = {
@@ -957,16 +968,12 @@ export function BoardStage({
       lineEndpointPreviewRef.current = null;
       setLineEndpointPreview(null);
       setIsTransforming(false);
-      onLineEndpointTransformPreview?.(null);
+      lineEndpointCallbacksRef.current.preview?.(null);
       if (commit && preview !== null) {
-        onLineEndpointTransform?.(preview);
+        lineEndpointCallbacksRef.current.commit?.(preview);
       }
     },
-    [
-      onLineEndpointTransform,
-      onLineEndpointTransformPreview,
-      releaseCapture,
-    ],
+    [releaseCapture],
   );
 
   const updateLineEndpointTransform = useCallback(
@@ -983,9 +990,9 @@ export function BoardStage({
       if (transform === null) return;
       lineEndpointPreviewRef.current = transform;
       setLineEndpointPreview(transform);
-      onLineEndpointTransformPreview?.(transform);
+      lineEndpointCallbacksRef.current.preview?.(transform);
     },
-    [onLineEndpointTransformPreview, selectionWorldSample],
+    [selectionWorldSample],
   );
 
   const beginLineEndpointTransform = useCallback(
@@ -1404,7 +1411,7 @@ export function BoardStage({
         lineEndpointSessionRef.current = null;
         releaseCapture(lineEndpointSession);
         lineEndpointPreviewRef.current = null;
-        onLineEndpointTransformPreview?.(null);
+        lineEndpointCallbacksRef.current.preview?.(null);
       }
       const wheelSession = wheelSessionRef.current;
       if (wheelSession !== null) {
@@ -1423,7 +1430,7 @@ export function BoardStage({
         rightContextMenuTimeoutRef.current = null;
       }
     },
-    [discardWorldPointerMoves, onLineEndpointTransformPreview, releaseCapture],
+    [discardWorldPointerMoves, releaseCapture],
   );
 
   useEffect(() => {
