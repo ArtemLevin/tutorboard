@@ -31,6 +31,9 @@ describe("CI gate routing", () => {
     expect(
       routed("src/adapters/persistence-dexie/repository.ts").coordinate_plot,
     ).toBe(true);
+    expect(
+      routed("src/modules/document-transfer/snapshot.ts").coordinate_plot,
+    ).toBe(true);
   });
 
   it("routes shared canvas changes to every browser integration that depends on it", () => {
