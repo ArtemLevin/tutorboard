@@ -25,7 +25,10 @@ function mediaObject(
   index: number,
   input: {
     readonly dataUrl: string;
-    readonly intrinsicSize?: { readonly height: number; readonly width: number };
+    readonly intrinsicSize?: {
+      readonly height: number;
+      readonly width: number;
+    };
     readonly kind: "gif" | "static";
     readonly offscreen?: boolean;
   },
