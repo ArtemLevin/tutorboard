@@ -43,7 +43,9 @@ export function readEraserDiameterPx(
   if (storage === null) return defaultEraserDiameterPx;
   try {
     const stored = storage.getItem(eraserPreferencesStorageKey);
-    return stored === null ? defaultEraserDiameterPx : readStoredDiameter(stored);
+    return stored === null
+      ? defaultEraserDiameterPx
+      : readStoredDiameter(stored);
   } catch {
     return defaultEraserDiameterPx;
   }
