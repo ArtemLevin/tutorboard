@@ -23,6 +23,8 @@ import {
 import {
   boardObjectId,
   batchBoardRenderItems,
+  createLineEndpointRotationTransform,
+  lineWorldEndpoints,
   panViewport,
   screenToWorld,
   selectVisibleBoardItems,
@@ -30,6 +32,7 @@ import {
   type BoardObjectId,
   type BoardRenderItem,
   type BoardSceneReadModel,
+  type LineEndpoint,
   type Transform2D,
   type Vec2,
   type ViewportState,
@@ -110,6 +113,11 @@ interface SelectionSession {
   readonly viewport: ViewportState;
 }
 
+interface LineEndpointSession extends SelectionSession {
+  readonly endpoint: LineEndpoint;
+  readonly item: BoardRenderItem;
+}
+
 export interface WorldPointerSample {
   readonly inputTimestampMs?: number;
   readonly modifiers?: InputModifiers;
@@ -176,6 +184,7 @@ export interface BoardStageProps {
   readonly laserPoint?: Vec2 | null;
   readonly laserTrailOpacity?: number;
   readonly laserTrailPoints?: readonly Vec2[];
+  readonly lineEndpointObjectIds?: readonly BoardObjectId[];
   readonly onCanvasContextMenuRequest?:
     ((request: CanvasContextMenuRequest) => void) | undefined;
   readonly onCanvasPrimaryClickRequest?: (() => void) | undefined;
@@ -184,6 +193,10 @@ export interface BoardStageProps {
     ((point: Vec2, toleranceWorld: number) => BoardObjectId | null) | undefined;
   readonly onObjectSettingsRequest?:
     ((objectId: BoardObjectId) => void) | undefined;
+  readonly onLineEndpointTransform?:
+    ((transform: BoardObjectTransformSnapshot) => void) | undefined;
+  readonly onLineEndpointTransformPreview?:
+    ((transform: BoardObjectTransformSnapshot | null) => void) | undefined;
   readonly onPanModeRequest?: () => void;
   readonly onWorldPointerCancel: (pointerId: number) => void;
   readonly onWorldPointerFinish: (sample: WorldPointerSample) => void;
@@ -333,6 +346,15 @@ function isTransformerTarget(target: Konva.Node): boolean {
   return false;
 }
 
+function isLineEndpointHandleTarget(target: Konva.Node): boolean {
+  let current: Konva.Node | null = target;
+  while (current !== null) {
+    if (current.hasName("line-endpoint-handle")) return true;
+    current = current.getParent();
+  }
+  return false;
+}
+
 function objectIdFromTarget(target: Konva.Node): BoardObjectId | null {
   let current: Konva.Node | null = target;
   while (current !== null) {
@@ -363,6 +385,22 @@ function normalizeTransformValue(value: number): number {
   return Object.is(normalized, -0) ? 0 : normalized;
 }
 
+function applyObjectTransformPreview(
+  item: BoardRenderItem,
+  preview: BoardObjectTransformSnapshot | null,
+): BoardRenderItem {
+  if (preview === null || preview.objectId !== item.object.id) return item;
+  return {
+    ...item,
+    object: {
+      ...item.object,
+      position: preview.position,
+      rotation: preview.rotation,
+      scale: preview.scale,
+    },
+  };
+}
+
 export function BoardStage({
   coordinatePlotInteraction,
   drawingModeKey,
@@ -373,11 +411,14 @@ export function BoardStage({
   laserPoint = null,
   laserTrailOpacity = 1,
   laserTrailPoints = [],
+  lineEndpointObjectIds = [],
   onCanvasContextMenuRequest,
   onCanvasPrimaryClickRequest,
   onCanvasPrimaryDoubleClickRequest,
   onObjectProximityHitRequest,
   onObjectSettingsRequest,
+  onLineEndpointTransform,
+  onLineEndpointTransformPreview,
   onPanModeRequest,
   onViewportCommit,
   onWorldPointerCancel,
@@ -419,6 +460,9 @@ export function BoardStage({
   const panSessionRef = useRef<PanSession | null>(null);
   const drawingSessionRef = useRef<DrawingSession | null>(null);
   const selectionSessionRef = useRef<SelectionSession | null>(null);
+  const lineEndpointSessionRef = useRef<LineEndpointSession | null>(null);
+  const lineEndpointPreviewRef =
+    useRef<BoardObjectTransformSnapshot | null>(null);
   const wheelSessionRef = useRef<WheelSession | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
   const primaryCanvasClickTimeoutRef = useRef<number | null>(null);
@@ -453,6 +497,8 @@ export function BoardStage({
   const [isDrawing, setIsDrawing] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [isTransforming, setIsTransforming] = useState(false);
+  const [lineEndpointPreview, setLineEndpointPreview] =
+    useState<BoardObjectTransformSnapshot | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const size = useElementSize(rootRef);
 
@@ -501,6 +547,27 @@ export function BoardStage({
         selectVisibleBoardItems(scene.items, previewViewport, size),
       ),
     [previewViewport, scene.items, size],
+  );
+  const lineEndpointItems = useMemo(() => {
+    const allowed = new Set(lineEndpointObjectIds);
+    return scene.items.filter(
+      (item) =>
+        allowed.has(item.object.id) && item.object.kind === "drawing.line",
+    );
+  }, [lineEndpointObjectIds, scene.items]);
+  const lineEndpointHandles = useMemo(
+    () =>
+      lineEndpointItems.flatMap((item) => {
+        const previewed = applyObjectTransformPreview(item, lineEndpointPreview);
+        const endpoints = lineWorldEndpoints(previewed);
+        return endpoints === null
+          ? []
+          : [
+              { endpoint: "start" as const, item, point: endpoints.start },
+              { endpoint: "end" as const, item, point: endpoints.end },
+            ];
+      }),
+    [lineEndpointItems, lineEndpointPreview],
   );
   const smoothedSelectionLasso = useMemo(
     () =>
@@ -626,8 +693,16 @@ export function BoardStage({
     if (
       panSessionRef.current === null &&
       drawingSessionRef.current === null &&
-      selectionSessionRef.current === null
+      selectionSessionRef.current === null &&
+      lineEndpointSessionRef.current === null
     ) {
+      const lineEndpointSession = lineEndpointSessionRef.current;
+      if (lineEndpointSession !== null) {
+        lineEndpointSessionRef.current = null;
+        releaseCapture(lineEndpointSession);
+        lineEndpointPreviewRef.current = null;
+        onLineEndpointTransformPreview?.(null);
+      }
       const wheelSession = wheelSessionRef.current;
       if (wheelSession !== null) {
         window.clearTimeout(wheelSession.timeoutId);
@@ -879,6 +954,77 @@ export function BoardStage({
     }
   }, [onViewportCommit]);
 
+  const finishLineEndpointTransform = useCallback(
+    (commit: boolean) => {
+      const session = lineEndpointSessionRef.current;
+      if (session === null) return;
+      lineEndpointSessionRef.current = null;
+      releaseCapture(session);
+      const preview = lineEndpointPreviewRef.current;
+      lineEndpointPreviewRef.current = null;
+      setLineEndpointPreview(null);
+      setIsTransforming(false);
+      onLineEndpointTransformPreview?.(null);
+      if (commit && preview !== null) {
+        onLineEndpointTransform?.(preview);
+      }
+    },
+    [
+      onLineEndpointTransform,
+      onLineEndpointTransformPreview,
+      releaseCapture,
+    ],
+  );
+
+  const updateLineEndpointTransform = useCallback(
+    (event: PointerEvent) => {
+      const session = lineEndpointSessionRef.current;
+      if (session === null || session.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      const point = selectionWorldSample(event, session).point;
+      const transform = createLineEndpointRotationTransform(
+        session.item,
+        session.endpoint,
+        point,
+      );
+      if (transform === null) return;
+      lineEndpointPreviewRef.current = transform;
+      setLineEndpointPreview(transform);
+      onLineEndpointTransformPreview?.(transform);
+    },
+    [onLineEndpointTransformPreview, selectionWorldSample],
+  );
+
+  const beginLineEndpointTransform = useCallback(
+    (
+      event: Konva.KonvaEventObject<PointerEvent>,
+      item: BoardRenderItem,
+      endpoint: LineEndpoint,
+    ) => {
+      if (event.evt.button !== 0 || lineEndpointSessionRef.current !== null) {
+        return;
+      }
+      const stage = event.target.getStage();
+      if (stage === null) return;
+      commitWheel();
+      event.cancelBubble = true;
+      event.evt.preventDefault();
+      const captureElement = stage.container();
+      captureElement.setPointerCapture(event.evt.pointerId);
+      lineEndpointPreviewRef.current = null;
+      setLineEndpointPreview(null);
+      lineEndpointSessionRef.current = {
+        captureElement,
+        endpoint,
+        item,
+        pointerId: event.evt.pointerId,
+        viewport: previewViewport,
+      };
+      setIsTransforming(true);
+    },
+    [commitWheel, previewViewport],
+  );
+
   const clearPendingPrimaryCanvasTap = useCallback(() => {
     primaryCanvasClickCandidateRef.current = null;
     if (primaryCanvasClickTimeoutRef.current !== null) {
@@ -956,6 +1102,15 @@ export function BoardStage({
       ) {
         primaryCanvasPointerCandidateRef.current = null;
         clearPendingPrimaryCanvasTap();
+      }
+
+      const lineEndpointSession = lineEndpointSessionRef.current;
+      if (
+        lineEndpointSession !== null &&
+        lineEndpointSession.pointerId === event.pointerId
+      ) {
+        updateLineEndpointTransform(event);
+        return;
       }
 
       const drawingSession = drawingSessionRef.current;
@@ -1040,6 +1195,11 @@ export function BoardStage({
           return;
         }
       }
+      if (lineEndpointSessionRef.current?.pointerId === event.pointerId) {
+        updateLineEndpointTransform(event);
+        finishLineEndpointTransform(true);
+        return;
+      }
       if (drawingSessionRef.current?.pointerId === event.pointerId) {
         finishDrawing(true, event);
         return;
@@ -1084,6 +1244,13 @@ export function BoardStage({
       ) {
         primaryCanvasPointerCandidateRef.current = null;
       }
+      if (lineEndpointSessionRef.current?.pointerId === event.pointerId) {
+        finishLineEndpointTransform(false);
+        return;
+      }
+      if (lineEndpointSessionRef.current?.pointerId === event.pointerId) {
+        finishLineEndpointTransform(false);
+      }
       if (drawingSessionRef.current?.pointerId === event.pointerId) {
         finishDrawing(false);
         return;
@@ -1108,6 +1275,7 @@ export function BoardStage({
         });
       }
       if (event.code === "Escape") {
+        finishLineEndpointTransform(false);
         finishDrawing(false);
         finishSelection(false);
         finishPan(false);
@@ -1150,6 +1318,7 @@ export function BoardStage({
         window.clearTimeout(rightContextMenuTimeoutRef.current);
         rightContextMenuTimeoutRef.current = null;
       }
+      finishLineEndpointTransform(false);
       finishDrawing(false);
       finishSelection(false);
       finishPan(false);
@@ -1177,12 +1346,14 @@ export function BoardStage({
     cancelWheel,
     enqueueWorldPointerMoves,
     finishDrawing,
+    finishLineEndpointTransform,
     finishPan,
     finishSelection,
     clearPendingPrimaryCanvasTap,
     predictedWorldSamples,
     registerPrimaryCanvasTap,
     selectionWorldSample,
+    updateLineEndpointTransform,
     worldSamples,
   ]);
 
@@ -1207,7 +1378,14 @@ export function BoardStage({
     return () => {
       container.removeEventListener("lostpointercapture", handleLostCapture);
     };
-  }, [finishDrawing, finishPan, finishSelection, size.height, size.width]);
+  }, [
+    finishDrawing,
+    finishLineEndpointTransform,
+    finishPan,
+    finishSelection,
+    size.height,
+    size.width,
+  ]);
 
   useEffect(
     () => () => {
@@ -1245,7 +1423,7 @@ export function BoardStage({
         rightContextMenuTimeoutRef.current = null;
       }
     },
-    [discardWorldPointerMoves, releaseCapture],
+    [discardWorldPointerMoves, onLineEndpointTransformPreview, releaseCapture],
   );
 
   useEffect(() => {
@@ -1289,6 +1467,13 @@ export function BoardStage({
     }
   }, [finishSelection, scene.viewport]);
 
+  useEffect(() => {
+    const session = lineEndpointSessionRef.current;
+    if (session !== null && !sameViewport(session.viewport, scene.viewport)) {
+      finishLineEndpointTransform(false);
+    }
+  }, [finishLineEndpointTransform, scene.viewport]);
+
   const handleCanvasPointerDownCapture = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
@@ -1300,7 +1485,8 @@ export function BoardStage({
     if (
       panSessionRef.current !== null ||
       drawingSessionRef.current !== null ||
-      selectionSessionRef.current !== null
+      selectionSessionRef.current !== null ||
+      lineEndpointSessionRef.current !== null
     ) {
       primaryCanvasPointerCandidateRef.current = null;
       clearPendingPrimaryCanvasTap();
@@ -1321,7 +1507,9 @@ export function BoardStage({
     });
     if (
       hit !== null &&
-      (isTransformerTarget(hit) || objectIdFromTarget(hit) !== null)
+      (isTransformerTarget(hit) ||
+        isLineEndpointHandleTarget(hit) ||
+        objectIdFromTarget(hit) !== null)
     ) {
       primaryCanvasPointerCandidateRef.current = null;
       clearPendingPrimaryCanvasTap();
@@ -1683,14 +1871,18 @@ export function BoardStage({
             {visibleItemBatches.map((batch, batchIndex) => (
               <Group key={`render-batch-${batchIndex}`}>
                 {batch.map((item) =>
-                  renderItem(item, registry, {
-                    coordinatePlotInteraction,
-                    interactive: true,
-                    zoom: previewViewport.zoom,
-                    previewDelta: selected.has(item.object.id)
-                      ? selectionPreviewDelta
-                      : null,
-                  }),
+                  renderItem(
+                    applyObjectTransformPreview(item, lineEndpointPreview),
+                    registry,
+                    {
+                      coordinatePlotInteraction,
+                      interactive: true,
+                      zoom: previewViewport.zoom,
+                      previewDelta: selected.has(item.object.id)
+                        ? selectionPreviewDelta
+                        : null,
+                    },
+                  ),
                 )}
               </Group>
             ))}
@@ -1931,6 +2123,31 @@ export function BoardStage({
               rotationSnapTolerance={5}
               rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
             />
+          </Group>
+        </Layer>
+        <Layer>
+          <Group
+            scaleX={previewViewport.zoom}
+            scaleY={previewViewport.zoom}
+            x={previewViewport.offset.x}
+            y={previewViewport.offset.y}
+          >
+            {lineEndpointHandles.map(({ endpoint, item, point }) => (
+              <Circle
+                fill="#ffffff"
+                hitStrokeWidth={18 / previewViewport.zoom}
+                key={`${item.object.id}:${endpoint}`}
+                name="line-endpoint-handle"
+                onPointerDown={(event) =>
+                  beginLineEndpointTransform(event, item, endpoint)
+                }
+                radius={5 / previewViewport.zoom}
+                stroke="#2c7182"
+                strokeWidth={1.75 / previewViewport.zoom}
+                x={point.x}
+                y={point.y}
+              />
+            ))}
           </Group>
         </Layer>
       </Stage>
