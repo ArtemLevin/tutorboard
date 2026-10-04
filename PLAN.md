@@ -98,23 +98,21 @@ B3 Clear/resource lifecycle закрыт и смержен PR #170 как
 drawing/eraser/handwriting/GeometryOS/laser/selection sessions, plot/3D editors
 и transform preview. GIF redraw loop имеет явный cancel lifecycle.
 
-C1 Line endpoint rotation реализован в PR #171. Выбранная writable user-line
-получает два screen-stable endpoint handles; drag любого конца фиксирует
-противоположный endpoint в world coordinates и сохраняет world-length.
-Поддержаны transformed и grouped lines, rotated/non-uniform parent transforms,
-cancel/lost-capture/blur/viewport-change lifecycle, collaboration transform
-preview и единый undo на завершённый gesture. Persisted schema и набор board
-command kinds не изменялись.
+C1 Line endpoint rotation закрыт и смержен PR #171 как
+`5d88746eb46f7280d89e543ac285c885a1510f6b`. Финальный release-gate review
+дополнительно устранил две edge-case проблемы: click по endpoint без drag больше
+не создаёт no-op history entry, а commit endpoint transform привязан к baseline
+жеста и отклоняет stale object/group transform при concurrent изменении.
 
-Code-head C1 `092c80723fc57b75bc14b7adc7fbcc9cd9dd7331` прошёл PR-CI
-`37209606415`: format/lint/typecheck/audit, 177 unit files / 967 tests,
-8 performance files / 13 tests, architecture, production build,
+Финальный code-head C1 `a6ea034f4158393d0d607e0ecc4fc81807354685`
+прошёл CI `37214700224`: format/lint/typecheck, dependency threshold, unit и
+performance suites, architecture/source boundaries, production build,
 Chromium/Firefox browser smoke, Board-only profile, GeometryOS live contract и
-Coordinate Plot production/visual gates. Smart Ink, Formula Recognition и
-Paddle sidecar gates на том же HEAD также green.
+Coordinate Plot production gate. Smart Ink `37214700284`, Formula Recognition
+`37214700259` и Paddle sidecar `37214700269` также green.
 
-После merge C1 следующий этап remediation train — **C2 Context-aware image
-sizing and ±50%**.
+Текущий этап remediation train — **C2 Context-aware image sizing and ±50%**.
+Рабочая ветка создана от merge C1: `feat/image-sizing-shortcuts`.
 
 ## 1. Продуктовая цель
 
