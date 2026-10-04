@@ -5,8 +5,11 @@ import {
   boardObjectId,
   createPenStrokeRenderBounds,
   createVectorInkData,
+  plotSeriesId,
   type BoardObject,
+  type CoordinatePlotObject,
   type MediaAssetObject,
+  type RelationPlotSeries,
   type StrokeStyle,
 } from "../../../../src/core/public";
 import { importTutorBoardDocument } from "../../../../src/modules/document-transfer/public";
@@ -19,6 +22,7 @@ import {
   drawingStyleDefaults,
   reduceDrawingInteraction,
 } from "../../../../src/modules/drawing/public";
+import { createCoordinatePlotProductionObject } from "../../../fixtures/coordinate-plot-production";
 
 function fixtureDocument() {
   const imported = importTutorBoardDocument(frozenDocumentJson);
@@ -159,6 +163,57 @@ function documentOnlyWithObject(object: BoardObject) {
   };
 }
 
+function coordinatePlotWithSeries(
+  expressions: readonly string[],
+  options: {
+    readonly viewport?: {
+      readonly equalScale: boolean;
+      readonly xMax: number;
+      readonly xMin: number;
+      readonly yMax: number;
+      readonly yMin: number;
+    };
+  } = {},
+): CoordinatePlotObject {
+  const base = createCoordinatePlotProductionObject(0);
+  const explicit = base.definition.series.filter(
+    (series) => series.kind === "explicit",
+  );
+  return {
+    ...base,
+    definition: {
+      ...base.definition,
+      coordinateViewport:
+        options.viewport ?? base.definition.coordinateViewport,
+      legend: { ...base.definition.legend, visible: false },
+      series: expressions.map((expression, index) => {
+        const source = explicit[index] ?? explicit[0];
+        if (source === undefined || source.kind !== "explicit") {
+          throw new Error("Production fixture must contain explicit series.");
+        }
+        return {
+          ...source,
+          expression,
+          id: plotSeriesId(`snapshot-series:${index}`),
+          name: `Snapshot ${index + 1}`,
+          visible: true,
+        };
+      }),
+    },
+  };
+}
+
+function exportedSeriesFragments(svg: string, seriesId: string): readonly string[] {
+  return [
+    ...svg.matchAll(
+      new RegExp(
+        `<polyline[^>]*data-coordinate-plot-series-id="${seriesId.replaceAll(":", "\\:")}"[^>]*>`,
+        "gu",
+      ),
+    ),
+  ].map(([markup]) => markup);
+}
+
 function transformLocalPoint(
   point: { readonly x: number; readonly y: number },
   object: Extract<BoardObject, { readonly kind: "drawing.pen-stroke" }>,
@@ -257,6 +312,136 @@ describe("TutorBoard styled pen snapshot parity", () => {
 
     expect(first).toBe(second);
     expect((first.match(/fill="#7c3aed"/gu) ?? []).length).toBe(3);
+  });
+});
+
+describe("TutorBoard coordinate plot snapshot fidelity", () => {
+  it("exports real sampled geometry and changes it when the expression changes", () => {
+    const quadratic = coordinatePlotWithSeries(["x^2"]);
+    const linear = coordinatePlotWithSeries(["2*x+a"]);
+    const quadraticSvg = renderBoardSnapshotSvg(documentOnlyWithObject(quadratic));
+    const linearSvg = renderBoardSnapshotSvg(documentOnlyWithObject(linear));
+
+    expect(quadraticSvg).toContain(
+      'data-coordinate-plot-series-id="snapshot-series:0"',
+    );
+    expect(linearSvg).toContain(
+      'data-coordinate-plot-series-id="snapshot-series:0"',
+    );
+    expect(quadraticSvg).not.toBe(linearSvg);
+    expect(exportedSeriesFragments(quadraticSvg, "snapshot-series:0").length).toBeGreaterThan(0);
+    expect(exportedSeriesFragments(linearSvg, "snapshot-series:0").length).toBeGreaterThan(0);
+  });
+
+  it("keeps discontinuity fragments separate for 1/x", () => {
+    const object = coordinatePlotWithSeries(["1/x"]);
+    const svg = renderBoardSnapshotSvg(documentOnlyWithObject(object));
+    const fragments = exportedSeriesFragments(svg, "snapshot-series:0");
+
+    expect(fragments.length).toBeGreaterThan(1);
+    expect(svg).toContain('clip-path="url(#coordinate-plot-clip-');
+  });
+
+  it("respects shifted and tightly zoomed coordinate viewports", () => {
+    const shifted = coordinatePlotWithSeries(["x^2"], {
+      viewport: {
+        equalScale: false,
+        xMax: 20,
+        xMin: 10,
+        yMax: 30,
+        yMin: 5,
+      },
+    });
+    const zoomed = coordinatePlotWithSeries(["x^2"], {
+      viewport: {
+        equalScale: false,
+        xMax: 0.2,
+        xMin: -0.2,
+        yMax: 0.08,
+        yMin: -0.02,
+      },
+    });
+    const shiftedSvg = renderBoardSnapshotSvg(documentOnlyWithObject(shifted));
+    const zoomedSvg = renderBoardSnapshotSvg(documentOnlyWithObject(zoomed));
+
+    expect(shiftedSvg).not.toContain('data-coordinate-plot-axis="x"');
+    expect(shiftedSvg).not.toContain('data-coordinate-plot-axis="y"');
+    expect(zoomedSvg).toContain('data-coordinate-plot-axis="x"');
+    expect(zoomedSvg).toContain('data-coordinate-plot-axis="y"');
+    expect(shiftedSvg).not.toBe(zoomedSvg);
+  });
+
+  it("exports multiple visible series and omits hidden series", () => {
+    const object = coordinatePlotWithSeries(["x^2", "2*x+a", "sin(x)"]);
+    const hiddenId = object.definition.series[1]?.id;
+    if (hiddenId === undefined) throw new Error("Expected second series.");
+    const hidden: CoordinatePlotObject = {
+      ...object,
+      definition: {
+        ...object.definition,
+        series: object.definition.series.map((series, index) =>
+          index === 1 ? { ...series, visible: false } : series,
+        ),
+      },
+    };
+    const svg = renderBoardSnapshotSvg(documentOnlyWithObject(hidden));
+
+    expect(svg).toContain('data-coordinate-plot-series-id="snapshot-series:0"');
+    expect(svg).toContain('data-coordinate-plot-series-id="snapshot-series:2"');
+    expect(svg).not.toContain(
+      `data-coordinate-plot-series-id="${hiddenId}"`,
+    );
+  });
+
+  it("exports parameterized, parametric and relation geometry with series styles", () => {
+    const base = createCoordinatePlotProductionObject(0);
+    const parameterized = base.definition.series.find(
+      (series) => series.kind === "explicit" && series.expression === "a*sin(b*x)",
+    );
+    const parametric = base.definition.series.find(
+      (series) => series.kind === "parametric",
+    );
+    if (parameterized === undefined || parametric === undefined) {
+      throw new Error("Production fixture must contain parameterized and parametric series.");
+    }
+    const relation: RelationPlotSeries = {
+      expression: "x^2+y^2<=9",
+      fillOpacity: 0.18,
+      id: plotSeriesId("snapshot-series:relation"),
+      kind: "relation",
+      name: "Disk",
+      style: {
+        lineStyle: "dash-dot",
+        opacity: 0.76,
+        stroke: "#9333ea",
+        strokeWidth: 2.5,
+      },
+      visible: true,
+    };
+    const object: CoordinatePlotObject = {
+      ...base,
+      definition: {
+        ...base.definition,
+        legend: { ...base.definition.legend, visible: true },
+        series: [parameterized, parametric, relation],
+      },
+    };
+    const svg = renderBoardSnapshotSvg(documentOnlyWithObject(object));
+
+    expect(svg).toContain(
+      `data-coordinate-plot-series-id="${parameterized.id}"`,
+    );
+    expect(svg).toContain(
+      `data-coordinate-plot-series-id="${parametric.id}"`,
+    );
+    expect(svg).toContain('data-coordinate-plot-series-kind="parametric"');
+    expect(svg).toContain(
+      'data-coordinate-plot-fill-id="snapshot-series:relation"',
+    );
+    expect(svg).toContain('stroke="#9333ea"');
+    expect(svg).toContain('stroke-opacity="0.76"');
+    expect(svg).toContain("stroke-dasharray=");
+    expect(svg).toContain('data-coordinate-plot-legend="true"');
   });
 });
 
