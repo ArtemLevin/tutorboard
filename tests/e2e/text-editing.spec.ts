@@ -116,7 +116,6 @@ test("cancels an unsaved text draft with Escape and switches to selection", asyn
   );
 });
 
-
 test(
   "keeps text editing IME-safe and cancels an existing draft without history",
   { tag: "@smoke" },
