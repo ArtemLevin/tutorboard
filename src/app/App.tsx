@@ -18,9 +18,18 @@ import {
   type BoardDocument,
   type BoardObjectId,
   type GeometryOsClient,
+  type Size2,
   type Vec2,
   type ViewportState,
 } from "../core/public";
+import {
+  aggregateSelectionBounds,
+  selectSelectionBounds,
+} from "../modules/selection/public";
+import {
+  resolveEmbeddedImagePlacementSize,
+  type EmbeddedImagePlacementContext,
+} from "./image-import";
 import {
   geometryPlacementToolId,
   navigationToolId,
@@ -423,10 +432,78 @@ export function App({
     onPasted: handleObjectsInserted,
     selection,
   });
+  const resolveImageDisplaySize = useCallback(
+    (intrinsicSize: Size2): Size2 => {
+      const current = getDocument();
+      const currentScene = sceneSelector(current);
+      const workspace = workspaceRef.current?.getBoundingClientRect();
+      const screenSize = {
+        height: Math.max(1, workspace?.height ?? window.innerHeight),
+        width: Math.max(1, workspace?.width ?? window.innerWidth),
+      };
+      const viewportSize = {
+        height: screenSize.height / current.viewport.zoom,
+        width: screenSize.width / current.viewport.zoom,
+      };
+      const viewportOrigin = screenToWorld({ x: 0, y: 0 }, current.viewport);
+      const allVisibleBounds = selectSelectionBounds(
+        currentScene,
+        currentScene.items
+          .filter(({ object }) => object.visible)
+          .map(({ object }) => object.id),
+      ).filter(({ rect }) => {
+        const right = viewportOrigin.x + viewportSize.width;
+        const bottom = viewportOrigin.y + viewportSize.height;
+        return (
+          rect.x <= right &&
+          rect.x + rect.width >= viewportOrigin.x &&
+          rect.y <= bottom &&
+          rect.y + rect.height >= viewportOrigin.y
+        );
+      });
+      const boundsById = new Map(
+        allVisibleBounds.map(({ id, rect }) => [id, rect]),
+      );
+      const selected = aggregateSelectionBounds(
+        selectSelectionBounds(
+          currentScene,
+          selection.getState().selectedObjectIds,
+        ),
+      );
+      const mediaIds = new Set(
+        currentScene.items.flatMap(({ object }) =>
+          object.visible &&
+          (object.kind === "image.embedded" || object.kind === "media.asset")
+            ? [object.id]
+            : [],
+        ),
+      );
+      const context: EmbeddedImagePlacementContext = {
+        selectedBounds:
+          selected === null
+            ? null
+            : { height: selected.height, width: selected.width },
+        viewportSize,
+        visibleContentBounds: [...boundsById.values()].map((rect) => ({
+          height: rect.height,
+          width: rect.width,
+        })),
+        visibleMediaBounds: [...mediaIds].flatMap((id) => {
+          const rect = boundsById.get(id);
+          return rect === undefined
+            ? []
+            : [{ height: rect.height, width: rect.width }];
+        }),
+      };
+      return resolveEmbeddedImagePlacementSize(intrinsicSize, context);
+    },
+    [getDocument, sceneSelector, selection],
+  );
   const media = useBoardMediaController({
     clipboard,
     documentController,
     onImagesInserted: handleObjectsInserted,
+    resolveImageDisplaySize,
     resolvePlacementCenter,
   });
 
