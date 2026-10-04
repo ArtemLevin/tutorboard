@@ -96,9 +96,7 @@ function groupEligible(document: BoardDocument, groupId: GroupId): boolean {
     return (
       member !== undefined &&
       !member.locked &&
-      member.visible &&
-      member.source.kind === "user" &&
-      member.groupId === groupId
+      member.source.kind === "user"
     );
   });
 }
