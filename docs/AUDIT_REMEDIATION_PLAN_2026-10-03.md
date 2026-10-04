@@ -706,8 +706,9 @@ Current runtime flow on `main`:
    size and display size inside BoardDocument.
 2. `EmbeddedImageRenderer` creates a fresh `HTMLImageElement` for every
    mounted embedded image and assigns `object.dataUrl`.
-3. BoardStage performs viewport culling before rendering. Offscreen objects are
-   unmounted, so their renderer effects and GIF redraw loop are disposed.
+3. BoardStage performs viewport culling before rendering. Objects outside the
+   viewport + overscan culling window are unmounted, so their renderer effects
+   and GIF redraw loop are disposed.
 4. Every visible GIF owns its own `requestAnimationFrame` loop through
    `startAnimatedImageRedraw()`.
 5. Each GIF callback calls `batchDraw()` on the Konva Layer that contains all
@@ -729,7 +730,7 @@ Current runtime flow on `main`:
 | ID | Confidence before profile | Hypothesis | Required evidence |
 | --- | --- | --- | --- |
 | C3-H1 | HIGH | A visible GIF invalidates the shared content Layer every animation frame, so unrelated static/vector/plot content is repainted with it. | Layer draw count, frame p95 and mixed-scene cost with 0/1/4/8 GIF while static scene complexity is held constant. |
-| C3-H2 | HIGH | Static raster images decode at source resolution even when displayed much smaller; no application-owned bounded decoded-resource cache exists, so remount/duplicate content can repeat decode work and retain excessive decoded pixels. | Decode-start count, viewport churn profile, intrinsic-vs-display pixel ratio, memory/resource estimate and cleanup after eviction/unmount. |
+| C3-H2 | HIGH | The app gives each mounted static raster its full source payload and provides no display-target decode/downscale or application-owned bounded decoded-resource cache. Browser decode policy is therefore uncontrolled by TutorBoard; remount/duplicate content can repeat decode work and may retain excessive decoded pixels. | Decode-start count, viewport churn profile, intrinsic-vs-display pixel ratio, memory/resource estimate and cleanup after eviction/unmount. |
 | C3-H3 | HIGH for persistence path | Autosave repeatedly validates/canonicalizes/stringifies all embedded base64 payloads and stores a full append-only revision, making CPU/storage growth proportional to embedded bytes × revision count. | Serialized byte count, save/serialization duration and revision growth for 1/5/10 representative images. |
 | C3-H4 | MEDIUM | N visible GIFs create N independent animation loops. Konva may coalesce actual Layer draws, but callback and `batchDraw()` request overhead still scales with GIF count. | Animation callback count and actual Layer draw count per browser frame. |
 | C3-H5 | MEDIUM | Raster import decodes once to obtain intrinsic dimensions and the renderer decodes again after the object is mounted. | Import-to-first-paint decode event count and time. |
