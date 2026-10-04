@@ -103,9 +103,9 @@ describe("CI gate routing", () => {
     expect(
       routed("src/modules/local-persistence/autosave.ts").media_performance,
     ).toBe(true);
-    expect(routed("tests/e2e/media-performance.spec.ts").media_performance).toBe(
-      true,
-    );
+    expect(
+      routed("tests/e2e/media-performance.spec.ts").media_performance,
+    ).toBe(true);
   });
 
   it("routes production container changes independently from coordinate plot", () => {
