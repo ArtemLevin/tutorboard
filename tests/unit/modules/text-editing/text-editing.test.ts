@@ -104,10 +104,11 @@ describe("text editing", () => {
   });
 });
 
-
 describe("text editor keyboard contract", () => {
   const event = (
-    overrides: Partial<Parameters<typeof resolveTextEditorKeyboardAction>[0]> = {},
+    overrides: Partial<
+      Parameters<typeof resolveTextEditorKeyboardAction>[0]
+    > = {},
   ) => ({
     altKey: false,
     ctrlKey: false,
