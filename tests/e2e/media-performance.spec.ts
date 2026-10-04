@@ -136,6 +136,25 @@ interface FrameProfile {
   readonly p95Ms: number;
 }
 
+interface MediaMeasuredPass {
+  readonly counters: MediaProfileSnapshot;
+  readonly frames: FrameProfile;
+}
+
+interface MediaScenarioMedian {
+  readonly clearRectCalls: number;
+  readonly drawImageCalls: number;
+  readonly frameP95Ms: number;
+  readonly longTaskCount: number;
+  readonly rafCallbacks: number;
+  readonly rafRequests: number;
+}
+
+const mediaWarmupPasses = 2;
+const mediaMeasuredPasses = 5;
+const mediaWarmupFrames = 30;
+const mediaMeasuredFrames = 60;
+
 const mediaInstrumentationScript = String.raw`
 (() => {
   const state = {
@@ -355,27 +374,58 @@ async function measureFrames(
   }, frameCount);
 }
 
+function median(values: readonly number[]): number {
+  const ordered = [...values].sort((left, right) => left - right);
+  return ordered[Math.floor(ordered.length / 2)] ?? 0;
+}
+
+function medianScenario(samples: readonly MediaMeasuredPass[]): MediaScenarioMedian {
+  return {
+    clearRectCalls: median(samples.map(({ counters }) => counters.clearRectCalls)),
+    drawImageCalls: median(samples.map(({ counters }) => counters.drawImageCalls)),
+    frameP95Ms: median(samples.map(({ frames }) => frames.p95Ms)),
+    longTaskCount: median(samples.map(({ counters }) => counters.longTaskCount)),
+    rafCallbacks: median(samples.map(({ counters }) => counters.rafCallbacks)),
+    rafRequests: median(samples.map(({ counters }) => counters.rafRequests)),
+  };
+}
+
 async function profileDocument(
   page: Page,
-  options: Parameters<typeof createMediaPerformanceDocument>[0],
+  options: MediaPerformanceDocumentOptions,
 ) {
   await resetLocalDatabase(page);
   const document = createMediaPerformanceDocument(options);
   await importDocument(page, document);
-  if (options?.mixed === true) {
+  if (options.mixed === true) {
     await addMixedSceneContent(page, document.order.length);
   }
   const expectedMountedMedia =
-    (options?.staticCount ?? 0) + (options?.gifCount ?? 0);
+    (options.staticCount ?? 0) + (options.gifCount ?? 0);
   await expect
     .poll(async () => (await snapshot(page)).imageSrcAssignments)
     .toBeGreaterThanOrEqual(expectedMountedMedia);
+  const mountCounters = await snapshot(page);
 
-  await resetProfile(page);
-  const frames = await measureFrames(page);
+  for (let pass = 0; pass < mediaWarmupPasses; pass += 1) {
+    await resetProfile(page);
+    await measureFrames(page, mediaWarmupFrames);
+  }
+
+  const samples: MediaMeasuredPass[] = [];
+  for (let pass = 0; pass < mediaMeasuredPasses; pass += 1) {
+    await resetProfile(page);
+    const frames = await measureFrames(page, mediaMeasuredFrames);
+    samples.push({
+      counters: await snapshot(page),
+      frames,
+    });
+  }
+
   return {
-    counters: await snapshot(page),
-    frames,
+    median: medianScenario(samples),
+    mountCounters,
+    samples,
   };
 }
 
@@ -429,15 +479,15 @@ test("@media-profile records the C2 media rendering baseline", async ({
     },
   };
 
-  expect(report.scenarios.gif1.counters.rafCallbacks).toBeGreaterThan(0);
-  expect(report.scenarios.gif4.counters.rafCallbacks).toBeGreaterThan(
-    report.scenarios.gif1.counters.rafCallbacks * 2,
+  expect(report.scenarios.gif1.median.rafCallbacks).toBeGreaterThan(0);
+  expect(report.scenarios.gif4.median.rafCallbacks).toBeGreaterThan(
+    report.scenarios.gif1.median.rafCallbacks * 2,
   );
-  expect(report.scenarios.gif8.counters.rafCallbacks).toBeGreaterThan(
-    report.scenarios.gif4.counters.rafCallbacks * 1.5,
+  expect(report.scenarios.gif8.median.rafCallbacks).toBeGreaterThan(
+    report.scenarios.gif4.median.rafCallbacks * 1.5,
   );
-  expect(report.scenarios.mixed.counters.drawImageCalls).toBeGreaterThan(
-    report.scenarios.gif4.counters.drawImageCalls,
+  expect(report.scenarios.mixed.median.drawImageCalls).toBeGreaterThan(
+    report.scenarios.gif4.median.drawImageCalls,
   );
 
   console.info("MEDIA_BROWSER_BASELINE", JSON.stringify(report));
