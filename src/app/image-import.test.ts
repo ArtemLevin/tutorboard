@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { boardObjectId } from "../core/public";
 import {
   createEmbeddedImageObject,
   fitEmbeddedImageSize,
@@ -7,7 +8,6 @@ import {
   resolveEmbeddedImagePlacementSize,
   type PreparedEmbeddedImage,
 } from "./image-import";
-import { boardObjectId } from "../core/public";
 
 describe("embedded image import", () => {
   it("detects supported signatures", () => {
@@ -42,33 +42,33 @@ describe("embedded image import", () => {
       const intrinsic = { height: 900, width: 1600 };
       const viewportSize = { height: 800, width: 1000 };
 
-    expect(
-      resolveEmbeddedImagePlacementSize(intrinsic, {
-        selectedBounds: { height: 300, width: 400 },
-        viewportSize,
-        visibleContentBounds: [{ height: 600, width: 600 }],
-        visibleMediaBounds: [{ height: 450, width: 600 }],
-      }),
-    ).toEqual({ height: 225, width: 400 });
+      expect(
+        resolveEmbeddedImagePlacementSize(intrinsic, {
+          selectedBounds: { height: 300, width: 400 },
+          viewportSize,
+          visibleContentBounds: [{ height: 600, width: 600 }],
+          visibleMediaBounds: [{ height: 450, width: 600 }],
+        }),
+      ).toEqual({ height: 225, width: 400 });
 
-    expect(
-      resolveEmbeddedImagePlacementSize(intrinsic, {
-        viewportSize,
-        visibleContentBounds: [{ height: 240, width: 320 }],
-        visibleMediaBounds: [
-          { height: 200, width: 300 },
-          { height: 400, width: 500 },
-        ],
-      }),
-    ).toEqual({ height: 225, width: 400 });
+      expect(
+        resolveEmbeddedImagePlacementSize(intrinsic, {
+          viewportSize,
+          visibleContentBounds: [{ height: 240, width: 320 }],
+          visibleMediaBounds: [
+            { height: 200, width: 300 },
+            { height: 400, width: 500 },
+          ],
+        }),
+      ).toEqual({ height: 225, width: 400 });
 
-    expect(
-      resolveEmbeddedImagePlacementSize(intrinsic, {
-        viewportSize,
-        visibleContentBounds: [{ height: 240, width: 320 }],
-        visibleMediaBounds: [],
-      }),
-    ).toEqual({ height: 180, width: 320 });
+      expect(
+        resolveEmbeddedImagePlacementSize(intrinsic, {
+          viewportSize,
+          visibleContentBounds: [{ height: 240, width: 320 }],
+          visibleMediaBounds: [],
+        }),
+      ).toEqual({ height: 180, width: 320 });
 
       expect(
         resolveEmbeddedImagePlacementSize(intrinsic, {
@@ -107,19 +107,19 @@ describe("embedded image import", () => {
     "creates an embedded image around the requested contextual display size",
     () => {
       const prepared: PreparedEmbeddedImage = {
-      contentSha256: "abc",
-      dataUrl: "data:image/png;base64,AA==",
-      fileName: "example.png",
-      intrinsicSize: { height: 900, width: 1600 },
-      mimeType: "image/png",
-      size: { height: 360, width: 640 },
-    };
-    const object = createEmbeddedImageObject({
-      center: { x: 500, y: 400 },
-      displaySize: { height: 225, width: 400 },
-      id: boardObjectId("object:image"),
-      prepared,
-    });
+        contentSha256: "abc",
+        dataUrl: "data:image/png;base64,AA==",
+        fileName: "example.png",
+        intrinsicSize: { height: 900, width: 1600 },
+        mimeType: "image/png",
+        size: { height: 360, width: 640 },
+      };
+      const object = createEmbeddedImageObject({
+        center: { x: 500, y: 400 },
+        displaySize: { height: 225, width: 400 },
+        id: boardObjectId("object:image"),
+        prepared,
+      });
 
       expect(object.size).toEqual({ height: 225, width: 400 });
       expect(object.position).toEqual({ x: 300, y: 287.5 });
