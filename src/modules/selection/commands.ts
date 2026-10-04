@@ -1,12 +1,14 @@
 import type {
   BoardDocument,
   BoardObjectId,
+  BoardRenderItem,
   CommandMetadata,
   DeleteObjectsCommand,
   GroupId,
   MoveSelectionCommand,
   ReplaceObjectsCommand,
   SetSelectionLockCommand,
+  Transform2D,
   Vec2,
 } from "../../core/public";
 
@@ -166,6 +168,99 @@ export function createTransformSelectionCommand(
     kind: "core.objects.replace",
     originals,
     replacements,
+  };
+}
+
+function sameTransform(left: Transform2D, right: Transform2D): boolean {
+  return (
+    left.rotation === right.rotation &&
+    left.translation.x === right.translation.x &&
+    left.translation.y === right.translation.y &&
+    left.scale.x === right.scale.x &&
+    left.scale.y === right.scale.y
+  );
+}
+
+export function createLineEndpointTransformCommand(
+  metadata: CommandMetadata,
+  document: BoardDocument,
+  transform: SelectionObjectTransform,
+  baseline: BoardRenderItem,
+): ReplaceObjectsCommand {
+  const baselineObject = baseline.object;
+  if (
+    baselineObject.id !== transform.objectId ||
+    baselineObject.kind !== "drawing.line" ||
+    baselineObject.source.kind !== "user"
+  ) {
+    throw new TypeError(
+      "Line endpoint transform baseline must be a user line.",
+    );
+  }
+
+  const object = document.objects[transform.objectId];
+  if (
+    object === undefined ||
+    object.kind !== "drawing.line" ||
+    object.source.kind !== "user"
+  ) {
+    throw new TypeError("Line endpoint transform requires a user line.");
+  }
+  if (object.locked) {
+    throw new TypeError("Locked lines cannot be transformed.");
+  }
+  if (object.groupId !== baselineObject.groupId) {
+    throw new TypeError("Line endpoint transform baseline is stale.");
+  }
+  if (object.groupId === null) {
+    if (baseline.transforms.length !== 0) {
+      throw new TypeError("Line endpoint transform baseline is stale.");
+    }
+  } else {
+    const group = document.groups[object.groupId];
+    const groupLocked =
+      group === undefined ||
+      group.locked ||
+      group.objectIds.some(
+        (objectId) => document.objects[objectId]?.locked === true,
+      );
+    if (groupLocked) {
+      throw new TypeError("Locked groups cannot transform line endpoints.");
+    }
+    if (
+      baseline.transforms.length !== 1 ||
+      baseline.transforms[0] === undefined ||
+      !sameTransform(group.transform, baseline.transforms[0])
+    ) {
+      throw new TypeError("Line endpoint transform baseline is stale.");
+    }
+  }
+  if (
+    !Number.isFinite(transform.position.x) ||
+    !Number.isFinite(transform.position.y) ||
+    !Number.isFinite(transform.rotation) ||
+    !Number.isFinite(transform.scale.x) ||
+    !Number.isFinite(transform.scale.y) ||
+    transform.scale.x <= 0 ||
+    transform.scale.y <= 0
+  ) {
+    throw new TypeError(
+      "Line endpoint transform values must be finite and positive.",
+    );
+  }
+
+  return {
+    ...metadata,
+    kind: "core.objects.replace",
+    originals: [baselineObject],
+    replacements: [
+      {
+        ...baselineObject,
+        position: transform.position,
+        rotation: normalizeRotation(transform.rotation),
+        scale: transform.scale,
+      },
+    ],
   };
 }
 

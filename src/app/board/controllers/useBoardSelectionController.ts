@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardObjectTransformSnapshot } from "../../../adapters/canvas-konva/public";
 import type {
   BoardObjectId,
+  BoardRenderItem,
   BoardSceneReadModel,
   Vec2,
   VisualStyleOverride,
@@ -16,6 +17,8 @@ import {
 } from "../../../modules/layers/public";
 import {
   createDeleteSelectionCommand,
+  createImageScaleStepTransforms,
+  createLineEndpointTransformCommand,
   createMoveSelectionCommand,
   createSetSelectionLockCommand,
   createTransformSelectionCommand,
@@ -31,6 +34,7 @@ import {
   selectObjectIdsInRect,
   selectSelectionBounds,
   type CompletedSelectionMove,
+  type ImageScaleStepDirection,
   type SelectionAction,
   type SelectionState,
 } from "../../../modules/selection/public";
@@ -71,6 +75,9 @@ export function useBoardSelectionController({
   } = documentController;
   const [state, setState] = useState<SelectionState>(initialSelectionState);
   const stateRef = useRef<SelectionState>(initialSelectionState);
+  const [focusedObjectId, setFocusedObjectId] = useState<BoardObjectId | null>(
+    null,
+  );
 
   const replaceSelection = useCallback(
     (selectedObjectIds: readonly BoardObjectId[]) => {
@@ -80,17 +87,30 @@ export function useBoardSelectionController({
       };
       stateRef.current = next;
       setState(next);
+      setFocusedObjectId((current) =>
+        current !== null && selectedObjectIds.includes(current)
+          ? current
+          : selectedObjectIds.length === 1
+            ? selectedObjectIds[0]!
+            : null,
+      );
     },
     [],
   );
+
+  const focusObject = useCallback((objectId: BoardObjectId | null) => {
+    setFocusedObjectId(objectId);
+  }, []);
 
   const getState = useCallback(() => stateRef.current, []);
 
   const ensureObjectSelected = useCallback(
     (objectId: BoardObjectId) => {
+      setFocusedObjectId(objectId);
       const currentState = stateRef.current;
       if (currentState.selectedObjectIds.includes(objectId)) return;
       replaceSelection(expandSelectionObjectIds(getDocument(), [objectId]));
+      setFocusedObjectId(objectId);
     },
     [getDocument, replaceSelection],
   );
@@ -125,6 +145,13 @@ export function useBoardSelectionController({
       const result = reduceSelectionInteraction(stateRef.current, action);
       stateRef.current = result.state;
       setState(result.state);
+      setFocusedObjectId((current) =>
+        current !== null && result.state.selectedObjectIds.includes(current)
+          ? current
+          : result.state.selectedObjectIds.length === 1
+            ? result.state.selectedObjectIds[0]!
+            : null,
+      );
       if (result.completedMove !== null) commitMove(result.completedMove);
     },
     [commitMove],
@@ -213,13 +240,14 @@ export function useBoardSelectionController({
     (objectId: BoardObjectId) => {
       const current = getDocument();
       replaceSelection(expandSelectionObjectIds(current, [objectId]));
+      setFocusedObjectId(objectId);
     },
     [getDocument, replaceSelection],
   );
 
   const commitTransform = useCallback(
-    (transforms: readonly BoardObjectTransformSnapshot[]) => {
-      if (transforms.length === 0) return;
+    (transforms: readonly BoardObjectTransformSnapshot[]): boolean => {
+      if (transforms.length === 0) return false;
       const current = getDocument();
       try {
         const command = createTransformSelectionCommand(
@@ -227,11 +255,41 @@ export function useBoardSelectionController({
           current,
           transforms,
         );
-        if (commitCommand(command).ok)
-          announce("Размер или поворот выделения изменён");
+        if (!commitCommand(command).ok) return false;
+        announce("Размер или поворот выделения изменён");
+        return true;
       } catch (error) {
         setCommandError(
           error instanceof Error ? error.message : "Transform is invalid.",
+        );
+        return false;
+      }
+    },
+    [
+      announce,
+      commitCommand,
+      createCommandMetadata,
+      getDocument,
+      setCommandError,
+    ],
+  );
+
+  const commitLineEndpointTransform = useCallback(
+    (transform: BoardObjectTransformSnapshot, baseline: BoardRenderItem) => {
+      const current = getDocument();
+      try {
+        const command = createLineEndpointTransformCommand(
+          createCommandMetadata(),
+          current,
+          transform,
+          baseline,
+        );
+        if (commitCommand(command).ok) announce("Линия повернута за конец");
+      } catch (error) {
+        setCommandError(
+          error instanceof Error
+            ? error.message
+            : "Line endpoint transform is invalid.",
         );
       }
     },
@@ -293,6 +351,20 @@ export function useBoardSelectionController({
       createCommandMetadata,
       getDocument,
     ],
+  );
+
+  const scaleImagesByStep = useCallback(
+    (direction: ImageScaleStepDirection): boolean => {
+      const current = getDocument();
+      const transforms = createImageScaleStepTransforms(
+        current,
+        stateRef.current.selectedObjectIds,
+        direction,
+      );
+      if (transforms === null) return false;
+      return commitTransform(transforms);
+    },
+    [commitTransform, getDocument],
   );
 
   const moveBy = useCallback(
@@ -493,10 +565,13 @@ export function useBoardSelectionController({
     canGroup,
     canUngroup,
     cancel,
+    commitLineEndpointTransform,
     commitMove,
     commitTransform,
     ensureObjectSelected,
     finish,
+    focusObject,
+    focusedObjectId,
     getState,
     group,
     lasso,
@@ -508,6 +583,7 @@ export function useBoardSelectionController({
     remove,
     reorderLayer,
     replaceSelection,
+    scaleImagesByStep,
     selectObject,
     selectedEditableText,
     selectedLocked,

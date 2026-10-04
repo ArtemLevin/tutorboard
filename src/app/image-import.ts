@@ -1,10 +1,16 @@
-import type {
-  BoardObjectId,
-  EmbeddedImageMimeType,
-  EmbeddedImageObject,
-  Size2,
-  Vec2,
+import {
+  screenToWorld,
+  type BoardObjectId,
+  type BoardSceneReadModel,
+  type EmbeddedImageMimeType,
+  type EmbeddedImageObject,
+  type Size2,
+  type Vec2,
 } from "../core/public";
+import {
+  aggregateSelectionBounds,
+  selectSelectionBounds,
+} from "../modules/selection/public";
 import { sanitizeSvg } from "../modules/svg-import/public";
 
 export const embeddedImageImportLimits = {
@@ -27,6 +33,13 @@ export interface PreparedEmbeddedImage {
   readonly intrinsicSize: Size2;
   readonly mimeType: EmbeddedImageMimeType;
   readonly size: Size2;
+}
+
+export interface EmbeddedImagePlacementContext {
+  readonly selectedBounds?: Size2 | null;
+  readonly viewportSize: Size2;
+  readonly visibleContentBounds: readonly Size2[];
+  readonly visibleMediaBounds: readonly Size2[];
 }
 
 export type PrepareEmbeddedImageResult =
@@ -96,6 +109,151 @@ export function fitEmbeddedImageSize(intrinsic: Size2): Size2 {
   return {
     height: Math.max(1, intrinsic.height * scale),
     width: Math.max(1, intrinsic.width * scale),
+  };
+}
+
+function validSize(size: Size2 | null | undefined): size is Size2 {
+  return (
+    size !== null &&
+    size !== undefined &&
+    Number.isFinite(size.width) &&
+    Number.isFinite(size.height) &&
+    size.width > 0 &&
+    size.height > 0
+  );
+}
+
+function median(values: readonly number[]): number {
+  const ordered = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(ordered.length / 2);
+  if (ordered.length % 2 === 1) return ordered[middle]!;
+  return (ordered[middle - 1]! + ordered[middle]!) / 2;
+}
+
+function medianSize(sizes: readonly Size2[]): Size2 | null {
+  const valid = sizes.filter(validSize);
+  if (valid.length === 0) return null;
+  return {
+    height: median(valid.map(({ height }) => height)),
+    width: median(valid.map(({ width }) => width)),
+  };
+}
+
+function fitWithinBox(intrinsic: Size2, box: Size2): Size2 {
+  const scale = Math.min(
+    box.width / intrinsic.width,
+    box.height / intrinsic.height,
+  );
+  return {
+    height: intrinsic.height * scale,
+    width: intrinsic.width * scale,
+  };
+}
+
+export function resolveEmbeddedImagePlacementSizeForScene(
+  intrinsic: Size2,
+  input: {
+    readonly scene: BoardSceneReadModel;
+    readonly screenSize: Size2;
+    readonly selectedObjectIds: readonly BoardObjectId[];
+  },
+): Size2 {
+  const { scene, screenSize, selectedObjectIds } = input;
+  const viewportSize = {
+    height: Math.max(1, screenSize.height) / scene.viewport.zoom,
+    width: Math.max(1, screenSize.width) / scene.viewport.zoom,
+  };
+  const viewportOrigin = screenToWorld({ x: 0, y: 0 }, scene.viewport);
+  const viewportRight = viewportOrigin.x + viewportSize.width;
+  const viewportBottom = viewportOrigin.y + viewportSize.height;
+  const visibleBounds = selectSelectionBounds(
+    scene,
+    scene.items
+      .filter(({ object }) => object.visible)
+      .map(({ object }) => object.id),
+  ).filter(
+    ({ rect }) =>
+      rect.x <= viewportRight &&
+      rect.x + rect.width >= viewportOrigin.x &&
+      rect.y <= viewportBottom &&
+      rect.y + rect.height >= viewportOrigin.y,
+  );
+  const boundsById = new Map(visibleBounds.map(({ id, rect }) => [id, rect]));
+  const selected = aggregateSelectionBounds(
+    selectSelectionBounds(scene, selectedObjectIds),
+  );
+  const visibleMediaBounds = scene.items.flatMap(({ object }) => {
+    if (
+      !object.visible ||
+      (object.kind !== "image.embedded" && object.kind !== "media.asset")
+    ) {
+      return [];
+    }
+    const rect = boundsById.get(object.id);
+    return rect === undefined
+      ? []
+      : [{ height: rect.height, width: rect.width }];
+  });
+
+  return resolveEmbeddedImagePlacementSize(intrinsic, {
+    selectedBounds:
+      selected === null
+        ? null
+        : { height: selected.height, width: selected.width },
+    viewportSize,
+    visibleContentBounds: [...boundsById.values()].map((rect) => ({
+      height: rect.height,
+      width: rect.width,
+    })),
+    visibleMediaBounds,
+  });
+}
+
+export function resolveEmbeddedImagePlacementSize(
+  intrinsic: Size2,
+  context: EmbeddedImagePlacementContext,
+): Size2 {
+  if (!validSize(intrinsic) || !validSize(context.viewportSize)) {
+    return fitEmbeddedImageSize(intrinsic);
+  }
+
+  const viewport = context.viewportSize;
+  const maximumBox = {
+    height: viewport.height * 0.72,
+    width: viewport.width * 0.72,
+  };
+  const fallbackBox = {
+    height: viewport.height * 0.42,
+    width: viewport.width * 0.42,
+  };
+  const reference =
+    (validSize(context.selectedBounds) ? context.selectedBounds : null) ??
+    medianSize(context.visibleMediaBounds) ??
+    medianSize(context.visibleContentBounds) ??
+    fallbackBox;
+  const targetBox = {
+    height: Math.min(maximumBox.height, Math.max(1, reference.height)),
+    width: Math.min(maximumBox.width, Math.max(1, reference.width)),
+  };
+  let fitted = fitWithinBox(intrinsic, targetBox);
+
+  const minimumLongSide = Math.min(viewport.width, viewport.height) * 0.18;
+  const currentLongSide = Math.max(fitted.width, fitted.height);
+  if (currentLongSide < minimumLongSide) {
+    const scale = Math.min(
+      minimumLongSide / currentLongSide,
+      maximumBox.width / fitted.width,
+      maximumBox.height / fitted.height,
+    );
+    fitted = {
+      height: fitted.height * scale,
+      width: fitted.width * scale,
+    };
+  }
+
+  return {
+    height: Math.max(1, fitted.height),
+    width: Math.max(1, fitted.width),
   };
 }
 
@@ -237,9 +395,11 @@ export async function prepareEmbeddedImageFile(
 
 export function createEmbeddedImageObject(input: {
   readonly center: Vec2;
+  readonly displaySize?: Size2;
   readonly id: BoardObjectId;
   readonly prepared: PreparedEmbeddedImage;
 }): EmbeddedImageObject {
+  const size = input.displaySize ?? input.prepared.size;
   return {
     contentSha256: input.prepared.contentSha256,
     dataUrl: input.prepared.dataUrl,
@@ -251,12 +411,12 @@ export function createEmbeddedImageObject(input: {
     locked: false,
     mimeType: input.prepared.mimeType,
     position: {
-      x: input.center.x - input.prepared.size.width / 2,
-      y: input.center.y - input.prepared.size.height / 2,
+      x: input.center.x - size.width / 2,
+      y: input.center.y - size.height / 2,
     },
     rotation: 0,
     scale: { x: 1, y: 1 },
-    size: input.prepared.size,
+    size,
     source: { kind: "user" },
     style: {
       fill: null,

@@ -1,5 +1,11 @@
 export {
+  createImageScaleStepTransforms,
+  nextImageScaleStep,
+  type ImageScaleStepDirection,
+} from "./image-scale";
+export {
   createDeleteSelectionCommand,
+  createLineEndpointTransformCommand,
   createMoveSelectionCommand,
   createSetSelectionLockCommand,
   createTransformSelectionCommand,

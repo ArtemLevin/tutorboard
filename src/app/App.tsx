@@ -18,9 +18,11 @@ import {
   type BoardDocument,
   type BoardObjectId,
   type GeometryOsClient,
+  type Size2,
   type Vec2,
   type ViewportState,
 } from "../core/public";
+import { resolveEmbeddedImagePlacementSizeForScene } from "./image-import";
 import {
   geometryPlacementToolId,
   navigationToolId,
@@ -423,10 +425,26 @@ export function App({
     onPasted: handleObjectsInserted,
     selection,
   });
+  const resolveImageDisplaySize = useCallback(
+    (intrinsicSize: Size2): Size2 => {
+      const current = getDocument();
+      const workspace = workspaceRef.current?.getBoundingClientRect();
+      return resolveEmbeddedImagePlacementSizeForScene(intrinsicSize, {
+        scene: sceneSelector(current),
+        screenSize: {
+          height: Math.max(1, workspace?.height ?? window.innerHeight),
+          width: Math.max(1, workspace?.width ?? window.innerWidth),
+        },
+        selectedObjectIds: selection.getState().selectedObjectIds,
+      });
+    },
+    [getDocument, sceneSelector, selection],
+  );
   const media = useBoardMediaController({
     clipboard,
     documentController,
     onImagesInserted: handleObjectsInserted,
+    resolveImageDisplaySize,
     resolvePlacementCenter,
   });
 

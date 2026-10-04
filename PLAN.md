@@ -91,21 +91,37 @@ PR-CI `37200381127` прошёл Quality gate, unit/performance suites,
 Chromium/Firefox browser smoke и Board-only profile; standalone Smart Ink,
 Formula Recognition и Paddle gates на том же HEAD также green.
 
-B3 Clear/resource lifecycle реализован в PR #170 и ожидает merge. Операция
-«Очистить холст» сохраняет undo/history и clipboard как пользовательское
-состояние, одновременно освобождая derived Coordinate Plot sampling cache,
-закрывая transient drawing/eraser/handwriting/GeometryOS/laser/selection
-sessions, plot/3D editors и transform preview. GIF redraw loop имеет явный
-cancel lifecycle. Повторные fill/clear циклы проверяют, что technical cache
-возвращается к нулю.
+B3 Clear/resource lifecycle закрыт и смержен PR #170 как
+`893c3cb601844e0a827d084579acae3e0a5cfb55`. Операция «Очистить холст»
+сохраняет undo/history и clipboard как пользовательское состояние, одновременно
+освобождая derived Coordinate Plot sampling cache, закрывая transient
+drawing/eraser/handwriting/GeometryOS/laser/selection sessions, plot/3D editors
+и transform preview. GIF redraw loop имеет явный cancel lifecycle.
 
-Кодовый HEAD PR #170 `4312f81ac90c6b331f4ee004a0a60f56da398320`
-прошёл PR-CI `37204307985`: Quality gate, unit/performance suites,
-architecture, production build, Chromium/Firefox browser smoke, Board-only
-profile, GeometryOS live contract и Coordinate Plot production/visual gates.
-Smart Ink, Formula Recognition и Paddle sidecar gates на том же HEAD — green.
+C1 Line endpoint rotation закрыт и смержен PR #171 как
+`5d88746eb46f7280d89e543ac285c885a1510f6b`. Финальный release-gate review
+дополнительно устранил две edge-case проблемы: click по endpoint без drag больше
+не создаёт no-op history entry, а commit endpoint transform привязан к baseline
+жеста и отклоняет stale object/group transform при concurrent изменении.
 
-После merge B3 следующий этап remediation train — **C1 Line endpoint rotation**.
+Финальный code-head C1 `a6ea034f4158393d0d607e0ecc4fc81807354685`
+прошёл CI `37214700224`: format/lint/typecheck, dependency threshold, unit и
+performance suites, architecture/source boundaries, production build,
+Chromium/Firefox browser smoke, Board-only profile, GeometryOS live contract и
+Coordinate Plot production gate. Smart Ink `37214700284`, Formula Recognition
+`37214700259` и Paddle sidecar `37214700269` также green.
+
+C2 **Context-aware image sizing and ±50%** закрыт и смержен PR #172 как
+`7965d3926d27e3c134efcfd2df52c0571e486a41`. Финальный branch HEAD
+`35ad7c697eecf257b7ccdc62cfafac52d2914fef` прошёл CI run
+`37221613258` (#2017), а также Smart Ink, Formula Recognition и Paddle
+production gates.
+
+Текущий этап remediation train — **C3 Media performance**. C3 начинается с
+воспроизводимого browser profile и фиксации baseline по static images, GIF,
+mixed scene, visibility/offscreen lifecycle и autosave. Production-код C3
+изменяется только после подтверждения dominant contributor. Предлагаемая ветка:
+`perf/media-rendering`.
 
 ## 1. Продуктовая цель
 
