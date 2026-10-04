@@ -1,12 +1,14 @@
 import type {
   BoardDocument,
   BoardObjectId,
+  BoardRenderItem,
   CommandMetadata,
   DeleteObjectsCommand,
   GroupId,
   MoveSelectionCommand,
   ReplaceObjectsCommand,
   SetSelectionLockCommand,
+  Transform2D,
   Vec2,
 } from "../../core/public";
 
@@ -169,11 +171,31 @@ export function createTransformSelectionCommand(
   };
 }
 
+function sameTransform(left: Transform2D, right: Transform2D): boolean {
+  return (
+    left.rotation === right.rotation &&
+    left.translation.x === right.translation.x &&
+    left.translation.y === right.translation.y &&
+    left.scale.x === right.scale.x &&
+    left.scale.y === right.scale.y
+  );
+}
+
 export function createLineEndpointTransformCommand(
   metadata: CommandMetadata,
   document: BoardDocument,
   transform: SelectionObjectTransform,
+  baseline: BoardRenderItem,
 ): ReplaceObjectsCommand {
+  const baselineObject = baseline.object;
+  if (
+    baselineObject.id !== transform.objectId ||
+    baselineObject.kind !== "drawing.line" ||
+    baselineObject.source.kind !== "user"
+  ) {
+    throw new TypeError("Line endpoint transform baseline must be a user line.");
+  }
+
   const object = document.objects[transform.objectId];
   if (
     object === undefined ||
@@ -185,7 +207,14 @@ export function createLineEndpointTransformCommand(
   if (object.locked) {
     throw new TypeError("Locked lines cannot be transformed.");
   }
-  if (object.groupId !== null) {
+  if (object.groupId !== baselineObject.groupId) {
+    throw new TypeError("Line endpoint transform baseline is stale.");
+  }
+  if (object.groupId === null) {
+    if (baseline.transforms.length !== 0) {
+      throw new TypeError("Line endpoint transform baseline is stale.");
+    }
+  } else {
     const group = document.groups[object.groupId];
     const groupLocked =
       group === undefined ||
@@ -195,6 +224,13 @@ export function createLineEndpointTransformCommand(
       );
     if (groupLocked) {
       throw new TypeError("Locked groups cannot transform line endpoints.");
+    }
+    if (
+      baseline.transforms.length !== 1 ||
+      baseline.transforms[0] === undefined ||
+      !sameTransform(group.transform, baseline.transforms[0])
+    ) {
+      throw new TypeError("Line endpoint transform baseline is stale.");
     }
   }
   if (
@@ -214,10 +250,10 @@ export function createLineEndpointTransformCommand(
   return {
     ...metadata,
     kind: "core.objects.replace",
-    originals: [object],
+    originals: [baselineObject],
     replacements: [
       {
-        ...object,
+        ...baselineObject,
         position: transform.position,
         rotation: normalizeRotation(transform.rotation),
         scale: transform.scale,
