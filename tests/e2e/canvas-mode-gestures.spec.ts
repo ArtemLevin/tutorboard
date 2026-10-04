@@ -31,81 +31,95 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByTestId("board-stage")).toBeVisible();
 });
 
-test("switches to Smart Ink from navigation, pen and selection without creating artifacts", async ({
-  page,
-}) => {
-  const stage = page.getByTestId("board-stage");
-  const first = await stagePoint(page, 280, 190);
-  const second = await stagePoint(page, 520, 310);
-  const third = await stagePoint(page, 710, 240);
+test(
+  "switches to Smart Ink from navigation and selection while pen taps stay ink",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const stage = page.getByTestId("board-stage");
+    const first = await stagePoint(page, 280, 190);
+    const second = await stagePoint(page, 520, 310);
+    const third = await stagePoint(page, 710, 240);
 
-  await expect(stage).toHaveAttribute("data-pan-mode", "true");
-  await page.mouse.click(first.x, first.y);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
-  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
-  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
+    await expect(stage).toHaveAttribute("data-pan-mode", "true");
+    await page.mouse.click(first.x, first.y);
+    await expect(stage).toHaveAttribute(
+      "data-drawing-mode",
+      "drawing.smart-ink",
+    );
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+    await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 
-  await selectPen(page);
-  await page.mouse.click(second.x, second.y);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
-  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
-  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
+    await selectPen(page);
+    await page.mouse.click(second.x, second.y);
+    await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
+    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+    await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 
-  await page.keyboard.press("v");
-  await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
-  await page.mouse.click(third.x, third.y);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
-  await expect(stage).toHaveAttribute("data-selection-mode", "none");
-  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
-  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
-});
+    await page.keyboard.press("v");
+    await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
+    await page.mouse.click(third.x, third.y);
+    await expect(stage).toHaveAttribute(
+      "data-drawing-mode",
+      "drawing.smart-ink",
+    );
+    await expect(stage).toHaveAttribute("data-selection-mode", "none");
+    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+    await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
+  },
+);
 
-test("recognizes a realistic slow double click from pen and Smart Ink", async ({
-  page,
-}) => {
-  const stage = page.getByTestId("board-stage");
-  const first = await stagePoint(page, 360, 260);
-  const second = await stagePoint(page, 620, 360);
+test(
+  "recognizes a realistic slow double click in primary canvas gesture modes",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const stage = page.getByTestId("board-stage");
+    const first = await stagePoint(page, 360, 260);
+    const second = await stagePoint(page, 620, 360);
 
-  await selectPen(page);
-  await slowDoubleClick(page, first);
-  await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "none");
-  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
-  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
+    await expect(stage).toHaveAttribute("data-pan-mode", "true");
+    await slowDoubleClick(page, first);
+    await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
+    await expect(stage).toHaveAttribute("data-drawing-mode", "none");
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+    await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
 
-  await page.mouse.click(second.x, second.y);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
-  await slowDoubleClick(page, first);
-  await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "none");
-  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
-  await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
-});
+    await slowDoubleClick(page, second);
+    await expect(stage).toHaveAttribute("data-selection-mode", /selection\./);
+    await expect(stage).toHaveAttribute("data-drawing-mode", "none");
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+    await expect(page.getByTestId("selection-count")).toHaveText("0 выбрано");
+  },
+);
 
-test("shows a compact dot for pen cursors and keeps crosshair for shape tools", async ({
-  page,
-}) => {
-  const stage = page.getByTestId("board-stage");
+test(
+  "shows a compact dot for pen cursors and keeps crosshair for shape tools",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const stage = page.getByTestId("board-stage");
 
-  await selectPen(page);
-  await expect(stage).toHaveAttribute("data-cursor-kind", "pen-dot");
-  const penCursor = await stage.evaluate(
-    (element) => getComputedStyle(element).cursor,
-  );
-  expect(penCursor).toContain("url(");
-  expect(penCursor).toContain("4 4, crosshair");
+    await selectPen(page);
+    await expect(stage).toHaveAttribute("data-cursor-kind", "pen-dot");
+    const penCursor = await stage.evaluate(
+      (element) => getComputedStyle(element).cursor,
+    );
+    expect(penCursor).toContain("url(");
+    expect(penCursor).toContain("4 4, crosshair");
 
-  const point = await stagePoint(page, 480, 260);
-  await page.mouse.click(point.x, point.y);
-  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
-  await expect(stage).toHaveAttribute("data-cursor-kind", "pen-dot");
+    const point = await stagePoint(page, 480, 260);
+    await page.mouse.click(point.x, point.y);
+    await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
+    await expect(stage).toHaveAttribute("data-cursor-kind", "pen-dot");
+    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
 
-  await page.keyboard.press("r");
-  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.rectangle");
-  await expect(stage).toHaveAttribute("data-cursor-kind", "crosshair");
-  await expect(stage).toHaveCSS("cursor", "crosshair");
-});
+    await page.keyboard.press("r");
+    await expect(stage).toHaveAttribute(
+      "data-drawing-mode",
+      "drawing.rectangle",
+    );
+    await expect(stage).toHaveAttribute("data-cursor-kind", "crosshair");
+    await expect(stage).toHaveCSS("cursor", "crosshair");
+  },
+);
 
 test("keeps drag gestures in their active tools", async ({ page }) => {
   const stage = page.getByTestId("board-stage");
