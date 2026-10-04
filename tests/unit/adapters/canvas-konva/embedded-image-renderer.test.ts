@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   startAnimatedImageRedraw,
   type AnimationFrameScheduler,
-} from "../../../../src/adapters/canvas-konva/embedded-image-renderer";
+} from "../../../../src/adapters/canvas-konva/animated-image-redraw";
 
 describe("embedded GIF redraw lifecycle", () => {
   it("cancels the pending frame and cannot reschedule after cleanup", () => {
