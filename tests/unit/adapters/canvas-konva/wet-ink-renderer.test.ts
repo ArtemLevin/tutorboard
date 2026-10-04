@@ -236,7 +236,6 @@ describe("WetInkRenderer", () => {
   });
 });
 
-
 function frame(
   actualSamples: WetInkFrame["actualSamples"],
   predictedSamples: WetInkFrame["predictedSamples"] = [],
@@ -271,9 +270,7 @@ describe("createKonvaWetInkSurface", () => {
   it("renders one fast-path circle for a single actual sample with no predictions", () => {
     const { group, surface } = createInspectableWetInkSurface();
     surface.draw(
-      frame([
-        { inputTimestampMs: 0, point: { x: 12, y: 18 }, pressure: 0.8 },
-      ]),
+      frame([{ inputTimestampMs: 0, point: { x: 12, y: 18 }, pressure: 0.8 }]),
     );
 
     const visible = visibleChildren(group);
@@ -345,9 +342,7 @@ describe("createKonvaWetInkSurface", () => {
           { inputTimestampMs: 0, point: { x: 0, y: 0 }, pressure: 0.5 },
           { inputTimestampMs: 4, point: { x: 30, y: 20 }, pressure: 0.6 },
         ],
-        [
-          { inputTimestampMs: 8, point: { x: 45, y: 26 }, pressure: 0.55 },
-        ],
+        [{ inputTimestampMs: 8, point: { x: 45, y: 26 }, pressure: 0.55 }],
       ),
     );
 
