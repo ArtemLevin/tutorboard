@@ -8,6 +8,7 @@ import {
 import {
   createUpdateTextCommand,
   isEditableTextObject,
+  resolveTextEditorKeyboardAction,
 } from "../../../../src/modules/text-editing/public";
 import {
   emptyDocument,
@@ -100,5 +101,59 @@ describe("text editing", () => {
         "command.imported-object-edit-unsupported",
       );
     }
+  });
+});
+
+describe("text editor keyboard contract", () => {
+  const event = (
+    overrides: Partial<
+      Parameters<typeof resolveTextEditorKeyboardAction>[0]
+    > = {},
+  ) => ({
+    altKey: false,
+    ctrlKey: false,
+    isComposing: false,
+    key: "Enter",
+    metaKey: false,
+    shiftKey: false,
+    ...overrides,
+  });
+
+  it("keeps bare Enter native for multiline editing", () => {
+    expect(resolveTextEditorKeyboardAction(event())).toBe("native");
+  });
+
+  it.each([
+    { ctrlKey: false, metaKey: false, shiftKey: true },
+    { ctrlKey: true, metaKey: false, shiftKey: false },
+    { ctrlKey: false, metaKey: true, shiftKey: false },
+  ])("commits the supported Enter chord %#", (modifiers) => {
+    expect(
+      resolveTextEditorKeyboardAction(event({ key: "Enter", ...modifiers })),
+    ).toBe("commit");
+  });
+
+  it("cancels with Escape", () => {
+    expect(resolveTextEditorKeyboardAction(event({ key: "Escape" }))).toBe(
+      "cancel",
+    );
+  });
+
+  it.each([
+    { key: "Enter", shiftKey: true },
+    { ctrlKey: true, key: "Enter" },
+    { key: "Escape" },
+  ])("gives IME composition precedence %#", (overrides) => {
+    expect(
+      resolveTextEditorKeyboardAction(
+        event({ ...overrides, isComposing: true }),
+      ),
+    ).toBe("compose");
+  });
+
+  it("does not hijack Alt+Enter", () => {
+    expect(
+      resolveTextEditorKeyboardAction(event({ altKey: true, shiftKey: true })),
+    ).toBe("native");
   });
 });

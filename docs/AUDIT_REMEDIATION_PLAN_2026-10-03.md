@@ -26,6 +26,36 @@ A1 → A2 → A3 → A4 → A5
 
 Каждый следующий PR создаётся от уже смерженного предыдущего `main`, чтобы исключить длинную stacked-цепочку и упростить review/regression isolation.
 
+### Execution status — 2026-10-04
+
+| Этап | Статус | Evidence |
+| --- | --- | --- |
+| A1 — Pen pressure & tap | RESOLVED | PR #157–#158 |
+| A2 — Stroke width & stroke styles | RESOLVED | PR #159–#160 |
+| A3 — Closed Vector Ink / render bounds / Wet Ink parity | RESOLVED | PR #161–#163 |
+| A4 — Unified text keyboard contract | RESOLVED | PR #164 |
+| Browser release gate after A1–A4 | RESOLVED | PR #165; `main` CI `37186878246` green |
+| A5 — Coordinate plot export fidelity | RESOLVED | PR #167; PR CI `37194207372` green |
+| B1 — Eraser broad-phase selection | RESOLVED | PR #168; PR CI `37197289434` green |
+| B2 — Incremental eraser gesture | RESOLVED | PR #169; PR CI `37200715401` green; merged as `932371e046cedcee4b55399b7764637352eba858` |
+| B3 — Clear/resource lifecycle | IN REVIEW | PR #170; code-head CI `37204307985` green |
+
+PR #165 дополнительно закрепил актуальный pen-tap contract в Chromium/Firefox
+browser coverage и выровнял right-double-click object settings с forgiving
+selection через один screen-stable proximity tolerance. Полный push-CI на
+`main` после merge прошёл Quality gate, Chromium/Firefox E2E, Board-only
+profile, Coordinate plot production gate, GeometryOS live browser contract и
+Production image.
+
+PR #167 закрыл A5: document-transfer snapshot теперь использует тот же
+renderer-neutral Coordinate Plot render model и production sampler, что и
+interactive canvas. Экспорт сохраняет real series geometry, viewport,
+grid/axes, clipping, series visibility/styles, legend, relation fills и
+раздельные discontinuity fragments. PNG и PDF получают ту же geometry через
+общий SVG rasterization path. CI routing дополнен так, чтобы изменения
+`src/modules/document-transfer/snapshot.ts` запускали Coordinate Plot
+production gate.
+
 ---
 
 ## 2. Общий engineering contract для каждого PR
@@ -337,6 +367,8 @@ plot definition
 
 ## B1 — Eraser broad-phase selection
 
+**Статус: RESOLVED — PR #168.**
+
 ### Finding
 
 `selectObjectIdsNearPath` выполняет дорогую pairwise geometry проверку без предварительного bounding-box отсечения.
@@ -389,6 +421,8 @@ expanded swept-path bounds
 
 ## B2 — Incremental eraser gesture
 
+**Статус: RESOLVED — PR #169.**
+
 ### Finding
 
 Каждый move повторно обрабатывает весь накопленный gesture path.
@@ -429,6 +463,24 @@ Session хранит:
 
 `perf/eraser-incremental-gesture`
 
+### Реализованный контракт
+
+- session фиксирует baseline document, radius и последнюю обработанную точку;
+- каждый update передаёт geometry только новый delta path;
+- pen fragments эволюционируют последовательно и сохраняют IDs до реального split;
+- обычные объекты и группы аккумулируются один раз;
+- finish reconciliation сравнивает affected snapshots со свежим document;
+- stale object/group/pen targets исключаются из commit;
+- ungrouped delete и pen replacement объединяются через batch-replace;
+- один завершённый gesture публикуется одним `commitCommands()` и остаётся одной
+  undo operation;
+- eraser preferences читают legacy numeric и JSON representation, запись
+  канонизирована в JSON.
+
+PR-CI `37200381127`: unit suite, performance budgets, production build,
+Chromium/Firefox eraser smoke и Board-only profile — green. Smart Ink, Formula
+Recognition и Paddle sidecar gates на том же HEAD — green.
+
 ---
 
 ## B3 — Clear/resource lifecycle
@@ -465,6 +517,24 @@ Scene selector cache после clear уменьшается до нуля.
 - background animation после unmount отсутствует;
 - undo после clear восстанавливает документ;
 - repeated fill/clear не даёт неограниченного роста technical cache.
+
+### Implementation status — PR #170
+
+- Coordinate Plot sampling LRU имеет явный lifecycle и очищается после
+  успешного clear command;
+- drawing/eraser/handwriting/GeometryOS/laser/selection transient sessions,
+  plot/3D editors и local transform preview завершаются при clear;
+- GIF redraw scheduler отменяет pending `requestAnimationFrame` при unmount и
+  не может пересоздать цикл после cleanup;
+- undo history, persistent revisions и clipboard сохраняются намеренно:
+  это пользовательское/восстанавливаемое состояние, в отличие от derived cache;
+- repeated Coordinate Plot fill/clear regression возвращает cache size к нулю;
+- существующий App clear→undo regression подтверждает восстановление документа.
+
+Code-head PR-CI `37204307985` прошёл Quality gate, полный unit/performance
+набор, architecture/build, Chromium/Firefox browser smoke, Board-only profile,
+GeometryOS live browser contract и Coordinate Plot production/visual matrix.
+Smart Ink, Formula Recognition и Paddle sidecar gates на том же HEAD — green.
 
 ### Предлагаемая ветка
 

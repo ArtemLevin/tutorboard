@@ -139,6 +139,22 @@ export {
   type PlotSamplingStopReason,
   type SampledPlotSeries,
 } from "./plot-sampling/public";
+export {
+  choosePlotGridStep,
+  createCoordinatePlotRenderModel,
+  createPlotGridRenderModel,
+  createPlotLegendLayout,
+  enumeratePlotTicks,
+  flattenPlotSegment,
+  formatPlotTick,
+  plotLineDash,
+  resolveCoordinatePlotViewport,
+  type CoordinatePlotRenderModel,
+  type CreateCoordinatePlotRenderModelInput,
+  type PlotGridRenderModel,
+  type PlotLegendLayout,
+  type PlotRenderTick,
+} from "./plot-rendering";
 export type {
   GeometryImportRecord,
   VisualOverride,

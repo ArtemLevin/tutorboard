@@ -2,7 +2,7 @@
 
 > Статус документа: основной execution plan.
 >
-> Последнее обновление: 2026-09-30.
+> Последнее обновление: 2026-10-04.
 >
 > Документ синхронизирован с фактическим состоянием проекта после standalone
 > contracts, access convergence, controlled-pilot E2E, **Input Foundation +
@@ -48,6 +48,64 @@ Operational P1 review закрывается reliability-блоком
 Контракт, recovery/rollback и regression evidence:
 [`docs/P1_DURABLE_SYNC_REVIEW.md`](docs/P1_DURABLE_SYNC_REVIEW.md).
 Operational findings ведутся в `03_TUTORBOARD_BACKLOG.md`.
+
+### Input remediation release train — 03–04.10.2026
+
+Аудит пользовательского ввода переведён в последовательный remediation train
+из `docs/AUDIT_REMEDIATION_PLAN_2026-10-03.md`. На текущем `main` закрыты:
+
+- A1 Pen pressure & tap — PR #157–#158;
+- A2 Stroke width & stroke styles — PR #159–#160;
+- A3 Vector Ink outline/bounds/Wet Ink parity — PR #161–#163;
+- A4 Unified text keyboard contract — PR #164;
+- browser release-gate drift после нового pen-tap contract — PR #165;
+- A5 Coordinate plot export fidelity — PR #167;
+- B1 Eraser broad-phase selection — PR #168;
+- B2 Incremental eraser gesture — PR #169.
+
+PR #165 восстановил единый 12 px screen-stable proximity contract для selection
+и right-double-click object settings, а устаревшие canvas-mode browser tests
+синхронизированы с materialized pen taps. Итоговый frontend baseline
+`70d481f75b8faa72b01b381dc74bcb3a3d3fc826` прошёл push-CI
+`37186878246`: Quality gate, Board-only profile, полный Chromium/Firefox E2E,
+Coordinate plot production gate, GeometryOS live browser contract и Production
+image — green. Smart Ink и Formula recognition production gates на том же SHA
+также green.
+
+PR #167 заменяет placeholder coordinate-plot snapshot на экспорт реальной
+sampled geometry через общий renderer-neutral core render model. SVG сохраняет
+viewport, grid/axes, clipping, visibility, styles, explicit/parametric/relation
+series и discontinuity fragments; PNG и PDF растеризуют тот же SVG source.
+PR-CI `37194207372` прошёл Quality gate, Coordinate plot integration/performance,
+Chromium/Firefox lifecycle, visual regression matrix, browser smoke,
+GeometryOS contract, Board-only profile и Production image.
+
+PR #168 добавил conservative swept-path AABB broad phase перед exact
+eraser geometry и закрепил sparse/dense performance regressions.
+
+PR #169 перевёл eraser gesture на incremental session: каждый update обрабатывает
+только новые pointer samples, pen fragments сохраняют стабильные IDs, а finish
+reconciliation отбрасывает stale targets перед atomic commit. Eraser preference
+storage унифицирован с backward-compatible чтением numeric/JSON форматов.
+PR-CI `37200381127` прошёл Quality gate, unit/performance suites,
+Chromium/Firefox browser smoke и Board-only profile; standalone Smart Ink,
+Formula Recognition и Paddle gates на том же HEAD также green.
+
+B3 Clear/resource lifecycle реализован в PR #170 и ожидает merge. Операция
+«Очистить холст» сохраняет undo/history и clipboard как пользовательское
+состояние, одновременно освобождая derived Coordinate Plot sampling cache,
+закрывая transient drawing/eraser/handwriting/GeometryOS/laser/selection
+sessions, plot/3D editors и transform preview. GIF redraw loop имеет явный
+cancel lifecycle. Повторные fill/clear циклы проверяют, что technical cache
+возвращается к нулю.
+
+Кодовый HEAD PR #170 `4312f81ac90c6b331f4ee004a0a60f56da398320`
+прошёл PR-CI `37204307985`: Quality gate, unit/performance suites,
+architecture, production build, Chromium/Firefox browser smoke, Board-only
+profile, GeometryOS live contract и Coordinate Plot production/visual gates.
+Smart Ink, Formula Recognition и Paddle sidecar gates на том же HEAD — green.
+
+После merge B3 следующий этап remediation train — **C1 Line endpoint rotation**.
 
 ## 1. Продуктовая цель
 

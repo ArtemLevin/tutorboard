@@ -281,6 +281,17 @@ export function useBoardGeometryController({
 
   const cancelOperation = useCallback(() => operationRef.current?.cancel(), []);
 
+  const resetTransientState = useCallback(() => {
+    operationRef.current?.cancel();
+    operationRef.current = null;
+    contourPointerRef.current = null;
+    lastRemotePlacementRef.current = null;
+    setPending(null);
+    setState({ kind: "idle" });
+    setVertexObjectId(null);
+    setOpen(false);
+  }, []);
+
   const changePrompt = useCallback((value: string) => {
     setPromptValue(value);
     setState((current) =>
@@ -432,6 +443,7 @@ export function useBoardGeometryController({
     placeAt,
     prompt,
     remoteAvailable: client !== undefined,
+    resetTransientState,
     retry,
     selectedFigure,
     selectedVertex,

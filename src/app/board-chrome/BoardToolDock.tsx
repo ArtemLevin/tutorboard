@@ -26,6 +26,7 @@ import {
   shortcutLabel,
   shortcutLabelForTool,
 } from "../board/shortcuts/board-shortcuts";
+import { useTextEditorKeyboardSession } from "../board/text-editor-keyboard";
 import { StrokeStylePalette } from "../StrokeStylePalette";
 import { strokeStyleSelectionPatch } from "./stroke-style-presets";
 
@@ -238,6 +239,36 @@ function StyleControls({
         />
       </label>
     </div>
+  );
+}
+
+function SelectedTextEditor({
+  onCommit,
+  value,
+}: {
+  readonly onCommit: (value: string) => void;
+  readonly value: string;
+}) {
+  const keyboard = useTextEditorKeyboardSession({
+    onCancel: (target) => {
+      target.value = value;
+    },
+    onCommit,
+  });
+
+  return (
+    <textarea
+      aria-label="Редактор выбранного текста"
+      defaultValue={value}
+      key={value}
+      maxLength={100_000}
+      onBlur={keyboard.onBlur}
+      onCompositionEnd={keyboard.onCompositionEnd}
+      onCompositionStart={keyboard.onCompositionStart}
+      onFocus={keyboard.onFocus}
+      onKeyDown={keyboard.onKeyDown}
+      rows={2}
+    />
   );
 }
 
@@ -596,22 +627,9 @@ export function BoardToolDock(props: BoardToolDockProps) {
           {props.selectedText === null ? null : (
             <label className="dock-text-control">
               <span>Текст или формула</span>
-              <textarea
-                aria-label="Редактор выбранного текста"
-                defaultValue={props.selectedText}
-                key={props.selectedText}
-                maxLength={100_000}
-                onBlur={(event) =>
-                  props.onSelectedTextCommit(event.currentTarget.value)
-                }
-                onKeyDown={(event) => {
-                  if (event.key !== "Escape") return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  event.currentTarget.value = props.selectedText ?? "";
-                  event.currentTarget.blur();
-                }}
-                rows={2}
+              <SelectedTextEditor
+                onCommit={props.onSelectedTextCommit}
+                value={props.selectedText}
               />
             </label>
           )}

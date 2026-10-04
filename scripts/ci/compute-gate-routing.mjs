@@ -41,6 +41,10 @@ const coordinatePlotPrefixes = [
   "src/modules/collaboration/",
 ];
 
+const coordinatePlotFiles = new Set([
+  "src/modules/document-transfer/snapshot.ts",
+]);
+
 const smartInkPrefixes = [
   "src/modules/smart-ink/",
   "src/modules/smart-ink-spike/",
@@ -157,6 +161,7 @@ export function classifyChangedFiles(changedFiles) {
 
     if (
       hasPrefix(path, coordinatePlotPrefixes) ||
+      coordinatePlotFiles.has(path) ||
       path === "src/core/board/coordinate-plot.ts" ||
       hasFragment(path, "coordinate-plot") ||
       hasFragment(path, "coordinateplot") ||

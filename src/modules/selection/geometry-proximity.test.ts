@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   boardObjectId,
+  createVectorInkData,
   defaultViewport,
   type BoardObject,
   type BoardSceneReadModel,
+  type Transform2D,
 } from "../../core/public";
 import {
   aggregateSelectionBounds,
@@ -65,10 +67,90 @@ function rectangle(
   };
 }
 
-function scene(objects: readonly BoardObject[]): BoardSceneReadModel {
+function scene(
+  objects: readonly BoardObject[],
+  options: {
+    readonly transforms?: Readonly<Record<string, readonly Transform2D[]>>;
+    readonly zoom?: number;
+  } = {},
+): BoardSceneReadModel {
   return {
-    items: objects.map((object) => ({ object, transforms: [] })),
-    viewport: defaultViewport,
+    items: objects.map((object) => ({
+      object,
+      transforms: options.transforms?.[object.id] ?? [],
+    })),
+    viewport: {
+      ...defaultViewport,
+      zoom: options.zoom ?? defaultViewport.zoom,
+    },
+  };
+}
+
+function ellipse(
+  id: string,
+  x: number,
+  y: number,
+  radiusX: number,
+  radiusY: number,
+): Extract<BoardObject, { kind: "drawing.ellipse" }> {
+  return {
+    groupId: null,
+    id: boardObjectId(id),
+    kind: "drawing.ellipse",
+    locked: false,
+    position: { x, y },
+    radius: { x: radiusX, y: radiusY },
+    rotation: 0,
+    scale: { x: 1, y: 1 },
+    source: { kind: "user" },
+    style: strokeStyle,
+    visible: true,
+  };
+}
+
+function textObject(
+  id: string,
+  x: number,
+  y: number,
+  text: string,
+): Extract<BoardObject, { kind: "drawing.text" }> {
+  return {
+    groupId: null,
+    id: boardObjectId(id),
+    kind: "drawing.text",
+    locked: false,
+    position: { x, y },
+    rotation: 0,
+    scale: { x: 1, y: 1 },
+    source: { kind: "user" },
+    style: { ...strokeStyle, fill: "#111111" },
+    text,
+    visible: true,
+  };
+}
+
+function penStroke(
+  id: string,
+  x: number,
+  y: number,
+): Extract<BoardObject, { kind: "drawing.pen-stroke" }> {
+  const samples = [
+    { point: { x: 0, y: 0 }, pressure: 0.5, timestampMs: 0 },
+    { point: { x: 40, y: 0 }, pressure: 0.5, timestampMs: 8 },
+  ] as const;
+  return {
+    groupId: null,
+    id: boardObjectId(id),
+    ink: createVectorInkData(samples),
+    kind: "drawing.pen-stroke",
+    locked: false,
+    points: samples.map(({ point }) => point),
+    position: { x, y },
+    rotation: 0,
+    scale: { x: 1, y: 1 },
+    source: { kind: "user" },
+    style: strokeStyle,
+    visible: true,
   };
 }
 
@@ -137,6 +219,79 @@ describe("forgiving selection geometry", () => {
     expect(
       selectObjectIdsNearPath(scene([media]), [{ x: 80, y: 70 }], 0),
     ).toEqual([media.id]);
+  });
+
+  it("keeps broad-phase filtering conservative across mixed object kinds", () => {
+    const thin = line("object:mixed-line", 0, 20, 40, 0);
+    const filled = rectangle("object:mixed-rect", 80, 0, 40, 40);
+    const oval = ellipse("object:mixed-ellipse", 170, 20, 20, 16);
+    const label = textObject("object:mixed-text", 220, 0, "Text");
+    const ink = penStroke("object:mixed-pen", 300, 20);
+    const distant = rectangle("object:mixed-distant", 1_000, 1_000, 40, 40);
+    const model = scene([thin, filled, oval, label, ink, distant]);
+
+    expect(
+      selectObjectIdsNearPath(
+        model,
+        [
+          { x: -10, y: 20 },
+          { x: 360, y: 20 },
+        ],
+        2,
+      ),
+    ).toEqual([thin.id, filled.id, oval.id, label.id, ink.id]);
+  });
+
+  it("keeps tolerance boundary hits and rejects objects just outside it", () => {
+    const boundary = line("object:boundary", 0, 10, 100, 0);
+    const outside = line("object:outside", 0, 10.01, 100, 0);
+    const brush = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+    ] as const;
+
+    expect(selectObjectIdsNearPath(scene([boundary]), brush, 10)).toEqual([
+      boundary.id,
+    ]);
+    expect(selectObjectIdsNearPath(scene([outside]), brush, 10)).toEqual([]);
+  });
+
+  it("accounts for composed transforms before broad-phase rejection", () => {
+    const moved = rectangle("object:transformed", 0, 0, 20, 20);
+    const transform: Transform2D = {
+      rotation: 30,
+      scale: { x: 1.5, y: 0.75 },
+      translation: { x: 500, y: 120 },
+    };
+    const model = scene([moved], {
+      transforms: { [moved.id]: [transform] },
+    });
+
+    expect(
+      selectObjectIdsNearPath(
+        model,
+        [
+          { x: 495, y: 125 },
+          { x: 535, y: 125 },
+        ],
+        8,
+      ),
+    ).toEqual([moved.id]);
+  });
+
+  it("uses world geometry independently of viewport zoom", () => {
+    const target = rectangle("object:zoom-independent", 100, 100, 60, 40);
+    const path = [
+      { x: 80, y: 120 },
+      { x: 180, y: 120 },
+    ] as const;
+
+    expect(
+      selectObjectIdsNearPath(scene([target], { zoom: 0.25 }), path, 4),
+    ).toEqual([target.id]);
+    expect(
+      selectObjectIdsNearPath(scene([target], { zoom: 4 }), path, 4),
+    ).toEqual([target.id]);
   });
 
   it("finds multiple objects crossed by an eraser brush path", () => {

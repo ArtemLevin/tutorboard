@@ -579,6 +579,7 @@ export function useBoardHandwritingController({
     previewItems,
     recognizerAvailable: recognizer !== undefined,
     recognize,
+    resetSession: close,
     setDraft,
     sourcePersisted: sourceObjects !== null,
     startStroke,

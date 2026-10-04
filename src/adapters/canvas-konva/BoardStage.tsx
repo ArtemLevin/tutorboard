@@ -64,6 +64,7 @@ const wheelCommitDelayMs = 120;
 const rightDoubleClickDelayMs = 450;
 const rightDoubleClickDistancePx = 8;
 const canvasPrimaryClickDelayMs = 500;
+const selectionHitTolerancePx = 12;
 const penDotCursor =
   'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%229%22 height=%229%22 viewBox=%220 0 9 9%22%3E%3Ccircle cx=%224.5%22 cy=%224.5%22 r=%222.25%22 fill=%22%23245d6b%22 stroke=%22%23ffffff%22 stroke-width=%221%22/%3E%3C/svg%3E") 4 4, crosshair';
 
@@ -179,6 +180,8 @@ export interface BoardStageProps {
     ((request: CanvasContextMenuRequest) => void) | undefined;
   readonly onCanvasPrimaryClickRequest?: (() => void) | undefined;
   readonly onCanvasPrimaryDoubleClickRequest?: (() => void) | undefined;
+  readonly onObjectProximityHitRequest?:
+    ((point: Vec2, toleranceWorld: number) => BoardObjectId | null) | undefined;
   readonly onObjectSettingsRequest?:
     ((objectId: BoardObjectId) => void) | undefined;
   readonly onPanModeRequest?: () => void;
@@ -373,6 +376,7 @@ export function BoardStage({
   onCanvasContextMenuRequest,
   onCanvasPrimaryClickRequest,
   onCanvasPrimaryDoubleClickRequest,
+  onObjectProximityHitRequest,
   onObjectSettingsRequest,
   onPanModeRequest,
   onViewportCommit,
@@ -760,7 +764,7 @@ export function BoardStage({
           : event.shiftKey
             ? "add"
             : "replace",
-        hitToleranceWorld: 12 / session.viewport.zoom,
+        hitToleranceWorld: selectionHitTolerancePx / session.viewport.zoom,
         objectId,
       });
       if (consumed === true) {
@@ -1369,7 +1373,7 @@ export function BoardStage({
     }
 
     const hitTestStage = event.target.getStage();
-    const hitObjectId = isLassoAreaModifier
+    const directHitObjectId = isLassoAreaModifier
       ? null
       : isTransformerTarget(event.target) && hitTestStage !== null
         ? objectIdBelowTransformer(
@@ -1377,6 +1381,20 @@ export function BoardStage({
             elementPoint(event.evt, hitTestStage.container()),
           )
         : objectIdFromTarget(event.target);
+    const proximityHitObjectId =
+      isRightButton &&
+      directHitObjectId === null &&
+      hitTestStage !== null &&
+      onObjectProximityHitRequest !== undefined
+        ? onObjectProximityHitRequest(
+            screenToWorld(
+              elementPoint(event.evt, hitTestStage.container()),
+              previewViewport,
+            ),
+            selectionHitTolerancePx / previewViewport.zoom,
+          )
+        : null;
+    const hitObjectId = directHitObjectId ?? proximityHitObjectId;
     if (isRightButton && onObjectSettingsRequest !== undefined) {
       const point = clientPoint(event.evt);
       const previous = rightClickCandidateRef.current;

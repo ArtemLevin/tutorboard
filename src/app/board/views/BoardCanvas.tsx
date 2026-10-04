@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   BoardStage,
+  clearCoordinatePlotSamplingCache,
   createDefaultKonvaRendererRegistry,
   type BoardObjectTransformSnapshot,
   type CanvasContextMenuRequest,
@@ -23,6 +24,7 @@ import { handwrittenFunctionToolId } from "../../../modules/handwritten-function
 import {
   isSelectionToolId,
   selectionToolId,
+  selectTopObjectIdNearPoint,
 } from "../../../modules/selection/public";
 import {
   CanvasContextMenu,
@@ -44,6 +46,7 @@ import type { LaserPointerController } from "../controllers/useLaserPointerContr
 import type { BoardSelectionController } from "../controllers/useBoardSelectionController";
 import type { BoardSolid3DController } from "../controllers/useBoardSolid3DController";
 import type { CoordinatePlotController } from "../controllers/useCoordinatePlotController";
+import { useTextEditorKeyboardSession } from "../text-editor-keyboard";
 
 function InlineTextPlacementEditor({
   onCancel,
@@ -58,7 +61,10 @@ function InlineTextPlacementEditor({
   readonly screenPoint: Vec2;
   readonly value: string;
 }) {
-  const cancelOnBlurRef = useRef(false);
+  const keyboard = useTextEditorKeyboardSession({
+    onCancel: () => onCancel(),
+    onCommit: () => onCommit(),
+  });
 
   return (
     <textarea
@@ -67,27 +73,15 @@ function InlineTextPlacementEditor({
       className="board-inline-text-editor"
       data-testid="board-inline-text-editor"
       maxLength={100_000}
-      onBlur={() => {
-        if (!cancelOnBlurRef.current) onCommit();
-      }}
+      onBlur={keyboard.onBlur}
       onChange={(event) => onChange(event.currentTarget.value)}
-      onFocus={(event) => event.currentTarget.select()}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          cancelOnBlurRef.current = true;
-          event.preventDefault();
-          event.stopPropagation();
-          onCancel();
-          return;
-        }
-        if (
-          event.key === "Enter" &&
-          (event.shiftKey || event.ctrlKey || event.metaKey)
-        ) {
-          event.preventDefault();
-          event.currentTarget.blur();
-        }
+      onCompositionEnd={keyboard.onCompositionEnd}
+      onCompositionStart={keyboard.onCompositionStart}
+      onFocus={(event) => {
+        keyboard.onFocus();
+        event.currentTarget.select();
       }}
+      onKeyDown={keyboard.onKeyDown}
       rows={2}
       style={{
         left: screenPoint.x,
@@ -108,7 +102,6 @@ export interface BoardCanvasProps {
   readonly handwriting: BoardHandwritingController;
   readonly interaction: BoardInteractionRouter;
   readonly laser: LaserPointerController;
-  readonly onInspectorClose: () => void;
   readonly onObjectSettingsRequest: (objectId: BoardObjectId) => void;
   readonly onPointerHover: (cursor: Vec2) => void;
   readonly onTransformPreviewChange: (
@@ -160,7 +153,6 @@ export function BoardCanvas({
   handwriting,
   interaction,
   laser,
-  onInspectorClose,
   onObjectSettingsRequest,
   onPointerHover,
   onTransformPreviewChange,
@@ -275,10 +267,20 @@ export function BoardCanvas({
             document.viewport.offset.y,
         };
 
+  useEffect(() => {
+    if (!readOnly || textPlacement === null) return;
+    interaction.activate(selectionToolId);
+    announce("Ввод текста отменён: доска доступна только для чтения");
+  }, [announce, interaction, readOnly, textPlacement]);
+
   const clearCanvas = () => {
     const result = clipboard.clearAll();
     if (!result.ok) return;
-    onInspectorClose();
+    interaction.resetAfterClear();
+    plots.close();
+    solid3D.close();
+    onTransformPreviewChange(null);
+    clearCoordinatePlotSamplingCache();
     setClearConfirmationOpen(false);
     setContextMenu(null);
     if (result.count > 0)
@@ -331,6 +333,9 @@ export function BoardCanvas({
           if (activeTool === laserToolId) laser.hover(cursor);
         }}
         onWorldPointerStart={interaction.start}
+        onObjectProximityHitRequest={(point, toleranceWorld) =>
+          selectTopObjectIdNearPoint(scene, point, toleranceWorld)
+        }
         onObjectSettingsRequest={onObjectSettingsRequest}
         onPanModeRequest={() => interaction.activate(navigationToolId)}
         onSelectionPointerCancel={interaction.selectionCancel}
@@ -361,7 +366,9 @@ export function BoardCanvas({
         transformableObjectIds={transformableObjectIds}
         wetInkStyle={wetInkStyle}
       />
-      {textPlacement === null || textPlacementScreenPoint === null ? null : (
+      {readOnly ||
+      textPlacement === null ||
+      textPlacementScreenPoint === null ? null : (
         <InlineTextPlacementEditor
           onCancel={() => {
             interaction.activate(selectionToolId);

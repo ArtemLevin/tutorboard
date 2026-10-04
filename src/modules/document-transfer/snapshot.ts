@@ -1,5 +1,10 @@
 import {
+  createCoordinatePlotRenderModel,
   createPenStrokeRenderBounds,
+  createPenStrokeRenderPaths,
+  createPlotLegendLayout,
+  flattenPlotSegment,
+  plotLineDash,
   resolveVectorInkData,
   selectBoardScene,
   vectorInkCenterlineBounds,
@@ -7,10 +12,11 @@ import {
   type BoardDocument,
   type BoardObject,
   type BoardRenderItem,
+  type CoordinatePlotObject,
+  type CoordinatePlotSeriesSamplingResult,
   type Transform2D,
   type Vec2,
 } from "../../core/public";
-import { createPenStrokeRenderPaths } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
 
 export interface BoardSnapshotOptions {
@@ -48,6 +54,8 @@ const maximumRasterPixels = 24_000_000;
 // compositing translucent strokes against a different, untagged background.
 const snapshotBackground = "#f5f3ee";
 const defaultTextFill = "#17202a";
+const plotLegendEstimatedGlyphWidth = 7;
+const plotLegendEllipsis = "…";
 
 function escapeXml(value: string): string {
   return value
@@ -83,6 +91,222 @@ function objectTransformAttribute(object: BoardObject): string {
   return `transform="translate(${number(object.position.x)} ${number(object.position.y)}) rotate(${number(object.rotation)}) scale(${number(object.scale.x)} ${number(object.scale.y)})"`;
 }
 
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
+function svgIdentifier(value: string): string {
+  return [...value]
+    .map((character) => character.codePointAt(0)?.toString(16) ?? "0")
+    .join("-");
+}
+
+function pointList(points: readonly number[]): string {
+  return points.map(number).join(" ");
+}
+
+function plotDashAttribute(
+  lineStyle: "solid" | "dashed" | "dash-dot",
+  strokeWidth: number,
+): string {
+  const dash = plotLineDash(lineStyle, strokeWidth);
+  return dash.length === 0
+    ? ""
+    : ` stroke-dasharray="${dash.map(number).join(" ")}"`;
+}
+
+function plotSeriesStatusLabel(
+  result: CoordinatePlotSeriesSamplingResult | undefined,
+): string {
+  if (result === undefined) return "";
+  if (result.status === "invalid") return "⚠";
+  if (result.status === "truncated") return "…";
+  if (result.status === "aborted") return "×";
+  return "";
+}
+
+function truncatePlotLegendLabel(value: string, usableWidth: number): string {
+  const glyphs = [...value];
+  const maximumGlyphCount = Math.max(
+    0,
+    Math.floor(usableWidth / plotLegendEstimatedGlyphWidth),
+  );
+  if (glyphs.length <= maximumGlyphCount) return value;
+  if (maximumGlyphCount === 0) return "";
+  if (maximumGlyphCount === 1) return plotLegendEllipsis;
+  return `${glyphs.slice(0, maximumGlyphCount - 1).join("")}${plotLegendEllipsis}`;
+}
+
+function coordinatePlotMarkup(object: CoordinatePlotObject): string {
+  const model = createCoordinatePlotRenderModel({ object, zoom: 1 });
+  const { definition, grid, sampling, xAxisY, yAxisX } = model;
+  const { height, width } = definition.size;
+  const fill = object.style.fill ?? "#ffffff";
+  const frameStroke = object.style.stroke ?? "#64748b";
+  const gridStroke = object.style.stroke ?? "#475569";
+  const axisStroke = "#1e293b";
+  const visibleSeries = definition.series.filter(({ visible }) => visible);
+  const resultBySeriesId = new Map(
+    sampling.series.map((result) => [result.seriesId, result]),
+  );
+  const clipId = `coordinate-plot-clip-${svgIdentifier(object.id)}`;
+  const arrowId = `coordinate-plot-arrow-${svgIdentifier(object.id)}`;
+  const legendLabelClipId = `coordinate-plot-legend-label-clip-${svgIdentifier(object.id)}`;
+  const xTickY = clamp((xAxisY ?? height) + 14, 12, Math.max(12, height - 5));
+  const yTickX = clamp((yAxisX ?? 0) - 6, 58, Math.max(58, width - 2));
+  const legend = createPlotLegendLayout(
+    definition.legend.position,
+    visibleSeries.map(({ name }) => name),
+    definition.size,
+  );
+  const legendSeries = visibleSeries.slice(0, legend.visibleRowCount);
+  const legendLabelWidth = Math.max(0, legend.width - 58);
+  const problematicSeriesCount = sampling.series.filter(
+    ({ status }) =>
+      status === "invalid" || status === "truncated" || status === "aborted",
+  ).length;
+
+  const minorGrid =
+    definition.grid.visible && definition.grid.minorVisible
+      ? [
+          ...grid.minorX.map(
+            (position) =>
+              `<line x1="${number(position)}" y1="0" x2="${number(position)}" y2="${number(height)}" stroke="${escapeXml(gridStroke)}" stroke-width="1" stroke-opacity="0.08"/>`,
+          ),
+          ...grid.minorY.map(
+            (position) =>
+              `<line x1="0" y1="${number(position)}" x2="${number(width)}" y2="${number(position)}" stroke="${escapeXml(gridStroke)}" stroke-width="1" stroke-opacity="0.08"/>`,
+          ),
+        ].join("")
+      : "";
+
+  const majorGrid =
+    definition.grid.visible && definition.grid.majorVisible
+      ? [
+          ...grid.majorX.map(
+            (tick) =>
+              `<line x1="${number(tick.position)}" y1="0" x2="${number(tick.position)}" y2="${number(height)}" stroke="${escapeXml(gridStroke)}" stroke-width="1" stroke-opacity="${tick.value === 0 ? "0" : "0.18"}"/>`,
+          ),
+          ...grid.majorY.map(
+            (tick) =>
+              `<line x1="0" y1="${number(tick.position)}" x2="${number(width)}" y2="${number(tick.position)}" stroke="${escapeXml(gridStroke)}" stroke-width="1" stroke-opacity="${tick.value === 0 ? "0" : "0.18"}"/>`,
+          ),
+        ].join("")
+      : "";
+
+  const marker = definition.axes.showArrows
+    ? `<marker id="${arrowId}" markerHeight="8" markerUnits="strokeWidth" markerWidth="8" orient="auto" refX="7" refY="4"><path d="M0 0 L8 4 L0 8 Z" fill="${axisStroke}"/></marker>`
+    : "";
+  const markerEnd = definition.axes.showArrows
+    ? ` marker-end="url(#${arrowId})"`
+    : "";
+  const axes = [
+    definition.axes.showXAxis && xAxisY !== null
+      ? `<line data-coordinate-plot-axis="x" x1="0" y1="${number(xAxisY)}" x2="${number(width)}" y2="${number(xAxisY)}" stroke="${axisStroke}" stroke-width="1.6"${markerEnd}/>`
+      : "",
+    definition.axes.showYAxis && yAxisX !== null
+      ? `<line data-coordinate-plot-axis="y" x1="${number(yAxisX)}" y1="${number(height)}" x2="${number(yAxisX)}" y2="0" stroke="${axisStroke}" stroke-width="1.6"${markerEnd}/>`
+      : "",
+  ].join("");
+
+  const tickLabels = definition.axes.showLabels
+    ? [
+        ...grid.majorX.map(
+          (tick) =>
+            `<text fill="${axisStroke}" font-family="Inter, ui-sans-serif, system-ui" font-size="11" text-anchor="middle" x="${number(clamp(tick.position, 18, Math.max(18, width - 18)))}" y="${number(xTickY)}">${escapeXml(tick.label)}</text>`,
+        ),
+        ...grid.majorY
+          .filter(({ value }) => value !== 0)
+          .map(
+            (tick) =>
+              `<text fill="${axisStroke}" font-family="Inter, ui-sans-serif, system-ui" font-size="11" text-anchor="end" x="${number(yTickX)}" y="${number(clamp(tick.position + 4, 12, Math.max(12, height - 4)))}">${escapeXml(tick.label)}</text>`,
+          ),
+        definition.axes.showXAxis && xAxisY !== null
+          ? `<text fill="${axisStroke}" font-family="Inter, ui-sans-serif, system-ui" font-size="13" font-weight="700" x="${number(Math.max(2, width - 18))}" y="${number(clamp(xAxisY - 6, 12, Math.max(12, height - 6)))}">${escapeXml(definition.axes.xLabel)}</text>`
+          : "",
+        definition.axes.showYAxis && yAxisX !== null
+          ? `<text fill="${axisStroke}" font-family="Inter, ui-sans-serif, system-ui" font-size="13" font-weight="700" x="${number(clamp(yAxisX + 7, 2, Math.max(2, width - 18)))}" y="14">${escapeXml(definition.axes.yLabel)}</text>`
+          : "",
+      ].join("")
+    : "";
+
+  const relationFills = visibleSeries
+    .flatMap((series) => {
+      const result = resultBySeriesId.get(series.id);
+      if (
+        series.kind !== "relation" ||
+        result?.sample === null ||
+        result?.sample === undefined
+      ) {
+        return [];
+      }
+      return result.sample.fillPolygons.map(
+        (polygon, polygonIndex) =>
+          `<polygon data-coordinate-plot-fill-id="${escapeXml(series.id)}" data-coordinate-plot-fill-fragment="${polygonIndex}" fill="${escapeXml(series.style.stroke)}" fill-opacity="${number(series.fillOpacity * series.style.opacity)}" points="${pointList(flattenPlotSegment(polygon))}" stroke="none"/>`,
+      );
+    })
+    .join("");
+
+  const seriesMarkup = visibleSeries
+    .flatMap((series) => {
+      const result = resultBySeriesId.get(series.id);
+      if (result?.sample === null || result?.sample === undefined) return [];
+      const dash = plotDashAttribute(
+        series.style.lineStyle,
+        series.style.strokeWidth,
+      );
+      return result.sample.segments.flatMap((segment, segmentIndex) => {
+        if (segment.length < 2) return [];
+        return [
+          `<polyline data-coordinate-plot-series-id="${escapeXml(series.id)}" data-coordinate-plot-series-kind="${series.kind}" data-coordinate-plot-fragment="${segmentIndex}" fill="none" points="${pointList(flattenPlotSegment(segment))}" stroke="${escapeXml(series.style.stroke)}" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="${number(series.style.opacity)}" stroke-width="${number(series.style.strokeWidth)}"${dash}/>`,
+        ];
+      });
+    })
+    .join("");
+
+  const legendMarkup =
+    definition.legend.visible && visibleSeries.length > 0
+      ? [
+          `<g data-coordinate-plot-legend="true" transform="translate(${number(legend.x)} ${number(legend.y)})">`,
+          `<rect fill="white" fill-opacity="0.94" height="${number(legend.height)}" rx="8" stroke="#64748b" stroke-opacity="0.45" stroke-width="1" width="${number(legend.width)}"/>`,
+          ...legendSeries.map((series, index) => {
+            const result = resultBySeriesId.get(series.id);
+            const rowY = 6 + index * legend.rowHeight;
+            const lineY = rowY + 11;
+            const fullLabel = `${plotSeriesStatusLabel(result)}${series.name}`;
+            const visibleLabel = truncatePlotLegendLabel(
+              fullLabel,
+              legendLabelWidth,
+            );
+            return [
+              `<line x1="12" y1="${number(lineY)}" x2="42" y2="${number(lineY)}" stroke="${escapeXml(series.style.stroke)}" stroke-opacity="${number(series.style.opacity)}" stroke-width="${number(series.style.strokeWidth)}"${plotDashAttribute(series.style.lineStyle, series.style.strokeWidth)}/>`,
+              `<text aria-label="${escapeXml(fullLabel)}" clip-path="url(#${legendLabelClipId})" data-coordinate-plot-legend-label="true" fill="#0f172a" font-family="Inter, ui-sans-serif, system-ui" font-size="12" x="50" y="${number(rowY + 16)}">${escapeXml(visibleLabel)}</text>`,
+            ].join("");
+          }),
+          legend.hiddenRowCount > 0
+            ? `<text fill="#475569" font-family="Inter, ui-sans-serif, system-ui" font-size="12" font-weight="700" text-anchor="middle" x="${number(legend.width / 2)}" y="${number(6 + legend.visibleRowCount * legend.rowHeight + 16)}">Ещё ${legend.hiddenRowCount}</text>`
+            : "",
+          "</g>",
+        ].join("")
+      : "";
+
+  const statusMarkup =
+    problematicSeriesCount > 0
+      ? `<text fill="#b45309" font-family="Inter, ui-sans-serif, system-ui" font-size="11" x="8" y="${number(Math.max(12, height - 6))}">⚠ ${problematicSeriesCount}</text>`
+      : "";
+
+  return [
+    `<g ${objectTransformAttribute(object)} aria-label="Coordinate plot with ${definition.series.length} series" data-coordinate-plot-id="${escapeXml(object.id)}" opacity="${number(object.style.opacity)}">`,
+    `<defs><clipPath id="${clipId}"><rect height="${number(height)}" width="${number(width)}"/></clipPath><clipPath id="${legendLabelClipId}"><rect height="${number(legend.height)}" width="${number(legendLabelWidth)}" x="50" y="0"/></clipPath>${marker}</defs>`,
+    `<rect fill="${escapeXml(fill)}" height="${number(height)}" width="${number(width)}"/>`,
+    `<g clip-path="url(#${clipId})">${minorGrid}${majorGrid}${axes}${tickLabels}${relationFills}${seriesMarkup}</g>`,
+    `<rect fill="none" height="${number(height)}" stroke="${escapeXml(frameStroke)}" stroke-width="${number(Math.max(1, object.style.strokeWidth))}" width="${number(width)}"/>`,
+    legendMarkup,
+    statusMarkup,
+    "</g>",
+  ].join("");
+}
+
 function objectMarkup(object: BoardObject): string {
   const common = `${styleAttributes(object)} ${objectTransformAttribute(object)}`;
   switch (object.kind) {
@@ -114,7 +338,7 @@ function objectMarkup(object: BoardObject): string {
     case "drawing.rectangle":
       return `<rect ${common} height="${number(object.size.height)}" rx="8" width="${number(object.size.width)}"/>`;
     case "math.coordinate-plot":
-      return `<g ${common} aria-label="Coordinate plot with ${object.definition.series.length} series"><rect height="${number(object.definition.size.height)}" rx="8" width="${number(object.definition.size.width)}"/><line x1="0" y1="${number(object.definition.size.height / 2)}" x2="${number(object.definition.size.width)}" y2="${number(object.definition.size.height / 2)}"/><line x1="${number(object.definition.size.width / 2)}" y1="0" x2="${number(object.definition.size.width / 2)}" y2="${number(object.definition.size.height)}"/></g>`;
+      return coordinatePlotMarkup(object);
     case "drawing.ellipse":
       return `<ellipse ${common} cx="0" cy="0" rx="${number(object.radius.x)}" ry="${number(object.radius.y)}"/>`;
     case "drawing.text": {
