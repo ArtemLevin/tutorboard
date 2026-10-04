@@ -36,9 +36,10 @@ async function drawFastStroke(
   await page.mouse.up();
 }
 
-test("keeps a smoothed freehand stroke transformable at high zoom", async ({
-  page,
-}) => {
+test(
+  "keeps a smoothed freehand stroke transformable at high zoom",
+  { tag: "@smoke" },
+  async ({ page }) => {
   await openBoardWithPen(page);
   const samples = [
     [260, 320],
@@ -85,10 +86,11 @@ test("keeps a smoothed freehand stroke transformable at high zoom", async ({
       name: "Повернуть выделение на 15 градусов",
     })
     .click();
-  await expect(page.getByTestId("first-object-transform")).toHaveText(
-    "Масштаб: 1.1, 1.1 · Поворот: 15°",
-  );
-});
+    await expect(page.getByTestId("first-object-transform")).toHaveText(
+      "Масштаб: 1.1, 1.1 · Поворот: 15°",
+    );
+  },
+);
 
 test("draws fast curves when getCoalescedEvents is unavailable", async ({
   page,
