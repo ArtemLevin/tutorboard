@@ -147,7 +147,6 @@ test("@smoke keeps wavy style through wet ink and final pen materialization", as
   await expect(styleTrigger).toHaveAttribute("aria-label", /Волнистая/);
 });
 
-
 test("@smoke materializes a single pen tap and clears transient ink", async ({
   page,
 }) => {
