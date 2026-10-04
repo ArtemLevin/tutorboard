@@ -635,7 +635,6 @@ export function App({
           handwriting={handwriting}
           interaction={interaction}
           laser={laser}
-          onInspectorClose={() => setSelectionInspectorObjectId(null)}
           onObjectSettingsRequest={requestObjectSettings}
           onPointerHover={handlePointerHover}
           onTransformPreviewChange={publishTransformPreview}
