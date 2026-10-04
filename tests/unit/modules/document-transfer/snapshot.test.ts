@@ -203,7 +203,10 @@ function coordinatePlotWithSeries(
   };
 }
 
-function exportedSeriesFragments(svg: string, seriesId: string): readonly string[] {
+function exportedSeriesFragments(
+  svg: string,
+  seriesId: string,
+): readonly string[] {
   return [
     ...svg.matchAll(
       new RegExp(
@@ -319,7 +322,9 @@ describe("TutorBoard coordinate plot snapshot fidelity", () => {
   it("exports real sampled geometry and changes it when the expression changes", () => {
     const quadratic = coordinatePlotWithSeries(["x^2"]);
     const linear = coordinatePlotWithSeries(["2*x+a"]);
-    const quadraticSvg = renderBoardSnapshotSvg(documentOnlyWithObject(quadratic));
+    const quadraticSvg = renderBoardSnapshotSvg(
+      documentOnlyWithObject(quadratic),
+    );
     const linearSvg = renderBoardSnapshotSvg(documentOnlyWithObject(linear));
 
     expect(quadraticSvg).toContain(
@@ -329,8 +334,12 @@ describe("TutorBoard coordinate plot snapshot fidelity", () => {
       'data-coordinate-plot-series-id="snapshot-series:0"',
     );
     expect(quadraticSvg).not.toBe(linearSvg);
-    expect(exportedSeriesFragments(quadraticSvg, "snapshot-series:0").length).toBeGreaterThan(0);
-    expect(exportedSeriesFragments(linearSvg, "snapshot-series:0").length).toBeGreaterThan(0);
+    expect(
+      exportedSeriesFragments(quadraticSvg, "snapshot-series:0").length,
+    ).toBeGreaterThan(0);
+    expect(
+      exportedSeriesFragments(linearSvg, "snapshot-series:0").length,
+    ).toBeGreaterThan(0);
   });
 
   it("keeps discontinuity fragments separate for 1/x", () => {
@@ -396,13 +405,16 @@ describe("TutorBoard coordinate plot snapshot fidelity", () => {
   it("exports parameterized, parametric and relation geometry with series styles", () => {
     const base = createCoordinatePlotProductionObject(0);
     const parameterized = base.definition.series.find(
-      (series) => series.kind === "explicit" && series.expression === "a*sin(b*x)",
+      (series) =>
+        series.kind === "explicit" && series.expression === "a*sin(b*x)",
     );
     const parametric = base.definition.series.find(
       (series) => series.kind === "parametric",
     );
     if (parameterized === undefined || parametric === undefined) {
-      throw new Error("Production fixture must contain parameterized and parametric series.");
+      throw new Error(
+        "Production fixture must contain parameterized and parametric series.",
+      );
     }
     const relation: RelationPlotSeries = {
       expression: "x^2+y^2<=9",
