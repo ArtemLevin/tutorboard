@@ -1,5 +1,6 @@
 export {
   createDeleteSelectionCommand,
+  createLineEndpointTransformCommand,
   createMoveSelectionCommand,
   createSetSelectionLockCommand,
   createTransformSelectionCommand,

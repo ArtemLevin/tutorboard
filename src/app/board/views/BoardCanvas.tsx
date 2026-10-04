@@ -189,6 +189,10 @@ export function BoardCanvas({
           },
     [eraserHiddenIds, scene],
   );
+  const sceneItemsById = useMemo(
+    () => new Map(scene.items.map((item) => [item.object.id, item])),
+    [scene.items],
+  );
   const previewItems = useMemo(
     () => [
       ...(activeTool === eraserToolId && eraser.preview !== null
@@ -203,7 +207,9 @@ export function BoardCanvas({
       ...handwriting.previewItems,
       ...remoteTransformPreviews.flatMap((preview, previewIndex) =>
         preview.transforms.flatMap((transform, transformIndex) => {
-          const object = document.objects[transform.objectId as BoardObjectId];
+          const objectId = transform.objectId as BoardObjectId;
+          const sourceItem = sceneItemsById.get(objectId);
+          const object = sourceItem?.object ?? document.objects[objectId];
           if (object === undefined) return [];
           return [
             {
@@ -218,7 +224,7 @@ export function BoardCanvas({
                   opacity: Math.min(object.style.opacity, 0.45),
                 },
               },
-              transforms: [],
+              transforms: sourceItem?.transforms ?? [],
             } satisfies BoardRenderItem,
           ];
         }),
@@ -231,6 +237,7 @@ export function BoardCanvas({
       eraser.preview,
       handwriting.previewItems,
       remoteTransformPreviews,
+      sceneItemsById,
     ],
   );
   const wetInkStyle = useMemo(() => {
@@ -253,6 +260,47 @@ export function BoardCanvas({
     plots.editor === null && isSelectionToolId(activeTool)
       ? selection.transformableObjectIds
       : [];
+  const lineEndpointObjectIds = useMemo(() => {
+    if (
+      readOnly ||
+      plots.editor !== null ||
+      !isSelectionToolId(activeTool) ||
+      selection.focusedObjectId === null ||
+      !selection.state.selectedObjectIds.includes(selection.focusedObjectId)
+    ) {
+      return [];
+    }
+    const object = document.objects[selection.focusedObjectId];
+    if (
+      object === undefined ||
+      object.kind !== "drawing.line" ||
+      object.source.kind !== "user" ||
+      object.locked
+    ) {
+      return [];
+    }
+    if (object.groupId !== null) {
+      const group = document.groups[object.groupId];
+      if (
+        group === undefined ||
+        group.locked ||
+        group.objectIds.some(
+          (objectId) => document.objects[objectId]?.locked === true,
+        )
+      ) {
+        return [];
+      }
+    }
+    return [object.id];
+  }, [
+    activeTool,
+    document.groups,
+    document.objects,
+    plots.editor,
+    readOnly,
+    selection.focusedObjectId,
+    selection.state.selectedObjectIds,
+  ]);
   const textPlacement =
     drawing.state.kind === "placing-text" ? drawing.state : null;
   const textPlacementScreenPoint =
@@ -307,6 +355,7 @@ export function BoardCanvas({
         laserPoint={laser.point}
         laserTrailOpacity={laser.trailOpacity}
         laserTrailPoints={laser.trailPoints}
+        lineEndpointObjectIds={lineEndpointObjectIds}
         onCanvasContextMenuRequest={(request) => {
           setClearConfirmationOpen(false);
           setContextMenu(request);
@@ -337,6 +386,13 @@ export function BoardCanvas({
           selectTopObjectIdNearPoint(scene, point, toleranceWorld)
         }
         onObjectSettingsRequest={onObjectSettingsRequest}
+        onLineEndpointTransform={(transform, baseline) => {
+          selection.commitLineEndpointTransform(transform, baseline);
+          onTransformPreviewChange(null);
+        }}
+        onLineEndpointTransformPreview={(transform) =>
+          onTransformPreviewChange(transform === null ? null : [transform])
+        }
         onPanModeRequest={() => interaction.activate(navigationToolId)}
         onSelectionPointerCancel={interaction.selectionCancel}
         onSelectionPointerFinish={interaction.selectionFinish}

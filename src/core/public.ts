@@ -305,6 +305,13 @@ export {
   type CommandResult,
 } from "./board/commands/reducer";
 export {
+  createLineEndpointRotationTransform,
+  lineWorldEndpoints,
+  type LineEndpoint,
+  type LineEndpointTransform,
+  type LineWorldEndpoints,
+} from "./board/line-endpoint-rotation";
+export {
   batchBoardRenderItems,
   createBoardSceneSelector,
   selectBoardScene,
