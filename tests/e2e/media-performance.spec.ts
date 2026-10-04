@@ -291,7 +291,10 @@ async function importDocument(
   );
 }
 
-async function addMixedSceneContent(page: Page, baseCount: number): Promise<void> {
+async function addMixedSceneContent(
+  page: Page,
+  baseCount: number,
+): Promise<void> {
   const stage = page.getByTestId("board-stage");
   const bounds = await stage.boundingBox();
   if (bounds === null) throw new Error("Board stage has no bounds");
