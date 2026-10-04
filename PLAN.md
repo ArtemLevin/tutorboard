@@ -91,7 +91,21 @@ PR-CI `37200381127` прошёл Quality gate, unit/performance suites,
 Chromium/Firefox browser smoke и Board-only profile; standalone Smart Ink,
 Formula Recognition и Paddle gates на том же HEAD также green.
 
-Следующий шаг этого remediation train — **B3 Clear/resource lifecycle**.
+B3 Clear/resource lifecycle реализован в PR #170 и ожидает merge. Операция
+«Очистить холст» сохраняет undo/history и clipboard как пользовательское
+состояние, одновременно освобождая derived Coordinate Plot sampling cache,
+закрывая transient drawing/eraser/handwriting/GeometryOS/laser/selection
+sessions, plot/3D editors и transform preview. GIF redraw loop имеет явный
+cancel lifecycle. Повторные fill/clear циклы проверяют, что technical cache
+возвращается к нулю.
+
+Кодовый HEAD PR #170 `4312f81ac90c6b331f4ee004a0a60f56da398320`
+прошёл PR-CI `37204307985`: Quality gate, unit/performance suites,
+architecture, production build, Chromium/Firefox browser smoke, Board-only
+profile, GeometryOS live contract и Coordinate Plot production/visual gates.
+Smart Ink, Formula Recognition и Paddle sidecar gates на том же HEAD — green.
+
+После merge B3 следующий этап remediation train — **C1 Line endpoint rotation**.
 
 ## 1. Продуктовая цель
 
