@@ -113,7 +113,11 @@ describe("incremental eraser gesture session", () => {
 
     const second = advanceEraserGesture(
       session,
-      [{ x: 70, y: 0 }],
+      [
+        { x: 30, y: 40 },
+        { x: 70, y: 40 },
+        { x: 70, y: 0 },
+      ],
       createFragmentId,
     );
     expect(second.replacementObjects.map(({ id }) => id)).toEqual([
