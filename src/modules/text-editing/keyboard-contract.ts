@@ -1,8 +1,5 @@
 export type TextEditorKeyboardAction =
-  | "cancel"
-  | "commit"
-  | "compose"
-  | "native";
+  "cancel" | "commit" | "compose" | "native";
 
 export interface TextEditorKeyboardEventLike {
   readonly altKey: boolean;
