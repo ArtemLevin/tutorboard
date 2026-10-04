@@ -102,9 +102,11 @@ export function useBoardSelectionController({
 
   const ensureObjectSelected = useCallback(
     (objectId: BoardObjectId) => {
+      setFocusedObjectId(objectId);
       const currentState = stateRef.current;
       if (currentState.selectedObjectIds.includes(objectId)) return;
       replaceSelection(expandSelectionObjectIds(getDocument(), [objectId]));
+      setFocusedObjectId(objectId);
     },
     [getDocument, replaceSelection],
   );
@@ -234,6 +236,7 @@ export function useBoardSelectionController({
     (objectId: BoardObjectId) => {
       const current = getDocument();
       replaceSelection(expandSelectionObjectIds(current, [objectId]));
+      setFocusedObjectId(objectId);
     },
     [getDocument, replaceSelection],
   );
