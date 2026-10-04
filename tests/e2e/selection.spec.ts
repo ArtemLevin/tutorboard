@@ -390,7 +390,7 @@ test(
     await dragMarquee(page);
     await page.mouse.up();
     await page.keyboard.press("Delete");
-    await expect(page.getByTestId("object-count")).toHaveText("0 объектов");
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
 
     await page.keyboard.press("l");
     const start = await stagePoint(page, 300, 360);
@@ -433,7 +433,7 @@ test(
       "Масштаб: 1, 1 · Поворот: 0°",
     );
     await page.keyboard.press("Control+z");
-    await expect(page.getByTestId("object-count")).toHaveText("0 объектов");
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   },
 );
 
@@ -475,5 +475,5 @@ test("cancels an in-progress line endpoint rotation without history mutation", a
   );
 
   await page.keyboard.press("Control+z");
-  await expect(page.getByTestId("object-count")).toHaveText("0 объектов");
+  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
 });
