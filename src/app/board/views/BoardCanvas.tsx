@@ -386,8 +386,8 @@ export function BoardCanvas({
           selectTopObjectIdNearPoint(scene, point, toleranceWorld)
         }
         onObjectSettingsRequest={onObjectSettingsRequest}
-        onLineEndpointTransform={(transform) => {
-          selection.commitLineEndpointTransform(transform);
+        onLineEndpointTransform={(transform, baseline) => {
+          selection.commitLineEndpointTransform(transform, baseline);
           onTransformPreviewChange(null);
         }}
         onLineEndpointTransformPreview={(transform) =>
