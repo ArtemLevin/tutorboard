@@ -172,8 +172,7 @@ export function resolveEmbeddedImagePlacementSize(
   };
   let fitted = fitWithinBox(intrinsic, targetBox);
 
-  const minimumLongSide =
-    Math.min(viewport.width, viewport.height) * 0.18;
+  const minimumLongSide = Math.min(viewport.width, viewport.height) * 0.18;
   const currentLongSide = Math.max(fitted.width, fitted.height);
   if (currentLongSide < minimumLongSide) {
     const scale = Math.min(
