@@ -71,13 +71,9 @@ function advanceEmptyPath(
 ): number {
   const startedAt = performance.now();
   for (let index = start; index < start + count; index += 1) {
-    advanceEraserGesture(
-      session,
-      [{ x: index * 2, y: 10_000 }],
-      () => {
-        throw new Error("Empty-path benchmark must not allocate fragments.");
-      },
-    );
+    advanceEraserGesture(session, [{ x: index * 2, y: 10_000 }], () => {
+      throw new Error("Empty-path benchmark must not allocate fragments.");
+    });
   }
   return performance.now() - startedAt;
 }
