@@ -379,12 +379,20 @@ function median(values: readonly number[]): number {
   return ordered[Math.floor(ordered.length / 2)] ?? 0;
 }
 
-function medianScenario(samples: readonly MediaMeasuredPass[]): MediaScenarioMedian {
+function medianScenario(
+  samples: readonly MediaMeasuredPass[],
+): MediaScenarioMedian {
   return {
-    clearRectCalls: median(samples.map(({ counters }) => counters.clearRectCalls)),
-    drawImageCalls: median(samples.map(({ counters }) => counters.drawImageCalls)),
+    clearRectCalls: median(
+      samples.map(({ counters }) => counters.clearRectCalls),
+    ),
+    drawImageCalls: median(
+      samples.map(({ counters }) => counters.drawImageCalls),
+    ),
     frameP95Ms: median(samples.map(({ frames }) => frames.p95Ms)),
-    longTaskCount: median(samples.map(({ counters }) => counters.longTaskCount)),
+    longTaskCount: median(
+      samples.map(({ counters }) => counters.longTaskCount),
+    ),
     rafCallbacks: median(samples.map(({ counters }) => counters.rafCallbacks)),
     rafRequests: median(samples.map(({ counters }) => counters.rafRequests)),
   };
