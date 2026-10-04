@@ -297,18 +297,28 @@ function groupedLineTransformOnly(
     return false;
   }
 
-  const {
-    position: _currentPosition,
-    rotation: _currentRotation,
-    scale: _currentScale,
-    ...currentStatic
-  } = current;
-  const {
-    position: _replacementPosition,
-    rotation: _replacementRotation,
-    scale: _replacementScale,
-    ...replacementStatic
-  } = replacement;
+  const currentStatic = {
+    end: current.end,
+    groupId: current.groupId,
+    id: current.id,
+    kind: current.kind,
+    lineStyle: current.lineStyle,
+    locked: current.locked,
+    source: current.source,
+    style: current.style,
+    visible: current.visible,
+  };
+  const replacementStatic = {
+    end: replacement.end,
+    groupId: replacement.groupId,
+    id: replacement.id,
+    kind: replacement.kind,
+    lineStyle: replacement.lineStyle,
+    locked: replacement.locked,
+    source: replacement.source,
+    style: replacement.style,
+    visible: replacement.visible,
+  };
   return structurallyEqual(currentStatic, replacementStatic);
 }
 
