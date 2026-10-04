@@ -844,8 +844,8 @@ describe("App", () => {
       .filter((object) => object?.kind === "image.embedded");
     expect(before).toHaveLength(2);
     const centers = before?.map((object) => ({
-      x: object!.position.x + (object!.size.width * object!.scale.x) / 2,
-      y: object!.position.y + (object!.size.height * object!.scale.y) / 2,
+      x: object.position.x + (object.size.width * object.scale.x) / 2,
+      y: object.position.y + (object.size.height * object.scale.y) / 2,
     }));
 
     fireEvent.keyDown(window, { code: "Equal", key: "+", shiftKey: true });
@@ -855,14 +855,14 @@ describe("App", () => {
     const scaled = scaledDocument?.order
       .map((id) => scaledDocument.objects[id])
       .filter((object) => object?.kind === "image.embedded");
-    expect(scaled?.map((object) => object!.scale)).toEqual([
+    expect(scaled?.map((object) => object.scale)).toEqual([
       { x: 1.5, y: 1.5 },
       { x: 1.5, y: 1.5 },
     ]);
     expect(
       scaled?.map((object) => ({
-        x: object!.position.x + (object!.size.width * object!.scale.x) / 2,
-        y: object!.position.y + (object!.size.height * object!.scale.y) / 2,
+        x: object.position.x + (object.size.width * object.scale.x) / 2,
+        y: object.position.y + (object.size.height * object.scale.y) / 2,
       })),
     ).toEqual(centers);
 
@@ -873,7 +873,7 @@ describe("App", () => {
       restoredDocument?.order
         .map((id) => restoredDocument.objects[id])
         .filter((object) => object?.kind === "image.embedded")
-        .map((object) => object!.scale),
+        .map((object) => object.scale),
     ).toEqual([
       { x: 1, y: 1 },
       { x: 1, y: 1 },
