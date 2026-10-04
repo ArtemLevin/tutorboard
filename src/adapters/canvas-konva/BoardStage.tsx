@@ -68,6 +68,7 @@ const rightDoubleClickDelayMs = 450;
 const rightDoubleClickDistancePx = 8;
 const canvasPrimaryClickDelayMs = 500;
 const selectionHitTolerancePx = 12;
+const lineEndpointDragThresholdPx = 2;
 const penDotCursor =
   'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%229%22 height=%229%22 viewBox=%220 0 9 9%22%3E%3Ccircle cx=%224.5%22 cy=%224.5%22 r=%222.25%22 fill=%22%23245d6b%22 stroke=%22%23ffffff%22 stroke-width=%221%22/%3E%3C/svg%3E") 4 4, crosshair';
 
@@ -116,6 +117,7 @@ interface SelectionSession {
 interface LineEndpointSession extends SelectionSession {
   readonly endpoint: LineEndpoint;
   readonly item: BoardRenderItem;
+  readonly startClientPoint: Vec2;
 }
 
 export interface WorldPointerSample {
@@ -194,7 +196,10 @@ export interface BoardStageProps {
   readonly onObjectSettingsRequest?:
     ((objectId: BoardObjectId) => void) | undefined;
   readonly onLineEndpointTransform?:
-    ((transform: BoardObjectTransformSnapshot) => void) | undefined;
+    ((
+      transform: BoardObjectTransformSnapshot,
+      baseline: BoardRenderItem,
+    ) => void) | undefined;
   readonly onLineEndpointTransformPreview?:
     ((transform: BoardObjectTransformSnapshot | null) => void) | undefined;
   readonly onPanModeRequest?: () => void;
@@ -979,7 +984,7 @@ export function BoardStage({
       setIsTransforming(false);
       lineEndpointCallbacksRef.current.preview?.(null);
       if (commit && preview !== null) {
-        lineEndpointCallbacksRef.current.commit?.(preview);
+        lineEndpointCallbacksRef.current.commit?.(preview, session.item);
       }
     },
     [releaseCapture],
@@ -990,6 +995,19 @@ export function BoardStage({
       const session = lineEndpointSessionRef.current;
       if (session === null || session.pointerId !== event.pointerId) return;
       event.preventDefault();
+      const currentClientPoint = clientPoint(event);
+      const movedPx = Math.hypot(
+        currentClientPoint.x - session.startClientPoint.x,
+        currentClientPoint.y - session.startClientPoint.y,
+      );
+      if (movedPx < lineEndpointDragThresholdPx) {
+        if (lineEndpointPreviewRef.current !== null) {
+          lineEndpointPreviewRef.current = null;
+          setLineEndpointPreview(null);
+          lineEndpointCallbacksRef.current.preview?.(null);
+        }
+        return;
+      }
       const point = selectionWorldSample(event, session).point;
       const transform = createLineEndpointRotationTransform(
         session.item,
@@ -1027,6 +1045,7 @@ export function BoardStage({
         endpoint,
         item,
         pointerId: event.evt.pointerId,
+        startClientPoint: clientPoint(event.evt),
         viewport: previewViewport,
       };
       setIsTransforming(true);
