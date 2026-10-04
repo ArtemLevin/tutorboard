@@ -91,21 +91,30 @@ PR-CI `37200381127` прошёл Quality gate, unit/performance suites,
 Chromium/Firefox browser smoke и Board-only profile; standalone Smart Ink,
 Formula Recognition и Paddle gates на том же HEAD также green.
 
-B3 Clear/resource lifecycle реализован в PR #170 и ожидает merge. Операция
-«Очистить холст» сохраняет undo/history и clipboard как пользовательское
-состояние, одновременно освобождая derived Coordinate Plot sampling cache,
-закрывая transient drawing/eraser/handwriting/GeometryOS/laser/selection
-sessions, plot/3D editors и transform preview. GIF redraw loop имеет явный
-cancel lifecycle. Повторные fill/clear циклы проверяют, что technical cache
-возвращается к нулю.
+B3 Clear/resource lifecycle закрыт и смержен PR #170 как
+`893c3cb601844e0a827d084579acae3e0a5cfb55`. Операция «Очистить холст»
+сохраняет undo/history и clipboard как пользовательское состояние, одновременно
+освобождая derived Coordinate Plot sampling cache, закрывая transient
+drawing/eraser/handwriting/GeometryOS/laser/selection sessions, plot/3D editors
+и transform preview. GIF redraw loop имеет явный cancel lifecycle.
 
-Кодовый HEAD PR #170 `4312f81ac90c6b331f4ee004a0a60f56da398320`
-прошёл PR-CI `37204307985`: Quality gate, unit/performance suites,
-architecture, production build, Chromium/Firefox browser smoke, Board-only
-profile, GeometryOS live contract и Coordinate Plot production/visual gates.
-Smart Ink, Formula Recognition и Paddle sidecar gates на том же HEAD — green.
+C1 Line endpoint rotation реализован в PR #171. Выбранная writable user-line
+получает два screen-stable endpoint handles; drag любого конца фиксирует
+противоположный endpoint в world coordinates и сохраняет world-length.
+Поддержаны transformed и grouped lines, rotated/non-uniform parent transforms,
+cancel/lost-capture/blur/viewport-change lifecycle, collaboration transform
+preview и единый undo на завершённый gesture. Persisted schema и набор board
+command kinds не изменялись.
 
-После merge B3 следующий этап remediation train — **C1 Line endpoint rotation**.
+Code-head C1 `092c80723fc57b75bc14b7adc7fbcc9cd9dd7331` прошёл PR-CI
+`37209606415`: format/lint/typecheck/audit, 177 unit files / 967 tests,
+8 performance files / 13 tests, architecture, production build,
+Chromium/Firefox browser smoke, Board-only profile, GeometryOS live contract и
+Coordinate Plot production/visual gates. Smart Ink, Formula Recognition и
+Paddle sidecar gates на том же HEAD также green.
+
+После merge C1 следующий этап remediation train — **C2 Context-aware image
+sizing and ±50%**.
 
 ## 1. Продуктовая цель
 
