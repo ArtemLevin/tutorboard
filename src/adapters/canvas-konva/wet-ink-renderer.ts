@@ -397,15 +397,14 @@ export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
     draw(frame) {
       group.position(frame.viewport.offset);
       group.scale({ x: frame.viewport.zoom, y: frame.viewport.zoom });
-      const actualInk = createVectorInkData(
-        vectorSamples(frame.actualSamples),
-        false,
-      );
-      const actualRenderPaths = createPenStrokeRenderPaths(
-        actualInk,
-        frame.style.strokeStyle,
-        frame.style.strokeWidth,
-      );
+      const actualRenderPaths =
+        frame.actualSamples.length < 2
+          ? []
+          : createPenStrokeRenderPaths(
+              createVectorInkData(vectorSamples(frame.actualSamples), false),
+              frame.style.strokeStyle,
+              frame.style.strokeWidth,
+            );
       syncPathPool(group, actualPaths, actualRenderPaths, frame.style, 1);
 
       const first = frame.actualSamples[0];
@@ -424,18 +423,19 @@ export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
 
       const previous = frame.actualSamples.at(-1);
       const predictedSamples =
-        previous === undefined
-          ? frame.predictedSamples
-          : [previous, ...frame.predictedSamples];
-      const predictedInk = createVectorInkData(
-        vectorSamples(predictedSamples),
-        false,
-      );
-      const predictedRenderPaths = createPenStrokeRenderPaths(
-        predictedInk,
-        frame.style.strokeStyle,
-        frame.style.strokeWidth,
-      );
+        frame.predictedSamples.length === 0
+          ? []
+          : previous === undefined
+            ? frame.predictedSamples
+            : [previous, ...frame.predictedSamples];
+      const predictedRenderPaths =
+        predictedSamples.length === 0
+          ? []
+          : createPenStrokeRenderPaths(
+              createVectorInkData(vectorSamples(predictedSamples), false),
+              frame.style.strokeStyle,
+              frame.style.strokeWidth,
+            );
       syncPathPool(
         group,
         predictedPaths,
