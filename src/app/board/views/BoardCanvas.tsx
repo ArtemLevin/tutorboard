@@ -23,6 +23,7 @@ import { handwrittenFunctionToolId } from "../../../modules/handwritten-function
 import {
   isSelectionToolId,
   selectionToolId,
+  selectTopObjectIdNearPoint,
 } from "../../../modules/selection/public";
 import {
   CanvasContextMenu,
@@ -329,6 +330,9 @@ export function BoardCanvas({
           if (activeTool === laserToolId) laser.hover(cursor);
         }}
         onWorldPointerStart={interaction.start}
+        onObjectProximityHitRequest={(point, toleranceWorld) =>
+          selectTopObjectIdNearPoint(scene, point, toleranceWorld)
+        }
         onObjectSettingsRequest={onObjectSettingsRequest}
         onPanModeRequest={() => interaction.activate(navigationToolId)}
         onSelectionPointerCancel={interaction.selectionCancel}
