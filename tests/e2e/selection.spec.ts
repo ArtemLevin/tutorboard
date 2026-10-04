@@ -441,39 +441,39 @@ test(
   "cancels an in-progress line endpoint rotation without history mutation",
   { tag: "@smoke" },
   async ({ page }) => {
-  await dragMarquee(page);
-  await page.mouse.up();
-  await page.keyboard.press("Delete");
+    await dragMarquee(page);
+    await page.mouse.up();
+    await page.keyboard.press("Delete");
 
-  await page.keyboard.press("l");
-  const start = await stagePoint(page, 300, 360);
-  const end = await stagePoint(page, 540, 360);
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(end.x, end.y, { steps: 6 });
-  await page.mouse.up();
+    await page.keyboard.press("l");
+    const start = await stagePoint(page, 300, 360);
+    const end = await stagePoint(page, 540, 360);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 6 });
+    await page.mouse.up();
 
-  await page.keyboard.press("v");
-  const nearLine = await stagePoint(page, 420, 370);
-  await page.mouse.click(nearLine.x, nearLine.y);
+    await page.keyboard.press("v");
+    const nearLine = await stagePoint(page, 420, 370);
+    await page.mouse.click(nearLine.x, nearLine.y);
 
-  const target = await stagePoint(page, 300, 520);
-  await page.mouse.move(end.x, end.y);
-  await page.mouse.down();
-  await page.mouse.move(target.x, target.y, { steps: 6 });
-  await page.keyboard.press("Escape");
-  await page.mouse.up();
+    const target = await stagePoint(page, 300, 520);
+    await page.mouse.move(end.x, end.y);
+    await page.mouse.down();
+    await page.mouse.move(target.x, target.y, { steps: 6 });
+    await page.keyboard.press("Escape");
+    await page.mouse.up();
 
-  await expect(page.getByTestId("board-stage")).toHaveAttribute(
-    "data-transforming",
-    "false",
-  );
-  await expect(page.getByTestId("first-object-position")).toHaveText(
-    "Объект: 300, 360",
-  );
-  await expect(page.getByTestId("first-object-transform")).toHaveText(
-    "Масштаб: 1, 1 · Поворот: 0°",
-  );
+    await expect(page.getByTestId("board-stage")).toHaveAttribute(
+      "data-transforming",
+      "false",
+    );
+    await expect(page.getByTestId("first-object-position")).toHaveText(
+      "Объект: 300, 360",
+    );
+    await expect(page.getByTestId("first-object-transform")).toHaveText(
+      "Масштаб: 1, 1 · Поворот: 0°",
+    );
 
     await page.keyboard.press("Control+z");
     await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
