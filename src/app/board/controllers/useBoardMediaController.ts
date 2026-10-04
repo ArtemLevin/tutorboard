@@ -21,8 +21,7 @@ export interface UseBoardMediaControllerOptions {
   readonly documentController: BoardDocumentController;
   readonly onImagesInserted: (objectIds: readonly BoardObjectId[]) => void;
   readonly resolveImageDisplaySize?:
-    | ((intrinsicSize: Size2) => Size2)
-    | undefined;
+    ((intrinsicSize: Size2) => Size2) | undefined;
   readonly resolvePlacementCenter: () => Vec2;
 }
 

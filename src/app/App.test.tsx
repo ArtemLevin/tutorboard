@@ -839,10 +839,8 @@ describe("App", () => {
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
 
     const before = onDocumentChange.mock.calls
-      .at(-1)
-      ?.[0].order.map(
-        (id) => onDocumentChange.mock.calls.at(-1)?.[0].objects[id],
-      )
+      .at(-1)?.[0]
+      .order.map((id) => onDocumentChange.mock.calls.at(-1)?.[0].objects[id])
       .filter((object) => object?.kind === "image.embedded");
     expect(before).toHaveLength(2);
     const centers = before?.map((object) => ({

@@ -79,28 +79,25 @@ describe("image scale steps", () => {
     ]);
   });
 
-  it(
-    "preserves legacy non-uniform aspect ratio while stepping by representative scale",
-    () => {
-      const target = image("object:legacy", {
-        position: { x: 10, y: 20 },
-        scale: { x: 2, y: 0.5 },
-      });
-      const transforms = createImageScaleStepTransforms(
-        documentWith(target),
-        [target.id],
-        "increase",
-      );
-      expect(transforms).toEqual([
-        {
-          objectId: target.id,
-          position: { x: -90, y: 7.5 },
-          rotation: 0,
-          scale: { x: 3, y: 0.75 },
-        },
-      ]);
-    },
-  );
+  it("preserves legacy non-uniform aspect ratio while stepping by representative scale", () => {
+    const target = image("object:legacy", {
+      position: { x: 10, y: 20 },
+      scale: { x: 2, y: 0.5 },
+    });
+    const transforms = createImageScaleStepTransforms(
+      documentWith(target),
+      [target.id],
+      "increase",
+    );
+    expect(transforms).toEqual([
+      {
+        objectId: target.id,
+        position: { x: -90, y: 7.5 },
+        rotation: 0,
+        scale: { x: 3, y: 0.75 },
+      },
+    ]);
+  });
 
   it("scales an eligible multi-selection in one transform set", () => {
     const first = image("object:first");
