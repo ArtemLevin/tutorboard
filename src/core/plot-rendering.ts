@@ -1,11 +1,11 @@
 import type {
   CoordinatePlotDefinition,
   CoordinatePlotGrid,
-  CoordinatePlotObject,
   CoordinatePlotViewport,
   PlotLegendPosition,
   PlotLineStyle,
 } from "./board/coordinate-plot";
+import type { CoordinatePlotObject } from "./board/objects";
 import type { Size2 } from "./board/primitives";
 import {
   plotDataToLocalPoint,
