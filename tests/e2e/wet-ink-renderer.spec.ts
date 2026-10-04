@@ -146,3 +146,26 @@ test("@smoke keeps wavy style through wet ink and final pen materialization", as
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await expect(styleTrigger).toHaveAttribute("aria-label", /Волнистая/);
 });
+
+test("@smoke materializes a single pen tap and clears transient ink", async ({
+  page,
+}) => {
+  await openBoardWithPen(page);
+
+  const point = await stagePoint(page, 260, 260);
+  const stage = page.getByTestId("board-stage");
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down();
+
+  await expect(stage).toHaveAttribute("data-wet-ink-active", "true");
+  await expect
+    .poll(async () =>
+      Number((await stage.getAttribute("data-wet-ink-frame-count")) ?? 0),
+    )
+    .toBeGreaterThan(0);
+
+  await page.mouse.up();
+
+  await expect(stage).toHaveAttribute("data-wet-ink-active", "false");
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+});

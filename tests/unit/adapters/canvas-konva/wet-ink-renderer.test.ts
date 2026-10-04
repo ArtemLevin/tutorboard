@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import Konva from "konva";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  createPenStrokeRenderPaths,
+  createVectorInkData,
+} from "../../../../src/core/public";
+
+import {
+  createKonvaWetInkSurface,
   WetInkRenderer,
   type WetInkFrame,
   type WetInkFrameClock,
@@ -226,5 +233,173 @@ describe("WetInkRenderer", () => {
       meanMs: 22 / 3,
       p95Ms: 10,
     });
+  });
+});
+
+function frame(
+  actualSamples: WetInkFrame["actualSamples"],
+  predictedSamples: WetInkFrame["predictedSamples"] = [],
+  frameStyle: WetInkFrame["style"] = style,
+): WetInkFrame {
+  return {
+    actualPoints: actualSamples.map(({ point }) => point),
+    actualSamples,
+    predictedPoints: predictedSamples.map(({ point }) => point),
+    predictedSamples,
+    style: frameStyle,
+    viewport,
+  };
+}
+
+function createInspectableWetInkSurface() {
+  const layer = new Konva.Layer();
+  Object.defineProperty(layer, "draw", {
+    configurable: true,
+    value: () => layer,
+  });
+  const surface = createKonvaWetInkSurface(layer);
+  const group = layer.getChildren()[0];
+  if (!(group instanceof Konva.Group)) {
+    throw new Error("Wet Ink surface must attach one Konva.Group.");
+  }
+  return { group, layer, surface };
+}
+
+function visibleChildren(group: Konva.Group) {
+  return group.getChildren().filter((node) => node.visible());
+}
+
+let canvasGetContextDescriptor: PropertyDescriptor | undefined;
+
+function installKonvaCanvasContextStub(): void {
+  canvasGetContextDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLCanvasElement.prototype,
+    "getContext",
+  );
+  Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+    configurable: true,
+    value() {
+      return {
+        clearRect() {},
+        fillRect() {},
+        getImageData() {
+          return {
+            data: new Uint8ClampedArray([0, 0, 0, 0]),
+          };
+        },
+        scale() {},
+      };
+    },
+  });
+}
+
+function restoreKonvaCanvasContext(): void {
+  if (canvasGetContextDescriptor === undefined) {
+    Reflect.deleteProperty(HTMLCanvasElement.prototype, "getContext");
+    return;
+  }
+  Object.defineProperty(
+    HTMLCanvasElement.prototype,
+    "getContext",
+    canvasGetContextDescriptor,
+  );
+}
+
+describe("createKonvaWetInkSurface", () => {
+  beforeEach(() => {
+    installKonvaCanvasContextStub();
+  });
+
+  afterEach(() => {
+    restoreKonvaCanvasContext();
+  });
+
+  it("renders one fast-path circle for a single actual sample with no predictions", () => {
+    const { group, surface } = createInspectableWetInkSurface();
+    surface.draw(
+      frame([{ inputTimestampMs: 0, point: { x: 12, y: 18 }, pressure: 0.8 }]),
+    );
+
+    const visible = visibleChildren(group);
+    expect(visible).toHaveLength(1);
+    expect(visible[0]).toBeInstanceOf(Konva.Circle);
+    expect(visible.filter((node) => node instanceof Konva.Path)).toHaveLength(
+      0,
+    );
+  });
+
+  it("matches final marker opacity for a single transient tap", () => {
+    const markerStyle = {
+      ...style,
+      opacity: 0.8,
+      strokeStyle: "marker",
+    } as const;
+    const sample = {
+      inputTimestampMs: 0,
+      point: { x: 12, y: 18 },
+      pressure: 0.8,
+    } as const;
+    const { group, surface } = createInspectableWetInkSurface();
+    surface.draw(frame([sample], [], markerStyle));
+
+    const [visible] = visibleChildren(group);
+    const final = createPenStrokeRenderPaths(
+      createVectorInkData([
+        {
+          point: sample.point,
+          pressure: sample.pressure,
+          timestampMs: 0,
+        },
+      ]),
+      "marker",
+      markerStyle.strokeWidth,
+    );
+
+    expect(visible).toBeInstanceOf(Konva.Circle);
+    expect(final).toHaveLength(1);
+    expect(visible?.opacity()).toBeCloseTo(
+      markerStyle.opacity * (final[0]?.opacityMultiplier ?? 0),
+      10,
+    );
+  });
+
+  it("does not create predicted geometry when no predicted samples exist", () => {
+    const { group, surface } = createInspectableWetInkSurface();
+    surface.draw(
+      frame([
+        { inputTimestampMs: 0, point: { x: 0, y: 0 }, pressure: 0.5 },
+        { inputTimestampMs: 4, point: { x: 30, y: 20 }, pressure: 0.6 },
+      ]),
+    );
+
+    const visible = visibleChildren(group);
+    expect(visible.filter((node) => node instanceof Konva.Path)).toHaveLength(
+      1,
+    );
+    expect(visible.filter((node) => node instanceof Konva.Circle)).toHaveLength(
+      0,
+    );
+  });
+
+  it("renders prediction geometry only when real predicted samples exist", () => {
+    const { group, surface } = createInspectableWetInkSurface();
+    surface.draw(
+      frame(
+        [
+          { inputTimestampMs: 0, point: { x: 0, y: 0 }, pressure: 0.5 },
+          { inputTimestampMs: 4, point: { x: 30, y: 20 }, pressure: 0.6 },
+        ],
+        [{ inputTimestampMs: 8, point: { x: 45, y: 26 }, pressure: 0.55 }],
+      ),
+    );
+
+    const paths = visibleChildren(group).filter(
+      (node): node is Konva.Path => node instanceof Konva.Path,
+    );
+    expect(paths).toHaveLength(2);
+    expect(paths.map((path) => path.opacity()).sort()).toEqual([
+      style.opacity * 0.42,
+      style.opacity,
+    ]);
   });
 });
