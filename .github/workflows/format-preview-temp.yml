@@ -1,9 +1,9 @@
 name: Temporary format preview
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/coordinate-plot-export
+      - main
 
 permissions:
   contents: read
