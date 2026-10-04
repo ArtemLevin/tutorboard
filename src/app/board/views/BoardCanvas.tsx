@@ -102,7 +102,6 @@ export interface BoardCanvasProps {
   readonly handwriting: BoardHandwritingController;
   readonly interaction: BoardInteractionRouter;
   readonly laser: LaserPointerController;
-  readonly onInspectorClose: () => void;
   readonly onObjectSettingsRequest: (objectId: BoardObjectId) => void;
   readonly onPointerHover: (cursor: Vec2) => void;
   readonly onTransformPreviewChange: (
@@ -154,7 +153,6 @@ export function BoardCanvas({
   handwriting,
   interaction,
   laser,
-  onInspectorClose,
   onObjectSettingsRequest,
   onPointerHover,
   onTransformPreviewChange,
