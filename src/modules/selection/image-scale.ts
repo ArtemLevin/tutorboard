@@ -42,14 +42,12 @@ export function nextImageScaleStep(
 
   if (direction === "increase") {
     const next =
-      (Math.floor((current + scaleEpsilon) / imageScaleStep) + 1) *
-      imageScaleStep;
+      (Math.floor((current + scaleEpsilon) / imageScaleStep) + 1) * imageScaleStep;
     return Math.min(maximumImageScale, next);
   }
 
   const next =
-    (Math.ceil((current - scaleEpsilon) / imageScaleStep) - 1) *
-    imageScaleStep;
+    (Math.ceil((current - scaleEpsilon) / imageScaleStep) - 1) * imageScaleStep;
   return Math.max(minimumImageScale, next);
 }
 
