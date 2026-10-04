@@ -209,12 +209,11 @@ function exportedSeriesFragments(
 ): readonly string[] {
   return [
     ...svg.matchAll(
-      new RegExp(
-        `<polyline[^>]*data-coordinate-plot-series-id="${seriesId.replaceAll(":", "\\:")}"[^>]*>`,
-        "gu",
-      ),
+      /<polyline[^>]*data-coordinate-plot-series-id="([^"]+)"[^>]*>/gu,
     ),
-  ].map(([markup]) => markup);
+  ]
+    .filter(([, matchedSeriesId]) => matchedSeriesId === seriesId)
+    .map(([markup]) => markup);
 }
 
 function transformLocalPoint(
