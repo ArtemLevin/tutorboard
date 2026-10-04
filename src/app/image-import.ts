@@ -178,9 +178,7 @@ export function resolveEmbeddedImagePlacementSizeForScene(
       rect.y <= viewportBottom &&
       rect.y + rect.height >= viewportOrigin.y,
   );
-  const boundsById = new Map(
-    visibleBounds.map(({ id, rect }) => [id, rect]),
-  );
+  const boundsById = new Map(visibleBounds.map(({ id, rect }) => [id, rect]));
   const selected = aggregateSelectionBounds(
     selectSelectionBounds(scene, selectedObjectIds),
   );
