@@ -37,7 +37,9 @@ function image(
   };
 }
 
-function documentWith(...objects: readonly EmbeddedImageObject[]): BoardDocument {
+function documentWith(
+  ...objects: readonly EmbeddedImageObject[]
+): BoardDocument {
   const base = createEmptyBoardDocument({
     createdAt: "2026-10-04T16:00:00.000Z",
     id: documentId("document:image-scale"),
@@ -77,8 +79,10 @@ describe("image scale steps", () => {
     ]);
   });
 
-  it("preserves legacy non-uniform aspect ratio while stepping by representative scale", () => {
-    const target = image("object:legacy", {
+  it(
+    "preserves legacy non-uniform aspect ratio while stepping by representative scale",
+    () => {
+      const target = image("object:legacy", {
       position: { x: 10, y: 20 },
       scale: { x: 2, y: 0.5 },
     });
@@ -87,15 +91,16 @@ describe("image scale steps", () => {
       [target.id],
       "increase",
     );
-    expect(transforms).toEqual([
-      {
-        objectId: target.id,
-        position: { x: -90, y: 7.5 },
-        rotation: 0,
-        scale: { x: 3, y: 0.75 },
-      },
-    ]);
-  });
+      expect(transforms).toEqual([
+        {
+          objectId: target.id,
+          position: { x: -90, y: 7.5 },
+          rotation: 0,
+          scale: { x: 3, y: 0.75 },
+        },
+      ]);
+    },
+  );
 
   it("scales an eligible multi-selection in one transform set", () => {
     const first = image("object:first");
