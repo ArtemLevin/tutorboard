@@ -269,9 +269,7 @@ function visibleChildren(group: Konva.Group) {
   return group.getChildren().filter((node) => node.visible());
 }
 
-let canvasGetContextDescriptor:
-  | PropertyDescriptor
-  | undefined;
+let canvasGetContextDescriptor: PropertyDescriptor | undefined;
 
 function installKonvaCanvasContextStub(): void {
   canvasGetContextDescriptor = Object.getOwnPropertyDescriptor(
