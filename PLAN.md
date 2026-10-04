@@ -111,8 +111,17 @@ Chromium/Firefox browser smoke, Board-only profile, GeometryOS live contract и
 Coordinate Plot production gate. Smart Ink `37214700284`, Formula Recognition
 `37214700259` и Paddle sidecar `37214700269` также green.
 
-Текущий этап remediation train — **C2 Context-aware image sizing and ±50%**.
-Рабочая ветка создана от merge C1: `feat/image-sizing-shortcuts`.
+C2 **Context-aware image sizing and ±50%** закрыт и смержен PR #172 как
+`7965d3926d27e3c134efcfd2df52c0571e486a41`. Финальный branch HEAD
+`35ad7c697eecf257b7ccdc62cfafac52d2914fef` прошёл CI run
+`37221613258` (#2017), а также Smart Ink, Formula Recognition и Paddle
+production gates.
+
+Текущий этап remediation train — **C3 Media performance**. C3 начинается с
+воспроизводимого browser profile и фиксации baseline по static images, GIF,
+mixed scene, visibility/offscreen lifecycle и autosave. Production-код C3
+изменяется только после подтверждения dominant contributor. Предлагаемая ветка:
+`perf/media-rendering`.
 
 ## 1. Продуктовая цель
 

@@ -40,7 +40,7 @@ A1 → A2 → A3 → A4 → A5
 | B2 — Incremental eraser gesture | RESOLVED | PR #169; PR CI `37200715401` green; merged as `932371e046cedcee4b55399b7764637352eba858` |
 | B3 — Clear/resource lifecycle | RESOLVED | PR #170; merged as `893c3cb601844e0a827d084579acae3e0a5cfb55` |
 | C1 — Line endpoint rotation | RESOLVED | PR #171; merged as `5d88746eb46f7280d89e543ac285c885a1510f6b`; final CI `37214700224` green |
-| C2 — Context-aware image sizing and ±50% | IN PROGRESS | branch `feat/image-sizing-shortcuts` |
+| C2 — Context-aware image sizing and ±50% | RESOLVED | PR #172; merged as `7965d3926d27e3c134efcfd2df52c0571e486a41`; final HEAD `35ad7c697eecf257b7ccdc62cfafac52d2914fef`; CI #2017 green |
 
 PR #165 дополнительно закрепил актуальный pen-tap contract в Chromium/Firefox
 browser coverage и выровнял right-double-click object settings с forgiving
@@ -670,7 +670,25 @@ Coordinate Plot production gate. Smart Ink `37214700284`, Formula Recognition
 - locked/read-only objects не меняются;
 - persistence/reload сохраняет результат.
 
-### Предлагаемая ветка
+### Implementation status — PR #172
+
+- context-aware placement использует selection bounds → median visible media →
+  median visible content → viewport fallback;
+- aspect ratio и viewport-relative clamps сохраняются;
+- `+` / `-` меняют selected media scale ступенями по 50 percentage points,
+  сохраняя центр, rotation и legacy non-uniform scale;
+- multi-selection коммитится одной undoable operation;
+- read-only, locked, mixed non-media selection, text editing и key repeat
+  сохраняют существующие semantics;
+- persisted schema, BoardDocument format и command kinds не изменены;
+- merge commit:
+  `7965d3926d27e3c134efcfd2df52c0571e486a41`;
+- final branch HEAD:
+  `35ad7c697eecf257b7ccdc62cfafac52d2914fef`;
+- CI `37221613258` (#2017), Smart Ink `37221613254`, Formula Recognition
+  `37221613287` и Paddle `37221613252` завершились успешно.
+
+### Реализованная ветка
 
 `feat/image-sizing-shortcuts`
 
@@ -678,49 +696,289 @@ Coordinate Plot production gate. Smart Ink `37214700284`, Formula Recognition
 
 ## C3 — Media performance
 
-### Important constraint
+### Verified current flow
 
-Аудит установил вероятные причины деградации, однако вклад каждой причины browser profile ещё не измерен.
+C3 starts from the merged C2 baseline and preserves the existing board contracts.
 
-Поэтому implementation начинается с воспроизводимого benchmark.
+Current runtime flow on `main`:
+
+1. `image.embedded` stores the original base64 `dataUrl`, SHA-256, intrinsic
+   size and display size inside BoardDocument.
+2. `EmbeddedImageRenderer` creates a fresh `HTMLImageElement` for every
+   mounted embedded image and assigns `object.dataUrl`.
+3. BoardStage performs viewport culling before rendering. Objects outside the
+   viewport + overscan culling window are unmounted, so their renderer effects
+   and GIF redraw loop are disposed.
+4. Every visible GIF owns its own `requestAnimationFrame` loop through
+   `startAnimatedImageRedraw()`.
+5. Each GIF callback calls `batchDraw()` on the Konva Layer that contains all
+   visible board content: static images, GIFs, drawing objects and coordinate
+   plots.
+6. Local autosave debounces document changes by 350 ms. Dexie persistence
+   validates, canonicalizes and `JSON.stringify`-serializes the complete
+   BoardDocument, including every embedded base64 payload, into an append-only
+   full-document revision.
+7. B3 already guarantees explicit GIF callback cancellation on unmount and
+   clear-driven transient cleanup. C3 must extend this lifecycle safely rather
+   than duplicate B3.
+8. `media.asset` exists as a metadata/reference contract foundation, while
+   the current canvas renderer is still a placeholder. External media bytes,
+   resolver/storage and migration remain the separate ADR-032 rollout.
+
+### Root-cause hypotheses
+
+| ID | Confidence before profile | Hypothesis | Required evidence |
+| --- | --- | --- | --- |
+| C3-H1 | HIGH | A visible GIF invalidates the shared content Layer every animation frame, so unrelated static/vector/plot content is repainted with it. | Layer draw count, frame p95 and mixed-scene cost with 0/1/4/8 GIF while static scene complexity is held constant. |
+| C3-H2 | HIGH | The app gives each mounted static raster its full source payload and provides no display-target decode/downscale or application-owned bounded decoded-resource cache. Browser decode policy is therefore uncontrolled by TutorBoard; remount/duplicate content can repeat decode work and may retain excessive decoded pixels. | Decode-start count, viewport churn profile, intrinsic-vs-display pixel ratio, memory/resource estimate and cleanup after eviction/unmount. |
+| C3-H3 | HIGH for persistence path | Autosave repeatedly validates/canonicalizes/stringifies all embedded base64 payloads and stores a full append-only revision, making CPU/storage growth proportional to embedded bytes × revision count. | Serialized byte count, save/serialization duration and revision growth for 1/5/10 representative images. |
+| C3-H4 | MEDIUM | N visible GIFs create N independent animation loops. Konva may coalesce actual Layer draws, but callback and `batchDraw()` request overhead still scales with GIF count. | Animation callback count and actual Layer draw count per browser frame. |
+| C3-H5 | MEDIUM | Raster import decodes once to obtain intrinsic dimensions and the renderer decodes again after the object is mounted. | Import-to-first-paint decode event count and time. |
+| C3-H6 | LOW/MEDIUM | Stable media components may still be recreated or redrawn during unrelated document/selection updates beyond what scene identity caching already prevents. | React/Konva render counts during unrelated pen/selection changes with stable media objects. |
+
+The hypotheses are ranked for investigation only. No candidate optimization becomes
+production code until its contribution is measured.
 
 ### Benchmark matrix
 
-- 1/5/10 static images;
-- 1/4/8 GIF;
-- mixed pen + coordinate plot + images + GIF;
-- visible/offscreen media;
-- active/hidden tab;
-- autosave cycle.
+Use one deterministic fixture family for before/after measurements:
 
-### Metrics
+| Scenario | Variants |
+| --- | --- |
+| Static media | 1 / 5 / 10 PNG/JPEG objects; include high intrinsic-pixel / small display-size cases and duplicate SHA cases |
+| Animated media | 1 / 4 / 8 GIF objects |
+| Mixed scene | pen strokes + coordinate plots + static images + GIF |
+| Viewport lifecycle | all visible; all media offscreen; repeated visible ↔ offscreen pan cycle |
+| Page lifecycle | active page; hidden/background state where the browser harness can reproduce it deterministically |
+| Persistence | one edit after 1 / 5 / 10 embedded images; repeated autosave revisions |
+| Cleanup | delete/clear/unmount followed by resource/callback accounting |
 
-- frame duration/p95;
-- main-thread long tasks;
-- decoded image memory;
-- heap before/after cleanup;
-- autosave serialization;
-- redraw count;
-- animation callbacks.
+The browser benchmark must run against a production build. Fixture setup time is
+excluded from the measured window.
 
-### Candidate fixes only after profiling
+### Metrics and instrumentation
 
-- bounded display bitmap cache by `contentSha256`;
-- downscaled bitmap для screen rendering;
-- animated media isolated from static layer;
-- pause offscreen/hidden-tab animation;
-- memoization of stable rendering;
-- bounded decoded-resource cache.
+Primary metrics:
 
-Если dominant cost связан с embedded bytes/history, переход к external asset storage выносится в отдельный architecture/data-migration PR.
+- animation callbacks requested/executed;
+- Konva content-Layer draw / `batchDraw` requests;
+- frame interval p50/p95/max and dropped-frame proxy;
+- main-thread long tasks (>50 ms) during the measured window;
+- image decode starts / completed resources;
+- owned decoded-resource count and estimated decoded bytes/pixels when C3 adds
+  an application cache;
+- resource count after offscreen transition, clear and unmount;
+- serialization duration;
+- canonical serialized document bytes;
+- persisted revision count / cumulative serialized bytes in the test repository.
+
+Measurement strategy:
+
+1. deterministic callback/resource invariants are CI-gated;
+2. wall-clock/frame metrics use warm-up plus repeated samples and report
+   median/p95;
+3. Chromium browser memory/long-task diagnostics are evidence, with an absolute
+   CI memory threshold added only when the chosen metric is stable on hosted
+   runners;
+4. Firefox remains part of functional lifecycle/smoke coverage even when a
+   Chromium-only diagnostic API is needed for profiling.
+
+Existing `WetInkRenderer` clock/surface injection is the preferred pattern for
+deterministic frame-scheduler tests. Browser-only instrumentation should live in
+the test harness where practical instead of shipping debug counters in
+production runtime.
+
+### Performance-budget calibration
+
+Before the first production fix:
+
+1. run two warm-up passes;
+2. collect at least five measured passes per benchmark variant;
+3. record median and p95 plus exact callback/draw/resource counts;
+4. identify the dominant contributor by controlled one-variable comparisons;
+5. set the regression budget from the verified post-fix distribution with CI
+   headroom documented in the benchmark;
+6. keep exact lifecycle/count invariants tighter than wall-clock budgets.
+
+Provisional product targets for interpretation, subject to baseline validation:
+
+- ordinary 1–4 GIF mixed scenes should target 60 fps class behavior
+  (frame p95 around one display frame);
+- 8-GIF stress should remain interactive and avoid repeated >50 ms long tasks;
+- offscreen/hidden animated media should perform zero application-owned
+  animation work after the lifecycle transition when C3 explicitly owns that
+  state;
+- decoded-resource retention must be bounded by explicit entry/pixel/byte
+  limits;
+- cleanup must return active callback/resource ownership to zero for a cleared
+  board.
+
+No existing performance threshold may be relaxed to accommodate C3.
+
+### Decision tree after baseline
+
+#### If C3-H4 dominates callback overhead
+
+Implement an adapter-owned **shared animated-media redraw coordinator**:
+
+- visible GIF renderers register/unregister with one coordinator;
+- one scheduler loop services all registered GIFs;
+- each unique Konva Layer receives at most one redraw request per animation
+  frame;
+- `visibilitychange` pauses/resumes the coordinator explicitly;
+- viewport culling continues to unregister offscreen GIFs;
+- cleanup is idempotent and B3 clear/unmount semantics remain green.
+
+This is the preferred minimal fix because it preserves object order and current
+Konva layer composition.
+
+#### If C3-H1 remains dominant after callback coalescing
+
+Do not move GIFs into a single top overlay because that would violate z-order.
+
+First profile a z-order-preserving rendering design. Candidate approaches are
+segmented static/animated render runs or bounded cached static groups. This
+becomes a separate C3 sub-block with its own visual, hit-testing, transform and
+z-order regression matrix before adoption.
+
+#### If C3-H2 dominates decode/memory
+
+Introduce a BoardStage/BoardCanvas-scoped **bounded embedded-image resource
+runtime**:
+
+- key stable resources by `contentSha256`;
+- protect actively mounted resources with ownership/ref-count semantics;
+- retain released resources only under bounded LRU policy;
+- add explicit `clear()` / `dispose()`;
+- close disposable decoded resources on eviction;
+- keep GIF animation on the animation path;
+- evaluate downscaled display `ImageBitmap` for PNG/JPEG only after measuring
+  quality and browser support;
+- derive display decode size from actual rendered scale/zoom with bucketed sizes
+  to avoid re-decoding on every small zoom change;
+- preserve the original `dataUrl` for persistence/export/source fidelity.
+
+Cache constants (entry count and decoded pixel/byte budget) are selected from
+the measured matrix and recorded beside the implementation.
+
+#### If C3-H3 dominates
+
+Record the profile as an architectural blocker and route the fix to the
+ADR-032 media-asset / persistence workstream.
+
+C3 must not silently:
+
+- remove embedded bytes from existing BoardDocument objects;
+- change revision format/retention;
+- alter BoardCommand/snapshot schema;
+- increase command-size limits;
+- rewrite collaboration transport.
+
+Any local revision deduplication/compaction also requires a separate persistence
+design with migration/recovery analysis.
+
+#### If C3-H5 is material
+
+Reuse a prepared static decoded resource through the transient media runtime so
+the import path can seed the renderer cache. Persisted object shape remains
+unchanged.
+
+### Implementation-ready sequence
+
+#### C3.0 — Baseline and instrumentation
+
+1. branch from the latest green `main` as `perf/media-rendering`;
+2. add deterministic media fixtures and a browser profiling harness;
+3. add a media-specific Vitest performance file for serialization/resource
+   invariants that do not require a browser;
+4. add a Chromium production-build profile for decode/frame/redraw/long-task
+   evidence;
+5. add lightweight Chromium/Firefox media lifecycle smoke coverage;
+6. capture the C2-baseline results in a committed performance report or CI
+   artifact referenced from the PR;
+7. choose the dominant contributor and ratify budgets before behavior changes.
+
+No production behavior changes belong in C3.0.
+
+#### C3.1 — Minimal confirmed fix
+
+Implement only the fix(es) justified by C3.0. Likely touched components,
+depending on the measured branch:
+
+- `src/adapters/canvas-konva/animated-image-redraw.ts`;
+- `src/adapters/canvas-konva/embedded-image-renderer.tsx`;
+- `src/adapters/canvas-konva/renderer-registry.tsx`;
+- `src/adapters/canvas-konva/BoardStage.tsx`;
+- `src/app/board/views/BoardCanvas.tsx`;
+- a new adapter-owned media runtime/cache module if C3-H2 is confirmed.
+
+Persistence modules remain measurement-only during C3 unless a separately
+approved persistence design expands scope.
+
+#### C3.2 — Regression coverage
+
+Required tests for whichever fix is activated:
+
+- one / four / eight GIF scheduler ownership;
+- one redraw request per unique layer per frame when shared scheduling is used;
+- offscreen unmount unregister;
+- hidden/background pause + visible resume;
+- clear/unmount idempotent cleanup;
+- duplicate-SHA static resource reuse when caching is used;
+- LRU bound and deterministic eviction;
+- active resource cannot be evicted while owned;
+- disposable resource close on eviction/clear;
+- viewport churn does not cause unbounded decode growth;
+- image transform, selection, hit area, z-order and export behavior unchanged;
+- mixed coordinate-plot/pen/media scene remains correct;
+- original `dataUrl` and `contentSha256` unchanged by display optimization.
+
+#### C3.3 — Project gates
+
+Focused checks are followed by:
+
+- media-specific unit tests;
+- media performance benchmark;
+- `npm run performance`;
+- `npm run check`;
+- Chromium and Firefox browser smoke;
+- Board-only frontend profile;
+- specialized gates selected by canvas/composition routing;
+- production-build media profile.
+
+If CI routing is extended with a dedicated media-performance job, routing tests
+must prove that media renderer/runtime/benchmark changes activate it and
+documentation-only changes remain on the fast path.
+
+#### C3.4 — Review / merge
+
+1. compare the final benchmark against the recorded C2 baseline;
+2. self-review resource ownership, cleanup, z-order, hit testing, transforms,
+   export, undo/read-only and backward compatibility;
+3. inspect the final diff for debug counters or benchmark-only production code;
+4. update C3 status/evidence in `PLAN.md` and this document;
+5. open the implementation PR;
+6. perform an independent pre-merge review;
+7. merge only with the applicable release gates green.
 
 ### Acceptance criteria
 
-- profile до/после сохранён;
-- исправлен подтверждённый dominant contributor;
-- measurable reduction in main-thread/render/memory cost;
-- export quality/source preservation сохраняются;
-- GIF cleanup verified.
+C3 is DONE when all of the following are evidenced:
+
+- reproducible before/after profile exists;
+- dominant contributor is demonstrated by controlled measurements;
+- the selected fix materially improves the dominant metric;
+- callback/resource ownership remains bounded under 1/4/8 GIF and viewport
+  churn;
+- mixed media + pen + coordinate-plot interaction stays responsive within the
+  ratified budget;
+- cleanup after offscreen/clear/unmount is verified;
+- export uses original source fidelity;
+- BoardDocument schema, command/envelope formats, object IDs, z-order,
+  collaboration, undo/redo, read-only and group semantics remain compatible;
+- full quality gate and relevant browser/specialized gates are green;
+- any base64/history bottleneck that requires external assets is explicitly
+  transferred to the ADR-032 workstream with evidence.
 
 ### Предлагаемая ветка
 
