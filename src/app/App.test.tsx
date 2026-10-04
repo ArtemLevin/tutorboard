@@ -687,6 +687,47 @@ describe("App", () => {
     expect(screen.getByTestId("history-depth")).toHaveTextContent("0/0");
   });
 
+  it("drops an unsaved selected-text draft when write access becomes read-only", async () => {
+    const onDocumentChange = vi.fn<(document: BoardDocument) => void>();
+    const { rerender } = render(
+      <App onDocumentChange={onDocumentChange} />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Текст" }));
+    const placementEditor = screen.getByRole("textbox", {
+      name: "Редактор текста на доске",
+    });
+    fireEvent.change(placementEditor, { target: { value: "Сохранённый текст" } });
+    fireEvent.blur(placementEditor);
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+
+    const selectedEditor = screen.getByRole("textbox", {
+      name: "Редактор выбранного текста",
+    });
+    fireEvent.change(selectedEditor, {
+      target: { value: "Несохранённое изменение" },
+    });
+    expect(selectedEditor).toHaveValue("Несохранённое изменение");
+
+    rerender(<App onDocumentChange={onDocumentChange} readOnly />);
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("textbox", { name: "Редактор выбранного текста" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+    const latestDocument = onDocumentChange.mock.calls.at(-1)?.[0];
+    expect(
+      Object.values(latestDocument?.objects ?? {}).find(
+        (object) => object?.kind === "drawing.text",
+      ),
+    ).toMatchObject({ text: "Сохранённый текст" });
+  });
+
   it("reports document changes and visible persistence status", () => {
     const onDocumentChange = vi.fn();
     render(
