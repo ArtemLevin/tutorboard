@@ -426,12 +426,10 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   expect(svg).toContain(
     `data-coordinate-plot-series-id="${visibleExplicitId}"`,
   );
-  expect(svg).toContain(
-    `data-coordinate-plot-series-id="${parametricId}"`,
-  );
+  expect(svg).toContain(`data-coordinate-plot-series-id="${parametricId}"`);
   expect(svg).toContain('data-coordinate-plot-series-kind="parametric"');
   expect(svg).not.toContain(
     `data-coordinate-plot-series-id="${hiddenExplicitId}"`,
   );
-  expect(svg).toContain("clip-path=\"url(#coordinate-plot-clip-");
+  expect(svg).toContain('clip-path="url(#coordinate-plot-clip-');
 });
