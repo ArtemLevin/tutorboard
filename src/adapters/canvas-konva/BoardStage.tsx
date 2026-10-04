@@ -1248,9 +1248,6 @@ export function BoardStage({
         finishLineEndpointTransform(false);
         return;
       }
-      if (lineEndpointSessionRef.current?.pointerId === event.pointerId) {
-        finishLineEndpointTransform(false);
-      }
       if (drawingSessionRef.current?.pointerId === event.pointerId) {
         finishDrawing(false);
         return;
@@ -1364,6 +1361,9 @@ export function BoardStage({
     }
 
     const handleLostCapture = (event: PointerEvent) => {
+      if (lineEndpointSessionRef.current?.pointerId === event.pointerId) {
+        finishLineEndpointTransform(false);
+      }
       if (drawingSessionRef.current?.pointerId === event.pointerId) {
         finishDrawing(false);
       }
@@ -1546,7 +1546,8 @@ export function BoardStage({
       (event.evt.shiftKey || event.evt.altKey);
     if (
       !isRightButton &&
-      isTransformerTarget(event.target) &&
+      (isTransformerTarget(event.target) ||
+        isLineEndpointHandleTarget(event.target)) &&
       !isLassoAreaModifier
     ) {
       commitWheel();
@@ -1555,7 +1556,8 @@ export function BoardStage({
     if (
       panSessionRef.current !== null ||
       drawingSessionRef.current !== null ||
-      selectionSessionRef.current !== null
+      selectionSessionRef.current !== null ||
+      lineEndpointSessionRef.current !== null
     ) {
       return;
     }
@@ -1744,7 +1746,8 @@ export function BoardStage({
     if (
       panSessionRef.current !== null ||
       drawingSessionRef.current !== null ||
-      selectionSessionRef.current !== null
+      selectionSessionRef.current !== null ||
+      lineEndpointSessionRef.current !== null
     ) {
       return;
     }
