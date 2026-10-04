@@ -53,6 +53,7 @@ function mediaObject(
   const column = index % 5;
   const row = Math.floor(index / 5);
   const id = `object:media-performance:${input.kind}:${index}`;
+  const mimeType = input.kind === "gif" ? "image/gif" : "image/png";
   return {
     contentSha256: digest(index + (input.kind === "gif" ? 10_000 : 1)),
     dataUrl: input.dataUrl,
@@ -62,7 +63,7 @@ function mediaObject(
     intrinsicSize: input.intrinsicSize ?? { height: 900, width: 1_200 },
     kind: "image.embedded" as const,
     locked: false,
-    mimeType: input.kind === "gif" ? ("image/gif" as const) : ("image/png" as const),
+    mimeType,
     position: { x: 80 + column * 150, y: 80 + row * 120 },
     rotation: 0,
     scale: { x: 1, y: 1 },
