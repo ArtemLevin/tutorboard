@@ -359,7 +359,9 @@ export function BoardCanvas({
         transformableObjectIds={transformableObjectIds}
         wetInkStyle={wetInkStyle}
       />
-      {textPlacement === null || textPlacementScreenPoint === null ? null : (
+      {readOnly ||
+      textPlacement === null ||
+      textPlacementScreenPoint === null ? null : (
         <InlineTextPlacementEditor
           onCancel={() => {
             interaction.activate(selectionToolId);
