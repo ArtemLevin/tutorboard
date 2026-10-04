@@ -696,13 +696,6 @@ export function BoardStage({
       selectionSessionRef.current === null &&
       lineEndpointSessionRef.current === null
     ) {
-      const lineEndpointSession = lineEndpointSessionRef.current;
-      if (lineEndpointSession !== null) {
-        lineEndpointSessionRef.current = null;
-        releaseCapture(lineEndpointSession);
-        lineEndpointPreviewRef.current = null;
-        onLineEndpointTransformPreview?.(null);
-      }
       const wheelSession = wheelSessionRef.current;
       if (wheelSession !== null) {
         window.clearTimeout(wheelSession.timeoutId);
@@ -1405,6 +1398,13 @@ export function BoardStage({
         selectionSessionRef.current = null;
         releaseCapture(selectionSession);
         selectionPointerCallbacksRef.current.cancel(selectionSession.pointerId);
+      }
+      const lineEndpointSession = lineEndpointSessionRef.current;
+      if (lineEndpointSession !== null) {
+        lineEndpointSessionRef.current = null;
+        releaseCapture(lineEndpointSession);
+        lineEndpointPreviewRef.current = null;
+        onLineEndpointTransformPreview?.(null);
       }
       const wheelSession = wheelSessionRef.current;
       if (wheelSession !== null) {
