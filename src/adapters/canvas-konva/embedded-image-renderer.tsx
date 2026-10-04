@@ -4,6 +4,33 @@ import { Group, Image as KonvaImage, Rect } from "react-konva";
 
 import type { EmbeddedImageObject } from "../../core/public";
 
+export interface AnimationFrameScheduler {
+  readonly cancel: (frameId: number) => void;
+  readonly request: (callback: FrameRequestCallback) => number;
+}
+
+export function startAnimatedImageRedraw(
+  draw: () => void,
+  scheduler: AnimationFrameScheduler = {
+    cancel: (frameId) => window.cancelAnimationFrame(frameId),
+    request: (callback) => window.requestAnimationFrame(callback),
+  },
+): () => void {
+  let active = true;
+  let frameId: number | null = null;
+  const redraw: FrameRequestCallback = () => {
+    if (!active) return;
+    draw();
+    frameId = scheduler.request(redraw);
+  };
+  frameId = scheduler.request(redraw);
+  return () => {
+    active = false;
+    if (frameId !== null) scheduler.cancel(frameId);
+    frameId = null;
+  };
+}
+
 export function EmbeddedImageRenderer({
   object,
 }: {
@@ -40,13 +67,9 @@ export function EmbeddedImageRenderer({
     if (object.mimeType !== "image/gif" || image === null) {
       return;
     }
-    let frame = 0;
-    const draw = () => {
+    return startAnimatedImageRedraw(() => {
       imageRef.current?.getLayer()?.batchDraw();
-      frame = window.requestAnimationFrame(draw);
-    };
-    frame = window.requestAnimationFrame(draw);
-    return () => window.cancelAnimationFrame(frame);
+    });
   }, [image, object.mimeType]);
 
   return (
