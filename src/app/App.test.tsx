@@ -663,6 +663,30 @@ describe("App", () => {
     expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
   });
 
+  it("cancels an active text draft when write access becomes read-only", async () => {
+    const { rerender } = render(<App />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Текст" }));
+    const editor = screen.getByRole("textbox", {
+      name: "Редактор текста на доске",
+    });
+    fireEvent.change(editor, { target: { value: "Несохранённый черновик" } });
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+
+    rerender(<App readOnly />);
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("textbox", { name: "Редактор текста на доске" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("0/0");
+  });
+
   it("reports document changes and visible persistence status", () => {
     const onDocumentChange = vi.fn();
     render(
