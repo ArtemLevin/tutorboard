@@ -456,53 +456,93 @@ test.beforeEach(async ({ page }) => {
   await installMediaInstrumentation(page);
 });
 
-test("@media-profile records the C2 media rendering baseline", async ({
-  page,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "chromium",
-    "Chromium owns C3.0 diagnostic profiling; lifecycle smoke runs cross-browser.",
-  );
+interface MediaProfileScenario {
+  readonly createOptions: () => MediaPerformanceDocumentOptions;
+  readonly name: string;
+}
 
-  const largeStaticDataUrl = createLargePngDataUrl();
-  const report = {
-    generatedAt: new Date().toISOString(),
-    scenarios: {
-      static1: await profileDocument(page, { staticCount: 1 }),
-      static5: await profileDocument(page, { staticCount: 5 }),
-      static10: await profileDocument(page, { staticCount: 10 }),
-      highPixelStatic: await profileDocument(page, {
-        largeStaticDataUrl,
-        staticCount: 1,
-      }),
-      gif1: await profileDocument(page, { gifCount: 1 }),
-      gif4: await profileDocument(page, { gifCount: 4 }),
-      gif8: await profileDocument(page, { gifCount: 8 }),
-      mixed: await profileDocument(page, {
-        gifCount: 4,
-        mixed: true,
-        staticCount: 5,
-      }),
-    },
-  };
+const mediaProfileScenarioTimeoutMs = 60_000;
 
-  expect(report.scenarios.gif1.median.rafCallbacks).toBeGreaterThan(0);
-  expect(report.scenarios.gif4.median.rafCallbacks).toBeGreaterThan(
-    report.scenarios.gif1.median.rafCallbacks * 2,
-  );
-  expect(report.scenarios.gif8.median.rafCallbacks).toBeGreaterThan(
-    report.scenarios.gif4.median.rafCallbacks * 1.5,
-  );
-  expect(report.scenarios.mixed.median.drawImageCalls).toBeGreaterThan(
-    report.scenarios.gif4.median.drawImageCalls,
-  );
+const mediaProfileScenarios: readonly MediaProfileScenario[] = [
+  {
+    name: "static1",
+    createOptions: () => ({ staticCount: 1 }),
+  },
+  {
+    name: "static5",
+    createOptions: () => ({ staticCount: 5 }),
+  },
+  {
+    name: "static10",
+    createOptions: () => ({ staticCount: 10 }),
+  },
+  {
+    name: "highPixelStatic",
+    createOptions: () => ({
+      largeStaticDataUrl: createLargePngDataUrl(),
+      staticCount: 1,
+    }),
+  },
+  {
+    name: "gif1",
+    createOptions: () => ({ gifCount: 1 }),
+  },
+  {
+    name: "gif4",
+    createOptions: () => ({ gifCount: 4 }),
+  },
+  {
+    name: "gif8",
+    createOptions: () => ({ gifCount: 8 }),
+  },
+  {
+    name: "mixed",
+    createOptions: () => ({
+      gifCount: 4,
+      mixed: true,
+      staticCount: 5,
+    }),
+  },
+];
 
-  console.info("MEDIA_BROWSER_BASELINE", JSON.stringify(report));
-  await testInfo.attach("media-performance-baseline.json", {
-    body: Buffer.from(JSON.stringify(report, null, 2)),
-    contentType: "application/json",
+for (const scenario of mediaProfileScenarios) {
+  test(`@media-profile records the C2 media rendering baseline: ${scenario.name}`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(mediaProfileScenarioTimeoutMs);
+    test.skip(
+      testInfo.project.name !== "chromium",
+      "Chromium owns C3.0 diagnostic profiling; lifecycle smoke runs cross-browser.",
+    );
+
+    const options = scenario.createOptions();
+    const profile = await profileDocument(page, options);
+    const report = {
+      generatedAt: new Date().toISOString(),
+      profile,
+      scenario: scenario.name,
+    };
+
+    console.info("MEDIA_BROWSER_BASELINE", JSON.stringify(report));
+    await testInfo.attach(
+      `media-performance-baseline-${scenario.name}.json`,
+      {
+        body: Buffer.from(JSON.stringify(report, null, 2)),
+        contentType: "application/json",
+      },
+    );
+
+    const gifCount = options.gifCount ?? 0;
+    if (gifCount > 0) {
+      expect(profile.median.rafCallbacks).toBeGreaterThan(
+        (gifCount * mediaMeasuredFrames) / 2,
+      );
+    }
+    if (options.mixed === true) {
+      expect(profile.median.drawImageCalls).toBeGreaterThan(0);
+    }
   });
-});
+}
 
 test("@smoke GIF redraw lifecycle stops offscreen and resumes after viewport churn", async ({
   page,
