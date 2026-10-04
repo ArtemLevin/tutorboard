@@ -1,10 +1,16 @@
-import type {
-  BoardObjectId,
-  EmbeddedImageMimeType,
-  EmbeddedImageObject,
-  Size2,
-  Vec2,
+import {
+  screenToWorld,
+  type BoardObjectId,
+  type BoardSceneReadModel,
+  type EmbeddedImageMimeType,
+  type EmbeddedImageObject,
+  type Size2,
+  type Vec2,
 } from "../core/public";
+import {
+  aggregateSelectionBounds,
+  selectSelectionBounds,
+} from "../modules/selection/public";
 import { sanitizeSvg } from "../modules/svg-import/public";
 
 export const embeddedImageImportLimits = {
@@ -142,6 +148,67 @@ function fitWithinBox(intrinsic: Size2, box: Size2): Size2 {
     height: intrinsic.height * scale,
     width: intrinsic.width * scale,
   };
+}
+
+export function resolveEmbeddedImagePlacementSizeForScene(
+  intrinsic: Size2,
+  input: {
+    readonly scene: BoardSceneReadModel;
+    readonly screenSize: Size2;
+    readonly selectedObjectIds: readonly BoardObjectId[];
+  },
+): Size2 {
+  const { scene, screenSize, selectedObjectIds } = input;
+  const viewportSize = {
+    height: Math.max(1, screenSize.height) / scene.viewport.zoom,
+    width: Math.max(1, screenSize.width) / scene.viewport.zoom,
+  };
+  const viewportOrigin = screenToWorld({ x: 0, y: 0 }, scene.viewport);
+  const viewportRight = viewportOrigin.x + viewportSize.width;
+  const viewportBottom = viewportOrigin.y + viewportSize.height;
+  const visibleBounds = selectSelectionBounds(
+    scene,
+    scene.items
+      .filter(({ object }) => object.visible)
+      .map(({ object }) => object.id),
+  ).filter(
+    ({ rect }) =>
+      rect.x <= viewportRight &&
+      rect.x + rect.width >= viewportOrigin.x &&
+      rect.y <= viewportBottom &&
+      rect.y + rect.height >= viewportOrigin.y,
+  );
+  const boundsById = new Map(
+    visibleBounds.map(({ id, rect }) => [id, rect]),
+  );
+  const selected = aggregateSelectionBounds(
+    selectSelectionBounds(scene, selectedObjectIds),
+  );
+  const visibleMediaBounds = scene.items.flatMap(({ object }) => {
+    if (
+      !object.visible ||
+      (object.kind !== "image.embedded" && object.kind !== "media.asset")
+    ) {
+      return [];
+    }
+    const rect = boundsById.get(object.id);
+    return rect === undefined
+      ? []
+      : [{ height: rect.height, width: rect.width }];
+  });
+
+  return resolveEmbeddedImagePlacementSize(intrinsic, {
+    selectedBounds:
+      selected === null
+        ? null
+        : { height: selected.height, width: selected.width },
+    viewportSize,
+    visibleContentBounds: [...boundsById.values()].map((rect) => ({
+      height: rect.height,
+      width: rect.width,
+    })),
+    visibleMediaBounds,
+  });
 }
 
 export function resolveEmbeddedImagePlacementSize(
