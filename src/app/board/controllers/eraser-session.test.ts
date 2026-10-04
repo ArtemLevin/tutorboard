@@ -169,9 +169,7 @@ describe("incremental eraser gesture session", () => {
     };
     const plan = reconcileEraserGesture(session, current);
 
-    expect(plan.changes).toEqual([
-      { original: second, replacements: [] },
-    ]);
+    expect(plan.changes).toEqual([{ original: second, replacements: [] }]);
     expect(plan.affectedObjectIds).toEqual([second.id]);
   });
 
