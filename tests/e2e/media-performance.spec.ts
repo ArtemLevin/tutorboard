@@ -362,6 +362,7 @@ test(
     const offscreen = await snapshot(page);
     expect(offscreen.rafCallbacks).toBeLessThan(visible.rafCallbacks / 4);
 
+    await resetProfile(page);
     await page.mouse.move(bounds.x + 40, bounds.y + 260);
     await page.mouse.down();
     await page.mouse.move(bounds.x + bounds.width * 0.75, bounds.y + 260, {
@@ -369,7 +370,6 @@ test(
     });
     await page.mouse.up();
 
-    await resetProfile(page);
     await measureFrames(page, 30);
     const restored = await snapshot(page);
     expect(restored.rafCallbacks).toBeGreaterThan(10);
