@@ -437,9 +437,10 @@ test(
   },
 );
 
-test("cancels an in-progress line endpoint rotation without history mutation", async ({
-  page,
-}) => {
+test(
+  "cancels an in-progress line endpoint rotation without history mutation",
+  { tag: "@smoke" },
+  async ({ page }) => {
   await dragMarquee(page);
   await page.mouse.up();
   await page.keyboard.press("Delete");
@@ -474,6 +475,55 @@ test("cancels an in-progress line endpoint rotation without history mutation", a
     "Масштаб: 1, 1 · Поворот: 0°",
   );
 
-  await page.keyboard.press("Control+z");
-  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
-});
+    await page.keyboard.press("Control+z");
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+  },
+);
+
+test(
+  "rotates a line endpoint correctly after pan and zoom",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    await dragMarquee(page);
+    await page.mouse.up();
+    await page.keyboard.press("Delete");
+
+    const panStart = await stagePoint(page, 650, 350);
+    const panFinish = await stagePoint(page, 720, 400);
+    await page.mouse.move(panStart.x, panStart.y);
+    await page.mouse.down({ button: "right" });
+    await page.mouse.move(panFinish.x, panFinish.y, { steps: 5 });
+    await page.mouse.up({ button: "right" });
+    await expect(page.getByTestId("viewport-offset")).toHaveText("x 70 · y 50");
+
+    await page.keyboard.press("l");
+    const start = await stagePoint(page, 370, 410);
+    const end = await stagePoint(page, 610, 410);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 6 });
+    await page.mouse.up();
+
+    await page.keyboard.press("v");
+    const nearLine = await stagePoint(page, 490, 420);
+    await page.mouse.click(nearLine.x, nearLine.y);
+    await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.wheel(0, -100);
+
+    const zoomedEnd = await stagePoint(page, 629.2, 410);
+    const target = await stagePoint(page, 370, 590);
+    await page.mouse.move(zoomedEnd.x, zoomedEnd.y);
+    await page.mouse.down();
+    await page.mouse.move(target.x, target.y, { steps: 8 });
+    await page.mouse.up();
+
+    await expect(page.getByTestId("first-object-position")).toHaveText(
+      "Объект: 300, 360",
+    );
+    await expect(page.getByTestId("first-object-transform")).toHaveText(
+      "Масштаб: 1, 1 · Поворот: 90°",
+    );
+  },
+);
