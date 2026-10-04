@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 export const ciGateNames = [
   "geometryos",
   "coordinate_plot",
+  "media_performance",
   "production_image",
   "smart_ink",
   "formula_recognition",
@@ -43,6 +44,18 @@ const coordinatePlotPrefixes = [
 
 const coordinatePlotFiles = new Set([
   "src/modules/document-transfer/snapshot.ts",
+]);
+
+const mediaPerformanceFiles = new Set([
+  "src/adapters/canvas-konva/BoardStage.tsx",
+  "src/adapters/canvas-konva/animated-image-redraw.ts",
+  "src/adapters/canvas-konva/default-renderers.tsx",
+  "src/adapters/canvas-konva/embedded-image-renderer.tsx",
+  "src/adapters/persistence-dexie/repository.ts",
+  "src/app/board/views/BoardCanvas.tsx",
+  "src/app/image-import.ts",
+  "src/core/board/serialization/serialization.ts",
+  "src/modules/local-persistence/autosave.ts",
 ]);
 
 const smartInkPrefixes = [
@@ -169,6 +182,13 @@ export function classifyChangedFiles(changedFiles) {
       compositionFiles.has(path)
     ) {
       routing.coordinate_plot = true;
+    }
+
+    if (
+      mediaPerformanceFiles.has(path) ||
+      hasFragment(path, "media-performance")
+    ) {
+      routing.media_performance = true;
     }
 
     if (productionImageFiles.has(path)) {
