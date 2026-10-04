@@ -20,7 +20,9 @@ export interface UseBoardMediaControllerOptions {
   readonly clipboard: BoardClipboardController;
   readonly documentController: BoardDocumentController;
   readonly onImagesInserted: (objectIds: readonly BoardObjectId[]) => void;
-  readonly resolveImageDisplaySize?: ((intrinsicSize: Size2) => Size2) | undefined;
+  readonly resolveImageDisplaySize?:
+    | ((intrinsicSize: Size2) => Size2)
+    | undefined;
   readonly resolvePlacementCenter: () => Vec2;
 }
 
