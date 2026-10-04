@@ -196,10 +196,11 @@ export interface BoardStageProps {
   readonly onObjectSettingsRequest?:
     ((objectId: BoardObjectId) => void) | undefined;
   readonly onLineEndpointTransform?:
-    ((
-      transform: BoardObjectTransformSnapshot,
-      baseline: BoardRenderItem,
-    ) => void) | undefined;
+    | ((
+        transform: BoardObjectTransformSnapshot,
+        baseline: BoardRenderItem,
+      ) => void)
+    | undefined;
   readonly onLineEndpointTransformPreview?:
     ((transform: BoardObjectTransformSnapshot | null) => void) | undefined;
   readonly onPanModeRequest?: () => void;
