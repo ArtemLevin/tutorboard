@@ -42,6 +42,7 @@ describe("CI gate routing", () => {
       coordinate_plot: true,
       formula_recognition: true,
       geometryos: true,
+      media_performance: true,
     });
   });
 
@@ -92,6 +93,19 @@ describe("CI gate routing", () => {
       geometryos: true,
       smart_ink: true,
     });
+  });
+
+  it("routes media renderer, persistence and benchmark changes", () => {
+    expect(
+      routed("src/adapters/canvas-konva/embedded-image-renderer.tsx")
+        .media_performance,
+    ).toBe(true);
+    expect(
+      routed("src/modules/local-persistence/autosave.ts").media_performance,
+    ).toBe(true);
+    expect(routed("tests/e2e/media-performance.spec.ts").media_performance).toBe(
+      true,
+    );
   });
 
   it("routes production container changes independently from coordinate plot", () => {
