@@ -1,5 +1,5 @@
 import Konva from "konva";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   createPenStrokeRenderPaths,
@@ -252,32 +252,7 @@ function frame(
 }
 
 function createInspectableWetInkSurface() {
-  const getContextDescriptor = Object.getOwnPropertyDescriptor(
-    HTMLCanvasElement.prototype,
-    "getContext",
-  );
-  Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
-    configurable: true,
-    value() {
-      return {
-        scale() {},
-      };
-    },
-  });
-  let layer: Konva.Layer;
-  try {
-    layer = new Konva.Layer();
-  } finally {
-    if (getContextDescriptor === undefined) {
-      Reflect.deleteProperty(HTMLCanvasElement.prototype, "getContext");
-    } else {
-      Object.defineProperty(
-        HTMLCanvasElement.prototype,
-        "getContext",
-        getContextDescriptor,
-      );
-    }
-  }
+  const layer = new Konva.Layer();
   Object.defineProperty(layer, "draw", {
     configurable: true,
     value: () => layer,
@@ -294,7 +269,53 @@ function visibleChildren(group: Konva.Group) {
   return group.getChildren().filter((node) => node.visible());
 }
 
+let canvasGetContextDescriptor:
+  | PropertyDescriptor
+  | undefined;
+
+function installKonvaCanvasContextStub(): void {
+  canvasGetContextDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLCanvasElement.prototype,
+    "getContext",
+  );
+  Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+    configurable: true,
+    value() {
+      return {
+        clearRect() {},
+        fillRect() {},
+        getImageData() {
+          return {
+            data: new Uint8ClampedArray([0, 0, 0, 0]),
+          };
+        },
+        scale() {},
+      };
+    },
+  });
+}
+
+function restoreKonvaCanvasContext(): void {
+  if (canvasGetContextDescriptor === undefined) {
+    Reflect.deleteProperty(HTMLCanvasElement.prototype, "getContext");
+    return;
+  }
+  Object.defineProperty(
+    HTMLCanvasElement.prototype,
+    "getContext",
+    canvasGetContextDescriptor,
+  );
+}
+
 describe("createKonvaWetInkSurface", () => {
+  beforeEach(() => {
+    installKonvaCanvasContextStub();
+  });
+
+  afterEach(() => {
+    restoreKonvaCanvasContext();
+  });
+
   it("renders one fast-path circle for a single actual sample with no predictions", () => {
     const { group, surface } = createInspectableWetInkSurface();
     surface.draw(
