@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   BoardStage,
+  clearCoordinatePlotSamplingCache,
   createDefaultKonvaRendererRegistry,
   type BoardObjectTransformSnapshot,
   type CanvasContextMenuRequest,
@@ -277,7 +278,11 @@ export function BoardCanvas({
   const clearCanvas = () => {
     const result = clipboard.clearAll();
     if (!result.ok) return;
-    onInspectorClose();
+    interaction.resetAfterClear();
+    plots.close();
+    solid3D.close();
+    onTransformPreviewChange(null);
+    clearCoordinatePlotSamplingCache();
     setClearConfirmationOpen(false);
     setContextMenu(null);
     if (result.count > 0)
