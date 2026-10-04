@@ -1,5 +1,5 @@
 import Konva from "konva";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   createPenStrokeRenderPaths,
@@ -252,8 +252,36 @@ function frame(
 }
 
 function createInspectableWetInkSurface() {
-  const layer = new Konva.Layer();
-  vi.spyOn(layer, "draw").mockImplementation(() => layer);
+  const getContextDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLCanvasElement.prototype,
+    "getContext",
+  );
+  Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+    configurable: true,
+    value() {
+      return {
+        scale() {},
+      };
+    },
+  });
+  let layer: Konva.Layer;
+  try {
+    layer = new Konva.Layer();
+  } finally {
+    if (getContextDescriptor === undefined) {
+      Reflect.deleteProperty(HTMLCanvasElement.prototype, "getContext");
+    } else {
+      Object.defineProperty(
+        HTMLCanvasElement.prototype,
+        "getContext",
+        getContextDescriptor,
+      );
+    }
+  }
+  Object.defineProperty(layer, "draw", {
+    configurable: true,
+    value: () => layer,
+  });
   const surface = createKonvaWetInkSurface(layer);
   const group = layer.getChildren()[0];
   if (!(group instanceof Konva.Group)) {
