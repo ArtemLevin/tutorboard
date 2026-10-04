@@ -79,7 +79,10 @@ function scene(
       object,
       transforms: options.transforms?.[object.id] ?? [],
     })),
-    viewport: { ...defaultViewport, zoom: options.zoom ?? defaultViewport.zoom },
+    viewport: {
+      ...defaultViewport,
+      zoom: options.zoom ?? defaultViewport.zoom,
+    },
   };
 }
 
@@ -242,7 +245,10 @@ describe("forgiving selection geometry", () => {
   it("keeps tolerance boundary hits and rejects objects just outside it", () => {
     const boundary = line("object:boundary", 0, 10, 100, 0);
     const outside = line("object:outside", 0, 10.01, 100, 0);
-    const brush = [{ x: 0, y: 0 }, { x: 100, y: 0 }] as const;
+    const brush = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+    ] as const;
 
     expect(selectObjectIdsNearPath(scene([boundary]), brush, 10)).toEqual([
       boundary.id,
@@ -280,12 +286,12 @@ describe("forgiving selection geometry", () => {
       { x: 180, y: 120 },
     ] as const;
 
-    expect(selectObjectIdsNearPath(scene([target], { zoom: 0.25 }), path, 4)).toEqual(
-      [target.id],
-    );
-    expect(selectObjectIdsNearPath(scene([target], { zoom: 4 }), path, 4)).toEqual([
-      target.id,
-    ]);
+    expect(
+      selectObjectIdsNearPath(scene([target], { zoom: 0.25 }), path, 4),
+    ).toEqual([target.id]);
+    expect(
+      selectObjectIdsNearPath(scene([target], { zoom: 4 }), path, 4),
+    ).toEqual([target.id]);
   });
 
   it("finds multiple objects crossed by an eraser brush path", () => {
