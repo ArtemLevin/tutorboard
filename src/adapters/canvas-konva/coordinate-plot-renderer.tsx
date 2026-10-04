@@ -10,7 +10,6 @@ import {
 import { Arrow, Group, Line, Rect, Text } from "react-konva";
 
 import {
-  createPlotSamplingCache,
   type CoordinatePlotObject,
   type CoordinatePlotSeriesSamplingResult,
   type CoordinatePlotViewport,
@@ -18,6 +17,7 @@ import {
   type PlotSeriesId,
   type Vec2,
 } from "../../core/public";
+import { coordinatePlotSamplingCache } from "./coordinate-plot-cache";
 import {
   panCoordinatePlotViewport,
   pinchCoordinatePlotViewport,
@@ -31,7 +31,6 @@ import {
   plotLineDash,
 } from "./coordinate-plot-rendering";
 
-const coordinatePlotSamplingCache = createPlotSamplingCache();
 const tickFontSize = 11;
 const axisLabelFontSize = 13;
 const plotWheelZoomStep = 1.12;

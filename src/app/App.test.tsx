@@ -160,6 +160,7 @@ vi.mock("../adapters/canvas-konva/public", () => ({
       </div>
     );
   },
+  clearCoordinatePlotSamplingCache: vi.fn(),
   createDefaultKonvaRendererRegistry: () => ({}),
 }));
 

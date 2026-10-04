@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Group, Image as KonvaImage, Rect } from "react-konva";
 
 import type { EmbeddedImageObject } from "../../core/public";
+import { startAnimatedImageRedraw } from "./animated-image-redraw";
 
 export function EmbeddedImageRenderer({
   object,
@@ -40,13 +41,9 @@ export function EmbeddedImageRenderer({
     if (object.mimeType !== "image/gif" || image === null) {
       return;
     }
-    let frame = 0;
-    const draw = () => {
+    return startAnimatedImageRedraw(() => {
       imageRef.current?.getLayer()?.batchDraw();
-      frame = window.requestAnimationFrame(draw);
-    };
-    frame = window.requestAnimationFrame(draw);
-    return () => window.cancelAnimationFrame(frame);
+    });
   }, [image, object.mimeType]);
 
   return (

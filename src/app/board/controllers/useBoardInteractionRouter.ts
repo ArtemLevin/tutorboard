@@ -20,6 +20,7 @@ import type {
 import type { BoardSceneReadModel } from "../../../core/public";
 import type { ActiveToolId } from "../active-tool";
 import { geometryPlacementToolId, laserToolId } from "../active-tool";
+import { resetBoardTransientStateAfterClear } from "./clear-resource-lifecycle";
 import type { BoardDrawingController } from "./useBoardDrawingController";
 import type { BoardEraserController } from "./useBoardEraserController";
 import type { BoardDocumentController } from "./useBoardDocumentController";
@@ -262,6 +263,28 @@ export function useBoardInteractionRouter({
     [geometry, selection],
   );
 
+  const resetAfterClear = useCallback(() => {
+    resetBoardTransientStateAfterClear({
+      drawing,
+      eraser,
+      geometry,
+      handwriting,
+      laser,
+      onInspectorClose,
+      selection,
+      setActiveTool,
+    });
+  }, [
+    drawing,
+    eraser,
+    geometry,
+    handwriting,
+    laser,
+    onInspectorClose,
+    selection,
+    setActiveTool,
+  ]);
+
   return {
     activate,
     cancel,
@@ -269,6 +292,7 @@ export function useBoardInteractionRouter({
     modifiersChange,
     move,
     moveBatch,
+    resetAfterClear,
     selectionCancel,
     selectionFinish,
     selectionMove,

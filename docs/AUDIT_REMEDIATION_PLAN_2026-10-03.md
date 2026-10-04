@@ -36,7 +36,9 @@ A1 → A2 → A3 → A4 → A5
 | A4 — Unified text keyboard contract | RESOLVED | PR #164 |
 | Browser release gate after A1–A4 | RESOLVED | PR #165; `main` CI `37186878246` green |
 | A5 — Coordinate plot export fidelity | RESOLVED | PR #167; PR CI `37194207372` green |
-| B1 — Eraser broad-phase selection | NEXT | стартует после merge PR #167 |
+| B1 — Eraser broad-phase selection | RESOLVED | PR #168; PR CI `37197289434` green |
+| B2 — Incremental eraser gesture | RESOLVED | PR #169; PR CI `37200715401` green; merged as `932371e046cedcee4b55399b7764637352eba858` |
+| B3 — Clear/resource lifecycle | IN REVIEW | PR #170; code-head CI `37204307985` green |
 
 PR #165 дополнительно закрепил актуальный pen-tap contract в Chromium/Firefox
 browser coverage и выровнял right-double-click object settings с forgiving
@@ -515,6 +517,24 @@ Scene selector cache после clear уменьшается до нуля.
 - background animation после unmount отсутствует;
 - undo после clear восстанавливает документ;
 - repeated fill/clear не даёт неограниченного роста technical cache.
+
+### Implementation status — PR #170
+
+- Coordinate Plot sampling LRU имеет явный lifecycle и очищается после
+  успешного clear command;
+- drawing/eraser/handwriting/GeometryOS/laser/selection transient sessions,
+  plot/3D editors и local transform preview завершаются при clear;
+- GIF redraw scheduler отменяет pending `requestAnimationFrame` при unmount и
+  не может пересоздать цикл после cleanup;
+- undo history, persistent revisions и clipboard сохраняются намеренно:
+  это пользовательское/восстанавливаемое состояние, в отличие от derived cache;
+- repeated Coordinate Plot fill/clear regression возвращает cache size к нулю;
+- существующий App clear→undo regression подтверждает восстановление документа.
+
+Code-head PR-CI `37204307985` прошёл Quality gate, полный unit/performance
+набор, architecture/build, Chromium/Firefox browser smoke, Board-only profile,
+GeometryOS live browser contract и Coordinate Plot production/visual matrix.
+Smart Ink, Formula Recognition и Paddle sidecar gates на том же HEAD — green.
 
 ### Предлагаемая ветка
 
