@@ -461,8 +461,9 @@ export function BoardStage({
   const drawingSessionRef = useRef<DrawingSession | null>(null);
   const selectionSessionRef = useRef<SelectionSession | null>(null);
   const lineEndpointSessionRef = useRef<LineEndpointSession | null>(null);
-  const lineEndpointPreviewRef =
-    useRef<BoardObjectTransformSnapshot | null>(null);
+  const lineEndpointPreviewRef = useRef<BoardObjectTransformSnapshot | null>(
+    null,
+  );
   const wheelSessionRef = useRef<WheelSession | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
   const primaryCanvasClickTimeoutRef = useRef<number | null>(null);
@@ -562,7 +563,10 @@ export function BoardStage({
   const lineEndpointHandles = useMemo(
     () =>
       lineEndpointItems.flatMap((item) => {
-        const previewed = applyObjectTransformPreview(item, lineEndpointPreview);
+        const previewed = applyObjectTransformPreview(
+          item,
+          lineEndpointPreview,
+        );
         const endpoints = lineWorldEndpoints(previewed);
         return endpoints === null
           ? []

@@ -391,10 +391,13 @@ function replaceObjects(
       "Only unlocked user objects or transform-only grouped lines can be replaced.",
     );
   }
-  const currentById = new Map(currentObjects.map((object) => [object.id, object]));
+  const currentById = new Map(
+    currentObjects.map((object) => [object.id, object]),
+  );
   if (
     command.replacements.some((object) => {
-      if (object.groupId === null && object.source.kind === "user") return false;
+      if (object.groupId === null && object.source.kind === "user")
+        return false;
       const currentObject = currentById.get(object.id);
       return (
         currentObject === undefined ||

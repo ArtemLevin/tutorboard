@@ -56,7 +56,11 @@ function expectRotationPreservesGeometry(
 ) {
   const before = lineWorldEndpoints(item);
   expect(before).not.toBeNull();
-  const transform = createLineEndpointRotationTransform(item, endpoint, pointer);
+  const transform = createLineEndpointRotationTransform(
+    item,
+    endpoint,
+    pointer,
+  );
   expect(transform).not.toBeNull();
   if (before === null || transform === null) return;
 

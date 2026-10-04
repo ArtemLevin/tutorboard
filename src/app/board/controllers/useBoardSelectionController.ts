@@ -72,8 +72,9 @@ export function useBoardSelectionController({
   } = documentController;
   const [state, setState] = useState<SelectionState>(initialSelectionState);
   const stateRef = useRef<SelectionState>(initialSelectionState);
-  const [focusedObjectId, setFocusedObjectId] =
-    useState<BoardObjectId | null>(null);
+  const [focusedObjectId, setFocusedObjectId] = useState<BoardObjectId | null>(
+    null,
+  );
 
   const replaceSelection = useCallback(
     (selectedObjectIds: readonly BoardObjectId[]) => {

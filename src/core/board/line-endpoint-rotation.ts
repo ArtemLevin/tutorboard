@@ -112,7 +112,9 @@ function finitePoint(point: Vec2): boolean {
   return Number.isFinite(point.x) && Number.isFinite(point.y);
 }
 
-export function lineWorldEndpoints(item: BoardRenderItem): LineWorldEndpoints | null {
+export function lineWorldEndpoints(
+  item: BoardRenderItem,
+): LineWorldEndpoints | null {
   if (item.object.kind !== "drawing.line") return null;
   const line = item.object;
   const transform = objectTransform(line);
@@ -146,10 +148,7 @@ export function createLineEndpointRotationTransform(
     y: pointerWorld.y - fixedWorld.y,
   };
   const pointerDistance = Math.hypot(pointerVector.x, pointerVector.y);
-  if (
-    worldLength <= geometryEpsilon ||
-    pointerDistance <= geometryEpsilon
-  ) {
+  if (worldLength <= geometryEpsilon || pointerDistance <= geometryEpsilon) {
     return null;
   }
 
@@ -164,10 +163,8 @@ export function createLineEndpointRotationTransform(
   );
   if (fixedParent === null || movingParent === null) return null;
 
-  const desiredStart =
-    draggedEndpoint === "end" ? fixedParent : movingParent;
-  const desiredEnd =
-    draggedEndpoint === "end" ? movingParent : fixedParent;
+  const desiredStart = draggedEndpoint === "end" ? fixedParent : movingParent;
+  const desiredEnd = draggedEndpoint === "end" ? movingParent : fixedParent;
   const targetVector = {
     x: desiredEnd.x - desiredStart.x,
     y: desiredEnd.y - desiredStart.y,
@@ -178,10 +175,7 @@ export function createLineEndpointRotationTransform(
   };
   const baseLength = Math.hypot(scaledLocalEnd.x, scaledLocalEnd.y);
   const targetLength = Math.hypot(targetVector.x, targetVector.y);
-  if (
-    baseLength <= geometryEpsilon ||
-    targetLength <= geometryEpsilon
-  ) {
+  if (baseLength <= geometryEpsilon || targetLength <= geometryEpsilon) {
     return null;
   }
 

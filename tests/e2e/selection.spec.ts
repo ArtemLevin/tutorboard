@@ -477,4 +477,3 @@ test("cancels an in-progress line endpoint rotation without history mutation", a
   await page.keyboard.press("Control+z");
   await expect(page.getByTestId("object-count")).toHaveText("0 объектов");
 });
-
