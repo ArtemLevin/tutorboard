@@ -228,6 +228,11 @@ export function useBoardInteractionRouter({
               pointInSelectionBounds(sample.point, aggregateBounds)
             ? selection.getState().selectedObjectIds
             : [];
+      if (effectiveObjectId !== null) {
+        selection.focusObject(effectiveObjectId);
+      } else if (hitObjectIds.length === 0) {
+        selection.focusObject(null);
+      }
       selection.start({
         additive: sample.additive,
         areaKind: activeTool === lassoSelectionToolId ? "lasso" : "marquee",
