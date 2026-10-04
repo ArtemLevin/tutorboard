@@ -169,6 +169,63 @@ export function createTransformSelectionCommand(
   };
 }
 
+export function createLineEndpointTransformCommand(
+  metadata: CommandMetadata,
+  document: BoardDocument,
+  transform: SelectionObjectTransform,
+): ReplaceObjectsCommand {
+  const object = document.objects[transform.objectId];
+  if (
+    object === undefined ||
+    object.kind !== "drawing.line" ||
+    object.source.kind !== "user"
+  ) {
+    throw new TypeError("Line endpoint transform requires a user line.");
+  }
+  if (object.locked) {
+    throw new TypeError("Locked lines cannot be transformed.");
+  }
+  if (object.groupId !== null) {
+    const group = document.groups[object.groupId];
+    const groupLocked =
+      group === undefined ||
+      group.locked ||
+      group.objectIds.some(
+        (objectId) => document.objects[objectId]?.locked === true,
+      );
+    if (groupLocked) {
+      throw new TypeError("Locked groups cannot transform line endpoints.");
+    }
+  }
+  if (
+    !Number.isFinite(transform.position.x) ||
+    !Number.isFinite(transform.position.y) ||
+    !Number.isFinite(transform.rotation) ||
+    !Number.isFinite(transform.scale.x) ||
+    !Number.isFinite(transform.scale.y) ||
+    transform.scale.x <= 0 ||
+    transform.scale.y <= 0
+  ) {
+    throw new TypeError(
+      "Line endpoint transform values must be finite and positive.",
+    );
+  }
+
+  return {
+    ...metadata,
+    kind: "core.objects.replace",
+    originals: [object],
+    replacements: [
+      {
+        ...object,
+        position: transform.position,
+        rotation: normalizeRotation(transform.rotation),
+        scale: transform.scale,
+      },
+    ],
+  };
+}
+
 export function createSetSelectionLockCommand(
   metadata: CommandMetadata,
   document: BoardDocument,
