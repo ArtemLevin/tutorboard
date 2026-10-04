@@ -271,10 +271,7 @@ export function useBoardSelectionController({
   );
 
   const commitLineEndpointTransform = useCallback(
-    (
-      transform: BoardObjectTransformSnapshot,
-      baseline: BoardRenderItem,
-    ) => {
+    (transform: BoardObjectTransformSnapshot, baseline: BoardRenderItem) => {
       const current = getDocument();
       try {
         const command = createLineEndpointTransformCommand(
