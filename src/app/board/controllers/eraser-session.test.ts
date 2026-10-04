@@ -178,10 +178,8 @@ describe("incremental eraser gesture session", () => {
     const baseline = documentWith([original]);
     const session = createEraserGestureSession(baseline, 10, 6);
 
-    advanceEraserGesture(
-      session,
-      [{ x: 50, y: 0 }],
-      () => boardObjectId("object:fragment"),
+    advanceEraserGesture(session, [{ x: 50, y: 0 }], () =>
+      boardObjectId("object:fragment"),
     );
 
     const current: BoardDocument = {
@@ -211,10 +209,8 @@ describe("incremental eraser gesture session", () => {
     });
     const session = createEraserGestureSession(baseline, 11, 8);
 
-    advanceEraserGesture(
-      session,
-      [{ x: 40, y: 40 }],
-      () => boardObjectId("object:unused-fragment"),
+    advanceEraserGesture(session, [{ x: 40, y: 40 }], () =>
+      boardObjectId("object:unused-fragment"),
     );
 
     const unchanged = reconcileEraserGesture(session, baseline);
@@ -243,14 +239,10 @@ describe("incremental eraser gesture session", () => {
     const session = createEraserGestureSession(document, 12, 4);
     let fragmentCalls = 0;
 
-    const first = advanceEraserGesture(
-      session,
-      [{ x: 200, y: 200 }],
-      () => {
-        fragmentCalls += 1;
-        return boardObjectId("object:unused-fragment");
-      },
-    );
+    const first = advanceEraserGesture(session, [{ x: 200, y: 200 }], () => {
+      fragmentCalls += 1;
+      return boardObjectId("object:unused-fragment");
+    });
     const second = advanceEraserGesture(
       session,
       [
