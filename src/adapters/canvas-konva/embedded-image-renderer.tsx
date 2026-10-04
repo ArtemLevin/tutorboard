@@ -5,7 +5,6 @@ import { Group, Image as KonvaImage, Rect } from "react-konva";
 import type { EmbeddedImageObject } from "../../core/public";
 import { startAnimatedImageRedraw } from "./animated-image-redraw";
 
-
 export function EmbeddedImageRenderer({
   object,
 }: {
