@@ -68,18 +68,6 @@ jobs:
       - name: Verify board contract
         run: npm run board-contract:check
 
-      - name: Diagnose A4 formatting
-        if: github.head_ref == 'fix/text-editor-keyboard-contract'
-        run: |
-          npm run format
-          git diff -- \
-            src/app/App.test.tsx \
-            src/modules/text-editing/keyboard-contract.ts \
-            src/modules/text-editing/public.ts \
-            tests/e2e/text-editing.spec.ts \
-            tests/unit/modules/text-editing/text-editing.test.ts
-          git checkout -- .
-
       - name: Check formatting
         run: npm run format:check
 
