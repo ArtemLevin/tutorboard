@@ -101,7 +101,7 @@ export function BoardToolDockContainer({
       onSelectionLockChange={selection.setLocked}
       onSelectionStyleChange={selection.updateStyle}
       onSelectedTextCommit={(text) => {
-        if (isEditableTextObject(selectedEditableText)) {
+        if (!readOnly && isEditableTextObject(selectedEditableText)) {
           selection.updateText(selectedEditableText.id, text);
         }
       }}
@@ -115,7 +115,7 @@ export function BoardToolDockContainer({
       selectedLocked={selection.selectedLocked}
       selectedStyle={selection.selectedStyle}
       selectedText={
-        isEditableTextObject(selectedEditableText)
+        !readOnly && isEditableTextObject(selectedEditableText)
           ? selectedEditableText.text
           : null
       }
