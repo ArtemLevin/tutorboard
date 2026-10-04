@@ -506,42 +506,43 @@ const mediaProfileScenarios: readonly MediaProfileScenario[] = [
 ];
 
 for (const scenario of mediaProfileScenarios) {
-  test(`@media-profile records the C2 media rendering baseline: ${scenario.name}`, async ({
-    page,
-  }, testInfo) => {
-    test.setTimeout(mediaProfileScenarioTimeoutMs);
-    test.skip(
-      testInfo.project.name !== "chromium",
-      "Chromium owns C3.0 diagnostic profiling; lifecycle smoke runs cross-browser.",
-    );
-
-    const options = scenario.createOptions();
-    const profile = await profileDocument(page, options);
-    const report = {
-      generatedAt: new Date().toISOString(),
-      profile,
-      scenario: scenario.name,
-    };
-
-    console.info("MEDIA_BROWSER_BASELINE", JSON.stringify(report));
-    await testInfo.attach(
-      `media-performance-baseline-${scenario.name}.json`,
-      {
-        body: Buffer.from(JSON.stringify(report, null, 2)),
-        contentType: "application/json",
-      },
-    );
-
-    const gifCount = options.gifCount ?? 0;
-    if (gifCount > 0) {
-      expect(profile.median.rafCallbacks).toBeGreaterThan(
-        (gifCount * mediaMeasuredFrames) / 2,
+  test(
+    `@media-profile records the C2 media rendering baseline: ${scenario.name}`,
+    async ({ page }, testInfo) => {
+      test.setTimeout(mediaProfileScenarioTimeoutMs);
+      test.skip(
+        testInfo.project.name !== "chromium",
+        "Chromium owns C3.0 diagnostic profiling; lifecycle smoke runs cross-browser.",
       );
-    }
-    if (options.mixed === true) {
-      expect(profile.median.drawImageCalls).toBeGreaterThan(0);
-    }
-  });
+
+      const options = scenario.createOptions();
+      const profile = await profileDocument(page, options);
+      const report = {
+        generatedAt: new Date().toISOString(),
+        profile,
+        scenario: scenario.name,
+      };
+
+      console.info("MEDIA_BROWSER_BASELINE", JSON.stringify(report));
+      await testInfo.attach(
+        `media-performance-baseline-${scenario.name}.json`,
+        {
+          body: Buffer.from(JSON.stringify(report, null, 2)),
+          contentType: "application/json",
+        },
+      );
+
+      const gifCount = options.gifCount ?? 0;
+      if (gifCount > 0) {
+        expect(profile.median.rafCallbacks).toBeGreaterThan(
+          (gifCount * mediaMeasuredFrames) / 2,
+        );
+      }
+      if (options.mixed === true) {
+        expect(profile.median.drawImageCalls).toBeGreaterThan(0);
+      }
+    },
+  );
 }
 
 test("@smoke GIF redraw lifecycle stops offscreen and resumes after viewport churn", async ({
