@@ -689,9 +689,7 @@ describe("App", () => {
 
   it("drops an unsaved selected-text draft when write access becomes read-only", async () => {
     const onDocumentChange = vi.fn<(document: BoardDocument) => void>();
-    const { rerender } = render(
-      <App onDocumentChange={onDocumentChange} />,
-    );
+    const { rerender } = render(<App onDocumentChange={onDocumentChange} />);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Открыть меню холста" }),
@@ -700,7 +698,9 @@ describe("App", () => {
     const placementEditor = screen.getByRole("textbox", {
       name: "Редактор текста на доске",
     });
-    fireEvent.change(placementEditor, { target: { value: "Сохранённый текст" } });
+    fireEvent.change(placementEditor, {
+      target: { value: "Сохранённый текст" },
+    });
     fireEvent.blur(placementEditor);
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
 
