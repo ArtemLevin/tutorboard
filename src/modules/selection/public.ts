@@ -48,9 +48,3 @@ export {
   type SelectionToolId,
 } from "./tools";
 
-export {
-  createLineEndpointRotationTransform,
-  lineWorldEndpoints,
-  type LineEndpoint,
-  type LineWorldEndpoints,
-} from "./line-endpoint-rotation";
