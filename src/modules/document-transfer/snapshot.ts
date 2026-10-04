@@ -54,6 +54,8 @@ const maximumRasterPixels = 24_000_000;
 // compositing translucent strokes against a different, untagged background.
 const snapshotBackground = "#f5f3ee";
 const defaultTextFill = "#17202a";
+const plotLegendEstimatedGlyphWidth = 7;
+const plotLegendEllipsis = "…";
 
 function escapeXml(value: string): string {
   return value
@@ -123,6 +125,18 @@ function plotSeriesStatusLabel(
   return "";
 }
 
+function truncatePlotLegendLabel(value: string, usableWidth: number): string {
+  const glyphs = [...value];
+  const maximumGlyphCount = Math.max(
+    0,
+    Math.floor(usableWidth / plotLegendEstimatedGlyphWidth),
+  );
+  if (glyphs.length <= maximumGlyphCount) return value;
+  if (maximumGlyphCount === 0) return "";
+  if (maximumGlyphCount === 1) return plotLegendEllipsis;
+  return `${glyphs.slice(0, maximumGlyphCount - 1).join("")}${plotLegendEllipsis}`;
+}
+
 function coordinatePlotMarkup(object: CoordinatePlotObject): string {
   const model = createCoordinatePlotRenderModel({ object, zoom: 1 });
   const { definition, grid, sampling, xAxisY, yAxisX } = model;
@@ -137,6 +151,7 @@ function coordinatePlotMarkup(object: CoordinatePlotObject): string {
   );
   const clipId = `coordinate-plot-clip-${svgIdentifier(object.id)}`;
   const arrowId = `coordinate-plot-arrow-${svgIdentifier(object.id)}`;
+  const legendLabelClipId = `coordinate-plot-legend-label-clip-${svgIdentifier(object.id)}`;
   const xTickY = clamp((xAxisY ?? height) + 14, 12, Math.max(12, height - 5));
   const yTickX = clamp((yAxisX ?? 0) - 6, 58, Math.max(58, width - 2));
   const legend = createPlotLegendLayout(
@@ -145,6 +160,7 @@ function coordinatePlotMarkup(object: CoordinatePlotObject): string {
     definition.size,
   );
   const legendSeries = visibleSeries.slice(0, legend.visibleRowCount);
+  const legendLabelWidth = Math.max(0, legend.width - 58);
   const problematicSeriesCount = sampling.series.filter(
     ({ status }) =>
       status === "invalid" || status === "truncated" || status === "aborted",
@@ -257,9 +273,14 @@ function coordinatePlotMarkup(object: CoordinatePlotObject): string {
             const result = resultBySeriesId.get(series.id);
             const rowY = 6 + index * legend.rowHeight;
             const lineY = rowY + 11;
+            const fullLabel = `${plotSeriesStatusLabel(result)}${series.name}`;
+            const visibleLabel = truncatePlotLegendLabel(
+              fullLabel,
+              legendLabelWidth,
+            );
             return [
               `<line x1="12" y1="${number(lineY)}" x2="42" y2="${number(lineY)}" stroke="${escapeXml(series.style.stroke)}" stroke-opacity="${number(series.style.opacity)}" stroke-width="${number(series.style.strokeWidth)}"${plotDashAttribute(series.style.lineStyle, series.style.strokeWidth)}/>`,
-              `<text fill="#0f172a" font-family="Inter, ui-sans-serif, system-ui" font-size="12" x="50" y="${number(rowY + 16)}">${escapeXml(`${plotSeriesStatusLabel(result)}${series.name}`)}</text>`,
+              `<text aria-label="${escapeXml(fullLabel)}" clip-path="url(#${legendLabelClipId})" data-coordinate-plot-legend-label="true" fill="#0f172a" font-family="Inter, ui-sans-serif, system-ui" font-size="12" x="50" y="${number(rowY + 16)}">${escapeXml(visibleLabel)}</text>`,
             ].join("");
           }),
           legend.hiddenRowCount > 0
@@ -276,7 +297,7 @@ function coordinatePlotMarkup(object: CoordinatePlotObject): string {
 
   return [
     `<g ${objectTransformAttribute(object)} aria-label="Coordinate plot with ${definition.series.length} series" data-coordinate-plot-id="${escapeXml(object.id)}" opacity="${number(object.style.opacity)}">`,
-    `<defs><clipPath id="${clipId}"><rect height="${number(height)}" width="${number(width)}"/></clipPath>${marker}</defs>`,
+    `<defs><clipPath id="${clipId}"><rect height="${number(height)}" width="${number(width)}"/></clipPath><clipPath id="${legendLabelClipId}"><rect height="${number(legend.height)}" width="${number(legendLabelWidth)}" x="50" y="0"/></clipPath>${marker}</defs>`,
     `<rect fill="${escapeXml(fill)}" height="${number(height)}" width="${number(width)}"/>`,
     `<g clip-path="url(#${clipId})">${minorGrid}${majorGrid}${axes}${tickLabels}${relationFills}${seriesMarkup}</g>`,
     `<rect fill="none" height="${number(height)}" stroke="${escapeXml(frameStroke)}" stroke-width="${number(Math.max(1, object.style.strokeWidth))}" width="${number(width)}"/>`,
