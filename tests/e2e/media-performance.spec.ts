@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { createMediaPerformanceDocument } from "../fixtures/media-performance";
+import { createCoordinatePlot } from "./coordinate-plot-interaction.js";
 
 const { PNG } = createRequire(import.meta.url)("pngjs") as {
   readonly PNG: {
@@ -22,6 +22,99 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
 };
 
 const databaseName = "tutorboard-local-v1";
+const timestamp = "2026-10-04T18:30:00.000Z";
+const pngDataUrl =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZC9sAAAAASUVORK5CYII=";
+const gifDataUrl =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+
+interface MediaPerformanceDocumentOptions {
+  readonly gifCount?: number;
+  readonly largeStaticDataUrl?: string | undefined;
+  readonly mixed?: boolean;
+  readonly staticCount?: number;
+}
+
+function digest(seed: number): string {
+  return seed.toString(16).padStart(64, "0").slice(-64);
+}
+
+function mediaObject(
+  index: number,
+  input: {
+    readonly dataUrl: string;
+    readonly intrinsicSize?: {
+      readonly height: number;
+      readonly width: number;
+    };
+    readonly kind: "gif" | "static";
+  },
+) {
+  const column = index % 5;
+  const row = Math.floor(index / 5);
+  const id = `object:media-performance:${input.kind}:${index}`;
+  return {
+    contentSha256: digest(index + (input.kind === "gif" ? 10_000 : 1)),
+    dataUrl: input.dataUrl,
+    fileName: `${input.kind}-${index}.${input.kind === "gif" ? "gif" : "png"}`,
+    groupId: null,
+    id,
+    intrinsicSize: input.intrinsicSize ?? { height: 900, width: 1_200 },
+    kind: "image.embedded" as const,
+    locked: false,
+    mimeType: input.kind === "gif" ? ("image/gif" as const) : ("image/png" as const),
+    position: { x: 80 + column * 150, y: 80 + row * 120 },
+    rotation: 0,
+    scale: { x: 1, y: 1 },
+    size: { height: 90, width: 120 },
+    source: { kind: "user" as const },
+    style: {
+      fill: null,
+      opacity: 1,
+      stroke: null,
+      strokeWidth: 0,
+    },
+    visible: true,
+  };
+}
+
+function createMediaPerformanceDocument(
+  options: MediaPerformanceDocumentOptions = {},
+) {
+  const staticCount = options.staticCount ?? 0;
+  const gifCount = options.gifCount ?? 0;
+  const staticImages = Array.from({ length: staticCount }, (_value, index) =>
+    mediaObject(index, {
+      dataUrl:
+        index === 0 && options.largeStaticDataUrl !== undefined
+          ? options.largeStaticDataUrl
+          : pngDataUrl,
+      intrinsicSize:
+        index === 0 && options.largeStaticDataUrl !== undefined
+          ? { height: 1_024, width: 1_024 }
+          : undefined,
+      kind: "static",
+    }),
+  );
+  const gifs = Array.from({ length: gifCount }, (_value, index) =>
+    mediaObject(index, { dataUrl: gifDataUrl, kind: "gif" }),
+  );
+  const objects = [...staticImages, ...gifs];
+  return {
+    createdAt: timestamp,
+    geometryImports: {},
+    groups: {},
+    id: "document:media-performance",
+    objects: Object.fromEntries(objects.map((object) => [object.id, object])),
+    order: objects.map(({ id }) => id),
+    schemaVersion: "1.6" as const,
+    solidLearningAttempts: {},
+    solidModels: {},
+    title: "Media performance fixture",
+    updatedAt: timestamp,
+    viewport: { offset: { x: 0, y: 0 }, zoom: 1 },
+  };
+}
 
 interface MediaProfileSnapshot {
   readonly clearRectCalls: number;
@@ -197,6 +290,24 @@ async function importDocument(
   );
 }
 
+async function addMixedSceneContent(page: Page, baseCount: number): Promise<void> {
+  const stage = page.getByTestId("board-stage");
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Board stage has no bounds");
+
+  await page.getByRole("button", { name: "Рисование" }).click();
+  await page.getByRole("menuitemradio", { name: /Перо/u }).click();
+  await page.mouse.move(bounds.x + 180, bounds.y + 520);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 460, bounds.y + 560, { steps: 8 });
+  await page.mouse.up();
+
+  await createCoordinatePlot(page);
+  await expect(page.getByTestId("object-count")).toHaveText(
+    new RegExp(`^${baseCount + 2} объект`, "u"),
+  );
+}
+
 async function snapshot(page: Page): Promise<MediaProfileSnapshot> {
   return page.evaluate(() => {
     const profile = (
@@ -247,6 +358,9 @@ async function profileDocument(
   await resetLocalDatabase(page);
   const document = createMediaPerformanceDocument(options);
   await importDocument(page, document);
+  if (options?.mixed === true) {
+    await addMixedSceneContent(page, document.order.length);
+  }
   const expectedMountedMedia =
     (options?.staticCount ?? 0) + (options?.gifCount ?? 0);
   await expect
