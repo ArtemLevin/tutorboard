@@ -663,6 +663,40 @@ describe("App", () => {
     expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
   });
 
+  it("clears active transient text state while preserving undo", () => {
+    render(<App />);
+
+    fireEvent.keyDown(window, { key: "r" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Текст" }));
+    const editor = screen.getByRole("textbox", {
+      name: "Редактор текста на доске",
+    });
+    fireEvent.change(editor, { target: { value: "Несохранённый черновик" } });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Очистить$/ }));
+
+    expect(
+      screen.queryByRole("textbox", { name: "Редактор текста на доске" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(
+      screen.queryByRole("textbox", { name: "Редактор текста на доске" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("cancels an active text draft when write access becomes read-only", async () => {
     const { rerender } = render(<App />);
 
