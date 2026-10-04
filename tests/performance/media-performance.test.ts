@@ -19,23 +19,21 @@ function withSyntheticPayloads(
   document: BoardDocument,
   payloadCharacters: number,
 ): BoardDocument {
-  const objects = Object.fromEntries(
-    document.order.map((id) => {
-      const object = document.objects[id];
-      if (object?.kind !== "image.embedded") {
-        if (object === undefined) {
-          throw new Error(`Missing fixture object ${id}`);
-        }
-        return [id, object];
-      }
-      const image: EmbeddedImageObject = {
-        ...object,
-        dataUrl: syntheticPngDataUrl(payloadCharacters),
-        mimeType: "image/png",
-      };
-      return [id, image];
-    }),
-  );
+  let objects = document.objects;
+  for (const id of document.order) {
+    const object = document.objects[id];
+    if (object === undefined) {
+      throw new Error(`Missing fixture object ${id}`);
+    }
+    if (object.kind !== "image.embedded") continue;
+
+    const image: EmbeddedImageObject = {
+      ...object,
+      dataUrl: syntheticPngDataUrl(payloadCharacters),
+      mimeType: "image/png",
+    };
+    objects = { ...objects, [id]: image };
+  }
   return { ...document, objects };
 }
 
