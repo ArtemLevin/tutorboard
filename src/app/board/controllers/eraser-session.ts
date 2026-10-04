@@ -93,11 +93,7 @@ function groupEligible(document: BoardDocument, groupId: GroupId): boolean {
   if (group === undefined || group.locked) return false;
   return group.objectIds.every((memberId) => {
     const member = document.objects[memberId];
-    return (
-      member !== undefined &&
-      !member.locked &&
-      member.source.kind === "user"
-    );
+    return member !== undefined && !member.locked && member.source.kind === "user";
   });
 }
 
@@ -133,8 +129,9 @@ function workingScene(session: EraserGestureSession): BoardSceneReadModel {
   const baselineItems = session.baselineScene.items.filter(
     ({ object }) => !session.hiddenObjectIds.has(object.id),
   );
-  const replacementItems = [...session.penStates.values()].flatMap(({ fragments }) =>
-    fragments.map((object) => ({ object, transforms: [] as const })),
+  const replacementItems = [...session.penStates.values()].flatMap(
+    ({ fragments }) =>
+      fragments.map((object) => ({ object, transforms: [] as const })),
   );
   return {
     viewport: session.baselineScene.viewport,
@@ -284,7 +281,9 @@ export function advanceEraserGesture(
     for (const fragment of fragments) {
       const fragmentHit =
         hitSet.has(fragment.id) ||
-        (existing === undefined && fragment.id === ownerId && hitSet.has(ownerId));
+        (existing === undefined &&
+          fragment.id === ownerId &&
+          hitSet.has(ownerId));
       if (!fragmentHit) {
         nextFragments.push(fragment);
         continue;
