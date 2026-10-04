@@ -27,6 +27,7 @@ export {
   CoordinatePlotRenderer,
   type CoordinatePlotRendererProps,
 } from "./coordinate-plot-renderer";
+export { clearCoordinatePlotSamplingCache } from "./coordinate-plot-cache";
 export {
   choosePlotGridStep,
   createPlotGridRenderModel,
