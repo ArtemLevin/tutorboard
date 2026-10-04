@@ -408,4 +408,28 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   expect(plots[0]?.definition?.parameters?.map(({ id }) => id)).toEqual(
     plots[1]?.definition?.parameters?.map(({ id }) => id),
   );
+
+  const visibleExplicitId = plots[0]?.definition?.series?.[0]?.id;
+  const hiddenExplicitId = plots[0]?.definition?.series?.[1]?.id;
+  const parametricId = plots[0]?.definition?.series?.[2]?.id;
+  expect(visibleExplicitId).toBeDefined();
+  expect(hiddenExplicitId).toBeDefined();
+  expect(parametricId).toBeDefined();
+
+  const svgDownloadPromise = page.waitForEvent("download");
+  await boardSettings.getByRole("button", { name: "Снимок SVG" }).click();
+  const svgDownload = await svgDownloadPromise;
+  const svgPath = await svgDownload.path();
+  expect(svgPath).not.toBeNull();
+  const svg = await readFile(svgPath, "utf8");
+  expect(svg).toContain("data-coordinate-plot-id=");
+  expect(svg).toContain(
+    `data-coordinate-plot-series-id="${visibleExplicitId}"`,
+  );
+  expect(svg).toContain(`data-coordinate-plot-series-id="${parametricId}"`);
+  expect(svg).toContain('data-coordinate-plot-series-kind="parametric"');
+  expect(svg).not.toContain(
+    `data-coordinate-plot-series-id="${hiddenExplicitId}"`,
+  );
+  expect(svg).toContain('clip-path="url(#coordinate-plot-clip-');
 });

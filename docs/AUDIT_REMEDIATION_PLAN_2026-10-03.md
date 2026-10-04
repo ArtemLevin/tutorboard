@@ -35,7 +35,8 @@ A1 → A2 → A3 → A4 → A5
 | A3 — Closed Vector Ink / render bounds / Wet Ink parity | RESOLVED | PR #161–#163 |
 | A4 — Unified text keyboard contract | RESOLVED | PR #164 |
 | Browser release gate after A1–A4 | RESOLVED | PR #165; `main` CI `37186878246` green |
-| A5 — Coordinate plot export fidelity | NEXT | стартует от `70d481f75b8faa72b01b381dc74bcb3a3d3fc826` |
+| A5 — Coordinate plot export fidelity | RESOLVED | PR #167; PR CI `37194207372` green |
+| B1 — Eraser broad-phase selection | NEXT | стартует после merge PR #167 |
 
 PR #165 дополнительно закрепил актуальный pen-tap contract в Chromium/Firefox
 browser coverage и выровнял right-double-click object settings с forgiving
@@ -43,6 +44,15 @@ selection через один screen-stable proximity tolerance. Полный pu
 `main` после merge прошёл Quality gate, Chromium/Firefox E2E, Board-only
 profile, Coordinate plot production gate, GeometryOS live browser contract и
 Production image.
+
+PR #167 закрыл A5: document-transfer snapshot теперь использует тот же
+renderer-neutral Coordinate Plot render model и production sampler, что и
+interactive canvas. Экспорт сохраняет real series geometry, viewport,
+grid/axes, clipping, series visibility/styles, legend, relation fills и
+раздельные discontinuity fragments. PNG и PDF получают ту же geometry через
+общий SVG rasterization path. CI routing дополнен так, чтобы изменения
+`src/modules/document-transfer/snapshot.ts` запускали Coordinate Plot
+production gate.
 
 ---
 

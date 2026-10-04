@@ -58,7 +58,8 @@ Operational findings ведутся в `03_TUTORBOARD_BACKLOG.md`.
 - A2 Stroke width & stroke styles — PR #159–#160;
 - A3 Vector Ink outline/bounds/Wet Ink parity — PR #161–#163;
 - A4 Unified text keyboard contract — PR #164;
-- browser release-gate drift после нового pen-tap contract — PR #165.
+- browser release-gate drift после нового pen-tap contract — PR #165;
+- A5 Coordinate plot export fidelity — PR #167.
 
 PR #165 восстановил единый 12 px screen-stable proximity contract для selection
 и right-double-click object settings, а устаревшие canvas-mode browser tests
@@ -69,8 +70,15 @@ Coordinate plot production gate, GeometryOS live browser contract и Production
 image — green. Smart Ink и Formula recognition production gates на том же SHA
 также green.
 
-Следующий шаг этого remediation train — **A5 Coordinate plot export fidelity**.
-Переход к A5 допускается от указанного green baseline.
+PR #167 заменяет placeholder coordinate-plot snapshot на экспорт реальной
+sampled geometry через общий renderer-neutral core render model. SVG сохраняет
+viewport, grid/axes, clipping, visibility, styles, explicit/parametric/relation
+series и discontinuity fragments; PNG и PDF растеризуют тот же SVG source.
+PR-CI `37194207372` прошёл Quality gate, Coordinate plot integration/performance,
+Chromium/Firefox lifecycle, visual regression matrix, browser smoke,
+GeometryOS contract, Board-only profile и Production image.
+
+Следующий шаг этого remediation train — **B1 Eraser broad-phase selection**.
 
 ## 1. Продуктовая цель
 
