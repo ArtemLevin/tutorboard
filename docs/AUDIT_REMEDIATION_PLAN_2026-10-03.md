@@ -26,6 +26,24 @@ A1 → A2 → A3 → A4 → A5
 
 Каждый следующий PR создаётся от уже смерженного предыдущего `main`, чтобы исключить длинную stacked-цепочку и упростить review/regression isolation.
 
+### Execution status — 2026-10-04
+
+| Этап | Статус | Evidence |
+| --- | --- | --- |
+| A1 — Pen pressure & tap | RESOLVED | PR #157–#158 |
+| A2 — Stroke width & stroke styles | RESOLVED | PR #159–#160 |
+| A3 — Closed Vector Ink / render bounds / Wet Ink parity | RESOLVED | PR #161–#163 |
+| A4 — Unified text keyboard contract | RESOLVED | PR #164 |
+| Browser release gate after A1–A4 | RESOLVED | PR #165; `main` CI `37186878246` green |
+| A5 — Coordinate plot export fidelity | NEXT | стартует от `70d481f75b8faa72b01b381dc74bcb3a3d3fc826` |
+
+PR #165 дополнительно закрепил актуальный pen-tap contract в Chromium/Firefox
+browser coverage и выровнял right-double-click object settings с forgiving
+selection через один screen-stable proximity tolerance. Полный push-CI на
+`main` после merge прошёл Quality gate, Chromium/Firefox E2E, Board-only
+profile, Coordinate plot production gate, GeometryOS live browser contract и
+Production image.
+
 ---
 
 ## 2. Общий engineering contract для каждого PR
