@@ -810,9 +810,7 @@ describe("App", () => {
 
   it("scales a selected image batch by 50 percentage points with one undo", async () => {
     const onDocumentChange = vi.fn<(document: BoardDocument) => void>();
-    const { rerender } = render(
-      <App onDocumentChange={onDocumentChange} />,
-    );
+    const { rerender } = render(<App onDocumentChange={onDocumentChange} />);
     fireEvent.click(screen.getByRole("button", { name: "Медиа" }));
     const first = new File(
       [
@@ -841,7 +839,10 @@ describe("App", () => {
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
 
     const before = onDocumentChange.mock.calls
-      .at(-1)?.[0].order.map((id) => onDocumentChange.mock.calls.at(-1)?.[0].objects[id])
+      .at(-1)
+      ?.[0].order.map(
+        (id) => onDocumentChange.mock.calls.at(-1)?.[0].objects[id],
+      )
       .filter((object) => object?.kind === "image.embedded");
     expect(before).toHaveLength(2);
     const centers = before?.map((object) => ({
