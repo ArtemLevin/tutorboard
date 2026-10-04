@@ -182,6 +182,33 @@ function intersects(left: Rect2, right: Rect2): boolean {
   );
 }
 
+function expandedPathBounds(
+  points: readonly Vec2[],
+  tolerance: number,
+): Rect2 | null {
+  const first = points[0];
+  if (first === undefined) return null;
+
+  let left = first.x;
+  let right = first.x;
+  let top = first.y;
+  let bottom = first.y;
+  for (let index = 1; index < points.length; index += 1) {
+    const point = points[index]!;
+    left = Math.min(left, point.x);
+    right = Math.max(right, point.x);
+    top = Math.min(top, point.y);
+    bottom = Math.max(bottom, point.y);
+  }
+
+  return {
+    height: bottom - top + tolerance * 2,
+    width: right - left + tolerance * 2,
+    x: left - tolerance,
+    y: top - tolerance,
+  };
+}
+
 function crossProduct(origin: Vec2, first: Vec2, second: Vec2): number {
   return (
     (first.x - origin.x) * (second.y - origin.y) -
@@ -470,10 +497,15 @@ export function selectObjectIdsNearPath(
   if (points.length === 0 || !Number.isFinite(tolerance) || tolerance < 0) {
     return [];
   }
+  const sweptBounds = expandedPathBounds(points, tolerance);
+  if (sweptBounds === null) return [];
+
   const brushPath: SelectionPath = { closed: false, points };
   return scene.items
     .filter((item) => {
-      if (!item.object.visible) return false;
+      if (!item.object.visible || !intersects(itemBounds(item), sweptBounds)) {
+        return false;
+      }
       const objectPath = transformedSelectionPath(item);
       if (
         objectPath.closed &&
