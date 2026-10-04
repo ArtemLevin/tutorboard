@@ -64,6 +64,7 @@ describe("line endpoint transform command", () => {
         rotation: 91,
         scale: { x: 1.25, y: 1.25 },
       },
+      { object: line, transforms: [identityTransform] },
     );
 
     expect(command.replacements[0]).toMatchObject({
@@ -125,6 +126,7 @@ describe("line endpoint transform command", () => {
           rotation: 45,
           scale: line.scale,
         },
+        { object: line, transforms: [identityTransform] },
       ),
     ).toThrow("Locked lines");
 
@@ -150,7 +152,71 @@ describe("line endpoint transform command", () => {
           rotation: 45,
           scale: line.scale,
         },
+        { object: line, transforms: [identityTransform] },
       ),
     ).toThrow("Locked groups");
+  });
+
+  it("rejects stale object and parent-transform baselines", () => {
+    const document = groupedDocument();
+    const metadata = {
+      actorId: actorId("actor:test"),
+      id: commandId("command:stale-line"),
+      timestamp: "2026-10-04T14:02:00.000Z",
+    };
+    const staleObjectDocument = {
+      ...document,
+      objects: {
+        [line.id]: {
+          ...line,
+          position: { x: line.position.x + 12, y: line.position.y },
+        },
+      },
+    };
+    const staleObjectCommand = createLineEndpointTransformCommand(
+      metadata,
+      staleObjectDocument,
+      {
+        objectId: line.id,
+        position: { x: 44, y: 55 },
+        rotation: 91,
+        scale: { x: 1.25, y: 1.25 },
+      },
+      { object: line, transforms: [identityTransform] },
+    );
+    const staleObjectResult = reduceBoardDocument(
+      staleObjectDocument,
+      staleObjectCommand,
+    );
+    expect(staleObjectResult.ok).toBe(false);
+
+    const changedParentDocument = {
+      ...document,
+      groups: {
+        [groupId("group:line")]: {
+          ...document.groups[groupId("group:line")]!,
+          transform: {
+            ...identityTransform,
+            rotation: 15,
+          },
+        },
+      },
+    };
+    expect(() =>
+      createLineEndpointTransformCommand(
+        {
+          ...metadata,
+          id: commandId("command:stale-parent"),
+        },
+        changedParentDocument,
+        {
+          objectId: line.id,
+          position: { x: 44, y: 55 },
+          rotation: 91,
+          scale: { x: 1.25, y: 1.25 },
+        },
+        { object: line, transforms: [identityTransform] },
+      ),
+    ).toThrow("baseline is stale");
   });
 });
