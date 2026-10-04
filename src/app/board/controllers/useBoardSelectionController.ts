@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardObjectTransformSnapshot } from "../../../adapters/canvas-konva/public";
 import type {
   BoardObjectId,
+  BoardRenderItem,
   BoardSceneReadModel,
   Vec2,
   VisualStyleOverride,
@@ -270,13 +271,17 @@ export function useBoardSelectionController({
   );
 
   const commitLineEndpointTransform = useCallback(
-    (transform: BoardObjectTransformSnapshot) => {
+    (
+      transform: BoardObjectTransformSnapshot,
+      baseline: BoardRenderItem,
+    ) => {
       const current = getDocument();
       try {
         const command = createLineEndpointTransformCommand(
           createCommandMetadata(),
           current,
           transform,
+          baseline,
         );
         if (commitCommand(command).ok) announce("Линия повернута за конец");
       } catch (error) {
