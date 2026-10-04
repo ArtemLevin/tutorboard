@@ -2,7 +2,7 @@
 
 > Статус документа: основной execution plan.
 >
-> Последнее обновление: 2026-09-30.
+> Последнее обновление: 2026-10-04.
 >
 > Документ синхронизирован с фактическим состоянием проекта после standalone
 > contracts, access convergence, controlled-pilot E2E, **Input Foundation +
@@ -48,6 +48,29 @@ Operational P1 review закрывается reliability-блоком
 Контракт, recovery/rollback и regression evidence:
 [`docs/P1_DURABLE_SYNC_REVIEW.md`](docs/P1_DURABLE_SYNC_REVIEW.md).
 Operational findings ведутся в `03_TUTORBOARD_BACKLOG.md`.
+
+### Input remediation release train — 03–04.10.2026
+
+Аудит пользовательского ввода переведён в последовательный remediation train
+из `docs/AUDIT_REMEDIATION_PLAN_2026-10-03.md`. На текущем `main` закрыты:
+
+- A1 Pen pressure & tap — PR #157–#158;
+- A2 Stroke width & stroke styles — PR #159–#160;
+- A3 Vector Ink outline/bounds/Wet Ink parity — PR #161–#163;
+- A4 Unified text keyboard contract — PR #164;
+- browser release-gate drift после нового pen-tap contract — PR #165.
+
+PR #165 восстановил единый 12 px screen-stable proximity contract для selection
+и right-double-click object settings, а устаревшие canvas-mode browser tests
+синхронизированы с materialized pen taps. Итоговый frontend baseline
+`70d481f75b8faa72b01b381dc74bcb3a3d3fc826` прошёл push-CI
+`37186878246`: Quality gate, Board-only profile, полный Chromium/Firefox E2E,
+Coordinate plot production gate, GeometryOS live browser contract и Production
+image — green. Smart Ink и Formula recognition production gates на том же SHA
+также green.
+
+Следующий шаг этого remediation train — **A5 Coordinate plot export fidelity**.
+Переход к A5 допускается от указанного green baseline.
 
 ## 1. Продуктовая цель
 
