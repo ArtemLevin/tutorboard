@@ -39,7 +39,8 @@ A1 → A2 → A3 → A4 → A5
 | B1 — Eraser broad-phase selection | RESOLVED | PR #168; PR CI `37197289434` green |
 | B2 — Incremental eraser gesture | RESOLVED | PR #169; PR CI `37200715401` green; merged as `932371e046cedcee4b55399b7764637352eba858` |
 | B3 — Clear/resource lifecycle | RESOLVED | PR #170; merged as `893c3cb601844e0a827d084579acae3e0a5cfb55` |
-| C1 — Line endpoint rotation | IN REVIEW | PR #171; code-head CI `37209606415` green |
+| C1 — Line endpoint rotation | RESOLVED | PR #171; merged as `5d88746eb46f7280d89e543ac285c885a1510f6b`; final CI `37214700224` green |
+| C2 — Context-aware image sizing and ±50% | IN PROGRESS | branch `feat/image-sizing-shortcuts` |
 
 PR #165 дополнительно закрепил актуальный pen-tap contract в Chromium/Firefox
 browser coverage и выровнял right-double-click object settings с forgiving
@@ -605,11 +606,18 @@ Regression coverage:
   один undo;
 - browser cancel regression: Escape не создаёт history operation.
 
-Code-head `092c80723fc57b75bc14b7adc7fbcc9cd9dd7331` прошёл PR-CI
-`37209606415`: Quality gate, 177 unit files / 967 tests, 8 performance files /
-13 tests, architecture/build, Chromium/Firefox smoke, Board-only profile,
-GeometryOS live browser contract и Coordinate Plot production/visual gates.
-Smart Ink, Formula Recognition и Paddle sidecar gates на том же HEAD — green.
+Final review дополнительно закрепил два edge-case контракта:
+
+- endpoint click без фактического drag не создаёт no-op history operation;
+- commit использует baseline gesture; concurrent изменение target object или
+  parent group transform приводит к stale rejection вместо overwrite.
+
+Final code-head `a6ea034f4158393d0d607e0ecc4fc81807354685` прошёл CI
+`37214700224`: Quality gate, unit/performance suites, architecture/build,
+Chromium/Firefox smoke, Board-only profile, GeometryOS live browser contract и
+Coordinate Plot production gate. Smart Ink `37214700284`, Formula Recognition
+`37214700259` и Paddle sidecar `37214700269` также green. PR #171 смержен
+как `5d88746eb46f7280d89e543ac285c885a1510f6b`.
 
 ### Предлагаемая ветка
 

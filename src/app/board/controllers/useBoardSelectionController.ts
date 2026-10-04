@@ -17,6 +17,7 @@ import {
 } from "../../../modules/layers/public";
 import {
   createDeleteSelectionCommand,
+  createImageScaleStepTransforms,
   createLineEndpointTransformCommand,
   createMoveSelectionCommand,
   createSetSelectionLockCommand,
@@ -33,6 +34,7 @@ import {
   selectObjectIdsInRect,
   selectSelectionBounds,
   type CompletedSelectionMove,
+  type ImageScaleStepDirection,
   type SelectionAction,
   type SelectionState,
 } from "../../../modules/selection/public";
@@ -244,8 +246,8 @@ export function useBoardSelectionController({
   );
 
   const commitTransform = useCallback(
-    (transforms: readonly BoardObjectTransformSnapshot[]) => {
-      if (transforms.length === 0) return;
+    (transforms: readonly BoardObjectTransformSnapshot[]): boolean => {
+      if (transforms.length === 0) return false;
       const current = getDocument();
       try {
         const command = createTransformSelectionCommand(
@@ -253,12 +255,14 @@ export function useBoardSelectionController({
           current,
           transforms,
         );
-        if (commitCommand(command).ok)
-          announce("Размер или поворот выделения изменён");
+        if (!commitCommand(command).ok) return false;
+        announce("Размер или поворот выделения изменён");
+        return true;
       } catch (error) {
         setCommandError(
           error instanceof Error ? error.message : "Transform is invalid.",
         );
+        return false;
       }
     },
     [
@@ -347,6 +351,20 @@ export function useBoardSelectionController({
       createCommandMetadata,
       getDocument,
     ],
+  );
+
+  const scaleImagesByStep = useCallback(
+    (direction: ImageScaleStepDirection): boolean => {
+      const current = getDocument();
+      const transforms = createImageScaleStepTransforms(
+        current,
+        stateRef.current.selectedObjectIds,
+        direction,
+      );
+      if (transforms === null) return false;
+      return commitTransform(transforms);
+    },
+    [commitTransform, getDocument],
   );
 
   const moveBy = useCallback(
@@ -565,6 +583,7 @@ export function useBoardSelectionController({
     remove,
     reorderLayer,
     replaceSelection,
+    scaleImagesByStep,
     selectObject,
     selectedEditableText,
     selectedLocked,

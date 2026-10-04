@@ -162,6 +162,24 @@ export function useBoardKeyboardShortcuts({
       }
       if (event.altKey || event.ctrlKey || event.metaKey || editing) return;
 
+      const imageScaleDirection =
+        event.repeat || readOnly
+          ? null
+          : event.key === "+"
+            ? "increase"
+            : event.key === "-"
+              ? "decrease"
+              : null;
+      if (
+        imageScaleDirection !== null &&
+        selection.getState().interaction.kind === "idle" &&
+        !selection.selectedLocked &&
+        selection.scaleImagesByStep(imageScaleDirection)
+      ) {
+        event.preventDefault();
+        return;
+      }
+
       if (event.key === "?") {
         event.preventDefault();
         openShortcuts();

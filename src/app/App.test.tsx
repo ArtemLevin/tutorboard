@@ -808,6 +808,82 @@ describe("App", () => {
     );
   });
 
+  it("scales a selected image batch by 50 percentage points with one undo", async () => {
+    const onDocumentChange = vi.fn<(document: BoardDocument) => void>();
+    const { rerender } = render(<App onDocumentChange={onDocumentChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Медиа" }));
+    const first = new File(
+      [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><rect width="80" height="40" /></svg>',
+      ],
+      "first.svg",
+      { type: "image/svg+xml" },
+    );
+    const second = new File(
+      [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><circle cx="30" cy="30" r="30" /></svg>',
+      ],
+      "second.svg",
+      { type: "image/svg+xml" },
+    );
+
+    fireEvent.change(screen.getByLabelText("Вставить изображения"), {
+      target: { files: [first, second] },
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта"),
+    );
+    expect(screen.getByTestId("selection-count")).toHaveTextContent(
+      "2 выбрано",
+    );
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+
+    const before = onDocumentChange.mock.calls
+      .at(-1)?.[0]
+      .order.map((id) => onDocumentChange.mock.calls.at(-1)?.[0].objects[id])
+      .filter((object) => object?.kind === "image.embedded");
+    expect(before).toHaveLength(2);
+    const centers = before?.map((object) => ({
+      x: object.position.x + (object.size.width * object.scale.x) / 2,
+      y: object.position.y + (object.size.height * object.scale.y) / 2,
+    }));
+
+    fireEvent.keyDown(window, { code: "Equal", key: "+", shiftKey: true });
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("2/0");
+
+    const scaledDocument = onDocumentChange.mock.calls.at(-1)?.[0];
+    const scaled = scaledDocument?.order
+      .map((id) => scaledDocument.objects[id])
+      .filter((object) => object?.kind === "image.embedded");
+    expect(scaled?.map((object) => object.scale)).toEqual([
+      { x: 1.5, y: 1.5 },
+      { x: 1.5, y: 1.5 },
+    ]);
+    expect(
+      scaled?.map((object) => ({
+        x: object.position.x + (object.size.width * object.scale.x) / 2,
+        y: object.position.y + (object.size.height * object.scale.y) / 2,
+      })),
+    ).toEqual(centers);
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");
+    const restoredDocument = onDocumentChange.mock.calls.at(-1)?.[0];
+    expect(
+      restoredDocument?.order
+        .map((id) => restoredDocument.objects[id])
+        .filter((object) => object?.kind === "image.embedded")
+        .map((object) => object.scale),
+    ).toEqual([
+      { x: 1, y: 1 },
+      { x: 1, y: 1 },
+    ]);
+
+    rerender(<App onDocumentChange={onDocumentChange} readOnly />);
+    fireEvent.keyDown(window, { code: "Equal", key: "+", shiftKey: true });
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");
+  });
+
   it("selects and moves one object through one document command", () => {
     render(<App />);
 
