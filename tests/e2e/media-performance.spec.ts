@@ -90,10 +90,9 @@ function createMediaPerformanceDocument(
         index === 0 && options.largeStaticDataUrl !== undefined
           ? options.largeStaticDataUrl
           : pngDataUrl,
-      intrinsicSize:
-        index === 0 && options.largeStaticDataUrl !== undefined
-          ? { height: 1_024, width: 1_024 }
-          : undefined,
+      ...(index === 0 && options.largeStaticDataUrl !== undefined
+        ? { intrinsicSize: { height: 1_024, width: 1_024 } }
+        : {}),
       kind: "static",
     }),
   );
