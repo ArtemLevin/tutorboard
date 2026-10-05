@@ -2,7 +2,7 @@
 
 > Статус документа: основной execution plan.
 >
-> Последнее обновление: 2026-10-04.
+> Последнее обновление: 2026-10-05.
 >
 > Документ синхронизирован с фактическим состоянием проекта после standalone
 > contracts, access convergence, controlled-pilot E2E, **Input Foundation +
@@ -122,6 +122,19 @@ production gates.
 mixed scene, visibility/offscreen lifecycle и autosave. Production-код C3
 изменяется только после подтверждения dominant contributor. Предлагаемая ветка:
 `perf/media-rendering`.
+
+05.10.2026: C3.0 baseline открыт в PR #174, его финальный HEAD
+`f56852e8950fff69cbbe4b010377f9ccf3edaf98` прошёл CI #2045. От актуального
+`main` подготовлен отдельный block `perf/dense-board-rendering`: подтверждённое
+повторное построение committed pen geometry на transient updates устраняется
+memoized scene/item views; runtime previews используют существующий Wet Ink
+Layer; mounted GIF обслуживаются board-scoped coordinator с visibility/cancel
+lifecycle. Schema, original embedded bytes, z-order, undo и revisions сохраняются.
+Причины, локальные CPU-замеры, acceptance checks и оставшиеся decode/GIF repaint/
+persistence ограничения:
+[`docs/DENSE_BOARD_PERFORMANCE_REVIEW_2026-10-05.md`](docs/DENSE_BOARD_PERFORMANCE_REVIEW_2026-10-05.md).
+C3 целиком остаётся открытым до browser release evidence и следующих
+decode/storage блоков; PR #174 не изменяется этим исправлением.
 
 ## 1. Продуктовая цель
 
