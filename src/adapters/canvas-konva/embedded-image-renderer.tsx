@@ -1,9 +1,10 @@
 import Konva from "konva";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { Group, Image as KonvaImage, Rect } from "react-konva";
 
 import type { EmbeddedImageObject } from "../../core/public";
 import { startAnimatedImageRedraw } from "./animated-image-redraw";
+import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
 
 export function EmbeddedImageRenderer({
   object,
@@ -13,6 +14,7 @@ export function EmbeddedImageRenderer({
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [failed, setFailed] = useState(false);
   const imageRef = useRef<Konva.Image>(null);
+  const redrawCoordinator = useContext(AnimatedImageRedrawContext);
 
   useEffect(() => {
     const element = new Image();
@@ -41,10 +43,15 @@ export function EmbeddedImageRenderer({
     if (object.mimeType !== "image/gif" || image === null) {
       return;
     }
+    if (redrawCoordinator !== null) {
+      return redrawCoordinator.register(
+        () => imageRef.current?.getLayer() ?? null,
+      );
+    }
     return startAnimatedImageRedraw(() => {
       imageRef.current?.getLayer()?.batchDraw();
     });
-  }, [image, object.mimeType]);
+  }, [image, object.mimeType, redrawCoordinator]);
 
   return (
     <Group

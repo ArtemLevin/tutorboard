@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
-  type ReactElement,
 } from "react";
 import {
   Circle,
@@ -33,7 +32,6 @@ import {
   type BoardRenderItem,
   type BoardSceneReadModel,
   type LineEndpoint,
-  type Transform2D,
   type Vec2,
   type ViewportState,
 } from "../../core/public";
@@ -42,6 +40,9 @@ import {
   buildSmoothClosedStrokePoints,
   flattenStrokePoints,
 } from "../../shared/stroke-smoothing";
+import { AnimatedImageRedrawCoordinator } from "./animated-image-redraw";
+import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
+import { BoardRenderItemView, BoardSceneContent } from "./board-scene-content";
 import { BoardGrid } from "./grid";
 import { clientPoint, elementPoint } from "./pointer";
 import {
@@ -287,60 +288,6 @@ function sameViewport(left: ViewportState, right: ViewportState): boolean {
   );
 }
 
-function applyTransforms(
-  child: ReactElement,
-  transforms: readonly Transform2D[],
-): ReactElement {
-  return transforms.reduceRight(
-    (nested, transform, index) => (
-      <Group
-        key={`transform-${index}`}
-        rotation={transform.rotation}
-        scaleX={transform.scale.x}
-        scaleY={transform.scale.y}
-        x={transform.translation.x}
-        y={transform.translation.y}
-      >
-        {nested}
-      </Group>
-    ),
-    child,
-  );
-}
-
-function renderItem(
-  item: BoardRenderItem,
-  registry: KonvaRendererRegistry,
-  options: {
-    readonly coordinatePlotInteraction?:
-      CoordinatePlotRenderInteraction | undefined;
-    readonly interactive: boolean;
-    readonly previewDelta?: Vec2 | null;
-    readonly zoom: number;
-  },
-): ReactElement {
-  return (
-    <Group
-      id={item.object.id}
-      key={item.object.id}
-      listening={options.interactive}
-      {...(options.interactive ? { name: "board-object" } : {})}
-      x={options.previewDelta?.x ?? 0}
-      y={options.previewDelta?.y ?? 0}
-    >
-      {applyTransforms(
-        registry.render(item, {
-          zoom: options.zoom,
-          ...(options.coordinatePlotInteraction === undefined
-            ? {}
-            : { coordinatePlot: options.coordinatePlotInteraction }),
-        }),
-        item.transforms,
-      )}
-    </Group>
-  );
-}
-
 function isTransformerTarget(target: Konva.Node): boolean {
   let current: Konva.Node | null = target;
   while (current !== null) {
@@ -456,6 +403,9 @@ export function BoardStage({
   transformableObjectIds = [],
   wetInkStyle = null,
 }: BoardStageProps) {
+  const [animatedImageRedraw] = useState(
+    () => new AnimatedImageRedrawCoordinator(),
+  );
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -512,6 +462,8 @@ export function BoardStage({
     useState<BoardObjectTransformSnapshot | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const size = useElementSize(rootRef);
+
+  useEffect(() => () => animatedImageRedraw.dispose(), [animatedImageRedraw]);
 
   useLayoutEffect(() => {
     const layer = wetInkLayerRef.current;
@@ -1845,7 +1797,6 @@ export function BoardStage({
       : cursorKind === "hidden"
         ? "none"
         : cursorKind;
-  const selected = new Set(selectedObjectIds);
 
   return (
     <div
@@ -1907,33 +1858,40 @@ export function BoardStage({
             x={previewViewport.offset.x}
             y={previewViewport.offset.y}
           >
-            {visibleItemBatches.map((batch, batchIndex) => (
-              <Group key={`render-batch-${batchIndex}`}>
-                {batch.map((item) =>
-                  renderItem(
-                    applyObjectTransformPreview(item, lineEndpointPreview),
-                    registry,
-                    {
-                      coordinatePlotInteraction,
-                      interactive: true,
-                      zoom: previewViewport.zoom,
-                      previewDelta: selected.has(item.object.id)
-                        ? selectionPreviewDelta
-                        : null,
-                    },
-                  ),
-                )}
-              </Group>
-            ))}
-            {previewItems.map((item) =>
-              renderItem(item, registry, {
-                interactive: false,
-                zoom: previewViewport.zoom,
-              }),
-            )}
+            <AnimatedImageRedrawContext value={animatedImageRedraw}>
+              <BoardSceneContent
+                batches={visibleItemBatches}
+                coordinatePlotInteraction={coordinatePlotInteraction}
+                lineEndpointPreview={lineEndpointPreview}
+                registry={registry}
+                selectedObjectIds={selectedObjectIds}
+                selectionPreviewX={selectionPreviewDelta?.x ?? 0}
+                selectionPreviewY={selectionPreviewDelta?.y ?? 0}
+                zoom={previewViewport.zoom}
+              />
+            </AnimatedImageRedrawContext>
           </Group>
         </Layer>
-        <Layer ref={wetInkLayerRef} listening={false} />
+        <Layer ref={wetInkLayerRef} listening={false}>
+          <Group
+            scaleX={previewViewport.zoom}
+            scaleY={previewViewport.zoom}
+            x={previewViewport.offset.x}
+            y={previewViewport.offset.y}
+          >
+            <AnimatedImageRedrawContext value={animatedImageRedraw}>
+              {previewItems.map((item) => (
+                <BoardRenderItemView
+                  interactive={false}
+                  item={item}
+                  key={item.object.id}
+                  registry={registry}
+                  zoom={previewViewport.zoom}
+                />
+              ))}
+            </AnimatedImageRedrawContext>
+          </Group>
+        </Layer>
         <Layer listening={false}>
           <Group
             scaleX={previewViewport.zoom}
