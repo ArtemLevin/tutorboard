@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { createBoardDocumentWorkerComputation } from "../../adapters/board-document-worker/public";
 import { createGeometryOsHttpClient } from "../../adapters/geometryos-http/public";
 import { createBoardHttpRepository } from "../../adapters/board-http/public";
 import {
@@ -55,7 +56,11 @@ if (teacherBoardsRoute) {
     </StrictMode>,
   );
 } else {
-  const repository = createDexieBoardDocumentRepository();
+  const documentComputation = createBoardDocumentWorkerComputation();
+  const repository = createDexieBoardDocumentRepository(
+    undefined,
+    documentComputation,
+  );
   const lessonContext =
     launchContext.kind === "legacy-lesson"
       ? {

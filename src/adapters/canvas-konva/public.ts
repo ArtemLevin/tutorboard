@@ -43,6 +43,11 @@ export {
 } from "./coordinate-plot-rendering";
 export { createDefaultKonvaRendererRegistry } from "./default-renderers";
 export {
+  RasterImageDiagnostics,
+  rasterImageDiagnostics,
+  type RasterImageDiagnosticsSnapshot,
+} from "./raster-image-diagnostics";
+export {
   collectCoalescedPointerEvents,
   collectPredictedPointerEvents,
   maximumCoalescedPointerEvents,

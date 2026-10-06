@@ -16,7 +16,7 @@ export function bindLocalAutosaveLifecycleFlush(
   binding: LocalAutosaveLifecycleBinding,
 ): () => void {
   const flush = () => {
-    void autosave.flush();
+    void autosave.flush("lifecycle");
   };
   const flushWhenHidden = () => {
     if (binding.documentTarget.visibilityState === "hidden") flush();

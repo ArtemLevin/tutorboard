@@ -294,3 +294,162 @@ verification. Those operations can still create input/render stalls on large
 documents or documents with embedded media and should be profiled next before
 selecting a Worker/off-main-thread design. Large raster decode/memory and
 asset-backed media persistence remain separate C3 work.
+
+
+## Off-main-thread document computation follow-up — 06.10.2026
+
+The next confirmed main-thread candidate after PR #177 was full-document
+canonical serialization and hashing. Before this block, local persistence called
+`serializeBoardDocument()` synchronously before entering the IndexedDB
+transaction. That path performs validation, recursive canonicalization/key
+ordering and `JSON.stringify()` over the complete BoardDocument. Current-schema
+server sync also canonical-serialized the complete document before SHA-256
+verification.
+
+PR #178 (`perf/off-main-thread-document-computation`) introduces a core
+`BoardDocumentComputation` port and a lazy module Worker adapter:
+
+- background autosave starts Worker serialization during the debounce window;
+- normal Dexie saves consume the prepared async serialization result;
+- pagehide and SPA workspace disposal retain synchronous lifecycle serialization
+  so the durable repository path starts before the lifecycle handler returns;
+- when a background save is already waiting for Worker serialization, lifecycle
+  flush synchronously promotes the same operation ID through the repository.
+  Dexie checks duplicate operation identity before optimistic revision conflict,
+  so concurrent background/lifecycle completion stays idempotent;
+- current-schema BoardSyncEngine hashing and evidence verification run through
+  the Worker-backed hasher;
+- current-schema hashes are reused inside recovery/apply flows instead of being
+  recomputed for an equivalent transport digest;
+- Worker creation is lazy and Worker crashes/unavailability fall back to the
+  previous inline implementation;
+- each React StrictMode sync setup owns its Worker instance and disposes only
+  that instance during cleanup;
+- legacy BoardDocument 1.4/1.5 compatibility digest projections remain on the
+  existing migration/recovery path in this block.
+
+The persisted BoardDocument representation, revision IDs, operation IDs,
+undo/redo, collaboration ordering, authorization boundaries, media bytes and
+public data contracts are unchanged.
+
+### Verification
+
+Verified production code-head:
+`ecf35fce19d6d81871853477926ac4e15b4cd5a4`.
+
+CI run `37482601624` verified:
+
+- format, lint, strict typecheck and production dependency threshold;
+- 182/182 unit/integration test files and 1000/1000 tests;
+- 10/10 performance files and 18/18 tests;
+- architecture boundaries and production build;
+- Chromium browser smoke: 28/28 passed;
+- Firefox browser smoke: 28/28 passed;
+- GeometryOS live browser contract, Board-only frontend profile and Coordinate
+  Plot production gate.
+
+Smart Ink, Formula Recognition and Paddle formula sidecar gates also completed
+successfully on the same code-head.
+
+New regression coverage explicitly guards:
+
+- Worker prewarm reuse;
+- lifecycle synchronous serialization fallback;
+- Worker SHA and inline fallback on Worker failure;
+- Dexie background-vs-lifecycle computation selection;
+- autosave prewarm;
+- pagehide promotion of an already in-flight background save;
+- SPA dispose promotion of an already in-flight background save;
+- BoardSyncEngine use of the injected async hasher.
+
+### Remaining C3 work
+
+This block removes current-schema full-document canonical serialization/SHA work
+from the ordinary browser main-thread path while preserving lifecycle durability.
+The strongest remaining C3 candidates are large-raster decode/memory pressure,
+asset-backed media persistence to stop embedded-byte revision amplification, and
+representative browser profiling with multiple large real-world JPEG/PNG assets.
+
+Legacy 1.4/1.5 compatibility projections still run inline during migration or
+recovery. They are intentionally outside the hot current-schema path and should
+only move to the Worker after profiling shows material cost.
+
+
+## Large-raster memory baseline — 06.10.2026
+
+After off-main-thread document computation removed current-schema serialization
+and SHA work from the ordinary main-thread path, the next C3 investigation
+targeted decoded raster memory.
+
+The current embedded raster renderer creates one `HTMLImageElement` per visible
+`image.embedded` object and assigns the full persisted data URL. Browser
+display size can be hundreds of pixels while the intrinsic image remains several
+thousand pixels wide, so the decoded working set is determined by intrinsic
+resolution rather than board display size. Identical embedded content is also
+decoded independently by each rendered object.
+
+PR #179 (`perf/raster-memory-baseline`) intentionally changes measurement only:
+
+- `RasterImageDiagnostics` records renderer decode start/complete/failure/release;
+- it records concurrent duplicate decode starts for the same content SHA;
+- it estimates decoded RGBA working set as `width × height × 4`;
+- it tracks active and peak decoded counts/bytes plus renderer decode duration;
+- BoardStage exposes the snapshot as browser-test diagnostics;
+- the browser stress test also records RAF frame gaps and Long Task entries where
+  the engine supports them.
+
+The production-like fixture creates one compressible PNG at 4096×3072 and
+inserts it as two independent board objects through the ordinary clipboard image
+flow. The compressed bytes remain below the existing 8 MiB file limit, while
+each full intrinsic decode represents approximately 50.33 MiB RGBA.
+
+Verified code-head:
+`5051b0db0af4f7f4945088b11c2eec622ff07df0`.
+
+CI run `37495639140` verified:
+
+- format, lint, strict typecheck and dependency threshold;
+- 183/183 unit/integration files and 1003/1003 tests;
+- 10/10 performance files and 18/18 tests;
+- architecture boundaries and production build;
+- Chromium browser smoke: 29/29 passed;
+- Firefox browser smoke: 29/29 passed;
+- GeometryOS live browser contract, Board-only frontend profile and Coordinate
+  Plot production gate;
+- Smart Ink, Formula Recognition and Paddle formula sidecar gates.
+
+Measured baseline:
+
+| Metric | Chromium | Firefox |
+| --- | ---: | ---: |
+| raster objects | 2 | 2 |
+| intrinsic resolution | 4096×3072 | 4096×3072 |
+| renderer decode starts | 2 | 2 |
+| duplicate concurrent decode starts | 1 | 1 |
+| active/peak estimated decoded bytes | 100,663,296 | 100,663,296 |
+| max renderer decode duration | 1 ms | 13 ms |
+| max observed RAF frame gap | ~66.7 ms | ~49.84 ms |
+| observed Long Tasks | 1 × 68 ms | unavailable in engine |
+
+The renderer-specific decode duration does not include all earlier import
+preparation work; the frame-gap/Long-Task evidence spans the end-to-end browser
+import and materialization window and therefore remains the user-visible
+baseline.
+
+### Next block
+
+A2 should add a bounded decoded-raster cache for static PNG/JPEG:
+
+- key by immutable content SHA plus resolution bucket;
+- coalesce concurrent requests for the same key;
+- decode near the actual display-pixel requirement instead of intrinsic size;
+- bound decode concurrency;
+- use a pixel/byte budget with LRU eviction;
+- explicitly close evicted `ImageBitmap` instances;
+- preserve HTMLImageElement/GIF animation and sanitized SVG behavior;
+- update this exact browser fixture so duplicate decode and decoded working set
+  become regression budgets rather than descriptive baseline values.
+
+Persisted image bytes, BoardDocument schema, command protocol and collaboration
+contracts remain outside A2. Asset-backed media persistence stays the following
+milestone under ADR-032.

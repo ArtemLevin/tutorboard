@@ -7,6 +7,7 @@ import {
   localRevisionId,
   serializeBoardDocument,
   type BoardDocument,
+  type BoardDocumentComputation,
   type BoardDocumentDiagnosticBundle,
   type BoardDocumentLoadResult,
   type BoardDocumentRecoveryReason,
@@ -241,9 +242,18 @@ function makeInvalidStorageRecovery(
 
 export class DexieBoardDocumentRepository implements BoardDocumentRepository {
   readonly #database: TutorBoardLocalDatabase;
+  readonly #documentComputation: BoardDocumentComputation | null;
 
-  constructor(databaseName = defaultTutorBoardDatabaseName) {
+  constructor(
+    databaseName = defaultTutorBoardDatabaseName,
+    documentComputation: BoardDocumentComputation | null = null,
+  ) {
     this.#database = new TutorBoardLocalDatabase(databaseName);
+    this.#documentComputation = documentComputation;
+  }
+
+  prepareSave(document: BoardDocument): void {
+    this.#documentComputation?.prepareSerialization?.(document);
   }
 
   close(): void {
@@ -407,7 +417,16 @@ export class DexieBoardDocumentRepository implements BoardDocumentRepository {
   }
 
   async save(input: SaveBoardDocumentInput): Promise<SaveBoardDocumentResult> {
-    const serialized = serializeBoardDocument(input.document);
+    const priority = input.priority ?? "background";
+    const serialized =
+      this.#documentComputation === null
+        ? serializeBoardDocument(input.document)
+        : priority === "lifecycle"
+          ? this.#documentComputation.serializeSync(input.document)
+          : await this.#documentComputation.serialize(
+              input.document,
+              "background",
+            );
     if (!serialized.ok) {
       return {
         issues: serialized.issues,
@@ -526,6 +545,7 @@ export class DexieBoardDocumentRepository implements BoardDocumentRepository {
 
 export function createDexieBoardDocumentRepository(
   databaseName = defaultTutorBoardDatabaseName,
+  documentComputation: BoardDocumentComputation | null = null,
 ): DexieBoardDocumentRepository {
-  return new DexieBoardDocumentRepository(databaseName);
+  return new DexieBoardDocumentRepository(databaseName, documentComputation);
 }

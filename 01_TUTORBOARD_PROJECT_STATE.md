@@ -203,10 +203,80 @@ production gate green. Smart Ink, Formula Recognition и Paddle sidecar gates
 на том же SHA также green.
 
 Persisted BoardDocument, command/undo contracts, collaboration ordering,
-original media bytes и z-order этим блоком не изменяются. Следующий вероятный
-main-thread bottleneck для profiling/remediation — full-document
-validation/canonical serialization и SHA computation, затем raster decode/memory
-и asset-backed media persistence.
+original media bytes и z-order этим блоком не изменяются.
+
+### 3.3. Off-main-thread document computation — 06.10.2026
+
+PR #178 (`perf/off-main-thread-document-computation`) переносит current-schema
+full-document canonical serialization и SHA-256 с browser main thread в lazy
+Worker adapter через core port `BoardDocumentComputation`.
+
+Local persistence:
+
+- autosave вызывает `prepareSave()` сразу при schedule и использует debounce
+  окно как prewarm для Worker serialization;
+- background save использует подготовленный async result;
+- pagehide и SPA dispose сохраняют synchronous lifecycle serialization;
+- если background save уже ждёт Worker, lifecycle flush запускает второй
+  repository save с тем же operation ID и lifecycle priority до возврата из
+  handler; Dexie duplicate-before-conflict semantics делают promotion
+  идемпотентным;
+- Worker failure деградирует к прежней inline serialization/hash реализации.
+
+Server sync:
+
+- `BoardSyncEngine` получает async document hasher через port;
+- current schema SHA для recovery/apply flow вычисляется в Worker и
+  переиспользуется там, где transport digest совпадает с canonical head hash;
+- evidence finalization использует тот же worker-backed SHA;
+- legacy 1.4/1.5 compatibility digests остаются migration/recovery fallback.
+
+StrictMode ownership worker-а привязан к конкретному effect setup; cleanup
+уничтожает только принадлежащий ему Worker instance.
+
+Проверенный code-head `ecf35fce19d6d81871853477926ac4e15b4cd5a4`
+прошёл CI run `37482601624`: 182/182 unit/integration files, 1000/1000 tests,
+10/10 performance files, 18/18 performance tests, architecture boundaries и
+production build. Chromium browser smoke: 28/28; Firefox browser smoke: 28/28.
+GeometryOS live browser contract, Board-only frontend profile, Coordinate Plot
+production gate, Smart Ink, Formula Recognition и Paddle sidecar gates green.
+
+Persisted BoardDocument/schema, revision identity, undo/redo, collaboration
+ordering, media bytes и public contracts сохраняются.
+
+### 3.4. Large-raster memory baseline — 06.10.2026
+
+PR #179 (`perf/raster-memory-baseline`) добавляет измерительный слой перед
+изменением raster renderer. `RasterImageDiagnostics` отслеживает renderer
+decode lifecycle: start/complete/fail/release, duplicate concurrent decode,
+decode duration, active/peak decoded image count и estimated RGBA bytes.
+BoardStage публикует snapshot в diagnostic data attributes для browser tests.
+
+Production-like browser fixture создаёт два одинаковых PNG 4096×3072 с малым
+compressed payload и вставляет их обычным clipboard media flow. Persisted
+`image.embedded`, import limits, collaboration и rendering semantics этим
+блоком не меняются.
+
+Проверенный code-head `5051b0db0af4f7f4945088b11c2eec622ff07df0`
+прошёл CI run `37495639140`: 183/183 unit/integration files, 1003/1003 tests,
+10/10 performance files, 18/18 performance tests, architecture boundaries и
+production build. Chromium/Firefox smoke прошли по 29/29 scenarios; GeometryOS,
+Board-only и Coordinate Plot gates green. Smart Ink, Formula Recognition и
+Paddle sidecar gates green.
+
+Measured browser baseline для двух одинаковых 4096×3072 raster objects:
+
+- active/peak estimated decoded RGBA bytes: 100,663,296;
+- decode starts: 2;
+- duplicate concurrent decode starts для одного content SHA: 1;
+- Chromium max renderer decode: 1 ms; max frame gap: ~66.7 ms; Long Task:
+  68 ms;
+- Firefox max renderer decode: 13 ms; max frame gap: ~49.84 ms; engine не
+  предоставляет `longtask` PerformanceObserver entry type.
+
+Следующий C3-блок: bounded resolution-aware raster cache для PNG/JPEG с decode
+coalescing, concurrency control, LRU eviction и explicit bitmap release. После
+него — asset-backed media persistence по ADR-032.
 
 ---
 

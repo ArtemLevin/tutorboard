@@ -5,6 +5,7 @@ import { Group, Image as KonvaImage, Rect } from "react-konva";
 import type { EmbeddedImageObject } from "../../core/public";
 import { startAnimatedImageRedraw } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
+import { rasterImageDiagnostics } from "./raster-image-diagnostics";
 
 export function EmbeddedImageRenderer({
   object,
@@ -18,26 +19,36 @@ export function EmbeddedImageRenderer({
 
   useEffect(() => {
     const element = new Image();
+    const sessionId = rasterImageDiagnostics.begin(
+      object.contentSha256,
+      performance.now(),
+    );
     let active = true;
     element.decoding = "async";
     element.onload = () => {
-      if (active) {
-        setFailed(false);
-        setImage(element);
-      }
+      if (!active) return;
+      rasterImageDiagnostics.complete(
+        sessionId,
+        element.naturalWidth,
+        element.naturalHeight,
+        performance.now(),
+      );
+      setFailed(false);
+      setImage(element);
     };
     element.onerror = () => {
-      if (active) {
-        setFailed(true);
-        setImage(null);
-      }
+      if (!active) return;
+      rasterImageDiagnostics.fail(sessionId);
+      setFailed(true);
+      setImage(null);
     };
     element.src = object.dataUrl;
     return () => {
       active = false;
+      rasterImageDiagnostics.release(sessionId);
       element.src = "";
     };
-  }, [object.dataUrl]);
+  }, [object.contentSha256, object.dataUrl]);
 
   useEffect(() => {
     if (object.mimeType !== "image/gif" || image === null) {

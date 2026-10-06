@@ -78,10 +78,13 @@ export type BoardDocumentLoadResult =
       readonly status: "failure";
     };
 
+export type SaveBoardDocumentPriority = "background" | "lifecycle";
+
 export interface SaveBoardDocumentInput {
   readonly document: BoardDocument;
   readonly expectedRevisionId: LocalRevisionId | null;
   readonly operationId: PersistenceOperationId;
+  readonly priority?: SaveBoardDocumentPriority;
   readonly savedAt: string;
 }
 
@@ -115,6 +118,7 @@ export interface BoardDocumentDiagnosticBundle {
 }
 
 export interface BoardDocumentRepository {
+  readonly prepareSave?: (document: BoardDocument) => void;
   readonly diagnose: (
     documentId: DocumentId,
     generatedAt: string,
