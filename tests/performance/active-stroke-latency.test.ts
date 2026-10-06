@@ -137,7 +137,11 @@ describe("active stroke production-like performance", () => {
       expect(final).toBeDefined();
       expect(final?.sealedChunkCount).toBeGreaterThan(0);
       expect(
-        Math.max(...reports.map(({ mutableTailPointCount }) => mutableTailPointCount)),
+        Math.max(
+          ...reports.map(
+            ({ mutableTailPointCount }) => mutableTailPointCount,
+          ),
+        ),
       ).toBeLessThanOrEqual(wetInkSealedChunkSize + wetInkMutableTailSize);
       expect(
         Math.max(
