@@ -482,6 +482,7 @@ export function BoardStage({
         );
         root.dataset.wetInkActualPoints = String(report.actualPointCount);
         root.dataset.wetInkFrameCount = String(report.frameCount);
+        root.dataset.wetInkFrameGapMs = report.frameGapMs.toFixed(2);
         root.dataset.wetInkGeneratedSamples = String(
           report.generatedActualSampleCount,
         );
@@ -489,6 +490,7 @@ export function BoardStage({
         root.dataset.wetInkLatencyLastMs = report.latency.lastMs.toFixed(2);
         root.dataset.wetInkLatencyMeanMs = report.latency.meanMs.toFixed(2);
         root.dataset.wetInkLatencyP95Ms = report.latency.p95Ms.toFixed(2);
+        root.dataset.wetInkMaxFrameGapMs = report.maxFrameGapMs.toFixed(2);
         root.dataset.wetInkMutableTailPoints = String(
           report.mutableTailPointCount,
         );
@@ -500,9 +502,11 @@ export function BoardStage({
     wetInkRendererRef.current = renderer;
     root.dataset.wetInkActive = "false";
     root.dataset.wetInkFrameCount = "0";
+    root.dataset.wetInkFrameGapMs = "0";
     root.dataset.wetInkGeneratedSamples = "0";
     root.dataset.wetInkLatencyCount = "0";
     root.dataset.wetInkLayer = "ready";
+    root.dataset.wetInkMaxFrameGapMs = "0";
     root.dataset.wetInkMutableTailPoints = "0";
     root.dataset.wetInkPendingInputCount = "0";
     root.dataset.wetInkSealedChunks = "0";
@@ -758,6 +762,9 @@ export function BoardStage({
       worldPointerMoveFrameRef.current = null;
     }
     pendingWorldPointerMovesRef.current = [];
+    if (rootRef.current !== null) {
+      rootRef.current.dataset.pointerBacklog = "0";
+    }
   }, []);
 
   const flushWorldPointerMoves = useCallback(() => {
