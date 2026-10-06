@@ -373,3 +373,83 @@ representative browser profiling with multiple large real-world JPEG/PNG assets.
 Legacy 1.4/1.5 compatibility projections still run inline during migration or
 recovery. They are intentionally outside the hot current-schema path and should
 only move to the Worker after profiling shows material cost.
+
+
+## Large-raster memory baseline — 06.10.2026
+
+After off-main-thread document computation removed current-schema serialization
+and SHA work from the ordinary main-thread path, the next C3 investigation
+targeted decoded raster memory.
+
+The current embedded raster renderer creates one `HTMLImageElement` per visible
+`image.embedded` object and assigns the full persisted data URL. Browser
+display size can be hundreds of pixels while the intrinsic image remains several
+thousand pixels wide, so the decoded working set is determined by intrinsic
+resolution rather than board display size. Identical embedded content is also
+decoded independently by each rendered object.
+
+PR #179 (`perf/raster-memory-baseline`) intentionally changes measurement only:
+
+- `RasterImageDiagnostics` records renderer decode start/complete/failure/release;
+- it records concurrent duplicate decode starts for the same content SHA;
+- it estimates decoded RGBA working set as `width × height × 4`;
+- it tracks active and peak decoded counts/bytes plus renderer decode duration;
+- BoardStage exposes the snapshot as browser-test diagnostics;
+- the browser stress test also records RAF frame gaps and Long Task entries where
+  the engine supports them.
+
+The production-like fixture creates one compressible PNG at 4096×3072 and
+inserts it as two independent board objects through the ordinary clipboard image
+flow. The compressed bytes remain below the existing 8 MiB file limit, while
+each full intrinsic decode represents approximately 50.33 MiB RGBA.
+
+Verified code-head:
+`5051b0db0af4f7f4945088b11c2eec622ff07df0`.
+
+CI run `37495639140` verified:
+
+- format, lint, strict typecheck and dependency threshold;
+- 183/183 unit/integration files and 1003/1003 tests;
+- 10/10 performance files and 18/18 tests;
+- architecture boundaries and production build;
+- Chromium browser smoke: 29/29 passed;
+- Firefox browser smoke: 29/29 passed;
+- GeometryOS live browser contract, Board-only frontend profile and Coordinate
+  Plot production gate;
+- Smart Ink, Formula Recognition and Paddle formula sidecar gates.
+
+Measured baseline:
+
+| Metric | Chromium | Firefox |
+| --- | ---: | ---: |
+| raster objects | 2 | 2 |
+| intrinsic resolution | 4096×3072 | 4096×3072 |
+| renderer decode starts | 2 | 2 |
+| duplicate concurrent decode starts | 1 | 1 |
+| active/peak estimated decoded bytes | 100,663,296 | 100,663,296 |
+| max renderer decode duration | 1 ms | 13 ms |
+| max observed RAF frame gap | ~66.7 ms | ~49.84 ms |
+| observed Long Tasks | 1 × 68 ms | unavailable in engine |
+
+The renderer-specific decode duration does not include all earlier import
+preparation work; the frame-gap/Long-Task evidence spans the end-to-end browser
+import and materialization window and therefore remains the user-visible
+baseline.
+
+### Next block
+
+A2 should add a bounded decoded-raster cache for static PNG/JPEG:
+
+- key by immutable content SHA plus resolution bucket;
+- coalesce concurrent requests for the same key;
+- decode near the actual display-pixel requirement instead of intrinsic size;
+- bound decode concurrency;
+- use a pixel/byte budget with LRU eviction;
+- explicitly close evicted `ImageBitmap` instances;
+- preserve HTMLImageElement/GIF animation and sanitized SVG behavior;
+- update this exact browser fixture so duplicate decode and decoded working set
+  become regression budgets rather than descriptive baseline values.
+
+Persisted image bytes, BoardDocument schema, command protocol and collaboration
+contracts remain outside A2. Asset-backed media persistence stays the following
+milestone under ADR-032.
