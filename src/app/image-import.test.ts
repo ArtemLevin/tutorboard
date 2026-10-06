@@ -29,6 +29,7 @@ describe("embedded image import", () => {
   it("reads PNG and JPEG dimensions without browser image decode", () => {
     const png = new Uint8Array(24);
     png.set([137, 80, 78, 71, 13, 10, 26, 10], 0);
+    png.set([0, 0, 0, 13, 73, 72, 68, 82], 8);
     png.set([0, 0, 16, 0], 16);
     png.set([0, 0, 12, 0], 20);
     expect(rasterDimensionsFromBytes(png, "image/png")).toEqual({
