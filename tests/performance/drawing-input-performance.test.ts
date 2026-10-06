@@ -29,19 +29,22 @@ describe("drawing input performance budgets", () => {
     const samplesPerFrame = 50;
     const startedAt = performance.now();
     for (let frame = 0; frame < frames; frame += 1) {
-      const actions = Array.from({ length: samplesPerFrame }, (_value, index) => {
-        const sampleIndex = frame * samplesPerFrame + index + 1;
-        return {
-          inputTimestampMs: sampleIndex / 15,
-          kind: "move" as const,
-          point: {
-            x: sampleIndex * 0.35,
-            y: Math.sin(sampleIndex / 24) * 18,
-          },
-          pointerId: 2,
-          pressure: 0.35 + (sampleIndex % 20) / 40,
-        };
-      });
+      const actions = Array.from(
+        { length: samplesPerFrame },
+        (_value, index) => {
+          const sampleIndex = frame * samplesPerFrame + index + 1;
+          return {
+            inputTimestampMs: sampleIndex / 15,
+            kind: "move" as const,
+            point: {
+              x: sampleIndex * 0.35,
+              y: Math.sin(sampleIndex / 24) * 18,
+            },
+            pointerId: 2,
+            pressure: 0.35 + (sampleIndex % 20) / 40,
+          };
+        },
+      );
       state = reduceDrawingInteractionBatch(state, actions).state;
     }
     const elapsed = performance.now() - startedAt;
