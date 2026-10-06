@@ -154,6 +154,30 @@ coalesced 240 Hz stylus/burst regression; Board-only profile, GeometryOS live
 contract и Coordinate Plot production gate также green. C3 остаётся открытым
 для GIF repaint, large-raster decode/memory и embedded-byte persistence work.
 
+06.10.2026: stacked PR #177 `perf/main-thread-latency-hardening` снижает
+соседнюю нагрузку на main thread во время активного pen/Smart Ink gesture.
+Wet Ink percentile diagnostics больше не сортируют latency window на каждом
+frame: p95 обновляется не чаще одного раза в 500 ms, а exact snapshot остаётся
+доступен on demand. BoardStage публикует DOM diagnostic attributes не чаще
+одного раза в 500 ms и выполняет final flush при clear/finish. Animated GIF
+coordinator сохраняет board-scoped RAF ownership, но во время Wet Ink gesture
+ограничивает Layer repaint до 24 fps и немедленно возвращает normal cadence
+после finish/cancel/visibility resume.
+
+Browser regression дополнен Long Task observation для активного coalesced
+240 Hz-equivalent stroke; Firefox gracefully работает без unsupported
+`longtask` entry type. Проверенный code-head
+`91469e822dd84e3732073c153cbe1382942558c5` прошёл CI run
+`37473332612`: 992/992 unit/integration tests, 18/18 performance tests,
+architecture/build, Chromium 28/28 и Firefox 28/28 browser smoke, Board-only,
+GeometryOS и Coordinate Plot production gates. Smart Ink, Formula Recognition
+и Paddle sidecar gates на том же SHA также green.
+
+Следующий evidence-driven кандидат C3 после этого блока — full-document
+validation/canonical serialization и SHA computation на main thread
+(`serializeBoardDocument` / `boardDocumentSha256`), затем large-raster
+decode/memory и asset-backed media persistence.
+
 ## 1. Продуктовая цель
 
 TutorBoard разворачивается как самостоятельный продукт для преподавателя и
