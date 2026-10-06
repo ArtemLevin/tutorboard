@@ -5,6 +5,7 @@ import {
   createEmbeddedImageObject,
   fitEmbeddedImageSize,
   imageMimeFromBytes,
+  rasterDimensionsFromBytes,
   resolveEmbeddedImagePlacementSize,
   type PreparedEmbeddedImage,
 } from "./image-import";
@@ -23,6 +24,51 @@ describe("embedded image import", () => {
     expect(
       imageMimeFromBytes(new Uint8Array(), "<svg viewBox='0 0 1 1'>"),
     ).toBe("image/svg+xml");
+  });
+
+  it("reads PNG and JPEG dimensions without browser image decode", () => {
+    const png = new Uint8Array(24);
+    png.set([137, 80, 78, 71, 13, 10, 26, 10], 0);
+    png.set([0, 0, 16, 0], 16);
+    png.set([0, 0, 12, 0], 20);
+    expect(rasterDimensionsFromBytes(png, "image/png")).toEqual({
+      height: 3_072,
+      width: 4_096,
+    });
+
+    const jpeg = new Uint8Array([
+      0xff,
+      0xd8,
+      0xff,
+      0xe0,
+      0x00,
+      0x04,
+      0x00,
+      0x00,
+      0xff,
+      0xc0,
+      0x00,
+      0x11,
+      0x08,
+      0x0c,
+      0x00,
+      0x10,
+      0x00,
+      0x03,
+      0x01,
+      0x11,
+      0x00,
+      0x02,
+      0x11,
+      0x00,
+      0x03,
+      0x11,
+      0x00,
+    ]);
+    expect(rasterDimensionsFromBytes(jpeg, "image/jpeg")).toEqual({
+      height: 3_072,
+      width: 4_096,
+    });
   });
 
   it("fits large and tiny images into a usable preserved ratio", () => {
