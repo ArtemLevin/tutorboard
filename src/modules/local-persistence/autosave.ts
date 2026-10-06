@@ -5,6 +5,7 @@ import type {
   PersistenceOperationId,
   SaveBoardDocumentInput,
   SaveBoardDocumentPriority,
+  SaveBoardDocumentResult,
 } from "../../core/public";
 import { bindLocalAutosaveLifecycleFlush } from "./lifecycle";
 
@@ -199,8 +200,12 @@ export class LocalDocumentAutosave {
       savedAt: task.savedAt,
     };
     this.#activeInput = input;
-    const result = await this.#repository.save(input);
-    if (this.#activeInput === input) this.#activeInput = null;
+    let result: SaveBoardDocumentResult;
+    try {
+      result = await this.#repository.save(input);
+    } finally {
+      if (this.#activeInput === input) this.#activeInput = null;
+    }
     if (result.status === "saved") {
       this.#revisionId = result.revisionId;
       this.#lastPersistedDocument = task.document;
