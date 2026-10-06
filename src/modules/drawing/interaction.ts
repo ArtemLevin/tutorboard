@@ -534,8 +534,10 @@ function startInteraction(
   }
 }
 
-
-export type DrawingMoveAction = Extract<DrawingAction, { readonly kind: "move" }>;
+export type DrawingMoveAction = Extract<
+  DrawingAction,
+  { readonly kind: "move" }
+>;
 
 export function reduceDrawingInteractionBatch(
   state: DrawingInteractionState,
