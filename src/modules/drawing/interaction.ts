@@ -146,25 +146,18 @@ function normalizedPressure(value: number | undefined): number {
     : Math.min(1, Math.max(0, value));
 }
 
-function appendPenSample(
-  state: Pick<PenInteraction, "inputOriginMs" | "samples">,
-  action: {
-    readonly inputTimestampMs?: number;
-    readonly point: Vec2;
-    readonly pressure?: number;
-  },
-): readonly VectorInkSample[] {
-  const previous = state.samples.at(-1);
+type PenSampleAction = {
+  readonly inputTimestampMs?: number;
+  readonly point: Vec2;
+  readonly pressure?: number;
+};
+
+function createPenSample(
+  state: Pick<PenInteraction, "inputOriginMs">,
+  previous: VectorInkSample | undefined,
+  action: PenSampleAction,
+): VectorInkSample {
   const pressure = normalizedPressure(action.pressure);
-  if (
-    state.samples.length >= maximumPenPoints ||
-    (previous !== undefined &&
-      samePoint(previous.point, action.point) &&
-      Math.abs(previous.pressure - pressure) <=
-        stationaryPressureNoiseTolerance)
-  ) {
-    return state.samples;
-  }
   const timestampMs =
     state.inputOriginMs !== null &&
     action.inputTimestampMs !== undefined &&
@@ -174,14 +167,52 @@ function appendPenSample(
           action.inputTimestampMs - state.inputOriginMs,
         )
       : (previous?.timestampMs ?? -8) + 8;
-  return [
-    ...state.samples,
-    {
-      point: action.point,
-      pressure,
-      timestampMs: Math.max(0, timestampMs),
-    },
-  ];
+  return {
+    point: action.point,
+    pressure,
+    timestampMs: Math.max(0, timestampMs),
+  };
+}
+
+function shouldAppendPenSample(
+  previous: VectorInkSample | undefined,
+  action: PenSampleAction,
+): boolean {
+  const pressure = normalizedPressure(action.pressure);
+  return !(
+    previous !== undefined &&
+    samePoint(previous.point, action.point) &&
+    Math.abs(previous.pressure - pressure) <= stationaryPressureNoiseTolerance
+  );
+}
+
+function appendPenSamples(
+  state: Pick<PenInteraction, "inputOriginMs" | "samples">,
+  actions: readonly PenSampleAction[],
+): readonly VectorInkSample[] {
+  if (state.samples.length >= maximumPenPoints || actions.length === 0) {
+    return state.samples;
+  }
+
+  let output: VectorInkSample[] | null = null;
+  let previous = state.samples.at(-1);
+  for (const action of actions) {
+    const currentLength = output?.length ?? state.samples.length;
+    if (currentLength >= maximumPenPoints) break;
+    if (!shouldAppendPenSample(previous, action)) continue;
+    const sample = createPenSample(state, previous, action);
+    if (output === null) output = [...state.samples];
+    output.push(sample);
+    previous = sample;
+  }
+  return output ?? state.samples;
+}
+
+function appendPenSample(
+  state: Pick<PenInteraction, "inputOriginMs" | "samples">,
+  action: PenSampleAction,
+): readonly VectorInkSample[] {
+  return appendPenSamples(state, [action]);
 }
 
 function userObjectBase(id: BoardObjectId, position: Vec2, style: ObjectStyle) {
@@ -501,6 +532,51 @@ function startInteraction(
         text: action.text,
       });
   }
+}
+
+
+export type DrawingMoveAction = Extract<DrawingAction, { readonly kind: "move" }>;
+
+export function reduceDrawingInteractionBatch(
+  state: DrawingInteractionState,
+  actions: readonly DrawingMoveAction[],
+): DrawingTransition {
+  if (actions.length === 0) return transition(state);
+
+  if (state.kind !== "drawing-pen") {
+    let current = state;
+    let completedObject: UserDrawingObject | null = null;
+    let diagnostic: DrawingDiagnosticCode | null = null;
+    for (const action of actions) {
+      const result = reduceDrawingInteraction(current, action);
+      current = result.state;
+      completedObject = result.completedObject;
+      diagnostic = result.diagnostic;
+    }
+    return transition(current, completedObject, diagnostic);
+  }
+
+  const validActions: DrawingMoveAction[] = [];
+  let latestDiagnostic: DrawingDiagnosticCode | null = null;
+  for (const action of actions) {
+    if (action.pointerId !== state.pointerId) {
+      latestDiagnostic = null;
+      continue;
+    }
+    if (!isFinitePoint(action.point)) {
+      latestDiagnostic = "drawing.invalid-input";
+      continue;
+    }
+    validActions.push(action);
+    latestDiagnostic = null;
+  }
+
+  const samples = appendPenSamples(state, validActions);
+  return transition(
+    samples === state.samples ? state : { ...state, samples },
+    null,
+    latestDiagnostic,
+  );
 }
 
 export function reduceDrawingInteraction(
