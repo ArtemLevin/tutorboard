@@ -59,7 +59,10 @@ export function useBoardDrawingController({
   const [textDraft, setTextDraftState] = useState("Новый текст");
   const { styleFor, updateStyle } = useDrawingToolPreferences();
 
-  const preview = useMemo(() => getDrawingPreview(state), [state]);
+  const preview = useMemo(
+    () => (state.kind === "drawing-pen" ? null : getDrawingPreview(state)),
+    [state],
+  );
   const constraintFeedback = useMemo(
     () => getDrawingConstraintFeedback(state),
     [state],
