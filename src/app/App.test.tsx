@@ -96,6 +96,12 @@ vi.mock("../adapters/canvas-konva/public", () => ({
           Отпустить указку
         </button>
         <button
+          onClick={() => props.onWorldPointerCancel(start.pointerId)}
+          type="button"
+        >
+          Отменить жест
+        </button>
+        <button
           onClick={() => {
             props.onWorldPointerStart(start);
             props.onWorldPointerMove(finish);
@@ -400,6 +406,27 @@ describe("App", () => {
       ),
     );
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+  });
+
+  it("publishes cancellation for an aborted imperative pen preview", async () => {
+    const onInkPreviewChange = vi.fn();
+    render(<App onInkPreviewChange={onInkPreviewChange} />);
+
+    fireEvent.keyDown(window, { key: "p" });
+    fireEvent.click(screen.getByRole("button", { name: "Провести указкой" }));
+    await waitFor(() =>
+      expect(onInkPreviewChange).toHaveBeenCalledWith(
+        expect.objectContaining({ phase: "start" }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Отменить жест" }));
+    await waitFor(() =>
+      expect(onInkPreviewChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ phase: "cancel" }),
+      ),
+    );
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
   });
 
   it("opens every compact tool menu exclusively and closes it with Escape", () => {
