@@ -152,9 +152,7 @@ describe("active stroke production-like performance", () => {
       ).toBeLessThanOrEqual(
         wetInkSealedChunkSize * 2 + wetInkMutableTailSize + samplesPerFrame,
       );
-      expect(
-        final?.latency.p95Ms ?? Number.POSITIVE_INFINITY,
-      ).toBeLessThan(20);
+      expect(final?.latency.p95Ms ?? Number.POSITIVE_INFINITY).toBeLessThan(20);
       expect(elapsedMs).toBeLessThan(1_500);
     });
   }
