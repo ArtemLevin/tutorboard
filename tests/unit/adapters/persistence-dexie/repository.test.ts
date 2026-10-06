@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DexieBoardDocumentRepository } from "../../../../src/adapters/persistence-dexie/public";
 import {
@@ -8,7 +8,9 @@ import {
   documentId,
   localRevisionId,
   persistenceOperationId,
+  serializeBoardDocument,
   type BoardDocument,
+  type BoardDocumentComputation,
 } from "../../../../src/core/public";
 
 const repositories: DexieBoardDocumentRepository[] = [];
@@ -67,6 +69,50 @@ afterEach(async () => {
 });
 
 describe("DexieBoardDocumentRepository", () => {
+  it("uses prepared async serialization for background saves and sync fallback for lifecycle saves", async () => {
+    const inputDocument = testDocument("Computed");
+    const serialized = serializeBoardDocument(inputDocument);
+    const serialize = vi.fn(() => Promise.resolve(serialized));
+    const serializeSync = vi.fn(() => serialized);
+    const prepareSerialization = vi.fn();
+    const computation: BoardDocumentComputation = {
+      prepareSerialization,
+      serialize,
+      serializeSync,
+      sha256: () => Promise.resolve({ ok: true, sha256: "0".repeat(64) }),
+    };
+    const repository = new DexieBoardDocumentRepository(
+      `tutorboard-test-${crypto.randomUUID()}`,
+      computation,
+    );
+    repositories.push(repository);
+
+    repository.prepareSave(inputDocument);
+    const background = await repository.save({
+      document: inputDocument,
+      expectedRevisionId: null,
+      operationId: persistenceOperationId("operation:worker"),
+      priority: "background",
+      savedAt: "2026-07-24T08:00:00.000Z",
+    });
+    expect(background.status).toBe("saved");
+    expect(prepareSerialization).toHaveBeenCalledWith(inputDocument);
+    expect(serialize).toHaveBeenCalledWith(inputDocument, "background");
+    expect(serializeSync).not.toHaveBeenCalled();
+
+    const lifecycleDocument = testDocument("Lifecycle");
+    const lifecycle = await repository.save({
+      document: lifecycleDocument,
+      expectedRevisionId:
+        background.status === "saved" ? background.revisionId : null,
+      operationId: persistenceOperationId("operation:lifecycle"),
+      priority: "lifecycle",
+      savedAt: "2026-07-24T08:01:00.000Z",
+    });
+    expect(lifecycle.status).toBe("saved");
+    expect(serializeSync).toHaveBeenCalledWith(lifecycleDocument);
+  });
+
   it("restores the exact saved document and viewport", async () => {
     const repository = createRepository();
     const document = {
