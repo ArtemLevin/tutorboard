@@ -41,7 +41,7 @@ class CountingSurface implements WetInkSurface {
 
   draw(frame: WetInkFrame): void {
     this.frames += 1;
-    this.points += frame.actualPoints.length + frame.predictedPoints.length;
+    this.points += frame.actualSamples.length + frame.predictedSamples.length;
   }
 }
 
@@ -69,7 +69,7 @@ describe("wet ink performance budget", () => {
 
     const elapsedMs = performance.now() - startedAt;
     expect(surface.frames).toBe(200);
-    expect(surface.points).toBeGreaterThan(20_000);
+    expect(surface.points).toBeGreaterThanOrEqual(20_000);
     expect(elapsedMs).toBeLessThan(150);
   });
 });

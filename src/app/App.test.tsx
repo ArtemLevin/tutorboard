@@ -96,6 +96,12 @@ vi.mock("../adapters/canvas-konva/public", () => ({
           Отпустить указку
         </button>
         <button
+          onClick={() => props.onWorldPointerCancel(start.pointerId)}
+          type="button"
+        >
+          Сбросить указку
+        </button>
+        <button
           onClick={() => {
             props.onWorldPointerStart(start);
             props.onWorldPointerMove(finish);
@@ -369,7 +375,7 @@ describe("App", () => {
     expect(screen.getByTestId("interaction-state")).toHaveTextContent("idle");
   });
 
-  it("publishes pen motion as an ephemeral preview before the durable command", async () => {
+  it("publishes pen motion as imperative ephemeral deltas before the durable command", async () => {
     const onInkPreviewChange = vi.fn();
     render(<App onInkPreviewChange={onInkPreviewChange} />);
 
@@ -379,10 +385,15 @@ describe("App", () => {
       expect(onInkPreviewChange).toHaveBeenCalledWith(
         expect.objectContaining({
           phase: "start",
-          points: [
-            { x: 10, y: 20 },
-            { x: 70, y: 80 },
-          ],
+          points: [{ x: 10, y: 20 }],
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(onInkPreviewChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phase: "update",
+          points: [{ x: 70, y: 80 }],
         }),
       ),
     );
@@ -395,6 +406,27 @@ describe("App", () => {
       ),
     );
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+  });
+
+  it("publishes cancellation for an aborted imperative pen preview", async () => {
+    const onInkPreviewChange = vi.fn();
+    render(<App onInkPreviewChange={onInkPreviewChange} />);
+
+    fireEvent.keyDown(window, { key: "p" });
+    fireEvent.click(screen.getByRole("button", { name: "Провести указкой" }));
+    await waitFor(() =>
+      expect(onInkPreviewChange).toHaveBeenCalledWith(
+        expect.objectContaining({ phase: "start" }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Сбросить указку" }));
+    await waitFor(() =>
+      expect(onInkPreviewChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ phase: "cancel" }),
+      ),
+    );
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
   });
 
   it("opens every compact tool menu exclusively and closes it with Escape", () => {

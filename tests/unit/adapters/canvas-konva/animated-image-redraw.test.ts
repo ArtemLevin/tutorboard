@@ -29,11 +29,11 @@ function fixture() {
   };
   const visibility = new Visibility();
   const coordinator = new AnimatedImageRedrawCoordinator(scheduler, visibility);
-  function tick() {
+  function tick(timestampMs = 16) {
     const entry = callbacks.entries().next().value;
     if (entry === undefined) throw new Error("Expected one animation frame");
     callbacks.delete(entry[0]);
-    entry[1](16);
+    entry[1](timestampMs);
   }
   return { callbacks, coordinator, tick, visibility };
 }
@@ -51,6 +51,27 @@ describe("board-scoped animated image redraw", () => {
     expect(callbacks.size).toBe(1);
     stops.forEach((stop) => stop());
     expect(callbacks.size).toBe(0);
+  });
+
+  it("reduces GIF repaint cadence during active drawing and resumes immediately", () => {
+    const { coordinator, tick } = fixture();
+    const layer = { batchDraw: vi.fn() };
+    const stop = coordinator.register(() => layer);
+
+    coordinator.setInteractionActive(true);
+    for (let frame = 0; frame < 60; frame += 1) {
+      tick((frame + 1) * 16);
+    }
+
+    expect(layer.batchDraw.mock.calls.length).toBeGreaterThanOrEqual(15);
+    expect(layer.batchDraw.mock.calls.length).toBeLessThanOrEqual(24);
+
+    const throttledCount = layer.batchDraw.mock.calls.length;
+    coordinator.setInteractionActive(false);
+    tick(976);
+    expect(layer.batchDraw).toHaveBeenCalledTimes(throttledCount + 1);
+
+    stop();
   });
 
   it("keeps independent readers alive and follows their current Layer", () => {

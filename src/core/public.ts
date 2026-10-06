@@ -166,6 +166,7 @@ export {
   strokeStyleDashPattern,
   strokeStyleOpacityMultiplier,
   strokeStyleSketchPassSpecs,
+  type PenStrokeRenderOptions,
   type PenStrokeRenderPath,
   type StrokeStyleSketchPassSpec,
 } from "./board/pen-stroke-rendering";

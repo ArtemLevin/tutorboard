@@ -14,6 +14,11 @@ export interface PenStrokeRenderPath {
   readonly opacityMultiplier: number;
 }
 
+export interface PenStrokeRenderOptions {
+  readonly continuousStylePhase?: boolean;
+  readonly distanceOffset?: number;
+}
+
 export interface StrokeStyleSketchPassSpec {
   readonly dash?: readonly number[];
   readonly intensity: number;
@@ -157,7 +162,10 @@ function tangent(
     : { x: delta.x / length, y: delta.y / length };
 }
 
-function wavySamples(ink: VectorInkData): readonly VectorInkSample[] {
+function wavySamples(
+  ink: VectorInkData,
+  options: PenStrokeRenderOptions,
+): readonly VectorInkSample[] {
   const source = normalizedSourceSamples(ink);
   const samples = resampleByArcLength(source, wavyBaseSpacing);
   const distances = cumulativeDistances(samples);
@@ -172,7 +180,11 @@ function wavySamples(ink: VectorInkData): readonly VectorInkSample[] {
       const direction = tangent(samples, index, ink.closed);
       const normal = { x: -direction.y, y: direction.x };
       const progress = total <= 1e-9 ? 0 : pathDistances[index]! / total;
-      const amplitude = Math.sin(progress * Math.PI * 2 * cycles) * 3;
+      const phase = options.continuousStylePhase
+        ? ((options.distanceOffset ?? 0) + pathDistances[index]!) *
+          ((Math.PI * 2) / 36)
+        : progress * Math.PI * 2 * cycles;
+      const amplitude = Math.sin(phase) * 3;
       return {
         x: sample.point.x + normal.x * amplitude,
         y: sample.point.y + normal.y * amplitude,
@@ -195,6 +207,7 @@ function sketchSamples(
   ink: VectorInkData,
   intensity: number,
   seed: number,
+  options: PenStrokeRenderOptions,
 ): readonly VectorInkSample[] {
   const source = normalizedSourceSamples(ink);
   const samples = resampleByArcLength(source, sketchBaseSpacing);
@@ -206,10 +219,13 @@ function sketchSamples(
       const direction = tangent(samples, index, ink.closed);
       const normal = { x: -direction.y, y: direction.x };
       const progress = lastIndex === 0 ? 0 : index / lastIndex;
-      const endpointEnvelope = ink.closed
-        ? 1
-        : 0.22 + Math.sin(progress * Math.PI) * 0.78;
-      const distanceAlong = pathDistances[index] ?? 0;
+      const endpointEnvelope =
+        options.continuousStylePhase || ink.closed
+          ? 1
+          : 0.22 + Math.sin(progress * Math.PI) * 0.78;
+      const distanceAlong =
+        (options.continuousStylePhase ? (options.distanceOffset ?? 0) : 0) +
+        (pathDistances[index] ?? 0);
       const noise =
         Math.sin((distanceAlong + 1) * (0.17 + seed * 0.0017) + seed * 0.37) *
           0.68 +
@@ -240,12 +256,24 @@ function sketchSamples(
 function splitByDashPattern(
   samples: readonly VectorInkSample[],
   pattern: readonly number[],
+  distanceOffset = 0,
 ): readonly (readonly VectorInkSample[])[] {
   if (samples.length < 2 || pattern.length === 0) return [];
   const output: VectorInkSample[][] = [];
   let patternIndex = 0;
   let remaining = pattern[0]!;
-  let visible = true;
+  const patternLength = pattern.reduce((sum, value) => sum + value, 0);
+  let offset =
+    patternLength <= 0
+      ? 0
+      : ((distanceOffset % patternLength) + patternLength) % patternLength;
+  while (offset >= remaining && remaining > 0) {
+    offset -= remaining;
+    patternIndex = (patternIndex + 1) % pattern.length;
+    remaining = pattern[patternIndex]!;
+  }
+  remaining -= offset;
+  let visible = patternIndex % 2 === 0;
   let current: VectorInkSample[] = visible ? [samples[0]!] : [];
 
   const advancePattern = (boundary: VectorInkSample) => {
@@ -320,9 +348,10 @@ function dashedGeometry(
   pattern: readonly number[],
   strokeWidth: number,
   opacityMultiplier: number,
+  distanceOffset = 0,
 ): PenStrokeRenderGeometry {
   let bounds: VectorInkBounds | null = null;
-  const data = splitByDashPattern(samples, pattern)
+  const data = splitByDashPattern(samples, pattern, distanceOffset)
     .map((segment) => {
       const geometry = outlineGeometry(segment, strokeWidth);
       bounds = unionBounds(bounds, geometry.bounds);
@@ -400,6 +429,7 @@ function createPenStrokeRenderGeometry(
   ink: VectorInkData,
   style: StrokeStyle | undefined,
   strokeWidth: number,
+  options: PenStrokeRenderOptions = {},
 ): PenStrokeRenderGeometry {
   const width = Math.max(0, strokeWidth);
   if (width === 0 || ink.samples.length === 0) {
@@ -428,18 +458,19 @@ function createPenStrokeRenderGeometry(
       strokeStyleDashPattern(style) ?? [],
       width,
       1,
+      options.continuousStylePhase ? (options.distanceOffset ?? 0) : 0,
     );
   }
 
   if (style === "wavy") {
-    return outlineGeometry(wavySamples(ink), width, ink.closed);
+    return outlineGeometry(wavySamples(ink, options), width, ink.closed);
   }
 
   if (style === "hand-pencil" || style === "hand-pen") {
     let bounds: VectorInkBounds | null = null;
     const paths: PenStrokeRenderPath[] = [];
     for (const pass of strokeStyleSketchPassSpecs(style)) {
-      const samples = sketchSamples(ink, pass.intensity, pass.seed);
+      const samples = sketchSamples(ink, pass.intensity, pass.seed, options);
       const passWidth = width * pass.widthMultiplier;
       const geometry =
         pass.dash === undefined
@@ -449,6 +480,7 @@ function createPenStrokeRenderGeometry(
               pass.dash,
               passWidth,
               pass.opacityMultiplier,
+              options.continuousStylePhase ? (options.distanceOffset ?? 0) : 0,
             );
       bounds = unionBounds(bounds, geometry.bounds);
       if (pass.dash === undefined) {
@@ -484,14 +516,16 @@ export function createPenStrokeRenderBounds(
   ink: VectorInkData,
   style: StrokeStyle | undefined,
   strokeWidth: number,
+  options: PenStrokeRenderOptions = {},
 ): VectorInkBounds | null {
-  return createPenStrokeRenderGeometry(ink, style, strokeWidth).bounds;
+  return createPenStrokeRenderGeometry(ink, style, strokeWidth, options).bounds;
 }
 
 export function createPenStrokeRenderPaths(
   ink: VectorInkData,
   style: StrokeStyle | undefined,
   strokeWidth: number,
+  options: PenStrokeRenderOptions = {},
 ): readonly PenStrokeRenderPath[] {
-  return createPenStrokeRenderGeometry(ink, style, strokeWidth).paths;
+  return createPenStrokeRenderGeometry(ink, style, strokeWidth, options).paths;
 }

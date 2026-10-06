@@ -174,3 +174,123 @@ size is cost-free.
   z-order, independent preview/Wet Ink Group cleanup, cancellation epochs and
   unchanged storage/auth/collaboration boundaries. No blocking code finding
   remains; browser execution is an explicit release-gate gap.
+
+
+## Active stroke latency follow-up — 06.10.2026
+
+PR #175 removed committed-scene renderer work from transient drawing updates,
+but a separate current-stroke feedback loop remained. The active pen path still
+performed one immutable sample-history copy per accepted coalesced point,
+published local pen state through React during motion, and rebuilt the full Wet
+Ink stroke geometry on every animation frame. Under main-thread pressure a
+missed frame could therefore accumulate a larger coalesced batch, making the
+next frame more expensive and producing the observed delayed catch-up stroke.
+
+Draft PR #176 (`perf/active-stroke-latency`) changes that path as follows:
+
+- `reduceDrawingInteractionBatch` accepts the frame's pointer samples and
+  appends accepted pen samples with at most one history-array copy per batch;
+- the local pen/Smart Ink preview is owned by imperative Wet Ink during the
+  gesture, while shapes/text retain their declarative React preview;
+- collaboration ink uses imperative start/update/end/cancel deltas and does not
+  depend on per-move React state publication;
+- Wet Ink receives only newly painted samples, seals old geometry into immutable
+  Konva paths, and recomputes a bounded mutable tail;
+- dash/dash-dot/wavy/sketch transient rendering carries distance phase across
+  sealed chunks; the canonical persisted/final renderer keeps its previous
+  contract;
+- clear/destroy redraws use Konva batch scheduling, while the active paint is
+  owned by one Wet Ink animation-frame callback;
+- BoardStage exposes backlog, batch-size, mutable-tail, generated-geometry,
+  input-to-paint latency and frame-gap diagnostics for browser regression gates.
+
+Regression coverage includes a 20,000-moving-sample reducer benchmark,
+production-like Konva 120/240 Hz runs, a 64-sample burst, reducer equivalence,
+Wet Ink sealing/tail bounds, collaboration delta/cancel semantics and an
+`@smoke` browser scenario that supplies synthetic `getCoalescedEvents()`
+batches.
+
+Verified production code-head:
+`67c78ce7b1eeb7ef1213d7f43873522f4e28b0bc`.
+
+CI run `37466497150` verified:
+
+- format, lint, strict typecheck and dependency threshold;
+- 181/181 unit/integration test files and 990/990 tests;
+- 10/10 performance files and 18/18 tests; the new active-stroke suite passed
+  3/3 in 613 ms on the CI runner;
+- architecture boundaries and production build;
+- Chromium browser smoke: 28/28 passed;
+- Firefox browser smoke: 28/28 passed;
+- Board-only frontend profile, GeometryOS live browser contract and Coordinate
+  Plot production gate.
+
+Smart Ink, Formula Recognition and Paddle formula sidecar gates also completed
+successfully for the same production code line. The remaining C3 risks continue
+to be GIF repaint cost, large-raster decode/memory and embedded-byte persistence
+amplification; this active-stroke block does not alter their ownership or data
+contracts.
+
+
+## Main-thread latency hardening follow-up — 06.10.2026
+
+After the active-stroke pipeline itself became incremental in PR #176, profiling
+review focused on work that still competed for the same browser main-thread
+budget during writing.
+
+Three concrete costs were confirmed in the current code:
+
+1. `WetInkLatencyTracker.record()` called `snapshot()` on every Wet Ink frame,
+   which copied and sorted the rolling latency window to compute p95.
+2. `BoardStage` wrote the complete Wet Ink diagnostic dataset to the DOM on
+   every rendered frame.
+3. The board-scoped GIF coordinator correctly deduplicated RAF ownership but
+   still called `Layer.batchDraw()` every animation frame while pen input was
+   active.
+
+Stacked PR #177 (`perf/main-thread-latency-hardening`) changes those paths
+without changing document, media or collaboration contracts:
+
+- p95 refresh is amortized to at most once per 500 ms while exact snapshots
+  remain available on demand;
+- BoardStage publishes frame diagnostics at most once per 500 ms and flushes the
+  latest report when Wet Ink clears, so browser tests retain final evidence;
+- GIF repaint cadence is capped at 24 fps only while Wet Ink interaction is
+  active; normal cadence resumes immediately after finish/cancel and after page
+  visibility resumes;
+- the existing coalesced 240 Hz-equivalent browser regression records Long Task
+  entries where the browser supports them, bounds stall evidence, and verifies
+  that diagnostic DOM publication is substantially lower than the Wet Ink frame
+  count.
+
+Unit regressions cover interaction-aware GIF redraw cadence, immediate resume,
+visibility lifecycle and amortized percentile refresh. The browser test degrades
+gracefully on engines that do not expose the `longtask` PerformanceObserver
+entry type.
+
+Verified code-head:
+`91469e822dd84e3732073c153cbe1382942558c5`.
+
+CI run `37473332612` verified:
+
+- format, lint, strict typecheck and dependency threshold;
+- 181/181 unit/integration files and 992/992 tests;
+- 10/10 performance files and 18/18 tests;
+- active-stroke performance suite 3/3 in 832 ms on that shared CI run;
+- architecture boundaries and production build;
+- Chromium browser smoke: 28/28 passed;
+- Firefox browser smoke: 28/28 passed;
+- Board-only frontend profile, GeometryOS live browser contract and Coordinate
+  Plot production gate.
+
+Smart Ink, Formula Recognition and Paddle formula sidecar gates also completed
+successfully on the same code-head.
+
+The next strongest main-thread candidate is full-document serialization and
+hashing. Local persistence synchronously validates, canonicalizes and
+`JSON.stringify()`s the complete BoardDocument before IndexedDB work begins;
+server sync also canonical-serializes the full document before SHA-256
+verification. Those operations can still create input/render stalls on large
+documents or documents with embedded media and should be profiled next before
+selecting a Worker/off-main-thread design. Large raster decode/memory and
+asset-backed media persistence remain separate C3 work.

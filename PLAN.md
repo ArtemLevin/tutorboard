@@ -136,6 +136,48 @@ persistence ограничения:
 C3 целиком остаётся открытым до browser release evidence и следующих
 decode/storage блоков; PR #174 не изменяется этим исправлением.
 
+06.10.2026: следующий отдельный responsiveness block реализован в draft PR #176
+`perf/active-stroke-latency`. После PR #175 оставшийся hot path активного pen
+stroke включал per-sample immutable history copies, повторную генерацию всей Wet
+Ink geometry на каждом кадре и React publication локального pen preview.
+PR #176 переводит coalesced pointer moves на один batch reducer update, оставляет
+локальный pen/Smart Ink preview за imperative Wet Ink, а renderer использует
+sealed geometry chunks и bounded mutable tail с continuation phase для
+dash/wavy/sketch styles. Collaboration ink preview публикуется imperative delta
+callbacks без per-move React state.
+
+Проверенный production code-head `67c78ce7b1eeb7ef1213d7f43873522f4e28b0bc`
+прошёл Quality gate CI run `37466497150`: 990 unit/integration tests, 18
+performance tests, architecture boundaries и production build. Chromium и
+Firefox browser smoke на том же SHA прошли по 28 сценариев, включая новый
+coalesced 240 Hz stylus/burst regression; Board-only profile, GeometryOS live
+contract и Coordinate Plot production gate также green. C3 остаётся открытым
+для GIF repaint, large-raster decode/memory и embedded-byte persistence work.
+
+06.10.2026: stacked PR #177 `perf/main-thread-latency-hardening` снижает
+соседнюю нагрузку на main thread во время активного pen/Smart Ink gesture.
+Wet Ink percentile diagnostics больше не сортируют latency window на каждом
+frame: p95 обновляется не чаще одного раза в 500 ms, а exact snapshot остаётся
+доступен on demand. BoardStage публикует DOM diagnostic attributes не чаще
+одного раза в 500 ms и выполняет final flush при clear/finish. Animated GIF
+coordinator сохраняет board-scoped RAF ownership, но во время Wet Ink gesture
+ограничивает Layer repaint до 24 fps и немедленно возвращает normal cadence
+после finish/cancel/visibility resume.
+
+Browser regression дополнен Long Task observation для активного coalesced
+240 Hz-equivalent stroke; Firefox gracefully работает без unsupported
+`longtask` entry type. Проверенный code-head
+`91469e822dd84e3732073c153cbe1382942558c5` прошёл CI run
+`37473332612`: 992/992 unit/integration tests, 18/18 performance tests,
+architecture/build, Chromium 28/28 и Firefox 28/28 browser smoke, Board-only,
+GeometryOS и Coordinate Plot production gates. Smart Ink, Formula Recognition
+и Paddle sidecar gates на том же SHA также green.
+
+Следующий evidence-driven кандидат C3 после этого блока — full-document
+validation/canonical serialization и SHA computation на main thread
+(`serializeBoardDocument` / `boardDocumentSha256`), затем large-raster
+decode/memory и asset-backed media persistence.
+
 ## 1. Продуктовая цель
 
 TutorBoard разворачивается как самостоятельный продукт для преподавателя и
