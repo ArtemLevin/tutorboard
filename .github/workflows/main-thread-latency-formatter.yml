@@ -1,0 +1,42 @@
+name: Main thread latency formatter
+
+on:
+  push:
+    branches:
+      - perf/main-thread-latency-hardening
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Format latency browser regression
+        run: npx prettier --write tests/e2e/active-stroke-latency.spec.ts
+
+      - name: Commit formatting changes
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/e2e/active-stroke-latency.spec.ts
+          git commit -m "style: apply canonical latency test formatting"
+          git push origin HEAD:perf/main-thread-latency-hardening
