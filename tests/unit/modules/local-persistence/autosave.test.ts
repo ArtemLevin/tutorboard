@@ -186,6 +186,35 @@ describe("LocalDocumentAutosave", () => {
     autosave.dispose();
   });
 
+  it("promotes an in-flight background save synchronously on workspace dispose", async () => {
+    vi.useFakeTimers();
+    const repository = new BlockingRepository();
+    const autosave = new LocalDocumentAutosave({
+      createOperationId: () => persistenceOperationId("operation:dispose-promoted"),
+      debounceMs: 10,
+      initialRevisionId: null,
+      now: () => "2026-07-24T08:00:00.000Z",
+      onStateChange: () => undefined,
+      repository,
+    });
+
+    autosave.schedule(document("Slow navigation save"));
+    await vi.advanceTimersByTimeAsync(10);
+    expect(repository.calls).toHaveLength(1);
+    expect(repository.calls[0]?.priority).toBe("background");
+
+    autosave.dispose();
+
+    expect(repository.calls).toHaveLength(2);
+    expect(repository.calls[1]?.priority).toBe("lifecycle");
+    expect(repository.calls[1]?.operationId).toBe(
+      repository.calls[0]?.operationId,
+    );
+
+    repository.releaseBackground?.();
+    await autosave.flush();
+  });
+
   it("retries an uncertain failure with the same durable operation ID", async () => {
     vi.useFakeTimers();
     const repository = new FakeRepository();
