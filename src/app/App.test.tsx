@@ -420,7 +420,7 @@ describe("App", () => {
       ),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Отменить жест" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сбросить указку" }));
     await waitFor(() =>
       expect(onInkPreviewChange).toHaveBeenLastCalledWith(
         expect.objectContaining({ phase: "cancel" }),
