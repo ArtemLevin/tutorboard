@@ -111,7 +111,8 @@ export class AnimatedImageRedrawCoordinator {
       this.#frameId = null;
       const shouldDraw =
         !this.#interactionActive ||
-        timestampMs - this.#lastDrawAtMs >= interactiveAnimatedImageFrameIntervalMs;
+        timestampMs - this.#lastDrawAtMs >=
+          interactiveAnimatedImageFrameIntervalMs;
       if (shouldDraw) {
         const layers = new Set<AnimatedImageLayer>();
         for (const readLayer of this.#registrations) {
