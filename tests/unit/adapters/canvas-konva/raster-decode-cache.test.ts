@@ -61,11 +61,11 @@ describe("resolveRasterDecodeSize", () => {
 
 describe("RasterDecodeCache", () => {
   it("coalesces concurrent requests for the same content and bucket", async () => {
-    let resolveDecode: ((value: RasterBitmapResource) => void) | null = null;
+    const resolvers: Array<(value: RasterBitmapResource) => void> = [];
     const decoder = vi.fn(
       () =>
         new Promise<RasterBitmapResource>((resolve) => {
-          resolveDecode = resolve;
+          resolvers.push(resolve);
         }),
     );
     const diagnostics = new RasterImageDiagnostics();
@@ -91,7 +91,11 @@ describe("RasterDecodeCache", () => {
     });
 
     const decoded = resource(512, 384);
-    resolveDecode?.(decoded.value);
+    const resolveDecode = resolvers[0];
+    if (resolveDecode === undefined) {
+      throw new Error("Expected a pending raster decode.");
+    }
+    resolveDecode(decoded.value);
     await expect(first.promise).resolves.toMatchObject({
       height: 384,
       width: 512,
