@@ -116,25 +116,48 @@ export function resolveRasterDecodeSize({
   };
 }
 
+function decodeHtmlImage(dataUrl: string): Promise<RasterBitmapResource> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.onerror = () =>
+      reject(new Error("Raster image fallback decode failed."));
+    image.onload = () =>
+      resolve({
+        close: () => {
+          image.src = "";
+        },
+        height: image.naturalHeight,
+        image,
+        width: image.naturalWidth,
+      });
+    image.src = dataUrl;
+  });
+}
+
 async function decodeRasterBitmap(
   request: RasterDecodeRequest,
-): Promise<ImageBitmap> {
-  const response = await fetch(request.dataUrl);
-  if (!response.ok) {
-    throw new Error(`Raster source fetch failed: ${response.status}`);
+): Promise<RasterBitmapResource> {
+  try {
+    const response = await fetch(request.dataUrl);
+    if (!response.ok) {
+      throw new Error(`Raster source fetch failed: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const bitmap = await createImageBitmap(blob, {
+      resizeHeight: request.size.height,
+      resizeQuality: "high",
+      resizeWidth: request.size.width,
+    });
+    return {
+      close: () => bitmap.close(),
+      height: bitmap.height,
+      image: bitmap,
+      width: bitmap.width,
+    };
+  } catch {
+    return await decodeHtmlImage(request.dataUrl);
   }
-  const blob = await response.blob();
-  const bitmap = await createImageBitmap(blob, {
-    resizeHeight: request.size.height,
-    resizeQuality: "high",
-    resizeWidth: request.size.width,
-  });
-  return {
-    close: () => bitmap.close(),
-    height: bitmap.height,
-    image: bitmap,
-    width: bitmap.width,
-  };
 }
 
 function cacheKey(request: RasterDecodeRequest): string {
