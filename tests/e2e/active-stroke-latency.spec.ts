@@ -135,56 +135,57 @@ async function dispatchCoalescedStroke(
   }, options);
 }
 
-test("@smoke sustained 240 Hz coalesced pen input drains backlog with bounded wet ink tail", async ({
-  page,
-}) => {
-  await openBoardWithPen(page);
-  const { pointerId, start } = await startStroke(page);
-  const stage = page.getByTestId("board-stage");
+test(
+  "@smoke sustained 240 Hz coalesced pen input drains backlog with bounded wet ink tail",
+  async ({ page }) => {
+      await openBoardWithPen(page);
+    const { pointerId, start } = await startStroke(page);
+    const stage = page.getByTestId("board-stage");
 
-  await dispatchCoalescedStroke(page, {
-    frames: 90,
-    pointerId,
-    samplesPerFrame: 4,
-    startX: start.x,
-    startY: start.y,
-  });
+    await dispatchCoalescedStroke(page, {
+      frames: 90,
+      pointerId,
+      samplesPerFrame: 4,
+      startX: start.x,
+      startY: start.y,
+    });
 
-  await expect(stage).toHaveAttribute("data-wet-ink-active", "false");
-  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-  await expect
-    .poll(async () =>
-      Number((await stage.getAttribute("data-pointer-backlog")) ?? 0),
-    )
-    .toBe(0);
+    await expect(stage).toHaveAttribute("data-wet-ink-active", "false");
+    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+    await expect
+      .poll(async () =>
+        Number((await stage.getAttribute("data-pointer-backlog")) ?? 0),
+      )
+      .toBe(0);
 
-  const peakBacklog = Number(
-    (await stage.getAttribute("data-pointer-backlog-peak")) ?? "NaN",
-  );
-  const lastBatchSize = Number(
-    (await stage.getAttribute("data-pointer-last-batch-size")) ?? "NaN",
-  );
-  const p95 = Number(
-    (await stage.getAttribute("data-wet-ink-latency-p95-ms")) ?? "NaN",
-  );
-  const maxFrameGap = Number(
-    (await stage.getAttribute("data-wet-ink-max-frame-gap-ms")) ?? "NaN",
-  );
-  const mutableTail = Number(
-    (await stage.getAttribute("data-wet-ink-mutable-tail-points")) ?? "NaN",
-  );
-  const sealedChunks = Number(
-    (await stage.getAttribute("data-wet-ink-sealed-chunks")) ?? "NaN",
-  );
+    const peakBacklog = Number(
+      (await stage.getAttribute("data-pointer-backlog-peak")) ?? "NaN",
+    );
+    const lastBatchSize = Number(
+      (await stage.getAttribute("data-pointer-last-batch-size")) ?? "NaN",
+    );
+    const p95 = Number(
+      (await stage.getAttribute("data-wet-ink-latency-p95-ms")) ?? "NaN",
+    );
+    const maxFrameGap = Number(
+      (await stage.getAttribute("data-wet-ink-max-frame-gap-ms")) ?? "NaN",
+    );
+    const mutableTail = Number(
+      (await stage.getAttribute("data-wet-ink-mutable-tail-points")) ?? "NaN",
+    );
+    const sealedChunks = Number(
+      (await stage.getAttribute("data-wet-ink-sealed-chunks")) ?? "NaN",
+    );
 
-  expect(peakBacklog).toBeGreaterThanOrEqual(4);
-  expect(lastBatchSize).toBeGreaterThan(0);
-  expect(mutableTail).toBeLessThanOrEqual(
-    maximumMutableWetInkTailPoints,
-  );
-  expect(sealedChunks).toBeGreaterThan(0);
-  expect(p95).toBeLessThan(100);
-  expect(maxFrameGap).toBeLessThan(150);
+    expect(peakBacklog).toBeGreaterThanOrEqual(4);
+    expect(lastBatchSize).toBeGreaterThan(0);
+    expect(mutableTail).toBeLessThanOrEqual(
+      maximumMutableWetInkTailPoints,
+    );
+    expect(sealedChunks).toBeGreaterThan(0);
+    expect(p95).toBeLessThan(100);
+    expect(maxFrameGap).toBeLessThan(150);
 
-  await page.mouse.up();
-});
+    await page.mouse.up();
+  },
+);
