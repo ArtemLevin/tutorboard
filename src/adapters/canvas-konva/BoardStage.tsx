@@ -46,6 +46,10 @@ import { BoardRenderItemView, BoardSceneContent } from "./board-scene-content";
 import { BoardGrid } from "./grid";
 import { clientPoint, elementPoint } from "./pointer";
 import {
+  rasterImageDiagnostics,
+  type RasterImageDiagnosticsSnapshot,
+} from "./raster-image-diagnostics";
+import {
   collectCoalescedPointerEvents,
   collectPredictedPointerEvents,
   pointerEventInputTimestampMs,
@@ -314,6 +318,34 @@ function publishWetInkDiagnostics(
   root.dataset.wetInkSealedChunks = String(report.sealedChunkCount);
 }
 
+
+function publishRasterImageDiagnostics(
+  root: HTMLDivElement,
+  snapshot: RasterImageDiagnosticsSnapshot,
+): void {
+  root.dataset.rasterActiveDecodedCount = String(snapshot.activeDecodedCount);
+  root.dataset.rasterActiveEstimatedDecodedBytes = String(
+    snapshot.activeEstimatedDecodedBytes,
+  );
+  root.dataset.rasterDecodeCompletedCount = String(
+    snapshot.decodeCompletedCount,
+  );
+  root.dataset.rasterDecodeFailedCount = String(snapshot.decodeFailedCount);
+  root.dataset.rasterDecodeStartedCount = String(snapshot.decodeStartedCount);
+  root.dataset.rasterDuplicateDecodeStartCount = String(
+    snapshot.duplicateDecodeStartCount,
+  );
+  root.dataset.rasterLastDecodeMs = snapshot.lastDecodeMs.toFixed(2);
+  root.dataset.rasterMaxDecodeMs = snapshot.maxDecodeMs.toFixed(2);
+  root.dataset.rasterPeakActiveDecodedCount = String(
+    snapshot.peakActiveDecodedCount,
+  );
+  root.dataset.rasterPeakEstimatedDecodedBytes = String(
+    snapshot.peakEstimatedDecodedBytes,
+  );
+  root.dataset.rasterReleasedCount = String(snapshot.releasedCount);
+}
+
 function isTransformerTarget(target: Konva.Node): boolean {
   let current: Konva.Node | null = target;
   while (current !== null) {
@@ -493,6 +525,14 @@ export function BoardStage({
   const size = useElementSize(rootRef);
 
   useEffect(() => () => animatedImageRedraw.dispose(), [animatedImageRedraw]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (root === null) return;
+    return rasterImageDiagnostics.subscribe((snapshot) => {
+      publishRasterImageDiagnostics(root, snapshot);
+    });
+  }, []);
 
   useLayoutEffect(() => {
     const layer = wetInkLayerRef.current;
