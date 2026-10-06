@@ -369,7 +369,7 @@ describe("App", () => {
     expect(screen.getByTestId("interaction-state")).toHaveTextContent("idle");
   });
 
-  it("publishes pen motion as an ephemeral preview before the durable command", async () => {
+  it("publishes pen motion as imperative ephemeral deltas before the durable command", async () => {
     const onInkPreviewChange = vi.fn();
     render(<App onInkPreviewChange={onInkPreviewChange} />);
 
@@ -379,10 +379,15 @@ describe("App", () => {
       expect(onInkPreviewChange).toHaveBeenCalledWith(
         expect.objectContaining({
           phase: "start",
-          points: [
-            { x: 10, y: 20 },
-            { x: 70, y: 80 },
-          ],
+          points: [{ x: 10, y: 20 }],
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(onInkPreviewChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phase: "update",
+          points: [{ x: 70, y: 80 }],
         }),
       ),
     );
