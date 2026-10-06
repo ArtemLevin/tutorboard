@@ -162,7 +162,7 @@ describe("active stroke production-like performance", () => {
   it(
     "drains a 64-sample coalesced burst in one frame without full-history regeneration",
     () => {
-        const layer = new Konva.Layer();
+      const layer = new Konva.Layer();
       Object.defineProperty(layer, "draw", {
         configurable: true,
         value: () => layer,
@@ -214,9 +214,9 @@ describe("active stroke production-like performance", () => {
       expect(final?.mutableTailPointCount).toBeLessThanOrEqual(
         wetInkSealedChunkSize + wetInkMutableTailSize,
       );
-        expect(final?.generatedActualSampleCount).toBeLessThan(
-          historyPointCount,
-        );
+      expect(final?.generatedActualSampleCount).toBeLessThan(
+        historyPointCount,
+      );
     },
   );
 });
