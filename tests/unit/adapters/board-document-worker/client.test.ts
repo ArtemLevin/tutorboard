@@ -105,7 +105,11 @@ describe("BoardDocumentWorkerComputation", () => {
       typeof request.id === "number"
         ? request.id
         : null;
-    worker?.respond({ id, kind: "sha256", result: { ok: true, sha256: "abc" } });
+    worker?.respond({
+      id,
+      kind: "sha256",
+      result: { ok: true, sha256: "abc" },
+    });
 
     await expect(hashing).resolves.toEqual({ ok: true, sha256: "abc" });
     computation.dispose();

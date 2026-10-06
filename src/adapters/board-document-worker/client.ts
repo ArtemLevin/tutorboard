@@ -13,10 +13,7 @@ import type {
 } from "./protocol";
 
 interface WorkerLike {
-  addEventListener(
-    type: "error",
-    listener: (event: ErrorEvent) => void,
-  ): void;
+  addEventListener(type: "error", listener: (event: ErrorEvent) => void): void;
   addEventListener(
     type: "message",
     listener: (event: MessageEvent<BoardDocumentWorkerResponse>) => void,
@@ -61,9 +58,7 @@ async function inlineSha256(
   };
 }
 
-export class BoardDocumentWorkerComputation
-  implements BoardDocumentComputation
-{
+export class BoardDocumentWorkerComputation implements BoardDocumentComputation {
   readonly #factory: WorkerFactory;
   readonly #pending = new Map<number, PendingRequest>();
   readonly #prepared = new WeakMap<BoardDocument, PreparedSerialization>();
@@ -110,8 +105,10 @@ export class BoardDocumentWorkerComputation
     }
     if (prepared !== undefined) return prepared.promise;
     this.prepareSerialization(document);
-    return this.#prepared.get(document)?.promise ??
-      Promise.resolve(this.serializeSync(document));
+    return (
+      this.#prepared.get(document)?.promise ??
+      Promise.resolve(this.serializeSync(document))
+    );
   }
 
   serializeSync(document: BoardDocument): BoardDocumentSerializationResult {

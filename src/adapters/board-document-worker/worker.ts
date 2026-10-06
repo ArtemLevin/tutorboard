@@ -25,33 +25,36 @@ async function sha256(
   };
 }
 
-globalThis.addEventListener("message", (event: MessageEvent<BoardDocumentWorkerRequest>) => {
-  const request = event.data;
-  void (async () => {
-    try {
-      const response: BoardDocumentWorkerResponse =
-        request.kind === "serialize"
-          ? {
-              id: request.id,
-              kind: "serialize",
-              result: serializeBoardDocument(request.document),
-            }
-          : {
-              id: request.id,
-              kind: "sha256",
-              result: await sha256(request),
-            };
-      globalThis.postMessage(response);
-    } catch (error) {
-      const response: BoardDocumentWorkerResponse = {
-        id: request.id,
-        kind: "failure",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Unknown document worker failure.",
-      };
-      globalThis.postMessage(response);
-    }
-  })();
-});
+globalThis.addEventListener(
+  "message",
+  (event: MessageEvent<BoardDocumentWorkerRequest>) => {
+    const request = event.data;
+    void (async () => {
+      try {
+        const response: BoardDocumentWorkerResponse =
+          request.kind === "serialize"
+            ? {
+                id: request.id,
+                kind: "serialize",
+                result: serializeBoardDocument(request.document),
+              }
+            : {
+                id: request.id,
+                kind: "sha256",
+                result: await sha256(request),
+              };
+        globalThis.postMessage(response);
+      } catch (error) {
+        const response: BoardDocumentWorkerResponse = {
+          id: request.id,
+          kind: "failure",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unknown document worker failure.",
+        };
+        globalThis.postMessage(response);
+      }
+    })();
+  },
+);

@@ -692,9 +692,7 @@ function SyncedWorkspace({
       const context = await repository.context();
       const hash = await documentComputation.sha256(evidenceDocument);
       if (!hash.ok) {
-        throw new Error(
-          "Документ не прошёл проверку перед фиксацией ревизии.",
-        );
+        throw new Error("Документ не прошёл проверку перед фиксацией ревизии.");
       }
       const actualSha256 = hash.sha256;
       if (actualSha256 !== evidenceSha256) {

@@ -805,7 +805,10 @@ export class BoardSyncEngine {
               ? "Доска занятия"
               : "Совместная доска",
         });
-        const sha256 = await currentBoardDocumentSha256(document, this.#documentComputation);
+        const sha256 = await currentBoardDocumentSha256(
+          document,
+          this.#documentComputation,
+        );
         if (this.#context.capabilities.includes("board.snapshot.write")) {
           await this.#repository.saveSnapshot(
             this.#documentId,
@@ -1039,7 +1042,10 @@ export class BoardSyncEngine {
         for (const item of batch) {
           applied = applyCommand(applied, item.command);
         }
-        const sha256 = await currentBoardDocumentSha256(applied, this.#documentComputation);
+        const sha256 = await currentBoardDocumentSha256(
+          applied,
+          this.#documentComputation,
+        );
         const result = await this.#repository.push(
           {
             actorId: this.#context.actorId,
