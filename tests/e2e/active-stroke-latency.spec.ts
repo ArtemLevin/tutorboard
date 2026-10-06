@@ -16,7 +16,8 @@ async function openBoardWithPen(page: Page): Promise<void> {
           "__tutorboardLongTasks",
         );
         if (!Array.isArray(storedEntries)) return;
-        for (const entry of list.getEntries()) storedEntries.push(entry.duration);
+        for (const entry of list.getEntries())
+          storedEntries.push(entry.duration);
       });
       observer.observe({ type: "longtask", buffered: true });
       Reflect.set(window, "__tutorboardLongTaskObserver", observer);
