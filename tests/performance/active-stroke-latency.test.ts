@@ -152,64 +152,71 @@ describe("active stroke production-like performance", () => {
       ).toBeLessThanOrEqual(
         wetInkSealedChunkSize * 2 + wetInkMutableTailSize + samplesPerFrame,
       );
-      expect(final?.latency.p95Ms ?? Number.POSITIVE_INFINITY).toBeLessThan(20);
+      expect(
+        final?.latency.p95Ms ?? Number.POSITIVE_INFINITY,
+      ).toBeLessThan(20);
       expect(elapsedMs).toBeLessThan(1_500);
     });
   }
 
-  it("drains a 64-sample coalesced burst in one frame without full-history regeneration", () => {
-    const layer = new Konva.Layer();
-    Object.defineProperty(layer, "draw", {
-      configurable: true,
-      value: () => layer,
-    });
-    Object.defineProperty(layer, "batchDraw", {
-      configurable: true,
-      value: () => layer,
-    });
-    const clock = new FrameClock();
-    const reports: WetInkFrameReport[] = [];
-    const renderer = new WetInkRenderer(createKonvaWetInkSurface(layer), {
-      clock,
-      onFrame: (report) => reports.push(report),
-    });
-    renderer.begin(
-      { inputTimestampMs: 0, point: { x: 0, y: 0 }, pressure: 0.5 },
-      { opacity: 1, stroke: "#000000", strokeWidth: 3 },
-      { offset: { x: 0, y: 0 }, zoom: 1 },
-    );
-
-    for (let frame = 0; frame < 80; frame += 1) {
-      const samples = Array.from({ length: 4 }, (_value, index) => {
-        const sampleIndex = frame * 4 + index + 1;
-        return {
-          inputTimestampMs: frame * 16 + index * 4,
-          point: { x: sampleIndex, y: Math.cos(sampleIndex / 10) * 10 },
-          pressure: 0.5,
-        };
+  it(
+    "drains a 64-sample coalesced burst in one frame without full-history regeneration",
+    () => {
+        const layer = new Konva.Layer();
+      Object.defineProperty(layer, "draw", {
+        configurable: true,
+        value: () => layer,
       });
-      renderer.append(samples, []);
-      clock.flush(frame * 16 + 16);
-    }
+      Object.defineProperty(layer, "batchDraw", {
+        configurable: true,
+        value: () => layer,
+      });
+      const clock = new FrameClock();
+      const reports: WetInkFrameReport[] = [];
+      const renderer = new WetInkRenderer(createKonvaWetInkSurface(layer), {
+        clock,
+        onFrame: (report) => reports.push(report),
+      });
+      renderer.begin(
+        { inputTimestampMs: 0, point: { x: 0, y: 0 }, pressure: 0.5 },
+        { opacity: 1, stroke: "#000000", strokeWidth: 3 },
+        { offset: { x: 0, y: 0 }, zoom: 1 },
+      );
 
-    const historyPointCount = reports.at(-1)?.actualPointCount ?? 0;
-    const burst = Array.from({ length: 64 }, (_value, index) => ({
-      inputTimestampMs: 1_300 + index * 0.2,
-      point: {
-        x: historyPointCount + index + 1,
-        y: Math.cos((historyPointCount + index + 1) / 10) * 10,
-      },
-      pressure: 0.5,
-    }));
-    renderer.append(burst, []);
-    clock.flush(1_316);
+      for (let frame = 0; frame < 80; frame += 1) {
+        const samples = Array.from({ length: 4 }, (_value, index) => {
+          const sampleIndex = frame * 4 + index + 1;
+          return {
+            inputTimestampMs: frame * 16 + index * 4,
+            point: { x: sampleIndex, y: Math.cos(sampleIndex / 10) * 10 },
+            pressure: 0.5,
+          };
+        });
+        renderer.append(samples, []);
+        clock.flush(frame * 16 + 16);
+      }
 
-    const final = reports.at(-1);
-    expect(final?.actualBatchPointCount).toBe(64);
-    expect(final?.pendingInputCount).toBe(64);
-    expect(final?.mutableTailPointCount).toBeLessThanOrEqual(
-      wetInkSealedChunkSize + wetInkMutableTailSize,
-    );
-    expect(final?.generatedActualSampleCount).toBeLessThan(historyPointCount);
-  });
+      const historyPointCount = reports.at(-1)?.actualPointCount ?? 0;
+      const burst = Array.from({ length: 64 }, (_value, index) => ({
+        inputTimestampMs: 1_300 + index * 0.2,
+        point: {
+          x: historyPointCount + index + 1,
+          y: Math.cos((historyPointCount + index + 1) / 10) * 10,
+        },
+        pressure: 0.5,
+      }));
+      renderer.append(burst, []);
+      clock.flush(1_316);
+
+      const final = reports.at(-1);
+      expect(final?.actualBatchPointCount).toBe(64);
+      expect(final?.pendingInputCount).toBe(64);
+      expect(final?.mutableTailPointCount).toBeLessThanOrEqual(
+        wetInkSealedChunkSize + wetInkMutableTailSize,
+      );
+        expect(final?.generatedActualSampleCount).toBeLessThan(
+          historyPointCount,
+        );
+    },
+  );
 });
