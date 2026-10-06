@@ -28,6 +28,7 @@ export function EmbeddedImageRenderer({
     object.mimeType === "image/png" || object.mimeType === "image/jpeg";
   const decodeSize = staticRaster
     ? resolveRasterDecodeSize({
+        ancestorScale: visualScale,
         devicePixelRatio:
           typeof window === "undefined" ? 1 : window.devicePixelRatio,
         displaySize: object.size,
@@ -36,17 +37,20 @@ export function EmbeddedImageRenderer({
         zoom,
       })
     : null;
+  const decodeHeight = decodeSize?.height ?? null;
+  const decodeWidth = decodeSize?.width ?? null;
 
   useEffect(() => {
     if (
       staticRaster &&
-      decodeSize !== null &&
+      decodeHeight !== null &&
+      decodeWidth !== null &&
       typeof createImageBitmap === "function"
     ) {
       const handle = rasterDecodeCache.acquire({
         contentSha256: object.contentSha256,
         dataUrl: object.dataUrl,
-        size: decodeSize,
+        size: { height: decodeHeight, width: decodeWidth },
       });
       let active = true;
       void handle.promise
@@ -97,8 +101,8 @@ export function EmbeddedImageRenderer({
       element.src = "";
     };
   }, [
-    decodeSize?.height,
-    decodeSize?.width,
+    decodeHeight,
+    decodeWidth,
     object.contentSha256,
     object.dataUrl,
     object.mimeType,
