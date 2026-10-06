@@ -212,8 +212,7 @@ test("@smoke sustained 240 Hz coalesced pen input drains backlog with bounded we
     return {
       count: durations.length,
       maxMs: durations.length === 0 ? 0 : Math.max(...durations),
-      supported:
-        Reflect.get(window, "__tutorboardLongTaskSupported") === true,
+      supported: Reflect.get(window, "__tutorboardLongTaskSupported") === true,
     };
   });
 
