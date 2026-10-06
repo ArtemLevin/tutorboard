@@ -544,7 +544,7 @@ export function reduceDrawingInteractionBatch(
   if (actions.length === 0) return transition(state);
 
   if (state.kind !== "drawing-pen") {
-    let current = state;
+    let current: DrawingInteractionState = state;
     let completedObject: UserDrawingObject | null = null;
     let diagnostic: DrawingDiagnosticCode | null = null;
     for (const action of actions) {
