@@ -127,7 +127,9 @@ async function dispatchCoalescedStroke(
           window.dispatchEvent(burstEvent);
         }
       }
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
     }
 
     const endX = input.startX + sampleIndex * 1.5;
@@ -154,7 +156,9 @@ test("@smoke sustained 240 Hz coalesced pen input drains backlog with bounded we
   await expect(stage).toHaveAttribute("data-wet-ink-active", "false");
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await expect
-    .poll(async () => Number((await stage.getAttribute("data-pointer-backlog")) ?? 0))
+    .poll(async () =>
+      Number((await stage.getAttribute("data-pointer-backlog")) ?? 0),
+    )
     .toBe(0);
 
   const peakBacklog = Number(
