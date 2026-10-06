@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   wetInkMutableTailSize,
   wetInkSealedChunkSize,
-} from "../../src/adapters/canvas-konva/wet-ink-renderer";
+} from "../../src/adapters/canvas-konva/wet-ink-renderer.js";
 
 async function openBoardWithPen(page: Page): Promise<void> {
   await page.addInitScript(() => {
