@@ -274,10 +274,15 @@ function createInspectableWetInkSurface() {
 }
 
 function visibleChildren(group: Konva.Group): Konva.Node[] {
-  return group.getChildren().flatMap((node) => {
-    if (node instanceof Konva.Group) return visibleChildren(node);
-    return node.visible() ? [node] : [];
-  });
+  const output: Konva.Node[] = [];
+  for (const node of group.getChildren()) {
+    if (node instanceof Konva.Group) {
+      output.push(...visibleChildren(node));
+    } else if (node.visible()) {
+      output.push(node);
+    }
+  }
+  return output;
 }
 
 let canvasGetContextDescriptor: PropertyDescriptor | undefined;
