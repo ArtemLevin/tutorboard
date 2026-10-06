@@ -22,23 +22,29 @@ export function EmbeddedImageRenderer({
   const [failed, setFailed] = useState(false);
   const imageRef = useRef<Konva.Image>(null);
   const redrawCoordinator = useContext(AnimatedImageRedrawContext);
-
-  useEffect(() => {
-    const staticRaster =
-      object.mimeType === "image/png" || object.mimeType === "image/jpeg";
-    if (staticRaster && typeof createImageBitmap === "function") {
-      const size = resolveRasterDecodeSize({
+  const staticRaster =
+    object.mimeType === "image/png" || object.mimeType === "image/jpeg";
+  const decodeSize = staticRaster
+    ? resolveRasterDecodeSize({
         devicePixelRatio:
           typeof window === "undefined" ? 1 : window.devicePixelRatio,
         displaySize: object.size,
         intrinsicSize: object.intrinsicSize,
         objectScale: object.scale,
         zoom,
-      });
+      })
+    : null;
+
+  useEffect(() => {
+    if (
+      staticRaster &&
+      decodeSize !== null &&
+      typeof createImageBitmap === "function"
+    ) {
       const handle = rasterDecodeCache.acquire({
         contentSha256: object.contentSha256,
         dataUrl: object.dataUrl,
-        size,
+        size: decodeSize,
       });
       let active = true;
       void handle.promise
@@ -89,13 +95,12 @@ export function EmbeddedImageRenderer({
       element.src = "";
     };
   }, [
+    decodeSize?.height,
+    decodeSize?.width,
     object.contentSha256,
     object.dataUrl,
-    object.intrinsicSize,
     object.mimeType,
-    object.scale,
-    object.size,
-    zoom,
+    staticRaster,
   ]);
 
   useEffect(() => {
