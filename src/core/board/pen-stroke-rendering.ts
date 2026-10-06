@@ -219,9 +219,10 @@ function sketchSamples(
       const direction = tangent(samples, index, ink.closed);
       const normal = { x: -direction.y, y: direction.x };
       const progress = lastIndex === 0 ? 0 : index / lastIndex;
-      const endpointEnvelope = ink.closed
-        ? 1
-        : 0.22 + Math.sin(progress * Math.PI) * 0.78;
+      const endpointEnvelope =
+        options.continuousStylePhase || ink.closed
+          ? 1
+          : 0.22 + Math.sin(progress * Math.PI) * 0.78;
       const distanceAlong =
         (options.continuousStylePhase ? (options.distanceOffset ?? 0) : 0) +
         (pathDistances[index] ?? 0);
