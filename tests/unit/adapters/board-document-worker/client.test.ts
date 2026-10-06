@@ -29,12 +29,12 @@ class FakeWorker extends EventTarget {
   }
 }
 
-let worker: FakeWorker | null = null;
+const workerState: { current: FakeWorker | null } = { current: null };
 
 class WorkerStub extends FakeWorker {
   constructor() {
     super();
-    worker = this;
+    workerState.current = this;
   }
 }
 
@@ -48,7 +48,7 @@ function document(): BoardDocument {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  worker = null;
+  workerState.current = null;
 });
 
 describe("BoardDocumentWorkerComputation", () => {
@@ -59,8 +59,8 @@ describe("BoardDocumentWorkerComputation", () => {
     const expected = serializeBoardDocument(input);
 
     computation.prepareSerialization(input);
-    expect(worker?.messages).toHaveLength(1);
-    const request = worker?.messages[0];
+    expect(workerState.current?.messages).toHaveLength(1);
+    const request = workerState.current?.messages[0];
     expect(request).toMatchObject({ kind: "serialize" });
     const id =
       typeof request === "object" &&
@@ -70,10 +70,10 @@ describe("BoardDocumentWorkerComputation", () => {
         ? request.id
         : null;
     expect(id).not.toBeNull();
-    worker?.respond({ id, kind: "serialize", result: expected });
+    workerState.current?.respond({ id, kind: "serialize", result: expected });
 
     await expect(computation.serialize(input)).resolves.toEqual(expected);
-    expect(worker?.messages).toHaveLength(1);
+    expect(workerState.current?.messages).toHaveLength(1);
     computation.dispose();
   });
 
@@ -86,7 +86,7 @@ describe("BoardDocumentWorkerComputation", () => {
     const result = await computation.serialize(input, "lifecycle");
 
     expect(result).toEqual(serializeBoardDocument(input));
-    expect(worker?.messages).toHaveLength(1);
+    expect(workerState.current?.messages).toHaveLength(1);
     computation.dispose();
   });
 
@@ -96,7 +96,7 @@ describe("BoardDocumentWorkerComputation", () => {
     const input = document();
     const hashing = computation.sha256(input);
 
-    const request = worker?.messages[0];
+    const request = workerState.current?.messages[0];
     expect(request).toMatchObject({ kind: "sha256" });
     const id =
       typeof request === "object" &&
@@ -105,7 +105,7 @@ describe("BoardDocumentWorkerComputation", () => {
       typeof request.id === "number"
         ? request.id
         : null;
-    worker?.respond({
+    workerState.current?.respond({
       id,
       kind: "sha256",
       result: { ok: true, sha256: "abc" },
@@ -113,7 +113,7 @@ describe("BoardDocumentWorkerComputation", () => {
 
     await expect(hashing).resolves.toEqual({ ok: true, sha256: "abc" });
     computation.dispose();
-    expect(worker?.terminated).toBe(true);
+    expect(workerState.current?.terminated).toBe(true);
   });
 
   it("falls back to inline hashing when the worker fails", async () => {
@@ -122,7 +122,7 @@ describe("BoardDocumentWorkerComputation", () => {
     const input = document();
     const hashing = computation.sha256(input);
 
-    worker?.fail("worker unavailable");
+    workerState.current?.fail("worker unavailable");
 
     const result = await hashing;
     expect(result.ok).toBe(true);
