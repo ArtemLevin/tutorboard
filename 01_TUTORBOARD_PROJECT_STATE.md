@@ -174,9 +174,39 @@ Production code-head `67c78ce7b1eeb7ef1213d7f43873522f4e28b0bc`
 10/10 performance files и 18/18 performance tests, architecture boundaries и
 production build. На том же SHA Chromium и Firefox browser smoke прошли по
 28/28 scenarios; Board-only frontend profile, GeometryOS live browser contract
-и Coordinate Plot production gate также green. Финальный PR head дополнительно
-содержит только documentation/release-cleanup изменения и должен получить
-свежий CI перед переводом PR из draft.
+и Coordinate Plot production gate также green. Финальный PR #176 HEAD
+`6957440c246a75fde7962de2e076e23e5cecd189` прошёл свежий CI и переведён
+в Ready for review.
+
+### 3.2. Main-thread latency hardening — 06.10.2026
+
+Stacked PR #177 (`perf/main-thread-latency-hardening`) уменьшает main-thread
+competition, оставшуюся вокруг уже incremental active-stroke pipeline:
+
+- Wet Ink p95 больше не сортирует 240-value latency window каждый frame;
+  percentile refresh ограничен 500 ms, exact snapshot остаётся on demand;
+- BoardStage throttles diagnostic DOM dataset publication до 500 ms и делает
+  final flush на clear/finish;
+- board-scoped GIF coordinator снижает Layer repaint до 24 fps только во время
+  active Wet Ink interaction и немедленно возвращает normal cadence после
+  finish/cancel/visibility resume;
+- browser `@smoke` regression собирает Long Task evidence вокруг synthetic
+  coalesced 240 Hz-equivalent stroke и проверяет, что diagnostic publication
+  заметно реже frame count.
+
+Проверенный code-head `91469e822dd84e3732073c153cbe1382942558c5`
+прошёл CI run `37473332612`: 181/181 unit/integration files, 992/992 tests,
+10/10 performance files и 18/18 performance tests, architecture boundaries и
+production build. Chromium и Firefox browser smoke прошли по 28/28 scenarios;
+Board-only frontend profile, GeometryOS live browser contract и Coordinate Plot
+production gate green. Smart Ink, Formula Recognition и Paddle sidecar gates
+на том же SHA также green.
+
+Persisted BoardDocument, command/undo contracts, collaboration ordering,
+original media bytes и z-order этим блоком не изменяются. Следующий вероятный
+main-thread bottleneck для profiling/remediation — full-document
+validation/canonical serialization и SHA computation, затем raster decode/memory
+и asset-backed media persistence.
 
 ---
 
