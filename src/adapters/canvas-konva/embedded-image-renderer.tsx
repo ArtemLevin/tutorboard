@@ -13,9 +13,11 @@ import { rasterImageDiagnostics } from "./raster-image-diagnostics";
 
 export function EmbeddedImageRenderer({
   object,
+  visualScale = 1,
   zoom,
 }: {
   readonly object: EmbeddedImageObject;
+  readonly visualScale?: number;
   readonly zoom: number;
 }) {
   const [image, setImage] = useState<CanvasImageSource | null>(null);
