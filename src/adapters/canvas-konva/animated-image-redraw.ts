@@ -76,8 +76,12 @@ export class AnimatedImageRedrawCoordinator {
   }
 
   readonly #onVisibilityChange = () => {
-    if (this.#visibility?.hidden === true) this.#cancelFrame();
-    else this.#schedule();
+    if (this.#visibility?.hidden === true) {
+      this.#cancelFrame();
+      return;
+    }
+    this.#lastDrawAtMs = Number.NEGATIVE_INFINITY;
+    this.#schedule();
   };
 
   #cancelFrame(): void {
