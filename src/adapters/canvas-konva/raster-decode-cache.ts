@@ -239,14 +239,18 @@ export class RasterDecodeCache {
   }
 
   clear(): void {
+    const error = new Error("Raster decode cache was cleared.");
     for (const entry of this.#entries.values()) {
       if (entry.resource !== null) {
         entry.resource.close();
         if (entry.sessionId !== null) {
           this.#diagnostics.release(entry.sessionId);
         }
-      } else if (entry.sessionId !== null) {
-        this.#diagnostics.fail(entry.sessionId);
+      } else {
+        if (entry.sessionId !== null) {
+          this.#diagnostics.fail(entry.sessionId);
+        }
+        entry.reject(error);
       }
     }
     this.#entries.clear();
