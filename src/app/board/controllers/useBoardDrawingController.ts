@@ -10,6 +10,7 @@ import {
   getDrawingConstraintFeedback,
   getDrawingPreview,
   reduceDrawingInteraction,
+  reduceDrawingInteractionBatch,
   type DrawingAction,
   type DrawingInteractionState,
   type DrawingToolId,
@@ -104,9 +105,11 @@ export function useBoardDrawingController({
 
   const applyAction = useCallback(
     (action: DrawingAction, requestSmartInk = false) => {
+      const suppressPenMoveRender =
+        action.kind === "move" && stateRef.current.kind === "drawing-pen";
       const result = reduceDrawingInteraction(stateRef.current, action);
       stateRef.current = result.state;
-      setState(result.state);
+      if (!suppressPenMoveRender) setState(result.state);
       setDiagnostic(result.diagnostic);
       if (result.completedObject === null) return;
       const committed = commitObject(result.completedObject);
@@ -215,11 +218,12 @@ export function useBoardDrawingController({
   );
 
   const moveBatch = useCallback((samples: readonly DrawingPointerSample[]) => {
-    let current = stateRef.current;
-    let latestDiagnostic: string | null = null;
-    for (const sample of samples) {
-      const result = reduceDrawingInteraction(current, {
-        kind: "move",
+    if (samples.length === 0) return;
+    const previous = stateRef.current;
+    const result = reduceDrawingInteractionBatch(
+      previous,
+      samples.map((sample) => ({
+        kind: "move" as const,
         ...(sample.inputTimestampMs === undefined
           ? {}
           : { inputTimestampMs: sample.inputTimestampMs }),
@@ -229,13 +233,11 @@ export function useBoardDrawingController({
         point: sample.point,
         pointerId: sample.pointerId,
         pressure: sample.pressure,
-      });
-      current = result.state;
-      latestDiagnostic = result.diagnostic;
-    }
-    stateRef.current = current;
-    setState(current);
-    setDiagnostic(latestDiagnostic);
+      })),
+    );
+    stateRef.current = result.state;
+    if (previous.kind !== "drawing-pen") setState(result.state);
+    setDiagnostic(result.diagnostic);
   }, []);
 
   const finish = useCallback(
