@@ -56,8 +56,10 @@ export interface WetInkFrameReport {
   readonly actualBatchPointCount: number;
   readonly actualPointCount: number;
   readonly frameCount: number;
+  readonly frameGapMs: number;
   readonly generatedActualSampleCount: number;
   readonly latency: WetInkLatencySnapshot;
+  readonly maxFrameGapMs: number;
   readonly mutableTailPointCount: number;
   readonly pendingInputCount: number;
   readonly predictedPointCount: number;
@@ -185,6 +187,8 @@ export class WetInkRenderer {
   private frameCount = 0;
   private frameId: number | null = null;
   private readonly latency = new WetInkLatencyTracker();
+  private lastRenderedAtMs: number | null = null;
+  private maxFrameGapMs = 0;
   private paintedActualSampleCount = 0;
   private readonly pendingInputTimestampsMs: number[] = [];
   private predictedSamples: readonly WetInkSample[] = [];
@@ -209,6 +213,8 @@ export class WetInkRenderer {
     this.cancelScheduledFrame();
     this.surface.clear();
     this.actualSamples.length = 0;
+    this.lastRenderedAtMs = null;
+    this.maxFrameGapMs = 0;
     this.paintedActualSampleCount = 0;
     this.pendingInputTimestampsMs.length = 0;
     this.predictedSamples = [];
@@ -298,6 +304,12 @@ export class WetInkRenderer {
         viewport: this.viewport,
       }) ?? emptySurfaceFrameReport;
     const renderedAtMs = this.clock.now();
+    const frameGapMs =
+      this.lastRenderedAtMs === null
+        ? 0
+        : Math.max(0, renderedAtMs - this.lastRenderedAtMs);
+    this.lastRenderedAtMs = renderedAtMs;
+    this.maxFrameGapMs = Math.max(this.maxFrameGapMs, frameGapMs);
     this.frameCount += 1;
     const latency = this.latency.record(
       this.pendingInputTimestampsMs,
@@ -308,8 +320,10 @@ export class WetInkRenderer {
       actualBatchPointCount: actualSamples.length,
       actualPointCount: this.actualSamples.length,
       frameCount: this.frameCount,
+      frameGapMs,
       generatedActualSampleCount: surfaceReport.generatedActualSampleCount,
       latency,
+      maxFrameGapMs: this.maxFrameGapMs,
       mutableTailPointCount: surfaceReport.mutableTailSampleCount,
       pendingInputCount,
       predictedPointCount: this.predictedSamples.length,
