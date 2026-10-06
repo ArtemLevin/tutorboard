@@ -8,6 +8,8 @@ import {
 
 import {
   createKonvaWetInkSurface,
+  wetInkMutableTailSize,
+  wetInkSealedChunkSize,
   WetInkRenderer,
   type WetInkFrame,
   type WetInkFrameClock,
@@ -62,8 +64,8 @@ class FakeSurface implements WetInkSurface {
   draw(frame: WetInkFrame): void {
     this.frames.push({
       ...frame,
-      actualPoints: [...frame.actualPoints],
-      predictedPoints: [...frame.predictedPoints],
+      actualSamples: [...frame.actualSamples],
+      predictedSamples: [...frame.predictedSamples],
     });
   }
 }
@@ -99,12 +101,14 @@ describe("WetInkRenderer", () => {
     clock.step(9);
 
     expect(surface.frames).toHaveLength(1);
-    expect(surface.frames[0]?.actualPoints).toEqual([
+    expect(surface.frames[0]?.actualSamples.map(({ point }) => point)).toEqual([
       { x: 0, y: 0 },
       { x: 1, y: 1 },
       { x: 2, y: 2 },
     ]);
-    expect(surface.frames[0]?.predictedPoints).toEqual([{ x: 3, y: 3 }]);
+    expect(
+      surface.frames[0]?.predictedSamples.map(({ point }) => point),
+    ).toEqual([{ x: 3, y: 3 }]);
     expect(reports[0]?.latency.count).toBe(3);
     expect(reports[0]?.frameCount).toBe(1);
   });
@@ -155,8 +159,12 @@ describe("WetInkRenderer", () => {
     );
     clock.step(8);
 
-    expect(surface.frames[0]?.actualPoints).toEqual([{ x: 0, y: 0 }]);
-    expect(surface.frames[0]?.predictedPoints).toEqual([{ x: 6, y: 6 }]);
+    expect(surface.frames[0]?.actualSamples.map(({ point }) => point)).toEqual([
+      { x: 0, y: 0 },
+    ]);
+    expect(
+      surface.frames[0]?.predictedSamples.map(({ point }) => point),
+    ).toEqual([{ x: 6, y: 6 }]);
   });
 
   it("paints the final frame and clears on the following frame", () => {
@@ -180,7 +188,7 @@ describe("WetInkRenderer", () => {
     ]);
     clock.step(7);
 
-    expect(surface.frames.at(-1)?.actualPoints.at(-1)).toEqual({
+    expect(surface.frames.at(-1)?.actualSamples.at(-1)?.point).toEqual({
       x: 10,
       y: 10,
     });
@@ -240,11 +248,11 @@ function frame(
   actualSamples: WetInkFrame["actualSamples"],
   predictedSamples: WetInkFrame["predictedSamples"] = [],
   frameStyle: WetInkFrame["style"] = style,
+  actualSampleCount = actualSamples.length,
 ): WetInkFrame {
   return {
-    actualPoints: actualSamples.map(({ point }) => point),
+    actualSampleCount,
     actualSamples,
-    predictedPoints: predictedSamples.map(({ point }) => point),
     predictedSamples,
     style: frameStyle,
     viewport,
@@ -265,8 +273,11 @@ function createInspectableWetInkSurface() {
   return { group, layer, surface };
 }
 
-function visibleChildren(group: Konva.Group) {
-  return group.getChildren().filter((node) => node.visible());
+function visibleChildren(group: Konva.Group): Konva.Node[] {
+  return group.getChildren().flatMap((node) => {
+    if (node instanceof Konva.Group) return visibleChildren(node);
+    return node.visible() ? [node] : [];
+  });
 }
 
 let canvasGetContextDescriptor: PropertyDescriptor | undefined;
@@ -378,6 +389,43 @@ describe("createKonvaWetInkSurface", () => {
     );
     expect(visible.filter((node) => node instanceof Konva.Circle)).toHaveLength(
       0,
+    );
+  });
+
+  it("seals old geometry and keeps the mutable tail bounded", () => {
+    const { surface } = createInspectableWetInkSurface();
+    const initial = Array.from(
+      { length: wetInkSealedChunkSize + wetInkMutableTailSize + 40 },
+      (_value, index) => ({
+        inputTimestampMs: index * 4,
+        point: { x: index * 2, y: Math.sin(index / 6) * 12 },
+        pressure: 0.45 + (index % 5) * 0.05,
+      }),
+    );
+
+    const first = surface.draw(frame(initial, [], style, initial.length));
+    expect(first).toMatchObject({ sealedChunkCount: 1 });
+    expect(first?.mutableTailSampleCount).toBeLessThanOrEqual(
+      wetInkSealedChunkSize + wetInkMutableTailSize,
+    );
+
+    const delta = Array.from({ length: 80 }, (_value, index) => ({
+      inputTimestampMs: (initial.length + index) * 4,
+      point: {
+        x: (initial.length + index) * 2,
+        y: Math.sin((initial.length + index) / 6) * 12,
+      },
+      pressure: 0.55,
+    }));
+    const second = surface.draw(
+      frame(delta, [], style, initial.length + delta.length),
+    );
+    expect(second?.sealedChunkCount).toBeGreaterThanOrEqual(2);
+    expect(second?.mutableTailSampleCount).toBeLessThanOrEqual(
+      wetInkSealedChunkSize + wetInkMutableTailSize,
+    );
+    expect(second?.generatedActualSampleCount).toBeLessThan(
+      initial.length + delta.length,
     );
   });
 
