@@ -290,22 +290,19 @@ export function App({
     },
     [selection],
   );
-  const publishInkPreview = useCallback(
-    (preview: DrawingInkPreviewChange) => {
-      onInkPreviewChangeRef.current?.(preview);
-      if (preview.phase === "start") {
-        localInkPreviewRef.current = { previewId: preview.previewId };
-        return;
-      }
-      if (
-        (preview.phase === "end" || preview.phase === "cancel") &&
-        localInkPreviewRef.current?.previewId === preview.previewId
-      ) {
-        localInkPreviewRef.current = null;
-      }
-    },
-    [],
-  );
+  const publishInkPreview = useCallback((preview: DrawingInkPreviewChange) => {
+    onInkPreviewChangeRef.current?.(preview);
+    if (preview.phase === "start") {
+      localInkPreviewRef.current = { previewId: preview.previewId };
+      return;
+    }
+    if (
+      (preview.phase === "end" || preview.phase === "cancel") &&
+      localInkPreviewRef.current?.previewId === preview.previewId
+    ) {
+      localInkPreviewRef.current = null;
+    }
+  }, []);
 
   const drawing = useBoardDrawingController({
     announce,

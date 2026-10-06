@@ -145,8 +145,7 @@ export function useBoardDrawingController({
 
       if (
         next.kind === "drawing-pen" &&
-        (previous.kind !== "drawing-pen" ||
-          previous.objectId !== next.objectId)
+        (previous.kind !== "drawing-pen" || previous.objectId !== next.objectId)
       ) {
         publish({
           phase: "start",
@@ -296,29 +295,32 @@ export function useBoardDrawingController({
     [applyAction],
   );
 
-  const moveBatch = useCallback((samples: readonly DrawingPointerSample[]) => {
-    if (samples.length === 0) return;
-    const previous = stateRef.current;
-    const result = reduceDrawingInteractionBatch(
-      previous,
-      samples.map((sample) => ({
-        kind: "move" as const,
-        ...(sample.inputTimestampMs === undefined
-          ? {}
-          : { inputTimestampMs: sample.inputTimestampMs }),
-        ...(sample.modifiers === undefined
-          ? {}
-          : { modifiers: sample.modifiers }),
-        point: sample.point,
-        pointerId: sample.pointerId,
-        pressure: sample.pressure,
-      })),
-    );
-    stateRef.current = result.state;
-    publishPenPreviewTransition(previous, result.state, "move");
-    if (previous.kind !== "drawing-pen") setState(result.state);
-    setDiagnostic(result.diagnostic);
-  }, [publishPenPreviewTransition]);
+  const moveBatch = useCallback(
+    (samples: readonly DrawingPointerSample[]) => {
+      if (samples.length === 0) return;
+      const previous = stateRef.current;
+      const result = reduceDrawingInteractionBatch(
+        previous,
+        samples.map((sample) => ({
+          kind: "move" as const,
+          ...(sample.inputTimestampMs === undefined
+            ? {}
+            : { inputTimestampMs: sample.inputTimestampMs }),
+          ...(sample.modifiers === undefined
+            ? {}
+            : { modifiers: sample.modifiers }),
+          point: sample.point,
+          pointerId: sample.pointerId,
+          pressure: sample.pressure,
+        })),
+      );
+      stateRef.current = result.state;
+      publishPenPreviewTransition(previous, result.state, "move");
+      if (previous.kind !== "drawing-pen") setState(result.state);
+      setDiagnostic(result.diagnostic);
+    },
+    [publishPenPreviewTransition],
+  );
 
   const finish = useCallback(
     (tool: DrawingToolId, sample: DrawingPointerSample) => {
