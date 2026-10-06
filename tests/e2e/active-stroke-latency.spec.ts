@@ -11,11 +11,12 @@ async function openBoardWithPen(page: Page): Promise<void> {
     Reflect.set(window, "__tutorboardLongTaskSupported", supported);
     if (supported) {
       const observer = new PerformanceObserver((list) => {
-        const entries = Reflect.get(
+        const storedEntries: unknown = Reflect.get(
           window,
           "__tutorboardLongTasks",
-        ) as number[];
-        for (const entry of list.getEntries()) entries.push(entry.duration);
+        );
+        if (!Array.isArray(storedEntries)) return;
+        for (const entry of list.getEntries()) storedEntries.push(entry.duration);
       });
       observer.observe({ type: "longtask", buffered: true });
       Reflect.set(window, "__tutorboardLongTaskObserver", observer);
@@ -159,7 +160,7 @@ test("@smoke sustained 240 Hz coalesced pen input drains backlog with bounded we
   const stage = page.getByTestId("board-stage");
 
   await page.evaluate(() => {
-    const entries = Reflect.get(window, "__tutorboardLongTasks");
+    const entries: unknown = Reflect.get(window, "__tutorboardLongTasks");
     if (Array.isArray(entries)) entries.length = 0;
   });
 
@@ -205,7 +206,7 @@ test("@smoke sustained 240 Hz coalesced pen input drains backlog with bounded we
       "NaN",
   );
   const longTaskEvidence = await page.evaluate(() => {
-    const entries = Reflect.get(window, "__tutorboardLongTasks");
+    const entries: unknown = Reflect.get(window, "__tutorboardLongTasks");
     const durations = Array.isArray(entries)
       ? entries.filter((value): value is number => typeof value === "number")
       : [];
