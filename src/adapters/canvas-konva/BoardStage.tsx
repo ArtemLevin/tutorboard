@@ -777,7 +777,9 @@ export function BoardStage({
     const root = rootRef.current;
     if (root !== null) {
       root.dataset.pointerBacklog = "0";
-      root.dataset.pointerLastBatchSize = String(samples.length);
+      if (samples.length > 0) {
+        root.dataset.pointerLastBatchSize = String(samples.length);
+      }
     }
     if (samples.length === 0) return;
     const batch = worldPointerCallbacksRef.current.batch;
