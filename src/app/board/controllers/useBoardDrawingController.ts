@@ -138,7 +138,7 @@ export function useBoardDrawingController({
         (next.kind !== "drawing-pen" || next.objectId !== previous.objectId)
       ) {
         publish({
-          phase: actionKind === "start" ? "cancel" : "end",
+          phase: actionKind === "cancel" ? "cancel" : "end",
           previewId: previous.objectId,
         });
       }
