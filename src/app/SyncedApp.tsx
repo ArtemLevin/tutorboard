@@ -168,11 +168,9 @@ function terminalAccessRefreshFailure(error: unknown): boolean {
 // Each effect setup owns a fresh engine. React StrictMode may clean up a
 // setup immediately; a disposed instance must never be used by its successor.
 export function SyncedApp(props: SyncedAppProps) {
-  const [documentComputation] = useState<BoardDocumentComputation>(() =>
-    createBoardDocumentWorkerComputation(),
-  );
   const [state, setState] = useState<BoardSyncState>({ kind: "bootstrapping" });
   const [runtime, setRuntime] = useState<{
+    documentComputation: BoardDocumentComputation;
     engine: BoardSyncEngine;
     key: string;
     documentId: DocumentId;
@@ -181,14 +179,9 @@ export function SyncedApp(props: SyncedAppProps) {
     accessContext: BoardRuntimeAccessContext | undefined;
   } | null>(null);
   const { accessContext, documentId, queue, repository } = props;
-  useEffect(
-    () => () => {
-      documentComputation.dispose?.();
-    },
-    [documentComputation],
-  );
   useEffect(() => {
     let active = true;
+    const documentComputation = createBoardDocumentWorkerComputation();
     const engine = new BoardSyncEngine({
       ...(accessContext === undefined ? {} : { accessContext }),
       createIdempotencyKey: () => `client:${crypto.randomUUID()}`,
@@ -207,6 +200,7 @@ export function SyncedApp(props: SyncedAppProps) {
       if (!active) return;
       setState({ kind: "bootstrapping" });
       setRuntime({
+        documentComputation,
         engine,
         key: crypto.randomUUID(),
         documentId,
@@ -218,8 +212,9 @@ export function SyncedApp(props: SyncedAppProps) {
     return () => {
       active = false;
       engine.dispose();
+      documentComputation.dispose();
     };
-  }, [accessContext, documentComputation, documentId, queue, repository]);
+  }, [accessContext, documentId, queue, repository]);
   if (
     runtime === null ||
     runtime.documentId !== documentId ||
@@ -231,7 +226,7 @@ export function SyncedApp(props: SyncedAppProps) {
   return (
     <SyncedWorkspace
       {...props}
-      documentComputation={documentComputation}
+      documentComputation={runtime.documentComputation}
       engine={runtime.engine}
       key={runtime.key}
       state={state}
