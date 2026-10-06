@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { createBoardDocumentWorkerComputation } from "../adapters/board-document-worker/public";
 import {
   BoardCollaborationClient,
   type BoardAccessControlEvent,
@@ -16,6 +17,7 @@ import {
   reduceBoardDocument,
   type BoardCommand,
   type BoardDocument,
+  type BoardDocumentComputation,
   type BoardEvidenceDescriptor,
   type DocumentId,
   type GeometryOsClient,
@@ -29,7 +31,6 @@ import type {
   LegacyBoardLifecycleRepository,
 } from "../core/ports/public";
 import {
-  boardDocumentSha256,
   BoardSyncEngine,
   invertOwnBoardCommand,
   type BoardSyncState,
@@ -167,6 +168,9 @@ function terminalAccessRefreshFailure(error: unknown): boolean {
 // Each effect setup owns a fresh engine. React StrictMode may clean up a
 // setup immediately; a disposed instance must never be used by its successor.
 export function SyncedApp(props: SyncedAppProps) {
+  const [documentComputation] = useState<BoardDocumentComputation>(() =>
+    createBoardDocumentWorkerComputation(),
+  );
   const [state, setState] = useState<BoardSyncState>({ kind: "bootstrapping" });
   const [runtime, setRuntime] = useState<{
     engine: BoardSyncEngine;
@@ -177,11 +181,18 @@ export function SyncedApp(props: SyncedAppProps) {
     accessContext: BoardRuntimeAccessContext | undefined;
   } | null>(null);
   const { accessContext, documentId, queue, repository } = props;
+  useEffect(
+    () => () => {
+      documentComputation.dispose?.();
+    },
+    [documentComputation],
+  );
   useEffect(() => {
     let active = true;
     const engine = new BoardSyncEngine({
       ...(accessContext === undefined ? {} : { accessContext }),
       createIdempotencyKey: () => `client:${crypto.randomUUID()}`,
+      documentComputation,
       documentId,
       now: () => new Date().toISOString(),
       originId: collaborationOriginId(),
@@ -208,7 +219,7 @@ export function SyncedApp(props: SyncedAppProps) {
       active = false;
       engine.dispose();
     };
-  }, [accessContext, documentId, queue, repository]);
+  }, [accessContext, documentComputation, documentId, queue, repository]);
   if (
     runtime === null ||
     runtime.documentId !== documentId ||
@@ -220,6 +231,7 @@ export function SyncedApp(props: SyncedAppProps) {
   return (
     <SyncedWorkspace
       {...props}
+      documentComputation={documentComputation}
       engine={runtime.engine}
       key={runtime.key}
       state={state}
@@ -229,6 +241,7 @@ export function SyncedApp(props: SyncedAppProps) {
 
 function SyncedWorkspace({
   accessContext,
+  documentComputation,
   documentId,
   engine,
   state,
@@ -238,6 +251,7 @@ function SyncedWorkspace({
   refreshAccessContext,
   repository,
 }: SyncedAppProps & {
+  readonly documentComputation: BoardDocumentComputation;
   readonly engine: BoardSyncEngine;
   readonly state: BoardSyncState;
 }) {
@@ -676,7 +690,13 @@ function SyncedWorkspace({
     setEvidenceStatus("Фиксируем точную ревизию и создаём превью…");
     try {
       const context = await repository.context();
-      const actualSha256 = await boardDocumentSha256(evidenceDocument);
+      const hash = await documentComputation.sha256(evidenceDocument);
+      if (!hash.ok) {
+        throw new Error(
+          "Документ не прошёл проверку перед фиксацией ревизии.",
+        );
+      }
+      const actualSha256 = hash.sha256;
       if (actualSha256 !== evidenceSha256) {
         throw new Error(
           "Документ изменился относительно подтверждённой серверной ревизии.",
