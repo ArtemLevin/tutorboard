@@ -55,7 +55,8 @@ export const BoardRenderItemView = memo(function BoardRenderItemView({
 }: BoardRenderItemViewProps) {
   const visualScale = item.transforms.reduce(
     (scale, transform) =>
-      scale * Math.max(Math.abs(transform.scale.x), Math.abs(transform.scale.y)),
+      scale *
+      Math.max(Math.abs(transform.scale.x), Math.abs(transform.scale.y)),
     1,
   );
   return (

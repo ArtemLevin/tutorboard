@@ -199,10 +199,12 @@ export class RasterDecodeCache {
     if (entry === undefined) {
       let resolve!: (value: RasterDecodedImage) => void;
       let reject!: (error: Error) => void;
-      const promise = new Promise<RasterDecodedImage>((resolvePromise, rejectPromise) => {
-        resolve = resolvePromise;
-        reject = rejectPromise;
-      });
+      const promise = new Promise<RasterDecodedImage>(
+        (resolvePromise, rejectPromise) => {
+          resolve = resolvePromise;
+          reject = rejectPromise;
+        },
+      );
       entry = {
         bytes: 0,
         contentSha256: request.contentSha256,
