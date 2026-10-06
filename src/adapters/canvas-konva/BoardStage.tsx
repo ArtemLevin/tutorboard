@@ -318,7 +318,6 @@ function publishWetInkDiagnostics(
   root.dataset.wetInkSealedChunks = String(report.sealedChunkCount);
 }
 
-
 function publishRasterImageDiagnostics(
   root: HTMLDivElement,
   snapshot: RasterImageDiagnosticsSnapshot,

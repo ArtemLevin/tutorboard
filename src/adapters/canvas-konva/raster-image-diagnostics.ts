@@ -51,8 +51,7 @@ export class RasterImageDiagnostics {
     if (activeForHash > 0) {
       this.#snapshot = {
         ...this.#snapshot,
-        duplicateDecodeStartCount:
-          this.#snapshot.duplicateDecodeStartCount + 1,
+        duplicateDecodeStartCount: this.#snapshot.duplicateDecodeStartCount + 1,
       };
     }
     this.#activeHashes.set(contentSha256, activeForHash + 1);

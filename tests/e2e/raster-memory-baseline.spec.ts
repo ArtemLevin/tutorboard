@@ -4,8 +4,7 @@ import { PNG } from "pngjs";
 const rasterWidth = 4_096;
 const rasterHeight = 3_072;
 const rasterCount = 2;
-const expectedDecodedBytes =
-  rasterWidth * rasterHeight * 4 * rasterCount;
+const expectedDecodedBytes = rasterWidth * rasterHeight * 4 * rasterCount;
 
 function largeCompressiblePng(): Buffer {
   const png = new PNG({ height: rasterHeight, width: rasterWidth });
@@ -84,24 +83,19 @@ test("@smoke captures duplicate full-resolution decode baseline for large raster
       (await stage.getAttribute("data-raster-decode-started-count")) ?? "NaN",
     ),
     duplicateDecodeStartCount: Number(
-      (await stage.getAttribute(
-        "data-raster-duplicate-decode-start-count",
-      )) ?? "NaN",
+      (await stage.getAttribute("data-raster-duplicate-decode-start-count")) ??
+        "NaN",
     ),
     maxDecodeMs: Number(
       (await stage.getAttribute("data-raster-max-decode-ms")) ?? "NaN",
     ),
     peakEstimatedDecodedBytes: Number(
-      (await stage.getAttribute(
-        "data-raster-peak-estimated-decoded-bytes",
-      )) ?? "NaN",
+      (await stage.getAttribute("data-raster-peak-estimated-decoded-bytes")) ??
+        "NaN",
     ),
   };
   const longTaskEvidence = await page.evaluate(() => {
-    const stored: unknown = Reflect.get(
-      window,
-      "__tutorboardRasterLongTasks",
-    );
+    const stored: unknown = Reflect.get(window, "__tutorboardRasterLongTasks");
     const durations = Array.isArray(stored)
       ? stored.filter((value): value is number => typeof value === "number")
       : [];
