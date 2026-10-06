@@ -140,9 +140,9 @@ describe("RasterDecodeCache", () => {
     expect(decoder).toHaveBeenCalledTimes(2);
     resolvers[0]?.(resource(100, 100).value);
     await handles[0]!.promise;
-    await Promise.resolve();
-
-    expect(decoder).toHaveBeenCalledTimes(3);
+    await vi.waitFor(() => {
+      expect(decoder).toHaveBeenCalledTimes(3);
+    });
 
     resolvers[1]?.(resource(100, 100).value);
     resolvers[2]?.(resource(100, 100).value);
