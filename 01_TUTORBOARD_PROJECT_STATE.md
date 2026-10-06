@@ -242,9 +242,41 @@ GeometryOS live browser contract, Board-only frontend profile, Coordinate Plot
 production gate, Smart Ink, Formula Recognition и Paddle sidecar gates green.
 
 Persisted BoardDocument/schema, revision identity, undo/redo, collaboration
-ordering, media bytes и public contracts сохраняются. Следующие C3-направления:
-large-raster decode/memory, asset-backed media persistence и representative
-browser profiling больших embedded-media документов.
+ordering, media bytes и public contracts сохраняются.
+
+### 3.4. Large-raster memory baseline — 06.10.2026
+
+PR #179 (`perf/raster-memory-baseline`) добавляет измерительный слой перед
+изменением raster renderer. `RasterImageDiagnostics` отслеживает renderer
+decode lifecycle: start/complete/fail/release, duplicate concurrent decode,
+decode duration, active/peak decoded image count и estimated RGBA bytes.
+BoardStage публикует snapshot в diagnostic data attributes для browser tests.
+
+Production-like browser fixture создаёт два одинаковых PNG 4096×3072 с малым
+compressed payload и вставляет их обычным clipboard media flow. Persisted
+`image.embedded`, import limits, collaboration и rendering semantics этим
+блоком не меняются.
+
+Проверенный code-head `5051b0db0af4f7f4945088b11c2eec622ff07df0`
+прошёл CI run `37495639140`: 183/183 unit/integration files, 1003/1003 tests,
+10/10 performance files, 18/18 performance tests, architecture boundaries и
+production build. Chromium/Firefox smoke прошли по 29/29 scenarios; GeometryOS,
+Board-only и Coordinate Plot gates green. Smart Ink, Formula Recognition и
+Paddle sidecar gates green.
+
+Measured browser baseline для двух одинаковых 4096×3072 raster objects:
+
+- active/peak estimated decoded RGBA bytes: 100,663,296;
+- decode starts: 2;
+- duplicate concurrent decode starts для одного content SHA: 1;
+- Chromium max renderer decode: 1 ms; max frame gap: ~66.7 ms; Long Task:
+  68 ms;
+- Firefox max renderer decode: 13 ms; max frame gap: ~49.84 ms; engine не
+  предоставляет `longtask` PerformanceObserver entry type.
+
+Следующий C3-блок: bounded resolution-aware raster cache для PNG/JPEG с decode
+coalescing, concurrency control, LRU eviction и explicit bitmap release. После
+него — asset-backed media persistence по ADR-032.
 
 ---
 
