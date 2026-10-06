@@ -1,9 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import {
-  wetInkMutableTailSize,
-  wetInkSealedChunkSize,
-} from "../../src/adapters/canvas-konva/wet-ink-renderer.js";
+const maximumMutableWetInkTailPoints = 120;
 
 async function openBoardWithPen(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -183,7 +180,7 @@ test("@smoke sustained 240 Hz coalesced pen input drains backlog with bounded we
   expect(peakBacklog).toBeGreaterThanOrEqual(4);
   expect(lastBatchSize).toBeGreaterThan(0);
   expect(mutableTail).toBeLessThanOrEqual(
-    wetInkSealedChunkSize + wetInkMutableTailSize,
+    maximumMutableWetInkTailPoints,
   );
   expect(sealedChunks).toBeGreaterThan(0);
   expect(p95).toBeLessThan(100);
