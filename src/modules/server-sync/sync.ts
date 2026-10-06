@@ -110,7 +110,7 @@ async function currentBoardDocumentSha256(
   document: BoardDocument,
   computation?: BoardDocumentHasher,
 ): Promise<string> {
-  if (computation === undefined) return await currentBoardDocumentSha256(document, this.#documentComputation);
+  if (computation === undefined) return await boardDocumentSha256(document);
   const result = await computation.sha256(document);
   if (!result.ok) {
     throw new SyncRecoveryError(
