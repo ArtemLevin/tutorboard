@@ -64,6 +64,72 @@ function arrayBufferBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
   return copy;
 }
 
+function readUint32Be(bytes: Uint8Array, offset: number): number {
+  return (
+    bytes[offset]! * 0x1_00_00_00 +
+    bytes[offset + 1]! * 0x1_00_00 +
+    bytes[offset + 2]! * 0x1_00 +
+    bytes[offset + 3]!
+  );
+}
+
+export function rasterDimensionsFromBytes(
+  bytes: Uint8Array,
+  mimeType: "image/jpeg" | "image/png",
+): Size2 | null {
+  if (mimeType === "image/png") {
+    if (
+      bytes.length < 24 ||
+      !startsWith(bytes, [137, 80, 78, 71, 13, 10, 26, 10])
+    ) {
+      return null;
+    }
+    const width = readUint32Be(bytes, 16);
+    const height = readUint32Be(bytes, 20);
+    return width > 0 && height > 0 ? { height, width } : null;
+  }
+
+  if (bytes.length < 4 || !startsWith(bytes, [255, 216])) return null;
+  let offset = 2;
+  while (offset + 3 < bytes.length) {
+    if (bytes[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+    while (offset < bytes.length && bytes[offset] === 0xff) offset += 1;
+    if (offset >= bytes.length) break;
+    const marker = bytes[offset]!;
+    offset += 1;
+
+    if (
+      marker === 0x01 ||
+      marker === 0xd8 ||
+      marker === 0xd9 ||
+      (marker >= 0xd0 && marker <= 0xd7)
+    ) {
+      continue;
+    }
+    if (offset + 1 >= bytes.length) return null;
+    const segmentLength = bytes[offset]! * 0x100 + bytes[offset + 1]!;
+    if (segmentLength < 2 || offset + segmentLength > bytes.length) {
+      return null;
+    }
+    const startOfFrame =
+      (marker >= 0xc0 && marker <= 0xc3) ||
+      (marker >= 0xc5 && marker <= 0xc7) ||
+      (marker >= 0xc9 && marker <= 0xcb) ||
+      (marker >= 0xcd && marker <= 0xcf);
+    if (startOfFrame) {
+      if (segmentLength < 7) return null;
+      const height = bytes[offset + 3]! * 0x100 + bytes[offset + 4]!;
+      const width = bytes[offset + 5]! * 0x100 + bytes[offset + 6]!;
+      return width > 0 && height > 0 ? { height, width } : null;
+    }
+    offset += segmentLength;
+  }
+  return null;
+}
+
 export function imageMimeFromBytes(
   bytes: Uint8Array,
   textPrefix = "",
@@ -355,6 +421,15 @@ export async function prepareEmbeddedImageFile(
     }
     bytes = new TextEncoder().encode(sanitized.value.sanitizedSvg);
     intrinsicSize = sanitized.value.size;
+  } else if (mimeType === "image/png" || mimeType === "image/jpeg") {
+    const dimensions = rasterDimensionsFromBytes(bytes, mimeType);
+    if (dimensions === null) {
+      return error(
+        "image.decode-failed",
+        "Файл повреждён или браузер не смог определить размеры изображения.",
+      );
+    }
+    intrinsicSize = dimensions;
   } else {
     let temporaryDataUrl: string;
     try {
