@@ -136,6 +136,7 @@ export class LocalDocumentAutosave {
     // visibilitychange. Move the latest debounced document into the durable
     // save chain before rejecting future schedules.
     this.#enqueueLatest("lifecycle");
+    this.#promoteActiveSaveForLifecycle();
     this.#disposed = true;
   }
 
