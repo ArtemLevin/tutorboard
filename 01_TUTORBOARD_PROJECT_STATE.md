@@ -149,6 +149,35 @@ PR #132 остаётся отдельным параллельным PR и не 
 этого среза. Фактический interaction baseline определяется PR #133 и его
 проверенным diff.
 
+### 3.1. Active stroke latency — 06.10.2026
+
+После PR #175 dense-board rendering больше не пересобирает неизменённую
+committed scene на transient updates. Дополнительный root-cause review выявил
+оставшийся input/render feedback loop внутри текущего активного pen stroke:
+
+- coalesced hardware samples редуцировались по одному и каждый accepted sample
+  копировал накопленную immutable history;
+- Wet Ink повторно строил geometry по всей истории stroke на каждом animation
+  frame;
+- локальный pen preview одновременно проходил через React renderer и imperative
+  Wet Ink path.
+
+Draft PR #176 (`perf/active-stroke-latency`) переводит pen moves на один batch
+reducer update, исключает per-move React publication локального pen preview и
+рендерит Wet Ink как sealed chunks + bounded mutable tail. Continuation state
+сохраняет dash/wavy/sketch phase между chunks; collaboration preview получает
+imperative point deltas. BoardDocument 1.6, persisted pen representation,
+command/undo и completed-stroke Smart Ink input не изменяются.
+
+Production code-head `67c78ce7b1eeb7ef1213d7f43873522f4e28b0bc`
+прошёл Quality gate run `37466497150`: 181/181 test files, 990/990 tests,
+10/10 performance files и 18/18 performance tests, architecture boundaries и
+production build. На том же SHA Chromium и Firefox browser smoke прошли по
+28/28 scenarios; Board-only frontend profile, GeometryOS live browser contract
+и Coordinate Plot production gate также green. Финальный PR head дополнительно
+содержит только documentation/release-cleanup изменения и должен получить
+свежий CI перед переводом PR из draft.
+
 ---
 
 ## 4. CI/CD и release gates

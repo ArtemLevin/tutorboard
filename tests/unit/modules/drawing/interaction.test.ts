@@ -18,6 +18,7 @@ import {
   getDrawingConstraintFeedback,
   getDrawingPreview,
   reduceDrawingInteraction,
+  reduceDrawingInteractionBatch,
   simplifyStroke,
   type DrawingInteractionState,
   type DrawingToolId,
@@ -277,6 +278,80 @@ describe("drawing interaction state machine", () => {
       completed.completedObject.ink?.samples.map(({ pressure }) => pressure),
     ).toEqual([0.2, 0.9, 0.2]);
     expect(completed.completedObject.points).toContainEqual({ x: 50, y: 0 });
+  });
+
+  it("keeps batched pen moves equivalent to sequential reducer semantics", () => {
+    const started = reduceDrawingInteraction(idle, {
+      inputTimestampMs: 100,
+      kind: "start",
+      objectId: boardObjectId("object:batch-equivalence"),
+      point: { x: 1, y: 2 },
+      pointerId: 41,
+      pressure: 0.4,
+      style: styleFor("drawing.pen"),
+      text: "",
+      tool: "drawing.pen",
+    });
+    const actions = [
+      {
+        inputTimestampMs: 104,
+        kind: "move" as const,
+        point: { x: 2, y: 4 },
+        pointerId: 41,
+        pressure: 0.45,
+      },
+      {
+        inputTimestampMs: 108,
+        kind: "move" as const,
+        point: { x: 2, y: 4 },
+        pointerId: 41,
+        pressure: 0.451,
+      },
+      {
+        inputTimestampMs: 112,
+        kind: "move" as const,
+        point: { x: 3, y: 7 },
+        pointerId: 41,
+        pressure: 0.7,
+      },
+      {
+        inputTimestampMs: 116,
+        kind: "move" as const,
+        point: { x: Number.NaN, y: 8 },
+        pointerId: 41,
+        pressure: 0.8,
+      },
+      {
+        inputTimestampMs: 120,
+        kind: "move" as const,
+        point: { x: 5, y: 9 },
+        pointerId: 99,
+        pressure: 0.5,
+      },
+      {
+        inputTimestampMs: 124,
+        kind: "move" as const,
+        point: { x: 6, y: 10 },
+        pointerId: 41,
+        pressure: 0.55,
+      },
+    ];
+
+    let sequential = started;
+    for (const action of actions) {
+      sequential = reduceDrawingInteraction(sequential.state, action);
+    }
+    const batched = reduceDrawingInteractionBatch(started.state, actions);
+
+    expect(batched).toEqual(sequential);
+    expect(batched.state.kind).toBe("drawing-pen");
+    if (batched.state.kind !== "drawing-pen") return;
+    expect(batched.state.samples.map(({ point }) => point)).toEqual([
+      { x: 1, y: 2 },
+      { x: 2, y: 4 },
+      { x: 3, y: 7 },
+      { x: 6, y: 10 },
+    ]);
   });
 
   it("coalesces stationary pressure noise below the input deadband", () => {

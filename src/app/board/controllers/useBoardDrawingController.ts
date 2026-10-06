@@ -10,6 +10,7 @@ import {
   getDrawingConstraintFeedback,
   getDrawingPreview,
   reduceDrawingInteraction,
+  reduceDrawingInteractionBatch,
   type DrawingAction,
   type DrawingInteractionState,
   type DrawingToolId,
@@ -37,15 +38,28 @@ interface DrawingPointerSample {
   readonly pressure: number;
 }
 
+export interface DrawingInkPreviewChange {
+  readonly phase: "cancel" | "end" | "start" | "update";
+  readonly points?: readonly Vec2[];
+  readonly previewId: string;
+  readonly style?: {
+    readonly opacity: number;
+    readonly stroke: string;
+    readonly strokeWidth: number;
+  };
+}
+
 export interface UseBoardDrawingControllerOptions {
   readonly announce: (message: string) => void;
   readonly documentController: BoardDocumentController;
+  readonly onInkPreviewChange?: (preview: DrawingInkPreviewChange) => void;
   readonly onTextInserted: (objectId: BoardObjectId) => void;
 }
 
 export function useBoardDrawingController({
   announce,
   documentController,
+  onInkPreviewChange,
   onTextInserted,
 }: UseBoardDrawingControllerOptions) {
   const { commitCommand, createCommandMetadata, getDocument } =
@@ -55,10 +69,18 @@ export function useBoardDrawingController({
   const [diagnostic, setDiagnostic] = useState<string | null>(null);
   const [smartInkNotice, setSmartInkNotice] = useState<string | null>(null);
   const recentSmartInkObjectIdsRef = useRef<BoardObjectId[]>([]);
+  const onInkPreviewChangeRef = useRef(onInkPreviewChange);
   const [textDraft, setTextDraftState] = useState("Новый текст");
   const { styleFor, updateStyle } = useDrawingToolPreferences();
 
-  const preview = useMemo(() => getDrawingPreview(state), [state]);
+  useEffect(() => {
+    onInkPreviewChangeRef.current = onInkPreviewChange;
+  }, [onInkPreviewChange]);
+
+  const preview = useMemo(
+    () => (state.kind === "drawing-pen" ? null : getDrawingPreview(state)),
+    [state],
+  );
   const constraintFeedback = useMemo(
     () => getDrawingConstraintFeedback(state),
     [state],
@@ -102,11 +124,69 @@ export function useBoardDrawingController({
     [commitCommand, createCommandMetadata, getDocument],
   );
 
+  const publishPenPreviewTransition = useCallback(
+    (
+      previous: DrawingInteractionState,
+      next: DrawingInteractionState,
+      actionKind: DrawingAction["kind"],
+    ) => {
+      const publish = onInkPreviewChangeRef.current;
+      if (publish === undefined) return;
+
+      if (
+        previous.kind === "drawing-pen" &&
+        (next.kind !== "drawing-pen" || next.objectId !== previous.objectId)
+      ) {
+        publish({
+          phase: actionKind === "cancel" ? "cancel" : "end",
+          previewId: previous.objectId,
+        });
+      }
+
+      if (
+        next.kind === "drawing-pen" &&
+        (previous.kind !== "drawing-pen" || previous.objectId !== next.objectId)
+      ) {
+        publish({
+          phase: "start",
+          points: next.samples.slice(-64).map(({ point }) => point),
+          previewId: next.objectId,
+          style: {
+            opacity: next.style.opacity,
+            stroke: next.style.stroke ?? "#202020",
+            strokeWidth: next.style.strokeWidth,
+          },
+        });
+        return;
+      }
+
+      if (
+        previous.kind === "drawing-pen" &&
+        next.kind === "drawing-pen" &&
+        previous.objectId === next.objectId &&
+        next.samples.length > previous.samples.length
+      ) {
+        publish({
+          phase: "update",
+          points: next.samples
+            .slice(previous.samples.length)
+            .map(({ point }) => point),
+          previewId: next.objectId,
+        });
+      }
+    },
+    [],
+  );
+
   const applyAction = useCallback(
     (action: DrawingAction, requestSmartInk = false) => {
-      const result = reduceDrawingInteraction(stateRef.current, action);
+      const previous = stateRef.current;
+      const suppressPenMoveRender =
+        action.kind === "move" && previous.kind === "drawing-pen";
+      const result = reduceDrawingInteraction(previous, action);
       stateRef.current = result.state;
-      setState(result.state);
+      publishPenPreviewTransition(previous, result.state, action.kind);
+      if (!suppressPenMoveRender) setState(result.state);
       setDiagnostic(result.diagnostic);
       if (result.completedObject === null) return;
       const committed = commitObject(result.completedObject);
@@ -155,6 +235,7 @@ export function useBoardDrawingController({
       commitObject,
       createCommandMetadata,
       getDocument,
+      publishPenPreviewTransition,
     ],
   );
 
@@ -214,29 +295,32 @@ export function useBoardDrawingController({
     [applyAction],
   );
 
-  const moveBatch = useCallback((samples: readonly DrawingPointerSample[]) => {
-    let current = stateRef.current;
-    let latestDiagnostic: string | null = null;
-    for (const sample of samples) {
-      const result = reduceDrawingInteraction(current, {
-        kind: "move",
-        ...(sample.inputTimestampMs === undefined
-          ? {}
-          : { inputTimestampMs: sample.inputTimestampMs }),
-        ...(sample.modifiers === undefined
-          ? {}
-          : { modifiers: sample.modifiers }),
-        point: sample.point,
-        pointerId: sample.pointerId,
-        pressure: sample.pressure,
-      });
-      current = result.state;
-      latestDiagnostic = result.diagnostic;
-    }
-    stateRef.current = current;
-    setState(current);
-    setDiagnostic(latestDiagnostic);
-  }, []);
+  const moveBatch = useCallback(
+    (samples: readonly DrawingPointerSample[]) => {
+      if (samples.length === 0) return;
+      const previous = stateRef.current;
+      const result = reduceDrawingInteractionBatch(
+        previous,
+        samples.map((sample) => ({
+          kind: "move" as const,
+          ...(sample.inputTimestampMs === undefined
+            ? {}
+            : { inputTimestampMs: sample.inputTimestampMs }),
+          ...(sample.modifiers === undefined
+            ? {}
+            : { modifiers: sample.modifiers }),
+          point: sample.point,
+          pointerId: sample.pointerId,
+          pressure: sample.pressure,
+        })),
+      );
+      stateRef.current = result.state;
+      publishPenPreviewTransition(previous, result.state, "move");
+      if (previous.kind !== "drawing-pen") setState(result.state);
+      setDiagnostic(result.diagnostic);
+    },
+    [publishPenPreviewTransition],
+  );
 
   const finish = useCallback(
     (tool: DrawingToolId, sample: DrawingPointerSample) => {

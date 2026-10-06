@@ -31,7 +31,10 @@ import {
 } from "./board/active-tool";
 import { useBoardClipboardController } from "./board/controllers/useBoardClipboardController";
 import { useBoardDocumentController } from "./board/controllers/useBoardDocumentController";
-import { useBoardDrawingController } from "./board/controllers/useBoardDrawingController";
+import {
+  useBoardDrawingController,
+  type DrawingInkPreviewChange,
+} from "./board/controllers/useBoardDrawingController";
 import { useBoardEraserController } from "./board/controllers/useBoardEraserController";
 import { useBoardGeometryController } from "./board/controllers/useBoardGeometryController";
 import { useBoardHandwritingController } from "./board/controllers/useBoardHandwritingController";
@@ -230,7 +233,6 @@ export function App({
   const workspaceRef = useRef<HTMLElement>(null);
   const lastPointerWorldRef = useRef<Vec2 | null>(null);
   const localInkPreviewRef = useRef<{
-    readonly pointCount: number;
     readonly previewId: string;
   } | null>(null);
   const localTransformPreviewIdRef = useRef<string | null>(null);
@@ -288,56 +290,26 @@ export function App({
     },
     [selection],
   );
+  const publishInkPreview = useCallback((preview: DrawingInkPreviewChange) => {
+    onInkPreviewChangeRef.current?.(preview);
+    if (preview.phase === "start") {
+      localInkPreviewRef.current = { previewId: preview.previewId };
+      return;
+    }
+    if (
+      (preview.phase === "end" || preview.phase === "cancel") &&
+      localInkPreviewRef.current?.previewId === preview.previewId
+    ) {
+      localInkPreviewRef.current = null;
+    }
+  }, []);
+
   const drawing = useBoardDrawingController({
     announce,
     documentController,
+    onInkPreviewChange: publishInkPreview,
     onTextInserted: handleTextInserted,
   });
-
-  useEffect(() => {
-    const current = drawing.state;
-    const previous = localInkPreviewRef.current;
-    if (current.kind !== "drawing-pen") {
-      if (previous !== null) {
-        onInkPreviewChangeRef.current?.({
-          phase: "end",
-          previewId: previous.previewId,
-        });
-        localInkPreviewRef.current = null;
-      }
-      return;
-    }
-    const previewId = current.objectId;
-    const points = current.samples.map(({ point }) => point);
-    if (previous === null || previous.previewId !== previewId) {
-      if (previous !== null) {
-        onInkPreviewChangeRef.current?.({
-          phase: "cancel",
-          previewId: previous.previewId,
-        });
-      }
-      onInkPreviewChangeRef.current?.({
-        phase: "start",
-        points: points.slice(-64),
-        previewId,
-        style: {
-          opacity: current.style.opacity,
-          stroke: current.style.stroke ?? "#202020",
-          strokeWidth: current.style.strokeWidth,
-        },
-      });
-    } else if (points.length > previous.pointCount) {
-      onInkPreviewChangeRef.current?.({
-        phase: "update",
-        points: points.slice(previous.pointCount),
-        previewId,
-      });
-    }
-    localInkPreviewRef.current = {
-      pointCount: points.length,
-      previewId,
-    };
-  }, [drawing.state]);
 
   useEffect(
     () => () => {

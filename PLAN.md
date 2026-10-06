@@ -136,6 +136,24 @@ persistence ограничения:
 C3 целиком остаётся открытым до browser release evidence и следующих
 decode/storage блоков; PR #174 не изменяется этим исправлением.
 
+06.10.2026: следующий отдельный responsiveness block реализован в draft PR #176
+`perf/active-stroke-latency`. После PR #175 оставшийся hot path активного pen
+stroke включал per-sample immutable history copies, повторную генерацию всей Wet
+Ink geometry на каждом кадре и React publication локального pen preview.
+PR #176 переводит coalesced pointer moves на один batch reducer update, оставляет
+локальный pen/Smart Ink preview за imperative Wet Ink, а renderer использует
+sealed geometry chunks и bounded mutable tail с continuation phase для
+dash/wavy/sketch styles. Collaboration ink preview публикуется imperative delta
+callbacks без per-move React state.
+
+Проверенный production code-head `67c78ce7b1eeb7ef1213d7f43873522f4e28b0bc`
+прошёл Quality gate CI run `37466497150`: 990 unit/integration tests, 18
+performance tests, architecture boundaries и production build. Chromium и
+Firefox browser smoke на том же SHA прошли по 28 сценариев, включая новый
+coalesced 240 Hz stylus/burst regression; Board-only profile, GeometryOS live
+contract и Coordinate Plot production gate также green. C3 остаётся открытым
+для GIF repaint, large-raster decode/memory и embedded-byte persistence work.
+
 ## 1. Продуктовая цель
 
 TutorBoard разворачивается как самостоятельный продукт для преподавателя и
