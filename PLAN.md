@@ -203,6 +203,35 @@ asset-backed media persistence и representative browser profiling больши�
 embedded-media документов. Worker failure сохраняет inline fallback, persisted
 BoardDocument/schema/undo/collaboration contracts остаются совместимыми.
 
+06.10.2026: первый raster-memory блок A1 реализован в PR #179
+`perf/raster-memory-baseline`. Добавлена board-level instrumentation для
+renderer decode lifecycle: starts/completions/failures/releases, duplicate
+concurrent decode starts, decode duration, active/peak decoded count и estimated
+RGBA bytes. Диагностика публикуется через BoardStage data attributes и не меняет
+rendering/persistence contracts.
+
+Browser `@smoke` regression импортирует два одинаковых PNG 4096×3072 и
+фиксирует текущий full-resolution baseline. На code-head
+`5051b0db0af4f7f4945088b11c2eec622ff07df0` CI run `37495639140`
+прошёл Quality gate: 183/183 unit/integration files, 1003/1003 tests,
+10/10 performance files, 18/18 performance tests, architecture boundaries и
+production build. Chromium/Firefox browser smoke прошли по 29/29 scenarios.
+
+Измеренный baseline:
+- два одинаковых raster objects удерживают estimated 100,663,296 bytes decoded
+  RGBA working set;
+- renderer выполняет два decode start для одного content hash и фиксирует один
+  duplicate concurrent decode;
+- Chromium: max renderer decode 1 ms, max frame gap ~66.7 ms и один Long Task
+  68 ms;
+- Firefox: max renderer decode 13 ms, max frame gap ~49.84 ms; Long Task API в
+  данном engine unavailable.
+
+Следующий блок A2: bounded decoded-raster cache с coalesced decode по
+`contentSha256 + resolution bucket`, resolution-aware PNG/JPEG decoding,
+bounded concurrency, LRU eviction и explicit `ImageBitmap.close()`. GIF/SVG
+остаются на существующих путях.
+
 ## 1. Продуктовая цель
 
 TutorBoard разворачивается как самостоятельный продукт для преподавателя и
