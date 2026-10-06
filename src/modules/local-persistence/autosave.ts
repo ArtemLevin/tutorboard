@@ -52,9 +52,16 @@ export class LocalDocumentAutosave {
   readonly #now: () => string;
   readonly #onStateChange: (state: LocalAutosaveState) => void;
   readonly #repository: BoardDocumentRepository;
+  #activeInput: SaveBoardDocumentInput | null = null;
   #disposed = false;
   #inFlight: Promise<void> = Promise.resolve();
   #isSaving = false;
+  #lifecyclePromotion:
+    | {
+        readonly operationId: PersistenceOperationId;
+        readonly promise: Promise<void>;
+      }
+    | null = null;
   #lastFailedTask: SaveTask | null = null;
   #lastPersistedDocument: BoardDocument | null;
   #queuedDocument: BoardDocument | null = null;
@@ -104,7 +111,12 @@ export class LocalDocumentAutosave {
       this.#timer = null;
       this.#enqueueLatest(priority);
     }
+    if (priority === "lifecycle") {
+      this.#promoteActiveSaveForLifecycle();
+    }
+    const promotion = this.#lifecyclePromotion?.promise;
     await this.#inFlight;
+    if (promotion !== undefined) await promotion;
   }
 
   retry(): void {
@@ -186,7 +198,9 @@ export class LocalDocumentAutosave {
       priority: task.priority,
       savedAt: task.savedAt,
     };
+    this.#activeInput = input;
     const result = await this.#repository.save(input);
+    if (this.#activeInput === input) this.#activeInput = null;
     if (result.status === "saved") {
       this.#revisionId = result.revisionId;
       this.#lastPersistedDocument = task.document;
@@ -224,5 +238,27 @@ export class LocalDocumentAutosave {
       message: result.message,
       retryable: true,
     });
+  }
+
+  #promoteActiveSaveForLifecycle(): void {
+    const input = this.#activeInput;
+    if (input === null || input.priority === "lifecycle") return;
+    if (this.#lifecyclePromotion?.operationId === input.operationId) return;
+
+    const promotedInput: SaveBoardDocumentInput = {
+      ...input,
+      priority: "lifecycle",
+    };
+    // repository.save is intentionally invoked before this method returns.
+    // Dexie can therefore enter its durable path during pagehide even when the
+    // ordinary background save is still waiting for Worker serialization.
+    const promise = this.#repository
+      .save(promotedInput)
+      .then(() => undefined)
+      .catch(() => undefined);
+    this.#lifecyclePromotion = {
+      operationId: input.operationId,
+      promise,
+    };
   }
 }
