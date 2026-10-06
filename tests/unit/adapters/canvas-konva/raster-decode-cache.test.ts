@@ -143,17 +143,17 @@ describe("RasterDecodeCache", () => {
     resolvers[1]?.(resource(100, 100).value);
     resolvers[2]?.(resource(100, 100).value);
     await Promise.all(handles.map(({ promise }) => promise));
-    handles.forEach(({ release }) => release());
+    for (const handle of handles) handle.release();
   });
 
   it("closes least-recently-used zero-ref bitmaps when over budget", async () => {
     const created: ReturnType<typeof resource>[] = [];
     const cache = new RasterDecodeCache({
       budgetBytes: 40_000,
-      decoder: async (request) => {
+      decoder: (request) => {
         const item = resource(request.size.width, request.size.height);
         created.push(item);
-        return item.value;
+        return Promise.resolve(item.value);
       },
       diagnostics: new RasterImageDiagnostics(),
       maxConcurrent: 1,
