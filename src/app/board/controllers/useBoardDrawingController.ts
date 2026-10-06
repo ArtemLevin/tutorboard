@@ -38,15 +38,28 @@ interface DrawingPointerSample {
   readonly pressure: number;
 }
 
+export interface DrawingInkPreviewChange {
+  readonly phase: "cancel" | "end" | "start" | "update";
+  readonly points?: readonly Vec2[];
+  readonly previewId: string;
+  readonly style?: {
+    readonly opacity: number;
+    readonly stroke: string;
+    readonly strokeWidth: number;
+  };
+}
+
 export interface UseBoardDrawingControllerOptions {
   readonly announce: (message: string) => void;
   readonly documentController: BoardDocumentController;
+  readonly onInkPreviewChange?: (preview: DrawingInkPreviewChange) => void;
   readonly onTextInserted: (objectId: BoardObjectId) => void;
 }
 
 export function useBoardDrawingController({
   announce,
   documentController,
+  onInkPreviewChange,
   onTextInserted,
 }: UseBoardDrawingControllerOptions) {
   const { commitCommand, createCommandMetadata, getDocument } =
@@ -56,8 +69,13 @@ export function useBoardDrawingController({
   const [diagnostic, setDiagnostic] = useState<string | null>(null);
   const [smartInkNotice, setSmartInkNotice] = useState<string | null>(null);
   const recentSmartInkObjectIdsRef = useRef<BoardObjectId[]>([]);
+  const onInkPreviewChangeRef = useRef(onInkPreviewChange);
   const [textDraft, setTextDraftState] = useState("Новый текст");
   const { styleFor, updateStyle } = useDrawingToolPreferences();
+
+  useEffect(() => {
+    onInkPreviewChangeRef.current = onInkPreviewChange;
+  }, [onInkPreviewChange]);
 
   const preview = useMemo(
     () => (state.kind === "drawing-pen" ? null : getDrawingPreview(state)),
@@ -106,12 +124,69 @@ export function useBoardDrawingController({
     [commitCommand, createCommandMetadata, getDocument],
   );
 
+  const publishPenPreviewTransition = useCallback(
+    (
+      previous: DrawingInteractionState,
+      next: DrawingInteractionState,
+      actionKind: DrawingAction["kind"],
+    ) => {
+      const publish = onInkPreviewChangeRef.current;
+      if (publish === undefined) return;
+
+      if (
+        previous.kind === "drawing-pen" &&
+        (next.kind !== "drawing-pen" || next.objectId !== previous.objectId)
+      ) {
+        publish({
+          phase: actionKind === "start" ? "cancel" : "end",
+          previewId: previous.objectId,
+        });
+      }
+
+      if (
+        next.kind === "drawing-pen" &&
+        (previous.kind !== "drawing-pen" ||
+          previous.objectId !== next.objectId)
+      ) {
+        publish({
+          phase: "start",
+          points: next.samples.slice(-64).map(({ point }) => point),
+          previewId: next.objectId,
+          style: {
+            opacity: next.style.opacity,
+            stroke: next.style.stroke ?? "#202020",
+            strokeWidth: next.style.strokeWidth,
+          },
+        });
+        return;
+      }
+
+      if (
+        previous.kind === "drawing-pen" &&
+        next.kind === "drawing-pen" &&
+        previous.objectId === next.objectId &&
+        next.samples.length > previous.samples.length
+      ) {
+        publish({
+          phase: "update",
+          points: next.samples
+            .slice(previous.samples.length)
+            .map(({ point }) => point),
+          previewId: next.objectId,
+        });
+      }
+    },
+    [],
+  );
+
   const applyAction = useCallback(
     (action: DrawingAction, requestSmartInk = false) => {
+      const previous = stateRef.current;
       const suppressPenMoveRender =
-        action.kind === "move" && stateRef.current.kind === "drawing-pen";
-      const result = reduceDrawingInteraction(stateRef.current, action);
+        action.kind === "move" && previous.kind === "drawing-pen";
+      const result = reduceDrawingInteraction(previous, action);
       stateRef.current = result.state;
+      publishPenPreviewTransition(previous, result.state, action.kind);
       if (!suppressPenMoveRender) setState(result.state);
       setDiagnostic(result.diagnostic);
       if (result.completedObject === null) return;
@@ -161,6 +236,7 @@ export function useBoardDrawingController({
       commitObject,
       createCommandMetadata,
       getDocument,
+      publishPenPreviewTransition,
     ],
   );
 
@@ -239,9 +315,10 @@ export function useBoardDrawingController({
       })),
     );
     stateRef.current = result.state;
+    publishPenPreviewTransition(previous, result.state, "move");
     if (previous.kind !== "drawing-pen") setState(result.state);
     setDiagnostic(result.diagnostic);
-  }, []);
+  }, [publishPenPreviewTransition]);
 
   const finish = useCallback(
     (tool: DrawingToolId, sample: DrawingPointerSample) => {
