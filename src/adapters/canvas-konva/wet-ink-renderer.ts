@@ -489,16 +489,28 @@ export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
     mutableTailSamples = [];
     mutableTailDistanceOffset = 0;
     sealedChunkCount = 0;
-    syncPathPool(tailGroup, tailPaths, [], {
-      opacity: 1,
-      stroke: "#000000",
-      strokeWidth: 1,
-    }, 1);
-    syncPathPool(predictedGroup, predictedPaths, [], {
-      opacity: 1,
-      stroke: "#000000",
-      strokeWidth: 1,
-    }, 1);
+    syncPathPool(
+      tailGroup,
+      tailPaths,
+      [],
+      {
+        opacity: 1,
+        stroke: "#000000",
+        strokeWidth: 1,
+      },
+      1,
+    );
+    syncPathPool(
+      predictedGroup,
+      predictedPaths,
+      [],
+      {
+        opacity: 1,
+        stroke: "#000000",
+        strokeWidth: 1,
+      },
+      1,
+    );
     actualDot.visible(false);
   };
 
