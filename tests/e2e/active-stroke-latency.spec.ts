@@ -11,7 +11,10 @@ async function openBoardWithPen(page: Page): Promise<void> {
     Reflect.set(window, "__tutorboardLongTaskSupported", supported);
     if (supported) {
       const observer = new PerformanceObserver((list) => {
-        const entries = Reflect.get(window, "__tutorboardLongTasks") as number[];
+        const entries = Reflect.get(
+          window,
+          "__tutorboardLongTasks",
+        ) as number[];
         for (const entry of list.getEntries()) entries.push(entry.duration);
       });
       observer.observe({ type: "longtask", buffered: true });
