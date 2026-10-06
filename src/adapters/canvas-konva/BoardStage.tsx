@@ -412,6 +412,7 @@ export function BoardStage({
   const wetInkLayerRef = useRef<Konva.Layer>(null);
   const wetInkRendererRef = useRef<WetInkRenderer | null>(null);
   const pendingWorldPointerMovesRef = useRef<WorldPointerSample[]>([]);
+  const worldPointerBacklogPeakRef = useRef(0);
   const worldPointerMoveFrameRef = useRef<number | null>(null);
   const panSessionRef = useRef<PanSession | null>(null);
   const drawingSessionRef = useRef<DrawingSession | null>(null);
@@ -476,20 +477,35 @@ export function BoardStage({
         root.dataset.wetInkPredictedPoints = "0";
       },
       onFrame: (report) => {
+        root.dataset.wetInkActualBatchPoints = String(
+          report.actualBatchPointCount,
+        );
         root.dataset.wetInkActualPoints = String(report.actualPointCount);
         root.dataset.wetInkFrameCount = String(report.frameCount);
+        root.dataset.wetInkGeneratedSamples = String(
+          report.generatedActualSampleCount,
+        );
         root.dataset.wetInkLatencyCount = String(report.latency.count);
         root.dataset.wetInkLatencyLastMs = report.latency.lastMs.toFixed(2);
         root.dataset.wetInkLatencyMeanMs = report.latency.meanMs.toFixed(2);
         root.dataset.wetInkLatencyP95Ms = report.latency.p95Ms.toFixed(2);
+        root.dataset.wetInkMutableTailPoints = String(
+          report.mutableTailPointCount,
+        );
+        root.dataset.wetInkPendingInputCount = String(report.pendingInputCount);
         root.dataset.wetInkPredictedPoints = String(report.predictedPointCount);
+        root.dataset.wetInkSealedChunks = String(report.sealedChunkCount);
       },
     });
     wetInkRendererRef.current = renderer;
     root.dataset.wetInkActive = "false";
     root.dataset.wetInkFrameCount = "0";
+    root.dataset.wetInkGeneratedSamples = "0";
     root.dataset.wetInkLatencyCount = "0";
     root.dataset.wetInkLayer = "ready";
+    root.dataset.wetInkMutableTailPoints = "0";
+    root.dataset.wetInkPendingInputCount = "0";
+    root.dataset.wetInkSealedChunks = "0";
     return () => {
       renderer.destroy();
       if (wetInkRendererRef.current === renderer) {
@@ -751,6 +767,11 @@ export function BoardStage({
     }
     const samples = pendingWorldPointerMovesRef.current;
     pendingWorldPointerMovesRef.current = [];
+    const root = rootRef.current;
+    if (root !== null) {
+      root.dataset.pointerBacklog = "0";
+      root.dataset.pointerLastBatchSize = String(samples.length);
+    }
     if (samples.length === 0) return;
     const batch = worldPointerCallbacksRef.current.batch;
     if (batch !== undefined) {
@@ -766,6 +787,18 @@ export function BoardStage({
     (samples: readonly WorldPointerSample[]) => {
       if (samples.length === 0) return;
       pendingWorldPointerMovesRef.current.push(...samples);
+      const backlog = pendingWorldPointerMovesRef.current.length;
+      worldPointerBacklogPeakRef.current = Math.max(
+        worldPointerBacklogPeakRef.current,
+        backlog,
+      );
+      const root = rootRef.current;
+      if (root !== null) {
+        root.dataset.pointerBacklog = String(backlog);
+        root.dataset.pointerBacklogPeak = String(
+          worldPointerBacklogPeakRef.current,
+        );
+      }
       if (worldPointerMoveFrameRef.current !== null) return;
       worldPointerMoveFrameRef.current = requestAnimationFrame(() => {
         flushWorldPointerMoves();
@@ -1659,6 +1692,12 @@ export function BoardStage({
       };
       drawingSessionRef.current = session;
       setIsDrawing(true);
+      worldPointerBacklogPeakRef.current = 0;
+      if (rootRef.current !== null) {
+        rootRef.current.dataset.pointerBacklog = "0";
+        rootRef.current.dataset.pointerBacklogPeak = "0";
+        rootRef.current.dataset.pointerLastBatchSize = "0";
+      }
       const startSample = worldSample(event.evt, session);
       if (wetInkStyle !== null) {
         rootRef.current?.setAttribute("data-wet-ink-active", "true");
