@@ -138,7 +138,7 @@ async function dispatchCoalescedStroke(
 test(
   "@smoke sustained 240 Hz coalesced pen input drains backlog with bounded wet ink tail",
   async ({ page }) => {
-      await openBoardWithPen(page);
+    await openBoardWithPen(page);
     const { pointerId, start } = await startStroke(page);
     const stage = page.getByTestId("board-stage");
 
@@ -179,9 +179,7 @@ test(
 
     expect(peakBacklog).toBeGreaterThanOrEqual(4);
     expect(lastBatchSize).toBeGreaterThan(0);
-    expect(mutableTail).toBeLessThanOrEqual(
-      maximumMutableWetInkTailPoints,
-    );
+    expect(mutableTail).toBeLessThanOrEqual(maximumMutableWetInkTailPoints);
     expect(sealedChunks).toBeGreaterThan(0);
     expect(p95).toBeLessThan(100);
     expect(maxFrameGap).toBeLessThan(150);
