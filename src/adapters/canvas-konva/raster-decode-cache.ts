@@ -116,6 +116,26 @@ export function resolveRasterDecodeSize({
   };
 }
 
+function embeddedDataUrlBlob(dataUrl: string): Blob {
+  const commaIndex = dataUrl.indexOf(",");
+  if (commaIndex < 0) {
+    throw new Error("Embedded raster data URL is malformed.");
+  }
+  const metadata = dataUrl.slice(5, commaIndex);
+  const payload = dataUrl.slice(commaIndex + 1);
+  const parts = metadata.split(";");
+  const mimeType = parts[0] ?? "application/octet-stream";
+  if (!parts.includes("base64")) {
+    throw new Error("Embedded raster data URL must be base64 encoded.");
+  }
+  const binary = atob(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: mimeType });
+}
+
 function decodeHtmlImage(dataUrl: string): Promise<RasterBitmapResource> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -139,11 +159,7 @@ async function decodeRasterBitmap(
   request: RasterDecodeRequest,
 ): Promise<RasterBitmapResource> {
   try {
-    const response = await fetch(request.dataUrl);
-    if (!response.ok) {
-      throw new Error(`Raster source fetch failed: ${response.status}`);
-    }
-    const blob = await response.blob();
+    const blob = embeddedDataUrlBlob(request.dataUrl);
     const bitmap = await createImageBitmap(blob, {
       resizeHeight: request.size.height,
       resizeQuality: "high",
