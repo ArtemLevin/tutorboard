@@ -10,6 +10,7 @@ export const defaultRasterDecodeConcurrency = 2;
 const minimumRasterBucketPixels = 64;
 
 export interface RasterDecodeSizeInput {
+  readonly ancestorScale?: number | undefined;
   readonly devicePixelRatio: number;
   readonly displaySize: Size2;
   readonly intrinsicSize: Size2;
@@ -79,6 +80,7 @@ function nextPowerOfTwo(value: number): number {
 }
 
 export function resolveRasterDecodeSize({
+  ancestorScale = 1,
   devicePixelRatio,
   displaySize,
   intrinsicSize,
@@ -91,11 +93,13 @@ export function resolveRasterDecodeSize({
   const effectiveWidth =
     displaySize.width *
     Math.max(0, Math.abs(objectScale.x)) *
+    Math.max(0, ancestorScale) *
     Math.max(0, zoom) *
     Math.max(1, devicePixelRatio);
   const effectiveHeight =
     displaySize.height *
     Math.max(0, Math.abs(objectScale.y)) *
+    Math.max(0, ancestorScale) *
     Math.max(0, zoom) *
     Math.max(1, devicePixelRatio);
   const desiredMax = Math.max(
