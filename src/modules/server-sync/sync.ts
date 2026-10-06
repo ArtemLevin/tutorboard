@@ -229,11 +229,14 @@ async function applyRemoteBatches(
       document = applyCommand(document, command);
     }
     const sha256 = await currentBoardDocumentSha256(document, computation);
-    const transportSha256 = await digestForEnvelope(
-      document,
-      batch.envelope.schemaVersion,
-      computation,
-    );
+    const transportSha256 =
+      batch.envelope.schemaVersion === "1.7"
+        ? sha256
+        : await digestForEnvelope(
+            document,
+            batch.envelope.schemaVersion,
+            computation,
+          );
     if (transportSha256 !== batch.envelope.expectedDocumentSha256) {
       throw new SyncRecoveryError(
         "board.sync.sha-mismatch",
@@ -840,11 +843,14 @@ export class BoardSyncEngine {
           recovery.snapshot.document,
           this.#documentComputation,
         );
-        const transportSha256 = await digestForSnapshot(
-          recovery.snapshot.document,
-          recovery.snapshot.schemaVersion,
-          this.#documentComputation,
-        );
+        const transportSha256 =
+          recovery.snapshot.schemaVersion === "1.6"
+            ? sha256
+            : await digestForSnapshot(
+                recovery.snapshot.document,
+                recovery.snapshot.schemaVersion,
+                this.#documentComputation,
+              );
         if (transportSha256 !== recovery.snapshot.documentSha256) {
           throw new SyncRecoveryError(
             "board.sync.snapshot-sha-mismatch",
@@ -869,16 +875,20 @@ export class BoardSyncEngine {
         const lastBatch = recovery.commandBatches.at(-1);
         const serverHeadSha256 =
           lastBatch === undefined
-            ? await digestForSnapshot(
-                head.document,
-                recovery.snapshot.schemaVersion,
-                this.#documentComputation,
-              )
-            : await digestForEnvelope(
-                head.document,
-                lastBatch.envelope.schemaVersion,
-                this.#documentComputation,
-              );
+            ? recovery.snapshot.schemaVersion === "1.6"
+              ? head.sha256
+              : await digestForSnapshot(
+                  head.document,
+                  recovery.snapshot.schemaVersion,
+                  this.#documentComputation,
+                )
+            : lastBatch.envelope.schemaVersion === "1.7"
+              ? head.sha256
+              : await digestForEnvelope(
+                  head.document,
+                  lastBatch.envelope.schemaVersion,
+                  this.#documentComputation,
+                );
         if (serverHeadSha256 !== recovery.board.currentDocumentSha256) {
           throw new SyncRecoveryError(
             "board.sync.head-sha-mismatch",
