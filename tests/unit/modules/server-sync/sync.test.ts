@@ -378,6 +378,29 @@ beforeEach(() => {
 });
 
 describe("BoardSyncEngine", () => {
+  it("uses the injected document hasher for current-schema sync work", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const repository = new FakeRepository();
+    const sha256 = vi.fn(() =>
+      Promise.resolve({ ok: true as const, sha256: "c".repeat(64) }),
+    );
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => "unused",
+      documentComputation: { sha256 },
+      documentId: expectedDocumentId,
+      now: () => "2026-07-28T18:01:00.000Z",
+      onStateChange: () => undefined,
+      queue: new MemoryQueue(),
+      repository,
+    });
+
+    await engine.bootstrap();
+
+    expect(sha256).toHaveBeenCalled();
+    expect(repository.snapshots[0]?.sha256).toBe("c".repeat(64));
+    engine.dispose();
+  });
+
   it("accepts a legacy 1.4 snapshot digest after migrating the document to 1.5", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     const repository = new FakeRepository();
