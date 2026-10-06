@@ -4,6 +4,24 @@ const maximumMutableWetInkTailPoints = 120;
 
 async function openBoardWithPen(page: Page): Promise<void> {
   await page.addInitScript(() => {
+    Reflect.set(window, "__tutorboardLongTasks", []);
+    const supported =
+      typeof PerformanceObserver !== "undefined" &&
+      PerformanceObserver.supportedEntryTypes?.includes("longtask") === true;
+    Reflect.set(window, "__tutorboardLongTaskSupported", supported);
+    if (supported) {
+      const observer = new PerformanceObserver((list) => {
+        const storedEntries: unknown = Reflect.get(
+          window,
+          "__tutorboardLongTasks",
+        );
+        if (!Array.isArray(storedEntries)) return;
+        for (const entry of list.getEntries())
+          storedEntries.push(entry.duration);
+      });
+      observer.observe({ type: "longtask", buffered: true });
+      Reflect.set(window, "__tutorboardLongTaskObserver", observer);
+    }
     window.addEventListener(
       "pointerdown",
       (event) => {
@@ -142,6 +160,11 @@ test("@smoke sustained 240 Hz coalesced pen input drains backlog with bounded we
   const { pointerId, start } = await startStroke(page);
   const stage = page.getByTestId("board-stage");
 
+  await page.evaluate(() => {
+    const entries: unknown = Reflect.get(window, "__tutorboardLongTasks");
+    if (Array.isArray(entries)) entries.length = 0;
+  });
+
   await dispatchCoalescedStroke(page, {
     frames: 90,
     pointerId,
@@ -176,6 +199,24 @@ test("@smoke sustained 240 Hz coalesced pen input drains backlog with bounded we
   const sealedChunks = Number(
     (await stage.getAttribute("data-wet-ink-sealed-chunks")) ?? "NaN",
   );
+  const frameCount = Number(
+    (await stage.getAttribute("data-wet-ink-frame-count")) ?? "NaN",
+  );
+  const diagnosticPublishCount = Number(
+    (await stage.getAttribute("data-wet-ink-diagnostic-publish-count")) ??
+      "NaN",
+  );
+  const longTaskEvidence = await page.evaluate(() => {
+    const entries: unknown = Reflect.get(window, "__tutorboardLongTasks");
+    const durations = Array.isArray(entries)
+      ? entries.filter((value): value is number => typeof value === "number")
+      : [];
+    return {
+      count: durations.length,
+      maxMs: durations.length === 0 ? 0 : Math.max(...durations),
+      supported: Reflect.get(window, "__tutorboardLongTaskSupported") === true,
+    };
+  });
 
   expect(peakBacklog).toBeGreaterThanOrEqual(4);
   expect(lastBatchSize).toBeGreaterThan(0);
@@ -183,6 +224,12 @@ test("@smoke sustained 240 Hz coalesced pen input drains backlog with bounded we
   expect(sealedChunks).toBeGreaterThan(0);
   expect(p95).toBeLessThan(100);
   expect(maxFrameGap).toBeLessThan(150);
+  expect(frameCount).toBeGreaterThan(30);
+  expect(diagnosticPublishCount).toBeLessThan(frameCount / 3);
+  if (longTaskEvidence.supported) {
+    expect(longTaskEvidence.count).toBeLessThanOrEqual(4);
+    expect(longTaskEvidence.maxMs).toBeLessThan(200);
+  }
 
   await page.mouse.up();
 });

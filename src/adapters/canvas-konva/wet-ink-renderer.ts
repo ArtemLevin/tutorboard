@@ -14,6 +14,7 @@ import {
 export const maximumWetInkActualPoints = 100_000;
 export const maximumWetInkPredictedPoints = 64;
 export const wetInkLatencyWindowSize = 240;
+export const wetInkLatencyPercentileRefreshMs = 500;
 export const wetInkSealedChunkSize = 96;
 export const wetInkMutableTailSize = 24;
 
@@ -119,6 +120,8 @@ export class WetInkLatencyTracker {
   private maxMs = 0;
   private sumMs = 0;
   private readonly window: number[] = [];
+  private p95Ms = 0;
+  private lastPercentileRefreshAtMs = Number.NEGATIVE_INFINITY;
 
   record(
     inputTimestampsMs: readonly number[],
@@ -139,16 +142,28 @@ export class WetInkLatencyTracker {
         this.window.splice(0, this.window.length - wetInkLatencyWindowSize);
       }
     }
-    return this.snapshot();
+    if (
+      renderedAtMs - this.lastPercentileRefreshAtMs >=
+      wetInkLatencyPercentileRefreshMs
+    ) {
+      this.p95Ms = percentile95(this.window);
+      this.lastPercentileRefreshAtMs = renderedAtMs;
+    }
+    return this.cachedSnapshot();
   }
 
   snapshot(): WetInkLatencySnapshot {
+    this.p95Ms = percentile95(this.window);
+    return this.cachedSnapshot();
+  }
+
+  private cachedSnapshot(): WetInkLatencySnapshot {
     return {
       count: this.count,
       lastMs: this.lastMs,
       maxMs: this.maxMs,
       meanMs: this.count === 0 ? 0 : this.sumMs / this.count,
-      p95Ms: percentile95(this.window),
+      p95Ms: this.p95Ms,
     };
   }
 }

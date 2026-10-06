@@ -10,6 +10,7 @@ import {
   createKonvaWetInkSurface,
   wetInkMutableTailSize,
   wetInkSealedChunkSize,
+  WetInkLatencyTracker,
   WetInkRenderer,
   type WetInkFrame,
   type WetInkFrameClock,
@@ -213,6 +214,15 @@ describe("WetInkRenderer", () => {
     expect(clock.pending()).toBe(0);
     renderer.destroy();
     expect(surface.destroyed).toBe(true);
+  });
+
+  it("amortizes percentile sorting while retaining exact on-demand snapshots", () => {
+    const tracker = new WetInkLatencyTracker();
+
+    expect(tracker.record([90], 100).p95Ms).toBe(10);
+    expect(tracker.record([100], 200).p95Ms).toBe(10);
+    expect(tracker.snapshot().p95Ms).toBe(100);
+    expect(tracker.record([690], 700).p95Ms).toBe(100);
   });
 
   it("reports deterministic input-to-render latency statistics", () => {

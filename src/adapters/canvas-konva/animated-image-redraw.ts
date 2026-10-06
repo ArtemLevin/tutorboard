@@ -19,6 +19,10 @@ const browserFrameScheduler: AnimationFrameScheduler = {
   request: (callback) => window.requestAnimationFrame(callback),
 };
 
+export const interactiveAnimatedImageFps = 24;
+const interactiveAnimatedImageFrameIntervalMs =
+  1_000 / interactiveAnimatedImageFps;
+
 /** Each board owns one loop; GIFs keep their original z-order and Layer. */
 export class AnimatedImageRedrawCoordinator {
   readonly #registrations = new Set<() => AnimatedImageLayer | null>();
@@ -26,6 +30,8 @@ export class AnimatedImageRedrawCoordinator {
   readonly #visibility: AnimationVisibility | null;
   #frameId: number | null = null;
   #epoch = 0;
+  #interactionActive = false;
+  #lastDrawAtMs = Number.NEGATIVE_INFINITY;
 
   constructor(
     scheduler: AnimationFrameScheduler = browserFrameScheduler,
@@ -56,12 +62,26 @@ export class AnimatedImageRedrawCoordinator {
 
   dispose(): void {
     this.#registrations.clear();
+    this.#interactionActive = false;
+    this.#lastDrawAtMs = Number.NEGATIVE_INFINITY;
     this.#stop();
   }
 
+  setInteractionActive(active: boolean): void {
+    if (this.#interactionActive === active) return;
+    this.#interactionActive = active;
+    if (!active) {
+      this.#lastDrawAtMs = Number.NEGATIVE_INFINITY;
+    }
+  }
+
   readonly #onVisibilityChange = () => {
-    if (this.#visibility?.hidden === true) this.#cancelFrame();
-    else this.#schedule();
+    if (this.#visibility?.hidden === true) {
+      this.#cancelFrame();
+      return;
+    }
+    this.#lastDrawAtMs = Number.NEGATIVE_INFINITY;
+    this.#schedule();
   };
 
   #cancelFrame(): void {
@@ -86,15 +106,22 @@ export class AnimatedImageRedrawCoordinator {
     )
       return;
     const epoch = this.#epoch;
-    this.#frameId = this.#scheduler.request(() => {
+    this.#frameId = this.#scheduler.request((timestampMs) => {
       if (epoch !== this.#epoch) return;
       this.#frameId = null;
-      const layers = new Set<AnimatedImageLayer>();
-      for (const readLayer of this.#registrations) {
-        const layer = readLayer();
-        if (layer !== null) layers.add(layer);
+      const shouldDraw =
+        !this.#interactionActive ||
+        timestampMs - this.#lastDrawAtMs >=
+          interactiveAnimatedImageFrameIntervalMs;
+      if (shouldDraw) {
+        const layers = new Set<AnimatedImageLayer>();
+        for (const readLayer of this.#registrations) {
+          const layer = readLayer();
+          if (layer !== null) layers.add(layer);
+        }
+        for (const layer of layers) layer.batchDraw();
+        this.#lastDrawAtMs = timestampMs;
       }
-      for (const layer of layers) layer.batchDraw();
       this.#schedule();
     });
   }
