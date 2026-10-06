@@ -80,7 +80,12 @@ export function rasterDimensionsFromBytes(
   if (mimeType === "image/png") {
     if (
       bytes.length < 24 ||
-      !startsWith(bytes, [137, 80, 78, 71, 13, 10, 26, 10])
+      !startsWith(bytes, [137, 80, 78, 71, 13, 10, 26, 10]) ||
+      readUint32Be(bytes, 8) !== 13 ||
+      bytes[12] !== 73 ||
+      bytes[13] !== 72 ||
+      bytes[14] !== 68 ||
+      bytes[15] !== 82
     ) {
       return null;
     }
