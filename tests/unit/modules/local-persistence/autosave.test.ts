@@ -190,7 +190,8 @@ describe("LocalDocumentAutosave", () => {
     vi.useFakeTimers();
     const repository = new BlockingRepository();
     const autosave = new LocalDocumentAutosave({
-      createOperationId: () => persistenceOperationId("operation:dispose-promoted"),
+      createOperationId: () =>
+        persistenceOperationId("operation:dispose-promoted"),
       debounceMs: 10,
       initialRevisionId: null,
       now: () => "2026-07-24T08:00:00.000Z",
