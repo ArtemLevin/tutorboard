@@ -6,7 +6,22 @@ const expectedDecodedBytes = rasterWidth * rasterHeight * 4 * rasterCount;
 
 async function installLongTaskObserver(page: Page): Promise<void> {
   await page.addInitScript(() => {
+    Reflect.set(window, "__tutorboardRasterFrameGaps", []);
     Reflect.set(window, "__tutorboardRasterLongTasks", []);
+    let previousFrameAt = performance.now();
+    const captureFrameGap = (now: number) => {
+      const stored: unknown = Reflect.get(
+        window,
+        "__tutorboardRasterFrameGaps",
+      );
+      if (Array.isArray(stored)) {
+        stored.push(Math.max(0, now - previousFrameAt));
+        if (stored.length > 600) stored.shift();
+      }
+      previousFrameAt = now;
+      requestAnimationFrame(captureFrameGap);
+    };
+    requestAnimationFrame(captureFrameGap);
     const supported =
       typeof PerformanceObserver !== "undefined" &&
       PerformanceObserver.supportedEntryTypes?.includes("longtask") === true;
@@ -56,6 +71,11 @@ test("@smoke captures duplicate full-resolution decode baseline for large raster
       canvas.height = 1;
       canvas.width = 1;
 
+      const frameGaps: unknown = Reflect.get(
+        window,
+        "__tutorboardRasterFrameGaps",
+      );
+      if (Array.isArray(frameGaps)) frameGaps.length = 0;
       const longTasks: unknown = Reflect.get(
         window,
         "__tutorboardRasterLongTasks",
@@ -123,16 +143,35 @@ test("@smoke captures duplicate full-resolution decode baseline for large raster
         "NaN",
     ),
   };
-  const longTaskEvidence = await page.evaluate(() => {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  const browserEvidence = await page.evaluate(() => {
+    const rawFrameGaps: unknown = Reflect.get(
+      window,
+      "__tutorboardRasterFrameGaps",
+    );
+    const frameGaps = Array.isArray(rawFrameGaps)
+      ? rawFrameGaps.filter(
+          (value): value is number => typeof value === "number",
+        )
+      : [];
     const stored: unknown = Reflect.get(window, "__tutorboardRasterLongTasks");
     const durations = Array.isArray(stored)
       ? stored.filter((value): value is number => typeof value === "number")
       : [];
     return {
-      count: durations.length,
-      maxMs: durations.length === 0 ? 0 : Math.max(...durations),
-      supported:
-        Reflect.get(window, "__tutorboardRasterLongTaskSupported") === true,
+      frameGapCount: frameGaps.length,
+      maxFrameGapMs: frameGaps.length === 0 ? 0 : Math.max(...frameGaps),
+      longTasks: {
+        count: durations.length,
+        maxMs: durations.length === 0 ? 0 : Math.max(...durations),
+        supported:
+          Reflect.get(window, "__tutorboardRasterLongTaskSupported") === true,
+      },
     };
   });
 
@@ -146,13 +185,15 @@ test("@smoke captures duplicate full-resolution decode baseline for large raster
     expectedDecodedBytes,
   );
   expect(metrics.maxDecodeMs).toBeGreaterThanOrEqual(0);
+  expect(browserEvidence.frameGapCount).toBeGreaterThan(0);
+  expect(browserEvidence.maxFrameGapMs).toBeGreaterThanOrEqual(0);
 
   console.info(
     "RASTER_MEMORY_BASELINE",
     JSON.stringify({
       ...metrics,
       expectedDecodedBytes,
-      longTaskEvidence,
+      browserEvidence,
       rasterCount,
       rasterHeight,
       rasterWidth,
