@@ -5,19 +5,59 @@ import { Group, Image as KonvaImage, Rect } from "react-konva";
 import type { EmbeddedImageObject } from "../../core/public";
 import { startAnimatedImageRedraw } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
+import {
+  rasterDecodeCache,
+  resolveRasterDecodeSize,
+} from "./raster-decode-cache";
 import { rasterImageDiagnostics } from "./raster-image-diagnostics";
 
 export function EmbeddedImageRenderer({
   object,
+  zoom,
 }: {
   readonly object: EmbeddedImageObject;
+  readonly zoom: number;
 }) {
-  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [image, setImage] = useState<CanvasImageSource | null>(null);
   const [failed, setFailed] = useState(false);
   const imageRef = useRef<Konva.Image>(null);
   const redrawCoordinator = useContext(AnimatedImageRedrawContext);
 
   useEffect(() => {
+    const staticRaster =
+      object.mimeType === "image/png" || object.mimeType === "image/jpeg";
+    if (staticRaster && typeof createImageBitmap === "function") {
+      const size = resolveRasterDecodeSize({
+        devicePixelRatio:
+          typeof window === "undefined" ? 1 : window.devicePixelRatio,
+        displaySize: object.size,
+        intrinsicSize: object.intrinsicSize,
+        objectScale: object.scale,
+        zoom,
+      });
+      const handle = rasterDecodeCache.acquire({
+        contentSha256: object.contentSha256,
+        dataUrl: object.dataUrl,
+        size,
+      });
+      let active = true;
+      void handle.promise
+        .then(({ image: bitmap }) => {
+          if (!active) return;
+          setFailed(false);
+          setImage(bitmap);
+        })
+        .catch(() => {
+          if (!active) return;
+          setFailed(true);
+          setImage(null);
+        });
+      return () => {
+        active = false;
+        handle.release();
+      };
+    }
+
     const element = new Image();
     const sessionId = rasterImageDiagnostics.begin(
       object.contentSha256,
@@ -48,7 +88,15 @@ export function EmbeddedImageRenderer({
       rasterImageDiagnostics.release(sessionId);
       element.src = "";
     };
-  }, [object.contentSha256, object.dataUrl]);
+  }, [
+    object.contentSha256,
+    object.dataUrl,
+    object.intrinsicSize,
+    object.mimeType,
+    object.scale,
+    object.size,
+    zoom,
+  ]);
 
   useEffect(() => {
     if (object.mimeType !== "image/gif" || image === null) {
