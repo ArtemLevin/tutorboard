@@ -26,9 +26,16 @@ export interface RasterDecodeRequest {
   readonly size: Size2;
 }
 
+export interface RasterBitmapResource {
+  readonly height: number;
+  readonly image: CanvasImageSource;
+  readonly width: number;
+  close(): void;
+}
+
 export interface RasterDecodedImage {
   readonly height: number;
-  readonly image: ImageBitmap;
+  readonly image: CanvasImageSource;
   readonly width: number;
 }
 
@@ -39,7 +46,7 @@ export interface RasterDecodeHandle {
 
 export type RasterBitmapDecoder = (
   request: RasterDecodeRequest,
-) => Promise<ImageBitmap>;
+) => Promise<RasterBitmapResource>;
 
 interface RasterDecodeCacheOptions {
   readonly budgetBytes?: number;
@@ -58,7 +65,7 @@ interface CacheEntry {
   readonly resolve: (value: RasterDecodedImage) => void;
   readonly size: Size2;
   bytes: number;
-  image: ImageBitmap | null;
+  resource: RasterBitmapResource | null;
   lastUsed: number;
   refs: number;
   sessionId: number | null;
@@ -113,11 +120,17 @@ async function decodeRasterBitmap(
     throw new Error(`Raster source fetch failed: ${response.status}`);
   }
   const blob = await response.blob();
-  return await createImageBitmap(blob, {
+  const bitmap = await createImageBitmap(blob, {
     resizeHeight: request.size.height,
     resizeQuality: "high",
     resizeWidth: request.size.width,
   });
+  return {
+    close: () => bitmap.close(),
+    height: bitmap.height,
+    image: bitmap,
+    width: bitmap.width,
+  };
 }
 
 function cacheKey(request: RasterDecodeRequest): string {
@@ -167,7 +180,7 @@ export class RasterDecodeCache {
         bytes: 0,
         contentSha256: request.contentSha256,
         dataUrl: request.dataUrl,
-        image: null,
+        resource: null,
         key,
         lastUsed: this.#now(),
         promise,
@@ -200,8 +213,8 @@ export class RasterDecodeCache {
 
   clear(): void {
     for (const entry of this.#entries.values()) {
-      if (entry.image !== null) {
-        entry.image.close();
+      if (entry.resource !== null) {
+        entry.resource.close();
         if (entry.sessionId !== null) {
           this.#diagnostics.release(entry.sessionId);
         }
@@ -246,15 +259,15 @@ export class RasterDecodeCache {
         dataUrl: entry.dataUrl,
         size: entry.size,
       })
-        .then((image) => {
+        .then((resource) => {
           if (this.#entries.get(entry.key) !== entry) {
-            image.close();
+            resource.close();
             return;
           }
-          entry.image = image;
+          entry.resource = resource;
           entry.bytes = decodedBytes({
-            height: image.height,
-            width: image.width,
+            height: resource.height,
+            width: resource.width,
           });
           entry.state = "ready";
           entry.lastUsed = this.#now();
@@ -262,15 +275,15 @@ export class RasterDecodeCache {
           if (entry.sessionId !== null) {
             this.#diagnostics.complete(
               entry.sessionId,
-              image.width,
-              image.height,
+              resource.width,
+              resource.height,
               this.#now(),
             );
           }
           entry.resolve({
-            height: image.height,
-            image,
-            width: image.width,
+            height: resource.height,
+            image: resource.image,
+            width: resource.width,
           });
           this.#evictIfNeeded();
         })
@@ -302,10 +315,10 @@ export class RasterDecodeCache {
 
     for (const entry of candidates) {
       if (this.#totalBytes <= this.#budgetBytes) break;
-      if (entry.image === null) continue;
+      if (entry.resource === null) continue;
       this.#entries.delete(entry.key);
       this.#totalBytes = Math.max(0, this.#totalBytes - entry.bytes);
-      entry.image.close();
+      entry.resource.close();
       if (entry.sessionId !== null) {
         this.#diagnostics.release(entry.sessionId);
       }
