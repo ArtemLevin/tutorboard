@@ -1,21 +1,21 @@
 import Konva from "konva";
 
 import {
+  createPenStrokeRenderPaths,
   createVectorInkData,
+  strokeStyleOpacityMultiplier,
+  type PenStrokeRenderPath,
   type StrokeStyle,
   type Vec2,
   type VectorInkSample,
   type ViewportState,
 } from "../../core/public";
-import {
-  createPenStrokeRenderPaths,
-  strokeStyleOpacityMultiplier,
-  type PenStrokeRenderPath,
-} from "../../core/public";
 
 export const maximumWetInkActualPoints = 100_000;
 export const maximumWetInkPredictedPoints = 64;
 export const wetInkLatencyWindowSize = 240;
+export const wetInkSealedChunkSize = 96;
+export const wetInkMutableTailSize = 24;
 
 export interface WetInkStyle {
   readonly opacity: number;
@@ -39,26 +39,36 @@ export interface WetInkLatencySnapshot {
 }
 
 export interface WetInkFrame {
-  readonly actualPoints: readonly Vec2[];
+  readonly actualSampleCount: number;
   readonly actualSamples: readonly WetInkSample[];
-  readonly predictedPoints: readonly Vec2[];
   readonly predictedSamples: readonly WetInkSample[];
   readonly style: WetInkStyle;
   readonly viewport: ViewportState;
 }
 
+export interface WetInkSurfaceFrameReport {
+  readonly generatedActualSampleCount: number;
+  readonly mutableTailSampleCount: number;
+  readonly sealedChunkCount: number;
+}
+
 export interface WetInkFrameReport {
+  readonly actualBatchPointCount: number;
   readonly actualPointCount: number;
   readonly frameCount: number;
+  readonly generatedActualSampleCount: number;
   readonly latency: WetInkLatencySnapshot;
+  readonly mutableTailPointCount: number;
+  readonly pendingInputCount: number;
   readonly predictedPointCount: number;
   readonly renderedAtMs: number;
+  readonly sealedChunkCount: number;
 }
 
 export interface WetInkSurface {
   clear(): void;
   destroy(): void;
-  draw(frame: WetInkFrame): void;
+  draw(frame: WetInkFrame): WetInkSurfaceFrameReport | void;
 }
 
 export interface WetInkFrameClock {
@@ -77,6 +87,12 @@ export const browserWetInkFrameClock: WetInkFrameClock = {
   cancel: (frameId) => cancelAnimationFrame(frameId),
   now: () => performance.now(),
   request: (callback) => requestAnimationFrame(callback),
+};
+
+const emptySurfaceFrameReport: WetInkSurfaceFrameReport = {
+  generatedActualSampleCount: 0,
+  mutableTailSampleCount: 0,
+  sealedChunkCount: 0,
 };
 
 function percentile95(values: readonly number[]): number {
@@ -142,14 +158,14 @@ function samePoint(left: Vec2, right: Vec2): boolean {
 function appendUniqueSample(
   output: WetInkSample[],
   sample: WetInkSample,
-): boolean {
+): "appended" | "replaced" {
   const previous = output.at(-1);
   if (previous !== undefined && samePoint(previous.point, sample.point)) {
     output[output.length - 1] = sample;
-    return false;
+    return "replaced";
   }
   output.push(sample);
-  return true;
+  return "appended";
 }
 
 function boundedPredictedSamples(
@@ -169,6 +185,7 @@ export class WetInkRenderer {
   private frameCount = 0;
   private frameId: number | null = null;
   private readonly latency = new WetInkLatencyTracker();
+  private paintedActualSampleCount = 0;
   private readonly pendingInputTimestampsMs: number[] = [];
   private predictedSamples: readonly WetInkSample[] = [];
   private style: WetInkStyle = {
@@ -192,6 +209,7 @@ export class WetInkRenderer {
     this.cancelScheduledFrame();
     this.surface.clear();
     this.actualSamples.length = 0;
+    this.paintedActualSampleCount = 0;
     this.pendingInputTimestampsMs.length = 0;
     this.predictedSamples = [];
     this.active = true;
@@ -208,8 +226,14 @@ export class WetInkRenderer {
     if (!this.active) return;
     for (const sample of samples) {
       if (this.actualSamples.length >= maximumWetInkActualPoints) break;
-      if (appendUniqueSample(this.actualSamples, sample)) {
+      const result = appendUniqueSample(this.actualSamples, sample);
+      if (result === "appended") {
         this.pendingInputTimestampsMs.push(sample.inputTimestampMs);
+      } else if (
+        this.paintedActualSampleCount === this.actualSamples.length &&
+        this.paintedActualSampleCount > 0
+      ) {
+        this.paintedActualSampleCount -= 1;
       }
     }
     this.predictedSamples = boundedPredictedSamples(predictedSamples);
@@ -236,6 +260,7 @@ export class WetInkRenderer {
     this.active = false;
     this.clearAfterPaint = false;
     this.actualSamples.length = 0;
+    this.paintedActualSampleCount = 0;
     this.pendingInputTimestampsMs.length = 0;
     this.predictedSamples = [];
     this.surface.clear();
@@ -247,6 +272,7 @@ export class WetInkRenderer {
     this.surface.destroy();
     this.active = false;
     this.actualSamples.length = 0;
+    this.paintedActualSampleCount = 0;
     this.pendingInputTimestampsMs.length = 0;
     this.predictedSamples = [];
   }
@@ -255,20 +281,23 @@ export class WetInkRenderer {
     return this.latency.snapshot();
   }
 
-  private readonly paintFrame = (frameTimeMs: number): void => {
+  private readonly paintFrame = (): void => {
     this.frameId = null;
     if (!this.active) return;
-    const renderedAtMs = Number.isFinite(frameTimeMs)
-      ? frameTimeMs
-      : this.clock.now();
-    this.surface.draw({
-      actualPoints: this.actualSamples.map(({ point }) => point),
-      actualSamples: this.actualSamples,
-      predictedPoints: this.predictedSamples.map(({ point }) => point),
-      predictedSamples: this.predictedSamples,
-      style: this.style,
-      viewport: this.viewport,
-    });
+    const actualSamples = this.actualSamples.slice(
+      this.paintedActualSampleCount,
+    );
+    this.paintedActualSampleCount = this.actualSamples.length;
+    const pendingInputCount = this.pendingInputTimestampsMs.length;
+    const surfaceReport =
+      this.surface.draw({
+        actualSampleCount: this.actualSamples.length,
+        actualSamples,
+        predictedSamples: this.predictedSamples,
+        style: this.style,
+        viewport: this.viewport,
+      }) ?? emptySurfaceFrameReport;
+    const renderedAtMs = this.clock.now();
     this.frameCount += 1;
     const latency = this.latency.record(
       this.pendingInputTimestampsMs,
@@ -276,11 +305,16 @@ export class WetInkRenderer {
     );
     this.pendingInputTimestampsMs.length = 0;
     this.options.onFrame?.({
+      actualBatchPointCount: actualSamples.length,
       actualPointCount: this.actualSamples.length,
       frameCount: this.frameCount,
+      generatedActualSampleCount: surfaceReport.generatedActualSampleCount,
       latency,
+      mutableTailPointCount: surfaceReport.mutableTailSampleCount,
+      pendingInputCount,
       predictedPointCount: this.predictedSamples.length,
       renderedAtMs,
+      sealedChunkCount: surfaceReport.sealedChunkCount,
     });
     if (this.clearAfterPaint) {
       this.clearAfterPaint = false;
@@ -292,6 +326,7 @@ export class WetInkRenderer {
     this.frameId = null;
     this.active = false;
     this.actualSamples.length = 0;
+    this.paintedActualSampleCount = 0;
     this.predictedSamples = [];
     this.surface.clear();
     this.options.onClear?.();
@@ -336,6 +371,20 @@ function createPathNode(): Konva.Path {
   });
 }
 
+function applyPathStyle(
+  node: Konva.Path,
+  path: PenStrokeRenderPath,
+  style: WetInkStyle,
+  opacityScale: number,
+): void {
+  node.data(path.data);
+  node.fill(style.stroke);
+  node.opacity(
+    Math.min(1, style.opacity * path.opacityMultiplier * opacityScale),
+  );
+  node.visible(path.data.length > 0);
+}
+
 function syncPathPool(
   group: Konva.Group,
   pool: Konva.Path[],
@@ -356,58 +405,143 @@ function syncPathPool(
       node.visible(false);
       continue;
     }
-    node.data(path.data);
-    node.fill(style.stroke);
-    node.opacity(
-      Math.min(1, style.opacity * path.opacityMultiplier * opacityScale),
-    );
-    node.visible(path.data.length > 0);
+    applyPathStyle(node, path, style, opacityScale);
   }
+}
+
+function appendSealedPaths(
+  group: Konva.Group,
+  paths: readonly PenStrokeRenderPath[],
+  style: WetInkStyle,
+): void {
+  for (const path of paths) {
+    const node = createPathNode();
+    applyPathStyle(node, path, style, 1);
+    group.add(node);
+  }
+}
+
+function polylineDistance(samples: readonly WetInkSample[]): number {
+  let total = 0;
+  for (let index = 1; index < samples.length; index += 1) {
+    const previous = samples[index - 1]!.point;
+    const current = samples[index]!.point;
+    total += Math.hypot(current.x - previous.x, current.y - previous.y);
+  }
+  return total;
+}
+
+function renderWetInkPaths(
+  samples: readonly WetInkSample[],
+  style: WetInkStyle,
+  distanceOffset: number,
+): readonly PenStrokeRenderPath[] {
+  if (samples.length < 2) return [];
+  return createPenStrokeRenderPaths(
+    createVectorInkData(vectorSamples(samples), false),
+    style.strokeStyle,
+    style.strokeWidth,
+    {
+      continuousStylePhase: true,
+      distanceOffset,
+    },
+  );
 }
 
 export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
   const group = new Konva.Group({ listening: false });
-  const actualPaths: Konva.Path[] = [];
+  const sealedGroup = new Konva.Group({ listening: false });
+  const tailGroup = new Konva.Group({ listening: false });
+  const predictedGroup = new Konva.Group({ listening: false });
+  const tailPaths: Konva.Path[] = [];
   const predictedPaths: Konva.Path[] = [];
   const actualDot = new Konva.Circle({
     listening: false,
     perfectDrawEnabled: false,
     visible: false,
   });
+  let mutableTailSamples: WetInkSample[] = [];
+  let mutableTailDistanceOffset = 0;
+  let sealedChunkCount = 0;
+
+  group.add(sealedGroup);
+  group.add(tailGroup);
+  group.add(predictedGroup);
   group.add(actualDot);
   layer.add(group);
 
+  const resetGeometry = () => {
+    sealedGroup.destroyChildren();
+    mutableTailSamples = [];
+    mutableTailDistanceOffset = 0;
+    sealedChunkCount = 0;
+    syncPathPool(tailGroup, tailPaths, [], {
+      opacity: 1,
+      stroke: "#000000",
+      strokeWidth: 1,
+    }, 1);
+    syncPathPool(predictedGroup, predictedPaths, [], {
+      opacity: 1,
+      stroke: "#000000",
+      strokeWidth: 1,
+    }, 1);
+    actualDot.visible(false);
+  };
+
   return {
     clear() {
-      for (const path of actualPaths) {
-        path.data("");
-        path.visible(false);
-      }
-      for (const path of predictedPaths) {
-        path.data("");
-        path.visible(false);
-      }
-      actualDot.visible(false);
-      layer.draw();
+      resetGeometry();
+      layer.batchDraw();
     },
     destroy() {
       group.destroy();
-      layer.draw();
+      layer.batchDraw();
     },
     draw(frame) {
       group.position(frame.viewport.offset);
       group.scale({ x: frame.viewport.zoom, y: frame.viewport.zoom });
-      const actualRenderPaths =
-        frame.actualSamples.length < 2
-          ? []
-          : createPenStrokeRenderPaths(
-              createVectorInkData(vectorSamples(frame.actualSamples), false),
-              frame.style.strokeStyle,
-              frame.style.strokeWidth,
-            );
-      syncPathPool(group, actualPaths, actualRenderPaths, frame.style, 1);
 
-      const first = frame.actualSamples[0];
+      for (const sample of frame.actualSamples) {
+        appendUniqueSample(mutableTailSamples, sample);
+      }
+
+      let generatedActualSampleCount = 0;
+      let geometryChanged = frame.actualSamples.length > 0;
+      while (
+        mutableTailSamples.length >
+        wetInkSealedChunkSize + wetInkMutableTailSize
+      ) {
+        const chunk = mutableTailSamples.slice(0, wetInkSealedChunkSize);
+        appendSealedPaths(
+          sealedGroup,
+          renderWetInkPaths(chunk, frame.style, mutableTailDistanceOffset),
+          frame.style,
+        );
+        generatedActualSampleCount += chunk.length;
+        mutableTailDistanceOffset += polylineDistance(chunk);
+        mutableTailSamples = mutableTailSamples.slice(
+          wetInkSealedChunkSize - 1,
+        );
+        sealedChunkCount += 1;
+        geometryChanged = true;
+      }
+
+      if (geometryChanged) {
+        generatedActualSampleCount += mutableTailSamples.length;
+        syncPathPool(
+          tailGroup,
+          tailPaths,
+          renderWetInkPaths(
+            mutableTailSamples,
+            frame.style,
+            mutableTailDistanceOffset,
+          ),
+          frame.style,
+          1,
+        );
+      }
+
+      const first = mutableTailSamples[0];
       actualDot.position(first?.point ?? { x: 0, y: 0 });
       actualDot.radius(
         first === undefined
@@ -419,31 +553,33 @@ export function createKonvaWetInkSurface(layer: Konva.Layer): WetInkSurface {
         frame.style.opacity *
           strokeStyleOpacityMultiplier(frame.style.strokeStyle),
       );
-      actualDot.visible(frame.actualSamples.length === 1);
+      actualDot.visible(frame.actualSampleCount === 1);
 
-      const previous = frame.actualSamples.at(-1);
+      const previous = mutableTailSamples.at(-1);
       const predictedSamples =
         frame.predictedSamples.length === 0
           ? []
           : previous === undefined
             ? frame.predictedSamples
             : [previous, ...frame.predictedSamples];
-      const predictedRenderPaths =
-        predictedSamples.length === 0
-          ? []
-          : createPenStrokeRenderPaths(
-              createVectorInkData(vectorSamples(predictedSamples), false),
-              frame.style.strokeStyle,
-              frame.style.strokeWidth,
-            );
       syncPathPool(
-        group,
+        predictedGroup,
         predictedPaths,
-        predictedRenderPaths,
+        renderWetInkPaths(
+          predictedSamples,
+          frame.style,
+          mutableTailDistanceOffset + polylineDistance(mutableTailSamples),
+        ),
         frame.style,
         0.42,
       );
+
       layer.draw();
+      return {
+        generatedActualSampleCount,
+        mutableTailSampleCount: mutableTailSamples.length,
+        sealedChunkCount,
+      };
     },
   };
 }
