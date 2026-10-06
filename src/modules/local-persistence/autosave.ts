@@ -4,6 +4,7 @@ import type {
   LocalRevisionId,
   PersistenceOperationId,
   SaveBoardDocumentInput,
+  SaveBoardDocumentPriority,
 } from "../../core/public";
 import { bindLocalAutosaveLifecycleFlush } from "./lifecycle";
 
@@ -41,6 +42,7 @@ export interface LocalAutosaveOptions {
 interface SaveTask {
   readonly document: BoardDocument;
   readonly operationId: PersistenceOperationId;
+  readonly priority: SaveBoardDocumentPriority;
   readonly savedAt: string;
 }
 
@@ -83,21 +85,24 @@ export class LocalDocumentAutosave {
       return;
     }
     this.#queuedDocument = document;
+    this.#repository.prepareSave?.(document);
     if (this.#timer !== null) {
       clearTimeout(this.#timer);
     }
     this.#onStateChange({ kind: "scheduled" });
     this.#timer = setTimeout(() => {
       this.#timer = null;
-      this.#enqueueLatest();
+      this.#enqueueLatest("background");
     }, this.#debounceMs);
   }
 
-  async flush(): Promise<void> {
+  async flush(
+    priority: SaveBoardDocumentPriority = "background",
+  ): Promise<void> {
     if (this.#timer !== null) {
       clearTimeout(this.#timer);
       this.#timer = null;
-      this.#enqueueLatest();
+      this.#enqueueLatest(priority);
     }
     await this.#inFlight;
   }
@@ -119,11 +124,11 @@ export class LocalDocumentAutosave {
     // SPA navigation can unmount the board without firing pagehide or
     // visibilitychange. Move the latest debounced document into the durable
     // save chain before rejecting future schedules.
-    this.#enqueueLatest();
+    this.#enqueueLatest("lifecycle");
     this.#disposed = true;
   }
 
-  #enqueueLatest(): void {
+  #enqueueLatest(priority: SaveBoardDocumentPriority): void {
     const document = this.#queuedDocument;
     this.#queuedDocument = null;
     if (document === null || document === this.#lastPersistedDocument) {
@@ -132,6 +137,7 @@ export class LocalDocumentAutosave {
     this.#enqueue({
       document,
       operationId: this.#createOperationId(),
+      priority,
       savedAt: this.#now(),
     });
   }
@@ -177,6 +183,7 @@ export class LocalDocumentAutosave {
       document: task.document,
       expectedRevisionId: this.#revisionId,
       operationId: task.operationId,
+      priority: task.priority,
       savedAt: task.savedAt,
     };
     const result = await this.#repository.save(input);
