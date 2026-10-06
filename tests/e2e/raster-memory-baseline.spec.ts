@@ -1,21 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
-import { PNG } from "pngjs";
-
 const rasterWidth = 4_096;
 const rasterHeight = 3_072;
 const rasterCount = 2;
 const expectedDecodedBytes = rasterWidth * rasterHeight * 4 * rasterCount;
-
-function largeCompressiblePng(): Buffer {
-  const png = new PNG({ height: rasterHeight, width: rasterWidth });
-  for (let offset = 0; offset < png.data.length; offset += 4) {
-    png.data[offset] = 24;
-    png.data[offset + 1] = 94;
-    png.data[offset + 2] = 107;
-    png.data[offset + 3] = 255;
-  }
-  return PNG.sync.write(png);
-}
 
 async function installLongTaskObserver(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -48,17 +35,59 @@ test("@smoke captures duplicate full-resolution decode baseline for large raster
     }),
   ).toBeVisible();
 
-  const raster = largeCompressiblePng();
-  expect(raster.byteLength).toBeLessThan(8 * 1024 * 1024);
+  const encodedBytes = await page.evaluate(
+    async ({ count, height, width }) => {
+      const canvas = document.createElement("canvas");
+      canvas.height = height;
+      canvas.width = width;
+      const context = canvas.getContext("2d");
+      if (context === null) throw new Error("2D canvas is unavailable.");
+      context.fillStyle = "rgb(24, 94, 107)";
+      context.fillRect(0, 0, width, height);
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (value) =>
+            value === null
+              ? reject(new Error("PNG encoding failed."))
+              : resolve(value),
+          "image/png",
+        );
+      });
+      canvas.height = 1;
+      canvas.width = 1;
 
-  await page.getByRole("button", { name: "Медиа" }).click();
-  await page.getByLabel("Вставить изображения").setInputFiles(
-    Array.from({ length: rasterCount }, (_value, index) => ({
-      buffer: raster,
-      mimeType: "image/png",
-      name: `large-raster-${index + 1}.png`,
-    })),
+      const longTasks: unknown = Reflect.get(
+        window,
+        "__tutorboardRasterLongTasks",
+      );
+      if (Array.isArray(longTasks)) longTasks.length = 0;
+
+      const files = Array.from(
+        { length: count },
+        (_value, index) =>
+          new File([blob], `large-raster-${index + 1}.png`, {
+            type: "image/png",
+          }),
+      );
+      const pasteEvent = new Event("paste", {
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.defineProperty(pasteEvent, "clipboardData", {
+        value: {
+          items: files.map((file) => ({
+            getAsFile: () => file,
+            kind: "file",
+            type: file.type,
+          })),
+        },
+      });
+      window.dispatchEvent(pasteEvent);
+      return blob.size;
+    },
+    { count: rasterCount, height: rasterHeight, width: rasterWidth },
   );
+  expect(encodedBytes).toBeLessThan(8 * 1024 * 1024);
 
   await expect(page.getByTestId("object-count")).toHaveText("2 объекта");
   const stage = page.getByTestId("board-stage");
