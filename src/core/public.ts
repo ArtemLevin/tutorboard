@@ -358,6 +358,7 @@ export {
   type LocalRevisionId,
   type PersistenceOperationId,
   type SaveBoardDocumentInput,
+  type SaveBoardDocumentPriority,
   type SaveBoardDocumentResult,
 } from "./ports/board-document-repository";
 export type {
