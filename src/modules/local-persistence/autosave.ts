@@ -57,12 +57,10 @@ export class LocalDocumentAutosave {
   #disposed = false;
   #inFlight: Promise<void> = Promise.resolve();
   #isSaving = false;
-  #lifecyclePromotion:
-    | {
-        readonly operationId: PersistenceOperationId;
-        readonly promise: Promise<void>;
-      }
-    | null = null;
+  #lifecyclePromotion: {
+    readonly operationId: PersistenceOperationId;
+    readonly promise: Promise<void>;
+  } | null = null;
   #lastFailedTask: SaveTask | null = null;
   #lastPersistedDocument: BoardDocument | null;
   #queuedDocument: BoardDocument | null = null;
