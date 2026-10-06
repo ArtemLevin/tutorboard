@@ -59,6 +59,25 @@ class FakeRepository implements BoardDocumentRepository {
   }
 }
 
+class BlockingRepository extends FakeRepository {
+  releaseBackground: (() => void) | null = null;
+
+  override save(
+    input: SaveBoardDocumentInput,
+  ): Promise<SaveBoardDocumentResult> {
+    this.calls.push(input);
+    const result: SaveBoardDocumentResult = {
+      duplicate: input.priority === "background",
+      revisionId: localRevisionId(`revision:${input.operationId}`),
+      status: "saved",
+    };
+    if (input.priority === "lifecycle") return Promise.resolve(result);
+    return new Promise((resolve) => {
+      this.releaseBackground = () => resolve(result);
+    });
+  }
+}
+
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -133,6 +152,36 @@ describe("LocalDocumentAutosave", () => {
 
     expect(repository.calls).toHaveLength(1);
     expect(repository.calls[0]?.priority).toBe("lifecycle");
+    await autosave.flush();
+    autosave.dispose();
+  });
+
+  it("promotes an in-flight background save synchronously on pagehide", async () => {
+    vi.useFakeTimers();
+    const repository = new BlockingRepository();
+    const autosave = new LocalDocumentAutosave({
+      createOperationId: () => persistenceOperationId("operation:promoted"),
+      debounceMs: 10,
+      initialRevisionId: null,
+      now: () => "2026-07-24T08:00:00.000Z",
+      onStateChange: () => undefined,
+      repository,
+    });
+
+    autosave.schedule(document("Slow background save"));
+    await vi.advanceTimersByTimeAsync(10);
+    expect(repository.calls).toHaveLength(1);
+    expect(repository.calls[0]?.priority).toBe("background");
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(repository.calls).toHaveLength(2);
+    expect(repository.calls[1]?.priority).toBe("lifecycle");
+    expect(repository.calls[1]?.operationId).toBe(
+      repository.calls[0]?.operationId,
+    );
+
+    repository.releaseBackground?.();
     await autosave.flush();
     autosave.dispose();
   });
