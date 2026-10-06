@@ -225,16 +225,17 @@ export class RasterDecodeCache {
       this.#pump();
     }
 
-    entry.refs += 1;
-    entry.lastUsed = this.#now();
+    const acquiredEntry = entry;
+    acquiredEntry.refs += 1;
+    acquiredEntry.lastUsed = this.#now();
     let released = false;
     return {
-      promise: entry.promise,
+      promise: acquiredEntry.promise,
       release: () => {
         if (released) return;
         released = true;
-        entry!.refs = Math.max(0, entry!.refs - 1);
-        entry!.lastUsed = this.#now();
+        acquiredEntry.refs = Math.max(0, acquiredEntry.refs - 1);
+        acquiredEntry.lastUsed = this.#now();
         this.#evictIfNeeded();
       },
     };
