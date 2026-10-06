@@ -26,7 +26,12 @@ function document(title: string, updatedAt = "2026-07-24T08:00:00.000Z") {
 
 class FakeRepository implements BoardDocumentRepository {
   readonly calls: SaveBoardDocumentInput[] = [];
+  readonly prepared: BoardDocument[] = [];
   readonly results: SaveBoardDocumentResult[] = [];
+
+  prepareSave(document: BoardDocument): void {
+    this.prepared.push(document);
+  }
 
   load(): Promise<BoardDocumentLoadResult> {
     return Promise.resolve({ status: "empty" });
@@ -50,6 +55,25 @@ class FakeRepository implements BoardDocumentRepository {
       recovery: null,
       revisions: [],
       schemaVersion: localDiagnosticSchemaVersion,
+    });
+  }
+}
+
+class BlockingRepository extends FakeRepository {
+  releaseBackground: (() => void) | null = null;
+
+  override save(
+    input: SaveBoardDocumentInput,
+  ): Promise<SaveBoardDocumentResult> {
+    this.calls.push(input);
+    const result: SaveBoardDocumentResult = {
+      duplicate: input.priority === "background",
+      revisionId: localRevisionId(`revision:${input.operationId}`),
+      status: "saved",
+    };
+    if (input.priority === "lifecycle") return Promise.resolve(result);
+    return new Promise((resolve) => {
+      this.releaseBackground = () => resolve(result);
     });
   }
 }
@@ -80,8 +104,13 @@ describe("LocalDocumentAutosave", () => {
     await autosave.flush();
 
     expect(repository.calls).toHaveLength(1);
+    expect(repository.prepared.map(({ title }) => title)).toEqual([
+      "First",
+      "Latest",
+    ]);
     expect(repository.calls[0]?.document.title).toBe("Latest");
     expect(repository.calls[0]?.expectedRevisionId).toBeNull();
+    expect(repository.calls[0]?.priority).toBe("background");
     expect(states).toContain("saved");
   });
 
@@ -103,6 +132,7 @@ describe("LocalDocumentAutosave", () => {
 
     expect(repository.calls).toHaveLength(1);
     expect(repository.calls[0]?.document.title).toBe("Pending navigation save");
+    expect(repository.calls[0]?.priority).toBe("lifecycle");
   });
 
   it("starts the durable save before a pagehide handler returns", async () => {
@@ -121,8 +151,69 @@ describe("LocalDocumentAutosave", () => {
     window.dispatchEvent(new Event("pagehide"));
 
     expect(repository.calls).toHaveLength(1);
+    expect(repository.calls[0]?.priority).toBe("lifecycle");
     await autosave.flush();
     autosave.dispose();
+  });
+
+  it("promotes an in-flight background save synchronously on pagehide", async () => {
+    vi.useFakeTimers();
+    const repository = new BlockingRepository();
+    const autosave = new LocalDocumentAutosave({
+      createOperationId: () => persistenceOperationId("operation:promoted"),
+      debounceMs: 10,
+      initialRevisionId: null,
+      now: () => "2026-07-24T08:00:00.000Z",
+      onStateChange: () => undefined,
+      repository,
+    });
+
+    autosave.schedule(document("Slow background save"));
+    await vi.advanceTimersByTimeAsync(10);
+    expect(repository.calls).toHaveLength(1);
+    expect(repository.calls[0]?.priority).toBe("background");
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(repository.calls).toHaveLength(2);
+    expect(repository.calls[1]?.priority).toBe("lifecycle");
+    expect(repository.calls[1]?.operationId).toBe(
+      repository.calls[0]?.operationId,
+    );
+
+    repository.releaseBackground?.();
+    await autosave.flush();
+    autosave.dispose();
+  });
+
+  it("promotes an in-flight background save synchronously on workspace dispose", async () => {
+    vi.useFakeTimers();
+    const repository = new BlockingRepository();
+    const autosave = new LocalDocumentAutosave({
+      createOperationId: () =>
+        persistenceOperationId("operation:dispose-promoted"),
+      debounceMs: 10,
+      initialRevisionId: null,
+      now: () => "2026-07-24T08:00:00.000Z",
+      onStateChange: () => undefined,
+      repository,
+    });
+
+    autosave.schedule(document("Slow navigation save"));
+    await vi.advanceTimersByTimeAsync(10);
+    expect(repository.calls).toHaveLength(1);
+    expect(repository.calls[0]?.priority).toBe("background");
+
+    autosave.dispose();
+
+    expect(repository.calls).toHaveLength(2);
+    expect(repository.calls[1]?.priority).toBe("lifecycle");
+    expect(repository.calls[1]?.operationId).toBe(
+      repository.calls[0]?.operationId,
+    );
+
+    repository.releaseBackground?.();
+    await autosave.flush();
   });
 
   it("retries an uncertain failure with the same durable operation ID", async () => {

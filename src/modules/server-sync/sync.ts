@@ -8,6 +8,7 @@ import {
   type ActorId,
   type BoardCommand,
   type BoardDocument,
+  type BoardDocumentComputation,
   type BoardSyncRepository,
   type ConfirmedBoardHead,
   type DocumentId,
@@ -55,6 +56,7 @@ export type BoardSyncState =
 export interface BoardSyncEngineOptions {
   readonly accessContext?: BoardRuntimeAccessContext;
   readonly createIdempotencyKey: () => string;
+  readonly documentComputation?: Pick<BoardDocumentComputation, "sha256">;
   readonly documentId: DocumentId;
   /** @deprecated T0 keeps this input only so legacy callers compile. */
   readonly lessonId?: string;
@@ -102,6 +104,23 @@ export async function boardDocumentSha256(
     .join("");
 }
 
+type BoardDocumentHasher = Pick<BoardDocumentComputation, "sha256">;
+
+async function currentBoardDocumentSha256(
+  document: BoardDocument,
+  computation?: BoardDocumentHasher,
+): Promise<string> {
+  if (computation === undefined) return await boardDocumentSha256(document);
+  const result = await computation.sha256(document);
+  if (!result.ok) {
+    throw new SyncRecoveryError(
+      "board.sync.invalid-document",
+      "Локальный документ не прошёл проверку перед синхронизацией.",
+    );
+  }
+  return result.sha256;
+}
+
 async function textSha256(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -139,8 +158,10 @@ async function legacyBoardDocument15Sha256(
 async function digestForEnvelope(
   document: BoardDocument,
   schemaVersion: string,
+  computation?: BoardDocumentHasher,
 ): Promise<string> {
-  if (schemaVersion === "1.7") return await boardDocumentSha256(document);
+  if (schemaVersion === "1.7")
+    return await currentBoardDocumentSha256(document, computation);
   if (schemaVersion === "1.6")
     return await legacyBoardDocument15Sha256(document);
   return await legacyBoardDocument14Sha256(document);
@@ -149,8 +170,10 @@ async function digestForEnvelope(
 async function digestForSnapshot(
   document: BoardDocument,
   schemaVersion: string,
+  computation?: BoardDocumentHasher,
 ): Promise<string> {
-  if (schemaVersion === "1.6") return await boardDocumentSha256(document);
+  if (schemaVersion === "1.6")
+    return await currentBoardDocumentSha256(document, computation);
   if (schemaVersion === "1.5")
     return await legacyBoardDocument15Sha256(document);
   return await legacyBoardDocument14Sha256(document);
@@ -185,6 +208,7 @@ function applyCommand(
 async function applyRemoteBatches(
   start: ConfirmedBoardHead,
   batches: readonly ServerBoardCommandBatch[],
+  computation?: BoardDocumentHasher,
 ): Promise<ConfirmedBoardHead> {
   let head = start;
   for (const batch of batches) {
@@ -204,11 +228,15 @@ async function applyRemoteBatches(
     for (const command of commandsFromBatch(batch)) {
       document = applyCommand(document, command);
     }
-    const sha256 = await boardDocumentSha256(document);
-    const transportSha256 = await digestForEnvelope(
-      document,
-      batch.envelope.schemaVersion,
-    );
+    const sha256 = await currentBoardDocumentSha256(document, computation);
+    const transportSha256 =
+      batch.envelope.schemaVersion === "1.7"
+        ? sha256
+        : await digestForEnvelope(
+            document,
+            batch.envelope.schemaVersion,
+            computation,
+          );
     if (transportSha256 !== batch.envelope.expectedDocumentSha256) {
       throw new SyncRecoveryError(
         "board.sync.sha-mismatch",
@@ -395,6 +423,7 @@ function cachedLegacyContext(
 
 export class BoardSyncEngine {
   readonly #createIdempotencyKey: () => string;
+  readonly #documentComputation: BoardDocumentHasher | undefined;
   readonly #documentId: DocumentId;
   readonly #now: () => string;
   readonly #originId: string;
@@ -416,6 +445,7 @@ export class BoardSyncEngine {
 
   constructor(options: BoardSyncEngineOptions) {
     this.#createIdempotencyKey = options.createIdempotencyKey;
+    this.#documentComputation = options.documentComputation;
     this.#documentId = options.documentId;
     this.#now = options.now;
     this.#originId = options.originId ?? "origin:legacy-client";
@@ -778,7 +808,10 @@ export class BoardSyncEngine {
               ? "Доска занятия"
               : "Совместная доска",
         });
-        const sha256 = await boardDocumentSha256(document);
+        const sha256 = await currentBoardDocumentSha256(
+          document,
+          this.#documentComputation,
+        );
         if (this.#context.capabilities.includes("board.snapshot.write")) {
           await this.#repository.saveSnapshot(
             this.#documentId,
@@ -806,11 +839,18 @@ export class BoardSyncEngine {
             "Базовый снимок не соответствует активной доске.",
           );
         }
-        const sha256 = await boardDocumentSha256(recovery.snapshot.document);
-        const transportSha256 = await digestForSnapshot(
+        const sha256 = await currentBoardDocumentSha256(
           recovery.snapshot.document,
-          recovery.snapshot.schemaVersion,
+          this.#documentComputation,
         );
+        const transportSha256 =
+          recovery.snapshot.schemaVersion === "1.6"
+            ? sha256
+            : await digestForSnapshot(
+                recovery.snapshot.document,
+                recovery.snapshot.schemaVersion,
+                this.#documentComputation,
+              );
         if (transportSha256 !== recovery.snapshot.documentSha256) {
           throw new SyncRecoveryError(
             "board.sync.snapshot-sha-mismatch",
@@ -825,20 +865,30 @@ export class BoardSyncEngine {
           sha256,
         };
       }
-      head = await applyRemoteBatches(head, recovery.commandBatches);
+      head = await applyRemoteBatches(
+        head,
+        recovery.commandBatches,
+        this.#documentComputation,
+      );
       if (this.#disposed) return;
       if (recovery.snapshot !== null) {
         const lastBatch = recovery.commandBatches.at(-1);
         const serverHeadSha256 =
           lastBatch === undefined
-            ? await digestForSnapshot(
-                head.document,
-                recovery.snapshot.schemaVersion,
-              )
-            : await digestForEnvelope(
-                head.document,
-                lastBatch.envelope.schemaVersion,
-              );
+            ? recovery.snapshot.schemaVersion === "1.6"
+              ? head.sha256
+              : await digestForSnapshot(
+                  head.document,
+                  recovery.snapshot.schemaVersion,
+                  this.#documentComputation,
+                )
+            : lastBatch.envelope.schemaVersion === "1.7"
+              ? head.sha256
+              : await digestForEnvelope(
+                  head.document,
+                  lastBatch.envelope.schemaVersion,
+                  this.#documentComputation,
+                );
         if (serverHeadSha256 !== recovery.board.currentDocumentSha256) {
           throw new SyncRecoveryError(
             "board.sync.head-sha-mismatch",
@@ -1002,7 +1052,10 @@ export class BoardSyncEngine {
         for (const item of batch) {
           applied = applyCommand(applied, item.command);
         }
-        const sha256 = await boardDocumentSha256(applied);
+        const sha256 = await currentBoardDocumentSha256(
+          applied,
+          this.#documentComputation,
+        );
         const result = await this.#repository.push(
           {
             actorId: this.#context.actorId,
@@ -1027,6 +1080,7 @@ export class BoardSyncEngine {
           this.#confirmed = await applyRemoteBatches(
             this.#confirmed,
             result.missingCommandBatches,
+            this.#documentComputation,
           );
           if (this.#disposed) return;
           await this.#acknowledgeRemoteDuplicates(result.missingCommandBatches);
@@ -1105,7 +1159,11 @@ export class BoardSyncEngine {
           `Серверная ревизия ${page.currentRevision} ниже подтверждённой локальной ревизии ${this.#confirmed.revision}.`,
         );
       }
-      this.#confirmed = await applyRemoteBatches(this.#confirmed, page.items);
+      this.#confirmed = await applyRemoteBatches(
+        this.#confirmed,
+        page.items,
+        this.#documentComputation,
+      );
       if (this.#disposed) return;
       await this.#acknowledgeRemoteDuplicates(page.items);
       if (this.#disposed) return;

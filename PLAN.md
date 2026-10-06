@@ -178,6 +178,31 @@ validation/canonical serialization и SHA computation на main thread
 (`serializeBoardDocument` / `boardDocumentSha256`), затем large-raster
 decode/memory и asset-backed media persistence.
 
+06.10.2026: кандидат реализован в draft PR #178
+`perf/off-main-thread-document-computation`. Введён core port
+`BoardDocumentComputation` и lazy Worker adapter для current-schema canonical
+serialization и SHA-256. Local autosave prewarm'ит serialization в debounce
+окне; обычный background save ждёт worker-result, а pagehide/SPA dispose
+сохраняют synchronous lifecycle fallback с тем же operation ID. Если background
+save уже ожидает Worker, lifecycle flush синхронно запускает idempotent promotion
+в durable Dexie path. Server sync и evidence verification используют тот же
+worker-backed hasher; current-schema SHA переиспользуется вместо повторного
+вычисления в одном recovery/apply flow. Legacy 1.4/1.5 compatibility digests
+остаются отдельным migration/recovery path.
+
+Проверенный code-head `ecf35fce19d6d81871853477926ac4e15b4cd5a4`
+прошёл CI run `37482601624`: 182/182 unit/integration files, 1000/1000 tests,
+10/10 performance files и 18/18 performance tests, architecture boundaries и
+production build. Chromium и Firefox browser smoke прошли по 28/28 scenarios;
+GeometryOS live contract, Board-only frontend profile и Coordinate Plot
+production gate green. Smart Ink, Formula Recognition и Paddle sidecar gates на
+том же SHA также green.
+
+После этого блока основные открытые C3-кандидаты: large-raster decode/memory,
+asset-backed media persistence и representative browser profiling больших
+embedded-media документов. Worker failure сохраняет inline fallback, persisted
+BoardDocument/schema/undo/collaboration contracts остаются совместимыми.
+
 ## 1. Продуктовая цель
 
 TutorBoard разворачивается как самостоятельный продукт для преподавателя и

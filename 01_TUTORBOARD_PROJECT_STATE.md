@@ -203,10 +203,48 @@ production gate green. Smart Ink, Formula Recognition и Paddle sidecar gates
 на том же SHA также green.
 
 Persisted BoardDocument, command/undo contracts, collaboration ordering,
-original media bytes и z-order этим блоком не изменяются. Следующий вероятный
-main-thread bottleneck для profiling/remediation — full-document
-validation/canonical serialization и SHA computation, затем raster decode/memory
-и asset-backed media persistence.
+original media bytes и z-order этим блоком не изменяются.
+
+### 3.3. Off-main-thread document computation — 06.10.2026
+
+PR #178 (`perf/off-main-thread-document-computation`) переносит current-schema
+full-document canonical serialization и SHA-256 с browser main thread в lazy
+Worker adapter через core port `BoardDocumentComputation`.
+
+Local persistence:
+
+- autosave вызывает `prepareSave()` сразу при schedule и использует debounce
+  окно как prewarm для Worker serialization;
+- background save использует подготовленный async result;
+- pagehide и SPA dispose сохраняют synchronous lifecycle serialization;
+- если background save уже ждёт Worker, lifecycle flush запускает второй
+  repository save с тем же operation ID и lifecycle priority до возврата из
+  handler; Dexie duplicate-before-conflict semantics делают promotion
+  идемпотентным;
+- Worker failure деградирует к прежней inline serialization/hash реализации.
+
+Server sync:
+
+- `BoardSyncEngine` получает async document hasher через port;
+- current schema SHA для recovery/apply flow вычисляется в Worker и
+  переиспользуется там, где transport digest совпадает с canonical head hash;
+- evidence finalization использует тот же worker-backed SHA;
+- legacy 1.4/1.5 compatibility digests остаются migration/recovery fallback.
+
+StrictMode ownership worker-а привязан к конкретному effect setup; cleanup
+уничтожает только принадлежащий ему Worker instance.
+
+Проверенный code-head `ecf35fce19d6d81871853477926ac4e15b4cd5a4`
+прошёл CI run `37482601624`: 182/182 unit/integration files, 1000/1000 tests,
+10/10 performance files, 18/18 performance tests, architecture boundaries и
+production build. Chromium browser smoke: 28/28; Firefox browser smoke: 28/28.
+GeometryOS live browser contract, Board-only frontend profile, Coordinate Plot
+production gate, Smart Ink, Formula Recognition и Paddle sidecar gates green.
+
+Persisted BoardDocument/schema, revision identity, undo/redo, collaboration
+ordering, media bytes и public contracts сохраняются. Следующие C3-направления:
+large-raster decode/memory, asset-backed media persistence и representative
+browser profiling больших embedded-media документов.
 
 ---
 

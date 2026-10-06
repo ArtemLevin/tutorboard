@@ -294,3 +294,82 @@ verification. Those operations can still create input/render stalls on large
 documents or documents with embedded media and should be profiled next before
 selecting a Worker/off-main-thread design. Large raster decode/memory and
 asset-backed media persistence remain separate C3 work.
+
+
+## Off-main-thread document computation follow-up — 06.10.2026
+
+The next confirmed main-thread candidate after PR #177 was full-document
+canonical serialization and hashing. Before this block, local persistence called
+`serializeBoardDocument()` synchronously before entering the IndexedDB
+transaction. That path performs validation, recursive canonicalization/key
+ordering and `JSON.stringify()` over the complete BoardDocument. Current-schema
+server sync also canonical-serialized the complete document before SHA-256
+verification.
+
+PR #178 (`perf/off-main-thread-document-computation`) introduces a core
+`BoardDocumentComputation` port and a lazy module Worker adapter:
+
+- background autosave starts Worker serialization during the debounce window;
+- normal Dexie saves consume the prepared async serialization result;
+- pagehide and SPA workspace disposal retain synchronous lifecycle serialization
+  so the durable repository path starts before the lifecycle handler returns;
+- when a background save is already waiting for Worker serialization, lifecycle
+  flush synchronously promotes the same operation ID through the repository.
+  Dexie checks duplicate operation identity before optimistic revision conflict,
+  so concurrent background/lifecycle completion stays idempotent;
+- current-schema BoardSyncEngine hashing and evidence verification run through
+  the Worker-backed hasher;
+- current-schema hashes are reused inside recovery/apply flows instead of being
+  recomputed for an equivalent transport digest;
+- Worker creation is lazy and Worker crashes/unavailability fall back to the
+  previous inline implementation;
+- each React StrictMode sync setup owns its Worker instance and disposes only
+  that instance during cleanup;
+- legacy BoardDocument 1.4/1.5 compatibility digest projections remain on the
+  existing migration/recovery path in this block.
+
+The persisted BoardDocument representation, revision IDs, operation IDs,
+undo/redo, collaboration ordering, authorization boundaries, media bytes and
+public data contracts are unchanged.
+
+### Verification
+
+Verified production code-head:
+`ecf35fce19d6d81871853477926ac4e15b4cd5a4`.
+
+CI run `37482601624` verified:
+
+- format, lint, strict typecheck and production dependency threshold;
+- 182/182 unit/integration test files and 1000/1000 tests;
+- 10/10 performance files and 18/18 tests;
+- architecture boundaries and production build;
+- Chromium browser smoke: 28/28 passed;
+- Firefox browser smoke: 28/28 passed;
+- GeometryOS live browser contract, Board-only frontend profile and Coordinate
+  Plot production gate.
+
+Smart Ink, Formula Recognition and Paddle formula sidecar gates also completed
+successfully on the same code-head.
+
+New regression coverage explicitly guards:
+
+- Worker prewarm reuse;
+- lifecycle synchronous serialization fallback;
+- Worker SHA and inline fallback on Worker failure;
+- Dexie background-vs-lifecycle computation selection;
+- autosave prewarm;
+- pagehide promotion of an already in-flight background save;
+- SPA dispose promotion of an already in-flight background save;
+- BoardSyncEngine use of the injected async hasher.
+
+### Remaining C3 work
+
+This block removes current-schema full-document canonical serialization/SHA work
+from the ordinary browser main-thread path while preserving lifecycle durability.
+The strongest remaining C3 candidates are large-raster decode/memory pressure,
+asset-backed media persistence to stop embedded-byte revision amplification, and
+representative browser profiling with multiple large real-world JPEG/PNG assets.
+
+Legacy 1.4/1.5 compatibility projections still run inline during migration or
+recovery. They are intentionally outside the hot current-schema path and should
+only move to the Worker after profiling shows material cost.

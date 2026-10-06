@@ -4,6 +4,8 @@ import type {
   LocalRevisionId,
   PersistenceOperationId,
   SaveBoardDocumentInput,
+  SaveBoardDocumentPriority,
+  SaveBoardDocumentResult,
 } from "../../core/public";
 import { bindLocalAutosaveLifecycleFlush } from "./lifecycle";
 
@@ -41,6 +43,7 @@ export interface LocalAutosaveOptions {
 interface SaveTask {
   readonly document: BoardDocument;
   readonly operationId: PersistenceOperationId;
+  readonly priority: SaveBoardDocumentPriority;
   readonly savedAt: string;
 }
 
@@ -50,9 +53,14 @@ export class LocalDocumentAutosave {
   readonly #now: () => string;
   readonly #onStateChange: (state: LocalAutosaveState) => void;
   readonly #repository: BoardDocumentRepository;
+  #activeInput: SaveBoardDocumentInput | null = null;
   #disposed = false;
   #inFlight: Promise<void> = Promise.resolve();
   #isSaving = false;
+  #lifecyclePromotion: {
+    readonly operationId: PersistenceOperationId;
+    readonly promise: Promise<void>;
+  } | null = null;
   #lastFailedTask: SaveTask | null = null;
   #lastPersistedDocument: BoardDocument | null;
   #queuedDocument: BoardDocument | null = null;
@@ -83,23 +91,31 @@ export class LocalDocumentAutosave {
       return;
     }
     this.#queuedDocument = document;
+    this.#repository.prepareSave?.(document);
     if (this.#timer !== null) {
       clearTimeout(this.#timer);
     }
     this.#onStateChange({ kind: "scheduled" });
     this.#timer = setTimeout(() => {
       this.#timer = null;
-      this.#enqueueLatest();
+      this.#enqueueLatest("background");
     }, this.#debounceMs);
   }
 
-  async flush(): Promise<void> {
+  async flush(
+    priority: SaveBoardDocumentPriority = "background",
+  ): Promise<void> {
     if (this.#timer !== null) {
       clearTimeout(this.#timer);
       this.#timer = null;
-      this.#enqueueLatest();
+      this.#enqueueLatest(priority);
     }
+    if (priority === "lifecycle") {
+      this.#promoteActiveSaveForLifecycle();
+    }
+    const promotion = this.#lifecyclePromotion?.promise;
     await this.#inFlight;
+    if (promotion !== undefined) await promotion;
   }
 
   retry(): void {
@@ -119,11 +135,12 @@ export class LocalDocumentAutosave {
     // SPA navigation can unmount the board without firing pagehide or
     // visibilitychange. Move the latest debounced document into the durable
     // save chain before rejecting future schedules.
-    this.#enqueueLatest();
+    this.#enqueueLatest("lifecycle");
+    this.#promoteActiveSaveForLifecycle();
     this.#disposed = true;
   }
 
-  #enqueueLatest(): void {
+  #enqueueLatest(priority: SaveBoardDocumentPriority): void {
     const document = this.#queuedDocument;
     this.#queuedDocument = null;
     if (document === null || document === this.#lastPersistedDocument) {
@@ -132,6 +149,7 @@ export class LocalDocumentAutosave {
     this.#enqueue({
       document,
       operationId: this.#createOperationId(),
+      priority,
       savedAt: this.#now(),
     });
   }
@@ -177,9 +195,16 @@ export class LocalDocumentAutosave {
       document: task.document,
       expectedRevisionId: this.#revisionId,
       operationId: task.operationId,
+      priority: task.priority,
       savedAt: task.savedAt,
     };
-    const result = await this.#repository.save(input);
+    this.#activeInput = input;
+    let result: SaveBoardDocumentResult;
+    try {
+      result = await this.#repository.save(input);
+    } finally {
+      if (this.#activeInput === input) this.#activeInput = null;
+    }
     if (result.status === "saved") {
       this.#revisionId = result.revisionId;
       this.#lastPersistedDocument = task.document;
@@ -217,5 +242,27 @@ export class LocalDocumentAutosave {
       message: result.message,
       retryable: true,
     });
+  }
+
+  #promoteActiveSaveForLifecycle(): void {
+    const input = this.#activeInput;
+    if (input === null || input.priority === "lifecycle") return;
+    if (this.#lifecyclePromotion?.operationId === input.operationId) return;
+
+    const promotedInput: SaveBoardDocumentInput = {
+      ...input,
+      priority: "lifecycle",
+    };
+    // repository.save is intentionally invoked before this method returns.
+    // Dexie can therefore enter its durable path during pagehide even when the
+    // ordinary background save is still waiting for Worker serialization.
+    const promise = this.#repository
+      .save(promotedInput)
+      .then(() => undefined)
+      .catch(() => undefined);
+    this.#lifecyclePromotion = {
+      operationId: input.operationId,
+      promise,
+    };
   }
 }

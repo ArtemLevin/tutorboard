@@ -341,6 +341,11 @@ export {
   type BoardDocumentValidation,
   type ValidationIssue,
 } from "./board/validation/validate";
+export type {
+  BoardDocumentComputation,
+  BoardDocumentComputationPriority,
+  BoardDocumentSha256Result,
+} from "./ports/board-document-computation";
 export {
   localDiagnosticSchemaVersion,
   localRevisionId,
@@ -353,6 +358,7 @@ export {
   type LocalRevisionId,
   type PersistenceOperationId,
   type SaveBoardDocumentInput,
+  type SaveBoardDocumentPriority,
   type SaveBoardDocumentResult,
 } from "./ports/board-document-repository";
 export type {
