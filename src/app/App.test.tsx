@@ -99,7 +99,7 @@ vi.mock("../adapters/canvas-konva/public", () => ({
           onClick={() => props.onWorldPointerCancel(start.pointerId)}
           type="button"
         >
-          Отменить жест
+          Сбросить указку
         </button>
         <button
           onClick={() => {
