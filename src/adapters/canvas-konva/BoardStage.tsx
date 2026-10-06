@@ -916,6 +916,7 @@ export function BoardStage({
       }
     },
     [
+      animatedImageRedraw,
       discardWorldPointerMoves,
       enqueueWorldPointerMoves,
       flushWorldPointerMoves,
@@ -1477,7 +1478,7 @@ export function BoardStage({
         rightContextMenuTimeoutRef.current = null;
       }
     },
-    [discardWorldPointerMoves, releaseCapture],
+    [animatedImageRedraw, discardWorldPointerMoves, releaseCapture],
   );
 
   useEffect(() => {
