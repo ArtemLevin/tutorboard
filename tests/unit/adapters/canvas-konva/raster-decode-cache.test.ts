@@ -218,12 +218,12 @@ describe("RasterDecodeCache", () => {
   });
 
   it("discards an in-flight zero-ref decode after trim", async () => {
-    let resolveDecode: ((value: RasterBitmapResource) => void) | null = null;
+    const resolvers: Array<(value: RasterBitmapResource) => void> = [];
     const decoded = resource(100, 100);
     const cache = new RasterDecodeCache({
       decoder: () =>
         new Promise<RasterBitmapResource>((resolve) => {
-          resolveDecode = resolve;
+          resolvers.push(resolve);
         }),
       diagnostics: new RasterImageDiagnostics(),
     });
@@ -236,8 +236,8 @@ describe("RasterDecodeCache", () => {
     handle.release();
     cache.trimUnused();
 
-    const resolve = resolveDecode;
-    if (resolve === null) throw new Error("Expected pending raster decode.");
+    const resolve = resolvers[0];
+    if (resolve === undefined) throw new Error("Expected pending raster decode.");
     resolve(decoded.value);
     await handle.promise;
 
