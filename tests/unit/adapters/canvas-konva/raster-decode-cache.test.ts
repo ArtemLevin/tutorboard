@@ -189,6 +189,65 @@ describe("RasterDecodeCache", () => {
     for (const handle of handles) handle.release();
   });
 
+  it("trims ready zero-ref resources below the memory budget", async () => {
+    const decoded = resource(100, 100);
+    const diagnostics = new RasterImageDiagnostics();
+    const cache = new RasterDecodeCache({
+      budgetBytes: 1_000_000,
+      decoder: () => Promise.resolve(decoded.value),
+      diagnostics,
+    });
+
+    const handle = cache.acquire({
+      contentSha256: "t".repeat(64),
+      dataUrl: "data:image/png;base64,t",
+      size: { height: 100, width: 100 },
+    });
+    await handle.promise;
+    handle.release();
+
+    expect(cache.snapshot().totalBytes).toBe(40_000);
+    cache.trimUnused();
+
+    expect(decoded.close).toHaveBeenCalledOnce();
+    expect(cache.snapshot()).toMatchObject({
+      entryCount: 0,
+      totalBytes: 0,
+    });
+    expect(diagnostics.snapshot().activeEstimatedDecodedBytes).toBe(0);
+  });
+
+  it("discards an in-flight zero-ref decode after trim", async () => {
+    let resolveDecode: ((value: RasterBitmapResource) => void) | null = null;
+    const decoded = resource(100, 100);
+    const cache = new RasterDecodeCache({
+      decoder: () =>
+        new Promise<RasterBitmapResource>((resolve) => {
+          resolveDecode = resolve;
+        }),
+      diagnostics: new RasterImageDiagnostics(),
+    });
+
+    const handle = cache.acquire({
+      contentSha256: "u".repeat(64),
+      dataUrl: "data:image/png;base64,u",
+      size: { height: 100, width: 100 },
+    });
+    handle.release();
+    cache.trimUnused();
+
+    const resolve = resolveDecode;
+    if (resolve === null) throw new Error("Expected pending raster decode.");
+    resolve(decoded.value);
+    await handle.promise;
+
+    await vi.waitFor(() => {
+      expect(decoded.close).toHaveBeenCalledOnce();
+      expect(cache.snapshot().entryCount).toBe(0);
+      expect(cache.snapshot().totalBytes).toBe(0);
+    });
+  });
+
   it("closes least-recently-used zero-ref bitmaps when over budget", async () => {
     const created: ReturnType<typeof resource>[] = [];
     const cache = new RasterDecodeCache({
