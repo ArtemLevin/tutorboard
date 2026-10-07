@@ -20,7 +20,10 @@ export function EmbeddedImageRenderer({
   readonly visualScale?: number;
   readonly zoom: number;
 }) {
-  const [image, setImage] = useState<CanvasImageSource | null>(null);
+  const [imageState, setImageState] = useState<{
+    readonly image: CanvasImageSource;
+    readonly key: string;
+  } | null>(null);
   const [failed, setFailed] = useState(false);
   const imageRef = useRef<Konva.Image>(null);
   const redrawCoordinator = useContext(AnimatedImageRedrawContext);
@@ -39,13 +42,21 @@ export function EmbeddedImageRenderer({
     : null;
   const decodeHeight = decodeSize?.height ?? null;
   const decodeWidth = decodeSize?.width ?? null;
+  const cachedBitmapPath =
+    staticRaster &&
+    decodeHeight !== null &&
+    decodeWidth !== null &&
+    typeof createImageBitmap === "function";
+  const sourceKey = cachedBitmapPath
+    ? `${object.contentSha256}:${decodeWidth}x${decodeHeight}`
+    : `${object.contentSha256}:html`;
+  const image = imageState?.key === sourceKey ? imageState.image : null;
 
   useEffect(() => {
     if (
-      staticRaster &&
+      cachedBitmapPath &&
       decodeHeight !== null &&
-      decodeWidth !== null &&
-      typeof createImageBitmap === "function"
+      decodeWidth !== null
     ) {
       const handle = rasterDecodeCache.acquire({
         contentSha256: object.contentSha256,
@@ -57,12 +68,12 @@ export function EmbeddedImageRenderer({
         .then(({ image: bitmap }) => {
           if (!active) return;
           setFailed(false);
-          setImage(bitmap);
+          setImageState({ image: bitmap, key: sourceKey });
         })
         .catch(() => {
           if (!active) return;
           setFailed(true);
-          setImage(null);
+          setImageState(null);
         });
       return () => {
         active = false;
@@ -86,13 +97,13 @@ export function EmbeddedImageRenderer({
         performance.now(),
       );
       setFailed(false);
-      setImage(element);
+      setImageState({ image: element, key: sourceKey });
     };
     element.onerror = () => {
       if (!active) return;
       rasterImageDiagnostics.fail(sessionId);
       setFailed(true);
-      setImage(null);
+      setImageState(null);
     };
     element.src = object.dataUrl;
     return () => {
@@ -105,8 +116,11 @@ export function EmbeddedImageRenderer({
     decodeWidth,
     object.contentSha256,
     object.dataUrl,
+    cachedBitmapPath,
+    object.contentSha256,
+    object.dataUrl,
     object.mimeType,
-    staticRaster,
+    sourceKey,
   ]);
 
   useEffect(() => {
