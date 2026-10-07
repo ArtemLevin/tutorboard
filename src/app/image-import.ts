@@ -364,6 +364,30 @@ function decodeImage(dataUrl: string): Promise<Size2> {
   });
 }
 
+async function validateStaticRasterDecode(
+  bytes: Uint8Array,
+  mimeType: "image/jpeg" | "image/png",
+): Promise<void> {
+  const blob = new Blob([arrayBufferBytes(bytes)], { type: mimeType });
+  if (typeof createImageBitmap !== "function") {
+    const dataUrl = await readAsDataUrl(blob);
+    await decodeImage(dataUrl);
+    return;
+  }
+
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(blob, {
+      resizeHeight: 1,
+      resizeQuality: "high",
+      resizeWidth: 1,
+    });
+  } catch {
+    bitmap = await createImageBitmap(blob);
+  }
+  bitmap.close();
+}
+
 async function sha256(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", arrayBufferBytes(bytes));
   return [...new Uint8Array(digest)]
@@ -432,6 +456,14 @@ export async function prepareEmbeddedImageFile(
       return error(
         "image.decode-failed",
         "Файл повреждён или браузер не смог определить размеры изображения.",
+      );
+    }
+    try {
+      await validateStaticRasterDecode(bytes, mimeType);
+    } catch {
+      return error(
+        "image.decode-failed",
+        "Файл повреждён или браузер не смог его декодировать.",
       );
     }
     intrinsicSize = dimensions;
