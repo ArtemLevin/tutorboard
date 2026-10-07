@@ -60,11 +60,13 @@ describe("embedded image import", () => {
     png.set([0, 0, 16, 0], 16);
     png.set([0, 0, 12, 0], 20);
     const close = vi.fn();
-    const decode = vi.fn((_blob: Blob, _options?: ImageBitmapOptions) =>
-      Promise.resolve({
+    const decode = vi.fn((blob: Blob, options?: ImageBitmapOptions) => {
+      void blob;
+      void options;
+      return Promise.resolve({
         close,
-      }),
-    );
+      });
+    });
     vi.stubGlobal("createImageBitmap", decode);
 
     const result = await prepareEmbeddedImageFile(
@@ -87,9 +89,11 @@ describe("embedded image import", () => {
     png.set([0, 0, 0, 13, 73, 72, 68, 82], 8);
     png.set([0, 0, 0, 16], 16);
     png.set([0, 0, 0, 12], 20);
-    const decode = vi.fn((_blob: Blob, _options?: ImageBitmapOptions) =>
-      Promise.reject(new Error("bad raster")),
-    );
+    const decode = vi.fn((blob: Blob, options?: ImageBitmapOptions) => {
+      void blob;
+      void options;
+      return Promise.reject(new Error("bad raster"));
+    });
     vi.stubGlobal("createImageBitmap", decode);
 
     const result = await prepareEmbeddedImageFile(
