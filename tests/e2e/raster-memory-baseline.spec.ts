@@ -2,7 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 const rasterWidth = 4_096;
 const rasterHeight = 3_072;
 const rasterCount = 2;
-const expectedDecodedBytes = rasterWidth * rasterHeight * 4 * rasterCount;
+const previousFullDecodeBytes = rasterWidth * rasterHeight * 4 * rasterCount;
+const rasterCacheBudgetPerFixtureBytes = 16 * 1024 * 1024;
 
 async function installLongTaskObserver(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -39,7 +40,7 @@ async function installLongTaskObserver(page: Page): Promise<void> {
   });
 }
 
-test("@smoke captures duplicate full-resolution decode baseline for large raster images", async ({
+test("@smoke bounds and coalesces large static raster decoding", async ({
   page,
 }) => {
   await installLongTaskObserver(page);
@@ -117,7 +118,7 @@ test("@smoke captures duplicate full-resolution decode baseline for large raster
         (await stage.getAttribute("data-raster-decode-completed-count")) ?? 0,
       ),
     )
-    .toBe(rasterCount);
+    .toBe(1);
 
   const metrics = {
     activeDecodedCount: Number(
@@ -175,28 +176,59 @@ test("@smoke captures duplicate full-resolution decode baseline for large raster
     };
   });
 
-  expect(metrics.activeDecodedCount).toBe(rasterCount);
-  expect(metrics.decodeStartedCount).toBe(rasterCount);
-  expect(metrics.duplicateDecodeStartCount).toBeGreaterThanOrEqual(1);
-  expect(metrics.activeEstimatedDecodedBytes).toBeGreaterThanOrEqual(
-    expectedDecodedBytes,
+  expect(metrics.activeDecodedCount).toBe(1);
+  expect(metrics.decodeStartedCount).toBe(1);
+  expect(metrics.duplicateDecodeStartCount).toBe(0);
+  expect(metrics.activeEstimatedDecodedBytes).toBeLessThanOrEqual(
+    rasterCacheBudgetPerFixtureBytes,
   );
-  expect(metrics.peakEstimatedDecodedBytes).toBeGreaterThanOrEqual(
-    expectedDecodedBytes,
+  expect(metrics.peakEstimatedDecodedBytes).toBeLessThanOrEqual(
+    rasterCacheBudgetPerFixtureBytes,
+  );
+  expect(metrics.activeEstimatedDecodedBytes).toBeLessThan(
+    previousFullDecodeBytes / 4,
   );
   expect(metrics.maxDecodeMs).toBeGreaterThanOrEqual(0);
   expect(browserEvidence.frameGapCount).toBeGreaterThan(0);
   expect(browserEvidence.maxFrameGapMs).toBeGreaterThanOrEqual(0);
 
   console.info(
-    "RASTER_MEMORY_BASELINE",
+    "RASTER_MEMORY_CACHE",
     JSON.stringify({
       ...metrics,
-      expectedDecodedBytes,
+      previousFullDecodeBytes,
+      rasterCacheBudgetPerFixtureBytes,
       browserEvidence,
       rasterCount,
       rasterHeight,
       rasterWidth,
     }),
   );
+
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Expected board bounds.");
+  await page.mouse.click(
+    bounds.x + bounds.width * 0.75,
+    bounds.y + bounds.height * 0.75,
+    { button: "right" },
+  );
+  await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+  await page.getByRole("button", { name: "Очистить", exact: true }).click();
+  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+  await expect
+    .poll(async () =>
+      Number(
+        (await stage.getAttribute("data-raster-active-decoded-count")) ?? -1,
+      ),
+    )
+    .toBe(0);
+  await expect
+    .poll(async () =>
+      Number(
+        (await stage.getAttribute(
+          "data-raster-active-estimated-decoded-bytes",
+        )) ?? -1,
+      ),
+    )
+    .toBe(0);
 });

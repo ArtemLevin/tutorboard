@@ -53,6 +53,12 @@ export const BoardRenderItemView = memo(function BoardRenderItemView({
   registry,
   zoom,
 }: BoardRenderItemViewProps) {
+  const visualScale = item.transforms.reduce(
+    (scale, transform) =>
+      scale *
+      Math.max(Math.abs(transform.scale.x), Math.abs(transform.scale.y)),
+    1,
+  );
   return (
     <Group
       id={item.object.id}
@@ -63,6 +69,7 @@ export const BoardRenderItemView = memo(function BoardRenderItemView({
     >
       {applyTransforms(
         registry.render(item, {
+          visualScale,
           zoom,
           ...(coordinatePlotInteraction === undefined
             ? {}

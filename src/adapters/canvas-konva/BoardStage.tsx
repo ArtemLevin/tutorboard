@@ -45,6 +45,7 @@ import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
 import { BoardRenderItemView, BoardSceneContent } from "./board-scene-content";
 import { BoardGrid } from "./grid";
 import { clientPoint, elementPoint } from "./pointer";
+import { rasterDecodeCache } from "./raster-decode-cache";
 import {
   rasterImageDiagnostics,
   type RasterImageDiagnosticsSnapshot,
@@ -522,8 +523,28 @@ export function BoardStage({
     useState<BoardObjectTransformSnapshot | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const size = useElementSize(rootRef);
+  const hasStaticRaster = useMemo(
+    () =>
+      scene.items.some(
+        ({ object }) =>
+          object.kind === "image.embedded" &&
+          (object.mimeType === "image/png" || object.mimeType === "image/jpeg"),
+      ),
+    [scene.items],
+  );
 
   useEffect(() => () => animatedImageRedraw.dispose(), [animatedImageRedraw]);
+
+  useEffect(() => {
+    if (!hasStaticRaster) rasterDecodeCache.trimUnused();
+  }, [hasStaticRaster]);
+
+  useEffect(
+    () => () => {
+      queueMicrotask(() => rasterDecodeCache.trimUnused());
+    },
+    [],
+  );
 
   useEffect(() => {
     const root = rootRef.current;

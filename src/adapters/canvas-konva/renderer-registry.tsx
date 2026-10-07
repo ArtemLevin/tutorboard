@@ -31,6 +31,7 @@ export interface CoordinatePlotRenderInteraction {
 
 export interface KonvaRenderContext {
   readonly coordinatePlot?: CoordinatePlotRenderInteraction | undefined;
+  readonly visualScale?: number | undefined;
   readonly zoom: number;
 }
 
