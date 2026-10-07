@@ -1,16 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { boardObjectId } from "../core/public";
 import {
   createEmbeddedImageObject,
   fitEmbeddedImageSize,
   imageMimeFromBytes,
+  prepareEmbeddedImageFile,
   rasterDimensionsFromBytes,
   resolveEmbeddedImagePlacementSize,
   type PreparedEmbeddedImage,
 } from "./image-import";
 
 describe("embedded image import", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("detects supported signatures", () => {
     expect(
       imageMimeFromBytes(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])),
@@ -46,6 +51,54 @@ describe("embedded image import", () => {
       height: 3_072,
       width: 4_096,
     });
+  });
+
+  it("validates PNG content with a 1x1 bitmap decode probe", async () => {
+    const png = new Uint8Array(24);
+    png.set([137, 80, 78, 71, 13, 10, 26, 10], 0);
+    png.set([0, 0, 0, 13, 73, 72, 68, 82], 8);
+    png.set([0, 0, 16, 0], 16);
+    png.set([0, 0, 12, 0], 20);
+    const close = vi.fn();
+    const decode = vi.fn(() =>
+      Promise.resolve({
+        close,
+      }),
+    );
+    vi.stubGlobal("createImageBitmap", decode);
+
+    const result = await prepareEmbeddedImageFile(
+      new File([png], "probe.png", { type: "image/png" }),
+    );
+
+    expect(result.status).toBe("ok");
+    expect(decode).toHaveBeenCalledOnce();
+    expect(decode.mock.calls[0]?.[1]).toMatchObject({
+      resizeHeight: 1,
+      resizeQuality: "high",
+      resizeWidth: 1,
+    });
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("still rejects static rasters that fail actual browser decoding", async () => {
+    const png = new Uint8Array(24);
+    png.set([137, 80, 78, 71, 13, 10, 26, 10], 0);
+    png.set([0, 0, 0, 13, 73, 72, 68, 82], 8);
+    png.set([0, 0, 0, 16], 16);
+    png.set([0, 0, 0, 12], 20);
+    const decode = vi.fn(() => Promise.reject(new Error("bad raster")));
+    vi.stubGlobal("createImageBitmap", decode);
+
+    const result = await prepareEmbeddedImageFile(
+      new File([png], "corrupt.png", { type: "image/png" }),
+    );
+
+    expect(result).toMatchObject({
+      diagnostic: { code: "image.decode-failed" },
+      status: "error",
+    });
+    expect(decode).toHaveBeenCalledTimes(2);
   });
 
   it("fits large and tiny images into a usable preserved ratio", () => {
