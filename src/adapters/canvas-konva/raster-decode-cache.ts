@@ -188,7 +188,7 @@ export class RasterDecodeCache {
   readonly #budgetBytes: number;
   readonly #decoder: RasterBitmapDecoder;
   readonly #diagnostics: RasterImageDiagnostics;
-  readonly #entries = new Map<string, CacheEntry>();
+  readonly #entries = new Map<string, Map<string, CacheEntry>>();
   readonly #maxConcurrent: number;
   readonly #now: () => number;
   readonly #queue: CacheEntry[] = [];
@@ -211,7 +211,8 @@ export class RasterDecodeCache {
 
   acquire(request: RasterDecodeRequest): RasterDecodeHandle {
     const key = cacheKey(request);
-    let entry = this.#entries.get(key);
+    let sources = this.#entries.get(key);
+    let entry = sources?.get(request.dataUrl);
     if (entry === undefined) {
       let resolve!: (value: RasterDecodedImage) => void;
       let reject!: (error: Error) => void;
@@ -236,7 +237,11 @@ export class RasterDecodeCache {
         size: request.size,
         state: "queued",
       };
-      this.#entries.set(key, entry);
+      if (sources === undefined) {
+        sources = new Map<string, CacheEntry>();
+        this.#entries.set(key, sources);
+      }
+      sources.set(request.dataUrl, entry);
       this.#queue.push(entry);
       this.#pump();
     }
@@ -259,8 +264,9 @@ export class RasterDecodeCache {
 
   clear(): void {
     const error = new Error("Raster decode cache was cleared.");
-    for (const entry of this.#entries.values()) {
-      if (entry.resource !== null) {
+    for (const sources of this.#entries.values()) {
+      for (const entry of sources.values()) {
+        if (entry.resource !== null) {
         entry.resource.close();
         if (entry.sessionId !== null) {
           this.#diagnostics.release(entry.sessionId);
@@ -269,7 +275,8 @@ export class RasterDecodeCache {
         if (entry.sessionId !== null) {
           this.#diagnostics.fail(entry.sessionId);
         }
-        entry.reject(error);
+          entry.reject(error);
+        }
       }
     }
     this.#entries.clear();
@@ -285,7 +292,10 @@ export class RasterDecodeCache {
   } {
     return {
       activeDecodes: this.#activeDecodes,
-      entryCount: this.#entries.size,
+      entryCount: [...this.#entries.values()].reduce(
+        (count, sources) => count + sources.size,
+        0,
+      ),
       queuedDecodes: this.#queue.length,
       totalBytes: this.#totalBytes,
     };
@@ -310,7 +320,7 @@ export class RasterDecodeCache {
         size: entry.size,
       })
         .then((resource) => {
-          if (this.#entries.get(entry.key) !== entry) {
+          if (this.#entryFor(entry) !== entry) {
             resource.close();
             return;
           }
@@ -338,8 +348,8 @@ export class RasterDecodeCache {
           this.#evictIfNeeded();
         })
         .catch((error: unknown) => {
-          if (this.#entries.get(entry.key) === entry) {
-            this.#entries.delete(entry.key);
+          if (this.#entryFor(entry) === entry) {
+            this.#deleteEntry(entry);
           }
           if (entry.sessionId !== null) {
             this.#diagnostics.fail(entry.sessionId);
@@ -357,16 +367,28 @@ export class RasterDecodeCache {
     }
   }
 
+  #entryFor(entry: CacheEntry): CacheEntry | undefined {
+    return this.#entries.get(entry.key)?.get(entry.dataUrl);
+  }
+
+  #deleteEntry(entry: CacheEntry): void {
+    const sources = this.#entries.get(entry.key);
+    if (sources === undefined) return;
+    sources.delete(entry.dataUrl);
+    if (sources.size === 0) this.#entries.delete(entry.key);
+  }
+
   #evictIfNeeded(): void {
     if (this.#totalBytes <= this.#budgetBytes) return;
     const candidates = [...this.#entries.values()]
+      .flatMap((sources) => [...sources.values()])
       .filter((entry) => entry.state === "ready" && entry.refs === 0)
       .sort((left, right) => left.lastUsed - right.lastUsed);
 
     for (const entry of candidates) {
       if (this.#totalBytes <= this.#budgetBytes) break;
       if (entry.resource === null) continue;
-      this.#entries.delete(entry.key);
+      this.#deleteEntry(entry);
       this.#totalBytes = Math.max(0, this.#totalBytes - entry.bytes);
       entry.resource.close();
       if (entry.sessionId !== null) {
