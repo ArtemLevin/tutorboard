@@ -204,4 +204,31 @@ test("@smoke bounds and coalesces large static raster decoding", async ({
       rasterWidth,
     }),
   );
+
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Expected board bounds.");
+  await page.mouse.click(
+    bounds.x + bounds.width * 0.75,
+    bounds.y + bounds.height * 0.75,
+    { button: "right" },
+  );
+  await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+  await page.getByRole("button", { name: "Очистить", exact: true }).click();
+  await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+  await expect
+    .poll(async () =>
+      Number(
+        (await stage.getAttribute("data-raster-active-decoded-count")) ?? -1,
+      ),
+    )
+    .toBe(0);
+  await expect
+    .poll(async () =>
+      Number(
+        (await stage.getAttribute(
+          "data-raster-active-estimated-decoded-bytes",
+        )) ?? -1,
+      ),
+    )
+    .toBe(0);
 });
