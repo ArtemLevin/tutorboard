@@ -237,7 +237,9 @@ describe("RasterDecodeCache", () => {
     cache.trimUnused();
 
     const resolve = resolvers[0];
-    if (resolve === undefined) throw new Error("Expected pending raster decode.");
+    if (resolve === undefined) {
+      throw new Error("Expected pending raster decode.");
+    }
     resolve(decoded.value);
     await handle.promise;
 
