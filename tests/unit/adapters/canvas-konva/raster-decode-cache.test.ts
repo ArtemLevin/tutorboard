@@ -116,12 +116,12 @@ describe("RasterDecodeCache", () => {
   });
 
   it("does not coalesce different sources that claim the same content hash", async () => {
-    const decoder = vi.fn(async (request: RasterDecodeRequest) => {
+    const decoder = vi.fn((request: RasterDecodeRequest) => {
       const item = resource(
         request.dataUrl.endsWith("a") ? 64 : 128,
         request.dataUrl.endsWith("a") ? 64 : 128,
       );
-      return item.value;
+      return Promise.resolve(item.value);
     });
     const cache = new RasterDecodeCache({
       decoder,
