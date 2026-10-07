@@ -101,7 +101,7 @@ describe("embedded image import", () => {
     );
 
     expect(result).toMatchObject({
-      diagnostic: { code: "image.decode-failed" },
+      code: "image.decode-failed",
       status: "error",
     });
     expect(decode).toHaveBeenCalledTimes(2);
