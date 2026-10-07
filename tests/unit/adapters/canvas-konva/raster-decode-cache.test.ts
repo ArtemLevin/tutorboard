@@ -115,6 +115,45 @@ describe("RasterDecodeCache", () => {
     expect(decoded.close).not.toHaveBeenCalled();
   });
 
+  it("does not coalesce different sources that claim the same content hash", async () => {
+    const decoder = vi.fn(async (request: RasterDecodeRequest) => {
+      const item = resource(
+        request.dataUrl.endsWith("a") ? 64 : 128,
+        request.dataUrl.endsWith("a") ? 64 : 128,
+      );
+      return item.value;
+    });
+    const cache = new RasterDecodeCache({
+      decoder,
+      diagnostics: new RasterImageDiagnostics(),
+      maxConcurrent: 2,
+    });
+    const contentSha256 = "f".repeat(64);
+
+    const first = cache.acquire({
+      contentSha256,
+      dataUrl: "data:image/png;base64,a",
+      size: { height: 256, width: 256 },
+    });
+    const second = cache.acquire({
+      contentSha256,
+      dataUrl: "data:image/png;base64,b",
+      size: { height: 256, width: 256 },
+    });
+
+    const [firstDecoded, secondDecoded] = await Promise.all([
+      first.promise,
+      second.promise,
+    ]);
+
+    expect(decoder).toHaveBeenCalledTimes(2);
+    expect(firstDecoded.width).toBe(64);
+    expect(secondDecoded.width).toBe(128);
+    expect(cache.snapshot().entryCount).toBe(2);
+    first.release();
+    second.release();
+  });
+
   it("bounds concurrent decodes", async () => {
     const resolvers: Array<(value: RasterBitmapResource) => void> = [];
     const decoder = vi.fn(
