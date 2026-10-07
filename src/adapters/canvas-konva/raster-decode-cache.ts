@@ -267,14 +267,14 @@ export class RasterDecodeCache {
     for (const sources of this.#entries.values()) {
       for (const entry of sources.values()) {
         if (entry.resource !== null) {
-        entry.resource.close();
-        if (entry.sessionId !== null) {
-          this.#diagnostics.release(entry.sessionId);
-        }
-      } else {
-        if (entry.sessionId !== null) {
-          this.#diagnostics.fail(entry.sessionId);
-        }
+          entry.resource.close();
+          if (entry.sessionId !== null) {
+            this.#diagnostics.release(entry.sessionId);
+          }
+        } else {
+          if (entry.sessionId !== null) {
+            this.#diagnostics.fail(entry.sessionId);
+          }
           entry.reject(error);
         }
       }
