@@ -66,6 +66,7 @@ interface CacheEntry {
   readonly resolve: (value: RasterDecodedImage) => void;
   readonly size: Size2;
   bytes: number;
+  discardWhenUnused: boolean;
   resource: RasterBitmapResource | null;
   lastUsed: number;
   refs: number;
@@ -225,6 +226,7 @@ export class RasterDecodeCache {
       entry = {
         bytes: 0,
         contentSha256: request.contentSha256,
+        discardWhenUnused: false,
         dataUrl: request.dataUrl,
         resource: null,
         key,
@@ -247,6 +249,7 @@ export class RasterDecodeCache {
     }
 
     const acquiredEntry = entry;
+    acquiredEntry.discardWhenUnused = false;
     acquiredEntry.refs += 1;
     acquiredEntry.lastUsed = this.#now();
     let released = false;
@@ -282,6 +285,19 @@ export class RasterDecodeCache {
     this.#entries.clear();
     this.#queue.length = 0;
     this.#totalBytes = 0;
+  }
+
+  trimUnused(): void {
+    for (const sources of [...this.#entries.values()]) {
+      for (const entry of [...sources.values()]) {
+        if (entry.refs !== 0) continue;
+        if (entry.state !== "ready" || entry.resource === null) {
+          entry.discardWhenUnused = true;
+          continue;
+        }
+        this.#releaseReadyEntry(entry);
+      }
+    }
   }
 
   snapshot(): {
@@ -345,7 +361,11 @@ export class RasterDecodeCache {
             image: resource.image,
             width: resource.width,
           });
-          this.#evictIfNeeded();
+          if (entry.discardWhenUnused && entry.refs === 0) {
+            this.#releaseReadyEntry(entry);
+          } else {
+            this.#evictIfNeeded();
+          }
         })
         .catch((error: unknown) => {
           if (this.#entryFor(entry) === entry) {
@@ -378,6 +398,19 @@ export class RasterDecodeCache {
     if (sources.size === 0) this.#entries.delete(entry.key);
   }
 
+  #releaseReadyEntry(entry: CacheEntry): void {
+    const resource = entry.resource;
+    if (resource === null) return;
+    this.#deleteEntry(entry);
+    this.#totalBytes = Math.max(0, this.#totalBytes - entry.bytes);
+    resource.close();
+    entry.resource = null;
+    if (entry.sessionId !== null) {
+      this.#diagnostics.release(entry.sessionId);
+      entry.sessionId = null;
+    }
+  }
+
   #evictIfNeeded(): void {
     if (this.#totalBytes <= this.#budgetBytes) return;
     const candidates = [...this.#entries.values()]
@@ -388,12 +421,7 @@ export class RasterDecodeCache {
     for (const entry of candidates) {
       if (this.#totalBytes <= this.#budgetBytes) break;
       if (entry.resource === null) continue;
-      this.#deleteEntry(entry);
-      this.#totalBytes = Math.max(0, this.#totalBytes - entry.bytes);
-      entry.resource.close();
-      if (entry.sessionId !== null) {
-        this.#diagnostics.release(entry.sessionId);
-      }
+      this.#releaseReadyEntry(entry);
     }
   }
 }
