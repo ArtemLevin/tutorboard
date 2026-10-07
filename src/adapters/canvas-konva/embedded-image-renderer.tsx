@@ -5,19 +5,78 @@ import { Group, Image as KonvaImage, Rect } from "react-konva";
 import type { EmbeddedImageObject } from "../../core/public";
 import { startAnimatedImageRedraw } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
+import {
+  rasterDecodeCache,
+  resolveRasterDecodeSize,
+} from "./raster-decode-cache";
 import { rasterImageDiagnostics } from "./raster-image-diagnostics";
 
 export function EmbeddedImageRenderer({
   object,
+  visualScale = 1,
+  zoom,
 }: {
   readonly object: EmbeddedImageObject;
+  readonly visualScale?: number;
+  readonly zoom: number;
 }) {
-  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [imageState, setImageState] = useState<{
+    readonly image: CanvasImageSource;
+    readonly key: string;
+  } | null>(null);
   const [failed, setFailed] = useState(false);
   const imageRef = useRef<Konva.Image>(null);
   const redrawCoordinator = useContext(AnimatedImageRedrawContext);
+  const staticRaster =
+    object.mimeType === "image/png" || object.mimeType === "image/jpeg";
+  const decodeSize = staticRaster
+    ? resolveRasterDecodeSize({
+        ancestorScale: visualScale,
+        devicePixelRatio:
+          typeof window === "undefined" ? 1 : window.devicePixelRatio,
+        displaySize: object.size,
+        intrinsicSize: object.intrinsicSize,
+        objectScale: object.scale,
+        zoom,
+      })
+    : null;
+  const decodeHeight = decodeSize?.height ?? null;
+  const decodeWidth = decodeSize?.width ?? null;
+  const cachedBitmapPath =
+    staticRaster &&
+    decodeHeight !== null &&
+    decodeWidth !== null &&
+    typeof createImageBitmap === "function";
+  const sourceKey = cachedBitmapPath
+    ? `${object.contentSha256}:${decodeWidth}x${decodeHeight}`
+    : `${object.contentSha256}:html`;
+  const image = imageState?.key === sourceKey ? imageState.image : null;
 
   useEffect(() => {
+    if (cachedBitmapPath && decodeHeight !== null && decodeWidth !== null) {
+      const handle = rasterDecodeCache.acquire({
+        contentSha256: object.contentSha256,
+        dataUrl: object.dataUrl,
+        size: { height: decodeHeight, width: decodeWidth },
+      });
+      let active = true;
+      void handle.promise
+        .then(({ image: bitmap }) => {
+          if (!active) return;
+          setFailed(false);
+          setImageState({ image: bitmap, key: sourceKey });
+        })
+        .catch(() => {
+          if (!active) return;
+          setFailed(true);
+          setImageState(null);
+        });
+      return () => {
+        active = false;
+        handle.release();
+      };
+    }
+
     const element = new Image();
     const sessionId = rasterImageDiagnostics.begin(
       object.contentSha256,
@@ -34,13 +93,13 @@ export function EmbeddedImageRenderer({
         performance.now(),
       );
       setFailed(false);
-      setImage(element);
+      setImageState({ image: element, key: sourceKey });
     };
     element.onerror = () => {
       if (!active) return;
       rasterImageDiagnostics.fail(sessionId);
       setFailed(true);
-      setImage(null);
+      setImageState(null);
     };
     element.src = object.dataUrl;
     return () => {
@@ -48,7 +107,15 @@ export function EmbeddedImageRenderer({
       rasterImageDiagnostics.release(sessionId);
       element.src = "";
     };
-  }, [object.contentSha256, object.dataUrl]);
+  }, [
+    cachedBitmapPath,
+    decodeHeight,
+    decodeWidth,
+    object.contentSha256,
+    object.dataUrl,
+    object.mimeType,
+    sourceKey,
+  ]);
 
   useEffect(() => {
     if (object.mimeType !== "image/gif" || image === null) {

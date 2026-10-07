@@ -274,9 +274,74 @@ Measured browser baseline для двух одинаковых 4096×3072 raster
 - Firefox max renderer decode: 13 ms; max frame gap: ~49.84 ms; engine не
   предоставляет `longtask` PerformanceObserver entry type.
 
-Следующий C3-блок: bounded resolution-aware raster cache для PNG/JPEG с decode
-coalescing, concurrency control, LRU eviction и explicit bitmap release. После
-него — asset-backed media persistence по ADR-032.
+### 3.5. Bounded resolution-aware raster cache — 07.10.2026
+
+PR #180 (`perf/raster-decode-cache`) реализует A2 поверх измерений PR #179.
+
+Static PNG/JPEG renderer:
+
+- `RasterDecodeCache` coalesces одинаковые concurrent requests;
+- cache identity включает immutable content SHA, resolution bucket и exact
+  embedded source, чтобы forged/colliding source не получил чужой bitmap;
+- decode concurrency по умолчанию ограничена двумя задачами;
+- retained decoded-cache budget по умолчанию 128 MiB;
+- zero-ref entries вытесняются LRU и закрывают underlying `ImageBitmap`;
+- bucket вычисляется из display size, object scale, ancestor/group scale,
+  viewport zoom и devicePixelRatio;
+- PNG/JPEG используют resized `createImageBitmap`; unsupported/failing bitmap
+  path сохраняет HTMLImageElement fallback;
+- GIF redraw/animation и sanitized SVG rendering остаются на существующих путях.
+
+Import path PNG/JPEG теперь извлекает intrinsic dimensions из file headers и
+выполняет 1×1 decode probe для сохранения corrupt-file rejection contract.
+Persisted `image.embedded`, BoardDocument schema, command/collaboration
+contracts и original media bytes не меняются.
+
+Self-review добавил lifecycle cleanup: когда на доске больше нет static raster
+objects, zero-ref cache entries trim'ятся; при BoardStage unmount запускается
+тот же cleanup после renderer releases. In-flight zero-ref decode безопасно
+discard'ится после завершения. Browser regression после Clear требует
+`activeDecodedCount=0` и `activeEstimatedDecodedBytes=0`.
+
+Проверенный production code-head
+`7b5d8aa3533f9319e246bacc42ec83667ca66883` прошёл CI run
+`37613545140`:
+
+- 184/184 unit/integration files, 1013/1013 tests;
+- 10/10 performance files, 18/18 tests;
+- architecture boundaries и production build;
+- Chromium browser smoke: 29/29;
+- Firefox browser smoke: 29/29;
+- GeometryOS live browser contract, Board-only frontend profile и Coordinate
+  Plot production gate;
+- Smart Ink, Formula Recognition и Paddle formula sidecar gates.
+
+A1 → A2 на двух одинаковых PNG 4096×3072:
+
+| Metric | A1 | A2 |
+| --- | ---: | ---: |
+| decoded working set | 100,663,296 B | 786,432 B |
+| actual decode starts | 2 | 1 |
+| duplicate concurrent starts | 1 | 0 |
+| reduction | — | 128× |
+
+Финальный A2 browser evidence: Chromium max RAF gap 50 ms и 0 Long Tasks;
+Firefox max RAF gap ~67.46 ms, `longtask` entry type отсутствует. Async renderer
+decode completion составил 210.4 ms в Chromium и 69 ms в Firefox; эта величина
+зависит от среды и используется как diagnostic evidence, без latency budget.
+
+Остаточные ограничения A2:
+
+- base64 data URL → Blob для `image.embedded` всё ещё выполняется синхронно в
+  canvas adapter; asset-backed media уберёт этот large-media source path;
+- 128 MiB budget ограничивает retained/evictable zero-ref cache; активно
+  отображаемые referenced resources сохраняются до release;
+- import decode probe сохраняет compatibility validation и всё ещё просит
+  браузер декодировать содержимое, хотя output surface ограничен 1×1.
+
+Следующий C3 milestone — asset-backed media persistence по ADR-032 для устранения
+embedded-byte revision amplification и перехода large media к owned binary
+assets.
 
 ---
 

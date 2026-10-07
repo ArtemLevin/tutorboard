@@ -376,9 +376,13 @@ const renderers: readonly KonvaObjectRenderer[] = [
   },
   {
     kind: "image.embedded",
-    render(object) {
+    render(object, context) {
       return (
-        <EmbeddedImageRenderer object={expectKind(object, "image.embedded")} />
+        <EmbeddedImageRenderer
+          object={expectKind(object, "image.embedded")}
+          visualScale={context.visualScale ?? 1}
+          zoom={context.zoom}
+        />
       );
     },
   },

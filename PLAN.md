@@ -227,10 +227,54 @@ production build. Chromium/Firefox browser smoke прошли по 29/29 scenari
 - Firefox: max renderer decode 13 ms, max frame gap ~49.84 ms; Long Task API в
   данном engine unavailable.
 
-Следующий блок A2: bounded decoded-raster cache с coalesced decode по
-`contentSha256 + resolution bucket`, resolution-aware PNG/JPEG decoding,
-bounded concurrency, LRU eviction и explicit `ImageBitmap.close()`. GIF/SVG
-остаются на существующих путях.
+07.10.2026: raster-memory блок A2 реализован в PR #180
+`perf/raster-decode-cache`. Для static PNG/JPEG добавлен
+`RasterDecodeCache`: immutable content SHA + resolution bucket + exact source
+isolation, concurrent-request coalescing, максимум 2 параллельных decode,
+128 MiB default retained-cache budget, LRU eviction zero-ref entries и explicit
+resource close. Resolution bucket учитывает board display size, object scale,
+ancestor/group scale, viewport zoom и devicePixelRatio. Production path
+использует `createImageBitmap(... resizeWidth/resizeHeight ...)` с
+HTMLImageElement fallback; GIF animation и sanitized SVG path не меняются.
+
+Import path для PNG/JPEG читает intrinsic dimensions из file headers и сохраняет
+decode-validation contract через 1×1 browser decode probe. Это убирает
+full-resolution decoded surface, использовавшийся только для определения
+размеров, при сохранении rejection повреждённых static raster файлов.
+
+Self-review дополнительно закрыл derived-resource lifecycle: zero-ref raster
+resources освобождаются после очистки доски и при unmount; queued/in-flight
+entries помечаются для discard, а ready resources закрываются. Browser regression
+проверяет, что после Clear active decoded count и bytes становятся нулевыми.
+Dense-board profiler обновлён для `ImageBitmap`, сохраняя исходный контракт:
+committed rasters присутствуют до pen gesture и не перерисовываются Wet Ink
+preview.
+
+Проверенный production code-head
+`7b5d8aa3533f9319e246bacc42ec83667ca66883` прошёл CI run
+`37613545140`: 184/184 unit/integration files, 1013/1013 tests,
+10/10 performance files, 18/18 performance tests, architecture boundaries и
+production build. Chromium/Firefox browser smoke прошли по 29/29 scenarios;
+GeometryOS, Board-only и Coordinate Plot gates green. Smart Ink, Formula
+Recognition и Paddle sidecar gates на том же SHA также green.
+
+A1 → A2 для двух одинаковых PNG 4096×3072:
+- decoded working set: 100,663,296 → 786,432 bytes, снижение ровно в 128 раз;
+- actual decode starts: 2 → 1;
+- duplicate concurrent decode starts: 1 → 0;
+- Chromium A2: max frame gap 50 ms, Long Tasks 0;
+- Firefox A2: max frame gap ~67.46 ms; `longtask` entry type unavailable.
+
+Renderer decode completion time остаётся environment-sensitive и не используется
+как latency budget: на финальном A2 run Chromium показал 210.4 ms, Firefox
+69 ms, при этом browser smoke и frame/Long-Task contracts green.
+
+Следующий крупный C3-блок — asset-backed media persistence по ADR-032, чтобы
+убрать embedded-byte amplification в revisions и сам base64 source из обычного
+large-media runtime path. Остаточный A2 риск: data URL → Blob conversion для
+legacy/current `image.embedded` выполняется синхронно в JS; retained-cache budget
+ограничивает evictable zero-ref resources, а активно отображаемые referenced
+bitmaps не эвиктятся до release.
 
 ## 1. Продуктовая цель
 

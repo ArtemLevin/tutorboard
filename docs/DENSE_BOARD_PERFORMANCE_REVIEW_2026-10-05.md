@@ -453,3 +453,125 @@ A2 should add a bounded decoded-raster cache for static PNG/JPEG:
 Persisted image bytes, BoardDocument schema, command protocol and collaboration
 contracts remain outside A2. Asset-backed media persistence stays the following
 milestone under ADR-032.
+
+
+## Bounded raster decode cache — 07.10.2026
+
+PR #180 (`perf/raster-decode-cache`) implements the A2 remediation measured by
+the large-raster A1 baseline.
+
+### Runtime design
+
+Static PNG/JPEG rendering now uses `RasterDecodeCache` inside the canvas adapter.
+
+Cache behavior:
+
+- immutable content SHA + resolution bucket identify the reusable decode target;
+- exact embedded source is isolated inside that key so a forged/colliding source
+  cannot reuse another object's decoded pixels;
+- concurrent requests for the same source/bucket share one decode;
+- at most two decode tasks run concurrently by default;
+- retained decoded resources have a 128 MiB default budget;
+- zero-reference entries are evicted least-recently-used when over budget;
+- evicted `ImageBitmap` resources are explicitly closed;
+- display resolution is bucketed by powers of two from object display size,
+  object scale, ancestor/group scale, viewport zoom and devicePixelRatio;
+- a bucket transition triggers a new request; small zoom changes within the same
+  bucket keep the current decode;
+- `createImageBitmap` performs target-size PNG/JPEG decoding where supported;
+- browser/runtime bitmap failures preserve the HTMLImageElement compatibility
+  fallback;
+- GIF animation and sanitized SVG rendering keep their existing paths.
+
+The import path also stops using a full-size `HTMLImageElement` only to obtain
+PNG/JPEG dimensions. Intrinsic dimensions are read from PNG/JPEG headers. A
+1×1 browser decode probe remains to preserve the existing contract that corrupt
+static raster files are rejected before insertion.
+
+### Lifecycle and self-review fixes
+
+Release review found a derived-memory lifecycle issue in the first cache
+implementation: a zero-reference bitmap below the LRU budget could remain held
+after clearing the board.
+
+The final implementation adds `trimUnused()` and BoardStage lifecycle wiring:
+
+- ready zero-reference resources are closed and removed;
+- queued/in-flight zero-reference requests are marked for discard and are closed
+  when their decode completes;
+- when no static PNG/JPEG objects remain in the board scene, unused cache entries
+  are trimmed;
+- BoardStage unmount schedules the same trim after renderer releases;
+- browser regression clears the board and requires both active decoded count and
+  active estimated decoded bytes to reach zero.
+
+The dense-board profiler was also updated to count both legacy
+`HTMLImageElement` rasters and the new `ImageBitmap` path. The original
+behavioral contract remains unchanged: committed raster content is present
+before the pen gesture and Wet Ink preview does not repaint committed rasters.
+
+### Verification
+
+Verified production code-head:
+
+`7b5d8aa3533f9319e246bacc42ec83667ca66883`.
+
+CI run `37613545140` verified:
+
+- format, lint, strict typecheck and dependency threshold;
+- 184/184 unit/integration files and 1013/1013 tests;
+- 10/10 performance files and 18/18 tests;
+- architecture boundaries and production build;
+- Chromium browser smoke: 29/29;
+- Firefox browser smoke: 29/29;
+- GeometryOS live browser contract;
+- Board-only frontend profile;
+- Coordinate Plot production gate.
+
+Smart Ink, Formula Recognition and Paddle formula sidecar gates also succeeded
+on the same code-head.
+
+### A1 → A2 evidence
+
+Fixture: two identical 4096×3072 PNG board objects.
+
+| Metric | A1 Chromium | A2 Chromium | A1 Firefox | A2 Firefox |
+| --- | ---: | ---: | ---: | ---: |
+| actual decode starts | 2 | 1 | 2 | 1 |
+| duplicate concurrent decode starts | 1 | 0 | 1 | 0 |
+| active/peak estimated decoded bytes | 100,663,296 | 786,432 | 100,663,296 | 786,432 |
+| working-set reduction | — | 128× | — | 128× |
+| max RAF frame gap | ~66.7 ms | 50 ms | ~49.84 ms | ~67.46 ms |
+| Long Tasks | 1 × 68 ms | 0 | unavailable | unavailable |
+| renderer decode completion | 1 ms | 210.4 ms | 13 ms | 69 ms |
+
+The decode-completion number measures asynchronous renderer completion and is
+environment-sensitive. A2 does not claim a universal reduction in that duration;
+its release gates target bounded decoded working set, deduplication, frame
+continuity and absence of Chromium Long Tasks in this fixture.
+
+The final browser regression also verifies that board clear returns active
+decoded count and active estimated decoded bytes to zero.
+
+### Remaining risk and next milestone
+
+A2 materially bounds the retained raster cache and removes duplicate
+full-resolution renderer decodes for the measured case. Two embedded-media costs
+remain outside this block:
+
+1. `image.embedded` still stores a base64 data URL. Converting that data URL to
+   a Blob for bitmap decode currently performs synchronous base64 conversion in
+   the canvas adapter. Large compressed payloads can still contribute main-thread
+   work even though the decoded output bitmap is resolution-bounded.
+2. The 128 MiB budget governs retained/evictable zero-reference cache entries.
+   Actively referenced visible resources are kept until release and can
+   temporarily exceed the retained-cache budget if the visible working set itself
+   is large.
+
+The import validation probe also asks the browser to decode static raster
+content, with a 1×1 output surface, in order to preserve corrupt-file rejection.
+
+The next C3 milestone is asset-backed media persistence under ADR-032. Moving
+large media bytes out of BoardDocument revisions removes embedded-byte
+amplification and also removes the base64 data-URL source from the normal
+large-media runtime path.
