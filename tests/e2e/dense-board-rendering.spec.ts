@@ -23,11 +23,12 @@ test.beforeEach(async ({ page }) => {
       image: CanvasImageSource,
       ...coordinates: number[]
     ) {
-      if (
+      const embeddedHtmlRaster =
         image instanceof HTMLImageElement &&
-        image.src.startsWith("data:image/png")
-      )
-        rasterDraws += 1;
+        image.src.startsWith("data:image/png");
+      const embeddedBitmap =
+        typeof ImageBitmap !== "undefined" && image instanceof ImageBitmap;
+      if (embeddedHtmlRaster || embeddedBitmap) rasterDraws += 1;
       Reflect.apply(draw, this, [image, ...coordinates]);
     };
     window.requestAnimationFrame = (callback) =>
