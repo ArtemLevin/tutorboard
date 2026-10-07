@@ -53,11 +53,7 @@ export function EmbeddedImageRenderer({
   const image = imageState?.key === sourceKey ? imageState.image : null;
 
   useEffect(() => {
-    if (
-      cachedBitmapPath &&
-      decodeHeight !== null &&
-      decodeWidth !== null
-    ) {
+    if (cachedBitmapPath && decodeHeight !== null && decodeWidth !== null) {
       const handle = rasterDecodeCache.acquire({
         contentSha256: object.contentSha256,
         dataUrl: object.dataUrl,
@@ -112,11 +108,9 @@ export function EmbeddedImageRenderer({
       element.src = "";
     };
   }, [
+    cachedBitmapPath,
     decodeHeight,
     decodeWidth,
-    object.contentSha256,
-    object.dataUrl,
-    cachedBitmapPath,
     object.contentSha256,
     object.dataUrl,
     object.mimeType,
