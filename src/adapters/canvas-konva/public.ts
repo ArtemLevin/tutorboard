@@ -43,6 +43,10 @@ export {
 } from "./coordinate-plot-rendering";
 export { createDefaultKonvaRendererRegistry } from "./default-renderers";
 export {
+  BoardMediaResourceScopeContext,
+  type BoardMediaResourceContextValue,
+} from "./board-media-resource-context";
+export {
   BoardMediaResourceScope,
   type BoardMediaHandle,
   type BoardMediaHandleFactory,

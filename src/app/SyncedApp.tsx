@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createBoardDocumentWorkerComputation } from "../adapters/board-document-worker/public";
 import {
+  BoardMediaResourceScope,
+  BoardMediaResourceScopeContext,
+  type BoardMediaResourceContextValue,
+} from "../adapters/canvas-konva/public";
+import {
   BoardCollaborationClient,
   type BoardAccessControlEvent,
   type BoardCollaborationStatus,
@@ -294,6 +299,53 @@ function SyncedWorkspace({
   const refreshAccessAfterCollaborationOfflineRef = useRef(false);
   const mediaImportEpochRef = useRef(0);
   const activeRef = useRef(false);
+  const mediaScopeRef = useRef<BoardMediaResourceScope | null>(null);
+  const [mediaResources, setMediaResources] =
+    useState<BoardMediaResourceContextValue | null>(null);
+
+  // A fresh scope belongs to each effect setup, including StrictMode remounts.
+  useEffect(() => {
+    let active = true;
+    const scope = new BoardMediaResourceScope(String(documentId));
+    mediaScopeRef.current = scope;
+    queueMicrotask(() => {
+      if (active) {
+        setMediaResources({
+          scope,
+          resourceGeneration: scope.identity.resourceGeneration,
+          enabled: true,
+        });
+      }
+    });
+    return () => {
+      active = false;
+      scope.dispose();
+      if (mediaScopeRef.current === scope) mediaScopeRef.current = null;
+    };
+  }, [documentId]);
+
+  const invalidateMedia = useCallback((enabled: boolean) => {
+    const scope = mediaScopeRef.current;
+    if (scope === null || scope.snapshot().disposed) return;
+    scope.invalidate();
+    setMediaResources({
+      scope,
+      resourceGeneration: scope.identity.resourceGeneration,
+      enabled,
+    });
+  }, []);
+
+  const revokeMedia = useCallback(() => {
+    const scope = mediaScopeRef.current;
+    if (scope === null || scope.snapshot().disposed) return;
+    scope.dispose();
+    setMediaResources({
+      scope,
+      resourceGeneration: scope.identity.resourceGeneration,
+      enabled: false,
+    });
+  }, []);
+
   useEffect(() => {
     activeRef.current = true;
     return () => {
@@ -309,6 +361,7 @@ function SyncedWorkspace({
         expectedAccessEpochRef.current = expectedAccessEpoch;
       }
       mediaImportEpochRef.current += 1;
+      invalidateMedia(false);
       engine.pauseForAccessRefresh();
       setAccessRefreshStatus("refreshing");
       setEvidenceStatus("Обновляем права доступа к доске…");
@@ -332,6 +385,7 @@ function SyncedWorkspace({
         await engine.updateAccessContext(context);
         if (!activeRef.current) throw new Error("Board workspace was closed.");
         currentAccessContextRef.current = context;
+        invalidateMedia(true);
         setCurrentAccessContext(context);
         expectedAccessEpochRef.current = undefined;
         setAccessRefreshStatus("idle");
@@ -345,6 +399,7 @@ function SyncedWorkspace({
         .catch((error: unknown) => {
           if (!activeRef.current) throw error;
           if (terminalAccessRefreshFailure(error)) {
+            revokeMedia();
             engine.dispose();
             setAccessRefreshStatus("revoked");
             setEvidenceStatus("Доступ к совместной доске отозван.");
@@ -362,12 +417,13 @@ function SyncedWorkspace({
       accessRefreshInFlightRef.current = refresh;
       return refresh;
     },
-    [engine, refreshAccessContext],
+    [engine, invalidateMedia, refreshAccessContext, revokeMedia],
   );
   const handleAccessEvent = useCallback(
     (event: BoardAccessControlEvent) => {
       if (event.type === "access.revoked") {
         mediaImportEpochRef.current += 1;
+        revokeMedia();
         engine.dispose();
         setAccessRefreshStatus("revoked");
         setEvidenceStatus("Доступ к совместной доске отозван.");
@@ -377,7 +433,7 @@ function SyncedWorkspace({
         context.capabilities.includes("collaboration.connect"),
       );
     },
-    [engine, refreshStandaloneAccess],
+    [engine, refreshStandaloneAccess, revokeMedia],
   );
   const [collaboration] = useState(
     () =>
@@ -388,6 +444,7 @@ function SyncedWorkspace({
         onRevision: () => void engine.synchronize(),
         onStatus: (status) => {
           if (status !== "online") setCollaborationAccessReady(false);
+          if (status === "revoked") revokeMedia();
           setCollaborationStatus(status);
         },
         onTransformPreviews: setTransformPreviews,
@@ -512,15 +569,23 @@ function SyncedWorkspace({
   const resolveContentSource = repository.resolveMediaContentSource;
   const mediaAssetSourceResolver = useMemo(
     () =>
-      resolveContentSource === undefined
+      resolveContentSource === undefined ||
+      mediaResources === null ||
+      !mediaResources.enabled
         ? undefined
         : (asset: MediaAssetObject) => {
-            if (currentAccessContextRef.current !== currentAccessContext) {
+            if (
+              mediaResources.scope.snapshot().disposed ||
+              mediaResources.scope.identity.resourceGeneration !==
+                mediaResources.resourceGeneration ||
+              accessRefreshInFlightRef.current !== null ||
+              currentAccessContextRef.current !== currentAccessContext
+            ) {
               throw new Error("Board media access context has changed.");
             }
             return resolveContentSource(documentId, asset);
           },
-    [documentId, currentAccessContext, resolveContentSource],
+    [documentId, currentAccessContext, mediaResources, resolveContentSource],
   );
 
   const prepareExportSnapshot = async (
@@ -699,6 +764,8 @@ function SyncedWorkspace({
     repository,
     writeEnabled,
   ]);
+
+  if (mediaResources === null) return null;
 
   if (state.kind === "bootstrapping") {
     return (
@@ -905,7 +972,8 @@ function SyncedWorkspace({
   };
 
   return (
-    <div className="synced-workspace">
+    <BoardMediaResourceScopeContext.Provider value={mediaResources}>
+      <div className="synced-workspace">
       <App
         collaborativeUndoAvailable={writeEnabled && undoCount > 0}
         commandActorId={state.actorId}
@@ -914,6 +982,7 @@ function SyncedWorkspace({
         initialDocument={state.document}
         mathInkRecognizer={mathInkRecognizer}
         mediaAssetSourceResolver={mediaAssetSourceResolver}
+        mediaResourceGeneration={mediaResources.resourceGeneration}
         mediaAssetImportEnabled={mediaAssetImportEnabled}
         mediaUploadSession={mediaUploadSession}
         onCollaborativeUndo={() => {
@@ -1117,6 +1186,7 @@ function SyncedWorkspace({
         remoteInkPreviews={inkPreviews}
         remoteTransformPreviews={transformPreviews}
       />
-    </div>
+      </div>
+    </BoardMediaResourceScopeContext.Provider>
   );
 }
