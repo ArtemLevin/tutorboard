@@ -1619,6 +1619,19 @@ preflight и свежего isolated restore drill. Pilot-specific упроще�
 
 ## 26. Board media assets — implementation-ready track
 
+08.10.2026: серверная основа ADR-032 готова в
+`tutor-assistant-web/main`: PR #40 (M1+M2: private storage/upload/read) и
+PR #41 (M3: authoritative command/snapshot reference validation).
+Frontend F1 ведётся отдельным PR #181 `feat/board-media-repository-http`:
+`BoardMediaRepository` port, same-origin raw-binary upload, строгий reader
+authoritative AVAILABLE metadata и lazy content-source resolver с отдельным
+cache identity на каждый repository/security scope. Guest upload наследует
+актуальный `X-Board-Access-Epoch` от standalone scoped transport.
+F1 **не включает** новый UI/import/renderer path. Следующий PR:
+`MediaAssetRenderer` и A2 raster-cache source abstraction, затем отдельный
+upload-before-command + rollout PR. Legacy `image.embedded` пока неизменён.
+
+
 Архитектура больших и URL-import media определена в
 `docs/adr/ADR-032-board-media-assets.md`. Главный инвариант: binary media не
 попадает в BoardCommand, durable pending queue, PostgreSQL command journal или
