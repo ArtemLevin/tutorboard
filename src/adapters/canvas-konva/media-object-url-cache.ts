@@ -40,14 +40,30 @@ export class MediaObjectUrlCache {
     let entry = this.#entries.get(key);
     if (entry === undefined) {
       const abort = new AbortController();
+      let abortReject!: (error: Error) => void;
+      const cancelled = new Promise<never>((_resolve, reject) => {
+        abortReject = reject;
+      });
+      const onAbort = () =>
+        abortReject(new DOMException("Media source cancelled.", "AbortError"));
+      abort.signal.addEventListener("abort", onAbort, { once: true });
+      let loading: Promise<Blob>;
+      try {
+        loading = source.loadBlob(abort.signal);
+      } catch (cause) {
+        loading = Promise.reject(
+          cause instanceof Error
+            ? cause
+            : new Error("Media source loader failed."),
+        );
+      }
       const created: MediaObjectUrlEntry = {
         abort,
         pending: true,
         refs: 0,
         url: null,
-        promise: source
-          .loadBlob(abort.signal)
-          .then((blob) => {
+        promise: Promise.race([
+          loading.then((blob) => {
             if (abort.signal.aborted) {
               throw new DOMException("Media source cancelled.", "AbortError");
             }
@@ -56,16 +72,20 @@ export class MediaObjectUrlCache {
               URL.revokeObjectURL(url);
               throw new DOMException("Media source cancelled.", "AbortError");
             }
-            created.pending = false;
             created.url = url;
             return url;
-          })
+          }),
+          cancelled,
+        ])
           .catch((cause: unknown) => {
-            created.pending = false;
             if (this.#entries.get(key) === created) {
               this.#entries.delete(key);
             }
             throw cause;
+          })
+          .finally(() => {
+            created.pending = false;
+            abort.signal.removeEventListener("abort", onAbort);
           }),
       };
       entry = created;

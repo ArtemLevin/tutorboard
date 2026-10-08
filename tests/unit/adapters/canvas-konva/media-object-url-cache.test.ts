@@ -98,3 +98,58 @@ describe("asset GIF object URL lifecycle", () => {
     expect(revoke).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("F3.3.2-B GIF cancellation", () => {
+  it("settles the released handle when the source ignores AbortSignal", async () => {
+    const create = vi.fn(() => "blob:late");
+    const revoke = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL: create, revokeObjectURL: revoke });
+    try {
+      let finish!: (value: Blob) => void;
+      const cache = new MediaObjectUrlCache();
+      const handle = cache.acquire(
+        source(
+          "scope:pending",
+          () =>
+            new Promise<Blob>((resolve) => {
+              finish = resolve;
+            }),
+        ),
+      );
+      handle.release();
+      await expect(handle.promise).rejects.toMatchObject({
+        name: "AbortError",
+      });
+      finish(new Blob([new Uint8Array([1])]));
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(create).not.toHaveBeenCalled();
+      expect(revoke).not.toHaveBeenCalled();
+      expect(cache.snapshot()).toEqual({
+        activeObjectUrls: 0,
+        activeReferences: 0,
+        entryCount: 0,
+        pendingLoads: 0,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("F3.3.2-B GIF loader failure", () => {
+  it("releases a source whose loader throws synchronously", async () => {
+    const cache = new MediaObjectUrlCache();
+    const handle = cache.acquire(
+      source("scope:throws", () => {
+        throw new Error("loader failure");
+      }),
+    );
+    await expect(handle.promise).rejects.toThrow("loader failure");
+    handle.release();
+    expect(cache.snapshot()).toMatchObject({
+      entryCount: 0,
+      activeReferences: 0,
+    });
+  });
+});

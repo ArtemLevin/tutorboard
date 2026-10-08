@@ -40,10 +40,20 @@ export interface KonvaObjectRenderer {
   render(object: BoardObject, context: KonvaRenderContext): ReactElement;
 }
 
+export interface KonvaRendererRegistryLifecycle {
+  readonly reconcileMediaAssets?: (activeAssetIds: ReadonlySet<string>) => void;
+  readonly dispose?: () => void;
+}
+
 export class KonvaRendererRegistry {
   readonly #renderers: ReadonlyMap<BoardObjectKind, KonvaObjectRenderer>;
+  readonly #lifecycle: KonvaRendererRegistryLifecycle | undefined;
 
-  constructor(renderers: readonly KonvaObjectRenderer[]) {
+  constructor(
+    renderers: readonly KonvaObjectRenderer[],
+    lifecycle?: KonvaRendererRegistryLifecycle,
+  ) {
+    this.#lifecycle = lifecycle;
     const byKind = new Map<BoardObjectKind, KonvaObjectRenderer>();
 
     for (const renderer of renderers) {
@@ -54,6 +64,14 @@ export class KonvaRendererRegistry {
     }
 
     this.#renderers = byKind;
+  }
+
+  reconcileMediaAssets(activeAssetIds: ReadonlySet<string>): void {
+    this.#lifecycle?.reconcileMediaAssets?.(activeAssetIds);
+  }
+
+  dispose(): void {
+    this.#lifecycle?.dispose?.();
   }
 
   render(

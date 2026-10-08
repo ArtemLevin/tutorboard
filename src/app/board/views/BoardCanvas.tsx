@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   BoardStage,
@@ -253,6 +253,38 @@ export function BoardCanvas({
       sceneItemsById,
     ],
   );
+  const lastMediaSceneRef = useRef<{
+    readonly registry: typeof registry;
+    readonly items: typeof scene.items;
+    readonly previewAssetKey: string;
+  } | null>(null);
+  useEffect(() => {
+    const previewAssetIds = previewItems.flatMap(({ object }) =>
+      object.kind === "media.asset" ? [object.assetId] : [],
+    );
+    const previewAssetKey = JSON.stringify(previewAssetIds);
+    const last = lastMediaSceneRef.current;
+    if (
+      last?.registry === registry &&
+      last.items === scene.items &&
+      last.previewAssetKey === previewAssetKey
+    ) {
+      return;
+    }
+    const activeAssetIds = new Set(previewAssetIds);
+    for (const { object } of scene.items) {
+      if (object.kind === "media.asset") activeAssetIds.add(object.assetId);
+    }
+    registry.reconcileMediaAssets(activeAssetIds);
+    lastMediaSceneRef.current = {
+      registry,
+      items: scene.items,
+      previewAssetKey,
+    };
+  }, [registry, scene.items, previewItems]);
+
+  useEffect(() => () => registry.dispose(), [registry]);
+
   const wetInkStyle = useMemo(() => {
     const style =
       activeTool === "drawing.pen" || activeTool === "drawing.smart-ink"

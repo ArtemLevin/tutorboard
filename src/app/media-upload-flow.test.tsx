@@ -21,7 +21,10 @@ vi.mock("../adapters/canvas-konva/public", () => ({
     <div aria-label="Бесконечное полотно TutorBoard" role="application" />
   ),
   clearCoordinatePlotSamplingCache: vi.fn(),
-  createDefaultKonvaRendererRegistry: () => ({}),
+  createDefaultKonvaRendererRegistry: () => ({
+    reconcileMediaAssets: vi.fn(),
+    dispose: vi.fn(),
+  }),
 }));
 
 const png = new Uint8Array(24);

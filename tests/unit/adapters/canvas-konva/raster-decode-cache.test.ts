@@ -502,3 +502,204 @@ describe("asset-backed A2 raster source", () => {
     for (const handle of handles) handle.release();
   });
 });
+
+describe("F3.3.2-B raster resource ownership", () => {
+  const request = (identity: string): RasterDecodeRequest => ({
+    contentSha256: "a".repeat(64),
+    source: {
+      cacheKey: identity,
+      contentSha256: "a".repeat(64),
+      mimeType: "image/png",
+      url: "https://board.example.test/assets",
+      loadBlob: () => Promise.resolve(new Blob()),
+    },
+    size: { height: 100, width: 100 },
+  });
+
+  it("removes cancelled queued tasks while continuing the remaining queue", async () => {
+    const pending: Array<(value: RasterBitmapResource) => void> = [];
+    const decoder = vi.fn(
+      () =>
+        new Promise<RasterBitmapResource>((resolve) => {
+          pending.push(resolve);
+        }),
+    );
+    const cache = new RasterDecodeCache({
+      decoder,
+      diagnostics: new RasterImageDiagnostics(),
+      maxConcurrent: 1,
+    });
+    const a = cache.acquire(request("a"));
+    const b = cache.acquire(request("b"));
+    const c = cache.acquire(request("c"));
+    expect(cache.snapshot()).toMatchObject({
+      activeDecodes: 1,
+      queuedDecodes: 2,
+    });
+    b.release();
+    await expect(b.promise).rejects.toMatchObject({ name: "AbortError" });
+    expect(cache.snapshot()).toMatchObject({
+      queuedDecodes: 1,
+      entryCount: 2,
+    });
+    pending[0]?.(resource(100, 100).value);
+    await a.promise;
+    await vi.waitFor(() => expect(decoder).toHaveBeenCalledTimes(2));
+    pending[1]?.(resource(100, 100).value);
+    await c.promise;
+    a.release();
+    c.release();
+    cache.trimUnused();
+    expect(cache.snapshot()).toMatchObject({ totalBytes: 0, entryCount: 0 });
+  });
+
+  it("budgets in-flight reservations and permits an oversized single decode", async () => {
+    const pending: Array<(value: RasterBitmapResource) => void> = [];
+    const cache = new RasterDecodeCache({
+      decoder: () =>
+        new Promise<RasterBitmapResource>((resolve) => {
+          pending.push(resolve);
+        }),
+      diagnostics: new RasterImageDiagnostics(),
+      maxConcurrent: 2,
+      maxInFlightBytes: 40_000,
+    });
+    const a = cache.acquire(request("a"));
+    const b = cache.acquire(request("b"));
+    expect(cache.snapshot()).toMatchObject({
+      activeDecodes: 1,
+      queuedDecodes: 1,
+      inFlightReservedBytes: 40_000,
+    });
+    pending[0]?.(resource(100, 100).value);
+    await a.promise;
+    await vi.waitFor(() =>
+      expect(cache.snapshot()).toMatchObject({
+        activeDecodes: 1,
+        queuedDecodes: 0,
+        inFlightReservedBytes: 40_000,
+      }),
+    );
+    pending[1]?.(resource(100, 100).value);
+    await b.promise;
+    a.release();
+    b.release();
+    cache.trimUnused();
+    await vi.waitFor(() =>
+      expect(cache.snapshot()).toMatchObject({
+        inFlightReservedBytes: 0,
+        totalBytes: 0,
+        entryCount: 0,
+      }),
+    );
+    const oversized = cache.acquire({
+      ...request("large"),
+      size: { width: 200, height: 200 },
+    });
+    expect(cache.snapshot().inFlightReservedBytes).toBe(160_000);
+    pending[2]?.(resource(200, 200).value);
+    await oversized.promise;
+    oversized.release();
+    cache.trimUnused();
+    expect(cache.snapshot().totalBytes).toBe(0);
+  });
+
+  it("closes an exact source only after its last reference", async () => {
+    const made = new Map<string, ReturnType<typeof resource>>();
+    const cache = new RasterDecodeCache({
+      decoder: (input) => {
+        const key = input.source?.cacheKey ?? "";
+        const bitmap = resource(64, 64);
+        made.set(key, bitmap);
+        return Promise.resolve(bitmap.value);
+      },
+      diagnostics: new RasterImageDiagnostics(),
+    });
+    const one = cache.acquire(request("scope:A"));
+    const two = cache.acquire(request("scope:A"));
+    const foreign = cache.acquire(request("scope:B"));
+    await Promise.all([one.promise, two.promise, foreign.promise]);
+    cache.discardSourceWhenUnused("scope:A");
+    one.release();
+    expect(made.get("scope:A")?.close).not.toHaveBeenCalled();
+    two.release();
+    expect(made.get("scope:A")?.close).toHaveBeenCalledOnce();
+    expect(made.get("scope:B")?.close).not.toHaveBeenCalled();
+    expect(cache.snapshot()).toMatchObject({
+      entryCount: 1,
+      activeReferences: 1,
+    });
+    foreign.release();
+    cache.discardSourceWhenUnused("scope:B");
+    expect(made.get("scope:B")?.close).toHaveBeenCalledOnce();
+    expect(cache.snapshot()).toMatchObject({ entryCount: 0, totalBytes: 0 });
+  });
+
+  it("closes late source-targeted decode results exactly once", async () => {
+    let finish!: (value: RasterBitmapResource) => void;
+    const cache = new RasterDecodeCache({
+      decoder: () =>
+        new Promise<RasterBitmapResource>((resolve) => {
+          finish = resolve;
+        }),
+      diagnostics: new RasterImageDiagnostics(),
+    });
+    const handle = cache.acquire(request("scope:late"));
+    cache.discardSourceWhenUnused("scope:late");
+    handle.release();
+    await expect(handle.promise).rejects.toMatchObject({ name: "AbortError" });
+    const bitmap = resource(64, 64);
+    finish(bitmap.value);
+    await vi.waitFor(() => expect(bitmap.close).toHaveBeenCalledOnce());
+    expect(cache.snapshot()).toMatchObject({ entryCount: 0, totalBytes: 0 });
+  });
+});
+
+describe("F3.3.2-B embedded HTML fallback cancellation", () => {
+  it("aborts the HTMLImageElement fallback before decoding completes", async () => {
+    const created: Array<{ src: string }> = [];
+    class FakeImage {
+      decoding = "async";
+      naturalHeight = 64;
+      naturalWidth = 64;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      src = "";
+      constructor() {
+        created.push(this);
+      }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn().mockRejectedValue(new Error("Bitmap decoder unavailable")),
+    );
+    try {
+      const cache = new RasterDecodeCache({
+        diagnostics: new RasterImageDiagnostics(),
+      });
+      const dataUrl = "data:image/png;base64,AA==";
+      const handle = cache.acquire({
+        contentSha256: "a".repeat(64),
+        dataUrl,
+        size: { width: 64, height: 64 },
+      });
+      await vi.waitFor(() => expect(created).toHaveLength(1));
+      cache.discardSourceWhenUnused(dataUrl);
+      handle.release();
+      await expect(handle.promise).rejects.toMatchObject({
+        name: "AbortError",
+      });
+      expect(created[0]?.src).toBe("");
+      await vi.waitFor(() =>
+        expect(cache.snapshot()).toMatchObject({
+          activeDecodes: 0,
+          entryCount: 0,
+          inFlightReservedBytes: 0,
+        }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
