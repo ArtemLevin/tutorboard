@@ -1,3 +1,4 @@
+import type { BoardMediaRepository } from "./board-media-repository";
 import type { BoardCommand } from "../board/commands/commands";
 import type { BoardDocument } from "../board/document";
 import type { ActorId, DocumentId } from "../board/identifiers";
@@ -277,6 +278,7 @@ export interface BoardTelemetryRepository extends BoardAccessRepository {
 /** Backwards-compatible composition type for the current HTTP adapter. */
 export interface BoardPlatformRepository
   extends
+    BoardMediaRepository,
     BoardSyncRepository,
     LegacyBoardLifecycleRepository,
     BoardCollaborationRepository,
