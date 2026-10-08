@@ -44,6 +44,7 @@ import {
 } from "../modules/document-transfer/public";
 import type { MathInkRecognizer } from "../modules/handwritten-function/public";
 import { App, type AppPersistenceStatus } from "./App";
+import type { BoardMediaUploadSession } from "./media-asset-import";
 import { copyBoardShareUrl } from "./board-chrome/board-share";
 import { canFinalizeBoardEvidence } from "./synced-evidence";
 
@@ -52,9 +53,10 @@ type SyncedBoardRepository = BoardCollaborationRepository &
   BoardSyncRepository &
   BoardTelemetryRepository &
   LegacyBoardLifecycleRepository &
-  Partial<Pick<BoardMediaRepository, "resolveMediaContentSource">>;
+  Partial<BoardMediaRepository>;
 
 interface SyncedAppProps {
+  readonly mediaAssetImportEnabled?: boolean | undefined;
   readonly accessContext?: BoardRuntimeAccessContext | undefined;
   readonly documentId: DocumentId;
   readonly geometryOsClient?: GeometryOsClient | undefined;
@@ -246,6 +248,7 @@ function SyncedWorkspace({
   geometryOsClient,
   lessonId,
   mathInkRecognizer,
+  mediaAssetImportEnabled = false,
   refreshAccessContext,
   repository,
 }: SyncedAppProps & {
@@ -288,6 +291,7 @@ function SyncedWorkspace({
   const previousCollaborationStatusRef =
     useRef<BoardCollaborationStatus>("connecting");
   const refreshAccessAfterCollaborationOfflineRef = useRef(false);
+  const mediaImportEpochRef = useRef(0);
   const activeRef = useRef(false);
   useEffect(() => {
     activeRef.current = true;
@@ -303,6 +307,7 @@ function SyncedWorkspace({
       if (expectedAccessEpoch !== undefined) {
         expectedAccessEpochRef.current = expectedAccessEpoch;
       }
+      mediaImportEpochRef.current += 1;
       engine.pauseForAccessRefresh();
       setAccessRefreshStatus("refreshing");
       setEvidenceStatus("Обновляем права доступа к доске…");
@@ -361,6 +366,7 @@ function SyncedWorkspace({
   const handleAccessEvent = useCallback(
     (event: BoardAccessControlEvent) => {
       if (event.type === "access.revoked") {
+        mediaImportEpochRef.current += 1;
         engine.dispose();
         setAccessRefreshStatus("revoked");
         setEvidenceStatus("Доступ к совместной доске отозван.");
@@ -589,6 +595,52 @@ function SyncedWorkspace({
     }
   }, [state]);
 
+  const writeEnabled =
+    state.kind === "ready" &&
+    accessRefreshStatus === "idle" &&
+    (accessContext === undefined || collaborationAccessReady) &&
+    state.capabilities.includes("board.write");
+  const mediaUploadSession = useMemo<
+    BoardMediaUploadSession | undefined
+  >(() => {
+    if (
+      !mediaAssetImportEnabled ||
+      !writeEnabled ||
+      repository.uploadMedia === undefined
+    )
+      return undefined;
+    const uploadMedia = repository.uploadMedia;
+    const epoch = mediaImportEpochRef.current;
+    return {
+      documentId,
+      uploadMedia,
+      isCurrent: () =>
+        activeRef.current &&
+        mediaImportEpochRef.current === epoch &&
+        (accessContext === undefined ||
+          currentAccessContextRef.current === currentAccessContext) &&
+        accessRefreshInFlightRef.current === null &&
+        window.navigator.onLine,
+      getCsrfToken: async () => {
+        if (accessContext !== undefined) {
+          const context = currentAccessContextRef.current;
+          if (context === undefined || context !== currentAccessContext)
+            throw new Error("Права доступа изменились.");
+          return context.csrfToken;
+        }
+        const context = await repository.context();
+        return context.csrfToken;
+      },
+    };
+  }, [
+    accessContext,
+    currentAccessContext,
+    documentId,
+    mediaAssetImportEnabled,
+    repository,
+    writeEnabled,
+  ]);
+
   if (state.kind === "bootstrapping") {
     return (
       <main className="recovery-shell">
@@ -669,10 +721,6 @@ function SyncedWorkspace({
     );
   }
 
-  const writeEnabled =
-    accessRefreshStatus === "idle" &&
-    (accessContext === undefined || collaborationAccessReady) &&
-    state.capabilities.includes("board.write");
   const canManageEvidence =
     lessonId !== undefined &&
     (state.role === "admin" || state.role === "tutor");
@@ -806,6 +854,8 @@ function SyncedWorkspace({
         initialDocument={state.document}
         mathInkRecognizer={mathInkRecognizer}
         mediaAssetSourceResolver={mediaAssetSourceResolver}
+        mediaAssetImportEnabled={mediaAssetImportEnabled}
+        mediaUploadSession={mediaUploadSession}
         onCollaborativeUndo={() => {
           if (!writeEnabled) return;
           const inverse = undoStackRef.current.at(-1);

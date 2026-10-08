@@ -18,6 +18,7 @@ export interface AppFeatureFlags {
   readonly geometryPrompt: boolean;
   readonly handwrittenFunctions: boolean;
   readonly mathInkRecognition: boolean;
+  readonly mediaAssetImport: boolean;
   readonly serverSync: boolean;
   readonly smartInk: boolean;
   readonly smartInkDiagnostics: boolean;
@@ -31,6 +32,7 @@ export interface AppFeatureFlagInput {
   readonly geometryPrompt?: string | undefined;
   readonly handwrittenFunctions?: string | undefined;
   readonly mathInkRecognition?: string | undefined;
+  readonly mediaAssetImport?: string | undefined;
   readonly serverSync?: string | undefined;
   readonly smartInk?: string | undefined;
   readonly smartInkDiagnostics?: string | undefined;
@@ -82,6 +84,7 @@ export function readEnvironment(
     geometryPrompt: import.meta.env.VITE_FEATURE_GEOMETRY_PROMPT,
     handwrittenFunctions: import.meta.env.VITE_FEATURE_HANDWRITTEN_FUNCTIONS,
     mathInkRecognition: import.meta.env.VITE_FEATURE_MATH_INK_RECOGNITION,
+    mediaAssetImport: import.meta.env.VITE_FEATURE_MEDIA_ASSET_IMPORT,
     serverSync: import.meta.env.VITE_FEATURE_SERVER_SYNC,
     smartInk: import.meta.env.VITE_FEATURE_SMART_INK,
     smartInkDiagnostics: import.meta.env.VITE_FEATURE_SMART_INK_DIAGNOSTICS,
@@ -160,6 +163,11 @@ export function readEnvironment(
     mathInkRecognition: booleanFlag(
       "VITE_FEATURE_MATH_INK_RECOGNITION",
       featureInput.mathInkRecognition,
+      false,
+    ),
+    mediaAssetImport: booleanFlag(
+      "VITE_FEATURE_MEDIA_ASSET_IMPORT",
+      featureInput.mediaAssetImport,
       false,
     ),
     serverSync: booleanFlag(

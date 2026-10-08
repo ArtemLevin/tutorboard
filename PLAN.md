@@ -1745,3 +1745,17 @@ security, durability и deployment gates.
 
 После успешного pilot приоритет переключается на полный Production Gate; pilot
 не считается основанием для ослабления Production Definition of Done.
+
+
+## F3.1 — Upload before command (08.10.2026)
+
+Ветка `feat/f3-upload-before-command`: opt-in `VITE_FEATURE_MEDIA_ASSET_IMPORT=true`
+на синхронизируемых досках, PNG/JPEG/GIF до 32 MiB на файл и 96 MiB
+на пакет, последовательная подготовка и загрузка до одной команды
+`core.objects.add(media.asset)`. Серверный `AVAILABLE` descriptor используется
+как источник полей объекта. SVG и локальная offline-доска продолжают
+использовать `image.embedded`; никакого повышения лимита JSON-команд.
+При смене прав/доски upload отменяется, частичные ошибки диагностируются.
+Production требует `BOARD_MEDIA_UPLOADS_ENABLED=true` и ClamAV.
+Междосковый clipboard и переносимый asset bundle остаются отдельными
+пунктами ADR-032.

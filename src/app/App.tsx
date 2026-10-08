@@ -25,6 +25,7 @@ import {
   type ViewportState,
 } from "../core/public";
 import { resolveEmbeddedImagePlacementSizeForScene } from "./image-import";
+import type { BoardMediaUploadSession } from "./media-asset-import";
 import {
   geometryPlacementToolId,
   navigationToolId,
@@ -77,6 +78,8 @@ export interface AppProps {
   readonly mathInkRecognizer?: MathInkRecognizer | undefined;
   readonly mediaAssetSourceResolver?:
     ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
+  readonly mediaAssetImportEnabled?: boolean | undefined;
+  readonly mediaUploadSession?: BoardMediaUploadSession | undefined;
   readonly initialDocument?: BoardDocument;
   readonly collaborativeUndoAvailable?: boolean;
   readonly onCollaborativeUndo?: () => void;
@@ -183,6 +186,8 @@ export function App({
   historyEnabled = true,
   mathInkRecognizer,
   mediaAssetSourceResolver,
+  mediaAssetImportEnabled = false,
+  mediaUploadSession,
   initialDocument,
   onCommandCommitted,
   onCommandsCommitted,
@@ -418,9 +423,12 @@ export function App({
     [getDocument, sceneSelector, selection],
   );
   const media = useBoardMediaController({
+    assetImportEnabled: mediaAssetImportEnabled,
+    assetUpload: mediaUploadSession,
     clipboard,
     documentController,
     onImagesInserted: handleObjectsInserted,
+    readOnly,
     resolveImageDisplaySize,
     resolvePlacementCenter,
   });
