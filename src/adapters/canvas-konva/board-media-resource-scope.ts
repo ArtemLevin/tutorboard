@@ -16,8 +16,7 @@ export type BoardMediaHandleFactory<T> = (
   signal: AbortSignal,
 ) => BoardMediaHandle<T>;
 
-export interface BoardMediaResourceScopeSnapshot
-  extends BoardMediaResourceIdentity {
+export interface BoardMediaResourceScopeSnapshot extends BoardMediaResourceIdentity {
   readonly disposed: boolean;
   readonly activeLeases: number;
   readonly pendingLeases: number;
@@ -110,7 +109,7 @@ export class BoardMediaResourceScope {
         lease.release();
       },
     );
-    return { promise, release: lease.release };
+    return { promise, release: () => lease.release() };
   }
 
   invalidate(): void {
