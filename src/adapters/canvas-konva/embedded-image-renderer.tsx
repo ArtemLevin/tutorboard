@@ -8,6 +8,7 @@ import type {
   MediaAssetObject,
 } from "../../core/public";
 import { startAnimatedImageRedraw } from "./animated-image-redraw";
+import { BoardMediaResourceScopeContext } from "./board-media-resource-context";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
 import { mediaObjectUrlCache } from "./media-object-url-cache";
 import {
@@ -34,6 +35,10 @@ export function RasterImageRenderer({
   const [failed, setFailed] = useState(false);
   const imageRef = useRef<Konva.Image>(null);
   const redrawCoordinator = useContext(AnimatedImageRedrawContext);
+  const resourceContext = useContext(BoardMediaResourceScopeContext);
+  const mediaEnabled = resourceContext?.enabled ?? true;
+  const resourceScope = resourceContext?.scope;
+  const resourceGeneration = resourceContext?.resourceGeneration ?? 0;
   const staticRaster =
     object.mimeType === "image/png" || object.mimeType === "image/jpeg";
   const dataUrl = object.kind === "image.embedded" ? object.dataUrl : null;
@@ -59,9 +64,12 @@ export function RasterImageRenderer({
   const sourceKey = cachedBitmapPath
     ? `${sourceIdentity}:${decodeWidth}x${decodeHeight}`
     : `${sourceIdentity}:html`;
-  const image = imageState?.key === sourceKey ? imageState.image : null;
+  const generationKey = `${sourceKey}:generation:${resourceGeneration}`;
+  const image =
+    mediaEnabled && imageState?.key === generationKey ? imageState.image : null;
 
   useEffect(() => {
+    if (!mediaEnabled) return;
     if (cachedBitmapPath && decodeHeight !== null && decodeWidth !== null) {
       if (source === undefined && dataUrl === null) return;
       const size = { height: decodeHeight, width: decodeWidth };
@@ -73,13 +81,15 @@ export function RasterImageRenderer({
               size,
             }
           : { contentSha256: object.contentSha256, source, size };
-      const handle = rasterDecodeCache.acquire(request);
+      const handle =
+        resourceScope?.acquire(() => rasterDecodeCache.acquire(request)) ??
+        rasterDecodeCache.acquire(request);
       let active = true;
       void handle.promise
         .then(({ image: bitmap }) => {
           if (!active) return;
           setFailed(false);
-          setImageState({ image: bitmap, key: sourceKey });
+          setImageState({ image: bitmap, key: generationKey });
         })
         .catch(() => {
           if (!active) return;
@@ -108,7 +118,7 @@ export function RasterImageRenderer({
         performance.now(),
       );
       setFailed(false);
-      setImageState({ image: element, key: sourceKey });
+      setImageState({ image: element, key: generationKey });
     };
     element.onerror = () => {
       if (!active) return;
@@ -117,7 +127,10 @@ export function RasterImageRenderer({
       setImageState(null);
     };
     const handle =
-      source === undefined ? null : mediaObjectUrlCache.acquire(source);
+      source === undefined
+        ? null
+        : (resourceScope?.acquire(() => mediaObjectUrlCache.acquire(source)) ??
+          mediaObjectUrlCache.acquire(source));
     if (handle !== null) {
       void handle.promise
         .then((url) => {
@@ -148,7 +161,9 @@ export function RasterImageRenderer({
     dataUrl,
     object.mimeType,
     source,
-    sourceKey,
+    generationKey,
+    mediaEnabled,
+    resourceScope,
   ]);
 
   useEffect(() => {

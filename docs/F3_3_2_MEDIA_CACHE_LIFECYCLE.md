@@ -71,3 +71,20 @@ B cleanup wiring: stale asset descriptors deliver source cache keys to
 and disposal. Embedded PNG/JPEG identities are tracked in BoardStage and
 retired after scene removal or unmount. This preserves reference-counted
 resources still used by another mounted canvas.
+
+## C integration (08.10.2026)
+
+`SyncedWorkspace` now owns a `BoardMediaResourceScope` created in its effect
+setup. StrictMode's discarded setup releases its scope before a replacement is
+published. Refresh preparation invalidates leases synchronously and disables
+media render/load; a successful access refresh invalidates once more, enables
+media, and forces a new render generation. Terminal refresh failures,
+`access.revoked` and terminal collaboration status dispose the scope.
+Board switches unmount the previous workspace and dispose its independent
+scope without clearing global caches used by another board.
+
+Both raster bitmap and GIF object URL handles are acquired through the active
+scope. Re-rendered images are generation-keyed; stale asynchronous completions
+cannot repopulate the board after a refresh or revocation. Source resolution
+additionally checks the current access context, generation and in-flight
+refresh status. Read/write permission updates preserve authorized read access.
