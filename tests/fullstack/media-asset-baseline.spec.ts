@@ -288,9 +288,9 @@ for (const scenario of selected) {
         .toBeGreaterThan(0);
       await expect
         .poll(async () => (await browserSnapshot(page)).decodedCalls, {
-          timeout: 30_000,
+          timeout: 45_000,
         })
-        .toBeGreaterThan(0);
+        .toBeGreaterThanOrEqual(scenario.images);
       const cold = {
         elapsedMs: Date.now() - coldStart,
         ...(await browserSnapshot(page)),
@@ -309,9 +309,9 @@ for (const scenario of selected) {
       );
       await expect
         .poll(async () => (await browserSnapshot(page)).decodedCalls, {
-          timeout: 30_000,
+          timeout: 45_000,
         })
-        .toBeGreaterThan(0);
+        .toBeGreaterThanOrEqual(scenario.images);
       const warm = {
         elapsedMs: Date.now() - warmStart,
         ...(await browserSnapshot(page)),
