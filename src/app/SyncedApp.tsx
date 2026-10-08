@@ -296,6 +296,8 @@ function SyncedWorkspace({
   const loadMeasuredRef = useRef(false);
   const previousCollaborationStatusRef =
     useRef<BoardCollaborationStatus>("connecting");
+  const previousMediaConnectionStatusRef =
+    useRef<BoardCollaborationStatus>("connecting");
   const refreshAccessAfterCollaborationOfflineRef = useRef(false);
   const mediaImportEpochRef = useRef(0);
   const activeRef = useRef(false);
@@ -382,10 +384,13 @@ function SyncedWorkspace({
         ) {
           throw new Error("Сервер вернул устаревший контекст доступа.");
         }
+        if (context.boardId !== documentId) {
+          throw new Error("Сервер вернул права доступа к другой доске.");
+        }
         await engine.updateAccessContext(context);
         if (!activeRef.current) throw new Error("Board workspace was closed.");
         currentAccessContextRef.current = context;
-        invalidateMedia(true);
+        invalidateMedia(context.capabilities.includes("board.read"));
         setCurrentAccessContext(context);
         expectedAccessEpochRef.current = undefined;
         setAccessRefreshStatus("idle");
@@ -417,7 +422,7 @@ function SyncedWorkspace({
       accessRefreshInFlightRef.current = refresh;
       return refresh;
     },
-    [engine, invalidateMedia, refreshAccessContext, revokeMedia],
+    [documentId, engine, invalidateMedia, refreshAccessContext, revokeMedia],
   );
   const handleAccessEvent = useCallback(
     (event: BoardAccessControlEvent) => {
@@ -444,7 +449,16 @@ function SyncedWorkspace({
         onRevision: () => void engine.synchronize(),
         onStatus: (status) => {
           if (status !== "online") setCollaborationAccessReady(false);
-          if (status === "revoked") revokeMedia();
+          if (status === "revoked") {
+            revokeMedia();
+          } else if (
+            status === "offline" &&
+            previousMediaConnectionStatusRef.current !== "offline" &&
+            accessContext !== undefined
+          ) {
+            invalidateMedia(false);
+          }
+          previousMediaConnectionStatusRef.current = status;
           setCollaborationStatus(status);
         },
         onTransformPreviews: setTransformPreviews,
@@ -485,6 +499,14 @@ function SyncedWorkspace({
       !refreshAccessAfterCollaborationOfflineRef.current ||
       refreshAccessContext === undefined
     ) {
+      if (
+        refreshAccessAfterCollaborationOfflineRef.current &&
+        refreshAccessContext === undefined &&
+        accessContext !== undefined
+      ) {
+        invalidateMedia(true);
+      }
+      refreshAccessAfterCollaborationOfflineRef.current = false;
       setCollaborationAccessReady(true);
       return;
     }
@@ -505,8 +527,10 @@ function SyncedWorkspace({
       })
       .catch(() => setCollaborationAccessReady(false));
   }, [
+    accessContext,
     collaboration,
     collaborationStatus,
+    invalidateMedia,
     refreshAccessContext,
     refreshStandaloneAccess,
   ]);
