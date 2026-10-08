@@ -64,11 +64,11 @@ export function RasterImageRenderer({
   useEffect(() => {
     if (cachedBitmapPath && decodeHeight !== null && decodeWidth !== null) {
       if (source === undefined && dataUrl === null) return;
-      const handle = rasterDecodeCache.acquire({
-        contentSha256: object.contentSha256,
-        ...(source === undefined ? { dataUrl: dataUrl ?? "" } : { source }),
-        size: { height: decodeHeight, width: decodeWidth },
-      });
+      const size = { height: decodeHeight, width: decodeWidth };
+      const request = source === undefined
+        ? { contentSha256: object.contentSha256, dataUrl: dataUrl ?? "", size }
+        : { contentSha256: object.contentSha256, source, size };
+      const handle = rasterDecodeCache.acquire(request);
       let active = true;
       void handle.promise
         .then(({ image: bitmap }) => {
@@ -141,7 +141,7 @@ export function RasterImageRenderer({
     object.contentSha256,
     dataUrl,
     object.mimeType,
-    source,
+    source?.cacheKey,
     sourceKey,
   ]);
 
