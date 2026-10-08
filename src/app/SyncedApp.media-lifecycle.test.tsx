@@ -15,9 +15,8 @@ const publishedScopes: BoardMediaResourceScope[] = [];
 
 vi.mock("./App", async () => {
   const { useContext } = await import("react");
-  const { BoardMediaResourceScopeContext } = await import(
-    "../adapters/canvas-konva/board-media-resource-context"
-  );
+  const { BoardMediaResourceScopeContext } =
+    await import("../adapters/canvas-konva/board-media-resource-context");
   return {
     App: () => {
       const resources = useContext(BoardMediaResourceScopeContext);
@@ -28,7 +27,11 @@ vi.mock("./App", async () => {
           <span data-testid="media-context">
             {resources === null
               ? "missing"
-              : [resources.scope.boardId, resources.resourceGeneration, resources.enabled].join("|")}
+              : [
+                  resources.scope.boardId,
+                  resources.resourceGeneration,
+                  resources.enabled,
+                ].join("|")}
           </span>
         </div>
       );
@@ -36,7 +39,10 @@ vi.mock("./App", async () => {
   };
 });
 
-function guest(boardId: DocumentId, accessEpoch = "epoch:one"): GuestBoardAccessContext {
+function guest(
+  boardId: DocumentId,
+  accessEpoch = "epoch:one",
+): GuestBoardAccessContext {
   return {
     accessEpoch,
     actorId: actorId("guest:media-lifecycle"),
@@ -76,7 +82,8 @@ function repository(boardId: DocumentId) {
         snapshot: null,
       }),
     ),
-    pull: () => Promise.resolve({ currentRevision: 0, hasMore: false, items: [] }),
+    pull: () =>
+      Promise.resolve({ currentRevision: 0, hasMore: false, items: [] }),
     push: unexpected,
     saveSnapshot: async () => {},
     ensureBoard: unexpected,
@@ -104,8 +111,12 @@ describe("F3.3.2-C board-scoped media lifecycle", () => {
     );
     const firstRepo = repository(firstBoardId);
     const secondRepo = repository(secondBoardId);
-    vi.spyOn(BoardCollaborationClient.prototype, "start").mockImplementation(() => undefined);
-    vi.spyOn(BoardCollaborationClient.prototype, "stop").mockImplementation(() => undefined);
+    vi.spyOn(BoardCollaborationClient.prototype, "start").mockImplementation(
+      () => undefined,
+    );
+    vi.spyOn(BoardCollaborationClient.prototype, "stop").mockImplementation(
+      () => undefined,
+    );
     try {
       const view = render(
         <StrictMode>
@@ -138,7 +149,9 @@ describe("F3.3.2-C board-scoped media lifecycle", () => {
         </StrictMode>,
       );
       await waitFor(() =>
-        expect(screen.getByTestId("media-context").textContent).toContain("board:media-B"),
+        expect(screen.getByTestId("media-context").textContent).toContain(
+          "board:media-B",
+        ),
       );
       expect(firstScope?.snapshot()).toMatchObject({
         disposed: true,
@@ -163,10 +176,16 @@ describe("F3.3.2-C board-scoped media lifecycle", () => {
       "media-revoked-" + crypto.randomUUID(),
     );
     let accessHandler:
-      | ((event: BoardAccessControlEvent) => boolean | Promise<boolean | void> | void)
+      | ((
+          event: BoardAccessControlEvent,
+        ) => boolean | Promise<boolean | void> | void)
       | undefined;
-    vi.spyOn(BoardCollaborationClient.prototype, "start").mockImplementation(() => undefined);
-    vi.spyOn(BoardCollaborationClient.prototype, "stop").mockImplementation(() => undefined);
+    vi.spyOn(BoardCollaborationClient.prototype, "start").mockImplementation(
+      () => undefined,
+    );
+    vi.spyOn(BoardCollaborationClient.prototype, "stop").mockImplementation(
+      () => undefined,
+    );
     vi.spyOn(
       BoardCollaborationClient.prototype,
       "setAccessEventHandler",
@@ -196,7 +215,7 @@ describe("F3.3.2-C board-scoped media lifecycle", () => {
         name: "AbortError",
       });
       await act(async () => {
-        accessHandler?.({
+        await accessHandler?.({
           boardId,
           schemaVersion: "1.0",
           terminal: true,
@@ -212,7 +231,9 @@ describe("F3.3.2-C board-scoped media lifecycle", () => {
       expect(release).toHaveBeenCalledOnce();
       complete("too late");
       await Promise.resolve();
-      expect(await screen.findByText("Доступ к доске недоступен")).toBeInTheDocument();
+      expect(
+        await screen.findByText("Доступ к доске недоступен"),
+      ).toBeInTheDocument();
     } finally {
       cleanup();
       await queue.deleteDatabase();
@@ -225,12 +246,22 @@ describe("F3.3.2-C board-scoped media lifecycle", () => {
       "media-updated-" + crypto.randomUUID(),
     );
     let accessHandler:
-      | ((event: BoardAccessControlEvent) => boolean | Promise<boolean | void> | void)
+      | ((
+          event: BoardAccessControlEvent,
+        ) => boolean | Promise<boolean | void> | void)
       | undefined;
-    vi.spyOn(BoardCollaborationClient.prototype, "start").mockImplementation(() => undefined);
-    vi.spyOn(BoardCollaborationClient.prototype, "stop").mockImplementation(() => undefined);
-    vi.spyOn(BoardCollaborationClient.prototype, "setAccessEventHandler")
-      .mockImplementation((handler) => { accessHandler = handler; });
+    vi.spyOn(BoardCollaborationClient.prototype, "start").mockImplementation(
+      () => undefined,
+    );
+    vi.spyOn(BoardCollaborationClient.prototype, "stop").mockImplementation(
+      () => undefined,
+    );
+    vi.spyOn(
+      BoardCollaborationClient.prototype,
+      "setAccessEventHandler",
+    ).mockImplementation((handler) => {
+      accessHandler = handler;
+    });
     const refreshed = guest(boardId, "epoch:two");
     try {
       render(

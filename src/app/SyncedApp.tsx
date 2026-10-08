@@ -449,22 +449,24 @@ function SyncedWorkspace({
         onRevision: () => void engine.synchronize(),
         onStatus: (status) => {
           if (status !== "online") setCollaborationAccessReady(false);
-          if (status === "revoked") {
-            revokeMedia();
-          } else if (
-            status === "offline" &&
-            previousMediaConnectionStatusRef.current !== "offline" &&
-            accessContext !== undefined
-          ) {
-            invalidateMedia(false);
-          }
-          previousMediaConnectionStatusRef.current = status;
+          if (status === "revoked") revokeMedia();
           setCollaborationStatus(status);
         },
         onTransformPreviews: setTransformPreviews,
         repository,
       }),
   );
+
+  useEffect(() => {
+    if (accessContext === undefined) return;
+    if (
+      collaborationStatus === "offline" &&
+      previousMediaConnectionStatusRef.current !== "offline"
+    ) {
+      invalidateMedia(false);
+    }
+    previousMediaConnectionStatusRef.current = collaborationStatus;
+  }, [accessContext, collaborationStatus, invalidateMedia]);
 
   useEffect(() => {
     collaboration.setAccessEventHandler(handleAccessEvent);
@@ -998,218 +1000,224 @@ function SyncedWorkspace({
   return (
     <BoardMediaResourceScopeContext.Provider value={mediaResources}>
       <div className="synced-workspace">
-      <App
-        collaborativeUndoAvailable={writeEnabled && undoCount > 0}
-        commandActorId={state.actorId}
-        geometryOsClient={geometryOsClient}
-        historyEnabled={false}
-        initialDocument={state.document}
-        mathInkRecognizer={mathInkRecognizer}
-        mediaAssetSourceResolver={mediaAssetSourceResolver}
-        mediaResourceGeneration={mediaResources.resourceGeneration}
-        mediaAssetImportEnabled={mediaAssetImportEnabled}
-        mediaUploadSession={mediaUploadSession}
-        onCollaborativeUndo={() => {
-          if (!writeEnabled) return;
-          const inverse = undoStackRef.current.at(-1);
-          if (inverse === undefined) return;
-          undoStackRef.current = undoStackRef.current.slice(0, -1);
-          setUndoCount(undoStackRef.current.length);
-          void engine.apply(inverse);
-        }}
-        onCommandCommitted={(command, document, previousDocument) => {
-          if (!writeEnabled) return;
-          renderedDocumentRef.current = document;
-          const inverse = invertOwnBoardCommand(command, previousDocument, {
-            actorId: state.actorId,
-            createId: () => `command:undo:${crypto.randomUUID()}`,
-            now: () => new Date().toISOString(),
-          });
-          if (inverse.length > 0) {
-            undoStackRef.current = [...undoStackRef.current, inverse].slice(
-              -100,
-            );
+        <App
+          collaborativeUndoAvailable={writeEnabled && undoCount > 0}
+          commandActorId={state.actorId}
+          geometryOsClient={geometryOsClient}
+          historyEnabled={false}
+          initialDocument={state.document}
+          mathInkRecognizer={mathInkRecognizer}
+          mediaAssetSourceResolver={mediaAssetSourceResolver}
+          mediaResourceGeneration={mediaResources.resourceGeneration}
+          mediaAssetImportEnabled={mediaAssetImportEnabled}
+          mediaUploadSession={mediaUploadSession}
+          onCollaborativeUndo={() => {
+            if (!writeEnabled) return;
+            const inverse = undoStackRef.current.at(-1);
+            if (inverse === undefined) return;
+            undoStackRef.current = undoStackRef.current.slice(0, -1);
             setUndoCount(undoStackRef.current.length);
-          }
-          void engine.queue(command, document);
-        }}
-        onCommandsCommitted={(commands, document, previousDocument) => {
-          if (!writeEnabled || commands.length === 0) return;
-          renderedDocumentRef.current = document;
-          let preview = previousDocument;
-          const inverseGroups: (readonly BoardCommand[])[] = [];
-          for (const command of commands) {
-            const inverse = invertOwnBoardCommand(command, preview, {
+            void engine.apply(inverse);
+          }}
+          onCommandCommitted={(command, document, previousDocument) => {
+            if (!writeEnabled) return;
+            renderedDocumentRef.current = document;
+            const inverse = invertOwnBoardCommand(command, previousDocument, {
               actorId: state.actorId,
               createId: () => `command:undo:${crypto.randomUUID()}`,
               now: () => new Date().toISOString(),
             });
-            const result = reduceBoardDocument(preview, command);
-            if (!result.ok) return;
-            preview = result.document;
-            inverseGroups.unshift(inverse);
+            if (inverse.length > 0) {
+              undoStackRef.current = [...undoStackRef.current, inverse].slice(
+                -100,
+              );
+              setUndoCount(undoStackRef.current.length);
+            }
+            void engine.queue(command, document);
+          }}
+          onCommandsCommitted={(commands, document, previousDocument) => {
+            if (!writeEnabled || commands.length === 0) return;
+            renderedDocumentRef.current = document;
+            let preview = previousDocument;
+            const inverseGroups: (readonly BoardCommand[])[] = [];
+            for (const command of commands) {
+              const inverse = invertOwnBoardCommand(command, preview, {
+                actorId: state.actorId,
+                createId: () => `command:undo:${crypto.randomUUID()}`,
+                now: () => new Date().toISOString(),
+              });
+              const result = reduceBoardDocument(preview, command);
+              if (!result.ok) return;
+              preview = result.document;
+              inverseGroups.unshift(inverse);
+            }
+            const inverse = inverseGroups.flat();
+            if (inverse.length > 0) {
+              undoStackRef.current = [...undoStackRef.current, inverse].slice(
+                -100,
+              );
+              setUndoCount(undoStackRef.current.length);
+            }
+            void engine.queueBatch(commands, document);
+          }}
+          onDocumentChange={(document) => {
+            renderedDocumentRef.current = document;
+          }}
+          onPresenceChange={(presence) =>
+            collaboration.updatePresence(presence)
           }
-          const inverse = inverseGroups.flat();
-          if (inverse.length > 0) {
-            undoStackRef.current = [...undoStackRef.current, inverse].slice(
-              -100,
-            );
-            setUndoCount(undoStackRef.current.length);
+          onInkPreviewChange={(preview) =>
+            collaboration.updateInkPreview(preview)
           }
-          void engine.queueBatch(commands, document);
-        }}
-        onDocumentChange={(document) => {
-          renderedDocumentRef.current = document;
-        }}
-        onPresenceChange={(presence) => collaboration.updatePresence(presence)}
-        onInkPreviewChange={(preview) =>
-          collaboration.updateInkPreview(preview)
-        }
-        onTransformPreviewChange={(preview) =>
-          collaboration.updateTransformPreview(preview)
-        }
-        onExportPdfSnapshot={
-          state.capabilities.includes("board.export")
-            ? (document) => void exportSnapshot(document, "pdf")
-            : undefined
-        }
-        onExportPngSnapshot={
-          state.capabilities.includes("board.export")
-            ? (document) => void exportSnapshot(document, "png")
-            : undefined
-        }
-        onExportSvgSnapshot={
-          state.capabilities.includes("board.export")
-            ? (document) => void exportSnapshot(document, "svg")
-            : undefined
-        }
-        onShareBoard={
-          lessonId === undefined
-            ? undefined
-            : () => {
-                void copyBoardShareUrl(window.location)
-                  .then(() => setEvidenceStatus("Ссылка на доску скопирована."))
-                  .catch(() =>
-                    setEvidenceStatus(
-                      "Браузер не разрешил скопировать ссылку.",
-                    ),
-                  );
-              }
-        }
-        persistenceNotice={
-          accessRefreshStatus === "refreshing"
-            ? "Права доступа обновляются. Редактирование временно приостановлено."
-            : accessRefreshStatus === "failed"
-              ? "Права доступа не подтверждены. Редактирование заблокировано."
-              : state.network === "offline"
-                ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
-                : null
-        }
-        persistenceStatus={persistenceStatus(state)}
-        readOnly={!writeEnabled}
-        standaloneMode={accessContext !== undefined}
-        settingsExtra={
-          <section className="board-settings-section">
-            <h3>{lessonId === undefined ? "Совместная доска" : "Занятие"}</h3>
-            <p>{principalLabel}</p>
-            {accessRefreshStatus === "refreshing" ? (
-              <p>Проверяем обновлённые права доступа…</p>
-            ) : accessRefreshStatus === "failed" ? (
+          onTransformPreviewChange={(preview) =>
+            collaboration.updateTransformPreview(preview)
+          }
+          onExportPdfSnapshot={
+            state.capabilities.includes("board.export")
+              ? (document) => void exportSnapshot(document, "pdf")
+              : undefined
+          }
+          onExportPngSnapshot={
+            state.capabilities.includes("board.export")
+              ? (document) => void exportSnapshot(document, "png")
+              : undefined
+          }
+          onExportSvgSnapshot={
+            state.capabilities.includes("board.export")
+              ? (document) => void exportSnapshot(document, "svg")
+              : undefined
+          }
+          onShareBoard={
+            lessonId === undefined
+              ? undefined
+              : () => {
+                  void copyBoardShareUrl(window.location)
+                    .then(() =>
+                      setEvidenceStatus("Ссылка на доску скопирована."),
+                    )
+                    .catch(() =>
+                      setEvidenceStatus(
+                        "Браузер не разрешил скопировать ссылку.",
+                      ),
+                    );
+                }
+          }
+          persistenceNotice={
+            accessRefreshStatus === "refreshing"
+              ? "Права доступа обновляются. Редактирование временно приостановлено."
+              : accessRefreshStatus === "failed"
+                ? "Права доступа не подтверждены. Редактирование заблокировано."
+                : state.network === "offline"
+                  ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
+                  : null
+          }
+          persistenceStatus={persistenceStatus(state)}
+          readOnly={!writeEnabled}
+          standaloneMode={accessContext !== undefined}
+          settingsExtra={
+            <section className="board-settings-section">
+              <h3>{lessonId === undefined ? "Совместная доска" : "Занятие"}</h3>
+              <p>{principalLabel}</p>
+              {accessRefreshStatus === "refreshing" ? (
+                <p>Проверяем обновлённые права доступа…</p>
+              ) : accessRefreshStatus === "failed" ? (
+                <p>
+                  Права доступа не подтверждены.
+                  <button
+                    onClick={() => {
+                      void refreshStandaloneAccess()
+                        .then(() => collaboration.start())
+                        .catch(() => undefined);
+                    }}
+                    type="button"
+                  >
+                    Повторить проверку прав
+                  </button>
+                </p>
+              ) : !writeEnabled ? (
+                <p>Режим только для чтения</p>
+              ) : null}
               <p>
-                Права доступа не подтверждены.
+                {collaborationStatus === "online" && collaborationAccessReady
+                  ? `В комнате ${participants.length + 1}`
+                  : collaborationStatus === "connecting"
+                    ? "Подключение к комнате…"
+                    : "Совместная работа офлайн"}
+              </p>
+              <p>
+                Серверная ревизия {state.revision} · ожидают отправки{" "}
+                {state.pendingCount} · изолировано {state.quarantinedCount}
+              </p>
+              {participants.length === 0 ? null : (
+                <ul aria-label="Участники занятия">
+                  {participants.map((participant) => (
+                    <li key={participant.clientId}>
+                      {participant.displayName} · {participant.role}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {canManageEvidence ? (
                 <button
-                  onClick={() => {
-                    void refreshStandaloneAccess()
-                      .then(() => collaboration.start())
-                      .catch(() => undefined);
-                  }}
+                  disabled={
+                    !canFinalizeBoardEvidence(state) || evidenceFinalizing
+                  }
+                  onClick={() => void finalizeEvidence()}
+                  title={
+                    canFinalizeBoardEvidence(state)
+                      ? "Зафиксировать подтверждённую серверную ревизию"
+                      : "Сначала синхронизируйте все локальные изменения"
+                  }
                   type="button"
                 >
-                  Повторить проверку прав
+                  {evidenceFinalizing ? "Фиксируем…" : "Зафиксировать итог"}
                 </button>
-              </p>
-            ) : !writeEnabled ? (
-              <p>Режим только для чтения</p>
-            ) : null}
-            <p>
-              {collaborationStatus === "online" && collaborationAccessReady
-                ? `В комнате ${participants.length + 1}`
-                : collaborationStatus === "connecting"
-                  ? "Подключение к комнате…"
-                  : "Совместная работа офлайн"}
-            </p>
-            <p>
-              Серверная ревизия {state.revision} · ожидают отправки{" "}
-              {state.pendingCount} · изолировано {state.quarantinedCount}
-            </p>
-            {participants.length === 0 ? null : (
-              <ul aria-label="Участники занятия">
-                {participants.map((participant) => (
-                  <li key={participant.clientId}>
-                    {participant.displayName} · {participant.role}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {canManageEvidence ? (
-              <button
-                disabled={
-                  !canFinalizeBoardEvidence(state) || evidenceFinalizing
-                }
-                onClick={() => void finalizeEvidence()}
-                title={
-                  canFinalizeBoardEvidence(state)
-                    ? "Зафиксировать подтверждённую серверную ревизию"
-                    : "Сначала синхронизируйте все локальные изменения"
-                }
-                type="button"
-              >
-                {evidenceFinalizing ? "Фиксируем…" : "Зафиксировать итог"}
-              </button>
-            ) : null}
-            {evidence.length === 0 ? null : (
-              <ul aria-label="Итоговые ревизии">
-                {evidence.map((item) => {
-                  const isPublished =
-                    item.publishedAt !== null && item.revokedAt === null;
-                  return (
-                    <li key={item.evidenceId}>
-                      <a
-                        href={item.artifacts.svg}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        Ревизия {item.revision}
-                      </a>
-                      <span>{isPublished ? " опубликована" : " черновик"}</span>
-                      {canManageEvidence ? (
-                        <button
-                          onClick={() =>
-                            void setEvidencePublished(item, !isPublished)
-                          }
-                          type="button"
+              ) : null}
+              {evidence.length === 0 ? null : (
+                <ul aria-label="Итоговые ревизии">
+                  {evidence.map((item) => {
+                    const isPublished =
+                      item.publishedAt !== null && item.revokedAt === null;
+                    return (
+                      <li key={item.evidenceId}>
+                        <a
+                          href={item.artifacts.svg}
+                          rel="noreferrer"
+                          target="_blank"
                         >
-                          {isPublished ? "Отозвать" : "Опубликовать"}
-                        </button>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {evidenceStatus === null ? null : (
-              <span aria-live="polite">{evidenceStatus}</span>
-            )}
-          </section>
-        }
-        remoteCursors={participants.flatMap((participant) =>
-          participant.cursor === null
-            ? []
-            : [{ actorId: participant.actorId, point: participant.cursor }],
-        )}
-        remoteInkPreviews={inkPreviews}
-        remoteTransformPreviews={transformPreviews}
-      />
+                          Ревизия {item.revision}
+                        </a>
+                        <span>
+                          {isPublished ? " опубликована" : " черновик"}
+                        </span>
+                        {canManageEvidence ? (
+                          <button
+                            onClick={() =>
+                              void setEvidencePublished(item, !isPublished)
+                            }
+                            type="button"
+                          >
+                            {isPublished ? "Отозвать" : "Опубликовать"}
+                          </button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {evidenceStatus === null ? null : (
+                <span aria-live="polite">{evidenceStatus}</span>
+              )}
+            </section>
+          }
+          remoteCursors={participants.flatMap((participant) =>
+            participant.cursor === null
+              ? []
+              : [{ actorId: participant.actorId, point: participant.cursor }],
+          )}
+          remoteInkPreviews={inkPreviews}
+          remoteTransformPreviews={transformPreviews}
+        />
       </div>
     </BoardMediaResourceScopeContext.Provider>
   );

@@ -114,7 +114,7 @@ describe("F3.3.2-C access generation of visible raster images", () => {
       </BoardMediaResourceScopeContext.Provider>,
     );
     await waitFor(() => expect(finishDecode).toBeDefined());
-    await act(async () => {
+    act(() => {
       scope.invalidate();
       view.rerender(
         <BoardMediaResourceScopeContext.Provider

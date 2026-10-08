@@ -70,10 +70,7 @@ jobs:
         run: npm run board-contract:check
 
       - name: Check formatting
-        run: |
-          npx prettier src/adapters/canvas-konva/embedded-image-renderer.tsx src/app/SyncedApp.media-lifecycle.test.tsx src/app/SyncedApp.tsx --write
-          git diff -- src/adapters/canvas-konva/embedded-image-renderer.tsx src/app/SyncedApp.media-lifecycle.test.tsx src/app/SyncedApp.tsx
-          npm run format:check
+        run: npm run format:check
 
       - name: Lint
         run: npm run lint

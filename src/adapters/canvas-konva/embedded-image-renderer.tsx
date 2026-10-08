@@ -66,9 +66,7 @@ export function RasterImageRenderer({
     : `${sourceIdentity}:html`;
   const generationKey = `${sourceKey}:generation:${resourceGeneration}`;
   const image =
-    mediaEnabled && imageState?.key === generationKey
-      ? imageState.image
-      : null;
+    mediaEnabled && imageState?.key === generationKey ? imageState.image : null;
 
   useEffect(() => {
     if (!mediaEnabled) return;
