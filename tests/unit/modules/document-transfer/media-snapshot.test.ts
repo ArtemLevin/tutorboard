@@ -56,7 +56,9 @@ afterEach(() => vi.unstubAllGlobals());
 describe("asset-backed snapshots", () => {
   it("includes authenticated verified image bytes, without changing the document", async () => {
     const document = board(2);
-    const load = vi.fn(() => Promise.resolve(new Blob([bytes], { type: "image/png" })));
+    const load = vi.fn(() =>
+      Promise.resolve(new Blob([bytes], { type: "image/png" })),
+    );
     const hydrated = await embedBoardMediaForSnapshot(document, load);
     expect(load).toHaveBeenCalledTimes(1);
     expect(document.objects[boardObjectId("object:media-export-0")]?.kind).toBe(
@@ -81,18 +83,16 @@ describe("asset-backed snapshots", () => {
     const corrupted = new Uint8Array(bytes);
     corrupted.set([(corrupted.at(-1) ?? 0) ^ 1], corrupted.length - 1);
     await expect(
-      embedBoardMediaForSnapshot(
-        board(),
-        () => Promise.resolve(new Blob([corrupted], { type: "image/png" })),
+      embedBoardMediaForSnapshot(board(), () =>
+        Promise.resolve(new Blob([corrupted], { type: "image/png" })),
       ),
     ).rejects.toThrow("Контрольная сумма");
   });
 
   it("rejects MIME mismatches rather than embedding untrusted data", async () => {
     await expect(
-      embedBoardMediaForSnapshot(
-        board(),
-        () => Promise.resolve(new Blob([bytes], { type: "text/html" })),
+      embedBoardMediaForSnapshot(board(), () =>
+        Promise.resolve(new Blob([bytes], { type: "text/html" })),
       ),
     ).rejects.toThrow("неверным типом");
   });
