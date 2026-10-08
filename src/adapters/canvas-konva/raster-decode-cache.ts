@@ -247,7 +247,9 @@ async function decodeRasterBitmap(
 }
 
 function sourceIdentity(request: RasterDecodeRequest): string {
-  return request.source?.cacheKey ?? request.dataUrl;
+  if (request.source !== undefined) return request.source.cacheKey;
+  if (request.dataUrl !== undefined) return request.dataUrl;
+  throw new Error("Raster decode request has no source.");
 }
 
 function cacheKey(request: RasterDecodeRequest): string {
