@@ -57,6 +57,7 @@ interface RasterDecodeCacheOptions {
   readonly decoder?: RasterBitmapDecoder;
   readonly diagnostics?: RasterImageDiagnostics;
   readonly maxConcurrent?: number;
+  readonly maxInFlightBytes?: number;
   readonly now?: () => number;
 }
 
@@ -75,6 +76,7 @@ interface CacheEntry {
   lastUsed: number;
   refs: number;
   sessionId: number | null;
+  reservedBytes: number;
   state: "queued" | "decoding" | "ready" | "cancelled";
 }
 
@@ -267,8 +269,10 @@ export class RasterDecodeCache {
   readonly #entries = new Map<string, Map<string, CacheEntry>>();
   readonly #maxConcurrent: number;
   readonly #now: () => number;
-  readonly #queue: CacheEntry[] = [];
+  readonly #queue = new Set<CacheEntry>();
+  readonly #maxInFlightBytes: number;
   #activeDecodes = 0;
+  #inFlightReservedBytes = 0;
   #totalBytes = 0;
 
   constructor(options: RasterDecodeCacheOptions = {}) {
@@ -281,6 +285,10 @@ export class RasterDecodeCache {
     this.#maxConcurrent = Math.max(
       1,
       options.maxConcurrent ?? defaultRasterDecodeConcurrency,
+    );
+    this.#maxInFlightBytes = Math.max(
+      1,
+      options.maxInFlightBytes ?? this.#budgetBytes,
     );
     this.#now = options.now ?? (() => performance.now());
   }
@@ -314,6 +322,7 @@ export class RasterDecodeCache {
         reject,
         resolve,
         sessionId: null,
+        reservedBytes: 0,
         state: "queued",
       };
       if (sources === undefined) {
@@ -321,12 +330,15 @@ export class RasterDecodeCache {
         this.#entries.set(key, sources);
       }
       sources.set(identity, entry);
-      this.#queue.push(entry);
+      this.#queue.add(entry);
       this.#pump();
     }
 
     const acquiredEntry = entry;
-    acquiredEntry.discardWhenUnused = false;
+    // Explicit source disposal remains sticky until the last consumer leaves.
+    if (acquiredEntry.refs === 0 && !acquiredEntry.discardWhenUnused) {
+      acquiredEntry.discardWhenUnused = false;
+    }
     acquiredEntry.refs += 1;
     acquiredEntry.lastUsed = this.#now();
     let released = false;
@@ -337,12 +349,19 @@ export class RasterDecodeCache {
         released = true;
         acquiredEntry.refs = Math.max(0, acquiredEntry.refs - 1);
         acquiredEntry.lastUsed = this.#now();
-        if (
-          acquiredEntry.refs === 0 &&
-          acquiredEntry.request.source !== undefined &&
-          acquiredEntry.state !== "ready"
-        ) {
-          this.#cancelUnusedAsset(acquiredEntry);
+        if (acquiredEntry.refs === 0) {
+          if (acquiredEntry.discardWhenUnused) {
+            if (acquiredEntry.state === "ready") {
+              this.#releaseReadyEntry(acquiredEntry);
+            } else {
+              this.#cancelUnusedAsset(acquiredEntry);
+            }
+          } else if (
+            acquiredEntry.request.source !== undefined &&
+            acquiredEntry.state !== "ready"
+          ) {
+            this.#cancelUnusedAsset(acquiredEntry);
+          }
         }
         this.#evictIfNeeded();
       },
@@ -368,8 +387,26 @@ export class RasterDecodeCache {
       }
     }
     this.#entries.clear();
-    this.#queue.length = 0;
+    this.#queue.clear();
     this.#totalBytes = 0;
+  }
+
+  /**
+   * Reclaim a single source as soon as its last reference is released.
+   * Active handles remain valid, including consumers on other boards.
+   */
+  discardSourceWhenUnused(identity: string): void {
+    for (const sources of [...this.#entries.values()]) {
+      const entry = sources.get(identity);
+      if (entry === undefined) continue;
+      entry.discardWhenUnused = true;
+      if (entry.refs > 0) continue;
+      if (entry.state === "ready") {
+        this.#releaseReadyEntry(entry);
+      } else {
+        this.#cancelUnusedAsset(entry);
+      }
+    }
   }
 
   trimUnused(): void {
@@ -393,6 +430,7 @@ export class RasterDecodeCache {
     readonly activeDecodes: number;
     readonly activeReferences: number;
     readonly entryCount: number;
+    readonly inFlightReservedBytes: number;
     readonly pendingEntries: number;
     readonly queuedDecodes: number;
     readonly retainedBytes: number;
@@ -409,10 +447,11 @@ export class RasterDecodeCache {
       activeDecodes: this.#activeDecodes,
       activeReferences: entries.reduce((sum, entry) => sum + entry.refs, 0),
       entryCount: entries.length,
+      inFlightReservedBytes: this.#inFlightReservedBytes,
       pendingEntries: entries.filter(
         (entry) => entry.state === "decoding" || entry.state === "queued",
       ).length,
-      queuedDecodes: this.#queue.length,
+      queuedDecodes: this.#queue.size,
       retainedBytes: retained.reduce((sum, entry) => sum + entry.bytes, 0),
       retainedEntryCount: retained.length,
       totalBytes: this.#totalBytes,
@@ -422,10 +461,21 @@ export class RasterDecodeCache {
   #pump(): void {
     while (
       this.#activeDecodes < this.#maxConcurrent &&
-      this.#queue.length > 0
+      this.#queue.size > 0
     ) {
-      const entry = this.#queue.shift();
-      if (entry === undefined || entry.state !== "queued") continue;
+      const entry = this.#queue.values().next().value;
+      if (entry === undefined) break;
+      const reservation = decodedBytes(entry.request.size);
+      if (
+        this.#activeDecodes > 0 &&
+        this.#inFlightReservedBytes + reservation > this.#maxInFlightBytes
+      ) {
+        break;
+      }
+      this.#queue.delete(entry);
+      if (entry.state !== "queued") continue;
+      entry.reservedBytes = reservation;
+      this.#inFlightReservedBytes += reservation;
       entry.state = "decoding";
       entry.sessionId = this.#diagnostics.begin(
         entry.contentSha256,
@@ -480,6 +530,11 @@ export class RasterDecodeCache {
         })
         .finally(() => {
           this.#activeDecodes = Math.max(0, this.#activeDecodes - 1);
+          this.#inFlightReservedBytes = Math.max(
+            0,
+            this.#inFlightReservedBytes - entry.reservedBytes,
+          );
+          entry.reservedBytes = 0;
           this.#pump();
         });
     }
@@ -490,6 +545,7 @@ export class RasterDecodeCache {
   }
 
   #deleteEntry(entry: CacheEntry): void {
+    this.#queue.delete(entry);
     const sources = this.#entries.get(entry.key);
     if (sources === undefined) return;
     sources.delete(entry.sourceIdentity);

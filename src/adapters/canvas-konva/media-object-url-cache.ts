@@ -35,6 +35,21 @@ export class MediaObjectUrlCache {
     };
   }
 
+  /**
+   * A zero-reference GIF URL never survives. This is an idempotent,
+   * source-targeted diagnostic hook for the board cleanup path.
+   */
+  discardUnusedSource(cacheKey: string): void {
+    const entry = this.#entries.get(cacheKey);
+    if (entry === undefined || entry.refs > 0) return;
+    this.#entries.delete(cacheKey);
+    entry.abort.abort();
+    if (entry.url !== null) {
+      URL.revokeObjectURL(entry.url);
+      entry.url = null;
+    }
+  }
+
   acquire(source: BoardMediaContentSource): MediaObjectUrlHandle {
     const key = source.cacheKey;
     let entry = this.#entries.get(key);

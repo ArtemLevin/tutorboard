@@ -253,6 +253,19 @@ export function BoardCanvas({
       sceneItemsById,
     ],
   );
+  useEffect(() => {
+    const activeAssetIds = new Set<string>();
+    for (const { object } of scene.items) {
+      if (object.kind === "media.asset") activeAssetIds.add(object.assetId);
+    }
+    for (const { object } of previewItems) {
+      if (object.kind === "media.asset") activeAssetIds.add(object.assetId);
+    }
+    registry.reconcileMediaAssets(activeAssetIds);
+  }, [registry, scene.items, previewItems]);
+
+  useEffect(() => () => registry.dispose(), [registry]);
+
   const wetInkStyle = useMemo(() => {
     const style =
       activeTool === "drawing.pen" || activeTool === "drawing.smart-ink"

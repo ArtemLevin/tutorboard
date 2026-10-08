@@ -20,6 +20,7 @@ import { CoordinatePlotRenderer } from "./coordinate-plot-renderer";
 import { EmbeddedImageRenderer } from "./embedded-image-renderer";
 import { MediaAssetRenderer } from "./media-asset-renderer";
 import { MediaAssetPlaceholderRenderer } from "./media-asset-placeholder-renderer";
+import { MediaSourceCache } from "./media-source-cache";
 import { SvgRenderer } from "./svg-renderer";
 import {
   KonvaRendererRegistry,
@@ -423,7 +424,7 @@ export interface DefaultKonvaRendererOptions {
 export function createDefaultKonvaRendererRegistry(
   options: DefaultKonvaRendererOptions = {},
 ): KonvaRendererRegistry {
-  const cachedSources = new Map<string, BoardMediaContentSource>();
+  const cachedSources = new MediaSourceCache();
   return new KonvaRendererRegistry([
     ...renderers,
     {
@@ -437,11 +438,10 @@ export function createDefaultKonvaRendererRegistry(
           return <MediaAssetPlaceholderRenderer object={asset} />;
         }
         try {
-          const resolved = options.mediaAssetSourceResolver(asset);
-          const previous = cachedSources.get(asset.assetId);
-          const source =
-            previous?.cacheKey === resolved.cacheKey ? previous : resolved;
-          cachedSources.set(asset.assetId, source);
+          const source = cachedSources.resolve(
+            asset,
+            options.mediaAssetSourceResolver,
+          );
           return (
             <MediaAssetRenderer
               object={asset}
@@ -451,9 +451,13 @@ export function createDefaultKonvaRendererRegistry(
             />
           );
         } catch {
+          cachedSources.delete(asset.assetId);
           return <MediaAssetPlaceholderRenderer object={asset} />;
         }
       },
     },
-  ]);
+  ], {
+    reconcileMediaAssets: (ids) => cachedSources.retain(ids),
+    dispose: () => cachedSources.clear(),
+  });
 }
