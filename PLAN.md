@@ -1759,3 +1759,17 @@ security, durability и deployment gates.
 Production требует `BOARD_MEDIA_UPLOADS_ENABLED=true` и ClamAV.
 Междосковый clipboard и переносимый asset bundle остаются отдельными
 пунктами ADR-032.
+
+
+### F3.2.1 — real backend/browser media integration
+
+- PR scope: asset-enabled standalone FastAPI fixture with real SQLite persistence
+  and private local artifact storage, and production-built frontend with
+  `VITE_FEATURE_MEDIA_ASSET_IMPORT=true`. Browser-driven teacher/guest PNG,
+  JPEG, and GIF upload, authorization, `AVAILABLE` metadata, compact command,
+  same-board media download checksum, real-time revision and page reload.
+- CI: `npm run e2e:media-fullstack` (Chromium + Firefox), with backend pinned
+  to `dab5520578c9be383bd55a60321a91d1e69e1d81` and uploads enabled only
+  in the test runner. Legacy/offline modes retain default disabled flag.
+- Follow-up: test PostgreSQL + S3/MinIO storage/restart/backup in an isolated
+  integration environment before production rollout (F3.2.2/3).
