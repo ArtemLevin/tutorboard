@@ -350,7 +350,7 @@ describe("asset-backed A2 raster source", () => {
     expect(cache.snapshot().totalBytes).toBe(0);
   });
 
-  it("cancels unused asset decodes but keeps a shared in-flight consumer", async () => {
+  it("cancels unused asset decodes but keeps a shared in-flight consumer", () => {
     let signal: AbortSignal | null = null;
     const decoder = vi.fn(
       (_request: RasterDecodeRequest, abort: AbortSignal) => {
