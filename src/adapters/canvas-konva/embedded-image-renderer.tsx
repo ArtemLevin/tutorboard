@@ -141,7 +141,7 @@ export function RasterImageRenderer({
     object.contentSha256,
     dataUrl,
     object.mimeType,
-    source?.cacheKey,
+    source,
     sourceKey,
   ]);
 
