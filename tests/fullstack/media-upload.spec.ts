@@ -245,9 +245,11 @@ test("F3.2.1 real PNG/JPEG/GIF upload precedes commands and survives guest sync 
     await waitForRevision(guest, 1);
     await expect(teacher.getByTestId("object-count")).toHaveText("3 объекта");
     await expect(guest.getByTestId("object-count")).toHaveText("3 объекта");
-    await expect
-      .poll(() => guestFetchStatuses.filter((code) => code === 200).length)
-      .toBeGreaterThanOrEqual(6);
+    // Browser caches may serve bytes without another 200 response after reload.
+    // Validate the persisted assets through the authorized route instead.
+    for (const asset of uploaded) {
+      await assertAssetContent(guestContext, boardId, asset);
+    }
 
     // A guest writer must use the same authorization, binary storage and
     // revision path, so both actor types are covered by the real backend.
