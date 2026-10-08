@@ -89,7 +89,7 @@ describe("synchronized asset import through board UI", () => {
         release = resolve;
       });
     });
-    const committed = vi.fn((_command: BoardCommand) => undefined);
+    const committed = vi.fn<(command: BoardCommand) => void>();
     render(
       <App
         initialDocument={createInitialDocument()}
@@ -104,7 +104,10 @@ describe("synchronized asset import through board UI", () => {
     expect(screen.getByText("Загружаем изображения…")).toBeInTheDocument();
     expect(captured).not.toBeNull();
     if (captured === null) return;
-    await act(async () => release(descriptor(captured!)));
+    await act(async () => {
+      release(descriptor(captured!));
+      await Promise.resolve();
+    });
     await waitFor(() => expect(committed).toHaveBeenCalledOnce());
 
     const command = committed.mock.calls[0]?.[0] as BoardCommand;
@@ -129,7 +132,7 @@ describe("synchronized asset import through board UI", () => {
       });
     });
     const session = createSession(upload);
-    const committed = vi.fn((_command: BoardCommand) => undefined);
+    const committed = vi.fn<(command: BoardCommand) => void>();
     const doc = createInitialDocument();
     const view = render(
       <App
@@ -152,12 +155,15 @@ describe("synchronized asset import through board UI", () => {
     );
     expect(captured).not.toBeNull();
     if (captured === null) return;
-    await act(async () => release(descriptor(captured!)));
+    await act(async () => {
+      release(descriptor(captured!));
+      await Promise.resolve();
+    });
     expect(committed).not.toHaveBeenCalled();
   });
 
   it("rejects raster import without an authorized upload session", async () => {
-    const committed = vi.fn((_command: BoardCommand) => undefined);
+    const committed = vi.fn<(command: BoardCommand) => void>();
     render(
       <App
         initialDocument={createInitialDocument()}
@@ -175,8 +181,10 @@ describe("synchronized asset import through board UI", () => {
   });
 
   it("does not introduce a command when the upload endpoint fails", async () => {
-    const committed = vi.fn((_command: BoardCommand) => undefined);
-    const upload = vi.fn(() => Promise.reject(new Error("Сервер временно недоступен")));
+    const committed = vi.fn<(command: BoardCommand) => void>();
+    const upload = vi.fn(() =>
+      Promise.reject(new Error("Сервер временно недоступен")),
+    );
     render(
       <App
         initialDocument={createInitialDocument()}

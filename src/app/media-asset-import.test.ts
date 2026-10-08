@@ -104,21 +104,24 @@ describe("media asset upload prerequisite", () => {
       new AbortController().signal,
     );
     await vi.waitFor(() => expect(uploadMedia).toHaveBeenCalledOnce());
-    expect(uploadMedia).toHaveBeenCalledWith(expect.objectContaining({
-      body: prepared.value.body,
-      contentSha256: prepared.value.contentSha256,
-      csrfToken: "csrf:board",
-      documentId: session.documentId,
-      mimeType: "image/png",
-    }));
+    expect(uploadMedia).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: prepared.value.body,
+        contentSha256: prepared.value.contentSha256,
+        csrfToken: "csrf:board",
+        documentId: session.documentId,
+        mimeType: "image/png",
+      }),
+    );
     finish(descriptor(prepared.value));
     await expect(pending).resolves.toMatchObject({ status: "ok" });
     const invalidSession = {
       ...session,
-      uploadMedia: () => Promise.resolve({
-        ...descriptor(prepared.value),
-        byteSize: 100,
-      }),
+      uploadMedia: () =>
+        Promise.resolve({
+          ...descriptor(prepared.value),
+          byteSize: 100,
+        }),
     };
     await expect(
       uploadBeforeCommand(
