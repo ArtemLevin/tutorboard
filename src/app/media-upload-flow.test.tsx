@@ -33,7 +33,7 @@ png.set([0, 0, 0, 12], 20);
 beforeEach(() => {
   vi.stubGlobal(
     "createImageBitmap",
-    vi.fn(async () => ({ close: vi.fn() })),
+    vi.fn(() => Promise.resolve({ close: vi.fn() })),
   );
 });
 
@@ -60,7 +60,7 @@ function createSession(
 ): BoardMediaUploadSession {
   return {
     documentId: createInitialDocument().id,
-    getCsrfToken: async () => "csrf:valid",
+    getCsrfToken: () => Promise.resolve("csrf:valid"),
     isCurrent,
     uploadMedia,
   };
@@ -89,7 +89,7 @@ describe("synchronized asset import through board UI", () => {
         release = resolve;
       });
     });
-    const committed = vi.fn();
+    const committed = vi.fn((_command: BoardCommand) => undefined);
     render(
       <App
         initialDocument={createInitialDocument()}
@@ -129,7 +129,7 @@ describe("synchronized asset import through board UI", () => {
       });
     });
     const session = createSession(upload);
-    const committed = vi.fn();
+    const committed = vi.fn((_command: BoardCommand) => undefined);
     const doc = createInitialDocument();
     const view = render(
       <App
@@ -157,7 +157,7 @@ describe("synchronized asset import through board UI", () => {
   });
 
   it("rejects raster import without an authorized upload session", async () => {
-    const committed = vi.fn();
+    const committed = vi.fn((_command: BoardCommand) => undefined);
     render(
       <App
         initialDocument={createInitialDocument()}
@@ -175,10 +175,8 @@ describe("synchronized asset import through board UI", () => {
   });
 
   it("does not introduce a command when the upload endpoint fails", async () => {
-    const committed = vi.fn();
-    const upload = vi.fn(async () => {
-      throw new Error("Сервер временно недоступен");
-    });
+    const committed = vi.fn((_command: BoardCommand) => undefined);
+    const upload = vi.fn(() => Promise.reject(new Error("Сервер временно недоступен")));
     render(
       <App
         initialDocument={createInitialDocument()}
