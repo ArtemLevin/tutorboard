@@ -2,21 +2,28 @@ import Konva from "konva";
 import { useContext, useEffect, useRef, useState } from "react";
 import { Group, Image as KonvaImage, Rect } from "react-konva";
 
-import type { EmbeddedImageObject } from "../../core/public";
+import type {
+  BoardMediaContentSource,
+  EmbeddedImageObject,
+  MediaAssetObject,
+} from "../../core/public";
 import { startAnimatedImageRedraw } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
+import { mediaObjectUrlCache } from "./media-object-url-cache";
 import {
   rasterDecodeCache,
   resolveRasterDecodeSize,
 } from "./raster-decode-cache";
 import { rasterImageDiagnostics } from "./raster-image-diagnostics";
 
-export function EmbeddedImageRenderer({
+export function RasterImageRenderer({
   object,
+  source,
   visualScale = 1,
   zoom,
 }: {
-  readonly object: EmbeddedImageObject;
+  readonly object: EmbeddedImageObject | MediaAssetObject;
+  readonly source?: BoardMediaContentSource;
   readonly visualScale?: number;
   readonly zoom: number;
 }) {
@@ -29,6 +36,7 @@ export function EmbeddedImageRenderer({
   const redrawCoordinator = useContext(AnimatedImageRedrawContext);
   const staticRaster =
     object.mimeType === "image/png" || object.mimeType === "image/jpeg";
+  const dataUrl = object.kind === "image.embedded" ? object.dataUrl : null;
   const decodeSize = staticRaster
     ? resolveRasterDecodeSize({
         ancestorScale: visualScale,
@@ -46,17 +54,19 @@ export function EmbeddedImageRenderer({
     staticRaster &&
     decodeHeight !== null &&
     decodeWidth !== null &&
-    typeof createImageBitmap === "function";
+    (source !== undefined || typeof createImageBitmap === "function");
+  const sourceIdentity = source?.cacheKey ?? object.contentSha256;
   const sourceKey = cachedBitmapPath
-    ? `${object.contentSha256}:${decodeWidth}x${decodeHeight}`
-    : `${object.contentSha256}:html`;
+    ? `${sourceIdentity}:${decodeWidth}x${decodeHeight}`
+    : `${sourceIdentity}:html`;
   const image = imageState?.key === sourceKey ? imageState.image : null;
 
   useEffect(() => {
     if (cachedBitmapPath && decodeHeight !== null && decodeWidth !== null) {
+      if (source === undefined && dataUrl === null) return;
       const handle = rasterDecodeCache.acquire({
         contentSha256: object.contentSha256,
-        dataUrl: object.dataUrl,
+        ...(source === undefined ? { dataUrl: dataUrl ?? "" } : { source }),
         size: { height: decodeHeight, width: decodeWidth },
       });
       let active = true;
@@ -101,19 +111,37 @@ export function EmbeddedImageRenderer({
       setFailed(true);
       setImageState(null);
     };
-    element.src = object.dataUrl;
+    const handle = source === undefined
+      ? null
+      : mediaObjectUrlCache.acquire(source);
+    if (handle !== null) {
+      void handle.promise.then((url) => {
+        if (active) element.src = url;
+      }).catch(() => {
+        if (!active) return;
+        rasterImageDiagnostics.fail(sessionId);
+        setFailed(true);
+        setImageState(null);
+      });
+    } else if (dataUrl !== null) {
+      element.src = dataUrl;
+    }
     return () => {
       active = false;
       rasterImageDiagnostics.release(sessionId);
+      element.onload = null;
+      element.onerror = null;
       element.src = "";
+      handle?.release();
     };
   }, [
     cachedBitmapPath,
     decodeHeight,
     decodeWidth,
     object.contentSha256,
-    object.dataUrl,
+    dataUrl,
     object.mimeType,
+    source,
     sourceKey,
   ]);
 
@@ -171,4 +199,16 @@ export function EmbeddedImageRenderer({
       )}
     </Group>
   );
+}
+
+export function EmbeddedImageRenderer({
+  object,
+  visualScale,
+  zoom,
+}: {
+  readonly object: EmbeddedImageObject;
+  readonly visualScale?: number;
+  readonly zoom: number;
+}) {
+  return <RasterImageRenderer object={object} visualScale={visualScale} zoom={zoom} />;
 }
