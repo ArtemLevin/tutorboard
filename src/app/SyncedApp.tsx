@@ -623,9 +623,10 @@ function SyncedWorkspace({
         window.navigator.onLine,
       getCsrfToken: async () => {
         if (accessContext !== undefined) {
-          if (currentAccessContextRef.current !== currentAccessContext)
+          const context = currentAccessContextRef.current;
+          if (context === undefined || context !== currentAccessContext)
             throw new Error("Права доступа изменились.");
-          return currentAccessContext.csrfToken;
+          return context.csrfToken;
         }
         const context = await repository.context();
         return context.csrfToken;

@@ -14,6 +14,7 @@ function environment(
       geometryPrompt: true,
       handwrittenFunctions: true,
       mathInkRecognition: false,
+      mediaAssetImport: false,
       serverSync: false,
       smartInk: true,
       smartInkDiagnostics: true,
