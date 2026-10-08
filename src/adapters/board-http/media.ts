@@ -13,7 +13,9 @@ const safeIdentifier = z
   .min(1)
   .max(128)
   .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u)
-  .refine((value) => !["__proto__", "constructor", "prototype"].includes(value));
+  .refine(
+    (value) => !["__proto__", "constructor", "prototype"].includes(value),
+  );
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/u);
 const uploadableMime = z.enum(["image/png", "image/jpeg", "image/gif"]);
 const mediaMime = z.enum(["image/png", "image/jpeg", "image/gif", "video/mp4"]);
@@ -35,12 +37,14 @@ const mediaDescriptorSchema = z
     status: z.literal("available"),
   })
   .strict();
-const mediaSourceSchema = z.object({
-  assetId: safeIdentifier,
-  byteSize: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-  contentSha256: sha256,
-  mimeType: mediaMime,
-}).passthrough();
+const mediaSourceSchema = z
+  .object({
+    assetId: safeIdentifier,
+    byteSize: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    contentSha256: sha256,
+    mimeType: mediaMime,
+  })
+  .passthrough();
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
 
 export interface BoardMediaHttpAdapterDependencies {
