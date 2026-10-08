@@ -145,6 +145,7 @@ export function createStandaloneBoardHttpRepository(
 ): StandaloneBoardHttpRepository {
   const transport = options.fetch ?? globalThis.fetch;
   let currentAccessContext = accessContext;
+  let mediaAccessVersion = 0;
   const scopedFetch: typeof globalThis.fetch = (input, init) => {
     if (currentAccessContext.principalType !== "guest" || !unsafeMethod(init)) {
       return transport(input, init);
@@ -159,6 +160,13 @@ export function createStandaloneBoardHttpRepository(
   });
   return {
     ...repository,
+    resolveMediaContentSource: (boardId, asset) => {
+      const source = repository.resolveMediaContentSource(boardId, asset);
+      return {
+        ...source,
+        cacheKey: `${source.cacheKey}:access:${mediaAccessVersion}`,
+      };
+    },
     context: () =>
       Promise.resolve(standaloneSessionContext(currentAccessContext)),
     updateAccessContext: (context) => {
@@ -171,6 +179,7 @@ export function createStandaloneBoardHttpRepository(
       if (context.principalType !== accessContext.principalType) {
         throw new Error("Board access context changed principal type.");
       }
+      mediaAccessVersion += 1;
       currentAccessContext = context;
     },
   };
