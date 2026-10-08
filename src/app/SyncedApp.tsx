@@ -507,7 +507,12 @@ function SyncedWorkspace({
     () =>
       resolveContentSource === undefined
         ? undefined
-        : (asset: MediaAssetObject) => resolveContentSource(documentId, asset),
+        : (asset: MediaAssetObject) => {
+            if (currentAccessContextRef.current !== currentAccessContext) {
+              throw new Error("Board media access context has changed.");
+            }
+            return resolveContentSource(documentId, asset);
+          },
     [documentId, currentAccessContext, resolveContentSource],
   );
 
