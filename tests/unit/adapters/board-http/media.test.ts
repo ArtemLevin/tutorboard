@@ -7,6 +7,7 @@ import {
 } from "../../../../src/adapters/board-http/public";
 import {
   actorId,
+  boardObjectId,
   documentId,
   type MediaAssetObject,
 } from "../../../../src/core/public";
@@ -33,7 +34,7 @@ const imageObject: MediaAssetObject = {
   contentSha256,
   fileName,
   groupId: null,
-  id: "object:media-test" as MediaAssetObject["id"],
+  id: boardObjectId("object:media-test"),
   intrinsicSize: metadata.intrinsicSize,
   kind: "media.asset",
   locked: false,
@@ -60,7 +61,7 @@ function contentResponse(input: {
   readonly status?: number;
   readonly bytes?: Uint8Array;
 } = {}): Response {
-  return new Response(new Uint8Array(input.bytes ?? imageBytes), {
+  return new Response(new Blob([new Uint8Array(input.bytes ?? imageBytes)]), {
     headers: {
       "Content-Type": input.mime ?? "image/png",
       "X-Content-SHA256": input.hash ?? contentSha256,
