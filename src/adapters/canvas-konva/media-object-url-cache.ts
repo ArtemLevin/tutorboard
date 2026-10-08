@@ -35,21 +35,6 @@ export class MediaObjectUrlCache {
     };
   }
 
-  /**
-   * A zero-reference GIF URL never survives. This is an idempotent,
-   * source-targeted diagnostic hook for the board cleanup path.
-   */
-  discardUnusedSource(cacheKey: string): void {
-    const entry = this.#entries.get(cacheKey);
-    if (entry === undefined || entry.refs > 0) return;
-    this.#entries.delete(cacheKey);
-    entry.abort.abort();
-    if (entry.url !== null) {
-      URL.revokeObjectURL(entry.url);
-      entry.url = null;
-    }
-  }
-
   acquire(source: BoardMediaContentSource): MediaObjectUrlHandle {
     const key = source.cacheKey;
     let entry = this.#entries.get(key);
@@ -62,13 +47,19 @@ export class MediaObjectUrlCache {
       const onAbort = () =>
         abortReject(new DOMException("Media source cancelled.", "AbortError"));
       abort.signal.addEventListener("abort", onAbort, { once: true });
+      let loading: Promise<Blob>;
+      try {
+        loading = source.loadBlob(abort.signal);
+      } catch (cause) {
+        loading = Promise.reject(cause);
+      }
       const created: MediaObjectUrlEntry = {
         abort,
         pending: true,
         refs: 0,
         url: null,
         promise: Promise.race([
-          source.loadBlob(abort.signal).then((blob) => {
+          loading.then((blob) => {
             if (abort.signal.aborted) {
               throw new DOMException("Media source cancelled.", "AbortError");
             }

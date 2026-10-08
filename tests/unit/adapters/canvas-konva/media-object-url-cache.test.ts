@@ -136,3 +136,20 @@ describe("F3.3.2-B GIF cancellation", () => {
     }
   });
 });
+
+describe("F3.3.2-B GIF loader failure", () => {
+  it("releases a source whose loader throws synchronously", async () => {
+    const cache = new MediaObjectUrlCache();
+    const handle = cache.acquire(
+      source("scope:throws", () => {
+        throw new Error("loader failure");
+      }),
+    );
+    await expect(handle.promise).rejects.toThrow("loader failure");
+    handle.release();
+    expect(cache.snapshot()).toMatchObject({
+      entryCount: 0,
+      activeReferences: 0,
+    });
+  });
+});
