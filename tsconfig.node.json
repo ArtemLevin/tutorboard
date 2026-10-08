@@ -22,6 +22,7 @@
     "playwright.config.ts",
     "playwright.fullstack.config.ts",
     "playwright.media-fullstack.config.ts",
+    "playwright.media-asset-baseline.config.ts",
     "playwright.standalone-pilot.config.ts",
     "playwright.visual.config.ts",
     "vite.config.ts",

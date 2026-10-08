@@ -1,0 +1,85 @@
+name: F3.3 real media baseline
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/media-asset-baseline.yml"
+      - "playwright.media-asset-baseline.config.ts"
+      - "tests/fullstack/media-asset-baseline.spec.ts"
+      - "src/adapters/canvas-konva/**"
+      - "src/app/board/**"
+      - "src/app/media-asset-import.ts"
+      - "package.json"
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Workload scope
+        type: choice
+        options: [smoke, full]
+        default: full
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: f33-media-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    name: Authenticated asset cache workload
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout TutorBoard
+        uses: actions/checkout@v7
+      - name: Checkout F3.2 backend authority contract
+        uses: actions/checkout@v7
+        with:
+          repository: ArtemLevin/tutor-assistant-web
+          ref: e4a9919acaf87bb2eafd9ba27ddc221ee4a8c536
+          path: tutor-assistant-web
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install pinned backend
+        working-directory: tutor-assistant-web
+        run: uv sync --frozen --extra dev
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build test-only asset-enabled board
+        env:
+          VITE_APP_PROFILE: board
+          VITE_APP_STAGE: production
+          VITE_FEATURE_MEDIA_ASSET_IMPORT: "true"
+        run: npm run build
+      - name: Measure real media.asset load and pan/zoom
+        env:
+          F3_MEDIA_PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.profile || 'smoke' }}
+          TUTOR_ASSISTANT_WEB_ROOT: ${{ github.workspace }}/tutor-assistant-web
+        run: |
+          set -o pipefail
+          npm run e2e:media-asset-baseline -- \
+            --project=chromium \
+            --retries=0 \
+            --trace=retain-on-failure 2>&1 | tee f33-asset-baseline.log
+      - name: Retain metrics and failure traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f33-asset-baseline-${{ github.sha }}
+          path: |
+            f33-asset-baseline.log
+            test-results/
+          if-no-files-found: warn
+          retention-days: 30
