@@ -123,7 +123,12 @@ async function assertAssetContent(
   const base = `/api/v1/boards/${encodeURIComponent(boardId)}/media/${encodeURIComponent(descriptor.assetId)}`;
   const metadata = await context.request.get(base);
   expect(metadata.status()).toBe(200);
-  expect((await metadata.json()) as AssetDescriptor).toMatchObject(descriptor);
+  const stored = (await metadata.json()) as AssetDescriptor;
+  expect(stored.assetId).toBe(descriptor.assetId);
+  expect(stored.contentSha256).toBe(descriptor.contentSha256);
+  expect(stored.byteSize).toBe(descriptor.byteSize);
+  expect(stored.mimeType).toBe(descriptor.mimeType);
+  expect(stored.status).toBe("available");
   const downloaded = await context.request.get(`${base}/content`);
   expect(downloaded.status()).toBe(200);
   expect(downloaded.headers()["content-type"]).toContain(descriptor.mimeType);
