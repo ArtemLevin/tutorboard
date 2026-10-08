@@ -527,6 +527,7 @@ function SyncedWorkspace({
     document: BoardDocument,
   ): Promise<BoardDocument> => {
     const context = currentAccessContextRef.current;
+    const mediaAccessEpoch = mediaImportEpochRef.current;
     const resolved = await embedBoardMediaForSnapshot(
       document,
       mediaAssetSourceResolver === undefined
@@ -536,6 +537,7 @@ function SyncedWorkspace({
     if (
       !activeRef.current ||
       currentAccessContextRef.current !== context ||
+      mediaImportEpochRef.current !== mediaAccessEpoch ||
       accessRefreshInFlightRef.current !== null ||
       accessRefreshStatus !== "idle"
     ) {
