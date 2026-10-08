@@ -53,8 +53,65 @@ async function createBoardAndInvitation(workspace: Page): Promise<{
   const response = await responsePromise;
   expect(response.status()).toBe(201);
   const { boardId } = (await response.json()) as { boardId: string };
-  await workspace.goto("/boards");
   const boardHref = `/b/${encodeURIComponent(boardId)}#/board`;
+  await expect(workspace).toHaveURL(
+    new RegExp(`/b/${encodeURIComponent(boardId)}#/boardimport { createHash } from "node:crypto";
+
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+
+const password = "standalone-pilot-e2e-password";
+const teacherEmail = "standalone-pilot-teacher@example.test";
+const gif1x1 = Buffer.from(
+  "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+  "base64",
+);
+
+interface AssetDescriptor {
+  readonly assetId: string;
+  readonly byteSize: number;
+  readonly contentSha256: string;
+  readonly mimeType: string;
+  readonly status: string;
+}
+
+async function loginTeacher(page: Page): Promise<string> {
+  await page.goto("/login?next=/boards");
+  await page.getByLabel("Email").fill(teacherEmail);
+  await page.getByLabel("Пароль").fill(password);
+  await Promise.all([
+    page.waitForURL(/\/boards$/u),
+    page.getByRole("button", { name: "Продолжить" }).click(),
+  ]);
+  const response = await page.context().request.get("/api/v1/boards/context");
+  expect(response.status()).toBe(200);
+  const context = (await response.json()) as { csrfToken: string };
+  expect(context.csrfToken).toBeTruthy();
+  return context.csrfToken;
+}
+
+async function createBoardAndInvitation(workspace: Page): Promise<{
+  readonly boardId: string;
+  readonly joinUrl: string;
+}> {
+  await expect(
+    workspace.getByRole("heading", { name: "Мои доски" }),
+  ).toBeVisible();
+  await workspace.getByRole("button", { name: "+ Создать доску" }).click();
+  const responsePromise = workspace.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/v1/boards",
+  );
+  const dialog = workspace.getByRole("dialog");
+  await dialog
+    .getByLabel("Название")
+    .fill("F3.2 asset-backed media integration");
+  await dialog.getByRole("button", { name: "Создать" }).click();
+  const response = await responsePromise;
+  expect(response.status()).toBe(201);
+, "u"),
+  );
+  await workspace.goto("/boards");
   const card = workspace.locator(
     `article.teacher-board-card:has(a[href="${boardHref}"])`,
   );
