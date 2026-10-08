@@ -595,6 +595,32 @@ function SyncedWorkspace({
     }
   }, [state]);
 
+  const writeEnabled =
+    state.kind === "ready" &&
+    accessRefreshStatus === "idle" &&
+    (accessContext === undefined || collaborationAccessReady) &&
+    state.capabilities.includes("board.write");
+  const mediaUploadSession = useMemo<BoardMediaUploadSession | undefined>(() => {
+    if (!mediaAssetImportEnabled || !writeEnabled || repository.uploadMedia === undefined) return undefined;
+    const uploadMedia = repository.uploadMedia;
+    const epoch = mediaImportEpochRef.current;
+    return {
+      documentId,
+      uploadMedia,
+      isCurrent: () => activeRef.current && mediaImportEpochRef.current === epoch &&
+        (accessContext === undefined || currentAccessContextRef.current === currentAccessContext) &&
+        accessRefreshInFlightRef.current === null && window.navigator.onLine,
+      getCsrfToken: async () => {
+        if (accessContext !== undefined) {
+          if (currentAccessContextRef.current !== currentAccessContext) throw new Error("Права доступа изменились.");
+          return currentAccessContext.csrfToken;
+        }
+        const context = await repository.context();
+        return context.csrfToken;
+      },
+    };
+  }, [accessContext, currentAccessContext, documentId, mediaAssetImportEnabled, repository, writeEnabled]);
+
   if (state.kind === "bootstrapping") {
     return (
       <main className="recovery-shell">
@@ -675,30 +701,6 @@ function SyncedWorkspace({
     );
   }
 
-  const writeEnabled =
-    accessRefreshStatus === "idle" &&
-    (accessContext === undefined || collaborationAccessReady) &&
-    state.capabilities.includes("board.write");
-  const mediaUploadSession = useMemo<BoardMediaUploadSession | undefined>(() => {
-    if (!mediaAssetImportEnabled || !writeEnabled || state.network === "offline" || repository.uploadMedia === undefined) return undefined;
-    const uploadMedia = repository.uploadMedia;
-    const epoch = mediaImportEpochRef.current;
-    return {
-      documentId,
-      uploadMedia,
-      isCurrent: () => activeRef.current && mediaImportEpochRef.current === epoch &&
-        (accessContext === undefined || currentAccessContextRef.current === currentAccessContext) &&
-        accessRefreshInFlightRef.current === null && window.navigator.onLine,
-      getCsrfToken: async () => {
-        if (accessContext !== undefined) {
-          if (currentAccessContextRef.current !== currentAccessContext) throw new Error("Права доступа изменились.");
-          return currentAccessContext.csrfToken;
-        }
-        const context = await repository.context();
-        return context.csrfToken;
-      },
-    };
-  }, [accessContext, currentAccessContext, documentId, mediaAssetImportEnabled, repository, state.network, writeEnabled]);
   const canManageEvidence =
     lessonId !== undefined &&
     (state.role === "admin" || state.role === "tutor");
