@@ -42,6 +42,7 @@ describe("CI gate routing", () => {
       coordinate_plot: true,
       formula_recognition: true,
       geometryos: true,
+      media_performance: true,
     });
   });
 
@@ -77,6 +78,7 @@ describe("CI gate routing", () => {
       formula_recognition: true,
       geometryos: true,
       smart_ink: true,
+      media_performance: true,
     });
     expect(routed("src/core/board/objects.ts")).toEqual({
       ...allFalse,
@@ -84,6 +86,7 @@ describe("CI gate routing", () => {
       formula_recognition: true,
       geometryos: true,
       smart_ink: true,
+      media_performance: true,
     });
     expect(routed("src/core/public.ts")).toEqual({
       ...allFalse,
@@ -91,7 +94,21 @@ describe("CI gate routing", () => {
       formula_recognition: true,
       geometryos: true,
       smart_ink: true,
+      media_performance: true,
     });
+  });
+
+  it("routes media decoding, import, HTTP and profile ownership", () => {
+    for (const path of [
+      "src/adapters/canvas-konva/raster-decode-cache.ts",
+      "src/adapters/canvas-konva/media-object-url-cache.ts",
+      "src/adapters/board-http/media.ts",
+      "src/app/board/controllers/useBoardMediaController.ts",
+      "src/modules/local-persistence/autosave.ts",
+      "tests/e2e/media-performance.spec.ts",
+    ]) {
+      expect(routed(path).media_performance).toBe(true);
+    }
   });
 
   it("routes production container changes independently from coordinate plot", () => {

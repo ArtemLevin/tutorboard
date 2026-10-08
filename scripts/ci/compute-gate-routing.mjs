@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 export const ciGateNames = [
   "geometryos",
   "coordinate_plot",
+  "media_performance",
   "production_image",
   "smart_ink",
   "formula_recognition",
@@ -43,6 +44,25 @@ const coordinatePlotPrefixes = [
 
 const coordinatePlotFiles = new Set([
   "src/modules/document-transfer/snapshot.ts",
+]);
+
+const mediaPerformanceFiles = new Set([
+  "src/adapters/board-http/media.ts",
+  "src/adapters/canvas-konva/BoardStage.tsx",
+  "src/adapters/canvas-konva/animated-image-redraw.ts",
+  "src/adapters/canvas-konva/default-renderers.tsx",
+  "src/adapters/canvas-konva/embedded-image-renderer.tsx",
+  "src/adapters/canvas-konva/media-asset-renderer.tsx",
+  "src/adapters/canvas-konva/media-object-url-cache.ts",
+  "src/adapters/canvas-konva/raster-decode-cache.ts",
+  "src/adapters/persistence-dexie/repository.ts",
+  "src/app/App.tsx",
+  "src/app/SyncedApp.tsx",
+  "src/app/board/controllers/useBoardMediaController.ts",
+  "src/app/board/views/BoardCanvas.tsx",
+  "src/app/image-import.ts",
+  "src/core/board/serialization/serialization.ts",
+  "src/modules/local-persistence/autosave.ts",
 ]);
 
 const smartInkPrefixes = [
@@ -135,6 +155,7 @@ export function classifyChangedFiles(changedFiles) {
     }
 
     if (boardContractFiles.has(path)) {
+      routing.media_performance = true;
       routing.geometryos = true;
       routing.coordinate_plot = true;
       routing.smart_ink = true;
@@ -173,6 +194,13 @@ export function classifyChangedFiles(changedFiles) {
 
     if (productionImageFiles.has(path)) {
       routing.production_image = true;
+    }
+
+    if (
+      mediaPerformanceFiles.has(path) ||
+      hasFragment(path, "media-performance")
+    ) {
+      routing.media_performance = true;
     }
 
     if (
