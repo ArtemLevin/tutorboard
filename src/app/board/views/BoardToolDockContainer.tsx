@@ -79,6 +79,8 @@ export function BoardToolDockContainer({
       geometryOpen={geometry.open}
       handwrittenFunctionsEnabled={handwrittenFunctionsEnabled}
       imageAccept={media.accept}
+      imageAssetImportEnabled={media.assetImportEnabled}
+      imageUploading={media.uploading}
       onActivate={(tool) => interaction.activate(tool as ActiveToolId)}
       onCreatePlot={onCreatePlot}
       onExportPdfSnapshot={onExportPdfSnapshot}
