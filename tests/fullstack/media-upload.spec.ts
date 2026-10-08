@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
@@ -250,6 +251,26 @@ test("F3.2.1 real PNG/JPEG/GIF upload precedes commands and survives guest sync 
     for (const asset of uploaded) {
       await assertAssetContent(guestContext, boardId, asset);
     }
+
+    // Export must contain the real pixels (even after recovery), not metadata
+    // placeholders, and must never expose the private storage key.
+    await teacher.getByRole("button", { name: "Настройки доски" }).click();
+    const settings = teacher.getByRole("dialog", { name: "Настройки доски" });
+    const svgDownloadPromise = teacher.waitForEvent("download");
+    await settings.getByRole("button", { name: "Снимок SVG" }).click();
+    const svgDownload = await svgDownloadPromise;
+    const svg = await readFile(await svgDownload.path(), "utf8");
+    expect(svg).toContain('href="data:image/png;base64,');
+    expect(svg).toContain('href="data:image/jpeg;base64,');
+    expect(svg).toContain('href="data:image/gif;base64,');
+    expect(svg).not.toContain("data-media-asset-id");
+    expect(svg).not.toContain("/api/v1/boards/");
+    const pdfDownloadPromise = teacher.waitForEvent("download");
+    await settings.getByRole("button", { name: "Сохранить PDF" }).click();
+    const pdfDownload = await pdfDownloadPromise;
+    expect((await readFile(await pdfDownload.path())).subarray(0, 5).toString())
+      .toBe("%PDF-");
+    await teacher.keyboard.press("Escape");
 
     // A guest writer must use the same authorization, binary storage and
     // revision path, so both actor types are covered by the real backend.
