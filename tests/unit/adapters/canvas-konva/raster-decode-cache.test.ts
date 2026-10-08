@@ -351,10 +351,10 @@ describe("asset-backed A2 raster source", () => {
   });
 
   it("cancels unused asset decodes but keeps a shared in-flight consumer", () => {
-    let signal: AbortSignal | null = null;
+    const signals: AbortSignal[] = [];
     const decoder = vi.fn(
       (_request: RasterDecodeRequest, abort: AbortSignal) => {
-        signal = abort;
+        signals.push(abort);
         return new Promise<RasterBitmapResource>(() => undefined);
       },
     );
@@ -372,9 +372,9 @@ describe("asset-backed A2 raster source", () => {
     first.promise.catch(() => undefined);
     second.promise.catch(() => undefined);
     first.release();
-    expect(signal?.aborted).toBe(false);
+    expect(signals[0]?.aborted).toBe(false);
     second.release();
-    expect(signal?.aborted).toBe(true);
+    expect(signals[0]?.aborted).toBe(true);
     expect(cache.snapshot().entryCount).toBe(0);
   });
 
