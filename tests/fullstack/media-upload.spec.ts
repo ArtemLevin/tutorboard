@@ -36,7 +36,9 @@ async function createBoardAndInvitation(workspace: Page): Promise<{
   readonly boardId: string;
   readonly joinUrl: string;
 }> {
-  await expect(workspace.getByRole("heading", { name: "Мои доски" })).toBeVisible();
+  await expect(
+    workspace.getByRole("heading", { name: "Мои доски" }),
+  ).toBeVisible();
   await workspace.getByRole("button", { name: "+ Создать доску" }).click();
   const responsePromise = workspace.waitForResponse(
     (response) =>
@@ -44,7 +46,9 @@ async function createBoardAndInvitation(workspace: Page): Promise<{
       new URL(response.url()).pathname === "/api/v1/boards",
   );
   const dialog = workspace.getByRole("dialog");
-  await dialog.getByLabel("Название").fill("F3.2 asset-backed media integration");
+  await dialog
+    .getByLabel("Название")
+    .fill("F3.2 asset-backed media integration");
   await dialog.getByRole("button", { name: "Создать" }).click();
   const response = await responsePromise;
   expect(response.status()).toBe(201);
@@ -63,7 +67,9 @@ async function createBoardAndInvitation(workspace: Page): Promise<{
   );
   const inviteDialog = workspace.getByRole("dialog");
   await inviteDialog.getByLabel("Имя ученика").fill("F3.2 ученик");
-  await inviteDialog.getByRole("button", { name: "Создать гостевую ссылку" }).click();
+  await inviteDialog
+    .getByRole("button", { name: "Создать гостевую ссылку" })
+    .click();
   const invited = await invitePromise;
   expect(invited.status()).toBe(201);
   const { joinUrl } = (await invited.json()) as { joinUrl: string };
@@ -181,14 +187,15 @@ test("F3.2.1 real PNG/JPEG/GIF upload precedes commands and survives guest sync 
         response.status() === 201
       ) {
         uploadCompleted += 1;
-        void response.json().then((value: AssetDescriptor) => uploaded.push(value));
+        void response
+          .json()
+          .then((value: AssetDescriptor) => uploaded.push(value));
       }
     });
     teacher.on("request", (request) => {
       if (
         request.method() === "POST" &&
-        new URL(request.url()).pathname ===
-          `/api/v1/boards/${boardId}/commands`
+        new URL(request.url()).pathname === `/api/v1/boards/${boardId}/commands`
       ) {
         commands.push(request.postData() ?? "");
         if (uploadCompleted !== images.length) prematureCommand = true;
@@ -221,7 +228,8 @@ test("F3.2.1 real PNG/JPEG/GIF upload precedes commands and survives guest sync 
     expect(commands[0]).not.toContain("data:image");
     expect(commands[0]!.length).toBeLessThan(32_000);
 
-    await expect.poll(() => guestFetchStatuses.filter((code) => code === 200).length)
+    await expect
+      .poll(() => guestFetchStatuses.filter((code) => code === 200).length)
       .toBeGreaterThanOrEqual(3);
     for (const asset of uploaded) {
       expect(asset.status).toBe("available");
@@ -234,12 +242,15 @@ test("F3.2.1 real PNG/JPEG/GIF upload precedes commands and survives guest sync 
     await waitForRevision(guest, 1);
     await expect(teacher.getByTestId("object-count")).toHaveText("3 объекта");
     await expect(guest.getByTestId("object-count")).toHaveText("3 объекта");
-    await expect.poll(() => guestFetchStatuses.filter((code) => code === 200).length)
+    await expect
+      .poll(() => guestFetchStatuses.filter((code) => code === 200).length)
       .toBeGreaterThanOrEqual(6);
 
     // A guest writer must use the same authorization, binary storage and
     // revision path, so both actor types are covered by the real backend.
-    await insertImages(guest, [{ buffer: png, mimeType: "image/png", name: "student.png" }]);
+    await insertImages(guest, [
+      { buffer: png, mimeType: "image/png", name: "student.png" },
+    ]);
     await waitForRevision(guest, 2);
     await waitForRevision(teacher, 2);
     await expect(teacher.getByTestId("object-count")).toHaveText("4 объекта");
