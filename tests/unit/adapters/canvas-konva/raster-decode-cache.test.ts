@@ -299,7 +299,7 @@ describe("asset-backed A2 raster source", () => {
     loadBlob,
   });
 
-  it("loads a real asset Blob before the default bounded bitmap decoder", async () => {
+  it("decodes fetched asset Blobs with the A2 bitmap decoder", async () => {
     const close = vi.fn();
     const createBitmap = vi.fn().mockResolvedValue({
       close,
@@ -337,7 +337,7 @@ describe("asset-backed A2 raster source", () => {
     }
   });
 
-  it("never retries authorization failure through HTML image fallback", async () => {
+  it("rejects authorization errors without HTML fallback", async () => {
     const createBitmap = vi.fn();
     vi.stubGlobal("createImageBitmap", createBitmap);
     const unauthorized = new Error("403 forbidden");
