@@ -70,10 +70,7 @@ jobs:
         run: npm run board-contract:check
 
       - name: Check formatting
-        run: |
-          npx prettier src/adapters/canvas-konva/default-renderers.tsx src/adapters/canvas-konva/raster-decode-cache.ts tests/unit/adapters/canvas-konva/raster-decode-cache.test.ts --write
-          git diff -- src/adapters/canvas-konva/default-renderers.tsx src/adapters/canvas-konva/raster-decode-cache.ts tests/unit/adapters/canvas-konva/raster-decode-cache.test.ts
-          npm run format:check
+        run: npm run format:check
 
       - name: Lint
         run: npm run lint

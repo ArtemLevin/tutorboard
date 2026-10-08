@@ -61,6 +61,8 @@ describe("MediaSourceCache", () => {
     const first = cache.resolve(original, resolve);
     const changed = cache.resolve(asset("one", "b".repeat(64)), resolve);
     expect(changed).not.toBe(first);
+    expect(cache.resolve({ ...original, mimeType: "image/gif" }, resolve))
+      .not.toBe(first);
     const newAccess = cache.resolve(original, (item) => ({
       ...resolve(item),
       cacheKey: "next-access-epoch:" + item.assetId,

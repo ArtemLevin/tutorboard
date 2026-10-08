@@ -10,7 +10,11 @@ import type {
 export class MediaSourceCache {
   readonly #entries = new Map<
     string,
-    { readonly contentSha256: string; readonly source: BoardMediaContentSource }
+    {
+      readonly contentSha256: string;
+      readonly mimeType: string;
+      readonly source: BoardMediaContentSource;
+    }
   >();
   readonly #maxEntries: number;
 
@@ -29,6 +33,7 @@ export class MediaSourceCache {
     const existing = this.#entries.get(asset.assetId);
     const source =
       existing?.contentSha256 === asset.contentSha256 &&
+      existing.mimeType === asset.mimeType &&
       existing.source.cacheKey === resolved.cacheKey
         ? existing.source
         : resolved;
@@ -36,6 +41,7 @@ export class MediaSourceCache {
     this.#entries.delete(asset.assetId);
     this.#entries.set(asset.assetId, {
       contentSha256: asset.contentSha256,
+      mimeType: asset.mimeType,
       source,
     });
     while (this.#entries.size > this.#maxEntries) {

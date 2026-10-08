@@ -425,39 +425,42 @@ export function createDefaultKonvaRendererRegistry(
   options: DefaultKonvaRendererOptions = {},
 ): KonvaRendererRegistry {
   const cachedSources = new MediaSourceCache();
-  return new KonvaRendererRegistry([
-    ...renderers,
-    {
-      kind: "media.asset",
-      render(object, context) {
-        const asset = expectKind(object, "media.asset");
-        if (
-          options.mediaAssetSourceResolver === undefined ||
-          asset.mimeType === "video/mp4"
-        ) {
-          return <MediaAssetPlaceholderRenderer object={asset} />;
-        }
-        try {
-          const source = cachedSources.resolve(
-            asset,
-            options.mediaAssetSourceResolver,
-          );
-          return (
-            <MediaAssetRenderer
-              object={asset}
-              source={source}
-              visualScale={context.visualScale ?? 1}
-              zoom={context.zoom}
-            />
-          );
-        } catch {
-          cachedSources.delete(asset.assetId);
-          return <MediaAssetPlaceholderRenderer object={asset} />;
-        }
+  return new KonvaRendererRegistry(
+    [
+      ...renderers,
+      {
+        kind: "media.asset",
+        render(object, context) {
+          const asset = expectKind(object, "media.asset");
+          if (
+            options.mediaAssetSourceResolver === undefined ||
+            asset.mimeType === "video/mp4"
+          ) {
+            return <MediaAssetPlaceholderRenderer object={asset} />;
+          }
+          try {
+            const source = cachedSources.resolve(
+              asset,
+              options.mediaAssetSourceResolver,
+            );
+            return (
+              <MediaAssetRenderer
+                object={asset}
+                source={source}
+                visualScale={context.visualScale ?? 1}
+                zoom={context.zoom}
+              />
+            );
+          } catch {
+            cachedSources.delete(asset.assetId);
+            return <MediaAssetPlaceholderRenderer object={asset} />;
+          }
+        },
       },
+    ],
+    {
+      reconcileMediaAssets: (ids) => cachedSources.retain(ids),
+      dispose: () => cachedSources.clear(),
     },
-  ], {
-    reconcileMediaAssets: (ids) => cachedSources.retain(ids),
-    dispose: () => cachedSources.clear(),
-  });
+  );
 }

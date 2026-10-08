@@ -34,7 +34,10 @@ vi.mock("../adapters/canvas-konva/public", () => ({
       </button>
     </div>
   ),
-  createDefaultKonvaRendererRegistry: () => ({}),
+  createDefaultKonvaRendererRegistry: () => ({
+    reconcileMediaAssets: vi.fn(),
+    dispose: vi.fn(),
+  }),
 }));
 
 afterEach(cleanup);

@@ -503,7 +503,6 @@ describe("asset-backed A2 raster source", () => {
   });
 });
 
-
 describe("F3.3.2-B raster resource ownership", () => {
   const request = (identity: string): RasterDecodeRequest => ({
     contentSha256: "a".repeat(64),

@@ -349,7 +349,10 @@ export class RasterDecodeCache {
         acquiredEntry.refs = Math.max(0, acquiredEntry.refs - 1);
         acquiredEntry.lastUsed = this.#now();
         if (acquiredEntry.refs === 0) {
-          if (acquiredEntry.discardWhenUnused || acquiredEntry.evictWhenUnused) {
+          if (
+            acquiredEntry.discardWhenUnused ||
+            acquiredEntry.evictWhenUnused
+          ) {
             if (acquiredEntry.state === "ready") {
               this.#releaseReadyEntry(acquiredEntry);
             } else {
@@ -458,10 +461,7 @@ export class RasterDecodeCache {
   }
 
   #pump(): void {
-    while (
-      this.#activeDecodes < this.#maxConcurrent &&
-      this.#queue.size > 0
-    ) {
+    while (this.#activeDecodes < this.#maxConcurrent && this.#queue.size > 0) {
       const entry = this.#queue.values().next().value;
       if (entry === undefined) break;
       const reservation = decodedBytes(entry.request.size);
