@@ -1790,3 +1790,25 @@ Production требует `BOARD_MEDIA_UPLOADS_ENABLED=true` и ClamAV.
 - Backend restore integrity and release gates live in a separate backend PR.
 - Follow-up: portable JSON asset bundle and very large (>128 MiB) snapshot
   streaming/pagination require independent product formats and performance work.
+
+
+### F3.3.1 — authenticated media performance measurement
+
+- Fixed a pre-existing invalid PNG browser fixture (incorrect IDAT CRC) that
+  made the full post-merge Chromium/Firefox image import smoke fail. Keep the
+  functional image import assertions intact.
+- Authenticated standalone 10/50/100 PNG + 1/4/8 GIF scenarios, using real
+  upload-before-command, revision journal, reload and authorized media download.
+  Each raster is 512×512; report decoded-pixel estimate, cold/warm image
+  decoding, successful/failed media GET requests, transferred content length,
+  long tasks, JS heap when supported, and rAF p50/p95 under pan/zoom.
+- PR CI runs only the 10+1 smoke profile. The dedicated manual workflow
+  (`workflow_dispatch`, profile=full) captures the 10/50/100 matrix into
+  retained JSON artifacts. No arbitrary performance threshold is inferred
+  from uncalibrated GitHub runners; metrics are diagnostics until a stable
+  baseline/variance budget has been measured.
+- Backend dependency is pinned to the merged F3.2 SHA. The opt-in asset flag
+  is enabled strictly inside the isolated benchmark build.
+- Next F3.3.2: verify/limit the `cachedSources` registry lifetime,
+  cancel in-flight decodes at board switch and revocation, and introduce
+  measured caps/eviction only against established benchmark evidence.
