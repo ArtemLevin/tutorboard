@@ -9,7 +9,9 @@ import type {
  * mutated or serialized with inline bytes. Always resolve media with the
  * current authenticated board repository (no cross-tenant or raw S3 URLs).
  */
-export type BoardSnapshotMediaLoader = (asset: MediaAssetObject) => Promise<Blob>;
+export type BoardSnapshotMediaLoader = (
+  asset: MediaAssetObject,
+) => Promise<Blob>;
 
 const maxSnapshotAssetBytes = 32 * 1024 * 1024;
 const maxSnapshotTotalBytes = 128 * 1024 * 1024;
@@ -69,7 +71,9 @@ export async function embedBoardMediaForSnapshot(
   const objects = { ...document.objects };
   for (const asset of assets) {
     if (!rasterMimeTypes.has(asset.mimeType)) {
-      throw new Error("Этот тип медиа пока нельзя включить в статический снимок.");
+      throw new Error(
+        "Этот тип медиа пока нельзя включить в статический снимок.",
+      );
     }
     const key = asset.assetId + ":" + asset.contentSha256;
     let dataUrl = cached.get(key);
@@ -83,15 +87,21 @@ export async function embedBoardMediaForSnapshot(
       }
       const blob = await load(asset);
       if (blob.type !== asset.mimeType || blob.size !== asset.byteSize) {
-        throw new Error("Сервер вернул изображение с неверным типом или размером.");
+        throw new Error(
+          "Сервер вернул изображение с неверным типом или размером.",
+        );
       }
       const bytes = new Uint8Array(await blob.arrayBuffer());
-      const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+      const digest = new Uint8Array(
+        await crypto.subtle.digest("SHA-256", bytes),
+      );
       const actualSha = [...digest]
         .map((value) => value.toString(16).padStart(2, "0"))
         .join("");
       if (actualSha !== asset.contentSha256) {
-        throw new Error("Контрольная сумма изображения не совпадает с оригиналом.");
+        throw new Error(
+          "Контрольная сумма изображения не совпадает с оригиналом.",
+        );
       }
       dataUrl = "data:" + asset.mimeType + ";base64," + base64(bytes);
       cached.set(key, dataUrl);

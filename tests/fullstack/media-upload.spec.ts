@@ -268,8 +268,9 @@ test("F3.2.1 real PNG/JPEG/GIF upload precedes commands and survives guest sync 
     const pdfDownloadPromise = teacher.waitForEvent("download");
     await settings.getByRole("button", { name: "Сохранить PDF" }).click();
     const pdfDownload = await pdfDownloadPromise;
-    expect((await readFile(await pdfDownload.path())).subarray(0, 5).toString())
-      .toBe("%PDF-");
+    expect(
+      (await readFile(await pdfDownload.path())).subarray(0, 5).toString(),
+    ).toBe("%PDF-");
     await teacher.keyboard.press("Escape");
 
     // A guest writer must use the same authorization, binary storage and

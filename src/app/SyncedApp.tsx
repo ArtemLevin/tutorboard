@@ -554,17 +554,27 @@ function SyncedWorkspace({
       if (kind === "svg") {
         downloadBlob(
           "tutorboard-snapshot.svg",
-          new Blob([renderBoardSnapshotSvg(resolved)], { type: "image/svg+xml" }),
+          new Blob([renderBoardSnapshotSvg(resolved)], {
+            type: "image/svg+xml",
+          }),
         );
       } else if (kind === "png") {
-        downloadBlob("tutorboard-snapshot.png", await renderBoardSnapshotPng(resolved));
+        downloadBlob(
+          "tutorboard-snapshot.png",
+          await renderBoardSnapshotPng(resolved),
+        );
       } else {
-        downloadBlob("tutorboard-board.pdf", await renderBoardSnapshotPdf(resolved));
+        downloadBlob(
+          "tutorboard-board.pdf",
+          await renderBoardSnapshotPdf(resolved),
+        );
       }
       setEvidenceStatus("Снимок доски сохранён.");
     } catch (error) {
       setEvidenceStatus(
-        error instanceof Error ? error.message : "Не удалось создать снимок доски.",
+        error instanceof Error
+          ? error.message
+          : "Не удалось создать снимок доски.",
       );
     }
   };

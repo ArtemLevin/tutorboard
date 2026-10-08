@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { boardObjectId, type MediaAssetObject } from "../../../../src/core/public";
+import {
+  boardObjectId,
+  type MediaAssetObject,
+} from "../../../../src/core/public";
 import {
   embedBoardMediaForSnapshot,
   renderBoardSnapshotSvg,
@@ -9,10 +12,12 @@ import {
 import frozenDocumentJson from "../../../fixtures/board-document-1.0.json?raw";
 
 const bytes = Uint8Array.from(
-  atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z8WQAAAAASUVORK5CYII="),
+  atob(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z8WQAAAAASUVORK5CYII=",
+  ),
   (character) => character.charCodeAt(0),
 );
-const sha = "59915e507764c7f0e5224a43cac6a60fb9b6b548fcc3d324bbec430b02e6d2c1"
+const sha = "59915e507764c7f0e5224a43cac6a60fb9b6b548fcc3d324bbec430b02e6d2c1";
 
 function board(assets = 1) {
   const parsed = importTutorBoardDocument(frozenDocumentJson);
@@ -67,9 +72,9 @@ describe("asset-backed snapshots", () => {
   });
 
   it("blocks exporting media.asset when the authorized resolver is unavailable", async () => {
-    await expect(embedBoardMediaForSnapshot(board(), undefined)).rejects.toThrow(
-      "необходимо подключение",
-    );
+    await expect(
+      embedBoardMediaForSnapshot(board(), undefined),
+    ).rejects.toThrow("необходимо подключение");
   });
 
   it("rejects a changed payload rather than exporting corrupt bytes", async () => {
