@@ -1,0 +1,32 @@
+name: Temporary F3.2.3 frontend formatter
+on:
+  push:
+    branches:
+      - feat/f3-2-3-asset-export-recovery
+permissions:
+  contents: read
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Emit formatted frontend artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          paths=(
+            src/modules/document-transfer/media-snapshot.ts
+            src/app/SyncedApp.tsx
+            tests/unit/modules/document-transfer/media-snapshot.test.ts
+            tests/fullstack/media-upload.spec.ts
+          )
+          npx prettier --write "${paths[@]}"
+          for path in "${paths[@]}"; do
+            echo "F323_FILE:${path}:$(base64 -w0 "$path")"
+          done
