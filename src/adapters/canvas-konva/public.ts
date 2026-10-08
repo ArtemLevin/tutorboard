@@ -43,6 +43,13 @@ export {
 } from "./coordinate-plot-rendering";
 export { createDefaultKonvaRendererRegistry } from "./default-renderers";
 export {
+  BoardMediaResourceScope,
+  type BoardMediaHandle,
+  type BoardMediaHandleFactory,
+  type BoardMediaResourceIdentity,
+  type BoardMediaResourceScopeSnapshot,
+} from "./board-media-resource-scope";
+export {
   RasterImageDiagnostics,
   rasterImageDiagnostics,
   type RasterImageDiagnosticsSnapshot,

@@ -391,17 +391,30 @@ export class RasterDecodeCache {
 
   snapshot(): {
     readonly activeDecodes: number;
+    readonly activeReferences: number;
     readonly entryCount: number;
+    readonly pendingEntries: number;
     readonly queuedDecodes: number;
+    readonly retainedBytes: number;
+    readonly retainedEntryCount: number;
     readonly totalBytes: number;
   } {
+    const entries = [...this.#entries.values()].flatMap((sources) => [
+      ...sources.values(),
+    ]);
+    const retained = entries.filter(
+      (entry) => entry.state === "ready" && entry.refs === 0,
+    );
     return {
       activeDecodes: this.#activeDecodes,
-      entryCount: [...this.#entries.values()].reduce(
-        (count, sources) => count + sources.size,
-        0,
-      ),
+      activeReferences: entries.reduce((sum, entry) => sum + entry.refs, 0),
+      entryCount: entries.length,
+      pendingEntries: entries.filter(
+        (entry) => entry.state === "decoding" || entry.state === "queued",
+      ).length,
       queuedDecodes: this.#queue.length,
+      retainedBytes: retained.reduce((sum, entry) => sum + entry.bytes, 0),
+      retainedEntryCount: retained.length,
       totalBytes: this.#totalBytes,
     };
   }

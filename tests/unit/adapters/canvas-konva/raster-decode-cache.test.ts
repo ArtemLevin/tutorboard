@@ -86,7 +86,9 @@ describe("RasterDecodeCache", () => {
     expect(decoder).toHaveBeenCalledOnce();
     expect(cache.snapshot()).toMatchObject({
       activeDecodes: 1,
+      activeReferences: 2,
       entryCount: 1,
+      pendingEntries: 1,
       queuedDecodes: 0,
     });
 
@@ -112,6 +114,12 @@ describe("RasterDecodeCache", () => {
 
     first.release();
     second.release();
+    expect(cache.snapshot()).toMatchObject({
+      activeReferences: 0,
+      retainedEntryCount: 1,
+      retainedBytes: 512 * 384 * 4,
+      pendingEntries: 0,
+    });
     expect(decoded.close).not.toHaveBeenCalled();
   });
 

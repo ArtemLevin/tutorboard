@@ -8,6 +8,7 @@ export interface MediaObjectUrlHandle {
 interface MediaObjectUrlEntry {
   readonly abort: AbortController;
   readonly promise: Promise<string>;
+  pending: boolean;
   refs: number;
   url: string | null;
 }
@@ -19,6 +20,21 @@ interface MediaObjectUrlEntry {
 export class MediaObjectUrlCache {
   readonly #entries = new Map<string, MediaObjectUrlEntry>();
 
+  snapshot(): {
+    readonly activeObjectUrls: number;
+    readonly activeReferences: number;
+    readonly entryCount: number;
+    readonly pendingLoads: number;
+  } {
+    const entries = [...this.#entries.values()];
+    return {
+      activeObjectUrls: entries.filter((entry) => entry.url !== null).length,
+      activeReferences: entries.reduce((sum, entry) => sum + entry.refs, 0),
+      entryCount: entries.length,
+      pendingLoads: entries.filter((entry) => entry.pending).length,
+    };
+  }
+
   acquire(source: BoardMediaContentSource): MediaObjectUrlHandle {
     const key = source.cacheKey;
     let entry = this.#entries.get(key);
@@ -26,6 +42,7 @@ export class MediaObjectUrlCache {
       const abort = new AbortController();
       const created: MediaObjectUrlEntry = {
         abort,
+        pending: true,
         refs: 0,
         url: null,
         promise: source
@@ -39,10 +56,12 @@ export class MediaObjectUrlCache {
               URL.revokeObjectURL(url);
               throw new DOMException("Media source cancelled.", "AbortError");
             }
+            created.pending = false;
             created.url = url;
             return url;
           })
           .catch((cause: unknown) => {
+            created.pending = false;
             if (this.#entries.get(key) === created) {
               this.#entries.delete(key);
             }
