@@ -488,6 +488,7 @@ export function ProductShell({
             environment.features.serverSync && serverSync !== undefined ? (
               <SyncedApp
                 documentId={serverSync.documentId}
+                mediaAssetImportEnabled={environment.features.mediaAssetImport}
                 geometryOsClient={
                   environment.features.geometryPrompt
                     ? geometryOsClient
