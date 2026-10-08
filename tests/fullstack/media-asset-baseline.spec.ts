@@ -129,8 +129,6 @@ async function uploadBoardMedia(
   input: Scenario,
   png: Buffer,
 ): Promise<void> {
-  const chooser = page.getByLabel("Вставить изображения");
-  await page.getByRole("button", { name: "Медиа" }).click();
   const items = [
     ...Array.from({ length: input.images }, (_, index) => ({
       buffer: png,
@@ -147,7 +145,9 @@ async function uploadBoardMedia(
   let revision = 0;
   for (let start = 0; start < items.length; start += 10) {
     const batch = items.slice(start, start + 10);
-    await chooser.setInputFiles(batch);
+    // The real media menu closes after every file-selection event.
+    await page.getByRole("button", { name: "Медиа" }).click();
+    await page.getByLabel("Вставить изображения").setInputFiles(batch);
     count += batch.length;
     revision += 1;
     await expect(page.getByTestId("persistence-status")).toHaveText(
