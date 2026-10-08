@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createBoardDocumentWorkerComputation } from "../adapters/board-document-worker/public";
 import {
@@ -21,11 +21,13 @@ import {
   type BoardEvidenceDescriptor,
   type DocumentId,
   type GeometryOsClient,
+  type MediaAssetObject,
   type PendingBoardCommandQueue,
 } from "../core/public";
 import type {
   BoardCollaborationRepository,
   BoardEvidenceRepository,
+  BoardMediaRepository,
   BoardSyncRepository,
   BoardTelemetryRepository,
   LegacyBoardLifecycleRepository,
@@ -49,7 +51,8 @@ type SyncedBoardRepository = BoardCollaborationRepository &
   BoardEvidenceRepository &
   BoardSyncRepository &
   BoardTelemetryRepository &
-  LegacyBoardLifecycleRepository;
+  LegacyBoardLifecycleRepository &
+  Partial<Pick<BoardMediaRepository, "resolveMediaContentSource">>;
 
 interface SyncedAppProps {
   readonly accessContext?: BoardRuntimeAccessContext | undefined;
@@ -499,6 +502,20 @@ function SyncedWorkspace({
     repository,
   ]);
 
+  const resolveContentSource = repository.resolveMediaContentSource;
+  const mediaAssetSourceResolver = useMemo(
+    () =>
+      resolveContentSource === undefined
+        ? undefined
+        : (asset: MediaAssetObject) => {
+            if (currentAccessContextRef.current !== currentAccessContext) {
+              throw new Error("Board media access context has changed.");
+            }
+            return resolveContentSource(documentId, asset);
+          },
+    [documentId, currentAccessContext, resolveContentSource],
+  );
+
   const ready = state.kind === "ready";
   const collaborationEnabled =
     state.kind === "ready" &&
@@ -788,6 +805,7 @@ function SyncedWorkspace({
         historyEnabled={false}
         initialDocument={state.document}
         mathInkRecognizer={mathInkRecognizer}
+        mediaAssetSourceResolver={mediaAssetSourceResolver}
         onCollaborativeUndo={() => {
           if (!writeEnabled) return;
           const inverse = undoStackRef.current.at(-1);

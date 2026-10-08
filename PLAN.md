@@ -1627,9 +1627,12 @@ Frontend F1 ведётся отдельным PR #181 `feat/board-media-reposito
 authoritative AVAILABLE metadata и lazy content-source resolver с отдельным
 cache identity на каждый repository/security scope. Guest upload наследует
 актуальный `X-Board-Access-Epoch` от standalone scoped transport.
-F1 **не включает** новый UI/import/renderer path. Следующий PR:
-`MediaAssetRenderer` и A2 raster-cache source abstraction, затем отдельный
-upload-before-command + rollout PR. Legacy `image.embedded` пока неизменён.
+F1 влит в main как PR #181. Frontend F2 реализуется отдельным
+PR: `MediaAssetRenderer`, обобщённый A2 RasterDecodeCache для embedded/asset,
+ограниченный authenticated fetch с отменой, shared GIF object URL lifecycle,
+renderer registry и optional read-port композиция в SyncedApp.
+Импорт пользовательских файлов остаётся `image.embedded`; следующий блок —
+upload-before-command + feature rollout. Legacy `image.embedded` сохраняется.
 
 
 Архитектура больших и URL-import media определена в

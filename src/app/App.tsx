@@ -16,6 +16,8 @@ import {
   type ActorId,
   type BoardCommand,
   type BoardDocument,
+  type BoardMediaContentSource,
+  type MediaAssetObject,
   type BoardObjectId,
   type GeometryOsClient,
   type Size2,
@@ -73,6 +75,8 @@ export interface AppProps {
   readonly geometryOsClient?: GeometryOsClient | undefined;
   readonly historyEnabled?: boolean;
   readonly mathInkRecognizer?: MathInkRecognizer | undefined;
+  readonly mediaAssetSourceResolver?:
+    ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
   readonly initialDocument?: BoardDocument;
   readonly collaborativeUndoAvailable?: boolean;
   readonly onCollaborativeUndo?: () => void;
@@ -178,6 +182,7 @@ export function App({
   geometryOsClient,
   historyEnabled = true,
   mathInkRecognizer,
+  mediaAssetSourceResolver,
   initialDocument,
   onCommandCommitted,
   onCommandsCommitted,
@@ -625,6 +630,7 @@ export function App({
           handwriting={handwriting}
           interaction={interaction}
           laser={laser}
+          mediaAssetSourceResolver={mediaAssetSourceResolver}
           onObjectSettingsRequest={requestObjectSettings}
           onPointerHover={handlePointerHover}
           onTransformPreviewChange={publishTransformPreview}
