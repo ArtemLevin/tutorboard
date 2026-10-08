@@ -243,6 +243,10 @@ for (const scenario of selected) {
         warm: { ok: 0, failed: 0, contentLength: 0 },
       };
       let phase: "cold" | "warm" = "cold";
+      await uploadBoardMedia(page, scenario, png);
+      const network = await page.context().newCDPSession(page);
+      await network.send("Network.enable");
+      await network.send("Network.setCacheDisabled", { cacheDisabled: true });
       page.on("response", (response) => {
         if (
           response.request().method() !== "GET" ||
@@ -261,7 +265,6 @@ for (const scenario of selected) {
           counter.failed += 1;
         }
       });
-      await uploadBoardMedia(page, scenario, png);
       const coldStart = Date.now();
       await page.reload();
       await expect(page.getByTestId("object-count")).toHaveText(
@@ -285,6 +288,7 @@ for (const scenario of selected) {
       ]);
       const active = { ...frameProfile[0], ...(await browserSnapshot(page)) };
       phase = "warm";
+      await network.send("Network.setCacheDisabled", { cacheDisabled: false });
       const warmStart = Date.now();
       await page.reload();
       await expect(page.getByTestId("object-count")).toHaveText(
