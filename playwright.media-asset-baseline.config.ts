@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-import mediaFullstack from "./playwright.media-fullstack.config";
+import mediaFullstack from "./playwright.media-fullstack.config.js";
 
 export default defineConfig({
   ...mediaFullstack,
