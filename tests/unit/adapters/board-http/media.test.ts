@@ -85,6 +85,12 @@ function uploadInput(signal?: AbortSignal) {
   };
 }
 
+function requestUrl(input: RequestInfo | URL): URL {
+  if (typeof input === "string") return new URL(input);
+  if (input instanceof URL) return input;
+  return new URL(input.url);
+}
+
 const origin = "https://board.example.test";
 
 describe("board media HTTP adapter", () => {
@@ -99,7 +105,7 @@ describe("board media HTTP adapter", () => {
     expect(result).toEqual(metadata);
     expect(request).toHaveBeenCalledOnce();
     const [url, init] = request.mock.calls[0]!;
-    const parsed = new URL(String(url));
+    const parsed = requestUrl(url);
     expect(parsed.origin).toBe(origin);
     expect(parsed.pathname).toBe("/api/v1/boards/board%3Amedia-test/media");
     expect(parsed.searchParams.get("fileName")).toBe(fileName);
