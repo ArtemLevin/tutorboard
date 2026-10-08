@@ -57,7 +57,8 @@ async function browserSnapshot(page: Page): Promise<BrowserSnapshot> {
         __f3AssetBaseline?: { readonly snapshot: () => BrowserSnapshot };
       }
     ).__f3AssetBaseline;
-    if (monitor === undefined) throw new Error("Asset baseline instrumentation missing.");
+    if (monitor === undefined)
+      throw new Error("Asset baseline instrumentation missing.");
     return monitor.snapshot();
   });
 }
@@ -75,7 +76,9 @@ async function measureFrames(page: Page, count = 100) {
     }
     samples.sort((a, b) => a - b);
     const percentile = (fraction: number) =>
-      samples[Math.min(samples.length - 1, Math.ceil(samples.length * fraction) - 1)] ?? 0;
+      samples[
+        Math.min(samples.length - 1, Math.ceil(samples.length * fraction) - 1)
+      ] ?? 0;
     return {
       count: samples.length,
       frameP50Ms: percentile(0.5),
@@ -121,7 +124,11 @@ async function boardForTeacher(page: Page): Promise<string> {
   return boardId;
 }
 
-async function uploadBoardMedia(page: Page, input: Scenario, png: Buffer): Promise<void> {
+async function uploadBoardMedia(
+  page: Page,
+  input: Scenario,
+  png: Buffer,
+): Promise<void> {
   const chooser = page.getByLabel("Вставить изображения");
   await page.getByRole("button", { name: "Медиа" }).click();
   const items = [
@@ -171,120 +178,147 @@ async function panZoom(page: Page): Promise<void> {
 }
 
 for (const scenario of selected) {
-  test("@asset-baseline F3.3.1 real media load: " + scenario.name, async ({
-    page,
-  }, testInfo) => {
-    test.setTimeout(240_000);
-    await page.addInitScript(() => {
-      const state = { decodedCalls: 0, gifObjectUrls: 0, longTasks: [] as number[] };
-      const originalBitmap = window.createImageBitmap;
-      Object.defineProperty(window, "createImageBitmap", {
-        configurable: true,
-        value: (...args: unknown[]) => {
-          state.decodedCalls += 1;
-          return Reflect.apply(originalBitmap, window, args);
-        },
-      });
-      const originalObjectUrl = URL.createObjectURL.bind(URL);
-      URL.createObjectURL = (object) => {
-        if (object instanceof Blob && object.type === "image/gif") {
-          state.gifObjectUrls += 1;
-        }
-        return originalObjectUrl(object);
-      };
-      try {
-        new PerformanceObserver((list) => {
-          for (const entry of list.getEntries()) {
-            if (entry.duration >= 50) state.longTasks.push(entry.duration);
-          }
-        }).observe({ entryTypes: ["longtask"] });
-      } catch {
-        // Long Tasks API is optional; browser coverage remains functional.
-      }
-      const heap = () => {
-        const memory = performance as Performance & {
-          readonly memory?: { readonly usedJSHeapSize: number };
+  test(
+    "@asset-baseline F3.3.1 real media load: " + scenario.name,
+    async ({ page }, testInfo) => {
+      test.setTimeout(240_000);
+      await page.addInitScript(() => {
+        const state = {
+          decodedCalls: 0,
+          gifObjectUrls: 0,
+          longTasks: [] as number[],
         };
-        return memory.memory?.usedJSHeapSize ?? null;
+        const originalBitmap = window.createImageBitmap;
+        Object.defineProperty(window, "createImageBitmap", {
+          configurable: true,
+          value: (...args: unknown[]) => {
+            state.decodedCalls += 1;
+            return Reflect.apply(originalBitmap, window, args);
+          },
+        });
+        const originalObjectUrl = URL.createObjectURL.bind(URL);
+        URL.createObjectURL = (object) => {
+          if (object instanceof Blob && object.type === "image/gif") {
+            state.gifObjectUrls += 1;
+          }
+          return originalObjectUrl(object);
+        };
+        try {
+          new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              if (entry.duration >= 50) state.longTasks.push(entry.duration);
+            }
+          }).observe({ entryTypes: ["longtask"] });
+        } catch {
+          // Long Tasks API is optional; browser coverage remains functional.
+        }
+        const heap = () => {
+          const memory = performance as Performance & {
+            readonly memory?: { readonly usedJSHeapSize: number };
+          };
+          return memory.memory?.usedJSHeapSize ?? null;
+        };
+        (
+          window as typeof window & {
+            __f3AssetBaseline?: { readonly snapshot: () => BrowserSnapshot };
+          }
+        ).__f3AssetBaseline = {
+          snapshot: () => ({
+            decodedCalls: state.decodedCalls,
+            gifObjectUrls: state.gifObjectUrls,
+            longTaskCount: state.longTasks.length,
+            longTaskTotalMs: state.longTasks.reduce(
+              (sum, value) => sum + value,
+              0,
+            ),
+            jsHeapBytes: heap(),
+          }),
+        };
+      });
+      const boardId = await boardForTeacher(page);
+      const png = deterministicPng();
+      const expectedObjects = scenario.images + scenario.gifs;
+      const responses = {
+        cold: { ok: 0, failed: 0, contentLength: 0 },
+        warm: { ok: 0, failed: 0, contentLength: 0 },
       };
-      (window as typeof window & {
-        __f3AssetBaseline?: { readonly snapshot: () => BrowserSnapshot };
-      }).__f3AssetBaseline = {
-        snapshot: () => ({
-          decodedCalls: state.decodedCalls,
-          gifObjectUrls: state.gifObjectUrls,
-          longTaskCount: state.longTasks.length,
-          longTaskTotalMs: state.longTasks.reduce((sum, value) => sum + value, 0),
-          jsHeapBytes: heap(),
-        }),
+      let phase: "cold" | "warm" = "cold";
+      page.on("response", (response) => {
+        if (
+          response.request().method() !== "GET" ||
+          !new URL(response.url()).pathname.includes(
+            "/boards/" + boardId + "/media/",
+          ) ||
+          !new URL(response.url()).pathname.endsWith("/content")
+        )
+          return;
+        const counter = responses[phase];
+        if (response.ok()) {
+          counter.ok += 1;
+          const bytes = Number(response.headers()["content-length"] ?? 0);
+          if (Number.isFinite(bytes)) counter.contentLength += bytes;
+        } else {
+          counter.failed += 1;
+        }
+      });
+      await uploadBoardMedia(page, scenario, png);
+      const coldStart = Date.now();
+      await page.reload();
+      await expect(page.getByTestId("object-count")).toHaveText(
+        new RegExp("^" + expectedObjects + " объект", "u"),
+      );
+      await expect
+        .poll(() => responses.cold.ok, { timeout: 30_000 })
+        .toBeGreaterThan(0);
+      await expect
+        .poll(async () => (await browserSnapshot(page)).decodedCalls, {
+          timeout: 30_000,
+        })
+        .toBeGreaterThan(0);
+      const cold = {
+        elapsedMs: Date.now() - coldStart,
+        ...(await browserSnapshot(page)),
       };
-    });
-    const boardId = await boardForTeacher(page);
-    const png = deterministicPng();
-    const expectedObjects = scenario.images + scenario.gifs;
-    const responses = {
-      cold: { ok: 0, failed: 0, contentLength: 0 },
-      warm: { ok: 0, failed: 0, contentLength: 0 },
-    };
-    let phase: "cold" | "warm" = "cold";
-    page.on("response", (response) => {
-      if (
-        response.request().method() !== "GET" ||
-        !new URL(response.url()).pathname.includes("/boards/" + boardId + "/media/") ||
-        !new URL(response.url()).pathname.endsWith("/content")
-      ) return;
-      const counter = responses[phase];
-      if (response.ok()) {
-        counter.ok += 1;
-        const bytes = Number(response.headers()["content-length"] ?? 0);
-        if (Number.isFinite(bytes)) counter.contentLength += bytes;
-      } else {
-        counter.failed += 1;
-      }
-    });
-    await uploadBoardMedia(page, scenario, png);
-    const coldStart = Date.now();
-    await page.reload();
-    await expect(page.getByTestId("object-count")).toHaveText(
-      new RegExp("^" + expectedObjects + " объект", "u"),
-    );
-    await expect.poll(() => responses.cold.ok, { timeout: 30_000 })
-      .toBeGreaterThan(0);
-    await expect.poll(async () => (await browserSnapshot(page)).decodedCalls, {
-      timeout: 30_000,
-    }).toBeGreaterThan(0);
-    const cold = { elapsedMs: Date.now() - coldStart, ...await browserSnapshot(page) };
-    const frameProfile = await Promise.all([measureFrames(page), panZoom(page)]);
-    const active = { ...frameProfile[0], ...await browserSnapshot(page) };
-    phase = "warm";
-    const warmStart = Date.now();
-    await page.reload();
-    await expect(page.getByTestId("object-count")).toHaveText(
-      new RegExp("^" + expectedObjects + " объект", "u"),
-    );
-    await expect.poll(async () => (await browserSnapshot(page)).decodedCalls, {
-      timeout: 30_000,
-    }).toBeGreaterThan(0);
-    const warm = { elapsedMs: Date.now() - warmStart, ...await browserSnapshot(page) };
-    const report = {
-      kind: "tutorboard.media-asset-baseline/v1",
-      generatedAt: new Date().toISOString(),
-      scenario,
-      decodedPixelEstimateBytes: scenario.images * 512 * 512 * 4,
-      pngPayloadBytes: png.byteLength,
-      cold,
-      active,
-      warm,
-      requests: responses,
-      browser: testInfo.project.name,
-    };
-    expect(active.count).toBe(100);
-    expect(active.frameP95Ms).toBeGreaterThan(0);
-    expect(responses.cold.failed + responses.warm.failed).toBe(0);
-    console.info("REAL_MEDIA_BASELINE", JSON.stringify(report));
-    await testInfo.attach("f3-3-1-" + scenario.name + ".json", {
-      body: Buffer.from(JSON.stringify(report, null, 2)),
-      contentType: "application/json",
-    });
-  });
+      const frameProfile = await Promise.all([
+        measureFrames(page),
+        panZoom(page),
+      ]);
+      const active = { ...frameProfile[0], ...(await browserSnapshot(page)) };
+      phase = "warm";
+      const warmStart = Date.now();
+      await page.reload();
+      await expect(page.getByTestId("object-count")).toHaveText(
+        new RegExp("^" + expectedObjects + " объект", "u"),
+      );
+      await expect
+        .poll(async () => (await browserSnapshot(page)).decodedCalls, {
+          timeout: 30_000,
+        })
+        .toBeGreaterThan(0);
+      const warm = {
+        elapsedMs: Date.now() - warmStart,
+        ...(await browserSnapshot(page)),
+      };
+      const report = {
+        kind: "tutorboard.media-asset-baseline/v1",
+        generatedAt: new Date().toISOString(),
+        scenario,
+        decodedPixelEstimateBytes: scenario.images * 512 * 512 * 4,
+        pngPayloadBytes: png.byteLength,
+        cold,
+        active,
+        warm,
+        requests: responses,
+        browser: testInfo.project.name,
+      };
+      expect(active.count).toBe(100);
+      expect(active.frameP95Ms).toBeGreaterThan(0);
+      expect(responses.cold.failed + responses.warm.failed).toBe(0);
+      console.info("REAL_MEDIA_BASELINE", JSON.stringify(report));
+      await testInfo.attach("f3-3-1-" + scenario.name + ".json", {
+        body: Buffer.from(JSON.stringify(report, null, 2)),
+        contentType: "application/json",
+      });
+    },
+  );
 }
