@@ -188,12 +188,25 @@ for (const scenario of selected) {
           gifObjectUrls: 0,
           longTasks: [] as number[],
         };
-        const originalBitmap = window.createImageBitmap;
+        const originalBitmap = window.createImageBitmap.bind(window);
         Object.defineProperty(window, "createImageBitmap", {
           configurable: true,
-          value: (...args: unknown[]) => {
+          value: (
+            image: ImageBitmapSource,
+            cropOrOptions?: number | ImageBitmapOptions,
+            sy?: number,
+            sw?: number,
+            sh?: number,
+            options?: ImageBitmapOptions,
+          ) => {
             state.decodedCalls += 1;
-            return Reflect.apply(originalBitmap, window, args);
+            if (typeof cropOrOptions === "number") {
+              if (sy === undefined || sw === undefined || sh === undefined) {
+                throw new TypeError("Invalid bitmap crop arguments.");
+              }
+              return originalBitmap(image, cropOrOptions, sy, sw, sh, options);
+            }
+            return originalBitmap(image, cropOrOptions);
           },
         });
         const originalObjectUrl = URL.createObjectURL.bind(URL);
