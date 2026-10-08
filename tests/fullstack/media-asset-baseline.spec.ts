@@ -177,11 +177,14 @@ for (const scenario of selected) {
     test.setTimeout(240_000);
     await page.addInitScript(() => {
       const state = { decodedCalls: 0, gifObjectUrls: 0, longTasks: [] as number[] };
-      const originalBitmap = window.createImageBitmap.bind(window);
-      window.createImageBitmap = (...args) => {
-        state.decodedCalls += 1;
-        return originalBitmap(...args);
-      };
+      const originalBitmap = window.createImageBitmap;
+      Object.defineProperty(window, "createImageBitmap", {
+        configurable: true,
+        value: (...args: unknown[]) => {
+          state.decodedCalls += 1;
+          return Reflect.apply(originalBitmap, window, args);
+        },
+      });
       const originalObjectUrl = URL.createObjectURL.bind(URL);
       URL.createObjectURL = (object) => {
         if (object instanceof Blob && object.type === "image/gif") {
