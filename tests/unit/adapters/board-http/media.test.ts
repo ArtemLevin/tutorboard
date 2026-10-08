@@ -63,7 +63,7 @@ function contentResponse(
     readonly bytes?: Uint8Array;
   } = {},
 ): Response {
-  return new Response(new Blob([new Uint8Array(input.bytes ?? imageBytes)]), {
+  return new Response(new Uint8Array(input.bytes ?? imageBytes).buffer, {
     headers: {
       "Content-Type": input.mime ?? "image/png",
       "X-Content-SHA256": input.hash ?? contentSha256,
