@@ -1,20 +1,18 @@
-import { createHash, webcrypto } from "node:crypto";
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { boardObjectId, type MediaAssetObject } from "../../../src/core/public";
+import { boardObjectId, type MediaAssetObject } from "../../../../src/core/public";
 import {
   embedBoardMediaForSnapshot,
   renderBoardSnapshotSvg,
   importTutorBoardDocument,
-} from "../../../src/modules/document-transfer/public";
-import frozenDocumentJson from "../../fixtures/board-document-1.0.json?raw";
+} from "../../../../src/modules/document-transfer/public";
+import frozenDocumentJson from "../../../fixtures/board-document-1.0.json?raw";
 
-const bytes = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z8WQAAAAASUVORK5CYII=",
-  "base64",
+const bytes = Uint8Array.from(
+  atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z8WQAAAAASUVORK5CYII="),
+  (character) => character.charCodeAt(0),
 );
-const sha = createHash("sha256").update(bytes).digest("hex");
+const sha = "d501..."
 
 function board(assets = 1) {
   const parsed = importTutorBoardDocument(frozenDocumentJson);
@@ -52,7 +50,6 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("asset-backed snapshots", () => {
   it("includes authenticated verified image bytes, without changing the document", async () => {
-    vi.stubGlobal("crypto", webcrypto);
     const document = board(2);
     const load = vi.fn(async () => new Blob([bytes], { type: "image/png" }));
     const hydrated = await embedBoardMediaForSnapshot(document, load);
@@ -76,9 +73,8 @@ describe("asset-backed snapshots", () => {
   });
 
   it("rejects a changed payload rather than exporting corrupt bytes", async () => {
-    vi.stubGlobal("crypto", webcrypto);
     const corrupted = new Uint8Array(bytes);
-    corrupted[corrupted.length - 1] ^= 1;
+    corrupted.set([(corrupted.at(-1) ?? 0) ^ 1], corrupted.length - 1);
     await expect(
       embedBoardMediaForSnapshot(
         board(),
