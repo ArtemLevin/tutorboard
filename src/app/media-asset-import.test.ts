@@ -50,7 +50,7 @@ describe("media asset upload prerequisite", () => {
     const close = vi.fn();
     vi.stubGlobal(
       "createImageBitmap",
-      vi.fn(async () => ({ close })),
+      vi.fn(() => Promise.resolve({ close })),
     );
     const file = new File([png], "../figure.png", { type: "image/png" });
     const result = await prepareRasterAssetFile(file);
@@ -78,7 +78,7 @@ describe("media asset upload prerequisite", () => {
     const close = vi.fn();
     vi.stubGlobal(
       "createImageBitmap",
-      vi.fn(async () => ({ close })),
+      vi.fn(() => Promise.resolve({ close })),
     );
     const prepared = await prepareRasterAssetFile(
       new File([png], "photo.png", { type: "image/png" }),
@@ -94,7 +94,7 @@ describe("media asset upload prerequisite", () => {
     );
     const session: BoardMediaUploadSession = {
       documentId: documentId("board:lesson"),
-      getCsrfToken: async () => "csrf:board",
+      getCsrfToken: () => Promise.resolve("csrf:board"),
       isCurrent: () => true,
       uploadMedia,
     };
@@ -104,18 +104,18 @@ describe("media asset upload prerequisite", () => {
       new AbortController().signal,
     );
     await vi.waitFor(() => expect(uploadMedia).toHaveBeenCalledOnce());
-    expect(uploadMedia.mock.calls[0]?.[0]).toMatchObject({
+    expect(uploadMedia).toHaveBeenCalledWith(expect.objectContaining({
       body: prepared.value.body,
       contentSha256: prepared.value.contentSha256,
       csrfToken: "csrf:board",
       documentId: session.documentId,
       mimeType: "image/png",
-    });
+    }));
     finish(descriptor(prepared.value));
     await expect(pending).resolves.toMatchObject({ status: "ok" });
     const invalidSession = {
       ...session,
-      uploadMedia: async () => ({
+      uploadMedia: () => Promise.resolve({
         ...descriptor(prepared.value),
         byteSize: 100,
       }),
@@ -140,11 +140,11 @@ describe("media asset upload prerequisite", () => {
     const abort = new AbortController();
     const session: BoardMediaUploadSession = {
       documentId: documentId("board:lesson"),
-      getCsrfToken: async () => "csrf:board",
+      getCsrfToken: () => Promise.resolve("csrf:board"),
       isCurrent: () => !abort.signal.aborted,
-      uploadMedia: async () => {
+      uploadMedia: () => {
         abort.abort();
-        return descriptor(prepared);
+        return Promise.resolve(descriptor(prepared));
       },
     };
     await expect(
