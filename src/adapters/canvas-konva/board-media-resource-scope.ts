@@ -87,7 +87,9 @@ export class BoardMediaResourceScope {
           this.#leases.delete(lease);
           if (!settled) {
             settled = true;
-            rejectPromise(new DOMException("Board media scope cancelled.", "AbortError"));
+            rejectPromise(
+              new DOMException("Board media scope cancelled.", "AbortError"),
+            );
           }
         }
       },
