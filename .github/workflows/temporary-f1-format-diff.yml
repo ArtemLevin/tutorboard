@@ -1,0 +1,23 @@
+name: Temporary F1 Prettier diagnostic
+
+on:
+  push:
+    branches: [feat/board-media-repository-http]
+
+permissions:
+  contents: read
+
+jobs:
+  show-format-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Show Prettier changes
+        run: |
+          npx prettier --write src/adapters/board-http/media.ts tests/unit/adapters/board-http/media.test.ts
+          git diff -- src/adapters/board-http/media.ts tests/unit/adapters/board-http/media.test.ts
