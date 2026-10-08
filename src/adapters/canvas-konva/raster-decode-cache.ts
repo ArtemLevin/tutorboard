@@ -72,6 +72,7 @@ interface CacheEntry {
   readonly resolve: (value: RasterDecodedImage) => void;
   bytes: number;
   discardWhenUnused: boolean;
+  evictWhenUnused: boolean;
   resource: RasterBitmapResource | null;
   lastUsed: number;
   refs: number;
@@ -311,6 +312,7 @@ export class RasterDecodeCache {
         bytes: 0,
         contentSha256: request.contentSha256,
         discardWhenUnused: false,
+        evictWhenUnused: false,
         controller: new AbortController(),
         sourceIdentity: identity,
         request,
@@ -335,10 +337,7 @@ export class RasterDecodeCache {
     }
 
     const acquiredEntry = entry;
-    // Explicit source disposal remains sticky until the last consumer leaves.
-    if (acquiredEntry.refs === 0 && !acquiredEntry.discardWhenUnused) {
-      acquiredEntry.discardWhenUnused = false;
-    }
+    acquiredEntry.discardWhenUnused = false;
     acquiredEntry.refs += 1;
     acquiredEntry.lastUsed = this.#now();
     let released = false;
@@ -350,7 +349,7 @@ export class RasterDecodeCache {
         acquiredEntry.refs = Math.max(0, acquiredEntry.refs - 1);
         acquiredEntry.lastUsed = this.#now();
         if (acquiredEntry.refs === 0) {
-          if (acquiredEntry.discardWhenUnused) {
+          if (acquiredEntry.discardWhenUnused || acquiredEntry.evictWhenUnused) {
             if (acquiredEntry.state === "ready") {
               this.#releaseReadyEntry(acquiredEntry);
             } else {
@@ -399,7 +398,7 @@ export class RasterDecodeCache {
     for (const sources of [...this.#entries.values()]) {
       const entry = sources.get(identity);
       if (entry === undefined) continue;
-      entry.discardWhenUnused = true;
+      entry.evictWhenUnused = true;
       if (entry.refs > 0) continue;
       if (entry.state === "ready") {
         this.#releaseReadyEntry(entry);
@@ -509,7 +508,10 @@ export class RasterDecodeCache {
             image: resource.image,
             width: resource.width,
           });
-          if (entry.discardWhenUnused && entry.refs === 0) {
+          if (
+            entry.refs === 0 &&
+            (entry.discardWhenUnused || entry.evictWhenUnused)
+          ) {
             this.#releaseReadyEntry(entry);
           } else {
             this.#evictIfNeeded();
