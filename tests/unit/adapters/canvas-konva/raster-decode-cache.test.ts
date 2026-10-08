@@ -299,6 +299,67 @@ describe("asset-backed A2 raster source", () => {
     loadBlob,
   });
 
+  it("loads a real asset Blob before the default bounded bitmap decoder", async () => {
+    const close = vi.fn();
+    const createBitmap = vi.fn().mockResolvedValue({
+      close,
+      height: 64,
+      width: 64,
+    });
+    vi.stubGlobal("createImageBitmap", createBitmap);
+    try {
+      const loadBlob = vi.fn().mockResolvedValue(
+        new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" }),
+      );
+      const cache = new RasterDecodeCache({
+        diagnostics: new RasterImageDiagnostics(),
+      });
+      const handle = cache.acquire({
+        contentSha256: sha,
+        source: makeSource("scope:default-decoder", loadBlob),
+        size: { width: 64, height: 64 },
+      });
+      await expect(handle.promise).resolves.toMatchObject({
+        width: 64,
+        height: 64,
+      });
+      expect(loadBlob).toHaveBeenCalledOnce();
+      expect(createBitmap).toHaveBeenCalledWith(expect.any(Blob), {
+        resizeHeight: 64,
+        resizeQuality: "high",
+        resizeWidth: 64,
+      });
+      handle.release();
+      cache.trimUnused();
+      expect(close).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("never retries authorization failure through HTML image fallback", async () => {
+    const createBitmap = vi.fn();
+    vi.stubGlobal("createImageBitmap", createBitmap);
+    const unauthorized = new Error("403 forbidden");
+    const loadBlob = vi.fn().mockRejectedValue(unauthorized);
+    try {
+      const cache = new RasterDecodeCache({
+        diagnostics: new RasterImageDiagnostics(),
+      });
+      const handle = cache.acquire({
+        contentSha256: sha,
+        source: makeSource("scope:unauthorized", loadBlob),
+        size: { width: 64, height: 64 },
+      });
+      await expect(handle.promise).rejects.toThrow("403 forbidden");
+      expect(createBitmap).not.toHaveBeenCalled();
+      handle.release();
+      expect(cache.snapshot().entryCount).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("coalesces equivalent scoped asset requests in one bucket", async () => {
     const decoded = resource(128, 128);
     const decoder = vi.fn(() => Promise.resolve(decoded.value));
