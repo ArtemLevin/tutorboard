@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ArtemLevin/tutor-assistant-web
-          ref: dab5520578c9be383bd55a60321a91d1e69e1d81
+          ref: e4a9919acaf87bb2eafd9ba27ddc221ee4a8c536
           path: tutor-assistant-web
 
       - name: Set up Node
