@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
   ).toBeVisible();
 });
 
-test("imports a local image and transforms it", async ({ page }) => {
+test("@smoke imports a local image and transforms it", async ({ page }) => {
   await page.getByRole("button", { name: "Медиа" }).click();
   const chooser = page.getByLabel("Вставить изображения");
   await chooser.setInputFiles({
@@ -51,7 +51,7 @@ test("imports a local image and transforms it", async ({ page }) => {
   );
 });
 
-test("pastes an image file from the system clipboard event", async ({
+test("@smoke pastes an image file from the system clipboard event", async ({
   page,
 }) => {
   const base64 = png1x1.toString("base64");
