@@ -1,0 +1,24 @@
+name: Temporary F3.2 test formatting
+on:
+  push:
+    branches:
+      - test/f3-2-media-backend-fullstack
+permissions:
+  contents: read
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Emit formatted media fullstack test
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx prettier --write tests/fullstack/media-upload.spec.ts
+          echo "F32_FORMAT_BASE64:$(base64 -w0 tests/fullstack/media-upload.spec.ts)"
