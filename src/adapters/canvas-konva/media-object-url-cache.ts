@@ -51,7 +51,11 @@ export class MediaObjectUrlCache {
       try {
         loading = source.loadBlob(abort.signal);
       } catch (cause) {
-        loading = Promise.reject(cause);
+        loading = Promise.reject(
+          cause instanceof Error
+            ? cause
+            : new Error("Media source loader failed."),
+        );
       }
       const created: MediaObjectUrlEntry = {
         abort,
