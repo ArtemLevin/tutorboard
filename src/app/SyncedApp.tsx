@@ -38,6 +38,7 @@ import {
   type BoardSyncState,
 } from "../modules/server-sync/public";
 import {
+  embedBoardMediaForSnapshot,
   renderBoardSnapshotPng,
   renderBoardSnapshotPdf,
   renderBoardSnapshotSvg,
@@ -522,6 +523,52 @@ function SyncedWorkspace({
     [documentId, currentAccessContext, resolveContentSource],
   );
 
+  const prepareExportSnapshot = async (
+    document: BoardDocument,
+  ): Promise<BoardDocument> => {
+    const context = currentAccessContextRef.current;
+    const resolved = await embedBoardMediaForSnapshot(
+      document,
+      mediaAssetSourceResolver === undefined
+        ? undefined
+        : (asset) => mediaAssetSourceResolver(asset).loadBlob(),
+    );
+    if (
+      !activeRef.current ||
+      currentAccessContextRef.current !== context ||
+      accessRefreshInFlightRef.current !== null ||
+      accessRefreshStatus !== "idle"
+    ) {
+      throw new Error("Права доступа изменились во время подготовки снимка.");
+    }
+    return resolved;
+  };
+
+  const exportSnapshot = async (
+    document: BoardDocument,
+    kind: "pdf" | "png" | "svg",
+  ): Promise<void> => {
+    setEvidenceStatus("Подготавливаем изображения доски для экспорта…");
+    try {
+      const resolved = await prepareExportSnapshot(document);
+      if (kind === "svg") {
+        downloadBlob(
+          "tutorboard-snapshot.svg",
+          new Blob([renderBoardSnapshotSvg(resolved)], { type: "image/svg+xml" }),
+        );
+      } else if (kind === "png") {
+        downloadBlob("tutorboard-snapshot.png", await renderBoardSnapshotPng(resolved));
+      } else {
+        downloadBlob("tutorboard-board.pdf", await renderBoardSnapshotPdf(resolved));
+      }
+      setEvidenceStatus("Снимок доски сохранён.");
+    } catch (error) {
+      setEvidenceStatus(
+        error instanceof Error ? error.message : "Не удалось создать снимок доски.",
+      );
+    }
+  };
+
   const ready = state.kind === "ready";
   const collaborationEnabled =
     state.kind === "ready" &&
@@ -767,8 +814,9 @@ function SyncedWorkspace({
         evidenceSha256,
         context.csrfToken,
       );
-      const svg = renderBoardSnapshotSvg(evidenceDocument);
-      const png = await renderBoardSnapshotPng(evidenceDocument);
+      const resolvedEvidence = await prepareExportSnapshot(evidenceDocument);
+      const svg = renderBoardSnapshotSvg(resolvedEvidence);
+      const png = await renderBoardSnapshotPng(resolvedEvidence);
       await repository.finalizeEvidence(
         documentId,
         evidenceRevision,
@@ -917,17 +965,17 @@ function SyncedWorkspace({
         }
         onExportPdfSnapshot={
           state.capabilities.includes("board.export")
-            ? (document) => {
-                setEvidenceStatus("Создаём PDF доски…");
-                void renderBoardSnapshotPdf(document)
-                  .then((blob) => {
-                    downloadBlob("tutorboard-board.pdf", blob);
-                    setEvidenceStatus("PDF доски сохранён.");
-                  })
-                  .catch(() =>
-                    setEvidenceStatus("Не удалось создать PDF доски."),
-                  );
-              }
+            ? (document) => void exportSnapshot(document, "pdf")
+            : undefined
+        }
+        onExportPngSnapshot={
+          state.capabilities.includes("board.export")
+            ? (document) => void exportSnapshot(document, "png")
+            : undefined
+        }
+        onExportSvgSnapshot={
+          state.capabilities.includes("board.export")
+            ? (document) => void exportSnapshot(document, "svg")
             : undefined
         }
         onShareBoard={
