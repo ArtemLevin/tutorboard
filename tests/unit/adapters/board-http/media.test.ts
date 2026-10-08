@@ -55,12 +55,14 @@ function jsonResponse(value: unknown, status = 201): Response {
   });
 }
 
-function contentResponse(input: {
-  readonly hash?: string;
-  readonly mime?: string;
-  readonly status?: number;
-  readonly bytes?: Uint8Array;
-} = {}): Response {
+function contentResponse(
+  input: {
+    readonly hash?: string;
+    readonly mime?: string;
+    readonly status?: number;
+    readonly bytes?: Uint8Array;
+  } = {},
+): Response {
   return new Response(new Blob([new Uint8Array(input.bytes ?? imageBytes)]), {
     headers: {
       "Content-Type": input.mime ?? "image/png",
@@ -87,7 +89,9 @@ const origin = "https://board.example.test";
 
 describe("board media HTTP adapter", () => {
   it("uploads raw bytes with same-origin credentials, SHA, idempotency and CSRF", async () => {
-    const request = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(metadata));
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(metadata));
     const repository = createBoardHttpRepository({ fetch: request, origin });
 
     const result = await repository.uploadMedia(uploadInput());
@@ -123,17 +127,19 @@ describe("board media HTTP adapter", () => {
         .fn<typeof globalThis.fetch>()
         .mockResolvedValue(jsonResponse({ ...metadata, ...changed }));
       const repository = createBoardHttpRepository({ fetch, origin });
-      await expect(repository.uploadMedia(uploadInput())).rejects.toMatchObject({
-        code: "board.media.invalid-descriptor",
-        retryable: false,
-      });
+      await expect(repository.uploadMedia(uploadInput())).rejects.toMatchObject(
+        {
+          code: "board.media.invalid-descriptor",
+          retryable: false,
+        },
+      );
     }
   });
 
   it("rejects upload failure, invalid fields and unapproved cross-origin gateways", async () => {
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
-      jsonResponse({ detail: "Too many uploads" }, 429),
-    );
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(jsonResponse({ detail: "Too many uploads" }, 429));
     const repository = createBoardHttpRepository({ fetch, origin });
     await expect(repository.uploadMedia(uploadInput())).rejects.toMatchObject({
       code: "board.http.429",
@@ -170,7 +176,9 @@ describe("board media HTTP adapter", () => {
   });
 
   it("resolves a lazy authenticated content source and validates returned bytes/headers", async () => {
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(contentResponse());
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(contentResponse());
     const repository = createBoardHttpRepository({ fetch, origin });
     const source = repository.resolveMediaContentSource(boardId, imageObject);
 
@@ -193,7 +201,9 @@ describe("board media HTTP adapter", () => {
       contentResponse({ mime: "image/gif" }),
       contentResponse({ bytes: new Uint8Array([1]) }),
     ]) {
-      const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(response);
+      const fetch = vi
+        .fn<typeof globalThis.fetch>()
+        .mockResolvedValue(response);
       const repository = createBoardHttpRepository({ fetch, origin });
       await expect(
         repository.resolveMediaContentSource(boardId, imageObject).loadBlob(),
@@ -222,17 +232,21 @@ describe("board media HTTP adapter", () => {
     const fetch = vi.fn<typeof globalThis.fetch>();
     const first = createBoardHttpRepository({ fetch, origin });
     const second = createBoardHttpRepository({ fetch, origin });
-    const firstKey = first.resolveMediaContentSource(boardId, imageObject).cacheKey;
-    const secondKey = second.resolveMediaContentSource(boardId, imageObject).cacheKey;
+    const firstKey = first.resolveMediaContentSource(
+      boardId,
+      imageObject,
+    ).cacheKey;
+    const secondKey = second.resolveMediaContentSource(
+      boardId,
+      imageObject,
+    ).cacheKey;
     expect(firstKey).not.toBe(secondKey);
     expect(first.resolveMediaContentSource(boardId, imageObject).cacheKey).toBe(
       firstKey,
     );
     expect(
-      first.resolveMediaContentSource(
-        documentId("board:other"),
-        imageObject,
-      ).cacheKey,
+      first.resolveMediaContentSource(documentId("board:other"), imageObject)
+        .cacheKey,
     ).not.toBe(firstKey);
   });
 
@@ -247,14 +261,21 @@ describe("board media HTTP adapter", () => {
       actorId: actorId("guest:media-test"),
       boardId,
       cacheScopeId: "scope:media-test",
-      capabilities: ["board.read", "board.write", "board.snapshot.write"] as const,
+      capabilities: [
+        "board.read",
+        "board.write",
+        "board.snapshot.write",
+      ] as const,
       csrfToken: "csrf:guest:01",
       displayName: "Ученик",
       principalType: "guest" as const,
       role: "student" as const,
       schemaVersion: "1.0" as const,
     };
-    const repository = createStandaloneBoardHttpRepository(guest, { fetch, origin });
+    const repository = createStandaloneBoardHttpRepository(guest, {
+      fetch,
+      origin,
+    });
     await repository.uploadMedia(uploadInput());
     const uploadHeaders = new Headers(fetch.mock.calls[0]?.[1]?.headers);
     expect(uploadHeaders.get("X-Board-Access-Epoch")).toBe("epoch:media-01");
