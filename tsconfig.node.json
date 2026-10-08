@@ -2,9 +2,13 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "target": "ES2023",
-    "lib": ["ES2023"],
+    "lib": [
+      "ES2023"
+    ],
     "module": "NodeNext",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "skipLibCheck": true,
     "moduleResolution": "NodeNext",
     "verbatimModuleSyntax": true,
@@ -22,6 +26,7 @@
     "playwright.config.ts",
     "playwright.fullstack.config.ts",
     "playwright.media-fullstack.config.ts",
+    "playwright.media-asset-baseline.config.ts",
     "playwright.standalone-pilot.config.ts",
     "playwright.visual.config.ts",
     "vite.config.ts",
