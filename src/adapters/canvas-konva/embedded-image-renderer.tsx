@@ -24,7 +24,7 @@ export function RasterImageRenderer({
 }: {
   readonly object: EmbeddedImageObject | MediaAssetObject;
   readonly source?: BoardMediaContentSource;
-  readonly visualScale?: number;
+  readonly visualScale?: number | undefined;
   readonly zoom: number;
 }) {
   const [imageState, setImageState] = useState<{
