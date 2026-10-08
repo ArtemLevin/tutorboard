@@ -56,7 +56,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("asset-backed snapshots", () => {
   it("includes authenticated verified image bytes, without changing the document", async () => {
     const document = board(2);
-    const load = vi.fn(async () => new Blob([bytes], { type: "image/png" }));
+    const load = vi.fn(() => Promise.resolve(new Blob([bytes], { type: "image/png" })));
     const hydrated = await embedBoardMediaForSnapshot(document, load);
     expect(load).toHaveBeenCalledTimes(1);
     expect(document.objects[boardObjectId("object:media-export-0")]?.kind).toBe(
@@ -83,7 +83,7 @@ describe("asset-backed snapshots", () => {
     await expect(
       embedBoardMediaForSnapshot(
         board(),
-        async () => new Blob([corrupted], { type: "image/png" }),
+        () => Promise.resolve(new Blob([corrupted], { type: "image/png" })),
       ),
     ).rejects.toThrow("Контрольная сумма");
   });
@@ -92,7 +92,7 @@ describe("asset-backed snapshots", () => {
     await expect(
       embedBoardMediaForSnapshot(
         board(),
-        async () => new Blob([bytes], { type: "text/html" }),
+        () => Promise.resolve(new Blob([bytes], { type: "text/html" })),
       ),
     ).rejects.toThrow("неверным типом");
   });
