@@ -45,6 +45,12 @@ const mediaSourceSchema = z
   })
   .passthrough();
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
+const maxImageAssetBytes = 32 * 1024 * 1024;
+const maxVideoAssetBytes = 128 * 1024 * 1024;
+
+function maximumAssetBytes(mimeType: string): number {
+  return mimeType === "video/mp4" ? maxVideoAssetBytes : maxImageAssetBytes;
+}
 
 export interface BoardMediaHttpAdapterDependencies {
   readonly baseUrl: string;
@@ -82,6 +88,7 @@ function validateUpload(
 ): void {
   if (
     input.body.size === 0 ||
+    input.body.size > maxImageAssetBytes ||
     !sha256.safeParse(input.contentSha256).success ||
     !uploadableMime.safeParse(input.mimeType).success ||
     input.fileName.length < 1 ||
@@ -165,6 +172,14 @@ export function createBoardMediaHttpMethods(
         );
       }
       const { assetId, byteSize, contentSha256, mimeType } = validated.data;
+      if (byteSize > maximumAssetBytes(mimeType)) {
+        throw error(
+          "board.media.invalid-reference",
+          "Размер изображения превышает допустимый предел.",
+          null,
+          false,
+        );
+      }
       const path = `/boards/${encodeURIComponent(documentId)}/media/${encodeURIComponent(assetId)}/content`;
       const url = `${baseUrl}${path}`;
       const cacheKey = `media:${scope}:${documentId}:${assetId}:${contentSha256}`;
@@ -212,16 +227,53 @@ export function createBoardMediaHttpMethods(
               false,
             );
           }
-          const blob = await response.blob();
-          if (blob.size !== byteSize) {
-            throw error(
+          const invalidContent = (): Error =>
+            error(
               "board.media.invalid-content",
               "Размер полученного изображения не совпадает с ожидаемым.",
               response.status,
               false,
             );
+          const lengthHeader = response.headers.get("content-length");
+          if (
+            lengthHeader !== null &&
+            (!/^[0-9]+$/u.test(lengthHeader) ||
+              Number(lengthHeader) !== byteSize)
+          ) {
+            throw invalidContent();
           }
-          return blob;
+          const reader = response.body?.getReader();
+          if (reader === undefined) throw invalidContent();
+          const chunks: Uint8Array<ArrayBuffer>[] = [];
+          let received = 0;
+          let complete = false;
+          try {
+            while (true) {
+              if (isAborted(signal)) throw abortedError(dependencies);
+              const { done, value } = await reader.read();
+              if (done) {
+                complete = true;
+                break;
+              }
+              received += value.byteLength;
+              if (received > byteSize) throw invalidContent();
+              const owned = new Uint8Array(value.byteLength);
+              owned.set(value);
+              chunks.push(owned);
+            }
+          } finally {
+            if (!complete) {
+              try {
+                await reader.cancel();
+              } finally {
+                reader.releaseLock();
+              }
+            } else {
+              reader.releaseLock();
+            }
+          }
+          if (received !== byteSize) throw invalidContent();
+          return new Blob(chunks, { type: mimeType });
         },
       };
     },
