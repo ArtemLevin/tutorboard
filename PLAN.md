@@ -1619,6 +1619,28 @@ preflight и свежего isolated restore drill. Pilot-specific упроще�
 
 ## 26. Board media assets — implementation-ready track
 
+08.10.2026: серверная основа ADR-032 готова в
+`tutor-assistant-web/main`: PR #40 (M1+M2: private storage/upload/read) и
+PR #41 (M3: authoritative command/snapshot reference validation).
+Frontend F1 ведётся отдельным PR #181 `feat/board-media-repository-http`:
+`BoardMediaRepository` port, same-origin raw-binary upload, строгий reader
+authoritative AVAILABLE metadata и lazy content-source resolver с отдельным
+cache identity на каждый repository/security scope. Guest upload наследует
+актуальный `X-Board-Access-Epoch` от standalone scoped transport.
+F1 влит в main как PR #181. F2 влит в main как PR #182:
+`MediaAssetRenderer`, обобщённый A2 RasterDecodeCache для embedded/asset,
+ограниченный authenticated fetch с отменой, shared GIF object URL lifecycle,
+renderer registry и optional read-port композиция в SyncedApp.
+Импорт пользовательских файлов остаётся `image.embedded`; следующий блок —
+upload-before-command + feature rollout. Legacy `image.embedded` сохраняется.
+
+F3.0: перенос C3.0 media performance baseline из Draft PR #174 на актуальный
+main с учётом общего GIF scheduler и A2 createImageBitmap.
+Включает 1/5/10 PNG, 1/4/8 GIF, high-pixel PNG, mixed scene, Dexie
+amplification, import/decode lifecycle и media-risk CI routing.
+Это instrumentation-only этап; upload/import production path пока без изменений.
+
+
 Архитектура больших и URL-import media определена в
 `docs/adr/ADR-032-board-media-assets.md`. Главный инвариант: binary media не
 попадает в BoardCommand, durable pending queue, PostgreSQL command journal или
@@ -1723,3 +1745,48 @@ security, durability и deployment gates.
 
 После успешного pilot приоритет переключается на полный Production Gate; pilot
 не считается основанием для ослабления Production Definition of Done.
+
+
+## F3.1 — Upload before command (08.10.2026)
+
+Ветка `feat/f3-upload-before-command`: opt-in `VITE_FEATURE_MEDIA_ASSET_IMPORT=true`
+на синхронизируемых досках, PNG/JPEG/GIF до 32 MiB на файл и 96 MiB
+на пакет, последовательная подготовка и загрузка до одной команды
+`core.objects.add(media.asset)`. Серверный `AVAILABLE` descriptor используется
+как источник полей объекта. SVG и локальная offline-доска продолжают
+использовать `image.embedded`; никакого повышения лимита JSON-команд.
+При смене прав/доски upload отменяется, частичные ошибки диагностируются.
+Production требует `BOARD_MEDIA_UPLOADS_ENABLED=true` и ClamAV.
+Междосковый clipboard и переносимый asset bundle остаются отдельными
+пунктами ADR-032.
+
+
+### F3.2.1 — real backend/browser media integration
+
+- PR scope: asset-enabled standalone FastAPI fixture with real SQLite persistence
+  and private local artifact storage, and production-built frontend with
+  `VITE_FEATURE_MEDIA_ASSET_IMPORT=true`. Browser-driven teacher/guest PNG,
+  JPEG, and GIF upload, authorization, `AVAILABLE` metadata, compact command,
+  same-board media download checksum, real-time revision and page reload.
+- CI: `npm run e2e:media-fullstack` (Chromium + Firefox), with backend pinned
+  to `dab5520578c9be383bd55a60321a91d1e69e1d81` and uploads enabled only
+  in the test runner. Legacy/offline modes retain default disabled flag.
+- Follow-up: test PostgreSQL + S3/MinIO storage/restart/backup in an isolated
+  integration environment before production rollout (F3.2.2/3).
+
+
+### F3.2.3 — media-aware snapshot/export and recovery (stacked on PR #185)
+
+- SVG/PNG/PDF export and lesson evidence now prepare a temporary snapshot document:
+  retrieve media assets through the current authorized board repository, confirm
+  MIME, byte length and actual SHA-256, and embed safe PNG/JPEG/GIF data URLs.
+  The canonical persisted BoardDocument, commands, revision SHA and asset metadata
+  remain untouched. Duplicate references are downloaded once per export.
+- Missing access, unsupported media, corrupt content or over-budget exports fail
+  before producing a misleading placeholder-only artifact. Static SVG/PNG/PDF
+  available from the standalone settings panel with board.export capability.
+- Browser fullstack regression verifies exported SVG and PDF after reload;
+  focused unit cases guard wrong content/metadata and legacy export.
+- Backend restore integrity and release gates live in a separate backend PR.
+- Follow-up: portable JSON asset bundle and very large (>128 MiB) snapshot
+  streaming/pagination require independent product formats and performance work.

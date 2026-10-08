@@ -1,4 +1,4 @@
-import type { Size2 } from "../../core/public";
+import type { BoardMediaContentSource, Size2 } from "../../core/public";
 
 import {
   rasterImageDiagnostics,
@@ -21,11 +21,13 @@ export interface RasterDecodeSizeInput {
   readonly zoom: number;
 }
 
-export interface RasterDecodeRequest {
+export type RasterDecodeRequest = {
   readonly contentSha256: string;
-  readonly dataUrl: string;
   readonly size: Size2;
-}
+} & (
+  | { readonly dataUrl: string; readonly source?: never }
+  | { readonly dataUrl?: never; readonly source: BoardMediaContentSource }
+);
 
 export interface RasterBitmapResource {
   readonly height: number;
@@ -47,6 +49,7 @@ export interface RasterDecodeHandle {
 
 export type RasterBitmapDecoder = (
   request: RasterDecodeRequest,
+  signal: AbortSignal,
 ) => Promise<RasterBitmapResource>;
 
 interface RasterDecodeCacheOptions {
@@ -59,19 +62,20 @@ interface RasterDecodeCacheOptions {
 
 interface CacheEntry {
   readonly contentSha256: string;
-  readonly dataUrl: string;
+  readonly sourceIdentity: string;
+  readonly request: RasterDecodeRequest;
+  readonly controller: AbortController;
   readonly key: string;
   readonly promise: Promise<RasterDecodedImage>;
   readonly reject: (error: Error) => void;
   readonly resolve: (value: RasterDecodedImage) => void;
-  readonly size: Size2;
   bytes: number;
   discardWhenUnused: boolean;
   resource: RasterBitmapResource | null;
   lastUsed: number;
   refs: number;
   sessionId: number | null;
-  state: "queued" | "decoding" | "ready";
+  state: "queued" | "decoding" | "ready" | "cancelled";
 }
 
 function nextPowerOfTwo(value: number): number {
@@ -156,25 +160,96 @@ function decodeHtmlImage(dataUrl: string): Promise<RasterBitmapResource> {
   });
 }
 
+function decodeHtmlBlob(
+  blob: Blob,
+  signal: AbortSignal,
+): Promise<RasterBitmapResource> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Raster decode cancelled.", "AbortError"));
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    let finished = false;
+    const cleanup = () => {
+      image.onload = null;
+      image.onerror = null;
+      signal.removeEventListener("abort", abort);
+      URL.revokeObjectURL(url);
+    };
+    const abort = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      image.src = "";
+      reject(new DOMException("Raster decode cancelled.", "AbortError"));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    image.decoding = "async";
+    image.onerror = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      reject(new Error("Raster image fallback decode failed."));
+    };
+    image.onload = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      resolve({
+        close: () => {
+          image.src = "";
+        },
+        height: image.naturalHeight,
+        image,
+        width: image.naturalWidth,
+      });
+    };
+    image.src = url;
+  });
+}
+
 async function decodeRasterBitmap(
   request: RasterDecodeRequest,
+  signal: AbortSignal,
 ): Promise<RasterBitmapResource> {
+  // Network authority errors must never enter the HTML fallback path.
+  const blob =
+    request.source === undefined
+      ? embeddedDataUrlBlob(request.dataUrl)
+      : await request.source.loadBlob(signal);
+  if (signal.aborted) {
+    throw new DOMException("Raster decode cancelled.", "AbortError");
+  }
   try {
-    const blob = embeddedDataUrlBlob(request.dataUrl);
     const bitmap = await createImageBitmap(blob, {
       resizeHeight: request.size.height,
       resizeQuality: "high",
       resizeWidth: request.size.width,
     });
+    if (signal.aborted) {
+      bitmap.close();
+      throw new DOMException("Raster decode cancelled.", "AbortError");
+    }
     return {
       close: () => bitmap.close(),
       height: bitmap.height,
       image: bitmap,
       width: bitmap.width,
     };
-  } catch {
-    return await decodeHtmlImage(request.dataUrl);
+  } catch (cause) {
+    if (signal.aborted) throw cause;
+    return request.source === undefined
+      ? await decodeHtmlImage(request.dataUrl)
+      : await decodeHtmlBlob(blob, signal);
   }
+}
+
+function sourceIdentity(request: RasterDecodeRequest): string {
+  if (request.source !== undefined) return request.source.cacheKey;
+  if (request.dataUrl !== undefined) return request.dataUrl;
+  throw new Error("Raster decode request has no source.");
 }
 
 function cacheKey(request: RasterDecodeRequest): string {
@@ -213,7 +288,8 @@ export class RasterDecodeCache {
   acquire(request: RasterDecodeRequest): RasterDecodeHandle {
     const key = cacheKey(request);
     let sources = this.#entries.get(key);
-    let entry = sources?.get(request.dataUrl);
+    const identity = sourceIdentity(request);
+    let entry = sources?.get(identity);
     if (entry === undefined) {
       let resolve!: (value: RasterDecodedImage) => void;
       let reject!: (error: Error) => void;
@@ -227,7 +303,9 @@ export class RasterDecodeCache {
         bytes: 0,
         contentSha256: request.contentSha256,
         discardWhenUnused: false,
-        dataUrl: request.dataUrl,
+        controller: new AbortController(),
+        sourceIdentity: identity,
+        request,
         resource: null,
         key,
         lastUsed: this.#now(),
@@ -236,14 +314,13 @@ export class RasterDecodeCache {
         reject,
         resolve,
         sessionId: null,
-        size: request.size,
         state: "queued",
       };
       if (sources === undefined) {
         sources = new Map<string, CacheEntry>();
         this.#entries.set(key, sources);
       }
-      sources.set(request.dataUrl, entry);
+      sources.set(identity, entry);
       this.#queue.push(entry);
       this.#pump();
     }
@@ -260,6 +337,13 @@ export class RasterDecodeCache {
         released = true;
         acquiredEntry.refs = Math.max(0, acquiredEntry.refs - 1);
         acquiredEntry.lastUsed = this.#now();
+        if (
+          acquiredEntry.refs === 0 &&
+          acquiredEntry.request.source !== undefined &&
+          acquiredEntry.state !== "ready"
+        ) {
+          this.#cancelUnusedAsset(acquiredEntry);
+        }
         this.#evictIfNeeded();
       },
     };
@@ -269,6 +353,7 @@ export class RasterDecodeCache {
     const error = new Error("Raster decode cache was cleared.");
     for (const sources of this.#entries.values()) {
       for (const entry of sources.values()) {
+        entry.controller.abort();
         if (entry.resource !== null) {
           entry.resource.close();
           if (entry.sessionId !== null) {
@@ -292,7 +377,11 @@ export class RasterDecodeCache {
       for (const entry of [...sources.values()]) {
         if (entry.refs !== 0) continue;
         if (entry.state !== "ready" || entry.resource === null) {
-          entry.discardWhenUnused = true;
+          if (entry.request.source !== undefined) {
+            this.#cancelUnusedAsset(entry);
+          } else {
+            entry.discardWhenUnused = true;
+          }
           continue;
         }
         this.#releaseReadyEntry(entry);
@@ -330,11 +419,7 @@ export class RasterDecodeCache {
         this.#now(),
       );
       this.#activeDecodes += 1;
-      void this.#decoder({
-        contentSha256: entry.contentSha256,
-        dataUrl: entry.dataUrl,
-        size: entry.size,
-      })
+      void this.#decoder(entry.request, entry.controller.signal)
         .then((resource) => {
           if (this.#entryFor(entry) !== entry) {
             resource.close();
@@ -388,14 +473,26 @@ export class RasterDecodeCache {
   }
 
   #entryFor(entry: CacheEntry): CacheEntry | undefined {
-    return this.#entries.get(entry.key)?.get(entry.dataUrl);
+    return this.#entries.get(entry.key)?.get(entry.sourceIdentity);
   }
 
   #deleteEntry(entry: CacheEntry): void {
     const sources = this.#entries.get(entry.key);
     if (sources === undefined) return;
-    sources.delete(entry.dataUrl);
+    sources.delete(entry.sourceIdentity);
     if (sources.size === 0) this.#entries.delete(entry.key);
+  }
+
+  #cancelUnusedAsset(entry: CacheEntry): void {
+    if (this.#entryFor(entry) !== entry) return;
+    this.#deleteEntry(entry);
+    entry.state = "cancelled";
+    entry.controller.abort();
+    if (entry.sessionId !== null) {
+      this.#diagnostics.fail(entry.sessionId);
+      entry.sessionId = null;
+    }
+    entry.reject(new DOMException("Raster decode cancelled.", "AbortError"));
   }
 
   #releaseReadyEntry(entry: CacheEntry): void {

@@ -6,6 +6,8 @@ import {
   vectorInkCenterlinePathData,
   type BoardObject,
   type BoardObjectKind,
+  type BoardMediaContentSource,
+  type MediaAssetObject,
   type Vec2,
 } from "../../core/public";
 import { createPenStrokeRenderPaths } from "../../core/public";
@@ -16,6 +18,7 @@ import {
 } from "../../shared/stroke-smoothing";
 import { CoordinatePlotRenderer } from "./coordinate-plot-renderer";
 import { EmbeddedImageRenderer } from "./embedded-image-renderer";
+import { MediaAssetRenderer } from "./media-asset-renderer";
 import { MediaAssetPlaceholderRenderer } from "./media-asset-placeholder-renderer";
 import { SvgRenderer } from "./svg-renderer";
 import {
@@ -387,16 +390,6 @@ const renderers: readonly KonvaObjectRenderer[] = [
     },
   },
   {
-    kind: "media.asset",
-    render(object) {
-      return (
-        <MediaAssetPlaceholderRenderer
-          object={expectKind(object, "media.asset")}
-        />
-      );
-    },
-  },
-  {
     kind: "svg-import.svg",
     render(object) {
       return <SvgRenderer object={expectKind(object, "svg-import.svg")} />;
@@ -421,6 +414,46 @@ const renderers: readonly KonvaObjectRenderer[] = [
   },
 ];
 
-export function createDefaultKonvaRendererRegistry(): KonvaRendererRegistry {
-  return new KonvaRendererRegistry(renderers);
+export interface DefaultKonvaRendererOptions {
+  readonly mediaAssetSourceResolver?: (
+    asset: MediaAssetObject,
+  ) => BoardMediaContentSource;
+}
+
+export function createDefaultKonvaRendererRegistry(
+  options: DefaultKonvaRendererOptions = {},
+): KonvaRendererRegistry {
+  const cachedSources = new Map<string, BoardMediaContentSource>();
+  return new KonvaRendererRegistry([
+    ...renderers,
+    {
+      kind: "media.asset",
+      render(object, context) {
+        const asset = expectKind(object, "media.asset");
+        if (
+          options.mediaAssetSourceResolver === undefined ||
+          asset.mimeType === "video/mp4"
+        ) {
+          return <MediaAssetPlaceholderRenderer object={asset} />;
+        }
+        try {
+          const resolved = options.mediaAssetSourceResolver(asset);
+          const previous = cachedSources.get(asset.assetId);
+          const source =
+            previous?.cacheKey === resolved.cacheKey ? previous : resolved;
+          cachedSources.set(asset.assetId, source);
+          return (
+            <MediaAssetRenderer
+              object={asset}
+              source={source}
+              visualScale={context.visualScale ?? 1}
+              zoom={context.zoom}
+            />
+          );
+        } catch {
+          return <MediaAssetPlaceholderRenderer object={asset} />;
+        }
+      },
+    },
+  ]);
 }

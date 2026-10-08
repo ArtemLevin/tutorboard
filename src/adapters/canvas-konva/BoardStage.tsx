@@ -527,7 +527,7 @@ export function BoardStage({
     () =>
       scene.items.some(
         ({ object }) =>
-          object.kind === "image.embedded" &&
+          (object.kind === "image.embedded" || object.kind === "media.asset") &&
           (object.mimeType === "image/png" || object.mimeType === "image/jpeg"),
       ),
     [scene.items],

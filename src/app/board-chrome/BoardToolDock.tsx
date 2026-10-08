@@ -41,6 +41,8 @@ interface BoardToolDockProps {
   readonly geometryOpen: boolean;
   readonly handwrittenFunctionsEnabled: boolean;
   readonly imageAccept: string;
+  readonly imageAssetImportEnabled?: boolean | undefined;
+  readonly imageUploading?: boolean | undefined;
   readonly onActivate: (tool: string) => void;
   readonly onCreatePlot: () => void;
   readonly onExportPdfSnapshot?: (() => void) | undefined;
@@ -493,7 +495,9 @@ export function BoardToolDock(props: BoardToolDockProps) {
         <section aria-label="Меню медиа" className="dock-menu" role="menu">
           <label
             className={
-              props.readOnly ? "dock-menu-file is-disabled" : "dock-menu-file"
+              props.readOnly || props.imageUploading
+                ? "dock-menu-file is-disabled"
+                : "dock-menu-file"
             }
           >
             <span aria-hidden="true">▧</span>
@@ -501,7 +505,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             <input
               accept={props.imageAccept}
               aria-label="Вставить изображения"
-              disabled={props.readOnly}
+              disabled={props.readOnly || props.imageUploading}
               multiple
               onChange={(event) => {
                 imageChange(event);
@@ -511,7 +515,11 @@ export function BoardToolDock(props: BoardToolDockProps) {
             />
           </label>
           <p className="dock-menu-hint">
-            PNG, JPEG, SVG и анимированные GIF до 8 МБ.
+            {props.imageUploading
+              ? "Загружаем изображения…"
+              : props.imageAssetImportEnabled
+                ? "PNG, JPEG и GIF до 32 МБ — в хранилище доски; SVG до 8 МБ — локально."
+                : "PNG, JPEG, SVG и анимированные GIF до 8 МБ."}
           </p>
         </section>
       ) : props.selectionInspectorOpen && props.selectedStyle !== undefined ? (

@@ -328,7 +328,7 @@ export function resolveEmbeddedImagePlacementSize(
   };
 }
 
-function safeFileName(value: string): string {
+export function safeFileName(value: string): string {
   const leaf = value.split(/[\\/]/u).at(-1) ?? "";
   const printable = [...leaf]
     .filter((character) => {
@@ -364,7 +364,7 @@ function decodeImage(dataUrl: string): Promise<Size2> {
   });
 }
 
-async function validateStaticRasterDecode(
+export async function validateStaticRasterDecode(
   bytes: Uint8Array,
   mimeType: "image/jpeg" | "image/png",
 ): Promise<void> {
@@ -388,14 +388,14 @@ async function validateStaticRasterDecode(
   bitmap.close();
 }
 
-async function sha256(bytes: Uint8Array): Promise<string> {
+export async function sha256(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", arrayBufferBytes(bytes));
   return [...new Uint8Array(digest)]
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
 }
 
-function validIntrinsicSize(size: Size2): boolean {
+export function validIntrinsicSize(size: Size2): boolean {
   return (
     Number.isFinite(size.width) &&
     Number.isFinite(size.height) &&

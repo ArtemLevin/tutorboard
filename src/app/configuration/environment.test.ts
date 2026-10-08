@@ -14,6 +14,7 @@ describe("readEnvironment", () => {
           geometryPrompt: true,
           handwrittenFunctions: stage !== "production",
           mathInkRecognition: false,
+          mediaAssetImport: false,
           serverSync: stage === "production",
           smartInk: stage !== "production",
           smartInkDiagnostics: stage !== "production",
@@ -50,6 +51,7 @@ describe("readEnvironment", () => {
         geometryPrompt: false,
         handwrittenFunctions: false,
         mathInkRecognition: false,
+        mediaAssetImport: false,
         serverSync: true,
         smartInk: false,
         smartInkDiagnostics: false,
@@ -90,6 +92,7 @@ describe("readEnvironment", () => {
         geometryPrompt: true,
         handwrittenFunctions: true,
         mathInkRecognition: false,
+        mediaAssetImport: false,
         serverSync: false,
         smartInk: true,
         smartInkDiagnostics: true,
@@ -125,6 +128,7 @@ describe("readEnvironment", () => {
       geometryPrompt: false,
       handwrittenFunctions: true,
       mathInkRecognition: true,
+      mediaAssetImport: false,
       serverSync: true,
       smartInk: true,
       smartInkDiagnostics: true,
@@ -140,6 +144,13 @@ describe("readEnvironment", () => {
     expect(() =>
       readEnvironment("test", undefined, { mathInkRecognition: "perhaps" }),
     ).toThrow("VITE_FEATURE_MATH_INK_RECOGNITION");
+    expect(
+      readEnvironment("test", undefined, { mediaAssetImport: "true" }).features
+        .mediaAssetImport,
+    ).toBe(true);
+    expect(() =>
+      readEnvironment("test", undefined, { mediaAssetImport: "perhaps" }),
+    ).toThrow("VITE_FEATURE_MEDIA_ASSET_IMPORT");
     expect(() =>
       readEnvironment("test", undefined, { smartInk: "perhaps" }),
     ).toThrow("VITE_FEATURE_SMART_INK");

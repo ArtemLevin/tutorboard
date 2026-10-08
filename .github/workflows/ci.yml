@@ -23,6 +23,7 @@ jobs:
       coordinate_plot: ${{ steps.route.outputs.coordinate_plot }}
       formula_recognition: ${{ steps.route.outputs.formula_recognition }}
       geometryos: ${{ steps.route.outputs.geometryos }}
+      media_performance: ${{ steps.route.outputs.media_performance }}
       paddle_formula: ${{ steps.route.outputs.paddle_formula }}
       production_image: ${{ steps.route.outputs.production_image }}
       smart_ink: ${{ steps.route.outputs.smart_ink }}
@@ -325,6 +326,52 @@ jobs:
             test-results
           if-no-files-found: warn
           retention-days: 7
+
+  media-performance:
+    name: Media performance profile
+    needs: quality
+    if: needs.quality.outputs.media_performance == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Capture Chromium media profile
+        run: |
+          set -o pipefail
+          npm run e2e:media-profile -- \
+            --project=chromium \
+            --retries=0 \
+            --trace=retain-on-failure 2>&1 \
+            | tee media-performance-profile.log
+
+      - name: Upload media profile evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-performance-profile-${{ github.sha }}
+          path: |
+            media-performance-profile.log
+            test-results
+          if-no-files-found: warn
+          retention-days: 14
 
   production-image:
     name: Production image

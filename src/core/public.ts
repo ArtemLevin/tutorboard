@@ -342,6 +342,13 @@ export {
   type ValidationIssue,
 } from "./board/validation/validate";
 export type {
+  BoardMediaAssetDescriptor,
+  BoardMediaContentSource,
+  BoardMediaRepository,
+  BoardMediaUploadInput,
+  UploadableBoardMediaMimeType,
+} from "./ports/board-media-repository";
+export type {
   BoardDocumentComputation,
   BoardDocumentComputationPriority,
   BoardDocumentSha256Result,

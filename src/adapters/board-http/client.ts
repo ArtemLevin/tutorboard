@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { createBoardMediaHttpMethods } from "./media";
+
 import { readBoardCommand } from "../../core/board/commands/codec/public";
 import {
   actorId,
@@ -380,6 +382,14 @@ export function createBoardHttpRepository(
   };
 
   return {
+    ...createBoardMediaHttpMethods({
+      baseUrl,
+      error: (code, message, status, retryable) =>
+        new BoardHttpError(code, message, status, retryable),
+      requireSuccess,
+      send,
+    }),
+
     async context(): Promise<BoardSessionContext> {
       const response = await send("/boards/context");
       const parsed = contextSchema.safeParse(

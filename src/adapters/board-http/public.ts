@@ -1,3 +1,4 @@
+export { createBoardMediaHttpMethods } from "./media";
 export {
   BoardHttpError,
   createBoardHttpRepository,

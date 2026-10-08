@@ -60,6 +60,7 @@ const environment: AppEnvironment = {
     geometryPrompt: true,
     handwrittenFunctions: true,
     mathInkRecognition: true,
+    mediaAssetImport: false,
     serverSync: false,
     smartInk: true,
     smartInkDiagnostics: true,
