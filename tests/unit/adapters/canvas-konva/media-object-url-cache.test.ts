@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { BoardMediaContentSource } from "../../../../src/core/public";
 import { MediaObjectUrlCache } from "../../../../src/adapters/canvas-konva/media-object-url-cache";
+import { BoardMediaResourceScope } from "../../../../src/adapters/canvas-konva/board-media-resource-scope";
 
 function source(
   cacheKey: string,
@@ -151,5 +152,54 @@ describe("F3.3.2-B GIF loader failure", () => {
       entryCount: 0,
       activeReferences: 0,
     });
+  });
+});
+
+describe("F3.3.2-C GIF board scope isolation", () => {
+  it("cancels revoked guest GIF work, discards late blobs, and preserves another board", async () => {
+    const create = vi.fn(() => "blob:valid-second-board");
+    const revoke = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL: create, revokeObjectURL: revoke });
+    try {
+      const cache = new MediaObjectUrlCache();
+      const denied = new BoardMediaResourceScope("board:revoked");
+      const allowed = new BoardMediaResourceScope("board:allowed");
+      let finishOld!: (value: Blob) => void;
+      const old = denied.acquire(() =>
+        cache.acquire(
+          source(
+            "revoked:epoch:one",
+            () =>
+              new Promise<Blob>((resolve) => {
+                finishOld = resolve;
+              }),
+          ),
+        ),
+      );
+      const fresh = allowed.acquire(() =>
+        cache.acquire(
+          source("allowed:epoch:one", () =>
+            Promise.resolve(new Blob([new Uint8Array([71, 73, 70])])),
+          ),
+        ),
+      );
+      await expect(fresh.promise).resolves.toBe("blob:valid-second-board");
+      denied.dispose();
+      await expect(old.promise).rejects.toMatchObject({ name: "AbortError" });
+      finishOld(new Blob([new Uint8Array([0])]));
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(create).toHaveBeenCalledOnce();
+      expect(revoke).not.toHaveBeenCalled();
+      expect(cache.snapshot()).toMatchObject({
+        entryCount: 1,
+        activeReferences: 1,
+      });
+      allowed.dispose();
+      expect(revoke).toHaveBeenCalledOnce();
+      expect(cache.snapshot().entryCount).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
