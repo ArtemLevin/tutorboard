@@ -24,7 +24,7 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
 const databaseName = "tutorboard-local-v1";
 const timestamp = "2026-10-04T18:30:00.000Z";
 const pngDataUrl =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZC9sAAAAASUVORK5CYII=";
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGPgEpH7DwABpAE8k4sOtwAAAABJRU5ErkJggg==";
 const gifDataUrl =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
@@ -613,7 +613,7 @@ test("@smoke file import decodes static raster before A2 renderer mount", async 
   await resetProfile(page);
 
   const onePixelPng = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZC9sAAAAASUVORK5CYII=",
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGPgEpH7DwABpAE8k4sOtwAAAABJRU5ErkJggg==",
     "base64",
   );
   await page.getByLabel("Вставить изображения").setInputFiles({
