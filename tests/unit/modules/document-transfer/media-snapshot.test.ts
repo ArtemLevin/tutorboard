@@ -12,7 +12,7 @@ const bytes = Uint8Array.from(
   atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z8WQAAAAASUVORK5CYII="),
   (character) => character.charCodeAt(0),
 );
-const sha = "d501..."
+const sha = "59915e507764c7f0e5224a43cac6a60fb9b6b548fcc3d324bbec430b02e6d2c1"
 
 function board(assets = 1) {
   const parsed = importTutorBoardDocument(frozenDocumentJson);
