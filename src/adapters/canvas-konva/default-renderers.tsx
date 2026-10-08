@@ -423,6 +423,7 @@ export interface DefaultKonvaRendererOptions {
 export function createDefaultKonvaRendererRegistry(
   options: DefaultKonvaRendererOptions = {},
 ): KonvaRendererRegistry {
+  const cachedSources = new Map<string, BoardMediaContentSource>();
   return new KonvaRendererRegistry([
     ...renderers,
     {
@@ -436,10 +437,16 @@ export function createDefaultKonvaRendererRegistry(
           return <MediaAssetPlaceholderRenderer object={asset} />;
         }
         try {
+          const resolved = options.mediaAssetSourceResolver(asset);
+          const previous = cachedSources.get(asset.assetId);
+          const source = previous?.cacheKey === resolved.cacheKey
+            ? previous
+            : resolved;
+          cachedSources.set(asset.assetId, source);
           return (
             <MediaAssetRenderer
               object={asset}
-              source={options.mediaAssetSourceResolver(asset)}
+              source={source}
               visualScale={context.visualScale ?? 1}
               zoom={context.zoom}
             />
