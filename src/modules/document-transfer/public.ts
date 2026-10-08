@@ -13,3 +13,8 @@ export {
   renderBoardSnapshotSvg,
   type BoardSnapshotOptions,
 } from "./snapshot";
+
+export {
+  embedBoardMediaForSnapshot,
+  type BoardSnapshotMediaLoader,
+} from "./media-snapshot";
