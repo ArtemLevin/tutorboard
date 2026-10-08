@@ -234,6 +234,63 @@ describe("board media HTTP adapter", () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
+  it("rejects media response content-length mismatches before reading", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(new Uint8Array(imageBytes).buffer, {
+        headers: {
+          "Content-Type": "image/png",
+          "Content-Length": String(imageBytes.byteLength + 1),
+          "X-Content-SHA256": contentSha256,
+        },
+      }),
+    );
+    const repository = createBoardHttpRepository({ fetch: request, origin });
+    await expect(
+      repository.resolveMediaContentSource(boardId, imageObject).loadBlob(),
+    ).rejects.toMatchObject({ code: "board.media.invalid-content" });
+  });
+
+  it("stops streaming as soon as bytes exceed authoritative metadata", async () => {
+    let cancelled = false;
+    let pulls = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        controller.enqueue(new Uint8Array(imageBytes.byteLength + 1));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(stream, {
+        headers: {
+          "Content-Type": "image/png",
+          "X-Content-SHA256": contentSha256,
+        },
+      }),
+    );
+    const repository = createBoardHttpRepository({ fetch: request, origin });
+    await expect(
+      repository.resolveMediaContentSource(boardId, imageObject).loadBlob(),
+    ).rejects.toMatchObject({ code: "board.media.invalid-content" });
+    expect(cancelled).toBe(true);
+    expect(pulls).toBeLessThanOrEqual(2);
+  });
+
+  it("rejects oversized upload bodies before HTTP transport", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const repository = createBoardHttpRepository({ fetch, origin });
+    const oversized = new Blob([new Uint8Array(32 * 1024 * 1024 + 1)]);
+    await expect(
+      repository.uploadMedia({ ...uploadInput(), body: oversized }),
+    ).rejects.toMatchObject({
+      code: "board.media.invalid-upload",
+      retryable: false,
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("does not share source cache identities between repository security scopes", () => {
     const fetch = vi.fn<typeof globalThis.fetch>();
     const first = createBoardHttpRepository({ fetch, origin });
