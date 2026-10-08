@@ -54,7 +54,9 @@ async function createBoardAndInvitation(workspace: Page): Promise<{
   expect(response.status()).toBe(201);
   const { boardId } = (await response.json()) as { boardId: string };
   const boardHref = `/b/${encodeURIComponent(boardId)}#/board`;
-  await expect(workspace).toHaveURL(new RegExp(`/b/${encodeURIComponent(boardId)}#/board$`, "u"));
+  await expect(workspace).toHaveURL(
+    new RegExp(`/b/${encodeURIComponent(boardId)}#/board$`, "u"),
+  );
   await workspace.goto("/boards");
   const card = workspace.locator(
     `article.teacher-board-card:has(a[href="${boardHref}"])`,
