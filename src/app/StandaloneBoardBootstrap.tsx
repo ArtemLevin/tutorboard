@@ -66,6 +66,7 @@ function StandaloneBoardWorkspace({
     <SyncedApp
       accessContext={context}
       documentId={boardId}
+      mediaAssetImportEnabled={environment.features.mediaAssetImport}
       geometryOsClient={
         environment.features.geometryPrompt ? geometryOsClient : undefined
       }
