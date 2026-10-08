@@ -5,7 +5,6 @@ import type {
   BoardMediaContentSource,
   BoardMediaRepository,
   BoardMediaUploadInput,
-  MediaAssetObject,
 } from "../../core/public";
 
 const safeIdentifier = z
