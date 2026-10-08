@@ -343,7 +343,11 @@ describe("board media HTTP adapter", () => {
     const uploadHeaders = new Headers(fetch.mock.calls[0]?.[1]?.headers);
     expect(uploadHeaders.get("X-Board-Access-Epoch")).toBe("epoch:media-01");
     expect(uploadHeaders.get("X-CSRF-Token")).toBe("csrf:media");
-    await repository.resolveMediaContentSource(boardId, imageObject).loadBlob();
+    const originalSource = repository.resolveMediaContentSource(
+      boardId,
+      imageObject,
+    );
+    await originalSource.loadBlob();
     const readHeaders = new Headers(fetch.mock.calls[1]?.[1]?.headers);
     expect(readHeaders.has("X-Board-Access-Epoch")).toBe(false);
 
@@ -352,6 +356,12 @@ describe("board media HTTP adapter", () => {
       accessEpoch: "epoch:media-02",
       csrfToken: "csrf:guest:02",
     });
+    const refreshedSource = repository.resolveMediaContentSource(
+      boardId,
+      imageObject,
+    );
+    expect(refreshedSource.cacheKey).not.toBe(originalSource.cacheKey);
+    expect(refreshedSource.url).toBe(originalSource.url);
     await repository.uploadMedia({
       ...uploadInput(),
       csrfToken: "csrf:guest:02",
