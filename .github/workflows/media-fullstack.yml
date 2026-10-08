@@ -1,0 +1,108 @@
+name: Media asset full-stack contract
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/media-fullstack.yml"
+      - "playwright.media-fullstack.config.ts"
+      - "tests/fullstack/media-upload.spec.ts"
+      - "src/app/**"
+      - "src/adapters/board-http/**"
+      - "src/adapters/canvas-konva/**"
+      - "src/core/board/**"
+      - "src/core/ports/**"
+      - "package.json"
+      - "package-lock.json"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/media-fullstack.yml"
+      - "playwright.media-fullstack.config.ts"
+      - "tests/fullstack/media-upload.spec.ts"
+      - "src/app/**"
+      - "src/adapters/board-http/**"
+      - "src/adapters/canvas-konva/**"
+      - "src/core/board/**"
+      - "src/core/ports/**"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: media-fullstack-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  media-fullstack:
+    name: Real backend media upload (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    steps:
+      - name: Check out TutorBoard
+        uses: actions/checkout@v7
+
+      - name: Check out pinned backend media contract
+        uses: actions/checkout@v7
+        with:
+          repository: ArtemLevin/tutor-assistant-web
+          ref: dab5520578c9be383bd55a60321a91d1e69e1d81
+          path: tutor-assistant-web
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install frontend
+        run: npm ci
+
+      - name: Set up backend Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install locked backend
+        working-directory: tutor-assistant-web
+        run: uv sync --frozen --extra dev
+
+      - name: Install browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Build isolated asset-enabled board
+        env:
+          VITE_APP_PROFILE: board
+          VITE_APP_STAGE: production
+          VITE_FEATURE_MEDIA_ASSET_IMPORT: "true"
+        run: npm run build
+
+      - name: Exercise real backend upload + guest sync + reload
+        env:
+          TUTOR_ASSISTANT_WEB_ROOT: ${{ github.workspace }}/tutor-assistant-web
+        run: |
+          set -o pipefail
+          npm run e2e:media-fullstack -- \
+            --project=${{ matrix.browser }} \
+            --retries=0 \
+            --trace=retain-on-failure 2>&1 | tee media-fullstack.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-fullstack-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            media-fullstack.log
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
