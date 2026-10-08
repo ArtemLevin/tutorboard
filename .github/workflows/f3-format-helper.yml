@@ -1,0 +1,32 @@
+name: F3 temporary formatting and typecheck helper
+on:
+  push:
+    branches:
+      - feat/f3-upload-before-command
+permissions:
+  contents: read
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Format changed tests, emit result, and check types
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            src/app/media-asset-import.test.ts
+            src/app/media-upload-flow.test.tsx
+          )
+          npx prettier --write "${files[@]}"
+          for file in "${files[@]}"; do
+            echo "F3_FORMAT_BASE64:${file}:$(base64 -w0 "${file}")"
+          done
+          npm run lint
+          npm run typecheck
