@@ -449,13 +449,16 @@ function SyncedWorkspace({
         onRevision: () => void engine.synchronize(),
         onStatus: (status) => {
           if (status !== "online") setCollaborationAccessReady(false);
-          if (status === "revoked") revokeMedia();
           setCollaborationStatus(status);
         },
         onTransformPreviews: setTransformPreviews,
         repository,
       }),
   );
+
+  useEffect(() => {
+    if (collaborationStatus === "revoked") revokeMedia();
+  }, [collaborationStatus, revokeMedia]);
 
   useEffect(() => {
     if (accessContext === undefined) return;
