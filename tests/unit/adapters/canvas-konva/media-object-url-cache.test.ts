@@ -28,9 +28,11 @@ describe("asset GIF object URL lifecycle", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("coalesces encoded fetch while multiple renderers retain it", async () => {
-    const loadBlob = vi.fn().mockResolvedValue(
-      new Blob([new Uint8Array([71, 73, 70])], { type: "image/gif" }),
-    );
+    const loadBlob = vi
+      .fn()
+      .mockResolvedValue(
+        new Blob([new Uint8Array([71, 73, 70])], { type: "image/gif" }),
+      );
     const cache = new MediaObjectUrlCache();
     const first = cache.acquire(source("board:one:asset:gif", loadBlob));
     const second = cache.acquire(source("board:one:asset:gif", loadBlob));

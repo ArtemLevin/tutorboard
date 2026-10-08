@@ -75,7 +75,8 @@ export interface AppProps {
   readonly geometryOsClient?: GeometryOsClient | undefined;
   readonly historyEnabled?: boolean;
   readonly mathInkRecognizer?: MathInkRecognizer | undefined;
-  readonly mediaAssetSourceResolver?: ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
+  readonly mediaAssetSourceResolver?:
+    ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
   readonly initialDocument?: BoardDocument;
   readonly collaborativeUndoAvailable?: boolean;
   readonly onCollaborativeUndo?: () => void;

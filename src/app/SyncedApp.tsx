@@ -504,9 +504,10 @@ function SyncedWorkspace({
 
   const resolveContentSource = repository.resolveMediaContentSource;
   const mediaAssetSourceResolver = useMemo(
-    () => resolveContentSource === undefined
-      ? undefined
-      : (asset: MediaAssetObject) => resolveContentSource(documentId, asset),
+    () =>
+      resolveContentSource === undefined
+        ? undefined
+        : (asset: MediaAssetObject) => resolveContentSource(documentId, asset),
     [documentId, currentAccessContext, resolveContentSource],
   );
 

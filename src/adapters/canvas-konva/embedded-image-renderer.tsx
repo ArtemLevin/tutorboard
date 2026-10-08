@@ -65,9 +65,14 @@ export function RasterImageRenderer({
     if (cachedBitmapPath && decodeHeight !== null && decodeWidth !== null) {
       if (source === undefined && dataUrl === null) return;
       const size = { height: decodeHeight, width: decodeWidth };
-      const request = source === undefined
-        ? { contentSha256: object.contentSha256, dataUrl: dataUrl ?? "", size }
-        : { contentSha256: object.contentSha256, source, size };
+      const request =
+        source === undefined
+          ? {
+              contentSha256: object.contentSha256,
+              dataUrl: dataUrl ?? "",
+              size,
+            }
+          : { contentSha256: object.contentSha256, source, size };
       const handle = rasterDecodeCache.acquire(request);
       let active = true;
       void handle.promise
@@ -111,18 +116,19 @@ export function RasterImageRenderer({
       setFailed(true);
       setImageState(null);
     };
-    const handle = source === undefined
-      ? null
-      : mediaObjectUrlCache.acquire(source);
+    const handle =
+      source === undefined ? null : mediaObjectUrlCache.acquire(source);
     if (handle !== null) {
-      void handle.promise.then((url) => {
-        if (active) element.src = url;
-      }).catch(() => {
-        if (!active) return;
-        rasterImageDiagnostics.fail(sessionId);
-        setFailed(true);
-        setImageState(null);
-      });
+      void handle.promise
+        .then((url) => {
+          if (active) element.src = url;
+        })
+        .catch(() => {
+          if (!active) return;
+          rasterImageDiagnostics.fail(sessionId);
+          setFailed(true);
+          setImageState(null);
+        });
     } else if (dataUrl !== null) {
       element.src = dataUrl;
     }
@@ -210,5 +216,11 @@ export function EmbeddedImageRenderer({
   readonly visualScale?: number;
   readonly zoom: number;
 }) {
-  return <RasterImageRenderer object={object} visualScale={visualScale} zoom={zoom} />;
+  return (
+    <RasterImageRenderer
+      object={object}
+      visualScale={visualScale}
+      zoom={zoom}
+    />
+  );
 }

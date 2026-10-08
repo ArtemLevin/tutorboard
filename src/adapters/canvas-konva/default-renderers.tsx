@@ -439,9 +439,8 @@ export function createDefaultKonvaRendererRegistry(
         try {
           const resolved = options.mediaAssetSourceResolver(asset);
           const previous = cachedSources.get(asset.assetId);
-          const source = previous?.cacheKey === resolved.cacheKey
-            ? previous
-            : resolved;
+          const source =
+            previous?.cacheKey === resolved.cacheKey ? previous : resolved;
           cachedSources.set(asset.assetId, source);
           return (
             <MediaAssetRenderer

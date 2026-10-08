@@ -28,23 +28,26 @@ export class MediaObjectUrlCache {
         abort,
         refs: 0,
         url: null,
-        promise: source.loadBlob(abort.signal).then((blob) => {
-          if (abort.signal.aborted) {
-            throw new DOMException("Media source cancelled.", "AbortError");
-          }
-          const url = URL.createObjectURL(blob);
-          if (abort.signal.aborted) {
-            URL.revokeObjectURL(url);
-            throw new DOMException("Media source cancelled.", "AbortError");
-          }
-          created.url = url;
-          return url;
-        }).catch((cause: unknown) => {
-          if (this.#entries.get(key) === created) {
-            this.#entries.delete(key);
-          }
-          throw cause;
-        }),
+        promise: source
+          .loadBlob(abort.signal)
+          .then((blob) => {
+            if (abort.signal.aborted) {
+              throw new DOMException("Media source cancelled.", "AbortError");
+            }
+            const url = URL.createObjectURL(blob);
+            if (abort.signal.aborted) {
+              URL.revokeObjectURL(url);
+              throw new DOMException("Media source cancelled.", "AbortError");
+            }
+            created.url = url;
+            return url;
+          })
+          .catch((cause: unknown) => {
+            if (this.#entries.get(key) === created) {
+              this.#entries.delete(key);
+            }
+            throw cause;
+          }),
       };
       entry = created;
       this.#entries.set(key, entry);

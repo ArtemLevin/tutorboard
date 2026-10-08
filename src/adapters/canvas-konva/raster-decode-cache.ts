@@ -160,7 +160,10 @@ function decodeHtmlImage(dataUrl: string): Promise<RasterBitmapResource> {
   });
 }
 
-function decodeHtmlBlob(blob: Blob, signal: AbortSignal): Promise<RasterBitmapResource> {
+function decodeHtmlBlob(
+  blob: Blob,
+  signal: AbortSignal,
+): Promise<RasterBitmapResource> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
       reject(new DOMException("Raster decode cancelled.", "AbortError"));
@@ -212,9 +215,10 @@ async function decodeRasterBitmap(
   signal: AbortSignal,
 ): Promise<RasterBitmapResource> {
   // Network authority errors must never enter the HTML fallback path.
-  const blob = request.source === undefined
-    ? embeddedDataUrlBlob(request.dataUrl)
-    : await request.source.loadBlob(signal);
+  const blob =
+    request.source === undefined
+      ? embeddedDataUrlBlob(request.dataUrl)
+      : await request.source.loadBlob(signal);
   if (signal.aborted) {
     throw new DOMException("Raster decode cancelled.", "AbortError");
   }

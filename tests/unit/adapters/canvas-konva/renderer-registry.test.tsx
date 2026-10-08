@@ -49,7 +49,6 @@ describe("Konva renderer registry", () => {
     expect(registry.render(item).type).toBe(Rect);
   });
 
-
   it("registers the persisted SVG renderer", () => {
     const svgItem: BoardRenderItem = {
       object: {
@@ -72,7 +71,9 @@ describe("Konva renderer registry", () => {
       transforms: [],
     };
 
-    expect(() => createDefaultKonvaRendererRegistry().render(svgItem)).not.toThrow();
+    expect(() =>
+      createDefaultKonvaRendererRegistry().render(svgItem),
+    ).not.toThrow();
   });
 
   it("selects asset renderer only with a scoped resolver", () => {
@@ -108,10 +109,12 @@ describe("Konva renderer registry", () => {
       zoom: 2,
       visualScale: 1.5,
     });
-    expect(registry.render({
-      object: { ...object, mimeType: "video/mp4" },
-      transforms: [],
-    }).type).toBe(MediaAssetPlaceholderRenderer);
+    expect(
+      registry.render({
+        object: { ...object, mimeType: "video/mp4" },
+        transforms: [],
+      }).type,
+    ).toBe(MediaAssetPlaceholderRenderer);
   });
 
   it("continues routing legacy embedded images through the existing renderer", () => {

@@ -316,7 +316,10 @@ describe("asset-backed A2 raster source", () => {
     const second = cache.acquire({ ...request, source: { ...source } });
     await Promise.all([first.promise, second.promise]);
     expect(decoder).toHaveBeenCalledTimes(1);
-    expect(cache.snapshot()).toMatchObject({ entryCount: 1, totalBytes: 65536 });
+    expect(cache.snapshot()).toMatchObject({
+      entryCount: 1,
+      totalBytes: 65536,
+    });
     first.release();
     second.release();
     cache.trimUnused();
@@ -378,9 +381,10 @@ describe("asset-backed A2 raster source", () => {
   it("closes a late decoded bitmap after cache clear", async () => {
     let resolveDecode: ((value: RasterBitmapResource) => void) | undefined;
     const cache = new RasterDecodeCache({
-      decoder: () => new Promise((resolve) => {
-        resolveDecode = resolve;
-      }),
+      decoder: () =>
+        new Promise((resolve) => {
+          resolveDecode = resolve;
+        }),
       diagnostics: new RasterImageDiagnostics(),
     });
     const handle = cache.acquire({
@@ -399,9 +403,12 @@ describe("asset-backed A2 raster source", () => {
 
   it("preserves bounded source concurrency", async () => {
     const resolves: Array<(resource: RasterBitmapResource) => void> = [];
-    const decoder = vi.fn(() => new Promise<RasterBitmapResource>((resolve) => {
-      resolves.push(resolve);
-    }));
+    const decoder = vi.fn(
+      () =>
+        new Promise<RasterBitmapResource>((resolve) => {
+          resolves.push(resolve);
+        }),
+    );
     const cache = new RasterDecodeCache({
       decoder,
       diagnostics: new RasterImageDiagnostics(),
@@ -421,6 +428,6 @@ describe("asset-backed A2 raster source", () => {
     resolves[1]?.(resource(64, 64).value);
     resolves[2]?.(resource(64, 64).value);
     await Promise.all(handles.map((item) => item.promise));
-    for(const handle of handles) handle.release();
+    for (const handle of handles) handle.release();
   });
 });

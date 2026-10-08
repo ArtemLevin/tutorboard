@@ -104,7 +104,8 @@ export interface BoardCanvasProps {
   readonly handwriting: BoardHandwritingController;
   readonly interaction: BoardInteractionRouter;
   readonly laser: LaserPointerController;
-  readonly mediaAssetSourceResolver?: ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
+  readonly mediaAssetSourceResolver?:
+    ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
   readonly onObjectSettingsRequest: (objectId: BoardObjectId) => void;
   readonly onPointerHover: (cursor: Vec2) => void;
   readonly onTransformPreviewChange: (
@@ -174,9 +175,12 @@ export function BoardCanvas({
     useState<CanvasContextMenuRequest | null>(null);
   const [clearConfirmationOpen, setClearConfirmationOpen] = useState(false);
   const registry = useMemo(
-    () => createDefaultKonvaRendererRegistry(
-      mediaAssetSourceResolver === undefined ? {} : { mediaAssetSourceResolver },
-    ),
+    () =>
+      createDefaultKonvaRendererRegistry(
+        mediaAssetSourceResolver === undefined
+          ? {}
+          : { mediaAssetSourceResolver },
+      ),
     [mediaAssetSourceResolver],
   );
   const eraserHiddenIds = useMemo(
