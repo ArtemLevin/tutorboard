@@ -71,6 +71,10 @@ describe("MediaSourceCache", () => {
     cache.resolve(asset("two"), resolve);
     cache.retain(new Set(["one"]));
     expect(cache.snapshot().entryCount).toBe(1);
+    expect(cache.drainRetiredSourceKeys()).toContain(
+      "scope:two:" + "a".repeat(64),
+    );
+    expect(cache.drainRetiredSourceKeys()).toEqual([]);
     cache.delete("one");
     expect(cache.snapshot().entryCount).toBe(0);
     cache.resolve(original, resolve);

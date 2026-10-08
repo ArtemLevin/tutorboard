@@ -21,6 +21,7 @@ import { EmbeddedImageRenderer } from "./embedded-image-renderer";
 import { MediaAssetRenderer } from "./media-asset-renderer";
 import { MediaAssetPlaceholderRenderer } from "./media-asset-placeholder-renderer";
 import { MediaSourceCache } from "./media-source-cache";
+import { rasterDecodeCache } from "./raster-decode-cache";
 import { SvgRenderer } from "./svg-renderer";
 import {
   KonvaRendererRegistry,
@@ -459,8 +460,18 @@ export function createDefaultKonvaRendererRegistry(
       },
     ],
     {
-      reconcileMediaAssets: (ids) => cachedSources.retain(ids),
-      dispose: () => cachedSources.clear(),
+      reconcileMediaAssets: (ids) => {
+        cachedSources.retain(ids);
+        for (const key of cachedSources.drainRetiredSourceKeys()) {
+          rasterDecodeCache.discardSourceWhenUnused(key);
+        }
+      },
+      dispose: () => {
+        cachedSources.clear();
+        for (const key of cachedSources.drainRetiredSourceKeys()) {
+          rasterDecodeCache.discardSourceWhenUnused(key);
+        }
+      },
     },
   );
 }

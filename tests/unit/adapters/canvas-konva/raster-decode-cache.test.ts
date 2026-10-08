@@ -654,3 +654,52 @@ describe("F3.3.2-B raster resource ownership", () => {
     expect(cache.snapshot()).toMatchObject({ entryCount: 0, totalBytes: 0 });
   });
 });
+
+describe("F3.3.2-B embedded HTML fallback cancellation", () => {
+  it("aborts the HTMLImageElement fallback before decoding completes", async () => {
+    const created: Array<{ src: string }> = [];
+    class FakeImage {
+      decoding = "async";
+      naturalHeight = 64;
+      naturalWidth = 64;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      src = "";
+      constructor() {
+        created.push(this);
+      }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn().mockRejectedValue(new Error("Bitmap decoder unavailable")),
+    );
+    try {
+      const cache = new RasterDecodeCache({
+        diagnostics: new RasterImageDiagnostics(),
+      });
+      const dataUrl = "data:image/png;base64,AA==";
+      const handle = cache.acquire({
+        contentSha256: "a".repeat(64),
+        dataUrl,
+        size: { width: 64, height: 64 },
+      });
+      await vi.waitFor(() => expect(created).toHaveLength(1));
+      cache.discardSourceWhenUnused(dataUrl);
+      handle.release();
+      await expect(handle.promise).rejects.toMatchObject({
+        name: "AbortError",
+      });
+      expect(created[0]?.src).toBe("");
+      await vi.waitFor(() =>
+        expect(cache.snapshot()).toMatchObject({
+          activeDecodes: 0,
+          entryCount: 0,
+          inFlightReservedBytes: 0,
+        }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

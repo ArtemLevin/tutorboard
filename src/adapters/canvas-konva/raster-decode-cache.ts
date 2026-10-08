@@ -144,13 +144,41 @@ function embeddedDataUrlBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mimeType });
 }
 
-function decodeHtmlImage(dataUrl: string): Promise<RasterBitmapResource> {
+function decodeHtmlImage(
+  dataUrl: string,
+  signal: AbortSignal,
+): Promise<RasterBitmapResource> {
   return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Raster decode cancelled.", "AbortError"));
+      return;
+    }
     const image = new Image();
+    let finished = false;
+    const cleanup = () => {
+      image.onload = null;
+      image.onerror = null;
+      signal.removeEventListener("abort", abort);
+    };
+    const abort = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      image.src = "";
+      reject(new DOMException("Raster decode cancelled.", "AbortError"));
+    };
+    signal.addEventListener("abort", abort, { once: true });
     image.decoding = "async";
-    image.onerror = () =>
+    image.onerror = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
       reject(new Error("Raster image fallback decode failed."));
-    image.onload = () =>
+    };
+    image.onload = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
       resolve({
         close: () => {
           image.src = "";
@@ -159,6 +187,7 @@ function decodeHtmlImage(dataUrl: string): Promise<RasterBitmapResource> {
         image,
         width: image.naturalWidth,
       });
+    };
     image.src = dataUrl;
   });
 }
@@ -244,7 +273,7 @@ async function decodeRasterBitmap(
   } catch (cause) {
     if (signal.aborted) throw cause;
     return request.source === undefined
-      ? await decodeHtmlImage(request.dataUrl)
+      ? await decodeHtmlImage(request.dataUrl, signal)
       : await decodeHtmlBlob(blob, signal);
   }
 }

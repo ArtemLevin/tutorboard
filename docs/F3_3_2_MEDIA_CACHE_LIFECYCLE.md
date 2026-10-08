@@ -65,3 +65,9 @@ adaptive image virtualization in a later rendering optimization.
 GIF cancellations reject with AbortError even when source loaders ignore
 AbortSignal. Late Blobs cannot create an object URL after cancellation.
 Board and access-generation integration remains block C.
+
+B cleanup wiring: stale asset descriptors deliver source cache keys to
+`RasterDecodeCache.discardSourceWhenUnused()` during registry reconciliation
+and disposal. Embedded PNG/JPEG identities are tracked in BoardStage and
+retired after scene removal or unmount. This preserves reference-counted
+resources still used by another mounted canvas.
