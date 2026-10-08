@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BoardCollaborationClient } from "../adapters/board-websocket/public";
 import type { BoardAccessControlEvent } from "../adapters/board-websocket/public";
-import { BoardMediaResourceScope } from "../adapters/canvas-konva/board-media-resource-scope";
+import { BoardMediaResourceScope } from "../adapters/canvas-konva/public";
 import { DexiePendingBoardCommandQueue } from "../adapters/persistence-dexie/public";
 import { actorId, documentId, type DocumentId } from "../core/public";
 import type { GuestBoardAccessContext } from "../core/access/public";
@@ -16,7 +16,7 @@ const publishedScopes: BoardMediaResourceScope[] = [];
 vi.mock("./App", async () => {
   const { useContext } = await import("react");
   const { BoardMediaResourceScopeContext } =
-    await import("../adapters/canvas-konva/board-media-resource-context");
+    await import("../adapters/canvas-konva/public");
   return {
     App: () => {
       const resources = useContext(BoardMediaResourceScopeContext);
