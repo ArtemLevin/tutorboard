@@ -93,7 +93,7 @@ describe("Konva renderer registry", () => {
       contentSha256: object.contentSha256,
       mimeType: "image/png",
       url: "https://board.example.test/api/v1/boards/one/media/asset/content",
-      loadBlob: async () => new Blob([new Uint8Array([1])]),
+      loadBlob: () => Promise.resolve(new Blob([new Uint8Array([1])])),
     };
     expect(createDefaultKonvaRendererRegistry().render(media).type).toBe(
       MediaAssetPlaceholderRenderer,
