@@ -1773,3 +1773,20 @@ Production требует `BOARD_MEDIA_UPLOADS_ENABLED=true` и ClamAV.
   in the test runner. Legacy/offline modes retain default disabled flag.
 - Follow-up: test PostgreSQL + S3/MinIO storage/restart/backup in an isolated
   integration environment before production rollout (F3.2.2/3).
+
+
+### F3.2.3 — media-aware snapshot/export and recovery (stacked on PR #185)
+
+- SVG/PNG/PDF export and lesson evidence now prepare a temporary snapshot document:
+  retrieve media assets through the current authorized board repository, confirm
+  MIME, byte length and actual SHA-256, and embed safe PNG/JPEG/GIF data URLs.
+  The canonical persisted BoardDocument, commands, revision SHA and asset metadata
+  remain untouched. Duplicate references are downloaded once per export.
+- Missing access, unsupported media, corrupt content or over-budget exports fail
+  before producing a misleading placeholder-only artifact. Static SVG/PNG/PDF
+  available from the standalone settings panel with board.export capability.
+- Browser fullstack regression verifies exported SVG and PDF after reload;
+  focused unit cases guard wrong content/metadata and legacy export.
+- Backend restore integrity and release gates live in a separate backend PR.
+- Follow-up: portable JSON asset bundle and very large (>128 MiB) snapshot
+  streaming/pagination require independent product formats and performance work.
