@@ -1,4 +1,5 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MediaAssetRenderer } from "../../../../src/adapters/canvas-konva/media-asset-renderer";
@@ -10,7 +11,7 @@ import {
 } from "../../../../src/core/public";
 
 vi.mock("react-konva", () => ({
-  Group: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Group: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Image: ({ image }: { image: { width: number } }) => (
     <div data-testid="asset-konva-image" data-width={image.width} />
   ),
@@ -45,7 +46,7 @@ describe("MediaAssetRenderer", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders authenticated PNG via A2 and releases its bitmap on unmount", async () => {
+  it("renders asset PNG and releases bitmap on unmount", async () => {
     const close = vi.fn();
     const bitmap = { close, height: 64, width: 64 };
     const decode = vi.fn().mockResolvedValue(bitmap);
@@ -60,13 +61,17 @@ describe("MediaAssetRenderer", () => {
       mimeType: "image/png",
       url: "https://board.example.test/api/v1/boards/one/media/asset/content",
     };
-    const view = render(<MediaAssetRenderer object={object} source={media} zoom={1} />);
+    const view = render(
+      <MediaAssetRenderer object={object} source={media} zoom={1} />,
+    );
     await waitFor(() =>
       expect(screen.queryByTestId("asset-konva-image")).not.toBeNull(),
     );
     expect(loadBlob).toHaveBeenCalledOnce();
     expect(decode).toHaveBeenCalledOnce();
-    expect(screen.getByTestId("asset-konva-image").getAttribute("data-width")).toBe("64");
+    expect(
+      screen.getByTestId("asset-konva-image").getAttribute("data-width"),
+    ).toBe("64");
     view.unmount();
     rasterDecodeCache.trimUnused();
     expect(close).toHaveBeenCalledOnce();
