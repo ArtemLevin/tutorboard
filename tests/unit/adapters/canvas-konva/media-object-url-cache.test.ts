@@ -40,11 +40,23 @@ describe("asset GIF object URL lifecycle", () => {
     expect(await second.promise).toBe("blob:asset-gif");
     expect(loadBlob).toHaveBeenCalledOnce();
     expect(create).toHaveBeenCalledOnce();
+    expect(cache.snapshot()).toEqual({
+      activeObjectUrls: 1,
+      activeReferences: 2,
+      entryCount: 1,
+      pendingLoads: 0,
+    });
     first.release();
     expect(revoke).not.toHaveBeenCalled();
     second.release();
     second.release();
     expect(revoke).toHaveBeenCalledExactlyOnceWith("blob:asset-gif");
+    expect(cache.snapshot()).toEqual({
+      activeObjectUrls: 0,
+      activeReferences: 0,
+      entryCount: 0,
+      pendingLoads: 0,
+    });
   });
 
   it("cancels in-flight reads when the last GIF is removed", async () => {
@@ -60,6 +72,10 @@ describe("asset GIF object URL lifecycle", () => {
     const cache = new MediaObjectUrlCache();
     const first = cache.acquire(source("board:one:asset:pending", loadBlob));
     const second = cache.acquire(source("board:one:asset:pending", loadBlob));
+    expect(cache.snapshot()).toMatchObject({
+      pendingLoads: 1,
+      activeReferences: 2,
+    });
     first.release();
     expect(abort?.aborted).toBe(false);
     second.release();

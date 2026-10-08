@@ -1812,3 +1812,15 @@ Production требует `BOARD_MEDIA_UPLOADS_ENABLED=true` и ClamAV.
 - Next F3.3.2: verify/limit the `cachedSources` registry lifetime,
   cancel in-flight decodes at board switch and revocation, and introduce
   measured caps/eviction only against established benchmark evidence.
+
+## F3.3.2 — Media cache lifecycle (08.10.2026)
+
+The implementation is split into independent, reviewable blocks A–D.
+
+- **A — lifecycle contract and diagnostics:** branch `feat/f3-3-2-a-media-lifecycle-contract`; introduces board-scoped lease ownership with `boardId`/`resourceGeneration`, cancellation/invalidation/disposal and cache snapshots. See [`docs/F3_3_2_MEDIA_CACHE_LIFECYCLE.md`](docs/F3_3_2_MEDIA_CACHE_LIFECYCLE.md). **Pending CI and review.**
+- **B — bounded source cache and resource release:** pending; addressable eviction, queued cancellation and memory accounting.
+- **C — board/access lifecycle wiring:** pending; scene removal, board switch, permission changes, `accessEpoch` and revoke isolation.
+- **D — cyclic browser memory/performance release gate:** pending; Chromium/Firefox smoke, JSON metrics and repeatable GC comparisons.
+
+A alone does not resolve the unbounded `cachedSources` map or guarantee
+access-context invalidation; those are explicit acceptance gates for B/C.
