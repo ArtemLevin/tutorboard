@@ -63,6 +63,10 @@ export interface BoardMediaHttpAdapterDependencies {
 
 let nextMediaRepositoryScope = 0;
 
+function isAborted(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted === true;
+}
+
 function abortedError(deps: BoardMediaHttpAdapterDependencies): Error {
   return deps.error(
     "board.media.aborted",
@@ -107,7 +111,7 @@ export function createBoardMediaHttpMethods(
       input: BoardMediaUploadInput,
     ): Promise<BoardMediaAssetDescriptor> {
       validateUpload(input, dependencies);
-      if (input.signal?.aborted === true) throw abortedError(dependencies);
+      if (isAborted(input.signal)) throw abortedError(dependencies);
       const params = new URLSearchParams({ fileName: input.fileName });
       let response: Response;
       try {
@@ -126,7 +130,7 @@ export function createBoardMediaHttpMethods(
           },
         );
       } catch (cause) {
-        if (input.signal?.aborted === true) throw abortedError(dependencies);
+        if (isAborted(input.signal)) throw abortedError(dependencies);
         throw cause;
       }
       const payload = await requireSuccess(
@@ -170,7 +174,7 @@ export function createBoardMediaHttpMethods(
         mimeType,
         url,
         async loadBlob(signal?: AbortSignal): Promise<Blob> {
-          if (signal?.aborted === true) throw abortedError(dependencies);
+          if (isAborted(signal)) throw abortedError(dependencies);
           let response: Response;
           try {
             response = await send(path, {
@@ -178,7 +182,7 @@ export function createBoardMediaHttpMethods(
               ...(signal === undefined ? {} : { signal }),
             });
           } catch (cause) {
-            if (signal?.aborted === true) throw abortedError(dependencies);
+            if (isAborted(signal)) throw abortedError(dependencies);
             throw cause;
           }
           if (!response.ok) {
