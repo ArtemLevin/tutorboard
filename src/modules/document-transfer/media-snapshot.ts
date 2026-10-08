@@ -1,6 +1,5 @@
 import type {
   BoardDocument,
-  BoardObject,
   EmbeddedImageObject,
   MediaAssetObject,
 } from "../../core/public";
@@ -67,7 +66,7 @@ export async function embedBoardMediaForSnapshot(
 
   let totalBytes = 0;
   const cached = new Map<string, string>();
-  const objects: Record<string, BoardObject> = { ...document.objects };
+  const objects = { ...document.objects };
   for (const asset of assets) {
     if (!rasterMimeTypes.has(asset.mimeType)) {
       throw new Error("Этот тип медиа пока нельзя включить в статический снимок.");
