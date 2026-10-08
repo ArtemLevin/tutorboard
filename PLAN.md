@@ -1818,7 +1818,7 @@ Production требует `BOARD_MEDIA_UPLOADS_ENABLED=true` и ClamAV.
 The implementation is split into independent, reviewable blocks A–D.
 
 - **A — lifecycle contract and diagnostics:** branch `feat/f3-3-2-a-media-lifecycle-contract`; introduces board-scoped lease ownership with `boardId`/`resourceGeneration`, cancellation/invalidation/disposal and cache snapshots. See [`docs/F3_3_2_MEDIA_CACHE_LIFECYCLE.md`](docs/F3_3_2_MEDIA_CACHE_LIFECYCLE.md). **Pending CI and review.**
-- **B — bounded source cache and resource release:** pending; addressable eviction, queued cancellation and memory accounting.
+- **B — bounded source cache and resource release:** implemented in branch `feat/f3-3-2-b-bounded-media-cache` with per-registry source LRU/pruning, source-targeted raster release, O(1) queued cancellation, decode reservations and GIF abort settlement. **Pending final CI and review.**
 - **C — board/access lifecycle wiring:** pending; scene removal, board switch, permission changes, `accessEpoch` and revoke isolation.
 - **D — cyclic browser memory/performance release gate:** pending; Chromium/Firefox smoke, JSON metrics and repeatable GC comparisons.
 

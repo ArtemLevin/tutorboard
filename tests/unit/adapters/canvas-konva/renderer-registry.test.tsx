@@ -134,6 +134,41 @@ describe("Konva renderer registry", () => {
     expect(rendered.type).toBe(EmbeddedImageRenderer);
   });
 
+  it("drops resolved source references after scene prune and registry disposal", () => {
+    const object: MediaAssetObject = {
+      ...rectangle,
+      assetId: "asset:scoped",
+      byteSize: 128,
+      contentSha256: "b".repeat(64),
+      fileName: "one.png",
+      intrinsicSize: { height: 10, width: 10 },
+      kind: "media.asset",
+      mimeType: "image/png",
+    };
+    const media: BoardRenderItem = { object, transforms: [] };
+    const resolver = (): BoardMediaContentSource => ({
+      cacheKey: "board:scoped:asset",
+      contentSha256: object.contentSha256,
+      mimeType: "image/png",
+      url: "https://board.example.test/asset",
+      loadBlob: () => Promise.resolve(new Blob()),
+    });
+    const registry = createDefaultKonvaRendererRegistry({
+      mediaAssetSourceResolver: resolver,
+    });
+    const sourceOf = () =>
+      (registry.render(media).props as { source: BoardMediaContentSource })
+        .source;
+    const first = sourceOf();
+    expect(sourceOf()).toBe(first);
+    registry.reconcileMediaAssets(new Set());
+    const second = sourceOf();
+    expect(second).not.toBe(first);
+    registry.dispose();
+    expect(sourceOf()).not.toBe(second);
+    registry.dispose();
+  });
+
   it("rejects duplicate registrations", () => {
     expect(() => new KonvaRendererRegistry([renderer, renderer])).toThrow(
       "Duplicate Konva renderer",

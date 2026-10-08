@@ -45,3 +45,23 @@ scope identity and generation to BoardCanvas/SyncedApp, including changes to
 `accessEpoch`, board switches and revoke. D adds browser memory stress gates.
 Legacy embedded images, persisted BoardDocument, backend API, commands and
 undo/redo formats remain unchanged.
+
+## B implementation (08.10.2026)
+
+A per-registry `MediaSourceCache` retains at most 256 source descriptors and
+prunes descriptors absent from the committed scene and previews. The registry
+is disposed when its resolver changes or the canvas unmounts. The descriptor
+cache never owns decoded resources or Blob URLs.
+
+`RasterDecodeCache.discardSourceWhenUnused(sourceIdentity)` schedules targeted
+cleanup after the last consumer releases its handle. Other active sessions
+remain valid. The Set-backed queue deletes cancelled entries immediately.
+Concurrent reservations bound *estimated in-flight decode memory* (128 MiB
+by default) while admitting one oversized task to ensure progress.
+Already-active decoded bitmaps may exceed the retained-cache budget.
+A hard upper bound on the memory occupied by all visible media would require
+adaptive image virtualization in a later rendering optimization.
+
+GIF cancellations reject with AbortError even when source loaders ignore
+AbortSignal. Late Blobs cannot create an object URL after cancellation.
+Board and access-generation integration remains block C.
