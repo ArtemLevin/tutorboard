@@ -1,4 +1,11 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -10,7 +17,9 @@ import type { BoardMediaUploadSession } from "./media-asset-import";
 import { App, createInitialDocument } from "./App";
 
 vi.mock("../adapters/canvas-konva/public", () => ({
-  BoardStage: () => <div aria-label="Бесконечное полотно TutorBoard" role="application" />,
+  BoardStage: () => (
+    <div aria-label="Бесконечное полотно TutorBoard" role="application" />
+  ),
   clearCoordinatePlotSamplingCache: vi.fn(),
   createDefaultKonvaRendererRegistry: () => ({}),
 }));
@@ -22,7 +31,10 @@ png.set([0, 0, 0, 16], 16);
 png.set([0, 0, 0, 12], 20);
 
 beforeEach(() => {
-  vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ close: vi.fn() })));
+  vi.stubGlobal(
+    "createImageBitmap",
+    vi.fn(async () => ({ close: vi.fn() })),
+  );
 });
 
 afterEach(() => {
@@ -41,7 +53,9 @@ function insertFile(): void {
 }
 
 function createSession(
-  uploadMedia: (input: BoardMediaUploadInput) => Promise<BoardMediaAssetDescriptor>,
+  uploadMedia: (
+    input: BoardMediaUploadInput,
+  ) => Promise<BoardMediaAssetDescriptor>,
   isCurrent = () => true,
 ): BoardMediaUploadSession {
   return {
@@ -118,13 +132,23 @@ describe("synchronized asset import through board UI", () => {
     const committed = vi.fn();
     const doc = createInitialDocument();
     const view = render(
-      <App initialDocument={doc} mediaAssetImportEnabled mediaUploadSession={session} onCommandCommitted={committed} />,
+      <App
+        initialDocument={doc}
+        mediaAssetImportEnabled
+        mediaUploadSession={session}
+        onCommandCommitted={committed}
+      />,
     );
     insertFile();
     await waitFor(() => expect(upload).toHaveBeenCalledOnce());
     view.rerender(
-      <App initialDocument={doc} mediaAssetImportEnabled mediaUploadSession={session}
-        onCommandCommitted={committed} readOnly />,
+      <App
+        initialDocument={doc}
+        mediaAssetImportEnabled
+        mediaUploadSession={session}
+        onCommandCommitted={committed}
+        readOnly
+      />,
     );
     expect(captured).not.toBeNull();
     if (captured === null) return;
@@ -134,9 +158,19 @@ describe("synchronized asset import through board UI", () => {
 
   it("rejects raster import without an authorized upload session", async () => {
     const committed = vi.fn();
-    render(<App initialDocument={createInitialDocument()} mediaAssetImportEnabled onCommandCommitted={committed} />);
+    render(
+      <App
+        initialDocument={createInitialDocument()}
+        mediaAssetImportEnabled
+        onCommandCommitted={committed}
+      />,
+    );
     insertFile();
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("требуется активное подключение"));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "требуется активное подключение",
+      ),
+    );
     expect(committed).not.toHaveBeenCalled();
   });
 
@@ -145,10 +179,20 @@ describe("synchronized asset import through board UI", () => {
     const upload = vi.fn(async () => {
       throw new Error("Сервер временно недоступен");
     });
-    render(<App initialDocument={createInitialDocument()} mediaAssetImportEnabled
-      mediaUploadSession={createSession(upload)} onCommandCommitted={committed} />);
+    render(
+      <App
+        initialDocument={createInitialDocument()}
+        mediaAssetImportEnabled
+        mediaUploadSession={createSession(upload)}
+        onCommandCommitted={committed}
+      />,
+    );
     insertFile();
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Сервер временно недоступен"));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Сервер временно недоступен",
+      ),
+    );
     expect(committed).not.toHaveBeenCalled();
   });
 });

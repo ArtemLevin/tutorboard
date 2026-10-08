@@ -600,26 +600,45 @@ function SyncedWorkspace({
     accessRefreshStatus === "idle" &&
     (accessContext === undefined || collaborationAccessReady) &&
     state.capabilities.includes("board.write");
-  const mediaUploadSession = useMemo<BoardMediaUploadSession | undefined>(() => {
-    if (!mediaAssetImportEnabled || !writeEnabled || repository.uploadMedia === undefined) return undefined;
+  const mediaUploadSession = useMemo<
+    BoardMediaUploadSession | undefined
+  >(() => {
+    if (
+      !mediaAssetImportEnabled ||
+      !writeEnabled ||
+      repository.uploadMedia === undefined
+    )
+      return undefined;
     const uploadMedia = repository.uploadMedia;
     const epoch = mediaImportEpochRef.current;
     return {
       documentId,
       uploadMedia,
-      isCurrent: () => activeRef.current && mediaImportEpochRef.current === epoch &&
-        (accessContext === undefined || currentAccessContextRef.current === currentAccessContext) &&
-        accessRefreshInFlightRef.current === null && window.navigator.onLine,
+      isCurrent: () =>
+        activeRef.current &&
+        mediaImportEpochRef.current === epoch &&
+        (accessContext === undefined ||
+          currentAccessContextRef.current === currentAccessContext) &&
+        accessRefreshInFlightRef.current === null &&
+        window.navigator.onLine,
       getCsrfToken: async () => {
         if (accessContext !== undefined) {
-          if (currentAccessContextRef.current !== currentAccessContext) throw new Error("Права доступа изменились.");
+          if (currentAccessContextRef.current !== currentAccessContext)
+            throw new Error("Права доступа изменились.");
           return currentAccessContext.csrfToken;
         }
         const context = await repository.context();
         return context.csrfToken;
       },
     };
-  }, [accessContext, currentAccessContext, documentId, mediaAssetImportEnabled, repository, writeEnabled]);
+  }, [
+    accessContext,
+    currentAccessContext,
+    documentId,
+    mediaAssetImportEnabled,
+    repository,
+    writeEnabled,
+  ]);
 
   if (state.kind === "bootstrapping") {
     return (

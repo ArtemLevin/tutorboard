@@ -32,7 +32,8 @@ export interface UseBoardMediaControllerOptions {
   readonly documentController: BoardDocumentController;
   readonly onImagesInserted: (objectIds: readonly BoardObjectId[]) => void;
   readonly readOnly?: boolean | undefined;
-  readonly resolveImageDisplaySize?: ((intrinsicSize: Size2) => Size2) | undefined;
+  readonly resolveImageDisplaySize?:
+    ((intrinsicSize: Size2) => Size2) | undefined;
   readonly resolvePlacementCenter: () => Vec2;
 }
 
@@ -46,15 +47,17 @@ export function useBoardMediaController({
   resolveImageDisplaySize,
   resolvePlacementCenter,
 }: UseBoardMediaControllerOptions) {
-  const { commitCommand, createCommandMetadata, getDocument } = documentController;
+  const { commitCommand, createCommandMetadata, getDocument } =
+    documentController;
   const [diagnostic, setDiagnostic] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const activeImportRef = useRef<AbortController | null>(null);
 
   // Abort in-flight uploads if the transport, board authority or component changes.
-  useEffect(() => () => activeImportRef.current?.abort(), [
-    assetUpload, assetImportEnabled, readOnly,
-  ]);
+  useEffect(
+    () => () => activeImportRef.current?.abort(),
+    [assetUpload, assetImportEnabled, readOnly],
+  );
 
   const importFiles = useCallback(
     async (files: readonly File[]) => {
@@ -67,16 +70,22 @@ export function useBoardMediaController({
         .filter(isSupportedEmbeddedImageCandidate)
         .slice(0, embeddedImageImportLimits.maxFilesPerBatch);
       if (candidates.length === 0) {
-        setDiagnostic("image.unsupported-format: Поддерживаются PNG, JPEG/JPG, SVG и GIF.");
+        setDiagnostic(
+          "image.unsupported-format: Поддерживаются PNG, JPEG/JPG, SVG и GIF.",
+        );
         return;
       }
       const maxBatchBytes = assetImportEnabled
         ? rasterAssetImportLimits.maxBatchBytes
         : embeddedImageImportLimits.maxBatchBytes;
-      if (candidates.reduce((sum, file) => sum + file.size, 0) > maxBatchBytes) {
-        setDiagnostic(assetImportEnabled
-          ? "Общий размер вставки превышает 96 МБ."
-          : "image.batch-too-large: Общий размер вставки превышает 24 МБ.");
+      if (
+        candidates.reduce((sum, file) => sum + file.size, 0) > maxBatchBytes
+      ) {
+        setDiagnostic(
+          assetImportEnabled
+            ? "Общий размер вставки превышает 96 МБ."
+            : "image.batch-too-large: Общий размер вставки превышает 24 МБ.",
+        );
         return;
       }
 
@@ -91,12 +100,23 @@ export function useBoardMediaController({
       if (assetImportEnabled) clipboard.setNotice("Загружаем изображения…");
       try {
         for (const [index, file] of candidates.entries()) {
-          if (operation.signal.aborted || readOnly || getDocument().id !== initialDocumentId) return;
+          if (
+            operation.signal.aborted ||
+            readOnly ||
+            getDocument().id !== initialDocumentId
+          )
+            return;
           const point = { x: center.x + index * 24, y: center.y + index * 24 };
           const id = boardObjectId(`object:${crypto.randomUUID()}`);
           if (assetImportEnabled && isRasterAssetCandidate(file)) {
-            if (assetUpload === undefined || !assetUpload.isCurrent() || assetUpload.documentId !== initialDocumentId) {
-              diagnostics.push(`${file.name}: требуется активное подключение к доске с правами записи`);
+            if (
+              assetUpload === undefined ||
+              !assetUpload.isCurrent() ||
+              assetUpload.documentId !== initialDocumentId
+            ) {
+              diagnostics.push(
+                `${file.name}: требуется активное подключение к доске с правами записи`,
+              );
               continue;
             }
             const prepared = await prepareRasterAssetFile(file);
@@ -105,19 +125,27 @@ export function useBoardMediaController({
               diagnostics.push(`${file.name}: ${prepared.code}`);
               continue;
             }
-            const uploaded = await uploadBeforeCommand(prepared.value, assetUpload, operation.signal);
+            const uploaded = await uploadBeforeCommand(
+              prepared.value,
+              assetUpload,
+              operation.signal,
+            );
             if (uploaded.status === "cancelled") return;
             if (uploaded.status === "error") {
               diagnostics.push(`${file.name}: ${uploaded.message}`);
               continue;
             }
-            const displaySize = resolveImageDisplaySize?.(uploaded.descriptor.intrinsicSize);
-            objects.push(createMediaAssetObject({
-              center: point,
-              descriptor: uploaded.descriptor,
-              ...(displaySize === undefined ? {} : { displaySize }),
-              id,
-            }));
+            const displaySize = resolveImageDisplaySize?.(
+              uploaded.descriptor.intrinsicSize,
+            );
+            objects.push(
+              createMediaAssetObject({
+                center: point,
+                descriptor: uploaded.descriptor,
+                ...(displaySize === undefined ? {} : { displaySize }),
+                id,
+              }),
+            );
             continue;
           }
           const prepared = await prepareEmbeddedImageFile(file);
@@ -126,20 +154,36 @@ export function useBoardMediaController({
             diagnostics.push(`${file.name}: ${prepared.code}`);
             continue;
           }
-          const displaySize = resolveImageDisplaySize?.(prepared.value.intrinsicSize);
-          objects.push(createEmbeddedImageObject({
-            center: point,
-            ...(displaySize === undefined ? {} : { displaySize }),
-            id,
-            prepared: prepared.value,
-          }));
+          const displaySize = resolveImageDisplaySize?.(
+            prepared.value.intrinsicSize,
+          );
+          objects.push(
+            createEmbeddedImageObject({
+              center: point,
+              ...(displaySize === undefined ? {} : { displaySize }),
+              id,
+              prepared: prepared.value,
+            }),
+          );
         }
-        if (operation.signal.aborted || readOnly || getDocument().id !== initialDocumentId) return;
-        if (assetImportEnabled && assetUpload !== undefined && !assetUpload.isCurrent()) return;
+        if (
+          operation.signal.aborted ||
+          readOnly ||
+          getDocument().id !== initialDocumentId
+        )
+          return;
+        if (
+          assetImportEnabled &&
+          assetUpload !== undefined &&
+          !assetUpload.isCurrent()
+        )
+          return;
         if (objects.length === 0) {
-          setDiagnostic(diagnostics.length > 0
-            ? `Изображения отклонены: ${diagnostics.join("; ")}`
-            : "Не удалось подготовить изображения.");
+          setDiagnostic(
+            diagnostics.length > 0
+              ? `Изображения отклонены: ${diagnostics.join("; ")}`
+              : "Не удалось подготовить изображения.",
+          );
           clipboard.setNotice(null);
           return;
         }
@@ -155,9 +199,11 @@ export function useBoardMediaController({
         }
         onImagesInserted(objects.map(({ id }) => id));
         clipboard.setNotice(`Вставлено изображений: ${objects.length}`);
-        setDiagnostic(diagnostics.length === 0
-          ? null
-          : `Часть файлов пропущена: ${diagnostics.join("; ")}`);
+        setDiagnostic(
+          diagnostics.length === 0
+            ? null
+            : `Часть файлов пропущена: ${diagnostics.join("; ")}`,
+        );
       } finally {
         if (activeImportRef.current === operation) {
           activeImportRef.current = null;
@@ -166,9 +212,16 @@ export function useBoardMediaController({
       }
     },
     [
-      assetImportEnabled, assetUpload, clipboard, commitCommand,
-      createCommandMetadata, getDocument, onImagesInserted, readOnly,
-      resolveImageDisplaySize, resolvePlacementCenter,
+      assetImportEnabled,
+      assetUpload,
+      clipboard,
+      commitCommand,
+      createCommandMetadata,
+      getDocument,
+      onImagesInserted,
+      readOnly,
+      resolveImageDisplaySize,
+      resolvePlacementCenter,
     ],
   );
 

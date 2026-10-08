@@ -144,8 +144,13 @@ describe("readEnvironment", () => {
     expect(() =>
       readEnvironment("test", undefined, { mathInkRecognition: "perhaps" }),
     ).toThrow("VITE_FEATURE_MATH_INK_RECOGNITION");
-    expect(readEnvironment("test", undefined, { mediaAssetImport: "true" }).features.mediaAssetImport).toBe(true);
-    expect(() => readEnvironment("test", undefined, { mediaAssetImport: "perhaps" })).toThrow("VITE_FEATURE_MEDIA_ASSET_IMPORT");
+    expect(
+      readEnvironment("test", undefined, { mediaAssetImport: "true" }).features
+        .mediaAssetImport,
+    ).toBe(true);
+    expect(() =>
+      readEnvironment("test", undefined, { mediaAssetImport: "perhaps" }),
+    ).toThrow("VITE_FEATURE_MEDIA_ASSET_IMPORT");
     expect(() =>
       readEnvironment("test", undefined, { smartInk: "perhaps" }),
     ).toThrow("VITE_FEATURE_SMART_INK");

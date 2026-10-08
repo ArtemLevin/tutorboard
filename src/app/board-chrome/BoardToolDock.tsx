@@ -495,7 +495,9 @@ export function BoardToolDock(props: BoardToolDockProps) {
         <section aria-label="Меню медиа" className="dock-menu" role="menu">
           <label
             className={
-              props.readOnly || props.imageUploading ? "dock-menu-file is-disabled" : "dock-menu-file"
+              props.readOnly || props.imageUploading
+                ? "dock-menu-file is-disabled"
+                : "dock-menu-file"
             }
           >
             <span aria-hidden="true">▧</span>

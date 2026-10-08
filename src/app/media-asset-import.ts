@@ -32,7 +32,11 @@ export interface PreparedRasterAsset {
 
 export type RasterAssetResult =
   | { readonly status: "ok"; readonly value: PreparedRasterAsset }
-  | { readonly status: "error"; readonly code: string; readonly message: string };
+  | {
+      readonly status: "error";
+      readonly code: string;
+      readonly message: string;
+    };
 
 export interface BoardMediaUploadSession {
   readonly documentId: DocumentId;
@@ -48,8 +52,9 @@ export type UploadedRasterResult =
 
 export function isRasterAssetCandidate(file: File): boolean {
   return (
-    ["image/png", "image/jpeg", "image/gif"].includes(file.type.toLowerCase()) ||
-    /\.(?:png|jpe?g|gif)$/iu.test(file.name)
+    ["image/png", "image/jpeg", "image/gif"].includes(
+      file.type.toLowerCase(),
+    ) || /\.(?:png|jpe?g|gif)$/iu.test(file.name)
   );
 }
 
@@ -74,8 +79,11 @@ function gifDimensions(blob: Blob): Promise<Size2> {
 }
 
 /** Validate and hash once without encoding binary media as a data URL. */
-export async function prepareRasterAssetFile(file: File): Promise<RasterAssetResult> {
-  if (file.size === 0) return fail("image.empty-file", "Файл изображения пуст.");
+export async function prepareRasterAssetFile(
+  file: File,
+): Promise<RasterAssetResult> {
+  if (file.size === 0)
+    return fail("image.empty-file", "Файл изображения пуст.");
   if (file.size > rasterAssetImportLimits.maxFileBytes) {
     return fail("image.input-too-large", "Размер изображения превышает 32 МБ.");
   }
@@ -86,8 +94,15 @@ export async function prepareRasterAssetFile(file: File): Promise<RasterAssetRes
     return fail("image.read-failed", "Не удалось прочитать изображение.");
   }
   const mimeType = imageMimeFromBytes(bytes);
-  if (mimeType !== "image/png" && mimeType !== "image/jpeg" && mimeType !== "image/gif") {
-    return fail("image.unsupported-format", "Для загрузки поддерживаются PNG, JPEG и GIF.");
+  if (
+    mimeType !== "image/png" &&
+    mimeType !== "image/jpeg" &&
+    mimeType !== "image/gif"
+  ) {
+    return fail(
+      "image.unsupported-format",
+      "Для загрузки поддерживаются PNG, JPEG и GIF.",
+    );
   }
   let dimensions: Size2;
   try {
@@ -100,10 +115,16 @@ export async function prepareRasterAssetFile(file: File): Promise<RasterAssetRes
       await validateStaticRasterDecode(bytes, mimeType);
     }
   } catch {
-    return fail("image.decode-failed", "Изображение повреждено или не удалось декодировать.");
+    return fail(
+      "image.decode-failed",
+      "Изображение повреждено или не удалось декодировать.",
+    );
   }
   if (!validIntrinsicSize(dimensions)) {
-    return fail("image.dimension-limit-exceeded", "Размеры изображения превышают допустимый предел.");
+    return fail(
+      "image.dimension-limit-exceeded",
+      "Размеры изображения превышают допустимый предел.",
+    );
   }
   return {
     status: "ok",
@@ -146,14 +167,20 @@ export async function uploadBeforeCommand(
       descriptor.intrinsicSize.width !== prepared.intrinsicSize.width ||
       descriptor.intrinsicSize.height !== prepared.intrinsicSize.height
     ) {
-      return { status: "error", message: "Сервер вернул несовместимое описание изображения." };
+      return {
+        status: "error",
+        message: "Сервер вернул несовместимое описание изображения.",
+      };
     }
     return { status: "ok", descriptor };
   } catch (error) {
     if (signal.aborted || !session.isCurrent()) return { status: "cancelled" };
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "Не удалось загрузить изображение.",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Не удалось загрузить изображение.",
     };
   }
 }
@@ -165,7 +192,8 @@ export function createMediaAssetObject(input: {
   readonly id: BoardObjectId;
 }): MediaAssetObject {
   const { descriptor } = input;
-  const size = input.displaySize ?? fitEmbeddedImageSize(descriptor.intrinsicSize);
+  const size =
+    input.displaySize ?? fitEmbeddedImageSize(descriptor.intrinsicSize);
   return {
     assetId: descriptor.assetId,
     byteSize: descriptor.byteSize,
@@ -177,7 +205,10 @@ export function createMediaAssetObject(input: {
     kind: "media.asset",
     groupId: null,
     locked: false,
-    position: { x: input.center.x - size.width / 2, y: input.center.y - size.height / 2 },
+    position: {
+      x: input.center.x - size.width / 2,
+      y: input.center.y - size.height / 2,
+    },
     rotation: 0,
     scale: { x: 1, y: 1 },
     size,

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { boardObjectId, documentId, type BoardMediaAssetDescriptor } from "../core/public";
+import {
+  boardObjectId,
+  documentId,
+  type BoardMediaAssetDescriptor,
+} from "../core/public";
 import {
   createMediaAssetObject,
   isRasterAssetCandidate,
@@ -37,12 +41,17 @@ function descriptor(prepared: PreparedRasterAsset): BoardMediaAssetDescriptor {
 describe("media asset upload prerequisite", () => {
   it("recognizes raster candidates without routing SVG to binary storage", () => {
     expect(isRasterAssetCandidate(new File([png], "lesson.PNG"))).toBe(true);
-    expect(isRasterAssetCandidate(new File(["<svg/>"], "drawing.svg"))).toBe(false);
+    expect(isRasterAssetCandidate(new File(["<svg/>"], "drawing.svg"))).toBe(
+      false,
+    );
   });
 
   it("prepares immutable raster bytes without dataUrl, hashes original bytes and closes probe", async () => {
     const close = vi.fn();
-    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ close })));
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => ({ close })),
+    );
     const file = new File([png], "../figure.png", { type: "image/png" });
     const result = await prepareRasterAssetFile(file);
     expect(result.status).toBe("ok");
@@ -59,28 +68,41 @@ describe("media asset upload prerequisite", () => {
     const result = await prepareRasterAssetFile(
       new File(["<html>test</html>"], "photo.png", { type: "image/png" }),
     );
-    expect(result).toMatchObject({ status: "error", code: "image.unsupported-format" });
+    expect(result).toMatchObject({
+      status: "error",
+      code: "image.unsupported-format",
+    });
   });
 
   it("returns only after AVAILABLE and rejects forged metadata", async () => {
     const close = vi.fn();
-    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ close })));
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => ({ close })),
+    );
     const prepared = await prepareRasterAssetFile(
       new File([png], "photo.png", { type: "image/png" }),
     );
     expect(prepared.status).toBe("ok");
     if (prepared.status !== "ok") return;
     let finish: (value: BoardMediaAssetDescriptor) => void = () => undefined;
-    const uploadMedia = vi.fn(() => new Promise<BoardMediaAssetDescriptor>((resolve) => {
-      finish = resolve;
-    }));
+    const uploadMedia = vi.fn(
+      () =>
+        new Promise<BoardMediaAssetDescriptor>((resolve) => {
+          finish = resolve;
+        }),
+    );
     const session: BoardMediaUploadSession = {
       documentId: documentId("board:lesson"),
       getCsrfToken: async () => "csrf:board",
       isCurrent: () => true,
       uploadMedia,
     };
-    const pending = uploadBeforeCommand(prepared.value, session, new AbortController().signal);
+    const pending = uploadBeforeCommand(
+      prepared.value,
+      session,
+      new AbortController().signal,
+    );
     await vi.waitFor(() => expect(uploadMedia).toHaveBeenCalledOnce());
     expect(uploadMedia.mock.calls[0]?.[0]).toMatchObject({
       body: prepared.value.body,
@@ -93,10 +115,17 @@ describe("media asset upload prerequisite", () => {
     await expect(pending).resolves.toMatchObject({ status: "ok" });
     const invalidSession = {
       ...session,
-      uploadMedia: async () => ({ ...descriptor(prepared.value), byteSize: 100 }),
+      uploadMedia: async () => ({
+        ...descriptor(prepared.value),
+        byteSize: 100,
+      }),
     };
     await expect(
-      uploadBeforeCommand(prepared.value, invalidSession, new AbortController().signal),
+      uploadBeforeCommand(
+        prepared.value,
+        invalidSession,
+        new AbortController().signal,
+      ),
     ).resolves.toMatchObject({ status: "error" });
   });
 
@@ -118,8 +147,9 @@ describe("media asset upload prerequisite", () => {
         return descriptor(prepared);
       },
     };
-    await expect(uploadBeforeCommand(prepared, session, abort.signal))
-      .resolves.toEqual({ status: "cancelled" });
+    await expect(
+      uploadBeforeCommand(prepared, session, abort.signal),
+    ).resolves.toEqual({ status: "cancelled" });
   });
 
   it("creates metadata-only media.asset objects using authoritative server fields", () => {
