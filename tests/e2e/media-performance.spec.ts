@@ -750,6 +750,15 @@ interface LargeBoardInteractionMeasurement {
     readonly wheelCacheBuildPixels: number;
     readonly wheelCacheBuilds: number;
     readonly wheelCacheSkippedRuns: number;
+    readonly c37Trace?: Record<
+      string,
+      {
+        readonly count: number;
+        readonly totalMs: number;
+        readonly maxMs: number;
+        readonly over25Ms: number;
+      }
+    >;
   };
 }
 
@@ -838,6 +847,11 @@ async function profileLargeBoard(
     bounds.y + bounds.height / 2,
   );
   await resetProfile(page);
+  await page.evaluate(() => {
+    if (window.__tutorBoardC37Trace !== undefined) {
+      window.__tutorBoardC37Trace.events.length = 0;
+    }
+  });
   const wheelStart = performance.now();
   const [zoomFrames] = await Promise.all([
     measureFrames(page, largeBoardFrameCount),
@@ -849,6 +863,27 @@ async function profileLargeBoard(
   ]);
   const wheelGestureWallMs = performance.now() - wheelStart;
   const zoomCounters = await snapshot(page);
+  const c37Trace = await page.evaluate(() => {
+    const events = window.__tutorBoardC37Trace?.events ?? [];
+    const summary: Record<
+      string,
+      { count: number; totalMs: number; maxMs: number; over25Ms: number }
+    > = {};
+    for (const event of events) {
+      const current = summary[event.kind] ?? {
+        count: 0,
+        totalMs: 0,
+        maxMs: 0,
+        over25Ms: 0,
+      };
+      current.count += 1;
+      current.totalMs += event.durationMs;
+      current.maxMs = Math.max(current.maxMs, event.durationMs);
+      if (event.durationMs > 25) current.over25Ms += 1;
+      summary[event.kind] = current;
+    }
+    return summary;
+  });
   const cacheStartMs = await integerStageMetric(
     page,
     "data-wheel-cache-last-wheel-start-ms",
@@ -911,6 +946,7 @@ async function profileLargeBoard(
         page,
         "data-wheel-cache-last-skipped-runs",
       ),
+      ...(scenario.strokeCount === 3000 ? { c37Trace } : {}),
     },
   };
   console.info("LARGE_BOARD_INTERACTION_PROFILE", JSON.stringify(result));
@@ -964,6 +1000,7 @@ for (const scenario of [
       // starves requestIdleCallback: measure a guaranteed cold-wheel path.
       if (scenario.strokeCount === 3000) {
         await page.addInitScript(() => {
+          window.__tutorBoardC37Trace = { events: [] };
           window.requestIdleCallback = () => 0;
           window.cancelIdleCallback = () => {};
         });
@@ -972,6 +1009,16 @@ for (const scenario of [
       if (scenario.strokeCount === 3000) {
         expect(result.zoom.wheelCacheSkippedColdBuild).toBe(true);
         expect(result.zoom.wheelCacheWheelBeginMs).toBeLessThan(25);
+        expect(result.zoom.c37Trace?.["konva-scene"]?.count).toBeGreaterThan(
+          0,
+        );
+        expect(result.zoom.c37Trace?.["board-commit"]?.count).toBeGreaterThan(
+          0,
+        );
+        expect(result.zoom.c37Trace?.["gif-invalidate"]?.count).toBeGreaterThan(
+          0,
+        );
+        expect(result.zoom.c37Trace?.["react-ink-run"]?.count ?? 0).toBe(0);
       }
       await testInfo.attach("large-board-" + scenario.name + ".json", {
         body: Buffer.from(JSON.stringify(result, null, 2)),
