@@ -68,7 +68,10 @@ import type {
   KonvaRendererRegistry,
 } from "./renderer-registry";
 import { useElementSize } from "./use-element-size";
-import { WheelInkCacheCoordinator } from "./wheel-ink-cache";
+import {
+  minimumWheelCacheStrokes,
+  WheelInkCacheCoordinator,
+} from "./wheel-ink-cache";
 
 const zoomBounds = { minimum: 0.1, maximum: 8 } as const;
 const zoomStep = 1.08;
@@ -847,7 +850,9 @@ export function BoardStage({
   ]);
 
   useEffect(() => {
-    if (!wheelInkCache.canPrepare || document.hidden) return;
+    if (scene.items.length < minimumWheelCacheStrokes || document.hidden) {
+      return;
+    }
     if (typeof window.requestIdleCallback !== "function") return;
 
     let expiryId: number | null = null;
@@ -874,7 +879,7 @@ export function BoardStage({
         // A single idle callback can have very little time remaining. Allow
         // bounded rescheduling instead of permanently giving up preparation
         // after one busy frame.
-        if (remainingMs < 8) {
+        if (remainingMs < 8 || !wheelInkCache.canPrepare) {
           attempts += 1;
           if (attempts < 24) schedule();
           return;
