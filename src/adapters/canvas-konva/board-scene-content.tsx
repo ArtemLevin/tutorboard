@@ -1,4 +1,11 @@
-import { memo, type ReactElement } from "react";
+import {
+  memo,
+  useLayoutEffect,
+  useRef,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import type Konva from "konva";
 import { Group } from "react-konva";
 
 import type {
@@ -7,6 +14,10 @@ import type {
   Transform2D,
 } from "../../core/public";
 import type { BoardObjectTransformSnapshot } from "./BoardStage";
+import {
+  minimumWheelCacheStrokes,
+  type WheelInkCacheCoordinator,
+} from "./wheel-ink-cache";
 import type {
   CoordinatePlotRenderInteraction,
   KonvaRendererRegistry,
@@ -81,6 +92,54 @@ export const BoardRenderItemView = memo(function BoardRenderItemView({
   );
 });
 
+interface InkRenderRun {
+  readonly ink: boolean;
+  readonly items: readonly BoardRenderItem[];
+  readonly key: string;
+}
+
+function groupInkRenderRuns(
+  batches: readonly (readonly BoardRenderItem[])[],
+): readonly InkRenderRun[] {
+  const groups: {
+    ink: boolean;
+    items: BoardRenderItem[];
+    key: string;
+  }[] = [];
+  for (const batch of batches) {
+    for (const item of batch) {
+      const ink = item.object.kind === "drawing.pen-stroke";
+      const previous = groups.at(-1);
+      if (previous === undefined || previous.ink !== ink) {
+        groups.push({
+          ink,
+          items: [item],
+          key: `render:${ink ? "ink" : "other"}:${item.object.id}`,
+        });
+      } else {
+        previous.items.push(item);
+      }
+    }
+  }
+  return groups;
+}
+
+function WheelCachedInkGroup({
+  children,
+  coordinator,
+}: {
+  readonly children: ReactNode;
+  readonly coordinator: WheelInkCacheCoordinator;
+}) {
+  const ref = useRef<Konva.Group>(null);
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (node === null) return;
+    return coordinator.register(node);
+  }, [coordinator]);
+  return <Group ref={ref}>{children}</Group>;
+}
+
 export interface BoardSceneContentProps {
   readonly batches: readonly (readonly BoardRenderItem[])[];
   readonly coordinatePlotInteraction?:
@@ -91,6 +150,7 @@ export interface BoardSceneContentProps {
   readonly selectionPreviewX: number;
   readonly selectionPreviewY: number;
   readonly zoom: number;
+  readonly wheelInkCache?: WheelInkCacheCoordinator;
 }
 
 export const BoardSceneContent = memo(function BoardSceneContent({
@@ -102,38 +162,49 @@ export const BoardSceneContent = memo(function BoardSceneContent({
   selectionPreviewX,
   selectionPreviewY,
   zoom,
+  wheelInkCache,
 }: BoardSceneContentProps) {
   const selected = new Set(selectedObjectIds);
-  return batches.map((batch, batchIndex) => (
-    <Group key={`render-batch-${batchIndex}`}>
-      {batch.map((item) => (
-        <BoardRenderItemView
-          coordinatePlotInteraction={
-            item.object.kind === "math.coordinate-plot"
-              ? coordinatePlotInteraction
-              : undefined
-          }
-          interactive
-          item={
-            lineEndpointPreview?.objectId === item.object.id
-              ? {
-                  ...item,
-                  object: {
-                    ...item.object,
-                    position: lineEndpointPreview.position,
-                    rotation: lineEndpointPreview.rotation,
-                    scale: lineEndpointPreview.scale,
-                  },
-                }
-              : item
-          }
-          key={item.object.id}
-          previewX={selected.has(item.object.id) ? selectionPreviewX : 0}
-          previewY={selected.has(item.object.id) ? selectionPreviewY : 0}
-          registry={registry}
-          zoom={zoom}
-        />
-      ))}
-    </Group>
-  ));
+  return groupInkRenderRuns(batches).map((run) => {
+    const contents = run.items.map((item) => (
+      <BoardRenderItemView
+        coordinatePlotInteraction={
+          item.object.kind === "math.coordinate-plot"
+            ? coordinatePlotInteraction
+            : undefined
+        }
+        interactive
+        item={
+          lineEndpointPreview?.objectId === item.object.id
+            ? {
+                ...item,
+                object: {
+                  ...item.object,
+                  position: lineEndpointPreview.position,
+                  rotation: lineEndpointPreview.rotation,
+                  scale: lineEndpointPreview.scale,
+                },
+              }
+            : item
+        }
+        key={item.object.id}
+        previewX={selected.has(item.object.id) ? selectionPreviewX : 0}
+        previewY={selected.has(item.object.id) ? selectionPreviewY : 0}
+        registry={registry}
+        zoom={item.object.kind === "drawing.pen-stroke" ? 1 : zoom}
+      />
+    ));
+    if (
+      run.ink &&
+      run.items.length >= minimumWheelCacheStrokes &&
+      wheelInkCache !== undefined
+    ) {
+      return (
+        <WheelCachedInkGroup coordinator={wheelInkCache} key={run.key}>
+          {contents}
+        </WheelCachedInkGroup>
+      );
+    }
+    return <Group key={run.key}>{contents}</Group>;
+  });
 });
