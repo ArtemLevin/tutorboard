@@ -960,7 +960,19 @@ for (const scenario of [
         testInfo.project.name !== "chromium",
         "Chromium owns the isolated diagnostic browser profile",
       );
+      // This extreme scene must remain responsive even when animated content
+      // starves requestIdleCallback: measure a guaranteed cold-wheel path.
+      if (scenario.strokeCount === 3000) {
+        await page.addInitScript(() => {
+          window.requestIdleCallback = () => 0;
+          window.cancelIdleCallback = () => {};
+        });
+      }
       const result = await profileLargeBoard(page, scenario);
+      if (scenario.strokeCount === 3000) {
+        expect(result.zoom.wheelCacheSkippedColdBuild).toBe(true);
+        expect(result.zoom.wheelCacheWheelBeginMs).toBeLessThan(25);
+      }
       await testInfo.attach("large-board-" + scenario.name + ".json", {
         body: Buffer.from(JSON.stringify(result, null, 2)),
         contentType: "application/json",
