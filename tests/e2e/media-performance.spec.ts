@@ -858,7 +858,10 @@ async function profileLargeBoard(
         page,
         "data-wheel-cache-last-build-pixels",
       ),
-      wheelCacheBuilds: await integerStageMetric(page, "data-wheel-cache-builds"),
+      wheelCacheBuilds: await integerStageMetric(
+        page,
+        "data-wheel-cache-builds",
+      ),
       wheelCacheSkippedRuns: await integerStageMetric(
         page,
         "data-wheel-cache-last-skipped-runs",
