@@ -30,6 +30,9 @@ export class WheelInkCacheCoordinator {
   readonly #cached = new Set<WheelInkNode>();
   #active = false;
   #buildCount = 0;
+  #lastBuildDurationMs = 0;
+  #lastBuildPixels = 0;
+  #lastBuildSkippedRuns = 0;
 
   get cachedCount(): number {
     return this.#cached.size;
@@ -37,6 +40,18 @@ export class WheelInkCacheCoordinator {
 
   get buildCount(): number {
     return this.#buildCount;
+  }
+
+  get lastBuildDurationMs(): number {
+    return this.#lastBuildDurationMs;
+  }
+
+  get lastBuildPixels(): number {
+    return this.#lastBuildPixels;
+  }
+
+  get lastBuildSkippedRuns(): number {
+    return this.#lastBuildSkippedRuns;
   }
 
   register(node: WheelInkNode): () => void {
@@ -50,6 +65,9 @@ export class WheelInkCacheCoordinator {
   begin(devicePixelRatio = 1): void {
     if (this.#active) return;
     this.#active = true;
+    const startedAt = performance.now();
+    this.#lastBuildPixels = 0;
+    this.#lastBuildSkippedRuns = 0;
     const ratio = Math.max(1, Math.min(2, devicePixelRatio));
     let remainingPixels = maximumWheelCachePixels;
     for (const node of this.#nodes) {
@@ -65,6 +83,7 @@ export class WheelInkCacheCoordinator {
         height <= 0 ||
         pixels > remainingPixels
       ) {
+        this.#lastBuildSkippedRuns += 1;
         continue;
       }
       node.cache({
@@ -77,8 +96,10 @@ export class WheelInkCacheCoordinator {
       });
       this.#cached.add(node);
       this.#buildCount += 1;
+      this.#lastBuildPixels += pixels;
       remainingPixels -= pixels;
     }
+    this.#lastBuildDurationMs = performance.now() - startedAt;
   }
 
   invalidate(): void {

@@ -27,6 +27,9 @@ describe("transient wheel ink cache", () => {
     coordinator.begin(1.5);
     coordinator.begin(1.5);
     expect(cacheSpy).toHaveBeenCalledTimes(1);
+    expect(coordinator.lastBuildDurationMs).toBeGreaterThanOrEqual(0);
+    expect(coordinator.lastBuildPixels).toBeGreaterThan(0);
+    expect(coordinator.lastBuildSkippedRuns).toBe(0);
     expect(cacheSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         x: 7,
@@ -52,6 +55,8 @@ describe("transient wheel ink cache", () => {
     coordinator.register(node);
     coordinator.begin();
     expect(cacheSpy).not.toHaveBeenCalled();
+    expect(coordinator.lastBuildPixels).toBe(0);
+    expect(coordinator.lastBuildSkippedRuns).toBe(1);
     coordinator.end();
     expect(clearSpy).not.toHaveBeenCalled();
   });
@@ -68,6 +73,10 @@ describe("transient wheel ink cache", () => {
     expect(first.cacheSpy).toHaveBeenCalledOnce();
     expect(second.cacheSpy).toHaveBeenCalledOnce();
     expect(third.cacheSpy).not.toHaveBeenCalled();
+    expect(coordinator.lastBuildSkippedRuns).toBe(1);
+    expect(coordinator.lastBuildPixels).toBeLessThanOrEqual(
+      maximumWheelCachePixels,
+    );
     coordinator.end();
     expect(first.clearSpy).toHaveBeenCalledOnce();
     expect(second.clearSpy).toHaveBeenCalledOnce();
