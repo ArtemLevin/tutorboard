@@ -8,24 +8,26 @@ import {
 
 function fixture(width = 600, height = 400) {
   const layer = { batchDraw: vi.fn() };
+  const cacheSpy = vi.fn();
+  const clearSpy = vi.fn();
   const node: WheelInkNode = {
-    cache: vi.fn(),
-    clearCache: vi.fn(),
-    getClientRect: vi.fn(() => ({ x: 10, y: 20, width, height })),
+    cache: cacheSpy,
+    clearCache: clearSpy,
+    getClientRect: () => ({ x: 10, y: 20, width, height }),
     getLayer: () => layer,
   };
-  return { layer, node };
+  return { cacheSpy, clearSpy, layer, node };
 }
 
 describe("transient wheel ink cache", () => {
   it("rasterizes once per gesture, releases on commit and supports a new gesture", () => {
     const coordinator = new WheelInkCacheCoordinator();
-    const { node, layer } = fixture();
+    const { node, layer, cacheSpy, clearSpy } = fixture();
     const unregister = coordinator.register(node);
     coordinator.begin(1.5);
     coordinator.begin(1.5);
-    expect(node.cache).toHaveBeenCalledTimes(1);
-    expect(node.cache).toHaveBeenCalledWith(
+    expect(cacheSpy).toHaveBeenCalledTimes(1);
+    expect(cacheSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         x: 7,
         y: 17,
@@ -34,24 +36,24 @@ describe("transient wheel ink cache", () => {
       }),
     );
     coordinator.end();
-    expect(node.clearCache).toHaveBeenCalledOnce();
+    expect(clearSpy).toHaveBeenCalledOnce();
     expect(layer.batchDraw).toHaveBeenCalledOnce();
     coordinator.begin();
-    expect(node.cache).toHaveBeenCalledTimes(2);
+    expect(cacheSpy).toHaveBeenCalledTimes(2);
     unregister();
-    expect(node.clearCache).toHaveBeenCalledTimes(2);
+    expect(clearSpy).toHaveBeenCalledTimes(2);
     coordinator.dispose();
-    expect(node.clearCache).toHaveBeenCalledTimes(2);
+    expect(clearSpy).toHaveBeenCalledTimes(2);
   });
 
   it("skips oversized caches without allocating large canvases", () => {
     const coordinator = new WheelInkCacheCoordinator();
-    const { node } = fixture(maximumWheelCachePixels, 2);
+    const { node, cacheSpy, clearSpy } = fixture(maximumWheelCachePixels, 2);
     coordinator.register(node);
     coordinator.begin();
-    expect(node.cache).not.toHaveBeenCalled();
+    expect(cacheSpy).not.toHaveBeenCalled();
     coordinator.end();
-    expect(node.clearCache).not.toHaveBeenCalled();
+    expect(clearSpy).not.toHaveBeenCalled();
   });
 
   it("shares a fixed pixel budget across registered stroke runs", () => {
@@ -63,12 +65,12 @@ describe("transient wheel ink cache", () => {
     coordinator.register(second.node);
     coordinator.register(third.node);
     coordinator.begin(1);
-    expect(first.node.cache).toHaveBeenCalledOnce();
-    expect(second.node.cache).toHaveBeenCalledOnce();
-    expect(third.node.cache).not.toHaveBeenCalled();
+    expect(first.cacheSpy).toHaveBeenCalledOnce();
+    expect(second.cacheSpy).toHaveBeenCalledOnce();
+    expect(third.cacheSpy).not.toHaveBeenCalled();
     coordinator.end();
-    expect(first.node.clearCache).toHaveBeenCalledOnce();
-    expect(second.node.clearCache).toHaveBeenCalledOnce();
+    expect(first.clearSpy).toHaveBeenCalledOnce();
+    expect(second.clearSpy).toHaveBeenCalledOnce();
   });
 
   it("invalidates and restores hit/scene drawing when document state changes", () => {
@@ -77,10 +79,10 @@ describe("transient wheel ink cache", () => {
     coordinator.register(node);
     coordinator.begin();
     coordinator.invalidate();
-    expect(node.clearCache).toHaveBeenCalledOnce();
+    expect(clearSpy).toHaveBeenCalledOnce();
     expect(layer.batchDraw).toHaveBeenCalledOnce();
     coordinator.end();
-    expect(node.clearCache).toHaveBeenCalledOnce();
+    expect(clearSpy).toHaveBeenCalledOnce();
   });
 
   it("cleans up registrations and caches on StrictMode unmount", () => {
@@ -92,11 +94,11 @@ describe("transient wheel ink cache", () => {
     const next = fixture();
     coordinator.register(next.node);
     coordinator.end();
-    expect(previous.node.clearCache).toHaveBeenCalledOnce();
-    expect(next.node.clearCache).not.toHaveBeenCalled();
+    expect(previous.clearSpy).toHaveBeenCalledOnce();
+    expect(next.clearSpy).not.toHaveBeenCalled();
     coordinator.begin();
-    expect(next.node.cache).toHaveBeenCalledOnce();
+    expect(next.cacheSpy).toHaveBeenCalledOnce();
     coordinator.dispose();
-    expect(next.node.clearCache).toHaveBeenCalledOnce();
+    expect(next.clearSpy).toHaveBeenCalledOnce();
   });
 });

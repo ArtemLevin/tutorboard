@@ -526,6 +526,7 @@ export function BoardStage({
     useState<BoardObjectTransformSnapshot | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const size = useElementSize(rootRef);
+  const selectedObjectIdsKey = selectedObjectIds.join("|");
   const hasStaticRaster = useMemo(
     () =>
       scene.items.some(
@@ -835,7 +836,7 @@ export function BoardStage({
     wheelInkCache,
     scene.items,
     lineEndpointPreview,
-    selectedObjectIds.join("\\u001f"),
+    selectedObjectIdsKey,
     selectionPreviewDelta?.x,
     selectionPreviewDelta?.y,
   ]);
