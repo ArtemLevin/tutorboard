@@ -40,6 +40,7 @@ import {
   buildSmoothClosedStrokePoints,
   flattenStrokePoints,
 } from "../../shared/stroke-smoothing";
+import { recordBoardFrameTrace } from "./board-frame-trace";
 import { AnimatedImageRedrawCoordinator } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
 import { BoardRenderItemView, BoardSceneContent } from "./board-scene-content";
@@ -469,6 +470,10 @@ export function BoardStage({
   transformableObjectIds = [],
   wetInkStyle = null,
 }: BoardStageProps) {
+  const profileStartedAtMs =
+    typeof window === "undefined" || window.__tutorBoardC37Trace === undefined
+      ? null
+      : performance.now();
   const [animatedImageRedraw] = useState(
     () => new AnimatedImageRedrawCoordinator(),
   );
@@ -575,6 +580,18 @@ export function BoardStage({
     [],
   );
 
+  // Attribution runs only in the opt-in browser performance profile.
+  // The interval covers React render through layout commit, including
+  // synchronous react-konva reconciliation, but excludes GPU composition.
+  useLayoutEffect(() => {
+    if (profileStartedAtMs === null) return;
+    recordBoardFrameTrace(
+      "board-commit",
+      profileStartedAtMs,
+      performance.now() - profileStartedAtMs,
+    );
+  });
+
   useEffect(() => () => animatedImageRedraw.dispose(), [animatedImageRedraw]);
   useEffect(() => () => wheelInkCache.dispose(), [wheelInkCache]);
 
@@ -668,6 +685,48 @@ export function BoardStage({
   const animatedPaintLayerCount = committedPaintRuns.filter(
     (run) => run.animated,
   ).length;
+  useLayoutEffect(() => {
+    if (window.__tutorBoardC37Trace === undefined) return;
+    const stage = stageRef.current;
+    if (stage === null) return;
+    const cleanup = stage.getLayers().map((layer) => {
+      const originalScene = layer.drawScene;
+      const originalHit = layer.drawHit;
+      const name = layer.name() || "unnamed-layer";
+      layer.drawScene = (...args) => {
+        const startMs = performance.now();
+        try {
+          return originalScene.apply(layer, args);
+        } finally {
+          recordBoardFrameTrace(
+            "konva-scene",
+            startMs,
+            performance.now() - startMs,
+            name,
+          );
+        }
+      };
+      layer.drawHit = (...args) => {
+        const startMs = performance.now();
+        try {
+          return originalHit.apply(layer, args);
+        } finally {
+          recordBoardFrameTrace(
+            "konva-hit",
+            startMs,
+            performance.now() - startMs,
+            name,
+          );
+        }
+      };
+      return () => {
+        layer.drawScene = originalScene;
+        layer.drawHit = originalHit;
+      };
+    });
+    return () => cleanup.forEach((restore) => restore());
+  }, [committedPaintRuns]);
+
   const lineEndpointItems = useMemo(() => {
     const allowed = new Set(lineEndpointObjectIds);
     return scene.items.filter(
