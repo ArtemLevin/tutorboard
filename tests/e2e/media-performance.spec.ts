@@ -857,7 +857,10 @@ test("@smoke GIF redraw resumes after repeated wheel zoom on a dense board", asy
     .toBeGreaterThanOrEqual(4);
   const bounds = await page.getByTestId("board-stage").boundingBox();
   if (bounds === null) throw new Error("Expected a board stage");
-  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
   for (let index = 0; index < 6; index += 1) {
     await page.mouse.wheel(0, index % 2 === 0 ? -190 : 190);
   }
