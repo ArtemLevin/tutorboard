@@ -2126,7 +2126,8 @@ export function BoardStage({
       data-committed-layer-count={committedPaintRuns.length}
       data-animated-layer-count={animatedPaintLayerCount}
       data-wheel-cache-builds={wheelInkCache.buildCount}
-      data-wheel-cache-active-runs={wheelInkCache.cachedCount}
+      data-wheel-cache-active-runs={wheelInkCache.activeCachedCount}
+      data-wheel-cache-retained-runs={wheelInkCache.cachedCount}
       data-wheel-cache-last-build-ms={wheelInkCache.lastBuildDurationMs}
       data-wheel-cache-last-build-pixels={wheelInkCache.lastBuildPixels}
       data-wheel-cache-last-skipped-runs={wheelInkCache.lastBuildSkippedRuns}
