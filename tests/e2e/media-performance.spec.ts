@@ -875,10 +875,18 @@ async function profileLargeBoard(
       ),
       wheelCacheOverlappingSlowFrames: await page.evaluate((windows) => {
         const stage = document.querySelector('[data-testid="board-stage"]');
-        if (stage === null) throw new Error("Stage missing during frame correlation");
-        const start = Number(stage.getAttribute("data-wheel-cache-last-wheel-start-ms"));
-        const end = Number(stage.getAttribute("data-wheel-cache-last-wheel-end-ms"));
-        return windows.filter(({ startMs, endMs }) => startMs < end && endMs > start).length;
+        if (stage === null) {
+          throw new Error("Stage missing during frame correlation");
+        }
+        const start = Number(
+          stage.getAttribute("data-wheel-cache-last-wheel-start-ms"),
+        );
+        const end = Number(
+          stage.getAttribute("data-wheel-cache-last-wheel-end-ms"),
+        );
+        return windows.filter(
+          ({ startMs, endMs }) => startMs < end && endMs > start,
+        ).length;
       }, zoomFrames.slowFrameWindows),
       wheelCacheUsedPrewarm:
         (await stage.getAttribute(
@@ -994,9 +1002,9 @@ test("@smoke isolates interleaved GIF redraw while preserving committed z-order"
   expect(counters.drawImageCalls).toBeLessThan(140);
 });
 
-test(
-  "@smoke reuses idle-prepared ink cache on first wheel and restores stroke hits",
-  async ({ page }) => {
+test("@smoke reuses prepared wheel cache and restores pen hits", async ({
+  page,
+}) => {
   await resetLocalDatabase(page);
   await importDocument(
     page,
@@ -1026,8 +1034,7 @@ test(
   await page.keyboard.press("v");
   await page.mouse.click(bounds.x + 90, bounds.y + 192);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
-  },
-);
+});
 
 test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
   page,
