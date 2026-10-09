@@ -1,6 +1,12 @@
 name: Media cache cyclic soak
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/media-cache-soak.yml"
+      - "tests/e2e/media-cache-lifecycle.spec.ts"
+      - "src/adapters/canvas-konva/**"
+      - "src/app/SyncedApp.tsx"
   workflow_dispatch:
 
 permissions:
