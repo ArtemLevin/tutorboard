@@ -2097,9 +2097,7 @@ export function BoardStage({
       data-wheel-cache-last-wheel-begin-ms={
         wheelInkCache.lastWheelBeginDurationMs
       }
-      data-wheel-cache-last-wheel-start-ms={
-        wheelInkCache.lastWheelBeginStartMs
-      }
+      data-wheel-cache-last-wheel-start-ms={wheelInkCache.lastWheelBeginStartMs}
       data-wheel-cache-last-wheel-end-ms={wheelInkCache.lastWheelBeginEndMs}
       data-wheel-cache-last-wheel-used-prepared={
         wheelInkCache.lastWheelUsedPrepared
