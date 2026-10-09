@@ -873,7 +873,11 @@ test("@smoke isolates interleaved GIF redraw while preserving committed z-order"
   await expect(stage).toHaveAttribute("data-animated-layer-count", "2");
   await expect
     .poll(async () => (await snapshot(page)).imageSrcAssignments)
-    .toBeGreaterThanOrEqual(5);
+    .toBeGreaterThanOrEqual(2);
+  // PNGs use createImageBitmap and do not assign HTMLImageElement.src.
+  await expect
+    .poll(() => integerStageMetric(page, "data-raster-active-decoded-count"))
+    .toBeGreaterThanOrEqual(3);
 
   await measureFrames(page, 15);
   await resetProfile(page);

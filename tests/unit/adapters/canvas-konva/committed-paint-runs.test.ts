@@ -82,7 +82,7 @@ describe("bounded committed paint runs", () => {
     expect(new Set(runs.map((run) => run.key)).size).toBe(4);
   });
 
-  it("partitions 600 pen items into static and GIF Layers", () => {
+  it("partitions 600 static items into static and GIF Layers", () => {
     const ink = Array.from({ length: 600 }, (_, index) => object(index));
     const gifA = object(600, true);
     const gifB = object(601, true);
