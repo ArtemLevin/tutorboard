@@ -317,6 +317,34 @@ GPU/compositor attribution, многочасовой реальный soak и с
 на разных устройствах. Подробнее:
 [`docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md`](docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md).
 
+### C3.6: неблокирующий cold wheel fallback — 09.10.2026
+
+В stacked draft [PR #198](https://github.com/ArtemLevin/tutorboard/pull/198)
+`WheelInkCacheCoordinator.begin(..., {buildIfUnprepared:false})` используется
+в `BoardStage.handleWheel`. Кэшированные scene/hit canvas продолжают
+переиспользоваться при подготовленном DPR, а отсутствие idle-prewarm
+ведёт к прямой отрисовке исходных штрихов без синхронного
+`Konva.Group.cache()` в обработчике input. Старое поведение метода
+`begin()` без options сохранено. Отдельная метрика фиксирует cold skip.
+
+[Первый CI #37975430796](https://github.com/ArtemLevin/tutorboard/actions/runs/37975430796):
+1096/1096 unit/integration, 25/25 performance, 16/16 Chromium media profile,
+Chrome/Firefox smoke, GeometryOS, Coordinate plot, Board-only, all green.
+3000 strokes + 4 GIF, **forced requestIdleCallback starvation**:
+wheel begin `0.1 ms` vs `43.8 ms` в C3.5 baseline (runner dependent),
+zoom p95 `33.4 ms` vs `50 ms`, max rAF `100 ms` vs `133.4 ms`.
+Pixel parity при DPR2: significant channel fraction `0.00992839` (<0.01),
+mean channel error `0.17597` (<1). В 48 wheel-cycles без prewarm
+cacheBuilds=0, после clear no cached runs; память ограничена.
+
+**Открыто:** максимальная задержка 100 ms и p95 33.4 ms исключают
+утверждение о постоянных 60 FPS. Метрики отдельных GitHub-hosted прогонов
+чувствительны к планировщику; повторить измерение перед merge.
+Следующий C3.7 — профилирование полного Konva canvas redraw / GIF layer
+invalidations / React commit под холодным zoom и исключение >50 ms frames,
+с сохранением z-order, hit-testing, parity и bounded memory. PR #197/#198
+оставить в draft до подтверждения release gate.
+
 ### C3.5: стабильная геометрия viewport-culling — 09.10.2026
 
 После объединения C3.3/C3.4 (`main`
