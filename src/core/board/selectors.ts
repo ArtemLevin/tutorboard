@@ -368,9 +368,10 @@ export function createBoardVisibilityIndex(
   return {
     select(viewport, size) {
       const visible = visibleWorldBounds(viewport, size);
-      const next = entries.flatMap(({ bounds, item }) =>
-        overlapsViewport(bounds, visible) ? [item] : [],
-      );
+      const next: BoardRenderItem[] = [];
+      for (const { bounds, item } of entries) {
+        if (overlapsViewport(bounds, visible)) next.push(item);
+      }
       if (
         next.length === previousVisible.length &&
         next.every((item, index) => item === previousVisible[index])
