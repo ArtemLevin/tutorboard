@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 
 import { expect, test, type Page } from "@playwright/test";
 
+import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 import { createCoordinatePlot } from "./coordinate-plot-interaction.js";
 
 const { PNG } = createRequire(import.meta.url)("pngjs") as {
@@ -307,7 +308,7 @@ async function resetLocalDatabase(page: Page): Promise<void> {
 
 async function importDocument(
   page: Page,
-  document: ReturnType<typeof createMediaPerformanceDocument>,
+  document: { readonly order: readonly string[] },
 ): Promise<void> {
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
@@ -627,3 +628,218 @@ test("@smoke file import decodes static raster before A2 renderer mount", async 
     .poll(async () => (await snapshot(page)).bitmapDecodeCalls)
     .toBeGreaterThanOrEqual(2);
 });
+
+const largeBoardImageSide = 1_536;
+const largeBoardImageCount = 6;
+const largeBoardFrameCount = 48;
+let largeBoardPngs: readonly string[] | null = null;
+
+function representativeLargeBoardPngs(): readonly string[] {
+  if (largeBoardPngs !== null) return largeBoardPngs;
+  largeBoardPngs = Array.from(
+    { length: largeBoardImageCount },
+    (_, imageIndex) => {
+      const png = new PNG({
+        height: largeBoardImageSide,
+        width: largeBoardImageSide,
+      });
+      for (let y = 0; y < largeBoardImageSide; y += 1) {
+        for (let x = 0; x < largeBoardImageSide; x += 1) {
+          const offset = (y * largeBoardImageSide + x) * 4;
+          png.data[offset] = (x * (imageIndex + 2) + (y >> 3)) % 256;
+          png.data[offset + 1] = (y * 3 + imageIndex * 37) % 256;
+          png.data[offset + 2] = ((x >> 2) + (y >> 2) + imageIndex * 41) % 256;
+          png.data[offset + 3] = 255;
+        }
+      }
+      return "data:image/png;base64," + PNG.sync.write(png).toString("base64");
+    },
+  );
+  return largeBoardPngs;
+}
+
+interface LargeBoardInteractionMeasurement {
+  readonly scenario: string;
+  readonly strokeCount: number;
+  readonly imageCount: number;
+  readonly gifCount: number;
+  readonly sourcePixelBytes: number;
+  readonly embeddedSourceBytes: number;
+  readonly importAndDecodeWallMs: number;
+  readonly rasterActiveDecodedCount: number;
+  readonly rasterActiveEstimatedDecodedBytes: number;
+  readonly idle: {
+    readonly frames: FrameProfile;
+    readonly counters: MediaProfileSnapshot;
+  };
+  readonly drawing: {
+    readonly frames: FrameProfile;
+    readonly counters: MediaProfileSnapshot;
+    readonly inputToPaintP95Ms: number;
+    readonly inputToPaintCount: number;
+    readonly pointerGestureWallMs: number;
+  };
+  readonly zoom: {
+    readonly frames: FrameProfile;
+    readonly counters: MediaProfileSnapshot;
+    readonly wheelGestureWallMs: number;
+  };
+}
+
+async function integerStageMetric(page: Page, name: string): Promise<number> {
+  const value = await page.getByTestId("board-stage").getAttribute(name);
+  if (value === null || !Number.isFinite(Number(value))) {
+    throw new Error("Stage did not publish " + name);
+  }
+  return Number(value);
+}
+
+async function profileLargeBoard(
+  page: Page,
+  scenario: {
+    readonly name: string;
+    readonly strokeCount: number;
+    readonly gifCount: number;
+  },
+): Promise<LargeBoardInteractionMeasurement> {
+  await resetLocalDatabase(page);
+  const sources = representativeLargeBoardPngs();
+  const document = createDenseBoardDocument({
+    strokeCount: scenario.strokeCount,
+    staticCount: sources.length,
+    gifCount: scenario.gifCount,
+    largeStaticDataUrls: sources,
+  });
+  const start = performance.now();
+  await importDocument(page, document);
+  await expect
+    .poll(() => integerStageMetric(page, "data-raster-active-decoded-count"))
+    .toBe(largeBoardImageCount);
+  const importAndDecodeWallMs = performance.now() - start;
+  const activeCount = await integerStageMetric(
+    page,
+    "data-raster-active-decoded-count",
+  );
+  const activeBytes = await integerStageMetric(
+    page,
+    "data-raster-active-estimated-decoded-bytes",
+  );
+
+  await measureFrames(page, 20);
+  await resetProfile(page);
+  const idleFrames = await measureFrames(page, largeBoardFrameCount);
+  const idleCounters = await snapshot(page);
+
+  await page.getByRole("button", { name: "Рисование" }).click();
+  await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
+  const stage = page.getByTestId("board-stage");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Dense stage bounds missing");
+
+  const x = bounds.x + 110;
+  const y = bounds.y + Math.min(bounds.height * 0.74, 540);
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await expect(stage).toHaveAttribute("data-wet-ink-active", "true");
+  await resetProfile(page);
+  const gestureStart = performance.now();
+  const [drawingFrames] = await Promise.all([
+    measureFrames(page, largeBoardFrameCount),
+    page.mouse.move(x + Math.min(bounds.width * 0.65, 510), y + 34, {
+      steps: 48,
+    }),
+  ]);
+  const pointerGestureWallMs = performance.now() - gestureStart;
+  const drawingCounters = await snapshot(page);
+  await page.mouse.up();
+  await expect(page.getByTestId("object-count")).toHaveText(
+    new RegExp("^" + (document.order.length + 1) + " объект", "u"),
+  );
+  await expect(stage).toHaveAttribute("data-wet-ink-active", "false");
+  const inputToPaintP95Ms = await integerStageMetric(
+    page,
+    "data-wet-ink-latency-p95-ms",
+  );
+  const inputToPaintCount = await integerStageMetric(
+    page,
+    "data-wet-ink-latency-count",
+  );
+
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
+  await resetProfile(page);
+  const wheelStart = performance.now();
+  const [zoomFrames] = await Promise.all([
+    measureFrames(page, largeBoardFrameCount),
+    (async () => {
+      for (let step = 0; step < 6; step += 1) {
+        await page.mouse.wheel(0, step % 2 === 0 ? -190 : 190);
+      }
+    })(),
+  ]);
+  const wheelGestureWallMs = performance.now() - wheelStart;
+  const zoomCounters = await snapshot(page);
+  const result: LargeBoardInteractionMeasurement = {
+    scenario: scenario.name,
+    strokeCount: scenario.strokeCount,
+    imageCount: sources.length,
+    gifCount: scenario.gifCount,
+    sourcePixelBytes: largeBoardImageCount * largeBoardImageSide ** 2 * 4,
+    embeddedSourceBytes: sources.reduce((sum, value) => sum + value.length, 0),
+    importAndDecodeWallMs,
+    rasterActiveDecodedCount: activeCount,
+    rasterActiveEstimatedDecodedBytes: activeBytes,
+    idle: { frames: idleFrames, counters: idleCounters },
+    drawing: {
+      frames: drawingFrames,
+      counters: drawingCounters,
+      inputToPaintP95Ms,
+      inputToPaintCount,
+      pointerGestureWallMs,
+    },
+    zoom: { frames: zoomFrames, counters: zoomCounters, wheelGestureWallMs },
+  };
+  console.info("LARGE_BOARD_INTERACTION_PROFILE", JSON.stringify(result));
+  // Decoding is intentionally display-resolution-aware (typically 256 px here),
+  // while zoom/remount may briefly leave multiple live decode buckets.
+  expect(result.rasterActiveDecodedCount).toBeGreaterThanOrEqual(
+    largeBoardImageCount,
+  );
+  expect(result.rasterActiveDecodedCount).toBeLessThanOrEqual(
+    largeBoardImageCount * 2,
+  );
+  expect(result.rasterActiveEstimatedDecodedBytes).toBeGreaterThan(0);
+  expect(result.drawing.inputToPaintCount).toBeGreaterThan(0);
+  expect(result.drawing.frames.frameCount).toBe(largeBoardFrameCount);
+  expect(result.zoom.frames.frameCount).toBe(largeBoardFrameCount);
+  return result;
+}
+
+// Two factors are varied independently, preventing dense ink and GIF cadence
+// from becoming an uninterpretable combined performance regression.
+for (const scenario of [
+  { name: "large300-static", strokeCount: 300, gifCount: 0 },
+  { name: "large300-animated", strokeCount: 300, gifCount: 4 },
+  { name: "large600-static", strokeCount: 600, gifCount: 0 },
+  { name: "large600-animated", strokeCount: 600, gifCount: 4 },
+]) {
+  test(
+    "@media-profile measures large-board drawing, zoom and raster decode: " +
+      scenario.name,
+    async ({ page }, testInfo) => {
+      test.setTimeout(120_000);
+      test.skip(
+        testInfo.project.name !== "chromium",
+        "Chromium owns the isolated diagnostic browser profile",
+      );
+      const result = await profileLargeBoard(page, scenario);
+      await testInfo.attach("large-board-" + scenario.name + ".json", {
+        body: Buffer.from(JSON.stringify(result, null, 2)),
+        contentType: "application/json",
+      });
+    },
+  );
+}
