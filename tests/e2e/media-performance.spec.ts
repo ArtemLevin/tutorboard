@@ -120,7 +120,11 @@ function createMediaPerformanceDocument(
 interface MediaProfileSnapshot {
   readonly bitmapDecodeCalls: number;
   readonly clearRectCalls: number;
+  readonly clearRectJsMs: number;
   readonly drawImageCalls: number;
+  readonly drawImageJsMs: number;
+  readonly strokeCalls: number;
+  readonly strokeJsMs: number;
   readonly imageSrcAssignments: number;
   readonly longTaskCount: number;
   readonly longTaskMaxMs: number;
@@ -135,6 +139,9 @@ interface FrameProfile {
   readonly meanMs: number;
   readonly p50Ms: number;
   readonly p95Ms: number;
+  readonly over25Ms: number;
+  readonly over50Ms: number;
+  readonly slowestGapsMs: readonly number[];
 }
 
 interface MediaMeasuredPass {
@@ -162,7 +169,11 @@ const mediaInstrumentationScript = String.raw`
   const state = {
     bitmapDecodeCalls: 0,
     clearRectCalls: 0,
+    clearRectJsMs: 0,
     drawImageCalls: 0,
+    drawImageJsMs: 0,
+    strokeCalls: 0,
+    strokeJsMs: 0,
     imageSrcAssignments: 0,
     longTasks: [],
     rafCallbacks: 0,
@@ -172,6 +183,7 @@ const mediaInstrumentationScript = String.raw`
   const originalCancelAnimationFrame = window.cancelAnimationFrame.bind(window);
   const originalDrawImage = CanvasRenderingContext2D.prototype.drawImage;
   const originalClearRect = CanvasRenderingContext2D.prototype.clearRect;
+  const originalStroke = CanvasRenderingContext2D.prototype.stroke;
   const originalCreateImageBitmap = window.createImageBitmap.bind(window);
   const imageSrcDescriptor = Object.getOwnPropertyDescriptor(
     HTMLImageElement.prototype,
@@ -195,11 +207,30 @@ const mediaInstrumentationScript = String.raw`
 
   CanvasRenderingContext2D.prototype.drawImage = function (...args) {
     state.drawImageCalls += 1;
-    return Reflect.apply(originalDrawImage, this, args);
+    const start = performance.now();
+    try {
+      return Reflect.apply(originalDrawImage, this, args);
+    } finally {
+      state.drawImageJsMs += performance.now() - start;
+    }
   };
   CanvasRenderingContext2D.prototype.clearRect = function (...args) {
     state.clearRectCalls += 1;
-    return Reflect.apply(originalClearRect, this, args);
+    const start = performance.now();
+    try {
+      return Reflect.apply(originalClearRect, this, args);
+    } finally {
+      state.clearRectJsMs += performance.now() - start;
+    }
+  };
+  CanvasRenderingContext2D.prototype.stroke = function (...args) {
+    state.strokeCalls += 1;
+    const start = performance.now();
+    try {
+      return Reflect.apply(originalStroke, this, args);
+    } finally {
+      state.strokeJsMs += performance.now() - start;
+    }
   };
 
   if (imageSrcDescriptor?.get && imageSrcDescriptor.set) {
@@ -238,7 +269,11 @@ const mediaInstrumentationScript = String.raw`
     reset() {
       state.bitmapDecodeCalls = 0;
       state.clearRectCalls = 0;
+      state.clearRectJsMs = 0;
       state.drawImageCalls = 0;
+      state.drawImageJsMs = 0;
+      state.strokeCalls = 0;
+      state.strokeJsMs = 0;
       state.imageSrcAssignments = 0;
       state.longTasks.length = 0;
       state.rafCallbacks = 0;
@@ -248,7 +283,11 @@ const mediaInstrumentationScript = String.raw`
       return {
         bitmapDecodeCalls: state.bitmapDecodeCalls,
         clearRectCalls: state.clearRectCalls,
+        clearRectJsMs: state.clearRectJsMs,
         drawImageCalls: state.drawImageCalls,
+        drawImageJsMs: state.drawImageJsMs,
+        strokeCalls: state.strokeCalls,
+        strokeJsMs: state.strokeJsMs,
         imageSrcAssignments: state.imageSrcAssignments,
         longTaskCount: state.longTasks.length,
         longTaskMaxMs:
@@ -281,6 +320,9 @@ const mediaInstrumentationScript = String.raw`
               intervals.length,
         p50Ms: percentile(intervals, 0.5),
         p95Ms: percentile(intervals, 0.95),
+        over25Ms: intervals.filter((duration) => duration > 25).length,
+        over50Ms: intervals.filter((duration) => duration > 50).length,
+        slowestGapsMs: [...intervals].sort((a, b) => b - a).slice(0, 5),
       };
     },
   };
@@ -683,6 +725,10 @@ interface LargeBoardInteractionMeasurement {
     readonly frames: FrameProfile;
     readonly counters: MediaProfileSnapshot;
     readonly wheelGestureWallMs: number;
+    readonly wheelCacheBuildMs: number;
+    readonly wheelCacheBuildPixels: number;
+    readonly wheelCacheBuilds: number;
+    readonly wheelCacheSkippedRuns: number;
   };
 }
 
@@ -800,7 +846,24 @@ async function profileLargeBoard(
       inputToPaintCount,
       pointerGestureWallMs,
     },
-    zoom: { frames: zoomFrames, counters: zoomCounters, wheelGestureWallMs },
+    zoom: {
+      frames: zoomFrames,
+      counters: zoomCounters,
+      wheelGestureWallMs,
+      wheelCacheBuildMs: await integerStageMetric(
+        page,
+        "data-wheel-cache-last-build-ms",
+      ),
+      wheelCacheBuildPixels: await integerStageMetric(
+        page,
+        "data-wheel-cache-last-build-pixels",
+      ),
+      wheelCacheBuilds: await integerStageMetric(page, "data-wheel-cache-builds"),
+      wheelCacheSkippedRuns: await integerStageMetric(
+        page,
+        "data-wheel-cache-last-skipped-runs",
+      ),
+    },
   };
   console.info("LARGE_BOARD_INTERACTION_PROFILE", JSON.stringify(result));
   // Decoding is intentionally display-resolution-aware (typically 256 px here),
@@ -815,6 +878,11 @@ async function profileLargeBoard(
   expect(result.drawing.inputToPaintCount).toBeGreaterThan(0);
   expect(result.drawing.frames.frameCount).toBe(largeBoardFrameCount);
   expect(result.zoom.frames.frameCount).toBe(largeBoardFrameCount);
+  expect(result.zoom.wheelCacheBuildMs).toBeGreaterThanOrEqual(0);
+  expect(result.zoom.wheelCacheBuildPixels).toBeLessThanOrEqual(4_000_000);
+  expect(result.zoom.frames.over25Ms).toBeLessThanOrEqual(
+    result.zoom.frames.frameCount,
+  );
   return result;
 }
 
