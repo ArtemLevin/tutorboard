@@ -825,10 +825,11 @@ export function BoardStage({
         window.clearTimeout(wheelSession.timeoutId);
         wheelSessionRef.current = null;
         wheelInkCache.end();
+        animatedImageRedraw.setInteractionActive(false);
       }
       setPreviewViewport(scene.viewport);
     }
-  }, [scene.viewport, wheelInkCache]);
+  }, [animatedImageRedraw, scene.viewport, wheelInkCache]);
 
   useLayoutEffect(() => {
     wheelInkCache.invalidate();
@@ -1094,9 +1095,10 @@ export function BoardStage({
       window.clearTimeout(session.timeoutId);
       wheelSessionRef.current = null;
       wheelInkCache.end();
+      animatedImageRedraw.setInteractionActive(false);
       setPreviewViewport(viewportRef.current);
     }
-  }, [wheelInkCache]);
+  }, [animatedImageRedraw, wheelInkCache]);
 
   const commitWheel = useCallback(() => {
     const session = wheelSessionRef.current;
@@ -1104,10 +1106,11 @@ export function BoardStage({
       window.clearTimeout(session.timeoutId);
       wheelSessionRef.current = null;
       wheelInkCache.end();
+      animatedImageRedraw.setInteractionActive(false);
       setPreviewViewport(session.latestViewport);
       onViewportCommit(session.latestViewport);
     }
-  }, [onViewportCommit, wheelInkCache]);
+  }, [animatedImageRedraw, onViewportCommit, wheelInkCache]);
 
   const finishLineEndpointTransform = useCallback(
     (commit: boolean) => {
@@ -1583,6 +1586,7 @@ export function BoardStage({
       if (wheelSession !== null) {
         wheelSessionRef.current = null;
         window.clearTimeout(wheelSession.timeoutId);
+        animatedImageRedraw.setInteractionActive(false);
       }
       wheelInkCache.end();
       discardWorldPointerMoves();
@@ -1961,6 +1965,9 @@ export function BoardStage({
     if (!sameViewport(viewport, currentViewport)) {
       if (wheelSessionRef.current === null) {
         wheelInkCache.begin(window.devicePixelRatio);
+        // Avoid an independent full-speed GIF invalidation stream while the
+        // temporary wheel cache is composited through viewport transforms.
+        animatedImageRedraw.setInteractionActive(true);
       }
       setPreviewViewport(viewport);
       const currentSession = wheelSessionRef.current;

@@ -928,3 +928,32 @@ test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
   await page.mouse.click(bounds.x + 90, bounds.y + 192);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
 });
+
+test("@smoke GIF redraw resumes after repeated wheel zoom on a dense board", async ({
+  page,
+}) => {
+  await resetLocalDatabase(page);
+  await importDocument(
+    page,
+    createMediaPerformanceDocument({ gifCount: 4, staticCount: 5 }),
+  );
+  await expect
+    .poll(async () => (await snapshot(page)).imageSrcAssignments)
+    .toBeGreaterThanOrEqual(4);
+  const bounds = await page.getByTestId("board-stage").boundingBox();
+  if (bounds === null) throw new Error("Expected a board stage");
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
+  for (let index = 0; index < 6; index += 1) {
+    await page.mouse.wheel(0, index % 2 === 0 ? -190 : 190);
+  }
+  // Wait by rendering real frames until the 120 ms wheel session has settled.
+  await measureFrames(page, 15);
+  await resetProfile(page);
+  await measureFrames(page, 30);
+  const restored = await snapshot(page);
+  expect(restored.rafCallbacks).toBeGreaterThan(10);
+  expect(restored.drawImageCalls).toBeGreaterThan(0);
+});

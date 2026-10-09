@@ -172,3 +172,14 @@ remaining above 16.7 ms in three of four; it must not be represented as a
 general 60-fps guarantee. Short-lived pixel-bounded caching, full CI and
 cross-browser regression support accepting this performance improvement
 for merging PR #194, with further profiling tracked independently.
+
+## C3.2-A integration on top of merged C3.2-B
+
+PR #193's interaction-aware GIF scheduling is ported onto the merged C3.2-B
+static/GIF Layers and bounded wheel-ink cache. The 24-fps GIF redraw ceiling
+applies only while a wheel session is in progress; full-rate GIF repaint
+resumes on commit, cancel, authoritative viewport reset and unmount.
+Cross-browser GIF resume smoke and dense-board Chromium profile must pass
+before this combined candidate can be merged. Prior C3.2-A-only profiling
+reduced redraw calls without a reproducible zoom p95 gain; CI evidence for
+the integrated candidate must be evaluated separately.
