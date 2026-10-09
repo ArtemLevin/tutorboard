@@ -75,7 +75,7 @@ describe("transient wheel ink cache", () => {
 
   it("invalidates and restores hit/scene drawing when document state changes", () => {
     const coordinator = new WheelInkCacheCoordinator();
-    const { node, layer } = fixture();
+    const { node, layer, clearSpy } = fixture();
     coordinator.register(node);
     coordinator.begin();
     coordinator.invalidate();
