@@ -1008,6 +1008,7 @@ test("@media-profile DPR2 pixel parity", async ({ browser }, testInfo) => {
       });
       const page = await context.newPage();
       try {
+        await installMediaInstrumentation(page);
         await page.addInitScript((enabled) => {
           if (enabled) {
             window.requestIdleCallback = (callback) =>
@@ -1103,6 +1104,7 @@ test("@media-profile 3000 pen long-wheel soak", async ({
   });
   const page = await context.newPage();
   try {
+    await installMediaInstrumentation(page);
     await resetLocalDatabase(page);
     const board = createDenseBoardDocument({
       strokeCount: 3000,
