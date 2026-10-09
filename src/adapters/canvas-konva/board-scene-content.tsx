@@ -1,6 +1,7 @@
 import {
   memo,
   useLayoutEffect,
+  useMemo,
   useRef,
   type ReactElement,
   type ReactNode,
@@ -153,20 +154,31 @@ export interface BoardSceneContentProps {
   readonly wheelInkCache?: WheelInkCacheCoordinator;
 }
 
-export const BoardSceneContent = memo(function BoardSceneContent({
-  batches,
+interface BoardSceneRunProps {
+  readonly run: InkRenderRun;
+  readonly selected: ReadonlySet<BoardObjectId>;
+  readonly coordinatePlotInteraction: CoordinatePlotRenderInteraction | undefined;
+  readonly lineEndpointPreview: BoardObjectTransformSnapshot | null;
+  readonly registry: KonvaRendererRegistry;
+  readonly selectionPreviewX: number;
+  readonly selectionPreviewY: number;
+  readonly zoom: number;
+  readonly wheelInkCache: WheelInkCacheCoordinator | undefined;
+}
+
+/** Freeze immutable pen-only runs across wheel viewport changes. */
+const BoardSceneRun = memo(function BoardSceneRun({
+  run,
+  selected,
   coordinatePlotInteraction,
   lineEndpointPreview,
   registry,
-  selectedObjectIds,
   selectionPreviewX,
   selectionPreviewY,
   zoom,
   wheelInkCache,
-}: BoardSceneContentProps) {
-  const selected = new Set(selectedObjectIds);
-  return groupInkRenderRuns(batches).map((run) => {
-    const contents = run.items.map((item) => (
+}: BoardSceneRunProps) {
+  const contents = run.items.map((item) => (
       <BoardRenderItemView
         coordinatePlotInteraction={
           item.object.kind === "math.coordinate-plot"
@@ -200,11 +212,39 @@ export const BoardSceneContent = memo(function BoardSceneContent({
       wheelInkCache !== undefined
     ) {
       return (
-        <WheelCachedInkGroup coordinator={wheelInkCache} key={run.key}>
+        <WheelCachedInkGroup coordinator={wheelInkCache}>
           {contents}
         </WheelCachedInkGroup>
       );
     }
-    return <Group key={run.key}>{contents}</Group>;
-  });
+    return <Group>{contents}</Group>;
+});
+
+export const BoardSceneContent = memo(function BoardSceneContent({
+  batches,
+  coordinatePlotInteraction,
+  lineEndpointPreview,
+  registry,
+  selectedObjectIds,
+  selectionPreviewX,
+  selectionPreviewY,
+  zoom,
+  wheelInkCache,
+}: BoardSceneContentProps) {
+  const runs = useMemo(() => groupInkRenderRuns(batches), [batches]);
+  const selected = useMemo(() => new Set(selectedObjectIds), [selectedObjectIds]);
+  return runs.map((run) => (
+    <BoardSceneRun
+      key={run.key}
+      run={run}
+      selected={selected}
+      coordinatePlotInteraction={coordinatePlotInteraction}
+      lineEndpointPreview={lineEndpointPreview}
+      registry={registry}
+      selectionPreviewX={selectionPreviewX}
+      selectionPreviewY={selectionPreviewY}
+      zoom={run.ink ? 1 : zoom}
+      wheelInkCache={wheelInkCache}
+    />
+  ));
 });
