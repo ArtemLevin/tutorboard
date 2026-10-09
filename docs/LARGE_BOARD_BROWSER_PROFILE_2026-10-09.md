@@ -144,3 +144,31 @@ This supports a measured reduction for the representative workload; it
 does not prove hardware-independent latency, long-term stability or exact
 visual equivalence for every mixed alpha/transform combination. Retain a
 bounded cache/fallback and instrument representative production boards.
+
+
+### Release gate addendum — subsequent CI runs (same implementation)
+
+The final code SHA `027378ef9aca3f20f9f4dbb391f8ffffbc96c57b`
+added a post-wheel pen hit-test regression and synchronized documentation.
+Its [CI run](https://github.com/ArtemLevin/tutorboard/actions/runs/37923496708)
+completed with successful format/lint/typecheck/unit/performance-budget/build,
+36 Chromium and 36 Firefox smoke tests, 12 Chromium media-profile tests and
+all applicable integration and resource workflows. This includes the
+new post-cache pen selection check, complementing the repeated layer- and
+media-lifecycle checks.
+
+The same media-profile job was rerun with unchanged commit SHA and passed
+all 12 scenarios. The last two `large600-animated` profiles were:
+- First final-code job: zoom p95 **50.0 ms**, mean **23.61 ms**, `drawImage` **262**, pen input-to-paint p95 **15.4 ms**.
+- Rerun final-code job: zoom p95 **16.7 ms**, mean **16.67 ms**, `drawImage` **262**, pen input-to-paint p95 **13.7 ms**.
+
+All four with-cache samples, including two preceding code-equivalent profiles
+(`6be6728`, with its additional post-wheel regression subsequently added),
+are **33.5, 33.4, 50.0, 16.7 ms**. Previous C3.2-B without wheel ink cache:
+**66.6, 50.0 ms**. Baseline C3.1: **66.7, 49.9 ms**.
+These are diagnostic shared-runner observations with significant variability.
+The change lowers the heavy-scene observed zoom p95 in most runs while
+remaining above 16.7 ms in three of four; it must not be represented as a
+general 60-fps guarantee. Short-lived pixel-bounded caching, full CI and
+cross-browser regression support accepting this performance improvement
+for merging PR #194, with further profiling tracked independently.
