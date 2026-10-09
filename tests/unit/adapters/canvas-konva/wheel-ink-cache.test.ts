@@ -146,9 +146,12 @@ describe("transient wheel ink cache", () => {
     expect(coordinator.canPrepare).toBe(true);
     expect(coordinator.prepare(1.5)).toBe(true);
     expect(coordinator.isPrepared).toBe(true);
+    expect(coordinator.cachedCount).toBe(1);
+    expect(coordinator.activeCachedCount).toBe(0);
     expect(coordinator.canPrepare).toBe(false);
     const count = coordinator.buildCount;
     coordinator.begin(1.5);
+    expect(coordinator.activeCachedCount).toBe(1);
     expect(coordinator.lastWheelUsedPrepared).toBe(true);
     expect(coordinator.lastWheelBeginDurationMs).toBeGreaterThanOrEqual(0);
     expect(coordinator.buildCount).toBe(count);
@@ -156,6 +159,7 @@ describe("transient wheel ink cache", () => {
     expect(coordinator.isPrepared).toBe(false);
     coordinator.end();
     expect(first.clearSpy).toHaveBeenCalledOnce();
+    expect(coordinator.activeCachedCount).toBe(0);
     expect(coordinator.canPrepare).toBe(true);
   });
 
