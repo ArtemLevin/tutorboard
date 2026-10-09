@@ -43,6 +43,7 @@ import {
 import { AnimatedImageRedrawCoordinator } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
 import { BoardRenderItemView, BoardSceneContent } from "./board-scene-content";
+import { partitionCommittedPaintRuns } from "./committed-paint-runs";
 import { BoardGrid } from "./grid";
 import { clientPoint, elementPoint } from "./pointer";
 import { rasterDecodeCache } from "./raster-decode-cache";
@@ -645,6 +646,13 @@ export function BoardStage({
       ),
     [previewViewport, scene.items, size],
   );
+  const committedPaintRuns = useMemo(
+    () => partitionCommittedPaintRuns(visibleItemBatches),
+    [visibleItemBatches],
+  );
+  const animatedPaintLayerCount = committedPaintRuns.filter(
+    (run) => run.animated,
+  ).length;
   const lineEndpointItems = useMemo(() => {
     const allowed = new Set(lineEndpointObjectIds);
     return scene.items.filter(
@@ -1993,6 +2001,8 @@ export function BoardStage({
       data-transformable-count={transformableObjectIds.length}
       data-transforming={isTransforming}
       data-wet-ink-stroke-style={wetInkStyle?.strokeStyle ?? "none"}
+      data-committed-layer-count={committedPaintRuns.length}
+      data-animated-layer-count={animatedPaintLayerCount}
       data-testid="board-stage"
       role="application"
       style={{ cursor }}
@@ -2017,27 +2027,32 @@ export function BoardStage({
             <BoardGrid size={size} viewport={previewViewport} />
           </Group>
         </Layer>
-        <Layer>
-          <Group
-            scaleX={previewViewport.zoom}
-            scaleY={previewViewport.zoom}
-            x={previewViewport.offset.x}
-            y={previewViewport.offset.y}
+        {committedPaintRuns.map((run) => (
+          <Layer
+            key={run.key}
+            name={run.animated ? "animated-content-layer" : "static-content-layer"}
           >
-            <AnimatedImageRedrawContext value={animatedImageRedraw}>
-              <BoardSceneContent
-                batches={visibleItemBatches}
-                coordinatePlotInteraction={coordinatePlotInteraction}
-                lineEndpointPreview={lineEndpointPreview}
-                registry={registry}
-                selectedObjectIds={selectedObjectIds}
-                selectionPreviewX={selectionPreviewDelta?.x ?? 0}
-                selectionPreviewY={selectionPreviewDelta?.y ?? 0}
-                zoom={previewViewport.zoom}
-              />
-            </AnimatedImageRedrawContext>
-          </Group>
-        </Layer>
+            <Group
+              scaleX={previewViewport.zoom}
+              scaleY={previewViewport.zoom}
+              x={previewViewport.offset.x}
+              y={previewViewport.offset.y}
+            >
+              <AnimatedImageRedrawContext value={animatedImageRedraw}>
+                <BoardSceneContent
+                  batches={run.batches}
+                  coordinatePlotInteraction={coordinatePlotInteraction}
+                  lineEndpointPreview={lineEndpointPreview}
+                  registry={registry}
+                  selectedObjectIds={selectedObjectIds}
+                  selectionPreviewX={selectionPreviewDelta?.x ?? 0}
+                  selectionPreviewY={selectionPreviewDelta?.y ?? 0}
+                  zoom={previewViewport.zoom}
+                />
+              </AnimatedImageRedrawContext>
+            </Group>
+          </Layer>
+        ))}
         <Layer ref={wetInkLayerRef} listening={false}>
           <Group
             scaleX={previewViewport.zoom}
