@@ -812,10 +812,11 @@ export function BoardStage({
       if (wheelSession !== null) {
         window.clearTimeout(wheelSession.timeoutId);
         wheelSessionRef.current = null;
+        animatedImageRedraw.setInteractionActive(false);
       }
       setPreviewViewport(scene.viewport);
     }
-  }, [scene.viewport]);
+  }, [animatedImageRedraw, scene.viewport]);
 
   const releaseCapture = useCallback(
     (session: {
@@ -1069,19 +1070,21 @@ export function BoardStage({
     if (session !== null) {
       window.clearTimeout(session.timeoutId);
       wheelSessionRef.current = null;
+      animatedImageRedraw.setInteractionActive(false);
       setPreviewViewport(viewportRef.current);
     }
-  }, []);
+  }, [animatedImageRedraw]);
 
   const commitWheel = useCallback(() => {
     const session = wheelSessionRef.current;
     if (session !== null) {
       window.clearTimeout(session.timeoutId);
       wheelSessionRef.current = null;
+      animatedImageRedraw.setInteractionActive(false);
       setPreviewViewport(session.latestViewport);
       onViewportCommit(session.latestViewport);
     }
-  }, [onViewportCommit]);
+  }, [animatedImageRedraw, onViewportCommit]);
 
   const finishLineEndpointTransform = useCallback(
     (commit: boolean) => {
@@ -1557,6 +1560,7 @@ export function BoardStage({
       if (wheelSession !== null) {
         wheelSessionRef.current = null;
         window.clearTimeout(wheelSession.timeoutId);
+        animatedImageRedraw.setInteractionActive(false);
       }
       discardWorldPointerMoves();
       rightClickCandidateRef.current = null;
@@ -1927,6 +1931,9 @@ export function BoardStage({
       zoomBounds,
     );
     if (!sameViewport(viewport, currentViewport)) {
+      // Viewport updates already invalidate the committed Layer; avoid
+      // competing with full-speed GIF redraws during this short gesture.
+      animatedImageRedraw.setInteractionActive(true);
       setPreviewViewport(viewport);
       const currentSession = wheelSessionRef.current;
       if (currentSession !== null) {

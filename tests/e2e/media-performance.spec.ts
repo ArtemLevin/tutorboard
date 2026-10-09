@@ -843,3 +843,28 @@ for (const scenario of [
     },
   );
 }
+
+test("@smoke GIF redraw resumes after repeated wheel zoom on a dense board", async ({
+  page,
+}) => {
+  await resetLocalDatabase(page);
+  await importDocument(
+    page,
+    createMediaPerformanceDocument({ gifCount: 4, staticCount: 5 }),
+  );
+  await expect
+    .poll(async () => (await snapshot(page)).imageSrcAssignments)
+    .toBeGreaterThanOrEqual(4);
+  const bounds = await page.getByTestId("board-stage").boundingBox();
+  if (bounds === null) throw new Error("Expected a board stage");
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  for (let index = 0; index < 6; index += 1) {
+    await page.mouse.wheel(0, index % 2 === 0 ? -190 : 190);
+  }
+  await page.waitForTimeout(200);
+  await resetProfile(page);
+  await measureFrames(page, 30);
+  const restored = await snapshot(page);
+  expect(restored.rafCallbacks).toBeGreaterThan(10);
+  expect(restored.drawImageCalls).toBeGreaterThan(0);
+});
