@@ -726,6 +726,8 @@ interface LargeBoardInteractionMeasurement {
     readonly counters: MediaProfileSnapshot;
     readonly wheelGestureWallMs: number;
     readonly wheelCacheBuildMs: number;
+    readonly wheelCacheWheelBeginMs: number;
+    readonly wheelCacheUsedPrewarm: boolean;
     readonly wheelCacheBuildPixels: number;
     readonly wheelCacheBuilds: number;
     readonly wheelCacheSkippedRuns: number;
@@ -854,6 +856,13 @@ async function profileLargeBoard(
         page,
         "data-wheel-cache-last-build-ms",
       ),
+      wheelCacheWheelBeginMs: await integerStageMetric(
+        page,
+        "data-wheel-cache-last-wheel-begin-ms",
+      ),
+      wheelCacheUsedPrewarm:
+        (await stage.getAttribute("data-wheel-cache-last-wheel-used-prepared")) ===
+        "true",
       wheelCacheBuildPixels: await integerStageMetric(
         page,
         "data-wheel-cache-last-build-pixels",
@@ -882,6 +891,7 @@ async function profileLargeBoard(
   expect(result.drawing.frames.frameCount).toBe(largeBoardFrameCount);
   expect(result.zoom.frames.frameCount).toBe(largeBoardFrameCount);
   expect(result.zoom.wheelCacheBuildMs).toBeGreaterThanOrEqual(0);
+  expect(result.zoom.wheelCacheWheelBeginMs).toBeGreaterThanOrEqual(0);
   expect(result.zoom.wheelCacheBuildPixels).toBeLessThanOrEqual(4_000_000);
   expect(result.zoom.frames.over25Ms).toBeLessThanOrEqual(
     result.zoom.frames.frameCount,
@@ -958,6 +968,40 @@ test("@smoke isolates interleaved GIF redraw while preserving committed z-order"
   // GIF frames repaint only two animation Layers. Three static PNGs stay
   // mounted on separate retained Layers throughout the idle interval.
   expect(counters.drawImageCalls).toBeLessThan(140);
+});
+
+test("@smoke reuses idle-prepared ink cache on first wheel and restores stroke hits", async ({
+  page,
+}) => {
+  await resetLocalDatabase(page);
+  await importDocument(
+    page,
+    createDenseBoardDocument({ strokeCount: 120, staticCount: 1 }),
+  );
+  const stage = page.getByTestId("board-stage");
+  await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "true");
+  const builds = await integerStageMetric(page, "data-wheel-cache-builds");
+  expect(builds).toBeGreaterThan(0);
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Missing board bounds");
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
+  await page.mouse.wheel(0, -190);
+  await expect(stage).toHaveAttribute(
+    "data-wheel-cache-last-wheel-used-prepared",
+    "true",
+  );
+  expect(await integerStageMetric(page, "data-wheel-cache-builds")).toBe(
+    builds,
+  );
+  await expect(stage).toHaveAttribute("data-wheel-cache-active-runs", "0");
+  await page.mouse.wheel(0, 190);
+  await expect(stage).toHaveAttribute("data-wheel-cache-active-runs", "0");
+  await page.keyboard.press("v");
+  await page.mouse.click(bounds.x + 90, bounds.y + 192);
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
 });
 
 test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
