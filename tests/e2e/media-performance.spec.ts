@@ -13,6 +13,11 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
       readonly width: number;
     };
     readonly sync: {
+      readonly read: (buffer: Buffer) => {
+        readonly data: Buffer;
+        readonly height: number;
+        readonly width: number;
+      };
       readonly write: (png: {
         readonly data: Buffer;
         readonly height: number;
@@ -935,6 +940,8 @@ for (const scenario of [
   { name: "large300-animated", strokeCount: 300, gifCount: 4 },
   { name: "large600-static", strokeCount: 600, gifCount: 0 },
   { name: "large600-animated", strokeCount: 600, gifCount: 4 },
+  { name: "large1000-animated", strokeCount: 1000, gifCount: 4 },
+  { name: "large3000-animated", strokeCount: 3000, gifCount: 4 },
 ]) {
   test(
     "@media-profile measures large-board drawing, zoom and raster decode: " +
@@ -953,6 +960,197 @@ for (const scenario of [
     },
   );
 }
+
+// High-DPI visual equivalence of the prepared and cold-cache render paths,
+// including interleaved PNG/GIF, semi-transparent ink and object transforms.
+test("@media-profile high-DPI mixed paint runs match the cold-wheel reference", async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(120_000);
+  test.skip(
+    testInfo.project.name !== "chromium",
+    "Chromium owns the pixel-equivalence diagnostic profile",
+  );
+  const board = createDenseBoardDocument({
+    strokeCount: 120,
+    staticCount: 2,
+    gifCount: 1,
+  });
+  const strokes = board.order.filter((id) => id.includes(":stroke:"));
+  const images = board.order.filter((id) => id.includes(":image:"));
+  const [pngBelow, pngAbove, gif] = images;
+  if (pngBelow === undefined || pngAbove === undefined || gif === undefined) {
+    throw new Error("Missing mixed media for high-DPI visual profile");
+  }
+  board.order.splice(
+    0,
+    board.order.length,
+    ...strokes.slice(0, 100),
+    pngBelow,
+    gif,
+    ...strokes.slice(100),
+    pngAbove,
+  );
+  for (const [index, id] of board.order.entries()) {
+    const object = board.objects[id];
+    if (object === undefined) throw new Error("Missing visual object " + id);
+    object.style.opacity = index % 2 === 0 ? 0.65 : 0.85;
+    object.rotation = index < 120 ? 0 : 0.21;
+    object.scale = { x: 1.12, y: 0.87 };
+    if (object.kind === "image.embedded") {
+      object.position = { x: 205 + index % 30, y: 195 };
+    }
+  }
+
+  const comparison = await Promise.all(
+    [true, false].map(async (prewarm) => {
+      const context = await browser.newContext({
+        deviceScaleFactor: 2,
+        viewport: { width: 1240, height: 820 },
+      });
+      const page = await context.newPage();
+      try {
+        await page.addInitScript((enabled) => {
+          if (enabled) {
+            window.requestIdleCallback = (callback) =>
+              window.setTimeout(
+                () => callback({ didTimeout: false, timeRemaining: () => 50 }),
+                0,
+              );
+            window.cancelIdleCallback = (id) => window.clearTimeout(id);
+          } else {
+            window.requestIdleCallback = () => 0;
+            window.cancelIdleCallback = () => {};
+          }
+        }, prewarm);
+        await resetLocalDatabase(page);
+        await importDocument(page, board);
+        const stage = page.getByTestId("board-stage");
+        if (prewarm) {
+          await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "true");
+        } else {
+          await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "false");
+        }
+        const bounds = await stage.boundingBox();
+        if (bounds === null) throw new Error("Missing visual board bounds");
+        await page.mouse.move(
+          bounds.x + bounds.width / 2,
+          bounds.y + bounds.height / 2,
+        );
+        await page.mouse.wheel(0, -190);
+        await expect(stage).toHaveAttribute(
+          "data-wheel-cache-last-wheel-used-prepared",
+          String(prewarm),
+        );
+        await measureFrames(page, 24);
+        expect(
+          await integerStageMetric(page, "data-wheel-cache-last-build-pixels"),
+        ).toBeLessThanOrEqual(4_000_000);
+        return await stage.screenshot({ animations: "disabled" });
+      } finally {
+        await context.close();
+      }
+    }),
+  );
+
+  const [warmImage, coldImage] = comparison.map((buffer) => PNG.sync.read(buffer));
+  if (warmImage === undefined || coldImage === undefined) {
+    throw new Error("Missing pixel comparison screenshots");
+  }
+  expect(warmImage.width).toBe(coldImage.width);
+  expect(warmImage.height).toBe(coldImage.height);
+  let significantChannels = 0;
+  let totalChannelError = 0;
+  for (let index = 0; index < warmImage.data.length; index += 1) {
+    const channelError = Math.abs(
+      (warmImage.data[index] ?? 0) - (coldImage.data[index] ?? 0),
+    );
+    if (channelError > 3) significantChannels += 1;
+    totalChannelError += channelError;
+  }
+  const channelCount = warmImage.data.length;
+  const profile = {
+    dpr: 2,
+    width: warmImage.width,
+    height: warmImage.height,
+    significantChannelFraction: significantChannels / channelCount,
+    meanChannelError: totalChannelError / channelCount,
+  };
+  console.info("WHEEL_CACHE_PIXEL_EQUIVALENCE", JSON.stringify(profile));
+  expect(profile.significantChannelFraction).toBeLessThan(0.01);
+  expect(profile.meanChannelError).toBeLessThan(1);
+});
+
+// Long, heavy interaction sequence: checks bounded cache allocation and
+// that the last cleanup releases prepared Konva groups after a board clear.
+test("@media-profile 3000-stroke zoom-cycle lifetime and high-DPI cache budget", async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(180_000);
+  test.skip(
+    testInfo.project.name !== "chromium",
+    "Chromium owns the extended zoom-cycle lifetime profile",
+  );
+  const context = await browser.newContext({
+    deviceScaleFactor: 2,
+    viewport: { width: 1240, height: 820 },
+  });
+  const page = await context.newPage();
+  try {
+    await resetLocalDatabase(page);
+    const board = createDenseBoardDocument({
+      strokeCount: 3000,
+      staticCount: 2,
+      gifCount: 2,
+    });
+    await importDocument(page, board);
+    const stage = page.getByTestId("board-stage");
+    const bounds = await stage.boundingBox();
+    if (bounds === null) throw new Error("Missing large board bounds");
+    await page.mouse.move(bounds.x + 1050, bounds.y + 440);
+    let observedPeakCachePixels = 0;
+    for (let cycle = 0; cycle < 48; cycle += 1) {
+      await page.mouse.wheel(0, cycle % 2 === 0 ? -190 : 190);
+      if (cycle % 6 === 5) {
+        await measureFrames(page, 12);
+        const cachePixels = await integerStageMetric(
+          page,
+          "data-wheel-cache-last-build-pixels",
+        );
+        observedPeakCachePixels = Math.max(observedPeakCachePixels, cachePixels);
+        expect(cachePixels).toBeLessThanOrEqual(4_000_000);
+      }
+    }
+    await measureFrames(page, 16);
+    const builds = await integerStageMetric(
+      page,
+      "data-wheel-cache-builds",
+    );
+    console.info("WHEEL_CACHE_LONG_CYCLE_PROFILE", JSON.stringify({
+      strokes: 3000,
+      cycles: 48,
+      dpr: 2,
+      cacheBuilds: builds,
+      observedPeakCachePixels,
+      lastBuildSkippedRuns: await integerStageMetric(
+        page,
+        "data-wheel-cache-last-skipped-runs",
+      ),
+    }));
+    await page.mouse.click(
+      bounds.x + bounds.width * 0.85,
+      bounds.y + bounds.height * 0.83,
+      { button: "right" },
+    );
+    await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+    await page.getByRole("button", { name: "Очистить", exact: true }).click();
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+    await expect(stage).toHaveAttribute("data-wheel-cache-active-runs", "0");
+    await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "false");
+  } finally {
+    await context.close();
+  }
+});
 
 // C3.2-B: GIF frames must only invalidate their own ordered render runs.
 // Static media may appear both before and after animation in the z-order.
