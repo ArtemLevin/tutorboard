@@ -818,8 +818,12 @@ async function profileLargeBoard(
   return result;
 }
 
+// Two factors are varied independently, preventing dense ink and GIF cadence
+// from becoming an uninterpretable combined performance regression.
 for (const scenario of [
   { name: "large300-static", strokeCount: 300, gifCount: 0 },
+  { name: "large300-animated", strokeCount: 300, gifCount: 4 },
+  { name: "large600-static", strokeCount: 600, gifCount: 0 },
   { name: "large600-animated", strokeCount: 600, gifCount: 4 },
 ]) {
   test(
