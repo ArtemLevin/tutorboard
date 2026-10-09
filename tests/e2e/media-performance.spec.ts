@@ -861,7 +861,8 @@ test("@smoke GIF redraw resumes after repeated wheel zoom on a dense board", asy
   for (let index = 0; index < 6; index += 1) {
     await page.mouse.wheel(0, index % 2 === 0 ? -190 : 190);
   }
-  await page.waitForTimeout(200);
+  // Wait by rendering real frames until the 120 ms wheel session has settled.
+  await measureFrames(page, 15);
   await resetProfile(page);
   await measureFrames(page, 30);
   const restored = await snapshot(page);
