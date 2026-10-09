@@ -1107,7 +1107,10 @@ test("@media-profile 3000-stroke zoom-cycle lifetime and high-DPI cache budget",
     const stage = page.getByTestId("board-stage");
     const bounds = await stage.boundingBox();
     if (bounds === null) throw new Error("Missing large board bounds");
-    await page.mouse.move(bounds.x + 1050, bounds.y + 440);
+    await page.mouse.move(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
     let observedPeakCachePixels = 0;
     for (let cycle = 0; cycle < 48; cycle += 1) {
       await page.mouse.wheel(0, cycle % 2 === 0 ? -190 : 190);
