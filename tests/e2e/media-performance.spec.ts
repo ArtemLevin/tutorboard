@@ -920,4 +920,11 @@ test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
     .poll(() => integerStageMetric(page, "data-wheel-cache-builds"))
     .toBeGreaterThanOrEqual(2);
   await expect(stage).toHaveAttribute("data-wheel-cache-active-runs", "0");
+
+  // Two inverse wheel steps return to the original world coordinates.
+  // Hit testing must still resolve an individual pen stroke, after
+  // the cached Konva hit canvas has been released and rebuilt.
+  await page.keyboard.press("v");
+  await page.mouse.click(bounds.x + 90, bounds.y + 192);
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
 });

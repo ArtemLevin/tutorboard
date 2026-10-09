@@ -92,3 +92,55 @@ and prolonged multi-user input remain open review items. Prior to merge,
 either demonstrate sustained wheel zoom p95 improvement with a bounded
 static zoom cache/viewport strategy, or explicitly accept C3.2-B as a
 narrower but measured drawing-work and pen-latency optimization.
+
+
+## C3.2-B wheel-zoom ink cache: repeated measurement
+
+Runtime candidate: `6be6728d049b509327164b92d025b2b5c0faabb1`
+on [PR #194](https://github.com/ArtemLevin/tutorboard/pull/194).
+[Chromium media-profile CI](https://github.com/ArtemLevin/tutorboard/actions/runs/37922497775),
+original media-profile job and its successful rerun, same code SHA.
+Both attempts: 12/12 media-profile tests passed. Full quality gate and
+Chromium/Firefox `@smoke` passed, including the transient wheel-cache lifecycle.
+The post-zoom pen hit-test regression in the next commit still requires CI.
+
+The cache rasterizes only consecutive immutable pen-stroke runs when their
+count reaches 80; it is transient, limited to four million physical scene
+pixels across all such runs, and disposed on gesture completion, edit,
+selection preview, authoritative viewport replacement and unmount. GIFs,
+static media and active geometry widgets stay on their original render path.
+Pen-stroke geometry is independent of zoom, so the committed React renderer
+receives a fixed zoom for that kind. Selection, render-run ordering and
+Konva hit color keys remain present.
+
+### Matched workload: 600 strokes, six PNGs, four GIFs
+
+| Metric | Previous C3.2-B (2 samples) | With wheel ink cache (2 samples) |
+| --- | --- | --- |
+| Wheel zoom rAF p95 | 66.6 / 50.0 ms | **33.5 / 33.4 ms** |
+| Wheel zoom rAF mean | 28.82 / 25.35 ms | 23.61 / 25.70 ms |
+| Zoom `drawImage` count | 250 / 250 | 258 / 258 |
+| Pen input-to-paint p95 | 15.4 / 13.0 ms | 15.4 / 17.7 ms |
+
+### Control scenarios, zoom p95
+
+| Scenario | With cache, first / repeated |
+| --- | --- |
+| 300 pen, no GIF | 33.3 / 33.3 ms |
+| 300 pen, four GIFs | 33.4 / 33.4 ms |
+| 600 pen, no GIF | 33.3 / 33.4 ms |
+| 600 pen, four GIFs | **33.5 / 33.4 ms** |
+
+The reduction in the heavy animated case repeats in both paired candidate
+measurements, unlike the previous fluctuating wheel-zoom p95 profile.
+Cached vector ink draws as a bitmap, so `drawImage` rises slightly:
+it is not an indicator of a regression without considering path work.
+At 600 strokes, the large-board wheel p95 fell below the previous 50–67 ms
+range, but still exceeds a stable 16.7 ms 60-fps frame budget.
+
+The benchmark is diagnostic: each profile uses 48 rAF intervals, runs on
+shared GitHub CI hardware and exercises one Chromium browser/OS setup.
+This supports a measured reduction for the representative workload; it
+does not prove hardware-independent latency, long-term stability or exact
+visual equivalence for every mixed alpha/transform combination. Retain a
+bounded cache/fallback and instrument representative production boards.
