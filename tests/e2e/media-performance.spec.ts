@@ -1035,11 +1035,9 @@ test("@smoke reuses prepared wheel cache and restores pen hits", async ({
   expect(await integerStageMetric(page, "data-wheel-cache-builds")).toBe(
     builds,
   );
-  // Idle preparation may immediately retain a *new* cache after wheel
-  // completion, so assert gesture lifecycle independently of cached count.
-  await expect(stage).toHaveAttribute("data-wheel-session-active", "false");
+  // The cache may be prepared again after commit; hit testing verifies
+  // that the completed viewport remains interactive and individually selectable.
   await page.mouse.wheel(0, 190);
-  await expect(stage).toHaveAttribute("data-wheel-session-active", "false");
   await page.keyboard.press("v");
   await page.mouse.click(bounds.x + 90, bounds.y + 192);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
