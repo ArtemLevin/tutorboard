@@ -70,10 +70,7 @@ jobs:
         run: npm run board-contract:check
 
       - name: Check formatting
-        run: |
-          npx prettier tests/e2e/media-performance.spec.ts --write
-          git diff -- tests/e2e/media-performance.spec.ts
-          npm run format:check
+        run: npm run format:check
 
       - name: Lint
         run: npm run lint

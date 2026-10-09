@@ -629,7 +629,6 @@ test("@smoke file import decodes static raster before A2 renderer mount", async 
     .toBeGreaterThanOrEqual(2);
 });
 
-
 const largeBoardImageSide = 1_536;
 const largeBoardImageCount = 6;
 const largeBoardFrameCount = 48;
@@ -637,19 +636,25 @@ let largeBoardPngs: readonly string[] | null = null;
 
 function representativeLargeBoardPngs(): readonly string[] {
   if (largeBoardPngs !== null) return largeBoardPngs;
-  largeBoardPngs = Array.from({ length: largeBoardImageCount }, (_, imageIndex) => {
-    const png = new PNG({ height: largeBoardImageSide, width: largeBoardImageSide });
-    for (let y = 0; y < largeBoardImageSide; y += 1) {
-      for (let x = 0; x < largeBoardImageSide; x += 1) {
-        const offset = (y * largeBoardImageSide + x) * 4;
-        png.data[offset] = (x * (imageIndex + 2) + (y >> 3)) % 256;
-        png.data[offset + 1] = (y * 3 + imageIndex * 37) % 256;
-        png.data[offset + 2] = ((x >> 2) + (y >> 2) + imageIndex * 41) % 256;
-        png.data[offset + 3] = 255;
+  largeBoardPngs = Array.from(
+    { length: largeBoardImageCount },
+    (_, imageIndex) => {
+      const png = new PNG({
+        height: largeBoardImageSide,
+        width: largeBoardImageSide,
+      });
+      for (let y = 0; y < largeBoardImageSide; y += 1) {
+        for (let x = 0; x < largeBoardImageSide; x += 1) {
+          const offset = (y * largeBoardImageSide + x) * 4;
+          png.data[offset] = (x * (imageIndex + 2) + (y >> 3)) % 256;
+          png.data[offset + 1] = (y * 3 + imageIndex * 37) % 256;
+          png.data[offset + 2] = ((x >> 2) + (y >> 2) + imageIndex * 41) % 256;
+          png.data[offset + 3] = 255;
+        }
       }
-    }
-    return "data:image/png;base64," + PNG.sync.write(png).toString("base64");
-  });
+      return "data:image/png;base64," + PNG.sync.write(png).toString("base64");
+    },
+  );
   return largeBoardPngs;
 }
 
@@ -658,12 +663,15 @@ interface LargeBoardInteractionMeasurement {
   readonly strokeCount: number;
   readonly imageCount: number;
   readonly gifCount: number;
-  readonly decodedPixelBytes: number;
+  readonly sourcePixelBytes: number;
   readonly embeddedSourceBytes: number;
   readonly importAndDecodeWallMs: number;
   readonly rasterActiveDecodedCount: number;
   readonly rasterActiveEstimatedDecodedBytes: number;
-  readonly idle: { readonly frames: FrameProfile; readonly counters: MediaProfileSnapshot };
+  readonly idle: {
+    readonly frames: FrameProfile;
+    readonly counters: MediaProfileSnapshot;
+  };
   readonly drawing: {
     readonly frames: FrameProfile;
     readonly counters: MediaProfileSnapshot;
@@ -688,7 +696,11 @@ async function integerStageMetric(page: Page, name: string): Promise<number> {
 
 async function profileLargeBoard(
   page: Page,
-  scenario: { readonly name: string; readonly strokeCount: number; readonly gifCount: number },
+  scenario: {
+    readonly name: string;
+    readonly strokeCount: number;
+    readonly gifCount: number;
+  },
 ): Promise<LargeBoardInteractionMeasurement> {
   await resetLocalDatabase(page);
   const sources = representativeLargeBoardPngs();
@@ -704,8 +716,14 @@ async function profileLargeBoard(
     .poll(() => integerStageMetric(page, "data-raster-active-decoded-count"))
     .toBe(largeBoardImageCount);
   const importAndDecodeWallMs = performance.now() - start;
-  const activeCount = await integerStageMetric(page, "data-raster-active-decoded-count");
-  const activeBytes = await integerStageMetric(page, "data-raster-active-estimated-decoded-bytes");
+  const activeCount = await integerStageMetric(
+    page,
+    "data-raster-active-decoded-count",
+  );
+  const activeBytes = await integerStageMetric(
+    page,
+    "data-raster-active-estimated-decoded-bytes",
+  );
 
   await measureFrames(page, 20);
   await resetProfile(page);
@@ -728,7 +746,9 @@ async function profileLargeBoard(
   const gestureStart = performance.now();
   const [drawingFrames] = await Promise.all([
     measureFrames(page, largeBoardFrameCount),
-    page.mouse.move(x + Math.min(bounds.width * 0.65, 510), y + 34, { steps: 48 }),
+    page.mouse.move(x + Math.min(bounds.width * 0.65, 510), y + 34, {
+      steps: 48,
+    }),
   ]);
   const pointerGestureWallMs = performance.now() - gestureStart;
   const drawingCounters = await snapshot(page);
@@ -737,10 +757,19 @@ async function profileLargeBoard(
     new RegExp("^" + (document.order.length + 1) + " объект", "u"),
   );
   await expect(stage).toHaveAttribute("data-wet-ink-active", "false");
-  const inputToPaintP95Ms = await integerStageMetric(page, "data-wet-ink-latency-p95-ms");
-  const inputToPaintCount = await integerStageMetric(page, "data-wet-ink-latency-count");
+  const inputToPaintP95Ms = await integerStageMetric(
+    page,
+    "data-wet-ink-latency-p95-ms",
+  );
+  const inputToPaintCount = await integerStageMetric(
+    page,
+    "data-wet-ink-latency-count",
+  );
 
-  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
   await resetProfile(page);
   const wheelStart = performance.now();
   const [zoomFrames] = await Promise.all([
@@ -758,7 +787,7 @@ async function profileLargeBoard(
     strokeCount: scenario.strokeCount,
     imageCount: sources.length,
     gifCount: scenario.gifCount,
-    decodedPixelBytes: largeBoardImageCount * largeBoardImageSide ** 2 * 4,
+    sourcePixelBytes: largeBoardImageCount * largeBoardImageSide ** 2 * 4,
     embeddedSourceBytes: sources.reduce((sum, value) => sum + value.length, 0),
     importAndDecodeWallMs,
     rasterActiveDecodedCount: activeCount,
@@ -773,10 +802,16 @@ async function profileLargeBoard(
     },
     zoom: { frames: zoomFrames, counters: zoomCounters, wheelGestureWallMs },
   };
-  expect(result.rasterActiveDecodedCount).toBe(largeBoardImageCount);
-  expect(result.rasterActiveEstimatedDecodedBytes).toBeGreaterThanOrEqual(
-    result.decodedPixelBytes,
+  console.info("LARGE_BOARD_INTERACTION_PROFILE", JSON.stringify(result));
+  // Decoding is intentionally display-resolution-aware (typically 256 px here),
+  // while zoom/remount may briefly leave multiple live decode buckets.
+  expect(result.rasterActiveDecodedCount).toBeGreaterThanOrEqual(
+    largeBoardImageCount,
   );
+  expect(result.rasterActiveDecodedCount).toBeLessThanOrEqual(
+    largeBoardImageCount * 2,
+  );
+  expect(result.rasterActiveEstimatedDecodedBytes).toBeGreaterThan(0);
   expect(result.drawing.inputToPaintCount).toBeGreaterThan(0);
   expect(result.drawing.frames.frameCount).toBe(largeBoardFrameCount);
   expect(result.zoom.frames.frameCount).toBe(largeBoardFrameCount);
@@ -797,7 +832,6 @@ for (const scenario of [
         "Chromium owns the isolated diagnostic browser profile",
       );
       const result = await profileLargeBoard(page, scenario);
-      console.info("LARGE_BOARD_INTERACTION_PROFILE", JSON.stringify(result));
       await testInfo.attach("large-board-" + scenario.name + ".json", {
         body: Buffer.from(JSON.stringify(result, null, 2)),
         contentType: "application/json",
