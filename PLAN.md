@@ -1830,3 +1830,18 @@ verification and the guest offline cleanup regression guard.
 - PR #192: 2×2 factorial Chromium profile for 300/600 pen strokes and 0/4 GIF, each with six different 1536×1536 PNG sources. Real BoardDocument 1.6, Konva, pen and wheel UI interactions. See [large-board performance report](docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md).
 - Main regression candidate: GIF animation repaints the committed Layer with all visible ink/media; with 600 strokes and 4 GIF, zoom frame interval p95 is 66.7 ms, compared with 33.3 ms without GIF.
 - C3.2 proposed engineering block: profile and optimize animation-driven redraw while preserving exact z-order, hit tests, transforms, permission-scoped media lifetime and undo. Evaluate ordered static render runs, bounded cache and selective repaint; establish before/after in the same browser workload before shipping. A global GIF throttling cap is not an accepted substitute for isolation of work.
+
+### C3.2-A — wheel-aware GIF redraw scheduling (09.10.2026)
+
+- PR #193: temporarily apply existing interactive GIF redraw cadence
+  during active wheel zoom, restore full speed on wheel commit/cancel,
+  authoritative viewport changes and unmount.
+- 2×2 matched load shows reduced zoom Canvas drawImage calls: 510→370
+  (300 strokes + 4 GIF) and 540→460 (600 strokes + 4 GIF).
+- Frame-gap p95 remains unchanged (33.4 / 66.7 ms), so the main
+  heavy-board stall is **still open**. Treat as bounded drawing-work
+  reduction; see the measured comparison in
+  [the large-board report](docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md).
+- C3.2-B priority: preserve object z-order and hit-testing while caching
+  immutable canvas paths / rendering ordered static runs; require a measured
+  zoom frame-gap improvement on the 600-stroke/GIF fixture before merge.

@@ -40,3 +40,40 @@ Do not change object stacking order, board hit testing, selection or transform s
 4. Repeat Chromium before/after profiling and Firefox smoke plus full CI. Publish measured improvements and residual costs.
 
 Limitations: local offline BoardDocument import was profiled here; the authenticated media.asset network path, multiple simultaneous guest inputs, browser/device diversity, very high zoom, memory fragmentation and prolonged sessions were not part of this run. F3.3.2-D separately covers lifecycle/revoke and 12-cycle memory resource release.
+
+## C3.2-A — wheel-aware GIF frame pacing candidate
+
+Candidate PR #193 uses the existing transient 24-fps GIF repaint pacing
+during a wheel zoom session, and restores regular cadence immediately on
+wheel commit/cancel, on authoritative viewport resynchronization, and on
+cleanup. Original object z-order and the single committed Konva Layer are
+unchanged. This is a repaint *volume* optimization; it does not cache
+static paths or prevent the committed Layer from repainting.
+
+Measured candidate feature SHA: 305d88ccb8ef75aee34a31165b64265eeec0079a,
+CI run https://github.com/ArtemLevin/tutorboard/actions/runs/37896592812.
+All 12 Chromium media profile tests passed, as did Chromium/Firefox smoke.
+
+| Scenario | Baseline zoom frame p95 | Candidate zoom frame p95 | Baseline zoom drawImage | Candidate zoom drawImage |
+| --- | ---: | ---: | ---: | ---: |
+| 300 pen, 0 GIF | 16.7 ms | 16.8 ms | 36 | 36 |
+| 300 pen, 4 GIF | 33.4 ms | 33.4 ms | 510 | 370 |
+| 600 pen, 0 GIF | 33.3 ms | 33.4 ms | 36 | 36 |
+| 600 pen, 4 GIF | 66.7 ms | 66.7 ms | 540 | 460 |
+
+Canvas drawImage workload fell approximately 27.5% for 300 pen + 4 GIF
+and 14.8% for 600 pen + 4 GIF. **There is no demonstrated improvement in
+zoom frame-gap p95**: the candidate leaves the 600 pen + GIF stall intact.
+The values come from one CI runner sample per code version, so percentage
+changes are descriptive, not confidence intervals or cross-device guarantees.
+
+The existing dynamic redraw throttle is already used during active pen
+input. C3.2-A reuses that mechanism strictly for a wheel gesture; default GIF
+cadence resumes on session completion and the browser smoke asserts it
+continues animating after wheel zoom.
+
+Follow-up C3.2-B remains necessary: an animation-aware static-content
+composition strategy that avoids repainting unchanged committed paths
+while preserving arbitrary z-order, hit-testing and visual semantics.
+That is a distinct change requiring before/after zoom p95 and rendered
+pixel checks on mixed/interleaved GIF and static content.
