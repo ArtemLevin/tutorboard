@@ -843,3 +843,88 @@ for (const scenario of [
     },
   );
 }
+
+// C3.2-B: GIF frames must only invalidate their own ordered render runs.
+// Static media may appear both before and after animation in the z-order.
+test("@smoke isolates interleaved GIF redraw while preserving committed z-order", async ({
+  page,
+}) => {
+  await resetLocalDatabase(page);
+  const document = createMediaPerformanceDocument({
+    staticCount: 3,
+    gifCount: 2,
+  });
+  const [staticA, staticB, staticC, animatedA, animatedB] = document.order;
+  if (
+    staticA === undefined ||
+    staticB === undefined ||
+    staticC === undefined ||
+    animatedA === undefined ||
+    animatedB === undefined
+  ) {
+    throw new Error("Missing mixed scene objects");
+  }
+  await importDocument(page, {
+    ...document,
+    order: [staticA, animatedA, staticB, animatedB, staticC],
+  });
+  const stage = page.getByTestId("board-stage");
+  await expect(stage).toHaveAttribute("data-committed-layer-count", "5");
+  await expect(stage).toHaveAttribute("data-animated-layer-count", "2");
+  await expect
+    .poll(async () => (await snapshot(page)).imageSrcAssignments)
+    .toBeGreaterThanOrEqual(2);
+  // PNGs use createImageBitmap and do not assign HTMLImageElement.src.
+  await expect
+    .poll(() => integerStageMetric(page, "data-raster-active-decoded-count"))
+    .toBeGreaterThanOrEqual(3);
+
+  await measureFrames(page, 15);
+  await resetProfile(page);
+  await measureFrames(page, 40);
+  const counters = await snapshot(page);
+  expect(counters.drawImageCalls).toBeGreaterThan(0);
+  // GIF frames repaint only two animation Layers. Three static PNGs stay
+  // mounted on separate retained Layers throughout the idle interval.
+  expect(counters.drawImageCalls).toBeLessThan(140);
+});
+
+test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
+  page,
+}) => {
+  await resetLocalDatabase(page);
+  const document = createDenseBoardDocument({
+    strokeCount: 120,
+    staticCount: 1,
+    gifCount: 1,
+  });
+  await importDocument(page, document);
+  const stage = page.getByTestId("board-stage");
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Missing board bounds");
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
+  await page.mouse.wheel(0, -190);
+  await expect
+    .poll(() => integerStageMetric(page, "data-wheel-cache-builds"))
+    .toBeGreaterThan(0);
+  await expect(stage).toHaveAttribute("data-wheel-cache-active-runs", "0");
+  await expect(stage).toHaveAttribute("data-committed-layer-count", "2");
+
+  // A second gesture must safely rebuild from the committed viewport,
+  // after the first hit and scene caches were completely released.
+  await page.mouse.wheel(0, 190);
+  await expect
+    .poll(() => integerStageMetric(page, "data-wheel-cache-builds"))
+    .toBeGreaterThanOrEqual(2);
+  await expect(stage).toHaveAttribute("data-wheel-cache-active-runs", "0");
+
+  // Two inverse wheel steps return to the original world coordinates.
+  // Hit testing must still resolve an individual pen stroke, after
+  // the cached Konva hit canvas has been released and rebuilt.
+  await page.keyboard.press("v");
+  await page.mouse.click(bounds.x + 90, bounds.y + 192);
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+});
