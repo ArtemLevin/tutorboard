@@ -1044,9 +1044,8 @@ async function profileLargeBoard(
         page,
         "data-wheel-cache-last-skipped-runs",
       ),
-      ...(scenario.strokeCount === 3000
-        ? { c37Trace, chromiumComposition }
-        : {}),
+      ...(scenario.strokeCount === 3000 ? { c37Trace } : {}),
+      ...(chromiumComposition === undefined ? {} : { chromiumComposition }),
     },
   };
   console.info("LARGE_BOARD_INTERACTION_PROFILE", JSON.stringify(result));
