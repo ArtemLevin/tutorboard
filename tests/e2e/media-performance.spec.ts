@@ -888,3 +888,37 @@ test("@smoke isolates interleaved GIF redraw while preserving committed z-order"
   // mounted on separate retained Layers throughout the idle interval.
   expect(counters.drawImageCalls).toBeLessThan(140);
 });
+
+
+test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
+  page,
+}) => {
+  await resetLocalDatabase(page);
+  const document = createDenseBoardDocument({
+    strokeCount: 120,
+    staticCount: 1,
+    gifCount: 1,
+  });
+  await importDocument(page, document);
+  const stage = page.getByTestId("board-stage");
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Missing board bounds");
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
+  await page.mouse.wheel(0, -190);
+  await expect
+    .poll(() => integerStageMetric(page, "data-wheel-cache-builds"))
+    .toBeGreaterThan(0);
+  await expect(stage).toHaveAttribute("data-wheel-cache-active-runs", "0");
+  await expect(stage).toHaveAttribute("data-committed-layer-count", "2");
+
+  // A second gesture must safely rebuild from the committed viewport,
+  // after the first hit and scene caches were completely released.
+  await page.mouse.wheel(0, 190);
+  await expect
+    .poll(() => integerStageMetric(page, "data-wheel-cache-builds"))
+    .toBeGreaterThanOrEqual(2);
+  await expect(stage).toHaveAttribute("data-wheel-cache-active-runs", "0");
+});

@@ -2030,6 +2030,8 @@ export function BoardStage({
       data-wet-ink-stroke-style={wetInkStyle?.strokeStyle ?? "none"}
       data-committed-layer-count={committedPaintRuns.length}
       data-animated-layer-count={animatedPaintLayerCount}
+      data-wheel-cache-builds={wheelInkCache.buildCount}
+      data-wheel-cache-active-runs={wheelInkCache.cachedCount}
       data-testid="board-stage"
       role="application"
       style={{ cursor }}

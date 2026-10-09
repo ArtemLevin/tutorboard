@@ -29,6 +29,15 @@ export class WheelInkCacheCoordinator {
   readonly #nodes = new Set<WheelInkNode>();
   readonly #cached = new Set<WheelInkNode>();
   #active = false;
+  #buildCount = 0;
+
+  get cachedCount(): number {
+    return this.#cached.size;
+  }
+
+  get buildCount(): number {
+    return this.#buildCount;
+  }
 
   register(node: WheelInkNode): () => void {
     this.#nodes.add(node);
@@ -67,6 +76,7 @@ export class WheelInkCacheCoordinator {
         hitCanvasPixelRatio: 1,
       });
       this.#cached.add(node);
+      this.#buildCount += 1;
       remainingPixels -= pixels;
     }
   }
