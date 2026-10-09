@@ -142,6 +142,10 @@ interface FrameProfile {
   readonly over25Ms: number;
   readonly over50Ms: number;
   readonly slowestGapsMs: readonly number[];
+  readonly slowFrameWindows: readonly {
+    readonly startMs: number;
+    readonly endMs: number;
+  }[];
 }
 
 interface MediaMeasuredPass {
@@ -302,12 +306,19 @@ const mediaInstrumentationScript = String.raw`
     },
     async measureFrames(frameCount) {
       const intervals = [];
+      const slowFrameWindows = [];
       let previous = null;
       for (let index = 0; index < frameCount + 1; index += 1) {
         const timestamp = await new Promise((resolve) =>
           originalRequestAnimationFrame(resolve),
         );
-        if (previous !== null) intervals.push(timestamp - previous);
+        if (previous !== null) {
+          const duration = timestamp - previous;
+          intervals.push(duration);
+          if (duration > 25) {
+            slowFrameWindows.push({ startMs: previous, endMs: timestamp });
+          }
+        }
         previous = timestamp;
       }
       return {
@@ -323,6 +334,7 @@ const mediaInstrumentationScript = String.raw`
         over25Ms: intervals.filter((duration) => duration > 25).length,
         over50Ms: intervals.filter((duration) => duration > 50).length,
         slowestGapsMs: [...intervals].sort((a, b) => b - a).slice(0, 5),
+        slowFrameWindows,
       };
     },
   };
@@ -727,6 +739,7 @@ interface LargeBoardInteractionMeasurement {
     readonly wheelGestureWallMs: number;
     readonly wheelCacheBuildMs: number;
     readonly wheelCacheWheelBeginMs: number;
+    readonly wheelCacheOverlappingSlowFrames: number;
     readonly wheelCacheUsedPrewarm: boolean;
     readonly wheelCacheBuildPixels: number;
     readonly wheelCacheBuilds: number;
@@ -860,9 +873,17 @@ async function profileLargeBoard(
         page,
         "data-wheel-cache-last-wheel-begin-ms",
       ),
+      wheelCacheOverlappingSlowFrames: await page.evaluate((windows) => {
+        const stage = document.querySelector('[data-testid="board-stage"]');
+        if (stage === null) throw new Error("Stage missing during frame correlation");
+        const start = Number(stage.getAttribute("data-wheel-cache-last-wheel-start-ms"));
+        const end = Number(stage.getAttribute("data-wheel-cache-last-wheel-end-ms"));
+        return windows.filter(({ startMs, endMs }) => startMs < end && endMs > start).length;
+      }, zoomFrames.slowFrameWindows),
       wheelCacheUsedPrewarm:
-        (await stage.getAttribute("data-wheel-cache-last-wheel-used-prepared")) ===
-        "true",
+        (await stage.getAttribute(
+          "data-wheel-cache-last-wheel-used-prepared",
+        )) === "true",
       wheelCacheBuildPixels: await integerStageMetric(
         page,
         "data-wheel-cache-last-build-pixels",
@@ -892,6 +913,9 @@ async function profileLargeBoard(
   expect(result.zoom.frames.frameCount).toBe(largeBoardFrameCount);
   expect(result.zoom.wheelCacheBuildMs).toBeGreaterThanOrEqual(0);
   expect(result.zoom.wheelCacheWheelBeginMs).toBeGreaterThanOrEqual(0);
+  expect(result.zoom.wheelCacheOverlappingSlowFrames).toBeLessThanOrEqual(
+    result.zoom.frames.over25Ms,
+  );
   expect(result.zoom.wheelCacheBuildPixels).toBeLessThanOrEqual(4_000_000);
   expect(result.zoom.frames.over25Ms).toBeLessThanOrEqual(
     result.zoom.frames.frameCount,
@@ -970,9 +994,9 @@ test("@smoke isolates interleaved GIF redraw while preserving committed z-order"
   expect(counters.drawImageCalls).toBeLessThan(140);
 });
 
-test("@smoke reuses idle-prepared ink cache on first wheel and restores stroke hits", async ({
-  page,
-}) => {
+test(
+  "@smoke reuses idle-prepared ink cache on first wheel and restores stroke hits",
+  async ({ page }) => {
   await resetLocalDatabase(page);
   await importDocument(
     page,
@@ -1002,7 +1026,8 @@ test("@smoke reuses idle-prepared ink cache on first wheel and restores stroke h
   await page.keyboard.press("v");
   await page.mouse.click(bounds.x + 90, bounds.y + 192);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
-});
+  },
+);
 
 test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
   page,
