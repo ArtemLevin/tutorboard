@@ -73,6 +73,7 @@ import { WheelInkCacheCoordinator } from "./wheel-ink-cache";
 const zoomBounds = { minimum: 0.1, maximum: 8 } as const;
 const zoomStep = 1.08;
 const wheelCommitDelayMs = 120;
+const idleInkCacheLifetimeMs = 15_000;
 const rightDoubleClickDelayMs = 450;
 const rightDoubleClickDistancePx = 8;
 const canvasPrimaryClickDelayMs = 500;
@@ -833,9 +834,60 @@ export function BoardStage({
 
   useLayoutEffect(() => {
     wheelInkCache.invalidate();
+    if (rootRef.current !== null) {
+      rootRef.current.dataset.wheelCachePrepared = "false";
+    }
   }, [
     wheelInkCache,
     scene.items,
+    lineEndpointPreview,
+    selectedObjectIdsKey,
+    selectionPreviewDelta?.x,
+    selectionPreviewDelta?.y,
+  ]);
+
+  useEffect(() => {
+    if (!wheelInkCache.canPrepare || document.hidden) return;
+    if (typeof window.requestIdleCallback !== "function") return;
+
+    let expiryId: number | null = null;
+    const idleId = window.requestIdleCallback((deadline) => {
+      if (
+        deadline.timeRemaining() < 12 ||
+        wheelSessionRef.current !== null ||
+        drawingSessionRef.current !== null ||
+        panSessionRef.current !== null ||
+        selectionSessionRef.current !== null ||
+        lineEndpointSessionRef.current !== null ||
+        document.hidden
+      ) {
+        return;
+      }
+      if (wheelInkCache.prepare(window.devicePixelRatio)) {
+        if (rootRef.current !== null) {
+          rootRef.current.dataset.wheelCachePrepared = "true";
+        }
+        // A prewarmed hit/scene bitmap must not retain canvas memory
+        // indefinitely on a board where no wheel gesture follows.
+        expiryId = window.setTimeout(() => {
+          if (wheelInkCache.isPrepared && wheelSessionRef.current === null) {
+            wheelInkCache.invalidate();
+            if (rootRef.current !== null) {
+              rootRef.current.dataset.wheelCachePrepared = "false";
+            }
+          }
+        }, idleInkCacheLifetimeMs);
+      }
+    });
+    return () => {
+      window.cancelIdleCallback(idleId);
+      if (expiryId !== null) window.clearTimeout(expiryId);
+      if (wheelInkCache.isPrepared) wheelInkCache.invalidate();
+    };
+  }, [
+    wheelInkCache,
+    scene.items,
+    scene.viewport,
     lineEndpointPreview,
     selectedObjectIdsKey,
     selectionPreviewDelta?.x,
@@ -2042,6 +2094,13 @@ export function BoardStage({
       data-wheel-cache-last-build-ms={wheelInkCache.lastBuildDurationMs}
       data-wheel-cache-last-build-pixels={wheelInkCache.lastBuildPixels}
       data-wheel-cache-last-skipped-runs={wheelInkCache.lastBuildSkippedRuns}
+      data-wheel-cache-last-wheel-begin-ms={
+        wheelInkCache.lastWheelBeginDurationMs
+      }
+      data-wheel-cache-last-wheel-used-prepared={
+        wheelInkCache.lastWheelUsedPrepared
+      }
+      data-wheel-cache-prepared={wheelInkCache.isPrepared}
       data-testid="board-stage"
       role="application"
       style={{ cursor }}
