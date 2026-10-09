@@ -851,36 +851,54 @@ export function BoardStage({
     if (typeof window.requestIdleCallback !== "function") return;
 
     let expiryId: number | null = null;
-    const idleId = window.requestIdleCallback((deadline) => {
-      if (
-        deadline.timeRemaining() < 12 ||
-        wheelSessionRef.current !== null ||
-        drawingSessionRef.current !== null ||
-        panSessionRef.current !== null ||
-        selectionSessionRef.current !== null ||
-        lineEndpointSessionRef.current !== null ||
-        document.hidden
-      ) {
-        return;
-      }
-      if (wheelInkCache.prepare(window.devicePixelRatio)) {
+    let idleId: number | null = null;
+    let attempts = 0;
+    const schedule = () => {
+      idleId = window.requestIdleCallback((deadline) => {
+        idleId = null;
+        const remainingMs = deadline.timeRemaining();
         if (rootRef.current !== null) {
-          rootRef.current.dataset.wheelCachePrepared = "true";
+          rootRef.current.dataset.wheelCacheIdleRemainingMs =
+            remainingMs.toFixed(2);
         }
-        // A prewarmed hit/scene bitmap must not retain canvas memory
-        // indefinitely on a board where no wheel gesture follows.
-        expiryId = window.setTimeout(() => {
-          if (wheelInkCache.isPrepared && wheelSessionRef.current === null) {
-            wheelInkCache.invalidate();
-            if (rootRef.current !== null) {
-              rootRef.current.dataset.wheelCachePrepared = "false";
-            }
+        if (
+          wheelSessionRef.current !== null ||
+          drawingSessionRef.current !== null ||
+          panSessionRef.current !== null ||
+          selectionSessionRef.current !== null ||
+          lineEndpointSessionRef.current !== null ||
+          document.hidden
+        ) {
+          return;
+        }
+        // A single idle callback can have very little time remaining. Allow
+        // bounded rescheduling instead of permanently giving up preparation
+        // after one busy frame.
+        if (remainingMs < 8) {
+          attempts += 1;
+          if (attempts < 24) schedule();
+          return;
+        }
+        if (wheelInkCache.prepare(window.devicePixelRatio)) {
+          if (rootRef.current !== null) {
+            rootRef.current.dataset.wheelCachePrepared = "true";
           }
-        }, idleInkCacheLifetimeMs);
-      }
-    });
+          // Expire unused prewarm memory rather than retaining canvases for
+          // the duration of a teaching session.
+          expiryId = window.setTimeout(() => {
+            if (wheelInkCache.isPrepared && wheelSessionRef.current === null) {
+              wheelInkCache.invalidate();
+              if (rootRef.current !== null) {
+                rootRef.current.dataset.wheelCachePrepared = "false";
+              }
+            }
+          }, idleInkCacheLifetimeMs);
+        }
+      });
+    };
+    schedule();
     return () => {
-      window.cancelIdleCallback(idleId);
+      if (idleId !== null) window.cancelIdleCallback(idleId);
       if (expiryId !== null) window.clearTimeout(expiryId);
       if (wheelInkCache.isPrepared) wheelInkCache.invalidate();
     };
