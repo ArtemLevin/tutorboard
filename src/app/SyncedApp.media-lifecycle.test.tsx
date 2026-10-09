@@ -310,3 +310,52 @@ describe("F3.3.2-C board-scoped media lifecycle", () => {
     }
   });
 });
+
+describe("F3.3.2-D network loss resource release", () => {
+  it("cancels in-flight media on the browser offline event", async () => {
+    const boardId = documentId("board:offline-media");
+    const queue = new DexiePendingBoardCommandQueue(
+      "media-offline-" + crypto.randomUUID(),
+    );
+    vi.spyOn(BoardCollaborationClient.prototype, "start").mockImplementation(
+      () => undefined,
+    );
+    vi.spyOn(BoardCollaborationClient.prototype, "stop").mockImplementation(
+      () => undefined,
+    );
+    try {
+      render(
+        <SyncedApp
+          accessContext={guest(boardId)}
+          documentId={boardId}
+          queue={queue}
+          repository={repository(boardId)}
+        />,
+      );
+      await screen.findByText("Test board ready");
+      const scope = publishedScopes.at(-1)!;
+      const release = vi.fn();
+      const lease = scope.acquire(() => ({
+        promise: new Promise<string>(() => undefined),
+        release,
+      }));
+      const cancelled = expect(lease.promise).rejects.toMatchObject({
+        name: "AbortError",
+      });
+      act(() => window.dispatchEvent(new Event("offline")));
+      await cancelled;
+      expect(release).toHaveBeenCalledOnce();
+      expect(scope.snapshot()).toMatchObject({
+        resourceGeneration: 1,
+        activeLeases: 0,
+        pendingLeases: 0,
+      });
+      expect(screen.getByTestId("media-context").textContent).toBe(
+        "board:offline-media|1|false",
+      );
+    } finally {
+      cleanup();
+      await queue.deleteDatabase();
+    }
+  });
+});

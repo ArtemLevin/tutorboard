@@ -45,7 +45,7 @@ function createMediaPerformanceDocument(
           : { width: 1_200, height: 900 },
       kind: "image.embedded" as const,
       locked: false,
-      mimeType: animated ? "image/gif" as const : "image/png" as const,
+      mimeType: animated ? ("image/gif" as const) : ("image/png" as const),
       position,
       rotation: 0,
       scale: { x: 1, y: 1 },
@@ -161,12 +161,11 @@ async function installLifecycleObserver(page: Page): Promise<void> {
     );
     if (descriptor?.get !== undefined && descriptor.set !== undefined) {
       Object.defineProperty(HTMLImageElement.prototype, "src", {
-        configurable: Boolean(descriptor.configurable),
-        enumerable: Boolean(descriptor.enumerable),
-        get: descriptor.get,
-        set(value: string) {
+        ...descriptor,
+        set(this: HTMLImageElement, value: string) {
           const wasGif = gifByImage.get(this) === true;
-          const isGif = typeof value === "string" && value.startsWith("data:image/gif");
+          const isGif =
+            typeof value === "string" && value.startsWith("data:image/gif");
           if (wasGif !== isGif) gifCount += isGif ? 1 : -1;
           gifByImage.set(this, isGif);
           descriptor.set!.call(this, value);
@@ -254,7 +253,10 @@ async function importDocument(
   if (await close.isVisible()) await close.click();
 }
 
-async function afterGarbageCollection(page: Page, chromium: boolean): Promise<number | null> {
+async function afterGarbageCollection(
+  page: Page,
+  chromium: boolean,
+): Promise<number | null> {
   if (!chromium) return null;
   const session = await page.context().newCDPSession(page);
   try {
@@ -262,7 +264,10 @@ async function afterGarbageCollection(page: Page, chromium: boolean): Promise<nu
     await session.send("HeapProfiler.collectGarbage");
     await session.send("Performance.enable");
     const metrics = await session.send("Performance.getMetrics");
-    return metrics.metrics.find(({ name }) => name === "JSHeapUsedSize")?.value ?? null;
+    return (
+      metrics.metrics.find(({ name }) => name === "JSHeapUsedSize")?.value ??
+      null
+    );
   } finally {
     await session.detach();
   }
@@ -271,9 +276,13 @@ async function afterGarbageCollection(page: Page, chromium: boolean): Promise<nu
 async function frameP95(page: Page): Promise<number> {
   return page.evaluate(async () => {
     const gaps: number[] = [];
-    let previous = await new Promise<number>((resolve) => requestAnimationFrame(resolve));
+    let previous = await new Promise<number>((resolve) =>
+      requestAnimationFrame(resolve),
+    );
     for (let i = 0; i < 30; i++) {
-      const now = await new Promise<number>((resolve) => requestAnimationFrame(resolve));
+      const now = await new Promise<number>((resolve) =>
+        requestAnimationFrame(resolve),
+      );
       gaps.push(now - previous);
       previous = now;
     }
@@ -346,9 +355,9 @@ async function runCycles(
   // Snapshot totals count retained/closed resources; the active working set
   // must return to zero, regardless of intentionally durable document history.
   expect(results.at(-1)?.afterClear.activeBytes).toBe(0);
-  const measuredHeap = results.map((x) => x.heapAfterGcBytes).filter(
-    (value): value is number => value !== null,
-  );
+  const measuredHeap = results
+    .map((x) => x.heapAfterGcBytes)
+    .filter((value): value is number => value !== null);
   const report = {
     kind: "tutorboard.media-cache-cycles/v1",
     browser: testInfo.project.name,
@@ -360,7 +369,8 @@ async function runCycles(
       mixed: options.mixed ?? false,
     },
     baselineHeapAfterGcBytes: initialHeap,
-    maxHeapAfterGcBytes: measuredHeap.length === 0 ? null : Math.max(...measuredHeap),
+    maxHeapAfterGcBytes:
+      measuredHeap.length === 0 ? null : Math.max(...measuredHeap),
     results,
   };
   console.info("MEDIA_CACHE_CYCLES", JSON.stringify(report));

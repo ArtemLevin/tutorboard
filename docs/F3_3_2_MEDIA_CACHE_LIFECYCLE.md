@@ -119,3 +119,11 @@ reuses the pinned backend and requires no change to production auth/data
 contracts. JSON evidence is attached to Playwright reports, and CI uploads
 failure traces. This gate does not claim all possible document sizes or
 arbitrary browser-memory stability.
+
+Regression finding during D: Chromium and Firefox both retained one guest
+GIF Blob URL after a browser offline event. The WebSocket status notification
+can lag the browser's network event, so `SyncedWorkspace` now synchronously
+invalidates guest media leases in its `offline` listener before delegating to
+the sync engine. A focused integration regression tests the exact offline
+event and lease cancellation. Real-backend replay verifies native resources
+return to baseline before reconnect.

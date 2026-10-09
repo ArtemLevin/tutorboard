@@ -577,7 +577,13 @@ function SyncedWorkspace({
         })
         .catch(() => undefined);
     };
-    const disconnect = () => void engine.setNetworkAvailable(false);
+    const disconnect = () => {
+      if (accessContext !== undefined) {
+        mediaImportEpochRef.current += 1;
+        invalidateMedia(false);
+      }
+      void engine.setNetworkAvailable(false);
+    };
     window.addEventListener("online", reconnect);
     window.addEventListener("offline", disconnect);
     return () => {
@@ -586,9 +592,11 @@ function SyncedWorkspace({
       window.removeEventListener("offline", disconnect);
     };
   }, [
+    accessContext,
     documentId,
     collaboration,
     engine,
+    invalidateMedia,
     lessonId,
     refreshAccessContext,
     refreshStandaloneAccess,
