@@ -315,11 +315,13 @@ export {
 export {
   batchBoardRenderItems,
   createBoardSceneSelector,
+  createBoardVisibilityIndex,
   selectBoardScene,
   selectGroupObjects,
   selectOrderedObjects,
   selectVisibleBoardItems,
   type BoardSceneSelector,
+  type BoardVisibilityIndex,
   type BoardViewportSize,
   type BoardRenderItem,
   type BoardSceneReadModel,
