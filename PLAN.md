@@ -1840,3 +1840,10 @@ verification and the guest offline cleanup regression guard.
 - On 600 strokes + six PNG + four GIF: baseline zoom drawImage 540/540; C3.2-B 250/250 (~53.7% fewer calls). Pen input-to-paint p95 baseline 30.9/32.7 ms; candidate 15.4/13.0 ms. GIF-triggered static repaints are isolated in the normal run-separation path.
 - Zoom rAF frame-gap p95 baseline 66.7/49.9 ms versus C3.2-B 66.6/50.0 ms: no demonstrated latency-p95 improvement for wheel zoom. The original requirement for sustained zoom p95 reduction remains open; keep PR in draft pending a zoom-specific improvement or explicit acceptance of the narrower confirmed outcome. High-DPI full-size Layer memory and exact mixed-content pixel equivalence also need release-gate attention.
 - Follow-up: optimize static-content viewport redraw during wheel interaction (bounded path cache / bitmap composition or equivalent), retain arbitrary z-order and precise hit/transform behavior, and repeat paired browser profiling including cross-browser visual checks.
+
+
+### C3.2-B wheel-zoom vector-ink raster cache (09.10.2026)
+
+- Wheel-specific, memory-bounded cache of contiguous pen-stroke runs in existing static Konva Layers. GIF frames and static PNG/image assets remain live; their resource authorization and cleanup semantics are untouched.
+- Cache is created on the first wheel input, capped at 4 million cached scene pixels (shared across runs), and retired on wheel commit/cancel, authoritative viewport changes, scene edits, selection preview and unmount. Konva group hit canvases are cached with child color keys for hit testing.
+- Preserve original ordered rendering, layer budgets and document formats; small stroke groups and oversized caches follow the previous renderer. Browser-profile and cross-browser smoke gate required before claiming a zoom p95 win.

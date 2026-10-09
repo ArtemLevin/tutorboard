@@ -68,6 +68,7 @@ import type {
   KonvaRendererRegistry,
 } from "./renderer-registry";
 import { useElementSize } from "./use-element-size";
+import { WheelInkCacheCoordinator } from "./wheel-ink-cache";
 
 const zoomBounds = { minimum: 0.1, maximum: 8 } as const;
 const zoomStep = 1.08;
@@ -465,6 +466,7 @@ export function BoardStage({
   const [animatedImageRedraw] = useState(
     () => new AnimatedImageRedrawCoordinator(),
   );
+  const [wheelInkCache] = useState(() => new WheelInkCacheCoordinator());
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -567,6 +569,7 @@ export function BoardStage({
   );
 
   useEffect(() => () => animatedImageRedraw.dispose(), [animatedImageRedraw]);
+  useEffect(() => () => wheelInkCache.dispose(), [wheelInkCache]);
 
   useEffect(() => {
     if (!hasStaticRaster) rasterDecodeCache.trimUnused();
@@ -820,10 +823,22 @@ export function BoardStage({
       if (wheelSession !== null) {
         window.clearTimeout(wheelSession.timeoutId);
         wheelSessionRef.current = null;
+        wheelInkCache.end();
       }
       setPreviewViewport(scene.viewport);
     }
-  }, [scene.viewport]);
+  }, [scene.viewport, wheelInkCache]);
+
+  useLayoutEffect(() => {
+    wheelInkCache.invalidate();
+  }, [
+    wheelInkCache,
+    scene.items,
+    lineEndpointPreview,
+    selectedObjectIds.join("\\u001f"),
+    selectionPreviewDelta?.x,
+    selectionPreviewDelta?.y,
+  ]);
 
   const releaseCapture = useCallback(
     (session: {
@@ -1077,19 +1092,21 @@ export function BoardStage({
     if (session !== null) {
       window.clearTimeout(session.timeoutId);
       wheelSessionRef.current = null;
+      wheelInkCache.end();
       setPreviewViewport(viewportRef.current);
     }
-  }, []);
+  }, [wheelInkCache]);
 
   const commitWheel = useCallback(() => {
     const session = wheelSessionRef.current;
     if (session !== null) {
       window.clearTimeout(session.timeoutId);
       wheelSessionRef.current = null;
+      wheelInkCache.end();
       setPreviewViewport(session.latestViewport);
       onViewportCommit(session.latestViewport);
     }
-  }, [onViewportCommit]);
+  }, [onViewportCommit, wheelInkCache]);
 
   const finishLineEndpointTransform = useCallback(
     (commit: boolean) => {
@@ -1566,6 +1583,7 @@ export function BoardStage({
         wheelSessionRef.current = null;
         window.clearTimeout(wheelSession.timeoutId);
       }
+      wheelInkCache.end();
       discardWorldPointerMoves();
       rightClickCandidateRef.current = null;
       primaryCanvasPointerCandidateRef.current = null;
@@ -1578,7 +1596,7 @@ export function BoardStage({
         rightContextMenuTimeoutRef.current = null;
       }
     },
-    [animatedImageRedraw, discardWorldPointerMoves, releaseCapture],
+    [animatedImageRedraw, discardWorldPointerMoves, releaseCapture, wheelInkCache],
   );
 
   useEffect(() => {
@@ -1935,6 +1953,9 @@ export function BoardStage({
       zoomBounds,
     );
     if (!sameViewport(viewport, currentViewport)) {
+      if (wheelSessionRef.current === null) {
+        wheelInkCache.begin(window.devicePixelRatio);
+      }
       setPreviewViewport(viewport);
       const currentSession = wheelSessionRef.current;
       if (currentSession !== null) {
@@ -2050,6 +2071,7 @@ export function BoardStage({
                   selectionPreviewX={selectionPreviewDelta?.x ?? 0}
                   selectionPreviewY={selectionPreviewDelta?.y ?? 0}
                   zoom={previewViewport.zoom}
+                  wheelInkCache={wheelInkCache}
                 />
               </AnimatedImageRedrawContext>
             </Group>
