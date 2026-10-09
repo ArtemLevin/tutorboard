@@ -317,6 +317,35 @@ GPU/compositor attribution, многочасовой реальный soak и с
 на разных устройствах. Подробнее:
 [`docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md`](docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md).
 
+### C3.5: стабильная геометрия viewport-culling — 09.10.2026
+
+После объединения C3.3/C3.4 (`main`
+`c52a443667e4552fb879cd36b94eeffd77e1d7f7`) отдельный
+draft PR #197 `perf/c3-5-stable-viewport-culling` устраняет повторное
+вычисление world bounds неизменных объектов при каждом preview-wheel кадре.
+`createBoardVisibilityIndex(scene.items)` пересоздаётся только при смене
+snapshot сцены, выбирает точный набор видимых объектов, сохраняет порядок и
+переиспользует ссылку на список при совпадающей видимости. API
+`selectVisibleBoardItems` сохранён; данные и collaboration-контракты
+не меняются.
+
+Замер в Performance CI `37970012084`: 5000 объектов × 24 viewport
+updates, CPU selector 114.84 ms исходным способом против 4.17 ms индексом
+(≈27.6×). Unit/integration 1094/1094, performance 25/25, format/lint/typecheck,
+architecture, production build и Chromium/Firefox smoke успешны.
+Chromium media profile 16/16 прошёл с сохранением DPR2 pixel comparison,
+3000-stroke 48-wheel cleanup и memory pixel cap.
+
+**Release gate остаётся открытым.** При 3000 strokes + 4 GIF zoom p95
+50 ms и максимальный интервал 133.4 ms: prewarm отсутствовал,
+wheel begin выполнял 43.8 ms синхронного построения. C3.5 уменьшает
+подтверждённые CPU-затраты, но гарантированное устранение длинных
+кадров и 60 FPS не доказано. Следующий C3.6 узкий этап: измерить
+причины starvation/expiry idle-prewarm, сделать budgeted fallback
+без дорогостоящего синхронного raster cache в wheel handler,
+подтвердить parity/correctness и повторяемые 3000-stroke кадры
+на совпадающем окружении.
+
 ## 1. Продуктовая цель
 
 TutorBoard разворачивается как самостоятельный продукт для преподавателя и
