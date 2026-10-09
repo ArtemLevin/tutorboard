@@ -10,9 +10,13 @@ import {
   type BoardRenderItem,
 } from "../../src/core/public";
 
+const groupRenderMetrics = vi.hoisted(() => ({ calls: 0 }));
+
 vi.mock("react-konva", () => {
-  const group = ({ children }: { readonly children?: ReactNode }) =>
-    createElement("div", null, children);
+  const group = ({ children }: { readonly children?: ReactNode }) => {
+    groupRenderMetrics.calls += 1;
+    return createElement("div", null, children);
+  };
   const shape = () => null;
   return {
     Circle: shape,
@@ -85,13 +89,17 @@ describe("dense committed scene performance", () => {
       zoom: 1,
     };
     const view = render(createElement(BoardSceneContent, props));
+    const mountedGroups = groupRenderMetrics.calls;
     const updateMs: number[] = [];
     for (let pass = 0; pass < 7; pass += 1) {
       const started = performance.now();
-      view.rerender(createElement(BoardSceneContent, { ...props }));
+      view.rerender(
+        createElement(BoardSceneContent, { ...props, zoom: 1 + pass * 0.08 }),
+      );
       if (pass >= 2) updateMs.push(performance.now() - started);
     }
     expect(calls).toHaveBeenCalledTimes(500);
+    expect(groupRenderMetrics.calls).toBe(mountedGroups);
     // Exact render-count reuse is the primary gate. 250 ms provides broad CI
     // headroom over the sub-millisecond local update samples.
     expect(median(updateMs)).toBeLessThan(250);
@@ -102,6 +110,8 @@ describe("dense committed scene performance", () => {
         samples: 5,
         mappingMedianMs: median(mappingMs),
         transientUpdateMedianMs: median(updateMs),
+        mountedGroupCalls: mountedGroups,
+        groupCallsDuringWheelUpdates: groupRenderMetrics.calls - mountedGroups,
         mappingMs,
         updateMs,
       }),
