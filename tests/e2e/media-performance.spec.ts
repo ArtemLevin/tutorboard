@@ -998,7 +998,7 @@ test("@media-profile high-DPI mixed paint runs match the cold-wheel reference", 
     object.rotation = index < 120 ? 0 : 0.21;
     object.scale = { x: 1.12, y: 0.87 };
     if (object.kind === "image.embedded") {
-      object.position = { x: 205 + index % 30, y: 195 };
+      object.position = { x: 205 + (index % 30), y: 195 };
     }
   }
 
@@ -1027,9 +1027,15 @@ test("@media-profile high-DPI mixed paint runs match the cold-wheel reference", 
         await importDocument(page, board);
         const stage = page.getByTestId("board-stage");
         if (prewarm) {
-          await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "true");
+          await expect(stage).toHaveAttribute(
+            "data-wheel-cache-prepared",
+            "true",
+          );
         } else {
-          await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "false");
+          await expect(stage).toHaveAttribute(
+            "data-wheel-cache-prepared",
+            "false",
+          );
         }
         const bounds = await stage.boundingBox();
         if (bounds === null) throw new Error("Missing visual board bounds");
@@ -1053,7 +1059,9 @@ test("@media-profile high-DPI mixed paint runs match the cold-wheel reference", 
     }),
   );
 
-  const [warmImage, coldImage] = comparison.map((buffer) => PNG.sync.read(buffer));
+  const [warmImage, coldImage] = comparison.map((buffer) =>
+    PNG.sync.read(buffer),
+  );
   if (warmImage === undefined || coldImage === undefined) {
     throw new Error("Missing pixel comparison screenshots");
   }
@@ -1125,21 +1133,21 @@ test("@media-profile 3000-stroke zoom-cycle lifetime and high-DPI cache budget",
       }
     }
     await measureFrames(page, 16);
-    const builds = await integerStageMetric(
-      page,
-      "data-wheel-cache-builds",
+    const builds = await integerStageMetric(page, "data-wheel-cache-builds");
+    console.info(
+      "WHEEL_CACHE_LONG_CYCLE_PROFILE",
+      JSON.stringify({
+        strokes: 3000,
+        cycles: 48,
+        dpr: 2,
+        cacheBuilds: builds,
+        observedPeakCachePixels,
+        lastBuildSkippedRuns: await integerStageMetric(
+          page,
+          "data-wheel-cache-last-skipped-runs",
+        ),
+      }),
     );
-    console.info("WHEEL_CACHE_LONG_CYCLE_PROFILE", JSON.stringify({
-      strokes: 3000,
-      cycles: 48,
-      dpr: 2,
-      cacheBuilds: builds,
-      observedPeakCachePixels,
-      lastBuildSkippedRuns: await integerStageMetric(
-        page,
-        "data-wheel-cache-last-skipped-runs",
-      ),
-    }));
     await page.mouse.click(
       bounds.x + bounds.width * 0.85,
       bounds.y + bounds.height * 0.83,
