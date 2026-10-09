@@ -843,6 +843,17 @@ async function profileLargeBoard(
   ]);
   const wheelGestureWallMs = performance.now() - wheelStart;
   const zoomCounters = await snapshot(page);
+  const cacheStartMs = await integerStageMetric(
+    page,
+    "data-wheel-cache-last-wheel-start-ms",
+  );
+  const cacheEndMs = await integerStageMetric(
+    page,
+    "data-wheel-cache-last-wheel-end-ms",
+  );
+  const overlappingSlowFrames = zoomFrames.slowFrameWindows.filter(
+    ({ startMs, endMs }) => startMs < cacheEndMs && endMs > cacheStartMs,
+  ).length;
   const result: LargeBoardInteractionMeasurement = {
     scenario: scenario.name,
     strokeCount: scenario.strokeCount,
@@ -873,21 +884,7 @@ async function profileLargeBoard(
         page,
         "data-wheel-cache-last-wheel-begin-ms",
       ),
-      wheelCacheOverlappingSlowFrames: await page.evaluate((windows) => {
-        const stage = document.querySelector('[data-testid="board-stage"]');
-        if (stage === null) {
-          throw new Error("Stage missing during frame correlation");
-        }
-        const start = Number(
-          stage.getAttribute("data-wheel-cache-last-wheel-start-ms"),
-        );
-        const end = Number(
-          stage.getAttribute("data-wheel-cache-last-wheel-end-ms"),
-        );
-        return windows.filter(
-          ({ startMs, endMs }) => startMs < end && endMs > start,
-        ).length;
-      }, zoomFrames.slowFrameWindows),
+      wheelCacheOverlappingSlowFrames: overlappingSlowFrames,
       wheelCacheUsedPrewarm:
         (await stage.getAttribute(
           "data-wheel-cache-last-wheel-used-prepared",
