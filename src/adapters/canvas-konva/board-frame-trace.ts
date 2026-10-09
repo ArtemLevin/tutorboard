@@ -7,7 +7,13 @@
  * React render->layout duration also includes synchronous React-Konva commit.
  */
 export interface BoardFrameTraceEvent {
-  readonly kind: "board-commit" | "react-ink-run" | "react-other-run" | "konva-scene" | "konva-hit" | "gif-invalidate";
+  readonly kind:
+    | "board-commit"
+    | "react-ink-run"
+    | "react-other-run"
+    | "konva-scene"
+    | "konva-hit"
+    | "gif-invalidate";
   readonly startMs: number;
   readonly durationMs: number;
   readonly detail?: string;
@@ -27,7 +33,8 @@ export function recordBoardFrameTrace(
   durationMs: number,
   detail?: string,
 ): void {
-  const sink = typeof window === "undefined" ? undefined : window.__tutorBoardC37Trace;
+  const sink =
+    typeof window === "undefined" ? undefined : window.__tutorBoardC37Trace;
   if (sink === undefined || sink.events.length >= 12_000) return;
   sink.events.push({
     kind,
