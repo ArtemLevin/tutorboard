@@ -8,6 +8,7 @@ export interface MediaObjectUrlHandle {
 interface MediaObjectUrlEntry {
   readonly abort: AbortController;
   readonly promise: Promise<string>;
+  pending: boolean;
   refs: number;
   url: string | null;
 }
@@ -19,18 +20,50 @@ interface MediaObjectUrlEntry {
 export class MediaObjectUrlCache {
   readonly #entries = new Map<string, MediaObjectUrlEntry>();
 
+  snapshot(): {
+    readonly activeObjectUrls: number;
+    readonly activeReferences: number;
+    readonly entryCount: number;
+    readonly pendingLoads: number;
+  } {
+    const entries = [...this.#entries.values()];
+    return {
+      activeObjectUrls: entries.filter((entry) => entry.url !== null).length,
+      activeReferences: entries.reduce((sum, entry) => sum + entry.refs, 0),
+      entryCount: entries.length,
+      pendingLoads: entries.filter((entry) => entry.pending).length,
+    };
+  }
+
   acquire(source: BoardMediaContentSource): MediaObjectUrlHandle {
     const key = source.cacheKey;
     let entry = this.#entries.get(key);
     if (entry === undefined) {
       const abort = new AbortController();
+      let abortReject!: (error: Error) => void;
+      const cancelled = new Promise<never>((_resolve, reject) => {
+        abortReject = reject;
+      });
+      const onAbort = () =>
+        abortReject(new DOMException("Media source cancelled.", "AbortError"));
+      abort.signal.addEventListener("abort", onAbort, { once: true });
+      let loading: Promise<Blob>;
+      try {
+        loading = source.loadBlob(abort.signal);
+      } catch (cause) {
+        loading = Promise.reject(
+          cause instanceof Error
+            ? cause
+            : new Error("Media source loader failed."),
+        );
+      }
       const created: MediaObjectUrlEntry = {
         abort,
+        pending: true,
         refs: 0,
         url: null,
-        promise: source
-          .loadBlob(abort.signal)
-          .then((blob) => {
+        promise: Promise.race([
+          loading.then((blob) => {
             if (abort.signal.aborted) {
               throw new DOMException("Media source cancelled.", "AbortError");
             }
@@ -41,12 +74,18 @@ export class MediaObjectUrlCache {
             }
             created.url = url;
             return url;
-          })
+          }),
+          cancelled,
+        ])
           .catch((cause: unknown) => {
             if (this.#entries.get(key) === created) {
               this.#entries.delete(key);
             }
             throw cause;
+          })
+          .finally(() => {
+            created.pending = false;
+            abort.signal.removeEventListener("abort", onAbort);
           }),
       };
       entry = created;

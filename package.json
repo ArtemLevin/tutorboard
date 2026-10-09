@@ -54,7 +54,8 @@
     "formula-recognition-gateway:start": "node services/math-ink-proxy/server.mjs",
     "math-ink-proxy:start": "npm run formula-recognition-gateway:start",
     "e2e:media-profile": "playwright test tests/e2e/media-performance.spec.ts --grep @media-profile --workers=1",
-    "e2e:media-asset-baseline": "playwright test --config playwright.media-asset-baseline.config.ts"
+    "e2e:media-asset-baseline": "playwright test --config playwright.media-asset-baseline.config.ts",
+    "e2e:media-cache-soak": "playwright test tests/e2e/media-cache-lifecycle.spec.ts --grep @media-cache-soak --project=chromium --workers=1"
   },
   "dependencies": {
     "dexie": "4.4.4",

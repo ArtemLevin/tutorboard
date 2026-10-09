@@ -79,6 +79,7 @@ export interface AppProps {
   readonly mediaAssetSourceResolver?:
     ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
   readonly mediaAssetImportEnabled?: boolean | undefined;
+  readonly mediaResourceGeneration?: number | undefined;
   readonly mediaUploadSession?: BoardMediaUploadSession | undefined;
   readonly initialDocument?: BoardDocument;
   readonly collaborativeUndoAvailable?: boolean;
@@ -187,6 +188,7 @@ export function App({
   mathInkRecognizer,
   mediaAssetSourceResolver,
   mediaAssetImportEnabled = false,
+  mediaResourceGeneration = 0,
   mediaUploadSession,
   initialDocument,
   onCommandCommitted,
@@ -629,6 +631,7 @@ export function App({
           smartInkNotice={drawing.smartInkNotice}
         />
         <BoardCanvas
+          key={mediaResourceGeneration}
           activeTool={activeTool}
           announce={announce}
           clipboard={clipboard}

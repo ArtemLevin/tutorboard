@@ -7,10 +7,12 @@ export function createDenseBoardDocument({
   gifCount = 0,
   staticCount = 10,
   strokeCount = 300,
+  largeStaticDataUrls = [],
 }: {
   readonly gifCount?: number;
   readonly staticCount?: number;
   readonly strokeCount?: number;
+  readonly largeStaticDataUrls?: readonly string[];
 } = {}) {
   const base = {
     createdAt: "2026-10-05T16:00:00.000Z",
@@ -75,17 +77,24 @@ export function createDenseBoardDocument({
   }));
   const images = Array.from({ length: staticCount + gifCount }, (_, index) => {
     const gif = index >= staticCount;
+    const largeDataUrl = gif ? undefined : largeStaticDataUrls[index];
     return {
       ...common,
       contentSha256: (index + 1).toString(16).padStart(64, "0"),
-      dataUrl: gif ? gifDataUrl : pngDataUrl,
+      dataUrl: gif ? gifDataUrl : (largeDataUrl ?? pngDataUrl),
       fileName: `image-${index}.${gif ? "gif" : "png"}`,
       id: `object:dense:image:${index}`,
-      intrinsicSize: { height: 1, width: 1 },
+      intrinsicSize:
+        largeDataUrl === undefined
+          ? { height: 1, width: 1 }
+          : { height: 1_536, width: 1_536 },
       kind: "image.embedded" as const,
       mimeType: gif ? "image/gif" : "image/png",
       position: { x: 80 + (index % 10) * 65, y: 80 },
-      size: { height: 40, width: 40 },
+      size:
+        largeDataUrl === undefined
+          ? { height: 40, width: 40 }
+          : { height: 140, width: 140 },
       style: { fill: null, opacity: 1, stroke: null, strokeWidth: 0 },
     };
   });

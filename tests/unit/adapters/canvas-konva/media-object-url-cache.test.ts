@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { BoardMediaContentSource } from "../../../../src/core/public";
 import { MediaObjectUrlCache } from "../../../../src/adapters/canvas-konva/media-object-url-cache";
+import { BoardMediaResourceScope } from "../../../../src/adapters/canvas-konva/board-media-resource-scope";
 
 function source(
   cacheKey: string,
@@ -40,11 +41,23 @@ describe("asset GIF object URL lifecycle", () => {
     expect(await second.promise).toBe("blob:asset-gif");
     expect(loadBlob).toHaveBeenCalledOnce();
     expect(create).toHaveBeenCalledOnce();
+    expect(cache.snapshot()).toEqual({
+      activeObjectUrls: 1,
+      activeReferences: 2,
+      entryCount: 1,
+      pendingLoads: 0,
+    });
     first.release();
     expect(revoke).not.toHaveBeenCalled();
     second.release();
     second.release();
     expect(revoke).toHaveBeenCalledExactlyOnceWith("blob:asset-gif");
+    expect(cache.snapshot()).toEqual({
+      activeObjectUrls: 0,
+      activeReferences: 0,
+      entryCount: 0,
+      pendingLoads: 0,
+    });
   });
 
   it("cancels in-flight reads when the last GIF is removed", async () => {
@@ -60,6 +73,10 @@ describe("asset GIF object URL lifecycle", () => {
     const cache = new MediaObjectUrlCache();
     const first = cache.acquire(source("board:one:asset:pending", loadBlob));
     const second = cache.acquire(source("board:one:asset:pending", loadBlob));
+    expect(cache.snapshot()).toMatchObject({
+      pendingLoads: 1,
+      activeReferences: 2,
+    });
     first.release();
     expect(abort?.aborted).toBe(false);
     second.release();
@@ -80,5 +97,109 @@ describe("asset GIF object URL lifecycle", () => {
     oldContext.release();
     newContext.release();
     expect(revoke).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("F3.3.2-B GIF cancellation", () => {
+  it("settles the released handle when the source ignores AbortSignal", async () => {
+    const create = vi.fn(() => "blob:late");
+    const revoke = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL: create, revokeObjectURL: revoke });
+    try {
+      let finish!: (value: Blob) => void;
+      const cache = new MediaObjectUrlCache();
+      const handle = cache.acquire(
+        source(
+          "scope:pending",
+          () =>
+            new Promise<Blob>((resolve) => {
+              finish = resolve;
+            }),
+        ),
+      );
+      handle.release();
+      await expect(handle.promise).rejects.toMatchObject({
+        name: "AbortError",
+      });
+      finish(new Blob([new Uint8Array([1])]));
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(create).not.toHaveBeenCalled();
+      expect(revoke).not.toHaveBeenCalled();
+      expect(cache.snapshot()).toEqual({
+        activeObjectUrls: 0,
+        activeReferences: 0,
+        entryCount: 0,
+        pendingLoads: 0,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("F3.3.2-B GIF loader failure", () => {
+  it("releases a source whose loader throws synchronously", async () => {
+    const cache = new MediaObjectUrlCache();
+    const handle = cache.acquire(
+      source("scope:throws", () => {
+        throw new Error("loader failure");
+      }),
+    );
+    await expect(handle.promise).rejects.toThrow("loader failure");
+    handle.release();
+    expect(cache.snapshot()).toMatchObject({
+      entryCount: 0,
+      activeReferences: 0,
+    });
+  });
+});
+
+describe("F3.3.2-C GIF board scope isolation", () => {
+  it("cancels revoked guest GIF work, discards late blobs, and preserves another board", async () => {
+    const create = vi.fn(() => "blob:valid-second-board");
+    const revoke = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL: create, revokeObjectURL: revoke });
+    try {
+      const cache = new MediaObjectUrlCache();
+      const denied = new BoardMediaResourceScope("board:revoked");
+      const allowed = new BoardMediaResourceScope("board:allowed");
+      let finishOld!: (value: Blob) => void;
+      const old = denied.acquire(() =>
+        cache.acquire(
+          source(
+            "revoked:epoch:one",
+            () =>
+              new Promise<Blob>((resolve) => {
+                finishOld = resolve;
+              }),
+          ),
+        ),
+      );
+      const fresh = allowed.acquire(() =>
+        cache.acquire(
+          source("allowed:epoch:one", () =>
+            Promise.resolve(new Blob([new Uint8Array([71, 73, 70])])),
+          ),
+        ),
+      );
+      await expect(fresh.promise).resolves.toBe("blob:valid-second-board");
+      denied.dispose();
+      await expect(old.promise).rejects.toMatchObject({ name: "AbortError" });
+      finishOld(new Blob([new Uint8Array([0])]));
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(create).toHaveBeenCalledOnce();
+      expect(revoke).not.toHaveBeenCalled();
+      expect(cache.snapshot()).toMatchObject({
+        entryCount: 1,
+        activeReferences: 1,
+      });
+      allowed.dispose();
+      expect(revoke).toHaveBeenCalledOnce();
+      expect(cache.snapshot().entryCount).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

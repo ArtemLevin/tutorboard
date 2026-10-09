@@ -167,7 +167,10 @@ vi.mock("../adapters/canvas-konva/public", () => ({
     );
   },
   clearCoordinatePlotSamplingCache: vi.fn(),
-  createDefaultKonvaRendererRegistry: () => ({}),
+  createDefaultKonvaRendererRegistry: () => ({
+    reconcileMediaAssets: vi.fn(),
+    dispose: vi.fn(),
+  }),
 }));
 
 afterEach(cleanup);

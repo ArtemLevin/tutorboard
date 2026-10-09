@@ -533,6 +533,38 @@ export function BoardStage({
     [scene.items],
   );
 
+  const embeddedRasterSources = useMemo(
+    () =>
+      new Set(
+        scene.items.flatMap(({ object }) =>
+          object.kind === "image.embedded" &&
+          (object.mimeType === "image/png" || object.mimeType === "image/jpeg")
+            ? [object.dataUrl]
+            : [],
+        ),
+      ),
+    [scene.items],
+  );
+  const previousEmbeddedRasterSources = useRef<ReadonlySet<string>>(new Set());
+
+  useEffect(() => {
+    for (const key of previousEmbeddedRasterSources.current) {
+      if (!embeddedRasterSources.has(key)) {
+        rasterDecodeCache.discardSourceWhenUnused(key);
+      }
+    }
+    previousEmbeddedRasterSources.current = embeddedRasterSources;
+  }, [embeddedRasterSources]);
+
+  useEffect(
+    () => () => {
+      for (const key of previousEmbeddedRasterSources.current) {
+        rasterDecodeCache.discardSourceWhenUnused(key);
+      }
+    },
+    [],
+  );
+
   useEffect(() => () => animatedImageRedraw.dispose(), [animatedImageRedraw]);
 
   useEffect(() => {
