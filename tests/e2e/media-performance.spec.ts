@@ -2,7 +2,6 @@ import { createRequire } from "node:module";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import type { BoardFrameTraceEvent } from "../../src/adapters/canvas-konva/board-frame-trace";
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 import { createCoordinatePlot } from "./coordinate-plot-interaction.js";
 
@@ -27,6 +26,25 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
     };
   };
 };
+
+interface BrowserC37TraceEvent {
+  readonly kind:
+    | "board-commit"
+    | "react-ink-run"
+    | "react-other-run"
+    | "konva-scene"
+    | "konva-hit"
+    | "gif-invalidate";
+  readonly startMs: number;
+  readonly durationMs: number;
+  readonly detail?: string;
+}
+
+declare global {
+  interface Window {
+    __tutorBoardC37Trace?: { events: BrowserC37TraceEvent[] };
+  }
+}
 
 const databaseName = "tutorboard-local-v1";
 const timestamp = "2026-10-04T18:30:00.000Z";
@@ -865,7 +883,7 @@ async function profileLargeBoard(
   const wheelGestureWallMs = performance.now() - wheelStart;
   const zoomCounters = await snapshot(page);
   const c37Trace = await page.evaluate(() => {
-    const events: readonly BoardFrameTraceEvent[] =
+    const events: readonly BrowserC37TraceEvent[] =
       window.__tutorBoardC37Trace?.events ?? [];
     const summary: Record<
       string,
