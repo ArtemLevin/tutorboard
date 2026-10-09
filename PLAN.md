@@ -317,6 +317,46 @@ GPU/compositor attribution, многочасовой реальный soak и с
 на разных устройствах. Подробнее:
 [`docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md`](docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md).
 
+### C3.7: атрибуция длинных кадров React / Konva / compositor — 09.10.2026
+
+Stacked draft [PR #199](https://github.com/ArtemLevin/tutorboard/pull/199)
+на основе C3.6 (#198). Введена opt-in диагностика, записывающая
+React viewport update→layout commit, посещения неизменных ink-run
+компонентов, Konva scene/hit draw, GIF invalidation и Chromium CDP
+compositor/raster events. Источник `BoardStage` не включает
+профилирование без тестового флага. Исправлена семантика
+`activeCachedCount` относительно idle-prepared cache — Chromium
+smoke C3.6 ранее падал из-за смешения двух состояний.
+
+В детерминированном CPU-тесте 500 штрихов:
+`groupCallsDuringWheelUpdates=0`, median update 0.369 ms,
+`1096/1096` unit/integration и `25/25` performance на CI
+[37979094962](https://github.com/ArtemLevin/tutorboard/actions/runs/37979094962).
+Во время реального wheel visible-item culling меняет набор видимых
+штрихов: отрисовка затронутых React runs допустима.
+
+Первый browser trace `37979094962` (3000 stroke + 4 GIF, cold wheel):
+zoom p95 50.1 ms, max 99.9 ms; Konva scene max 10.2 ms
+(66.1 ms summed), hit max 8.2 ms (46.7 ms summed);
+React viewport commit max 12.5 ms (61.9 ms summed);
+GIF invalidation scheduling 38 calls, 0.6 ms summed.
+В повторном trace `37980204017`: zoom p95 33.4 ms,
+max 116.7 ms; DirectRenderer::DrawFrame 37 events,
+756.5 ms total/max 25.77 ms;
+LayerTreeHost::DoUpdateLayers 37 events,
+203.1 ms total/max 14.24 ms, Long Task 119 ms.
+Два CI-прогона показывают существенную вариативность кадров.
+GPU/compositor timestamps не являются аддитивными с JS-таймингами.
+Доказанного устойчивого устранения >100 ms gaps пока нет.
+
+**Release gate C3.7 OPEN:** браузерная композиция и redraw остаются
+значимыми затратами. Далее — отдельный C3.8 controlled A/B эксперимент
+с уменьшением compositor layers / ограничением анимационных
+invalidation только при wheel (или бэкграундным chunked cache),
+c matched Chromium traces, pixel DPR2/hit parity, Firefox и
+памятью. Не объединять stacked PR #197–#199 с main как завершённое
+исправление больших досок до повторяемого улучшения хвоста кадров.
+
 ### C3.6: неблокирующий cold wheel fallback — 09.10.2026
 
 В stacked draft [PR #198](https://github.com/ArtemLevin/tutorboard/pull/198)
