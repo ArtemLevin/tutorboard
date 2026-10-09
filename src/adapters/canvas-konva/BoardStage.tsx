@@ -22,11 +22,11 @@ import {
 import {
   boardObjectId,
   batchBoardRenderItems,
+  createBoardVisibilityIndex,
   createLineEndpointRotationTransform,
   lineWorldEndpoints,
   panViewport,
   screenToWorld,
-  selectVisibleBoardItems,
   zoomViewportAt,
   type BoardObjectId,
   type BoardRenderItem,
@@ -647,12 +647,17 @@ export function BoardStage({
     wetInkRendererRef.current?.setViewport(previewViewport);
   }, [previewViewport]);
 
+  const visibilityIndex = useMemo(
+    () => createBoardVisibilityIndex(scene.items),
+    [scene.items],
+  );
+  const visibleItems = useMemo(
+    () => visibilityIndex.select(previewViewport, size),
+    [visibilityIndex, previewViewport, size],
+  );
   const visibleItemBatches = useMemo(
-    () =>
-      batchBoardRenderItems(
-        selectVisibleBoardItems(scene.items, previewViewport, size),
-      ),
-    [previewViewport, scene.items, size],
+    () => batchBoardRenderItems(visibleItems),
+    [visibleItems],
   );
   const committedPaintRuns = useMemo(
     () => partitionCommittedPaintRuns(visibleItemBatches),
