@@ -2,13 +2,14 @@
 
 > Статус документа: основной execution plan.
 >
-> Последнее обновление: 2026-10-05.
+> Последнее обновление: 2026-10-09.
 >
 > Документ синхронизирован с фактическим состоянием проекта после standalone
 > contracts, access convergence, controlled-pilot E2E, **Input Foundation +
 > Shape Constraints** (PR #133), **Partial eraser + forgiving selection**
 > (PR #134), **Live text + Escape comfort** (PR #135) и CI/performance hardening
-> вплоть до PR #142. Ближайшая delivery цель по-прежнему —
+> вплоть до PR #142; дальнейшие C3 performance-этапы зафиксированы ниже.
+> Ближайшая delivery цель по-прежнему —
 > **Pilot Deployment Gate**: получить реальный HTTPS-сервер и провести
 > controlled pilot с одним преподавателем и одним учеником. После pilot
 > обязательным остаётся полный **Board-only Production Profile** и production
@@ -275,6 +276,46 @@ large-media runtime path. Остаточный A2 риск: data URL → Blob co
 legacy/current `image.embedded` выполняется синхронно в JS; retained-cache budget
 ограничивает evictable zero-ref resources, а активно отображаемые referenced
 bitmaps не эвиктятся до release.
+
+### C3.2: раздельные GIF-слои и wheel cache — 09.10.2026
+
+- PR #194 (C3.2-B) объединён с `main` как `acc1342cd2d820dbd34cd02b9ab01b3193cdd8ec`.
+- PR #193 (C3.2-A) объединён поверх C3.2-B как
+  `2f81af565ecafbe716531b8de1cca72956378650` — подтверждённый HEAD
+  `main` на 09.10.2026.
+- Post-merge CI `37934870233`: Quality gate, Chromium/Firefox smoke,
+  media profile (12/12), production image и профильные production gates
+  завершены успешно. В профиле 600 pen + 6 PNG + 4 GIF:
+  wheel zoom p95 16.8 ms, max 33.3 ms, 218 `drawImage`,
+  pen input-to-paint p95 14.0 ms.
+- Предыдущие повторы показали zoom p95 от 16.7 до 50 ms даже с wheel
+  cache; достижение стабильных 60 fps на всех устройствах не доказано.
+
+C3.3 diagnostic instrumentation (PR #195) объединена с `main`
+9 октября как `190906383329f8f5dc17df9c5a5dce30e7ed92b1`. Последующий
+main-CI `37962493241` полностью успешен, включая production image.
+Синхронная стоимость первого wheel cache `begin()` на прежнем тяжёлом
+сценарии составляла 21–31 ms.
+
+C3.4 candidate (PR #196) переносит ограниченное 4 млн физических пикселей
+построение кэша в browser idle и повторно использует готовые Konva
+scene/hit canvases только при совпадающем DPR. При отсутствии подготовки
+остаётся прежний wheel fallback; инвалидация и освобождение ресурсов
+выполняются при изменении сцены, commit/cancel, истечении 15 s и unmount.
+Quality gate: 1092/1092 unit/integration, 24/24 performance,
+Chromium/Firefox 38/38. Расширенный Chromium media profile: 16/16,
+повторён дважды без изменения кода. Подтверждены 1000–3000 strokes,
+DPR2 alpha/transform overlap pixel comparison (значимые каналы
+0.99284%, средняя ошибка 0.176) и 48 wheel циклов при 3000 strokes;
+наблюдаемый пик кэша 2,016,464 пикселя (повтор 1,828,400).
+В прогоне с подготовленным кэшем стоимость wheel begin близка к 0 ms.
+
+Стабильные 60 FPS **пока не подтверждены**: у 3000 strokes + GIF
+zoom p95 = 33.4 ms, наибольшие интервалы 83.3 и 116.6 ms в двух CI;
+у 1000 strokes p95 варьирует 16.8–33.4 ms. Отдельным блоком остаются
+GPU/compositor attribution, многочасовой реальный soak и сравнение
+на разных устройствах. Подробнее:
+[`docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md`](docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md).
 
 ## 1. Продуктовая цель
 
