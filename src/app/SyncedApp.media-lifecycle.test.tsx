@@ -342,7 +342,10 @@ describe("F3.3.2-D network loss resource release", () => {
       const cancelled = expect(lease.promise).rejects.toMatchObject({
         name: "AbortError",
       });
-      act(() => window.dispatchEvent(new Event("offline")));
+      await act(async () => {
+        window.dispatchEvent(new Event("offline"));
+        await Promise.resolve();
+      });
       await cancelled;
       expect(release).toHaveBeenCalledOnce();
       expect(scope.snapshot()).toMatchObject({
