@@ -1089,7 +1089,9 @@ test("@media-profile DPR2 pixel parity", async ({ browser }, testInfo) => {
 
 // Long, heavy interaction sequence: checks bounded cache allocation and
 // that the last cleanup releases prepared Konva groups after a board clear.
-test("@media-profile 3000 pen long-wheel soak", async ({ browser }, testInfo) => {
+test("@media-profile 3000 pen long-wheel soak", async ({
+  browser,
+}, testInfo) => {
   test.setTimeout(180_000);
   test.skip(
     testInfo.project.name !== "chromium",
@@ -1124,7 +1126,10 @@ test("@media-profile 3000 pen long-wheel soak", async ({ browser }, testInfo) =>
           page,
           "data-wheel-cache-last-build-pixels",
         );
-        observedPeakCachePixels = Math.max(observedPeakCachePixels, cachePixels);
+        observedPeakCachePixels = Math.max(
+          observedPeakCachePixels,
+          cachePixels,
+        );
         expect(cachePixels).toBeLessThanOrEqual(4_000_000);
       }
     }
