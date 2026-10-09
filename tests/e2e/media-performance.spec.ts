@@ -28,7 +28,7 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
   };
 };
 
- const databaseName = "tutorboard-local-v1";
+const databaseName = "tutorboard-local-v1";
 const timestamp = "2026-10-04T18:30:00.000Z";
 const pngDataUrl =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGPgEpH7DwABpAE8k4sOtwAAAABJRU5ErkJggg==";
