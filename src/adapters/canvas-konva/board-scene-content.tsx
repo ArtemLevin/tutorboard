@@ -15,6 +15,7 @@ import type {
   Transform2D,
 } from "../../core/public";
 import type { BoardObjectTransformSnapshot } from "./BoardStage";
+import { recordBoardFrameTrace } from "./board-frame-trace";
 import {
   minimumWheelCacheStrokes,
   type WheelInkCacheCoordinator,
@@ -178,6 +179,10 @@ const BoardSceneRun = memo(function BoardSceneRun({
   zoom,
   wheelInkCache,
 }: BoardSceneRunProps) {
+  const profileStartedAtMs =
+    typeof window === "undefined" || window.__tutorBoardC37Trace === undefined
+      ? null
+      : performance.now();
   const contents = run.items.map((item) => (
       <BoardRenderItemView
         coordinatePlotInteraction={
@@ -206,18 +211,28 @@ const BoardSceneRun = memo(function BoardSceneRun({
         zoom={item.object.kind === "drawing.pen-stroke" ? 1 : zoom}
       />
     ));
-    if (
-      run.ink &&
-      run.items.length >= minimumWheelCacheStrokes &&
-      wheelInkCache !== undefined
-    ) {
-      return (
-        <WheelCachedInkGroup coordinator={wheelInkCache}>
-          {contents}
-        </WheelCachedInkGroup>
-      );
-    }
-    return <Group>{contents}</Group>;
+  const result =
+    run.ink &&
+    run.items.length >= minimumWheelCacheStrokes &&
+    wheelInkCache !== undefined ? (
+      <WheelCachedInkGroup coordinator={wheelInkCache}>
+        {contents}
+      </WheelCachedInkGroup>
+    ) : (
+      <Group>{contents}</Group>
+    );
+  const renderDurationMs =
+    profileStartedAtMs === null ? 0 : performance.now() - profileStartedAtMs;
+  useLayoutEffect(() => {
+    if (profileStartedAtMs === null) return;
+    recordBoardFrameTrace(
+      run.ink ? "react-ink-run" : "react-other-run",
+      profileStartedAtMs,
+      renderDurationMs,
+      String(run.items.length),
+    );
+  });
+  return result;
 });
 
 export const BoardSceneContent = memo(function BoardSceneContent({
