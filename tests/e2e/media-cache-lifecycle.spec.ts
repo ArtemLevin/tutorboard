@@ -164,7 +164,10 @@ async function importDocument(
   await expect(page.getByTestId("object-count")).toHaveText(
     new RegExp("^" + document.order.length + " объект", "u"),
   );
-  await page.getByRole("button", { name: "Закрыть настройки доски" }).click();
+  const close = page.getByRole("button", {
+    name: "Закрыть настройки доски",
+  });
+  if (await close.isVisible()) await close.click();
 }
 
 async function afterGarbageCollection(page: Page, chromium: boolean): Promise<number | null> {
@@ -173,12 +176,8 @@ async function afterGarbageCollection(page: Page, chromium: boolean): Promise<nu
   try {
     await session.send("HeapProfiler.enable");
     await session.send("HeapProfiler.collectGarbage");
-    const metrics = await session.send("Performance.getMetrics").catch(() => null);
-    if (metrics === null) {
-      await session.send("Performance.enable");
-      const enabled = await session.send("Performance.getMetrics");
-      return enabled.metrics.find(({ name }) => name === "JSHeapUsedSize")?.value ?? null;
-    }
+    await session.send("Performance.enable");
+    const metrics = await session.send("Performance.getMetrics");
     return metrics.metrics.find(({ name }) => name === "JSHeapUsedSize")?.value ?? null;
   } finally {
     await session.detach();
