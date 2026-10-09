@@ -1,0 +1,43 @@
+name: Media cache cyclic soak
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cyclic-soak:
+    name: Chromium 12-cycle GC and media resources
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Install Chromium browser
+        run: npx playwright install --with-deps chromium
+      - name: Build production frontend
+        run: npm run build
+      - name: Run measured 12-cycle media soak
+        run: |
+          set -o pipefail
+          npm run e2e:media-cache-soak -- \
+            --retries=0 \
+            --trace=retain-on-failure 2>&1 | tee media-cache-soak.log
+      - name: Retain metrics and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-cache-soak-${{ github.sha }}
+          path: |
+            media-cache-soak.log
+            test-results/
+          if-no-files-found: warn
+          retention-days: 30

@@ -25,7 +25,7 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   retries: process.env.CI ? 1 : 0,
   testDir: "./tests/fullstack",
-  testMatch: "media-upload.spec.ts",
+  testMatch: ["media-upload.spec.ts", "media-lifecycle.spec.ts"],
   timeout: 120_000,
   use: {
     baseURL: "http://127.0.0.1:4173",

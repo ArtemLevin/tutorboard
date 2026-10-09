@@ -88,3 +88,34 @@ scope. Re-rendered images are generation-keyed; stale asynchronous completions
 cannot repopulate the board after a refresh or revocation. Source resolution
 additionally checks the current access context, generation and in-flight
 refresh status. Read/write permission updates preserve authorized read access.
+
+## D — cyclic browser memory/performance gate (09.10.2026)
+
+The default Playwright `@smoke` suite runs **3 ×** populated → empty
+BoardDocument import cycles in Chromium and Firefox, using one 1024×1024
+representative RGBA PNG, four additional PNGs, three GIFs, a real pen
+stroke and a coordinate plot per populated pass. Every cycle must recover
+zero active decoded raster bytes/count, zero live GIF HTML elements and zero
+remaining Blob URLs after the empty document mounts. We record the raster
+start/release count, media URL counters and rAF p95 (180 ms broad CI ceiling)
+per cycle. This workload exercises actual Konva mounting/unmounting and the
+local document importer; browser instrumentation is injected with Playwright
+and is absent from production assets.
+
+The manual `Media cache cyclic soak` workflow runs **12 ×** on Chromium with
+12 static images, eight GIFs and mixed ink/plot content. Chromium takes a
+`HeapProfiler.collectGarbage` + `Performance.getMetrics` heap snapshot
+after each cycle; Firefox runs strict native lifecycle checks without CDP.
+Heap comparisons are published in JSON and are *diagnostic only* while
+browser/runtime versions and persisted document history prevent a reliably
+calibrated absolute JS-heap threshold. Estimated decoded native bytes are
+verified separately; heap values must not be interpreted as native bitmap
+memory measurements.
+
+The isolated real-backend media-fullstack suite also covers asset-backed PNG
+and GIF, guest offline/reconnect, write-rights epoch updates, guest revoke and
+A→B→A board navigation with live Blob URL and decoded-raster checks. It
+reuses the pinned backend and requires no change to production auth/data
+contracts. JSON evidence is attached to Playwright reports, and CI uploads
+failure traces. This gate does not claim all possible document sizes or
+arbitrary browser-memory stability.
