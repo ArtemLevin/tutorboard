@@ -85,7 +85,6 @@ describe("board scene selector", () => {
     expect(selector.cacheSize()).toBe(0);
   });
 
-
   it("preserves legacy culling for wheel/pan, transformed and hidden objects", () => {
     const read = readBoardDocument(loadBoardFixture());
     expect(read.status).toBe("ok");
