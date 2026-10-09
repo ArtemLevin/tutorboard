@@ -689,6 +689,11 @@ export function BoardStage({
     const stage = stageRef.current;
     if (stage === null) return;
     const cleanup = stage.getLayers().map((layer) => {
+      const sceneDescriptor = Object.getOwnPropertyDescriptor(
+        layer,
+        "drawScene",
+      );
+      const hitDescriptor = Object.getOwnPropertyDescriptor(layer, "drawHit");
       const originalScene = layer.drawScene.bind(layer);
       const originalHit = layer.drawHit.bind(layer);
       const name = layer.name() || "unnamed-layer";
@@ -719,8 +724,18 @@ export function BoardStage({
         }
       };
       return () => {
-        layer.drawScene = originalScene;
-        layer.drawHit = originalHit;
+        // Restore original ownership and identity. Merely assigning a bound
+        // method here would retain another wrapper after every scene change.
+        if (sceneDescriptor === undefined) {
+          Reflect.deleteProperty(layer, "drawScene");
+        } else {
+          Object.defineProperty(layer, "drawScene", sceneDescriptor);
+        }
+        if (hitDescriptor === undefined) {
+          Reflect.deleteProperty(layer, "drawHit");
+        } else {
+          Object.defineProperty(layer, "drawHit", hitDescriptor);
+        }
       };
     });
     return () => cleanup.forEach((restore) => restore());
