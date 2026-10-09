@@ -183,3 +183,37 @@ Cross-browser GIF resume smoke and dense-board Chromium profile must pass
 before this combined candidate can be merged. Prior C3.2-A-only profiling
 reduced redraw calls without a reproducible zoom p95 gain; CI evidence for
 the integrated candidate must be evaluated separately.
+
+
+## Post-merge C3.2-A + C3.2-B: confirmed main baseline
+
+The actual `main` HEAD on 09.10.2026 is
+`2f81af565ecafbe716531b8de1cca72956378650`, with
+C3.2-B merged as `acc1342cd2d820dbd34cd02b9ab01b3193cdd8ec`.
+The post-merge [CI run 37934870233](https://github.com/ArtemLevin/tutorboard/actions/runs/37934870233)
+completed successfully (Quality gate, Chromium/Firefox smoke, media
+performance profile 12/12, production image, associated production gates).
+
+In its large600-animated test (600 ink strokes, 6 PNG, 4 GIF):
+wheel zoom frame p95 **16.8 ms**, max **33.3 ms**, mean **17.01 ms**,
+**218** Canvas `drawImage` calls, input-to-paint p95 **14.0 ms**.
+The run still contains at least one missed 60-fps frame. This successful
+single shared-runner sample is not evidence of consistently low p95 on
+other machines or long sessions; prior runs ranged widely.
+
+### C3.3 diagnostic follow-up (draft PR #195)
+
+The wheel-start code synchronously calls `WheelInkCacheCoordinator.begin()`
+before updating the React preview viewport. Konva then redraws the
+transformed committed runs, with GIF repaint pacing reduced during the
+wheel gesture. Existing evidence did not apportion long frame gaps
+between wheel-cache construction, synchronous Canvas painting,
+compositor/GPU latency and browser/runner scheduling.
+
+[Draft PR #195](https://github.com/ArtemLevin/tutorboard/pull/195)
+adds measurements for build duration, cache pixels and skipped runs;
+Canvas `drawImage`, `clearRect`, `stroke` synchronous call time;
+and rAF gaps over 25 ms / 50 ms. These are diagnostic-only metrics.
+Canvas API synchronous duration excludes asynchronous compositor/GPU work;
+instrumentation itself can perturb small frame budgets. Repeat comparable
+scenarios before proposing another optimization or changing release budgets.
