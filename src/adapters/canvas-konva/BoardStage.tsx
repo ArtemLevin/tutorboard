@@ -2047,7 +2047,12 @@ export function BoardStage({
     );
     if (!sameViewport(viewport, currentViewport)) {
       if (wheelSessionRef.current === null) {
-        wheelInkCache.begin(window.devicePixelRatio);
+        // A cold cache can take tens of milliseconds to rasterize on the
+        // input thread. Preserve the uncached pen renderer for this gesture
+        // when idle preparation has not completed.
+        wheelInkCache.begin(window.devicePixelRatio, {
+          buildIfUnprepared: false,
+        });
         // Avoid an independent full-speed GIF invalidation stream while the
         // temporary wheel cache is composited through viewport transforms.
         animatedImageRedraw.setInteractionActive(true);
@@ -2132,6 +2137,9 @@ export function BoardStage({
       data-wheel-cache-last-wheel-end-ms={wheelInkCache.lastWheelBeginEndMs}
       data-wheel-cache-last-wheel-used-prepared={
         wheelInkCache.lastWheelUsedPrepared
+      }
+      data-wheel-cache-last-wheel-skipped-cold-build={
+        wheelInkCache.lastWheelSkippedColdBuild
       }
       data-wheel-cache-prepared={wheelInkCache.isPrepared}
       data-testid="board-stage"
