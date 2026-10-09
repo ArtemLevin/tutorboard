@@ -26,7 +26,10 @@ export const minimumWheelCacheStrokes = 80;
 export const maximumWheelCachePixels = 4_000_000;
 
 function boundedPixelRatio(devicePixelRatio: number): number {
-  return Math.max(1, Math.min(2, Number.isFinite(devicePixelRatio) ? devicePixelRatio : 1));
+  return Math.max(
+    1,
+    Math.min(2, Number.isFinite(devicePixelRatio) ? devicePixelRatio : 1),
+  );
 }
 
 export class WheelInkCacheCoordinator {
