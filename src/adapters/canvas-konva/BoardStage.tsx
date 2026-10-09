@@ -2030,7 +2030,9 @@ export function BoardStage({
         {committedPaintRuns.map((run) => (
           <Layer
             key={run.key}
-            name={run.animated ? "animated-content-layer" : "static-content-layer"}
+            name={
+              run.animated ? "animated-content-layer" : "static-content-layer"
+            }
           >
             <Group
               scaleX={previewViewport.zoom}

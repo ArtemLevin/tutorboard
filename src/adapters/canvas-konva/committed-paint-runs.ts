@@ -51,7 +51,9 @@ export function partitionCommittedPaintRuns(
   }
 
   // Avoid extra layers for static-only or GIF-only scenes.
-  if (runs.length === 1) return fallback;
+  if (runs.length === 1) {
+    return [{ animated: runs[0]!.animated, batches, key: "committed-content" }];
+  }
 
   return runs.map(({ animated, items }) => {
     const paintBatches: BoardRenderItem[][] = [];

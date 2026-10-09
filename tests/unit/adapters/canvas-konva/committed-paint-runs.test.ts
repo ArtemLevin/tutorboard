@@ -40,7 +40,8 @@ function object(index: number, gif = false): BoardRenderItem {
   const image: EmbeddedImageObject = {
     ...base,
     contentSha256: "a".repeat(64),
-    dataUrl: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==",
+    dataUrl:
+      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==",
     fileName: `animated-${index}.gif`,
     intrinsicSize: { height: 1, width: 1 },
     kind: "image.embedded",
@@ -64,9 +65,18 @@ describe("bounded committed paint runs", () => {
     expect(runs[0]?.batches[0]).toEqual(items);
   });
 
+  it("keeps GIF-only scenes in one animated Layer", () => {
+    const runs = partitionCommittedPaintRuns([[object(0, true), object(1, true)]]);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]?.animated).toBe(true);
+  });
+
   it("isolates GIF redraws but preserves exact interleaved order", () => {
     const objects = [object(0), object(1, true), object(2), object(3, true)];
-    const runs = partitionCommittedPaintRuns([objects.slice(0, 2), objects.slice(2)]);
+    const runs = partitionCommittedPaintRuns([
+      objects.slice(0, 2),
+      objects.slice(2),
+    ]);
     expect(runs.map(({ animated }) => animated)).toEqual([
       false,
       true,
@@ -91,12 +101,17 @@ describe("bounded committed paint runs", () => {
       100,
     ]);
     expect(runs[1]?.animated).toBe(true);
-    expect(ids(runs)).toEqual([...ink, object(600, true), object(601, true)].map(({ object }) => object.id));
+    expect(ids(runs)).toEqual(
+      [...ink, object(600, true), object(601, true)].map(
+        ({ object }) => object.id,
+      ),
+    );
   });
 
   it("falls back to one Layer when alternation exceeds the memory budget", () => {
-    const items = Array.from({ length: maximumCommittedPaintLayers + 2 }, (_, index) =>
-      object(index, index % 2 === 1),
+    const items = Array.from(
+      { length: maximumCommittedPaintLayers + 2 },
+      (_, index) => object(index, index % 2 === 1),
     );
     const original = [items.slice(0, 3), items.slice(3)];
     const runs = partitionCommittedPaintRuns(original);
@@ -106,9 +121,13 @@ describe("bounded committed paint runs", () => {
   });
 
   it("does not cross the run boundary for unrelated static/animated objects", () => {
-    const runs = partitionCommittedPaintRuns([[object(1, true), object(2), object(3, true)]]);
+    const runs = partitionCommittedPaintRuns([
+      [object(1, true), object(2), object(3, true)],
+    ]);
     expect(runs).toHaveLength(3);
-    expect(ids(runs)).toEqual([1, 2, 3].map((index) => object(index).object.id));
+    expect(ids(runs)).toEqual(
+      [1, 2, 3].map((index) => object(index).object.id),
+    );
   });
 
   it("rejects unbounded or invalid layer budgets", () => {
