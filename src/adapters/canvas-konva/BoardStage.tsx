@@ -1596,7 +1596,12 @@ export function BoardStage({
         rightContextMenuTimeoutRef.current = null;
       }
     },
-    [animatedImageRedraw, discardWorldPointerMoves, releaseCapture, wheelInkCache],
+    [
+      animatedImageRedraw,
+      discardWorldPointerMoves,
+      releaseCapture,
+      wheelInkCache,
+    ],
   );
 
   useEffect(() => {
