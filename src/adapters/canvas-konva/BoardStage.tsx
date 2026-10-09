@@ -853,7 +853,7 @@ export function BoardStage({
     let expiryId: number | null = null;
     let idleId: number | null = null;
     let attempts = 0;
-    const schedule = () => {
+    const schedule = (): void => {
       idleId = window.requestIdleCallback((deadline) => {
         idleId = null;
         const remainingMs = deadline.timeRemaining();
