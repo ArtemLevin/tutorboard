@@ -217,3 +217,67 @@ and rAF gaps over 25 ms / 50 ms. These are diagnostic-only metrics.
 Canvas API synchronous duration excludes asynchronous compositor/GPU work;
 instrumentation itself can perturb small frame budgets. Repeat comparable
 scenarios before proposing another optimization or changing release budgets.
+
+
+## C3.3 + C3.4 verification — 09.10.2026
+
+PR #195 (diagnostics) merged as `190906383329f8f5dc17df9c5a5dce30e7ed92b1`.
+Post-merge main CI [37962493241](https://github.com/ArtemLevin/tutorboard/actions/runs/37962493241)
+passed Quality, browser smoke, media profile, associated gates and production
+image. In the diagnostic run preceding C3.4, wheel cache construction cost
+21–31 ms synchronously at 300–600 strokes.
+
+PR #196 (idle prewarm) retains the 4M physical scene-pixel budget, exact
+bounded DPR match, cold synchronous fallback, 15 s idle-cache expiry and
+scene/gesture/unmount invalidation. [CI 37963878160](https://github.com/ArtemLevin/tutorboard/actions/runs/37963878160)
+passed 1092 unit/integration tests, 24 performance tests, 38 Chromium and
+38 Firefox smoke tests and 16 Chromium media-profile scenarios. The media
+profile was independently rerun on the same SHA and again passed 16/16.
+
+### Repeated large-scene measurements
+
+Each p95 comes from 48 rAF intervals on a shared Linux Chromium CI runner.
+The sixth scenario has 3,000 document strokes, of which the renderer's
+visible-item selection may draw a smaller subset. Media: 6 large PNG and
+4 GIF in all animated scenarios.
+
+| Scene | First / repeated zoom p95 | First / repeated max gap | Prepared cache use |
+| --- | --- | --- | --- |
+| 300 static | 16.7 / 16.8 ms | 16.8 / 33.4 ms | both |
+| 300 + GIF | 16.8 / 33.4 ms | 33.3 / 33.5 ms | yes / no |
+| 600 static | 16.8 / 16.8 ms | 33.3 / 33.4 ms | both |
+| 600 + GIF | 16.8 / 33.3 ms | 33.4 / 50.0 ms | both |
+| 1000 + GIF | 16.8 / 33.4 ms | 50.1 / 50.0 ms | both |
+| 3000 + GIF | 33.4 / 33.4 ms | 83.3 / 116.6 ms | both |
+
+When prewarm succeeded, measured synchronous first-wheel `begin()` cost
+was near zero; the cold 300 + GIF rerun needed 11.6 ms. Mixed
+pixel-equivalence comparisons on DPR 2 across two independent Chromium
+contexts were identical on both runs: 2480×1640 pixels, 0.99284% of
+channels different by more than 3 levels, mean absolute channel
+difference 0.176. Thresholds were below 1% and below 1.0 respectively.
+This comparison exercised semi-transparent, transformed and interleaved
+pen/PNG/one-frame GIF content. It is a numerical tolerance regression,
+not an exhaustive proof of every alpha/GIF frame combination.
+
+The DPR 2 repeated-wheel lifecycle test imported 3,000 strokes and
+completed 48 wheel cycles, followed by clearing the board. Measured
+cache peak was 2,016,464 / 1,828,400 physical pixels in the two runs,
+under the 4,000,000 ceiling. Active/prepared cache groups were absent
+after clear. It is a repeated interaction stress check, **not** a
+multi-hour teaching-session soak or a direct GPU texture allocation
+measurement.
+
+### Remaining release risks
+
+- Zoom p95 and maximum frame gap remain variable, particularly on
+  animated scenes with 1,000–3,000 document strokes. Stable 60 fps
+  cannot be claimed.
+- Chrome rAF timestamps are not a full GPU/compositor timeline, and
+  the profiler does not establish causality for every long frame.
+- Short-lived scene/hit caching is bounded by scene physical pixels;
+  actual browser/OS/GPU memory overhead warrants high-DPI profiling
+  on end-user hardware.
+- Multi-hour collaboration, reconnect, mixed moving GIF frames and
+  device-specific alpha/color-management parity require independent
+  longer-duration verification.

@@ -13,6 +13,11 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
       readonly width: number;
     };
     readonly sync: {
+      readonly read: (buffer: Buffer) => {
+        readonly data: Buffer;
+        readonly height: number;
+        readonly width: number;
+      };
       readonly write: (png: {
         readonly data: Buffer;
         readonly height: number;
@@ -142,6 +147,10 @@ interface FrameProfile {
   readonly over25Ms: number;
   readonly over50Ms: number;
   readonly slowestGapsMs: readonly number[];
+  readonly slowFrameWindows: readonly {
+    readonly startMs: number;
+    readonly endMs: number;
+  }[];
 }
 
 interface MediaMeasuredPass {
@@ -302,12 +311,19 @@ const mediaInstrumentationScript = String.raw`
     },
     async measureFrames(frameCount) {
       const intervals = [];
+      const slowFrameWindows = [];
       let previous = null;
       for (let index = 0; index < frameCount + 1; index += 1) {
         const timestamp = await new Promise((resolve) =>
           originalRequestAnimationFrame(resolve),
         );
-        if (previous !== null) intervals.push(timestamp - previous);
+        if (previous !== null) {
+          const duration = timestamp - previous;
+          intervals.push(duration);
+          if (duration > 25) {
+            slowFrameWindows.push({ startMs: previous, endMs: timestamp });
+          }
+        }
         previous = timestamp;
       }
       return {
@@ -323,6 +339,7 @@ const mediaInstrumentationScript = String.raw`
         over25Ms: intervals.filter((duration) => duration > 25).length,
         over50Ms: intervals.filter((duration) => duration > 50).length,
         slowestGapsMs: [...intervals].sort((a, b) => b - a).slice(0, 5),
+        slowFrameWindows,
       };
     },
   };
@@ -726,6 +743,9 @@ interface LargeBoardInteractionMeasurement {
     readonly counters: MediaProfileSnapshot;
     readonly wheelGestureWallMs: number;
     readonly wheelCacheBuildMs: number;
+    readonly wheelCacheWheelBeginMs: number;
+    readonly wheelCacheOverlappingSlowFrames: number;
+    readonly wheelCacheUsedPrewarm: boolean;
     readonly wheelCacheBuildPixels: number;
     readonly wheelCacheBuilds: number;
     readonly wheelCacheSkippedRuns: number;
@@ -828,6 +848,17 @@ async function profileLargeBoard(
   ]);
   const wheelGestureWallMs = performance.now() - wheelStart;
   const zoomCounters = await snapshot(page);
+  const cacheStartMs = await integerStageMetric(
+    page,
+    "data-wheel-cache-last-wheel-start-ms",
+  );
+  const cacheEndMs = await integerStageMetric(
+    page,
+    "data-wheel-cache-last-wheel-end-ms",
+  );
+  const overlappingSlowFrames = zoomFrames.slowFrameWindows.filter(
+    ({ startMs, endMs }) => startMs < cacheEndMs && endMs > cacheStartMs,
+  ).length;
   const result: LargeBoardInteractionMeasurement = {
     scenario: scenario.name,
     strokeCount: scenario.strokeCount,
@@ -854,6 +885,15 @@ async function profileLargeBoard(
         page,
         "data-wheel-cache-last-build-ms",
       ),
+      wheelCacheWheelBeginMs: await integerStageMetric(
+        page,
+        "data-wheel-cache-last-wheel-begin-ms",
+      ),
+      wheelCacheOverlappingSlowFrames: overlappingSlowFrames,
+      wheelCacheUsedPrewarm:
+        (await stage.getAttribute(
+          "data-wheel-cache-last-wheel-used-prepared",
+        )) === "true",
       wheelCacheBuildPixels: await integerStageMetric(
         page,
         "data-wheel-cache-last-build-pixels",
@@ -882,6 +922,10 @@ async function profileLargeBoard(
   expect(result.drawing.frames.frameCount).toBe(largeBoardFrameCount);
   expect(result.zoom.frames.frameCount).toBe(largeBoardFrameCount);
   expect(result.zoom.wheelCacheBuildMs).toBeGreaterThanOrEqual(0);
+  expect(result.zoom.wheelCacheWheelBeginMs).toBeGreaterThanOrEqual(0);
+  expect(result.zoom.wheelCacheOverlappingSlowFrames).toBeLessThanOrEqual(
+    result.zoom.frames.over25Ms,
+  );
   expect(result.zoom.wheelCacheBuildPixels).toBeLessThanOrEqual(4_000_000);
   expect(result.zoom.frames.over25Ms).toBeLessThanOrEqual(
     result.zoom.frames.frameCount,
@@ -896,6 +940,8 @@ for (const scenario of [
   { name: "large300-animated", strokeCount: 300, gifCount: 4 },
   { name: "large600-static", strokeCount: 600, gifCount: 0 },
   { name: "large600-animated", strokeCount: 600, gifCount: 4 },
+  { name: "large1000-animated", strokeCount: 1000, gifCount: 4 },
+  { name: "large3000-animated", strokeCount: 3000, gifCount: 4 },
 ]) {
   test(
     "@media-profile measures large-board drawing, zoom and raster decode: " +
@@ -914,6 +960,211 @@ for (const scenario of [
     },
   );
 }
+
+// High-DPI visual equivalence of the prepared and cold-cache render paths,
+// including interleaved PNG/GIF, semi-transparent ink and object transforms.
+test("@media-profile DPR2 pixel parity", async ({ browser }, testInfo) => {
+  test.setTimeout(120_000);
+  test.skip(
+    testInfo.project.name !== "chromium",
+    "Chromium owns the pixel-equivalence diagnostic profile",
+  );
+  const board = createDenseBoardDocument({
+    strokeCount: 120,
+    staticCount: 2,
+    gifCount: 1,
+  });
+  const strokes = board.order.filter((id) => id.includes(":stroke:"));
+  const images = board.order.filter((id) => id.includes(":image:"));
+  const [pngBelow, pngAbove, gif] = images;
+  if (pngBelow === undefined || pngAbove === undefined || gif === undefined) {
+    throw new Error("Missing mixed media for high-DPI visual profile");
+  }
+  board.order.splice(
+    0,
+    board.order.length,
+    ...strokes.slice(0, 100),
+    pngBelow,
+    gif,
+    ...strokes.slice(100),
+    pngAbove,
+  );
+  for (const [index, id] of board.order.entries()) {
+    const object = board.objects[id];
+    if (object === undefined) throw new Error("Missing visual object " + id);
+    object.style.opacity = index % 2 === 0 ? 0.65 : 0.85;
+    object.rotation = index < 120 ? 0 : 0.21;
+    object.scale = { x: 1.12, y: 0.87 };
+    if (object.kind === "image.embedded") {
+      object.position = { x: 205 + (index % 30), y: 195 };
+    }
+  }
+
+  const comparison = await Promise.all(
+    [true, false].map(async (prewarm) => {
+      const context = await browser.newContext({
+        deviceScaleFactor: 2,
+        viewport: { width: 1240, height: 820 },
+      });
+      const page = await context.newPage();
+      try {
+        await installMediaInstrumentation(page);
+        await page.addInitScript((enabled) => {
+          if (enabled) {
+            window.requestIdleCallback = (callback) =>
+              window.setTimeout(
+                () => callback({ didTimeout: false, timeRemaining: () => 50 }),
+                0,
+              );
+            window.cancelIdleCallback = (id) => window.clearTimeout(id);
+          } else {
+            window.requestIdleCallback = () => 0;
+            window.cancelIdleCallback = () => {};
+          }
+        }, prewarm);
+        await resetLocalDatabase(page);
+        await importDocument(page, board);
+        const stage = page.getByTestId("board-stage");
+        if (prewarm) {
+          await expect(stage).toHaveAttribute(
+            "data-wheel-cache-prepared",
+            "true",
+          );
+        } else {
+          await expect(stage).toHaveAttribute(
+            "data-wheel-cache-prepared",
+            "false",
+          );
+        }
+        const bounds = await stage.boundingBox();
+        if (bounds === null) throw new Error("Missing visual board bounds");
+        await page.mouse.move(
+          bounds.x + bounds.width / 2,
+          bounds.y + bounds.height / 2,
+        );
+        await page.mouse.wheel(0, -190);
+        await expect(stage).toHaveAttribute(
+          "data-wheel-cache-last-wheel-used-prepared",
+          String(prewarm),
+        );
+        await measureFrames(page, 24);
+        expect(
+          await integerStageMetric(page, "data-wheel-cache-last-build-pixels"),
+        ).toBeLessThanOrEqual(4_000_000);
+        return await stage.screenshot({ animations: "disabled" });
+      } finally {
+        await context.close();
+      }
+    }),
+  );
+
+  const [warmImage, coldImage] = comparison.map((buffer) =>
+    PNG.sync.read(buffer),
+  );
+  if (warmImage === undefined || coldImage === undefined) {
+    throw new Error("Missing pixel comparison screenshots");
+  }
+  expect(warmImage.width).toBe(coldImage.width);
+  expect(warmImage.height).toBe(coldImage.height);
+  let significantChannels = 0;
+  let totalChannelError = 0;
+  for (let index = 0; index < warmImage.data.length; index += 1) {
+    const channelError = Math.abs(
+      (warmImage.data[index] ?? 0) - (coldImage.data[index] ?? 0),
+    );
+    if (channelError > 3) significantChannels += 1;
+    totalChannelError += channelError;
+  }
+  const channelCount = warmImage.data.length;
+  const profile = {
+    dpr: 2,
+    width: warmImage.width,
+    height: warmImage.height,
+    significantChannelFraction: significantChannels / channelCount,
+    meanChannelError: totalChannelError / channelCount,
+  };
+  console.info("WHEEL_CACHE_PIXEL_EQUIVALENCE", JSON.stringify(profile));
+  expect(profile.significantChannelFraction).toBeLessThan(0.01);
+  expect(profile.meanChannelError).toBeLessThan(1);
+});
+
+// Long, heavy interaction sequence: checks bounded cache allocation and
+// that the last cleanup releases prepared Konva groups after a board clear.
+test("@media-profile 3000 pen long-wheel soak", async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(180_000);
+  test.skip(
+    testInfo.project.name !== "chromium",
+    "Chromium owns the extended zoom-cycle lifetime profile",
+  );
+  const context = await browser.newContext({
+    deviceScaleFactor: 2,
+    viewport: { width: 1240, height: 820 },
+  });
+  const page = await context.newPage();
+  try {
+    await installMediaInstrumentation(page);
+    await resetLocalDatabase(page);
+    const board = createDenseBoardDocument({
+      strokeCount: 3000,
+      staticCount: 2,
+      gifCount: 2,
+    });
+    await importDocument(page, board);
+    const stage = page.getByTestId("board-stage");
+    const bounds = await stage.boundingBox();
+    if (bounds === null) throw new Error("Missing large board bounds");
+    await page.mouse.move(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
+    let observedPeakCachePixels = 0;
+    for (let cycle = 0; cycle < 48; cycle += 1) {
+      await page.mouse.wheel(0, cycle % 2 === 0 ? -190 : 190);
+      if (cycle % 6 === 5) {
+        await measureFrames(page, 12);
+        const cachePixels = await integerStageMetric(
+          page,
+          "data-wheel-cache-last-build-pixels",
+        );
+        observedPeakCachePixels = Math.max(
+          observedPeakCachePixels,
+          cachePixels,
+        );
+        expect(cachePixels).toBeLessThanOrEqual(4_000_000);
+      }
+    }
+    await measureFrames(page, 16);
+    const builds = await integerStageMetric(page, "data-wheel-cache-builds");
+    console.info(
+      "WHEEL_CACHE_LONG_CYCLE_PROFILE",
+      JSON.stringify({
+        strokes: 3000,
+        cycles: 48,
+        dpr: 2,
+        cacheBuilds: builds,
+        observedPeakCachePixels,
+        lastBuildSkippedRuns: await integerStageMetric(
+          page,
+          "data-wheel-cache-last-skipped-runs",
+        ),
+      }),
+    );
+    await page.mouse.click(
+      bounds.x + bounds.width * 0.85,
+      bounds.y + bounds.height * 0.83,
+      { button: "right" },
+    );
+    await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+    await page.getByRole("button", { name: "Очистить", exact: true }).click();
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+    await expect(stage).toHaveAttribute("data-wheel-cache-active-runs", "0");
+    await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "false");
+  } finally {
+    await context.close();
+  }
+});
 
 // C3.2-B: GIF frames must only invalidate their own ordered render runs.
 // Static media may appear both before and after animation in the z-order.
@@ -958,6 +1209,50 @@ test("@smoke isolates interleaved GIF redraw while preserving committed z-order"
   // GIF frames repaint only two animation Layers. Three static PNGs stay
   // mounted on separate retained Layers throughout the idle interval.
   expect(counters.drawImageCalls).toBeLessThan(140);
+});
+
+test("@smoke reuses prepared wheel cache and restores pen hits", async ({
+  page,
+}) => {
+  // Deterministic browser scheduler for the functional contract: native
+  // requestIdleCallback is opportunistic and benchmarked separately below.
+  await page.addInitScript(() => {
+    window.requestIdleCallback = (callback) =>
+      window.setTimeout(
+        () => callback({ didTimeout: false, timeRemaining: () => 50 }),
+        0,
+      );
+    window.cancelIdleCallback = (id) => window.clearTimeout(id);
+  });
+  await resetLocalDatabase(page);
+  await importDocument(
+    page,
+    createDenseBoardDocument({ strokeCount: 120, staticCount: 1 }),
+  );
+  const stage = page.getByTestId("board-stage");
+  await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "true");
+  const builds = await integerStageMetric(page, "data-wheel-cache-builds");
+  expect(builds).toBeGreaterThan(0);
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Missing board bounds");
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
+  await page.mouse.wheel(0, -190);
+  await expect(stage).toHaveAttribute(
+    "data-wheel-cache-last-wheel-used-prepared",
+    "true",
+  );
+  expect(await integerStageMetric(page, "data-wheel-cache-builds")).toBe(
+    builds,
+  );
+  // The cache may be prepared again after commit; hit testing verifies
+  // that the completed viewport remains interactive and individually selectable.
+  await page.mouse.wheel(0, 190);
+  await page.keyboard.press("v");
+  await page.mouse.click(bounds.x + 90, bounds.y + 192);
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
 });
 
 test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
