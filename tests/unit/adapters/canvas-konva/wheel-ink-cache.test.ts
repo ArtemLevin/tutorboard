@@ -95,7 +95,7 @@ describe("transient wheel ink cache", () => {
   });
 
 
-  it("prepares scene and hit canvases before wheel and reuses them without rebuilding", () => {
+  it("reuses idle-prepared scene and hit canvases", () => {
     const coordinator = new WheelInkCacheCoordinator();
     const first = fixture(800, 400);
     coordinator.register(first.node);
@@ -131,7 +131,7 @@ describe("transient wheel ink cache", () => {
     expect(first.clearSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("invalidates a prewarmed run after document changes or group registration", () => {
+  it("invalidates prewarmed runs when registrations change", () => {
     const coordinator = new WheelInkCacheCoordinator();
     const first = fixture();
     coordinator.register(first.node);
