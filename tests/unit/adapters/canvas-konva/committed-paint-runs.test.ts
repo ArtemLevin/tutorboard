@@ -58,41 +58,43 @@ function ids(runs: ReturnType<typeof partitionCommittedPaintRuns>) {
 }
 
 describe("bounded committed paint runs", () => {
-  it("keeps static boards in the legacy single Layer", () => {
+  it("retains one Layer on static-only scenes", () => {
     const items = [object(0), object(1)];
     const runs = partitionCommittedPaintRuns([items]);
     expect(runs).toHaveLength(1);
     expect(runs[0]?.batches[0]).toEqual(items);
   });
 
-  it("keeps GIF-only scenes in one animated Layer", () => {
-    const runs = partitionCommittedPaintRuns([[object(0, true), object(1, true)]]);
+  it("retains one animated Layer on GIF-only scenes", () => {
+    const runs = partitionCommittedPaintRuns([[object(0, true)]]);
     expect(runs).toHaveLength(1);
     expect(runs[0]?.animated).toBe(true);
   });
 
-  it("isolates GIF redraws but preserves exact interleaved order", () => {
+  it("preserves arbitrary interleaved object order", () => {
     const objects = [object(0), object(1, true), object(2), object(3, true)];
     const runs = partitionCommittedPaintRuns([
       objects.slice(0, 2),
       objects.slice(2),
     ]);
-    expect(runs.map(({ animated }) => animated)).toEqual([
+    expect(runs.map((run) => run.animated)).toEqual([
       false,
       true,
       false,
       true,
     ]);
-    expect(ids(runs)).toEqual(objects.map(({ object }) => object.id));
-    expect(new Set(runs.map(({ key }) => key)).size).toBe(4);
+    expect(ids(runs)).toEqual(objects.map((item) => item.object.id));
+    expect(new Set(runs.map((run) => run.key)).size).toBe(4);
   });
 
-  it("combines 600 immutable strokes into one static Layer around GIFs", () => {
+  it("partitions 600 pen items into static and GIF Layers", () => {
     const ink = Array.from({ length: 600 }, (_, index) => object(index));
+    const gifA = object(600, true);
+    const gifB = object(601, true);
     const runs = partitionCommittedPaintRuns([
       ink.slice(0, 250),
       ink.slice(250, 500),
-      [...ink.slice(500), object(600, true), object(601, true)],
+      [...ink.slice(500), gifA, gifB],
     ]);
     expect(runs).toHaveLength(2);
     expect(runs[0]?.batches.map((batch) => batch.length)).toEqual([
@@ -101,36 +103,32 @@ describe("bounded committed paint runs", () => {
       100,
     ]);
     expect(runs[1]?.animated).toBe(true);
-    expect(ids(runs)).toEqual(
-      [...ink, object(600, true), object(601, true)].map(
-        ({ object }) => object.id,
-      ),
-    );
+    const expectedIds = [...ink, gifA, gifB].map((item) => item.object.id);
+    expect(ids(runs)).toEqual(expectedIds);
   });
 
-  it("falls back to one Layer when alternation exceeds the memory budget", () => {
+  it("falls back to one Layer when the run cap is exceeded", () => {
     const items = Array.from(
       { length: maximumCommittedPaintLayers + 2 },
       (_, index) => object(index, index % 2 === 1),
     );
-    const original = [items.slice(0, 3), items.slice(3)];
-    const runs = partitionCommittedPaintRuns(original);
+    const batches = [items.slice(0, 3), items.slice(3)];
+    const runs = partitionCommittedPaintRuns(batches);
     expect(runs).toHaveLength(1);
-    expect(runs[0]?.batches).toBe(original);
-    expect(ids(runs)).toEqual(items.map(({ object }) => object.id));
+    expect(runs[0]?.batches).toBe(batches);
+    expect(ids(runs)).toEqual(items.map((item) => item.object.id));
   });
 
-  it("does not cross the run boundary for unrelated static/animated objects", () => {
+  it("preserves leading and trailing GIF ordering", () => {
     const runs = partitionCommittedPaintRuns([
       [object(1, true), object(2), object(3, true)],
     ]);
     expect(runs).toHaveLength(3);
-    expect(ids(runs)).toEqual(
-      [1, 2, 3].map((index) => object(index).object.id),
-    );
+    const expected = [1, 2, 3].map((index) => object(index).object.id);
+    expect(ids(runs)).toEqual(expected);
   });
 
-  it("rejects unbounded or invalid layer budgets", () => {
+  it("rejects non-positive or fractional layer caps", () => {
     expect(() => partitionCommittedPaintRuns([[object(1)]], 0)).toThrow(
       RangeError,
     );

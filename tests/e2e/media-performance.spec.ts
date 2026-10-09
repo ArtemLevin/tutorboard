@@ -844,17 +844,16 @@ for (const scenario of [
   );
 }
 
-
 // C3.2-B: GIF frames must only invalidate their own ordered render runs.
 // Static media may appear both before and after animation in the z-order.
 test(
   "@smoke isolates interleaved GIF redraw while preserving committed z-order",
   async ({ page }) => {
     await resetLocalDatabase(page);
-      const document = createMediaPerformanceDocument({
-        staticCount: 3,
-        gifCount: 2,
-      });
+    const document = createMediaPerformanceDocument({
+      staticCount: 3,
+      gifCount: 2,
+    });
     const [staticA, staticB, staticC, animatedA, animatedB] = document.order;
     if (
       staticA === undefined ||
@@ -881,8 +880,8 @@ test(
     await measureFrames(page, 40);
     const counters = await snapshot(page);
     expect(counters.drawImageCalls).toBeGreaterThan(0);
-    // Two animated images redraw, while three unchanged static raster images
-    // remain on independently retained Layers during steady-state animation.
+    // GIF frames repaint only two animation Layers. Three static PNGs stay
+    // mounted on separate retained Layers throughout the idle interval.
     expect(counters.drawImageCalls).toBeLessThan(140);
   },
 );
