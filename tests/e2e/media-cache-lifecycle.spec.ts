@@ -2,10 +2,94 @@ import { createRequire } from "node:module";
 
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-import {
-  createMediaPerformanceDocument,
-  type MediaPerformanceDocumentOptions,
-} from "../fixtures/media-performance.js";
+import { createCoordinatePlot } from "./coordinate-plot-interaction.js";
+
+interface MediaPerformanceDocumentOptions {
+  readonly staticCount?: number;
+  readonly gifCount?: number;
+  readonly largeStaticDataUrl?: string;
+  readonly mixed?: boolean;
+}
+
+const timestamp = "2026-10-09T00:00:00.000Z";
+const pngDataUrl =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGPgEpH7DwABpAE8k4sOtwAAAABJRU5ErkJggg==";
+const gifDataUrl =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+
+function createMediaPerformanceDocument(
+  options: MediaPerformanceDocumentOptions = {},
+) {
+  const staticCount = options.staticCount ?? 0;
+  const gifCount = options.gifCount ?? 0;
+  const media = Array.from({ length: staticCount + gifCount }, (_, index) => {
+    const animated = index >= staticCount;
+    const id = "object:media-cycle:" + index;
+    const position = {
+      x: 80 + (index % 5) * 145,
+      y: 80 + Math.floor(index / 5) * 115,
+    };
+    return {
+      id,
+      contentSha256: (index + 1).toString(16).padStart(64, "0"),
+      dataUrl: animated
+        ? gifDataUrl
+        : index === 0 && options.largeStaticDataUrl !== undefined
+          ? options.largeStaticDataUrl
+          : pngDataUrl,
+      fileName: "media-" + index + (animated ? ".gif" : ".png"),
+      groupId: null,
+      intrinsicSize:
+        !animated && index === 0 && options.largeStaticDataUrl !== undefined
+          ? { width: largeImageWidth, height: largeImageHeight }
+          : { width: 1_200, height: 900 },
+      kind: "image.embedded" as const,
+      locked: false,
+      mimeType: animated ? "image/gif" as const : "image/png" as const,
+      position,
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      size: { width: 120, height: 90 },
+      source: { kind: "user" as const },
+      style: {
+        fill: null,
+        opacity: 1,
+        stroke: null,
+        strokeWidth: 0,
+      },
+      visible: true,
+    };
+  });
+  return {
+    createdAt: timestamp,
+    geometryImports: {},
+    groups: {},
+    id: "document:media-cache-cycles",
+    objects: Object.fromEntries(media.map((item) => [item.id, item])),
+    order: media.map((item) => item.id),
+    schemaVersion: "1.6" as const,
+    solidLearningAttempts: {},
+    solidModels: {},
+    title: "F3.3.2-D media lifecycle",
+    updatedAt: timestamp,
+    viewport: { offset: { x: 0, y: 0 }, zoom: 1 },
+  };
+}
+
+async function addInkAndPlot(page: Page, baseCount: number): Promise<void> {
+  const box = await page.getByTestId("board-stage").boundingBox();
+  if (box === null) throw new Error("Canvas not mounted");
+  await page.getByRole("button", { name: "Рисование" }).click();
+  await page.getByRole("menuitemradio", { name: /Перо/u }).click();
+  await page.mouse.move(box.x + 160, box.y + 500);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 440, box.y + 540, { steps: 8 });
+  await page.mouse.up();
+  await createCoordinatePlot(page);
+  await expect(page.getByTestId("object-count")).toHaveText(
+    new RegExp("^" + (baseCount + 2) + " объект", "u"),
+  );
+}
 
 const { PNG } = createRequire(import.meta.url)("pngjs") as {
   readonly PNG: {
@@ -77,8 +161,8 @@ async function installLifecycleObserver(page: Page): Promise<void> {
     );
     if (descriptor?.get !== undefined && descriptor.set !== undefined) {
       Object.defineProperty(HTMLImageElement.prototype, "src", {
-        configurable: descriptor.configurable,
-        enumerable: descriptor.enumerable,
+        configurable: Boolean(descriptor.configurable),
+        enumerable: Boolean(descriptor.enumerable),
         get: descriptor.get,
         set(value: string) {
           const wasGif = gifByImage.get(this) === true;
@@ -218,6 +302,9 @@ async function runCycles(
 
   for (let cycle = 0; cycle < cycles; cycle++) {
     await importDocument(page, populated);
+    if (options.mixed === true) {
+      await addInkAndPlot(page, populated.order.length);
+    }
     await expect
       .poll(async () => (await rasterSnapshot(page)).activeCount)
       .toBeGreaterThanOrEqual(1);
@@ -299,7 +386,7 @@ test("@smoke F3.3.2-D repeated media mount/unmount returns to zero", async ({
 test("@media-cache-soak F3.3.2-D extended 12-cycle media lifetime profile", async ({
   page,
 }, testInfo) => {
-  test.setTimeout(300_000);
+  test.setTimeout(480_000);
   test.skip(
     testInfo.project.name !== "chromium",
     "Extended heap profiling uses Chromium CDP.",
