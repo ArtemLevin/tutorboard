@@ -2126,7 +2126,6 @@ export function BoardStage({
         wheelInkCache.lastWheelUsedPrepared
       }
       data-wheel-cache-prepared={wheelInkCache.isPrepared}
-      data-wheel-session-active={wheelSessionRef.current !== null}
       data-testid="board-stage"
       role="application"
       style={{ cursor }}
