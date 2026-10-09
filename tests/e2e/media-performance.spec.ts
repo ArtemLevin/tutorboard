@@ -746,6 +746,7 @@ interface LargeBoardInteractionMeasurement {
     readonly wheelCacheWheelBeginMs: number;
     readonly wheelCacheOverlappingSlowFrames: number;
     readonly wheelCacheUsedPrewarm: boolean;
+    readonly wheelCacheSkippedColdBuild: boolean;
     readonly wheelCacheBuildPixels: number;
     readonly wheelCacheBuilds: number;
     readonly wheelCacheSkippedRuns: number;
@@ -894,6 +895,10 @@ async function profileLargeBoard(
         (await stage.getAttribute(
           "data-wheel-cache-last-wheel-used-prepared",
         )) === "true",
+      wheelCacheSkippedColdBuild:
+        (await stage.getAttribute(
+          "data-wheel-cache-last-wheel-skipped-cold-build",
+        )) === "true",
       wheelCacheBuildPixels: await integerStageMetric(
         page,
         "data-wheel-cache-last-build-pixels",
@@ -923,6 +928,9 @@ async function profileLargeBoard(
   expect(result.zoom.frames.frameCount).toBe(largeBoardFrameCount);
   expect(result.zoom.wheelCacheBuildMs).toBeGreaterThanOrEqual(0);
   expect(result.zoom.wheelCacheWheelBeginMs).toBeGreaterThanOrEqual(0);
+  expect(result.zoom.wheelCacheSkippedColdBuild).toBe(
+    !result.zoom.wheelCacheUsedPrewarm,
+  );
   expect(result.zoom.wheelCacheOverlappingSlowFrames).toBeLessThanOrEqual(
     result.zoom.frames.over25Ms,
   );
@@ -1046,6 +1054,10 @@ test("@media-profile DPR2 pixel parity", async ({ browser }, testInfo) => {
         await expect(stage).toHaveAttribute(
           "data-wheel-cache-last-wheel-used-prepared",
           String(prewarm),
+        );
+        await expect(stage).toHaveAttribute(
+          "data-wheel-cache-last-wheel-skipped-cold-build",
+          String(!prewarm),
         );
         await measureFrames(page, 24);
         expect(
