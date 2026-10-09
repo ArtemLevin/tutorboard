@@ -1002,6 +1002,16 @@ test("@smoke isolates interleaved GIF redraw while preserving committed z-order"
 test("@smoke reuses prepared wheel cache and restores pen hits", async ({
   page,
 }) => {
+  // Deterministic browser scheduler for the functional contract: native
+  // requestIdleCallback is opportunistic and benchmarked separately below.
+  await page.addInitScript(() => {
+    window.requestIdleCallback = (callback) =>
+      window.setTimeout(
+        () => callback({ didTimeout: false, timeRemaining: () => 50 }),
+        0,
+      );
+    window.cancelIdleCallback = (id) => window.clearTimeout(id);
+  });
   await resetLocalDatabase(page);
   await importDocument(
     page,
