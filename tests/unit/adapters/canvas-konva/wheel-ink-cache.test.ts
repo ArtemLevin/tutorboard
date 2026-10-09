@@ -94,7 +94,6 @@ describe("transient wheel ink cache", () => {
     expect(clearSpy).toHaveBeenCalledOnce();
   });
 
-
   it("reuses idle-prepared scene and hit canvases", () => {
     const coordinator = new WheelInkCacheCoordinator();
     const first = fixture(800, 400);
