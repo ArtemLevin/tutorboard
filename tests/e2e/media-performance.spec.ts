@@ -889,7 +889,6 @@ test("@smoke isolates interleaved GIF redraw while preserving committed z-order"
   expect(counters.drawImageCalls).toBeLessThan(140);
 });
 
-
 test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
   page,
 }) => {
