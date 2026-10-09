@@ -180,10 +180,6 @@ const BoardSceneRun = memo(function BoardSceneRun({
   zoom,
   wheelInkCache,
 }: BoardSceneRunProps) {
-  const profileStartedAtMs =
-    typeof window === "undefined" || window.__tutorBoardC37Trace === undefined
-      ? null
-      : performance.now();
   const contents = run.items.map((item) => (
     <BoardRenderItemView
       coordinatePlotInteraction={
@@ -222,14 +218,14 @@ const BoardSceneRun = memo(function BoardSceneRun({
     ) : (
       <Group>{contents}</Group>
     );
-  const renderDurationMs =
-    profileStartedAtMs === null ? 0 : performance.now() - profileStartedAtMs;
   useLayoutEffect(() => {
-    if (profileStartedAtMs === null) return;
+    if (window.__tutorBoardC37Trace === undefined) return;
+    // Commit count is tracked without reading a clock during React render.
+    // Exclusive subtree render durations require the React profiling build.
     recordBoardFrameTrace(
       run.ink ? "react-ink-run" : "react-other-run",
-      profileStartedAtMs,
-      renderDurationMs,
+      performance.now(),
+      0,
       String(run.items.length),
     );
   });
