@@ -41,63 +41,145 @@ Do not change object stacking order, board hit testing, selection or transform s
 
 Limitations: local offline BoardDocument import was profiled here; the authenticated media.asset network path, multiple simultaneous guest inputs, browser/device diversity, very high zoom, memory fragmentation and prolonged sessions were not part of this run. F3.3.2-D separately covers lifecycle/revoke and 12-cycle memory resource release.
 
-## C3.2-A — wheel-aware GIF pacing: repeated measurements
 
-Candidate PR #193 reuses the existing transient 24-fps GIF redraw pacing during
-wheel zoom. Regular animation resumes on commit/cancel, authoritative viewport
-synchronization and cleanup. The committed Konva Layer and object ordering
-are unchanged. This limits GIF-driven redraw frequency during a wheel gesture;
-it does not cache static paths or isolate them from animated content.
+## C3.2-B — ordered static/GIF Konva Layers: measured candidate
 
-### Profile provenance
+Candidate branch: `perf/c3-2-static-animated-render-runs`, draft
+[PR #194](https://github.com/ArtemLevin/tutorboard/pull/194).
+Measured code SHA: `0f9fdf21773a7bed0da3d4037a8bc8285a5ec4a1`.
+[Chromium CI and media profile](https://github.com/ArtemLevin/tutorboard/actions/runs/37905777675),
+two successful media-profile job attempts with the same source. All 12 media
+profile cases passed in each attempt. Chromium and Firefox `@smoke` passed,
+including the five-layer interleaved GIF/PNG fixture. The code SHA also
+passed Prettier, ESLint, TypeScript, unit tests, performance budget, source
+boundaries, production build, authenticated asset cache, 12-cycle resource
+soak and both full-stack media upload browsers.
 
-- Baseline source: `8d5240a35a5891ac6aeb7873029e52ab7e481838`;
-  [CI 37890197582](https://github.com/ArtemLevin/tutorboard/actions/runs/37890197582),
-  initial sample and rerun of the Media performance profile job.
-- Candidate source: `305d88ccb8ef75aee34a31165b64265eeec0079a`;
-  [CI 37896592812](https://github.com/ArtemLevin/tutorboard/actions/runs/37896592812), initial sample.
-- Candidate docs-only HEAD: `8d4e7740cfcbe49ca243cf51549c0d37618e759d`;
-  [CI 37897271871](https://github.com/ArtemLevin/tutorboard/actions/runs/37897271871),
-  initial sample and rerun of its Media performance profile job.
-  Runtime implementation is identical in these three candidate samples.
+The original C3.1 baseline came from SHA
+`8d5240a35a5891ac6aeb7873029e52ab7e481838`,
+[CI 37890197582](https://github.com/ArtemLevin/tutorboard/actions/runs/37890197582),
+first media-profile job plus rerun. Both baseline and candidate are exercised
+by identical Chromium scenes with 300/600 strokes, six 1536² PNG sources,
+0/4 GIFs and 48 measured rAF frame gaps per interaction. Samples reflect
+CI-host scheduling variability, not a browser- or device-wide confidence
+interval.
 
-All five profile job executions succeeded. Candidate Chromium and Firefox smoke
-and the full pre-documentation-update CI completed successfully. Every profile
-used the same Chromium 2×2 fixture: 300/600 pen strokes, six distinct large
-PNG sources and 0/4 GIFs, with 48 measured rAF intervals per interaction.
-
-### Raw observations (chronological sample order)
-
-| Scenario | Baseline zoom p95 (2) | Candidate zoom p95 (3) | Baseline zoom drawImage (2) | Candidate zoom drawImage (3) |
+| Scenario | Baseline zoom p95 (2) | C3.2-B zoom p95 (2) | Baseline zoom drawImage (2) | C3.2-B zoom drawImage (2) |
 | --- | --- | --- | --- | --- |
-| 300 pen, 0 GIF | 16.7 / 16.8 ms | 16.8 / 16.8 / 33.3 ms | 36 / 36 | 36 / 36 / 36 |
-| 300 pen, 4 GIF | 33.4 / 16.7 ms | 33.4 / 33.3 / 33.4 ms | 510 / 530 | 370 / 360 / 390 |
-| 600 pen, 0 GIF | 33.3 / 16.8 ms | 33.4 / 33.4 / 33.3 ms | 36 / 36 | 36 / 36 / 36 |
-| 600 pen, 4 GIF | 66.7 / 49.9 ms | 66.7 / 50.1 / 66.7 ms | 540 / 540 | 460 / 420 / 460 |
+| 300 pen, 0 GIF | 16.7 / 16.8 ms | 33.3 / 16.8 ms | 36 / 36 | 36 / 36 |
+| 300 pen, 4 GIF | 33.4 / 16.7 ms | 33.4 / 33.4 ms | 510 / 530 | 232 / 238 |
+| 600 pen, 0 GIF | 33.3 / 16.8 ms | 33.4 / 33.3 ms | 36 / 36 | 36 / 36 |
+| 600 pen, 4 GIF | 66.7 / 49.9 ms | 66.6 / 50.0 ms | 540 / 540 | 250 / 250 |
 
-**Confirmed narrow improvement:** for the largest animated fixture, redraw
-work decreases from 540 calls in both baselines to 420–460 in all candidate
-runs, a 14.8–22.2% reduction. At 300 strokes with GIFs all candidate counts
-are also below both baseline counts. Static-only counts remain at 36.
+For 600 strokes with GIFs, `drawImage` dropped by ~53.7% in both repeat
+samples. Pen input-to-paint p95 was 30.9/32.7 ms in baseline and 15.4/13.0 ms
+in the candidate; this improvement also repeats in this two-sample evidence.
+These results support isolation of GIF-triggered static-image repaints and a
+reduction in competing animation work during pen gestures.
 
-**Unconfirmed p95 improvement:** the unchanged baseline itself varies between
-49.9 and 66.7 ms in the heaviest scene; the candidate varies between 50.1
-and 66.7 ms. The favorable candidate sample cannot establish improved
-latency, FPS or input responsiveness. The 48-frame samples are discrete,
-runner-dependent and too small to establish cross-device confidence.
-The main heavy-board stall remains open.
+**The wheel zoom p95 release criterion remains unmet:** baseline
+49.9–66.7 ms and candidate 50.0–66.6 ms overlap almost perfectly.
+During wheel zoom, the viewport transform still invalidates the otherwise
+static Layers, so the heavy-board zoom stall is not demonstrated fixed.
+Do not represent the lower image count as a stable zoom FPS gain.
 
-The new cross-browser smoke checks GIF redraw resumes after wheel gestures;
-existing coordinator tests cover interactive pacing and restoration. This
-optimization is an incremental reduction in drawing work, with unchanged
-persistent formats, media authorization and layering.
+Implementation limits the number of full-viewport Konva Layers to six and
+falls back to the original shared Layer if animation/static objects are too
+interleaved. Existing React renderers, stacking order, hit areas, transforms,
+media access scope and cleanup are retained. Unmeasured high-DPI canvas
+memory, pixel-level equivalence in complicated transformed/alpha overlaps,
+and prolonged multi-user input remain open review items. Prior to merge,
+either demonstrate sustained wheel zoom p95 improvement with a bounded
+static zoom cache/viewport strategy, or explicitly accept C3.2-B as a
+narrower but measured drawing-work and pen-latency optimization.
 
-### C3.2-B acceptance
 
-Trace animated invalidation of the shared committed Layer; test bounded
-static-content caching or ordered static render runs with interleaved GIF
-and immutable strokes. Preserve arbitrary stacking order, hit testing,
-selection, transforms, undo and resource cleanup. Require repeated paired
-heavy-scene zoom p95 and visual equivalence checks before calling the
-large-board latency issue resolved. Authenticated media traffic, multiuser
-sessions, prolonged use and device diversity are outside this fixture.
+## C3.2-B wheel-zoom ink cache: repeated measurement
+
+Runtime candidate: `6be6728d049b509327164b92d025b2b5c0faabb1`
+on [PR #194](https://github.com/ArtemLevin/tutorboard/pull/194).
+[Chromium media-profile CI](https://github.com/ArtemLevin/tutorboard/actions/runs/37922497775),
+original media-profile job and its successful rerun, same code SHA.
+Both attempts: 12/12 media-profile tests passed. Full quality gate and
+Chromium/Firefox `@smoke` passed, including the transient wheel-cache lifecycle.
+The post-zoom pen hit-test regression in the next commit still requires CI.
+
+The cache rasterizes only consecutive immutable pen-stroke runs when their
+count reaches 80; it is transient, limited to four million physical scene
+pixels across all such runs, and disposed on gesture completion, edit,
+selection preview, authoritative viewport replacement and unmount. GIFs,
+static media and active geometry widgets stay on their original render path.
+Pen-stroke geometry is independent of zoom, so the committed React renderer
+receives a fixed zoom for that kind. Selection, render-run ordering and
+Konva hit color keys remain present.
+
+### Matched workload: 600 strokes, six PNGs, four GIFs
+
+| Metric | Previous C3.2-B (2 samples) | With wheel ink cache (2 samples) |
+| --- | --- | --- |
+| Wheel zoom rAF p95 | 66.6 / 50.0 ms | **33.5 / 33.4 ms** |
+| Wheel zoom rAF mean | 28.82 / 25.35 ms | 23.61 / 25.70 ms |
+| Zoom `drawImage` count | 250 / 250 | 258 / 258 |
+| Pen input-to-paint p95 | 15.4 / 13.0 ms | 15.4 / 17.7 ms |
+
+### Control scenarios, zoom p95
+
+| Scenario | With cache, first / repeated |
+| --- | --- |
+| 300 pen, no GIF | 33.3 / 33.3 ms |
+| 300 pen, four GIFs | 33.4 / 33.4 ms |
+| 600 pen, no GIF | 33.3 / 33.4 ms |
+| 600 pen, four GIFs | **33.5 / 33.4 ms** |
+
+The reduction in the heavy animated case repeats in both paired candidate
+measurements, unlike the previous fluctuating wheel-zoom p95 profile.
+Cached vector ink draws as a bitmap, so `drawImage` rises slightly:
+it is not an indicator of a regression without considering path work.
+At 600 strokes, the large-board wheel p95 fell below the previous 50–67 ms
+range, but still exceeds a stable 16.7 ms 60-fps frame budget.
+
+The benchmark is diagnostic: each profile uses 48 rAF intervals, runs on
+shared GitHub CI hardware and exercises one Chromium browser/OS setup.
+This supports a measured reduction for the representative workload; it
+does not prove hardware-independent latency, long-term stability or exact
+visual equivalence for every mixed alpha/transform combination. Retain a
+bounded cache/fallback and instrument representative production boards.
+
+
+### Release gate addendum — subsequent CI runs (same implementation)
+
+The final code SHA `027378ef9aca3f20f9f4dbb391f8ffffbc96c57b`
+added a post-wheel pen hit-test regression and synchronized documentation.
+Its [CI run](https://github.com/ArtemLevin/tutorboard/actions/runs/37923496708)
+completed with successful format/lint/typecheck/unit/performance-budget/build,
+36 Chromium and 36 Firefox smoke tests, 12 Chromium media-profile tests and
+all applicable integration and resource workflows. This includes the
+new post-cache pen selection check, complementing the repeated layer- and
+media-lifecycle checks.
+
+The same media-profile job was rerun with unchanged commit SHA and passed
+all 12 scenarios. The last two `large600-animated` profiles were:
+- First final-code job: zoom p95 **50.0 ms**, mean **23.61 ms**, `drawImage` **262**, pen input-to-paint p95 **15.4 ms**.
+- Rerun final-code job: zoom p95 **16.7 ms**, mean **16.67 ms**, `drawImage` **262**, pen input-to-paint p95 **13.7 ms**.
+
+All four with-cache samples, including two preceding code-equivalent profiles
+(`6be6728`, with its additional post-wheel regression subsequently added),
+are **33.5, 33.4, 50.0, 16.7 ms**. Previous C3.2-B without wheel ink cache:
+**66.6, 50.0 ms**. Baseline C3.1: **66.7, 49.9 ms**.
+These are diagnostic shared-runner observations with significant variability.
+The change lowers the heavy-scene observed zoom p95 in most runs while
+remaining above 16.7 ms in three of four; it must not be represented as a
+general 60-fps guarantee. Short-lived pixel-bounded caching, full CI and
+cross-browser regression support accepting this performance improvement
+for merging PR #194, with further profiling tracked independently.
+
+## C3.2-A integration on top of merged C3.2-B
+
+PR #193's interaction-aware GIF scheduling is ported onto the merged C3.2-B
+static/GIF Layers and bounded wheel-ink cache. The 24-fps GIF redraw ceiling
+applies only while a wheel session is in progress; full-rate GIF repaint
+resumes on commit, cancel, authoritative viewport reset and unmount.
+Cross-browser GIF resume smoke and dense-board Chromium profile must pass
+before this combined candidate can be merged. Prior C3.2-A-only profiling
+reduced redraw calls without a reproducible zoom p95 gain; CI evidence for
+the integrated candidate must be evaluated separately.
