@@ -470,10 +470,6 @@ export function BoardStage({
   transformableObjectIds = [],
   wetInkStyle = null,
 }: BoardStageProps) {
-  const profileStartedAtMs =
-    typeof window === "undefined" || window.__tutorBoardC37Trace === undefined
-      ? null
-      : performance.now();
   const [animatedImageRedraw] = useState(
     () => new AnimatedImageRedrawCoordinator(),
   );
@@ -496,6 +492,7 @@ export function BoardStage({
     null,
   );
   const wheelSessionRef = useRef<WheelSession | null>(null);
+  const pendingViewportCommitTraceRef = useRef<number | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
   const primaryCanvasClickTimeoutRef = useRef<number | null>(null);
   const primaryCanvasPointerCandidateRef =
@@ -584,13 +581,15 @@ export function BoardStage({
   // The interval covers React render through layout commit, including
   // synchronous react-konva reconciliation, but excludes GPU composition.
   useLayoutEffect(() => {
-    if (profileStartedAtMs === null) return;
+    const startedAtMs = pendingViewportCommitTraceRef.current;
+    if (startedAtMs === null) return;
+    pendingViewportCommitTraceRef.current = null;
     recordBoardFrameTrace(
       "board-commit",
-      profileStartedAtMs,
-      performance.now() - profileStartedAtMs,
+      startedAtMs,
+      performance.now() - startedAtMs,
     );
-  });
+  }, [previewViewport]);
 
   useEffect(() => () => animatedImageRedraw.dispose(), [animatedImageRedraw]);
   useEffect(() => () => wheelInkCache.dispose(), [wheelInkCache]);
@@ -690,8 +689,8 @@ export function BoardStage({
     const stage = stageRef.current;
     if (stage === null) return;
     const cleanup = stage.getLayers().map((layer) => {
-      const originalScene = layer.drawScene;
-      const originalHit = layer.drawHit;
+      const originalScene = layer.drawScene.bind(layer);
+      const originalHit = layer.drawHit.bind(layer);
       const name = layer.name() || "unnamed-layer";
       layer.drawScene = (...args) => {
         const startMs = performance.now();
@@ -2117,6 +2116,9 @@ export function BoardStage({
         // Avoid an independent full-speed GIF invalidation stream while the
         // temporary wheel cache is composited through viewport transforms.
         animatedImageRedraw.setInteractionActive(true);
+      }
+      if (window.__tutorBoardC37Trace !== undefined) {
+        pendingViewportCommitTraceRef.current = performance.now();
       }
       setPreviewViewport(viewport);
       const currentSession = wheelSessionRef.current;
