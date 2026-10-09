@@ -1011,9 +1011,7 @@ for (const scenario of [
       if (scenario.strokeCount === 3000) {
         expect(result.zoom.wheelCacheSkippedColdBuild).toBe(true);
         expect(result.zoom.wheelCacheWheelBeginMs).toBeLessThan(25);
-        expect(result.zoom.c37Trace?.["konva-scene"]?.count).toBeGreaterThan(
-          0,
-        );
+        expect(result.zoom.c37Trace?.["konva-scene"]?.count).toBeGreaterThan(0);
         expect(result.zoom.c37Trace?.["board-commit"]?.count).toBeGreaterThan(
           0,
         );
