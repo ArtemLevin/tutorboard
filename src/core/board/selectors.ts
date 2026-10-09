@@ -309,28 +309,78 @@ function itemBounds(item: BoardRenderItem) {
   };
 }
 
+type BoardItemBounds = ReturnType<typeof itemBounds>;
+
+function visibleWorldBounds(viewport: ViewportState, size: BoardViewportSize) {
+  const overscan = Math.max(0, size.overscan ?? 160);
+  return {
+    left: (-viewport.offset.x - overscan) / viewport.zoom,
+    top: (-viewport.offset.y - overscan) / viewport.zoom,
+    right: (size.width - viewport.offset.x + overscan) / viewport.zoom,
+    bottom: (size.height - viewport.offset.y + overscan) / viewport.zoom,
+  };
+}
+
+function overlapsViewport(bounds: BoardItemBounds, visible: BoardItemBounds) {
+  return (
+    bounds.right >= visible.left &&
+    bounds.left <= visible.right &&
+    bounds.bottom >= visible.top &&
+    bounds.top <= visible.bottom
+  );
+}
+
 export function selectVisibleBoardItems(
   items: readonly BoardRenderItem[],
   viewport: ViewportState,
   size: BoardViewportSize,
 ): readonly BoardRenderItem[] {
-  const overscan = Math.max(0, size.overscan ?? 160);
-  const left = (-viewport.offset.x - overscan) / viewport.zoom;
-  const top = (-viewport.offset.y - overscan) / viewport.zoom;
-  const right = (size.width - viewport.offset.x + overscan) / viewport.zoom;
-  const bottom = (size.height - viewport.offset.y + overscan) / viewport.zoom;
-  return items.filter((item) => {
-    if (!item.object.visible) {
-      return false;
-    }
-    const bounds = itemBounds(item);
-    return (
-      bounds.right >= left &&
-      bounds.left <= right &&
-      bounds.bottom >= top &&
-      bounds.top <= bottom
-    );
-  });
+  const visible = visibleWorldBounds(viewport, size);
+  return items.filter(
+    (item) =>
+      item.object.visible && overlapsViewport(itemBounds(item), visible),
+  );
+}
+
+/**
+ * Precomputes world-space geometry for an immutable scene snapshot. Panning
+ * and wheel zoom update the viewport much more frequently than the objects.
+ * Retaining a matching result also avoids rebuilding React paint runs when
+ * the visible object identities and order stay unchanged.
+ *
+ * Create a new index whenever the scene item array changes.
+ */
+export interface BoardVisibilityIndex {
+  select(
+    viewport: ViewportState,
+    size: BoardViewportSize,
+  ): readonly BoardRenderItem[];
+}
+
+export function createBoardVisibilityIndex(
+  items: readonly BoardRenderItem[],
+): BoardVisibilityIndex {
+  const entries = items
+    .filter((item) => item.object.visible)
+    .map((item) => ({ bounds: itemBounds(item), item }));
+  let previousVisible: readonly BoardRenderItem[] = [];
+
+  return {
+    select(viewport, size) {
+      const visible = visibleWorldBounds(viewport, size);
+      const next = entries.flatMap(({ bounds, item }) =>
+        overlapsViewport(bounds, visible) ? [item] : [],
+      );
+      if (
+        next.length === previousVisible.length &&
+        next.every((item, index) => item === previousVisible[index])
+      ) {
+        return previousVisible;
+      }
+      previousVisible = next;
+      return next;
+    },
+  };
 }
 
 export function batchBoardRenderItems(
