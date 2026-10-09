@@ -158,7 +158,8 @@ export interface BoardSceneContentProps {
 interface BoardSceneRunProps {
   readonly run: InkRenderRun;
   readonly selected: ReadonlySet<BoardObjectId>;
-  readonly coordinatePlotInteraction: CoordinatePlotRenderInteraction | undefined;
+  readonly coordinatePlotInteraction:
+    CoordinatePlotRenderInteraction | undefined;
   readonly lineEndpointPreview: BoardObjectTransformSnapshot | null;
   readonly registry: KonvaRendererRegistry;
   readonly selectionPreviewX: number;
@@ -184,33 +185,33 @@ const BoardSceneRun = memo(function BoardSceneRun({
       ? null
       : performance.now();
   const contents = run.items.map((item) => (
-      <BoardRenderItemView
-        coordinatePlotInteraction={
-          item.object.kind === "math.coordinate-plot"
-            ? coordinatePlotInteraction
-            : undefined
-        }
-        interactive
-        item={
-          lineEndpointPreview?.objectId === item.object.id
-            ? {
-                ...item,
-                object: {
-                  ...item.object,
-                  position: lineEndpointPreview.position,
-                  rotation: lineEndpointPreview.rotation,
-                  scale: lineEndpointPreview.scale,
-                },
-              }
-            : item
-        }
-        key={item.object.id}
-        previewX={selected.has(item.object.id) ? selectionPreviewX : 0}
-        previewY={selected.has(item.object.id) ? selectionPreviewY : 0}
-        registry={registry}
-        zoom={item.object.kind === "drawing.pen-stroke" ? 1 : zoom}
-      />
-    ));
+    <BoardRenderItemView
+      coordinatePlotInteraction={
+        item.object.kind === "math.coordinate-plot"
+          ? coordinatePlotInteraction
+          : undefined
+      }
+      interactive
+      item={
+        lineEndpointPreview?.objectId === item.object.id
+          ? {
+              ...item,
+              object: {
+                ...item.object,
+                position: lineEndpointPreview.position,
+                rotation: lineEndpointPreview.rotation,
+                scale: lineEndpointPreview.scale,
+              },
+            }
+          : item
+      }
+      key={item.object.id}
+      previewX={selected.has(item.object.id) ? selectionPreviewX : 0}
+      previewY={selected.has(item.object.id) ? selectionPreviewY : 0}
+      registry={registry}
+      zoom={item.object.kind === "drawing.pen-stroke" ? 1 : zoom}
+    />
+  ));
   const result =
     run.ink &&
     run.items.length >= minimumWheelCacheStrokes &&
@@ -247,7 +248,10 @@ export const BoardSceneContent = memo(function BoardSceneContent({
   wheelInkCache,
 }: BoardSceneContentProps) {
   const runs = useMemo(() => groupInkRenderRuns(batches), [batches]);
-  const selected = useMemo(() => new Set(selectedObjectIds), [selectedObjectIds]);
+  const selected = useMemo(
+    () => new Set(selectedObjectIds),
+    [selectedObjectIds],
+  );
   return runs.map((run) => (
     <BoardSceneRun
       key={run.key}
