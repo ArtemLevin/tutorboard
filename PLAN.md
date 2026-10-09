@@ -1817,10 +1817,10 @@ Production требует `BOARD_MEDIA_UPLOADS_ENABLED=true` и ClamAV.
 
 The implementation is split into independent, reviewable blocks A–D.
 
-- **A — lifecycle contract and diagnostics:** branch `feat/f3-3-2-a-media-lifecycle-contract`; introduces board-scoped lease ownership with `boardId`/`resourceGeneration`, cancellation/invalidation/disposal and cache snapshots. See [`docs/F3_3_2_MEDIA_CACHE_LIFECYCLE.md`](docs/F3_3_2_MEDIA_CACHE_LIFECYCLE.md). **Pending CI and review.**
-- **B — bounded source cache and resource release:** implemented in branch `feat/f3-3-2-b-bounded-media-cache` with per-registry source LRU/pruning, source-targeted raster release, O(1) queued cancellation, decode reservations and GIF abort settlement. **Implementation complete; verify release evidence on PR #189 before merge.**
-- **C — board/access lifecycle wiring:** implementation on `feat/f3-3-2-c-board-access-media-lifecycle` (PR pending); board-scoped leases for PNG/JPEG/GIF, StrictMode-safe setup/disposal, synchronous release on refresh/revoke, generation-bound display and guarded resolver; pending CI/review.
-- **D — cyclic browser memory/performance release gate:** pending; Chromium/Firefox smoke, JSON metrics and repeatable GC comparisons.
+- **A — lifecycle contract and diagnostics:** merged as PR #188 (`463ab8df`). Board-scoped lease ownership, generation invalidation and cache snapshots. See [`docs/F3_3_2_MEDIA_CACHE_LIFECYCLE.md`](docs/F3_3_2_MEDIA_CACHE_LIFECYCLE.md).
+- **B — bounded source cache and resource release:** merged as PR #189 (`0b484629`). Per-registry source LRU/pruning, source-targeted raster release, O(1) queued cancellation, decode reservations and GIF abort settlement.
+- **C — board/access lifecycle wiring:** merged as PR #190 (`9fd06929`). Board-scoped leases for PNG/JPEG/GIF, StrictMode-safe setup/disposal, synchronous release on refresh/revoke, generation-bound display and guarded resolver.
+- **D — cyclic browser memory/performance release gate:** PR #191 implements mandatory three-cycle Chromium/Firefox browser smoke, real-backend guest reconnect/accessEpoch/revoke/board-switch checks, JSON evidence, and 12-cycle Chromium GC soak (targeted PR gate plus manual rerun). Also fixes guest media resource cleanup on `window.offline`. Final CI and merge are release prerequisites.
 
-A alone does not resolve the unbounded `cachedSources` map or guarantee
-access-context invalidation; those are explicit acceptance gates for B/C.
+A's initial source lifetime limitations were addressed by B/C; D adds browser
+verification and the guest offline cleanup regression guard.

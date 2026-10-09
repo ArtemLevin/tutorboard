@@ -6,6 +6,8 @@ on:
       - ".github/workflows/media-fullstack.yml"
       - "playwright.media-fullstack.config.ts"
       - "tests/fullstack/media-upload.spec.ts"
+      - "tests/fullstack/media-lifecycle.spec.ts"
+      - "tests/fullstack/media-lifecycle.spec.ts"
       - "src/app/**"
       - "src/adapters/board-http/**"
       - "src/adapters/canvas-konva/**"
@@ -86,7 +88,7 @@ jobs:
           VITE_FEATURE_MEDIA_ASSET_IMPORT: "true"
         run: npm run build
 
-      - name: Exercise real backend upload + guest sync + reload
+      - name: Exercise real backend media, guest sync and resource lifecycle
         env:
           TUTOR_ASSISTANT_WEB_ROOT: ${{ github.workspace }}/tutor-assistant-web
         run: |
