@@ -77,12 +77,7 @@ describe("bounded committed paint runs", () => {
       objects.slice(0, 2),
       objects.slice(2),
     ]);
-    expect(runs.map((run) => run.animated)).toEqual([
-      false,
-      true,
-      false,
-      true,
-    ]);
+    expect(runs.map((run) => run.animated)).toEqual([false, true, false, true]);
     expect(ids(runs)).toEqual(objects.map((item) => item.object.id));
     expect(new Set(runs.map((run) => run.key)).size).toBe(4);
   });
@@ -98,9 +93,7 @@ describe("bounded committed paint runs", () => {
     ]);
     expect(runs).toHaveLength(2);
     expect(runs[0]?.batches.map((batch) => batch.length)).toEqual([
-      250,
-      250,
-      100,
+      250, 250, 100,
     ]);
     expect(runs[1]?.animated).toBe(true);
     const expectedIds = [...ink, gifA, gifB].map((item) => item.object.id);
