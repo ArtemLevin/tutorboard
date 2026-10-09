@@ -887,6 +887,9 @@ export function BoardStage({
         if (wheelInkCache.prepare(window.devicePixelRatio)) {
           if (rootRef.current !== null) {
             rootRef.current.dataset.wheelCachePrepared = "true";
+            rootRef.current.dataset.wheelCacheBuilds = String(
+              wheelInkCache.buildCount,
+            );
           }
           // Expire unused prewarm memory rather than retaining canvases for
           // the duration of a teaching session.
