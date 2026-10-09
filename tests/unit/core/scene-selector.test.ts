@@ -126,9 +126,9 @@ describe("board scene selector", () => {
     const original = index.select(read.document.viewport, size);
     expect(original.length).toBeGreaterThan(0);
     expect(index.select(read.document.viewport, size)).toBe(original);
-    expect(
-      index.select({ offset: { x: -5, y: -7 }, zoom: 1.01 }, size),
-    ).toBe(original);
+    expect(index.select({ offset: { x: -5, y: -7 }, zoom: 1.01 }, size)).toBe(
+      original,
+    );
 
     const emptyViewport = {
       offset: { x: -1_000_000, y: -1_000_000 },
