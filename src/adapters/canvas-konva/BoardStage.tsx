@@ -73,6 +73,8 @@ import {
   WheelInkCacheCoordinator,
 } from "./wheel-ink-cache";
 
+const emptySelectedObjectIds: readonly BoardObjectId[] = [];
+
 const zoomBounds = { minimum: 0.1, maximum: 8 } as const;
 const zoomStep = 1.08;
 const wheelCommitDelayMs = 120;
@@ -458,7 +460,7 @@ export function BoardStage({
   remoteCursors = [],
   remoteInkPreviews = [],
   scene,
-  selectedObjectIds = [],
+  selectedObjectIds = emptySelectedObjectIds,
   selectionBounds = [],
   selectionLasso = null,
   selectionMarquee = null,
