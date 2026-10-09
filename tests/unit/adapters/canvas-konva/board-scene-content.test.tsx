@@ -101,6 +101,61 @@ describe("stable committed scene rendering", () => {
     expect(renderObject).toHaveBeenCalledTimes(7);
   });
 
+  it("does not regenerate immutable pen paths for transient zoom updates", () => {
+    const renderInk = vi.fn(
+      (object: BoardObject, context: KonvaRenderContext) =>
+        createElement("span", { "data-zoom": context.zoom }, object.id),
+    );
+    const stroke: BoardRenderItem = {
+      object: {
+        groupId: null,
+        id: boardObjectId("object:scene:stable-ink"),
+        kind: "drawing.pen-stroke",
+        locked: false,
+        points: [
+          { x: 0, y: 0 },
+          { x: 40, y: 20 },
+        ],
+        position: { x: 0, y: 0 },
+        rotation: 0,
+        scale: { x: 1, y: 1 },
+        source: { kind: "user" },
+        style: {
+          fill: null,
+          opacity: 1,
+          stroke: "#17202a",
+          strokeWidth: 2,
+        },
+        visible: true,
+      },
+      transforms: [],
+    };
+    const { props } = fixture(0);
+    const registry = new KonvaRendererRegistry([
+      { kind: "drawing.pen-stroke", render: renderInk },
+    ]);
+    const batches = [[stroke]];
+    const view = render(
+      <BoardSceneContent
+        {...props}
+        batches={batches}
+        registry={registry}
+      />,
+    );
+    expect(renderInk).toHaveBeenCalledOnce();
+    for (let iteration = 1; iteration <= 20; iteration += 1) {
+      view.rerender(
+        <BoardSceneContent
+          {...props}
+          batches={batches}
+          registry={registry}
+          zoom={1 + iteration * 0.08}
+        />,
+      );
+    }
+    expect(renderInk).toHaveBeenCalledOnce();
+  });
+
   it("preserves order and live selection movement", () => {
     const { props } = fixture(3);
     const selectedId = props.batches[0]![1]!.object.id;

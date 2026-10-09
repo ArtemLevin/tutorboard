@@ -191,7 +191,7 @@ export const BoardSceneContent = memo(function BoardSceneContent({
         previewX={selected.has(item.object.id) ? selectionPreviewX : 0}
         previewY={selected.has(item.object.id) ? selectionPreviewY : 0}
         registry={registry}
-        zoom={zoom}
+        zoom={item.object.kind === "drawing.pen-stroke" ? 1 : zoom}
       />
     ));
     if (
