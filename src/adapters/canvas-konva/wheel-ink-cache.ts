@@ -42,6 +42,8 @@ export class WheelInkCacheCoordinator {
   #lastBuildPixels = 0;
   #lastBuildSkippedRuns = 0;
   #lastWheelBeginDurationMs = 0;
+  #lastWheelBeginStartMs = 0;
+  #lastWheelBeginEndMs = 0;
   #lastWheelUsedPrepared = false;
 
   get cachedCount(): number {
@@ -53,7 +55,11 @@ export class WheelInkCacheCoordinator {
   }
 
   get canPrepare(): boolean {
-    return this.#nodes.size > 0 && !this.#active && this.#preparedPixelRatio === null;
+    return (
+      this.#nodes.size > 0 &&
+      !this.#active &&
+      this.#preparedPixelRatio === null
+    );
   }
 
   get isPrepared(): boolean {
@@ -74,6 +80,14 @@ export class WheelInkCacheCoordinator {
 
   get lastWheelBeginDurationMs(): number {
     return this.#lastWheelBeginDurationMs;
+  }
+
+  get lastWheelBeginStartMs(): number {
+    return this.#lastWheelBeginStartMs;
+  }
+
+  get lastWheelBeginEndMs(): number {
+    return this.#lastWheelBeginEndMs;
   }
 
   get lastWheelUsedPrepared(): boolean {
@@ -104,6 +118,7 @@ export class WheelInkCacheCoordinator {
   begin(devicePixelRatio = 1): void {
     if (this.#active) return;
     const startedAt = performance.now();
+    this.#lastWheelBeginStartMs = startedAt;
     this.#active = true;
     const ratio = boundedPixelRatio(devicePixelRatio);
     this.#lastWheelUsedPrepared = this.#preparedPixelRatio === ratio;
@@ -113,7 +128,8 @@ export class WheelInkCacheCoordinator {
       if (this.#cached.size > 0) this.invalidate();
       this.#build(ratio);
     }
-    this.#lastWheelBeginDurationMs = performance.now() - startedAt;
+    this.#lastWheelBeginEndMs = performance.now();
+    this.#lastWheelBeginDurationMs = this.#lastWheelBeginEndMs - startedAt;
   }
 
   #build(ratio: number): void {
