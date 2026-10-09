@@ -94,6 +94,80 @@ describe("transient wheel ink cache", () => {
     expect(clearSpy).toHaveBeenCalledOnce();
   });
 
+
+  it("prepares scene and hit canvases before wheel and reuses them without rebuilding", () => {
+    const coordinator = new WheelInkCacheCoordinator();
+    const first = fixture(800, 400);
+    coordinator.register(first.node);
+    expect(coordinator.canPrepare).toBe(true);
+    expect(coordinator.prepare(1.5)).toBe(true);
+    expect(coordinator.isPrepared).toBe(true);
+    expect(coordinator.canPrepare).toBe(false);
+    const count = coordinator.buildCount;
+    coordinator.begin(1.5);
+    expect(coordinator.lastWheelUsedPrepared).toBe(true);
+    expect(coordinator.lastWheelBeginDurationMs).toBeGreaterThanOrEqual(0);
+    expect(coordinator.buildCount).toBe(count);
+    expect(first.cacheSpy).toHaveBeenCalledOnce();
+    expect(coordinator.isPrepared).toBe(false);
+    coordinator.end();
+    expect(first.clearSpy).toHaveBeenCalledOnce();
+    expect(coordinator.canPrepare).toBe(true);
+  });
+
+  it("rejects prewarm from stale device pixel ratio and rebuilds safely", () => {
+    const coordinator = new WheelInkCacheCoordinator();
+    const first = fixture();
+    coordinator.register(first.node);
+    expect(coordinator.prepare(1)).toBe(true);
+    coordinator.begin(2);
+    expect(coordinator.lastWheelUsedPrepared).toBe(false);
+    expect(first.clearSpy).toHaveBeenCalledOnce();
+    expect(first.cacheSpy).toHaveBeenCalledTimes(2);
+    expect(coordinator.lastBuildPixels).toBeLessThanOrEqual(
+      maximumWheelCachePixels,
+    );
+    coordinator.dispose();
+    expect(first.clearSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidates a prewarmed run after document changes or group registration", () => {
+    const coordinator = new WheelInkCacheCoordinator();
+    const first = fixture();
+    coordinator.register(first.node);
+    coordinator.prepare(1);
+    coordinator.invalidate();
+    expect(coordinator.isPrepared).toBe(false);
+    expect(first.clearSpy).toHaveBeenCalledOnce();
+    coordinator.prepare(1);
+    const second = fixture();
+    coordinator.register(second.node);
+    expect(coordinator.isPrepared).toBe(false);
+    expect(first.clearSpy).toHaveBeenCalledTimes(2);
+    coordinator.begin(1);
+    expect(coordinator.lastWheelUsedPrepared).toBe(false);
+    expect(first.cacheSpy).toHaveBeenCalledTimes(3);
+    expect(second.cacheSpy).toHaveBeenCalledOnce();
+    coordinator.dispose();
+  });
+
+  it("keeps high-DPI prewarming under the existing fixed pixel budget", () => {
+    const coordinator = new WheelInkCacheCoordinator();
+    const first = fixture(1500, 1000);
+    const second = fixture(1500, 1000);
+    coordinator.register(first.node);
+    coordinator.register(second.node);
+    expect(coordinator.prepare(3)).toBe(false);
+    expect(first.cacheSpy).not.toHaveBeenCalled();
+    expect(coordinator.lastBuildPixels).toBe(0);
+    expect(coordinator.lastBuildSkippedRuns).toBe(2);
+    coordinator.begin(3);
+    expect(coordinator.lastWheelUsedPrepared).toBe(false);
+    expect(first.cacheSpy).not.toHaveBeenCalled();
+    coordinator.end();
+    expect(coordinator.cachedCount).toBe(0);
+  });
+
   it("cleans up registrations and caches on StrictMode unmount", () => {
     const coordinator = new WheelInkCacheCoordinator();
     const previous = fixture();
