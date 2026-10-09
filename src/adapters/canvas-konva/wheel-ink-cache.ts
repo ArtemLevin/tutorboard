@@ -49,6 +49,11 @@ export class WheelInkCacheCoordinator {
     return this.#cached.size;
   }
 
+  /** Cached runs attached to an active gesture; idle-prepared runs are separate. */
+  get activeCachedCount(): number {
+    return this.#active ? this.#cached.size : 0;
+  }
+
   get buildCount(): number {
     return this.#buildCount;
   }
