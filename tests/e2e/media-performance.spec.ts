@@ -963,9 +963,7 @@ for (const scenario of [
 
 // High-DPI visual equivalence of the prepared and cold-cache render paths,
 // including interleaved PNG/GIF, semi-transparent ink and object transforms.
-test("@media-profile high-DPI mixed paint runs match the cold-wheel reference", async ({
-  browser,
-}, testInfo) => {
+test("@media-profile DPR2 pixel parity", async ({ browser }, testInfo) => {
   test.setTimeout(120_000);
   test.skip(
     testInfo.project.name !== "chromium",
@@ -1091,9 +1089,7 @@ test("@media-profile high-DPI mixed paint runs match the cold-wheel reference", 
 
 // Long, heavy interaction sequence: checks bounded cache allocation and
 // that the last cleanup releases prepared Konva groups after a board clear.
-test("@media-profile 3000-stroke zoom-cycle lifetime and high-DPI cache budget", async ({
-  browser,
-}, testInfo) => {
+test("@media-profile 3000 pen long-wheel soak", async ({ browser }, testInfo) => {
   test.setTimeout(180_000);
   test.skip(
     testInfo.project.name !== "chromium",
