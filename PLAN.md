@@ -1833,15 +1833,8 @@ verification and the guest offline cleanup regression guard.
 
 ### C3.2-A — wheel-aware GIF redraw scheduling (09.10.2026)
 
-- PR #193: temporarily apply existing interactive GIF redraw cadence
-  during active wheel zoom, restore full speed on wheel commit/cancel,
-  authoritative viewport changes and unmount.
-- 2×2 matched load shows reduced zoom Canvas drawImage calls: 510→370
-  (300 strokes + 4 GIF) and 540→460 (600 strokes + 4 GIF).
-- Frame-gap p95 remains unchanged (33.4 / 66.7 ms), so the main
-  heavy-board stall is **still open**. Treat as bounded drawing-work
-  reduction; see the measured comparison in
-  [the large-board report](docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md).
-- C3.2-B priority: preserve object z-order and hit-testing while caching
-  immutable canvas paths / rendering ordered static runs; require a measured
-  zoom frame-gap improvement on the 600-stroke/GIF fixture before merge.
+- PR #193: use existing interaction-aware 24-fps GIF pacing during wheel zoom, restoring normal speed on commit/cancel, authoritative viewport sync and unmount. The same committed Konva Layer, stacking order and hit tests are retained.
+- Repeated Chromium profiles: 2 baseline samples (CI 37890197582 initial + media-profile job rerun) versus 3 candidate samples (CI 37896592812 initial and CI 37897271871 initial + media-profile job rerun). All media profiles passed.
+- 300 strokes + 4 GIF: baseline zoom `drawImage` 510/530; candidate 370/360/390. 600 strokes + 4 GIF: baseline 540/540; candidate 460/420/460. Reduced drawing work reproduced in every candidate sample.
+- Heavy-scene zoom frame-gap p95: baseline 66.7/49.9 ms; candidate 66.7/50.1/66.7 ms. **No reliable p95 latency improvement demonstrated**; existing stalling remains. See [large-board report](docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md).
+- C3.2-B priority: benchmark bounded immutable-content cache / ordered static rendering while retaining arbitrary z-order, hit tests, selection, transforms, undo, guest media lifetime and disposal. Demand repeated before/after 600-stroke/4-GIF zoom p95 results and mixed-content pixel equivalence before merging C3.2-B.
