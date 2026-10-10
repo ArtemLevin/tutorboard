@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/c39-representative-baseline.yml
+      - src/core/board/commands/reducer.ts
       - tests/e2e/c39-large-board-profile.spec.ts
       - tests/fixtures/dense-board.ts
       - tests/fixtures/media/c39-animated-64x64.gif
