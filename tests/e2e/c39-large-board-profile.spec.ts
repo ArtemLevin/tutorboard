@@ -791,7 +791,14 @@ for (const scenario of [
             frames: captured.droppedFrames,
             wheelInputs: captured.droppedWheelInputs,
             js: await page.evaluate(
-              () => window.__tutorBoardC37Trace?.droppedEvents ?? 0,
+              () => {
+                const sink = window.__tutorBoardC37Trace;
+                return sink !== undefined &&
+                  "droppedEvents" in sink &&
+                  typeof sink.droppedEvents === "number"
+                  ? sink.droppedEvents
+                  : 0;
+              },
             ),
             chromium: chromiumTrace?.droppedEvents ?? 0,
           },
