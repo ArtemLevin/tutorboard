@@ -24,7 +24,9 @@ const capturedValidation = vi.hoisted(() => ({
 // to this isolated Vitest performance file and never changes production code.
 vi.mock("../../src/core/board/validation/validate", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../../src/core/board/validation/validate")>();
+    await importOriginal<
+      typeof import("../../src/core/board/validation/validate")
+    >();
   return {
     ...actual,
     validateBoardDocument(input: unknown) {
@@ -69,7 +71,10 @@ function describeTiming(samples: readonly TimingSample[]) {
       column,
       {
         p50Ms: median(samples.map((sample) => sample[column])),
-        p95Ms: percentile(samples.map((sample) => sample[column]), 0.95),
+        p95Ms: percentile(
+          samples.map((sample) => sample[column]),
+          0.95,
+        ),
         maxMs: Math.max(...samples.map((sample) => sample[column])),
       },
     ]),
@@ -161,14 +166,13 @@ describe("C3.9-C controlled viewport command cost", () => {
           samples: samples.length,
           historyCapacity: history.limit,
           ...med,
-          validationShareOfReducerMedian:
-            median(
-              samples.map(
-                ({ inputValidationMs, resultValidationMs, reducerMs }) =>
-                  (inputValidationMs + resultValidationMs) /
-                  Math.max(reducerMs, 0.001),
-              ),
+          validationShareOfReducerMedian: median(
+            samples.map(
+              ({ inputValidationMs, resultValidationMs, reducerMs }) =>
+                (inputValidationMs + resultValidationMs) /
+                Math.max(reducerMs, 0.001),
             ),
+          ),
         }),
       );
       expect(samples).toHaveLength(7);
@@ -185,7 +189,11 @@ describe("C3.9-C controlled viewport command cost", () => {
     const document = validatedDenseDocument(6);
     const tampered: BoardDocument = {
       ...document,
-      order: [document.order[0]!, document.order[0]!, ...document.order.slice(2)],
+      order: [
+        document.order[0]!,
+        document.order[0]!,
+        ...document.order.slice(2),
+      ],
     };
     capturedValidation.durationsMs.length = 0;
     capturedValidation.active = true;
@@ -205,7 +213,9 @@ describe("C3.9-C controlled viewport command cost", () => {
     }
     expect(invalidDocument.ok).toBe(false);
     if (!invalidDocument.ok) {
-      expect(invalidDocument.error.code).toBe("command.invalid-current-document");
+      expect(invalidDocument.error.code).toBe(
+        "command.invalid-current-document",
+      );
       expect(invalidDocument.document).toBe(tampered);
     }
     expect(invalidViewport.ok).toBe(false);
