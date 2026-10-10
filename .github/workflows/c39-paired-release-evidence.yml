@@ -72,7 +72,7 @@ jobs:
             npm ci
             npm run build
           done
-          npx --prefix "$RUNNER_TEMP/c39-candidate" playwright install --with-deps chromium
+          (cd "$RUNNER_TEMP/c39-candidate" && npx playwright install --with-deps chromium)
       - name: Run chronological ABBA cycles on one runner
         env:
           CYCLES: ${{ inputs.cycles }}
