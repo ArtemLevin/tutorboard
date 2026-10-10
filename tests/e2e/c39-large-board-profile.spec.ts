@@ -599,11 +599,11 @@ for (const scenario of [
         ? "@c39-cold-cache-ab "
         : scenario.staticHeavy
           ? "@c39-static-heavy "
-        : scenario.e2
-          ? "@c39-e2 "
-          : scenario.quick
-            ? "@media-profile @c39-quick "
-            : "@c39-extended ") +
+          : scenario.e2
+            ? "@c39-e2 "
+            : scenario.quick
+              ? "@media-profile @c39-quick "
+              : "@c39-extended ") +
       "representative zoom baseline: " +
       scenario.name,
     async ({ browser }, testInfo) => {
@@ -815,9 +815,9 @@ for (const scenario of [
             ? "C3.9-COLD-CACHE"
             : scenario.staticHeavy
               ? "C3.9-STATIC"
-            : scenario.e2
-              ? "C3.9-E2"
-              : "C3.9",
+              : scenario.e2
+                ? "C3.9-E2"
+                : "C3.9",
           traceEnabled,
           scenario,
           browser: browser.version(),
@@ -852,9 +852,16 @@ for (const scenario of [
           wheelPauseStillActiveAfterInputs,
           wheelInkCache: {
             builds: Number(await stage.getAttribute("data-wheel-cache-builds")),
-            skippedColdBuild: (await stage.getAttribute("data-wheel-cache-last-wheel-skipped-cold-build")) === "true",
-            lastBuildPixels: Number(await stage.getAttribute("data-wheel-cache-last-build-pixels")),
-            lastWheelBeginMs: Number(await stage.getAttribute("data-wheel-cache-last-wheel-begin-ms")),
+            skippedColdBuild:
+              (await stage.getAttribute(
+                "data-wheel-cache-last-wheel-skipped-cold-build",
+              )) === "true",
+            lastBuildPixels: Number(
+              await stage.getAttribute("data-wheel-cache-last-build-pixels"),
+            ),
+            lastWheelBeginMs: Number(
+              await stage.getAttribute("data-wheel-cache-last-wheel-begin-ms"),
+            ),
           },
           ...phases,
           c39Attribution: {
