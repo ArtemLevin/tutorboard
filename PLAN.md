@@ -337,8 +337,8 @@ visibility bounds и неизменных React ink subtrees. Зафиксиро
 
 ### C3.7: атрибуция длинных кадров React / Konva / compositor — 09.10.2026
 
-Stacked draft [PR #199](https://github.com/ArtemLevin/tutorboard/pull/199)
-на основе C3.6 (#198). Введена opt-in диагностика, записывающая
+Интеграционный [PR #199](https://github.com/ArtemLevin/tutorboard/pull/199)
+на базе `main` включает также C3.5 (#197) и C3.6 (#198). Введена opt-in диагностика, записывающая
 React viewport update→layout commit, посещения неизменных ink-run
 компонентов, Konva scene/hit draw, GIF invalidation и Chromium CDP
 compositor/raster events. Источник `BoardStage` не включает
@@ -367,13 +367,14 @@ LayerTreeHost::DoUpdateLayers 37 events,
 GPU/compositor timestamps не являются аддитивными с JS-таймингами.
 Доказанного устойчивого устранения >100 ms gaps пока нет.
 
-**Release gate C3.7 OPEN:** браузерная композиция и redraw остаются
-значимыми затратами. Далее — отдельный C3.8 controlled A/B эксперимент
-с уменьшением compositor layers / ограничением анимационных
-invalidation только при wheel (или бэкграундным chunked cache),
-c matched Chromium traces, pixel DPR2/hit parity, Firefox и
-памятью. Не объединять stacked PR #197–#199 с main как завершённое
-исправление больших досок до повторяемого улучшения хвоста кадров.
+**Release gate полной C3-оптимизации остаётся OPEN:** браузерная
+композиция и redraw продолжают создавать длинные кадры. C3.5–C3.7
+принимаются только как проверяемое локальное снижение CPU/input затрат
+(интеграционный gate выше). Отдельная C3.8-проверка GIF invalidations
+развивается в PR #200; долгие кадры, compositor attribution, повторный
+A/B/ABBA профиль, DPR2/hit parity, Firefox и resource soak отслеживаются
+в [C3.9 issue #201](https://github.com/ArtemLevin/tutorboard/issues/201).
+Стабильные 60 FPS пока не считаются достигнутыми.
 
 ### C3.6: неблокирующий cold wheel fallback — 09.10.2026
 
