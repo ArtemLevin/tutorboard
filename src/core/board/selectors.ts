@@ -159,7 +159,10 @@ export function createBoardSceneSelector(): BoardSceneSelector {
       previousDocument.geometryImports === document.geometryImports
     ) {
       previousDocument = document;
-      previousScene = { items: previousScene.items, viewport: document.viewport };
+      previousScene = {
+        items: previousScene.items,
+        viewport: document.viewport,
+      };
       return previousScene;
     }
     const nextCache = new Map<

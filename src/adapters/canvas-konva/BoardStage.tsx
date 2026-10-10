@@ -674,18 +674,30 @@ export function BoardStage({
   }, [previewViewport]);
 
   const visibilityIndex = useMemo(() => {
-    const started = window.__tutorBoardC37Trace === undefined ? null : performance.now();
+    const started =
+      window.__tutorBoardC37Trace === undefined ? null : performance.now();
     const index = createBoardVisibilityIndex(scene.items);
     if (started !== null) {
-      recordBoardFrameTrace("visibility-index-build", started, performance.now() - started, `items=${scene.items.length}`);
+      recordBoardFrameTrace(
+        "visibility-index-build",
+        started,
+        performance.now() - started,
+        `items=${scene.items.length}`,
+      );
     }
     return index;
   }, [scene.items]);
   const visibleItems = useMemo(() => {
-    const started = window.__tutorBoardC37Trace === undefined ? null : performance.now();
+    const started =
+      window.__tutorBoardC37Trace === undefined ? null : performance.now();
     const items = visibilityIndex.select(previewViewport, size);
     if (started !== null) {
-      recordBoardFrameTrace("visibility-query", started, performance.now() - started, `visible=${items.length}`);
+      recordBoardFrameTrace(
+        "visibility-query",
+        started,
+        performance.now() - started,
+        `visible=${items.length}`,
+      );
     }
     return items;
   }, [visibilityIndex, previewViewport, size]);
@@ -694,10 +706,16 @@ export function BoardStage({
     [visibleItems],
   );
   const committedPaintRuns = useMemo(() => {
-    const started = window.__tutorBoardC37Trace === undefined ? null : performance.now();
+    const started =
+      window.__tutorBoardC37Trace === undefined ? null : performance.now();
     const runs = partitionCommittedPaintRuns(visibleItemBatches);
     if (started !== null) {
-      recordBoardFrameTrace("paint-run-build", started, performance.now() - started, `runs=${runs.length}`);
+      recordBoardFrameTrace(
+        "paint-run-build",
+        started,
+        performance.now() - started,
+        `runs=${runs.length}`,
+      );
     }
     return runs;
   }, [visibleItemBatches]);
@@ -805,7 +823,8 @@ export function BoardStage({
     if (stage === null || transformer === null) {
       return;
     }
-    const started = window.__tutorBoardC37Trace === undefined ? null : performance.now();
+    const started =
+      window.__tutorBoardC37Trace === undefined ? null : performance.now();
     const allowed = new Set(transformableObjectIds);
     const nodes = stage.find(".board-transform-target").filter((node) => {
       const objectId = objectIdFromTarget(node);
@@ -814,7 +833,12 @@ export function BoardStage({
     transformer.nodes(nodes);
     transformer.getLayer()?.batchDraw();
     if (started !== null) {
-      recordBoardFrameTrace("transformer-bind", started, performance.now() - started, `selected=${allowed.size};nodes=${nodes.length}`);
+      recordBoardFrameTrace(
+        "transformer-bind",
+        started,
+        performance.now() - started,
+        `selected=${allowed.size};nodes=${nodes.length}`,
+      );
     }
   }, [
     lineEndpointPreview,
@@ -2201,12 +2225,17 @@ export function BoardStage({
         // A cold cache can take tens of milliseconds to rasterize on the
         // input thread. Preserve the uncached pen renderer for this gesture
         // when idle preparation has not completed.
-        const started = window.__tutorBoardC37Trace === undefined ? null : performance.now();
+        const started =
+          window.__tutorBoardC37Trace === undefined ? null : performance.now();
         wheelInkCache.begin(window.devicePixelRatio, {
           buildIfUnprepared: false,
         });
         if (started !== null) {
-          recordBoardFrameTrace("wheel-cache-begin", started, performance.now() - started);
+          recordBoardFrameTrace(
+            "wheel-cache-begin",
+            started,
+            performance.now() - started,
+          );
         }
         // Avoid an independent full-speed GIF invalidation stream while the
         // temporary wheel cache is composited through viewport transforms.

@@ -790,7 +790,9 @@ for (const scenario of [
           captureDropped: {
             frames: captured.droppedFrames,
             wheelInputs: captured.droppedWheelInputs,
-            js: await page.evaluate(() => window.__tutorBoardC37Trace?.droppedEvents ?? 0),
+            js: await page.evaluate(
+              () => window.__tutorBoardC37Trace?.droppedEvents ?? 0,
+            ),
             chromium: chromiumTrace?.droppedEvents ?? 0,
           },
           experiment: scenario.staticHeavy
@@ -878,13 +880,15 @@ for (const scenario of [
         }
         if (traceEnabled) {
           await testInfo.attach("c39-raw-" + scenario.name + ".json", {
-            body: Buffer.from(JSON.stringify({
-              fixtureSha256,
-              browser: browser.version(),
-              captured,
-              jsTrace,
-              chromiumTrace,
-            })),
+            body: Buffer.from(
+              JSON.stringify({
+                fixtureSha256,
+                browser: browser.version(),
+                captured,
+                jsTrace,
+                chromiumTrace,
+              }),
+            ),
             contentType: "application/json",
           });
         }

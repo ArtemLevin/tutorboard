@@ -308,8 +308,7 @@ export function partitionC39PersistFrames(
     intermediatePersistCount: persists.filter(
       (event) => event.startMs < lastWheel,
     ).length,
-    finalPersistCount: persists.filter(
-      (event) => event.startMs >= lastWheel,
-    ).length,
+    finalPersistCount: persists.filter((event) => event.startMs >= lastWheel)
+      .length,
   };
 }

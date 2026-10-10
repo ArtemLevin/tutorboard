@@ -29,6 +29,8 @@ describe("C3.9 persistence attribution", () => {
       intermediatePersistCount: 0,
       finalPersistCount: 0,
     });
-    expect(partitionC39PersistFrames(gaps, [4, 20], []).activeWithoutPersist).toEqual(gaps);
+    expect(
+      partitionC39PersistFrames(gaps, [4, 20], []).activeWithoutPersist,
+    ).toEqual(gaps);
   });
 });
