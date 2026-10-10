@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { c39StaticCases, parseC39AbTrial, evaluateC39StableSceneAb } from "../../scripts/c39/summarize-stable-scene-ab.mjs";
+import {
+  c39StaticCases,
+  parseC39AbTrial,
+  evaluateC39StableSceneAb,
+} from "../../scripts/c39/summarize-stable-scene-ab.mjs";
 
 function report(name, p95) {
   const strokes = Number(name.split("-")[1]);
@@ -24,7 +28,9 @@ function report(name, p95) {
 }
 test("ABBA parser preserves all four static scenarios", () => {
   const reports = c39StaticCases.map((name) => report(name, 200));
-  const log = reports.map((value) => "C39_REPRESENTATIVE_BASELINE " + JSON.stringify(value)).join("\n");
+  const log = reports
+    .map((value) => "C39_REPRESENTATIVE_BASELINE " + JSON.stringify(value))
+    .join("\n");
   assert.equal(parseC39AbTrial(log).size, 4);
   assert.throws(() => parseC39AbTrial(log + "\n" + log), /Duplicated/);
 });
@@ -33,7 +39,12 @@ test("ABBA evaluator detects paired improvement and rejects trace overflow", () 
     const arm = index % 4 === 0 || index % 4 === 3 ? "A0" : "A1";
     return {
       arm,
-      reports: new Map(c39StaticCases.map((name) => [name, report(name, arm === "A0" ? 200 : 100)])),
+      reports: new Map(
+        c39StaticCases.map((name) => [
+          name,
+          report(name, arm === "A0" ? 200 : 100),
+        ]),
+      ),
     };
   });
   assert.equal(evaluateC39StableSceneAb(trials).verdict, "LOCAL_GO_CANDIDATE");

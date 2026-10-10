@@ -34,7 +34,10 @@ export function parseC39AbTrial(log) {
     assert(!reports.has(name), "Duplicated scenario " + name);
     reports.set(name, report);
   }
-  assert(reports.size === c39StaticCases.length, "Incomplete C3.9 static scenario matrix");
+  assert(
+    reports.size === c39StaticCases.length,
+    "Incomplete C3.9 static scenario matrix",
+  );
   return reports;
 }
 
@@ -49,33 +52,58 @@ export function evaluateC39StableSceneAb(trials) {
       const report = trial.reports.get(name);
       assert(report, "Missing scenario " + name);
       assert(report.schemaVersion === 1, "Schema drift");
-      assert(report.scenario.dpr === 2 && report.scenario.gifs === 0, "Scenario drift");
-      assert(report.content.pngCount === 4 && report.content.jpegCount === 6, "Codec drift");
-      assert(report.content.objects === report.scenario.strokes + 10, "Object count drift");
+      assert(
+        report.scenario.dpr === 2 && report.scenario.gifs === 0,
+        "Scenario drift",
+      );
+      assert(
+        report.content.pngCount === 4 && report.content.jpegCount === 6,
+        "Codec drift",
+      );
+      assert(
+        report.content.objects === report.scenario.strokes + 10,
+        "Object count drift",
+      );
       assert(report.inputTimesMs?.length === 18, "Input loss");
       assert(report.c39PersistPhases, "Persistence attribution missing");
-      assert(report.c39Attribution.traceAlignment === "aligned", "Missing browser trace alignment");
-      assert(report.captureDropped && Object.values(report.captureDropped).every((x) => x === 0),
-        "Trace recorder overflow; result unusable");
+      assert(
+        report.c39Attribution.traceAlignment === "aligned",
+        "Missing browser trace alignment",
+      );
+      assert(
+        report.captureDropped &&
+          Object.values(report.captureDropped).every((x) => x === 0),
+        "Trace recorder overflow; result unusable",
+      );
       assert(report.phases.active.count > 0, "Missing active frames");
       return { arm: trial.arm, report };
     });
     const reference = runs[0].report;
     for (const { report } of runs) {
-      assert(report.fixtureSha256 === reference.fixtureSha256, "Document/media fixture mismatch: " + name);
-      assert(report.browser === reference.browser && report.platform === reference.platform,
-        "Browser/runner changed within paired job");
+      assert(
+        report.fixtureSha256 === reference.fixtureSha256,
+        "Document/media fixture mismatch: " + name,
+      );
+      assert(
+        report.browser === reference.browser &&
+          report.platform === reference.platform,
+        "Browser/runner changed within paired job",
+      );
     }
     const pairs = [];
     for (let block = 0; block < 3; block += 1) {
       const [a, b, c, d] = runs.slice(block * 4, block * 4 + 4);
-      for (const [control, candidate] of [[a, b], [d, c]]) {
+      for (const [control, candidate] of [
+        [a, b],
+        [d, c],
+      ]) {
         const baseline = control.report.phases.active;
         const changed = candidate.report.phases.active;
         pairs.push({
           controlP95Ms: baseline.p95Ms,
           candidateP95Ms: changed.p95Ms,
-          relativeImprovement: (baseline.p95Ms - changed.p95Ms) / baseline.p95Ms,
+          relativeImprovement:
+            (baseline.p95Ms - changed.p95Ms) / baseline.p95Ms,
           controlOver100Rate: baseline.over100 / baseline.count,
           candidateOver100Rate: changed.over100 / changed.count,
           controlFrames: baseline.count,
@@ -86,8 +114,10 @@ export function evaluateC39StableSceneAb(trials) {
       }
     }
     const improvement = median(pairs.map((pair) => pair.relativeImprovement));
-    const controlSlow = pairs.reduce((sum, p) => sum + p.controlOver100Rate, 0) / pairs.length;
-    const candidateSlow = pairs.reduce((sum, p) => sum + p.candidateOver100Rate, 0) / pairs.length;
+    const controlSlow =
+      pairs.reduce((sum, p) => sum + p.controlOver100Rate, 0) / pairs.length;
+    const candidateSlow =
+      pairs.reduce((sum, p) => sum + p.candidateOver100Rate, 0) / pairs.length;
     evidence[name] = {
       fixtureSha256: reference.fixtureSha256,
       browser: reference.browser,
@@ -98,25 +128,35 @@ export function evaluateC39StableSceneAb(trials) {
     };
   }
   const mainGo = ["static-5000-10-images", "static-10000-10-images"].every(
-    (name) => evidence[name].medianRelativeImprovement >= 0.2 &&
-      evidence[name].meanOver100RateCandidate < evidence[name].meanOver100RateControl,
+    (name) =>
+      evidence[name].medianRelativeImprovement >= 0.2 &&
+      evidence[name].meanOver100RateCandidate <
+        evidence[name].meanOver100RateControl,
   );
-  const regressionsOkay = ["static-3000-10-images", "static-10000-offscreen"].every(
-    (name) => evidence[name].medianRelativeImprovement >= -0.1,
-  );
+  const regressionsOkay = [
+    "static-3000-10-images",
+    "static-10000-offscreen",
+  ].every((name) => evidence[name].medianRelativeImprovement >= -0.1);
   return {
     schemaVersion: 1,
     cycles: 3,
     pairsPerVariant: 6,
-    verdict: mainGo && regressionsOkay ? "LOCAL_GO_CANDIDATE" : "NO_GO_OR_INCONCLUSIVE",
-    caveat: "A single runner's six pairs are not a complete release gate. Confirm on an independent runner, pixel/hit, input latency, persistence and cross-browser functional checks. Never bootstrap individual rAF gaps as independent trials.",
+    verdict:
+      mainGo && regressionsOkay
+        ? "LOCAL_GO_CANDIDATE"
+        : "NO_GO_OR_INCONCLUSIVE",
+    caveat:
+      "A single runner's six pairs are not a complete release gate. Confirm on an independent runner, pixel/hit, input latency, persistence and cross-browser functional checks. Never bootstrap individual rAF gaps as independent trials.",
     evidence,
   };
 }
 
 async function main() {
   const [folder, output] = process.argv.slice(2);
-  assert(folder && output, "Usage: node scripts/c39/summarize-stable-scene-ab.mjs folder summary.json");
+  assert(
+    folder && output,
+    "Usage: node scripts/c39/summarize-stable-scene-ab.mjs folder summary.json",
+  );
   const trials = [];
   for (let cycle = 1; cycle <= 3; cycle += 1) {
     for (let position = 1; position <= 4; position += 1) {
@@ -124,7 +164,10 @@ async function main() {
       trials.push({
         arm,
         reports: parseC39AbTrial(
-          await readFile(join(folder, `cycle-${cycle}-position-${position}-${arm}.log`), "utf8"),
+          await readFile(
+            join(folder, `cycle-${cycle}-position-${position}-${arm}.log`),
+            "utf8",
+          ),
         ),
       });
     }
@@ -133,7 +176,10 @@ async function main() {
   await writeFile(output, JSON.stringify(summary, null, 2) + "\n", "utf8");
   console.log("C39_STABLE_SCENE_AB " + JSON.stringify(summary));
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
