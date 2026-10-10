@@ -438,6 +438,7 @@ for (const scenario of [
           gifCount: scenario.gifs,
           strokeGeometry: "varied",
           zOrderPattern: scenario.zOrder,
+          splitAtVisibleBoundary: scenario.e2 && scenario.zOrder === "split",
           largeStaticDataUrls: Array.from(
             { length: staticCount },
             (_unused, index) => representativePngs()[index % 6]!,
