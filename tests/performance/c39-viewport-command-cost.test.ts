@@ -202,8 +202,14 @@ describe("C3.9-C controlled viewport command cost", () => {
         zoom: 1.1,
       },
     };
-    const extraViewportField = reduceBoardDocument(document, withUnknownViewportField);
-    const extraOffsetField = reduceBoardDocument(document, withUnknownOffsetField);
+    const extraViewportField = reduceBoardDocument(
+      document,
+      withUnknownViewportField,
+    );
+    const extraOffsetField = reduceBoardDocument(
+      document,
+      withUnknownOffsetField,
+    );
     for (const result of [extraViewportField, extraOffsetField]) {
       expect(result.ok).toBe(false);
       if (!result.ok) {
