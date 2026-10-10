@@ -9,12 +9,17 @@
 > Shape Constraints** (PR #133), **Partial eraser + forgiving selection**
 > (PR #134), **Live text + Escape comfort** (PR #135) и CI/performance hardening
 > вплоть до PR #142; дальнейшие C3 performance-этапы зафиксированы ниже.
-> Ближайшая delivery цель по-прежнему —
-> **Pilot Deployment Gate**: получить реальный HTTPS-сервер и провести
-> controlled pilot с одним преподавателем и одним учеником. После pilot
-> обязательным остаётся полный **Board-only Production Profile** и production
-> release gate. Следующий отдельный продуктовый трек — board media assets:
-> крупные изображения/GIF и последующий безопасный URL/video import.
+> **Текущий инженерный приоритет — C3.9-S3:** отзывчивость доски с тысячами
+> видимых рукописных штрихов и примерно десятью PNG/JPG/JPEG. C3.9-S1
+> завершён в PR #215; эксперимент C3.9-S2 / PR #216 имеет результат **NO-GO**
+> и остаётся Draft. Следующий кандидат — сохранение структуры статической
+> сцены при изменении только viewport, с обязательным причинным A/B gate.
+>
+> Операционная delivery цель — **Pilot Deployment Gate**: получить реальный
+> HTTPS-сервер и провести controlled pilot с одним преподавателем и одним
+> учеником. После pilot обязательны полный **Board-only Production Profile**
+> и production release gate. Media assets/URL/video остаются отдельным треком;
+> GIF сохраняются в регрессионной матрице и имеют второстепенный приоритет.
 >
 > Исторические планы по полотну, GeometryOS, Smart Ink и lesson-bound интеграциям
 > остаются в `docs/DEVELOPMENT_PLAN.md` и профильных ADR/документах в
@@ -335,39 +340,177 @@ visibility bounds и неизменных React ink subtrees. Зафиксиро
 обновлённого `main`, только с собственным diff относительно C3.7.
 Формат BoardDocument, sync API, persistence и настройки доступа не меняются.
 
-### C3.9-S1: приоритет — огромная статическая доска, 10.10.2026
+### C3.9-S1 — DONE: baseline огромной статической доски, 10.10.2026
 
-**Уточнение пользователя:** GIF используются редко. Главный release-сценарий —
-большое количество штрихов пера и около 10 статических изображений
-PNG/JPG/JPEG. Требуется высокая отзывчивость при рисовании, перемещении,
-масштабировании, выделении, стирании и отмене действий. GIF-проверки
-оставить регрессионными; предыдущее намерение начинать C3.9-E3 с
-оптимизации GIF/compositor **пересмотрено**.
+[PR #215](https://github.com/ArtemLevin/tutorboard/pull/215) объединён в main
+как `db9cd99d5975393d5d7ddfe5e0669894b9217ac0`. Зафиксирован основной
+пользовательский сценарий: тысячи видимых штрихов и около 10 статических
+PNG/JPG/JPEG; рисование, pan/zoom, выделение, частичный ластик, undo/redo,
+сохранение и восстановление. GIF остаются вторичным regression gate.
 
-Первый блок C3.9-S1: реальный Chromium benchmark (DPR2) с
-3000/5000/10000 разнообразных штрихов и 10 полноразмерных изображений
-4 PNG + 6 JPEG (по три .jpg/.jpeg); дополнительно 10000 объектов
-с малым числом видимых штрихов — проверка culling. Три повтора
-на одном runner, сбор active/commit p95/max и длинных кадров,
-загрузка из реального IndexedDB, кэш/компоновка, проверка MIME, файлов,
-количества объектов, хранение логов и браузерных traces. Для крупных
-документов JSON-импорт отклоняется штатным лимитом 10 МиБ
-(`maximumTutorBoardDocumentImportBytes`), поэтому тестовая ревизия
-сохраняется прямо в IndexedDB и загружается обычным production-адаптером
-с полной валидацией. Публичный security limit не изменяется; отдельно
-разобрать безопасный импорт/восстановление больших резервных копий. Старая 7-сценарная baseline
-и E2-матрица по умолчанию не меняются. Результат эксперимента
-нужен до выбора production-оптимизации.
+[Baseline run 38056187715](https://github.com/ArtemLevin/tutorboard/actions/runs/38056187715):
+Chromium 149, Linux x64, DPR2, 4 PNG + 6 JPEG по 1536×1536, 18 wheel inputs,
+три повтора на одном runner. Test-merge `224b0a987cf4e090bacce74d65b47a2720ef7ede`
+имеет тот же Git tree `bf7db1cc752e168214a6cb12e932c3b4475a14bb`, что указанный
+main baseline.
 
-Далее: провести performance attribution без GIF и выбрать самый
-дорогой путь (валидация viewport/input, видимость, Konva draw/hit,
-React, bitmap decode/compositor), отдельно проверить рисование/ластик,
-навигацию, выделение, undo/redo, очистку/повторное открытие и
-сохранение при многократных циклах. Не уменьшать качество изображений
-и не менять persisted contract без обоснования.
+| Всего / задано видимых штрихов | Медиана run active p95 | Active frames | Доля >100 мс |
+| --- | ---: | ---: | ---: |
+| 3000 / 2400 | 283,4 мс | 235 | 17,0% |
+| 5000 / 4000 | 200,0 мс | 238 | 34,9% |
+| 10000 / 8000 | 366,7 мс | 247 | 52,6% |
+| 10000 / 1000 | 33,4 мс | 190 | 5,8% |
+
+Это описательная baseline, без утверждения о готовности доски. У плотных
+10k p95 по повторам 983,3 / 366,7 / 333,4 мс; у offscreen —
+33,4 / 33,4 / 183,4 мс. Порог 200 кадров не обеспечивает устойчивый p99.
+Видимость в таблице — параметр fixture; фактический состав зависит от zoom
+и overscan.
+
+Для больших документов тестовая ревизия заполняет IndexedDB, после чего
+работает штатный production restore с полной валидацией. Публичный JSON-import
+сохраняет лимит **10 MiB** (`maximumTutorBoardDocumentImportBytes`). Безопасный
+импорт крупных резервных копий — отдельная задача. Старая 7-сценарная baseline
+и E2-матрица сохраняются.
 
 [Контракт основной нагрузки](docs/C39_STATIC_HEAVY_PRIORITY_2026-10-10.md).
-Issue #201 остаётся открытым до проверок и C3.9-F soak.
+
+### C3.9-S2 — NO-GO: синхронный cold ink-cache, 10.10.2026
+
+[PR #216](https://github.com/ArtemLevin/tutorboard/pull/216), ветка
+`test/c39-static-cold-ink-cache-causal-gate`, HEAD
+`578591c89f2fc937205dfe1bafb303a082ea519c`: **OPEN / DRAFT / НЕ MERGED**.
+Все 11 workflows на этом HEAD успешны как тесты.
+
+[Четыре A/B повтора, run 38057412935](https://github.com/ArtemLevin/tutorboard/actions/runs/38057412935)
+на одинаковых 5k/10k документах, 4 PNG + 6 JPEG, DPR2 показали:
+
+| Сцена | Control active p95 | Cold cache active p95 | >100 мс control → cache | Cold begin |
+| --- | ---: | ---: | --- | ---: |
+| 5000 | 250,0 мс | 391,7 мс | 43,0% → 85,7% | 143,25 мс |
+| 10000 | 400,1 мс | 725,05 мс | 55,9% → 75,5% | 286,8 мс |
+
+**Решение:** сохранить `buildIfUnprepared: false` в production wheel path.
+PR #216 не мержить как оптимизацию по признаку зелёного CI. Отрицательное
+решение относится к синхронному построению существующего кэша; новые
+пространственные подходы потребуют отдельного эксперимента.
+
+### C3.9-S3 — NEXT: стабильная сцена при viewport-only, 10.10.2026
+
+[Issue #201](https://github.com/ArtemLevin/tutorboard/issues/201) остаётся
+открытым. Подробный анализ, исходные данные, план и ограничения:
+[отчёт C3.9-S3](docs/C39_S3_ANALYSIS_PLAN_2026-10-10.md).
+
+**Статус:** анализ выполнен; production-реализация и браузерный A/B нового
+кандидата ещё не выполнены. Начинать отдельную ветку от актуального main,
+без переноса экспериментального режима PR #216.
+
+Подтверждённые механизмы:
+
+- После viewport-only commit `createBoardSceneSelector()` создаёт новый
+  `scene.items`, сохраняя каждый отдельный item. Это перестраивает visibility
+  index, batches и run-структуры. Локальная CPU-проверка подтверждает лишнюю
+  работу; её величина — единицы миллисекунд, браузерный выигрыш неизвестен.
+- При стабильном visible membership уже работают reuse bounds/results и
+  memoized pen-runs с `zoom=1`. Повторная генерация всех Path на каждом wheel
+  не является универсальным объяснением.
+- Parent transform в Konva вызывает обход потомков и scene/hit redraw.
+  Transformer effect также ищет `.board-transform-target` при пустом выделении.
+- Нынешний active p95 смешивает visual updates с промежуточным persist.
+  В плотных сценах все 17 межсобытийных промежутков каждого повтора превысили
+  debounce 120 мс; есть active gap 516,6 мс с persist около 518 мс.
+  `board-commit` включает scheduling/React-Konva и не равен чистому React CPU.
+- Static-heavy artifact сохраняет логи/summary и top-five attribution,
+  без полных массивов JS/CDP событий. Нужны raw bounded traces каждого run.
+- `.github/workflows/c39-static-heavy.yml` не покрывает paths renderer/selector;
+  performance-only production diff может пропустить основной benchmark.
+
+**Один законченный блок:** подтвердить A/B эффект сохранения структуры сцены,
+реализовать минимальный выигравший вариант, пройти correctness/performance/CI,
+зафиксировать GO/NO-GO. Уменьшение числа вызовов само по себе не завершает блок.
+
+#### S3.1 — измерения и причинный эксперимент
+
+- [ ] Исправить атрибуцию: input ID + session ID, received delta и viewport,
+  cache begin, layout, persist start/end, cancel; разделить active без persist,
+  active с persist, final commit и settling. Сохранить общий active p95.
+- [ ] Отдельно измерить selector, bounds build/query, run construction,
+  transformer binding, React profiling commit и Konva scene/hit.
+  Вложенные/межпоточные интервалы не суммировать; GPU unavailable обозначать явно.
+- [ ] Записывать fixture/image-byte hashes, source/tree SHA, browser/runner,
+  фактический viewport path, visible counts, sessions и decode/cache readiness.
+  Любые потерянные inputs или разные итоговые viewport блокируют сравнение.
+- [ ] Сохранять все bounded JS/CDP/rAF traces по уникальным repeat-директориям;
+  caps и dropped counts обязательны, переполнение исключает причинный вывод.
+- [ ] Расширить paths static-heavy/representative workflow на изменяемые
+  renderer/selector/harness, проверить запуск нужного benchmark на candidate SHA.
+- [ ] Сравнить A0 (main) и A1 (только stable scene.items). Пустой transformer
+  guard исследовать как отдельный A2, чтобы не смешивать причины.
+
+#### S3.2 — минимальный production-кандидат A1
+
+- [ ] После подтверждения причины добавить fast path в
+  `src/core/board/selectors.ts`: тот же document ID, прежние ссылки на
+  `objects`, `order`, `groups`, `geometryImports` → актуальный scene wrapper
+  с прежним `items` и новым viewport. Сигнатуры и persisted schemas сохраняются.
+- [ ] Содержательные изменения проходят существующий путь построения items;
+  reset/смена доски освобождают прежний cache. Кэш ограничен текущей сценой.
+- [ ] Проверить каскад в `BoardStage.tsx`: reuse visibility index/batches/runs,
+  корректный cache end/cancel, prewarm по viewport, удаление медиа и clear.
+- [ ] Сохранить полную входную валидацию `BoardDocument`, strict viewport и
+  timestamp checks, public import 10 MiB, history, sync/access и hit semantics.
+
+#### S3.3 — regression и нагрузочная приёмка
+
+- [ ] Selector/scene tests: viewport-only и metadata-only; add/delete/style,
+  порядок/видимость, группы, GeometryOS overrides, reset и смена документа;
+  culling и порядок равны эталону, границы viewport не оставляют stale items.
+- [ ] Browser tests: точка/длинный штрих/стили пера, cursor-anchored zoom и pan,
+  пустое/одиночное/групповое выделение, line endpoints, частичный ластик,
+  undo/redo, layers/alpha и первый ввод сразу после wheel/cancel.
+- [ ] Сохранение/штатный Dexie restore, reload, clear/reopen/switch board,
+  read-only/guest и secondary GIF regressions; DPR1/2 pixel/hit parity.
+- [ ] Одинаковые 3k/5k/10k + десять 1536px PNG/JPEG и 10k-offscreen;
+  cold/prewarmed, 3 ABBA цикла (6 запусков на вариант) и независимый CI-job.
+  Trace-on диагностику отделить от production trace-off оценки.
+- [ ] Сохранить 18-input historical profile, добавить заранее заданное
+  расписание входов без ожидания rendered frame; учитывать delivery/coalescing.
+  Публиковать per-run p50/p95/p99/max, >25/>50/>100 мс, first-input,
+  commit/settling, pen input-to-paint, Long Tasks и memory/resource counters.
+- [ ] Считать парные дельты и неопределённость по независимым runs/блокам.
+  Недостаточные данные → INCONCLUSIVE; p99 не объявлять устойчивым по 200 кадрам.
+- [ ] Предложенный gate S3: выигрыш сквозного active p95 ≥20% на 5k и 10k,
+  снижение доли >100 мс, одинаковое направление в независимом повторе;
+  без устойчивой регрессии commit, first-input, pen latency, памяти и качества.
+  На 3k/offscreen — без ухудшения p95 >10% за пределами измеренного шума.
+- [ ] 48 wheel/edit циклов на полной сцене 10k+10, clear/unmount/visibility,
+  контроль retained resources. Полный `npm run check`, Chromium/Firefox smoke,
+  media profile/cache soak и применимые specialized/fullstack/security gates.
+- [ ] Self-review exact diff/SHA, evidence report и rollback; merge только
+  после измеримого выигрыша и сохранения корректности. После merge проверить
+  main CI и static-heavy profile; Issue #201 оставить открытым до общего gate.
+
+#### S3.4 — условное продолжение при NO-GO/INCONCLUSIVE A1
+
+- [ ] Если заметного frame-time выигрыша нет, сохранить отрицательный результат
+  и выбрать следующий подтверждённый путь: React membership churn, Konva
+  scene/hit, viewport persist или compositor. Случайные изменения не объединять.
+- [ ] Пространственные векторные фрагменты, затем тайлы — самостоятельный A/B.
+  Сохранить исходный ink-run z-order и barriers PNG/JPEG/text, alpha/seams,
+  актуальные hit IDs и инвалидацию old/new bounds при edit/erase/undo/remote.
+- [ ] Тайловую подготовку ограничивать по объёму работ вне input-handler;
+  учитывать scene/hit/temporary bytes, совместный cache budget, DPR,
+  cancel/eviction и vector fallback. Сохранить предел шести committed layers;
+  не повышать 4 млн физических scene-cache pixels без отдельного анализа.
+
+**Общий release gate C3.9-E/F остаётся открытым:** ориентир p95 около 33,3 мс,
+max <100 мс в согласованной тяжёлой сцене, pen p95 ≤16,7 мс, корректность,
+многочасовой teacher/guest pilot, soak и rollback. Частичное ускорение S3
+не означает завершение всей проблемы #201.
+
+**Исторические C3.9-E/A–D и C3.8–C3.5 ниже сохраняют результаты прежних этапов.
+Их формулировки «следующий» относятся к тому времени; текущий порядок задают
+C3.9-S3 и раздел 25.**
 
 ### C3.9-E2: изоляция GIF/paint-run compositor — 10.10.2026
 
@@ -389,7 +532,8 @@ DPR1 p95 **16,80 мс**, а при DPR2 **116,60 мс**.
 медленных кадров для 5 слоёв и fallback (только корреляция).
 Увеличивать глобальный лимит шести слоёв по таким результатам опасно.
 
-**Далее C3.9-E3:** проверка причинности на *одинаковом* BoardDocument
+**Исторический следующий шаг C3.9-E3 (заменён приоритетом S3):**
+проверка причинности на *одинаковом* BoardDocument
 с сохранением order, пикселей и DPR2, тестовой обратимой альтернативой
 отрисовки и лимитами GPU/memory. Верификация pixel/z-order, hit,
 48 wheel cycles, media lifecycle и полных release checks до
@@ -1997,11 +2141,31 @@ Profile считается реализованным, когда одновре
 
 ## 25. Текущая последовательность работ
 
-Ближайший critical path — Pilot-first:
+### 25.1. Инженерный приоритет — большая статическая доска
 
-1. **P1 / TutorBoard source gate — DONE.** Текущий frontend baseline
-   `c0bf5ba6193972a77d3cdc5b09352a5e27b15066` имеет green core и
-   specialized gates.
+1. **C3.9-S1 — DONE:** baseline 3k/5k/10k + 10 PNG/JPEG, merged PR #215.
+2. **C3.9-S2 — NO-GO:** холодный синхронный cache ухудшает p95;
+   PR #216 сохраняется Draft, `buildIfUnprepared: false` остаётся в production.
+3. **C3.9-S3.1 — NEXT:** исправить фазовую атрибуцию/сохранение traces/CI paths
+   и выполнить отдельный A0/A1 эксперимент со stable `scene.items`.
+4. **C3.9-S3.2–S3.3:** после подтверждения реализовать минимальный кандидат,
+   пройти регрессии, production A/B, полный CI, self-review и merge gate.
+5. **При NO-GO/INCONCLUSIVE:** S3.4 выбирает следующую причину;
+   пространственная отрисовка/тайлы требуют собственного gate.
+6. **C3.9-E/F:** абсолютное качество большой доски, длительный pilot/soak,
+   post-merge evidence и rollback до закрытия Issue #201.
+
+Первым реализуется один законченный блок. GIF-first оптимизация и новые
+URL/video возможности не заменяют основной workload. Защита данных,
+авторизация, persisted formats и лимит JSON-import сохраняются.
+
+### 25.2. Операционный трек — Pilot Deployment Gate
+
+Ранее подтверждённые source gates и последовательность deployment остаются:
+
+1. **P1 / TutorBoard source gate — DONE.** Исторический frontend baseline
+   `c0bf5ba6193972a77d3cdc5b09352a5e27b15066` прошёл core и specialized gates;
+   при выпуске проверять актуальный candidate SHA.
 2. **P2/P3 / backend board-profile source gates — DONE.** Board-only runtime,
    Compose/Caddy, release tooling и immutable frontend pin находятся в
    `tutor-assistant-web/main`; release candidate
@@ -2135,7 +2299,12 @@ storage и browser gates.
 
 ## 27. Критерий выбора следующей задачи
 
-При конфликте backlog priorities:
+В текущем инженерном backlog первым идёт C3.9-S3 из раздела 25.1:
+производительность тысяч видимых штрихов и около десяти PNG/JPG/JPEG.
+Подтверждённые дефекты безопасности, доступа и сохранности данных сохраняют
+приоритет. Операционный Pilot Gate ведётся по разделу 25.2.
+
+При конфликте release/deployment priorities:
 
 ```text
 pilot blocker affecting real teacher/guest flow
