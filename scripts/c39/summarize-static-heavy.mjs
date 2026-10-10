@@ -45,7 +45,10 @@ export function parseStaticHeavyLog(stdout) {
 function verify(report, name, source) {
   const target = targets[name];
   check(report.schemaVersion === 1, "Unrecognized report schema");
-  check(report.loadMode === "indexeddb-revision-restore", "Not a real persisted-board restore");
+  check(
+    report.loadMode === "indexeddb-revision-restore",
+    "Not a real persisted-board restore",
+  );
   check(report.baselineSha === source.sha, "Source SHA changed");
   check(report.browser === source.browser, "Browser version changed");
   check(
