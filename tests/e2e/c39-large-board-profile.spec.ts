@@ -397,7 +397,10 @@ for (const scenario of scenarios) {
             "wheel-viewport-persist",
             "wheel-commit",
           ]) {
-            expect(kinds.has(expected), `Missing C3.9 trace event: ${expected}`).toBe(true);
+            expect(
+              kinds.has(expected),
+              `Missing C3.9 trace event: ${expected}`,
+            ).toBe(true);
           }
           expect(jsTrace.length).toBeLessThanOrEqual(12_000);
           expect(chromiumTrace?.events.length).toBeLessThanOrEqual(20_000);
