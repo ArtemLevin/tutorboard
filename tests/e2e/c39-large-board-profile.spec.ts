@@ -790,16 +790,15 @@ for (const scenario of [
           captureDropped: {
             frames: captured.droppedFrames,
             wheelInputs: captured.droppedWheelInputs,
-            js: await page.evaluate(
-              () => {
-                const sink = window.__tutorBoardC37Trace;
-                return sink !== undefined &&
-                  "droppedEvents" in sink &&
-                  typeof sink.droppedEvents === "number"
-                  ? sink.droppedEvents
-                  : 0;
-              },
-            ),
+            js: await page.evaluate(() => {
+              const sink = window.__tutorBoardC37Trace;
+              if (sink !== undefined && "droppedEvents" in sink) {
+                if (typeof sink.droppedEvents === "number") {
+                  return sink.droppedEvents;
+                }
+              }
+              return 0;
+            }),
             chromium: chromiumTrace?.droppedEvents ?? 0,
           },
           experiment: scenario.staticHeavy
