@@ -53,6 +53,8 @@ interface C39Scenario {
   readonly traceDisabled?: boolean;
   readonly expectedLayers?: number;
   readonly expectedAnimatedLayers?: number;
+  /** User-priority scenario: large pen documents plus 10 static PNG/JPEG images. */
+  readonly staticHeavy?: boolean;
 }
 
 // Small fast subset is automatically covered by the normal CI media profile.
@@ -241,6 +243,31 @@ const e2Scenarios: readonly C39Scenario[] = [
   },
 ];
 
+// Opt-in static-media board workload. Preserve existing GIF release scenarios.
+// Four PNG plus six genuine JPEG files (three .jpg and three .jpeg).
+const staticHeavyScenarios: readonly C39Scenario[] = [
+  {
+    name: "static-3000-10-images", strokes: 3000, visibleStrokes: 2400,
+    gifs: 0, dpr: 2, zOrder: "trailing", cold: true, quick: false,
+    staticHeavy: true, expectedLayers: 1, expectedAnimatedLayers: 0,
+  },
+  {
+    name: "static-5000-10-images", strokes: 5000, visibleStrokes: 4000,
+    gifs: 0, dpr: 2, zOrder: "trailing", cold: true, quick: false,
+    staticHeavy: true, expectedLayers: 1, expectedAnimatedLayers: 0,
+  },
+  {
+    name: "static-10000-10-images", strokes: 10000, visibleStrokes: 8000,
+    gifs: 0, dpr: 2, zOrder: "trailing", cold: true, quick: false,
+    staticHeavy: true, expectedLayers: 1, expectedAnimatedLayers: 0,
+  },
+  {
+    name: "static-10000-offscreen", strokes: 10000, visibleStrokes: 1000,
+    gifs: 0, dpr: 2, zOrder: "trailing", cold: true, quick: false,
+    staticHeavy: true, expectedLayers: 1, expectedAnimatedLayers: 0,
+  },
+];
+
 let cachedPngs: readonly string[] | null = null;
 function representativePngs(): readonly string[] {
   if (cachedPngs !== null) return cachedPngs;
@@ -258,6 +285,34 @@ function representativePngs(): readonly string[] {
     return "data:image/png;base64," + PNG.sync.write(png).toString("base64");
   });
   return cachedPngs;
+}
+
+async function representativeJpegs(page: Page): Promise<readonly string[]> {
+  // Browser Canvas writes real JPEG bytes at 1536x1536. All encodes happen
+  // before the board import or frame recording and are never used as a mock.
+  return page.evaluate(async (pngUrls) => {
+    const jpegUrls: string[] = [];
+    for (const pngUrl of pngUrls) {
+      const image = new Image();
+      image.src = pngUrl;
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d");
+      if (context === null) throw new Error("JPEG test canvas unavailable");
+      context.drawImage(image, 0, 0);
+      const jpegUrl = canvas.toDataURL("image/jpeg", 0.85);
+      if (!jpegUrl.startsWith("data:image/jpeg;base64,/9j/")) {
+        throw new Error("Expected a genuine encoded JPEG data URL");
+      }
+      jpegUrls.push(jpegUrl);
+      canvas.width = 0;
+      canvas.height = 0;
+      image.src = "";
+    }
+    return jpegUrls;
+  }, [...representativePngs()]);
 }
 
 async function actualGifDataUrl(): Promise<string> {
@@ -393,18 +448,23 @@ function summarizePhases(
 for (const scenario of [
   ...scenarios,
   ...(process.env.C39_E2_PROFILE === "1" ? e2Scenarios : []),
+  ...(process.env.C39_STATIC_HEAVY_PROFILE === "1"
+    ? staticHeavyScenarios
+    : []),
 ]) {
   test(
     (scenario.name === "3000-cold-mixed" ? "@smoke " : "") +
-      (scenario.e2
-        ? "@c39-e2 "
+      (scenario.staticHeavy
+        ? "@c39-static-heavy "
+        : scenario.e2
+          ? "@c39-e2 "
         : scenario.quick
           ? "@media-profile @c39-quick "
           : "@c39-extended ") +
       "representative zoom baseline: " +
       scenario.name,
     async ({ browser }, testInfo) => {
-      test.setTimeout(180_000);
+      test.setTimeout(scenario.staticHeavy ? 360_000 : 180_000);
       const context = await browser.newContext({
         deviceScaleFactor: scenario.dpr,
         viewport: { width: 1240, height: 820 },
@@ -430,7 +490,18 @@ for (const scenario of [
         await expect(page.getByTestId("board-stage")).toBeVisible();
         const dataUrl =
           scenario.gifs > 0 ? await actualGifDataUrl() : undefined;
-        const staticCount = scenario.e2 ? 10 - scenario.gifs : 6;
+        const staticCount =
+          scenario.staticHeavy ? 10 : scenario.e2 ? 10 - scenario.gifs : 6;
+        const pngUrls = representativePngs();
+        const staticUrls = scenario.staticHeavy
+          ? [...pngUrls.slice(0, 4), ...(await representativeJpegs(page))]
+          : Array.from(
+              { length: staticCount },
+              (_unused, index) => pngUrls[index % pngUrls.length]!,
+            );
+        const staticFormats = scenario.staticHeavy
+          ? (["png", "png", "png", "png", "jpg", "jpeg", "jpg", "jpeg", "jpg", "jpeg"] as const)
+          : undefined;
         const board = createDenseBoardDocument({
           strokeCount: scenario.strokes,
           visibleStrokeCount: scenario.visibleStrokes,
@@ -440,10 +511,10 @@ for (const scenario of [
           zOrderPattern: scenario.zOrder,
           splitAtVisibleBoundary:
             scenario.e2 === true && scenario.zOrder === "split",
-          largeStaticDataUrls: Array.from(
-            { length: staticCount },
-            (_unused, index) => representativePngs()[index % 6]!,
-          ),
+          largeStaticDataUrls: staticUrls,
+          ...(staticFormats === undefined
+            ? {}
+            : { staticImageFormats: staticFormats }),
           ...(dataUrl === undefined
             ? {}
             : {
@@ -471,6 +542,16 @@ for (const scenario of [
             scenario.expectedLayers,
           );
           expect(before.animatedLayers).toBe(scenario.expectedAnimatedLayers);
+        }
+        if (scenario.staticHeavy) {
+          expect(scenario.gifs).toBe(0);
+          const imageObjects = Object.values(board.objects).filter(
+            (object) => object.kind === "image.embedded",
+          );
+          expect(imageObjects).toHaveLength(10);
+          expect(imageObjects.filter((object) => object.mimeType === "image/png")).toHaveLength(4);
+          expect(imageObjects.filter((object) => object.mimeType === "image/jpeg")).toHaveLength(6);
+          expect(imageObjects.every((object) => object.dataUrl.startsWith(`data:${object.mimeType};base64,`))).toBe(true);
         }
         const bounds = await stage.boundingBox();
         if (bounds === null)
@@ -558,7 +639,11 @@ for (const scenario of [
         const report = {
           schemaVersion: 1,
           baselineSha: process.env.GITHUB_SHA ?? "local",
-          experiment: scenario.e2 ? "C3.9-E2" : "C3.9",
+          experiment: scenario.staticHeavy
+            ? "C3.9-STATIC"
+            : scenario.e2
+              ? "C3.9-E2"
+              : "C3.9",
           traceEnabled,
           scenario,
           browser: browser.version(),
@@ -570,7 +655,8 @@ for (const scenario of [
             objects: board.order.length,
             visibleStrokesRequested: scenario.visibleStrokes,
             realGifFrames: scenario.gifs > 0 ? 4 : 0,
-            pngCount: staticCount,
+            pngCount: scenario.staticHeavy ? 4 : staticCount,
+            jpegCount: scenario.staticHeavy ? 6 : 0,
             pngWidthPx: 1536,
             pngHeightPx: 1536,
           },
