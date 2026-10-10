@@ -232,7 +232,8 @@ describe("board scene selector", () => {
     const selector = createBoardSceneSelector();
     const original = selector(source);
     const removedId = source.order[0]!;
-    const { [removedId]: _deleted, ...remainingObjects } = source.objects;
+    const remainingObjects = { ...source.objects };
+    Reflect.deleteProperty(remainingObjects, removedId);
     const reduced = {
       ...source,
       objects: remainingObjects,
