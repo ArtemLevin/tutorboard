@@ -388,7 +388,7 @@ for (const scenario of scenarios) {
           chromiumTrace,
         );
         if (traceEnabled) {
-          const kinds = new Set(jsTrace.map((event) => event.kind));
+          const kinds = new Set<string>(jsTrace.map((event) => event.kind));
           for (const expected of [
             "wheel-input",
             "wheel-layout",
