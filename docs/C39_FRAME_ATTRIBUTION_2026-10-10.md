@@ -19,8 +19,9 @@ gap of **216.7 ms**. These measurements do not establish the root cause.
   bounded recorder retains at most 12,000 events.
 * The wheel event contains numeric session ID, input delta and resulting zoom;
   the layout event includes visible item count, committed and animated Layer
-  count. Commit records the synchronous `onViewportCommit` duration; the
-  original `board-commit` event describes wheel dispatch until React layout,
+  count. Commit records synchronous duration and separate diagnostic
+  `wheel-cache-end`, `wheel-animation-resume`, and `wheel-viewport-persist`
+  substeps. The original `board-commit` event describes input through React layout,
   **not** React CPU exclusively. `konva-scene`, `konva-hit`, GIF invalidation
   and React render runs retain their existing semantics.
 * `tests/e2e/c39-frame-attribution.ts` runs Chromium CDP `Tracing` for
@@ -58,3 +59,25 @@ Investigate the precise critical path with controlled factor experiments, fresh
 browser runs, alternate z-order and cache states. If trace alignment is
 unavailable, refine clock-sync instrumentation before claiming a GPU source.
 Production performance remains an **open issue** until a measured fix and soak.
+
+## Verified first run and wheel commit hypothesis
+
+[Full representative Chromium run 38037268498](https://github.com/ArtemLevin/tutorboard/actions/runs/38037268498)
+completed **7/7** on the initial formatted PR head `47e84b535a267c5395c3e729c3ad1afa0d2b875b`.
+Clock synchronization succeeded in the 3000/5000-stroke Chromium profiles;
+start/end marker drift was under 0.13 ms, and no heavy-case compositor events
+were dropped by the bounded recorder. Light cases without CDP tracing
+explicitly returned `traceAlignment: unavailable`.
+
+| Scenario | Representative rAF gap | Coincident critical-path candidates |
+| --- | ---: | --- |
+| 3000 cold, DPR2 | 133.3 ms | wheel commit ~140–146 ms; DirectRenderer draw ~34–50 ms |
+| 3000 warm dense, DPR1 | 183.3 ms | wheel commit ~123 ms; Konva scene ~21 ms; LayerTreeHost update ~25 ms |
+| 3000 mostly offscreen, DPR2 | 99.9–116.6 ms | wheel commit ~126 ms in one frame; LayerTreeHost update ~98 ms in another |
+| 5000 cold, DPR2 | 233–250 ms | wheel commit ~180–221 ms; LayerTreeHost update ~50–54 ms |
+
+These are **overlapping** observations, not additive CPU/GPU costs.
+The newly added substep markers distinguish cache teardown, GIF reactivation
+and synchronous viewport persistence so C3.9-C can isolate the actual
+critical path. A final CI run is required on the substep-marked SHA.
+Trace-on timings must not be presented as uninstrumented speed benchmarks.
