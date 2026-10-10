@@ -23,6 +23,7 @@ declare global {
   interface Window {
     __tutorBoardC37Trace?: {
       events: BoardFrameTraceEvent[];
+      disableWheelGifPause?: boolean;
     };
   }
 }

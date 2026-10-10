@@ -910,6 +910,7 @@ export function BoardStage({
         wheelSessionRef.current = null;
         wheelInkCache.end();
         animatedImageRedraw.setInteractionActive(false);
+        animatedImageRedraw.setWheelZoomActive(false);
       }
       setPreviewViewport(scene.viewport);
     }
@@ -1254,6 +1255,7 @@ export function BoardStage({
       wheelSessionRef.current = null;
       wheelInkCache.end();
       animatedImageRedraw.setInteractionActive(false);
+      animatedImageRedraw.setWheelZoomActive(false);
       setPreviewViewport(viewportRef.current);
     }
   }, [animatedImageRedraw, wheelInkCache]);
@@ -1265,6 +1267,7 @@ export function BoardStage({
       wheelSessionRef.current = null;
       wheelInkCache.end();
       animatedImageRedraw.setInteractionActive(false);
+      animatedImageRedraw.setWheelZoomActive(false);
       setPreviewViewport(session.latestViewport);
       onViewportCommit(session.latestViewport);
     }
@@ -1745,6 +1748,7 @@ export function BoardStage({
         wheelSessionRef.current = null;
         window.clearTimeout(wheelSession.timeoutId);
         animatedImageRedraw.setInteractionActive(false);
+        animatedImageRedraw.setWheelZoomActive(false);
       }
       wheelInkCache.end();
       discardWorldPointerMoves();
@@ -2131,6 +2135,11 @@ export function BoardStage({
         // Avoid an independent full-speed GIF invalidation stream while the
         // temporary wheel cache is composited through viewport transforms.
         animatedImageRedraw.setInteractionActive(true);
+        // Opt-in browser A/B diagnostic may retain the C3.7 baseline.
+        // Ordinary sessions always suspend independent GIF invalidations.
+        if (window.__tutorBoardC37Trace?.disableWheelGifPause !== true) {
+          animatedImageRedraw.setWheelZoomActive(true);
+        }
       }
       if (window.__tutorBoardC37Trace !== undefined) {
         pendingViewportCommitTraceRef.current = performance.now();
@@ -2203,6 +2212,7 @@ export function BoardStage({
       data-wet-ink-stroke-style={wetInkStyle?.strokeStyle ?? "none"}
       data-committed-layer-count={committedPaintRuns.length}
       data-animated-layer-count={animatedPaintLayerCount}
+      data-wheel-gif-pause-active={animatedImageRedraw.wheelZoomActive}
       data-wheel-cache-builds={wheelInkCache.buildCount}
       data-wheel-cache-active-runs={wheelInkCache.activeCachedCount}
       data-wheel-cache-retained-runs={wheelInkCache.cachedCount}

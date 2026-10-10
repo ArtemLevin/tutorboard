@@ -319,10 +319,10 @@ GPU/compositor attribution, многочасовой реальный soak и с
 
 ### C3.5–C3.7: интеграционный release gate — 10.10.2026
 
-PR #199 переназначен непосредственно на `main` и объединяет C3.5
+PR #199 слит в `main` как `2086334bbd3254fa1542c5bd4e25cfde87f786f4`, объединяя C3.5
 (scene-snapshot visibility index), C3.6 (неблокирующий cold wheel fallback)
 и C3.7 (стабильные React ink runs + диагностический trace). Отдельные
-stacked PR #197/#198 после успешной интеграции закрываются как superseded.
+stacked PR #197/#198 закрыты как superseded.
 Это ограниченный performance increment: подтверждены устранение
 синхронной холодной растеризации в wheel handler, повторное использование
 visibility bounds и неизменных React ink subtrees. Зафиксированные
@@ -334,6 +334,55 @@ visibility bounds и неизменных React ink subtrees. Зафиксиро
 При squash merge последующий C3.8 переносится на свежую ветку от
 обновлённого `main`, только с собственным diff относительно C3.7.
 Формат BoardDocument, sync API, persistence и настройки доступа не меняются.
+
+### C3.8: устранение лишних GIF invalidation при wheel zoom — 09.10.2026
+
+[PR #200](https://github.com/ArtemLevin/tutorboard/pull/200)
+перенесён отдельным коммитом на merged C3.5–C3.7 (#199). `AnimatedImageRedrawCoordinator` теперь
+приостанавливает самостоятельный RAF redraw GIF в период wheel-жеста.
+Wheel viewport сам обновляет текущие Konva layers; после commit/cancel,
+scene reset и unmount GIF loop возвращается с новым кадром.
+Существующий режим animation cadence 24 FPS при рисовании сохранён.
+Z-order, individual hit-testing, формат документа и sync-протоколы
+не меняются. В режиме opt-in браузерного профиля доступен A/B override,
+отключённый для обычных пользователей.
+
+Первый [CI #37988790830](https://github.com/ArtemLevin/tutorboard/actions/runs/37988790830):
+quality gate 1098/1098 unit/integration, 25/25 performance;
+Chromium/Firefox smoke, Coordinate Plot, Board-only, media profile
+16/16 — success. GeometryOS live browser job не смог получить
+`python:3.11-slim-bookworm` из Docker Hub, HTTP 429 anonymous pull limit;
+при повторном запуске того же CI на исходном SHA проверка прошла.
+Пиксельная DPR2-проверка и 48 wheel-cycle ресурсный тест пройдены.
+
+Matched A/B на **одной** Chromium-сцене 3000 strokes + 6 PNG + 4 GIF,
+две последовательные серии по 48 rAF кадров (порядок baseline→C3.8):
+zoom p95 49.9→33.4 ms; max rAF 116.7→66.8 ms;
+GIF invalidate 50→35; compositor DirectRenderer::DrawFrame
+35/644.5 ms total/max 36.8 ms → 31/522.8 ms total/max 23.3 ms;
+DoUpdateLayers после оптимизации 117.3 ms total/max 10.08 ms.
+Повторный **A–B–A** профиль в
+[CI #37989821535](https://github.com/ArtemLevin/tutorboard/actions/runs/37989821535)
+на том же 3000-stroke fixture:
+GIF invalidate 49→33→48, compositor DirectRenderer::DrawFrame
+35/828.4→33/773.0→35/787.0 ms total. При этом zoom
+p95 50.1→50.0→33.4 ms, max rAF 133.4→100.0→83.3 ms.
+Первый A/B показал сокращение rAF хвоста, A–B–A повтор выявил
+возможную зависимость от прогрева и планировщика: второй baseline
+оказался быстрее оптимизированного прохода по max rAF. Надёжно
+подтверждено уменьшение лишних GIF redraw requests. Устойчивое
+сокращение p95/max rAF и стабильные 60 FPS пока не доказаны.
+Chromium/Firefox smoke, 16/16 media-profile, 48-cycle resource checks,
+unit/performance и build прошли. GeometryOS и formula-gateway container
+gates первоначально блокировались HTTP 429 Docker Hub; обе проверки
+успешно прошли на повторном запуске 10.10.2026 без изменения кода.
+
+**Integration gate C3.8:** на перенесённом изменении от `main` должны пройти
+quality, Chromium/Firefox, media-profile, GeometryOS, formula и все
+сопутствующие CI gates. Подтверждено уменьшение лишних GIF redraw requests;
+устойчивое сокращение p95/max не доказано. Отдельный release gate по долгим
+кадрам, teaching soak, многократному A/B/ABBA и device variance остаётся
+открытым в [#201](https://github.com/ArtemLevin/tutorboard/issues/201).
 
 ### C3.7: атрибуция длинных кадров React / Konva / compositor — 09.10.2026
 
