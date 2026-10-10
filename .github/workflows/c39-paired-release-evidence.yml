@@ -1,6 +1,13 @@
 name: C3.9-E1 paired browser comparison
 
 on:
+  # Execute the first pinned comparison once when this workflow lands on main.
+  # Later comparisons remain available through explicit manual dispatch.
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/c39-paired-release-evidence.yml
   workflow_dispatch:
     inputs:
       baseline_sha:
@@ -33,7 +40,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: c39-e1-${{ github.ref }}-${{ inputs.scenario }}
+  group: c39-e1-${{ github.ref }}-${{ inputs.scenario || '3000-cold-mixed' }}
   cancel-in-progress: false
 
 jobs:
@@ -50,7 +57,7 @@ jobs:
           cache: npm
       - name: Validate refs and materialize isolated builds
         env:
-          BASELINE_SHA: ${{ inputs.baseline_sha }}
+          BASELINE_SHA: ${{ inputs.baseline_sha || '1bf2487d814a8dacde0ddc55ac57678f0b7b65c1' }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
         run: |
           set -euo pipefail
@@ -75,8 +82,8 @@ jobs:
           (cd "$RUNNER_TEMP/c39-candidate" && npx playwright install --with-deps chromium)
       - name: Run chronological ABBA cycles on one runner
         env:
-          CYCLES: ${{ inputs.cycles }}
-          SCENARIO: ${{ inputs.scenario }}
+          CYCLES: ${{ inputs.cycles || '5' }}
+          SCENARIO: ${{ inputs.scenario || '3000-cold-mixed' }}
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/c39-e1-results"
@@ -100,7 +107,7 @@ jobs:
       - name: Calculate paired, fixture-checked diagnostics
         if: success()
         env:
-          SCENARIO: ${{ inputs.scenario }}
+          SCENARIO: ${{ inputs.scenario || '3000-cold-mixed' }}
         run: |
           node scripts/c39/compare-profiles.mjs \
             c39-e1-results/manifest.jsonl "$SCENARIO" \
@@ -109,7 +116,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: c39-e1-paired-${{ github.sha }}-${{ inputs.scenario }}
+          name: c39-e1-paired-${{ github.sha }}-${{ inputs.scenario || '3000-cold-mixed' }}
           path: c39-e1-results/
           if-no-files-found: warn
           retention-days: 14
