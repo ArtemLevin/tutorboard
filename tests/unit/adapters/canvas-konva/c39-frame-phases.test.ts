@@ -14,7 +14,7 @@ describe("C3.9 persistence attribution", () => {
       { kind: "wheel-viewport-persist", startMs: 180, durationMs: 70 },
       { kind: "wheel-viewport-persist", startMs: 410, durationMs: 20 },
     ];
-    const result = partitionC39PersistFrames(gaps, [110, 275], events);
+    const result = partitionC39PersistFrames(gaps, [110, 276], events);
     expect(result.intermediatePersistCount).toBe(1);
     expect(result.finalPersistCount).toBe(1);
     expect(result.activeWithoutPersist).toEqual([gaps[0], gaps[2]]);
