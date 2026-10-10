@@ -1285,7 +1285,11 @@ export function BoardStage({
       const cacheStartMs = traceEnabled ? performance.now() : 0;
       wheelInkCache.end();
       if (traceEnabled) {
-        recordBoardFrameTrace("wheel-cache-end", cacheStartMs, performance.now() - cacheStartMs);
+        recordBoardFrameTrace(
+          "wheel-cache-end",
+          cacheStartMs,
+          performance.now() - cacheStartMs,
+        );
       }
       const resumeStartMs = traceEnabled ? performance.now() : 0;
       animatedImageRedraw.setInteractionActive(false);
