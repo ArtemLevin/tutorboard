@@ -28,11 +28,17 @@ export function parseStaticHeavyLog(stdout) {
     const report = JSON.parse(line.slice(offset + marker.length));
     if (report.experiment !== "C3.9-STATIC") continue;
     const name = report.scenario?.name;
-    check(Object.hasOwn(targets, name), "Unexpected static-media scenario " + name);
+    check(
+      Object.hasOwn(targets, name),
+      "Unexpected static-media scenario " + name,
+    );
     check(!found.has(name), "Duplicate static-media report " + name);
     found.set(name, report);
   }
-  check(found.size === Object.keys(targets).length, "Incomplete static-media matrix");
+  check(
+    found.size === Object.keys(targets).length,
+    "Incomplete static-media matrix",
+  );
   return found;
 }
 
@@ -41,31 +47,71 @@ function verify(report, name, source) {
   check(report.schemaVersion === 1, "Unrecognized report schema");
   check(report.baselineSha === source.sha, "Source SHA changed");
   check(report.browser === source.browser, "Browser version changed");
-  check(report.platform === source.platform && report.arch === source.arch, "Runner platform changed");
+  check(
+    report.platform === source.platform && report.arch === source.arch,
+    "Runner platform changed",
+  );
   check(report.scenario.strokes === target.strokes, "Stroke count changed");
-  check(report.scenario.visibleStrokes === target.visible, "Visible stroke count changed");
-  check(report.scenario.dpr === 2 && report.scenario.gifs === 0, "DPR/GIF scope drift");
+  check(
+    report.scenario.visibleStrokes === target.visible,
+    "Visible stroke count changed",
+  );
+  check(
+    report.scenario.dpr === 2 && report.scenario.gifs === 0,
+    "DPR/GIF scope drift",
+  );
   check(report.scenario.cold === true, "Cache cold precondition changed");
   check(report.content.objects === target.strokes + 10, "Object count changed");
-  check(report.content.pngCount === 4 && report.content.jpegCount === 6, "Mixed image codec contract drift");
+  check(
+    report.content.pngCount === 4 && report.content.jpegCount === 6,
+    "Mixed image codec contract drift",
+  );
   check(report.content.realGifFrames === 0, "Unexpected animation");
-  check(report.content.pngWidthPx === 1536 && report.content.pngHeightPx === 1536, "Image resolution changed");
-  check(report.before.layers === 1 && report.after.layers === 1, "Static scene layer topology changed");
-  check(report.before.animatedLayers === 0 && report.after.animatedLayers === 0, "Unexpected animated layer");
-  check(Array.isArray(report.inputTimesMs) && report.inputTimesMs.length === 18, "Missing wheel input series");
-  check(Number.isInteger(report.phases.active.count) && report.phases.active.count > 0, "Missing active frames");
-  check(report.phases.commit.count > 0 && report.phases.settling.count > 0, "Missing commit/settling frames");
+  check(
+    report.content.pngWidthPx === 1536 && report.content.pngHeightPx === 1536,
+    "Image resolution changed",
+  );
+  check(
+    report.before.layers === 1 && report.after.layers === 1,
+    "Static scene layer topology changed",
+  );
+  check(
+    report.before.animatedLayers === 0 && report.after.animatedLayers === 0,
+    "Unexpected animated layer",
+  );
+  check(
+    Array.isArray(report.inputTimesMs) && report.inputTimesMs.length === 18,
+    "Missing wheel input series",
+  );
+  check(
+    Number.isInteger(report.phases.active.count) &&
+      report.phases.active.count > 0,
+    "Missing active frames",
+  );
+  check(
+    report.phases.commit.count > 0 && report.phases.settling.count > 0,
+    "Missing commit/settling frames",
+  );
   for (const phase of ["active", "commit"]) {
     const p = report.phases[phase];
-    check(Number.isFinite(p.p95Ms) && Number.isFinite(p.maxMs), "Invalid " + phase + " latency");
+    check(
+      Number.isFinite(p.p95Ms) && Number.isFinite(p.maxMs),
+      "Invalid " + phase + " latency",
+    );
     check(p.over100 >= 0 && p.over100 <= p.count, "Invalid slow-frame count");
   }
   check(Number.isFinite(report.importDurationMs), "Invalid import duration");
-  check(report.c39Attribution.traceAlignment === "aligned", "Unaligned compositor trace");
+  check(
+    report.c39Attribution.traceAlignment === "aligned",
+    "Unaligned compositor trace",
+  );
 }
 
 export function summarizeStaticHeavy(matrices) {
-  check(matrices.length >= 3, "Require at least three repeated browser matrices");
+  check(
+    matrices.length >= 3,
+    "Require at least three repeated browser matrices",
+  );
   const sourceReport = matrices[0]?.get("static-3000-10-images");
   check(sourceReport, "No reference run");
   const source = {
@@ -77,14 +123,23 @@ export function summarizeStaticHeavy(matrices) {
   const variants = {};
   for (const name of Object.keys(targets)) {
     const reports = matrices.map((matrix) => {
-      check(matrix.size === Object.keys(targets).length, "Missing static-media report");
+      check(
+        matrix.size === Object.keys(targets).length,
+        "Missing static-media report",
+      );
       const report = matrix.get(name);
       check(report, "Missing static-media scenario " + name);
       verify(report, name, source);
       return report;
     });
-    const activeFrames = reports.reduce((sum, report) => sum + report.phases.active.count, 0);
-    const over100 = reports.reduce((sum, report) => sum + report.phases.active.over100, 0);
+    const activeFrames = reports.reduce(
+      (sum, report) => sum + report.phases.active.count,
+      0,
+    );
+    const over100 = reports.reduce(
+      (sum, report) => sum + report.phases.active.over100,
+      0,
+    );
     variants[name] = {
       runs: reports.length,
       activeFrames,
@@ -110,16 +165,26 @@ export function summarizeStaticHeavy(matrices) {
 
 async function main() {
   const [folder, output] = process.argv.slice(2);
-  check(folder && output, "Usage: node scripts/c39/summarize-static-heavy.mjs output-dir summary.json");
+  check(
+    folder && output,
+    "Usage: node scripts/c39/summarize-static-heavy.mjs output-dir summary.json",
+  );
   const matrices = [];
   for (let repeat = 1; repeat <= 3; repeat++) {
-    matrices.push(parseStaticHeavyLog(await readFile(join(folder, "repeat-" + repeat + ".log"), "utf8")));
+    matrices.push(
+      parseStaticHeavyLog(
+        await readFile(join(folder, "repeat-" + repeat + ".log"), "utf8"),
+      ),
+    );
   }
   const report = summarizeStaticHeavy(matrices);
   await writeFile(output, JSON.stringify(report, null, 2) + "\n", "utf8");
   console.info("C39_STATIC_HEAVY_SUMMARY " + JSON.stringify(report));
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
