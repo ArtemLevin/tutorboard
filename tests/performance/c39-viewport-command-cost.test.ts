@@ -18,10 +18,10 @@ const capturedValidation = vi.hoisted(() => ({
   durationsMs: [] as number[],
 }));
 
-// The actual reducer retains its unmodified production implementation.
-// Wrap its existing imported validator to measure BOTH invocations directly,
-// including Zod schema parse and cross-reference checks. This mock is scoped
-// to this isolated Vitest performance file and never changes production code.
+// Wrap the real validator used by the reducer, retaining all validation logic.
+// Optimized viewport command must invoke it exactly once.
+// A second full validation outside the reducer supplies a paired reference
+// cost of the eliminated old pass, not a literal legacy reducer runtime.
 vi.mock("../../src/core/board/validation/validate", async (importOriginal) => {
   const actual =
     await importOriginal<
@@ -45,7 +45,8 @@ vi.mock("../../src/core/board/validation/validate", async (importOriginal) => {
 interface TimingSample {
   readonly reducerMs: number;
   readonly inputValidationMs: number;
-  readonly resultValidationMs: number;
+  readonly referenceOutputValidationMs: number;
+  readonly referenceLegacyEquivalentMs: number;
   readonly historyMs: number;
 }
 
@@ -63,7 +64,8 @@ function describeTiming(samples: readonly TimingSample[]) {
   const columns = [
     "reducerMs",
     "inputValidationMs",
-    "resultValidationMs",
+    "referenceOutputValidationMs",
+    "referenceLegacyEquivalentMs",
     "historyMs",
   ] as const;
   return Object.fromEntries(
@@ -109,8 +111,8 @@ function viewportCommand(index: number) {
   };
 }
 
-describe("C3.9-C controlled viewport command cost", () => {
-  it("attributes reducer's two full validations and separately times 100-entry history", () => {
+describe("C3.9-D optimized viewport command cost", () => {
+  it("measures one full validation and paired cost of the eliminated second pass", () => {
     for (const strokes of [300, 1_000, 3_000, 5_000]) {
       const document = validatedDenseDocument(strokes);
       // Populate a realistic bounded undo history before timing; each entry
@@ -138,9 +140,16 @@ describe("C3.9-C controlled viewport command cost", () => {
         const reducerMs = performance.now() - startReducerMs;
         expect(result.ok).toBe(true);
         if (!result.ok) throw new Error("Viewport command rejected");
-        expect(capturedValidation.durationsMs).toHaveLength(2);
-        const [inputValidationMs, resultValidationMs] =
-          capturedValidation.durationsMs as [number, number];
+        expect(capturedValidation.durationsMs).toHaveLength(1);
+        const inputValidationMs = capturedValidation.durationsMs[0]!;
+        // Run the exact full-document check that the old accept() performed,
+        // separately from the optimized reducer on the same result.
+        const referenceStartMs = performance.now();
+        const referenceResult = validateBoardDocument(result.document);
+        const referenceOutputValidationMs = performance.now() - referenceStartMs;
+        expect(referenceResult.valid).toBe(true);
+        const referenceLegacyEquivalentMs =
+          reducerMs + referenceOutputValidationMs;
         expect(result.document.objects).toBe(document.objects);
         expect(result.document.order).toBe(document.order);
         const startHistoryMs = performance.now();
@@ -152,25 +161,31 @@ describe("C3.9-C controlled viewport command cost", () => {
           samples.push({
             reducerMs,
             inputValidationMs,
-            resultValidationMs,
+            referenceOutputValidationMs,
+            referenceLegacyEquivalentMs,
             historyMs,
           });
         }
       }
       const med = describeTiming(samples);
       console.info(
-        "C39_VIEWPORT_COMMAND_COST",
+        "C39_VIEWPORT_COMMAND_COST_D",
         JSON.stringify({
           strokes,
           media: { png: 6, gif: 4 },
           samples: samples.length,
           historyCapacity: history.limit,
           ...med,
+          medianPairedReferenceReductionPercent: median(
+            samples.map(
+              ({ reducerMs, referenceLegacyEquivalentMs }) =>
+                100 * (1 - reducerMs / referenceLegacyEquivalentMs),
+            ),
+          ),
           validationShareOfReducerMedian: median(
             samples.map(
-              ({ inputValidationMs, resultValidationMs, reducerMs }) =>
-                (inputValidationMs + resultValidationMs) /
-                Math.max(reducerMs, 0.001),
+              ({ inputValidationMs, reducerMs }) =>
+                inputValidationMs / Math.max(reducerMs, 0.001),
             ),
           ),
         }),
@@ -178,7 +193,7 @@ describe("C3.9-C controlled viewport command cost", () => {
       expect(samples).toHaveLength(7);
       for (const item of samples) {
         expect(item.reducerMs).toBeGreaterThanOrEqual(
-          item.inputValidationMs + item.resultValidationMs,
+          item.inputValidationMs,
         );
         expect(item.historyMs).toBeGreaterThanOrEqual(0);
       }
