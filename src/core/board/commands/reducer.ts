@@ -18,6 +18,7 @@ import type { BoardObject } from "../objects";
 import { identityTransform, type Transform2D, type Vec2 } from "../primitives";
 import { ownValue } from "../records";
 import { isIsoTimestamp } from "../timestamps";
+import { boardDocumentSchema } from "../validation/schema";
 import { validateBoardDocument } from "../validation/validate";
 import type {
   AddGroupCommand,
@@ -2193,11 +2194,28 @@ function setViewport(
     return failure(document, "command.invalid", "Viewport is invalid.");
   }
 
-  return accept(document, {
+  // The entire incoming document was validated by reduceBoardDocument.
+  // This command changes only the viewport and updatedAt, so only these
+  // fields and their cross-field timestamp invariant need revalidation.
+  // Reuse the same Zod schemas as the full-document validator (including
+  // strict object keys) to preserve command.invalid-result semantics.
+  const normalized = normalizeUpdatedAt(document, {
     ...document,
     updatedAt: command.timestamp,
     viewport: command.viewport,
   });
+  if (
+    !boardDocumentSchema.shape.viewport.safeParse(normalized.viewport).success ||
+    !boardDocumentSchema.shape.updatedAt.safeParse(normalized.updatedAt).success ||
+    Date.parse(normalized.updatedAt) < Date.parse(normalized.createdAt)
+  ) {
+    return failure(
+      document,
+      "command.invalid-result",
+      "Command result violates BoardDocument invariants.",
+    );
+  }
+  return { ok: true, document: normalized };
 }
 
 function renameDocument(
@@ -2285,18 +2303,24 @@ function selectObjects(
   return { ok: true, objects: selected };
 }
 
+function normalizeUpdatedAt(
+  original: BoardDocument,
+  candidate: BoardDocument,
+): BoardDocument {
+  const originalTime = Date.parse(original.updatedAt);
+  const candidateTime = Date.parse(candidate.updatedAt);
+  return Number.isNaN(originalTime) ||
+    Number.isNaN(candidateTime) ||
+    candidateTime >= originalTime
+    ? candidate
+    : { ...candidate, updatedAt: original.updatedAt };
+}
+
 function accept(
   original: BoardDocument,
   candidate: BoardDocument,
 ): CommandResult {
-  const originalTime = Date.parse(original.updatedAt);
-  const candidateTime = Date.parse(candidate.updatedAt);
-  const normalized =
-    Number.isNaN(originalTime) ||
-    Number.isNaN(candidateTime) ||
-    candidateTime >= originalTime
-      ? candidate
-      : { ...candidate, updatedAt: original.updatedAt };
+  const normalized = normalizeUpdatedAt(original, candidate);
   const validation = validateBoardDocument(normalized);
 
   if (!validation.valid) {
