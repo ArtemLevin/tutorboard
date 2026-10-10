@@ -18,10 +18,9 @@ const capturedValidation = vi.hoisted(() => ({
   durationsMs: [] as number[],
 }));
 
-// The actual reducer retains its unmodified production implementation.
-// Wrap its existing imported validator to measure BOTH invocations directly,
-// including Zod schema parse and cross-reference checks. This mock is scoped
-// to this isolated Vitest performance file and never changes production code.
+// Wrap the reducer's real input validator to measure the remaining full
+// schema/semantic traversal. The wrapper invokes the actual implementation;
+// it exists only in this isolated performance test.
 vi.mock("../../src/core/board/validation/validate", async (importOriginal) => {
   const actual =
     await importOriginal<
@@ -45,7 +44,6 @@ vi.mock("../../src/core/board/validation/validate", async (importOriginal) => {
 interface TimingSample {
   readonly reducerMs: number;
   readonly inputValidationMs: number;
-  readonly resultValidationMs: number;
   readonly historyMs: number;
 }
 
@@ -63,7 +61,6 @@ function describeTiming(samples: readonly TimingSample[]) {
   const columns = [
     "reducerMs",
     "inputValidationMs",
-    "resultValidationMs",
     "historyMs",
   ] as const;
   return Object.fromEntries(
@@ -110,7 +107,7 @@ function viewportCommand(index: number) {
 }
 
 describe("C3.9-C controlled viewport command cost", () => {
-  it("attributes reducer's two full validations and separately times 100-entry history", () => {
+  it("measures the remaining full input validation and 100-entry history", () => {
     for (const strokes of [300, 1_000, 3_000, 5_000]) {
       const document = validatedDenseDocument(strokes);
       // Populate a realistic bounded undo history before timing; each entry
@@ -138,9 +135,8 @@ describe("C3.9-C controlled viewport command cost", () => {
         const reducerMs = performance.now() - startReducerMs;
         expect(result.ok).toBe(true);
         if (!result.ok) throw new Error("Viewport command rejected");
-        expect(capturedValidation.durationsMs).toHaveLength(2);
-        const [inputValidationMs, resultValidationMs] =
-          capturedValidation.durationsMs as [number, number];
+        expect(capturedValidation.durationsMs).toHaveLength(1);
+        const inputValidationMs = capturedValidation.durationsMs[0]!;
         expect(result.document.objects).toBe(document.objects);
         expect(result.document.order).toBe(document.order);
         const startHistoryMs = performance.now();
@@ -152,7 +148,6 @@ describe("C3.9-C controlled viewport command cost", () => {
           samples.push({
             reducerMs,
             inputValidationMs,
-            resultValidationMs,
             historyMs,
           });
         }
@@ -168,9 +163,8 @@ describe("C3.9-C controlled viewport command cost", () => {
           ...med,
           validationShareOfReducerMedian: median(
             samples.map(
-              ({ inputValidationMs, resultValidationMs, reducerMs }) =>
-                (inputValidationMs + resultValidationMs) /
-                Math.max(reducerMs, 0.001),
+              ({ inputValidationMs, reducerMs }) =>
+                inputValidationMs / Math.max(reducerMs, 0.001),
             ),
           ),
         }),
@@ -178,7 +172,7 @@ describe("C3.9-C controlled viewport command cost", () => {
       expect(samples).toHaveLength(7);
       for (const item of samples) {
         expect(item.reducerMs).toBeGreaterThanOrEqual(
-          item.inputValidationMs + item.resultValidationMs,
+          item.inputValidationMs,
         );
         expect(item.historyMs).toBeGreaterThanOrEqual(0);
       }
