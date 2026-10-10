@@ -166,8 +166,11 @@ export function createDenseBoardDocument({
             ? { height: 1, width: 1 }
             : { height: 1_536, width: 1_536 },
       kind: "image.embedded" as const,
-      mimeType:
-        gif ? "image/gif" : staticFormat === "png" ? "image/png" : "image/jpeg",
+      mimeType: gif
+        ? "image/gif"
+        : staticFormat === "png"
+          ? "image/png"
+          : "image/jpeg",
       position: { x: 80 + (index % 10) * 65, y: 80 },
       size:
         gif && animatedGifSize !== undefined
