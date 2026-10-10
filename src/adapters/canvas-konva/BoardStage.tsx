@@ -1282,13 +1282,33 @@ export function BoardStage({
       wheelSessionRef.current = null;
       const traceEnabled = window.__tutorBoardC37Trace !== undefined;
       const commitStartMs = traceEnabled ? performance.now() : 0;
+      const cacheStartMs = traceEnabled ? performance.now() : 0;
       wheelInkCache.end();
+      if (traceEnabled) {
+        recordBoardFrameTrace("wheel-cache-end", cacheStartMs, performance.now() - cacheStartMs);
+      }
+      const resumeStartMs = traceEnabled ? performance.now() : 0;
       animatedImageRedraw.setInteractionActive(false);
       animatedImageRedraw.setWheelZoomActive(false);
+      if (traceEnabled) {
+        recordBoardFrameTrace(
+          "wheel-animation-resume",
+          resumeStartMs,
+          performance.now() - resumeStartMs,
+        );
+      }
       setPreviewViewport(session.latestViewport);
+      const persistStartMs = traceEnabled ? performance.now() : 0;
       try {
         onViewportCommit(session.latestViewport);
       } finally {
+        if (traceEnabled) {
+          recordBoardFrameTrace(
+            "wheel-viewport-persist",
+            persistStartMs,
+            performance.now() - persistStartMs,
+          );
+        }
         if (traceEnabled) {
           recordBoardFrameTrace(
             "wheel-commit",
