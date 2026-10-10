@@ -1,0 +1,61 @@
+name: C3.9 static-heavy cold ink-cache A/B
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-cold-ink-cache-ab.yml
+      - tests/e2e/c39-large-board-profile.spec.ts
+      - src/adapters/canvas-konva/BoardStage.tsx
+      - src/adapters/canvas-konva/board-frame-trace.ts
+      - scripts/c39/summarize-cold-cache.mjs
+      - tests/node/c39-cold-cache-summary.test.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-cold-cache-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cold-cache-experiment:
+    name: Same-board synchronous cold-cache controlled trial
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Build production and install browser
+        run: |
+          set -euo pipefail
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run build
+      - name: Four matched control/cache scenarios per replicate
+        env:
+          C39_COLD_CACHE_AB: "1"
+        run: |
+          set -euo pipefail
+          mkdir -p c39-cold-cache-results
+          for repeat in 1 2 3 4; do
+            npm run e2e:c39-profile -- --grep @c39-cold-cache-ab 2>&1 |
+              tee "c39-cold-cache-results/repeat-$repeat.log"
+          done
+      - name: Validate comparisons and summarize
+        run: |
+          node scripts/c39/summarize-cold-cache.mjs \
+            c39-cold-cache-results c39-cold-cache-results/summary.json
+      - name: Archive performance and browser traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-cold-cache-${{ github.sha }}
+          path: |
+            c39-cold-cache-results
+            test-results
+          if-no-files-found: warn
+          retention-days: 14
