@@ -4,9 +4,9 @@ import { createDenseBoardDocument } from "../fixtures/dense-board";
 describe("large static image document fixture", () => {
   it("preserves old default PNG-only formats when options are absent", () => {
     const doc = createDenseBoardDocument({ strokeCount: 5, staticCount: 2 });
-    const media = doc.order
-      .map((id) => doc.objects[id])
-      .filter((object) => object.kind === "image.embedded");
+    const media = Object.values(doc.objects).filter(
+      (object) => object.kind === "image.embedded",
+    );
     expect(media.map((object) => [object.mimeType, object.fileName])).toEqual([
       ["image/png", "image-0.png"],
       ["image/png", "image-1.png"],
@@ -27,9 +27,9 @@ describe("large static image document fixture", () => {
         "data:image/jpeg;base64,CCC",
       ],
     });
-    const media = doc.order
-      .map((id) => doc.objects[id])
-      .filter((object) => object.kind === "image.embedded");
+    const media = Object.values(doc.objects).filter(
+      (object) => object.kind === "image.embedded",
+    );
     expect(media.map((object) => [object.mimeType, object.fileName])).toEqual([
       ["image/png", "image-0.png"],
       ["image/jpeg", "image-1.jpg"],
