@@ -49,13 +49,76 @@ interface C39Scenario {
 // Small fast subset is automatically covered by the normal CI media profile.
 // Explicit "npm run e2e:c39-profile" exercises the extended matrix as well.
 const scenarios: readonly C39Scenario[] = [
-  { name: "300-static", strokes: 300, visibleStrokes: 300, gifs: 0, dpr: 1, zOrder: "trailing", cold: false, quick: true },
-  { name: "1000-multiframe", strokes: 1000, visibleStrokes: 450, gifs: 4, dpr: 1, zOrder: "split", cold: false, quick: true },
-  { name: "3000-cold-mixed", strokes: 3000, visibleStrokes: 800, gifs: 4, dpr: 2, zOrder: "alternating", cold: true, quick: true },
-  { name: "600-static", strokes: 600, visibleStrokes: 600, gifs: 0, dpr: 2, zOrder: "trailing", cold: false, quick: false },
-  { name: "3000-warm-dense", strokes: 3000, visibleStrokes: 2400, gifs: 4, dpr: 1, zOrder: "split", cold: false, quick: false },
-  { name: "3000-offscreen", strokes: 3000, visibleStrokes: 150, gifs: 4, dpr: 2, zOrder: "trailing", cold: false, quick: false },
-  { name: "5000-heavy-mixed", strokes: 5000, visibleStrokes: 2500, gifs: 4, dpr: 2, zOrder: "alternating", cold: true, quick: false },
+  {
+    name: "300-static",
+    strokes: 300,
+    visibleStrokes: 300,
+    gifs: 0,
+    dpr: 1,
+    zOrder: "trailing",
+    cold: false,
+    quick: true,
+  },
+  {
+    name: "1000-multiframe",
+    strokes: 1000,
+    visibleStrokes: 450,
+    gifs: 4,
+    dpr: 1,
+    zOrder: "split",
+    cold: false,
+    quick: true,
+  },
+  {
+    name: "3000-cold-mixed",
+    strokes: 3000,
+    visibleStrokes: 800,
+    gifs: 4,
+    dpr: 2,
+    zOrder: "alternating",
+    cold: true,
+    quick: true,
+  },
+  {
+    name: "600-static",
+    strokes: 600,
+    visibleStrokes: 600,
+    gifs: 0,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: false,
+    quick: false,
+  },
+  {
+    name: "3000-warm-dense",
+    strokes: 3000,
+    visibleStrokes: 2400,
+    gifs: 4,
+    dpr: 1,
+    zOrder: "split",
+    cold: false,
+    quick: false,
+  },
+  {
+    name: "3000-offscreen",
+    strokes: 3000,
+    visibleStrokes: 150,
+    gifs: 4,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: false,
+    quick: false,
+  },
+  {
+    name: "5000-heavy-mixed",
+    strokes: 5000,
+    visibleStrokes: 2500,
+    gifs: 4,
+    dpr: 2,
+    zOrder: "alternating",
+    cold: true,
+    quick: false,
+  },
 ];
 
 let cachedPngs: readonly string[] | null = null;
@@ -78,14 +141,20 @@ function representativePngs(): readonly string[] {
 }
 
 async function actualGifDataUrl(): Promise<string> {
-  const file = await readFile(new URL("../fixtures/media/c39-animated-64x64.gif", import.meta.url));
+  const file = await readFile(
+    new URL("../fixtures/media/c39-animated-64x64.gif", import.meta.url),
+  );
   expect(file.subarray(0, 6).toString("ascii")).toBe("GIF89a");
   expect(file.readUInt16LE(6)).toBe(64);
   expect(file.readUInt16LE(8)).toBe(64);
   // Four authentic image frames with varying 90–130 ms delays.
   let graphicControlBlocks = 0;
   for (let offset = 0; offset < file.length - 2; offset += 1) {
-    if (file[offset] === 0x21 && file[offset + 1] === 0xf9 && file[offset + 2] === 0x04) {
+    if (
+      file[offset] === 0x21 &&
+      file[offset + 1] === 0xf9 &&
+      file[offset + 2] === 0x04
+    ) {
       graphicControlBlocks += 1;
     }
   }
@@ -93,7 +162,10 @@ async function actualGifDataUrl(): Promise<string> {
   return "data:image/gif;base64," + file.toString("base64");
 }
 
-async function importDocument(page: Page, document: { readonly order: readonly string[] }) {
+async function importDocument(
+  page: Page,
+  document: { readonly order: readonly string[] },
+) {
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(document)),
@@ -108,7 +180,9 @@ async function importDocument(page: Page, document: { readonly order: readonly s
 async function settleFrames(page: Page, count: number): Promise<void> {
   await page.evaluate(async (total) => {
     for (let index = 0; index < total; index += 1) {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
     }
   }, count);
 }
@@ -141,7 +215,9 @@ async function beginFrameCapture(page: Page): Promise<void> {
 }
 
 function summarize(frames: readonly FrameWindow[]) {
-  const durations = frames.map((frame) => frame.durationMs).sort((a, b) => a - b);
+  const durations = frames
+    .map((frame) => frame.durationMs)
+    .sort((a, b) => a - b);
   const percentile = (ratio: number) =>
     durations[Math.max(0, Math.ceil(durations.length * ratio) - 1)] ?? null;
   return {
@@ -162,7 +238,9 @@ function summarizePhases(
   commitObservedAtMs: number,
 ) {
   if (wheelTimes.length !== 18) {
-    throw new Error("Expected exactly 18 observed wheel inputs; got " + wheelTimes.length);
+    throw new Error(
+      "Expected exactly 18 observed wheel inputs; got " + wheelTimes.length,
+    );
   }
   const frames = timestamps.slice(1).map((endMs, index) => ({
     startMs: timestamps[index]!,
@@ -178,8 +256,14 @@ function summarizePhases(
     inputTimesMs: wheelTimes,
     commitObservedAtMs,
     phases: {
-      active: summarize(frames.filter((f) => f.endMs >= firstWheel && f.endMs <= lastWheel)),
-      commit: summarize(frames.filter((f) => f.endMs > lastWheel && f.endMs <= commitObservedAtMs)),
+      active: summarize(
+        frames.filter((f) => f.endMs >= firstWheel && f.endMs <= lastWheel),
+      ),
+      commit: summarize(
+        frames.filter(
+          (f) => f.endMs > lastWheel && f.endMs <= commitObservedAtMs,
+        ),
+      ),
       settling: summarize(frames.filter((f) => f.endMs > commitObservedAtMs)),
     },
     gaps: frames,
@@ -189,7 +273,8 @@ function summarizePhases(
 for (const scenario of scenarios) {
   test(
     (scenario.quick ? "@media-profile @c39-quick " : "@c39-extended ") +
-      "representative zoom baseline: " + scenario.name,
+      "representative zoom baseline: " +
+      scenario.name,
     async ({ browser }, testInfo) => {
       test.setTimeout(180_000);
       const context = await browser.newContext({
@@ -206,7 +291,8 @@ for (const scenario of scenarios) {
         }
         await page.goto("/");
         await expect(page.getByTestId("board-stage")).toBeVisible();
-        const dataUrl = scenario.gifs > 0 ? await actualGifDataUrl() : undefined;
+        const dataUrl =
+          scenario.gifs > 0 ? await actualGifDataUrl() : undefined;
         const board = createDenseBoardDocument({
           strokeCount: scenario.strokes,
           visibleStrokeCount: scenario.visibleStrokes,
@@ -217,7 +303,10 @@ for (const scenario of scenarios) {
           largeStaticDataUrls: representativePngs(),
           ...(dataUrl === undefined
             ? {}
-            : { animatedGifDataUrl: dataUrl, animatedGifSize: { width: 64, height: 64 } }),
+            : {
+                animatedGifDataUrl: dataUrl,
+                animatedGifSize: { width: 64, height: 64 },
+              }),
         });
         const importStart = performance.now();
         await importDocument(page, board);
@@ -225,13 +314,22 @@ for (const scenario of scenarios) {
         const stage = page.getByTestId("board-stage");
         await settleFrames(page, 24);
         const before = {
-          layers: Number(await stage.getAttribute("data-committed-layer-count")),
-          animatedLayers: Number(await stage.getAttribute("data-animated-layer-count")),
-          prepared: (await stage.getAttribute("data-wheel-cache-prepared")) === "true",
+          layers: Number(
+            await stage.getAttribute("data-committed-layer-count"),
+          ),
+          animatedLayers: Number(
+            await stage.getAttribute("data-animated-layer-count"),
+          ),
+          prepared:
+            (await stage.getAttribute("data-wheel-cache-prepared")) === "true",
         };
         const bounds = await stage.boundingBox();
-        if (bounds === null) throw new Error("Missing board stage bounding box");
-        await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        if (bounds === null)
+          throw new Error("Missing board stage bounding box");
+        await page.mouse.move(
+          bounds.x + bounds.width / 2,
+          bounds.y + bounds.height / 2,
+        );
         await beginFrameCapture(page);
         for (let index = 0; index < 18; index += 1) {
           await page.mouse.wheel(0, index % 2 === 0 ? -190 : 190);
@@ -239,15 +337,23 @@ for (const scenario of scenarios) {
           // active-gesture samples without timer-based sleeps.
           await settleFrames(page, 1);
         }
-        await expect(stage).toHaveAttribute("data-wheel-gif-pause-active", "true");
-        await expect(stage).toHaveAttribute("data-wheel-gif-pause-active", "false", {
-          timeout: 10_000,
-        });
+        await expect(stage).toHaveAttribute(
+          "data-wheel-gif-pause-active",
+          "true",
+        );
+        await expect(stage).toHaveAttribute(
+          "data-wheel-gif-pause-active",
+          "false",
+          {
+            timeout: 10_000,
+          },
+        );
         const commitObservedAtMs = await page.evaluate(() => performance.now());
         await settleFrames(page, 20);
         const captured = await page.evaluate(() => {
           const recorder = (window as CapturingWindow).__c39Capture;
-          if (recorder === undefined) throw new Error("C3.9 frame recorder not installed");
+          if (recorder === undefined)
+            throw new Error("C3.9 frame recorder not installed");
           delete (window as CapturingWindow).__c39Capture;
           return recorder.stop();
         });
@@ -277,9 +383,15 @@ for (const scenario of scenarios) {
           },
           before,
           after: {
-            layers: Number(await stage.getAttribute("data-committed-layer-count")),
-            animatedLayers: Number(await stage.getAttribute("data-animated-layer-count")),
-            prepared: (await stage.getAttribute("data-wheel-cache-prepared")) === "true",
+            layers: Number(
+              await stage.getAttribute("data-committed-layer-count"),
+            ),
+            animatedLayers: Number(
+              await stage.getAttribute("data-animated-layer-count"),
+            ),
+            prepared:
+              (await stage.getAttribute("data-wheel-cache-prepared")) ===
+              "true",
           },
           ...phases,
         };

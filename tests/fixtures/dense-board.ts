@@ -13,7 +13,10 @@ export interface DenseBoardFixtureOptions {
   readonly visibleStrokeCount?: number;
   readonly zOrderPattern?: "trailing" | "split" | "alternating";
   readonly animatedGifDataUrl?: string;
-  readonly animatedGifSize?: { readonly width: number; readonly height: number };
+  readonly animatedGifSize?: {
+    readonly width: number;
+    readonly height: number;
+  };
 }
 
 function representativeInk(index: number) {
@@ -125,10 +128,16 @@ export function createDenseBoardDocument({
       kind: "drawing.pen-stroke" as const,
       points: geometry.points,
       position: offscreen
-        ? { x: 10_000 + (index % 10) * 65, y: 10_000 + Math.floor(index / 10) * 8 }
+        ? {
+            x: 10_000 + (index % 10) * 65,
+            y: 10_000 + Math.floor(index / 10) * 8,
+          }
         : visibleStrokeCount === undefined
           ? { x: 60 + (index % 10) * 65, y: 180 + Math.floor(index / 10) * 8 }
-          : { x: 60 + (index % 24) * 38, y: 160 + (Math.floor(index / 24) % 16) * 29 },
+          : {
+              x: 60 + (index % 24) * 38,
+              y: 160 + (Math.floor(index / 24) % 16) * 29,
+            },
       style: {
         fill: null,
         opacity: strokeGeometry === "varied" ? 0.6 + (index % 4) * 0.1 : 1,
@@ -143,14 +152,17 @@ export function createDenseBoardDocument({
     return {
       ...common,
       contentSha256: (index + 1).toString(16).padStart(64, "0"),
-      dataUrl: gif ? (animatedGifDataUrl ?? gifDataUrl) : (largeDataUrl ?? pngDataUrl),
+      dataUrl: gif
+        ? (animatedGifDataUrl ?? gifDataUrl)
+        : (largeDataUrl ?? pngDataUrl),
       fileName: `image-${index}.${gif ? "gif" : "png"}`,
       id: `object:dense:image:${index}`,
-      intrinsicSize: gif && animatedGifSize !== undefined
-        ? animatedGifSize
-        : largeDataUrl === undefined
-          ? { height: 1, width: 1 }
-          : { height: 1_536, width: 1_536 },
+      intrinsicSize:
+        gif && animatedGifSize !== undefined
+          ? animatedGifSize
+          : largeDataUrl === undefined
+            ? { height: 1, width: 1 }
+            : { height: 1_536, width: 1_536 },
       kind: "image.embedded" as const,
       mimeType: gif ? "image/gif" : "image/png",
       position: { x: 80 + (index % 10) * 65, y: 80 },
@@ -167,7 +179,9 @@ export function createDenseBoardDocument({
   let ordered = objects;
   if (zOrderPattern === "split" && gifCount > 0) {
     const gifImages = images.filter((image) => image.mimeType === "image/gif");
-    const staticImages = images.filter((image) => image.mimeType !== "image/gif");
+    const staticImages = images.filter(
+      (image) => image.mimeType !== "image/gif",
+    );
     const half = Math.floor(strokes.length / 2);
     ordered = [
       ...strokes.slice(0, half),
@@ -186,11 +200,15 @@ export function createDenseBoardDocument({
     const reordered = [];
     for (let index = 0; index < media.length; index += 1) {
       const from = Math.floor((index * strokes.length) / (media.length + 1));
-      const to = Math.floor(((index + 1) * strokes.length) / (media.length + 1));
+      const to = Math.floor(
+        ((index + 1) * strokes.length) / (media.length + 1),
+      );
       reordered.push(...strokes.slice(from, to), media[index]!);
     }
     reordered.push(
-      ...strokes.slice(Math.floor((media.length * strokes.length) / (media.length + 1))),
+      ...strokes.slice(
+        Math.floor((media.length * strokes.length) / (media.length + 1)),
+      ),
     );
     ordered = reordered;
   }
