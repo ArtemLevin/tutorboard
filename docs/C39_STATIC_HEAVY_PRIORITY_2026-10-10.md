@@ -29,6 +29,20 @@ All ten media objects appear on the board in the same stacking-order
 pattern. No GIFs or animated-layer activity. JPEG encoding and PNG
 construction occur **before measurement**.
 
+**Important 10 MiB portability boundary.** The production JSON import
+`maximumTutorBoardDocumentImportBytes = 10 * 1024 * 1024` is enforced by
+`src/modules/document-transfer/transfer.ts` and `PersistedApp.tsx`.
+With the fully populated Vector Ink fixture, 10,010 objects exceed that
+limit; a 45-second UI wait confirmed rejection (object count remained
+zero). The benchmark now seeds a version-1 Dexie revision in IndexedDB
+**through test code**, then reloads the normal app: full persisted-document
+load and validation remain real. It does not bypass or change the public
+file-import security boundary. The reported `importDurationMs` in the
+static profile includes test fixture seeding plus production restore;
+the summary labels this `medianSetupAndRestoreMs`, not user JSON-import
+speed. The large-backup export/import workflow needs a separately scoped,
+secure, resource-bounded solution.
+
 The 18-wheel-event rAF sampler reports active/commit/settling latency,
 max/p95/p99, >100ms gap frequency, import duration, core viewport command
 trace, Chromium compositor LayerTree/DrawFrame attribution and wheel ink
@@ -50,7 +64,7 @@ pixel quality, storage integrity, hit testing or collaboration.
 1. Establish the static 3k/5k/10k trajectory above; if stable, expand
    to 20k strokes and multiple file sizes/resolutions and add memory and
    loading/clear/reopen behavior.
-2. Identify whether the largest measured cause is strict input validation
+2. Investigate secure portable import/restore of documents above 10 MiB separately; preserve explicit resource bounds and failure reporting. Identify whether the largest measured cause is strict input validation
    of `core.viewport.set`, O(N) viewport visibility/filtering, Konva
    scene/hit rasterization, cache invalidation, React reconciliation,
    bitmap decode or compositor costs. Measure them separately in a
