@@ -146,7 +146,8 @@ describe("C3.9-D optimized viewport command cost", () => {
         // separately from the optimized reducer on the same result.
         const referenceStartMs = performance.now();
         const referenceResult = validateBoardDocument(result.document);
-        const referenceOutputValidationMs = performance.now() - referenceStartMs;
+        const referenceOutputValidationMs =
+          performance.now() - referenceStartMs;
         expect(referenceResult.valid).toBe(true);
         const referenceLegacyEquivalentMs =
           reducerMs + referenceOutputValidationMs;
@@ -192,9 +193,7 @@ describe("C3.9-D optimized viewport command cost", () => {
       );
       expect(samples).toHaveLength(7);
       for (const item of samples) {
-        expect(item.reducerMs).toBeGreaterThanOrEqual(
-          item.inputValidationMs,
-        );
+        expect(item.reducerMs).toBeGreaterThanOrEqual(item.inputValidationMs);
         expect(item.historyMs).toBeGreaterThanOrEqual(0);
       }
     }

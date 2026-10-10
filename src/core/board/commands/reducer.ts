@@ -2205,8 +2205,10 @@ function setViewport(
     viewport: command.viewport,
   });
   if (
-    !boardDocumentSchema.shape.viewport.safeParse(normalized.viewport).success ||
-    !boardDocumentSchema.shape.updatedAt.safeParse(normalized.updatedAt).success ||
+    !boardDocumentSchema.shape.viewport.safeParse(normalized.viewport)
+      .success ||
+    !boardDocumentSchema.shape.updatedAt.safeParse(normalized.updatedAt)
+      .success ||
     Date.parse(normalized.updatedAt) < Date.parse(normalized.createdAt)
   ) {
     return failure(

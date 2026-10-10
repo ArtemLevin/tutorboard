@@ -16,7 +16,11 @@ import {
 } from "../../../src/modules/history/public";
 import { createDenseBoardDocument } from "../../fixtures/dense-board";
 
-function command(index: number, viewport: BoardDocument["viewport"], timestamp = "2026-10-10T12:00:00.000Z") {
+function command(
+  index: number,
+  viewport: BoardDocument["viewport"],
+  timestamp = "2026-10-10T12:00:00.000Z",
+) {
   return {
     actorId: actorId("actor:viewport-fast-path"),
     id: commandId(`command:viewport-fast-path:${index}`),
@@ -27,27 +31,31 @@ function command(index: number, viewport: BoardDocument["viewport"], timestamp =
 }
 
 function validDocument(strokes: number): BoardDocument {
-  const parsed = validateBoardDocument(createDenseBoardDocument({
-    strokeCount: strokes,
-    strokeGeometry: "varied",
-    staticCount: 2,
-    gifCount: 2,
-    zOrderPattern: "alternating",
-  }));
+  const parsed = validateBoardDocument(
+    createDenseBoardDocument({
+      strokeCount: strokes,
+      strokeGeometry: "varied",
+      staticCount: 2,
+      gifCount: 2,
+      zOrderPattern: "alternating",
+    }),
+  );
   expect(parsed.valid).toBe(true);
   if (!parsed.valid) throw new Error("Invalid test document");
   return parsed.document;
 }
 
 /** Emulates the old accept() normalization and full output validation. */
-function referenceOutput(document: BoardDocument, value: BoardCommand & { kind: "core.viewport.set" }) {
+function referenceOutput(
+  document: BoardDocument,
+  value: BoardCommand & { kind: "core.viewport.set" },
+) {
   const previous = Date.parse(document.updatedAt);
   const candidate = Date.parse(value.timestamp);
-  const updatedAt = Number.isNaN(previous) ||
-    Number.isNaN(candidate) ||
-    candidate >= previous
-    ? value.timestamp
-    : document.updatedAt;
+  const updatedAt =
+    Number.isNaN(previous) || Number.isNaN(candidate) || candidate >= previous
+      ? value.timestamp
+      : document.updatedAt;
   const expected = {
     ...document,
     updatedAt,
@@ -112,12 +120,19 @@ describe("C3.9-D viewport-specific acceptance regression", () => {
     const document = validDocument(25);
     const corrupt = {
       ...document,
-      order: [document.order[0]!, document.order[0]!, ...document.order.slice(2)],
+      order: [
+        document.order[0]!,
+        document.order[0]!,
+        ...document.order.slice(2),
+      ],
     };
-    const result = reduceBoardDocument(corrupt, command(200, {
-      offset: { x: 99, y: 0 },
-      zoom: 2,
-    }));
+    const result = reduceBoardDocument(
+      corrupt,
+      command(200, {
+        offset: { x: 99, y: 0 },
+        zoom: 2,
+      }),
+    );
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("command.invalid-current-document");
@@ -127,23 +142,30 @@ describe("C3.9-D viewport-specific acceptance regression", () => {
 
   it("rejects invalid metadata before accepting viewport and preserves history undo/redo", () => {
     const document = validDocument(25);
-    const invalid = reduceBoardDocument(document, command(
-      201,
-      { offset: { x: 0, y: 0 }, zoom: 2 },
-      "invalid-timestamp",
-    ));
+    const invalid = reduceBoardDocument(
+      document,
+      command(201, { offset: { x: 0, y: 0 }, zoom: 2 }, "invalid-timestamp"),
+    );
     expect(invalid.ok).toBe(false);
     if (!invalid.ok) expect(invalid.error.code).toBe("command.invalid");
 
-    const next = reduceBoardDocument(document, command(202, {
-      offset: { x: -60, y: 90 },
-      zoom: 2.5,
-    }));
+    const next = reduceBoardDocument(
+      document,
+      command(202, {
+        offset: { x: -60, y: 90 },
+        zoom: 2.5,
+      }),
+    );
     expect(next.ok).toBe(true);
     if (!next.ok) return;
-    const history = commitDocumentHistory(createDocumentHistory(document), next.document);
+    const history = commitDocumentHistory(
+      createDocumentHistory(document),
+      next.document,
+    );
     expect(undoDocumentHistory(history).present).toBe(document);
-    expect(redoDocumentHistory(undoDocumentHistory(history)).present).toBe(next.document);
+    expect(redoDocumentHistory(undoDocumentHistory(history)).present).toBe(
+      next.document,
+    );
     expect(validateBoardDocument(next.document).valid).toBe(true);
   });
 });
