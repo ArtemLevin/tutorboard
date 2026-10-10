@@ -55,6 +55,8 @@ interface C39Scenario {
   readonly expectedAnimatedLayers?: number;
   /** User-priority scenario: large pen documents plus 10 static PNG/JPEG images. */
   readonly staticHeavy?: boolean;
+  /** Test-only same-document comparison of on-demand ink caching. */
+  readonly coldCacheAB?: "control" | "cache";
 }
 
 // Small fast subset is automatically covered by the normal CI media profile.
@@ -298,6 +300,39 @@ const staticHeavyScenarios: readonly C39Scenario[] = [
     expectedLayers: 1,
     expectedAnimatedLayers: 0,
   },
+];
+
+const coldCacheABScenarios: readonly C39Scenario[] = [
+  ...([5000, 10000] as const).flatMap((strokes) => [
+    {
+      name: `cold-cache-${strokes}-control`,
+      strokes,
+      visibleStrokes: Math.round(strokes * 0.8),
+      gifs: 0,
+      dpr: 2,
+      zOrder: "trailing" as const,
+      cold: true,
+      quick: false,
+      staticHeavy: true,
+      coldCacheAB: "control" as const,
+      expectedLayers: 1,
+      expectedAnimatedLayers: 0,
+    },
+    {
+      name: `cold-cache-${strokes}-cache`,
+      strokes,
+      visibleStrokes: Math.round(strokes * 0.8),
+      gifs: 0,
+      dpr: 2,
+      zOrder: "trailing" as const,
+      cold: true,
+      quick: false,
+      staticHeavy: true,
+      coldCacheAB: "cache" as const,
+      expectedLayers: 1,
+      expectedAnimatedLayers: 0,
+    },
+  ]),
 ];
 
 let cachedPngs: readonly string[] | null = null;
@@ -556,11 +591,14 @@ for (const scenario of [
   ...scenarios,
   ...(process.env.C39_E2_PROFILE === "1" ? e2Scenarios : []),
   ...(process.env.C39_STATIC_HEAVY_PROFILE === "1" ? staticHeavyScenarios : []),
+  ...(process.env.C39_COLD_CACHE_AB === "1" ? coldCacheABScenarios : []),
 ]) {
   test(
     (scenario.name === "3000-cold-mixed" ? "@smoke " : "") +
-      (scenario.staticHeavy
-        ? "@c39-static-heavy "
+      (scenario.coldCacheAB
+        ? "@c39-cold-cache-ab "
+        : scenario.staticHeavy
+          ? "@c39-static-heavy "
         : scenario.e2
           ? "@c39-e2 "
           : scenario.quick
@@ -581,9 +619,12 @@ for (const scenario of [
         const traceEnabled =
           scenario.strokes >= 3000 && !scenario.traceDisabled;
         if (traceEnabled || !scenario.e2) {
-          await page.addInitScript(() => {
-            window.__tutorBoardC37Trace = { events: [] };
-          });
+          await page.addInitScript((forceColdCache: boolean) => {
+            window.__tutorBoardC37Trace = {
+              events: [],
+              forceColdWheelInkCache: forceColdCache,
+            };
+          }, scenario.coldCacheAB === "cache");
         }
         if (scenario.cold) {
           await page.addInitScript(() => {
@@ -770,8 +811,10 @@ for (const scenario of [
         const report = {
           schemaVersion: 1,
           baselineSha: process.env.GITHUB_SHA ?? "local",
-          experiment: scenario.staticHeavy
-            ? "C3.9-STATIC"
+          experiment: scenario.coldCacheAB
+            ? "C3.9-COLD-CACHE"
+            : scenario.staticHeavy
+              ? "C3.9-STATIC"
             : scenario.e2
               ? "C3.9-E2"
               : "C3.9",
@@ -807,6 +850,12 @@ for (const scenario of [
               "true",
           },
           wheelPauseStillActiveAfterInputs,
+          wheelInkCache: {
+            builds: Number(await stage.getAttribute("data-wheel-cache-builds")),
+            skippedColdBuild: (await stage.getAttribute("data-wheel-cache-last-wheel-skipped-cold-build")) === "true",
+            lastBuildPixels: Number(await stage.getAttribute("data-wheel-cache-last-build-pixels")),
+            lastWheelBeginMs: Number(await stage.getAttribute("data-wheel-cache-last-wheel-begin-ms")),
+          },
           ...phases,
           c39Attribution: {
             ...attribution,
