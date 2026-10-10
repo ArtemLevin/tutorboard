@@ -6,6 +6,9 @@ on:
     paths:
       - .github/workflows/c39-representative-baseline.yml
       - tests/e2e/c39-large-board-profile.spec.ts
+      - src/core/board/commands/reducer.ts
+      - tests/performance/c39-viewport-command-cost.test.ts
+      - tests/unit/core/c39-viewport-fast-path.test.ts
       - tests/fixtures/dense-board.ts
       - tests/fixtures/media/c39-animated-64x64.gif
 
