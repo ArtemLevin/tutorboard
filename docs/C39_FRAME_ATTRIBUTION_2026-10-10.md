@@ -81,3 +81,18 @@ The newly added substep markers distinguish cache teardown, GIF reactivation
 and synchronous viewport persistence so C3.9-C can isolate the actual
 critical path. A final CI run is required on the substep-marked SHA.
 Trace-on timings must not be presented as uninstrumented speed benchmarks.
+
+## Firefox cross-browser release-gate regression (2026-10-10)
+
+[Post-merge CI 38038788541](https://github.com/ArtemLevin/tutorboard/actions/runs/38038788541)
+ran the complete E2E suite on Firefox (unlike PRs which run `@smoke` only),
+then failed four 3000–5000-stroke C3.9 scenarios because the compositor
+recorder unconditionally invoked Chromium-only `browserContext.newCDPSession`.
+This did **not** indicate a board runtime failure.
+
+The C3.9 browser harness now uses CDP only when `browser.browserType().name()
+is `chromium`. Firefox continues collecting wheel input, rAF gaps and JS
+renderer events, with compositor evidence explicitly `unavailable`.
+A representative 3000-stroke mixed-media case carries `@smoke` and runs
+in both browsers on pull requests, so this mismatch is caught before merge.
+No production renderer or document protocol is changed by this gate repair.
