@@ -593,7 +593,7 @@ export function BoardStage({
         "wheel-layout",
         performance.now(),
         0,
-        `items=${scene.items.length};layers=${rootRef.current?.dataset.committedLayerCount ?? "unknown"};animatedLayers=${rootRef.current?.dataset.animatedLayerCount ?? "unknown"};zoom=${previewViewport.zoom.toFixed(3)}`,
+        `items=${rootRef.current?.dataset.visibleObjectCount ?? "unknown"};layers=${rootRef.current?.dataset.committedLayerCount ?? "unknown"};animatedLayers=${rootRef.current?.dataset.animatedLayerCount ?? "unknown"};zoom=${previewViewport.zoom.toFixed(3)}`,
       );
     }
   }, [previewViewport]);
@@ -2243,6 +2243,7 @@ export function BoardStage({
       data-transformable-count={transformableObjectIds.length}
       data-transforming={isTransforming}
       data-wet-ink-stroke-style={wetInkStyle?.strokeStyle ?? "none"}
+      data-visible-object-count={visibleItems.length}
       data-committed-layer-count={committedPaintRuns.length}
       data-animated-layer-count={animatedPaintLayerCount}
       data-wheel-gif-pause-active={animatedImageRedraw.wheelZoomActive}
