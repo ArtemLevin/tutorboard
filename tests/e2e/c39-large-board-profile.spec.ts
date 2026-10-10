@@ -572,7 +572,11 @@ for (const scenario of [
               }),
         });
         const importStart = performance.now();
-        await importDocument(page, board, scenario.staticHeavy ? 45_000 : 5_000);
+        await importDocument(
+          page,
+          board,
+          scenario.staticHeavy ? 45_000 : 5_000,
+        );
         const importDurationMs = performance.now() - importStart;
         const stage = page.getByTestId("board-stage");
         await settleFrames(page, 24);
