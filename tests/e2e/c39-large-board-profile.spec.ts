@@ -404,7 +404,9 @@ async function restoreLargeBoardFromLocalStore(
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       opened.onsuccess = () => resolve(opened.result);
       opened.onerror = () =>
-        reject(opened.error ?? new Error("Failed to open local board database"));
+        reject(
+          opened.error ?? new Error("Failed to open local board database"),
+        );
     });
     try {
       if (
@@ -422,7 +424,9 @@ async function restoreLargeBoardFromLocalStore(
         transaction.onerror = () =>
           reject(transaction.error ?? new Error("Local revision write failed"));
         transaction.onabort = () =>
-          reject(transaction.error ?? new Error("Local revision write aborted"));
+          reject(
+            transaction.error ?? new Error("Local revision write aborted"),
+          );
       });
       const operationId = "operation:c39-static-heavy-seed";
       const revisionId = "revision:" + operationId;
