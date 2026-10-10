@@ -58,11 +58,7 @@ function percentile(values: readonly number[], ratio: number): number {
 }
 
 function describeTiming(samples: readonly TimingSample[]) {
-  const columns = [
-    "reducerMs",
-    "inputValidationMs",
-    "historyMs",
-  ] as const;
+  const columns = ["reducerMs", "inputValidationMs", "historyMs"] as const;
   return Object.fromEntries(
     columns.map((column) => [
       column,
@@ -171,9 +167,7 @@ describe("C3.9-C controlled viewport command cost", () => {
       );
       expect(samples).toHaveLength(7);
       for (const item of samples) {
-        expect(item.reducerMs).toBeGreaterThanOrEqual(
-          item.inputValidationMs,
-        );
+        expect(item.reducerMs).toBeGreaterThanOrEqual(item.inputValidationMs);
         expect(item.historyMs).toBeGreaterThanOrEqual(0);
       }
     }
@@ -217,7 +211,8 @@ describe("C3.9-C controlled viewport command cost", () => {
             : (["optimized", "baseline", "baseline", "optimized"] as const);
         for (const method of methods) {
           const start = performance.now();
-          const result = method === "baseline" ? baseline(index) : optimized(index);
+          const result =
+            method === "baseline" ? baseline(index) : optimized(index);
           const elapsed = performance.now() - start;
           expect(result.viewport).toEqual(viewportCommand(index).viewport);
           (method === "baseline" ? baselineMs : fastMs).push(elapsed);

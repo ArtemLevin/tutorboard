@@ -136,7 +136,11 @@ describe("C3.9-D viewport-only acceptance parity", () => {
   it("continues to reject malformed current documents before the viewport fast path", () => {
     const corrupted: BoardDocument = {
       ...document,
-      order: [document.order[0]!, document.order[0]!, ...document.order.slice(2)],
+      order: [
+        document.order[0]!,
+        document.order[0]!,
+        ...document.order.slice(2),
+      ],
     };
     const result = reduceBoardDocument(
       corrupted,
