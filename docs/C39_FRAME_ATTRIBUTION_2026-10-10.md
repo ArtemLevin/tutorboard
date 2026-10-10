@@ -90,8 +90,9 @@ then failed four 3000–5000-stroke C3.9 scenarios because the compositor
 recorder unconditionally invoked Chromium-only `browserContext.newCDPSession`.
 This did **not** indicate a board runtime failure.
 
-The C3.9 browser harness now uses CDP only when `browser.browserType().name()
-is `chromium`. Firefox continues collecting wheel input, rAF gaps and JS
+The C3.9 browser harness now uses CDP only when the browser type is
+`chromium` (`browser.browserType().name() === "chromium"`).
+Firefox continues collecting wheel input, rAF gaps and JS
 renderer events, with compositor evidence explicitly `unavailable`.
 A representative 3000-stroke mixed-media case carries `@smoke` and runs
 in both browsers on pull requests, so this mismatch is caught before merge.
