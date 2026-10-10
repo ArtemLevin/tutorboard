@@ -387,6 +387,21 @@ for (const scenario of scenarios) {
           jsTrace,
           chromiumTrace,
         );
+        if (traceEnabled) {
+          const kinds = new Set(jsTrace.map((event) => event.kind));
+          for (const expected of [
+            "wheel-input",
+            "wheel-layout",
+            "wheel-cache-end",
+            "wheel-animation-resume",
+            "wheel-viewport-persist",
+            "wheel-commit",
+          ]) {
+            expect(kinds.has(expected), `Missing C3.9 trace event: ${expected}`).toBe(true);
+          }
+          expect(jsTrace.length).toBeLessThanOrEqual(12_000);
+          expect(chromiumTrace?.events.length).toBeLessThanOrEqual(20_000);
+        }
         expect(phases.phases.active.count).toBeGreaterThan(0);
         expect(phases.phases.settling.count).toBeGreaterThan(0);
         const report = {
