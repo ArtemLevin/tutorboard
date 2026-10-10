@@ -1,0 +1,115 @@
+name: C3.9-E1 paired browser comparison
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_sha:
+        description: Pre-change full 40-character commit SHA
+        required: true
+        default: 1bf2487d814a8dacde0ddc55ac57678f0b7b65c1
+        type: string
+      candidate_sha:
+        description: Candidate SHA (empty means selected workflow ref)
+        required: false
+        type: string
+      scenario:
+        description: Fixed representative heavy scenario
+        required: true
+        default: 3000-cold-mixed
+        type: choice
+        options:
+          - 3000-cold-mixed
+          - 5000-heavy-mixed
+      cycles:
+        description: Number of ABBA cycles (5 = 10 pairs)
+        required: true
+        default: "5"
+        type: choice
+        options:
+          - "5"
+          - "8"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-e1-${{ github.ref }}-${{ inputs.scenario }}
+  cancel-in-progress: false
+
+jobs:
+  paired-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out comparison harness
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Validate refs and materialize isolated builds
+        env:
+          BASELINE_SHA: ${{ inputs.baseline_sha }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          for ref in "$BASELINE_SHA" "$CANDIDATE_SHA"; do
+            if [[ ! "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Require full immutable SHA (no branch/user input passed to git)" >&2
+              exit 1
+            fi
+            git fetch --no-tags origin "$ref"
+          done
+          git worktree add --detach "$RUNNER_TEMP/c39-baseline" "$BASELINE_SHA"
+          git worktree add --detach "$RUNNER_TEMP/c39-candidate" "$CANDIDATE_SHA"
+          printf 'BASELINE_SHA=%s\nCANDIDATE_SHA=%s\n' "$BASELINE_SHA" "$CANDIDATE_SHA" >> "$GITHUB_ENV"
+      - name: Install and build both pinned revisions
+        run: |
+          set -euo pipefail
+          for role in baseline candidate; do
+            cd "$RUNNER_TEMP/c39-$role"
+            npm ci
+            npm run build
+          done
+          npx --prefix "$RUNNER_TEMP/c39-candidate" playwright install --with-deps chromium
+      - name: Run chronological ABBA cycles on one runner
+        env:
+          CYCLES: ${{ inputs.cycles }}
+          SCENARIO: ${{ inputs.scenario }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/c39-e1-results"
+          : > "$GITHUB_WORKSPACE/c39-e1-results/manifest.jsonl"
+          for ((cycle = 1; cycle <= CYCLES; cycle++)); do
+            for position in 1 2 3 4; do
+              role=candidate
+              if (( position == 1 || position == 4 )); then role=baseline; fi
+              sha="$CANDIDATE_SHA"
+              if [[ "$role" == baseline ]]; then sha="$BASELINE_SHA"; fi
+              logfile="$GITHUB_WORKSPACE/c39-e1-results/cycle-${cycle}-position-${position}-${role}.log"
+              echo "C39 E1 cycle=$cycle position=$position role=$role sha=$sha"
+              (
+                cd "$RUNNER_TEMP/c39-$role"
+                GITHUB_SHA="$sha" npm run e2e:c39-profile -- --grep "$SCENARIO"
+              ) 2>&1 | tee "$logfile"
+              printf '{"role":"%s","sha":"%s","log":"%s"}\n' \
+                "$role" "$sha" "$logfile" >> "$GITHUB_WORKSPACE/c39-e1-results/manifest.jsonl"
+            done
+          done
+      - name: Calculate paired, fixture-checked diagnostics
+        if: success()
+        env:
+          SCENARIO: ${{ inputs.scenario }}
+        run: |
+          node scripts/c39/compare-profiles.mjs \
+            c39-e1-results/manifest.jsonl "$SCENARIO" \
+            c39-e1-results/comparison.json
+      - name: Preserve all observations and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-e1-paired-${{ github.sha }}-${{ inputs.scenario }}
+          path: c39-e1-results/
+          if-no-files-found: warn
+          retention-days: 14
