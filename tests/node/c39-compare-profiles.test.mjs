@@ -38,7 +38,8 @@ function report(p95Ms, count = 16) {
         over50: 2,
         over100: p95Ms > 100 ? 1 : 0,
       },
-      commit: { count: 6 },
+      commit: { count: 6, p50Ms: p95Ms / 3, p95Ms: p95Ms / 2,
+        maxMs: p95Ms / 2 + 2, over100: 0 },
       settling: { count: 4 },
     },
   };
@@ -81,6 +82,9 @@ describe("C3.9-E1 paired browser report integrity", () => {
     expect(result.baseline.activeFrames).toBe(160);
     expect(result.candidate.activeFrames).toBe(160);
     expect(result.pairedMedianDelta.activeP95Ms).toBe(-45);
+    expect(result.pairedMedianDelta.commitP95Ms).toBe(-22.5);
+    expect(result.baseline.commit.frames).toBe(60);
+    expect(result.candidate.commit.frames).toBe(60);
     expect(result.interpretation).toMatch(/Diagnostic only/);
   });
 
@@ -104,6 +108,21 @@ describe("C3.9-E1 paired browser report integrity", () => {
     mismatched[2].report.content.realGifFrames = 1;
     expect(() => comparePairedRuns(mismatched, "3000-cold-mixed")).toThrow(
       /media differ/,
+    );
+    const switched = structuredClone(runs);
+    for (const run of switched) {
+      run.sha = "a".repeat(40);
+      run.report.baselineSha = "a".repeat(40);
+    }
+    switched[2].sha = "b".repeat(40);
+    switched[2].report.baselineSha = "b".repeat(40);
+    expect(() => comparePairedRuns(switched, "3000-cold-mixed")).toThrow(
+      /Different source SHA/,
+    );
+    const invalidCommit = structuredClone(runs);
+    invalidCommit[1].report.phases.commit.count = 0;
+    expect(() => comparePairedRuns(invalidCommit, "3000-cold-mixed")).toThrow(
+      /commit\/settling/,
     );
   });
 });
