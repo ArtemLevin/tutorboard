@@ -19,6 +19,7 @@ import { identityTransform, type Transform2D, type Vec2 } from "../primitives";
 import { ownValue } from "../records";
 import { isIsoTimestamp } from "../timestamps";
 import { validateBoardDocument } from "../validation/validate";
+import { boardDocumentSchema } from "../validation/schema";
 import type {
   AddGroupCommand,
   AddObjectsCommand,
@@ -2193,7 +2194,12 @@ function setViewport(
     return failure(document, "command.invalid", "Viewport is invalid.");
   }
 
-  return accept(document, {
+  // The input was fully validated at the reducer boundary. This command
+  // changes only viewport and updatedAt; every other validated field retains
+  // its exact reference. Validate those two fields against the same strict
+  // Zod schema as a full BoardDocument parse, retaining rejection of extra
+  // keys and malformed ISO timestamps without traversing thousands of objects.
+  return acceptViewport(document, {
     ...document,
     updatedAt: command.timestamp,
     viewport: command.viewport,
@@ -2283,6 +2289,39 @@ function selectObjects(
   }
 
   return { ok: true, objects: selected };
+}
+
+function acceptViewport(
+  original: BoardDocument,
+  candidate: BoardDocument,
+): CommandResult {
+  // Mirror accept()'s monotonic timestamp normalization before validation.
+  const originalTime = Date.parse(original.updatedAt);
+  const candidateTime = Date.parse(candidate.updatedAt);
+  const normalized =
+    Number.isNaN(originalTime) ||
+    Number.isNaN(candidateTime) ||
+    candidateTime >= originalTime
+      ? candidate
+      : { ...candidate, updatedAt: original.updatedAt };
+
+  const viewportValid = boardDocumentSchema.shape.viewport.safeParse(
+    normalized.viewport,
+  ).success;
+  const updatedAtValid = boardDocumentSchema.shape.updatedAt.safeParse(
+    normalized.updatedAt,
+  ).success;
+  // Input's updatedAt >= createdAt is already established by the full
+  // validator; normalization ensures the output timestamp cannot regress.
+  if (!viewportValid || !updatedAtValid) {
+    return failure(
+      original,
+      "command.invalid-result",
+      "Command result violates BoardDocument invariants.",
+    );
+  }
+
+  return { ok: true, document: normalized };
 }
 
 function accept(
