@@ -12,6 +12,8 @@ export interface DenseBoardFixtureOptions {
   readonly strokeGeometry?: "repeated" | "varied";
   readonly visibleStrokeCount?: number;
   readonly zOrderPattern?: "trailing" | "split" | "alternating";
+  /** E2-only: place the split inside the requested visible ink population. */
+  readonly splitAtVisibleBoundary?: boolean;
   readonly animatedGifDataUrl?: string;
   readonly animatedGifSize?: {
     readonly width: number;
@@ -59,6 +61,7 @@ export function createDenseBoardDocument({
   strokeGeometry = "repeated",
   visibleStrokeCount,
   zOrderPattern = "trailing",
+  splitAtVisibleBoundary = false,
   animatedGifDataUrl,
   animatedGifSize,
 }: DenseBoardFixtureOptions = {}) {
@@ -177,7 +180,11 @@ export function createDenseBoardDocument({
     const staticImages = images.filter(
       (image) => image.mimeType !== "image/gif",
     );
-    const half = Math.floor(strokes.length / 2);
+    const splitPopulation =
+      splitAtVisibleBoundary && visibleStrokeCount !== undefined
+        ? Math.min(strokes.length, visibleStrokeCount)
+        : strokes.length;
+    const half = Math.floor(splitPopulation / 2);
     ordered = [
       ...strokes.slice(0, half),
       ...gifImages.slice(0, 1),
