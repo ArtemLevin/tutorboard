@@ -38,8 +38,13 @@ function report(p95Ms, count = 16) {
         over50: 2,
         over100: p95Ms > 100 ? 1 : 0,
       },
-      commit: { count: 6, p50Ms: p95Ms / 3, p95Ms: p95Ms / 2,
-        maxMs: p95Ms / 2 + 2, over100: 0 },
+      commit: {
+        count: 6,
+        p50Ms: p95Ms / 3,
+        p95Ms: p95Ms / 2,
+        maxMs: p95Ms / 2 + 2,
+        over100: 0,
+      },
       settling: { count: 4 },
     },
   };
