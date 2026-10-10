@@ -1,0 +1,33 @@
+name: Temporary static restore formatter
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-static-restore-prettier.yml
+
+permissions:
+  contents: read
+
+jobs:
+  formatter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Format changed static-restore code
+        run: |
+          set -euo pipefail
+          for path in \
+            tests/e2e/c39-large-board-profile.spec.ts \
+            scripts/c39/summarize-static-heavy.mjs \
+            tests/node/c39-static-heavy-summary.test.mjs; do
+            npx prettier --write "$path"
+            printf 'C39RESTOREFMT:%s:' "$path"
+            base64 -w0 "$path"
+            printf '\n'
+          done
