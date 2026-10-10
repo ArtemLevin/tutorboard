@@ -12,7 +12,7 @@ Chromium compositor/raster scheduling must remain distinguishable.
 
 ## Implemented comparison gate
 
-The opt-in, manual
+The opt-in
 [`C3.9-E1 paired browser comparison`](../.github/workflows/c39-paired-release-evidence.yml)
 workflow builds **two pinned immutable frontend revisions in separate git
 worktrees** on the same Linux runner. It executes a single existing C3.9
@@ -59,9 +59,10 @@ This block adds benchmark orchestration, comparison and regression tests only.
 It does **not** change production reducers, security validation, BoardDocument
 schemas, media isolation, server sync, rendering, or permissions.
 
-The workflow is `workflow_dispatch`-only and becomes available on GitHub
-after it is merged into the repository's default branch. PR quality gates
-cover its JavaScript comparator tests. Actual A/B/A performance conclusions
+The workflow runs automatically on the initial merge to `main` that adds
+its own YAML file (a narrowly path-filtered `push` trigger). Subsequent
+explicit runs use `workflow_dispatch`. PR quality gates cover its
+JavaScript comparator tests. Actual A/B/A performance conclusions
 require completed workflow runs and independent repeats.
 
 Next C3.9-E block: obtain paired results, then investigate the remaining
