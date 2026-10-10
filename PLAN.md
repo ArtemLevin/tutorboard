@@ -335,6 +335,36 @@ visibility bounds и неизменных React ink subtrees. Зафиксиро
 обновлённого `main`, только с собственным diff относительно C3.7.
 Формат BoardDocument, sync API, persistence и настройки доступа не меняются.
 
+### C3.9-C: измерение стоимости viewport-команды и истории — 10.10.2026
+
+[Issue #201](https://github.com/ArtemLevin/tutorboard/issues/201),
+[отчёт исследования](docs/C39_VIEWPORT_COMMAND_COST_2026-10-10.md).
+Подтверждённый call path:
+`BoardStage.commitWheel → App.commitViewport → useBoardDocumentController.commitCommand → reduceBoardDocument`.
+`reduceBoardDocument` валидирует весь текущий документ, затем для
+`core.viewport.set` через `accept` валидирует весь изменённый документ
+повторно. Чистый `commitDocumentHistory` добавляет только ссылки на документы
+в ограниченную историю (100 состояний).
+
+В изолированном GitHub Actions эксперименте с реальными 300/1000/3000/5000
+разнообразными VectorInk strokes, 6 PNG и 4 GIF на каждом размере
+(2 прогрева, 7 замеров) измерено: при 3000 strokes reducer p50
+**206,2 ms**, input/post validation **109,0/95,9 ms**, history **0,008 ms**;
+при 5000 strokes reducer p50 **384,1 ms**, input/post validation
+**193,4/188,0 ms**, history **0,008 ms**. Две реальные проверки занимали
+**>99,9%** времени reducer на 3000/5000 strokes. Unit/performance-тест
+подтверждает неизменность отказов по повреждённому документу и
+некорректному viewport; production-код на C3.9-C не меняется.
+
+Решение C3.9-D: сохранить полную проверку входного документа и metadata,
+исследовать локальный безопасный `core.viewport.set` fast path с
+инкрементальной проверкой исключительно `viewport`/`updatedAt` после
+успешной полной проверки входа. Закрепить результаты дифференциальными
+тестами на повреждённых документах, историей undo/redo, полным CI и
+контролируемыми Chromium A/B/A замерами. Дальнейшее устранение полной
+первой валидации потребует явных гарантий иммутабельности, без кэша по
+непроверяемой identity.
+
 ### C3.9-B: покадровая корреляция wheel/React/Konva/Chromium — 10.10.2026
 
 Основание: [#201](https://github.com/ArtemLevin/tutorboard/issues/201);
