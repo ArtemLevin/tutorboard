@@ -81,9 +81,19 @@ function validateReport(report, expectedScenario) {
       "Invalid " + name,
     );
   }
+  const commit = report.phases?.commit;
   assert(
-    report.phases?.commit?.count >= 0 && report.phases?.settling?.count > 0,
+    Number.isInteger(commit?.count) && commit.count > 0 &&
+      report.phases?.settling?.count > 0,
     "Missing commit/settling phase",
+  );
+  for (const name of ["p95Ms", "maxMs"]) {
+    numeric(commit[name], "commit " + name);
+  }
+  assert(
+    Number.isInteger(commit.over100) && commit.over100 >= 0 &&
+      commit.over100 <= commit.count,
+    "Invalid commit over100",
   );
   return active;
 }
@@ -102,6 +112,9 @@ export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
   const deltas = [];
   const baseline = [];
   const candidate = [];
+  const baselineCommit = [];
+  const candidateCommit = [];
+  const sourceShaByRole = new Map();
   const reference = runs[0]?.report;
   for (let index = 0; index < runs.length; index += 4) {
     const cycle = runs.slice(index, index + 4);
@@ -118,6 +131,12 @@ export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
           run.report.baselineSha === run.sha,
           "Report SHA differs from checked-out source",
         );
+        const previousSha = sourceShaByRole.get(run.role);
+        assert(
+          previousSha === undefined || previousSha === run.sha,
+          "Different source SHA for the same role across runs",
+        );
+        sourceShaByRole.set(run.role, run.sha);
       }
       assert(
         JSON.stringify(run.report.scenario) ===
@@ -141,6 +160,9 @@ export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
       (run.role === "baseline" ? baseline : candidate).push(
         run.report.phases.active,
       );
+      (run.role === "baseline" ? baselineCommit : candidateCommit).push(
+        run.report.phases.commit,
+      );
     }
     for (const [a, b] of [
       [cycle[0], cycle[1]],
@@ -151,6 +173,8 @@ export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
       deltas.push({
         activeP95Ms: right.p95Ms - left.p95Ms,
         maxGapMs: right.maxMs - left.maxMs,
+        commitP95Ms: b.report.phases.commit.p95Ms - a.report.phases.commit.p95Ms,
+        commitMaxMs: b.report.phases.commit.maxMs - a.report.phases.commit.maxMs,
         over50Rate: right.over50 / right.count - left.over50 / left.count,
         over100Rate: right.over100 / right.count - left.over100 / left.count,
       });
@@ -167,8 +191,14 @@ export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
     over50Rate: total(items, "over50") / total(items, "count"),
     over100Rate: total(items, "over100") / total(items, "count"),
   });
-  const a = summary(baseline);
-  const b = summary(candidate);
+  const commitSummary = (items) => ({
+    frames: total(items, "count"),
+    medianRunP95Ms: median(items.map((item) => item.p95Ms)),
+    medianRunMaxMs: median(items.map((item) => item.maxMs)),
+    over100: total(items, "over100"),
+  });
+  const a = { ...summary(baseline), commit: commitSummary(baselineCommit) };
+  const b = { ...summary(candidate), commit: commitSummary(candidateCommit) };
   return {
     schemaVersion: 1,
     kind: "c39-e1-abba-diagnostic",
@@ -185,6 +215,8 @@ export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
     pairedMedianDelta: {
       activeP95Ms: median(deltas.map((delta) => delta.activeP95Ms)),
       maxGapMs: median(deltas.map((delta) => delta.maxGapMs)),
+      commitP95Ms: median(deltas.map((delta) => delta.commitP95Ms)),
+      commitMaxMs: median(deltas.map((delta) => delta.commitMaxMs)),
       over50Rate: median(deltas.map((delta) => delta.over50Rate)),
       over100Rate: median(deltas.map((delta) => delta.over100Rate)),
     },
