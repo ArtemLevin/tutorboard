@@ -15,6 +15,7 @@ function report([name, strokes, visibleStrokes], p95 = 35) {
     schemaVersion: 1,
     baselineSha: "a".repeat(40),
     experiment: "C3.9-STATIC",
+    loadMode: "indexeddb-revision-restore",
     browser: "149.0",
     platform: "linux",
     arch: "x64",
