@@ -335,6 +335,37 @@ visibility bounds и неизменных React ink subtrees. Зафиксиро
 обновлённого `main`, только с собственным diff относительно C3.7.
 Формат BoardDocument, sync API, persistence и настройки доступа не меняются.
 
+### C3.9-A: репрезентативный нагрузочный baseline — 10.10.2026
+
+Задача [#201](https://github.com/ArtemLevin/tutorboard/issues/201).
+После C3.5–C3.8 в подтверждённом post-merge CI `38028358575` у
+3000 pen + 6 PNG + 4 GIF измерены zoom p95 **33.4 ms**,
+max **166.7 ms**, Long Task **175 ms**. Предыдущая A–B–A
+последовательность max **100.0→166.7→83.2 ms** не подтверждает
+устойчивого устранения хвоста задержек. Причинная атрибуция ещё открыта.
+
+Для первого независимого PR C3.9-A расширены исключительно тестовые
+fixtures: разнообразная геометрия штрихов, плотность видимых объектов,
+настоящий 4-frame GIF, чередование paint-runs и отдельные интервалы
+active wheel / commit observation / settling. Краткий набор проверяется
+CI, расширенный вызывается `npm run e2e:c39-profile`.
+Подробное описание: [C39 baseline](docs/C39_REPRESENTATIVE_BASELINE_2026-10-10.md).
+Следующий блок C3.9-B — корреляция **каждого** длинного кадра с
+timestamped React, Konva и compositor событиями. Ограничение: время
+commit в C3.9-A измеряется по наблюдению UI, точная метка войдёт в B.
+Изменений production drawing и persisted data здесь нет.
+
+[PR #204](https://github.com/ArtemLevin/tutorboard/pull/204):
+полная матрица **7/7** пройдена в
+[Actions #38031741442](https://github.com/ArtemLevin/tutorboard/actions/runs/38031741442).
+Новые representative scenarios показывают в одном прогоне:
+для 3000 strokes + GIF, cold cache, DPR2 активный zoom p95 **150 ms**,
+max **166.7 ms**; для 5000 strokes + GIF, cold DPR2 p95 **250 ms**,
+max **283.3 ms**. На 3000 warm dense после окончания ввода
+зафиксирован commit-observed gap **216.7 ms**. Числа получены на
+одном общем CI runner, требуют повторов и точной атрибуции C3.9-B.
+
+
 ### C3.8: устранение лишних GIF invalidation при wheel zoom — 09.10.2026
 
 [PR #200](https://github.com/ArtemLevin/tutorboard/pull/200)
