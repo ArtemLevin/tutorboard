@@ -19,11 +19,20 @@ function report([name, strokes, visibleStrokes], p95 = 35) {
     platform: "linux",
     arch: "x64",
     scenario: {
-      name, strokes, visibleStrokes, dpr: 2, gifs: 0, cold: true,
+      name,
+      strokes,
+      visibleStrokes,
+      dpr: 2,
+      gifs: 0,
+      cold: true,
     },
     content: {
-      objects: strokes + 10, pngCount: 4, jpegCount: 6,
-      realGifFrames: 0, pngWidthPx: 1536, pngHeightPx: 1536,
+      objects: strokes + 10,
+      pngCount: 4,
+      jpegCount: 6,
+      realGifFrames: 0,
+      pngWidthPx: 1536,
+      pngHeightPx: 1536,
     },
     before: { layers: 1, animatedLayers: 0 },
     after: { layers: 1, animatedLayers: 0 },
@@ -49,20 +58,34 @@ describe("C3.9 static-heavy baseline parser", () => {
     expect(parseStaticHeavyLog(stdout).size).toBe(4);
     const summary = summarizeStaticHeavy([matrix(), matrix(), matrix()]);
     expect(summary.variants["static-10000-10-images"].activeFrames).toBe(210);
-    expect(summary.variants["static-10000-10-images"].enoughActiveFrames).toBe(true);
-    expect(summary.variants["static-3000-10-images"].medianActiveP95Ms).toBe(35);
+    expect(summary.variants["static-10000-10-images"].enoughActiveFrames).toBe(
+      true,
+    );
+    expect(summary.variants["static-3000-10-images"].medianActiveP95Ms).toBe(
+      35,
+    );
   });
   it("rejects an absent or duplicated result", () => {
-    const rows = [...matrix().values()].map((x) => "C39_REPRESENTATIVE_BASELINE " + JSON.stringify(x));
-    expect(() => parseStaticHeavyLog(rows.slice(1).join("\n"))).toThrow(/Incomplete/);
-    expect(() => parseStaticHeavyLog([...rows, rows[0]].join("\n"))).toThrow(/Duplicate/);
+    const rows = [...matrix().values()].map(
+      (x) => "C39_REPRESENTATIVE_BASELINE " + JSON.stringify(x),
+    );
+    expect(() => parseStaticHeavyLog(rows.slice(1).join("\n"))).toThrow(
+      /Incomplete/,
+    );
+    expect(() => parseStaticHeavyLog([...rows, rows[0]].join("\n"))).toThrow(
+      /Duplicate/,
+    );
   });
   it("rejects changed JPEG counts or source revisions", () => {
     const a = matrix();
     a.get("static-10000-10-images").content.jpegCount = 5;
-    expect(() => summarizeStaticHeavy([a, matrix(), matrix()])).toThrow(/image codec/);
+    expect(() => summarizeStaticHeavy([a, matrix(), matrix()])).toThrow(
+      /image codec/,
+    );
     const b = matrix();
     b.get("static-5000-10-images").baselineSha = "b".repeat(40);
-    expect(() => summarizeStaticHeavy([matrix(), b, matrix()])).toThrow(/Source SHA/);
+    expect(() => summarizeStaticHeavy([matrix(), b, matrix()])).toThrow(
+      /Source SHA/,
+    );
   });
 });
