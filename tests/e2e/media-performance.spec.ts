@@ -45,6 +45,7 @@ declare global {
     __tutorBoardC37Trace?: {
       events: BrowserC37TraceEvent[];
       disableWheelGifPause?: boolean;
+      forceColdWheelInkCache?: boolean;
     };
   }
 }

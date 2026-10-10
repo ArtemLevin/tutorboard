@@ -31,6 +31,8 @@ declare global {
     __tutorBoardC37Trace?: {
       events: BoardFrameTraceEvent[];
       disableWheelGifPause?: boolean;
+      /** Browser-only causal experiment: synchronous bounded ink cache on first wheel. */
+      forceColdWheelInkCache?: boolean;
     };
   }
 }
