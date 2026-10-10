@@ -355,6 +355,17 @@ timestamped React, Konva и compositor событиями. Ограничени�
 commit в C3.9-A измеряется по наблюдению UI, точная метка войдёт в B.
 Изменений production drawing и persisted data здесь нет.
 
+[PR #204](https://github.com/ArtemLevin/tutorboard/pull/204):
+полная матрица **7/7** пройдена в
+[Actions #38031741442](https://github.com/ArtemLevin/tutorboard/actions/runs/38031741442).
+Новые representative scenarios показывают в одном прогоне:
+для 3000 strokes + GIF, cold cache, DPR2 активный zoom p95 **150 ms**,
+max **166.7 ms**; для 5000 strokes + GIF, cold DPR2 p95 **250 ms**,
+max **283.3 ms**. На 3000 warm dense после окончания ввода
+зафиксирован commit-observed gap **216.7 ms**. Числа получены на
+одном общем CI runner, требуют повторов и точной атрибуции C3.9-B.
+
+
 ### C3.8: устранение лишних GIF invalidation при wheel zoom — 09.10.2026
 
 [PR #200](https://github.com/ArtemLevin/tutorboard/pull/200)

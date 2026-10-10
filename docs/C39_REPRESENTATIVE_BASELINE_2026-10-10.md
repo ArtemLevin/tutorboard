@@ -78,6 +78,37 @@ events, including pid/tid, to individual slow windows. Changes in this block
 are confined to tests/fixtures/docs and an npm script; production drawing,
 permissions, schemas and network protocols remain untouched.
 
-**Status:** implementation authored; reproducibility and baseline metrics must
-be populated from CI against the exact PR head. Do not infer a numerical speedup
-from these instrumentation changes.
+## First measured representative matrix (one Chromium CI run)
+
+Full [C3.9 browser workflow 38031741442](https://github.com/ArtemLevin/tutorboard/actions/runs/38031741442),
+on [PR #204](https://github.com/ArtemLevin/tutorboard/pull/204) head
+`e57e2fb071224b08b2aa106727ceb25d76e7ec32`
+(GitHub Actions test merge SHA `f86ce1829f7fcc1a45a16b7424146102e93a447b`).
+**7/7 serial Chromium tests passed** (56 s). The artifact includes full timestamps,
+individual frame gaps and phase labels.
+
+| Scenario | Active p95 / max ms | Commit-observed p95 / max ms | Settling p95 / max ms | Visible paint layers at start |
+| --- | ---: | ---: | ---: | ---: |
+| 300-static | 16.7 / 16.8 | 16.8 / 16.8 | 16.8 / 16.8 | 1 |
+| 1000-multiframe | 16.8 / 16.8 | 100.0 / 100.0 | 16.7 / 16.7 | 3 |
+| 3000-cold-mixed | **150.0 / 166.7** | 133.3 / 133.3 | 66.8 / 83.3 | 1 (alternation fallback) |
+| 600-static | 16.7 / 33.4 | 66.7 / 66.7 | 33.4 / 33.4 | 1 |
+| 3000-warm-dense | 16.7 / 16.8 | **216.7 / 216.7** | 16.8 / 166.6 | 5 |
+| 3000-offscreen | 33.4 / 33.4 | 133.3 / 133.3 | 33.4 / 33.4 | 2 |
+| 5000-heavy-mixed | **250.0 / 283.3** | 166.7 / 166.7 | 133.3 / 133.4 | 1 (alternation fallback) |
+
+This run proves the *test harness can reproduce* long frame intervals in
+realistic mixed-media scenes. It does **not** establish whether the single-layer
+fallback itself causes the delay, nor a statistically stable baseline across
+independent runners. Some wheel event processing can exceed the existing 120 ms
+debounce; the observable wheel-pause flag can already be false after all inputs.
+The recorder no longer assumes all 18 inputs form one uninterrupted gesture.
+Classify the commit window as **observed**, not precise, until C3.9-B correlates
+it to renderer events. Earlier C3.8 fixtures were less representative and their
+numerical latency cannot be directly compared to the new workload.
+
+**Status:** representative C3.9-A seven-scenario browser matrix passed;
+broader CI on the same PR head and post-documentation head is part of the
+merge gate. This change creates measurements and tests only; there is
+no established production-frame improvement from C3.9-A.
+
