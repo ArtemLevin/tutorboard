@@ -187,21 +187,23 @@ describe("C3.9-C controlled viewport command cost", () => {
 
   it("rejects unknown viewport or offset fields required by the strict document schema", () => {
     const document = validatedDenseDocument(6);
-    const extraViewportField = reduceBoardDocument(document, {
+    const withUnknownViewportField = {
       ...viewportCommand(7),
       viewport: {
         offset: { x: 0, y: 0 },
         zoom: 1.1,
         injected: "unexpected",
       },
-    });
-    const extraOffsetField = reduceBoardDocument(document, {
+    };
+    const withUnknownOffsetField = {
       ...viewportCommand(8),
       viewport: {
         offset: { x: 0, y: 0, injected: "unexpected" },
         zoom: 1.1,
       },
-    });
+    };
+    const extraViewportField = reduceBoardDocument(document, withUnknownViewportField);
+    const extraOffsetField = reduceBoardDocument(document, withUnknownOffsetField);
     for (const result of [extraViewportField, extraOffsetField]) {
       expect(result.ok).toBe(false);
       if (!result.ok) {
