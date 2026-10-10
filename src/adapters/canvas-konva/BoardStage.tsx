@@ -2182,7 +2182,8 @@ export function BoardStage({
         // input thread. Preserve the uncached pen renderer for this gesture
         // when idle preparation has not completed.
         wheelInkCache.begin(window.devicePixelRatio, {
-          buildIfUnprepared: false,
+          buildIfUnprepared:
+            window.__tutorBoardC37Trace?.forceColdWheelInkCache === true,
         });
         // Avoid an independent full-speed GIF invalidation stream while the
         // temporary wheel cache is composited through viewport transforms.
