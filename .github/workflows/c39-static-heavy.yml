@@ -13,6 +13,7 @@ on:
       - tests/fixtures/dense-board.ts
       - scripts/c39/summarize-static-heavy.mjs
       - tests/node/c39-static-heavy-summary.test.mjs
+      - tests/unit/adapters/canvas-konva/c39-frame-phases.test.ts
   workflow_dispatch:
 
 permissions:

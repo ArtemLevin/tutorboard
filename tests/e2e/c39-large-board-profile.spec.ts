@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 
@@ -6,6 +7,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 import {
   correlateC39SlowFrames,
+  partitionC39PersistFrames,
   startC39ChromiumTrace,
 } from "./c39-frame-attribution.js";
 
@@ -35,6 +37,8 @@ interface BrowserCapture {
   stop(): {
     readonly timestamps: readonly number[];
     readonly wheelTimes: readonly number[];
+    readonly droppedFrames: number;
+    readonly droppedWheelInputs: number;
   };
 }
 type CapturingWindow = Window & { __c39Capture?: BrowserCapture };
@@ -474,14 +478,18 @@ async function beginFrameCapture(page: Page): Promise<void> {
     const timestamps: number[] = [];
     const wheelTimes: number[] = [];
     let active = true;
+    let droppedFrames = 0;
+    let droppedWheelInputs = 0;
     const onWheel = () => {
       if (wheelTimes.length < 100) wheelTimes.push(performance.now());
+      else droppedWheelInputs += 1;
     };
     window.addEventListener("wheel", onWheel, { capture: true, passive: true });
     let frameId = 0;
     const onFrame = (timestampMs: number) => {
       if (!active) return;
       if (timestamps.length < 300) timestamps.push(timestampMs);
+      else droppedFrames += 1;
       frameId = requestAnimationFrame(onFrame);
     };
     frameId = requestAnimationFrame(onFrame);
@@ -490,7 +498,7 @@ async function beginFrameCapture(page: Page): Promise<void> {
         active = false;
         cancelAnimationFrame(frameId);
         window.removeEventListener("wheel", onWheel, true);
-        return { timestamps, wheelTimes };
+        return { timestamps, wheelTimes, droppedFrames, droppedWheelInputs };
       },
     };
   });
@@ -641,6 +649,9 @@ for (const scenario of [
                 animatedGifSize: { width: 64, height: 64 },
               }),
         });
+        const fixtureSha256 = createHash("sha256")
+          .update(JSON.stringify(board))
+          .digest("hex");
         const importStart = performance.now();
         if (scenario.staticHeavy) {
           await restoreLargeBoardFromLocalStore(page, board);
@@ -742,6 +753,11 @@ for (const scenario of [
           jsTrace,
           chromiumTrace,
         );
+        const persistFrames = partitionC39PersistFrames(
+          phases.gaps,
+          captured.wheelTimes,
+          jsTrace,
+        );
         if (traceEnabled) {
           const kinds = new Set<string>(jsTrace.map((event) => event.kind));
           for (const expected of [
@@ -770,6 +786,13 @@ for (const scenario of [
         const report = {
           schemaVersion: 1,
           baselineSha: process.env.GITHUB_SHA ?? "local",
+          fixtureSha256,
+          captureDropped: {
+            frames: captured.droppedFrames,
+            wheelInputs: captured.droppedWheelInputs,
+            js: await page.evaluate(() => window.__tutorBoardC37Trace?.droppedEvents ?? 0),
+            chromium: chromiumTrace?.droppedEvents ?? 0,
+          },
           experiment: scenario.staticHeavy
             ? "C3.9-STATIC"
             : scenario.e2
@@ -808,6 +831,12 @@ for (const scenario of [
           },
           wheelPauseStillActiveAfterInputs,
           ...phases,
+          c39PersistPhases: {
+            intermediatePersistCount: persistFrames.intermediatePersistCount,
+            finalPersistCount: persistFrames.finalPersistCount,
+            activeWithoutPersist: summarize(persistFrames.activeWithoutPersist),
+            activeWithPersist: summarize(persistFrames.activeWithPersist),
+          },
           c39Attribution: {
             ...attribution,
             jsEventCount: jsTrace.length,
@@ -846,6 +875,18 @@ for (const scenario of [
                 ),
               }),
           );
+        }
+        if (traceEnabled) {
+          await testInfo.attach("c39-raw-" + scenario.name + ".json", {
+            body: Buffer.from(JSON.stringify({
+              fixtureSha256,
+              browser: browser.version(),
+              captured,
+              jsTrace,
+              chromiumTrace,
+            })),
+            contentType: "application/json",
+          });
         }
         await testInfo.attach("c39-baseline-" + scenario.name + ".json", {
           body: Buffer.from(JSON.stringify(report, null, 2)),
