@@ -335,6 +335,22 @@ visibility bounds и неизменных React ink subtrees. Зафиксиро
 обновлённого `main`, только с собственным diff относительно C3.7.
 Формат BoardDocument, sync API, persistence и настройки доступа не меняются.
 
+### C3.9-B: покадровая корреляция wheel/React/Konva/Chromium — 10.10.2026
+
+Основание: [#201](https://github.com/ArtemLevin/tutorboard/issues/201);
+предыдущий C3.9-A merged в `main` как `f8602825`.
+Следующий отдельный PR добавляет opt-in трассировку номера wheel-сессии,
+input → viewport-layout, синхронного commit и отмены, связывает медленные
+rAF intervals с JS-операциями и timestamped CDP compositor events при
+валидной синхронизации browser↔Chrome clocks (два маркера/контроль drift).
+При отсутствии маркеров GPU свидетельства помечаются `unavailable`,
+диагностика не выдает отсутствие событий за нулевую стоимость.
+Набор регрессионных unit-тестов проверяет выравнивание часов,
+overlap/частичные данные и пять самых длинных окон.
+Подробности: [C3.9-B trace](docs/C39_FRAME_ATTRIBUTION_2026-10-10.md).
+Изменений persisted schema, сетевых протоколов и формата совместной
+доски нет. Оптимизация скорости остается задачей C3.9-C–E.
+
 ### C3.9-A: репрезентативный нагрузочный baseline — 10.10.2026
 
 Задача [#201](https://github.com/ArtemLevin/tutorboard/issues/201).

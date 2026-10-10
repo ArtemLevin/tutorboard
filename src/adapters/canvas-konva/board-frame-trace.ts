@@ -13,7 +13,14 @@ export interface BoardFrameTraceEvent {
     | "react-other-run"
     | "konva-scene"
     | "konva-hit"
-    | "gif-invalidate";
+    | "gif-invalidate"
+    | "wheel-input"
+    | "wheel-commit"
+    | "wheel-cancel"
+    | "wheel-layout"
+    | "wheel-cache-end"
+    | "wheel-animation-resume"
+    | "wheel-viewport-persist";
   readonly startMs: number;
   readonly durationMs: number;
   readonly detail?: string;
