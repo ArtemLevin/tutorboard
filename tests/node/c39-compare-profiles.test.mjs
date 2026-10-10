@@ -55,10 +55,13 @@ function cycle() {
 
 describe("C3.9-E1 paired browser report integrity", () => {
   it("extracts exactly one representative report", () => {
-    const input = "prefix C39_REPRESENTATIVE_BASELINE " +
+    const input =
+      "prefix C39_REPRESENTATIVE_BASELINE " +
       JSON.stringify(report(100)) +
       "\nother log\n";
-    expect(parseProfileLog(input, "3000-cold-mixed").phases.active.p95Ms).toBe(100);
+    expect(parseProfileLog(input, "3000-cold-mixed").phases.active.p95Ms).toBe(
+      100,
+    );
     expect(() => parseProfileLog(input + input, "3000-cold-mixed")).toThrow(
       /exactly one/,
     );
@@ -68,7 +71,10 @@ describe("C3.9-E1 paired browser report integrity", () => {
   });
 
   it("computes paired ABBA deltas without equating CPU reduction with FPS", () => {
-    const result = comparePairedRuns(Array.from({ length: 5 }, cycle).flat(), "3000-cold-mixed");
+    const result = comparePairedRuns(
+      Array.from({ length: 5 }, cycle).flat(),
+      "3000-cold-mixed",
+    );
     expect(result.pairs).toBe(10);
     expect(result.enoughPairs).toBe(true);
     expect(result.enoughActiveFramesPerArm).toBe(false);
@@ -84,7 +90,10 @@ describe("C3.9-E1 paired browser report integrity", () => {
       /ABBA/,
     );
     expect(() =>
-      comparePairedRuns([runs[1], runs[0], runs[2], runs[3]], "3000-cold-mixed"),
+      comparePairedRuns(
+        [runs[1], runs[0], runs[2], runs[3]],
+        "3000-cold-mixed",
+      ),
     ).toThrow(/ABBA/);
     const broken = structuredClone(runs);
     broken[1].report.phases.active.count = 0;
@@ -93,8 +102,8 @@ describe("C3.9-E1 paired browser report integrity", () => {
     );
     const mismatched = structuredClone(runs);
     mismatched[2].report.content.realGifFrames = 1;
-    expect(() =>
-      comparePairedRuns(mismatched, "3000-cold-mixed"),
-    ).toThrow(/media differ/);
+    expect(() => comparePairedRuns(mismatched, "3000-cold-mixed")).toThrow(
+      /media differ/,
+    );
   });
 });
