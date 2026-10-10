@@ -32,7 +32,10 @@ a command.
 each run, it rejects incomplete/duplicate reports and enforces the same
 scenario, fixture media, browser version, OS/architecture and reported
 commit SHA. It computes chronological paired deltas for active-wheel p95,
-maximum frame gap, and >50/>100 ms frame rates, alongside raw observations.
+maximum frame gap, **wheel-commit phase p95/max** (critical to validating the
+viewport-persist optimization), and >50/>100 ms active-frame rates,
+alongside raw observations. Each role must use one immutable source SHA
+throughout all cycles.
 The comparison produces a retained JSON artifact and logs for all runs.
 
 A minimum of five pairs is required. The report explicitly states whether
