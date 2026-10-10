@@ -80,6 +80,8 @@ The same focused test proves:
 - invalid *current* documents with duplicate object IDs in `order`
   still return `command.invalid-current-document`, preserving input;
 - invalid viewport zoom (`-1`) still returns `command.invalid`;
+- unknown extra keys in a viewport or its offset preserve the strict Zod
+  rejection (`command.invalid-result`), with the original document unchanged;
 - successful viewport commands structurally share existing `objects`
   and `order` references and use history at its configured 100-entry limit.
 
@@ -99,7 +101,8 @@ Recommended one-change experiment for C3.9-D:
    command behavior even for untrusted or externally mutated documents.
 2. For `core.viewport.set` only, investigate a **specialized acceptance**
    path after validated input, using validated finite offsets / positive
-   zoom, monotonic `updatedAt`, and the proven invariant that every other
+   zoom, exact strict object shapes (no extra keys), monotonic `updatedAt`,
+   and the proven invariant that every other
    field is referenced unchanged. Preserve every existing error result.
    Compare full `validateBoardDocument` equivalence for generated
    valid/invalid viewports and documents before removing the second pass.
