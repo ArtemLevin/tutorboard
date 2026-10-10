@@ -281,3 +281,125 @@ measurement.
 - Multi-hour collaboration, reconnect, mixed moving GIF frames and
   device-specific alpha/color-management parity require independent
   longer-duration verification.
+
+
+## C3.6 — Nonblocking wheel input when idle prewarm is unavailable
+
+Stacked candidate: draft [PR #198](https://github.com/ArtemLevin/tutorboard/pull/198),
+based on C3.5 draft PR #197. Measured source SHA
+`4fc9d4d480365d3f6784d05630387e3d50cc67da`.
+[GitHub Actions run 37975430796](https://github.com/ArtemLevin/tutorboard/actions/runs/37975430796):
+quality gate (1096 unit/integration, 25 performance), Chromium and Firefox
+smoke, GeometryOS, coordinate plot, Board-only and media performance
+(16/16) passed. Additional companion gates on earlier C3.6 SHA passed.
+
+The C3.5 browser profile had shown a 43.8 ms synchronous cache build
+inside the first wheel event after prewarm starvation in the 3000-stroke
+scenario. C3.6 keeps the real pen vector renderer active on the cold path
+and skips any synchronous cache build in the wheel input handler.
+Idle-prepared scene and hit caches remain active where available.
+The heavy 3000-stroke e2e now **forces no requestIdleCallback progress**
+to make the cold path deterministic and enforces begin duration <25 ms.
+
+| 3000 strokes + 6 PNG + 4 GIF | C3.5 baseline CI 37970012084 | C3.6 candidate CI 37975430796 |
+| --- | ---: | ---: |
+| Cold cache available before wheel | no | no, forced |
+| Wheel handler begin | 43.8 ms | **0.1 ms** |
+| Wheel rAF p95 | 50.0 ms | **33.4 ms** |
+| Maximum wheel rAF interval | 133.4 ms | **100.0 ms** |
+| Wheel frames >25 ms (48 samples) | 15 | 17 |
+
+Other candidate scenarios:
+300 static zoom p95 16.8 ms / max 33.4 ms;
+300 with four GIF zoom p95 33.4 ms / max 33.4 ms;
+600 static zoom p95 33.4 ms / max 66.6 ms;
+600 with four GIF zoom p95 33.4 ms / max 33.4 ms;
+1000 with four GIF (cold) zoom p95 33.4 ms / max 50.0 ms.
+Single hosted-run measurements vary with concurrent runner load.
+
+DPR2 pixel comparison of prepared vs cold uncached path passed:
+significant channel fraction `0.009928390538945711` (<0.01);
+mean absolute channel error `0.17597253638867033` (<1).
+48 high-DPI wheel cycles under prewarm starvation: zero cache builds,
+zero observed retained cache pixels; final board-clear cleanup passed.
+
+**Release conclusion:** Removing the synchronous cold cache build is verified
+and appears to improve worst-case zoom in this sample. However 100 ms frame
+gaps remain, and zoom p95 around 33 ms is still below 60fps-equivalent
+cadence. Repeat the browser performance comparison before considering merge.
+Further investigation should split animation work, React commit work,
+Konva layer redraw and browser composition in a 3000-pen cold-zoom trace.
+Do not claim complete resolution of heavy-scene jank.
+
+
+## C3.7 — split timing of React, Konva and Chromium composition
+
+Stacked draft [PR #199](https://github.com/ArtemLevin/tutorboard/pull/199)
+on C3.6. Opt-in tracing runs only when the Playwright browser fixture
+installs `window.__tutorBoardC37Trace`; the production application does
+not retain frame-event buffers. The Layer draw wrappers are restored on
+effect cleanup. GIF invalidation timing measures `batchDraw` *request*
+cost rather than pixel paint; the Konva scene/hit wrappers measure the
+synchronous JavaScript drawing operations. React `board-commit` covers
+viewport update dispatch through layout effect (including scheduling
+and react-konva reconciliation), and is **not** React-exclusive CPU time.
+
+### Isolated application-side measurements
+
+[Quality and browser CI 37979094962](https://github.com/ArtemLevin/tutorboard/actions/runs/37979094962):
+1096/1096 unit/integration, 25/25 performance, build, Chromium/Firefox smoke,
+GeometryOS and Coordinate Plot passed. The initial media-performance
+job found an overly strict e2e assertion that expected no React ink run
+updates despite the visible-item set changing during wheel zoom; this
+was corrected, while the stable-membership unit/performance guard remains.
+
+In 500-stroke, stable-membership React profiling, seven zoom updates
+produced **0 additional React Group renders**, median update 0.369 ms
+as recorded by `DENSE_SCENE_CPU_PROFILE`.
+
+For 3000 strokes, six PNGs and four GIFs with intentionally starved
+`requestIdleCallback`:
+
+| Metric | First trace | Chromium CDP trace |
+| --- | ---: | ---: |
+| Zoom p95 rAF interval | 50.1 ms | 33.4 ms |
+| Max zoom rAF interval | 99.9 ms | 116.7 ms |
+| Wheel begin | 0.1 ms | 0 ms |
+| React viewport dispatch→layout total/max (six commits) | 61.9 / 12.5 ms | 63.5 / 15 ms |
+| Konva scene draw total/max | 66.1 / 10.2 ms | 66.1 / 10.6 ms |
+| Konva hit draw total/max | 46.7 / 8.2 ms | 47.2 / 8.1 ms |
+| GIF redraw requests count/total | 38 / 0.6 ms | 47 / 1.3 ms |
+
+The second profile ran on
+[GitHub Actions 37980204017](https://github.com/ArtemLevin/tutorboard/actions/runs/37980204017),
+where **16/16 media performance cases passed** along with all other jobs.
+It includes these Chromium trace events (milliseconds):
+
+| Chromium event | Count | Total duration | Maximum |
+| --- | ---: | ---: | ---: |
+| `DirectRenderer::DrawFrame` | 37 | 756.47 | 25.77 |
+| `LayerTreeHost::DoUpdateLayers` | 37 | 203.08 | 14.24 |
+| `Surface::CommitFrame` | 38 | 9.78 | 0.65 |
+| `LayerTreeHostImpl::PrepareToDraw` | 37 | 3.44 | 0.16 |
+
+The browser observer also reported one 119 ms Long Task. These
+compositor traces identify a significant browser rendering/composition
+burden. They do not alone establish which overlapping trace event
+caused that Long Task or the maximum rAF interval; trace durations
+on different threads can overlap and should **never be summed to infer
+frame time**. A headless Linux runner is not a multi-device GPU
+confidence interval.
+
+### Decisions
+
+- Keep the narrow React stable-run optimization and the corrected
+  active-versus-prepared cache diagnostic guarded by tests.
+- Keep the PR in Draft: the current evidence does **not** demonstrate
+  reproducible removal of long rAF gaps. In particular, 100–117 ms
+  maxima persist despite eliminating cold-wheel cache builds.
+- Next performance candidate should target the number/cost of
+  full-viewport compositor/redraw updates during wheel gestures.
+  Evaluate an A/B experiment with production-like PNG+GIF+ink ordering,
+  preserve per-object z-order and hit testing, verify DPR2 pixels and
+  48-cycle bounded-memory cleanup, then repeat Chromium and Firefox
+  browser checks.

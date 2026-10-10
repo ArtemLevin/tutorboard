@@ -1,3 +1,5 @@
+import { recordBoardFrameTrace } from "./board-frame-trace";
+
 export interface AnimationFrameScheduler {
   readonly cancel: (frameId: number) => void;
   readonly request: (callback: FrameRequestCallback) => number;
@@ -119,7 +121,18 @@ export class AnimatedImageRedrawCoordinator {
           const layer = readLayer();
           if (layer !== null) layers.add(layer);
         }
-        for (const layer of layers) layer.batchDraw();
+        for (const layer of layers) {
+          const startMs = performance.now();
+          try {
+            layer.batchDraw();
+          } finally {
+            recordBoardFrameTrace(
+              "gif-invalidate",
+              startMs,
+              performance.now() - startMs,
+            );
+          }
+        }
         this.#lastDrawAtMs = timestampMs;
       }
       this.#schedule();

@@ -2,7 +2,7 @@
 
 > Статус документа: основной execution plan.
 >
-> Последнее обновление: 2026-10-09.
+> Последнее обновление: 2026-10-10.
 >
 > Документ синхронизирован с фактическим состоянием проекта после standalone
 > contracts, access convergence, controlled-pilot E2E, **Input Foundation +
@@ -316,6 +316,122 @@ zoom p95 = 33.4 ms, наибольшие интервалы 83.3 и 116.6 ms в 
 GPU/compositor attribution, многочасовой реальный soak и сравнение
 на разных устройствах. Подробнее:
 [`docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md`](docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md).
+
+### C3.5–C3.7: интеграционный release gate — 10.10.2026
+
+PR #199 переназначен непосредственно на `main` и объединяет C3.5
+(scene-snapshot visibility index), C3.6 (неблокирующий cold wheel fallback)
+и C3.7 (стабильные React ink runs + диагностический trace). Отдельные
+stacked PR #197/#198 после успешной интеграции закрываются как superseded.
+Это ограниченный performance increment: подтверждены устранение
+синхронной холодной растеризации в wheel handler, повторное использование
+visibility bounds и неизменных React ink subtrees. Зафиксированные
+100–117 ms rAF gaps в тяжёлой сцене остаются отдельной задачей C3.9.
+
+Интеграционный gate: полные CI/production checks для совокупного diff
+от `main`, Chromium/Firefox smoke, DPR2 pixel/hit parity,
+48-кратный wheel/cache lifecycle, performance evidence и review.
+При squash merge последующий C3.8 переносится на свежую ветку от
+обновлённого `main`, только с собственным diff относительно C3.7.
+Формат BoardDocument, sync API, persistence и настройки доступа не меняются.
+
+### C3.7: атрибуция длинных кадров React / Konva / compositor — 09.10.2026
+
+Интеграционный [PR #199](https://github.com/ArtemLevin/tutorboard/pull/199)
+на базе `main` включает также C3.5 (#197) и C3.6 (#198). Введена opt-in диагностика, записывающая
+React viewport update→layout commit, посещения неизменных ink-run
+компонентов, Konva scene/hit draw, GIF invalidation и Chromium CDP
+compositor/raster events. Источник `BoardStage` не включает
+профилирование без тестового флага. Исправлена семантика
+`activeCachedCount` относительно idle-prepared cache — Chromium
+smoke C3.6 ранее падал из-за смешения двух состояний.
+
+В детерминированном CPU-тесте 500 штрихов:
+`groupCallsDuringWheelUpdates=0`, median update 0.369 ms,
+`1096/1096` unit/integration и `25/25` performance на CI
+[37979094962](https://github.com/ArtemLevin/tutorboard/actions/runs/37979094962).
+Во время реального wheel visible-item culling меняет набор видимых
+штрихов: отрисовка затронутых React runs допустима.
+
+Первый browser trace `37979094962` (3000 stroke + 4 GIF, cold wheel):
+zoom p95 50.1 ms, max 99.9 ms; Konva scene max 10.2 ms
+(66.1 ms summed), hit max 8.2 ms (46.7 ms summed);
+React viewport commit max 12.5 ms (61.9 ms summed);
+GIF invalidation scheduling 38 calls, 0.6 ms summed.
+В повторном trace `37980204017`: zoom p95 33.4 ms,
+max 116.7 ms; DirectRenderer::DrawFrame 37 events,
+756.5 ms total/max 25.77 ms;
+LayerTreeHost::DoUpdateLayers 37 events,
+203.1 ms total/max 14.24 ms, Long Task 119 ms.
+Два CI-прогона показывают существенную вариативность кадров.
+GPU/compositor timestamps не являются аддитивными с JS-таймингами.
+Доказанного устойчивого устранения >100 ms gaps пока нет.
+
+**Release gate полной C3-оптимизации остаётся OPEN:** браузерная
+композиция и redraw продолжают создавать длинные кадры. C3.5–C3.7
+принимаются только как проверяемое локальное снижение CPU/input затрат
+(интеграционный gate выше). Отдельная C3.8-проверка GIF invalidations
+развивается в PR #200; долгие кадры, compositor attribution, повторный
+A/B/ABBA профиль, DPR2/hit parity, Firefox и resource soak отслеживаются
+в [C3.9 issue #201](https://github.com/ArtemLevin/tutorboard/issues/201).
+Стабильные 60 FPS пока не считаются достигнутыми.
+
+### C3.6: неблокирующий cold wheel fallback — 09.10.2026
+
+В stacked draft [PR #198](https://github.com/ArtemLevin/tutorboard/pull/198)
+`WheelInkCacheCoordinator.begin(..., {buildIfUnprepared:false})` используется
+в `BoardStage.handleWheel`. Кэшированные scene/hit canvas продолжают
+переиспользоваться при подготовленном DPR, а отсутствие idle-prewarm
+ведёт к прямой отрисовке исходных штрихов без синхронного
+`Konva.Group.cache()` в обработчике input. Старое поведение метода
+`begin()` без options сохранено. Отдельная метрика фиксирует cold skip.
+
+[Первый CI #37975430796](https://github.com/ArtemLevin/tutorboard/actions/runs/37975430796):
+1096/1096 unit/integration, 25/25 performance, 16/16 Chromium media profile,
+Chrome/Firefox smoke, GeometryOS, Coordinate plot, Board-only, all green.
+3000 strokes + 4 GIF, **forced requestIdleCallback starvation**:
+wheel begin `0.1 ms` vs `43.8 ms` в C3.5 baseline (runner dependent),
+zoom p95 `33.4 ms` vs `50 ms`, max rAF `100 ms` vs `133.4 ms`.
+Pixel parity при DPR2: significant channel fraction `0.00992839` (<0.01),
+mean channel error `0.17597` (<1). В 48 wheel-cycles без prewarm
+cacheBuilds=0, после clear no cached runs; память ограничена.
+
+**Открыто:** максимальная задержка 100 ms и p95 33.4 ms исключают
+утверждение о постоянных 60 FPS. Метрики отдельных GitHub-hosted прогонов
+чувствительны к планировщику; повторить измерение перед merge.
+Следующий C3.7 — профилирование полного Konva canvas redraw / GIF layer
+invalidations / React commit под холодным zoom и исключение >50 ms frames,
+с сохранением z-order, hit-testing, parity и bounded memory. PR #197/#198
+оставить в draft до подтверждения release gate.
+
+### C3.5: стабильная геометрия viewport-culling — 09.10.2026
+
+После объединения C3.3/C3.4 (`main`
+`c52a443667e4552fb879cd36b94eeffd77e1d7f7`) отдельный
+draft PR #197 `perf/c3-5-stable-viewport-culling` устраняет повторное
+вычисление world bounds неизменных объектов при каждом preview-wheel кадре.
+`createBoardVisibilityIndex(scene.items)` пересоздаётся только при смене
+snapshot сцены, выбирает точный набор видимых объектов, сохраняет порядок и
+переиспользует ссылку на список при совпадающей видимости. API
+`selectVisibleBoardItems` сохранён; данные и collaboration-контракты
+не меняются.
+
+Замер в Performance CI `37970012084`: 5000 объектов × 24 viewport
+updates, CPU selector 114.84 ms исходным способом против 4.17 ms индексом
+(≈27.6×). Unit/integration 1094/1094, performance 25/25, format/lint/typecheck,
+architecture, production build и Chromium/Firefox smoke успешны.
+Chromium media profile 16/16 прошёл с сохранением DPR2 pixel comparison,
+3000-stroke 48-wheel cleanup и memory pixel cap.
+
+**Release gate остаётся открытым.** При 3000 strokes + 4 GIF zoom p95
+50 ms и максимальный интервал 133.4 ms: prewarm отсутствовал,
+wheel begin выполнял 43.8 ms синхронного построения. C3.5 уменьшает
+подтверждённые CPU-затраты, но гарантированное устранение длинных
+кадров и 60 FPS не доказано. Следующий C3.6 узкий этап: измерить
+причины starvation/expiry idle-prewarm, сделать budgeted fallback
+без дорогостоящего синхронного raster cache в wheel handler,
+подтвердить parity/correctness и повторяемые 3000-stroke кадры
+на совпадающем окружении.
 
 ## 1. Продуктовая цель
 

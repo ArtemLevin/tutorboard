@@ -27,6 +27,25 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
   };
 };
 
+interface BrowserC37TraceEvent {
+  readonly kind:
+    | "board-commit"
+    | "react-ink-run"
+    | "react-other-run"
+    | "konva-scene"
+    | "konva-hit"
+    | "gif-invalidate";
+  readonly startMs: number;
+  readonly durationMs: number;
+  readonly detail?: string;
+}
+
+declare global {
+  interface Window {
+    __tutorBoardC37Trace?: { events: BrowserC37TraceEvent[] };
+  }
+}
+
 const databaseName = "tutorboard-local-v1";
 const timestamp = "2026-10-04T18:30:00.000Z";
 const pngDataUrl =
@@ -746,9 +765,91 @@ interface LargeBoardInteractionMeasurement {
     readonly wheelCacheWheelBeginMs: number;
     readonly wheelCacheOverlappingSlowFrames: number;
     readonly wheelCacheUsedPrewarm: boolean;
+    readonly wheelCacheSkippedColdBuild: boolean;
     readonly wheelCacheBuildPixels: number;
     readonly wheelCacheBuilds: number;
     readonly wheelCacheSkippedRuns: number;
+    readonly c37Trace?: Record<
+      string,
+      {
+        readonly count: number;
+        readonly totalMs: number;
+        readonly maxMs: number;
+        readonly over25Ms: number;
+      }
+    >;
+    readonly chromiumComposition?: Record<string, ChromiumTraceSummary>;
+  };
+}
+
+interface ChromiumTraceSummary {
+  readonly count: number;
+  readonly totalMs: number;
+  readonly maxMs: number;
+}
+
+/** Captures compositor/raster/paint events emitted by Chromium's CDP trace.
+ * Some GPU events may be unavailable on a headless CI runner. No absent
+ * category is treated as zero GPU cost.
+ */
+async function startChromiumCompositorTrace(page: Page) {
+  const session = await page.context().newCDPSession(page);
+  const results = new Map<string, ChromiumTraceSummary>();
+  const completed = new Promise<void>((resolve) => {
+    session.once("Tracing.tracingComplete", () => resolve());
+  });
+  session.on("Tracing.dataCollected", (payload: unknown) => {
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      !("value" in payload) ||
+      !Array.isArray(payload.value)
+    ) {
+      return;
+    }
+    const events: readonly unknown[] = payload.value;
+    for (const entry of events) {
+      if (
+        typeof entry !== "object" ||
+        entry === null ||
+        !("name" in entry) ||
+        typeof entry.name !== "string" ||
+        !("dur" in entry) ||
+        typeof entry.dur !== "number" ||
+        !("ph" in entry) ||
+        entry.ph !== "X" ||
+        !/(?:composit|raster|drawframe|paint|layertree|activate|commit)/iu.test(
+          entry.name,
+        )
+      ) {
+        continue;
+      }
+      const durationMs = entry.dur / 1_000;
+      const current = results.get(entry.name) ?? {
+        count: 0,
+        totalMs: 0,
+        maxMs: 0,
+      };
+      results.set(entry.name, {
+        count: current.count + 1,
+        totalMs: current.totalMs + durationMs,
+        maxMs: Math.max(current.maxMs, durationMs),
+      });
+    }
+  });
+  await session.send("Tracing.start", {
+    categories:
+      "devtools.timeline,disabled-by-default-devtools.timeline.frame,cc,viz,gpu,renderer.scheduler",
+    transferMode: "ReportEvents",
+  });
+  return async (): Promise<Record<string, ChromiumTraceSummary>> => {
+    try {
+      await session.send("Tracing.end");
+      await completed;
+      return Object.fromEntries(results);
+    } finally {
+      await session.detach();
+    }
   };
 }
 
@@ -837,6 +938,15 @@ async function profileLargeBoard(
     bounds.y + bounds.height / 2,
   );
   await resetProfile(page);
+  const endChromiumTrace =
+    scenario.strokeCount === 3000
+      ? await startChromiumCompositorTrace(page)
+      : null;
+  await page.evaluate(() => {
+    if (window.__tutorBoardC37Trace !== undefined) {
+      window.__tutorBoardC37Trace.events.length = 0;
+    }
+  });
   const wheelStart = performance.now();
   const [zoomFrames] = await Promise.all([
     measureFrames(page, largeBoardFrameCount),
@@ -847,7 +957,31 @@ async function profileLargeBoard(
     })(),
   ]);
   const wheelGestureWallMs = performance.now() - wheelStart;
+  const chromiumComposition =
+    endChromiumTrace === null ? undefined : await endChromiumTrace();
   const zoomCounters = await snapshot(page);
+  const c37Trace = await page.evaluate(() => {
+    const events: readonly BrowserC37TraceEvent[] =
+      window.__tutorBoardC37Trace?.events ?? [];
+    const summary: Record<
+      string,
+      { count: number; totalMs: number; maxMs: number; over25Ms: number }
+    > = {};
+    for (const event of events) {
+      const current = summary[event.kind] ?? {
+        count: 0,
+        totalMs: 0,
+        maxMs: 0,
+        over25Ms: 0,
+      };
+      current.count += 1;
+      current.totalMs += event.durationMs;
+      current.maxMs = Math.max(current.maxMs, event.durationMs);
+      if (event.durationMs > 25) current.over25Ms += 1;
+      summary[event.kind] = current;
+    }
+    return summary;
+  });
   const cacheStartMs = await integerStageMetric(
     page,
     "data-wheel-cache-last-wheel-start-ms",
@@ -894,6 +1028,10 @@ async function profileLargeBoard(
         (await stage.getAttribute(
           "data-wheel-cache-last-wheel-used-prepared",
         )) === "true",
+      wheelCacheSkippedColdBuild:
+        (await stage.getAttribute(
+          "data-wheel-cache-last-wheel-skipped-cold-build",
+        )) === "true",
       wheelCacheBuildPixels: await integerStageMetric(
         page,
         "data-wheel-cache-last-build-pixels",
@@ -906,6 +1044,8 @@ async function profileLargeBoard(
         page,
         "data-wheel-cache-last-skipped-runs",
       ),
+      ...(scenario.strokeCount === 3000 ? { c37Trace } : {}),
+      ...(chromiumComposition === undefined ? {} : { chromiumComposition }),
     },
   };
   console.info("LARGE_BOARD_INTERACTION_PROFILE", JSON.stringify(result));
@@ -923,6 +1063,9 @@ async function profileLargeBoard(
   expect(result.zoom.frames.frameCount).toBe(largeBoardFrameCount);
   expect(result.zoom.wheelCacheBuildMs).toBeGreaterThanOrEqual(0);
   expect(result.zoom.wheelCacheWheelBeginMs).toBeGreaterThanOrEqual(0);
+  expect(result.zoom.wheelCacheSkippedColdBuild).toBe(
+    !result.zoom.wheelCacheUsedPrewarm,
+  );
   expect(result.zoom.wheelCacheOverlappingSlowFrames).toBeLessThanOrEqual(
     result.zoom.frames.over25Ms,
   );
@@ -952,7 +1095,31 @@ for (const scenario of [
         testInfo.project.name !== "chromium",
         "Chromium owns the isolated diagnostic browser profile",
       );
+      // This extreme scene must remain responsive even when animated content
+      // starves requestIdleCallback: measure a guaranteed cold-wheel path.
+      if (scenario.strokeCount === 3000) {
+        await page.addInitScript(() => {
+          window.__tutorBoardC37Trace = { events: [] };
+          window.requestIdleCallback = () => 0;
+          window.cancelIdleCallback = () => {};
+        });
+      }
       const result = await profileLargeBoard(page, scenario);
+      if (scenario.strokeCount === 3000) {
+        expect(result.zoom.wheelCacheSkippedColdBuild).toBe(true);
+        expect(result.zoom.wheelCacheWheelBeginMs).toBeLessThan(25);
+        expect(result.zoom.c37Trace?.["konva-scene"]?.count).toBeGreaterThan(0);
+        expect(result.zoom.c37Trace?.["board-commit"]?.count).toBeGreaterThan(
+          0,
+        );
+        expect(result.zoom.c37Trace?.["gif-invalidate"]?.count).toBeGreaterThan(
+          0,
+        );
+        // Visibility culling can add/remove pen objects during wheel zoom,
+        // which legitimately rerenders affected ink runs. The deterministic
+        // same-membership test in dense-scene-rendering.test.ts verifies that
+        // stable pen groups remain untouched by zoom-only prop changes.
+      }
       await testInfo.attach("large-board-" + scenario.name + ".json", {
         body: Buffer.from(JSON.stringify(result, null, 2)),
         contentType: "application/json",
@@ -1046,6 +1213,10 @@ test("@media-profile DPR2 pixel parity", async ({ browser }, testInfo) => {
         await expect(stage).toHaveAttribute(
           "data-wheel-cache-last-wheel-used-prepared",
           String(prewarm),
+        );
+        await expect(stage).toHaveAttribute(
+          "data-wheel-cache-last-wheel-skipped-cold-build",
+          String(!prewarm),
         );
         await measureFrames(page, 24);
         expect(

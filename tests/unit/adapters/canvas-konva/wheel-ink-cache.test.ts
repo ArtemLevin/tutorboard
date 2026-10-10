@@ -94,6 +94,51 @@ describe("transient wheel ink cache", () => {
     expect(clearSpy).toHaveBeenCalledOnce();
   });
 
+  it("never rasterizes pen runs synchronously on an unprepared wheel gesture", () => {
+    const coordinator = new WheelInkCacheCoordinator();
+    const first = fixture(900, 600);
+    const second = fixture(400, 300);
+    coordinator.register(first.node);
+    coordinator.register(second.node);
+
+    coordinator.begin(2, { buildIfUnprepared: false });
+    expect(coordinator.lastWheelUsedPrepared).toBe(false);
+    expect(coordinator.lastWheelSkippedColdBuild).toBe(true);
+    expect(coordinator.cachedCount).toBe(0);
+    expect(first.cacheSpy).not.toHaveBeenCalled();
+    expect(second.cacheSpy).not.toHaveBeenCalled();
+    coordinator.begin(2, { buildIfUnprepared: false });
+    expect(first.cacheSpy).not.toHaveBeenCalled();
+    coordinator.end();
+    expect(first.clearSpy).not.toHaveBeenCalled();
+    expect(second.clearSpy).not.toHaveBeenCalled();
+
+    expect(coordinator.prepare(2)).toBe(true);
+    const buildCount = coordinator.buildCount;
+    coordinator.begin(2, { buildIfUnprepared: false });
+    expect(coordinator.lastWheelUsedPrepared).toBe(true);
+    expect(coordinator.lastWheelSkippedColdBuild).toBe(false);
+    expect(coordinator.buildCount).toBe(buildCount);
+    coordinator.end();
+    expect(first.clearSpy).toHaveBeenCalledOnce();
+    expect(second.clearSpy).toHaveBeenCalledOnce();
+    coordinator.dispose();
+  });
+
+  it("discards stale-DPR prepared caches without rebuilding in the wheel handler", () => {
+    const coordinator = new WheelInkCacheCoordinator();
+    const { node, cacheSpy, clearSpy } = fixture();
+    coordinator.register(node);
+    expect(coordinator.prepare(1)).toBe(true);
+    coordinator.begin(2, { buildIfUnprepared: false });
+    expect(coordinator.lastWheelUsedPrepared).toBe(false);
+    expect(coordinator.lastWheelSkippedColdBuild).toBe(true);
+    expect(cacheSpy).toHaveBeenCalledOnce();
+    expect(clearSpy).toHaveBeenCalledOnce();
+    expect(coordinator.cachedCount).toBe(0);
+    coordinator.end();
+  });
+
   it("reuses idle-prepared scene and hit canvases", () => {
     const coordinator = new WheelInkCacheCoordinator();
     const first = fixture(800, 400);
@@ -101,9 +146,12 @@ describe("transient wheel ink cache", () => {
     expect(coordinator.canPrepare).toBe(true);
     expect(coordinator.prepare(1.5)).toBe(true);
     expect(coordinator.isPrepared).toBe(true);
+    expect(coordinator.cachedCount).toBe(1);
+    expect(coordinator.activeCachedCount).toBe(0);
     expect(coordinator.canPrepare).toBe(false);
     const count = coordinator.buildCount;
     coordinator.begin(1.5);
+    expect(coordinator.activeCachedCount).toBe(1);
     expect(coordinator.lastWheelUsedPrepared).toBe(true);
     expect(coordinator.lastWheelBeginDurationMs).toBeGreaterThanOrEqual(0);
     expect(coordinator.buildCount).toBe(count);
@@ -111,6 +159,7 @@ describe("transient wheel ink cache", () => {
     expect(coordinator.isPrepared).toBe(false);
     coordinator.end();
     expect(first.clearSpy).toHaveBeenCalledOnce();
+    expect(coordinator.activeCachedCount).toBe(0);
     expect(coordinator.canPrepare).toBe(true);
   });
 

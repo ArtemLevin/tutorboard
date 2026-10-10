@@ -22,11 +22,11 @@ import {
 import {
   boardObjectId,
   batchBoardRenderItems,
+  createBoardVisibilityIndex,
   createLineEndpointRotationTransform,
   lineWorldEndpoints,
   panViewport,
   screenToWorld,
-  selectVisibleBoardItems,
   zoomViewportAt,
   type BoardObjectId,
   type BoardRenderItem,
@@ -40,6 +40,7 @@ import {
   buildSmoothClosedStrokePoints,
   flattenStrokePoints,
 } from "../../shared/stroke-smoothing";
+import { recordBoardFrameTrace } from "./board-frame-trace";
 import { AnimatedImageRedrawCoordinator } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
 import { BoardRenderItemView, BoardSceneContent } from "./board-scene-content";
@@ -72,6 +73,8 @@ import {
   minimumWheelCacheStrokes,
   WheelInkCacheCoordinator,
 } from "./wheel-ink-cache";
+
+const emptySelectedObjectIds: readonly BoardObjectId[] = [];
 
 const zoomBounds = { minimum: 0.1, maximum: 8 } as const;
 const zoomStep = 1.08;
@@ -458,7 +461,7 @@ export function BoardStage({
   remoteCursors = [],
   remoteInkPreviews = [],
   scene,
-  selectedObjectIds = [],
+  selectedObjectIds = emptySelectedObjectIds,
   selectionBounds = [],
   selectionLasso = null,
   selectionMarquee = null,
@@ -489,6 +492,7 @@ export function BoardStage({
     null,
   );
   const wheelSessionRef = useRef<WheelSession | null>(null);
+  const pendingViewportCommitTraceRef = useRef<number | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
   const primaryCanvasClickTimeoutRef = useRef<number | null>(null);
   const primaryCanvasPointerCandidateRef =
@@ -573,6 +577,20 @@ export function BoardStage({
     [],
   );
 
+  // Attribution runs only in the opt-in browser performance profile.
+  // The interval covers React render through layout commit, including
+  // synchronous react-konva reconciliation, but excludes GPU composition.
+  useLayoutEffect(() => {
+    const startedAtMs = pendingViewportCommitTraceRef.current;
+    if (startedAtMs === null) return;
+    pendingViewportCommitTraceRef.current = null;
+    recordBoardFrameTrace(
+      "board-commit",
+      startedAtMs,
+      performance.now() - startedAtMs,
+    );
+  }, [previewViewport]);
+
   useEffect(() => () => animatedImageRedraw.dispose(), [animatedImageRedraw]);
   useEffect(() => () => wheelInkCache.dispose(), [wheelInkCache]);
 
@@ -647,12 +665,17 @@ export function BoardStage({
     wetInkRendererRef.current?.setViewport(previewViewport);
   }, [previewViewport]);
 
+  const visibilityIndex = useMemo(
+    () => createBoardVisibilityIndex(scene.items),
+    [scene.items],
+  );
+  const visibleItems = useMemo(
+    () => visibilityIndex.select(previewViewport, size),
+    [visibilityIndex, previewViewport, size],
+  );
   const visibleItemBatches = useMemo(
-    () =>
-      batchBoardRenderItems(
-        selectVisibleBoardItems(scene.items, previewViewport, size),
-      ),
-    [previewViewport, scene.items, size],
+    () => batchBoardRenderItems(visibleItems),
+    [visibleItems],
   );
   const committedPaintRuns = useMemo(
     () => partitionCommittedPaintRuns(visibleItemBatches),
@@ -661,6 +684,63 @@ export function BoardStage({
   const animatedPaintLayerCount = committedPaintRuns.filter(
     (run) => run.animated,
   ).length;
+  useLayoutEffect(() => {
+    if (window.__tutorBoardC37Trace === undefined) return;
+    const stage = stageRef.current;
+    if (stage === null) return;
+    const cleanup = stage.getLayers().map((layer) => {
+      const sceneDescriptor = Object.getOwnPropertyDescriptor(
+        layer,
+        "drawScene",
+      );
+      const hitDescriptor = Object.getOwnPropertyDescriptor(layer, "drawHit");
+      const originalScene = layer.drawScene.bind(layer);
+      const originalHit = layer.drawHit.bind(layer);
+      const name = layer.name() || "unnamed-layer";
+      layer.drawScene = (...args) => {
+        const startMs = performance.now();
+        try {
+          return originalScene.apply(layer, args);
+        } finally {
+          recordBoardFrameTrace(
+            "konva-scene",
+            startMs,
+            performance.now() - startMs,
+            name,
+          );
+        }
+      };
+      layer.drawHit = (...args) => {
+        const startMs = performance.now();
+        try {
+          return originalHit.apply(layer, args);
+        } finally {
+          recordBoardFrameTrace(
+            "konva-hit",
+            startMs,
+            performance.now() - startMs,
+            name,
+          );
+        }
+      };
+      return () => {
+        // Restore original ownership and identity. Merely assigning a bound
+        // method here would retain another wrapper after every scene change.
+        if (sceneDescriptor === undefined) {
+          Reflect.deleteProperty(layer, "drawScene");
+        } else {
+          Object.defineProperty(layer, "drawScene", sceneDescriptor);
+        }
+        if (hitDescriptor === undefined) {
+          Reflect.deleteProperty(layer, "drawHit");
+        } else {
+          Object.defineProperty(layer, "drawHit", hitDescriptor);
+        }
+      };
+    });
+    return () => cleanup.forEach((restore) => restore());
+  }, [committedPaintRuns]);
+
   const lineEndpointItems = useMemo(() => {
     const allowed = new Set(lineEndpointObjectIds);
     return scene.items.filter(
@@ -2042,10 +2122,18 @@ export function BoardStage({
     );
     if (!sameViewport(viewport, currentViewport)) {
       if (wheelSessionRef.current === null) {
-        wheelInkCache.begin(window.devicePixelRatio);
+        // A cold cache can take tens of milliseconds to rasterize on the
+        // input thread. Preserve the uncached pen renderer for this gesture
+        // when idle preparation has not completed.
+        wheelInkCache.begin(window.devicePixelRatio, {
+          buildIfUnprepared: false,
+        });
         // Avoid an independent full-speed GIF invalidation stream while the
         // temporary wheel cache is composited through viewport transforms.
         animatedImageRedraw.setInteractionActive(true);
+      }
+      if (window.__tutorBoardC37Trace !== undefined) {
+        pendingViewportCommitTraceRef.current = performance.now();
       }
       setPreviewViewport(viewport);
       const currentSession = wheelSessionRef.current;
@@ -2116,7 +2204,8 @@ export function BoardStage({
       data-committed-layer-count={committedPaintRuns.length}
       data-animated-layer-count={animatedPaintLayerCount}
       data-wheel-cache-builds={wheelInkCache.buildCount}
-      data-wheel-cache-active-runs={wheelInkCache.cachedCount}
+      data-wheel-cache-active-runs={wheelInkCache.activeCachedCount}
+      data-wheel-cache-retained-runs={wheelInkCache.cachedCount}
       data-wheel-cache-last-build-ms={wheelInkCache.lastBuildDurationMs}
       data-wheel-cache-last-build-pixels={wheelInkCache.lastBuildPixels}
       data-wheel-cache-last-skipped-runs={wheelInkCache.lastBuildSkippedRuns}
@@ -2127,6 +2216,9 @@ export function BoardStage({
       data-wheel-cache-last-wheel-end-ms={wheelInkCache.lastWheelBeginEndMs}
       data-wheel-cache-last-wheel-used-prepared={
         wheelInkCache.lastWheelUsedPrepared
+      }
+      data-wheel-cache-last-wheel-skipped-cold-build={
+        wheelInkCache.lastWheelSkippedColdBuild
       }
       data-wheel-cache-prepared={wheelInkCache.isPrepared}
       data-testid="board-stage"

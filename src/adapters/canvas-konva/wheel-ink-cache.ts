@@ -43,9 +43,15 @@ export class WheelInkCacheCoordinator {
   #lastWheelBeginStartMs = 0;
   #lastWheelBeginEndMs = 0;
   #lastWheelUsedPrepared = false;
+  #lastWheelSkippedColdBuild = false;
 
   get cachedCount(): number {
     return this.#cached.size;
+  }
+
+  /** Cached runs attached to an active gesture; idle-prepared runs are separate. */
+  get activeCachedCount(): number {
+    return this.#active ? this.#cached.size : 0;
   }
 
   get buildCount(): number {
@@ -89,6 +95,10 @@ export class WheelInkCacheCoordinator {
     return this.#lastWheelUsedPrepared;
   }
 
+  get lastWheelSkippedColdBuild(): boolean {
+    return this.#lastWheelSkippedColdBuild;
+  }
+
   register(node: WheelInkNode): () => void {
     // A mounted run changes the set of cacheable objects: cached images from
     // an earlier board snapshot must never be reused after this registration.
@@ -110,18 +120,23 @@ export class WheelInkCacheCoordinator {
     return true;
   }
 
-  begin(devicePixelRatio = 1): void {
+  begin(
+    devicePixelRatio = 1,
+    { buildIfUnprepared = true }: { readonly buildIfUnprepared?: boolean } = {},
+  ): void {
     if (this.#active) return;
     const startedAt = performance.now();
     this.#lastWheelBeginStartMs = startedAt;
     this.#active = true;
     const ratio = boundedPixelRatio(devicePixelRatio);
     this.#lastWheelUsedPrepared = this.#preparedPixelRatio === ratio;
+    this.#lastWheelSkippedColdBuild =
+      !this.#lastWheelUsedPrepared && !buildIfUnprepared;
     if (this.#lastWheelUsedPrepared) {
       this.#preparedPixelRatio = null;
     } else {
       if (this.#cached.size > 0) this.invalidate();
-      this.#build(ratio);
+      if (buildIfUnprepared) this.#build(ratio);
     }
     this.#lastWheelBeginEndMs = performance.now();
     this.#lastWheelBeginDurationMs = this.#lastWheelBeginEndMs - startedAt;

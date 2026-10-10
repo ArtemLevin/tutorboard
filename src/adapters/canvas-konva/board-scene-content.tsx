@@ -1,6 +1,7 @@
 import {
   memo,
   useLayoutEffect,
+  useMemo,
   useRef,
   type ReactElement,
   type ReactNode,
@@ -14,6 +15,7 @@ import type {
   Transform2D,
 } from "../../core/public";
 import type { BoardObjectTransformSnapshot } from "./BoardStage";
+import { recordBoardFrameTrace } from "./board-frame-trace";
 import {
   minimumWheelCacheStrokes,
   type WheelInkCacheCoordinator,
@@ -153,6 +155,83 @@ export interface BoardSceneContentProps {
   readonly wheelInkCache?: WheelInkCacheCoordinator;
 }
 
+interface BoardSceneRunProps {
+  readonly run: InkRenderRun;
+  readonly selected: ReadonlySet<BoardObjectId>;
+  readonly coordinatePlotInteraction:
+    CoordinatePlotRenderInteraction | undefined;
+  readonly lineEndpointPreview: BoardObjectTransformSnapshot | null;
+  readonly registry: KonvaRendererRegistry;
+  readonly selectionPreviewX: number;
+  readonly selectionPreviewY: number;
+  readonly zoom: number;
+  readonly wheelInkCache: WheelInkCacheCoordinator | undefined;
+}
+
+/** Freeze immutable pen-only runs across wheel viewport changes. */
+const BoardSceneRun = memo(function BoardSceneRun({
+  run,
+  selected,
+  coordinatePlotInteraction,
+  lineEndpointPreview,
+  registry,
+  selectionPreviewX,
+  selectionPreviewY,
+  zoom,
+  wheelInkCache,
+}: BoardSceneRunProps) {
+  const contents = run.items.map((item) => (
+    <BoardRenderItemView
+      coordinatePlotInteraction={
+        item.object.kind === "math.coordinate-plot"
+          ? coordinatePlotInteraction
+          : undefined
+      }
+      interactive
+      item={
+        lineEndpointPreview?.objectId === item.object.id
+          ? {
+              ...item,
+              object: {
+                ...item.object,
+                position: lineEndpointPreview.position,
+                rotation: lineEndpointPreview.rotation,
+                scale: lineEndpointPreview.scale,
+              },
+            }
+          : item
+      }
+      key={item.object.id}
+      previewX={selected.has(item.object.id) ? selectionPreviewX : 0}
+      previewY={selected.has(item.object.id) ? selectionPreviewY : 0}
+      registry={registry}
+      zoom={item.object.kind === "drawing.pen-stroke" ? 1 : zoom}
+    />
+  ));
+  const result =
+    run.ink &&
+    run.items.length >= minimumWheelCacheStrokes &&
+    wheelInkCache !== undefined ? (
+      <WheelCachedInkGroup coordinator={wheelInkCache}>
+        {contents}
+      </WheelCachedInkGroup>
+    ) : (
+      <Group>{contents}</Group>
+    );
+  useLayoutEffect(() => {
+    if (window.__tutorBoardC37Trace === undefined) return;
+    // Commit count is tracked without reading a clock during React render.
+    // Exclusive subtree render durations require the React profiling build.
+    recordBoardFrameTrace(
+      run.ink ? "react-ink-run" : "react-other-run",
+      performance.now(),
+      0,
+      String(run.items.length),
+    );
+  });
+  return result;
+});
+
 export const BoardSceneContent = memo(function BoardSceneContent({
   batches,
   coordinatePlotInteraction,
@@ -164,47 +243,23 @@ export const BoardSceneContent = memo(function BoardSceneContent({
   zoom,
   wheelInkCache,
 }: BoardSceneContentProps) {
-  const selected = new Set(selectedObjectIds);
-  return groupInkRenderRuns(batches).map((run) => {
-    const contents = run.items.map((item) => (
-      <BoardRenderItemView
-        coordinatePlotInteraction={
-          item.object.kind === "math.coordinate-plot"
-            ? coordinatePlotInteraction
-            : undefined
-        }
-        interactive
-        item={
-          lineEndpointPreview?.objectId === item.object.id
-            ? {
-                ...item,
-                object: {
-                  ...item.object,
-                  position: lineEndpointPreview.position,
-                  rotation: lineEndpointPreview.rotation,
-                  scale: lineEndpointPreview.scale,
-                },
-              }
-            : item
-        }
-        key={item.object.id}
-        previewX={selected.has(item.object.id) ? selectionPreviewX : 0}
-        previewY={selected.has(item.object.id) ? selectionPreviewY : 0}
-        registry={registry}
-        zoom={item.object.kind === "drawing.pen-stroke" ? 1 : zoom}
-      />
-    ));
-    if (
-      run.ink &&
-      run.items.length >= minimumWheelCacheStrokes &&
-      wheelInkCache !== undefined
-    ) {
-      return (
-        <WheelCachedInkGroup coordinator={wheelInkCache} key={run.key}>
-          {contents}
-        </WheelCachedInkGroup>
-      );
-    }
-    return <Group key={run.key}>{contents}</Group>;
-  });
+  const runs = useMemo(() => groupInkRenderRuns(batches), [batches]);
+  const selected = useMemo(
+    () => new Set(selectedObjectIds),
+    [selectedObjectIds],
+  );
+  return runs.map((run) => (
+    <BoardSceneRun
+      key={run.key}
+      run={run}
+      selected={selected}
+      coordinatePlotInteraction={coordinatePlotInteraction}
+      lineEndpointPreview={lineEndpointPreview}
+      registry={registry}
+      selectionPreviewX={selectionPreviewX}
+      selectionPreviewY={selectionPreviewY}
+      zoom={run.ink ? 1 : zoom}
+      wheelInkCache={wheelInkCache}
+    />
+  ));
 });
