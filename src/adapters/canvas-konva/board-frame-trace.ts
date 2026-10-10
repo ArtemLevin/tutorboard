@@ -17,7 +17,10 @@ export interface BoardFrameTraceEvent {
     | "wheel-input"
     | "wheel-commit"
     | "wheel-cancel"
-    | "wheel-layout";
+    | "wheel-layout"
+    | "wheel-cache-end"
+    | "wheel-animation-resume"
+    | "wheel-viewport-persist";
   readonly startMs: number;
   readonly durationMs: number;
   readonly detail?: string;
