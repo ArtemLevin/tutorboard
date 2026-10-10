@@ -236,7 +236,6 @@ describe("C3.9-C controlled viewport command cost", () => {
           baselineP95Ms: percentile(baselineMs, 0.95),
           fastP95Ms: percentile(fastMs, 0.95),
           pairedSamples: baselineMs.length,
-          runSha: process.env.GITHUB_SHA ?? "local",
         }),
       );
       expect(baselineMs).toHaveLength(14);
