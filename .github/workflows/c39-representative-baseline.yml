@@ -1,0 +1,50 @@
+name: C3.9 representative baseline
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/c39-representative-baseline.yml
+      - tests/e2e/c39-large-board-profile.spec.ts
+      - tests/fixtures/dense-board.ts
+      - tests/fixtures/media/c39-animated-64x64.gif
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-baseline-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build production bundle
+        run: npm run build
+      - name: Run full representative benchmark matrix
+        run: |
+          set -o pipefail
+          npm run e2e:c39-profile 2>&1 | tee c39-representative-baseline.log
+      - name: Upload baseline evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-representative-baseline-${{ github.sha }}
+          path: |
+            c39-representative-baseline.log
+            test-results
+          if-no-files-found: warn
+          retention-days: 14
