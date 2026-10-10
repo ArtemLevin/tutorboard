@@ -48,6 +48,11 @@ interface C39Scenario {
   readonly zOrder: "trailing" | "split" | "alternating";
   readonly cold: boolean;
   readonly quick: boolean;
+  /** Dedicated C3.9-E2 factor-isolation scenario. */
+  readonly e2?: boolean;
+  readonly traceDisabled?: boolean;
+  readonly expectedLayers?: number;
+  readonly expectedAnimatedLayers?: number;
 }
 
 // Small fast subset is automatically covered by the normal CI media profile.
@@ -123,6 +128,36 @@ const scenarios: readonly C39Scenario[] = [
     cold: true,
     quick: false,
   },
+];
+
+// Opt in explicitly: the existing 7-scene baseline and its CI budget stay intact.
+// The first three animated configurations have identical document objects,
+// media bytes and viewports; only document order / layer composition changes.
+const e2Scenarios: readonly C39Scenario[] = [
+  { name: "e2-dpr2-png-only", strokes: 3000, visibleStrokes: 800,
+    gifs: 0, dpr: 2, zOrder: "trailing", cold: true, quick: false,
+    e2: true, expectedLayers: 1, expectedAnimatedLayers: 0 },
+  { name: "e2-dpr2-two-runs", strokes: 3000, visibleStrokes: 800,
+    gifs: 4, dpr: 2, zOrder: "trailing", cold: true, quick: false,
+    e2: true, expectedLayers: 2, expectedAnimatedLayers: 1 },
+  { name: "e2-dpr2-five-runs", strokes: 3000, visibleStrokes: 800,
+    gifs: 4, dpr: 2, zOrder: "split", cold: true, quick: false,
+    e2: true, expectedLayers: 5, expectedAnimatedLayers: 2 },
+  { name: "e2-dpr2-fallback", strokes: 3000, visibleStrokes: 800,
+    gifs: 4, dpr: 2, zOrder: "alternating", cold: true, quick: false,
+    e2: true, expectedLayers: 1, expectedAnimatedLayers: 0 },
+  { name: "e2-dpr2-fallback-untraced", strokes: 3000, visibleStrokes: 800,
+    gifs: 4, dpr: 2, zOrder: "alternating", cold: true, quick: false,
+    e2: true, traceDisabled: true, expectedLayers: 1, expectedAnimatedLayers: 0 },
+  { name: "e2-dpr2-fallback-warm", strokes: 3000, visibleStrokes: 800,
+    gifs: 4, dpr: 2, zOrder: "alternating", cold: false, quick: false,
+    e2: true, expectedLayers: 1, expectedAnimatedLayers: 0 },
+  { name: "e2-dpr1-two-runs", strokes: 3000, visibleStrokes: 800,
+    gifs: 4, dpr: 1, zOrder: "trailing", cold: true, quick: false,
+    e2: true, expectedLayers: 2, expectedAnimatedLayers: 1 },
+  { name: "e2-dpr1-fallback", strokes: 3000, visibleStrokes: 800,
+    gifs: 4, dpr: 1, zOrder: "alternating", cold: true, quick: false,
+    e2: true, expectedLayers: 1, expectedAnimatedLayers: 0 },
 ];
 
 let cachedPngs: readonly string[] | null = null;
@@ -274,10 +309,17 @@ function summarizePhases(
   };
 }
 
-for (const scenario of scenarios) {
+for (const scenario of [
+  ...scenarios,
+  ...(process.env.C39_E2_PROFILE === "1" ? e2Scenarios : []),
+]) {
   test(
     (scenario.name === "3000-cold-mixed" ? "@smoke " : "") +
-      (scenario.quick ? "@media-profile @c39-quick " : "@c39-extended ") +
+      (scenario.e2
+        ? "@c39-e2 "
+        : scenario.quick
+          ? "@media-profile @c39-quick "
+          : "@c39-extended ") +
       "representative zoom baseline: " +
       scenario.name,
     async ({ browser }, testInfo) => {
@@ -288,11 +330,14 @@ for (const scenario of scenarios) {
       });
       try {
         const page = await context.newPage();
-        // Opt-in recorder is installed before React/Konva mount, matching C3.7.
-        // Each test has a fresh browser context; production sessions never opt in.
-        await page.addInitScript(() => {
-          window.__tutorBoardC37Trace = { events: [] };
-        });
+        // Trace-off is the same physical scene without JS event collection.
+        // Each test gets an isolated browser context; production never opts in.
+        const traceEnabled = scenario.strokes >= 3000 && !scenario.traceDisabled;
+        if (traceEnabled || !scenario.e2) {
+          await page.addInitScript(() => {
+            window.__tutorBoardC37Trace = { events: [] };
+          });
+        }
         if (scenario.cold) {
           await page.addInitScript(() => {
             window.requestIdleCallback = () => 0;
@@ -303,14 +348,18 @@ for (const scenario of scenarios) {
         await expect(page.getByTestId("board-stage")).toBeVisible();
         const dataUrl =
           scenario.gifs > 0 ? await actualGifDataUrl() : undefined;
+        const staticCount = scenario.e2 ? 10 - scenario.gifs : 6;
         const board = createDenseBoardDocument({
           strokeCount: scenario.strokes,
           visibleStrokeCount: scenario.visibleStrokes,
-          staticCount: 6,
+          staticCount,
           gifCount: scenario.gifs,
           strokeGeometry: "varied",
           zOrderPattern: scenario.zOrder,
-          largeStaticDataUrls: representativePngs(),
+          largeStaticDataUrls: Array.from(
+            { length: staticCount },
+            (_unused, index) => representativePngs()[index % 6]!,
+          ),
           ...(dataUrl === undefined
             ? {}
             : {
@@ -333,6 +382,12 @@ for (const scenario of scenarios) {
           prepared:
             (await stage.getAttribute("data-wheel-cache-prepared")) === "true",
         };
+        if (scenario.expectedLayers !== undefined) {
+          expect(before.layers, "E2 composition changed unexpectedly").toBe(
+            scenario.expectedLayers,
+          );
+          expect(before.animatedLayers).toBe(scenario.expectedAnimatedLayers);
+        }
         const bounds = await stage.boundingBox();
         if (bounds === null)
           throw new Error("Missing board stage bounding box");
@@ -340,7 +395,6 @@ for (const scenario of scenarios) {
           bounds.x + bounds.width / 2,
           bounds.y + bounds.height / 2,
         );
-        const traceEnabled = scenario.strokes >= 3000;
         // The full post-merge E2E gate also runs this benchmark in Firefox.
         // Preserve JS rAF/wheel attribution there, without attempting CDP.
         const chromiumTraceEnabled =
@@ -420,6 +474,8 @@ for (const scenario of scenarios) {
         const report = {
           schemaVersion: 1,
           baselineSha: process.env.GITHUB_SHA ?? "local",
+          experiment: scenario.e2 ? "C3.9-E2" : "C3.9",
+          traceEnabled,
           scenario,
           browser: browser.version(),
           platform: process.platform,
@@ -430,7 +486,7 @@ for (const scenario of scenarios) {
             objects: board.order.length,
             visibleStrokesRequested: scenario.visibleStrokes,
             realGifFrames: scenario.gifs > 0 ? 4 : 0,
-            pngCount: 6,
+            pngCount: staticCount,
             pngWidthPx: 1536,
             pngHeightPx: 1536,
           },
