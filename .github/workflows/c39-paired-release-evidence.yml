@@ -1,6 +1,10 @@
 name: C3.9-E1 paired browser comparison
 
 on:
+  # Diagnostic-only PR run exposes the complete run and artifacts to PR checks.
+  pull_request:
+    paths:
+      - .github/workflows/c39-paired-release-evidence.yml
   # Execute the first pinned comparison once when this workflow lands on main.
   # Later comparisons remain available through explicit manual dispatch.
   push:
