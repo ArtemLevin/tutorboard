@@ -117,6 +117,7 @@ interface RightClickCandidate {
 interface WheelSession {
   latestViewport: ViewportState;
   timeoutId: number;
+  traceId: number;
 }
 
 interface DrawingSession {
@@ -492,6 +493,7 @@ export function BoardStage({
     null,
   );
   const wheelSessionRef = useRef<WheelSession | null>(null);
+  const wheelTraceIdRef = useRef(0);
   const pendingViewportCommitTraceRef = useRef<number | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
   const primaryCanvasClickTimeoutRef = useRef<number | null>(null);
@@ -584,11 +586,16 @@ export function BoardStage({
     const startedAtMs = pendingViewportCommitTraceRef.current;
     if (startedAtMs === null) return;
     pendingViewportCommitTraceRef.current = null;
-    recordBoardFrameTrace(
-      "board-commit",
-      startedAtMs,
-      performance.now() - startedAtMs,
-    );
+    const durationMs = performance.now() - startedAtMs;
+    recordBoardFrameTrace("board-commit", startedAtMs, durationMs);
+    if (window.__tutorBoardC37Trace !== undefined) {
+      recordBoardFrameTrace(
+        "wheel-layout",
+        performance.now(),
+        0,
+        `items=${scene.items.length};layers=${rootRef.current?.dataset.committedLayerCount ?? "unknown"};animatedLayers=${rootRef.current?.dataset.animatedLayerCount ?? "unknown"};zoom=${previewViewport.zoom.toFixed(3)}`,
+      );
+    }
   }, [previewViewport]);
 
   useEffect(() => () => animatedImageRedraw.dispose(), [animatedImageRedraw]);
@@ -1253,6 +1260,9 @@ export function BoardStage({
     if (session !== null) {
       window.clearTimeout(session.timeoutId);
       wheelSessionRef.current = null;
+      if (window.__tutorBoardC37Trace !== undefined) {
+        recordBoardFrameTrace("wheel-cancel", performance.now(), 0, `session=${session.traceId}`);
+      }
       wheelInkCache.end();
       animatedImageRedraw.setInteractionActive(false);
       animatedImageRedraw.setWheelZoomActive(false);
@@ -1265,11 +1275,24 @@ export function BoardStage({
     if (session !== null) {
       window.clearTimeout(session.timeoutId);
       wheelSessionRef.current = null;
+      const traceEnabled = window.__tutorBoardC37Trace !== undefined;
+      const commitStartMs = traceEnabled ? performance.now() : 0;
       wheelInkCache.end();
       animatedImageRedraw.setInteractionActive(false);
       animatedImageRedraw.setWheelZoomActive(false);
       setPreviewViewport(session.latestViewport);
-      onViewportCommit(session.latestViewport);
+      try {
+        onViewportCommit(session.latestViewport);
+      } finally {
+        if (traceEnabled) {
+          recordBoardFrameTrace(
+            "wheel-commit",
+            commitStartMs,
+            performance.now() - commitStartMs,
+            `session=${session.traceId};zoom=${session.latestViewport.zoom.toFixed(3)}`,
+          );
+        }
+      }
     }
   }, [animatedImageRedraw, onViewportCommit, wheelInkCache]);
 
@@ -2142,16 +2165,26 @@ export function BoardStage({
         }
       }
       if (window.__tutorBoardC37Trace !== undefined) {
-        pendingViewportCommitTraceRef.current = performance.now();
+        const nowMs = performance.now();
+        const traceId = wheelSessionRef.current?.traceId ?? wheelTraceIdRef.current + 1;
+        recordBoardFrameTrace(
+          "wheel-input",
+          nowMs,
+          0,
+          `session=${traceId};deltaY=${event.evt.deltaY};zoom=${viewport.zoom.toFixed(3)};cachedRuns=${wheelInkCache.activeCachedCount}`,
+        );
+        pendingViewportCommitTraceRef.current = nowMs;
       }
       setPreviewViewport(viewport);
       const currentSession = wheelSessionRef.current;
       if (currentSession !== null) {
         window.clearTimeout(currentSession.timeoutId);
       }
+      const traceId = currentSession?.traceId ?? ++wheelTraceIdRef.current;
       wheelSessionRef.current = {
         latestViewport: viewport,
         timeoutId: window.setTimeout(commitWheel, wheelCommitDelayMs),
+        traceId,
       };
     }
   };
