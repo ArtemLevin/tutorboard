@@ -892,9 +892,13 @@ async function profileLargeBoard(
   });
   const start = performance.now();
   await importDocument(page, document);
+  // HTML-decoded GIFs and bitmap-decoded PNGs both contribute to the
+  // active raster diagnostics. Wait for every media object in the fixture;
+  // testing only six PNGs raced with asynchronous GIF onload.
+  const expectedDecodedMediaCount = largeBoardImageCount + scenario.gifCount;
   await expect
     .poll(() => integerStageMetric(page, "data-raster-active-decoded-count"))
-    .toBe(largeBoardImageCount);
+    .toBe(expectedDecodedMediaCount);
   const importAndDecodeWallMs = performance.now() - start;
   const activeCount = await integerStageMetric(
     page,
