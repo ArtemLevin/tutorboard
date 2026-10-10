@@ -276,7 +276,8 @@ function summarizePhases(
 
 for (const scenario of scenarios) {
   test(
-    (scenario.quick ? "@media-profile @c39-quick " : "@c39-extended ") +
+    (scenario.name === "3000-cold-mixed" ? "@smoke " : "") +
+      (scenario.quick ? "@media-profile @c39-quick " : "@c39-extended ") +
       "representative zoom baseline: " +
       scenario.name,
     async ({ browser }, testInfo) => {
@@ -340,7 +341,11 @@ for (const scenario of scenarios) {
           bounds.y + bounds.height / 2,
         );
         const traceEnabled = scenario.strokes >= 3000;
-        const stopChromiumTrace = traceEnabled
+        // The full post-merge E2E gate also runs this benchmark in Firefox.
+        // Preserve JS rAF/wheel attribution there, without attempting CDP.
+        const chromiumTraceEnabled =
+          traceEnabled && browser.browserType().name() === "chromium";
+        const stopChromiumTrace = chromiumTraceEnabled
           ? await startC39ChromiumTrace(page)
           : null;
         await beginFrameCapture(page);
@@ -403,7 +408,12 @@ for (const scenario of scenarios) {
             ).toBe(true);
           }
           expect(jsTrace.length).toBeLessThanOrEqual(12_000);
-          expect(chromiumTrace?.events.length).toBeLessThanOrEqual(20_000);
+          if (chromiumTraceEnabled) {
+            expect(chromiumTrace?.events.length).toBeLessThanOrEqual(20_000);
+          } else {
+            expect(chromiumTrace).toBeNull();
+            expect(attribution.traceAlignment).toBe("unavailable");
+          }
         }
         expect(phases.phases.active.count).toBeGreaterThan(0);
         expect(phases.phases.settling.count).toBeGreaterThan(0);
