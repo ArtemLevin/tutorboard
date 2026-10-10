@@ -389,6 +389,63 @@ async function importDocument(
   );
 }
 
+/** Seed a genuine persisted local revision for documents exceeding the public
+ * 10 MiB JSON-import boundary. Subsequent load uses the production Dexie
+ * repository and full document validation. Only Playwright fixture code writes
+ * the initial IndexedDB records; this does not alter shipping import limits.
+ */
+async function restoreLargeBoardFromLocalStore(
+  page: Page,
+  document: ReturnType<typeof createDenseBoardDocument>,
+): Promise<void> {
+  const localDocument = { ...document, id: "document:local-board" };
+  await page.evaluate(async (input) => {
+    const opened = indexedDB.open("tutorboard-local-v1");
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      opened.onsuccess = () => resolve(opened.result);
+      opened.onerror = () => reject(opened.error);
+    });
+    try {
+      if (!db.objectStoreNames.contains("documents") || !db.objectStoreNames.contains("revisions")) {
+        throw new Error("Production local-document stores are missing");
+      }
+      const transaction = db.transaction(["documents", "revisions"], "readwrite");
+      const finished = new Promise<void>((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+      });
+      const operationId = "operation:c39-static-heavy-seed";
+      const revisionId = "revision:" + operationId;
+      const savedAt = "2026-10-10T13:00:00.000Z";
+      transaction.objectStore("revisions").put({
+        documentId: input.id,
+        documentSchemaVersion: input.schemaVersion,
+        operationId,
+        revisionId,
+        savedAt,
+        sequence: 1,
+        serializedDocument: JSON.stringify(input),
+      });
+      transaction.objectStore("documents").put({
+        currentRevisionId: revisionId,
+        documentId: input.id,
+        lastGoodRevisionId: revisionId,
+        nextSequence: 2,
+        updatedAt: savedAt,
+      });
+      await finished;
+    } finally {
+      db.close();
+    }
+  }, localDocument);
+  await page.reload();
+  await expect(page.getByTestId("object-count")).toHaveText(
+    new RegExp("^" + document.order.length + " объект", "u"),
+    { timeout: 45_000 },
+  );
+}
+
 async function settleFrames(page: Page, count: number): Promise<void> {
   await page.evaluate(async (total) => {
     for (let index = 0; index < total; index += 1) {
@@ -572,11 +629,11 @@ for (const scenario of [
               }),
         });
         const importStart = performance.now();
-        await importDocument(
-          page,
-          board,
-          scenario.staticHeavy ? 45_000 : 5_000,
-        );
+        if (scenario.staticHeavy) {
+          await restoreLargeBoardFromLocalStore(page, board);
+        } else {
+          await importDocument(page, board);
+        }
         const importDurationMs = performance.now() - importStart;
         const stage = page.getByTestId("board-stage");
         await settleFrames(page, 24);
@@ -712,6 +769,7 @@ for (const scenario of [
           arch: process.arch,
           node: process.version,
           importDurationMs,
+          loadMode: scenario.staticHeavy ? "indexeddb-revision-restore" : "json-import",
           content: {
             objects: board.order.length,
             visibleStrokesRequested: scenario.visibleStrokes,
