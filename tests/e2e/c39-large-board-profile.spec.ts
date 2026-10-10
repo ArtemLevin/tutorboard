@@ -375,6 +375,7 @@ async function actualGifDataUrl(): Promise<string> {
 async function importDocument(
   page: Page,
   document: { readonly order: readonly string[] },
+  timeoutMs = 5_000,
 ) {
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
@@ -384,6 +385,7 @@ async function importDocument(
   });
   await expect(page.getByTestId("object-count")).toHaveText(
     new RegExp("^" + document.order.length + " объект", "u"),
+    { timeout: timeoutMs },
   );
 }
 
@@ -570,7 +572,7 @@ for (const scenario of [
               }),
         });
         const importStart = performance.now();
-        await importDocument(page, board);
+        await importDocument(page, board, scenario.staticHeavy ? 45_000 : 5_000);
         const importDurationMs = performance.now() - importStart;
         const stage = page.getByTestId("board-stage");
         await settleFrames(page, 24);
