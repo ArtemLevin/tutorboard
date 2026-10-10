@@ -146,6 +146,22 @@ export function createBoardSceneSelector(): BoardSceneSelector {
     if (previousDocument === document && previousScene !== null) {
       return previousScene;
     }
+    // Persisting viewport, timestamps or document metadata must not rebuild
+    // an unchanged scene. The reducer uses immutable references for all four
+    // inputs used to construct renderer items and their transforms.
+    if (
+      previousDocument !== null &&
+      previousScene !== null &&
+      previousDocument.id === document.id &&
+      previousDocument.objects === document.objects &&
+      previousDocument.order === document.order &&
+      previousDocument.groups === document.groups &&
+      previousDocument.geometryImports === document.geometryImports
+    ) {
+      previousDocument = document;
+      previousScene = { items: previousScene.items, viewport: document.viewport };
+      return previousScene;
+    }
     const nextCache = new Map<
       (typeof document.order)[number],
       {
