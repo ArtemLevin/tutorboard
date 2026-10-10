@@ -83,7 +83,8 @@ function validateReport(report, expectedScenario) {
   }
   const commit = report.phases?.commit;
   assert(
-    Number.isInteger(commit?.count) && commit.count > 0 &&
+    Number.isInteger(commit?.count) &&
+      commit.count > 0 &&
       report.phases?.settling?.count > 0,
     "Missing commit/settling phase",
   );
@@ -91,7 +92,8 @@ function validateReport(report, expectedScenario) {
     numeric(commit[name], "commit " + name);
   }
   assert(
-    Number.isInteger(commit.over100) && commit.over100 >= 0 &&
+    Number.isInteger(commit.over100) &&
+      commit.over100 >= 0 &&
       commit.over100 <= commit.count,
     "Invalid commit over100",
   );
@@ -173,8 +175,10 @@ export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
       deltas.push({
         activeP95Ms: right.p95Ms - left.p95Ms,
         maxGapMs: right.maxMs - left.maxMs,
-        commitP95Ms: b.report.phases.commit.p95Ms - a.report.phases.commit.p95Ms,
-        commitMaxMs: b.report.phases.commit.maxMs - a.report.phases.commit.maxMs,
+        commitP95Ms:
+          b.report.phases.commit.p95Ms - a.report.phases.commit.p95Ms,
+        commitMaxMs:
+          b.report.phases.commit.maxMs - a.report.phases.commit.maxMs,
         over50Rate: right.over50 / right.count - left.over50 / left.count,
         over100Rate: right.over100 / right.count - left.over100 / left.count,
       });
