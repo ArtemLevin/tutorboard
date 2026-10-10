@@ -45,7 +45,8 @@ export interface C39SlowFrame {
   })[];
   readonly traceAlignment: "aligned" | "unavailable";
   readonly compositorEvidence: "present" | "absent" | "unavailable";
-  readonly classification: "coincident-js" | "coincident-browser" | "unattributed";
+  readonly classification:
+    "coincident-js" | "coincident-browser" | "unattributed";
 }
 
 /**
@@ -66,12 +67,20 @@ export function correlateC39SlowFrames(
   readonly clockDriftMs: number | null;
   readonly chromiumEventsDropped: number;
 } {
-  const start = chromium?.anchors.find((anchor) => anchor.name === "C39_TRACE_SYNC_START");
-  const end = chromium?.anchors.find((anchor) => anchor.name === "C39_TRACE_SYNC_END");
-  const startOffset = start === undefined ? null : start.browserMs - start.traceUs / 1_000;
-  const endOffset = end === undefined ? null : end.browserMs - end.traceUs / 1_000;
-  const drift = startOffset === null || endOffset === null ? null : endOffset - startOffset;
-  const aligned = startOffset !== null && (drift === null || Math.abs(drift) <= 10);
+  const start = chromium?.anchors.find(
+    (anchor) => anchor.name === "C39_TRACE_SYNC_START",
+  );
+  const end = chromium?.anchors.find(
+    (anchor) => anchor.name === "C39_TRACE_SYNC_END",
+  );
+  const startOffset =
+    start === undefined ? null : start.browserMs - start.traceUs / 1_000;
+  const endOffset =
+    end === undefined ? null : end.browserMs - end.traceUs / 1_000;
+  const drift =
+    startOffset === null || endOffset === null ? null : endOffset - startOffset;
+  const aligned =
+    startOffset !== null && (drift === null || Math.abs(drift) <= 10);
   const overlaps = (begin: number, duration: number, gap: C39FrameGap) => {
     const stop = begin + Math.max(0, duration);
     return begin <= gap.endMs && stop >= gap.startMs;
@@ -91,15 +100,21 @@ export function correlateC39SlowFrames(
               ...item,
               browserStartMs: item.startTraceUs / 1_000 + startOffset,
             }))
-            .filter((item) => overlaps(item.browserStartMs, item.durationMs, gap))
+            .filter((item) =>
+              overlaps(item.browserStartMs, item.durationMs, gap),
+            )
             .sort((a, b) => b.durationMs - a.durationMs)
             .slice(0, 30)
         : [];
-      const wheel = wheelTimes.filter((time) => time <= gap.endMs).at(-1) ?? null;
+      const wheel =
+        wheelTimes.filter((time) => time <= gap.endMs).at(-1) ?? null;
       const jsDuration = Math.max(
         0,
         ...matchingJs
-          .filter((item) => item.kind !== "wheel-input" && item.kind !== "wheel-layout")
+          .filter(
+            (item) =>
+              item.kind !== "wheel-input" && item.kind !== "wheel-layout",
+          )
           .map((item) => item.durationMs),
       );
       const browserDuration = Math.max(
@@ -113,17 +128,20 @@ export function correlateC39SlowFrames(
         lastWheelInputMs: wheel,
         jsEvents: matchingJs,
         chromiumEvents: matchingChromium,
-        traceAlignment: aligned ? ("aligned" as const) : ("unavailable" as const),
+        traceAlignment: aligned
+          ? ("aligned" as const)
+          : ("unavailable" as const),
         compositorEvidence: !aligned
           ? ("unavailable" as const)
           : matchingChromium.length > 0
             ? ("present" as const)
             : ("absent" as const),
-        classification: jsDuration >= 16
-          ? ("coincident-js" as const)
-          : browserDuration >= 16
-            ? ("coincident-browser" as const)
-            : ("unattributed" as const),
+        classification:
+          jsDuration >= 16
+            ? ("coincident-js" as const)
+            : browserDuration >= 16
+              ? ("coincident-browser" as const)
+              : ("unattributed" as const),
       };
     });
   return {
@@ -134,7 +152,8 @@ export function correlateC39SlowFrames(
   };
 }
 
-const selectedEvent = /(?:raster|composit|drawframe|paint|layertree|activate|commit|tile|swapbuffers|scheduler)/iu;
+const selectedEvent =
+  /(?:raster|composit|drawframe|paint|layertree|activate|commit|tile|swapbuffers|scheduler)/iu;
 const maximumC39ChromiumEvents = 20_000;
 
 function parseTraceEvent(value: unknown): {
@@ -178,8 +197,13 @@ export async function startC39ChromiumTrace(page: Page) {
     session.once("Tracing.tracingComplete", () => resolve());
   });
   session.on("Tracing.dataCollected", (payload: unknown) => {
-    if (typeof payload !== "object" || payload === null || !("value" in payload) ||
-        !Array.isArray(payload.value)) return;
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      !("value" in payload) ||
+      !Array.isArray(payload.value)
+    )
+      return;
     for (const raw of payload.value) {
       const item = parseTraceEvent(raw);
       if (item === null) continue;
@@ -204,7 +228,8 @@ export async function startC39ChromiumTrace(page: Page) {
     }
   });
   await session.send("Tracing.start", {
-    categories: "devtools.timeline,disabled-by-default-devtools.timeline.frame,blink.user_timing,cc,viz,gpu,renderer.scheduler",
+    categories:
+      "devtools.timeline,disabled-by-default-devtools.timeline.frame,blink.user_timing,cc,viz,gpu,renderer.scheduler",
     transferMode: "ReportEvents",
   });
 

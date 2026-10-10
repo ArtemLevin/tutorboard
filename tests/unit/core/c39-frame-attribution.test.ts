@@ -37,15 +37,22 @@ describe("C3.9-B frame-to-trace correlation", () => {
     const result = correlateC39SlowFrames(
       [gap],
       [120, 155],
-      [{ kind: "wheel-commit", startMs: 140, durationMs: 4, detail: "session=1" }],
+      [
+        {
+          kind: "wheel-commit",
+          startMs: 140,
+          durationMs: 4,
+          detail: "session=1",
+        },
+      ],
       chromium,
     );
     expect(result.traceAlignment).toBe("aligned");
     expect(result.clockDriftMs).toBe(0);
     expect(result.frames[0]?.lastWheelInputMs).toBe(155);
-    expect(result.frames[0]?.chromiumEvents.map((event) => event.name)).toEqual([
-      "DirectRenderer::DrawFrame",
-    ]);
+    expect(result.frames[0]?.chromiumEvents.map((event) => event.name)).toEqual(
+      ["DirectRenderer::DrawFrame"],
+    );
     expect(result.frames[0]?.chromiumEvents[0]?.browserStartMs).toBe(130);
     expect(result.frames[0]?.classification).toBe("coincident-browser");
   });

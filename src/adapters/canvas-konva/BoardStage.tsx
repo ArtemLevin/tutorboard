@@ -1261,7 +1261,12 @@ export function BoardStage({
       window.clearTimeout(session.timeoutId);
       wheelSessionRef.current = null;
       if (window.__tutorBoardC37Trace !== undefined) {
-        recordBoardFrameTrace("wheel-cancel", performance.now(), 0, `session=${session.traceId}`);
+        recordBoardFrameTrace(
+          "wheel-cancel",
+          performance.now(),
+          0,
+          `session=${session.traceId}`,
+        );
       }
       wheelInkCache.end();
       animatedImageRedraw.setInteractionActive(false);
@@ -2166,7 +2171,8 @@ export function BoardStage({
       }
       if (window.__tutorBoardC37Trace !== undefined) {
         const nowMs = performance.now();
-        const traceId = wheelSessionRef.current?.traceId ?? wheelTraceIdRef.current + 1;
+        const traceId =
+          wheelSessionRef.current?.traceId ?? wheelTraceIdRef.current + 1;
         recordBoardFrameTrace(
           "wheel-input",
           nowMs,
