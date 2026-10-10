@@ -175,4 +175,76 @@ describe("board scene selector", () => {
     );
     expect(() => batchBoardRenderItems(scene.items, 0)).toThrow(RangeError);
   });
+
+  it("keeps scene items and visibility index stable across viewport and metadata commits", () => {
+    const result = readBoardDocument(loadBoardFixture());
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+
+    const selector = createBoardSceneSelector();
+    const initial = selector(result.document);
+    const index = createBoardVisibilityIndex(initial.items);
+    const bounds = { width: 1500, height: 900 };
+    const firstVisible = index.select(initial.viewport, bounds);
+
+    let current = result.document;
+    for (let iteration = 0; iteration < 8; iteration += 1) {
+      current = {
+        ...current,
+        title: "Revision " + iteration,
+        viewport: {
+          offset: { x: iteration * -2, y: iteration * -3 },
+          zoom: 1 + iteration / 100,
+        },
+      };
+      const next = selector(current);
+      expect(next).not.toBe(initial);
+      expect(next.viewport).toBe(current.viewport);
+      expect(next.items).toBe(initial.items);
+      expect(index.select(current.viewport, bounds)).toBe(firstVisible);
+      expect(next.items).toEqual(selectBoardScene(current).items);
+      expect(selector.cacheSize()).toBe(initial.items.length);
+    }
+  });
+
+  it("invalidates item identity on every renderer dependency and document switch", () => {
+    const result = readBoardDocument(loadBoardFixture());
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+
+    const source = result.document;
+    const dependencies = [
+      { ...source, objects: { ...source.objects } },
+      { ...source, order: [...source.order] },
+      { ...source, groups: { ...source.groups } },
+      { ...source, geometryImports: { ...source.geometryImports } },
+      { ...source, id: `board:c39-s3-other` as typeof source.id },
+    ];
+
+    for (const changed of dependencies) {
+      const selector = createBoardSceneSelector();
+      const before = selector(source);
+      const after = selector(changed);
+      expect(after.items).not.toBe(before.items);
+      expect(after.items).toEqual(selectBoardScene(changed).items);
+    }
+
+    const selector = createBoardSceneSelector();
+    const original = selector(source);
+    const removedId = source.order[0]!;
+    const remainingObjects = { ...source.objects };
+    Reflect.deleteProperty(remainingObjects, removedId);
+    const reduced = {
+      ...source,
+      objects: remainingObjects,
+      order: source.order.filter((id) => id !== removedId),
+    };
+    expect(selector(reduced).items.map(({ object }) => object.id)).toEqual(
+      reduced.order,
+    );
+    expect(selector.cacheSize()).toBe(reduced.order.length);
+    selector.reset();
+    expect(selector(reduced).items).not.toBe(original.items);
+    expect(selector.cacheSize()).toBe(reduced.order.length);
+  });
 });
