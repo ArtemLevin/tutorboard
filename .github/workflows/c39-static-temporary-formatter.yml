@@ -1,0 +1,36 @@
+name: Temporary static-heavy Prettier capture
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-static-temporary-formatter.yml
+
+permissions:
+  contents: read
+
+jobs:
+  formatter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Format and print exact sources
+        run: |
+          set -euo pipefail
+          for path in \
+            tests/e2e/c39-large-board-profile.spec.ts \
+            tests/fixtures/dense-board.ts \
+            tests/unit/c39-static-media-fixture.test.ts \
+            tests/node/c39-static-heavy-summary.test.mjs \
+            scripts/c39/summarize-static-heavy.mjs \
+            .github/workflows/c39-static-heavy.yml; do
+            npx prettier --write "$path"
+            printf 'C39STATICFMT:%s:' "$path"
+            base64 -w0 "$path"
+            printf '\n'
+          done
