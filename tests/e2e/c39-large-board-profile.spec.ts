@@ -247,24 +247,56 @@ const e2Scenarios: readonly C39Scenario[] = [
 // Four PNG plus six genuine JPEG files (three .jpg and three .jpeg).
 const staticHeavyScenarios: readonly C39Scenario[] = [
   {
-    name: "static-3000-10-images", strokes: 3000, visibleStrokes: 2400,
-    gifs: 0, dpr: 2, zOrder: "trailing", cold: true, quick: false,
-    staticHeavy: true, expectedLayers: 1, expectedAnimatedLayers: 0,
+    name: "static-3000-10-images",
+    strokes: 3000,
+    visibleStrokes: 2400,
+    gifs: 0,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: true,
+    quick: false,
+    staticHeavy: true,
+    expectedLayers: 1,
+    expectedAnimatedLayers: 0,
   },
   {
-    name: "static-5000-10-images", strokes: 5000, visibleStrokes: 4000,
-    gifs: 0, dpr: 2, zOrder: "trailing", cold: true, quick: false,
-    staticHeavy: true, expectedLayers: 1, expectedAnimatedLayers: 0,
+    name: "static-5000-10-images",
+    strokes: 5000,
+    visibleStrokes: 4000,
+    gifs: 0,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: true,
+    quick: false,
+    staticHeavy: true,
+    expectedLayers: 1,
+    expectedAnimatedLayers: 0,
   },
   {
-    name: "static-10000-10-images", strokes: 10000, visibleStrokes: 8000,
-    gifs: 0, dpr: 2, zOrder: "trailing", cold: true, quick: false,
-    staticHeavy: true, expectedLayers: 1, expectedAnimatedLayers: 0,
+    name: "static-10000-10-images",
+    strokes: 10000,
+    visibleStrokes: 8000,
+    gifs: 0,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: true,
+    quick: false,
+    staticHeavy: true,
+    expectedLayers: 1,
+    expectedAnimatedLayers: 0,
   },
   {
-    name: "static-10000-offscreen", strokes: 10000, visibleStrokes: 1000,
-    gifs: 0, dpr: 2, zOrder: "trailing", cold: true, quick: false,
-    staticHeavy: true, expectedLayers: 1, expectedAnimatedLayers: 0,
+    name: "static-10000-offscreen",
+    strokes: 10000,
+    visibleStrokes: 1000,
+    gifs: 0,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: true,
+    quick: false,
+    staticHeavy: true,
+    expectedLayers: 1,
+    expectedAnimatedLayers: 0,
   },
 ];
 
@@ -290,29 +322,32 @@ function representativePngs(): readonly string[] {
 async function representativeJpegs(page: Page): Promise<readonly string[]> {
   // Browser Canvas writes real JPEG bytes at 1536x1536. All encodes happen
   // before the board import or frame recording and are never used as a mock.
-  return page.evaluate(async (pngUrls) => {
-    const jpegUrls: string[] = [];
-    for (const pngUrl of pngUrls) {
-      const image = new Image();
-      image.src = pngUrl;
-      await image.decode();
-      const canvas = document.createElement("canvas");
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
-      const context = canvas.getContext("2d");
-      if (context === null) throw new Error("JPEG test canvas unavailable");
-      context.drawImage(image, 0, 0);
-      const jpegUrl = canvas.toDataURL("image/jpeg", 0.85);
-      if (!jpegUrl.startsWith("data:image/jpeg;base64,/9j/")) {
-        throw new Error("Expected a genuine encoded JPEG data URL");
+  return page.evaluate(
+    async (pngUrls) => {
+      const jpegUrls: string[] = [];
+      for (const pngUrl of pngUrls) {
+        const image = new Image();
+        image.src = pngUrl;
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d");
+        if (context === null) throw new Error("JPEG test canvas unavailable");
+        context.drawImage(image, 0, 0);
+        const jpegUrl = canvas.toDataURL("image/jpeg", 0.85);
+        if (!jpegUrl.startsWith("data:image/jpeg;base64,/9j/")) {
+          throw new Error("Expected a genuine encoded JPEG data URL");
+        }
+        jpegUrls.push(jpegUrl);
+        canvas.width = 0;
+        canvas.height = 0;
+        image.src = "";
       }
-      jpegUrls.push(jpegUrl);
-      canvas.width = 0;
-      canvas.height = 0;
-      image.src = "";
-    }
-    return jpegUrls;
-  }, [...representativePngs()]);
+      return jpegUrls;
+    },
+    [...representativePngs()],
+  );
 }
 
 async function actualGifDataUrl(): Promise<string> {
@@ -448,9 +483,7 @@ function summarizePhases(
 for (const scenario of [
   ...scenarios,
   ...(process.env.C39_E2_PROFILE === "1" ? e2Scenarios : []),
-  ...(process.env.C39_STATIC_HEAVY_PROFILE === "1"
-    ? staticHeavyScenarios
-    : []),
+  ...(process.env.C39_STATIC_HEAVY_PROFILE === "1" ? staticHeavyScenarios : []),
 ]) {
   test(
     (scenario.name === "3000-cold-mixed" ? "@smoke " : "") +
@@ -458,9 +491,9 @@ for (const scenario of [
         ? "@c39-static-heavy "
         : scenario.e2
           ? "@c39-e2 "
-        : scenario.quick
-          ? "@media-profile @c39-quick "
-          : "@c39-extended ") +
+          : scenario.quick
+            ? "@media-profile @c39-quick "
+            : "@c39-extended ") +
       "representative zoom baseline: " +
       scenario.name,
     async ({ browser }, testInfo) => {
@@ -490,8 +523,11 @@ for (const scenario of [
         await expect(page.getByTestId("board-stage")).toBeVisible();
         const dataUrl =
           scenario.gifs > 0 ? await actualGifDataUrl() : undefined;
-        const staticCount =
-          scenario.staticHeavy ? 10 : scenario.e2 ? 10 - scenario.gifs : 6;
+        const staticCount = scenario.staticHeavy
+          ? 10
+          : scenario.e2
+            ? 10 - scenario.gifs
+            : 6;
         const pngUrls = representativePngs();
         const staticUrls = scenario.staticHeavy
           ? [...pngUrls.slice(0, 4), ...(await representativeJpegs(page))]
@@ -500,7 +536,18 @@ for (const scenario of [
               (_unused, index) => pngUrls[index % pngUrls.length]!,
             );
         const staticFormats = scenario.staticHeavy
-          ? (["png", "png", "png", "png", "jpg", "jpeg", "jpg", "jpeg", "jpg", "jpeg"] as const)
+          ? ([
+              "png",
+              "png",
+              "png",
+              "png",
+              "jpg",
+              "jpeg",
+              "jpg",
+              "jpeg",
+              "jpg",
+              "jpeg",
+            ] as const)
           : undefined;
         const board = createDenseBoardDocument({
           strokeCount: scenario.strokes,
@@ -549,9 +596,17 @@ for (const scenario of [
             (object) => object.kind === "image.embedded",
           );
           expect(imageObjects).toHaveLength(10);
-          expect(imageObjects.filter((object) => object.mimeType === "image/png")).toHaveLength(4);
-          expect(imageObjects.filter((object) => object.mimeType === "image/jpeg")).toHaveLength(6);
-          expect(imageObjects.every((object) => object.dataUrl.startsWith(`data:${object.mimeType};base64,`))).toBe(true);
+          expect(
+            imageObjects.filter((object) => object.mimeType === "image/png"),
+          ).toHaveLength(4);
+          expect(
+            imageObjects.filter((object) => object.mimeType === "image/jpeg"),
+          ).toHaveLength(6);
+          expect(
+            imageObjects.every((object) =>
+              object.dataUrl.startsWith(`data:${object.mimeType};base64,`),
+            ),
+          ).toBe(true);
         }
         const bounds = await stage.boundingBox();
         if (bounds === null)
