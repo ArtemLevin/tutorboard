@@ -2,17 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import { createDenseBoardDocument } from "../fixtures/dense-board";
 
-function visiblePaintRuns(document: ReturnType<typeof createDenseBoardDocument>) {
+function visiblePaintRuns(
+  document: ReturnType<typeof createDenseBoardDocument>,
+) {
   let previousAnimated: boolean | null = null;
   let runs = 0;
   let animatedRuns = 0;
   for (const id of document.order) {
     const object = document.objects[id];
     if (object === undefined) throw new Error("Missing fixture object " + id);
-    if (
-      object.kind === "drawing.pen-stroke" &&
-      object.position.x >= 10_000
-    ) {
+    if (object.kind === "drawing.pen-stroke" && object.position.x >= 10_000) {
       continue;
     }
     const animated =
