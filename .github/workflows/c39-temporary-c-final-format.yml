@@ -1,0 +1,28 @@
+name: C39 temporary C final fixture formatting
+on:
+  push:
+    branches:
+      - perf/c3-9-c-viewport-command-cost-attribution
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Format and emit focused fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx prettier --write tests/performance/c39-viewport-command-cost.test.ts
+          printf 'C39CFINAL:'
+          base64 --wrap=0 tests/performance/c39-viewport-command-cost.test.ts
+          printf '\n'
+      - run: npm run performance -- tests/performance/c39-viewport-command-cost.test.ts
+      - run: npm run typecheck
