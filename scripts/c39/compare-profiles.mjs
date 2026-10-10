@@ -9,7 +9,10 @@ function assert(condition, message) {
 }
 
 function numeric(value, description) {
-  assert(typeof value === "number" && Number.isFinite(value), "Invalid " + description);
+  assert(
+    typeof value === "number" && Number.isFinite(value),
+    "Invalid " + description,
+  );
   return value;
 }
 
@@ -37,24 +40,51 @@ export function parseProfileLog(log, scenarioName) {
     }
     if (parsed?.scenario?.name === scenarioName) reports.push(parsed);
   }
-  assert(reports.length === 1, "Expected exactly one " + scenarioName + " report per run, received " + reports.length);
+  assert(
+    reports.length === 1,
+    "Expected exactly one " +
+      scenarioName +
+      " report per run, received " +
+      reports.length,
+  );
   return reports[0];
 }
 
 function validateReport(report, expectedScenario) {
   assert(report.schemaVersion === 1, "Unsupported C39 report schema");
   assert(report.scenario?.name === expectedScenario, "Scenario mismatch");
-  assert(Array.isArray(report.inputTimesMs) && report.inputTimesMs.length === 18, "Missing 18 wheel input timestamps");
-  assert(typeof report.browser === "string" && report.browser.length > 0, "Missing browser version");
-  assert(report.content?.pngCount === 6, "Representative image fixture missing");
+  assert(
+    Array.isArray(report.inputTimesMs) && report.inputTimesMs.length === 18,
+    "Missing 18 wheel input timestamps",
+  );
+  assert(
+    typeof report.browser === "string" && report.browser.length > 0,
+    "Missing browser version",
+  );
+  assert(
+    report.content?.pngCount === 6,
+    "Representative image fixture missing",
+  );
   const active = report.phases?.active;
   assert(active !== null && typeof active === "object", "Missing active phase");
-  assert(Number.isInteger(active.count) && active.count > 0, "Invalid active frame count");
-  for (const name of ["p50Ms", "p95Ms", "p99Ms", "maxMs"]) numeric(active[name], "active " + name);
+  assert(
+    Number.isInteger(active.count) && active.count > 0,
+    "Invalid active frame count",
+  );
+  for (const name of ["p50Ms", "p95Ms", "p99Ms", "maxMs"])
+    numeric(active[name], "active " + name);
   for (const name of ["over25", "over50", "over100"]) {
-    assert(Number.isInteger(active[name]) && active[name] >= 0 && active[name] <= active.count, "Invalid " + name);
+    assert(
+      Number.isInteger(active[name]) &&
+        active[name] >= 0 &&
+        active[name] <= active.count,
+      "Invalid " + name,
+    );
   }
-  assert(report.phases?.commit?.count >= 0 && report.phases?.settling?.count > 0, "Missing commit/settling phase");
+  assert(
+    report.phases?.commit?.count >= 0 && report.phases?.settling?.count > 0,
+    "Missing commit/settling phase",
+  );
   return active;
 }
 
@@ -64,7 +94,10 @@ function validateReport(report, expectedScenario) {
  * evidence: shared-runner metrics have no universal timing PASS threshold.
  */
 export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
-  assert(Array.isArray(runs) && runs.length > 0 && runs.length % 4 === 0, "Expected complete ABBA cycles");
+  assert(
+    Array.isArray(runs) && runs.length > 0 && runs.length % 4 === 0,
+    "Expected complete ABBA cycles",
+  );
   assert(Number.isInteger(minPairs) && minPairs >= 1, "Invalid minPairs");
   const deltas = [];
   const baseline = [];
@@ -72,20 +105,47 @@ export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
   const reference = runs[0]?.report;
   for (let index = 0; index < runs.length; index += 4) {
     const cycle = runs.slice(index, index + 4);
-    assert(cycle.map((run) => run.role).join(",") === "baseline,candidate,candidate,baseline", "Expected ABBA order");
+    assert(
+      cycle.map((run) => run.role).join(",") ===
+        "baseline,candidate,candidate,baseline",
+      "Expected ABBA order",
+    );
     for (const run of cycle) {
       validateReport(run.report, scenarioName);
       if (run.sha !== undefined) {
         assert(/^[0-9a-f]{40}$/u.test(run.sha), "Invalid immutable run SHA");
-        assert(run.report.baselineSha === run.sha, "Report SHA differs from checked-out source");
+        assert(
+          run.report.baselineSha === run.sha,
+          "Report SHA differs from checked-out source",
+        );
       }
-      assert(JSON.stringify(run.report.scenario) === JSON.stringify(reference.scenario), "Representative fixture options differ");
-      assert(JSON.stringify(run.report.content) === JSON.stringify(reference.content), "Representative fixture media differ");
-      assert(run.report.browser === reference.browser, "Browser versions differ");
-      assert(run.report.platform === reference.platform && run.report.arch === reference.arch, "Host platform differs");
-      (run.role === "baseline" ? baseline : candidate).push(run.report.phases.active);
+      assert(
+        JSON.stringify(run.report.scenario) ===
+          JSON.stringify(reference.scenario),
+        "Representative fixture options differ",
+      );
+      assert(
+        JSON.stringify(run.report.content) ===
+          JSON.stringify(reference.content),
+        "Representative fixture media differ",
+      );
+      assert(
+        run.report.browser === reference.browser,
+        "Browser versions differ",
+      );
+      assert(
+        run.report.platform === reference.platform &&
+          run.report.arch === reference.arch,
+        "Host platform differs",
+      );
+      (run.role === "baseline" ? baseline : candidate).push(
+        run.report.phases.active,
+      );
     }
-    for (const [a, b] of [[cycle[0], cycle[1]], [cycle[3], cycle[2]]]) {
+    for (const [a, b] of [
+      [cycle[0], cycle[1]],
+      [cycle[3], cycle[2]],
+    ]) {
       const left = a.report.phases.active;
       const right = b.report.phases.active;
       deltas.push({
@@ -129,18 +189,31 @@ export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
       over100Rate: median(deltas.map((delta) => delta.over100Rate)),
     },
     pairedDeltas: deltas,
-    interpretation: "Diagnostic only. Require replicated fresh-run browser/visual/resource evidence before latency sign-off.",
+    interpretation:
+      "Diagnostic only. Require replicated fresh-run browser/visual/resource evidence before latency sign-off.",
   };
 }
 
 async function main() {
   const [manifestPath, scenarioName, outputPath] = process.argv.slice(2);
-  assert(manifestPath && scenarioName && outputPath, "Usage: node scripts/c39/compare-profiles.mjs manifest.jsonl scenario output.json");
-  const entries = (await readFile(manifestPath, "utf8")).trim().split(/\r?\n/u).map((line) => JSON.parse(line));
+  assert(
+    manifestPath && scenarioName && outputPath,
+    "Usage: node scripts/c39/compare-profiles.mjs manifest.jsonl scenario output.json",
+  );
+  const entries = (await readFile(manifestPath, "utf8"))
+    .trim()
+    .split(/\r?\n/u)
+    .map((line) => JSON.parse(line));
   const runs = [];
   for (const entry of entries) {
-    assert(entry.role === "baseline" || entry.role === "candidate", "Invalid run role");
-    assert(typeof entry.log === "string" && entry.log.length > 0, "Missing run log path");
+    assert(
+      entry.role === "baseline" || entry.role === "candidate",
+      "Invalid run role",
+    );
+    assert(
+      typeof entry.log === "string" && entry.log.length > 0,
+      "Missing run log path",
+    );
     runs.push({
       role: entry.role,
       sha: entry.sha,
@@ -149,19 +222,28 @@ async function main() {
   }
   const result = comparePairedRuns(runs, scenarioName);
   await writeFile(outputPath, JSON.stringify(result, null, 2) + "\n", "utf8");
-  console.info(JSON.stringify({
-    pairs: result.pairs,
-    baseline: result.baseline,
-    candidate: result.candidate,
-    pairedMedianDelta: result.pairedMedianDelta,
-    enoughPairs: result.enoughPairs,
-    enoughActiveFramesPerArm: result.enoughActiveFramesPerArm,
-    interpretation: result.interpretation,
-  }, null, 2));
+  console.info(
+    JSON.stringify(
+      {
+        pairs: result.pairs,
+        baseline: result.baseline,
+        candidate: result.candidate,
+        pairedMedianDelta: result.pairedMedianDelta,
+        enoughPairs: result.enoughPairs,
+        enoughActiveFramesPerArm: result.enoughActiveFramesPerArm,
+        interpretation: result.interpretation,
+      },
+      null,
+      2,
+    ),
+  );
   assert(result.enoughPairs, "Too few comparison pairs for release evidence");
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
