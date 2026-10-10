@@ -406,10 +406,16 @@ async function restoreLargeBoardFromLocalStore(
       opened.onerror = () => reject(opened.error);
     });
     try {
-      if (!db.objectStoreNames.contains("documents") || !db.objectStoreNames.contains("revisions")) {
+      if (
+        !db.objectStoreNames.contains("documents") ||
+        !db.objectStoreNames.contains("revisions")
+      ) {
         throw new Error("Production local-document stores are missing");
       }
-      const transaction = db.transaction(["documents", "revisions"], "readwrite");
+      const transaction = db.transaction(
+        ["documents", "revisions"],
+        "readwrite",
+      );
       const finished = new Promise<void>((resolve, reject) => {
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
@@ -769,7 +775,9 @@ for (const scenario of [
           arch: process.arch,
           node: process.version,
           importDurationMs,
-          loadMode: scenario.staticHeavy ? "indexeddb-revision-restore" : "json-import",
+          loadMode: scenario.staticHeavy
+            ? "indexeddb-revision-restore"
+            : "json-import",
           content: {
             objects: board.order.length,
             visibleStrokesRequested: scenario.visibleStrokes,
