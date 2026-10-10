@@ -2,7 +2,7 @@
 
 > Статус документа: основной execution plan.
 >
-> Последнее обновление: 2026-10-09.
+> Последнее обновление: 2026-10-10.
 >
 > Документ синхронизирован с фактическим состоянием проекта после standalone
 > contracts, access convergence, controlled-pilot E2E, **Input Foundation +
@@ -316,6 +316,24 @@ zoom p95 = 33.4 ms, наибольшие интервалы 83.3 и 116.6 ms в 
 GPU/compositor attribution, многочасовой реальный soak и сравнение
 на разных устройствах. Подробнее:
 [`docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md`](docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md).
+
+### C3.5–C3.7: интеграционный release gate — 10.10.2026
+
+PR #199 переназначен непосредственно на `main` и объединяет C3.5
+(scene-snapshot visibility index), C3.6 (неблокирующий cold wheel fallback)
+и C3.7 (стабильные React ink runs + диагностический trace). Отдельные
+stacked PR #197/#198 после успешной интеграции закрываются как superseded.
+Это ограниченный performance increment: подтверждены устранение
+синхронной холодной растеризации в wheel handler, повторное использование
+visibility bounds и неизменных React ink subtrees. Зафиксированные
+100–117 ms rAF gaps в тяжёлой сцене остаются отдельной задачей C3.9.
+
+Интеграционный gate: полные CI/production checks для совокупного diff
+от `main`, Chromium/Firefox smoke, DPR2 pixel/hit parity,
+48-кратный wheel/cache lifecycle, performance evidence и review.
+При squash merge последующий C3.8 переносится на свежую ветку от
+обновлённого `main`, только с собственным diff относительно C3.7.
+Формат BoardDocument, sync API, persistence и настройки доступа не меняются.
 
 ### C3.7: атрибуция длинных кадров React / Konva / compositor — 09.10.2026
 
