@@ -9,6 +9,8 @@ export interface DenseBoardFixtureOptions {
   readonly staticCount?: number;
   readonly strokeCount?: number;
   readonly largeStaticDataUrls?: readonly string[];
+  /** File extension for each static image; jpeg/jpg both use image/jpeg. */
+  readonly staticImageFormats?: readonly ("png" | "jpg" | "jpeg")[];
   readonly strokeGeometry?: "repeated" | "varied";
   readonly visibleStrokeCount?: number;
   readonly zOrderPattern?: "trailing" | "split" | "alternating";
@@ -58,6 +60,7 @@ export function createDenseBoardDocument({
   staticCount = 10,
   strokeCount = 300,
   largeStaticDataUrls = [],
+  staticImageFormats = [],
   strokeGeometry = "repeated",
   visibleStrokeCount,
   zOrderPattern = "trailing",
@@ -147,13 +150,14 @@ export function createDenseBoardDocument({
   const images = Array.from({ length: staticCount + gifCount }, (_, index) => {
     const gif = index >= staticCount;
     const largeDataUrl = gif ? undefined : largeStaticDataUrls[index];
+    const staticFormat = staticImageFormats[index] ?? "png";
     return {
       ...common,
       contentSha256: (index + 1).toString(16).padStart(64, "0"),
       dataUrl: gif
         ? (animatedGifDataUrl ?? gifDataUrl)
         : (largeDataUrl ?? pngDataUrl),
-      fileName: `image-${index}.${gif ? "gif" : "png"}`,
+      fileName: `image-${index}.${gif ? "gif" : staticFormat}`,
       id: `object:dense:image:${index}`,
       intrinsicSize:
         gif && animatedGifSize !== undefined
@@ -162,7 +166,11 @@ export function createDenseBoardDocument({
             ? { height: 1, width: 1 }
             : { height: 1_536, width: 1_536 },
       kind: "image.embedded" as const,
-      mimeType: gif ? "image/gif" : "image/png",
+      mimeType: gif
+        ? "image/gif"
+        : staticFormat === "png"
+          ? "image/png"
+          : "image/jpeg",
       position: { x: 80 + (index % 10) * 65, y: 80 },
       size:
         gif && animatedGifSize !== undefined
