@@ -75,6 +75,10 @@ export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
     assert(cycle.map((run) => run.role).join(",") === "baseline,candidate,candidate,baseline", "Expected ABBA order");
     for (const run of cycle) {
       validateReport(run.report, scenarioName);
+      if (run.sha !== undefined) {
+        assert(/^[0-9a-f]{40}$/u.test(run.sha), "Invalid immutable run SHA");
+        assert(run.report.baselineSha === run.sha, "Report SHA differs from checked-out source");
+      }
       assert(JSON.stringify(run.report.scenario) === JSON.stringify(reference.scenario), "Representative fixture options differ");
       assert(JSON.stringify(run.report.content) === JSON.stringify(reference.content), "Representative fixture media differ");
       assert(run.report.browser === reference.browser, "Browser versions differ");
@@ -110,6 +114,8 @@ export function comparePairedRuns(runs, scenarioName, minPairs = 5) {
     kind: "c39-e1-abba-diagnostic",
     scenario: reference.scenario,
     browser: reference.browser,
+    baselineSha: runs[0].sha ?? runs[0].report.baselineSha ?? null,
+    candidateSha: runs[1].sha ?? runs[1].report.baselineSha ?? null,
     cycles: runs.length / 4,
     pairs: deltas.length,
     enoughPairs: deltas.length >= minPairs,
@@ -135,7 +141,11 @@ async function main() {
   for (const entry of entries) {
     assert(entry.role === "baseline" || entry.role === "candidate", "Invalid run role");
     assert(typeof entry.log === "string" && entry.log.length > 0, "Missing run log path");
-    runs.push({ role: entry.role, report: parseProfileLog(await readFile(entry.log, "utf8"), scenarioName) });
+    runs.push({
+      role: entry.role,
+      sha: entry.sha,
+      report: parseProfileLog(await readFile(entry.log, "utf8"), scenarioName),
+    });
   }
   const result = comparePairedRuns(runs, scenarioName);
   await writeFile(outputPath, JSON.stringify(result, null, 2) + "\n", "utf8");
