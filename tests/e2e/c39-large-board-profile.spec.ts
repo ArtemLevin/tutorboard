@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
 
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
+import { correlateC39SlowFrames, startC39ChromiumTrace } from "./c39-frame-attribution.js";
 
 const { PNG } = createRequire(import.meta.url)("pngjs") as {
   readonly PNG: {
@@ -283,6 +284,11 @@ for (const scenario of scenarios) {
       });
       try {
         const page = await context.newPage();
+        // Opt-in recorder is installed before React/Konva mount, matching C3.7.
+        // Each test has a fresh browser context; production sessions never opt in.
+        await page.addInitScript(() => {
+          window.__tutorBoardC37Trace = { events: [] };
+        });
         if (scenario.cold) {
           await page.addInitScript(() => {
             window.requestIdleCallback = () => 0;
@@ -330,6 +336,10 @@ for (const scenario of scenarios) {
           bounds.x + bounds.width / 2,
           bounds.y + bounds.height / 2,
         );
+        const traceEnabled = scenario.strokes >= 3000;
+        const stopChromiumTrace = traceEnabled
+          ? await startC39ChromiumTrace(page)
+          : null;
         await beginFrameCapture(page);
         for (let index = 0; index < 18; index += 1) {
           await page.mouse.wheel(0, index % 2 === 0 ? -190 : 190);
@@ -362,6 +372,18 @@ for (const scenario of scenarios) {
           captured.timestamps,
           captured.wheelTimes,
           commitObservedAtMs,
+        );
+        const chromiumTrace = stopChromiumTrace === null
+          ? null
+          : await stopChromiumTrace();
+        const jsTrace = await page.evaluate(
+          () => window.__tutorBoardC37Trace?.events ?? [],
+        );
+        const attribution = correlateC39SlowFrames(
+          phases.gaps,
+          captured.wheelTimes,
+          jsTrace,
+          chromiumTrace,
         );
         expect(phases.phases.active.count).toBeGreaterThan(0);
         expect(phases.phases.settling.count).toBeGreaterThan(0);
@@ -396,8 +418,31 @@ for (const scenario of scenarios) {
           },
           wheelPauseStillActiveAfterInputs,
           ...phases,
+          c39Attribution: {
+            ...attribution,
+            jsEventCount: jsTrace.length,
+            chromiumEventCount: chromiumTrace?.events.length ?? null,
+            browserGpuInstrumentation: chromiumTrace === null
+              ? "not-recorded"
+              : attribution.traceAlignment,
+          },
         };
         console.info("C39_REPRESENTATIVE_BASELINE " + JSON.stringify(report));
+        if (attribution.frames.length > 0) {
+          // Keep the full evidence in the JSON attachment, while console
+          // output displays a compact summary useful for CI triage.
+          console.info("C39_SLOW_FRAME_ATTRIBUTION " + JSON.stringify({
+            scenario: scenario.name,
+            traceAlignment: attribution.traceAlignment,
+            slowFrames: attribution.frames.map(({ gapMs, classification, compositorEvidence, jsEvents, chromiumEvents }) => ({
+              gapMs,
+              classification,
+              compositorEvidence,
+              jsKinds: jsEvents.map((event) => event.kind),
+              chromiumNames: chromiumEvents.slice(0, 6).map((event) => event.name),
+            })),
+          }));
+        }
         await testInfo.attach("c39-baseline-" + scenario.name + ".json", {
           body: Buffer.from(JSON.stringify(report, null, 2)),
           contentType: "application/json",
