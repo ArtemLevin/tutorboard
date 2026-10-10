@@ -45,6 +45,7 @@ export function parseStaticHeavyLog(stdout) {
 function verify(report, name, source) {
   const target = targets[name];
   check(report.schemaVersion === 1, "Unrecognized report schema");
+  check(report.loadMode === "indexeddb-revision-restore", "Not a real persisted-board restore");
   check(report.baselineSha === source.sha, "Source SHA changed");
   check(report.browser === source.browser, "Browser version changed");
   check(
@@ -147,7 +148,7 @@ export function summarizeStaticHeavy(matrices) {
       medianActiveP95Ms: median(reports.map((r) => r.phases.active.p95Ms)),
       medianActiveMaxMs: median(reports.map((r) => r.phases.active.maxMs)),
       medianCommitP95Ms: median(reports.map((r) => r.phases.commit.p95Ms)),
-      medianImportMs: median(reports.map((r) => r.importDurationMs)),
+      medianSetupAndRestoreMs: median(reports.map((r) => r.importDurationMs)),
       over100,
       over100Rate: over100 / activeFrames,
     };
@@ -159,7 +160,7 @@ export function summarizeStaticHeavy(matrices) {
     repeats: matrices.length,
     variants,
     interpretation:
-      "Descriptive Chromium baseline only; four PNG and six JPEG, 3000–10000 strokes. Frame tails, pointer/eraser functionality, persistence and cross-device resource budgets require separate release checks.",
+      "Descriptive Chromium baseline of production Dexie restore, four PNG and six JPEG, 3000–10000 strokes. The 10 MiB public JSON import cap is a separate compatibility constraint. Frame tails, pointer/eraser functionality, persistence and cross-device resource budgets require release checks.",
   };
 }
 
