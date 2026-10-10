@@ -1,3 +1,5 @@
+import { createVectorInkData } from "../../src/core/public";
+
 const pngDataUrl =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4AWO4o+H2HwAFeAJKw8yxJQAAAABJRU5ErkJggg==";
 const gifDataUrl =
@@ -25,34 +27,16 @@ function representativeInk(index: number) {
     x: step * (12 + (index % 7)),
     y: step * (index % 3) + ((step * step + index * 3) % 13) - 6,
   }));
-  const centerline = points.slice(1).map((end, segment) => {
-    const start = points[segment]!;
-    const bend = (segment % 2 === 0 ? 1 : -1) * (2 + (index % 4));
-    return {
-      start,
-      control1: {
-        x: start.x + (end.x - start.x) / 3,
-        y: start.y + (end.y - start.y) / 3 + bend,
-      },
-      control2: {
-        x: start.x + ((end.x - start.x) * 2) / 3,
-        y: start.y + ((end.y - start.y) * 2) / 3 - bend,
-      },
-      end,
-    };
-  });
   return {
     points,
-    ink: {
-      centerline,
-      closed: false,
-      samples: points.map((point, step) => ({
+    ink: createVectorInkData(
+      points.map((point, step) => ({
         point,
         pressure: 0.25 + ((index + step) % 6) * 0.12,
         timestampMs: step * 8,
       })),
-      version: "1.0" as const,
-    },
+      false,
+    ),
   };
 }
 
