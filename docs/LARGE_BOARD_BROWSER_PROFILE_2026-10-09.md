@@ -394,9 +394,10 @@ confidence interval.
 
 - Keep the narrow React stable-run optimization and the corrected
   active-versus-prepared cache diagnostic guarded by tests.
-- Keep the PR in Draft: the current evidence does **not** demonstrate
-  reproducible removal of long rAF gaps. In particular, 100–117 ms
-  maxima persist despite eliminating cold-wheel cache builds.
+- C3.5–C3.7 merged into `main` as a **partial** CPU/input optimization
+  via PR #199 (`2086334bbd3254fa1542c5bd4e25cfde87f786f4`). The evidence
+  does **not** demonstrate reproducible removal of long rAF gaps;
+  100–117 ms maxima persist despite eliminating cold-wheel cache builds.
 - Next performance candidate should target the number/cost of
   full-viewport compositor/redraw updates during wheel gestures.
   Evaluate an A/B experiment with production-like PNG+GIF+ink ordering,
@@ -407,7 +408,7 @@ confidence interval.
 
 ## C3.8 — Pausing redundant GIF invalidations during wheel gestures
 
-Stacked draft [PR #200](https://github.com/ArtemLevin/tutorboard/pull/200)
+Incremental [PR #200](https://github.com/ArtemLevin/tutorboard/pull/200), rebased directly onto merged C3.7,
 changes the `AnimatedImageRedrawCoordinator` to cancel its independent
 `requestAnimationFrame` chain during an active wheel zoom and to resume it
 with a fresh redraw on commit, cancel, reset or teardown. This preserves
@@ -497,8 +498,12 @@ JS draw duration traces do not determine GPU/composition critical path.
 A reduction in compositor event counts/cost is observed within this
 test, but no stable 60fps guarantee follows.
 
-**Release gate:** retain draft status, preserve the verified narrower
-optimization, and run a targeted next-stage experiment to attribute
-individual long frames to compositor/raster scheduling under
-controlled window sizes and media-layer configurations. No merge into
-main is warranted on this evidence alone.
+**C3.8 integration gate:** on the rebased commit, require full quality,
+Chromium/Firefox, GeometryOS, formula, media/performance, pixel-DPR2 and
+resource-cycle CI to pass before considering merge of the narrow GIF
+invalidation reduction. Both Docker Hub HTTP 429 failures at the original
+C3.8 SHA were resolved by a successful retry on 10.10.2026 without code
+changes. The broader smooth-zoom release gate remains OPEN: controlled
+compositor/raster attribution, repeated A/B/ABBA, multi-device variance,
+long teaching soak and sustained latency targets belong to [#201](https://github.com/ArtemLevin/tutorboard/issues/201).
+The present measurements do not establish stable 60 FPS.
