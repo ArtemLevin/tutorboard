@@ -179,6 +179,74 @@ describe("C3.9-C controlled viewport command cost", () => {
     }
   }, 120_000);
 
+  it("compares real full-validation baseline with viewport fast path on the same runner", () => {
+    for (const strokes of [3_000, 5_000]) {
+      const document = validatedDenseDocument(strokes);
+      const baselineMs: number[] = [];
+      const fastMs: number[] = [];
+
+      const baseline = (index: number) => {
+        const validInput = validateBoardDocument(document);
+        if (!validInput.valid) throw new Error("Baseline input invalid");
+        const command = viewportCommand(index);
+        const candidate = {
+          ...document,
+          updatedAt: command.timestamp,
+          viewport: command.viewport,
+        };
+        const validOutput = validateBoardDocument(candidate);
+        if (!validOutput.valid) throw new Error("Baseline output invalid");
+        return candidate;
+      };
+
+      const optimized = (index: number) => {
+        const result = reduceBoardDocument(document, viewportCommand(index));
+        if (!result.ok) throw new Error("Fast-path command rejected");
+        return result.document;
+      };
+
+      // Warm up each variant equally, then interleave opposite orders to
+      // limit drift from JIT, GC and background runner contention.
+      baseline(1);
+      optimized(1);
+      for (let pair = 0; pair < 7; pair += 1) {
+        const index = pair + 2;
+        const methods =
+          pair % 2 === 0
+            ? (["baseline", "optimized", "optimized", "baseline"] as const)
+            : (["optimized", "baseline", "baseline", "optimized"] as const);
+        for (const method of methods) {
+          const start = performance.now();
+          const result = method === "baseline" ? baseline(index) : optimized(index);
+          const elapsed = performance.now() - start;
+          expect(result.viewport).toEqual(viewportCommand(index).viewport);
+          (method === "baseline" ? baselineMs : fastMs).push(elapsed);
+        }
+      }
+      const baselineP50Ms = median(baselineMs);
+      const fastP50Ms = median(fastMs);
+      const relativeReduction = 1 - fastP50Ms / baselineP50Ms;
+      console.info(
+        "C39_VIEWPORT_FAST_PATH_ABBA",
+        JSON.stringify({
+          strokes,
+          baselineP50Ms,
+          fastP50Ms,
+          relativeReduction,
+          baselineP95Ms: percentile(baselineMs, 0.95),
+          fastP95Ms: percentile(fastMs, 0.95),
+          pairedSamples: baselineMs.length,
+          runSha: process.env.GITHUB_SHA ?? "local",
+        }),
+      );
+      expect(baselineMs).toHaveLength(14);
+      expect(fastMs).toHaveLength(14);
+      // Broad on purpose: real shared runners are noisy. A sustained
+      // regression larger than 20% across 14 paired samples is a blocker.
+      expect(fastP50Ms).toBeLessThan(baselineP50Ms * 1.2);
+    }
+  }, 120_000);
+
   it("rejects unknown viewport or offset fields required by the strict document schema", () => {
     const document = validatedDenseDocument(6);
     const withUnknownViewportField = {
