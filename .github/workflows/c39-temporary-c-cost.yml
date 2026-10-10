@@ -1,0 +1,30 @@
+name: C39 temporary C benchmark verification
+on:
+  push:
+    branches:
+      - perf/c3-9-c-viewport-command-cost-attribution
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Format focused profiling spec and emit replayable file
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx prettier --write tests/performance/c39-viewport-command-cost.test.ts
+          printf 'C39CFMT:'
+          base64 --wrap=0 tests/performance/c39-viewport-command-cost.test.ts
+          printf '\n'
+      - name: Execute isolated C3.9-C profiling and guards
+        run: npm run performance -- tests/performance/c39-viewport-command-cost.test.ts
+      - name: Typecheck
+        run: npm run typecheck
