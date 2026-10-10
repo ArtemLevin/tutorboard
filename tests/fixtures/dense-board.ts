@@ -1,4 +1,4 @@
-import { createVectorInkData } from "../../src/core/public";
+import { createVectorInkData } from "../../src/core/public.js";
 
 const pngDataUrl =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4AWO4o+H2HwAFeAJKw8yxJQAAAABJRU5ErkJggg==";
