@@ -394,12 +394,116 @@ confidence interval.
 
 - Keep the narrow React stable-run optimization and the corrected
   active-versus-prepared cache diagnostic guarded by tests.
-- Keep the PR in Draft: the current evidence does **not** demonstrate
-  reproducible removal of long rAF gaps. In particular, 100–117 ms
-  maxima persist despite eliminating cold-wheel cache builds.
+- C3.5–C3.7 merged into `main` as a **partial** CPU/input optimization
+  via PR #199 (`2086334bbd3254fa1542c5bd4e25cfde87f786f4`). The evidence
+  does **not** demonstrate reproducible removal of long rAF gaps;
+  100–117 ms maxima persist despite eliminating cold-wheel cache builds.
 - Next performance candidate should target the number/cost of
   full-viewport compositor/redraw updates during wheel gestures.
   Evaluate an A/B experiment with production-like PNG+GIF+ink ordering,
   preserve per-object z-order and hit testing, verify DPR2 pixels and
   48-cycle bounded-memory cleanup, then repeat Chromium and Firefox
   browser checks.
+
+
+## C3.8 — Pausing redundant GIF invalidations during wheel gestures
+
+Incremental [PR #200](https://github.com/ArtemLevin/tutorboard/pull/200), rebased directly onto merged C3.7,
+changes the `AnimatedImageRedrawCoordinator` to cancel its independent
+`requestAnimationFrame` chain during an active wheel zoom and to resume it
+with a fresh redraw on commit, cancel, reset or teardown. This preserves
+the original ordered Konva paint runs, per-object hit-testing, and all
+GIF animation behavior outside wheel zoom. During the gesture, Konva's
+viewport updates still draw the image currently available in each
+animated layer. The pause is specific to wheel; drawing retains its
+existing interactive 24 fps policy. A test-only, opt-in C3.7 trace flag
+selects the C3.7 baseline for matched browser measurements.
+
+### Matched A/B evidence
+
+[GitHub Actions 37988790830](https://github.com/ArtemLevin/tutorboard/actions/runs/37988790830)
+tested the same 3000-stroke + 6 PNG + 4 GIF board in the **same Chromium page**,
+DPR and alternating six-wheel sequence, with `requestIdleCallback`
+intentionally starved. The C3.7 baseline (A) ran before C3.8 (B);
+each was profiled for 48 rAF intervals including the gesture and
+settling frames:
+
+| Measurement | C3.7 baseline (A) | C3.8 paused GIF (B) |
+| --- | ---: | ---: |
+| rAF zoom p95 | 49.9 ms | **33.4 ms** |
+| Maximum rAF interval | 116.7 ms | **66.8 ms** |
+| Frames over 25 ms | 15 / 48 | **5 / 48** |
+| GIF invalidation requests | 50 | **35** |
+| `DirectRenderer::DrawFrame` event count | 35 | **31** |
+| `DirectRenderer::DrawFrame` total | 644.51 ms | **522.81 ms** |
+| `DirectRenderer::DrawFrame` max | 36.84 ms | **23.34 ms** |
+
+The compositor durations are event-time aggregates and may overlap
+other threads. The 30% decrease in GIF invalidations and the shorter
+rAF intervals are correlated within this sample; a first-pass warm-up
+effect remains possible due to the fixed A→B sequence.
+
+The code SHA `2551a0978970d9a359da74b4d698d2542ba036f1` passed
+1098/1098 unit/integration tests, 25/25 performance, Chromium and Firefox
+smoke, Coordinate Plot, Board-only and all 16 Chromium media profile
+cases. DPR2 pixel parity and 48-cycle cache/clear resource checks also
+passed. The GeometryOS live browser job failed **before the product
+build** because Docker Hub returned HTTP 429 for the unauthenticated
+`python:3.11-slim-bookworm` image pull. The container/browser contract
+cannot be marked as successful for this SHA until rerun.
+
+### Remaining gates
+
+Repeat the matched A/B profile across the final documented SHA and,
+ideally, switch test order to B→A (or ABBA) to distinguish thermal/asset
+warm-up from the effect of pausing GIF redraw. 66.8 ms long frames still
+occur; stable 60 fps under 3000 strokes is **not** established. Keep
+PR #200 in Draft pending verification and external GeometryOS runner
+recovery. Any further compositor optimization must preserve interleaved
+z-order, precise object hit-testing, DPR2 pixel quality, and bounded cache
+lifecycle.
+
+
+### C3.8 repeat: A–B–A within one Chromium page
+
+The reverse-order validation runs the same six wheel inputs on the same
+3000-pen/6-PNG/4-GIF canvas again with the C3.7 baseline enabled *after*
+C3.8. [CI 37989821535](https://github.com/ArtemLevin/tutorboard/actions/runs/37989821535)
+at code SHA `abc0988d955f697ad0c243d0718b73aafebd894e`:
+
+| Metric | C3.7 A₁ | C3.8 B | C3.7 A₂ |
+| --- | ---: | ---: | ---: |
+| Zoom rAF p95 | 50.1 ms | 50.0 ms | 33.4 ms |
+| Max zoom rAF gap | 133.4 ms | 100.0 ms | 83.3 ms |
+| Frames over 25 ms (of 48) | 28 | 21 | 22 |
+| GIF invalidation requests | 49 | **33** | 48 |
+| DirectRenderer::DrawFrame events | 35 | **33** | 35 |
+| DirectRenderer::DrawFrame total | 828.40 ms | **773.04 ms** | 786.96 ms |
+| DirectRenderer::DrawFrame maximum | 32.08 ms | 31.66 ms | 33.86 ms |
+
+Quality gate and Chromium/Firefox smoke passed, 16/16 browser media
+profiles passed (including DPR2 pixel and the 48-wheel cleanup profile),
+along with Coordinate Plot and Board-only. Companion Smart Ink, Paddle,
+media cache soak, media full-stack and real media baseline passed.
+The standalone Formula Recognition Docker image and GeometryOS Docker
+browser contract were blocked by Docker Hub unauthenticated image pull
+HTTP 429 (Node and Python image, respectively).
+
+**Interpretation:** The reduced GIF invalidation count repeats in both
+baseline comparisons (49/48 versus 33), consistent with the intended
+event-loop change. Full-frame p95/max reduction is **not reproducibly
+proven**: A₂ is faster than B on those two tail metrics. This may
+reflect runner scheduling, compositor warm-up or variance; independent
+JS draw duration traces do not determine GPU/composition critical path.
+A reduction in compositor event counts/cost is observed within this
+test, but no stable 60fps guarantee follows.
+
+**C3.8 integration gate:** on the rebased commit, require full quality,
+Chromium/Firefox, GeometryOS, formula, media/performance, pixel-DPR2 and
+resource-cycle CI to pass before considering merge of the narrow GIF
+invalidation reduction. Both Docker Hub HTTP 429 failures at the original
+C3.8 SHA were resolved by a successful retry on 10.10.2026 without code
+changes. The broader smooth-zoom release gate remains OPEN: controlled
+compositor/raster attribution, repeated A/B/ABBA, multi-device variance,
+long teaching soak and sustained latency targets belong to [#201](https://github.com/ArtemLevin/tutorboard/issues/201).
+The present measurements do not establish stable 60 FPS.

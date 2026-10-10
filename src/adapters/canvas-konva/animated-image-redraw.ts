@@ -33,6 +33,7 @@ export class AnimatedImageRedrawCoordinator {
   #frameId: number | null = null;
   #epoch = 0;
   #interactionActive = false;
+  #wheelZoomActive = false;
   #lastDrawAtMs = Number.NEGATIVE_INFINITY;
 
   constructor(
@@ -65,6 +66,7 @@ export class AnimatedImageRedrawCoordinator {
   dispose(): void {
     this.#registrations.clear();
     this.#interactionActive = false;
+    this.#wheelZoomActive = false;
     this.#lastDrawAtMs = Number.NEGATIVE_INFINITY;
     this.#stop();
   }
@@ -74,6 +76,26 @@ export class AnimatedImageRedrawCoordinator {
     this.#interactionActive = active;
     if (!active) {
       this.#lastDrawAtMs = Number.NEGATIVE_INFINITY;
+    }
+  }
+
+  get wheelZoomActive(): boolean {
+    return this.#wheelZoomActive;
+  }
+
+  /**
+   * Pause the independent GIF animation invalidation loop while wheel
+   * viewport updates already redraw the ordered Konva layers. Resume with
+   * one fresh frame as soon as the gesture finishes.
+   */
+  setWheelZoomActive(active: boolean): void {
+    if (this.#wheelZoomActive === active) return;
+    this.#wheelZoomActive = active;
+    if (active) {
+      this.#cancelFrame();
+    } else {
+      this.#lastDrawAtMs = Number.NEGATIVE_INFINITY;
+      this.#schedule();
     }
   }
 
@@ -104,7 +126,8 @@ export class AnimatedImageRedrawCoordinator {
     if (
       this.#frameId !== null ||
       this.#registrations.size === 0 ||
-      this.#visibility?.hidden === true
+      this.#visibility?.hidden === true ||
+      this.#wheelZoomActive
     )
       return;
     const epoch = this.#epoch;

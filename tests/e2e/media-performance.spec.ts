@@ -42,7 +42,10 @@ interface BrowserC37TraceEvent {
 
 declare global {
   interface Window {
-    __tutorBoardC37Trace?: { events: BrowserC37TraceEvent[] };
+    __tutorBoardC37Trace?: {
+      events: BrowserC37TraceEvent[];
+      disableWheelGifPause?: boolean;
+    };
   }
 }
 
@@ -779,6 +782,16 @@ interface LargeBoardInteractionMeasurement {
       }
     >;
     readonly chromiumComposition?: Record<string, ChromiumTraceSummary>;
+    readonly c38Baseline?: {
+      readonly frames: FrameProfile;
+      readonly gifInvalidations: number;
+      readonly directRendererDrawFrame?: ChromiumTraceSummary;
+    };
+    readonly c38BaselineRepeat?: {
+      readonly frames: FrameProfile;
+      readonly gifInvalidations: number;
+      readonly directRendererDrawFrame?: ChromiumTraceSummary;
+    };
   };
 }
 
@@ -937,6 +950,52 @@ async function profileLargeBoard(
     bounds.x + bounds.width / 2,
     bounds.y + bounds.height / 2,
   );
+  // Matched A/B on one Chromium page: the same 3000-stroke canvas, PNGs,
+  // GIFs, DPR and alternating wheel gestures. A reproduces the C3.7 GIF
+  // animation scheduler; B pauses it during wheel zoom.
+  const c38Baseline =
+    scenario.strokeCount === 3000
+      ? await (async () => {
+          await page.evaluate(() => {
+            if (window.__tutorBoardC37Trace === undefined) return;
+            window.__tutorBoardC37Trace.disableWheelGifPause = true;
+            window.__tutorBoardC37Trace.events.length = 0;
+          });
+          await resetProfile(page);
+          const finishBaselineTrace = await startChromiumCompositorTrace(page);
+          const [frames] = await Promise.all([
+            measureFrames(page, largeBoardFrameCount),
+            (async () => {
+              for (let step = 0; step < 6; step += 1) {
+                await page.mouse.wheel(0, step % 2 === 0 ? -190 : 190);
+              }
+            })(),
+          ]);
+          const composition = await finishBaselineTrace();
+          const gifInvalidations = await page.evaluate(
+            () =>
+              window.__tutorBoardC37Trace?.events.filter(
+                (event) => event.kind === "gif-invalidate",
+              ).length ?? 0,
+          );
+          await measureFrames(page, 16);
+          await page.evaluate(() => {
+            if (window.__tutorBoardC37Trace === undefined) return;
+            window.__tutorBoardC37Trace.disableWheelGifPause = false;
+            window.__tutorBoardC37Trace.events.length = 0;
+          });
+          return {
+            frames,
+            gifInvalidations,
+            ...(composition["DirectRenderer::DrawFrame"] === undefined
+              ? {}
+              : {
+                  directRendererDrawFrame:
+                    composition["DirectRenderer::DrawFrame"],
+                }),
+          };
+        })()
+      : undefined;
   await resetProfile(page);
   const endChromiumTrace =
     scenario.strokeCount === 3000
@@ -993,7 +1052,7 @@ async function profileLargeBoard(
   const overlappingSlowFrames = zoomFrames.slowFrameWindows.filter(
     ({ startMs, endMs }) => startMs < cacheEndMs && endMs > cacheStartMs,
   ).length;
-  const result: LargeBoardInteractionMeasurement = {
+  const beforeRepeat: LargeBoardInteractionMeasurement = {
     scenario: scenario.name,
     strokeCount: scenario.strokeCount,
     imageCount: sources.length,
@@ -1046,6 +1105,57 @@ async function profileLargeBoard(
       ),
       ...(scenario.strokeCount === 3000 ? { c37Trace } : {}),
       ...(chromiumComposition === undefined ? {} : { chromiumComposition }),
+      ...(c38Baseline === undefined ? {} : { c38Baseline }),
+    },
+  };
+  const c38BaselineRepeat =
+    scenario.strokeCount === 3000
+      ? await (async () => {
+          await measureFrames(page, 16);
+          await page.evaluate(() => {
+            if (window.__tutorBoardC37Trace === undefined) return;
+            window.__tutorBoardC37Trace.disableWheelGifPause = true;
+            window.__tutorBoardC37Trace.events.length = 0;
+          });
+          await resetProfile(page);
+          const finishRepeatTrace = await startChromiumCompositorTrace(page);
+          const [frames] = await Promise.all([
+            measureFrames(page, largeBoardFrameCount),
+            (async () => {
+              for (let step = 0; step < 6; step += 1) {
+                await page.mouse.wheel(0, step % 2 === 0 ? -190 : 190);
+              }
+            })(),
+          ]);
+          const composition = await finishRepeatTrace();
+          const gifInvalidations = await page.evaluate(
+            () =>
+              window.__tutorBoardC37Trace?.events.filter(
+                (event) => event.kind === "gif-invalidate",
+              ).length ?? 0,
+          );
+          await measureFrames(page, 16);
+          await page.evaluate(() => {
+            if (window.__tutorBoardC37Trace === undefined) return;
+            window.__tutorBoardC37Trace.disableWheelGifPause = false;
+          });
+          return {
+            frames,
+            gifInvalidations,
+            ...(composition["DirectRenderer::DrawFrame"] === undefined
+              ? {}
+              : {
+                  directRendererDrawFrame:
+                    composition["DirectRenderer::DrawFrame"],
+                }),
+          };
+        })()
+      : undefined;
+  const result: LargeBoardInteractionMeasurement = {
+    ...beforeRepeat,
+    zoom: {
+      ...beforeRepeat.zoom,
+      ...(c38BaselineRepeat === undefined ? {} : { c38BaselineRepeat }),
     },
   };
   console.info("LARGE_BOARD_INTERACTION_PROFILE", JSON.stringify(result));
@@ -1112,9 +1222,16 @@ for (const scenario of [
         expect(result.zoom.c37Trace?.["board-commit"]?.count).toBeGreaterThan(
           0,
         );
-        expect(result.zoom.c37Trace?.["gif-invalidate"]?.count).toBeGreaterThan(
+        expect(result.zoom.c38Baseline?.gifInvalidations).toBeGreaterThan(0);
+        expect(result.zoom.c38BaselineRepeat?.gifInvalidations).toBeGreaterThan(
           0,
         );
+        expect(
+          result.zoom.c37Trace?.["gif-invalidate"]?.count ?? 0,
+        ).toBeLessThan(result.zoom.c38Baseline?.gifInvalidations ?? 0);
+        expect(
+          result.zoom.c37Trace?.["gif-invalidate"]?.count ?? 0,
+        ).toBeLessThan(result.zoom.c38BaselineRepeat?.gifInvalidations ?? 0);
         // Visibility culling can add/remove pen objects during wheel zoom,
         // which legitimately rerenders affected ink runs. The deterministic
         // same-membership test in dense-scene-rendering.test.ts verifies that
@@ -1486,8 +1603,13 @@ test("@smoke GIF redraw resumes after repeated wheel zoom on a dense board", asy
   for (let index = 0; index < 6; index += 1) {
     await page.mouse.wheel(0, index % 2 === 0 ? -190 : 190);
   }
-  // Wait by rendering real frames until the 120 ms wheel session has settled.
+  // The GIF timer must be restored on wheel commit, even after rapid
+  // direction reversals in an interleaved media scene.
   await measureFrames(page, 15);
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-wheel-gif-pause-active",
+    "false",
+  );
   await resetProfile(page);
   await measureFrames(page, 30);
   const restored = await snapshot(page);

@@ -74,6 +74,62 @@ describe("board-scoped animated image redraw", () => {
     stop();
   });
 
+  it("stops all independent GIF redraw scheduling during wheel zoom and resumes immediately", () => {
+    const { callbacks, coordinator, tick } = fixture();
+    const first = { batchDraw: vi.fn() };
+    const second = { batchDraw: vi.fn() };
+    const stops = [
+      coordinator.register(() => first),
+      coordinator.register(() => first),
+      coordinator.register(() => second),
+    ];
+    tick(16);
+    expect(first.batchDraw).toHaveBeenCalledOnce();
+    expect(second.batchDraw).toHaveBeenCalledOnce();
+
+    const stale = callbacks.values().next().value;
+    if (stale === undefined) throw new Error("Missing scheduled GIF frame");
+    coordinator.setInteractionActive(true);
+    coordinator.setWheelZoomActive(true);
+    coordinator.setWheelZoomActive(true);
+    expect(coordinator.wheelZoomActive).toBe(true);
+    expect(callbacks.size).toBe(0);
+
+    // Even an already dispatched, now-cancelled callback cannot redraw.
+    stale(32);
+    expect(first.batchDraw).toHaveBeenCalledOnce();
+    expect(second.batchDraw).toHaveBeenCalledOnce();
+    expect(callbacks.size).toBe(0);
+
+    coordinator.setWheelZoomActive(false);
+    expect(coordinator.wheelZoomActive).toBe(false);
+    expect(callbacks.size).toBe(1);
+    tick(48);
+    expect(first.batchDraw).toHaveBeenCalledTimes(2);
+    expect(second.batchDraw).toHaveBeenCalledTimes(2);
+    coordinator.setInteractionActive(false);
+    stops.forEach((stop) => stop());
+    expect(callbacks.size).toBe(0);
+  });
+
+  it("cannot resume a disposed or hidden GIF loop after wheel zoom", () => {
+    const { callbacks, coordinator, tick, visibility } = fixture();
+    const layer = { batchDraw: vi.fn() };
+    const stop = coordinator.register(() => layer);
+    coordinator.setWheelZoomActive(true);
+    visibility.change(true);
+    coordinator.setWheelZoomActive(false);
+    expect(callbacks.size).toBe(0);
+    visibility.change(false);
+    tick(16);
+    expect(layer.batchDraw).toHaveBeenCalledOnce();
+    coordinator.setWheelZoomActive(true);
+    coordinator.dispose();
+    coordinator.setWheelZoomActive(false);
+    expect(callbacks.size).toBe(0);
+    stop();
+  });
+
   it("keeps independent readers alive and follows their current Layer", () => {
     const { coordinator, tick, callbacks } = fixture();
     const first = { batchDraw: vi.fn() };
