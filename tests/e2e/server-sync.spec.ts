@@ -1,4 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
+
+test.beforeEach(async ({ page }) => {
+  // Only special research bundles participate in the A2 collaboration
+  // contract; ordinary tests and production preserve their original setup.
+  if (process.env.C39_S5_S4_A2 !== "1") return;
+  await page.addInitScript(() => {
+    Reflect.set(window, "__tutorBoardC39S5A2", true);
+  });
+});
+
 import snapshotFixture from "../../contracts/board/v1/fixtures/board-snapshot.json" with { type: "json" };
 
 const documentId = "document:lesson-01";
