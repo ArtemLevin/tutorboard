@@ -16,7 +16,7 @@ test("@c39-s5-subpixel isolate DPR, alpha, and integer crop with one Konva strok
   await page.goto("/");
   await page.addScriptTag({ content: konvaBundle });
   const samples = await page.evaluate(() => {
-    type Runtime = typeof import("konva")["default"];
+    type Runtime = (typeof import("konva"))["default"];
     const Konva = (window as unknown as { Konva: Runtime }).Konva;
     const output: {
       dpr: number;
@@ -36,7 +36,9 @@ test("@c39-s5-subpixel isolate DPR, alpha, and integer crop with one Konva strok
             const holder = document.createElement("div");
             document.body.append(holder);
             const stage = new Konva.Stage({
-              container: holder, width: 220, height: 140,
+              container: holder,
+              width: 220,
+              height: 140,
             });
             const layer = new Konva.Layer();
             const group = new Konva.Group();
@@ -62,9 +64,12 @@ test("@c39-s5-subpixel isolate DPR, alpha, and integer crop with one Konva strok
               .getImageData(0, 0, before.width, before.height).data;
             const baselineHits = hit();
             group.cache({
-              x: 13 + cropShift, y: 9 + cropShift,
-              width: 175, height: 113,
-              pixelRatio: dpr, hitCanvasPixelRatio: 1,
+              x: 13 + cropShift,
+              y: 9 + cropShift,
+              width: 175,
+              height: 113,
+              pixelRatio: dpr,
+              hitCanvasPixelRatio: 1,
             });
             layer.draw();
             const cachedHits = hit();
@@ -77,7 +82,8 @@ test("@c39-s5-subpixel isolate DPR, alpha, and integer crop with one Konva strok
             for (let i = 0; i < beforeData.length; i += 4) {
               let delta = 0;
               for (let channel = 0; channel < 4; channel += 1) {
-                delta = Math.max(delta,
+                delta = Math.max(
+                  delta,
                   Math.abs(beforeData[i + channel]! - afterData[i + channel]!),
                 );
               }
@@ -85,8 +91,14 @@ test("@c39-s5-subpixel isolate DPR, alpha, and integer crop with one Konva strok
               maxDelta = Math.max(maxDelta, delta);
             }
             output.push({
-              dpr, opacity, fractional, cropShift, changedPixels, maxDelta,
-              baselineHits, cachedHits,
+              dpr,
+              opacity,
+              fractional,
+              cropShift,
+              changedPixels,
+              maxDelta,
+              baselineHits,
+              cachedHits,
             });
             stage.destroy();
             holder.remove();

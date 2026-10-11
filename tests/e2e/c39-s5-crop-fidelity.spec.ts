@@ -216,9 +216,11 @@ test("@c39-s5-lifecycle clear, undo and persisted restoration", async ({
     await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
     await page.keyboard.press("Control+z");
     await expect(page.getByTestId("object-count")).toHaveText(/^330 объект/u);
-    await expect.poll(async () =>
-      Number(await stage.getAttribute("data-c39-s5-a2-candidate-count")),
-    ).toBeGreaterThanOrEqual(80);
+    await expect
+      .poll(async () =>
+        Number(await stage.getAttribute("data-c39-s5-a2-candidate-count")),
+      )
+      .toBeGreaterThanOrEqual(80);
     await expect(page.getByTestId("persistence-status")).toHaveText(
       "Сохранено локально",
     );
