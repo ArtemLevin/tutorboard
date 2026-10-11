@@ -84,11 +84,12 @@ test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo
     await page.getByRole("button", { name: "Рисование" }).click();
     await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
     await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
-    const y = bounds.y + bounds.height * 0.8;
+    const y = bounds.y + bounds.height * 0.72;
     const xStart = bounds.x + bounds.width * 0.35;
     const xEnd = bounds.x + bounds.width * 0.65;
     await page.mouse.move(xStart, y);
     await page.mouse.down();
+    await expect(stage).toHaveAttribute("data-wet-ink-active", "true");
     await page.mouse.move(xEnd, y, { steps: 20 });
     await page.mouse.up();
     await expect(page.getByTestId("object-count")).toHaveText("331 объекта");
