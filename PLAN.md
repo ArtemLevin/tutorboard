@@ -2439,3 +2439,10 @@ verification and the guest offline cleanup regression guard.
 - Reconcile PR #193 with the merged C3.2-B wheel ink cache and ordered static/GIF render runs from PR #194. During wheel gestures, temporarily activate the existing 24-fps GIF coordinator pacing; restore default cadence on wheel commit, cancellation, authoritative viewport replacement or component unmount.
 - Keep C3.2-B's bounded pixel budget, cache cleanup, z-order, hit testing, transforms, and media-asset permission lifecycle intact. No persistent-format or API changes.
 - Cross-browser smoke of GIF resuming after repeated zoom plus full CI and repeated Chromium large-board profile are merge gates. Measured C3.2-A alone previously reduced GIF draw calls without proving improved zoom p95; assess combined changes against merged C3.2-B baseline before accepting.
+
+### C3.9-S5.1 — Konva hit and z-order feasibility (11.10.2026)
+
+- Draft PR #220, based on stable main: isolated native Konva 10.3.0 browser tests, no production changes.
+- [S5.1 run #38122069516](https://github.com/ArtemLevin/tutorboard/actions/runs/38122069516): Chromium 3/3 and Firefox 3/3, no retries. One entirely bounded, contiguous pen-run preserved tested pixels, original hit IDs, Transformer identity and pen-PNG-pen order.
+- **Limited GO** only for geometry fully enclosed by the single cache crop; **NO-GO** for simply cropping a long crossing run into naive independent tiles: out-of-crop scene/hit disappears until clearCache. Proper multi-tile canonical hit adapter remains unproven.
+- S5.2: conservative bounded-subrun selector and shared canvas budget; retain vector fallback, determine real 5k/10k activation before A0/A2. Detailed evidence: [S5.1 report](docs/C39_S5_S1_KONVA_FEASIBILITY_2026-10-11.md). Issue #201 remains open; no A2 benchmark or production merge yet.

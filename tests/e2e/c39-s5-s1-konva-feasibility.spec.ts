@@ -149,6 +149,7 @@ test("@c39-s5-s1 one bounded pen-run cache preserves pen-image-pen pixels, origi
       host.remove();
     }
   });
+  console.info("C39_S5_S1_BOUNDED " + JSON.stringify(evidence));
   expect(evidence.version).toBe("10.3.0");
   expect(evidence.baseline.hits).toEqual([
     "pen-red",
@@ -240,6 +241,7 @@ test("@c39-s5-s1 a crop hides the crossing stroke outside its bounds; clearCache
       host.remove();
     }
   });
+  console.info("C39_S5_S1_CROPPED " + JSON.stringify(evidence));
   expect(evidence.baseline).toEqual([true, true]);
   expect(evidence.leftCrop).toEqual([true, false]);
   expect(evidence.restored).toEqual([true, true]);
@@ -312,6 +314,7 @@ test("@c39-s5-s1 invalidation restores the same node across move, undo and redo 
       host.remove();
     }
   });
+  console.info("C39_S5_S1_TRANSFORM " + JSON.stringify(evidence));
   expect(evidence).toEqual({
     baseline: [true, false],
     cached: [true, false],
