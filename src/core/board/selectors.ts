@@ -149,7 +149,11 @@ export function createBoardSceneSelector(): BoardSceneSelector {
   const selector = ((document: BoardDocument): BoardSceneReadModel => {
     const traceStart = startC39ViewportTrace();
     if (previousDocument === document && previousScene !== null) {
-      finishC39ViewportTrace("viewport-scene-select", traceStart, "same-document");
+      finishC39ViewportTrace(
+        "viewport-scene-select",
+        traceStart,
+        "same-document",
+      );
       return previousScene;
     }
     // Viewport commits preserve the entire immutable content graph. Reuse
@@ -176,7 +180,11 @@ export function createBoardSceneSelector(): BoardSceneSelector {
         items: previousScene.items,
         viewport: document.viewport,
       };
-      finishC39ViewportTrace("viewport-scene-select", traceStart, "reuse-items");
+      finishC39ViewportTrace(
+        "viewport-scene-select",
+        traceStart,
+        "reuse-items",
+      );
       return previousScene;
     }
     const nextCache = new Map<
