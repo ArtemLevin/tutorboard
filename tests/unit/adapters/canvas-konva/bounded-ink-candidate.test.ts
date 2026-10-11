@@ -233,6 +233,25 @@ describe("S5.2 shared scene/hit/scratch leasing", () => {
     coordinator.dispose();
   });
 
+  it("releases all optional leases and retains vector output after a failed raster allocation", () => {
+    const budget = new SharedInkRasterBudget();
+    const coordinator = new WheelInkCacheCoordinator(budget);
+    const clearCache = vi.fn();
+    coordinator.register({
+      cache: vi.fn(() => { throw new Error("Canvas allocation failed"); }),
+      clearCache,
+      getClientRect: () => ({ x: 0, y: 0, width: 400, height: 300 }),
+      getLayer: () => null,
+    });
+    expect(() => coordinator.begin(2)).not.toThrow();
+    expect(coordinator.cachedCount).toBe(0);
+    expect(coordinator.lastBuildFailedRuns).toBe(1);
+    expect(coordinator.lastBuildSkippedRuns).toBe(1);
+    expect(clearCache).toHaveBeenCalledOnce();
+    expect(budget.accountedBytes).toBe(0);
+    coordinator.dispose();
+  });
+
   it("refuses a wheel cache when the shared budget is occupied; vector fallback remains", () => {
     const budget = new SharedInkRasterBudget();
     const reservation = budget.tryAcquire("spatial", {
