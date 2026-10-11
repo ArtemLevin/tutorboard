@@ -2490,3 +2490,15 @@ verification and the guest offline cleanup regression guard.
 - [ ] Next scoped follow-up: measure first full parse/freeze cost separately (currently included in wall time but **not** in trace event), correlate Konva scene/hit and Worker/scene invalidations with slow frames, and determine whether trusted viewport transition should avoid a large one-off content clone on the input/UI path.
 - [ ] Resolve earlier S6.4-B Worker cache provenance for arbitrary mutable callers before merging any stacked branch; local S6.3 session freezing alone is insufficient to authorize general Worker cache reuse.
 - [Full S6.3 ABBA evidence](docs/C39_S6_S3_OWNED_VIEWPORT_ABBA_2026-10-11.md).
+
+
+### C3.9-S6.3-B — first trusted viewport snapshot attribution (2026-10-11)
+
+- [x] Created Draft PR #230 stacked on #229, added opt-in, bounded trace spans `viewport-owned.schema-parse`, `viewport-owned.invariants`, `viewport-owned.freeze`, `viewport-owned.first-commit` and `viewport-owned.cache-hit`. Production data/permission/sync contracts unchanged.
+- [x] Regression on 3000-stroke immutable viewport session verifies one full parse/invariants/freeze event and nine cache hits for ten consecutive viewport commands.
+- [x] [Two-runner real Chromium DPR2 benchmark #38159192793](https://github.com/ArtemLevin/tutorboard/actions/runs/38159192793) SUCCESS (two repetitions each, 5k/10k ink + 4 PNG + 6 JPEG; eight real browser cases). First trusted commit **111–137ms at 5k (median 130ms)**; **218–287ms at 10k (median 253ms)**. For 10k, schema parse 119–149ms, invariants 33–43ms, deep freeze 59–97ms. Phases are nested inside the first-commit duration and must not be added to it.
+- [x] First-commit work coincides with one or two rAF frame intervals. Numerous other >100ms frame gaps remain after the first commit; prior aligned Chromium traces record concurrent Konva scene/hit drawing and layer-tree/compositor updates. Scene selector rebuilt at most ~2–6ms in these samples. Full-frame causality beyond these intervals remains unproven.
+- [x] Code-head [CI #38159192819](https://github.com/ArtemLevin/tutorboard/actions/runs/38159192819) Quality gate SUCCESS; browser gates checked separately. No production merge or performance GO.
+- [ ] Next code block C3.9-S7: identify and eliminate redundant Konva scene/hit-canvas work during wheel gestures; preserve complete post-wheel hit map, selection, partial erase, image/GIF, arbitrary z-order, collaborative state and undo/redo. Two-runner 5k/10k ABBA, frame p95 and >100ms count gates required.
+- [ ] Resolve S6.4-B mutable caller provenance and Worker heap soak as separate data-integrity/rollout blockers. All stacked PRs #226–230 remain Draft/unmerged.
+- [Detailed S6.3-B measured evidence](docs/C39_S6_S3B_FIRST_VIEWPORT_ATTRIBUTION_2026-10-11.md).
