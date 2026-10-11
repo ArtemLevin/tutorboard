@@ -4,11 +4,12 @@ import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 
 async function mount(
   browser: Browser,
-  options: { readonly interleaveMedia?: boolean } = {},
+  options: { readonly interleaveMedia?: boolean; readonly dpr?: 1 | 2 } = {},
 ) {
+  const dpr = options.dpr ?? 1;
   const context = await browser.newContext({
     viewport: { width: 1240, height: 820 },
-    deviceScaleFactor: 2,
+    deviceScaleFactor: dpr,
   });
   const page = await context.newPage();
   await page.addInitScript(() => {
@@ -51,16 +52,26 @@ async function mount(
       .click();
   }
   await expect(stage).toHaveAttribute("data-c39-s5-a2-enabled", "true");
-  await expect
-    .poll(() =>
-      stage
-        .getAttribute("data-c39-s5-a2-candidate-count")
-        .then((value) => Number(value)),
-    )
-    .toBeGreaterThanOrEqual(80);
-  await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "1", {
-    timeout: 30_000,
-  });
+  await expect(stage).toHaveAttribute(
+    "data-c39-s5-a2-raster-supported",
+    String(dpr === 1),
+  );
+  if (dpr === 1) {
+    await expect
+      .poll(() =>
+        stage
+          .getAttribute("data-c39-s5-a2-candidate-count")
+          .then((value) => Number(value)),
+      )
+      .toBeGreaterThanOrEqual(80);
+    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "1", {
+      timeout: 30_000,
+    });
+  } else {
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-candidate-count", "0");
+    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
+  }
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Сохранено локально",
   );
@@ -89,6 +100,9 @@ test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo
     const xEnd = bounds.x + bounds.width * 0.65;
     await page.mouse.move(xStart, y);
     await page.mouse.down();
+    // Wet ink becomes active after movement, not necessarily on pointerdown
+    // before the first sampled segment has entered the renderer.
+    await page.mouse.move(xStart + 36, y, { steps: 5 });
     await expect(stage).toHaveAttribute("data-wet-ink-active", "true");
     await page.mouse.move(xEnd, y, { steps: 20 });
     await page.mouse.up();
@@ -199,6 +213,28 @@ test("@c39-s5-lifecycle 48 wheel sessions, clear, undo and unmount release all r
       "data-c39-s5-a2-enabled",
       "true",
     );
+  } finally {
+    await context.close();
+  }
+});
+
+
+test("@c39-s5-lifecycle DPR2 keeps exact vector path and allocates no raster cache after wheel", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { context, page, stage } = await mount(browser, { dpr: 2 });
+  try {
+    const bounds = await stage.boundingBox();
+    if (bounds === null) throw new Error("No BoardStage");
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    for (let index = 0; index < 4; index += 1) {
+      await page.mouse.wheel(0, index % 2 === 0 ? 150 : -150);
+    }
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-candidate-count", "0");
+    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
+    await expect(page.getByTestId("object-count")).toHaveText("330 объекта");
   } finally {
     await context.close();
   }
