@@ -88,7 +88,9 @@ describe("C3.9-S6 viewport-only scene selector", () => {
     };
     const reordered = selector(changed);
     expect(reordered.items).not.toBe(first.items);
-    expect(reordered.items.map(({ object }) => object.id)).toEqual(changed.order);
+    expect(reordered.items.map(({ object }) => object.id)).toEqual(
+      changed.order,
+    );
     selector.reset();
     expect(selector.cacheSize()).toBe(0);
     const restored = selector(original);
