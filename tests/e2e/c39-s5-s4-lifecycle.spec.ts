@@ -68,7 +68,10 @@ async function mount(
       timeout: 30_000,
     });
   } else {
-    await expect(stage).toHaveAttribute("data-c39-s5-a2-candidate-count", "0");
+    await expect(stage).toHaveAttribute(
+      "data-c39-s5-a2-candidate-count",
+      "0",
+    );
     await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
     await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
   }
@@ -218,7 +221,6 @@ test("@c39-s5-lifecycle 48 wheel sessions, clear, undo and unmount release all r
   }
 });
 
-
 test("@c39-s5-lifecycle DPR2 keeps exact vector path and allocates no raster cache after wheel", async ({
   browser,
 }) => {
@@ -227,7 +229,10 @@ test("@c39-s5-lifecycle DPR2 keeps exact vector path and allocates no raster cac
   try {
     const bounds = await stage.boundingBox();
     if (bounds === null) throw new Error("No BoardStage");
-    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page.mouse.move(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
     for (let index = 0; index < 4; index += 1) {
       await page.mouse.wheel(0, index % 2 === 0 ? 150 : -150);
     }
