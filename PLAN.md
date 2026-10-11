@@ -2447,3 +2447,10 @@ verification and the guest offline cleanup regression guard.
 - [Focused S5.2 CI #38124450098](https://github.com/ArtemLevin/tutorboard/actions/runs/38124450098): 3 files, 27 passing tests, typecheck green at earlier patch. Replayed source `createDenseBoardDocument` 5k/10k + 4 PNG/6 JPEG geometry and 1240×820 DPR2 visibility: selected **256** strokes each; crops **962×318** / **963×317**, accounted scene+hit+scratch **12,236,640** / **12,210,840 bytes**. This proves geometry eligibility only; per-frame speedup still unmeasured, and coverage is 6.4%/3.2% of visible pen objects.
 - Next S5.3: one guarded runtime crop candidate plus original Group live-bounds/pixel/hit checks before promotion, then S5.4 cross-browser fidelity and A0/A2. If 20% paired active p95 is not reproducible across independent runners, NO-GO remains required. [Detailed S5.2 report](docs/C39_S5_S2_BOUNDED_ELIGIBILITY_EVIDENCE_2026-10-11.md).
 - No production A2 merge; keep Issue #201 OPEN and main unchanged.
+
+### C3.9-S5.3 / initial S5.4 — guarded Konva crop (11.10.2026)
+
+- [Draft PR #222](https://github.com/ArtemLevin/tutorboard/pull/222) builds on S5.2 PR #221: code-gated test-only A2 mode, one contiguous cached subrun, live Konva bounds checked before cache, optional shared budget/fallback, original object nodes/z-order preserved structurally. No production merge.
+- [First browser #38126114471](https://github.com/ArtemLevin/tutorboard/actions/runs/38126114471) / [replicated pixel-control #38126279584](https://github.com/ArtemLevin/tutorboard/actions/runs/38126279584): Chromium/Firefox both activated A2 cache and completed selection interaction; screenshot pixel parity FAILED: A0/A0 0 differing pixels, A0/A2 4 (max delta 1) / 5 (max delta 2) across 4,067,200 pixels.
+- S5.4 remains a **blocking NO-GO** for A2 p95 experiments, and app undo/eraser/collaboration/48-cycle fidelity are still open. Pixel test threshold remains unchanged; investigate canvas AA/crop sampling rather than weakening it.
+- Full implementation/risk/evidence: [S5.3/S5.4 report](docs/C39_S5_S3_GUARDED_CROP_2026-10-11.md). Issue #201 remains OPEN; main stable.
