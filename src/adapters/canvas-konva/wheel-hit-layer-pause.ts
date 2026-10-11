@@ -79,6 +79,13 @@ export class WheelHitLayerPause {
   }
 
   dispose(): void {
-    this.restore();
+    // React may have already detached/destroyed child canvases at unmount.
+    // Restore owned Konva flags without drawing into an orphaned canvas.
+    if (!this.#active) return;
+    this.#active = false;
+    for (const [layer, wasListening] of this.#previous) {
+      if (wasListening) layer.listening(true);
+    }
+    this.#previous.clear();
   }
 }
