@@ -99,11 +99,14 @@ test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo
     await page.getByRole("button", { name: "Рисование" }).click();
     await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
     await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
-    const y = bounds.y + bounds.height * 0.72;
-    const xStart = bounds.x + bounds.width * 0.35;
-    const xEnd = bounds.x + bounds.width * 0.65;
+    // Match the proven upper-canvas coordinates used by server-sync E2E;
+    // the lower viewport can overlap persistent floating controls.
+    const y = bounds.y + 180;
+    const xStart = bounds.x + 620;
+    const xEnd = bounds.x + 730;
     await page.mouse.move(xStart, y);
     await page.mouse.down();
+    await expect(stage).toHaveAttribute("data-drawing", "true");
     // Exercise real pointer drawing, asserting the committed document
     // below rather than a transient renderer-frame diagnostic.
     await page.mouse.move(xStart + 36, y, { steps: 5 });
@@ -113,7 +116,7 @@ test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo
 
     await page.keyboard.press("x");
     await expect(stage).toHaveAttribute("data-drawing-mode", "editing.eraser");
-    const eraseX = bounds.x + bounds.width * 0.5;
+    const eraseX = (xStart + xEnd) / 2;
     await page.mouse.move(eraseX, y - 28);
     await page.mouse.down();
     await page.mouse.move(eraseX, y + 28, { steps: 10 });
