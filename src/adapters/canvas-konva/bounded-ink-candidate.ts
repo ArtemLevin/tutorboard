@@ -119,12 +119,12 @@ export function selectBoundedInkCandidate(
   // O(N * 256) in the worst case and never allocate a stage or canvas.
   for (let start = 0; start < items.length; start += 1) {
     const first = bounds[start];
-    if (first === null) continue;
+    if (first === undefined || first === null) continue;
     let box: Box = first;
     const endLimit = Math.min(items.length, start + maximumCandidateStrokes);
     for (let end = start; end < endLimit; end += 1) {
       const next = bounds[end];
-      if (next === null) break;
+      if (next === undefined || next === null) break;
       box = end === start ? box : union(box, next);
       const crop = rasterCrop(box);
       const cost = estimateInkRasterCost({
