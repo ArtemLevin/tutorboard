@@ -2464,7 +2464,7 @@ export function createOwnedViewportReducer(): (
       const node = pending.pop();
       if (node === undefined || visited.has(node)) continue;
       visited.add(node);
-      for (const value of Object.values(node)) {
+      for (const value of Object.values(node as Record<string, unknown>)) {
         if (typeof value === "object" && value !== null) {
           pending.push(value);
         }
