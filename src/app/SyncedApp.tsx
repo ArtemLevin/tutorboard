@@ -53,6 +53,10 @@ import { App, type AppPersistenceStatus } from "./App";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import { copyBoardShareUrl } from "./board-chrome/board-share";
 import { canFinalizeBoardEvidence } from "./synced-evidence";
+import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
+} from "../shared/c39-viewport-trace";
 
 type SyncedBoardRepository = BoardCollaborationRepository &
   BoardEvidenceRepository &
@@ -1044,7 +1048,13 @@ function SyncedWorkspace({
               );
               setUndoCount(undoStackRef.current.length);
             }
-            void engine.queue(command, document);
+            const syncStarted =
+              command.kind === "core.viewport.set" ? startC39ViewportTrace() : null;
+            try {
+              void engine.queue(command, document);
+            } finally {
+              finishC39ViewportTrace("viewport-sync.queue", syncStarted);
+            }
           }}
           onCommandsCommitted={(commands, document, previousDocument) => {
             if (!writeEnabled || commands.length === 0) return;
