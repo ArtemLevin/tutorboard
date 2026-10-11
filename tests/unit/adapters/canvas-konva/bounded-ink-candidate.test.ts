@@ -238,7 +238,9 @@ describe("S5.2 shared scene/hit/scratch leasing", () => {
     const coordinator = new WheelInkCacheCoordinator(budget);
     const clearCache = vi.fn();
     coordinator.register({
-      cache: vi.fn(() => { throw new Error("Canvas allocation failed"); }),
+      cache: vi.fn(() => {
+        throw new Error("Canvas allocation failed");
+      }),
       clearCache,
       getClientRect: () => ({ x: 0, y: 0, width: 400, height: 300 }),
       getLayer: () => null,
