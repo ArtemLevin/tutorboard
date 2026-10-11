@@ -1,0 +1,63 @@
+name: C3.9-S6 viewport attribution
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/c39-s6-viewport.yml"
+      - "src/core/board/selectors.ts"
+      - "src/core/board/commands/reducer.ts"
+      - "src/app/board/controllers/useBoardDocumentController.ts"
+      - "src/app/SyncedApp.tsx"
+      - "src/modules/local-persistence/autosave.ts"
+      - "src/adapters/board-document-worker/client.ts"
+      - "src/shared/c39-viewport-trace.ts"
+      - "tests/e2e/c39-large-board-profile.spec.ts"
+      - "tests/unit/core/c39-s6-viewport-selector.test.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-s6-viewport-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [a, b]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install exact dependencies
+        run: npm ci
+      - name: Build frozen candidate
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Exercise real 3k, 5k, 10k and offscreen wheel inputs twice
+        env:
+          C39_STATIC_HEAVY_PROFILE: "1"
+          C39_S6_PROFILE: "1"
+        run: |
+          mkdir -p "c39-s6-${{ matrix.runner }}"
+          set -o pipefail
+          npx playwright test tests/e2e/c39-large-board-profile.spec.ts \
+            --grep @c39-static-heavy --project=chromium --workers=1 \
+            --retries=0 --repeat-each=2 2>&1 | tee "c39-s6-${{ matrix.runner }}/browser.log"
+      - name: Retain traceable browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-s6-viewport-${{ matrix.runner }}
+          path: |
+            c39-s6-${{ matrix.runner }}/
+            test-results/
+          retention-days: 14
