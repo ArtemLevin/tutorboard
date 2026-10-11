@@ -4,6 +4,7 @@ import {
   finishC39ViewportTrace,
   startC39ViewportTrace,
   commandId,
+  createOwnedViewportReducer,
   reduceBoardDocument,
   type ActorId,
   type BoardCommand,
@@ -66,6 +67,7 @@ export function useBoardDocumentController({
   }));
   const document = state.history.present;
   const documentRef = useRef(document);
+  const reduceViewport = useMemo(() => createOwnedViewportReducer(), []);
   const effectiveMutationPolicy = useMemo(
     () =>
       mutationPolicy ??
@@ -131,7 +133,10 @@ export function useBoardDocumentController({
         return rejectMutation();
       }
       const previousDocument = documentRef.current;
-      const result = reduceBoardDocument(previousDocument, command);
+      const result =
+        command.kind === "core.viewport.set"
+          ? reduceViewport(previousDocument, command)
+          : reduceBoardDocument(previousDocument, command);
       if (!result.ok) {
         setState((current) => ({
           ...current,
@@ -156,7 +161,7 @@ export function useBoardDocumentController({
       }
       return result;
     },
-    [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],
+    [effectiveMutationPolicy.canWrite, onCommandCommitted, reduceViewport, rejectMutation],
   );
 
   const commitCommands = useCallback(
