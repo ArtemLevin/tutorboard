@@ -1385,7 +1385,12 @@ export function BoardStage({
         }
       }
     }
-  }, [animatedImageRedraw, deferWheelHitRestore, onViewportCommit, wheelInkCache]);
+  }, [
+    animatedImageRedraw,
+    deferWheelHitRestore,
+    onViewportCommit,
+    wheelInkCache,
+  ]);
 
   const finishLineEndpointTransform = useCallback(
     (commit: boolean) => {
