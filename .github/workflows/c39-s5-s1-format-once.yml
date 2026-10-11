@@ -1,0 +1,34 @@
+name: C3.9-S5.1 one-time formatter
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-s5-s1-format-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format-feasibility:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'test/c39-s5-s1-konva-hit-feasibility'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Format tests with the pinned project Prettier
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npx prettier --write tests/e2e/c39-s5-s1-konva-feasibility.spec.ts
+          git diff --check
+          git add tests/e2e/c39-s5-s1-konva-feasibility.spec.ts
+          if ! git diff --cached --quiet; then
+            git -c user.name='TutorBoard CI Formatter' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'style: format C3.9-S5.1 Konva feasibility tests'
+            git push origin 'HEAD:refs/heads/test/c39-s5-s1-konva-hit-feasibility'
+          fi
