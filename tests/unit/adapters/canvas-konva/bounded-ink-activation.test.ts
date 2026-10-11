@@ -87,14 +87,17 @@ describe("S5.3 mounted Konva crop guard", () => {
     const budget = new SharedInkRasterBudget();
     const wheel = new WheelInkCacheCoordinator(budget);
     const cache = vi.fn();
-    wheel.register({
-      cache,
-      clearCache: vi.fn(),
-      getClientRect: () => {
-        throw new Error("Detached Konva node");
+    wheel.register(
+      {
+        cache,
+        clearCache: vi.fn(),
+        getClientRect: () => {
+          throw new Error("Detached Konva node");
+        },
+        getLayer: () => null,
       },
-      getLayer: () => null,
-    }, { x: 0, y: 0, width: 80, height: 80 });
+      { x: 0, y: 0, width: 80, height: 80 },
+    );
     expect(() => wheel.prepare(2)).not.toThrow();
     expect(wheel.lastBuildFailedRuns).toBe(1);
     expect(wheel.lastBuildSkippedRuns).toBe(1);

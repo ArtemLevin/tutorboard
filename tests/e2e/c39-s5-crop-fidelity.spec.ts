@@ -143,11 +143,7 @@ test("@c39-s5-fidelity experimental crop keeps the original pixels and hit inter
     // Pixel gate runs after independent hit validation, so a rendering
     // mismatch cannot prevent recording evidence of interactive behavior.
 
-    for (const { page, stage } of [
-      control,
-      controlReplica,
-      candidate,
-    ]) {
+    for (const { page, stage } of [control, controlReplica, candidate]) {
       // Selection is executed by the real app event flow, including Konva
       // getIntersection on its original interactive shape nodes.
       await page.keyboard.press("v");
@@ -162,9 +158,7 @@ test("@c39-s5-fidelity experimental crop keeps the original pixels and hit inter
         "0",
       );
     }
-    expect(comparison.changedPixels).toBeLessThanOrEqual(
-      a0Noise.changedPixels,
-    );
+    expect(comparison.changedPixels).toBeLessThanOrEqual(a0Noise.changedPixels);
     expect(comparison.maxChannelDifference).toBeLessThanOrEqual(
       a0Noise.maxChannelDifference,
     );
