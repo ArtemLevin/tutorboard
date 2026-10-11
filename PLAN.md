@@ -2459,7 +2459,7 @@ verification and the guest offline cleanup regression guard.
 ### C3.9-S5.4 — DPR2 exact-pixel containment (2026-10-11)
 
 - [x] Isolated an additional offscreen/backdrop compositing pass in native Konva 10.3.0 as the source of DPR2 Path RGBA deltas (S5.4 #223 diagnostics). Pixel differences occur with translucent **and opaque** Path objects.
-- [x] Added test-build-only lossless vector fallback for DPR2/fractional DPR; DPR1 retains genuinely activated guarded A2 experiment. Added separate DPR1/DPR2 strict screenshot and DPR2 zero-raster regression gates; no change to stable production renderer.
+- [x] Added test-build-only lossless baseline-pipeline fallback for DPR2/fractional DPR; DPR1 retains genuinely activated guarded A2 experiment. Added separate DPR1/DPR2 strict screenshot and DPR2 zero-A2-shared-lease regression gates; no change to stable production renderer.
 - [ ] Confirm final-HEAD Chromium/Firefox pixel parity, partial eraser, undo/redo, 48-wheel memory budget, guest permissions/reconnect/revocation/offline-sync and full CI. Report any failure explicitly.
 - [ ] Develop a candidate with exact DPR2 fidelity **and material work reduction**. Only after full fidelity GO run two-independent-runner 5k/10k A0/A2 ABBA (>=20% p95 gain each, lower >100ms frequency, stable memory/input).
-- **Gate:** DPR2 A2 raster/performance remains **NO-GO**. A vector fallback counts as correctness containment, not throughput improvement. No production merge; Issue #201 stays open. See [containment record](docs/C39_S5_S4_DPR2_LOSSLESS_CONTAINMENT_2026-10-11.md).
+- **Gate:** DPR2 A2 raster/performance remains **NO-GO**. An original-pipeline fallback counts as correctness containment, not throughput improvement. No production merge; Issue #201 stays open. See [containment record](docs/C39_S5_S4_DPR2_LOSSLESS_CONTAINMENT_2026-10-11.md).
