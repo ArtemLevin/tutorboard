@@ -140,3 +140,89 @@ test("@c39-s5-pixel-diagnostic isolates native Path cache, alpha, DPR and crop o
     expect(result.restored.count, result.name).toBe(0);
   }
 });
+
+
+test("@c39-s5-pixel-diagnostic checks whether raster-underlay and overlapping alpha introduce an extra rounding pass", async ({ page }, testInfo) => {
+  await page.goto("/");
+  await page.addScriptTag({ content: konvaUmd });
+  const result = await page.evaluate(() => {
+    type KType = typeof import("konva")["default"];
+    const K = (window as unknown as { Konva: KType }).Konva;
+    const inputs = [
+      { dpr: 1, opacity: 0.65, underlay: false, strokeCount: 2 },
+      { dpr: 2, opacity: 0.65, underlay: false, strokeCount: 2 },
+      { dpr: 2, opacity: 0.65, underlay: true, strokeCount: 2 },
+      { dpr: 2, opacity: 1, underlay: true, strokeCount: 2 },
+      { dpr: 2, opacity: 0.65, underlay: false, strokeCount: 128 },
+      { dpr: 2, opacity: 0.65, underlay: true, strokeCount: 128 },
+      { dpr: 2, opacity: 1, underlay: true, strokeCount: 128 },
+      { dpr: 2, opacity: 0.65, underlay: true, strokeCount: 256 },
+      { dpr: 2, opacity: 1, underlay: true, strokeCount: 256 },
+    ] as const;
+    return inputs.map((input) => {
+      const container = document.createElement("div");
+      document.body.append(container);
+      const stage = new K.Stage({ container, width: 430, height: 245 });
+      const layer = new K.Layer();
+      const group = new K.Group();
+      stage.add(layer);
+      if (input.underlay) {
+        layer.add(new K.Rect({
+          x: 0, y: 0, width: 430, height: 245, fill: "#3d8dbc",
+        }));
+      }
+      layer.add(group);
+      for (let i = 0; i < input.strokeCount; i++) {
+        const x = 35 + (i % 13) * 27;
+        const y = 25 + (Math.floor(i / 13) % 7) * 29;
+        const offset = (i % 7) * 0.21;
+        group.add(new K.Path({
+          data: "M 0 -2.5 C 12 -6.2 24 7.4 47 -1.4 L 47 3.3 C 24 12 12 -1.3 0 3.7 Z",
+          x: x + offset, y: y + offset,
+          fill: "#17202a",
+          opacity: input.opacity,
+          perfectDrawEnabled: true,
+          listening: true,
+        }));
+      }
+      try {
+        const pixels = () => {
+          layer.draw();
+          const canvas = stage.toCanvas({pixelRatio: input.dpr});
+          const ctx = canvas.getContext("2d");
+          if (ctx === null) throw new Error("No ctx");
+          return new Uint8ClampedArray(ctx.getImageData(0, 0, canvas.width, canvas.height).data);
+        };
+        const a0 = pixels();
+        group.cache({ x: 0, y: 0, width: 420, height: 235,
+          pixelRatio: input.dpr, hitCanvasPixelRatio: 1 });
+        const a2 = pixels();
+        group.clearCache();
+        const restored = pixels();
+        let changed = 0, maxDelta = 0, restoredChanges = 0;
+        const first: {x:number;y:number;delta:number}[] = [];
+        for (let offset = 0; offset < a0.length; offset += 4) {
+          const delta = Math.max(...[0,1,2,3].map(k => Math.abs(a0[offset+k]! - a2[offset+k]!)));
+          if (delta > 0) {
+            changed++;
+            if (first.length < 8) {
+              first.push({x:(offset/4) % (430*input.dpr),
+                y:Math.floor((offset/4)/(430*input.dpr)),delta});
+            }
+            maxDelta = Math.max(maxDelta,delta);
+          }
+          if ([0,1,2,3].some(k => a0[offset+k]!==restored[offset+k])) restoredChanges++;
+        }
+        return {...input,changed,maxDelta,restoredChanges,first};
+      } finally { stage.destroy(); container.remove(); }
+    });
+  });
+  console.info("C39_S5_S4_ALPHA_UNDERLAY " + JSON.stringify(result));
+  await testInfo.attach("c39-s5-s4-alpha-underlay.json", {
+    body: Buffer.from(JSON.stringify(result,null,2)),
+    contentType:"application/json",
+  });
+  for (const point of result) {
+    expect(point.restoredChanges).toBe(0);
+  }
+});
