@@ -1,0 +1,34 @@
+name: C3.9-S3 one-time Vitest gate formatter
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-s3-gate-format-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format-test:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'perf/c39-s3-stable-scene-ab'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Apply pinned Prettier to C3.9-S3 gate
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npx prettier --write tests/node/c39-stable-scene-ab.test.mjs
+          git diff --check
+          git add tests/node/c39-stable-scene-ab.test.mjs
+          if ! git diff --cached --quiet; then
+            git -c user.name='TutorBoard CI Formatter' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'style: format repaired S3 test'
+            git push origin 'HEAD:refs/heads/perf/c39-s3-stable-scene-ab'
+          fi
