@@ -7,6 +7,11 @@ import {
   type BoardDocumentSha256Result,
 } from "../../core/public";
 
+import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
+} from "../../shared/c39-viewport-trace";
+
 import type {
   BoardDocumentWorkerRequest,
   BoardDocumentWorkerResponse,
@@ -170,7 +175,16 @@ export class BoardDocumentWorkerComputation implements BoardDocumentComputation 
       }
       this.#pending.set(request.id, { reject, resolve });
       try {
-        this.#ensureWorker().postMessage(request);
+        const started = startC39ViewportTrace();
+        try {
+          this.#ensureWorker().postMessage(request);
+        } finally {
+          finishC39ViewportTrace(
+            "viewport-local-worker.postMessage",
+            started,
+            request.kind,
+          );
+        }
       } catch (error) {
         this.#pending.delete(request.id);
         reject(
