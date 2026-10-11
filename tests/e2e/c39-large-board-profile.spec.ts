@@ -588,7 +588,9 @@ for (const scenario of [
           process.env.C39_S6_PROFILE === "1" && scenario.staticHeavy;
         if (viewportTraceEnabled) {
           await page.addInitScript(() => {
-            (window as CapturingWindow).__tutorBoardC39ViewportTrace = { events: [] };
+            (window as CapturingWindow).__tutorBoardC39ViewportTrace = {
+              events: [],
+            };
           });
         }
         if (traceEnabled || !scenario.e2) {
@@ -711,7 +713,8 @@ for (const scenario of [
           : null;
         if (viewportTraceEnabled) {
           await page.evaluate(() => {
-            const sink = (window as CapturingWindow).__tutorBoardC39ViewportTrace;
+            const sink = (window as CapturingWindow)
+              .__tutorBoardC39ViewportTrace;
             if (sink === undefined) throw new Error("Missing S6 trace sink");
             sink.events.length = 0;
           });
@@ -756,13 +759,17 @@ for (const scenario of [
         );
         const viewportTrace = viewportTraceEnabled
           ? await page.evaluate(
-              () => (window as CapturingWindow).__tutorBoardC39ViewportTrace?.events ?? [],
+              () =>
+                (window as CapturingWindow).__tutorBoardC39ViewportTrace
+                  ?.events ?? [],
             )
           : [];
         if (viewportTraceEnabled) {
           expect(viewportTrace.length).toBeLessThanOrEqual(12_000);
           expect(
-            viewportTrace.some((event) => event.kind === "viewport-reduce.prevalidate"),
+            viewportTrace.some(
+              (event) => event.kind === "viewport-reduce.prevalidate",
+            ),
           ).toBe(true);
         }
         const durationsByKind = new Map<string, number[]>();
@@ -771,18 +778,24 @@ for (const scenario of [
           values.push(event.durationMs);
           durationsByKind.set(event.kind, values);
         }
-        const viewportTraceByKind = [...durationsByKind].map(([kind, durations]) => {
-          durations.sort((a, b) => a - b);
-          return {
-            kind,
-            count: durations.length,
-            totalMs: durations.reduce((total, duration) => total + duration, 0),
-            p95Ms:
-              durations[Math.max(0, Math.ceil(durations.length * 0.95) - 1)] ??
-              0,
-            maxMs: durations.at(-1) ?? 0,
-          };
-        });
+        const viewportTraceByKind = [...durationsByKind].map(
+          ([kind, durations]) => {
+            durations.sort((a, b) => a - b);
+            return {
+              kind,
+              count: durations.length,
+              totalMs: durations.reduce(
+                (total, duration) => total + duration,
+                0,
+              ),
+              p95Ms:
+                durations[
+                  Math.max(0, Math.ceil(durations.length * 0.95) - 1)
+                ] ?? 0,
+              maxMs: durations.at(-1) ?? 0,
+            };
+          },
+        );
         const attribution = correlateC39SlowFrames(
           phases.gaps,
           captured.wheelTimes,
