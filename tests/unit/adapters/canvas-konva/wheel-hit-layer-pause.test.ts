@@ -19,13 +19,15 @@ function layer(
     enabled = value;
   });
   const hit = vi.fn();
+  function listening(): boolean;
+  function listening(value: boolean): void;
+  function listening(value?: boolean): boolean | void {
+    if (value === undefined) return enabled;
+    listen(value);
+  }
   const node: WheelHitLayer = {
     name: () => name,
-    listening(value?: boolean) {
-      if (value === undefined) return enabled;
-      listen(value);
-      return node;
-    },
+    listening,
     drawHit: hit,
   };
   return { node, listen, hit, state: () => enabled };
