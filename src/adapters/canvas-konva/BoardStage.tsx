@@ -478,11 +478,16 @@ export function BoardStage({
   );
   // The A2 bundle is a separate explicitly built experiment. Production and
   // normal preview bundles cannot activate this code via a query parameter.
-  const [experimentalA2] = useState(
+  const [experimentalA2Requested] = useState(
     () =>
       import.meta.env.MODE === "c39-s5-a2" &&
       (window as Window & { __tutorBoardC39S5A2?: boolean })
         .__tutorBoardC39S5A2 === true,
+  );
+  // At unsupported initial DPR use the *entire* existing baseline pipeline,
+  // including its legacy wheel coordinator and paint-run composition.
+  const [experimentalA2] = useState(
+    () => experimentalA2Requested && window.devicePixelRatio === 1,
   );
   const [wheelInkCache] = useState(
     () =>
@@ -2348,6 +2353,7 @@ export function BoardStage({
         wheelInkCache.lastWheelSkippedColdBuild
       }
       data-wheel-cache-prepared={wheelInkCache.isPrepared}
+      data-c39-s5-a2-requested={experimentalA2Requested}
       data-c39-s5-a2-enabled={experimentalA2}
       data-c39-s5-a2-raster-supported={experimentalA2RasterSupported}
       data-c39-s5-a2-candidate-count={
@@ -2407,7 +2413,7 @@ export function BoardStage({
                   zoom={previewViewport.zoom}
                   wheelInkCache={wheelInkCache}
                   boundedInkCandidate={boundedInkCandidate}
-                  experimentalA2={experimentalA2}
+                  experimentalA2={experimentalA2RasterSupported}
                 />
               </AnimatedImageRedrawContext>
             </Group>
