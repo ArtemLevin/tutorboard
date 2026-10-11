@@ -248,3 +248,50 @@ test("@c39-s5-lifecycle DPR2 uses baseline renderer without any A2 lease after w
     await context.close();
   }
 });
+
+test("@c39-s5-lifecycle DPR transition releases A2 leases without re-enabling native cache", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { context, page, stage } = await mount(browser);
+  try {
+    expect(
+      Number(await stage.getAttribute("data-c39-s5-a2-retained-bytes")),
+    ).toBeGreaterThan(0);
+    // This simulates the DPR value read by the renderer after moving between
+    // displays. It tests cache invalidation, not physical device resizing.
+    const changed = await page.evaluate(() =>
+      Reflect.defineProperty(window, "devicePixelRatio", {
+        configurable: true,
+        value: 2,
+      }),
+    );
+    expect(changed).toBe(true);
+    const bounds = await stage.boundingBox();
+    if (bounds === null) throw new Error("No BoardStage");
+    await page.mouse.move(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
+    await page.mouse.wheel(0, 120);
+    await expect(stage).toHaveAttribute(
+      "data-c39-s5-a2-raster-supported",
+      "false",
+    );
+    await expect(stage).toHaveAttribute(
+      "data-c39-s5-a2-candidate-count",
+      "0",
+    );
+    await expect(stage).toHaveAttribute(
+      "data-wheel-cache-retained-runs",
+      "0",
+    );
+    await expect(stage).toHaveAttribute(
+      "data-c39-s5-a2-retained-bytes",
+      "0",
+    );
+    await expect(page.getByTestId("object-count")).toHaveText("330 объекта");
+  } finally {
+    await context.close();
+  }
+});
