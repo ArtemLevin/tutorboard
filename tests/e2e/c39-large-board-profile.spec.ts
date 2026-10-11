@@ -677,13 +677,23 @@ for (const scenario of [
             cost: candidate?.cost ?? null,
           };
           console.info("C39_S5_S2_REAL_MEDIA " + JSON.stringify(evidence));
-          await testInfo.attach("c39-s5-s2-real-media-" + scenario.name + ".json", {
-            body: Buffer.from(JSON.stringify(evidence, null, 2)),
-            contentType: "application/json",
-          });
-          expect(evidence.imageMimes.filter((type) => type === "image/png")).toHaveLength(4);
-          expect(evidence.imageMimes.filter((type) => type === "image/jpeg")).toHaveLength(6);
-          expect(candidate, "S5.2 must find a truly eligible bounded pen run").not.toBeNull();
+          await testInfo.attach(
+            "c39-s5-s2-real-media-" + scenario.name + ".json",
+            {
+              body: Buffer.from(JSON.stringify(evidence, null, 2)),
+              contentType: "application/json",
+            },
+          );
+          expect(
+            evidence.imageMimes.filter((type) => type === "image/png"),
+          ).toHaveLength(4);
+          expect(
+            evidence.imageMimes.filter((type) => type === "image/jpeg"),
+          ).toHaveLength(6);
+          expect(
+            candidate,
+            "S5.2 must find a truly eligible bounded pen run",
+          ).not.toBeNull();
           expect(candidate?.objectIds.length).toBeGreaterThanOrEqual(80);
         }
         const importStart = performance.now();
