@@ -49,6 +49,31 @@ interface SaveTask {
   readonly savedAt: string;
 }
 
+/**
+ * A viewport-only commit can reuse every persisted content subtree. Waiting
+ * until the existing debounce expires avoids an expensive structured clone
+ * of an intermediate, already-superseded full document on the main thread.
+ * This is a scheduling hint only: repository.save still validates and
+ * serializes the actual latest document, including on lifecycle flush.
+ */
+function sharesPersistedContent(
+  previous: BoardDocument,
+  next: BoardDocument,
+): boolean {
+  return (
+    previous.id === next.id &&
+    previous.schemaVersion === next.schemaVersion &&
+    previous.createdAt === next.createdAt &&
+    previous.title === next.title &&
+    previous.order === next.order &&
+    previous.objects === next.objects &&
+    previous.groups === next.groups &&
+    previous.geometryImports === next.geometryImports &&
+    previous.solidModels === next.solidModels &&
+    previous.solidLearningAttempts === next.solidLearningAttempts
+  );
+}
+
 export class LocalDocumentAutosave {
   readonly #createOperationId: () => PersistenceOperationId;
   readonly #debounceMs: number;
@@ -94,8 +119,20 @@ export class LocalDocumentAutosave {
       if (this.#disposed || document === this.#lastPersistedDocument) {
         return;
       }
+      const previous =
+        this.#queuedDocument ??
+        this.#activeInput?.document ??
+        this.#lastPersistedDocument;
+      const deferPreparation =
+        previous !== null && sharesPersistedContent(previous, document);
       this.#queuedDocument = document;
-      this.#repository.prepareSave?.(document);
+      // Preserve eager prepare for changes to ink/media/metadata. An
+      // unchanged content graph with a new viewport is already scheduled
+      // for durable serialization by #enqueueLatest, so eager Worker
+      // postMessage would only clone an intermediate full document.
+      if (!deferPreparation) {
+        this.#repository.prepareSave?.(document);
+      }
       if (this.#timer !== null) {
         clearTimeout(this.#timer);
       }
