@@ -3,6 +3,8 @@ import {
   type BoardDocumentSha256Result,
 } from "../../core/public";
 
+import { WorkerSerializationCache } from "./serialization-cache";
+
 import type {
   BoardDocumentWorkerRequest,
   BoardDocumentWorkerResponse,
@@ -25,6 +27,8 @@ async function sha256(
   };
 }
 
+const serializationCache = new WorkerSerializationCache();
+
 globalThis.addEventListener(
   "message",
   (event: MessageEvent<BoardDocumentWorkerRequest>) => {
@@ -32,17 +36,13 @@ globalThis.addEventListener(
     void (async () => {
       try {
         const response: BoardDocumentWorkerResponse =
-          request.kind === "serialize"
+          request.kind === "sha256"
             ? {
-                id: request.id,
-                kind: "serialize",
-                result: serializeBoardDocument(request.document),
-              }
-            : {
                 id: request.id,
                 kind: "sha256",
                 result: await sha256(request),
-              };
+              }
+            : serializationCache.serialize(request);
         globalThis.postMessage(response);
       } catch (error) {
         const response: BoardDocumentWorkerResponse = {
