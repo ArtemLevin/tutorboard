@@ -42,6 +42,21 @@ jobs:
           npx playwright test tests/e2e/c39-s5-s4-pixel-diagnostics.spec.ts \
             --project=${{ matrix.browser }} --workers=1 --retries=0 2>&1 |
             tee c39-s5-s4/${{ matrix.browser }}.log
+      - name: Run real BoardStage eraser, undo/redo and 48-wheel lifecycle
+        run: |
+          set -o pipefail
+          npx playwright test tests/e2e/c39-s5-s4-lifecycle.spec.ts \
+            --project=${{ matrix.browser }} --workers=1 --retries=0 2>&1 |
+            tee c39-s5-s4/${{ matrix.browser }}-lifecycle.log
+      - name: Run guest permissions, reconnect, revocation and offline contracts with A2 feature initialized
+        env:
+          C39_S5_S4_A2: "1"
+        run: |
+          set -o pipefail
+          npx playwright test tests/e2e/standalone-launch.spec.ts \
+            tests/e2e/server-sync.spec.ts \
+            --project=${{ matrix.browser }} --workers=1 --retries=0 2>&1 |
+            tee c39-s5-s4/${{ matrix.browser }}-collaboration.log
       - name: Archive reproducer logs and geometry
         if: always()
         uses: actions/upload-artifact@v4
