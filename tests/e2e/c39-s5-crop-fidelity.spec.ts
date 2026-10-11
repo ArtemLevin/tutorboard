@@ -235,7 +235,8 @@ test("@c39-s5 A2 pen redraw and undo redo", async ({ browser }) => {
     const { page, stage } = a2;
     const rect = await stage.boundingBox();
     if (!rect) throw new Error("No stage bounds");
-    await page.keyboard.press("p");
+    await page.getByRole("button", { name: "\u0420\u0438\u0441\u043e\u0432\u0430\u043d\u0438\u0435" }).click();
+    await page.getByRole("menuitemradio", { name: "\u041f\u0435\u0440\u043e (P)" }).click();
     await page.mouse.move(rect.x + 430, rect.y + 697);
     await page.mouse.down();
     await page.mouse.move(rect.x + 805, rect.y + 697, { steps: 20 });
