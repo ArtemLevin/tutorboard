@@ -153,7 +153,9 @@ test("@c39-s5-lifecycle 48 wheel sessions, clear, undo and unmount release all r
       await page.mouse.wheel(0, index % 2 === 0 ? -150 : 150);
       await expect
         .poll(async () =>
-          Number(await stage.getAttribute("data-wheel-cache-last-wheel-start-ms")),
+          Number(
+            await stage.getAttribute("data-wheel-cache-last-wheel-start-ms"),
+          ),
         )
         .toBeGreaterThan(previousWheelStart);
       previousWheelStart = Number(
