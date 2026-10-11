@@ -4,16 +4,16 @@ import {
   selectBoardScene,
   selectVisibleBoardItems,
   type BoardRenderItem,
-} from "../../../src/core/public";
-import { createDenseBoardDocument } from "../../fixtures/dense-board";
-import { selectBoundedInkCandidate } from "../../../src/adapters/canvas-konva/bounded-ink-candidate";
+} from "../../../../src/core/public";
+import { createDenseBoardDocument } from "../../../fixtures/dense-board";
+import { selectBoundedInkCandidate } from "../../../../src/adapters/canvas-konva/bounded-ink-candidate";
 import {
   estimateInkRasterCost,
   maximumSharedInkCanvasBytes,
   maximumSharedInkScenePixels,
   SharedInkRasterBudget,
-} from "../../../src/adapters/canvas-konva/shared-ink-raster-budget";
-import { WheelInkCacheCoordinator } from "../../../src/adapters/canvas-konva/wheel-ink-cache";
+} from "../../../../src/adapters/canvas-konva/shared-ink-raster-budget";
+import { WheelInkCacheCoordinator } from "../../../../src/adapters/canvas-konva/wheel-ink-cache";
 
 function visibleFixture(strokes: number, visible: number) {
   const raw = createDenseBoardDocument({
