@@ -1,4 +1,11 @@
 export {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
+  type C39ViewportTraceEvent,
+  type C39ViewportTraceKind,
+} from "./board/viewport-trace";
+
+export {
   actorId,
   boardObjectId,
   commandId,

@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
 
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
+import type { C39ViewportTraceEvent } from "../../src/core/board/viewport-trace.js";
 import {
   correlateC39SlowFrames,
   startC39ChromiumTrace,
@@ -37,7 +38,10 @@ interface BrowserCapture {
     readonly wheelTimes: readonly number[];
   };
 }
-type CapturingWindow = Window & { __c39Capture?: BrowserCapture };
+type CapturingWindow = Window & {
+  __c39Capture?: BrowserCapture;
+  __tutorBoardC39ViewportTrace?: { events: C39ViewportTraceEvent[] };
+};
 
 interface C39Scenario {
   readonly name: string;
@@ -580,6 +584,15 @@ for (const scenario of [
         // Each test gets an isolated browser context; production never opts in.
         const traceEnabled =
           scenario.strokes >= 3000 && !scenario.traceDisabled;
+        const viewportTraceEnabled =
+          process.env.C39_S6_PROFILE === "1" && scenario.staticHeavy;
+        if (viewportTraceEnabled) {
+          await page.addInitScript(() => {
+            (window as CapturingWindow).__tutorBoardC39ViewportTrace = {
+              events: [],
+            };
+          });
+        }
         if (traceEnabled || !scenario.e2) {
           await page.addInitScript(() => {
             window.__tutorBoardC37Trace = { events: [] };
@@ -698,6 +711,14 @@ for (const scenario of [
         const stopChromiumTrace = chromiumTraceEnabled
           ? await startC39ChromiumTrace(page)
           : null;
+        if (viewportTraceEnabled) {
+          await page.evaluate(() => {
+            const sink = (window as CapturingWindow)
+              .__tutorBoardC39ViewportTrace;
+            if (sink === undefined) throw new Error("Missing S6 trace sink");
+            sink.events.length = 0;
+          });
+        }
         await beginFrameCapture(page);
         for (let index = 0; index < 18; index += 1) {
           await page.mouse.wheel(0, index % 2 === 0 ? -190 : 190);
@@ -735,6 +756,45 @@ for (const scenario of [
           stopChromiumTrace === null ? null : await stopChromiumTrace();
         const jsTrace = await page.evaluate(
           () => window.__tutorBoardC37Trace?.events ?? [],
+        );
+        const viewportTrace = viewportTraceEnabled
+          ? await page.evaluate(
+              () =>
+                (window as CapturingWindow).__tutorBoardC39ViewportTrace
+                  ?.events ?? [],
+            )
+          : [];
+        if (viewportTraceEnabled) {
+          expect(viewportTrace.length).toBeLessThanOrEqual(12_000);
+          expect(
+            viewportTrace.some(
+              (event) => event.kind === "viewport-reduce.prevalidate",
+            ),
+          ).toBe(true);
+        }
+        const durationsByKind = new Map<string, number[]>();
+        for (const event of viewportTrace) {
+          const values = durationsByKind.get(event.kind) ?? [];
+          values.push(event.durationMs);
+          durationsByKind.set(event.kind, values);
+        }
+        const viewportTraceByKind = [...durationsByKind].map(
+          ([kind, durations]) => {
+            durations.sort((a, b) => a - b);
+            return {
+              kind,
+              count: durations.length,
+              totalMs: durations.reduce(
+                (total, duration) => total + duration,
+                0,
+              ),
+              p95Ms:
+                durations[
+                  Math.max(0, Math.ceil(durations.length * 0.95) - 1)
+                ] ?? 0,
+              maxMs: durations.at(-1) ?? 0,
+            };
+          },
         );
         const attribution = correlateC39SlowFrames(
           phases.gaps,
@@ -808,6 +868,19 @@ for (const scenario of [
           },
           wheelPauseStillActiveAfterInputs,
           ...phases,
+          ...(viewportTraceEnabled
+            ? {
+                c39S6Viewport: {
+                  schemaVersion: 1,
+                  eventCount: viewportTrace.length,
+                  byKind: viewportTraceByKind,
+                  events: viewportTrace,
+                  caution:
+                    "Synchronous JS intervals only; nested durations overlap. " +
+                    "Use clipped union for percentages; no GPU/worker causal claim.",
+                },
+              }
+            : {}),
           c39Attribution: {
             ...attribution,
             jsEventCount: jsTrace.length,

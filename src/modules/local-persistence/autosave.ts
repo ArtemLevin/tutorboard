@@ -1,11 +1,13 @@
-import type {
-  BoardDocument,
-  BoardDocumentRepository,
-  LocalRevisionId,
-  PersistenceOperationId,
-  SaveBoardDocumentInput,
-  SaveBoardDocumentPriority,
-  SaveBoardDocumentResult,
+import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
+  type BoardDocument,
+  type BoardDocumentRepository,
+  type LocalRevisionId,
+  type PersistenceOperationId,
+  type SaveBoardDocumentInput,
+  type SaveBoardDocumentPriority,
+  type SaveBoardDocumentResult,
 } from "../../core/public";
 import { bindLocalAutosaveLifecycleFlush } from "./lifecycle";
 
@@ -87,19 +89,24 @@ export class LocalDocumentAutosave {
   }
 
   schedule(document: BoardDocument): void {
-    if (this.#disposed || document === this.#lastPersistedDocument) {
-      return;
+    const started = startC39ViewportTrace();
+    try {
+      if (this.#disposed || document === this.#lastPersistedDocument) {
+        return;
+      }
+      this.#queuedDocument = document;
+      this.#repository.prepareSave?.(document);
+      if (this.#timer !== null) {
+        clearTimeout(this.#timer);
+      }
+      this.#onStateChange({ kind: "scheduled" });
+      this.#timer = setTimeout(() => {
+        this.#timer = null;
+        this.#enqueueLatest("background");
+      }, this.#debounceMs);
+    } finally {
+      finishC39ViewportTrace("viewport-local-autosave.schedule", started);
     }
-    this.#queuedDocument = document;
-    this.#repository.prepareSave?.(document);
-    if (this.#timer !== null) {
-      clearTimeout(this.#timer);
-    }
-    this.#onStateChange({ kind: "scheduled" });
-    this.#timer = setTimeout(() => {
-      this.#timer = null;
-      this.#enqueueLatest("background");
-    }, this.#debounceMs);
   }
 
   async flush(

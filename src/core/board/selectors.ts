@@ -9,6 +9,10 @@ import {
   type ViewportState,
 } from "./primitives";
 import { ownValue } from "./records";
+import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
+} from "./viewport-trace";
 
 export interface BoardRenderItem {
   readonly object: BoardObject;
@@ -143,7 +147,44 @@ export function createBoardSceneSelector(): BoardSceneSelector {
   >();
 
   const selector = ((document: BoardDocument): BoardSceneReadModel => {
+    const traceStart = startC39ViewportTrace();
     if (previousDocument === document && previousScene !== null) {
+      finishC39ViewportTrace(
+        "viewport-scene-select",
+        traceStart,
+        "same-document",
+      );
+      return previousScene;
+    }
+    // Viewport commits preserve the entire immutable content graph. Reuse
+    // its ordered render items and per-object cache without walking the
+    // potentially 10k+ object document on every completed wheel gesture.
+    // Compare *all* non-viewport document fields rather than only order or
+    // object count: external hydration and history can replace any subtree.
+    if (
+      previousDocument !== null &&
+      previousScene !== null &&
+      previousDocument.id === document.id &&
+      previousDocument.schemaVersion === document.schemaVersion &&
+      previousDocument.createdAt === document.createdAt &&
+      previousDocument.title === document.title &&
+      previousDocument.order === document.order &&
+      previousDocument.objects === document.objects &&
+      previousDocument.groups === document.groups &&
+      previousDocument.geometryImports === document.geometryImports &&
+      previousDocument.solidModels === document.solidModels &&
+      previousDocument.solidLearningAttempts === document.solidLearningAttempts
+    ) {
+      previousDocument = document;
+      previousScene = {
+        items: previousScene.items,
+        viewport: document.viewport,
+      };
+      finishC39ViewportTrace(
+        "viewport-scene-select",
+        traceStart,
+        "reuse-items",
+      );
       return previousScene;
     }
     const nextCache = new Map<
@@ -191,6 +232,7 @@ export function createBoardSceneSelector(): BoardSceneSelector {
     cache = nextCache;
     previousDocument = document;
     previousScene = { items, viewport: document.viewport };
+    finishC39ViewportTrace("viewport-scene-select", traceStart, "full-rebuild");
     return previousScene;
   }) as BoardSceneSelector;
   Object.defineProperties(selector, {

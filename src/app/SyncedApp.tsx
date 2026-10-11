@@ -19,6 +19,8 @@ import type {
   BoardRuntimeAccessContext,
 } from "../core/access/public";
 import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
   reduceBoardDocument,
   type BoardCommand,
   type BoardDocument,
@@ -1044,7 +1046,15 @@ function SyncedWorkspace({
               );
               setUndoCount(undoStackRef.current.length);
             }
-            void engine.queue(command, document);
+            const syncStarted =
+              command.kind === "core.viewport.set"
+                ? startC39ViewportTrace()
+                : null;
+            try {
+              void engine.queue(command, document);
+            } finally {
+              finishC39ViewportTrace("viewport-sync.queue", syncStarted);
+            }
           }}
           onCommandsCommitted={(commands, document, previousDocument) => {
             if (!writeEnabled || commands.length === 0) return;

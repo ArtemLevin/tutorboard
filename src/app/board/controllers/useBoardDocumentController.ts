@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
   commandId,
   reduceBoardDocument,
   type ActorId,
@@ -138,11 +140,20 @@ export function useBoardDocumentController({
         return result;
       }
       documentRef.current = result.document;
-      setState((current) => ({
-        commandError: null,
-        history: commitDocumentHistory(current.history, result.document),
-      }));
-      onCommandCommitted?.(command, result.document, previousDocument);
+      setState((current) => {
+        const historyStarted =
+          command.kind === "core.viewport.set" ? startC39ViewportTrace() : null;
+        const history = commitDocumentHistory(current.history, result.document);
+        finishC39ViewportTrace("viewport-history", historyStarted);
+        return { commandError: null, history };
+      });
+      const callbackStarted =
+        command.kind === "core.viewport.set" ? startC39ViewportTrace() : null;
+      try {
+        onCommandCommitted?.(command, result.document, previousDocument);
+      } finally {
+        finishC39ViewportTrace("viewport-command-callback", callbackStarted);
+      }
       return result;
     },
     [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],

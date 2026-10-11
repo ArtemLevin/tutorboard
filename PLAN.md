@@ -2439,3 +2439,16 @@ verification and the guest offline cleanup regression guard.
 - Reconcile PR #193 with the merged C3.2-B wheel ink cache and ordered static/GIF render runs from PR #194. During wheel gestures, temporarily activate the existing 24-fps GIF coordinator pacing; restore default cadence on wheel commit, cancellation, authoritative viewport replacement or component unmount.
 - Keep C3.2-B's bounded pixel budget, cache cleanup, z-order, hit testing, transforms, and media-asset permission lifecycle intact. No persistent-format or API changes.
 - Cross-browser smoke of GIF resuming after repeated zoom plus full CI and repeated Chromium large-board profile are merge gates. Measured C3.2-A alone previously reduced GIF draw calls without proving improved zoom p95; assess combined changes against merged C3.2-B baseline before accepting.
+
+
+### C3.9-S6 — viewport commit profiling and immutable scene reuse (2026-10-11)
+
+- [x] Established S6 from stable `main`, independent of A2 Draft PR #225; Draft PR #226 targets main.
+- [x] S6.2 implementation: viewport-only `BoardDocument` revisions now reuse exactly the existing ordered `scene.items` and selector cache while publishing the current viewport. Guard comparisons include all non-viewport document fields; edits/groups/z-order/import changes rebuild normally.
+- [x] Added regression tests for cache reuse, invalidation, reset, reference scene output and 5k objects.
+- [x] S6.1 opt-in, bounded trace of synchronous prevalidation, reducer dispatch, history, callback, selector, autosave schedule, worker `postMessage` and sync queue. Browser static-heavy matrix emits trace JSON; two independent Chromium runner workflow defined.
+- [x] Verified code SHA `2b83c631` on full CI #38148005208 and 2 independent runner S6 profiles #38148005293 (2 repetitions × 4 static-heavy scenarios per runner, all passed). 10k dense prevalidation p95 **242–462ms** runner A and **262–371ms** runner B; Worker postMessage p95 **127–156ms** A and **141–151ms** B; selector max ~0–0.1ms. H1/H3 confirmed; H2 implementation verified, end-to-end gain unproven.
+- [ ] S6.3: pursue a trusted-ownership fast path only if measured full prevalidation is dominant **and** public reducer validation is preserved for external/mutated documents. Otherwise close as NO-GO.
+- [ ] S6.4: modify autosave or sync scheduling only if worker clone/revision queue latency is reproduced, with full pagehide/undo/reconnect/revoke tests.
+- [ ] S6.5: two-runner full A0/S6 ABBA with >=20% active p95 reduction at both 5k and 10k per runner, fewer >100ms frames and unchanged input/data/memory; no main merge before GO.
+- [Evidence and limits](docs/C39_S6_VIEWPORT_IMPLEMENTATION_EVIDENCE_2026-10-11.md). Issue #201 remains OPEN; S6 PR remains Draft.
