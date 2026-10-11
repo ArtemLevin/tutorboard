@@ -5,6 +5,12 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 import {
+  readBoardDocument,
+  selectBoardScene,
+  selectVisibleBoardItems,
+} from "../../src/core/public.js";
+import { selectBoundedInkCandidate } from "../../src/adapters/canvas-konva/bounded-ink-candidate.js";
+import {
   correlateC39SlowFrames,
   startC39ChromiumTrace,
 } from "./c39-frame-attribution.js";
@@ -641,6 +647,45 @@ for (const scenario of [
                 animatedGifSize: { width: 64, height: 64 },
               }),
         });
+        if (
+          process.env.C39_S5_S2_ELIGIBILITY === "1" &&
+          scenario.staticHeavy &&
+          (scenario.strokes === 5000 || scenario.strokes === 10000) &&
+          scenario.visibleStrokes >= 4000
+        ) {
+          const validated = readBoardDocument(board);
+          expect(validated.status).toBe("ok");
+          if (validated.status !== "ok") {
+            throw new Error("Invalid real-media C3.9 fixture");
+          }
+          const visible = selectVisibleBoardItems(
+            selectBoardScene(validated.document).items,
+            validated.document.viewport,
+            { width: 1240, height: 820 },
+          );
+          const candidate = selectBoundedInkCandidate(visible, scenario.dpr);
+          const evidence = {
+            scenario: scenario.name,
+            visibleItems: visible.length,
+            imageMimes: Object.values(board.objects)
+              .filter((item) => item.kind === "image.embedded")
+              .map((item) => item.mimeType),
+            chosenStrokes: candidate?.objectIds.length ?? 0,
+            first: candidate?.objectIds[0] ?? null,
+            last: candidate?.objectIds.at(-1) ?? null,
+            crop: candidate?.crop ?? null,
+            cost: candidate?.cost ?? null,
+          };
+          console.info("C39_S5_S2_REAL_MEDIA " + JSON.stringify(evidence));
+          await testInfo.attach("c39-s5-s2-real-media-" + scenario.name + ".json", {
+            body: Buffer.from(JSON.stringify(evidence, null, 2)),
+            contentType: "application/json",
+          });
+          expect(evidence.imageMimes.filter((type) => type === "image/png")).toHaveLength(4);
+          expect(evidence.imageMimes.filter((type) => type === "image/jpeg")).toHaveLength(6);
+          expect(candidate, "S5.2 must find a truly eligible bounded pen run").not.toBeNull();
+          expect(candidate?.objectIds.length).toBeGreaterThanOrEqual(80);
+        }
         const importStart = performance.now();
         if (scenario.staticHeavy) {
           await restoreLargeBoardFromLocalStore(page, board);
