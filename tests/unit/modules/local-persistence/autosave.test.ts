@@ -119,7 +119,8 @@ describe("LocalDocumentAutosave", () => {
     const repository = new FakeRepository();
     const original = document("Stable document");
     const autosave = new LocalDocumentAutosave({
-      createOperationId: () => persistenceOperationId("operation:viewport-coalesced"),
+      createOperationId: () =>
+        persistenceOperationId("operation:viewport-coalesced"),
       debounceMs: 50,
       initialDocument: original,
       initialRevisionId: localRevisionId("revision:loaded"),
@@ -197,7 +198,8 @@ describe("LocalDocumentAutosave", () => {
     const repository = new FakeRepository();
     const original = document("Loaded");
     const autosave = new LocalDocumentAutosave({
-      createOperationId: () => persistenceOperationId("operation:viewport-exit"),
+      createOperationId: () =>
+        persistenceOperationId("operation:viewport-exit"),
       debounceMs: 350,
       initialDocument: original,
       initialRevisionId: localRevisionId("revision:loaded"),
