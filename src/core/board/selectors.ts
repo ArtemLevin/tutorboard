@@ -9,6 +9,10 @@ import {
   type ViewportState,
 } from "./primitives";
 import { ownValue } from "./records";
+import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
+} from "../../shared/c39-viewport-trace";
 
 export interface BoardRenderItem {
   readonly object: BoardObject;
@@ -143,7 +147,9 @@ export function createBoardSceneSelector(): BoardSceneSelector {
   >();
 
   const selector = ((document: BoardDocument): BoardSceneReadModel => {
+    const traceStart = startC39ViewportTrace();
     if (previousDocument === document && previousScene !== null) {
+      finishC39ViewportTrace("viewport-scene-select", traceStart, "same-document");
       return previousScene;
     }
     // Viewport commits preserve the entire immutable content graph. Reuse
@@ -170,6 +176,7 @@ export function createBoardSceneSelector(): BoardSceneSelector {
         items: previousScene.items,
         viewport: document.viewport,
       };
+      finishC39ViewportTrace("viewport-scene-select", traceStart, "reuse-items");
       return previousScene;
     }
     const nextCache = new Map<
@@ -217,6 +224,7 @@ export function createBoardSceneSelector(): BoardSceneSelector {
     cache = nextCache;
     previousDocument = document;
     previousScene = { items, viewport: document.viewport };
+    finishC39ViewportTrace("viewport-scene-select", traceStart, "full-rebuild");
     return previousScene;
   }) as BoardSceneSelector;
   Object.defineProperties(selector, {
