@@ -23,7 +23,7 @@ import { validateBoardDocument } from "../validation/validate";
 import {
   finishC39ViewportTrace,
   startC39ViewportTrace,
-} from "../../../shared/c39-viewport-trace";
+} from "../viewport-trace";
 import type {
   AddGroupCommand,
   AddObjectsCommand,
