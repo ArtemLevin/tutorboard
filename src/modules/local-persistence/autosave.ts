@@ -8,6 +8,10 @@ import type {
   SaveBoardDocumentResult,
 } from "../../core/public";
 import { bindLocalAutosaveLifecycleFlush } from "./lifecycle";
+import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
+} from "../../shared/c39-viewport-trace";
 
 export type LocalAutosaveState =
   | { readonly kind: "idle" }
@@ -87,19 +91,24 @@ export class LocalDocumentAutosave {
   }
 
   schedule(document: BoardDocument): void {
-    if (this.#disposed || document === this.#lastPersistedDocument) {
-      return;
+    const started = startC39ViewportTrace();
+    try {
+      if (this.#disposed || document === this.#lastPersistedDocument) {
+        return;
+      }
+      this.#queuedDocument = document;
+      this.#repository.prepareSave?.(document);
+      if (this.#timer !== null) {
+        clearTimeout(this.#timer);
+      }
+      this.#onStateChange({ kind: "scheduled" });
+      this.#timer = setTimeout(() => {
+        this.#timer = null;
+        this.#enqueueLatest("background");
+      }, this.#debounceMs);
+    } finally {
+      finishC39ViewportTrace("viewport-local-autosave.schedule", started);
     }
-    this.#queuedDocument = document;
-    this.#repository.prepareSave?.(document);
-    if (this.#timer !== null) {
-      clearTimeout(this.#timer);
-    }
-    this.#onStateChange({ kind: "scheduled" });
-    this.#timer = setTimeout(() => {
-      this.#timer = null;
-      this.#enqueueLatest("background");
-    }, this.#debounceMs);
   }
 
   async flush(
