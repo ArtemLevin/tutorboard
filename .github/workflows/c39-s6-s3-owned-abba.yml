@@ -1,0 +1,69 @@
+name: C3.9-S6.3 trusted viewport reducer ABBA
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/c39-s6-s3-owned-abba.yml"
+      - "src/core/board/commands/reducer.ts"
+      - "src/core/public.ts"
+      - "src/app/board/controllers/useBoardDocumentController.ts"
+      - "tests/unit/core/c39-s6-owned-viewport-reducer.test.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-s6-s3-abba-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  paired:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [a, b]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Paired frozen-build wheel input at DPR2
+        env:
+          C39_STATIC_HEAVY_PROFILE: "1"
+          C39_S6_PROFILE: "1"
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "c39-s6-s3-${{ matrix.runner }}"
+          for step in A1 B1 B2 A2; do
+            case "$step" in
+              A*) commit="$BASE_SHA" ;;
+              B*) commit="$CANDIDATE_SHA" ;;
+            esac
+            git checkout --detach "$commit"
+            npm run build
+            npx playwright test tests/e2e/c39-large-board-profile.spec.ts \
+              --grep 'static-(5000|10000)-10-images' \
+              --project=chromium --workers=1 --retries=0 \
+              2>&1 | tee "c39-s6-s3-${{ matrix.runner }}/$step.log"
+          done
+      - name: Retain raw profile and frame evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-s6-s3-abba-${{ matrix.runner }}
+          path: |
+            c39-s6-s3-${{ matrix.runner }}/
+            test-results/
+          retention-days: 14
