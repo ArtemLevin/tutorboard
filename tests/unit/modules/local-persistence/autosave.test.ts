@@ -114,6 +114,111 @@ describe("LocalDocumentAutosave", () => {
     expect(states).toContain("saved");
   });
 
+  it("defers Worker preparation for consecutive viewport-only revisions but persists the latest", async () => {
+    vi.useFakeTimers();
+    const repository = new FakeRepository();
+    const original = document("Stable document");
+    const autosave = new LocalDocumentAutosave({
+      createOperationId: () => persistenceOperationId("operation:viewport-coalesced"),
+      debounceMs: 50,
+      initialDocument: original,
+      initialRevisionId: localRevisionId("revision:loaded"),
+      now: () => "2026-07-24T08:10:00.000Z",
+      onStateChange: () => undefined,
+      repository,
+    });
+    const first: BoardDocument = {
+      ...original,
+      updatedAt: "2026-07-24T08:02:00.000Z",
+      viewport: { zoom: 1.08, offset: { x: 10, y: 12 } },
+    };
+    const latest: BoardDocument = {
+      ...first,
+      updatedAt: "2026-07-24T08:03:00.000Z",
+      viewport: { zoom: 1.25, offset: { x: -20, y: 45 } },
+    };
+
+    autosave.schedule(first);
+    autosave.schedule(latest);
+
+    // Neither intermediate full snapshot is cloned to the Worker on
+    // the main thread. Durable save still owns the latest revision.
+    expect(repository.prepared).toHaveLength(0);
+    expect(repository.calls).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(50);
+    await autosave.flush();
+    expect(repository.calls).toHaveLength(1);
+    expect(repository.calls[0]?.document).toBe(latest);
+    expect(repository.calls[0]?.expectedRevisionId).toBe("revision:loaded");
+    autosave.dispose();
+  });
+
+  it("retains eager Worker preparation when document content changes", async () => {
+    vi.useFakeTimers();
+    const repository = new FakeRepository();
+    const original = document("Original");
+    const autosave = new LocalDocumentAutosave({
+      createOperationId: () => persistenceOperationId("operation:content"),
+      debounceMs: 50,
+      initialDocument: original,
+      initialRevisionId: null,
+      now: () => "2026-07-24T08:10:00.000Z",
+      onStateChange: () => undefined,
+      repository,
+    });
+    const edit: BoardDocument = {
+      ...original,
+      title: "Edited",
+      updatedAt: "2026-07-24T08:01:00.000Z",
+    };
+    const viewport: BoardDocument = {
+      ...edit,
+      updatedAt: "2026-07-24T08:02:00.000Z",
+      viewport: { zoom: 1.1, offset: { x: 5, y: 8 } },
+    };
+    const otherContent: BoardDocument = {
+      ...viewport,
+      order: [...viewport.order],
+      updatedAt: "2026-07-24T08:03:00.000Z",
+    };
+
+    autosave.schedule(edit);
+    autosave.schedule(viewport);
+    autosave.schedule(otherContent);
+    expect(repository.prepared).toEqual([edit, otherContent]);
+    await vi.advanceTimersByTimeAsync(50);
+    await autosave.flush();
+    expect(repository.calls[0]?.document).toBe(otherContent);
+    autosave.dispose();
+  });
+
+  it("flushes a viewport-only revision synchronously during pagehide", async () => {
+    vi.useFakeTimers();
+    const repository = new FakeRepository();
+    const original = document("Loaded");
+    const autosave = new LocalDocumentAutosave({
+      createOperationId: () => persistenceOperationId("operation:viewport-exit"),
+      debounceMs: 350,
+      initialDocument: original,
+      initialRevisionId: localRevisionId("revision:loaded"),
+      now: () => "2026-07-24T08:10:00.000Z",
+      onStateChange: () => undefined,
+      repository,
+    });
+    const latest: BoardDocument = {
+      ...original,
+      updatedAt: "2026-07-24T08:05:00.000Z",
+      viewport: { zoom: 1.3, offset: { x: 100, y: 30 } },
+    };
+    autosave.schedule(latest);
+    expect(repository.prepared).toEqual([]);
+    window.dispatchEvent(new Event("pagehide"));
+    expect(repository.calls[0]?.document).toBe(latest);
+    expect(repository.calls[0]?.priority).toBe("lifecycle");
+    await autosave.flush();
+    autosave.dispose();
+  });
+
   it("persists the latest debounced document when the workspace is disposed", async () => {
     vi.useFakeTimers();
     const repository = new FakeRepository();
