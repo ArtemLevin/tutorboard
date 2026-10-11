@@ -33,7 +33,7 @@ jobs:
         run: |
           npm ci
           npm run typecheck
-          npm run build -- --mode c39-s5-a2
+          VITE_FEATURE_SERVER_SYNC=true npm run build -- --mode c39-s5-a2
           npx playwright install --with-deps ${{ matrix.browser }}
       - name: Probe DPR, alpha and fractional crop pixels in real browser
         run: |
