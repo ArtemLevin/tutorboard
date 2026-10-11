@@ -1,0 +1,51 @@
+name: C3.9-S5.2 bounded eligibility and fixture proof
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-s5-s2-eligibility.yml
+      - src/adapters/canvas-konva/bounded-ink-candidate.ts
+      - src/adapters/canvas-konva/shared-ink-raster-budget.ts
+      - src/adapters/canvas-konva/wheel-ink-cache.ts
+      - tests/unit/adapters/canvas-konva/bounded-ink-candidate.test.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-s5-s2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eligibility-and-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install locked dependencies and verify TypeScript
+        run: |
+          npm ci
+          npm run typecheck
+      - name: Check exact C3.9 5k / 10k geometry and budget fallback
+        run: |
+          set -o pipefail
+          mkdir -p c39-s5-s2
+          npx vitest run \
+            tests/unit/adapters/canvas-konva/bounded-ink-candidate.test.ts \
+            tests/unit/adapters/canvas-konva/wheel-ink-cache.test.ts \
+            tests/unit/adapters/canvas-konva/committed-paint-runs.test.ts \
+            --reporter=verbose --disableConsoleIntercept 2>&1 |
+            tee c39-s5-s2/eligibility.log
+      - name: Archive evidence including failing assertions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-s5-s2-eligibility-${{ github.sha }}
+          path: c39-s5-s2
+          retention-days: 14
+          if-no-files-found: warn

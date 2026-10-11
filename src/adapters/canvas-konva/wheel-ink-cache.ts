@@ -1,3 +1,8 @@
+import {
+  SharedInkRasterBudget,
+  type InkRasterLease,
+} from "./shared-ink-raster-budget";
+
 /**
  * Bounded rasterization of uninterrupted immutable pen-stroke runs.
  * Prepares the Konva scene/hit canvases during browser idle time when possible.
@@ -33,17 +38,21 @@ function boundedPixelRatio(devicePixelRatio: number): number {
 export class WheelInkCacheCoordinator {
   readonly #nodes = new Set<WheelInkNode>();
   readonly #cached = new Set<WheelInkNode>();
+  readonly #budgetLeases = new Map<WheelInkNode, InkRasterLease>();
   #active = false;
   #preparedPixelRatio: number | null = null;
   #buildCount = 0;
   #lastBuildDurationMs = 0;
   #lastBuildPixels = 0;
   #lastBuildSkippedRuns = 0;
+  #lastBuildFailedRuns = 0;
   #lastWheelBeginDurationMs = 0;
   #lastWheelBeginStartMs = 0;
   #lastWheelBeginEndMs = 0;
   #lastWheelUsedPrepared = false;
   #lastWheelSkippedColdBuild = false;
+
+  constructor(private readonly sharedBudget?: SharedInkRasterBudget) {}
 
   get cachedCount(): number {
     return this.#cached.size;
@@ -77,6 +86,10 @@ export class WheelInkCacheCoordinator {
 
   get lastBuildSkippedRuns(): number {
     return this.#lastBuildSkippedRuns;
+  }
+
+  get lastBuildFailedRuns(): number {
+    return this.#lastBuildFailedRuns;
   }
 
   get lastWheelBeginDurationMs(): number {
@@ -146,6 +159,7 @@ export class WheelInkCacheCoordinator {
     const startedAt = performance.now();
     this.#lastBuildPixels = 0;
     this.#lastBuildSkippedRuns = 0;
+    this.#lastBuildFailedRuns = 0;
     let remainingPixels = maximumWheelCachePixels;
     for (const node of this.#nodes) {
       const bounds = node.getClientRect({ skipTransform: true });
@@ -163,14 +177,41 @@ export class WheelInkCacheCoordinator {
         this.#lastBuildSkippedRuns += 1;
         continue;
       }
-      node.cache({
-        x,
-        y,
-        width,
-        height,
-        pixelRatio: ratio,
-        hitCanvasPixelRatio: 1,
-      });
+      const lease =
+        this.sharedBudget?.tryAcquire("wheel", {
+          width,
+          height,
+          scenePixelRatio: ratio,
+          hitPixelRatio: 1,
+        }) ?? (this.sharedBudget === undefined ? undefined : null);
+      if (lease === null) {
+        this.#lastBuildSkippedRuns += 1;
+        continue;
+      }
+      try {
+        node.cache({
+          x,
+          y,
+          width,
+          height,
+          pixelRatio: ratio,
+          hitCanvasPixelRatio: 1,
+        });
+      } catch (error) {
+        // Opt-in A2 must restore the original vector Group after a failed
+        // partial cache allocation. Preserve legacy exception behavior when
+        // the shared budget has not been enabled.
+        try {
+          node.clearCache();
+        } finally {
+          lease?.release();
+        }
+        if (this.sharedBudget === undefined) throw error;
+        this.#lastBuildFailedRuns += 1;
+        this.#lastBuildSkippedRuns += 1;
+        continue;
+      }
+      if (lease !== undefined) this.#budgetLeases.set(node, lease);
       this.#cached.add(node);
       this.#buildCount += 1;
       this.#lastBuildPixels += pixels;
@@ -196,7 +237,12 @@ export class WheelInkCacheCoordinator {
 
   #release(node: WheelInkNode): void {
     if (!this.#cached.delete(node)) return;
-    node.clearCache();
-    node.getLayer()?.batchDraw();
+    try {
+      node.clearCache();
+    } finally {
+      this.#budgetLeases.get(node)?.release();
+      this.#budgetLeases.delete(node);
+      node.getLayer()?.batchDraw();
+    }
   }
 }
