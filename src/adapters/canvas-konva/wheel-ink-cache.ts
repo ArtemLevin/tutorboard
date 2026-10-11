@@ -1,3 +1,8 @@
+import {
+  SharedInkRasterBudget,
+  type InkRasterLease,
+} from "./shared-ink-raster-budget";
+
 /**
  * Bounded rasterization of uninterrupted immutable pen-stroke runs.
  * Prepares the Konva scene/hit canvases during browser idle time when possible.
@@ -33,6 +38,7 @@ function boundedPixelRatio(devicePixelRatio: number): number {
 export class WheelInkCacheCoordinator {
   readonly #nodes = new Set<WheelInkNode>();
   readonly #cached = new Set<WheelInkNode>();
+  readonly #budgetLeases = new Map<WheelInkNode, InkRasterLease>();
   #active = false;
   #preparedPixelRatio: number | null = null;
   #buildCount = 0;
@@ -44,6 +50,8 @@ export class WheelInkCacheCoordinator {
   #lastWheelBeginEndMs = 0;
   #lastWheelUsedPrepared = false;
   #lastWheelSkippedColdBuild = false;
+
+  constructor(private readonly sharedBudget?: SharedInkRasterBudget) {}
 
   get cachedCount(): number {
     return this.#cached.size;
@@ -163,14 +171,33 @@ export class WheelInkCacheCoordinator {
         this.#lastBuildSkippedRuns += 1;
         continue;
       }
-      node.cache({
-        x,
-        y,
-        width,
-        height,
-        pixelRatio: ratio,
-        hitCanvasPixelRatio: 1,
-      });
+      const lease =
+        this.sharedBudget?.tryAcquire("wheel", {
+          width,
+          height,
+          scenePixelRatio: ratio,
+          hitPixelRatio: 1,
+        }) ?? (this.sharedBudget === undefined ? undefined : null);
+      if (lease === null) {
+        this.#lastBuildSkippedRuns += 1;
+        continue;
+      }
+      try {
+        node.cache({
+          x,
+          y,
+          width,
+          height,
+          pixelRatio: ratio,
+          hitCanvasPixelRatio: 1,
+        });
+      } catch (error) {
+        lease?.release();
+        // A failed cache build can leave incomplete Konva backing surfaces.
+        node.clearCache();
+        throw error;
+      }
+      if (lease !== undefined) this.#budgetLeases.set(node, lease);
       this.#cached.add(node);
       this.#buildCount += 1;
       this.#lastBuildPixels += pixels;
@@ -196,7 +223,12 @@ export class WheelInkCacheCoordinator {
 
   #release(node: WheelInkNode): void {
     if (!this.#cached.delete(node)) return;
-    node.clearCache();
-    node.getLayer()?.batchDraw();
+    try {
+      node.clearCache();
+    } finally {
+      this.#budgetLeases.get(node)?.release();
+      this.#budgetLeases.delete(node);
+      node.getLayer()?.batchDraw();
+    }
   }
 }
