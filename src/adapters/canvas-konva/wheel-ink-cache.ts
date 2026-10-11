@@ -100,6 +100,11 @@ export class WheelInkCacheCoordinator {
     return this.#lastBuildFailedRuns;
   }
 
+  /** RGBA leases still held by this experimental adapter. */
+  get accountedCanvasBytes(): number {
+    return this.sharedBudget?.accountedBytes ?? 0;
+  }
+
   get lastWheelBeginDurationMs(): number {
     return this.#lastWheelBeginDurationMs;
   }

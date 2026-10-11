@@ -1,0 +1,85 @@
+name: C3.9-S5.4 pixel root cause
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-s5-s4-pixel-root-cause.yml
+      - tests/e2e/c39-s5-s4-pixel-diagnostics.spec.ts
+      - tests/e2e/c39-s5-s4-lifecycle.spec.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-s5-s4-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reproduce-pixel-root-cause:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Prepare locked Konva and experimental bundle
+        run: |
+          npm ci
+          npm run typecheck
+          VITE_FEATURE_SERVER_SYNC=true npm run build -- --mode c39-s5-a2
+          npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Probe DPR, alpha and fractional crop pixels in real browser
+        run: |
+          set -o pipefail
+          mkdir -p c39-s5-s4
+          npx playwright test tests/e2e/c39-s5-s4-pixel-diagnostics.spec.ts \
+            --project=${{ matrix.browser }} --workers=1 --retries=0 2>&1 |
+            tee c39-s5-s4/${{ matrix.browser }}.log
+      - name: Run real BoardStage eraser, undo/redo and 48-wheel lifecycle
+        if: always()
+        run: |
+          set -o pipefail
+          npx playwright test tests/e2e/c39-s5-s4-lifecycle.spec.ts \
+            --project=${{ matrix.browser }} --workers=1 --retries=0 2>&1 |
+            tee c39-s5-s4/${{ matrix.browser }}-lifecycle.log
+      - name: Run guest permissions, reconnect, revocation and offline contracts with A2 feature initialized
+        if: always()
+        env:
+          C39_S5_S4_A2: "1"
+        run: |
+          set -o pipefail
+          npx playwright test tests/e2e/standalone-launch.spec.ts \
+            tests/e2e/server-sync.spec.ts \
+            --project=${{ matrix.browser }} --workers=1 --retries=0 2>&1 |
+            tee c39-s5-s4/${{ matrix.browser }}-collaboration.log
+      - name: Check opacity and DPR variants against unchanged exact A0/A2 pixel gate
+        if: always()
+        run: |
+          set -uo pipefail
+          mkdir -p c39-s5-s4
+          status=0
+          for case in "1 varied" "2 opaque"; do
+            set -- $case
+            C39_S5_S4_DPR="$1" C39_S5_S4_OPACITY="$2" \
+              npx playwright test tests/e2e/c39-s5-crop-fidelity.spec.ts \
+                --project=${{ matrix.browser }} --workers=1 --retries=0 2>&1 |
+              tee "c39-s5-s4/${{ matrix.browser }}-dpr$1-$2.log" || status=1
+          done
+          exit "$status"
+      - name: Archive reproducer logs and geometry
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-s5-s4-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            c39-s5-s4
+            test-results
+          retention-days: 14
+          if-no-files-found: warn

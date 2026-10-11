@@ -2343,6 +2343,7 @@ export function BoardStage({
         boundedInkCandidate?.cost.accountedBytes ?? 0
       }
       data-c39-s5-a2-cache-failures={wheelInkCache.lastBuildFailedRuns}
+      data-c39-s5-a2-retained-bytes={wheelInkCache.accountedCanvasBytes}
       data-testid="board-stage"
       role="application"
       style={{ cursor }}
