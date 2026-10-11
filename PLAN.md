@@ -2464,3 +2464,17 @@ verification and the guest offline cleanup regression guard.
 - [ ] S6.3: prove immutable ownership/provenance before reducing prevalidation costs. Public reducer must continue rejecting invalid current documents; mutable-object WeakMap caching prohibited.
 - [ ] S6.4-B: investigate content-versioned Worker message/ACK and lifecycle recovery, so repeated viewport updates send small deltas rather than cloning the full document; preserve canonical persisted schema, command order and SHA.
 - [Full ABBA evidence and release decision](docs/C39_S6_S4_VIEWPORT_AUTOSAVE_ABBA_2026-10-11.md). Issue #201 OPEN.
+
+
+### C3.9-S6.4-B — versioned Worker content cache (2026-10-11)
+
+- [x] Draft PR #228 stacked on S6.4 #227 implements one Worker-owned validated full content version and `serialize-viewport` delta requests with explicit baseVersion + document ID and canonical serializer reuse.
+- [x] Full-source retry on Worker cache-miss and Worker crash; reject foreign document/version and ignore delayed obsolete full ACK; SHA-256 and lifecycle sync path remain unchanged.
+- [x] Regression tests for exact JSON with 128 ink strokes and two embedded images; bad data, stale version, Worker restart, content changes, late ACK; 64-version eviction asserts old entries cannot be reused.
+- [x] Paired A/B/B/A real Chromium DPR2 on two independent runners, [ABBA #38152819028](https://github.com/ArtemLevin/tutorboard/actions/runs/38152819028) **SUCCESS**. Each 10k candidate run emits exactly one full Worker serialize plus 7–9 viewport delta messages. 10k synchronous postMessage work fell from ~732–930ms to ~103–125ms per scenario.
+- [x] Performance **NO-GO** for main: active p95 on runner A 5k ~41% faster, 10k unchanged; runner B 5k unchanged, 10k ~48% apparent improvement dominated by an A2 outlier. Fails >=20% both loads/both runners. Draft PR remains unmerged.
+- [ ] Strict provenance/immutability proof: `readonly` reference sharing alone cannot detect nested in-place mutations of a source BoardDocument; obtain enforceable immutable ownership or force full fallback for untrusted content. This is a **data-integrity blocker for production merge**.
+- [ ] Quantitative Worker heap-soak and lifecycle/collaboration e2e. Unit guards show one cached full snapshot and invalidation after 64 content versions, but do not prove bounded browser-process memory use.
+- [ ] Verify final documentation/tests HEAD in complete CI; archive results.
+- [ ] Next priority S6.3: reduce full-document validation cost on trusted local viewport path without weakening public `reduceBoardDocument` invalid-current-document validation.
+- [Detailed evidence](docs/C39_S6_S4B_VERSIONED_WORKER_ABBA_2026-10-11.md). Issue #201 OPEN.
