@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
 
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
+import type { C39ViewportTraceEvent } from "../../src/shared/c39-viewport-trace";
 import {
   correlateC39SlowFrames,
   startC39ChromiumTrace,
@@ -37,7 +38,10 @@ interface BrowserCapture {
     readonly wheelTimes: readonly number[];
   };
 }
-type CapturingWindow = Window & { __c39Capture?: BrowserCapture };
+type CapturingWindow = Window & {
+  __c39Capture?: BrowserCapture;
+  __tutorBoardC39ViewportTrace?: { events: C39ViewportTraceEvent[] };
+};
 
 interface C39Scenario {
   readonly name: string;
@@ -584,7 +588,7 @@ for (const scenario of [
           process.env.C39_S6_PROFILE === "1" && scenario.staticHeavy;
         if (viewportTraceEnabled) {
           await page.addInitScript(() => {
-            window.__tutorBoardC39ViewportTrace = { events: [] };
+            (window as CapturingWindow).__tutorBoardC39ViewportTrace = { events: [] };
           });
         }
         if (traceEnabled || !scenario.e2) {
@@ -707,7 +711,7 @@ for (const scenario of [
           : null;
         if (viewportTraceEnabled) {
           await page.evaluate(() => {
-            const sink = window.__tutorBoardC39ViewportTrace;
+            const sink = (window as CapturingWindow).__tutorBoardC39ViewportTrace;
             if (sink === undefined) throw new Error("Missing S6 trace sink");
             sink.events.length = 0;
           });
@@ -752,7 +756,7 @@ for (const scenario of [
         );
         const viewportTrace = viewportTraceEnabled
           ? await page.evaluate(
-              () => window.__tutorBoardC39ViewportTrace?.events ?? [],
+              () => (window as CapturingWindow).__tutorBoardC39ViewportTrace?.events ?? [],
             )
           : [];
         if (viewportTraceEnabled) {
