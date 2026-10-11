@@ -4,6 +4,7 @@ import {
   boardObjectId,
   compilePlotExpression,
   createBoardSceneSelector,
+  createBoardVisibilityIndex,
   createEmptyBoardDocument,
   documentId,
   sampleExplicitSeries,
@@ -89,6 +90,45 @@ describe("Phase 3 performance budgets", () => {
     expect(initialMilliseconds).toBeLessThan(1_000);
     expect(cullingMilliseconds).toBeLessThan(1_000);
     expect(incrementalMilliseconds).toBeLessThan(500);
+  });
+
+  it("reuses immutable scene geometry across 5k-object wheel sequences", () => {
+    const scene = createBoardSceneSelector()(largeDocument());
+    const size = { height: 900, width: 1_600 };
+    const viewports = Array.from({ length: 24 }, (_value, index) => ({
+      offset: { x: -index * 17, y: -index * 11 },
+      zoom: 1 + index * 0.009,
+    }));
+    const visibilityIndex = createBoardVisibilityIndex(scene.items);
+    const initial = visibilityIndex.select(viewports[0]!, size);
+    expect(visibilityIndex.select(viewports[0]!, size)).toBe(initial);
+
+    const uncachedStart = performance.now();
+    const legacy = viewports.map((viewport) =>
+      selectVisibleBoardItems(scene.items, viewport, size),
+    );
+    const uncachedMs = performance.now() - uncachedStart;
+
+    const indexedStart = performance.now();
+    const indexed = viewports.map((viewport) =>
+      visibilityIndex.select(viewport, size),
+    );
+    const indexedMs = performance.now() - indexedStart;
+
+    for (let index = 0; index < viewports.length; index += 1) {
+      expect(indexed[index]).toEqual(legacy[index]);
+    }
+    expect(indexedMs).toBeLessThan(1_000);
+    console.info(
+      "VIEWPORT_CULLING_PROFILE",
+      JSON.stringify({
+        objects: scene.items.length,
+        wheelFrames: viewports.length,
+        uncachedMs,
+        indexedMs,
+        indexedToUncachedRatio: indexedMs / Math.max(uncachedMs, 0.001),
+      }),
+    );
   });
 
   it("does not retain previously opened large documents", () => {

@@ -2,19 +2,24 @@
 
 > Статус документа: основной execution plan.
 >
-> Последнее обновление: 2026-10-09.
+> Последнее обновление: 2026-10-10.
 >
 > Документ синхронизирован с фактическим состоянием проекта после standalone
 > contracts, access convergence, controlled-pilot E2E, **Input Foundation +
 > Shape Constraints** (PR #133), **Partial eraser + forgiving selection**
 > (PR #134), **Live text + Escape comfort** (PR #135) и CI/performance hardening
 > вплоть до PR #142; дальнейшие C3 performance-этапы зафиксированы ниже.
-> Ближайшая delivery цель по-прежнему —
-> **Pilot Deployment Gate**: получить реальный HTTPS-сервер и провести
-> controlled pilot с одним преподавателем и одним учеником. После pilot
-> обязательным остаётся полный **Board-only Production Profile** и production
-> release gate. Следующий отдельный продуктовый трек — board media assets:
-> крупные изображения/GIF и последующий безопасный URL/video import.
+> **Текущий инженерный приоритет — C3.9-S3:** отзывчивость доски с тысячами
+> видимых рукописных штрихов и примерно десятью PNG/JPG/JPEG. C3.9-S1
+> завершён в PR #215; эксперимент C3.9-S2 / PR #216 имеет результат **NO-GO**
+> и остаётся Draft. Следующий кандидат — сохранение структуры статической
+> сцены при изменении только viewport, с обязательным причинным A/B gate.
+>
+> Операционная delivery цель — **Pilot Deployment Gate**: получить реальный
+> HTTPS-сервер и провести controlled pilot с одним преподавателем и одним
+> учеником. После pilot обязательны полный **Board-only Production Profile**
+> и production release gate. Media assets/URL/video остаются отдельным треком;
+> GIF сохраняются в регрессионной матрице и имеют второстепенный приоритет.
 >
 > Исторические планы по полотну, GeometryOS, Smart Ink и lesson-bound интеграциям
 > остаются в `docs/DEVELOPMENT_PLAN.md` и профильных ADR/документах в
@@ -316,6 +321,512 @@ zoom p95 = 33.4 ms, наибольшие интервалы 83.3 и 116.6 ms в 
 GPU/compositor attribution, многочасовой реальный soak и сравнение
 на разных устройствах. Подробнее:
 [`docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md`](docs/LARGE_BOARD_BROWSER_PROFILE_2026-10-09.md).
+
+### C3.5–C3.7: интеграционный release gate — 10.10.2026
+
+PR #199 слит в `main` как `2086334bbd3254fa1542c5bd4e25cfde87f786f4`, объединяя C3.5
+(scene-snapshot visibility index), C3.6 (неблокирующий cold wheel fallback)
+и C3.7 (стабильные React ink runs + диагностический trace). Отдельные
+stacked PR #197/#198 закрыты как superseded.
+Это ограниченный performance increment: подтверждены устранение
+синхронной холодной растеризации в wheel handler, повторное использование
+visibility bounds и неизменных React ink subtrees. Зафиксированные
+100–117 ms rAF gaps в тяжёлой сцене остаются отдельной задачей C3.9.
+
+Интеграционный gate: полные CI/production checks для совокупного diff
+от `main`, Chromium/Firefox smoke, DPR2 pixel/hit parity,
+48-кратный wheel/cache lifecycle, performance evidence и review.
+При squash merge последующий C3.8 переносится на свежую ветку от
+обновлённого `main`, только с собственным diff относительно C3.7.
+Формат BoardDocument, sync API, persistence и настройки доступа не меняются.
+
+### C3.9-S1 — DONE: baseline огромной статической доски, 10.10.2026
+
+[PR #215](https://github.com/ArtemLevin/tutorboard/pull/215) объединён в main
+как `db9cd99d5975393d5d7ddfe5e0669894b9217ac0`. Зафиксирован основной
+пользовательский сценарий: тысячи видимых штрихов и около 10 статических
+PNG/JPG/JPEG; рисование, pan/zoom, выделение, частичный ластик, undo/redo,
+сохранение и восстановление. GIF остаются вторичным regression gate.
+
+[Baseline run 38056187715](https://github.com/ArtemLevin/tutorboard/actions/runs/38056187715):
+Chromium 149, Linux x64, DPR2, 4 PNG + 6 JPEG по 1536×1536, 18 wheel inputs,
+три повтора на одном runner. Test-merge `224b0a987cf4e090bacce74d65b47a2720ef7ede`
+имеет тот же Git tree `bf7db1cc752e168214a6cb12e932c3b4475a14bb`, что указанный
+main baseline.
+
+| Всего / задано видимых штрихов | Медиана run active p95 | Active frames | Доля >100 мс |
+| --- | ---: | ---: | ---: |
+| 3000 / 2400 | 283,4 мс | 235 | 17,0% |
+| 5000 / 4000 | 200,0 мс | 238 | 34,9% |
+| 10000 / 8000 | 366,7 мс | 247 | 52,6% |
+| 10000 / 1000 | 33,4 мс | 190 | 5,8% |
+
+Это описательная baseline, без утверждения о готовности доски. У плотных
+10k p95 по повторам 983,3 / 366,7 / 333,4 мс; у offscreen —
+33,4 / 33,4 / 183,4 мс. Порог 200 кадров не обеспечивает устойчивый p99.
+Видимость в таблице — параметр fixture; фактический состав зависит от zoom
+и overscan.
+
+Для больших документов тестовая ревизия заполняет IndexedDB, после чего
+работает штатный production restore с полной валидацией. Публичный JSON-import
+сохраняет лимит **10 MiB** (`maximumTutorBoardDocumentImportBytes`). Безопасный
+импорт крупных резервных копий — отдельная задача. Старая 7-сценарная baseline
+и E2-матрица сохраняются.
+
+[Контракт основной нагрузки](docs/C39_STATIC_HEAVY_PRIORITY_2026-10-10.md).
+
+### C3.9-S2 — NO-GO: синхронный cold ink-cache, 10.10.2026
+
+[PR #216](https://github.com/ArtemLevin/tutorboard/pull/216), ветка
+`test/c39-static-cold-ink-cache-causal-gate`, HEAD
+`578591c89f2fc937205dfe1bafb303a082ea519c`: **OPEN / DRAFT / НЕ MERGED**.
+Все 11 workflows на этом HEAD успешны как тесты.
+
+[Четыре A/B повтора, run 38057412935](https://github.com/ArtemLevin/tutorboard/actions/runs/38057412935)
+на одинаковых 5k/10k документах, 4 PNG + 6 JPEG, DPR2 показали:
+
+| Сцена | Control active p95 | Cold cache active p95 | >100 мс control → cache | Cold begin |
+| --- | ---: | ---: | --- | ---: |
+| 5000 | 250,0 мс | 391,7 мс | 43,0% → 85,7% | 143,25 мс |
+| 10000 | 400,1 мс | 725,05 мс | 55,9% → 75,5% | 286,8 мс |
+
+**Решение:** сохранить `buildIfUnprepared: false` в production wheel path.
+PR #216 не мержить как оптимизацию по признаку зелёного CI. Отрицательное
+решение относится к синхронному построению существующего кэша; новые
+пространственные подходы потребуют отдельного эксперимента.
+
+### C3.9-S3 — NEXT: стабильная сцена при viewport-only, 10.10.2026
+
+[Issue #201](https://github.com/ArtemLevin/tutorboard/issues/201) остаётся
+открытым. Подробный анализ, исходные данные, план и ограничения:
+[отчёт C3.9-S3](docs/C39_S3_ANALYSIS_PLAN_2026-10-10.md).
+
+**Статус:** анализ выполнен; production-реализация и браузерный A/B нового
+кандидата ещё не выполнены. Начинать отдельную ветку от актуального main,
+без переноса экспериментального режима PR #216.
+
+Подтверждённые механизмы:
+
+- После viewport-only commit `createBoardSceneSelector()` создаёт новый
+  `scene.items`, сохраняя каждый отдельный item. Это перестраивает visibility
+  index, batches и run-структуры. Локальная CPU-проверка подтверждает лишнюю
+  работу; её величина — единицы миллисекунд, браузерный выигрыш неизвестен.
+- При стабильном visible membership уже работают reuse bounds/results и
+  memoized pen-runs с `zoom=1`. Повторная генерация всех Path на каждом wheel
+  не является универсальным объяснением.
+- Parent transform в Konva вызывает обход потомков и scene/hit redraw.
+  Transformer effect также ищет `.board-transform-target` при пустом выделении.
+- Нынешний active p95 смешивает visual updates с промежуточным persist.
+  В плотных сценах все 17 межсобытийных промежутков каждого повтора превысили
+  debounce 120 мс; есть active gap 516,6 мс с persist около 518 мс.
+  `board-commit` включает scheduling/React-Konva и не равен чистому React CPU.
+- Static-heavy artifact сохраняет логи/summary и top-five attribution,
+  без полных массивов JS/CDP событий. Нужны raw bounded traces каждого run.
+- `.github/workflows/c39-static-heavy.yml` не покрывает paths renderer/selector;
+  performance-only production diff может пропустить основной benchmark.
+
+**Один законченный блок:** подтвердить A/B эффект сохранения структуры сцены,
+реализовать минимальный выигравший вариант, пройти correctness/performance/CI,
+зафиксировать GO/NO-GO. Уменьшение числа вызовов само по себе не завершает блок.
+
+#### S3.1 — измерения и причинный эксперимент
+
+- [ ] Исправить атрибуцию: input ID + session ID, received delta и viewport,
+  cache begin, layout, persist start/end, cancel; разделить active без persist,
+  active с persist, final commit и settling. Сохранить общий active p95.
+- [ ] Отдельно измерить selector, bounds build/query, run construction,
+  transformer binding, React profiling commit и Konva scene/hit.
+  Вложенные/межпоточные интервалы не суммировать; GPU unavailable обозначать явно.
+- [ ] Записывать fixture/image-byte hashes, source/tree SHA, browser/runner,
+  фактический viewport path, visible counts, sessions и decode/cache readiness.
+  Любые потерянные inputs или разные итоговые viewport блокируют сравнение.
+- [ ] Сохранять все bounded JS/CDP/rAF traces по уникальным repeat-директориям;
+  caps и dropped counts обязательны, переполнение исключает причинный вывод.
+- [ ] Расширить paths static-heavy/representative workflow на изменяемые
+  renderer/selector/harness, проверить запуск нужного benchmark на candidate SHA.
+- [ ] Сравнить A0 (main) и A1 (только stable scene.items). Пустой transformer
+  guard исследовать как отдельный A2, чтобы не смешивать причины.
+
+#### S3.2 — минимальный production-кандидат A1
+
+- [ ] После подтверждения причины добавить fast path в
+  `src/core/board/selectors.ts`: тот же document ID, прежние ссылки на
+  `objects`, `order`, `groups`, `geometryImports` → актуальный scene wrapper
+  с прежним `items` и новым viewport. Сигнатуры и persisted schemas сохраняются.
+- [ ] Содержательные изменения проходят существующий путь построения items;
+  reset/смена доски освобождают прежний cache. Кэш ограничен текущей сценой.
+- [ ] Проверить каскад в `BoardStage.tsx`: reuse visibility index/batches/runs,
+  корректный cache end/cancel, prewarm по viewport, удаление медиа и clear.
+- [ ] Сохранить полную входную валидацию `BoardDocument`, strict viewport и
+  timestamp checks, public import 10 MiB, history, sync/access и hit semantics.
+
+#### S3.3 — regression и нагрузочная приёмка
+
+- [ ] Selector/scene tests: viewport-only и metadata-only; add/delete/style,
+  порядок/видимость, группы, GeometryOS overrides, reset и смена документа;
+  culling и порядок равны эталону, границы viewport не оставляют stale items.
+- [ ] Browser tests: точка/длинный штрих/стили пера, cursor-anchored zoom и pan,
+  пустое/одиночное/групповое выделение, line endpoints, частичный ластик,
+  undo/redo, layers/alpha и первый ввод сразу после wheel/cancel.
+- [ ] Сохранение/штатный Dexie restore, reload, clear/reopen/switch board,
+  read-only/guest и secondary GIF regressions; DPR1/2 pixel/hit parity.
+- [ ] Одинаковые 3k/5k/10k + десять 1536px PNG/JPEG и 10k-offscreen;
+  cold/prewarmed, 3 ABBA цикла (6 запусков на вариант) и независимый CI-job.
+  Trace-on диагностику отделить от production trace-off оценки.
+- [ ] Сохранить 18-input historical profile, добавить заранее заданное
+  расписание входов без ожидания rendered frame; учитывать delivery/coalescing.
+  Публиковать per-run p50/p95/p99/max, >25/>50/>100 мс, first-input,
+  commit/settling, pen input-to-paint, Long Tasks и memory/resource counters.
+- [ ] Считать парные дельты и неопределённость по независимым runs/блокам.
+  Недостаточные данные → INCONCLUSIVE; p99 не объявлять устойчивым по 200 кадрам.
+- [ ] Предложенный gate S3: выигрыш сквозного active p95 ≥20% на 5k и 10k,
+  снижение доли >100 мс, одинаковое направление в независимом повторе;
+  без устойчивой регрессии commit, first-input, pen latency, памяти и качества.
+  На 3k/offscreen — без ухудшения p95 >10% за пределами измеренного шума.
+- [ ] 48 wheel/edit циклов на полной сцене 10k+10, clear/unmount/visibility,
+  контроль retained resources. Полный `npm run check`, Chromium/Firefox smoke,
+  media profile/cache soak и применимые specialized/fullstack/security gates.
+- [ ] Self-review exact diff/SHA, evidence report и rollback; merge только
+  после измеримого выигрыша и сохранения корректности. После merge проверить
+  main CI и static-heavy profile; Issue #201 оставить открытым до общего gate.
+
+#### S3.4 — условное продолжение при NO-GO/INCONCLUSIVE A1
+
+- [ ] Если заметного frame-time выигрыша нет, сохранить отрицательный результат
+  и выбрать следующий подтверждённый путь: React membership churn, Konva
+  scene/hit, viewport persist или compositor. Случайные изменения не объединять.
+- [ ] Пространственные векторные фрагменты, затем тайлы — самостоятельный A/B.
+  Сохранить исходный ink-run z-order и barriers PNG/JPEG/text, alpha/seams,
+  актуальные hit IDs и инвалидацию old/new bounds при edit/erase/undo/remote.
+- [ ] Тайловую подготовку ограничивать по объёму работ вне input-handler;
+  учитывать scene/hit/temporary bytes, совместный cache budget, DPR,
+  cancel/eviction и vector fallback. Сохранить предел шести committed layers;
+  не повышать 4 млн физических scene-cache pixels без отдельного анализа.
+
+**Общий release gate C3.9-E/F остаётся открытым:** ориентир p95 около 33,3 мс,
+max <100 мс в согласованной тяжёлой сцене, pen p95 ≤16,7 мс, корректность,
+многочасовой teacher/guest pilot, soak и rollback. Частичное ускорение S3
+не означает завершение всей проблемы #201.
+
+**Исторические C3.9-E/A–D и C3.8–C3.5 ниже сохраняют результаты прежних этапов.
+Их формулировки «следующий» относятся к тому времени; текущий порядок задают
+C3.9-S3 и раздел 25.**
+
+### C3.9-E2: изоляция GIF/paint-run compositor — 10.10.2026
+
+PR #213 (`095b4d20b0e673e4e0fc0ce7a1fef8dfab879d44`) реализовал
+опциональные восемь Chromium-сцен с 3000 strokes, 10 media objects,
+DPR1/2 и 1/2/5 Konva-слоями, 0/4 GIF, cold/warm и trace on/off.
+Регрессионный тест гарантирует 5 **видимых** paint runs, сохраняя
+старые фикстуры. Все 8 основных CI jobs 38052898604, старый 7-сценарный
+baseline 38052898631, новый E2 experiment 38052898780 и профильные
+Smart Ink/Formula/Paddle gates прошли.
+
+E2 измерил 4 повторения каждой сцены в Chromium 149 на одном runner.
+Медиана active-wheel p95 для DPR2: **33,40 мс** при 2 слоях,
+**199,95 мс** при 5 слоях, **116,60 мс** для однослойного fallback;
+при 0 GIF / 10 PNG — **41,75 мс**. У однослойного fallback при
+DPR1 p95 **16,80 мс**, а при DPR2 **116,60 мс**.
+Доля >100 мс: 2 слоя — 0%, 5 слоёв — 19,2%, fallback — 6,4%.
+Долгие `LayerTreeHost::DoUpdateLayers` совпали с 20/20 выборочных
+медленных кадров для 5 слоёв и fallback (только корреляция).
+Увеличивать глобальный лимит шести слоёв по таким результатам опасно.
+
+**Исторический следующий шаг C3.9-E3 (заменён приоритетом S3):**
+проверка причинности на *одинаковом* BoardDocument
+с сохранением order, пикселей и DPR2, тестовой обратимой альтернативой
+отрисовки и лимитами GPU/memory. Верификация pixel/z-order, hit,
+48 wheel cycles, media lifecycle и полных release checks до
+production-оптимизации. Отдельно исследовать оставшуюся полную входную
+валидацию viewport-команды. C3.9-F soak/rollback и issue #201 остаются
+открытыми.
+
+Измерения и решение:
+[docs/C39_E2_BROWSER_RESULTS_2026-10-10.md](docs/C39_E2_BROWSER_RESULTS_2026-10-10.md).
+Контракт эксперимента:
+[docs/C39_E2_RENDER_RUN_ISOLATION_2026-10-10.md](docs/C39_E2_RENDER_RUN_ISOLATION_2026-10-10.md).
+
+### C3.9-E1: парное браузерное сравнение — 10.10.2026
+
+Блок измерительной инфраструктуры смержен в PR #210
+(`fd8b307469f36ef9a1c9279885c8171a51bc4015`); CI 38049992274
+успешен целиком (8/8), профильные Smart Ink / Formula / Paddle gates green.
+Исполняемый диагностический PR #211, GitHub Actions run 38050505528,
+провёл **5 ABBA циклов** (10 пар, 20 Chromium запусков), 3000 varied pen +
+6 PNG + 4 real GIF, DPR2, single-layer fallback для >6 alternating paint runs.
+Обе стороны имеют >200 активных кадров и совпадающие fixtures/browser/host.
+
+Сравнение pre-#209 → post-#209:
+медиана run active-wheel p95 **133,35 → 116,70 мс**,
+доля >100 мс **152/680 (22,35%) → 48/706 (6,80%)**;
+парная медиана изменения p95 **−16,70 мс**. CPU-выигрыш
+подтверждён наблюдаемой активной фазой, но пределы p95≤33,3 и max<100 мс
+**не достигнуты**. Commit-phase p95 не улучшился устойчиво:
+116,65 → 141,65 мс по медианам run (парный сдвиг +8,35 мс).
+В top-5 slow-frame traces 38/50 кадрам у B не сопутствовал
+`wheel-viewport-persist`, зато 46/50 имели совпадающий
+`LayerTreeHost::DoUpdateLayers` ≥25 мс; **причинность пока не доказана**.
+
+**Следующий блок C3.9-E2:** контролируемая изоляция compositor/paint-run
+fallback при >6 перемежающихся static/GIF групп. Сравнить 0/4 GIF,
+1–2/3–6/>6 runs, DPR1/2 и cache states, добраться до причинного
+влияния на длинные кадры до изменения рендерера. Отдельная задача
+по входной `validateBoardDocument` (сейчас одна полная проверка)
+сохраняется как следующий CPU-кандидат с обязательным security review.
+
+Измерения, ограничения и критерии:
+[docs/C39_E1_PAIRED_BROWSER_RESULTS_2026-10-10.md](docs/C39_E1_PAIRED_BROWSER_RESULTS_2026-10-10.md).
+C3.9-E/F и issue #201 остаются открытыми до дополнительных
+парных/визуальных тестов, SOAK и rollback.
+
+### C3.9-D: безопасный viewport-only fast path — 10.10.2026
+
+Задача [#201](https://github.com/ArtemLevin/tutorboard/issues/201).
+Реализовано локальное ускорение `core.viewport.set`: полная входная проверка
+`BoardDocument` и проверка metadata сохраняются; после нормализации
+`updatedAt` проверяются исключительно изменённые `viewport` (строгая
+Zod-схема, включая лишние поля) и `updatedAt` (Zod ISO + порядок времени).
+Все содержательные команды продолжают полную проверку результата.
+Нет WeakMap/identity-кэша и изменений persisted format/API.
+
+[Контрольное измерение CI #38047172922](https://github.com/ArtemLevin/tutorboard/actions/runs/38047172922):
+17 unit и 28 performance тестов прошли. При 3000 strokes медиана reducer
+**70,6 ms** против **146,3 ms** с добавленной полной контрольной
+проверкой результата, экономия **50,0%**; при 5000 strokes **104,5 ms**
+против **204,3 ms**, экономия **50,2%**. Сравнение парное в одном
+прогоне с контрольной дополнительной валидацией; улучшение полной
+визуальной частоты кадров по нему не подтверждено.
+Добавлены дифференциальные тесты эквивалентности строгой схемы,
+исправности исходного документа и истории undo/redo.
+Подробности: [C3.9-D](docs/C39_VIEWPORT_FAST_PATH_2026-10-10.md).
+Chromium 7-сценарный benchmark запускается по изменениям reducer.
+Следующий release gate C3.9-E должен измерить фактические хвосты
+`wheel-viewport-persist` и общий frame pacing; оставшаяся входная
+проверка всего документа и compositor остаются приоритетами анализа.
+
+### C3.9-C: измерение стоимости viewport-команды и истории — 10.10.2026
+
+[Issue #201](https://github.com/ArtemLevin/tutorboard/issues/201),
+[отчёт исследования](docs/C39_VIEWPORT_COMMAND_COST_2026-10-10.md).
+Подтверждённый call path:
+`BoardStage.commitWheel → App.commitViewport → useBoardDocumentController.commitCommand → reduceBoardDocument`.
+`reduceBoardDocument` валидирует весь текущий документ, затем для
+`core.viewport.set` через `accept` валидирует весь изменённый документ
+повторно. Чистый `commitDocumentHistory` добавляет только ссылки на документы
+в ограниченную историю (100 состояний).
+
+В изолированном GitHub Actions эксперименте с реальными 300/1000/3000/5000
+разнообразными VectorInk strokes, 6 PNG и 4 GIF на каждом размере
+(2 прогрева, 7 замеров) измерено: при 3000 strokes reducer p50
+**206,2 ms**, input/post validation **109,0/95,9 ms**, history **0,008 ms**;
+при 5000 strokes reducer p50 **384,1 ms**, input/post validation
+**193,4/188,0 ms**, history **0,008 ms**. Две реальные проверки занимали
+**>99,9%** времени reducer на 3000/5000 strokes. Unit/performance-тест
+подтверждает неизменность отказов по повреждённому документу и
+некорректному viewport; production-код на C3.9-C не меняется.
+
+Решение C3.9-D: сохранить полную проверку входного документа и metadata,
+исследовать локальный безопасный `core.viewport.set` fast path с
+инкрементальной проверкой исключительно `viewport`/`updatedAt` после
+успешной полной проверки входа. Закрепить результаты дифференциальными
+тестами на повреждённых документах, историей undo/redo, полным CI и
+контролируемыми Chromium A/B/A замерами. Дальнейшее устранение полной
+первой валидации потребует явных гарантий иммутабельности, без кэша по
+непроверяемой identity.
+
+### C3.9-B: покадровая корреляция wheel/React/Konva/Chromium — 10.10.2026
+
+Основание: [#201](https://github.com/ArtemLevin/tutorboard/issues/201);
+предыдущий C3.9-A merged в `main` как `f8602825`.
+Следующий отдельный PR добавляет opt-in трассировку номера wheel-сессии,
+input → viewport-layout, синхронного commit и отмены, связывает медленные
+rAF intervals с JS-операциями и timestamped CDP compositor events при
+валидной синхронизации browser↔Chrome clocks (два маркера/контроль drift).
+При отсутствии маркеров GPU свидетельства помечаются `unavailable`,
+диагностика не выдает отсутствие событий за нулевую стоимость.
+Набор регрессионных unit-тестов проверяет выравнивание часов,
+overlap/частичные данные и пять самых длинных окон.
+Подробности: [C3.9-B trace](docs/C39_FRAME_ATTRIBUTION_2026-10-10.md).
+Изменений persisted schema, сетевых протоколов и формата совместной
+доски нет. Оптимизация скорости остается задачей C3.9-C–E.
+
+### C3.9-A: репрезентативный нагрузочный baseline — 10.10.2026
+
+Задача [#201](https://github.com/ArtemLevin/tutorboard/issues/201).
+После C3.5–C3.8 в подтверждённом post-merge CI `38028358575` у
+3000 pen + 6 PNG + 4 GIF измерены zoom p95 **33.4 ms**,
+max **166.7 ms**, Long Task **175 ms**. Предыдущая A–B–A
+последовательность max **100.0→166.7→83.2 ms** не подтверждает
+устойчивого устранения хвоста задержек. Причинная атрибуция ещё открыта.
+
+Для первого независимого PR C3.9-A расширены исключительно тестовые
+fixtures: разнообразная геометрия штрихов, плотность видимых объектов,
+настоящий 4-frame GIF, чередование paint-runs и отдельные интервалы
+active wheel / commit observation / settling. Краткий набор проверяется
+CI, расширенный вызывается `npm run e2e:c39-profile`.
+Подробное описание: [C39 baseline](docs/C39_REPRESENTATIVE_BASELINE_2026-10-10.md).
+Следующий блок C3.9-B — корреляция **каждого** длинного кадра с
+timestamped React, Konva и compositor событиями. Ограничение: время
+commit в C3.9-A измеряется по наблюдению UI, точная метка войдёт в B.
+Изменений production drawing и persisted data здесь нет.
+
+[PR #204](https://github.com/ArtemLevin/tutorboard/pull/204):
+полная матрица **7/7** пройдена в
+[Actions #38031741442](https://github.com/ArtemLevin/tutorboard/actions/runs/38031741442).
+Новые representative scenarios показывают в одном прогоне:
+для 3000 strokes + GIF, cold cache, DPR2 активный zoom p95 **150 ms**,
+max **166.7 ms**; для 5000 strokes + GIF, cold DPR2 p95 **250 ms**,
+max **283.3 ms**. На 3000 warm dense после окончания ввода
+зафиксирован commit-observed gap **216.7 ms**. Числа получены на
+одном общем CI runner, требуют повторов и точной атрибуции C3.9-B.
+
+
+### C3.8: устранение лишних GIF invalidation при wheel zoom — 09.10.2026
+
+[PR #200](https://github.com/ArtemLevin/tutorboard/pull/200)
+перенесён отдельным коммитом на merged C3.5–C3.7 (#199). `AnimatedImageRedrawCoordinator` теперь
+приостанавливает самостоятельный RAF redraw GIF в период wheel-жеста.
+Wheel viewport сам обновляет текущие Konva layers; после commit/cancel,
+scene reset и unmount GIF loop возвращается с новым кадром.
+Существующий режим animation cadence 24 FPS при рисовании сохранён.
+Z-order, individual hit-testing, формат документа и sync-протоколы
+не меняются. В режиме opt-in браузерного профиля доступен A/B override,
+отключённый для обычных пользователей.
+
+Первый [CI #37988790830](https://github.com/ArtemLevin/tutorboard/actions/runs/37988790830):
+quality gate 1098/1098 unit/integration, 25/25 performance;
+Chromium/Firefox smoke, Coordinate Plot, Board-only, media profile
+16/16 — success. GeometryOS live browser job не смог получить
+`python:3.11-slim-bookworm` из Docker Hub, HTTP 429 anonymous pull limit;
+при повторном запуске того же CI на исходном SHA проверка прошла.
+Пиксельная DPR2-проверка и 48 wheel-cycle ресурсный тест пройдены.
+
+Matched A/B на **одной** Chromium-сцене 3000 strokes + 6 PNG + 4 GIF,
+две последовательные серии по 48 rAF кадров (порядок baseline→C3.8):
+zoom p95 49.9→33.4 ms; max rAF 116.7→66.8 ms;
+GIF invalidate 50→35; compositor DirectRenderer::DrawFrame
+35/644.5 ms total/max 36.8 ms → 31/522.8 ms total/max 23.3 ms;
+DoUpdateLayers после оптимизации 117.3 ms total/max 10.08 ms.
+Повторный **A–B–A** профиль в
+[CI #37989821535](https://github.com/ArtemLevin/tutorboard/actions/runs/37989821535)
+на том же 3000-stroke fixture:
+GIF invalidate 49→33→48, compositor DirectRenderer::DrawFrame
+35/828.4→33/773.0→35/787.0 ms total. При этом zoom
+p95 50.1→50.0→33.4 ms, max rAF 133.4→100.0→83.3 ms.
+Первый A/B показал сокращение rAF хвоста, A–B–A повтор выявил
+возможную зависимость от прогрева и планировщика: второй baseline
+оказался быстрее оптимизированного прохода по max rAF. Надёжно
+подтверждено уменьшение лишних GIF redraw requests. Устойчивое
+сокращение p95/max rAF и стабильные 60 FPS пока не доказаны.
+Chromium/Firefox smoke, 16/16 media-profile, 48-cycle resource checks,
+unit/performance и build прошли. GeometryOS и formula-gateway container
+gates первоначально блокировались HTTP 429 Docker Hub; обе проверки
+успешно прошли на повторном запуске 10.10.2026 без изменения кода.
+
+**Integration gate C3.8:** на перенесённом изменении от `main` должны пройти
+quality, Chromium/Firefox, media-profile, GeometryOS, formula и все
+сопутствующие CI gates. Подтверждено уменьшение лишних GIF redraw requests;
+устойчивое сокращение p95/max не доказано. Отдельный release gate по долгим
+кадрам, teaching soak, многократному A/B/ABBA и device variance остаётся
+открытым в [#201](https://github.com/ArtemLevin/tutorboard/issues/201).
+
+### C3.7: атрибуция длинных кадров React / Konva / compositor — 09.10.2026
+
+Интеграционный [PR #199](https://github.com/ArtemLevin/tutorboard/pull/199)
+на базе `main` включает также C3.5 (#197) и C3.6 (#198). Введена opt-in диагностика, записывающая
+React viewport update→layout commit, посещения неизменных ink-run
+компонентов, Konva scene/hit draw, GIF invalidation и Chromium CDP
+compositor/raster events. Источник `BoardStage` не включает
+профилирование без тестового флага. Исправлена семантика
+`activeCachedCount` относительно idle-prepared cache — Chromium
+smoke C3.6 ранее падал из-за смешения двух состояний.
+
+В детерминированном CPU-тесте 500 штрихов:
+`groupCallsDuringWheelUpdates=0`, median update 0.369 ms,
+`1096/1096` unit/integration и `25/25` performance на CI
+[37979094962](https://github.com/ArtemLevin/tutorboard/actions/runs/37979094962).
+Во время реального wheel visible-item culling меняет набор видимых
+штрихов: отрисовка затронутых React runs допустима.
+
+Первый browser trace `37979094962` (3000 stroke + 4 GIF, cold wheel):
+zoom p95 50.1 ms, max 99.9 ms; Konva scene max 10.2 ms
+(66.1 ms summed), hit max 8.2 ms (46.7 ms summed);
+React viewport commit max 12.5 ms (61.9 ms summed);
+GIF invalidation scheduling 38 calls, 0.6 ms summed.
+В повторном trace `37980204017`: zoom p95 33.4 ms,
+max 116.7 ms; DirectRenderer::DrawFrame 37 events,
+756.5 ms total/max 25.77 ms;
+LayerTreeHost::DoUpdateLayers 37 events,
+203.1 ms total/max 14.24 ms, Long Task 119 ms.
+Два CI-прогона показывают существенную вариативность кадров.
+GPU/compositor timestamps не являются аддитивными с JS-таймингами.
+Доказанного устойчивого устранения >100 ms gaps пока нет.
+
+**Release gate полной C3-оптимизации остаётся OPEN:** браузерная
+композиция и redraw продолжают создавать длинные кадры. C3.5–C3.7
+принимаются только как проверяемое локальное снижение CPU/input затрат
+(интеграционный gate выше). Отдельная C3.8-проверка GIF invalidations
+развивается в PR #200; долгие кадры, compositor attribution, повторный
+A/B/ABBA профиль, DPR2/hit parity, Firefox и resource soak отслеживаются
+в [C3.9 issue #201](https://github.com/ArtemLevin/tutorboard/issues/201).
+Стабильные 60 FPS пока не считаются достигнутыми.
+
+### C3.6: неблокирующий cold wheel fallback — 09.10.2026
+
+В stacked draft [PR #198](https://github.com/ArtemLevin/tutorboard/pull/198)
+`WheelInkCacheCoordinator.begin(..., {buildIfUnprepared:false})` используется
+в `BoardStage.handleWheel`. Кэшированные scene/hit canvas продолжают
+переиспользоваться при подготовленном DPR, а отсутствие idle-prewarm
+ведёт к прямой отрисовке исходных штрихов без синхронного
+`Konva.Group.cache()` в обработчике input. Старое поведение метода
+`begin()` без options сохранено. Отдельная метрика фиксирует cold skip.
+
+[Первый CI #37975430796](https://github.com/ArtemLevin/tutorboard/actions/runs/37975430796):
+1096/1096 unit/integration, 25/25 performance, 16/16 Chromium media profile,
+Chrome/Firefox smoke, GeometryOS, Coordinate plot, Board-only, all green.
+3000 strokes + 4 GIF, **forced requestIdleCallback starvation**:
+wheel begin `0.1 ms` vs `43.8 ms` в C3.5 baseline (runner dependent),
+zoom p95 `33.4 ms` vs `50 ms`, max rAF `100 ms` vs `133.4 ms`.
+Pixel parity при DPR2: significant channel fraction `0.00992839` (<0.01),
+mean channel error `0.17597` (<1). В 48 wheel-cycles без prewarm
+cacheBuilds=0, после clear no cached runs; память ограничена.
+
+**Открыто:** максимальная задержка 100 ms и p95 33.4 ms исключают
+утверждение о постоянных 60 FPS. Метрики отдельных GitHub-hosted прогонов
+чувствительны к планировщику; повторить измерение перед merge.
+Следующий C3.7 — профилирование полного Konva canvas redraw / GIF layer
+invalidations / React commit под холодным zoom и исключение >50 ms frames,
+с сохранением z-order, hit-testing, parity и bounded memory. PR #197/#198
+оставить в draft до подтверждения release gate.
+
+### C3.5: стабильная геометрия viewport-culling — 09.10.2026
+
+После объединения C3.3/C3.4 (`main`
+`c52a443667e4552fb879cd36b94eeffd77e1d7f7`) отдельный
+draft PR #197 `perf/c3-5-stable-viewport-culling` устраняет повторное
+вычисление world bounds неизменных объектов при каждом preview-wheel кадре.
+`createBoardVisibilityIndex(scene.items)` пересоздаётся только при смене
+snapshot сцены, выбирает точный набор видимых объектов, сохраняет порядок и
+переиспользует ссылку на список при совпадающей видимости. API
+`selectVisibleBoardItems` сохранён; данные и collaboration-контракты
+не меняются.
+
+Замер в Performance CI `37970012084`: 5000 объектов × 24 viewport
+updates, CPU selector 114.84 ms исходным способом против 4.17 ms индексом
+(≈27.6×). Unit/integration 1094/1094, performance 25/25, format/lint/typecheck,
+architecture, production build и Chromium/Firefox smoke успешны.
+Chromium media profile 16/16 прошёл с сохранением DPR2 pixel comparison,
+3000-stroke 48-wheel cleanup и memory pixel cap.
+
+**Release gate остаётся открытым.** При 3000 strokes + 4 GIF zoom p95
+50 ms и максимальный интервал 133.4 ms: prewarm отсутствовал,
+wheel begin выполнял 43.8 ms синхронного построения. C3.5 уменьшает
+подтверждённые CPU-затраты, но гарантированное устранение длинных
+кадров и 60 FPS не доказано. Следующий C3.6 узкий этап: измерить
+причины starvation/expiry idle-prewarm, сделать budgeted fallback
+без дорогостоящего синхронного raster cache в wheel handler,
+подтвердить parity/correctness и повторяемые 3000-stroke кадры
+на совпадающем окружении.
 
 ## 1. Продуктовая цель
 
@@ -1630,11 +2141,31 @@ Profile считается реализованным, когда одновре
 
 ## 25. Текущая последовательность работ
 
-Ближайший critical path — Pilot-first:
+### 25.1. Инженерный приоритет — большая статическая доска
 
-1. **P1 / TutorBoard source gate — DONE.** Текущий frontend baseline
-   `c0bf5ba6193972a77d3cdc5b09352a5e27b15066` имеет green core и
-   specialized gates.
+1. **C3.9-S1 — DONE:** baseline 3k/5k/10k + 10 PNG/JPEG, merged PR #215.
+2. **C3.9-S2 — NO-GO:** холодный синхронный cache ухудшает p95;
+   PR #216 сохраняется Draft, `buildIfUnprepared: false` остаётся в production.
+3. **C3.9-S3.1 — NEXT:** исправить фазовую атрибуцию/сохранение traces/CI paths
+   и выполнить отдельный A0/A1 эксперимент со stable `scene.items`.
+4. **C3.9-S3.2–S3.3:** после подтверждения реализовать минимальный кандидат,
+   пройти регрессии, production A/B, полный CI, self-review и merge gate.
+5. **При NO-GO/INCONCLUSIVE:** S3.4 выбирает следующую причину;
+   пространственная отрисовка/тайлы требуют собственного gate.
+6. **C3.9-E/F:** абсолютное качество большой доски, длительный pilot/soak,
+   post-merge evidence и rollback до закрытия Issue #201.
+
+Первым реализуется один законченный блок. GIF-first оптимизация и новые
+URL/video возможности не заменяют основной workload. Защита данных,
+авторизация, persisted formats и лимит JSON-import сохраняются.
+
+### 25.2. Операционный трек — Pilot Deployment Gate
+
+Ранее подтверждённые source gates и последовательность deployment остаются:
+
+1. **P1 / TutorBoard source gate — DONE.** Исторический frontend baseline
+   `c0bf5ba6193972a77d3cdc5b09352a5e27b15066` прошёл core и specialized gates;
+   при выпуске проверять актуальный candidate SHA.
 2. **P2/P3 / backend board-profile source gates — DONE.** Board-only runtime,
    Compose/Caddy, release tooling и immutable frontend pin находятся в
    `tutor-assistant-web/main`; release candidate
@@ -1768,7 +2299,12 @@ storage и browser gates.
 
 ## 27. Критерий выбора следующей задачи
 
-При конфликте backlog priorities:
+В текущем инженерном backlog первым идёт C3.9-S3 из раздела 25.1:
+производительность тысяч видимых штрихов и около десяти PNG/JPG/JPEG.
+Подтверждённые дефекты безопасности, доступа и сохранности данных сохраняют
+приоритет. Операционный Pilot Gate ведётся по разделу 25.2.
+
+При конфликте release/deployment priorities:
 
 ```text
 pilot blocker affecting real teacher/guest flow

@@ -1,0 +1,60 @@
+name: C3.9 static-heavy representative board
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-static-heavy.yml
+      - tests/e2e/c39-large-board-profile.spec.ts
+      - tests/fixtures/dense-board.ts
+      - scripts/c39/summarize-static-heavy.mjs
+      - tests/node/c39-static-heavy-summary.test.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-static-heavy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-static-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Build production and install Chromium
+        run: |
+          set -euo pipefail
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run build
+      - name: Real 10-image / 3k-10k stroke matrix
+        env:
+          C39_STATIC_HEAVY_PROFILE: "1"
+        run: |
+          set -euo pipefail
+          mkdir -p c39-static-heavy-results
+          for repeat in 1 2 3; do
+            echo "C39 STATIC repeat=$repeat"
+            npm run e2e:c39-profile -- --grep @c39-static-heavy 2>&1 |
+              tee "c39-static-heavy-results/repeat-$repeat.log"
+          done
+      - name: Analyze static board latency and verify fixture
+        run: |
+          node scripts/c39/summarize-static-heavy.mjs c39-static-heavy-results \
+            c39-static-heavy-results/summary.json
+      - name: Archive raw static media evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-static-heavy-${{ github.sha }}
+          path: |
+            c39-static-heavy-results
+            test-results
+          if-no-files-found: warn
+          retention-days: 14
