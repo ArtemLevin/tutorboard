@@ -53,6 +53,14 @@ test("@c39-s5-subpixel isolate DPR, alpha, and integer crop with one Konva strok
             stage.add(layer);
             layer.add(group);
             group.add(stroke);
+            group.add(new Konva.Line({
+              id: "crossing-pen",
+              points: [35, 108, 166, 21],
+              stroke: "#d2533b",
+              strokeWidth: 3,
+              lineCap: "round",
+              opacity,
+            }));
             const hit = () => [
               stage.getIntersection({ x: 25, y: 21 })?.id() ?? "",
               stage.getIntersection({ x: 105, y: 68 })?.id() ?? "",
