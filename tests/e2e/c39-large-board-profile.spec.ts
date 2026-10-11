@@ -771,17 +771,9 @@ for (const scenario of [
         }
         expect(phases.phases.active.count).toBeGreaterThan(0);
         expect(phases.phases.settling.count).toBeGreaterThan(0);
-        if (
-          process.env.C39_SCENE_HIT_CAUSAL === "1" &&
-          scenario.staticHeavy
-        ) {
-          expect(jsTrace.length, "JS draw trace must remain complete").toBeLessThan(
-            12_000,
-          );
-          expect(
-            chromiumTrace?.droppedEvents ?? 0,
-            "Chromium trace must remain complete",
-          ).toBe(0);
+        if (process.env.C39_SCENE_HIT_CAUSAL === "1" && scenario.staticHeavy) {
+          expect(jsTrace.length).toBeLessThan(12_000);
+          expect(chromiumTrace?.droppedEvents ?? 0).toBe(0);
           await testInfo.attach("c39-s4-raw-" + scenario.name + ".json", {
             body: Buffer.from(
               JSON.stringify({
