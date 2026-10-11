@@ -48,7 +48,7 @@ export class WheelHitLayerPause {
       if (mounted.has(layer)) continue;
       // A content Layer can be replaced when the viewport crosses a
       // virtualization boundary. Release ownership of detached nodes.
-      layer.listening(wasListening);
+      if (wasListening) layer.listening(true);
       this.#previous.delete(layer);
     }
     for (const layer of layers) {
@@ -69,8 +69,10 @@ export class WheelHitLayerPause {
     if (!this.#active) return;
     this.#active = false;
     for (const [layer, wasListening] of this.#previous) {
-      layer.listening(wasListening);
-      if (wasListening) layer.drawHit();
+      if (wasListening) {
+        layer.listening(true);
+        layer.drawHit();
+      }
     }
     this.#previous.clear();
     this.#restores += 1;
