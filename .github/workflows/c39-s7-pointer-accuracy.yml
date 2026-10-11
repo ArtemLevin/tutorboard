@@ -1,0 +1,32 @@
+name: C3.9-S7 pointer accuracy and history regression
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/c39-s7-pointer-accuracy.yml"
+      - "src/adapters/canvas-konva/BoardStage.tsx"
+      - "src/adapters/canvas-konva/wheel-hit-layer-pause.ts"
+      - "tests/e2e/selection.spec.ts"
+      - "tests/e2e/history.spec.ts"
+permissions:
+  contents: read
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Exercise wheel interruption, selection geometry and undo/redo
+        run: npx playwright test tests/e2e/selection.spec.ts tests/e2e/history.spec.ts --project=chromium --workers=1 --retries=0
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: s7-selection-playwright-results
+          path: test-results/
+          retention-days: 14
