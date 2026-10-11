@@ -51,7 +51,11 @@ async function mount(
       .getByRole("button", { name: "Закрыть настройки доски" })
       .click();
   }
-  await expect(stage).toHaveAttribute("data-c39-s5-a2-enabled", "true");
+  await expect(stage).toHaveAttribute("data-c39-s5-a2-requested", "true");
+  await expect(stage).toHaveAttribute(
+    "data-c39-s5-a2-enabled",
+    String(dpr === 1),
+  );
   await expect(stage).toHaveAttribute(
     "data-c39-s5-a2-raster-supported",
     String(dpr === 1),
@@ -72,7 +76,7 @@ async function mount(
       "data-c39-s5-a2-candidate-count",
       "0",
     );
-    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
+    // Baseline may retain a legacy wheel cache; A2 has no shared lease.
     await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
   }
   await expect(page.getByTestId("persistence-status")).toHaveText(
@@ -221,7 +225,7 @@ test("@c39-s5-lifecycle 48 wheel sessions, clear, undo and unmount release all r
   }
 });
 
-test("@c39-s5-lifecycle DPR2 keeps exact vector path and allocates no raster cache after wheel", async ({
+test("@c39-s5-lifecycle DPR2 uses baseline renderer without any A2 lease after wheel", async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -237,7 +241,6 @@ test("@c39-s5-lifecycle DPR2 keeps exact vector path and allocates no raster cac
       await page.mouse.wheel(0, index % 2 === 0 ? 150 : -150);
     }
     await expect(stage).toHaveAttribute("data-c39-s5-a2-candidate-count", "0");
-    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
     await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
     await expect(page.getByTestId("object-count")).toHaveText("330 объекта");
   } finally {
