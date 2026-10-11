@@ -60,8 +60,12 @@ export function summarizeC39SceneHitCausal(
   if (active.length === 0) {
     throw new Error("No active frames for scene/hit attribution");
   }
-  const relevant = events.filter((event) =>
-    costKinds.some((kind) => kind === event.kind),
+  const relevant = events.filter(
+    (event) =>
+      costKinds.some((kind) => kind === event.kind) &&
+      event.durationMs > 0 &&
+      event.startMs < lastInput &&
+      event.startMs + event.durationMs >= firstInput,
   );
   const rows = active.map((frame) => {
     const scene = relevant.filter((event) => event.kind === "konva-scene");

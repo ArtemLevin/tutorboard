@@ -17,7 +17,7 @@ describe("C3.9-S4 scene/hit causal accounting", () => {
     expect(c39CoveredMilliseconds(frame, events.slice(0, 2))).toBe(50);
     const result = summarizeC39SceneHitCausal(
       [frame, { startMs: 120, endMs: 140, durationMs: 20 }],
-      [10, 119],
+      [10, 120],
       events,
     );
     expect(result.activeFrameCount).toBe(1);
@@ -38,7 +38,7 @@ describe("C3.9-S4 scene/hit causal accounting", () => {
         { startMs: 50, endMs: 90, durationMs: 40 },
         { startMs: 90, endMs: 140, durationMs: 50 },
       ],
-      [51, 89],
+      [51, 90],
       [
         { kind: "konva-hit", startMs: 0, durationMs: 50 },
         { kind: "konva-scene", startMs: 65, durationMs: 0 },
