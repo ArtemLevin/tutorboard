@@ -97,9 +97,9 @@ test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo
     await page.keyboard.press("x");
     await expect(stage).toHaveAttribute("data-drawing-mode", "editing.eraser");
     const eraseX = bounds.x + bounds.width * 0.5;
-    await page.mouse.move(eraseX, y - 65);
+    await page.mouse.move(eraseX, y - 28);
     await page.mouse.down();
-    await page.mouse.move(eraseX, y + 65, { steps: 10 });
+    await page.mouse.move(eraseX, y + 28, { steps: 10 });
     await page.mouse.up();
     await expect(page.getByTestId("object-count")).toHaveText("332 объекта");
 
