@@ -168,3 +168,30 @@ test("@c39-s5-fidelity experimental crop keeps the original pixels and hit inter
     await control.context.close();
   }
 });
+
+test("@c39-s5-diagnostic compare native cache at DPR1 and DPR2", async ({
+  browser,
+}, info) => {
+  test.setTimeout(180_000);
+  const data = [];
+  for (const dpr of [1, 2]) {
+    const a0 = await mountBoard(browser, false, dpr);
+    const a2 = await mountBoard(browser, true, dpr);
+    try {
+      const diff = compareScreenshots(
+        await a0.stage.screenshot({ animations: "disabled" }),
+        await a2.stage.screenshot({ animations: "disabled" }),
+      );
+      data.push({ dpr, ...diff });
+      console.info("C39_S5_S4_DPR_PROBE " + JSON.stringify({ dpr, ...diff }));
+    } finally {
+      await a2.context.close();
+      await a0.context.close();
+    }
+  }
+  await info.attach("c39-s5-s4-dpr-probe.json", {
+    body: Buffer.from(JSON.stringify(data, null, 2)),
+    contentType: "application/json",
+  });
+  expect(data).toHaveLength(2);
+});
