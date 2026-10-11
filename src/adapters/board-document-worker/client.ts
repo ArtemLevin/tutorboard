@@ -36,6 +36,21 @@ interface PreparedSerialization {
   result: BoardDocumentSerializationResult | null;
 }
 
+function samePersistentContent(first: BoardDocument, second: BoardDocument): boolean {
+  return (
+    first.id === second.id &&
+    first.schemaVersion === second.schemaVersion &&
+    first.createdAt === second.createdAt &&
+    first.title === second.title &&
+    first.order === second.order &&
+    first.objects === second.objects &&
+    first.groups === second.groups &&
+    first.geometryImports === second.geometryImports &&
+    first.solidModels === second.solidModels &&
+    first.solidLearningAttempts === second.solidLearningAttempts
+  );
+}
+
 function browserWorkerFactory(): WorkerLike {
   return new Worker(new URL("./worker.ts", import.meta.url), {
     name: "tutorboard-document-computation",
@@ -64,6 +79,9 @@ export class BoardDocumentWorkerComputation implements BoardDocumentComputation 
   readonly #factory: WorkerFactory;
   readonly #pending = new Map<number, PendingRequest>();
   readonly #prepared = new WeakMap<BoardDocument, PreparedSerialization>();
+  // Match the Worker's single content version to bound cache memory.
+  #cachedBase: { readonly document: BoardDocument; readonly version: number } | null = null;
+  #latestFullRequestId = 0;
   #disposed = false;
   #nextRequestId = 1;
   #worker: WorkerLike | null = null;
@@ -77,6 +95,7 @@ export class BoardDocumentWorkerComputation implements BoardDocumentComputation 
     this.#disposed = true;
     this.#worker?.terminate();
     this.#worker = null;
+    this.#cachedBase = null;
     const error = new Error("Board document computation was disposed.");
     for (const pending of this.#pending.values()) pending.reject(error);
     this.#pending.clear();
@@ -140,12 +159,39 @@ export class BoardDocumentWorkerComputation implements BoardDocumentComputation 
     document: BoardDocument,
   ): Promise<BoardDocumentSerializationResult> {
     if (this.#disposed) return this.serializeSync(document);
-    const response = await this.#request({
-      document,
-      id: this.#nextRequestId++,
-      kind: "serialize",
-    });
-    if (response.kind === "serialize") return response.result;
+    const base = this.#cachedBase;
+    if (base !== null && samePersistentContent(base.document, document)) {
+      try {
+        const response = await this.#request({
+          baseVersion: base.version,
+          documentId: document.id,
+          id: this.#nextRequestId++,
+          kind: "serialize-viewport",
+          updatedAt: document.updatedAt,
+          viewport: document.viewport,
+        });
+        if (response.kind === "serialize") return response.result;
+        throw new Error(
+          response.kind === "failure"
+            ? response.message
+            : "Unexpected viewport serialization response.",
+        );
+      } catch {
+        // Cache-miss or worker restart: resync from the full canonical source.
+        this.#cachedBase = null;
+      }
+    }
+
+    const id = this.#nextRequestId++;
+    this.#latestFullRequestId = id;
+    this.#cachedBase = null;
+    const response = await this.#request({ document, id, kind: "serialize" });
+    if (response.kind === "serialize") {
+      if (response.result.ok && this.#latestFullRequestId === id) {
+        this.#cachedBase = { document, version: id };
+      }
+      return response.result;
+    }
     throw new Error(
       response.kind === "failure"
         ? response.message
@@ -210,6 +256,7 @@ export class BoardDocumentWorkerComputation implements BoardDocumentComputation 
     const error = new Error(event.message || "Board document worker failed.");
     this.#worker?.terminate();
     this.#worker = null;
+    this.#cachedBase = null;
     for (const pending of this.#pending.values()) pending.reject(error);
     this.#pending.clear();
   };
