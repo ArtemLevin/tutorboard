@@ -137,12 +137,21 @@ export interface C39TileMemoryInput {
  * This is a feasibility calculation, not a tile renderer.
  */
 export function estimateC39TileMemoryFloor(input: C39TileMemoryInput) {
-  const { width, height, devicePixelRatio, tileEdgeCssPx, sharedScenePixelBudget } =
-    input;
+  const {
+    width,
+    height,
+    devicePixelRatio,
+    tileEdgeCssPx,
+    sharedScenePixelBudget,
+  } = input;
   if (
-    ![width, height, devicePixelRatio, tileEdgeCssPx, sharedScenePixelBudget].every(
-      (value) => Number.isFinite(value) && value > 0,
-    )
+    ![
+      width,
+      height,
+      devicePixelRatio,
+      tileEdgeCssPx,
+      sharedScenePixelBudget,
+    ].every((value) => Number.isFinite(value) && value > 0)
   ) {
     throw new RangeError("Tile dimensions, DPR and budget must be positive");
   }
@@ -154,8 +163,8 @@ export function estimateC39TileMemoryFloor(input: C39TileMemoryInput) {
     for (let x = 0; x < width; x += tileEdgeCssPx) {
       const w = Math.min(tileEdgeCssPx, width - x);
       const h = Math.min(tileEdgeCssPx, height - y);
-      const scene = Math.ceil(w * devicePixelRatio) *
-        Math.ceil(h * devicePixelRatio);
+      const scene =
+        Math.ceil(w * devicePixelRatio) * Math.ceil(h * devicePixelRatio);
       const hit = Math.ceil(w) * Math.ceil(h);
       scenePixels += scene;
       hitPixels += hit;
@@ -171,10 +180,8 @@ export function estimateC39TileMemoryFloor(input: C39TileMemoryInput) {
     hitPixels,
     minimumBytesWithScratch,
     sharedScenePixelBudget,
-    canRetainFullViewport:
-      scenePixels <= sharedScenePixelBudget,
-    requiresPartialOrFallback:
-      scenePixels > sharedScenePixelBudget,
+    canRetainFullViewport: scenePixels <= sharedScenePixelBudget,
+    requiresPartialOrFallback: scenePixels > sharedScenePixelBudget,
     caution:
       "Lower bound excludes padding, GPU copies, existing wheel cache and " +
       "z-order barriers. No tiles are allocated by this estimator.",
