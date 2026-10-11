@@ -56,9 +56,7 @@ describe("C3.9-S3 paired ABBA parser", () => {
 
   it("accepts a strictly paired improvement and rejects trace overflow", () => {
     const trials = abbaTrials(200, 100);
-    expect(evaluateC39StableSceneAb(trials).verdict).toBe(
-      "LOCAL_GO_CANDIDATE",
-    );
+    expect(evaluateC39StableSceneAb(trials).verdict).toBe("LOCAL_GO_CANDIDATE");
     trials[1].reports.get(c39StaticCases[0]).captureDropped.js = 2;
     expect(() => evaluateC39StableSceneAb(trials)).toThrow(/overflow/);
   });
