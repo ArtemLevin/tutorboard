@@ -761,17 +761,21 @@ for (const scenario of [
             viewportTrace.some((event) => event.kind === "viewport-reduce.prevalidate"),
           ).toBe(true);
         }
-        const viewportTraceByKind = Object.entries(
-          Object.groupBy(viewportTrace, (event) => event.kind),
-        ).map(([kind, events]) => {
-          const durations = (events ?? [])
-            .map((event) => event.durationMs)
-            .sort((a, b) => a - b);
+        const durationsByKind = new Map<string, number[]>();
+        for (const event of viewportTrace) {
+          const values = durationsByKind.get(event.kind) ?? [];
+          values.push(event.durationMs);
+          durationsByKind.set(event.kind, values);
+        }
+        const viewportTraceByKind = [...durationsByKind].map(([kind, durations]) => {
+          durations.sort((a, b) => a - b);
           return {
             kind,
             count: durations.length,
             totalMs: durations.reduce((total, duration) => total + duration, 0),
-            p95Ms: durations[Math.max(0, Math.ceil(durations.length * 0.95) - 1)] ?? 0,
+            p95Ms:
+              durations[Math.max(0, Math.ceil(durations.length * 0.95) - 1)] ??
+              0,
             maxMs: durations.at(-1) ?? 0,
           };
         });
