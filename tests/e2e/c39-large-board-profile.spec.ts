@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
 
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
-import type { C39ViewportTraceEvent } from "../../src/shared/c39-viewport-trace.js";
+import type { C39ViewportTraceEvent } from "../../src/core/board/viewport-trace.js";
 import {
   correlateC39SlowFrames,
   startC39ChromiumTrace,
