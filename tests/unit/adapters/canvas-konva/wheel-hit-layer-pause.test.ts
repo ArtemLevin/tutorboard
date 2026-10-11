@@ -38,11 +38,7 @@ describe("C3.9-S7 transient hit-layer suppression", () => {
     const animatedLayer = layer("animated-content-layer");
     const overlay = layer("unnamed-layer");
 
-    coordinator.begin([
-      overlay.node,
-      staticLayer.node,
-      animatedLayer.node,
-    ]);
+    coordinator.begin([overlay.node, staticLayer.node, animatedLayer.node]);
     expect(coordinator.active).toBe(true);
     expect(coordinator.suspendedCount).toBe(2);
     expect(staticLayer.state()).toBe(false);
