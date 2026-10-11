@@ -2475,10 +2475,18 @@ export function createOwnedViewportReducer(): (
   }
 
   return (document, command): CommandResult => {
+    const firstCommitStart =
+      owned === document ? null : startC39ViewportTrace();
     let source = owned === document ? document : null;
+    if (source !== null) {
+      finishC39ViewportTrace(
+        "viewport-owned.cache-hit",
+        startC39ViewportTrace(),
+      );
+    }
     if (source === null) {
       const started = startC39ViewportTrace();
-      const validation = validateBoardDocument(document);
+      const validation = validateBoardDocument(document, true);
       finishC39ViewportTrace("viewport-reduce.prevalidate", started);
       if (!validation.valid) {
         owned = null;
@@ -2490,9 +2498,12 @@ export function createOwnedViewportReducer(): (
       }
       // Zod returns a deep independent parse tree. Freeze only this owned
       // clone, leaving user-supplied or server-owned documents untouched.
+      const freezeStart = startC39ViewportTrace();
       source = freezeGraph(validation.document);
+      finishC39ViewportTrace("viewport-owned.freeze", freezeStart);
     }
 
+    finishC39ViewportTrace("viewport-owned.first-commit", firstCommitStart);
     const metadataError = validateMetadata(source, command);
     if (metadataError !== null) {
       owned = source;

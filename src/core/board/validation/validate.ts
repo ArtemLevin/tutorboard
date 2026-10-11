@@ -1,3 +1,7 @@
+import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
+} from "../viewport-trace";
 import { validateCoordinatePlotDefinition } from "../coordinate-plot";
 import type { BoardDocument } from "../document";
 import type { BoardGroup } from "../groups";
@@ -526,13 +530,19 @@ function mapSchemaIssues(
   );
 }
 
-export function validateBoardDocument(input: unknown): BoardDocumentValidation {
+export function validateBoardDocument(
+  input: unknown,
+  traceOwnedViewport = false,
+): BoardDocumentValidation {
+  const parseStart = traceOwnedViewport ? startC39ViewportTrace() : null;
   const parsed = boardDocumentSchema.safeParse(input);
+  finishC39ViewportTrace("viewport-owned.schema-parse", parseStart);
   if (!parsed.success) {
     return { valid: false, issues: mapSchemaIssues(parsed.error.issues) };
   }
 
   const document = parsed.data as BoardDocument;
+  const invariantsStart = traceOwnedViewport ? startC39ViewportTrace() : null;
   const issues = [
     ...validateRecordIdentity("objects", document.objects),
     ...validateRecordIdentity("groups", document.groups),
@@ -552,6 +562,7 @@ export function validateBoardDocument(input: unknown): BoardDocumentValidation {
     ...validateTimestamps(document),
   ];
 
+  finishC39ViewportTrace("viewport-owned.invariants", invariantsStart);
   return issues.length === 0
     ? { valid: true, document }
     : { valid: false, issues };

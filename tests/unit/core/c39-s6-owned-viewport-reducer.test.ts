@@ -90,6 +90,19 @@ describe("C3.9-S6.3 owned viewport reducer", () => {
     expect(
       sink.events.filter((event) => event.kind === "viewport-reduce.dispatch"),
     ).toHaveLength(10);
+    for (const phase of [
+      "viewport-owned.schema-parse",
+      "viewport-owned.invariants",
+      "viewport-owned.freeze",
+      "viewport-owned.first-commit",
+    ]) {
+      const measured = sink.events.filter((event) => event.kind === phase);
+      expect(measured, phase).toHaveLength(1);
+      expect(measured[0]?.durationMs).toBeGreaterThanOrEqual(0);
+    }
+    expect(
+      sink.events.filter((event) => event.kind === "viewport-owned.cache-hit"),
+    ).toHaveLength(9);
     expect(document.order).toHaveLength(3_002);
   });
 

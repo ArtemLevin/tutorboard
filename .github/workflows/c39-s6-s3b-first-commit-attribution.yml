@@ -1,0 +1,58 @@
+name: C3.9-S6.3B first viewport ownership attribution
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/c39-s6-s3b-first-commit-attribution.yml"
+      - "src/core/board/commands/reducer.ts"
+      - "src/core/board/validation/validate.ts"
+      - "src/core/board/viewport-trace.ts"
+      - "tests/unit/core/c39-s6-owned-viewport-reducer.test.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-s6-s3b-first-commit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [a, b]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build experiment
+        run: npm run build
+      - name: Repeated real-wheel 5k and 10k traces
+        env:
+          C39_STATIC_HEAVY_PROFILE: "1"
+          C39_S6_PROFILE: "1"
+        run: |
+          set -euo pipefail
+          for repetition in 1 2; do
+            echo "C39_S63B_REPETITION=$repetition"
+            npx playwright test tests/e2e/c39-large-board-profile.spec.ts \
+              --grep 'static-(5000|10000)-10-images' \
+              --project=chromium --workers=1 --retries=0
+          done
+      - name: Preserve full frame traces and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-s6-s3b-${{ matrix.runner }}
+          path: test-results/
+          retention-days: 14
