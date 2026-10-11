@@ -277,6 +277,52 @@ describe("BoardDocumentWorkerComputation", () => {
     computation.dispose();
   });
 
+  it("ignores a late ACK for a superseded full content version", async () => {
+    vi.stubGlobal("Worker", WorkerStub);
+    const computation = new BoardDocumentWorkerComputation();
+    const original = document();
+    const edited: BoardDocument = {
+      ...original,
+      title: "New content version",
+      updatedAt: "2026-10-06T12:01:00.000Z",
+    };
+    const first = computation.serialize(original);
+    const second = computation.serialize(edited);
+    const worker = workerState.current;
+    const a = worker?.messages[0] as { id: number };
+    const b = worker?.messages[1] as { id: number };
+    worker?.respond({
+      id: b.id,
+      kind: "serialize",
+      result: serializeBoardDocument(edited),
+    });
+    await second;
+    worker?.respond({
+      id: a.id,
+      kind: "serialize",
+      result: serializeBoardDocument(original),
+    });
+    await first;
+    const zoomed: BoardDocument = {
+      ...edited,
+      updatedAt: "2026-10-06T12:02:00.000Z",
+      viewport: { zoom: 1.8, offset: { x: 18, y: 27 } },
+    };
+    const delta = computation.serialize(zoomed);
+    expect(worker?.messages[2]).toMatchObject({
+      baseVersion: b.id,
+      kind: "serialize-viewport",
+    });
+    const request = worker?.messages[2] as { id: number };
+    worker?.respond({
+      id: request.id,
+      kind: "serialize",
+      result: serializeBoardDocument(zoomed),
+    });
+    await expect(delta).resolves.toEqual(serializeBoardDocument(zoomed));
+    computation.dispose();
+  });
+
   it("falls back to inline hashing when the worker fails", async () => {
     vi.stubGlobal("Worker", WorkerStub);
     const computation = new BoardDocumentWorkerComputation();
