@@ -1,5 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  // Only special research bundles participate in the A2 collaboration
+  // contract; ordinary tests and production preserve their original setup.
+  if (process.env.C39_S5_S4_A2 !== "1") return;
+  await page.addInitScript(() => {
+    Reflect.set(window, "__tutorBoardC39S5A2", true);
+  });
+});
+
+
 const boardId = "document:lesson-01";
 const createdAt = "2026-08-16T12:00:00.000Z";
 const guestCsrf = "csrf-guest-never-durable-standalone";
