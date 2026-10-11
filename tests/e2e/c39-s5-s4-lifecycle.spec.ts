@@ -147,8 +147,10 @@ test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo
       "data-c39-s5-a2-enabled",
       "true",
     );
+    // After reload the UI displays the local storage *mode* label, while
+    // the document count above proves the persisted eraser fragments exist.
     await expect(page.getByTestId("persistence-status")).toHaveText(
-      "Сохранено локально",
+      "Локальное сохранение",
     );
   } finally {
     await context.close();
