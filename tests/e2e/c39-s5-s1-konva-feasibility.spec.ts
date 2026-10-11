@@ -15,7 +15,7 @@ test("@c39-s5-s1 one bounded pen-run cache preserves pen-image-pen pixels, origi
   await page.addScriptTag({ content: konvaBundle });
   const evidence = await page.evaluate(async () => {
     type KonvaRuntime = typeof import("konva")["default"];
-    const K = (window as Window & { Konva: KonvaRuntime }).Konva;
+    const K = (window as unknown as { Konva: KonvaRuntime }).Konva;
     const host = document.createElement("div");
     document.body.append(host);
     const stage = new K.Stage({ container: host, width: 260, height: 130 });
@@ -130,7 +130,7 @@ test("@c39-s5-s1 a crop hides the crossing stroke outside its bounds; clearCache
   await page.addScriptTag({ content: konvaBundle });
   const evidence = await page.evaluate(() => {
     type KonvaRuntime = typeof import("konva")["default"];
-    const K = (window as Window & { Konva: KonvaRuntime }).Konva;
+    const K = (window as unknown as { Konva: KonvaRuntime }).Konva;
     const host = document.createElement("div");
     document.body.append(host);
     const stage = new K.Stage({ container: host, width: 320, height: 140 });
@@ -191,7 +191,7 @@ test("@c39-s5-s1 invalidation restores the same node across move, undo and redo 
   await page.addScriptTag({ content: konvaBundle });
   const evidence = await page.evaluate(() => {
     type KonvaRuntime = typeof import("konva")["default"];
-    const K = (window as Window & { Konva: KonvaRuntime }).Konva;
+    const K = (window as unknown as { Konva: KonvaRuntime }).Konva;
     const host = document.createElement("div");
     document.body.append(host);
     const stage = new K.Stage({ container: host, width: 230, height: 120 });
