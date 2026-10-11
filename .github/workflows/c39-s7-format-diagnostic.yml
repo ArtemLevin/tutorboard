@@ -1,0 +1,23 @@
+name: C3.9-S7 exact Prettier patch
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/c39-s7-format-diagnostic.yml"
+permissions:
+  contents: read
+jobs:
+  formatter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: |
+          npx prettier --write src/adapters/canvas-konva/BoardStage.tsx
+          echo BEGIN_S7_IDLE_FORMAT
+          git diff -- src/adapters/canvas-konva/BoardStage.tsx
+          echo END_S7_IDLE_FORMAT
