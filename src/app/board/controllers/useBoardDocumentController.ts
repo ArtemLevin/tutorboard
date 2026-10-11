@@ -161,7 +161,12 @@ export function useBoardDocumentController({
       }
       return result;
     },
-    [effectiveMutationPolicy.canWrite, onCommandCommitted, reduceViewport, rejectMutation],
+    [
+      effectiveMutationPolicy.canWrite,
+      onCommandCommitted,
+      reduceViewport,
+      rejectMutation,
+    ],
   );
 
   const commitCommands = useCallback(
