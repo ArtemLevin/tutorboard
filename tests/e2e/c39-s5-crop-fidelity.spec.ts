@@ -19,7 +19,7 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
 async function mountBoard(browser: Browser, a2: boolean) {
   const context = await browser.newContext({
     viewport: { width: 1240, height: 820 },
-    deviceScaleFactor: 2,
+    deviceScaleFactor: process.env.C39_S5_S4_DPR === "1" ? 1 : 2,
   });
   const page = await context.newPage();
   await page.addInitScript((enable) => {
@@ -27,7 +27,7 @@ async function mountBoard(browser: Browser, a2: boolean) {
   }, a2);
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
-  const document = createDenseBoardDocument({
+  const fixture = createDenseBoardDocument({
     strokeCount: 320,
     visibleStrokeCount: 320,
     staticCount: 10,
@@ -35,6 +35,22 @@ async function mountBoard(browser: Browser, a2: boolean) {
     strokeGeometry: "varied",
     zOrderPattern: "trailing",
   });
+  // The optional diagnostic arm tests opacity's causal contribution. The
+  // default strict A0/A2 contract and its threshold remain unchanged.
+  const document =
+    process.env.C39_S5_S4_OPACITY === "opaque"
+      ? {
+          ...fixture,
+          objects: Object.fromEntries(
+            Object.entries(fixture.objects).map(([id, object]) => [
+              id,
+              object.kind === "drawing.pen-stroke"
+                ? { ...object, style: { ...object.style, opacity: 1 } }
+                : object,
+            ]),
+          ),
+        }
+      : fixture;
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     name: "s5-fidelity.tutorboard.json",
@@ -127,6 +143,10 @@ test("@c39-s5-fidelity experimental crop keeps the original pixels and hit inter
     const cachedPixels = await candidate.stage.screenshot({
       animations: "disabled",
     });
+    console.info("C39_S5_S4_PARITY_ARM " + JSON.stringify({
+      dpr: process.env.C39_S5_S4_DPR === "1" ? 1 : 2,
+      opacity: process.env.C39_S5_S4_OPACITY === "opaque" ? "opaque" : "varied",
+    }));
     const a0Noise = compareScreenshots(baselinePixels, secondControlPixels);
     console.info("C39_S5_S3_A0_A0_NOISE " + JSON.stringify(a0Noise));
     const comparison = compareScreenshots(baselinePixels, cachedPixels);
