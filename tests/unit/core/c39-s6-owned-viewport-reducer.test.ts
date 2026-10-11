@@ -82,8 +82,14 @@ describe("C3.9-S6.3 owned viewport reducer", () => {
       if (!result.ok) throw new Error("Unexpected viewport failure");
       document = result.document;
     }
-    expect(sink.events.filter((event) => event.kind === "viewport-reduce.prevalidate")).toHaveLength(1);
-    expect(sink.events.filter((event) => event.kind === "viewport-reduce.dispatch")).toHaveLength(10);
+    expect(
+      sink.events.filter(
+        (event) => event.kind === "viewport-reduce.prevalidate",
+      ),
+    ).toHaveLength(1);
+    expect(
+      sink.events.filter((event) => event.kind === "viewport-reduce.dispatch"),
+    ).toHaveLength(10);
     expect(document.order).toHaveLength(3_002);
   });
 
