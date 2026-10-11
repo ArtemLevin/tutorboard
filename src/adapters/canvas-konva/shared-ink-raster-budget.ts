@@ -129,7 +129,7 @@ export class SharedInkRasterBudget {
     return lease;
   }
 
-  /** Release happens before the consumer clears/replaces its scene snapshot. */
+  /** Call only after every backing canvas has been cleared by its owner. */
   releaseAll(): void {
     for (const lease of [...this.#leases]) lease.release();
   }
