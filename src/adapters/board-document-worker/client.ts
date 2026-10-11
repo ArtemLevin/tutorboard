@@ -36,7 +36,10 @@ interface PreparedSerialization {
   result: BoardDocumentSerializationResult | null;
 }
 
-function samePersistentContent(first: BoardDocument, second: BoardDocument): boolean {
+function samePersistentContent(
+  first: BoardDocument,
+  second: BoardDocument,
+): boolean {
   return (
     first.id === second.id &&
     first.schemaVersion === second.schemaVersion &&
@@ -80,7 +83,10 @@ export class BoardDocumentWorkerComputation implements BoardDocumentComputation 
   readonly #pending = new Map<number, PendingRequest>();
   readonly #prepared = new WeakMap<BoardDocument, PreparedSerialization>();
   // Match the Worker's single content version to bound cache memory.
-  #cachedBase: { readonly document: BoardDocument; readonly version: number } | null = null;
+  #cachedBase: {
+    readonly document: BoardDocument;
+    readonly version: number;
+  } | null = null;
   #latestFullRequestId = 0;
   #disposed = false;
   #nextRequestId = 1;
