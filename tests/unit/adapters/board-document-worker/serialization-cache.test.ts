@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   createEmptyBoardDocument,
   documentId,
+  readBoardDocument,
   serializeBoardDocument,
   type BoardDocument,
 } from "../../../../src/core/public";
 import { WorkerSerializationCache } from "../../../../src/adapters/board-document-worker/serialization-cache";
+import { createDenseBoardDocument } from "../../../fixtures/dense-board";
 
 function document(): BoardDocument {
   return createEmptyBoardDocument({
@@ -65,6 +67,44 @@ describe("S6.4-B WorkerSerializationCache", () => {
       kind: "serialize",
       result: serializeBoardDocument(initial),
     });
+  });
+
+  it("retains canonical bytes with dense ink and embedded media", () => {
+    const loaded = readBoardDocument(
+      createDenseBoardDocument({ strokeCount: 128, staticCount: 2 }),
+    );
+    if (loaded.status !== "ok") throw new Error("Invalid dense test fixture");
+    const original = loaded.document;
+    const serialized = serializeBoardDocument(original);
+    expect(serialized.ok).toBe(true);
+    const cache = new WorkerSerializationCache();
+    const seed = cache.serialize({ document: original, id: 40, kind: "serialize" });
+    expect(seed).toMatchObject({ kind: "serialize", result: { ok: true } });
+
+    const changed: BoardDocument = {
+      ...original,
+      updatedAt: "2026-10-11T16:30:00.000Z",
+      viewport: { zoom: 1.7, offset: { x: 190, y: -74 } },
+    };
+    const smallRequest = {
+      baseVersion: 40,
+      documentId: original.id,
+      id: 41,
+      kind: "serialize-viewport" as const,
+      updatedAt: changed.updatedAt,
+      viewport: changed.viewport,
+    };
+    const delta = cache.serialize(smallRequest);
+    expect(delta).toEqual({
+      id: 41,
+      kind: "serialize",
+      result: serializeBoardDocument(changed),
+    });
+    if (serialized.ok) {
+      expect(JSON.stringify(smallRequest).length * 20).toBeLessThan(
+        serialized.json.length,
+      );
+    }
   });
 
   it("rejects stale versions and foreign document IDs", () => {
