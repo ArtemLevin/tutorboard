@@ -35,6 +35,9 @@ jobs:
       - name: Install, typecheck and build isolated A0/A2 binary
         run: |
           npm ci
+          echo "BEGIN_C39_PRETTIER_SOURCE"
+          npx prettier tests/e2e/c39-s5-s4-lifecycle.spec.ts
+          echo "END_C39_PRETTIER_SOURCE"
           npm run typecheck
           npm run build -- --mode c39-s5-a2
           npx playwright install --with-deps ${{ matrix.browser }}
