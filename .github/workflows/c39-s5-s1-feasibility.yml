@@ -1,0 +1,48 @@
+name: C3.9-S5.1 Konva hit and z-order feasibility
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-s5-s1-feasibility.yml
+      - tests/e2e/c39-s5-s1-konva-feasibility.spec.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-s5-s1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  konva-feasibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install and build pinned production bundle
+        run: |
+          npm ci
+          npm run build
+          npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Probe one bounded cache and crossing-stroke failure mode
+        run: |
+          npx playwright test tests/e2e/c39-s5-s1-konva-feasibility.spec.ts \
+            --project=${{ matrix.browser }} --workers=1 --retries=0
+      - name: Preserve minimal feasibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-s5-s1-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            test-results
+          retention-days: 14
+          if-no-files-found: warn
