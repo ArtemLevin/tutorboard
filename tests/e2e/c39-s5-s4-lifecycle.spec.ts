@@ -278,18 +278,9 @@ test("@c39-s5-lifecycle DPR transition releases A2 leases without re-enabling na
       "data-c39-s5-a2-raster-supported",
       "false",
     );
-    await expect(stage).toHaveAttribute(
-      "data-c39-s5-a2-candidate-count",
-      "0",
-    );
-    await expect(stage).toHaveAttribute(
-      "data-wheel-cache-retained-runs",
-      "0",
-    );
-    await expect(stage).toHaveAttribute(
-      "data-c39-s5-a2-retained-bytes",
-      "0",
-    );
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-candidate-count", "0");
+    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
     await expect(page.getByTestId("object-count")).toHaveText("330 объекта");
   } finally {
     await context.close();
