@@ -2413,7 +2413,10 @@ export function BoardStage({
                   zoom={previewViewport.zoom}
                   wheelInkCache={wheelInkCache}
                   boundedInkCandidate={boundedInkCandidate}
-                  experimentalA2={experimentalA2RasterSupported}
+                  // Preserve the opt-in coordinator semantics after a
+                  // DPR change: an inactive A2 must not register ordinary
+                  // ink groups against its shared experimental budget.
+                  experimentalA2={experimentalA2}
                 />
               </AnimatedImageRedrawContext>
             </Group>
