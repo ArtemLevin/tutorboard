@@ -16,10 +16,10 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
   };
 };
 
-async function mountBoard(browser: Browser, a2: boolean) {
+async function mountBoard(browser: Browser, a2: boolean, dpr = 2) {
   const context = await browser.newContext({
     viewport: { width: 1240, height: 820 },
-    deviceScaleFactor: 2,
+    deviceScaleFactor: dpr,
   });
   const page = await context.newPage();
   await page.addInitScript((enable) => {
