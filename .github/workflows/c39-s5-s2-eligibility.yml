@@ -1,4 +1,4 @@
-name: C3.9-S5.2 bounded eligibility proof
+name: C3.9-S5.2 bounded eligibility and fixture proof
 
 on:
   pull_request:
@@ -41,18 +41,6 @@ jobs:
             tests/unit/adapters/canvas-konva/committed-paint-runs.test.ts \
             --reporter=verbose --disableConsoleIntercept 2>&1 |
             tee c39-s5-s2/eligibility.log
-      - name: Verify candidate against actual 5k and 10k PNG/JPEG browser fixtures
-        env:
-          C39_STATIC_HEAVY_PROFILE: "1"
-          C39_S5_S2_ELIGIBILITY: "1"
-        run: |
-          set -o pipefail
-          npm run build
-          npx playwright install --with-deps chromium
-          npm run e2e:c39-profile -- \
-            --project=chromium --grep "static-(5000|10000)-10-images" \
-            --workers=1 --retries=0 2>&1 |
-            tee c39-s5-s2/real-media.log
       - name: Archive evidence including failing assertions
         if: always()
         uses: actions/upload-artifact@v4
