@@ -1,4 +1,6 @@
 import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
   serializeBoardDocument,
   type BoardDocument,
   type BoardDocumentComputation,
@@ -7,10 +9,6 @@ import {
   type BoardDocumentSha256Result,
 } from "../../core/public";
 
-import {
-  finishC39ViewportTrace,
-  startC39ViewportTrace,
-} from "../../core/public";
 
 import type {
   BoardDocumentWorkerRequest,
