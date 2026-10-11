@@ -1,0 +1,57 @@
+name: C3.9-S5.3 guarded crop fidelity
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-s5-s3-fidelity.yml
+      - src/adapters/canvas-konva/BoardStage.tsx
+      - src/adapters/canvas-konva/board-scene-content.tsx
+      - src/adapters/canvas-konva/wheel-ink-cache.ts
+      - tests/e2e/c39-s5-crop-fidelity.spec.ts
+      - tests/unit/adapters/canvas-konva/bounded-ink-activation.test.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-s5-s3-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guarded-crop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install, typecheck and build isolated A0/A2 binary
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build -- --mode c39-s5-a2
+          npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Verify canonical pixels and selection, with traceable evidence
+        run: |
+          set -o pipefail
+          mkdir -p c39-s5-s3
+          npx playwright test tests/e2e/c39-s5-crop-fidelity.spec.ts \
+            --project=${{ matrix.browser }} --workers=1 --retries=0 2>&1 |
+            tee c39-s5-s3/${{ matrix.browser }}.log
+      - name: Keep screenshots, traces and logs for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-s5-s3-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            c39-s5-s3
+            test-results
+          retention-days: 14
+          if-no-files-found: warn
