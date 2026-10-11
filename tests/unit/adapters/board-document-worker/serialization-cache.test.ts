@@ -78,7 +78,11 @@ describe("S6.4-B WorkerSerializationCache", () => {
     const serialized = serializeBoardDocument(original);
     expect(serialized.ok).toBe(true);
     const cache = new WorkerSerializationCache();
-    const seed = cache.serialize({ document: original, id: 40, kind: "serialize" });
+    const seed = cache.serialize({
+      document: original,
+      id: 40,
+      kind: "serialize",
+    });
     expect(seed).toMatchObject({ kind: "serialize", result: { ok: true } });
 
     const changed: BoardDocument = {
