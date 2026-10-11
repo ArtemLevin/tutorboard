@@ -72,10 +72,7 @@ async function mount(
       timeout: 30_000,
     });
   } else {
-    await expect(stage).toHaveAttribute(
-      "data-c39-s5-a2-candidate-count",
-      "0",
-    );
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-candidate-count", "0");
     // Baseline may retain a legacy wheel cache; A2 has no shared lease.
     await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
   }
