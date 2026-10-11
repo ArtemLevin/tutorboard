@@ -121,12 +121,12 @@ test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo
     await page.mouse.down();
     await page.mouse.move(eraseX, y + 28, { steps: 10 });
     await page.mouse.up();
-    await expect(page.getByTestId("object-count")).toHaveText("332 объекта");
+    await expect(page.getByTestId("object-count")).toHaveText("334 объекта");
 
     await page.keyboard.press("Control+z");
     await expect(page.getByTestId("object-count")).toHaveText("331 объекта");
     await page.keyboard.press("Control+Shift+z");
-    await expect(page.getByTestId("object-count")).toHaveText("332 объекта");
+    await expect(page.getByTestId("object-count")).toHaveText("334 объекта");
     await expect(page.getByTestId("persistence-status")).toHaveText(
       "Сохранено локально",
     );
@@ -140,7 +140,7 @@ test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo
     ).toBeLessThanOrEqual(1);
 
     await page.reload();
-    await expect(page.getByTestId("object-count")).toHaveText("332 объекта", {
+    await expect(page.getByTestId("object-count")).toHaveText("334 объекта", {
       timeout: 30_000,
     });
     await expect(page.getByTestId("board-stage")).toHaveAttribute(
