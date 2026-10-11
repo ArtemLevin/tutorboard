@@ -40,7 +40,7 @@ jobs:
           npx playwright install --with-deps ${{ matrix.browser }}
       - name: Verify canonical pixels and selection, with traceable evidence
         run: |
-          set -o pipefail
+          set -euo pipefail
           mkdir -p c39-s5-s3
           for dpr in 1 2; do
             C39_S5_S4_DPR="$dpr" npx playwright test \
