@@ -12,7 +12,7 @@ import { ownValue } from "./records";
 import {
   finishC39ViewportTrace,
   startC39ViewportTrace,
-} from "../../shared/c39-viewport-trace";
+} from "./viewport-trace";
 
 export interface BoardRenderItem {
   readonly object: BoardObject;
