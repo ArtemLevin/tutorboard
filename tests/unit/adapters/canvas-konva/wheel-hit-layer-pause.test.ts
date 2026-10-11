@@ -71,7 +71,8 @@ describe("C3.9-S7 transient hit-layer suppression", () => {
     expect(staticLayer.state()).toBe(true);
     coordinator.begin([staticLayer.node]);
     coordinator.dispose();
-    expect(staticLayer.hit).toHaveBeenCalledTimes(2);
+    // An unmount must never paint into an already detached Konva canvas.
+    expect(staticLayer.hit).toHaveBeenCalledOnce();
     expect(staticLayer.state()).toBe(true);
   });
 
