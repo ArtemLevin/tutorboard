@@ -2439,3 +2439,11 @@ verification and the guest offline cleanup regression guard.
 - Reconcile PR #193 with the merged C3.2-B wheel ink cache and ordered static/GIF render runs from PR #194. During wheel gestures, temporarily activate the existing 24-fps GIF coordinator pacing; restore default cadence on wheel commit, cancellation, authoritative viewport replacement or component unmount.
 - Keep C3.2-B's bounded pixel budget, cache cleanup, z-order, hit testing, transforms, and media-asset permission lifecycle intact. No persistent-format or API changes.
 - Cross-browser smoke of GIF resuming after repeated zoom plus full CI and repeated Chromium large-board profile are merge gates. Measured C3.2-A alone previously reduced GIF draw calls without proving improved zoom p95; assess combined changes against merged C3.2-B baseline before accepting.
+
+### C3.9-S5.2 — bounded-run selector / shared raster budget (11.10.2026)
+
+- Draft PR #221 from stable main `8a24b882`: exact-geometry selector returns one 80–256 contiguous user pen subrun only when **all** of it fits a padded crop within both 4M scene-pixel and 16MiB scene+hit+scratch ceilings; unsupported geometry or insufficient budget falls back to unchanged vector path.
+- Optional scene/hit/scratch lease allocator integrates with WheelInkCacheCoordinator without changing its default constructor behavior; opt-in failure paths release leases and record skipped or failed cached runs.
+- [Focused S5.2 CI #38124450098](https://github.com/ArtemLevin/tutorboard/actions/runs/38124450098): 3 files, 27 passing tests, typecheck green at earlier patch. Replayed source `createDenseBoardDocument` 5k/10k + 4 PNG/6 JPEG geometry and 1240×820 DPR2 visibility: selected **256** strokes each; crops **962×318** / **963×317**, accounted scene+hit+scratch **12,236,640** / **12,210,840 bytes**. This proves geometry eligibility only; per-frame speedup still unmeasured, and coverage is 6.4%/3.2% of visible pen objects.
+- Next S5.3: one guarded runtime crop candidate plus original Group live-bounds/pixel/hit checks before promotion, then S5.4 cross-browser fidelity and A0/A2. If 20% paired active p95 is not reproducible across independent runners, NO-GO remains required. [Detailed S5.2 report](docs/C39_S5_S2_BOUNDED_ELIGIBILITY_EVIDENCE_2026-10-11.md).
+- No production A2 merge; keep Issue #201 OPEN and main unchanged.
