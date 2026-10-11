@@ -2439,3 +2439,12 @@ verification and the guest offline cleanup regression guard.
 - Reconcile PR #193 with the merged C3.2-B wheel ink cache and ordered static/GIF render runs from PR #194. During wheel gestures, temporarily activate the existing 24-fps GIF coordinator pacing; restore default cadence on wheel commit, cancellation, authoritative viewport replacement or component unmount.
 - Keep C3.2-B's bounded pixel budget, cache cleanup, z-order, hit testing, transforms, and media-asset permission lifecycle intact. No persistent-format or API changes.
 - Cross-browser smoke of GIF resuming after repeated zoom plus full CI and repeated Chromium large-board profile are merge gates. Measured C3.2-A alone previously reduced GIF draw calls without proving improved zoom p95; assess combined changes against merged C3.2-B baseline before accepting.
+
+
+### C3.9-S5 — план research-прототипа частичного pen-run cache и A0/A2 (11.10.2026)
+
+- Основание: проверенное S4 исследование из PR #218 — синхронный Konva scene+hit занимает 15,6%/17,3% интервалов активных кадров на 5k/10k + 10 PNG/JPEG; viewport persist независимо 12,5%/16,6%. Есть GO только на исследовательский прототип; production NO-GO.
+- План: один z-order-preserving непрерывный pen run, обязательный feasibility gate canonical Konva hit identity и alpha/pixel parity, затем ограниченный tile planner с shared WheelInkCache budget, generation/cancel/fallback и точным undo/redo/clear.
+- После реализации и browser fidelity — **два независимых runner × 3 ABBA цикла × 4 нагрузки** (3k/5k/10k/offscreen + 4 PNG/6 JPEG), один SHA и один harness для A0/A2. GO: ≥20% median paired active p95 для 5k и 10k на каждом runner; меньшая доля >100 мс; ≤10% guard regressions; сохранение input/pixel/hit/data/memory contracts. При провале NO-GO и отдельное исследование persist/compositor.
+- Полный специфицированный план: [docs/C39_S5_BOUNDED_INK_A0_A2_PLAN_2026-10-11.md](docs/C39_S5_BOUNDED_INK_A0_A2_PLAN_2026-10-11.md).
+- Текущий статус: **только план**, прототип и A0/A2 ещё не реализованы. Issue #201 открыта, main остаётся стабильной.
