@@ -91,3 +91,43 @@ CI status and exact final commit SHA are to be recorded after completion.
 
 **Decision:** S6.1–S6.2 diagnostic/minimal patch in Draft PR; performance
 production acceptance pending. Keep `main` intact.
+
+## Final code-head checks and two-runner measurements
+
+**Verified code SHA:** `2b83c631160e5462bfe03a9ef73866a6eed7b5d3`.
+
+- [Full CI #38148005208](https://github.com/ArtemLevin/tutorboard/actions/runs/38148005208):
+  **SUCCESS**. All quality, format, lint, typecheck, unit, performance,
+  architecture, build, production image, Chromium/Firefox browser smoke,
+  GeometryOS and media profile jobs completed successfully.
+- [C3.9-S6 independent profile #38148005293](https://github.com/ArtemLevin/tutorboard/actions/runs/38148005293):
+  **SUCCESS** on independent Chromium runners A and B. Each ran two repeats
+  of four DPR2 static-heavy scenarios, for 16 scenarios in total.
+  Raw JSON per-scenario evidence is retained in Playwright test attachments.
+- Other code-head CI companions: C3.9 baseline, static-heavy baseline,
+  render-run E2, media cache, authenticated media, recognition gates all passed.
+
+**Measured 10k dense + 4 PNG + 6 JPEG, each repeat:**
+
+| Runner/repeat | Active rAF p95 | full-document prevalidation p95 per call | Worker postMessage p95 per call | selector max |
+| --- | ---: | ---: | ---: | ---: |
+| A1 | 416.6ms | 242.4ms | 156.0ms | 0.1ms |
+| A2 | 449.9ms | 462.3ms | 127.3ms | <0.1ms |
+| B1 | 366.7ms | 371.0ms | 151.0ms | 0.1ms |
+| B2 | 433.3ms | 262.0ms | 141.0ms | 0.1ms |
+
+**Interpretation:** H1 and H3 confirmed as sizeable *synchronous intervals*
+on actual browser input, with H2 selector rebuilding eliminated by strict
+structural reuse. Dispatch/history/callback are sub-millisecond in these cases.
+Local autosave schedule includes Worker postMessage cost; those spans are
+nested and must **not** be added together. Per-call p95 and rAF p95 refer
+to different sample populations. No claim of exclusive causal attribution
+or percent end-to-end improvement is made.
+
+**Release decision:** S6.1/S6.2 code and diagnostics **functional/CI GO**,
+but **production performance NO-GO**. The active-frame tail remains poor.
+The independent profile evaluates the S6 candidate only; A0/S6 ABBA and its
+>=20% paired gain gate remain **unexecuted/unproven**. Public reducer must
+continue rejecting invalid-current documents. Next bounded research block
+S6.3/S6.4 must investigate formally owned immutable validation provenance
+and/or avoiding full-document Worker cloning. Keep PR Draft and main unchanged.
