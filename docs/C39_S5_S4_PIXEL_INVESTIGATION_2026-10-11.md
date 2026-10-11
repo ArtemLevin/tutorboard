@@ -46,3 +46,12 @@ We retain strict `changedPixels <= A0/A0 changedPixels` and `maxChannelDifferenc
 - Existing production main remains unchanged; Draft PR #222 and Draft PR #224 stay unmerged, Issue #201 open.
 
 **Scope limitation:** The requested comprehensive eraser and real-time collaboration gates have not been completed, and the pixel root cause has not yet been corrected. S5.4 release status is therefore **NO-GO**.
+
+
+## Addendum — original hit owner changes on fractional native Path crop
+
+[Native Path extension run #38135448461](https://github.com/ArtemLevin/tutorboard/actions/runs/38135448461) tested original Konva 10.3.0 Path with a filled vector-ink-style SVG path above two crossing Lines in the same Group. Under all 16 DPR/opacity/crop permutations per browser, **integer crop retained exactly the original sampled hit IDs and pixels**. For `cropShift=0.5`, the first sampled hit changed from original `canonical-pen` to the different original node `vector-ink-path` in both Chromium and Firefox, **including DPR2 when sampled RGBA differences were zero**. At DPR1 the same fractional crops also changed 2,099–2,148 pixels, max channel 255. The run correctly failed the previous all-crops hit equality gate; the revised test now explicitly asserts the supported integer crop's identity and the known fractional-crop failure mode. This is a meaningful hit-testing hazard. The guarded S5.3 candidate already snaps raster crop x/y to integer CSS values and must keep that contract. The production 4/5 DPR2 pixel mismatch persists even with integer bounds, so its precise root cause remains open.
+
+A separate full BoardStage pen undo/redo test initially failed to create the new pen after document import because the UI was left in a different focus/tool state; the test was updated to select the Pen tool explicitly through its menu. Its outcome must be verified on the new SHA before reporting pass.
+
+Current S5.4 release decision remains **NO-GO**; performance ABBA blocked and real server collaboration/partial eraser gates outstanding.
