@@ -2479,10 +2479,7 @@ export function createOwnedViewportReducer(): (
       owned === document ? null : startC39ViewportTrace();
     let source = owned === document ? document : null;
     if (source !== null) {
-      finishC39ViewportTrace(
-        "viewport-owned.cache-hit",
-        startC39ViewportTrace(),
-      );
+      finishC39ViewportTrace("viewport-owned.cache-hit", startC39ViewportTrace());
     }
     if (source === null) {
       const started = startC39ViewportTrace();
@@ -2503,10 +2500,7 @@ export function createOwnedViewportReducer(): (
       finishC39ViewportTrace("viewport-owned.freeze", freezeStart);
     }
 
-    finishC39ViewportTrace(
-      "viewport-owned.first-commit",
-      firstCommitStart,
-    );
+    finishC39ViewportTrace("viewport-owned.first-commit", firstCommitStart);
     const metadataError = validateMetadata(source, command);
     if (metadataError !== null) {
       owned = source;
