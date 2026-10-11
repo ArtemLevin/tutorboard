@@ -1,0 +1,45 @@
+name: C3.9-S5.4 Konva pixel root-cause probe
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-s5-s4-subpixel.yml
+      - tests/e2e/c39-s5-subpixel-probe.spec.ts
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  subpixel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Build and install browser
+        run: |
+          npm ci
+          npm run build
+          npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Compare exact Konva scene and hit graph across DPR and alpha
+        run: |
+          set -o pipefail
+          mkdir -p c39-s5-s4
+          npx playwright test tests/e2e/c39-s5-subpixel-probe.spec.ts \
+            --project=${{ matrix.browser }} --workers=1 --retries=0 2>&1 |
+            tee c39-s5-s4/${{ matrix.browser }}.log
+      - name: Archive root-cause evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-s5-s4-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            c39-s5-s4
+            test-results
+          retention-days: 14
+          if-no-files-found: warn
