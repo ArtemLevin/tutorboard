@@ -38,6 +38,12 @@ jobs:
           cache: npm
       - name: Install exact dependencies
         run: npm ci
+      - name: Show exact S6 format changes
+        run: |
+          npx prettier --write src/app/SyncedApp.tsx src/core/board/selectors.ts tests/e2e/c39-large-board-profile.spec.ts tests/unit/core/c39-s6-viewport-selector.test.ts
+          echo BEGIN_C39_S6_FORMAT_DIFF
+          git diff -- src/app/SyncedApp.tsx src/core/board/selectors.ts tests/e2e/c39-large-board-profile.spec.ts tests/unit/core/c39-s6-viewport-selector.test.ts
+          echo END_C39_S6_FORMAT_DIFF
       - name: Build frozen candidate
         run: npm run build
       - name: Install Chromium
