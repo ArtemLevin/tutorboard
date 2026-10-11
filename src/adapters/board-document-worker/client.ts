@@ -10,7 +10,7 @@ import {
 import {
   finishC39ViewportTrace,
   startC39ViewportTrace,
-} from "../../shared/c39-viewport-trace";
+} from "../../core/public";
 
 import type {
   BoardDocumentWorkerRequest,
