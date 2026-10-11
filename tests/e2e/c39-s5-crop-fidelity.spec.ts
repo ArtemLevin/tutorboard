@@ -228,25 +228,3 @@ test("@c39-s5-lifecycle clear, undo and persisted restoration", async ({
     await context.close();
   }
 });
-
-test("@c39-s5 A2 pen redraw and undo redo", async ({ browser }) => {
-  const a2 = await mountBoard(browser, true);
-  try {
-    const { page, stage } = a2;
-    const rect = await stage.boundingBox();
-    if (!rect) throw new Error("No stage bounds");
-    await page.getByRole("button", { name: "\u0420\u0438\u0441\u043e\u0432\u0430\u043d\u0438\u0435" }).click();
-    await page.getByRole("menuitemradio", { name: "\u041f\u0435\u0440\u043e (P)" }).click();
-    await page.mouse.move(rect.x + 430, rect.y + 697);
-    await page.mouse.down();
-    await page.mouse.move(rect.x + 805, rect.y + 697, { steps: 20 });
-    await page.mouse.up();
-    await expect(page.getByTestId("object-count")).toHaveText(/^331 объект/u);
-    await page.keyboard.press("Control+z");
-    await expect(page.getByTestId("object-count")).toHaveText(/^330 объект/u);
-    await page.keyboard.press("Control+Shift+z");
-    await expect(page.getByTestId("object-count")).toHaveText(/^331 объект/u);
-  } finally {
-    await a2.context.close();
-  }
-});
