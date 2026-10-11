@@ -58,6 +58,30 @@ async function dragMarquee(page: Page) {
   return { finish, start };
 }
 
+test("restores exact object hit targets on pointer input interrupting wheel zoom", async ({
+  page,
+}) => {
+  const stage = page.getByTestId("board-stage");
+  const center = await stagePoint(page, 350, 210);
+  await page.mouse.move(center.x, center.y);
+  await page.mouse.wheel(0, -190);
+  // No mouse movement precedes this click. The native capture handler must
+  // restore Konva's exact hit canvas before pointerdown dispatch.
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+  await expect(stage).toHaveAttribute("data-wheel-hit-pause-active", "false");
+  expect(
+    Number(await stage.getAttribute("data-wheel-hit-pause-restores")),
+  ).toBeGreaterThan(0);
+
+  await page.mouse.wheel(0, 190);
+  await expect(stage).toHaveAttribute("data-wheel-gif-pause-active", "false");
+  await expect(stage).toHaveAttribute("data-wheel-hit-pause-active", "false");
+  await page.mouse.click(center.x, center.y);
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+});
+
 test("selects and moves an object with a zoom-independent world delta", async ({
   page,
 }) => {
