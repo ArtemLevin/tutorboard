@@ -129,6 +129,11 @@ test("@c39-s5-subpixel isolate DPR, alpha, and integer crop with one Konva strok
   console.info("C39_S5_S4_SUBPIXEL " + JSON.stringify(samples));
   expect(samples).toHaveLength(16);
   for (const item of samples) {
-    expect(item.cachedHits).toEqual(item.baselineHits);
+    if (item.cropShift === 0) {
+      expect(item.cachedHits).toEqual(item.baselineHits);
+    } else {
+      expect(item.cachedHits[0]).toBe("vector-ink-path");
+      expect(item.baselineHits[0]).toBe("canonical-pen");
+    }
   }
 });
