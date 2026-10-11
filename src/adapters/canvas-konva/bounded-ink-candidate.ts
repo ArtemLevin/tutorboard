@@ -13,7 +13,12 @@ export interface BoundedInkCandidate {
   readonly startIndex: number;
   readonly endIndexExclusive: number;
   readonly objectIds: readonly string[];
-  readonly crop: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+  readonly crop: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  };
   readonly cost: InkRasterCost;
 }
 
@@ -146,9 +151,7 @@ export function selectBoundedInkCandidate(
         best = {
           startIndex: start,
           endIndexExclusive: end + 1,
-          objectIds: items
-            .slice(start, end + 1)
-            .map((item) => item.object.id),
+          objectIds: items.slice(start, end + 1).map((item) => item.object.id),
           crop,
           cost,
         };

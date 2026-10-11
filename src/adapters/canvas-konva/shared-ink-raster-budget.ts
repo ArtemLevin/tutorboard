@@ -92,7 +92,8 @@ export class SharedInkRasterBudget {
   }
 
   get spatialLeases(): number {
-    return [...this.#leases].filter((lease) => lease.owner === "spatial").length;
+    return [...this.#leases].filter((lease) => lease.owner === "spatial")
+      .length;
   }
 
   tryAcquire(
