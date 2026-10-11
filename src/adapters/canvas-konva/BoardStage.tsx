@@ -617,12 +617,20 @@ export function BoardStage({
   const restoreWheelHit = useCallback(() => {
     cancelScheduledWheelHitRestore();
     wheelHitPause.restore();
+    if (rootRef.current !== null) {
+      rootRef.current.dataset.wheelHitPauseActive = "false";
+    }
   }, [cancelScheduledWheelHitRestore, wheelHitPause]);
   const deferWheelHitRestore = useCallback(() => {
     cancelScheduledWheelHitRestore();
     wheelHitRestoreTimerRef.current = window.setTimeout(() => {
       wheelHitRestoreTimerRef.current = null;
-      if (wheelSessionRef.current === null) wheelHitPause.restore();
+      if (wheelSessionRef.current === null) {
+        wheelHitPause.restore();
+        if (rootRef.current !== null) {
+          rootRef.current.dataset.wheelHitPauseActive = "false";
+        }
+      }
     }, wheelHitIdleGraceMs);
   }, [cancelScheduledWheelHitRestore, wheelHitPause]);
   useEffect(
@@ -2246,6 +2254,11 @@ export function BoardStage({
         });
         cancelScheduledWheelHitRestore();
         if (stage !== null) wheelHitPause.begin(stage.getLayers());
+        if (rootRef.current !== null) {
+          rootRef.current.dataset.wheelHitPauseActive = String(
+            wheelHitPause.active,
+          );
+        }
         // Avoid an independent full-speed GIF invalidation stream while the
         // temporary wheel cache is composited through viewport transforms.
         animatedImageRedraw.setInteractionActive(true);
