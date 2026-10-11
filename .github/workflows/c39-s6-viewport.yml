@@ -23,6 +23,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  format-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Print exact formatting diff
+        run: |
+          npx prettier --write src/app/SyncedApp.tsx src/adapters/board-document-worker/client.ts src/app/board/controllers/useBoardDocumentController.ts src/core/board/selectors.ts src/core/public.ts tests/e2e/c39-large-board-profile.spec.ts tests/unit/core/c39-s6-viewport-selector.test.ts
+          echo BEGIN_C39_S6_FORMAT_DIFF
+          git diff -- src/app/SyncedApp.tsx src/adapters/board-document-worker/client.ts src/app/board/controllers/useBoardDocumentController.ts src/core/board/selectors.ts src/core/public.ts tests/e2e/c39-large-board-profile.spec.ts tests/unit/core/c39-s6-viewport-selector.test.ts
+          echo END_C39_S6_FORMAT_DIFF
   attribution:
     runs-on: ubuntu-latest
     timeout-minutes: 60
