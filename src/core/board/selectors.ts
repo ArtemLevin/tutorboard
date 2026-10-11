@@ -146,6 +146,32 @@ export function createBoardSceneSelector(): BoardSceneSelector {
     if (previousDocument === document && previousScene !== null) {
       return previousScene;
     }
+    // Viewport commits preserve the entire immutable content graph. Reuse
+    // its ordered render items and per-object cache without walking the
+    // potentially 10k+ object document on every completed wheel gesture.
+    // Compare *all* non-viewport document fields rather than only order or
+    // object count: external hydration and history can replace any subtree.
+    if (
+      previousDocument !== null &&
+      previousScene !== null &&
+      previousDocument.id === document.id &&
+      previousDocument.schemaVersion === document.schemaVersion &&
+      previousDocument.createdAt === document.createdAt &&
+      previousDocument.title === document.title &&
+      previousDocument.order === document.order &&
+      previousDocument.objects === document.objects &&
+      previousDocument.groups === document.groups &&
+      previousDocument.geometryImports === document.geometryImports &&
+      previousDocument.solidModels === document.solidModels &&
+      previousDocument.solidLearningAttempts === document.solidLearningAttempts
+    ) {
+      previousDocument = document;
+      previousScene = {
+        items: previousScene.items,
+        viewport: document.viewport,
+      };
+      return previousScene;
+    }
     const nextCache = new Map<
       (typeof document.order)[number],
       {
