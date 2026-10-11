@@ -16,10 +16,10 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
   };
 };
 
-async function mountBoard(browser: Browser, a2: boolean) {
+async function mountBoard(browser: Browser, a2: boolean, dpr = 2) {
   const context = await browser.newContext({
     viewport: { width: 1240, height: 820 },
-    deviceScaleFactor: 2,
+    deviceScaleFactor: dpr,
   });
   const page = await context.newPage();
   await page.addInitScript((enable) => {
@@ -166,5 +166,65 @@ test("@c39-s5-fidelity experimental crop keeps the original pixels and hit inter
     await candidate.context.close();
     await controlReplica.context.close();
     await control.context.close();
+  }
+});
+
+test("@c39-s5-diagnostic compare native cache at DPR1 and DPR2", async ({
+  browser,
+}, info) => {
+  test.setTimeout(180_000);
+  const data = [];
+  for (const dpr of [1, 2]) {
+    const a0 = await mountBoard(browser, false, dpr);
+    const a2 = await mountBoard(browser, true, dpr);
+    try {
+      const diff = compareScreenshots(
+        await a0.stage.screenshot({ animations: "disabled" }),
+        await a2.stage.screenshot({ animations: "disabled" }),
+      );
+      data.push({ dpr, ...diff });
+      console.info("C39_S5_S4_DPR_PROBE " + JSON.stringify({ dpr, ...diff }));
+    } finally {
+      await a2.context.close();
+      await a0.context.close();
+    }
+  }
+  await info.attach("c39-s5-s4-dpr-probe.json", {
+    body: Buffer.from(JSON.stringify(data, null, 2)),
+    contentType: "application/json",
+  });
+  expect(data).toHaveLength(2);
+});
+
+test("@c39-s5-lifecycle clear, undo and persisted restoration", async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const { context, page, stage } = await mountBoard(browser, true);
+  try {
+    const bounds = await stage.boundingBox();
+    expect(bounds).not.toBeNull();
+    if (bounds === null) throw new Error("Missing stage rectangle");
+    await page.mouse.click(
+      bounds.x + bounds.width * 0.75,
+      bounds.y + bounds.height * 0.75,
+      { button: "right" },
+    );
+    await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+    await page.getByRole("button", { name: "Очистить", exact: true }).click();
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
+    await page.keyboard.press("Control+z");
+    await expect(page.getByTestId("object-count")).toHaveText(/^330 объект/u);
+    await expect
+      .poll(async () =>
+        Number(await stage.getAttribute("data-c39-s5-a2-candidate-count")),
+      )
+      .toBeGreaterThanOrEqual(80);
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Сохранено локально",
+    );
+  } finally {
+    await context.close();
   }
 });

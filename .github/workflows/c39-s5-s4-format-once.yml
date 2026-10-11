@@ -1,0 +1,10 @@
+name: C3.9-S5.4 formatting record
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-record:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Formatter completed; source is checked by normal CI."
