@@ -2452,3 +2452,15 @@ verification and the guest offline cleanup regression guard.
 - [ ] S6.4: modify autosave or sync scheduling only if worker clone/revision queue latency is reproduced, with full pagehide/undo/reconnect/revoke tests.
 - [ ] S6.5: two-runner full A0/S6 ABBA with >=20% active p95 reduction at both 5k and 10k per runner, fewer >100ms frames and unchanged input/data/memory; no main merge before GO.
 - [Evidence and limits](docs/C39_S6_VIEWPORT_IMPLEMENTATION_EVIDENCE_2026-10-11.md). Issue #201 remains OPEN; S6 PR remains Draft.
+
+
+### C3.9-S6.4 — autosave Worker clone deferral, experimental NO-GO (2026-10-11)
+
+- [x] Draft stacked PR #227 from PR #226: postpone `LocalDocumentAutosave.prepareSave` for viewport-only / updatedAt-only revisions sharing all persistent content fields; retain normal eager preparation for real content changes and preserve lifecycle flush, undo/redo, full serialization and revision semantics.
+- [x] Added unit coverage for consecutive viewport revisions, changed-content invalidation and immediate pagehide durability.
+- [x] Executed real paired two-runner Chromium DPR2 ABBA (5k and 10k strokes + 10 PNG/JPEG), [workflow #38150973467](https://github.com/ArtemLevin/tutorboard/actions/runs/38150973467), all 16 browser cases PASS. Reduced 10k main-thread Worker clone count in both runners (A 20→15, B 20→15 across paired repetitions).
+- [x] Performance **NO-GO**: runner A p95 uplift 5k ~34%, 10k ~10%; runner B 5k ~14% regression, 10k gain sensitive to 816.6ms baseline outlier. Fails >=20% at both loads on both runners. Keep PR Draft, main unchanged; do not claim solved large-board responsiveness.
+- [ ] Capture full clean CI for final branch SHA and inspect lifecycle/permission/memory regressions.
+- [ ] S6.3: prove immutable ownership/provenance before reducing prevalidation costs. Public reducer must continue rejecting invalid current documents; mutable-object WeakMap caching prohibited.
+- [ ] S6.4-B: investigate content-versioned Worker message/ACK and lifecycle recovery, so repeated viewport updates send small deltas rather than cloning the full document; preserve canonical persisted schema, command order and SHA.
+- [Full ABBA evidence and release decision](docs/C39_S6_S4_VIEWPORT_AUTOSAVE_ABBA_2026-10-11.md). Issue #201 OPEN.
