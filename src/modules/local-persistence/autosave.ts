@@ -1,17 +1,15 @@
-import type {
-  BoardDocument,
-  BoardDocumentRepository,
-  LocalRevisionId,
-  PersistenceOperationId,
-  SaveBoardDocumentInput,
-  SaveBoardDocumentPriority,
-  SaveBoardDocumentResult,
-} from "../../core/public";
-import { bindLocalAutosaveLifecycleFlush } from "./lifecycle";
 import {
   finishC39ViewportTrace,
   startC39ViewportTrace,
+  type BoardDocument,
+  type BoardDocumentRepository,
+  type LocalRevisionId,
+  type PersistenceOperationId,
+  type SaveBoardDocumentInput,
+  type SaveBoardDocumentPriority,
+  type SaveBoardDocumentResult,
 } from "../../core/public";
+import { bindLocalAutosaveLifecycleFlush } from "./lifecycle";
 
 export type LocalAutosaveState =
   | { readonly kind: "idle" }
