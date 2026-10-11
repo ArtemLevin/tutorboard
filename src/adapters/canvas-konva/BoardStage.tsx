@@ -44,6 +44,8 @@ import { recordBoardFrameTrace } from "./board-frame-trace";
 import { AnimatedImageRedrawCoordinator } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
 import { BoardRenderItemView, BoardSceneContent } from "./board-scene-content";
+import { selectBoundedInkCandidate } from "./bounded-ink-candidate";
+import { SharedInkRasterBudget } from "./shared-ink-raster-budget";
 import { partitionCommittedPaintRuns } from "./committed-paint-runs";
 import { BoardGrid } from "./grid";
 import { clientPoint, elementPoint } from "./pointer";
@@ -474,7 +476,20 @@ export function BoardStage({
   const [animatedImageRedraw] = useState(
     () => new AnimatedImageRedrawCoordinator(),
   );
-  const [wheelInkCache] = useState(() => new WheelInkCacheCoordinator());
+  // The A2 bundle is a separate explicitly built experiment. Production and
+  // normal preview bundles cannot activate this code via a query parameter.
+  const [experimentalA2] = useState(
+    () =>
+      import.meta.env.MODE === "c39-s5-a2" &&
+      (window as Window & { __tutorBoardC39S5A2?: boolean })
+        .__tutorBoardC39S5A2 === true,
+  );
+  const [wheelInkCache] = useState(
+    () =>
+      new WheelInkCacheCoordinator(
+        experimentalA2 ? new SharedInkRasterBudget() : undefined,
+      ),
+  );
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -680,6 +695,30 @@ export function BoardStage({
     () => visibilityIndex.select(previewViewport, size),
     [visibilityIndex, previewViewport, size],
   );
+  // Freeze candidate membership against the *committed* viewport for the
+  // duration of a wheel gesture. If its IDs cease to form one complete
+  // visible run, the child simply does not register a cacheable Konva Group.
+  const boundedInkCandidate = useMemo(() => {
+    if (
+      !experimentalA2 ||
+      selectedObjectIds.length > 0 ||
+      lineEndpointPreview !== null ||
+      selectionPreviewDelta !== null
+    ) return null;
+    const committedVisibleItems = visibilityIndex.select(scene.viewport, size);
+    return selectBoundedInkCandidate(
+      committedVisibleItems,
+      window.devicePixelRatio,
+    );
+  }, [
+    experimentalA2,
+    selectedObjectIds.length,
+    lineEndpointPreview,
+    selectionPreviewDelta,
+    visibilityIndex,
+    scene.viewport,
+    size,
+  ]);
   const visibleItemBatches = useMemo(
     () => batchBoardRenderItems(visibleItems),
     [visibleItems],
@@ -2295,6 +2334,10 @@ export function BoardStage({
         wheelInkCache.lastWheelSkippedColdBuild
       }
       data-wheel-cache-prepared={wheelInkCache.isPrepared}
+      data-c39-s5-a2-enabled={experimentalA2}
+      data-c39-s5-a2-candidate-count={boundedInkCandidate?.objectIds.length ?? 0}
+      data-c39-s5-a2-candidate-bytes={boundedInkCandidate?.cost.accountedBytes ?? 0}
+      data-c39-s5-a2-cache-failures={wheelInkCache.lastBuildFailedRuns}
       data-testid="board-stage"
       role="application"
       style={{ cursor }}
@@ -2343,6 +2386,8 @@ export function BoardStage({
                   selectionPreviewY={selectionPreviewDelta?.y ?? 0}
                   zoom={previewViewport.zoom}
                   wheelInkCache={wheelInkCache}
+                  boundedInkCandidate={boundedInkCandidate}
+                  experimentalA2={experimentalA2}
                 />
               </AnimatedImageRedrawContext>
             </Group>
