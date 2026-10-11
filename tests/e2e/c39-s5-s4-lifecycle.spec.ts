@@ -81,7 +81,9 @@ test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo
     ).toBeGreaterThan(0);
     const bounds = await stage.boundingBox();
     if (bounds === null) throw new Error("No BoardStage");
-    await page.keyboard.press("p");
+    await page.getByRole("button", { name: "Рисование" }).click();
+    await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
+    await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
     const y = bounds.y + bounds.height * 0.8;
     const xStart = bounds.x + bounds.width * 0.35;
     const xEnd = bounds.x + bounds.width * 0.65;
@@ -144,8 +146,19 @@ test("@c39-s5-lifecycle 48 wheel sessions, clear, undo and unmount release all r
       bounds.x + bounds.width * 0.5,
       bounds.y + bounds.height * 0.5,
     );
+    let previousWheelStart = Number(
+      await stage.getAttribute("data-wheel-cache-last-wheel-start-ms"),
+    );
     for (let index = 0; index < 48; index += 1) {
       await page.mouse.wheel(0, index % 2 === 0 ? -150 : 150);
+      await expect
+        .poll(async () =>
+          Number(await stage.getAttribute("data-wheel-cache-last-wheel-start-ms")),
+        )
+        .toBeGreaterThan(previousWheelStart);
+      previousWheelStart = Number(
+        await stage.getAttribute("data-wheel-cache-last-wheel-start-ms"),
+      );
       await expect(stage).toHaveAttribute(
         "data-wheel-gif-pause-active",
         "false",
