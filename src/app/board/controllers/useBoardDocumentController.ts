@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
   commandId,
   reduceBoardDocument,
   type ActorId,
@@ -20,10 +22,6 @@ import {
   redoDocumentHistory,
   undoDocumentHistory,
 } from "../../../modules/history/public";
-import {
-  finishC39ViewportTrace,
-  startC39ViewportTrace,
-} from "../../../core/public";
 
 export interface UseBoardDocumentControllerOptions {
   readonly collaborativeUndoAvailable: boolean;
