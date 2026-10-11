@@ -4,7 +4,7 @@ import {
   finishC39ViewportTrace,
   startC39ViewportTrace,
   type C39ViewportTraceEvent,
-} from "../../../src/shared/c39-viewport-trace";
+} from "../../../src/core/board/viewport-trace";
 
 afterEach(() => vi.unstubAllGlobals());
 
