@@ -172,7 +172,17 @@ export class WheelInkCacheCoordinator {
     this.#lastBuildFailedRuns = 0;
     let remainingPixels = maximumWheelCachePixels;
     for (const node of this.#nodes) {
-      const bounds = node.getClientRect({ skipTransform: true });
+      let bounds: ReturnType<WheelInkNode["getClientRect"]>;
+      try {
+        bounds = node.getClientRect({ skipTransform: true });
+      } catch (error) {
+        // An experimental Konva node may have been detached or invalidated.
+        // Only the opt-in guarded path treats this as a skipped vector run.
+        if (this.sharedBudget === undefined) throw error;
+        this.#lastBuildFailedRuns += 1;
+        this.#lastBuildSkippedRuns += 1;
+        continue;
+      }
       const x = Math.floor(bounds.x - 3);
       const y = Math.floor(bounds.y - 3);
       const width = Math.ceil(bounds.x + bounds.width + 3) - x;
@@ -233,6 +243,7 @@ export class WheelInkCacheCoordinator {
         if (this.sharedBudget === undefined) throw error;
         this.#lastBuildFailedRuns += 1;
         this.#lastBuildSkippedRuns += 1;
+        node.getLayer()?.batchDraw();
         continue;
       }
       if (lease !== undefined) this.#budgetLeases.set(node, lease);
