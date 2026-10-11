@@ -19,6 +19,8 @@ import type {
   BoardRuntimeAccessContext,
 } from "../core/access/public";
 import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
   reduceBoardDocument,
   type BoardCommand,
   type BoardDocument,
@@ -53,10 +55,6 @@ import { App, type AppPersistenceStatus } from "./App";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import { copyBoardShareUrl } from "./board-chrome/board-share";
 import { canFinalizeBoardEvidence } from "./synced-evidence";
-import {
-  finishC39ViewportTrace,
-  startC39ViewportTrace,
-} from "../core/public";
 
 type SyncedBoardRepository = BoardCollaborationRepository &
   BoardEvidenceRepository &
