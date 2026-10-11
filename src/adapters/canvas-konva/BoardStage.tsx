@@ -954,7 +954,6 @@ export function BoardStage({
     // An authoritative viewport change during a parked hit-map must restore
     // its accurate geometry, except for our own just-persisted wheel commit.
     if (
-      wheelHitPause.active &&
       wheelSessionRef.current === null &&
       !sameViewport(scene.viewport, lastCommittedWheelViewportRef.current)
     ) {
