@@ -143,6 +143,43 @@ describe("S6.4-B WorkerSerializationCache", () => {
     ).toMatchObject({ kind: "failure", code: "cache-miss" });
   });
 
+  it("evicts earlier document snapshots across repeated content versions", () => {
+    const cache = new WorkerSerializationCache();
+    const original = document();
+    for (let version = 1; version <= 64; version += 1) {
+      const changed: BoardDocument = {
+        ...original,
+        title: `Content version ${version}`,
+      };
+      expect(
+        cache.serialize({
+          document: changed,
+          id: version,
+          kind: "serialize",
+        }),
+      ).toMatchObject({ kind: "serialize", result: { ok: true } });
+    }
+
+    const old = cache.serialize({
+      baseVersion: 1,
+      documentId: original.id,
+      id: 65,
+      kind: "serialize-viewport",
+      updatedAt: original.updatedAt,
+      viewport: original.viewport,
+    });
+    expect(old).toMatchObject({ kind: "failure", code: "cache-miss" });
+    const current = cache.serialize({
+      baseVersion: 64,
+      documentId: original.id,
+      id: 66,
+      kind: "serialize-viewport",
+      updatedAt: original.updatedAt,
+      viewport: original.viewport,
+    });
+    expect(current).toMatchObject({ kind: "serialize", result: { ok: true } });
+  });
+
   it("invalidates on a failed full seed and rejects invalid delta content", () => {
     const cache = new WorkerSerializationCache();
     const original = document();
