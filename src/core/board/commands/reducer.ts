@@ -20,6 +20,10 @@ import { ownValue } from "../records";
 import { isIsoTimestamp } from "../timestamps";
 import { boardDocumentSchema } from "../validation/schema";
 import { validateBoardDocument } from "../validation/validate";
+import {
+  finishC39ViewportTrace,
+  startC39ViewportTrace,
+} from "../../../shared/c39-viewport-trace";
 import type {
   AddGroupCommand,
   AddObjectsCommand,
@@ -2344,7 +2348,10 @@ export function reduceBoardDocument(
   document: BoardDocument,
   command: BoardCommand,
 ): CommandResult {
+  const prevalidationStarted =
+    command.kind === "core.viewport.set" ? startC39ViewportTrace() : null;
   const current = validateBoardDocument(document);
+  finishC39ViewportTrace("viewport-reduce.prevalidate", prevalidationStarted);
   if (!current.valid) {
     return failure(
       document,
@@ -2399,8 +2406,12 @@ export function reduceBoardDocument(
       return setSelectionLock(document, command);
     case "core.selection.set-style":
       return setSelectionStyle(document, command);
-    case "core.viewport.set":
-      return setViewport(document, command);
+    case "core.viewport.set": {
+      const dispatchStarted = startC39ViewportTrace();
+      const result = setViewport(document, command);
+      finishC39ViewportTrace("viewport-reduce.dispatch", dispatchStarted);
+      return result;
+    }
     case "core.document.rename":
       return renameDocument(document, command);
     case "core.text.update":
