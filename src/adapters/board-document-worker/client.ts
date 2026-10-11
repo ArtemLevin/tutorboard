@@ -9,7 +9,6 @@ import {
   type BoardDocumentSha256Result,
 } from "../../core/public";
 
-
 import type {
   BoardDocumentWorkerRequest,
   BoardDocumentWorkerResponse,
