@@ -2439,3 +2439,11 @@ verification and the guest offline cleanup regression guard.
 - Reconcile PR #193 with the merged C3.2-B wheel ink cache and ordered static/GIF render runs from PR #194. During wheel gestures, temporarily activate the existing 24-fps GIF coordinator pacing; restore default cadence on wheel commit, cancellation, authoritative viewport replacement or component unmount.
 - Keep C3.2-B's bounded pixel budget, cache cleanup, z-order, hit testing, transforms, and media-asset permission lifecycle intact. No persistent-format or API changes.
 - Cross-browser smoke of GIF resuming after repeated zoom plus full CI and repeated Chromium large-board profile are merge gates. Measured C3.2-A alone previously reduced GIF draw calls without proving improved zoom p95; assess combined changes against merged C3.2-B baseline before accepting.
+
+
+### C3.9-S4: Konva scene/hit causal gate (11.10.2026)
+
+- Measured [Draft PR #218](https://github.com/ArtemLevin/tutorboard/pull/218) on source `86d9c7ee772ade0bc642f98be60a683a977024c7`: two independent Chromium runners × two repeats × 3k/5k/10k/offscreen static-heavy scenarios, exactly 18 wheel inputs each. [Browser #38116778080](https://github.com/ArtemLevin/tutorboard/actions/runs/38116778080) and [full CI #38116778024](https://github.com/ArtemLevin/tutorboard/actions/runs/38116778024) green.
+- `drawScene` + `drawHit` JavaScript-interval union consumes 12.9% / 15.6% / 17.3% of total active rAF gaps on 3k / 5k / 10k (+ten static PNG/JPEG); viewport persistence independently occupies 11.6% / 12.5% / 16.6%. At 10k, 129/184 slow frames (>100 ms) overlap scene/hit; 49/184 overlap persist. These are correlation, not exclusive causation.
+- Decision: **GO for one bounded, z-order-preserving pen-only spatial-run prototype**, with exact hit/pixel parity, shared scene+hit cache budget, offscreen fallback and paired A0/A2 browser gate. **NO-GO for full viewport tiles or production merge**; existing 4-million-pixel cache bound would be exceeded by the 1240×820 DPR2 scene alone.
+- A1 (PR #217) remains NO-GO. C3.9 issue #201 stays open; S4 PR remains Draft. Full evidence, risks, acceptance and next phase: [S4 measurement decision](docs/C39_S4_SCENE_HIT_CAUSAL_2026-10-11.md).
