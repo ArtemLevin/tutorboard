@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/c39-s5-s2-format-once.yml
+      - tests/e2e/c39-large-board-profile.spec.ts
 
 permissions:
   contents: write
@@ -29,13 +30,15 @@ jobs:
             src/adapters/canvas-konva/bounded-ink-candidate.ts \
             src/adapters/canvas-konva/shared-ink-raster-budget.ts \
             src/adapters/canvas-konva/wheel-ink-cache.ts \
-            tests/unit/adapters/canvas-konva/bounded-ink-candidate.test.ts
+            tests/unit/adapters/canvas-konva/bounded-ink-candidate.test.ts \
+            tests/e2e/c39-large-board-profile.spec.ts
           git diff --check
           git add \
             src/adapters/canvas-konva/bounded-ink-candidate.ts \
             src/adapters/canvas-konva/shared-ink-raster-budget.ts \
             src/adapters/canvas-konva/wheel-ink-cache.ts \
-            tests/unit/adapters/canvas-konva/bounded-ink-candidate.test.ts
+            tests/unit/adapters/canvas-konva/bounded-ink-candidate.test.ts \
+            tests/e2e/c39-large-board-profile.spec.ts
           if ! git diff --cached --quiet; then
             git -c user.name='TutorBoard CI Formatter' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'style: format S5.2 bounded ink and lease tests'
             git push origin 'HEAD:refs/heads/perf/c39-s5-s2-bounded-ink-eligibility'
