@@ -1,0 +1,188 @@
+import { expect, test, type Browser } from "@playwright/test";
+
+import { createDenseBoardDocument } from "../fixtures/dense-board.js";
+
+async function mount(
+  browser: Browser,
+  options: { readonly interleaveMedia?: boolean } = {},
+) {
+  const context = await browser.newContext({
+    viewport: { width: 1240, height: 820 },
+    deviceScaleFactor: 2,
+  });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    Reflect.set(window, "__tutorBoardC39S5A2", true);
+  });
+  await page.goto("/");
+  const fixture = createDenseBoardDocument({
+    strokeCount: 320,
+    visibleStrokeCount: 320,
+    staticCount: 10,
+    gifCount: 0,
+    strokeGeometry: "varied",
+    zOrderPattern: "trailing",
+  });
+  const images = fixture.order.filter((id) => id.includes(":image:"));
+  const strokes = fixture.order.filter((id) => id.includes(":stroke:"));
+  const document = options.interleaveMedia
+    ? {
+        ...fixture,
+        order: [
+          ...strokes.slice(0, 90),
+          images[0]!,
+          ...strokes.slice(90),
+          ...images.slice(1),
+        ],
+      }
+    : fixture;
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await page.getByLabel("Импорт документа JSON").setInputFiles({
+    buffer: Buffer.from(JSON.stringify(document)),
+    mimeType: "application/json",
+    name: "c39-s5-s4-lifecycle.tutorboard.json",
+  });
+  const stage = page.getByTestId("board-stage");
+  await expect(page.getByTestId("object-count")).toHaveText(/^330 объект/u);
+  const dialog = page.getByRole("dialog", { name: "Настройки доски" });
+  if (await dialog.isVisible()) {
+    await dialog
+      .getByRole("button", { name: "Закрыть настройки доски" })
+      .click();
+  }
+  await expect(stage).toHaveAttribute("data-c39-s5-a2-enabled", "true");
+  await expect
+    .poll(() =>
+      stage.getAttribute("data-c39-s5-a2-candidate-count")
+        .then((value) => Number(value)),
+    )
+    .toBeGreaterThanOrEqual(80);
+  await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "1", {
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId("persistence-status")).toHaveText(
+    "Сохранено локально",
+  );
+  return { context, page, stage };
+}
+
+test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo survive cache invalidation", async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const { context, page, stage } = await mount(browser, {
+    interleaveMedia: true,
+  });
+  try {
+    // The cache must be live *before* the first actual edit.
+    expect(
+      Number(await stage.getAttribute("data-c39-s5-a2-retained-bytes")),
+    ).toBeGreaterThan(0);
+    const bounds = await stage.boundingBox();
+    if (bounds === null) throw new Error("No BoardStage");
+    await page.keyboard.press("p");
+    const y = bounds.y + bounds.height * 0.8;
+    const xStart = bounds.x + bounds.width * 0.35;
+    const xEnd = bounds.x + bounds.width * 0.65;
+    await page.mouse.move(xStart, y);
+    await page.mouse.down();
+    await page.mouse.move(xEnd, y, { steps: 20 });
+    await page.mouse.up();
+    await expect(page.getByTestId("object-count")).toHaveText("331 объекта");
+
+    await page.keyboard.press("x");
+    await expect(stage).toHaveAttribute("data-drawing-mode", "editing.eraser");
+    const eraseX = bounds.x + bounds.width * 0.5;
+    await page.mouse.move(eraseX, y - 65);
+    await page.mouse.down();
+    await page.mouse.move(eraseX, y + 65, { steps: 10 });
+    await page.mouse.up();
+    await expect(page.getByTestId("object-count")).toHaveText("332 объекта");
+
+    await page.keyboard.press("Control+z");
+    await expect(page.getByTestId("object-count")).toHaveText("331 объекта");
+    await page.keyboard.press("Control+Shift+z");
+    await expect(page.getByTestId("object-count")).toHaveText("332 объекта");
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Сохранено локально",
+    );
+
+    const bytes = Number(
+      await stage.getAttribute("data-c39-s5-a2-retained-bytes"),
+    );
+    expect(bytes).toBeLessThanOrEqual(16 * 1024 * 1024);
+    expect(
+      Number(await stage.getAttribute("data-wheel-cache-retained-runs")),
+    ).toBeLessThanOrEqual(1);
+
+    await page.reload();
+    await expect(page.getByTestId("object-count")).toHaveText("332 объекта", {
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("board-stage")).toHaveAttribute(
+      "data-c39-s5-a2-enabled",
+      "true",
+    );
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Сохранено локально",
+    );
+  } finally {
+    await context.close();
+  }
+});
+
+test("@c39-s5-lifecycle 48 wheel sessions, clear, undo and unmount release all raster leases", async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const { context, page, stage } = await mount(browser);
+  try {
+    const bounds = await stage.boundingBox();
+    if (bounds === null) throw new Error("No BoardStage");
+    await page.mouse.move(
+      bounds.x + bounds.width * 0.5,
+      bounds.y + bounds.height * 0.5,
+    );
+    for (let index = 0; index < 48; index += 1) {
+      await page.mouse.wheel(0, index % 2 === 0 ? -150 : 150);
+      await expect(stage).toHaveAttribute(
+        "data-wheel-gif-pause-active",
+        "false",
+        { timeout: 10_000 },
+      );
+      expect(
+        Number(await stage.getAttribute("data-wheel-cache-retained-runs")),
+        "at most one raster should remain prepared",
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Number(await stage.getAttribute("data-c39-s5-a2-retained-bytes")),
+      ).toBeLessThanOrEqual(16 * 1024 * 1024);
+    }
+    await page.mouse.click(
+      bounds.x + bounds.width * 0.75,
+      bounds.y + bounds.height * 0.75,
+      { button: "right" },
+    );
+    await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+    await page.getByRole("button", { name: "Очистить", exact: true }).click();
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
+
+    await page.keyboard.press("Control+z");
+    await expect(page.getByTestId("object-count")).toHaveText("330 объекта");
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Сохранено локально",
+    );
+    await page.reload();
+    await expect(page.getByTestId("object-count")).toHaveText("330 объекта", {
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("board-stage")).toHaveAttribute(
+      "data-c39-s5-a2-enabled",
+      "true",
+    );
+  } finally {
+    await context.close();
+  }
+});
