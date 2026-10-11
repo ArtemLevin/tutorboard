@@ -17,9 +17,10 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
 };
 
 async function mountBoard(browser: Browser, a2: boolean) {
+  const dpr = process.env.C39_S5_S4_DPR === "1" ? 1 : 2;
   const context = await browser.newContext({
     viewport: { width: 1240, height: 820 },
-    deviceScaleFactor: process.env.C39_S5_S4_DPR === "1" ? 1 : 2,
+    deviceScaleFactor: dpr,
   });
   const page = await context.newPage();
   await page.addInitScript((enable) => {
@@ -68,8 +69,19 @@ async function mountBoard(browser: Browser, a2: boolean) {
     "Сохранено локально",
   );
   const stage = page.getByTestId("board-stage");
-  await expect(stage).toHaveAttribute("data-c39-s5-a2-enabled", String(a2));
-  if (a2) {
+  const rasterSupported = a2 && dpr === 1;
+  await expect(stage).toHaveAttribute("data-c39-s5-a2-requested", String(a2));
+  await expect(stage).toHaveAttribute(
+    "data-c39-s5-a2-enabled",
+    String(rasterSupported),
+  );
+  await expect(stage).toHaveAttribute(
+    "data-c39-s5-a2-raster-supported",
+    String(rasterSupported),
+  );
+  if (rasterSupported) {
+    // DPR1 still exercises the actual Konva raster cache, so this cannot
+    // become a vacuous all-vector screenshot test.
     await expect
       .poll(async () =>
         Number(await stage.getAttribute("data-c39-s5-a2-candidate-count")),
@@ -79,6 +91,11 @@ async function mountBoard(browser: Browser, a2: boolean) {
       timeout: 20_000,
     });
     await expect(stage).toHaveAttribute("data-c39-s5-a2-cache-failures", "0");
+  } else if (a2) {
+    // Unsupported DPR uses the original A0 pipeline. Its *legacy* wheel
+    // cache may prewarm; the experimental A2 shared budget stays empty.
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-candidate-count", "0");
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
   }
   await page.evaluate(
     () =>

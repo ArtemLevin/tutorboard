@@ -4,11 +4,12 @@ import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 
 async function mount(
   browser: Browser,
-  options: { readonly interleaveMedia?: boolean } = {},
+  options: { readonly interleaveMedia?: boolean; readonly dpr?: 1 | 2 } = {},
 ) {
+  const dpr = options.dpr ?? 1;
   const context = await browser.newContext({
     viewport: { width: 1240, height: 820 },
-    deviceScaleFactor: 2,
+    deviceScaleFactor: dpr,
   });
   const page = await context.newPage();
   await page.addInitScript(() => {
@@ -50,17 +51,31 @@ async function mount(
       .getByRole("button", { name: "Закрыть настройки доски" })
       .click();
   }
-  await expect(stage).toHaveAttribute("data-c39-s5-a2-enabled", "true");
-  await expect
-    .poll(() =>
-      stage
-        .getAttribute("data-c39-s5-a2-candidate-count")
-        .then((value) => Number(value)),
-    )
-    .toBeGreaterThanOrEqual(80);
-  await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "1", {
-    timeout: 30_000,
-  });
+  await expect(stage).toHaveAttribute("data-c39-s5-a2-requested", "true");
+  await expect(stage).toHaveAttribute(
+    "data-c39-s5-a2-enabled",
+    String(dpr === 1),
+  );
+  await expect(stage).toHaveAttribute(
+    "data-c39-s5-a2-raster-supported",
+    String(dpr === 1),
+  );
+  if (dpr === 1) {
+    await expect
+      .poll(() =>
+        stage
+          .getAttribute("data-c39-s5-a2-candidate-count")
+          .then((value) => Number(value)),
+      )
+      .toBeGreaterThanOrEqual(80);
+    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "1", {
+      timeout: 30_000,
+    });
+  } else {
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-candidate-count", "0");
+    // Baseline may retain a legacy wheel cache; A2 has no shared lease.
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
+  }
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Сохранено локально",
   );
@@ -84,29 +99,34 @@ test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo
     await page.getByRole("button", { name: "Рисование" }).click();
     await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
     await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
-    const y = bounds.y + bounds.height * 0.72;
-    const xStart = bounds.x + bounds.width * 0.35;
-    const xEnd = bounds.x + bounds.width * 0.65;
+    // Match the proven upper-canvas coordinates used by server-sync E2E;
+    // the lower viewport can overlap persistent floating controls.
+    const y = bounds.y + 180;
+    const xStart = bounds.x + 620;
+    const xEnd = bounds.x + 730;
     await page.mouse.move(xStart, y);
     await page.mouse.down();
-    await expect(stage).toHaveAttribute("data-wet-ink-active", "true");
+    await expect(stage).toHaveAttribute("data-drawing", "true");
+    // Exercise real pointer drawing, asserting the committed document
+    // below rather than a transient renderer-frame diagnostic.
+    await page.mouse.move(xStart + 36, y, { steps: 5 });
     await page.mouse.move(xEnd, y, { steps: 20 });
     await page.mouse.up();
     await expect(page.getByTestId("object-count")).toHaveText("331 объекта");
 
     await page.keyboard.press("x");
     await expect(stage).toHaveAttribute("data-drawing-mode", "editing.eraser");
-    const eraseX = bounds.x + bounds.width * 0.5;
+    const eraseX = (xStart + xEnd) / 2;
     await page.mouse.move(eraseX, y - 28);
     await page.mouse.down();
     await page.mouse.move(eraseX, y + 28, { steps: 10 });
     await page.mouse.up();
-    await expect(page.getByTestId("object-count")).toHaveText("332 объекта");
+    await expect(page.getByTestId("object-count")).toHaveText("334 объекта");
 
     await page.keyboard.press("Control+z");
     await expect(page.getByTestId("object-count")).toHaveText("331 объекта");
     await page.keyboard.press("Control+Shift+z");
-    await expect(page.getByTestId("object-count")).toHaveText("332 объекта");
+    await expect(page.getByTestId("object-count")).toHaveText("334 объекта");
     await expect(page.getByTestId("persistence-status")).toHaveText(
       "Сохранено локально",
     );
@@ -120,15 +140,17 @@ test("@c39-s5-lifecycle pen-image-pen order, partial eraser and actual undo/redo
     ).toBeLessThanOrEqual(1);
 
     await page.reload();
-    await expect(page.getByTestId("object-count")).toHaveText("332 объекта", {
+    await expect(page.getByTestId("object-count")).toHaveText("334 объекта", {
       timeout: 30_000,
     });
     await expect(page.getByTestId("board-stage")).toHaveAttribute(
       "data-c39-s5-a2-enabled",
       "true",
     );
+    // After reload the UI displays the local storage *mode* label, while
+    // the document count above proves the persisted eraser fragments exist.
     await expect(page.getByTestId("persistence-status")).toHaveText(
-      "Сохранено локально",
+      "Локальное сохранение",
     );
   } finally {
     await context.close();
@@ -199,6 +221,67 @@ test("@c39-s5-lifecycle 48 wheel sessions, clear, undo and unmount release all r
       "data-c39-s5-a2-enabled",
       "true",
     );
+  } finally {
+    await context.close();
+  }
+});
+
+test("@c39-s5-lifecycle DPR2 uses baseline renderer without any A2 lease after wheel", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { context, page, stage } = await mount(browser, { dpr: 2 });
+  try {
+    const bounds = await stage.boundingBox();
+    if (bounds === null) throw new Error("No BoardStage");
+    await page.mouse.move(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
+    for (let index = 0; index < 4; index += 1) {
+      await page.mouse.wheel(0, index % 2 === 0 ? 150 : -150);
+    }
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-candidate-count", "0");
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
+    await expect(page.getByTestId("object-count")).toHaveText("330 объекта");
+  } finally {
+    await context.close();
+  }
+});
+
+test("@c39-s5-lifecycle DPR transition releases A2 leases without re-enabling native cache", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { context, page, stage } = await mount(browser);
+  try {
+    expect(
+      Number(await stage.getAttribute("data-c39-s5-a2-retained-bytes")),
+    ).toBeGreaterThan(0);
+    // This simulates the DPR value read by the renderer after moving between
+    // displays. It tests cache invalidation, not physical device resizing.
+    const changed = await page.evaluate(() =>
+      Reflect.defineProperty(window, "devicePixelRatio", {
+        configurable: true,
+        value: 2,
+      }),
+    );
+    expect(changed).toBe(true);
+    const bounds = await stage.boundingBox();
+    if (bounds === null) throw new Error("No BoardStage");
+    await page.mouse.move(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
+    await page.mouse.wheel(0, 120);
+    await expect(stage).toHaveAttribute(
+      "data-c39-s5-a2-raster-supported",
+      "false",
+    );
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-candidate-count", "0");
+    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
+    await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
+    await expect(page.getByTestId("object-count")).toHaveText("330 объекта");
   } finally {
     await context.close();
   }

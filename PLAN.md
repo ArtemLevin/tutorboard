@@ -2454,3 +2454,12 @@ verification and the guest offline cleanup regression guard.
 - [First browser #38126114471](https://github.com/ArtemLevin/tutorboard/actions/runs/38126114471) / [replicated pixel-control #38126279584](https://github.com/ArtemLevin/tutorboard/actions/runs/38126279584): Chromium/Firefox both activated A2 cache and completed selection interaction; screenshot pixel parity FAILED: A0/A0 0 differing pixels, A0/A2 4 (max delta 1) / 5 (max delta 2) across 4,067,200 pixels.
 - S5.4 remains a **blocking NO-GO** for A2 p95 experiments, and app undo/eraser/collaboration/48-cycle fidelity are still open. Pixel test threshold remains unchanged; investigate canvas AA/crop sampling rather than weakening it.
 - Full implementation/risk/evidence: [S5.3/S5.4 report](docs/C39_S5_S3_GUARDED_CROP_2026-10-11.md). Issue #201 remains OPEN; main stable.
+
+
+### C3.9-S5.4 — DPR2 exact-pixel containment (2026-10-11)
+
+- [x] Isolated an additional offscreen/backdrop compositing pass in native Konva 10.3.0 as the source of DPR2 Path RGBA deltas (S5.4 #223 diagnostics). Pixel differences occur with translucent **and opaque** Path objects.
+- [x] Added test-build-only lossless baseline-pipeline fallback for DPR2/fractional DPR; DPR1 retains genuinely activated guarded A2 experiment. Added separate DPR1/DPR2 strict screenshot and DPR2 zero-A2-shared-lease regression gates; no change to stable production renderer.
+- [ ] Confirm final-HEAD Chromium/Firefox pixel parity, partial eraser, undo/redo, 48-wheel memory budget, guest permissions/reconnect/revocation/offline-sync and full CI. Report any failure explicitly.
+- [ ] Develop a candidate with exact DPR2 fidelity **and material work reduction**. Only after full fidelity GO run two-independent-runner 5k/10k A0/A2 ABBA (>=20% p95 gain each, lower >100ms frequency, stable memory/input).
+- **Gate:** DPR2 A2 raster/performance remains **NO-GO**. An original-pipeline fallback counts as correctness containment, not throughput improvement. No production merge; Issue #201 stays open. See [containment record](docs/C39_S5_S4_DPR2_LOSSLESS_CONTAINMENT_2026-10-11.md).
