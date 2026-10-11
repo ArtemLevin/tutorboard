@@ -54,9 +54,11 @@ async function mountBoard(browser: Browser, a2: boolean) {
   const stage = page.getByTestId("board-stage");
   await expect(stage).toHaveAttribute("data-c39-s5-a2-enabled", String(a2));
   if (a2) {
-    await expect.poll(async () =>
-      Number(await stage.getAttribute("data-c39-s5-a2-candidate-count")),
-    ).toBeGreaterThanOrEqual(80);
+    await expect
+      .poll(async () =>
+        Number(await stage.getAttribute("data-c39-s5-a2-candidate-count")),
+      )
+      .toBeGreaterThanOrEqual(80);
     await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "1", {
       timeout: 20_000,
     });
@@ -104,12 +106,22 @@ test("@c39-s5-fidelity experimental crop keeps the original pixels and hit inter
   const control = await mountBoard(browser, false);
   const candidate = await mountBoard(browser, true);
   try {
-    const baselinePixels = await control.stage.screenshot({ animations: "disabled" });
-    const cachedPixels = await candidate.stage.screenshot({ animations: "disabled" });
+    const baselinePixels = await control.stage.screenshot({
+      animations: "disabled",
+    });
+    const cachedPixels = await candidate.stage.screenshot({
+      animations: "disabled",
+    });
     const comparison = compareScreenshots(baselinePixels, cachedPixels);
     console.info("C39_S5_S3_PIXEL_PARITY " + JSON.stringify(comparison));
-    await info.attach("c39-s5-a0.png", { body: baselinePixels, contentType: "image/png" });
-    await info.attach("c39-s5-a2.png", { body: cachedPixels, contentType: "image/png" });
+    await info.attach("c39-s5-a0.png", {
+      body: baselinePixels,
+      contentType: "image/png",
+    });
+    await info.attach("c39-s5-a2.png", {
+      body: cachedPixels,
+      contentType: "image/png",
+    });
     // Exact equality is the intended gate; preserve all evidence on failure.
     expect(comparison.changedPixels).toBe(0);
 
@@ -123,7 +135,10 @@ test("@c39-s5-fidelity experimental crop keeps the original pixels and hit inter
       await page.mouse.click(bounds.x + 90, bounds.y + 182);
       await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
       await page.keyboard.press("Control+z");
-      await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
+      await expect(stage).toHaveAttribute(
+        "data-wheel-cache-retained-runs",
+        "0",
+      );
     }
   } finally {
     await candidate.context.close();

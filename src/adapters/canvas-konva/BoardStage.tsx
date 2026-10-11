@@ -704,7 +704,8 @@ export function BoardStage({
       selectedObjectIds.length > 0 ||
       lineEndpointPreview !== null ||
       selectionPreviewDelta !== null
-    ) return null;
+    )
+      return null;
     const committedVisibleItems = visibilityIndex.select(scene.viewport, size);
     return selectBoundedInkCandidate(
       committedVisibleItems,
@@ -2335,8 +2336,12 @@ export function BoardStage({
       }
       data-wheel-cache-prepared={wheelInkCache.isPrepared}
       data-c39-s5-a2-enabled={experimentalA2}
-      data-c39-s5-a2-candidate-count={boundedInkCandidate?.objectIds.length ?? 0}
-      data-c39-s5-a2-candidate-bytes={boundedInkCandidate?.cost.accountedBytes ?? 0}
+      data-c39-s5-a2-candidate-count={
+        boundedInkCandidate?.objectIds.length ?? 0
+      }
+      data-c39-s5-a2-candidate-bytes={
+        boundedInkCandidate?.cost.accountedBytes ?? 0
+      }
       data-c39-s5-a2-cache-failures={wheelInkCache.lastBuildFailedRuns}
       data-testid="board-stage"
       role="application"

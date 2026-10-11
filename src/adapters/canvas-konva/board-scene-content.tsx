@@ -148,24 +148,29 @@ function groupInkRenderRuns(
     }
     const segments: InkRenderRun[] = [];
     const before = group.items.slice(0, start);
-    const selected = group.items.slice(start, start + candidate.objectIds.length);
+    const selected = group.items.slice(
+      start,
+      start + candidate.objectIds.length,
+    );
     const after = group.items.slice(start + candidate.objectIds.length);
-    if (before.length > 0) segments.push({
-      ink: true,
-      items: before,
-      key: group.key,
-    });
+    if (before.length > 0)
+      segments.push({
+        ink: true,
+        items: before,
+        key: group.key,
+      });
     segments.push({
       ink: true,
       items: selected,
       key: `render:ink:${firstId}`,
       guardedCrop: candidate.crop,
     });
-    if (after.length > 0) segments.push({
-      ink: true,
-      items: after,
-      key: `render:ink:${after[0]!.object.id}`,
-    });
+    if (after.length > 0)
+      segments.push({
+        ink: true,
+        items: after,
+        key: `render:ink:${after[0]!.object.id}`,
+      });
     return [
       ...groups.slice(0, groupIndex),
       ...segments,
@@ -270,7 +275,9 @@ const BoardSceneRun = memo(function BoardSceneRun({
     (run.guardedCrop !== undefined || !experimentalA2) ? (
       <WheelCachedInkGroup
         coordinator={wheelInkCache}
-        {...(run.guardedCrop === undefined ? {} : { expectedCrop: run.guardedCrop })}
+        {...(run.guardedCrop === undefined
+          ? {}
+          : { expectedCrop: run.guardedCrop })}
       >
         {contents}
       </WheelCachedInkGroup>

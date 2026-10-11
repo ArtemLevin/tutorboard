@@ -44,7 +44,11 @@ describe("S5.3 mounted Konva crop guard", () => {
     });
     expect(wheel.prepare(2)).toBe(true);
     expect(cache).toHaveBeenCalledWith({
-      x: 9, y: 21, width: 96, height: 56, pixelRatio: 2,
+      x: 9,
+      y: 21,
+      width: 96,
+      height: 56,
+      pixelRatio: 2,
       hitCanvasPixelRatio: 1,
     });
     expect(budget.activeLeases).toBe(1);
@@ -64,7 +68,10 @@ describe("S5.3 mounted Konva crop guard", () => {
     const wheel = new WheelInkCacheCoordinator(budget);
     const { node, cache, clearCache } = mountedGroup();
     const unregister = wheel.register(node, {
-      x: 0, y: 0, width: 120, height: 100,
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 100,
     });
     expect(wheel.prepare(1)).toBe(true);
     unregister();
