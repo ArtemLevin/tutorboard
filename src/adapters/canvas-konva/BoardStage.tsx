@@ -69,6 +69,7 @@ import type {
   KonvaRendererRegistry,
 } from "./renderer-registry";
 import { useElementSize } from "./use-element-size";
+import { WheelHitLayerPause } from "./wheel-hit-layer-pause";
 import {
   minimumWheelCacheStrokes,
   WheelInkCacheCoordinator,
@@ -475,6 +476,7 @@ export function BoardStage({
     () => new AnimatedImageRedrawCoordinator(),
   );
   const [wheelInkCache] = useState(() => new WheelInkCacheCoordinator());
+  const [wheelHitPause] = useState(() => new WheelHitLayerPause());
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -600,6 +602,7 @@ export function BoardStage({
 
   useEffect(() => () => animatedImageRedraw.dispose(), [animatedImageRedraw]);
   useEffect(() => () => wheelInkCache.dispose(), [wheelInkCache]);
+  useEffect(() => () => wheelHitPause.dispose(), [wheelHitPause]);
 
   useEffect(() => {
     if (!hasStaticRaster) rasterDecodeCache.trimUnused();
@@ -691,6 +694,12 @@ export function BoardStage({
   const animatedPaintLayerCount = committedPaintRuns.filter(
     (run) => run.animated,
   ).length;
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    if (stage === null || !wheelHitPause.active) return;
+    // React-Konva may replace content runs as the viewport crosses bounds.
+    wheelHitPause.sync(stage.getLayers());
+  }, [committedPaintRuns, wheelHitPause]);
   useLayoutEffect(() => {
     if (window.__tutorBoardC37Trace === undefined) return;
     const stage = stageRef.current;
@@ -915,13 +924,14 @@ export function BoardStage({
       if (wheelSession !== null) {
         window.clearTimeout(wheelSession.timeoutId);
         wheelSessionRef.current = null;
+        wheelHitPause.restore();
         wheelInkCache.end();
         animatedImageRedraw.setInteractionActive(false);
         animatedImageRedraw.setWheelZoomActive(false);
       }
       setPreviewViewport(scene.viewport);
     }
-  }, [animatedImageRedraw, scene.viewport, wheelInkCache]);
+  }, [animatedImageRedraw, scene.viewport, wheelHitPause, wheelInkCache]);
 
   useLayoutEffect(() => {
     wheelInkCache.invalidate();
@@ -1268,12 +1278,13 @@ export function BoardStage({
           `session=${session.traceId}`,
         );
       }
+      wheelHitPause.restore();
       wheelInkCache.end();
       animatedImageRedraw.setInteractionActive(false);
       animatedImageRedraw.setWheelZoomActive(false);
       setPreviewViewport(viewportRef.current);
     }
-  }, [animatedImageRedraw, wheelInkCache]);
+  }, [animatedImageRedraw, wheelHitPause, wheelInkCache]);
 
   const commitWheel = useCallback(() => {
     const session = wheelSessionRef.current;
@@ -1283,6 +1294,7 @@ export function BoardStage({
       const traceEnabled = window.__tutorBoardC37Trace !== undefined;
       const commitStartMs = traceEnabled ? performance.now() : 0;
       const cacheStartMs = traceEnabled ? performance.now() : 0;
+      wheelHitPause.restore();
       wheelInkCache.end();
       if (traceEnabled) {
         recordBoardFrameTrace(
@@ -1323,7 +1335,7 @@ export function BoardStage({
         }
       }
     }
-  }, [animatedImageRedraw, onViewportCommit, wheelInkCache]);
+  }, [animatedImageRedraw, onViewportCommit, wheelHitPause, wheelInkCache]);
 
   const finishLineEndpointTransform = useCallback(
     (commit: boolean) => {
@@ -1802,6 +1814,7 @@ export function BoardStage({
         animatedImageRedraw.setInteractionActive(false);
         animatedImageRedraw.setWheelZoomActive(false);
       }
+      wheelHitPause.restore();
       wheelInkCache.end();
       discardWorldPointerMoves();
       rightClickCandidateRef.current = null;
@@ -1819,6 +1832,7 @@ export function BoardStage({
       animatedImageRedraw,
       discardWorldPointerMoves,
       releaseCapture,
+      wheelHitPause,
       wheelInkCache,
     ],
   );
@@ -1874,6 +1888,8 @@ export function BoardStage({
   const handleCanvasPointerDownCapture = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
+    // Restore the exact hit canvas before Konva determines the native target.
+    wheelHitPause.restore();
     if (event.button !== 0 || !primaryCanvasGesturesEnabled) {
       primaryCanvasPointerCandidateRef.current = null;
       clearPendingPrimaryCanvasTap();
@@ -2184,6 +2200,7 @@ export function BoardStage({
         wheelInkCache.begin(window.devicePixelRatio, {
           buildIfUnprepared: false,
         });
+        if (stage !== null) wheelHitPause.begin(stage.getLayers());
         // Avoid an independent full-speed GIF invalidation stream while the
         // temporary wheel cache is composited through viewport transforms.
         animatedImageRedraw.setInteractionActive(true);
@@ -2249,6 +2266,7 @@ export function BoardStage({
       ref={rootRef}
       aria-label="Бесконечное полотно TutorBoard"
       onPointerDownCapture={handleCanvasPointerDownCapture}
+      onPointerMoveCapture={() => wheelHitPause.restore()}
       className="board-stage"
       data-coordinate-plot-editing={
         coordinatePlotInteraction?.activeObjectId !== null &&
@@ -2295,6 +2313,8 @@ export function BoardStage({
         wheelInkCache.lastWheelSkippedColdBuild
       }
       data-wheel-cache-prepared={wheelInkCache.isPrepared}
+      data-wheel-hit-pause-active={wheelHitPause.active}
+      data-wheel-hit-pause-restores={wheelHitPause.restoreCount}
       data-testid="board-stage"
       role="application"
       style={{ cursor }}
