@@ -63,6 +63,14 @@ test("@c39-s5-subpixel isolate DPR, alpha, and integer crop with one Konva strok
                 opacity,
               }),
             );
+            group.add(
+              new Konva.Path({
+                id: "vector-ink-path",
+                data: "M 24 21 C 60 30 120 92 173 108 L 169 110 C 110 93 60 35 24 24 Z",
+                fill: "#29a57a",
+                opacity,
+              }),
+            );
             const hit = () => [
               stage.getIntersection({ x: 25, y: 21 })?.id() ?? "",
               stage.getIntersection({ x: 105, y: 68 })?.id() ?? "",
