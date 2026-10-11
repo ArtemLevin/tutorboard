@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser } from "@playwright/test";
 
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 
