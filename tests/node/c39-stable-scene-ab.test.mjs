@@ -42,7 +42,7 @@ function abbaTrials(controlP95, candidateP95) {
 }
 
 describe("C3.9-S3 paired ABBA parser", () => {
-  it("preserves all four static scenarios and rejects duplicate results", () => {
+  it("preserves all static cases and rejects duplicates", () => {
     const reports = c39StaticCases.map((name) => report(name, 200));
     const log = reports
       .map((value) => "C39_REPRESENTATIVE_BASELINE " + JSON.stringify(value))
@@ -63,13 +63,15 @@ describe("C3.9-S3 paired ABBA parser", () => {
     expect(() => evaluateC39StableSceneAb(trials)).toThrow(/overflow/);
   });
 
-  it("rejects candidates below the 20% gate and incomplete experiment order", () => {
+  it("rejects subthreshold gains and invalid ABBA order", () => {
     const trials = abbaTrials(200, 180);
     expect(evaluateC39StableSceneAb(trials).verdict).toBe(
       "NO_GO_OR_INCONCLUSIVE",
     );
     trials[0].arm = "A1";
-    expect(() => evaluateC39StableSceneAb(trials)).toThrow(/Invalid ABBA order/);
+    expect(() => evaluateC39StableSceneAb(trials)).toThrow(
+      /Invalid ABBA order/,
+    );
   });
 
   it("rejects mismatched documents, including source image bytes", () => {
