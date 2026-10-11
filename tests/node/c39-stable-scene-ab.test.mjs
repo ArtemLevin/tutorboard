@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { test } from "node:test";
+import { describe, expect, it } from "vitest";
 import {
   c39StaticCases,
   parseC39AbTrial,
@@ -26,28 +25,56 @@ function report(name, p95) {
     },
   };
 }
-test("ABBA parser preserves all four static scenarios", () => {
-  const reports = c39StaticCases.map((name) => report(name, 200));
-  const log = reports
-    .map((value) => "C39_REPRESENTATIVE_BASELINE " + JSON.stringify(value))
-    .join("\n");
-  assert.equal(parseC39AbTrial(log).size, 4);
-  assert.throws(() => parseC39AbTrial(log + "\n" + log), /Duplicated/);
-});
-test("ABBA evaluator detects paired improvement and rejects trace overflow", () => {
-  const trials = Array.from({ length: 12 }, (_, index) => {
+
+function abbaTrials(controlP95, candidateP95) {
+  return Array.from({ length: 12 }, (_, index) => {
     const arm = index % 4 === 0 || index % 4 === 3 ? "A0" : "A1";
     return {
       arm,
       reports: new Map(
         c39StaticCases.map((name) => [
           name,
-          report(name, arm === "A0" ? 200 : 100),
+          report(name, arm === "A0" ? controlP95 : candidateP95),
         ]),
       ),
     };
   });
-  assert.equal(evaluateC39StableSceneAb(trials).verdict, "LOCAL_GO_CANDIDATE");
-  trials[1].reports.get(c39StaticCases[0]).captureDropped.js = 2;
-  assert.throws(() => evaluateC39StableSceneAb(trials), /overflow/);
+}
+
+describe("C3.9-S3 paired ABBA parser", () => {
+  it("preserves all four static scenarios and rejects duplicate results", () => {
+    const reports = c39StaticCases.map((name) => report(name, 200));
+    const log = reports
+      .map((value) => "C39_REPRESENTATIVE_BASELINE " + JSON.stringify(value))
+      .join("\n");
+    expect(parseC39AbTrial(log).size).toBe(4);
+    expect(() => parseC39AbTrial(log + "\n" + log)).toThrow(/Duplicated/);
+    expect(() => parseC39AbTrial(log.split("\n").slice(1).join("\n"))).toThrow(
+      /Incomplete/,
+    );
+  });
+
+  it("accepts a strictly paired improvement and rejects trace overflow", () => {
+    const trials = abbaTrials(200, 100);
+    expect(evaluateC39StableSceneAb(trials).verdict).toBe(
+      "LOCAL_GO_CANDIDATE",
+    );
+    trials[1].reports.get(c39StaticCases[0]).captureDropped.js = 2;
+    expect(() => evaluateC39StableSceneAb(trials)).toThrow(/overflow/);
+  });
+
+  it("rejects candidates below the 20% gate and incomplete experiment order", () => {
+    const trials = abbaTrials(200, 180);
+    expect(evaluateC39StableSceneAb(trials).verdict).toBe(
+      "NO_GO_OR_INCONCLUSIVE",
+    );
+    trials[0].arm = "A1";
+    expect(() => evaluateC39StableSceneAb(trials)).toThrow(/Invalid ABBA order/);
+  });
+
+  it("rejects mismatched documents, including source image bytes", () => {
+    const trials = abbaTrials(200, 100);
+    trials[1].reports.get(c39StaticCases[0]).fixtureSha256 = "different";
+    expect(() => evaluateC39StableSceneAb(trials)).toThrow(/fixture mismatch/);
+  });
 });

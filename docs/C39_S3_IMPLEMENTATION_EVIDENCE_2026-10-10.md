@@ -23,3 +23,22 @@ The production contract retains validation, save/restore, undo/redo, media conte
 Remaining work: release-quality pen input-to-paint and pixel/hit evidence, full browser/cross-browser gates, evaluation of independently replicated A/B metrics, and rollback/merge decision. C3.9-E/F and teacher/guest soak remain outside this narrow candidate and Issue #201 stays open.
 
 **Caution:** A fast selector identity check proves eliminated CPU work; it alone proves no end-user frame-latency improvement. The evidence gate must decide.
+
+## Final measured A1 decision — 11 October 2026
+
+**NO-GO for A1 production inclusion.** [A/B workflow #38084854344](https://github.com/ArtemLevin/tutorboard/actions/runs/38084854344) completed with both independent runners successful on exact candidate SHA `dfb37779667844f48038537beb7ee2735ef5a1be`. Each runner performed 3 ABBA cycles / 6 matched pairs per scenario with four 1536px-class static PNG/JPEG-heavy fixtures. Both emitted `NO_GO_OR_INCONCLUSIVE`, with zero reported fixture mismatch or trace overflow.
+
+The median per-pair active p95 improvement (positive is faster) and mean per-pair >100ms rate:
+
+| Scenario | Runner 1 p95 | Runner 2 p95 | Runner 1 >100ms control → A1 | Runner 2 >100ms control → A1 |
+| --- | ---: | ---: | ---: | ---: |
+| 3k + 10 static | -10.02% | ~0% | 12.5% → 13.1% | 44.8% → 43.9% |
+| 5k + 10 static | +7.73% | -2.32% | 33.2% → 31.5% | 57.3% → 55.8% |
+| 10k + 10 static | +28.35% | -0.01% | 53.6% → 56.7% | 89.8% → 87.0% |
+| 10k offscreen | ~0% | +7.90% | 0% → 2.3% | 53.8% → 40.5% |
+
+**The predeclared ≥20% improvement at both 5k and 10k on independent runners is not met.** At 10k on runner 1, the slow-frame rate actually increased. The A1 observation is noisy and strongly runner-dependent: it does not justify a claim of user-perceived acceleration. Do not average the frames as independent samples or discard the negative runner.
+
+[General CI #38084854404](https://github.com/ArtemLevin/tutorboard/actions/runs/38084854404) on that candidate failed exclusively at `tests/node/c39-stable-scene-ab.test.mjs` because the file used Node's `node:test` inside a Vitest suite (`No test suite found`). Other 204 Vitest files / 1125 tests passed before the gate stopped. This follow-up patch converts the new test suite to Vitest and extends its failure-path checks; the corrective SHA must obtain its own green CI. Green CI by itself cannot overturn the NO-GO performance verdict.
+
+**Follow-up research:** on a new branch based on green `main`, instrument same-board Konva scene/hit redraw separately from persist/React churn, quantify changed visible memberships and render-run invalidation, then investigate bounded spatial culling/tiles only if causal evidence warrants it. Maintain exact z-order, image alpha, hit identity, pixel seams, DPR and resource budgets. PR #217 stays Draft and #201 stays open.
