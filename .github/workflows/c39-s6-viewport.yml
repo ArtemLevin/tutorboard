@@ -10,7 +10,7 @@ on:
       - "src/app/SyncedApp.tsx"
       - "src/modules/local-persistence/autosave.ts"
       - "src/adapters/board-document-worker/client.ts"
-      - "src/shared/c39-viewport-trace.ts"
+      - "src/core/board/viewport-trace.ts"
       - "tests/e2e/c39-large-board-profile.spec.ts"
       - "tests/unit/core/c39-s6-viewport-selector.test.ts"
   workflow_dispatch:
