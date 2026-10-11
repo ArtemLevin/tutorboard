@@ -1,0 +1,26 @@
+name: C3.9-S6.4 format diagnostic
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/c39-s6-s4-format-diagnostic.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  formatter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Print canonical Prettier diff
+        run: |
+          npx prettier --write tests/unit/modules/local-persistence/autosave.test.ts
+          echo BEGIN_S6_S4_PRETTIER
+          git diff -- tests/unit/modules/local-persistence/autosave.test.ts
+          echo END_S6_S4_PRETTIER
