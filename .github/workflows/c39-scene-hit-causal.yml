@@ -1,0 +1,60 @@
+name: C3.9-S4 scene-hit causal research
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-scene-hit-causal.yml
+      - tests/e2e/c39-large-board-profile.spec.ts
+      - tests/e2e/c39-scene-hit-causal.ts
+      - tests/unit/adapters/canvas-konva/c39-scene-hit-causal.test.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-s4-scene-hit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-causal-baseline:
+    if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        independent-run: [1, 2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install, build and prepare Chromium
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run build
+      - name: Repeat scene/hit observation on actual static fixtures
+        env:
+          C39_STATIC_HEAVY_PROFILE: "1"
+          C39_SCENE_HIT_CAUSAL: "1"
+        run: |
+          set -euo pipefail
+          mkdir -p c39-s4-scene-hit
+          git rev-parse HEAD > c39-s4-scene-hit/source-sha.txt
+          for repeat in 1 2; do
+            npm run e2e:c39-profile -- --grep @c39-static-heavy \
+              2>&1 | tee "c39-s4-scene-hit/runner-${{ matrix.independent-run }}-repeat-$repeat.log"
+          done
+      - name: Archive bounded raw evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-s4-scene-hit-${{ matrix.independent-run }}-${{ github.sha }}
+          path: |
+            c39-s4-scene-hit
+            test-results
+          retention-days: 14
+          if-no-files-found: warn

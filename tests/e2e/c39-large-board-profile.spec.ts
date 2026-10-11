@@ -5,6 +5,10 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 import {
+  estimateC39TileMemoryFloor,
+  summarizeC39SceneHitCausal,
+} from "./c39-scene-hit-causal.js";
+import {
   correlateC39SlowFrames,
   startC39ChromiumTrace,
 } from "./c39-frame-attribution.js";
@@ -767,6 +771,39 @@ for (const scenario of [
         }
         expect(phases.phases.active.count).toBeGreaterThan(0);
         expect(phases.phases.settling.count).toBeGreaterThan(0);
+        if (process.env.C39_SCENE_HIT_CAUSAL === "1" && scenario.staticHeavy) {
+          expect(jsTrace.length).toBeLessThan(12_000);
+          expect(chromiumTrace?.droppedEvents ?? 0).toBe(0);
+          await testInfo.attach("c39-s4-raw-" + scenario.name + ".json", {
+            body: Buffer.from(
+              JSON.stringify({
+                scenario: scenario.name,
+                frameGaps: phases.gaps,
+                wheelTimes: captured.wheelTimes,
+                jsTrace,
+                chromiumTrace,
+              }),
+            ),
+            contentType: "application/json",
+          });
+        }
+        const c39SceneHitCausal =
+          process.env.C39_SCENE_HIT_CAUSAL === "1" && scenario.staticHeavy
+            ? {
+                paint: summarizeC39SceneHitCausal(
+                  phases.gaps,
+                  captured.wheelTimes,
+                  jsTrace,
+                ),
+                tiles: estimateC39TileMemoryFloor({
+                  width: bounds.width,
+                  height: bounds.height,
+                  devicePixelRatio: scenario.dpr,
+                  tileEdgeCssPx: 256,
+                  sharedScenePixelBudget: 4_000_000,
+                }),
+              }
+            : null;
         const report = {
           schemaVersion: 1,
           baselineSha: process.env.GITHUB_SHA ?? "local",
@@ -808,6 +845,7 @@ for (const scenario of [
           },
           wheelPauseStillActiveAfterInputs,
           ...phases,
+          ...(c39SceneHitCausal === null ? {} : { c39SceneHitCausal }),
           c39Attribution: {
             ...attribution,
             jsEventCount: jsTrace.length,
@@ -819,6 +857,15 @@ for (const scenario of [
           },
         };
         console.info("C39_REPRESENTATIVE_BASELINE " + JSON.stringify(report));
+        if (c39SceneHitCausal !== null) {
+          console.info(
+            "C39_SCENE_HIT_CAUSAL " +
+              JSON.stringify({
+                scenario: scenario.name,
+                ...c39SceneHitCausal,
+              }),
+          );
+        }
         if (attribution.frames.length > 0) {
           // Keep the full evidence in the JSON attachment, while console
           // output displays a compact summary useful for CI triage.
