@@ -1,6 +1,8 @@
-import type { BoardRenderItem } from "../../core/board/selectors";
-import { createPenStrokeRenderBounds } from "../../core/board/pen-stroke-rendering";
-import { resolveVectorInkData } from "../../core/board/vector-ink";
+import {
+  createPenStrokeRenderBounds,
+  resolveVectorInkData,
+  type BoardRenderItem,
+} from "../../core/public";
 import { minimumWheelCacheStrokes } from "./wheel-ink-cache";
 import {
   estimateInkRasterCost,
