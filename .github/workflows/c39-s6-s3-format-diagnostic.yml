@@ -1,0 +1,24 @@
+name: C3.9-S6.3 formatting diagnostic
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/c39-s6-s3-format-diagnostic.yml"
+permissions:
+  contents: read
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Canonical Prettier diff
+        run: |
+          npx prettier --write src/core/board/commands/reducer.ts src/app/board/controllers/useBoardDocumentController.ts tests/unit/core/c39-s6-owned-viewport-reducer.test.ts
+          echo BEGIN_S63_FORMAT
+          git diff -- src/core/board/commands/reducer.ts src/app/board/controllers/useBoardDocumentController.ts tests/unit/core/c39-s6-owned-viewport-reducer.test.ts
+          echo END_S63_FORMAT
