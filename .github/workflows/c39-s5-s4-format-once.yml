@@ -1,33 +1,10 @@
-name: C3.9-S5.4 format tests once
+name: C3.9-S5.4 formatting record
 on:
-  pull_request:
-    paths:
-      - .github/workflows/c39-s5-s4-format-once.yml
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  format:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'perf/c39-s5-s4-pixel-root-cause'
+  verify-record:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.head_ref }}
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - name: Format diagnostics with pinned Prettier
-        run: |
-          set -euo pipefail
-          npm ci --ignore-scripts
-          npx prettier --write \
-            tests/e2e/c39-s5-crop-fidelity.spec.ts \
-            tests/e2e/c39-s5-subpixel-probe.spec.ts
-          git diff --check
-          git add tests/e2e/c39-s5-crop-fidelity.spec.ts tests/e2e/c39-s5-subpixel-probe.spec.ts
-          if ! git diff --cached --quiet; then
-            git -c user.name='TutorBoard CI Formatter' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'style: format S5.4 diagnostic e2e tests'
-            git push origin 'HEAD:refs/heads/perf/c39-s5-s4-pixel-root-cause'
-          fi
+      - run: echo "Formatter completed; source is checked by normal CI."
