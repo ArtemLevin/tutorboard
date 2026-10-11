@@ -2454,3 +2454,10 @@ verification and the guest offline cleanup regression guard.
 - [First browser #38126114471](https://github.com/ArtemLevin/tutorboard/actions/runs/38126114471) / [replicated pixel-control #38126279584](https://github.com/ArtemLevin/tutorboard/actions/runs/38126279584): Chromium/Firefox both activated A2 cache and completed selection interaction; screenshot pixel parity FAILED: A0/A0 0 differing pixels, A0/A2 4 (max delta 1) / 5 (max delta 2) across 4,067,200 pixels.
 - S5.4 remains a **blocking NO-GO** for A2 p95 experiments, and app undo/eraser/collaboration/48-cycle fidelity are still open. Pixel test threshold remains unchanged; investigate canvas AA/crop sampling rather than weakening it.
 - Full implementation/risk/evidence: [S5.3/S5.4 report](docs/C39_S5_S3_GUARDED_CROP_2026-10-11.md). Issue #201 remains OPEN; main stable.
+
+
+### C3.9-S5.4 DPR pixel gate (2026-10-11)
+
+- Draft PR #224 extends S5.3 with a DPR1/DPR2 A0/A2 comparator and real clear/undo/persist browser test. Chromium and Firefox each passed the latter two tests and failed strict DPR2 pixel parity (4/5 changed pixels, max channel 1/2, versus zero for A0/A0).
+- Native Konva 10.3.0 one-Line and crossing two-Line probes (16 variants per browser) verified hit identity and exposed half-pixel crop shifts at DPR1; isolated DPR2 scenes were pixel-exact, including opacity 0.5. Full real vector-ink Konva.Path origin of the 4/5-pixel error remains unknown.
+- Details: docs/C39_S5_S4_PIXEL_INVESTIGATION_2026-10-11.md. Strict S5.4 NO-GO; do not start paired A0/A2 ABBA, merge or claim performance readiness. Real partial eraser and collaboration/permission/reconnect gates remain open.
