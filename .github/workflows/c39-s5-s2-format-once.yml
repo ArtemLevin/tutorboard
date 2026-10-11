@@ -1,0 +1,42 @@
+name: C3.9-S5.2 one-time formatter
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-s5-s2-format-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format-branch:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'perf/c39-s5-s2-bounded-ink-eligibility'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Format new S5.2 modules and tests
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npx prettier --write \
+            src/adapters/canvas-konva/bounded-ink-candidate.ts \
+            src/adapters/canvas-konva/shared-ink-raster-budget.ts \
+            src/adapters/canvas-konva/wheel-ink-cache.ts \
+            tests/unit/adapters/canvas-konva/bounded-ink-candidate.test.ts
+          git diff --check
+          git add \
+            src/adapters/canvas-konva/bounded-ink-candidate.ts \
+            src/adapters/canvas-konva/shared-ink-raster-budget.ts \
+            src/adapters/canvas-konva/wheel-ink-cache.ts \
+            tests/unit/adapters/canvas-konva/bounded-ink-candidate.test.ts
+          if ! git diff --cached --quiet; then
+            git -c user.name='TutorBoard CI Formatter' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'style: format S5.2 bounded ink and lease tests'
+            git push origin 'HEAD:refs/heads/perf/c39-s5-s2-bounded-ink-eligibility'
+          fi
