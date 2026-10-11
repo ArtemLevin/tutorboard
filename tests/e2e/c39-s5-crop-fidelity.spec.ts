@@ -143,10 +143,14 @@ test("@c39-s5-fidelity experimental crop keeps the original pixels and hit inter
     const cachedPixels = await candidate.stage.screenshot({
       animations: "disabled",
     });
-    console.info("C39_S5_S4_PARITY_ARM " + JSON.stringify({
-      dpr: process.env.C39_S5_S4_DPR === "1" ? 1 : 2,
-      opacity: process.env.C39_S5_S4_OPACITY === "opaque" ? "opaque" : "varied",
-    }));
+    console.info(
+      "C39_S5_S4_PARITY_ARM " +
+        JSON.stringify({
+          dpr: process.env.C39_S5_S4_DPR === "1" ? 1 : 2,
+          opacity:
+            process.env.C39_S5_S4_OPACITY === "opaque" ? "opaque" : "varied",
+        }),
+    );
     const a0Noise = compareScreenshots(baselinePixels, secondControlPixels);
     console.info("C39_S5_S3_A0_A0_NOISE " + JSON.stringify(a0Noise));
     const comparison = compareScreenshots(baselinePixels, cachedPixels);
