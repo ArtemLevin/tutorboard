@@ -2438,3 +2438,85 @@ export function reduceBoardDocument(
       return assertNever(command);
   }
 }
+
+/**
+ * Scoped fast path for interactive viewport commits. A caller can supply an
+ * arbitrary (possibly externally mutable) document: the first transition
+ * always validates it and takes ownership of the validator's independent
+ * parsed clone. Recursively freezing that clone makes subsequent immutable
+ * viewport revisions safe to reuse without validating 10k ink objects.
+ *
+ * The trust check is strict object identity against the last internally
+ * produced, frozen revision. Undo/redo, hydration, collaboration updates,
+ * content commands and caller-supplied objects all miss and must be fully
+ * validated again. The public reduceBoardDocument contract is unchanged.
+ */
+export function createOwnedViewportReducer(): (
+  document: BoardDocument,
+  command: SetViewportCommand,
+) => CommandResult {
+  let owned: BoardDocument | null = null;
+
+  function freezeGraph(document: BoardDocument): BoardDocument {
+    const visited = new WeakSet<object>();
+    const pending: object[] = [document];
+    while (pending.length > 0) {
+      const node = pending.pop();
+      if (node === undefined || visited.has(node)) continue;
+      visited.add(node);
+      for (const value of Object.values(node as Record<string, unknown>)) {
+        if (typeof value === "object" && value !== null) {
+          pending.push(value);
+        }
+      }
+      Object.freeze(node);
+    }
+    return document;
+  }
+
+  return (document, command): CommandResult => {
+    let source = owned === document ? document : null;
+    if (source === null) {
+      const started = startC39ViewportTrace();
+      const validation = validateBoardDocument(document);
+      finishC39ViewportTrace("viewport-reduce.prevalidate", started);
+      if (!validation.valid) {
+        owned = null;
+        return failure(
+          document,
+          "command.invalid-current-document",
+          "The current BoardDocument is invalid.",
+        );
+      }
+      // Zod returns a deep independent parse tree. Freeze only this owned
+      // clone, leaving user-supplied or server-owned documents untouched.
+      source = freezeGraph(validation.document);
+    }
+
+    const metadataError = validateMetadata(source, command);
+    if (metadataError !== null) {
+      owned = source;
+      return { ...metadataError, document };
+    }
+
+    const dispatchStarted = startC39ViewportTrace();
+    const outcome = setViewport(source, command);
+    finishC39ViewportTrace("viewport-reduce.dispatch", dispatchStarted);
+    if (!outcome.ok) {
+      owned = source;
+      return { ...outcome, document };
+    }
+
+    // Never freeze a caller-owned command payload: copy the small viewport
+    // before publishing and freezing the new session revision.
+    const trusted = Object.freeze({
+      ...outcome.document,
+      viewport: Object.freeze({
+        offset: Object.freeze({ ...outcome.document.viewport.offset }),
+        zoom: outcome.document.viewport.zoom,
+      }),
+    });
+    owned = trusted;
+    return { ok: true, document: trusted };
+  };
+}

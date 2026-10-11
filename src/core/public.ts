@@ -307,6 +307,7 @@ export {
   type RemoveSolid3DLearningCommand,
 } from "./board/commands/commands";
 export {
+  createOwnedViewportReducer,
   reduceBoardDocument,
   type CommandError,
   type CommandErrorCode,

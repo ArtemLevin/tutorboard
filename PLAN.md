@@ -2478,3 +2478,15 @@ verification and the guest offline cleanup regression guard.
 - [ ] Verify final documentation/tests HEAD in complete CI; archive results.
 - [ ] Next priority S6.3: reduce full-document validation cost on trusted local viewport path without weakening public `reduceBoardDocument` invalid-current-document validation.
 - [Detailed evidence](docs/C39_S6_S4B_VERSIONED_WORKER_ABBA_2026-10-11.md). Issue #201 OPEN.
+
+
+### C3.9-S6.3 — immutable session viewport command fast path (2026-10-11)
+
+- [x] Draft stacked PR #229 on S6.4-B #228: controller-scoped `createOwnedViewportReducer`; first viewport command fully validates then recursively freezes the *independent parsed copy*; further consecutive owned viewport revisions reuse content and validate metadata/viewport/updatedAt only. Public `reduceBoardDocument` retains unconditional current-document validation.
+- [x] Tests: 3000-ink 10-commit trace verifies 1 full validation, canonical JSON/output parity, original data remains unfrozen, returned graph deeply frozen, invalid metadata/error parity, corrupt input rejection, undo/redo/hydration/content identity invalidation.
+- [x] Quality gate on code SHA `21c79d0` SUCCESS (format, lint, typecheck, full unit, performance, architecture, build); browser smoke Chromium/Firefox, GeometryOS, coordinate plot and image jobs passed.
+- [x] Real paired 2-runner DPR2 ABBA 5k/10k + 10 images [#38156646773](https://github.com/ArtemLevin/tutorboard/actions/runs/38156646773) SUCCESS: full prevalidation per run 9–12 -> 1; total validation JS time reduced ~88–90%. **But active p95 production NO-GO**: runner A 5k ~16.7% faster / 10k ~9.1% slower; runner B 5k ~10.0% faster / 10k ~4.6% slower. Required >=20% at both loads on both runners unmet.
+- [ ] Verify final docs-only HEAD CI and media profile, obtain independent complete memory/restore/reconnect soak. Keep PR Draft and issue #201 OPEN.
+- [ ] Next scoped follow-up: measure first full parse/freeze cost separately (currently included in wall time but **not** in trace event), correlate Konva scene/hit and Worker/scene invalidations with slow frames, and determine whether trusted viewport transition should avoid a large one-off content clone on the input/UI path.
+- [ ] Resolve earlier S6.4-B Worker cache provenance for arbitrary mutable callers before merging any stacked branch; local S6.3 session freezing alone is insufficient to authorize general Worker cache reuse.
+- [Full S6.3 ABBA evidence](docs/C39_S6_S3_OWNED_VIEWPORT_ABBA_2026-10-11.md).
