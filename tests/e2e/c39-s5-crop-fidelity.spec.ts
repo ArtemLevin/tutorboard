@@ -69,8 +69,12 @@ async function mountBoard(browser: Browser, a2: boolean) {
     "Сохранено локально",
   );
   const stage = page.getByTestId("board-stage");
-  await expect(stage).toHaveAttribute("data-c39-s5-a2-enabled", String(a2));
   const rasterSupported = a2 && dpr === 1;
+  await expect(stage).toHaveAttribute("data-c39-s5-a2-requested", String(a2));
+  await expect(stage).toHaveAttribute(
+    "data-c39-s5-a2-enabled",
+    String(rasterSupported),
+  );
   await expect(stage).toHaveAttribute(
     "data-c39-s5-a2-raster-supported",
     String(rasterSupported),
@@ -87,9 +91,10 @@ async function mountBoard(browser: Browser, a2: boolean) {
       timeout: 20_000,
     });
     await expect(stage).toHaveAttribute("data-c39-s5-a2-cache-failures", "0");
-  } else {
+  } else if (a2) {
+    // Unsupported DPR uses the original A0 pipeline. Its *legacy* wheel
+    // cache may prewarm; the experimental A2 shared budget stays empty.
     await expect(stage).toHaveAttribute("data-c39-s5-a2-candidate-count", "0");
-    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
     await expect(stage).toHaveAttribute("data-c39-s5-a2-retained-bytes", "0");
   }
   await page.evaluate(
