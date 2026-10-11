@@ -9,7 +9,6 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-
 const boardId = "document:lesson-01";
 const createdAt = "2026-08-16T12:00:00.000Z";
 const guestCsrf = "csrf-guest-never-durable-standalone";

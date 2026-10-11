@@ -53,7 +53,8 @@ async function mount(
   await expect(stage).toHaveAttribute("data-c39-s5-a2-enabled", "true");
   await expect
     .poll(() =>
-      stage.getAttribute("data-c39-s5-a2-candidate-count")
+      stage
+        .getAttribute("data-c39-s5-a2-candidate-count")
         .then((value) => Number(value)),
     )
     .toBeGreaterThanOrEqual(80);
