@@ -5,6 +5,11 @@
  */
 export type C39ViewportTraceKind =
   | "viewport-reduce.prevalidate"
+  | "viewport-owned.schema-parse"
+  | "viewport-owned.invariants"
+  | "viewport-owned.freeze"
+  | "viewport-owned.first-commit"
+  | "viewport-owned.cache-hit"
   | "viewport-reduce.dispatch"
   | "viewport-history"
   | "viewport-command-callback"
