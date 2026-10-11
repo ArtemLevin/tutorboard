@@ -2479,7 +2479,10 @@ export function createOwnedViewportReducer(): (
       owned === document ? null : startC39ViewportTrace();
     let source = owned === document ? document : null;
     if (source !== null) {
-      finishC39ViewportTrace("viewport-owned.cache-hit", startC39ViewportTrace());
+      finishC39ViewportTrace(
+        "viewport-owned.cache-hit",
+        startC39ViewportTrace(),
+      );
     }
     if (source === null) {
       const started = startC39ViewportTrace();
