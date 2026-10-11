@@ -20,7 +20,11 @@ describe("S6.4-B WorkerSerializationCache", () => {
   it("serializes compact viewport deltas identically to the canonical full serializer", () => {
     const cache = new WorkerSerializationCache();
     const initial = document();
-    const first = cache.serialize({ document: initial, id: 1, kind: "serialize" });
+    const first = cache.serialize({
+      document: initial,
+      id: 1,
+      kind: "serialize",
+    });
     expect(first).toEqual({
       id: 1,
       kind: "serialize",
