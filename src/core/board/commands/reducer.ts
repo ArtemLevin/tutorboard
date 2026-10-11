@@ -2439,7 +2439,6 @@ export function reduceBoardDocument(
   }
 }
 
-
 /**
  * Scoped fast path for interactive viewport commits. A caller can supply an
  * arbitrary (possibly externally mutable) document: the first transition
