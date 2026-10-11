@@ -195,3 +195,34 @@ test("@c39-s5-diagnostic compare native cache at DPR1 and DPR2", async ({
   });
   expect(data).toHaveLength(2);
 });
+
+test("@c39-s5-lifecycle clear, undo and persisted restoration", async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const { context, page, stage } = await mountBoard(browser, true);
+  try {
+    const bounds = await stage.boundingBox();
+    expect(bounds).not.toBeNull();
+    if (bounds === null) throw new Error("Missing stage rectangle");
+    await page.mouse.click(
+      bounds.x + bounds.width * 0.75,
+      bounds.y + bounds.height * 0.75,
+      { button: "right" },
+    );
+    await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+    await page.getByRole("button", { name: "Очистить", exact: true }).click();
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+    await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
+    await page.keyboard.press("Control+z");
+    await expect(page.getByTestId("object-count")).toHaveText(/^330 объект/u);
+    await expect.poll(async () =>
+      Number(await stage.getAttribute("data-c39-s5-a2-candidate-count")),
+    ).toBeGreaterThanOrEqual(80);
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Сохранено локально",
+    );
+  } finally {
+    await context.close();
+  }
+});
