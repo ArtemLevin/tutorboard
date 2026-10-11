@@ -6,7 +6,7 @@ import { expect, test } from "@playwright/test";
 
 const require = createRequire(import.meta.url);
 const konvaBundle = await readFile(
-  resolve(dirname(require.resolve("konva/package.json")), "konva.min.js"),
+  resolve(dirname(require.resolve("konva")), "../konva.min.js"),
   "utf8",
 );
 
