@@ -1047,7 +1047,9 @@ function SyncedWorkspace({
               setUndoCount(undoStackRef.current.length);
             }
             const syncStarted =
-              command.kind === "core.viewport.set" ? startC39ViewportTrace() : null;
+              command.kind === "core.viewport.set"
+                ? startC39ViewportTrace()
+                : null;
             try {
               void engine.queue(command, document);
             } finally {
