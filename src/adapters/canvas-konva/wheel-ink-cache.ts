@@ -27,6 +27,13 @@ export interface WheelInkNode {
   getLayer(): { batchDraw(): unknown } | null;
 }
 
+export interface WheelInkCrop {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 export const minimumWheelCacheStrokes = 80;
 export const maximumWheelCachePixels = 4_000_000;
 
@@ -39,6 +46,7 @@ export class WheelInkCacheCoordinator {
   readonly #nodes = new Set<WheelInkNode>();
   readonly #cached = new Set<WheelInkNode>();
   readonly #budgetLeases = new Map<WheelInkNode, InkRasterLease>();
+  readonly #expectedCrops = new Map<WheelInkNode, WheelInkCrop>();
   #active = false;
   #preparedPixelRatio: number | null = null;
   #buildCount = 0;
@@ -112,14 +120,16 @@ export class WheelInkCacheCoordinator {
     return this.#lastWheelSkippedColdBuild;
   }
 
-  register(node: WheelInkNode): () => void {
+  register(node: WheelInkNode, expectedCrop?: WheelInkCrop): () => void {
     // A mounted run changes the set of cacheable objects: cached images from
     // an earlier board snapshot must never be reused after this registration.
     if (this.isPrepared) this.invalidate();
     this.#nodes.add(node);
+    if (expectedCrop !== undefined) this.#expectedCrops.set(node, expectedCrop);
     return () => {
       this.#release(node);
       this.#nodes.delete(node);
+      this.#expectedCrops.delete(node);
       this.#preparedPixelRatio = null;
     };
   }
@@ -162,12 +172,36 @@ export class WheelInkCacheCoordinator {
     this.#lastBuildFailedRuns = 0;
     let remainingPixels = maximumWheelCachePixels;
     for (const node of this.#nodes) {
-      const bounds = node.getClientRect({ skipTransform: true });
+      let bounds: ReturnType<WheelInkNode["getClientRect"]>;
+      try {
+        bounds = node.getClientRect({ skipTransform: true });
+      } catch (error) {
+        // An experimental Konva node may have been detached or invalidated.
+        // Only the opt-in guarded path treats this as a skipped vector run.
+        if (this.sharedBudget === undefined) throw error;
+        this.#lastBuildFailedRuns += 1;
+        this.#lastBuildSkippedRuns += 1;
+        continue;
+      }
       const x = Math.floor(bounds.x - 3);
       const y = Math.floor(bounds.y - 3);
       const width = Math.ceil(bounds.x + bounds.width + 3) - x;
       const height = Math.ceil(bounds.y + bounds.height + 3) - y;
       const pixels = Math.ceil(width * ratio) * Math.ceil(height * ratio);
+      const expected = this.#expectedCrops.get(node);
+      // The S5.2 bounds estimate must cover the actual mounted Konva
+      // descendants including their live transforms and hit geometry.
+      // On disagreement, keep the original vector group unchanged.
+      if (
+        expected !== undefined &&
+        (x < expected.x ||
+          y < expected.y ||
+          x + width > expected.x + expected.width ||
+          y + height > expected.y + expected.height)
+      ) {
+        this.#lastBuildSkippedRuns += 1;
+        continue;
+      }
       if (
         !Number.isFinite(pixels) ||
         width <= 0 ||
@@ -209,6 +243,7 @@ export class WheelInkCacheCoordinator {
         if (this.sharedBudget === undefined) throw error;
         this.#lastBuildFailedRuns += 1;
         this.#lastBuildSkippedRuns += 1;
+        node.getLayer()?.batchDraw();
         continue;
       }
       if (lease !== undefined) this.#budgetLeases.set(node, lease);
@@ -233,6 +268,7 @@ export class WheelInkCacheCoordinator {
   dispose(): void {
     this.end();
     this.#nodes.clear();
+    this.#expectedCrops.clear();
   }
 
   #release(node: WheelInkNode): void {
