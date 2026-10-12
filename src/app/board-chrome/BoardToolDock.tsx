@@ -784,9 +784,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           ) : null}
           <StyleControls
             allowFill={allowFill}
-            onChange={(patch) =>
-              props.onStyleChange(activeDrawingTool, patch)
-            }
+            onChange={(patch) => props.onStyleChange(activeDrawingTool, patch)}
             style={props.activeStyle}
           />
         </ToolSettingsVisibility>

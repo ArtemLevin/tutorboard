@@ -155,36 +155,35 @@ test("@smoke retains touch-size controls without horizontal page overflow", asyn
   expect(pageOverflow).toBe(false);
 });
 
-test(
-  "@smoke reopens Smart Ink settings on repeated activation and waits for pointer release",
-  async ({ page }) => {
-    const settings = page.getByRole("region", {
-      name: "Первичные настройки инструмента",
-    });
-    await page.clock.install();
-    const activate = async () => {
-      await page.getByRole("button", { name: "ИИ-инструменты" }).click();
-      await page.getByRole("menuitemradio", { name: "Smart Ink (I)" }).click();
-    };
-    await activate();
-    await expect(settings).toBeVisible();
-    await page.clock.fastForward(2_100);
-    await expect(settings).toHaveCount(0);
+test("@smoke reopens Smart Ink settings on repeated activation and waits for pointer release", async ({
+  page,
+}) => {
+  const settings = page.getByRole("region", {
+    name: "Первичные настройки инструмента",
+  });
+  await page.clock.install();
+  const activate = async () => {
+    await page.getByRole("button", { name: "ИИ-инструменты" }).click();
+    await page.getByRole("menuitemradio", { name: "Smart Ink (I)" }).click();
+  };
+  await activate();
+  await expect(settings).toBeVisible();
+  await page.clock.fastForward(2_100);
+  await expect(settings).toHaveCount(0);
 
-    await activate();
-    await expect(settings).toBeVisible();
-    const opacity = page.getByRole("slider", {
-      name: "Прозрачность инструмента",
-    });
-    const box = await opacity.boundingBox();
-    expect(box).not.toBeNull();
-    if (box === null) throw new Error("Opacity slider has no bounds.");
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.clock.fastForward(2_100);
-    await expect(settings).toBeVisible();
-    await page.mouse.up();
-    await page.clock.fastForward(2_100);
-    await expect(settings).toHaveCount(0);
-  },
-);
+  await activate();
+  await expect(settings).toBeVisible();
+  const opacity = page.getByRole("slider", {
+    name: "Прозрачность инструмента",
+  });
+  const box = await opacity.boundingBox();
+  expect(box).not.toBeNull();
+  if (box === null) throw new Error("Opacity slider has no bounds.");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.clock.fastForward(2_100);
+  await expect(settings).toBeVisible();
+  await page.mouse.up();
+  await page.clock.fastForward(2_100);
+  await expect(settings).toHaveCount(0);
+});
