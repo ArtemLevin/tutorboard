@@ -36,7 +36,12 @@ async function penEvent(
         stageContainer = stageContainer.parentElement;
       }
       const bounds = container.getBoundingClientRect();
-      const target = kind === "pointerdown" ? container : window;
+      const target =
+        kind === "pointerdown"
+          ? container
+          : kind === "lostpointercapture"
+            ? container.parentElement ?? container
+            : window;
       target.dispatchEvent(
         new PointerEvent(kind, {
           bubbles: true,
