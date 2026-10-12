@@ -89,6 +89,17 @@ vi.mock("../adapters/canvas-konva/public", () => ({
           Переместить камеру тест
         </button>
         <button
+          onClick={() =>
+            props.onViewportCommit({
+              offset: { x: 850, y: -15 },
+              zoom: 1.25,
+            })
+          }
+          type="button"
+        >
+          Изменить камеру тест
+        </button>
+        <button
           onClick={() => props.onWorldPointerHover?.(finish.point)}
           type="button"
         >
@@ -733,7 +744,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Сохранить область" }));
     fireEvent.click(screen.getByRole("button", { name: "Закладки областей" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Переместить камеру тест" }));
+    fireEvent.click(screen.getByRole("button", { name: "Изменить камеру тест" }));
+    expect(screen.getByTestId("mock-stage-camera")).toHaveTextContent("850,-15,1.25");
     fireEvent.click(screen.getByRole("button", { name: "Закладки областей" }));
     fireEvent.click(screen.getByRole("button", { name: "Перейти: Задача 1" }));
 
