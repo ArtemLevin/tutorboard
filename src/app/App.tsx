@@ -59,6 +59,10 @@ import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
 import { BoardToolDockContainer } from "./board/views/BoardToolDockContainer";
 import { fitBoardViewport, viewportFitSceneBounds } from "./board/viewport-fit";
 import { readEnvironment } from "./configuration/environment";
+import {
+  useQuickToolPreferences,
+  type PenPresetSlot,
+} from "./board-chrome/quick-tool-preferences";
 import "./styles.css";
 
 export type { AppPersistenceStatus } from "./board/types";
@@ -318,6 +322,7 @@ export function App({
     }
   }, []);
 
+  const quickTools = useQuickToolPreferences();
   const drawing = useBoardDrawingController({
     announce,
     documentController,
@@ -530,6 +535,19 @@ export function App({
     setActiveTool,
   });
 
+  const applyPenPreset = useCallback(
+    (slot: PenPresetSlot) => {
+      if (readOnly) return;
+      drawing.updateStyle("drawing.pen", quickTools.penPresets[slot]);
+      quickTools.selectPenPreset(slot);
+      interaction.activate("drawing.pen");
+    },
+    [drawing, interaction, quickTools, readOnly],
+  );
+  const togglePenPreset = useCallback(() => {
+    applyPenPreset(quickTools.lastSelectedSlot === 0 ? 1 : 0);
+  }, [applyPenPreset, quickTools.lastSelectedSlot]);
+
   const selectionInspectorOpen =
     plots.editor === null &&
     selectionInspectorObjectId !== null &&
@@ -603,6 +621,7 @@ export function App({
     openShortcuts: () => setShortcutsOpen(true),
     onFitAll: fitAll,
     onFitSelection: fitSelection,
+    onTogglePenPreset: togglePenPreset,
     plots,
     readOnly,
     selection,
@@ -739,6 +758,8 @@ export function App({
             setSettingsOpen(true);
           }}
           plotEditorOpen={plots.editor !== null}
+          quickTools={quickTools}
+          onApplyPenPreset={applyPenPreset}
           readOnly={readOnly}
           selection={selection}
           selectionInspectorOpen={selectionInspectorOpen}
