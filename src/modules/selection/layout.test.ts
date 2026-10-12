@@ -166,9 +166,9 @@ describe("QoL 2.4 selection layout", () => {
     const moved = reduceBoardDocument(document, groupMove);
     expect(moved.ok).toBe(true);
     if (moved.ok) {
-      expect(moved.document.groups[id]?.transform.translation.x).toBeGreaterThan(
-        200,
-      );
+      expect(
+        moved.document.groups[id]?.transform.translation.x,
+      ).toBeGreaterThan(200);
       expect(moved.document.objects[first.id]?.position).toEqual(
         first.position,
       );
