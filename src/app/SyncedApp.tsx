@@ -463,6 +463,15 @@ function SyncedWorkspace({
       }),
   );
 
+  // Stable identity prevents remote cursor/viewport presence updates from
+  // retriggering the student's outbound presence effect (feedback loop).
+  const publishLocalPresence = useCallback(
+    (presence: Parameters<BoardCollaborationClient["updatePresence"]>[0]) => {
+      collaboration.updatePresence(presence);
+    },
+    [collaboration],
+  );
+
   useEffect(() => {
     if (collaborationStatus === "revoked") revokeMedia();
   }, [collaborationStatus, revokeMedia]);
@@ -1142,9 +1151,7 @@ function SyncedWorkspace({
           onDocumentChange={(document) => {
             renderedDocumentRef.current = document;
           }}
-          onPresenceChange={(presence) =>
-            collaboration.updatePresence(presence)
-          }
+          onPresenceChange={publishLocalPresence}
           onInkPreviewChange={(preview) =>
             collaboration.updateInkPreview(preview)
           }
