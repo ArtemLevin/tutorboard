@@ -486,6 +486,10 @@ export function BoardCanvas({
       {contextMenu === null ? null : (
         <CanvasContextMenu
           canClear={document.order.length > 0}
+          canAlign={selection.canAlign && contextMenu.objectId !== null && selection.state.selectedObjectIds.includes(contextMenu.objectId)}
+          canDistribute={selection.canDistribute && contextMenu.objectId !== null && selection.state.selectedObjectIds.includes(contextMenu.objectId)}
+          canDuplicate={selection.canDuplicate && contextMenu.objectId !== null && selection.state.selectedObjectIds.includes(contextMenu.objectId)}
+          selectedLocked={selection.selectedLocked}
           canCopy={
             contextMenu.objectId !== null &&
             selection.state.selectedObjectIds.includes(contextMenu.objectId)
@@ -501,6 +505,18 @@ export function BoardCanvas({
           onClose={() => setContextMenu(null)}
           onCopy={() => {
             clipboard.copy();
+            setContextMenu(null);
+          }}
+          onDuplicate={() => {
+            clipboard.duplicate();
+            setContextMenu(null);
+          }}
+          onLayout={(action) => {
+            selection.layout(action);
+            setContextMenu(null);
+          }}
+          onSelectionLockChange={(locked) => {
+            selection.setLocked(locked);
             setContextMenu(null);
           }}
           onOpenSolid3D={() => {
