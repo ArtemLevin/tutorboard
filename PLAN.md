@@ -2546,7 +2546,8 @@ Unit на viewport bounds/store и Chromium/Firefox E2E на запись и п�
 teacher-only UI с пером/ластиком/указкой, `Esc` с приоритетом модальных окон,
 отдельной fullscreen-опцией и явным выходом. Состояние эфемерно, нет новых
 BoardDocument/realtime/persistence contracts. Добавлены component и
-Chromium/Firefox smoke (mobile/reload). Merge — после успешных CI/review.
+Chromium/Firefox smoke (mobile/reload), защита фокуса и выделения.
+Merge — после успешных CI/review.
 
 **Цель:** освободить экран для объяснения, оставив необходимое для письма
 и демонстрации.
