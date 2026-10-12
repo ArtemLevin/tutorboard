@@ -3,6 +3,9 @@ import { expect, test } from "@playwright/test";
 test("@smoke bookmarks a viewport and restores it after reload", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.getByTestId("board-stage").hover();
+  await page.mouse.wheel(0, -430);
+  await expect(page.getByTestId("viewport-zoom")).not.toHaveText("100%");
   const initialOffset = await page.getByTestId("viewport-offset").textContent();
   const initialZoom = await page.getByTestId("viewport-zoom").textContent();
 
@@ -11,7 +14,7 @@ test("@smoke bookmarks a viewport and restores it after reload", async ({ page }
   await page.getByRole("button", { name: "Сохранить область" }).click();
   await page.getByRole("button", { name: "Закладки областей" }).click();
   await page.getByRole("button", { name: "Настройки доски" }).click();
-  await page.getByRole("button", { name: "Сбросить вид" }).click();
+  await page.getByRole("button", { name: "Центрировать доску" }).click();
   await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: "Закладки областей" }).click();
