@@ -1577,7 +1577,10 @@ test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
     bounds.y + bounds.height / 2,
   );
   await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "true");
-  const initialBuilds = await integerStageMetric(page, "data-wheel-cache-builds");
+  const initialBuilds = await integerStageMetric(
+    page,
+    "data-wheel-cache-builds",
+  );
   expect(initialBuilds).toBeGreaterThan(0);
 
   await page.mouse.wheel(0, -190);
