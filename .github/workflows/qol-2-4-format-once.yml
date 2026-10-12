@@ -1,0 +1,44 @@
+name: QoL 2.4 format once
+
+on:
+  push:
+    branches:
+      - feat/qol-2-4-selection-actions
+    paths:
+      - .github/workflows/qol-2-4-format-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Format only QoL 2.4 changed sources
+        run: |
+          npx prettier --write \
+            src/modules/selection/layout.ts \
+            src/modules/selection/layout.test.ts \
+            src/modules/selection/public.ts \
+            src/app/board/controllers/useBoardSelectionController.ts \
+            src/app/board/controllers/useBoardClipboardController.ts \
+            src/app/board/views/BoardCanvas.tsx \
+            src/app/board-chrome/CanvasContextMenu.tsx \
+            src/app/styles.css \
+            tests/e2e/selection-layout.spec.ts
+          git rm .github/workflows/qol-2-4-format-once.yml
+          git add -- src/modules/selection/layout.ts src/modules/selection/layout.test.ts \
+            src/modules/selection/public.ts src/app/board/controllers/useBoardSelectionController.ts \
+            src/app/board/controllers/useBoardClipboardController.ts src/app/board/views/BoardCanvas.tsx \
+            src/app/board-chrome/CanvasContextMenu.tsx src/app/styles.css \
+            tests/e2e/selection-layout.spec.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'style(qol): format selection actions and remove temporary workflow'
+          git push origin HEAD:feat/qol-2-4-selection-actions
