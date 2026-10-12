@@ -1,0 +1,69 @@
+name: QoL 2.3 visual baseline review
+
+on:
+  push:
+    branches: [feat/qol-2-3-lesson-mode]
+    paths: [.github/workflows/qol-2-3-visual-baseline.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  approved-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox
+      - run: npm run build
+      - run: npm run e2e:plot-visual:update
+      - name: Guard all visual differences outside the changed dock
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { readFileSync } from 'node:fs';
+          import { PNG } from 'pngjs';
+
+          const dir = 'tests/e2e/coordinate-plot-visual.spec.ts-snapshots';
+          const files = execFileSync('git', ['diff', '--name-only', '--', dir], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+          if (files.length < 1 || files.length > 6) {
+            throw new Error(`Unexpected visual snapshot update count: ${files.length}`);
+          }
+          for (const path of files) {
+            if (!path.endsWith('.png') || (!path.includes('-visual-chromium-desktop-') && !path.includes('-visual-firefox-desktop-'))) {
+              throw new Error(`Unexpected snapshot updated: ${path}`);
+            }
+            const before = PNG.sync.read(execFileSync('git', ['show', `HEAD:${path}`]));
+            const after = PNG.sync.read(readFileSync(path));
+            if (before.width !== after.width || before.height !== after.height || before.height !== 900 || before.width !== 1440) {
+              throw new Error(`Snapshot dimensions differ: ${path}`);
+            }
+            let changed = 0, minY = after.height;
+            for (let y = 0; y < after.height; y++) {
+              for (let x = 0; x < after.width; x++) {
+                const i = (y * after.width + x) * 4;
+                if (before.data[i] !== after.data[i] || before.data[i+1] !== after.data[i+1] || before.data[i+2] !== after.data[i+2] || before.data[i+3] !== after.data[i+3]) {
+                  changed++;
+                  minY = Math.min(minY,y);
+                }
+              }
+            }
+            if (changed < 1 || minY < 790) {
+              throw new Error(`Unexpected pixels outside bottom toolbar in ${path}: count=${changed}, minY=${minY}`);
+            }
+            process.stdout.write(`${path}: ${changed} pixels, all at y >= ${minY}\n`);
+          }
+          NODE
+      - name: Commit guarded snapshots and self-remove workflow
+        run: |
+          rm .github/workflows/qol-2-3-visual-baseline.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/e2e/coordinate-plot-visual.spec.ts-snapshots .github/workflows/qol-2-3-visual-baseline.yml
+          git commit -m "test(qol): approve dock-only coordinate plot visual baseline"
+          git push
