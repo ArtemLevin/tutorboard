@@ -46,14 +46,15 @@ export const availableFavoriteTools = [
 ] as const;
 
 export type FavoriteToolId = (typeof availableFavoriteTools)[number]["id"];
-export type PenPresetSlot = 0 | 1;
-type PenPresetPair = readonly [ObjectStyle, ObjectStyle];
+export type PenPresetSlot = 0 | 1 | 2;
+type PenPresetSet = readonly [ObjectStyle, ObjectStyle, ObjectStyle];
 
 export interface QuickToolPreferences {
   readonly schemaVersion: typeof quickToolPreferencesSchemaVersion;
   readonly favorites: readonly FavoriteToolId[];
-  readonly penPresets: PenPresetPair;
+  readonly penPresets: PenPresetSet;
   readonly lastSelectedSlot: PenPresetSlot;
+  readonly stylusEraserEnabled: boolean;
 }
 
 const knownFavoriteTools: ReadonlySet<string> = new Set(
@@ -64,9 +65,13 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function defaultPenPresets(): PenPresetPair {
+function defaultPenPresets(): PenPresetSet {
   const pen = defaultDrawingToolStyle("drawing.pen");
-  return [pen, { ...pen, stroke: "#2563eb", strokeWidth: 6 }];
+  return [
+    pen,
+    { ...pen, stroke: "#2563eb", strokeWidth: 6 },
+    { ...pen, stroke: "#d97706", strokeWidth: 2 },
+  ];
 }
 
 export function normalizeQuickToolPreferences(
@@ -95,8 +100,11 @@ export function normalizeQuickToolPreferences(
     penPresets: [
       normalizeDrawingToolStyle("drawing.pen", slots[0] ?? defaults[0]),
       normalizeDrawingToolStyle("drawing.pen", slots[1] ?? defaults[1]),
+      normalizeDrawingToolStyle("drawing.pen", slots[2] ?? defaults[2]),
     ],
-    lastSelectedSlot: record.lastSelectedSlot === 1 ? 1 : 0,
+    lastSelectedSlot:
+      record.lastSelectedSlot === 2 ? 2 : record.lastSelectedSlot === 1 ? 1 : 0,
+    stylusEraserEnabled: record.stylusEraserEnabled === true,
   };
 }
 
@@ -183,14 +191,10 @@ export function useQuickToolPreferences() {
         ...current,
         penPresets:
           slot === 0
-            ? [
-                normalizeDrawingToolStyle("drawing.pen", style),
-                current.penPresets[1],
-              ]
-            : [
-                current.penPresets[0],
-                normalizeDrawingToolStyle("drawing.pen", style),
-              ],
+            ? [normalizeDrawingToolStyle("drawing.pen", style), current.penPresets[1], current.penPresets[2]]
+            : slot === 1
+              ? [current.penPresets[0], normalizeDrawingToolStyle("drawing.pen", style), current.penPresets[2]]
+              : [current.penPresets[0], current.penPresets[1], normalizeDrawingToolStyle("drawing.pen", style)],
         lastSelectedSlot: slot,
       }));
     },
@@ -207,8 +211,16 @@ export function useQuickToolPreferences() {
     [updatePreferences],
   );
 
+  const setStylusEraserEnabled = useCallback(
+    (enabled: boolean) => {
+      updatePreferences((current) => ({ ...current, stylusEraserEnabled: enabled }));
+    },
+    [updatePreferences],
+  );
+
   return {
     ...preferences,
+    setStylusEraserEnabled,
     toggleFavorite,
     savePenPreset,
     selectPenPreset,
