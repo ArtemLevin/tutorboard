@@ -54,6 +54,7 @@ export interface UseBoardKeyboardShortcutsOptions {
   readonly openShortcuts: () => void;
   readonly onFitAll: () => void;
   readonly onFitSelection: () => void;
+  readonly onTogglePenPreset: () => void;
   readonly plots: CoordinatePlotController;
   readonly readOnly: boolean;
   readonly selection: BoardSelectionController;
@@ -86,6 +87,7 @@ export function useBoardKeyboardShortcuts({
   openShortcuts,
   onFitAll,
   onFitSelection,
+  onTogglePenPreset,
   plots,
   readOnly,
   selection,
@@ -242,6 +244,9 @@ export function useBoardKeyboardShortcuts({
 
       event.preventDefault();
       switch (action) {
+        case "pen.preset.toggle":
+          onTogglePenPreset();
+          return;
         case "viewport.fit-all":
           onFitAll();
           return;
@@ -304,6 +309,7 @@ export function useBoardKeyboardShortcuts({
     openShortcuts,
     onFitAll,
     onFitSelection,
+    onTogglePenPreset,
     plots,
     readOnly,
     redo,
