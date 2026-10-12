@@ -1,5 +1,5 @@
-import type { Size2, ViewportState } from "../../core/public";
-import type { Rect2 } from "../../modules/selection/public";
+import type { BoardObjectId, BoardSceneReadModel, Size2, ViewportState } from "../../core/public";
+import { aggregateSelectionBounds, selectSelectionBounds, type Rect2 } from "../../modules/selection/public";
 
 export const boardFitPaddingPx = 48;
 export const boardFitZoomBounds = { minimum: 0.1, maximum: 8 } as const;
@@ -47,4 +47,16 @@ export function fitBoardViewport(
       y: viewportSize.height / 2 - (bounds.y + bounds.height / 2) * zoom,
     },
   };
+}
+
+export function viewportFitSceneBounds(
+  scene: BoardSceneReadModel,
+  selectedIds: readonly BoardObjectId[] | null,
+): Rect2 | null {
+  const ids =
+    selectedIds ??
+    scene.items
+      .filter(({ object }) => object.visible)
+      .map(({ object }) => object.id);
+  return aggregateSelectionBounds(selectSelectionBounds(scene, ids));
 }
