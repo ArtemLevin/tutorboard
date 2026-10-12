@@ -1,0 +1,47 @@
+name: Wet-ink 240 Hz attribution experiment
+
+on:
+  push:
+    branches:
+      - perf/issue-241-wet-ink-frame-attribution
+
+permissions:
+  contents: read
+
+jobs:
+  wet-ink-attribution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+        workers: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npm run build
+      - name: Repeat 240Hz active stroke under controlled runner concurrency
+        run: |
+          set -o pipefail
+          npx playwright test tests/e2e/active-stroke-latency.spec.ts \
+            --project=${{ matrix.browser }} \
+            --workers=${{ matrix.workers }} \
+            --repeat-each=8 \
+            --retries=0 \
+            --reporter=line \
+            --trace=retain-on-failure 2>&1 | tee wet-ink-attribution.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wet-ink-${{ matrix.browser }}-w${{ matrix.workers }}-${{ github.sha }}
+          path: |
+            wet-ink-attribution.log
+            test-results
+          retention-days: 7
+          if-no-files-found: warn
