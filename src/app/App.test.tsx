@@ -1018,6 +1018,9 @@ describe("App", () => {
 
   it("creates a graph without opening its editor and opens it on settings request", () => {
     render(<App />);
+    expect(
+      screen.getByRole("button", { name: "Закладки областей" }),
+    ).toBeInTheDocument();
 
     chooseTool("Математика", "Координатная плоскость (G)");
     expect(
@@ -1039,6 +1042,15 @@ describe("App", () => {
       screen.getByRole("complementary", {
         name: "Редактор координатной плоскости",
       }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Закладки областей" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Закрыть редактор графика" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Закладки областей" }),
     ).toBeInTheDocument();
   });
 
