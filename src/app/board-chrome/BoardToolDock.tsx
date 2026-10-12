@@ -30,6 +30,13 @@ import {
 import { useTextEditorKeyboardSession } from "../board/text-editor-keyboard";
 import { StrokeStylePalette } from "../StrokeStylePalette";
 import { strokeStyleSelectionPatch } from "./stroke-style-presets";
+import {
+  availableFavoriteTools,
+  maxFavoriteTools,
+  penPresetMatchesStyle,
+  type FavoriteToolId,
+  type PenPresetSlot,
+} from "./quick-tool-preferences";
 
 interface BoardToolDockProps {
   readonly activeStyle: ObjectStyle | null;
@@ -37,6 +44,12 @@ interface BoardToolDockProps {
   readonly canRedo: boolean;
   readonly canUndo: boolean;
   readonly drawingTools: readonly DrawingToolDefinition[];
+  readonly favoriteTools: readonly FavoriteToolId[];
+  readonly penPresets: readonly [ObjectStyle, ObjectStyle];
+  readonly lastSelectedPenPreset: PenPresetSlot;
+  readonly onToggleFavorite: (tool: FavoriteToolId) => void;
+  readonly onApplyPenPreset: (slot: PenPresetSlot) => void;
+  readonly onSavePenPreset: (slot: PenPresetSlot) => void;
   readonly eraserDiameterPx: number;
   readonly geometryAvailable: boolean;
   readonly geometryOpen: boolean;
@@ -53,6 +66,8 @@ interface BoardToolDockProps {
   readonly onGeometryToggle: () => void;
   readonly onImageFiles: (files: readonly File[]) => void;
   readonly onOpenSettings: () => void;
+  readonly onEnterLessonMode: () => void;
+  readonly lessonModeAvailable: boolean;
   readonly onRedo: () => void;
   readonly onStyleChange: (
     tool: DrawingToolId,
@@ -121,7 +136,8 @@ function ToolButton({
   );
 }
 
-type DockMenuId = "ai" | "drawing" | "export" | "math" | "media" | "selection";
+type DockMenuId =
+  "ai" | "drawing" | "export" | "favorites" | "math" | "media" | "selection";
 
 function MenuItem({
   active = false,
@@ -468,6 +484,38 @@ export function BoardToolDock(props: BoardToolDockProps) {
             />
           )}
         </section>
+      ) : openMenu === "favorites" ? (
+        <section
+          aria-label="Меню избранных инструментов"
+          className="dock-menu"
+          role="menu"
+        >
+          <p className="dock-menu-hint">
+            Закрепите до {maxFavoriteTools} инструментов — выбор сохранится на
+            этом устройстве.
+          </p>
+          {availableFavoriteTools.map((item) => {
+            const checked = props.favoriteTools.includes(item.id);
+            return (
+              <button
+                aria-checked={checked}
+                className={
+                  checked ? "dock-menu-item is-active" : "dock-menu-item"
+                }
+                disabled={
+                  !checked && props.favoriteTools.length >= maxFavoriteTools
+                }
+                key={item.id}
+                onClick={() => props.onToggleFavorite(item.id)}
+                role="menuitemcheckbox"
+                type="button"
+              >
+                <span aria-hidden="true">{checked ? "★" : "☆"}</span>
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </section>
       ) : openMenu === "selection" ? (
         <section aria-label="Меню выделения" className="dock-menu" role="menu">
           <MenuItem
@@ -787,6 +835,21 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onChange={(patch) => props.onStyleChange(activeDrawingTool, patch)}
             style={props.activeStyle}
           />
+          {activeDrawingTool === "drawing.pen" && !props.readOnly ? (
+            <div
+              className="dock-preset-save-controls"
+              role="group"
+              aria-label="Сохранить текущий стиль пера"
+            >
+              <span>Сохранить как</span>
+              <button onClick={() => props.onSavePenPreset(0)} type="button">
+                Стиль А
+              </button>
+              <button onClick={() => props.onSavePenPreset(1)} type="button">
+                Стиль Б
+              </button>
+            </div>
+          ) : null}
         </ToolSettingsVisibility>
       ) : null}
       <div
@@ -827,6 +890,30 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onClick={() => toggleMenu("selection")}
           />
           <span aria-hidden="true" className="dock-divider" />
+          {props.favoriteTools.map((id) => {
+            const favorite = availableFavoriteTools.find(
+              (item) => item.id === id,
+            );
+            if (favorite === undefined) return null;
+            return (
+              <ToolButton
+                active={props.activeTool === id}
+                disabled={props.readOnly && favorite.requiresWrite}
+                icon={favorite.icon}
+                key={id}
+                label={`Избранное: ${favorite.label} (${shortcutLabelForTool(id)})`}
+                onClick={() => chooseTool(id)}
+              />
+            );
+          })}
+          <ToolButton
+            expanded={openMenu === "favorites"}
+            hasPopup="menu"
+            icon="☆"
+            label="Избранное"
+            onClick={() => toggleMenu("favorites")}
+          />
+          <span aria-hidden="true" className="dock-divider" />
           <ToolButton
             active={drawingActive}
             disabled={props.readOnly}
@@ -864,6 +951,46 @@ export function BoardToolDock(props: BoardToolDockProps) {
             label={`Лазерная указка (${shortcutLabel("tool.laser")})`}
             onClick={() => chooseTool("presentation.laser")}
           />
+          <span aria-hidden="true" className="dock-divider" />
+          {([0, 1] as const).map((slot) => {
+            const preset = props.penPresets[slot];
+            const active =
+              props.activeTool === "drawing.pen" &&
+              props.activeStyle !== null &&
+              penPresetMatchesStyle(preset, props.activeStyle);
+            return (
+              <button
+                aria-label={`Применить стиль пера ${slot === 0 ? "А" : "Б"}`}
+                aria-pressed={active}
+                className={
+                  active ? "dock-preset-tool is-active" : "dock-preset-tool"
+                }
+                disabled={props.readOnly}
+                key={slot}
+                onClick={() => {
+                  setOpenMenu(null);
+                  props.onApplyPenPreset(slot);
+                }}
+                title={`Перо ${slot === 0 ? "А" : "Б"} — ${preset.strokeWidth} px`}
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  className="dock-preset-swatch"
+                  style={{ backgroundColor: preset.stroke ?? "#111827" }}
+                />
+                <span>{slot === 0 ? "А" : "Б"}</span>
+              </button>
+            );
+          })}
+          <ToolButton
+            disabled={props.readOnly}
+            icon="⇄"
+            label="Сменить стиль пера (Shift+P)"
+            onClick={() =>
+              props.onApplyPenPreset(props.lastSelectedPenPreset === 0 ? 1 : 0)
+            }
+          />
         </div>
         <span aria-hidden="true" className="dock-divider" />
         <div className="dock-fixed-group">
@@ -876,6 +1003,12 @@ export function BoardToolDock(props: BoardToolDockProps) {
               onClick={() => toggleMenu("export")}
             />
           ) : null}
+          <ToolButton
+            disabled={!props.lessonModeAvailable}
+            icon="▣"
+            label="Режим занятия"
+            onClick={props.onEnterLessonMode}
+          />
           <ToolButton
             active={props.settingsOpen}
             icon="⚙"

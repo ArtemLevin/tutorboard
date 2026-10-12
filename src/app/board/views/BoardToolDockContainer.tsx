@@ -1,6 +1,10 @@
 import { drawingTools, isDrawingToolId } from "../../../modules/drawing/public";
 import { isEditableTextObject } from "../../../modules/text-editing/public";
 import { BoardToolDock } from "../../board-chrome/BoardToolDock";
+import type {
+  PenPresetSlot,
+  QuickToolController,
+} from "../../board-chrome/quick-tool-preferences";
 import type { ActiveToolId } from "../active-tool";
 import type { BoardDocumentController } from "../controllers/useBoardDocumentController";
 import type { BoardDrawingController } from "../controllers/useBoardDrawingController";
@@ -27,6 +31,10 @@ export interface BoardToolDockContainerProps {
   readonly onExportPngSnapshot?: (() => void) | undefined;
   readonly onExportSvgSnapshot?: (() => void) | undefined;
   readonly onOpenSettings: () => void;
+  readonly onEnterLessonMode: () => void;
+  readonly lessonModeAvailable: boolean;
+  readonly onApplyPenPreset: (slot: PenPresetSlot) => void;
+  readonly quickTools: QuickToolController;
   readonly plotEditorOpen: boolean;
   readonly readOnly: boolean;
   readonly selection: BoardSelectionController;
@@ -51,7 +59,11 @@ export function BoardToolDockContainer({
   onExportPngSnapshot,
   onExportSvgSnapshot,
   onOpenSettings,
+  onEnterLessonMode,
+  lessonModeAvailable,
+  onApplyPenPreset,
   plotEditorOpen,
+  quickTools,
   readOnly,
   selection,
   selectionInspectorOpen,
@@ -95,6 +107,17 @@ export function BoardToolDockContainer({
       onGeneratedFigureLabelsMove={geometry.moveLabels}
       onImageFiles={(files) => void media.importFiles(files)}
       onOpenSettings={onOpenSettings}
+      onEnterLessonMode={onEnterLessonMode}
+      lessonModeAvailable={lessonModeAvailable}
+      onApplyPenPreset={onApplyPenPreset}
+      onSavePenPreset={(slot) => {
+        if (!readOnly)
+          quickTools.savePenPreset(slot, drawing.styleFor("drawing.pen"));
+      }}
+      onToggleFavorite={quickTools.toggleFavorite}
+      favoriteTools={quickTools.favorites}
+      penPresets={quickTools.penPresets}
+      lastSelectedPenPreset={quickTools.lastSelectedSlot}
       onRedo={redo}
       canTransformSelection={
         (!plotEditorOpen && selection.transformableObjectIds.length > 0) ||

@@ -53,12 +53,18 @@ import type { AppPersistenceStatus, MathInkRecognizer } from "./board/types";
 import { BoardCanvas } from "./board/views/BoardCanvas";
 import { BoardDiagnostics } from "./board/views/BoardDiagnostics";
 import { BoardNotifications } from "./board/views/BoardNotifications";
+import { BoardLessonModeControls } from "./board/views/BoardLessonModeControls";
 import { BoardOverlays } from "./board/views/BoardOverlays";
 import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
 import { BoardToolDockContainer } from "./board/views/BoardToolDockContainer";
+import { BoardViewportBookmarks } from "./board/views/BoardViewportBookmarks";
 import { fitBoardViewport, viewportFitSceneBounds } from "./board/viewport-fit";
 import { readEnvironment } from "./configuration/environment";
+import {
+  useQuickToolPreferences,
+  type PenPresetSlot,
+} from "./board-chrome/quick-tool-preferences";
 import "./styles.css";
 
 export type { AppPersistenceStatus } from "./board/types";
@@ -242,6 +248,14 @@ export function App({
   );
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [lessonMode, setLessonMode] = useState(false);
+  const [lessonModeReadOnly, setLessonModeReadOnly] = useState(readOnly);
+  const [lessonFullscreen, setLessonFullscreen] = useState(false);
+  // Role changes invalidate a local presentation session, including re-grants.
+  if (lessonModeReadOnly !== readOnly) {
+    setLessonModeReadOnly(readOnly);
+    setLessonMode(false);
+  }
   const shortcutsButtonRef = useRef<HTMLButtonElement>(null);
   const shortcutsDialogRef = useRef<HTMLElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
@@ -261,6 +275,83 @@ export function App({
   const announce = useCallback((message: string) => {
     setAccessibilityNotice(message);
   }, []);
+
+  const exitLessonMode = useCallback(() => {
+    setLessonMode(false);
+    if (
+      globalThis.document.fullscreenElement === workspaceRef.current &&
+      typeof globalThis.document.exitFullscreen === "function"
+    ) {
+      void globalThis.document.exitFullscreen().catch(() => {
+        announce("Не удалось выйти из полноэкранного режима");
+      });
+    }
+  }, [announce]);
+
+  const exitLessonModeWithFocus = useCallback(() => {
+    exitLessonMode();
+    requestAnimationFrame(() => {
+      workspaceRef.current
+        ?.querySelector<HTMLButtonElement>('button[aria-label="Режим занятия"]')
+        ?.focus();
+    });
+  }, [exitLessonMode]);
+
+  const toggleLessonFullscreen = useCallback(() => {
+    const workspace = workspaceRef.current;
+    if (workspace === null) return;
+    if (globalThis.document.fullscreenElement === workspace) {
+      if (typeof globalThis.document.exitFullscreen === "function") {
+        void globalThis.document.exitFullscreen().catch(() => {
+          announce("Не удалось выйти из полноэкранного режима");
+        });
+      }
+      return;
+    }
+    if (typeof workspace.requestFullscreen !== "function") {
+      announce("Полноэкранный режим недоступен в этом браузере");
+      return;
+    }
+    void workspace.requestFullscreen().catch(() => {
+      announce("Браузер отклонил полноэкранный режим");
+    });
+  }, [announce]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const active =
+        globalThis.document.fullscreenElement === workspaceRef.current;
+      setLessonFullscreen(active);
+      if (!active && lessonFullscreen) setLessonMode(false);
+    };
+    globalThis.document.addEventListener(
+      "fullscreenchange",
+      onFullscreenChange,
+    );
+    return () =>
+      globalThis.document.removeEventListener(
+        "fullscreenchange",
+        onFullscreenChange,
+      );
+  }, [lessonFullscreen]);
+
+  useEffect(() => {
+    if (!lessonMode) return;
+    window.addEventListener("blur", exitLessonMode);
+    return () => window.removeEventListener("blur", exitLessonMode);
+  }, [exitLessonMode, lessonMode]);
+
+  useEffect(() => {
+    if (
+      readOnly &&
+      globalThis.document.fullscreenElement === workspaceRef.current &&
+      typeof globalThis.document.exitFullscreen === "function"
+    ) {
+      void globalThis.document.exitFullscreen().catch(() => {
+        announce("Не удалось выйти из полноэкранного режима");
+      });
+    }
+  }, [announce, readOnly]);
 
   const closeShortcuts = useCallback(() => {
     setShortcutsOpen(false);
@@ -288,6 +379,23 @@ export function App({
   const scene = useMemo(
     () => sceneSelector(document),
     [document, sceneSelector],
+  );
+  // A read-only guest navigates locally without publishing document commands.
+  const bookmarkScope = `${commandActorId}/${document.id}`;
+  const [viewOnlyCamera, setViewOnlyCamera] = useState<{
+    readonly scope: string;
+    readonly viewport: ViewportState;
+  } | null>(null);
+  const visibleViewport =
+    readOnly && viewOnlyCamera?.scope === bookmarkScope
+      ? viewOnlyCamera.viewport
+      : document.viewport;
+  const visibleScene = useMemo(
+    () =>
+      visibleViewport === document.viewport
+        ? scene
+        : { ...scene, viewport: visibleViewport },
+    [document.viewport, scene, visibleViewport],
   );
 
   const selection = useBoardSelectionController({
@@ -318,6 +426,7 @@ export function App({
     }
   }, []);
 
+  const quickTools = useQuickToolPreferences();
   const drawing = useBoardDrawingController({
     announce,
     documentController,
@@ -530,38 +639,68 @@ export function App({
     setActiveTool,
   });
 
+  const applyPenPreset = useCallback(
+    (slot: PenPresetSlot) => {
+      if (readOnly) return;
+      drawing.updateStyle("drawing.pen", quickTools.penPresets[slot]);
+      quickTools.selectPenPreset(slot);
+      interaction.activate("drawing.pen");
+    },
+    [drawing, interaction, quickTools, readOnly],
+  );
+  const togglePenPreset = useCallback(() => {
+    applyPenPreset(quickTools.lastSelectedSlot === 0 ? 1 : 0);
+  }, [applyPenPreset, quickTools.lastSelectedSlot]);
+
   const selectionInspectorOpen =
     plots.editor === null &&
     selectionInspectorObjectId !== null &&
     Object.hasOwn(document.objects, selectionInspectorObjectId) &&
     selection.state.selectedObjectIds.includes(selectionInspectorObjectId);
 
+  const canEnterLessonMode =
+    !readOnly &&
+    !settingsOpen &&
+    !shortcutsOpen &&
+    !geometry.open &&
+    !selectionInspectorOpen &&
+    plots.editor === null &&
+    solid3D.record === null &&
+    drawing.state.kind === "idle" &&
+    selection.state.interaction.kind === "idle" &&
+    handwriting.state.kind === "idle" &&
+    eraser.preview === null;
+
   useEffect(() => {
     onPresenceChange?.({
       selectedObjectIds: selection.state.selectedObjectIds,
       viewport: {
-        x: document.viewport.offset.x,
-        y: document.viewport.offset.y,
-        zoom: document.viewport.zoom,
+        x: visibleViewport.offset.x,
+        y: visibleViewport.offset.y,
+        zoom: visibleViewport.zoom,
       },
     });
   }, [
-    document.viewport.offset.x,
-    document.viewport.offset.y,
-    document.viewport.zoom,
+    visibleViewport.offset.x,
+    visibleViewport.offset.y,
+    visibleViewport.zoom,
     onPresenceChange,
     selection.state.selectedObjectIds,
   ]);
 
   const commitViewport = useCallback(
     (viewport: ViewportState) => {
+      if (readOnly) {
+        setViewOnlyCamera({ scope: bookmarkScope, viewport });
+        return;
+      }
       commitCommand({
         ...createCommandMetadata(),
         kind: "core.viewport.set",
         viewport,
       });
     },
-    [commitCommand, createCommandMetadata],
+    [bookmarkScope, commitCommand, createCommandMetadata, readOnly],
   );
 
   const resetViewport = useCallback(() => {
@@ -594,6 +733,8 @@ export function App({
     closeInspector: () => setSelectionInspectorObjectId(null),
     closeSettings: () => setSettingsOpen(false),
     closeShortcuts,
+    exitLessonMode: exitLessonModeWithFocus,
+    lessonMode,
     documentController,
     drawing,
     geometryOpen: geometry.open,
@@ -603,6 +744,7 @@ export function App({
     openShortcuts: () => setShortcutsOpen(true),
     onFitAll: fitAll,
     onFitSelection: fitSelection,
+    onTogglePenPreset: togglePenPreset,
     plots,
     readOnly,
     selection,
@@ -686,10 +828,18 @@ export function App({
           remoteCursors={remoteCursors}
           remoteInkPreviews={remoteInkPreviews}
           remoteTransformPreviews={remoteTransformPreviews}
-          scene={scene}
+          scene={visibleScene}
           selection={selection}
           solid3D={solid3D}
         />
+        {plots.editor === null && !lessonMode ? (
+          <BoardViewportBookmarks
+            key={bookmarkScope}
+            storageScope={bookmarkScope}
+            viewport={visibleViewport}
+            onNavigate={commitViewport}
+          />
+        ) : null}
         <BoardOverlays
           activeTool={activeTool}
           geometry={geometry}
@@ -705,48 +855,65 @@ export function App({
           undo={documentController.undo}
           workspaceRef={workspaceRef}
         />
-        <BoardToolDockContainer
-          activeTool={activeTool}
-          collaborativeUndoAvailable={collaborativeUndoAvailable}
-          documentController={documentController}
-          drawing={drawing}
-          eraser={eraser}
-          geometry={geometry}
-          handwrittenFunctionsEnabled={
-            environment.features.handwrittenFunctions
-          }
-          historyEnabled={historyEnabled}
-          interaction={interaction}
-          media={media}
-          onCreatePlot={plots.create}
-          onExportPdfSnapshot={
-            onExportPdfSnapshot === undefined
-              ? undefined
-              : () => onExportPdfSnapshot(getDocument())
-          }
-          onExportPngSnapshot={
-            onExportPngSnapshot === undefined
-              ? undefined
-              : () => onExportPngSnapshot(getDocument())
-          }
-          onExportSvgSnapshot={
-            onExportSvgSnapshot === undefined
-              ? undefined
-              : () => onExportSvgSnapshot(getDocument())
-          }
-          onOpenSettings={() => {
-            geometry.setOpen(false);
-            setSettingsOpen(true);
-          }}
-          plotEditorOpen={plots.editor !== null}
-          readOnly={readOnly}
-          selection={selection}
-          selectionInspectorOpen={selectionInspectorOpen}
-          settingsOpen={settingsOpen}
-          solid3D={solid3D}
-        />
+        {lessonMode && !readOnly ? (
+          <BoardLessonModeControls
+            activeTool={activeTool}
+            fullscreen={lessonFullscreen}
+            onActivate={interaction.activate}
+            onExit={exitLessonModeWithFocus}
+            onToggleFullscreen={toggleLessonFullscreen}
+          />
+        ) : (
+          <BoardToolDockContainer
+            activeTool={activeTool}
+            collaborativeUndoAvailable={collaborativeUndoAvailable}
+            documentController={documentController}
+            drawing={drawing}
+            eraser={eraser}
+            geometry={geometry}
+            handwrittenFunctionsEnabled={
+              environment.features.handwrittenFunctions
+            }
+            historyEnabled={historyEnabled}
+            interaction={interaction}
+            media={media}
+            onCreatePlot={plots.create}
+            onExportPdfSnapshot={
+              onExportPdfSnapshot === undefined
+                ? undefined
+                : () => onExportPdfSnapshot(getDocument())
+            }
+            onExportPngSnapshot={
+              onExportPngSnapshot === undefined
+                ? undefined
+                : () => onExportPngSnapshot(getDocument())
+            }
+            onExportSvgSnapshot={
+              onExportSvgSnapshot === undefined
+                ? undefined
+                : () => onExportSvgSnapshot(getDocument())
+            }
+            onOpenSettings={() => {
+              geometry.setOpen(false);
+              setSettingsOpen(true);
+            }}
+            onEnterLessonMode={() => {
+              if (canEnterLessonMode) setLessonMode(true);
+            }}
+            lessonModeAvailable={canEnterLessonMode}
+            plotEditorOpen={plots.editor !== null}
+            quickTools={quickTools}
+            onApplyPenPreset={applyPenPreset}
+            readOnly={readOnly}
+            selection={selection}
+            selectionInspectorOpen={selectionInspectorOpen}
+            settingsOpen={settingsOpen}
+            solid3D={solid3D}
+          />
+        )}
         <BoardSettingsPanel
           clipboard={clipboard}
+          viewport={visibleViewport}
           developmentDiagnostics={environment.features.developmentDiagnostics}
           document={document}
           interaction={interaction}

@@ -15,6 +15,7 @@ export type BoardShortcutAction =
   | "plot.create"
   | "viewport.fit-all"
   | "viewport.fit-selection"
+  | "pen.preset.toggle"
   | "color.1"
   | "color.2"
   | "color.3"
@@ -41,6 +42,13 @@ export const boardShortcutBindings: readonly BoardShortcutBinding[] = [
     shift: true,
   },
   { action: "tool.pen", code: "KeyP", display: "P", requiresWrite: true },
+  {
+    action: "pen.preset.toggle",
+    code: "KeyP",
+    shift: true,
+    display: "Shift+P",
+    requiresWrite: true,
+  },
   {
     action: "tool.smart-ink",
     code: "KeyI",
