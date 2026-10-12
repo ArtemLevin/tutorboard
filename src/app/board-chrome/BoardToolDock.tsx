@@ -989,7 +989,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                   setOpenMenu(null);
                   props.onApplyPenPreset(slot);
                 }}
-                title={`Перо ${slot === 0 ? "А" : slot === 1 ? "Б" : "В"} — ${preset.strokeWidth} px`}
+                title={`Перо ${slot === 0 ? "А (письмо)" : slot === 1 ? "Б (акцент)" : "В (пометки)"} — ${preset.strokeWidth} px`}
                 type="button"
               >
                 <span
