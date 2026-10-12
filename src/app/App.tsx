@@ -796,6 +796,7 @@ export function App({
         />
         <BoardSettingsPanel
           clipboard={clipboard}
+          viewport={visibleViewport}
           developmentDiagnostics={environment.features.developmentDiagnostics}
           document={document}
           interaction={interaction}
