@@ -95,7 +95,10 @@ describe("quick tool preferences", () => {
     expect(current.penPresets[2].strokeWidth).toBe(3.5);
     expect(current.lastSelectedSlot).toBe(2);
     expect(current.stylusEraserEnabled).toBe(true);
-    expect(normalizeQuickToolPreferences({ ...current, stylusEraserEnabled: "true" }).stylusEraserEnabled).toBe(false);
+    expect(
+      normalizeQuickToolPreferences({ ...current, stylusEraserEnabled: "true" })
+        .stylusEraserEnabled,
+    ).toBe(false);
   });
 
   it("falls back safely for corrupt storage and keeps document preferences separate", () => {

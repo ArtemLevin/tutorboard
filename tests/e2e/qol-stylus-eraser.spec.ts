@@ -7,35 +7,43 @@ test.beforeEach(async ({ page }) => {
 
 async function penEvent(
   page: Page,
-  kind: "pointerdown" | "pointermove" | "pointerup" | "pointercancel" | "lostpointercapture",
+  kind:
+    | "pointerdown"
+    | "pointermove"
+    | "pointerup"
+    | "pointercancel"
+    | "lostpointercapture",
   pointerId: number,
   button: number,
   buttons: number,
 ) {
-  await page.evaluate(({ kind, pointerId, button, buttons }) => {
-    const container = document.querySelector<HTMLElement>(".konvajs-content");
-    if (container === null) throw new Error("Missing Konva stage container");
-    // Browser dispatchEvent does not register synthetic pointers with the UA's
-    // pointer-capture system. Let the real Konva session receive and handle
-    // synthetic events while keeping the rest of the runtime unchanged.
-    container.setPointerCapture = () => {};
-    container.releasePointerCapture = () => {};
-    const bounds = container.getBoundingClientRect();
-    const target = kind === "pointerdown" ? container : window;
-    target.dispatchEvent(
-      new PointerEvent(kind, {
-        bubbles: true,
-        pointerId,
-        pointerType: "pen",
-        isPrimary: true,
-        button,
-        buttons,
-        pressure: buttons === 0 ? 0 : 0.7,
-        clientX: bounds.left + 320,
-        clientY: bounds.top + 220,
-      }),
-    );
-  }, { kind, pointerId, button, buttons });
+  await page.evaluate(
+    ({ kind, pointerId, button, buttons }) => {
+      const container = document.querySelector<HTMLElement>(".konvajs-content");
+      if (container === null) throw new Error("Missing Konva stage container");
+      // Browser dispatchEvent does not register synthetic pointers with the UA's
+      // pointer-capture system. Let the real Konva session receive and handle
+      // synthetic events while keeping the rest of the runtime unchanged.
+      container.setPointerCapture = () => {};
+      container.releasePointerCapture = () => {};
+      const bounds = container.getBoundingClientRect();
+      const target = kind === "pointerdown" ? container : window;
+      target.dispatchEvent(
+        new PointerEvent(kind, {
+          bubbles: true,
+          pointerId,
+          pointerType: "pen",
+          isPrimary: true,
+          button,
+          buttons,
+          pressure: buttons === 0 ? 0 : 0.7,
+          clientX: bounds.left + 320,
+          clientY: bounds.top + 220,
+        }),
+      );
+    },
+    { kind, pointerId, button, buttons },
+  );
 }
 
 test("@smoke third pen profile saves and restores without altering the classic A/B shortcut", async ({
@@ -52,12 +60,20 @@ test("@smoke third pen profile saves and restores without altering the classic A
   await page.keyboard.press("Shift+p");
   await page.getByRole("button", { name: "Применить стиль пера В" }).click();
   await expect(width).toHaveValue("5.5");
-  await page.getByRole("checkbox", { name: "Кнопка стилуса временно включает ластик" }).check();
+  await page
+    .getByRole("checkbox", { name: "Кнопка стилуса временно включает ластик" })
+    .check();
   await page.reload();
-  await expect(page.getByRole("button", { name: "Применить стиль пера В" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Применить стиль пера В" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Применить стиль пера В" }).click();
   await expect(width).toHaveValue("5.5");
-  await expect(page.getByRole("checkbox", { name: "Кнопка стилуса временно включает ластик" })).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Кнопка стилуса временно включает ластик",
+    }),
+  ).toBeChecked();
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
 });
 
@@ -72,7 +88,9 @@ test("@smoke a pen barrel button temporarily erases and safely restores the pen"
   await expect(stage).toHaveAttribute("data-stylus-eraser-active", "false");
   await penEvent(page, "pointerup", 71, 2, 0);
 
-  await page.getByRole("checkbox", { name: "Кнопка стилуса временно включает ластик" }).check();
+  await page
+    .getByRole("checkbox", { name: "Кнопка стилуса временно включает ластик" })
+    .check();
   await penEvent(page, "pointerdown", 72, 2, 2);
   await expect(stage).toHaveAttribute("data-stylus-eraser-active", "true");
   await penEvent(page, "pointermove", 72, -1, 2);

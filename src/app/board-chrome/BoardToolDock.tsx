@@ -860,7 +860,9 @@ export function BoardToolDock(props: BoardToolDockProps) {
               <input
                 aria-label="Кнопка стилуса временно включает ластик"
                 checked={props.stylusEraserEnabled}
-                onChange={(event) => props.onStylusEraserEnabledChange(event.currentTarget.checked)}
+                onChange={(event) =>
+                  props.onStylusEraserEnabledChange(event.currentTarget.checked)
+                }
                 type="checkbox"
               />
               <span>Ластик кнопкой стилуса</span>

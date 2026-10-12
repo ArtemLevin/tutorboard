@@ -1213,7 +1213,8 @@ export function BoardStage({
       if (commit && event !== undefined) {
         const samples = worldSamples(event, session);
         const finalSample = samples.at(-1);
-        if (!session.stylusEraser) wetInkRendererRef.current?.finish(samples, []);
+        if (!session.stylusEraser)
+          wetInkRendererRef.current?.finish(samples, []);
         if (finalSample !== undefined) {
           enqueueWorldPointerMoves(samples.slice(0, -1));
           flushWorldPointerMoves();
@@ -1970,7 +1971,11 @@ export function BoardStage({
   };
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
-    const penEraser = startsStylusEraser(event.evt, stylusEraserEnabled, drawingModeKey);
+    const penEraser = startsStylusEraser(
+      event.evt,
+      stylusEraserEnabled,
+      drawingModeKey,
+    );
     const isRightButton = event.evt.button === 2 && !penEraser;
     if (isRightButton && rightContextMenuTimeoutRef.current !== null) {
       window.clearTimeout(rightContextMenuTimeoutRef.current);
@@ -2110,7 +2115,9 @@ export function BoardStage({
         setStylusEraserActive(true);
         stylusEraserChangeRef.current?.(true);
       }
-      animatedImageRedraw.setInteractionActive(!penEraser && wetInkStyle !== null);
+      animatedImageRedraw.setInteractionActive(
+        !penEraser && wetInkStyle !== null,
+      );
       setIsDrawing(true);
       worldPointerBacklogPeakRef.current = 0;
       if (rootRef.current !== null) {

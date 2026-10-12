@@ -191,10 +191,22 @@ export function useQuickToolPreferences() {
         ...current,
         penPresets:
           slot === 0
-            ? [normalizeDrawingToolStyle("drawing.pen", style), current.penPresets[1], current.penPresets[2]]
+            ? [
+                normalizeDrawingToolStyle("drawing.pen", style),
+                current.penPresets[1],
+                current.penPresets[2],
+              ]
             : slot === 1
-              ? [current.penPresets[0], normalizeDrawingToolStyle("drawing.pen", style), current.penPresets[2]]
-              : [current.penPresets[0], current.penPresets[1], normalizeDrawingToolStyle("drawing.pen", style)],
+              ? [
+                  current.penPresets[0],
+                  normalizeDrawingToolStyle("drawing.pen", style),
+                  current.penPresets[2],
+                ]
+              : [
+                  current.penPresets[0],
+                  current.penPresets[1],
+                  normalizeDrawingToolStyle("drawing.pen", style),
+                ],
         lastSelectedSlot: slot,
       }));
     },
@@ -213,7 +225,10 @@ export function useQuickToolPreferences() {
 
   const setStylusEraserEnabled = useCallback(
     (enabled: boolean) => {
-      updatePreferences((current) => ({ ...current, stylusEraserEnabled: enabled }));
+      updatePreferences((current) => ({
+        ...current,
+        stylusEraserEnabled: enabled,
+      }));
     },
     [updatePreferences],
   );

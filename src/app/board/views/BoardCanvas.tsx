@@ -188,7 +188,8 @@ export function BoardCanvas({
   );
   const eraserHiddenIds = useMemo(
     () =>
-      (activeTool === eraserToolId || stylusEraserActive) && eraser.preview !== null
+      (activeTool === eraserToolId || stylusEraserActive) &&
+      eraser.preview !== null
         ? new Set(eraser.preview.hiddenObjectIds)
         : new Set<BoardObjectId>(),
     [activeTool, eraser.preview, stylusEraserActive],
@@ -211,7 +212,8 @@ export function BoardCanvas({
   );
   const previewItems = useMemo(
     () => [
-      ...((activeTool === eraserToolId || stylusEraserActive) && eraser.preview !== null
+      ...((activeTool === eraserToolId || stylusEraserActive) &&
+      eraser.preview !== null
         ? eraser.preview.replacementObjects.map((object) => ({
             object,
             transforms: [],
@@ -389,7 +391,11 @@ export function BoardCanvas({
       <BoardStage
         coordinatePlotInteraction={plots.renderInteraction}
         drawingConstraintFeedback={drawing.constraintFeedback}
-        eraserPoint={activeTool === eraserToolId || stylusEraserActive ? eraser.point : null}
+        eraserPoint={
+          activeTool === eraserToolId || stylusEraserActive
+            ? eraser.point
+            : null
+        }
         stylusEraserEnabled={stylusEraserEnabled && !readOnly}
         onStylusEraserChange={setStylusEraserActive}
         eraserRadiusPx={eraser.radiusPx}

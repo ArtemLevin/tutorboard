@@ -17,9 +17,7 @@ export function startsStylusEraser(
   if (!enabled || activeTool !== "drawing.pen" || event.pointerType !== "pen")
     return false;
   return (
-    event.button === 2 ||
-    event.button === 5 ||
-    (event.buttons & (2 | 32)) !== 0
+    event.button === 2 || event.button === 5 || (event.buttons & (2 | 32)) !== 0
   );
 }
 
@@ -31,13 +29,26 @@ export interface StylusEraserGesture {
 export function transitionStylusEraserGesture(
   current: StylusEraserGesture | null,
   event:
-    | { readonly kind: "start"; readonly pointerId: number; readonly enabled: boolean }
-    | { readonly kind: "end" | "cancel" | "lostcapture"; readonly pointerId: number }
+    | {
+        readonly kind: "start";
+        readonly pointerId: number;
+        readonly enabled: boolean;
+      }
+    | {
+        readonly kind: "end" | "cancel" | "lostcapture";
+        readonly pointerId: number;
+      }
     | { readonly kind: "blur" | "disable" | "unmount" },
 ): StylusEraserGesture | null {
   if (event.kind === "start")
-    return current === null && event.enabled ? { pointerId: event.pointerId } : current;
-  if (event.kind === "blur" || event.kind === "disable" || event.kind === "unmount")
+    return current === null && event.enabled
+      ? { pointerId: event.pointerId }
+      : current;
+  if (
+    event.kind === "blur" ||
+    event.kind === "disable" ||
+    event.kind === "unmount"
+  )
     return null;
   return current?.pointerId === event.pointerId ? null : current;
 }

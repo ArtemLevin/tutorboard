@@ -1,5 +1,8 @@
 import { useCallback, useRef } from "react";
-import { transitionStylusEraserGesture, type StylusEraserGesture } from "../../../shared/stylus-eraser";
+import {
+  transitionStylusEraserGesture,
+  type StylusEraserGesture,
+} from "../../../shared/stylus-eraser";
 
 import { isDrawingToolId } from "../../../modules/drawing/public";
 import { eraserToolId } from "../../../modules/eraser/public";
@@ -70,7 +73,8 @@ export function useBoardInteractionRouter({
       drawing.cancel();
       eraser.cancel();
       stylusEraserSessionRef.current = transitionStylusEraserGesture(
-        stylusEraserSessionRef.current, { kind: "disable" },
+        stylusEraserSessionRef.current,
+        { kind: "disable" },
       );
       drawing.setSmartInkNotice(null);
       selection.cancel();
@@ -160,7 +164,9 @@ export function useBoardInteractionRouter({
       if (samples[0]?.stylusEraser === true) {
         const pointerId = stylusEraserSessionRef.current?.pointerId;
         if (pointerId !== undefined)
-          eraser.moveBatch(samples.filter((sample) => sample.pointerId === pointerId));
+          eraser.moveBatch(
+            samples.filter((sample) => sample.pointerId === pointerId),
+          );
         return;
       }
       if (activeTool === laserToolId) {
