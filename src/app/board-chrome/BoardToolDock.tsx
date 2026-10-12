@@ -291,7 +291,7 @@ function ToolSettingsVisibility({
     if (!pointerDown) return;
     const release = () => {
       setPointerDown(false);
-      keepOpen();
+      setActivity((current) => current + 1);
     };
     window.addEventListener("pointerup", release);
     window.addEventListener("pointercancel", release);
