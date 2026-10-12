@@ -32,7 +32,7 @@ Sources: [diagnostic run 1](https://github.com/ArtemLevin/tutorboard/actions/run
 
 ## Applied CI fix
 
-The time-sensitive 240 Hz smoke is assigned `@frame-budget` and executes as a separate mandatory Chromium/Firefox matrix job with `--workers=1 --repeat-each=3 --retries=0`. Parallel browser smoke excludes this one scenario; production-image now requires the isolated job as well. No performance budgets were raised, and the test is neither skipped nor marked expected-to-fail. The rest of the browser tests keep their parallel execution.
+The time-sensitive 240 Hz smoke is assigned `@frame-budget` and executes as a mandatory **sequential step** following the ordinary smoke tests in each existing Chromium/Firefox matrix job, with `--workers=1 --repeat-each=3 --retries=0`. Parallel browser smoke excludes this one scenario; production-image already requires the browser smoke matrix and therefore also requires the isolated budget step. Reusing the installed browser avoids duplicated browser provisioning on separate runners. No performance budgets were raised, and the test is neither skipped nor marked expected-to-fail. The rest of the browser tests keep their parallel execution.
 
 The isolated job is intentionally CPU-uncontended with respect to other Playwright workers on its runner. If a gap above 150 ms now occurs, the job fails and uploads measurement evidence. The test also records the gap's surface-draw duration and associated Long Task intervals (when the browser supports that observer).
 
