@@ -249,7 +249,13 @@ export function App({
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [lessonMode, setLessonMode] = useState(false);
+  const [lessonModeReadOnly, setLessonModeReadOnly] = useState(readOnly);
   const [lessonFullscreen, setLessonFullscreen] = useState(false);
+  // Role changes invalidate a local presentation session, including re-grants.
+  if (lessonModeReadOnly !== readOnly) {
+    setLessonModeReadOnly(readOnly);
+    setLessonMode(false);
+  }
   const shortcutsButtonRef = useRef<HTMLButtonElement>(null);
   const shortcutsDialogRef = useRef<HTMLElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
@@ -336,8 +342,16 @@ export function App({
   }, [exitLessonMode, lessonMode]);
 
   useEffect(() => {
-    if (readOnly && lessonMode) exitLessonMode();
-  }, [exitLessonMode, lessonMode, readOnly]);
+    if (
+      readOnly &&
+      globalThis.document.fullscreenElement === workspaceRef.current &&
+      typeof globalThis.document.exitFullscreen === "function"
+    ) {
+      void globalThis.document.exitFullscreen().catch(() => {
+        announce("Не удалось выйти из полноэкранного режима");
+      });
+    }
+  }, [announce, readOnly]);
 
   const closeShortcuts = useCallback(() => {
     setShortcutsOpen(false);
