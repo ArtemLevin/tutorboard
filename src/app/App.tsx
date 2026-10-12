@@ -406,13 +406,13 @@ export function App({
         : { scope: bookmarkScope, viewport: document.viewport },
     );
   }, [bookmarkScope, document.viewport, localViewportEnabled]);
-  const followingTeacher = teacherFollow?.active === true && teacherFollow.viewport !== null;
+  const followedViewport = teacherFollow?.active ? teacherFollow.viewport : null;
+  const followingTeacher = followedViewport !== null && followedViewport !== undefined;
   const visibleViewport =
-    followingTeacher && teacherFollow?.viewport !== null
-      ? teacherFollow.viewport
-      : (readOnly || localViewportEnabled) && viewOnlyCamera?.scope === bookmarkScope
-        ? viewOnlyCamera.viewport
-        : document.viewport;
+    followedViewport ??
+    ((readOnly || localViewportEnabled) && viewOnlyCamera?.scope === bookmarkScope
+      ? viewOnlyCamera.viewport
+      : document.viewport);
   const lastFollowCameraRef = useRef<{
     readonly scope: string;
     readonly viewport: ViewportState;
