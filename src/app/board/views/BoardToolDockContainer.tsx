@@ -105,7 +105,8 @@ export function BoardToolDockContainer({
       onOpenSettings={onOpenSettings}
       onApplyPenPreset={onApplyPenPreset}
       onSavePenPreset={(slot) => {
-        if (!readOnly) quickTools.savePenPreset(slot, drawing.styleFor("drawing.pen"));
+        if (!readOnly)
+          quickTools.savePenPreset(slot, drawing.styleFor("drawing.pen"));
       }}
       onToggleFavorite={quickTools.toggleFavorite}
       favoriteTools={quickTools.favorites}

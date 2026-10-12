@@ -13,15 +13,35 @@ export const maxFavoriteTools = 5;
 
 export const availableFavoriteTools = [
   { id: "drawing.pen", icon: "✎", label: "Перо", requiresWrite: true },
-  { id: "drawing.smart-ink", icon: "✦", label: "Smart Ink", requiresWrite: true },
+  {
+    id: "drawing.smart-ink",
+    icon: "✦",
+    label: "Smart Ink",
+    requiresWrite: true,
+  },
   { id: "drawing.line", icon: "╱", label: "Линия", requiresWrite: true },
-  { id: "drawing.rectangle", icon: "▭", label: "Прямоугольник", requiresWrite: true },
+  {
+    id: "drawing.rectangle",
+    icon: "▭",
+    label: "Прямоугольник",
+    requiresWrite: true,
+  },
   { id: "drawing.ellipse", icon: "◯", label: "Эллипс", requiresWrite: true },
-  { id: "drawing.polygon", icon: "⬡", label: "Многоугольник", requiresWrite: true },
+  {
+    id: "drawing.polygon",
+    icon: "⬡",
+    label: "Многоугольник",
+    requiresWrite: true,
+  },
   { id: "drawing.text", icon: "T", label: "Текст", requiresWrite: true },
   { id: "editing.eraser", icon: "⌫", label: "Ластик", requiresWrite: true },
   { id: "navigation.pan", icon: "✋", label: "Рука", requiresWrite: false },
-  { id: "selection.select", icon: "⌖", label: "Выделение", requiresWrite: false },
+  {
+    id: "selection.select",
+    icon: "⌖",
+    label: "Выделение",
+    requiresWrite: false,
+  },
   { id: "presentation.laser", icon: "●", label: "Лазер", requiresWrite: false },
 ] as const;
 
@@ -46,10 +66,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 
 function defaultPenPresets(): PenPresetPair {
   const pen = defaultDrawingToolStyle("drawing.pen");
-  return [
-    pen,
-    { ...pen, stroke: "#2563eb", strokeWidth: 6 },
-  ];
+  return [pen, { ...pen, stroke: "#2563eb", strokeWidth: 6 }];
 }
 
 export function normalizeQuickToolPreferences(
@@ -89,7 +106,9 @@ export function readQuickToolPreferences(
   if (storage === null) return normalizeQuickToolPreferences(null);
   try {
     const stored = storage.getItem(quickToolPreferencesStorageKey);
-    return normalizeQuickToolPreferences(stored === null ? null : JSON.parse(stored));
+    return normalizeQuickToolPreferences(
+      stored === null ? null : JSON.parse(stored),
+    );
   } catch {
     return normalizeQuickToolPreferences(null);
   }
@@ -164,8 +183,14 @@ export function useQuickToolPreferences() {
         ...current,
         penPresets:
           slot === 0
-            ? [normalizeDrawingToolStyle("drawing.pen", style), current.penPresets[1]]
-            : [current.penPresets[0], normalizeDrawingToolStyle("drawing.pen", style)],
+            ? [
+                normalizeDrawingToolStyle("drawing.pen", style),
+                current.penPresets[1],
+              ]
+            : [
+                current.penPresets[0],
+                normalizeDrawingToolStyle("drawing.pen", style),
+              ],
         lastSelectedSlot: slot,
       }));
     },

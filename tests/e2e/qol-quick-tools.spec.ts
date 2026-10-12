@@ -23,7 +23,9 @@ test("@smoke saves up to five favorite tool shortcuts and restores them after re
   await favorites.getByRole("menuitemcheckbox", { name: "Линия" }).click();
   await favorites.getByRole("menuitemcheckbox", { name: "Эллипс" }).click();
   await favorites.getByRole("menuitemcheckbox", { name: "Текст" }).click();
-  await favorites.getByRole("menuitemcheckbox", { name: "Прямоугольник" }).click();
+  await favorites
+    .getByRole("menuitemcheckbox", { name: "Прямоугольник" })
+    .click();
   await expect(
     favorites.getByRole("menuitemcheckbox", { name: "Smart Ink" }),
   ).toBeDisabled();
@@ -86,13 +88,11 @@ test("favorites persist as device UI preferences without BoardDocument commands"
 }) => {
   const before = await page.getByTestId("object-count").textContent();
   await page.getByRole("button", { name: "Избранное", exact: true }).click();
-  await page
-    .getByRole("menuitemcheckbox", { name: "Прямоугольник" })
-    .click();
+  await page.getByRole("menuitemcheckbox", { name: "Прямоугольник" }).click();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("object-count")).toHaveText(before ?? "");
-  const stored = await page.evaluate(
-    () => localStorage.getItem("tutorboard.quick-tools/1"),
+  const stored = await page.evaluate(() =>
+    localStorage.getItem("tutorboard.quick-tools/1"),
   );
   expect(stored).not.toBeNull();
   const preferences = JSON.parse(stored ?? "{}") as {
