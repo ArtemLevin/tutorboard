@@ -2641,8 +2641,10 @@ tutor/admin, привязка к room/actor/client/accessEpoch, сброс пр�
 и смене прав. Ручная навигация отключает следование; циклического rebroadcast
 viewport нет. Контракт и доказательства server-side authority:
 `docs/QOL_2_6_TEACHER_FOLLOW_CONTRACT_2026-10-12.md`.
-Добавлены unit и two-client standalone pilot E2E; проверка CI ожидается.
-Production rollout остаётся отдельным этапом.
+Добавлены unit и two-client standalone pilot E2E; запуск полного CI и
+закреплённого backend fullstack gate выполняется для PR #252. При проверках
+обнаружен и исправлен сброс sequence/viewport после повторного `presence.joined`
+одного `clientId`. Production rollout остаётся отдельным этапом.
 
 **Цель:** ученик по собственному выбору следует за областью доски,
 которую демонстрирует преподаватель.
