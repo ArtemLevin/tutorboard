@@ -1,0 +1,30 @@
+name: Temporary QoL viewport formatter
+
+on:
+  push:
+    branches:
+      - feat/qol-4-fit-board-viewport
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write src/app/App.tsx src/app/board/viewport-fit.ts src/app/board/viewport-fit.test.ts src/app/board/views/BoardSettingsPanel.tsx src/app/board/controllers/useBoardKeyboardShortcuts.ts src/app/board/shortcuts/board-shortcuts.ts tests/e2e/viewport-fit.spec.ts
+      - name: Commit normalized formatting
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/App.tsx src/app/board/viewport-fit.ts src/app/board/viewport-fit.test.ts src/app/board/views/BoardSettingsPanel.tsx src/app/board/controllers/useBoardKeyboardShortcuts.ts src/app/board/shortcuts/board-shortcuts.ts tests/e2e/viewport-fit.spec.ts
+          git commit -m "style(qol): normalize viewport fit implementation"
+          git push origin HEAD:feat/qol-4-fit-board-viewport
