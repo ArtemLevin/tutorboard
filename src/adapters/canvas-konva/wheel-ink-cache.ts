@@ -25,9 +25,20 @@ export interface WheelInkNode {
 export const minimumWheelCacheStrokes = 80;
 export const maximumWheelCachePixels = 4_000_000;
 
-function boundedPixelRatio(devicePixelRatio: number): number {
-  if (!Number.isFinite(devicePixelRatio)) return 1;
-  return Math.max(1, Math.min(2, devicePixelRatio));
+/**
+ * The cache raster lives in world coordinates and is scaled by the viewport.
+ * Allocating only at device DPR makes visible ink blurry at zoom > 1, even
+ * before a wheel gesture, because idle-prepared Konva caches are painted.
+ * Use the actual number of device pixels per world unit; the fixed pixel
+ * budget below decides whether caching is safe at that resolution.
+ */
+function visiblePixelRatio(devicePixelRatio: number, zoom: number): number {
+  const dpr =
+    Number.isFinite(devicePixelRatio) && devicePixelRatio > 0
+      ? Math.max(1, devicePixelRatio)
+      : 1;
+  const viewportZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  return dpr * viewportZoom;
 }
 
 export class WheelInkCacheCoordinator {
@@ -35,6 +46,7 @@ export class WheelInkCacheCoordinator {
   readonly #cached = new Set<WheelInkNode>();
   #active = false;
   #preparedPixelRatio: number | null = null;
+  #cachedPixelRatio: number | null = null;
   #buildCount = 0;
   #lastBuildDurationMs = 0;
   #lastBuildPixels = 0;
@@ -47,6 +59,10 @@ export class WheelInkCacheCoordinator {
 
   get cachedCount(): number {
     return this.#cached.size;
+  }
+
+  get cachedPixelRatio(): number | null {
+    return this.#cachedPixelRatio;
   }
 
   /** Cached runs attached to an active gesture; idle-prepared runs are separate. */
@@ -111,9 +127,9 @@ export class WheelInkCacheCoordinator {
     };
   }
 
-  prepare(devicePixelRatio = 1): boolean {
+  prepare(devicePixelRatio = 1, zoom = 1): boolean {
     if (!this.canPrepare) return false;
-    const ratio = boundedPixelRatio(devicePixelRatio);
+    const ratio = visiblePixelRatio(devicePixelRatio, zoom);
     this.#build(ratio);
     if (this.#cached.size === 0) return false;
     this.#preparedPixelRatio = ratio;
@@ -122,14 +138,20 @@ export class WheelInkCacheCoordinator {
 
   begin(
     devicePixelRatio = 1,
-    { buildIfUnprepared = true }: { readonly buildIfUnprepared?: boolean } = {},
+    {
+      buildIfUnprepared = true,
+      zoom = 1,
+    }: { readonly buildIfUnprepared?: boolean; readonly zoom?: number } = {},
   ): void {
     if (this.#active) return;
     const startedAt = performance.now();
     this.#lastWheelBeginStartMs = startedAt;
     this.#active = true;
-    const ratio = boundedPixelRatio(devicePixelRatio);
-    this.#lastWheelUsedPrepared = this.#preparedPixelRatio === ratio;
+    const ratio = visiblePixelRatio(devicePixelRatio, zoom);
+    // A sharper cache is safe when zooming out. A smaller one must never
+    // be enlarged beyond the physical pixels required by the new viewport.
+    this.#lastWheelUsedPrepared =
+      this.#preparedPixelRatio !== null && this.#preparedPixelRatio >= ratio;
     this.#lastWheelSkippedColdBuild =
       !this.#lastWheelUsedPrepared && !buildIfUnprepared;
     if (this.#lastWheelUsedPrepared) {
@@ -140,6 +162,20 @@ export class WheelInkCacheCoordinator {
     }
     this.#lastWheelBeginEndMs = performance.now();
     this.#lastWheelBeginDurationMs = this.#lastWheelBeginEndMs - startedAt;
+  }
+
+  /**
+   * Drop the raster as soon as a wheel gesture outgrows its resolution.
+   * The native vector shapes remain mounted and are rendered directly.
+   */
+  ensureSharpness(devicePixelRatio = 1, zoom = 1): void {
+    if (
+      this.#active &&
+      this.#cachedPixelRatio !== null &&
+      this.#cachedPixelRatio < visiblePixelRatio(devicePixelRatio, zoom)
+    ) {
+      this.invalidate();
+    }
   }
 
   #build(ratio: number): void {
@@ -176,11 +212,13 @@ export class WheelInkCacheCoordinator {
       this.#lastBuildPixels += pixels;
       remainingPixels -= pixels;
     }
+    this.#cachedPixelRatio = this.#cached.size > 0 ? ratio : null;
     this.#lastBuildDurationMs = performance.now() - startedAt;
   }
 
   invalidate(): void {
     this.#preparedPixelRatio = null;
+    this.#cachedPixelRatio = null;
     for (const node of this.#cached) this.#release(node);
   }
 
@@ -196,6 +234,7 @@ export class WheelInkCacheCoordinator {
 
   #release(node: WheelInkNode): void {
     if (!this.#cached.delete(node)) return;
+    if (this.#cached.size === 0) this.#cachedPixelRatio = null;
     node.clearCache();
     node.getLayer()?.batchDraw();
   }
