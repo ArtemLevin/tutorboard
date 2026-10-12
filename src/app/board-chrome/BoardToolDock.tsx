@@ -38,6 +38,8 @@ import {
   type PenPresetSlot,
 } from "./quick-tool-preferences";
 
+const penPresetDescriptions = ["А (письмо)", "Б (акцент)", "В (пометки)"] as const;
+
 interface BoardToolDockProps {
   readonly activeStyle: ObjectStyle | null;
   readonly activeTool: string;
@@ -989,7 +991,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                   setOpenMenu(null);
                   props.onApplyPenPreset(slot);
                 }}
-                title={`Перо ${slot === 0 ? "А (письмо)" : slot === 1 ? "Б (акцент)" : "В (пометки)"} — ${preset.strokeWidth} px`}
+                title={`Перо ${penPresetDescriptions[slot]} — ${preset.strokeWidth} px`}
                 type="button"
               >
                 <span
