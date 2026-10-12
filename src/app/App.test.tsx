@@ -289,13 +289,17 @@ describe("App", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Переместить выделение" }),
     );
-    expect(screen.getByTestId("selection-count")).toHaveTextContent("1 выбрано");
+    expect(screen.getByTestId("selection-count")).toHaveTextContent(
+      "1 выбрано",
+    );
     const commandsBefore = onCommandCommitted.mock.calls.length;
     const historyBefore = screen.getByTestId("history-depth").textContent();
 
     fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(screen.getByTestId("selection-count")).toHaveTextContent("1 выбрано");
+    expect(screen.getByTestId("selection-count")).toHaveTextContent(
+      "1 выбрано",
+    );
     expect(screen.getByTestId("history-depth")).toHaveTextContent(
       historyBefore ?? "",
     );
