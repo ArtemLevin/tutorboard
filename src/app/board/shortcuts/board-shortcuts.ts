@@ -13,6 +13,8 @@ export type BoardShortcutAction =
   | "tool.handwritten-function"
   | "tool.laser"
   | "plot.create"
+  | "viewport.fit-all"
+  | "viewport.fit-selection"
   | "color.1"
   | "color.2"
   | "color.3"
@@ -78,6 +80,8 @@ export const boardShortcutBindings: readonly BoardShortcutBinding[] = [
     requiresWrite: true,
   },
   { action: "tool.laser", code: "KeyK", display: "K", requiresWrite: false },
+  { action: "viewport.fit-all", code: "KeyH", display: "Shift+H", requiresWrite: false, shift: true },
+  { action: "viewport.fit-selection", code: "KeyF", display: "Shift+F", requiresWrite: false, shift: true },
   {
     action: "plot.create",
     code: "KeyG",
