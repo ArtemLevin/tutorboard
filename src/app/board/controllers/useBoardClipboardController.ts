@@ -15,6 +15,7 @@ import {
   createPasteContentCommand,
   type BoardClipboardPayload,
 } from "../../../modules/clipboard/public";
+import { selectionIsLocked } from "../../../modules/selection/public";
 import type { BoardDocumentController } from "./useBoardDocumentController";
 import type { BoardSelectionController } from "./useBoardSelectionController";
 
@@ -90,46 +91,70 @@ export function useBoardClipboardController({
     return { count: copied.payload.order.length, ok: true as const };
   }, [commitCommand, createCommandMetadata, getDocument, selection]);
 
+  const insertPayload = useCallback(
+    (source: BoardClipboardPayload, action: "Вставлено" | "Дублировано") => {
+      const token = crypto.randomUUID();
+      let objectSequence = 0;
+      let groupSequence = 0;
+      let importSequence = 0;
+      let solidSequence = 0;
+      const command = createPasteContentCommand(
+        source,
+        {
+          actorId,
+          id: commandId(`command:${token}`),
+          timestamp: new Date().toISOString(),
+        },
+        {
+          geometryImport: () =>
+            geometryImportId(`import:paste:${token}:${importSequence++}`),
+          group: () => groupId(`group:paste:${token}:${groupSequence++}`),
+          object: () =>
+            boardObjectId(`object:paste:${token}:${objectSequence++}`),
+          solid3D: () => solid3DId(`solid:paste:${token}:${solidSequence++}`),
+        },
+      );
+      const result = commitCommand(command);
+      if (!result.ok) {
+        setNotice(result.error.message);
+        return false;
+      }
+      onPasted(command.objects.map(({ id }) => id));
+      setNotice(`${action}: ${command.objects.length}`);
+      return true;
+    },
+    [actorId, commitCommand, onPasted],
+  );
+
   const paste = useCallback(() => {
     if (payload === null) {
       setNotice("Буфер обмена пуст");
       return false;
     }
-    const token = crypto.randomUUID();
-    let objectSequence = 0;
-    let groupSequence = 0;
-    let importSequence = 0;
-    let solidSequence = 0;
-    const command = createPasteContentCommand(
-      payload,
-      {
-        actorId,
-        id: commandId(`command:${token}`),
-        timestamp: new Date().toISOString(),
-      },
-      {
-        geometryImport: () =>
-          geometryImportId(`import:paste:${token}:${importSequence++}`),
-        group: () => groupId(`group:paste:${token}:${groupSequence++}`),
-        object: () =>
-          boardObjectId(`object:paste:${token}:${objectSequence++}`),
-        solid3D: () => solid3DId(`solid:paste:${token}:${solidSequence++}`),
-      },
-    );
-    const result = commitCommand(command);
-    if (!result.ok) {
-      setNotice(result.error.message);
+    return insertPayload(payload, "Вставлено");
+  }, [insertPayload, payload]);
+
+  const duplicate = useCallback(() => {
+    const current = getDocument();
+    const selected = selection.getState();
+    if (
+      selected.interaction.kind !== "idle" ||
+      selected.selectedObjectIds.length === 0 ||
+      selectionIsLocked(current, selected.selectedObjectIds)
+    ) {
+      setNotice("Выделение недоступно для дублирования");
       return false;
     }
-    onPasted(command.objects.map(({ id }) => id));
-    setNotice(`Вставлено: ${command.objects.length}`);
-    return true;
-  }, [actorId, commitCommand, onPasted, payload]);
+    const copied = copyBoardSelection(current, selected.selectedObjectIds);
+    if (copied.status === "error") return false;
+    return insertPayload(copied.payload, "Дублировано");
+  }, [getDocument, insertPayload, selection]);
 
   return {
     clearAll,
     copy,
     cut,
+    duplicate,
     hasContent: payload !== null,
     notice,
     paste,
