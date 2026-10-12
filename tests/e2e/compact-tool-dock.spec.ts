@@ -100,3 +100,57 @@ test("@smoke auto-dismisses Smart Ink settings until the tool is switched", asyn
   await expect(settings).toBeVisible();
   await expect(settings).toHaveCount(0, { timeout: 5_000 });
 });
+
+test("@smoke keeps the desktop tool chooser compact and fully functional", async ({
+  page,
+}) => {
+  const toolbar = page.getByRole("toolbar", { name: "Инструменты доски" });
+  const toolbarBox = await toolbar.boundingBox();
+  expect(toolbarBox).not.toBeNull();
+  if (toolbarBox === null) throw new Error("Tool dock has no bounds.");
+  expect(toolbarBox.height).toBeLessThanOrEqual(52);
+
+  const drawing = page.getByRole("button", { name: "Рисование" });
+  const buttonBox = await drawing.boundingBox();
+  expect(buttonBox).not.toBeNull();
+  if (buttonBox === null) throw new Error("Tool button has no bounds.");
+  expect(buttonBox.width).toBe(40);
+  expect(buttonBox.height).toBe(40);
+
+  await drawing.click();
+  const menu = page.getByRole("menu", { name: "Меню рисования" });
+  await expect(menu).toBeVisible();
+  const menuBox = await menu.boundingBox();
+  expect(menuBox).not.toBeNull();
+  if (menuBox === null) throw new Error("Tool menu has no bounds.");
+  expect(menuBox.width).toBeLessThanOrEqual(300);
+  await menu.getByRole("menuitemradio", { name: /Перо/ }).click();
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-drawing-mode",
+    "drawing.pen",
+  );
+});
+
+test("@smoke retains touch-size controls without horizontal page overflow", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const toolbar = page.getByRole("toolbar", { name: "Инструменты доски" });
+  await expect(toolbar).toBeVisible();
+
+  const button = toolbar.getByRole("button", { name: "Выделение" });
+  const buttonBox = await button.boundingBox();
+  expect(buttonBox).not.toBeNull();
+  if (buttonBox === null) throw new Error("Mobile tool button has no bounds.");
+  expect(buttonBox.width).toBeGreaterThanOrEqual(44);
+  expect(buttonBox.height).toBeGreaterThanOrEqual(44);
+
+  await button.click();
+  await expect(
+    page.getByRole("menu", { name: "Меню выделения" }),
+  ).toBeVisible();
+  const pageOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(pageOverflow).toBe(false);
+});
