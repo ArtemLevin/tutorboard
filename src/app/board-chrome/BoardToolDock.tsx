@@ -288,6 +288,20 @@ function ToolSettingsVisibility({
   const keepOpen = () => setActivity((current) => current + 1);
 
   useEffect(() => {
+    if (!pointerDown) return;
+    const release = () => {
+      setPointerDown(false);
+      keepOpen();
+    };
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    return () => {
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+    };
+  }, [pointerDown]);
+
+  useEffect(() => {
     if (!autoDismiss || pointerDown) return;
     const timeout = window.setTimeout(() => setVisible(false), 2_000);
     return () => window.clearTimeout(timeout);
