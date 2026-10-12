@@ -3,6 +3,7 @@ import type { ReactNode, RefObject } from "react";
 import {
   boardDocumentSchemaVersion,
   type BoardDocument,
+  type ViewportState,
 } from "../../../core/public";
 import { selectionToolId } from "../../../modules/selection/public";
 import { BoardSettingsDialog } from "../../board-chrome/BoardSettingsDialog";
@@ -15,6 +16,7 @@ export interface BoardSettingsPanelProps {
   readonly clipboard: BoardClipboardController;
   readonly developmentDiagnostics: boolean;
   readonly document: BoardDocument;
+  readonly viewport?: ViewportState;
   readonly interaction: BoardInteractionRouter;
   readonly onClose: () => void;
   readonly onExportDiagnostics?: (() => void) | undefined;
@@ -45,6 +47,7 @@ export function BoardSettingsPanel({
   clipboard,
   developmentDiagnostics,
   document,
+  viewport,
   interaction,
   onClose,
   onExportDiagnostics,
@@ -67,6 +70,7 @@ export function BoardSettingsPanel({
   stage,
   standaloneMode = false,
 }: BoardSettingsPanelProps) {
+  const visibleViewport = viewport ?? document.viewport;
   return (
     <BoardSettingsDialog
       onClose={onClose}
@@ -243,13 +247,13 @@ export function BoardSettingsPanel({
         <dl className="board-settings-facts">
           <div>
             <dt>Масштаб</dt>
-            <dd>{Math.round(document.viewport.zoom * 100)}%</dd>
+            <dd>{Math.round(visibleViewport.zoom * 100)}%</dd>
           </div>
           <div>
             <dt>Положение</dt>
             <dd>
-              x {Math.round(document.viewport.offset.x)} · y{" "}
-              {Math.round(document.viewport.offset.y)}
+              x {Math.round(visibleViewport.offset.x)} · y{" "}
+              {Math.round(visibleViewport.offset.y)}
             </dd>
           </div>
         </dl>
