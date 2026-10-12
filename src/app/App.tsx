@@ -282,6 +282,15 @@ export function App({
     }
   }, [announce]);
 
+  const exitLessonModeWithFocus = useCallback(() => {
+    exitLessonMode();
+    requestAnimationFrame(() => {
+      workspaceRef.current
+        ?.querySelector<HTMLButtonElement>('button[aria-label="Режим занятия"]')
+        ?.focus();
+    });
+  }, [exitLessonMode]);
+
   const toggleLessonFullscreen = useCallback(() => {
     const workspace = workspaceRef.current;
     if (workspace === null) return;
@@ -635,6 +644,19 @@ export function App({
     Object.hasOwn(document.objects, selectionInspectorObjectId) &&
     selection.state.selectedObjectIds.includes(selectionInspectorObjectId);
 
+  const canEnterLessonMode =
+    !readOnly &&
+    !settingsOpen &&
+    !shortcutsOpen &&
+    !geometry.open &&
+    !selectionInspectorOpen &&
+    plots.editor === null &&
+    solid3D.record === null &&
+    drawing.state.kind === "idle" &&
+    selection.state.interaction.kind === "idle" &&
+    handwriting.state.kind === "idle" &&
+    eraser.preview === null;
+
   useEffect(() => {
     onPresenceChange?.({
       selectedObjectIds: selection.state.selectedObjectIds,
@@ -697,7 +719,7 @@ export function App({
     closeInspector: () => setSelectionInspectorObjectId(null),
     closeSettings: () => setSettingsOpen(false),
     closeShortcuts,
-    exitLessonMode,
+    exitLessonMode: exitLessonModeWithFocus,
     lessonMode,
     documentController,
     drawing,
@@ -824,10 +846,7 @@ export function App({
             activeTool={activeTool}
             fullscreen={lessonFullscreen}
             onActivate={interaction.activate}
-            onExit={() => {
-              exitLessonMode();
-              requestAnimationFrame(() => workspaceRef.current?.focus());
-            }}
+            onExit={exitLessonModeWithFocus}
             onToggleFullscreen={toggleLessonFullscreen}
           />
         ) : (
@@ -865,25 +884,9 @@ export function App({
               setSettingsOpen(true);
             }}
             onEnterLessonMode={() => {
-              if (
-                !readOnly &&
-                plots.editor === null &&
-                solid3D.record === null &&
-                !geometry.open &&
-                !settingsOpen &&
-                !shortcutsOpen
-              ) {
-                setLessonMode(true);
-              }
+              if (canEnterLessonMode) setLessonMode(true);
             }}
-            lessonModeAvailable={
-              !readOnly &&
-              plots.editor === null &&
-              solid3D.record === null &&
-              !geometry.open &&
-              !settingsOpen &&
-              !shortcutsOpen
-            }
+            lessonModeAvailable={canEnterLessonMode}
             plotEditorOpen={plots.editor !== null}
             quickTools={quickTools}
             onApplyPenPreset={applyPenPreset}
