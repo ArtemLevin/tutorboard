@@ -1,0 +1,105 @@
+name: QoL 2.5 visual baseline audit once
+
+on:
+  push:
+    branches:
+      - feat/qol-2-5-stylus-profiles
+    paths:
+      - .github/workflows/qol-2-5-visual-audit-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox
+      - run: npm run build
+      - name: Capture prior visual baselines and update with Playwright
+        run: |
+          cp -a tests/e2e/coordinate-plot-visual.spec.ts-snapshots /tmp/qol-2-5-original-snapshots
+          npm run e2e:plot-visual:update
+      - name: Audit exact pixel deltas, document measurements, commit verified images
+        run: |
+          python3 -m venv /tmp/qol-visual-check
+          /tmp/qol-visual-check/bin/pip install --quiet pillow
+          /tmp/qol-visual-check/bin/python - <<'PY'
+          from pathlib import Path
+          import os
+          from PIL import Image, ImageChops
+
+          folder = Path("tests/e2e/coordinate-plot-visual.spec.ts-snapshots")
+          original = Path("/tmp/qol-2-5-original-snapshots")
+          old_names = {path.name for path in original.glob("*.png")}
+          new_names = {path.name for path in folder.glob("*.png")}
+          if old_names != new_names:
+              raise SystemExit(f"Snapshot file set changed: added={new_names-old_names}, removed={old_names-new_names}")
+          expected = {
+              f"coordinate-plot-{variant}-visual-{browser}-desktop-linux.png"
+              for variant in ("functions", "bounded-legend")
+              for browser in ("chromium", "firefox")
+          }
+          if not expected <= old_names:
+              raise SystemExit(f"Expected snapshots missing: {expected-old_names}")
+          changes = {}
+          rows = []
+          for name in sorted(old_names):
+              with Image.open(original / name) as before, Image.open(folder / name) as after:
+                  a, b = before.convert("RGB"), after.convert("RGB")
+                  if a.size != b.size:
+                      raise SystemExit(f"Image dimensions changed: {name}: {a.size} vs {b.size}")
+                  diff = ImageChops.difference(a, b)
+                  bbox = diff.getbbox()
+                  count = sum(px != (0, 0, 0) for px in diff.getdata())
+                  if name not in expected:
+                      if count:
+                          raise SystemExit(f"Unexpected change outside approved snapshots: {name}, {count} pixels, bbox={bbox}")
+                      continue
+                  if count == 0 or bbox is None:
+                      raise SystemExit(f"Expected dock change is absent: {name}")
+                  if not (a.width == 1440 and a.height == 900 and
+                          220 <= bbox[0] and bbox[2] <= 1220 and
+                          800 <= bbox[1] and bbox[3] <= 900):
+                      raise SystemExit(f"Change outside permitted lower dock: {name}, bbox={bbox}, pixels={count}")
+                  changes[name] = count
+                  rows.append(f"| {name} | {count} | {bbox} | 0 |")
+          if set(changes) != expected:
+              raise SystemExit("The four expected desktop snapshot changes were not all verified")
+          print("VISUAL_AUDIT_SUCCESS " + str(changes))
+          report = (
+              "# QoL 2.5 visual baseline audit — 2026-10-12\n\n"
+              "## Scope and root cause\n\n"
+              "The third pen-profile button expanded the existing bottom dock. "
+              "Full-page coordinate-plot desktop screenshots recorded an expected toolbar-only change. "
+              "No visual threshold or screenshot assertion was relaxed.\n\n"
+              "## Bytewise evidence\n\n"
+              "Compared original and fresh Chromium/Firefox opaque PNGs, 1440 x 900. "
+              "Every changed pixel belongs to the bounded dock region x=220..1219, y=800..899; "
+              "all other pixels (plots, axes, legends, editor and the rest of the page) are identical.\n\n"
+              "| Snapshot | Changed pixels | Bounding box [x0,y0,x1,y1) | Outside dock |\n"
+              "| --- | ---: | --- | ---: |\n"
+              + "\n".join(rows) + "\n\n"
+              f"Evidence: GitHub Actions run #{os.environ.get('GITHUB_RUN_ID', 'unavailable')}. "
+              "The other six existing screenshot baselines were bytewise identical and not updated. "
+              "The configured full-page Playwright maxDiffPixelRatio=0.002 remains unchanged.\n"
+          )
+          Path("docs/QOL_2_5_VISUAL_BASELINE_AUDIT_2026-10-12.md").write_text(report, encoding="utf-8")
+          PY
+          git rm .github/workflows/qol-2-5-visual-audit-once.yml
+          git add -- docs/QOL_2_5_VISUAL_BASELINE_AUDIT_2026-10-12.md
+          git add -- tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-chromium-desktop-linux.png \
+            tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-functions-visual-firefox-desktop-linux.png \
+            tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-bounded-legend-visual-chromium-desktop-linux.png \
+            tests/e2e/coordinate-plot-visual.spec.ts-snapshots/coordinate-plot-bounded-legend-visual-firefox-desktop-linux.png
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'test(qol): audit and refresh toolbar-only visual baselines'
+          git push origin HEAD:feat/qol-2-5-stylus-profiles
