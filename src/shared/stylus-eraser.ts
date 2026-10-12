@@ -44,11 +44,6 @@ export function transitionStylusEraserGesture(
     return current === null && event.enabled
       ? { pointerId: event.pointerId }
       : current;
-  if (
-    event.kind === "blur" ||
-    event.kind === "disable" ||
-    event.kind === "unmount"
-  )
-    return null;
+  if (!("pointerId" in event)) return null;
   return current?.pointerId === event.pointerId ? null : current;
 }
