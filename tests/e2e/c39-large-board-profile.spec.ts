@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 
 import { expect, test, type Page } from "@playwright/test";
@@ -36,6 +37,12 @@ interface BrowserCapture {
   stop(): {
     readonly timestamps: readonly number[];
     readonly wheelTimes: readonly number[];
+    readonly cameras: readonly {
+      zoom: number;
+      x: number;
+      y: number;
+      visible: number;
+    }[];
   };
 }
 type CapturingWindow = Window & { __c39Capture?: BrowserCapture };
@@ -470,10 +477,61 @@ async function settleFrames(page: Page, count: number): Promise<void> {
   }, count);
 }
 
+async function captureScenePixels(page: Page): Promise<Buffer> {
+  // A locator screenshot includes fixed toolbars that overlap the board.
+  // Composite only production scene canvases, at their native backing DPR.
+  const png = await page.evaluate(() => {
+    const layers = [
+      ...document.querySelectorAll<HTMLCanvasElement>(
+        '[data-testid="board-stage"] .konvajs-content > canvas',
+      ),
+    ];
+    if (!layers.length) throw new Error("Missing scene canvases");
+    const result = document.createElement("canvas");
+    result.width = layers[0]!.width;
+    result.height = layers[0]!.height;
+    const context = result.getContext("2d")!;
+    for (const layer of layers) context.drawImage(layer, 0, 0);
+    return result.toDataURL("image/png").split(",")[1]!;
+  });
+  return Buffer.from(png, "base64");
+}
+
 async function beginFrameCapture(page: Page): Promise<void> {
   await page.evaluate(() => {
     const timestamps: number[] = [];
     const wheelTimes: number[] = [];
+    const cameras: { zoom: number; x: number; y: number; visible: number }[] =
+      [];
+    const stage = document.querySelector<HTMLElement>(
+      '[data-testid="board-stage"]',
+    )!;
+    const observeCamera = () => {
+      const camera = {
+        zoom: Number(stage.dataset.previewZoom),
+        x: Number(stage.dataset.previewOffsetX),
+        y: Number(stage.dataset.previewOffsetY),
+        visible: Number(stage.dataset.visibleObjectCount),
+      };
+      const previous = cameras.at(-1);
+      if (
+        previous === undefined ||
+        previous.zoom !== camera.zoom ||
+        previous.x !== camera.x ||
+        previous.y !== camera.y
+      )
+        cameras.push(camera);
+    };
+    observeCamera();
+    const cameraObserver = new MutationObserver(observeCamera);
+    cameraObserver.observe(stage, {
+      attributes: true,
+      attributeFilter: [
+        "data-preview-zoom",
+        "data-preview-offset-x",
+        "data-preview-offset-y",
+      ],
+    });
     let active = true;
     const onWheel = () => {
       if (wheelTimes.length < 100) wheelTimes.push(performance.now());
@@ -491,7 +549,8 @@ async function beginFrameCapture(page: Page): Promise<void> {
         active = false;
         cancelAnimationFrame(frameId);
         window.removeEventListener("wheel", onWheel, true);
-        return { timestamps, wheelTimes };
+        cameraObserver.disconnect();
+        return { timestamps, wheelTimes, cameras };
       },
     };
   });
@@ -580,8 +639,13 @@ for (const scenario of [
         // Trace-off is the same physical scene without JS event collection.
         // Each test gets an isolated browser context; production never opts in.
         const traceEnabled =
-          scenario.strokes >= 3000 && !scenario.traceDisabled;
-        if (traceEnabled || !scenario.e2) {
+          process.env.C39_TRACE_MODE !== "off" &&
+          scenario.strokes >= 3000 &&
+          !scenario.traceDisabled;
+        if (
+          process.env.C39_TRACE_MODE !== "off" &&
+          (traceEnabled || !scenario.e2)
+        ) {
           await page.addInitScript(() => {
             window.__tutorBoardC37Trace = { events: [] };
           });
@@ -692,6 +756,40 @@ for (const scenario of [
           bounds.x + bounds.width / 2,
           bounds.y + bounds.height / 2,
         );
+        const paired = process.env.C39_PAIRED === "1";
+        const digest = (bytes: Buffer | string) =>
+          createHash("sha256").update(bytes).digest("hex");
+        const initialScreenshot = paired
+          ? await captureScenePixels(page)
+          : null;
+        if (initialScreenshot)
+          await writeFile(
+            testInfo.outputPath("initial.png"),
+            initialScreenshot,
+          );
+        const initialPixels = initialScreenshot
+          ? digest(initialScreenshot)
+          : null;
+        if (initialScreenshot)
+          await testInfo.attach("initial-pixels", {
+            body: initialScreenshot,
+            contentType: "image/png",
+          });
+        const runtime = paired
+          ? await page.evaluate(() => {
+              const canvas = document.createElement("canvas");
+              const gl = canvas.getContext("webgl");
+              const debug = gl?.getExtension("WEBGL_debug_renderer_info");
+              return {
+                userAgent: navigator.userAgent,
+                hardwareConcurrency: navigator.hardwareConcurrency,
+                renderer:
+                  gl && debug
+                    ? String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL))
+                    : "unavailable",
+              };
+            })
+          : null;
         // The full post-merge E2E gate also runs this benchmark in Firefox.
         // Preserve JS rAF/wheel attribution there, without attempting CDP.
         const chromiumTraceEnabled =
@@ -737,11 +835,37 @@ for (const scenario of [
         const jsTrace = await page.evaluate(
           () => window.__tutorBoardC37Trace?.events ?? [],
         );
+        const finalScreenshot = paired ? await captureScenePixels(page) : null;
+        if (finalScreenshot)
+          await writeFile(testInfo.outputPath("final.png"), finalScreenshot);
+        const finalPixels = finalScreenshot ? digest(finalScreenshot) : null;
+        if (finalScreenshot)
+          await testInfo.attach("final-pixels", {
+            body: finalScreenshot,
+            contentType: "image/png",
+          });
+        // Persist raw data for line-reporter CI artifacts as well.
+        await writeFile(
+          testInfo.outputPath("raw-traces.json"),
+          JSON.stringify({ jsTrace, chromiumTrace, captured }),
+        );
         // Preserve bounded evidence even when camera-path assertions fail.
         await testInfo.attach("c39-raw-traces", {
           body: Buffer.from(JSON.stringify({ jsTrace, chromiumTrace })),
           contentType: "application/json",
         });
+        if (paired) {
+          expect(captured.wheelTimes).toHaveLength(18);
+          expect(captured.cameras).toHaveLength(19);
+          captured.cameras.forEach((camera, index) => {
+            expect(camera.zoom).toBeCloseTo(index % 2 === 0 ? 1 : 1.08, 10);
+            const expected = captured.cameras[index % 2]!;
+            expect(camera.x).toBeCloseTo(expected.x, 8);
+            expect(camera.y).toBeCloseTo(expected.y, 8);
+            expect(camera.visible).toBe(expected.visible);
+          });
+          expect(finalPixels).toBe(initialPixels);
+        }
         // The same native inputs must describe the same camera path. A
         // dropped/rebased wheel step changes culling and invalidates A/B work.
         const wheelZooms = jsTrace
@@ -813,6 +937,12 @@ for (const scenario of [
               encoding: "utf8",
             }).trim().length > 0,
           initialViewport: board.viewport,
+          harnessSha: process.env.C39_HARNESS_SHA ?? null,
+          fixtureSha256: digest(JSON.stringify(board)),
+          cameras: captured.cameras,
+          initialPixels,
+          finalPixels,
+          runtime,
           finalViewport,
           wheelZooms,
           experiment: scenario.staticHeavy
