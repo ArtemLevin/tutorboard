@@ -551,6 +551,7 @@ export function useBoardSelectionController({
   const canDuplicate =
     state.interaction.kind === "idle" &&
     state.selectedObjectIds.length > 0 &&
+    state.selectedObjectIds.every((id) => document.objects[id] !== undefined) &&
     !selectedLocked;
   const previewDelta = useMemo(() => getSelectionPreviewDelta(state), [state]);
   const marquee = useMemo(() => getSelectionMarquee(state), [state]);
