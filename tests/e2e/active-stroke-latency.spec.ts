@@ -17,7 +17,7 @@ async function openBoardWithPen(page: Page): Promise<void> {
         );
         if (!Array.isArray(storedEntries)) return;
         for (const entry of list.getEntries())
-          storedEntries.push(entry.duration);
+          storedEntries.push({ startMs: entry.startTime, durationMs: entry.duration });
       });
       observer.observe({ type: "longtask", buffered: true });
       Reflect.set(window, "__tutorboardLongTaskObserver", observer);
@@ -208,15 +208,54 @@ test("@smoke sustained 240 Hz coalesced pen input drains backlog with bounded we
   );
   const longTaskEvidence = await page.evaluate(() => {
     const entries: unknown = Reflect.get(window, "__tutorboardLongTasks");
-    const durations = Array.isArray(entries)
-      ? entries.filter((value): value is number => typeof value === "number")
+    const tasks = Array.isArray(entries)
+      ? entries.filter(
+          (value): value is { startMs: number; durationMs: number } =>
+            typeof value === "object" &&
+            value !== null &&
+            typeof value.startMs === "number" &&
+            typeof value.durationMs === "number",
+        )
       : [];
     return {
-      count: durations.length,
-      maxMs: durations.length === 0 ? 0 : Math.max(...durations),
+      count: tasks.length,
+      maxMs: tasks.length === 0 ? 0 : Math.max(...tasks.map((task) => task.durationMs)),
       supported: Reflect.get(window, "__tutorboardLongTaskSupported") === true,
+      tasks,
     };
   });
+
+  const maxGapEndedAtMs = Number(
+    (await stage.getAttribute("data-wet-ink-max-frame-gap-ended-at-ms")) ?? "NaN",
+  );
+  const maxGapSurfaceDrawMs = Number(
+    (await stage.getAttribute("data-wet-ink-max-frame-gap-surface-draw-ms")) ?? "NaN",
+  );
+  const maxSurfaceDrawMs = Number(
+    (await stage.getAttribute("data-wet-ink-max-surface-draw-ms")) ?? "NaN",
+  );
+  const matchingLongTasks = longTaskEvidence.tasks.filter(
+    ({ startMs, durationMs }) =>
+      startMs <= maxGapEndedAtMs &&
+      startMs + durationMs >= maxGapEndedAtMs - maxFrameGap,
+  );
+  console.log(
+    "WET_INK_240HZ_EVIDENCE " +
+      JSON.stringify({
+        browser: test.info().project.name,
+        durationMs: maxFrameGap,
+        maxGapEndedAtMs,
+        maxGapSurfaceDrawMs,
+        maxSurfaceDrawMs,
+        matchingLongTasks,
+        longTaskCount: longTaskEvidence.count,
+        longTaskMaxMs: longTaskEvidence.maxMs,
+        frameCount,
+        p95,
+        peakBacklog,
+        sealedChunks,
+      }),
+  );
 
   expect(peakBacklog).toBeGreaterThanOrEqual(4);
   expect(lastBatchSize).toBeGreaterThan(0);
