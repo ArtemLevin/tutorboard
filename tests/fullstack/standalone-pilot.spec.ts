@@ -315,7 +315,7 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     if (teacherBounds === null) throw new Error("Teacher stage missing");
     await teacher.mouse.move(teacherBounds.x + 450, teacherBounds.y + 320);
     await teacher.mouse.wheel(0, -160);
-    await expect(guest.getByTestId("teacher-follow")).toHaveAttribute("data-follow-zoom", /1\\.08/);
+    await expect(guest.getByTestId("teacher-follow")).toHaveAttribute("data-follow-zoom", /1\.08/);
     await guest.getByRole("button", { name: "Отключить следование за преподавателем" }).click();
     await expect(guest.getByRole("button", { name: "Следовать за преподавателем" })).toBeVisible();
     await guest.getByRole("button", { name: "Следовать за преподавателем" }).click();
