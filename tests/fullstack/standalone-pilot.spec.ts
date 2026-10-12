@@ -344,6 +344,13 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
       "data-viewport-zoom",
       "1.0800",
     );
+    // Two teacher zoom events establish a viewport different from the guest's
+    // independent camera; an OFF follower must remain completely stationary.
+    await teacher.mouse.wheel(0, -160);
+    await expect(teacher.getByTestId("board-stage")).toHaveAttribute(
+      "data-viewport-zoom",
+      "1.1664",
+    );
     await expect(guest.getByTestId("board-stage")).toHaveAttribute(
       "data-viewport-zoom",
       guestViewportBefore ?? "1.0000",
@@ -354,12 +361,12 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
       .click();
     await expect(guest.getByTestId("board-stage")).toHaveAttribute(
       "data-viewport-zoom",
-      "1.0800",
+      "1.1664",
     );
     await teacher.mouse.wheel(0, -160);
     await expect(guest.getByTestId("board-stage")).toHaveAttribute(
       "data-viewport-zoom",
-      "1.1664",
+      "1.2597",
     );
     await guest
       .getByRole("button", { name: "Отключить следование за преподавателем" })
