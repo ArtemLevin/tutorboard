@@ -304,13 +304,20 @@ export function App({
 
   useEffect(() => {
     const onFullscreenChange = () => {
-      const active = globalThis.document.fullscreenElement === workspaceRef.current;
+      const active =
+        globalThis.document.fullscreenElement === workspaceRef.current;
       setLessonFullscreen(active);
       if (!active && lessonFullscreen) setLessonMode(false);
     };
-    globalThis.document.addEventListener("fullscreenchange", onFullscreenChange);
+    globalThis.document.addEventListener(
+      "fullscreenchange",
+      onFullscreenChange,
+    );
     return () =>
-      globalThis.document.removeEventListener("fullscreenchange", onFullscreenChange);
+      globalThis.document.removeEventListener(
+        "fullscreenchange",
+        onFullscreenChange,
+      );
   }, [lessonFullscreen]);
 
   useEffect(() => {
@@ -825,66 +832,66 @@ export function App({
           />
         ) : (
           <BoardToolDockContainer
-          activeTool={activeTool}
-          collaborativeUndoAvailable={collaborativeUndoAvailable}
-          documentController={documentController}
-          drawing={drawing}
-          eraser={eraser}
-          geometry={geometry}
-          handwrittenFunctionsEnabled={
-            environment.features.handwrittenFunctions
-          }
-          historyEnabled={historyEnabled}
-          interaction={interaction}
-          media={media}
-          onCreatePlot={plots.create}
-          onExportPdfSnapshot={
-            onExportPdfSnapshot === undefined
-              ? undefined
-              : () => onExportPdfSnapshot(getDocument())
-          }
-          onExportPngSnapshot={
-            onExportPngSnapshot === undefined
-              ? undefined
-              : () => onExportPngSnapshot(getDocument())
-          }
-          onExportSvgSnapshot={
-            onExportSvgSnapshot === undefined
-              ? undefined
-              : () => onExportSvgSnapshot(getDocument())
-          }
-          onOpenSettings={() => {
-            geometry.setOpen(false);
-            setSettingsOpen(true);
-          }}
-          onEnterLessonMode={() => {
-            if (
+            activeTool={activeTool}
+            collaborativeUndoAvailable={collaborativeUndoAvailable}
+            documentController={documentController}
+            drawing={drawing}
+            eraser={eraser}
+            geometry={geometry}
+            handwrittenFunctionsEnabled={
+              environment.features.handwrittenFunctions
+            }
+            historyEnabled={historyEnabled}
+            interaction={interaction}
+            media={media}
+            onCreatePlot={plots.create}
+            onExportPdfSnapshot={
+              onExportPdfSnapshot === undefined
+                ? undefined
+                : () => onExportPdfSnapshot(getDocument())
+            }
+            onExportPngSnapshot={
+              onExportPngSnapshot === undefined
+                ? undefined
+                : () => onExportPngSnapshot(getDocument())
+            }
+            onExportSvgSnapshot={
+              onExportSvgSnapshot === undefined
+                ? undefined
+                : () => onExportSvgSnapshot(getDocument())
+            }
+            onOpenSettings={() => {
+              geometry.setOpen(false);
+              setSettingsOpen(true);
+            }}
+            onEnterLessonMode={() => {
+              if (
+                !readOnly &&
+                plots.editor === null &&
+                solid3D.record === null &&
+                !geometry.open &&
+                !settingsOpen &&
+                !shortcutsOpen
+              ) {
+                setLessonMode(true);
+              }
+            }}
+            lessonModeAvailable={
               !readOnly &&
               plots.editor === null &&
               solid3D.record === null &&
               !geometry.open &&
               !settingsOpen &&
               !shortcutsOpen
-            ) {
-              setLessonMode(true);
             }
-          }}
-          lessonModeAvailable={
-            !readOnly &&
-            plots.editor === null &&
-            solid3D.record === null &&
-            !geometry.open &&
-            !settingsOpen &&
-            !shortcutsOpen
-          }
-          plotEditorOpen={plots.editor !== null}
-          quickTools={quickTools}
-          onApplyPenPreset={applyPenPreset}
-          readOnly={readOnly}
-          selection={selection}
-          selectionInspectorOpen={selectionInspectorOpen}
-          settingsOpen={settingsOpen}
-          solid3D={solid3D}
+            plotEditorOpen={plots.editor !== null}
+            quickTools={quickTools}
+            onApplyPenPreset={applyPenPreset}
+            readOnly={readOnly}
+            selection={selection}
+            selectionInspectorOpen={selectionInspectorOpen}
+            settingsOpen={settingsOpen}
+            solid3D={solid3D}
           />
         )}
         <BoardSettingsPanel

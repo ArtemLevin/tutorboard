@@ -19,9 +19,7 @@ test("@smoke teacher can teach with compact tools and restore chrome", async ({
     page.getByRole("button", { name: "Закладки областей" }),
   ).toHaveCount(0);
 
-  await page
-    .getByRole("button", { name: "Перо — режим занятия" })
-    .click();
+  await page.getByRole("button", { name: "Перо — режим занятия" }).click();
   await page
     .getByRole("button", { name: "Лазерная указка — режим занятия" })
     .click();
@@ -51,9 +49,7 @@ test("@smoke lesson mode is ephemeral across reload and usable on mobile", async
   expect(bounds).not.toBeNull();
   expect(bounds?.x).toBeGreaterThanOrEqual(0);
   expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(391);
-  await page
-    .getByRole("button", { name: "Завершить режим занятия" })
-    .click();
+  await page.getByRole("button", { name: "Завершить режим занятия" }).click();
   await expect(lesson).toHaveCount(0);
   await page.getByRole("button", { name: "Режим занятия" }).click();
   await page.reload();
