@@ -529,6 +529,10 @@ export function BoardStage({
     preview: onLineEndpointTransformPreview,
   });
   const panModeRequestRef = useRef(onPanModeRequest);
+  const manualViewportInteractionRef = useRef(onManualViewportInteraction);
+  useLayoutEffect(() => {
+    manualViewportInteractionRef.current = onManualViewportInteraction;
+  }, [onManualViewportInteraction]);
   const worldPointerCallbacksRef = useRef({
     batch: onWorldPointerBatch,
     cancel: onWorldPointerCancel,
@@ -1573,6 +1577,7 @@ export function BoardStage({
         }
         session.activated = true;
         rightClickCandidateRef.current = null;
+        manualViewportInteractionRef.current?.();
         panModeRequestRef.current?.();
       }
       const viewport = panViewport(session.startViewport, {
@@ -2144,7 +2149,7 @@ export function BoardStage({
     }
 
     commitWheel();
-    onManualViewportInteraction?.();
+    if (source !== "right") onManualViewportInteraction?.();
     event.evt.preventDefault();
     const stage = event.target.getStage();
     if (stage === null) {
