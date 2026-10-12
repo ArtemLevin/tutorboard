@@ -1,0 +1,26 @@
+name: QoL 2.6 reconnect format once
+on:
+  push:
+    branches: [feat/qol-2-6-teacher-follow]
+    paths: [.github/workflows/qol-2-6-reconnect-format-once.yml]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Format reconnect fix and remove temporary workflow
+        run: |
+          npx prettier --write src/adapters/board-websocket/client.ts tests/unit/adapters/board-websocket/client.test.ts tests/fullstack/standalone-pilot.spec.ts
+          git rm .github/workflows/qol-2-6-reconnect-format-once.yml
+          git add src/adapters/board-websocket/client.ts tests/unit/adapters/board-websocket/client.test.ts tests/fullstack/standalone-pilot.spec.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'style(qol): format reconnect sequence regression changes'
+          git push origin HEAD:feat/qol-2-6-teacher-follow
