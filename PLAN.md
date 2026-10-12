@@ -26,9 +26,10 @@
 > `docs/architecture/`. Этот файл определяет текущий порядок работ для публичного
 > standalone TutorBoard.
 >
-> **QoL Sprint 2 (план, реализация ещё не начата):** шесть UX-блоков
-> описаны в разделе 28. Они не заменяют открытые Issue #201/#241 и
-> обязательные Pilot/Production release gates.
+> **QoL Sprint 2 (IN_PROGRESS):** QoL 2.1–2.3 объединены в `main`
+> (PR #246–#248); QoL 2.4–2.6 остаются PLANNED (§28).
+> Спринт не заменяет открытые Issue #201/#241 и обязательные
+> Pilot/Production release gates.
 
 ## 0. P0 recovery gate — 30.09.2026
 
@@ -2448,7 +2449,7 @@ verification and the guest offline cleanup regression guard.
 
 ## 28. QoL Sprint 2 — удобство работы преподавателя (план от 12.10.2026)
 
-**Статус:** IN_PROGRESS; QoL 2.1 (PR #246) и QoL 2.2 (PR #247) слиты в `main`; QoL 2.3 реализуется в отдельной ветке; 2.4–2.6 остаются PLANNED.
+**Статус:** IN_PROGRESS; QoL 2.1 (PR #246), QoL 2.2 (PR #247) и QoL 2.3 (PR #248) — MERGED в `main`; QoL 2.4–2.6 — PLANNED. Последний QoL merge SHA: `ec20092cfc572e02b1b0a09103ccc527c5909dc3`.
 **Базовая точка планирования:** `main` на `93651e5f9f0184a59dead1a7ebe6b91aa49ee21f`.
 Этот SHA — справочная точка на дату составления, перед каждым PR требуется
 сверить актуальные код, CI, docs и используемый release pin.
@@ -2542,12 +2543,14 @@ Unit на viewport bounds/store и Chromium/Firefox E2E на запись и п�
 
 ### 28.4. QoL 2.3 — режим занятия (P1)
 
-**Implementation (in review):** ветка `feat/qol-2-3-lesson-mode` — компактный
-teacher-only UI с пером/ластиком/указкой, `Esc` с приоритетом модальных окон,
-отдельной fullscreen-опцией и явным выходом. Состояние эфемерно, нет новых
+**Implementation:** PR #248 (MERGED; squash SHA
+`ec20092cfc572e02b1b0a09103ccc527c5909dc3`) — компактный teacher-only
+UI с пером/ластиком/указкой, `Esc` с приоритетом модальных окон, отдельной
+fullscreen-опцией и явным выходом. Состояние эфемерно, нет новых
 BoardDocument/realtime/persistence contracts. Добавлены component и
 Chromium/Firefox smoke (mobile/reload), защита фокуса и выделения.
-Merge — после успешных CI/review.
+Post-merge `main` CI #38294922514 — SUCCESS (8/8 jobs, включая Production
+image). Production rollout остаётся отдельным release gate (§§18–21).
 
 **Цель:** освободить экран для объяснения, оставив необходимое для письма
 и демонстрации.
@@ -2570,6 +2573,17 @@ keyboard focus видим, доступность и размеры интера
 Component/Chromium/Firefox E2E, mobile layout и teacher/guest smoke.
 
 ### 28.5. QoL 2.4 — быстрые действия с выделением (P2)
+
+**Реализовано и объединено в main (PR #250, squash merge
+`59dd2e848a23f77e70454a53e301afda7484c8d5`):** контекстное меню
+выделения с дублированием, шестью вариантами выравнивания, распределением по
+двум осям и блокировкой/разблокировкой. Повторно используются
+`core.clipboard.paste`, `core.selection.move`, `core.selection.set-lock` и
+`commitCommands`; группы выступают едиными единицами с учётом поворота.
+Unit/E2E регрессии добавлены. CI на HEAD PR
+`8c99893b80fab48091b1abd1f905c9494c894c90` завершился успешно,
+включая Quality Gate, Chromium/Firefox smoke, media performance, GeometryOS
+и Coordinate Plot production gates. Production rollout — отдельный release gate.
 
 **Цель:** ускорить компоновку условий, изображений и схем.
 

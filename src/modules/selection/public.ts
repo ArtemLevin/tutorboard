@@ -16,6 +16,12 @@ export {
   type SelectionObjectTransform,
 } from "./commands";
 export {
+  planSelectionLayout,
+  selectionLayoutCapabilities,
+  type SelectionLayoutAction,
+  type SelectionLayoutMove,
+} from "./layout";
+export {
   aggregateSelectionBounds,
   lassoPolygonArea,
   normalizeLassoPoints,

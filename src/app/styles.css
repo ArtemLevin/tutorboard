@@ -1934,6 +1934,9 @@ textarea:focus-visible,
   z-index: 65;
   display: grid;
   width: 216px;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   gap: 2px;
   padding: 6px;
   border: 1px solid #c7d2d6;
@@ -1967,6 +1970,22 @@ textarea:focus-visible,
 }
 .canvas-context-menu button.is-danger {
   color: #a33e39;
+}
+.canvas-context-menu__layout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+}
+.canvas-context-menu__layout--distribution {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.canvas-context-menu__layout button {
+  display: block;
+  min-height: 36px;
+  padding: 4px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: center;
 }
 .canvas-context-menu__separator {
   height: 1px;
