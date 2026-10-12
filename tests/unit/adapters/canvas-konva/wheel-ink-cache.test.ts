@@ -49,6 +49,85 @@ describe("transient wheel ink cache", () => {
     expect(clearSpy).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps idle-prepared visible strokes sharp at high zoom and physical DPI", () => {
+    const coordinator = new WheelInkCacheCoordinator();
+    const { node, cacheSpy } = fixture(400, 200);
+    coordinator.register(node);
+
+    // Konva's cached world-space bitmap is immediately painted while idle.
+    // DPR-only caching would enlarge its texels 3x at this visible zoom.
+    expect(coordinator.prepare(1, 3)).toBe(true);
+    expect(cacheSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ pixelRatio: 3, hitCanvasPixelRatio: 1 }),
+    );
+    expect(coordinator.lastBuildPixels).toBeLessThanOrEqual(
+      maximumWheelCachePixels,
+    );
+    coordinator.end();
+
+    expect(coordinator.prepare(2, 2)).toBe(true);
+    expect(cacheSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pixelRatio: 4 }),
+    );
+    coordinator.dispose();
+  });
+
+  it("keeps native vector ink for high zoom when a sharp cache exceeds budget", () => {
+    const coordinator = new WheelInkCacheCoordinator();
+    const { node, cacheSpy } = fixture(600, 400);
+    coordinator.register(node);
+    expect(coordinator.prepare(2, 4)).toBe(false);
+    expect(cacheSpy).not.toHaveBeenCalled();
+    expect(coordinator.cachedCount).toBe(0);
+    expect(coordinator.lastBuildSkippedRuns).toBe(1);
+    expect(coordinator.lastBuildPixels).toBe(0);
+
+    coordinator.begin(2, { buildIfUnprepared: false, zoom: 4 });
+    expect(coordinator.lastWheelSkippedColdBuild).toBe(true);
+    expect(coordinator.cachedCount).toBe(0);
+    coordinator.end();
+  });
+
+  it("releases cached ink before subsequent wheel steps outgrow its resolution", () => {
+    const coordinator = new WheelInkCacheCoordinator();
+    const { node, cacheSpy, clearSpy, layer } = fixture(300, 200);
+    coordinator.register(node);
+    expect(coordinator.prepare(1, 2)).toBe(true);
+    expect(cacheSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ pixelRatio: 2 }),
+    );
+
+    // Zooming out can reuse a sharper bitmap without losing detail.
+    coordinator.begin(1, { buildIfUnprepared: false, zoom: 1.75 });
+    expect(coordinator.lastWheelUsedPrepared).toBe(true);
+    expect(coordinator.cachedCount).toBe(1);
+    coordinator.ensureSharpness(1, 1.9);
+    expect(clearSpy).not.toHaveBeenCalled();
+
+    // At a larger viewport zoom, return to vector strokes immediately.
+    coordinator.ensureSharpness(1, 2.1);
+    expect(clearSpy).toHaveBeenCalledOnce();
+    expect(layer.batchDraw).toHaveBeenCalledOnce();
+    expect(coordinator.cachedCount).toBe(0);
+    coordinator.ensureSharpness(1, 3);
+    coordinator.end();
+    expect(clearSpy).toHaveBeenCalledOnce();
+  });
+
+  it("rejects undersampled idle caches at the start of a zoom-in gesture", () => {
+    const coordinator = new WheelInkCacheCoordinator();
+    const { node, cacheSpy, clearSpy } = fixture(350, 250);
+    coordinator.register(node);
+    expect(coordinator.prepare(1, 1.5)).toBe(true);
+    coordinator.begin(1, { buildIfUnprepared: false, zoom: 1.6 });
+    expect(coordinator.lastWheelUsedPrepared).toBe(false);
+    expect(coordinator.lastWheelSkippedColdBuild).toBe(true);
+    expect(clearSpy).toHaveBeenCalledOnce();
+    expect(cacheSpy).toHaveBeenCalledTimes(1);
+    expect(coordinator.cachedCount).toBe(0);
+    coordinator.end();
+  });
+
   it("skips oversized caches without allocating large canvases", () => {
     const coordinator = new WheelInkCacheCoordinator();
     const { node, cacheSpy, clearSpy } = fixture(maximumWheelCachePixels, 2);
