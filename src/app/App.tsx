@@ -53,6 +53,7 @@ import type { AppPersistenceStatus, MathInkRecognizer } from "./board/types";
 import { BoardCanvas } from "./board/views/BoardCanvas";
 import { BoardDiagnostics } from "./board/views/BoardDiagnostics";
 import { BoardNotifications } from "./board/views/BoardNotifications";
+import { BoardLessonModeControls } from "./board/views/BoardLessonModeControls";
 import { BoardOverlays } from "./board/views/BoardOverlays";
 import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
@@ -247,6 +248,8 @@ export function App({
   );
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [lessonMode, setLessonMode] = useState(false);
+  const [lessonFullscreen, setLessonFullscreen] = useState(false);
   const shortcutsButtonRef = useRef<HTMLButtonElement>(null);
   const shortcutsDialogRef = useRef<HTMLElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
@@ -266,6 +269,59 @@ export function App({
   const announce = useCallback((message: string) => {
     setAccessibilityNotice(message);
   }, []);
+
+  const exitLessonMode = useCallback(() => {
+    setLessonMode(false);
+    if (
+      document.fullscreenElement === workspaceRef.current &&
+      typeof document.exitFullscreen === "function"
+    ) {
+      void document.exitFullscreen().catch(() => {
+        announce("Не удалось выйти из полноэкранного режима");
+      });
+    }
+  }, [announce]);
+
+  const toggleLessonFullscreen = useCallback(() => {
+    const workspace = workspaceRef.current;
+    if (workspace === null) return;
+    if (document.fullscreenElement === workspace) {
+      if (typeof document.exitFullscreen === "function") {
+        void document.exitFullscreen().catch(() => {
+          announce("Не удалось выйти из полноэкранного режима");
+        });
+      }
+      return;
+    }
+    if (typeof workspace.requestFullscreen !== "function") {
+      announce("Полноэкранный режим недоступен в этом браузере");
+      return;
+    }
+    void workspace.requestFullscreen().catch(() => {
+      announce("Браузер отклонил полноэкранный режим");
+    });
+  }, [announce]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const active = document.fullscreenElement === workspaceRef.current;
+      setLessonFullscreen(active);
+      if (!active && lessonFullscreen) setLessonMode(false);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, [lessonFullscreen]);
+
+  useEffect(() => {
+    if (!lessonMode) return;
+    window.addEventListener("blur", exitLessonMode);
+    return () => window.removeEventListener("blur", exitLessonMode);
+  }, [exitLessonMode, lessonMode]);
+
+  useEffect(() => {
+    if (readOnly && lessonMode) exitLessonMode();
+  }, [exitLessonMode, lessonMode, readOnly]);
 
   const closeShortcuts = useCallback(() => {
     setShortcutsOpen(false);
@@ -634,6 +690,8 @@ export function App({
     closeInspector: () => setSelectionInspectorObjectId(null),
     closeSettings: () => setSettingsOpen(false),
     closeShortcuts,
+    exitLessonMode,
+    lessonMode,
     documentController,
     drawing,
     geometryOpen: geometry.open,
@@ -731,7 +789,7 @@ export function App({
           selection={selection}
           solid3D={solid3D}
         />
-        {plots.editor === null ? (
+        {plots.editor === null && !lessonMode ? (
           <BoardViewportBookmarks
             key={bookmarkScope}
             storageScope={bookmarkScope}
@@ -754,7 +812,19 @@ export function App({
           undo={documentController.undo}
           workspaceRef={workspaceRef}
         />
-        <BoardToolDockContainer
+        {lessonMode && !readOnly ? (
+          <BoardLessonModeControls
+            activeTool={activeTool}
+            fullscreen={lessonFullscreen}
+            onActivate={interaction.activate}
+            onExit={() => {
+              exitLessonMode();
+              requestAnimationFrame(() => workspaceRef.current?.focus());
+            }}
+            onToggleFullscreen={toggleLessonFullscreen}
+          />
+        ) : (
+          <BoardToolDockContainer
           activeTool={activeTool}
           collaborativeUndoAvailable={collaborativeUndoAvailable}
           documentController={documentController}
@@ -787,6 +857,26 @@ export function App({
             geometry.setOpen(false);
             setSettingsOpen(true);
           }}
+          onEnterLessonMode={() => {
+            if (
+              !readOnly &&
+              plots.editor === null &&
+              solid3D.record === null &&
+              !geometry.open &&
+              !settingsOpen &&
+              !shortcutsOpen
+            ) {
+              setLessonMode(true);
+            }
+          }}
+          lessonModeAvailable={
+            !readOnly &&
+            plots.editor === null &&
+            solid3D.record === null &&
+            !geometry.open &&
+            !settingsOpen &&
+            !shortcutsOpen
+          }
           plotEditorOpen={plots.editor !== null}
           quickTools={quickTools}
           onApplyPenPreset={applyPenPreset}
@@ -795,7 +885,8 @@ export function App({
           selectionInspectorOpen={selectionInspectorOpen}
           settingsOpen={settingsOpen}
           solid3D={solid3D}
-        />
+          />
+        )}
         <BoardSettingsPanel
           clipboard={clipboard}
           viewport={visibleViewport}
