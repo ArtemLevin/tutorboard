@@ -784,11 +784,11 @@ function SyncedWorkspace({
     followConnected,
     participants,
   );
-  useEffect(() => {
-    if (followSelection !== null && followedTeacher === null) {
-      setFollowSelection(null);
-    }
-  }, [followSelection, followedTeacher]);
+  // A stale connection/epoch is discarded during render so it cannot become
+  // active if an identical client ID appears later.
+  if (followSelection !== null && followedTeacher === null) {
+    setFollowSelection(null);
+  }
 
   const writeEnabled =
     state.kind === "ready" &&
