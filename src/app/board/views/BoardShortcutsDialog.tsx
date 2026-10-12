@@ -84,7 +84,7 @@ export function BoardShortcutsDialog({
           </div>
           <div>
             <dt>Delete / Escape / ?</dt>
-            <dd>Удалить, закрыть, открыть справку</dd>
+            <dd>Удалить, закрыть режим занятия или диалог, открыть справку</dd>
           </div>
         </dl>
       </section>
