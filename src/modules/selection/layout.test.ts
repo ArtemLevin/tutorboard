@@ -16,10 +16,7 @@ import {
   type GroupId,
   type RectangleObject,
 } from "../../core/public";
-import {
-  planSelectionLayout,
-  selectionLayoutCapabilities,
-} from "./layout";
+import { planSelectionLayout, selectionLayoutCapabilities } from "./layout";
 import { createMoveSelectionCommand } from "./commands";
 
 const style = {
@@ -110,12 +107,15 @@ describe("QoL 2.4 selection layout", () => {
     const b = rectangle("b", 120, 10);
     const c = rectangle("c", 300, 10);
     const { document, scene } = fixture([a, b, c]);
-    expect(planSelectionLayout(document, scene, [a.id, b.id, c.id], "horizontal"))
-      .toEqual([{ objectIds: [b.id], delta: { x: 30, y: 0 } }]);
-    expect(planSelectionLayout(document, scene, [a.id, b.id], "horizontal"))
-      .toBeNull();
-    expect(planSelectionLayout(document, scene, [a.id, b.id, c.id], "vertical"))
-      .toEqual([]);
+    expect(
+      planSelectionLayout(document, scene, [a.id, b.id, c.id], "horizontal"),
+    ).toEqual([{ objectIds: [b.id], delta: { x: 30, y: 0 } }]);
+    expect(
+      planSelectionLayout(document, scene, [a.id, b.id], "horizontal"),
+    ).toBeNull();
+    expect(
+      planSelectionLayout(document, scene, [a.id, b.id, c.id], "vertical"),
+    ).toEqual([]);
   });
 
   it("treats a rotated group as one atomic layout unit", () => {
@@ -157,9 +157,18 @@ describe("QoL 2.4 selection layout", () => {
       ...document,
       objects: { ...document.objects, [b.id]: { ...b, locked: true } },
     };
-    expect(selectionLayoutCapabilities(locked, [a.id, b.id]).canAlign).toBe(false);
+    expect(selectionLayoutCapabilities(locked, [a.id, b.id]).canAlign).toBe(
+      false,
+    );
     expect(planSelectionLayout(locked, scene, [a.id, b.id], "left")).toBeNull();
-    expect(planSelectionLayout(document, { ...scene, items: scene.items.slice(0, 1) }, [a.id, b.id], "left")).toBeNull();
+    expect(
+      planSelectionLayout(
+        document,
+        { ...scene, items: scene.items.slice(0, 1) },
+        [a.id, b.id],
+        "left",
+      ),
+    ).toBeNull();
     const imported: BoardDocument = {
       ...document,
       objects: {
@@ -175,7 +184,16 @@ describe("QoL 2.4 selection layout", () => {
         },
       },
     };
-    expect(selectionLayoutCapabilities(imported, [a.id, b.id]).canAlign).toBe(false);
-    expect(planSelectionLayout(document, scene, [] as readonly BoardObjectId[], "left")).toBeNull();
+    expect(selectionLayoutCapabilities(imported, [a.id, b.id]).canAlign).toBe(
+      false,
+    );
+    expect(
+      planSelectionLayout(
+        document,
+        scene,
+        [] as readonly BoardObjectId[],
+        "left",
+      ),
+    ).toBeNull();
   });
 });

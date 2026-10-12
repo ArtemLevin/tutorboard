@@ -75,7 +75,12 @@ export function CanvasContextMenu({
     context === "selection" ? selectionMenuHeight : canvasMenuHeight;
   const top = Math.max(
     viewportMargin,
-    Math.min(position.y, window.innerHeight - Math.min(menuHeight, window.innerHeight - viewportMargin * 2) - viewportMargin),
+    Math.min(
+      position.y,
+      window.innerHeight -
+        Math.min(menuHeight, window.innerHeight - viewportMargin * 2) -
+        viewportMargin,
+    ),
   );
 
   useEffect(() => {
@@ -126,33 +131,76 @@ export function CanvasContextMenu({
             disabled={disabled || !canDuplicate}
             onClick={onDuplicate}
             role="menuitem"
-            title={!canDuplicate ? "Выделите незаблокированные объекты" : undefined}
+            title={
+              !canDuplicate ? "Выделите незаблокированные объекты" : undefined
+            }
             type="button"
           >
             <span aria-hidden="true">⧉</span>
             Дублировать
           </button>
           <div className="canvas-context-menu__separator" role="separator" />
-          <div aria-label="Выравнивание" className="canvas-context-menu__layout" role="group">
+          <div
+            aria-label="Выравнивание"
+            className="canvas-context-menu__layout"
+            role="group"
+          >
             {alignmentActions.map(({ action, label }) => (
               <button
                 disabled={disabled || !canAlign}
                 key={action}
                 onClick={() => onLayout(action)}
                 role="menuitem"
-                title={!canAlign ? "Выделите два или больше доступных объекта" : undefined}
+                title={
+                  !canAlign
+                    ? "Выделите два или больше доступных объекта"
+                    : undefined
+                }
                 type="button"
               >
                 {label}
               </button>
             ))}
           </div>
-          <div className="canvas-context-menu__layout canvas-context-menu__layout--distribution" aria-label="Распределение" role="group">
-            <button disabled={disabled || !canDistribute} onClick={() => onLayout("horizontal")} role="menuitem" title={!canDistribute ? "Выделите не менее трёх доступных объектов" : undefined} type="button">По горизонтали</button>
-            <button disabled={disabled || !canDistribute} onClick={() => onLayout("vertical")} role="menuitem" title={!canDistribute ? "Выделите не менее трёх доступных объектов" : undefined} type="button">По вертикали</button>
+          <div
+            className="canvas-context-menu__layout canvas-context-menu__layout--distribution"
+            aria-label="Распределение"
+            role="group"
+          >
+            <button
+              disabled={disabled || !canDistribute}
+              onClick={() => onLayout("horizontal")}
+              role="menuitem"
+              title={
+                !canDistribute
+                  ? "Выделите не менее трёх доступных объектов"
+                  : undefined
+              }
+              type="button"
+            >
+              По горизонтали
+            </button>
+            <button
+              disabled={disabled || !canDistribute}
+              onClick={() => onLayout("vertical")}
+              role="menuitem"
+              title={
+                !canDistribute
+                  ? "Выделите не менее трёх доступных объектов"
+                  : undefined
+              }
+              type="button"
+            >
+              По вертикали
+            </button>
           </div>
           <div className="canvas-context-menu__separator" role="separator" />
-          <button disabled={disabled || !canCopy} onClick={() => onSelectionLockChange(!selectedLocked)} role="menuitem" type="button">
+          <button
+            disabled={disabled || !canCopy}
+            onClick={() => onSelectionLockChange(!selectedLocked)}
+            role="menuitem"
+            type="button"
+          >
             <span aria-hidden="true">▣</span>
             {selectedLocked ? "Разблокировать" : "Заблокировать"}
           </button>

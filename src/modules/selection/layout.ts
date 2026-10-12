@@ -133,9 +133,7 @@ export function planSelectionLayout(
     const middle = sorted.slice(1, -1);
     const innerSizes = middle.reduce((sum, unit) => sum + unit.rect[extent], 0);
     const gap =
-      (last.rect[axis] -
-        (first.rect[axis] + first.rect[extent]) -
-        innerSizes) /
+      (last.rect[axis] - (first.rect[axis] + first.rect[extent]) - innerSizes) /
       (sorted.length - 1);
     let position = first.rect[axis] + first.rect[extent] + gap;
     for (const unit of middle) {

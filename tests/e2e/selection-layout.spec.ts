@@ -41,7 +41,9 @@ test("aligns a multi-selection with one undo entry, then distributes and restore
   await page.mouse.up();
   await expect(page.getByTestId("selection-count")).toHaveText("3 выбрано");
   const menu = await openSelectionMenu(page, 300, 205);
-  await expect(menu.getByRole("menuitem", { name: "По горизонтали" })).toBeEnabled();
+  await expect(
+    menu.getByRole("menuitem", { name: "По горизонтали" }),
+  ).toBeEnabled();
   await menu.getByRole("menuitem", { name: "По горизонтали" }).click();
   await expect(page.getByTestId("history-depth")).toHaveText("4/0");
   await page.keyboard.press("Control+z");
@@ -78,8 +80,12 @@ test("duplicates using a single paste command and safely locks the selection", a
   const selected = await openSelectionMenu(page, 300, 205);
   await selected.getByRole("menuitem", { name: "Заблокировать" }).click();
   const locked = await openSelectionMenu(page, 300, 205);
-  await expect(locked.getByRole("menuitem", { name: "Дублировать" })).toBeDisabled();
+  await expect(
+    locked.getByRole("menuitem", { name: "Дублировать" }),
+  ).toBeDisabled();
   await locked.getByRole("menuitem", { name: "Разблокировать" }).click();
   const unlocked = await openSelectionMenu(page, 300, 205);
-  await expect(unlocked.getByRole("menuitem", { name: "Дублировать" })).toBeEnabled();
+  await expect(
+    unlocked.getByRole("menuitem", { name: "Дублировать" }),
+  ).toBeEnabled();
 });

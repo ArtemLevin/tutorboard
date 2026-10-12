@@ -393,7 +393,12 @@ export function useBoardSelectionController({
       if (planned === null || planned.length === 0) return false;
       const result = commitCommands(
         planned.map(({ objectIds, delta }) =>
-          createMoveSelectionCommand(createCommandMetadata(), current, objectIds, delta),
+          createMoveSelectionCommand(
+            createCommandMetadata(),
+            current,
+            objectIds,
+            delta,
+          ),
         ),
       );
       if (!result.ok) return false;

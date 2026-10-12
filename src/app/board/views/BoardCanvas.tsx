@@ -486,9 +486,21 @@ export function BoardCanvas({
       {contextMenu === null ? null : (
         <CanvasContextMenu
           canClear={document.order.length > 0}
-          canAlign={selection.canAlign && contextMenu.objectId !== null && selection.state.selectedObjectIds.includes(contextMenu.objectId)}
-          canDistribute={selection.canDistribute && contextMenu.objectId !== null && selection.state.selectedObjectIds.includes(contextMenu.objectId)}
-          canDuplicate={selection.canDuplicate && contextMenu.objectId !== null && selection.state.selectedObjectIds.includes(contextMenu.objectId)}
+          canAlign={
+            selection.canAlign &&
+            contextMenu.objectId !== null &&
+            selection.state.selectedObjectIds.includes(contextMenu.objectId)
+          }
+          canDistribute={
+            selection.canDistribute &&
+            contextMenu.objectId !== null &&
+            selection.state.selectedObjectIds.includes(contextMenu.objectId)
+          }
+          canDuplicate={
+            selection.canDuplicate &&
+            contextMenu.objectId !== null &&
+            selection.state.selectedObjectIds.includes(contextMenu.objectId)
+          }
           selectedLocked={selection.selectedLocked}
           canCopy={
             contextMenu.objectId !== null &&
