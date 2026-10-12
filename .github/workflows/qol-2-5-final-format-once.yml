@@ -1,0 +1,31 @@
+name: QoL 2.5 final format once
+
+on:
+  push:
+    branches:
+      - feat/qol-2-5-stylus-profiles
+    paths:
+      - .github/workflows/qol-2-5-final-format-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Format last two files and delete this workflow
+        run: |
+          npx prettier --write src/app/board-chrome/BoardToolDock.tsx tests/e2e/qol-stylus-eraser.spec.ts
+          git rm .github/workflows/qol-2-5-final-format-once.yml
+          git add src/app/board-chrome/BoardToolDock.tsx tests/e2e/qol-stylus-eraser.spec.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'style(qol): format final stylus behavior and labels'
+          git push origin HEAD:feat/qol-2-5-stylus-profiles
