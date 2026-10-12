@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import { eraserToolId } from "../../../modules/eraser/public";
 import { laserToolId, type ActiveToolId } from "../active-tool";
 import "./BoardLessonModeControls.css";
@@ -17,6 +19,11 @@ export function BoardLessonModeControls({
   onExit,
   onToggleFullscreen,
 }: BoardLessonModeControlsProps) {
+  const penRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    penRef.current?.focus();
+  }, []);
+
   return (
     <div
       aria-label="Инструменты режима занятия"
@@ -28,6 +35,7 @@ export function BoardLessonModeControls({
         aria-label="Перо — режим занятия"
         aria-pressed={activeTool === "drawing.pen"}
         onClick={() => onActivate("drawing.pen")}
+        ref={penRef}
         title="Перо (P)"
         type="button"
       >
