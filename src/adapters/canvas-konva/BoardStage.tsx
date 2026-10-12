@@ -323,6 +323,11 @@ function publishWetInkDiagnostics(
   root.dataset.wetInkLatencyMeanMs = report.latency.meanMs.toFixed(2);
   root.dataset.wetInkLatencyP95Ms = report.latency.p95Ms.toFixed(2);
   root.dataset.wetInkMaxFrameGapMs = report.maxFrameGapMs.toFixed(2);
+  root.dataset.wetInkMaxFrameGapEndedAtMs =
+    report.maxFrameGapEndedAtMs.toFixed(2);
+  root.dataset.wetInkMaxFrameGapSurfaceDrawMs =
+    report.maxFrameGapSurfaceDrawMs.toFixed(2);
+  root.dataset.wetInkMaxSurfaceDrawMs = report.maxSurfaceDrawMs.toFixed(2);
   root.dataset.wetInkMutableTailPoints = String(report.mutableTailPointCount);
   root.dataset.wetInkPendingInputCount = String(report.pendingInputCount);
   root.dataset.wetInkPredictedPoints = String(report.predictedPointCount);
@@ -653,6 +658,9 @@ export function BoardStage({
     root.dataset.wetInkLatencyCount = "0";
     root.dataset.wetInkLayer = "ready";
     root.dataset.wetInkMaxFrameGapMs = "0";
+    root.dataset.wetInkMaxFrameGapEndedAtMs = "0";
+    root.dataset.wetInkMaxFrameGapSurfaceDrawMs = "0";
+    root.dataset.wetInkMaxSurfaceDrawMs = "0";
     root.dataset.wetInkMutableTailPoints = "0";
     root.dataset.wetInkPendingInputCount = "0";
     root.dataset.wetInkSealedChunks = "0";
