@@ -4,6 +4,7 @@ import {
   useState,
   type ChangeEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 
 import type { ObjectStyle, Vec2 } from "../../core/public";
@@ -272,6 +273,24 @@ function SelectedTextEditor({
       rows={2}
     />
   );
+}
+
+function ToolSettingsVisibility({
+  autoDismiss,
+  children,
+}: {
+  readonly autoDismiss: boolean;
+  readonly children: ReactNode;
+}) {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (!autoDismiss) return;
+    const timeout = window.setTimeout(() => setVisible(false), 2_000);
+    return () => window.clearTimeout(timeout);
+  }, [autoDismiss]);
+
+  return visible ? <>{children}</> : null;
 }
 
 export function BoardToolDock(props: BoardToolDockProps) {
@@ -703,10 +722,14 @@ export function BoardToolDock(props: BoardToolDockProps) {
           </label>
         </section>
       ) : activeDrawingTool !== null && props.activeStyle !== null ? (
-        <section
-          aria-label="Первичные настройки инструмента"
-          className="dock-primary-settings"
+        <ToolSettingsVisibility
+          autoDismiss={activeDrawingTool === "drawing.smart-ink"}
+          key={activeDrawingTool}
         >
+          <section
+            aria-label="Первичные настройки инструмента"
+            className="dock-primary-settings"
+          >
           <div className="dock-primary-heading">
             <strong>
               {props.drawingTools.find(({ id }) => id === activeDrawingTool)
@@ -731,7 +754,8 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onChange={(patch) => props.onStyleChange(activeDrawingTool, patch)}
             style={props.activeStyle}
           />
-        </section>
+          </section>
+        </ToolSettingsVisibility>
       ) : null}
       <div
         aria-label="Инструменты доски"
