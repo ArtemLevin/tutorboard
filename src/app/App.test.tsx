@@ -293,7 +293,7 @@ describe("App", () => {
       "1 выбрано",
     );
     const commandsBefore = onCommandCommitted.mock.calls.length;
-    const historyBefore = screen.getByTestId("history-depth").textContent();
+    const historyBefore = screen.getByTestId("history-depth").textContent;
 
     fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
     fireEvent.keyDown(window, { key: "Escape" });
@@ -327,18 +327,27 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("restores normal chrome on window blur and hides lesson mode from guests", () => {
+  it("closes lesson mode on permission loss, re-grant, and window blur", () => {
     const { rerender } = render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
+
+    rerender(<App readOnly />);
+    expect(
+      screen.queryByRole("toolbar", { name: "Инструменты режима занятия" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Режим занятия" }),
+    ).toBeDisabled();
+
+    rerender(<App />);
+    expect(
+      screen.queryByRole("toolbar", { name: "Инструменты режима занятия" }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
     fireEvent(window, new Event("blur"));
     expect(
       screen.queryByRole("toolbar", { name: "Инструменты режима занятия" }),
     ).not.toBeInTheDocument();
-
-    rerender(<App readOnly />);
-    expect(
-      screen.queryByRole("button", { name: "Режим занятия" }),
-    ).toBeDisabled();
   });
 
   it("continues lesson mode when fullscreen is unavailable", () => {
