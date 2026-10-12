@@ -38,7 +38,11 @@ import {
   type PenPresetSlot,
 } from "./quick-tool-preferences";
 
-const penPresetDescriptions = ["А (письмо)", "Б (акцент)", "В (пометки)"] as const;
+const penPresetDescriptions = [
+  "А (письмо)",
+  "Б (акцент)",
+  "В (пометки)",
+] as const;
 
 interface BoardToolDockProps {
   readonly activeStyle: ObjectStyle | null;

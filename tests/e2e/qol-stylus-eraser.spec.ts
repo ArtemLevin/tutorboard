@@ -40,7 +40,7 @@ async function penEvent(
         kind === "pointerdown"
           ? container
           : kind === "lostpointercapture"
-            ? container.parentElement ?? container
+            ? (container.parentElement ?? container)
             : window;
       target.dispatchEvent(
         new PointerEvent(kind, {
