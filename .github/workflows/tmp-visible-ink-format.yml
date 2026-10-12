@@ -1,0 +1,31 @@
+name: Temporary visible ink formatter
+
+on:
+  push:
+    branches:
+      - fix/visible-ink-cache-resolution-20261012
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write src/adapters/canvas-konva/BoardStage.tsx src/adapters/canvas-konva/wheel-ink-cache.ts tests/e2e/visible-ink-fidelity.spec.ts
+      - name: Commit formatted source
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/adapters/canvas-konva/BoardStage.tsx src/adapters/canvas-konva/wheel-ink-cache.ts tests/e2e/visible-ink-fidelity.spec.ts
+          git commit -m "style(canvas): apply project Prettier formatting"
+          git push origin HEAD:fix/visible-ink-cache-resolution-20261012
