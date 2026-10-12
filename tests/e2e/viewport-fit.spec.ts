@@ -20,7 +20,10 @@ test("@smoke fits all board objects and then the current selection", async ({
     await page.mouse.up();
   };
   await rectangle(270, 200);
-  await rectangle(920, 530);
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+  await page.keyboard.press("r");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.rectangle");
+  await rectangle(640, 390);
   await expect(page.getByTestId("object-count")).toHaveText("2 объекта");
 
   await page.keyboard.press("v");
