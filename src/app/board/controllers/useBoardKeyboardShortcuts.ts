@@ -52,6 +52,8 @@ export interface UseBoardKeyboardShortcutsOptions {
   readonly handwrittenFunctionsEnabled: boolean;
   readonly interaction: BoardInteractionRouter;
   readonly openShortcuts: () => void;
+  readonly onFitAll: () => void;
+  readonly onFitSelection: () => void;
   readonly plots: CoordinatePlotController;
   readonly readOnly: boolean;
   readonly selection: BoardSelectionController;
@@ -82,6 +84,8 @@ export function useBoardKeyboardShortcuts({
   handwrittenFunctionsEnabled,
   interaction,
   openShortcuts,
+  onFitAll,
+  onFitSelection,
   plots,
   readOnly,
   selection,
@@ -238,6 +242,12 @@ export function useBoardKeyboardShortcuts({
 
       event.preventDefault();
       switch (action) {
+        case "viewport.fit-all":
+          onFitAll();
+          return;
+        case "viewport.fit-selection":
+          onFitSelection();
+          return;
         case "tool.pan":
           interaction.activate(navigationToolId);
           return;
@@ -292,6 +302,8 @@ export function useBoardKeyboardShortcuts({
     handwrittenFunctionsEnabled,
     interaction,
     openShortcuts,
+    onFitAll,
+    onFitSelection,
     plots,
     readOnly,
     redo,
