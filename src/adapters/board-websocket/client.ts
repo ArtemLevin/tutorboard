@@ -630,8 +630,10 @@ export class BoardCollaborationClient {
     const presence = presenceSchema.safeParse(value);
     if (presence.success) {
       if (presence.data.clientId === this.#clientId) return;
-      if (presence.data.type === "presence.joined" &&
-          this.#participantSequences.has(presence.data.clientId)) {
+      if (
+        presence.data.type === "presence.joined" &&
+        this.#participantSequences.has(presence.data.clientId)
+      ) {
         // A participant can reconnect with the same clientId but a fresh
         // sequence counter. Joined has no sequence and must invalidate the
         // previous camera and previews before accepting new updates.
