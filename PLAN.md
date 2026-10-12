@@ -2607,8 +2607,11 @@ selection, lock и group command paths; не создавать обходные
 опциональный ластик кнопкой стилуса (по умолчанию OFF). События pen-barrel
 и eraser-tip обслуживаются отдельной временной pointer-сессией и
 существующим eraser command path. Mouse/touch, `Space`, `Shift+X`, `X`
-и BoardDocument/realtime контракты сохранены. Unit/E2E проверки добавлены;
-production release gate остаётся отдельным шагом.
+и BoardDocument/realtime контракты сохранены. Unit/E2E проверки добавлены.
+Визуальные desktop-эталоны прошли покадровый аудит изменений только в нижнем
+dock (`docs/QOL_2_5_VISUAL_BASELINE_AUDIT_2026-10-12.md`; вне dock — 0 пикселей).
+Hardware-проверка с физическим стилусом и production rollout остаются
+отдельными gates.
 
 **Цель:** удобная работа пером без частой смены инструментов мышью.
 
