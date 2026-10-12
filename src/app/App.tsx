@@ -57,10 +57,7 @@ import { BoardOverlays } from "./board/views/BoardOverlays";
 import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
 import { BoardToolDockContainer } from "./board/views/BoardToolDockContainer";
-import {
-  fitBoardViewport,
-  viewportFitSceneBounds,
-} from "./board/viewport-fit";
+import { fitBoardViewport, viewportFitSceneBounds } from "./board/viewport-fit";
 import { readEnvironment } from "./configuration/environment";
 import "./styles.css";
 
