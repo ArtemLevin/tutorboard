@@ -6,6 +6,7 @@ import {
   commandId,
   createEmptyBoardDocument,
   documentId,
+  geometryImportId,
   groupId,
   reduceBoardDocument,
   type BoardDocument,
@@ -159,16 +160,21 @@ describe("QoL 2.4 selection layout", () => {
     expect(selectionLayoutCapabilities(locked, [a.id, b.id]).canAlign).toBe(false);
     expect(planSelectionLayout(locked, scene, [a.id, b.id], "left")).toBeNull();
     expect(planSelectionLayout(document, { ...scene, items: scene.items.slice(0, 1) }, [a.id, b.id], "left")).toBeNull();
-    const imported = {
+    const imported: BoardDocument = {
       ...document,
       objects: {
         ...document.objects,
         [b.id]: {
           ...b,
-          source: { kind: "geometryos", importId: "import:foreign" },
+          source: {
+            kind: "geometryos",
+            girEntityId: "entity:foreign",
+            girEntityType: "point",
+            importId: geometryImportId("import:foreign"),
+          },
         },
       },
-    } as unknown as BoardDocument;
+    };
     expect(selectionLayoutCapabilities(imported, [a.id, b.id]).canAlign).toBe(false);
     expect(planSelectionLayout(document, scene, [] as readonly BoardObjectId[], "left")).toBeNull();
   });
