@@ -1,0 +1,31 @@
+name: QoL 2.4 test format once
+
+on:
+  push:
+    branches:
+      - feat/qol-2-4-selection-actions
+    paths:
+      - .github/workflows/qol-2-4-test-format-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Format focused test and remove temporary workflow
+        run: |
+          npx prettier --write src/modules/selection/layout.test.ts
+          git rm .github/workflows/qol-2-4-test-format-once.yml
+          git add src/modules/selection/layout.test.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'style(qol): finalize grouped-layout test formatting'
+          git push origin HEAD:feat/qol-2-4-selection-actions
