@@ -253,12 +253,15 @@ jobs:
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             npm run e2e:smoke -- \
               --project=${{ matrix.browser }} \
+              --grep-invert @frame-budget \
               --retries=0 \
               --max-failures=4 \
               --trace=retain-on-failure 2>&1 \
               | tee browser-smoke-${{ matrix.browser }}.log
           else
-            npm run e2e -- --project=${{ matrix.browser }} 2>&1 \
+            npm run e2e -- \
+              --project=${{ matrix.browser }} \
+              --grep-invert @frame-budget 2>&1 \
               | tee browser-smoke-${{ matrix.browser }}.log
           fi
 
@@ -269,6 +272,61 @@ jobs:
           name: browser-smoke-${{ matrix.browser }}-failure-${{ github.sha }}
           path: |
             browser-smoke-${{ matrix.browser }}.log
+            test-results
+          if-no-files-found: warn
+          retention-days: 7
+
+  wet-ink-frame-budget:
+    name: Wet ink frame budget (${{ matrix.browser }})
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install ${{ matrix.browser }}
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Build production bundle
+        env:
+          VITE_FEATURE_SERVER_SYNC: "true"
+          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos
+        run: npm run build
+
+      - name: Verify 240 Hz pen latency with three isolated repetitions
+        run: |
+          set -o pipefail
+          npm run e2e -- tests/e2e/active-stroke-latency.spec.ts \
+            --project=${{ matrix.browser }} \
+            --grep @frame-budget \
+            --workers=1 \
+            --repeat-each=3 \
+            --retries=0 \
+            --trace=retain-on-failure 2>&1 \
+            | tee wet-ink-frame-budget-${{ matrix.browser }}.log
+
+      - name: Upload wet-ink frame budget evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wet-ink-frame-budget-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            wet-ink-frame-budget-${{ matrix.browser }}.log
             test-results
           if-no-files-found: warn
           retention-days: 7
@@ -375,7 +433,7 @@ jobs:
 
   production-image:
     name: Production image
-    needs: [quality, e2e-smoke]
+    needs: [quality, e2e-smoke, wet-ink-frame-budget]
     if: needs.quality.outputs.production_image == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
