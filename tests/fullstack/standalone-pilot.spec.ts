@@ -377,6 +377,15 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     await guest
       .getByRole("button", { name: "Следовать за преподавателем" })
       .click();
+    // A teacher page reconnect must terminate an old follow subscription.
+    await teacher.reload();
+    await expect(teacher.getByTestId("board-stage")).toBeVisible();
+    await expect(
+      guest.getByRole("button", { name: "Следовать за преподавателем" }),
+    ).toBeVisible();
+    await guest
+      .getByRole("button", { name: "Следовать за преподавателем" })
+      .click();
 
     const revoke = await teacherContext.request.post(
       `/api/v1/boards/${encodeURIComponent(boardId)}/invitations/${encodeURIComponent(invitationId)}/revoke`,
