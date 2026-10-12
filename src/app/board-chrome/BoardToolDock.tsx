@@ -66,6 +66,8 @@ interface BoardToolDockProps {
   readonly onGeometryToggle: () => void;
   readonly onImageFiles: (files: readonly File[]) => void;
   readonly onOpenSettings: () => void;
+  readonly onEnterLessonMode: () => void;
+  readonly lessonModeAvailable: boolean;
   readonly onRedo: () => void;
   readonly onStyleChange: (
     tool: DrawingToolId,
@@ -1001,6 +1003,12 @@ export function BoardToolDock(props: BoardToolDockProps) {
               onClick={() => toggleMenu("export")}
             />
           ) : null}
+          <ToolButton
+            disabled={!props.lessonModeAvailable}
+            icon="▣"
+            label="Режим занятия"
+            onClick={props.onEnterLessonMode}
+          />
           <ToolButton
             active={props.settingsOpen}
             icon="⚙"
