@@ -373,21 +373,6 @@ export function App({
     });
   }, []);
 
-  const resolvePlacementCenter = useCallback((): Vec2 => {
-    const current = getDocument();
-    const workspace = workspaceRef.current?.getBoundingClientRect();
-    return (
-      lastPointerWorldRef.current ??
-      screenToWorld(
-        {
-          x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
-          y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
-        },
-        current.viewport,
-      )
-    );
-  }, [getDocument]);
-
   const sceneSelector = useMemo(() => createBoardSceneSelector(), []);
   const scene = useMemo(
     () => sceneSelector(document),
@@ -452,6 +437,20 @@ export function App({
         : { ...scene, viewport: visibleViewport },
     [document.viewport, scene, visibleViewport],
   );
+
+  const resolvePlacementCenter = useCallback((): Vec2 => {
+    const workspace = workspaceRef.current?.getBoundingClientRect();
+    return (
+      lastPointerWorldRef.current ??
+      screenToWorld(
+        {
+          x: Math.max(1, workspace?.width ?? window.innerWidth) / 2,
+          y: Math.max(1, workspace?.height ?? window.innerHeight) / 2,
+        },
+        visibleViewport,
+      )
+    );
+  }, [visibleViewport]);
 
   const selection = useBoardSelectionController({
     announce,
@@ -580,7 +579,7 @@ export function App({
       const current = getDocument();
       const workspace = workspaceRef.current?.getBoundingClientRect();
       return resolveEmbeddedImagePlacementSizeForScene(intrinsicSize, {
-        scene: sceneSelector(current),
+        scene: { ...sceneSelector(current), viewport: visibleViewport },
         screenSize: {
           height: Math.max(1, workspace?.height ?? window.innerHeight),
           width: Math.max(1, workspace?.width ?? window.innerWidth),
@@ -588,7 +587,7 @@ export function App({
         selectedObjectIds: selection.getState().selectedObjectIds,
       });
     },
-    [getDocument, sceneSelector, selection],
+    [getDocument, sceneSelector, selection, visibleViewport],
   );
   const media = useBoardMediaController({
     assetImportEnabled: mediaAssetImportEnabled,
