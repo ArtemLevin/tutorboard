@@ -24,10 +24,7 @@ import {
   type Vec2,
   type ViewportState,
 } from "../core/public";
-import {
-  aggregateSelectionBounds,
-  selectSelectionBounds,
-} from "../modules/selection/public";
+
 import { resolveEmbeddedImagePlacementSizeForScene } from "./image-import";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import {
@@ -60,7 +57,7 @@ import { BoardOverlays } from "./board/views/BoardOverlays";
 import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
 import { BoardToolDockContainer } from "./board/views/BoardToolDockContainer";
-import { fitBoardViewport } from "./board/viewport-fit";
+import { fitBoardViewport, viewportFitSceneBounds } from "./board/viewport-fit";
 import { readEnvironment } from "./configuration/environment";
 import "./styles.css";
 
@@ -561,13 +558,9 @@ export function App({
 
   const fitContent = useCallback(
     (selectedOnly: boolean) => {
-      const ids = selectedOnly
-        ? selection.state.selectedObjectIds
-        : scene.items
-            .filter(({ object }) => object.visible)
-            .map(({ object }) => object.id);
-      const bounds = aggregateSelectionBounds(
-        selectSelectionBounds(scene, ids),
+      const bounds = viewportFitSceneBounds(
+        scene,
+        selectedOnly ? selection.state.selectedObjectIds : null,
       );
       const rect = workspaceRef.current?.getBoundingClientRect();
       if (rect === undefined) return;
