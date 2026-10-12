@@ -2508,10 +2508,12 @@ Chromium/Firefox E2E на выбор/возврат/фокус и сохране
 
 ### 28.3. QoL 2.2 — закладки областей и навигация (P1)
 
-**Implementation:** ветка `feat/qol-2-2-viewport-bookmarks`: версионированные
+**Implementation:** Draft PR #247 (`feat/qol-2-2-viewport-bookmarks`): версионированные
 закладки viewport в изолированном localStorage по actor/board, отдельный
 компактный UI и локальная камера для read-only гостя. Browser/CI validation
-обязательны перед merge и production release pin.
+обязательны перед merge и production release pin. Изменений persistence schema
+и realtime protocol в этом PR нет; локальная камера гостя сбрасывается при
+смене board/actor scope.
 
 **Цель:** быстро переходить между фрагментами большого урока: «Теория»,
 «Задача 1», «Домашняя работа».
