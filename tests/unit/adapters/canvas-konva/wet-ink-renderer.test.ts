@@ -31,6 +31,10 @@ class FakeClock implements WetInkFrameClock {
     return this.nowMs;
   }
 
+  advance(milliseconds: number): void {
+    this.nowMs += milliseconds;
+  }
+
   request(callback: FrameRequestCallback): number {
     const id = this.nextId++;
     this.callbacks.set(id, callback);
@@ -112,6 +116,45 @@ describe("WetInkRenderer", () => {
     ).toEqual([{ x: 3, y: 3 }]);
     expect(reports[0]?.latency.count).toBe(3);
     expect(reports[0]?.frameCount).toBe(1);
+  });
+
+  it("attributes a delayed paint frame separately from its surface draw", () => {
+    const clock = new FakeClock();
+    const reports: WetInkFrameReport[] = [];
+    const surface = new FakeSurface();
+    const originalDraw = surface.draw.bind(surface);
+    surface.draw = (frame) => {
+      originalDraw(frame);
+      clock.advance(3);
+    };
+    const renderer = new WetInkRenderer(surface, {
+      clock,
+      onFrame: (report) => reports.push(report),
+    });
+
+    renderer.begin(
+      { inputTimestampMs: 1, point: { x: 0, y: 0 }, pressure: 0.5 },
+      style,
+      viewport,
+    );
+    clock.step(10);
+    renderer.append(
+      [{ inputTimestampMs: 15, point: { x: 10, y: 10 }, pressure: 0.5 }],
+      [],
+    );
+    // Scheduler/main-thread gap is 167ms; the surface still takes 3ms.
+    clock.step(180);
+
+    const worst = reports.at(-1);
+    expect(worst).toMatchObject({
+      frameCount: 2,
+      frameGapMs: 170,
+      maxFrameGapMs: 170,
+      maxFrameGapEndedAtMs: 183,
+      maxFrameGapSurfaceDrawMs: 3,
+      maxSurfaceDrawMs: 3,
+    });
+    expect(reports[0]?.maxFrameGapMs).toBe(0);
   });
 
   it("preserves strokeStyle on transient wet-ink frames", () => {
