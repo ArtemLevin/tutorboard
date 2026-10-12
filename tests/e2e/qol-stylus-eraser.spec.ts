@@ -29,11 +29,11 @@ async function penEvent(
       // synthetic events while keeping the rest of the runtime unchanged.
       // Konva.Stage.container() is the parent of .konvajs-content.
       // Synthetic pointer IDs cannot be captured by the browser itself.
-      const stageContainer = container.parentElement;
-      if (stageContainer === null) throw new Error("Missing Konva parent");
-      for (const element of [container, stageContainer]) {
-        element.setPointerCapture = () => {};
-        element.releasePointerCapture = () => {};
+      let stageContainer: HTMLElement | null = container;
+      while (stageContainer !== null && stageContainer !== document.body) {
+        stageContainer.setPointerCapture = () => {};
+        stageContainer.releasePointerCapture = () => {};
+        stageContainer = stageContainer.parentElement;
       }
       const bounds = container.getBoundingClientRect();
       const target = kind === "pointerdown" ? container : window;
@@ -102,6 +102,7 @@ test("@smoke a pen barrel button temporarily erases and safely restores the pen"
     .check();
   await penEvent(page, "pointerdown", 72, 2, 2);
   await expect(stage).toHaveAttribute("data-stylus-eraser-active", "true");
+  await expect(stage).toHaveAttribute("data-eraser-visible", "true");
   await penEvent(page, "pointermove", 72, -1, 2);
   await penEvent(page, "pointerup", 72, 2, 0);
   await expect(stage).toHaveAttribute("data-stylus-eraser-active", "false");
