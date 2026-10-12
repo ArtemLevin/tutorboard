@@ -1,0 +1,93 @@
+name: C3.9 stable culling ABBA
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-stable-culling-abba.yml
+      - scripts/c39/compare-stable-culling.mjs
+      - playwright.c39-paired.config.ts
+      - tests/e2e/c39-large-board-profile.spec.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-culling-abba-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  paired:
+    name: Paired runner ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [1, 2]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CONTROL_SHA: 2110a8e03fe9adb836ffc1f470e35ff7be980323
+      CANDIDATE_SHA: 9303cccd7b9b8857e49484bf0576cde72c4b04fa
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Build immutable revisions and one common harness
+        run: |
+          set -euo pipefail
+          npm ci
+          for role in control candidate; do
+            sha="$CONTROL_SHA"
+            if [[ "$role" == candidate ]]; then sha="$CANDIDATE_SHA"; fi
+            git fetch --no-tags origin "$sha"
+            git worktree add --detach "$RUNNER_TEMP/c39-$role" "$sha"
+            (cd "$RUNNER_TEMP/c39-$role" && npm ci && npm run build)
+          done
+          npx playwright install --with-deps chromium
+          mkdir -p c39-culling-results
+          lscpu > c39-culling-results/cpu.txt
+          uname -a > c39-culling-results/host.txt
+          printf 'ImageOS=%s\nImageVersion=%s\n' "$ImageOS" "$ImageVersion" >> c39-culling-results/host.txt
+          git rev-parse HEAD > c39-culling-results/harness-sha.txt
+      - name: Three trace-off ABBA cycles, then separate trace-on diagnostic
+        env:
+          C39_STATIC_HEAVY_PROFILE: "1"
+          C39_PAIRED: "1"
+        run: |
+          set -euo pipefail
+          harness="$GITHUB_WORKSPACE"
+          export C39_HARNESS_SHA="$(git rev-parse HEAD)"
+          for mode in off on; do
+            cycles=3
+            if [[ "$mode" == on ]]; then cycles=1; fi
+            for ((cycle=1; cycle<=cycles; cycle++)); do
+              for position in 1 2 3 4; do
+                role=candidate
+                if ((position == 1 || position == 4)); then role=control; fi
+                root="$RUNNER_TEMP/c39-$role"
+                key="$mode-$cycle-$position-$role"
+                export C39_TRACE_MODE="$mode"
+                export C39_PRODUCTION_ROOT="$root"
+                export C39_OUTPUT_DIR="$harness/c39-culling-results/$key-artifacts"
+                (
+                  cd "$root"
+                  test -z "$(git status --porcelain)"
+                  node "$harness/node_modules/@playwright/test/cli.js" test \
+                    --config "$harness/playwright.c39-paired.config.ts" \
+                    c39-large-board-profile.spec.ts --grep @c39-static-heavy \
+                    --project chromium --workers 1 --retries 0
+                ) 2>&1 | tee "$harness/c39-culling-results/$key.log"
+              done
+            done
+          done
+      - name: Calculate paired gate
+        run: node scripts/c39/compare-stable-culling.mjs c39-culling-results
+      - name: Preserve observations including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-culling-runner-${{ matrix.runner }}-${{ github.sha }}
+          path: c39-culling-results
+          retention-days: 14
