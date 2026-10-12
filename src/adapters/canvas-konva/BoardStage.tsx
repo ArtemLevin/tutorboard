@@ -2329,6 +2329,7 @@ export function BoardStage({
       data-laser-trail-points={laserTrailPoints.length}
       data-laser-visible={laserPoint !== null}
       data-pan-mode={panMode}
+      data-viewport-zoom={previewViewport.zoom.toFixed(4)}
       data-panning={isPanning}
       data-remote-ink-count={remoteInkPreviews.length}
       data-selecting={isSelecting}
