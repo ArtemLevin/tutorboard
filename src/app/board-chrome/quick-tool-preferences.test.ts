@@ -45,7 +45,7 @@ describe("quick tool preferences", () => {
       stroke: "#123456",
       strokeWidth: 2.5,
       opacity: 0.6,
-      strokeStyle: "wavy",
+      strokeStyle: "wavy" as const,
       fill: null,
     };
     const next = normalizeQuickToolPreferences({
