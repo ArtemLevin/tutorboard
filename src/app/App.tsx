@@ -57,6 +57,7 @@ import { BoardOverlays } from "./board/views/BoardOverlays";
 import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
 import { BoardToolDockContainer } from "./board/views/BoardToolDockContainer";
+import { BoardViewportBookmarks } from "./board/views/BoardViewportBookmarks";
 import { fitBoardViewport, viewportFitSceneBounds } from "./board/viewport-fit";
 import { readEnvironment } from "./configuration/environment";
 import {
@@ -292,6 +293,23 @@ export function App({
   const scene = useMemo(
     () => sceneSelector(document),
     [document, sceneSelector],
+  );
+  // A read-only guest navigates locally without publishing document commands.
+  const bookmarkScope = `${commandActorId}/${document.id}`;
+  const [viewOnlyCamera, setViewOnlyCamera] = useState<{
+    readonly scope: string;
+    readonly viewport: ViewportState;
+  } | null>(null);
+  const visibleViewport =
+    readOnly && viewOnlyCamera?.scope === bookmarkScope
+      ? viewOnlyCamera.viewport
+      : document.viewport;
+  const visibleScene = useMemo(
+    () =>
+      visibleViewport === document.viewport
+        ? scene
+        : { ...scene, viewport: visibleViewport },
+    [document.viewport, scene, visibleViewport],
   );
 
   const selection = useBoardSelectionController({
@@ -558,28 +576,32 @@ export function App({
     onPresenceChange?.({
       selectedObjectIds: selection.state.selectedObjectIds,
       viewport: {
-        x: document.viewport.offset.x,
-        y: document.viewport.offset.y,
-        zoom: document.viewport.zoom,
+        x: visibleViewport.offset.x,
+        y: visibleViewport.offset.y,
+        zoom: visibleViewport.zoom,
       },
     });
   }, [
-    document.viewport.offset.x,
-    document.viewport.offset.y,
-    document.viewport.zoom,
+    visibleViewport.offset.x,
+    visibleViewport.offset.y,
+    visibleViewport.zoom,
     onPresenceChange,
     selection.state.selectedObjectIds,
   ]);
 
   const commitViewport = useCallback(
     (viewport: ViewportState) => {
+      if (readOnly) {
+        setViewOnlyCamera({ scope: bookmarkScope, viewport });
+        return;
+      }
       commitCommand({
         ...createCommandMetadata(),
         kind: "core.viewport.set",
         viewport,
       });
     },
-    [commitCommand, createCommandMetadata],
+    [bookmarkScope, commitCommand, createCommandMetadata, readOnly],
   );
 
   const resetViewport = useCallback(() => {
@@ -705,9 +727,15 @@ export function App({
           remoteCursors={remoteCursors}
           remoteInkPreviews={remoteInkPreviews}
           remoteTransformPreviews={remoteTransformPreviews}
-          scene={scene}
+          scene={visibleScene}
           selection={selection}
           solid3D={solid3D}
+        />
+        <BoardViewportBookmarks
+          key={bookmarkScope}
+          storageScope={bookmarkScope}
+          viewport={visibleViewport}
+          onNavigate={commitViewport}
         />
         <BoardOverlays
           activeTool={activeTool}
