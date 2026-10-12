@@ -980,7 +980,7 @@ export function BoardStage({
           if (attempts < 24) schedule();
           return;
         }
-        if (wheelInkCache.prepare(window.devicePixelRatio)) {
+        if (wheelInkCache.prepare(window.devicePixelRatio, previewViewport.zoom)) {
           if (rootRef.current !== null) {
             rootRef.current.dataset.wheelCachePrepared = "true";
             rootRef.current.dataset.wheelCacheBuilds = String(
@@ -2191,6 +2191,7 @@ export function BoardStage({
         // when idle preparation has not completed.
         wheelInkCache.begin(window.devicePixelRatio, {
           buildIfUnprepared: false,
+          zoom: viewport.zoom,
         });
         // Avoid an independent full-speed GIF invalidation stream while the
         // temporary wheel cache is composited through viewport transforms.
@@ -2213,6 +2214,10 @@ export function BoardStage({
         );
         pendingViewportCommitTraceRef.current = nowMs;
       }
+      // Consecutive wheel steps may increase zoom well beyond the cache's
+      // initial raster resolution. Restore vector painting before the cache
+      // would become visibly pixelated in the current working viewport.
+      wheelInkCache.ensureSharpness(window.devicePixelRatio, viewport.zoom);
       setPreviewViewport(viewport);
       const currentSession = wheelSessionRef.current;
       if (currentSession !== null) {
