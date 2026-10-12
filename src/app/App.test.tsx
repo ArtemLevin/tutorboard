@@ -230,7 +230,7 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps the lesson mode local and restores the active tool after Escape", () => {
+  it("keeps the lesson mode local and restores the active tool after Escape", async () => {
     const onCommandCommitted = vi.fn();
     render(<App onCommandCommitted={onCommandCommitted} />);
 
@@ -238,6 +238,9 @@ describe("App", () => {
     expect(
       screen.getByRole("toolbar", { name: "Инструменты режима занятия" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Перо — режим занятия" }),
+    ).toHaveFocus();
     expect(
       screen.queryByRole("toolbar", { name: "Инструменты доски" }),
     ).not.toBeInTheDocument();
@@ -267,8 +270,36 @@ describe("App", () => {
     expect(
       screen.getByRole("button", { name: "Закладки областей" }),
     ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Режим занятия" }),
+      ).toHaveFocus(),
+    );
     expect(onCommandCommitted).not.toHaveBeenCalled();
     expect(screen.getByTestId("history-depth")).toHaveTextContent("0/0");
+  });
+
+  it("preserves selection and document history when entering or exiting", () => {
+    const onCommandCommitted = vi.fn();
+    render(<App onCommandCommitted={onCommandCommitted} />);
+
+    fireEvent.keyDown(window, { key: "r" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    fireEvent.keyDown(window, { key: "v" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Переместить выделение" }),
+    );
+    expect(screen.getByTestId("selection-count")).toHaveTextContent("1 выбрано");
+    const commandsBefore = onCommandCommitted.mock.calls.length;
+    const historyBefore = screen.getByTestId("history-depth").textContent();
+
+    fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByTestId("selection-count")).toHaveTextContent("1 выбрано");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent(
+      historyBefore ?? "",
+    );
+    expect(onCommandCommitted).toHaveBeenCalledTimes(commandsBefore);
   });
 
   it("closes modal help before leaving the lesson mode", () => {
