@@ -283,14 +283,33 @@ function ToolSettingsVisibility({
   readonly children: ReactNode;
 }) {
   const [visible, setVisible] = useState(true);
+  const [activity, setActivity] = useState(0);
+  const [pointerDown, setPointerDown] = useState(false);
+  const keepOpen = () => setActivity((current) => current + 1);
 
   useEffect(() => {
-    if (!autoDismiss) return;
+    if (!autoDismiss || pointerDown) return;
     const timeout = window.setTimeout(() => setVisible(false), 2_000);
     return () => window.clearTimeout(timeout);
-  }, [autoDismiss]);
+  }, [autoDismiss, activity, pointerDown]);
 
-  return visible ? <>{children}</> : null;
+  return visible ? (
+    <section
+      aria-label="Первичные настройки инструмента"
+      className="dock-primary-settings"
+      onChangeCapture={keepOpen}
+      onFocusCapture={keepOpen}
+      onKeyDownCapture={keepOpen}
+      onPointerCancelCapture={() => setPointerDown(false)}
+      onPointerDownCapture={() => setPointerDown(true)}
+      onPointerUpCapture={() => {
+        setPointerDown(false);
+        keepOpen();
+      }}
+    >
+      {children}
+    </section>
+  ) : null;
 }
 
 export function BoardToolDock(props: BoardToolDockProps) {
@@ -298,6 +317,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [openMenu, setOpenMenu] = useState<DockMenuId | null>(null);
+  const [settingsRevision, setSettingsRevision] = useState(0);
   const activeDrawingTool = isDrawingToolId(props.activeTool)
     ? props.activeTool
     : null;
@@ -365,6 +385,9 @@ export function BoardToolDock(props: BoardToolDockProps) {
     setOpenMenu((current) => (current === menu ? null : menu));
   };
   const chooseTool = (tool: string) => {
+    if (tool === props.activeTool) {
+      setSettingsRevision((current) => current + 1);
+    }
     if (props.geometryOpen) props.onGeometryToggle();
     props.onActivate(tool);
     setOpenMenu(null);
@@ -724,39 +747,34 @@ export function BoardToolDock(props: BoardToolDockProps) {
       ) : activeDrawingTool !== null && props.activeStyle !== null ? (
         <ToolSettingsVisibility
           autoDismiss={activeDrawingTool === "drawing.smart-ink"}
-          key={activeDrawingTool}
+          key={`${activeDrawingTool}:${settingsRevision}`}
         >
-          <section
-            aria-label="Первичные настройки инструмента"
-            className="dock-primary-settings"
-          >
-            <div className="dock-primary-heading">
-              <strong>
-                {props.drawingTools.find(({ id }) => id === activeDrawingTool)
-                  ?.label ?? "Инструмент"}
-              </strong>
-            </div>
-            {activeDrawingTool === "drawing.text" ? (
-              <label className="dock-text-control">
-                <span>Текст</span>
-                <input
-                  aria-label="Содержимое текста"
-                  maxLength={100_000}
-                  onChange={(event) =>
-                    props.onTextDraftChange(event.currentTarget.value)
-                  }
-                  value={props.textDraft}
-                />
-              </label>
-            ) : null}
-            <StyleControls
-              allowFill={allowFill}
-              onChange={(patch) =>
-                props.onStyleChange(activeDrawingTool, patch)
-              }
-              style={props.activeStyle}
-            />
-          </section>
+          <div className="dock-primary-heading">
+            <strong>
+              {props.drawingTools.find(({ id }) => id === activeDrawingTool)
+                ?.label ?? "Инструмент"}
+            </strong>
+          </div>
+          {activeDrawingTool === "drawing.text" ? (
+            <label className="dock-text-control">
+              <span>Текст</span>
+              <input
+                aria-label="Содержимое текста"
+                maxLength={100_000}
+                onChange={(event) =>
+                  props.onTextDraftChange(event.currentTarget.value)
+                }
+                value={props.textDraft}
+              />
+            </label>
+          ) : null}
+          <StyleControls
+            allowFill={allowFill}
+            onChange={(patch) =>
+              props.onStyleChange(activeDrawingTool, patch)
+            }
+            style={props.activeStyle}
+          />
         </ToolSettingsVisibility>
       ) : null}
       <div
