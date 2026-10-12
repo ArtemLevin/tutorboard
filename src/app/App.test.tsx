@@ -735,21 +735,34 @@ describe("App", () => {
         readOnly
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Переместить камеру тест" }));
-    expect(screen.getByTestId("mock-stage-camera")).toHaveTextContent("321,-200,2");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Переместить камеру тест" }),
+    );
+    expect(screen.getByTestId("mock-stage-camera")).toHaveTextContent(
+      "321,-200,2",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Закладки областей" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Название новой области" }), {
-      target: { value: "Задача 1" },
-    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Название новой области" }),
+      {
+        target: { value: "Задача 1" },
+      },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Сохранить область" }));
     fireEvent.click(screen.getByRole("button", { name: "Закладки областей" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Изменить камеру тест" }));
-    expect(screen.getByTestId("mock-stage-camera")).toHaveTextContent("850,-15,1.25");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Изменить камеру тест" }),
+    );
+    expect(screen.getByTestId("mock-stage-camera")).toHaveTextContent(
+      "850,-15,1.25",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Закладки областей" }));
     fireEvent.click(screen.getByRole("button", { name: "Перейти: Задача 1" }));
 
-    expect(screen.getByTestId("mock-stage-camera")).toHaveTextContent("321,-200,2");
+    expect(screen.getByTestId("mock-stage-camera")).toHaveTextContent(
+      "321,-200,2",
+    );
     expect(onCommandCommitted).not.toHaveBeenCalled();
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
   });
