@@ -17,7 +17,10 @@ async function openBoardWithPen(page: Page): Promise<void> {
         );
         if (!Array.isArray(storedEntries)) return;
         for (const entry of list.getEntries())
-          storedEntries.push({ startMs: entry.startTime, durationMs: entry.duration });
+          storedEntries.push({
+            startMs: entry.startTime,
+            durationMs: entry.duration,
+          });
       });
       observer.observe({ type: "longtask", buffered: true });
       Reflect.set(window, "__tutorboardLongTaskObserver", observer);
@@ -219,17 +222,22 @@ test("@smoke sustained 240 Hz coalesced pen input drains backlog with bounded we
       : [];
     return {
       count: tasks.length,
-      maxMs: tasks.length === 0 ? 0 : Math.max(...tasks.map((task) => task.durationMs)),
+      maxMs:
+        tasks.length === 0
+          ? 0
+          : Math.max(...tasks.map((task) => task.durationMs)),
       supported: Reflect.get(window, "__tutorboardLongTaskSupported") === true,
       tasks,
     };
   });
 
   const maxGapEndedAtMs = Number(
-    (await stage.getAttribute("data-wet-ink-max-frame-gap-ended-at-ms")) ?? "NaN",
+    (await stage.getAttribute("data-wet-ink-max-frame-gap-ended-at-ms")) ??
+      "NaN",
   );
   const maxGapSurfaceDrawMs = Number(
-    (await stage.getAttribute("data-wet-ink-max-frame-gap-surface-draw-ms")) ?? "NaN",
+    (await stage.getAttribute("data-wet-ink-max-frame-gap-surface-draw-ms")) ??
+      "NaN",
   );
   const maxSurfaceDrawMs = Number(
     (await stage.getAttribute("data-wet-ink-max-surface-draw-ms")) ?? "NaN",
