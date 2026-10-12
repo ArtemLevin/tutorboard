@@ -3,6 +3,9 @@ import { expect, test, type Page } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
+  await expect(page.getByTestId("persistence-status")).toHaveText(
+    "Сохранено локально",
+  );
 });
 
 async function penEvent(
@@ -24,8 +27,14 @@ async function penEvent(
       // Browser dispatchEvent does not register synthetic pointers with the UA's
       // pointer-capture system. Let the real Konva session receive and handle
       // synthetic events while keeping the rest of the runtime unchanged.
-      container.setPointerCapture = () => {};
-      container.releasePointerCapture = () => {};
+      // Konva.Stage.container() is the parent of .konvajs-content.
+      // Synthetic pointer IDs cannot be captured by the browser itself.
+      const stageContainer = container.parentElement;
+      if (stageContainer === null) throw new Error("Missing Konva parent");
+      for (const element of [container, stageContainer]) {
+        element.setPointerCapture = () => {};
+        element.releasePointerCapture = () => {};
+      }
       const bounds = container.getBoundingClientRect();
       const target = kind === "pointerdown" ? container : window;
       target.dispatchEvent(
