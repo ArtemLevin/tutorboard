@@ -1550,6 +1550,17 @@ test("@smoke reuses prepared wheel cache and restores pen hits", async ({
 test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
   page,
 }) => {
+  // This checks the two-gesture cache lifecycle. Idle preparation is
+  // deliberately scheduled deterministically; native idle behavior is
+  // exercised separately by the performance profile.
+  await page.addInitScript(() => {
+    window.requestIdleCallback = (callback) =>
+      window.setTimeout(
+        () => callback({ didTimeout: false, timeRemaining: () => 50 }),
+        0,
+      );
+    window.cancelIdleCallback = (id) => window.clearTimeout(id);
+  });
   await resetLocalDatabase(page);
   const document = createDenseBoardDocument({
     strokeCount: 120,
@@ -1558,30 +1569,44 @@ test("@smoke builds and releases bounded pen cache across wheel zoom", async ({
   });
   await importDocument(page, document);
   const stage = page.getByTestId("board-stage");
+  const originalZoom = await page.getByTestId("viewport-zoom").textContent();
   const bounds = await stage.boundingBox();
   if (bounds === null) throw new Error("Missing board bounds");
   await page.mouse.move(
     bounds.x + bounds.width / 2,
     bounds.y + bounds.height / 2,
   );
+  await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "true");
+  const initialBuilds = await integerStageMetric(page, "data-wheel-cache-builds");
+  expect(initialBuilds).toBeGreaterThan(0);
+
   await page.mouse.wheel(0, -190);
-  await expect
-    .poll(() => integerStageMetric(page, "data-wheel-cache-builds"))
-    .toBeGreaterThan(0);
+  // The cache can be released before the wheel's persisted viewport commit.
+  // Wait for the observable commit before beginning a distinct gesture.
+  await expect(page.getByTestId("viewport-zoom")).not.toHaveText(
+    originalZoom ?? "",
+  );
+  await expect(stage).toHaveAttribute("data-wheel-gif-pause-active", "false");
   await expect(stage).toHaveAttribute("data-wheel-cache-active-runs", "0");
   await expect(stage).toHaveAttribute("data-committed-layer-count", "2");
 
-  // A second gesture must safely rebuild from the committed viewport,
-  // after the first hit and scene caches were completely released.
-  await page.mouse.wheel(0, 190);
+  // The previous cache is gone; the next gesture needs a new prepared cache.
+  await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "true");
   await expect
     .poll(() => integerStageMetric(page, "data-wheel-cache-builds"))
-    .toBeGreaterThanOrEqual(2);
+    .toBeGreaterThan(initialBuilds);
+
+  await page.mouse.wheel(0, 190);
+  await expect(page.getByTestId("viewport-zoom")).toHaveText(
+    originalZoom ?? "",
+  );
+  await expect(stage).toHaveAttribute(
+    "data-wheel-cache-last-wheel-used-prepared",
+    "true",
+  );
   await expect(stage).toHaveAttribute("data-wheel-cache-active-runs", "0");
 
-  // Two inverse wheel steps return to the original world coordinates.
-  // Hit testing must still resolve an individual pen stroke, after
-  // the cached Konva hit canvas has been released and rebuilt.
+  // Two separately committed inverse gestures preserve pen hit testing.
   await page.keyboard.press("v");
   await page.mouse.click(bounds.x + 90, bounds.y + 192);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
