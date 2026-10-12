@@ -1,4 +1,4 @@
-name: QoL 2.3 visual mismatch diagnostics
+name: QoL 2.3 audited visual baseline update
 
 on:
   push:
@@ -6,10 +6,10 @@ on:
     paths: [.github/workflows/qol-2-3-visual-baseline.yml]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  compare:
+  guarded-update:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -21,46 +21,49 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox
       - run: npm run build
-      - name: Generate candidate visual baselines
-        run: npm run e2e:plot-visual:update
-      - name: Analyze all changed image regions
+      - run: npm run e2e:plot-visual:update
+      - name: Verify only audited bookmark and dock pixels changed
         run: |
-          mkdir -p visual-evidence
           node --input-type=module <<'NODE'
           import { execFileSync } from 'node:child_process';
-          import { readFileSync, writeFileSync, copyFileSync } from 'node:fs';
-          import { basename, join } from 'node:path';
+          import { readFileSync } from 'node:fs';
+          import { basename } from 'node:path';
           import { PNG } from 'pngjs';
 
-          const dir='tests/e2e/coordinate-plot-visual.spec.ts-snapshots';
-          const files=execFileSync('git',['diff','--name-only','--',dir],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
-          let report='';
+          const directory='tests/e2e/coordinate-plot-visual.spec.ts-snapshots';
+          const files=execFileSync('git',['diff','--name-only','--',directory],{encoding:'utf8'}).trim().split('\n').filter(Boolean).sort();
+          const expected=['coordinate-plot-bounded-legend-visual-chromium-desktop-linux.png','coordinate-plot-bounded-legend-visual-firefox-desktop-linux.png','coordinate-plot-functions-visual-chromium-desktop-linux.png','coordinate-plot-functions-visual-firefox-desktop-linux.png'].sort();
+          if(JSON.stringify(files.map(basename))!==JSON.stringify(expected)) {
+            throw Error('Unexpected visual snapshot set: '+JSON.stringify(files));
+          }
           for(const path of files) {
             const before=PNG.sync.read(execFileSync('git',['show',`HEAD:${path}`]));
             const after=PNG.sync.read(readFileSync(path));
-            if(before.width!==after.width||before.height!==after.height) throw Error('dimensions changed: '+path);
-            let pixels=0,minX=after.width,minY=after.height,maxX=-1,maxY=-1;
-            const buckets=new Array(Math.ceil(after.height/50)).fill(0);
-            const diff=new PNG({width:after.width,height:after.height});
+            if(before.width!==1440||after.width!==1440||before.height!==900||after.height!==900) {
+              throw Error('Unexpected dimensions: '+path);
+            }
+            let dock=0,bookmarks=0,unexpected=0;
             for(let y=0;y<after.height;y++) for(let x=0;x<after.width;x++) {
               const i=(y*after.width+x)*4;
-              const changed=[0,1,2,3].some(k=>before.data[i+k]!==after.data[i+k]);
-              if(changed){pixels++;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);buckets[Math.floor(y/50)]++;diff.data[i]=255;diff.data[i+1]=0;diff.data[i+2]=70;diff.data[i+3]=255;}
-              else {diff.data[i]=0;diff.data[i+1]=0;diff.data[i+2]=0;diff.data[i+3]=255;}
+              if([0,1,2,3].every(k=>before.data[i+k]===after.data[i+k])) continue;
+              // Dedicated bounding margins from independently reviewed original/actual screenshots.
+              if(y>=810 && x>=260 && x<=1180) dock++;
+              else if(path.includes('bounded-legend') && y>=0 && y<=75 && x>=1290 && x<=1439) bookmarks++;
+              else unexpected++;
             }
-            const name=basename(path,'.png');
-            writeFileSync(join('visual-evidence',name+'-before.png'),PNG.sync.write(before));
-            copyFileSync(path,join('visual-evidence',name+'-after.png'));
-            writeFileSync(join('visual-evidence',name+'-diff.png'),PNG.sync.write(diff));
-            const line=`${name} pixels=${pixels},bbox=(${minX},${minY})-(${maxX},${maxY}), buckets50px=${JSON.stringify(buckets)}\n`;
-            report+=line;
-            process.stdout.write(line);
+            if(unexpected!==0||dock<1000||dock>20000||
+               (path.includes('bounded-legend') && (bookmarks<500||bookmarks>9000))||
+               (!path.includes('bounded-legend') && bookmarks!==0)) {
+              throw Error(`Snapshot mismatch outside audited zones: ${path}, dock=${dock}, bookmarks=${bookmarks}, unexpected=${unexpected}`);
+            }
+            process.stdout.write(`${basename(path)}: dock=${dock}, bookmarks=${bookmarks}, outside=0\n`);
           }
-          writeFileSync('visual-evidence/report.txt', report);
           NODE
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: qol-2-3-visual-evidence
-          path: visual-evidence
-          retention-days: 7
+      - name: Commit guarded visual baselines and remove one-time workflow
+        run: |
+          rm .github/workflows/qol-2-3-visual-baseline.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/e2e/coordinate-plot-visual.spec.ts-snapshots .github/workflows/qol-2-3-visual-baseline.yml
+          git commit -m "test(qol): update audited bookmark and lesson-dock visual baselines"
+          git push
