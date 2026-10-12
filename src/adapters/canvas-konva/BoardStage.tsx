@@ -983,7 +983,7 @@ export function BoardStage({
         if (
           wheelInkCache.prepare(
             window.devicePixelRatio,
-            previewViewport.zoom * zoomStep,
+            scene.viewport.zoom * zoomStep,
           )
         ) {
           if (rootRef.current !== null) {
