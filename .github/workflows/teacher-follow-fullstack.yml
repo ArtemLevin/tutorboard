@@ -1,0 +1,53 @@
+name: Teacher follow fullstack contract
+on:
+  pull_request:
+    paths:
+      - src/app/**
+      - src/adapters/canvas-konva/BoardStage.tsx
+      - src/adapters/board-websocket/**
+      - tests/fullstack/standalone-pilot.spec.ts
+      - playwright.standalone-pilot.config.ts
+      - .github/workflows/teacher-follow-fullstack.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guest-follow:
+    name: Teacher and guest access contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TUTOR_ASSISTANT_WEB_ROOT: ${{ github.workspace }}/tutor-assistant-web
+      UV_CACHE_DIR: /tmp/tutor-assistant-web-uv-cache
+    steps:
+      - name: Checkout TutorBoard
+        uses: actions/checkout@v4
+      - name: Checkout pinned backend authority
+        uses: actions/checkout@v4
+        with:
+          repository: ArtemLevin/tutor-assistant-web
+          ref: 301928ac34d901fc72b6117ef452ec179fb978ee
+          path: tutor-assistant-web
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Real backend teacher+guest reconnect/revoke contract
+        run: npm run e2e:standalone-pilot
+      - name: Upload failing browser traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: teacher-follow-fullstack-failure
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
