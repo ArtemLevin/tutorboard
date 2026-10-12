@@ -2574,14 +2574,16 @@ Component/Chromium/Firefox E2E, mobile layout и teacher/guest smoke.
 
 ### 28.5. QoL 2.4 — быстрые действия с выделением (P2)
 
-**Implementation (PR #250, DRAFT / verification pending):** контекстное меню
+**Реализовано и объединено в main (PR #250, squash merge
+`59dd2e848a23f77e70454a53e301afda7484c8d5`):** контекстное меню
 выделения с дублированием, шестью вариантами выравнивания, распределением по
 двум осям и блокировкой/разблокировкой. Повторно используются
 `core.clipboard.paste`, `core.selection.move`, `core.selection.set-lock` и
 `commitCommands`; группы выступают едиными единицами с учётом поворота.
-Добавлены unit/E2E регрессии. Статус MERGED допустим только после полного
-применимого CI, review и фактического объединения PR. Production rollout —
-отдельный release gate.
+Unit/E2E регрессии добавлены. CI на HEAD PR
+`8c99893b80fab48091b1abd1f905c9494c894c90` завершился успешно,
+включая Quality Gate, Chromium/Firefox smoke, media performance, GeometryOS
+и Coordinate Plot production gates. Production rollout — отдельный release gate.
 
 **Цель:** ускорить компоновку условий, изображений и схем.
 
