@@ -63,6 +63,44 @@ describe("quick tool preferences", () => {
     expect(penPresetMatchesStyle(next.penPresets[1], style)).toBe(false);
   });
 
+  it("migrates existing two-slot preferences, adds the note profile and keeps stylus eraser opt-in", () => {
+    const previous = normalizeQuickToolPreferences({
+      favorites: ["drawing.pen"],
+      penPresets: [
+        { stroke: "#222222", strokeWidth: 4 },
+        { stroke: "#333333", strokeWidth: 6 },
+      ],
+      lastSelectedSlot: 1,
+    });
+    expect(previous.penPresets).toHaveLength(3);
+    expect(previous.penPresets[0].strokeWidth).toBe(4);
+    expect(previous.penPresets[1].strokeWidth).toBe(6);
+    expect(previous.penPresets[2]).toMatchObject({
+      stroke: "#d97706",
+      strokeWidth: 2,
+    });
+    expect(previous.lastSelectedSlot).toBe(1);
+    expect(previous.stylusEraserEnabled).toBe(false);
+
+    const current = normalizeQuickToolPreferences({
+      ...previous,
+      penPresets: [
+        previous.penPresets[0],
+        previous.penPresets[1],
+        { ...previous.penPresets[2], strokeWidth: 3.5 },
+      ],
+      lastSelectedSlot: 2,
+      stylusEraserEnabled: true,
+    });
+    expect(current.penPresets[2].strokeWidth).toBe(3.5);
+    expect(current.lastSelectedSlot).toBe(2);
+    expect(current.stylusEraserEnabled).toBe(true);
+    expect(
+      normalizeQuickToolPreferences({ ...current, stylusEraserEnabled: "true" })
+        .stylusEraserEnabled,
+    ).toBe(false);
+  });
+
   it("falls back safely for corrupt storage and keeps document preferences separate", () => {
     const corrupt = readQuickToolPreferences({
       getItem: () => "{broken-json",

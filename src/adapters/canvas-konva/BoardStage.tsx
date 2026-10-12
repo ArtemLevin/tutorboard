@@ -41,6 +41,7 @@ import {
   flattenStrokePoints,
 } from "../../shared/stroke-smoothing";
 import { recordBoardFrameTrace } from "./board-frame-trace";
+import { startsStylusEraser } from "../../shared/stylus-eraser";
 import { AnimatedImageRedrawCoordinator } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
 import { BoardRenderItemView, BoardSceneContent } from "./board-scene-content";
@@ -123,6 +124,7 @@ interface WheelSession {
 interface DrawingSession {
   readonly captureElement: HTMLElement;
   readonly pointerId: number;
+  readonly stylusEraser: boolean;
   readonly viewport: ViewportState;
 }
 
@@ -140,6 +142,7 @@ interface LineEndpointSession extends SelectionSession {
 
 export interface WorldPointerSample {
   readonly inputTimestampMs?: number;
+  readonly stylusEraser?: boolean;
   readonly modifiers?: InputModifiers;
   readonly point: Vec2;
   readonly pointerId: number;
@@ -193,6 +196,8 @@ export interface BoardStageProps {
   readonly coordinatePlotInteraction?:
     CoordinatePlotRenderInteraction | undefined;
   readonly drawingModeKey: string | null;
+  readonly stylusEraserEnabled?: boolean;
+  readonly onStylusEraserChange?: (active: boolean) => void;
   readonly drawingConstraintFeedback?: {
     readonly anchor: Vec2;
     readonly label: string;
@@ -454,6 +459,8 @@ export function BoardStage({
   onWorldPointerBatch,
   onWorldPointerHover,
   onWorldPointerStart,
+  stylusEraserEnabled = false,
+  onStylusEraserChange,
   onSelectionPointerCancel,
   onSelectionPointerFinish,
   onSelectionPointerMove,
@@ -492,6 +499,11 @@ export function BoardStage({
   const worldPointerMoveFrameRef = useRef<number | null>(null);
   const panSessionRef = useRef<PanSession | null>(null);
   const drawingSessionRef = useRef<DrawingSession | null>(null);
+  const stylusEraserChangeRef = useRef(onStylusEraserChange);
+  const [stylusEraserActive, setStylusEraserActive] = useState(false);
+  useLayoutEffect(() => {
+    stylusEraserChangeRef.current = onStylusEraserChange;
+  }, [onStylusEraserChange]);
   const selectionSessionRef = useRef<SelectionSession | null>(null);
   const lineEndpointSessionRef = useRef<LineEndpointSession | null>(null);
   const lineEndpointPreviewRef = useRef<BoardObjectTransformSnapshot | null>(
@@ -1045,6 +1057,7 @@ export function BoardStage({
         session.viewport,
       ),
       pointerId: event.pointerId,
+      ...(session.stylusEraser ? { stylusEraser: true } : {}),
       pressure: Number.isFinite(event.pressure)
         ? Math.min(1, Math.max(0, event.pressure))
         : 0,
@@ -1189,6 +1202,10 @@ export function BoardStage({
 
       drawingSessionRef.current = null;
       releaseCapture(session);
+      if (session.stylusEraser) {
+        setStylusEraserActive(false);
+        stylusEraserChangeRef.current?.(false);
+      }
       animatedImageRedraw.setInteractionActive(false);
       setIsDrawing(false);
       setPreviewViewport(viewportRef.current);
@@ -1196,7 +1213,8 @@ export function BoardStage({
       if (commit && event !== undefined) {
         const samples = worldSamples(event, session);
         const finalSample = samples.at(-1);
-        wetInkRendererRef.current?.finish(samples, []);
+        if (!session.stylusEraser)
+          wetInkRendererRef.current?.finish(samples, []);
         if (finalSample !== undefined) {
           enqueueWorldPointerMoves(samples.slice(0, -1));
           flushWorldPointerMoves();
@@ -1514,10 +1532,12 @@ export function BoardStage({
       ) {
         event.preventDefault();
         const samples = worldSamples(event, drawingSession);
-        wetInkRendererRef.current?.append(
-          samples,
-          predictedWorldSamples(event, drawingSession),
-        );
+        if (!drawingSession.stylusEraser) {
+          wetInkRendererRef.current?.append(
+            samples,
+            predictedWorldSamples(event, drawingSession),
+          );
+        }
         enqueueWorldPointerMoves(samples);
         return;
       }
@@ -1792,6 +1812,9 @@ export function BoardStage({
       if (drawingSession !== null) {
         drawingSessionRef.current = null;
         releaseCapture(drawingSession);
+        if (drawingSession.stylusEraser) {
+          stylusEraserChangeRef.current?.(false);
+        }
         animatedImageRedraw.setInteractionActive(false);
         worldPointerCallbacksRef.current.cancel(drawingSession.pointerId);
       }
@@ -1851,6 +1874,11 @@ export function BoardStage({
       finishDrawing(false);
     }
   }, [drawingModeKey, finishDrawing]);
+
+  useLayoutEffect(() => {
+    if (drawingSessionRef.current?.stylusEraser && !stylusEraserEnabled)
+      finishDrawing(false);
+  }, [finishDrawing, stylusEraserEnabled]);
 
   useLayoutEffect(() => {
     if (selectionSessionRef.current !== null) {
@@ -1946,7 +1974,12 @@ export function BoardStage({
   };
 
   const handlePointerDown = (event: Konva.KonvaEventObject<PointerEvent>) => {
-    const isRightButton = event.evt.button === 2;
+    const penEraser = startsStylusEraser(
+      event.evt,
+      stylusEraserEnabled,
+      drawingModeKey,
+    );
+    const isRightButton = event.evt.button === 2 && !penEraser;
     if (isRightButton && rightContextMenuTimeoutRef.current !== null) {
       window.clearTimeout(rightContextMenuTimeoutRef.current);
       rightContextMenuTimeoutRef.current = null;
@@ -2030,7 +2063,7 @@ export function BoardStage({
       rightClickCandidateRef.current = null;
     }
     const isMiddleButton = event.evt.button === 1;
-    const isLeftButton = event.evt.button === 0;
+    const isLeftButton = event.evt.button === 0 || penEraser;
     const shouldSelectHitObject =
       isLeftButton && hitObjectId !== null && drawingModeKey === null;
     const source: PanSource | null = isRightButton
@@ -2078,9 +2111,16 @@ export function BoardStage({
         captureElement,
         pointerId: event.evt.pointerId,
         viewport: previewViewport,
+        stylusEraser: penEraser,
       };
       drawingSessionRef.current = session;
-      animatedImageRedraw.setInteractionActive(wetInkStyle !== null);
+      if (penEraser) {
+        setStylusEraserActive(true);
+        stylusEraserChangeRef.current?.(true);
+      }
+      animatedImageRedraw.setInteractionActive(
+        !penEraser && wetInkStyle !== null,
+      );
       setIsDrawing(true);
       worldPointerBacklogPeakRef.current = 0;
       if (rootRef.current !== null) {
@@ -2089,7 +2129,7 @@ export function BoardStage({
         rootRef.current.dataset.pointerLastBatchSize = "0";
       }
       const startSample = worldSample(event.evt, session);
-      if (wetInkStyle !== null) {
+      if (wetInkStyle !== null && !penEraser) {
         rootRef.current?.setAttribute("data-wet-ink-active", "true");
         wetInkRendererRef.current?.begin(
           startSample,
@@ -2276,6 +2316,7 @@ export function BoardStage({
       data-drawing={isDrawing}
       data-drawing-constraint={drawingConstraintFeedback?.label ?? "none"}
       data-drawing-mode={drawingModeKey ?? "none"}
+      data-stylus-eraser-active={stylusEraserActive}
       data-eraser-visible={eraserPoint !== null}
       data-lasso-points={selectionLasso?.length ?? 0}
       data-lassoing={selectionLasso !== null}

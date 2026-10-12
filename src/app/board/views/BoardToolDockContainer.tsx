@@ -117,6 +117,8 @@ export function BoardToolDockContainer({
       onToggleFavorite={quickTools.toggleFavorite}
       favoriteTools={quickTools.favorites}
       penPresets={quickTools.penPresets}
+      stylusEraserEnabled={quickTools.stylusEraserEnabled}
+      onStylusEraserEnabledChange={quickTools.setStylusEraserEnabled}
       lastSelectedPenPreset={quickTools.lastSelectedSlot}
       onRedo={redo}
       canTransformSelection={

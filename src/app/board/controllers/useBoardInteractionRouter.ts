@@ -1,4 +1,8 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
+import {
+  transitionStylusEraserGesture,
+  type StylusEraserGesture,
+} from "../../../shared/stylus-eraser";
 
 import { isDrawingToolId } from "../../../modules/drawing/public";
 import { eraserToolId } from "../../../modules/eraser/public";
@@ -56,6 +60,7 @@ export function useBoardInteractionRouter({
   selection,
   setActiveTool,
 }: UseBoardInteractionRouterOptions) {
+  const stylusEraserSessionRef = useRef<StylusEraserGesture | null>(null);
   const activate = useCallback(
     (tool: ActiveToolId) => {
       if (
@@ -67,6 +72,10 @@ export function useBoardInteractionRouter({
       }
       drawing.cancel();
       eraser.cancel();
+      stylusEraserSessionRef.current = transitionStylusEraserGesture(
+        stylusEraserSessionRef.current,
+        { kind: "disable" },
+      );
       drawing.setSmartInkNotice(null);
       selection.cancel();
       onInspectorClose();
@@ -89,6 +98,14 @@ export function useBoardInteractionRouter({
 
   const start = useCallback(
     (sample: WorldPointerSample) => {
+      if (sample.stylusEraser === true) {
+        stylusEraserSessionRef.current = transitionStylusEraserGesture(
+          stylusEraserSessionRef.current,
+          { kind: "start", pointerId: sample.pointerId, enabled: true },
+        );
+        eraser.start(sample);
+        return;
+      }
       if (activeTool === geometryPlacementToolId) {
         geometry.placeAt(sample.point);
         return;
@@ -119,6 +136,11 @@ export function useBoardInteractionRouter({
 
   const move = useCallback(
     (sample: WorldPointerSample) => {
+      if (sample.stylusEraser === true) {
+        if (stylusEraserSessionRef.current?.pointerId === sample.pointerId)
+          eraser.move(sample);
+        return;
+      }
       if (activeTool === laserToolId) {
         laser.move(sample.point);
         return;
@@ -139,6 +161,14 @@ export function useBoardInteractionRouter({
   const moveBatch = useCallback(
     (samples: readonly WorldPointerSample[]) => {
       if (samples.length === 0) return;
+      if (samples[0]?.stylusEraser === true) {
+        const pointerId = stylusEraserSessionRef.current?.pointerId;
+        if (pointerId !== undefined)
+          eraser.moveBatch(
+            samples.filter((sample) => sample.pointerId === pointerId),
+          );
+        return;
+      }
       if (activeTool === laserToolId) {
         laser.moveBatch(samples.map(({ point }) => point));
         return;
@@ -158,6 +188,15 @@ export function useBoardInteractionRouter({
 
   const finish = useCallback(
     (sample: WorldPointerSample) => {
+      if (sample.stylusEraser === true) {
+        if (stylusEraserSessionRef.current?.pointerId === sample.pointerId)
+          eraser.finish(sample);
+        stylusEraserSessionRef.current = transitionStylusEraserGesture(
+          stylusEraserSessionRef.current,
+          { kind: "end", pointerId: sample.pointerId },
+        );
+        return;
+      }
       if (activeTool === laserToolId) {
         laser.finish(sample.point);
         return;
@@ -178,6 +217,14 @@ export function useBoardInteractionRouter({
 
   const cancel = useCallback(
     (pointerId: number) => {
+      if (stylusEraserSessionRef.current?.pointerId === pointerId) {
+        eraser.cancel(pointerId);
+        stylusEraserSessionRef.current = transitionStylusEraserGesture(
+          stylusEraserSessionRef.current,
+          { kind: "cancel", pointerId },
+        );
+        return;
+      }
       if (activeTool === laserToolId) {
         laser.clear();
         return;
@@ -269,6 +316,7 @@ export function useBoardInteractionRouter({
   );
 
   const resetAfterClear = useCallback(() => {
+    stylusEraserSessionRef.current = null;
     resetBoardTransientStateAfterClear({
       drawing,
       eraser,

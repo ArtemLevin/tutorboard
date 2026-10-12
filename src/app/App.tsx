@@ -810,6 +810,7 @@ export function App({
         <BoardCanvas
           key={mediaResourceGeneration}
           activeTool={canvasTool}
+          stylusEraserEnabled={!readOnly && quickTools.stylusEraserEnabled}
           announce={announce}
           clipboard={clipboard}
           document={document}
