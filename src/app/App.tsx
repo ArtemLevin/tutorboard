@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -412,6 +413,21 @@ export function App({
       : (readOnly || localViewportEnabled) && viewOnlyCamera?.scope === bookmarkScope
         ? viewOnlyCamera.viewport
         : document.viewport;
+  const lastFollowCameraRef = useRef<{
+    readonly scope: string;
+    readonly viewport: ViewportState;
+  } | null>(null);
+  useLayoutEffect(() => {
+    if (followingTeacher && teacherFollow?.viewport !== null && teacherFollow?.viewport !== undefined) {
+      lastFollowCameraRef.current = { scope: bookmarkScope, viewport: teacherFollow.viewport };
+      return;
+    }
+    const previous = lastFollowCameraRef.current;
+    lastFollowCameraRef.current = null;
+    if (previous?.scope === bookmarkScope) {
+      setViewOnlyCamera(previous);
+    }
+  }, [bookmarkScope, followingTeacher, teacherFollow?.viewport]);
   const localPresenceViewport =
     (readOnly || localViewportEnabled) && viewOnlyCamera?.scope === bookmarkScope
       ? viewOnlyCamera.viewport
