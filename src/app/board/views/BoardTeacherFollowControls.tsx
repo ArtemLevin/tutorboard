@@ -21,7 +21,9 @@ export function BoardTeacherFollowControls({
   return (
     <div
       aria-live="polite"
-      className={state.active ? "board-teacher-follow is-active" : "board-teacher-follow"}
+      className={
+        state.active ? "board-teacher-follow is-active" : "board-teacher-follow"
+      }
       data-follow-zoom={state.active ? state.viewport?.zoom : "off"}
       data-testid="teacher-follow"
     >

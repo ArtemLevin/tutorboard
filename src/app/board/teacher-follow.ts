@@ -58,7 +58,8 @@ export function resolveTeacherFollow(
   connected: boolean,
   participants: readonly BoardPresence[],
 ): TeacherFollowTarget | null {
-  if (!connected || selection === null || selection.scope !== scope) return null;
+  if (!connected || selection === null || selection.scope !== scope)
+    return null;
   const participant = participants.find(
     (item) =>
       item.clientId === selection.clientId &&

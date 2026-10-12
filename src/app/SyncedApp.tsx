@@ -50,7 +50,11 @@ import {
 } from "../modules/document-transfer/public";
 import type { MathInkRecognizer } from "../modules/handwritten-function/public";
 import { App, type AppPersistenceStatus } from "./App";
-import { chooseTeacher, resolveTeacherFollow, type TeacherFollowSelection } from "./board/teacher-follow";
+import {
+  chooseTeacher,
+  resolveTeacherFollow,
+  type TeacherFollowSelection,
+} from "./board/teacher-follow";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import { copyBoardShareUrl } from "./board-chrome/board-share";
 import { canFinalizeBoardEvidence } from "./synced-evidence";
@@ -270,7 +274,8 @@ function SyncedWorkspace({
   const [participants, setParticipants] = useState<readonly BoardPresence[]>(
     [],
   );
-  const [followSelection, setFollowSelection] = useState<TeacherFollowSelection | null>(null);
+  const [followSelection, setFollowSelection] =
+    useState<TeacherFollowSelection | null>(null);
   const [inkPreviews, setInkPreviews] = useState<readonly BoardInkPreview[]>(
     [],
   );
@@ -1047,11 +1052,18 @@ function SyncedWorkspace({
           historyEnabled={false}
           initialDocument={state.document}
           localViewportEnabled={state.role === "student"}
-          teacherFollow={availableTeacher === null && followedTeacher === null ? undefined : {
-            active: followedTeacher !== null,
-            teacherName: followedTeacher?.displayName ?? availableTeacher?.displayName ?? "преподавателем",
-            viewport: followedTeacher?.viewport ?? null,
-          }}
+          teacherFollow={
+            availableTeacher === null && followedTeacher === null
+              ? undefined
+              : {
+                  active: followedTeacher !== null,
+                  teacherName:
+                    followedTeacher?.displayName ??
+                    availableTeacher?.displayName ??
+                    "преподавателем",
+                  viewport: followedTeacher?.viewport ?? null,
+                }
+          }
           onTeacherFollowStart={() => {
             if (!followConnected || availableTeacher === null) return;
             setFollowSelection({

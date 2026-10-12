@@ -60,7 +60,10 @@ import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
 import { BoardToolDockContainer } from "./board/views/BoardToolDockContainer";
 import { BoardViewportBookmarks } from "./board/views/BoardViewportBookmarks";
-import { BoardTeacherFollowControls, type TeacherFollowControlsState } from "./board/views/BoardTeacherFollowControls";
+import {
+  BoardTeacherFollowControls,
+  type TeacherFollowControlsState,
+} from "./board/views/BoardTeacherFollowControls";
 import { fitBoardViewport, viewportFitSceneBounds } from "./board/viewport-fit";
 import { readEnvironment } from "./configuration/environment";
 import {
@@ -396,7 +399,9 @@ export function App({
     readonly scope: string;
     readonly viewport: ViewportState;
   } | null>(() =>
-    localViewportEnabled ? { scope: bookmarkScope, viewport: document.viewport } : null,
+    localViewportEnabled
+      ? { scope: bookmarkScope, viewport: document.viewport }
+      : null,
   );
   useEffect(() => {
     if (!localViewportEnabled) return;
@@ -406,11 +411,15 @@ export function App({
         : { scope: bookmarkScope, viewport: document.viewport },
     );
   }, [bookmarkScope, document.viewport, localViewportEnabled]);
-  const followedViewport = teacherFollow?.active ? teacherFollow.viewport : null;
-  const followingTeacher = followedViewport !== null && followedViewport !== undefined;
+  const followedViewport = teacherFollow?.active
+    ? teacherFollow.viewport
+    : null;
+  const followingTeacher =
+    followedViewport !== null && followedViewport !== undefined;
   const visibleViewport =
     followedViewport ??
-    ((readOnly || localViewportEnabled) && viewOnlyCamera?.scope === bookmarkScope
+    ((readOnly || localViewportEnabled) &&
+    viewOnlyCamera?.scope === bookmarkScope
       ? viewOnlyCamera.viewport
       : document.viewport);
   const lastFollowCameraRef = useRef<{
@@ -418,8 +427,15 @@ export function App({
     readonly viewport: ViewportState;
   } | null>(null);
   useLayoutEffect(() => {
-    if (followingTeacher && teacherFollow?.viewport !== null && teacherFollow?.viewport !== undefined) {
-      lastFollowCameraRef.current = { scope: bookmarkScope, viewport: teacherFollow.viewport };
+    if (
+      followingTeacher &&
+      teacherFollow?.viewport !== null &&
+      teacherFollow?.viewport !== undefined
+    ) {
+      lastFollowCameraRef.current = {
+        scope: bookmarkScope,
+        viewport: teacherFollow.viewport,
+      };
       return;
     }
     const previous = lastFollowCameraRef.current;
@@ -429,7 +445,8 @@ export function App({
     }
   }, [bookmarkScope, followingTeacher, teacherFollow?.viewport]);
   const localPresenceViewport =
-    (readOnly || localViewportEnabled) && viewOnlyCamera?.scope === bookmarkScope
+    (readOnly || localViewportEnabled) &&
+    viewOnlyCamera?.scope === bookmarkScope
       ? viewOnlyCamera.viewport
       : document.viewport;
   const visibleScene = useMemo(
@@ -749,7 +766,15 @@ export function App({
         viewport,
       });
     },
-    [bookmarkScope, commitCommand, createCommandMetadata, followingTeacher, localViewportEnabled, onTeacherFollowStop, readOnly],
+    [
+      bookmarkScope,
+      commitCommand,
+      createCommandMetadata,
+      followingTeacher,
+      localViewportEnabled,
+      onTeacherFollowStop,
+      readOnly,
+    ],
   );
 
   const resetViewport = useCallback(() => {
@@ -872,7 +897,9 @@ export function App({
           onPointerHover={handlePointerHover}
           onTransformPreviewChange={publishTransformPreview}
           onViewportCommit={commitViewport}
-          onManualViewportInteraction={followingTeacher ? stopTeacherFollow : undefined}
+          onManualViewportInteraction={
+            followingTeacher ? stopTeacherFollow : undefined
+          }
           plots={plots}
           readOnly={readOnly}
           remoteCursors={remoteCursors}
