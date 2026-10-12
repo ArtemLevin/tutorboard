@@ -200,10 +200,11 @@ describe("Board collaboration WebSocket adapter", () => {
 
   it("resets stale viewport and sequence when a teacher rejoins with the same client ID", async () => {
     const socket = new FakeSocket();
+    const createWebSocket = vi.fn(() => socket as unknown as WebSocket);
     let participants: readonly BoardPresence[] = [];
     const client = new BoardCollaborationClient({
       createClientId: () => "browser:student",
-      createWebSocket: () => socket as unknown as WebSocket,
+      createWebSocket,
       documentId: documentId("document:lesson"),
       onPresence: (value) => {
         participants = value;
@@ -222,8 +223,7 @@ describe("Board collaboration WebSocket adapter", () => {
       },
     });
     client.start();
-    await vi.waitFor(() => expect(socket.readyState).toBe(0));
-    await vi.waitFor(() => expect(socket).toBeDefined());
+    await vi.waitFor(() => expect(createWebSocket).toHaveBeenCalledOnce());
     socket.open();
     socket.receive({
       type: "ready",
