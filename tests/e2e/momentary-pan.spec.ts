@@ -36,7 +36,9 @@ test("@smoke Space respects text input and clears after window blur", async ({
 }) => {
   await page.goto("/");
   const stage = page.getByTestId("board-stage");
+  await expect(stage).toBeVisible();
   await page.keyboard.press("t");
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.text");
   const input = page.getByRole("textbox", { name: "Содержимое текста" });
   await input.focus();
   await page.keyboard.down("Space");
