@@ -25,7 +25,9 @@ test("@smoke holds Space to pan and restores the pen after pointer release", asy
 
   await expect(stage).toHaveAttribute("data-pan-mode", "false");
   await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
-  await expect(page.getByTestId("viewport-offset")).not.toHaveText(before ?? "");
+  await expect(page.getByTestId("viewport-offset")).not.toHaveText(
+    before ?? "",
+  );
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
 });
 
