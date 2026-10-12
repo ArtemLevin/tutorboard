@@ -47,6 +47,27 @@ describe("board shortcuts", () => {
     );
   });
 
+  it("keeps P for pen and reserves Shift+P for saved styles, except for guests", () => {
+    expect(resolveBoardShortcut(key("KeyP"), { readOnly: false })).toBe(
+      "tool.pen",
+    );
+    expect(
+      resolveBoardShortcut(key("KeyP", { shiftKey: true }), {
+        readOnly: false,
+      }),
+    ).toBe("pen.preset.toggle");
+    expect(
+      resolveBoardShortcut(key("KeyP", { shiftKey: true }), {
+        readOnly: true,
+      }),
+    ).toBeNull();
+    expect(
+      resolveBoardShortcut(key("KeyP", { shiftKey: true, ctrlKey: true }), {
+        readOnly: false,
+      }),
+    ).toBeNull();
+  });
+
   it("uses physical key codes independently of keyboard layout", () => {
     expect(resolveBoardShortcut(key("KeyL"), { readOnly: false })).toBe(
       "tool.line",
