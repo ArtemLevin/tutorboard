@@ -1,5 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("application", { name: "Бесконечное полотно TutorBoard" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("persistence-status")).toHaveText(
+    "Сохранено локально",
+  );
+});
+
 async function stagePoint(page: Page, x: number, y: number) {
   const bounds = await page.getByTestId("board-stage").boundingBox();
   if (bounds === null) throw new Error("TutorBoard stage is missing");
@@ -37,7 +47,6 @@ async function openSelectionMenu(page: Page, x: number, y: number) {
 test("aligns a multi-selection with one undo entry, then distributes and restores @smoke", async ({
   page,
 }) => {
-  await page.goto("/");
   await addRectangle(page, 300, 180);
   await addRectangle(page, 460, 180);
   await addRectangle(page, 650, 180);
@@ -74,7 +83,6 @@ test("aligns a multi-selection with one undo entry, then distributes and restore
 test("duplicates using a single paste command and safely locks the selection @smoke", async ({
   page,
 }) => {
-  await page.goto("/");
   await addRectangle(page, 300, 180);
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await page.keyboard.press("v");
