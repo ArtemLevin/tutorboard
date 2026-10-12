@@ -74,6 +74,20 @@ vi.mock("../adapters/canvas-konva/public", () => ({
         data-laser-trail-points={props.laserTrailPoints?.length ?? 0}
         role="application"
       >
+        <output data-testid="mock-stage-camera">
+          {`${props.scene.viewport.offset.x},${props.scene.viewport.offset.y},${props.scene.viewport.zoom}`}
+        </output>
+        <button
+          onClick={() =>
+            props.onViewportCommit({
+              offset: { x: 321, y: -200 },
+              zoom: 2,
+            })
+          }
+          type="button"
+        >
+          Переместить камеру тест
+        </button>
         <button
           onClick={() => props.onWorldPointerHover?.(finish.point)}
           type="button"
@@ -697,6 +711,35 @@ describe("App", () => {
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
     fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
     expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
+  });
+
+  it("restores read-only guest bookmarks through local camera without document mutations", () => {
+    const onCommandCommitted = vi.fn();
+    const onDocumentChange = vi.fn();
+    render(
+      <App
+        commandActorId={actorId("actor:bookmark-guest")}
+        onCommandCommitted={onCommandCommitted}
+        onDocumentChange={onDocumentChange}
+        readOnly
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Переместить камеру тест" }));
+    expect(screen.getByTestId("mock-stage-camera")).toHaveTextContent("321,-200,2");
+    fireEvent.click(screen.getByRole("button", { name: "Закладки областей" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Название новой области" }), {
+      target: { value: "Задача 1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить область" }));
+    fireEvent.click(screen.getByRole("button", { name: "Закладки областей" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Переместить камеру тест" }));
+    fireEvent.click(screen.getByRole("button", { name: "Закладки областей" }));
+    fireEvent.click(screen.getByRole("button", { name: "Перейти: Задача 1" }));
+
+    expect(screen.getByTestId("mock-stage-camera")).toHaveTextContent("321,-200,2");
+    expect(onCommandCommitted).not.toHaveBeenCalled();
+    expect(onDocumentChange).toHaveBeenCalledTimes(1);
   });
 
   it("cancels an active text draft when write access becomes read-only", async () => {
