@@ -20,6 +20,9 @@ import {
   createImageScaleStepTransforms,
   createLineEndpointTransformCommand,
   createMoveSelectionCommand,
+  planSelectionLayout,
+  selectionLayoutCapabilities,
+  type SelectionLayoutAction,
   createSetSelectionLockCommand,
   createTransformSelectionCommand,
   expandSelectionObjectIds,
@@ -68,6 +71,7 @@ export function useBoardSelectionController({
 }: UseBoardSelectionControllerOptions) {
   const {
     commitCommand,
+    commitCommands,
     createCommandMetadata,
     document,
     getDocument,
@@ -377,6 +381,33 @@ export function useBoardSelectionController({
     [announce, commitMove],
   );
 
+  const layout = useCallback(
+    (action: SelectionLayoutAction): boolean => {
+      const current = getDocument();
+      const planned = planSelectionLayout(
+        current,
+        scene,
+        stateRef.current.selectedObjectIds,
+        action,
+      );
+      if (planned === null || planned.length === 0) return false;
+      const result = commitCommands(
+        planned.map(({ objectIds, delta }) =>
+          createMoveSelectionCommand(
+            createCommandMetadata(),
+            current,
+            objectIds,
+            delta,
+          ),
+        ),
+      );
+      if (!result.ok) return false;
+      announce("Объекты выровнены или распределены");
+      return true;
+    },
+    [announce, commitCommands, createCommandMetadata, getDocument, scene],
+  );
+
   const setLocked = useCallback(
     (locked: boolean) => {
       const current = getDocument();
@@ -510,6 +541,18 @@ export function useBoardSelectionController({
     () => selectionIsLocked(document, state.selectedObjectIds),
     [document, state.selectedObjectIds],
   );
+  const layoutCapabilities = useMemo(
+    () =>
+      state.interaction.kind === "idle"
+        ? selectionLayoutCapabilities(document, state.selectedObjectIds)
+        : { canAlign: false, canDistribute: false },
+    [document, state.interaction.kind, state.selectedObjectIds],
+  );
+  const canDuplicate =
+    state.interaction.kind === "idle" &&
+    state.selectedObjectIds.length > 0 &&
+    state.selectedObjectIds.every((id) => document.objects[id] !== undefined) &&
+    !selectedLocked;
   const previewDelta = useMemo(() => getSelectionPreviewDelta(state), [state]);
   const marquee = useMemo(() => getSelectionMarquee(state), [state]);
   const lasso = useMemo(() => getSelectionLasso(state), [state]);
@@ -564,6 +607,8 @@ export function useBoardSelectionController({
     bounds,
     canGroup,
     canUngroup,
+    canDuplicate,
+    ...layoutCapabilities,
     cancel,
     commitLineEndpointTransform,
     commitMove,
@@ -575,6 +620,7 @@ export function useBoardSelectionController({
     getState,
     group,
     lasso,
+    layout,
     layers,
     marquee,
     move,

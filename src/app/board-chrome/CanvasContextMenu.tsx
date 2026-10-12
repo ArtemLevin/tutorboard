@@ -1,9 +1,14 @@
 import { useEffect, useRef } from "react";
 
 import type { Vec2 } from "../../core/public";
+import type { SelectionLayoutAction } from "../../modules/selection/public";
 
 export interface CanvasContextMenuProps {
   readonly canClear: boolean;
+  readonly canAlign: boolean;
+  readonly canDistribute: boolean;
+  readonly canDuplicate: boolean;
+  readonly selectedLocked: boolean;
   readonly canCopy: boolean;
   readonly canPaste: boolean;
   readonly canOpenSolid3D?: boolean;
@@ -12,6 +17,9 @@ export interface CanvasContextMenuProps {
   readonly onClearRequest: () => void;
   readonly onClose: () => void;
   readonly onCopy: () => void;
+  readonly onDuplicate: () => void;
+  readonly onLayout: (action: SelectionLayoutAction) => void;
+  readonly onSelectionLockChange: (locked: boolean) => void;
   readonly onOpenSolid3D?: () => void;
   readonly onPaste: () => void;
   readonly onText: () => void;
@@ -20,11 +28,27 @@ export interface CanvasContextMenuProps {
 
 const menuWidth = 216;
 const canvasMenuHeight = 154;
-const selectionMenuHeight = 104;
+const selectionMenuHeight = 448;
+
+const alignmentActions: readonly {
+  readonly action: SelectionLayoutAction;
+  readonly label: string;
+}[] = [
+  { action: "left", label: "Слева" },
+  { action: "center-x", label: "По центру X" },
+  { action: "right", label: "Справа" },
+  { action: "top", label: "Сверху" },
+  { action: "center-y", label: "По центру Y" },
+  { action: "bottom", label: "Снизу" },
+];
 const viewportMargin = 8;
 
 export function CanvasContextMenu({
   canClear,
+  canAlign,
+  canDistribute,
+  canDuplicate,
+  selectedLocked,
   canCopy,
   canPaste,
   canOpenSolid3D = false,
@@ -33,6 +57,9 @@ export function CanvasContextMenu({
   onClearRequest,
   onClose,
   onCopy,
+  onDuplicate,
+  onLayout,
+  onSelectionLockChange,
   onOpenSolid3D = () => {},
   onPaste,
   onText,
@@ -48,7 +75,12 @@ export function CanvasContextMenu({
     context === "selection" ? selectionMenuHeight : canvasMenuHeight;
   const top = Math.max(
     viewportMargin,
-    Math.min(position.y, window.innerHeight - menuHeight - viewportMargin),
+    Math.min(
+      position.y,
+      window.innerHeight -
+        Math.min(menuHeight, window.innerHeight - viewportMargin * 2) -
+        viewportMargin,
+    ),
   );
 
   useEffect(() => {
@@ -94,6 +126,83 @@ export function CanvasContextMenu({
           >
             <span aria-hidden="true">⧉</span>
             Копировать
+          </button>
+          <button
+            disabled={disabled || !canDuplicate}
+            onClick={onDuplicate}
+            role="menuitem"
+            title={
+              !canDuplicate ? "Выделите незаблокированные объекты" : undefined
+            }
+            type="button"
+          >
+            <span aria-hidden="true">⧉</span>
+            Дублировать
+          </button>
+          <div className="canvas-context-menu__separator" role="separator" />
+          <div
+            aria-label="Выравнивание"
+            className="canvas-context-menu__layout"
+            role="group"
+          >
+            {alignmentActions.map(({ action, label }) => (
+              <button
+                disabled={disabled || !canAlign}
+                key={action}
+                onClick={() => onLayout(action)}
+                role="menuitem"
+                title={
+                  !canAlign
+                    ? "Выделите два или больше доступных объекта"
+                    : undefined
+                }
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div
+            className="canvas-context-menu__layout canvas-context-menu__layout--distribution"
+            aria-label="Распределение"
+            role="group"
+          >
+            <button
+              disabled={disabled || !canDistribute}
+              onClick={() => onLayout("horizontal")}
+              role="menuitem"
+              title={
+                !canDistribute
+                  ? "Выделите не менее трёх доступных объектов"
+                  : undefined
+              }
+              type="button"
+            >
+              По горизонтали
+            </button>
+            <button
+              disabled={disabled || !canDistribute}
+              onClick={() => onLayout("vertical")}
+              role="menuitem"
+              title={
+                !canDistribute
+                  ? "Выделите не менее трёх доступных объектов"
+                  : undefined
+              }
+              type="button"
+            >
+              По вертикали
+            </button>
+          </div>
+          <div className="canvas-context-menu__separator" role="separator" />
+          <button
+            disabled={disabled || !canCopy}
+            onClick={() => onSelectionLockChange(!selectedLocked)}
+            role="menuitem"
+            type="button"
+          >
+            <span aria-hidden="true">▣</span>
+            {selectedLocked ? "Разблокировать" : "Заблокировать"}
           </button>
           {canOpenSolid3D ? (
             <button onClick={onOpenSolid3D} role="menuitem" type="button">
