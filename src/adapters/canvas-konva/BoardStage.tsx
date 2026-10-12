@@ -691,13 +691,15 @@ export function BoardStage({
     () => visibilityIndex.select(previewViewport, size),
     [visibilityIndex, previewViewport, size],
   );
-  const visibleItemBatches = useMemo(
-    () => batchBoardRenderItems(visibleItems),
+  const visibleObjectIds = useMemo(
+    () => new Set(visibleItems.map((item) => item.object.id)),
     [visibleItems],
   );
   const committedPaintRuns = useMemo(
-    () => partitionCommittedPaintRuns(visibleItemBatches),
-    [visibleItemBatches],
+    // Establish layer/run keys from document order before viewport culling.
+    // Hidden first items and hidden barriers must not reparent survivors.
+    () => partitionCommittedPaintRuns(batchBoardRenderItems(scene.items)),
+    [scene.items],
   );
   const animatedPaintLayerCount = committedPaintRuns.filter(
     (run) => run.animated,
@@ -2359,6 +2361,7 @@ export function BoardStage({
               <AnimatedImageRedrawContext value={animatedImageRedraw}>
                 <BoardSceneContent
                   batches={run.batches}
+                  visibleObjectIds={visibleObjectIds}
                   coordinatePlotInteraction={coordinatePlotInteraction}
                   lineEndpointPreview={lineEndpointPreview}
                   registry={registry}

@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - .github/workflows/c39-static-heavy.yml
+      - src/adapters/canvas-konva/**
+      - src/core/board/**
       - tests/e2e/c39-large-board-profile.spec.ts
       - tests/fixtures/dense-board.ts
       - scripts/c39/summarize-static-heavy.mjs

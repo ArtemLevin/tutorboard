@@ -15,6 +15,7 @@ import {
   type BoardObject,
   type BoardRenderItem,
 } from "../../../../src/core/public";
+import { WheelInkCacheCoordinator } from "../../../../src/adapters/canvas-konva/wheel-ink-cache";
 
 afterEach(cleanup);
 
@@ -70,6 +71,116 @@ function fixture(count = 500) {
   };
   return { props, renderObject };
 }
+
+function inkItem(index: number): BoardRenderItem {
+  return {
+    ...item(index),
+    object: {
+      ...item(index).object,
+      kind: "drawing.pen-stroke",
+      points: [
+        { x: 0, y: 0 },
+        { x: 40, y: 20 },
+      ],
+    },
+  };
+}
+
+describe("culling preserves logical render runs", () => {
+  it.each([5000, 10000])(
+    "keeps surviving nodes when the first of %i strokes leaves and re-enters view",
+    (count) => {
+      const items = Array.from({ length: count }, (_, index) => inkItem(index));
+      const renderInk = vi.fn((object: BoardObject) =>
+        createElement("span", {}, object.id),
+      );
+      const props = {
+        ...fixture(0).props,
+        batches: [items],
+        registry: new KonvaRendererRegistry([
+          { kind: "drawing.pen-stroke", render: renderInk },
+        ]),
+      };
+      const all = new Set(items.map((entry) => entry.object.id));
+      const view = render(
+        <BoardSceneContent {...props} visibleObjectIds={all} />,
+      );
+      const survivor = screen.getByText(items[count - 1]!.object.id);
+      renderInk.mockClear();
+      view.rerender(
+        <BoardSceneContent
+          {...props}
+          visibleObjectIds={new Set([...all].slice(1))}
+        />,
+      );
+      expect(screen.queryByText(items[0]!.object.id)).toBeNull();
+      expect(screen.getByText(items[count - 1]!.object.id)).toBe(survivor);
+      expect(renderInk).not.toHaveBeenCalled();
+      view.rerender(<BoardSceneContent {...props} visibleObjectIds={all} />);
+      expect(renderInk).toHaveBeenCalledOnce();
+      expect(screen.getByText(items[count - 1]!.object.id)).toBe(survivor);
+    },
+  );
+
+  it("retains ink runs on both sides of a culled non-ink barrier", () => {
+    const items = [inkItem(0), item(1), inkItem(2)];
+    const renderer = (object: BoardObject) =>
+      createElement("span", {}, object.id);
+    const props = {
+      ...fixture(0).props,
+      batches: [items],
+      registry: new KonvaRendererRegistry([
+        { kind: "drawing.pen-stroke", render: renderer },
+        { kind: "drawing.text", render: renderer },
+      ]),
+    };
+    const view = render(<BoardSceneContent {...props} />);
+    const first = screen.getByText(items[0]!.object.id);
+    const last = screen.getByText(items[2]!.object.id);
+    view.rerender(
+      <BoardSceneContent
+        {...props}
+        visibleObjectIds={new Set([items[0]!.object.id, items[2]!.object.id])}
+      />,
+    );
+    expect(screen.getByText(items[0]!.object.id)).toBe(first);
+    expect(screen.getByText(items[2]!.object.id)).toBe(last);
+    expect(
+      [...view.container.querySelectorAll("span")].map(
+        (node) => node.textContent,
+      ),
+    ).toEqual([items[0]!.object.id, items[2]!.object.id]);
+  });
+
+  it("keeps nodes mounted across the 80-stroke cache eligibility threshold", () => {
+    const items = Array.from({ length: 81 }, (_, index) => inkItem(index));
+    const props = {
+      ...fixture(0).props,
+      batches: [items],
+      wheelInkCache: new WheelInkCacheCoordinator(),
+      registry: new KonvaRendererRegistry([
+        {
+          kind: "drawing.pen-stroke",
+          render: (object) => createElement("span", {}, object.id),
+        },
+      ]),
+    };
+    const view = render(<BoardSceneContent {...props} />);
+    const survivor = screen.getByText(items[0]!.object.id);
+    for (const count of [80, 79, 81]) {
+      view.rerender(
+        <BoardSceneContent
+          {...props}
+          visibleObjectIds={
+            new Set(items.slice(0, count).map((entry) => entry.object.id))
+          }
+        />,
+      );
+      expect(screen.getByText(items[0]!.object.id)).toBe(survivor);
+      expect(view.container.querySelectorAll("span")).toHaveLength(count);
+    }
+  });
+});
 
 describe("stable committed scene rendering", () => {
   it("does not regenerate 500 committed objects during 20 transient updates", () => {
@@ -136,11 +247,7 @@ describe("stable committed scene rendering", () => {
     ]);
     const batches = [[stroke]];
     const view = render(
-      <BoardSceneContent
-        {...props}
-        batches={batches}
-        registry={registry}
-      />,
+      <BoardSceneContent {...props} batches={batches} registry={registry} />,
     );
     expect(renderInk).toHaveBeenCalledOnce();
     for (let iteration = 1; iteration <= 20; iteration += 1) {
