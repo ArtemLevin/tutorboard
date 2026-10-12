@@ -180,6 +180,8 @@ export function planSelectionLayout(
           y: total.y + total.height - (rect.y + rect.height),
         };
         break;
+      default:
+        return null;
     }
     pushMove(unit, delta);
   }
