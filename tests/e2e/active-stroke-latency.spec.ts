@@ -211,15 +211,16 @@ test("@smoke @frame-budget 240 Hz pen coalescing keeps wet ink responsive", asyn
   );
   const longTaskEvidence = await page.evaluate(() => {
     const entries: unknown = Reflect.get(window, "__tutorboardLongTasks");
-    const tasks = Array.isArray(entries)
-      ? entries.filter(
-          (value): value is { startMs: number; durationMs: number } =>
-            typeof value === "object" &&
-            value !== null &&
-            typeof value.startMs === "number" &&
-            typeof value.durationMs === "number",
-        )
-      : [];
+    const values: unknown[] = Array.isArray(entries) ? entries : [];
+    const tasks = values.filter(
+      (value): value is { startMs: number; durationMs: number } =>
+        typeof value === "object" &&
+        value !== null &&
+        "startMs" in value &&
+        "durationMs" in value &&
+        typeof value.startMs === "number" &&
+        typeof value.durationMs === "number",
+    );
     return {
       count: tasks.length,
       maxMs:
