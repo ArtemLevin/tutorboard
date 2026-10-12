@@ -59,6 +59,7 @@ import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
 import { BoardToolDockContainer } from "./board/views/BoardToolDockContainer";
 import { BoardViewportBookmarks } from "./board/views/BoardViewportBookmarks";
+import { BoardTeacherFollowControls, type TeacherFollowControlsState } from "./board/views/BoardTeacherFollowControls";
 import { fitBoardViewport, viewportFitSceneBounds } from "./board/viewport-fit";
 import { readEnvironment } from "./configuration/environment";
 import {
@@ -147,6 +148,10 @@ export interface AppProps {
   readonly readOnly?: boolean;
   readonly settingsExtra?: ReactNode;
   readonly standaloneMode?: boolean;
+  readonly localViewportEnabled?: boolean;
+  readonly teacherFollow?: TeacherFollowControlsState | undefined;
+  readonly onTeacherFollowStart?: () => void;
+  readonly onTeacherFollowStop?: () => void;
   readonly remoteCursors?: readonly {
     readonly actorId: string;
     readonly point: { readonly x: number; readonly y: number };
@@ -219,6 +224,10 @@ export function App({
   readOnly = false,
   settingsExtra,
   standaloneMode = false,
+  localViewportEnabled = false,
+  teacherFollow,
+  onTeacherFollowStart,
+  onTeacherFollowStop,
   remoteCursors = [],
   remoteInkPreviews = [],
   remoteTransformPreviews = [],
@@ -386,8 +395,15 @@ export function App({
     readonly scope: string;
     readonly viewport: ViewportState;
   } | null>(null);
+  const followingTeacher = teacherFollow?.active === true && teacherFollow.viewport !== null;
   const visibleViewport =
-    readOnly && viewOnlyCamera?.scope === bookmarkScope
+    followingTeacher && teacherFollow?.viewport !== null
+      ? teacherFollow.viewport
+      : (readOnly || localViewportEnabled) && viewOnlyCamera?.scope === bookmarkScope
+        ? viewOnlyCamera.viewport
+        : document.viewport;
+  const localPresenceViewport =
+    (readOnly || localViewportEnabled) && viewOnlyCamera?.scope === bookmarkScope
       ? viewOnlyCamera.viewport
       : document.viewport;
   const visibleScene = useMemo(
@@ -675,22 +691,29 @@ export function App({
     onPresenceChange?.({
       selectedObjectIds: selection.state.selectedObjectIds,
       viewport: {
-        x: visibleViewport.offset.x,
-        y: visibleViewport.offset.y,
-        zoom: visibleViewport.zoom,
+        x: localPresenceViewport.offset.x,
+        y: localPresenceViewport.offset.y,
+        zoom: localPresenceViewport.zoom,
       },
     });
   }, [
-    visibleViewport.offset.x,
-    visibleViewport.offset.y,
-    visibleViewport.zoom,
+    localPresenceViewport.offset.x,
+    localPresenceViewport.offset.y,
+    localPresenceViewport.zoom,
     onPresenceChange,
     selection.state.selectedObjectIds,
   ]);
 
+  const stopTeacherFollow = useCallback(() => {
+    if (!followingTeacher) return;
+    setViewOnlyCamera({ scope: bookmarkScope, viewport: visibleViewport });
+    onTeacherFollowStop?.();
+  }, [bookmarkScope, followingTeacher, onTeacherFollowStop, visibleViewport]);
+
   const commitViewport = useCallback(
     (viewport: ViewportState) => {
-      if (readOnly) {
+      if (followingTeacher) onTeacherFollowStop?.();
+      if (readOnly || localViewportEnabled || followingTeacher) {
         setViewOnlyCamera({ scope: bookmarkScope, viewport });
         return;
       }
@@ -700,7 +723,7 @@ export function App({
         viewport,
       });
     },
-    [bookmarkScope, commitCommand, createCommandMetadata, readOnly],
+    [bookmarkScope, commitCommand, createCommandMetadata, followingTeacher, localViewportEnabled, onTeacherFollowStop, readOnly],
   );
 
   const resetViewport = useCallback(() => {
@@ -756,18 +779,17 @@ export function App({
   const handlePointerHover = useCallback(
     (cursor: Vec2) => {
       lastPointerWorldRef.current = cursor;
-      const current = getDocument();
       onPresenceChange?.({
         cursor,
         selectedObjectIds: selection.getState().selectedObjectIds,
         viewport: {
-          x: current.viewport.offset.x,
-          y: current.viewport.offset.y,
-          zoom: current.viewport.zoom,
+          x: localPresenceViewport.offset.x,
+          y: localPresenceViewport.offset.y,
+          zoom: localPresenceViewport.zoom,
         },
       });
     },
-    [getDocument, onPresenceChange, selection],
+    [localPresenceViewport, onPresenceChange, selection],
   );
 
   const requestObjectSettings = useCallback(
@@ -824,6 +846,7 @@ export function App({
           onPointerHover={handlePointerHover}
           onTransformPreviewChange={publishTransformPreview}
           onViewportCommit={commitViewport}
+          onManualViewportInteraction={followingTeacher ? stopTeacherFollow : undefined}
           plots={plots}
           readOnly={readOnly}
           remoteCursors={remoteCursors}
@@ -833,6 +856,13 @@ export function App({
           selection={selection}
           solid3D={solid3D}
         />
+        {teacherFollow !== undefined ? (
+          <BoardTeacherFollowControls
+            state={teacherFollow}
+            onStart={() => onTeacherFollowStart?.()}
+            onStop={stopTeacherFollow}
+          />
+        ) : null}
         {plots.editor === null && !lessonMode ? (
           <BoardViewportBookmarks
             key={bookmarkScope}
