@@ -19,7 +19,9 @@ describe("useBoardMomentaryTool", () => {
     fireEvent.keyDown(screen.getByRole("textbox"), { code: "Space" });
     expect(screen.getByTestId("active-tool")).toHaveTextContent("drawing.pen");
     fireEvent.keyDown(window, { code: "Space" });
-    expect(screen.getByTestId("active-tool")).toHaveTextContent("navigation.pan");
+    expect(screen.getByTestId("active-tool")).toHaveTextContent(
+      "navigation.pan",
+    );
     fireEvent.keyUp(window, { code: "Space" });
     expect(screen.getByTestId("active-tool")).toHaveTextContent("drawing.pen");
   });
@@ -31,7 +33,9 @@ describe("useBoardMomentaryTool", () => {
 
     rerender(<Harness readOnly={false} />);
     fireEvent.keyDown(window, { code: "KeyX", shiftKey: true });
-    expect(screen.getByTestId("active-tool")).toHaveTextContent("editing.eraser");
+    expect(screen.getByTestId("active-tool")).toHaveTextContent(
+      "editing.eraser",
+    );
 
     rerender(<Harness readOnly />);
     expect(screen.getByTestId("active-tool")).toHaveTextContent("drawing.pen");

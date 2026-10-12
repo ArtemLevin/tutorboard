@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
-import { eraserToolId, navigationToolId, type ActiveToolId } from "../active-tool";
+import {
+  eraserToolId,
+  navigationToolId,
+  type ActiveToolId,
+} from "../active-tool";
 
 type MomentaryKey = "Space" | "KeyX";
 
