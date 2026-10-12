@@ -24,7 +24,7 @@ async function openSelectionMenu(page: Page, x: number, y: number) {
   return menu;
 }
 
-test("aligns a multi-selection with one undo entry, then distributes and restores", async ({
+test("aligns a multi-selection with one undo entry, then distributes and restores @smoke", async ({
   page,
 }) => {
   await page.goto("/");
@@ -61,7 +61,7 @@ test("aligns a multi-selection with one undo entry, then distributes and restore
   await expect(page.getByTestId("history-depth")).toHaveText("4/1");
 });
 
-test("duplicates using a single paste command and safely locks the selection", async ({
+test("duplicates using a single paste command and safely locks the selection @smoke", async ({
   page,
 }) => {
   await page.goto("/");
