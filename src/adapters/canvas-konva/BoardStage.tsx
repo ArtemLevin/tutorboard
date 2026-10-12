@@ -1812,6 +1812,9 @@ export function BoardStage({
       if (drawingSession !== null) {
         drawingSessionRef.current = null;
         releaseCapture(drawingSession);
+        if (drawingSession.stylusEraser) {
+          stylusEraserChangeRef.current?.(false);
+        }
         animatedImageRedraw.setInteractionActive(false);
         worldPointerCallbacksRef.current.cancel(drawingSession.pointerId);
       }
