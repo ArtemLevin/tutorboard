@@ -91,4 +91,10 @@ test("duplicates using a single paste command and safely locks the selection @sm
   await expect(
     unlocked.getByRole("menuitem", { name: "Дублировать" }),
   ).toBeEnabled();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("persistence-status")).toHaveText(
+    "Сохранено локально",
+  );
+  await page.reload();
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
 });
