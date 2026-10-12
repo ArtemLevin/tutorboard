@@ -144,6 +144,35 @@ describe("QoL 2.4 selection layout", () => {
     expect(plan?.length).toBe(1);
     expect(plan?.[0]?.objectIds).toEqual([other.id]);
     expect(plan?.[0]?.delta.x).toBeLessThan(0);
+
+    const right = planSelectionLayout(
+      document,
+      scene,
+      [first.id, second.id, other.id],
+      "right",
+    );
+    expect(right).toHaveLength(1);
+    expect(right?.[0]?.objectIds).toEqual([first.id]);
+    const groupMove = createMoveSelectionCommand(
+      {
+        actorId: actorId("actor:layout"),
+        id: commandId("command:group-layout"),
+        timestamp: "2026-10-12T12:00:01.000Z",
+      },
+      document,
+      right![0]!.objectIds,
+      right![0]!.delta,
+    );
+    const moved = reduceBoardDocument(document, groupMove);
+    expect(moved.ok).toBe(true);
+    if (moved.ok) {
+      expect(moved.document.groups[id]?.transform.translation.x).toBeGreaterThan(
+        200,
+      );
+      expect(moved.document.objects[first.id]?.position).toEqual(
+        first.position,
+      );
+    }
     expect(
       selectionLayoutCapabilities(document, [first.id, second.id]),
     ).toEqual({ canAlign: false, canDistribute: false });
