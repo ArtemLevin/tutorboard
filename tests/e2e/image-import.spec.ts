@@ -81,7 +81,7 @@ test("@smoke pastes an image file from the system clipboard event", async ({
   }, base64);
 
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-  await expect(page.getByText("Вставлено изображений: 1")).toBeVisible();
+  await expect(page.getByText("Вставлено изображений: 1")).toHaveCount(0);
   await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
 });
 

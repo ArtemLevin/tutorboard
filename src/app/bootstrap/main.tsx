@@ -9,7 +9,6 @@ import {
   createDexiePendingBoardCommandQueue,
 } from "../../adapters/persistence-dexie/public";
 import { ProductShell } from "../ProductShell";
-import { SmartInkDiagnosticsPanel } from "../SmartInkDiagnosticsPanel";
 import { StandaloneBoardBootstrap } from "../StandaloneBoardBootstrap";
 import { TeacherBoardsBootstrap } from "../TeacherBoardsBootstrap";
 import { readBoardLaunchContext } from "../configuration/board-launch-context";
@@ -88,10 +87,6 @@ if (teacherBoardsRoute) {
         repository={repository}
         serverSync={serverSync}
       />
-      {environment.features.smartInk &&
-      environment.features.smartInkDiagnostics ? (
-        <SmartInkDiagnosticsPanel />
-      ) : null}
     </StrictMode>,
   );
 }

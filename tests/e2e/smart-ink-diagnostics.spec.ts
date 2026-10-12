@@ -1,16 +1,13 @@
-import { readFile } from "node:fs/promises";
-
 import { expect, test } from "@playwright/test";
 
-test("shows and exports Smart Ink recognition diagnostics", async ({
-  browserName,
+test("keeps Smart Ink diagnostics off the canvas during recognition", async ({
   page,
 }) => {
   await page.goto("/");
   const diagnostics = page.getByRole("complementary", {
     name: "Диагностика Smart Ink",
   });
-  await expect(diagnostics).toBeVisible();
+  await expect(diagnostics).toHaveCount(0);
 
   const stage = page.getByTestId("board-stage");
   const bounds = await stage.boundingBox();
@@ -36,41 +33,6 @@ test("shows and exports Smart Ink recognition diagnostics", async ({
   }
   await page.mouse.up();
 
-  await diagnostics
-    .getByRole("button", { name: "Развернуть диагностику Smart Ink" })
-    .click();
-  await expect(diagnostics.getByText("Распознано")).toBeVisible();
-  await expect(diagnostics.getByText("circle", { exact: true })).toBeVisible();
-  await expect(diagnostics.getByText(/mouse · \d+ ms/iu)).toBeVisible();
-
-  const downloadPromise = page.waitForEvent("download");
-  await diagnostics
-    .getByRole("button", { name: "Экспортировать последний жест" })
-    .click();
-  const download = await downloadPromise;
-  const path = await download.path();
-  expect(path).not.toBeNull();
-  if (path === null) {
-    throw new Error("Smart Ink diagnostic download has no local path.");
-  }
-  const exported = JSON.parse(await readFile(path, "utf8")) as {
-    captureDiagnostics: {
-      labelStatus: string;
-      selectedCandidateKind: string;
-    };
-    samples: readonly {
-      metadata: { browser: string; pointerType: string };
-    }[];
-    schemaVersion: string;
-  };
-
-  expect(exported.schemaVersion).toBe("tutorboard.smart-ink-corpus/0.1");
-  expect(exported.captureDiagnostics).toMatchObject({
-    labelStatus: "unreviewed",
-    selectedCandidateKind: "circle",
-  });
-  expect(exported.samples[0]?.metadata).toMatchObject({
-    browser: browserName,
-    pointerType: "mouse",
-  });
+  await expect(page.getByText("drawing.ellipse")).toBeVisible();
+  await expect(diagnostics).toHaveCount(0);
 });
