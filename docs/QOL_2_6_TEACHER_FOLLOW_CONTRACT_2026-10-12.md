@@ -30,6 +30,9 @@ continue to consume the same presence payload and can ignore the follower UI.
   accessEpoch, teacher actor and teacher clientId.
 - Offline, access refresh, role/scope change, participant exit and reconnect
   invalidate the active selection. A reconnect requires a new student click.
+  In the existing WebSocket adapter, a fresh `presence.joined` invalidates
+  earlier viewport/previews/sequence for the same `clientId`; otherwise a
+  reconnect reusing that ID can leave stale teacher camera data.
 - Student navigation is a local camera from initial board load, whether
   writable or read-only. Followed camera updates bypass `core.viewport.set`,
   `BoardDocument`, revision, queue, undo/redo and local saved bookmarks.
