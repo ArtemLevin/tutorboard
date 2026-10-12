@@ -80,3 +80,23 @@ test("shows an ephemeral laser trail while dragging without adding board objects
   await expect(stage).toHaveAttribute("data-laser-active", "false");
   await expect(stage).toHaveAttribute("data-laser-visible", "false");
 });
+
+test("@smoke auto-dismisses Smart Ink settings until the tool is switched", async ({
+  page,
+}) => {
+  const stage = page.getByTestId("board-stage");
+  const settings = page.getByRole("region", {
+    name: "Первичные настройки инструмента",
+  });
+
+  await page.keyboard.press("i");
+  await expect(settings).toBeVisible();
+  await expect(settings).toHaveCount(0, { timeout: 5_000 });
+  await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.smart-ink");
+
+  await page.keyboard.press("p");
+  await expect(settings).toBeVisible();
+  await page.keyboard.press("i");
+  await expect(settings).toBeVisible();
+  await expect(settings).toHaveCount(0, { timeout: 5_000 });
+});

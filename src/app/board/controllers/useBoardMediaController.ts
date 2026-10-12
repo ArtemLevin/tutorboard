@@ -198,7 +198,7 @@ export function useBoardMediaController({
           return;
         }
         onImagesInserted(objects.map(({ id }) => id));
-        clipboard.setNotice(`Вставлено изображений: ${objects.length}`);
+        clipboard.setNotice(null);
         setDiagnostic(
           diagnostics.length === 0
             ? null
