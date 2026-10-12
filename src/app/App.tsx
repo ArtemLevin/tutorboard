@@ -44,7 +44,7 @@ import { useBoardHandwritingController } from "./board/controllers/useBoardHandw
 import { useBoardInteractionRouter } from "./board/controllers/useBoardInteractionRouter";
 import { useBoardKeyboardShortcuts } from "./board/controllers/useBoardKeyboardShortcuts";
 import { useBoardMediaController } from "./board/controllers/useBoardMediaController";
-import { useBoardMomentaryPan } from "./board/controllers/useBoardMomentaryPan";
+import { useBoardMomentaryTool } from "./board/controllers/useBoardMomentaryTool";
 import { useBoardSelectionController } from "./board/controllers/useBoardSelectionController";
 import { useBoardSolid3DController } from "./board/controllers/useBoardSolid3DController";
 import { useCoordinatePlotController } from "./board/controllers/useCoordinatePlotController";
@@ -503,7 +503,7 @@ export function App({
     documentController,
   });
   const laser = useLaserPointerController();
-  const canvasTool = useBoardMomentaryPan(
+  const canvasTool = useBoardMomentaryTool(
     activeTool,
     settingsOpen ||
       shortcutsOpen ||
@@ -513,6 +513,7 @@ export function App({
       selection.state.interaction.kind !== "idle" ||
       handwriting.state.kind !== "idle" ||
       eraser.preview !== null,
+    readOnly,
   );
   const interaction = useBoardInteractionRouter({
     activeTool: canvasTool,

@@ -1,70 +1,92 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { ActiveToolId } from "../active-tool";
-import { navigationToolId } from "../active-tool";
+import {
+  eraserToolId,
+  navigationToolId,
+  type ActiveToolId,
+} from "../active-tool";
+
+type MomentaryKey = "Space" | "KeyX";
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
   return (
     target instanceof Element &&
-    target.closest(
-      'button, a, input, textarea, select, [contenteditable="true"], [role="dialog"], [role="menu"]',
-    ) !== null
+    ((target instanceof HTMLElement && target.isContentEditable) ||
+      target.closest(
+        'button, a, input, textarea, select, [role="dialog"], [role="menu"]',
+      ) !== null)
   );
 }
 
 /**
- * Space temporarily switches canvas gestures to pan without changing the
- * selected tool. If Space is released mid-drag, retain pan until pointerup
- * so the viewport gesture commits before the previous tool is restored.
+ * Space temporarily pans and Shift+X temporarily erases. Releasing the key
+ * during an active pointer gesture defers restoring the selected tool until
+ * the gesture finishes. Privilege changes and focus loss clear transient mode.
  */
-export function useBoardMomentaryPan(
+export function useBoardMomentaryTool(
   selectedTool: ActiveToolId,
   disabled: boolean,
+  readOnly: boolean,
 ): ActiveToolId {
-  const [momentary, setMomentary] = useState(false);
-  const heldRef = useRef(false);
+  const [momentaryTool, setMomentaryTool] = useState<ActiveToolId | null>(null);
+  const heldCodeRef = useRef<MomentaryKey | null>(null);
   const pointerIdsRef = useRef(new Set<number>());
   const releasePendingRef = useRef(false);
 
   useEffect(() => {
     const reset = () => {
-      heldRef.current = false;
+      heldCodeRef.current = null;
       pointerIdsRef.current.clear();
       releasePendingRef.current = false;
-      setMomentary(false);
+      setMomentaryTool(null);
+    };
+    const release = () => {
+      heldCodeRef.current = null;
+      if (pointerIdsRef.current.size > 0) {
+        releasePendingRef.current = true;
+      } else {
+        setMomentaryTool(null);
+      }
     };
     const keydown = (event: KeyboardEvent) => {
+      const tool =
+        event.code === "Space"
+          ? navigationToolId
+          : event.code === "KeyX" && event.shiftKey
+            ? eraserToolId
+            : null;
       if (
-        event.code !== "Space" ||
+        tool === null ||
         event.repeat ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
         disabled ||
-        selectedTool === navigationToolId ||
-        heldRef.current ||
+        (tool === eraserToolId && readOnly) ||
+        selectedTool === tool ||
+        heldCodeRef.current !== null ||
         releasePendingRef.current ||
         isInteractiveTarget(event.target)
       ) {
         return;
       }
       event.preventDefault();
-      heldRef.current = true;
-      setMomentary(true);
+      heldCodeRef.current = event.code as MomentaryKey;
+      setMomentaryTool(tool);
     };
     const keyup = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || !heldRef.current) return;
-      event.preventDefault();
-      heldRef.current = false;
-      if (pointerIdsRef.current.size > 0) {
-        releasePendingRef.current = true;
-      } else {
-        setMomentary(false);
-      }
+      const keyReleased = heldCodeRef.current === event.code;
+      const shiftReleased =
+        heldCodeRef.current === "KeyX" &&
+        (event.code === "ShiftLeft" || event.code === "ShiftRight") &&
+        !event.shiftKey;
+      if (!keyReleased && !shiftReleased) return;
+      if (keyReleased) event.preventDefault();
+      release();
     };
     const pointerdown = (event: PointerEvent) => {
       if (
-        heldRef.current &&
+        heldCodeRef.current !== null &&
         event.target instanceof Element &&
         event.target.closest('[data-testid="board-stage"]') !== null
       ) {
@@ -75,7 +97,7 @@ export function useBoardMomentaryPan(
       pointerIdsRef.current.delete(event.pointerId);
       if (releasePendingRef.current && pointerIdsRef.current.size === 0) {
         releasePendingRef.current = false;
-        setMomentary(false);
+        setMomentaryTool(null);
       }
     };
     const visibilitychange = () => {
@@ -98,7 +120,9 @@ export function useBoardMomentaryPan(
       window.removeEventListener("blur", reset);
       document.removeEventListener("visibilitychange", visibilitychange);
     };
-  }, [disabled, selectedTool]);
+  }, [disabled, readOnly, selectedTool]);
 
-  return momentary ? navigationToolId : selectedTool;
+  return momentaryTool === eraserToolId && readOnly
+    ? selectedTool
+    : (momentaryTool ?? selectedTool);
 }
