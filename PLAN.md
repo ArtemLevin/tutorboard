@@ -26,8 +26,8 @@
 > `docs/architecture/`. Этот файл определяет текущий порядок работ для публичного
 > standalone TutorBoard.
 >
-> **QoL Sprint 2 (IN_PROGRESS):** QoL 2.1–2.3 объединены в `main`
-> (PR #246–#248); QoL 2.4–2.6 остаются PLANNED (§28).
+> **QoL Sprint 2 (IN_PROGRESS):** QoL 2.1–2.5 объединены в `main`
+> (PR #246–#248, #250, #251); QoL 2.6 остаётся PLANNED (§28).
 > Спринт не заменяет открытые Issue #201/#241 и обязательные
 > Pilot/Production release gates.
 
@@ -2449,7 +2449,7 @@ verification and the guest offline cleanup regression guard.
 
 ## 28. QoL Sprint 2 — удобство работы преподавателя (план от 12.10.2026)
 
-**Статус:** IN_PROGRESS; QoL 2.1 (PR #246), QoL 2.2 (PR #247) и QoL 2.3 (PR #248) — MERGED в `main`; QoL 2.4–2.6 — PLANNED. Последний QoL merge SHA: `ec20092cfc572e02b1b0a09103ccc527c5909dc3`.
+**Статус:** IN_PROGRESS; QoL 2.1–2.5 — MERGED в `main` (PR #246–#248, #250, #251); QoL 2.6 — PLANNED. Последний QoL merge SHA: `4e7f229982cb884bec7211525a96673bf7b339fb`.
 **Базовая точка планирования:** `main` на `93651e5f9f0184a59dead1a7ebe6b91aa49ee21f`.
 Этот SHA — справочная точка на дату составления, перед каждым PR требуется
 сверить актуальные код, CI, docs и используемый release pin.
@@ -2602,7 +2602,8 @@ selection, lock и group command paths; не создавать обходные
 
 ### 28.6. QoL 2.5 — профили пера и кнопка стилуса (P2)
 
-**Implementation (PR #251, DRAFT; CI pending):** три профиля пера в имеющемся
+**Реализовано и объединено в main (PR #251, squash merge
+`4e7f229982cb884bec7211525a96673bf7b339fb`):** три профиля пера в имеющемся
 хранилище `tutorboard.quick-tools/1`, миграция двух старых слотов,
 опциональный ластик кнопкой стилуса (по умолчанию OFF). События pen-barrel
 и eraser-tip обслуживаются отдельной временной pointer-сессией и
@@ -2610,6 +2611,9 @@ selection, lock и group command paths; не создавать обходные
 и BoardDocument/realtime контракты сохранены. Unit/E2E проверки добавлены.
 Визуальные desktop-эталоны прошли покадровый аудит изменений только в нижнем
 dock (`docs/QOL_2_5_VISUAL_BASELINE_AUDIT_2026-10-12.md`; вне dock — 0 пикселей).
+Quality Gate, Chromium/Firefox smoke, Coordinate Plot visual, Media Performance,
+GeometryOS, Board-only и специализированные production workflows — SUCCESS на
+HEAD PR `e26a39e1cfb094f56c9c9cfc6b2ba99be8b83711` (CI #38312540387).
 Hardware-проверка с физическим стилусом и production rollout остаются
 отдельными gates.
 
