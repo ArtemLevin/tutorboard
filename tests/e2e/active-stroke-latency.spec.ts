@@ -156,7 +156,7 @@ async function dispatchCoalescedStroke(
   }, options);
 }
 
-test("@smoke @frame-budget sustained 240 Hz coalesced pen input drains backlog with bounded wet ink tail", async ({
+test("@smoke @frame-budget 240 Hz pen coalescing keeps wet ink responsive", async ({
   page,
 }) => {
   await openBoardWithPen(page);
