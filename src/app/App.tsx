@@ -24,7 +24,10 @@ import {
   type Vec2,
   type ViewportState,
 } from "../core/public";
-import { aggregateSelectionBounds, selectSelectionBounds } from "../modules/selection/public";
+import {
+  aggregateSelectionBounds,
+  selectSelectionBounds,
+} from "../modules/selection/public";
 import { resolveEmbeddedImagePlacementSizeForScene } from "./image-import";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import {
@@ -563,7 +566,9 @@ export function App({
         : scene.items
             .filter(({ object }) => object.visible)
             .map(({ object }) => object.id);
-      const bounds = aggregateSelectionBounds(selectSelectionBounds(scene, ids));
+      const bounds = aggregateSelectionBounds(
+        selectSelectionBounds(scene, ids),
+      );
       const rect = workspaceRef.current?.getBoundingClientRect();
       if (rect === undefined) return;
       const nextViewport = fitBoardViewport(bounds, {

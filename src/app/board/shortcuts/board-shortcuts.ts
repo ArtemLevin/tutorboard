@@ -80,8 +80,20 @@ export const boardShortcutBindings: readonly BoardShortcutBinding[] = [
     requiresWrite: true,
   },
   { action: "tool.laser", code: "KeyK", display: "K", requiresWrite: false },
-  { action: "viewport.fit-all", code: "KeyH", display: "Shift+H", requiresWrite: false, shift: true },
-  { action: "viewport.fit-selection", code: "KeyF", display: "Shift+F", requiresWrite: false, shift: true },
+  {
+    action: "viewport.fit-all",
+    code: "KeyH",
+    display: "Shift+H",
+    requiresWrite: false,
+    shift: true,
+  },
+  {
+    action: "viewport.fit-selection",
+    code: "KeyF",
+    display: "Shift+F",
+    requiresWrite: false,
+    shift: true,
+  },
   {
     action: "plot.create",
     code: "KeyG",
