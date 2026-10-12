@@ -16,6 +16,16 @@ async function addRectangle(page: Page, x: number, y: number) {
   await page.mouse.up();
 }
 
+async function selectSingleRectangle(page: Page) {
+  const from = await stagePoint(page, 270, 145);
+  const to = await stagePoint(page, 400, 270);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+}
+
 async function openSelectionMenu(page: Page, x: number, y: number) {
   const point = await stagePoint(page, x, y);
   await page.mouse.click(point.x, point.y, { button: "right" });
@@ -66,10 +76,9 @@ test("duplicates using a single paste command and safely locks the selection @sm
 }) => {
   await page.goto("/");
   await addRectangle(page, 300, 180);
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
   await page.keyboard.press("v");
-  const point = await stagePoint(page, 300, 205);
-  await page.mouse.click(point.x, point.y);
-  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+  await selectSingleRectangle(page);
   const menu = await openSelectionMenu(page, 300, 205);
   await expect(menu.getByRole("menuitem", { name: "Слева" })).toBeDisabled();
   await menu.getByRole("menuitem", { name: "Дублировать" }).click();
@@ -77,9 +86,8 @@ test("duplicates using a single paste command and safely locks the selection @sm
   await expect(page.getByTestId("history-depth")).toHaveText("2/0");
   await page.keyboard.press("Control+z");
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
-  // Undo removes the newly selected duplicate; select the original again.
-  await page.mouse.click(point.x, point.y);
-  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
+  // Undo removes the newly selected duplicate; reselect the source by marquee.
+  await selectSingleRectangle(page);
   const selected = await openSelectionMenu(page, 300, 205);
   await selected.getByRole("menuitem", { name: "Заблокировать" }).click();
   const locked = await openSelectionMenu(page, 300, 205);
