@@ -31,10 +31,16 @@ interface LayoutUnit {
 
 function unionBounds(rects: readonly Rect2[]): Rect2 | null {
   if (rects.length === 0) return null;
-  const x = Math.min(...rects.map((rect) => rect.x));
-  const y = Math.min(...rects.map((rect) => rect.y));
-  const right = Math.max(...rects.map((rect) => rect.x + rect.width));
-  const bottom = Math.max(...rects.map((rect) => rect.y + rect.height));
+  let x = Infinity;
+  let y = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const rect of rects) {
+    x = Math.min(x, rect.x);
+    y = Math.min(y, rect.y);
+    right = Math.max(right, rect.x + rect.width);
+    bottom = Math.max(bottom, rect.y + rect.height);
+  }
   return Number.isFinite(x) &&
     Number.isFinite(y) &&
     Number.isFinite(right) &&
