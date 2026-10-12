@@ -33,7 +33,7 @@ jobs:
           const directory='tests/e2e/coordinate-plot-visual.spec.ts-snapshots';
           const files=execFileSync('git',['diff','--name-only','--',directory],{encoding:'utf8'}).trim().split('\n').filter(Boolean).sort();
           const expected=['coordinate-plot-bounded-legend-visual-chromium-desktop-linux.png','coordinate-plot-bounded-legend-visual-firefox-desktop-linux.png','coordinate-plot-functions-visual-chromium-desktop-linux.png','coordinate-plot-functions-visual-firefox-desktop-linux.png'].sort();
-          if(JSON.stringify(files.map(basename))!==JSON.stringify(expected)) {
+          if(JSON.stringify(files.map(file => basename(file)))!==JSON.stringify(expected)) {
             throw Error('Unexpected visual snapshot set: '+JSON.stringify(files));
           }
           for(const path of files) {
