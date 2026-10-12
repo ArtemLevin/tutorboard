@@ -173,9 +173,9 @@ test(
 
     await activate();
     await expect(settings).toBeVisible();
-      const opacity = page.getByRole("slider", {
-        name: "Прозрачность инструмента",
-      });
+    const opacity = page.getByRole("slider", {
+      name: "Прозрачность инструмента",
+    });
     const box = await opacity.boundingBox();
     expect(box).not.toBeNull();
     if (box === null) throw new Error("Opacity slider has no bounds.");
@@ -186,4 +186,5 @@ test(
     await page.mouse.up();
     await page.clock.fastForward(2_100);
     await expect(settings).toHaveCount(0);
-});
+  },
+);
