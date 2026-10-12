@@ -1,0 +1,25 @@
+name: QoL 2.2 final test formatter
+on:
+  push:
+    branches: [feat/qol-2-2-viewport-bookmarks]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Normalize App regression and remove temporary workflow
+        run: |
+          npx prettier --write src/app/App.test.tsx
+          git rm .github/workflows/qol22-test-format-once.yml
+          git add src/app/App.test.tsx
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "style(qol): normalize read-only camera regression"
+          git push origin HEAD:feat/qol-2-2-viewport-bookmarks
