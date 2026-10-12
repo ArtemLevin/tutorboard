@@ -24,7 +24,6 @@ import {
   type Vec2,
   type ViewportState,
 } from "../core/public";
-
 import { resolveEmbeddedImagePlacementSizeForScene } from "./image-import";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import {
@@ -45,6 +44,7 @@ import { useBoardHandwritingController } from "./board/controllers/useBoardHandw
 import { useBoardInteractionRouter } from "./board/controllers/useBoardInteractionRouter";
 import { useBoardKeyboardShortcuts } from "./board/controllers/useBoardKeyboardShortcuts";
 import { useBoardMediaController } from "./board/controllers/useBoardMediaController";
+import { useBoardMomentaryTool } from "./board/controllers/useBoardMomentaryTool";
 import { useBoardSelectionController } from "./board/controllers/useBoardSelectionController";
 import { useBoardSolid3DController } from "./board/controllers/useBoardSolid3DController";
 import { useCoordinatePlotController } from "./board/controllers/useCoordinatePlotController";
@@ -504,8 +504,20 @@ export function App({
     documentController,
   });
   const laser = useLaserPointerController();
-  const interaction = useBoardInteractionRouter({
+  const canvasTool = useBoardMomentaryTool(
     activeTool,
+    settingsOpen ||
+      shortcutsOpen ||
+      geometry.open ||
+      plots.editor !== null ||
+      drawing.state.kind !== "idle" ||
+      selection.state.interaction.kind !== "idle" ||
+      handwriting.state.kind !== "idle" ||
+      eraser.preview !== null,
+    readOnly,
+  );
+  const interaction = useBoardInteractionRouter({
+    activeTool: canvasTool,
     documentController,
     drawing,
     eraser,
@@ -655,7 +667,7 @@ export function App({
         />
         <BoardCanvas
           key={mediaResourceGeneration}
-          activeTool={activeTool}
+          activeTool={canvasTool}
           announce={announce}
           clipboard={clipboard}
           document={document}

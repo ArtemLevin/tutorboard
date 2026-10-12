@@ -22,12 +22,10 @@ test("creates and persists explicit and parametric plot series", async ({
   const editorZIndex = await editor.evaluate((element) =>
     Number.parseInt(getComputedStyle(element).zIndex, 10),
   );
-  const diagnosticsZIndex = await page
-    .getByRole("complementary", { name: "Диагностика Smart Ink" })
-    .evaluate((element) =>
-      Number.parseInt(getComputedStyle(element).zIndex, 10),
-    );
-  expect(editorZIndex).toBeGreaterThan(diagnosticsZIndex);
+  expect(editorZIndex).toBeGreaterThan(0);
+  await expect(
+    page.getByRole("complementary", { name: "Диагностика Smart Ink" }),
+  ).toHaveCount(0);
 
   await editor.getByLabel("Математическое выражение графика").fill("y=x^3-2*x");
   await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
