@@ -151,8 +151,7 @@ export class WheelInkCacheCoordinator {
     // A sharper cache is safe when zooming out. A smaller one must never
     // be enlarged beyond the physical pixels required by the new viewport.
     this.#lastWheelUsedPrepared =
-      this.#preparedPixelRatio !== null &&
-      this.#preparedPixelRatio >= ratio;
+      this.#preparedPixelRatio !== null && this.#preparedPixelRatio >= ratio;
     this.#lastWheelSkippedColdBuild =
       !this.#lastWheelUsedPrepared && !buildIfUnprepared;
     if (this.#lastWheelUsedPrepared) {

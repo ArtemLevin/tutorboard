@@ -35,7 +35,10 @@ test("@smoke keeps visible ink cache at full physical resolution when zoomed in"
 
   const stage = page.getByTestId("board-stage");
   await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "true");
-  await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", /[1-9]/);
+  await expect(stage).toHaveAttribute(
+    "data-wheel-cache-retained-runs",
+    /[1-9]/,
+  );
   const pixelRatio = Number(
     await stage.getAttribute("data-wheel-cache-pixel-ratio"),
   );

@@ -980,10 +980,12 @@ export function BoardStage({
           if (attempts < 24) schedule();
           return;
         }
-        if (wheelInkCache.prepare(
-          window.devicePixelRatio,
-          previewViewport.zoom * zoomStep,
-        )) {
+        if (
+          wheelInkCache.prepare(
+            window.devicePixelRatio,
+            previewViewport.zoom * zoomStep,
+          )
+        ) {
           if (rootRef.current !== null) {
             rootRef.current.dataset.wheelCachePrepared = "true";
             rootRef.current.dataset.wheelCacheBuilds = String(
