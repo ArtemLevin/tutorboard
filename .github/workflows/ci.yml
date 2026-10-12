@@ -265,50 +265,7 @@ jobs:
               | tee browser-smoke-${{ matrix.browser }}.log
           fi
 
-      - name: Upload browser smoke failure evidence
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: browser-smoke-${{ matrix.browser }}-failure-${{ github.sha }}
-          path: |
-            browser-smoke-${{ matrix.browser }}.log
-            test-results
-          if-no-files-found: warn
-          retention-days: 7
-
-  wet-ink-frame-budget:
-    name: Wet ink frame budget (${{ matrix.browser }})
-    needs: quality
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium, firefox]
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Install locked dependencies
-        run: npm ci
-
-      - name: Install ${{ matrix.browser }}
-        run: npx playwright install --with-deps ${{ matrix.browser }}
-
-      - name: Build production bundle
-        env:
-          VITE_FEATURE_SERVER_SYNC: "true"
-          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos
-        run: npm run build
-
-      - name: Verify 240 Hz pen latency with three isolated repetitions
+      - name: Verify isolated 240 Hz pen frame budget (${{ matrix.browser }})
         run: |
           set -o pipefail
           npm run e2e -- tests/e2e/active-stroke-latency.spec.ts \
@@ -320,13 +277,22 @@ jobs:
             --trace=retain-on-failure 2>&1 \
             | tee wet-ink-frame-budget-${{ matrix.browser }}.log
 
-      - name: Upload wet-ink frame budget evidence
+      - name: Upload wet-ink budget evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: wet-ink-frame-budget-${{ matrix.browser }}-${{ github.sha }}
+          path: wet-ink-frame-budget-${{ matrix.browser }}.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload browser smoke failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-smoke-${{ matrix.browser }}-failure-${{ github.sha }}
           path: |
-            wet-ink-frame-budget-${{ matrix.browser }}.log
+            browser-smoke-${{ matrix.browser }}.log
             test-results
           if-no-files-found: warn
           retention-days: 7
@@ -433,7 +399,7 @@ jobs:
 
   production-image:
     name: Production image
-    needs: [quality, e2e-smoke, wet-ink-frame-budget]
+    needs: [quality, e2e-smoke]
     if: needs.quality.outputs.production_image == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
