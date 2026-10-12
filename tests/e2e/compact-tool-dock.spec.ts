@@ -121,7 +121,7 @@ test("@smoke keeps the desktop tool chooser compact and fully functional", async
   const menuBox = await menu.boundingBox();
   expect(menuBox).not.toBeNull();
   expect(menuBox!.width).toBeLessThanOrEqual(300);
-  await menu.getByRole("menuitemradio", { name: /Ручка/ }).click();
+  await menu.getByRole("menuitemradio", { name: /Перо/ }).click();
   await expect(page.getByTestId("board-stage")).toHaveAttribute(
     "data-drawing-mode",
     "drawing.pen",
