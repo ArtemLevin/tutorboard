@@ -403,14 +403,10 @@ export function App({
       ? { scope: bookmarkScope, viewport: document.viewport }
       : null,
   );
-  useEffect(() => {
-    if (!localViewportEnabled) return;
-    setViewOnlyCamera((current) =>
-      current?.scope === bookmarkScope
-        ? current
-        : { scope: bookmarkScope, viewport: document.viewport },
-    );
-  }, [bookmarkScope, document.viewport, localViewportEnabled]);
+  // Reset this scoped local camera when switching boards or gaining a student role.
+  if (localViewportEnabled && viewOnlyCamera?.scope !== bookmarkScope) {
+    setViewOnlyCamera({ scope: bookmarkScope, viewport: document.viewport });
+  }
   const followedViewport = teacherFollow?.active
     ? teacherFollow.viewport
     : null;
