@@ -499,6 +499,7 @@ export function BoardStage({
   );
   const wheelSessionRef = useRef<WheelSession | null>(null);
   const wheelTraceIdRef = useRef(0);
+  const wheelInputTraceIdRef = useRef(0);
   const pendingViewportCommitTraceRef = useRef<number | null>(null);
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
   const primaryCanvasClickTimeoutRef = useRef<number | null>(null);
@@ -680,22 +681,52 @@ export function BoardStage({
     wetInkRendererRef.current?.setViewport(previewViewport);
   }, [previewViewport]);
 
-  const visibilityIndex = useMemo(
-    () => createBoardVisibilityIndex(scene.items),
-    [scene.items],
-  );
-  const visibleItems = useMemo(
-    () => visibilityIndex.select(previewViewport, size),
-    [visibilityIndex, previewViewport, size],
-  );
+  const visibilityIndex = useMemo(() => {
+    const started =
+      window.__tutorBoardC37Trace === undefined ? null : performance.now();
+    const index = createBoardVisibilityIndex(scene.items);
+    if (started !== null) {
+      recordBoardFrameTrace(
+        "visibility-index-build",
+        started,
+        performance.now() - started,
+        `items=${scene.items.length}`,
+      );
+    }
+    return index;
+  }, [scene.items]);
+  const visibleItems = useMemo(() => {
+    const started =
+      window.__tutorBoardC37Trace === undefined ? null : performance.now();
+    const items = visibilityIndex.select(previewViewport, size);
+    if (started !== null) {
+      recordBoardFrameTrace(
+        "visibility-query",
+        started,
+        performance.now() - started,
+        `visible=${items.length}`,
+      );
+    }
+    return items;
+  }, [visibilityIndex, previewViewport, size]);
   const visibleItemBatches = useMemo(
     () => batchBoardRenderItems(visibleItems),
     [visibleItems],
   );
-  const committedPaintRuns = useMemo(
-    () => partitionCommittedPaintRuns(visibleItemBatches),
-    [visibleItemBatches],
-  );
+  const committedPaintRuns = useMemo(() => {
+    const started =
+      window.__tutorBoardC37Trace === undefined ? null : performance.now();
+    const runs = partitionCommittedPaintRuns(visibleItemBatches);
+    if (started !== null) {
+      recordBoardFrameTrace(
+        "paint-run-build",
+        started,
+        performance.now() - started,
+        `runs=${runs.length}`,
+      );
+    }
+    return runs;
+  }, [visibleItemBatches]);
   const animatedPaintLayerCount = committedPaintRuns.filter(
     (run) => run.animated,
   ).length;
@@ -800,6 +831,8 @@ export function BoardStage({
     if (stage === null || transformer === null) {
       return;
     }
+    const started =
+      window.__tutorBoardC37Trace === undefined ? null : performance.now();
     const allowed = new Set(transformableObjectIds);
     const nodes = stage.find(".board-transform-target").filter((node) => {
       const objectId = objectIdFromTarget(node);
@@ -807,6 +840,14 @@ export function BoardStage({
     });
     transformer.nodes(nodes);
     transformer.getLayer()?.batchDraw();
+    if (started !== null) {
+      recordBoardFrameTrace(
+        "transformer-bind",
+        started,
+        performance.now() - started,
+        `selected=${allowed.size};nodes=${nodes.length}`,
+      );
+    }
   }, [
     lineEndpointPreview,
     previewViewport,
@@ -1302,6 +1343,7 @@ export function BoardStage({
           "wheel-cache-end",
           cacheStartMs,
           performance.now() - cacheStartMs,
+          `session=${session.traceId}`,
         );
       }
       const resumeStartMs = traceEnabled ? performance.now() : 0;
@@ -1312,6 +1354,7 @@ export function BoardStage({
           "wheel-animation-resume",
           resumeStartMs,
           performance.now() - resumeStartMs,
+          `session=${session.traceId}`,
         );
       }
       setPreviewViewport(session.latestViewport);
@@ -1324,6 +1367,7 @@ export function BoardStage({
             "wheel-viewport-persist",
             persistStartMs,
             performance.now() - persistStartMs,
+            `session=${session.traceId}`,
           );
         }
         if (traceEnabled) {
@@ -2194,10 +2238,19 @@ export function BoardStage({
         // A cold cache can take tens of milliseconds to rasterize on the
         // input thread. Preserve the uncached pen renderer for this gesture
         // when idle preparation has not completed.
+        const started =
+          window.__tutorBoardC37Trace === undefined ? null : performance.now();
         wheelInkCache.begin(window.devicePixelRatio, {
           buildIfUnprepared: false,
           zoom: viewport.zoom,
         });
+        if (started !== null) {
+          recordBoardFrameTrace(
+            "wheel-cache-begin",
+            started,
+            performance.now() - started,
+          );
+        }
         // Avoid an independent full-speed GIF invalidation stream while the
         // temporary wheel cache is composited through viewport transforms.
         animatedImageRedraw.setInteractionActive(true);
@@ -2215,7 +2268,7 @@ export function BoardStage({
           "wheel-input",
           nowMs,
           0,
-          `session=${traceId};deltaY=${event.evt.deltaY};zoom=${viewport.zoom.toFixed(3)};cachedRuns=${wheelInkCache.activeCachedCount}`,
+          `session=${traceId};input=${++wheelInputTraceIdRef.current};deltaY=${event.evt.deltaY};zoom=${viewport.zoom.toFixed(3)};offsetX=${viewport.offset.x.toFixed(2)};offsetY=${viewport.offset.y.toFixed(2)};cachedRuns=${wheelInkCache.activeCachedCount}`,
         );
         pendingViewportCommitTraceRef.current = nowMs;
       }

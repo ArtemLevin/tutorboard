@@ -20,7 +20,12 @@ export interface BoardFrameTraceEvent {
     | "wheel-layout"
     | "wheel-cache-end"
     | "wheel-animation-resume"
-    | "wheel-viewport-persist";
+    | "wheel-viewport-persist"
+    | "wheel-cache-begin"
+    | "visibility-index-build"
+    | "visibility-query"
+    | "paint-run-build"
+    | "transformer-bind";
   readonly startMs: number;
   readonly durationMs: number;
   readonly detail?: string;
@@ -30,6 +35,7 @@ declare global {
   interface Window {
     __tutorBoardC37Trace?: {
       events: BoardFrameTraceEvent[];
+      droppedEvents?: number;
       disableWheelGifPause?: boolean;
     };
   }
@@ -43,7 +49,11 @@ export function recordBoardFrameTrace(
 ): void {
   const sink =
     typeof window === "undefined" ? undefined : window.__tutorBoardC37Trace;
-  if (sink === undefined || sink.events.length >= 12_000) return;
+  if (sink === undefined) return;
+  if (sink.events.length >= 12_000) {
+    sink.droppedEvents = (sink.droppedEvents ?? 0) + 1;
+    return;
+  }
   sink.events.push({
     kind,
     startMs,

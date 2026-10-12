@@ -1,0 +1,95 @@
+name: C3.9-S3 A0-A1 independent ABBA
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-s3-abba.yml
+      - src/core/board/selectors.ts
+      - src/adapters/canvas-konva/BoardStage.tsx
+      - src/adapters/canvas-konva/board-frame-trace.ts
+      - tests/e2e/c39-large-board-profile.spec.ts
+      - tests/e2e/c39-frame-attribution.ts
+      - scripts/c39/summarize-stable-scene-ab.mjs
+      - tests/node/c39-stable-scene-ab.test.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-s3-abba-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  paired-browsers:
+    if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        independent-run: [1, 2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Build identical harness with A0/A1 selector only
+        run: |
+          set -euo pipefail
+          npm ci
+          npx playwright install --with-deps chromium
+          git worktree add --detach .c39-control HEAD
+          git show "${{ github.event.pull_request.base.sha }}:src/core/board/selectors.ts" > .c39-control/src/core/board/selectors.ts
+          ln -s "$GITHUB_WORKSPACE/node_modules" .c39-control/node_modules
+          npm run build
+          (cd .c39-control && npm run build)
+          mkdir -p c39-s3-abba-results
+          sha256sum src/core/board/selectors.ts .c39-control/src/core/board/selectors.ts > c39-s3-abba-results/selector-identities.txt
+          git rev-parse HEAD > c39-s3-abba-results/source-sha.txt
+          echo "${{ github.event.pull_request.base.sha }}" > c39-s3-abba-results/base-sha.txt
+      - name: Three ABBA cycles with real static scenes
+        env:
+          C39_STATIC_HEAVY_PROFILE: "1"
+        run: |
+          set -euo pipefail
+          for cycle in 1 2 3; do
+            for position in 1 2 3 4; do
+              if [[ "$position" == 1 || "$position" == 4 ]]; then
+                arm=A0
+                target=.c39-control
+              else
+                arm=A1
+                target=.
+              fi
+              echo "C39 S3 cycle=$cycle position=$position arm=$arm runner=${{ matrix.independent-run }}"
+              (
+                cd "$target"
+                npm run e2e:c39-profile -- --grep @c39-static-heavy
+              ) 2>&1 | tee "c39-s3-abba-results/cycle-$cycle-position-$position-$arm.log"
+              if [[ "$target" == "." ]]; then
+                cp -r test-results "c39-s3-abba-results/artifacts-$cycle-$position-A1" || true
+              else
+                cp -r .c39-control/test-results "c39-s3-abba-results/artifacts-$cycle-$position-A0" || true
+              fi
+            done
+          done
+      - name: Analyze all six independent pairs within this runner
+        if: always()
+        run: |
+          if [[ -f c39-s3-abba-results/cycle-3-position-4-A0.log ]]; then
+            node scripts/c39/summarize-stable-scene-ab.mjs \
+              c39-s3-abba-results c39-s3-abba-results/summary.json
+          fi
+      - name: Archive matched raw evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-s3-abba-${{ matrix.independent-run }}-${{ github.event.pull_request.head.sha }}
+          path: c39-s3-abba-results
+          retention-days: 14
+          if-no-files-found: warn

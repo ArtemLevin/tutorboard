@@ -6,6 +6,11 @@ on:
     paths:
       - .github/workflows/c39-representative-baseline.yml
       - src/core/board/commands/reducer.ts
+      - src/core/board/selectors.ts
+      - src/adapters/canvas-konva/BoardStage.tsx
+      - src/adapters/canvas-konva/board-frame-trace.ts
+      - tests/unit/core/scene-selector.test.ts
+      - tests/e2e/c39-frame-attribution.ts
       - tests/e2e/c39-large-board-profile.spec.ts
       - tests/fixtures/dense-board.ts
       - tests/fixtures/media/c39-animated-64x64.gif

@@ -265,3 +265,50 @@ export async function startC39ChromiumTrace(page: Page) {
     }
   };
 }
+
+/**
+ * Preserve historical active p95. Mixed rendering/persist intervals remain
+ * in the original distribution and are separately identified.
+ */
+export function partitionC39PersistFrames(
+  gaps: readonly C39FrameGap[],
+  wheelTimes: readonly number[],
+  jsEvents: readonly C39JsEvent[],
+): {
+  readonly activeWithoutPersist: readonly C39FrameGap[];
+  readonly activeWithPersist: readonly C39FrameGap[];
+  readonly intermediatePersistCount: number;
+  readonly finalPersistCount: number;
+} {
+  const firstWheel = wheelTimes[0];
+  const lastWheel = wheelTimes.at(-1);
+  if (firstWheel === undefined || lastWheel === undefined) {
+    return {
+      activeWithoutPersist: [],
+      activeWithPersist: [],
+      intermediatePersistCount: 0,
+      finalPersistCount: 0,
+    };
+  }
+  const persists = jsEvents.filter(
+    (event) => event.kind === "wheel-viewport-persist",
+  );
+  const active = gaps.filter(
+    (gap) => gap.endMs >= firstWheel && gap.endMs <= lastWheel,
+  );
+  const withPersist = (gap: C39FrameGap) =>
+    persists.some(
+      (event) =>
+        event.startMs <= gap.endMs &&
+        event.startMs + event.durationMs >= gap.startMs,
+    );
+  return {
+    activeWithoutPersist: active.filter((gap) => !withPersist(gap)),
+    activeWithPersist: active.filter(withPersist),
+    intermediatePersistCount: persists.filter(
+      (event) => event.startMs < lastWheel,
+    ).length,
+    finalPersistCount: persists.filter((event) => event.startMs >= lastWheel)
+      .length,
+  };
+}
