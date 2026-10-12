@@ -731,12 +731,14 @@ export function App({
           selection={selection}
           solid3D={solid3D}
         />
-        <BoardViewportBookmarks
-          key={bookmarkScope}
-          storageScope={bookmarkScope}
-          viewport={visibleViewport}
-          onNavigate={commitViewport}
-        />
+        {plots.editor === null ? (
+          <BoardViewportBookmarks
+            key={bookmarkScope}
+            storageScope={bookmarkScope}
+            viewport={visibleViewport}
+            onNavigate={commitViewport}
+          />
+        ) : null}
         <BoardOverlays
           activeTool={activeTool}
           geometry={geometry}
