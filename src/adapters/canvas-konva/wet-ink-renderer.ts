@@ -61,6 +61,9 @@ export interface WetInkFrameReport {
   readonly generatedActualSampleCount: number;
   readonly latency: WetInkLatencySnapshot;
   readonly maxFrameGapMs: number;
+  readonly maxFrameGapEndedAtMs: number;
+  readonly maxFrameGapSurfaceDrawMs: number;
+  readonly maxSurfaceDrawMs: number;
   readonly mutableTailPointCount: number;
   readonly pendingInputCount: number;
   readonly predictedPointCount: number;
@@ -204,6 +207,9 @@ export class WetInkRenderer {
   private readonly latency = new WetInkLatencyTracker();
   private lastRenderedAtMs: number | null = null;
   private maxFrameGapMs = 0;
+  private maxFrameGapEndedAtMs = 0;
+  private maxFrameGapSurfaceDrawMs = 0;
+  private maxSurfaceDrawMs = 0;
   private paintedActualSampleCount = 0;
   private readonly pendingInputTimestampsMs: number[] = [];
   private predictedSamples: readonly WetInkSample[] = [];
@@ -230,6 +236,9 @@ export class WetInkRenderer {
     this.actualSamples.length = 0;
     this.lastRenderedAtMs = null;
     this.maxFrameGapMs = 0;
+    this.maxFrameGapEndedAtMs = 0;
+    this.maxFrameGapSurfaceDrawMs = 0;
+    this.maxSurfaceDrawMs = 0;
     this.paintedActualSampleCount = 0;
     this.pendingInputTimestampsMs.length = 0;
     this.predictedSamples = [];
@@ -310,6 +319,7 @@ export class WetInkRenderer {
     );
     this.paintedActualSampleCount = this.actualSamples.length;
     const pendingInputCount = this.pendingInputTimestampsMs.length;
+    const surfaceDrawStartedAtMs = this.clock.now();
     const surfaceReport =
       this.surface.draw({
         actualSampleCount: this.actualSamples.length,
@@ -319,12 +329,18 @@ export class WetInkRenderer {
         viewport: this.viewport,
       }) ?? emptySurfaceFrameReport;
     const renderedAtMs = this.clock.now();
+    const surfaceDrawMs = Math.max(0, renderedAtMs - surfaceDrawStartedAtMs);
+    this.maxSurfaceDrawMs = Math.max(this.maxSurfaceDrawMs, surfaceDrawMs);
     const frameGapMs =
       this.lastRenderedAtMs === null
         ? 0
         : Math.max(0, renderedAtMs - this.lastRenderedAtMs);
     this.lastRenderedAtMs = renderedAtMs;
-    this.maxFrameGapMs = Math.max(this.maxFrameGapMs, frameGapMs);
+    if (frameGapMs > this.maxFrameGapMs) {
+      this.maxFrameGapMs = frameGapMs;
+      this.maxFrameGapEndedAtMs = renderedAtMs;
+      this.maxFrameGapSurfaceDrawMs = surfaceDrawMs;
+    }
     this.frameCount += 1;
     const latency = this.latency.record(
       this.pendingInputTimestampsMs,
@@ -339,6 +355,9 @@ export class WetInkRenderer {
       generatedActualSampleCount: surfaceReport.generatedActualSampleCount,
       latency,
       maxFrameGapMs: this.maxFrameGapMs,
+      maxFrameGapEndedAtMs: this.maxFrameGapEndedAtMs,
+      maxFrameGapSurfaceDrawMs: this.maxFrameGapSurfaceDrawMs,
+      maxSurfaceDrawMs: this.maxSurfaceDrawMs,
       mutableTailPointCount: surfaceReport.mutableTailSampleCount,
       pendingInputCount,
       predictedPointCount: this.predictedSamples.length,

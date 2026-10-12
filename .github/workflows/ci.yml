@@ -253,14 +253,38 @@ jobs:
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             npm run e2e:smoke -- \
               --project=${{ matrix.browser }} \
+              --grep-invert @frame-budget \
               --retries=0 \
               --max-failures=4 \
               --trace=retain-on-failure 2>&1 \
               | tee browser-smoke-${{ matrix.browser }}.log
           else
-            npm run e2e -- --project=${{ matrix.browser }} 2>&1 \
+            npm run e2e -- \
+              --project=${{ matrix.browser }} \
+              --grep-invert @frame-budget 2>&1 \
               | tee browser-smoke-${{ matrix.browser }}.log
           fi
+
+      - name: Verify isolated 240 Hz pen frame budget (${{ matrix.browser }})
+        run: |
+          set -o pipefail
+          npm run e2e -- tests/e2e/active-stroke-latency.spec.ts \
+            --project=${{ matrix.browser }} \
+            --grep @frame-budget \
+            --workers=1 \
+            --repeat-each=3 \
+            --retries=0 \
+            --trace=retain-on-failure 2>&1 \
+            | tee wet-ink-frame-budget-${{ matrix.browser }}.log
+
+      - name: Upload wet-ink budget evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wet-ink-frame-budget-${{ matrix.browser }}-${{ github.sha }}
+          path: wet-ink-frame-budget-${{ matrix.browser }}.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload browser smoke failure evidence
         if: failure()
