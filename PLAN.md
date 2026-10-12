@@ -2574,6 +2574,15 @@ Component/Chromium/Firefox E2E, mobile layout и teacher/guest smoke.
 
 ### 28.5. QoL 2.4 — быстрые действия с выделением (P2)
 
+**Implementation (PR #250, DRAFT / verification pending):** контекстное меню
+выделения с дублированием, шестью вариантами выравнивания, распределением по
+двум осям и блокировкой/разблокировкой. Повторно используются
+`core.clipboard.paste`, `core.selection.move`, `core.selection.set-lock` и
+`commitCommands`; группы выступают едиными единицами с учётом поворота.
+Добавлены unit/E2E регрессии. Статус MERGED допустим только после полного
+применимого CI, review и фактического объединения PR. Production rollout —
+отдельный release gate.
+
 **Цель:** ускорить компоновку условий, изображений и схем.
 
 **Задачи:** контекстное меню или компактный inspector для дублирования
