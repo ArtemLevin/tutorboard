@@ -53,6 +53,7 @@ import type { AppPersistenceStatus, MathInkRecognizer } from "./board/types";
 import { BoardCanvas } from "./board/views/BoardCanvas";
 import { BoardDiagnostics } from "./board/views/BoardDiagnostics";
 import { BoardNotifications } from "./board/views/BoardNotifications";
+import { BoardLessonModeControls } from "./board/views/BoardLessonModeControls";
 import { BoardOverlays } from "./board/views/BoardOverlays";
 import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
@@ -247,6 +248,14 @@ export function App({
   );
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [lessonMode, setLessonMode] = useState(false);
+  const [lessonModeReadOnly, setLessonModeReadOnly] = useState(readOnly);
+  const [lessonFullscreen, setLessonFullscreen] = useState(false);
+  // Role changes invalidate a local presentation session, including re-grants.
+  if (lessonModeReadOnly !== readOnly) {
+    setLessonModeReadOnly(readOnly);
+    setLessonMode(false);
+  }
   const shortcutsButtonRef = useRef<HTMLButtonElement>(null);
   const shortcutsDialogRef = useRef<HTMLElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
@@ -266,6 +275,83 @@ export function App({
   const announce = useCallback((message: string) => {
     setAccessibilityNotice(message);
   }, []);
+
+  const exitLessonMode = useCallback(() => {
+    setLessonMode(false);
+    if (
+      globalThis.document.fullscreenElement === workspaceRef.current &&
+      typeof globalThis.document.exitFullscreen === "function"
+    ) {
+      void globalThis.document.exitFullscreen().catch(() => {
+        announce("Не удалось выйти из полноэкранного режима");
+      });
+    }
+  }, [announce]);
+
+  const exitLessonModeWithFocus = useCallback(() => {
+    exitLessonMode();
+    requestAnimationFrame(() => {
+      workspaceRef.current
+        ?.querySelector<HTMLButtonElement>('button[aria-label="Режим занятия"]')
+        ?.focus();
+    });
+  }, [exitLessonMode]);
+
+  const toggleLessonFullscreen = useCallback(() => {
+    const workspace = workspaceRef.current;
+    if (workspace === null) return;
+    if (globalThis.document.fullscreenElement === workspace) {
+      if (typeof globalThis.document.exitFullscreen === "function") {
+        void globalThis.document.exitFullscreen().catch(() => {
+          announce("Не удалось выйти из полноэкранного режима");
+        });
+      }
+      return;
+    }
+    if (typeof workspace.requestFullscreen !== "function") {
+      announce("Полноэкранный режим недоступен в этом браузере");
+      return;
+    }
+    void workspace.requestFullscreen().catch(() => {
+      announce("Браузер отклонил полноэкранный режим");
+    });
+  }, [announce]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const active =
+        globalThis.document.fullscreenElement === workspaceRef.current;
+      setLessonFullscreen(active);
+      if (!active && lessonFullscreen) setLessonMode(false);
+    };
+    globalThis.document.addEventListener(
+      "fullscreenchange",
+      onFullscreenChange,
+    );
+    return () =>
+      globalThis.document.removeEventListener(
+        "fullscreenchange",
+        onFullscreenChange,
+      );
+  }, [lessonFullscreen]);
+
+  useEffect(() => {
+    if (!lessonMode) return;
+    window.addEventListener("blur", exitLessonMode);
+    return () => window.removeEventListener("blur", exitLessonMode);
+  }, [exitLessonMode, lessonMode]);
+
+  useEffect(() => {
+    if (
+      readOnly &&
+      globalThis.document.fullscreenElement === workspaceRef.current &&
+      typeof globalThis.document.exitFullscreen === "function"
+    ) {
+      void globalThis.document.exitFullscreen().catch(() => {
+        announce("Не удалось выйти из полноэкранного режима");
+      });
+    }
+  }, [announce, readOnly]);
 
   const closeShortcuts = useCallback(() => {
     setShortcutsOpen(false);
@@ -572,6 +658,19 @@ export function App({
     Object.hasOwn(document.objects, selectionInspectorObjectId) &&
     selection.state.selectedObjectIds.includes(selectionInspectorObjectId);
 
+  const canEnterLessonMode =
+    !readOnly &&
+    !settingsOpen &&
+    !shortcutsOpen &&
+    !geometry.open &&
+    !selectionInspectorOpen &&
+    plots.editor === null &&
+    solid3D.record === null &&
+    drawing.state.kind === "idle" &&
+    selection.state.interaction.kind === "idle" &&
+    handwriting.state.kind === "idle" &&
+    eraser.preview === null;
+
   useEffect(() => {
     onPresenceChange?.({
       selectedObjectIds: selection.state.selectedObjectIds,
@@ -634,6 +733,8 @@ export function App({
     closeInspector: () => setSelectionInspectorObjectId(null),
     closeSettings: () => setSettingsOpen(false),
     closeShortcuts,
+    exitLessonMode: exitLessonModeWithFocus,
+    lessonMode,
     documentController,
     drawing,
     geometryOpen: geometry.open,
@@ -731,7 +832,7 @@ export function App({
           selection={selection}
           solid3D={solid3D}
         />
-        {plots.editor === null ? (
+        {plots.editor === null && !lessonMode ? (
           <BoardViewportBookmarks
             key={bookmarkScope}
             storageScope={bookmarkScope}
@@ -754,48 +855,62 @@ export function App({
           undo={documentController.undo}
           workspaceRef={workspaceRef}
         />
-        <BoardToolDockContainer
-          activeTool={activeTool}
-          collaborativeUndoAvailable={collaborativeUndoAvailable}
-          documentController={documentController}
-          drawing={drawing}
-          eraser={eraser}
-          geometry={geometry}
-          handwrittenFunctionsEnabled={
-            environment.features.handwrittenFunctions
-          }
-          historyEnabled={historyEnabled}
-          interaction={interaction}
-          media={media}
-          onCreatePlot={plots.create}
-          onExportPdfSnapshot={
-            onExportPdfSnapshot === undefined
-              ? undefined
-              : () => onExportPdfSnapshot(getDocument())
-          }
-          onExportPngSnapshot={
-            onExportPngSnapshot === undefined
-              ? undefined
-              : () => onExportPngSnapshot(getDocument())
-          }
-          onExportSvgSnapshot={
-            onExportSvgSnapshot === undefined
-              ? undefined
-              : () => onExportSvgSnapshot(getDocument())
-          }
-          onOpenSettings={() => {
-            geometry.setOpen(false);
-            setSettingsOpen(true);
-          }}
-          plotEditorOpen={plots.editor !== null}
-          quickTools={quickTools}
-          onApplyPenPreset={applyPenPreset}
-          readOnly={readOnly}
-          selection={selection}
-          selectionInspectorOpen={selectionInspectorOpen}
-          settingsOpen={settingsOpen}
-          solid3D={solid3D}
-        />
+        {lessonMode && !readOnly ? (
+          <BoardLessonModeControls
+            activeTool={activeTool}
+            fullscreen={lessonFullscreen}
+            onActivate={interaction.activate}
+            onExit={exitLessonModeWithFocus}
+            onToggleFullscreen={toggleLessonFullscreen}
+          />
+        ) : (
+          <BoardToolDockContainer
+            activeTool={activeTool}
+            collaborativeUndoAvailable={collaborativeUndoAvailable}
+            documentController={documentController}
+            drawing={drawing}
+            eraser={eraser}
+            geometry={geometry}
+            handwrittenFunctionsEnabled={
+              environment.features.handwrittenFunctions
+            }
+            historyEnabled={historyEnabled}
+            interaction={interaction}
+            media={media}
+            onCreatePlot={plots.create}
+            onExportPdfSnapshot={
+              onExportPdfSnapshot === undefined
+                ? undefined
+                : () => onExportPdfSnapshot(getDocument())
+            }
+            onExportPngSnapshot={
+              onExportPngSnapshot === undefined
+                ? undefined
+                : () => onExportPngSnapshot(getDocument())
+            }
+            onExportSvgSnapshot={
+              onExportSvgSnapshot === undefined
+                ? undefined
+                : () => onExportSvgSnapshot(getDocument())
+            }
+            onOpenSettings={() => {
+              geometry.setOpen(false);
+              setSettingsOpen(true);
+            }}
+            onEnterLessonMode={() => {
+              if (canEnterLessonMode) setLessonMode(true);
+            }}
+            lessonModeAvailable={canEnterLessonMode}
+            plotEditorOpen={plots.editor !== null}
+            quickTools={quickTools}
+            onApplyPenPreset={applyPenPreset}
+            readOnly={readOnly}
+            selection={selection}
+            selectionInspectorOpen={selectionInspectorOpen}
+            settingsOpen={settingsOpen}
+            solid3D={solid3D}
+          />
+        )}
         <BoardSettingsPanel
           clipboard={clipboard}
           viewport={visibleViewport}

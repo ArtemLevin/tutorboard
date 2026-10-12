@@ -31,6 +31,8 @@ export interface BoardToolDockContainerProps {
   readonly onExportPngSnapshot?: (() => void) | undefined;
   readonly onExportSvgSnapshot?: (() => void) | undefined;
   readonly onOpenSettings: () => void;
+  readonly onEnterLessonMode: () => void;
+  readonly lessonModeAvailable: boolean;
   readonly onApplyPenPreset: (slot: PenPresetSlot) => void;
   readonly quickTools: QuickToolController;
   readonly plotEditorOpen: boolean;
@@ -57,6 +59,8 @@ export function BoardToolDockContainer({
   onExportPngSnapshot,
   onExportSvgSnapshot,
   onOpenSettings,
+  onEnterLessonMode,
+  lessonModeAvailable,
   onApplyPenPreset,
   plotEditorOpen,
   quickTools,
@@ -103,6 +107,8 @@ export function BoardToolDockContainer({
       onGeneratedFigureLabelsMove={geometry.moveLabels}
       onImageFiles={(files) => void media.importFiles(files)}
       onOpenSettings={onOpenSettings}
+      onEnterLessonMode={onEnterLessonMode}
+      lessonModeAvailable={lessonModeAvailable}
       onApplyPenPreset={onApplyPenPreset}
       onSavePenPreset={(slot) => {
         if (!readOnly)

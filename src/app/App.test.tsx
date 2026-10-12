@@ -230,6 +230,144 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps the lesson mode local and restores the active tool after Escape", async () => {
+    const onCommandCommitted = vi.fn();
+    render(<App onCommandCommitted={onCommandCommitted} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
+    expect(
+      screen.getByRole("toolbar", { name: "Инструменты режима занятия" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Перо — режим занятия" }),
+    ).toHaveFocus();
+    expect(
+      screen.queryByRole("toolbar", { name: "Инструменты доски" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Закладки областей" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Перо — режим занятия" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ластик — режим занятия" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Лазерная указка — режим занятия" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Лазерная указка — режим занятия" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(
+      screen.queryByRole("toolbar", { name: "Инструменты режима занятия" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Лазерная указка (K)" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Закладки областей" }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Режим занятия" }),
+      ).toHaveFocus(),
+    );
+    expect(onCommandCommitted).not.toHaveBeenCalled();
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("0/0");
+  });
+
+  it("preserves selection and document history when entering or exiting", () => {
+    const onCommandCommitted = vi.fn();
+    render(<App onCommandCommitted={onCommandCommitted} />);
+
+    fireEvent.keyDown(window, { key: "r" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    fireEvent.keyDown(window, { key: "v" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Переместить выделение" }),
+    );
+    expect(screen.getByTestId("selection-count")).toHaveTextContent(
+      "1 выбрано",
+    );
+    const commandsBefore = onCommandCommitted.mock.calls.length;
+    const historyBefore = screen.getByTestId("history-depth").textContent;
+
+    fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByTestId("selection-count")).toHaveTextContent(
+      "1 выбрано",
+    );
+    expect(screen.getByTestId("history-depth")).toHaveTextContent(
+      historyBefore ?? "",
+    );
+    expect(onCommandCommitted).toHaveBeenCalledTimes(commandsBefore);
+  });
+
+  it("closes modal help before leaving the lesson mode", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
+    fireEvent.keyDown(window, { key: "?", code: "Slash", shiftKey: true });
+    expect(
+      screen.getByRole("dialog", { name: "Горячие клавиши" }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(
+      screen.queryByRole("dialog", { name: "Горячие клавиши" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("toolbar", { name: "Инструменты режима занятия" }),
+    ).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(
+      screen.getByRole("button", { name: "Режим занятия" }),
+    ).toBeInTheDocument();
+  });
+
+  it("closes lesson mode on permission loss, re-grant, and window blur", () => {
+    const { rerender } = render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
+
+    rerender(<App readOnly />);
+    expect(
+      screen.queryByRole("toolbar", { name: "Инструменты режима занятия" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Режим занятия" }),
+    ).toBeDisabled();
+
+    rerender(<App />);
+    expect(
+      screen.queryByRole("toolbar", { name: "Инструменты режима занятия" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
+    fireEvent(window, new Event("blur"));
+    expect(
+      screen.queryByRole("toolbar", { name: "Инструменты режима занятия" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("continues lesson mode when fullscreen is unavailable", () => {
+    const onCommandCommitted = vi.fn();
+    render(<App onCommandCommitted={onCommandCommitted} />);
+    fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
+    fireEvent.click(screen.getByRole("button", { name: "На весь экран" }));
+
+    expect(
+      screen.getByRole("toolbar", { name: "Инструменты режима занятия" }),
+    ).toBeInTheDocument();
+    expect(onCommandCommitted).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Завершить режим занятия" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Режим занятия" }),
+    ).toBeInTheDocument();
+  });
+
   it("erases multiple pen strokes as one undoable history entry", () => {
     render(<App />);
 

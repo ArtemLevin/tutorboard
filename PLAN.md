@@ -2448,7 +2448,7 @@ verification and the guest offline cleanup regression guard.
 
 ## 28. QoL Sprint 2 — удобство работы преподавателя (план от 12.10.2026)
 
-**Статус:** IN_PROGRESS; QoL 2.1 реализуется в PR #246. QoL 2.2–2.6 остаются PLANNED.
+**Статус:** IN_PROGRESS; QoL 2.1 (PR #246) и QoL 2.2 (PR #247) слиты в `main`; QoL 2.3 реализуется в отдельной ветке; 2.4–2.6 остаются PLANNED.
 **Базовая точка планирования:** `main` на `93651e5f9f0184a59dead1a7ebe6b91aa49ee21f`.
 Этот SHA — справочная точка на дату составления, перед каждым PR требуется
 сверить актуальные код, CI, docs и используемый release pin.
@@ -2480,7 +2480,7 @@ verification and the guest offline cleanup regression guard.
 
 ### 28.2. QoL 2.1 — избранные инструменты и быстрые стили (P1)
 
-**Implementation:** PR #246 — до пяти избранных инструментов, два сохраняемых
+**Implementation:** PR #246 (MERGED) — до пяти избранных инструментов, два сохраняемых
 пресета пера A/Б, переключение `Shift+P`, отдельные локальные настройки
 `tutorboard.quick-tools/1`, браузерные и unit regression tests. Production
 rollout требуется проводить по release pin после успешных CI/deployment gates.
@@ -2508,10 +2508,10 @@ Chromium/Firefox E2E на выбор/возврат/фокус и сохране
 
 ### 28.3. QoL 2.2 — закладки областей и навигация (P1)
 
-**Implementation:** Draft PR #247 (`feat/qol-2-2-viewport-bookmarks`): версионированные
+**Implementation:** PR #247 (MERGED, `6a9dfcd5951bb560ee31994cef2b755fd104d062`): версионированные
 закладки viewport в изолированном localStorage по actor/board, отдельный
-компактный UI и локальная камера для read-only гостя. Browser/CI validation
-обязательны перед merge и production release pin. Изменений persistence schema
+компактный UI и локальная камера для read-only гостя. Chromium/Firefox smoke,
+quality и production gates пройдены перед merge; production release pin — отдельно. Изменений persistence schema
 и realtime protocol в этом PR нет; локальная камера гостя сбрасывается при
 смене board/actor scope. Регрессионные тесты фиксируют устойчивость
 хранилища и запрет записи команд при навигации read-only гостя.
@@ -2541,6 +2541,13 @@ Unit на viewport bounds/store и Chromium/Firefox E2E на запись и п�
 включая тест без регрессии на большой доске.
 
 ### 28.4. QoL 2.3 — режим занятия (P1)
+
+**Implementation (in review):** ветка `feat/qol-2-3-lesson-mode` — компактный
+teacher-only UI с пером/ластиком/указкой, `Esc` с приоритетом модальных окон,
+отдельной fullscreen-опцией и явным выходом. Состояние эфемерно, нет новых
+BoardDocument/realtime/persistence contracts. Добавлены component и
+Chromium/Firefox smoke (mobile/reload), защита фокуса и выделения.
+Merge — после успешных CI/review.
 
 **Цель:** освободить экран для объяснения, оставив необходимое для письма
 и демонстрации.

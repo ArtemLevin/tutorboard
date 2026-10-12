@@ -1,0 +1,67 @@
+.board-lesson-controls {
+  position: absolute;
+  z-index: 42;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  left: 50%;
+  display: flex;
+  max-width: calc(100% - 16px);
+  align-items: center;
+  gap: 5px;
+  padding: 6px;
+  border: 1px solid rgb(105 124 132 / 24%);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 8px 28px rgb(23 42 51 / 15%);
+  transform: translateX(-50%);
+}
+
+.board-lesson-label {
+  padding: 0 10px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.board-lesson-controls button {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.board-lesson-controls button[aria-pressed="true"] {
+  border-color: #8cb8c2;
+  color: #075b70;
+  background: #e1f0f3;
+}
+
+.board-lesson-controls .board-lesson-exit {
+  border-color: #cfdae0;
+  background: #f1f5f6;
+}
+
+@media (max-width: 600px) {
+  .board-lesson-controls {
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: max-content;
+    gap: 2px;
+  }
+
+  .board-lesson-label,
+  .board-lesson-controls button > span:last-child:not(:first-child) {
+    display: none;
+  }
+
+  .board-lesson-controls button {
+    padding: 5px;
+  }
+}

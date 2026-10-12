@@ -45,6 +45,8 @@ export interface UseBoardKeyboardShortcutsOptions {
   readonly closeInspector: () => void;
   readonly closeSettings: () => void;
   readonly closeShortcuts: () => void;
+  readonly exitLessonMode: () => void;
+  readonly lessonMode: boolean;
   readonly documentController: BoardDocumentController;
   readonly drawing: BoardDrawingController;
   readonly geometryOpen: boolean;
@@ -78,6 +80,8 @@ export function useBoardKeyboardShortcuts({
   closeInspector,
   closeSettings,
   closeShortcuts,
+  exitLessonMode,
+  lessonMode,
   documentController,
   drawing,
   geometryOpen,
@@ -120,6 +124,13 @@ export function useBoardKeyboardShortcuts({
         closeInspector();
         return;
       }
+      if (event.key === "Escape" && plots.editor !== null) return;
+      if (event.key === "Escape" && lessonMode) {
+        if (editing) return;
+        event.preventDefault();
+        exitLessonMode();
+        return;
+      }
       if (
         event.key === "Escape" &&
         selection.getState().interaction.kind !== "idle"
@@ -138,7 +149,6 @@ export function useBoardKeyboardShortcuts({
         interaction.activate(selectionToolId);
         return;
       }
-      if (event.key === "Escape" && plots.editor !== null) return;
       if (event.key === "Escape") {
         event.preventDefault();
         interaction.activate(selectionToolId);
@@ -301,6 +311,8 @@ export function useBoardKeyboardShortcuts({
     closeInspector,
     closeSettings,
     closeShortcuts,
+    exitLessonMode,
+    lessonMode,
     drawing,
     geometryOpen,
     handwriting.state.kind,
