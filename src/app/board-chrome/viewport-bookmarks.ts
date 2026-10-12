@@ -14,7 +14,9 @@ export const bookmarkKey = (scope: string): string =>
   `${bookmarkSchema}:${encodeURIComponent(scope)}`;
 
 export const bookmarkName = (value: unknown): string =>
-  typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, 48) : "";
+  typeof value === "string"
+    ? value.trim().replace(/\s+/g, " ").slice(0, 48)
+    : "";
 
 export function bookmarkViewport(value: unknown): ViewportState | null {
   if (value === null || typeof value !== "object") return null;
@@ -32,14 +34,16 @@ export function bookmarkViewport(value: unknown): ViewportState | null {
     !Number.isFinite(offset.y) ||
     Math.abs(offset.x) > 1e9 ||
     Math.abs(offset.y) > 1e9
-  ) return null;
+  )
+    return null;
   return { offset: { x: offset.x, y: offset.y }, zoom: input.zoom };
 }
 
 export function normalizeBookmarks(input: unknown): ViewportBookmark[] {
   if (input === null || typeof input !== "object") return [];
   const data = input as { schemaVersion?: unknown; bookmarks?: unknown };
-  if (data.schemaVersion !== bookmarkSchema || !Array.isArray(data.bookmarks)) return [];
+  if (data.schemaVersion !== bookmarkSchema || !Array.isArray(data.bookmarks))
+    return [];
   const bookmarks: ViewportBookmark[] = [];
   const ids = new Set<string>();
   for (const raw of data.bookmarks.slice(0, 100)) {
@@ -48,9 +52,14 @@ export function normalizeBookmarks(input: unknown): ViewportBookmark[] {
     const name = bookmarkName(item.name);
     const viewport = bookmarkViewport(item.viewport);
     if (
-      typeof item.id !== "string" || item.id.length === 0 ||
-      item.id.length > 80 || ids.has(item.id) || !name || viewport === null
-    ) continue;
+      typeof item.id !== "string" ||
+      item.id.length === 0 ||
+      item.id.length > 80 ||
+      ids.has(item.id) ||
+      !name ||
+      viewport === null
+    )
+      continue;
     ids.add(item.id);
     bookmarks.push({ id: item.id, name, viewport });
     if (bookmarks.length === bookmarkLimit) break;
@@ -59,8 +68,11 @@ export function normalizeBookmarks(input: unknown): ViewportBookmark[] {
 }
 
 function safeStorage(): Storage | null {
-  try { return typeof window === "undefined" ? null : window.localStorage; }
-  catch { return null; }
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
 }
 
 export function readBookmarks(
@@ -70,8 +82,12 @@ export function readBookmarks(
   if (storage === null) return [];
   try {
     const raw = storage.getItem(bookmarkKey(scope));
-    return raw === null || raw.length > 24000 ? [] : normalizeBookmarks(JSON.parse(raw));
-  } catch { return []; }
+    return raw === null || raw.length > 24000
+      ? []
+      : normalizeBookmarks(JSON.parse(raw));
+  } catch {
+    return [];
+  }
 }
 
 export function writeBookmarks(
@@ -80,10 +96,16 @@ export function writeBookmarks(
   storage: Pick<Storage, "setItem"> | null = safeStorage(),
 ): void {
   try {
-    storage?.setItem(bookmarkKey(scope), JSON.stringify({
-      schemaVersion: bookmarkSchema,
-      bookmarks: normalizeBookmarks({ schemaVersion: bookmarkSchema, bookmarks }),
-    }));
+    storage?.setItem(
+      bookmarkKey(scope),
+      JSON.stringify({
+        schemaVersion: bookmarkSchema,
+        bookmarks: normalizeBookmarks({
+          schemaVersion: bookmarkSchema,
+          bookmarks,
+        }),
+      }),
+    );
   } catch {
     // Preferences remain usable in memory when localStorage is disabled or full.
   }

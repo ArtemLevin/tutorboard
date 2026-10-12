@@ -40,7 +40,10 @@ export function BoardViewportBookmarks({
   useEffect(() => {
     if (!open) return;
     const closeOnOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !root.current?.contains(event.target)) {
+      if (
+        event.target instanceof Node &&
+        !root.current?.contains(event.target)
+      ) {
         setOpen(false);
       }
     };
@@ -59,9 +62,12 @@ export function BoardViewportBookmarks({
 
   const finishRename = (item: ViewportBookmark) => {
     const nextName = bookmarkName(editName);
-    if (nextName) save(bookmarks.map((current) =>
-      current.id === item.id ? { ...current, name: nextName } : current,
-    ));
+    if (nextName)
+      save(
+        bookmarks.map((current) =>
+          current.id === item.id ? { ...current, name: nextName } : current,
+        ),
+      );
     setEditingId(null);
   };
 
@@ -76,7 +82,8 @@ export function BoardViewportBookmarks({
         ref={trigger}
         type="button"
       >
-        <span aria-hidden="true">▣</span> Закладки {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}
+        <span aria-hidden="true">▣</span> Закладки{" "}
+        {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}
       </button>
       {open ? (
         <section
@@ -94,7 +101,9 @@ export function BoardViewportBookmarks({
         >
           <header>
             <strong>Области доски</strong>
-            <span>{bookmarks.length}/{bookmarkLimit}</span>
+            <span>
+              {bookmarks.length}/{bookmarkLimit}
+            </span>
           </header>
           {bookmarks.length === 0 ? (
             <p>Сохраните область для быстрого возврата во время занятия.</p>
@@ -123,16 +132,27 @@ export function BoardViewportBookmarks({
                         trigger.current?.focus();
                       }}
                       type="button"
-                    >{item.name}</button>
+                    >
+                      {item.name}
+                    </button>
                   )}
                   <button
-                    aria-label={editingId === item.id ? `Сохранить название: ${item.name}` : `Переименовать: ${item.name}`}
+                    aria-label={
+                      editingId === item.id
+                        ? `Сохранить название: ${item.name}`
+                        : `Переименовать: ${item.name}`
+                    }
                     onClick={() => {
                       if (editingId === item.id) finishRename(item);
-                      else { setEditingId(item.id); setEditName(item.name); }
+                      else {
+                        setEditingId(item.id);
+                        setEditName(item.name);
+                      }
                     }}
                     type="button"
-                  >{editingId === item.id ? "✓" : "✎"}</button>
+                  >
+                    {editingId === item.id ? "✓" : "✎"}
+                  </button>
                   <button
                     aria-label={`Удалить: ${item.name}`}
                     onClick={() => {
@@ -140,7 +160,9 @@ export function BoardViewportBookmarks({
                       if (editingId === item.id) setEditingId(null);
                     }}
                     type="button"
-                  >×</button>
+                  >
+                    ×
+                  </button>
                 </li>
               ))}
             </ul>
@@ -160,7 +182,9 @@ export function BoardViewportBookmarks({
               disabled={bookmarks.length >= bookmarkLimit}
               onClick={add}
               type="button"
-            >Сохранить область</button>
+            >
+              Сохранить область
+            </button>
           </div>
         </section>
       ) : null}

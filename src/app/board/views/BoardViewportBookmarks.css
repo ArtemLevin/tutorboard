@@ -47,19 +47,64 @@
   color: #647783;
 }
 
-.viewport-bookmarks-panel p { margin: 0; line-height: 1.5; }
-.viewport-bookmarks-panel ul { list-style: none; display: grid; gap: 6px; padding: 0; margin: 0; }
-.viewport-bookmarks-panel li { display: grid; grid-template-columns: minmax(0, 1fr) 36px 36px; gap: 4px; }
-.viewport-bookmarks-panel button { min-height: 36px; border-radius: 8px; border: 1px solid #e1e8eb; background: #f7f9fa; cursor: pointer; }
+.viewport-bookmarks-panel p {
+  margin: 0;
+  line-height: 1.5;
+}
+.viewport-bookmarks-panel ul {
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+}
+.viewport-bookmarks-panel li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px 36px;
+  gap: 4px;
+}
+.viewport-bookmarks-panel button {
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px solid #e1e8eb;
+  background: #f7f9fa;
+  cursor: pointer;
+}
 .viewport-bookmarks-panel button:focus-visible,
-.viewport-bookmarks-trigger:focus-visible { outline: 3px solid #458fc5; outline-offset: 2px; }
-.viewport-bookmarks-go { text-align: left; padding: 0 10px; overflow-wrap: anywhere; }
-.viewport-bookmarks-panel input { min-width: 0; min-height: 36px; padding: 0 8px; border: 1px solid #bdced7; border-radius: 8px; }
-.viewport-bookmarks-add { display: grid; gap: 7px; }
-.viewport-bookmarks-add button:disabled { cursor: default; opacity: .55; }
+.viewport-bookmarks-trigger:focus-visible {
+  outline: 3px solid #458fc5;
+  outline-offset: 2px;
+}
+.viewport-bookmarks-go {
+  text-align: left;
+  padding: 0 10px;
+  overflow-wrap: anywhere;
+}
+.viewport-bookmarks-panel input {
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid #bdced7;
+  border-radius: 8px;
+}
+.viewport-bookmarks-add {
+  display: grid;
+  gap: 7px;
+}
+.viewport-bookmarks-add button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
 
 @media (max-width: 720px) {
-  .board-viewport-bookmarks { top: max(10px, env(safe-area-inset-top)); right: 10px; }
-  .viewport-bookmarks-trigger { min-height: 44px; }
-  .viewport-bookmarks-panel button { min-height: 42px; }
+  .board-viewport-bookmarks {
+    top: max(10px, env(safe-area-inset-top));
+    right: 10px;
+  }
+  .viewport-bookmarks-trigger {
+    min-height: 44px;
+  }
+  .viewport-bookmarks-panel button {
+    min-height: 42px;
+  }
 }
