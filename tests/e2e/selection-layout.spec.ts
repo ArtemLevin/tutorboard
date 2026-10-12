@@ -77,6 +77,9 @@ test("duplicates using a single paste command and safely locks the selection", a
   await expect(page.getByTestId("history-depth")).toHaveText("2/0");
   await page.keyboard.press("Control+z");
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+  // Undo removes the newly selected duplicate; select the original again.
+  await page.mouse.click(point.x, point.y);
+  await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
   const selected = await openSelectionMenu(page, 300, 205);
   await selected.getByRole("menuitem", { name: "Заблокировать" }).click();
   const locked = await openSelectionMenu(page, 300, 205);
