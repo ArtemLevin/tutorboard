@@ -278,7 +278,7 @@ export interface BoardStageProps {
   readonly transformableObjectIds?: readonly BoardObjectId[];
   readonly wetInkStyle?: WetInkStyle | null;
   readonly onViewportCommit: (viewport: ViewportState) => void;
-  readonly onManualViewportInteraction?: () => void;
+  readonly onManualViewportInteraction?: (() => void) | undefined;
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
