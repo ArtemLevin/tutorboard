@@ -113,6 +113,7 @@ export interface BoardCanvasProps {
     transforms: readonly BoardObjectTransformSnapshot[] | null,
   ) => void;
   readonly onViewportCommit: (viewport: ViewportState) => void;
+  readonly onManualViewportInteraction?: () => void;
   readonly plots: CoordinatePlotController;
   readonly readOnly: boolean;
   readonly remoteCursors: readonly {
@@ -164,6 +165,7 @@ export function BoardCanvas({
   onPointerHover,
   onTransformPreviewChange,
   onViewportCommit,
+  onManualViewportInteraction,
   plots,
   readOnly,
   remoteCursors,
@@ -461,6 +463,7 @@ export function BoardCanvas({
         }}
         onSelectionTransformPreview={onTransformPreviewChange}
         onViewportCommit={onViewportCommit}
+        onManualViewportInteraction={onManualViewportInteraction}
         panMode={activeTool === navigationToolId}
         primaryCanvasGesturesEnabled={
           activeTool === navigationToolId || isSelectionToolId(activeTool)
