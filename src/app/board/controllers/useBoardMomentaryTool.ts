@@ -122,13 +122,7 @@ export function useBoardMomentaryTool(
     };
   }, [disabled, readOnly, selectedTool]);
 
-  useEffect(() => {
-    if (!readOnly || momentaryTool !== eraserToolId) return;
-    heldCodeRef.current = null;
-    pointerIdsRef.current.clear();
-    releasePendingRef.current = false;
-    setMomentaryTool(null);
-  }, [momentaryTool, readOnly]);
-
-  return momentaryTool ?? selectedTool;
+  return momentaryTool === eraserToolId && readOnly
+    ? selectedTool
+    : (momentaryTool ?? selectedTool);
 }
