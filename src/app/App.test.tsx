@@ -763,6 +763,8 @@ describe("App", () => {
     expect(screen.getByTestId("mock-stage-camera")).toHaveTextContent(
       "321,-200,2",
     );
+    fireEvent.click(screen.getByRole("button", { name: "Настройки доски" }));
+    expect(screen.getByText("200%")).toBeInTheDocument();
     expect(onCommandCommitted).not.toHaveBeenCalled();
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
   });
