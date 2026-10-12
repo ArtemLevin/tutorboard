@@ -63,6 +63,10 @@ export function BoardShortcutsDialog({
             <dd>Основные цвета активного инструмента</dd>
           </div>
           <div>
+            <dt>{shortcutLabel("pen.preset.toggle")}</dt>
+            <dd>Переключить два сохранённых стиля пера</dd>
+          </div>
+          <div>
             <dt>Shift во время построения</dt>
             <dd>Точная геометрия и привязка фигуры</dd>
           </div>
