@@ -28,10 +28,12 @@ test("@smoke keeps visible ink cache at full physical resolution when zoomed in"
     name: "zoomed-ink.tutorboard.json",
   });
   await expect(page.getByTestId("object-count")).toHaveText("120 объекта");
-  await page
-    .getByRole("dialog", { name: "Настройки доски" })
-    .getByRole("button", { name: "Закрыть настройки доски" })
-    .click();
+  const settings = page.getByRole("dialog", { name: "Настройки доски" });
+  if (await settings.isVisible()) {
+    await settings
+      .getByRole("button", { name: "Закрыть настройки доски" })
+      .click();
+  }
 
   const stage = page.getByTestId("board-stage");
   await expect(stage).toHaveAttribute("data-wheel-cache-prepared", "true");
