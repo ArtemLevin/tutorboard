@@ -273,10 +273,10 @@ export function App({
   const exitLessonMode = useCallback(() => {
     setLessonMode(false);
     if (
-      document.fullscreenElement === workspaceRef.current &&
-      typeof document.exitFullscreen === "function"
+      globalThis.document.fullscreenElement === workspaceRef.current &&
+      typeof globalThis.document.exitFullscreen === "function"
     ) {
-      void document.exitFullscreen().catch(() => {
+      void globalThis.document.exitFullscreen().catch(() => {
         announce("Не удалось выйти из полноэкранного режима");
       });
     }
@@ -285,9 +285,9 @@ export function App({
   const toggleLessonFullscreen = useCallback(() => {
     const workspace = workspaceRef.current;
     if (workspace === null) return;
-    if (document.fullscreenElement === workspace) {
-      if (typeof document.exitFullscreen === "function") {
-        void document.exitFullscreen().catch(() => {
+    if (globalThis.document.fullscreenElement === workspace) {
+      if (typeof globalThis.document.exitFullscreen === "function") {
+        void globalThis.document.exitFullscreen().catch(() => {
           announce("Не удалось выйти из полноэкранного режима");
         });
       }
@@ -304,13 +304,13 @@ export function App({
 
   useEffect(() => {
     const onFullscreenChange = () => {
-      const active = document.fullscreenElement === workspaceRef.current;
+      const active = globalThis.document.fullscreenElement === workspaceRef.current;
       setLessonFullscreen(active);
       if (!active && lessonFullscreen) setLessonMode(false);
     };
-    document.addEventListener("fullscreenchange", onFullscreenChange);
+    globalThis.document.addEventListener("fullscreenchange", onFullscreenChange);
     return () =>
-      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      globalThis.document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, [lessonFullscreen]);
 
   useEffect(() => {
