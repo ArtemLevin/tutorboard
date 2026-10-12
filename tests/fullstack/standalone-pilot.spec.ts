@@ -310,12 +310,19 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     await expectRevision(teacher, 4);
     await expect(teacher.getByTestId("object-count")).toHaveText("4 объекта");
 
-    await guest.getByRole("button", { name: "Следовать за преподавателем" }).click();
+    // Teacher navigation must not move the guest while follow is OFF.
+    const guestViewportBefore = await guest.getByTestId("board-stage").getAttribute("data-viewport-zoom");
     const teacherBounds = await teacher.getByTestId("board-stage").boundingBox();
     if (teacherBounds === null) throw new Error("Teacher stage missing");
     await teacher.mouse.move(teacherBounds.x + 450, teacherBounds.y + 320);
     await teacher.mouse.wheel(0, -160);
-    await expect(guest.getByTestId("teacher-follow")).toHaveAttribute("data-follow-zoom", /1\.08/);
+    await expect(teacher.getByTestId("board-stage")).toHaveAttribute("data-viewport-zoom", "1.0800");
+    await expect(guest.getByTestId("board-stage")).toHaveAttribute("data-viewport-zoom", guestViewportBefore ?? "1.0000");
+
+    await guest.getByRole("button", { name: "Следовать за преподавателем" }).click();
+    await expect(guest.getByTestId("board-stage")).toHaveAttribute("data-viewport-zoom", "1.0800");
+    await teacher.mouse.wheel(0, -160);
+    await expect(guest.getByTestId("board-stage")).toHaveAttribute("data-viewport-zoom", "1.1664");
     await guest.getByRole("button", { name: "Отключить следование за преподавателем" }).click();
     await expect(guest.getByRole("button", { name: "Следовать за преподавателем" })).toBeVisible();
     await guest.getByRole("button", { name: "Следовать за преподавателем" }).click();
