@@ -278,6 +278,7 @@ export interface BoardStageProps {
   readonly transformableObjectIds?: readonly BoardObjectId[];
   readonly wetInkStyle?: WetInkStyle | null;
   readonly onViewportCommit: (viewport: ViewportState) => void;
+  readonly onManualViewportInteraction?: () => void;
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -452,6 +453,7 @@ export function BoardStage({
   onLineEndpointTransformPreview,
   onPanModeRequest,
   onViewportCommit,
+  onManualViewportInteraction,
   onWorldPointerCancel,
   onWorldPointerFinish,
   onWorldPointerMove,
@@ -2142,6 +2144,7 @@ export function BoardStage({
     }
 
     commitWheel();
+    onManualViewportInteraction?.();
     event.evt.preventDefault();
     const stage = event.target.getStage();
     if (stage === null) {
@@ -2215,6 +2218,7 @@ export function BoardStage({
       return;
     }
 
+    onManualViewportInteraction?.();
     const direction =
       (event.evt.deltaY < 0 ? 1 : -1) * (event.evt.ctrlKey ? -1 : 1);
     const currentViewport =
