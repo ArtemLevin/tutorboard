@@ -784,6 +784,18 @@ function SyncedWorkspace({
     followConnected,
     participants,
   );
+  // Teacher cursor-only presence changes must not create a new camera object
+  // and invalidate the large-board scene when the viewport is unchanged.
+  const cameraX = followedTeacher?.viewport.offset.x;
+  const cameraY = followedTeacher?.viewport.offset.y;
+  const cameraZoom = followedTeacher?.viewport.zoom;
+  const stableTeacherViewport = useMemo(
+    () =>
+      cameraX === undefined || cameraY === undefined || cameraZoom === undefined
+        ? null
+        : { offset: { x: cameraX, y: cameraY }, zoom: cameraZoom },
+    [cameraX, cameraY, cameraZoom],
+  );
   // A stale connection/epoch is discarded during render so it cannot become
   // active if an identical client ID appears later.
   if (followSelection !== null && followedTeacher === null) {
@@ -1061,7 +1073,7 @@ function SyncedWorkspace({
                     followedTeacher?.displayName ??
                     availableTeacher?.displayName ??
                     "преподавателем",
-                  viewport: followedTeacher?.viewport ?? null,
+                  viewport: stableTeacherViewport,
                 }
           }
           onTeacherFollowStart={() => {
