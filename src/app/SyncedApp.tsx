@@ -50,6 +50,7 @@ import {
 } from "../modules/document-transfer/public";
 import type { MathInkRecognizer } from "../modules/handwritten-function/public";
 import { App, type AppPersistenceStatus } from "./App";
+import { chooseTeacher, resolveTeacherFollow, type TeacherFollowSelection } from "./board/teacher-follow";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import { copyBoardShareUrl } from "./board-chrome/board-share";
 import { canFinalizeBoardEvidence } from "./synced-evidence";
@@ -269,6 +270,7 @@ function SyncedWorkspace({
   const [participants, setParticipants] = useState<readonly BoardPresence[]>(
     [],
   );
+  const [followSelection, setFollowSelection] = useState<TeacherFollowSelection | null>(null);
   const [inkPreviews, setInkPreviews] = useState<readonly BoardInkPreview[]>(
     [],
   );
@@ -756,6 +758,33 @@ function SyncedWorkspace({
     }
   }, [state]);
 
+  const followScope = [
+    documentId,
+    state.kind === "ready" ? state.actorId : "inactive",
+    state.kind === "ready" ? state.role : "inactive",
+    currentAccessContext?.accessEpoch ?? "legacy",
+    currentAccessContext?.cacheScopeId ?? "legacy",
+  ].join("|");
+  const followConnected =
+    state.kind === "ready" &&
+    state.role === "student" &&
+    state.network === "online" &&
+    collaborationStatus === "online" &&
+    collaborationAccessReady &&
+    accessRefreshStatus === "idle";
+  const availableTeacher = followConnected ? chooseTeacher(participants) : null;
+  const followedTeacher = resolveTeacherFollow(
+    followSelection,
+    followScope,
+    followConnected,
+    participants,
+  );
+  useEffect(() => {
+    if (followSelection !== null && followedTeacher === null) {
+      setFollowSelection(null);
+    }
+  }, [followSelection, followedTeacher]);
+
   const writeEnabled =
     state.kind === "ready" &&
     accessRefreshStatus === "idle" &&
@@ -1017,6 +1046,21 @@ function SyncedWorkspace({
           geometryOsClient={geometryOsClient}
           historyEnabled={false}
           initialDocument={state.document}
+          localViewportEnabled={state.role === "student"}
+          teacherFollow={availableTeacher === null && followedTeacher === null ? undefined : {
+            active: followedTeacher !== null,
+            teacherName: followedTeacher?.displayName ?? availableTeacher?.displayName ?? "преподавателем",
+            viewport: followedTeacher?.viewport ?? null,
+          }}
+          onTeacherFollowStart={() => {
+            if (!followConnected || availableTeacher === null) return;
+            setFollowSelection({
+              scope: followScope,
+              actorId: availableTeacher.actorId,
+              clientId: availableTeacher.clientId,
+            });
+          }}
+          onTeacherFollowStop={() => setFollowSelection(null)}
           mathInkRecognizer={mathInkRecognizer}
           mediaAssetSourceResolver={mediaAssetSourceResolver}
           mediaResourceGeneration={mediaResources.resourceGeneration}
