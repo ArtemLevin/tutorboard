@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 
 import { expect, test, type Page } from "@playwright/test";
@@ -736,6 +737,41 @@ for (const scenario of [
         const jsTrace = await page.evaluate(
           () => window.__tutorBoardC37Trace?.events ?? [],
         );
+        // Preserve bounded evidence even when camera-path assertions fail.
+        await testInfo.attach("c39-raw-traces", {
+          body: Buffer.from(JSON.stringify({ jsTrace, chromiumTrace })),
+          contentType: "application/json",
+        });
+        // The same native inputs must describe the same camera path. A
+        // dropped/rebased wheel step changes culling and invalidates A/B work.
+        const wheelZooms = jsTrace
+          .filter((event) => event.kind === "wheel-input")
+          .map((event) =>
+            Number(/(?:^|;)zoom=([^;]+)/u.exec(event.detail ?? "")?.[1]),
+          );
+        if (traceEnabled) {
+          expect(wheelZooms).toHaveLength(18);
+          wheelZooms.forEach((zoom, index) => {
+            expect(zoom, `wheel input ${index + 1}`).toBeCloseTo(
+              index % 2 === 0 ? 1.08 : 1,
+              3,
+            );
+          });
+        }
+        const finalViewport = {
+          zoom: Number(await stage.getAttribute("data-preview-zoom")),
+          offset: {
+            x: Number(await stage.getAttribute("data-preview-offset-x")),
+            y: Number(await stage.getAttribute("data-preview-offset-y")),
+          },
+        };
+        expect(finalViewport.zoom).toBeCloseTo(board.viewport.zoom, 10);
+        expect(finalViewport.offset.x).toBeCloseTo(board.viewport.offset.x, 8);
+        expect(finalViewport.offset.y).toBeCloseTo(board.viewport.offset.y, 8);
+        await expect(page.getByTestId("viewport-zoom")).toHaveText("100%");
+        await expect(page.getByTestId("viewport-offset")).toHaveText(
+          "x 0 · y 0",
+        );
         const attribution = correlateC39SlowFrames(
           phases.gaps,
           captured.wheelTimes,
@@ -769,7 +805,16 @@ for (const scenario of [
         expect(phases.phases.settling.count).toBeGreaterThan(0);
         const report = {
           schemaVersion: 1,
-          baselineSha: process.env.GITHUB_SHA ?? "local",
+          baselineSha: execFileSync("git", ["rev-parse", "HEAD"], {
+            encoding: "utf8",
+          }).trim(),
+          worktreeDirty:
+            execFileSync("git", ["status", "--porcelain"], {
+              encoding: "utf8",
+            }).trim().length > 0,
+          initialViewport: board.viewport,
+          finalViewport,
+          wheelZooms,
           experiment: scenario.staticHeavy
             ? "C3.9-STATIC"
             : scenario.e2

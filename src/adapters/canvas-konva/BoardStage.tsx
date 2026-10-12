@@ -530,9 +530,20 @@ export function BoardStage({
     start: onSelectionPointerStart,
   });
   const viewportRef = useRef(scene.viewport);
+  // The reducer preserves command.viewport identity. Weak ownership marks
+  // distinguish local acknowledgements from external resets without retaining
+  // documents or treating equal coordinates as proof of local ownership.
+  const ownedViewportCommits = useRef(new WeakSet<ViewportState>());
+  const previewViewportRef = useRef(scene.viewport);
   const worldPointerHoverRef = useRef(onWorldPointerHover);
   const spacePressedRef = useRef(false);
-  const [previewViewport, setPreviewViewport] = useState(scene.viewport);
+  const [previewViewport, setRenderedPreviewViewport] = useState(
+    scene.viewport,
+  );
+  const setPreviewViewport = useCallback((viewport: ViewportState) => {
+    previewViewportRef.current = viewport;
+    setRenderedPreviewViewport(viewport);
+  }, []);
   const [isPanning, setIsPanning] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -688,13 +699,15 @@ export function BoardStage({
     () => visibilityIndex.select(previewViewport, size),
     [visibilityIndex, previewViewport, size],
   );
-  const visibleItemBatches = useMemo(
-    () => batchBoardRenderItems(visibleItems),
+  const visibleObjectIds = useMemo(
+    () => new Set(visibleItems.map((item) => item.object.id)),
     [visibleItems],
   );
   const committedPaintRuns = useMemo(
-    () => partitionCommittedPaintRuns(visibleItemBatches),
-    [visibleItemBatches],
+    // Establish layer/run keys from document order before viewport culling.
+    // Hidden first items and hidden barriers must not reparent survivors.
+    () => partitionCommittedPaintRuns(batchBoardRenderItems(scene.items)),
+    [scene.items],
   );
   const animatedPaintLayerCount = committedPaintRuns.filter(
     (run) => run.animated,
@@ -913,6 +926,7 @@ export function BoardStage({
 
   useEffect(() => {
     viewportRef.current = scene.viewport;
+    if (ownedViewportCommits.current.delete(scene.viewport)) return;
     if (
       panSessionRef.current === null &&
       drawingSessionRef.current === null &&
@@ -929,7 +943,7 @@ export function BoardStage({
       }
       setPreviewViewport(scene.viewport);
     }
-  }, [animatedImageRedraw, scene.viewport, wheelInkCache]);
+  }, [animatedImageRedraw, scene.viewport, setPreviewViewport, wheelInkCache]);
 
   useLayoutEffect(() => {
     wheelInkCache.invalidate();
@@ -1217,6 +1231,7 @@ export function BoardStage({
       enqueueWorldPointerMoves,
       flushWorldPointerMoves,
       releaseCapture,
+      setPreviewViewport,
       worldSample,
       worldSamples,
     ],
@@ -1241,7 +1256,7 @@ export function BoardStage({
         selectionPointerCallbacksRef.current.cancel(session.pointerId);
       }
     },
-    [releaseCapture, selectionWorldSample],
+    [releaseCapture, selectionWorldSample, setPreviewViewport],
   );
 
   const finishPan = useCallback(
@@ -1260,12 +1275,13 @@ export function BoardStage({
         !sameViewport(session.startViewport, session.latestViewport)
       ) {
         setPreviewViewport(session.latestViewport);
+        ownedViewportCommits.current.add(session.latestViewport);
         onViewportCommit(session.latestViewport);
       } else {
         setPreviewViewport(viewportRef.current);
       }
     },
-    [onViewportCommit, releaseCapture],
+    [onViewportCommit, releaseCapture, setPreviewViewport],
   );
 
   const cancelWheel = useCallback(() => {
@@ -1286,7 +1302,7 @@ export function BoardStage({
       animatedImageRedraw.setWheelZoomActive(false);
       setPreviewViewport(viewportRef.current);
     }
-  }, [animatedImageRedraw, wheelInkCache]);
+  }, [animatedImageRedraw, setPreviewViewport, wheelInkCache]);
 
   const commitWheel = useCallback(() => {
     const session = wheelSessionRef.current;
@@ -1317,6 +1333,7 @@ export function BoardStage({
       setPreviewViewport(session.latestViewport);
       const persistStartMs = traceEnabled ? performance.now() : 0;
       try {
+        ownedViewportCommits.current.add(session.latestViewport);
         onViewportCommit(session.latestViewport);
       } finally {
         if (traceEnabled) {
@@ -1336,7 +1353,12 @@ export function BoardStage({
         }
       }
     }
-  }, [animatedImageRedraw, onViewportCommit, wheelInkCache]);
+  }, [
+    animatedImageRedraw,
+    onViewportCommit,
+    setPreviewViewport,
+    wheelInkCache,
+  ]);
 
   const finishLineEndpointTransform = useCallback(
     (commit: boolean) => {
@@ -1744,6 +1766,7 @@ export function BoardStage({
     predictedWorldSamples,
     registerPrimaryCanvasTap,
     selectionWorldSample,
+    setPreviewViewport,
     updateLineEndpointTransform,
     worldSamples,
   ]);
@@ -2178,7 +2201,7 @@ export function BoardStage({
     const direction =
       (event.evt.deltaY < 0 ? 1 : -1) * (event.evt.ctrlKey ? -1 : 1);
     const currentViewport =
-      wheelSessionRef.current?.latestViewport ?? previewViewport;
+      wheelSessionRef.current?.latestViewport ?? previewViewportRef.current;
     const requestedZoom =
       direction > 0
         ? currentViewport.zoom * zoomStep
@@ -2292,6 +2315,9 @@ export function BoardStage({
       data-transforming={isTransforming}
       data-wet-ink-stroke-style={wetInkStyle?.strokeStyle ?? "none"}
       data-visible-object-count={visibleItems.length}
+      data-preview-zoom={previewViewport.zoom}
+      data-preview-offset-x={previewViewport.offset.x}
+      data-preview-offset-y={previewViewport.offset.y}
       data-committed-layer-count={committedPaintRuns.length}
       data-animated-layer-count={animatedPaintLayerCount}
       data-wheel-gif-pause-active={animatedImageRedraw.wheelZoomActive}
@@ -2354,6 +2380,7 @@ export function BoardStage({
               <AnimatedImageRedrawContext value={animatedImageRedraw}>
                 <BoardSceneContent
                   batches={run.batches}
+                  visibleObjectIds={visibleObjectIds}
                   coordinatePlotInteraction={coordinatePlotInteraction}
                   lineEndpointPreview={lineEndpointPreview}
                   registry={registry}

@@ -129,21 +129,25 @@ function groupInkRenderRuns(
 function WheelCachedInkGroup({
   children,
   coordinator,
+  items,
 }: {
   readonly children: ReactNode;
   readonly coordinator: WheelInkCacheCoordinator;
+  readonly items: readonly BoardRenderItem[];
 }) {
   const ref = useRef<Konva.Group>(null);
   useLayoutEffect(() => {
     const node = ref.current;
-    if (node === null) return;
+    if (node === null || items.length < minimumWheelCacheStrokes) return;
     return coordinator.register(node);
-  }, [coordinator]);
+  }, [coordinator, items]);
   return <Group ref={ref}>{children}</Group>;
 }
 
 export interface BoardSceneContentProps {
   readonly batches: readonly (readonly BoardRenderItem[])[];
+  /** Membership is filtered after logical run identities are established. */
+  readonly visibleObjectIds?: ReadonlySet<BoardObjectId>;
   readonly coordinatePlotInteraction?:
     CoordinatePlotRenderInteraction | undefined;
   readonly lineEndpointPreview: BoardObjectTransformSnapshot | null;
@@ -209,10 +213,8 @@ const BoardSceneRun = memo(function BoardSceneRun({
     />
   ));
   const result =
-    run.ink &&
-    run.items.length >= minimumWheelCacheStrokes &&
-    wheelInkCache !== undefined ? (
-      <WheelCachedInkGroup coordinator={wheelInkCache}>
+    run.ink && wheelInkCache !== undefined ? (
+      <WheelCachedInkGroup coordinator={wheelInkCache} items={run.items}>
         {contents}
       </WheelCachedInkGroup>
     ) : (
@@ -234,6 +236,7 @@ const BoardSceneRun = memo(function BoardSceneRun({
 
 export const BoardSceneContent = memo(function BoardSceneContent({
   batches,
+  visibleObjectIds,
   coordinatePlotInteraction,
   lineEndpointPreview,
   registry,
@@ -243,7 +246,25 @@ export const BoardSceneContent = memo(function BoardSceneContent({
   zoom,
   wheelInkCache,
 }: BoardSceneContentProps) {
-  const runs = useMemo(() => groupInkRenderRuns(batches), [batches]);
+  const logicalRuns = useMemo(() => groupInkRenderRuns(batches), [batches]);
+  const runs = useMemo(
+    () =>
+      visibleObjectIds === undefined
+        ? logicalRuns
+        : logicalRuns.flatMap((run) => {
+            const items = run.items.filter((item) =>
+              visibleObjectIds.has(item.object.id),
+            );
+            if (items.length === 0) return [];
+            return [
+              {
+                ...run,
+                items: items.length === run.items.length ? run.items : items,
+              },
+            ];
+          }),
+    [logicalRuns, visibleObjectIds],
+  );
   const selected = useMemo(
     () => new Set(selectedObjectIds),
     [selectedObjectIds],
