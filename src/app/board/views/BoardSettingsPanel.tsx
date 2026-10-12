@@ -26,6 +26,8 @@ export interface BoardSettingsPanelProps {
   readonly onExportSvgSnapshot?:
     ((document: BoardDocument) => void) | undefined;
   readonly onImportDocument?: ((file: File) => void) | undefined;
+  readonly onFitAll: () => void;
+  readonly onFitSelection: () => void;
   readonly onOpenShortcuts: () => void;
   readonly onResetViewport: () => void;
   readonly onShareBoard?: (() => void) | undefined;
@@ -51,6 +53,8 @@ export function BoardSettingsPanel({
   onExportPngSnapshot,
   onExportSvgSnapshot,
   onImportDocument,
+  onFitAll,
+  onFitSelection,
   onOpenShortcuts,
   onResetViewport,
   onShareBoard,
@@ -249,9 +253,21 @@ export function BoardSettingsPanel({
             </dd>
           </div>
         </dl>
-        <button onClick={onResetViewport} type="button">
-          Центрировать доску
-        </button>
+        <div className="board-settings-actions">
+          <button onClick={onFitAll} type="button">
+            Показать всё
+          </button>
+          <button
+            disabled={selection.state.selectedObjectIds.length === 0}
+            onClick={onFitSelection}
+            type="button"
+          >
+            Показать выделенное
+          </button>
+          <button onClick={onResetViewport} type="button">
+            Центрировать доску
+          </button>
+        </div>
       </section>
       {settingsExtra}
       <section className="board-settings-section">

@@ -44,6 +44,7 @@ import { useBoardHandwritingController } from "./board/controllers/useBoardHandw
 import { useBoardInteractionRouter } from "./board/controllers/useBoardInteractionRouter";
 import { useBoardKeyboardShortcuts } from "./board/controllers/useBoardKeyboardShortcuts";
 import { useBoardMediaController } from "./board/controllers/useBoardMediaController";
+import { useBoardMomentaryTool } from "./board/controllers/useBoardMomentaryTool";
 import { useBoardSelectionController } from "./board/controllers/useBoardSelectionController";
 import { useBoardSolid3DController } from "./board/controllers/useBoardSolid3DController";
 import { useCoordinatePlotController } from "./board/controllers/useCoordinatePlotController";
@@ -56,6 +57,7 @@ import { BoardOverlays } from "./board/views/BoardOverlays";
 import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
 import { BoardToolDockContainer } from "./board/views/BoardToolDockContainer";
+import { fitBoardViewport, viewportFitSceneBounds } from "./board/viewport-fit";
 import { readEnvironment } from "./configuration/environment";
 import "./styles.css";
 
@@ -502,8 +504,20 @@ export function App({
     documentController,
   });
   const laser = useLaserPointerController();
-  const interaction = useBoardInteractionRouter({
+  const canvasTool = useBoardMomentaryTool(
     activeTool,
+    settingsOpen ||
+      shortcutsOpen ||
+      geometry.open ||
+      plots.editor !== null ||
+      drawing.state.kind !== "idle" ||
+      selection.state.interaction.kind !== "idle" ||
+      handwriting.state.kind !== "idle" ||
+      eraser.preview !== null,
+    readOnly,
+  );
+  const interaction = useBoardInteractionRouter({
+    activeTool: canvasTool,
     documentController,
     drawing,
     eraser,
@@ -539,28 +553,6 @@ export function App({
     selection.state.selectedObjectIds,
   ]);
 
-  useBoardKeyboardShortcuts({
-    activeTool,
-    clipboard,
-    closeGeometry: () => geometry.setOpen(false),
-    closeInspector: () => setSelectionInspectorObjectId(null),
-    closeSettings: () => setSettingsOpen(false),
-    closeShortcuts,
-    documentController,
-    drawing,
-    geometryOpen: geometry.open,
-    handwriting,
-    handwrittenFunctionsEnabled: environment.features.handwrittenFunctions,
-    interaction,
-    openShortcuts: () => setShortcutsOpen(true),
-    plots,
-    readOnly,
-    selection,
-    selectionInspectorOpen,
-    settingsOpen,
-    shortcutsOpen,
-  });
-
   const commitViewport = useCallback(
     (viewport: ViewportState) => {
       commitCommand({
@@ -575,6 +567,49 @@ export function App({
   const resetViewport = useCallback(() => {
     commitViewport({ offset: { x: 160, y: 90 }, zoom: 1 });
   }, [commitViewport]);
+
+  const fitContent = useCallback(
+    (selectedOnly: boolean) => {
+      const bounds = viewportFitSceneBounds(
+        scene,
+        selectedOnly ? selection.state.selectedObjectIds : null,
+      );
+      const rect = workspaceRef.current?.getBoundingClientRect();
+      if (rect === undefined) return;
+      const nextViewport = fitBoardViewport(bounds, {
+        width: rect.width,
+        height: rect.height,
+      });
+      if (nextViewport !== null) commitViewport(nextViewport);
+    },
+    [commitViewport, scene, selection.state.selectedObjectIds],
+  );
+  const fitAll = useCallback(() => fitContent(false), [fitContent]);
+  const fitSelection = useCallback(() => fitContent(true), [fitContent]);
+
+  useBoardKeyboardShortcuts({
+    activeTool,
+    clipboard,
+    closeGeometry: () => geometry.setOpen(false),
+    closeInspector: () => setSelectionInspectorObjectId(null),
+    closeSettings: () => setSettingsOpen(false),
+    closeShortcuts,
+    documentController,
+    drawing,
+    geometryOpen: geometry.open,
+    handwriting,
+    handwrittenFunctionsEnabled: environment.features.handwrittenFunctions,
+    interaction,
+    openShortcuts: () => setShortcutsOpen(true),
+    onFitAll: fitAll,
+    onFitSelection: fitSelection,
+    plots,
+    readOnly,
+    selection,
+    selectionInspectorOpen,
+    settingsOpen,
+    shortcutsOpen,
+  });
 
   const handlePointerHover = useCallback(
     (cursor: Vec2) => {
@@ -632,7 +667,7 @@ export function App({
         />
         <BoardCanvas
           key={mediaResourceGeneration}
-          activeTool={activeTool}
+          activeTool={canvasTool}
           announce={announce}
           clipboard={clipboard}
           document={document}
@@ -724,6 +759,8 @@ export function App({
           onExportPngSnapshot={onExportPngSnapshot}
           onExportSvgSnapshot={onExportSvgSnapshot}
           onImportDocument={onImportDocument}
+          onFitAll={fitAll}
+          onFitSelection={fitSelection}
           onOpenShortcuts={() => setShortcutsOpen(true)}
           onResetViewport={resetViewport}
           onShareBoard={onShareBoard}
