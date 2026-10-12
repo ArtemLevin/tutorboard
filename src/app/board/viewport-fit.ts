@@ -1,5 +1,14 @@
-import type { BoardObjectId, BoardSceneReadModel, Size2, ViewportState } from "../../core/public";
-import { aggregateSelectionBounds, selectSelectionBounds, type Rect2 } from "../../modules/selection/public";
+import type {
+  BoardObjectId,
+  BoardSceneReadModel,
+  Size2,
+  ViewportState,
+} from "../../core/public";
+import {
+  aggregateSelectionBounds,
+  selectSelectionBounds,
+  type Rect2,
+} from "../../modules/selection/public";
 
 export const boardFitPaddingPx = 48;
 export const boardFitZoomBounds = { minimum: 0.1, maximum: 8 } as const;
