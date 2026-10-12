@@ -24,6 +24,7 @@ import {
   type Vec2,
   type ViewportState,
 } from "../core/public";
+import { aggregateSelectionBounds, selectSelectionBounds } from "../modules/selection/public";
 import { resolveEmbeddedImagePlacementSizeForScene } from "./image-import";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import {
@@ -56,6 +57,7 @@ import { BoardOverlays } from "./board/views/BoardOverlays";
 import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
 import { BoardToolDockContainer } from "./board/views/BoardToolDockContainer";
+import { fitBoardViewport } from "./board/viewport-fit";
 import { readEnvironment } from "./configuration/environment";
 import "./styles.css";
 
@@ -539,28 +541,6 @@ export function App({
     selection.state.selectedObjectIds,
   ]);
 
-  useBoardKeyboardShortcuts({
-    activeTool,
-    clipboard,
-    closeGeometry: () => geometry.setOpen(false),
-    closeInspector: () => setSelectionInspectorObjectId(null),
-    closeSettings: () => setSettingsOpen(false),
-    closeShortcuts,
-    documentController,
-    drawing,
-    geometryOpen: geometry.open,
-    handwriting,
-    handwrittenFunctionsEnabled: environment.features.handwrittenFunctions,
-    interaction,
-    openShortcuts: () => setShortcutsOpen(true),
-    plots,
-    readOnly,
-    selection,
-    selectionInspectorOpen,
-    settingsOpen,
-    shortcutsOpen,
-  });
-
   const commitViewport = useCallback(
     (viewport: ViewportState) => {
       commitCommand({
@@ -575,6 +555,51 @@ export function App({
   const resetViewport = useCallback(() => {
     commitViewport({ offset: { x: 160, y: 90 }, zoom: 1 });
   }, [commitViewport]);
+
+  const fitContent = useCallback(
+    (selectedOnly: boolean) => {
+      const ids = selectedOnly
+        ? selection.state.selectedObjectIds
+        : scene.items
+            .filter(({ object }) => object.visible)
+            .map(({ object }) => object.id);
+      const bounds = aggregateSelectionBounds(selectSelectionBounds(scene, ids));
+      const rect = workspaceRef.current?.getBoundingClientRect();
+      if (rect === undefined) return;
+      const nextViewport = fitBoardViewport(bounds, {
+        width: rect.width,
+        height: rect.height,
+      });
+      if (nextViewport !== null) commitViewport(nextViewport);
+    },
+    [commitViewport, scene, selection.state.selectedObjectIds],
+  );
+  const fitAll = useCallback(() => fitContent(false), [fitContent]);
+  const fitSelection = useCallback(() => fitContent(true), [fitContent]);
+
+  useBoardKeyboardShortcuts({
+    activeTool,
+    clipboard,
+    closeGeometry: () => geometry.setOpen(false),
+    closeInspector: () => setSelectionInspectorObjectId(null),
+    closeSettings: () => setSettingsOpen(false),
+    closeShortcuts,
+    documentController,
+    drawing,
+    geometryOpen: geometry.open,
+    handwriting,
+    handwrittenFunctionsEnabled: environment.features.handwrittenFunctions,
+    interaction,
+    openShortcuts: () => setShortcutsOpen(true),
+    onFitAll: fitAll,
+    onFitSelection: fitSelection,
+    plots,
+    readOnly,
+    selection,
+    selectionInspectorOpen,
+    settingsOpen,
+    shortcutsOpen,
+  });
 
   const handlePointerHover = useCallback(
     (cursor: Vec2) => {
@@ -724,6 +749,8 @@ export function App({
           onExportPngSnapshot={onExportPngSnapshot}
           onExportSvgSnapshot={onExportSvgSnapshot}
           onImportDocument={onImportDocument}
+          onFitAll={fitAll}
+          onFitSelection={fitSelection}
           onOpenShortcuts={() => setShortcutsOpen(true)}
           onResetViewport={resetViewport}
           onShareBoard={onShareBoard}
