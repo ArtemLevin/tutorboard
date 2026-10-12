@@ -394,7 +394,17 @@ export function App({
   const [viewOnlyCamera, setViewOnlyCamera] = useState<{
     readonly scope: string;
     readonly viewport: ViewportState;
-  } | null>(null);
+  } | null>(() =>
+    localViewportEnabled ? { scope: bookmarkScope, viewport: document.viewport } : null,
+  );
+  useEffect(() => {
+    if (!localViewportEnabled) return;
+    setViewOnlyCamera((current) =>
+      current?.scope === bookmarkScope
+        ? current
+        : { scope: bookmarkScope, viewport: document.viewport },
+    );
+  }, [bookmarkScope, document.viewport, localViewportEnabled]);
   const followingTeacher = teacherFollow?.active === true && teacherFollow.viewport !== null;
   const visibleViewport =
     followingTeacher && teacherFollow?.viewport !== null
