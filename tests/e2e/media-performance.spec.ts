@@ -27,27 +27,7 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
   };
 };
 
-interface BrowserC37TraceEvent {
-  readonly kind:
-    | "board-commit"
-    | "react-ink-run"
-    | "react-other-run"
-    | "konva-scene"
-    | "konva-hit"
-    | "gif-invalidate";
-  readonly startMs: number;
-  readonly durationMs: number;
-  readonly detail?: string;
-}
-
-declare global {
-  interface Window {
-    __tutorBoardC37Trace?: {
-      events: BrowserC37TraceEvent[];
-      disableWheelGifPause?: boolean;
-    };
-  }
-}
+import type { BoardFrameTraceEvent as BrowserC37TraceEvent } from "../../src/adapters/canvas-konva/board-frame-trace.js";
 
 const databaseName = "tutorboard-local-v1";
 const timestamp = "2026-10-04T18:30:00.000Z";
