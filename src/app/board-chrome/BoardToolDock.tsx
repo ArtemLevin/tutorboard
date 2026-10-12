@@ -730,30 +730,30 @@ export function BoardToolDock(props: BoardToolDockProps) {
             aria-label="Первичные настройки инструмента"
             className="dock-primary-settings"
           >
-          <div className="dock-primary-heading">
-            <strong>
-              {props.drawingTools.find(({ id }) => id === activeDrawingTool)
-                ?.label ?? "Инструмент"}
-            </strong>
-          </div>
-          {activeDrawingTool === "drawing.text" ? (
-            <label className="dock-text-control">
-              <span>Текст</span>
-              <input
-                aria-label="Содержимое текста"
-                maxLength={100_000}
-                onChange={(event) =>
-                  props.onTextDraftChange(event.currentTarget.value)
-                }
-                value={props.textDraft}
-              />
-            </label>
-          ) : null}
-          <StyleControls
-            allowFill={allowFill}
-            onChange={(patch) => props.onStyleChange(activeDrawingTool, patch)}
-            style={props.activeStyle}
-          />
+            <div className="dock-primary-heading">
+              <strong>
+                {props.drawingTools.find(({ id }) => id === activeDrawingTool)
+                  ?.label ?? "Инструмент"}
+              </strong>
+            </div>
+            {activeDrawingTool === "drawing.text" ? (
+              <label className="dock-text-control">
+                <span>Текст</span>
+                <input
+                  aria-label="Содержимое текста"
+                  maxLength={100_000}
+                  onChange={(event) =>
+                    props.onTextDraftChange(event.currentTarget.value)
+                  }
+                  value={props.textDraft}
+                />
+              </label>
+            ) : null}
+            <StyleControls
+              allowFill={allowFill}
+              onChange={(patch) => props.onStyleChange(activeDrawingTool, patch)}
+              style={props.activeStyle}
+            />
           </section>
         </ToolSettingsVisibility>
       ) : null}
