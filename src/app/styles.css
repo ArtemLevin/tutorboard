@@ -2019,6 +2019,21 @@ textarea:focus-visible,
     max-height: 55vh;
   }
 }
+@media (pointer: coarse) {
+  .board-tool-dock {
+    min-height: 54px;
+  }
+  .dock-tool,
+  .dock-file-tool {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+  .dock-menu-item,
+  .dock-menu-file {
+    min-height: 44px;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .board-settings-dialog,
   .board-tool-dock,
