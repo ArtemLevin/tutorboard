@@ -100,14 +100,12 @@ describe("LocalDocumentAutosave", () => {
 
     autosave.schedule(document("First"));
     autosave.schedule(document("Latest", "2026-07-24T08:01:00.000Z"));
+    expect(repository.prepared).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(50);
     await autosave.flush();
 
     expect(repository.calls).toHaveLength(1);
-    expect(repository.prepared.map(({ title }) => title)).toEqual([
-      "First",
-      "Latest",
-    ]);
+    expect(repository.prepared.map(({ title }) => title)).toEqual(["Latest"]);
     expect(repository.calls[0]?.document.title).toBe("Latest");
     expect(repository.calls[0]?.expectedRevisionId).toBeNull();
     expect(repository.calls[0]?.priority).toBe("background");
@@ -133,6 +131,7 @@ describe("LocalDocumentAutosave", () => {
     expect(repository.calls).toHaveLength(1);
     expect(repository.calls[0]?.document.title).toBe("Pending navigation save");
     expect(repository.calls[0]?.priority).toBe("lifecycle");
+    expect(repository.prepared).toHaveLength(0);
   });
 
   it("starts the durable save before a pagehide handler returns", async () => {
@@ -152,6 +151,7 @@ describe("LocalDocumentAutosave", () => {
 
     expect(repository.calls).toHaveLength(1);
     expect(repository.calls[0]?.priority).toBe("lifecycle");
+    expect(repository.prepared).toHaveLength(0);
     await autosave.flush();
     autosave.dispose();
   });

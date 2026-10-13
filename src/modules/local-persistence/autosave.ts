@@ -91,7 +91,6 @@ export class LocalDocumentAutosave {
       return;
     }
     this.#queuedDocument = document;
-    this.#repository.prepareSave?.(document);
     if (this.#timer !== null) {
       clearTimeout(this.#timer);
     }
@@ -201,6 +200,12 @@ export class LocalDocumentAutosave {
     this.#activeInput = input;
     let result: SaveBoardDocumentResult;
     try {
+      // Prepare only when this debounced snapshot reaches its save turn. The
+      // save joins immediately, so even an uncached large result is consumed
+      // once. Lifecycle flush enters the synchronous durable path directly.
+      if (task.priority === "background") {
+        this.#repository.prepareSave?.(task.document);
+      }
       result = await this.#repository.save(input);
     } finally {
       if (this.#activeInput === input) this.#activeInput = null;
