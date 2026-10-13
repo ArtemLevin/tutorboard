@@ -62,7 +62,11 @@ describe("C3.9 viewport phase attribution", () => {
   });
 
   it("preserves invalid-current and invalid-metadata failure paths", () => {
-    const events: Array<{ kind: string; startMs: number; durationMs: number }> = [];
+    const events: Array<{
+      kind: string;
+      startMs: number;
+      durationMs: number;
+    }> = [];
     vi.stubGlobal("window", { __tutorBoardC37Trace: { events } });
     const original = fixture();
     const corrupted = { ...original, title: "" };

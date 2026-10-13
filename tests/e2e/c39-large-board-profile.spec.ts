@@ -789,12 +789,14 @@ for (const scenario of [
               .filter((event) => event.kind === kind)
               .map((event) => event.durationMs)
               .sort((a, b) => a - b);
+            const p50Index = Math.max(0, Math.ceil(values.length / 2) - 1);
+            const p95Index = Math.max(0, Math.ceil(values.length * 0.95) - 1);
             return [
               kind,
               {
                 count: values.length,
-                p50Ms: values[Math.max(0, Math.ceil(values.length / 2) - 1)] ?? null,
-                p95Ms: values[Math.max(0, Math.ceil(values.length * 0.95) - 1)] ?? null,
+                p50Ms: values[p50Index] ?? null,
+                p95Ms: values[p95Index] ?? null,
                 maxMs: values.at(-1) ?? null,
               },
             ];
