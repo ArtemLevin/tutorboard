@@ -54,6 +54,12 @@ export class LocalDocumentAutosave {
   readonly #onStateChange: (state: LocalAutosaveState) => void;
   readonly #repository: BoardDocumentRepository;
   #activeInput: SaveBoardDocumentInput | null = null;
+  #resolveActivePromotion:
+    ((result: Promise<SaveBoardDocumentResult>) => void) | null = null;
+  readonly #promotedTasks = new Map<
+    PersistenceOperationId,
+    Promise<SaveBoardDocumentResult>
+  >();
   #disposed = false;
   #inFlight: Promise<void> = Promise.resolve();
   #isSaving = false;
@@ -208,12 +214,25 @@ export class LocalDocumentAutosave {
       // Prepare only when this debounced snapshot reaches its save turn. The
       // save joins immediately, so even an uncached large result is consumed
       // once. Lifecycle flush enters the synchronous durable path directly.
-      if (task.priority === "background") {
+      if (
+        task.priority === "background" &&
+        !this.#promotedTasks.has(task.operationId)
+      ) {
         this.#repository.prepareSave?.(task.document);
       }
-      result = await this.#repository.save(input);
+      const promotion = new Promise<SaveBoardDocumentResult>((resolve) => {
+        this.#resolveActivePromotion = resolve;
+      });
+      const save =
+        this.#promotedTasks.get(task.operationId) ??
+        this.#repository.save(input);
+      result = await Promise.race([save, promotion]);
     } finally {
-      if (this.#activeInput === input) this.#activeInput = null;
+      this.#promotedTasks.delete(task.operationId);
+      if (this.#activeInput === input) {
+        this.#activeInput = null;
+        this.#resolveActivePromotion = null;
+      }
     }
     if (result.status === "saved") {
       this.#revisionId = result.revisionId;
@@ -272,23 +291,47 @@ export class LocalDocumentAutosave {
 
   #promoteActiveSaveForLifecycle(): void {
     const input = this.#activeInput;
-    if (input === null || input.priority === "lifecycle") return;
-    if (this.#lifecyclePromotion?.operationId === input.operationId) return;
-
-    const promotedInput: SaveBoardDocumentInput = {
-      ...input,
-      priority: "lifecycle",
-    };
-    // repository.save is intentionally invoked before this method returns.
-    // Dexie can therefore enter its durable path during pagehide even when the
-    // ordinary background save is still waiting for Worker serialization.
-    const promise = this.#repository
-      .save(promotedInput)
-      .then(() => undefined)
-      .catch(() => undefined);
+    if (input === null) return;
+    if (input.priority === "lifecycle" && this.#tasks.length === 0) return;
+    const inputs =
+      this.#repository.saveLifecycleBatch === undefined
+        ? [{ ...input, priority: "lifecycle" as const }]
+        : [
+            { ...input, priority: "lifecycle" as const },
+            ...this.#tasks.map((task): SaveBoardDocumentInput => ({
+              ...task,
+              priority: "lifecycle",
+              expectedRevisionId: this.#revisionId,
+            })),
+          ];
+    const last = inputs.at(-1)!;
+    if (this.#lifecyclePromotion?.operationId === last.operationId) return;
+    // Invoke the repository now. Dexie serializes ALL accepted snapshots before
+    // returning, then commits their CAS chain atomically, without waiting for
+    // the old Worker. Late background replies are ordinary idempotent retries.
+    const results =
+      this.#repository.saveLifecycleBatch === undefined
+        ? this.#repository.save(inputs[0]!).then((result) => [result])
+        : this.#repository.saveLifecycleBatch(inputs);
+    for (let index = 0; index < inputs.length; index += 1) {
+      const result = results.then((items) => {
+        const item = items[index];
+        if (item === undefined)
+          throw new Error("Missing lifecycle batch result.");
+        return item;
+      });
+      // A later queued task may not attach its await until this batch settles.
+      // Retain rejection for that consumer while avoiding an unhandled promise.
+      void result.catch(() => undefined);
+      this.#promotedTasks.set(inputs[index]!.operationId, result);
+      if (index === 0) this.#resolveActivePromotion?.(result);
+    }
     this.#lifecyclePromotion = {
-      operationId: input.operationId,
-      promise,
+      operationId: last.operationId,
+      promise: results.then(
+        () => undefined,
+        () => undefined,
+      ),
     };
   }
 }

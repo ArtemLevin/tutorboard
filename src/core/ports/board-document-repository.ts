@@ -118,6 +118,11 @@ export interface BoardDocumentDiagnosticBundle {
 }
 
 export interface BoardDocumentRepository {
+  /** Start a synchronous-serialization, atomic save chain during pagehide.
+   * Only the first expectedRevisionId is used; later writes follow its result. */
+  readonly saveLifecycleBatch?: (
+    inputs: readonly SaveBoardDocumentInput[],
+  ) => Promise<readonly SaveBoardDocumentResult[]>;
   readonly prepareSave?: (document: BoardDocument) => void;
   readonly diagnose: (
     documentId: DocumentId,
