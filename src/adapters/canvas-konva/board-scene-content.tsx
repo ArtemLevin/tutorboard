@@ -185,32 +185,32 @@ const BoardSceneRun = memo(function BoardSceneRun({
 }: BoardSceneRunProps) {
   const contents = measureBoardFrameTrace("react-descriptors-build", () =>
     run.items.map((item) => (
-    <BoardRenderItemView
-      coordinatePlotInteraction={
-        item.object.kind === "math.coordinate-plot"
-          ? coordinatePlotInteraction
-          : undefined
-      }
-      interactive
-      item={
-        lineEndpointPreview?.objectId === item.object.id
-          ? {
-              ...item,
-              object: {
-                ...item.object,
-                position: lineEndpointPreview.position,
-                rotation: lineEndpointPreview.rotation,
-                scale: lineEndpointPreview.scale,
-              },
-            }
-          : item
-      }
-      key={item.object.id}
-      previewX={selected.has(item.object.id) ? selectionPreviewX : 0}
-      previewY={selected.has(item.object.id) ? selectionPreviewY : 0}
-      registry={registry}
-      zoom={item.object.kind === "drawing.pen-stroke" ? 1 : zoom}
-    />
+      <BoardRenderItemView
+        coordinatePlotInteraction={
+          item.object.kind === "math.coordinate-plot"
+            ? coordinatePlotInteraction
+            : undefined
+        }
+        interactive
+        item={
+          lineEndpointPreview?.objectId === item.object.id
+            ? {
+                ...item,
+                object: {
+                  ...item.object,
+                  position: lineEndpointPreview.position,
+                  rotation: lineEndpointPreview.rotation,
+                  scale: lineEndpointPreview.scale,
+                },
+              }
+            : item
+        }
+        key={item.object.id}
+        previewX={selected.has(item.object.id) ? selectionPreviewX : 0}
+        previewY={selected.has(item.object.id) ? selectionPreviewY : 0}
+        registry={registry}
+        zoom={item.object.kind === "drawing.pen-stroke" ? 1 : zoom}
+      />
     )),
   );
   const result =
