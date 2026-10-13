@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   commandId,
+  measureBoardFrameTrace,
   reduceBoardDocument,
   type ActorId,
   type BoardCommand,
@@ -129,7 +130,12 @@ export function useBoardDocumentController({
         return rejectMutation();
       }
       const previousDocument = documentRef.current;
-      const result = reduceBoardDocument(previousDocument, command);
+      const isViewport = command.kind === "core.viewport.set";
+      const result = isViewport
+        ? measureBoardFrameTrace("viewport-reducer-total", () =>
+            reduceBoardDocument(previousDocument, command),
+          )
+        : reduceBoardDocument(previousDocument, command);
       if (!result.ok) {
         setState((current) => ({
           ...current,
@@ -138,11 +144,24 @@ export function useBoardDocumentController({
         return result;
       }
       documentRef.current = result.document;
-      setState((current) => ({
-        commandError: null,
-        history: commitDocumentHistory(current.history, result.document),
-      }));
-      onCommandCommitted?.(command, result.document, previousDocument);
+      const scheduleHistory = () =>
+        setState((current) => ({
+          commandError: null,
+          history: isViewport
+            ? measureBoardFrameTrace("viewport-history", () =>
+                commitDocumentHistory(current.history, result.document),
+              )
+            : commitDocumentHistory(current.history, result.document),
+        }));
+      if (isViewport) {
+        measureBoardFrameTrace("viewport-controller-schedule", scheduleHistory);
+        measureBoardFrameTrace("viewport-controller-callbacks", () =>
+          onCommandCommitted?.(command, result.document, previousDocument),
+        );
+      } else {
+        scheduleHistory();
+        onCommandCommitted?.(command, result.document, previousDocument);
+      }
       return result;
     },
     [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],

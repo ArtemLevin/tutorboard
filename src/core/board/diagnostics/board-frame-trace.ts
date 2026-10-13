@@ -1,0 +1,82 @@
+/**
+ * Opt-in large-board frame attribution. The browser profile injects a
+ * recorder before the application loads. Production sessions pay only one
+ * optional property lookup; events remain bounded by the test harness.
+ *
+ * Canvas drawScene JS duration excludes compositor/GPU work.
+ * React render->layout duration also includes synchronous React-Konva commit.
+ */
+export interface BoardFrameTraceEvent {
+  readonly kind:
+    | "board-commit"
+    | "react-ink-run"
+    | "react-other-run"
+    | "konva-scene"
+    | "konva-hit"
+    | "gif-invalidate"
+    | "wheel-input"
+    | "wheel-commit"
+    | "wheel-cancel"
+    | "wheel-layout"
+    | "wheel-cache-end"
+    | "wheel-animation-resume"
+    | "viewport-reducer-total"
+    | "viewport-visibility-index"
+    | "viewport-visible-select"
+    | "viewport-item-batches"
+    | "viewport-paint-runs"
+    | "viewport-scene-runs"
+    | "viewport-transformer-sync"
+    | "viewport-validate-current"
+    | "viewport-validate-command"
+    | "viewport-apply"
+    | "viewport-controller-schedule"
+    | "viewport-controller-callbacks"
+    | "viewport-history"
+    | "wheel-viewport-persist";
+  readonly startMs: number;
+  readonly durationMs: number;
+  readonly detail?: string;
+}
+
+declare global {
+  interface Window {
+    __tutorBoardC37Trace?: {
+      events: BoardFrameTraceEvent[];
+      disableWheelGifPause?: boolean;
+    };
+  }
+}
+
+export function recordBoardFrameTrace(
+  kind: BoardFrameTraceEvent["kind"],
+  startMs: number,
+  durationMs: number,
+  detail?: string,
+): void {
+  const sink =
+    typeof window === "undefined" ? undefined : window.__tutorBoardC37Trace;
+  if (sink === undefined || sink.events.length >= 12_000) return;
+  sink.events.push({
+    kind,
+    startMs,
+    durationMs,
+    ...(detail === undefined ? {} : { detail }),
+  });
+}
+
+/** Records a synchronous phase only during explicit C3.9 browser profiling. */
+export function measureBoardFrameTrace<T>(
+  kind: BoardFrameTraceEvent["kind"],
+  work: () => T,
+): T {
+  const sink =
+    typeof window === "undefined" ? undefined : window.__tutorBoardC37Trace;
+  if (sink === undefined || sink.events.length >= 12_000) return work();
+  const startMs = performance.now();
+  try {
+    return work();
+  } finally {
+    recordBoardFrameTrace(kind, startMs, performance.now() - startMs);
+  }
+}

@@ -750,6 +750,15 @@ for (const scenario of [
             "wheel-cache-end",
             "wheel-animation-resume",
             "wheel-viewport-persist",
+            "viewport-reducer-total",
+            "viewport-visible-select",
+            "viewport-item-batches",
+            "viewport-paint-runs",
+            "viewport-scene-runs",
+            "viewport-validate-current",
+            "viewport-validate-command",
+            "viewport-apply",
+            "viewport-controller-callbacks",
             "wheel-commit",
           ]) {
             expect(
@@ -767,6 +776,42 @@ for (const scenario of [
         }
         expect(phases.phases.active.count).toBeGreaterThan(0);
         expect(phases.phases.settling.count).toBeGreaterThan(0);
+        // These synchronous phases can nest or execute in separate React
+        // turns: report them independently; never add their durations.
+        const viewportPhaseKinds = [
+          "viewport-reducer-total",
+          "viewport-visibility-index",
+          "viewport-visible-select",
+          "viewport-item-batches",
+          "viewport-paint-runs",
+          "viewport-scene-runs",
+          "viewport-transformer-sync",
+          "viewport-validate-current",
+          "viewport-validate-command",
+          "viewport-apply",
+          "viewport-controller-schedule",
+          "viewport-controller-callbacks",
+          "viewport-history",
+        ] as const;
+        const viewportCommitPhases = Object.fromEntries(
+          viewportPhaseKinds.map((kind) => {
+            const values = jsTrace
+              .filter((event) => String(event.kind) === kind)
+              .map((event) => event.durationMs)
+              .sort((a, b) => a - b);
+            const p50Index = Math.max(0, Math.ceil(values.length / 2) - 1);
+            const p95Index = Math.max(0, Math.ceil(values.length * 0.95) - 1);
+            return [
+              kind,
+              {
+                count: values.length,
+                p50Ms: values[p50Index] ?? null,
+                p95Ms: values[p95Index] ?? null,
+                maxMs: values.at(-1) ?? null,
+              },
+            ];
+          }),
+        );
         const report = {
           schemaVersion: 1,
           baselineSha: process.env.GITHUB_SHA ?? "local",
@@ -810,6 +855,7 @@ for (const scenario of [
           ...phases,
           c39Attribution: {
             ...attribution,
+            viewportCommitPhases,
             jsEventCount: jsTrace.length,
             chromiumEventCount: chromiumTrace?.events.length ?? null,
             browserGpuInstrumentation:

@@ -2144,6 +2144,26 @@ Profile считается реализованным, когда одновре
 19. Staging прошёл restart/reconnect/log-redaction/restore/soak gates.
 20. Production rollback на предыдущие digests проверен.
 
+## C3.9 — viewport commit phase attribution (13.10.2026)
+
+Инструментирование синхронного `core.viewport.set` в отдельном PR от текущего
+`main`: full validation, metadata, apply, reducer total, React scheduling,
+history и persistence/collaboration callbacks. Подробности:
+[docs/C39_VIEWPORT_PHASE_ATTRIBUTION_2026-10-13.md](docs/C39_VIEWPORT_PHASE_ATTRIBUTION_2026-10-13.md).
+Это измерительный этап без заявленного ускорения; PR #229 остаётся Draft/NO-GO.
+После trace evidence — отдельный безопасный оптимизационный кандидат и
+реплицированный ABBA на 5k/10k. Issue #201 остаётся открытым.
+
+### C3.9 — paired prepared-viewport NO-GO and frame critical path (13.10.2026)
+
+ABBA #255: Runner 1 5k -16.65%, 10k +9.61%; Runner 2 5k +20.70%,
+10k -8.86% median paired active P95. Полный CI успешен, performance NO-GO.
+Профиль тяжёлой сцены показал сочетание длинного board-commit, Konva scene/hit
+и Chromium LayerTreeHost::DoUpdateLayers. Для точной локализации выделены
+опциональные bounded spans visibility/index/batching/paint-runs/transformer.
+Следующий PR — только диагностика; #255 оставить Draft, #201 открыт.
+Подробности: docs/C39_FRAME_CRITICAL_PATH_2026-10-13.md.
+
 ## 25. Текущая последовательность работ
 
 ### 25.1. Инженерный приоритет — большая статическая доска
@@ -2699,3 +2719,25 @@ staging/pilot и предусмотренные backup/restore/rollback gates.
 shortcut help обновлены, нет регрессий на large-board workload. Если
 часть задач отложена, статус остаётся PARTIAL с конкретной причиной;
 перечень PLANNED задач нельзя выдавать за внедрённые.
+
+## Локальная очистка: кэш сериализации и отмена — 13.10.2026
+
+Исправлено удержание полных JSON прошлых документов через Worker WeakMap и
+историю Undo. Подготовка выполняется только при фактическом сохранении после
+debounce; кэш ограничен одной записью до 1 MiB UTF-16 payload. Worker объединяет
+предварительные задачи до отправки, сохраняя каждый обязательный save; отмена
+владельца завершает ожидающих потребителей без синхронного replay старых графов.
+Undo/Redo и контракт pagehide/navigation flush сохранены.
+
+Браузерная проверка памяти после clear + GC: 3k+10 PNG **93,7 → 27,9 MiB**,
+10k+10 PNG **263,4 → 59,6 MiB**. Это результат по retained memory; общий
+performance GO и закрытие #201 не заявляются. Добавлены Worker/autosave unit
+регрессии и Chromium/Firefox smoke workflow очистка → Undo/Redo → drawing → reload.
+Merge — после применимого CI; production deployment остаётся отдельным этапом.
+Подробности: [local serialization fix](docs/LOCAL_CLEAR_SERIALIZATION_FIX_2026-10-13.md).
+
+Дополнение по CI: устранена гонка статуса автосохранения при Undo/Redo.
+Завершение старой записи больше не публикует «Сохранено локально», пока новое
+состояние ожидает debounce или записи. Возврат к уже сохранённому документу
+сохраняется повторно после промежуточной записи, чтобы порядок A → B → A
+оставался корректным. Добавлены шесть unit-регрессий; browser gate сохранён.

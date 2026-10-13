@@ -83,6 +83,158 @@ afterEach(() => {
 });
 
 describe("LocalDocumentAutosave", () => {
+  function blockingAutosave(repository: BlockingRepository, states: string[]) {
+    let operation = 0;
+    return new LocalDocumentAutosave({
+      createOperationId: () =>
+        persistenceOperationId(`operation:pending:${++operation}`),
+      debounceMs: 10,
+      initialRevisionId: null,
+      now: () => "2026-07-24T08:00:00.000Z",
+      onStateChange: (state) => states.push(state.kind),
+      repository,
+    });
+  }
+
+  it("does not report saved when an older write finishes before the newest debounce", async () => {
+    vi.useFakeTimers();
+    const repository = new BlockingRepository();
+    const states: string[] = [];
+    const autosave = blockingAutosave(repository, states);
+    autosave.schedule(document("Before clear"));
+    await vi.advanceTimersByTimeAsync(10);
+    autosave.schedule(document("Cleared and drawn again"));
+    repository.releaseBackground?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(states.at(-1)).toBe("scheduled");
+    expect(states).not.toContain("saved");
+    await vi.advanceTimersByTimeAsync(10);
+    expect(repository.calls[1]?.document.title).toBe("Cleared and drawn again");
+    repository.releaseBackground?.();
+    await autosave.flush();
+    expect(states.at(-1)).toBe("saved");
+    autosave.dispose();
+  });
+
+  it("does not expose an intermediate saved state while another accepted snapshot is waiting", async () => {
+    vi.useFakeTimers();
+    const repository = new BlockingRepository();
+    const states: string[] = [];
+    const autosave = blockingAutosave(repository, states);
+    autosave.schedule(document("Older"));
+    await vi.advanceTimersByTimeAsync(10);
+    autosave.schedule(document("Newest"));
+    await vi.advanceTimersByTimeAsync(10);
+    repository.releaseBackground?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(repository.calls).toHaveLength(2);
+    expect(states).not.toContain("saved");
+    expect(repository.calls[1]?.expectedRevisionId).toBe(
+      localRevisionId("revision:operation:pending:1"),
+    );
+    repository.releaseBackground?.();
+    await autosave.flush();
+    expect(states.at(-1)).toBe("saved");
+    autosave.dispose();
+  });
+
+  it("settles a duplicate pending identity without leaving a scheduled status behind", async () => {
+    vi.useFakeTimers();
+    const repository = new BlockingRepository();
+    const states: string[] = [];
+    const autosave = blockingAutosave(repository, states);
+    const same = document("Same snapshot");
+    autosave.schedule(same);
+    await vi.advanceTimersByTimeAsync(10);
+    autosave.schedule(same);
+    repository.releaseBackground?.();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(repository.calls).toHaveLength(1);
+    expect(states.at(-1)).toBe("saved");
+    autosave.dispose();
+  });
+
+  it("preserves a return to the active snapshot if an intermediate write will overwrite it", async () => {
+    vi.useFakeTimers();
+    const repository = new BlockingRepository();
+    const states: string[] = [];
+    const autosave = blockingAutosave(repository, states);
+    const first = document("First snapshot");
+    autosave.schedule(first);
+    await vi.advanceTimersByTimeAsync(10);
+    autosave.schedule(document("Intermediate snapshot"));
+    await vi.advanceTimersByTimeAsync(10);
+    autosave.schedule(first);
+    repository.releaseBackground?.();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(10);
+    repository.releaseBackground?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(repository.calls.map(({ document }) => document.title)).toEqual([
+      "First snapshot",
+      "Intermediate snapshot",
+      "First snapshot",
+    ]);
+    expect(states).not.toContain("saved");
+    repository.releaseBackground?.();
+    await autosave.flush();
+    expect(states.at(-1)).toBe("saved");
+    autosave.dispose();
+  });
+
+  it("saves Undo's last persisted identity again after an in-flight write to another snapshot", async () => {
+    vi.useFakeTimers();
+    const repository = new BlockingRepository();
+    const states: string[] = [];
+    const autosave = blockingAutosave(repository, states);
+    const first = document("Saved original");
+    autosave.schedule(first);
+    await vi.advanceTimersByTimeAsync(10);
+    repository.releaseBackground?.();
+    await autosave.flush();
+    states.length = 0;
+    autosave.schedule(document("Pending change"));
+    await vi.advanceTimersByTimeAsync(10);
+    autosave.schedule(first);
+    await vi.advanceTimersByTimeAsync(10);
+    repository.releaseBackground?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(repository.calls.map(({ document }) => document.title)).toEqual([
+      "Saved original",
+      "Pending change",
+      "Saved original",
+    ]);
+    expect(states).not.toContain("saved");
+    repository.releaseBackground?.();
+    await autosave.flush();
+    expect(states.at(-1)).toBe("saved");
+    autosave.dispose();
+  });
+
+  it("supersedes an unsaved debounce when Undo returns to the already persisted snapshot", async () => {
+    vi.useFakeTimers();
+    const repository = new BlockingRepository();
+    const states: string[] = [];
+    const autosave = blockingAutosave(repository, states);
+    const first = document("Saved original");
+    autosave.schedule(first);
+    await vi.advanceTimersByTimeAsync(10);
+    repository.releaseBackground?.();
+    await autosave.flush();
+    autosave.schedule(document("Superseded debounce"));
+    autosave.schedule(first);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(repository.calls.map(({ document }) => document.title)).toEqual([
+      "Saved original",
+      "Saved original",
+    ]);
+    repository.releaseBackground?.();
+    await autosave.flush();
+    expect(states.at(-1)).toBe("saved");
+    autosave.dispose();
+  });
+
   it("debounces to the latest document and advances the revision", async () => {
     vi.useFakeTimers();
     const repository = new FakeRepository();
@@ -100,14 +252,12 @@ describe("LocalDocumentAutosave", () => {
 
     autosave.schedule(document("First"));
     autosave.schedule(document("Latest", "2026-07-24T08:01:00.000Z"));
+    expect(repository.prepared).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(50);
     await autosave.flush();
 
     expect(repository.calls).toHaveLength(1);
-    expect(repository.prepared.map(({ title }) => title)).toEqual([
-      "First",
-      "Latest",
-    ]);
+    expect(repository.prepared.map(({ title }) => title)).toEqual(["Latest"]);
     expect(repository.calls[0]?.document.title).toBe("Latest");
     expect(repository.calls[0]?.expectedRevisionId).toBeNull();
     expect(repository.calls[0]?.priority).toBe("background");
@@ -133,6 +283,7 @@ describe("LocalDocumentAutosave", () => {
     expect(repository.calls).toHaveLength(1);
     expect(repository.calls[0]?.document.title).toBe("Pending navigation save");
     expect(repository.calls[0]?.priority).toBe("lifecycle");
+    expect(repository.prepared).toHaveLength(0);
   });
 
   it("starts the durable save before a pagehide handler returns", async () => {
@@ -152,6 +303,7 @@ describe("LocalDocumentAutosave", () => {
 
     expect(repository.calls).toHaveLength(1);
     expect(repository.calls[0]?.priority).toBe("lifecycle");
+    expect(repository.prepared).toHaveLength(0);
     await autosave.flush();
     autosave.dispose();
   });

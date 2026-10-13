@@ -20,6 +20,7 @@ import { ownValue } from "../records";
 import { isIsoTimestamp } from "../timestamps";
 import { boardDocumentSchema } from "../validation/schema";
 import { validateBoardDocument } from "../validation/validate";
+import { measureBoardFrameTrace } from "../diagnostics/board-frame-trace";
 import type {
   AddGroupCommand,
   AddObjectsCommand,
@@ -2344,7 +2345,12 @@ export function reduceBoardDocument(
   document: BoardDocument,
   command: BoardCommand,
 ): CommandResult {
-  const current = validateBoardDocument(document);
+  const isViewport = command.kind === "core.viewport.set";
+  const current = isViewport
+    ? measureBoardFrameTrace("viewport-validate-current", () =>
+        validateBoardDocument(document),
+      )
+    : validateBoardDocument(document);
   if (!current.valid) {
     return failure(
       document,
@@ -2353,7 +2359,11 @@ export function reduceBoardDocument(
     );
   }
 
-  const metadataError = validateMetadata(document, command);
+  const metadataError = isViewport
+    ? measureBoardFrameTrace("viewport-validate-command", () =>
+        validateMetadata(document, command),
+      )
+    : validateMetadata(document, command);
   if (metadataError !== null) {
     return metadataError;
   }
@@ -2400,7 +2410,9 @@ export function reduceBoardDocument(
     case "core.selection.set-style":
       return setSelectionStyle(document, command);
     case "core.viewport.set":
-      return setViewport(document, command);
+      return measureBoardFrameTrace("viewport-apply", () =>
+        setViewport(document, command),
+      );
     case "core.document.rename":
       return renameDocument(document, command);
     case "core.text.update":

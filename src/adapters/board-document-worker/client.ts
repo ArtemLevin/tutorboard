@@ -29,9 +29,27 @@ interface PendingRequest {
   readonly resolve: (response: BoardDocumentWorkerResponse) => void;
 }
 
-interface PreparedSerialization {
-  promise: Promise<BoardDocumentSerializationResult>;
-  result: BoardDocumentSerializationResult | null;
+interface SerializationTask {
+  readonly document: BoardDocument;
+  readonly waiters: {
+    readonly resolve: (result: BoardDocumentSerializationResult) => void;
+    readonly reject: (error: Error) => void;
+  }[];
+}
+
+// One small result, independent of the documents retained by Undo. Counting
+// UTF-16 bytes conservatively bounds the string payload without allocating
+// another encoded copy of a large JSON merely to measure it.
+const maximumPreparedJsonBytes = 1024 * 1024;
+
+function computationError(cause: unknown): Error {
+  return cause instanceof Error
+    ? cause
+    : new Error("Board document computation failed.");
+}
+
+function disposedError(): Error {
+  return new Error("Board document computation was disposed.");
 }
 
 function browserWorkerFactory(): WorkerLike {
@@ -61,7 +79,13 @@ async function inlineSha256(
 export class BoardDocumentWorkerComputation implements BoardDocumentComputation {
   readonly #factory: WorkerFactory;
   readonly #pending = new Map<number, PendingRequest>();
-  readonly #prepared = new WeakMap<BoardDocument, PreparedSerialization>();
+  #prepared: {
+    readonly document: BoardDocument;
+    readonly result: BoardDocumentSerializationResult;
+  } | null = null;
+  #activeSerialization: SerializationTask | null = null;
+  #queuedPreparation: BoardDocument | null = null;
+  readonly #requiredSerializations: SerializationTask[] = [];
   #disposed = false;
   #nextRequestId = 1;
   #worker: WorkerLike | null = null;
@@ -75,40 +99,66 @@ export class BoardDocumentWorkerComputation implements BoardDocumentComputation 
     this.#disposed = true;
     this.#worker?.terminate();
     this.#worker = null;
-    const error = new Error("Board document computation was disposed.");
+    this.#prepared = null;
+    this.#queuedPreparation = null;
+    const error = disposedError();
+    if (this.#activeSerialization !== null) {
+      this.#rejectSerialization(this.#activeSerialization, error);
+    }
+    for (const task of this.#requiredSerializations) {
+      this.#rejectSerialization(task, error);
+    }
+    this.#requiredSerializations.length = 0;
     for (const pending of this.#pending.values()) pending.reject(error);
     this.#pending.clear();
   }
 
   prepareSerialization(document: BoardDocument): void {
-    if (this.#disposed || this.#prepared.has(document)) return;
-    const prepared: PreparedSerialization = {
-      promise: Promise.resolve({ ok: false, issues: [] }),
-      result: null,
-    };
-    prepared.promise = this.#serializeInWorker(document)
-      .catch(() => this.serializeSync(document))
-      .then((result) => {
-        prepared.result = result;
-        return result;
-      });
-    this.#prepared.set(document, prepared);
+    if (this.#disposed) return;
+    if (this.#prepared?.document === document) {
+      this.#queuedPreparation = null;
+      return;
+    }
+    this.#prepared = null;
+    // Only unsent, speculative work is replaceable. A save that joined an
+    // active preparation, or explicitly requested a snapshot, must settle for
+    // that exact document even if a newer document has since been prepared.
+    this.#queuedPreparation =
+      this.#activeSerialization?.document === document ||
+      this.#requiredSerializations.some((task) => task.document === document)
+        ? null
+        : document;
+    this.#startNextSerialization();
   }
 
   serialize(
     document: BoardDocument,
     priority: BoardDocumentComputationPriority = "background",
   ): Promise<BoardDocumentSerializationResult> {
-    const prepared = this.#prepared.get(document);
+    const prepared =
+      this.#prepared?.document === document ? this.#prepared.result : null;
     if (priority === "lifecycle") {
-      return Promise.resolve(prepared?.result ?? this.serializeSync(document));
+      return Promise.resolve(prepared ?? this.serializeSync(document));
     }
-    if (prepared !== undefined) return prepared.promise;
-    this.prepareSerialization(document);
-    return (
-      this.#prepared.get(document)?.promise ??
-      Promise.resolve(this.serializeSync(document))
-    );
+    if (prepared !== null) return Promise.resolve(prepared);
+    // Explicit calls after disposal retain the synchronous compatibility
+    // path. Already pending work is cancelled by dispose, without fallback.
+    if (this.#disposed) return Promise.resolve(this.serializeSync(document));
+    return new Promise((resolve, reject) => {
+      let task =
+        this.#activeSerialization?.document === document
+          ? this.#activeSerialization
+          : this.#requiredSerializations.find(
+              (candidate) => candidate.document === document,
+            );
+      if (task === undefined) {
+        task = { document, waiters: [] };
+        this.#requiredSerializations.push(task);
+      }
+      task.waiters.push({ reject, resolve });
+      if (this.#queuedPreparation === document) this.#queuedPreparation = null;
+      this.#startNextSerialization();
+    });
   }
 
   serializeSync(document: BoardDocument): BoardDocumentSerializationResult {
@@ -129,15 +179,66 @@ export class BoardDocumentWorkerComputation implements BoardDocumentComputation 
           ? response.message
           : "Unexpected document worker response.",
       );
-    } catch {
+    } catch (error) {
+      if (this.#disposed) throw computationError(error);
       return await inlineSha256(document);
     }
+  }
+
+  #startNextSerialization(): void {
+    if (this.#disposed || this.#activeSerialization !== null) return;
+    const required = this.#requiredSerializations.shift();
+    const document = required?.document ?? this.#queuedPreparation;
+    if (document === null) return;
+    if (this.#queuedPreparation === document) this.#queuedPreparation = null;
+    const task = required ?? { document, waiters: [] };
+    this.#activeSerialization = task;
+    void this.#runSerialization(task);
+  }
+
+  async #runSerialization(task: SerializationTask): Promise<void> {
+    try {
+      let result: BoardDocumentSerializationResult;
+      try {
+        result = await this.#serializeInWorker(task.document);
+      } catch (error) {
+        // Speculative work has no save contract and no promise consumers.
+        // Worker failure/disposal must not synchronously replay stale graphs.
+        // A requested save still has the existing error fallback while its
+        // computation owner is alive.
+        if (this.#disposed || task.waiters.length === 0) {
+          this.#rejectSerialization(task, computationError(error));
+          return;
+        }
+        result = this.serializeSync(task.document);
+      }
+      if (this.#disposed) {
+        this.#rejectSerialization(task, disposedError());
+        return;
+      }
+      this.#prepared =
+        result.ok && result.json.length * 2 <= maximumPreparedJsonBytes
+          ? { document: task.document, result }
+          : null;
+      for (const waiter of task.waiters) waiter.resolve(result);
+      task.waiters.length = 0;
+    } catch (error) {
+      this.#rejectSerialization(task, computationError(error));
+    } finally {
+      this.#activeSerialization = null;
+      this.#startNextSerialization();
+    }
+  }
+
+  #rejectSerialization(task: SerializationTask, error: Error): void {
+    for (const waiter of task.waiters) waiter.reject(error);
+    task.waiters.length = 0;
   }
 
   async #serializeInWorker(
     document: BoardDocument,
   ): Promise<BoardDocumentSerializationResult> {
-    if (this.#disposed) return this.serializeSync(document);
+    if (this.#disposed) throw disposedError();
     const response = await this.#request({
       document,
       id: this.#nextRequestId++,
@@ -154,8 +255,12 @@ export class BoardDocumentWorkerComputation implements BoardDocumentComputation 
   #ensureWorker(): WorkerLike {
     if (this.#worker !== null) return this.#worker;
     const worker = this.#factory();
-    worker.addEventListener("message", this.#handleMessage);
-    worker.addEventListener("error", this.#handleError);
+    worker.addEventListener("message", (event) => {
+      if (this.#worker === worker) this.#handleMessage(event);
+    });
+    worker.addEventListener("error", (event) => {
+      if (this.#worker === worker) this.#handleError(event);
+    });
     this.#worker = worker;
     return worker;
   }

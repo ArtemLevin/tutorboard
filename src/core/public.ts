@@ -27,6 +27,11 @@ export {
 export * from "./solid-3d/public";
 export * from "./solid-3d-learning/public";
 export {
+  measureBoardFrameTrace,
+  recordBoardFrameTrace,
+  type BoardFrameTraceEvent,
+} from "./board/diagnostics/board-frame-trace";
+export {
   boardDocument14SchemaVersion,
   boardDocument15SchemaVersion,
   boardDocument16SchemaVersion,

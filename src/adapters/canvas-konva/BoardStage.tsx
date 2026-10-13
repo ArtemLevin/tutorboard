@@ -40,7 +40,10 @@ import {
   buildSmoothClosedStrokePoints,
   flattenStrokePoints,
 } from "../../shared/stroke-smoothing";
-import { recordBoardFrameTrace } from "./board-frame-trace";
+import {
+  measureBoardFrameTrace,
+  recordBoardFrameTrace,
+} from "./board-frame-trace";
 import { startsStylusEraser } from "../../shared/stylus-eraser";
 import { AnimatedImageRedrawCoordinator } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
@@ -699,19 +702,31 @@ export function BoardStage({
   }, [previewViewport]);
 
   const visibilityIndex = useMemo(
-    () => createBoardVisibilityIndex(scene.items),
+    () =>
+      measureBoardFrameTrace("viewport-visibility-index", () =>
+        createBoardVisibilityIndex(scene.items),
+      ),
     [scene.items],
   );
   const visibleItems = useMemo(
-    () => visibilityIndex.select(previewViewport, size),
+    () =>
+      measureBoardFrameTrace("viewport-visible-select", () =>
+        visibilityIndex.select(previewViewport, size),
+      ),
     [visibilityIndex, previewViewport, size],
   );
   const visibleItemBatches = useMemo(
-    () => batchBoardRenderItems(visibleItems),
+    () =>
+      measureBoardFrameTrace("viewport-item-batches", () =>
+        batchBoardRenderItems(visibleItems),
+      ),
     [visibleItems],
   );
   const committedPaintRuns = useMemo(
-    () => partitionCommittedPaintRuns(visibleItemBatches),
+    () =>
+      measureBoardFrameTrace("viewport-paint-runs", () =>
+        partitionCommittedPaintRuns(visibleItemBatches),
+      ),
     [visibleItemBatches],
   );
   const animatedPaintLayerCount = committedPaintRuns.filter(
@@ -818,13 +833,15 @@ export function BoardStage({
     if (stage === null || transformer === null) {
       return;
     }
-    const allowed = new Set(transformableObjectIds);
-    const nodes = stage.find(".board-transform-target").filter((node) => {
-      const objectId = objectIdFromTarget(node);
-      return objectId !== null && allowed.has(objectId);
+    measureBoardFrameTrace("viewport-transformer-sync", () => {
+      const allowed = new Set(transformableObjectIds);
+      const nodes = stage.find(".board-transform-target").filter((node) => {
+        const objectId = objectIdFromTarget(node);
+        return objectId !== null && allowed.has(objectId);
+      });
+      transformer.nodes(nodes);
+      transformer.getLayer()?.batchDraw();
     });
-    transformer.nodes(nodes);
-    transformer.getLayer()?.batchDraw();
   }, [
     lineEndpointPreview,
     previewViewport,
