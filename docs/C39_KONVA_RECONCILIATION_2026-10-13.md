@@ -37,3 +37,14 @@ still require browser tests. This is a Draft candidate: GO only after two
 independent runners demonstrate >=20% paired active P95 improvement at
 both 5k and 10k strokes with ten static images, no >100ms tail regression,
 pixel/hit parity, memory and user-workflow evidence.
+
+## Matched-control source (observer parity)
+
+The original first ABBA (merged main vs instrumented candidate) measures
+whole-change impact but can be confounded by the new tracing hooks. For the
+isolation decision, the fixed control is `57903fec4b0b3e81c6a4f2fc6e0a362a41a8ed0e`.
+This commit contains exactly the candidate instrumentation but retains
+`stage.find(".board-transform-target")` on every viewport effect. The
+candidate and control differ in the production behavior only by the empty
+Transformer guard. The C3.9 ABBA workflow compares this fixed control against
+the exact PR head. Merged main `82baf7d8` remains the production baseline.

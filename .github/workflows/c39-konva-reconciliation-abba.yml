@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
-      BASE_SHA: 82baf7d86df0b2bbac4d89498484e385f2e5303b
+      BASE_SHA: 57903fec4b0b3e81c6a4f2fc6e0a362a41a8ed0e
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Check out comparison harness
