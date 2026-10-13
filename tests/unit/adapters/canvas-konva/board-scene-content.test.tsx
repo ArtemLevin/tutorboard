@@ -105,7 +105,6 @@ describe("stable committed scene rendering", () => {
 
   it("splits 400 ordered immutable strokes into bounded cacheable runs", () => {
     const coordinator = new WheelInkCacheCoordinator();
-    const registered = vi.spyOn(coordinator, "register");
     const renderInk = vi.fn((object: BoardObject) =>
       createElement("span", null, object.id),
     );
@@ -150,7 +149,11 @@ describe("stable committed scene rendering", () => {
     // Three full 128-stroke groups are cacheable. The final 16 strokes
     // remain vector nodes, and all 400 remain independently interactive.
     expect(maximumWheelInkRunStrokes).toBe(128);
-    expect(registered).toHaveBeenCalledTimes(3);
+    expect(
+      Array.from(view.container.children).map(
+        (group) => group.querySelectorAll("span").length,
+      ),
+    ).toEqual([128, 128, 128, 16]);
     expect(renderInk).toHaveBeenCalledTimes(400);
     expect(
       screen.getAllByText(/^object:ink:/u).map((node) => node.textContent),
@@ -164,7 +167,11 @@ describe("stable committed scene rendering", () => {
         zoom={1.8}
       />,
     );
-    expect(registered).toHaveBeenCalledTimes(3);
+    expect(
+      Array.from(view.container.children).map(
+        (group) => group.querySelectorAll("span").length,
+      ),
+    ).toEqual([128, 128, 128, 16]);
     expect(renderInk).toHaveBeenCalledTimes(400);
   });
 
