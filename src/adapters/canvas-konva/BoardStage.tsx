@@ -621,8 +621,12 @@ export function BoardStage({
     const callOriginal = (
       node: Konva.Node,
       config: Parameters<typeof Konva.Node.prototype.setAttrs>[0],
-    ): void => {
+    ): Konva.Node => {
+      // Konva.setAttrs is chainable and returns the receiver. Preserve its
+      // public return contract while invoking the original method with
+      // the original node as `this`.
       Reflect.apply(originalValue, node, [config]);
+      return node;
     };
     const metrics = konvaAttrMetricsRef.current;
     const traced: typeof Konva.Node.prototype.setAttrs = function (
