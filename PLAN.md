@@ -26,8 +26,8 @@
 > `docs/architecture/`. Этот файл определяет текущий порядок работ для публичного
 > standalone TutorBoard.
 >
-> **QoL Sprint 2 (IN_PROGRESS):** QoL 2.1–2.5 объединены в `main`
-> (PR #246–#248, #250, #251); QoL 2.6 остаётся PLANNED (§28).
+> **QoL Sprint 2 (MERGED):** QoL 2.1–2.6 объединены в `main`
+> (PR #246–#248, #250–#252); production rollout остаётся отдельным release gate (§28).
 > Спринт не заменяет открытые Issue #201/#241 и обязательные
 > Pilot/Production release gates.
 
@@ -2449,7 +2449,7 @@ verification and the guest offline cleanup regression guard.
 
 ## 28. QoL Sprint 2 — удобство работы преподавателя (план от 12.10.2026)
 
-**Статус:** IN_PROGRESS; QoL 2.1–2.5 — MERGED в `main` (PR #246–#248, #250, #251); QoL 2.6 — PLANNED. Последний QoL merge SHA: `4e7f229982cb884bec7211525a96673bf7b339fb`.
+**Статус:** MERGED; QoL 2.1–2.6 — MERGED в `main` (PR #246–#248, #250–#252). Последний QoL merge SHA: `c99080c750432adf6dd94d76f4eb8347d7def1f5`. Production rollout и hardware-проверка стилуса ведутся отдельными gates.
 **Базовая точка планирования:** `main` на `93651e5f9f0184a59dead1a7ebe6b91aa49ee21f`.
 Этот SHA — справочная точка на дату составления, перед каждым PR требуется
 сверить актуальные код, CI, docs и используемый release pin.
@@ -2634,15 +2634,16 @@ Unit на state machine и E2E с синтетическими pen pointer event
 
 ### 28.7. QoL 2.6 — «Следовать за преподавателем» (P2, realtime)
 
-**Реализация:** ветка `feat/qol-2-6-teacher-follow`, интеграция с существующим
+**Реализовано и объединено (PR #252, squash `c99080c750432adf6dd94d76f4eb8347d7def1f5`):** интеграция с существующим
 server-issued presence-transport `tutorboard.v1` без изменения протокола.
 Добавлены явные opt-in/out, локальный viewport ученика, проверка серверной роли
 tutor/admin, привязка к room/actor/client/accessEpoch, сброс при offline/reconnect
 и смене прав. Ручная навигация отключает следование; циклического rebroadcast
 viewport нет. Контракт и доказательства server-side authority:
 `docs/QOL_2_6_TEACHER_FOLLOW_CONTRACT_2026-10-12.md`.
-Добавлены unit и two-client standalone pilot E2E; запуск полного CI и
-закреплённого backend fullstack gate выполняется для PR #252. При проверках
+Добавлены unit и two-client standalone pilot E2E. Полный CI #38316251058:
+8/8 jobs SUCCESS (включая Chromium/Firefox smoke и Production Image).
+Закреплённый backend fullstack #38316251114 — SUCCESS. При проверках
 обнаружен и исправлен сброс sequence/viewport после повторного `presence.joined`
 одного `clientId`. Production rollout остаётся отдельным этапом.
 
