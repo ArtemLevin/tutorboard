@@ -786,7 +786,7 @@ for (const scenario of [
         const viewportCommitPhases = Object.fromEntries(
           viewportPhaseKinds.map((kind) => {
             const values = jsTrace
-              .filter((event) => event.kind === kind)
+              .filter((event) => String(event.kind) === kind)
               .map((event) => event.durationMs)
               .sort((a, b) => a - b);
             const p50Index = Math.max(0, Math.ceil(values.length / 2) - 1);
