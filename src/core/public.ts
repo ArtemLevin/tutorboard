@@ -445,3 +445,8 @@ export type {
   UpdateBoardInvitationInput,
   UpdateStandaloneBoardInput,
 } from "./ports/standalone-board-management-repository";
+
+export {
+  createPreparedViewportReducer,
+  type PreparedViewportReducer,
+} from "./board/commands/reducer";

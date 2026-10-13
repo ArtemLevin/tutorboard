@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   commandId,
+  createPreparedViewportReducer,
   measureBoardFrameTrace,
   reduceBoardDocument,
   type ActorId,
@@ -59,12 +60,14 @@ export function useBoardDocumentController({
   onDocumentChange,
   readOnly,
 }: UseBoardDocumentControllerOptions) {
+  const viewportReducer = useMemo(() => createPreparedViewportReducer(), []);
   const [state, setState] = useState(() => ({
     commandError: null as string | null,
-    history: createDocumentHistory(initialDocument),
+    history: createDocumentHistory(viewportReducer.prepare(initialDocument)),
   }));
   const document = state.history.present;
   const documentRef = useRef(document);
+  const externalDocumentRef = useRef(initialDocument);
   const effectiveMutationPolicy = useMemo(
     () =>
       mutationPolicy ??
@@ -83,19 +86,22 @@ export function useBoardDocumentController({
   }, [document, onDocumentChange]);
 
   useEffect(() => {
-    if (documentRef.current === initialDocument) {
-      return;
-    }
-    documentRef.current = initialDocument;
+    // The internal graph is a deep immutable copy. The incoming prop's
+    // identity is the hydration boundary, never its equality to the copy.
+    if (externalDocumentRef.current === initialDocument) return;
+    externalDocumentRef.current = initialDocument;
+    viewportReducer.reset();
+    const prepared = viewportReducer.prepare(initialDocument);
+    documentRef.current = prepared;
     setState((current) =>
-      current.history.present === initialDocument
+      current.history.present === prepared
         ? current
         : {
             commandError: null,
-            history: createDocumentHistory(initialDocument),
+            history: createDocumentHistory(prepared),
           },
     );
-  }, [initialDocument]);
+  }, [initialDocument, viewportReducer]);
 
   const getDocument = useCallback(() => documentRef.current, []);
 
@@ -131,9 +137,10 @@ export function useBoardDocumentController({
       }
       const previousDocument = documentRef.current;
       const isViewport = command.kind === "core.viewport.set";
+      if (!isViewport) viewportReducer.reset();
       const result = isViewport
         ? measureBoardFrameTrace("viewport-reducer-total", () =>
-            reduceBoardDocument(previousDocument, command),
+            viewportReducer.reduce(previousDocument, command),
           )
         : reduceBoardDocument(previousDocument, command);
       if (!result.ok) {
@@ -164,7 +171,12 @@ export function useBoardDocumentController({
       }
       return result;
     },
-    [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],
+    [
+      effectiveMutationPolicy.canWrite,
+      onCommandCommitted,
+      rejectMutation,
+      viewportReducer,
+    ],
   );
 
   const commitCommands = useCallback(
@@ -177,6 +189,7 @@ export function useBoardDocumentController({
         return { document: initialDocument, ok: true };
       }
 
+      viewportReducer.reset();
       const transitions: {
         readonly command: BoardCommand;
         readonly document: BoardDocument;
@@ -227,6 +240,7 @@ export function useBoardDocumentController({
       onCommandCommitted,
       onCommandsCommitted,
       rejectMutation,
+      viewportReducer,
     ],
   );
 
@@ -251,6 +265,7 @@ export function useBoardDocumentController({
       }
       return;
     }
+    viewportReducer.reset();
     setState((current) => {
       const next = undoDocumentHistory(current.history);
       return next === current.history
@@ -264,6 +279,7 @@ export function useBoardDocumentController({
     onCollaborativeUndo,
     rejectHistoryMutation,
     setCommandError,
+    viewportReducer,
   ]);
 
   const redo = useCallback(() => {
@@ -277,6 +293,7 @@ export function useBoardDocumentController({
       );
       return;
     }
+    viewportReducer.reset();
     setState((current) => {
       const next = redoDocumentHistory(current.history);
       return next === current.history
@@ -288,6 +305,7 @@ export function useBoardDocumentController({
     historyEnabled,
     rejectHistoryMutation,
     setCommandError,
+    viewportReducer,
   ]);
 
   return {
