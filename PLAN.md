@@ -2144,6 +2144,16 @@ Profile считается реализованным, когда одновре
 19. Staging прошёл restart/reconnect/log-redaction/restore/soak gates.
 20. Production rollback на предыдущие digests проверен.
 
+## C3.9 — viewport commit phase attribution (13.10.2026)
+
+Инструментирование синхронного `core.viewport.set` в отдельном PR от текущего
+`main`: full validation, metadata, apply, reducer total, React scheduling,
+history и persistence/collaboration callbacks. Подробности:
+[docs/C39_VIEWPORT_PHASE_ATTRIBUTION_2026-10-13.md](docs/C39_VIEWPORT_PHASE_ATTRIBUTION_2026-10-13.md).
+Это измерительный этап без заявленного ускорения; PR #229 остаётся Draft/NO-GO.
+После trace evidence — отдельный безопасный оптимизационный кандидат и
+реплицированный ABBA на 5k/10k. Issue #201 остаётся открытым.
+
 ## 25. Текущая последовательность работ
 
 ### 25.1. Инженерный приоритет — большая статическая доска
