@@ -1,5 +1,6 @@
 import {
   boardObjectId,
+  boardValuesEqual,
   createVectorInkData,
   maximumCoordinatePlotParameters,
   type BoardDocument,
@@ -180,10 +181,6 @@ export function createHandwrittenFunctionReplaceCommand(
   };
 }
 
-function sameSnapshot(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
 export function handwrittenFunctionSourceStillApplies(
   document: BoardDocument,
   originals: readonly PenStrokeObject[],
@@ -194,7 +191,7 @@ export function handwrittenFunctionSourceStillApplies(
       const current = document.objects[original.id];
       return (
         current?.kind === "drawing.pen-stroke" &&
-        sameSnapshot(current, original)
+        boardValuesEqual(current, original)
       );
     })
   );

@@ -384,9 +384,14 @@ function validateGeometryImports(
 
 function validateCoordinatePlots(
   document: BoardDocument,
+  previous?: BoardDocument,
 ): readonly ValidationIssue[] {
   return definedObjects(document).flatMap((object) => {
-    if (object.kind !== "math.coordinate-plot") return [];
+    if (
+      object.kind !== "math.coordinate-plot" ||
+      previous?.objects[object.id] === object
+    )
+      return [];
     return validateCoordinatePlotDefinition(object.definition).map((item) =>
       issue(
         item.code,
@@ -399,9 +404,14 @@ function validateCoordinatePlots(
 
 function validateVectorInk(
   document: BoardDocument,
+  previous?: BoardDocument,
 ): readonly ValidationIssue[] {
   return definedObjects(document).flatMap((object) => {
-    if (object.kind !== "drawing.pen-stroke") return [];
+    if (
+      object.kind !== "drawing.pen-stroke" ||
+      previous?.objects[object.id] === object
+    )
+      return [];
     return object.ink !== undefined &&
       vectorInkDataMatchesPoints(object.ink, object.points)
       ? []
@@ -533,7 +543,30 @@ export function validateBoardDocument(input: unknown): BoardDocumentValidation {
   }
 
   const document = parsed.data as BoardDocument;
-  const issues = [
+  const issues = validateDocumentInvariants(document);
+
+  return issues.length === 0
+    ? { valid: true, document }
+    : { valid: false, issues };
+}
+
+/** Internal transition validation. previous must be an owned immutable snapshot. */
+export function validateDocumentInvariants(
+  document: BoardDocument,
+  previous?: BoardDocument,
+): readonly ValidationIssue[] {
+  if (
+    previous !== undefined &&
+    document.objects === previous.objects &&
+    document.groups === previous.groups &&
+    document.geometryImports === previous.geometryImports &&
+    document.solidModels === previous.solidModels &&
+    document.solidLearningAttempts === previous.solidLearningAttempts &&
+    document.order === previous.order
+  ) {
+    return validateTimestamps(document);
+  }
+  return [
     ...validateRecordIdentity("objects", document.objects),
     ...validateRecordIdentity("groups", document.groups),
     ...validateRecordIdentity("geometryImports", document.geometryImports),
@@ -545,14 +578,10 @@ export function validateBoardDocument(input: unknown): BoardDocumentValidation {
     ...validateOrder(document),
     ...validateGroups(document),
     ...validateGeometryImports(document),
-    ...validateCoordinatePlots(document),
-    ...validateVectorInk(document),
+    ...validateCoordinatePlots(document, previous),
+    ...validateVectorInk(document, previous),
     ...validateSolidModels(document),
     ...validateSolidLearningAttempts(document),
     ...validateTimestamps(document),
   ];
-
-  return issues.length === 0
-    ? { valid: true, document }
-    : { valid: false, issues };
 }

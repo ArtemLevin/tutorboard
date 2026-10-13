@@ -436,6 +436,7 @@ export class BoardSyncEngine {
   #document: BoardDocument | null = null;
   #pending: readonly PendingBoardCommand[] = [];
   #quarantinedCount = 0;
+  #pendingReplayRequired = false;
   #networkAvailable =
     typeof navigator === "undefined" ? true : navigator.onLine;
   #durableSerial: Promise<void> = Promise.resolve();
@@ -552,6 +553,7 @@ export class BoardSyncEngine {
           knownSequences,
         );
         this.#document = replayed.document;
+        this.#pendingReplayRequired = false;
         await this.#queue.saveHead(this.#confirmed);
       }
       this.#accessRefreshPending = false;
@@ -559,6 +561,50 @@ export class BoardSyncEngine {
     });
     this.#serial = update.catch(() => undefined);
     return update;
+  }
+
+  async #rebasePendingIfNeeded(): Promise<void> {
+    if (!this.#pendingReplayRequired || this.#confirmed === null) return;
+    const knownSequences = this.#pending.map(({ sequence }) => sequence);
+    const replayed = replayPending(this.#confirmed, this.#pending);
+    await this.#quarantineConflicts(replayed.conflicts);
+    await this.#queue.reconcile(
+      this.#documentId,
+      replayed.items,
+      knownSequences,
+    );
+    this.#pending = replayed.items;
+    this.#document = replayed.document;
+    this.#pendingReplayRequired = false;
+  }
+
+  async #appendPending(queued: readonly PendingBoardCommand[]): Promise<void> {
+    await this.#rebasePendingIfNeeded();
+    if (this.#confirmed === null || this.#document === null)
+      throw new Error("Board sync engine is not ready.");
+    const prefix = this.#pending;
+    // The confirmed head and old pending prefix are unchanged. Apply only the
+    // newly durable group to its already checked optimistic projection.
+    const replayed = replayPending(
+      { ...this.#confirmed, document: this.#document },
+      queued,
+    );
+    // Keep accepted durable work recoverable if a conflict-store write fails.
+    this.#pending = orderedPending([...prefix, ...queued]);
+    this.#pendingReplayRequired = true;
+    await this.#quarantineConflicts(replayed.conflicts);
+    if (replayed.conflicts.length > 0) {
+      // Successful append does not change durable commands. Reconcile only the
+      // new group when it conflicts; never reserialize/rewrite the old prefix.
+      await this.#queue.reconcile(
+        this.#documentId,
+        replayed.items,
+        queued.map(({ sequence }) => sequence),
+      );
+    }
+    this.#pending = orderedPending([...prefix, ...replayed.items]);
+    this.#document = replayed.document;
+    this.#pendingReplayRequired = false;
   }
 
   #enqueueDurably(
@@ -631,17 +677,7 @@ export class BoardSyncEngine {
         if (this.#confirmed === null) {
           throw new Error("Board sync engine is not ready.");
         }
-        this.#pending = orderedPending([...this.#pending, ...queued]);
-        const knownSequences = this.#pending.map(({ sequence }) => sequence);
-        const replayed = replayPending(this.#confirmed, this.#pending);
-        await this.#quarantineConflicts(replayed.conflicts);
-        this.#pending = replayed.items;
-        await this.#queue.reconcile(
-          this.#documentId,
-          this.#pending,
-          knownSequences,
-        );
-        this.#document = replayed.document;
+        await this.#appendPending(queued);
         this.#emitReady(this.#networkAvailable ? "online" : "offline");
         if (this.#networkAvailable) await this.#synchronize();
       })
@@ -707,17 +743,7 @@ export class BoardSyncEngine {
         if (this.#confirmed === null) {
           throw new Error("Board sync engine is not ready.");
         }
-        this.#pending = orderedPending([...this.#pending, ...queued]);
-        const knownSequences = this.#pending.map(({ sequence }) => sequence);
-        const replayed = replayPending(this.#confirmed, this.#pending);
-        await this.#quarantineConflicts(replayed.conflicts);
-        this.#pending = replayed.items;
-        await this.#queue.reconcile(
-          this.#documentId,
-          this.#pending,
-          knownSequences,
-        );
-        this.#document = replayed.document;
+        await this.#appendPending(queued);
         this.#emitReady(this.#networkAvailable ? "online" : "offline");
         if (this.#networkAvailable) await this.#synchronize();
       })
@@ -933,6 +959,7 @@ export class BoardSyncEngine {
         knownSequences,
       );
       this.#document = replayed.document;
+      this.#pendingReplayRequired = false;
       this.#emitReady(this.#networkAvailable ? "online" : "offline");
       await this.#synchronize();
     } catch (error) {
@@ -963,6 +990,7 @@ export class BoardSyncEngine {
           knownSequences,
         );
         this.#document = replayed.document;
+        this.#pendingReplayRequired = false;
         this.#emitReady("offline");
         return;
       }
@@ -992,6 +1020,7 @@ export class BoardSyncEngine {
     const removed = this.#pending.length - retained.length;
     if (removed === 0) return;
     this.#pending = retained;
+    this.#pendingReplayRequired = true;
     this.#quarantinedCount += removed;
     await this.#queue.reconcile(this.#documentId, retained, knownSequences);
   }
@@ -1027,17 +1056,8 @@ export class BoardSyncEngine {
           await this.#dropStaleOrUnauthorizedPending();
           break;
         }
-        const knownSequences = this.#pending.map(({ sequence }) => sequence);
-        const replayed = replayPending(this.#confirmed, this.#pending);
-        await this.#quarantineConflicts(replayed.conflicts);
-        this.#pending = replayed.items;
-        await this.#queue.reconcile(
-          this.#documentId,
-          this.#pending,
-          knownSequences,
-        );
+        await this.#rebasePendingIfNeeded();
         if (this.#disposed) return;
-        this.#document = replayed.document;
         const first = this.#pending[0];
         if (first === undefined) break;
         if (
@@ -1077,6 +1097,7 @@ export class BoardSyncEngine {
               `Серверная ревизия ${result.currentRevision} ниже подтверждённой локальной ревизии ${this.#confirmed.revision}.`,
             );
           }
+          this.#pendingReplayRequired = true;
           this.#confirmed = await applyRemoteBatches(
             this.#confirmed,
             result.missingCommandBatches,
@@ -1118,16 +1139,8 @@ export class BoardSyncEngine {
         this.#pending = this.#pending.slice(batch.length);
         await this.#queue.saveHead(this.#confirmed);
       }
-      const knownSequences = this.#pending.map(({ sequence }) => sequence);
-      const replayed = replayPending(this.#confirmed, this.#pending);
-      await this.#quarantineConflicts(replayed.conflicts);
-      this.#pending = replayed.items;
-      await this.#queue.reconcile(
-        this.#documentId,
-        this.#pending,
-        knownSequences,
-      );
-      this.#document = replayed.document;
+      await this.#rebasePendingIfNeeded();
+      if (this.#pending.length === 0) this.#document = this.#confirmed.document;
       this.#emitReady(this.#networkAvailable ? "online" : "offline");
     } catch (error) {
       if (error instanceof SyncRecoveryError || !retryable(error)) {
@@ -1159,6 +1172,7 @@ export class BoardSyncEngine {
           `Серверная ревизия ${page.currentRevision} ниже подтверждённой локальной ревизии ${this.#confirmed.revision}.`,
         );
       }
+      if (page.items.length > 0) this.#pendingReplayRequired = true;
       this.#confirmed = await applyRemoteBatches(
         this.#confirmed,
         page.items,
@@ -1268,6 +1282,7 @@ export class BoardSyncEngine {
       );
       for (const candidate of local) acknowledged.add(candidate.sequence);
     }
+    if (acknowledged.size > 0) this.#pendingReplayRequired = true;
     this.#pending = this.#pending.filter(
       (item) => !acknowledged.has(item.sequence),
     );

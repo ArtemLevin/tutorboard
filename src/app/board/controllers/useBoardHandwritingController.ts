@@ -258,9 +258,14 @@ export function useBoardHandwritingController({
         setDiagnostic(committed.error.message);
         return null;
       }
-      sourceObjectsRef.current = objects;
-      setSourceObjects(objects);
-      return objects;
+      const stored = objects.flatMap(({ id }) => {
+        const object = committed.document.objects[id];
+        return object?.kind === "drawing.pen-stroke" ? [object] : [];
+      });
+      if (stored.length !== objects.length) return null;
+      sourceObjectsRef.current = stored;
+      setSourceObjects(stored);
+      return stored;
     },
     [commitCommand, createCommandMetadata],
   );
