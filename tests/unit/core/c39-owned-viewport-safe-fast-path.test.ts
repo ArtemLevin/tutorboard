@@ -70,7 +70,11 @@ describe("C3.9 controller-owned viewport fast path", () => {
   });
 
   it("performs exactly one full parse and freeze for ten owned viewport commits", () => {
-    const events: Array<{ kind: string; startMs: number; durationMs: number }> = [];
+    const events: Array<{
+      kind: string;
+      startMs: number;
+      durationMs: number;
+    }> = [];
     vi.stubGlobal("window", { __tutorBoardC37Trace: { events } });
     const session = createOwnedViewportReducer();
     let current = fixture(3_000);
@@ -93,7 +97,11 @@ describe("C3.9 controller-owned viewport fast path", () => {
   });
 
   it("invalidates ownership for external replacement, undo-like inputs and explicit reset", () => {
-    const events: Array<{ kind: string; startMs: number; durationMs: number }> = [];
+    const events: Array<{
+      kind: string;
+      startMs: number;
+      durationMs: number;
+    }> = [];
     vi.stubGlobal("window", { __tutorBoardC37Trace: { events } });
     const session = createOwnedViewportReducer();
     const original = fixture();
