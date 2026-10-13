@@ -2439,3 +2439,88 @@ export function reduceBoardDocument(
       return assertNever(command);
   }
 }
+
+/**
+ * Controller-owned viewport session validated and frozen at board entry.
+ * The public reducer continues to validate all untrusted document inputs.
+ */
+export interface PreparedViewportReducer {
+  prepare(document: BoardDocument): BoardDocument;
+  reduce(document: BoardDocument, command: SetViewportCommand): CommandResult;
+  reset(): void;
+}
+
+function freezeOwnedBoardGraph(document: BoardDocument): BoardDocument {
+  const visited = new WeakSet<object>();
+  const pending: object[] = [document];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node === undefined || visited.has(node)) continue;
+    visited.add(node);
+    for (const value of Object.values(node as Record<string, unknown>)) {
+      if (typeof value === "object" && value !== null) pending.push(value);
+    }
+    Object.freeze(node);
+  }
+  return document;
+}
+
+export function createPreparedViewportReducer(): PreparedViewportReducer {
+  let owned: BoardDocument | null = null;
+
+  function prepare(document: BoardDocument): BoardDocument {
+    if (document === owned) return document;
+    owned = null;
+    const validation = measureBoardFrameTrace("viewport-owned-prepare", () =>
+      validateBoardDocument(document),
+    );
+    if (!validation.valid) return document;
+    const frozen = measureBoardFrameTrace("viewport-owned-freeze", () =>
+      freezeOwnedBoardGraph(validation.document),
+    );
+    owned = frozen;
+    return frozen;
+  }
+
+  return {
+    prepare,
+    reduce(document, command) {
+      const source = document === owned ? document : prepare(document);
+      if (source !== owned) {
+        return failure(
+          document,
+          "command.invalid-current-document",
+          "The current BoardDocument is invalid.",
+        );
+      }
+      measureBoardFrameTrace("viewport-owned-reuse", () => undefined);
+
+      const metadataError = measureBoardFrameTrace(
+        "viewport-validate-command",
+        () => validateMetadata(source, command),
+      );
+      if (metadataError !== null) return { ...metadataError, document };
+
+      const outcome = measureBoardFrameTrace("viewport-apply", () =>
+        setViewport(source, command),
+      );
+      if (!outcome.ok) return { ...outcome, document };
+
+      // Only the command's small viewport subtree can still alias the caller.
+      // Detach it before certifying the next immutable revision.
+      const next = Object.freeze({
+        ...outcome.document,
+        viewport: Object.freeze({
+          zoom: outcome.document.viewport.zoom,
+          offset: Object.freeze({ ...outcome.document.viewport.offset }),
+        }),
+      });
+      owned = next;
+      return { ok: true, document: next };
+    },
+    reset() {
+      // Drop the last dense graph when a board changes or history rewinds.
+      owned = null;
+    },
+  };
+}
