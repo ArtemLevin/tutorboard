@@ -1,0 +1,89 @@
+name: C3.9 owned viewport ABBA
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-owned-viewport-abba.yml
+      - scripts/c39/compare-owned-viewport-abba.mjs
+      - src/core/board/commands/reducer.ts
+      - src/app/board/controllers/useBoardDocumentController.ts
+      - tests/e2e/c39-large-board-profile.spec.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c39-owned-abba-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  paired:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [1, 2]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      BASE_SHA: 30d46d160a4051c8092beebf5f24a61fa0ebbcf5
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out comparison harness
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Build exact isolated source revisions
+        run: |
+          set -euo pipefail
+          for sha in "$BASE_SHA" "$CANDIDATE_SHA"; do
+            [[ "$sha" =~ ^[a-f0-9]{40}$ ]] || exit 1
+            git fetch --no-tags origin "$sha"
+          done
+          git worktree add --detach "$RUNNER_TEMP/c39-control" "$BASE_SHA"
+          git worktree add --detach "$RUNNER_TEMP/c39-candidate" "$CANDIDATE_SHA"
+          for role in control candidate; do
+            (cd "$RUNNER_TEMP/c39-$role" && npm ci && npm run build)
+          done
+          npx playwright install --with-deps chromium
+      - name: Run two untruncated ABBA cycles per runner
+        env:
+          C39_STATIC_HEAVY_PROFILE: "1"
+        run: |
+          set -euo pipefail
+          mkdir -p c39-owned-abba
+          : > c39-owned-abba/manifest.jsonl
+          for cycle in 1 2; do
+            for position in 1 2 3 4; do
+              role=candidate
+              if ((position == 1 || position == 4)); then role=control; fi
+              sha="$CANDIDATE_SHA"
+              if [[ "$role" == control ]]; then sha="$BASE_SHA"; fi
+              log="$GITHUB_WORKSPACE/c39-owned-abba/c${cycle}-p${position}-${role}.log"
+              (
+                cd "$RUNNER_TEMP/c39-$role"
+                test -z "$(git status --porcelain)"
+                GITHUB_SHA="$sha" npm run e2e:c39-profile -- \
+                  --grep 'static-(5000|10000)-10-images' \
+                  --project=chromium --workers=1 --retries=0
+              ) 2>&1 | tee "$log"
+              printf '{"role":"%s","sha":"%s","log":"%s"}\n' \
+                "$role" "$sha" "$log" >> c39-owned-abba/manifest.jsonl
+            done
+          done
+      - name: Validate fixture and compute paired performance decision
+        run: |
+          node scripts/c39/compare-owned-viewport-abba.mjs \
+            c39-owned-abba/manifest.jsonl \
+            c39-owned-abba/result.json
+      - name: Preserve all logs and numerical observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c39-owned-abba-runner-${{ matrix.runner }}
+          path: c39-owned-abba/
+          retention-days: 14
+          if-no-files-found: warn

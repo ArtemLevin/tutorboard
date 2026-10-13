@@ -44,3 +44,15 @@ memory/soak. Declare performance GO only on >=20% active-p95 speedup at both
 5k and 10k on each runner with no tail or fidelity regression. Otherwise keep
 the experiment Draft, preserve Issue #201, and isolate expensive first
 parse/freeze before another candidate.
+
+## Reproducible paired gate
+
+`.github/workflows/c39-owned-viewport-abba.yml` runs identical production
+builds from immutable control/candidate SHAs in isolated worktrees on two
+independent Ubuntu runners. Each runner performs two chronological ABBA cycles
+(4 same-machine pairs per scene) at 5k and 10k + 4 PNG/6 JPEG, DPR2, 18 wheel
+inputs. The comparison script refuses missing results, different source SHAs,
+fixture media, browser versions and rendered scene/layer state. It records all
+paired changes in active P95 and >100 ms frame rate without dropping samples.
+The 20% speedup threshold and no >100 ms rate regression must hold per runner.
+This initial gate does not by itself prove pixel-hash equality or memory safety.
