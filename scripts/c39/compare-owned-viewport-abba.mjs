@@ -57,18 +57,14 @@ export function compareOwnedViewportRuns(entries) {
         const report = entry.reports.get(name);
         assert(report !== undefined, "Missing report");
         assert(
-          /^[a-f0-9]{40}$/u.test(entry.sha) &&
-            report.baselineSha === entry.sha,
+          /^[a-f0-9]{40}$/u.test(entry.sha) && report.baselineSha === entry.sha,
           "Source SHA mismatch",
         );
         if (reference === null) {
           reference = report;
           browserVersion = report.browser;
         } else {
-          assert(
-            report.browser === browserVersion,
-            "Browser version mismatch",
-          );
+          assert(report.browser === browserVersion, "Browser version mismatch");
           assert(
             JSON.stringify(report.scenario) ===
               JSON.stringify(reference.scenario) &&
@@ -79,8 +75,7 @@ export function compareOwnedViewportRuns(entries) {
           assert(
             JSON.stringify(report.before) ===
               JSON.stringify(reference.before) &&
-              JSON.stringify(report.after) ===
-                JSON.stringify(reference.after),
+              JSON.stringify(report.after) === JSON.stringify(reference.after),
             "Scene/layer state mismatch",
           );
         }
@@ -112,9 +107,7 @@ export function compareOwnedViewportRuns(entries) {
     const pairedImprovement = median(
       pairs.map((pair) => pair.improvementPercent),
     );
-    const over100RateDelta = median(
-      pairs.map((pair) => pair.over100RateDelta),
-    );
+    const over100RateDelta = median(pairs.map((pair) => pair.over100RateDelta));
     output.scenes[name] = {
       controlSha: sourceByRole.get("control"),
       candidateSha: sourceByRole.get("candidate"),
