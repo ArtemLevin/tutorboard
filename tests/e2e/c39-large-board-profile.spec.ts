@@ -758,8 +758,9 @@ for (const scenario of [
           await expect(page.getByTestId("selection-count")).toHaveText(
             "1 выбрано",
           );
-          selectedPenHitCount =
-            await page.getByTestId("selection-count").textContent();
+          selectedPenHitCount = await page
+            .getByTestId("selection-count")
+            .textContent();
         }
         const attribution = correlateC39SlowFrames(
           phases.gaps,
