@@ -80,6 +80,16 @@ async function draw(
   await page.mouse.up();
 }
 
+async function clearBoard(page: Page): Promise<void> {
+  const box = await page.getByTestId("board-stage").boundingBox();
+  if (box === null) throw new Error("Board stage has no bounds");
+  await page.mouse.click(box.x + box.width * 0.9, box.y + box.height * 0.85, {
+    button: "right",
+  });
+  await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+  await page.getByRole("button", { name: "Очистить", exact: true }).click();
+}
+
 async function expectRevision(page: Page, revision: number): Promise<void> {
   try {
     await expect(page.getByTestId("persistence-status")).toHaveText(
@@ -396,6 +406,83 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
       guest.getByRole("heading", { name: "Доступ к доске недоступен" }),
     ).toBeVisible();
     await expect(guest.getByTestId("teacher-follow")).toHaveCount(0);
+  } finally {
+    await teacherContext.close();
+    await guestContext.close();
+  }
+});
+
+// Uses the pinned standalone backend and two independent authenticated sessions.
+test("collaborative clear Undo preserves peer edits and survives immediate Undo and reload", async ({
+  browser,
+}) => {
+  const teacherContext = await browser.newContext();
+  const guestContext = await browser.newContext();
+  try {
+    const teacher = await teacherContext.newPage();
+    capturePageDiagnostics(teacher);
+    const csrf = await loginTeacher(teacher);
+    const created = await teacherContext.request.post("/api/v1/boards", {
+      data: { title: "Совместная очистка и Undo" },
+      headers: { "x-csrf-token": csrf },
+    });
+    expect(created.ok()).toBe(true);
+    const { boardId } = (await created.json()) as { boardId: string };
+    const invited = await teacherContext.request.post(
+      `/api/v1/boards/${encodeURIComponent(boardId)}/invitations`,
+      {
+        data: {
+          displayName: "Участник Undo",
+          expiresAt: null,
+          writeEnabled: true,
+        },
+        headers: { "x-csrf-token": csrf },
+      },
+    );
+    expect(invited.ok()).toBe(true);
+    const { joinUrl } = (await invited.json()) as { joinUrl: string };
+    await teacher.goto(`/b/${encodeURIComponent(boardId)}#/board`);
+    const guest = await guestContext.newPage();
+    capturePageDiagnostics(guest);
+    await guest.goto(joinUrl);
+    await expectRevision(teacher, 0);
+    await expectRevision(guest, 0);
+    await expectCollaborationOnline(teacher);
+    await expectCollaborationOnline(guest);
+
+    await draw(teacher, "r", { x: 220, y: 180 }, { x: 360, y: 280 });
+    await expectRevision(teacher, 1);
+    await expectRevision(guest, 1);
+    await draw(guest, "p", { x: 450, y: 200 }, { x: 550, y: 290 });
+    await expectRevision(teacher, 2);
+    await expectRevision(guest, 2);
+    await expect(teacher.getByTestId("object-count")).toHaveText("2 объекта");
+
+    await clearBoard(teacher);
+    await teacher.keyboard.press("Control+z");
+    await expectRevision(teacher, 4);
+    await expectRevision(guest, 4);
+    await expect(teacher.getByTestId("object-count")).toHaveText("2 объекта");
+    await expect(guest.getByTestId("object-count")).toHaveText("2 объекта");
+
+    await clearBoard(teacher);
+    await expectRevision(teacher, 5);
+    await expectRevision(guest, 5);
+    await expect(guest.getByTestId("object-count")).toHaveText("0 объекта");
+    await draw(guest, "r", { x: 600, y: 350 }, { x: 720, y: 430 });
+    await expectRevision(teacher, 6);
+    await expectRevision(guest, 6);
+    await teacher.keyboard.press("Control+z");
+    await expectRevision(teacher, 7);
+    await expectRevision(guest, 7);
+    await expect(teacher.getByTestId("object-count")).toHaveText("3 объекта");
+    await expect(guest.getByTestId("object-count")).toHaveText("3 объекта");
+    await teacher.reload();
+    await guest.reload();
+    await expectRevision(teacher, 7);
+    await expectRevision(guest, 7);
+    await expect(teacher.getByTestId("object-count")).toHaveText("3 объекта");
+    await expect(guest.getByTestId("object-count")).toHaveText("3 объекта");
   } finally {
     await teacherContext.close();
     await guestContext.close();
