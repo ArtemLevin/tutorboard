@@ -103,6 +103,13 @@ interface InkRenderRun {
   readonly key: string;
 }
 
+/**
+ * A single huge pen run cannot fit in WheelInkCacheCoordinator's bounded
+ * raster budget. Keep document stacking order while exposing cacheable
+ * consecutive subsequences. This does not split paths, strokes or hit shapes.
+ */
+export const maximumWheelInkRunStrokes = 128;
+
 function groupInkRenderRuns(
   batches: readonly (readonly BoardRenderItem[])[],
 ): readonly InkRenderRun[] {
@@ -115,7 +122,11 @@ function groupInkRenderRuns(
     for (const item of batch) {
       const ink = item.object.kind === "drawing.pen-stroke";
       const previous = groups.at(-1);
-      if (previous === undefined || previous.ink !== ink) {
+      if (
+        previous === undefined ||
+        previous.ink !== ink ||
+        (ink && previous.items.length >= maximumWheelInkRunStrokes)
+      ) {
         groups.push({
           ink,
           items: [item],

@@ -4,8 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   BoardSceneContent,
+  maximumWheelInkRunStrokes,
   type BoardSceneContentProps,
 } from "../../../../src/adapters/canvas-konva/board-scene-content";
+import { WheelInkCacheCoordinator } from "../../../../src/adapters/canvas-konva/wheel-ink-cache";
 import {
   KonvaRendererRegistry,
   type KonvaRenderContext,
@@ -99,6 +101,71 @@ describe("stable committed scene rendering", () => {
 
     view.rerender(<BoardSceneContent {...props} batches={batches} zoom={2} />);
     expect(renderObject).toHaveBeenCalledTimes(7);
+  });
+
+  it("splits 400 ordered immutable strokes into bounded cacheable runs", () => {
+    const coordinator = new WheelInkCacheCoordinator();
+    const registered = vi.spyOn(coordinator, "register");
+    const renderInk = vi.fn((object: BoardObject) =>
+      createElement("span", null, object.id),
+    );
+    const { props } = fixture(0);
+    const batches = [
+      Array.from({ length: 400 }, (_, index): BoardRenderItem => ({
+        object: {
+          groupId: null,
+          id: boardObjectId(`object:ink:${index}`),
+          kind: "drawing.pen-stroke",
+          locked: false,
+          points: [
+            { x: 0, y: 0 },
+            { x: 20, y: 8 },
+          ],
+          position: { x: (index % 20) * 12, y: Math.floor(index / 20) * 12 },
+          rotation: 0,
+          scale: { x: 1, y: 1 },
+          source: { kind: "user" },
+          style: {
+            fill: null,
+            opacity: 1,
+            stroke: "#17202a",
+            strokeWidth: 2,
+          },
+          visible: true,
+        },
+        transforms: [],
+      })),
+    ];
+    const registry = new KonvaRendererRegistry([
+      { kind: "drawing.pen-stroke", render: renderInk },
+    ]);
+    const view = render(
+      <BoardSceneContent
+        {...props}
+        batches={batches}
+        registry={registry}
+        wheelInkCache={coordinator}
+      />,
+    );
+    // Three full 128-stroke groups are cacheable. The final 16 strokes
+    // remain vector nodes, and all 400 remain independently interactive.
+    expect(maximumWheelInkRunStrokes).toBe(128);
+    expect(registered).toHaveBeenCalledTimes(3);
+    expect(renderInk).toHaveBeenCalledTimes(400);
+    expect(
+      screen.getAllByText(/^object:ink:/u).map((node) => node.textContent),
+    ).toEqual(Array.from({ length: 400 }, (_, index) => `object:ink:${index}`));
+    view.rerender(
+      <BoardSceneContent
+        {...props}
+        batches={batches}
+        registry={registry}
+        wheelInkCache={coordinator}
+        zoom={1.8}
+      />,
+    );
+    expect(registered).toHaveBeenCalledTimes(3);
+    expect(renderInk).toHaveBeenCalledTimes(400);
   });
 
   it("does not regenerate immutable pen paths for transient zoom updates", () => {
