@@ -2154,6 +2154,16 @@ history и persistence/collaboration callbacks. Подробности:
 После trace evidence — отдельный безопасный оптимизационный кандидат и
 реплицированный ABBA на 5k/10k. Issue #201 остаётся открытым.
 
+### C3.9 — paired prepared-viewport NO-GO and frame critical path (13.10.2026)
+
+ABBA #255: Runner 1 5k -16.65%, 10k +9.61%; Runner 2 5k +20.70%,
+10k -8.86% median paired active P95. Полный CI успешен, performance NO-GO.
+Профиль тяжёлой сцены показал сочетание длинного board-commit, Konva scene/hit
+и Chromium LayerTreeHost::DoUpdateLayers. Для точной локализации выделены
+опциональные bounded spans visibility/index/batching/paint-runs/transformer.
+Следующий PR — только диагностика; #255 оставить Draft, #201 открыт.
+Подробности: docs/C39_FRAME_CRITICAL_PATH_2026-10-13.md.
+
 ## 25. Текущая последовательность работ
 
 ### 25.1. Инженерный приоритет — большая статическая доска

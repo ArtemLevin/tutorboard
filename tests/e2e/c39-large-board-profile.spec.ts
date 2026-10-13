@@ -751,6 +751,10 @@ for (const scenario of [
             "wheel-animation-resume",
             "wheel-viewport-persist",
             "viewport-reducer-total",
+            "viewport-visible-select",
+            "viewport-item-batches",
+            "viewport-paint-runs",
+            "viewport-scene-runs",
             "viewport-validate-current",
             "viewport-validate-command",
             "viewport-apply",
@@ -776,6 +780,12 @@ for (const scenario of [
         // turns: report them independently; never add their durations.
         const viewportPhaseKinds = [
           "viewport-reducer-total",
+          "viewport-visibility-index",
+          "viewport-visible-select",
+          "viewport-item-batches",
+          "viewport-paint-runs",
+          "viewport-scene-runs",
+          "viewport-transformer-sync",
           "viewport-validate-current",
           "viewport-validate-command",
           "viewport-apply",

@@ -15,7 +15,7 @@ import type {
   Transform2D,
 } from "../../core/public";
 import type { BoardObjectTransformSnapshot } from "./BoardStage";
-import { recordBoardFrameTrace } from "./board-frame-trace";
+import { measureBoardFrameTrace, recordBoardFrameTrace } from "./board-frame-trace";
 import {
   minimumWheelCacheStrokes,
   type WheelInkCacheCoordinator,
@@ -243,7 +243,13 @@ export const BoardSceneContent = memo(function BoardSceneContent({
   zoom,
   wheelInkCache,
 }: BoardSceneContentProps) {
-  const runs = useMemo(() => groupInkRenderRuns(batches), [batches]);
+  const runs = useMemo(
+    () =>
+      measureBoardFrameTrace("viewport-scene-runs", () =>
+        groupInkRenderRuns(batches),
+      ),
+    [batches],
+  );
   const selected = useMemo(
     () => new Set(selectedObjectIds),
     [selectedObjectIds],
