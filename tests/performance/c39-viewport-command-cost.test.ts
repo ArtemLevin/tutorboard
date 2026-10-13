@@ -11,6 +11,7 @@ import {
   commitDocumentHistory,
   createDocumentHistory,
 } from "../../src/modules/history/public";
+import { validateBoardDocumentForReduction } from "../../src/core/board/validation/snapshots";
 import { createDenseBoardDocument } from "../fixtures/dense-board";
 
 const capturedValidation = vi.hoisted(() => ({
@@ -18,21 +19,19 @@ const capturedValidation = vi.hoisted(() => ({
   durationsMs: [] as number[],
 }));
 
-// Wrap the real validator used by the reducer, retaining all validation logic.
-// Optimized viewport command must invoke it exactly once.
-// A second full validation outside the reducer supplies a paired reference
-// cost of the eliminated old pass, not a literal legacy reducer runtime.
-vi.mock("../../src/core/board/validation/validate", async (importOriginal) => {
+// Wrap the real immutable-snapshot gate without changing its behavior.
+// Strict full validation remains the paired reference and the external boundary.
+vi.mock("../../src/core/board/validation/snapshots", async (importOriginal) => {
   const actual =
     await importOriginal<
-      typeof import("../../src/core/board/validation/validate")
+      typeof import("../../src/core/board/validation/snapshots")
     >();
   return {
     ...actual,
-    validateBoardDocument(input: unknown) {
+    validateBoardDocumentForReduction(input: BoardDocument) {
       const startedAtMs = performance.now();
       try {
-        return actual.validateBoardDocument(input);
+        return actual.validateBoardDocumentForReduction(input);
       } finally {
         if (capturedValidation.active) {
           capturedValidation.durationsMs.push(performance.now() - startedAtMs);
@@ -95,7 +94,9 @@ function validatedDenseDocument(strokes: number): BoardDocument {
   const read = validateBoardDocument(fixture);
   expect(read.valid).toBe(true);
   if (!read.valid) throw new Error("Invalid C3.9-C fixture");
-  return read.document;
+  const owned = validateBoardDocumentForReduction(read.document);
+  if (!owned.valid) throw new Error("Invalid immutable snapshot");
+  return owned.document;
 }
 
 function viewportCommand(index: number) {
@@ -111,9 +112,9 @@ function viewportCommand(index: number) {
   };
 }
 
-describe("C3.9-D optimized viewport command cost", () => {
-  it("measures one full validation and paired cost of the eliminated second pass", () => {
-    for (const strokes of [300, 1_000, 3_000, 5_000]) {
+describe("C3.9 immutable snapshot viewport command cost", () => {
+  it("measures an immutable snapshot gate against strict full-document reference validation", () => {
+    for (const strokes of [300, 1_000, 3_000, 5_000, 10_000]) {
       const document = validatedDenseDocument(strokes);
       // Populate a realistic bounded undo history before timing; each entry
       // is an immutable snapshot holding the SAME content references.
@@ -170,7 +171,7 @@ describe("C3.9-D optimized viewport command cost", () => {
       }
       const med = describeTiming(samples);
       console.info(
-        "C39_VIEWPORT_COMMAND_COST_D",
+        "C39_VIEWPORT_COMMAND_COST_SNAPSHOT",
         JSON.stringify({
           strokes,
           media: { png: 6, gif: 4 },
