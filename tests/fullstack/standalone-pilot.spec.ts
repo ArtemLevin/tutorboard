@@ -447,8 +447,13 @@ test("collaborative clear Undo preserves peer edits and survives immediate Undo 
     await guest.goto(joinUrl);
     await expectRevision(teacher, 0);
     await expectRevision(guest, 0);
-    await expectCollaborationOnline(teacher);
-    await expectCollaborationOnline(guest);
+    for (const participant of [teacher, guest]) {
+      await participant
+        .getByRole("button", { name: "Настройки доски" })
+        .click();
+      await expectCollaborationOnline(participant);
+      await participant.keyboard.press("Escape");
+    }
 
     await draw(teacher, "r", { x: 220, y: 180 }, { x: 360, y: 280 });
     await expectRevision(teacher, 1);

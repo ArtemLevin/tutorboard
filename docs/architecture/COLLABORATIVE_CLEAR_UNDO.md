@@ -40,7 +40,8 @@ Undo then remains in the normal durable pending queue.
 A clipboard paste is limited to 5,000 entries per object/group/import/solid array
 and 2 MiB command JSON. Registration checks these limits once and does not retain
 the temporary JSON. A cut whose restore exceeds them does not add an unusable
-Undo entry. This does not extend large-clear recovery support: the varied-stroke
+Undo entry and clears the older Undo stack, preventing an older action from
+being offered as reversing the clear. This does not extend large-clear recovery support: the varied-stroke
 fixtures at 3k and 10k exceed the existing byte/count bounds. The target limit for
 a cut itself remains 10,000. Protocol and security limits are unchanged.
 

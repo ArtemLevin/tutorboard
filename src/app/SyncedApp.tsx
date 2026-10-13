@@ -1142,10 +1142,16 @@ function SyncedWorkspace({
               createId: () => `command:undo:${crypto.randomUUID()}`,
               now: () => new Date().toISOString(),
             });
-            if (
-              inverse.length > 0 &&
-              undoAvailability.registerCommittedCut(command, inverse) !== false
-            ) {
+            const restoreAvailable = undoAvailability.registerCommittedCut(
+              command,
+              inverse,
+            );
+            if (restoreAvailable === false) {
+              // A nontransportable clear is an undo barrier: do not offer an
+              // older operation as if it could reverse the most recent clear.
+              undoStackRef.current = [];
+              setUndoCount(0);
+            } else if (inverse.length > 0) {
               undoStackRef.current = [...undoStackRef.current, inverse].slice(
                 -100,
               );
@@ -1174,7 +1180,10 @@ function SyncedWorkspace({
               commands.length === 1 && commands[0] !== undefined
                 ? undoAvailability.registerCommittedCut(commands[0], inverse)
                 : undefined;
-            if (inverse.length > 0 && restoreAvailable !== false) {
+            if (restoreAvailable === false) {
+              undoStackRef.current = [];
+              setUndoCount(0);
+            } else if (inverse.length > 0) {
               undoStackRef.current = [...undoStackRef.current, inverse].slice(
                 -100,
               );

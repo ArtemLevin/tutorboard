@@ -244,7 +244,32 @@ it.each([1_000, 10_000])(
         {},
         { timeout: 10_000 },
       );
-      await clear(before, "command:clear");
+      let clearSource = before;
+      if (strokeCount === 10_000) {
+        // A valid older Undo must not be exposed as undoing an oversized clear.
+        const rename: BoardCommand = {
+          actorId: actor,
+          id: core.commandId("command:own-title"),
+          timestamp,
+          kind: "core.document.rename",
+          title: "Own title",
+        };
+        const renamed = core.reduceBoardDocument(before, rename);
+        if (!renamed.ok) throw new Error(renamed.error.message);
+        act(() =>
+          capture.props?.onCommandCommitted?.(rename, renamed.document, before),
+        );
+        await waitFor(
+          () =>
+            expect(capture.props?.persistenceStatus?.label).toBe(
+              "Синхронизировано · r1",
+            ),
+          { timeout: 10_000 },
+        );
+        expect(capture.props?.collaborativeUndoAvailable).toBe(true);
+        clearSource = renamed.document;
+      }
+      await clear(clearSource, "command:clear");
       for (const title of ["Remote one", "Remote two"]) {
         const ms = await remoteCommand({
           actorId: core.actorId("actor:remote"),
