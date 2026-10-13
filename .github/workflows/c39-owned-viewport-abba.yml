@@ -48,7 +48,7 @@ jobs:
           for role in control candidate; do
             (cd "$RUNNER_TEMP/c39-$role" && npm ci && npm run build)
           done
-          npx playwright install --with-deps chromium
+          (cd "$RUNNER_TEMP/c39-candidate" && npx playwright install --with-deps chromium)
       - name: Run two untruncated ABBA cycles per runner
         env:
           C39_STATIC_HEAVY_PROFILE: "1"

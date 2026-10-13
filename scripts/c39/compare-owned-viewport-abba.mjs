@@ -65,15 +65,22 @@ export function compareOwnedViewportRuns(entries) {
           reference = report;
           browserVersion = report.browser;
         } else {
-          assert(report.browser === browserVersion, "Browser version mismatch");
           assert(
-            JSON.stringify(report.scenario) === JSON.stringify(reference.scenario) &&
-              JSON.stringify(report.content) === JSON.stringify(reference.content),
+            report.browser === browserVersion,
+            "Browser version mismatch",
+          );
+          assert(
+            JSON.stringify(report.scenario) ===
+              JSON.stringify(reference.scenario) &&
+              JSON.stringify(report.content) ===
+                JSON.stringify(reference.content),
             "Fixture mismatch",
           );
           assert(
-            JSON.stringify(report.before) === JSON.stringify(reference.before) &&
-              JSON.stringify(report.after) === JSON.stringify(reference.after),
+            JSON.stringify(report.before) ===
+              JSON.stringify(reference.before) &&
+              JSON.stringify(report.after) ===
+                JSON.stringify(reference.after),
             "Scene/layer state mismatch",
           );
         }
@@ -115,8 +122,7 @@ export function compareOwnedViewportRuns(entries) {
       pairs,
       pairedImprovementPercent: pairedImprovement,
       medianOver100RateDelta: over100RateDelta,
-      performanceGo:
-        pairedImprovement >= 20 && over100RateDelta <= 0,
+      performanceGo: pairedImprovement >= 20 && over100RateDelta <= 0,
     };
   }
   output.performanceGo = scenarios.every(
@@ -147,7 +153,10 @@ async function main() {
   console.info("C39_OWNED_VIEWPORT_ABBA " + JSON.stringify(result));
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
