@@ -1,0 +1,26 @@
+name: C3.9 Prettier diagnostics
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-prettier-probe.yml
+      - scripts/c39/compare-owned-viewport-abba.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  exact-format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Show exact Prettier changes
+        run: |
+          npx prettier --write scripts/c39/compare-owned-viewport-abba.mjs
+          git diff -- scripts/c39/compare-owned-viewport-abba.mjs
