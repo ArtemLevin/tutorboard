@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 
@@ -693,6 +694,13 @@ for (const scenario of [
         );
         // The full post-merge E2E gate also runs this benchmark in Firefox.
         // Preserve JS rAF/wheel attribution there, without attempting CDP.
+        const strictVisualParity =
+          scenario.staticHeavy && process.env.C39_VISUAL_PARITY === "1";
+        const visualBeforeSha256 = strictVisualParity
+          ? createHash("sha256")
+              .update(await stage.screenshot({ animations: "disabled" }))
+              .digest("hex")
+          : null;
         const chromiumTraceEnabled =
           traceEnabled && browser.browserType().name() === "chromium";
         const stopChromiumTrace = chromiumTraceEnabled
@@ -736,6 +744,23 @@ for (const scenario of [
         const jsTrace = await page.evaluate(
           () => window.__tutorBoardC37Trace?.events ?? [],
         );
+        const visualAfterSha256 = strictVisualParity
+          ? createHash("sha256")
+              .update(await stage.screenshot({ animations: "disabled" }))
+              .digest("hex")
+          : null;
+        let selectedPenHitCount: string | null = null;
+        if (strictVisualParity) {
+          // Drawn pen strokes at this location are below the image row.
+          // Exercise actual Konva pixel hit testing in the real select tool.
+          await page.keyboard.press("v");
+          await page.mouse.click(bounds.x + 174, bounds.y + 304);
+          await expect(page.getByTestId("selection-count")).toHaveText(
+            "1 выбрано",
+          );
+          selectedPenHitCount =
+            await page.getByTestId("selection-count").textContent();
+        }
         const attribution = correlateC39SlowFrames(
           phases.gaps,
           captured.wheelTimes,
@@ -827,6 +852,13 @@ for (const scenario of [
           arch: process.arch,
           node: process.version,
           importDurationMs,
+          visualParity: strictVisualParity
+            ? {
+                beforeSha256: visualBeforeSha256,
+                afterSha256: visualAfterSha256,
+                selectedPenHitCount,
+              }
+            : null,
           loadMode: scenario.staticHeavy
             ? "indexeddb-revision-restore"
             : "json-import",

@@ -78,7 +78,18 @@ export function compareBoundedInkRuns(entries) {
               JSON.stringify(report.after) === JSON.stringify(reference.after),
             "Scene/layer state mismatch",
           );
+          assert(
+            JSON.stringify(report.visualParity) ===
+              JSON.stringify(reference.visualParity),
+            "Pixel screenshot or pen-hit parity mismatch",
+          );
         }
+        assert(
+          report.visualParity?.beforeSha256?.length === 64 &&
+            report.visualParity?.afterSha256?.length === 64 &&
+            report.visualParity?.selectedPenHitCount === "1 выбрано",
+          "Missing pixel hashes or pen hit verification",
+        );
         assert(
           report.inputTimesMs?.length === 18,
           "Missing native wheel input sequence",

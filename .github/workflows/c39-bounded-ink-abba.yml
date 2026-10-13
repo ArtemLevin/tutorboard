@@ -45,6 +45,10 @@ jobs:
           done
           git worktree add --detach "$RUNNER_TEMP/c39-control" "$BASE_SHA"
           git worktree add --detach "$RUNNER_TEMP/c39-candidate" "$CANDIDATE_SHA"
+          # Overlay only the matching E2E reporter; both production bundles
+          # retain the exact immutable source revision for this comparison.
+          cp "$RUNNER_TEMP/c39-candidate/tests/e2e/c39-large-board-profile.spec.ts" \
+            "$RUNNER_TEMP/c39-control/tests/e2e/c39-large-board-profile.spec.ts"
           for role in control candidate; do
             (cd "$RUNNER_TEMP/c39-$role" && npm ci && npm run build)
           done
@@ -52,6 +56,7 @@ jobs:
       - name: Run three chronological ABBA cycles per runner
         env:
           C39_STATIC_HEAVY_PROFILE: "1"
+          C39_VISUAL_PARITY: "1"
         run: |
           set -euo pipefail
           mkdir -p c39-bounded-ink-abba
@@ -65,7 +70,11 @@ jobs:
               log="$GITHUB_WORKSPACE/c39-bounded-ink-abba/c${cycle}-p${position}-${role}.log"
               (
                 cd "$RUNNER_TEMP/c39-$role"
-                test -z "$(git status --porcelain)"
+                if [[ "$role" == control ]]; then
+                  test "$(git diff --name-only)" = "tests/e2e/c39-large-board-profile.spec.ts"
+                else
+                  test -z "$(git status --porcelain)"
+                fi
                 GITHUB_SHA="$sha" npm run e2e:c39-profile -- \
                   --grep 'static-(5000|10000)-10-images' \
                   --project=chromium --workers=1 --retries=0

@@ -41,3 +41,14 @@ work or memory. If performance is neutral/negative, keep Draft/NO-GO.
 - Pixel-level before/after comparison, accurate pointer-hit selection and
   eraser, pen, undo/redo, reconnect and GC/memory soak remain independent
   release requirements. Avoid declaring GO on green workflow alone.
+
+## Strict screenshot and hit parity for ABBA
+
+Both arms run the same E2E reporter, over their separately built immutable
+application revisions; only the control reporter test file is overlaid.
+Before wheel and after the captured active frames, Playwright creates DPR2
+PNG screenshots of the board stage and SHA256 hashes. The comparator requires
+exactly matching hashes within and across paired runs. After the timed input,
+Playwright clicks a pen stroke below the image row with the real selection
+tool; exactly one selected hit is required. Missing or mismatching hashes
+or hit counts fail the benchmark regardless of P95 improvements.
