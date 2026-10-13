@@ -87,11 +87,15 @@ export class LocalDocumentAutosave {
   }
 
   schedule(document: BoardDocument): void {
-    if (this.#disposed || document === this.#lastPersistedDocument) {
+    if (
+      this.#disposed ||
+      (document === this.#lastPersistedDocument &&
+        !this.#isSaving &&
+        this.#queuedDocument === null)
+    ) {
       return;
     }
     this.#queuedDocument = document;
-    this.#repository.prepareSave?.(document);
     if (this.#timer !== null) {
       clearTimeout(this.#timer);
     }
@@ -143,7 +147,7 @@ export class LocalDocumentAutosave {
   #enqueueLatest(priority: SaveBoardDocumentPriority): void {
     const document = this.#queuedDocument;
     this.#queuedDocument = null;
-    if (document === null || document === this.#lastPersistedDocument) {
+    if (document === null) {
       return;
     }
     this.#enqueue({
@@ -201,6 +205,12 @@ export class LocalDocumentAutosave {
     this.#activeInput = input;
     let result: SaveBoardDocumentResult;
     try {
+      // Prepare only when this debounced snapshot reaches its save turn. The
+      // save joins immediately, so even an uncached large result is consumed
+      // once. Lifecycle flush enters the synchronous durable path directly.
+      if (task.priority === "background") {
+        this.#repository.prepareSave?.(task.document);
+      }
       result = await this.#repository.save(input);
     } finally {
       if (this.#activeInput === input) this.#activeInput = null;
@@ -209,6 +219,22 @@ export class LocalDocumentAutosave {
       this.#revisionId = result.revisionId;
       this.#lastPersistedDocument = task.document;
       this.#lastFailedTask = null;
+      // A later accepted write can overwrite this document, even when Undo
+      // has returned to the same identity. Only discard a duplicate debounce
+      // when no such write remains. "saved" must describe the latest state.
+      if (this.#queuedDocument === task.document && this.#tasks.length === 0) {
+        this.#queuedDocument = null;
+        if (this.#timer !== null) {
+          clearTimeout(this.#timer);
+          this.#timer = null;
+        }
+      }
+      if (this.#queuedDocument !== null || this.#tasks.length > 0) {
+        this.#onStateChange({
+          kind: this.#tasks.length > 0 ? "saving" : "scheduled",
+        });
+        return;
+      }
       this.#onStateChange({
         duplicate: result.duplicate,
         kind: "saved",
