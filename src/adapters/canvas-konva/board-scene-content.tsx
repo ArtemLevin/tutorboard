@@ -183,7 +183,8 @@ const BoardSceneRun = memo(function BoardSceneRun({
   zoom,
   wheelInkCache,
 }: BoardSceneRunProps) {
-  const contents = run.items.map((item) => (
+  const contents = measureBoardFrameTrace("react-descriptors-build", () =>
+    run.items.map((item) => (
     <BoardRenderItemView
       coordinatePlotInteraction={
         item.object.kind === "math.coordinate-plot"
@@ -210,7 +211,8 @@ const BoardSceneRun = memo(function BoardSceneRun({
       registry={registry}
       zoom={item.object.kind === "drawing.pen-stroke" ? 1 : zoom}
     />
-  ));
+    )),
+  );
   const result =
     run.ink &&
     run.items.length >= minimumWheelCacheStrokes &&

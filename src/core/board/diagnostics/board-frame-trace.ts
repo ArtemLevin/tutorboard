@@ -10,6 +10,9 @@ export interface BoardFrameTraceEvent {
   readonly kind:
     | "board-commit"
     | "react-ink-run"
+    | "react-descriptors-build"
+    | "konva-attr-apply"
+    | "viewport-transformer-idle-skip"
     | "react-other-run"
     | "konva-scene"
     | "konva-hit"

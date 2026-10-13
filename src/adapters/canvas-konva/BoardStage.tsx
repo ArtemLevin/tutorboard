@@ -45,6 +45,7 @@ import {
   recordBoardFrameTrace,
 } from "./board-frame-trace";
 import { startsStylusEraser } from "../../shared/stylus-eraser";
+import { needsTransformerSynchronization } from "./transformer-sync";
 import { AnimatedImageRedrawCoordinator } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
 import { BoardRenderItemView, BoardSceneContent } from "./board-scene-content";
@@ -517,6 +518,7 @@ export function BoardStage({
   const wheelSessionRef = useRef<WheelSession | null>(null);
   const wheelTraceIdRef = useRef(0);
   const pendingViewportCommitTraceRef = useRef<number | null>(null);
+  const konvaAttrMetricsRef = useRef({ calls: 0, totalMs: 0 });
   const rightClickCandidateRef = useRef<RightClickCandidate | null>(null);
   const primaryCanvasClickTimeoutRef = useRef<number | null>(null);
   const primaryCanvasPointerCandidateRef =
@@ -605,10 +607,46 @@ export function BoardStage({
     [],
   );
 
-  // Attribution runs only in the opt-in browser performance profile.
-  // The interval covers React render through layout commit, including
-  // synchronous react-konva reconciliation, but excludes GPU composition.
+  // Instrument updates to existing Konva nodes only in traced browser runs.
+  // Aggregate calls: never emit thousands of individual attribute events.
   useLayoutEffect(() => {
+    if (window.__tutorBoardC37Trace === undefined) return;
+    const stage = stageRef.current;
+    if (stage === null) return;
+    const original = Konva.Node.prototype.setAttrs;
+    const metrics = konvaAttrMetricsRef.current;
+    const traced: typeof original = function (this: Konva.Node, config) {
+      if (this.getStage() !== stage) return original.call(this, config);
+      const started = performance.now();
+      try {
+        return original.call(this, config);
+      } finally {
+        metrics.calls += 1;
+        metrics.totalMs += performance.now() - started;
+      }
+    };
+    Konva.Node.prototype.setAttrs = traced;
+    return () => {
+      if (Konva.Node.prototype.setAttrs === traced) {
+        Konva.Node.prototype.setAttrs = original;
+      }
+    };
+  }, []);
+
+  // Attribution runs only in opt-in browser profiling. The attr sum below
+  // contains disjoint spans; it is NOT a contiguous frame duration.
+  useLayoutEffect(() => {
+    const metrics = konvaAttrMetricsRef.current;
+    if (metrics.calls > 0 && window.__tutorBoardC37Trace !== undefined) {
+      recordBoardFrameTrace(
+        "konva-attr-apply",
+        performance.now(),
+        0,
+        `calls=${metrics.calls};sumMs=${metrics.totalMs.toFixed(3)}`,
+      );
+      metrics.calls = 0;
+      metrics.totalMs = 0;
+    }
     const startedAtMs = pendingViewportCommitTraceRef.current;
     if (startedAtMs === null) return;
     pendingViewportCommitTraceRef.current = null;
@@ -831,6 +869,19 @@ export function BoardStage({
     const stage = stageRef.current;
     const transformer = transformerRef.current;
     if (stage === null || transformer === null) {
+      return;
+    }
+    if (
+      !needsTransformerSynchronization(
+        transformableObjectIds.length,
+        transformer.nodes().length,
+      )
+    ) {
+      recordBoardFrameTrace(
+        "viewport-transformer-idle-skip",
+        performance.now(),
+        0,
+      );
       return;
     }
     measureBoardFrameTrace("viewport-transformer-sync", () => {
