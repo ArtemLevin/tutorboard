@@ -197,7 +197,9 @@ export function useBoardDrawingController({
       ) {
         return;
       }
-      const proposed = proposeSmartInkReplacement(result.completedObject);
+      const stored = committed.document.objects[result.completedObject.id];
+      if (stored?.kind !== "drawing.pen-stroke") return;
+      const proposed = proposeSmartInkReplacement(stored);
       if (proposed.status === "proposed") {
         const current = getDocument().objects[proposed.proposal.original.id];
         if (

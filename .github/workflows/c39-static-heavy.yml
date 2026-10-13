@@ -8,6 +8,8 @@ on:
       - tests/fixtures/dense-board.ts
       - scripts/c39/summarize-static-heavy.mjs
       - tests/node/c39-static-heavy-summary.test.mjs
+      - src/core/board/commands/**
+      - src/core/board/validation/**
   workflow_dispatch:
 
 permissions:

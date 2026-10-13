@@ -16,10 +16,13 @@ import {
 } from "../identifiers";
 import type { BoardObject } from "../objects";
 import { identityTransform, type Transform2D, type Vec2 } from "../primitives";
-import { ownValue } from "../records";
+import { boardValuesEqual, ownValue } from "../records";
 import { isIsoTimestamp } from "../timestamps";
 import { boardDocumentSchema } from "../validation/schema";
-import { validateBoardDocument } from "../validation/validate";
+import {
+  validateBoardDocumentForReduction,
+  validateBoardDocumentTransition,
+} from "../validation/snapshots";
 import { measureBoardFrameTrace } from "../diagnostics/board-frame-trace";
 import type {
   AddGroupCommand,
@@ -113,40 +116,6 @@ function isFiniteVec2(value: Vec2): boolean {
 
 function hasDuplicates(values: readonly string[]): boolean {
   return new Set(values).size !== values.length;
-}
-
-function structurallyEqual(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) {
-    return true;
-  }
-  if (
-    typeof left !== "object" ||
-    left === null ||
-    typeof right !== "object" ||
-    right === null
-  ) {
-    return false;
-  }
-  if (Array.isArray(left) || Array.isArray(right)) {
-    return (
-      Array.isArray(left) &&
-      Array.isArray(right) &&
-      left.length === right.length &&
-      left.every((value, index) => structurallyEqual(value, right[index]))
-    );
-  }
-  const leftRecord = left as Readonly<Record<string, unknown>>;
-  const rightRecord = right as Readonly<Record<string, unknown>>;
-  const leftKeys = Object.keys(leftRecord).sort();
-  const rightKeys = Object.keys(rightRecord).sort();
-  return (
-    leftKeys.length === rightKeys.length &&
-    leftKeys.every(
-      (key, index) =>
-        key === rightKeys[index] &&
-        structurallyEqual(leftRecord[key], rightRecord[key]),
-    )
-  );
 }
 
 function validateMetadata(
@@ -321,7 +290,7 @@ function groupedLineTransformOnly(
     style: replacement.style,
     visible: replacement.visible,
   };
-  return structurallyEqual(currentStatic, replacementStatic);
+  return boardValuesEqual(currentStatic, replacementStatic);
 }
 
 function replaceObjects(
@@ -359,7 +328,7 @@ function replaceObjects(
   );
   if (
     currentObjects.some(
-      (object, index) => !structurallyEqual(object, command.originals[index]),
+      (object, index) => !boardValuesEqual(object, command.originals[index]),
     )
   ) {
     return failure(
@@ -544,7 +513,7 @@ function batchReplaceObjects(
           "Batch replace command references a missing original.",
         );
       }
-      if (!structurallyEqual(current, original)) {
+      if (!boardValuesEqual(current, original)) {
         return failure(
           document,
           "command.stale-object",
@@ -898,7 +867,7 @@ function updateCoordinatePlot(
       "Locked coordinate plots cannot be updated.",
     );
   }
-  if (!structurallyEqual(object.definition, command.expected)) {
+  if (!boardValuesEqual(object.definition, command.expected)) {
     return failure(
       document,
       "command.stale-object",
@@ -1116,7 +1085,7 @@ function updateSolid3D(
       "command.solid-missing",
       "Solid model is missing.",
     );
-  if (!structurallyEqual(current, command.expected))
+  if (!boardValuesEqual(current, command.expected))
     return failure(
       document,
       "command.stale-solid",
@@ -2195,7 +2164,8 @@ function setViewport(
     return failure(document, "command.invalid", "Viewport is invalid.");
   }
 
-  // The entire incoming document was validated by reduceBoardDocument.
+  // The incoming document is either fully checked or an owned immutable
+  // snapshot already certified by reduceBoardDocument.
   // This command changes only the viewport and updatedAt, so only these
   // fields and their cross-field timestamp invariant need revalidation.
   // Reuse the same Zod schemas as the full-document validator (including
@@ -2218,7 +2188,14 @@ function setViewport(
       "Command result violates BoardDocument invariants.",
     );
   }
-  return { ok: true, document: normalized };
+  const validation = validateBoardDocumentTransition(normalized, document);
+  if (!validation.valid)
+    return failure(
+      document,
+      "command.invalid-result",
+      "Viewport violates document invariants.",
+    );
+  return { ok: true, document: validation.document };
 }
 
 function renameDocument(
@@ -2324,7 +2301,7 @@ function accept(
   candidate: BoardDocument,
 ): CommandResult {
   const normalized = normalizeUpdatedAt(original, candidate);
-  const validation = validateBoardDocument(normalized);
+  const validation = validateBoardDocumentTransition(normalized, original);
 
   if (!validation.valid) {
     return failure(
@@ -2334,7 +2311,7 @@ function accept(
     );
   }
 
-  return { ok: true, document: normalized };
+  return { ok: true, document: validation.document };
 }
 
 function assertNever(command: never): never {
@@ -2348,9 +2325,9 @@ export function reduceBoardDocument(
   const isViewport = command.kind === "core.viewport.set";
   const current = isViewport
     ? measureBoardFrameTrace("viewport-validate-current", () =>
-        validateBoardDocument(document),
+        validateBoardDocumentForReduction(document),
       )
-    : validateBoardDocument(document);
+    : validateBoardDocumentForReduction(document);
   if (!current.valid) {
     return failure(
       document,
@@ -2368,6 +2345,14 @@ export function reduceBoardDocument(
     return metadataError;
   }
 
+  const result = reduceValidatedDocument(current.document, command);
+  return result.ok ? result : { ...result, document };
+}
+
+function reduceValidatedDocument(
+  document: BoardDocument,
+  command: BoardCommand,
+): CommandResult {
   switch (command.kind) {
     case "core.objects.add":
       return addObjects(document, command);

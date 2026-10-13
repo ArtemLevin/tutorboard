@@ -16,7 +16,7 @@ import {
   knownBoardObjectKinds14,
   legacyBoardObjectKinds,
 } from "./schema";
-import { validateBoardDocument } from "./validate";
+import { validateBoardDocumentForReduction } from "./snapshots";
 
 export type BoardDocumentReadResult =
   | { readonly document: BoardDocument; readonly status: "ok" }
@@ -63,9 +63,12 @@ function migratedResult(
   migration: (value: unknown) => ReturnType<typeof migrateBoardDocument11To12>,
 ): BoardDocumentReadResult {
   const migrated = migration(raw);
-  return migrated.ok
-    ? { status: "ok", document: migrated.document }
-    : { status: "invalid-document", raw, issues: migrated.issues };
+  if (!migrated.ok)
+    return { status: "invalid-document", raw, issues: migrated.issues };
+  const validation = validateBoardDocumentForReduction(migrated.document);
+  return validation.valid
+    ? { status: "ok", document: validation.document }
+    : { status: "invalid-document", raw, issues: validation.issues };
 }
 
 export function readBoardDocument(raw: unknown): BoardDocumentReadResult {
@@ -127,7 +130,7 @@ export function readBoardDocument(raw: unknown): BoardDocumentReadResult {
   const objectKinds = findUnknownObjectKinds(raw, knownBoardObjectKinds);
   if (objectKinds.length > 0)
     return { status: "incompatible-object", raw, objectKinds };
-  const validation = validateBoardDocument(raw);
+  const validation = validateBoardDocumentForReduction(raw);
   return validation.valid
     ? { status: "ok", document: validation.document }
     : { status: "invalid-document", raw, issues: validation.issues };

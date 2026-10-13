@@ -445,3 +445,5 @@ export type {
   UpdateBoardInvitationInput,
   UpdateStandaloneBoardInput,
 } from "./ports/standalone-board-management-repository";
+
+export { boardValuesEqual } from "./board/records";

@@ -14,6 +14,7 @@ import {
   redoDocumentHistory,
   undoDocumentHistory,
 } from "../../../src/modules/history/public";
+import { validateBoardDocumentForReduction } from "../../../src/core/board/validation/snapshots";
 import { createDenseBoardDocument } from "../../fixtures/dense-board";
 
 function command(
@@ -42,7 +43,9 @@ function validDocument(strokes: number): BoardDocument {
   );
   expect(parsed.valid).toBe(true);
   if (!parsed.valid) throw new Error("Invalid test document");
-  return parsed.document;
+  const owned = validateBoardDocumentForReduction(parsed.document);
+  if (!owned.valid) throw new Error("Invalid immutable snapshot");
+  return owned.document;
 }
 
 /** Emulates the old accept() normalization and full output validation. */
