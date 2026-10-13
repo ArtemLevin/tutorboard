@@ -278,6 +278,7 @@ export interface BoardStageProps {
   readonly transformableObjectIds?: readonly BoardObjectId[];
   readonly wetInkStyle?: WetInkStyle | null;
   readonly onViewportCommit: (viewport: ViewportState) => void;
+  readonly onManualViewportInteraction?: (() => void) | undefined;
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -452,6 +453,7 @@ export function BoardStage({
   onLineEndpointTransformPreview,
   onPanModeRequest,
   onViewportCommit,
+  onManualViewportInteraction,
   onWorldPointerCancel,
   onWorldPointerFinish,
   onWorldPointerMove,
@@ -527,6 +529,10 @@ export function BoardStage({
     preview: onLineEndpointTransformPreview,
   });
   const panModeRequestRef = useRef(onPanModeRequest);
+  const manualViewportInteractionRef = useRef(onManualViewportInteraction);
+  useLayoutEffect(() => {
+    manualViewportInteractionRef.current = onManualViewportInteraction;
+  }, [onManualViewportInteraction]);
   const worldPointerCallbacksRef = useRef({
     batch: onWorldPointerBatch,
     cancel: onWorldPointerCancel,
@@ -1571,6 +1577,7 @@ export function BoardStage({
         }
         session.activated = true;
         rightClickCandidateRef.current = null;
+        manualViewportInteractionRef.current?.();
         panModeRequestRef.current?.();
       }
       const viewport = panViewport(session.startViewport, {
@@ -2142,6 +2149,7 @@ export function BoardStage({
     }
 
     commitWheel();
+    if (source !== "right") onManualViewportInteraction?.();
     event.evt.preventDefault();
     const stage = event.target.getStage();
     if (stage === null) {
@@ -2215,6 +2223,7 @@ export function BoardStage({
       return;
     }
 
+    onManualViewportInteraction?.();
     const direction =
       (event.evt.deltaY < 0 ? 1 : -1) * (event.evt.ctrlKey ? -1 : 1);
     const currentViewport =
@@ -2325,6 +2334,7 @@ export function BoardStage({
       data-laser-trail-points={laserTrailPoints.length}
       data-laser-visible={laserPoint !== null}
       data-pan-mode={panMode}
+      data-viewport-zoom={previewViewport.zoom.toFixed(4)}
       data-panning={isPanning}
       data-remote-ink-count={remoteInkPreviews.length}
       data-selecting={isSelecting}

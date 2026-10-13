@@ -2634,6 +2634,18 @@ Unit на state machine и E2E с синтетическими pen pointer event
 
 ### 28.7. QoL 2.6 — «Следовать за преподавателем» (P2, realtime)
 
+**Реализация:** ветка `feat/qol-2-6-teacher-follow`, интеграция с существующим
+server-issued presence-transport `tutorboard.v1` без изменения протокола.
+Добавлены явные opt-in/out, локальный viewport ученика, проверка серверной роли
+tutor/admin, привязка к room/actor/client/accessEpoch, сброс при offline/reconnect
+и смене прав. Ручная навигация отключает следование; циклического rebroadcast
+viewport нет. Контракт и доказательства server-side authority:
+`docs/QOL_2_6_TEACHER_FOLLOW_CONTRACT_2026-10-12.md`.
+Добавлены unit и two-client standalone pilot E2E; запуск полного CI и
+закреплённого backend fullstack gate выполняется для PR #252. При проверках
+обнаружен и исправлен сброс sequence/viewport после повторного `presence.joined`
+одного `clientId`. Production rollout остаётся отдельным этапом.
+
 **Цель:** ученик по собственному выбору следует за областью доски,
 которую демонстрирует преподаватель.
 

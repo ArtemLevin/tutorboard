@@ -50,6 +50,11 @@ import {
 } from "../modules/document-transfer/public";
 import type { MathInkRecognizer } from "../modules/handwritten-function/public";
 import { App, type AppPersistenceStatus } from "./App";
+import {
+  chooseTeacher,
+  resolveTeacherFollow,
+  type TeacherFollowSelection,
+} from "./board/teacher-follow";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import { copyBoardShareUrl } from "./board-chrome/board-share";
 import { canFinalizeBoardEvidence } from "./synced-evidence";
@@ -269,6 +274,8 @@ function SyncedWorkspace({
   const [participants, setParticipants] = useState<readonly BoardPresence[]>(
     [],
   );
+  const [followSelection, setFollowSelection] =
+    useState<TeacherFollowSelection | null>(null);
   const [inkPreviews, setInkPreviews] = useState<readonly BoardInkPreview[]>(
     [],
   );
@@ -454,6 +461,15 @@ function SyncedWorkspace({
         onTransformPreviews: setTransformPreviews,
         repository,
       }),
+  );
+
+  // Stable identity prevents remote cursor/viewport presence updates from
+  // retriggering the student's outbound presence effect (feedback loop).
+  const publishLocalPresence = useCallback(
+    (presence: Parameters<BoardCollaborationClient["updatePresence"]>[0]) => {
+      collaboration.updatePresence(presence);
+    },
+    [collaboration],
   );
 
   useEffect(() => {
@@ -756,6 +772,45 @@ function SyncedWorkspace({
     }
   }, [state]);
 
+  const followScope = [
+    documentId,
+    state.kind === "ready" ? state.actorId : "inactive",
+    state.kind === "ready" ? state.role : "inactive",
+    currentAccessContext?.accessEpoch ?? "legacy",
+    currentAccessContext?.cacheScopeId ?? "legacy",
+  ].join("|");
+  const followConnected =
+    state.kind === "ready" &&
+    state.role === "student" &&
+    state.network === "online" &&
+    collaborationStatus === "online" &&
+    collaborationAccessReady &&
+    accessRefreshStatus === "idle";
+  const availableTeacher = followConnected ? chooseTeacher(participants) : null;
+  const followedTeacher = resolveTeacherFollow(
+    followSelection,
+    followScope,
+    followConnected,
+    participants,
+  );
+  // Teacher cursor-only presence changes must not create a new camera object
+  // and invalidate the large-board scene when the viewport is unchanged.
+  const cameraX = followedTeacher?.viewport.offset.x;
+  const cameraY = followedTeacher?.viewport.offset.y;
+  const cameraZoom = followedTeacher?.viewport.zoom;
+  const stableTeacherViewport = useMemo(
+    () =>
+      cameraX === undefined || cameraY === undefined || cameraZoom === undefined
+        ? null
+        : { offset: { x: cameraX, y: cameraY }, zoom: cameraZoom },
+    [cameraX, cameraY, cameraZoom],
+  );
+  // A stale connection/epoch is discarded during render so it cannot become
+  // active if an identical client ID appears later.
+  if (followSelection !== null && followedTeacher === null) {
+    setFollowSelection(null);
+  }
+
   const writeEnabled =
     state.kind === "ready" &&
     accessRefreshStatus === "idle" &&
@@ -1017,6 +1072,28 @@ function SyncedWorkspace({
           geometryOsClient={geometryOsClient}
           historyEnabled={false}
           initialDocument={state.document}
+          localViewportEnabled={state.role === "student"}
+          teacherFollow={
+            availableTeacher === null && followedTeacher === null
+              ? undefined
+              : {
+                  active: followedTeacher !== null,
+                  teacherName:
+                    followedTeacher?.displayName ??
+                    availableTeacher?.displayName ??
+                    "преподавателем",
+                  viewport: stableTeacherViewport,
+                }
+          }
+          onTeacherFollowStart={() => {
+            if (!followConnected || availableTeacher === null) return;
+            setFollowSelection({
+              scope: followScope,
+              actorId: availableTeacher.actorId,
+              clientId: availableTeacher.clientId,
+            });
+          }}
+          onTeacherFollowStop={() => setFollowSelection(null)}
           mathInkRecognizer={mathInkRecognizer}
           mediaAssetSourceResolver={mediaAssetSourceResolver}
           mediaResourceGeneration={mediaResources.resourceGeneration}
@@ -1074,9 +1151,7 @@ function SyncedWorkspace({
           onDocumentChange={(document) => {
             renderedDocumentRef.current = document;
           }}
-          onPresenceChange={(presence) =>
-            collaboration.updatePresence(presence)
-          }
+          onPresenceChange={publishLocalPresence}
           onInkPreviewChange={(preview) =>
             collaboration.updateInkPreview(preview)
           }

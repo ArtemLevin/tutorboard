@@ -198,6 +198,74 @@ describe("Board collaboration WebSocket adapter", () => {
     client.stop();
   });
 
+  it("resets stale viewport and sequence when a teacher rejoins with the same client ID", async () => {
+    const socket = new FakeSocket();
+    const createWebSocket = vi.fn(() => socket as unknown as WebSocket);
+    let participants: readonly BoardPresence[] = [];
+    const client = new BoardCollaborationClient({
+      createClientId: () => "browser:student",
+      createWebSocket,
+      documentId: documentId("document:lesson"),
+      onPresence: (value) => {
+        participants = value;
+      },
+      onRevision: () => undefined,
+      onStatus: () => undefined,
+      origin: "https://tutor.example.test",
+      repository: {
+        context: vi.fn().mockResolvedValue({ csrfToken: "csrf-token" }),
+        collaborationTicket: vi.fn().mockResolvedValue({
+          ticket: "ticket:reconnect",
+          websocketPath: "/api/v1/boards/document%3Alesson/collaboration",
+          protocolVersion: "1.1",
+          expiresInSeconds: 30,
+        }),
+      },
+    });
+    client.start();
+    await vi.waitFor(() => expect(createWebSocket).toHaveBeenCalledOnce());
+    socket.open();
+    socket.receive({
+      type: "ready",
+      clientId: "browser:student",
+      documentId: "document:lesson",
+      protocolVersion: "1.1",
+      currentRevision: 1,
+      heartbeatSeconds: 20,
+    });
+    socket.receive({
+      type: "presence.updated",
+      protocolVersion: "1.1",
+      clientId: "browser:teacher",
+      actorId: "actor:tutor",
+      role: "tutor",
+      sequence: 25,
+      viewport: { x: 100, y: 200, zoom: 2 },
+    });
+    expect(participants[0]?.viewport).toEqual({ x: 100, y: 200, zoom: 2 });
+
+    socket.receive({
+      type: "presence.joined",
+      protocolVersion: "1.1",
+      clientId: "browser:teacher",
+      actorId: "actor:tutor",
+      role: "tutor",
+    });
+    expect(participants[0]?.viewport).toBeNull();
+
+    socket.receive({
+      type: "presence.updated",
+      protocolVersion: "1.1",
+      clientId: "browser:teacher",
+      actorId: "actor:tutor",
+      role: "tutor",
+      sequence: 1,
+      viewport: { x: -40, y: 10, zoom: 1.5 },
+    });
+    expect(participants[0]?.viewport).toEqual({ x: -40, y: 10, zoom: 1.5 });
+    client.stop();
+  });
+
   it("closes binary, oversized, and rate-exceeding message streams", async () => {
     const sockets: FakeSocket[] = [];
     const client = new BoardCollaborationClient({
