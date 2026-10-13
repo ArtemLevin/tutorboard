@@ -613,13 +613,26 @@ export function BoardStage({
     if (window.__tutorBoardC37Trace === undefined) return;
     const stage = stageRef.current;
     if (stage === null) return;
-    const original = Konva.Node.prototype.setAttrs;
+    const originalValue: unknown = Reflect.get(
+      Konva.Node.prototype,
+      "setAttrs",
+    );
+    if (typeof originalValue !== "function") return;
+    const callOriginal = (
+      node: Konva.Node,
+      config: Parameters<typeof Konva.Node.prototype.setAttrs>[0],
+    ): void => {
+      Reflect.apply(originalValue, node, [config]);
+    };
     const metrics = konvaAttrMetricsRef.current;
-    const traced: typeof original = function (this: Konva.Node, config) {
-      if (this.getStage() !== stage) return original.call(this, config);
+    const traced: typeof Konva.Node.prototype.setAttrs = function (
+      this: Konva.Node,
+      config,
+    ) {
+      if (this.getStage() !== stage) return callOriginal(this, config);
       const started = performance.now();
       try {
-        return original.call(this, config);
+        return callOriginal(this, config);
       } finally {
         metrics.calls += 1;
         metrics.totalMs += performance.now() - started;
@@ -628,7 +641,7 @@ export function BoardStage({
     Konva.Node.prototype.setAttrs = traced;
     return () => {
       if (Konva.Node.prototype.setAttrs === traced) {
-        Konva.Node.prototype.setAttrs = original;
+        Reflect.set(Konva.Node.prototype, "setAttrs", originalValue);
       }
     };
   }, []);
