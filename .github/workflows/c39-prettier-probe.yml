@@ -1,0 +1,25 @@
+name: C3.9 precise format probe
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/c39-prettier-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  exact-format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Show exact Prettier diff
+        run: |
+          npx prettier --write src/adapters/canvas-konva/BoardStage.tsx src/adapters/canvas-konva/board-scene-content.tsx
+          git diff -- src/adapters/canvas-konva/BoardStage.tsx src/adapters/canvas-konva/board-scene-content.tsx
