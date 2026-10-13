@@ -3,4 +3,4 @@ export {
   measureBoardFrameTrace,
   recordBoardFrameTrace,
   type BoardFrameTraceEvent,
-} from "../../core/board/diagnostics/board-frame-trace";
+} from "../../core/public";
