@@ -58,6 +58,10 @@ import {
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import { copyBoardShareUrl } from "./board-chrome/board-share";
 import { canFinalizeBoardEvidence } from "./synced-evidence";
+import {
+  CollaborativeUndoAvailability,
+  sameUndoContent,
+} from "./board/collaborative-undo-availability";
 
 type SyncedBoardRepository = BoardCollaborationRepository &
   BoardEvidenceRepository &
@@ -160,19 +164,6 @@ function persistenceStatus(
     kind: "saved",
     label: `Синхронизировано · r${state.revision}`,
   };
-}
-
-function inverseStillApplies(
-  document: BoardDocument,
-  commands: readonly BoardCommand[],
-): boolean {
-  let preview = document;
-  for (const command of commands) {
-    const result = reduceBoardDocument(preview, command);
-    if (!result.ok) return false;
-    preview = result.document;
-  }
-  return true;
 }
 
 function terminalAccessRefreshFailure(error: unknown): boolean {
@@ -297,8 +288,41 @@ function SyncedWorkspace({
   );
   const expectedAccessEpochRef = useRef<string | undefined>(undefined);
   const undoStackRef = useRef<readonly (readonly BoardCommand[])[]>([]);
+  const pendingOwnCommitsRef = useRef(0);
+  const ownCommitTailRef = useRef<Promise<void>>(Promise.resolve());
+  const [optimisticDocument, setOptimisticDocument] =
+    useState<BoardDocument | null>(null);
+  const [undoRefresh, setUndoRefresh] = useState(0);
+  const undoAvailability = useMemo(
+    () => new CollaborativeUndoAvailability(),
+    [],
+  );
   const [undoCount, setUndoCount] = useState(0);
   const renderedDocumentRef = useRef<BoardDocument | null>(null);
+  const activeRef = useRef(false);
+  const trackOwnCommit = useCallback(
+    (document: BoardDocument | null, commit: () => Promise<void>) => {
+      pendingOwnCommitsRef.current += 1;
+      if (document !== null) setOptimisticDocument(document);
+      const settled = () => {
+        pendingOwnCommitsRef.current -= 1;
+        if (activeRef.current && pendingOwnCommitsRef.current === 0) {
+          setOptimisticDocument(null);
+          setUndoRefresh((value) => value + 1);
+        }
+      };
+      let task: Promise<void>;
+      try {
+        task = commit();
+      } catch (error) {
+        settled();
+        throw error;
+      }
+      ownCommitTailRef.current = task;
+      void task.then(settled, settled);
+    },
+    [],
+  );
   const bootstrapStartedRef = useRef(0);
   const loadMeasuredRef = useRef(false);
   const previousCollaborationStatusRef =
@@ -307,7 +331,6 @@ function SyncedWorkspace({
     useRef<BoardCollaborationStatus>("connecting");
   const refreshAccessAfterCollaborationOfflineRef = useRef(false);
   const mediaImportEpochRef = useRef(0);
-  const activeRef = useRef(false);
   const mediaScopeRef = useRef<BoardMediaResourceScope | null>(null);
   const [mediaResources, setMediaResources] =
     useState<BoardMediaResourceContextValue | null>(null);
@@ -756,21 +779,22 @@ function SyncedWorkspace({
   }, [collaborationStatus, lessonId, ready, repository]);
 
   useEffect(() => {
-    if (state.kind !== "ready") return;
+    if (state.kind !== "ready" || pendingOwnCommitsRef.current > 0) return;
     const rendered = renderedDocumentRef.current;
     if (rendered === null) {
       renderedDocumentRef.current = state.document;
       return;
     }
-    if (JSON.stringify(rendered) !== JSON.stringify(state.document)) {
+    if (rendered !== state.document) {
       renderedDocumentRef.current = state.document;
+      if (sameUndoContent(rendered, state.document)) return;
       const applicable = undoStackRef.current.filter((commands) =>
-        inverseStillApplies(state.document, commands),
+        undoAvailability.stillApplies(state.document, commands),
       );
       undoStackRef.current = applicable;
       setUndoCount(applicable.length);
     }
-  }, [state]);
+  }, [state, undoAvailability, undoRefresh]);
 
   const followScope = [
     documentId,
@@ -1071,7 +1095,7 @@ function SyncedWorkspace({
           commandActorId={state.actorId}
           geometryOsClient={geometryOsClient}
           historyEnabled={false}
-          initialDocument={state.document}
+          initialDocument={optimisticDocument ?? state.document}
           localViewportEnabled={state.role === "student"}
           teacherFollow={
             availableTeacher === null && followedTeacher === null
@@ -1105,7 +1129,10 @@ function SyncedWorkspace({
             if (inverse === undefined) return;
             undoStackRef.current = undoStackRef.current.slice(0, -1);
             setUndoCount(undoStackRef.current.length);
-            void engine.apply(inverse);
+            const pending = ownCommitTailRef.current;
+            trackOwnCommit(null, () =>
+              pending.then(() => engine.apply(inverse)),
+            );
           }}
           onCommandCommitted={(command, document, previousDocument) => {
             if (!writeEnabled) return;
@@ -1115,13 +1142,22 @@ function SyncedWorkspace({
               createId: () => `command:undo:${crypto.randomUUID()}`,
               now: () => new Date().toISOString(),
             });
-            if (inverse.length > 0) {
+            const restoreAvailable = undoAvailability.registerCommittedCut(
+              command,
+              inverse,
+            );
+            if (restoreAvailable === false) {
+              // A nontransportable clear is an undo barrier: do not offer an
+              // older operation as if it could reverse the most recent clear.
+              undoStackRef.current = [];
+              setUndoCount(0);
+            } else if (inverse.length > 0) {
               undoStackRef.current = [...undoStackRef.current, inverse].slice(
                 -100,
               );
               setUndoCount(undoStackRef.current.length);
             }
-            void engine.queue(command, document);
+            trackOwnCommit(document, () => engine.queue(command, document));
           }}
           onCommandsCommitted={(commands, document, previousDocument) => {
             if (!writeEnabled || commands.length === 0) return;
@@ -1140,13 +1176,22 @@ function SyncedWorkspace({
               inverseGroups.unshift(inverse);
             }
             const inverse = inverseGroups.flat();
-            if (inverse.length > 0) {
+            const restoreAvailable =
+              commands.length === 1 && commands[0] !== undefined
+                ? undoAvailability.registerCommittedCut(commands[0], inverse)
+                : undefined;
+            if (restoreAvailable === false) {
+              undoStackRef.current = [];
+              setUndoCount(0);
+            } else if (inverse.length > 0) {
               undoStackRef.current = [...undoStackRef.current, inverse].slice(
                 -100,
               );
               setUndoCount(undoStackRef.current.length);
             }
-            void engine.queueBatch(commands, document);
+            trackOwnCommit(document, () =>
+              engine.queueBatch(commands, document),
+            );
           }}
           onDocumentChange={(document) => {
             renderedDocumentRef.current = document;
