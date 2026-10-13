@@ -2439,3 +2439,87 @@ export function reduceBoardDocument(
       return assertNever(command);
   }
 }
+
+/**
+ * Interactive viewport-only session with explicit ownership. Arbitrary input
+ * documents are independently parsed and recursively frozen before they can
+ * enter the fast path. The public reducer always performs full validation.
+ * Once a verified frozen revision is returned, only that exact reference
+ * qualifies for a subsequent O(1) viewport transition.
+ */
+export interface OwnedViewportReducer {
+  reduce(document: BoardDocument, command: SetViewportCommand): CommandResult;
+  reset(): void;
+}
+
+function freezeOwnedBoardGraph(document: BoardDocument): BoardDocument {
+  const visited = new WeakSet<object>();
+  const pending: object[] = [document];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node === undefined || visited.has(node)) continue;
+    visited.add(node);
+    for (const value of Object.values(node as Record<string, unknown>)) {
+      if (typeof value === "object" && value !== null) pending.push(value);
+    }
+    Object.freeze(node);
+  }
+  return document;
+}
+
+export function createOwnedViewportReducer(): OwnedViewportReducer {
+  let owned: BoardDocument | null = null;
+
+  return {
+    reduce(document, command) {
+      let source: BoardDocument = document;
+      if (document !== owned) {
+        const validation = measureBoardFrameTrace("viewport-owned-parse", () =>
+          validateBoardDocument(document),
+        );
+        if (!validation.valid) {
+          owned = null;
+          return failure(
+            document,
+            "command.invalid-current-document",
+            "The current BoardDocument is invalid.",
+          );
+        }
+        // The parsed document is an independent Zod tree. The original
+        // caller's document graph remains writable and is never frozen.
+        source = measureBoardFrameTrace("viewport-owned-freeze", () =>
+          freezeOwnedBoardGraph(validation.document),
+        );
+      } else {
+        measureBoardFrameTrace("viewport-owned-reuse", () => undefined);
+      }
+
+      const metadataError = measureBoardFrameTrace(
+        "viewport-validate-command",
+        () => validateMetadata(source, command),
+      );
+      if (metadataError !== null) return { ...metadataError, document };
+
+      const outcome = measureBoardFrameTrace("viewport-apply", () =>
+        setViewport(source, command),
+      );
+      if (!outcome.ok) return { ...outcome, document };
+
+      // Only the command's small viewport subtree can still alias the caller.
+      // Detach it before certifying the next immutable revision.
+      const next = Object.freeze({
+        ...outcome.document,
+        viewport: Object.freeze({
+          zoom: outcome.document.viewport.zoom,
+          offset: Object.freeze({ ...outcome.document.viewport.offset }),
+        }),
+      });
+      owned = next;
+      return { ok: true, document: next };
+    },
+    reset() {
+      // Drop the last dense graph when a board changes or history rewinds.
+      owned = null;
+    },
+  };
+}

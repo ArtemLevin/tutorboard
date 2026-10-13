@@ -751,7 +751,6 @@ for (const scenario of [
             "wheel-animation-resume",
             "wheel-viewport-persist",
             "viewport-reducer-total",
-            "viewport-validate-current",
             "viewport-validate-command",
             "viewport-apply",
             "viewport-controller-callbacks",
@@ -762,6 +761,11 @@ for (const scenario of [
               `Missing C3.9 trace event: ${expected}`,
             ).toBe(true);
           }
+          expect(
+            kinds.has("viewport-owned-parse") ||
+              kinds.has("viewport-validate-current"),
+            "Expected an independently validated viewport source",
+          ).toBe(true);
           expect(jsTrace.length).toBeLessThanOrEqual(12_000);
           if (chromiumTraceEnabled) {
             expect(chromiumTrace?.events.length).toBeLessThanOrEqual(20_000);
@@ -777,6 +781,9 @@ for (const scenario of [
         const viewportPhaseKinds = [
           "viewport-reducer-total",
           "viewport-validate-current",
+          "viewport-owned-parse",
+          "viewport-owned-freeze",
+          "viewport-owned-reuse",
           "viewport-validate-command",
           "viewport-apply",
           "viewport-controller-schedule",

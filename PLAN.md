@@ -2154,6 +2154,17 @@ history и persistence/collaboration callbacks. Подробности:
 После trace evidence — отдельный безопасный оптимизационный кандидат и
 реплицированный ABBA на 5k/10k. Issue #201 остаётся открытым.
 
+### C3.9 — session-owned immutable viewport candidate (13.10.2026)
+
+Отдельный Draft PR поверх инструментального #253: локальный controller-only
+trusted viewport path, полная Zod-валидация и независимое freeze дерева
+при первой встрече с неизвестным документом, последующие изменения только
+из собственного последнего frozen snapshot. Undo/redo, hydration и content
+commands очищают доверенную ревизию. Публичный reducer сохраняет полную проверку
+недоверенных документов. Момент первоначальных parse/freeze измеряется отдельно;
+считать кандидат performance GO разрешено только после независимого ABBA 5k/10k,
+memory и fidelity/guest gates. Исследование PR #229 было NO-GO.
+
 ## 25. Текущая последовательность работ
 
 ### 25.1. Инженерный приоритет — большая статическая доска

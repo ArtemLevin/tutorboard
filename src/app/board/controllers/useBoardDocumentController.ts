@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   commandId,
+  createOwnedViewportReducer,
   measureBoardFrameTrace,
   reduceBoardDocument,
   type ActorId,
@@ -65,6 +66,7 @@ export function useBoardDocumentController({
   }));
   const document = state.history.present;
   const documentRef = useRef(document);
+  const viewportReducer = useMemo(() => createOwnedViewportReducer(), []);
   const effectiveMutationPolicy = useMemo(
     () =>
       mutationPolicy ??
@@ -86,6 +88,7 @@ export function useBoardDocumentController({
     if (documentRef.current === initialDocument) {
       return;
     }
+    viewportReducer.reset();
     documentRef.current = initialDocument;
     setState((current) =>
       current.history.present === initialDocument
@@ -95,7 +98,7 @@ export function useBoardDocumentController({
             history: createDocumentHistory(initialDocument),
           },
     );
-  }, [initialDocument]);
+  }, [initialDocument, viewportReducer]);
 
   const getDocument = useCallback(() => documentRef.current, []);
 
@@ -131,9 +134,10 @@ export function useBoardDocumentController({
       }
       const previousDocument = documentRef.current;
       const isViewport = command.kind === "core.viewport.set";
+      if (!isViewport) viewportReducer.reset();
       const result = isViewport
         ? measureBoardFrameTrace("viewport-reducer-total", () =>
-            reduceBoardDocument(previousDocument, command),
+            viewportReducer.reduce(previousDocument, command),
           )
         : reduceBoardDocument(previousDocument, command);
       if (!result.ok) {
@@ -164,7 +168,12 @@ export function useBoardDocumentController({
       }
       return result;
     },
-    [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],
+    [
+      effectiveMutationPolicy.canWrite,
+      onCommandCommitted,
+      rejectMutation,
+      viewportReducer,
+    ],
   );
 
   const commitCommands = useCallback(
@@ -177,6 +186,7 @@ export function useBoardDocumentController({
         return { document: initialDocument, ok: true };
       }
 
+      viewportReducer.reset();
       const transitions: {
         readonly command: BoardCommand;
         readonly document: BoardDocument;
@@ -227,6 +237,7 @@ export function useBoardDocumentController({
       onCommandCommitted,
       onCommandsCommitted,
       rejectMutation,
+      viewportReducer,
     ],
   );
 
@@ -251,6 +262,7 @@ export function useBoardDocumentController({
       }
       return;
     }
+    viewportReducer.reset();
     setState((current) => {
       const next = undoDocumentHistory(current.history);
       return next === current.history
@@ -264,6 +276,7 @@ export function useBoardDocumentController({
     onCollaborativeUndo,
     rejectHistoryMutation,
     setCommandError,
+    viewportReducer,
   ]);
 
   const redo = useCallback(() => {
@@ -277,6 +290,7 @@ export function useBoardDocumentController({
       );
       return;
     }
+    viewportReducer.reset();
     setState((current) => {
       const next = redoDocumentHistory(current.history);
       return next === current.history
@@ -288,6 +302,7 @@ export function useBoardDocumentController({
     historyEnabled,
     rejectHistoryMutation,
     setCommandError,
+    viewportReducer,
   ]);
 
   return {
