@@ -40,7 +40,10 @@ import {
   buildSmoothClosedStrokePoints,
   flattenStrokePoints,
 } from "../../shared/stroke-smoothing";
-import { measureBoardFrameTrace, recordBoardFrameTrace } from "./board-frame-trace";
+import {
+  measureBoardFrameTrace,
+  recordBoardFrameTrace,
+} from "./board-frame-trace";
 import { startsStylusEraser } from "../../shared/stylus-eraser";
 import { AnimatedImageRedrawCoordinator } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";

@@ -15,7 +15,10 @@ import type {
   Transform2D,
 } from "../../core/public";
 import type { BoardObjectTransformSnapshot } from "./BoardStage";
-import { measureBoardFrameTrace, recordBoardFrameTrace } from "./board-frame-trace";
+import {
+  measureBoardFrameTrace,
+  recordBoardFrameTrace,
+} from "./board-frame-trace";
 import {
   minimumWheelCacheStrokes,
   type WheelInkCacheCoordinator,
