@@ -45,7 +45,6 @@ import {
   recordBoardFrameTrace,
 } from "./board-frame-trace";
 import { startsStylusEraser } from "../../shared/stylus-eraser";
-import { needsTransformerSynchronization } from "./transformer-sync";
 import { AnimatedImageRedrawCoordinator } from "./animated-image-redraw";
 import { AnimatedImageRedrawContext } from "./animated-image-redraw-context";
 import { BoardRenderItemView, BoardSceneContent } from "./board-scene-content";
@@ -886,19 +885,6 @@ export function BoardStage({
     const stage = stageRef.current;
     const transformer = transformerRef.current;
     if (stage === null || transformer === null) {
-      return;
-    }
-    if (
-      !needsTransformerSynchronization(
-        transformableObjectIds.length,
-        transformer.nodes().length,
-      )
-    ) {
-      recordBoardFrameTrace(
-        "viewport-transformer-idle-skip",
-        performance.now(),
-        0,
-      );
       return;
     }
     measureBoardFrameTrace("viewport-transformer-sync", () => {
