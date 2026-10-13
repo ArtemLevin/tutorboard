@@ -24,6 +24,10 @@ the main thread after their owner had closed.
   retain fallback while the owner is alive. Dispose settles existing save/hash
   consumers and releases queued work without replay. Explicit new calls after
   disposal retain the inline compatibility path.
+- Publish "saved" only when no newer debounce or accepted write remains.
+  Undo returning to a previously persisted document must still supersede a
+  pending change that would overwrite it. Drop duplicate pending identities
+  only when there is no intervening accepted write.
 
 Undo/Redo history, schemas, protocol, access controls, validation, durable
 operation IDs, optimistic revisions and stored data are unchanged.
@@ -55,6 +59,8 @@ C3.9 large-board release gate remain separate.
   snapshots, duplicate consumers, failure/restart and in-flight hash cancellation.
 - Autosave tests: prepare only the final debounced document; preserve synchronous
   pagehide/navigation flushing, optimistic revisions and operation-ID promotion.
+  Six controlled-write regressions also cover truthful completion status,
+  duplicate identity settlement and A -> B -> A persistence ordering.
 - `tests/e2e/local-clear-memory.spec.ts`: real 3k + 10 PNG, sixteen saved viewport
   edits, clear, bounded Chromium heap, Undo/Redo, another drawing and reload.
   Firefox runs the same workflow; the CDP heap probe is Chromium-only.
@@ -64,6 +70,11 @@ tests, performance budgets, architecture and build. Chromium clear-memory,
 history and persistence browser tests were also run against the production build.
 The diagnostic Chromium binary replaces an unavailable standard local download;
 CI uses its regular Playwright installations. Exact-head CI remains the merge gate.
+
+The first CI run passed the memory gate but exposed stale completion status on
+both Chromium and Firefox: after clear -> Undo/Redo -> drawing -> "saved" ->
+reload it restored the older 3010-object snapshot. This is fixed in autosave;
+the browser assertions and thresholds remain unchanged.
 
 Issue #201 stays open. Independent viewport/renderer experiments and the
 collaborative Undo replay finding are outside this local autosave fix.
