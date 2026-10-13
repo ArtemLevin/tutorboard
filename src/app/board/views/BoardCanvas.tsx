@@ -96,6 +96,7 @@ function InlineTextPlacementEditor({
 
 export interface BoardCanvasProps {
   readonly activeTool: ActiveToolId;
+  readonly stylusEraserEnabled?: boolean;
   readonly announce: (message: string) => void;
   readonly clipboard: BoardClipboardController;
   readonly document: BoardDocument;
@@ -112,6 +113,7 @@ export interface BoardCanvasProps {
     transforms: readonly BoardObjectTransformSnapshot[] | null,
   ) => void;
   readonly onViewportCommit: (viewport: ViewportState) => void;
+  readonly onManualViewportInteraction?: (() => void) | undefined;
   readonly plots: CoordinatePlotController;
   readonly readOnly: boolean;
   readonly remoteCursors: readonly {
@@ -149,6 +151,7 @@ export interface BoardCanvasProps {
 
 export function BoardCanvas({
   activeTool,
+  stylusEraserEnabled = false,
   announce,
   clipboard,
   document,
@@ -162,6 +165,7 @@ export function BoardCanvas({
   onPointerHover,
   onTransformPreviewChange,
   onViewportCommit,
+  onManualViewportInteraction,
   plots,
   readOnly,
   remoteCursors,
@@ -174,6 +178,7 @@ export function BoardCanvas({
   const [contextMenu, setContextMenu] =
     useState<CanvasContextMenuRequest | null>(null);
   const [clearConfirmationOpen, setClearConfirmationOpen] = useState(false);
+  const [stylusEraserActive, setStylusEraserActive] = useState(false);
   const registry = useMemo(
     () =>
       createDefaultKonvaRendererRegistry(
@@ -185,10 +190,11 @@ export function BoardCanvas({
   );
   const eraserHiddenIds = useMemo(
     () =>
-      activeTool === eraserToolId && eraser.preview !== null
+      (activeTool === eraserToolId || stylusEraserActive) &&
+      eraser.preview !== null
         ? new Set(eraser.preview.hiddenObjectIds)
         : new Set<BoardObjectId>(),
-    [activeTool, eraser.preview],
+    [activeTool, eraser.preview, stylusEraserActive],
   );
   const renderedScene = useMemo(
     () =>
@@ -208,7 +214,8 @@ export function BoardCanvas({
   );
   const previewItems = useMemo(
     () => [
-      ...(activeTool === eraserToolId && eraser.preview !== null
+      ...((activeTool === eraserToolId || stylusEraserActive) &&
+      eraser.preview !== null
         ? eraser.preview.replacementObjects.map((object) => ({
             object,
             transforms: [],
@@ -245,6 +252,7 @@ export function BoardCanvas({
     ],
     [
       activeTool,
+      stylusEraserActive,
       document.objects,
       drawing.preview,
       eraser.preview,
@@ -385,7 +393,13 @@ export function BoardCanvas({
       <BoardStage
         coordinatePlotInteraction={plots.renderInteraction}
         drawingConstraintFeedback={drawing.constraintFeedback}
-        eraserPoint={activeTool === eraserToolId ? eraser.point : null}
+        eraserPoint={
+          activeTool === eraserToolId || stylusEraserActive
+            ? eraser.point
+            : null
+        }
+        stylusEraserEnabled={stylusEraserEnabled && !readOnly}
+        onStylusEraserChange={setStylusEraserActive}
         eraserRadiusPx={eraser.radiusPx}
         drawingModeKey={
           isDrawingToolId(activeTool) ||
@@ -449,6 +463,7 @@ export function BoardCanvas({
         }}
         onSelectionTransformPreview={onTransformPreviewChange}
         onViewportCommit={onViewportCommit}
+        onManualViewportInteraction={onManualViewportInteraction}
         panMode={activeTool === navigationToolId}
         primaryCanvasGesturesEnabled={
           activeTool === navigationToolId || isSelectionToolId(activeTool)

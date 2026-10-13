@@ -38,6 +38,12 @@ import {
   type PenPresetSlot,
 } from "./quick-tool-preferences";
 
+const penPresetDescriptions = [
+  "А (письмо)",
+  "Б (акцент)",
+  "В (пометки)",
+] as const;
+
 interface BoardToolDockProps {
   readonly activeStyle: ObjectStyle | null;
   readonly activeTool: string;
@@ -45,11 +51,13 @@ interface BoardToolDockProps {
   readonly canUndo: boolean;
   readonly drawingTools: readonly DrawingToolDefinition[];
   readonly favoriteTools: readonly FavoriteToolId[];
-  readonly penPresets: readonly [ObjectStyle, ObjectStyle];
+  readonly penPresets: readonly [ObjectStyle, ObjectStyle, ObjectStyle];
   readonly lastSelectedPenPreset: PenPresetSlot;
   readonly onToggleFavorite: (tool: FavoriteToolId) => void;
   readonly onApplyPenPreset: (slot: PenPresetSlot) => void;
   readonly onSavePenPreset: (slot: PenPresetSlot) => void;
+  readonly stylusEraserEnabled: boolean;
+  readonly onStylusEraserEnabledChange: (enabled: boolean) => void;
   readonly eraserDiameterPx: number;
   readonly geometryAvailable: boolean;
   readonly geometryOpen: boolean;
@@ -848,7 +856,23 @@ export function BoardToolDock(props: BoardToolDockProps) {
               <button onClick={() => props.onSavePenPreset(1)} type="button">
                 Стиль Б
               </button>
+              <button onClick={() => props.onSavePenPreset(2)} type="button">
+                Стиль В
+              </button>
             </div>
+          ) : null}
+          {activeDrawingTool === "drawing.pen" && !props.readOnly ? (
+            <label className="dock-check-control">
+              <input
+                aria-label="Кнопка стилуса временно включает ластик"
+                checked={props.stylusEraserEnabled}
+                onChange={(event) =>
+                  props.onStylusEraserEnabledChange(event.currentTarget.checked)
+                }
+                type="checkbox"
+              />
+              <span>Ластик кнопкой стилуса</span>
+            </label>
           ) : null}
         </ToolSettingsVisibility>
       ) : null}
@@ -952,7 +976,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onClick={() => chooseTool("presentation.laser")}
           />
           <span aria-hidden="true" className="dock-divider" />
-          {([0, 1] as const).map((slot) => {
+          {([0, 1, 2] as const).map((slot) => {
             const preset = props.penPresets[slot];
             const active =
               props.activeTool === "drawing.pen" &&
@@ -960,7 +984,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
               penPresetMatchesStyle(preset, props.activeStyle);
             return (
               <button
-                aria-label={`Применить стиль пера ${slot === 0 ? "А" : "Б"}`}
+                aria-label={`Применить стиль пера ${slot === 0 ? "А" : slot === 1 ? "Б" : "В"}`}
                 aria-pressed={active}
                 className={
                   active ? "dock-preset-tool is-active" : "dock-preset-tool"
@@ -971,7 +995,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                   setOpenMenu(null);
                   props.onApplyPenPreset(slot);
                 }}
-                title={`Перо ${slot === 0 ? "А" : "Б"} — ${preset.strokeWidth} px`}
+                title={`Перо ${penPresetDescriptions[slot]} — ${preset.strokeWidth} px`}
                 type="button"
               >
                 <span
@@ -979,7 +1003,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                   className="dock-preset-swatch"
                   style={{ backgroundColor: preset.stroke ?? "#111827" }}
                 />
-                <span>{slot === 0 ? "А" : "Б"}</span>
+                <span>{slot === 0 ? "А" : slot === 1 ? "Б" : "В"}</span>
               </button>
             );
           })}

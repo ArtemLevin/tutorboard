@@ -26,8 +26,8 @@
 > `docs/architecture/`. Этот файл определяет текущий порядок работ для публичного
 > standalone TutorBoard.
 >
-> **QoL Sprint 2 (IN_PROGRESS):** QoL 2.1–2.3 объединены в `main`
-> (PR #246–#248); QoL 2.4–2.6 остаются PLANNED (§28).
+> **QoL Sprint 2 (MERGED):** QoL 2.1–2.6 объединены в `main`
+> (PR #246–#248, #250–#252); production rollout остаётся отдельным release gate (§28).
 > Спринт не заменяет открытые Issue #201/#241 и обязательные
 > Pilot/Production release gates.
 
@@ -2449,7 +2449,7 @@ verification and the guest offline cleanup regression guard.
 
 ## 28. QoL Sprint 2 — удобство работы преподавателя (план от 12.10.2026)
 
-**Статус:** IN_PROGRESS; QoL 2.1 (PR #246), QoL 2.2 (PR #247) и QoL 2.3 (PR #248) — MERGED в `main`; QoL 2.4–2.6 — PLANNED. Последний QoL merge SHA: `ec20092cfc572e02b1b0a09103ccc527c5909dc3`.
+**Статус:** MERGED; QoL 2.1–2.6 — MERGED в `main` (PR #246–#248, #250–#252). Последний QoL merge SHA: `c99080c750432adf6dd94d76f4eb8347d7def1f5`. Production rollout и hardware-проверка стилуса ведутся отдельными gates.
 **Базовая точка планирования:** `main` на `93651e5f9f0184a59dead1a7ebe6b91aa49ee21f`.
 Этот SHA — справочная точка на дату составления, перед каждым PR требуется
 сверить актуальные код, CI, docs и используемый release pin.
@@ -2602,6 +2602,21 @@ selection, lock и group command paths; не создавать обходные
 
 ### 28.6. QoL 2.5 — профили пера и кнопка стилуса (P2)
 
+**Реализовано и объединено в main (PR #251, squash merge
+`4e7f229982cb884bec7211525a96673bf7b339fb`):** три профиля пера в имеющемся
+хранилище `tutorboard.quick-tools/1`, миграция двух старых слотов,
+опциональный ластик кнопкой стилуса (по умолчанию OFF). События pen-barrel
+и eraser-tip обслуживаются отдельной временной pointer-сессией и
+существующим eraser command path. Mouse/touch, `Space`, `Shift+X`, `X`
+и BoardDocument/realtime контракты сохранены. Unit/E2E проверки добавлены.
+Визуальные desktop-эталоны прошли покадровый аудит изменений только в нижнем
+dock (`docs/QOL_2_5_VISUAL_BASELINE_AUDIT_2026-10-12.md`; вне dock — 0 пикселей).
+Quality Gate, Chromium/Firefox smoke, Coordinate Plot visual, Media Performance,
+GeometryOS, Board-only и специализированные production workflows — SUCCESS на
+HEAD PR `e26a39e1cfb094f56c9c9cfc6b2ba99be8b83711` (CI #38312540387).
+Hardware-проверка с физическим стилусом и production rollout остаются
+отдельными gates.
+
 **Цель:** удобная работа пером без частой смены инструментов мышью.
 
 **Задачи:** отдельные пресеты для обычного письма, акцента и пометок;
@@ -2618,6 +2633,19 @@ Unit на state machine и E2E с синтетическими pen pointer event
 в Chromium/Firefox; реальный стилус — дополнительный ручной hardware gate.
 
 ### 28.7. QoL 2.6 — «Следовать за преподавателем» (P2, realtime)
+
+**Реализовано и объединено (PR #252, squash `c99080c750432adf6dd94d76f4eb8347d7def1f5`):** интеграция с существующим
+server-issued presence-transport `tutorboard.v1` без изменения протокола.
+Добавлены явные opt-in/out, локальный viewport ученика, проверка серверной роли
+tutor/admin, привязка к room/actor/client/accessEpoch, сброс при offline/reconnect
+и смене прав. Ручная навигация отключает следование; циклического rebroadcast
+viewport нет. Контракт и доказательства server-side authority:
+`docs/QOL_2_6_TEACHER_FOLLOW_CONTRACT_2026-10-12.md`.
+Добавлены unit и two-client standalone pilot E2E. Полный CI #38316251058:
+8/8 jobs SUCCESS (включая Chromium/Firefox smoke и Production Image).
+Закреплённый backend fullstack #38316251114 — SUCCESS. При проверках
+обнаружен и исправлен сброс sequence/viewport после повторного `presence.joined`
+одного `clientId`. Production rollout остаётся отдельным этапом.
 
 **Цель:** ученик по собственному выбору следует за областью доски,
 которую демонстрирует преподаватель.
