@@ -150,9 +150,7 @@ describe("dock popup inactivity contract", () => {
     const panel = screen.getByRole("region", {
       name: "Первичные настройки инструмента",
     });
-    fireEvent.pointerDown(
-      screen.getByRole("slider", { name: "Прозрачность" }),
-    );
+    fireEvent.pointerDown(screen.getByRole("slider", { name: "Прозрачность" }));
     advance(3_000);
     expect(panel).toBeInTheDocument();
     fireEvent.pointerUp(window);
