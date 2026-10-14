@@ -557,7 +557,9 @@ export function BoardStage({
   const previewViewportRef = useRef(scene.viewport);
   const worldPointerHoverRef = useRef(onWorldPointerHover);
   const spacePressedRef = useRef(false);
-  const [previewViewport, setRenderedPreviewViewport] = useState(scene.viewport);
+  const [previewViewport, setRenderedPreviewViewport] = useState(
+    scene.viewport,
+  );
   const setPreviewViewport = useCallback((viewport: ViewportState) => {
     previewViewportRef.current = viewport;
     setRenderedPreviewViewport(viewport);
@@ -844,7 +846,10 @@ export function BoardStage({
     // An empty, unbound Transformer has no nodes to synchronize. Avoid
     // scanning all Konva descendants and redrawing the overlay on every
     // wheel frame, especially after clearing a large board.
-    if (transformableObjectIds.length === 0 && transformer.nodes().length === 0) {
+    if (
+      transformableObjectIds.length === 0 &&
+      transformer.nodes().length === 0
+    ) {
       return;
     }
     measureBoardFrameTrace("viewport-transformer-sync", () => {
@@ -1400,7 +1405,12 @@ export function BoardStage({
         }
       }
     }
-  }, [animatedImageRedraw, onViewportCommit, setPreviewViewport, wheelInkCache]);
+  }, [
+    animatedImageRedraw,
+    onViewportCommit,
+    setPreviewViewport,
+    wheelInkCache,
+  ]);
 
   const finishLineEndpointTransform = useCallback(
     (commit: boolean) => {

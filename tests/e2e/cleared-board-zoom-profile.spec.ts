@@ -65,9 +65,7 @@ async function profileZoom(page: Page, stage: Locator): Promise<ZoomProfile> {
   });
 }
 
-test("@smoke zoom remains responsive to input after a dense board is cleared", async ({
-  page,
-}, testInfo) => {
+test("@smoke clear/zoom frame probe", async ({ page }, testInfo) => {
   test.setTimeout(150_000);
   await page.goto("/");
   await expect(page.getByTestId("persistence-status")).toHaveText(
@@ -76,7 +74,10 @@ test("@smoke zoom remains responsive to input after a dense board is cleared", a
   const stage = page.getByTestId("board-stage");
   const bounds = await stage.boundingBox();
   if (bounds === null) throw new Error("Missing board stage");
-  await page.mouse.move(bounds.x + bounds.width * 0.5, bounds.y + bounds.height * 0.5);
+  await page.mouse.move(
+    bounds.x + bounds.width * 0.5,
+    bounds.y + bounds.height * 0.5,
+  );
   const empty = await profileZoom(page, stage);
 
   const images = await page.evaluate(() =>
@@ -106,11 +107,17 @@ test("@smoke zoom remains responsive to input after a dense board is cleared", a
   await expect(page.getByTestId("object-count")).toHaveText("3010 объекта");
   const settings = page.getByRole("dialog", { name: "Настройки доски" });
   if (await settings.isVisible())
-    await settings.getByRole("button", { name: "Закрыть настройки доски" }).click();
+    await settings
+      .getByRole("button", { name: "Закрыть настройки доски" })
+      .click();
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Сохранено локально",
   );
-  await page.mouse.click(bounds.x + bounds.width * 0.9, bounds.y + bounds.height * 0.85, { button: "right" });
+  await page.mouse.click(
+    bounds.x + bounds.width * 0.9,
+    bounds.y + bounds.height * 0.85,
+    { button: "right" },
+  );
   await page.getByRole("menuitem", { name: "Очистить холст" }).click();
   await page.getByRole("button", { name: "Очистить", exact: true }).click();
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");

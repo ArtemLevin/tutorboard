@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 
 import { expect, test, type Page } from "@playwright/test";
 
+import type { BoardFrameTraceEvent } from "../../src/core/public";
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 import { createCoordinatePlot } from "./coordinate-plot-interaction.js";
 
@@ -27,18 +28,7 @@ const { PNG } = createRequire(import.meta.url)("pngjs") as {
   };
 };
 
-interface BrowserC37TraceEvent {
-  readonly kind:
-    | "board-commit"
-    | "react-ink-run"
-    | "react-other-run"
-    | "konva-scene"
-    | "konva-hit"
-    | "gif-invalidate";
-  readonly startMs: number;
-  readonly durationMs: number;
-  readonly detail?: string;
-}
+type BrowserC37TraceEvent = BoardFrameTraceEvent;
 
 declare global {
   interface Window {
