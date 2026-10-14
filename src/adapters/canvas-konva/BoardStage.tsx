@@ -1280,6 +1280,7 @@ export function BoardStage({
       enqueueWorldPointerMoves,
       flushWorldPointerMoves,
       releaseCapture,
+      setPreviewViewport,
       worldSample,
       worldSamples,
     ],

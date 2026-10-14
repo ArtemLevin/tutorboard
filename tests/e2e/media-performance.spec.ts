@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import type { BoardFrameTraceEvent } from "../../src/core/public";
+import type { BoardFrameTraceEvent } from "../../src/core/public.js";
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 import { createCoordinatePlot } from "./coordinate-plot-interaction.js";
 
