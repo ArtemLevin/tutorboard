@@ -1082,9 +1082,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             label="Сменить стиль пера (Shift+P)"
             onClick={() => {
               setSettingsRevision((current) => current + 1);
-              props.onApplyPenPreset(
-                props.lastSelectedPenPreset === 0 ? 1 : 0,
-              );
+              props.onApplyPenPreset(props.lastSelectedPenPreset === 0 ? 1 : 0);
             }}
           />
         </div>
