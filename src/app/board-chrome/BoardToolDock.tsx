@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -87,6 +88,7 @@ interface BoardToolDockProps {
   readonly selectedLocked: boolean;
   readonly selectedStyle: ObjectStyle | undefined;
   readonly selectionInspectorOpen: boolean;
+  readonly selectionKey?: string;
   readonly onDeleteSelection: () => void;
   readonly canOpenSolid3D: boolean;
   readonly onOpenSolid3D: () => void;
@@ -299,51 +301,82 @@ function SelectedTextEditor({
   );
 }
 
+const dockPopupIdleMs = 2_000;
+
+/** One inactivity contract for transient dock menus and tool settings. */
 function ToolSettingsVisibility({
-  autoDismiss,
   children,
+  className = "dock-primary-settings",
+  label = "Первичные настройки инструмента",
+  onDismiss,
+  role,
 }: {
-  readonly autoDismiss: boolean;
   readonly children: ReactNode;
+  readonly className?: string;
+  readonly label?: string;
+  readonly onDismiss?: () => void;
+  readonly role?: "menu";
 }) {
   const [visible, setVisible] = useState(true);
-  const [activity, setActivity] = useState(0);
-  const [pointerDown, setPointerDown] = useState(false);
-  const keepOpen = () => setActivity((current) => current + 1);
+  const timeoutRef = useRef<number | null>(null);
+  const pointerDownRef = useRef(false);
+  const onDismissRef = useRef(onDismiss);
 
   useEffect(() => {
-    if (!pointerDown) return;
-    const release = () => {
-      setPointerDown(false);
-      setActivity((current) => current + 1);
-    };
-    window.addEventListener("pointerup", release);
-    window.addEventListener("pointercancel", release);
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+
+  const clearDismiss = useCallback(() => {
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+  const scheduleDismiss = useCallback(() => {
+    clearDismiss();
+    if (pointerDownRef.current) return;
+    timeoutRef.current = window.setTimeout(() => {
+      timeoutRef.current = null;
+      setVisible(false);
+      onDismissRef.current?.();
+    }, dockPopupIdleMs);
+  }, [clearDismiss]);
+  const suspendDismiss = () => {
+    pointerDownRef.current = true;
+    clearDismiss();
+  };
+  const resumeDismiss = useCallback(() => {
+    if (!pointerDownRef.current) return;
+    pointerDownRef.current = false;
+    scheduleDismiss();
+  }, [scheduleDismiss]);
+
+  useEffect(() => {
+    scheduleDismiss();
+    // Slider drags can end outside the floating panel.
+    window.addEventListener("pointerup", resumeDismiss);
+    window.addEventListener("pointercancel", resumeDismiss);
     return () => {
-      window.removeEventListener("pointerup", release);
-      window.removeEventListener("pointercancel", release);
+      clearDismiss();
+      window.removeEventListener("pointerup", resumeDismiss);
+      window.removeEventListener("pointercancel", resumeDismiss);
     };
-  }, [pointerDown]);
-
-  useEffect(() => {
-    if (!autoDismiss || pointerDown) return;
-    const timeout = window.setTimeout(() => setVisible(false), 2_000);
-    return () => window.clearTimeout(timeout);
-  }, [autoDismiss, activity, pointerDown]);
+  }, [clearDismiss, resumeDismiss, scheduleDismiss]);
 
   return visible ? (
     <section
-      aria-label="Первичные настройки инструмента"
-      className="dock-primary-settings"
-      onChangeCapture={keepOpen}
-      onFocusCapture={keepOpen}
-      onKeyDownCapture={keepOpen}
-      onPointerCancelCapture={() => setPointerDown(false)}
-      onPointerDownCapture={() => setPointerDown(true)}
-      onPointerUpCapture={() => {
-        setPointerDown(false);
-        keepOpen();
-      }}
+      aria-label={label}
+      className={className}
+      onChangeCapture={scheduleDismiss}
+      onFocusCapture={scheduleDismiss}
+      onInputCapture={scheduleDismiss}
+      onKeyDownCapture={scheduleDismiss}
+      onPointerCancelCapture={resumeDismiss}
+      onPointerDownCapture={suspendDismiss}
+      onPointerMoveCapture={scheduleDismiss}
+      onPointerUpCapture={resumeDismiss}
+      onWheelCapture={scheduleDismiss}
+      role={role}
     >
       {children}
     </section>
@@ -456,9 +489,11 @@ export function BoardToolDock(props: BoardToolDockProps) {
   return (
     <div className="board-tool-dock-shell" ref={rootRef}>
       {openMenu === "export" ? (
-        <section
-          aria-label="Форматы экспорта"
+        <ToolSettingsVisibility
           className="dock-menu"
+          key="menu:export"
+          label="Форматы экспорта"
+          onDismiss={() => setOpenMenu(null)}
           role="menu"
         >
           {props.onExportPngSnapshot === undefined ? null : (
@@ -491,11 +526,13 @@ export function BoardToolDock(props: BoardToolDockProps) {
               }}
             />
           )}
-        </section>
+        </ToolSettingsVisibility>
       ) : openMenu === "favorites" ? (
-        <section
-          aria-label="Меню избранных инструментов"
+        <ToolSettingsVisibility
           className="dock-menu"
+          key="menu:favorites"
+          label="Меню избранных инструментов"
+          onDismiss={() => setOpenMenu(null)}
           role="menu"
         >
           <p className="dock-menu-hint">
@@ -523,9 +560,15 @@ export function BoardToolDock(props: BoardToolDockProps) {
               </button>
             );
           })}
-        </section>
+        </ToolSettingsVisibility>
       ) : openMenu === "selection" ? (
-        <section aria-label="Меню выделения" className="dock-menu" role="menu">
+        <ToolSettingsVisibility
+          className="dock-menu"
+          key="menu:selection"
+          label="Меню выделения"
+          onDismiss={() => setOpenMenu(null)}
+          role="menu"
+        >
           <MenuItem
             active={props.activeTool === selectionToolId}
             icon={selectionTool.icon}
@@ -538,9 +581,15 @@ export function BoardToolDock(props: BoardToolDockProps) {
             label={`${lassoSelectionTool.label} (${shortcutLabelForTool(lassoSelectionToolId)})`}
             onClick={() => chooseTool(lassoSelectionToolId)}
           />
-        </section>
+        </ToolSettingsVisibility>
       ) : openMenu === "drawing" ? (
-        <section aria-label="Меню рисования" className="dock-menu" role="menu">
+        <ToolSettingsVisibility
+          className="dock-menu"
+          key="menu:drawing"
+          label="Меню рисования"
+          onDismiss={() => setOpenMenu(null)}
+          role="menu"
+        >
           {drawingMenuItems.map((item) => (
             <MenuItem
               active={props.activeTool === item.id}
@@ -558,9 +607,15 @@ export function BoardToolDock(props: BoardToolDockProps) {
             label={`Ластик (${shortcutLabelForTool(eraserToolId)})`}
             onClick={() => chooseTool(eraserToolId)}
           />
-        </section>
+        </ToolSettingsVisibility>
       ) : openMenu === "math" ? (
-        <section aria-label="Меню математики" className="dock-menu" role="menu">
+        <ToolSettingsVisibility
+          className="dock-menu"
+          key="menu:math"
+          label="Меню математики"
+          onDismiss={() => setOpenMenu(null)}
+          role="menu"
+        >
           <MenuItem
             disabled={props.readOnly}
             icon="📈"
@@ -570,9 +625,15 @@ export function BoardToolDock(props: BoardToolDockProps) {
               setOpenMenu(null);
             }}
           />
-        </section>
+        </ToolSettingsVisibility>
       ) : openMenu === "ai" ? (
-        <section aria-label="Меню ИИ" className="dock-menu" role="menu">
+        <ToolSettingsVisibility
+          className="dock-menu"
+          key="menu:ai"
+          label="Меню ИИ"
+          onDismiss={() => setOpenMenu(null)}
+          role="menu"
+        >
           {tool("drawing.smart-ink") === undefined ? null : (
             <MenuItem
               active={props.activeTool === "drawing.smart-ink"}
@@ -602,9 +663,15 @@ export function BoardToolDock(props: BoardToolDockProps) {
               }}
             />
           ) : null}
-        </section>
+        </ToolSettingsVisibility>
       ) : openMenu === "media" ? (
-        <section aria-label="Меню медиа" className="dock-menu" role="menu">
+        <ToolSettingsVisibility
+          className="dock-menu"
+          key="menu:media"
+          label="Меню медиа"
+          onDismiss={() => setOpenMenu(null)}
+          role="menu"
+        >
           <label
             className={
               props.readOnly || props.imageUploading
@@ -633,11 +700,12 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 ? "PNG, JPEG и GIF до 32 МБ — в хранилище доски; SVG до 8 МБ — локально."
                 : "PNG, JPEG, SVG и анимированные GIF до 8 МБ."}
           </p>
-        </section>
+        </ToolSettingsVisibility>
       ) : props.selectionInspectorOpen && props.selectedStyle !== undefined ? (
-        <section
-          aria-label="Первичные настройки выделения"
+        <ToolSettingsVisibility
           className="dock-primary-settings dock-primary-settings--selection"
+          key={`selection:${props.selectionKey ?? props.selectedCount}:${settingsRevision}`}
+          label="Первичные настройки выделения"
         >
           <div className="dock-primary-heading">
             <strong>Выделено: {props.selectedCount}</strong>
@@ -790,11 +858,12 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onChange={props.onSelectionStyleChange}
             style={props.selectedStyle}
           />
-        </section>
+        </ToolSettingsVisibility>
       ) : props.activeTool === eraserToolId ? (
-        <section
-          aria-label="Первичные настройки ластика"
+        <ToolSettingsVisibility
           className="dock-primary-settings"
+          key={`eraser:${settingsRevision}`}
+          label="Первичные настройки ластика"
         >
           <div className="dock-primary-heading">
             <strong>Ластик</strong>
@@ -813,10 +882,9 @@ export function BoardToolDock(props: BoardToolDockProps) {
               value={props.eraserDiameterPx}
             />
           </label>
-        </section>
+        </ToolSettingsVisibility>
       ) : activeDrawingTool !== null && props.activeStyle !== null ? (
         <ToolSettingsVisibility
-          autoDismiss={activeDrawingTool === "drawing.smart-ink"}
           key={`${activeDrawingTool}:${settingsRevision}`}
         >
           <div className="dock-primary-heading">
@@ -993,6 +1061,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 key={slot}
                 onClick={() => {
                   setOpenMenu(null);
+                  setSettingsRevision((current) => current + 1);
                   props.onApplyPenPreset(slot);
                 }}
                 title={`Перо ${penPresetDescriptions[slot]} — ${preset.strokeWidth} px`}
@@ -1012,7 +1081,12 @@ export function BoardToolDock(props: BoardToolDockProps) {
             icon="⇄"
             label="Сменить стиль пера (Shift+P)"
             onClick={() =>
-              props.onApplyPenPreset(props.lastSelectedPenPreset === 0 ? 1 : 0)
+              {
+                setSettingsRevision((current) => current + 1);
+                props.onApplyPenPreset(
+                  props.lastSelectedPenPreset === 0 ? 1 : 0,
+                );
+              }
             }
           />
         </div>
