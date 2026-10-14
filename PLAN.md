@@ -2809,3 +2809,13 @@ IndexedDB; добавлен browser contract teacher + guest → clear → Undo 
 протокола; удалённые learning attempts 3D также остаются отдельным backlog.
 Подробности: `docs/architecture/COLLABORATIVE_CLEAR_UNDO.md`.
 Merge — после применимого CI; production rollout остаётся отдельным этапом.
+
+## C3.9 — viewport / clear follow-up (14.10.2026)
+
+- [x] Repair wheel preview state across debounce/React scheduling and bind local ACK to the controller-accepted canonical viewport (including schema cloning), with five unit regression cases.
+- [x] Remove redundant Konva Transformer tree traversal when selection and attached nodes are empty.
+- [x] Add a reproducible browser clear→zoom probe comparing fresh empty board with post-clear state (3000 varied strokes, ten 512px PNGs, zoom 1→6.34→1) and record frame gaps, JS trace phases, Long Tasks, forced GC and heap. Chromium/Firefox first sample: no frames >50ms; retained JS heap is larger after clear due to Undo.
+- [ ] Validate this PR's exact-head production Docker build, browser gates and security scan after retaining the synthetic fixture required by co-located TypeScript tests.
+- [ ] Reproduce user-observed slow frames on Windows/real hardware and run representative 5000/10000-stroke independent ABBA with compositor tracing. Remain NO-GO for a universal performance claim and do not merge speculative stable-culling/large cache drafts without release evidence.
+
+Evidence: `docs/C39_CLEAR_ZOOM_DIAGNOSTICS_2026-10-14.md`, PR #263, issue #201.
