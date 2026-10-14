@@ -265,6 +265,15 @@ jobs:
               | tee browser-smoke-${{ matrix.browser }}.log
           fi
 
+      - name: Upload post-clear frame and heap comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clear-zoom-${{ matrix.browser }}-${{ github.sha }}
+          path: c39-clear-results/*.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Verify isolated 240 Hz pen frame budget (${{ matrix.browser }})
         run: |
           set -o pipefail
