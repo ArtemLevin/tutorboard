@@ -190,11 +190,19 @@ describe("dock popup inactivity contract", () => {
     fireEvent.click(screen.getByRole("button", { name: "Рисование" }));
     advance(2_000);
     expect(screen.queryByRole("menu")).toBeNull();
-    expect(screen.queryByRole("region", { name: "Первичные настройки инструмента" })).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Первичные настройки инструмента" }),
+    ).toBeNull();
     advance(2_000);
-    expect(screen.queryByRole("region", { name: "Первичные настройки инструмента" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Применить стиль пера А" }));
-    expect(screen.getByRole("region", { name: "Первичные настройки инструмента" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Первичные настройки инструмента" }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Применить стиль пера А" }),
+    );
+    expect(
+      screen.getByRole("region", { name: "Первичные настройки инструмента" }),
+    ).toBeInTheDocument();
   });
 
   it("remounts the selection panel for another selection and cleans up timers", () => {
