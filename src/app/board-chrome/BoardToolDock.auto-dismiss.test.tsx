@@ -1,4 +1,10 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -126,12 +132,13 @@ describe("dock popup inactivity contract", () => {
     fireEvent.pointerMove(panel);
     advance(1_500);
     expect(panel).toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole("spinbutton", { name: "Толщина инструмента" }), {
-      key: "ArrowUp",
-    });
+    fireEvent.keyDown(
+      screen.getByRole("spinbutton", { name: "Толщина инструмента" }),
+      { key: "ArrowUp" },
+    );
     advance(1_500);
     expect(panel).toBeInTheDocument();
-    fireEvent.input(screen.getByRole("slider", { name: "Прозрачность инструмента" }));
+    fireEvent.input(screen.getByRole("slider", { name: "Прозрачность" }));
     advance(1_999);
     expect(panel).toBeInTheDocument();
     advance(1);
@@ -143,7 +150,9 @@ describe("dock popup inactivity contract", () => {
     const panel = screen.getByRole("region", {
       name: "Первичные настройки инструмента",
     });
-    fireEvent.pointerDown(screen.getByRole("slider", { name: "Прозрачность инструмента" }));
+    fireEvent.pointerDown(
+      screen.getByRole("slider", { name: "Прозрачность" }),
+    );
     advance(3_000);
     expect(panel).toBeInTheDocument();
     fireEvent.pointerUp(window);
@@ -156,13 +165,21 @@ describe("dock popup inactivity contract", () => {
   it("reopens the pen panel when reselecting its active tool or preset", () => {
     render(<BoardToolDock {...fixture()} />);
     advance(2_000);
-    expect(screen.queryByRole("region", { name: "Первичные настройки инструмента" })).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Первичные настройки инструмента" }),
+    ).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Рисование" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: /Перо/ }));
-    expect(screen.getByRole("region", { name: "Первичные настройки инструмента" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Первичные настройки инструмента" }),
+    ).toBeInTheDocument();
     advance(2_000);
-    fireEvent.click(screen.getByRole("button", { name: "Применить стиль пера А" }));
-    expect(screen.getByRole("region", { name: "Первичные настройки инструмента" })).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Применить стиль пера А" }),
+    );
+    expect(
+      screen.getByRole("region", { name: "Первичные настройки инструмента" }),
+    ).toBeInTheDocument();
   });
 
   it("remounts the selection panel for another selection and cleans up timers", () => {
