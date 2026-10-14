@@ -1080,14 +1080,12 @@ export function BoardToolDock(props: BoardToolDockProps) {
             disabled={props.readOnly}
             icon="⇄"
             label="Сменить стиль пера (Shift+P)"
-            onClick={() =>
-              {
-                setSettingsRevision((current) => current + 1);
-                props.onApplyPenPreset(
-                  props.lastSelectedPenPreset === 0 ? 1 : 0,
-                );
-              }
-            }
+            onClick={() => {
+              setSettingsRevision((current) => current + 1);
+              props.onApplyPenPreset(
+                props.lastSelectedPenPreset === 0 ? 1 : 0,
+              );
+            }}
           />
         </div>
         <span aria-hidden="true" className="dock-divider" />
