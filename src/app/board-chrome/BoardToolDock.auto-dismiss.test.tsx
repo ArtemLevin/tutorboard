@@ -139,7 +139,9 @@ describe("dock popup inactivity contract", () => {
     );
     advance(1_500);
     expect(panel).toBeInTheDocument();
-    fireEvent.input(screen.getByRole("slider", { name: "Прозрачность инструмента" }));
+    fireEvent.input(
+      screen.getByRole("slider", { name: "Прозрачность инструмента" }),
+    );
     advance(1_999);
     expect(panel).toBeInTheDocument();
     advance(1);
@@ -151,7 +153,9 @@ describe("dock popup inactivity contract", () => {
     const panel = screen.getByRole("region", {
       name: "Первичные настройки инструмента",
     });
-    fireEvent.pointerDown(screen.getByRole("slider", { name: "Прозрачность инструмента" }));
+    fireEvent.pointerDown(
+      screen.getByRole("slider", { name: "Прозрачность инструмента" }),
+    );
     advance(3_000);
     expect(panel).toBeInTheDocument();
     fireEvent.pointerUp(window);
