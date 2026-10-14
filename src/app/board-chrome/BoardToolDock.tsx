@@ -717,7 +717,8 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 : "PNG, JPEG, SVG и анимированные GIF до 8 МБ."}
           </p>
         </ToolSettingsVisibility>
-      ) : suppressFallback ? null : props.selectionInspectorOpen && props.selectedStyle !== undefined ? (
+      ) : suppressFallback ? null : props.selectionInspectorOpen &&
+        props.selectedStyle !== undefined ? (
         <ToolSettingsVisibility
           className="dock-primary-settings dock-primary-settings--selection"
           key={`selection:${props.selectionKey ?? props.selectedCount}:${settingsRevision}`}
