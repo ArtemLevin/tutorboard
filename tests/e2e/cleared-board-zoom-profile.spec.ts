@@ -59,7 +59,7 @@ async function profileZoom(page: Page, stage: Locator): Promise<ZoomProfile> {
       over50Ms: gaps.filter((gap) => gap > 50).length,
       transformerSyncEvents:
         trace?.events.filter(
-          (event) => event.kind === "viewport-transformer-sync",
+          (event) => String(event.kind) === "viewport-transformer-sync",
         ).length ?? 0,
     };
   });
