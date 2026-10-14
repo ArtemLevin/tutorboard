@@ -841,6 +841,12 @@ export function BoardStage({
     if (stage === null || transformer === null) {
       return;
     }
+    // An empty, unbound Transformer has no nodes to synchronize. Avoid
+    // scanning all Konva descendants and redrawing the overlay on every
+    // wheel frame, especially after clearing a large board.
+    if (transformableObjectIds.length === 0 && transformer.nodes().length === 0) {
+      return;
+    }
     measureBoardFrameTrace("viewport-transformer-sync", () => {
       const allowed = new Set(transformableObjectIds);
       const nodes = stage.find(".board-transform-target").filter((node) => {
