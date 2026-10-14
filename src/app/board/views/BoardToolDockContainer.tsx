@@ -148,6 +148,7 @@ export function BoardToolDockContainer({
       }
       selectedVertexName={geometry.selectedVertex?.vertexName ?? null}
       selectionInspectorOpen={selectionInspectorOpen}
+      selectionKey={selection.state.selectedObjectIds.join("|")}
       settingsOpen={settingsOpen}
       textDraft={drawing.textDraft}
       vertexConstructions={
