@@ -391,9 +391,9 @@ export function BoardToolDock(props: BoardToolDockProps) {
   const [settingsRevision, setSettingsRevision] = useState(0);
   // Remember which underlying panel was displaced by a timed-out menu.
   // Changes of tool or selection naturally start a fresh popup lifetime.
-  const [suppressedFallbackKey, setSuppressedFallbackKey] = useState<string | null>(
-    null,
-  );
+  const [suppressedFallbackKey, setSuppressedFallbackKey] = useState<
+    string | null
+  >(null);
   const fallbackKey =
     props.selectionInspectorOpen && props.selectedStyle !== undefined
       ? `selection:${props.selectionKey ?? props.selectedCount}`
