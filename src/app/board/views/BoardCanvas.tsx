@@ -112,7 +112,7 @@ export interface BoardCanvasProps {
   readonly onTransformPreviewChange: (
     transforms: readonly BoardObjectTransformSnapshot[] | null,
   ) => void;
-  readonly onViewportCommit: (viewport: ViewportState) => void;
+  readonly onViewportCommit: (viewport: ViewportState) => ViewportState | void;
   readonly onManualViewportInteraction?: (() => void) | undefined;
   readonly plots: CoordinatePlotController;
   readonly readOnly: boolean;
