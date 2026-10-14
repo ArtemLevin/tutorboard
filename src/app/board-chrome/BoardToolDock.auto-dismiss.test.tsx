@@ -74,7 +74,8 @@ function fixture(): DockProps {
 }
 
 function advance(ms: number) {
-  act(() => vi.advanceTimersByTime(ms));
+  // React processes this synchronous fake-timer callback within the act scope.
+  void act(() => vi.advanceTimersByTime(ms));
 }
 
 beforeEach(() => vi.useFakeTimers());
