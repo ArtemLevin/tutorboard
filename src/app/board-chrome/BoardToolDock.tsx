@@ -389,8 +389,16 @@ export function BoardToolDock(props: BoardToolDockProps) {
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [openMenu, setOpenMenu] = useState<DockMenuId | null>(null);
   const [settingsRevision, setSettingsRevision] = useState(0);
-  // Prevent an idle menu from revealing a fresh, two-second settings popup.
-  const [suppressFallback, setSuppressFallback] = useState(false);
+  // Remember which underlying panel was displaced by a timed-out menu.
+  // Changes of tool or selection naturally start a fresh popup lifetime.
+  const [suppressedFallbackKey, setSuppressedFallbackKey] = useState<string | null>(
+    null,
+  );
+  const fallbackKey =
+    props.selectionInspectorOpen && props.selectedStyle !== undefined
+      ? `selection:${props.selectionKey ?? props.selectedCount}`
+      : props.activeTool;
+  const suppressFallback = suppressedFallbackKey === fallbackKey;
   const activeDrawingTool = isDrawingToolId(props.activeTool)
     ? props.activeTool
     : null;
@@ -451,24 +459,19 @@ export function BoardToolDock(props: BoardToolDockProps) {
     };
   }, [openMenu]);
 
-  useEffect(() => {
-    // Explicit tool/selection changes may request their settings again.
-    setSuppressFallback(false);
-  }, [props.activeTool, props.selectionInspectorOpen, props.selectionKey]);
-
   const dismissMenu = () => {
     setOpenMenu(null);
-    setSuppressFallback(true);
+    setSuppressedFallbackKey(fallbackKey);
   };
   const toggleMenu = (menu: DockMenuId) => {
-    setSuppressFallback(false);
+    setSuppressedFallbackKey(null);
     const trigger = document.activeElement;
     menuTriggerRef.current =
       trigger instanceof HTMLButtonElement ? trigger : null;
     setOpenMenu((current) => (current === menu ? null : menu));
   };
   const chooseTool = (tool: string) => {
-    setSuppressFallback(false);
+    setSuppressedFallbackKey(null);
     if (tool === props.activeTool) {
       setSettingsRevision((current) => current + 1);
     }
@@ -1074,7 +1077,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 key={slot}
                 onClick={() => {
                   setOpenMenu(null);
-                  setSuppressFallback(false);
+                  setSuppressedFallbackKey(null);
                   setSettingsRevision((current) => current + 1);
                   props.onApplyPenPreset(slot);
                 }}
@@ -1095,7 +1098,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             icon="⇄"
             label="Сменить стиль пера (Shift+P)"
             onClick={() => {
-              setSuppressFallback(false);
+              setSuppressedFallbackKey(null);
               setSettingsRevision((current) => current + 1);
               props.onApplyPenPreset(props.lastSelectedPenPreset === 0 ? 1 : 0);
             }}
