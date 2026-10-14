@@ -389,6 +389,8 @@ export function BoardToolDock(props: BoardToolDockProps) {
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [openMenu, setOpenMenu] = useState<DockMenuId | null>(null);
   const [settingsRevision, setSettingsRevision] = useState(0);
+  // Prevent an idle menu from revealing a fresh, two-second settings popup.
+  const [suppressFallback, setSuppressFallback] = useState(false);
   const activeDrawingTool = isDrawingToolId(props.activeTool)
     ? props.activeTool
     : null;
@@ -449,13 +451,24 @@ export function BoardToolDock(props: BoardToolDockProps) {
     };
   }, [openMenu]);
 
+  useEffect(() => {
+    // Explicit tool/selection changes may request their settings again.
+    setSuppressFallback(false);
+  }, [props.activeTool, props.selectionInspectorOpen, props.selectionKey]);
+
+  const dismissMenu = () => {
+    setOpenMenu(null);
+    setSuppressFallback(true);
+  };
   const toggleMenu = (menu: DockMenuId) => {
+    setSuppressFallback(false);
     const trigger = document.activeElement;
     menuTriggerRef.current =
       trigger instanceof HTMLButtonElement ? trigger : null;
     setOpenMenu((current) => (current === menu ? null : menu));
   };
   const chooseTool = (tool: string) => {
+    setSuppressFallback(false);
     if (tool === props.activeTool) {
       setSettingsRevision((current) => current + 1);
     }
@@ -493,7 +506,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           className="dock-menu"
           key="menu:export"
           label="Форматы экспорта"
-          onDismiss={() => setOpenMenu(null)}
+          onDismiss={dismissMenu}
           role="menu"
         >
           {props.onExportPngSnapshot === undefined ? null : (
@@ -532,7 +545,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           className="dock-menu"
           key="menu:favorites"
           label="Меню избранных инструментов"
-          onDismiss={() => setOpenMenu(null)}
+          onDismiss={dismissMenu}
           role="menu"
         >
           <p className="dock-menu-hint">
@@ -566,7 +579,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           className="dock-menu"
           key="menu:selection"
           label="Меню выделения"
-          onDismiss={() => setOpenMenu(null)}
+          onDismiss={dismissMenu}
           role="menu"
         >
           <MenuItem
@@ -587,7 +600,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           className="dock-menu"
           key="menu:drawing"
           label="Меню рисования"
-          onDismiss={() => setOpenMenu(null)}
+          onDismiss={dismissMenu}
           role="menu"
         >
           {drawingMenuItems.map((item) => (
@@ -613,7 +626,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           className="dock-menu"
           key="menu:math"
           label="Меню математики"
-          onDismiss={() => setOpenMenu(null)}
+          onDismiss={dismissMenu}
           role="menu"
         >
           <MenuItem
@@ -631,7 +644,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           className="dock-menu"
           key="menu:ai"
           label="Меню ИИ"
-          onDismiss={() => setOpenMenu(null)}
+          onDismiss={dismissMenu}
           role="menu"
         >
           {tool("drawing.smart-ink") === undefined ? null : (
@@ -669,7 +682,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
           className="dock-menu"
           key="menu:media"
           label="Меню медиа"
-          onDismiss={() => setOpenMenu(null)}
+          onDismiss={dismissMenu}
           role="menu"
         >
           <label
@@ -701,7 +714,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 : "PNG, JPEG, SVG и анимированные GIF до 8 МБ."}
           </p>
         </ToolSettingsVisibility>
-      ) : props.selectionInspectorOpen && props.selectedStyle !== undefined ? (
+      ) : suppressFallback ? null : props.selectionInspectorOpen && props.selectedStyle !== undefined ? (
         <ToolSettingsVisibility
           className="dock-primary-settings dock-primary-settings--selection"
           key={`selection:${props.selectionKey ?? props.selectedCount}:${settingsRevision}`}
@@ -1061,6 +1074,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 key={slot}
                 onClick={() => {
                   setOpenMenu(null);
+                  setSuppressFallback(false);
                   setSettingsRevision((current) => current + 1);
                   props.onApplyPenPreset(slot);
                 }}
@@ -1081,6 +1095,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             icon="⇄"
             label="Сменить стиль пера (Shift+P)"
             onClick={() => {
+              setSuppressFallback(false);
               setSettingsRevision((current) => current + 1);
               props.onApplyPenPreset(props.lastSelectedPenPreset === 0 ? 1 : 0);
             }}
