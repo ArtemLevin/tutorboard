@@ -69,6 +69,17 @@ jobs:
       - name: Verify board contract
         run: npm run board-contract:check
 
+      - name: Capture canonical dock formatting for this patch
+        run: |
+          npx prettier --write src/app/board-chrome/BoardToolDock.tsx src/app/board-chrome/BoardToolDock.auto-dismiss.test.tsx
+          echo '__CANONICAL_BOARD_DOCK_START__'
+          sed 's/^/__CANONICAL_LINE__/' src/app/board-chrome/BoardToolDock.tsx
+          echo '__CANONICAL_BOARD_DOCK_END__'
+          echo '__CANONICAL_BOARD_DOCK_TEST_START__'
+          sed 's/^/__CANONICAL_LINE__/' src/app/board-chrome/BoardToolDock.auto-dismiss.test.tsx
+          echo '__CANONICAL_BOARD_DOCK_TEST_END__'
+          exit 1
+
       - name: Check formatting
         run: npm run format:check
 
