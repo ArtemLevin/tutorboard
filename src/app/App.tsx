@@ -753,13 +753,16 @@ export function App({
       if (followingTeacher) onTeacherFollowStop?.();
       if (readOnly || localViewportEnabled || followingTeacher) {
         setViewOnlyCamera({ scope: bookmarkScope, viewport });
-        return;
+        return viewport;
       }
-      commitCommand({
+      const result = commitCommand({
         ...createCommandMetadata(),
         kind: "core.viewport.set",
         viewport,
       });
+      // Return the canonical, validated viewport identity. The reducer may
+      // clone incoming command payloads, so the original argument is not an ACK.
+      return result.ok ? result.document.viewport : undefined;
     },
     [
       bookmarkScope,

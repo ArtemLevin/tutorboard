@@ -280,7 +280,7 @@ export interface BoardStageProps {
   readonly selectionPreviewDelta?: Vec2 | null;
   readonly transformableObjectIds?: readonly BoardObjectId[];
   readonly wetInkStyle?: WetInkStyle | null;
-  readonly onViewportCommit: (viewport: ViewportState) => void;
+  readonly onViewportCommit: (viewport: ViewportState) => ViewportState | void;
   readonly onManualViewportInteraction?: (() => void) | undefined;
 }
 
@@ -551,9 +551,19 @@ export function BoardStage({
     start: onSelectionPointerStart,
   });
   const viewportRef = useRef(scene.viewport);
+  // Only the exact canonical object acknowledged by the document controller
+  // is a local commit. Schema validation may clone the command's viewport.
+  const ownedViewportCommits = useRef(new WeakSet<ViewportState>());
+  const previewViewportRef = useRef(scene.viewport);
   const worldPointerHoverRef = useRef(onWorldPointerHover);
   const spacePressedRef = useRef(false);
-  const [previewViewport, setPreviewViewport] = useState(scene.viewport);
+  const [previewViewport, setRenderedPreviewViewport] = useState(
+    scene.viewport,
+  );
+  const setPreviewViewport = useCallback((viewport: ViewportState) => {
+    previewViewportRef.current = viewport;
+    setRenderedPreviewViewport(viewport);
+  }, []);
   const [isPanning, setIsPanning] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -833,6 +843,15 @@ export function BoardStage({
     if (stage === null || transformer === null) {
       return;
     }
+    // An empty, unbound Transformer has no nodes to synchronize. Avoid
+    // scanning all Konva descendants and redrawing the overlay on every
+    // wheel frame, especially after clearing a large board.
+    if (
+      transformableObjectIds.length === 0 &&
+      transformer.nodes().length === 0
+    ) {
+      return;
+    }
     measureBoardFrameTrace("viewport-transformer-sync", () => {
       const allowed = new Set(transformableObjectIds);
       const nodes = stage.find(".board-transform-target").filter((node) => {
@@ -948,6 +967,9 @@ export function BoardStage({
 
   useEffect(() => {
     viewportRef.current = scene.viewport;
+    // Acknowledge our prior commit without cancelling a newer wheel gesture.
+    // External replacement, even with identical numbers, still resets it.
+    if (ownedViewportCommits.current.delete(scene.viewport)) return;
     if (
       panSessionRef.current === null &&
       drawingSessionRef.current === null &&
@@ -964,7 +986,7 @@ export function BoardStage({
       }
       setPreviewViewport(scene.viewport);
     }
-  }, [animatedImageRedraw, scene.viewport, wheelInkCache]);
+  }, [animatedImageRedraw, scene.viewport, setPreviewViewport, wheelInkCache]);
 
   useLayoutEffect(() => {
     wheelInkCache.invalidate();
@@ -1258,6 +1280,7 @@ export function BoardStage({
       enqueueWorldPointerMoves,
       flushWorldPointerMoves,
       releaseCapture,
+      setPreviewViewport,
       worldSample,
       worldSamples,
     ],
@@ -1282,7 +1305,7 @@ export function BoardStage({
         selectionPointerCallbacksRef.current.cancel(session.pointerId);
       }
     },
-    [releaseCapture, selectionWorldSample],
+    [releaseCapture, selectionWorldSample, setPreviewViewport],
   );
 
   const finishPan = useCallback(
@@ -1301,12 +1324,15 @@ export function BoardStage({
         !sameViewport(session.startViewport, session.latestViewport)
       ) {
         setPreviewViewport(session.latestViewport);
-        onViewportCommit(session.latestViewport);
+        const acknowledged = onViewportCommit(session.latestViewport);
+        if (acknowledged !== undefined) {
+          ownedViewportCommits.current.add(acknowledged);
+        }
       } else {
         setPreviewViewport(viewportRef.current);
       }
     },
-    [onViewportCommit, releaseCapture],
+    [onViewportCommit, releaseCapture, setPreviewViewport],
   );
 
   const cancelWheel = useCallback(() => {
@@ -1327,7 +1353,7 @@ export function BoardStage({
       animatedImageRedraw.setWheelZoomActive(false);
       setPreviewViewport(viewportRef.current);
     }
-  }, [animatedImageRedraw, wheelInkCache]);
+  }, [animatedImageRedraw, setPreviewViewport, wheelInkCache]);
 
   const commitWheel = useCallback(() => {
     const session = wheelSessionRef.current;
@@ -1358,7 +1384,10 @@ export function BoardStage({
       setPreviewViewport(session.latestViewport);
       const persistStartMs = traceEnabled ? performance.now() : 0;
       try {
-        onViewportCommit(session.latestViewport);
+        const acknowledged = onViewportCommit(session.latestViewport);
+        if (acknowledged !== undefined) {
+          ownedViewportCommits.current.add(acknowledged);
+        }
       } finally {
         if (traceEnabled) {
           recordBoardFrameTrace(
@@ -1377,7 +1406,12 @@ export function BoardStage({
         }
       }
     }
-  }, [animatedImageRedraw, onViewportCommit, wheelInkCache]);
+  }, [
+    animatedImageRedraw,
+    onViewportCommit,
+    setPreviewViewport,
+    wheelInkCache,
+  ]);
 
   const finishLineEndpointTransform = useCallback(
     (commit: boolean) => {
@@ -1788,6 +1822,7 @@ export function BoardStage({
     predictedWorldSamples,
     registerPrimaryCanvasTap,
     selectionWorldSample,
+    setPreviewViewport,
     updateLineEndpointTransform,
     worldSamples,
   ]);
@@ -2244,7 +2279,7 @@ export function BoardStage({
     const direction =
       (event.evt.deltaY < 0 ? 1 : -1) * (event.evt.ctrlKey ? -1 : 1);
     const currentViewport =
-      wheelSessionRef.current?.latestViewport ?? previewViewport;
+      wheelSessionRef.current?.latestViewport ?? previewViewportRef.current;
     const requestedZoom =
       direction > 0
         ? currentViewport.zoom * zoomStep
@@ -2352,6 +2387,9 @@ export function BoardStage({
       data-laser-visible={laserPoint !== null}
       data-pan-mode={panMode}
       data-viewport-zoom={previewViewport.zoom.toFixed(4)}
+      data-preview-zoom={previewViewport.zoom}
+      data-preview-offset-x={previewViewport.offset.x}
+      data-preview-offset-y={previewViewport.offset.y}
       data-panning={isPanning}
       data-remote-ink-count={remoteInkPreviews.length}
       data-selecting={isSelecting}
