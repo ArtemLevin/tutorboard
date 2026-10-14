@@ -26,3 +26,18 @@ Run `npm run check` and `npx playwright test tests/e2e/cleared-board-zoom-profil
 ## Status
 
 Implementation is committed for review. Runtime performance GO and release remain open until exact-head browser profiles and CI are inspected. No schema, persisted bytes or protocol changes were introduced.
+
+## First exact-head CI and browser findings (14.10.2026)
+
+A prior exact-head workflow on `af68b4a` passed format, lint, typecheck, unit tests, all performance budgets, architecture, production build, 62 Chromium and 62 Firefox smoke tests, and three additional pen budget browser cases in each engine.
+
+The instrumented `cdecebe9` experiment (GitHub Actions CI run 38554824294) produced the following **single-run Linux headless synthetic** observations (rAF capture on a fresh empty board vs the same board cleared after 3000 varied strokes and 10 PNG):
+
+| Engine | Fresh n / p95 / max (ms) | Cleared n / p95 / max (ms) | >50 ms frames |
+| --- | --- | --- | --- |
+| Chromium | 102 / 16.80 / 33.30 | 96 / 16.72 / 16.80 | 0 / 0 |
+| Firefox | 105 / 17.36 / 49.50 | 102 / 17.38 / 32.64 | 0 / 0 |
+
+Chromium forced-GC retained heap: fresh **11.85 MB**, cleared **25.58 MB**; measured collection calls took 50.9 ms and 80.9 ms, respectively. Existing Undo retains the heavy document by design. All 48 viewport transitions in each measured arm had zero Transformer synchronization events with empty selection. There were zero reported Long Tasks in these samples; this is not a Windows device endurance result or a claim about arbitrary 10k boards.
+
+The production-image Docker build in this workflow failed because `.dockerignore` excluded `tests/fixtures/dense-board.ts`, imported by a source-colocated TypeScript test. An allowlist for only that synthetic fixture is being delivered in the next commit, retaining the rest of the test exclusion. Re-check the exact head's Docker image gate.
