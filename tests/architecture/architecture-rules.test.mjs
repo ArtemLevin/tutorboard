@@ -17,6 +17,17 @@ function analyze(relativePath, sourceText) {
 }
 
 describe("architecture rules", () => {
+  it("permits fetch only through declared HTTP adapter boundaries", () => {
+    const source = 'export const probe = () => fetch("https://example.test");';
+    expect(analyze("adapters/board-http/lesson-handoff.ts", source)).toEqual([]);
+    expect(analyze("app/lesson-board-handoff.ts", source)).toEqual([
+      expect.objectContaining({ invariant: "ARCH-003", specifier: "fetch" }),
+    ]);
+    expect(analyze("adapters/persistence-dexie/unsafe.ts", source)).toEqual([
+      expect.objectContaining({ invariant: "ARCH-003", specifier: "fetch" }),
+    ]);
+  });
+
   it("rejects runtime libraries from core", () => {
     expect(
       analyze("core/board/document.ts", 'import React from "react";'),
