@@ -13,3 +13,4 @@ export {
   createTeacherBoardManagementRepository,
   fetchTeacherManagementContext,
 } from "./management";
+export { verifyTutorAssistantHandoff } from "./lesson-handoff";
