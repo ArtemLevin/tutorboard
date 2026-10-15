@@ -12,9 +12,7 @@ const callback = `http://127.0.0.1:42117/complete?nonce=${token}`;
 
 function fragment(value: unknown): string {
   const json = JSON.stringify(value);
-  const encoded = btoa(
-    String.fromCharCode(...new TextEncoder().encode(json)),
-  )
+  const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(json)))
     .replaceAll("+", "-")
     .replaceAll("/", "_")
     .replace(/=+$/u, "");
@@ -72,7 +70,7 @@ describe("Tutor Assistant browser handoff", () => {
     )!;
     const fetchStub = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ valid: true }),
+      json: () => Promise.resolve({ valid: true }),
     });
     vi.stubGlobal("fetch", fetchStub);
     try {
