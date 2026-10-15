@@ -296,7 +296,8 @@ export function analyzeSource({ filePath, sourceText, srcRoot }) {
   const networkAdapter =
     importer.layer === "adapters" &&
     (importer.owner === "geometryos-http" ||
-      importer.owner === "math-ink-http");
+      importer.owner === "math-ink-http" ||
+      importer.owner === "board-http");
   if (!networkAdapter) {
     for (const source of collectDirectFetchUsage(sourceFile)) {
       violations.push(

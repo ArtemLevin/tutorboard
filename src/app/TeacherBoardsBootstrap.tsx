@@ -59,6 +59,12 @@ export function TeacherBoardsBootstrap({
           <p role="alert">
             Этот раздел доступен только в авторизованной сессии преподавателя.
           </p>
+          <p>
+            Войдите в TutorBoard в отдельной вкладке, затем повторите проверку.
+          </p>
+          <a href="/login" rel="noopener noreferrer" target="_blank">
+            Войти как преподаватель
+          </a>
           <button
             onClick={() => {
               setState({ kind: "loading" });
