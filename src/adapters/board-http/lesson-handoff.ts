@@ -22,4 +22,3 @@ export async function verifyTutorAssistantHandoff(
     throw new Error("Неверный ответ Tutor Assistant при подтверждении доски.");
   }
 }
-
