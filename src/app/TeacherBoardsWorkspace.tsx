@@ -26,7 +26,9 @@ import {
 import "./teacher-boards.css";
 
 const inFlightLessonCreates = new Map<string, Promise<string>>();
-let cachedLessonBoardHandoff: ReturnType<typeof readLessonBoardHandoff> | undefined;
+let cachedLessonBoardHandoff:
+  | ReturnType<typeof readLessonBoardHandoff>
+  | undefined;
 
 /** Reading once survives React StrictMode's deliberate double render. */
 function consumeLessonBoardHandoff(): ReturnType<typeof readLessonBoardHandoff> {
@@ -34,7 +36,11 @@ function consumeLessonBoardHandoff(): ReturnType<typeof readLessonBoardHandoff> 
     cachedLessonBoardHandoff = readLessonBoardHandoff(window.location.hash);
     if (cachedLessonBoardHandoff !== null) {
       // Remove the secret fragment before any network request or redirects.
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + window.location.search,
+      );
     }
   }
   return cachedLessonBoardHandoff;
@@ -736,7 +742,9 @@ export function TeacherBoardsWorkspace({
         if (boardId === null) {
           let pending = inFlightLessonCreates.get(handoff.lessonId);
           if (pending === undefined) {
-            pending = repository.createBoard(handoff.title).then((board) => board.boardId);
+            pending = repository
+              .createBoard(handoff.title)
+              .then((board) => board.boardId);
             inFlightLessonCreates.set(handoff.lessonId, pending);
           }
           try {
@@ -745,7 +753,8 @@ export function TeacherBoardsWorkspace({
             inFlightLessonCreates.delete(handoff.lessonId);
             throw failure;
           }
-          if (!validTutorBoardId(boardId)) throw new Error("Неверный ID доски.");
+          if (!validTutorBoardId(boardId))
+            throw new Error("Неверный ID доски.");
           try {
             window.sessionStorage.setItem(storageKey, boardId);
           } catch {
