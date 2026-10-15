@@ -27,11 +27,12 @@ import "./teacher-boards.css";
 
 const inFlightLessonCreates = new Map<string, Promise<string>>();
 let cachedLessonBoardHandoff:
-  | ReturnType<typeof readLessonBoardHandoff>
-  | undefined;
+  ReturnType<typeof readLessonBoardHandoff> | undefined;
 
 /** Reading once survives React StrictMode's deliberate double render. */
-function consumeLessonBoardHandoff(): ReturnType<typeof readLessonBoardHandoff> {
+function consumeLessonBoardHandoff(): ReturnType<
+  typeof readLessonBoardHandoff
+> {
   if (cachedLessonBoardHandoff === undefined) {
     cachedLessonBoardHandoff = readLessonBoardHandoff(window.location.hash);
     if (cachedLessonBoardHandoff !== null) {
@@ -702,7 +703,7 @@ export function TeacherBoardsWorkspace({
       }),
     [context, environment.boardApiBaseUrl],
   );
-  const handoff = useMemo(consumeLessonBoardHandoff, []);
+  const handoff = useMemo(() => consumeLessonBoardHandoff(), []);
   const [boards, setBoards] = useState<readonly StandaloneBoardDescriptor[]>(
     [],
   );
