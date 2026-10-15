@@ -61,31 +61,6 @@ export function readLessonBoardHandoff(
   }
 }
 
-/** A live localhost challenge prevents arbitrary /boards links from causing writes. */
-export async function verifyTutorAssistantHandoff(
-  handoff: LessonBoardHandoff,
-): Promise<void> {
-  const url = new URL(handoff.callback);
-  url.pathname = "/prepare";
-  const response = await fetch(url.href, {
-    cache: "no-store",
-    credentials: "omit",
-    mode: "cors",
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok)
-    throw new Error("Tutor Assistant недоступен для подтверждения доски.");
-  const body: unknown = await response.json();
-  if (
-    typeof body !== "object" ||
-    body === null ||
-    !("valid" in body) ||
-    body.valid !== true
-  ) {
-    throw new Error("Неверный ответ Tutor Assistant при подтверждении доски.");
-  }
-}
-
 export function handoffCompletionUrl(
   handoff: LessonBoardHandoff,
   boardId: string,
