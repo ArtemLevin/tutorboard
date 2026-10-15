@@ -17,7 +17,15 @@ import type {
   TeacherManagementContext,
 } from "../core/public";
 import type { AppEnvironment } from "./configuration/environment";
+import {
+  handoffCompletionUrl,
+  readLessonBoardHandoff,
+  validTutorBoardId,
+  verifyTutorAssistantHandoff,
+} from "./lesson-board-handoff";
 import "./teacher-boards.css";
+
+const inFlightLessonCreates = new Map<string, Promise<string>>();
 
 type BoardTab = "active" | "archive";
 type ExpiryPreset = "1h" | "24h" | "7d" | "never";
@@ -675,6 +683,14 @@ export function TeacherBoardsWorkspace({
       }),
     [context, environment.boardApiBaseUrl],
   );
+  const handoff = useMemo(() => {
+    const parsed = readLessonBoardHandoff(window.location.hash);
+    if (parsed !== null) {
+      // The one-time nonce must not survive in browser history or referrer URLs.
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    return parsed;
+  }, []);
   const [boards, setBoards] = useState<readonly StandaloneBoardDescriptor[]>(
     [],
   );
@@ -692,6 +708,62 @@ export function TeacherBoardsWorkspace({
     useState<StandaloneBoardDescriptor | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [busyBoardId, setBusyBoardId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (handoff === null) return;
+    let cancelled = false;
+
+    const createAndLink = async () => {
+      try {
+        // Authenticate the request against the running desktop application before POST.
+        await verifyTutorAssistantHandoff(handoff);
+        if (cancelled) return;
+
+        const storageKey = `tutor-assistant:board:${handoff.lessonId}`;
+        let boardId: string | null = null;
+        try {
+          const saved = window.sessionStorage.getItem(storageKey);
+          if (saved !== null && validTutorBoardId(saved)) boardId = saved;
+        } catch {
+          // Private browsing can disable session storage. In-memory deduplication remains.
+        }
+        if (boardId === null) {
+          let pending = inFlightLessonCreates.get(handoff.lessonId);
+          if (pending === undefined) {
+            pending = repository.createBoard(handoff.title).then((board) => board.boardId);
+            inFlightLessonCreates.set(handoff.lessonId, pending);
+          }
+          try {
+            boardId = await pending;
+          } catch (failure) {
+            inFlightLessonCreates.delete(handoff.lessonId);
+            throw failure;
+          }
+          if (!validTutorBoardId(boardId)) throw new Error("Неверный ID доски.");
+          try {
+            window.sessionStorage.setItem(storageKey, boardId);
+          } catch {
+            // The one-time callback still works without browser storage.
+          }
+        }
+        if (!cancelled) {
+          window.location.replace(handoffCompletionUrl(handoff, boardId));
+        }
+      } catch (caught) {
+        if (!cancelled) {
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : "Не удалось создать доску занятия.",
+          );
+        }
+      }
+    };
+    void createAndLink();
+    return () => {
+      cancelled = true;
+    };
+  }, [handoff, repository]);
 
   const refreshBoards = useCallback(async () => {
     setLoading(true);
