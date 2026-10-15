@@ -28,7 +28,11 @@ describe("Tutor Assistant browser handoff", () => {
       fragment({ version: 1, lessonId, title: "Геометрия", callback }),
     );
     expect(value).toEqual({
-      lessonId, teacherUserId, organizationId, title: "Геометрия", callback,
+      lessonId,
+      teacherUserId,
+      organizationId,
+      title: "Геометрия",
+      callback,
     });
     expect(handoffCompletionUrl(value!, "board:123")).toBe(
       `http://127.0.0.1:42117/complete?nonce=${token}&boardId=board%3A123`,
@@ -56,9 +60,17 @@ describe("Tutor Assistant browser handoff", () => {
       ).toBeNull();
     }
     expect(readLessonBoardHandoff("#other=abc")).toBeNull();
-    expect(readLessonBoardHandoff(fragment({
-      version: 1, lessonId, title: "Тема", callback, teacherUserId: "invalid/user",
-    }))).toBeNull();
+    expect(
+      readLessonBoardHandoff(
+        fragment({
+          version: 1,
+          lessonId,
+          title: "Тема",
+          callback,
+          teacherUserId: "invalid/user",
+        }),
+      ),
+    ).toBeNull();
     expect(
       readLessonBoardHandoff(
         fragment({ version: 1, lessonId: "other", title: "Тема", callback }),
