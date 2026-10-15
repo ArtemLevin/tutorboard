@@ -729,7 +729,6 @@ export function TeacherBoardsWorkspace({
   useEffect(() => {
     if (handoff === null) return;
     let cancelled = false;
-    setHandoffError(null);
 
     const createAndLink = async () => {
       try {
