@@ -158,8 +158,6 @@ function CreateBoardDialog({
   const [title, setTitle] = useState("Новая доска");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [handoffError, setHandoffError] = useState<string | null>(null);
-  const [handoffAttempt, setHandoffAttempt] = useState(0);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -717,6 +715,8 @@ export function TeacherBoardsWorkspace({
   const [tab, setTab] = useState<BoardTab>("active");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [handoffError, setHandoffError] = useState<string | null>(null);
+  const [handoffAttempt, setHandoffAttempt] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [renameBoard, setRenameBoard] =
