@@ -1,11 +1,14 @@
 /** Tutor Assistant browser handoff. Only an authenticated teacher can create a board. */
 export interface LessonBoardHandoff {
   readonly lessonId: string;
+  readonly teacherUserId: string;
+  readonly organizationId: string;
   readonly title: string;
   readonly callback: string;
 }
 
 const lessonIdPattern = /^[0-9a-f]{32}$/u;
+const principalIdPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const boardIdPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const tokenPattern = /^[A-Za-z0-9_-]{43}$/u;
 
@@ -31,6 +34,16 @@ export function readLessonBoardHandoff(
     if (!("lessonId" in payload) || typeof payload.lessonId !== "string")
       return null;
     if (!lessonIdPattern.test(payload.lessonId)) return null;
+    if (
+      !("teacherUserId" in payload) ||
+      typeof payload.teacherUserId !== "string" ||
+      !principalIdPattern.test(payload.teacherUserId)
+    ) return null;
+    if (
+      !("organizationId" in payload) ||
+      typeof payload.organizationId !== "string" ||
+      !principalIdPattern.test(payload.organizationId)
+    ) return null;
     if (!("title" in payload) || typeof payload.title !== "string") return null;
     if (payload.title.length < 1 || payload.title.length > 200) return null;
     if (!("callback" in payload) || typeof payload.callback !== "string")
@@ -53,6 +66,8 @@ export function readLessonBoardHandoff(
     }
     return {
       lessonId: payload.lessonId,
+      teacherUserId: payload.teacherUserId,
+      organizationId: payload.organizationId,
       title: payload.title,
       callback: callback.href,
     };
