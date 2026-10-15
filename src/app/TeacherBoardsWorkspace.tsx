@@ -26,6 +26,19 @@ import {
 import "./teacher-boards.css";
 
 const inFlightLessonCreates = new Map<string, Promise<string>>();
+let cachedLessonBoardHandoff: ReturnType<typeof readLessonBoardHandoff> | undefined;
+
+/** Reading once survives React StrictMode's deliberate double render. */
+function consumeLessonBoardHandoff(): ReturnType<typeof readLessonBoardHandoff> {
+  if (cachedLessonBoardHandoff === undefined) {
+    cachedLessonBoardHandoff = readLessonBoardHandoff(window.location.hash);
+    if (cachedLessonBoardHandoff !== null) {
+      // Remove the secret fragment before any network request or redirects.
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  }
+  return cachedLessonBoardHandoff;
+}
 
 type BoardTab = "active" | "archive";
 type ExpiryPreset = "1h" | "24h" | "7d" | "never";
@@ -683,14 +696,7 @@ export function TeacherBoardsWorkspace({
       }),
     [context, environment.boardApiBaseUrl],
   );
-  const handoff = useMemo(() => {
-    const parsed = readLessonBoardHandoff(window.location.hash);
-    if (parsed !== null) {
-      // The one-time nonce must not survive in browser history or referrer URLs.
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
-    }
-    return parsed;
-  }, []);
+  const handoff = useMemo(consumeLessonBoardHandoff, []);
   const [boards, setBoards] = useState<readonly StandaloneBoardDescriptor[]>(
     [],
   );
