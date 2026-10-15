@@ -8,7 +8,10 @@ import {
   type ReactNode,
 } from "react";
 
-import { createTeacherBoardManagementRepository } from "../adapters/board-http/public";
+import {
+  createTeacherBoardManagementRepository,
+  verifyTutorAssistantHandoff,
+} from "../adapters/board-http/public";
 import type {
   BoardInvitationSecretResult,
   BoardInvitationSummary,
@@ -21,7 +24,6 @@ import {
   handoffCompletionUrl,
   readLessonBoardHandoff,
   validTutorBoardId,
-  verifyTutorAssistantHandoff,
 } from "./lesson-board-handoff";
 import "./teacher-boards.css";
 
