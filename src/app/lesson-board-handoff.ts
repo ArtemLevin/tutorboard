@@ -13,7 +13,9 @@ export function validTutorBoardId(value: string): boolean {
   return boardIdPattern.test(value);
 }
 
-export function readLessonBoardHandoff(hash: string): LessonBoardHandoff | null {
+export function readLessonBoardHandoff(
+  hash: string,
+): LessonBoardHandoff | null {
   if (!hash.startsWith("#ta-start=") || hash.length > 4096) return null;
   const raw = hash.slice("#ta-start=".length);
   if (!/^[A-Za-z0-9_-]+$/u.test(raw)) return null;
