@@ -13,7 +13,7 @@ const organizationId = "organization-1";
 const token = "a".repeat(43);
 const callback = `http://127.0.0.1:42117/complete?nonce=${token}`;
 
-function fragment(value: unknown): string {
+function fragment(value: Record<string, unknown>): string {
   const json = JSON.stringify({ teacherUserId, organizationId, ...value });
   const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(json)))
     .replaceAll("+", "-")
