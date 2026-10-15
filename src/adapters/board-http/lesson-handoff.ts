@@ -1,7 +1,7 @@
 /** Verify a live desktop challenge before creating a board in the teacher session. */
-export async function verifyTutorAssistantHandoff(
-  handoff: { readonly callback: string },
-): Promise<void> {
+export async function verifyTutorAssistantHandoff(handoff: {
+  readonly callback: string;
+}): Promise<void> {
   const url = new URL(handoff.callback);
   url.pathname = "/prepare";
   const response = await fetch(url.href, {
