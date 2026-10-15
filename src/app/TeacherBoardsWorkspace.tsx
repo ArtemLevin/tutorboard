@@ -156,6 +156,8 @@ function CreateBoardDialog({
   const [title, setTitle] = useState("Новая доска");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [handoffError, setHandoffError] = useState<string | null>(null);
+  const [handoffAttempt, setHandoffAttempt] = useState(0);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -725,6 +727,7 @@ export function TeacherBoardsWorkspace({
   useEffect(() => {
     if (handoff === null) return;
     let cancelled = false;
+    setHandoffError(null);
 
     const createAndLink = async () => {
       try {
@@ -767,7 +770,7 @@ export function TeacherBoardsWorkspace({
         }
       } catch (caught) {
         if (!cancelled) {
-          setError(
+          setHandoffError(
             caught instanceof Error
               ? caught.message
               : "Не удалось создать доску занятия.",
@@ -779,7 +782,7 @@ export function TeacherBoardsWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [handoff, repository]);
+  }, [handoff, repository, handoffAttempt]);
 
   const refreshBoards = useCallback(async () => {
     setLoading(true);
@@ -892,6 +895,17 @@ export function TeacherBoardsWorkspace({
             type="button"
           >
             ×
+          </button>
+        </div>
+      )}
+      {handoff === null || handoffError === null ? null : (
+        <div className="teacher-error" role="alert">
+          <span>{handoffError}</span>
+          <button
+            onClick={() => setHandoffAttempt((attempt) => attempt + 1)}
+            type="button"
+          >
+            Повторить привязку занятия
           </button>
         </div>
       )}
