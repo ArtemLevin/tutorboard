@@ -732,6 +732,13 @@ export function TeacherBoardsWorkspace({
 
     const createAndLink = async () => {
       try {
+        // The browser session must be exactly the configured teacher and tenant.
+        if (
+          context.userId !== handoff.teacherUserId ||
+          context.organizationId !== handoff.organizationId
+        ) {
+          throw new Error("Учётная запись TutorBoard отличается от ожидаемого преподавателя.");
+        }
         // Authenticate the request against the running desktop application before POST.
         await verifyTutorAssistantHandoff(handoff);
         if (cancelled) return;
