@@ -14,7 +14,10 @@ function fragment(value: unknown): string {
   const json = JSON.stringify(value);
   const encoded = btoa(
     String.fromCharCode(...new TextEncoder().encode(json)),
-  ).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+  )
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
   return `#ta-start=${encoded}`;
 }
 
@@ -40,7 +43,12 @@ describe("Tutor Assistant browser handoff", () => {
     ]) {
       expect(
         readLessonBoardHandoff(
-          fragment({ version: 1, lessonId, title: "Геометрия", callback: candidate }),
+          fragment({
+            version: 1,
+            lessonId,
+            title: "Геометрия",
+            callback: candidate,
+          }),
         ),
       ).toBeNull();
     }
@@ -51,7 +59,10 @@ describe("Tutor Assistant browser handoff", () => {
       ),
     ).toBeNull();
     expect(() =>
-      handoffCompletionUrl({ lessonId, title: "Тема", callback }, "board/unsafe"),
+      handoffCompletionUrl(
+        { lessonId, title: "Тема", callback },
+        "board/unsafe",
+      ),
     ).toThrow();
   });
 
