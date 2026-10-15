@@ -8,11 +8,13 @@ import {
 } from "./lesson-board-handoff";
 
 const lessonId = "f".repeat(32);
+const teacherUserId = "teacher-user-1";
+const organizationId = "organization-1";
 const token = "a".repeat(43);
 const callback = `http://127.0.0.1:42117/complete?nonce=${token}`;
 
 function fragment(value: unknown): string {
-  const json = JSON.stringify(value);
+  const json = JSON.stringify({ teacherUserId, organizationId, ...value });
   const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(json)))
     .replaceAll("+", "-")
     .replaceAll("/", "_")
@@ -25,7 +27,9 @@ describe("Tutor Assistant browser handoff", () => {
     const value = readLessonBoardHandoff(
       fragment({ version: 1, lessonId, title: "Геометрия", callback }),
     );
-    expect(value).toEqual({ lessonId, title: "Геометрия", callback });
+    expect(value).toEqual({
+      lessonId, teacherUserId, organizationId, title: "Геометрия", callback,
+    });
     expect(handoffCompletionUrl(value!, "board:123")).toBe(
       `http://127.0.0.1:42117/complete?nonce=${token}&boardId=board%3A123`,
     );
@@ -52,6 +56,9 @@ describe("Tutor Assistant browser handoff", () => {
       ).toBeNull();
     }
     expect(readLessonBoardHandoff("#other=abc")).toBeNull();
+    expect(readLessonBoardHandoff(fragment({
+      version: 1, lessonId, title: "Тема", callback, teacherUserId: "invalid/user",
+    }))).toBeNull();
     expect(
       readLessonBoardHandoff(
         fragment({ version: 1, lessonId: "other", title: "Тема", callback }),
@@ -59,7 +66,7 @@ describe("Tutor Assistant browser handoff", () => {
     ).toBeNull();
     expect(() =>
       handoffCompletionUrl(
-        { lessonId, title: "Тема", callback },
+        { lessonId, teacherUserId, organizationId, title: "Тема", callback },
         "board/unsafe",
       ),
     ).toThrow();
