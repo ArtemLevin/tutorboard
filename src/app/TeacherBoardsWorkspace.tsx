@@ -737,7 +737,9 @@ export function TeacherBoardsWorkspace({
           context.userId !== handoff.teacherUserId ||
           context.organizationId !== handoff.organizationId
         ) {
-          throw new Error("Учётная запись TutorBoard отличается от ожидаемого преподавателя.");
+          throw new Error(
+            "Учётная запись TutorBoard отличается от ожидаемого преподавателя.",
+          );
         }
         // Authenticate the request against the running desktop application before POST.
         await verifyTutorAssistantHandoff(handoff);
@@ -790,7 +792,7 @@ export function TeacherBoardsWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [handoff, repository, handoffAttempt]);
+  }, [handoff, repository, handoffAttempt, context.userId, context.organizationId]);
 
   const refreshBoards = useCallback(async () => {
     setLoading(true);
