@@ -38,7 +38,8 @@ export function readLessonBoardHandoff(
       !("teacherUserId" in payload) ||
       typeof payload.teacherUserId !== "string" ||
       !principalIdPattern.test(payload.teacherUserId)
-    ) return null;
+    )
+      return null;
     if (
       !("organizationId" in payload) ||
       typeof payload.organizationId !== "string" ||
