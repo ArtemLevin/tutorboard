@@ -792,7 +792,13 @@ export function TeacherBoardsWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [handoff, repository, handoffAttempt, context.userId, context.organizationId]);
+  }, [
+    handoff,
+    repository,
+    handoffAttempt,
+    context.userId,
+    context.organizationId,
+  ]);
 
   const refreshBoards = useCallback(async () => {
     setLoading(true);
