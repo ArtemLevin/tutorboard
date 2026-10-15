@@ -44,7 +44,8 @@ export function readLessonBoardHandoff(
       !("organizationId" in payload) ||
       typeof payload.organizationId !== "string" ||
       !principalIdPattern.test(payload.organizationId)
-    ) return null;
+    )
+      return null;
     if (!("title" in payload) || typeof payload.title !== "string") return null;
     if (payload.title.length < 1 || payload.title.length > 200) return null;
     if (!("callback" in payload) || typeof payload.callback !== "string")
