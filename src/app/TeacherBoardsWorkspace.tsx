@@ -748,7 +748,7 @@ export function TeacherBoardsWorkspace({
           let pending = inFlightLessonCreates.get(handoff.lessonId);
           if (pending === undefined) {
             pending = repository
-              .createBoard(handoff.title)
+              .createBoard(handoff.title, { clientLessonId: handoff.lessonId })
               .then((board) => board.boardId);
             inFlightLessonCreates.set(handoff.lessonId, pending);
           }
