@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { verifyTutorAssistantHandoff } from "../adapters/board-http/public";
+
 import {
   handoffCompletionUrl,
   readLessonBoardHandoff,
-  verifyTutorAssistantHandoff,
 } from "./lesson-board-handoff";
 
 const lessonId = "f".repeat(32);
