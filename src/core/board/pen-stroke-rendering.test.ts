@@ -75,6 +75,31 @@ describe("styled pen stroke rendering", () => {
     expect(pencil[0]?.data).not.toBe(pen[0]?.data);
   });
 
+  it("generates deterministic pressure-sensitive oil paint and bristle ridges", () => {
+    const ink = lineInk();
+    const oil = createPenStrokeRenderPaths(ink, "oil-paint", 12);
+    expect(oil).toHaveLength(3);
+    expect(oil).toEqual(createPenStrokeRenderPaths(ink, "oil-paint", 12));
+    expect(oil.map((path) => path.opacityMultiplier)).toEqual([
+      0.9, 0.36, 0.44,
+    ]);
+    expect(oil[0]?.data).not.toEqual(oil[1]?.data);
+    expect(oil[1]?.data).not.toEqual(oil[2]?.data);
+    expect(createPenStrokeRenderPaths(ink, "oil-paint", 5)).not.toEqual(oil);
+
+    const reducedPressure = createVectorInkData(
+      ink.samples.map((sample) => ({ ...sample, pressure: 0.15 })),
+    );
+    expect(
+      createPenStrokeRenderPaths(reducedPressure, "oil-paint", 12),
+    ).not.toEqual(oil);
+    const bounds = createPenStrokeRenderBounds(ink, "oil-paint", 12);
+    expect(bounds).not.toBeNull();
+    expect(bounds).toEqual(
+      createPenStrokeRenderBounds(ink, "oil-paint", 12),
+    );
+  });
+
   it("preserves marker opacity semantics without altering geometry width", () => {
     const ink = lineInk();
     const marker = createPenStrokeRenderPaths(ink, "marker", 3);
@@ -97,7 +122,7 @@ describe("styled pen stroke rendering", () => {
       true,
     );
 
-    for (const style of ["wavy", "hand-pencil", "hand-pen"] as const) {
+    for (const style of ["wavy", "hand-pencil", "hand-pen", "oil-paint"] as const) {
       const first = createPenStrokeRenderPaths(ink, style, 3);
       const second = createPenStrokeRenderPaths(ink, style, 3);
       expect(first).toEqual(second);
@@ -116,6 +141,7 @@ describe("styled pen stroke rendering", () => {
       "hand-pencil",
       "hand-pen",
       "marker",
+      "oil-paint",
     ] as const) {
       const first = createPenStrokeRenderBounds(ink, style, 6);
       const second = createPenStrokeRenderBounds(ink, style, 6);
@@ -138,6 +164,10 @@ describe("styled pen stroke rendering", () => {
     expect(bounds?.left).toBeCloseTo(6.65, 10);
     expect(bounds?.right).toBeCloseTo(17.35, 10);
     expect(bounds?.top).toBeCloseTo(12.65, 10);
+
+    const oilTap = createPenStrokeRenderPaths(ink, "oil-paint", 10);
+    expect(oilTap).toHaveLength(1);
+    expect(oilTap[0]?.data).toContain("A ");
   });
 
   it("returns no path for zero width", () => {
