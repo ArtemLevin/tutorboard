@@ -16,9 +16,7 @@ describe("clear board transient lifecycle", () => {
     expect(shouldResetBoardRenderResources(populated, populated)).toBe(false);
     expect(shouldResetBoardRenderResources(cleared, cleared)).toBe(false);
     expect(shouldResetBoardRenderResources(cleared, populated)).toBe(false);
-    expect(
-      shouldResetBoardRenderResources(populated, unrelatedEmpty),
-    ).toBe(false);
+    expect(shouldResetBoardRenderResources(populated, unrelatedEmpty)).toBe(false);
   });
 
   it("cancels transient sessions without touching undo-retained document state", () => {
