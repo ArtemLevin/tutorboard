@@ -11,6 +11,7 @@ interface OilPaintPhase {
 }
 
 const maximumDrips = 16;
+const maximumDripCandidates = 64;
 const minimumDripWidth = 3;
 
 function paintHash(index: number): number {
@@ -57,12 +58,15 @@ export function createOilPaintDrips(
   let nextMark = nextIndex * spacing;
   let travelled = offset;
   let count = 0;
+  let candidates = 0;
   const paths: string[] = [];
   let bounds: VectorInkBounds | null = null;
 
   for (
     let index = 1;
-    index < ink.samples.length && count < maximumDrips;
+    index < ink.samples.length &&
+    count < maximumDrips &&
+    candidates < maximumDripCandidates;
     index += 1
   ) {
     const start = ink.samples[index - 1]!;
@@ -74,7 +78,12 @@ export function createOilPaintDrips(
     if (segment <= 1e-9) continue;
 
     const speed = segment / Math.max(1, end.timestampMs - start.timestampMs);
-    while (nextMark <= travelled + segment && count < maximumDrips) {
+    while (
+      nextMark <= travelled + segment &&
+      count < maximumDrips &&
+      candidates < maximumDripCandidates
+    ) {
+      candidates += 1;
       const ratio = (nextMark - travelled) / segment;
       const hash = paintHash(nextIndex);
       const pressure = Math.max(
