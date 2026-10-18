@@ -18,6 +18,7 @@ import {
 import {
   createDeleteSelectionCommand,
   createImageScaleStepTransforms,
+  createSelectionStepTransforms,
   createLineEndpointTransformCommand,
   createMoveSelectionCommand,
   planSelectionLayout,
@@ -307,7 +308,7 @@ export function useBoardSelectionController({
   );
 
   const transformBy = useCallback(
-    (scaleFactor: number, rotationDelta: number) => {
+    (scaleFactor: number, rotationDelta: number): boolean => {
       const current = getDocument();
       const selectedIds = stateRef.current.selectedObjectIds;
       const figure = inspectTextShapeFigure(current, selectedIds);
@@ -321,32 +322,18 @@ export function useBoardSelectionController({
         });
         if (command !== null && commitCommand(command).ok) {
           announce("Размер или поворот фигуры изменён");
+          return true;
         }
-        return;
+        return false;
       }
-      const transforms = selectedIds.flatMap((objectId) => {
-        const object = current.objects[objectId];
-        if (
-          object === undefined ||
-          object.locked ||
-          object.groupId !== null ||
-          object.source.kind !== "user"
-        ) {
-          return [];
-        }
-        return [
-          {
-            objectId,
-            position: object.position,
-            rotation: object.rotation + rotationDelta,
-            scale: {
-              x: Math.min(100, Math.max(0.05, object.scale.x * scaleFactor)),
-              y: Math.min(100, Math.max(0.05, object.scale.y * scaleFactor)),
-            },
-          },
-        ];
-      });
-      commitTransform(transforms);
+      const transforms = createSelectionStepTransforms(
+        current,
+        scene,
+        selectedIds,
+        scaleFactor,
+        rotationDelta,
+      );
+      return transforms !== null && commitTransform(transforms);
     },
     [
       announce,
@@ -354,6 +341,7 @@ export function useBoardSelectionController({
       commitTransform,
       createCommandMetadata,
       getDocument,
+      scene,
     ],
   );
 
