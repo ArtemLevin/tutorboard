@@ -44,6 +44,12 @@ export {
 } from "./board/document";
 export type { BoardGroup } from "./board/groups";
 export {
+  resolveTextTypography,
+  textAutoWrapColumns,
+  textLineMetrics,
+  wrapBoardText,
+} from "./board/text-layout";
+export {
   coordinatePlotExpressionLanguage,
   maximumCoordinatePlotExpressionBudget,
   maximumCoordinatePlotParameters,

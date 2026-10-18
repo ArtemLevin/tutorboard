@@ -3,6 +3,8 @@ import { Ellipse, Group, Line, Path, Rect, Text } from "react-konva";
 
 import {
   resolveVectorInkData,
+  resolveTextTypography,
+  wrapBoardText,
   vectorInkCenterlinePathData,
   type BoardObject,
   type BoardObjectKind,
@@ -402,14 +404,16 @@ const renderers: readonly KonvaObjectRenderer[] = [
     render(object) {
       const text = expectKind(object, "drawing.text");
       const label = renderSafeMathLabel(text.text);
+      const typography = resolveTextTypography(text.style);
       return (
         <Text
           {...commonShapeProps(text)}
           fill={text.style.fill ?? text.style.stroke ?? "#17202a"}
-          fontFamily="Inter, ui-sans-serif, system-ui"
-          fontSize={22}
-          lineHeight={1.35}
-          text={label.displayText}
+          fontFamily={typography.fontFamily}
+          fontSize={typography.fontSize}
+          fontStyle={typography.fontStyle}
+          lineHeight={typography.lineHeight}
+          text={wrapBoardText(label.displayText)}
         />
       );
     },

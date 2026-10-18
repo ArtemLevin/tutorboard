@@ -72,6 +72,11 @@ const styleOverrideSchema = z
     stroke: z.string().max(256).nullable().optional(),
     strokeWidth: finiteNumberSchema.nonnegative().optional(),
     strokeStyle: z.enum(strokeStyles).optional(),
+    fontFamily: z.enum(["sans", "serif", "mono"]).optional(),
+    fontSize: finiteNumberSchema.min(8).max(96).optional(),
+    fontStyle: z.enum(["normal", "italic"]).optional(),
+    fontWeight: z.enum(["normal", "bold"]).optional(),
+    lineHeight: finiteNumberSchema.min(0.8).max(2.5).optional(),
   })
   .strict();
 
