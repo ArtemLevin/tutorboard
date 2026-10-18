@@ -29,6 +29,17 @@ import {
 } from "../modules/handwritten-function/public";
 import { App, createInitialDocument } from "./App";
 
+function enableBookmarksForTest(): void {
+  if (screen.queryByRole("button", { name: "Закладки областей" })) return;
+  fireEvent.click(screen.getByRole("button", { name: "Настройки доски" }));
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Показывать закладки областей" }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Закрыть настройки доски" }),
+  );
+}
+
 function requestUrl(input: RequestInfo | URL): string {
   return typeof input === "string"
     ? input
@@ -233,6 +244,7 @@ describe("App", () => {
   it("keeps the lesson mode local and restores the active tool after Escape", async () => {
     const onCommandCommitted = vi.fn();
     render(<App onCommandCommitted={onCommandCommitted} />);
+    enableBookmarksForTest();
 
     fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
     expect(
@@ -873,6 +885,7 @@ describe("App", () => {
         readOnly
       />,
     );
+    enableBookmarksForTest();
     fireEvent.click(
       screen.getByRole("button", { name: "Переместить камеру тест" }),
     );
@@ -1218,6 +1231,7 @@ describe("App", () => {
 
   it("creates a graph without opening its editor and opens it on settings request", () => {
     render(<App />);
+    enableBookmarksForTest();
     expect(
       screen.getByRole("button", { name: "Закладки областей" }),
     ).toBeInTheDocument();

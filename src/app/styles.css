@@ -2217,3 +2217,37 @@ textarea:focus-visible,
     overflow: visible;
   }
 }
+
+.dock-text-typography {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.dock-text-typography label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.dock-text-typography input,
+.dock-text-typography select {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+}
+.dock-text-emphasis {
+  display: flex;
+  align-items: end;
+  gap: 6px;
+}
+.dock-text-emphasis button {
+  min-width: 38px;
+  min-height: 34px;
+  border: 1px solid #bdced7;
+  border-radius: 8px;
+  background: #f7f9fa;
+  cursor: pointer;
+}
+.dock-text-emphasis button[aria-pressed="true"] {
+  background: #dbeaed;
+  border-color: #2c7182;
+}

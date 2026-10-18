@@ -1,6 +1,8 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { rightDoubleClickAt } from "../e2e/coordinate-plot-interaction.js";
 
 const lessonId = "20000000-0000-4000-8000-000000000001";
+const textLessonId = "20000000-0000-4000-8000-000000000005";
 const password = "collaboration-e2e-password";
 
 async function login(context: BrowserContext, email: string): Promise<void> {
@@ -22,9 +24,13 @@ async function login(context: BrowserContext, email: string): Promise<void> {
   expect(response.status()).toBe(303);
 }
 
-async function openBoard(page: Page, documentId: string): Promise<void> {
+async function openBoard(
+  page: Page,
+  documentId: string,
+  currentLessonId = lessonId,
+): Promise<void> {
   await page.goto(
-    `/?lessonId=${encodeURIComponent(lessonId)}&documentId=${encodeURIComponent(documentId)}#/board`,
+    `/?lessonId=${encodeURIComponent(currentLessonId)}&documentId=${encodeURIComponent(documentId)}#/board`,
   );
   await expect(page.getByTestId("persistence-status")).toHaveText(
     /Синхронизировано · r\d+/,
@@ -113,6 +119,114 @@ test("tutor and student share live previews, revisions, and reconnect recovery",
       "Синхронизировано · r3",
     );
     await expect(tutor.getByTestId("object-count")).toHaveText("3 объекта");
+  } finally {
+    await tutorContext.close();
+    await studentContext.close();
+  }
+});
+
+test("two clients edit styled text and recover persisted content after reconnect", async ({
+  browser,
+}, testInfo) => {
+  const documentId = `document:${textLessonId}:typography-${testInfo.retry}`;
+  const tutorContext = await browser.newContext();
+  const studentContext = await browser.newContext();
+  const original = "Первая длинная строка для совместной работы";
+  const updated = "Учитель изменил длинный текст после отключения ученика";
+  const finalText = "Ученик подтвердил и дополнил общую запись";
+
+  try {
+    await login(tutorContext, "collaboration-tutor@example.test");
+    await login(studentContext, "collaboration-student@example.test");
+    const tutor = await tutorContext.newPage();
+    const student = await studentContext.newPage();
+    await openBoard(tutor, documentId, textLessonId);
+    await openBoard(student, documentId, textLessonId);
+
+    await tutor.keyboard.press("t");
+    await tutor.getByRole("spinbutton", { name: "Размер шрифта" }).fill("18");
+    await tutor
+      .getByRole("combobox", { name: "Семейство шрифта" })
+      .selectOption("serif");
+    await tutor.getByRole("button", { name: "Полужирный текст" }).click();
+    const bounds = await tutor.getByTestId("board-stage").boundingBox();
+    if (bounds === null) throw new Error("Board stage has no bounds");
+    const point = { x: bounds.x + 370, y: bounds.y + 250 };
+    await tutor.mouse.click(point.x, point.y);
+    const editor = tutor.getByRole("textbox", {
+      name: "Редактор текста на доске",
+    });
+    await editor.fill(original);
+    await editor.press("Shift+Enter");
+
+    await expect(tutor.getByTestId("persistence-status")).toHaveText(
+      "Синхронизировано · r1",
+    );
+    await expect(student.getByTestId("persistence-status")).toHaveText(
+      "Синхронизировано · r1",
+    );
+    await expect(student.getByTestId("object-count")).toHaveText("1 объекта");
+
+    // Force the student offline while the tutor updates the same object.
+    await studentContext.setOffline(true);
+    await expect(student.getByTestId("persistence-status")).toHaveText(
+      "Автономный режим",
+    );
+    await tutor.keyboard.press("v");
+    await rightDoubleClickAt(tutor, point);
+    const tutorEditor = tutor.getByRole("textbox", {
+      name: "Редактор выбранного текста",
+    });
+    await expect(tutorEditor).toHaveValue(original);
+    await tutorEditor.fill(updated);
+    await tutorEditor.press("Shift+Enter");
+    await expect(tutor.getByTestId("persistence-status")).toHaveText(
+      "Синхронизировано · r2",
+    );
+    await expect(student.getByTestId("object-count")).toHaveText("1 объекта");
+
+    await studentContext.setOffline(false);
+    await expect(student.getByTestId("persistence-status")).toHaveText(
+      "Синхронизировано · r2",
+    );
+    await student.reload();
+    await expect(student.getByTestId("persistence-status")).toHaveText(
+      "Синхронизировано · r2",
+    );
+    await student.keyboard.press("v");
+    await rightDoubleClickAt(student, point);
+    const studentEditor = student.getByRole("textbox", {
+      name: "Редактор выбранного текста",
+    });
+    await expect(studentEditor).toHaveValue(updated);
+
+    // A second actor edits the synchronized text and publishes a new revision.
+    await studentEditor.fill(finalText);
+    await studentEditor.press("Shift+Enter");
+    await expect(student.getByTestId("persistence-status")).toHaveText(
+      "Синхронизировано · r3",
+    );
+    await expect(tutor.getByTestId("persistence-status")).toHaveText(
+      "Синхронизировано · r3",
+    );
+    await expect(
+      tutor.getByRole("textbox", {
+        name: "Редактор выбранного текста",
+      }),
+    ).toHaveValue(finalText);
+
+    // Read the canonical server journal, including original style metadata.
+    const response = await studentContext.request.get(
+      `/api/v1/boards/${encodeURIComponent(documentId)}/commands?afterRevision=0`,
+    );
+    expect(response.ok()).toBe(true);
+    const journal = JSON.stringify(await response.json());
+    expect(journal).toContain(original);
+    expect(journal).toContain(updated);
+    expect(journal).toContain(finalText);
+    expect(journal).toContain('"fontFamily":"serif"');
+    expect(journal).toContain('"fontSize":18');
+    expect(journal).toContain('"fontWeight":"bold"');
   } finally {
     await tutorContext.close();
     await studentContext.close();

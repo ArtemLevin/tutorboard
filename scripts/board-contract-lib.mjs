@@ -115,6 +115,11 @@ const objectStyle = strictObject(
     stroke: { type: ["string", "null"], maxLength: 256 },
     strokeWidth: { minimum: 0, type: "number" },
     strokeStyle: { enum: strokeStyles },
+    fontFamily: { enum: ["sans", "serif", "mono"] },
+    fontSize: { minimum: 8, maximum: 96, type: "number" },
+    fontStyle: { enum: ["normal", "italic"] },
+    fontWeight: { enum: ["normal", "bold"] },
+    lineHeight: { minimum: 0.8, maximum: 2.5, type: "number" },
   },
   ["fill", "opacity", "stroke", "strokeWidth"],
 );
@@ -357,6 +362,11 @@ const visualStyleOverride = {
     opacity: { maximum: 1, minimum: 0, type: "number" },
     stroke: { type: ["string", "null"], maxLength: 256 },
     strokeWidth: { minimum: 0, type: "number" },
+    fontFamily: { enum: ["sans", "serif", "mono"] },
+    fontSize: { minimum: 8, maximum: 96, type: "number" },
+    fontStyle: { enum: ["normal", "italic"] },
+    fontWeight: { enum: ["normal", "bold"] },
+    lineHeight: { minimum: 0.8, maximum: 2.5, type: "number" },
   },
   type: "object",
 };

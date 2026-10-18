@@ -9,6 +9,7 @@ import {
   type ViewportState,
 } from "./primitives";
 import { ownValue } from "./records";
+import { resolveTextTypography, textLineMetrics } from "./text-layout";
 
 export interface BoardRenderItem {
   readonly object: BoardObject;
@@ -273,12 +274,17 @@ function localObjectPoints(object: BoardObject): readonly Vec2[] {
         { x: -object.radius.x, y: object.radius.y },
       ];
     case "drawing.text": {
-      const lines = object.text.split(/\r?\n/u);
+      const metrics = textLineMetrics(object.text);
+      const typography = resolveTextTypography(object.style);
       return [
         { x: 0, y: 0 },
         {
-          x: Math.max(1, ...lines.map((line) => line.length)) * 14,
-          y: Math.max(1, lines.length) * 30,
+          x: metrics.maximumCharacters * typography.fontSize * (14 / 22),
+          y:
+            metrics.lineCount *
+            typography.fontSize *
+            typography.lineHeight *
+            (30 / 29.7),
         },
       ];
     }

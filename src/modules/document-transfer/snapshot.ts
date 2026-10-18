@@ -6,6 +6,8 @@ import {
   flattenPlotSegment,
   plotLineDash,
   resolveVectorInkData,
+  resolveTextTypography,
+  wrapBoardText,
   selectBoardScene,
   vectorInkCenterlineBounds,
   vectorInkCenterlinePathData,
@@ -343,9 +345,10 @@ function objectMarkup(object: BoardObject): string {
       return `<ellipse ${common} cx="0" cy="0" rx="${number(object.radius.x)}" ry="${number(object.radius.y)}"/>`;
     case "drawing.text": {
       const label = renderSafeMathLabel(object.text);
-      const lines = label.displayText.split(/\r?\n/u);
+      const typography = resolveTextTypography(object.style);
+      const lines = wrapBoardText(label.displayText).split("\n");
       const fill = object.style.fill ?? object.style.stroke ?? defaultTextFill;
-      return `<text aria-label="${escapeXml(label.accessibleText)}" fill="${escapeXml(fill)}" font-family="Inter, ui-sans-serif, system-ui" font-size="22" opacity="${number(object.style.opacity)}" stroke="none" ${objectTransformAttribute(object)}>${lines.map((line, index) => `<tspan x="0" dy="${index === 0 ? "0" : "1.35em"}">${escapeXml(line)}</tspan>`).join("")}</text>`;
+      return `<text aria-label="${escapeXml(label.accessibleText)}" fill="${escapeXml(fill)}" font-family="${escapeXml(typography.fontFamily)}" font-size="${number(typography.fontSize)}" font-weight="${typography.fontWeight}" font-style="${typography.italic ? "italic" : "normal"}" opacity="${number(object.style.opacity)}" stroke="none" ${objectTransformAttribute(object)}>${lines.map((line, index) => `<tspan x="0" dy="${index === 0 ? "0" : `${number(typography.lineHeight)}em`}">${escapeXml(line)}</tspan>`).join("")}</text>`;
     }
     case "image.embedded":
       return `<image ${common} height="${number(object.size.height)}" href="${escapeXml(object.dataUrl)}" preserveAspectRatio="none" width="${number(object.size.width)}"/>`;
@@ -473,15 +476,22 @@ function localObjectBounds(object: BoardObject): BoardSnapshotBounds {
         top: -object.radius.y,
       };
     case "drawing.text": {
-      const lines = renderSafeMathLabel(object.text).displayText.split(
-        /\r?\n/u,
-      );
-      const longestLine = Math.max(1, ...lines.map((line) => line.length));
+      const typography = resolveTextTypography(object.style);
+      const lines = wrapBoardText(
+        renderSafeMathLabel(object.text).displayText,
+      ).split("\n");
+      let longestLine = 1;
+      for (const line of lines) {
+        longestLine = Math.max(longestLine, Array.from(line).length);
+      }
       return {
-        bottom: Math.max(8, (lines.length - 1) * 30 + 8),
+        bottom: Math.max(
+          8,
+          (lines.length - 1) * typography.fontSize * typography.lineHeight + 8,
+        ),
         left: 0,
-        right: longestLine * 14,
-        top: -24,
+        right: longestLine * typography.fontSize * 0.64,
+        top: -typography.fontSize * 1.1,
       };
     }
   }
