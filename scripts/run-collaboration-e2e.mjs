@@ -10,9 +10,11 @@ const env = {
 };
 const executable = process.platform === "win32" ? "npm.cmd" : "npm";
 
+const playwrightArgs = ["test", "--config", "playwright.fullstack.config.ts"];
+
 for (const args of [
   ["run", "build"],
-  ["exec", "--", "playwright", "test", "--config", "playwright.fullstack.config.ts"],
+  ["exec", "--", "playwright", ...playwrightArgs],
 ]) {
   const child = spawnSync(executable, args, {
     env,
