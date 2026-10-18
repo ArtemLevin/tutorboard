@@ -1,3 +1,4 @@
+import { clearCoordinatePlotSamplingCache } from "../../../adapters/canvas-konva/public";
 import { selectionToolId } from "../../../modules/selection/public";
 import type { ActiveToolId } from "../active-tool";
 import type { BoardDrawingController } from "./useBoardDrawingController";
@@ -6,6 +7,11 @@ import type { BoardGeometryController } from "./useBoardGeometryController";
 import type { BoardHandwritingController } from "./useBoardHandwritingController";
 import type { LaserPointerController } from "./useLaserPointerController";
 import type { BoardSelectionController } from "./useBoardSelectionController";
+
+/** Clear derived plot samples; the React renderer generation owns its GPU/media cleanup. */
+export function releaseBoardPlotSamplingCache(): void {
+  clearCoordinatePlotSamplingCache();
+}
 
 export interface BoardRenderResourceState {
   readonly documentId: string;
