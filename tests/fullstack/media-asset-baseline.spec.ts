@@ -147,6 +147,7 @@ async function uploadBoardMedia(
     const batch = items.slice(start, start + 10);
     // The real media menu closes after every file-selection event.
     await page.getByRole("button", { name: "Медиа" }).click();
+    await expect(page.getByText(/в хранилище доски/u)).toBeVisible();
     await page.getByLabel("Вставить изображения").setInputFiles(batch);
     count += batch.length;
     revision += 1;
