@@ -1120,7 +1120,7 @@ describe("App", () => {
     );
   });
 
-  it("scales a mixed-capable image selection around a shared center with one undo", async () => {
+  it("scales selected images around their shared center with Undo", async () => {
     const onDocumentChange = vi.fn<(document: BoardDocument) => void>();
     const { rerender } = render(<App onDocumentChange={onDocumentChange} />);
     fireEvent.click(screen.getByRole("button", { name: "Медиа" }));
