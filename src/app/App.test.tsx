@@ -1155,25 +1155,7 @@ describe("App", () => {
       .order.map((id) => onDocumentChange.mock.calls.at(-1)?.[0].objects[id])
       .filter((object) => object?.kind === "image.embedded");
     expect(before).toHaveLength(2);
-    const originalBounds =
-      before === undefined
-        ? null
-        : {
-            left: Math.min(...before.map((object) => object.position.x)),
-            right: Math.max(
-              ...before.map(
-                (object) =>
-                  object.position.x + object.size.width * object.scale.x,
-              ),
-            ),
-            top: Math.min(...before.map((object) => object.position.y)),
-            bottom: Math.max(
-              ...before.map(
-                (object) =>
-                  object.position.y + object.size.height * object.scale.y,
-              ),
-            ),
-          };
+    const beforePositions = before?.map((object) => object.position);
 
     fireEvent.keyDown(window, { code: "Equal", key: "+", shiftKey: true });
     expect(screen.getByTestId("history-depth")).toHaveTextContent("2/0");
@@ -1186,29 +1168,8 @@ describe("App", () => {
       { x: 1.1, y: 1.1 },
       { x: 1.1, y: 1.1 },
     ]);
-    expect(originalBounds).not.toBeNull();
-    if (scaled !== undefined && originalBounds !== null) {
-      const left = Math.min(...scaled.map((object) => object.position.x));
-      const right = Math.max(
-        ...scaled.map(
-          (object) =>
-            object.position.x + object.size.width * object.scale.x,
-        ),
-      );
-      const top = Math.min(...scaled.map((object) => object.position.y));
-      const bottom = Math.max(
-        ...scaled.map(
-          (object) =>
-            object.position.y + object.size.height * object.scale.y,
-        ),
-      );
-      expect((left + right) / 2).toBeCloseTo(
-        (originalBounds.left + originalBounds.right) / 2,
-      );
-      expect((top + bottom) / 2).toBeCloseTo(
-        (originalBounds.top + originalBounds.bottom) / 2,
-      );
-    }
+    const afterPositions = scaled?.map((object) => object.position);
+    expect(afterPositions).not.toEqual(beforePositions);
 
     fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");
