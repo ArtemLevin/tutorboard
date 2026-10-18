@@ -880,6 +880,22 @@ export function BoardToolDock(props: BoardToolDockProps) {
             style={props.selectedStyle}
           />
         </ToolSettingsVisibility>
+      ) : props.activeTool === "presentation.laser" ? (
+        <ToolSettingsVisibility
+          className="dock-primary-settings"
+          key={`laser:${settingsRevision}`}
+          label="Настройки лазерной указки"
+        >
+          <div className="dock-primary-heading">
+            <strong>Лазерная указка</strong>
+          </div>
+          <button
+            onClick={() => chooseTool("presentation.spotlight")}
+            type="button"
+          >
+            Включить фонарь (Shift+K)
+          </button>
+        </ToolSettingsVisibility>
       ) : props.activeTool === "presentation.spotlight" ? (
         <ToolSettingsVisibility
           className="dock-primary-settings"
@@ -1097,16 +1113,23 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onClick={() => toggleMenu("media")}
           />
           <ToolButton
-            active={props.activeTool === "presentation.spotlight"}
-            icon="◉"
-            label={`Фонарь (${shortcutLabel("tool.spotlight")})`}
-            onClick={() => chooseTool("presentation.spotlight")}
-          />
-          <ToolButton
-            active={props.activeTool === "presentation.laser"}
-            icon="●"
-            label={`Лазерная указка (${shortcutLabel("tool.laser")})`}
-            onClick={() => chooseTool("presentation.laser")}
+            active={
+              props.activeTool === "presentation.laser" ||
+              props.activeTool === "presentation.spotlight"
+            }
+            icon={props.activeTool === "presentation.spotlight" ? "◉" : "●"}
+            label={
+              props.activeTool === "presentation.spotlight"
+                ? `Фонарь (${shortcutLabel("tool.spotlight")})`
+                : `Лазерная указка (${shortcutLabel("tool.laser")})`
+            }
+            onClick={() =>
+              chooseTool(
+                props.activeTool === "presentation.laser"
+                  ? "presentation.spotlight"
+                  : "presentation.laser",
+              )
+            }
           />
           <span aria-hidden="true" className="dock-divider" />
           {([0, 1, 2] as const).map((slot) => {
