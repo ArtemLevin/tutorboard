@@ -2282,7 +2282,7 @@ export function BoardStage({
     // Alt scales and Shift rotates the editable selection.
     if (
       selectionModeKey !== null &&
-      transformableObjectIds.length > 0 &&
+      selectedObjectIds.length > 0 &&
       !event.evt.ctrlKey &&
       !event.evt.metaKey &&
       (event.evt.altKey || event.evt.shiftKey) &&
@@ -2290,12 +2290,13 @@ export function BoardStage({
     ) {
       commitWheel();
       const direction = event.evt.deltaY < 0 ? 1 : -1;
-      if (event.evt.altKey) {
-        onSelectionWheelTransform?.(direction > 0 ? zoomStep : 1 / zoomStep, 0);
-      } else {
-        onSelectionWheelTransform?.(1, direction * 5);
-      }
-      return;
+      const accepted = event.evt.altKey
+        ? onSelectionWheelTransform?.(
+            direction > 0 ? zoomStep : 1 / zoomStep,
+            0,
+          )
+        : onSelectionWheelTransform?.(1, direction * 5);
+      if (accepted) return;
     }
 
     onManualViewportInteraction?.();
