@@ -205,6 +205,12 @@ test("F3.3.2-D real PNG/GIF guest reconnect, permission epoch, revoke and board 
     await watchBlobUrls(guest);
     await guest.goto(invite.joinUrl);
     await expect(guest.getByTestId("object-count")).toHaveText("2 объекта");
+    const stage = guest.getByTestId("board-stage");
+    await expect
+      .poll(async () =>
+        Number(await stage.getAttribute("data-visible-object-count")),
+      )
+      .toBeGreaterThan(0);
     await expect
       .poll(async () => (await urlSnapshot(guest)).live)
       .toBeGreaterThanOrEqual(1);
