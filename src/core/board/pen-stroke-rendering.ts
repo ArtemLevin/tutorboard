@@ -464,6 +464,8 @@ function createPenStrokeRenderGeometry(
   if (ink.samples.length === 1) {
     const paintWidth = style === "oil-paint" ? width * 1.85 : width;
     const data = vectorInkOutlinePathData(ink, paintWidth);
+    const opacity =
+      style === "oil-paint" ? 0.98 : strokeStyleOpacityMultiplier(style);
     return {
       bounds: vectorInkOutlineBounds(ink, paintWidth),
       paths:
@@ -472,8 +474,7 @@ function createPenStrokeRenderGeometry(
           : [
               {
                 data,
-                opacityMultiplier:
-                  style === "oil-paint" ? 0.98 : strokeStyleOpacityMultiplier(style),
+                opacityMultiplier: opacity,
               },
             ],
     };
