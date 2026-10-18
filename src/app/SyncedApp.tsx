@@ -1137,25 +1137,25 @@ function SyncedWorkspace({
               try {
                 await pending;
                 const accepted = await engine.applyWithReceipt(inverse);
-                  if (accepted) {
-                    // Consume this exact entry only after durable admission.
-                    // A newer edit may have appended to the stack meanwhile.
-                    undoStackRef.current = undoStackRef.current.filter(
-                      (entry) => entry !== inverse,
-                    );
-                  } else if (activeRef.current) {
-                    setUndoNotice(
-                      "Не удалось отменить операцию. Проверьте соединение и права доступа.",
-                    );
-                  }
-                } catch (error) {
-                  if (activeRef.current) {
-                    setUndoNotice(
-                      error instanceof Error
-                        ? `Не удалось отменить операцию: ${error.message}`
-                        : "Не удалось отменить операцию.",
-                    );
-                  }
+                if (accepted) {
+                  // Consume this exact entry only after durable admission.
+                  // A newer edit may have appended to the stack meanwhile.
+                  undoStackRef.current = undoStackRef.current.filter(
+                    (entry) => entry !== inverse,
+                  );
+                } else if (activeRef.current) {
+                  setUndoNotice(
+                    "Не удалось отменить операцию. Проверьте соединение и права доступа.",
+                  );
+                }
+              } catch (error) {
+                if (activeRef.current) {
+                  setUndoNotice(
+                    error instanceof Error
+                      ? `Не удалось отменить операцию: ${error.message}`
+                      : "Не удалось отменить операцию.",
+                  );
+                }
               } finally {
                 undoInFlightRef.current = false;
                 if (activeRef.current) {
