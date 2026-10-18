@@ -78,5 +78,11 @@ describe("heavy oil paint gravity runs", () => {
       true,
     );
     expect(createOilPaintDrips(loop, 18).bounds).toBeNull();
+
+    const vertical = createVectorInkData([
+      { point: { x: 0, y: 0 }, pressure: 0.9, timestampMs: 0 },
+      { point: { x: 0, y: 100_000 }, pressure: 0.9, timestampMs: 900 },
+    ]);
+    expect(createOilPaintDrips(vertical, 18).data).toBe("");
   });
 });
