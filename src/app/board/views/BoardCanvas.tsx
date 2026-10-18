@@ -107,6 +107,7 @@ export interface BoardCanvasProps {
   readonly laser: LaserPointerController;
   readonly mediaAssetSourceResolver?:
     ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
+  readonly onClearCommitted?: (() => void) | undefined;
   readonly onObjectSettingsRequest: (objectId: BoardObjectId) => void;
   readonly onPointerHover: (cursor: Vec2) => void;
   readonly onTransformPreviewChange: (
@@ -161,6 +162,7 @@ export function BoardCanvas({
   interaction,
   laser,
   mediaAssetSourceResolver,
+  onClearCommitted,
   onObjectSettingsRequest,
   onPointerHover,
   onTransformPreviewChange,
@@ -377,6 +379,7 @@ export function BoardCanvas({
   const clearCanvas = () => {
     const result = clipboard.clearAll();
     if (!result.ok) return;
+    onClearCommitted?.();
     interaction.resetAfterClear();
     plots.close();
     solid3D.close();

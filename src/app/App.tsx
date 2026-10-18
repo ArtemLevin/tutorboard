@@ -34,6 +34,10 @@ import {
   type ActiveToolId,
 } from "./board/active-tool";
 import { useBoardClipboardController } from "./board/controllers/useBoardClipboardController";
+import {
+  releaseBoardPlotSamplingCache,
+  shouldResetBoardRenderResources,
+} from "./board/controllers/clear-resource-lifecycle";
 import { useBoardDocumentController } from "./board/controllers/useBoardDocumentController";
 import {
   useBoardDrawingController,
@@ -253,6 +257,14 @@ export function App({
   const { commitCommand, createCommandMetadata, document, getDocument } =
     documentController;
 
+  // Reset the Konva scene and board-owned media handles after any successful
+  // full clear, including clears received from collaborators. The document
+  // controller and its Undo/Redo snapshots remain mounted.
+  const [clearRenderGeneration, setClearRenderGeneration] = useState(0);
+  const previousRenderContentRef = useRef({
+    documentId: String(document.id),
+    hasObjects: document.order.length > 0,
+  });
   const [activeTool, setActiveTool] = useState<ActiveToolId>(navigationToolId);
   const [selectionInspectorObjectId, setSelectionInspectorObjectId] =
     useState<BoardObjectId | null>(null);
@@ -600,6 +612,21 @@ export function App({
     resolvePlacementCenter,
   });
 
+  const cancelPendingImport = media.cancelPendingImport;
+  useLayoutEffect(() => {
+    const next = {
+      documentId: String(document.id),
+      hasObjects: document.order.length > 0,
+    };
+    const previous = previousRenderContentRef.current;
+    previousRenderContentRef.current = next;
+    if (!shouldResetBoardRenderResources(previous, next)) return;
+    // Prevent an asynchronous upload from repopulating a just-cleared board.
+    cancelPendingImport();
+    releaseBoardPlotSamplingCache();
+    setClearRenderGeneration((generation) => generation + 1);
+  }, [cancelPendingImport, document.id, document.order.length]);
+
   const handleGeometrySelectionCreated = useCallback(
     (
       objectIds: readonly BoardObjectId[],
@@ -879,7 +906,7 @@ export function App({
           smartInkNotice={drawing.smartInkNotice}
         />
         <BoardCanvas
-          key={mediaResourceGeneration}
+          key={`${mediaResourceGeneration}:${clearRenderGeneration}`}
           activeTool={canvasTool}
           stylusEraserEnabled={!readOnly && quickTools.stylusEraserEnabled}
           announce={announce}
@@ -891,6 +918,7 @@ export function App({
           interaction={interaction}
           laser={laser}
           mediaAssetSourceResolver={mediaAssetSourceResolver}
+          onClearCommitted={cancelPendingImport}
           onObjectSettingsRequest={requestObjectSettings}
           onPointerHover={handlePointerHover}
           onTransformPreviewChange={publishTransformPreview}
