@@ -1,6 +1,10 @@
 import { useCallback, useState } from "react";
 
-import { strokeStyles, type ObjectStyle, type StrokeStyle } from "../../core/public";
+import {
+  strokeStyles,
+  type ObjectStyle,
+  type StrokeStyle,
+} from "../../core/public";
 import {
   drawingStyleDefaults,
   type DrawingToolId,
