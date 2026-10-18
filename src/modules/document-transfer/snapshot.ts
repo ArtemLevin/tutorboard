@@ -480,10 +480,10 @@ function localObjectBounds(object: BoardObject): BoardSnapshotBounds {
       const lines = wrapBoardText(
         renderSafeMathLabel(object.text).displayText,
       ).split("\n");
-      const longestLine = Math.max(
-        1,
-        ...lines.map((line) => Array.from(line).length),
-      );
+      let longestLine = 1;
+      for (const line of lines) {
+        longestLine = Math.max(longestLine, Array.from(line).length);
+      }
       return {
         bottom: Math.max(
           8,

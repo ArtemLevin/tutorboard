@@ -62,11 +62,9 @@ export function resolveTextTypography(style: ObjectStyle) {
 /** Conservative glyph estimates used by hit testing, eraser and culling. */
 export function textLineMetrics(value: string) {
   const lines = wrapBoardText(value).split("\n");
-  return {
-    lineCount: lines.length,
-    maximumCharacters: Math.max(
-      1,
-      ...lines.map((line) => Array.from(line).length),
-    ),
-  };
+  let maximumCharacters = 1;
+  for (const line of lines) {
+    maximumCharacters = Math.max(maximumCharacters, Array.from(line).length);
+  }
+  return { lineCount: lines.length, maximumCharacters };
 }

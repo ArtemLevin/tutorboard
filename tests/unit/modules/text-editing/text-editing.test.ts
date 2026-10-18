@@ -201,5 +201,9 @@ describe("text interaction geometry", () => {
       lineCount: 2,
       maximumCharacters: 6,
     });
+    expect(textLineMetrics("\n".repeat(75_000))).toEqual({
+      lineCount: 75_001,
+      maximumCharacters: 1,
+    });
   });
 });
