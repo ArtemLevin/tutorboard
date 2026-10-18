@@ -122,10 +122,10 @@ describe("dock popup inactivity contract", () => {
         onActivate={onActivate}
       />,
     );
-    expect(screen.getByRole("button", { name: "Фонарь (Shift+K)" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    const spotlightButton = screen.getByRole("button", {
+      name: "Фонарь (Shift+K)",
+    });
+    expect(spotlightButton).toHaveAttribute("aria-pressed", "true");
     expect(toolbar.querySelectorAll("button")).toHaveLength(initialCount);
   });
 
