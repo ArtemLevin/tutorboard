@@ -25,6 +25,10 @@ function coordinate(value: number): string {
   return value.toFixed(2);
 }
 
+function point(x: number, y: number): string {
+  return `${coordinate(x)} ${coordinate(y)}`;
+}
+
 /**
  * Gravity-aligned paint runs. Every drip is a closed filled subpath of the
  * primary impasto contour, so a long stroke still occupies three renderer
@@ -56,7 +60,11 @@ export function createOilPaintDrips(
   const paths: string[] = [];
   let bounds: VectorInkBounds | null = null;
 
-  for (let index = 1; index < ink.samples.length && count < maximumDrips; index += 1) {
+  for (
+    let index = 1;
+    index < ink.samples.length && count < maximumDrips;
+    index += 1
+  ) {
     const start = ink.samples[index - 1]!;
     const end = ink.samples[index]!;
     const segment = Math.hypot(
@@ -76,14 +84,12 @@ export function createOilPaintDrips(
       const horizontal = Math.abs(end.point.x - start.point.x) / segment;
       // Sparse runs hang from generously loaded, predominantly lateral swipes.
       if (hash > 0.18 && horizontal >= 0.48 && pressure >= 0.2) {
-        const x =
-          start.point.x + (end.point.x - start.point.x) * ratio;
+        const x = start.point.x + (end.point.x - start.point.x) * ratio;
         const y =
           start.point.y +
           (end.point.y - start.point.y) * ratio +
           strokeWidth * (0.48 + 0.35 * pressure);
-        const flow = (0.8 + pressure * 0.85) /
-          (1 + Math.min(3, speed) * 0.22);
+        const flow = (0.8 + pressure * 0.85) / (1 + Math.min(3, speed) * 0.22);
         const length = Math.min(
           strokeWidth * 4.2,
           strokeWidth * (0.85 + 1.7 * hash) * flow,
@@ -92,32 +98,35 @@ export function createOilPaintDrips(
         const bottom = y + length;
         const left = x - half;
         const right = x + half;
-        paths.push(
-          `M ${coordinate(left)} ${coordinate(y)} ` +
-            `C ${coordinate(x - half * 1.3)} ${coordinate(y + length * 0.35)} ` +
-            `${coordinate(x - half * 0.45)} ${coordinate(bottom - half)} ` +
-            `${coordinate(x - half * 0.45)} ${coordinate(bottom)} ` +
-            `C ${coordinate(x - half * 0.4)} ${coordinate(bottom + half * 0.7)} ` +
-            `${coordinate(x + half * 0.4)} ${coordinate(bottom + half * 0.7)} ` +
-            `${coordinate(x + half * 0.45)} ${coordinate(bottom)} ` +
-            `C ${coordinate(x + half * 0.45)} ${coordinate(bottom - half)} ` +
-            `${coordinate(x + half * 1.3)} ${coordinate(y + length * 0.3)} ` +
-            `${coordinate(right)} ${coordinate(y)} Z`,
-        );
+        const commands = [
+          `M ${point(left, y)}`,
+          `C ${point(x - half * 1.3, y + length * 0.35)}`,
+          point(x - half * 0.45, bottom - half),
+          point(x - half * 0.45, bottom),
+          `C ${point(x - half * 0.4, bottom + half * 0.7)}`,
+          point(x + half * 0.4, bottom + half * 0.7),
+          point(x + half * 0.45, bottom),
+          `C ${point(x + half * 0.45, bottom - half)}`,
+          point(x + half * 1.3, y + length * 0.3),
+          `${point(right, y)} Z`,
+        ];
+        paths.push(commands.join(" "));
         const dripBounds = {
           left: x - half * 1.4,
           right: x + half * 1.4,
           top: y,
           bottom: bottom + half,
         };
-        bounds = bounds === null
-          ? dripBounds
-          : {
-              left: Math.min(bounds.left, dripBounds.left),
-              right: Math.max(bounds.right, dripBounds.right),
-              top: Math.min(bounds.top, dripBounds.top),
-              bottom: Math.max(bounds.bottom, dripBounds.bottom),
-            };
+        if (bounds === null) {
+          bounds = dripBounds;
+        } else {
+          bounds = {
+            left: Math.min(bounds.left, dripBounds.left),
+            right: Math.max(bounds.right, dripBounds.right),
+            top: Math.min(bounds.top, dripBounds.top),
+            bottom: Math.max(bounds.bottom, dripBounds.bottom),
+          };
+        }
         count += 1;
       }
       nextIndex += 1;
