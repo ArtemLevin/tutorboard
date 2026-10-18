@@ -9,7 +9,10 @@ test("@smoke spotlight follows cursor without changing board", async ({
 
   const history = await page.getByTestId("history-depth").textContent();
   const objectCount = await page.getByTestId("object-count").textContent();
-  await page.getByRole("button", { name: "Фонарь (Shift+K)" }).click();
+  await page.keyboard.press("Shift+k");
+  await expect(
+    page.getByRole("button", { name: "Фонарь (Shift+K)" }),
+  ).toHaveAttribute("aria-pressed", "true");
 
   const mask = page.getByTestId("board-spotlight-overlay");
   await expect(mask).toBeVisible();
@@ -41,8 +44,9 @@ test("@smoke spotlight follows cursor without changing board", async ({
   await expect(mask).toHaveAttribute("data-spotlight-dim", "80");
 
   await stage.focus();
-  await page.keyboard.press("k");
+  await page.getByRole("button", { name: "Фонарь (Shift+K)" }).click();
   await expect(mask).toHaveCount(0);
+  await stage.focus();
   await page.keyboard.press("Shift+k");
   await expect(mask).toHaveAttribute("data-spotlight-radius", "180");
   await page.reload();
