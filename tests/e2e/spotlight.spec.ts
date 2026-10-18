@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("@smoke spotlight follows the pointer and never mutates the board", async ({
+test("@smoke spotlight follows cursor without changing board", async ({
   page,
 }) => {
   await page.goto("/");
@@ -24,18 +24,24 @@ test("@smoke spotlight follows the pointer and never mutates the board", async (
   await page.mouse.move(box.x + 240, box.y + 190);
   await expect
     .poll(() =>
-      mask.evaluate((element) => element.style.getPropertyValue("--spotlight-x")),
+      mask.evaluate((element) =>
+        element.style.getPropertyValue("--spotlight-x"),
+      ),
     )
     .toBe("240px");
   await expect
     .poll(() =>
-      mask.evaluate((element) => element.style.getPropertyValue("--spotlight-y")),
+      mask.evaluate((element) =>
+        element.style.getPropertyValue("--spotlight-y"),
+      ),
     )
     .toBe("190px");
 
   await page.mouse.click(box.x + 240, box.y + 190);
-  await expect(page.getByTestId("object-count")).toHaveText(objectCount ?? "");
-  await expect(page.getByTestId("history-depth")).toHaveText(history ?? "");
+  const objectCounter = page.getByTestId("object-count");
+  await expect(objectCounter).toHaveText(objectCount ?? "");
+  const historyCounter = page.getByTestId("history-depth");
+  await expect(historyCounter).toHaveText(history ?? "");
 
   const radius = page.getByRole("slider", { name: "Диаметр фонаря" });
   const dim = page.getByRole("slider", { name: "Затемнение фонаря" });
@@ -56,7 +62,7 @@ test("@smoke spotlight follows the pointer and never mutates the board", async (
   await expect(page.getByTestId("object-count")).toHaveText(objectCount ?? "");
 });
 
-test("@smoke spotlight works in lesson mode without changing document history", async ({
+test("@smoke spotlight in lesson mode preserves history", async ({
   page,
 }) => {
   await page.goto("/");
@@ -65,7 +71,10 @@ test("@smoke spotlight works in lesson mode without changing document history", 
   const lesson = page.getByRole("toolbar", {
     name: "Инструменты режима занятия",
   });
-  await lesson.getByRole("button", { name: "Фонарь — режим занятия" }).click();
+  const lessonSpotlight = lesson.getByRole("button", {
+    name: "Фонарь — режим занятия",
+  });
+  await lessonSpotlight.click();
   await expect(page.getByTestId("board-spotlight-overlay")).toBeVisible();
   await expect(
     lesson.getByRole("button", { name: "Фонарь — режим занятия" }),
@@ -73,9 +82,10 @@ test("@smoke spotlight works in lesson mode without changing document history", 
 
   await page.keyboard.press("Escape");
   await expect(lesson).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Фонарь (Shift+K)" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await expect(page.getByTestId("history-depth")).toHaveText(initial ?? "");
+  const spotlightButton = page.getByRole("button", {
+    name: "Фонарь (Shift+K)",
+  });
+  await expect(spotlightButton).toHaveAttribute("aria-pressed", "true");
+  const historyCounter = page.getByTestId("history-depth");
+  await expect(historyCounter).toHaveText(initial ?? "");
 });
