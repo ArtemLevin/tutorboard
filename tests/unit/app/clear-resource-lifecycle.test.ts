@@ -7,7 +7,7 @@ import {
 import { selectionToolId } from "../../../src/modules/selection/public";
 
 describe("clear board transient lifecycle", () => {
-  it("invalidates render resources only on a complete clear of the same document", () => {
+  it("resets only after a same-board clear", () => {
     const populated = { documentId: "board:one", hasObjects: true };
     const cleared = { documentId: "board:one", hasObjects: false };
     const unrelatedEmpty = { documentId: "board:two", hasObjects: false };
@@ -16,7 +16,8 @@ describe("clear board transient lifecycle", () => {
     expect(shouldResetBoardRenderResources(populated, populated)).toBe(false);
     expect(shouldResetBoardRenderResources(cleared, cleared)).toBe(false);
     expect(shouldResetBoardRenderResources(cleared, populated)).toBe(false);
-    expect(shouldResetBoardRenderResources(populated, unrelatedEmpty)).toBe(false);
+    const switched = shouldResetBoardRenderResources(populated, unrelatedEmpty);
+    expect(switched).toBe(false);
   });
 
   it("cancels transient sessions without touching undo-retained document state", () => {
