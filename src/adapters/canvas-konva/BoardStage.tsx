@@ -73,6 +73,7 @@ import type {
   KonvaRendererRegistry,
 } from "./renderer-registry";
 import { useElementSize } from "./use-element-size";
+import { SpotlightOverlay } from "./SpotlightOverlay";
 import {
   minimumWheelCacheStrokes,
   WheelInkCacheCoordinator,
@@ -212,6 +213,9 @@ export interface BoardStageProps {
   readonly laserPoint?: Vec2 | null;
   readonly laserTrailOpacity?: number;
   readonly laserTrailPoints?: readonly Vec2[];
+  readonly spotlightActive?: boolean;
+  readonly spotlightRadiusPx?: number;
+  readonly spotlightDimPercent?: number;
   readonly lineEndpointObjectIds?: readonly BoardObjectId[];
   readonly onCanvasContextMenuRequest?:
     ((request: CanvasContextMenuRequest) => void) | undefined;
@@ -448,6 +452,9 @@ export function BoardStage({
   laserPoint = null,
   laserTrailOpacity = 1,
   laserTrailPoints = [],
+  spotlightActive = false,
+  spotlightRadiusPx = 170,
+  spotlightDimPercent = 75,
   lineEndpointObjectIds = [],
   onCanvasContextMenuRequest,
   onCanvasPrimaryClickRequest,
@@ -2124,6 +2131,14 @@ export function BoardStage({
     } else if (isRightButton) {
       rightClickCandidateRef.current = null;
     }
+    if (
+      spotlightActive &&
+      event.evt.button === 0 &&
+      !spacePressedRef.current &&
+      !penEraser
+    ) {
+      return;
+    }
     const isMiddleButton = event.evt.button === 1;
     const isLeftButton = event.evt.button === 0 || penEraser;
     const shouldSelectHitObject =
@@ -2367,7 +2382,7 @@ export function BoardStage({
   const cursorKind =
     isPanning || isTransforming
       ? "grabbing"
-      : laserActive
+      : laserActive || spotlightActive
         ? "hidden"
         : panMode || spacePressed
           ? "grab"
@@ -2409,6 +2424,7 @@ export function BoardStage({
       data-laser-trail-opacity={laserTrailOpacity.toFixed(2)}
       data-laser-trail-points={laserTrailPoints.length}
       data-laser-visible={laserPoint !== null}
+      data-spotlight-active={spotlightActive}
       data-pan-mode={panMode}
       data-viewport-zoom={previewViewport.zoom.toFixed(4)}
       data-preview-zoom={previewViewport.zoom}
@@ -2773,6 +2789,13 @@ export function BoardStage({
           </Group>
         </Layer>
       </Stage>
+      {spotlightActive ? (
+        <SpotlightOverlay
+          dimPercent={spotlightDimPercent}
+          radiusPx={spotlightRadiusPx}
+          rootRef={rootRef}
+        />
+      ) : null}
     </div>
   );
 }
