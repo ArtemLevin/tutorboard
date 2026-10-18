@@ -2,6 +2,7 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { rightDoubleClickAt } from "../e2e/coordinate-plot-interaction.js";
 
 const lessonId = "20000000-0000-4000-8000-000000000001";
+const textLessonId = "20000000-0000-4000-8000-000000000005";
 const password = "collaboration-e2e-password";
 
 async function login(context: BrowserContext, email: string): Promise<void> {
@@ -23,9 +24,13 @@ async function login(context: BrowserContext, email: string): Promise<void> {
   expect(response.status()).toBe(303);
 }
 
-async function openBoard(page: Page, documentId: string): Promise<void> {
+async function openBoard(
+  page: Page,
+  documentId: string,
+  currentLessonId = lessonId,
+): Promise<void> {
   await page.goto(
-    `/?lessonId=${encodeURIComponent(lessonId)}&documentId=${encodeURIComponent(documentId)}#/board`,
+    `/?lessonId=${encodeURIComponent(currentLessonId)}&documentId=${encodeURIComponent(documentId)}#/board`,
   );
   await expect(page.getByTestId("persistence-status")).toHaveText(
     /Синхронизировано · r\d+/,
@@ -123,7 +128,7 @@ test("tutor and student share live previews, revisions, and reconnect recovery",
 test("two clients edit styled text and recover persisted content after reconnect", async ({
   browser,
 }, testInfo) => {
-  const documentId = `document:${lessonId}:typography-${testInfo.retry}`;
+  const documentId = `document:${textLessonId}:typography-${testInfo.retry}`;
   const tutorContext = await browser.newContext();
   const studentContext = await browser.newContext();
   const original = "Первая длинная строка для совместной работы";
@@ -135,8 +140,8 @@ test("two clients edit styled text and recover persisted content after reconnect
     await login(studentContext, "collaboration-student@example.test");
     const tutor = await tutorContext.newPage();
     const student = await studentContext.newPage();
-    await openBoard(tutor, documentId);
-    await openBoard(student, documentId);
+    await openBoard(tutor, documentId, textLessonId);
+    await openBoard(student, documentId, textLessonId);
 
     await tutor.keyboard.press("t");
     await tutor.getByRole("spinbutton", { name: "Размер шрифта" }).fill("18");
