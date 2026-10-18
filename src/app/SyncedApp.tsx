@@ -288,6 +288,8 @@ function SyncedWorkspace({
   );
   const expectedAccessEpochRef = useRef<string | undefined>(undefined);
   const undoStackRef = useRef<readonly (readonly BoardCommand[])[]>([]);
+  const undoInFlightRef = useRef(false);
+  const [undoNotice, setUndoNotice] = useState<string | null>(null);
   const pendingOwnCommitsRef = useRef(0);
   const ownCommitTailRef = useRef<Promise<void>>(Promise.resolve());
   const [optimisticDocument, setOptimisticDocument] =
@@ -1124,14 +1126,43 @@ function SyncedWorkspace({
           mediaAssetImportEnabled={mediaAssetImportEnabled}
           mediaUploadSession={mediaUploadSession}
           onCollaborativeUndo={() => {
-            if (!writeEnabled) return;
+            if (!writeEnabled || undoInFlightRef.current) return;
             const inverse = undoStackRef.current.at(-1);
             if (inverse === undefined) return;
-            undoStackRef.current = undoStackRef.current.slice(0, -1);
-            setUndoCount(undoStackRef.current.length);
+            undoInFlightRef.current = true;
+            setUndoNotice(null);
+            setUndoCount(Math.max(0, undoStackRef.current.length - 1));
             const pending = ownCommitTailRef.current;
             trackOwnCommit(null, () =>
-              pending.then(() => engine.apply(inverse)),
+              pending.then(async () => {
+                try {
+                  const accepted = await engine.applyWithReceipt(inverse);
+                  if (accepted) {
+                    // Consume this exact entry only after durable admission.
+                    // A newer edit may have appended to the stack meanwhile.
+                    undoStackRef.current = undoStackRef.current.filter(
+                      (entry) => entry !== inverse,
+                    );
+                  } else if (activeRef.current) {
+                    setUndoNotice(
+                      "Не удалось отменить операцию. Проверьте соединение и права доступа.",
+                    );
+                  }
+                } catch (error) {
+                  if (activeRef.current) {
+                    setUndoNotice(
+                      error instanceof Error
+                        ? `Не удалось отменить операцию: ${error.message}`
+                        : "Не удалось отменить операцию.",
+                    );
+                  }
+                } finally {
+                  undoInFlightRef.current = false;
+                  if (activeRef.current) {
+                    setUndoCount(undoStackRef.current.length);
+                  }
+                }
+              }),
             );
           }}
           onCommandCommitted={(command, document, previousDocument) => {
@@ -1234,13 +1265,14 @@ function SyncedWorkspace({
                 }
           }
           persistenceNotice={
-            accessRefreshStatus === "refreshing"
+            undoNotice ??
+            (accessRefreshStatus === "refreshing"
               ? "Права доступа обновляются. Редактирование временно приостановлено."
               : accessRefreshStatus === "failed"
                 ? "Права доступа не подтверждены. Редактирование заблокировано."
                 : state.network === "offline"
                   ? "Изменения сохраняются локально и будут отправлены после восстановления связи."
-                  : null
+                  : null)
           }
           persistenceStatus={persistenceStatus(state)}
           readOnly={!writeEnabled}
