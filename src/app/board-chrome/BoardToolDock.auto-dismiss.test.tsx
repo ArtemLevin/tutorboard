@@ -89,7 +89,7 @@ afterEach(() => {
 });
 
 describe("dock popup inactivity contract", () => {
-  it("reuses the laser button for Spotlight without shifting dock buttons", () => {
+  it("keeps one presentation button for both tools", () => {
     const props = fixture();
     const onActivate = vi.fn();
     const view = render(
@@ -104,7 +104,10 @@ describe("dock popup inactivity contract", () => {
     });
     const initialCount = toolbar.querySelectorAll("button").length;
 
-    fireEvent.click(screen.getByRole("button", { name: "Лазерная указка (K)" }));
+    const laserButton = screen.getByRole("button", {
+      name: "Лазерная указка (K)",
+    });
+    fireEvent.click(laserButton);
     expect(onActivate).toHaveBeenLastCalledWith("presentation.laser");
     view.rerender(
       <BoardToolDock
@@ -113,7 +116,7 @@ describe("dock popup inactivity contract", () => {
         onActivate={onActivate}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Лазерная указка (K)" }));
+    fireEvent.click(laserButton);
     expect(onActivate).toHaveBeenLastCalledWith("presentation.spotlight");
     view.rerender(
       <BoardToolDock
