@@ -7,6 +7,27 @@ import type { BoardHandwritingController } from "./useBoardHandwritingController
 import type { LaserPointerController } from "./useLaserPointerController";
 import type { BoardSelectionController } from "./useBoardSelectionController";
 
+export interface BoardRenderResourceState {
+  readonly documentId: string;
+  readonly hasObjects: boolean;
+}
+
+/**
+ * A complete removal of the final board object ends the current renderer
+ * resource generation. The document and its Undo snapshots remain untouched.
+ * The same transition also occurs when a collaborator clears the board.
+ */
+export function shouldResetBoardRenderResources(
+  previous: BoardRenderResourceState,
+  current: BoardRenderResourceState,
+): boolean {
+  return (
+    previous.documentId === current.documentId &&
+    previous.hasObjects &&
+    !current.hasObjects
+  );
+}
+
 export interface ClearBoardTransientStateDependencies {
   readonly drawing: Pick<
     BoardDrawingController,
