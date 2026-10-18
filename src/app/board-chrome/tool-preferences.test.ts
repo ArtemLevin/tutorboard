@@ -32,6 +32,7 @@ describe("drawing tool preferences", () => {
     ["thin", 0.5],
     ["thick", 1],
     ["marker", 3],
+    ["oil-paint", 12],
     ["wavy", 7.5],
   ] as const)(
     "preserves a manually selected %s width",

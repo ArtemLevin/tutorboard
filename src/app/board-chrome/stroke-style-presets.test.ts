@@ -16,6 +16,10 @@ describe("stroke style selection presets", () => {
       strokeStyle: "marker",
       strokeWidth: 10,
     });
+    expect(strokeStyleSelectionPatch("oil-paint")).toEqual({
+      strokeStyle: "oil-paint",
+      strokeWidth: 12,
+    });
   });
 
   it("preserves current width for character-only styles", () => {

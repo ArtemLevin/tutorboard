@@ -1,6 +1,10 @@
 import { useCallback, useState } from "react";
 
-import type { ObjectStyle, StrokeStyle } from "../../core/public";
+import {
+  strokeStyles,
+  type ObjectStyle,
+  type StrokeStyle,
+} from "../../core/public";
 import {
   drawingStyleDefaults,
   type DrawingToolId,
@@ -16,16 +20,7 @@ export interface DrawingToolPreferences {
   readonly tools: Readonly<Partial<Record<DrawingToolId, ObjectStyle>>>;
 }
 
-const strokeStyles = new Set<StrokeStyle>([
-  "thin",
-  "thick",
-  "dashed",
-  "dash-dot",
-  "wavy",
-  "hand-pencil",
-  "hand-pen",
-  "marker",
-]);
+const supportedStrokeStyles = new Set<StrokeStyle>(strokeStyles);
 const hexColor = /^#[0-9a-f]{6}$/iu;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -79,7 +74,7 @@ export function normalizeDrawingToolStyle(
   const candidateStrokeStyle = value.strokeStyle;
   const strokeStyle =
     typeof candidateStrokeStyle === "string" &&
-    strokeStyles.has(candidateStrokeStyle as StrokeStyle)
+    supportedStrokeStyles.has(candidateStrokeStyle as StrokeStyle)
       ? (candidateStrokeStyle as StrokeStyle)
       : fallback.strokeStyle;
   return {

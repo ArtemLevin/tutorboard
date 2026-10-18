@@ -23,6 +23,7 @@ describe("styled pen stroke performance budget", () => {
       "wavy",
       "hand-pencil",
       "hand-pen",
+      "oil-paint",
     ] as const satisfies readonly StrokeStyle[];
 
     const startedAt = performance.now();

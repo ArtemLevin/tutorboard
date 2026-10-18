@@ -45,6 +45,7 @@ export function resolveStrokeStyle(
         strokeWidth,
       };
     case "hand-pen":
+    case "oil-paint":
       return {
         lineCap: "round",
         opacityMultiplier: 1,
@@ -86,7 +87,8 @@ export function resolveSketchPasses(
 
 export function isSketchStrokeStyle(
   style: StrokeStyle | undefined,
-): style is "hand-pencil" | "hand-pen" {
+): style is "hand-pencil" | "hand-pen" | "oil-paint" {
+  if (style === "oil-paint") return true;
   return style === "hand-pencil" || style === "hand-pen";
 }
 
