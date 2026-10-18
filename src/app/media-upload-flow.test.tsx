@@ -240,7 +240,9 @@ describe("synchronized asset import through board UI", () => {
 
     insertFile();
     await waitFor(() => expect(upload).toHaveBeenCalledOnce());
-    fireEvent.click(screen.getByRole("button", { name: "Открыть меню холста тест" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста тест" }),
+    );
     fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
     fireEvent.click(screen.getByRole("button", { name: /^Очистить$/ }));
     expect(committed).toHaveBeenCalledTimes(1);
