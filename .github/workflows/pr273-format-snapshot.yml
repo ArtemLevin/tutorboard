@@ -1,0 +1,26 @@
+name: PR273 format snapshot (temporary)
+on:
+  pull_request:
+jobs:
+  export-formatted:
+    if: github.event.pull_request.number == 273
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Format modified files
+        run: |
+          npx prettier --write src/adapters/canvas-konva/default-renderers.tsx src/app/App.tsx src/app/board-chrome/BoardToolDock.tsx src/app/board-chrome/tool-preferences.ts src/app/board-chrome/viewport-bookmarks.ts src/app/board/views/BoardSettingsPanel.tsx src/modules/document-transfer/snapshot.ts src/modules/text-editing/public.ts src/modules/text-editing/typography.ts tests/e2e/viewport-bookmarks.spec.ts tests/unit/modules/text-editing/text-editing.test.ts
+      - name: Publish formatted source as base64 in workflow log
+        run: |
+          for f in src/adapters/canvas-konva/default-renderers.tsx src/app/App.tsx src/app/board-chrome/BoardToolDock.tsx src/app/board-chrome/tool-preferences.ts src/app/board-chrome/viewport-bookmarks.ts src/app/board/views/BoardSettingsPanel.tsx src/modules/document-transfer/snapshot.ts src/modules/text-editing/public.ts src/modules/text-editing/typography.ts tests/e2e/viewport-bookmarks.spec.ts tests/unit/modules/text-editing/text-editing.test.ts; do
+            printf 'FMTFILE:%s:' "$f"
+            base64 -w0 "$f"
+            printf '\n'
+          done
