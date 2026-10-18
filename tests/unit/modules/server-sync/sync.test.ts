@@ -1044,6 +1044,64 @@ describe("BoardSyncEngine", () => {
     expect(states).toEqual([{ kind: "bootstrapping" }]);
   });
 
+  it("reports durable Undo admission and refuses writes during access refresh", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const repository = new FakeRepository();
+    const queue = new MemoryQueue();
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => "client:undo-receipt",
+      documentId: expectedDocumentId,
+      now: () => "2026-10-18T11:00:00.000Z",
+      onStateChange: () => undefined,
+      queue,
+      repository,
+    });
+    try {
+      await engine.bootstrap();
+      expect(
+        await engine.applyWithReceipt([
+          rename("command:receipt", "2026-10-18T11:01:00.000Z", "Undo queued"),
+        ]),
+      ).toBe(true);
+      expect(queue.items).toHaveLength(1);
+      expect(repository.pushed).toHaveLength(0);
+
+      engine.pauseForAccessRefresh();
+      expect(
+        await engine.applyWithReceipt([
+          rename("command:blocked", "2026-10-18T11:02:00.000Z", "Blocked"),
+        ]),
+      ).toBe(false);
+      expect(queue.items).toHaveLength(1);
+    } finally {
+      engine.dispose();
+    }
+  });
+
+  it("rejects an invalid Undo receipt before durable enqueue", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const queue = new MemoryQueue();
+    const engine = new BoardSyncEngine({
+      createIdempotencyKey: () => "client:invalid-undo",
+      documentId: expectedDocumentId,
+      now: () => "2026-10-18T11:00:00.000Z",
+      onStateChange: () => undefined,
+      queue,
+      repository: new FakeRepository(),
+    });
+    try {
+      await engine.bootstrap();
+      const mismatched = {
+        ...rename("command:wrong-actor", "2026-10-18T11:01:00.000Z", "Bad"),
+        actorId: actorId("user:other"),
+      };
+      expect(await engine.applyWithReceipt([mismatched])).toBe(false);
+      expect(queue.items).toHaveLength(0);
+    } finally {
+      engine.dispose();
+    }
+  });
+
   it("queues collaborative undo as an ordinary confirmed command", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     const repository = new FakeRepository();
