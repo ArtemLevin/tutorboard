@@ -1133,10 +1133,10 @@ function SyncedWorkspace({
             setUndoNotice(null);
             setUndoCount(Math.max(0, undoStackRef.current.length - 1));
             const pending = ownCommitTailRef.current;
-            trackOwnCommit(null, () =>
-              pending.then(async () => {
-                try {
-                  const accepted = await engine.applyWithReceipt(inverse);
+            trackOwnCommit(null, async () => {
+              try {
+                await pending;
+                const accepted = await engine.applyWithReceipt(inverse);
                   if (accepted) {
                     // Consume this exact entry only after durable admission.
                     // A newer edit may have appended to the stack meanwhile.
@@ -1156,14 +1156,13 @@ function SyncedWorkspace({
                         : "Не удалось отменить операцию.",
                     );
                   }
-                } finally {
-                  undoInFlightRef.current = false;
-                  if (activeRef.current) {
-                    setUndoCount(undoStackRef.current.length);
-                  }
+              } finally {
+                undoInFlightRef.current = false;
+                if (activeRef.current) {
+                  setUndoCount(undoStackRef.current.length);
                 }
-              }),
-            );
+              }
+            });
           }}
           onCommandCommitted={(command, document, previousDocument) => {
             if (!writeEnabled) return;
