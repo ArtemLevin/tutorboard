@@ -86,6 +86,49 @@ describe("BoardCommand runtime codec", () => {
     ).toMatchObject({ status: "invalid-command" });
   });
 
+  it("round-trips oil paint through the existing command protocol", () => {
+    const source: BoardCommand = {
+      actorId: actorId("actor:codec-test"),
+      changes: [
+        {
+          atIndex: 0,
+          originals: [],
+          replacements: [
+            {
+              groupId: null,
+              id: boardObjectId("object:oil-brush"),
+              kind: "drawing.rectangle",
+              locked: false,
+              position: { x: 12, y: 24 },
+              rotation: 0,
+              scale: { x: 1, y: 1 },
+              size: { width: 80, height: 50 },
+              source: { kind: "user" },
+              style: {
+                fill: null,
+                opacity: 0.95,
+                stroke: "#254bca",
+                strokeStyle: "oil-paint",
+                strokeWidth: 12,
+              },
+              visible: true,
+            },
+          ],
+        },
+      ],
+      id: commandId("command:oil-brush"),
+      kind: "core.objects.batch-replace",
+      timestamp: "2026-10-18T15:02:00.000Z",
+    };
+    const serialized = serializeBoardCommand(source);
+    expect(serialized.ok).toBe(true);
+    if (!serialized.ok) return;
+    expect(readBoardCommandJson(serialized.json)).toEqual({
+      command: source,
+      status: "ok",
+    });
+  });
+
   it("rejects unknown fields and unsupported command kinds", () => {
     expect(
       readBoardCommand({ ...viewportCommand(), injected: true }),
