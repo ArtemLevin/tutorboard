@@ -114,9 +114,16 @@
 }
 
 [data-stroke-style="oil-paint"] .stroke-style-preview::after {
-  border-top: 2px dashed rgba(219, 234, 254, 0.8);
-  top: 7px;
-  transform: rotate(1deg);
+  background: #2563eb;
+  border-radius: 0 0 3px 3px;
+  box-shadow:
+    15px -3px 0 -0.5px #3b82f6,
+    36px 1px 0 0 #1d4ed8;
+  height: 7px;
+  left: 20%;
+  right: auto;
+  top: 8px;
+  width: 4px;
 }
 
 .stroke-style-preview::before,
