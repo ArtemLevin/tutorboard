@@ -22,20 +22,8 @@ test("@smoke spotlight follows cursor without changing board", async ({
   const box = await stage.boundingBox();
   if (box === null) throw new Error("Missing canvas bounds");
   await page.mouse.move(box.x + 240, box.y + 190);
-  await expect
-    .poll(() =>
-      mask.evaluate((element) =>
-        element.style.getPropertyValue("--spotlight-x"),
-      ),
-    )
-    .toBe("240px");
-  await expect
-    .poll(() =>
-      mask.evaluate((element) =>
-        element.style.getPropertyValue("--spotlight-y"),
-      ),
-    )
-    .toBe("190px");
+  await expect(mask).toHaveCSS("--spotlight-x", "240px");
+  await expect(mask).toHaveCSS("--spotlight-y", "190px");
 
   await page.mouse.click(box.x + 240, box.y + 190);
   const objectCounter = page.getByTestId("object-count");
@@ -76,9 +64,7 @@ test("@smoke spotlight in lesson mode preserves history", async ({
   });
   await lessonSpotlight.click();
   await expect(page.getByTestId("board-spotlight-overlay")).toBeVisible();
-  await expect(
-    lesson.getByRole("button", { name: "Фонарь — режим занятия" }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await expect(lessonSpotlight).toHaveAttribute("aria-pressed", "true");
 
   await page.keyboard.press("Escape");
   await expect(lesson).toHaveCount(0);
