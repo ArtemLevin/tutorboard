@@ -263,18 +263,6 @@ export function App({
     documentId: String(document.id),
     hasObjects: document.order.length > 0,
   });
-  useLayoutEffect(() => {
-    const next = {
-      documentId: String(document.id),
-      hasObjects: document.order.length > 0,
-    };
-    const previous = previousRenderContentRef.current;
-    previousRenderContentRef.current = next;
-    if (!shouldResetBoardRenderResources(previous, next)) return;
-    clearCoordinatePlotSamplingCache();
-    setClearRenderGeneration((generation) => generation + 1);
-  }, [document.id, document.order.length]);
-
   const [activeTool, setActiveTool] = useState<ActiveToolId>(navigationToolId);
   const [selectionInspectorObjectId, setSelectionInspectorObjectId] =
     useState<BoardObjectId | null>(null);
@@ -621,6 +609,20 @@ export function App({
     resolveImageDisplaySize,
     resolvePlacementCenter,
   });
+
+  useLayoutEffect(() => {
+    const next = {
+      documentId: String(document.id),
+      hasObjects: document.order.length > 0,
+    };
+    const previous = previousRenderContentRef.current;
+    previousRenderContentRef.current = next;
+    if (!shouldResetBoardRenderResources(previous, next)) return;
+    // Prevent an asynchronous upload from repopulating a just-cleared board.
+    media.cancelPendingImport();
+    clearCoordinatePlotSamplingCache();
+    setClearRenderGeneration((generation) => generation + 1);
+  }, [document.id, document.order.length, media.cancelPendingImport]);
 
   const handleGeometrySelectionCreated = useCallback(
     (
