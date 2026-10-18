@@ -13,11 +13,7 @@ import {
 } from "../../../modules/selection/public";
 import { primaryStyleColor } from "../../board-chrome/color-presets";
 import type { ActiveToolId } from "../active-tool";
-import {
-  laserToolId,
-  navigationToolId,
-  spotlightToolId,
-} from "../active-tool";
+import { laserToolId, navigationToolId, spotlightToolId } from "../active-tool";
 import {
   resolveBoardShortcut,
   type BoardShortcutAction,
