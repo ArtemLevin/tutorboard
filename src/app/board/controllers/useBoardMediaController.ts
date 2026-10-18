@@ -53,6 +53,18 @@ export function useBoardMediaController({
   const [uploading, setUploading] = useState(false);
   const activeImportRef = useRef<AbortController | null>(null);
 
+  const cancelPendingImport = useCallback(() => {
+    const active = activeImportRef.current;
+    if (active === null) return;
+    // Clear the current owner first: a cancelled request must not block
+    // a new import after the board is cleared.
+    activeImportRef.current = null;
+    active.abort();
+    setUploading(false);
+    setDiagnostic(null);
+    clipboard.setNotice(null);
+  }, [clipboard.setNotice]);
+
   // Abort in-flight uploads if the transport, board authority or component changes.
   useEffect(
     () => () => activeImportRef.current?.abort(),
@@ -249,6 +261,7 @@ export function useBoardMediaController({
   return {
     accept: embeddedImageAccept,
     assetImportEnabled,
+    cancelPendingImport,
     diagnostic,
     importFiles,
     uploading,
