@@ -93,7 +93,10 @@ test("@smoke clear releases prepared JSON memory and preserves Undo/Redo and sub
   });
   await page.getByRole("button", { name: "Очистить", exact: true }).click();
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
-  await expect(stage).not.toHaveAttribute("data-pre-clear-resource-generation", "old");
+  await expect(stage).not.toHaveAttribute(
+    "data-pre-clear-resource-generation",
+    "old",
+  );
   await expect(stage).toHaveAttribute("data-visible-object-count", "0");
   await expect(stage).toHaveAttribute("data-raster-active-decoded-count", "0");
   await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
