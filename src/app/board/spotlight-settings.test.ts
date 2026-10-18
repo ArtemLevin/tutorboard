@@ -12,24 +12,19 @@ describe("spotlight presentation settings", () => {
     expect(normalizeSpotlightRadius(190.6)).toBe(191);
     const minimum = normalizeSpotlightRadius(1);
     expect(minimum).toBe(spotlightBounds.minimumRadiusPx);
-    expect(normalizeSpotlightRadius(1000)).toBe(
-      spotlightBounds.maximumRadiusPx,
-    );
+    const maximum = normalizeSpotlightRadius(1000);
+    expect(maximum).toBe(spotlightBounds.maximumRadiusPx);
     expect(normalizeSpotlightDim(68.9)).toBe(69);
-    expect(normalizeSpotlightDim(-100)).toBe(
-      spotlightBounds.minimumDimPercent,
-    );
-    expect(normalizeSpotlightDim(100)).toBe(
-      spotlightBounds.maximumDimPercent,
-    );
+    const minimumDim = normalizeSpotlightDim(-100);
+    expect(minimumDim).toBe(spotlightBounds.minimumDimPercent);
+    const maximumDim = normalizeSpotlightDim(100);
+    expect(maximumDim).toBe(spotlightBounds.maximumDimPercent);
   });
 
   it("substitutes safe defaults for invalid input", () => {
-    expect(normalizeSpotlightRadius(Number.NaN)).toBe(
-      spotlightDefaults.radiusPx,
-    );
-    expect(normalizeSpotlightDim(Number.POSITIVE_INFINITY)).toBe(
-      spotlightDefaults.dimPercent,
-    );
+    const invalidRadius = normalizeSpotlightRadius(Number.NaN);
+    const invalidDim = normalizeSpotlightDim(Number.POSITIVE_INFINITY);
+    expect(invalidRadius).toBe(spotlightDefaults.radiusPx);
+    expect(invalidDim).toBe(spotlightDefaults.dimPercent);
   });
 });
