@@ -1,7 +1,11 @@
 import { useEffect, useRef } from "react";
 
 import { eraserToolId } from "../../../modules/eraser/public";
-import { laserToolId, type ActiveToolId } from "../active-tool";
+import {
+  laserToolId,
+  spotlightToolId,
+  type ActiveToolId,
+} from "../active-tool";
 import "./BoardLessonModeControls.css";
 
 export interface BoardLessonModeControlsProps {
@@ -61,6 +65,16 @@ export function BoardLessonModeControls({
       >
         <span aria-hidden="true">●</span>
         <span>Указка</span>
+      </button>
+      <button
+        aria-label="Фонарь — режим занятия"
+        aria-pressed={activeTool === spotlightToolId}
+        onClick={() => onActivate(spotlightToolId)}
+        title="Фонарь (Shift+K)"
+        type="button"
+      >
+        <span aria-hidden="true">◉</span>
+        <span>Фонарь</span>
       </button>
       <button
         aria-label={

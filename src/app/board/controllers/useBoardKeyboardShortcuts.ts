@@ -13,7 +13,7 @@ import {
 } from "../../../modules/selection/public";
 import { primaryStyleColor } from "../../board-chrome/color-presets";
 import type { ActiveToolId } from "../active-tool";
-import { laserToolId, navigationToolId } from "../active-tool";
+import { laserToolId, navigationToolId, spotlightToolId } from "../active-tool";
 import {
   resolveBoardShortcut,
   type BoardShortcutAction,
@@ -178,19 +178,19 @@ export function useBoardKeyboardShortcuts({
       }
       if (event.altKey || event.ctrlKey || event.metaKey || editing) return;
 
-      const imageScaleDirection =
+      const scaleFactor =
         event.repeat || readOnly
           ? null
-          : event.key === "+"
-            ? "increase"
+          : event.key === "+" || event.key === "="
+            ? 1.1
             : event.key === "-"
-              ? "decrease"
+              ? 1 / 1.1
               : null;
       if (
-        imageScaleDirection !== null &&
+        scaleFactor !== null &&
         selection.getState().interaction.kind === "idle" &&
         !selection.selectedLocked &&
-        selection.scaleImagesByStep(imageScaleDirection)
+        selection.transformBy(scaleFactor, 0)
       ) {
         event.preventDefault();
         return;
@@ -282,6 +282,9 @@ export function useBoardKeyboardShortcuts({
           return;
         case "tool.laser":
           interaction.activate(laserToolId);
+          return;
+        case "tool.spotlight":
+          interaction.activate(spotlightToolId);
           return;
         case "plot.create":
           plots.create();

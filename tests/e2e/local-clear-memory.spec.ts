@@ -86,8 +86,17 @@ test("@smoke clear releases prepared JSON memory and preserves Undo/Redo and sub
     button: "right",
   });
   await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+  // Track the renderer itself: clearing must dispose the old Konva scene,
+  // not merely detach its objects from a still-retained GPU surface.
+  await stage.evaluate((element) => {
+    element.dataset.preClearResourceGeneration = "old";
+  });
   await page.getByRole("button", { name: "Очистить", exact: true }).click();
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+  await expect(stage).not.toHaveAttribute(
+    "data-pre-clear-resource-generation",
+    "old",
+  );
   await expect(stage).toHaveAttribute("data-visible-object-count", "0");
   await expect(stage).toHaveAttribute("data-raster-active-decoded-count", "0");
   await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
@@ -111,6 +120,7 @@ test("@smoke clear releases prepared JSON memory and preserves Undo/Redo and sub
   }
   await page.keyboard.press("Control+z");
   await expect(page.getByTestId("object-count")).toHaveText("3010 объекта");
+  await expect(stage).not.toHaveAttribute("data-visible-object-count", "0");
   await page.keyboard.press("Control+Shift+z");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   await page.keyboard.press("r");

@@ -20,6 +20,7 @@ describe("stroke styles", () => {
       "hand-pencil",
       "hand-pen",
       "marker",
+      "oil-paint",
     ] as const;
 
     for (const style of styles) {
@@ -35,6 +36,11 @@ describe("stroke styles", () => {
       lineCap: "square",
       opacityMultiplier: 0.38,
       strokeWidth: 3,
+    });
+    expect(resolveStrokeStyle("oil-paint", 12)).toMatchObject({
+      lineCap: "round",
+      opacityMultiplier: 1,
+      strokeWidth: 12,
     });
   });
 
@@ -52,6 +58,17 @@ describe("stroke styles", () => {
       2.6, 1.8, 1.12,
     ]);
     expect(penWide.map((pass) => pass.strokeWidth)).toEqual([4, 1.4]);
+  });
+
+  it("provides three bounded oil paint layers with proportional widths", () => {
+    const layers = resolveSketchPasses("oil-paint", 12);
+    expect(layers[0]?.strokeWidth).toBe(12);
+    expect(layers[1]?.strokeWidth).toBeCloseTo(6.96);
+    expect(layers[2]?.strokeWidth).toBeCloseTo(1.92);
+    expect(layers.map((layer) => layer.opacityMultiplier)).toEqual([
+      0.9, 0.36, 0.44,
+    ]);
+    expect(layers[2]?.dash).toEqual([9, 3]);
   });
 
   it("creates deterministic sketchbook paths", () => {

@@ -8,17 +8,33 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { BoardStageProps } from "../adapters/canvas-konva/public";
 import {
   type BoardCommand,
   type BoardMediaAssetDescriptor,
   type BoardMediaUploadInput,
+  boardObjectId,
+  type BoardObject,
 } from "../core/public";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import { App, createInitialDocument } from "./App";
 
 vi.mock("../adapters/canvas-konva/public", () => ({
-  BoardStage: () => (
-    <div aria-label="Бесконечное полотно TutorBoard" role="application" />
+  BoardStage: (props: BoardStageProps) => (
+    <div aria-label="Бесконечное полотно TutorBoard" role="application">
+      <button
+        onClick={() =>
+          props.onCanvasContextMenuRequest?.({
+            clientPoint: { x: 180, y: 140 },
+            objectId: null,
+            worldPoint: { x: 42, y: 56 },
+          })
+        }
+        type="button"
+      >
+        Открыть меню холста тест
+      </button>
+    </div>
   ),
   clearCoordinatePlotSamplingCache: vi.fn(),
   createDefaultKonvaRendererRegistry: () => ({
@@ -82,6 +98,35 @@ function descriptor(input: BoardMediaUploadInput): BoardMediaAssetDescriptor {
   };
 }
 
+function populatedBoardForClear() {
+  const base = createInitialDocument();
+  const objectId = boardObjectId("object:before-remote-clear");
+  const object: BoardObject = {
+    id: objectId,
+    groupId: null,
+    kind: "drawing.text",
+    locked: false,
+    position: { x: 0, y: 0 },
+    rotation: 0,
+    scale: { x: 1, y: 1 },
+    source: { kind: "user" },
+    style: {
+      fill: null,
+      opacity: 1,
+      stroke: "#222222",
+      strokeWidth: 2,
+    },
+    text: "Existing",
+    visible: true,
+  };
+  const populated = {
+    ...base,
+    objects: { [objectId]: object },
+    order: [objectId],
+  };
+  return populated;
+}
+
 describe("synchronized asset import through board UI", () => {
   it("queues no command before upload AVAILABLE and commits reference-only data afterward", async () => {
     let release: (value: BoardMediaAssetDescriptor) => void = () => undefined;
@@ -123,6 +168,95 @@ describe("synchronized asset import through board UI", () => {
       byteSize: png.byteLength,
     });
     expect(command.objects[0]).not.toHaveProperty("dataUrl");
+  });
+
+  it("cancels a pending media upload when a collaborator clears the board", async () => {
+    let release: (value: BoardMediaAssetDescriptor) => void = () => undefined;
+    let captured: BoardMediaUploadInput | null = null;
+    const upload = vi.fn((input: BoardMediaUploadInput) => {
+      captured = input;
+      return new Promise<BoardMediaAssetDescriptor>((resolve) => {
+        release = resolve;
+      });
+    });
+    const populated = populatedBoardForClear();
+    const cleared = { ...populated, objects: {}, order: [] };
+    const session = createSession(upload);
+    const committed = vi.fn<(command: BoardCommand) => void>();
+    const view = render(
+      <App
+        initialDocument={populated}
+        mediaAssetImportEnabled
+        mediaUploadSession={session}
+        onCommandCommitted={committed}
+      />,
+    );
+
+    insertFile();
+    await waitFor(() => expect(upload).toHaveBeenCalledOnce());
+    expect(screen.getByText("Загружаем изображения…")).toBeInTheDocument();
+
+    view.rerender(
+      <App
+        initialDocument={cleared}
+        mediaAssetImportEnabled
+        mediaUploadSession={session}
+        onCommandCommitted={committed}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта"),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("Загружаем изображения…")).toBeNull(),
+    );
+    if (captured === null) throw new Error("Upload never started");
+    await act(async () => {
+      release(descriptor(captured!));
+      await Promise.resolve();
+    });
+    expect(committed).not.toHaveBeenCalled();
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+  });
+
+  it("cancels an upload immediately after the local clear command commits", async () => {
+    let release: (value: BoardMediaAssetDescriptor) => void = () => undefined;
+    let captured: BoardMediaUploadInput | null = null;
+    const upload = vi.fn((input: BoardMediaUploadInput) => {
+      captured = input;
+      return new Promise<BoardMediaAssetDescriptor>((resolve) => {
+        release = resolve;
+      });
+    });
+    const committed = vi.fn<(command: BoardCommand) => void>();
+    render(
+      <App
+        initialDocument={populatedBoardForClear()}
+        mediaAssetImportEnabled
+        mediaUploadSession={createSession(upload)}
+        onCommandCommitted={committed}
+      />,
+    );
+
+    insertFile();
+    await waitFor(() => expect(upload).toHaveBeenCalledOnce());
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста тест" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Очистить$/ }));
+    expect(committed).toHaveBeenCalledTimes(1);
+    expect(committed.mock.calls[0]?.[0].kind).toBe("core.clipboard.cut");
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    expect(screen.queryByText("Загружаем изображения…")).toBeNull();
+
+    if (captured === null) throw new Error("Upload never started");
+    await act(async () => {
+      release(descriptor(captured!));
+      await Promise.resolve();
+    });
+    expect(committed).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
   });
 
   it("aborts the pending upload and skips command on read-only downgrade", async () => {

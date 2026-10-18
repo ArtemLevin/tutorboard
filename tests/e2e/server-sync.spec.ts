@@ -161,6 +161,40 @@ test(
   },
 );
 
+test(
+  "Ctrl+Z reverses an offline collaborative drawing after durable queueing",
+  { tag: "@smoke" },
+  async ({ context, page }) => {
+    await installBoardApi(page);
+    await page.goto(
+      `/?lessonId=${encodeURIComponent(lessonId)}&documentId=${encodeURIComponent(documentId)}#/board`,
+    );
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Синхронизировано · r7",
+    );
+    await expect(page.getByTestId("object-count")).toHaveText("2 объекта");
+
+    await context.setOffline(true);
+    await page.keyboard.press("r");
+    const bounds = await page.getByTestId("board-stage").boundingBox();
+    if (bounds === null) throw new Error("Canvas has no bounds.");
+    await page.mouse.move(bounds.x + 540, bounds.y + 165);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + 650, bounds.y + 245, { steps: 4 });
+    await page.mouse.up();
+
+    await expect(page.getByTestId("object-count")).toHaveText("3 объекта");
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Автономно · в очереди 1",
+    );
+    await page.keyboard.press("Control+z");
+    await expect(page.getByTestId("object-count")).toHaveText("2 объекта");
+    await expect(page.getByTestId("persistence-status")).toHaveText(
+      "Автономно · в очереди 2",
+    );
+  },
+);
+
 test("copies a stable lesson-bound link for collaborators", async ({
   page,
 }) => {

@@ -549,6 +549,16 @@ textarea:focus-visible,
   touch-action: none;
 }
 
+/* Spotlight is presentation-only: its mask is composited above Konva, while
+   pointer and stylus input continue to reach the original stage. */
+.board-spotlight-overlay {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  contain: paint;
+}
+
 .board-inline-text-editor {
   position: absolute;
   z-index: 4;

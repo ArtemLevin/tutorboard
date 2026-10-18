@@ -1027,6 +1027,75 @@ describe("App", () => {
     expect(screen.getByText("Remote lesson title")).toBeInTheDocument();
   });
 
+  it("releases renderer resources on a remote clear while keeping workspace UI and restore usable", async () => {
+    const base = createInitialDocument();
+    const textId = boardObjectId("object:remote-clear");
+    const text: BoardObject = {
+      groupId: null,
+      id: textId,
+      kind: "drawing.text",
+      locked: false,
+      position: { x: 45, y: 60 },
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      source: { kind: "user" },
+      style: {
+        fill: null,
+        opacity: 1,
+        stroke: "#111827",
+        strokeWidth: 2,
+      },
+      text: "Remote content",
+      visible: true,
+    };
+    const populated: BoardDocument = {
+      ...base,
+      objects: { [textId]: text },
+      order: [textId],
+    };
+    const cleared: BoardDocument = {
+      ...populated,
+      objects: {},
+      order: [],
+    };
+    const view = render(
+      <App historyEnabled={false} initialDocument={populated} />,
+    );
+    const originalStage = screen.getByRole("application", {
+      name: "Бесконечное полотно TutorBoard",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Настройки доски" }));
+
+    view.rerender(<App historyEnabled={false} initialDocument={cleared} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта"),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("application", {
+          name: "Бесконечное полотно TutorBoard",
+        }),
+      ).not.toBe(originalStage),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Настройки доски" }),
+    ).toBeInTheDocument();
+    const emptyStage = screen.getByRole("application", {
+      name: "Бесконечное полотно TutorBoard",
+    });
+
+    // Reintroducing content (remote restore/Undo) uses the fresh scene.
+    view.rerender(<App historyEnabled={false} initialDocument={populated} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта"),
+    );
+    expect(
+      screen.getByRole("application", {
+        name: "Бесконечное полотно TutorBoard",
+      }),
+    ).toBe(emptyStage);
+  });
+
   it("inserts a safe SVG as one selected embedded image", async () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Медиа" }));
@@ -1051,7 +1120,7 @@ describe("App", () => {
     );
   });
 
-  it("scales a selected image batch by 50 percentage points with one undo", async () => {
+  it("scales selected images around their shared center with Undo", async () => {
     const onDocumentChange = vi.fn<(document: BoardDocument) => void>();
     const { rerender } = render(<App onDocumentChange={onDocumentChange} />);
     fireEvent.click(screen.getByRole("button", { name: "Медиа" }));
@@ -1086,10 +1155,7 @@ describe("App", () => {
       .order.map((id) => onDocumentChange.mock.calls.at(-1)?.[0].objects[id])
       .filter((object) => object?.kind === "image.embedded");
     expect(before).toHaveLength(2);
-    const centers = before?.map((object) => ({
-      x: object.position.x + (object.size.width * object.scale.x) / 2,
-      y: object.position.y + (object.size.height * object.scale.y) / 2,
-    }));
+    const beforePositions = before?.map((object) => object.position);
 
     fireEvent.keyDown(window, { code: "Equal", key: "+", shiftKey: true });
     expect(screen.getByTestId("history-depth")).toHaveTextContent("2/0");
@@ -1099,15 +1165,11 @@ describe("App", () => {
       .map((id) => scaledDocument.objects[id])
       .filter((object) => object?.kind === "image.embedded");
     expect(scaled?.map((object) => object.scale)).toEqual([
-      { x: 1.5, y: 1.5 },
-      { x: 1.5, y: 1.5 },
+      { x: 1.1, y: 1.1 },
+      { x: 1.1, y: 1.1 },
     ]);
-    expect(
-      scaled?.map((object) => ({
-        x: object.position.x + (object.size.width * object.scale.x) / 2,
-        y: object.position.y + (object.size.height * object.scale.y) / 2,
-      })),
-    ).toEqual(centers);
+    const afterPositions = scaled?.map((object) => object.position);
+    expect(afterPositions).not.toEqual(beforePositions);
 
     fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");

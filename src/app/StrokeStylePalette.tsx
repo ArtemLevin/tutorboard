@@ -13,6 +13,7 @@ const options: readonly { label: string; value: StrokeStyle }[] = [
   { label: "Карандаш — скетчбук", value: "hand-pencil" },
   { label: "Ручка — скетчбук", value: "hand-pen" },
   { label: "Маркер", value: "marker" },
+  { label: "Масляная кисть", value: "oil-paint" },
 ];
 
 export function StrokeStylePalette({

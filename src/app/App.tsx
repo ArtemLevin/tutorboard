@@ -34,6 +34,10 @@ import {
   type ActiveToolId,
 } from "./board/active-tool";
 import { useBoardClipboardController } from "./board/controllers/useBoardClipboardController";
+import {
+  releaseBoardPlotSamplingCache,
+  shouldResetBoardRenderResources,
+} from "./board/controllers/clear-resource-lifecycle";
 import { useBoardDocumentController } from "./board/controllers/useBoardDocumentController";
 import {
   useBoardDrawingController,
@@ -50,6 +54,11 @@ import { useBoardSelectionController } from "./board/controllers/useBoardSelecti
 import { useBoardSolid3DController } from "./board/controllers/useBoardSolid3DController";
 import { useCoordinatePlotController } from "./board/controllers/useCoordinatePlotController";
 import { useLaserPointerController } from "./board/controllers/useLaserPointerController";
+import {
+  normalizeSpotlightDim,
+  normalizeSpotlightRadius,
+  spotlightDefaults,
+} from "./board/spotlight-settings";
 import type { AppPersistenceStatus, MathInkRecognizer } from "./board/types";
 import { BoardCanvas } from "./board/views/BoardCanvas";
 import { BoardDiagnostics } from "./board/views/BoardDiagnostics";
@@ -253,7 +262,21 @@ export function App({
   const { commitCommand, createCommandMetadata, document, getDocument } =
     documentController;
 
+  // Reset the Konva scene and board-owned media handles after any successful
+  // full clear, including clears received from collaborators. The document
+  // controller and its Undo/Redo snapshots remain mounted.
+  const [clearRenderGeneration, setClearRenderGeneration] = useState(0);
+  const previousRenderContentRef = useRef({
+    documentId: String(document.id),
+    hasObjects: document.order.length > 0,
+  });
   const [activeTool, setActiveTool] = useState<ActiveToolId>(navigationToolId);
+  const [spotlightRadiusPx, setSpotlightRadiusPx] = useState<number>(
+    spotlightDefaults.radiusPx,
+  );
+  const [spotlightDimPercent, setSpotlightDimPercent] = useState<number>(
+    spotlightDefaults.dimPercent,
+  );
   const [selectionInspectorObjectId, setSelectionInspectorObjectId] =
     useState<BoardObjectId | null>(null);
   const [accessibilityNotice, setAccessibilityNotice] = useState<string | null>(
@@ -600,6 +623,21 @@ export function App({
     resolvePlacementCenter,
   });
 
+  const cancelPendingImport = media.cancelPendingImport;
+  useLayoutEffect(() => {
+    const next = {
+      documentId: String(document.id),
+      hasObjects: document.order.length > 0,
+    };
+    const previous = previousRenderContentRef.current;
+    previousRenderContentRef.current = next;
+    if (!shouldResetBoardRenderResources(previous, next)) return;
+    // Prevent an asynchronous upload from repopulating a just-cleared board.
+    cancelPendingImport();
+    releaseBoardPlotSamplingCache();
+    setClearRenderGeneration((generation) => generation + 1);
+  }, [cancelPendingImport, document.id, document.order.length]);
+
   const handleGeometrySelectionCreated = useCallback(
     (
       objectIds: readonly BoardObjectId[],
@@ -879,7 +917,7 @@ export function App({
           smartInkNotice={drawing.smartInkNotice}
         />
         <BoardCanvas
-          key={mediaResourceGeneration}
+          key={`${mediaResourceGeneration}:${clearRenderGeneration}`}
           activeTool={canvasTool}
           stylusEraserEnabled={!readOnly && quickTools.stylusEraserEnabled}
           announce={announce}
@@ -890,7 +928,10 @@ export function App({
           handwriting={handwriting}
           interaction={interaction}
           laser={laser}
+          spotlightRadiusPx={spotlightRadiusPx}
+          spotlightDimPercent={spotlightDimPercent}
           mediaAssetSourceResolver={mediaAssetSourceResolver}
+          onClearCommitted={cancelPendingImport}
           onObjectSettingsRequest={requestObjectSettings}
           onPointerHover={handlePointerHover}
           onTransformPreviewChange={publishTransformPreview}
@@ -948,6 +989,14 @@ export function App({
         ) : (
           <BoardToolDockContainer
             activeTool={activeTool}
+            spotlightRadiusPx={spotlightRadiusPx}
+            spotlightDimPercent={spotlightDimPercent}
+            onSpotlightRadiusChange={(radius) =>
+              setSpotlightRadiusPx(normalizeSpotlightRadius(radius))
+            }
+            onSpotlightDimChange={(percent) =>
+              setSpotlightDimPercent(normalizeSpotlightDim(percent))
+            }
             collaborativeUndoAvailable={collaborativeUndoAvailable}
             documentController={documentController}
             drawing={drawing}

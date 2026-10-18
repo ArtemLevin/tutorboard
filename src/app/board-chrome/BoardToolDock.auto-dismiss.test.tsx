@@ -19,6 +19,10 @@ function fixture(): DockProps {
   return {
     activeStyle: pen,
     activeTool: "drawing.pen",
+    spotlightRadiusPx: 170,
+    spotlightDimPercent: 75,
+    onSpotlightRadiusChange: vi.fn(),
+    onSpotlightDimChange: vi.fn(),
     canRedo: false,
     canUndo: false,
     drawingTools,
@@ -85,12 +89,57 @@ afterEach(() => {
 });
 
 describe("dock popup inactivity contract", () => {
+  it("keeps one presentation button for both tools", () => {
+    const props = fixture();
+    const onActivate = vi.fn();
+    const view = render(
+      <BoardToolDock
+        {...props}
+        activeTool="navigation.pan"
+        onActivate={onActivate}
+      />,
+    );
+    const toolbar = screen.getByRole("toolbar", {
+      name: "Инструменты доски",
+    });
+    const initialCount = toolbar.querySelectorAll("button").length;
+
+    const laserButton = screen.getByRole("button", {
+      name: "Лазерная указка (K)",
+    });
+    fireEvent.click(laserButton);
+    expect(onActivate).toHaveBeenLastCalledWith("presentation.laser");
+    view.rerender(
+      <BoardToolDock
+        {...props}
+        activeTool="presentation.laser"
+        onActivate={onActivate}
+      />,
+    );
+    fireEvent.click(laserButton);
+    expect(onActivate).toHaveBeenLastCalledWith("presentation.spotlight");
+    view.rerender(
+      <BoardToolDock
+        {...props}
+        activeTool="presentation.spotlight"
+        onActivate={onActivate}
+      />,
+    );
+    const spotlightButton = screen.getByRole("button", {
+      name: "Фонарь (Shift+K)",
+    });
+    expect(spotlightButton).toHaveAttribute("aria-pressed", "true");
+    expect(toolbar.querySelectorAll("button")).toHaveLength(initialCount);
+  });
+
   it.each([
     ["drawing.pen", "Первичные настройки инструмента"],
     ["drawing.smart-ink", "Первичные настройки инструмента"],
     ["drawing.line", "Первичные настройки инструмента"],
     ["drawing.text", "Первичные настройки инструмента"],
     ["editing.eraser", "Первичные настройки ластика"],
+    ["presentation.laser", "Настройки лазерной указки"],
+    ["presentation.spotlight", "Настройки фонаря"],
   ])("dismisses %s after exactly two idle seconds", (tool, label) => {
     render(<BoardToolDock {...fixture()} activeTool={tool} />);
     expect(screen.getByRole("region", { name: label })).toBeInTheDocument();

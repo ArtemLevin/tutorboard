@@ -1,9 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { resetBoardTransientStateAfterClear } from "../../../src/app/board/controllers/clear-resource-lifecycle";
+import {
+  resetBoardTransientStateAfterClear,
+  shouldResetBoardRenderResources,
+} from "../../../src/app/board/controllers/clear-resource-lifecycle";
 import { selectionToolId } from "../../../src/modules/selection/public";
 
 describe("clear board transient lifecycle", () => {
+  it("resets only after a same-board clear", () => {
+    const populated = { documentId: "board:one", hasObjects: true };
+    const cleared = { documentId: "board:one", hasObjects: false };
+    const unrelatedEmpty = { documentId: "board:two", hasObjects: false };
+
+    expect(shouldResetBoardRenderResources(populated, cleared)).toBe(true);
+    expect(shouldResetBoardRenderResources(populated, populated)).toBe(false);
+    expect(shouldResetBoardRenderResources(cleared, cleared)).toBe(false);
+    expect(shouldResetBoardRenderResources(cleared, populated)).toBe(false);
+    const switched = shouldResetBoardRenderResources(populated, unrelatedEmpty);
+    expect(switched).toBe(false);
+  });
+
   it("cancels transient sessions without touching undo-retained document state", () => {
     const drawing = {
       cancel: vi.fn(),

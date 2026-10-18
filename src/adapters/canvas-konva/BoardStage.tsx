@@ -73,6 +73,7 @@ import type {
   KonvaRendererRegistry,
 } from "./renderer-registry";
 import { useElementSize } from "./use-element-size";
+import { SpotlightOverlay } from "./SpotlightOverlay";
 import {
   minimumWheelCacheStrokes,
   WheelInkCacheCoordinator,
@@ -212,6 +213,9 @@ export interface BoardStageProps {
   readonly laserPoint?: Vec2 | null;
   readonly laserTrailOpacity?: number;
   readonly laserTrailPoints?: readonly Vec2[];
+  readonly spotlightActive?: boolean;
+  readonly spotlightRadiusPx?: number;
+  readonly spotlightDimPercent?: number;
   readonly lineEndpointObjectIds?: readonly BoardObjectId[];
   readonly onCanvasContextMenuRequest?:
     ((request: CanvasContextMenuRequest) => void) | undefined;
@@ -251,6 +255,8 @@ export interface BoardStageProps {
   readonly onSelectionTransformPreview?: (
     transforms: readonly BoardObjectTransformSnapshot[] | null,
   ) => void;
+  readonly onSelectionWheelTransform?:
+    ((scaleFactor: number, rotationDelta: number) => boolean) | undefined;
   readonly panMode: boolean;
   readonly primaryCanvasGesturesEnabled?: boolean;
   readonly previewItems?: readonly BoardRenderItem[];
@@ -446,6 +452,9 @@ export function BoardStage({
   laserPoint = null,
   laserTrailOpacity = 1,
   laserTrailPoints = [],
+  spotlightActive = false,
+  spotlightRadiusPx = 170,
+  spotlightDimPercent = 75,
   lineEndpointObjectIds = [],
   onCanvasContextMenuRequest,
   onCanvasPrimaryClickRequest,
@@ -472,6 +481,7 @@ export function BoardStage({
   onSelectionPointerStart,
   onSelectionTransform,
   onSelectionTransformPreview,
+  onSelectionWheelTransform,
   panMode,
   primaryCanvasGesturesEnabled = false,
   previewItems = [],
@@ -2121,6 +2131,14 @@ export function BoardStage({
     } else if (isRightButton) {
       rightClickCandidateRef.current = null;
     }
+    if (
+      spotlightActive &&
+      event.evt.button === 0 &&
+      !spacePressedRef.current &&
+      !penEraser
+    ) {
+      return;
+    }
     const isMiddleButton = event.evt.button === 1;
     const isLeftButton = event.evt.button === 0 || penEraser;
     const shouldSelectHitObject =
@@ -2271,8 +2289,29 @@ export function BoardStage({
 
     const stage = event.target.getStage();
     const pointer = stage?.getPointerPosition();
-    if (pointer === null || pointer === undefined) {
+    if (pointer === null || pointer === undefined || event.evt.deltaY === 0) {
       return;
+    }
+
+    // Ctrl/Meta wheel stays a viewport gesture, including trackpad pinch.
+    // Alt scales and Shift rotates the editable selection.
+    if (
+      selectionModeKey !== null &&
+      selectedObjectIds.length > 0 &&
+      !event.evt.ctrlKey &&
+      !event.evt.metaKey &&
+      (event.evt.altKey || event.evt.shiftKey) &&
+      !isTransforming
+    ) {
+      commitWheel();
+      const direction = event.evt.deltaY < 0 ? 1 : -1;
+      const accepted = event.evt.altKey
+        ? onSelectionWheelTransform?.(
+            direction > 0 ? zoomStep : 1 / zoomStep,
+            0,
+          )
+        : onSelectionWheelTransform?.(1, direction * 5);
+      if (accepted) return;
     }
 
     onManualViewportInteraction?.();
@@ -2343,7 +2382,7 @@ export function BoardStage({
   const cursorKind =
     isPanning || isTransforming
       ? "grabbing"
-      : laserActive
+      : laserActive || spotlightActive
         ? "hidden"
         : panMode || spacePressed
           ? "grab"
@@ -2385,6 +2424,7 @@ export function BoardStage({
       data-laser-trail-opacity={laserTrailOpacity.toFixed(2)}
       data-laser-trail-points={laserTrailPoints.length}
       data-laser-visible={laserPoint !== null}
+      data-spotlight-active={spotlightActive}
       data-pan-mode={panMode}
       data-viewport-zoom={previewViewport.zoom.toFixed(4)}
       data-preview-zoom={previewViewport.zoom}
@@ -2749,6 +2789,13 @@ export function BoardStage({
           </Group>
         </Layer>
       </Stage>
+      {spotlightActive ? (
+        <SpotlightOverlay
+          dimPercent={spotlightDimPercent}
+          radiusPx={spotlightRadiusPx}
+          rootRef={rootRef}
+        />
+      ) : null}
     </div>
   );
 }

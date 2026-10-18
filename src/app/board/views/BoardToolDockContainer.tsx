@@ -17,6 +17,10 @@ import type { BoardSolid3DController } from "../controllers/useBoardSolid3DContr
 
 export interface BoardToolDockContainerProps {
   readonly activeTool: ActiveToolId;
+  readonly spotlightRadiusPx: number;
+  readonly spotlightDimPercent: number;
+  readonly onSpotlightRadiusChange: (radius: number) => void;
+  readonly onSpotlightDimChange: (percent: number) => void;
   readonly collaborativeUndoAvailable: boolean;
   readonly documentController: BoardDocumentController;
   readonly drawing: BoardDrawingController;
@@ -45,6 +49,10 @@ export interface BoardToolDockContainerProps {
 
 export function BoardToolDockContainer({
   activeTool,
+  spotlightRadiusPx,
+  spotlightDimPercent,
+  onSpotlightRadiusChange,
+  onSpotlightDimChange,
   collaborativeUndoAvailable,
   documentController,
   drawing,
@@ -78,6 +86,10 @@ export function BoardToolDockContainer({
         isDrawingToolId(activeTool) ? drawing.styleFor(activeTool) : null
       }
       activeTool={activeTool}
+      spotlightRadiusPx={spotlightRadiusPx}
+      spotlightDimPercent={spotlightDimPercent}
+      onSpotlightRadiusChange={onSpotlightRadiusChange}
+      onSpotlightDimChange={onSpotlightDimChange}
       canRedo={historyEnabled && history.future.length > 0}
       canUndo={
         historyEnabled ? history.past.length > 0 : collaborativeUndoAvailable

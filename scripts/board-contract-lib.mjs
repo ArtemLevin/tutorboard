@@ -106,6 +106,7 @@ const strokeStyles = [
   "hand-pencil",
   "hand-pen",
   "marker",
+  "oil-paint",
 ];
 const objectStyle = strictObject(
   {

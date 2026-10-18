@@ -54,6 +54,7 @@ export function BoardShortcutsDialog({
                 shortcutLabel("tool.handwritten-function"),
                 shortcutLabel("plot.create"),
                 shortcutLabel("tool.laser"),
+                shortcutLabel("tool.spotlight"),
               ].join(" / ")}
             </dt>
             <dd>Инструменты и график</dd>
@@ -73,6 +74,16 @@ export function BoardShortcutsDialog({
           <div>
             <dt>Двойной щелчок правой кнопкой</dt>
             <dd>Настройки объекта</dd>
+          </div>
+          <div>
+            <dt>Колесо / Alt + колесо / Shift + колесо</dt>
+            <dd>
+              Масштаб холста / масштаб выделенных объектов / поворот выделения
+            </dd>
+          </div>
+          <div>
+            <dt>+ / −</dt>
+            <dd>Масштабировать выделенные объекты на 10%</dd>
           </div>
           <div>
             <dt>Ctrl/Cmd + C, X, V</dt>

@@ -298,6 +298,26 @@ it.each([1_000, 10_000])(
         objects: [{ ...object, id: core.boardObjectId("object:unrelated") }],
       });
       expect(capture.props?.collaborativeUndoAvailable).toBe(true);
+      // A refused Undo must remain available. Rapid repeat input must not
+      // consume a second history entry while the first receipt is pending.
+      if (capture.engine === null) throw new Error("Missing sync engine");
+      const receipt = vi
+        .spyOn(capture.engine, "applyWithReceipt")
+        .mockResolvedValueOnce(false);
+      const pushedBeforeRefusal = repository.push.mock.calls.length;
+      act(() => {
+        capture.props?.onCollaborativeUndo?.();
+        capture.props?.onCollaborativeUndo?.();
+      });
+      await waitFor(() =>
+        expect(capture.props?.persistenceNotice).toContain(
+          "Не удалось отменить операцию",
+        ),
+      );
+      expect(receipt).toHaveBeenCalledTimes(1);
+      expect(capture.props?.collaborativeUndoAvailable).toBe(true);
+      expect(repository.push).toHaveBeenCalledTimes(pushedBeforeRefusal);
+
       const undoRevision = revision + 1;
       act(() => capture.props?.onCollaborativeUndo?.());
       await waitFor(

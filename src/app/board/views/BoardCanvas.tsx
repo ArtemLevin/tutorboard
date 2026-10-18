@@ -38,6 +38,7 @@ import {
   geometryPlacementToolId,
   laserToolId,
   navigationToolId,
+  spotlightToolId,
 } from "../active-tool";
 import type { BoardClipboardController } from "../controllers/useBoardClipboardController";
 import type { BoardDrawingController } from "../controllers/useBoardDrawingController";
@@ -105,8 +106,11 @@ export interface BoardCanvasProps {
   readonly handwriting: BoardHandwritingController;
   readonly interaction: BoardInteractionRouter;
   readonly laser: LaserPointerController;
+  readonly spotlightRadiusPx: number;
+  readonly spotlightDimPercent: number;
   readonly mediaAssetSourceResolver?:
     ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
+  readonly onClearCommitted?: (() => void) | undefined;
   readonly onObjectSettingsRequest: (objectId: BoardObjectId) => void;
   readonly onPointerHover: (cursor: Vec2) => void;
   readonly onTransformPreviewChange: (
@@ -160,7 +164,10 @@ export function BoardCanvas({
   handwriting,
   interaction,
   laser,
+  spotlightRadiusPx,
+  spotlightDimPercent,
   mediaAssetSourceResolver,
+  onClearCommitted,
   onObjectSettingsRequest,
   onPointerHover,
   onTransformPreviewChange,
@@ -310,7 +317,7 @@ export function BoardCanvas({
     };
   }, [activeTool, drawing]);
   const transformableObjectIds =
-    plots.editor === null && isSelectionToolId(activeTool)
+    !readOnly && plots.editor === null && isSelectionToolId(activeTool)
       ? selection.transformableObjectIds
       : [];
   const lineEndpointObjectIds = useMemo(() => {
@@ -377,6 +384,7 @@ export function BoardCanvas({
   const clearCanvas = () => {
     const result = clipboard.clearAll();
     if (!result.ok) return;
+    onClearCommitted?.();
     interaction.resetAfterClear();
     plots.close();
     solid3D.close();
@@ -406,6 +414,7 @@ export function BoardCanvas({
           activeTool === handwrittenFunctionToolId ||
           activeTool === eraserToolId ||
           activeTool === laserToolId ||
+          activeTool === spotlightToolId ||
           activeTool === geometryPlacementToolId
             ? activeTool
             : null
@@ -414,6 +423,9 @@ export function BoardCanvas({
         laserPoint={laser.point}
         laserTrailOpacity={laser.trailOpacity}
         laserTrailPoints={laser.trailPoints}
+        spotlightActive={activeTool === spotlightToolId}
+        spotlightRadiusPx={spotlightRadiusPx}
+        spotlightDimPercent={spotlightDimPercent}
         lineEndpointObjectIds={lineEndpointObjectIds}
         onCanvasContextMenuRequest={(request) => {
           setClearConfirmationOpen(false);
@@ -462,6 +474,9 @@ export function BoardCanvas({
           onTransformPreviewChange(null);
         }}
         onSelectionTransformPreview={onTransformPreviewChange}
+        onSelectionWheelTransform={(scaleFactor, rotationDelta) =>
+          !readOnly && selection.transformBy(scaleFactor, rotationDelta)
+        }
         onViewportCommit={onViewportCommit}
         onManualViewportInteraction={onManualViewportInteraction}
         panMode={activeTool === navigationToolId}

@@ -406,6 +406,30 @@ export function strokeStyleSketchPassSpecs(
           widthMultiplier: 0.35,
         },
       ];
+    case "oil-paint":
+      // A pressure-sensitive impasto body, a displaced paint ridge and
+      // sparse bristle marks. Each pass remains one bounded vector path.
+      return [
+        {
+          intensity: 0.85,
+          opacityMultiplier: 0.9,
+          seed: 17,
+          widthMultiplier: 1,
+        },
+        {
+          intensity: 1.8,
+          opacityMultiplier: 0.36,
+          seed: 41,
+          widthMultiplier: 0.58,
+        },
+        {
+          dash: [9, 3],
+          intensity: 2.6,
+          opacityMultiplier: 0.44,
+          seed: 67,
+          widthMultiplier: 0.16,
+        },
+      ];
     default:
       return [];
   }
@@ -466,7 +490,11 @@ function createPenStrokeRenderGeometry(
     return outlineGeometry(wavySamples(ink, options), width, ink.closed);
   }
 
-  if (style === "hand-pencil" || style === "hand-pen") {
+  if (
+    style === "hand-pencil" ||
+    style === "hand-pen" ||
+    style === "oil-paint"
+  ) {
     let bounds: VectorInkBounds | null = null;
     const paths: PenStrokeRenderPath[] = [];
     for (const pass of strokeStyleSketchPassSpecs(style)) {
