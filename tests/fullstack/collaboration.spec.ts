@@ -140,7 +140,9 @@ test("two clients edit styled text and recover persisted content after reconnect
 
     await tutor.keyboard.press("t");
     await tutor.getByRole("spinbutton", { name: "Размер шрифта" }).fill("18");
-    await tutor.getByRole("combobox", { name: "Семейство шрифта" }).selectOption("serif");
+    await tutor
+      .getByRole("combobox", { name: "Семейство шрифта" })
+      .selectOption("serif");
     await tutor.getByRole("button", { name: "Полужирный текст" }).click();
     const bounds = await tutor.getByTestId("board-stage").boundingBox();
     if (bounds === null) throw new Error("Board stage has no bounds");
@@ -202,9 +204,11 @@ test("two clients edit styled text and recover persisted content after reconnect
     await expect(tutor.getByTestId("persistence-status")).toHaveText(
       "Синхронизировано · r3",
     );
-    await expect(tutor.getByRole("textbox", {
-      name: "Редактор выбранного текста",
-    })).toHaveValue(finalText);
+    await expect(
+      tutor.getByRole("textbox", {
+        name: "Редактор выбранного текста",
+      }),
+    ).toHaveValue(finalText);
 
     // Read the canonical server journal, including original style metadata.
     const response = await studentContext.request.get(
