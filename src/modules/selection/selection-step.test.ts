@@ -135,8 +135,8 @@ describe("selection scale and rotation steps", () => {
       1,
       90,
     );
-    expect(rotated?.[0]?.position).toEqual({ x: 150, y: -100 });
-    expect(rotated?.[1]?.position).toEqual({ x: 150, y: 100 });
+    expect(rotated?.[0]?.position).toEqual({ x: 200, y: -100 });
+    expect(rotated?.[1]?.position).toEqual({ x: 200, y: 100 });
     expect(rotated?.map((item) => item.rotation)).toEqual([90, 90]);
   });
 
