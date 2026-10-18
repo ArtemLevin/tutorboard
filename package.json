@@ -33,7 +33,7 @@
     "architecture": "node scripts/check-architecture.mjs",
     "e2e": "playwright test",
     "e2e:smoke": "playwright test --grep @smoke",
-    "e2e:collaboration": "npm run build && playwright test --config playwright.fullstack.config.ts",
+    "e2e:collaboration": "node scripts/run-collaboration-e2e.mjs",
     "e2e:standalone-pilot": "playwright test --config playwright.standalone-pilot.config.ts",
     "e2e:media-fullstack": "playwright test --config playwright.media-fullstack.config.ts",
     "e2e:plot-production": "playwright test tests/e2e/coordinate-plot-production.spec.ts",

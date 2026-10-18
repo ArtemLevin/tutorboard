@@ -17,7 +17,7 @@ test("@smoke oil paint brush previews, commits and restores a stroke", async ({
   await expect(stage).toHaveAttribute("data-wet-ink-stroke-style", "oil-paint");
   await expect(
     page.getByRole("spinbutton", { name: "Толщина инструмента" }),
-  ).toHaveValue("12");
+  ).toHaveValue("18");
 
   const bounds = await stage.boundingBox();
   if (bounds === null) throw new Error("Canvas is missing");

@@ -18,7 +18,7 @@ describe("stroke style selection presets", () => {
     });
     expect(strokeStyleSelectionPatch("oil-paint")).toEqual({
       strokeStyle: "oil-paint",
-      strokeWidth: 12,
+      strokeWidth: 18,
     });
   });
 
