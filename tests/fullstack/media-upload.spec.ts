@@ -117,6 +117,7 @@ async function insertImages(
   await page.getByRole("button", { name: "Медиа" }).click();
   const importInput = page.getByLabel("Вставить изображения");
   await expect(importInput).toHaveAttribute("accept", /image\/png/u);
+  await expect(page.getByText(/в хранилище доски/u)).toBeVisible();
   await page.getByLabel("Вставить изображения").setInputFiles(
     images.map((image) => ({
       buffer: image.buffer,
