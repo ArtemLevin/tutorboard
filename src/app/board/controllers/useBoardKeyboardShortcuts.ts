@@ -13,7 +13,11 @@ import {
 } from "../../../modules/selection/public";
 import { primaryStyleColor } from "../../board-chrome/color-presets";
 import type { ActiveToolId } from "../active-tool";
-import { laserToolId, navigationToolId } from "../active-tool";
+import {
+  laserToolId,
+  navigationToolId,
+  spotlightToolId,
+} from "../active-tool";
 import {
   resolveBoardShortcut,
   type BoardShortcutAction,
@@ -282,6 +286,9 @@ export function useBoardKeyboardShortcuts({
           return;
         case "tool.laser":
           interaction.activate(laserToolId);
+          return;
+        case "tool.spotlight":
+          interaction.activate(spotlightToolId);
           return;
         case "plot.create":
           plots.create();
