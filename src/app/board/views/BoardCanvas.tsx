@@ -466,7 +466,7 @@ export function BoardCanvas({
         }}
         onSelectionTransformPreview={onTransformPreviewChange}
         onSelectionWheelTransform={(scaleFactor, rotationDelta) =>
-          selection.transformBy(scaleFactor, rotationDelta)
+          !readOnly && selection.transformBy(scaleFactor, rotationDelta)
         }
         onViewportCommit={onViewportCommit}
         onManualViewportInteraction={onManualViewportInteraction}
