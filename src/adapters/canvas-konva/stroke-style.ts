@@ -88,11 +88,8 @@ export function resolveSketchPasses(
 export function isSketchStrokeStyle(
   style: StrokeStyle | undefined,
 ): style is "hand-pencil" | "hand-pen" | "oil-paint" {
-  return (
-    style === "hand-pencil" ||
-    style === "hand-pen" ||
-    style === "oil-paint"
-  );
+  if (style === "oil-paint") return true;
+  return style === "hand-pencil" || style === "hand-pen";
 }
 
 function renderSampleCount(
