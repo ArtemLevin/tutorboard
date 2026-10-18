@@ -64,6 +64,9 @@ export function textLineMetrics(value: string) {
   const lines = wrapBoardText(value).split("\n");
   return {
     lineCount: lines.length,
-    maximumCharacters: Math.max(1, ...lines.map((line) => Array.from(line).length)),
+    maximumCharacters: Math.max(
+      1,
+      ...lines.map((line) => Array.from(line).length),
+    ),
   };
 }

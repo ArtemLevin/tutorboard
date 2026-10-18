@@ -32,8 +32,12 @@ import { App, createInitialDocument } from "./App";
 function enableBookmarksForTest(): void {
   if (screen.queryByRole("button", { name: "Закладки областей" })) return;
   fireEvent.click(screen.getByRole("button", { name: "Настройки доски" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: "Показывать закладки областей" }));
-  fireEvent.click(screen.getByRole("button", { name: "Закрыть настройки доски" }));
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Показывать закладки областей" }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Закрыть настройки доски" }),
+  );
 }
 
 function requestUrl(input: RequestInfo | URL): string {

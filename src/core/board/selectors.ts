@@ -280,7 +280,11 @@ function localObjectPoints(object: BoardObject): readonly Vec2[] {
         { x: 0, y: 0 },
         {
           x: metrics.maximumCharacters * typography.fontSize * (14 / 22),
-          y: metrics.lineCount * typography.fontSize * typography.lineHeight * (30 / 29.7),
+          y:
+            metrics.lineCount *
+            typography.fontSize *
+            typography.lineHeight *
+            (30 / 29.7),
         },
       ];
     }
