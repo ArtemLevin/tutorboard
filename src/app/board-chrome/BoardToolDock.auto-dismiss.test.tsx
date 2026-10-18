@@ -19,6 +19,10 @@ function fixture(): DockProps {
   return {
     activeStyle: pen,
     activeTool: "drawing.pen",
+    spotlightRadiusPx: 170,
+    spotlightDimPercent: 75,
+    onSpotlightRadiusChange: vi.fn(),
+    onSpotlightDimChange: vi.fn(),
     canRedo: false,
     canUndo: false,
     drawingTools,
@@ -91,6 +95,7 @@ describe("dock popup inactivity contract", () => {
     ["drawing.line", "Первичные настройки инструмента"],
     ["drawing.text", "Первичные настройки инструмента"],
     ["editing.eraser", "Первичные настройки ластика"],
+    ["presentation.spotlight", "Настройки фонаря"],
   ])("dismisses %s after exactly two idle seconds", (tool, label) => {
     render(<BoardToolDock {...fixture()} activeTool={tool} />);
     expect(screen.getByRole("region", { name: label })).toBeInTheDocument();
