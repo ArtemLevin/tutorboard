@@ -115,7 +115,8 @@ async function insertImages(
   }[],
 ): Promise<void> {
   await page.getByRole("button", { name: "Медиа" }).click();
-  await expect(page.getByText(/PNG, JPEG и GIF до 32 МБ/u)).toBeVisible();
+  const importInput = page.getByLabel("Вставить изображения");
+  await expect(importInput).toHaveAttribute("accept", /image\/png/u);
   await page.getByLabel("Вставить изображения").setInputFiles(
     images.map((image) => ({
       buffer: image.buffer,
