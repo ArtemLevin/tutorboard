@@ -1,0 +1,24 @@
+name: PR273 export contract artifacts (temporary)
+on:
+  pull_request:
+jobs:
+  export-contract:
+    if: github.event.pull_request.number == 273
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run board-contract:generate
+      - name: Publish contract artifacts as base64 in workflow log
+        run: |
+          for f in contracts/board/v1/board-document.schema.json contracts/board/v1/board-command-envelope.schema.json contracts/board/v1/board-snapshot.schema.json contracts/board/v1/board-geometry-import.schema.json contracts/board/v1/manifest.json; do
+            printf 'CONTRACTFILE:%s:' "$f"
+            base64 -w0 "$f"
+            printf '\n'
+          done

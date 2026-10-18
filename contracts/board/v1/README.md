@@ -32,3 +32,11 @@ The supported command matrix is recorded in `COMPATIBILITY.md`.
 
 Unknown major versions and unknown persistent command/object kinds must be
 rejected explicitly. Consumers must never silently discard unknown data.
+
+## Optional text typography
+
+`ObjectStyle` and style override commands may carry `fontSize` (8–96),
+`lineHeight` (0.8–2.5), `fontFamily` (sans/serif/mono),
+`fontWeight` (normal/bold) and `fontStyle` (normal/italic). Existing
+documents remain readable. The strict server must be upgraded to this
+contract first; the frontend must not synchronize these fields to an old reader.

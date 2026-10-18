@@ -17,3 +17,10 @@ Older strict readers reject this command explicitly. Deployments using server
 sync must update the board/v1 reader before enabling Smart Ink for shared
 boards. `media.asset` metadata is contract-readable in this release, while
 server persistence rejects it until board media authority is deployed.
+
+| Optional text typography | `ObjectStyle` and `core.selection.set-style` optional font fields | This PR+ | server with optional typography reader |
+
+Text typography is additive to the existing board/v1 schema. Both sides must
+accept the optional fields before new styled text is synchronized. Existing
+payloads retain 22px / 1.35 defaults. Deploy the tolerant backend contract
+before enabling the new frontend in shared production.
