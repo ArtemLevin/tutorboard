@@ -10,7 +10,8 @@ import {
 describe("spotlight presentation settings", () => {
   it("keeps radius and dim within bounded ergonomic ranges", () => {
     expect(normalizeSpotlightRadius(190.6)).toBe(191);
-    expect(normalizeSpotlightRadius(1)).toBe(spotlightBounds.minimumRadiusPx);
+    const minimum = normalizeSpotlightRadius(1);
+    expect(minimum).toBe(spotlightBounds.minimumRadiusPx);
     expect(normalizeSpotlightRadius(1000)).toBe(
       spotlightBounds.maximumRadiusPx,
     );
