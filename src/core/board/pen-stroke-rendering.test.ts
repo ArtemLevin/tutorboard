@@ -122,7 +122,8 @@ describe("styled pen stroke rendering", () => {
       true,
     );
 
-    for (const style of ["wavy", "hand-pencil", "hand-pen", "oil-paint"] as const) {
+    const styles = ["wavy", "hand-pencil", "hand-pen", "oil-paint"] as const;
+    for (const style of styles) {
       const first = createPenStrokeRenderPaths(ink, style, 3);
       const second = createPenStrokeRenderPaths(ink, style, 3);
       expect(first).toEqual(second);
