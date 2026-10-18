@@ -54,6 +54,7 @@ export function BoardShortcutsDialog({
                 shortcutLabel("tool.handwritten-function"),
                 shortcutLabel("plot.create"),
                 shortcutLabel("tool.laser"),
+                shortcutLabel("tool.spotlight"),
               ].join(" / ")}
             </dt>
             <dd>Инструменты и график</dd>
