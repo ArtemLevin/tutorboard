@@ -137,6 +137,7 @@ async function uploadMedia(teacher: Page): Promise<void> {
     "base64",
   );
   await teacher.getByRole("button", { name: "Медиа" }).click();
+  await expect(teacher.getByText(/в хранилище доски/u)).toBeVisible();
   await teacher.getByLabel("Вставить изображения").setInputFiles([
     { buffer: png, mimeType: "image/png", name: "lifecycle.png" },
     { buffer: gif, mimeType: "image/gif", name: "lifecycle.gif" },
