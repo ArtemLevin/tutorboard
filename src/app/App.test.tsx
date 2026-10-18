@@ -1120,7 +1120,7 @@ describe("App", () => {
     );
   });
 
-  it("scales a selected image batch by 50 percentage points with one undo", async () => {
+  it("scales a mixed-capable image selection around a shared center with one undo", async () => {
     const onDocumentChange = vi.fn<(document: BoardDocument) => void>();
     const { rerender } = render(<App onDocumentChange={onDocumentChange} />);
     fireEvent.click(screen.getByRole("button", { name: "Медиа" }));
@@ -1155,10 +1155,25 @@ describe("App", () => {
       .order.map((id) => onDocumentChange.mock.calls.at(-1)?.[0].objects[id])
       .filter((object) => object?.kind === "image.embedded");
     expect(before).toHaveLength(2);
-    const centers = before?.map((object) => ({
-      x: object.position.x + (object.size.width * object.scale.x) / 2,
-      y: object.position.y + (object.size.height * object.scale.y) / 2,
-    }));
+    const originalBounds =
+      before === undefined
+        ? null
+        : {
+            left: Math.min(...before.map((object) => object.position.x)),
+            right: Math.max(
+              ...before.map(
+                (object) =>
+                  object.position.x + object.size.width * object.scale.x,
+              ),
+            ),
+            top: Math.min(...before.map((object) => object.position.y)),
+            bottom: Math.max(
+              ...before.map(
+                (object) =>
+                  object.position.y + object.size.height * object.scale.y,
+              ),
+            ),
+          };
 
     fireEvent.keyDown(window, { code: "Equal", key: "+", shiftKey: true });
     expect(screen.getByTestId("history-depth")).toHaveTextContent("2/0");
@@ -1168,15 +1183,32 @@ describe("App", () => {
       .map((id) => scaledDocument.objects[id])
       .filter((object) => object?.kind === "image.embedded");
     expect(scaled?.map((object) => object.scale)).toEqual([
-      { x: 1.5, y: 1.5 },
-      { x: 1.5, y: 1.5 },
+      { x: 1.1, y: 1.1 },
+      { x: 1.1, y: 1.1 },
     ]);
-    expect(
-      scaled?.map((object) => ({
-        x: object.position.x + (object.size.width * object.scale.x) / 2,
-        y: object.position.y + (object.size.height * object.scale.y) / 2,
-      })),
-    ).toEqual(centers);
+    expect(originalBounds).not.toBeNull();
+    if (scaled !== undefined && originalBounds !== null) {
+      const left = Math.min(...scaled.map((object) => object.position.x));
+      const right = Math.max(
+        ...scaled.map(
+          (object) =>
+            object.position.x + object.size.width * object.scale.x,
+        ),
+      );
+      const top = Math.min(...scaled.map((object) => object.position.y));
+      const bottom = Math.max(
+        ...scaled.map(
+          (object) =>
+            object.position.y + object.size.height * object.scale.y,
+        ),
+      );
+      expect((left + right) / 2).toBeCloseTo(
+        (originalBounds.left + originalBounds.right) / 2,
+      );
+      expect((top + bottom) / 2).toBeCloseTo(
+        (originalBounds.top + originalBounds.bottom) / 2,
+      );
+    }
 
     fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/1");
