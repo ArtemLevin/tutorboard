@@ -75,7 +75,7 @@ describe("styled pen stroke rendering", () => {
     expect(pencil[0]?.data).not.toBe(pen[0]?.data);
   });
 
-  it("generates deterministic pressure-sensitive oil paint and bristle ridges", () => {
+  it("renders deterministic pressure-sensitive oil paint", () => {
     const ink = lineInk();
     const oil = createPenStrokeRenderPaths(ink, "oil-paint", 12);
     expect(oil).toHaveLength(3);
