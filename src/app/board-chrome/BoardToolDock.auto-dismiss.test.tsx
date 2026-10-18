@@ -89,12 +89,53 @@ afterEach(() => {
 });
 
 describe("dock popup inactivity contract", () => {
+  it("reuses the laser button for Spotlight without shifting dock buttons", () => {
+    const props = fixture();
+    const onActivate = vi.fn();
+    const view = render(
+      <BoardToolDock
+        {...props}
+        activeTool="navigation.pan"
+        onActivate={onActivate}
+      />,
+    );
+    const toolbar = screen.getByRole("toolbar", {
+      name: "Инструменты доски",
+    });
+    const initialCount = toolbar.querySelectorAll("button").length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Лазерная указка (K)" }));
+    expect(onActivate).toHaveBeenLastCalledWith("presentation.laser");
+    view.rerender(
+      <BoardToolDock
+        {...props}
+        activeTool="presentation.laser"
+        onActivate={onActivate}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Лазерная указка (K)" }));
+    expect(onActivate).toHaveBeenLastCalledWith("presentation.spotlight");
+    view.rerender(
+      <BoardToolDock
+        {...props}
+        activeTool="presentation.spotlight"
+        onActivate={onActivate}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Фонарь (Shift+K)" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(toolbar.querySelectorAll("button")).toHaveLength(initialCount);
+  });
+
   it.each([
     ["drawing.pen", "Первичные настройки инструмента"],
     ["drawing.smart-ink", "Первичные настройки инструмента"],
     ["drawing.line", "Первичные настройки инструмента"],
     ["drawing.text", "Первичные настройки инструмента"],
     ["editing.eraser", "Первичные настройки ластика"],
+    ["presentation.laser", "Настройки лазерной указки"],
     ["presentation.spotlight", "Настройки фонаря"],
   ])("dismisses %s after exactly two idle seconds", (tool, label) => {
     render(<BoardToolDock {...fixture()} activeTool={tool} />);
