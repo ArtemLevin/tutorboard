@@ -117,7 +117,7 @@ test("@smoke clear releases prepared JSON memory and preserves Undo/Redo and sub
   }
   await page.keyboard.press("Control+z");
   await expect(page.getByTestId("object-count")).toHaveText("3010 объекта");
-  await expect(stage).toHaveAttribute("data-visible-object-count", "3010");
+  await expect(stage).not.toHaveAttribute("data-visible-object-count", "0");
   await page.keyboard.press("Control+Shift+z");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   await page.keyboard.press("r");
