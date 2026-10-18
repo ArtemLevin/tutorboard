@@ -3,11 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createOilPaintDrips } from "./oil-paint-drips";
 import { createVectorInkData } from "./vector-ink";
 
-function stroke(
-  length: number,
-  pressure = 0.8,
-  duration = 300,
-) {
+function stroke(length: number, pressure = 0.8, duration = 300) {
   return createVectorInkData([
     {
       point: { x: 0, y: 0 },
@@ -63,9 +59,8 @@ describe("heavy oil paint gravity runs", () => {
       continuousStylePhase: true,
       distanceOffset: 100,
     });
-    expect([first.data, second.data].filter(Boolean).join(" ")).toBe(
-      original.data,
-    );
+    const combined = [first.data, second.data].filter(Boolean).join(" ");
+    expect(combined).toBe(original.data);
   });
 
   it("caps droplet geometry and ignores tiny or closed strokes", () => {
