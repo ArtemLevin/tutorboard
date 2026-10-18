@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { clearCoordinatePlotSamplingCache } from "../adapters/canvas-konva/public";
 import {
   actorId,
   createBoardSceneSelector,
@@ -34,6 +35,7 @@ import {
   type ActiveToolId,
 } from "./board/active-tool";
 import { useBoardClipboardController } from "./board/controllers/useBoardClipboardController";
+import { shouldResetBoardRenderResources } from "./board/controllers/clear-resource-lifecycle";
 import { useBoardDocumentController } from "./board/controllers/useBoardDocumentController";
 import {
   useBoardDrawingController,
@@ -252,6 +254,26 @@ export function App({
   });
   const { commitCommand, createCommandMetadata, document, getDocument } =
     documentController;
+
+  // Reset the Konva scene and board-owned media handles after any successful
+  // full clear, including clears received from collaborators. The document
+  // controller and its Undo/Redo snapshots remain mounted.
+  const [clearRenderGeneration, setClearRenderGeneration] = useState(0);
+  const previousRenderContentRef = useRef({
+    documentId: String(document.id),
+    hasObjects: document.order.length > 0,
+  });
+  useLayoutEffect(() => {
+    const next = {
+      documentId: String(document.id),
+      hasObjects: document.order.length > 0,
+    };
+    const previous = previousRenderContentRef.current;
+    previousRenderContentRef.current = next;
+    if (!shouldResetBoardRenderResources(previous, next)) return;
+    clearCoordinatePlotSamplingCache();
+    setClearRenderGeneration((generation) => generation + 1);
+  }, [document.id, document.order.length]);
 
   const [activeTool, setActiveTool] = useState<ActiveToolId>(navigationToolId);
   const [selectionInspectorObjectId, setSelectionInspectorObjectId] =
@@ -879,7 +901,7 @@ export function App({
           smartInkNotice={drawing.smartInkNotice}
         />
         <BoardCanvas
-          key={mediaResourceGeneration}
+          key={`${mediaResourceGeneration}:${clearRenderGeneration}`}
           activeTool={canvasTool}
           stylusEraserEnabled={!readOnly && quickTools.stylusEraserEnabled}
           announce={announce}
