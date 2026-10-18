@@ -490,7 +490,11 @@ function createPenStrokeRenderGeometry(
     return outlineGeometry(wavySamples(ink, options), width, ink.closed);
   }
 
-  if (style === "hand-pencil" || style === "hand-pen" || style === "oil-paint") {
+  if (
+    style === "hand-pencil" ||
+    style === "hand-pen" ||
+    style === "oil-paint"
+  ) {
     let bounds: VectorInkBounds | null = null;
     const paths: PenStrokeRenderPath[] = [];
     for (const pass of strokeStyleSketchPassSpecs(style)) {
