@@ -1,0 +1,26 @@
+name: PR273 format snapshot (temporary)
+on:
+  pull_request:
+jobs:
+  export-formatted:
+    if: github.event.pull_request.number == 273
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Format modified files
+        run: |
+          npx prettier --write src/adapters/canvas-konva/default-renderers.tsx src/core/public.ts src/core/board/text-layout.ts src/core/board/selectors.ts src/modules/selection/geometry.ts src/modules/eraser/geometry.ts src/modules/text-editing/public.ts src/modules/document-transfer/snapshot.ts tests/unit/modules/text-editing/text-editing.test.ts src/app/App.test.tsx
+      - name: Publish formatted source as base64 in workflow log
+        run: |
+          for f in src/adapters/canvas-konva/default-renderers.tsx src/core/public.ts src/core/board/text-layout.ts src/core/board/selectors.ts src/modules/selection/geometry.ts src/modules/eraser/geometry.ts src/modules/text-editing/public.ts src/modules/document-transfer/snapshot.ts tests/unit/modules/text-editing/text-editing.test.ts src/app/App.test.tsx; do
+            printf 'FMTFILE:%s:' "$f"
+            base64 -w0 "$f"
+            printf '\n'
+          done
