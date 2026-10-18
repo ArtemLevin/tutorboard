@@ -80,9 +80,8 @@ describe("styled pen stroke rendering", () => {
     const oil = createPenStrokeRenderPaths(ink, "oil-paint", 12);
     expect(oil).toHaveLength(3);
     expect(oil).toEqual(createPenStrokeRenderPaths(ink, "oil-paint", 12));
-    expect(oil.map((path) => path.opacityMultiplier)).toEqual([
-      0.9, 0.36, 0.44,
-    ]);
+    const opacity = oil.map((path) => path.opacityMultiplier);
+    expect(opacity).toEqual([0.9, 0.36, 0.44]);
     expect(oil[0]?.data).not.toEqual(oil[1]?.data);
     expect(oil[1]?.data).not.toEqual(oil[2]?.data);
     expect(createPenStrokeRenderPaths(ink, "oil-paint", 5)).not.toEqual(oil);
@@ -90,14 +89,12 @@ describe("styled pen stroke rendering", () => {
     const reducedPressure = createVectorInkData(
       ink.samples.map((sample) => ({ ...sample, pressure: 0.15 })),
     );
-    expect(
-      createPenStrokeRenderPaths(reducedPressure, "oil-paint", 12),
-    ).not.toEqual(oil);
+    const faint = createPenStrokeRenderPaths(reducedPressure, "oil-paint", 12);
+    expect(faint).not.toEqual(oil);
     const bounds = createPenStrokeRenderBounds(ink, "oil-paint", 12);
     expect(bounds).not.toBeNull();
-    expect(bounds).toEqual(
-      createPenStrokeRenderBounds(ink, "oil-paint", 12),
-    );
+    const sameBounds = createPenStrokeRenderBounds(ink, "oil-paint", 12);
+    expect(bounds).toEqual(sameBounds);
   });
 
   it("preserves marker opacity semantics without altering geometry width", () => {
