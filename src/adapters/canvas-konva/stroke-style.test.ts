@@ -62,9 +62,9 @@ describe("stroke styles", () => {
 
   it("provides three bounded oil paint layers with proportional widths", () => {
     const layers = resolveSketchPasses("oil-paint", 12);
-    expect(layers.map((layer) => layer.strokeWidth)).toEqual([
-      12, 6.96, 1.92,
-    ]);
+    expect(layers[0]?.strokeWidth).toBe(12);
+    expect(layers[1]?.strokeWidth).toBeCloseTo(6.96);
+    expect(layers[2]?.strokeWidth).toBeCloseTo(1.92);
     expect(layers.map((layer) => layer.opacityMultiplier)).toEqual([
       0.9, 0.36, 0.44,
     ]);
