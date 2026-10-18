@@ -137,6 +137,7 @@ async function uploadMedia(teacher: Page): Promise<void> {
     "base64",
   );
   await teacher.getByRole("button", { name: "Медиа" }).click();
+  await expect(teacher.getByText(/в хранилище доски/u)).toBeVisible();
   await teacher.getByLabel("Вставить изображения").setInputFiles([
     { buffer: png, mimeType: "image/png", name: "lifecycle.png" },
     { buffer: gif, mimeType: "image/gif", name: "lifecycle.gif" },
@@ -205,6 +206,12 @@ test("F3.3.2-D real PNG/GIF guest reconnect, permission epoch, revoke and board 
     await watchBlobUrls(guest);
     await guest.goto(invite.joinUrl);
     await expect(guest.getByTestId("object-count")).toHaveText("2 объекта");
+    const stage = guest.getByTestId("board-stage");
+    await expect
+      .poll(async () =>
+        Number(await stage.getAttribute("data-visible-object-count")),
+      )
+      .toBeGreaterThan(0);
     await expect
       .poll(async () => (await urlSnapshot(guest)).live)
       .toBeGreaterThanOrEqual(1);
