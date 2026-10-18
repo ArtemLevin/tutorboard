@@ -10,7 +10,8 @@ line height 0.8–2.5, three safe font families, bold and italic. Legacy text
 retains 22px and 1.35. A visual line break occurs at 20 Unicode characters,
 preferably at word boundaries. The saved source text remains untouched to
 preserve math markup, undo and the editing caret. Canvas and SVG/PDF exports
-use the same layout. Bookmarks are hidden by default and can be shown through
+use the same layout. Selection, eraser and viewport-culling bounds also use
+matching wrapped line counts and typography metrics. Bookmarks are hidden by default and can be shown through
 Board Settings without changing stored bookmarks.
 
 Math labels use an intentionally small offline formatter. Text wrapped in

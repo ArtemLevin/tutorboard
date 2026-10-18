@@ -1,4 +1,4 @@
-import type { ObjectStyle } from "../../core/public";
+import type { ObjectStyle } from "./objects";
 
 export const textAutoWrapColumns = 20;
 
@@ -57,4 +57,13 @@ export function resolveTextTypography(style: ObjectStyle) {
     italic,
     lineHeight: style.lineHeight ?? 1.35,
   } as const;
+}
+
+/** Conservative glyph estimates used by hit testing, eraser and culling. */
+export function textLineMetrics(value: string) {
+  const lines = wrapBoardText(value).split("\n");
+  return {
+    lineCount: lines.length,
+    maximumCharacters: Math.max(1, ...lines.map((line) => Array.from(line).length)),
+  };
 }

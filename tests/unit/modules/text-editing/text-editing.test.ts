@@ -10,6 +10,7 @@ import {
   isEditableTextObject,
   resolveTextEditorKeyboardAction,
   resolveTextTypography,
+  textLineMetrics,
   wrapBoardText,
 } from "../../../../src/modules/text-editing/public";
 import {
@@ -187,5 +188,18 @@ describe("text typography and 20-character wrapping", () => {
         fontStyle: "italic",
       }),
     ).toMatchObject({ fontSize: 13, fontStyle: "bold italic" });
+  });
+});
+
+describe("text interaction geometry", () => {
+  it("uses the same logical wrapped lines in selection, eraser and culling", () => {
+    expect(textLineMetrics("😀".repeat(43))).toEqual({
+      lineCount: 3,
+      maximumCharacters: 20,
+    });
+    expect(textLineMetrics("first\nsecond")).toEqual({
+      lineCount: 2,
+      maximumCharacters: 6,
+    });
   });
 });

@@ -6,6 +6,8 @@ import {
   flattenPlotSegment,
   plotLineDash,
   resolveVectorInkData,
+  resolveTextTypography,
+  wrapBoardText,
   selectBoardScene,
   vectorInkCenterlineBounds,
   vectorInkCenterlinePathData,
@@ -18,7 +20,6 @@ import {
   type Vec2,
 } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
-import { resolveTextTypography, wrapBoardText } from "../text-editing/public";
 
 export interface BoardSnapshotOptions {
   readonly height?: number;

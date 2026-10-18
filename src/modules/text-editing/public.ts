@@ -8,4 +8,4 @@ export {
   resolveTextTypography,
   textAutoWrapColumns,
   wrapBoardText,
-} from "./typography";
+} from "../../core/public";

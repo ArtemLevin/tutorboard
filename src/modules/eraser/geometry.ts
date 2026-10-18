@@ -1,6 +1,8 @@
 import {
   createVectorInkData,
   resolveVectorInkData,
+  resolveTextTypography,
+  textLineMetrics,
   type BoardDocument,
   type BoardObject,
   type BoardObjectId,
@@ -404,10 +406,11 @@ function localObjectPath(object: BoardObject): ObjectPath {
       };
     }
     case "drawing.text": {
-      const lines = object.text.split(/\r?\n/u);
+      const metrics = textLineMetrics(object.text);
+      const typography = resolveTextTypography(object.style);
       return rectanglePath(
-        Math.max(1, ...lines.map((line) => line.length)) * 13.2,
-        Math.max(1, lines.length) * 29.7,
+        metrics.maximumCharacters * typography.fontSize * 0.6,
+        metrics.lineCount * typography.fontSize * typography.lineHeight,
       );
     }
     case "math.coordinate-plot":

@@ -6,6 +6,7 @@ import type {
   Transform2D,
   Vec2,
 } from "../../core/public";
+import { resolveTextTypography, textLineMetrics } from "../../core/public";
 import type { Rect2 } from "./interaction";
 
 interface SelectionPath {
@@ -59,10 +60,11 @@ function rectanglePoints(rect: Rect2): readonly Vec2[] {
 function textBounds(
   object: Extract<BoardObject, { kind: "drawing.text" }>,
 ): Rect2 {
-  const lines = object.text.split(/\r?\n/u);
+  const metrics = textLineMetrics(object.text);
+  const typography = resolveTextTypography(object.style);
   return {
-    height: Math.max(1, lines.length) * 29.7,
-    width: Math.max(1, ...lines.map((line) => line.length)) * 13.2,
+    height: metrics.lineCount * typography.fontSize * typography.lineHeight,
+    width: metrics.maximumCharacters * typography.fontSize * 0.6,
     x: 0,
     y: 0,
   };
