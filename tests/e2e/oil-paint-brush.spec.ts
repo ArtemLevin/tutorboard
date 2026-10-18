@@ -33,6 +33,11 @@ test("@smoke oil paint brush previews, commits and restores a stroke", async ({
   await expect(objects).toHaveText("0 объекта");
   await page.keyboard.press("Control+Shift+z");
   await expect(objects).toHaveText("1 объекта");
+  // Local persistence is asynchronous; reload only after the restored
+  // revision is committed to IndexedDB.
+  await expect(page.getByTestId("persistence-status")).toHaveText(
+    "Сохранено локально",
+  );
   await page.reload();
   await expect(objects).toHaveText("1 объекта");
 });
