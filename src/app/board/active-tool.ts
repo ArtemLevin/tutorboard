@@ -8,11 +8,13 @@ import {
 
 export const navigationToolId = "navigation.pan" as const;
 export const laserToolId = "presentation.laser" as const;
+export const spotlightToolId = "presentation.spotlight" as const;
 export const geometryPlacementToolId = "geometry.text-placement" as const;
 
 export type ActiveToolId =
   | typeof navigationToolId
   | typeof laserToolId
+  | typeof spotlightToolId
   | typeof geometryPlacementToolId
   | typeof eraserToolId
   | typeof handwrittenFunctionToolId
