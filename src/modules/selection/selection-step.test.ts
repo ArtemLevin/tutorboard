@@ -140,7 +140,7 @@ describe("selection scale and rotation steps", () => {
     expect(rotated?.map((item) => item.rotation)).toEqual([90, 90]);
   });
 
-  it("uses one bounded scale factor and refuses locked or imported selections", () => {
+  it("bounds scale and rejects ineligible objects", () => {
     const first = rect("object:near-limit", 0, 0, {
       scale: { x: 99, y: 80 },
     });
@@ -164,9 +164,14 @@ describe("selection scale and rotation steps", () => {
         0,
       ),
     ).toBeNull();
-    expect(
-      createSelectionStepTransforms(pair.document, pair.scene, [first.id], 0, 0),
-    ).toBeNull();
+    const invalid = createSelectionStepTransforms(
+      pair.document,
+      pair.scene,
+      [first.id],
+      0,
+      0,
+    );
+    expect(invalid).toBeNull();
     expect(
       createSelectionStepTransforms(
         pair.document,
