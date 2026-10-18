@@ -38,6 +38,7 @@ import {
   geometryPlacementToolId,
   laserToolId,
   navigationToolId,
+  spotlightToolId,
 } from "../active-tool";
 import type { BoardClipboardController } from "../controllers/useBoardClipboardController";
 import type { BoardDrawingController } from "../controllers/useBoardDrawingController";
@@ -105,6 +106,8 @@ export interface BoardCanvasProps {
   readonly handwriting: BoardHandwritingController;
   readonly interaction: BoardInteractionRouter;
   readonly laser: LaserPointerController;
+  readonly spotlightRadiusPx: number;
+  readonly spotlightDimPercent: number;
   readonly mediaAssetSourceResolver?:
     ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
   readonly onClearCommitted?: (() => void) | undefined;
@@ -161,6 +164,8 @@ export function BoardCanvas({
   handwriting,
   interaction,
   laser,
+  spotlightRadiusPx,
+  spotlightDimPercent,
   mediaAssetSourceResolver,
   onClearCommitted,
   onObjectSettingsRequest,
@@ -409,6 +414,7 @@ export function BoardCanvas({
           activeTool === handwrittenFunctionToolId ||
           activeTool === eraserToolId ||
           activeTool === laserToolId ||
+          activeTool === spotlightToolId ||
           activeTool === geometryPlacementToolId
             ? activeTool
             : null
@@ -417,6 +423,9 @@ export function BoardCanvas({
         laserPoint={laser.point}
         laserTrailOpacity={laser.trailOpacity}
         laserTrailPoints={laser.trailPoints}
+        spotlightActive={activeTool === spotlightToolId}
+        spotlightRadiusPx={spotlightRadiusPx}
+        spotlightDimPercent={spotlightDimPercent}
         lineEndpointObjectIds={lineEndpointObjectIds}
         onCanvasContextMenuRequest={(request) => {
           setClearConfirmationOpen(false);

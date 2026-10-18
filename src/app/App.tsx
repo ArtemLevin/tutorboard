@@ -54,6 +54,11 @@ import { useBoardSelectionController } from "./board/controllers/useBoardSelecti
 import { useBoardSolid3DController } from "./board/controllers/useBoardSolid3DController";
 import { useCoordinatePlotController } from "./board/controllers/useCoordinatePlotController";
 import { useLaserPointerController } from "./board/controllers/useLaserPointerController";
+import {
+  normalizeSpotlightDim,
+  normalizeSpotlightRadius,
+  spotlightDefaults,
+} from "./board/spotlight-settings";
 import type { AppPersistenceStatus, MathInkRecognizer } from "./board/types";
 import { BoardCanvas } from "./board/views/BoardCanvas";
 import { BoardDiagnostics } from "./board/views/BoardDiagnostics";
@@ -266,6 +271,12 @@ export function App({
     hasObjects: document.order.length > 0,
   });
   const [activeTool, setActiveTool] = useState<ActiveToolId>(navigationToolId);
+  const [spotlightRadiusPx, setSpotlightRadiusPx] = useState<number>(
+    spotlightDefaults.radiusPx,
+  );
+  const [spotlightDimPercent, setSpotlightDimPercent] = useState<number>(
+    spotlightDefaults.dimPercent,
+  );
   const [selectionInspectorObjectId, setSelectionInspectorObjectId] =
     useState<BoardObjectId | null>(null);
   const [accessibilityNotice, setAccessibilityNotice] = useState<string | null>(
@@ -917,6 +928,8 @@ export function App({
           handwriting={handwriting}
           interaction={interaction}
           laser={laser}
+          spotlightRadiusPx={spotlightRadiusPx}
+          spotlightDimPercent={spotlightDimPercent}
           mediaAssetSourceResolver={mediaAssetSourceResolver}
           onClearCommitted={cancelPendingImport}
           onObjectSettingsRequest={requestObjectSettings}
@@ -976,6 +989,14 @@ export function App({
         ) : (
           <BoardToolDockContainer
             activeTool={activeTool}
+            spotlightRadiusPx={spotlightRadiusPx}
+            spotlightDimPercent={spotlightDimPercent}
+            onSpotlightRadiusChange={(radius) =>
+              setSpotlightRadiusPx(normalizeSpotlightRadius(radius))
+            }
+            onSpotlightDimChange={(percent) =>
+              setSpotlightDimPercent(normalizeSpotlightDim(percent))
+            }
             collaborativeUndoAvailable={collaborativeUndoAvailable}
             documentController={documentController}
             drawing={drawing}

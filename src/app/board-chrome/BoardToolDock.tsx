@@ -48,6 +48,10 @@ const penPresetDescriptions = [
 interface BoardToolDockProps {
   readonly activeStyle: ObjectStyle | null;
   readonly activeTool: string;
+  readonly spotlightRadiusPx: number;
+  readonly spotlightDimPercent: number;
+  readonly onSpotlightRadiusChange: (radius: number) => void;
+  readonly onSpotlightDimChange: (percent: number) => void;
   readonly canRedo: boolean;
   readonly canUndo: boolean;
   readonly drawingTools: readonly DrawingToolDefinition[];
@@ -876,6 +880,60 @@ export function BoardToolDock(props: BoardToolDockProps) {
             style={props.selectedStyle}
           />
         </ToolSettingsVisibility>
+      ) : props.activeTool === "presentation.laser" ? (
+        <ToolSettingsVisibility
+          className="dock-primary-settings"
+          key={`laser:${settingsRevision}`}
+          label="Настройки лазерной указки"
+        >
+          <div className="dock-primary-heading">
+            <strong>Лазерная указка</strong>
+          </div>
+          <button
+            onClick={() => chooseTool("presentation.spotlight")}
+            type="button"
+          >
+            Включить фонарь (Shift+K)
+          </button>
+        </ToolSettingsVisibility>
+      ) : props.activeTool === "presentation.spotlight" ? (
+        <ToolSettingsVisibility
+          className="dock-primary-settings"
+          key={`spotlight:${settingsRevision}`}
+          label="Настройки фонаря"
+        >
+          <div className="dock-primary-heading">
+            <strong>Фонарь</strong>
+          </div>
+          <label className="dock-range-control">
+            <span>Диаметр света · {props.spotlightRadiusPx * 2} px</span>
+            <input
+              aria-label="Диаметр фонаря"
+              max="320"
+              min="60"
+              onChange={(event) =>
+                props.onSpotlightRadiusChange(event.currentTarget.valueAsNumber)
+              }
+              step="10"
+              type="range"
+              value={props.spotlightRadiusPx}
+            />
+          </label>
+          <label className="dock-range-control">
+            <span>Затемнение · {props.spotlightDimPercent}%</span>
+            <input
+              aria-label="Затемнение фонаря"
+              max="90"
+              min="30"
+              onChange={(event) =>
+                props.onSpotlightDimChange(event.currentTarget.valueAsNumber)
+              }
+              step="5"
+              type="range"
+              value={props.spotlightDimPercent}
+            />
+          </label>
+        </ToolSettingsVisibility>
       ) : props.activeTool === eraserToolId ? (
         <ToolSettingsVisibility
           className="dock-primary-settings"
@@ -1055,10 +1113,23 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onClick={() => toggleMenu("media")}
           />
           <ToolButton
-            active={props.activeTool === "presentation.laser"}
-            icon="●"
-            label={`Лазерная указка (${shortcutLabel("tool.laser")})`}
-            onClick={() => chooseTool("presentation.laser")}
+            active={
+              props.activeTool === "presentation.laser" ||
+              props.activeTool === "presentation.spotlight"
+            }
+            icon={props.activeTool === "presentation.spotlight" ? "◉" : "●"}
+            label={
+              props.activeTool === "presentation.spotlight"
+                ? `Фонарь (${shortcutLabel("tool.spotlight")})`
+                : `Лазерная указка (${shortcutLabel("tool.laser")})`
+            }
+            onClick={() =>
+              chooseTool(
+                props.activeTool === "presentation.laser"
+                  ? "presentation.spotlight"
+                  : "presentation.laser",
+              )
+            }
           />
           <span aria-hidden="true" className="dock-divider" />
           {([0, 1, 2] as const).map((slot) => {
