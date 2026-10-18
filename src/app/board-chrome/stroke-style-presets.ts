@@ -2,6 +2,7 @@ import type { ObjectStyle, StrokeStyle } from "../../core/public";
 
 const presetStrokeWidths: Readonly<Partial<Record<StrokeStyle, number>>> = {
   marker: 10,
+  "oil-paint": 12,
   thick: 6,
   thin: 2,
 };
