@@ -178,19 +178,19 @@ export function useBoardKeyboardShortcuts({
       }
       if (event.altKey || event.ctrlKey || event.metaKey || editing) return;
 
-      const imageScaleDirection =
+      const scaleFactor =
         event.repeat || readOnly
           ? null
-          : event.key === "+"
-            ? "increase"
+          : event.key === "+" || event.key === "="
+            ? 1.1
             : event.key === "-"
-              ? "decrease"
+              ? 1 / 1.1
               : null;
       if (
-        imageScaleDirection !== null &&
+        scaleFactor !== null &&
         selection.getState().interaction.kind === "idle" &&
         !selection.selectedLocked &&
-        selection.scaleImagesByStep(imageScaleDirection)
+        selection.transformBy(scaleFactor, 0)
       ) {
         event.preventDefault();
         return;
