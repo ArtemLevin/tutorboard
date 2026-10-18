@@ -1,4 +1,5 @@
 import type { StrokeStyle } from "./objects";
+import { createOilPaintDrips } from "./oil-paint-drips";
 import type { Vec2 } from "./primitives";
 import {
   createVectorInkData,
@@ -407,27 +408,27 @@ export function strokeStyleSketchPassSpecs(
         },
       ];
     case "oil-paint":
-      // A pressure-sensitive impasto body, a displaced paint ridge and
-      // sparse bristle marks. Each pass remains one bounded vector path.
+      // Loaded paint: a broad opaque body, a displaced ridge, and broken
+      // bristle highlights. Gravity runs join the first filled contour below.
       return [
         {
-          intensity: 0.85,
-          opacityMultiplier: 0.9,
+          intensity: 2.4,
+          opacityMultiplier: 0.98,
           seed: 17,
-          widthMultiplier: 1,
+          widthMultiplier: 1.85,
         },
         {
-          intensity: 1.8,
-          opacityMultiplier: 0.36,
+          intensity: 4.2,
+          opacityMultiplier: 0.62,
           seed: 41,
-          widthMultiplier: 0.58,
+          widthMultiplier: 1.14,
         },
         {
-          dash: [9, 3],
-          intensity: 2.6,
-          opacityMultiplier: 0.44,
+          dash: [10, 5],
+          intensity: 5,
+          opacityMultiplier: 0.58,
           seed: 67,
-          widthMultiplier: 0.16,
+          widthMultiplier: 0.24,
         },
       ];
     default:
@@ -461,16 +462,18 @@ function createPenStrokeRenderGeometry(
   }
 
   if (ink.samples.length === 1) {
-    const data = vectorInkOutlinePathData(ink, width);
+    const paintWidth = style === "oil-paint" ? width * 1.85 : width;
+    const data = vectorInkOutlinePathData(ink, paintWidth);
     return {
-      bounds: vectorInkOutlineBounds(ink, width),
+      bounds: vectorInkOutlineBounds(ink, paintWidth),
       paths:
         data.length === 0
           ? []
           : [
               {
                 data,
-                opacityMultiplier: strokeStyleOpacityMultiplier(style),
+                opacityMultiplier:
+                  style === "oil-paint" ? 0.98 : strokeStyleOpacityMultiplier(style),
               },
             ],
     };
@@ -520,6 +523,16 @@ function createPenStrokeRenderGeometry(
         );
       } else {
         paths.push(...geometry.paths);
+      }
+    }
+    if (style === "oil-paint" && paths.length > 0) {
+      const drips = createOilPaintDrips(ink, width, options);
+      if (drips.data.length > 0) {
+        paths[0] = {
+          ...paths[0]!,
+          data: paths[0]!.data + " " + drips.data,
+        };
+        bounds = unionBounds(bounds, drips.bounds);
       }
     }
     return { bounds, paths };
