@@ -610,6 +610,7 @@ export function App({
     resolvePlacementCenter,
   });
 
+  const cancelPendingImport = media.cancelPendingImport;
   useLayoutEffect(() => {
     const next = {
       documentId: String(document.id),
@@ -619,10 +620,10 @@ export function App({
     previousRenderContentRef.current = next;
     if (!shouldResetBoardRenderResources(previous, next)) return;
     // Prevent an asynchronous upload from repopulating a just-cleared board.
-    media.cancelPendingImport();
+    cancelPendingImport();
     clearCoordinatePlotSamplingCache();
     setClearRenderGeneration((generation) => generation + 1);
-  }, [document.id, document.order.length, media.cancelPendingImport]);
+  }, [cancelPendingImport, document.id, document.order.length]);
 
   const handleGeometrySelectionCreated = useCallback(
     (
