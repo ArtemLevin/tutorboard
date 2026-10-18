@@ -693,7 +693,17 @@ export class BoardSyncEngine {
   }
 
   apply(commands: readonly BoardCommand[]): Promise<void> {
-    if (this.#disposed || this.#accessRefreshPending) return Promise.resolve();
+    return this.applyWithReceipt(commands).then(() => undefined);
+  }
+
+  /**
+   * Reports durable admission of an Undo command group. A successful receipt
+   * means the operation belongs to the pending queue (also while offline).
+   * Transport rejection or recovery after enqueue is reported by sync state.
+   */
+  applyWithReceipt(commands: readonly BoardCommand[]): Promise<boolean> {
+    if (this.#disposed || this.#accessRefreshPending || commands.length === 0)
+      return Promise.resolve(false);
     const context = this.#context;
     const confirmed = this.#confirmed;
     const currentDocument = this.#document;
@@ -702,10 +712,10 @@ export class BoardSyncEngine {
         "board.sync.undo-failed",
         "Board sync engine is not ready.",
       );
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
     if (!context.capabilities.includes("board.write")) {
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
 
     let preview = currentDocument;
@@ -719,7 +729,7 @@ export class BoardSyncEngine {
           );
         }
         const result = reduceBoardDocument(preview, candidate);
-        if (!result.ok) return Promise.resolve();
+        if (!result.ok) return Promise.resolve(false);
         preview = result.document;
         rebased.push(candidate);
       }
@@ -730,15 +740,17 @@ export class BoardSyncEngine {
           : "board.sync.undo-failed",
         message(error),
       );
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
 
     const batchId =
       rebased.length > 1 ? this.#createIdempotencyKey() : undefined;
     const durable = this.#enqueueDurably(rebased, confirmed.revision, batchId);
+    let admitted = false;
     this.#serial = this.#serial
       .then(async () => {
         const queued = await durable;
+        admitted = true;
         if (this.#disposed) return;
         if (this.#confirmed === null) {
           throw new Error("Board sync engine is not ready.");
@@ -755,7 +767,7 @@ export class BoardSyncEngine {
           message(error),
         );
       });
-    return this.#serial;
+    return this.#serial.then(() => admitted);
   }
 
   synchronize(): Promise<void> {
