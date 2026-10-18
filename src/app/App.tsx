@@ -916,6 +916,7 @@ export function App({
           interaction={interaction}
           laser={laser}
           mediaAssetSourceResolver={mediaAssetSourceResolver}
+          onClearCommitted={cancelPendingImport}
           onObjectSettingsRequest={requestObjectSettings}
           onPointerHover={handlePointerHover}
           onTransformPreviewChange={publishTransformPreview}
