@@ -1,0 +1,20 @@
+name: PR273 temporary collaboration formatting
+on:
+  pull_request:
+jobs:
+  formatted-collaboration:
+    if: github.event.pull_request.number == 273
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write tests/fullstack/collaboration.spec.ts
+      - name: Export formatted collaboration test
+        run: |
+          printf 'FMTFRONT:tests/fullstack/collaboration.spec.ts:'
+          base64 -w0 tests/fullstack/collaboration.spec.ts
+          printf '\n'
