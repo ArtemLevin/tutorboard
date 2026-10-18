@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 
-import { clearCoordinatePlotSamplingCache } from "../adapters/canvas-konva/public";
 import {
   actorId,
   createBoardSceneSelector,
@@ -35,7 +34,10 @@ import {
   type ActiveToolId,
 } from "./board/active-tool";
 import { useBoardClipboardController } from "./board/controllers/useBoardClipboardController";
-import { shouldResetBoardRenderResources } from "./board/controllers/clear-resource-lifecycle";
+import {
+  releaseBoardPlotSamplingCache,
+  shouldResetBoardRenderResources,
+} from "./board/controllers/clear-resource-lifecycle";
 import { useBoardDocumentController } from "./board/controllers/useBoardDocumentController";
 import {
   useBoardDrawingController,
@@ -621,7 +623,7 @@ export function App({
     if (!shouldResetBoardRenderResources(previous, next)) return;
     // Prevent an asynchronous upload from repopulating a just-cleared board.
     cancelPendingImport();
-    clearCoordinatePlotSamplingCache();
+    releaseBoardPlotSamplingCache();
     setClearRenderGeneration((generation) => generation + 1);
   }, [cancelPendingImport, document.id, document.order.length]);
 
