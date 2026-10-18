@@ -52,6 +52,7 @@ export function useBoardMediaController({
   const [diagnostic, setDiagnostic] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const activeImportRef = useRef<AbortController | null>(null);
+  const setClipboardNotice = clipboard.setNotice;
 
   const cancelPendingImport = useCallback(() => {
     const active = activeImportRef.current;
@@ -62,8 +63,8 @@ export function useBoardMediaController({
     active.abort();
     setUploading(false);
     setDiagnostic(null);
-    clipboard.setNotice(null);
-  }, [clipboard.setNotice]);
+    setClipboardNotice(null);
+  }, [setClipboardNotice]);
 
   // Abort in-flight uploads if the transport, board authority or component changes.
   useEffect(
