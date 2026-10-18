@@ -69,7 +69,10 @@ import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
 import { BoardToolDockContainer } from "./board/views/BoardToolDockContainer";
 import { BoardViewportBookmarks } from "./board/views/BoardViewportBookmarks";
-import { readBookmarkVisibility, writeBookmarkVisibility } from "./board-chrome/viewport-bookmarks";
+import {
+  readBookmarkVisibility,
+  writeBookmarkVisibility,
+} from "./board-chrome/viewport-bookmarks";
 import {
   BoardTeacherFollowControls,
   type TeacherFollowControlsState,
@@ -246,7 +249,9 @@ export function App({
   remoteInkPreviews = [],
   remoteTransformPreviews = [],
 }: AppProps = {}) {
-  const [bookmarksVisible, setBookmarksVisible] = useState(readBookmarkVisibility);
+  const [bookmarksVisible, setBookmarksVisible] = useState(
+    readBookmarkVisibility,
+  );
   const [localInitialDocument] = useState(
     () => initialDocument ?? createInitialDocument(),
   );

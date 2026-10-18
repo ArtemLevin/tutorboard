@@ -251,7 +251,9 @@ export function BoardSettingsPanel({
         <label>
           <input
             checked={bookmarksVisible}
-            onChange={(event) => onBookmarksVisibilityChange(event.currentTarget.checked)}
+            onChange={(event) =>
+              onBookmarksVisibilityChange(event.currentTarget.checked)
+            }
             type="checkbox"
           />
           Показывать закладки областей

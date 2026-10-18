@@ -93,8 +93,16 @@ export function normalizeDrawingToolStyle(
     ...(tool === "drawing.text"
       ? {
           fontSize: finiteRange(value.fontSize, 8, 96, fallback.fontSize ?? 22),
-          lineHeight: finiteRange(value.lineHeight, 0.8, 2.5, fallback.lineHeight ?? 1.35),
-          fontFamily: value.fontFamily === "serif" || value.fontFamily === "mono" ? value.fontFamily : "sans",
+          lineHeight: finiteRange(
+            value.lineHeight,
+            0.8,
+            2.5,
+            fallback.lineHeight ?? 1.35,
+          ),
+          fontFamily:
+            value.fontFamily === "serif" || value.fontFamily === "mono"
+              ? value.fontFamily
+              : "sans",
           fontWeight: value.fontWeight === "bold" ? "bold" : "normal",
           fontStyle: value.fontStyle === "italic" ? "italic" : "normal",
         }

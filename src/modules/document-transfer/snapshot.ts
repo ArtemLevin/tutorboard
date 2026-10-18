@@ -476,10 +476,18 @@ function localObjectBounds(object: BoardObject): BoardSnapshotBounds {
       };
     case "drawing.text": {
       const typography = resolveTextTypography(object.style);
-      const lines = wrapBoardText(renderSafeMathLabel(object.text).displayText).split("\n");
-      const longestLine = Math.max(1, ...lines.map((line) => Array.from(line).length));
+      const lines = wrapBoardText(
+        renderSafeMathLabel(object.text).displayText,
+      ).split("\n");
+      const longestLine = Math.max(
+        1,
+        ...lines.map((line) => Array.from(line).length),
+      );
       return {
-        bottom: Math.max(8, (lines.length - 1) * typography.fontSize * typography.lineHeight + 8),
+        bottom: Math.max(
+          8,
+          (lines.length - 1) * typography.fontSize * typography.lineHeight + 8,
+        ),
         left: 0,
         right: longestLine * typography.fontSize * 0.64,
         top: -typography.fontSize * 1.1,

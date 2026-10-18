@@ -174,8 +174,18 @@ describe("text typography and 20-character wrapping", () => {
   });
 
   it("keeps legacy text appearance and supports independent typography", () => {
-    expect(resolveTextTypography(userText().style)).toMatchObject({ fontSize: 22, lineHeight: 1.35, fontWeight: "normal" });
-    expect(resolveTextTypography({ ...userText().style, fontSize: 13, fontWeight: "bold", fontStyle: "italic" }))
-      .toMatchObject({ fontSize: 13, fontStyle: "bold italic" });
+    expect(resolveTextTypography(userText().style)).toMatchObject({
+      fontSize: 22,
+      lineHeight: 1.35,
+      fontWeight: "normal",
+    });
+    expect(
+      resolveTextTypography({
+        ...userText().style,
+        fontSize: 13,
+        fontWeight: "bold",
+        fontStyle: "italic",
+      }),
+    ).toMatchObject({ fontSize: 13, fontStyle: "bold italic" });
   });
 });

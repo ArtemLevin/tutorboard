@@ -3,7 +3,8 @@ import { boardFitZoomBounds } from "../board/viewport-fit";
 
 export const bookmarkSchema = "tutorboard.viewport-bookmarks/1";
 export const bookmarkLimit = 10;
-export const bookmarkVisibilityStorageKey = "tutorboard.viewport-bookmarks.visible/1";
+export const bookmarkVisibilityStorageKey =
+  "tutorboard.viewport-bookmarks.visible/1";
 
 export interface ViewportBookmark {
   readonly id: string;

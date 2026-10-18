@@ -12,7 +12,10 @@ import {
 } from "../../core/public";
 import { createPenStrokeRenderPaths } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
-import { resolveTextTypography, wrapBoardText } from "../../modules/text-editing/public";
+import {
+  resolveTextTypography,
+  wrapBoardText,
+} from "../../modules/text-editing/public";
 import {
   buildSmoothStrokePoints,
   flattenStrokePoints,
