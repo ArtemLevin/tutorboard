@@ -50,9 +50,7 @@ test("@smoke spotlight follows cursor without changing board", async ({
   await expect(page.getByTestId("object-count")).toHaveText(objectCount ?? "");
 });
 
-test("@smoke spotlight in lesson mode preserves history", async ({
-  page,
-}) => {
+test("@smoke spotlight in lesson mode preserves history", async ({ page }) => {
   await page.goto("/");
   const initial = await page.getByTestId("history-depth").textContent();
   await page.getByRole("button", { name: "Режим занятия" }).click();
