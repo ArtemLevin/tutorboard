@@ -283,6 +283,12 @@ for (const scenario of selected) {
       await expect(page.getByTestId("object-count")).toHaveText(
         new RegExp("^" + expectedObjects + " объект", "u"),
       );
+      const stage = page.getByTestId("board-stage");
+      await expect
+        .poll(async () =>
+          Number(await stage.getAttribute("data-visible-object-count")),
+        )
+        .toBeGreaterThan(0);
       await expect
         .poll(() => responses.cold.ok, { timeout: 30_000 })
         .toBeGreaterThan(0);
