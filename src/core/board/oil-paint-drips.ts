@@ -54,7 +54,7 @@ export function createOilPaintDrips(
   const offset = options.continuousStylePhase
     ? Math.max(0, options.distanceOffset ?? 0)
     : 0;
-  let nextIndex = Math.max(1, Math.ceil((offset + spacing * 0.7) / spacing));
+  let nextIndex = Math.max(1, Math.floor(offset / spacing) + 1);
   let nextMark = nextIndex * spacing;
   let travelled = offset;
   let count = 0;
