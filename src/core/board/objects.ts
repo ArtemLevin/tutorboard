@@ -76,6 +76,7 @@ export const strokeStyles = [
   "hand-pencil",
   "hand-pen",
   "marker",
+  "oil-paint",
 ] as const;
 
 export type StrokeStyle = (typeof strokeStyles)[number];
