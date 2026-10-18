@@ -312,7 +312,7 @@ export function BoardCanvas({
     };
   }, [activeTool, drawing]);
   const transformableObjectIds =
-    plots.editor === null && isSelectionToolId(activeTool)
+    !readOnly && plots.editor === null && isSelectionToolId(activeTool)
       ? selection.transformableObjectIds
       : [];
   const lineEndpointObjectIds = useMemo(() => {
@@ -465,6 +465,9 @@ export function BoardCanvas({
           onTransformPreviewChange(null);
         }}
         onSelectionTransformPreview={onTransformPreviewChange}
+        onSelectionWheelTransform={(scaleFactor, rotationDelta) =>
+          !readOnly && selection.transformBy(scaleFactor, rotationDelta)
+        }
         onViewportCommit={onViewportCommit}
         onManualViewportInteraction={onManualViewportInteraction}
         panMode={activeTool === navigationToolId}

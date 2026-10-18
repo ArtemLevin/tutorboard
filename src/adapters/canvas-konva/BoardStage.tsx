@@ -251,6 +251,8 @@ export interface BoardStageProps {
   readonly onSelectionTransformPreview?: (
     transforms: readonly BoardObjectTransformSnapshot[] | null,
   ) => void;
+  readonly onSelectionWheelTransform?:
+    ((scaleFactor: number, rotationDelta: number) => boolean) | undefined;
   readonly panMode: boolean;
   readonly primaryCanvasGesturesEnabled?: boolean;
   readonly previewItems?: readonly BoardRenderItem[];
@@ -472,6 +474,7 @@ export function BoardStage({
   onSelectionPointerStart,
   onSelectionTransform,
   onSelectionTransformPreview,
+  onSelectionWheelTransform,
   panMode,
   primaryCanvasGesturesEnabled = false,
   previewItems = [],
@@ -2271,8 +2274,29 @@ export function BoardStage({
 
     const stage = event.target.getStage();
     const pointer = stage?.getPointerPosition();
-    if (pointer === null || pointer === undefined) {
+    if (pointer === null || pointer === undefined || event.evt.deltaY === 0) {
       return;
+    }
+
+    // Ctrl/Meta wheel stays a viewport gesture, including trackpad pinch.
+    // Alt scales and Shift rotates the editable selection.
+    if (
+      selectionModeKey !== null &&
+      selectedObjectIds.length > 0 &&
+      !event.evt.ctrlKey &&
+      !event.evt.metaKey &&
+      (event.evt.altKey || event.evt.shiftKey) &&
+      !isTransforming
+    ) {
+      commitWheel();
+      const direction = event.evt.deltaY < 0 ? 1 : -1;
+      const accepted = event.evt.altKey
+        ? onSelectionWheelTransform?.(
+            direction > 0 ? zoomStep : 1 / zoomStep,
+            0,
+          )
+        : onSelectionWheelTransform?.(1, direction * 5);
+      if (accepted) return;
     }
 
     onManualViewportInteraction?.();

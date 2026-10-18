@@ -1,3 +1,4 @@
+export { createSelectionStepTransforms } from "./selection-step";
 export {
   createImageScaleStepTransforms,
   nextImageScaleStep,
