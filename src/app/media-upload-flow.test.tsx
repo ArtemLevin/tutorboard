@@ -12,6 +12,8 @@ import {
   type BoardCommand,
   type BoardMediaAssetDescriptor,
   type BoardMediaUploadInput,
+  boardObjectId,
+  type BoardObject,
 } from "../core/public";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import { App, createInitialDocument } from "./App";
@@ -123,6 +125,79 @@ describe("synchronized asset import through board UI", () => {
       byteSize: png.byteLength,
     });
     expect(command.objects[0]).not.toHaveProperty("dataUrl");
+  });
+
+  it("cancels a pending media upload when a collaborator clears the board", async () => {
+    let release: (value: BoardMediaAssetDescriptor) => void = () => undefined;
+    let captured: BoardMediaUploadInput | null = null;
+    const upload = vi.fn((input: BoardMediaUploadInput) => {
+      captured = input;
+      return new Promise<BoardMediaAssetDescriptor>((resolve) => {
+        release = resolve;
+      });
+    });
+    const base = createInitialDocument();
+    const objectId = boardObjectId("object:before-remote-clear");
+    const object: BoardObject = {
+      id: objectId,
+      groupId: null,
+      kind: "drawing.text",
+      locked: false,
+      position: { x: 0, y: 0 },
+      rotation: 0,
+      scale: { x: 1, y: 1 },
+      source: { kind: "user" },
+      style: {
+        fill: null,
+        opacity: 1,
+        stroke: "#222222",
+        strokeWidth: 2,
+      },
+      text: "Existing",
+      visible: true,
+    };
+    const populated = {
+      ...base,
+      objects: { [objectId]: object },
+      order: [objectId],
+    };
+    const cleared = { ...populated, objects: {}, order: [] };
+    const session = createSession(upload);
+    const committed = vi.fn<(command: BoardCommand) => void>();
+    const view = render(
+      <App
+        initialDocument={populated}
+        mediaAssetImportEnabled
+        mediaUploadSession={session}
+        onCommandCommitted={committed}
+      />,
+    );
+
+    insertFile();
+    await waitFor(() => expect(upload).toHaveBeenCalledOnce());
+    expect(screen.getByText("Загружаем изображения…")).toBeInTheDocument();
+
+    view.rerender(
+      <App
+        initialDocument={cleared}
+        mediaAssetImportEnabled
+        mediaUploadSession={session}
+        onCommandCommitted={committed}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта"),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("Загружаем изображения…")).toBeNull(),
+    );
+    if (captured === null) throw new Error("Upload never started");
+    await act(async () => {
+      release(descriptor(captured!));
+      await Promise.resolve();
+    });
+    expect(committed).not.toHaveBeenCalled();
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
   });
 
   it("aborts the pending upload and skips command on read-only downgrade", async () => {
