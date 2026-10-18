@@ -11,6 +11,11 @@ test("@smoke bookmarks a viewport and restores it after reload", async ({
   const initialOffset = await page.getByTestId("viewport-offset").textContent();
   const initialZoom = await page.getByTestId("viewport-zoom").textContent();
 
+  await expect(page.getByRole("button", { name: "Закладки областей" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await page.getByRole("checkbox", { name: "Показывать закладки областей" }).check();
+  await page.getByRole("button", { name: "Закрыть настройки доски" }).click();
+
   await page.getByRole("button", { name: "Закладки областей" }).click();
   await page
     .getByRole("textbox", { name: "Название новой области" })
@@ -56,6 +61,9 @@ test("@smoke saves bookmark preferences separately from board document", async (
 }) => {
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await page.getByRole("checkbox", { name: "Показывать закладки областей" }).check();
+  await page.getByRole("button", { name: "Закрыть настройки доски" }).click();
   await page.getByRole("button", { name: "Закладки областей" }).click();
   await page.getByRole("button", { name: "Сохранить область" }).click();
   const stored = await page.evaluate(() =>
@@ -66,4 +74,25 @@ test("@smoke saves bookmark preferences separately from board document", async (
   expect(stored?.[1]).toContain("tutorboard.viewport-bookmarks/1");
   expect(stored?.[1]).not.toContain("BoardDocument");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+});
+
+test("@smoke preserves bookmarks while hiding their shortcut", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Закладки областей" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await page.getByRole("checkbox", { name: "Показывать закладки областей" }).check();
+  await page.getByRole("button", { name: "Закрыть настройки доски" }).click();
+  await page.getByRole("button", { name: "Закладки областей" }).click();
+  await page.getByRole("button", { name: "Сохранить область" }).click();
+  await page.getByRole("button", { name: "Закладки областей" }).click();
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await page.getByRole("checkbox", { name: "Показывать закладки областей" }).uncheck();
+  await page.getByRole("button", { name: "Закрыть настройки доски" }).click();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Закладки областей" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+  await page.getByRole("checkbox", { name: "Показывать закладки областей" }).check();
+  await page.getByRole("button", { name: "Закрыть настройки доски" }).click();
+  await page.getByRole("button", { name: "Закладки областей" }).click();
+  await expect(page.getByRole("button", { name: "Перейти: Область 1" })).toBeVisible();
 });

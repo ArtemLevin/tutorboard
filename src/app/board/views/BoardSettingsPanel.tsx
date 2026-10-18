@@ -13,6 +13,8 @@ import type { BoardInteractionRouter } from "../controllers/useBoardInteractionR
 import type { BoardSelectionController } from "../controllers/useBoardSelectionController";
 
 export interface BoardSettingsPanelProps {
+  readonly bookmarksVisible: boolean;
+  readonly onBookmarksVisibilityChange: (visible: boolean) => void;
   readonly clipboard: BoardClipboardController;
   readonly developmentDiagnostics: boolean;
   readonly document: BoardDocument;
@@ -44,6 +46,8 @@ export interface BoardSettingsPanelProps {
 }
 
 export function BoardSettingsPanel({
+  bookmarksVisible,
+  onBookmarksVisibilityChange,
   clipboard,
   developmentDiagnostics,
   document,
@@ -244,6 +248,14 @@ export function BoardSettingsPanel({
       </section>
       <section className="board-settings-section">
         <h3>Вид</h3>
+        <label>
+          <input
+            checked={bookmarksVisible}
+            onChange={(event) => onBookmarksVisibilityChange(event.currentTarget.checked)}
+            type="checkbox"
+          />
+          Показывать закладки областей
+        </label>
         <dl className="board-settings-facts">
           <div>
             <dt>Масштаб</dt>

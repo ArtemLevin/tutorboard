@@ -4,3 +4,4 @@ export {
   type TextEditorKeyboardEventLike,
 } from "./keyboard-contract";
 export { createUpdateTextCommand, isEditableTextObject } from "./text-editing";
+export { resolveTextTypography, textAutoWrapColumns, wrapBoardText } from "./typography";

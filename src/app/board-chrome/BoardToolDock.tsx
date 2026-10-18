@@ -275,6 +275,81 @@ function StyleControls({
   );
 }
 
+function TextTypographyControls({
+  onChange,
+  style,
+}: {
+  readonly onChange: (patch: Partial<ObjectStyle>) => void;
+  readonly style: ObjectStyle;
+}) {
+  return (
+    <div aria-label="Типографика текста" className="dock-text-typography" role="group">
+      <label>
+        <span>Размер, px</span>
+        <input
+          aria-label="Размер шрифта"
+          max="96"
+          min="8"
+          onChange={(event) => {
+            const fontSize = event.currentTarget.valueAsNumber;
+            if (Number.isFinite(fontSize) && fontSize >= 8 && fontSize <= 96)
+              onChange({ fontSize });
+          }}
+          step="1"
+          type="number"
+          value={style.fontSize ?? 22}
+        />
+      </label>
+      <label>
+        <span>Шрифт</span>
+        <select
+          aria-label="Семейство шрифта"
+          onChange={(event) => {
+            const fontFamily = event.currentTarget.value;
+            if (fontFamily === "sans" || fontFamily === "serif" || fontFamily === "mono")
+              onChange({ fontFamily });
+          }}
+          value={style.fontFamily ?? "sans"}
+        >
+          <option value="sans">Без засечек</option>
+          <option value="serif">С засечками</option>
+          <option value="mono">Моноширинный</option>
+        </select>
+      </label>
+      <label>
+        <span>Интервал строк</span>
+        <input
+          aria-label="Межстрочный интервал"
+          max="2.5"
+          min="0.8"
+          onChange={(event) => {
+            const lineHeight = event.currentTarget.valueAsNumber;
+            if (Number.isFinite(lineHeight) && lineHeight >= 0.8 && lineHeight <= 2.5)
+              onChange({ lineHeight });
+          }}
+          step="0.05"
+          type="number"
+          value={style.lineHeight ?? 1.35}
+        />
+      </label>
+      <div className="dock-text-emphasis" role="group" aria-label="Начертание текста">
+        <button
+          aria-label="Полужирный текст"
+          aria-pressed={style.fontWeight === "bold"}
+          onClick={() => onChange({ fontWeight: style.fontWeight === "bold" ? "normal" : "bold" })}
+          type="button"
+        ><strong>Ж</strong></button>
+        <button
+          aria-label="Курсивный текст"
+          aria-pressed={style.fontStyle === "italic"}
+          onClick={() => onChange({ fontStyle: style.fontStyle === "italic" ? "normal" : "italic" })}
+          type="button"
+        ><em>К</em></button>
+      </div>
+    </div>
+  );
+}
+
 function SelectedTextEditor({
   onCommit,
   value,
@@ -842,6 +917,9 @@ export function BoardToolDock(props: BoardToolDockProps) {
               />
             </label>
           )}
+          {props.selectedText === null ? null : (
+            <TextTypographyControls onChange={props.onSelectionStyleChange} style={props.selectedStyle} />
+          )}
           {props.canTransformSelection ? (
             <div className="dock-transform-actions">
               <button
@@ -980,6 +1058,12 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 value={props.textDraft}
               />
             </label>
+          ) : null}
+          {activeDrawingTool === "drawing.text" ? (
+            <TextTypographyControls
+              onChange={(patch) => props.onStyleChange(activeDrawingTool, patch)}
+              style={props.activeStyle}
+            />
           ) : null}
           <StyleControls
             allowFill={allowFill}

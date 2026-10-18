@@ -12,6 +12,7 @@ import {
 } from "../../core/public";
 import { createPenStrokeRenderPaths } from "../../core/public";
 import { renderSafeMathLabel } from "../../shared/safe-math-label";
+import { resolveTextTypography, wrapBoardText } from "../../modules/text-editing/public";
 import {
   buildSmoothStrokePoints,
   flattenStrokePoints,
@@ -402,14 +403,16 @@ const renderers: readonly KonvaObjectRenderer[] = [
     render(object) {
       const text = expectKind(object, "drawing.text");
       const label = renderSafeMathLabel(text.text);
+      const typography = resolveTextTypography(text.style);
       return (
         <Text
           {...commonShapeProps(text)}
           fill={text.style.fill ?? text.style.stroke ?? "#17202a"}
-          fontFamily="Inter, ui-sans-serif, system-ui"
-          fontSize={22}
-          lineHeight={1.35}
-          text={label.displayText}
+          fontFamily={typography.fontFamily}
+          fontSize={typography.fontSize}
+          fontStyle={typography.fontStyle}
+          lineHeight={typography.lineHeight}
+          text={wrapBoardText(label.displayText)}
         />
       );
     },

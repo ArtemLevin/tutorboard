@@ -69,6 +69,7 @@ import { BoardSettingsPanel } from "./board/views/BoardSettingsPanel";
 import { BoardShortcutsDialog } from "./board/views/BoardShortcutsDialog";
 import { BoardToolDockContainer } from "./board/views/BoardToolDockContainer";
 import { BoardViewportBookmarks } from "./board/views/BoardViewportBookmarks";
+import { readBookmarkVisibility, writeBookmarkVisibility } from "./board-chrome/viewport-bookmarks";
 import {
   BoardTeacherFollowControls,
   type TeacherFollowControlsState,
@@ -245,6 +246,7 @@ export function App({
   remoteInkPreviews = [],
   remoteTransformPreviews = [],
 }: AppProps = {}) {
+  const [bookmarksVisible, setBookmarksVisible] = useState(readBookmarkVisibility);
   const [localInitialDocument] = useState(
     () => initialDocument ?? createInitialDocument(),
   );
@@ -955,7 +957,7 @@ export function App({
             onStop={stopTeacherFollow}
           />
         ) : null}
-        {plots.editor === null && !lessonMode ? (
+        {bookmarksVisible && plots.editor === null && !lessonMode ? (
           <BoardViewportBookmarks
             key={bookmarkScope}
             storageScope={bookmarkScope}
@@ -1043,6 +1045,11 @@ export function App({
           />
         )}
         <BoardSettingsPanel
+          bookmarksVisible={bookmarksVisible}
+          onBookmarksVisibilityChange={(visible) => {
+            setBookmarksVisible(visible);
+            writeBookmarkVisibility(visible);
+          }}
           clipboard={clipboard}
           viewport={visibleViewport}
           developmentDiagnostics={environment.features.developmentDiagnostics}

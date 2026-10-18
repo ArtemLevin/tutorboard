@@ -9,6 +9,8 @@ import {
   createUpdateTextCommand,
   isEditableTextObject,
   resolveTextEditorKeyboardAction,
+  resolveTextTypography,
+  wrapBoardText,
 } from "../../../../src/modules/text-editing/public";
 import {
   emptyDocument,
@@ -155,5 +157,25 @@ describe("text editor keyboard contract", () => {
     expect(
       resolveTextEditorKeyboardAction(event({ altKey: true, shiftKey: true })),
     ).toBe("native");
+  });
+});
+
+describe("text typography and 20-character wrapping", () => {
+  it("wraps long lines by words, at most 20 Unicode code points", () => {
+    const source = "Первая длинная строка и дальнейшее продолжение";
+    const lines = wrapBoardText(source).split("\n");
+    expect(lines.every((line) => Array.from(line).length <= 20)).toBe(true);
+    expect(lines.join(" ")).toBe(source);
+  });
+
+  it("splits long words and keeps manual breaks and emoji intact", () => {
+    expect(wrapBoardText("😀".repeat(22))).toBe("😀".repeat(20) + "\n😀😀");
+    expect(wrapBoardText("до\nпосле")).toBe("до\nпосле");
+  });
+
+  it("keeps legacy text appearance and supports independent typography", () => {
+    expect(resolveTextTypography(userText().style)).toMatchObject({ fontSize: 22, lineHeight: 1.35, fontWeight: "normal" });
+    expect(resolveTextTypography({ ...userText().style, fontSize: 13, fontWeight: "bold", fontStyle: "italic" }))
+      .toMatchObject({ fontSize: 13, fontStyle: "bold italic" });
   });
 });

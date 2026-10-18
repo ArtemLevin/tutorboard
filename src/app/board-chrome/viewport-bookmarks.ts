@@ -3,6 +3,7 @@ import { boardFitZoomBounds } from "../board/viewport-fit";
 
 export const bookmarkSchema = "tutorboard.viewport-bookmarks/1";
 export const bookmarkLimit = 10;
+export const bookmarkVisibilityStorageKey = "tutorboard.viewport-bookmarks.visible/1";
 
 export interface ViewportBookmark {
   readonly id: string;
@@ -72,6 +73,27 @@ function safeStorage(): Storage | null {
     return typeof window === "undefined" ? null : window.localStorage;
   } catch {
     return null;
+  }
+}
+
+export function readBookmarkVisibility(
+  storage: Pick<Storage, "getItem"> | null = safeStorage(),
+): boolean {
+  try {
+    return storage?.getItem(bookmarkVisibilityStorageKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function writeBookmarkVisibility(
+  visible: boolean,
+  storage: Pick<Storage, "setItem"> | null = safeStorage(),
+): void {
+  try {
+    storage?.setItem(bookmarkVisibilityStorageKey, String(visible));
+  } catch {
+    // The bookmark data remains untouched if preference storage is unavailable.
   }
 }
 

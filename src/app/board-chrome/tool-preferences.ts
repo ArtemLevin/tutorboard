@@ -61,7 +61,14 @@ export function defaultDrawingToolStyle(tool: DrawingToolId): ObjectStyle {
     case "drawing.polygon":
       return { ...drawingStyleDefaults.polygon, strokeStyle: "thin" };
     case "drawing.text":
-      return { ...drawingStyleDefaults.text };
+      return {
+        ...drawingStyleDefaults.text,
+        fontSize: 22,
+        lineHeight: 1.35,
+        fontFamily: "sans",
+        fontWeight: "normal",
+        fontStyle: "normal",
+      };
   }
 }
 
@@ -83,6 +90,15 @@ export function normalizeDrawingToolStyle(
     stroke: color(value.stroke, fallback.stroke),
     strokeWidth: finiteRange(value.strokeWidth, 0, 64, fallback.strokeWidth),
     ...(strokeStyle === undefined ? {} : { strokeStyle }),
+    ...(tool === "drawing.text"
+      ? {
+          fontSize: finiteRange(value.fontSize, 8, 96, fallback.fontSize ?? 22),
+          lineHeight: finiteRange(value.lineHeight, 0.8, 2.5, fallback.lineHeight ?? 1.35),
+          fontFamily: value.fontFamily === "serif" || value.fontFamily === "mono" ? value.fontFamily : "sans",
+          fontWeight: value.fontWeight === "bold" ? "bold" : "normal",
+          fontStyle: value.fontStyle === "italic" ? "italic" : "normal",
+        }
+      : {}),
   };
 }
 

@@ -87,6 +87,11 @@ export interface ObjectStyle {
   readonly stroke: string | null;
   readonly strokeWidth: number;
   readonly strokeStyle?: StrokeStyle;
+  readonly fontSize?: number;
+  readonly lineHeight?: number;
+  readonly fontFamily?: "sans" | "serif" | "mono";
+  readonly fontWeight?: "normal" | "bold";
+  readonly fontStyle?: "normal" | "italic";
 }
 
 interface BoardObjectBase {
