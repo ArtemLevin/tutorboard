@@ -12,6 +12,7 @@ export type BoardShortcutAction =
   | "tool.text"
   | "tool.handwritten-function"
   | "tool.laser"
+  | "tool.spotlight"
   | "plot.create"
   | "viewport.fit-all"
   | "viewport.fit-selection"
@@ -88,6 +89,13 @@ export const boardShortcutBindings: readonly BoardShortcutBinding[] = [
     requiresWrite: true,
   },
   { action: "tool.laser", code: "KeyK", display: "K", requiresWrite: false },
+  {
+    action: "tool.spotlight",
+    code: "KeyK",
+    display: "Shift+K",
+    requiresWrite: false,
+    shift: true,
+  },
   {
     action: "viewport.fit-all",
     code: "KeyH",
@@ -168,6 +176,7 @@ const toolActionById: Readonly<Record<string, BoardShortcutAction>> = {
   "drawing.text": "tool.text",
   "math.handwritten-function": "tool.handwritten-function",
   "presentation.laser": "tool.laser",
+  "presentation.spotlight": "tool.spotlight",
 };
 
 export function shortcutLabelForTool(toolId: string): string {
