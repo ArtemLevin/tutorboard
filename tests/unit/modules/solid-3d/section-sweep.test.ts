@@ -10,7 +10,10 @@ import {
   type Solid3DPoint,
   type Solid3DRecord,
 } from "../../../../src/core/public";
-import { calculateSolidSection } from "../../../../src/modules/solid-3d/public";
+import {
+  calculateSolidSection,
+  removeSavedSolidSection,
+} from "../../../../src/modules/solid-3d/public";
 import {
   getSolidSectionSweepFrame,
   previewSolidSectionSweep,
@@ -83,6 +86,17 @@ describe("parallel section sweep", () => {
     if (captured.status !== "ok") return;
     expect(captured.record.points).toHaveLength(6);
     expect(captured.record.sections).toHaveLength(1);
+    expect(
+      captured.record.points.slice(3).every((point) =>
+        point.id.startsWith("solid-point:section-helper:sweep:"),
+      ),
+    ).toBe(true);
+    const afterDelete = removeSavedSolidSection(
+      captured.record,
+      captured.sectionId,
+    );
+    expect(afterDelete.sections).toHaveLength(0);
+    expect(afterDelete.points).toEqual(original.points);
     expect(
       captured.record.points
         .slice(3)
