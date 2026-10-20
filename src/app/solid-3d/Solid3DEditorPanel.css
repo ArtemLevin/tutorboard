@@ -17,7 +17,7 @@
   width: 100%;
   max-height: 100%;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
   border: 1px solid #9caeb5;
   border-radius: 16px;
   background: #fbf7ef;
@@ -25,13 +25,13 @@
   box-shadow: 0 18px 50px rgb(15 23 42 / 22%);
   pointer-events: auto;
 }
-.solid-3d-content {
-  min-height: 0;
-  overflow: auto;
-}
 .solid-3d-editor > header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   flex: 0 0 auto;
+  background: #fbf7ef;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
