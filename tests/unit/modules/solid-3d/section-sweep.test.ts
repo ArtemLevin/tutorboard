@@ -87,9 +87,11 @@ describe("parallel section sweep", () => {
     expect(captured.record.points).toHaveLength(6);
     expect(captured.record.sections).toHaveLength(1);
     expect(
-      captured.record.points.slice(3).every((point) =>
-        point.id.startsWith("solid-point:section-helper:sweep:"),
-      ),
+      captured.record.points
+        .slice(3)
+        .every((point) =>
+          point.id.startsWith("solid-point:section-helper:sweep:"),
+        ),
     ).toBe(true);
     const afterDelete = removeSavedSolidSection(
       captured.record,
