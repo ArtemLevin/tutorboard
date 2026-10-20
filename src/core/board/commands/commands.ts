@@ -118,6 +118,20 @@ export interface PasteContentCommand extends CommandMetadata {
   readonly solidModels?: readonly Solid3DRecord[];
 }
 
+/**
+ * Versioned complete-graph restore for a single indivisible dependency
+ * component. It is uploaded via the bounded multipart route when oversized.
+ * The reducer validates all object/group/import/solid edges in one operation.
+ */
+export interface RestoreGraphCommand extends CommandMetadata {
+  readonly graphVersion: "1.0";
+  readonly geometryImports: readonly GeometryImportRecord[];
+  readonly groups: readonly BoardGroup[];
+  readonly kind: "core.clipboard.restore-graph";
+  readonly objects: readonly BoardObject[];
+  readonly solidModels?: readonly Solid3DRecord[];
+}
+
 export interface CreateSolid3DCommand extends CommandMetadata {
   readonly kind: "core.solid-3d.create";
   readonly model: Solid3DRecord;
@@ -248,6 +262,7 @@ export type BoardCommand =
   | MoveObjectsCommand
   | MoveSelectionCommand
   | PasteContentCommand
+  | RestoreGraphCommand
   | ReplaceObjectsCommand
   | RemoveGroupsCommand
   | RenameDocumentCommand
@@ -275,6 +290,7 @@ export const boardCommandKinds = [
   "core.objects.batch-replace",
   "core.clipboard.cut",
   "core.clipboard.paste",
+  "core.clipboard.restore-graph",
   "core.groups.add",
   "core.groups.remove",
   "core.geometry.import",
