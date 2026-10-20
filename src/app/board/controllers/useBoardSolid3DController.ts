@@ -2,6 +2,10 @@ import { useCallback, useMemo, useState } from "react";
 
 import {
   solidLearningAttemptId,
+  reprojectSolid3DRecord,
+  type Solid3DPoint,
+  type SolidPointAnchor,
+  type Vec3,
   type Solid3DId,
   type Solid3DRecord,
   type SolidLearningAttemptAction,
@@ -108,6 +112,46 @@ export function useBoardSolid3DController({
     [commitCommand, createCommandMetadata, getDocument],
   );
 
+  const movePoint = useCallback(
+    (
+      startingRecord: Solid3DRecord,
+      pointId: string,
+      position: Vec3,
+      anchor: SolidPointAnchor,
+    ) => {
+      const current = getDocument().solidModels[startingRecord.id];
+      if (current === undefined) return;
+      const expectedPoint = startingRecord.points.find(({ id }) => id === pointId);
+      const currentPoint = current.points.find(({ id }) => id === pointId);
+      // Reject an in-flight drag when the model or the same point changed remotely.
+      if (
+        expectedPoint === undefined ||
+        currentPoint === undefined ||
+        JSON.stringify(current.definition) !== JSON.stringify(startingRecord.definition) ||
+        JSON.stringify(expectedPoint) !== JSON.stringify(currentPoint)
+      )
+        return;
+      const moved: Solid3DPoint = { ...currentPoint, position, anchor };
+      if (JSON.stringify(moved) === JSON.stringify(currentPoint)) return;
+      const updated: Solid3DRecord = {
+        ...current,
+        points: current.points.map((point) =>
+          point.id === currentPoint.id ? moved : point,
+        ),
+      };
+      // Recompute helper points linked to constrained sections as well.
+      const replacement = reprojectSolid3DRecord(updated, updated.definition);
+      commitCommand(
+        createUpdateSolid3DCommand({
+          expected: current,
+          metadata: createCommandMetadata(),
+          replacement,
+        }),
+      );
+    },
+    [commitCommand, createCommandMetadata, getDocument],
+  );
+
   const startLearning = useCallback(
     (scenario: Solid3DLearningScenario, mode: SolidLearningMode) => {
       if (record === null) return;
@@ -177,6 +221,7 @@ export function useBoardSolid3DController({
     learningAction,
     learningAttempt,
     learningAttempts,
+    movePoint,
     open: (id: Solid3DId) => setEditorId(id),
     openSelected,
     project,
