@@ -3,6 +3,7 @@ import {
   type BoardCommand,
   type BoardDocument,
 } from "../../core/public";
+import { planAtomicClearRestore } from "./large-clear-restore";
 import {
   maximumBoardCommandJsonBytes,
   maximumBoardCommandObjects,
@@ -133,6 +134,38 @@ export class CollaborativeUndoAvailability {
     this.#restores.set(inverse, ids);
     return true;
   }
+  /**
+   * Returns a certified, transportable Undo group. Large cuts are split into
+   * complete dependency components; the sync engine accepts the whole array
+   * via one atomic durable batch. Unrepresentable cuts remain an Undo barrier.
+   */
+  prepareCommittedCut(
+    command: BoardCommand,
+    inverse: readonly BoardCommand[],
+  ): readonly BoardCommand[] | false | undefined {
+    const registered = this.registerCommittedCut(command, inverse);
+    if (registered === true) return inverse;
+    if (registered === undefined) return undefined;
+
+    const paste = inverse[0];
+    if (command.kind !== "core.clipboard.cut" ||
+        paste?.kind !== "core.clipboard.paste") return false;
+    const ids = restoreIds(command, paste);
+    if (ids === null) return false;
+    const commands = planAtomicClearRestore(paste);
+    if (commands === null) return false;
+    for (const part of commands) {
+      Object.freeze(part.objects);
+      Object.freeze(part.groups);
+      Object.freeze(part.geometryImports);
+      if (part.solidModels !== undefined) Object.freeze(part.solidModels);
+      Object.freeze(part);
+    }
+    Object.freeze(commands);
+    this.#restores.set(commands, ids);
+    return commands;
+  }
+
   stillApplies(
     document: BoardDocument,
     commands: readonly BoardCommand[],
