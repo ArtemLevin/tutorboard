@@ -15,6 +15,15 @@ import {
 
 type GestureKind = "move" | "resize";
 
+function isFullscreenLayout(): boolean {
+  return (
+    typeof window.matchMedia === "function" &&
+    window.matchMedia(
+      "(max-width: 780px), (max-width: 900px) and (max-height: 520px)",
+    ).matches
+  );
+}
+
 export function useSolid3DWindow() {
   const dockRef = useRef<HTMLDivElement>(null);
   const [windowRect, setWindowRect] = useState<Solid3DWindowRect | null>(null);
@@ -101,7 +110,7 @@ export function useSolid3DWindow() {
     event: ReactPointerEvent<HTMLButtonElement>,
     kind: GestureKind,
   ) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || isFullscreenLayout()) return;
     const rect = windowRect ?? currentRect();
     if (rect === null) return;
     event.preventDefault();
@@ -152,6 +161,7 @@ export function useSolid3DWindow() {
     event: ReactKeyboardEvent<HTMLButtonElement>,
     kind: GestureKind,
   ) => {
+    if (isFullscreenLayout()) return;
     const direction: Record<string, readonly [number, number]> = {
       ArrowDown: [0, 1],
       ArrowLeft: [-1, 0],
