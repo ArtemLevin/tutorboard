@@ -60,6 +60,7 @@ function renderPanel({
         onProject={vi.fn()}
         onRecordChange={vi.fn()}
         onPointMove={vi.fn()}
+        onSaveSweep={vi.fn()}
         onUndo={vi.fn()}
         readOnly={readOnly}
         record={record}
