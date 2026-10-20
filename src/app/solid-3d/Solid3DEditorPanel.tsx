@@ -39,6 +39,7 @@ import { Solid3DViewport } from "../../adapters/solid-3d-three/public";
 import { Solid3DLearningWorkspace } from "./Solid3DLearningWorkspace";
 import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
 import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuilder";
+import { useSolid3DWindow } from "./useSolid3DWindow";
 import "./Solid3DEditorPanel.css";
 
 export interface Solid3DEditorPanelProps {
@@ -170,7 +171,16 @@ export function Solid3DEditorPanel({
   const [showSectionFill, setShowSectionFill] = useState(true);
   const [showSectionOutline, setShowSectionOutline] = useState(true);
   const [resetToken, setResetToken] = useState(0);
-  const [expanded, setExpanded] = useState(false);
+  const {
+    dockRef,
+    windowRect,
+    expanded,
+    toggleExpanded,
+    startWindowGesture,
+    moveWindowGesture,
+    endWindowGesture,
+    handleWindowArrow,
+  } = useSolid3DWindow();
   const [highlightedElement, setHighlightedElement] =
     useState<SolidElementRef | null>(null);
   const [hoveredSurfaceId, setHoveredSurfaceId] =
@@ -373,7 +383,22 @@ export function Solid3DEditorPanel({
   };
 
   return (
-    <div className={`solid-3d-dock${expanded ? " is-expanded" : ""}`}>
+    <div
+      className={`solid-3d-dock${expanded ? " is-expanded" : ""}`}
+      data-testid="solid-3d-dock"
+      ref={dockRef}
+      style={
+        windowRect === null
+          ? undefined
+          : {
+              left: windowRect.left,
+              right: "auto",
+              top: windowRect.top,
+              width: windowRect.width,
+              height: windowRect.height,
+            }
+      }
+    >
       <section
         aria-describedby="solid-3d-description"
         aria-labelledby="solid-3d-title"
@@ -394,15 +419,28 @@ export function Solid3DEditorPanel({
         tabIndex={-1}
       >
         <header>
-          <div>
-            <p>Интерактивная стереометрия</p>
-            <h2 id="solid-3d-title">{solidNames[record.definition.kind]}</h2>
-          </div>
+          <button
+            aria-label="Переместить 3D-окно"
+            className="solid-3d-drag-handle"
+            onKeyDown={(event) => handleWindowArrow(event, "move")}
+            onPointerCancel={endWindowGesture}
+            onPointerDown={(event) => startWindowGesture(event, "move")}
+            onPointerMove={moveWindowGesture}
+            onPointerUp={endWindowGesture}
+            title="Перетащите мышью или используйте стрелки"
+            type="button"
+          >
+            <span aria-hidden="true">⠿</span>
+            <span>
+              <small>Интерактивная стереометрия</small>
+              <strong id="solid-3d-title">{solidNames[record.definition.kind]}</strong>
+            </span>
+          </button>
           <div className="solid-3d-window-actions">
             <button
               aria-label={expanded ? "Свернуть 3D-окно" : "Развернуть 3D-окно"}
               aria-pressed={expanded}
-              onClick={() => setExpanded((value) => !value)}
+              onClick={toggleExpanded}
               type="button"
             >
               {expanded ? "↙" : "↗"}
@@ -473,6 +511,11 @@ export function Solid3DEditorPanel({
             Отменить
           </button>
         </div>
+        <p className="solid-3d-controls-hint">
+          ЛКМ — вращение, ПКМ — перемещение, колесо — масштаб.
+          В режиме точек: ЛКМ — постановка точки или перемещение камеры,
+          ПКМ — вращение.
+        </p>
         <div className="solid-3d-layout">
           <div className="solid-3d-stage">
             <Solid3DViewport
@@ -772,6 +815,19 @@ export function Solid3DEditorPanel({
           />
         ) : null}
       </section>
+      <button
+        aria-label="Изменить размер 3D-окна"
+        className="solid-3d-resize-handle"
+        onKeyDown={(event) => handleWindowArrow(event, "resize")}
+        onPointerCancel={endWindowGesture}
+        onPointerDown={(event) => startWindowGesture(event, "resize")}
+        onPointerMove={moveWindowGesture}
+        onPointerUp={endWindowGesture}
+        title="Перетащите мышью или используйте стрелки"
+        type="button"
+      >
+        <span aria-hidden="true">◢</span>
+      </button>
     </div>
   );
 }
