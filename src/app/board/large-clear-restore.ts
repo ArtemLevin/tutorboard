@@ -7,10 +7,10 @@ import {
 
 type Paste = Extract<BoardCommand, { kind: "core.clipboard.paste" }>;
 
-// The deployed Board API defaults to a 5 MiB *envelope* limit and accepts at
-// most 100 ordered commands per atomic revision. Leave room for order, Lamport,
-// actor, SHA and idempotency metadata (including JSON escaping).
-const maximumAtomicRestoreBytes = 4 * 1024 * 1024;
+// Multipart transport stages up to 48 MiB, while preserving the existing
+// 100-command, 2 MiB-command and per-list validation bounds. Conservatively
+// budget 40 MiB for the complete canonical envelope and metadata.
+const maximumAtomicRestoreBytes = 40 * 1024 * 1024;
 const maximumAtomicRestoreCommands = 100;
 const maximumRestoreChunkBytes = 1_750_000;
 const envelopeAllowancePerCommand = 2_048;
