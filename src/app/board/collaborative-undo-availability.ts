@@ -3,7 +3,7 @@ import {
   type BoardCommand,
   type BoardDocument,
 } from "../../core/public";
-import { planAtomicClearRestore } from "./large-clear-restore";
+import { planAtomicClearRestore, planVersionedGraphRestore } from "./large-clear-restore";
 import {
   maximumBoardCommandJsonBytes,
   maximumBoardCommandObjects,
@@ -155,8 +155,10 @@ export class CollaborativeUndoAvailability {
       return false;
     const ids = restoreIds(command, paste);
     if (ids === null) return false;
-    const commands = planAtomicClearRestore(paste);
-    if (commands === null) return false;
+    const parts = planAtomicClearRestore(paste);
+    const graph = parts === null ? planVersionedGraphRestore(paste) : null;
+    if (parts === null && graph === null) return false;
+    const commands = parts ?? (graph === null ? [] : [graph]);
     for (const part of commands) {
       Object.freeze(part.objects);
       Object.freeze(part.groups);
