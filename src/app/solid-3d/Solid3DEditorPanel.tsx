@@ -487,6 +487,33 @@ export function Solid3DEditorPanel({
     setSweepOffset(0);
   };
 
+  const saveRotation = (): void => {
+    if (
+      readOnly ||
+      selectedTuple === null ||
+      rotationEdgeId === "" ||
+      Math.abs(rotationAngle) < 1e-8 ||
+      rotationPreview?.section == null
+    ) return;
+    const saved = onSaveRotation(
+      record,
+      selectedTuple,
+      rotationEdgeId,
+      rotationAngle,
+      crypto.randomUUID(),
+    );
+    if (saved === null) return;
+    setActiveSectionId(saved.sectionId);
+    setSelectedPointIds([]);
+    setRotationEnabled(false);
+    setRotationAngle(0);
+  };
+
+  const adjustRotationAngle = (next: number): void => {
+    if (Number.isFinite(next))
+      setRotationAngle(Math.min(180, Math.max(-180, next)));
+  };
+
   const savePreview = (): void => {
     if (selectedTuple === null || previewSection === null) return;
     const result = saveSolidSectionFromPoints({
@@ -760,6 +787,7 @@ export function Solid3DEditorPanel({
                       }
                       onChange={(event) => {
                         setSweepOffset(0);
+                        setRotationAngle(0);
                         setSelectedPointIds((current) =>
                           event.currentTarget.checked
                             ? [...current, point.id].slice(-3)
@@ -858,6 +886,10 @@ export function Solid3DEditorPanel({
                       onChange={(event) => {
                         setSweepEnabled(event.currentTarget.checked);
                         setSweepOffset(0);
+                        if (event.currentTarget.checked) {
+                          setRotationEnabled(false);
+                          setRotationAngle(0);
+                        }
                       }}
                       type="checkbox"
                     />
