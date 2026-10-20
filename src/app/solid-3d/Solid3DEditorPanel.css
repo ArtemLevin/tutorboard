@@ -521,8 +521,11 @@
   }
   .solid-3d-drag-handle {
     cursor: default;
+    pointer-events: none;
+    touch-action: auto;
   }
-  .solid-3d-resize-handle {
+  .solid-3d-resize-handle,
+  .solid-3d-window-actions button:first-child {
     display: none;
   }
   .solid-3d-dock.is-expanded .solid-3d-layout {
