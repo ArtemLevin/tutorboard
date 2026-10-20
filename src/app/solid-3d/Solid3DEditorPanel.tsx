@@ -211,6 +211,7 @@ export function Solid3DEditorPanel({
     learningAttempt === null ? "free" : "learning",
   );
   const [mode, setMode] = useState<"points" | "view">("view");
+  const [showRotationGizmo, setShowRotationGizmo] = useState(false);
   const [cameraMode, setCameraMode] = useState<"orthographic" | "perspective">(
     "orthographic",
   );
@@ -578,6 +579,17 @@ export function Solid3DEditorPanel({
             Вращение камеры
           </button>
           <button
+            aria-pressed={showRotationGizmo && mode === "view"}
+            disabled={readOnly || mode !== "view"}
+            onClick={() => setShowRotationGizmo((visible) => !visible)}
+            title="Включает кольца для поворота самой модели"
+            type="button"
+          >
+            {showRotationGizmo && mode === "view"
+              ? "Скрыть кольца поворота"
+              : "Показать кольца поворота"}
+          </button>
+          <button
             aria-pressed={mode === "points"}
             disabled={readOnly || record.points.length >= 32}
             onClick={() => setMode("points")}
@@ -618,6 +630,7 @@ export function Solid3DEditorPanel({
               highlightedElement={highlightedElement}
               highlightedSurfaceId={hoveredSurfaceId}
               mode={mode}
+              showRotationGizmo={showRotationGizmo && mode === "view" && !readOnly}
               onElementHover={setHighlightedElement}
               onModelRotationCommit={
                 readOnly
