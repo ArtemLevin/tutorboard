@@ -36,6 +36,18 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
     throw new Error("3D panel move handle bounds are unavailable");
   const canvas = editor.locator("canvas[data-engine]");
   await expect(canvas).toHaveCount(1);
+  const showRings = editor.getByRole("button", {
+    name: "Показать кольца поворота",
+  });
+  await expect(showRings).toHaveAttribute("aria-pressed", "false");
+  await showRings.click();
+  const hideRings = editor.getByRole("button", {
+    name: "Скрыть кольца поворота",
+  });
+  await expect(hideRings).toHaveAttribute("aria-pressed", "true");
+  await hideRings.click();
+  await expect(showRings).toHaveAttribute("aria-pressed", "false");
+  await expect(canvas).toHaveCount(1);
   await canvas.evaluate((node) =>
     node.setAttribute("data-viewport-instance", "same"),
   );
