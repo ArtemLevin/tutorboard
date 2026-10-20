@@ -293,7 +293,9 @@ it.each([1_000, 10_000])(
         );
         expect(server.order).toEqual(clearSource.order);
         expect(server.objects).toEqual(clearSource.objects);
-        expect(repository.push.mock.calls.at(-1)?.[0].commands.length).toBeGreaterThan(1);
+        expect(
+          repository.push.mock.calls.at(-1)?.[0].commands.length,
+        ).toBeGreaterThan(1);
         return;
       }
       const object = before.objects[before.order[0]!]!;
