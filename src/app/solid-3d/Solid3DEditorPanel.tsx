@@ -431,7 +431,8 @@ export function Solid3DEditorPanel({
     );
     if (saved === null) return;
     setActiveSectionId(saved.sectionId);
-    setSelectedPointIds(saved.pointIds);
+    // Saved sweep points belong to the section and stay out of the point picker.
+    setSelectedPointIds([]);
     setSweepEnabled(false);
     setSweepOffset(0);
   };
