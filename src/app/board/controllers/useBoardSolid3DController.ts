@@ -2,8 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 
 import {
   solidLearningAttemptId,
-  reprojectSolid3DRecord,
-  type Solid3DPoint,
   type SolidPointAnchor,
   type Vec3,
   type Solid3DId,
@@ -16,6 +14,7 @@ import {
 import {
   createProjectSolid3DSectionCommand,
   createUpdateSolid3DCommand,
+  applySolidPointDrag,
   findSolidModelBySelection,
 } from "../../../modules/solid-3d/public";
 import {
@@ -121,26 +120,14 @@ export function useBoardSolid3DController({
     ) => {
       const current = getDocument().solidModels[startingRecord.id];
       if (current === undefined) return;
-      const expectedPoint = startingRecord.points.find(({ id }) => id === pointId);
-      const currentPoint = current.points.find(({ id }) => id === pointId);
-      // Reject an in-flight drag when the model or the same point changed remotely.
-      if (
-        expectedPoint === undefined ||
-        currentPoint === undefined ||
-        JSON.stringify(current.definition) !== JSON.stringify(startingRecord.definition) ||
-        JSON.stringify(expectedPoint) !== JSON.stringify(currentPoint)
-      )
-        return;
-      const moved: Solid3DPoint = { ...currentPoint, position, anchor };
-      if (JSON.stringify(moved) === JSON.stringify(currentPoint)) return;
-      const updated: Solid3DRecord = {
-        ...current,
-        points: current.points.map((point) =>
-          point.id === currentPoint.id ? moved : point,
-        ),
-      };
-      // Recompute helper points linked to constrained sections as well.
-      const replacement = reprojectSolid3DRecord(updated, updated.definition);
+      const replacement = applySolidPointDrag(
+        current,
+        startingRecord,
+        pointId,
+        position,
+        anchor,
+      );
+      if (replacement === null) return;
       commitCommand(
         createUpdateSolid3DCommand({
           expected: current,
