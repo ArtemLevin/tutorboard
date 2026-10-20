@@ -759,6 +759,69 @@ export function Solid3DEditorPanel({
                 ? "Создать сечение"
                 : "Сечение сохранено"}
             </button>
+            <section
+              aria-label="Динамическая секущая плоскость"
+              className="solid-3d-sweep"
+            >
+              <h3>Динамическая секущая плоскость</h3>
+              {sweepFrame === null ? (
+                <p>Выберите три неколлинеарные точки многогранника.</p>
+              ) : (
+                <>
+                  <label>
+                    <input
+                      checked={sweepEnabled}
+                      onChange={(event) => {
+                        setSweepEnabled(event.currentTarget.checked);
+                        setSweepOffset(0);
+                      }}
+                      type="checkbox"
+                    />
+                    Параллельное перемещение плоскости
+                  </label>
+                  {sweepEnabled ? (
+                    <>
+                      <label htmlFor="solid-3d-sweep-offset">
+                        Смещение: {sweepOffset.toFixed(2)}
+                      </label>
+                      <input
+                        aria-label="Смещение секущей плоскости"
+                        id="solid-3d-sweep-offset"
+                        max={sweepFrame.maxOffset}
+                        min={sweepFrame.minOffset}
+                        onChange={(event) =>
+                          setSweepOffset(Number(event.currentTarget.value))
+                        }
+                        step="any"
+                        type="range"
+                        value={Math.max(
+                          sweepFrame.minOffset,
+                          Math.min(sweepFrame.maxOffset, sweepOffset),
+                        )}
+                      />
+                      <p aria-live="polite">
+                        {sweepPreview?.section == null
+                          ? "Плоскость не образует сечение тела"
+                          : `Площадь ${sweepPreview.section.area.toFixed(2)} · периметр ${sweepPreview.section.perimeter.toFixed(2)}`}
+                      </p>
+                      <button
+                        disabled={
+                          readOnly ||
+                          Math.abs(sweepOffset) < 1e-8 ||
+                          sweepPreview?.section == null ||
+                          record.sections.length >= 8 ||
+                          record.points.length + 3 > 32
+                        }
+                        onClick={saveSweep}
+                        type="button"
+                      >
+                        Сохранить положение плоскости
+                      </button>
+                    </>
+                  ) : null}
+                </>
+              )}
+            </section>
             <Solid3DSectionConstraintBuilder
               key={`${JSON.stringify(record.definition)}:${points
                 .map(({ id }) => id)
