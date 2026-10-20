@@ -85,7 +85,7 @@ it("restores 5200+ objects as one validated multi-command Undo group preserving 
   const colliding = core.reduceBoardDocument(after, {
     ...metadata("peer"),
     kind: "core.objects.add",
-    objects: [source.objects[source.order[0]!]!],
+    objects: [source.objects[source.order.at(-1)!]!],
   });
   if (!colliding.ok) throw new Error(colliding.error.message);
   expect(checker.stillApplies(colliding.document, planned)).toBe(false);
