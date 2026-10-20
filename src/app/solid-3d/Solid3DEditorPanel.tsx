@@ -630,7 +630,9 @@ export function Solid3DEditorPanel({
               highlightedElement={highlightedElement}
               highlightedSurfaceId={hoveredSurfaceId}
               mode={mode}
-              showRotationGizmo={showRotationGizmo && mode === "view" && !readOnly}
+              showRotationGizmo={
+                showRotationGizmo && mode === "view" && !readOnly
+              }
               onElementHover={setHighlightedElement}
               onModelRotationCommit={
                 readOnly

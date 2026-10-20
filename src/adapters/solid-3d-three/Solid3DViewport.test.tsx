@@ -103,11 +103,7 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     expect(rendererLifecycle.created).toBe(1);
 
     view.rerender(
-      <Solid3DViewport
-        {...props}
-        record={base}
-        showRotationGizmo={false}
-      />,
+      <Solid3DViewport {...props} record={base} showRotationGizmo={false} />,
     );
     expect(rendererLifecycle.gizmoVisible).toBe(false);
     expect(rendererLifecycle.created).toBe(1);

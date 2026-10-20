@@ -93,7 +93,9 @@ describe("Solid3DEditorPanel embedded workspace", () => {
   it("keeps RGB rotation rings hidden until requested and hides them in point mode", () => {
     renderPanel();
     const viewport = screen.getByTestId("mock-3d-viewport");
-    const show = screen.getByRole("button", { name: "Показать кольца поворота" });
+    const show = screen.getByRole("button", {
+      name: "Показать кольца поворота",
+    });
     expect(show).toHaveAttribute("aria-pressed", "false");
     expect(viewport).toHaveAttribute("data-rotation-gizmo", "false");
 
@@ -104,12 +106,15 @@ describe("Solid3DEditorPanel embedded workspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Поставить точку" }));
     expect(viewport).toHaveAttribute("data-rotation-gizmo", "false");
-    expect(screen.getByRole("button", { name: "Показать кольца поворота" }))
-      .toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Показать кольца поворота" }),
+    ).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Вращение камеры" }));
     expect(viewport).toHaveAttribute("data-rotation-gizmo", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Скрыть кольца поворота" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Скрыть кольца поворота" }),
+    );
     expect(viewport).toHaveAttribute("data-rotation-gizmo", "false");
     expect(screen.getByTestId("mock-3d-viewport")).toBe(viewport);
   });
