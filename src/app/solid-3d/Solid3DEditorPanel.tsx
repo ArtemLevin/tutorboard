@@ -171,7 +171,7 @@ export function Solid3DEditorPanel({
   } | null>(null);
   const startingDragRecord = useRef<Solid3DRecord | null>(null);
   const previewRecord = useMemo(() => {
-    if (dragPreview === null) return record;
+    if (readOnly || dragPreview === null) return record;
     const updated = record.points.map((point) =>
       point.id === dragPreview.pointId
         ? { ...point, ...dragPreview.placement }
@@ -181,7 +181,7 @@ export function Solid3DEditorPanel({
       { ...record, points: updated },
       record.definition,
     );
-  }, [dragPreview, record]);
+  }, [dragPreview, readOnly, record]);
   const points = useMemo(
     () => visiblePoints(previewRecord.points),
     [previewRecord.points],
@@ -567,24 +567,29 @@ export function Solid3DEditorPanel({
               onPointPlace={placePoint}
               onPointDragStart={() => {
                 if (readOnly) return;
+                setDragPreview(null);
                 startingDragRecord.current = record;
               }}
               onPointDragPreview={(pointId, placement) => {
                 if (readOnly || startingDragRecord.current === null) return;
                 setDragPreview({ pointId, placement });
               }}
-              onPointDragEnd={(pointId, placement) => {
-                const initial = startingDragRecord.current;
-                startingDragRecord.current = null;
-                setDragPreview(null);
-                if (readOnly || initial === null || placement === null) return;
-                onPointMove(
-                  initial,
-                  pointId,
-                  placement.position,
-                  placement.anchor,
-                );
-              }}
+              onPointDragEnd={
+                readOnly
+                  ? undefined
+                  : (pointId, placement) => {
+                      const initial = startingDragRecord.current;
+                      startingDragRecord.current = null;
+                      setDragPreview(null);
+                      if (initial === null || placement === null) return;
+                      onPointMove(
+                        initial,
+                        pointId,
+                        placement.position,
+                        placement.anchor,
+                      );
+                    }
+              }
               onSurfaceHover={setHoveredSurfaceId}
               record={previewRecord}
               resetToken={resetToken}
