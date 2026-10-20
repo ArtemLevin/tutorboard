@@ -2827,3 +2827,12 @@ Evidence: `docs/C39_CLEAR_ZOOM_DIAGNOSTICS_2026-10-14.md`, PR #263, issue #201.
 - Backend Draft PR ArtemLevin/tutor-assistant-web#50: migration 0020, 512 KiB chunks, tenant/board/actor/access-epoch binding, SHA-256, TTL/periodic cleanup, up to 48 MiB single-revision finalize.
 - Prior 2 MiB per-command/5,000 items codec remains enforced. Whole-group/GeometryOS/3D restore beyond a command and removed 3D learning attempts remain open.
 - Verification and deployment status are tracked in PR CI. No merge or production release at this stage. Keep Issue #275 open until full acceptance.
+
+
+## 20.10.2026 — Issue #275: versioned atomic graph restore
+
+- Added `core.clipboard.restore-graph` with `graphVersion: "1.0"`, up to 10,000 objects and 40 MiB per graph; preserves complete group, GeometryOS and 3D references in one reducer transaction.
+- Standard `core.clipboard.paste` bounds stay at 5,000 snapshots and 2 MiB. Splittable cuts use ordered batches; indivisible cuts use graph restore.
+- Backend Draft PR #50 vendors the matching graph schema/DTO and implements authenticated multipart finalize with server-side graph integrity validation, durable idempotency, expiry cleanup and one committed revision.
+- Frontend Draft PR #274 includes 5,200-member group regression and 10,000-stroke Undo tests. Coordinated release-gate CI and pinned backend release manifest are required before merge.
+- Remaining limitations: >10,000 objects or >40 MiB, removed 3D learning attempts, mixed-version legacy clients, and live device/restart/backup soak.
