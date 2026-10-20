@@ -45,7 +45,7 @@ export function initialSolid3DWindowRect(
       left: workspace.width - width - INSET,
       top: INSET,
       width,
-      height: Math.min(760, workspace.height - INSET * 2),
+      height: Math.min(620, workspace.height - INSET * 2),
     },
     workspace,
   );
