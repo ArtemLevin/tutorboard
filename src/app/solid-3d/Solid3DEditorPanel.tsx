@@ -36,8 +36,10 @@ import {
   saveSolidSectionFromPoints,
   setSavedSolidSectionVisibility,
 } from "../../modules/solid-3d/public";
-import { Solid3DViewport } from "../../adapters/solid-3d-three/public";
-import type { SolidPointDragPlacement } from "../../adapters/solid-3d-three/solid-point-drag";
+import {
+  Solid3DViewport,
+  type SolidPointDragPlacement,
+} from "../../adapters/solid-3d-three/public";
 import { Solid3DLearningWorkspace } from "./Solid3DLearningWorkspace";
 import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
 import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuilder";
