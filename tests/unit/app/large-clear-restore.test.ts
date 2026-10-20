@@ -2,14 +2,24 @@ import { expect, it } from "vitest";
 import * as core from "../../../src/core/public";
 import { CollaborativeUndoAvailability } from "../../../src/app/board/collaborative-undo-availability";
 import { planAtomicClearRestore } from "../../../src/app/board/large-clear-restore";
-import { copyBoardSelection, createCutContentCommand } from "../../../src/modules/clipboard/public";
+import {
+  copyBoardSelection,
+  createCutContentCommand,
+} from "../../../src/modules/clipboard/public";
 import { invertOwnBoardCommand } from "../../../src/modules/server-sync/public";
-import { emptyDocument, loadCurrentBoardFixture, metadata, rectangle } from "../core/helpers";
+import {
+  emptyDocument,
+  loadCurrentBoardFixture,
+  metadata,
+  rectangle,
+} from "../core/helpers";
 
 function fixture(count: number, grouped = false): core.BoardDocument {
   const first = core.readBoardDocument(loadCurrentBoardFixture());
   if (first.status !== "ok") throw new Error("Invalid seed");
-  const objects = Array.from({ length: count }, (_, i) => rectangle(`bulk:${i}`));
+  const objects = Array.from({ length: count }, (_, i) =>
+    rectangle(`bulk:${i}`),
+  );
   const groups = grouped
     ? {
         ...first.document.groups,
@@ -45,7 +55,10 @@ function fixture(count: number, grouped = false): core.BoardDocument {
 function makeCut(source: core.BoardDocument) {
   const selected = copyBoardSelection(source, source.order);
   if (selected.status !== "ok") throw new Error("Cannot select objects");
-  const cut = createCutContentCommand(selected.payload, metadata("atomic-clear"));
+  const cut = createCutContentCommand(
+    selected.payload,
+    metadata("atomic-clear"),
+  );
   const after = core.reduceBoardDocument(source, cut);
   if (!after.ok) throw new Error(after.error.message);
   const inverse = invertOwnBoardCommand(cut, source, {
