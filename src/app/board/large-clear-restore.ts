@@ -47,7 +47,9 @@ function emptyPart(): RestorePart {
  */
 export function planAtomicClearRestore(paste: Paste): readonly Paste[] | null {
   if (paste.objects.length < 1) return null;
-  const index = new Map<string, number>(paste.objects.map((object, i) => [object.id, i]));
+  const index = new Map<string, number>(
+    paste.objects.map((object, i) => [object.id, i] as const),
+  );
   if (index.size !== paste.objects.length) return null;
 
   const last = paste.objects.map((_, i) => i);
