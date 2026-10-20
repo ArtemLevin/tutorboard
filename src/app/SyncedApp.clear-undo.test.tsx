@@ -246,7 +246,7 @@ it.each([1_000, 10_000])(
       );
       let clearSource = before;
       if (strokeCount === 10_000) {
-        // A valid older Undo must not be exposed as undoing an oversized clear.
+        // A prior Undo must remain independently available after a large clear.
         const rename: BoardCommand = {
           actorId: actor,
           id: core.commandId("command:own-title"),
@@ -278,15 +278,24 @@ it.each([1_000, 10_000])(
           kind: "core.document.rename",
           title,
         });
-        expect(capture.props?.collaborativeUndoAvailable).toBe(
-          strokeCount === 1_000,
-        );
+        expect(capture.props?.collaborativeUndoAvailable).toBe(true);
         console.info("CLEAR_UNDO_CHECK", JSON.stringify({ strokeCount, ms }));
       }
       if (strokeCount === 10_000) {
-        const pushed = repository.push.mock.calls.length;
+        const expectedRevision = revision + 1;
         act(() => capture.props?.onCollaborativeUndo?.());
-        expect(repository.push).toHaveBeenCalledTimes(pushed);
+        await waitFor(
+          () =>
+            expect(capture.props?.persistenceStatus?.label).toBe(
+              `Синхронизировано · r${expectedRevision}`,
+            ),
+          { timeout: 15_000 },
+        );
+        expect(server.order).toEqual(clearSource.order);
+        expect(server.objects).toEqual(clearSource.objects);
+        expect(
+          repository.push.mock.calls.at(-1)?.[0].commands.length,
+        ).toBeGreaterThan(1);
         return;
       }
       const object = before.objects[before.order[0]!]!;

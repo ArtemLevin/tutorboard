@@ -274,6 +274,7 @@ export function invertOwnBoardCommand(
         },
       ];
     case "core.clipboard.paste":
+    case "core.clipboard.restore-graph":
       if ((command.solidModels?.length ?? 0) > 0) return [];
       return [
         {
