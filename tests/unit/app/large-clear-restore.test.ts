@@ -117,7 +117,8 @@ it("atomically restores a 5200-object indivisible group using graphVersion 1.0",
   expect(planned).toHaveLength(1);
   expect(planned[0]?.kind).toBe("core.clipboard.restore-graph");
   const graph = planned[0];
-  if (graph?.kind !== "core.clipboard.restore-graph") throw new Error("Missing graph");
+  if (graph?.kind !== "core.clipboard.restore-graph")
+    throw new Error("Missing graph");
   expect(graph.graphVersion).toBe("1.0");
   expect(checker.stillApplies(after, planned)).toBe(true);
   const result = core.reduceBoardDocument(after, graph);
@@ -131,7 +132,15 @@ it("atomically restores a 5200-object indivisible group using graphVersion 1.0",
   expect(decoded.status).toBe("ok");
   const corrupted = {
     ...graph,
-    groups: [{ ...graph.groups[0]!, objectIds: [...graph.groups[0]!.objectIds, core.boardObjectId("missing-object")] }],
+    groups: [
+      {
+        ...graph.groups[0]!,
+        objectIds: [
+          ...graph.groups[0]!.objectIds,
+          core.boardObjectId("missing-object"),
+        ],
+      },
+    ],
   };
   const denied = core.reduceBoardDocument(after, corrupted);
   expect(denied.ok).toBe(false);
