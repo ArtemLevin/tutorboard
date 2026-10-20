@@ -32,6 +32,8 @@ import {
 } from "../../core/public";
 import {
   calculateSolidSection,
+  getSolidSectionSweepFrame,
+  previewSolidSectionSweep,
   removeSavedSolidSection,
   saveSolidSectionFromPoints,
   setSavedSolidSectionVisibility,
@@ -51,6 +53,15 @@ export interface Solid3DEditorPanelProps {
   readonly onClose: () => void;
   readonly onProject: (sectionId: string, section: SolidSectionResult) => void;
   readonly onRecordChange: (replacement: Solid3DRecord) => void;
+  readonly onSaveSweep: (
+    startingRecord: Solid3DRecord,
+    pointIds: readonly [Solid3DPoint["id"], Solid3DPoint["id"], Solid3DPoint["id"]],
+    offset: number,
+    token: string,
+  ) => {
+    readonly sectionId: string;
+    readonly pointIds: readonly [Solid3DPoint["id"], Solid3DPoint["id"], Solid3DPoint["id"]];
+  } | null;
   readonly onPointMove: (
     startingRecord: Solid3DRecord,
     pointId: string,
@@ -154,6 +165,7 @@ export function Solid3DEditorPanel({
   onProject,
   onRecordChange,
   onPointMove,
+  onSaveSweep,
   onUndo,
   readOnly,
   record,
@@ -201,6 +213,8 @@ export function Solid3DEditorPanel({
   );
   const [showSectionFill, setShowSectionFill] = useState(true);
   const [showSectionOutline, setShowSectionOutline] = useState(true);
+  const [sweepEnabled, setSweepEnabled] = useState(false);
+  const [sweepOffset, setSweepOffset] = useState(0);
   const [resetToken, setResetToken] = useState(0);
   const {
     dockRef,
@@ -289,7 +303,19 @@ export function Solid3DEditorPanel({
     activeSectionDefinition?.visible === true
       ? activeSectionResult.section
       : null;
-  const freeVisibleSection = previewSection ?? activeSection;
+  const sweepFrame = useMemo(
+    () => selectedTuple === null ? null : getSolidSectionSweepFrame(previewRecord, selectedTuple),
+    [previewRecord, selectedTuple],
+  );
+  const sweepPreview = useMemo(
+    () => sweepEnabled && selectedTuple !== null
+      ? previewSolidSectionSweep(previewRecord, selectedTuple, sweepOffset)
+      : null,
+    [previewRecord, selectedTuple, sweepEnabled, sweepOffset],
+  );
+  const freeVisibleSection = sweepEnabled
+    ? (sweepPreview?.section ?? null)
+    : (previewSection ?? activeSection);
 
   const startLearning = (
     scenario: Solid3DLearningScenario,
