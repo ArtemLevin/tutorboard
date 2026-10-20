@@ -125,7 +125,11 @@ describe("3D editor optimistic point drag", () => {
     expect(onPointMove).toHaveBeenCalledWith(
       record,
       point.id,
-      point.position,
+      resolveSolidPointAnchor(topology, {
+        kind: "edge",
+        edgeId: topology.edges[0]!.id,
+        parameter: 0.75,
+      }),
       expect.objectContaining({ kind: "edge", parameter: 0.75 }),
     );
     expect(screen.getByTestId("drag-parameter")).toHaveTextContent("0.25");
