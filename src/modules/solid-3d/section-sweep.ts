@@ -19,7 +19,11 @@ import {
   type Vec3,
 } from "../../core/public";
 
-type PointIds = readonly [Solid3DPoint["id"], Solid3DPoint["id"], Solid3DPoint["id"]];
+type PointIds = readonly [
+  Solid3DPoint["id"],
+  Solid3DPoint["id"],
+  Solid3DPoint["id"],
+];
 
 export interface SolidSectionSweepFrame {
   readonly plane: Plane3D;
@@ -33,7 +37,10 @@ export interface SolidSectionSweepPreview {
 }
 
 export type SaveSolidSectionSweepResult =
-  | { readonly status: "error"; readonly code: "invalid-source" | "outside" | "limit" }
+  | {
+      readonly status: "error";
+      readonly code: "invalid-source" | "outside" | "limit";
+    }
   | {
       readonly status: "ok";
       readonly record: Solid3DRecord;
@@ -42,15 +49,22 @@ export type SaveSolidSectionSweepResult =
       readonly pointIds: PointIds;
     };
 
-function sameSource(current: Solid3DRecord, starting: Solid3DRecord, ids: PointIds): boolean {
+function sameSource(
+  current: Solid3DRecord,
+  starting: Solid3DRecord,
+  ids: PointIds,
+): boolean {
   if (
     current.id !== starting.id ||
     JSON.stringify(current.definition) !== JSON.stringify(starting.definition)
-  ) return false;
+  )
+    return false;
   return ids.every((id) => {
     const before = starting.points.find((point) => point.id === id);
     const after = current.points.find((point) => point.id === id);
-    return before !== undefined && JSON.stringify(before) === JSON.stringify(after);
+    return (
+      before !== undefined && JSON.stringify(before) === JSON.stringify(after)
+    );
   });
 }
 
@@ -61,7 +75,9 @@ export function getSolidSectionSweepFrame(
 ): SolidSectionSweepFrame | null {
   const topology = createSolidTopology(record.definition);
   if (topology === null) return null;
-  const points = ids.map((id) => record.points.find((point) => point.id === id));
+  const points = ids.map((id) =>
+    record.points.find((point) => point.id === id),
+  );
   if (points.some((point) => point === undefined)) return null;
   const plane = planeFromThreePoints(
     resolveSolid3DPointPosition(record.definition, points[0]!),
@@ -74,14 +90,24 @@ export function getSolidSectionSweepFrame(
   );
   const minOffset = Math.min(...distances);
   const maxOffset = Math.max(...distances);
-  if (!Number.isFinite(minOffset) || !Number.isFinite(maxOffset) || maxOffset - minOffset < 1e-8) {
+  if (
+    !Number.isFinite(minOffset) ||
+    !Number.isFinite(maxOffset) ||
+    maxOffset - minOffset < 1e-8
+  ) {
     return null;
   }
   return { plane, minOffset, maxOffset };
 }
 
-function translatedPlane(frame: SolidSectionSweepFrame, offset: number): Plane3D {
-  return { normal: frame.plane.normal, constant: frame.plane.constant - offset };
+function translatedPlane(
+  frame: SolidSectionSweepFrame,
+  offset: number,
+): Plane3D {
+  return {
+    normal: frame.plane.normal,
+    constant: frame.plane.constant - offset,
+  };
 }
 
 export function previewSolidSectionSweep(
@@ -91,13 +117,17 @@ export function previewSolidSectionSweep(
 ): SolidSectionSweepPreview | null {
   const frame = getSolidSectionSweepFrame(record, ids);
   const topology = createSolidTopology(record.definition);
-  if (frame === null || topology === null || !Number.isFinite(offset)) return null;
+  if (frame === null || topology === null || !Number.isFinite(offset))
+    return null;
   if (offset < frame.minOffset || offset > frame.maxOffset) {
     return { frame, section: null };
   }
   return {
     frame,
-    section: intersectPolyhedronWithPlane(topology, translatedPlane(frame, offset)),
+    section: intersectPolyhedronWithPlane(
+      topology,
+      translatedPlane(frame, offset),
+    ),
   };
 }
 
@@ -106,11 +136,13 @@ function anchorOnBoundary(
   point: Vec3,
   tolerance: number,
 ): SolidPointAnchor | null {
-  const vertex = topology.vertices.find((candidate) =>
-    distance3(candidate.position, point) <= tolerance,
+  const vertex = topology.vertices.find(
+    (candidate) => distance3(candidate.position, point) <= tolerance,
   );
   if (vertex !== undefined) return { kind: "vertex", vertexId: vertex.id };
-  const vertices = new Map(topology.vertices.map(({ id, position }) => [id, position]));
+  const vertices = new Map(
+    topology.vertices.map(({ id, position }) => [id, position]),
+  );
   for (const edge of topology.edges) {
     const start = vertices.get(edge.startVertexId)!;
     const end = vertices.get(edge.endVertexId)!;
@@ -131,7 +163,9 @@ function anchorOnBoundary(
   return null;
 }
 
-function nonCollinearVertices(section: SolidSectionResult): readonly [Vec3, Vec3, Vec3] | null {
+function nonCollinearVertices(
+  section: SolidSectionResult,
+): readonly [Vec3, Vec3, Vec3] | null {
   const vertices = section.vertices;
   if (vertices.length < 3) return null;
   const first = vertices[0]!;
@@ -165,7 +199,8 @@ export function saveSolidSectionSweep(input: {
   readonly token: string;
 }): SaveSolidSectionSweepResult {
   const { current, starting, pointIds, offset, token } = input;
-  if (!sameSource(current, starting, pointIds)) return { status: "error", code: "invalid-source" };
+  if (!sameSource(current, starting, pointIds))
+    return { status: "error", code: "invalid-source" };
   if (current.sections.length >= 8 || current.points.length + 3 > 32)
     return { status: "error", code: "limit" };
   const swept = previewSolidSectionSweep(current, pointIds, offset);
@@ -180,8 +215,11 @@ export function saveSolidSectionSweep(input: {
       Math.hypot(vertex.position.x, vertex.position.y, vertex.position.z),
     ),
   );
-  const anchors = triple.map((vertex) => anchorOnBoundary(topology, vertex, extent * 1e-6));
-  if (anchors.some((anchor) => anchor === null)) return { status: "error", code: "outside" };
+  const anchors = triple.map((vertex) =>
+    anchorOnBoundary(topology, vertex, extent * 1e-6),
+  );
+  if (anchors.some((anchor) => anchor === null))
+    return { status: "error", code: "outside" };
   const newPoints = triple.map((position, i): Solid3DPoint => ({
     id: solidPointId(`solid-point:sweep:${token}:${i}`),
     label: `T${i + 1}`,
@@ -193,16 +231,26 @@ export function saveSolidSectionSweep(input: {
   if (
     current.points.some((point) => ids.includes(point.id)) ||
     current.sections.some((section) => section.id === sectionId)
-  ) return { status: "error", code: "invalid-source" };
+  )
+    return { status: "error", code: "invalid-source" };
   const record: Solid3DRecord = {
     ...current,
     points: [...current.points, ...newPoints],
-    sections: [...current.sections, {
-      algorithmVersion: "polyhedron-plane/1",
-      id: sectionId,
-      pointIds: ids,
-      visible: true,
-    }],
+    sections: [
+      ...current.sections,
+      {
+        algorithmVersion: "polyhedron-plane/1",
+        id: sectionId,
+        pointIds: ids,
+        visible: true,
+      },
+    ],
   };
-  return { status: "ok", record, sectionId, pointIds: ids, section: swept.section };
+  return {
+    status: "ok",
+    record,
+    sectionId,
+    pointIds: ids,
+    section: swept.section,
+  };
 }

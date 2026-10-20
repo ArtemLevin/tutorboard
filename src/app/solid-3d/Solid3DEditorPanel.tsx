@@ -56,12 +56,20 @@ export interface Solid3DEditorPanelProps {
   readonly onRecordChange: (replacement: Solid3DRecord) => void;
   readonly onSaveSweep: (
     startingRecord: Solid3DRecord,
-    pointIds: readonly [Solid3DPoint["id"], Solid3DPoint["id"], Solid3DPoint["id"]],
+    pointIds: readonly [
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+    ],
     offset: number,
     token: string,
   ) => {
     readonly sectionId: string;
-    readonly pointIds: readonly [Solid3DPoint["id"], Solid3DPoint["id"], Solid3DPoint["id"]];
+    readonly pointIds: readonly [
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+    ];
   } | null;
   readonly onPointMove: (
     startingRecord: Solid3DRecord,
@@ -305,13 +313,17 @@ export function Solid3DEditorPanel({
       ? activeSectionResult.section
       : null;
   const sweepFrame = useMemo(
-    () => selectedTuple === null ? null : getSolidSectionSweepFrame(previewRecord, selectedTuple),
+    () =>
+      selectedTuple === null
+        ? null
+        : getSolidSectionSweepFrame(previewRecord, selectedTuple),
     [previewRecord, selectedTuple],
   );
   const sweepPreview = useMemo(
-    () => sweepEnabled && selectedTuple !== null
-      ? previewSolidSectionSweep(previewRecord, selectedTuple, sweepOffset)
-      : null,
+    () =>
+      sweepEnabled && selectedTuple !== null
+        ? previewSolidSectionSweep(previewRecord, selectedTuple, sweepOffset)
+        : null,
     [previewRecord, selectedTuple, sweepEnabled, sweepOffset],
   );
   const freeVisibleSection = sweepEnabled
@@ -409,8 +421,14 @@ export function Solid3DEditorPanel({
       selectedTuple === null ||
       sweepPreview?.section == null ||
       Math.abs(sweepOffset) < 1e-8
-    ) return;
-    const saved = onSaveSweep(record, selectedTuple, sweepOffset, crypto.randomUUID());
+    )
+      return;
+    const saved = onSaveSweep(
+      record,
+      selectedTuple,
+      sweepOffset,
+      crypto.randomUUID(),
+    );
     if (saved === null) return;
     setActiveSectionId(saved.sectionId);
     setSelectedPointIds(saved.pointIds);

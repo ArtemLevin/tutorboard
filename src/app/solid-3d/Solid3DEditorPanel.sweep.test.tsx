@@ -24,10 +24,15 @@ vi.mock("../../adapters/solid-3d-three/public", () => ({
 
 const definition = { kind: "cube", edgeLength: 2 } as const;
 const topology = createSolidTopology(definition)!;
-const vertexMap = new Map(topology.vertices.map(({ id, position }) => [id, position]));
+const vertexMap = new Map(
+  topology.vertices.map(({ id, position }) => [id, position]),
+);
 const points: Solid3DPoint[] = topology.edges
-  .filter(({ startVertexId, endVertexId }) =>
-    Math.abs(vertexMap.get(startVertexId)!.y - vertexMap.get(endVertexId)!.y) > 1.5,
+  .filter(
+    ({ startVertexId, endVertexId }) =>
+      Math.abs(
+        vertexMap.get(startVertexId)!.y - vertexMap.get(endVertexId)!.y,
+      ) > 1.5,
   )
   .slice(0, 3)
   .map((edge, index) => {
@@ -85,14 +90,23 @@ describe("3D parallel section sweep UI", () => {
   it("updates the live WebGL section without persisting until explicitly saved", () => {
     const { onSaveSweep, onRecordChange } = renderSweep();
     expect(screen.getByTestId("mock-sweep-section")).toHaveTextContent("0.00");
-    fireEvent.click(screen.getByLabelText("Параллельное перемещение плоскости"));
-    fireEvent.change(screen.getByRole("slider", { name: "Смещение секущей плоскости" }), {
-      target: { value: "0.5" },
-    });
-    expect(screen.getByTestId("mock-sweep-section")).not.toHaveTextContent("0.00");
+    fireEvent.click(
+      screen.getByLabelText("Параллельное перемещение плоскости"),
+    );
+    fireEvent.change(
+      screen.getByRole("slider", { name: "Смещение секущей плоскости" }),
+      {
+        target: { value: "0.5" },
+      },
+    );
+    expect(screen.getByTestId("mock-sweep-section")).not.toHaveTextContent(
+      "0.00",
+    );
     expect(onSaveSweep).not.toHaveBeenCalled();
     expect(onRecordChange).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить положение плоскости" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Сохранить положение плоскости" }),
+    );
     expect(onSaveSweep).toHaveBeenCalledTimes(1);
     expect(onSaveSweep).toHaveBeenCalledWith(
       record,
@@ -104,11 +118,18 @@ describe("3D parallel section sweep UI", () => {
 
   it("keeps live exploration available in read-only mode while blocking commits", () => {
     const { onSaveSweep } = renderSweep(true);
-    fireEvent.click(screen.getByLabelText("Параллельное перемещение плоскости"));
-    fireEvent.change(screen.getByRole("slider", { name: "Смещение секущей плоскости" }), {
-      target: { value: "0.5" },
-    });
-    expect(screen.getByRole("button", { name: "Сохранить положение плоскости" })).toBeDisabled();
+    fireEvent.click(
+      screen.getByLabelText("Параллельное перемещение плоскости"),
+    );
+    fireEvent.change(
+      screen.getByRole("slider", { name: "Смещение секущей плоскости" }),
+      {
+        target: { value: "0.5" },
+      },
+    );
+    expect(
+      screen.getByRole("button", { name: "Сохранить положение плоскости" }),
+    ).toBeDisabled();
     expect(onSaveSweep).not.toHaveBeenCalled();
   });
 });

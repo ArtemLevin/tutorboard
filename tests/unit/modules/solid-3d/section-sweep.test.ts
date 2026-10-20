@@ -19,7 +19,9 @@ import {
 
 const definition = { kind: "cube", edgeLength: 2 } as const;
 const topology = createSolidTopology(definition)!;
-const positions = new Map(topology.vertices.map((point) => [point.id, point.position]));
+const positions = new Map(
+  topology.vertices.map((point) => [point.id, point.position]),
+);
 const verticalEdges = topology.edges.filter((edge) => {
   const a = positions.get(edge.startVertexId)!;
   const b = positions.get(edge.endVertexId)!;
@@ -81,15 +83,26 @@ describe("parallel section sweep", () => {
     if (captured.status !== "ok") return;
     expect(captured.record.points).toHaveLength(6);
     expect(captured.record.sections).toHaveLength(1);
-    expect(captured.record.points.slice(3).every((point) =>
-      point.anchor.kind === "edge" || point.anchor.kind === "vertex",
-    )).toBe(true);
+    expect(
+      captured.record.points
+        .slice(3)
+        .every(
+          (point) =>
+            point.anchor.kind === "edge" || point.anchor.kind === "vertex",
+        ),
+    ).toBe(true);
     expect(validateSolid3DRecord(captured.record)).toEqual([]);
-    const recomputed = calculateSolidSection(captured.record, captured.pointIds);
+    const recomputed = calculateSolidSection(
+      captured.record,
+      captured.pointIds,
+    );
     expect(recomputed.status).toBe("ok");
     if (recomputed.status === "ok") {
       expect(recomputed.section.area).toBeCloseTo(captured.section.area, 5);
-      expect(recomputed.section.perimeter).toBeCloseTo(captured.section.perimeter, 5);
+      expect(recomputed.section.perimeter).toBeCloseTo(
+        captured.section.perimeter,
+        5,
+      );
     }
     expect(original.sections).toHaveLength(0);
   });
@@ -123,37 +136,46 @@ describe("parallel section sweep", () => {
         point.id === ids[0] ? { ...point, label: "Edited elsewhere" } : point,
       ),
     };
-    expect(saveSolidSectionSweep({
-      current: changed,
-      starting,
-      pointIds: ids,
-      offset: 0.25,
-      token: "rejected",
-    })).toMatchObject({ status: "error", code: "invalid-source" });
-    expect(saveSolidSectionSweep({
-      current: starting,
-      starting,
-      pointIds: ids,
-      offset: 5,
-      token: "outside",
-    })).toMatchObject({ status: "error", code: "outside" });
+    expect(
+      saveSolidSectionSweep({
+        current: changed,
+        starting,
+        pointIds: ids,
+        offset: 0.25,
+        token: "rejected",
+      }),
+    ).toMatchObject({ status: "error", code: "invalid-source" });
+    expect(
+      saveSolidSectionSweep({
+        current: starting,
+        starting,
+        pointIds: ids,
+        offset: 5,
+        token: "outside",
+      }),
+    ).toMatchObject({ status: "error", code: "outside" });
   });
 
   it("enforces the persisted section and point limits", () => {
     const starting = record();
-    const tooMany = { ...starting, points: [
-      ...starting.points,
-      ...Array.from({ length: 27 }, (_, index) => ({
-        ...starting.points[0]!,
-        id: solidPointId(`solid-point:other:${index}`),
-      })),
-    ] };
-    expect(saveSolidSectionSweep({
-      current: tooMany,
-      starting,
-      pointIds: ids,
-      offset: 0.25,
-      token: "limit",
-    })).toMatchObject({ status: "error", code: "limit" });
+    const tooMany = {
+      ...starting,
+      points: [
+        ...starting.points,
+        ...Array.from({ length: 27 }, (_, index) => ({
+          ...starting.points[0]!,
+          id: solidPointId(`solid-point:other:${index}`),
+        })),
+      ],
+    };
+    expect(
+      saveSolidSectionSweep({
+        current: tooMany,
+        starting,
+        pointIds: ids,
+        offset: 0.25,
+        token: "limit",
+      }),
+    ).toMatchObject({ status: "error", code: "limit" });
   });
 });
