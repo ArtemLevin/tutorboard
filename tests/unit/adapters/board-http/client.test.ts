@@ -52,7 +52,7 @@ describe("Board HTTP multipart transport", () => {
           id: commandId(`command:bulk:${index}`),
           kind: "core.objects.add",
           objects: Array.from({ length: 500 }, (_, i) => ({
-            id: (boardObjectId)(`object:bulk:${index}:${i}`),
+            id: boardObjectId(`object:bulk:${index}:${i}`),
             kind: "drawing.rectangle" as const,
             groupId: null,
             locked: false,
@@ -72,32 +72,32 @@ describe("Board HTTP multipart transport", () => {
       }));
     const bulk = { ...envelope, commands, idempotencyKey: "client:bulk-atomic" };
     const transmitted: Uint8Array[] = [];
-    const request = vi.fn<typeof fetch>().mockImplementation((url, init) => {
+    const request = vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
       const target = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
       if (target.endsWith("/command-uploads")) {
         if (typeof init?.body !== "string") throw new Error("Expected JSON body");
         const descriptor = JSON.parse(init.body) as { byteSize: number; uploadId: string };
         expect(descriptor.uploadId).toMatch(/^upload:[a-f0-9]{64}$/u);
-        return Promise.resolve(jsonResponse({
+        return jsonResponse({
           uploadId: descriptor.uploadId,
           chunkCount: Math.ceil(descriptor.byteSize / (512 * 1024)),
           chunkBytes: 512 * 1024,
-        }, 201));
+        }, 201);
       }
       if (target.includes("/parts/")) {
-        if (!(init?.body instanceof ArrayBuffer)) throw new Error("Expected binary body");
-        transmitted.push(new Uint8Array(init.body));
-        return Promise.resolve(new Response(null, { status: 204 }));
+        if (init?.body == null) throw new Error("Missing binary body");
+        transmitted.push(new Uint8Array(await new Response(init.body).arrayBuffer()));
+        return new Response(null, { status: 204 });
       }
       if (init?.method === "DELETE") {
-        return Promise.resolve(new Response(null, { status: 204 }));
+        return new Response(null, { status: 204 });
       }
       expect(target).toContain("/finalize");
-      return Promise.resolve(jsonResponse({
+      return jsonResponse({
         currentDocumentSha256: bulk.expectedDocumentSha256,
         revision: 1,
         snapshotDue: false,
-      }));
+      });
     });
     const repository = createBoardHttpRepository({
       fetch: request,
