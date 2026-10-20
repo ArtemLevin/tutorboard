@@ -8,6 +8,7 @@ import {
   solid3DModelQuaternion,
   type Solid3DQuaternion,
   type Solid3DRecord,
+  type Solid3DPoint,
   type SolidAnalyticSurfaceId,
   type SolidElementRef,
   type SolidPointAnchor,
@@ -17,6 +18,11 @@ import {
 import { disposeSolidScene } from "./resource-disposal";
 import { buildSolidScene } from "./scene-builder";
 import { resolveSolidHitAnchor } from "./semantic-hit";
+import {
+  dragSolidPointToPointer,
+  pickSolidPointForDrag,
+  type SolidPointDragPlacement,
+} from "./solid-point-drag";
 import { SolidRotationGizmoController } from "./rotation-gizmo";
 
 export interface Solid3DViewportProps {
@@ -24,6 +30,15 @@ export interface Solid3DViewportProps {
   readonly highlightedSurfaceId?: SolidAnalyticSurfaceId | null;
   readonly mode: "points" | "view";
   readonly onPointPlace: (position: Vec3, anchor: SolidPointAnchor) => void;
+  readonly onPointDragStart?: (pointId: string) => void;
+  readonly onPointDragPreview?: (
+    pointId: string,
+    placement: SolidPointDragPlacement,
+  ) => void;
+  readonly onPointDragEnd?: (
+    pointId: string,
+    placement: SolidPointDragPlacement | null,
+  ) => void;
   readonly onModelRotationCommit?:
     ((rotation: Solid3DQuaternion) => void) | undefined;
   readonly onSurfaceHover?: (surfaceId: SolidAnalyticSurfaceId | null) => void;
@@ -209,6 +224,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   } | null>(null);
   const modeRef = useRef(props.mode);
   const onPointPlaceRef = useRef(props.onPointPlace);
+  const onPointDragStartRef = useRef(props.onPointDragStart);
+  const onPointDragPreviewRef = useRef(props.onPointDragPreview);
+  const onPointDragEndRef = useRef(props.onPointDragEnd);
+  const recordRef = useRef(record);
   const onModelRotationCommitRef = useRef(onModelRotationCommit);
   const onElementHoverRef = useRef(onElementHover);
   const onSurfaceHoverRef = useRef(onSurfaceHover);
@@ -229,7 +248,17 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
 
   useEffect(() => {
     onPointPlaceRef.current = props.onPointPlace;
-  }, [props.onPointPlace]);
+    onPointDragStartRef.current = props.onPointDragStart;
+    onPointDragPreviewRef.current = props.onPointDragPreview;
+    onPointDragEndRef.current = props.onPointDragEnd;
+    recordRef.current = record;
+  }, [
+    props.onPointPlace,
+    props.onPointDragStart,
+    props.onPointDragPreview,
+    props.onPointDragEnd,
+    record,
+  ]);
 
   useEffect(() => {
     onModelRotationCommitRef.current = onModelRotationCommit;
