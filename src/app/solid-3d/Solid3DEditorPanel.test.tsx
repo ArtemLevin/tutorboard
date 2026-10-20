@@ -97,7 +97,7 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     );
   });
 
-  it("closes on Escape within the editor without forwarding shortcuts to the board", () => {
+  it("closes on Escape without forwarding keyboard shortcuts", () => {
     const { onClose, onOutsideClick } = renderPanel();
     fireEvent.keyDown(screen.getByRole("button", { name: "Сбросить камеру" }), {
       key: "Escape",
@@ -106,7 +106,7 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     expect(onOutsideClick).not.toHaveBeenCalled();
   });
 
-  it("focuses the embedded editor and restores its opener after unmount", async () => {
+  it("focuses the editor and restores its opener", async () => {
     const opener = document.createElement("button");
     opener.textContent = "Открыть 3D";
     document.body.append(opener);
@@ -126,8 +126,12 @@ describe("Solid3DEditorPanel embedded workspace", () => {
 
   it("keeps document editing controls disabled in read-only mode", () => {
     renderPanel({ readOnly: true });
-    expect(screen.getByRole("button", { name: "Поставить точку" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Поставить точку" }),
+    ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Отменить" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Создать сечение" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Создать сечение" }),
+    ).toBeDisabled();
   });
 });
