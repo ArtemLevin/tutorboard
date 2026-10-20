@@ -1,0 +1,27 @@
+name: Temporary section-sweep test format
+on:
+  push:
+    paths:
+      - ".github/workflows/temporary-sweep-test-format.yml"
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: |
+          npx prettier --write tests/unit/modules/solid-3d/section-sweep.test.ts
+          git config user.name "TutorBoard CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add tests/unit/modules/solid-3d/section-sweep.test.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style(3d): format helper lifecycle regression"
+            git push origin HEAD:refs/heads/feat/solid-3d-plane-sweep-20261020
+          fi
