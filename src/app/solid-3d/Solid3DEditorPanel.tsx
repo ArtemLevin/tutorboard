@@ -321,6 +321,8 @@ export function Solid3DEditorPanel({
     scenario: Solid3DLearningScenario,
     learningMode: SolidLearningMode,
   ) => {
+    setSweepEnabled(false);
+    setSweepOffset(0);
     if (scenario.seedAnchors.length >= 3) {
       const learningPoints = scenario.seedAnchors
         .slice(0, 3)
@@ -399,6 +401,21 @@ export function Solid3DEditorPanel({
     },
     [onRecordChange, points, readOnly, record, sanitizedSelectedPointIds],
   );
+
+  const saveSweep = (): void => {
+    if (
+      readOnly ||
+      selectedTuple === null ||
+      sweepPreview?.section == null ||
+      Math.abs(sweepOffset) < 1e-8
+    ) return;
+    const saved = onSaveSweep(record, selectedTuple, sweepOffset, crypto.randomUUID());
+    if (saved === null) return;
+    setActiveSectionId(saved.sectionId);
+    setSelectedPointIds(saved.pointIds);
+    setSweepEnabled(false);
+    setSweepOffset(0);
+  };
 
   const savePreview = (): void => {
     if (selectedTuple === null || previewSection === null) return;
@@ -658,6 +675,7 @@ export function Solid3DEditorPanel({
                         sanitizedSelectedPointIds.length >= 3
                       }
                       onChange={(event) =>
+                        setSweepOffset(0);
                         setSelectedPointIds((current) =>
                           event.currentTarget.checked
                             ? [...current, point.id].slice(-3)
