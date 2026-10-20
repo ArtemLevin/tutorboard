@@ -78,6 +78,7 @@ function renderSweep(readOnly = false) {
       onPointMove={vi.fn()}
       onRecordChange={onRecordChange}
       onSaveSweep={onSaveSweep}
+      onSaveRotation={vi.fn()}
       onUndo={vi.fn()}
       readOnly={readOnly}
       record={record}
