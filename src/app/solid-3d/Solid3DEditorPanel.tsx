@@ -13,6 +13,7 @@ import {
   isSolidSectionHelperPoint,
   resolveAnalyticSolidPointAnchor,
   resolveSolid3DPointPosition,
+  reprojectSolid3DRecord,
   resolveSolidPointAnchor,
   solidPointId,
   solidSectionId,
@@ -35,7 +36,10 @@ import {
   saveSolidSectionFromPoints,
   setSavedSolidSectionVisibility,
 } from "../../modules/solid-3d/public";
-import { Solid3DViewport } from "../../adapters/solid-3d-three/public";
+import {
+  Solid3DViewport,
+  type SolidPointDragPlacement,
+} from "../../adapters/solid-3d-three/public";
 import { Solid3DLearningWorkspace } from "./Solid3DLearningWorkspace";
 import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
 import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuilder";
@@ -47,6 +51,12 @@ export interface Solid3DEditorPanelProps {
   readonly onClose: () => void;
   readonly onProject: (sectionId: string, section: SolidSectionResult) => void;
   readonly onRecordChange: (replacement: Solid3DRecord) => void;
+  readonly onPointMove: (
+    startingRecord: Solid3DRecord,
+    pointId: string,
+    position: Vec3,
+    anchor: SolidPointAnchor,
+  ) => void;
   readonly onUndo: () => void;
   readonly readOnly: boolean;
   readonly record: Solid3DRecord;
@@ -143,6 +153,7 @@ export function Solid3DEditorPanel({
   onClose,
   onProject,
   onRecordChange,
+  onPointMove,
   onUndo,
   readOnly,
   record,
@@ -154,7 +165,27 @@ export function Solid3DEditorPanel({
   onLearningReset,
   onLearningStart,
 }: Solid3DEditorPanelProps): ReactElement {
-  const points = useMemo(() => visiblePoints(record.points), [record.points]);
+  const [dragPreview, setDragPreview] = useState<{
+    readonly pointId: string;
+    readonly placement: SolidPointDragPlacement;
+  } | null>(null);
+  const startingDragRecord = useRef<Solid3DRecord | null>(null);
+  const previewRecord = useMemo(() => {
+    if (readOnly || dragPreview === null) return record;
+    const updated = record.points.map((point) =>
+      point.id === dragPreview.pointId
+        ? { ...point, ...dragPreview.placement }
+        : point,
+    );
+    return reprojectSolid3DRecord(
+      { ...record, points: updated },
+      record.definition,
+    );
+  }, [dragPreview, readOnly, record]);
+  const points = useMemo(
+    () => visiblePoints(previewRecord.points),
+    [previewRecord.points],
+  );
   const [experience, setExperience] = useState<"free" | "learning">(
     learningAttempt === null ? "free" : "learning",
   );
@@ -235,8 +266,8 @@ export function Solid3DEditorPanel({
     () =>
       selectedTuple === null
         ? null
-        : calculateSolidSection(record, selectedTuple),
-    [record, selectedTuple],
+        : calculateSolidSection(previewRecord, selectedTuple),
+    [previewRecord, selectedTuple],
   );
   const previewSection =
     previewResult?.status === "ok" ? previewResult.section : null;
@@ -252,7 +283,7 @@ export function Solid3DEditorPanel({
   const activeSectionResult =
     activeSectionDefinition === undefined
       ? null
-      : calculateSolidSection(record, activeSectionDefinition.pointIds);
+      : calculateSolidSection(previewRecord, activeSectionDefinition.pointIds);
   const activeSection =
     activeSectionResult?.status === "ok" &&
     activeSectionDefinition?.visible === true
@@ -534,8 +565,33 @@ export function Solid3DEditorPanel({
                       )
               }
               onPointPlace={placePoint}
+              onPointDragStart={() => {
+                if (readOnly) return;
+                setDragPreview(null);
+                startingDragRecord.current = record;
+              }}
+              onPointDragPreview={(pointId, placement) => {
+                if (readOnly || startingDragRecord.current === null) return;
+                setDragPreview({ pointId, placement });
+              }}
+              onPointDragEnd={
+                readOnly
+                  ? undefined
+                  : (pointId, placement) => {
+                      const initial = startingDragRecord.current;
+                      startingDragRecord.current = null;
+                      setDragPreview(null);
+                      if (initial === null || placement === null) return;
+                      onPointMove(
+                        initial,
+                        pointId,
+                        placement.position,
+                        placement.anchor,
+                      );
+                    }
+              }
               onSurfaceHover={setHoveredSurfaceId}
-              record={record}
+              record={previewRecord}
               resetToken={resetToken}
               section={visibleSection}
               showSectionFill={showSectionFill}

@@ -59,6 +59,7 @@ function renderPanel({
         onLearningStart={vi.fn()}
         onProject={vi.fn()}
         onRecordChange={vi.fn()}
+        onPointMove={vi.fn()}
         onUndo={vi.fn()}
         readOnly={readOnly}
         record={record}
