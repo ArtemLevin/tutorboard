@@ -108,7 +108,7 @@ describe("committing a dragged anchored point", () => {
 
   it("updates the live section calculated from dragged anchor positions", () => {
     const initial = record();
-    const extra = [topology.vertices[3]!, topology.vertices[6]!].map(
+    const extra = [topology.vertices[4]!, topology.vertices[6]!].map(
       (vertex, index) => ({
         id: solidPointId("solid-point:fixed-" + String(index)),
         label: "F" + String(index),
