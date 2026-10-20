@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import * as core from "../../../src/core/public";
+import { readBoardCommandJson } from "../../../src/core/board/commands/codec/public";
 import { CollaborativeUndoAvailability } from "../../../src/app/board/collaborative-undo-availability";
 import { planAtomicClearRestore } from "../../../src/app/board/large-clear-restore";
 import {
@@ -126,7 +127,7 @@ it("atomically restores a 5200-object indivisible group using graphVersion 1.0",
   expect(result.document.groups).toEqual(source.groups);
   expect(result.document.order).toEqual(source.order);
   const encoded = JSON.stringify(graph);
-  const decoded = core.readBoardCommandJson(encoded);
+  const decoded = readBoardCommandJson(encoded);
   expect(decoded.status).toBe("ok");
   const corrupted = {
     ...graph,
