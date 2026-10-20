@@ -1,0 +1,35 @@
+name: Temporary P1.3 formatting
+on:
+  push:
+    paths:
+      - ".github/workflows/temporary-p13-format.yml"
+permissions:
+  contents: write
+jobs:
+  format:
+    if: github.ref == 'refs/heads/feat/solid-3d-rotating-section-plane-p13-20261021'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Apply project formatting
+        run: |
+          npx prettier --write \
+            src/app/solid-3d/Solid3DEditorPanel.sweep.test.tsx \
+            src/app/solid-3d/Solid3DEditorPanel.tsx \
+            src/app/solid-3d/Solid3DSectionRotationControls.tsx \
+            src/modules/solid-3d/section-rotation.ts \
+            tests/e2e/solid-3d.spec.ts \
+            tests/unit/modules/solid-3d/section-rotation.test.ts
+          git config user.name "TutorBoard CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/app/solid-3d src/modules/solid-3d tests/e2e/solid-3d.spec.ts tests/unit/modules/solid-3d
+          if ! git diff --cached --quiet; then
+            git commit -m "style(3d): format section rotation implementation"
+            git push origin HEAD:refs/heads/feat/solid-3d-rotating-section-plane-p13-20261021
+          fi
