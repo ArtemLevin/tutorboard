@@ -27,8 +27,10 @@ const topology = createSolidTopology(definition)!;
 const vertexMap = new Map(
   topology.vertices.map(({ id, position }) => [id, position]),
 );
-const verticalEdges = topology.edges.filter(({ startVertexId, endVertexId }) =>
-  Math.abs(vertexMap.get(startVertexId)!.y - vertexMap.get(endVertexId)!.y) > 1.5,
+const verticalEdges = topology.edges.filter(
+  ({ startVertexId, endVertexId }) =>
+    Math.abs(vertexMap.get(startVertexId)!.y - vertexMap.get(endVertexId)!.y) >
+    1.5,
 );
 const horizontalEdge = topology.edges.find(({ startVertexId, endVertexId }) => {
   const start = vertexMap.get(startVertexId)!;
@@ -65,20 +67,30 @@ describe("3D section rotation around a selected edge", () => {
     const initial = record();
     const frame = getSolidSectionRotationFrame(initial, ids, horizontalEdge.id);
     expect(frame).not.toBeNull();
-    const zero = previewSolidSectionRotation(initial, ids, horizontalEdge.id, 0);
-    const moved = previewSolidSectionRotation(initial, ids, horizontalEdge.id, 15);
+    const zero = previewSolidSectionRotation(
+      initial,
+      ids,
+      horizontalEdge.id,
+      0,
+    );
+    const moved = previewSolidSectionRotation(
+      initial,
+      ids,
+      horizontalEdge.id,
+      15,
+    );
     expect(zero?.section?.area).toBeCloseTo(4, 6);
     expect(moved?.section).not.toBeNull();
     expect(moved?.section?.vertices).not.toEqual(zero?.section?.vertices);
     if (frame === null || moved === null || moved.section === null) return;
-    expect(
-      signedDistanceToPlane(moved.plane, frame.axisStart),
-    ).toBeCloseTo(
+    expect(signedDistanceToPlane(moved.plane, frame.axisStart)).toBeCloseTo(
       signedDistanceToPlane(frame.plane, frame.axisStart),
       6,
     );
     for (const vertex of moved.section.vertices) {
-      expect(Math.abs(signedDistanceToPlane(moved.plane, vertex))).toBeLessThan(1e-6);
+      expect(Math.abs(signedDistanceToPlane(moved.plane, vertex))).toBeLessThan(
+        1e-6,
+      );
     }
     expect(initial.points).toHaveLength(3);
   });
@@ -86,9 +98,13 @@ describe("3D section rotation around a selected edge", () => {
   it("rejects invalid angles, nonexistent axes, and unsupported analytic bodies", () => {
     const initial = record();
     for (const angle of [Number.NaN, Number.POSITIVE_INFINITY, -181, 181]) {
-      expect(previewSolidSectionRotation(initial, ids, horizontalEdge.id, angle)).toBeNull();
+      expect(
+        previewSolidSectionRotation(initial, ids, horizontalEdge.id, angle),
+      ).toBeNull();
     }
-    expect(previewSolidSectionRotation(initial, ids, "edge:missing", 30)).toBeNull();
+    expect(
+      previewSolidSectionRotation(initial, ids, "edge:missing", 30),
+    ).toBeNull();
     expect(
       previewSolidSectionRotation(
         { ...initial, definition: { kind: "sphere", radius: 1 } },
@@ -97,14 +113,16 @@ describe("3D section rotation around a selected edge", () => {
         20,
       ),
     ).toBeNull();
-    expect(saveSolidSectionRotation({
-      current: initial,
-      starting: initial,
-      pointIds: ids,
-      edgeId: horizontalEdge.id,
-      angleDegrees: 0,
-      token: "noop",
-    })).toMatchObject({ status: "error", code: "outside" });
+    expect(
+      saveSolidSectionRotation({
+        current: initial,
+        starting: initial,
+        pointIds: ids,
+        edgeId: horizontalEdge.id,
+        angleDegrees: 0,
+        token: "noop",
+      }),
+    ).toMatchObject({ status: "error", code: "outside" });
   });
 
   it("saves a valid rotated polygon as ordinary anchored section and cleans up on delete", () => {
@@ -121,15 +139,22 @@ describe("3D section rotation around a selected edge", () => {
     if (result.status !== "ok") return;
     expect(result.record.points).toHaveLength(6);
     expect(result.record.sections).toHaveLength(1);
-    expect(result.record.points.slice(3).every(({ id }) =>
-      id.startsWith("solid-point:section-helper:rotation:"),
-    )).toBe(true);
+    expect(
+      result.record.points
+        .slice(3)
+        .every(({ id }) =>
+          id.startsWith("solid-point:section-helper:rotation:"),
+        ),
+    ).toBe(true);
     expect(validateSolid3DRecord(result.record)).toEqual([]);
     const recalculated = calculateSolidSection(result.record, result.pointIds);
     expect(recalculated.status).toBe("ok");
     if (recalculated.status === "ok") {
       expect(recalculated.section.area).toBeCloseTo(result.section.area, 5);
-      expect(recalculated.section.perimeter).toBeCloseTo(result.section.perimeter, 5);
+      expect(recalculated.section.perimeter).toBeCloseTo(
+        result.section.perimeter,
+        5,
+      );
     }
     const deleted = removeSavedSolidSection(result.record, result.sectionId);
     expect(deleted.sections).toHaveLength(0);
@@ -143,7 +168,10 @@ describe("3D section rotation around a selected edge", () => {
       id: solidPointId("solid-point:remote-rotation"),
       label: "Remote",
     };
-    const current = { ...starting, points: [...starting.points, newRemotePoint] };
+    const current = {
+      ...starting,
+      points: [...starting.points, newRemotePoint],
+    };
     const accepted = saveSolidSectionRotation({
       current,
       starting,
@@ -162,22 +190,26 @@ describe("3D section rotation around a selected edge", () => {
         point.id === ids[0] ? { ...point, label: "Modified" } : point,
       ),
     };
-    expect(saveSolidSectionRotation({
-      current: conflicted,
-      starting,
-      pointIds: ids,
-      edgeId: horizontalEdge.id,
-      angleDegrees: 15,
-      token: "conflict",
-    })).toMatchObject({ status: "error", code: "invalid-source" });
-    expect(saveSolidSectionRotation({
-      current: { ...starting, definition: { kind: "cube", edgeLength: 3 } },
-      starting,
-      pointIds: ids,
-      edgeId: horizontalEdge.id,
-      angleDegrees: 15,
-      token: "changed-model",
-    })).toMatchObject({ status: "error", code: "invalid-source" });
+    expect(
+      saveSolidSectionRotation({
+        current: conflicted,
+        starting,
+        pointIds: ids,
+        edgeId: horizontalEdge.id,
+        angleDegrees: 15,
+        token: "conflict",
+      }),
+    ).toMatchObject({ status: "error", code: "invalid-source" });
+    expect(
+      saveSolidSectionRotation({
+        current: { ...starting, definition: { kind: "cube", edgeLength: 3 } },
+        starting,
+        pointIds: ids,
+        edgeId: horizontalEdge.id,
+        angleDegrees: 15,
+        token: "changed-model",
+      }),
+    ).toMatchObject({ status: "error", code: "invalid-source" });
   });
 
   it("enforces section and point limits before adding helper anchors", () => {
@@ -192,13 +224,15 @@ describe("3D section rotation around a selected edge", () => {
         })),
       ],
     };
-    expect(saveSolidSectionRotation({
-      current: crowded,
-      starting,
-      pointIds: ids,
-      edgeId: horizontalEdge.id,
-      angleDegrees: 15,
-      token: "limit",
-    })).toMatchObject({ status: "error", code: "limit" });
+    expect(
+      saveSolidSectionRotation({
+        current: crowded,
+        starting,
+        pointIds: ids,
+        edgeId: horizontalEdge.id,
+        angleDegrees: 15,
+        token: "limit",
+      }),
+    ).toMatchObject({ status: "error", code: "limit" });
   });
 });

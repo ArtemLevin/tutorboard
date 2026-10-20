@@ -1,9 +1,6 @@
 import type { ReactElement } from "react";
 
-import type {
-  SolidSectionResult,
-  SolidTopology,
-} from "../../core/public";
+import type { SolidSectionResult, SolidTopology } from "../../core/public";
 
 export interface Solid3DSectionRotationControlsProps {
   readonly topology: SolidTopology | null;
@@ -36,10 +33,7 @@ export function Solid3DSectionRotationControls({
     topology?.vertices.map((vertex) => [vertex.id, vertex.label]) ?? [],
   );
   return (
-    <section
-      aria-label="Вращение секущей плоскости"
-      className="solid-3d-sweep"
-    >
+    <section aria-label="Вращение секущей плоскости" className="solid-3d-sweep">
       <h3>Вращение секущей плоскости</h3>
       {topology === null || !hasSourcePlane ? (
         <p>Выберите три неколлинеарные точки многогранника.</p>
@@ -123,11 +117,7 @@ export function Solid3DSectionRotationControls({
                     ? "Плоскость не образует сечение тела"
                     : `Вершин ${section.vertices.length} · площадь ${section.area.toFixed(2)} · периметр ${section.perimeter.toFixed(2)}`}
               </p>
-              <button
-                disabled={!canSave}
-                onClick={onSave}
-                type="button"
-              >
+              <button disabled={!canSave} onClick={onSave} type="button">
                 Сохранить повёрнутое сечение
               </button>
             </>

@@ -369,9 +369,7 @@ export function Solid3DEditorPanel({
   );
   const rotationPreview = useMemo(
     () =>
-      rotationEnabled &&
-      rotationTopology !== null &&
-      rotationFrame !== null
+      rotationEnabled && rotationTopology !== null && rotationFrame !== null
         ? previewSolidSectionRotationFrame(
             rotationTopology,
             rotationFrame,
@@ -502,7 +500,8 @@ export function Solid3DEditorPanel({
       rotationEdgeId === "" ||
       Math.abs(rotationAngle) < 1e-8 ||
       rotationPreview?.section == null
-    ) return;
+    )
+      return;
     const saved = onSaveRotation(
       record,
       selectedTuple,

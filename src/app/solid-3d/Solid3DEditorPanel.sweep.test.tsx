@@ -152,12 +152,17 @@ describe("3D section rotation UI", () => {
     fireEvent.change(screen.getByLabelText("Ось вращения"), {
       target: { value: horizontalEdge.id },
     });
-    fireEvent.change(screen.getByRole("slider", {
-      name: "Угол поворота секущей плоскости",
-    }), {
-      target: { value: "15" },
-    });
-    expect(screen.getByTestId("mock-sweep-section")).not.toHaveTextContent("0.00");
+    fireEvent.change(
+      screen.getByRole("slider", {
+        name: "Угол поворота секущей плоскости",
+      }),
+      {
+        target: { value: "15" },
+      },
+    );
+    expect(screen.getByTestId("mock-sweep-section")).not.toHaveTextContent(
+      "0.00",
+    );
     expect(onSaveRotation).not.toHaveBeenCalled();
     expect(onSaveSweep).not.toHaveBeenCalled();
     expect(onRecordChange).not.toHaveBeenCalled();
@@ -179,28 +184,40 @@ describe("3D section rotation UI", () => {
 
   it("supports precise angle controls, clamps range, and excludes parallel sweep", () => {
     renderSweep();
-    fireEvent.click(screen.getByLabelText("Параллельное перемещение плоскости"));
-    expect(screen.getByRole("slider", {
-      name: "Смещение секущей плоскости",
-    })).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByLabelText("Параллельное перемещение плоскости"),
+    );
+    expect(
+      screen.getByRole("slider", {
+        name: "Смещение секущей плоскости",
+      }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("Вращать плоскость вокруг ребра"));
-    expect(screen.queryByRole("slider", {
-      name: "Смещение секущей плоскости",
-    })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("slider", {
+        name: "Смещение секущей плоскости",
+      }),
+    ).not.toBeInTheDocument();
     const exact = screen.getByLabelText("Точный угол, градусы");
     fireEvent.change(exact, { target: { value: "12.5" } });
-    expect(screen.getByRole("slider", {
-      name: "Угол поворота секущей плоскости",
-    })).toHaveValue("12.5");
-    fireEvent.click(screen.getByRole("button", {
-      name: "Изменить угол на +15°",
-    }));
+    expect(
+      screen.getByRole("slider", {
+        name: "Угол поворота секущей плоскости",
+      }),
+    ).toHaveValue("12.5");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Изменить угол на +15°",
+      }),
+    );
     expect(exact).toHaveValue(27.5);
     fireEvent.change(exact, { target: { value: "200" } });
     expect(exact).toHaveValue(180);
-    fireEvent.click(screen.getByRole("button", {
-      name: "Изменить угол на -5°",
-    }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Изменить угол на -5°",
+      }),
+    );
     expect(exact).toHaveValue(175);
   });
 
@@ -210,14 +227,19 @@ describe("3D section rotation UI", () => {
     fireEvent.change(screen.getByLabelText("Ось вращения"), {
       target: { value: horizontalEdge.id },
     });
-    fireEvent.change(screen.getByRole("slider", {
-      name: "Угол поворота секущей плоскости",
-    }), {
-      target: { value: "15" },
-    });
-    expect(screen.getByRole("button", {
-      name: "Сохранить повёрнутое сечение",
-    })).toBeDisabled();
+    fireEvent.change(
+      screen.getByRole("slider", {
+        name: "Угол поворота секущей плоскости",
+      }),
+      {
+        target: { value: "15" },
+      },
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "Сохранить повёрнутое сечение",
+      }),
+    ).toBeDisabled();
     expect(onSaveRotation).not.toHaveBeenCalled();
   });
 });

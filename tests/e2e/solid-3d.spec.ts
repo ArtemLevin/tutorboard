@@ -244,7 +244,9 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   const stage = await page.getByTestId("board-stage").boundingBox();
   if (stage === null) throw new Error("Board stage is unavailable");
   await page.getByRole("button", { name: "ИИ-инструменты" }).click();
-  await page.getByRole("menuitemradio", { name: "Построение по тексту" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
+    .click();
   await page.getByLabel("Текст построения").fill("куб");
   await page.getByRole("button", { name: "Выбрать для размещения" }).click();
   await page.mouse.click(
@@ -262,9 +264,7 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   await editor.getByRole("button", { name: "Свободное исследование" }).click();
   await editor.getByLabel("Вращать плоскость вокруг ребра").check();
   await editor.getByLabel("Ось вращения").selectOption({ label: "D—C" });
-  await editor
-    .getByRole("button", { name: "Изменить угол на +15°" })
-    .click();
+  await editor.getByRole("button", { name: "Изменить угол на +15°" }).click();
   await expect(
     editor.getByRole("slider", { name: "Угол поворота секущей плоскости" }),
   ).toHaveValue("15");

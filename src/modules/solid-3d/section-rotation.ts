@@ -108,7 +108,8 @@ export function previewSolidSectionRotationFrame(
     !Number.isFinite(angleDegrees) ||
     angleDegrees < -180 ||
     angleDegrees > 180
-  ) return null;
+  )
+    return null;
   const radians = (angleDegrees * Math.PI) / 180;
   const normal = rotateAroundDirection(
     frame.plane.normal,
