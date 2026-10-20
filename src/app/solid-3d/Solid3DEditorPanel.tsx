@@ -47,6 +47,7 @@ import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
 import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuilder";
 import { useSolid3DWindow } from "./useSolid3DWindow";
 import "./Solid3DEditorPanel.css";
+import "./Solid3DSections.css";
 
 export interface Solid3DEditorPanelProps {
   readonly fallbackFocusRef?: RefObject<HTMLElement | null>;
