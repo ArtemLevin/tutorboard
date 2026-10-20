@@ -61,7 +61,10 @@ describe("Board HTTP multipart transport", () => {
             scale: { x: 1, y: 1 },
             source: { kind: "user" as const },
             style: {
-              fill: null, opacity: 1, stroke: "#111111", strokeWidth: 2,
+              fill: null,
+              opacity: 1,
+              stroke: "#111111",
+              strokeWidth: 2,
             },
             visible: true,
             size: { height: 40, width: 80 },
@@ -70,35 +73,55 @@ describe("Board HTTP multipart transport", () => {
         },
         order: { baseRevisionAtCreation: 0, lamport: index + 1 },
       }));
-    const bulk = { ...envelope, commands, idempotencyKey: "client:bulk-atomic" };
+    const bulk = {
+      ...envelope,
+      commands,
+      idempotencyKey: "client:bulk-atomic",
+    };
     const transmitted: Uint8Array[] = [];
-    const request = vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
-      const target = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
-      if (target.endsWith("/command-uploads")) {
-        if (typeof init?.body !== "string") throw new Error("Expected JSON body");
-        const descriptor = JSON.parse(init.body) as { byteSize: number; uploadId: string };
-        expect(descriptor.uploadId).toMatch(/^upload:[a-f0-9]{64}$/u);
+    const request = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (url, init) => {
+        const target =
+          typeof url === "string"
+            ? url
+            : url instanceof URL
+              ? url.href
+              : url.url;
+        if (target.endsWith("/command-uploads")) {
+          if (typeof init?.body !== "string")
+            throw new Error("Expected JSON body");
+          const descriptor = JSON.parse(init.body) as {
+            byteSize: number;
+            uploadId: string;
+          };
+          expect(descriptor.uploadId).toMatch(/^upload:[a-f0-9]{64}$/u);
+          return jsonResponse(
+            {
+              uploadId: descriptor.uploadId,
+              chunkCount: Math.ceil(descriptor.byteSize / (512 * 1024)),
+              chunkBytes: 512 * 1024,
+            },
+            201,
+          );
+        }
+        if (target.includes("/parts/")) {
+          if (init?.body == null) throw new Error("Missing binary body");
+          transmitted.push(
+            new Uint8Array(await new Response(init.body).arrayBuffer()),
+          );
+          return new Response(null, { status: 204 });
+        }
+        if (init?.method === "DELETE") {
+          return new Response(null, { status: 204 });
+        }
+        expect(target).toContain("/finalize");
         return jsonResponse({
-          uploadId: descriptor.uploadId,
-          chunkCount: Math.ceil(descriptor.byteSize / (512 * 1024)),
-          chunkBytes: 512 * 1024,
-        }, 201);
-      }
-      if (target.includes("/parts/")) {
-        if (init?.body == null) throw new Error("Missing binary body");
-        transmitted.push(new Uint8Array(await new Response(init.body).arrayBuffer()));
-        return new Response(null, { status: 204 });
-      }
-      if (init?.method === "DELETE") {
-        return new Response(null, { status: 204 });
-      }
-      expect(target).toContain("/finalize");
-      return jsonResponse({
-        currentDocumentSha256: bulk.expectedDocumentSha256,
-        revision: 1,
-        snapshotDue: false,
+          currentDocumentSha256: bulk.expectedDocumentSha256,
+          revision: 1,
+          snapshotDue: false,
+        });
       });
-    });
     const repository = createBoardHttpRepository({
       fetch: request,
       origin: "https://tutor.example.test",
@@ -106,15 +129,17 @@ describe("Board HTTP multipart transport", () => {
     const result = await repository.push(bulk, "csrf-token");
     expect(result.status).toBe("accepted");
     expect(transmitted.length).toBeGreaterThan(1);
-    const recovered = new Uint8Array(transmitted.reduce((count, part) => count + part.length, 0));
+    const recovered = new Uint8Array(
+      transmitted.reduce((count, part) => count + part.length, 0),
+    );
     let offset = 0;
     for (const part of transmitted) {
       recovered.set(part, offset);
       offset += part.length;
     }
     expect(new TextDecoder().decode(recovered)).toEqual(JSON.stringify(bulk));
-    const finalization = request.mock.calls.find(([url]) =>
-      typeof url === "string" && url.endsWith("/finalize"),
+    const finalization = request.mock.calls.find(
+      ([url]) => typeof url === "string" && url.endsWith("/finalize"),
     );
     expect(finalization).toBeDefined();
     expect(finalization?.[1]?.credentials).toBe("same-origin");
