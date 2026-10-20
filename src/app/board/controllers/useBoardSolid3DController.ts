@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 
 import {
   solidLearningAttemptId,
+  type SolidPointAnchor,
+  type Vec3,
   type Solid3DId,
   type Solid3DRecord,
   type SolidLearningAttemptAction,
@@ -12,6 +14,7 @@ import {
 import {
   createProjectSolid3DSectionCommand,
   createUpdateSolid3DCommand,
+  applySolidPointDrag,
   findSolidModelBySelection,
 } from "../../../modules/solid-3d/public";
 import {
@@ -108,6 +111,34 @@ export function useBoardSolid3DController({
     [commitCommand, createCommandMetadata, getDocument],
   );
 
+  const movePoint = useCallback(
+    (
+      startingRecord: Solid3DRecord,
+      pointId: string,
+      position: Vec3,
+      anchor: SolidPointAnchor,
+    ) => {
+      const current = getDocument().solidModels[startingRecord.id];
+      if (current === undefined) return;
+      const replacement = applySolidPointDrag(
+        current,
+        startingRecord,
+        pointId,
+        position,
+        anchor,
+      );
+      if (replacement === null) return;
+      commitCommand(
+        createUpdateSolid3DCommand({
+          expected: current,
+          metadata: createCommandMetadata(),
+          replacement,
+        }),
+      );
+    },
+    [commitCommand, createCommandMetadata, getDocument],
+  );
+
   const startLearning = useCallback(
     (scenario: Solid3DLearningScenario, mode: SolidLearningMode) => {
       if (record === null) return;
@@ -177,6 +208,7 @@ export function useBoardSolid3DController({
     learningAction,
     learningAttempt,
     learningAttempts,
+    movePoint,
     open: (id: Solid3DId) => setEditorId(id),
     openSelected,
     project,
