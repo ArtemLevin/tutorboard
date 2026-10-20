@@ -104,11 +104,11 @@ describe("point drag screen-space geometry", () => {
       destination.x,
       destination.y,
     );
-    expect(result?.anchor).toMatchObject({
-      kind: "edge",
-      edgeId,
-      parameter: expect.closeTo(0.75, 5),
-    });
+    expect(result?.anchor.kind).toBe("edge");
+    if (result?.anchor.kind === "edge") {
+      expect(result.anchor.edgeId).toBe(edgeId);
+      expect(result.anchor.parameter).toBeCloseTo(0.75, 5);
+    }
     expect(result?.position).toEqual(target);
   });
 });
