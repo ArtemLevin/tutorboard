@@ -6,7 +6,6 @@ import {
   intersectPolyhedronWithPlane,
   planeFromThreePoints,
   resolveSolid3DPointPosition,
-  scale3,
   signedDistanceToPlane,
   solidPointId,
   solidSectionId,
@@ -144,7 +143,8 @@ function nonCollinearVertices(section: SolidSectionResult): readonly [Vec3, Vec3
   let third: Vec3 | null = null;
   let maxArea = 0;
   for (const point of vertices) {
-    const area = dot3(cross3(direction, subtract3(point, first)), cross3(direction, subtract3(point, first)));
+    const cross = cross3(direction, subtract3(point, first));
+    const area = dot3(cross, cross);
     if (area > maxArea) {
       maxArea = area;
       third = point;
