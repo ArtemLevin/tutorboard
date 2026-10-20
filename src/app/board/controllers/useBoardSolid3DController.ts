@@ -15,6 +15,7 @@ import {
   createProjectSolid3DSectionCommand,
   createUpdateSolid3DCommand,
   applySolidPointDrag,
+  saveSolidSectionSweep,
   findSolidModelBySelection,
 } from "../../../modules/solid-3d/public";
 import {
@@ -139,6 +140,41 @@ export function useBoardSolid3DController({
     [commitCommand, createCommandMetadata, getDocument],
   );
 
+  const saveSweep = useCallback(
+    (
+      startingRecord: Solid3DRecord,
+      pointIds: readonly [
+        Solid3DRecord["points"][number]["id"],
+        Solid3DRecord["points"][number]["id"],
+        Solid3DRecord["points"][number]["id"],
+      ],
+      offset: number,
+      token: string,
+    ) => {
+      const current = getDocument().solidModels[startingRecord.id];
+      if (current === undefined) return null;
+      const result = saveSolidSectionSweep({
+        current,
+        starting: startingRecord,
+        pointIds,
+        offset,
+        token,
+      });
+      if (result.status === "error") return null;
+      const committed = commitCommand(
+        createUpdateSolid3DCommand({
+          expected: current,
+          metadata: createCommandMetadata(),
+          replacement: result.record,
+        }),
+      );
+      return committed.ok
+        ? { sectionId: result.sectionId, pointIds: result.pointIds }
+        : null;
+    },
+    [commitCommand, createCommandMetadata, getDocument],
+  );
+
   const startLearning = useCallback(
     (scenario: Solid3DLearningScenario, mode: SolidLearningMode) => {
       if (record === null) return;
@@ -209,6 +245,7 @@ export function useBoardSolid3DController({
     learningAttempt,
     learningAttempts,
     movePoint,
+    saveSweep,
     open: (id: Solid3DId) => setEditorId(id),
     openSelected,
     project,

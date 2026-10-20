@@ -32,6 +32,8 @@ import {
 } from "../../core/public";
 import {
   calculateSolidSection,
+  getSolidSectionSweepFrame,
+  previewSolidSectionSweep,
   removeSavedSolidSection,
   saveSolidSectionFromPoints,
   setSavedSolidSectionVisibility,
@@ -45,12 +47,30 @@ import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
 import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuilder";
 import { useSolid3DWindow } from "./useSolid3DWindow";
 import "./Solid3DEditorPanel.css";
+import "./Solid3DSections.css";
 
 export interface Solid3DEditorPanelProps {
   readonly fallbackFocusRef?: RefObject<HTMLElement | null>;
   readonly onClose: () => void;
   readonly onProject: (sectionId: string, section: SolidSectionResult) => void;
   readonly onRecordChange: (replacement: Solid3DRecord) => void;
+  readonly onSaveSweep: (
+    startingRecord: Solid3DRecord,
+    pointIds: readonly [
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+    ],
+    offset: number,
+    token: string,
+  ) => {
+    readonly sectionId: string;
+    readonly pointIds: readonly [
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+    ];
+  } | null;
   readonly onPointMove: (
     startingRecord: Solid3DRecord,
     pointId: string,
@@ -154,6 +174,7 @@ export function Solid3DEditorPanel({
   onProject,
   onRecordChange,
   onPointMove,
+  onSaveSweep,
   onUndo,
   readOnly,
   record,
@@ -190,6 +211,7 @@ export function Solid3DEditorPanel({
     learningAttempt === null ? "free" : "learning",
   );
   const [mode, setMode] = useState<"points" | "view">("view");
+  const [showRotationGizmo, setShowRotationGizmo] = useState(false);
   const [cameraMode, setCameraMode] = useState<"orthographic" | "perspective">(
     "orthographic",
   );
@@ -201,6 +223,8 @@ export function Solid3DEditorPanel({
   );
   const [showSectionFill, setShowSectionFill] = useState(true);
   const [showSectionOutline, setShowSectionOutline] = useState(true);
+  const [sweepEnabled, setSweepEnabled] = useState(false);
+  const [sweepOffset, setSweepOffset] = useState(0);
   const [resetToken, setResetToken] = useState(0);
   const {
     dockRef,
@@ -289,12 +313,30 @@ export function Solid3DEditorPanel({
     activeSectionDefinition?.visible === true
       ? activeSectionResult.section
       : null;
-  const freeVisibleSection = previewSection ?? activeSection;
+  const sweepFrame = useMemo(
+    () =>
+      selectedTuple === null
+        ? null
+        : getSolidSectionSweepFrame(previewRecord, selectedTuple),
+    [previewRecord, selectedTuple],
+  );
+  const sweepPreview = useMemo(
+    () =>
+      sweepEnabled && selectedTuple !== null
+        ? previewSolidSectionSweep(previewRecord, selectedTuple, sweepOffset)
+        : null,
+    [previewRecord, selectedTuple, sweepEnabled, sweepOffset],
+  );
+  const freeVisibleSection = sweepEnabled
+    ? (sweepPreview?.section ?? null)
+    : (previewSection ?? activeSection);
 
   const startLearning = (
     scenario: Solid3DLearningScenario,
     learningMode: SolidLearningMode,
   ) => {
+    setSweepEnabled(false);
+    setSweepOffset(0);
     if (scenario.seedAnchors.length >= 3) {
       const learningPoints = scenario.seedAnchors
         .slice(0, 3)
@@ -373,6 +415,28 @@ export function Solid3DEditorPanel({
     },
     [onRecordChange, points, readOnly, record, sanitizedSelectedPointIds],
   );
+
+  const saveSweep = (): void => {
+    if (
+      readOnly ||
+      selectedTuple === null ||
+      sweepPreview?.section == null ||
+      Math.abs(sweepOffset) < 1e-8
+    )
+      return;
+    const saved = onSaveSweep(
+      record,
+      selectedTuple,
+      sweepOffset,
+      crypto.randomUUID(),
+    );
+    if (saved === null) return;
+    setActiveSectionId(saved.sectionId);
+    // Saved sweep points belong to the section and stay out of the point picker.
+    setSelectedPointIds([]);
+    setSweepEnabled(false);
+    setSweepOffset(0);
+  };
 
   const savePreview = (): void => {
     if (selectedTuple === null || previewSection === null) return;
@@ -515,6 +579,17 @@ export function Solid3DEditorPanel({
             Вращение камеры
           </button>
           <button
+            aria-pressed={showRotationGizmo && mode === "view"}
+            disabled={readOnly || mode !== "view"}
+            onClick={() => setShowRotationGizmo((visible) => !visible)}
+            title="Включает кольца для поворота самой модели"
+            type="button"
+          >
+            {showRotationGizmo && mode === "view"
+              ? "Скрыть кольца поворота"
+              : "Показать кольца поворота"}
+          </button>
+          <button
             aria-pressed={mode === "points"}
             disabled={readOnly || record.points.length >= 32}
             onClick={() => setMode("points")}
@@ -555,6 +630,9 @@ export function Solid3DEditorPanel({
               highlightedElement={highlightedElement}
               highlightedSurfaceId={hoveredSurfaceId}
               mode={mode}
+              showRotationGizmo={
+                showRotationGizmo && mode === "view" && !readOnly
+              }
               onElementHover={setHighlightedElement}
               onModelRotationCommit={
                 readOnly
@@ -631,13 +709,14 @@ export function Solid3DEditorPanel({
                         !sanitizedSelectedPointIds.includes(point.id) &&
                         sanitizedSelectedPointIds.length >= 3
                       }
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        setSweepOffset(0);
                         setSelectedPointIds((current) =>
                           event.currentTarget.checked
                             ? [...current, point.id].slice(-3)
                             : current.filter((id) => id !== point.id),
-                        )
-                      }
+                        );
+                      }}
                       type="checkbox"
                     />
                     <input
@@ -715,6 +794,69 @@ export function Solid3DEditorPanel({
                 ? "Создать сечение"
                 : "Сечение сохранено"}
             </button>
+            <section
+              aria-label="Динамическая секущая плоскость"
+              className="solid-3d-sweep"
+            >
+              <h3>Динамическая секущая плоскость</h3>
+              {sweepFrame === null ? (
+                <p>Выберите три неколлинеарные точки многогранника.</p>
+              ) : (
+                <>
+                  <label>
+                    <input
+                      checked={sweepEnabled}
+                      onChange={(event) => {
+                        setSweepEnabled(event.currentTarget.checked);
+                        setSweepOffset(0);
+                      }}
+                      type="checkbox"
+                    />
+                    Параллельное перемещение плоскости
+                  </label>
+                  {sweepEnabled ? (
+                    <>
+                      <label htmlFor="solid-3d-sweep-offset">
+                        Смещение: {sweepOffset.toFixed(2)}
+                      </label>
+                      <input
+                        aria-label="Смещение секущей плоскости"
+                        id="solid-3d-sweep-offset"
+                        max={sweepFrame.maxOffset}
+                        min={sweepFrame.minOffset}
+                        onChange={(event) =>
+                          setSweepOffset(Number(event.currentTarget.value))
+                        }
+                        step="any"
+                        type="range"
+                        value={Math.max(
+                          sweepFrame.minOffset,
+                          Math.min(sweepFrame.maxOffset, sweepOffset),
+                        )}
+                      />
+                      <p aria-live="polite">
+                        {sweepPreview?.section == null
+                          ? "Плоскость не образует сечение тела"
+                          : `Площадь ${sweepPreview.section.area.toFixed(2)} · периметр ${sweepPreview.section.perimeter.toFixed(2)}`}
+                      </p>
+                      <button
+                        disabled={
+                          readOnly ||
+                          Math.abs(sweepOffset) < 1e-8 ||
+                          sweepPreview?.section == null ||
+                          record.sections.length >= 8 ||
+                          record.points.length + 3 > 32
+                        }
+                        onClick={saveSweep}
+                        type="button"
+                      >
+                        Сохранить положение плоскости
+                      </button>
+                    </>
+                  ) : null}
+                </>
+              )}
+            </section>
             <Solid3DSectionConstraintBuilder
               key={`${JSON.stringify(record.definition)}:${points
                 .map(({ id }) => id)
