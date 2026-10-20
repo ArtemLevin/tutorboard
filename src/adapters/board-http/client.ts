@@ -579,7 +579,12 @@ export function createBoardHttpRepository(
       const encoded = new TextEncoder().encode(serialized);
       let response: Response;
       let uploadPath: string | null = null;
-      if (encoded.byteLength > 4 * 1024 * 1024) {
+      if (
+        encoded.byteLength > 4 * 1024 * 1024 ||
+        envelope.commands.some(
+          ({ command }) => command.kind === "core.clipboard.restore-graph",
+        )
+      ) {
         // The content-addressed upload ID changes if an offline batch is
         // rebased, while its durable command idempotency key remains stable.
         // Incomplete uploads are never visible as board revisions.
