@@ -1,9 +1,11 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
   type ReactElement,
+  type RefObject,
 } from "react";
 
 import {
@@ -37,9 +39,11 @@ import { Solid3DViewport } from "../../adapters/solid-3d-three/public";
 import { Solid3DLearningWorkspace } from "./Solid3DLearningWorkspace";
 import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
 import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuilder";
+import { useSolid3DWindow } from "./useSolid3DWindow";
 import "./Solid3DEditorPanel.css";
 
 export interface Solid3DEditorPanelProps {
+  readonly fallbackFocusRef?: RefObject<HTMLElement | null>;
   readonly onClose: () => void;
   readonly onProject: (sectionId: string, section: SolidSectionResult) => void;
   readonly onRecordChange: (replacement: Solid3DRecord) => void;
@@ -135,6 +139,7 @@ function pointAnchorLabel(point: Solid3DPoint): string {
 }
 
 export function Solid3DEditorPanel({
+  fallbackFocusRef,
   onClose,
   onProject,
   onRecordChange,
@@ -166,11 +171,49 @@ export function Solid3DEditorPanel({
   const [showSectionFill, setShowSectionFill] = useState(true);
   const [showSectionOutline, setShowSectionOutline] = useState(true);
   const [resetToken, setResetToken] = useState(0);
+  const {
+    dockRef,
+    windowRect,
+    expanded,
+    toggleExpanded,
+    startWindowGesture,
+    moveWindowGesture,
+    endWindowGesture,
+    handleWindowArrow,
+  } = useSolid3DWindow();
   const [highlightedElement, setHighlightedElement] =
     useState<SolidElementRef | null>(null);
   const [hoveredSurfaceId, setHoveredSurfaceId] =
     useState<SolidAnalyticSurfaceId | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(
+    typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement !== document.body
+      ? document.activeElement
+      : null,
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    const original = returnFocusRef.current;
+    const fallback = fallbackFocusRef?.current ?? null;
+    queueMicrotask(() => {
+      if (mounted) panelRef.current?.focus();
+    });
+    return () => {
+      mounted = false;
+      queueMicrotask(() => {
+        const target =
+          original?.isConnected === true
+            ? original
+            : fallback?.isConnected === true
+              ? fallback
+              : null;
+        target?.focus();
+      });
+    };
+  }, [fallbackFocusRef]);
   const sanitizedSelectedPointIds = useMemo(
     () =>
       selectedPointIds.filter((id) => points.some((point) => point.id === id)),
@@ -341,31 +384,77 @@ export function Solid3DEditorPanel({
 
   return (
     <div
-      className="solid-3d-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      className={`solid-3d-dock${expanded ? " is-expanded" : ""}`}
+      data-testid="solid-3d-dock"
+      ref={dockRef}
+      style={
+        windowRect === null
+          ? undefined
+          : {
+              left: windowRect.left,
+              right: "auto",
+              top: windowRect.top,
+              width: windowRect.width,
+              height: windowRect.height,
+            }
+      }
     >
       <section
         aria-describedby="solid-3d-description"
         aria-labelledby="solid-3d-title"
-        aria-modal="true"
         className="solid-3d-editor"
-        role="dialog"
+        data-testid="solid-3d-editor"
+        onKeyDown={(event) => {
+          // Keyboard shortcuts inside the editor must not reach the board.
+          event.stopPropagation();
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onClose();
+          }
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onWheel={(event) => event.stopPropagation()}
+        ref={panelRef}
+        role="region"
+        tabIndex={-1}
       >
         <header>
-          <div>
-            <p>Интерактивная стереометрия</p>
-            <h2 id="solid-3d-title">{solidNames[record.definition.kind]}</h2>
-          </div>
           <button
-            aria-label="Закрыть 3D-окно"
-            onClick={onClose}
-            ref={closeButtonRef}
+            aria-label="Переместить 3D-окно"
+            className="solid-3d-drag-handle"
+            onKeyDown={(event) => handleWindowArrow(event, "move")}
+            onPointerCancel={endWindowGesture}
+            onPointerDown={(event) => startWindowGesture(event, "move")}
+            onPointerMove={moveWindowGesture}
+            onPointerUp={endWindowGesture}
+            title="Перетащите мышью или используйте стрелки"
             type="button"
           >
-            ×
+            <span aria-hidden="true">⠿</span>
+            <span>
+              <small>Интерактивная стереометрия</small>
+              <strong id="solid-3d-title">
+                {solidNames[record.definition.kind]}
+              </strong>
+            </span>
           </button>
+          <div className="solid-3d-window-actions">
+            <button
+              aria-label={expanded ? "Свернуть 3D-окно" : "Развернуть 3D-окно"}
+              aria-pressed={expanded}
+              onClick={toggleExpanded}
+              type="button"
+            >
+              {expanded ? "↙" : "↗"}
+            </button>
+            <button
+              aria-label="Закрыть 3D-окно"
+              onClick={onClose}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
         </header>
         <p className="visually-hidden" id="solid-3d-description">
           Вращайте модель, ставьте точки, предварительно просматривайте
@@ -424,6 +513,10 @@ export function Solid3DEditorPanel({
             Отменить
           </button>
         </div>
+        <p className="solid-3d-controls-hint">
+          ЛКМ — вращение, ПКМ — перемещение, колесо — масштаб. В режиме точек:
+          ЛКМ — постановка точки или перемещение камеры, ПКМ — вращение.
+        </p>
         <div className="solid-3d-layout">
           <div className="solid-3d-stage">
             <Solid3DViewport
@@ -723,6 +816,19 @@ export function Solid3DEditorPanel({
           />
         ) : null}
       </section>
+      <button
+        aria-label="Изменить размер 3D-окна"
+        className="solid-3d-resize-handle"
+        onKeyDown={(event) => handleWindowArrow(event, "resize")}
+        onPointerCancel={endWindowGesture}
+        onPointerDown={(event) => startWindowGesture(event, "resize")}
+        onPointerMove={moveWindowGesture}
+        onPointerUp={endWindowGesture}
+        title="Перетащите мышью или используйте стрелки"
+        type="button"
+      >
+        <span aria-hidden="true">◢</span>
+      </button>
     </div>
   );
 }

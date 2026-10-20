@@ -1,48 +1,125 @@
-.solid-3d-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgb(15 23 42 / 54%);
+.solid-3d-dock {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 45;
+  display: flex;
+  width: min(610px, calc(100% - 32px));
+  height: calc(100% - 32px);
+  align-items: flex-start;
+  pointer-events: none;
+}
+.solid-3d-dock.is-expanded {
+  width: min(1120px, calc(100% - 32px));
 }
 .solid-3d-editor {
-  width: min(1120px, 96vw);
-  max-height: 94vh;
+  height: 100%;
+  min-height: 0;
+  /* Keep the viewport and learning steps in normal flow: a flex column
+     would shrink the grid and let its canvas overlap later controls. */
+  display: block;
+  width: 100%;
+  max-height: 100%;
   overflow: auto;
+  scroll-padding-top: 86px;
   border: 1px solid #9caeb5;
-  border-radius: 18px;
+  border-radius: 16px;
   background: #fbf7ef;
   color: #24323a;
-  box-shadow: 0 24px 70px rgb(15 23 42 / 34%);
+  box-shadow: 0 18px 50px rgb(15 23 42 / 22%);
+  pointer-events: auto;
 }
 .solid-3d-editor > header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
+  flex: 0 0 auto;
+  background: #fbf7ef;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
+  gap: 12px;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid #d8d0c3;
 }
-.solid-3d-editor header p {
-  margin: 0;
+.solid-3d-drag-handle {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: grab;
+  text-align: left;
+  touch-action: none;
+  user-select: none;
+}
+.solid-3d-drag-handle:active {
+  cursor: grabbing;
+}
+.solid-3d-drag-handle > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.solid-3d-drag-handle small {
   color: #8f2f45;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.solid-3d-editor h2 {
-  margin: 0.15rem 0 0;
+.solid-3d-drag-handle strong {
+  overflow: hidden;
   font-size: 1.35rem;
+  text-overflow: ellipsis;
 }
-.solid-3d-editor header button {
+.solid-3d-controls-hint {
+  margin: 0;
+  padding: 0.45rem 1rem;
+  border-bottom: 1px solid #ddd4c7;
+  color: #546873;
+  font-size: 0.78rem;
+}
+.solid-3d-resize-handle {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 3;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px 0 14px 0;
+  background: rgb(232 223 209 / 95%);
+  color: #24323a;
+  cursor: nwse-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+.solid-3d-resize-handle:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+.solid-3d-window-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.4rem;
+}
+.solid-3d-window-actions button {
   width: 2.25rem;
   height: 2.25rem;
   border: 0;
   border-radius: 50%;
   background: #e8dfd1;
-  font-size: 1.5rem;
+  font-size: 1.35rem;
+  cursor: pointer;
+}
+.solid-3d-editor :focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
 }
 .solid-3d-toolbar {
   display: flex;
@@ -66,19 +143,34 @@
 }
 .solid-3d-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
-  min-height: 560px;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
 }
 .solid-3d-stage {
   position: relative;
-  min-height: 560px;
-  border-right: 1px solid #ddd4c7;
+  height: 340px;
+  min-height: 340px;
+  border-bottom: 1px solid #ddd4c7;
 }
 .solid-3d-viewport {
   width: 100%;
   height: 100%;
-  min-height: 560px;
+  min-height: 340px;
   overflow: hidden;
+}
+.solid-3d-dock.is-expanded .solid-3d-layout {
+  grid-template-columns: minmax(0, 1fr) 310px;
+  min-height: 520px;
+}
+.solid-3d-dock.is-expanded .solid-3d-stage {
+  height: 520px;
+  min-height: 520px;
+  border-right: 1px solid #ddd4c7;
+  border-bottom: 0;
+}
+.solid-3d-dock.is-expanded .solid-3d-viewport,
+.solid-3d-dock.is-expanded .solid-3d-fallback {
+  min-height: 520px;
 }
 .solid-3d-viewport canvas {
   display: block;
@@ -88,7 +180,7 @@
 }
 .solid-3d-fallback {
   display: grid;
-  min-height: 560px;
+  min-height: 340px;
   place-items: center;
   padding: 2rem;
   text-align: center;
@@ -122,6 +214,8 @@
   left: 1rem;
   bottom: 1rem;
   display: flex;
+  flex-wrap: wrap;
+  max-width: calc(100% - 2rem);
   gap: 0.7rem;
   align-items: center;
   padding: 0.55rem 0.75rem;
@@ -132,6 +226,9 @@
 }
 .solid-3d-layout aside {
   padding: 1rem;
+  overflow: visible;
+}
+.solid-3d-dock.is-expanded .solid-3d-layout aside {
   overflow: auto;
 }
 .solid-3d-layout aside h3 {
@@ -409,26 +506,47 @@
   padding: 0.4rem 0;
   border-bottom: 1px solid #e3dbcf;
 }
-@media (max-width: 780px) {
-  .solid-3d-backdrop {
-    padding: 0;
+@media (max-width: 780px), (max-width: 900px) and (max-height: 520px) {
+  .solid-3d-dock,
+  .solid-3d-dock.is-expanded {
+    position: fixed;
+    inset: 0 !important;
+    z-index: 100;
+    width: 100vw !important;
+    height: 100dvh !important;
   }
   .solid-3d-editor {
-    width: 100vw;
-    max-height: 100vh;
+    max-height: 100%;
     border-radius: 0;
   }
-  .solid-3d-layout {
-    grid-template-columns: 1fr;
+  .solid-3d-drag-handle {
+    cursor: default;
+    pointer-events: none;
+    touch-action: auto;
   }
-  .solid-3d-stage {
-    min-height: 52vh;
+  .solid-3d-resize-handle,
+  .solid-3d-window-actions button:first-child {
+    display: none;
+  }
+  .solid-3d-dock.is-expanded .solid-3d-layout {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .solid-3d-stage,
+  .solid-3d-dock.is-expanded .solid-3d-stage {
+    height: clamp(260px, 48vh, 360px);
+    min-height: 260px;
     border-right: 0;
     border-bottom: 1px solid #ddd4c7;
   }
   .solid-3d-viewport,
-  .solid-3d-fallback {
-    min-height: 52vh;
+  .solid-3d-fallback,
+  .solid-3d-dock.is-expanded .solid-3d-viewport,
+  .solid-3d-dock.is-expanded .solid-3d-fallback {
+    min-height: 260px;
+  }
+  .solid-3d-dock.is-expanded .solid-3d-layout aside {
+    overflow: visible;
   }
   .solid-learning-projections {
     grid-template-columns: 1fr;

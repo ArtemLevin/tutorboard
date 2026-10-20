@@ -24,6 +24,7 @@ export const boardCommandSchemaVersion = "1.0" as const;
 export const maximumBoardCommandTargets = 10_000;
 export const maximumBoardCommandObjects = 5_000;
 export const maximumBoardCommandJsonBytes = 2 * 1024 * 1024;
+export const maximumRestoreGraphJsonBytes = 40 * 1024 * 1024;
 
 const identifierSchema = z
   .string()
@@ -382,6 +383,25 @@ export const boardCommandSchema = z.discriminatedUnion("kind", [
   z
     .object({
       ...metadata,
+      graphVersion: z.literal("1.0"),
+      geometryImports: z
+        .array(geometryImportSchema)
+        .max(maximumBoardCommandTargets),
+      groups: z.array(boardGroupSchema).max(maximumBoardCommandTargets),
+      kind: z.literal("core.clipboard.restore-graph"),
+      objects: z
+        .array(boardObjectSchema)
+        .min(1)
+        .max(maximumBoardCommandTargets),
+      solidModels: z
+        .array(solid3DRecordSchema)
+        .max(maximumBoardCommandTargets)
+        .optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ...metadata,
       group: boardGroupSchema,
       kind: z.literal("core.groups.add"),
     })
@@ -658,9 +678,13 @@ function utf8Length(value: string): number {
 }
 
 export function readBoardCommandJson(raw: string): BoardCommandJsonReadResult {
-  if (utf8Length(raw) > maximumBoardCommandJsonBytes) {
+  const size = utf8Length(raw);
+  if (size > maximumRestoreGraphJsonBytes) return { raw, status: "too-large" };
+  if (
+    size > maximumBoardCommandJsonBytes &&
+    !/"kind"\s*:\s*"core\.clipboard\.restore-graph"/u.test(raw)
+  )
     return { raw, status: "too-large" };
-  }
   let value: unknown;
   try {
     value = JSON.parse(raw) as unknown;
@@ -668,6 +692,12 @@ export function readBoardCommandJson(raw: string): BoardCommandJsonReadResult {
     return { raw, status: "invalid-json" };
   }
   const parsed = readBoardCommand(value);
+  if (
+    parsed.status === "ok" &&
+    size > maximumBoardCommandJsonBytes &&
+    parsed.command.kind !== "core.clipboard.restore-graph"
+  )
+    return { raw, status: "too-large" };
   return parsed.status === "ok"
     ? parsed
     : {
