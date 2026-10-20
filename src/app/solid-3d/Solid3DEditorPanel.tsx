@@ -420,7 +420,6 @@ export function Solid3DEditorPanel({
           Вращайте модель, ставьте точки, предварительно просматривайте
           плоскость и явно сохраняйте нужные сечения.
         </p>
-        <div className="solid-3d-content">
         <div className="solid-3d-toolbar" role="toolbar">
           <button
             aria-pressed={experience === "free"}
@@ -772,7 +771,6 @@ export function Solid3DEditorPanel({
             section={freeVisibleSection}
           />
         ) : null}
-        </div>
       </section>
     </div>
   );
