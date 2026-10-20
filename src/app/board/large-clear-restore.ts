@@ -6,6 +6,23 @@ import {
 } from "../../core/board/commands/codec/public";
 
 type Paste = Extract<BoardCommand, { kind: "core.clipboard.paste" }>;
+type Graph = Extract<BoardCommand, { kind: "core.clipboard.restore-graph" }>;
+
+/** One complete dependency graph is validated and committed as one revision. */
+export function planVersionedGraphRestore(paste: Paste): Graph | null {
+  if (paste.objects.length < 1 || paste.objects.length > 10_000) return null;
+  const graph: Graph = {
+    ...paste,
+    graphVersion: "1.0",
+    kind: "core.clipboard.restore-graph",
+  };
+  const encoded = serializeBoardCommand(graph);
+  if (!encoded.ok) return null;
+  return new TextEncoder().encode(encoded.json).byteLength <= 40 * 1024 * 1024
+    ? graph
+    : null;
+}
+
 
 // Multipart transport stages up to 48 MiB, while preserving the existing
 // 100-command, 2 MiB-command and per-list validation bounds. Conservatively
