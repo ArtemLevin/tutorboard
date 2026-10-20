@@ -101,6 +101,7 @@ function renderPanel(readOnly = false) {
       onProject={vi.fn()}
       onRecordChange={onRecordChange}
       onPointMove={onPointMove}
+      onSaveSweep={vi.fn()}
       onUndo={vi.fn()}
       readOnly={readOnly}
       record={record}
