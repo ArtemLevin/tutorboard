@@ -936,7 +936,7 @@ function updateText(
 
 function pasteContent(
   document: BoardDocument,
-  command: PasteContentCommand,
+  command: PasteContentCommand | RestoreGraphCommand,
 ): CommandResult {
   if (command.objects.length === 0) {
     return failure(
@@ -2363,6 +2363,7 @@ function reduceValidatedDocument(
     case "core.clipboard.cut":
       return cutContent(document, command);
     case "core.clipboard.paste":
+    case "core.clipboard.restore-graph":
       return pasteContent(document, command);
     case "core.groups.add":
       return addGroup(document, command);
