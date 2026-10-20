@@ -563,6 +563,21 @@ export function Solid3DEditorPanel({
                       )
               }
               onPointPlace={placePoint}
+              onPointDragStart={() => {
+                if (readOnly) return;
+                startingDragRecord.current = record;
+              }}
+              onPointDragPreview={(pointId, placement) => {
+                if (readOnly || startingDragRecord.current === null) return;
+                setDragPreview({ pointId, placement });
+              }}
+              onPointDragEnd={(pointId, placement) => {
+                const initial = startingDragRecord.current;
+                startingDragRecord.current = null;
+                setDragPreview(null);
+                if (readOnly || initial === null || placement === null) return;
+                onPointMove(initial, pointId, placement.position, placement.anchor);
+              }}
               onSurfaceHover={setHoveredSurfaceId}
               record={previewRecord}
               resetToken={resetToken}
