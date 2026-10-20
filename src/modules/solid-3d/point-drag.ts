@@ -1,11 +1,44 @@
 import {
   isSolidSectionHelperPoint,
   reprojectSolid3DRecord,
+  decodeTopologyFaceAnchorId,
   type Solid3DPoint,
   type Solid3DRecord,
   type SolidPointAnchor,
   type Vec3,
 } from "../../core/public";
+
+function anchorRemainsOnSameSupport(
+  oldAnchor: SolidPointAnchor,
+  nextAnchor: SolidPointAnchor,
+): boolean {
+  switch (oldAnchor.kind) {
+    case "vertex":
+      return false;
+    case "edge":
+      return (
+        nextAnchor.kind === "edge" &&
+        nextAnchor.edgeId === oldAnchor.edgeId &&
+        Number.isFinite(nextAnchor.parameter) &&
+        nextAnchor.parameter >= 0 &&
+        nextAnchor.parameter <= 1
+      );
+    case "face":
+      return (
+        nextAnchor.kind === "face" &&
+        decodeTopologyFaceAnchorId(nextAnchor.faceId).faceId ===
+          decodeTopologyFaceAnchorId(oldAnchor.faceId).faceId &&
+        Number.isFinite(nextAnchor.localCoordinates.x) &&
+        Number.isFinite(nextAnchor.localCoordinates.y)
+      );
+    case "analytic-surface":
+      return (
+        nextAnchor.kind === "analytic-surface" &&
+        nextAnchor.surfaceId === oldAnchor.surfaceId &&
+        nextAnchor.parameters.every(Number.isFinite)
+      );
+  }
+}
 
 /**
  * Apply a single finished gesture to the newest record, preserving concurrent
@@ -37,7 +70,7 @@ export function applySolidPointDrag(
     return null;
   if (
     ![position.x, position.y, position.z].every(Number.isFinite) ||
-    anchor.kind !== expected.anchor.kind
+    !anchorRemainsOnSameSupport(expected.anchor, anchor)
   )
     return null;
   const moved: Solid3DPoint = { ...actual, position, anchor };
