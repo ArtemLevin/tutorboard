@@ -34,6 +34,7 @@ import {
   calculateSolidSection,
   getSolidSectionSweepFrame,
   previewSolidSectionSweep,
+  previewSolidSectionRotation,
   removeSavedSolidSection,
   saveSolidSectionFromPoints,
   setSavedSolidSectionVisibility,
@@ -62,6 +63,24 @@ export interface Solid3DEditorPanelProps {
       Solid3DPoint["id"],
     ],
     offset: number,
+    token: string,
+  ) => {
+    readonly sectionId: string;
+    readonly pointIds: readonly [
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+    ];
+  } | null;
+  readonly onSaveRotation: (
+    startingRecord: Solid3DRecord,
+    pointIds: readonly [
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+    ],
+    edgeId: string,
+    angleDegrees: number,
     token: string,
   ) => {
     readonly sectionId: string;
@@ -175,6 +194,7 @@ export function Solid3DEditorPanel({
   onRecordChange,
   onPointMove,
   onSaveSweep,
+  onSaveRotation,
   onUndo,
   readOnly,
   record,
@@ -225,6 +245,9 @@ export function Solid3DEditorPanel({
   const [showSectionOutline, setShowSectionOutline] = useState(true);
   const [sweepEnabled, setSweepEnabled] = useState(false);
   const [sweepOffset, setSweepOffset] = useState(0);
+  const [rotationEnabled, setRotationEnabled] = useState(false);
+  const [rotationEdgeId, setRotationEdgeId] = useState("");
+  const [rotationAngle, setRotationAngle] = useState(0);
   const [resetToken, setResetToken] = useState(0);
   const {
     dockRef,
@@ -327,9 +350,33 @@ export function Solid3DEditorPanel({
         : null,
     [previewRecord, selectedTuple, sweepEnabled, sweepOffset],
   );
-  const freeVisibleSection = sweepEnabled
-    ? (sweepPreview?.section ?? null)
-    : (previewSection ?? activeSection);
+  const rotationTopology = useMemo(
+    () => createSolidTopology(previewRecord.definition),
+    [previewRecord.definition],
+  );
+  const rotationPreview = useMemo(
+    () =>
+      rotationEnabled && selectedTuple !== null && rotationEdgeId !== ""
+        ? previewSolidSectionRotation(
+            previewRecord,
+            selectedTuple,
+            rotationEdgeId,
+            rotationAngle,
+          )
+        : null,
+    [
+      previewRecord,
+      selectedTuple,
+      rotationEnabled,
+      rotationEdgeId,
+      rotationAngle,
+    ],
+  );
+  const freeVisibleSection = rotationEnabled
+    ? (rotationPreview?.section ?? null)
+    : sweepEnabled
+      ? (sweepPreview?.section ?? null)
+      : (previewSection ?? activeSection);
 
   const startLearning = (
     scenario: Solid3DLearningScenario,
@@ -337,6 +384,8 @@ export function Solid3DEditorPanel({
   ) => {
     setSweepEnabled(false);
     setSweepOffset(0);
+    setRotationEnabled(false);
+    setRotationAngle(0);
     if (scenario.seedAnchors.length >= 3) {
       const learningPoints = scenario.seedAnchors
         .slice(0, 3)
