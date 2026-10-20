@@ -57,7 +57,9 @@ export function planAtomicClearRestore(paste: Paste): readonly Paste[] | null {
     if (ids.length === 0) return false;
     const positions = ids.map((id) => index.get(id));
     if (positions.some((value) => value === undefined)) return false;
-    const positionsChecked = positions.filter((value): value is number => value !== undefined);
+    const positionsChecked = positions.filter(
+      (value): value is number => value !== undefined,
+    );
     const start = Math.min(...positionsChecked);
     const end = Math.max(...positionsChecked);
     last[start] = Math.max(last[start] ?? start, end);
@@ -79,7 +81,9 @@ export function planAtomicClearRestore(paste: Paste): readonly Paste[] | null {
     const belongs = (ids: readonly string[]) =>
       ids.some((id) => {
         const position = index.get(id);
-        return position !== undefined && position >= begin && position <= finish;
+        return (
+          position !== undefined && position >= begin && position <= finish
+        );
       });
     const groups = paste.groups.filter((group) => belongs(group.objectIds));
     const groupIds = new Set(groups.map((group) => group.id));
@@ -117,12 +121,15 @@ export function planAtomicClearRestore(paste: Paste): readonly Paste[] | null {
     if (
       bytes > maximumRestoreChunkBytes ||
       component.objects.length > maximumBoardCommandObjects
-    ) return null;
+    )
+      return null;
     if (
       chunk.objects.length > 0 &&
       (size + bytes > maximumRestoreChunkBytes ||
-        chunk.objects.length + component.objects.length > maximumBoardCommandObjects)
-    ) flush();
+        chunk.objects.length + component.objects.length >
+          maximumBoardCommandObjects)
+    )
+      flush();
     chunk = {
       objects: [...chunk.objects, ...component.objects],
       groups: [...chunk.groups, ...component.groups],
@@ -145,7 +152,9 @@ export function planAtomicClearRestore(paste: Paste): readonly Paste[] | null {
       objects: part.objects,
       groups: part.groups,
       geometryImports: part.geometryImports,
-      ...(part.solidModels.length === 0 ? {} : { solidModels: part.solidModels }),
+      ...(part.solidModels.length === 0
+        ? {}
+        : { solidModels: part.solidModels }),
     };
     const serialized = serializeBoardCommand(candidate);
     if (!serialized.ok) return null;
@@ -157,9 +166,15 @@ export function planAtomicClearRestore(paste: Paste): readonly Paste[] | null {
   }
   // No group/import/solid may have been omitted by the split.
   if (
-    result.reduce((sum, command) => sum + command.groups.length, 0) !== paste.groups.length ||
-    result.reduce((sum, command) => sum + command.geometryImports.length, 0) !== paste.geometryImports.length ||
-    result.reduce((sum, command) => sum + (command.solidModels?.length ?? 0), 0) !== (paste.solidModels?.length ?? 0)
-  ) return null;
+    result.reduce((sum, command) => sum + command.groups.length, 0) !==
+      paste.groups.length ||
+    result.reduce((sum, command) => sum + command.geometryImports.length, 0) !==
+      paste.geometryImports.length ||
+    result.reduce(
+      (sum, command) => sum + (command.solidModels?.length ?? 0),
+      0,
+    ) !== (paste.solidModels?.length ?? 0)
+  )
+    return null;
   return result;
 }
