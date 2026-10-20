@@ -389,6 +389,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       surfaceFaceIds: built.semanticSurfaceFaceIds,
     };
     const pointerDragDown = (event: PointerEvent) => {
+      // A canceled gesture may never emit click. Do not swallow the next click.
+      if (drag === null) suppressClick = false;
       if (
         modeRef.current !== "points" ||
         event.button !== 0 ||
@@ -439,6 +441,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       event.preventDefault();
       event.stopImmediatePropagation();
       drag = null;
+      if (!commit) suppressClick = false;
       if (dragFrame !== 0) window.cancelAnimationFrame(dragFrame);
       dragFrame = 0;
       if (renderer.domElement.hasPointerCapture?.(event.pointerId))
