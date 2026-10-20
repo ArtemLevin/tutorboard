@@ -2819,3 +2819,11 @@ Merge — после применимого CI; production rollout остаёт�
 - [ ] Reproduce user-observed slow frames on Windows/real hardware and run representative 5000/10000-stroke independent ABBA with compositor tracing. Remain NO-GO for a universal performance claim and do not merge speculative stable-culling/large cache drafts without release evidence.
 
 Evidence: `docs/C39_CLEAR_ZOOM_DIAGNOSTICS_2026-10-14.md`, PR #263, issue #201.
+
+
+## 20.10.2026 — Issue #275: atomic large-clear Undo (experimental cross-repo)
+
+- Frontend Draft PR #274: 40 MiB bounded multi-command restore planner, content-addressed multipart transfer, 409 rebase, idempotent reconnect and regression tests.
+- Backend Draft PR ArtemLevin/tutor-assistant-web#50: migration 0020, 512 KiB chunks, tenant/board/actor/access-epoch binding, SHA-256, TTL/periodic cleanup, up to 48 MiB single-revision finalize.
+- Prior 2 MiB per-command/5,000 items codec remains enforced. Whole-group/GeometryOS/3D restore beyond a command and removed 3D learning attempts remain open.
+- Verification and deployment status are tracked in PR CI. No merge or production release at this stage. Keep Issue #275 open until full acceptance.
