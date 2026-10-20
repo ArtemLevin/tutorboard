@@ -13,6 +13,7 @@ import {
   type Solid3DPoint,
   type Solid3DRecord,
   type SolidSectionResult,
+  type SolidTopology,
   type Vec3,
 } from "../../core/public";
 import {
@@ -94,10 +95,13 @@ export function getSolidSectionRotationFrame(
   };
 }
 
-export function previewSolidSectionRotation(
-  record: Solid3DRecord,
-  pointIds: PointIds,
-  edgeId: string,
+/**
+ * Live frame evaluation uses a precomputed topology and axis, so moving the
+ * slider does not rebuild an expensive polyhedron topology on every frame.
+ */
+export function previewSolidSectionRotationFrame(
+  topology: SolidTopology,
+  frame: SolidSectionRotationFrame,
   angleDegrees: number,
 ): SolidSectionRotationPreview | null {
   if (
@@ -105,9 +109,6 @@ export function previewSolidSectionRotation(
     angleDegrees < -180 ||
     angleDegrees > 180
   ) return null;
-  const frame = getSolidSectionRotationFrame(record, pointIds, edgeId);
-  const topology = createSolidTopology(record.definition);
-  if (frame === null || topology === null) return null;
   const radians = (angleDegrees * Math.PI) / 180;
   const normal = rotateAroundDirection(
     frame.plane.normal,
@@ -132,6 +133,19 @@ export function previewSolidSectionRotation(
     plane,
     section: section !== null && section.area > 1e-8 ? section : null,
   };
+}
+
+export function previewSolidSectionRotation(
+  record: Solid3DRecord,
+  pointIds: PointIds,
+  edgeId: string,
+  angleDegrees: number,
+): SolidSectionRotationPreview | null {
+  const frame = getSolidSectionRotationFrame(record, pointIds, edgeId);
+  const topology = createSolidTopology(record.definition);
+  return frame === null || topology === null
+    ? null
+    : previewSolidSectionRotationFrame(topology, frame, angleDegrees);
 }
 
 /** One optimistic update; preserves concurrent changes to unrelated points. */
