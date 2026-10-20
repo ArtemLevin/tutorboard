@@ -4,4 +4,5 @@ export * from "./point-drag";
 export * from "./section-editor";
 export * from "./section-workflow";
 export * from "./section-sweep";
+export * from "./section-rotation";
 export * from "./selectors";
