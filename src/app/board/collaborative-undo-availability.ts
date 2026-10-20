@@ -3,7 +3,10 @@ import {
   type BoardCommand,
   type BoardDocument,
 } from "../../core/public";
-import { planAtomicClearRestore, planVersionedGraphRestore } from "./large-clear-restore";
+import {
+  planAtomicClearRestore,
+  planVersionedGraphRestore,
+} from "./large-clear-restore";
 import {
   maximumBoardCommandJsonBytes,
   maximumBoardCommandObjects,
