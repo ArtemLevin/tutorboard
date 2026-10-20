@@ -148,8 +148,11 @@ export class CollaborativeUndoAvailability {
     if (registered === undefined) return undefined;
 
     const paste = inverse[0];
-    if (command.kind !== "core.clipboard.cut" ||
-        paste?.kind !== "core.clipboard.paste") return false;
+    if (
+      command.kind !== "core.clipboard.cut" ||
+      paste?.kind !== "core.clipboard.paste"
+    )
+      return false;
     const ids = restoreIds(command, paste);
     if (ids === null) return false;
     const commands = planAtomicClearRestore(paste);
