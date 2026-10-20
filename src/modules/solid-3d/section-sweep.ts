@@ -191,23 +191,23 @@ function nonCollinearVertices(
  * Materialize one swept position as three stable edge/vertex anchors plus a
  * regular saved section. No schema migration and no transient command spam.
  */
-export function saveSolidSectionSweep(input: {
+export function captureSolidSectionIntersection(input: {
   readonly current: Solid3DRecord;
   readonly starting: Solid3DRecord;
   readonly pointIds: PointIds;
-  readonly offset: number;
+  readonly section: SolidSectionResult | null;
   readonly token: string;
+  readonly kind: "sweep" | "rotation";
 }): SaveSolidSectionSweepResult {
-  const { current, starting, pointIds, offset, token } = input;
+  const { current, starting, pointIds, section, token, kind } = input;
   if (!sameSource(current, starting, pointIds))
     return { status: "error", code: "invalid-source" };
   if (current.sections.length >= 8 || current.points.length + 3 > 32)
     return { status: "error", code: "limit" };
-  const swept = previewSolidSectionSweep(current, pointIds, offset);
   const topology = createSolidTopology(current.definition);
-  if (swept === null || swept.section === null || topology === null)
+  if (section === null || topology === null)
     return { status: "error", code: "outside" };
-  const triple = nonCollinearVertices(swept.section);
+  const triple = nonCollinearVertices(section);
   if (triple === null) return { status: "error", code: "outside" };
   const extent = Math.max(
     1,
@@ -221,13 +221,13 @@ export function saveSolidSectionSweep(input: {
   if (anchors.some((anchor) => anchor === null))
     return { status: "error", code: "outside" };
   const newPoints = triple.map((position, i): Solid3DPoint => ({
-    id: solidPointId(`solid-point:section-helper:sweep:${token}:${i}`),
+    id: solidPointId(`solid-point:section-helper:${kind}:${token}:${i}`),
     label: `T${i + 1}`,
     position,
     anchor: anchors[i]!,
   }));
   const ids = newPoints.map(({ id }) => id) as unknown as PointIds;
-  const sectionId = solidSectionId(`solid-section:sweep:${token}`);
+  const sectionId = solidSectionId(`solid-section:${kind}:${token}`);
   if (
     current.points.some((point) => ids.includes(point.id)) ||
     current.sections.some((section) => section.id === sectionId)
@@ -251,6 +251,26 @@ export function saveSolidSectionSweep(input: {
     record,
     sectionId,
     pointIds: ids,
-    section: swept.section,
+    section,
   };
+}
+
+/** Persist one parallel sweep using the shared semantic-section capture path. */
+export function saveSolidSectionSweep(input: {
+  readonly current: Solid3DRecord;
+  readonly starting: Solid3DRecord;
+  readonly pointIds: PointIds;
+  readonly offset: number;
+  readonly token: string;
+}): SaveSolidSectionSweepResult {
+  const { current, starting, pointIds, offset, token } = input;
+  const preview = previewSolidSectionSweep(current, pointIds, offset);
+  return captureSolidSectionIntersection({
+    current,
+    starting,
+    pointIds,
+    section: preview?.section ?? null,
+    token,
+    kind: "sweep",
+  });
 }
