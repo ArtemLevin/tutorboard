@@ -27,6 +27,45 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
     bounds.y + bounds.height * 0.75,
   );
   await expect(editor).toBeVisible();
+
+  const dock = page.getByTestId("solid-3d-dock");
+  const beforeMove = await dock.boundingBox();
+  const handle = editor.getByRole("button", { name: "Переместить 3D-окно" });
+  const handleBounds = await handle.boundingBox();
+  if (beforeMove === null || handleBounds === null)
+    throw new Error("3D panel move handle bounds are unavailable");
+  const canvas = editor.locator("canvas[data-engine]");
+  await expect(canvas).toHaveCount(1);
+  await canvas.evaluate((node) => node.setAttribute("data-viewport-instance", "same"));
+  await page.mouse.move(handleBounds.x + 20, handleBounds.y + handleBounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    handleBounds.x - 80,
+    handleBounds.y + handleBounds.height / 2,
+    { steps: 5 },
+  );
+  await page.mouse.up();
+  const afterMove = await dock.boundingBox();
+  if (afterMove === null) throw new Error("3D panel disappeared while moving");
+  expect(afterMove.x).toBeLessThan(beforeMove.x - 70);
+
+  const resize = page.getByRole("button", { name: "Изменить размер 3D-окна" });
+  const gripBounds = await resize.boundingBox();
+  if (gripBounds === null) throw new Error("3D resize grip is unavailable");
+  await page.mouse.move(gripBounds.x + gripBounds.width / 2, gripBounds.y + gripBounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    gripBounds.x + gripBounds.width / 2 + 40,
+    gripBounds.y + gripBounds.height / 2 - 60,
+    { steps: 5 },
+  );
+  await page.mouse.up();
+  const afterResize = await dock.boundingBox();
+  if (afterResize === null) throw new Error("3D panel disappeared while resizing");
+  expect(afterResize.width).toBeGreaterThan(afterMove.width + 25);
+  expect(afterResize.height).toBeLessThan(afterMove.height - 40);
+  await expect(canvas).toHaveAttribute("data-viewport-instance", "same");
+
   await editor.getByRole("button", { name: "Развернуть 3D-окно" }).click();
   await expect(
     editor.getByRole("button", { name: "Свернуть 3D-окно" }),
