@@ -106,6 +106,32 @@ describe("committing a dragged anchored point", () => {
     ).toBeNull();
   });
 
+  it("rejects switching the anchor to another edge or invalid parameters", () => {
+    const initial = record();
+    const position = resolveSolidPointAnchor(topology, newAnchor)!;
+    expect(
+      applySolidPointDrag(initial, initial, pointId, position, {
+        kind: "edge",
+        edgeId: topology.edges[1]!.id,
+        parameter: 0.75,
+      }),
+    ).toBeNull();
+    expect(
+      applySolidPointDrag(initial, initial, pointId, position, {
+        kind: "edge",
+        edgeId,
+        parameter: 1.2,
+      }),
+    ).toBeNull();
+    expect(
+      applySolidPointDrag(initial, initial, pointId, position, {
+        kind: "edge",
+        edgeId,
+        parameter: Number.NaN,
+      }),
+    ).toBeNull();
+  });
+
   it("updates the live section calculated from dragged anchor positions", () => {
     const initial = record();
     const extra = [topology.vertices[4]!, topology.vertices[6]!].map(
