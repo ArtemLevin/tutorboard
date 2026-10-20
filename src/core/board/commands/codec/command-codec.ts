@@ -384,11 +384,19 @@ export const boardCommandSchema = z.discriminatedUnion("kind", [
     .object({
       ...metadata,
       graphVersion: z.literal("1.0"),
-      geometryImports: z.array(geometryImportSchema).max(maximumBoardCommandTargets),
+      geometryImports: z
+        .array(geometryImportSchema)
+        .max(maximumBoardCommandTargets),
       groups: z.array(boardGroupSchema).max(maximumBoardCommandTargets),
       kind: z.literal("core.clipboard.restore-graph"),
-      objects: z.array(boardObjectSchema).min(1).max(maximumBoardCommandTargets),
-      solidModels: z.array(solid3DRecordSchema).max(maximumBoardCommandTargets).optional(),
+      objects: z
+        .array(boardObjectSchema)
+        .min(1)
+        .max(maximumBoardCommandTargets),
+      solidModels: z
+        .array(solid3DRecordSchema)
+        .max(maximumBoardCommandTargets)
+        .optional(),
     })
     .strict(),
   z
