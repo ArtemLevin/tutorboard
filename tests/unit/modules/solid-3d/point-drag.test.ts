@@ -9,7 +9,10 @@ import {
   type Solid3DRecord,
   type SolidPointAnchor,
 } from "../../../../src/core/public";
-import { applySolidPointDrag, calculateSolidSection } from "../../../../src/modules/solid-3d/public";
+import {
+  applySolidPointDrag,
+  calculateSolidSection,
+} from "../../../../src/modules/solid-3d/public";
 
 const definition = { edgeLength: 2, kind: "cube" } as const;
 const topology = createSolidTopology(definition)!;
@@ -50,7 +53,13 @@ describe("committing a dragged anchored point", () => {
     };
     const current = { ...initial, points: [...initial.points, anotherPoint] };
     const position = resolveSolidPointAnchor(topology, newAnchor)!;
-    const result = applySolidPointDrag(current, initial, pointId, position, newAnchor);
+    const result = applySolidPointDrag(
+      current,
+      initial,
+      pointId,
+      position,
+      newAnchor,
+    );
     expect(result?.points).toHaveLength(2);
     expect(result?.points[0]?.anchor).toEqual(newAnchor);
     expect(result?.points[0]?.position).toEqual(position);
@@ -65,7 +74,9 @@ describe("committing a dragged anchored point", () => {
       ...original,
       points: [{ ...original.points[0]!, label: "Concurrent edit" }],
     };
-    expect(applySolidPointDrag(changed, original, pointId, position, newAnchor)).toBeNull();
+    expect(
+      applySolidPointDrag(changed, original, pointId, position, newAnchor),
+    ).toBeNull();
     expect(
       applySolidPointDrag(
         { ...original, definition: { kind: "cube", edgeLength: 3 } },
@@ -76,10 +87,22 @@ describe("committing a dragged anchored point", () => {
       ),
     ).toBeNull();
     expect(
-      applySolidPointDrag(original, original, pointId, original.points[0]!.position, anchor),
+      applySolidPointDrag(
+        original,
+        original,
+        pointId,
+        original.points[0]!.position,
+        anchor,
+      ),
     ).toBeNull();
     expect(
-      applySolidPointDrag(original, original, pointId, { x: NaN, y: 0, z: 0 }, newAnchor),
+      applySolidPointDrag(
+        original,
+        original,
+        pointId,
+        { x: NaN, y: 0, z: 0 },
+        newAnchor,
+      ),
     ).toBeNull();
   });
 
@@ -93,7 +116,10 @@ describe("committing a dragged anchored point", () => {
         position: vertex.position,
       }),
     );
-    const candidate: Solid3DRecord = { ...initial, points: [...initial.points, ...extra] };
+    const candidate: Solid3DRecord = {
+      ...initial,
+      points: [...initial.points, ...extra],
+    };
     const ids = candidate.points.map(({ id }) => id) as [
       typeof pointId,
       typeof pointId,

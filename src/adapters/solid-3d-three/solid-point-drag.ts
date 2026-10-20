@@ -79,10 +79,16 @@ export function dragSolidPointToPointer(
   scene.camera.updateMatrixWorld();
 
   if (point.anchor.kind === "edge" && scene.topology !== null) {
-    const edge = scene.topology.edges.find(({ id }) => id === point.anchor.edgeId);
+    const edge = scene.topology.edges.find(
+      ({ id }) => id === point.anchor.edgeId,
+    );
     if (edge === undefined) return null;
-    const start = scene.topology.vertices.find(({ id }) => id === edge.startVertexId);
-    const end = scene.topology.vertices.find(({ id }) => id === edge.endVertexId);
+    const start = scene.topology.vertices.find(
+      ({ id }) => id === edge.startVertexId,
+    );
+    const end = scene.topology.vertices.find(
+      ({ id }) => id === edge.endVertexId,
+    );
     if (start === undefined || end === undefined) return null;
     const a = localPoint(scene.root, start.position).project(scene.camera);
     const b = localPoint(scene.root, end.position).project(scene.camera);
@@ -92,7 +98,10 @@ export function dragSolidPointToPointer(
     if (lengthSquared < 1e-10) return null;
     const parameter = Math.min(
       1,
-      Math.max(0, ((pointer.x - a.x) * dx + (pointer.y - a.y) * dy) / lengthSquared),
+      Math.max(
+        0,
+        ((pointer.x - a.x) * dx + (pointer.y - a.y) * dy) / lengthSquared,
+      ),
     );
     const anchor: SolidPointAnchor = { ...point.anchor, parameter };
     const position = resolveSolidPointAnchor(scene.topology, anchor);

@@ -576,7 +576,12 @@ export function Solid3DEditorPanel({
                 startingDragRecord.current = null;
                 setDragPreview(null);
                 if (readOnly || initial === null || placement === null) return;
-                onPointMove(initial, pointId, placement.position, placement.anchor);
+                onPointMove(
+                  initial,
+                  pointId,
+                  placement.position,
+                  placement.anchor,
+                );
               }}
               onSurfaceHover={setHoveredSurfaceId}
               record={previewRecord}

@@ -538,7 +538,11 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     renderer.domElement.addEventListener("pointerdown", pointerDragDown, true);
     renderer.domElement.addEventListener("pointermove", pointerDragMove, true);
     renderer.domElement.addEventListener("pointerup", pointerDragUp, true);
-    renderer.domElement.addEventListener("pointercancel", pointerDragCancel, true);
+    renderer.domElement.addEventListener(
+      "pointercancel",
+      pointerDragCancel,
+      true,
+    );
     renderer.domElement.addEventListener("pointerdown", pointerDown);
     renderer.domElement.addEventListener("click", click);
     renderer.domElement.addEventListener("pointermove", pointerMove);
@@ -559,8 +563,16 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       controls.removeEventListener("change", render);
       controls.dispose();
       if (dragFrame !== 0) window.cancelAnimationFrame(dragFrame);
-      renderer.domElement.removeEventListener("pointerdown", pointerDragDown, true);
-      renderer.domElement.removeEventListener("pointermove", pointerDragMove, true);
+      renderer.domElement.removeEventListener(
+        "pointerdown",
+        pointerDragDown,
+        true,
+      );
+      renderer.domElement.removeEventListener(
+        "pointermove",
+        pointerDragMove,
+        true,
+      );
       renderer.domElement.removeEventListener("pointerup", pointerDragUp, true);
       renderer.domElement.removeEventListener(
         "pointercancel",

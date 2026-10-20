@@ -21,7 +21,8 @@ export function applySolidPointDrag(
 ): Solid3DRecord | null {
   if (
     current.id !== startingRecord.id ||
-    JSON.stringify(current.definition) !== JSON.stringify(startingRecord.definition)
+    JSON.stringify(current.definition) !==
+      JSON.stringify(startingRecord.definition)
   )
     return null;
   const expected = startingRecord.points.find(({ id }) => id === pointId);
@@ -36,7 +37,7 @@ export function applySolidPointDrag(
     return null;
   if (
     ![position.x, position.y, position.z].every(Number.isFinite) ||
-    (anchor.kind !== expected.anchor.kind)
+    anchor.kind !== expected.anchor.kind
   )
     return null;
   const moved: Solid3DPoint = { ...actual, position, anchor };

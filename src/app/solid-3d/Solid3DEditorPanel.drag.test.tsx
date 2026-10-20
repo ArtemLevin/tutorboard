@@ -113,7 +113,9 @@ function renderPanel(readOnly = false) {
 describe("3D editor optimistic point drag", () => {
   it("previews without persistence and commits one move on release", () => {
     const { onPointMove, onRecordChange } = renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: "Начать перетаскивание" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Начать перетаскивание" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Переместить точку" }));
     expect(screen.getByTestId("drag-parameter")).toHaveTextContent("0.75");
     expect(onPointMove).not.toHaveBeenCalled();
@@ -131,9 +133,13 @@ describe("3D editor optimistic point drag", () => {
 
   it("cancels a gesture without document commands", () => {
     const { onPointMove, onRecordChange } = renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: "Начать перетаскивание" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Начать перетаскивание" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Переместить точку" }));
-    fireEvent.click(screen.getByRole("button", { name: "Отменить перемещение" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Отменить перемещение" }),
+    );
     expect(screen.getByTestId("drag-parameter")).toHaveTextContent("0.25");
     expect(onPointMove).not.toHaveBeenCalled();
     expect(onRecordChange).not.toHaveBeenCalled();
@@ -141,7 +147,9 @@ describe("3D editor optimistic point drag", () => {
 
   it("never commits when editing is read-only", () => {
     const { onPointMove } = renderPanel(true);
-    fireEvent.click(screen.getByRole("button", { name: "Начать перетаскивание" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Начать перетаскивание" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Переместить точку" }));
     fireEvent.click(screen.getByRole("button", { name: "Отпустить точку" }));
     expect(onPointMove).not.toHaveBeenCalled();

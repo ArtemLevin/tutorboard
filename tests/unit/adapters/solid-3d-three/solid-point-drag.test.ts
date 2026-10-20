@@ -30,12 +30,14 @@ function record(): Solid3DRecord {
     boardObjectIds: [],
     definition,
     projection: defaultSolidProjection,
-    points: [{
-      id: pointId,
-      label: "P",
-      anchor,
-      position: resolveSolidPointAnchor(topology, anchor)!,
-    }],
+    points: [
+      {
+        id: pointId,
+        label: "P",
+        anchor,
+        position: resolveSolidPointAnchor(topology, anchor)!,
+      },
+    ],
     sections: [],
     source: { kind: "text-template", templateId: "cube" },
     schemaVersion: "1.0",
@@ -54,7 +56,14 @@ describe("point drag screen-space geometry", () => {
   it("picks an existing edge point and slides it along the same edge", () => {
     const solid = record();
     const built = buildSolidScene(definition);
-    const camera = new THREE.OrthographicCamera(-3.5, 3.5, 2.8, -2.8, 0.01, 100);
+    const camera = new THREE.OrthographicCamera(
+      -3.5,
+      3.5,
+      2.8,
+      -2.8,
+      0.01,
+      100,
+    );
     camera.position.set(4.8, 3.8, 5.4);
     camera.lookAt(0, 0, 0);
     camera.updateMatrixWorld();
@@ -68,9 +77,17 @@ describe("point drag screen-space geometry", () => {
       surfaceFaceIds: built.semanticSurfaceFaceIds,
     };
     const start = project(solid.points[0]!.position, camera, bounds);
-    const picked = pickSolidPointForDrag(solid, scene, bounds, start.x, start.y);
+    const picked = pickSolidPointForDrag(
+      solid,
+      scene,
+      bounds,
+      start.x,
+      start.y,
+    );
     expect(picked?.id).toBe(pointId);
-    expect(pickSolidPointForDrag(solid, scene, bounds, start.x + 200, start.y)).toBeNull();
+    expect(
+      pickSolidPointForDrag(solid, scene, bounds, start.x + 200, start.y),
+    ).toBeNull();
 
     const laterAnchor: SolidPointAnchor = {
       kind: "edge",
@@ -80,7 +97,12 @@ describe("point drag screen-space geometry", () => {
     const target = resolveSolidPointAnchor(topology, laterAnchor)!;
     const destination = project(target, camera, bounds);
     const result = dragSolidPointToPointer(
-      solid, picked!, scene, bounds, destination.x, destination.y,
+      solid,
+      picked!,
+      scene,
+      bounds,
+      destination.x,
+      destination.y,
     );
     expect(result?.anchor).toMatchObject({
       kind: "edge",
