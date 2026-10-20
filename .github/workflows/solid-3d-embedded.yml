@@ -1,0 +1,59 @@
+name: Embedded 3D editor browser
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/solid-3d-embedded.yml"
+      - "src/app/solid-3d/**"
+      - "src/app/board/views/BoardOverlays.tsx"
+      - "src/adapters/solid-3d-three/**"
+      - "tests/e2e/solid-3d.spec.ts"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/solid-3d-embedded.yml"
+      - "src/app/solid-3d/**"
+      - "src/app/board/views/BoardOverlays.tsx"
+      - "src/adapters/solid-3d-three/**"
+      - "tests/e2e/solid-3d.spec.ts"
+
+jobs:
+  browser:
+    name: Embedded 3D Chromium scenario
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build with 3D features enabled
+        env:
+          VITE_FEATURE_SOLID_3D: "true"
+          VITE_FEATURE_SOLID_3D_LEARNING: "true"
+          VITE_FEATURE_SERVER_SYNC: "true"
+          VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos
+        run: npm run build
+
+      - name: Verify embedded 3D editor lifecycle
+        run: npm run e2e -- tests/e2e/solid-3d.spec.ts --project=chromium --retries=0 --trace=retain-on-failure
+
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: embedded-3d-browser-failure
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
