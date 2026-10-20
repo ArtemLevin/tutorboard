@@ -13,7 +13,9 @@ describe("embedded 3D window bounds", () => {
       width: 610,
       height: 620,
     });
-    expect(initialSolid3DWindowRect({ width: 1280, height: 820 }, true)).toEqual({
+    expect(
+      initialSolid3DWindowRect({ width: 1280, height: 820 }, true),
+    ).toEqual({
       left: 144,
       top: 16,
       width: 1120,
@@ -21,7 +23,7 @@ describe("embedded 3D window bounds", () => {
     });
   });
 
-  it("constrains movement, resize and the minimum size to workspace bounds", () => {
+  it("clamps position, resize and minimum dimensions", () => {
     expect(
       clampSolid3DWindowRect(
         { left: -1000, top: 2000, width: 120, height: 1000 },
