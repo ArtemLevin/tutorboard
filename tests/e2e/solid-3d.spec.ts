@@ -129,7 +129,9 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
   if (stage === null) throw new Error("Board stage bounds unavailable");
 
   await page.getByRole("button", { name: "ИИ-инструменты" }).click();
-  await page.getByRole("menuitemradio", { name: "Построение по тексту" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
+    .click();
   await page.getByLabel("Текст построения").fill("куб");
   await page.getByRole("button", { name: "Выбрать для размещения" }).click();
   await page.mouse.click(
@@ -164,7 +166,11 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
   const magnitude = Math.hypot(...eye);
   const forward = eye.map((value) => value / magnitude);
   const rightMagnitude = Math.hypot(forward[2]!, forward[0]!);
-  const right = [forward[2]! / rightMagnitude, 0, -forward[0]! / rightMagnitude];
+  const right = [
+    forward[2]! / rightMagnitude,
+    0,
+    -forward[0]! / rightMagnitude,
+  ];
   const up = [
     -forward[1]! * right[2]!,
     forward[2]! * right[0]! - forward[0]! * right[2]!,
