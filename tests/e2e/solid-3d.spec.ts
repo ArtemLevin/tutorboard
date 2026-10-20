@@ -203,4 +203,24 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
       return coordinate === null ? null : Number(coordinate[1]);
     })
     .toBeGreaterThan(0.2);
+
+  // The same seeded three points define a plane sweep. Its initial
+  // position is read-only preview; a completed save must add a section.
+  const sweepToggle = editor.getByLabel("Параллельное перемещение плоскости");
+  await sweepToggle.check();
+  const slider = editor.getByRole("slider", {
+    name: "Смещение секущей плоскости",
+  });
+  await slider.focus();
+  for (let step = 0; step < 12; step += 1) {
+    await slider.press("ArrowRight");
+  }
+  const savedSections = editor.locator(".solid-3d-sections > li");
+  const previousCount = await savedSections.count();
+  const saveSweep = editor.getByRole("button", {
+    name: "Сохранить положение плоскости",
+  });
+  await expect(saveSweep).toBeEnabled();
+  await saveSweep.click();
+  await expect(savedSections).toHaveCount(previousCount + 1);
 });
