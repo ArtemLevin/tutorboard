@@ -5,6 +5,7 @@ const rendererLifecycle = vi.hoisted(() => ({
   created: 0,
   disposed: 0,
   contextsLost: 0,
+  gizmoVisible: null as boolean | null,
 }));
 
 vi.mock("three", async () => {
@@ -25,7 +26,12 @@ vi.mock("three", async () => {
       rendererLifecycle.contextsLost += 1;
     }
 
-    render(): void {}
+    render(scene: {
+      getObjectByName(name: string): { visible: boolean } | undefined;
+    }): void {
+      rendererLifecycle.gizmoVisible =
+        scene.getObjectByName("solid-rotation-gizmo")?.visible ?? null;
+    }
 
     setPixelRatio(): void {}
 
@@ -70,9 +76,46 @@ afterEach(() => {
   rendererLifecycle.created = 0;
   rendererLifecycle.disposed = 0;
   rendererLifecycle.contextsLost = 0;
+  rendererLifecycle.gizmoVisible = null;
 });
 
 describe("Solid3DViewport WebGL lifecycle", () => {
+  it("hides the rotation rings until opt-in without remounting WebGL", async () => {
+    const base = record();
+    const props = {
+      cameraMode: "orthographic" as const,
+      mode: "view" as const,
+      onModelRotationCommit: vi.fn(),
+      onPointPlace: vi.fn(),
+      resetToken: 0,
+      section: null,
+      showSectionFill: false,
+      showSectionOutline: false,
+    };
+    const view = render(<Solid3DViewport {...props} record={base} />);
+    await waitFor(() => expect(rendererLifecycle.created).toBe(1));
+    expect(rendererLifecycle.gizmoVisible).toBe(false);
+
+    view.rerender(
+      <Solid3DViewport {...props} record={base} showRotationGizmo />,
+    );
+    expect(rendererLifecycle.gizmoVisible).toBe(true);
+    expect(rendererLifecycle.created).toBe(1);
+
+    view.rerender(
+      <Solid3DViewport
+        {...props}
+        record={base}
+        showRotationGizmo={false}
+      />,
+    );
+    expect(rendererLifecycle.gizmoVisible).toBe(false);
+    expect(rendererLifecycle.created).toBe(1);
+    expect(rendererLifecycle.contextsLost).toBe(0);
+    view.unmount();
+    expect(rendererLifecycle.disposed).toBe(1);
+  });
+
   it("updates a persisted rotation without recreating the renderer", async () => {
     const props = {
       cameraMode: "perspective" as const,
