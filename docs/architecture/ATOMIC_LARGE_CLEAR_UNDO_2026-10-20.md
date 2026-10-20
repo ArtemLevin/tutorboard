@@ -1,56 +1,63 @@
-# Atomic large-clear Undo — bounded delivery (2026-10-20)
+# Atomic large-clear Undo — coordinated multipart integration (2026-10-20)
 
-## Context
-The original undo of a local `core.clipboard.cut` produces one
-`core.clipboard.paste`. The command codec limits the paste to **5,000
-snapshots per list** and **2 MiB per JSON command**. A 10,000-stroke clear is
-valid as a cut but its inverse can exceed these boundaries.
+## Source of truth
 
-The current Board API accepts **up to 100 ordered commands per envelope**, with
-a default **5 MiB body limit** (`board_command_max_size_mb`). The server
-persists each valid envelope under one idempotency key and one revision in a
-single database transaction.
+Existing BoardDocument commands and schema 1.7 retain their public contracts.
+The legacy command codec limits each `core.clipboard.paste` to 5,000 objects
+per array and 2 MiB of JSON. Server `POST /commands` retains its configured
+5 MiB request limit by default.
 
-## Implemented contract
-- Locally generated, fully self-contained restore inverses may be partitioned
-  along complete group / GeometryOS import / 3D solid boundaries, preserving the
-  original restored order. A component that spans several distant objects must
-  remain indivisible.
-- Each `core.clipboard.paste` is separately schema-valid (<=5,000 objects,
-  <=2 MiB); the planned envelope has <=100 commands and a conservative 4 MiB
-  upper budget inclusive of per-command envelope allowances.
-- The entire array goes through the existing `applyWithReceipt` ->
-  `enqueueBatch` -> `pendingBatchPrefix` -> server revision transaction.
-  One durable `batchId` survives offline persistence, 409 rebase and
-  duplicate acknowledgement. Replay quarantines a failed group together;
-  the server never sees partly committed restored content from this group.
-- A single collision certificate covers every restored object, group, import
-  and solid ID. Actual authorization, reducer validation and SHA remain in
-  the sync engine and server contract.
-- Small clears preserve their original single-command behavior.
-- An inverse that cannot be encoded atomically is an **Undo barrier** with an
-  explicit user notice. It must never use sequential independent revision
-  writes or expose an older unrelated action as undoing the clear.
+## Implemented (two coordinated Draft PRs)
 
-## Known blockers to arbitrary-size Undo
-This scoped implementation **does not complete arbitrary-size restoration**:
-- An indivisible group/import/solid component can exceed 5,000 objects or
-  2 MiB, which cannot be represented by the current paste codec.
-- A whole restore above the 5 MiB default API body limit cannot be one
-  envelope. Non-default deployments may enforce an even smaller body limit.
-- `core.clipboard.paste` restoration still does not recover deleted
-  3D learning attempts (preexisting limitation).
+- Frontend: [TutorBoard #274](https://github.com/ArtemLevin/tutorboard/pull/274)
+- Backend: [tutor-assistant-web #50](https://github.com/ArtemLevin/tutor-assistant-web/pull/50)
+- Tracker: [Issue #275](https://github.com/ArtemLevin/tutorboard/issues/275)
 
-To fully resolve these cases, design and deploy a **backend-owned multipart
-staging + atomic finalize protocol**, with bounded authenticated upload,
-digest/content ownership, access epoch verification at finalize, idempotent
-retry/reconnect, cleanup of abandoned staging data, and a single published
-revision/consistent snapshot at commit. The protocol must also support
-indivisible graph components with a staged document validator rather than
-exposing intermediate invalid documents. Extend frontend durable transport,
-server storage and contract migration only after end-to-end tests for conflicts,
-revocation, crashes and restore of 10,000 complex strokes.
+Generated self-contained clear inverses are segmented at complete group/import/
+3D-model dependency boundaries into individually valid `clipboard.paste`
+commands. Object order is preserved. Each command retains the existing 2 MiB
+and 5,000-record boundaries; at most 100 commands form one sync batch.
+The local planner uses a conservative 40 MiB envelope budget. A single
+ID-collision certificate covers all objects, groups, imports and solid IDs.
 
-## Release status
-PR #274 is **Draft** pending exact-head quality, browser and full-stack CI
-review. No production rollout or arbitrary-size Undo completion is claimed.
+A batch fitting 4 MiB still uses the ordinary `POST /commands` endpoint.
+For larger batches, frontend uploads the exact UTF-8 JSON to
+`/api/v1/boards/{documentId}/command-uploads` in 512 KiB chunks.
+SHA-256 of the envelope supplies a content-addressed upload identifier. This
+changes correctly after remote rebase while preserving the durable command
+idempotency key.
+
+The backend stages chunks in PostgreSQL (migration 0020), each bound to
+organization, board, authenticated actor and guest access epoch. It validates
+per-chunk and full-envelope SHA, exact byte count, command schemas and ownership,
+max 48 MiB, max 96 chunks, max 3 simultaneous uploads per actor/board,
+and one-hour TTL. Authorization/CSRF and guest access epoch are rechecked on
+each route. Existing `BoardPersistenceService.append_commands` verifies
+Lamport/revision/idempotency and persists the complete batch as one revision.
+The existing collaboration publication is sent once, after commit. Staged
+uploads never publish partial revisions. The standard endpoint retains its
+original request-size limit.
+
+The local durable queue provides atomic group admission, rebase,
+quarantine-on-conflict and idempotent reconnect. Cleanup of completed uploads
+is attempted by frontend; expired uploads are pruned by the existing backend
+artifact maintenance worker. All new routes preserve same-origin auth.
+
+## Remaining limitations: do not close Issue #275 yet
+
+- **Indivisible dependencies**: a single group, GeometryOS import or 3D solid
+  requiring more than 5,000 object snapshots or 2 MiB cannot be serialized
+  as one existing `clipboard.paste`. This requires a separate versioned
+  staged graph restore/commit command and corresponding frontend reducer/
+  backend canonical reader changes; publishing incomplete graph edges is
+  prohibited.
+- **Capacity**: requests above the 48 MiB staging limit require an explicitly
+  bounded higher-capacity storage policy or paginated graph restore.
+- 3D learning attempts removed by an earlier cut are not yet recovered by
+  the existing inverse.
+- Deployment requires a coordinated frontend/backend release, migration,
+  real HTTPS host, backup and rollback procedure.
+- Per-tenant quotas, staging races and a full end-to-end 10,000 varied stroke
+  + 10-image scenario require independent exact-head testing before merge.
+
+Do not merge both PRs or close #275 until all acceptance gates pass.
