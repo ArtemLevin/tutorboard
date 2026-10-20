@@ -597,7 +597,10 @@ export function createBoardHttpRepository(
           .join("");
         const created = await send(uploadsPath, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken,
+          },
           body: JSON.stringify({
             uploadId: envelope.idempotencyKey,
             byteSize: encoded.byteLength,
@@ -611,7 +614,12 @@ export function createBoardHttpRepository(
             chunkBytes: z.literal(512 * 1024),
           })
           .passthrough()
-          .safeParse(await requireSuccess(created, "Не удалось подготовить восстановление."));
+          .safeParse(
+            await requireSuccess(
+              created,
+              "Не удалось подготовить восстановление.",
+            ),
+          );
         if (
           !descriptor.success ||
           descriptor.data.uploadId !== envelope.idempotencyKey ||
@@ -627,8 +635,10 @@ export function createBoardHttpRepository(
         }
         const uploadPath = `${uploadsPath}/${encodeURIComponent(envelope.idempotencyKey)}`;
         for (let index = 0; index < descriptor.data.chunkCount; index++) {
-          const part = encoded.slice(index * descriptor.data.chunkBytes,
-            (index + 1) * descriptor.data.chunkBytes);
+          const part = encoded.slice(
+            index * descriptor.data.chunkBytes,
+            (index + 1) * descriptor.data.chunkBytes,
+          );
           const uploaded = await send(`${uploadPath}/parts/${index}`, {
             method: "PUT",
             headers: {
@@ -641,9 +651,14 @@ export function createBoardHttpRepository(
             const error = await responseJson(uploaded);
             throw new BoardHttpError(
               `board.http.${uploaded.status}`,
-              problemMessage(error, "Не удалось загрузить часть восстановления."),
+              problemMessage(
+                error,
+                "Не удалось загрузить часть восстановления.",
+              ),
               uploaded.status,
-              uploaded.status >= 500 || uploaded.status === 429 || uploaded.status === 408,
+              uploaded.status >= 500 ||
+                uploaded.status === 429 ||
+                uploaded.status === 408,
             );
           }
         }
