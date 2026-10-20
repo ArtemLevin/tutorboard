@@ -25,6 +25,11 @@ import {
 } from "./solid-point-drag";
 import { SolidRotationGizmoController } from "./rotation-gizmo";
 
+type PointDragEndHandler = (
+  pointId: string,
+  placement: SolidPointDragPlacement | null,
+) => void;
+
 export interface Solid3DViewportProps {
   readonly cameraMode: "orthographic" | "perspective";
   readonly highlightedSurfaceId?: SolidAnalyticSurfaceId | null;
@@ -35,12 +40,7 @@ export interface Solid3DViewportProps {
     pointId: string,
     placement: SolidPointDragPlacement,
   ) => void;
-  readonly onPointDragEnd?:
-    | ((
-        pointId: string,
-        placement: SolidPointDragPlacement | null,
-      ) => void)
-    | undefined;
+  readonly onPointDragEnd?: PointDragEndHandler | undefined;
   readonly onModelRotationCommit?:
     ((rotation: Solid3DQuaternion) => void) | undefined;
   readonly onSurfaceHover?: (surfaceId: SolidAnalyticSurfaceId | null) => void;
