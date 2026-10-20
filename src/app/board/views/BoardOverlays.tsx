@@ -92,6 +92,8 @@ export function BoardOverlays({
           }
         >
           <LazySolid3DEditorPanel
+            fallbackFocusRef={workspaceRef}
+            key={solid3D.record.id}
             learningAttempt={solid3D.learningAttempt}
             learningAttempts={solid3D.learningAttempts}
             learningEnabled={solid3DLearningEnabled}
