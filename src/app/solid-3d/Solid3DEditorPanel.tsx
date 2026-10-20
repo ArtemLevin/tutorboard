@@ -46,6 +46,7 @@ import {
 import { Solid3DLearningWorkspace } from "./Solid3DLearningWorkspace";
 import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
 import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuilder";
+import { Solid3DSectionRotationControls } from "./Solid3DSectionRotationControls";
 import { useSolid3DWindow } from "./useSolid3DWindow";
 import "./Solid3DEditorPanel.css";
 import "./Solid3DSections.css";
@@ -938,6 +939,38 @@ export function Solid3DEditorPanel({
                 </>
               )}
             </section>
+            <Solid3DSectionRotationControls
+              topology={rotationTopology}
+              hasSourcePlane={sweepFrame !== null}
+              enabled={rotationEnabled}
+              onEnabledChange={(next) => {
+                setRotationEnabled(next);
+                setRotationAngle(0);
+                if (next) {
+                  setSweepEnabled(false);
+                  setSweepOffset(0);
+                }
+              }}
+              edgeId={rotationEdgeId}
+              onEdgeChange={(edgeId) => {
+                setRotationEdgeId(edgeId);
+                setRotationAngle(0);
+              }}
+              angleDegrees={rotationAngle}
+              onAngleChange={adjustRotationAngle}
+              section={rotationPreview?.section ?? null}
+              canSave={
+                !readOnly &&
+                rotationEnabled &&
+                selectedTuple !== null &&
+                rotationEdgeId !== "" &&
+                Math.abs(rotationAngle) >= 1e-8 &&
+                rotationPreview?.section != null &&
+                record.sections.length < 8 &&
+                record.points.length + 3 <= 32
+              }
+              onSave={saveRotation}
+            />
             <Solid3DSectionConstraintBuilder
               key={`${JSON.stringify(record.definition)}:${points
                 .map(({ id }) => id)
