@@ -34,7 +34,8 @@ import {
   calculateSolidSection,
   getSolidSectionSweepFrame,
   previewSolidSectionSweep,
-  previewSolidSectionRotation,
+  getSolidSectionRotationFrame,
+  previewSolidSectionRotationFrame,
   removeSavedSolidSection,
   saveSolidSectionFromPoints,
   setSavedSolidSectionVisibility,
@@ -355,23 +356,29 @@ export function Solid3DEditorPanel({
     () => createSolidTopology(previewRecord.definition),
     [previewRecord.definition],
   );
-  const rotationPreview = useMemo(
+  const rotationFrame = useMemo(
     () =>
-      rotationEnabled && selectedTuple !== null && rotationEdgeId !== ""
-        ? previewSolidSectionRotation(
+      selectedTuple !== null && rotationEdgeId !== ""
+        ? getSolidSectionRotationFrame(
             previewRecord,
             selectedTuple,
             rotationEdgeId,
+          )
+        : null,
+    [previewRecord, selectedTuple, rotationEdgeId],
+  );
+  const rotationPreview = useMemo(
+    () =>
+      rotationEnabled &&
+      rotationTopology !== null &&
+      rotationFrame !== null
+        ? previewSolidSectionRotationFrame(
+            rotationTopology,
+            rotationFrame,
             rotationAngle,
           )
         : null,
-    [
-      previewRecord,
-      selectedTuple,
-      rotationEnabled,
-      rotationEdgeId,
-      rotationAngle,
-    ],
+    [rotationEnabled, rotationTopology, rotationFrame, rotationAngle],
   );
   const freeVisibleSection = rotationEnabled
     ? (rotationPreview?.section ?? null)
