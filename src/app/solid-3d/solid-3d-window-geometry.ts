@@ -28,8 +28,16 @@ export function clampSolid3DWindowRect(
   const width = clamp(rect.width, Math.min(MIN_WIDTH, maxWidth), maxWidth);
   const height = clamp(rect.height, Math.min(MIN_HEIGHT, maxHeight), maxHeight);
   return {
-    left: clamp(rect.left, INSET, Math.max(INSET, workspace.width - width - INSET)),
-    top: clamp(rect.top, INSET, Math.max(INSET, workspace.height - height - INSET)),
+    left: clamp(
+      rect.left,
+      INSET,
+      Math.max(INSET, workspace.width - width - INSET),
+    ),
+    top: clamp(
+      rect.top,
+      INSET,
+      Math.max(INSET, workspace.height - height - INSET),
+    ),
     width,
     height,
   };
