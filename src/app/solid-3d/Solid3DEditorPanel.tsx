@@ -1,9 +1,11 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
   type ReactElement,
+  type RefObject,
 } from "react";
 
 import {
@@ -40,6 +42,7 @@ import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuild
 import "./Solid3DEditorPanel.css";
 
 export interface Solid3DEditorPanelProps {
+  readonly fallbackFocusRef?: RefObject<HTMLElement | null>;
   readonly onClose: () => void;
   readonly onProject: (sectionId: string, section: SolidSectionResult) => void;
   readonly onRecordChange: (replacement: Solid3DRecord) => void;
@@ -135,6 +138,7 @@ function pointAnchorLabel(point: Solid3DPoint): string {
 }
 
 export function Solid3DEditorPanel({
+  fallbackFocusRef,
   onClose,
   onProject,
   onRecordChange,
@@ -166,11 +170,40 @@ export function Solid3DEditorPanel({
   const [showSectionFill, setShowSectionFill] = useState(true);
   const [showSectionOutline, setShowSectionOutline] = useState(true);
   const [resetToken, setResetToken] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const [highlightedElement, setHighlightedElement] =
     useState<SolidElementRef | null>(null);
   const [hoveredSurfaceId, setHoveredSurfaceId] =
     useState<SolidAnalyticSurfaceId | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(
+    typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement !== document.body
+      ? document.activeElement
+      : null,
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    const original = returnFocusRef.current;
+    const fallback = fallbackFocusRef?.current ?? null;
+    queueMicrotask(() => {
+      if (mounted) panelRef.current?.focus();
+    });
+    return () => {
+      mounted = false;
+      queueMicrotask(() => {
+        const target =
+          original?.isConnected === true
+            ? original
+            : fallback?.isConnected === true
+              ? fallback
+              : null;
+        target?.focus();
+      });
+    };
+  }, [fallbackFocusRef]);
   const sanitizedSelectedPointIds = useMemo(
     () =>
       selectedPointIds.filter((id) => points.some((point) => point.id === id)),
@@ -340,37 +373,54 @@ export function Solid3DEditorPanel({
   };
 
   return (
-    <div
-      className="solid-3d-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
+    <div className={`solid-3d-dock${expanded ? " is-expanded" : ""}`}>
       <section
         aria-describedby="solid-3d-description"
         aria-labelledby="solid-3d-title"
-        aria-modal="true"
         className="solid-3d-editor"
-        role="dialog"
+        data-testid="solid-3d-editor"
+        onKeyDown={(event) => {
+          // Keyboard shortcuts inside the editor must not reach the board.
+          event.stopPropagation();
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onClose();
+          }
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onWheel={(event) => event.stopPropagation()}
+        ref={panelRef}
+        role="region"
+        tabIndex={-1}
       >
         <header>
           <div>
             <p>Интерактивная стереометрия</p>
             <h2 id="solid-3d-title">{solidNames[record.definition.kind]}</h2>
           </div>
-          <button
-            aria-label="Закрыть 3D-окно"
-            onClick={onClose}
-            ref={closeButtonRef}
-            type="button"
-          >
-            ×
-          </button>
+          <div className="solid-3d-window-actions">
+            <button
+              aria-label={expanded ? "Свернуть 3D-окно" : "Развернуть 3D-окно"}
+              aria-pressed={expanded}
+              onClick={() => setExpanded((value) => !value)}
+              type="button"
+            >
+              {expanded ? "↙" : "↗"}
+            </button>
+            <button
+              aria-label="Закрыть 3D-окно"
+              onClick={onClose}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
         </header>
         <p className="visually-hidden" id="solid-3d-description">
           Вращайте модель, ставьте точки, предварительно просматривайте
           плоскость и явно сохраняйте нужные сечения.
         </p>
+        <div className="solid-3d-content">
         <div className="solid-3d-toolbar" role="toolbar">
           <button
             aria-pressed={experience === "free"}
@@ -722,6 +772,7 @@ export function Solid3DEditorPanel({
             section={freeVisibleSection}
           />
         ) : null}
+        </div>
       </section>
     </div>
   );
