@@ -66,6 +66,7 @@ function renderPanel({
         onRecordChange={vi.fn()}
         onPointMove={vi.fn()}
         onSaveSweep={vi.fn()}
+        onSaveRotation={vi.fn()}
         onUndo={vi.fn()}
         readOnly={readOnly}
         record={record}
