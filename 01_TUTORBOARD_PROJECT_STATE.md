@@ -1099,3 +1099,11 @@ Formula recognition        PRODUCTION-GATED
 Documentation alignment    NEEDS UPDATE
 WebGL lifecycle audit      RECOMMENDED
 ```
+
+
+## 20.10.2026 — Issue #275: atomic large-clear Undo (experimental cross-repo)
+
+- Frontend Draft PR #274: 40 MiB bounded multi-command restore planner, content-addressed multipart transfer, 409 rebase, idempotent reconnect and regression tests.
+- Backend Draft PR ArtemLevin/tutor-assistant-web#50: migration 0020, 512 KiB chunks, tenant/board/actor/access-epoch binding, SHA-256, TTL/periodic cleanup, up to 48 MiB single-revision finalize.
+- Prior 2 MiB per-command/5,000 items codec remains enforced. Whole-group/GeometryOS/3D restore beyond a command and removed 3D learning attempts remain open.
+- Verification and deployment status are tracked in PR CI. No merge or production release at this stage. Keep Issue #275 open until full acceptance.
