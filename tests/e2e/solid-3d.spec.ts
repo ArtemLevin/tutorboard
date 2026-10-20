@@ -132,7 +132,10 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
   await page.getByRole("menuitemradio", { name: "Построение по тексту" }).click();
   await page.getByLabel("Текст построения").fill("куб");
   await page.getByRole("button", { name: "Выбрать для размещения" }).click();
-  await page.mouse.click(stage.x + stage.width * 0.58, stage.y + stage.height * 0.42);
+  await page.mouse.click(
+    stage.x + stage.width * 0.58,
+    stage.y + stage.height * 0.42,
+  );
   await page.getByRole("button", { name: "Открыть в 3D" }).click();
 
   const editor = page.getByRole("region", { name: "Куб" });
