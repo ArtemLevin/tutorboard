@@ -35,10 +35,12 @@ export interface Solid3DViewportProps {
     pointId: string,
     placement: SolidPointDragPlacement,
   ) => void;
-  readonly onPointDragEnd?: (
-    pointId: string,
-    placement: SolidPointDragPlacement | null,
-  ) => void;
+  readonly onPointDragEnd?:
+    | ((
+        pointId: string,
+        placement: SolidPointDragPlacement | null,
+      ) => void)
+    | undefined;
   readonly onModelRotationCommit?:
     ((rotation: Solid3DQuaternion) => void) | undefined;
   readonly onSurfaceHover?: (surfaceId: SolidAnalyticSurfaceId | null) => void;
