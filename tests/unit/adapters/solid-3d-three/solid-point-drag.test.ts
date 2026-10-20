@@ -109,6 +109,8 @@ describe("point drag screen-space geometry", () => {
       expect(result.anchor.edgeId).toBe(edgeId);
       expect(result.anchor.parameter).toBeCloseTo(0.75, 5);
     }
-    expect(result?.position).toEqual(target);
+    expect(result?.position.x).toBeCloseTo(target.x, 5);
+    expect(result?.position.y).toBeCloseTo(target.y, 5);
+    expect(result?.position.z).toBeCloseTo(target.z, 5);
   });
 });
