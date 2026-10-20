@@ -64,6 +64,10 @@ function renderSweep(readOnly = false) {
     pointIds: [points[0]!.id, points[1]!.id, points[2]!.id] as const,
   }));
   const onRecordChange = vi.fn();
+  const onSaveRotation = vi.fn(() => ({
+    sectionId: "solid-section:rotated",
+    pointIds: [points[0]!.id, points[1]!.id, points[2]!.id] as const,
+  }));
   render(
     <Solid3DEditorPanel
       learningAttempt={null}
@@ -78,13 +82,13 @@ function renderSweep(readOnly = false) {
       onPointMove={vi.fn()}
       onRecordChange={onRecordChange}
       onSaveSweep={onSaveSweep}
-      onSaveRotation={vi.fn()}
+      onSaveRotation={onSaveRotation}
       onUndo={vi.fn()}
       readOnly={readOnly}
       record={record}
     />,
   );
-  return { onSaveSweep, onRecordChange };
+  return { onSaveSweep, onSaveRotation, onRecordChange };
 }
 
 describe("3D parallel section sweep UI", () => {
@@ -132,5 +136,88 @@ describe("3D parallel section sweep UI", () => {
       screen.getByRole("button", { name: "Сохранить положение плоскости" }),
     ).toBeDisabled();
     expect(onSaveSweep).not.toHaveBeenCalled();
+  });
+});
+
+describe("3D section rotation UI", () => {
+  const horizontalEdge = topology.edges.find((edge) => {
+    const a = vertexMap.get(edge.startVertexId)!;
+    const b = vertexMap.get(edge.endVertexId)!;
+    return Math.abs(a.x - b.x) > 1.5 && a.y === -1;
+  })!;
+
+  it("previews rotated geometry and commits only on explicit save", () => {
+    const { onSaveRotation, onSaveSweep, onRecordChange } = renderSweep();
+    fireEvent.click(screen.getByLabelText("Вращать плоскость вокруг ребра"));
+    fireEvent.change(screen.getByLabelText("Ось вращения"), {
+      target: { value: horizontalEdge.id },
+    });
+    fireEvent.change(screen.getByRole("slider", {
+      name: "Угол поворота секущей плоскости",
+    }), {
+      target: { value: "15" },
+    });
+    expect(screen.getByTestId("mock-sweep-section")).not.toHaveTextContent("0.00");
+    expect(onSaveRotation).not.toHaveBeenCalled();
+    expect(onSaveSweep).not.toHaveBeenCalled();
+    expect(onRecordChange).not.toHaveBeenCalled();
+    const saveButton = screen.getByRole("button", {
+      name: "Сохранить повёрнутое сечение",
+    });
+    expect(saveButton).toBeEnabled();
+    fireEvent.click(saveButton);
+    expect(onSaveRotation).toHaveBeenCalledTimes(1);
+    expect(onSaveRotation).toHaveBeenCalledWith(
+      record,
+      points.map(({ id }) => id),
+      horizontalEdge.id,
+      15,
+      expect.any(String),
+    );
+    expect(onRecordChange).not.toHaveBeenCalled();
+  });
+
+  it("supports precise angle controls, clamps range, and excludes parallel sweep", () => {
+    renderSweep();
+    fireEvent.click(screen.getByLabelText("Параллельное перемещение плоскости"));
+    expect(screen.getByRole("slider", {
+      name: "Смещение секущей плоскости",
+    })).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Вращать плоскость вокруг ребра"));
+    expect(screen.queryByRole("slider", {
+      name: "Смещение секущей плоскости",
+    })).not.toBeInTheDocument();
+    const exact = screen.getByLabelText("Точный угол, градусы");
+    fireEvent.change(exact, { target: { value: "12.5" } });
+    expect(screen.getByRole("slider", {
+      name: "Угол поворота секущей плоскости",
+    })).toHaveValue("12.5");
+    fireEvent.click(screen.getByRole("button", {
+      name: "Изменить угол на +15°",
+    }));
+    expect(exact).toHaveValue(27.5);
+    fireEvent.change(exact, { target: { value: "200" } });
+    expect(exact).toHaveValue(180);
+    fireEvent.click(screen.getByRole("button", {
+      name: "Изменить угол на -5°",
+    }));
+    expect(exact).toHaveValue(175);
+  });
+
+  it("permits read-only exploration while prohibiting persistence", () => {
+    const { onSaveRotation } = renderSweep(true);
+    fireEvent.click(screen.getByLabelText("Вращать плоскость вокруг ребра"));
+    fireEvent.change(screen.getByLabelText("Ось вращения"), {
+      target: { value: horizontalEdge.id },
+    });
+    fireEvent.change(screen.getByRole("slider", {
+      name: "Угол поворота секущей плоскости",
+    }), {
+      target: { value: "15" },
+    });
+    expect(screen.getByRole("button", {
+      name: "Сохранить повёрнутое сечение",
+    })).toBeDisabled();
+    expect(onSaveRotation).not.toHaveBeenCalled();
   });
 });
