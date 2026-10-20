@@ -107,6 +107,15 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
   await expect(
     editor.getByRole("heading", { name: "Постройте сечение по граням" }),
   ).toBeVisible();
+  await page.setViewportSize({ width: 700, height: 640 });
+  await expect(dock).toHaveCSS("position", "fixed");
+  const mobileBounds = await dock.boundingBox();
+  if (mobileBounds === null) throw new Error("Mobile 3D panel is unavailable");
+  expect(mobileBounds.x).toBe(0);
+  expect(mobileBounds.y).toBe(0);
+  expect(mobileBounds.width).toBe(700);
+  await expect(resize).toBeHidden();
+
   await editor.getByRole("button", { name: "Закрыть 3D-окно" }).click();
   await expect(editor).toBeHidden();
 });
