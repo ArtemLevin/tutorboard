@@ -20,8 +20,18 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
   );
 
   await page.getByRole("button", { name: "Открыть в 3D" }).click();
-  const editor = page.getByRole("dialog", { name: "Куб" });
+  const editor = page.getByRole("region", { name: "Куб" });
   await expect(editor).toBeVisible();
+  await page.mouse.click(
+    bounds.x + bounds.width * 0.2,
+    bounds.y + bounds.height * 0.75,
+  );
+  await expect(editor).toBeVisible();
+  await editor.getByRole("button", { name: "Развернуть 3D-окно" }).click();
+  await expect(
+    editor.getByRole("button", { name: "Свернуть 3D-окно" }),
+  ).toBeVisible();
+  await editor.getByRole("button", { name: "Свернуть 3D-окно" }).click();
   await expect(editor.getByText("0 / 3")).toBeVisible();
   await expect(
     editor.getByRole("button", {
