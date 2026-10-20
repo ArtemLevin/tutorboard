@@ -675,14 +675,14 @@ export function Solid3DEditorPanel({
                         !sanitizedSelectedPointIds.includes(point.id) &&
                         sanitizedSelectedPointIds.length >= 3
                       }
-                      onChange={(event) =>
+                      onChange={(event) => {
                         setSweepOffset(0);
                         setSelectedPointIds((current) =>
                           event.currentTarget.checked
                             ? [...current, point.id].slice(-3)
                             : current.filter((id) => id !== point.id),
-                        )
-                      }
+                        );
+                      }}
                       type="checkbox"
                     />
                     <input
