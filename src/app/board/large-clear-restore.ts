@@ -23,7 +23,6 @@ export function planVersionedGraphRestore(paste: Paste): Graph | null {
     : null;
 }
 
-
 // Multipart transport stages up to 48 MiB, while preserving the existing
 // 100-command, 2 MiB-command and per-list validation bounds. Conservatively
 // budget 40 MiB for the complete canonical envelope and metadata.
