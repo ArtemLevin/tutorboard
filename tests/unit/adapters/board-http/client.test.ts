@@ -77,7 +77,7 @@ describe("Board HTTP multipart transport", () => {
       if (target.endsWith("/command-uploads")) {
         if (typeof init?.body !== "string") throw new Error("Expected JSON body");
         const descriptor = JSON.parse(init.body) as { byteSize: number; uploadId: string };
-        expect(descriptor.uploadId).toBe(bulk.idempotencyKey);
+        expect(descriptor.uploadId).toMatch(/^upload:[a-f0-9]{64}$/u);
         return Promise.resolve(jsonResponse({
           uploadId: descriptor.uploadId,
           chunkCount: Math.ceil(descriptor.byteSize / (512 * 1024)),
@@ -87,6 +87,9 @@ describe("Board HTTP multipart transport", () => {
       if (target.includes("/parts/")) {
         if (!(init?.body instanceof ArrayBuffer)) throw new Error("Expected binary body");
         transmitted.push(new Uint8Array(init.body));
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (init?.method === "DELETE") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       expect(target).toContain("/finalize");
@@ -110,8 +113,11 @@ describe("Board HTTP multipart transport", () => {
       offset += part.length;
     }
     expect(new TextDecoder().decode(recovered)).toEqual(JSON.stringify(bulk));
-    expect(request.mock.calls.at(-1)?.[0]).toContain("/finalize");
-    expect(request.mock.calls.at(-1)?.[1]?.credentials).toBe("same-origin");
+    const finalization = request.mock.calls.find(([url]) =>
+      typeof url === "string" && url.endsWith("/finalize"),
+    );
+    expect(finalization).toBeDefined();
+    expect(finalization?.[1]?.credentials).toBe("same-origin");
   });
 });
 
