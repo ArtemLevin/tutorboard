@@ -374,10 +374,92 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let pointerOrigin: { readonly x: number; readonly y: number } | null = null;
+    let suppressClick = false;
+    let dragFrame = 0;
+    let drag: {
+      readonly pointerId: number;
+      readonly point: Solid3DPoint;
+      placement: SolidPointDragPlacement | null;
+    } | null = null;
+    const dragScene = {
+      camera,
+      root: built.root,
+      mesh: built.mesh,
+      topology: built.topology,
+      surfaceFaceIds: built.semanticSurfaceFaceIds,
+    };
+    const pointerDragDown = (event: PointerEvent) => {
+      if (
+        modeRef.current !== "points" ||
+        event.button !== 0 ||
+        onPointDragEndRef.current === undefined
+      )
+        return;
+      const point = pickSolidPointForDrag(
+        recordRef.current,
+        dragScene,
+        renderer.domElement.getBoundingClientRect(),
+        event.clientX,
+        event.clientY,
+      );
+      if (point === null) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      suppressClick = true;
+      pointerOrigin = null;
+      drag = { pointerId: event.pointerId, point, placement: null };
+      renderer.domElement.setPointerCapture?.(event.pointerId);
+      onPointDragStartRef.current?.(point.id);
+    };
+    const pointerDragMove = (event: PointerEvent) => {
+      const active = drag;
+      if (active === null || active.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const placement = dragSolidPointToPointer(
+        recordRef.current,
+        active.point,
+        dragScene,
+        renderer.domElement.getBoundingClientRect(),
+        event.clientX,
+        event.clientY,
+      );
+      if (placement === null) return;
+      active.placement = placement;
+      if (dragFrame !== 0) return;
+      dragFrame = window.requestAnimationFrame(() => {
+        dragFrame = 0;
+        if (drag === active && active.placement !== null)
+          onPointDragPreviewRef.current?.(active.point.id, active.placement);
+      });
+    };
+    const finishPointDrag = (event: PointerEvent, commit: boolean) => {
+      const active = drag;
+      if (active === null || active.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      drag = null;
+      if (dragFrame !== 0) window.cancelAnimationFrame(dragFrame);
+      dragFrame = 0;
+      if (renderer.domElement.hasPointerCapture?.(event.pointerId))
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      onPointDragEndRef.current?.(
+        active.point.id,
+        commit ? active.placement : null,
+      );
+    };
+    const pointerDragUp = (event: PointerEvent) => finishPointDrag(event, true);
+    const pointerDragCancel = (event: PointerEvent) =>
+      finishPointDrag(event, false);
     const pointerDown = (event: PointerEvent) => {
       pointerOrigin = { x: event.clientX, y: event.clientY };
     };
     const click = (event: MouseEvent) => {
+      if (suppressClick) {
+        suppressClick = false;
+        pointerOrigin = null;
+        return;
+      }
       const moved =
         pointerOrigin === null
           ? 0
@@ -453,6 +535,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       onElementHoverRef.current?.(null);
       onSurfaceHoverRef.current?.(null);
     };
+    renderer.domElement.addEventListener("pointerdown", pointerDragDown, true);
+    renderer.domElement.addEventListener("pointermove", pointerDragMove, true);
+    renderer.domElement.addEventListener("pointerup", pointerDragUp, true);
+    renderer.domElement.addEventListener("pointercancel", pointerDragCancel, true);
     renderer.domElement.addEventListener("pointerdown", pointerDown);
     renderer.domElement.addEventListener("click", click);
     renderer.domElement.addEventListener("pointermove", pointerMove);
@@ -472,6 +558,15 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       resizeObserver.disconnect();
       controls.removeEventListener("change", render);
       controls.dispose();
+      if (dragFrame !== 0) window.cancelAnimationFrame(dragFrame);
+      renderer.domElement.removeEventListener("pointerdown", pointerDragDown, true);
+      renderer.domElement.removeEventListener("pointermove", pointerDragMove, true);
+      renderer.domElement.removeEventListener("pointerup", pointerDragUp, true);
+      renderer.domElement.removeEventListener(
+        "pointercancel",
+        pointerDragCancel,
+        true,
+      );
       renderer.domElement.removeEventListener("pointerdown", pointerDown);
       renderer.domElement.removeEventListener("click", click);
       renderer.domElement.removeEventListener("pointermove", pointerMove);
