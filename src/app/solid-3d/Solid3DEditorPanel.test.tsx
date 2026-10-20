@@ -97,6 +97,66 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     );
   });
 
+  it("moves and resizes within the workspace without remounting the viewport", async () => {
+    renderPanel();
+    const dock = screen.getByTestId("solid-3d-dock");
+    const parent = dock.parentElement;
+    expect(parent).not.toBeNull();
+    vi.spyOn(parent!, "getBoundingClientRect").mockReturnValue({
+      bottom: 700,
+      height: 700,
+      left: 0,
+      right: 900,
+      top: 0,
+      width: 900,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    fireEvent.resize(window);
+    await waitFor(() => expect(dock).toHaveStyle({ left: "274px" }));
+    const viewport = screen.getByTestId("mock-3d-viewport");
+    const move = screen.getByRole("button", { name: "Переместить 3D-окно" });
+    fireEvent.pointerDown(move, {
+      button: 0,
+      clientX: 500,
+      clientY: 50,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(move, {
+      clientX: 400,
+      clientY: 80,
+      pointerId: 1,
+    });
+    fireEvent.pointerUp(move, { pointerId: 1 });
+    expect(dock).toHaveStyle({ left: "174px", top: "46px" });
+
+    const resize = screen.getByRole("button", {
+      name: "Изменить размер 3D-окна",
+    });
+    fireEvent.pointerDown(resize, {
+      button: 0,
+      clientX: 800,
+      clientY: 600,
+      pointerId: 2,
+    });
+    fireEvent.pointerMove(resize, {
+      clientX: 850,
+      clientY: 520,
+      pointerId: 2,
+    });
+    fireEvent.pointerUp(resize, { pointerId: 2 });
+    expect(dock).toHaveStyle({ width: "660px", height: "540px" });
+
+    fireEvent.keyDown(move, { key: "ArrowLeft" });
+    expect(dock).toHaveStyle({ left: "164px" });
+    fireEvent.keyDown(resize, { key: "ArrowUp", shiftKey: true });
+    expect(dock).toHaveStyle({ height: "508px" });
+
+    fireEvent.resize(window);
+    expect(screen.getByTestId("mock-3d-viewport")).toBe(viewport);
+  });
+
   it("closes on Escape without forwarding keyboard shortcuts", () => {
     const { onClose, onOutsideClick } = renderPanel();
     fireEvent.keyDown(screen.getByRole("button", { name: "Сбросить камеру" }), {

@@ -222,6 +222,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     if (controls !== undefined) {
       controls.mouseButtons.LEFT =
         props.mode === "points" ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+      controls.mouseButtons.RIGHT =
+        props.mode === "points" ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
     }
   }, [props.mode]);
 
@@ -302,7 +304,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     controls.screenSpacePanning = true;
     controls.mouseButtons.LEFT =
       modeRef.current === "points" ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
-    controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+    controls.mouseButtons.RIGHT =
+      modeRef.current === "points" ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
     const render = () => renderer.render(scene, camera);
     const rotationGizmo =
       onModelRotationCommitRef.current === undefined

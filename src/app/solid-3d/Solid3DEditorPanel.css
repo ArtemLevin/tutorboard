@@ -13,6 +13,8 @@
   width: min(1120px, calc(100% - 32px));
 }
 .solid-3d-editor {
+  height: 100%;
+  min-height: 0;
   /* Keep the viewport and learning steps in normal flow: a flex column
      would shrink the grid and let its canvas overlap later controls. */
   display: block;
@@ -40,17 +42,66 @@
   padding: 0.75rem 1rem;
   border-bottom: 1px solid #d8d0c3;
 }
-.solid-3d-editor header p {
-  margin: 0;
+.solid-3d-drag-handle {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: grab;
+  text-align: left;
+  touch-action: none;
+  user-select: none;
+}
+.solid-3d-drag-handle:active {
+  cursor: grabbing;
+}
+.solid-3d-drag-handle > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.solid-3d-drag-handle small {
   color: #8f2f45;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.solid-3d-editor h2 {
-  margin: 0.15rem 0 0;
+.solid-3d-drag-handle strong {
+  overflow: hidden;
   font-size: 1.35rem;
+  text-overflow: ellipsis;
+}
+.solid-3d-controls-hint {
+  margin: 0;
+  padding: 0.45rem 1rem;
+  border-bottom: 1px solid #ddd4c7;
+  color: #546873;
+  font-size: 0.78rem;
+}
+.solid-3d-resize-handle {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 3;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px 0 14px 0;
+  background: rgb(232 223 209 / 95%);
+  color: #24323a;
+  cursor: nwse-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+.solid-3d-resize-handle:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
 }
 .solid-3d-window-actions {
   display: flex;
@@ -459,14 +510,23 @@
   .solid-3d-dock,
   .solid-3d-dock.is-expanded {
     position: fixed;
-    inset: 0;
+    inset: 0 !important;
     z-index: 100;
-    width: 100vw;
-    height: 100dvh;
+    width: 100vw !important;
+    height: 100dvh !important;
   }
   .solid-3d-editor {
     max-height: 100%;
     border-radius: 0;
+  }
+  .solid-3d-drag-handle {
+    cursor: default;
+    pointer-events: none;
+    touch-action: auto;
+  }
+  .solid-3d-resize-handle,
+  .solid-3d-window-actions button:first-child {
+    display: none;
   }
   .solid-3d-dock.is-expanded .solid-3d-layout {
     grid-template-columns: minmax(0, 1fr);
