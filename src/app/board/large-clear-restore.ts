@@ -16,10 +16,10 @@ const maximumRestoreChunkBytes = 1_750_000;
 const envelopeAllowancePerCommand = 2_048;
 
 interface RestorePart {
-  objects: Paste["objects"];
-  groups: Paste["groups"];
-  geometryImports: Paste["geometryImports"];
-  solidModels: NonNullable<Paste["solidModels"]>;
+  objects: Paste["objects"][number][];
+  groups: Paste["groups"][number][];
+  geometryImports: Paste["geometryImports"][number][];
+  solidModels: NonNullable<Paste["solidModels"]>[number][];
 }
 
 function partSize(part: RestorePart, encoder: TextEncoder): number {
@@ -130,12 +130,10 @@ export function planAtomicClearRestore(paste: Paste): readonly Paste[] | null {
           maximumBoardCommandObjects)
     )
       flush();
-    chunk = {
-      objects: [...chunk.objects, ...component.objects],
-      groups: [...chunk.groups, ...component.groups],
-      geometryImports: [...chunk.geometryImports, ...component.geometryImports],
-      solidModels: [...chunk.solidModels, ...component.solidModels],
-    };
+    chunk.objects.push(...component.objects);
+    chunk.groups.push(...component.groups);
+    chunk.geometryImports.push(...component.geometryImports);
+    chunk.solidModels.push(...component.solidModels);
     size += bytes;
   }
   flush();
