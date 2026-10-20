@@ -37,6 +37,7 @@ import type {
   MoveObjectsCommand,
   MoveSelectionCommand,
   PasteContentCommand,
+  RestoreGraphCommand,
   ReplaceObjectsCommand,
   RemoveGroupsCommand,
   RenameDocumentCommand,
