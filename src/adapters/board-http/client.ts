@@ -574,17 +574,93 @@ export function createBoardHttpRepository(
     },
 
     async push(envelope, csrfToken): Promise<PushBoardCommandsResult> {
-      const response = await send(
-        `/boards/${encodeURIComponent(envelope.documentId)}/commands`,
-        {
-          body: JSON.stringify(envelope),
+      const commandPath = `/boards/${encodeURIComponent(envelope.documentId)}/commands`;
+      const serialized = JSON.stringify(envelope);
+      const encoded = new TextEncoder().encode(serialized);
+      let response: Response;
+      if (encoded.byteLength > 4 * 1024 * 1024) {
+        // The upload ID is the durable queue's stable idempotency key. Retry
+        // after disconnect/crash uploads identical bytes into the same slot.
+        // No partial revision is visible before finalize.
+        if (encoded.byteLength > 48 * 1024 * 1024) {
+          throw new BoardHttpError(
+            "board.http.restore-too-large",
+            "Восстановление превышает лимит передачи 48 MiB.",
+            413,
+            false,
+          );
+        }
+        const uploadsPath = `/boards/${encodeURIComponent(envelope.documentId)}/command-uploads`;
+        const digest = await crypto.subtle.digest("SHA-256", encoded);
+        const sha256 = [...new Uint8Array(digest)]
+          .map((part) => part.toString(16).padStart(2, "0"))
+          .join("");
+        const created = await send(uploadsPath, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+          body: JSON.stringify({
+            uploadId: envelope.idempotencyKey,
+            byteSize: encoded.byteLength,
+            sha256,
+          }),
+        });
+        const descriptor = z
+          .object({
+            uploadId: z.string().min(1).max(128),
+            chunkCount: z.number().int().min(1).max(96),
+            chunkBytes: z.literal(512 * 1024),
+          })
+          .passthrough()
+          .safeParse(await requireSuccess(created, "Не удалось подготовить восстановление."));
+        if (
+          !descriptor.success ||
+          descriptor.data.uploadId !== envelope.idempotencyKey ||
+          descriptor.data.chunkCount !==
+            Math.ceil(encoded.byteLength / (512 * 1024))
+        ) {
+          throw new BoardHttpError(
+            "board.http.invalid-upload",
+            "Сервер вернул неверный план восстановления.",
+            200,
+            false,
+          );
+        }
+        const uploadPath = `${uploadsPath}/${encodeURIComponent(envelope.idempotencyKey)}`;
+        for (let index = 0; index < descriptor.data.chunkCount; index++) {
+          const part = encoded.slice(index * descriptor.data.chunkBytes,
+            (index + 1) * descriptor.data.chunkBytes);
+          const uploaded = await send(`${uploadPath}/parts/${index}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/octet-stream",
+              "X-CSRF-Token": csrfToken,
+            },
+            body: part.buffer,
+          });
+          if (!uploaded.ok) {
+            const error = await responseJson(uploaded);
+            throw new BoardHttpError(
+              `board.http.${uploaded.status}`,
+              problemMessage(error, "Не удалось загрузить часть восстановления."),
+              uploaded.status,
+              uploaded.status >= 500 || uploaded.status === 429 || uploaded.status === 408,
+            );
+          }
+        }
+        response = await send(`${uploadPath}/finalize`, {
+          method: "POST",
+          headers: { "X-CSRF-Token": csrfToken },
+        });
+      } else {
+        response = await send(commandPath, {
+          body: serialized,
           headers: {
             "Content-Type": "application/json",
             "X-CSRF-Token": csrfToken,
           },
           method: "POST",
-        },
-      );
+        });
+      }
       const payload = await responseJson(response);
       if (response.status === 409) {
         const conflict = z
