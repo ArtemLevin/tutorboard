@@ -18,7 +18,12 @@ import {
 import { Solid3DEditorPanel } from "./Solid3DEditorPanel";
 
 vi.mock("../../adapters/solid-3d-three/public", () => ({
-  Solid3DViewport: () => <div data-testid="mock-3d-viewport" />,
+  Solid3DViewport: (props: { showRotationGizmo?: boolean }) => (
+    <div
+      data-testid="mock-3d-viewport"
+      data-rotation-gizmo={String(props.showRotationGizmo ?? false)}
+    />
+  ),
 }));
 
 const record: Solid3DRecord = {
@@ -83,6 +88,30 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     expect(onOutsideClick).toHaveBeenCalledOnce();
     expect(onClose).not.toHaveBeenCalled();
     expect(panel).toBeInTheDocument();
+  });
+
+  it("keeps RGB rotation rings hidden until requested and hides them in point mode", () => {
+    renderPanel();
+    const viewport = screen.getByTestId("mock-3d-viewport");
+    const show = screen.getByRole("button", { name: "Показать кольца поворота" });
+    expect(show).toHaveAttribute("aria-pressed", "false");
+    expect(viewport).toHaveAttribute("data-rotation-gizmo", "false");
+
+    fireEvent.click(show);
+    const hide = screen.getByRole("button", { name: "Скрыть кольца поворота" });
+    expect(hide).toHaveAttribute("aria-pressed", "true");
+    expect(viewport).toHaveAttribute("data-rotation-gizmo", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Поставить точку" }));
+    expect(viewport).toHaveAttribute("data-rotation-gizmo", "false");
+    expect(screen.getByRole("button", { name: "Показать кольца поворота" }))
+      .toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Вращение камеры" }));
+    expect(viewport).toHaveAttribute("data-rotation-gizmo", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Скрыть кольца поворота" }));
+    expect(viewport).toHaveAttribute("data-rotation-gizmo", "false");
+    expect(screen.getByTestId("mock-3d-viewport")).toBe(viewport);
   });
 
   it("expands the model without remounting the viewport", () => {
