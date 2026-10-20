@@ -153,7 +153,7 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
   });
   await description.locator("summary").click();
   const pointLabel = description.locator("li").filter({ hasText: "C: x" });
-  await expect(pointLabel).toContainText("y 0.40");
+  await expect(pointLabel).toContainText("y -0.40");
 
   const canvas = editor.locator("canvas[data-engine]");
   await canvas.scrollIntoViewIfNeeded();
@@ -180,13 +180,13 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
     };
   };
 
-  const start = screen(0.4);
-  const end = screen(-0.4);
+  const start = screen(-0.4);
+  const end = screen(0.4);
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 8 });
   await page.mouse.up();
 
-  await expect(pointLabel).not.toContainText("y 0.40");
-  await expect(pointLabel).toContainText("y -0.40");
+  await expect(pointLabel).not.toContainText("y -0.40");
+  await expect(pointLabel).toContainText("y 0.40");
 });
