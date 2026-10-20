@@ -215,12 +215,12 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
   for (let step = 0; step < 12; step += 1) {
     await slider.press("ArrowRight");
   }
+  const savedSections = editor.locator(".solid-3d-sections > li");
+  const previousCount = await savedSections.count();
   const saveSweep = editor.getByRole("button", {
     name: "Сохранить положение плоскости",
   });
   await expect(saveSweep).toBeEnabled();
   await saveSweep.click();
-  await expect(
-    editor.getByRole("button", { name: "Удалить сечение α" }),
-  ).toBeVisible();
+  await expect(savedSections).toHaveCount(previousCount + 1);
 });
