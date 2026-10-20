@@ -104,14 +104,44 @@ it("restores 5200+ objects as one validated multi-command Undo group preserving 
   expect(checker.stillApplies(colliding.document, planned)).toBe(false);
 });
 
-it("keeps large groups indivisible and refuses an unsafe partial restoration", () => {
+it("atomically restores a 5200-object indivisible group using graphVersion 1.0", () => {
   const source = fixture(5_200, true);
-  const { cut, inverse } = makeCut(source);
+  const { cut, inverse, after } = makeCut(source);
   const checker = new CollaborativeUndoAvailability();
-  expect(checker.prepareCommittedCut(cut, inverse)).toBe(false);
   const paste = inverse[0];
   if (paste?.kind !== "core.clipboard.paste") throw new Error("Missing paste");
   expect(planAtomicClearRestore(paste)).toBeNull();
+  const planned = checker.prepareCommittedCut(cut, inverse);
+  if (!planned) throw new Error("Graph restoration unavailable");
+  expect(planned).toHaveLength(1);
+  expect(planned[0]?.kind).toBe("core.clipboard.restore-graph");
+  const graph = planned[0];
+  if (graph?.kind !== "core.clipboard.restore-graph") throw new Error("Missing graph");
+  expect(graph.graphVersion).toBe("1.0");
+  expect(checker.stillApplies(after, planned)).toBe(true);
+  const result = core.reduceBoardDocument(after, graph);
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error(result.error.message);
+  expect(result.document.objects).toEqual(source.objects);
+  expect(result.document.groups).toEqual(source.groups);
+  expect(result.document.order).toEqual(source.order);
+  const encoded = JSON.stringify(graph);
+  const decoded = core.readBoardCommandJson(encoded);
+  expect(decoded.status).toBe("ok");
+  const corrupted = {
+    ...graph,
+    groups: [{ ...graph.groups[0]!, objectIds: [...graph.groups[0]!.objectIds, core.boardObjectId("missing-object")] }],
+  };
+  const denied = core.reduceBoardDocument(after, corrupted);
+  expect(denied.ok).toBe(false);
+  expect(denied.document).toBe(after);
+  const collision = core.reduceBoardDocument(after, {
+    ...metadata("peer"),
+    kind: "core.objects.add",
+    objects: [source.objects[source.order.at(-1)!]!],
+  });
+  if (!collision.ok) throw Error(collision.error.message);
+  expect(checker.stillApplies(collision.document, planned)).toBe(false);
 });
 
 it("preserves old single-command Undo and its collision certificate", () => {
