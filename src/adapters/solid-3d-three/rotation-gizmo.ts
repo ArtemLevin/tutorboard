@@ -49,6 +49,7 @@ export class SolidRotationGizmoController {
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
   private drag: DragState | null = null;
+  private enabled = false;
 
   constructor(
     private readonly root: THREE.Group,
@@ -90,7 +91,8 @@ export class SolidRotationGizmoController {
       group.add(handle);
       return handle;
     });
-    group.visible = true;
+    // An axis manipulator obscures small geometry: opt-in only.
+    group.visible = false;
     this.group = group;
     this.handles = handles;
 
@@ -100,7 +102,25 @@ export class SolidRotationGizmoController {
     canvas.addEventListener("pointercancel", this.pointerCancel);
   }
 
+  setEnabled(enabled: boolean): void {
+    if (this.enabled === enabled) return;
+    if (!enabled && this.drag !== null) {
+      const active = this.drag;
+      this.drag = null;
+      this.root.quaternion.copy(active.startQuaternion);
+      this.root.updateMatrixWorld(true);
+      this.controls.enabled = true;
+      if (this.canvas.hasPointerCapture?.(active.pointerId)) {
+        this.canvas.releasePointerCapture(active.pointerId);
+      }
+    }
+    this.enabled = enabled;
+    this.group.visible = enabled;
+    this.render();
+  }
+
   dispose(): void {
+    this.setEnabled(false);
     this.canvas.removeEventListener("pointerdown", this.pointerDown);
     this.canvas.removeEventListener("pointermove", this.pointerMove);
     this.canvas.removeEventListener("pointerup", this.pointerUp);
@@ -134,7 +154,7 @@ export class SolidRotationGizmoController {
   };
 
   private readonly pointerDown = (event: PointerEvent): void => {
-    if (event.button !== 0) return;
+    if (!this.enabled || event.button !== 0) return;
     this.setPointer(event);
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const hit = this.raycaster.intersectObjects([...this.handles], false)[0];
