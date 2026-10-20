@@ -148,7 +148,7 @@ it("atomically restores a 5200-object indivisible group using graphVersion 1.0",
   const collision = core.reduceBoardDocument(after, {
     ...metadata("peer"),
     kind: "core.objects.add",
-    objects: [source.objects[source.order.at(-1)!]!],
+    objects: [{ ...source.objects[source.order.at(-1)!]!, groupId: null }],
   });
   if (!collision.ok) throw Error(collision.error.message);
   expect(checker.stillApplies(collision.document, planned)).toBe(false);
