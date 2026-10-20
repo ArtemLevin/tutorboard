@@ -60,3 +60,24 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+.solid-3d-rotation-angle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.solid-3d-rotation-angle-actions button {
+  min-width: 3.1rem;
+}
+
+.solid-3d-sweep select,
+.solid-3d-sweep input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  padding: 0.4rem;
+  border: 1px solid #c7bbb0;
+  border-radius: 6px;
+  background: #fff;
+  color: #26333c;
+}
