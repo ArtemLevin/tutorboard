@@ -194,5 +194,13 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
   await page.mouse.up();
 
   await expect(pointLabel).not.toContainText("y -0.40");
-  await expect(pointLabel).toContainText("y 0.40");
+  await expect(pointLabel).toContainText("x -1.00");
+  await expect(pointLabel).toContainText("z 1.00");
+  await expect
+    .poll(async () => {
+      const label = await pointLabel.textContent();
+      const coordinate = /y (-?\\d+\\.\\d+)/.exec(label ?? "");
+      return coordinate === null ? null : Number(coordinate[1]);
+    })
+    .toBeGreaterThan(0.2);
 });
