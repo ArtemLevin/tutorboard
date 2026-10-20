@@ -578,10 +578,11 @@ export function createBoardHttpRepository(
       const serialized = JSON.stringify(envelope);
       const encoded = new TextEncoder().encode(serialized);
       let response: Response;
+      let uploadPath: string | null = null;
       if (encoded.byteLength > 4 * 1024 * 1024) {
-        // The upload ID is the durable queue's stable idempotency key. Retry
-        // after disconnect/crash uploads identical bytes into the same slot.
-        // No partial revision is visible before finalize.
+        // The content-addressed upload ID changes if an offline batch is
+        // rebased, while its durable command idempotency key remains stable.
+        // Incomplete uploads are never visible as board revisions.
         if (encoded.byteLength > 48 * 1024 * 1024) {
           throw new BoardHttpError(
             "board.http.restore-too-large",
@@ -595,6 +596,7 @@ export function createBoardHttpRepository(
         const sha256 = [...new Uint8Array(digest)]
           .map((part) => part.toString(16).padStart(2, "0"))
           .join("");
+        const uploadId = `upload:${sha256}`;
         const created = await send(uploadsPath, {
           method: "POST",
           headers: {
@@ -602,7 +604,7 @@ export function createBoardHttpRepository(
             "X-CSRF-Token": csrfToken,
           },
           body: JSON.stringify({
-            uploadId: envelope.idempotencyKey,
+            uploadId,
             byteSize: encoded.byteLength,
             sha256,
           }),
@@ -622,7 +624,7 @@ export function createBoardHttpRepository(
           );
         if (
           !descriptor.success ||
-          descriptor.data.uploadId !== envelope.idempotencyKey ||
+          descriptor.data.uploadId !== uploadId ||
           descriptor.data.chunkCount !==
             Math.ceil(encoded.byteLength / (512 * 1024))
         ) {
@@ -633,7 +635,7 @@ export function createBoardHttpRepository(
             false,
           );
         }
-        const uploadPath = `${uploadsPath}/${encodeURIComponent(envelope.idempotencyKey)}`;
+        uploadPath = `${uploadsPath}/${encodeURIComponent(uploadId)}`;
         for (let index = 0; index < descriptor.data.chunkCount; index++) {
           const part = encoded.slice(
             index * descriptor.data.chunkBytes,
@@ -677,6 +679,14 @@ export function createBoardHttpRepository(
         });
       }
       const payload = await responseJson(response);
+      if (uploadPath !== null && (response.ok || response.status === 409)) {
+        // Best-effort stage cleanup. A lost response is still recovered by the
+        // existing durable queue and server idempotency contract.
+        void send(uploadPath, {
+          method: "DELETE",
+          headers: { "X-CSRF-Token": csrfToken },
+        }).catch(() => undefined);
+      }
       if (response.status === 409) {
         const conflict = z
           .object({
