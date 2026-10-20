@@ -433,7 +433,9 @@ export function Solid3DEditorPanel({
             <span aria-hidden="true">⠿</span>
             <span>
               <small>Интерактивная стереометрия</small>
-              <strong id="solid-3d-title">{solidNames[record.definition.kind]}</strong>
+              <strong id="solid-3d-title">
+                {solidNames[record.definition.kind]}
+              </strong>
             </span>
           </button>
           <div className="solid-3d-window-actions">
