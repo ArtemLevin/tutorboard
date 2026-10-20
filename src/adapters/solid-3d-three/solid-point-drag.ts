@@ -79,9 +79,8 @@ export function dragSolidPointToPointer(
   scene.camera.updateMatrixWorld();
 
   if (point.anchor.kind === "edge" && scene.topology !== null) {
-    const edge = scene.topology.edges.find(
-      ({ id }) => id === point.anchor.edgeId,
-    );
+    const edgeId = point.anchor.edgeId;
+    const edge = scene.topology.edges.find(({ id }) => id === edgeId);
     if (edge === undefined) return null;
     const start = scene.topology.vertices.find(
       ({ id }) => id === edge.startVertexId,
