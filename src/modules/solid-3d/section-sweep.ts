@@ -221,7 +221,7 @@ export function saveSolidSectionSweep(input: {
   if (anchors.some((anchor) => anchor === null))
     return { status: "error", code: "outside" };
   const newPoints = triple.map((position, i): Solid3DPoint => ({
-    id: solidPointId(`solid-point:sweep:${token}:${i}`),
+    id: solidPointId(`solid-point:section-helper:sweep:${token}:${i}`),
     label: `T${i + 1}`,
     position,
     anchor: anchors[i]!,
