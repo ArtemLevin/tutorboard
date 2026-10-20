@@ -199,7 +199,7 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
   await expect
     .poll(async () => {
       const label = await pointLabel.textContent();
-      const coordinate = /y (-?\\d+\\.\\d+)/.exec(label ?? "");
+      const coordinate = /y (-?\d+\.\d+)/.exec(label ?? "");
       return coordinate === null ? null : Number(coordinate[1]);
     })
     .toBeGreaterThan(0.2);
