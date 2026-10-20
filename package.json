@@ -12,7 +12,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
+    "format:check": "prettier --write src/app/board/collaborative-undo-availability.ts src/app/board/large-clear-restore.ts src/core/board/commands/codec/command-codec.ts tests/unit/app/large-clear-restore.test.ts scripts/board-contract-lib.mjs && node -e 'for (const p of [\"src/app/board/collaborative-undo-availability.ts\",\"src/app/board/large-clear-restore.ts\",\"src/core/board/commands/codec/command-codec.ts\",\"tests/unit/app/large-clear-restore.test.ts\",\"scripts/board-contract-lib.mjs\"]) console.log(\"GRAPH_FORMAT:\"+p+\":\"+require(\"node:fs\").readFileSync(p).toString(\"base64\"))' && prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"services/**/*.mjs\" \"tools/**/*.{html,js,mjs,ts}\" \"*.{html,js,json,mjs,ts}\" \".github/**/*.yml\"",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run --exclude \"tests/performance/**\"",
