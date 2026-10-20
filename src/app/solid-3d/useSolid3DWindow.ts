@@ -126,8 +126,16 @@ export function useSolid3DWindow() {
     setWindowRect(
       clampSolid3DWindowRect(
         gesture.kind === "move"
-          ? { ...gesture.rect, left: gesture.rect.left + dx, top: gesture.rect.top + dy }
-          : { ...gesture.rect, width: gesture.rect.width + dx, height: gesture.rect.height + dy },
+          ? {
+              ...gesture.rect,
+              left: gesture.rect.left + dx,
+              top: gesture.rect.top + dy,
+            }
+          : {
+              ...gesture.rect,
+              width: gesture.rect.width + dx,
+              height: gesture.rect.height + dy,
+            },
         size,
       ),
     );
