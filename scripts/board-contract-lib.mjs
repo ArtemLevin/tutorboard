@@ -946,6 +946,17 @@ const commands = {
     },
     ["geometryImports", "groups", "objects"],
   ),
+  RestoreGraphCommand: command(
+    "core.clipboard.restore-graph",
+    {
+      geometryImports: array(reference("GeometryImportRecord"), { maxItems: 10_000 }),
+      graphVersion: { const: "1.0" },
+      groups: array(reference("BoardGroup"), { maxItems: 10_000 }),
+      objects: array(reference("BoardObject"), { minItems: 1, maxItems: 10_000 }),
+      solidModels: array(reference("Solid3DRecord"), { maxItems: 10_000 }),
+    },
+    ["geometryImports", "graphVersion", "groups", "objects"],
+  ),
   ProjectSolid3DSectionCommand: command("core.solid-3d.project-section", {
     group: reference("BoardGroup"),
     objects: array(reference("BoardObject"), { minItems: 1 }),
