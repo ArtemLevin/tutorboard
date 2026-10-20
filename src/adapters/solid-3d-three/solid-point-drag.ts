@@ -4,6 +4,7 @@ import {
   canonicalizeAnalyticSurfaceAnchor,
   canonicalizeTopologyFaceAnchor,
   decodeTopologyFaceAnchorId,
+  isSolidSectionHelperPoint,
   resolveSolid3DPointPosition,
   resolveSolidPointAnchor,
   type Solid3DPoint,
@@ -46,7 +47,7 @@ export function pickSolidPointForDrag(
   let distanceSquared = radius * radius;
   for (const point of record.points) {
     // A vertex has no degree of freedom and cannot be dragged.
-    if (point.anchor.kind === "vertex" || point.id.includes("section-helper:"))
+    if (point.anchor.kind === "vertex" || isSolidSectionHelperPoint(point))
       continue;
     const position = resolveSolid3DPointPosition(record.definition, point);
     const screen = localPoint(scene.root, position).project(scene.camera);
