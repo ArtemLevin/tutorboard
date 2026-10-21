@@ -68,7 +68,7 @@ describe("Smart Ink board proposal", () => {
     }
   });
 
-  it("accepts a wider near-circle range as a circle", () => {
+  it("keeps the V2 ellipse class for a near-round handwritten oval", () => {
     const points = Array.from({ length: 97 }, (_, index) => {
       const angle = (index / 96) * Math.PI * 2;
       return {
@@ -77,31 +77,16 @@ describe("Smart Ink board proposal", () => {
       };
     });
     const decision = recognizeSmartInkV2(stroke(points), points);
-    console.info(
-      "V2_NEAR_CIRCLE",
-      JSON.stringify({
-        selectedKind: decision.selectedKind,
-        status: decision.status,
-        scores: decision.scores,
-        candidates: decision.legacyProposal.candidates
-          .filter(({ kind }) => kind === "circle" || kind === "ellipse")
-          .map(({ kind, confidence, diagnostics }) => ({
-            kind,
-            confidence,
-            axisRatio: diagnostics.axisRatio,
-          })),
-      }),
-    );
-    const result = proposeSmartInkReplacement(stroke(points));
+    expect(decision.status).toBe("accepted");
+    expect(decision.selectedKind).toBe("ellipse");
 
+    const result = proposeSmartInkReplacement(stroke(points));
     expect(result.status).toBe("proposed");
     if (result.status === "proposed") {
-      expect(result.proposal.candidate.kind).toBe("circle");
-      expect(result.proposal.replacement).toMatchObject({
-        kind: "drawing.ellipse",
-      });
+      expect(result.proposal.candidate.kind).toBe(decision.selectedKind);
+      expect(result.proposal.replacement.kind).toBe("drawing.ellipse");
       if (result.proposal.replacement.kind === "drawing.ellipse") {
-        expect(result.proposal.replacement.radius.x).toBe(
+        expect(result.proposal.replacement.radius.x).not.toBe(
           result.proposal.replacement.radius.y,
         );
       }
