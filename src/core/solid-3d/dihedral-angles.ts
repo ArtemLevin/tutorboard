@@ -8,11 +8,10 @@ import type {
 import { createSolidTopology } from "./topology";
 import {
   add3,
+  cross3,
   dot3,
   normalize3,
-  planeFromThreePoints,
   scale3,
-  signedDistanceToPlane,
   subtract3,
   type Vec3,
 } from "./vectors";
@@ -32,53 +31,46 @@ export interface SolidDihedralAngleResult {
 function faceRay(
   topology: SolidTopology,
   face: SolidFace,
-  edgeDirection: Vec3,
-  midpoint: Vec3,
+  sharedEdgeId: string,
 ): Vec3 | null {
-  const positions = face.vertexIds.map(
-    (id) => topology.vertices.find((v) => v.id === id)?.position,
+  const edgeIndex = face.edgeIds.indexOf(sharedEdgeId);
+  if (edgeIndex < 0) return null;
+  const vertices = face.vertexIds.map(
+    (id) => topology.vertices.find((item) => item.id === id)?.position,
   );
-  if (
-    positions.length < 3 ||
-    positions.some((position) => position === undefined)
-  )
+  if (vertices.length < 3 || vertices.some((point) => point === undefined))
     return null;
-  const vertices = positions.filter(
-    (position): position is Vec3 => position !== undefined,
-  );
-  const origin = vertices[0]!;
-  let plane = null;
-  for (let index = 1; index + 1 < vertices.length; index += 1) {
-    plane = planeFromThreePoints(
-      origin,
-      vertices[index]!,
-      vertices[index + 1]!,
+  const polygon = vertices.filter((point): point is Vec3 => point !== undefined);
+  const origin = polygon[0]!;
+  // Polygon winding gives the inward half-plane at *each* boundary edge.
+  // A polygon-wide vertex centroid can lie outside a concave polygon.
+  let areaNormal: Vec3 = { x: 0, y: 0, z: 0 };
+  for (let index = 1; index + 1 < polygon.length; index += 1)
+    areaNormal = add3(
+      areaNormal,
+      cross3(
+        subtract3(polygon[index]!, origin),
+        subtract3(polygon[index + 1]!, origin),
+      ),
     );
-    if (plane !== null) break;
-  }
-  if (plane === null) return null;
+  const normal = normalize3(areaNormal);
+  if (normal === null) return null;
   const extent = Math.max(
     1,
-    ...vertices.map((v) =>
-      Math.hypot(v.x - origin.x, v.y - origin.y, v.z - origin.z),
+    ...polygon.map((point) =>
+      Math.hypot(point.x - origin.x, point.y - origin.y, point.z - origin.z),
     ),
   );
-  if (
-    vertices.some(
-      (v) => Math.abs(signedDistanceToPlane(plane, v)) > extent * 1e-6,
-    )
-  )
-    return null;
-  const center = scale3(
-    vertices.reduce((sum, v) => add3(sum, v), { x: 0, y: 0, z: 0 }),
-    1 / vertices.length,
-  );
-  const delta = subtract3(center, midpoint);
-  const projected = subtract3(
-    delta,
-    scale3(edgeDirection, dot3(delta, edgeDirection)),
-  );
-  return normalize3(projected);
+  if (polygon.some((point) =>
+    Math.abs(dot3(normal, subtract3(point, origin))) > extent * 1e-6,
+  )) return null;
+  const start = polygon[edgeIndex]!;
+  const end = polygon[(edgeIndex + 1) % polygon.length]!;
+  const orientedEdge = normalize3(subtract3(end, start));
+  if (orientedEdge === null) return null;
+  // Both the face normal and edge direction use the same vertex winding.
+  // Therefore normal × tangent is the locally inward perpendicular ray.
+  return normalize3(cross3(normal, orientedEdge));
 }
 
 /**
@@ -107,11 +99,10 @@ export function calculateSolidDihedralAngle(
     ({ id }) => id === edge.endVertexId,
   )?.position;
   if (a === undefined || b === undefined) return null;
-  const direction = normalize3(subtract3(b, a));
-  if (direction === null) return null;
+  if (normalize3(subtract3(b, a)) === null) return null;
   const midpoint = scale3(add3(a, b), 0.5);
-  const firstRay = faceRay(topology, first, direction, midpoint);
-  const secondRay = faceRay(topology, second, direction, midpoint);
+  const firstRay = faceRay(topology, first, edge.id);
+  const secondRay = faceRay(topology, second, edge.id);
   if (firstRay === null || secondRay === null) return null;
   const cosine = Math.max(-1, Math.min(1, dot3(firstRay, secondRay)));
   const degrees = (Math.acos(cosine) * 180) / Math.PI;
