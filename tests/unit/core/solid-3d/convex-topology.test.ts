@@ -19,6 +19,7 @@ import {
 } from "../../../../src/modules/solid-3d/section-rotation";
 import { getSolidSectionSweepFrame } from "../../../../src/modules/solid-3d/section-sweep";
 import { calculateSolidSection } from "../../../../src/modules/solid-3d/section-workflow";
+import { calculateSectionForLearning } from "../../../../src/core/solid-3d-learning/public";
 
 const square = [
   { x: -1, y: -1 },
@@ -124,6 +125,7 @@ describe("convex polyhedron guard for interactive cutting planes", () => {
       sections: [],
     };
     const edgeId = topology.edges[0]!.id;
+    expect(calculateSectionForLearning(record, ids)).toBeNull();
     expect(calculateSolidSection(record, ids)).toMatchObject({
       status: "error",
       code: "solid.section.outside",
