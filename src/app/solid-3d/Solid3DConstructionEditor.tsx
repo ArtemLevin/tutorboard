@@ -227,20 +227,20 @@ export function Solid3DConstructionEditor({
       {!advancedOnly ? (
         <label>
           <span>Тип</span>
-        <select
-          aria-label="Тип объёмного тела"
-          disabled={readOnly}
-          onChange={(event) =>
-            changeKind(event.currentTarget.value as SolidConstructionKind)
-          }
-          value={kind}
-        >
-          {kinds.map((item) => (
-            <option key={item} value={item}>
-              {labels[item]}
-            </option>
-          ))}
-        </select>
+          <select
+            aria-label="Тип объёмного тела"
+            disabled={readOnly}
+            onChange={(event) =>
+              changeKind(event.currentTarget.value as SolidConstructionKind)
+            }
+            value={kind}
+          >
+            {kinds.map((item) => (
+              <option key={item} value={item}>
+                {labels[item]}
+              </option>
+            ))}
+          </select>
         </label>
       ) : null}
       {advancedOnly || sideCount === null ? null : (

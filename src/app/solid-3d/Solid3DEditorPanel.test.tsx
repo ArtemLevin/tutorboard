@@ -124,24 +124,33 @@ describe("Solid3DEditorPanel embedded workspace", () => {
   it("reveals advanced settings and section tools only when requested", () => {
     renderPanel();
     const viewport = screen.getByTestId("mock-3d-viewport");
-    expect(screen.getByRole("button", { name: "Исследование" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByRole("button", { name: "Исследование" }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText("Тип объёмного тела")).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Точная настройка" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Создать сечение" })).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Точная настройка" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Создать сечение" }),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Сечение" }));
-    expect(screen.getByRole("button", { name: "Создать сечение" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Создать сечение" }),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Настройки" }));
-    expect(screen.getByRole("region", { name: "Точная настройка" })).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "Точная настройка" }),
+    ).toBeVisible();
     expect(screen.getByLabelText("Поворот X")).toBeInTheDocument();
     expect(screen.getByTestId("mock-3d-viewport")).toBe(viewport);
     fireEvent.keyDown(screen.getByRole("region", { name: "Призма" }), {
       key: "Escape",
     });
-    expect(screen.queryByRole("region", { name: "Точная настройка" })).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Точная настройка" }),
+    ).toBeNull();
     expect(screen.getByTestId("mock-3d-viewport")).toBe(viewport);
   });
 
