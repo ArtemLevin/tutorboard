@@ -429,9 +429,11 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<{
-    camera: THREE.Camera;
+    camera: THREE.OrthographicCamera | THREE.PerspectiveCamera;
     active: boolean;
-    setCamera: (next: THREE.Camera) => void;
+    setCamera: (
+      next: THREE.OrthographicCamera | THREE.PerspectiveCamera,
+    ) => void;
     controls: OrbitControls;
     mesh: THREE.Mesh;
     renderer: THREE.WebGLRenderer;
@@ -529,7 +531,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     const definition = definitionRef.current;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf5f0e7);
-    let camera: THREE.Camera =
+    let camera: THREE.OrthographicCamera | THREE.PerspectiveCamera =
       cameraModeRef.current === "orthographic"
         ? new THREE.OrthographicCamera(
             (-2.8 * width) / height,
@@ -982,7 +984,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     if (container === null) return;
     const width = Math.max(320, container.clientWidth);
     const height = Math.max(260, container.clientHeight);
-    const next: THREE.Camera =
+    const next: THREE.OrthographicCamera | THREE.PerspectiveCamera =
       cameraMode === "orthographic"
         ? new THREE.OrthographicCamera(
             (-2.8 * width) / height,
