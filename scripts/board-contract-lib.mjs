@@ -477,6 +477,17 @@ const solidPoint = strictObject({
   label: { maxLength: 32, minLength: 1, type: "string" },
   position: reference("Vec3"),
 });
+const solidDistanceEndpoint = {
+  oneOf: [
+    strictObject({ kind: { const: "vertex" }, id: reference("Identifier") }),
+    strictObject({ kind: { const: "point" }, id: reference("Identifier") }),
+  ],
+};
+const solidDistanceMeasurement = strictObject({
+  first: reference("SolidDistanceEndpoint"),
+  id: reference("Identifier"),
+  second: reference("SolidDistanceEndpoint"),
+});
 const solidSection = strictObject({
   algorithmVersion: {
     enum: ["analytic-plane/1", "polyhedron-plane/1"],
@@ -512,13 +523,14 @@ const solid3DRecord = strictObject({
   boardObjectIds: array(reference("Identifier"), { maxItems: 5_000 }),
   definition: reference("Solid3DDefinition"),
   id: reference("Identifier"),
+  measurements: array(reference("SolidDistanceMeasurement"), { maxItems: 16 }),
   points: array(reference("Solid3DPoint"), { maxItems: 32 }),
   projection: reference("Solid3DBoardProjection"),
   rootGroupId: reference("Identifier"),
   schemaVersion: { const: "1.0" },
   sections: array(reference("Solid3DSectionDefinition"), { maxItems: 8 }),
   source: reference("Solid3DSource"),
-});
+}, ["boardObjectIds", "definition", "id", "points", "projection", "rootGroupId", "schemaVersion", "sections", "source"]);
 const solidElementRef = {
   oneOf: ["vertex", "edge", "face", "point", "section-segment"].map((kind) =>
     strictObject({ id: reference("Identifier"), kind: { const: kind } }),
@@ -819,6 +831,8 @@ const boardDefinitions = {
   Solid3DBoardProjection: solidProjection,
   Solid3DDefinition: solidDefinition,
   Solid3DPoint: solidPoint,
+  SolidDistanceEndpoint: solidDistanceEndpoint,
+  SolidDistanceMeasurement: solidDistanceMeasurement,
   Solid3DRecord: solid3DRecord,
   Solid3DSectionDefinition: solidSection,
   Solid3DSource: solidSource,
