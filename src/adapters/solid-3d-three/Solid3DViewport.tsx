@@ -48,7 +48,10 @@ export interface Solid3DViewportProps {
   readonly onAngleEdgePick?: ((edgeId: string) => void) | undefined;
   readonly onFacePick?: ((faceId: string) => void) | undefined;
   readonly linePlaneSelectedLine?: SolidAngleLine | null;
-  readonly linePlanePreview?: { readonly line: SolidAngleLine; readonly faceId: string } | null;
+  readonly linePlanePreview?: {
+    readonly line: SolidAngleLine;
+    readonly faceId: string;
+  } | null;
   readonly anglePreview?: readonly [SolidAngleLine, SolidAngleLine] | null;
   readonly measurementPreview?:
     readonly [SolidDistanceEndpoint, SolidDistanceEndpoint] | null;
@@ -287,7 +290,10 @@ function angleLinesObject(
 }
 
 /** Scene-local auxiliary construction: projected direction and supporting plane. */
-function linePlaneObject(result: SolidLinePlaneAngleResult, saved: boolean): THREE.Group {
+function linePlaneObject(
+  result: SolidLinePlaneAngleResult,
+  saved: boolean,
+): THREE.Group {
   const group = new THREE.Group();
   group.name = saved ? "solid-line-plane-saved" : "solid-line-plane-preview";
   const color = saved ? 0x0f766e : 0xf59e0b;
@@ -301,11 +307,18 @@ function linePlaneObject(result: SolidLinePlaneAngleResult, saved: boolean): THR
   const line = (points: THREE.Vector3[], dashed: boolean): void => {
     const material = dashed
       ? new THREE.LineDashedMaterial({
-          color, dashSize: 0.1, gapSize: 0.07,
-          depthTest: false, transparent: true, opacity: 0.85,
+          color,
+          dashSize: 0.1,
+          gapSize: 0.07,
+          depthTest: false,
+          transparent: true,
+          opacity: 0.85,
         })
       : new THREE.LineBasicMaterial({ color, depthTest: false });
-    const shape = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material);
+    const shape = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(points),
+      material,
+    );
     if (dashed) shape.computeLineDistances();
     shape.renderOrder = 10;
     group.add(shape);
@@ -317,14 +330,15 @@ function linePlaneObject(result: SolidLinePlaneAngleResult, saved: boolean): THR
   line([foot, foot.clone().addScaledVector(u, 0.85)], true);
   line([foot, foot.clone().addScaledVector(projected, 0.85)], false);
   if (result.degrees > 0.01) {
-    const theta = result.degrees * Math.PI / 180;
+    const theta = (result.degrees * Math.PI) / 180;
     const parallel = projected.clone().multiplyScalar(u.dot(projected));
     const perpendicular = u.clone().sub(parallel).normalize();
     const points = Array.from({ length: 25 }, (_, index) => {
-      const angle = theta * index / 24;
-      return foot.clone().add(
-        projected.clone().multiplyScalar(Math.cos(angle) * 0.38),
-      ).add(perpendicular.clone().multiplyScalar(Math.sin(angle) * 0.38));
+      const angle = (theta * index) / 24;
+      return foot
+        .clone()
+        .add(projected.clone().multiplyScalar(Math.cos(angle) * 0.38))
+        .add(perpendicular.clone().multiplyScalar(Math.sin(angle) * 0.38));
     });
     line(points, false);
   }
@@ -651,7 +665,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         const hit = raycaster.intersectObject(built.mesh, false)[0];
         const faceIds: unknown = built.mesh.userData.semanticFaceIds;
         const faceId: unknown = Array.isArray(faceIds)
-          ? faceIds[hit?.faceIndex ?? -1] : undefined;
+          ? faceIds[hit?.faceIndex ?? -1]
+          : undefined;
         if (typeof faceId === "string") onFacePickRef.current(faceId);
         return;
       }
@@ -1042,10 +1057,19 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       const preview = calculateSolidLineAngle(record, props.anglePreview);
       if (preview !== null) overlays.add(angleLinesObject(preview, false));
     }
-    if (props.linePlaneSelectedLine !== null && props.linePlaneSelectedLine !== undefined
-      && (props.linePlanePreview === null || props.linePlanePreview === undefined)) {
-      const from = resolveSolidDistanceEndpoint(record, props.linePlaneSelectedLine[0]);
-      const to = resolveSolidDistanceEndpoint(record, props.linePlaneSelectedLine[1]);
+    if (
+      props.linePlaneSelectedLine !== null &&
+      props.linePlaneSelectedLine !== undefined &&
+      (props.linePlanePreview === null || props.linePlanePreview === undefined)
+    ) {
+      const from = resolveSolidDistanceEndpoint(
+        record,
+        props.linePlaneSelectedLine[0],
+      );
+      const to = resolveSolidDistanceEndpoint(
+        record,
+        props.linePlaneSelectedLine[1],
+      );
       if (from !== null && to !== null) {
         const selected = new THREE.Line(
           new THREE.BufferGeometry().setFromPoints([
@@ -1060,12 +1084,21 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       }
     }
     for (const item of record.linePlaneMeasurements ?? []) {
-      const result = calculateSolidLinePlaneAngle(record, item.line, item.faceId);
+      const result = calculateSolidLinePlaneAngle(
+        record,
+        item.line,
+        item.faceId,
+      );
       if (result !== null) overlays.add(linePlaneObject(result, true));
     }
-    if (props.linePlanePreview !== null && props.linePlanePreview !== undefined) {
+    if (
+      props.linePlanePreview !== null &&
+      props.linePlanePreview !== undefined
+    ) {
       const result = calculateSolidLinePlaneAngle(
-        record, props.linePlanePreview.line, props.linePlanePreview.faceId,
+        record,
+        props.linePlanePreview.line,
+        props.linePlanePreview.faceId,
       );
       if (result !== null) overlays.add(linePlaneObject(result, false));
     }
