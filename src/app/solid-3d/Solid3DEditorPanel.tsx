@@ -1025,6 +1025,10 @@ export function Solid3DEditorPanel({
                 measureTool === "line-plane" && linePlaneLine !== null
                   ? chooseLinePlaneFace : undefined
               }
+              linePlaneSelectedLine={
+                experience === "free" && workMode === "measure" && measureTool === "line-plane"
+                  ? linePlaneLine : null
+              }
               linePlanePreview={
                 experience === "free" && workMode === "measure" &&
                 measureTool === "line-plane" &&
