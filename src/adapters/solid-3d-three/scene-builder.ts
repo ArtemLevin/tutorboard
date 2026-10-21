@@ -51,29 +51,64 @@ function surfacesFromGroups(
   return surfaces;
 }
 
-function polyhedronGeometry(topology: SolidTopology): THREE.BufferGeometry {
-  const vertices = new Map(
-    topology.vertices.map((item) => [item.id, item.position]),
-  );
+interface BuiltPolyhedronGeometry {
+  readonly geometry: THREE.BufferGeometry;
+  /** One semantic ID for every generated triangle, in triangle order. */
+  readonly semanticFaceIds: readonly string[];
+}
+
+function polyhedronGeometry(topology: SolidTopology): BuiltPolyhedronGeometry {
+  const vertices = new Map(topology.vertices.map((item) => [item.id, item.position]));
   const positions: number[] = [];
+  const semanticFaceIds: string[] = [];
   for (const face of topology.faces) {
-    const first = vertices.get(face.vertexIds[0]!)!;
-    for (let index = 1; index + 1 < face.vertexIds.length; index += 1) {
-      for (const point of [
-        first,
-        vertices.get(face.vertexIds[index]!)!,
-        vertices.get(face.vertexIds[index + 1]!)!,
-      ])
+    const polygon = face.vertexIds.map((id) => vertices.get(id)!);
+    if (polygon.length < 3) continue;
+    // Use a winding-preserving, translation-independent polygon normal.
+    // It defines a stable 2D projection for concave planar faces.
+    const origin = polygon[0]!;
+    const areaNormal = new THREE.Vector3();
+    for (let index = 1; index + 1 < polygon.length; index += 1) {
+      const u = polygon[index]!;
+      const v = polygon[index + 1]!;
+      areaNormal.add(
+        new THREE.Vector3(u.x - origin.x, u.y - origin.y, u.z - origin.z).cross(
+          new THREE.Vector3(v.x - origin.x, v.y - origin.y, v.z - origin.z),
+        ),
+      );
+    }
+    if (areaNormal.lengthSq() <= 1e-16) continue;
+    const abs = [Math.abs(areaNormal.x), Math.abs(areaNormal.y), Math.abs(areaNormal.z)];
+    const primary = abs.indexOf(Math.max(...abs));
+    const contour = polygon.map((point) =>
+      primary === 0
+        ? new THREE.Vector2(point.y, point.z)
+        : primary === 1
+          ? new THREE.Vector2(point.x, point.z)
+          : new THREE.Vector2(point.x, point.y),
+    );
+    const triangles = THREE.ShapeUtils.triangulateShape(contour, []);
+    for (const [a, b, c] of triangles) {
+      const first = polygon[a]!;
+      let second = polygon[b]!;
+      let third = polygon[c]!;
+      // Earcut's winding can differ from the solid's semantic face winding.
+      // Keep the original orientation for normals and outside visibility.
+      const triangleNormal = new THREE.Vector3(
+        second.x - first.x, second.y - first.y, second.z - first.z,
+      ).cross(new THREE.Vector3(
+        third.x - first.x, third.y - first.y, third.z - first.z,
+      ));
+      if (triangleNormal.dot(areaNormal) < 0) [second, third] = [third, second];
+      for (const point of [first, second, third])
         positions.push(point.x, point.y, point.z);
+      semanticFaceIds.push(face.id);
     }
   }
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(positions, 3),
-  );
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.computeVertexNormals();
-  return geometry;
+  return { geometry, semanticFaceIds };
 }
 
 function hemisphereGeometry(
@@ -278,7 +313,7 @@ function analyticGeometry(definition: Solid3DDefinition): BuiltGeometry {
       const topology = createSolidTopology(definition);
       if (topology === null) throw new Error("Unsupported solid definition.");
       return {
-        geometry: polyhedronGeometry(topology),
+        geometry: polyhedronGeometry(topology).geometry,
         semanticSurfaceFaceIds: [],
       };
     }
@@ -289,10 +324,11 @@ export function buildSolidScene(
   definition: Solid3DDefinition,
 ): BuiltSolidScene {
   const topology = createSolidTopology(definition);
+  const polyhedron = topology === null ? null : polyhedronGeometry(topology);
   const builtGeometry =
-    topology === null
+    polyhedron === null
       ? analyticGeometry(definition)
-      : { geometry: polyhedronGeometry(topology), semanticSurfaceFaceIds: [] };
+      : { geometry: polyhedron.geometry, semanticSurfaceFaceIds: [] };
   const material = new THREE.MeshStandardMaterial({
     color: 0x91b8c4,
     metalness: 0.03,
@@ -304,13 +340,7 @@ export function buildSolidScene(
   const mesh = new THREE.Mesh(builtGeometry.geometry, material);
   mesh.name = "solid-surface";
   mesh.userData = {
-    semanticFaceIds:
-      topology?.faces.flatMap((face) =>
-        Array.from(
-          { length: Math.max(1, face.vertexIds.length - 2) },
-          () => face.id,
-        ),
-      ) ?? [],
+    semanticFaceIds: polyhedron?.semanticFaceIds ?? [],
     semanticKind: topology === null ? "analytic-surface" : "face",
     semanticSurfaceFaceIds: builtGeometry.semanticSurfaceFaceIds,
     semanticSurfaceIds: analyticSurfaceIds(definition),
