@@ -79,7 +79,10 @@ describe("3D section projection optimistic concurrency", () => {
     });
     expect(configured.ok).toBe(true);
     if (!configured.ok) return;
-    const calculated = calculateSolidSection(saved, saved.sections[0]!.pointIds);
+    const calculated = calculateSolidSection(
+      saved,
+      saved.sections[0]!.pointIds,
+    );
     expect(calculated.status).toBe("ok");
     if (calculated.status !== "ok") return;
     const projected = createProjectSolid3DSectionCommand({
@@ -115,7 +118,10 @@ describe("3D section projection optimistic concurrency", () => {
       ...projected,
       objects: projected.objects.map((object, index) =>
         index === 0 && object.kind === "drawing.line"
-          ? { ...object, position: { ...object.position, x: object.position.x + 50 } }
+          ? {
+              ...object,
+              position: { ...object.position, x: object.position.x + 50 },
+            }
           : object,
       ),
     };

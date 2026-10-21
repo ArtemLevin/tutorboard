@@ -5,7 +5,10 @@ import { transformSolid3DSectionForProjection } from "../../solid-3d/model-trans
 import { resolveSolid3DPointPosition } from "../../solid-3d/point-resolution";
 import { intersectPolyhedronWithPlane } from "../../solid-3d/polyhedron-section";
 import { projectSolidPoint } from "../../solid-3d/projection";
-import { createSolidTopology, isConvexSolidTopology } from "../../solid-3d/topology";
+import {
+  createSolidTopology,
+  isConvexSolidTopology,
+} from "../../solid-3d/topology";
 import { planeFromThreePoints } from "../../solid-3d/vectors";
 import {
   applySolidLearningAction,
@@ -1141,14 +1144,17 @@ function projectedSectionMatchesCurrentSolid(
   );
   if (plane === null) return false;
   const topology = createSolidTopology(solid.definition);
-  const section = topology === null
-    ? intersectAnalyticSolidWithPlane(solid.definition, plane)
-    : isConvexSolidTopology(topology)
-      ? intersectPolyhedronWithPlane(topology, plane)
-      : null;
+  const section =
+    topology === null
+      ? intersectAnalyticSolidWithPlane(solid.definition, plane)
+      : isConvexSolidTopology(topology)
+        ? intersectPolyhedronWithPlane(topology, plane)
+        : null;
   if (section === null) return false;
-  const projected = transformSolid3DSectionForProjection(solid, section)
-    .vertices.map((point) => projectSolidPoint(point, solid.projection));
+  const projected = transformSolid3DSectionForProjection(
+    solid,
+    section,
+  ).vertices.map((point) => projectSolidPoint(point, solid.projection));
   if (projected.length < 3 || objects.length !== projected.length * 2)
     return false;
   const sameNumber = (actual: number, expected: number) =>
@@ -1168,7 +1174,8 @@ function projectedSectionMatchesCurrentSolid(
       !sameNumber(line.end.y, end.y - start.y) ||
       !sameNumber(marker.position.x, start.x) ||
       !sameNumber(marker.position.y, start.y)
-    ) return false;
+    )
+      return false;
   }
   return true;
 }
@@ -1190,7 +1197,13 @@ function projectSolid3DSection(
       "command.invalid",
       "Section projection references a missing section.",
     );
-  if (!projectedSectionMatchesCurrentSolid(solid, command.sectionId, command.objects))
+  if (
+    !projectedSectionMatchesCurrentSolid(
+      solid,
+      command.sectionId,
+      command.objects,
+    )
+  )
     return failure(
       document,
       "command.stale-solid",
