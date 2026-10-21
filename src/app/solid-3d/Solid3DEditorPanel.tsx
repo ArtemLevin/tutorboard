@@ -1055,7 +1055,11 @@ export function Solid3DEditorPanel({
                     Расстояние
                   </button>
                   <button aria-pressed={measureTool === "angle"}
-                    onClick={() => setMeasureTool("angle")} type="button">
+                    onClick={() => {
+                      setMeasureTool("angle");
+                      if (createSolidTopology(record.definition) === null)
+                        setAngleMethod("points");
+                    }} type="button">
                     Угол между прямыми
                   </button>
                 </div>
