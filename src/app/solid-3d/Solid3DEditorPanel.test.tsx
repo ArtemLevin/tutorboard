@@ -18,10 +18,11 @@ import {
 import { Solid3DEditorPanel } from "./Solid3DEditorPanel";
 
 vi.mock("../../adapters/solid-3d-three/public", () => ({
-  Solid3DViewport: (props: { showRotationGizmo?: boolean }) => (
+  Solid3DViewport: (props: { showRotationGizmo?: boolean; mode?: string }) => (
     <div
       data-testid="mock-3d-viewport"
       data-rotation-gizmo={String(props.showRotationGizmo ?? false)}
+      data-viewport-mode={props.mode}
     />
   ),
 }));
@@ -136,6 +137,7 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Сечение" }));
+    expect(viewport).toHaveAttribute("data-viewport-mode", "points");
     expect(
       screen.getByRole("button", { name: "Создать сечение" }),
     ).toBeDisabled();
