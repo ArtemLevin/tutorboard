@@ -29,6 +29,12 @@ V2's geometric candidate generator. Only successfully accepted V2 strokes
 participate in automatic multi-object composition. This favors abstention
 rather than risky changes to handwritten notes.
 
+Within V2, square/rectangle and circle/ellipse pairs are first resolved by
+geometry. Once a pair has a decisive aspect ratio, its sibling does not
+introduce another ambiguity veto; borderline aspect ratios retain the
+ambiguity safeguard. An accepted elongated ellipse remains an ellipse even
+when the legacy UI heuristic previously rounded it into a circle.
+
 This change keeps BoardDocument, existing commands, persisted objects and
 collaborative undo/redo unchanged. The checked-in captured Chromium policy
 corpus is the compatibility/recall baseline; Firefox and writer-disjoint
