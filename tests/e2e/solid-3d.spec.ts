@@ -287,7 +287,9 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
     ".solid-3d-points input[type='checkbox']",
   );
   await expect(pointSelectors).toHaveCount(3);
-  for (const selector of await pointSelectors.all()) await selector.check();
+  for (const selector of await pointSelectors.all()) {
+    if (!(await selector.isChecked())) await selector.check();
+  }
 
   // Use the same cutting plane with an axis determined by two placed points.
   await editor.getByLabel("Вращать плоскость вокруг ребра").check();
