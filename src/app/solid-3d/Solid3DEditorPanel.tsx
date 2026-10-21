@@ -34,6 +34,8 @@ import {
   calculateSolidSection,
   getSolidSectionSweepFrame,
   previewSolidSectionSweep,
+  getSolidSectionRotationFrame,
+  previewSolidSectionRotationFrame,
   removeSavedSolidSection,
   saveSolidSectionFromPoints,
   setSavedSolidSectionVisibility,
@@ -45,6 +47,7 @@ import {
 import { Solid3DLearningWorkspace } from "./Solid3DLearningWorkspace";
 import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
 import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuilder";
+import { Solid3DSectionRotationControls } from "./Solid3DSectionRotationControls";
 import { useSolid3DWindow } from "./useSolid3DWindow";
 import "./Solid3DEditorPanel.css";
 import "./Solid3DSections.css";
@@ -62,6 +65,24 @@ export interface Solid3DEditorPanelProps {
       Solid3DPoint["id"],
     ],
     offset: number,
+    token: string,
+  ) => {
+    readonly sectionId: string;
+    readonly pointIds: readonly [
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+    ];
+  } | null;
+  readonly onSaveRotation: (
+    startingRecord: Solid3DRecord,
+    pointIds: readonly [
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+      Solid3DPoint["id"],
+    ],
+    edgeId: string,
+    angleDegrees: number,
     token: string,
   ) => {
     readonly sectionId: string;
@@ -175,6 +196,7 @@ export function Solid3DEditorPanel({
   onRecordChange,
   onPointMove,
   onSaveSweep,
+  onSaveRotation,
   onUndo,
   readOnly,
   record,
@@ -225,6 +247,9 @@ export function Solid3DEditorPanel({
   const [showSectionOutline, setShowSectionOutline] = useState(true);
   const [sweepEnabled, setSweepEnabled] = useState(false);
   const [sweepOffset, setSweepOffset] = useState(0);
+  const [rotationEnabled, setRotationEnabled] = useState(false);
+  const [rotationEdgeId, setRotationEdgeId] = useState("");
+  const [rotationAngle, setRotationAngle] = useState(0);
   const [resetToken, setResetToken] = useState(0);
   const {
     dockRef,
@@ -304,10 +329,26 @@ export function Solid3DEditorPanel({
   const activeSectionDefinition =
     record.sections.find(({ id }) => id === activeSectionId) ??
     record.sections.at(-1);
-  const activeSectionResult =
-    activeSectionDefinition === undefined
-      ? null
-      : calculateSolidSection(previewRecord, activeSectionDefinition.pointIds);
+  const savedSectionResults = useMemo(
+    () =>
+      new Map(
+        record.sections.map((section) => [
+          section.id,
+          calculateSolidSection(record, section.pointIds),
+        ]),
+      ),
+    [record],
+  );
+  const activeSectionResult = useMemo(
+    () =>
+      activeSectionDefinition === undefined
+        ? null
+        : calculateSolidSection(
+            previewRecord,
+            activeSectionDefinition.pointIds,
+          ),
+    [activeSectionDefinition, previewRecord],
+  );
   const activeSection =
     activeSectionResult?.status === "ok" &&
     activeSectionDefinition?.visible === true
@@ -327,9 +368,37 @@ export function Solid3DEditorPanel({
         : null,
     [previewRecord, selectedTuple, sweepEnabled, sweepOffset],
   );
-  const freeVisibleSection = sweepEnabled
-    ? (sweepPreview?.section ?? null)
-    : (previewSection ?? activeSection);
+  const rotationTopology = useMemo(
+    () => createSolidTopology(previewRecord.definition),
+    [previewRecord.definition],
+  );
+  const rotationFrame = useMemo(
+    () =>
+      selectedTuple !== null && rotationEdgeId !== ""
+        ? getSolidSectionRotationFrame(
+            previewRecord,
+            selectedTuple,
+            rotationEdgeId,
+          )
+        : null,
+    [previewRecord, selectedTuple, rotationEdgeId],
+  );
+  const rotationPreview = useMemo(
+    () =>
+      rotationEnabled && rotationTopology !== null && rotationFrame !== null
+        ? previewSolidSectionRotationFrame(
+            rotationTopology,
+            rotationFrame,
+            rotationAngle,
+          )
+        : null,
+    [rotationEnabled, rotationTopology, rotationFrame, rotationAngle],
+  );
+  const freeVisibleSection = rotationEnabled
+    ? (rotationPreview?.section ?? null)
+    : sweepEnabled
+      ? (sweepPreview?.section ?? null)
+      : (previewSection ?? activeSection);
 
   const startLearning = (
     scenario: Solid3DLearningScenario,
@@ -337,6 +406,8 @@ export function Solid3DEditorPanel({
   ) => {
     setSweepEnabled(false);
     setSweepOffset(0);
+    setRotationEnabled(false);
+    setRotationAngle(0);
     if (scenario.seedAnchors.length >= 3) {
       const learningPoints = scenario.seedAnchors
         .slice(0, 3)
@@ -436,6 +507,34 @@ export function Solid3DEditorPanel({
     setSelectedPointIds([]);
     setSweepEnabled(false);
     setSweepOffset(0);
+  };
+
+  const saveRotation = (): void => {
+    if (
+      readOnly ||
+      selectedTuple === null ||
+      rotationEdgeId === "" ||
+      Math.abs(rotationAngle) < 1e-8 ||
+      rotationPreview?.section == null
+    )
+      return;
+    const saved = onSaveRotation(
+      record,
+      selectedTuple,
+      rotationEdgeId,
+      rotationAngle,
+      crypto.randomUUID(),
+    );
+    if (saved === null) return;
+    setActiveSectionId(saved.sectionId);
+    setSelectedPointIds([]);
+    setRotationEnabled(false);
+    setRotationAngle(0);
+  };
+
+  const adjustRotationAngle = (next: number): void => {
+    if (Number.isFinite(next))
+      setRotationAngle(Math.min(180, Math.max(-180, next)));
   };
 
   const savePreview = (): void => {
@@ -711,6 +810,7 @@ export function Solid3DEditorPanel({
                       }
                       onChange={(event) => {
                         setSweepOffset(0);
+                        setRotationAngle(0);
                         setSelectedPointIds((current) =>
                           event.currentTarget.checked
                             ? [...current, point.id].slice(-3)
@@ -800,7 +900,9 @@ export function Solid3DEditorPanel({
             >
               <h3>Динамическая секущая плоскость</h3>
               {sweepFrame === null ? (
-                <p>Выберите три неколлинеарные точки многогранника.</p>
+                <p>
+                  Выберите три неколлинеарные точки выпуклого многогранника.
+                </p>
               ) : (
                 <>
                   <label>
@@ -809,6 +911,10 @@ export function Solid3DEditorPanel({
                       onChange={(event) => {
                         setSweepEnabled(event.currentTarget.checked);
                         setSweepOffset(0);
+                        if (event.currentTarget.checked) {
+                          setRotationEnabled(false);
+                          setRotationAngle(0);
+                        }
                       }}
                       type="checkbox"
                     />
@@ -857,6 +963,38 @@ export function Solid3DEditorPanel({
                 </>
               )}
             </section>
+            <Solid3DSectionRotationControls
+              topology={rotationTopology}
+              hasSourcePlane={sweepFrame !== null}
+              enabled={rotationEnabled}
+              onEnabledChange={(next) => {
+                setRotationEnabled(next);
+                setRotationAngle(0);
+                if (next) {
+                  setSweepEnabled(false);
+                  setSweepOffset(0);
+                }
+              }}
+              edgeId={rotationEdgeId}
+              onEdgeChange={(edgeId) => {
+                setRotationEdgeId(edgeId);
+                setRotationAngle(0);
+              }}
+              angleDegrees={rotationAngle}
+              onAngleChange={adjustRotationAngle}
+              section={rotationPreview?.section ?? null}
+              canSave={
+                !readOnly &&
+                rotationEnabled &&
+                selectedTuple !== null &&
+                rotationEdgeId !== "" &&
+                Math.abs(rotationAngle) >= 1e-8 &&
+                rotationPreview?.section != null &&
+                record.sections.length < 8 &&
+                record.points.length + 3 <= 32
+              }
+              onSave={saveRotation}
+            />
             <Solid3DSectionConstraintBuilder
               key={`${JSON.stringify(record.definition)}:${points
                 .map(({ id }) => id)
@@ -872,9 +1010,8 @@ export function Solid3DEditorPanel({
             ) : (
               <ol className="solid-3d-sections">
                 {record.sections.map((sectionDefinition, index) => {
-                  const calculated = calculateSolidSection(
-                    record,
-                    sectionDefinition.pointIds,
+                  const calculated = savedSectionResults.get(
+                    sectionDefinition.id,
                   );
                   const name =
                     sectionDefinition.label ??
@@ -934,7 +1071,7 @@ export function Solid3DEditorPanel({
                         видно
                       </label>
                       <span>
-                        {calculated.status === "ok"
+                        {calculated?.status === "ok"
                           ? `S=${calculated.section.area.toFixed(2)}`
                           : "требует проверки"}
                       </span>

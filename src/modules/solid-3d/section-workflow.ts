@@ -1,6 +1,7 @@
 import {
   createSolidTopology,
   intersectPolyhedronWithPlane,
+  isConvexSolidTopology,
   intersectAnalyticSolidWithPlane,
   planeFromThreePoints,
   resolveSolid3DPointPosition,
@@ -38,7 +39,9 @@ export function calculateSolidSection(
   const section =
     topology === null
       ? intersectAnalyticSolidWithPlane(record.definition, plane)
-      : intersectPolyhedronWithPlane(topology, plane);
+      : isConvexSolidTopology(topology)
+        ? intersectPolyhedronWithPlane(topology, plane)
+        : null;
   return section === null
     ? { code: "solid.section.outside", status: "error" }
     : { section, status: "ok" };

@@ -60,6 +60,60 @@ function stableSortOnPlane(
   });
 }
 
+/**
+ * The plane/edge intersection routine orders vertices as a convex polygon.
+ * Reject non-convex solids (and warped or degenerate faces) before using it in
+ * interactive section tools; arbitrary imported bases may be concave.
+ */
+export function isConvexSolidTopology(topology: SolidTopology): boolean {
+  if (topology.vertices.length < 4 || topology.faces.length < 4) return false;
+  const positions = new Map(
+    topology.vertices.map((vertex) => [vertex.id, vertex.position]),
+  );
+  const extent = Math.max(
+    ...topology.vertices.map((vertex) =>
+      Math.max(
+        Math.abs(vertex.position.x),
+        Math.abs(vertex.position.y),
+        Math.abs(vertex.position.z),
+      ),
+    ),
+  );
+  if (!Number.isFinite(extent)) return false;
+  const tolerance = Math.max(solid3DEpsilon * 10, extent * 1e-7);
+  for (const face of topology.faces) {
+    if (face.vertexIds.length < 3) return false;
+    const facePositions = face.vertexIds.map((id) => positions.get(id));
+    if (facePositions.some((point) => point === undefined)) return false;
+    const first = facePositions[0]!;
+    let normal: Vec3 | null = null;
+    for (let i = 1; i < facePositions.length - 1 && normal === null; i += 1) {
+      normal = normalize3(
+        cross3(
+          subtract3(facePositions[i]!, first),
+          subtract3(facePositions[i + 1]!, first),
+        ),
+      );
+    }
+    if (normal === null) return false;
+    if (
+      facePositions.some(
+        (point) => Math.abs(dot3(normal, subtract3(point!, first))) > tolerance,
+      )
+    )
+      return false;
+    let positive = false;
+    let negative = false;
+    for (const vertex of topology.vertices) {
+      const distance = dot3(normal, subtract3(vertex.position, first));
+      if (distance > tolerance) positive = true;
+      if (distance < -tolerance) negative = true;
+      if (positive && negative) return false;
+    }
+  }
+  return true;
+}
+
 export function intersectPolyhedronWithPlane(
   topology: SolidTopology,
   plane: Plane3D,
