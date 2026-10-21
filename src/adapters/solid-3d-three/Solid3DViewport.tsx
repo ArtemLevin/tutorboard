@@ -49,7 +49,7 @@ export interface Solid3DViewportProps {
     ((endpoint: SolidDistanceEndpoint) => void) | undefined;
   readonly onAngleEdgePick?: ((edgeId: string) => void) | undefined;
   readonly onFacePick?: ((faceId: string) => void) | undefined;
-  readonly dihedralSelectedFaces?: readonly string[];
+  readonly dihedralSelectedFaces?: readonly string[] | undefined;
   readonly dihedralPreview?: readonly [string, string] | null;
   readonly linePlaneSelectedLine?: SolidAngleLine | null;
   readonly linePlanePreview?: {
