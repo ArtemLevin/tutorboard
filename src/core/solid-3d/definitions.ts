@@ -154,6 +154,13 @@ export interface SolidAngleMeasurement {
   readonly lines: readonly [SolidAngleLine, SolidAngleLine];
 }
 
+/** Infinite line through two semantic endpoints and its supporting face plane. */
+export interface SolidLinePlaneAngleMeasurement {
+  readonly id: string;
+  readonly line: SolidAngleLine;
+  readonly faceId: string;
+}
+
 export interface Solid3DSectionDefinition {
   readonly id: SolidSectionId;
   readonly pointIds: readonly [SolidPointId, SolidPointId, SolidPointId];
@@ -185,6 +192,7 @@ export interface Solid3DRecord {
   /** Optional for compatibility with existing 3D documents. */
   readonly measurements?: readonly SolidDistanceMeasurement[];
   readonly angleMeasurements?: readonly SolidAngleMeasurement[];
+  readonly linePlaneMeasurements?: readonly SolidLinePlaneAngleMeasurement[];
   readonly schemaVersion: "1.0";
 }
 
