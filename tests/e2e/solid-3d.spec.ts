@@ -1,5 +1,57 @@
 import { expect, test } from "@playwright/test";
 
+test("recovers the same 3D canvas after a real WebGL context loss", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const stage = page.getByTestId("board-stage");
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Missing board stage");
+
+  await page.getByRole("button", { name: "ИИ-инструменты" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
+    .click();
+  await page.getByLabel("Текст построения").fill("куб");
+  await page.getByRole("button", { name: "Выбрать для размещения" }).click();
+  await page.mouse.click(
+    bounds.x + bounds.width * 0.58,
+    bounds.y + bounds.height * 0.42,
+  );
+  await page.getByRole("button", { name: "Открыть в 3D" }).click();
+  const editor = page.getByRole("region", { name: "Куб" });
+  const canvas = editor.locator("canvas[data-engine]");
+  await expect(canvas).toHaveCount(1);
+  await canvas.evaluate((element) => {
+    element.dataset.webglLifecycle = "original";
+    const context = (element as HTMLCanvasElement).getContext("webgl2");
+    const extension = context?.getExtension("WEBGL_lose_context");
+    if (extension === undefined || extension === null)
+      throw new Error("WebGL context loss extension unavailable");
+    extension.loseContext();
+  });
+
+  await expect(
+    editor.getByText("Контекст WebGL был потерян."),
+  ).toBeVisible();
+  await expect(canvas).toHaveCount(1);
+  await expect(canvas).toHaveAttribute("data-webgl-lifecycle", "original");
+  await canvas.evaluate((element) => {
+    const context = (element as HTMLCanvasElement).getContext("webgl2");
+    const extension = context?.getExtension("WEBGL_lose_context");
+    if (extension === undefined || extension === null)
+      throw new Error("WebGL context restoration extension unavailable");
+    extension.restoreContext();
+  });
+  await expect(
+    editor.getByText("Контекст WebGL был потерян."),
+  ).toHaveCount(0);
+  await expect(canvas).toHaveAttribute("data-webgl-lifecycle", "original");
+  await editor.getByRole("button", { name: "Ортографическая" }).click();
+  await expect(canvas).toHaveCount(1);
+  await expect(canvas).toHaveAttribute("data-webgl-lifecycle", "original");
+});
+
 test("opens a semantic catalog solid in the lazy 3D editor", async ({
   page,
 }) => {
