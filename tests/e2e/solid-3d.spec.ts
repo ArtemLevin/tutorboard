@@ -281,8 +281,6 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   // A captured rotation is exactly one document command, reversible by Undo.
   await editor.getByRole("button", { name: "Отменить" }).click();
   await expect(savedSections).toHaveCount(before);
-
-
 });
 
 test("rotates a plane about two selected 3D points with one undoable save", async ({
@@ -317,7 +315,7 @@ test("rotates a plane about two selected 3D points with one undoable save", asyn
   await expect(
     editor.getByRole("slider", { name: "Угол поворота секущей плоскости" }),
   ).toHaveValue("15");
-  await expect(editor.getByText(/Вершин \\d+ · площадь \\d/)).toBeVisible();
+  await expect(editor.getByText(/Вершин \d+ · площадь \d/)).toBeVisible();
   const savedSections = editor.locator(".solid-3d-sections > li");
   const previousCount = await savedSections.count();
   const save = editor.getByRole("button", {
