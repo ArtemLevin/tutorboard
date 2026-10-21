@@ -1074,7 +1074,8 @@ export function Solid3DEditorPanel({
                     ? chooseMeasurementEndpoint
                     : measureTool === "angle" && angleMethod === "points"
                       ? chooseAnglePoint
-                      : measureTool === "line-plane" && linePlaneMethod === "points"
+                      : measureTool === "line-plane" &&
+                          linePlaneMethod === "points"
                         ? chooseLinePlanePoint
                         : undefined
                   : undefined
@@ -1083,7 +1084,8 @@ export function Solid3DEditorPanel({
                 experience === "free" && workMode === "measure"
                   ? measureTool === "angle" && angleMethod === "edges"
                     ? chooseAngleEdge
-                    : measureTool === "line-plane" && linePlaneMethod === "edges"
+                    : measureTool === "line-plane" &&
+                        linePlaneMethod === "edges"
                       ? chooseLinePlaneEdge
                       : undefined
                   : undefined

@@ -172,7 +172,9 @@ export function replaceSolidConstructionDefinition(
     // Clear every measurement in the same atomic update to avoid dangling
     // references or silently reattaching a saved result to a different face.
     ...(record.measurements !== undefined ? { measurements: [] } : {}),
-    ...(record.angleMeasurements !== undefined ? { angleMeasurements: [] } : {}),
+    ...(record.angleMeasurements !== undefined
+      ? { angleMeasurements: [] }
+      : {}),
     ...(record.linePlaneMeasurements !== undefined
       ? { linePlaneMeasurements: [] }
       : {}),

@@ -99,30 +99,44 @@ describe("solid construction studio domain", () => {
   it("atomically clears all measurements that refer to a replaced topology", () => {
     const marked: Solid3DRecord = {
       ...record,
-      measurements: [{
-        id: "solid-distance:stale",
-        first: { kind: "point", id: record.points[0]!.id },
-        second: { kind: "vertex", id: "vertex:0" },
-      }],
-      angleMeasurements: [{
-        id: "solid-angle:stale",
-        lines: [
-          [{ kind: "vertex", id: "vertex:0" }, { kind: "vertex", id: "vertex:1" }],
-          [{ kind: "vertex", id: "vertex:0" }, { kind: "vertex", id: "vertex:4" }],
-        ],
-      }],
-      linePlaneMeasurements: [{
-        id: "solid-line-plane:stale",
-        line: [
-          { kind: "vertex", id: "vertex:0" },
-          { kind: "vertex", id: "vertex:1" },
-        ],
-        faceId: "face:1",
-      }],
-      dihedralMeasurements: [{
-        id: "solid-dihedral:stale",
-        faces: ["face:0", "face:2"],
-      }],
+      measurements: [
+        {
+          id: "solid-distance:stale",
+          first: { kind: "point", id: record.points[0]!.id },
+          second: { kind: "vertex", id: "vertex:0" },
+        },
+      ],
+      angleMeasurements: [
+        {
+          id: "solid-angle:stale",
+          lines: [
+            [
+              { kind: "vertex", id: "vertex:0" },
+              { kind: "vertex", id: "vertex:1" },
+            ],
+            [
+              { kind: "vertex", id: "vertex:0" },
+              { kind: "vertex", id: "vertex:4" },
+            ],
+          ],
+        },
+      ],
+      linePlaneMeasurements: [
+        {
+          id: "solid-line-plane:stale",
+          line: [
+            { kind: "vertex", id: "vertex:0" },
+            { kind: "vertex", id: "vertex:1" },
+          ],
+          faceId: "face:1",
+        },
+      ],
+      dihedralMeasurements: [
+        {
+          id: "solid-dihedral:stale",
+          faces: ["face:0", "face:2"],
+        },
+      ],
     };
     const next = replaceSolidConstructionDefinition(
       marked,
@@ -145,10 +159,12 @@ describe("solid construction studio domain", () => {
   it("clears stored face measurements when editing a custom base", () => {
     const marked: Solid3DRecord = {
       ...record,
-      dihedralMeasurements: [{
-        id: "solid-dihedral:old-base",
-        faces: ["face:0", "face:2"],
-      }],
+      dihedralMeasurements: [
+        {
+          id: "solid-dihedral:old-base",
+          faces: ["face:0", "face:2"],
+        },
+      ],
     };
     const next = replaceSolidConstructionBase(marked, [
       { x: -2, y: -1 },

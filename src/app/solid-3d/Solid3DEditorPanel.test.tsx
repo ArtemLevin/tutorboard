@@ -343,10 +343,14 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     renderPanel({ onRecordChange });
     const viewport = screen.getByTestId("mock-3d-viewport");
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
-    fireEvent.click(screen.getByRole("button", { name: "Угол прямой с плоскостью" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Угол прямой с плоскостью" }),
+    );
     expect(viewport).toHaveAttribute("data-edge-picker", "true");
     expect(viewport).toHaveAttribute("data-face-picker", "false");
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать первое ребро" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать первое ребро" }),
+    );
     expect(viewport).toHaveAttribute("data-face-picker", "true");
 
     // Switching work mode must release BOTH stale semantic interceptors.
@@ -356,7 +360,9 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     expect(viewport).toHaveAttribute("data-face-picker", "false");
     expect(viewport).toHaveAttribute("data-vertex-picker", "false");
     fireEvent.click(screen.getByRole("button", { name: "Выбрать грань" }));
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать первое ребро" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать первое ребро" }),
+    );
     expect(onRecordChange).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Сечение" }));
@@ -375,7 +381,9 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     renderPanel();
     const viewport = screen.getByTestId("mock-3d-viewport");
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
-    fireEvent.click(screen.getByRole("button", { name: "Угол прямой с плоскостью" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Угол прямой с плоскостью" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "По двум точкам" }));
     expect(viewport).toHaveAttribute("data-vertex-picker", "true");
     expect(viewport).toHaveAttribute("data-edge-picker", "false");
