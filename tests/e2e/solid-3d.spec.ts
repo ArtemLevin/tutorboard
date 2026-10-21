@@ -115,6 +115,57 @@ test("selects two 3D vertices, measures distance and saves the segment", async (
   await expect(canvas).toHaveCount(1);
 });
 
+test("chooses two cube edges, previews their line angle and saves it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const stage = page.getByTestId("board-stage");
+  const stageBounds = await stage.boundingBox();
+  if (stageBounds === null) throw new Error("Missing board stage");
+  await page.getByRole("button", { name: "ИИ-инструменты" }).click();
+  await page.getByRole("menuitemradio", { name: "Построение по тексту" }).click();
+  await page.getByLabel("Текст построения").fill("куб");
+  await page.getByRole("button", { name: "Выбрать для размещения" }).click();
+  await page.mouse.click(
+    stageBounds.x + stageBounds.width * 0.58,
+    stageBounds.y + stageBounds.height * 0.42,
+  );
+  await page.getByRole("button", { name: "Открыть в 3D" }).click();
+  const editor = page.getByRole("region", { name: "Куб" });
+  const canvas = editor.locator("canvas[data-engine]");
+  await expect(canvas).toHaveCount(1);
+  await editor.getByRole("button", { name: "Измерить" }).click();
+  await editor.getByRole("button", { name: "Угол между прямыми" }).click();
+  await expect(editor.getByRole("button", { name: "По рёбрам" }))
+    .toHaveAttribute("aria-pressed", "true");
+  const bounds = await canvas.boundingBox();
+  if (bounds === null) throw new Error("Missing 3D canvas");
+  const THREE = await import("three");
+  const camera = new THREE.OrthographicCamera(
+    (-2.8 * bounds.width) / bounds.height,
+    (2.8 * bounds.width) / bounds.height,
+    2.8, -2.8, 0.01, 100,
+  );
+  camera.position.set(4.8, 3.8, 5.4);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  camera.updateProjectionMatrix();
+  // Midpoints of two visible adjacent edges on the front cube face.
+  for (const position of [[0, -1, 1], [-1, 0, 1]]) {
+    const projected = new THREE.Vector3(
+      position[0]!, position[1]!, position[2]!,
+    ).project(camera);
+    await page.mouse.click(
+      bounds.x + ((projected.x + 1) * bounds.width) / 2,
+      bounds.y + ((1 - projected.y) * bounds.height) / 2,
+    );
+  }
+  await expect(editor.getByText("Меньший угол: 90.00°")).toBeVisible();
+  await editor.getByRole("button", { name: "Сохранить угол" }).click();
+  await expect(editor.getByRole("button", { name: /^Удалить угол/ })).toHaveCount(1);
+  await expect(canvas).toHaveCount(1);
+});
+
 test("opens a semantic catalog solid in the lazy 3D editor", async ({
   page,
 }) => {
