@@ -530,8 +530,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
           ) ?? []),
         ];
         const hit = raycaster.intersectObjects(candidates, false)[0];
-        const kind = hit?.object.userData.semanticKind;
-        const id = hit?.object.userData.semanticId;
+        const kind: unknown = hit?.object.userData.semanticKind;
+        const id: unknown = hit?.object.userData.semanticId;
         if (kind === "vertex" && typeof id === "string")
           onMeasurementPickRef.current({ kind: "vertex", id });
         else if (kind === "point" && typeof id === "string")
