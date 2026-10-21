@@ -696,13 +696,17 @@ export function Solid3DEditorPanel({
     setLinePlaneFace(null);
   };
 
+  const dihedralPair = useMemo(
+    () =>
+      dihedralFaces.length === 2
+        ? ([dihedralFaces[0]!, dihedralFaces[1]!] as const)
+        : null,
+    [dihedralFaces],
+  );
   const dihedralPreview =
-    dihedralFaces.length === 2
-      ? calculateSolidDihedralAngle(previewRecord.definition, [
-          dihedralFaces[0]!,
-          dihedralFaces[1]!,
-        ])
-      : null;
+    dihedralPair === null
+      ? null
+      : calculateSolidDihedralAngle(previewRecord.definition, dihedralPair);
   const chooseDihedralFace = (faceId: string): void => {
     const topology = createSolidTopology(record.definition);
     if (topology?.faces.some((face) => face.id === faceId) !== true) return;
@@ -1102,14 +1106,13 @@ export function Solid3DEditorPanel({
                 workMode === "measure" &&
                 measureTool === "dihedral"
                   ? dihedralFaces
-                  : []
+                  : undefined
               }
               dihedralPreview={
                 experience === "free" &&
                 workMode === "measure" &&
-                measureTool === "dihedral" &&
-                dihedralFaces.length === 2
-                  ? [dihedralFaces[0]!, dihedralFaces[1]!]
+                measureTool === "dihedral"
+                  ? dihedralPair
                   : null
               }
               linePlaneSelectedLine={
