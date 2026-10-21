@@ -5,6 +5,9 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import {
   createSolidTopology,
   resolveSolidDistanceEndpoint,
+  calculateSolidLineAngle,
+  type SolidAngleLine,
+  type SolidLineAngleResult,
   solidPointId,
   type SolidDistanceEndpoint,
   resolveSolid3DPointPosition,
@@ -40,6 +43,8 @@ export interface Solid3DViewportProps {
   readonly onPointPlace: (position: Vec3, anchor: SolidPointAnchor) => void;
   readonly onMeasurementPick?:
     ((endpoint: SolidDistanceEndpoint) => void) | undefined;
+  readonly onAngleEdgePick?: ((edgeId: string) => void) | undefined;
+  readonly anglePreview?: readonly [SolidAngleLine, SolidAngleLine] | null;
   readonly measurementPreview?:
     readonly [SolidDistanceEndpoint, SolidDistanceEndpoint] | null;
   readonly onPointDragStart?: (pointId: string) => void;
@@ -209,6 +214,62 @@ function builtHighlight(
   );
 }
 
+function angleLinesObject(result: SolidLineAngleResult, saved: boolean): THREE.Group {
+  const root = new THREE.Group();
+  root.name = saved ? "solid-angle-saved" : "solid-angle-preview";
+  const color = saved ? 0x0891b2 : 0xf59e0b;
+  const vector = (p: Vec3) => new THREE.Vector3(p.x, p.y, p.z);
+  const [origin, end] = result.first;
+  const [otherStart, otherEnd] = result.second;
+  const [u, v] = result.directions;
+  const addLine = (points: readonly Vec3[], dashed: boolean): void => {
+    const material = dashed
+      ? new THREE.LineDashedMaterial({
+          color, dashSize: 0.12, gapSize: 0.08, depthTest: false,
+          transparent: true, opacity: 0.85,
+        })
+      : new THREE.LineBasicMaterial({ color, depthTest: false });
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(points.map(vector)),
+      material,
+    );
+    if (dashed) line.computeLineDistances();
+    line.renderOrder = 9;
+    root.add(line);
+  };
+  const add = (p: Vec3, d: Vec3, length: number): Vec3 => ({
+    x: p.x + d.x * length,
+    y: p.y + d.y * length,
+    z: p.z + d.z * length,
+  });
+  addLine([origin, end], false);
+  addLine([otherStart, otherEnd], false);
+  // For skew lines, translate directions to one vertex; the arc therefore
+  // illustrates the mathematical angle without claiming an intersection.
+  addLine([origin, add(origin, u, 0.9)], true);
+  addLine([origin, add(origin, v, 0.9)], true);
+  if (result.degrees > 0.01) {
+    const theta = result.degrees * Math.PI / 180;
+    const sinTheta = Math.sin(theta);
+    const dot = u.x * v.x + u.y * v.y + u.z * v.z;
+    const perpendicular = {
+      x: (v.x - u.x * dot) / sinTheta,
+      y: (v.y - u.y * dot) / sinTheta,
+      z: (v.z - u.z * dot) / sinTheta,
+    };
+    const arc = Array.from({ length: 25 }, (_, index) => {
+      const t = theta * index / 24;
+      return add(origin, {
+        x: u.x * Math.cos(t) + perpendicular.x * Math.sin(t),
+        y: u.y * Math.cos(t) + perpendicular.y * Math.sin(t),
+        z: u.z * Math.cos(t) + perpendicular.z * Math.sin(t),
+      }, 0.48);
+    });
+    addLine(arc, false);
+  }
+  return root;
+}
+
 export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const {
     cameraMode,
@@ -238,6 +299,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const modeRef = useRef(props.mode);
   const onPointPlaceRef = useRef(props.onPointPlace);
   const onMeasurementPickRef = useRef(props.onMeasurementPick);
+  const onAngleEdgePickRef = useRef(props.onAngleEdgePick);
   const onPointDragStartRef = useRef(props.onPointDragStart);
   const onPointDragPreviewRef = useRef(props.onPointDragPreview);
   const onPointDragEndRef = useRef(props.onPointDragEnd);
@@ -282,7 +344,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
 
   useEffect(() => {
     onMeasurementPickRef.current = props.onMeasurementPick;
-  }, [props.onMeasurementPick]);
+    onAngleEdgePickRef.current = props.onAngleEdgePick;
+  }, [props.onMeasurementPick, props.onAngleEdgePick]);
 
   useEffect(() => {
     onModelRotationCommitRef.current = onModelRotationCommit;
@@ -513,6 +576,22 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
             );
       pointerOrigin = null;
       if (event.button !== 0 || moved > 4) return;
+      if (onAngleEdgePickRef.current !== undefined) {
+        const bounds = renderer.domElement.getBoundingClientRect();
+        pointer.set(
+          ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+          -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+        );
+        raycaster.setFromCamera(pointer, camera);
+        raycaster.params.Line = { threshold: 0.15 };
+        const semantic = built.root.getObjectByName("solid-semantic-elements");
+        const candidates = semantic?.children.filter((object) =>
+          object.userData.semanticKind === "edge") ?? [];
+        const hit = raycaster.intersectObjects(candidates, false)[0];
+        const id: unknown = hit?.object.userData.semanticId;
+        if (typeof id === "string") onAngleEdgePickRef.current(id);
+        return;
+      }
       if (onMeasurementPickRef.current !== undefined) {
         const bounds = renderer.domElement.getBoundingClientRect();
         pointer.set(
@@ -874,6 +953,14 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       line.renderOrder = 8;
       overlays.add(line);
     }
+    for (const item of record.angleMeasurements ?? []) {
+      const angle = calculateSolidLineAngle(record, item.lines);
+      if (angle !== null) overlays.add(angleLinesObject(angle, true));
+    }
+    if (props.anglePreview !== null && props.anglePreview !== undefined) {
+      const preview = calculateSolidLineAngle(record, props.anglePreview);
+      if (preview !== null) overlays.add(angleLinesObject(preview, false));
+    }
     runtime.root.add(overlays);
     if (runtime.active) runtime.renderer.render(runtime.scene, runtime.camera);
   }, [
@@ -885,6 +972,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     highlightedSurfaceId,
     props.rotationAxis,
     props.measurementPreview,
+    props.anglePreview,
   ]);
 
   return (
