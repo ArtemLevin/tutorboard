@@ -76,6 +76,22 @@ describe("Smart Ink board proposal", () => {
         y: Math.sin(angle) * 46,
       };
     });
+    const decision = recognizeSmartInkV2(stroke(points), points);
+    console.info(
+      "V2_NEAR_CIRCLE",
+      JSON.stringify({
+        selectedKind: decision.selectedKind,
+        status: decision.status,
+        scores: decision.scores,
+        candidates: decision.legacyProposal.candidates
+          .filter(({ kind }) => kind === "circle" || kind === "ellipse")
+          .map(({ kind, confidence, diagnostics }) => ({
+            kind,
+            confidence,
+            axisRatio: diagnostics.axisRatio,
+          })),
+      }),
+    );
     const result = proposeSmartInkReplacement(stroke(points));
 
     expect(result.status).toBe("proposed");
