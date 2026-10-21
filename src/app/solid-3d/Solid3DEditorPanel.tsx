@@ -47,6 +47,8 @@ import {
 } from "../../adapters/solid-3d-three/public";
 import { Solid3DLearningWorkspace } from "./Solid3DLearningWorkspace";
 import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
+import { Solid3DOrientationEditor } from "./Solid3DOrientationEditor";
+import { Solid3DConstructionEditor } from "./Solid3DConstructionEditor";
 import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuilder";
 import { Solid3DSectionRotationControls } from "./Solid3DSectionRotationControls";
 import { useSolid3DWindow } from "./useSolid3DWindow";
@@ -235,6 +237,10 @@ export function Solid3DEditorPanel({
   );
   const [mode, setMode] = useState<"points" | "view">("view");
   const [showRotationGizmo, setShowRotationGizmo] = useState(false);
+  const [workMode, setWorkMode] = useState<"explore" | "section" | "points">(
+    "explore",
+  );
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [cameraMode, setCameraMode] = useState<"orthographic" | "perspective">(
     "orthographic",
   );
@@ -627,7 +633,8 @@ export function Solid3DEditorPanel({
           event.stopPropagation();
           if (event.key === "Escape") {
             event.preventDefault();
-            onClose();
+            if (advancedOpen) setAdvancedOpen(false);
+            else onClose();
           }
         }}
         onPointerDown={(event) => event.stopPropagation()}
@@ -678,48 +685,67 @@ export function Solid3DEditorPanel({
           Вращайте модель, ставьте точки, предварительно просматривайте
           плоскость и явно сохраняйте нужные сечения.
         </p>
-        <div className="solid-3d-toolbar" role="toolbar">
+        <div
+          aria-label="Режимы работы с 3D"
+          className="solid-3d-toolbar"
+          role="toolbar"
+        >
           <button
-            aria-pressed={experience === "free"}
-            onClick={() => setExperience("free")}
+            aria-pressed={experience === "free" && workMode === "explore"}
+            onClick={() => {
+              setExperience("free");
+              setWorkMode("explore");
+              setMode("view");
+            }}
             type="button"
           >
-            Свободное исследование
+            Исследование
+          </button>
+          <button
+            aria-pressed={experience === "free" && workMode === "section"}
+            onClick={() => {
+              setExperience("free");
+              setWorkMode("section");
+              setMode(readOnly ? "view" : "points");
+            }}
+            type="button"
+          >
+            Сечение
+          </button>
+          <button
+            aria-pressed={experience === "free" && workMode === "points"}
+            disabled={readOnly || record.points.length >= 32}
+            onClick={() => {
+              setExperience("free");
+              setWorkMode("points");
+              setMode("points");
+            }}
+            type="button"
+          >
+            Поставить точку
           </button>
           <button
             aria-pressed={experience === "learning"}
             disabled={!learningEnabled}
-            onClick={() => setExperience("learning")}
+            onClick={() => {
+              setExperience("learning");
+              setMode("view");
+            }}
             type="button"
           >
             Учебная задача
           </button>
           <button
-            aria-pressed={mode === "view"}
-            onClick={() => setMode("view")}
+            aria-controls="solid-3d-advanced"
+            aria-expanded={advancedOpen}
+            className="solid-3d-settings-trigger"
+            onClick={() => setAdvancedOpen((open) => !open)}
             type="button"
           >
-            Вращение камеры
+            Настройки <span aria-hidden="true">⚙</span>
           </button>
-          <button
-            aria-pressed={showRotationGizmo && mode === "view"}
-            disabled={readOnly || mode !== "view"}
-            onClick={() => setShowRotationGizmo((visible) => !visible)}
-            title="Включает кольца для поворота самой модели"
-            type="button"
-          >
-            {showRotationGizmo && mode === "view"
-              ? "Скрыть кольца поворота"
-              : "Показать кольца поворота"}
-          </button>
-          <button
-            aria-pressed={mode === "points"}
-            disabled={readOnly || record.points.length >= 32}
-            onClick={() => setMode("points")}
-            type="button"
-          >
-            Поставить точку
-          </button>
+        </div>
+        <div aria-label="Управление камерой" className="solid-3d-camera-bar">
           <button
             onClick={() =>
               setCameraMode((current) =>
@@ -741,11 +767,12 @@ export function Solid3DEditorPanel({
           <button disabled={readOnly} onClick={onUndo} type="button">
             Отменить
           </button>
+          <span className="solid-3d-camera-tip">
+            {mode === "points"
+              ? "ЛКМ — точка или перемещение · ПКМ — вращение"
+              : "ЛКМ — вращение · ПКМ — перемещение · колесо — масштаб"}
+          </span>
         </div>
-        <p className="solid-3d-controls-hint">
-          ЛКМ — вращение, ПКМ — перемещение, колесо — масштаб. В режиме точек:
-          ЛКМ — постановка точки или перемещение камеры, ПКМ — вращение.
-        </p>
         <div className="solid-3d-layout">
           <div className="solid-3d-stage">
             <Solid3DViewport
@@ -813,70 +840,13 @@ export function Solid3DEditorPanel({
               </span>
             </div>
           </div>
-          <aside>
+          <aside className="solid-3d-inspector">
+            <h3 className="solid-3d-inspector-title">Основное</h3>
             <Solid3DParameterEditor
               onRecordChange={onRecordChange}
               readOnly={readOnly}
               record={record}
             />
-            <h3>Точки</h3>
-            {points.length === 0 ? (
-              <p>Включите режим постановки точек и щёлкните по модели.</p>
-            ) : (
-              <ol className="solid-3d-points">
-                {points.map((point) => (
-                  <li key={point.id}>
-                    <input
-                      aria-label={`Выбрать точку ${point.label}`}
-                      checked={sanitizedSelectedPointIds.includes(point.id)}
-                      disabled={
-                        !sanitizedSelectedPointIds.includes(point.id) &&
-                        sanitizedSelectedPointIds.length >= 3
-                      }
-                      onChange={(event) => {
-                        setSweepOffset(0);
-                        setRotationAngle(0);
-                        setSelectedPointIds((current) =>
-                          event.currentTarget.checked
-                            ? [...current, point.id].slice(-3)
-                            : current.filter((id) => id !== point.id),
-                        );
-                      }}
-                      type="checkbox"
-                    />
-                    <input
-                      aria-label={`Имя точки ${point.label}`}
-                      disabled={readOnly}
-                      maxLength={32}
-                      onChange={(event) =>
-                        onRecordChange({
-                          ...record,
-                          points: record.points.map((candidate) =>
-                            candidate.id === point.id
-                              ? {
-                                  ...candidate,
-                                  label:
-                                    event.currentTarget.value || point.label,
-                                }
-                              : candidate,
-                          ),
-                        })
-                      }
-                      value={point.label}
-                    />
-                    <span>{pointAnchorLabel(point)}</span>
-                    <button
-                      aria-label={`Удалить точку ${point.label}`}
-                      disabled={readOnly}
-                      onClick={() => removePoint(point)}
-                      type="button"
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            )}
             <div className="solid-3d-options">
               <label>
                 <input
@@ -899,279 +869,399 @@ export function Solid3DEditorPanel({
                 Контур сечения
               </label>
             </div>
-            {previewResult?.status === "error" ? (
-              <p className="solid-3d-error" role="alert">
-                Выбранные точки дают вырожденную плоскость либо плоскость не
-                пересекает тело.
-              </p>
-            ) : null}
-            <button
-              disabled={
-                readOnly ||
-                previewSection === null ||
-                previewSaved !== undefined ||
-                record.sections.length >= 8
-              }
-              onClick={savePreview}
-              type="button"
+            <div
+              className="solid-3d-mode-content"
+              hidden={experience !== "free" || workMode === "explore"}
             >
-              {previewSaved === undefined
-                ? "Создать сечение"
-                : "Сечение сохранено"}
-            </button>
-            <section
-              aria-label="Динамическая секущая плоскость"
-              className="solid-3d-sweep"
-            >
-              <h3>Динамическая секущая плоскость</h3>
-              {sweepFrame === null ? (
-                <p>
-                  Выберите три неколлинеарные точки выпуклого многогранника.
-                </p>
+              <h3>Точки</h3>
+              {points.length === 0 ? (
+                <p>Включите режим постановки точек и щёлкните по модели.</p>
               ) : (
-                <>
-                  <label>
-                    <input
-                      checked={sweepEnabled}
-                      onChange={(event) => {
-                        setSweepEnabled(event.currentTarget.checked);
-                        setSweepOffset(0);
-                        if (event.currentTarget.checked) {
-                          setRotationEnabled(false);
-                          setRotationAngle(0);
-                        }
-                      }}
-                      type="checkbox"
-                    />
-                    Параллельное перемещение плоскости
-                  </label>
-                  {sweepEnabled ? (
-                    <>
-                      <label htmlFor="solid-3d-sweep-offset">
-                        Смещение: {sweepOffset.toFixed(2)}
-                      </label>
+                <ol className="solid-3d-points">
+                  {points.map((point) => (
+                    <li key={point.id}>
                       <input
-                        aria-label="Смещение секущей плоскости"
-                        id="solid-3d-sweep-offset"
-                        max={sweepFrame.maxOffset}
-                        min={sweepFrame.minOffset}
-                        onChange={(event) =>
-                          setSweepOffset(Number(event.currentTarget.value))
-                        }
-                        step="any"
-                        type="range"
-                        value={Math.max(
-                          sweepFrame.minOffset,
-                          Math.min(sweepFrame.maxOffset, sweepOffset),
-                        )}
-                      />
-                      <p aria-live="polite">
-                        {sweepPreview?.section == null
-                          ? "Плоскость не образует сечение тела"
-                          : `Площадь ${sweepPreview.section.area.toFixed(2)} · периметр ${sweepPreview.section.perimeter.toFixed(2)}`}
-                      </p>
-                      <button
+                        aria-label={`Выбрать точку ${point.label}`}
+                        checked={sanitizedSelectedPointIds.includes(point.id)}
                         disabled={
-                          readOnly ||
-                          Math.abs(sweepOffset) < 1e-8 ||
-                          sweepPreview?.section == null ||
-                          record.sections.length >= 8 ||
-                          record.points.length + 3 > 32
+                          !sanitizedSelectedPointIds.includes(point.id) &&
+                          sanitizedSelectedPointIds.length >= 3
                         }
-                        onClick={saveSweep}
-                        type="button"
-                      >
-                        Сохранить положение плоскости
-                      </button>
-                    </>
-                  ) : null}
-                </>
-              )}
-            </section>
-            <Solid3DSectionRotationControls
-              topology={rotationTopology}
-              hasSourcePlane={sweepFrame !== null}
-              enabled={rotationEnabled}
-              onEnabledChange={(next) => {
-                setRotationEnabled(next);
-                setRotationAngle(0);
-                if (next) {
-                  setSweepEnabled(false);
-                  setSweepOffset(0);
-                }
-              }}
-              axisKind={rotationAxisKind}
-              onAxisKindChange={(kind) => {
-                setRotationAxisKind(kind);
-                setRotationAngle(0);
-              }}
-              edgeId={rotationEdgeId}
-              onEdgeChange={(edgeId) => {
-                setRotationEdgeId(edgeId);
-                setRotationAngle(0);
-              }}
-              points={points}
-              axisPointIds={rotationAxisPoints}
-              onAxisPointChange={(index, id) => {
-                setRotationAxisPoints((previous) =>
-                  index === 0 ? [id, previous[1]] : [previous[0], id],
-                );
-                setRotationAngle(0);
-              }}
-              angleDegrees={rotationAngle}
-              onAngleChange={adjustRotationAngle}
-              section={rotationPreview?.section ?? null}
-              canSave={
-                !readOnly &&
-                rotationEnabled &&
-                selectedTuple !== null &&
-                rotationAxis !== null &&
-                Math.abs(rotationAngle) >= 1e-8 &&
-                rotationPreview?.section != null &&
-                record.sections.length < 8 &&
-                record.points.length + 3 <= 32
-              }
-              onSave={saveRotation}
-            />
-            <Solid3DSectionConstraintBuilder
-              key={`${JSON.stringify(record.definition)}:${points
-                .map(({ id }) => id)
-                .join(",")}`}
-              onRecordChange={onRecordChange}
-              onSectionCreated={setActiveSectionId}
-              readOnly={readOnly || record.sections.length >= 8}
-              record={record}
-            />
-            <h3>Сохранённые сечения</h3>
-            {record.sections.length === 0 ? (
-              <p>Сохранённых сечений пока нет.</p>
-            ) : (
-              <ol className="solid-3d-sections">
-                {record.sections.map((sectionDefinition, index) => {
-                  const calculated = savedSectionResults.get(
-                    sectionDefinition.id,
-                  );
-                  const name =
-                    sectionDefinition.label ??
-                    sectionNames[index] ??
-                    `S${String(index + 1)}`;
-                  return (
-                    <li key={sectionDefinition.id}>
-                      <button
-                        aria-pressed={
-                          activeSectionDefinition?.id === sectionDefinition.id
-                        }
-                        onClick={() => setActiveSectionId(sectionDefinition.id)}
-                        type="button"
-                      >
-                        {name}
-                      </button>
+                        onChange={(event) => {
+                          setSweepOffset(0);
+                          setRotationAngle(0);
+                          setSelectedPointIds((current) =>
+                            event.currentTarget.checked
+                              ? [...current, point.id].slice(-3)
+                              : current.filter((id) => id !== point.id),
+                          );
+                        }}
+                        type="checkbox"
+                      />
                       <input
-                        aria-label={`Имя сечения ${name}`}
+                        aria-label={`Имя точки ${point.label}`}
                         disabled={readOnly}
                         maxLength={32}
                         onChange={(event) =>
                           onRecordChange({
                             ...record,
-                            sections: record.sections.map((candidate) =>
-                              candidate.id === sectionDefinition.id
+                            points: record.points.map((candidate) =>
+                              candidate.id === point.id
                                 ? {
                                     ...candidate,
                                     label:
-                                      event.currentTarget.value.trim()
-                                        .length === 0
-                                        ? undefined
-                                        : event.currentTarget.value,
+                                      event.currentTarget.value || point.label,
                                   }
                                 : candidate,
                             ),
                           })
                         }
-                        placeholder={name}
-                        value={sectionDefinition.label ?? ""}
+                        value={point.label}
                       />
-                      <label>
-                        <input
-                          aria-label={`Показывать сечение ${name}`}
-                          checked={sectionDefinition.visible}
-                          disabled={readOnly}
-                          onChange={(event) =>
-                            onRecordChange(
-                              setSavedSolidSectionVisibility(
-                                record,
-                                sectionDefinition.id,
-                                event.currentTarget.checked,
-                              ),
-                            )
-                          }
-                          type="checkbox"
-                        />
-                        видно
-                      </label>
-                      <span>
-                        {calculated?.status === "ok"
-                          ? `S=${calculated.section.area.toFixed(2)}`
-                          : "требует проверки"}
-                      </span>
+                      <span>{pointAnchorLabel(point)}</span>
                       <button
-                        aria-label={`Удалить сечение ${name}`}
+                        aria-label={`Удалить точку ${point.label}`}
                         disabled={readOnly}
-                        onClick={() => deleteSection(sectionDefinition.id)}
+                        onClick={() => removePoint(point)}
                         type="button"
                       >
                         ×
                       </button>
                     </li>
-                  );
-                })}
-              </ol>
-            )}
-            <button
-              className="solid-3d-project"
-              disabled={
-                readOnly ||
-                activeSectionDefinition === undefined ||
-                activeSectionResult?.status !== "ok"
-              }
-              onClick={() => {
-                if (
-                  activeSectionDefinition !== undefined &&
-                  activeSectionResult?.status === "ok"
-                )
-                  onProject(
-                    activeSectionDefinition.id,
-                    activeSectionResult.section,
-                  );
-              }}
-              type="button"
-            >
-              Отобразить выбранное сечение на доске
-            </button>
-            <details>
-              <summary>Доступное описание</summary>
-              <p>
-                Вершин:{" "}
-                {createSolidTopology(record.definition)?.vertices.length ??
-                  "аналитическая поверхность"}
-                ; точек: {points.length}; сечений: {record.sections.length}.
-              </p>
-              <ul>
-                {points.map((point) => {
-                  const position = resolveSolid3DPointPosition(
-                    record.definition,
-                    point,
-                  );
-                  return (
-                    <li key={point.id}>
-                      {point.label}: x {position.x.toFixed(2)}, y{" "}
-                      {position.y.toFixed(2)}, z {position.z.toFixed(2)}
-                    </li>
-                  );
-                })}
-              </ul>
-            </details>
+                  ))}
+                </ol>
+              )}
+              <div
+                className="solid-3d-section-content"
+                hidden={workMode !== "section"}
+              >
+                {previewResult?.status === "error" ? (
+                  <p className="solid-3d-error" role="alert">
+                    Выбранные точки дают вырожденную плоскость либо плоскость не
+                    пересекает тело.
+                  </p>
+                ) : null}
+                <button
+                  disabled={
+                    readOnly ||
+                    previewSection === null ||
+                    previewSaved !== undefined ||
+                    record.sections.length >= 8
+                  }
+                  onClick={savePreview}
+                  type="button"
+                >
+                  {previewSaved === undefined
+                    ? "Создать сечение"
+                    : "Сечение сохранено"}
+                </button>
+                <section
+                  aria-label="Динамическая секущая плоскость"
+                  className="solid-3d-sweep"
+                >
+                  <h3>Динамическая секущая плоскость</h3>
+                  {sweepFrame === null ? (
+                    <p>
+                      Выберите три неколлинеарные точки выпуклого многогранника.
+                    </p>
+                  ) : (
+                    <>
+                      <label>
+                        <input
+                          checked={sweepEnabled}
+                          onChange={(event) => {
+                            setSweepEnabled(event.currentTarget.checked);
+                            setSweepOffset(0);
+                            if (event.currentTarget.checked) {
+                              setRotationEnabled(false);
+                              setRotationAngle(0);
+                            }
+                          }}
+                          type="checkbox"
+                        />
+                        Параллельное перемещение плоскости
+                      </label>
+                      {sweepEnabled ? (
+                        <>
+                          <label htmlFor="solid-3d-sweep-offset">
+                            Смещение: {sweepOffset.toFixed(2)}
+                          </label>
+                          <input
+                            aria-label="Смещение секущей плоскости"
+                            id="solid-3d-sweep-offset"
+                            max={sweepFrame.maxOffset}
+                            min={sweepFrame.minOffset}
+                            onChange={(event) =>
+                              setSweepOffset(Number(event.currentTarget.value))
+                            }
+                            step="any"
+                            type="range"
+                            value={Math.max(
+                              sweepFrame.minOffset,
+                              Math.min(sweepFrame.maxOffset, sweepOffset),
+                            )}
+                          />
+                          <p aria-live="polite">
+                            {sweepPreview?.section == null
+                              ? "Плоскость не образует сечение тела"
+                              : `Площадь ${sweepPreview.section.area.toFixed(2)} · периметр ${sweepPreview.section.perimeter.toFixed(2)}`}
+                          </p>
+                          <button
+                            disabled={
+                              readOnly ||
+                              Math.abs(sweepOffset) < 1e-8 ||
+                              sweepPreview?.section == null ||
+                              record.sections.length >= 8 ||
+                              record.points.length + 3 > 32
+                            }
+                            onClick={saveSweep}
+                            type="button"
+                          >
+                            Сохранить положение плоскости
+                          </button>
+                        </>
+                      ) : null}
+                    </>
+                  )}
+                </section>
+                <Solid3DSectionRotationControls
+                  topology={rotationTopology}
+                  hasSourcePlane={sweepFrame !== null}
+                  enabled={rotationEnabled}
+                  onEnabledChange={(next) => {
+                    setRotationEnabled(next);
+                    setRotationAngle(0);
+                    if (next) {
+                      setSweepEnabled(false);
+                      setSweepOffset(0);
+                    }
+                  }}
+                  axisKind={rotationAxisKind}
+                  onAxisKindChange={(kind) => {
+                    setRotationAxisKind(kind);
+                    setRotationAngle(0);
+                  }}
+                  edgeId={rotationEdgeId}
+                  onEdgeChange={(edgeId) => {
+                    setRotationEdgeId(edgeId);
+                    setRotationAngle(0);
+                  }}
+                  points={points}
+                  axisPointIds={rotationAxisPoints}
+                  onAxisPointChange={(index, id) => {
+                    setRotationAxisPoints((previous) =>
+                      index === 0 ? [id, previous[1]] : [previous[0], id],
+                    );
+                    setRotationAngle(0);
+                  }}
+                  angleDegrees={rotationAngle}
+                  onAngleChange={adjustRotationAngle}
+                  section={rotationPreview?.section ?? null}
+                  canSave={
+                    !readOnly &&
+                    rotationEnabled &&
+                    selectedTuple !== null &&
+                    rotationAxis !== null &&
+                    Math.abs(rotationAngle) >= 1e-8 &&
+                    rotationPreview?.section != null &&
+                    record.sections.length < 8 &&
+                    record.points.length + 3 <= 32
+                  }
+                  onSave={saveRotation}
+                />
+                <Solid3DSectionConstraintBuilder
+                  key={`${JSON.stringify(record.definition)}:${points
+                    .map(({ id }) => id)
+                    .join(",")}`}
+                  onRecordChange={onRecordChange}
+                  onSectionCreated={setActiveSectionId}
+                  readOnly={readOnly || record.sections.length >= 8}
+                  record={record}
+                />
+                <h3>Сохранённые сечения</h3>
+                {record.sections.length === 0 ? (
+                  <p>Сохранённых сечений пока нет.</p>
+                ) : (
+                  <ol className="solid-3d-sections">
+                    {record.sections.map((sectionDefinition, index) => {
+                      const calculated = savedSectionResults.get(
+                        sectionDefinition.id,
+                      );
+                      const name =
+                        sectionDefinition.label ??
+                        sectionNames[index] ??
+                        `S${String(index + 1)}`;
+                      return (
+                        <li key={sectionDefinition.id}>
+                          <button
+                            aria-pressed={
+                              activeSectionDefinition?.id ===
+                              sectionDefinition.id
+                            }
+                            onClick={() =>
+                              setActiveSectionId(sectionDefinition.id)
+                            }
+                            type="button"
+                          >
+                            {name}
+                          </button>
+                          <input
+                            aria-label={`Имя сечения ${name}`}
+                            disabled={readOnly}
+                            maxLength={32}
+                            onChange={(event) =>
+                              onRecordChange({
+                                ...record,
+                                sections: record.sections.map((candidate) =>
+                                  candidate.id === sectionDefinition.id
+                                    ? {
+                                        ...candidate,
+                                        label:
+                                          event.currentTarget.value.trim()
+                                            .length === 0
+                                            ? undefined
+                                            : event.currentTarget.value,
+                                      }
+                                    : candidate,
+                                ),
+                              })
+                            }
+                            placeholder={name}
+                            value={sectionDefinition.label ?? ""}
+                          />
+                          <label>
+                            <input
+                              aria-label={`Показывать сечение ${name}`}
+                              checked={sectionDefinition.visible}
+                              disabled={readOnly}
+                              onChange={(event) =>
+                                onRecordChange(
+                                  setSavedSolidSectionVisibility(
+                                    record,
+                                    sectionDefinition.id,
+                                    event.currentTarget.checked,
+                                  ),
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            видно
+                          </label>
+                          <span>
+                            {calculated?.status === "ok"
+                              ? `S=${calculated.section.area.toFixed(2)}`
+                              : "требует проверки"}
+                          </span>
+                          <button
+                            aria-label={`Удалить сечение ${name}`}
+                            disabled={readOnly}
+                            onClick={() => deleteSection(sectionDefinition.id)}
+                            type="button"
+                          >
+                            ×
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+                <button
+                  className="solid-3d-project"
+                  disabled={
+                    readOnly ||
+                    activeSectionDefinition === undefined ||
+                    activeSectionResult?.status !== "ok"
+                  }
+                  onClick={() => {
+                    if (
+                      activeSectionDefinition !== undefined &&
+                      activeSectionResult?.status === "ok"
+                    )
+                      onProject(
+                        activeSectionDefinition.id,
+                        activeSectionResult.section,
+                      );
+                  }}
+                  type="button"
+                >
+                  Отобразить выбранное сечение на доске
+                </button>
+              </div>
+              <details>
+                <summary>Доступное описание</summary>
+                <p>
+                  Вершин:{" "}
+                  {createSolidTopology(record.definition)?.vertices.length ??
+                    "аналитическая поверхность"}
+                  ; точек: {points.length}; сечений: {record.sections.length}.
+                </p>
+                <ul>
+                  {points.map((point) => {
+                    const position = resolveSolid3DPointPosition(
+                      record.definition,
+                      point,
+                    );
+                    return (
+                      <li key={point.id}>
+                        {point.label}: x {position.x.toFixed(2)}, y{" "}
+                        {position.y.toFixed(2)}, z {position.z.toFixed(2)}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            </div>
           </aside>
         </div>
+        {advancedOpen ? (
+          <aside
+            aria-label="Точная настройка"
+            className="solid-3d-advanced"
+            id="solid-3d-advanced"
+            role="region"
+          >
+            <div className="solid-3d-advanced-heading">
+              <h3>Точная настройка</h3>
+              <button
+                aria-label="Закрыть настройки"
+                onClick={() => setAdvancedOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <p>
+              Дополнительные параметры модели. Изменения сохраняются в
+              документе.
+            </p>
+            <Solid3DOrientationEditor
+              onRecordChange={onRecordChange}
+              readOnly={readOnly}
+              record={record}
+            />
+            <Solid3DConstructionEditor
+              advancedOnly
+              key={JSON.stringify(record.definition)}
+              onRecordChange={onRecordChange}
+              readOnly={readOnly}
+              record={record}
+            />
+            <button
+              aria-pressed={showRotationGizmo && mode === "view"}
+              disabled={readOnly || mode !== "view"}
+              onClick={() => setShowRotationGizmo((visible) => !visible)}
+              type="button"
+            >
+              {showRotationGizmo && mode === "view"
+                ? "Скрыть кольца поворота"
+                : "Показать кольца поворота"}
+            </button>
+            <p className="solid-3d-advanced-hint">
+              Кольца позволяют поворачивать само тело. В режиме точек они
+              недоступны.
+            </p>
+          </aside>
+        ) : null}
         {experience === "learning" && learningEnabled ? (
           <Solid3DLearningWorkspace
             attempt={learningAttempt}

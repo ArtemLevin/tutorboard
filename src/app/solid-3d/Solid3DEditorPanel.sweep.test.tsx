@@ -88,6 +88,7 @@ function renderSweep(readOnly = false) {
       record={record}
     />,
   );
+  fireEvent.click(screen.getByRole("button", { name: "Сечение" }));
   return { onSaveSweep, onSaveRotation, onRecordChange };
 }
 
