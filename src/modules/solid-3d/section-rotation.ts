@@ -36,6 +36,8 @@ export type SolidSectionRotationAxis =
     };
 
 export interface SolidSectionRotationFrame {
+  /** Retained for callers of the original edge-axis API; empty for point axes. */
+  readonly edgeId: string;
   readonly axis: SolidSectionRotationAxis;
   readonly plane: Plane3D;
   readonly planePoint: Vec3;
@@ -117,6 +119,7 @@ export function getSolidSectionRotationFrameForAxis(
   if (axisDirection === null) return null;
   return {
     axis,
+    edgeId: axis.kind === "edge" ? axis.edgeId : "",
     axisDirection,
     axisStart,
     axisEnd,
