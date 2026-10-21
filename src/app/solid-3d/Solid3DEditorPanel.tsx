@@ -706,7 +706,7 @@ export function Solid3DEditorPanel({
             onClick={() => {
               setExperience("free");
               setWorkMode("section");
-              setMode("view");
+              setMode(readOnly ? "view" : "points");
             }}
             type="button"
           >
