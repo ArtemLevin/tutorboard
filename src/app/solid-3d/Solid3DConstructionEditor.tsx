@@ -73,7 +73,7 @@ export function Solid3DConstructionEditor({
   onRecordChange,
   readOnly,
   record,
-}: Solid3DConstructionEditorProps): ReactElement {
+}: Solid3DConstructionEditorProps): ReactElement | null {
   const kind = constructionKindFromDefinition(record.definition);
   const sideCount = constructionSideCount(record.definition);
   const currentBase = baseFromRecord(record);
