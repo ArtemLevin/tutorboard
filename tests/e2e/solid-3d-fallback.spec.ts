@@ -5,7 +5,13 @@ test("retains numeric 3D editing controls when the browser cannot create WebGL",
   page,
 }) => {
   await page.addInitScript(() => {
-    const original = HTMLCanvasElement.prototype.getContext;
+    const original: unknown = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "getContext",
+    )?.value;
+    if (typeof original !== "function") {
+      throw new Error("Canvas context API unavailable");
+    }
     Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
       configurable: true,
       value: function (
@@ -19,7 +25,7 @@ test("retains numeric 3D editing controls when the browser cannot create WebGL",
           kind === "experimental-webgl"
         )
           return null;
-        return Reflect.apply(original, this, [kind, ...args]);
+        return Reflect.apply(original, this, [kind, ...args]) as unknown;
       },
     });
   });
