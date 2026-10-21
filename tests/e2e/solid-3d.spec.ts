@@ -81,7 +81,10 @@ test("selects two 3D vertices, measures distance and saves the segment", async (
   // quaternion. Project two known cube vertices to real browser pixels.
   const { createSolidTopology } = await import("../../src/core/public");
   const THREE = await import("three");
-  const vertices = createSolidTopology({ kind: "cube", edgeLength: 2 })!.vertices;
+  const vertices = createSolidTopology({
+    kind: "cube",
+    edgeLength: 2,
+  })!.vertices;
   const camera = new THREE.OrthographicCamera(
     (-2.8 * bounds.width) / bounds.height,
     (2.8 * bounds.width) / bounds.height,
@@ -96,16 +99,20 @@ test("selects two 3D vertices, measures distance and saves the segment", async (
   camera.updateProjectionMatrix();
   for (const vertex of [vertices[0]!, vertices[1]!]) {
     const position = new THREE.Vector3(
-      vertex.position.x, vertex.position.y, vertex.position.z,
+      vertex.position.x,
+      vertex.position.y,
+      vertex.position.z,
     ).project(camera);
     await page.mouse.click(
-      bounds.x + (position.x + 1) * bounds.width / 2,
-      bounds.y + (1 - position.y) * bounds.height / 2,
+      bounds.x + ((position.x + 1) * bounds.width) / 2,
+      bounds.y + ((1 - position.y) * bounds.height) / 2,
     );
   }
   await expect(editor.getByText(/Длина:/)).toBeVisible();
   await editor.getByRole("button", { name: "Сохранить измерение" }).click();
-  await expect(editor.getByRole("button", { name: /^Удалить измерение/ })).toHaveCount(1);
+  await expect(
+    editor.getByRole("button", { name: /^Удалить измерение/ }),
+  ).toHaveCount(1);
   await expect(canvas).toHaveCount(1);
 });
 
