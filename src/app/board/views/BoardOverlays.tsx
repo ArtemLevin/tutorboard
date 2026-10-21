@@ -99,7 +99,9 @@ export function BoardOverlays({
             learningEnabled={solid3DLearningEnabled}
             onClose={solid3D.close}
             onProject={solid3D.project}
-            onRecordChange={solid3D.updateRecord}
+            onRecordChange={(replacement) =>
+              solid3D.updateRecord(solid3D.record, replacement)
+            }
             onPointMove={solid3D.movePoint}
             onSaveSweep={solid3D.saveSweep}
             onSaveRotation={solid3D.saveRotation}

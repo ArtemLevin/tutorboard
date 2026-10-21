@@ -1,6 +1,9 @@
 import { analyticSurfaceIds } from "./anchors";
 import type { Solid3DDefinition, Solid3DRecord } from "./definitions";
 import { createSolidTopology } from "./topology";
+import { resolveSolidDistanceEndpoint } from "./measurements";
+import { calculateSolidLineAngle } from "./line-angles";
+import { calculateSolidLinePlaneAngle } from "./line-plane-angles";
 import { decodeTopologyFaceAnchorId } from "./topology-anchors";
 import { isFiniteVec3 } from "./vectors";
 
@@ -137,6 +140,9 @@ export function validateSolid3DRecord(
   if (
     record.points.length > 32 ||
     record.sections.length > 8 ||
+    (record.measurements?.length ?? 0) > 16 ||
+    (record.angleMeasurements?.length ?? 0) > 12 ||
+    (record.linePlaneMeasurements?.length ?? 0) > 12 ||
     record.boardObjectIds.length > 5_000
   )
     diagnostics.push({
@@ -149,7 +155,27 @@ export function validateSolid3DRecord(
     record.sections.some((section) =>
       section.pointIds.some((id) => !pointIds.has(id)),
     ) ||
-    !validAnchorReferences(record)
+    !validAnchorReferences(record) ||
+    new Set((record.measurements ?? []).map(({ id }) => id)).size !==
+      (record.measurements?.length ?? 0) ||
+    (record.measurements ?? []).some(
+      (measurement) =>
+        (measurement.first.kind === measurement.second.kind &&
+          measurement.first.id === measurement.second.id) ||
+        resolveSolidDistanceEndpoint(record, measurement.first) === null ||
+        resolveSolidDistanceEndpoint(record, measurement.second) === null,
+    ) ||
+    new Set((record.angleMeasurements ?? []).map(({ id }) => id)).size !==
+      (record.angleMeasurements?.length ?? 0) ||
+    (record.angleMeasurements ?? []).some(
+      ({ lines }) => calculateSolidLineAngle(record, lines) === null,
+    ) ||
+    new Set((record.linePlaneMeasurements ?? []).map(({ id }) => id)).size !==
+      (record.linePlaneMeasurements?.length ?? 0) ||
+    (record.linePlaneMeasurements ?? []).some(
+      ({ line, faceId }) =>
+        calculateSolidLinePlaneAngle(record, line, faceId) === null,
+    )
   )
     diagnostics.push({
       code: "solid.invalid-reference",

@@ -673,6 +673,33 @@ const solidSectionSchema = z
     visible: z.boolean(),
   })
   .strict();
+const solidDistanceEndpointSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("point"), id: solidPointIdSchema }).strict(),
+  z.object({ kind: z.literal("vertex"), id: identifierSchema }).strict(),
+]);
+const solidDistanceMeasurementSchema = z
+  .object({
+    id: identifierSchema,
+    first: solidDistanceEndpointSchema,
+    second: solidDistanceEndpointSchema,
+  })
+  .strict();
+const solidAngleMeasurementSchema = z
+  .object({
+    id: identifierSchema,
+    lines: z.tuple([
+      z.tuple([solidDistanceEndpointSchema, solidDistanceEndpointSchema]),
+      z.tuple([solidDistanceEndpointSchema, solidDistanceEndpointSchema]),
+    ]),
+  })
+  .strict();
+const solidLinePlaneAngleMeasurementSchema = z
+  .object({
+    id: identifierSchema,
+    line: z.tuple([solidDistanceEndpointSchema, solidDistanceEndpointSchema]),
+    faceId: identifierSchema,
+  })
+  .strict();
 const solidProjectionSchema = z
   .object({
     hiddenEdgePolicy: z.enum(["dashed", "hidden"]),
@@ -701,9 +728,15 @@ const solidSourceSchema = z.discriminatedUnion("kind", [
 ]);
 const solidRecordSchema = z
   .object({
+    angleMeasurements: z.array(solidAngleMeasurementSchema).max(12).optional(),
+    linePlaneMeasurements: z
+      .array(solidLinePlaneAngleMeasurementSchema)
+      .max(12)
+      .optional(),
     boardObjectIds: z.array(boardObjectIdSchema).max(5_000),
     definition: solidDefinitionSchema,
     id: solid3DIdSchema,
+    measurements: z.array(solidDistanceMeasurementSchema).max(16).optional(),
     points: z.array(solidPointSchema).max(32),
     projection: solidProjectionSchema,
     rootGroupId: groupIdSchema,

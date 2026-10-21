@@ -1,5 +1,248 @@
 import { expect, test } from "@playwright/test";
 
+test("recovers the same 3D canvas after a real WebGL context loss", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const stage = page.getByTestId("board-stage");
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Missing board stage");
+
+  await page.getByRole("button", { name: "ИИ-инструменты" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
+    .click();
+  await page.getByLabel("Текст построения").fill("куб");
+  await page.getByRole("button", { name: "Выбрать для размещения" }).click();
+  await page.mouse.click(
+    bounds.x + bounds.width * 0.58,
+    bounds.y + bounds.height * 0.42,
+  );
+  await page.getByRole("button", { name: "Открыть в 3D" }).click();
+  const editor = page.getByRole("region", { name: "Куб" });
+  const canvas = editor.locator("canvas[data-engine]");
+  await expect(canvas).toHaveCount(1);
+  await canvas.evaluate((element) => {
+    element.dataset.webglLifecycle = "original";
+    const context = (element as HTMLCanvasElement).getContext("webgl2");
+    const extension = context?.getExtension("WEBGL_lose_context");
+    if (extension === undefined || extension === null)
+      throw new Error("WebGL context loss extension unavailable");
+    (
+      element as HTMLCanvasElement & { testContextLoss?: WEBGL_lose_context }
+    ).testContextLoss = extension;
+    extension.loseContext();
+  });
+
+  await expect(editor.getByText("Контекст WebGL был потерян.")).toBeVisible();
+  await expect(canvas).toHaveCount(1);
+  await expect(canvas).toHaveAttribute("data-webgl-lifecycle", "original");
+  await canvas.evaluate((element) => {
+    const extension = (
+      element as HTMLCanvasElement & { testContextLoss?: WEBGL_lose_context }
+    ).testContextLoss;
+    if (extension === undefined)
+      throw new Error("Stored WebGL restore capability was lost");
+    extension.restoreContext();
+  });
+  await expect(editor.getByText("Контекст WebGL был потерян.")).toHaveCount(0);
+  await expect(canvas).toHaveAttribute("data-webgl-lifecycle", "original");
+  await editor.getByRole("button", { name: "Ортографическая" }).click();
+  await expect(canvas).toHaveCount(1);
+  await expect(canvas).toHaveAttribute("data-webgl-lifecycle", "original");
+});
+
+test("selects two 3D vertices, measures distance and saves the segment", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const stage = page.getByTestId("board-stage");
+  const stageBounds = await stage.boundingBox();
+  if (stageBounds === null) throw new Error("Missing board stage");
+  await page.getByRole("button", { name: "ИИ-инструменты" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
+    .click();
+  await page.getByLabel("Текст построения").fill("куб");
+  await page.getByRole("button", { name: "Выбрать для размещения" }).click();
+  await page.mouse.click(
+    stageBounds.x + stageBounds.width * 0.58,
+    stageBounds.y + stageBounds.height * 0.42,
+  );
+  await page.getByRole("button", { name: "Открыть в 3D" }).click();
+  const editor = page.getByRole("region", { name: "Куб" });
+  const canvas = editor.locator("canvas[data-engine]");
+  await expect(canvas).toHaveCount(1);
+  await editor.getByRole("button", { name: "Измерить" }).click();
+  const bounds = await canvas.boundingBox();
+  if (bounds === null) throw new Error("Missing 3D canvas");
+
+  // The default editor has an orthographic camera and an identity model
+  // quaternion. Project two known cube vertices to real browser pixels.
+  const THREE = await import("three");
+  const vertices = [
+    { position: { x: -1, y: -1, z: -1 } },
+    { position: { x: 1, y: -1, z: -1 } },
+  ];
+  const camera = new THREE.OrthographicCamera(
+    (-2.8 * bounds.width) / bounds.height,
+    (2.8 * bounds.width) / bounds.height,
+    2.8,
+    -2.8,
+    0.01,
+    100,
+  );
+  camera.position.set(4.8, 3.8, 5.4);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  camera.updateProjectionMatrix();
+  for (const vertex of [vertices[0]!, vertices[1]!]) {
+    const position = new THREE.Vector3(
+      vertex.position.x,
+      vertex.position.y,
+      vertex.position.z,
+    ).project(camera);
+    await page.mouse.click(
+      bounds.x + ((position.x + 1) * bounds.width) / 2,
+      bounds.y + ((1 - position.y) * bounds.height) / 2,
+    );
+  }
+  await expect(editor.getByText(/Длина:/)).toBeVisible();
+  await editor.getByRole("button", { name: "Сохранить измерение" }).click();
+  await expect(
+    editor.getByRole("button", { name: /^Удалить измерение/ }),
+  ).toHaveCount(1);
+  await expect(canvas).toHaveCount(1);
+});
+
+test("chooses two cube edges, previews their line angle and saves it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const stage = page.getByTestId("board-stage");
+  const stageBounds = await stage.boundingBox();
+  if (stageBounds === null) throw new Error("Missing board stage");
+  await page.getByRole("button", { name: "ИИ-инструменты" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
+    .click();
+  await page.getByLabel("Текст построения").fill("куб");
+  await page.getByRole("button", { name: "Выбрать для размещения" }).click();
+  await page.mouse.click(
+    stageBounds.x + stageBounds.width * 0.58,
+    stageBounds.y + stageBounds.height * 0.42,
+  );
+  await page.getByRole("button", { name: "Открыть в 3D" }).click();
+  const editor = page.getByRole("region", { name: "Куб" });
+  const canvas = editor.locator("canvas[data-engine]");
+  await expect(canvas).toHaveCount(1);
+  await editor.getByRole("button", { name: "Измерить" }).click();
+  await editor.getByRole("button", { name: "Угол между прямыми" }).click();
+  await expect(
+    editor.getByRole("button", { name: "По рёбрам" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  const bounds = await canvas.boundingBox();
+  if (bounds === null) throw new Error("Missing 3D canvas");
+  const THREE = await import("three");
+  const camera = new THREE.OrthographicCamera(
+    (-2.8 * bounds.width) / bounds.height,
+    (2.8 * bounds.width) / bounds.height,
+    2.8,
+    -2.8,
+    0.01,
+    100,
+  );
+  camera.position.set(4.8, 3.8, 5.4);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  camera.updateProjectionMatrix();
+  // Midpoints of two visible adjacent edges on the front cube face.
+  for (const position of [
+    [0, -1, 1],
+    [-1, 0, 1],
+  ]) {
+    const projected = new THREE.Vector3(
+      position[0],
+      position[1],
+      position[2],
+    ).project(camera);
+    await page.mouse.click(
+      bounds.x + ((projected.x + 1) * bounds.width) / 2,
+      bounds.y + ((1 - projected.y) * bounds.height) / 2,
+    );
+  }
+  await expect(editor.getByText("Меньший угол: 90.00°")).toBeVisible();
+  await editor.getByRole("button", { name: "Сохранить угол" }).click();
+  await expect(
+    editor.getByRole("button", { name: /^Удалить угол/ }),
+  ).toHaveCount(1);
+  await expect(canvas).toHaveCount(1);
+});
+
+test("measures a line against a model face via real 3D picking", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const stage = page.getByTestId("board-stage");
+  const stageBounds = await stage.boundingBox();
+  if (stageBounds === null) throw new Error("Missing board stage");
+  await page.getByRole("button", { name: "ИИ-инструменты" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
+    .click();
+  await page.getByLabel("Текст построения").fill("куб");
+  await page.getByRole("button", { name: "Выбрать для размещения" }).click();
+  await page.mouse.click(
+    stageBounds.x + stageBounds.width * 0.58,
+    stageBounds.y + stageBounds.height * 0.42,
+  );
+  await page.getByRole("button", { name: "Открыть в 3D" }).click();
+  const editor = page.getByRole("region", { name: "Куб" });
+  const canvas = editor.locator("canvas[data-engine]");
+  await expect(canvas).toHaveCount(1);
+  await editor.getByRole("button", { name: "Измерить" }).click();
+  await editor
+    .getByRole("button", { name: "Угол прямой с плоскостью" })
+    .click();
+  await expect(
+    editor.getByRole("button", { name: "По ребру" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  const bounds = await canvas.boundingBox();
+  if (bounds === null) throw new Error("Missing WebGL canvas");
+  const THREE = await import("three");
+  const camera = new THREE.OrthographicCamera(
+    (-2.8 * bounds.width) / bounds.height,
+    (2.8 * bounds.width) / bounds.height,
+    2.8,
+    -2.8,
+    0.01,
+    100,
+  );
+  camera.position.set(4.8, 3.8, 5.4);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  camera.updateProjectionMatrix();
+  const pick = async (x: number, y: number, z: number) => {
+    const projected = new THREE.Vector3(x, y, z).project(camera);
+    await page.mouse.click(
+      bounds.x + ((projected.x + 1) * bounds.width) / 2,
+      bounds.y + ((1 - projected.y) * bounds.height) / 2,
+    );
+  };
+  // Bottom front edge AB is parallel to the front supporting face.
+  await pick(0, -1, 1);
+  await expect(editor.getByText("Шаг 2 из 2: плоскость")).toBeVisible();
+  await pick(0, 0, 1);
+  await expect(editor.getByText("Меньший угол: 0.00°")).toBeVisible();
+  await editor
+    .getByRole("button", { name: "Сохранить угол прямой и плоскости" })
+    .click();
+  await expect(
+    editor.getByRole("button", { name: /^Удалить угол прямой и плоскости/ }),
+  ).toHaveCount(1);
+  await expect(canvas).toHaveCount(1);
+});
+
 test("opens a semantic catalog solid in the lazy 3D editor", async ({
   page,
 }) => {
@@ -94,8 +337,8 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
     editor.getByRole("button", { name: "Свернуть 3D-окно" }),
   ).toBeVisible();
   await editor.getByRole("button", { name: "Свернуть 3D-окно" }).click();
-  await expect(editor.getByText("0 / 3")).toBeVisible();
   await editor.getByRole("button", { name: "Сечение" }).click();
+  await expect(editor.getByText("0 / 3")).toBeVisible();
   await expect(
     editor.getByRole("button", {
       name: "Отобразить выбранное сечение на доске",

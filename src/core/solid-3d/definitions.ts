@@ -133,6 +133,34 @@ export interface Solid3DPoint {
   readonly anchor: SolidPointAnchor;
 }
 
+export type SolidDistanceEndpoint =
+  | { readonly kind: "vertex"; readonly id: string }
+  | { readonly kind: "point"; readonly id: SolidPointId };
+
+export interface SolidDistanceMeasurement {
+  readonly id: string;
+  readonly first: SolidDistanceEndpoint;
+  readonly second: SolidDistanceEndpoint;
+}
+
+/** Two directed points define an infinite, unoriented 3D line. */
+export type SolidAngleLine = readonly [
+  SolidDistanceEndpoint,
+  SolidDistanceEndpoint,
+];
+
+export interface SolidAngleMeasurement {
+  readonly id: string;
+  readonly lines: readonly [SolidAngleLine, SolidAngleLine];
+}
+
+/** Infinite line through two semantic endpoints and its supporting face plane. */
+export interface SolidLinePlaneAngleMeasurement {
+  readonly id: string;
+  readonly line: SolidAngleLine;
+  readonly faceId: string;
+}
+
 export interface Solid3DSectionDefinition {
   readonly id: SolidSectionId;
   readonly pointIds: readonly [SolidPointId, SolidPointId, SolidPointId];
@@ -161,6 +189,10 @@ export interface Solid3DRecord {
   readonly projection: Solid3DBoardProjection;
   readonly points: readonly Solid3DPoint[];
   readonly sections: readonly Solid3DSectionDefinition[];
+  /** Optional for compatibility with existing 3D documents. */
+  readonly measurements?: readonly SolidDistanceMeasurement[];
+  readonly angleMeasurements?: readonly SolidAngleMeasurement[];
+  readonly linePlaneMeasurements?: readonly SolidLinePlaneAngleMeasurement[];
   readonly schemaVersion: "1.0";
 }
 

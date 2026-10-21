@@ -4,6 +4,14 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import {
   createSolidTopology,
+  resolveSolidDistanceEndpoint,
+  calculateSolidLineAngle,
+  calculateSolidLinePlaneAngle,
+  type SolidLinePlaneAngleResult,
+  type SolidAngleLine,
+  type SolidLineAngleResult,
+  solidPointId,
+  type SolidDistanceEndpoint,
   resolveSolid3DPointPosition,
   solid3DModelQuaternion,
   type Solid3DQuaternion,
@@ -35,6 +43,18 @@ export interface Solid3DViewportProps {
   readonly highlightedSurfaceId?: SolidAnalyticSurfaceId | null;
   readonly mode: "points" | "view";
   readonly onPointPlace: (position: Vec3, anchor: SolidPointAnchor) => void;
+  readonly onMeasurementPick?:
+    ((endpoint: SolidDistanceEndpoint) => void) | undefined;
+  readonly onAngleEdgePick?: ((edgeId: string) => void) | undefined;
+  readonly onFacePick?: ((faceId: string) => void) | undefined;
+  readonly linePlaneSelectedLine?: SolidAngleLine | null;
+  readonly linePlanePreview?: {
+    readonly line: SolidAngleLine;
+    readonly faceId: string;
+  } | null;
+  readonly anglePreview?: readonly [SolidAngleLine, SolidAngleLine] | null;
+  readonly measurementPreview?:
+    readonly [SolidDistanceEndpoint, SolidDistanceEndpoint] | null;
   readonly onPointDragStart?: (pointId: string) => void;
   readonly onPointDragPreview?: (
     pointId: string,
@@ -151,7 +171,6 @@ function builtHighlight(
   element: SolidElementRef,
 ): THREE.Object3D | null {
   const topology = createSolidTopology(record.definition);
-  const material = new THREE.LineBasicMaterial({ color: 0xf59e0b });
   if (element.kind === "point") {
     const point = record.points.find(({ id }) => id === element.id);
     if (point === undefined) return null;
@@ -199,8 +218,133 @@ function builtHighlight(
     points.push(points[0]!.clone());
   return new THREE.Line(
     new THREE.BufferGeometry().setFromPoints(points),
-    material,
+    new THREE.LineBasicMaterial({ color: 0xf59e0b }),
   );
+}
+
+function angleLinesObject(
+  result: SolidLineAngleResult,
+  saved: boolean,
+): THREE.Group {
+  const root = new THREE.Group();
+  root.name = saved ? "solid-angle-saved" : "solid-angle-preview";
+  const color = saved ? 0x0891b2 : 0xf59e0b;
+  const vector = (p: Vec3) => new THREE.Vector3(p.x, p.y, p.z);
+  const [origin, end] = result.first;
+  const [otherStart, otherEnd] = result.second;
+  const [u, v] = result.directions;
+  const addLine = (points: readonly Vec3[], dashed: boolean): void => {
+    const material = dashed
+      ? new THREE.LineDashedMaterial({
+          color,
+          dashSize: 0.12,
+          gapSize: 0.08,
+          depthTest: false,
+          transparent: true,
+          opacity: 0.85,
+        })
+      : new THREE.LineBasicMaterial({ color, depthTest: false });
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(points.map(vector)),
+      material,
+    );
+    if (dashed) line.computeLineDistances();
+    line.renderOrder = 9;
+    root.add(line);
+  };
+  const add = (p: Vec3, d: Vec3, length: number): Vec3 => ({
+    x: p.x + d.x * length,
+    y: p.y + d.y * length,
+    z: p.z + d.z * length,
+  });
+  addLine([origin, end], false);
+  addLine([otherStart, otherEnd], false);
+  // For skew lines, translate directions to one vertex; the arc therefore
+  // illustrates the mathematical angle without claiming an intersection.
+  addLine([origin, add(origin, u, 0.9)], true);
+  addLine([origin, add(origin, v, 0.9)], true);
+  if (result.degrees > 0.01) {
+    const theta = (result.degrees * Math.PI) / 180;
+    const sinTheta = Math.sin(theta);
+    const dot = u.x * v.x + u.y * v.y + u.z * v.z;
+    const perpendicular = {
+      x: (v.x - u.x * dot) / sinTheta,
+      y: (v.y - u.y * dot) / sinTheta,
+      z: (v.z - u.z * dot) / sinTheta,
+    };
+    const arc = Array.from({ length: 25 }, (_, index) => {
+      const t = (theta * index) / 24;
+      return add(
+        origin,
+        {
+          x: u.x * Math.cos(t) + perpendicular.x * Math.sin(t),
+          y: u.y * Math.cos(t) + perpendicular.y * Math.sin(t),
+          z: u.z * Math.cos(t) + perpendicular.z * Math.sin(t),
+        },
+        0.48,
+      );
+    });
+    addLine(arc, false);
+  }
+  return root;
+}
+
+/** Scene-local auxiliary construction: projected direction and supporting plane. */
+function linePlaneObject(
+  result: SolidLinePlaneAngleResult,
+  saved: boolean,
+): THREE.Group {
+  const group = new THREE.Group();
+  group.name = saved ? "solid-line-plane-saved" : "solid-line-plane-preview";
+  const color = saved ? 0x0f766e : 0xf59e0b;
+  const vector = (v: Vec3) => new THREE.Vector3(v.x, v.y, v.z);
+  const from = vector(result.line[0]);
+  const to = vector(result.line[1]);
+  const foot = vector(result.foot);
+  const normal = vector(result.normal);
+  const u = vector(result.direction);
+  const projected = vector(result.projectedDirection ?? result.tangent);
+  const line = (points: THREE.Vector3[], dashed: boolean): void => {
+    const material = dashed
+      ? new THREE.LineDashedMaterial({
+          color,
+          dashSize: 0.1,
+          gapSize: 0.07,
+          depthTest: false,
+          transparent: true,
+          opacity: 0.85,
+        })
+      : new THREE.LineBasicMaterial({ color, depthTest: false });
+    const shape = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(points),
+      material,
+    );
+    if (dashed) shape.computeLineDistances();
+    shape.renderOrder = 10;
+    group.add(shape);
+  };
+  line([from, to], false);
+  // The plane may not intersect the original segment. Draw the perpendicular
+  // from its first endpoint to the supporting plane (including outside the face).
+  line([from, foot], true);
+  line([foot, foot.clone().addScaledVector(u, 0.85)], true);
+  line([foot, foot.clone().addScaledVector(projected, 0.85)], false);
+  if (result.degrees > 0.01) {
+    const theta = (result.degrees * Math.PI) / 180;
+    const parallel = projected.clone().multiplyScalar(u.dot(projected));
+    const perpendicular = u.clone().sub(parallel).normalize();
+    const points = Array.from({ length: 25 }, (_, index) => {
+      const angle = (theta * index) / 24;
+      return foot
+        .clone()
+        .add(projected.clone().multiplyScalar(Math.cos(angle) * 0.38))
+        .add(perpendicular.clone().multiplyScalar(Math.sin(angle) * 0.38));
+    });
+    line(points, false);
+  }
+  // Small face-normal marker reinforces the plane selected on the model.
+  line([foot, foot.clone().addScaledVector(normal, 0.3)], true);
+  return group;
 }
 
 export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
@@ -220,6 +364,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<{
     camera: THREE.Camera;
+    active: boolean;
+    setCamera: (next: THREE.Camera) => void;
     controls: OrbitControls;
     mesh: THREE.Mesh;
     renderer: THREE.WebGLRenderer;
@@ -229,6 +375,9 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   } | null>(null);
   const modeRef = useRef(props.mode);
   const onPointPlaceRef = useRef(props.onPointPlace);
+  const onMeasurementPickRef = useRef(props.onMeasurementPick);
+  const onAngleEdgePickRef = useRef(props.onAngleEdgePick);
+  const onFacePickRef = useRef(props.onFacePick);
   const onPointDragStartRef = useRef(props.onPointDragStart);
   const onPointDragPreviewRef = useRef(props.onPointDragPreview);
   const onPointDragEndRef = useRef(props.onPointDragEnd);
@@ -239,8 +388,12 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const onElementHoverRef = useRef(onElementHover);
   const onSurfaceHoverRef = useRef(onSurfaceHover);
   const projectionRef = useRef(record.projection);
+  const definitionRef = useRef(record.definition);
+  const cameraModeRef = useRef(cameraMode);
   const [failure, setFailure] = useState<WebGLFailure | null>(null);
   const [retryToken, setRetryToken] = useState(0);
+  // Stable semantic geometry must not lose its GPU context on reference-only updates.
+  const definitionKey = JSON.stringify(record.definition);
 
   useEffect(() => {
     modeRef.current = props.mode;
@@ -268,6 +421,12 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   ]);
 
   useEffect(() => {
+    onMeasurementPickRef.current = props.onMeasurementPick;
+    onAngleEdgePickRef.current = props.onAngleEdgePick;
+    onFacePickRef.current = props.onFacePick;
+  }, [props.onMeasurementPick, props.onAngleEdgePick, props.onFacePick]);
+
+  useEffect(() => {
     onModelRotationCommitRef.current = onModelRotationCommit;
     showRotationGizmoRef.current = props.showRotationGizmo ?? false;
     rotationGizmoRef.current?.setEnabled(
@@ -288,15 +447,24 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   }, [record.projection]);
 
   useEffect(() => {
+    definitionRef.current = record.definition;
+  }, [record.definition]);
+
+  useEffect(() => {
+    cameraModeRef.current = cameraMode;
+  }, [cameraMode]);
+
+  useEffect(() => {
     const container = containerRef.current;
     if (container === null) return;
     let cancelled = false;
     const width = Math.max(320, container.clientWidth);
     const height = Math.max(260, container.clientHeight);
+    const definition = definitionRef.current;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf5f0e7);
-    const camera: THREE.Camera =
-      cameraMode === "orthographic"
+    let camera: THREE.Camera =
+      cameraModeRef.current === "orthographic"
         ? new THREE.OrthographicCamera(
             (-2.8 * width) / height,
             (2.8 * width) / height,
@@ -327,7 +495,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     renderer.setSize(width, height, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.replaceChildren(renderer.domElement);
-    const built = buildSolidScene(record.definition);
+    const built = buildSolidScene(definition);
     const quaternion = solid3DModelQuaternion(projectionRef.current);
     built.root.quaternion.set(
       quaternion.x,
@@ -346,7 +514,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       modeRef.current === "points" ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
     controls.mouseButtons.RIGHT =
       modeRef.current === "points" ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
-    const render = () => renderer.render(scene, camera);
+    let contextReady = true;
+    const render = () => {
+      if (contextReady) renderer.render(scene, camera);
+    };
     const rotationGizmo = new SolidRotationGizmoController(
       built.root,
       camera,
@@ -361,7 +532,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       Boolean(showRotationGizmoRef.current && onModelRotationCommitRef.current),
     );
     controls.addEventListener("change", render);
-    const resizeObserver = new ResizeObserver(() => {
+    const resize = () => {
       const nextWidth = Math.max(320, container.clientWidth);
       const nextHeight = Math.max(260, container.clientHeight);
       if (camera instanceof THREE.PerspectiveCamera) {
@@ -374,15 +545,11 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         camera.right = 2.8 * aspect;
         camera.updateProjectionMatrix();
       }
-      renderer.setSize(nextWidth, nextHeight, false);
+      if (contextReady) renderer.setSize(nextWidth, nextHeight, false);
       render();
-    });
-    resizeObserver.observe(container);
-    const contextLost = (event: Event) => {
-      event.preventDefault();
-      setFailure("context-lost");
     };
-    renderer.domElement.addEventListener("webglcontextlost", contextLost);
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(container);
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let pointerOrigin: { readonly x: number; readonly y: number } | null = null;
@@ -401,6 +568,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       surfaceFaceIds: built.semanticSurfaceFaceIds,
     };
     const pointerDragDown = (event: PointerEvent) => {
+      if (!contextReady) return;
       // A canceled gesture may never emit click. Do not swallow the next click.
       if (drag === null) suppressClick = false;
       if (
@@ -426,6 +594,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       onPointDragStartRef.current?.(point.id);
     };
     const pointerDragMove = (event: PointerEvent) => {
+      if (!contextReady) return;
       const active = drag;
       if (active === null || active.pointerId !== event.pointerId) return;
       event.preventDefault();
@@ -467,9 +636,11 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     const pointerDragCancel = (event: PointerEvent) =>
       finishPointDrag(event, false);
     const pointerDown = (event: PointerEvent) => {
+      if (!contextReady) return;
       pointerOrigin = { x: event.clientX, y: event.clientY };
     };
     const click = (event: MouseEvent) => {
+      if (!contextReady) return;
       if (suppressClick) {
         suppressClick = false;
         pointerOrigin = null;
@@ -483,8 +654,70 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
               event.clientY - pointerOrigin.y,
             );
       pointerOrigin = null;
-      if (modeRef.current !== "points" || event.button !== 0 || moved > 4)
+      if (event.button !== 0 || moved > 4) return;
+      if (onFacePickRef.current !== undefined) {
+        const bounds = renderer.domElement.getBoundingClientRect();
+        pointer.set(
+          ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+          -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+        );
+        raycaster.setFromCamera(pointer, camera);
+        const hit = raycaster.intersectObject(built.mesh, false)[0];
+        const faceIds: unknown = built.mesh.userData.semanticFaceIds;
+        const faceId: unknown = Array.isArray(faceIds)
+          ? faceIds[hit?.faceIndex ?? -1]
+          : undefined;
+        if (typeof faceId === "string") onFacePickRef.current(faceId);
         return;
+      }
+      if (onAngleEdgePickRef.current !== undefined) {
+        const bounds = renderer.domElement.getBoundingClientRect();
+        pointer.set(
+          ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+          -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+        );
+        raycaster.setFromCamera(pointer, camera);
+        raycaster.params.Line = { threshold: 0.15 };
+        const semantic = built.root.getObjectByName("solid-semantic-elements");
+        const candidates =
+          semantic?.children.filter(
+            (object) => object.userData.semanticKind === "edge",
+          ) ?? [];
+        const hit = raycaster.intersectObjects(candidates, false)[0];
+        const id: unknown = hit?.object.userData.semanticId;
+        if (typeof id === "string") onAngleEdgePickRef.current(id);
+        return;
+      }
+      if (onMeasurementPickRef.current !== undefined) {
+        const bounds = renderer.domElement.getBoundingClientRect();
+        pointer.set(
+          ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+          -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+        );
+        raycaster.setFromCamera(pointer, camera);
+        const semantic = built.root.getObjectByName("solid-semantic-elements");
+        const overlays = built.root.getObjectByName("solid-overlays");
+        const candidates = [
+          ...(semantic?.children.filter(
+            (object) => object.userData.semanticKind === "vertex",
+          ) ?? []),
+          ...(overlays?.children.filter(
+            (object) => object.userData.semanticKind === "point",
+          ) ?? []),
+        ];
+        const hit = raycaster.intersectObjects(candidates, false)[0];
+        const kind: unknown = hit?.object.userData.semanticKind;
+        const id: unknown = hit?.object.userData.semanticId;
+        if (kind === "vertex" && typeof id === "string")
+          onMeasurementPickRef.current({ kind: "vertex", id });
+        else if (kind === "point" && typeof id === "string")
+          onMeasurementPickRef.current({
+            kind: "point",
+            id: solidPointId(id),
+          });
+        return;
+      }
+      if (modeRef.current !== "points") return;
       const bounds = renderer.domElement.getBoundingClientRect();
       pointer.set(
         ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
@@ -495,7 +728,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       if (hit === undefined) return;
       const local = built.mesh.worldToLocal(hit.point.clone());
       const placed = resolveSolidHitAnchor(
-        record.definition,
+        definition,
         { x: local.x, y: local.y, z: local.z },
         built.topology,
         hit.faceIndex ?? undefined,
@@ -505,6 +738,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         onPointPlaceRef.current(placed.position, placed.anchor);
     };
     const pointerMove = (event: PointerEvent) => {
+      if (!contextReady) return;
       if (
         onElementHoverRef.current === undefined &&
         onSurfaceHoverRef.current === undefined
@@ -550,6 +784,48 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       onElementHoverRef.current?.(null);
       onSurfaceHoverRef.current?.(null);
     };
+    const contextLost = (event: Event) => {
+      event.preventDefault();
+      if (!contextReady) return;
+      contextReady = false;
+      if (runtimeRef.current?.renderer === renderer)
+        runtimeRef.current.active = false;
+      controls.enabled = false;
+      rotationGizmo.setEnabled(false);
+      if (dragFrame !== 0) window.cancelAnimationFrame(dragFrame);
+      dragFrame = 0;
+      if (drag !== null) {
+        const active = drag;
+        drag = null;
+        if (renderer.domElement.hasPointerCapture?.(active.pointerId))
+          renderer.domElement.releasePointerCapture(active.pointerId);
+        onPointDragEndRef.current?.(active.point.id, null);
+      }
+      pointerOrigin = null;
+      suppressClick = false;
+      onElementHoverRef.current?.(null);
+      onSurfaceHoverRef.current?.(null);
+      setFailure("context-lost");
+    };
+    const contextRestored = () => {
+      if (contextReady) return;
+      contextReady = true;
+      if (runtimeRef.current?.renderer === renderer)
+        runtimeRef.current.active = true;
+      controls.enabled = true;
+      rotationGizmo.setEnabled(
+        Boolean(
+          showRotationGizmoRef.current && onModelRotationCommitRef.current,
+        ),
+      );
+      resize();
+      setFailure(null);
+    };
+    renderer.domElement.addEventListener("webglcontextlost", contextLost);
+    renderer.domElement.addEventListener(
+      "webglcontextrestored",
+      contextRestored,
+    );
     renderer.domElement.addEventListener("pointerdown", pointerDragDown, true);
     renderer.domElement.addEventListener("pointermove", pointerDragMove, true);
     renderer.domElement.addEventListener("pointerup", pointerDragUp, true);
@@ -564,6 +840,11 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     renderer.domElement.addEventListener("pointerleave", pointerLeave);
     runtimeRef.current = {
       camera,
+      setCamera: (next) => {
+        camera = next;
+        dragScene.camera = next;
+      },
+      active: true,
       controls,
       mesh: built.mesh,
       renderer,
@@ -599,15 +880,59 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       renderer.domElement.removeEventListener("pointermove", pointerMove);
       renderer.domElement.removeEventListener("pointerleave", pointerLeave);
       renderer.domElement.removeEventListener("webglcontextlost", contextLost);
+      renderer.domElement.removeEventListener(
+        "webglcontextrestored",
+        contextRestored,
+      );
+      contextReady = false;
       rotationGizmoRef.current = null;
       scene.remove(rotationGizmo.group);
       rotationGizmo.dispose();
       disposeSolidScene(scene);
       renderer.dispose();
       renderer.forceContextLoss();
-      runtimeRef.current = null;
+      if (renderer.domElement.parentElement === container)
+        renderer.domElement.remove();
+      if (runtimeRef.current?.renderer === renderer) runtimeRef.current = null;
     };
-  }, [cameraMode, record.definition, resetToken, retryToken]);
+  }, [definitionKey, resetToken, retryToken]);
+
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (runtime === null) return;
+    const current = runtime.camera;
+    if (
+      (cameraMode === "orthographic" &&
+        current instanceof THREE.OrthographicCamera) ||
+      (cameraMode === "perspective" &&
+        current instanceof THREE.PerspectiveCamera)
+    )
+      return;
+    const container = containerRef.current;
+    if (container === null) return;
+    const width = Math.max(320, container.clientWidth);
+    const height = Math.max(260, container.clientHeight);
+    const next: THREE.Camera =
+      cameraMode === "orthographic"
+        ? new THREE.OrthographicCamera(
+            (-2.8 * width) / height,
+            (2.8 * width) / height,
+            2.8,
+            -2.8,
+            0.01,
+            100,
+          )
+        : new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
+    next.position.copy(current.position);
+    next.quaternion.copy(current.quaternion);
+    next.updateMatrixWorld(true);
+    runtime.camera = next;
+    runtime.setCamera(next);
+    runtime.controls.object = next;
+    rotationGizmoRef.current?.setCamera(next);
+    runtime.controls.update();
+    if (runtime.active) runtime.renderer.render(runtime.scene, next);
+  }, [cameraMode]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
@@ -620,7 +945,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       quaternion.w,
     );
     runtime.root.updateMatrixWorld(true);
-    runtime.renderer.render(runtime.scene, runtime.camera);
+    if (runtime.active) runtime.renderer.render(runtime.scene, runtime.camera);
   }, [record.projection]);
 
   useEffect(() => {
@@ -640,6 +965,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         new THREE.MeshBasicMaterial({ color: 0x7c3aed }),
       );
       marker.position.set(position.x, position.y, position.z);
+      marker.userData = { semanticKind: "point", semanticId: point.id };
       overlays.add(marker);
     }
     const highlighted = highlightedElement;
@@ -688,8 +1014,96 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       axis.renderOrder = 6;
       overlays.add(axis);
     }
+    const measured = [
+      ...(record.measurements ?? []).map((item) => ({
+        first: item.first,
+        second: item.second,
+        saved: true,
+      })),
+      ...(props.measurementPreview === undefined ||
+      props.measurementPreview === null
+        ? []
+        : [
+            {
+              first: props.measurementPreview[0],
+              second: props.measurementPreview[1],
+              saved: false,
+            },
+          ]),
+    ];
+    for (const { first, second, saved } of measured) {
+      const from = resolveSolidDistanceEndpoint(record, first);
+      const to = resolveSolidDistanceEndpoint(record, second);
+      if (from === null || to === null) continue;
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(from.x, from.y, from.z),
+          new THREE.Vector3(to.x, to.y, to.z),
+        ]),
+        new THREE.LineBasicMaterial({
+          color: saved ? 0x2563eb : 0xf59e0b,
+          depthTest: false,
+        }),
+      );
+      line.name = saved ? "solid-distance-saved" : "solid-distance-preview";
+      line.renderOrder = 8;
+      overlays.add(line);
+    }
+    for (const item of record.angleMeasurements ?? []) {
+      const angle = calculateSolidLineAngle(record, item.lines);
+      if (angle !== null) overlays.add(angleLinesObject(angle, true));
+    }
+    if (props.anglePreview !== null && props.anglePreview !== undefined) {
+      const preview = calculateSolidLineAngle(record, props.anglePreview);
+      if (preview !== null) overlays.add(angleLinesObject(preview, false));
+    }
+    if (
+      props.linePlaneSelectedLine !== null &&
+      props.linePlaneSelectedLine !== undefined &&
+      (props.linePlanePreview === null || props.linePlanePreview === undefined)
+    ) {
+      const from = resolveSolidDistanceEndpoint(
+        record,
+        props.linePlaneSelectedLine[0],
+      );
+      const to = resolveSolidDistanceEndpoint(
+        record,
+        props.linePlaneSelectedLine[1],
+      );
+      if (from !== null && to !== null) {
+        const selected = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(from.x, from.y, from.z),
+            new THREE.Vector3(to.x, to.y, to.z),
+          ]),
+          new THREE.LineBasicMaterial({ color: 0xf59e0b, depthTest: false }),
+        );
+        selected.name = "solid-line-plane-selected-line";
+        selected.renderOrder = 9;
+        overlays.add(selected);
+      }
+    }
+    for (const item of record.linePlaneMeasurements ?? []) {
+      const result = calculateSolidLinePlaneAngle(
+        record,
+        item.line,
+        item.faceId,
+      );
+      if (result !== null) overlays.add(linePlaneObject(result, true));
+    }
+    if (
+      props.linePlanePreview !== null &&
+      props.linePlanePreview !== undefined
+    ) {
+      const result = calculateSolidLinePlaneAngle(
+        record,
+        props.linePlanePreview.line,
+        props.linePlanePreview.faceId,
+      );
+      if (result !== null) overlays.add(linePlaneObject(result, false));
+    }
     runtime.root.add(overlays);
-    runtime.renderer.render(runtime.scene, runtime.camera);
+    if (runtime.active) runtime.renderer.render(runtime.scene, runtime.camera);
   }, [
     record,
     section,
@@ -698,41 +1112,53 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     highlightedElement,
     highlightedSurfaceId,
     props.rotationAxis,
+    props.measurementPreview,
+    props.anglePreview,
+    props.linePlaneSelectedLine,
+    props.linePlanePreview,
   ]);
 
-  return failure !== null ? (
-    <div className="solid-3d-fallback" role="status">
-      <div>
-        <strong>
-          {failure === "context-lost"
-            ? "Контекст WebGL был потерян."
-            : "WebGL не удалось запустить."}
-        </strong>
-        <p>Координаты и список элементов остаются доступны справа.</p>
-        <button
-          onClick={() => {
-            setFailure(null);
-            setRetryToken((value) => value + 1);
-          }}
-          type="button"
-        >
-          Повторить запуск 3D
-        </button>
-        <details>
-          <summary>Как проверить браузер</summary>
-          <p>
-            Включите аппаратное ускорение в настройках браузера, перезапустите
-            его и проверьте раздел «Graphics Feature Status» на странице
-            chrome://gpu.
-          </p>
-        </details>
-      </div>
+  return (
+    <div className="solid-3d-viewport-frame">
+      <div
+        aria-label="Интерактивная трёхмерная модель"
+        aria-hidden={failure !== null}
+        className="solid-3d-viewport"
+        ref={containerRef}
+      />
+      {failure !== null ? (
+        <div className="solid-3d-fallback" role="status">
+          <div>
+            <strong>
+              {failure === "context-lost"
+                ? "Контекст WebGL был потерян."
+                : "WebGL не удалось запустить."}
+            </strong>
+            <p>
+              {failure === "context-lost"
+                ? "Ожидаем восстановления графического контекста. Можно также перезапустить 3D."
+                : "Координаты и список элементов остаются доступны справа."}
+            </p>
+            <button
+              onClick={() => {
+                setFailure(null);
+                setRetryToken((value) => value + 1);
+              }}
+              type="button"
+            >
+              Повторить запуск 3D
+            </button>
+            <details>
+              <summary>Как проверить браузер</summary>
+              <p>
+                Включите аппаратное ускорение в настройках браузера,
+                перезапустите его и проверьте «Graphics Feature Status» на
+                странице chrome://gpu.
+              </p>
+            </details>
+          </div>
+        </div>
+      ) : null}
     </div>
-  ) : (
-    <div
-      aria-label="Интерактивная трёхмерная модель"
-      className="solid-3d-viewport"
-      ref={containerRef}
-    />
   );
 }
