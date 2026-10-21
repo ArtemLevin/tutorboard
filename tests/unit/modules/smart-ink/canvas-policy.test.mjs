@@ -61,9 +61,26 @@ describe("Smart Ink automatic canvas policy", () => {
       ({ result }) => result.proposal.candidate.kind === "circle",
     );
 
+    // Precision-first V2 must retain the previous global positive floor while
+    // refusing every observed negative and protecting each shape family.
     expect(negativeProposals).toHaveLength(0);
-    expect(positiveProposals).toHaveLength(125);
-    expect(circleProposals).toHaveLength(20);
-    expect(circlesNormalizedAsCircles).toHaveLength(16);
+    expect(positiveProposals.length).toBeGreaterThanOrEqual(125);
+    for (const [kind, minimum] of Object.entries({
+      circle: 19,
+      ellipse: 25,
+      line: 20,
+      rectangle: 20,
+      square: 20,
+      triangle: 21,
+    })) {
+      const accepted = results.filter(
+        ({ result, sample }) =>
+          sample.expectedKind === kind && result.status === "proposed",
+      ).length;
+      expect(accepted).toBeGreaterThanOrEqual(minimum);
+    }
+    // V2 can preserve a confident near-round ellipse without legacy rounding.
+    expect(circleProposals.length).toBeGreaterThanOrEqual(19);
+    expect(circlesNormalizedAsCircles.length).toBeGreaterThanOrEqual(15);
   });
 });
