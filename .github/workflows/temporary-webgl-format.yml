@@ -1,0 +1,29 @@
+name: Temporary WebGL E2E formatting
+on:
+  push:
+    branches: [fix/3d-webgl-lifecycle-hardening-20261021]
+    paths:
+      - ".github/workflows/temporary-webgl-format.yml"
+permissions:
+  contents: write
+jobs:
+  prettier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Format real WebGL browser test
+        run: |
+          npx prettier --write tests/e2e/solid-3d.spec.ts
+          git config user.name "TutorBoard CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add tests/e2e/solid-3d.spec.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style(3d): format real WebGL context regression"
+            git push origin HEAD:refs/heads/fix/3d-webgl-lifecycle-hardening-20261021
+          fi
