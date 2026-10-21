@@ -325,7 +325,8 @@ describe("Solid3DViewport WebGL lifecycle", () => {
       showSectionOutline: false,
     };
     const view = render(<Solid3DViewport {...props} record={base} />);
-    const persistent = rendererLifecycle.lastScene?.getObjectByName("solid-overlays");
+    const persistent =
+      rendererLifecycle.lastScene?.getObjectByName("solid-overlays");
     const pointMesh = persistent?.children.find(
       (object) => object.userData.semanticKind === "point",
     );
@@ -341,16 +342,21 @@ describe("Solid3DViewport WebGL lifecycle", () => {
             highlightedElement={{ kind: "vertex", id: vertexId }}
           />,
         );
-        expect(rendererLifecycle.lastScene?.getObjectByName("solid-overlays"))
-          .toBe(persistent);
+        expect(
+          rendererLifecycle.lastScene?.getObjectByName("solid-overlays"),
+        ).toBe(persistent);
         expect(persistent?.children[0]).toBe(pointMesh);
-        expect(rendererLifecycle.lastScene?.getObjectByName("solid-hover-overlays"))
-          .toBeDefined();
+        expect(
+          rendererLifecycle.lastScene?.getObjectByName("solid-hover-overlays"),
+        ).toBeDefined();
         expect(dispose).not.toHaveBeenCalled();
       }
-      view.rerender(<Solid3DViewport {...props} record={base} highlightedElement={null} />);
-      expect(rendererLifecycle.lastScene?.getObjectByName("solid-hover-overlays"))
-        .toBeUndefined();
+      view.rerender(
+        <Solid3DViewport {...props} record={base} highlightedElement={null} />,
+      );
+      expect(
+        rendererLifecycle.lastScene?.getObjectByName("solid-hover-overlays"),
+      ).toBeUndefined();
       expect(dispose).not.toHaveBeenCalled();
       expect(rendererLifecycle.created).toBe(1);
     } finally {

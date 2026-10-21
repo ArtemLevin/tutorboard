@@ -836,7 +836,9 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       onSurfaceHoverRef.current?.(null);
       // Hover-only highlights must not intercept the semantic raycast.
       const hit = raycaster.intersectObjects(
-        built.root.children.filter((child) => child.name !== "solid-hover-overlays"),
+        built.root.children.filter(
+          (child) => child.name !== "solid-hover-overlays",
+        ),
         true,
       )[0];
       if (hit === undefined) {
@@ -1218,8 +1220,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       runtime.root.remove(previous);
       disposeSolidScene(previous);
     }
-    if (highlightedElement !== null && highlightedElement !== undefined ||
-        highlightedSurfaceId !== null && highlightedSurfaceId !== undefined) {
+    if (
+      (highlightedElement !== null && highlightedElement !== undefined) ||
+      (highlightedSurfaceId !== null && highlightedSurfaceId !== undefined)
+    ) {
       const hover = new THREE.Group();
       hover.name = "solid-hover-overlays";
       if (highlightedElement !== null && highlightedElement !== undefined) {
@@ -1240,7 +1244,9 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       if (highlightedSurfaceId !== null && highlightedSurfaceId !== undefined) {
         const surfaceFill = triangleHighlight(
           runtime.mesh.geometry,
-          runtime.semanticSurfaceFaceIds.map((id) => id === highlightedSurfaceId),
+          runtime.semanticSurfaceFaceIds.map(
+            (id) => id === highlightedSurfaceId,
+          ),
         );
         if (surfaceFill !== null) hover.add(surfaceFill);
       }
