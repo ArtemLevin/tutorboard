@@ -216,7 +216,7 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     const canvas = view.container.querySelector("canvas")!;
     const beforeLoss = rendererLifecycle.renderCalls;
     const lost = new Event("webglcontextlost", { cancelable: true });
-    await act(() => {
+    act(() => {
       canvas.dispatchEvent(lost);
     });
     expect(lost.defaultPrevented).toBe(true);
@@ -234,7 +234,7 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     expect(rendererLifecycle.renderCalls).toBe(beforeLoss);
     expect(rendererLifecycle.created).toBe(1);
     expect(rendererLifecycle.contextsLost).toBe(0);
-    await act(() => {
+    act(() => {
       canvas.dispatchEvent(new Event("webglcontextrestored"));
     });
     expect(screen.queryByText("Контекст WebGL был потерян.")).toBeNull();
@@ -245,7 +245,7 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     expect(rendererLifecycle.contextsLost).toBe(1);
   });
 
-  it("retries a lost context with one cleanup and one fresh renderer", async () => {
+  it("retries a lost context with one cleanup and one fresh renderer", () => {
     const props = {
       cameraMode: "perspective" as const,
       mode: "view" as const,
@@ -257,12 +257,12 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     };
     const view = render(<Solid3DViewport {...props} record={record()} />);
     const firstCanvas = view.container.querySelector("canvas")!;
-    await act(() => {
+    act(() => {
       firstCanvas.dispatchEvent(
         new Event("webglcontextlost", { cancelable: true }),
       );
     });
-    await act(() => {
+    act(() => {
       screen.getByRole("button", { name: "Повторить запуск 3D" }).click();
     });
     expect(rendererLifecycle.created).toBe(2);
@@ -270,7 +270,7 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     expect(rendererLifecycle.contextsLost).toBe(1);
     expect(view.container.querySelector("canvas")).not.toBe(firstCanvas);
     expect(firstCanvas.isConnected).toBe(false);
-    await act(() => {
+    act(() => {
       firstCanvas.dispatchEvent(new Event("webglcontextrestored"));
     });
     expect(rendererLifecycle.created).toBe(2);
@@ -295,7 +295,7 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     );
     await screen.findByText("WebGL не удалось запустить.");
     expect(rendererLifecycle.created).toBe(0);
-    await act(() => {
+    act(() => {
       screen.getByRole("button", { name: "Повторить запуск 3D" }).click();
     });
     await waitFor(() => expect(rendererLifecycle.created).toBe(1));
