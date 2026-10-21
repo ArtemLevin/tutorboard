@@ -12,7 +12,10 @@ import {
 } from "../../../../src/modules/smart-ink/public";
 import { type SmartInkCandidate } from "../../../../src/modules/smart-ink-spike/public";
 import { selectSmartInkAutoCorrectionCandidate } from "../../../../src/modules/smart-ink/proposal";
-import { negativeStrokes, positiveStrokes } from "../smart-ink-spike/corpus-fixtures";
+import {
+  negativeStrokes,
+  positiveStrokes,
+} from "../smart-ink-spike/corpus-fixtures";
 
 function stroke(points = positiveStrokes.circle): PenStrokeObject {
   return {
