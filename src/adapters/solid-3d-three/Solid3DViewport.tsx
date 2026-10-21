@@ -240,6 +240,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const onElementHoverRef = useRef(onElementHover);
   const onSurfaceHoverRef = useRef(onSurfaceHover);
   const projectionRef = useRef(record.projection);
+  const definitionRef = useRef(record.definition);
+  const cameraModeRef = useRef(cameraMode);
   const [failure, setFailure] = useState<WebGLFailure | null>(null);
   const [retryToken, setRetryToken] = useState(0);
   // Stable semantic geometry must not lose its GPU context on reference-only updates.
@@ -291,15 +293,24 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   }, [record.projection]);
 
   useEffect(() => {
+    definitionRef.current = record.definition;
+  }, [record.definition]);
+
+  useEffect(() => {
+    cameraModeRef.current = cameraMode;
+  }, [cameraMode]);
+
+  useEffect(() => {
     const container = containerRef.current;
     if (container === null) return;
     let cancelled = false;
     const width = Math.max(320, container.clientWidth);
     const height = Math.max(260, container.clientHeight);
+    const definition = definitionRef.current;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf5f0e7);
     let camera: THREE.Camera =
-      cameraMode === "orthographic"
+      cameraModeRef.current === "orthographic"
         ? new THREE.OrthographicCamera(
             (-2.8 * width) / height,
             (2.8 * width) / height,
@@ -330,7 +341,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     renderer.setSize(width, height, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.replaceChildren(renderer.domElement);
-    const built = buildSolidScene(record.definition);
+    const built = buildSolidScene(definition);
     const quaternion = solid3DModelQuaternion(projectionRef.current);
     built.root.quaternion.set(
       quaternion.x,
@@ -501,7 +512,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       if (hit === undefined) return;
       const local = built.mesh.worldToLocal(hit.point.clone());
       const placed = resolveSolidHitAnchor(
-        record.definition,
+        definition,
         { x: local.x, y: local.y, z: local.z },
         built.topology,
         hit.faceIndex ?? undefined,
