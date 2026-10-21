@@ -282,25 +282,50 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   await editor.getByRole("button", { name: "Отменить" }).click();
   await expect(savedSections).toHaveCount(before);
 
-  // Restore the source-plane selection after saving the previous section.
-  const pointSelectors = editor.locator(
-    ".solid-3d-points input[type='checkbox']",
-  );
-  await expect(pointSelectors).toHaveCount(3);
-  for (const selector of await pointSelectors.all()) {
-    if (!(await selector.isChecked())) await selector.check();
-  }
 
-  // Use the same cutting plane with an axis determined by two placed points.
+});
+
+test("rotates a plane about two selected 3D points with one undoable save", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const stage = await page.getByTestId("board-stage").boundingBox();
+  if (stage === null) throw new Error("Board stage is unavailable");
+  await page.getByRole("button", { name: "ИИ-инструменты" }).click();
+  await page.getByRole("menuitemradio", { name: "Построение по тексту" }).click();
+  await page.getByLabel("Текст построения").fill("куб");
+  await page.getByRole("button", { name: "Выбрать для размещения" }).click();
+  await page.mouse.click(
+    stage.x + stage.width * 0.58,
+    stage.y + stage.height * 0.42,
+  );
+  await page.getByRole("button", { name: "Открыть в 3D" }).click();
+  const editor = page.getByRole("region", { name: "Куб" });
+  await editor.getByRole("button", { name: "Учебная задача" }).click();
+  await editor
+    .getByRole("heading", { name: "Куб: движение точки" })
+    .locator("..")
+    .getByRole("button", { name: "Начать" })
+    .click();
+  await editor.getByRole("button", { name: "Свободное исследование" }).click();
+
   await editor.getByLabel("Вращать плоскость вокруг ребра").check();
   await editor.getByLabel("Тип оси вращения").selectOption("points");
   await editor.getByLabel("Первая точка оси").selectOption({ index: 1 });
   await editor.getByLabel("Вторая точка оси").selectOption({ index: 2 });
   await editor.getByRole("button", { name: "Изменить угол на +15°" }).click();
+  await expect(
+    editor.getByRole("slider", { name: "Угол поворота секущей плоскости" }),
+  ).toHaveValue("15");
   await expect(editor.getByText(/Вершин \\d+ · площадь \\d/)).toBeVisible();
+  const savedSections = editor.locator(".solid-3d-sections > li");
+  const previousCount = await savedSections.count();
+  const save = editor.getByRole("button", {
+    name: "Сохранить повёрнутое сечение",
+  });
   await expect(save).toBeEnabled();
   await save.click();
-  await expect(savedSections).toHaveCount(before + 1);
+  await expect(savedSections).toHaveCount(previousCount + 1);
   await editor.getByRole("button", { name: "Отменить" }).click();
-  await expect(savedSections).toHaveCount(before);
+  await expect(savedSections).toHaveCount(previousCount);
 });
