@@ -6,7 +6,7 @@ import type {
 import { resolveSolidDistanceEndpoint } from "./measurements";
 import { createSolidTopology } from "./topology";
 import {
-  add3, dot3, normalize3, planeFromThreePoints, scale3,
+  dot3, normalize3, planeFromThreePoints, scale3,
   signedDistanceToPlane, subtract3, type Vec3,
 } from "./vectors";
 
