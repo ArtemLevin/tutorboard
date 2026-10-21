@@ -220,6 +220,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const runtimeRef = useRef<{
     camera: THREE.Camera;
     active: boolean;
+    setCamera: (next: THREE.Camera) => void;
     controls: OrbitControls;
     mesh: THREE.Mesh;
     renderer: THREE.WebGLRenderer;
@@ -607,6 +608,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     renderer.domElement.addEventListener("pointerleave", pointerLeave);
     runtimeRef.current = {
       camera,
+      setCamera: (next) => {
+        camera = next;
+        dragScene.camera = next;
+      },
       active: true,
       controls,
       mesh: built.mesh,
@@ -677,6 +682,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     next.quaternion.copy(current.quaternion);
     next.updateMatrixWorld(true);
     runtime.camera = next;
+    runtime.setCamera(next);
     runtime.controls.object = next;
     rotationGizmoRef.current?.setCamera(next);
     runtime.controls.update();
