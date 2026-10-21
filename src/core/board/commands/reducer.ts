@@ -5,10 +5,8 @@ import { transformSolid3DSectionForProjection } from "../../solid-3d/model-trans
 import { resolveSolid3DPointPosition } from "../../solid-3d/point-resolution";
 import { intersectPolyhedronWithPlane } from "../../solid-3d/polyhedron-section";
 import { projectSolidPoint } from "../../solid-3d/projection";
-import {
-  createSolidTopology,
-  isConvexSolidTopology,
-} from "../../solid-3d/topology";
+import { isConvexSolidTopology } from "../../solid-3d/polyhedron-section";
+import { createSolidTopology } from "../../solid-3d/topology";
 import { planeFromThreePoints } from "../../solid-3d/vectors";
 import {
   applySolidLearningAction,
