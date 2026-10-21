@@ -4,7 +4,7 @@ import {
   type StylusEraserGesture,
 } from "../../../shared/stylus-eraser";
 
-import { isDrawingToolId } from "../../../modules/drawing/public";
+import { drawingTools, isDrawingToolId } from "../../../modules/drawing/public";
 import { eraserToolId } from "../../../modules/eraser/public";
 import { handwrittenFunctionToolId } from "../../../modules/handwritten-function/public";
 import {
@@ -63,6 +63,12 @@ export function useBoardInteractionRouter({
   const stylusEraserSessionRef = useRef<StylusEraserGesture | null>(null);
   const activate = useCallback(
     (tool: ActiveToolId) => {
+      if (
+        tool === "drawing.smart-ink" &&
+        !drawingTools.some(({ id }) => id === tool)
+      ) {
+        return;
+      }
       if (
         activeTool === handwrittenFunctionToolId &&
         tool !== handwrittenFunctionToolId &&
