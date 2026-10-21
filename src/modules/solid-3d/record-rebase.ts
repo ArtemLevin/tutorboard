@@ -117,11 +117,17 @@ export function rebaseSolid3DRecordUpdate(input: {
     current.angleMeasurements ?? [],
     replacement.angleMeasurements ?? [],
   );
+  const linePlaneChanges = mergeItems(
+    starting.linePlaneMeasurements ?? [],
+    current.linePlaneMeasurements ?? [],
+    replacement.linePlaneMeasurements ?? [],
+  );
   if (
     pointChanges === null ||
     sectionChanges === null ||
     measurementChanges === null ||
-    angleChanges === null
+    angleChanges === null ||
+    linePlaneChanges === null
   )
     return { status: "conflict" };
 
@@ -162,6 +168,11 @@ export function rebaseSolid3DRecordUpdate(input: {
     current.angleMeasurements !== undefined ||
     replacement.angleMeasurements !== undefined
       ? { angleMeasurements: angleChanges }
+      : {}),
+    ...(linePlaneChanges.length > 0 ||
+    current.linePlaneMeasurements !== undefined ||
+    replacement.linePlaneMeasurements !== undefined
+      ? { linePlaneMeasurements: linePlaneChanges }
       : {}),
     projection: projectionChanged ? replacement.projection : current.projection,
   };

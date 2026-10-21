@@ -13,6 +13,8 @@ import {
   isSolidSectionHelperPoint,
   calculateSolidDistance,
   calculateSolidLineAngle,
+  calculateSolidLinePlaneAngle,
+  saveSolidLinePlaneAngle,
   saveSolidLineAngle,
   resolveSolidDistanceEndpoint,
   type SolidAngleLine,
@@ -251,13 +253,20 @@ export function Solid3DEditorPanel({
   const [measureSelection, setMeasureSelection] = useState<
     readonly SolidDistanceEndpoint[]
   >([]);
-  const [measureTool, setMeasureTool] = useState<"distance" | "angle">(
-    "distance",
-  );
+  const [measureTool, setMeasureTool] = useState<
+    "distance" | "angle" | "line-plane"
+  >("distance");
   const [angleMethod, setAngleMethod] = useState<"edges" | "points">("edges");
   const [angleSelection, setAngleSelection] = useState<
     readonly SolidDistanceEndpoint[]
   >([]);
+  const [linePlaneMethod, setLinePlaneMethod] = useState<"edges" | "points">(
+    "edges",
+  );
+  const [linePlaneEndpoints, setLinePlaneEndpoints] = useState<
+    readonly SolidDistanceEndpoint[]
+  >([]);
+  const [linePlaneFace, setLinePlaneFace] = useState<string | null>(null);
   const [cameraMode, setCameraMode] = useState<"orthographic" | "perspective">(
     "orthographic",
   );
@@ -620,6 +629,70 @@ export function Solid3DEditorPanel({
     setAngleSelection([]);
   };
 
+  const validLinePlaneEndpoints = linePlaneEndpoints.filter(
+    (endpoint) =>
+      resolveSolidDistanceEndpoint(previewRecord, endpoint) !== null,
+  );
+  const linePlaneLine: SolidAngleLine | null =
+    validLinePlaneEndpoints.length === 2
+      ? [validLinePlaneEndpoints[0]!, validLinePlaneEndpoints[1]!]
+      : null;
+  const linePlanePreview =
+    linePlaneLine !== null && linePlaneFace !== null
+      ? calculateSolidLinePlaneAngle(
+          previewRecord,
+          linePlaneLine,
+          linePlaneFace,
+        )
+      : null;
+  const chooseLinePlanePoint = (endpoint: SolidDistanceEndpoint): void => {
+    if (linePlaneEndpoints.length >= 2) {
+      setLinePlaneEndpoints([endpoint]);
+      setLinePlaneFace(null);
+      return;
+    }
+    if (
+      linePlaneEndpoints.some(
+        (item) => item.id === endpoint.id && item.kind === endpoint.kind,
+      )
+    )
+      return;
+    setLinePlaneEndpoints([...linePlaneEndpoints, endpoint]);
+  };
+  const chooseLinePlaneEdge = (edgeId: string): void => {
+    const edge = createSolidTopology(record.definition)?.edges.find(
+      ({ id }) => id === edgeId,
+    );
+    if (edge === undefined) return;
+    setLinePlaneEndpoints([
+      { kind: "vertex", id: edge.startVertexId },
+      { kind: "vertex", id: edge.endVertexId },
+    ]);
+    setLinePlaneFace(null);
+  };
+  const chooseLinePlaneFace = (faceId: string): void => {
+    if (linePlaneLine !== null) setLinePlaneFace(faceId);
+  };
+  const saveLinePlane = (): void => {
+    if (
+      readOnly ||
+      linePlaneLine === null ||
+      linePlaneFace === null ||
+      linePlanePreview === null
+    )
+      return;
+    const next = saveSolidLinePlaneAngle(
+      record,
+      linePlaneLine,
+      linePlaneFace,
+      `solid-line-plane:${crypto.randomUUID()}`,
+    );
+    if (next === null) return;
+    onRecordChange(next);
+    setLinePlaneEndpoints([]);
+    setLinePlaneFace(null);
+  };
+
   const placePoint = useCallback(
     (position: Vec3, anchor: SolidPointAnchor) => {
       if (readOnly || record.points.length >= 32) return;
@@ -714,6 +787,12 @@ export function Solid3DEditorPanel({
           !(first.kind === "point" && first.id === point.id) &&
           !(second.kind === "point" && second.id === point.id),
       ),
+      linePlaneMeasurements: (replacement.linePlaneMeasurements ?? []).filter(
+        ({ line }) =>
+          line.every(
+            (endpoint) => endpoint.kind !== "point" || endpoint.id !== point.id,
+          ),
+      ),
       angleMeasurements: (replacement.angleMeasurements ?? []).filter(
         ({ lines }) =>
           lines.every((line) =>
@@ -724,6 +803,11 @@ export function Solid3DEditorPanel({
           ),
       ),
     };
+    setLinePlaneEndpoints((selected) =>
+      selected.filter(
+        (endpoint) => endpoint.kind !== "point" || endpoint.id !== point.id,
+      ),
+    );
     setAngleSelection((selected) =>
       selected.filter(
         (endpoint) => !(endpoint.kind === "point" && endpoint.id === point.id),
@@ -952,18 +1036,49 @@ export function Solid3DEditorPanel({
                 experience === "free" && workMode === "measure"
                   ? measureTool === "distance"
                     ? chooseMeasurementEndpoint
-                    : angleMethod === "points"
-                      ? chooseAnglePoint
-                      : undefined
+                    : measureTool === "angle"
+                      ? angleMethod === "points"
+                        ? chooseAnglePoint
+                        : undefined
+                      : linePlaneMethod === "points"
+                        ? chooseLinePlanePoint
+                        : undefined
                   : undefined
               }
               onAngleEdgePick={
+                (experience === "free" &&
+                  workMode === "measure" &&
+                  measureTool === "angle" &&
+                  angleMethod === "edges") ||
+                (measureTool === "line-plane" && linePlaneMethod === "edges")
+                  ? measureTool === "angle"
+                    ? chooseAngleEdge
+                    : chooseLinePlaneEdge
+                  : undefined
+              }
+              onFacePick={
                 experience === "free" &&
                 workMode === "measure" &&
-                measureTool === "angle" &&
-                angleMethod === "edges"
-                  ? chooseAngleEdge
+                measureTool === "line-plane" &&
+                linePlaneLine !== null
+                  ? chooseLinePlaneFace
                   : undefined
+              }
+              linePlaneSelectedLine={
+                experience === "free" &&
+                workMode === "measure" &&
+                measureTool === "line-plane"
+                  ? linePlaneLine
+                  : null
+              }
+              linePlanePreview={
+                experience === "free" &&
+                workMode === "measure" &&
+                measureTool === "line-plane" &&
+                linePlaneLine !== null &&
+                linePlaneFace !== null
+                  ? { line: linePlaneLine, faceId: linePlaneFace }
+                  : null
               }
               anglePreview={
                 experience === "free" &&
@@ -1018,18 +1133,28 @@ export function Solid3DEditorPanel({
                 <strong>
                   {measureTool === "distance"
                     ? `${measuredEndpoints.length} / 2`
-                    : angleMethod === "edges"
-                      ? `${Math.ceil(angleEndpoints.length / 2)} / 2`
-                      : `${angleEndpoints.length} / 4`}
+                    : measureTool === "line-plane"
+                      ? linePlaneLine === null
+                        ? `${validLinePlaneEndpoints.length} / 2`
+                        : `${linePlaneFace === null ? 1 : 2} / 2`
+                      : angleMethod === "edges"
+                        ? `${Math.ceil(angleEndpoints.length / 2)} / 2`
+                        : `${angleEndpoints.length} / 4`}
                 </strong>
                 <span>
-                  {measureTool === "distance"
-                    ? measurementPreview === null
-                      ? "Выберите два конца отрезка на модели"
-                      : `Расстояние: ${measurementPreview.toFixed(3)} ед.`
-                    : anglePreview === null
-                      ? "Укажите две прямые на модели"
-                      : `Угол между прямыми: ${anglePreview.degrees.toFixed(2)}°`}
+                  {measureTool === "line-plane"
+                    ? linePlanePreview === null
+                      ? linePlaneLine === null
+                        ? "Выберите прямую"
+                        : "Выберите грань"
+                      : `Угол прямой с плоскостью: ${linePlanePreview.degrees.toFixed(2)}°`
+                    : measureTool === "distance"
+                      ? measurementPreview === null
+                        ? "Выберите два конца отрезка на модели"
+                        : `Расстояние: ${measurementPreview.toFixed(3)} ед.`
+                      : anglePreview === null
+                        ? "Укажите две прямые на модели"
+                        : `Угол между прямыми: ${anglePreview.degrees.toFixed(2)}°`}
                 </span>
               </div>
             ) : experience === "free" && workMode === "section" ? (
@@ -1092,6 +1217,13 @@ export function Solid3DEditorPanel({
                     type="button"
                   >
                     Расстояние
+                  </button>
+                  <button
+                    aria-pressed={measureTool === "line-plane"}
+                    onClick={() => setMeasureTool("line-plane")}
+                    type="button"
+                  >
+                    Угол прямой с плоскостью
                   </button>
                   <button
                     aria-pressed={measureTool === "angle"}
@@ -1180,7 +1312,7 @@ export function Solid3DEditorPanel({
                       </ol>
                     ) : null}
                   </>
-                ) : (
+                ) : measureTool === "angle" ? (
                   <>
                     <h3>Угол между прямыми</h3>
                     <div
@@ -1281,6 +1413,135 @@ export function Solid3DEditorPanel({
                             </li>
                           );
                         })}
+                      </ol>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <h3>Угол между прямой и плоскостью</h3>
+                    <div
+                      className="solid-3d-measure-actions"
+                      aria-label="Способ выбора прямой"
+                    >
+                      <button
+                        type="button"
+                        aria-pressed={linePlaneMethod === "edges"}
+                        disabled={
+                          createSolidTopology(record.definition) === null
+                        }
+                        onClick={() => {
+                          setLinePlaneMethod("edges");
+                          setLinePlaneEndpoints([]);
+                          setLinePlaneFace(null);
+                        }}
+                      >
+                        По ребру
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={linePlaneMethod === "points"}
+                        onClick={() => {
+                          setLinePlaneMethod("points");
+                          setLinePlaneEndpoints([]);
+                          setLinePlaneFace(null);
+                        }}
+                      >
+                        По двум точкам
+                      </button>
+                    </div>
+                    <p>
+                      {createSolidTopology(record.definition) === null
+                        ? "Поддерживаются плоские грани многогранников."
+                        : linePlaneLine === null
+                          ? linePlaneMethod === "edges"
+                            ? "Щёлкните ребро, задающее прямую."
+                            : "Укажите две различные точки прямой."
+                          : "Щёлкните плоскую грань, задающую плоскость."}
+                    </p>
+                    <p aria-live="polite">
+                      {linePlanePreview === null
+                        ? linePlaneLine === null
+                          ? "Шаг 1 из 2: прямая"
+                          : "Шаг 2 из 2: плоскость"
+                        : `Меньший угол: ${linePlanePreview.degrees.toFixed(2)}°`}
+                    </p>
+                    <div className="solid-3d-measure-actions">
+                      <button
+                        type="button"
+                        disabled={
+                          readOnly ||
+                          linePlanePreview === null ||
+                          (record.linePlaneMeasurements?.length ?? 0) >= 12
+                        }
+                        onClick={saveLinePlane}
+                      >
+                        Сохранить угол прямой и плоскости
+                      </button>
+                      <button
+                        type="button"
+                        disabled={
+                          linePlaneEndpoints.length === 0 &&
+                          linePlaneFace === null
+                        }
+                        onClick={() => {
+                          setLinePlaneEndpoints([]);
+                          setLinePlaneFace(null);
+                        }}
+                      >
+                        Сбросить выбор прямой и плоскости
+                      </button>
+                    </div>
+                    {(record.linePlaneMeasurements ?? []).length > 0 && (
+                      <ol className="solid-3d-measure-list">
+                        {record.linePlaneMeasurements?.map(
+                          ({ id, line, faceId }) => {
+                            const result = calculateSolidLinePlaneAngle(
+                              previewRecord,
+                              line,
+                              faceId,
+                            );
+                            const topology = createSolidTopology(
+                              record.definition,
+                            );
+                            const faceName =
+                              topology?.faces
+                                .find((face) => face.id === faceId)
+                                ?.vertexIds.map(
+                                  (vertexId) =>
+                                    topology.vertices.find(
+                                      (vertex) => vertex.id === vertexId,
+                                    )?.label ?? vertexId,
+                                )
+                                .join("") ?? faceId;
+                            return (
+                              <li key={id}>
+                                <span>
+                                  {line.map(measurementEndpointLabel).join("–")}{" "}
+                                  / {faceName}
+                                  <strong>
+                                    {" "}
+                                    {result?.degrees.toFixed(2) ?? "—"}°
+                                  </strong>
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label={`Удалить угол прямой и плоскости ${id}`}
+                                  disabled={readOnly}
+                                  onClick={() =>
+                                    onRecordChange({
+                                      ...record,
+                                      linePlaneMeasurements: (
+                                        record.linePlaneMeasurements ?? []
+                                      ).filter((item) => item.id !== id),
+                                    })
+                                  }
+                                >
+                                  ×
+                                </button>
+                              </li>
+                            );
+                          },
+                        )}
                       </ol>
                     )}
                   </>
