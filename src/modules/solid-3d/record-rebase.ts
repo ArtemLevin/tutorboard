@@ -110,6 +110,22 @@ export function rebaseSolid3DRecordUpdate(input: {
   if (pointChanges === null || sectionChanges === null)
     return { status: "conflict" };
 
+  // An added or modified section was calculated from its source points.
+  // Recomputing it implicitly from concurrently moved points changes the
+  // teacher's intended plane, even if all IDs still resolve successfully.
+  for (const section of replacement.sections) {
+    const original = starting.sections.find(({ id }) => id === section.id);
+    if (equal(original, section)) continue;
+    if (
+      section.pointIds.some((id) => {
+        const initial = starting.points.find((point) => point.id === id);
+        const latest = current.points.find((point) => point.id === id);
+        return initial !== undefined && !equal(initial, latest);
+      })
+    )
+      return { status: "conflict" };
+  }
+
   const projectionChanged = !equal(starting.projection, replacement.projection);
   if (
     projectionChanged &&
