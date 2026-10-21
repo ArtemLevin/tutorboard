@@ -2,6 +2,7 @@ import { analyticSurfaceIds } from "./anchors";
 import type { Solid3DDefinition, Solid3DRecord } from "./definitions";
 import { createSolidTopology } from "./topology";
 import { resolveSolidDistanceEndpoint } from "./measurements";
+import { calculateSolidLineAngle } from "./line-angles";
 import { decodeTopologyFaceAnchorId } from "./topology-anchors";
 import { isFiniteVec3 } from "./vectors";
 
@@ -139,6 +140,7 @@ export function validateSolid3DRecord(
     record.points.length > 32 ||
     record.sections.length > 8 ||
     (record.measurements?.length ?? 0) > 16 ||
+    (record.angleMeasurements?.length ?? 0) > 12 ||
     record.boardObjectIds.length > 5_000
   )
     diagnostics.push({
@@ -160,6 +162,11 @@ export function validateSolid3DRecord(
           measurement.first.id === measurement.second.id) ||
         resolveSolidDistanceEndpoint(record, measurement.first) === null ||
         resolveSolidDistanceEndpoint(record, measurement.second) === null,
+    ) ||
+    new Set((record.angleMeasurements ?? []).map(({ id }) => id)).size !==
+      (record.angleMeasurements?.length ?? 0) ||
+    (record.angleMeasurements ?? []).some(
+      ({ lines }) => calculateSolidLineAngle(record, lines) === null,
     )
   )
     diagnostics.push({

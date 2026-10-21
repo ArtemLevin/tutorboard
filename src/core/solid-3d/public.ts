@@ -3,6 +3,7 @@ export * from "./analytic-section";
 export * from "./construction";
 export * from "./definitions";
 export * from "./measurements";
+export * from "./line-angles";
 export * from "./model-transform";
 export * from "./point-resolution";
 export * from "./polyhedron-section";

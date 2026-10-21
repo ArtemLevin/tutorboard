@@ -684,6 +684,15 @@ const solidDistanceMeasurementSchema = z
     second: solidDistanceEndpointSchema,
   })
   .strict();
+const solidAngleMeasurementSchema = z
+  .object({
+    id: identifierSchema,
+    lines: z.tuple([
+      z.tuple([solidDistanceEndpointSchema, solidDistanceEndpointSchema]),
+      z.tuple([solidDistanceEndpointSchema, solidDistanceEndpointSchema]),
+    ]),
+  })
+  .strict();
 const solidProjectionSchema = z
   .object({
     hiddenEdgePolicy: z.enum(["dashed", "hidden"]),
@@ -712,6 +721,7 @@ const solidSourceSchema = z.discriminatedUnion("kind", [
 ]);
 const solidRecordSchema = z
   .object({
+    angleMeasurements: z.array(solidAngleMeasurementSchema).max(12).optional(),
     boardObjectIds: z.array(boardObjectIdSchema).max(5_000),
     definition: solidDefinitionSchema,
     id: solid3DIdSchema,

@@ -2026,9 +2026,42 @@
       ],
       "type": "object"
     },
+    "SolidAngleMeasurement": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "lines": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/SolidDistanceEndpoint"
+            },
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "id",
+        "lines"
+      ],
+      "type": "object"
+    },
     "Solid3DRecord": {
       "additionalProperties": false,
       "properties": {
+        "angleMeasurements": {
+          "items": {
+            "$ref": "#/$defs/SolidAngleMeasurement"
+          },
+          "type": "array",
+          "maxItems": 12
+        },
         "boardObjectIds": {
           "items": {
             "$ref": "#/$defs/Identifier"
