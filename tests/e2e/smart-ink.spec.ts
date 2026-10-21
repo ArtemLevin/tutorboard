@@ -130,6 +130,7 @@ test("keeps unrecognized Smart Ink silently as the original stroke", async ({
   await page.mouse.up();
 
   await expect(page.getByText("drawing.pen-stroke")).toBeVisible();
+  await expect(page.getByTestId("history-depth")).toHaveText("1/0");
   await expect(
     page.getByText("Smart Ink: фигура не распознана, исходный штрих сохранён."),
   ).toHaveCount(0);

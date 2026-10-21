@@ -65,3 +65,11 @@ verify the approved enabled state and its frozen policy version.
 
 Rebuild or redeploy with `VITE_FEATURE_SMART_INK=false`. Stored documents require
 no migration because the flag controls tool registration only.
+
+## Enabled-mode regression gate
+
+The same workflow now also builds a test-stage bundle with
+`VITE_FEATURE_SMART_INK=true` and runs the main Smart Ink gesture suite in
+Chromium and Firefox. The disabled production bundle is verified first.
+The enabled suite guards auto-replacement, abstention, arrow and composite
+recognition, Undo/Redo, and transforms independently of the production flag.

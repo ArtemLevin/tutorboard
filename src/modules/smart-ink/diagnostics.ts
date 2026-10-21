@@ -1,4 +1,5 @@
 import type { BoardObjectKind, Vec2 } from "../../core/public";
+import type { SmartInkV2DecisionStatus } from "./v2/types";
 import type {
   SmartInkPrimitiveKind,
   SmartInkProposal,
@@ -22,6 +23,8 @@ export interface SmartInkDiagnosticRecord {
   readonly schemaVersion: typeof smartInkDiagnosticSchemaVersion;
   readonly selectedCandidateKind: SmartInkPrimitiveKind | "arrow" | null;
   readonly sourcePointCount: number;
+  /** V2 drives auto-correction; legacy recognizer remains for diagnostics. */
+  readonly v2Status?: SmartInkV2DecisionStatus;
 }
 
 type SmartInkDiagnosticListener = (record: SmartInkDiagnosticRecord) => void;

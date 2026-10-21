@@ -26,10 +26,16 @@ interface ActivePointer {
 }
 
 const statusLabels = {
+  accepted: "Распознано",
+  "ordinary-ink": "Обычный штрих",
   ambiguous: "Неоднозначно",
   recognized: "Распознано",
   unrecognized: "Не распознано",
 } as const;
+
+function recognitionStatusLabel(record: SmartInkDiagnosticRecord): string {
+  return statusLabels[record.v2Status ?? record.recognizer.status];
+}
 
 const reasonLabels: Readonly<
   Record<SmartInkDiagnosticRecord["reason"], string>
@@ -170,7 +176,7 @@ export function SmartInkDiagnosticsPanel() {
               <dl>
                 <div>
                   <dt>Результат</dt>
-                  <dd>{statusLabels[view.record.recognizer.status]}</dd>
+                  <dd>{recognitionStatusLabel(view.record)}</dd>
                 </div>
                 <div>
                   <dt>Выбрано</dt>
