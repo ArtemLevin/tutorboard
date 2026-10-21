@@ -85,6 +85,40 @@ function pairwiseKind(
   return selected;
 }
 
+// Once a geometric pair is resolved by aspect ratio, that known sibling
+// must not trigger a second ambiguity veto. Borderline ratios keep competing.
+function resolvedPairwiseRival(
+  selected: SmartInkV2ShapeKind,
+  rival: SmartInkV2ShapeKind,
+  proposal: ReturnType<typeof recognizeSmartInkStroke>,
+): boolean {
+  if (selected === "circle" && rival === "ellipse") {
+    const ratio = proposal.candidates.find(
+      ({ kind }) => kind === "ellipse",
+    )?.diagnostics.axisRatio;
+    return ratio !== undefined && ratio >= 0.78;
+  }
+  if (selected === "ellipse" && rival === "circle") {
+    const ratio = proposal.candidates.find(
+      ({ kind }) => kind === "ellipse",
+    )?.diagnostics.axisRatio;
+    return ratio !== undefined && ratio < 0.72;
+  }
+  if (selected === "square" && rival === "rectangle") {
+    const ratio = proposal.candidates.find(
+      ({ kind }) => kind === "square",
+    )?.diagnostics.aspectRatio;
+    return ratio !== undefined && ratio <= 1.22;
+  }
+  if (selected === "rectangle" && rival === "square") {
+    const ratio = proposal.candidates.find(
+      ({ kind }) => kind === "square",
+    )?.diagnostics.aspectRatio;
+    return ratio !== undefined && ratio >= 1.42;
+  }
+  return false;
+}
+
 export function recognizeSmartInkV2(
   stroke: PenStrokeObject,
   worldPoints: readonly Vec2[],
@@ -127,7 +161,10 @@ export function recognizeSmartInkV2(
       : primitiveCandidate(legacyProposal, selectedKind);
   const quality = candidate === null ? 0 : snapQuality(candidate);
   const competingShape = scores.find(
-    (score) => score.kind !== "ordinary-ink" && score.kind !== selectedKind,
+    (score) =>
+      score.kind !== "ordinary-ink" &&
+      score.kind !== selectedKind &&
+      !resolvedPairwiseRival(selectedKind, score.kind, legacyProposal),
   );
   const classThreshold = policy.classThresholds[selectedKind];
   const ordinaryWins =
