@@ -76,6 +76,19 @@ describe("Smart Ink 2.0", () => {
     expect(decision.candidate?.kind).toBe("square");
   });
 
+  it("accepts a near-square quadrilateral without a sibling ambiguity veto", () => {
+    const points = trace([
+      { x: 0, y: 0 },
+      { x: 130, y: 0 },
+      { x: 130, y: 100 },
+      { x: 0, y: 100 },
+      { x: 0, y: 0 },
+    ]);
+    const decision = recognizeSmartInkV2(stroke(points), points);
+    expect(decision.status).toBe("accepted");
+    expect(decision.candidate?.kind).toBe("rectangle");
+  });
+
   it("keeps metamorphic transforms deterministic", () => {
     const transformed = transformSmartInkMetamorphic(arrow, {
       rotation: Math.PI / 3,
