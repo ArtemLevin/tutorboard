@@ -62,7 +62,9 @@ export function saveSolidLineAngle(
   const existing = record.angleMeasurements ?? [];
   if (
     existing.length >= 12 ||
-    existing.some((item) => item.id === id || pairKey(item.lines) === pairKey(lines))
+    existing.some(
+      (item) => item.id === id || pairKey(item.lines) === pairKey(lines),
+    )
   )
     return null;
   const saved: SolidAngleMeasurement = { id, lines };

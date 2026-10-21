@@ -214,7 +214,10 @@ function builtHighlight(
   );
 }
 
-function angleLinesObject(result: SolidLineAngleResult, saved: boolean): THREE.Group {
+function angleLinesObject(
+  result: SolidLineAngleResult,
+  saved: boolean,
+): THREE.Group {
   const root = new THREE.Group();
   root.name = saved ? "solid-angle-saved" : "solid-angle-preview";
   const color = saved ? 0x0891b2 : 0xf59e0b;
@@ -225,8 +228,12 @@ function angleLinesObject(result: SolidLineAngleResult, saved: boolean): THREE.G
   const addLine = (points: readonly Vec3[], dashed: boolean): void => {
     const material = dashed
       ? new THREE.LineDashedMaterial({
-          color, dashSize: 0.12, gapSize: 0.08, depthTest: false,
-          transparent: true, opacity: 0.85,
+          color,
+          dashSize: 0.12,
+          gapSize: 0.08,
+          depthTest: false,
+          transparent: true,
+          opacity: 0.85,
         })
       : new THREE.LineBasicMaterial({ color, depthTest: false });
     const line = new THREE.Line(
@@ -249,7 +256,7 @@ function angleLinesObject(result: SolidLineAngleResult, saved: boolean): THREE.G
   addLine([origin, add(origin, u, 0.9)], true);
   addLine([origin, add(origin, v, 0.9)], true);
   if (result.degrees > 0.01) {
-    const theta = result.degrees * Math.PI / 180;
+    const theta = (result.degrees * Math.PI) / 180;
     const sinTheta = Math.sin(theta);
     const dot = u.x * v.x + u.y * v.y + u.z * v.z;
     const perpendicular = {
@@ -258,12 +265,16 @@ function angleLinesObject(result: SolidLineAngleResult, saved: boolean): THREE.G
       z: (v.z - u.z * dot) / sinTheta,
     };
     const arc = Array.from({ length: 25 }, (_, index) => {
-      const t = theta * index / 24;
-      return add(origin, {
-        x: u.x * Math.cos(t) + perpendicular.x * Math.sin(t),
-        y: u.y * Math.cos(t) + perpendicular.y * Math.sin(t),
-        z: u.z * Math.cos(t) + perpendicular.z * Math.sin(t),
-      }, 0.48);
+      const t = (theta * index) / 24;
+      return add(
+        origin,
+        {
+          x: u.x * Math.cos(t) + perpendicular.x * Math.sin(t),
+          y: u.y * Math.cos(t) + perpendicular.y * Math.sin(t),
+          z: u.z * Math.cos(t) + perpendicular.z * Math.sin(t),
+        },
+        0.48,
+      );
     });
     addLine(arc, false);
   }
@@ -585,8 +596,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         raycaster.setFromCamera(pointer, camera);
         raycaster.params.Line = { threshold: 0.15 };
         const semantic = built.root.getObjectByName("solid-semantic-elements");
-        const candidates = semantic?.children.filter((object) =>
-          object.userData.semanticKind === "edge") ?? [];
+        const candidates =
+          semantic?.children.filter(
+            (object) => object.userData.semanticKind === "edge",
+          ) ?? [];
         const hit = raycaster.intersectObjects(candidates, false)[0];
         const id: unknown = hit?.object.userData.semanticId;
         if (typeof id === "string") onAngleEdgePickRef.current(id);

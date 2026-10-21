@@ -490,10 +490,13 @@ const solidDistanceMeasurement = strictObject({
 });
 const solidAngleMeasurement = strictObject({
   id: reference("Identifier"),
-  lines: array(array(reference("SolidDistanceEndpoint"), { minItems: 2, maxItems: 2 }), {
-    minItems: 2,
-    maxItems: 2,
-  }),
+  lines: array(
+    array(reference("SolidDistanceEndpoint"), { minItems: 2, maxItems: 2 }),
+    {
+      minItems: 2,
+      maxItems: 2,
+    },
+  ),
 });
 const solidSection = strictObject({
   algorithmVersion: {
@@ -528,7 +531,9 @@ const solidSource = {
 };
 const solid3DRecord = strictObject(
   {
-    angleMeasurements: array(reference("SolidAngleMeasurement"), { maxItems: 12 }),
+    angleMeasurements: array(reference("SolidAngleMeasurement"), {
+      maxItems: 12,
+    }),
     boardObjectIds: array(reference("Identifier"), { maxItems: 5_000 }),
     definition: reference("Solid3DDefinition"),
     id: reference("Identifier"),

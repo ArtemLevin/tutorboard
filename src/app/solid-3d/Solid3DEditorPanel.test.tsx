@@ -33,12 +33,12 @@ vi.mock("../../adapters/solid-3d-three/public", () => ({
       data-measure-preview={String(props.measurementPreview != null)}
       data-angle-preview={String(props.anglePreview != null)}
     >
-      <button type="button" onClick={() =>
-        props.onAngleEdgePick?.("edge:0:1")
-      }>Выбрать первое ребро</button>
-      <button type="button" onClick={() =>
-        props.onAngleEdgePick?.("edge:0:3")
-      }>Выбрать второе ребро</button>
+      <button type="button" onClick={() => props.onAngleEdgePick?.("edge:0:1")}>
+        Выбрать первое ребро
+      </button>
+      <button type="button" onClick={() => props.onAngleEdgePick?.("edge:0:3")}>
+        Выбрать второе ребро
+      </button>
       <button
         onClick={() =>
           props.onMeasurementPick?.({ kind: "vertex", id: "vertex:0" })
@@ -254,11 +254,18 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     const viewport = screen.getByTestId("mock-3d-viewport");
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
     fireEvent.click(screen.getByRole("button", { name: "Угол между прямыми" }));
-    expect(screen.getByRole("button", { name: "По рёбрам" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "По рёбрам" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(viewport).toHaveAttribute("data-angle-preview", "false");
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать первое ребро" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать первое ребро" }),
+    );
     expect(screen.getByText("Выбрано прямых: 1 из 2")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать второе ребро" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать второе ребро" }),
+    );
     expect(viewport).toHaveAttribute("data-angle-preview", "true");
     expect(screen.getByText(/Меньший угол:/)).toHaveTextContent("90.00°");
     fireEvent.click(screen.getByRole("button", { name: "Сохранить угол" }));
@@ -272,13 +279,21 @@ describe("Solid3DEditorPanel embedded workspace", () => {
   it("switches to point-pair selection and protects saved angles in read-only mode", () => {
     const initialRecord: Solid3DRecord = {
       ...record,
-      angleMeasurements: [{
-        id: "solid-angle:read-only",
-        lines: [
-          [{ kind: "vertex", id: "vertex:0" }, { kind: "vertex", id: "vertex:1" }],
-          [{ kind: "vertex", id: "vertex:0" }, { kind: "vertex", id: "vertex:3" }],
-        ],
-      }],
+      angleMeasurements: [
+        {
+          id: "solid-angle:read-only",
+          lines: [
+            [
+              { kind: "vertex", id: "vertex:0" },
+              { kind: "vertex", id: "vertex:1" },
+            ],
+            [
+              { kind: "vertex", id: "vertex:0" },
+              { kind: "vertex", id: "vertex:3" },
+            ],
+          ],
+        },
+      ],
     };
     const onRecordChange = vi.fn();
     renderPanel({ initialRecord, readOnly: true, onRecordChange });
@@ -286,9 +301,17 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Угол между прямыми" }));
     expect(screen.getByText(/90.00°/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "По четырём точкам" }));
-    expect(screen.getByRole("button", { name: "По четырём точкам" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Сохранить угол" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Удалить угол solid-angle:read-only" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "По четырём точкам" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Сохранить угол" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Удалить угол solid-angle:read-only",
+      }),
+    ).toBeDisabled();
     expect(onRecordChange).not.toHaveBeenCalled();
   });
 

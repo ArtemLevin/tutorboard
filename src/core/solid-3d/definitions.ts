@@ -144,7 +144,10 @@ export interface SolidDistanceMeasurement {
 }
 
 /** Two directed points define an infinite, unoriented 3D line. */
-export type SolidAngleLine = readonly [SolidDistanceEndpoint, SolidDistanceEndpoint];
+export type SolidAngleLine = readonly [
+  SolidDistanceEndpoint,
+  SolidDistanceEndpoint,
+];
 
 export interface SolidAngleMeasurement {
   readonly id: string;
