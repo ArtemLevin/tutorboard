@@ -46,12 +46,21 @@ export function saveSolidDistance(
   if (first.kind === second.kind && first.id === second.id) return null;
   if (calculateSolidDistance(record, first, second) === null) return null;
   const measurements = record.measurements ?? [];
-  if (measurements.length >= 16 || measurements.some(
-    (item) => (item.first.kind === first.kind && item.first.id === first.id &&
-       item.second.kind === second.kind && item.second.id === second.id) ||
-      (item.first.kind === second.kind && item.first.id === second.id &&
-       item.second.kind === first.kind && item.second.id === first.id),
-  )) return null;
+  if (
+    measurements.length >= 16 ||
+    measurements.some(
+      (item) =>
+        (item.first.kind === first.kind &&
+          item.first.id === first.id &&
+          item.second.kind === second.kind &&
+          item.second.id === second.id) ||
+        (item.first.kind === second.kind &&
+          item.first.id === second.id &&
+          item.second.kind === first.kind &&
+          item.second.id === first.id),
+    )
+  )
+    return null;
   const measurement: SolidDistanceMeasurement = { id, first, second };
   return { ...record, measurements: [...measurements, measurement] };
 }

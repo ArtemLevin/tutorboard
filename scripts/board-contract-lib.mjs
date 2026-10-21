@@ -519,18 +519,33 @@ const solidSource = {
     }),
   ],
 };
-const solid3DRecord = strictObject({
-  boardObjectIds: array(reference("Identifier"), { maxItems: 5_000 }),
-  definition: reference("Solid3DDefinition"),
-  id: reference("Identifier"),
-  measurements: array(reference("SolidDistanceMeasurement"), { maxItems: 16 }),
-  points: array(reference("Solid3DPoint"), { maxItems: 32 }),
-  projection: reference("Solid3DBoardProjection"),
-  rootGroupId: reference("Identifier"),
-  schemaVersion: { const: "1.0" },
-  sections: array(reference("Solid3DSectionDefinition"), { maxItems: 8 }),
-  source: reference("Solid3DSource"),
-}, ["boardObjectIds", "definition", "id", "points", "projection", "rootGroupId", "schemaVersion", "sections", "source"]);
+const solid3DRecord = strictObject(
+  {
+    boardObjectIds: array(reference("Identifier"), { maxItems: 5_000 }),
+    definition: reference("Solid3DDefinition"),
+    id: reference("Identifier"),
+    measurements: array(reference("SolidDistanceMeasurement"), {
+      maxItems: 16,
+    }),
+    points: array(reference("Solid3DPoint"), { maxItems: 32 }),
+    projection: reference("Solid3DBoardProjection"),
+    rootGroupId: reference("Identifier"),
+    schemaVersion: { const: "1.0" },
+    sections: array(reference("Solid3DSectionDefinition"), { maxItems: 8 }),
+    source: reference("Solid3DSource"),
+  },
+  [
+    "boardObjectIds",
+    "definition",
+    "id",
+    "points",
+    "projection",
+    "rootGroupId",
+    "schemaVersion",
+    "sections",
+    "source",
+  ],
+);
 const solidElementRef = {
   oneOf: ["vertex", "edge", "face", "point", "section-segment"].map((kind) =>
     strictObject({ id: reference("Identifier"), kind: { const: kind } }),

@@ -39,7 +39,8 @@ export interface Solid3DViewportProps {
   readonly mode: "points" | "view";
   readonly onPointPlace: (position: Vec3, anchor: SolidPointAnchor) => void;
   readonly onMeasurementPick?: (endpoint: SolidDistanceEndpoint) => void;
-  readonly measurementPreview?: readonly [SolidDistanceEndpoint, SolidDistanceEndpoint] | null;
+  readonly measurementPreview?:
+    readonly [SolidDistanceEndpoint, SolidDistanceEndpoint] | null;
   readonly onPointDragStart?: (pointId: string) => void;
   readonly onPointDragPreview?: (
     pointId: string,
@@ -521,10 +522,12 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         const semantic = built.root.getObjectByName("solid-semantic-elements");
         const overlays = built.root.getObjectByName("solid-overlays");
         const candidates = [
-          ...(semantic?.children.filter((object) =>
-            object.userData.semanticKind === "vertex") ?? []),
-          ...(overlays?.children.filter((object) =>
-            object.userData.semanticKind === "point") ?? []),
+          ...(semantic?.children.filter(
+            (object) => object.userData.semanticKind === "vertex",
+          ) ?? []),
+          ...(overlays?.children.filter(
+            (object) => object.userData.semanticKind === "point",
+          ) ?? []),
         ];
         const hit = raycaster.intersectObjects(candidates, false)[0];
         const kind = hit?.object.userData.semanticKind;
@@ -533,7 +536,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
           onMeasurementPickRef.current({ kind: "vertex", id });
         else if (kind === "point" && typeof id === "string")
           onMeasurementPickRef.current({
-            kind: "point", id: solidPointId(id),
+            kind: "point",
+            id: solidPointId(id),
           });
         return;
       }
@@ -836,14 +840,20 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     }
     const measured = [
       ...(record.measurements ?? []).map((item) => ({
-        first: item.first, second: item.second, saved: true,
+        first: item.first,
+        second: item.second,
+        saved: true,
       })),
       ...(props.measurementPreview === undefined ||
-      props.measurementPreview === null ? [] : [{
-        first: props.measurementPreview[0],
-        second: props.measurementPreview[1],
-        saved: false,
-      }]),
+      props.measurementPreview === null
+        ? []
+        : [
+            {
+              first: props.measurementPreview[0],
+              second: props.measurementPreview[1],
+              saved: false,
+            },
+          ]),
     ];
     for (const { first, second, saved } of measured) {
       const from = resolveSolidDistanceEndpoint(record, first);

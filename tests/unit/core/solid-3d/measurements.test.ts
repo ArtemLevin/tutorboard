@@ -46,11 +46,25 @@ describe("semantic 3D point distance measurements", () => {
     const record = cube();
     const topology = createSolidTopology(record.definition)!;
     const edge = topology.edges[0]!;
-    const first: SolidDistanceEndpoint = { kind: "vertex", id: edge.startVertexId };
-    const second: SolidDistanceEndpoint = { kind: "vertex", id: edge.endVertexId };
-    const saved = saveSolidDistance(record, first, second, "solid-distance:edge")!;
+    const first: SolidDistanceEndpoint = {
+      kind: "vertex",
+      id: edge.startVertexId,
+    };
+    const second: SolidDistanceEndpoint = {
+      kind: "vertex",
+      id: edge.endVertexId,
+    };
+    const saved = saveSolidDistance(
+      record,
+      first,
+      second,
+      "solid-distance:edge",
+    )!;
     expect(calculateSolidDistance(saved, first, second)).toBeCloseTo(2);
-    const resized = reprojectSolid3DRecord(saved, { kind: "cube", edgeLength: 5 });
+    const resized = reprojectSolid3DRecord(saved, {
+      kind: "cube",
+      edgeLength: 5,
+    });
     expect(calculateSolidDistance(resized, first, second)).toBeCloseTo(5);
     expect(resized.measurements).toEqual(saved.measurements);
     expect(validateSolid3DRecord(resized)).toEqual([]);
@@ -64,21 +78,35 @@ describe("semantic 3D point distance measurements", () => {
     const record: Solid3DRecord = {
       ...starting,
       points: [
-        { id: solidPointId("solid-point:measurement"), anchor: { kind: "vertex", vertexId: p.id }, position: p.position, label: "M" },
+        {
+          id: solidPointId("solid-point:measurement"),
+          anchor: { kind: "vertex", vertexId: p.id },
+          position: p.position,
+          label: "M",
+        },
       ],
     };
-    const first: SolidDistanceEndpoint = { kind: "point", id: record.points[0]!.id };
+    const first: SolidDistanceEndpoint = {
+      kind: "point",
+      id: record.points[0]!.id,
+    };
     const second: SolidDistanceEndpoint = { kind: "vertex", id: q.id };
     const saved = saveSolidDistance(record, first, second, "solid-distance:m")!;
     expect(calculateSolidDistance(saved, first, second)).toBeCloseTo(2);
-    expect(saveSolidDistance(saved, second, first, "solid-distance:duplicate")).toBeNull();
-    expect(saveSolidDistance(saved, first, first, "solid-distance:same")).toBeNull();
-    expect(validateSolid3DRecord({ ...saved, points: [] }).map(({ code }) => code)).toContain(
-      "solid.invalid-reference",
-    );
+    expect(
+      saveSolidDistance(saved, second, first, "solid-distance:duplicate"),
+    ).toBeNull();
+    expect(
+      saveSolidDistance(saved, first, first, "solid-distance:same"),
+    ).toBeNull();
+    expect(
+      validateSolid3DRecord({ ...saved, points: [] }).map(({ code }) => code),
+    ).toContain("solid.invalid-reference");
     const moved: Solid3DRecord = {
       ...saved,
-      points: [{ ...saved.points[0]!, anchor: { kind: "vertex", vertexId: q.id } }],
+      points: [
+        { ...saved.points[0]!, anchor: { kind: "vertex", vertexId: q.id } },
+      ],
     };
     expect(calculateSolidDistance(moved, first, second)).toBe(0);
   });
@@ -123,7 +151,9 @@ describe("semantic 3D point distance measurements", () => {
         },
       },
       order: [objectId],
-      solidModels: { [measured.id]: { ...measured, boardObjectIds: [objectId] } },
+      solidModels: {
+        [measured.id]: { ...measured, boardObjectIds: [objectId] },
+      },
     };
     const serialized = serializeBoardDocument(doc);
     expect(serialized.ok).toBe(true);
@@ -131,21 +161,36 @@ describe("semantic 3D point distance measurements", () => {
     const restored = deserializeBoardDocument(serialized.json);
     expect(restored.status).toBe("ok");
     if (restored.status !== "ok") return;
-    expect(restored.document.solidModels[measured.id]?.measurements).toEqual(measured.measurements);
+    expect(restored.document.solidModels[measured.id]?.measurements).toEqual(
+      measured.measurements,
+    );
     expect(validateSolid3DRecord(cube())).toEqual([]);
   });
 
   it("merges independent distance additions while retaining remote points", () => {
     const starting = cube();
-    const remote = saveSolidDistance(starting, vertex(0), vertex(1), "solid-distance:remote")!;
-    const local = saveSolidDistance(starting, vertex(2), vertex(3), "solid-distance:local")!;
+    const remote = saveSolidDistance(
+      starting,
+      vertex(0),
+      vertex(1),
+      "solid-distance:remote",
+    )!;
+    const local = saveSolidDistance(
+      starting,
+      vertex(2),
+      vertex(3),
+      "solid-distance:local",
+    )!;
     const merged = rebaseSolid3DRecordUpdate({
-      starting, current: remote, replacement: local,
+      starting,
+      current: remote,
+      replacement: local,
     });
     expect(merged.status).toBe("ok");
     if (merged.status === "ok") {
       expect(merged.record.measurements?.map(({ id }) => id)).toEqual([
-        "solid-distance:remote", "solid-distance:local",
+        "solid-distance:remote",
+        "solid-distance:local",
       ]);
     }
   });
@@ -156,12 +201,14 @@ describe("semantic 3D point distance measurements", () => {
     const firstPoint = topology.vertices[0]!;
     const record: Solid3DRecord = {
       ...starting,
-      points: [{
-        id: solidPointId("solid-point:dependent"),
-        label: "A",
-        anchor: { kind: "vertex", vertexId: firstPoint.id },
-        position: firstPoint.position,
-      }],
+      points: [
+        {
+          id: solidPointId("solid-point:dependent"),
+          label: "A",
+          anchor: { kind: "vertex", vertexId: firstPoint.id },
+          position: firstPoint.position,
+        },
+      ],
     };
     const local = saveSolidDistance(
       record,
@@ -169,10 +216,12 @@ describe("semantic 3D point distance measurements", () => {
       vertex(2),
       "solid-distance:local",
     )!;
-    expect(rebaseSolid3DRecordUpdate({
-      starting: record,
-      current: { ...record, points: [] },
-      replacement: local,
-    }).status).toBe("conflict");
+    expect(
+      rebaseSolid3DRecordUpdate({
+        starting: record,
+        current: { ...record, points: [] },
+        replacement: local,
+      }).status,
+    ).toBe("conflict");
   });
 });

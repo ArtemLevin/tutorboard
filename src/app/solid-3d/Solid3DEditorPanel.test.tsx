@@ -31,13 +31,21 @@ vi.mock("../../adapters/solid-3d-three/public", () => ({
       data-measure-preview={String(props.measurementPreview != null)}
     >
       <button
-        onClick={() => props.onMeasurementPick?.({ kind: "vertex", id: "vertex:0" })}
+        onClick={() =>
+          props.onMeasurementPick?.({ kind: "vertex", id: "vertex:0" })
+        }
         type="button"
-      >Выбрать начало на модели</button>
+      >
+        Выбрать начало на модели
+      </button>
       <button
-        onClick={() => props.onMeasurementPick?.({ kind: "vertex", id: "vertex:1" })}
+        onClick={() =>
+          props.onMeasurementPick?.({ kind: "vertex", id: "vertex:1" })
+        }
         type="button"
-      >Выбрать конец на модели</button>
+      >
+        Выбрать конец на модели
+      </button>
     </div>
   ),
 }));
@@ -181,15 +189,22 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     const viewport = screen.getByTestId("mock-3d-viewport");
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
     expect(screen.getByRole("button", { name: "Измерить" })).toHaveAttribute(
-      "aria-pressed", "true",
+      "aria-pressed",
+      "true",
     );
     expect(viewport).toHaveAttribute("data-measure-preview", "false");
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать начало на модели" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать начало на модели" }),
+    );
     expect(screen.getByText("Выберите вторую точку")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать конец на модели" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать конец на модели" }),
+    );
     expect(viewport).toHaveAttribute("data-measure-preview", "true");
     expect(screen.getByText(/Длина:/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить измерение" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Сохранить измерение" }),
+    );
     expect(onRecordChange).toHaveBeenCalledOnce();
     const saved = onRecordChange.mock.calls[0]?.[0] as Solid3DRecord;
     expect(saved.measurements).toHaveLength(1);
@@ -201,19 +216,25 @@ describe("Solid3DEditorPanel embedded workspace", () => {
   it("shows saved distances and does not allow read-only changes", () => {
     const measured: Solid3DRecord = {
       ...record,
-      measurements: [{
-        id: "solid-distance:existing",
-        first: { kind: "vertex", id: "vertex:0" },
-        second: { kind: "vertex", id: "vertex:1" },
-      }],
+      measurements: [
+        {
+          id: "solid-distance:existing",
+          first: { kind: "vertex", id: "vertex:0" },
+          second: { kind: "vertex", id: "vertex:1" },
+        },
+      ],
     };
     const onRecordChange = vi.fn();
     renderPanel({ initialRecord: measured, readOnly: true, onRecordChange });
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
     expect(screen.getByText(/ед\./)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Сохранить измерение" })).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Удалить измерение solid-distance:existing" }),
+      screen.getByRole("button", { name: "Сохранить измерение" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Удалить измерение solid-distance:existing",
+      }),
     ).toBeDisabled();
     expect(onRecordChange).not.toHaveBeenCalled();
   });

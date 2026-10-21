@@ -156,8 +156,8 @@ export function validateSolid3DRecord(
       (record.measurements?.length ?? 0) ||
     (record.measurements ?? []).some(
       (measurement) =>
-        measurement.first.kind === measurement.second.kind &&
-        measurement.first.id === measurement.second.id ||
+        (measurement.first.kind === measurement.second.kind &&
+          measurement.first.id === measurement.second.id) ||
         resolveSolidDistanceEndpoint(record, measurement.first) === null ||
         resolveSolidDistanceEndpoint(record, measurement.second) === null,
     )
