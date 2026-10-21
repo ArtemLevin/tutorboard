@@ -834,7 +834,11 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         return;
       }
       onSurfaceHoverRef.current?.(null);
-      const hit = raycaster.intersectObjects(built.root.children, true)[0];
+      // Hover-only highlights must not intercept the semantic raycast.
+      const hit = raycaster.intersectObjects(
+        built.root.children.filter((child) => child.name !== "solid-hover-overlays"),
+        true,
+      )[0];
       if (hit === undefined) {
         onElementHoverRef.current?.(null);
         return;
@@ -1047,22 +1051,6 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       marker.userData = { semanticKind: "point", semanticId: point.id };
       overlays.add(marker);
     }
-    const highlighted = highlightedElement;
-    if (highlighted !== null && highlighted !== undefined) {
-      const highlight = builtHighlight(record, highlighted);
-      if (highlight !== null) overlays.add(highlight);
-      if (highlighted.kind === "face") {
-        const faceIds = runtime.mesh.userData.semanticFaceIds as
-          readonly string[] | undefined;
-        if (faceIds !== undefined) {
-          const faceFill = triangleHighlight(
-            runtime.mesh.geometry,
-            faceIds.map((id) => id === highlighted.id),
-          );
-          if (faceFill !== null) overlays.add(faceFill);
-        }
-      }
-    }
     if (
       props.dihedralSelectedFaces !== undefined &&
       props.dihedralSelectedFaces.length > 0
@@ -1078,13 +1066,6 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         );
         if (faceFill !== null) overlays.add(faceFill);
       }
-    }
-    if (highlightedSurfaceId !== null && highlightedSurfaceId !== undefined) {
-      const surfaceFill = triangleHighlight(
-        runtime.mesh.geometry,
-        runtime.semanticSurfaceFaceIds.map((id) => id === highlightedSurfaceId),
-      );
-      if (surfaceFill !== null) overlays.add(surfaceFill);
     }
     if (section !== null)
       overlays.add(sectionObject(section, showSectionFill, showSectionOutline));
@@ -1218,8 +1199,6 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     section,
     showSectionFill,
     showSectionOutline,
-    highlightedElement,
-    highlightedSurfaceId,
     props.rotationAxis,
     props.measurementPreview,
     props.anglePreview,
@@ -1228,6 +1207,47 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     props.dihedralSelectedFaces,
     props.dihedralPreview,
   ]);
+
+  // Pointer hover only touches this lightweight overlay. Persistent point,
+  // measurement, section, and construction meshes retain their GPU allocations.
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (runtime === null) return;
+    const previous = runtime.root.getObjectByName("solid-hover-overlays");
+    if (previous !== undefined) {
+      runtime.root.remove(previous);
+      disposeSolidScene(previous);
+    }
+    if (highlightedElement !== null && highlightedElement !== undefined ||
+        highlightedSurfaceId !== null && highlightedSurfaceId !== undefined) {
+      const hover = new THREE.Group();
+      hover.name = "solid-hover-overlays";
+      if (highlightedElement !== null && highlightedElement !== undefined) {
+        const highlight = builtHighlight(record, highlightedElement);
+        if (highlight !== null) hover.add(highlight);
+        if (highlightedElement.kind === "face") {
+          const faceIds = runtime.mesh.userData.semanticFaceIds as
+            readonly string[] | undefined;
+          if (faceIds !== undefined) {
+            const faceFill = triangleHighlight(
+              runtime.mesh.geometry,
+              faceIds.map((id) => id === highlightedElement.id),
+            );
+            if (faceFill !== null) hover.add(faceFill);
+          }
+        }
+      }
+      if (highlightedSurfaceId !== null && highlightedSurfaceId !== undefined) {
+        const surfaceFill = triangleHighlight(
+          runtime.mesh.geometry,
+          runtime.semanticSurfaceFaceIds.map((id) => id === highlightedSurfaceId),
+        );
+        if (surfaceFill !== null) hover.add(surfaceFill);
+      }
+      runtime.root.add(hover);
+    }
+    if (runtime.active) runtime.renderer.render(runtime.scene, runtime.camera);
+  }, [record, highlightedElement, highlightedSurfaceId]);
 
   return (
     <div className="solid-3d-viewport-frame">

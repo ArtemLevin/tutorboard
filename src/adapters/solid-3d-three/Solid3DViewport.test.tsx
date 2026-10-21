@@ -10,6 +10,7 @@ const rendererLifecycle = vi.hoisted(() => ({
   contextsLost: 0,
   gizmoVisible: null as boolean | null,
   axisVisible: false,
+  lastScene: null as THREE.Scene | null,
 }));
 
 vi.mock("three", async () => {
@@ -34,9 +35,8 @@ vi.mock("three", async () => {
       rendererLifecycle.contextsLost += 1;
     }
 
-    render(scene: {
-      getObjectByName(name: string): { visible: boolean } | undefined;
-    }): void {
+    render(scene: THREE.Scene): void {
+      rendererLifecycle.lastScene = scene;
       rendererLifecycle.renderCalls += 1;
       rendererLifecycle.gizmoVisible =
         scene.getObjectByName("solid-rotation-gizmo")?.visible ?? null;
@@ -54,6 +54,7 @@ vi.mock("three", async () => {
 import {
   defaultSolidProjection,
   solid3DId,
+  solidPointId,
   type Solid3DRecord,
 } from "../../core/public";
 import { Solid3DViewport } from "./Solid3DViewport";
@@ -91,6 +92,7 @@ afterEach(() => {
   rendererLifecycle.contextsLost = 0;
   rendererLifecycle.gizmoVisible = null;
   rendererLifecycle.axisVisible = false;
+  rendererLifecycle.lastScene = null;
 });
 
 describe("Solid3DViewport WebGL lifecycle", () => {
@@ -303,6 +305,59 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     view.unmount();
     expect(rendererLifecycle.disposed).toBe(1);
     expect(rendererLifecycle.contextsLost).toBe(1);
+  });
+
+  it("keeps persistent GPU overlay objects while hovering between vertices", () => {
+    const point = {
+      anchor: { kind: "vertex" as const, vertexId: "vertex:0" },
+      id: solidPointId("solid-point:hover-stable"),
+      label: "P",
+      position: { x: -1, y: -1, z: -1 },
+    };
+    const base = { ...record(), points: [point] };
+    const props = {
+      cameraMode: "orthographic" as const,
+      mode: "view" as const,
+      onPointPlace: vi.fn(),
+      resetToken: 0,
+      section: null,
+      showSectionFill: false,
+      showSectionOutline: false,
+    };
+    const view = render(<Solid3DViewport {...props} record={base} />);
+    const persistent = rendererLifecycle.lastScene?.getObjectByName("solid-overlays");
+    const pointMesh = persistent?.children.find(
+      (object) => object.userData.semanticKind === "point",
+    );
+    expect(pointMesh).toBeDefined();
+    const markerGeometry = (pointMesh as THREE.Mesh).geometry;
+    const dispose = vi.spyOn(markerGeometry, "dispose");
+    try {
+      for (const vertexId of ["vertex:0", "vertex:1", "vertex:2"]) {
+        view.rerender(
+          <Solid3DViewport
+            {...props}
+            record={base}
+            highlightedElement={{ kind: "vertex", id: vertexId }}
+          />,
+        );
+        expect(rendererLifecycle.lastScene?.getObjectByName("solid-overlays"))
+          .toBe(persistent);
+        expect(persistent?.children[0]).toBe(pointMesh);
+        expect(rendererLifecycle.lastScene?.getObjectByName("solid-hover-overlays"))
+          .toBeDefined();
+        expect(dispose).not.toHaveBeenCalled();
+      }
+      view.rerender(<Solid3DViewport {...props} record={base} highlightedElement={null} />);
+      expect(rendererLifecycle.lastScene?.getObjectByName("solid-hover-overlays"))
+        .toBeUndefined();
+      expect(dispose).not.toHaveBeenCalled();
+      expect(rendererLifecycle.created).toBe(1);
+    } finally {
+      view.unmount();
+      expect(dispose).toHaveBeenCalledOnce();
+      dispose.mockRestore();
+    }
   });
 
   it("disposes GPU objects, controls and context across repeated openings", () => {
