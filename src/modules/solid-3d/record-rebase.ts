@@ -1,7 +1,4 @@
-import {
-  validateSolid3DRecord,
-  type Solid3DRecord,
-} from "../../core/public";
+import { validateSolid3DRecord, type Solid3DRecord } from "../../core/public";
 
 type Identified = { readonly id: string };
 
@@ -49,10 +46,13 @@ function mergeItems<T extends Identified>(
   }
 
   const merged = current
-    .filter((item) => !changes.has(item.id) || changes.get(item.id) !== undefined)
+    .filter(
+      (item) => !changes.has(item.id) || changes.get(item.id) !== undefined,
+    )
     .map((item) => changes.get(item.id) ?? item);
   for (const item of replacement) {
-    if (!latest.has(item.id) && changes.get(item.id) === item) merged.push(item);
+    if (!latest.has(item.id) && changes.get(item.id) === item)
+      merged.push(item);
   }
   return merged;
 }
@@ -140,8 +140,7 @@ export function rebaseSolid3DRecordUpdate(input: {
     sections: sectionChanges,
     projection: projectionChanged ? replacement.projection : current.projection,
   };
-  if (validateSolid3DRecord(merged).length > 0)
-    return { status: "conflict" };
+  if (validateSolid3DRecord(merged).length > 0) return { status: "conflict" };
   return equal(current, merged)
     ? { status: "unchanged" }
     : { status: "ok", record: merged };

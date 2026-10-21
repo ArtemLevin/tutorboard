@@ -112,11 +112,17 @@ describe("3D collaborative editor three-way rebase", () => {
     const starting = record();
     const local = {
       ...starting,
-      points: [{ ...starting.points[0]!, label: "Local" }, ...starting.points.slice(1)],
+      points: [
+        { ...starting.points[0]!, label: "Local" },
+        ...starting.points.slice(1),
+      ],
     };
     const conflicting = {
       ...starting,
-      points: [{ ...starting.points[0]!, label: "Remote" }, ...starting.points.slice(1)],
+      points: [
+        { ...starting.points[0]!, label: "Remote" },
+        ...starting.points.slice(1),
+      ],
     };
     const removed = {
       ...starting,
@@ -124,7 +130,8 @@ describe("3D collaborative editor three-way rebase", () => {
       sections: [],
     };
     const rebase = (current: Solid3DRecord) =>
-      rebaseSolid3DRecordUpdate({ starting, current, replacement: local }).status;
+      rebaseSolid3DRecordUpdate({ starting, current, replacement: local })
+        .status;
     expect(rebase(conflicting)).toBe("conflict");
     expect(rebase(removed)).toBe("conflict");
 
@@ -233,7 +240,10 @@ describe("3D collaborative editor three-way rebase", () => {
     expect(
       rebaseSolid3DRecordUpdate({
         starting,
-        current: { ...current, projection: { ...projection, viewportScale: 2 } },
+        current: {
+          ...current,
+          projection: { ...projection, viewportScale: 2 },
+        },
         replacement: { ...starting, projection },
       }).status,
     ).toBe("conflict");
@@ -261,10 +271,13 @@ describe("3D collaborative editor three-way rebase", () => {
     const fullStarting = { ...starting, sections: [] };
     const remoteFull = {
       ...fullStarting,
-      points: [...fullStarting.points, ...Array.from({ length: 29 }, (_, i) => ({
-        ...point(3),
-        id: solidPointId(`solid-point:remote:${i}`),
-      }))],
+      points: [
+        ...fullStarting.points,
+        ...Array.from({ length: 29 }, (_, i) => ({
+          ...point(3),
+          id: solidPointId(`solid-point:remote:${i}`),
+        })),
+      ],
     };
     expect(remoteFull.points).toHaveLength(32);
     expect(
