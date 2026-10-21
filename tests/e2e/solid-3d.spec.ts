@@ -79,7 +79,7 @@ test("selects two 3D vertices, measures distance and saves the segment", async (
 
   // The default editor has an orthographic camera and an identity model
   // quaternion. Project two known cube vertices to real browser pixels.
-  const { createSolidTopology } = await import("../src/core/public");
+  const { createSolidTopology } = await import("../../src/core/public");
   const THREE = await import("three");
   const vertices = createSolidTopology({ kind: "cube", edgeLength: 2 })!.vertices;
   const camera = new THREE.OrthographicCamera(
