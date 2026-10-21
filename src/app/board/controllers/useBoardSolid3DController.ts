@@ -72,7 +72,14 @@ export function useBoardSolid3DController({
   const project = useCallback(
     (sectionId: string, section: SolidSectionResult) => {
       if (record === null) return;
-      const sourceGroup = getDocument().groups[record.rootGroupId];
+      const latest = getDocument();
+      if (
+        JSON.stringify(latest.solidModels[record.id]) !== JSON.stringify(record)
+      ) {
+        announce("3D-модель изменилась. Повторите перенос сечения.");
+        return;
+      }
+      const sourceGroup = latest.groups[record.rootGroupId];
       const command = createProjectSolid3DSectionCommand({
         metadata: createCommandMetadata(),
         record,
@@ -88,6 +95,8 @@ export function useBoardSolid3DController({
       if (result.ok) {
         announce("Сечение добавлено на доску");
         selection.replaceSelection(command.objects.map(({ id }) => id));
+      } else if (result.error.code === "command.stale-solid") {
+        announce("3D-модель изменилась. Повторите перенос сечения.");
       }
     },
     [

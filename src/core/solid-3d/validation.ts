@@ -154,6 +154,8 @@ export function validateSolid3DRecord(
   const pointIds = new Set(record.points.map((point) => point.id));
   if (
     pointIds.size !== record.points.length ||
+    new Set(record.sections.map(({ id }) => id)).size !==
+      record.sections.length ||
     record.sections.some((section) =>
       section.pointIds.some((id) => !pointIds.has(id)),
     ) ||

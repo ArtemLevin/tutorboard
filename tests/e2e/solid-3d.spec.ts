@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("recovers the same 3D canvas after a real WebGL context loss", async ({
+test("recovers the same 3D canvas after a real WebGL context loss @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -52,7 +52,7 @@ test("recovers the same 3D canvas after a real WebGL context loss", async ({
   await expect(canvas).toHaveAttribute("data-webgl-lifecycle", "original");
 });
 
-test("selects two 3D vertices, measures distance and saves the segment", async ({
+test("selects two 3D vertices, measures distance and saves the segment @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -115,7 +115,7 @@ test("selects two 3D vertices, measures distance and saves the segment", async (
   await expect(canvas).toHaveCount(1);
 });
 
-test("chooses two cube edges, previews their line angle and saves it", async ({
+test("chooses two cube edges, previews their line angle and saves it @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -179,7 +179,7 @@ test("chooses two cube edges, previews their line angle and saves it", async ({
   await expect(canvas).toHaveCount(1);
 });
 
-test("measures a line against a model face via real 3D picking", async ({
+test("measures a line against a model face via real 3D picking @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -243,7 +243,7 @@ test("measures a line against a model face via real 3D picking", async ({
   await expect(canvas).toHaveCount(1);
 });
 
-test("selects adjacent cube faces and saves their dihedral angle in WebGL", async ({
+test("selects adjacent cube faces and saves their dihedral angle in WebGL @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -301,7 +301,7 @@ test("selects adjacent cube faces and saves their dihedral angle in WebGL", asyn
   await expect(canvas).toHaveCount(1);
 });
 
-test("opens a semantic catalog solid in the lazy 3D editor", async ({
+test("opens a semantic catalog solid in the lazy 3D editor @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -436,7 +436,7 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
   await expect(editor).toBeHidden();
 });
 
-test("drags a seeded edge point in 3D and persists its new position", async ({
+test("drags a seeded edge point in 3D and persists its new position @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -542,7 +542,7 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
   await expect(savedSections).toHaveCount(previousCount + 1);
 });
 
-test("rotates a cutting plane around a cube edge and saves it as one undoable section", async ({
+test("rotates a cutting plane around a cube edge and saves it as one undoable section @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -588,7 +588,7 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   await expect(savedSections).toHaveCount(before);
 });
 
-test("rotates a plane about two selected 3D points with one undoable save", async ({
+test("rotates a plane about two selected 3D points with one undoable save @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");

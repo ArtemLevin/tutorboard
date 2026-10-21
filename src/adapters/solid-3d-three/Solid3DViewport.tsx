@@ -27,6 +27,7 @@ import {
 } from "../../core/public";
 import { disposeSolidScene } from "./resource-disposal";
 import { buildSolidScene } from "./scene-builder";
+import { frameSolidCamera } from "./camera-framing";
 import { resolveSolidHitAnchor } from "./semantic-hit";
 import {
   dragSolidPointToPointer,
@@ -428,9 +429,11 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<{
-    camera: THREE.Camera;
+    camera: THREE.OrthographicCamera | THREE.PerspectiveCamera;
     active: boolean;
-    setCamera: (next: THREE.Camera) => void;
+    setCamera: (
+      next: THREE.OrthographicCamera | THREE.PerspectiveCamera,
+    ) => void;
     controls: OrbitControls;
     mesh: THREE.Mesh;
     renderer: THREE.WebGLRenderer;
@@ -528,7 +531,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     const definition = definitionRef.current;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf5f0e7);
-    let camera: THREE.Camera =
+    let camera: THREE.OrthographicCamera | THREE.PerspectiveCamera =
       cameraModeRef.current === "orthographic"
         ? new THREE.OrthographicCamera(
             (-2.8 * width) / height,
@@ -572,7 +575,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     const light = new THREE.DirectionalLight(0xffffff, 2.2);
     light.position.set(5, 7, 4);
     scene.add(light);
+    const focus = frameSolidCamera(camera, built.mesh, width, height);
     const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.copy(focus);
+    controls.update();
     controls.enableDamping = false;
     controls.screenSpacePanning = true;
     controls.mouseButtons.LEFT =
@@ -606,8 +612,9 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       }
       if (camera instanceof THREE.OrthographicCamera) {
         const aspect = nextWidth / nextHeight;
-        camera.left = -2.8 * aspect;
-        camera.right = 2.8 * aspect;
+        const halfHeight = (camera.top - camera.bottom) / 2;
+        camera.left = -halfHeight * aspect;
+        camera.right = halfHeight * aspect;
         camera.updateProjectionMatrix();
       }
       if (contextReady) renderer.setSize(nextWidth, nextHeight, false);
@@ -827,7 +834,13 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         return;
       }
       onSurfaceHoverRef.current?.(null);
-      const hit = raycaster.intersectObjects(built.root.children, true)[0];
+      // Hover-only highlights must not intercept the semantic raycast.
+      const hit = raycaster.intersectObjects(
+        built.root.children.filter(
+          (child) => child.name !== "solid-hover-overlays",
+        ),
+        true,
+      )[0];
       if (hit === undefined) {
         onElementHoverRef.current?.(null);
         return;
@@ -977,7 +990,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     if (container === null) return;
     const width = Math.max(320, container.clientWidth);
     const height = Math.max(260, container.clientHeight);
-    const next: THREE.Camera =
+    const next: THREE.OrthographicCamera | THREE.PerspectiveCamera =
       cameraMode === "orthographic"
         ? new THREE.OrthographicCamera(
             (-2.8 * width) / height,
@@ -988,10 +1001,17 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
             100,
           )
         : new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
-    next.position.copy(current.position);
-    next.quaternion.copy(current.quaternion);
+    const direction = current.position.clone().sub(runtime.controls.target);
+    const focus = frameSolidCamera(
+      next,
+      runtime.mesh,
+      width,
+      height,
+      direction,
+    );
     next.updateMatrixWorld(true);
     runtime.camera = next;
+    runtime.controls.target.copy(focus);
     runtime.setCamera(next);
     runtime.controls.object = next;
     rotationGizmoRef.current?.setCamera(next);
@@ -1033,22 +1053,6 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       marker.userData = { semanticKind: "point", semanticId: point.id };
       overlays.add(marker);
     }
-    const highlighted = highlightedElement;
-    if (highlighted !== null && highlighted !== undefined) {
-      const highlight = builtHighlight(record, highlighted);
-      if (highlight !== null) overlays.add(highlight);
-      if (highlighted.kind === "face") {
-        const faceIds = runtime.mesh.userData.semanticFaceIds as
-          readonly string[] | undefined;
-        if (faceIds !== undefined) {
-          const faceFill = triangleHighlight(
-            runtime.mesh.geometry,
-            faceIds.map((id) => id === highlighted.id),
-          );
-          if (faceFill !== null) overlays.add(faceFill);
-        }
-      }
-    }
     if (
       props.dihedralSelectedFaces !== undefined &&
       props.dihedralSelectedFaces.length > 0
@@ -1064,13 +1068,6 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         );
         if (faceFill !== null) overlays.add(faceFill);
       }
-    }
-    if (highlightedSurfaceId !== null && highlightedSurfaceId !== undefined) {
-      const surfaceFill = triangleHighlight(
-        runtime.mesh.geometry,
-        runtime.semanticSurfaceFaceIds.map((id) => id === highlightedSurfaceId),
-      );
-      if (surfaceFill !== null) overlays.add(surfaceFill);
     }
     if (section !== null)
       overlays.add(sectionObject(section, showSectionFill, showSectionOutline));
@@ -1204,8 +1201,6 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     section,
     showSectionFill,
     showSectionOutline,
-    highlightedElement,
-    highlightedSurfaceId,
     props.rotationAxis,
     props.measurementPreview,
     props.anglePreview,
@@ -1214,6 +1209,51 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     props.dihedralSelectedFaces,
     props.dihedralPreview,
   ]);
+
+  // Pointer hover only touches this lightweight overlay. Persistent point,
+  // measurement, section, and construction meshes retain their GPU allocations.
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (runtime === null) return;
+    const previous = runtime.root.getObjectByName("solid-hover-overlays");
+    if (previous !== undefined) {
+      runtime.root.remove(previous);
+      disposeSolidScene(previous);
+    }
+    if (
+      (highlightedElement !== null && highlightedElement !== undefined) ||
+      (highlightedSurfaceId !== null && highlightedSurfaceId !== undefined)
+    ) {
+      const hover = new THREE.Group();
+      hover.name = "solid-hover-overlays";
+      if (highlightedElement !== null && highlightedElement !== undefined) {
+        const highlight = builtHighlight(record, highlightedElement);
+        if (highlight !== null) hover.add(highlight);
+        if (highlightedElement.kind === "face") {
+          const faceIds = runtime.mesh.userData.semanticFaceIds as
+            readonly string[] | undefined;
+          if (faceIds !== undefined) {
+            const faceFill = triangleHighlight(
+              runtime.mesh.geometry,
+              faceIds.map((id) => id === highlightedElement.id),
+            );
+            if (faceFill !== null) hover.add(faceFill);
+          }
+        }
+      }
+      if (highlightedSurfaceId !== null && highlightedSurfaceId !== undefined) {
+        const surfaceFill = triangleHighlight(
+          runtime.mesh.geometry,
+          runtime.semanticSurfaceFaceIds.map(
+            (id) => id === highlightedSurfaceId,
+          ),
+        );
+        if (surfaceFill !== null) hover.add(surfaceFill);
+      }
+      runtime.root.add(hover);
+    }
+    if (runtime.active) runtime.renderer.render(runtime.scene, runtime.camera);
+  }, [record, highlightedElement, highlightedSurfaceId]);
 
   return (
     <div className="solid-3d-viewport-frame">
