@@ -209,4 +209,30 @@ describe("analytic surface anchor canonicalization", () => {
     });
     expect(resized.points[0]!.position).toEqual({ x: 1, y: 2, z: 3 });
   });
+
+  it("migrates an on-surface legacy point before resizing and keeps its semantic support", () => {
+    const original: Solid3DRecord = {
+      boardObjectIds: [],
+      definition: { kind: "cylinder", radius: 2, height: 4 },
+      id: solid3DId("solid:legacy-resize"),
+      points: [{
+        anchor: { kind: "analytic-surface", surfaceId: "surface:0", parameters: [] },
+        id: solidPointId("solid-point:legacy-resize"),
+        label: "A",
+        position: { x: 2, y: 0, z: 0 },
+      }],
+      projection: defaultSolidProjection,
+      rootGroupId: "group:legacy-resize" as never,
+      schemaVersion: "1.0",
+      sections: [],
+      source: { kind: "text-template", templateId: "cylinder" },
+    };
+    const resized = reprojectSolid3DRecord(original, {
+      kind: "cylinder", radius: 4, height: 8,
+    });
+    expect(resized.points[0]?.anchor).toEqual({
+      kind: "analytic-surface", surfaceId: "surface:cylinder-side", parameters: [0, 0.5],
+    });
+    expectVecClose(resized.points[0]!.position, { x: 4, y: 0, z: 0 });
+  });
 });

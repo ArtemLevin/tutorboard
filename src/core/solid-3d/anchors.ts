@@ -306,6 +306,36 @@ export function canonicalizeAnalyticSurfaceAnchor(
   return position === null ? null : { anchor, position };
 }
 
+/**
+ * Legacy surface:0 has no semantic support ID. Recover one only when the
+ * stored Cartesian point actually lies on an identifiable old surface.
+ * Off-surface legacy points keep their historical coordinates.
+ */
+export function canonicalizeLegacyAnalyticAnchor(
+  definition: Solid3DDefinition,
+  position: Vec3,
+): AnalyticSurfaceAnchorResolution | null {
+  if (![position.x, position.y, position.z].every(Number.isFinite))
+    return null;
+  const tolerance = 1e-6 * Math.max(1, Math.hypot(position.x, position.y, position.z));
+  let best: AnalyticSurfaceAnchorResolution | null = null;
+  let closest = Infinity;
+  for (const surfaceId of analyticSurfaceIds(definition)) {
+    const candidate = canonicalizeAnalyticSurfaceAnchor(definition, position, surfaceId);
+    if (candidate === null) continue;
+    const distance = Math.hypot(
+      candidate.position.x - position.x,
+      candidate.position.y - position.y,
+      candidate.position.z - position.z,
+    );
+    if (distance < closest) {
+      best = candidate;
+      closest = distance;
+    }
+  }
+  return closest <= tolerance ? best : null;
+}
+
 export function resolveSolidPointAnchor(
   topology: SolidTopology,
   anchor: SolidPointAnchor,

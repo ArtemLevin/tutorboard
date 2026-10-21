@@ -1,4 +1,5 @@
 import {
+  canonicalizeLegacyAnalyticAnchor,
   resolveAnalyticSolidPointAnchor,
   resolveSolidPointAnchor,
 } from "./anchors";
@@ -48,10 +49,19 @@ export function reprojectSolid3DRecord(
   record: Solid3DRecord,
   definition: Solid3DDefinition,
 ): Solid3DRecord {
-  let points = record.points.map((point) => ({
-    ...point,
-    position: resolveSolid3DPointPosition(definition, point),
-  }));
+  let points = record.points.map((point) => {
+    const migrated =
+      point.anchor.kind === "analytic-surface" &&
+      point.anchor.surfaceId === "surface:0"
+        ? canonicalizeLegacyAnalyticAnchor(record.definition, point.position)
+        : null;
+    const anchored =
+      migrated === null ? point : { ...point, anchor: migrated.anchor };
+    return {
+      ...anchored,
+      position: resolveSolid3DPointPosition(definition, anchored),
+    };
+  });
   const pointById = () => new Map(points.map((point) => [point.id, point]));
 
   for (const section of record.sections) {

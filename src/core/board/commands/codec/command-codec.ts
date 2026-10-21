@@ -573,6 +573,7 @@ export const boardCommandSchema = z.discriminatedUnion("kind", [
   z
     .object({
       ...metadata,
+      expected: solid3DRecordSchema.optional(),
       group: boardGroupSchema,
       kind: z.literal("core.solid-3d.project-section"),
       objects: objectsSchema,

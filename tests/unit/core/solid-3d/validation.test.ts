@@ -46,4 +46,16 @@ describe("validateSolid3DRecord analytic anchors", () => {
       expect.objectContaining({ code: "solid.invalid-reference" }),
     ]);
   });
+
+  it("rejects duplicated saved section IDs", () => {
+    const record = hemisphereRecord("surface:hemisphere-base");
+    const section = {
+      algorithmVersion: "analytic-plane/1" as const,
+      id: "solid-section:duplicate" as never,
+      pointIds: [record.points[0]!.id, record.points[0]!.id, record.points[0]!.id] as const,
+      visible: true,
+    };
+    expect(validateSolid3DRecord({ ...record, sections: [section, section] }))
+      .toEqual([expect.objectContaining({ code: "solid.invalid-reference" })]);
+  });
 });
