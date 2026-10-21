@@ -281,4 +281,16 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   // A captured rotation is exactly one document command, reversible by Undo.
   await editor.getByRole("button", { name: "Отменить" }).click();
   await expect(savedSections).toHaveCount(before);
+
+  // Use the same cutting plane with an axis determined by two placed points.
+  await editor.getByLabel("Тип оси вращения").selectOption("points");
+  await editor.getByLabel("Первая точка оси").selectOption({ index: 1 });
+  await editor.getByLabel("Вторая точка оси").selectOption({ index: 2 });
+  await editor.getByRole("button", { name: "Изменить угол на +15°" }).click();
+  await expect(editor.getByText(/Вершин \\d+ · площадь \\d/)).toBeVisible();
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(savedSections).toHaveCount(before + 1);
+  await editor.getByRole("button", { name: "Отменить" }).click();
+  await expect(savedSections).toHaveCount(before);
 });
