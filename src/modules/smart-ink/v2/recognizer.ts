@@ -79,7 +79,7 @@ function pairwiseKind(
     const rectangleScore = findV2Score(scores, "rectangle");
     if (aspectRatio <= 1.22 && squareScore + 0.04 >= rectangleScore)
       return "square";
-    if (aspectRatio >= 1.42 && rectangleScore + 0.03 >= squareScore)
+    if (aspectRatio > 1.22 && rectangleScore + 0.04 >= squareScore)
       return "rectangle";
   }
   return selected;
@@ -93,21 +93,17 @@ function resolvedPairwiseRival(
   proposal: ReturnType<typeof recognizeSmartInkStroke>,
 ): boolean {
   const ellipse = proposal.candidates.find(({ kind }) => kind === "ellipse");
-  const square = proposal.candidates.find(({ kind }) => kind === "square");
   const axisRatio = ellipse?.diagnostics.axisRatio;
-  const aspectRatio = square?.diagnostics.aspectRatio;
   if (selected === "circle" && rival === "ellipse") {
     return axisRatio !== undefined && axisRatio >= 0.78;
   }
   if (selected === "ellipse" && rival === "circle") {
     return axisRatio !== undefined && axisRatio < 0.72;
   }
-  if (selected === "square" && rival === "rectangle") {
-    return aspectRatio !== undefined && aspectRatio <= 1.22;
-  }
-  if (selected === "rectangle" && rival === "square") {
-    return aspectRatio !== undefined && aspectRatio >= 1.42;
-  }
+  // Both quadrilateral candidates have identical fitted geometry and the
+  // same persisted BoardDocument primitive. This is a label distinction.
+  if (selected === "square" && rival === "rectangle") return true;
+  if (selected === "rectangle" && rival === "square") return true;
   return false;
 }
 
