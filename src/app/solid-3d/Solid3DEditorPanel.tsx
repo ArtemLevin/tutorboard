@@ -329,10 +329,13 @@ export function Solid3DEditorPanel({
   const activeSectionDefinition =
     record.sections.find(({ id }) => id === activeSectionId) ??
     record.sections.at(-1);
-  const activeSectionResult =
-    activeSectionDefinition === undefined
-      ? null
-      : calculateSolidSection(previewRecord, activeSectionDefinition.pointIds);
+  const activeSectionResult = useMemo(
+    () =>
+      activeSectionDefinition === undefined
+        ? null
+        : calculateSolidSection(previewRecord, activeSectionDefinition.pointIds),
+    [activeSectionDefinition, previewRecord],
+  );
   const activeSection =
     activeSectionResult?.status === "ok" &&
     activeSectionDefinition?.visible === true
