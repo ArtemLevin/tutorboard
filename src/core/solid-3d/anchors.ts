@@ -315,13 +315,17 @@ export function canonicalizeLegacyAnalyticAnchor(
   definition: Solid3DDefinition,
   position: Vec3,
 ): AnalyticSurfaceAnchorResolution | null {
-  if (![position.x, position.y, position.z].every(Number.isFinite))
-    return null;
-  const tolerance = 1e-6 * Math.max(1, Math.hypot(position.x, position.y, position.z));
+  if (![position.x, position.y, position.z].every(Number.isFinite)) return null;
+  const tolerance =
+    1e-6 * Math.max(1, Math.hypot(position.x, position.y, position.z));
   let best: AnalyticSurfaceAnchorResolution | null = null;
   let closest = Infinity;
   for (const surfaceId of analyticSurfaceIds(definition)) {
-    const candidate = canonicalizeAnalyticSurfaceAnchor(definition, position, surfaceId);
+    const candidate = canonicalizeAnalyticSurfaceAnchor(
+      definition,
+      position,
+      surfaceId,
+    );
     if (candidate === null) continue;
     const distance = Math.hypot(
       candidate.position.x - position.x,

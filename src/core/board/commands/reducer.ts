@@ -1123,7 +1123,10 @@ function projectSolid3DSection(
       "command.solid-missing",
       "Section projection references a missing solid.",
     );
-  if (command.expected !== undefined && !boardValuesEqual(solid, command.expected))
+  if (
+    command.expected !== undefined &&
+    !boardValuesEqual(solid, command.expected)
+  )
     return failure(
       document,
       "command.stale-solid",

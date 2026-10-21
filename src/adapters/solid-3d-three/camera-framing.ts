@@ -17,7 +17,8 @@ export function frameSolidCamera(
     .getBoundingSphere(new THREE.Sphere());
   const radius = Math.max(0.01, sphere.radius);
   const aspect = Math.max(0.1, width / Math.max(1, height));
-  const halfHeight = Math.max(0.02, radius * (2.8 / Math.sqrt(3))) / Math.min(1, aspect);
+  const halfHeight =
+    Math.max(0.02, radius * (2.8 / Math.sqrt(3))) / Math.min(1, aspect);
   const halfFov = THREE.MathUtils.degToRad(45 / 2);
   const limitingFov = Math.min(halfFov, Math.atan(Math.tan(halfFov) * aspect));
   const originalDistance = new THREE.Vector3(4.8, 3.8, 5.4).length();

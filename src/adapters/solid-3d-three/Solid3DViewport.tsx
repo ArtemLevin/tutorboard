@@ -994,7 +994,13 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
           )
         : new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
     const direction = current.position.clone().sub(runtime.controls.target);
-    const focus = frameSolidCamera(next, runtime.mesh, width, height, direction);
+    const focus = frameSolidCamera(
+      next,
+      runtime.mesh,
+      width,
+      height,
+      direction,
+    );
     next.updateMatrixWorld(true);
     runtime.camera = next;
     runtime.controls.target.copy(focus);

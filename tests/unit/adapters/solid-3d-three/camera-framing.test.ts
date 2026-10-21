@@ -7,7 +7,12 @@ function frame(radius: number, width: number, height: number) {
   const geometry = new THREE.BoxGeometry(radius * 2, radius * 2, radius * 2);
   const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
   const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
-  const perspective = new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
+  const perspective = new THREE.PerspectiveCamera(
+    45,
+    width / height,
+    0.01,
+    100,
+  );
   try {
     const focus = frameSolidCamera(ortho, mesh, width, height);
     frameSolidCamera(perspective, mesh, width, height);
