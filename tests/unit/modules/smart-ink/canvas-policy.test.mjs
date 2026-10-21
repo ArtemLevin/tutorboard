@@ -4,7 +4,10 @@ import { gunzipSync } from "node:zlib";
 
 import { describe, expect, it } from "vitest";
 
-import { proposeSmartInkReplacement, recognizeSmartInkV2 } from "../../../../src/modules/smart-ink/public.ts";
+import {
+  proposeSmartInkReplacement,
+  recognizeSmartInkV2,
+} from "../../../../src/modules/smart-ink/public.ts";
 import { parseSmartInkCorpus } from "../../../../src/modules/smart-ink-spike/public.ts";
 
 function stroke(sample) {
