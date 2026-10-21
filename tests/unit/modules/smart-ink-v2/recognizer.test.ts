@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { positiveStrokes } from "../smart-ink-spike/corpus-fixtures";
+
 import {
   boardObjectId,
   createVectorInkDataFromPoints,
@@ -64,6 +66,14 @@ describe("Smart Ink 2.0", () => {
     expect(decision.status).toBe("accepted");
     expect(decision.selectedKind).toBe("arrow");
     expect(decision.candidate?.kind).toBe("arrow");
+  });
+
+  it("accepts a square after resolving its rectangle sibling", () => {
+    const points = positiveStrokes.square;
+    const decision = recognizeSmartInkV2(stroke(points), points);
+    expect(decision.status).toBe("accepted");
+    expect(decision.selectedKind).toBe("square");
+    expect(decision.candidate?.kind).toBe("square");
   });
 
   it("keeps metamorphic transforms deterministic", () => {
