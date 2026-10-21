@@ -1,0 +1,29 @@
+name: Temporary 3D UI formatting
+on:
+  push:
+    branches: [feat/3d-editor-progressive-controls-20261021]
+    paths:
+      - ".github/workflows/format-3d-ui-temporary.yml"
+permissions:
+  contents: write
+jobs:
+  prettier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Format changed UI files
+        run: |
+          npx prettier --write src/app/solid-3d/Solid3DConstructionEditor.tsx src/app/solid-3d/Solid3DEditorPanel.tsx src/app/solid-3d/Solid3DEditorPanel.test.tsx
+          git config user.name "TutorBoard CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/app/solid-3d/Solid3DConstructionEditor.tsx src/app/solid-3d/Solid3DEditorPanel.tsx src/app/solid-3d/Solid3DEditorPanel.test.tsx
+          if ! git diff --cached --quiet; then
+            git commit -m "style(3d): format streamlined editor"
+            git push origin HEAD:refs/heads/feat/3d-editor-progressive-controls-20261021
+          fi
