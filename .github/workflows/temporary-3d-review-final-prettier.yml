@@ -1,0 +1,28 @@
+name: Temporary 3D review final formatting
+on:
+  push:
+    paths:
+      - ".github/workflows/temporary-3d-review-final-prettier.yml"
+permissions:
+  contents: write
+jobs:
+  format:
+    if: github.ref == 'refs/heads/fix/solid-3d-section-review-20261021'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: |
+          npx prettier --write src/app/solid-3d/Solid3DEditorPanel.tsx src/core/solid-3d/polyhedron-section.ts
+          git config user.name "TutorBoard CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/app/solid-3d/Solid3DEditorPanel.tsx src/core/solid-3d/polyhedron-section.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style(3d): finalize convexity and section cache formatting"
+            git push origin HEAD:refs/heads/fix/solid-3d-section-review-20261021
+          fi
