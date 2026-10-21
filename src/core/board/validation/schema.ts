@@ -700,6 +700,12 @@ const solidLinePlaneAngleMeasurementSchema = z
     faceId: identifierSchema,
   })
   .strict();
+const solidDihedralMeasurementSchema = z
+  .object({
+    id: identifierSchema,
+    faces: z.tuple([identifierSchema, identifierSchema]),
+  })
+  .strict();
 const solidProjectionSchema = z
   .object({
     hiddenEdgePolicy: z.enum(["dashed", "hidden"]),
@@ -731,6 +737,10 @@ const solidRecordSchema = z
     angleMeasurements: z.array(solidAngleMeasurementSchema).max(12).optional(),
     linePlaneMeasurements: z
       .array(solidLinePlaneAngleMeasurementSchema)
+      .max(12)
+      .optional(),
+    dihedralMeasurements: z
+      .array(solidDihedralMeasurementSchema)
       .max(12)
       .optional(),
     boardObjectIds: z.array(boardObjectIdSchema).max(5_000),

@@ -4,6 +4,7 @@ import { createSolidTopology } from "./topology";
 import { resolveSolidDistanceEndpoint } from "./measurements";
 import { calculateSolidLineAngle } from "./line-angles";
 import { calculateSolidLinePlaneAngle } from "./line-plane-angles";
+import { calculateSolidDihedralAngle } from "./dihedral-angles";
 import { decodeTopologyFaceAnchorId } from "./topology-anchors";
 import { isFiniteVec3 } from "./vectors";
 
@@ -143,6 +144,7 @@ export function validateSolid3DRecord(
     (record.measurements?.length ?? 0) > 16 ||
     (record.angleMeasurements?.length ?? 0) > 12 ||
     (record.linePlaneMeasurements?.length ?? 0) > 12 ||
+    (record.dihedralMeasurements?.length ?? 0) > 12 ||
     record.boardObjectIds.length > 5_000
   )
     diagnostics.push({
@@ -175,6 +177,12 @@ export function validateSolid3DRecord(
     (record.linePlaneMeasurements ?? []).some(
       ({ line, faceId }) =>
         calculateSolidLinePlaneAngle(record, line, faceId) === null,
+    ) ||
+    new Set((record.dihedralMeasurements ?? []).map(({ id }) => id)).size !==
+      (record.dihedralMeasurements?.length ?? 0) ||
+    (record.dihedralMeasurements ?? []).some(
+      ({ faces }) =>
+        calculateSolidDihedralAngle(record.definition, faces) === null,
     )
   )
     diagnostics.push({

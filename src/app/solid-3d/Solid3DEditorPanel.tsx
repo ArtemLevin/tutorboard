@@ -14,6 +14,8 @@ import {
   calculateSolidDistance,
   calculateSolidLineAngle,
   calculateSolidLinePlaneAngle,
+  calculateSolidDihedralAngle,
+  saveSolidDihedralAngle,
   saveSolidLinePlaneAngle,
   saveSolidLineAngle,
   resolveSolidDistanceEndpoint,
@@ -254,7 +256,7 @@ export function Solid3DEditorPanel({
     readonly SolidDistanceEndpoint[]
   >([]);
   const [measureTool, setMeasureTool] = useState<
-    "distance" | "angle" | "line-plane"
+    "distance" | "angle" | "line-plane" | "dihedral"
   >("distance");
   const [angleMethod, setAngleMethod] = useState<"edges" | "points">("edges");
   const [angleSelection, setAngleSelection] = useState<
@@ -267,6 +269,7 @@ export function Solid3DEditorPanel({
     readonly SolidDistanceEndpoint[]
   >([]);
   const [linePlaneFace, setLinePlaneFace] = useState<string | null>(null);
+  const [dihedralFaces, setDihedralFaces] = useState<readonly string[]>([]);
   const [cameraMode, setCameraMode] = useState<"orthographic" | "perspective">(
     "orthographic",
   );
@@ -693,6 +696,39 @@ export function Solid3DEditorPanel({
     setLinePlaneFace(null);
   };
 
+  const dihedralPair = useMemo(
+    () =>
+      dihedralFaces.length === 2
+        ? ([dihedralFaces[0]!, dihedralFaces[1]!] as const)
+        : null,
+    [dihedralFaces],
+  );
+  const dihedralPreview =
+    dihedralPair === null
+      ? null
+      : calculateSolidDihedralAngle(previewRecord.definition, dihedralPair);
+  const chooseDihedralFace = (faceId: string): void => {
+    const topology = createSolidTopology(record.definition);
+    if (topology?.faces.some((face) => face.id === faceId) !== true) return;
+    setDihedralFaces((current) => {
+      if (current.length === 2) return [faceId];
+      if (current.includes(faceId)) return current;
+      return [...current, faceId];
+    });
+  };
+  const saveDihedral = (): void => {
+    if (readOnly || dihedralPreview === null || dihedralFaces.length !== 2)
+      return;
+    const next = saveSolidDihedralAngle(
+      record,
+      [dihedralFaces[0]!, dihedralFaces[1]!],
+      `solid-dihedral:${crypto.randomUUID()}`,
+    );
+    if (next === null) return;
+    onRecordChange(next);
+    setDihedralFaces([]);
+  };
+
   const placePoint = useCallback(
     (position: Vec3, anchor: SolidPointAnchor) => {
       if (readOnly || record.points.length >= 32) return;
@@ -1059,10 +1095,25 @@ export function Solid3DEditorPanel({
               onFacePick={
                 experience === "free" &&
                 workMode === "measure" &&
-                measureTool === "line-plane" &&
-                linePlaneLine !== null
-                  ? chooseLinePlaneFace
+                measureTool === "dihedral"
+                  ? chooseDihedralFace
+                  : measureTool === "line-plane" && linePlaneLine !== null
+                    ? chooseLinePlaneFace
+                    : undefined
+              }
+              dihedralSelectedFaces={
+                experience === "free" &&
+                workMode === "measure" &&
+                measureTool === "dihedral"
+                  ? dihedralFaces
                   : undefined
+              }
+              dihedralPreview={
+                experience === "free" &&
+                workMode === "measure" &&
+                measureTool === "dihedral"
+                  ? dihedralPair
+                  : null
               }
               linePlaneSelectedLine={
                 experience === "free" &&
@@ -1131,30 +1182,38 @@ export function Solid3DEditorPanel({
             {experience === "free" && workMode === "measure" ? (
               <div aria-live="polite" className="solid-3d-progress">
                 <strong>
-                  {measureTool === "distance"
-                    ? `${measuredEndpoints.length} / 2`
-                    : measureTool === "line-plane"
-                      ? linePlaneLine === null
-                        ? `${validLinePlaneEndpoints.length} / 2`
-                        : `${linePlaneFace === null ? 1 : 2} / 2`
-                      : angleMethod === "edges"
-                        ? `${Math.ceil(angleEndpoints.length / 2)} / 2`
-                        : `${angleEndpoints.length} / 4`}
+                  {measureTool === "dihedral"
+                    ? `${dihedralFaces.length} / 2`
+                    : measureTool === "distance"
+                      ? `${measuredEndpoints.length} / 2`
+                      : measureTool === "line-plane"
+                        ? linePlaneLine === null
+                          ? `${validLinePlaneEndpoints.length} / 2`
+                          : `${linePlaneFace === null ? 1 : 2} / 2`
+                        : angleMethod === "edges"
+                          ? `${Math.ceil(angleEndpoints.length / 2)} / 2`
+                          : `${angleEndpoints.length} / 4`}
                 </strong>
                 <span>
-                  {measureTool === "line-plane"
-                    ? linePlanePreview === null
-                      ? linePlaneLine === null
-                        ? "Выберите прямую"
-                        : "Выберите грань"
-                      : `Угол прямой с плоскостью: ${linePlanePreview.degrees.toFixed(2)}°`
-                    : measureTool === "distance"
-                      ? measurementPreview === null
-                        ? "Выберите два конца отрезка на модели"
-                        : `Расстояние: ${measurementPreview.toFixed(3)} ед.`
-                      : anglePreview === null
-                        ? "Укажите две прямые на модели"
-                        : `Угол между прямыми: ${anglePreview.degrees.toFixed(2)}°`}
+                  {measureTool === "dihedral"
+                    ? dihedralPreview !== null
+                      ? `Двугранный угол: ${dihedralPreview.degrees.toFixed(2)}°`
+                      : dihedralFaces.length === 2
+                        ? "Выберите две смежные грани"
+                        : "Укажите две смежные грани"
+                    : measureTool === "line-plane"
+                      ? linePlanePreview === null
+                        ? linePlaneLine === null
+                          ? "Выберите прямую"
+                          : "Выберите грань"
+                        : `Угол прямой с плоскостью: ${linePlanePreview.degrees.toFixed(2)}°`
+                      : measureTool === "distance"
+                        ? measurementPreview === null
+                          ? "Выберите два конца отрезка на модели"
+                          : `Расстояние: ${measurementPreview.toFixed(3)} ед.`
+                        : anglePreview === null
+                          ? "Укажите две прямые на модели"
+                          : `Угол между прямыми: ${anglePreview.degrees.toFixed(2)}°`}
                 </span>
               </div>
             ) : experience === "free" && workMode === "section" ? (
@@ -1224,6 +1283,14 @@ export function Solid3DEditorPanel({
                     type="button"
                   >
                     Угол прямой с плоскостью
+                  </button>
+                  <button
+                    aria-pressed={measureTool === "dihedral"}
+                    onClick={() => setMeasureTool("dihedral")}
+                    type="button"
+                    disabled={createSolidTopology(record.definition) === null}
+                  >
+                    Двугранный угол
                   </button>
                   <button
                     aria-pressed={measureTool === "angle"}
@@ -1416,7 +1483,7 @@ export function Solid3DEditorPanel({
                       </ol>
                     )}
                   </>
-                ) : (
+                ) : measureTool === "line-plane" ? (
                   <>
                     <h3>Угол между прямой и плоскостью</h3>
                     <div
@@ -1542,6 +1609,91 @@ export function Solid3DEditorPanel({
                             );
                           },
                         )}
+                      </ol>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <h3>Двугранный угол</h3>
+                    <p>
+                      Выберите на модели две грани с общим ребром. Через
+                      середину ребра строится перпендикулярное сечение.
+                    </p>
+                    <p aria-live="polite">
+                      {dihedralPreview !== null
+                        ? `Линейный угол: ${dihedralPreview.degrees.toFixed(2)}°`
+                        : dihedralFaces.length === 2
+                          ? "Грани должны иметь единственное общее ребро. Выберите другую пару."
+                          : `Выбрано граней: ${dihedralFaces.length} из 2`}
+                    </p>
+                    <div className="solid-3d-measure-actions">
+                      <button
+                        type="button"
+                        disabled={
+                          readOnly ||
+                          dihedralPreview === null ||
+                          (record.dihedralMeasurements?.length ?? 0) >= 12
+                        }
+                        onClick={saveDihedral}
+                      >
+                        Сохранить двугранный угол
+                      </button>
+                      <button
+                        type="button"
+                        disabled={dihedralFaces.length === 0}
+                        onClick={() => setDihedralFaces([])}
+                      >
+                        Сбросить грани
+                      </button>
+                    </div>
+                    {(record.dihedralMeasurements ?? []).length > 0 && (
+                      <ol className="solid-3d-measure-list">
+                        {record.dihedralMeasurements?.map(({ id, faces }) => {
+                          const result = calculateSolidDihedralAngle(
+                            previewRecord.definition,
+                            faces,
+                          );
+                          const topology = createSolidTopology(
+                            previewRecord.definition,
+                          );
+                          const labels = faces.map(
+                            (faceId) =>
+                              topology?.faces
+                                .find((face) => face.id === faceId)
+                                ?.vertexIds.map(
+                                  (vertexId) =>
+                                    topology.vertices.find(
+                                      (vertex) => vertex.id === vertexId,
+                                    )?.label ?? vertexId,
+                                )
+                                .join("") ?? faceId,
+                          );
+                          return (
+                            <li key={id}>
+                              <span>
+                                {labels.join(" / ")}{" "}
+                                <strong>
+                                  {result?.degrees.toFixed(2) ?? "—"}°
+                                </strong>
+                              </span>
+                              <button
+                                type="button"
+                                disabled={readOnly}
+                                aria-label={`Удалить двугранный угол ${id}`}
+                                onClick={() =>
+                                  onRecordChange({
+                                    ...record,
+                                    dihedralMeasurements: (
+                                      record.dihedralMeasurements ?? []
+                                    ).filter((item) => item.id !== id),
+                                  })
+                                }
+                              >
+                                ×
+                              </button>
+                            </li>
+                          );
+                        })}
                       </ol>
                     )}
                   </>

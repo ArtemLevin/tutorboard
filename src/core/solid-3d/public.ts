@@ -5,6 +5,7 @@ export * from "./definitions";
 export * from "./measurements";
 export * from "./line-angles";
 export * from "./line-plane-angles";
+export * from "./dihedral-angles";
 export * from "./model-transform";
 export * from "./point-resolution";
 export * from "./polyhedron-section";

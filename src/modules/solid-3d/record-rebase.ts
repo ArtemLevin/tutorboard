@@ -122,12 +122,18 @@ export function rebaseSolid3DRecordUpdate(input: {
     current.linePlaneMeasurements ?? [],
     replacement.linePlaneMeasurements ?? [],
   );
+  const dihedralChanges = mergeItems(
+    starting.dihedralMeasurements ?? [],
+    current.dihedralMeasurements ?? [],
+    replacement.dihedralMeasurements ?? [],
+  );
   if (
     pointChanges === null ||
     sectionChanges === null ||
     measurementChanges === null ||
     angleChanges === null ||
-    linePlaneChanges === null
+    linePlaneChanges === null ||
+    dihedralChanges === null
   )
     return { status: "conflict" };
 
@@ -173,6 +179,11 @@ export function rebaseSolid3DRecordUpdate(input: {
     current.linePlaneMeasurements !== undefined ||
     replacement.linePlaneMeasurements !== undefined
       ? { linePlaneMeasurements: linePlaneChanges }
+      : {}),
+    ...(dihedralChanges.length > 0 ||
+    current.dihedralMeasurements !== undefined ||
+    replacement.dihedralMeasurements !== undefined
+      ? { dihedralMeasurements: dihedralChanges }
       : {}),
     projection: projectionChanged ? replacement.projection : current.projection,
   };
