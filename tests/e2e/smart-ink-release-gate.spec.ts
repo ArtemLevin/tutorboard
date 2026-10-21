@@ -46,9 +46,7 @@ for (const { mode, shortcut, activeAttribute, activeValue } of [
     activeValue: "selection.select",
   },
 ] as const) {
-  test(`does not enable gated Smart Ink after a canvas tap in ${mode} mode`, async ({
-    page,
-  }) => {
+  test(`gates Smart Ink canvas tap from ${mode}`, async ({ page }) => {
     await page.goto("/");
     const stage = page.getByTestId("board-stage");
     await expect(stage).toBeVisible();
