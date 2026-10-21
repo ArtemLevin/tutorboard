@@ -230,6 +230,12 @@
   min-height: 340px;
   border-right: 1px solid #ddd4c7;
 }
+.solid-3d-viewport-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 340px;
+}
 .solid-3d-viewport {
   width: 100%;
   height: 100%;
@@ -257,8 +263,13 @@
   touch-action: none;
 }
 .solid-3d-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   display: grid;
   min-height: 340px;
+  overflow: auto;
+  background: #f5f0e7;
   place-items: center;
   padding: 2rem;
   text-align: center;
@@ -621,6 +632,7 @@
     border-right: 0;
     border-bottom: 1px solid #ddd4c7;
   }
+  .solid-3d-viewport-frame,
   .solid-3d-viewport,
   .solid-3d-fallback,
   .solid-3d-dock.is-expanded .solid-3d-viewport,
