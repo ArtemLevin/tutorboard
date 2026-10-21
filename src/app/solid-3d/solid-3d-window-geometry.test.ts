@@ -8,9 +8,9 @@ import {
 describe("embedded 3D window bounds", () => {
   it("starts in the upper-right without covering the whole workspace", () => {
     expect(initialSolid3DWindowRect({ width: 1280, height: 820 })).toEqual({
-      left: 654,
+      left: 384,
       top: 16,
-      width: 610,
+      width: 880,
       height: 620,
     });
     expect(
