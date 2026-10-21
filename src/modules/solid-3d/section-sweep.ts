@@ -4,6 +4,7 @@ import {
   distance3,
   dot3,
   intersectPolyhedronWithPlane,
+  isConvexSolidTopology,
   planeFromThreePoints,
   resolveSolid3DPointPosition,
   signedDistanceToPlane,
@@ -74,7 +75,7 @@ export function getSolidSectionSweepFrame(
   ids: PointIds,
 ): SolidSectionSweepFrame | null {
   const topology = createSolidTopology(record.definition);
-  if (topology === null) return null;
+  if (topology === null || !isConvexSolidTopology(topology)) return null;
   const points = ids.map((id) =>
     record.points.find((point) => point.id === id),
   );
@@ -205,7 +206,7 @@ export function captureSolidSectionIntersection(input: {
   if (current.sections.length >= 8 || current.points.length + 3 > 32)
     return { status: "error", code: "limit" };
   const topology = createSolidTopology(current.definition);
-  if (section === null || topology === null)
+  if (section === null || topology === null || !isConvexSolidTopology(topology))
     return { status: "error", code: "outside" };
   const triple = nonCollinearVertices(section);
   if (triple === null) return { status: "error", code: "outside" };
