@@ -400,6 +400,15 @@ export function Solid3DEditorPanel({
         : null,
     [previewRecord, selectedTuple, rotationAxis],
   );
+  const rotationAxisLine = useMemo(
+    (): readonly [Vec3, Vec3] | null =>
+      rotationEnabled &&
+      rotationAxisKind === "points" &&
+      rotationFrame !== null
+        ? [rotationFrame.axisStart, rotationFrame.axisEnd]
+        : null,
+    [rotationEnabled, rotationAxisKind, rotationFrame],
+  );
   const rotationPreview = useMemo(
     () =>
       rotationEnabled && rotationTopology !== null && rotationFrame !== null
@@ -749,13 +758,7 @@ export function Solid3DEditorPanel({
               showRotationGizmo={
                 showRotationGizmo && mode === "view" && !readOnly
               }
-              rotationAxis={
-                rotationEnabled &&
-                rotationAxisKind === "points" &&
-                rotationFrame !== null
-                  ? [rotationFrame.axisStart, rotationFrame.axisEnd]
-                  : null
-              }
+              rotationAxis={rotationAxisLine}
               onElementHover={setHighlightedElement}
               onModelRotationCommit={
                 readOnly
