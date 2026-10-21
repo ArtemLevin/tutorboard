@@ -10,6 +10,7 @@ import {
   solid3DId,
   solidPointId,
   validateSolidConstructionBase,
+  validateSolid3DRecord,
   type Solid3DRecord,
 } from "../../../../src/core/public";
 
@@ -93,6 +94,70 @@ describe("solid construction studio domain", () => {
     expect(replacement.points).toEqual([]);
     expect(replacement.sections).toEqual([]);
     expect(replacement.definition.kind).toBe("pyramid");
+  });
+
+  it("atomically clears all measurements that refer to a replaced topology", () => {
+    const marked: Solid3DRecord = {
+      ...record,
+      measurements: [{
+        id: "solid-distance:stale",
+        first: { kind: "point", id: record.points[0]!.id },
+        second: { kind: "vertex", id: "vertex:0" },
+      }],
+      angleMeasurements: [{
+        id: "solid-angle:stale",
+        lines: [
+          [{ kind: "vertex", id: "vertex:0" }, { kind: "vertex", id: "vertex:1" }],
+          [{ kind: "vertex", id: "vertex:0" }, { kind: "vertex", id: "vertex:4" }],
+        ],
+      }],
+      linePlaneMeasurements: [{
+        id: "solid-line-plane:stale",
+        line: [
+          { kind: "vertex", id: "vertex:0" },
+          { kind: "vertex", id: "vertex:1" },
+        ],
+        faceId: "face:1",
+      }],
+      dihedralMeasurements: [{
+        id: "solid-dihedral:stale",
+        faces: ["face:0", "face:2"],
+      }],
+    };
+    const next = replaceSolidConstructionDefinition(
+      marked,
+      definitionForSolidConstruction("tetrahedron"),
+    );
+    expect(next).toMatchObject({
+      points: [],
+      sections: [],
+      measurements: [],
+      angleMeasurements: [],
+      linePlaneMeasurements: [],
+      dihedralMeasurements: [],
+    });
+    expect(validateSolid3DRecord(next)).toEqual([]);
+    // The original document must survive undo and rejected remote commits.
+    expect(marked.measurements).toHaveLength(1);
+    expect(marked.dihedralMeasurements).toHaveLength(1);
+  });
+
+  it("clears stored face measurements when editing a custom base", () => {
+    const marked: Solid3DRecord = {
+      ...record,
+      dihedralMeasurements: [{
+        id: "solid-dihedral:old-base",
+        faces: ["face:0", "face:2"],
+      }],
+    };
+    const next = replaceSolidConstructionBase(marked, [
+      { x: -2, y: -1 },
+      { x: 2, y: -1 },
+      { x: 1, y: 1 },
+      { x: -1, y: 1 },
+    ]);
+    expect(next?.dihedralMeasurements).toEqual([]);
+    if (next !== null) expect(validateSolid3DRecord(next)).toEqual([]);
   });
 
   it("applies a valid custom prism base", () => {
