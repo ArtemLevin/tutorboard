@@ -20,6 +20,7 @@ import {
 } from "../../../core/public";
 import {
   drawingStyleDefaults,
+  drawingTools,
   isDrawingToolId,
 } from "../../../modules/drawing/public";
 import { handwrittenFunctionToolId } from "../../../modules/handwritten-function/public";
@@ -432,7 +433,12 @@ export function BoardCanvas({
           setContextMenu(request);
         }}
         onCanvasPrimaryClickRequest={() => {
-          if (readOnly) return;
+          if (
+            readOnly ||
+            !drawingTools.some(({ id }) => id === "drawing.smart-ink")
+          ) {
+            return;
+          }
           setContextMenu(null);
           interaction.activate("drawing.smart-ink");
           announce("Включён режим Smart Ink");
