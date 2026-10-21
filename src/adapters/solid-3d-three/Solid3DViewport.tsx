@@ -27,6 +27,7 @@ import {
 } from "../../core/public";
 import { disposeSolidScene } from "./resource-disposal";
 import { buildSolidScene } from "./scene-builder";
+import { frameSolidCamera } from "./camera-framing";
 import { resolveSolidHitAnchor } from "./semantic-hit";
 import {
   dragSolidPointToPointer,
@@ -572,7 +573,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     const light = new THREE.DirectionalLight(0xffffff, 2.2);
     light.position.set(5, 7, 4);
     scene.add(light);
+    const focus = frameSolidCamera(camera, built.mesh, width, height);
     const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.copy(focus);
+    controls.update();
     controls.enableDamping = false;
     controls.screenSpacePanning = true;
     controls.mouseButtons.LEFT =
@@ -606,8 +610,9 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       }
       if (camera instanceof THREE.OrthographicCamera) {
         const aspect = nextWidth / nextHeight;
-        camera.left = -2.8 * aspect;
-        camera.right = 2.8 * aspect;
+        const halfHeight = (camera.top - camera.bottom) / 2;
+        camera.left = -halfHeight * aspect;
+        camera.right = halfHeight * aspect;
         camera.updateProjectionMatrix();
       }
       if (contextReady) renderer.setSize(nextWidth, nextHeight, false);
@@ -988,10 +993,11 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
             100,
           )
         : new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
-    next.position.copy(current.position);
-    next.quaternion.copy(current.quaternion);
+    const direction = current.position.clone().sub(runtime.controls.target);
+    const focus = frameSolidCamera(next, runtime.mesh, width, height, direction);
     next.updateMatrixWorld(true);
     runtime.camera = next;
+    runtime.controls.target.copy(focus);
     runtime.setCamera(next);
     runtime.controls.object = next;
     rotationGizmoRef.current?.setCamera(next);

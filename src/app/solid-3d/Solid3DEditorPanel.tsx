@@ -1059,7 +1059,13 @@ export function Solid3DEditorPanel({
                 showRotationGizmo && mode === "view" && !readOnly
               }
               rotationAxis={rotationAxisLine}
-              onElementHover={setHighlightedElement}
+              onElementHover={(next) =>
+                setHighlightedElement((previous) =>
+                  previous?.kind === next?.kind && previous?.id === next?.id
+                    ? previous
+                    : next,
+                )
+              }
               onModelRotationCommit={
                 readOnly
                   ? undefined

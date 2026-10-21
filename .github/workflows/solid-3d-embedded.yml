@@ -19,8 +19,12 @@ on:
 
 jobs:
   browser:
-    name: Embedded 3D Chromium scenario
+    name: Embedded 3D ${{ matrix.browser }} scenario
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
     timeout-minutes: 15
     steps:
       - name: Check out repository
@@ -35,8 +39,8 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Build with 3D features enabled
         env:
@@ -47,13 +51,16 @@ jobs:
         run: npm run build
 
       - name: Verify embedded 3D editor lifecycle
-        run: npm run e2e -- tests/e2e/solid-3d.spec.ts --project=chromium --retries=0 --trace=retain-on-failure
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          MOZ_WEBRENDER: "1"
+        run: npm run e2e -- tests/e2e/solid-3d.spec.ts --project=${{ matrix.browser }} --retries=0 --trace=retain-on-failure
 
       - name: Upload browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: embedded-3d-browser-failure
+          name: embedded-3d-browser-failure-${{ matrix.browser }}
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
