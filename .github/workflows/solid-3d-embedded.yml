@@ -8,6 +8,7 @@ on:
       - "src/app/board/views/BoardOverlays.tsx"
       - "src/adapters/solid-3d-three/**"
       - "tests/e2e/solid-3d.spec.ts"
+      - "tests/e2e/solid-3d-fallback.spec.ts"
   push:
     branches: [main]
     paths:
@@ -16,6 +17,7 @@ on:
       - "src/app/board/views/BoardOverlays.tsx"
       - "src/adapters/solid-3d-three/**"
       - "tests/e2e/solid-3d.spec.ts"
+      - "tests/e2e/solid-3d-fallback.spec.ts"
 
 jobs:
   browser:
@@ -50,11 +52,13 @@ jobs:
           VITE_GEOMETRYOS_BASE_URL: http://127.0.0.1:4173/geometryos
         run: npm run build
 
-      - name: Verify embedded 3D editor lifecycle
-        env:
-          LIBGL_ALWAYS_SOFTWARE: "1"
-          MOZ_WEBRENDER: "1"
-        run: npm run e2e -- tests/e2e/solid-3d.spec.ts --project=${{ matrix.browser }} --retries=0 --trace=retain-on-failure
+      - name: Verify embedded 3D editor lifecycle and WebGL fallback
+        run: |
+          if [[ "${{ matrix.browser }}" == "firefox" ]]; then
+            npm run e2e -- tests/e2e/solid-3d-fallback.spec.ts --project=firefox --retries=0 --trace=retain-on-failure
+          else
+            npm run e2e -- tests/e2e/solid-3d.spec.ts tests/e2e/solid-3d-fallback.spec.ts --project=chromium --retries=0 --trace=retain-on-failure
+          fi
 
       - name: Upload browser failure evidence
         if: failure()
