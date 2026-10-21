@@ -4,6 +4,8 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import {
   createSolidTopology,
+  resolveSolidDistanceEndpoint,
+  type SolidDistanceEndpoint,
   resolveSolid3DPointPosition,
   solid3DModelQuaternion,
   type Solid3DQuaternion,
@@ -35,6 +37,8 @@ export interface Solid3DViewportProps {
   readonly highlightedSurfaceId?: SolidAnalyticSurfaceId | null;
   readonly mode: "points" | "view";
   readonly onPointPlace: (position: Vec3, anchor: SolidPointAnchor) => void;
+  readonly onMeasurementPick?: (endpoint: SolidDistanceEndpoint) => void;
+  readonly measurementPreview?: readonly [SolidDistanceEndpoint, SolidDistanceEndpoint] | null;
   readonly onPointDragStart?: (pointId: string) => void;
   readonly onPointDragPreview?: (
     pointId: string,
@@ -230,6 +234,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   } | null>(null);
   const modeRef = useRef(props.mode);
   const onPointPlaceRef = useRef(props.onPointPlace);
+  const onMeasurementPickRef = useRef(props.onMeasurementPick);
   const onPointDragStartRef = useRef(props.onPointDragStart);
   const onPointDragPreviewRef = useRef(props.onPointDragPreview);
   const onPointDragEndRef = useRef(props.onPointDragEnd);
@@ -271,6 +276,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     props.onPointDragEnd,
     record,
   ]);
+
+  useEffect(() => {
+    onMeasurementPickRef.current = props.onMeasurementPick;
+  }, [props.onMeasurementPick]);
 
   useEffect(() => {
     onModelRotationCommitRef.current = onModelRotationCommit;
@@ -500,8 +509,33 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
               event.clientY - pointerOrigin.y,
             );
       pointerOrigin = null;
-      if (modeRef.current !== "points" || event.button !== 0 || moved > 4)
+      if (event.button !== 0 || moved > 4) return;
+      if (onMeasurementPickRef.current !== undefined) {
+        const bounds = renderer.domElement.getBoundingClientRect();
+        pointer.set(
+          ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+          -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+        );
+        raycaster.setFromCamera(pointer, camera);
+        const semantic = built.root.getObjectByName("solid-semantic-elements");
+        const overlays = built.root.getObjectByName("solid-overlays");
+        const candidates = [
+          ...(semantic?.children.filter((object) =>
+            object.userData.semanticKind === "vertex") ?? []),
+          ...(overlays?.children.filter((object) =>
+            object.userData.semanticKind === "point") ?? []),
+        ];
+        const hit = raycaster.intersectObjects(candidates, false)[0];
+        const kind = hit?.object.userData.semanticKind;
+        const id = hit?.object.userData.semanticId;
+        if ((kind === "vertex" || kind === "point") && typeof id === "string")
+          onMeasurementPickRef.current({
+            kind,
+            id: id as SolidDistanceEndpoint["id"],
+          } as SolidDistanceEndpoint);
         return;
+      }
+      if (modeRef.current !== "points") return;
       const bounds = renderer.domElement.getBoundingClientRect();
       pointer.set(
         ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
@@ -749,6 +783,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         new THREE.MeshBasicMaterial({ color: 0x7c3aed }),
       );
       marker.position.set(position.x, position.y, position.z);
+      marker.userData = { semanticKind: "point", semanticId: point.id };
       overlays.add(marker);
     }
     const highlighted = highlightedElement;
@@ -797,6 +832,35 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       axis.renderOrder = 6;
       overlays.add(axis);
     }
+    const measured = [
+      ...(record.measurements ?? []).map((item) => ({
+        first: item.first, second: item.second, saved: true,
+      })),
+      ...(props.measurementPreview === undefined ||
+      props.measurementPreview === null ? [] : [{
+        first: props.measurementPreview[0],
+        second: props.measurementPreview[1],
+        saved: false,
+      }]),
+    ];
+    for (const { first, second, saved } of measured) {
+      const from = resolveSolidDistanceEndpoint(record, first);
+      const to = resolveSolidDistanceEndpoint(record, second);
+      if (from === null || to === null) continue;
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(from.x, from.y, from.z),
+          new THREE.Vector3(to.x, to.y, to.z),
+        ]),
+        new THREE.LineBasicMaterial({
+          color: saved ? 0x2563eb : 0xf59e0b,
+          depthTest: false,
+        }),
+      );
+      line.name = saved ? "solid-distance-saved" : "solid-distance-preview";
+      line.renderOrder = 8;
+      overlays.add(line);
+    }
     runtime.root.add(overlays);
     if (runtime.active) runtime.renderer.render(runtime.scene, runtime.camera);
   }, [
@@ -807,6 +871,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     highlightedElement,
     highlightedSurfaceId,
     props.rotationAxis,
+    props.measurementPreview,
   ]);
 
   return (
