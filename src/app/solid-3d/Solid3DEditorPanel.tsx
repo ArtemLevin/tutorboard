@@ -530,12 +530,26 @@ export function Solid3DEditorPanel({
       ? freeVisibleSection
       : null;
 
-  const measuredEndpoints = measureSelection.filter((endpoint) =>
-    endpoint.kind === "point"
-      ? previewRecord.points.some(({ id }) => id === endpoint.id)
-      : createSolidTopology(previewRecord.definition)?.vertices.some(
-          ({ id }) => id === endpoint.id,
-        ) === true,
+  const measuredEndpoints = useMemo(
+    () =>
+      measureSelection.filter((endpoint) =>
+        endpoint.kind === "point"
+          ? previewRecord.points.some(({ id }) => id === endpoint.id)
+          : createSolidTopology(previewRecord.definition)?.vertices.some(
+              ({ id }) => id === endpoint.id,
+            ) === true,
+      ),
+    [measureSelection, previewRecord],
+  );
+  const distanceOverlayEndpoints = useMemo(
+    (): readonly [SolidDistanceEndpoint, SolidDistanceEndpoint] | null =>
+      experience === "free" &&
+      workMode === "measure" &&
+      measureTool === "distance" &&
+      measuredEndpoints.length === 2
+        ? [measuredEndpoints[0]!, measuredEndpoints[1]!]
+        : null,
+    [experience, workMode, measureTool, measuredEndpoints],
   );
   const measurementPreview =
     measuredEndpoints.length === 2
@@ -578,17 +592,24 @@ export function Solid3DEditorPanel({
     setMeasureSelection([]);
   };
 
-  const angleEndpoints = angleSelection.filter(
-    (endpoint) =>
-      resolveSolidDistanceEndpoint(previewRecord, endpoint) !== null,
+  const angleEndpoints = useMemo(
+    () =>
+      angleSelection.filter(
+        (endpoint) =>
+          resolveSolidDistanceEndpoint(previewRecord, endpoint) !== null,
+      ),
+    [angleSelection, previewRecord],
   );
-  const angleLines: readonly [SolidAngleLine, SolidAngleLine] | null =
-    angleEndpoints.length === 4
-      ? [
-          [angleEndpoints[0]!, angleEndpoints[1]!],
-          [angleEndpoints[2]!, angleEndpoints[3]!],
-        ]
-      : null;
+  const angleLines = useMemo(
+    (): readonly [SolidAngleLine, SolidAngleLine] | null =>
+      angleEndpoints.length === 4
+        ? [
+            [angleEndpoints[0]!, angleEndpoints[1]!],
+            [angleEndpoints[2]!, angleEndpoints[3]!],
+          ]
+        : null,
+    [angleEndpoints],
+  );
   const anglePreview =
     angleLines === null
       ? null
@@ -632,14 +653,32 @@ export function Solid3DEditorPanel({
     setAngleSelection([]);
   };
 
-  const validLinePlaneEndpoints = linePlaneEndpoints.filter(
-    (endpoint) =>
-      resolveSolidDistanceEndpoint(previewRecord, endpoint) !== null,
+  const validLinePlaneEndpoints = useMemo(
+    () =>
+      linePlaneEndpoints.filter(
+        (endpoint) =>
+          resolveSolidDistanceEndpoint(previewRecord, endpoint) !== null,
+      ),
+    [linePlaneEndpoints, previewRecord],
   );
-  const linePlaneLine: SolidAngleLine | null =
-    validLinePlaneEndpoints.length === 2
-      ? [validLinePlaneEndpoints[0]!, validLinePlaneEndpoints[1]!]
-      : null;
+  const linePlaneLine = useMemo(
+    (): SolidAngleLine | null =>
+      validLinePlaneEndpoints.length === 2
+        ? [validLinePlaneEndpoints[0]!, validLinePlaneEndpoints[1]!]
+        : null,
+    [validLinePlaneEndpoints],
+  );
+  const linePlaneOverlayPreview = useMemo(
+    () =>
+      experience === "free" &&
+      workMode === "measure" &&
+      measureTool === "line-plane" &&
+      linePlaneLine !== null &&
+      linePlaneFace !== null
+        ? { line: linePlaneLine, faceId: linePlaneFace }
+        : null,
+    [experience, workMode, measureTool, linePlaneLine, linePlaneFace],
+  );
   const linePlanePreview =
     linePlaneLine !== null && linePlaneFace !== null
       ? calculateSolidLinePlaneAngle(
@@ -1126,15 +1165,7 @@ export function Solid3DEditorPanel({
                   ? linePlaneLine
                   : null
               }
-              linePlanePreview={
-                experience === "free" &&
-                workMode === "measure" &&
-                measureTool === "line-plane" &&
-                linePlaneLine !== null &&
-                linePlaneFace !== null
-                  ? { line: linePlaneLine, faceId: linePlaneFace }
-                  : null
-              }
+              linePlanePreview={linePlaneOverlayPreview}
               anglePreview={
                 experience === "free" &&
                 workMode === "measure" &&
@@ -1142,14 +1173,7 @@ export function Solid3DEditorPanel({
                   ? angleLines
                   : null
               }
-              measurementPreview={
-                experience === "free" &&
-                workMode === "measure" &&
-                measureTool === "distance" &&
-                measuredEndpoints.length === 2
-                  ? [measuredEndpoints[0]!, measuredEndpoints[1]!]
-                  : null
-              }
+              measurementPreview={distanceOverlayEndpoints}
               onPointPlace={placePoint}
               onPointDragStart={() => {
                 if (readOnly) return;
