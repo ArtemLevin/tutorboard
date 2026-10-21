@@ -1,0 +1,29 @@
+name: Temporary dihedral focused gate
+on:
+  push:
+    branches: [feat/3d-dihedral-angle-20261021]
+    paths:
+      - ".github/workflows/temporary-dihedral-focused-checks.yml"
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Contract and format
+        run: |
+          npm run board-contract:check
+          npm run format:check
+      - name: Typecheck and lint
+        run: |
+          npm run typecheck
+          npm run lint
+      - name: Targeted dihedral and editor unit regressions
+        run: npm run test -- tests/unit/core/solid-3d/dihedral-angles.test.ts src/app/solid-3d/Solid3DEditorPanel.test.tsx
