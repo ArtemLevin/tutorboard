@@ -1,4 +1,4 @@
-name: Temporary 3D review formatting
+name: Temporary 3D review formatting (second pass)
 on:
   push:
     branches:
@@ -21,6 +21,7 @@ jobs:
       - name: Format only reviewed changes
         run: |
           npx prettier --write \
+            playwright.config.ts \
             src/adapters/solid-3d-three/camera-framing.ts \
             src/adapters/solid-3d-three/Solid3DViewport.tsx \
             src/core/board/commands/reducer.ts \
