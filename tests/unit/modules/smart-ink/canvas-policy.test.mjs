@@ -4,7 +4,7 @@ import { gunzipSync } from "node:zlib";
 
 import { describe, expect, it } from "vitest";
 
-import { proposeSmartInkReplacement } from "../../../../src/modules/smart-ink/public.ts";
+import { proposeSmartInkReplacement, recognizeSmartInkV2 } from "../../../../src/modules/smart-ink/public.ts";
 import { parseSmartInkCorpus } from "../../../../src/modules/smart-ink-spike/public.ts";
 
 function stroke(sample) {
@@ -83,6 +83,22 @@ describe("Smart Ink automatic canvas policy", () => {
       ),
     );
     console.info("V2_CANVAS_CORPUS_METRICS", JSON.stringify(byClass));
+    const squareDecisions = results
+      .filter(({ sample }) => sample.expectedKind === "square")
+      .map(({ sample }) => {
+        const decision = recognizeSmartInkV2(stroke(sample), sample.points);
+        return {
+          id: sample.id,
+          selectedKind: decision.selectedKind,
+          status: decision.status,
+          quality: decision.snapQuality,
+          candidates: decision.scores.slice(0, 3),
+          aspectRatio: decision.legacyProposal.candidates.find(
+            ({ kind }) => kind === "square",
+          )?.diagnostics.aspectRatio,
+        };
+      });
+    console.info("V2_SQUARE_DECISIONS", JSON.stringify(squareDecisions));
     expect(negativeProposals).toHaveLength(0);
     expect(positiveProposals).toHaveLength(125);
     expect(circleProposals).toHaveLength(20);
