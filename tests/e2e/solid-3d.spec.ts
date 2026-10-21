@@ -95,6 +95,7 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
   ).toBeVisible();
   await editor.getByRole("button", { name: "Свернуть 3D-окно" }).click();
   await expect(editor.getByText("0 / 3")).toBeVisible();
+  await editor.getByRole("button", { name: "Сечение" }).click();
   await expect(
     editor.getByRole("button", {
       name: "Отобразить выбранное сечение на доске",
