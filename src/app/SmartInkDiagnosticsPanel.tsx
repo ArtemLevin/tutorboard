@@ -172,7 +172,9 @@ export function SmartInkDiagnosticsPanel() {
               <dl>
                 <div>
                   <dt>Результат</dt>
-                  <dd>{statusLabels[view.record.v2Status ?? view.record.recognizer.status]}</dd>
+                  <dd>
+                    {statusLabels[view.record.v2Status ?? view.record.recognizer.status]}
+                  </dd>
                 </div>
                 <div>
                   <dt>Выбрано</dt>
