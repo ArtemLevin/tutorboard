@@ -343,7 +343,10 @@ export function Solid3DEditorPanel({
     () =>
       activeSectionDefinition === undefined
         ? null
-        : calculateSolidSection(previewRecord, activeSectionDefinition.pointIds),
+        : calculateSolidSection(
+            previewRecord,
+            activeSectionDefinition.pointIds,
+          ),
     [activeSectionDefinition, previewRecord],
   );
   const activeSection =

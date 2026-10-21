@@ -98,8 +98,7 @@ export function isConvexSolidTopology(topology: SolidTopology): boolean {
     if (normal === null) return false;
     if (
       facePositions.some(
-        (point) =>
-          Math.abs(dot3(normal, subtract3(point!, first))) > tolerance,
+        (point) => Math.abs(dot3(normal, subtract3(point!, first))) > tolerance,
       )
     )
       return false;
