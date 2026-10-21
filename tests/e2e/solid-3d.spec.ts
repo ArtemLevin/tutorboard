@@ -28,14 +28,13 @@ test("recovers the same 3D canvas after a real WebGL context loss", async ({
     const extension = context?.getExtension("WEBGL_lose_context");
     if (extension === undefined || extension === null)
       throw new Error("WebGL context loss extension unavailable");
-    (element as HTMLCanvasElement & { testContextLoss?: WEBGL_lose_context })
-      .testContextLoss = extension;
+    (
+      element as HTMLCanvasElement & { testContextLoss?: WEBGL_lose_context }
+    ).testContextLoss = extension;
     extension.loseContext();
   });
 
-  await expect(
-    editor.getByText("Контекст WebGL был потерян."),
-  ).toBeVisible();
+  await expect(editor.getByText("Контекст WebGL был потерян.")).toBeVisible();
   await expect(canvas).toHaveCount(1);
   await expect(canvas).toHaveAttribute("data-webgl-lifecycle", "original");
   await canvas.evaluate((element) => {
@@ -46,9 +45,7 @@ test("recovers the same 3D canvas after a real WebGL context loss", async ({
       throw new Error("Stored WebGL restore capability was lost");
     extension.restoreContext();
   });
-  await expect(
-    editor.getByText("Контекст WebGL был потерян."),
-  ).toHaveCount(0);
+  await expect(editor.getByText("Контекст WebGL был потерян.")).toHaveCount(0);
   await expect(canvas).toHaveAttribute("data-webgl-lifecycle", "original");
   await editor.getByRole("button", { name: "Ортографическая" }).click();
   await expect(canvas).toHaveCount(1);
