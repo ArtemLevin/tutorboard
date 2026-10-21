@@ -34,7 +34,8 @@ import {
   calculateSolidSection,
   getSolidSectionSweepFrame,
   previewSolidSectionSweep,
-  getSolidSectionRotationFrame,
+  getSolidSectionRotationFrameForAxis,
+  type SolidSectionRotationAxis,
   previewSolidSectionRotationFrame,
   removeSavedSolidSection,
   saveSolidSectionFromPoints,
@@ -81,7 +82,7 @@ export interface Solid3DEditorPanelProps {
       Solid3DPoint["id"],
       Solid3DPoint["id"],
     ],
-    edgeId: string,
+    axis: SolidSectionRotationAxis,
     angleDegrees: number,
     token: string,
   ) => {
@@ -249,6 +250,12 @@ export function Solid3DEditorPanel({
   const [sweepOffset, setSweepOffset] = useState(0);
   const [rotationEnabled, setRotationEnabled] = useState(false);
   const [rotationEdgeId, setRotationEdgeId] = useState("");
+  const [rotationAxisKind, setRotationAxisKind] = useState<"edge" | "points">(
+    "edge",
+  );
+  const [rotationAxisPoints, setRotationAxisPoints] = useState<
+    readonly [Solid3DPoint["id"] | "", Solid3DPoint["id"] | ""]
+  >(["", ""]);
   const [rotationAngle, setRotationAngle] = useState(0);
   const [resetToken, setResetToken] = useState(0);
   const {
@@ -372,16 +379,33 @@ export function Solid3DEditorPanel({
     () => createSolidTopology(previewRecord.definition),
     [previewRecord.definition],
   );
+  const rotationAxis = useMemo((): SolidSectionRotationAxis | null => {
+    if (rotationAxisKind === "edge")
+      return rotationEdgeId === ""
+        ? null
+        : { kind: "edge", edgeId: rotationEdgeId };
+    const [first, second] = rotationAxisPoints;
+    return first === "" || second === "" || first === second
+      ? null
+      : { kind: "points", pointIds: [first, second] };
+  }, [rotationAxisKind, rotationEdgeId, rotationAxisPoints]);
   const rotationFrame = useMemo(
     () =>
-      selectedTuple !== null && rotationEdgeId !== ""
-        ? getSolidSectionRotationFrame(
+      selectedTuple !== null && rotationAxis !== null
+        ? getSolidSectionRotationFrameForAxis(
             previewRecord,
             selectedTuple,
-            rotationEdgeId,
+            rotationAxis,
           )
         : null,
-    [previewRecord, selectedTuple, rotationEdgeId],
+    [previewRecord, selectedTuple, rotationAxis],
+  );
+  const rotationAxisLine = useMemo(
+    (): readonly [Vec3, Vec3] | null =>
+      rotationEnabled && rotationAxisKind === "points" && rotationFrame !== null
+        ? [rotationFrame.axisStart, rotationFrame.axisEnd]
+        : null,
+    [rotationEnabled, rotationAxisKind, rotationFrame],
   );
   const rotationPreview = useMemo(
     () =>
@@ -513,7 +537,7 @@ export function Solid3DEditorPanel({
     if (
       readOnly ||
       selectedTuple === null ||
-      rotationEdgeId === "" ||
+      rotationAxis === null ||
       Math.abs(rotationAngle) < 1e-8 ||
       rotationPreview?.section == null
     )
@@ -521,7 +545,7 @@ export function Solid3DEditorPanel({
     const saved = onSaveRotation(
       record,
       selectedTuple,
-      rotationEdgeId,
+      rotationAxis,
       rotationAngle,
       crypto.randomUUID(),
     );
@@ -732,6 +756,7 @@ export function Solid3DEditorPanel({
               showRotationGizmo={
                 showRotationGizmo && mode === "view" && !readOnly
               }
+              rotationAxis={rotationAxisLine}
               onElementHover={setHighlightedElement}
               onModelRotationCommit={
                 readOnly
@@ -975,9 +1000,22 @@ export function Solid3DEditorPanel({
                   setSweepOffset(0);
                 }
               }}
+              axisKind={rotationAxisKind}
+              onAxisKindChange={(kind) => {
+                setRotationAxisKind(kind);
+                setRotationAngle(0);
+              }}
               edgeId={rotationEdgeId}
               onEdgeChange={(edgeId) => {
                 setRotationEdgeId(edgeId);
+                setRotationAngle(0);
+              }}
+              points={points}
+              axisPointIds={rotationAxisPoints}
+              onAxisPointChange={(index, id) => {
+                setRotationAxisPoints((previous) =>
+                  index === 0 ? [id, previous[1]] : [previous[0], id],
+                );
                 setRotationAngle(0);
               }}
               angleDegrees={rotationAngle}
@@ -987,7 +1025,7 @@ export function Solid3DEditorPanel({
                 !readOnly &&
                 rotationEnabled &&
                 selectedTuple !== null &&
-                rotationEdgeId !== "" &&
+                rotationAxis !== null &&
                 Math.abs(rotationAngle) >= 1e-8 &&
                 rotationPreview?.section != null &&
                 record.sections.length < 8 &&

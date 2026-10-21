@@ -18,8 +18,11 @@ import {
 } from "../../../../src/modules/solid-3d/public";
 import {
   getSolidSectionRotationFrame,
+  getSolidSectionRotationFrameForAxis,
   previewSolidSectionRotation,
+  previewSolidSectionRotationAboutAxis,
   saveSolidSectionRotation,
+  saveSolidSectionRotationAboutAxis,
 } from "../../../../src/modules/solid-3d/section-rotation";
 
 const definition = { kind: "cube", edgeLength: 2 } as const;
@@ -67,6 +70,7 @@ describe("3D section rotation around a selected edge", () => {
     const initial = record();
     const frame = getSolidSectionRotationFrame(initial, ids, horizontalEdge.id);
     expect(frame).not.toBeNull();
+    expect(frame?.edgeId).toBe(horizontalEdge.id);
     const zero = previewSolidSectionRotation(
       initial,
       ids,
@@ -234,5 +238,166 @@ describe("3D section rotation around a selected edge", () => {
         token: "limit",
       }),
     ).toMatchObject({ status: "error", code: "limit" });
+  });
+});
+
+describe("rotation around two semantic 3D points", () => {
+  const axisIds = [points[0]!.id, points[1]!.id] as const;
+  const axis = { kind: "points" as const, pointIds: axisIds };
+
+  it("keeps the selected axis fixed and computes the rotated section", () => {
+    const initial = record();
+    const frame = getSolidSectionRotationFrameForAxis(initial, ids, axis);
+    const preview = previewSolidSectionRotationAboutAxis(
+      initial,
+      ids,
+      axis,
+      15,
+    );
+    expect(frame).not.toBeNull();
+    expect(preview?.section).not.toBeNull();
+    if (frame === null || preview === null || preview.section === null) return;
+    expect(signedDistanceToPlane(preview.plane, frame.axisStart)).toBeCloseTo(
+      0,
+      6,
+    );
+    expect(signedDistanceToPlane(preview.plane, frame.axisEnd)).toBeCloseTo(
+      0,
+      6,
+    );
+    expect(preview.section.area).toBeGreaterThan(0);
+    expect(
+      preview.section.vertices.every(
+        (vertex) =>
+          Math.abs(signedDistanceToPlane(preview.plane, vertex)) < 1e-6,
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects missing, identical, and coincident axis points", () => {
+    const initial = record();
+    expect(
+      getSolidSectionRotationFrameForAxis(initial, ids, {
+        kind: "points",
+        pointIds: [axisIds[0], axisIds[0]],
+      }),
+    ).toBeNull();
+    expect(
+      getSolidSectionRotationFrameForAxis(initial, ids, {
+        kind: "points",
+        pointIds: [axisIds[0], solidPointId("solid-point:missing")],
+      }),
+    ).toBeNull();
+    const duplicate = {
+      ...initial,
+      points: [
+        ...initial.points,
+        { ...initial.points[0]!, id: solidPointId("solid-point:coincident") },
+      ],
+    };
+    expect(
+      getSolidSectionRotationFrameForAxis(duplicate, ids, {
+        kind: "points",
+        pointIds: [axisIds[0], solidPointId("solid-point:coincident")],
+      }),
+    ).toBeNull();
+  });
+
+  it("captures a two-point rotation and removes its helper anchors on delete", () => {
+    const initial = record();
+    const saved = saveSolidSectionRotationAboutAxis({
+      current: initial,
+      starting: initial,
+      pointIds: ids,
+      axis,
+      angleDegrees: 15,
+      token: "two-point",
+    });
+    expect(saved.status).toBe("ok");
+    if (saved.status !== "ok") return;
+    expect(saved.record.sections).toHaveLength(1);
+    expect(validateSolid3DRecord(saved.record)).toEqual([]);
+    const recalculated = calculateSolidSection(saved.record, saved.pointIds);
+    expect(recalculated.status).toBe("ok");
+    if (recalculated.status === "ok")
+      expect(recalculated.section.area).toBeCloseTo(saved.section.area, 5);
+    const deleted = removeSavedSolidSection(saved.record, saved.sectionId);
+    expect(deleted.sections).toHaveLength(0);
+    expect(deleted.points).toEqual(initial.points);
+  });
+
+  it("rejects a stale independent axis point but preserves unrelated remote work", () => {
+    const starting = record();
+    const remoteAxisPoint = {
+      ...starting.points[0]!,
+      id: solidPointId("solid-point:axis-extra"),
+      label: "Q",
+      position: topology.vertices[0]!.position,
+      anchor: {
+        kind: "vertex" as const,
+        vertexId: topology.vertices[0]!.id,
+      },
+    };
+    const current = {
+      ...starting,
+      points: [...starting.points, remoteAxisPoint],
+    };
+    const extraAxis = {
+      kind: "points" as const,
+      pointIds: [axisIds[1], remoteAxisPoint.id] as const,
+    };
+    // The axis point must exist when the drag starts.
+    expect(
+      saveSolidSectionRotationAboutAxis({
+        current,
+        starting,
+        pointIds: ids,
+        axis: extraAxis,
+        angleDegrees: 10,
+        token: "created-remotely",
+      }),
+    ).toMatchObject({ status: "error", code: "invalid-source" });
+    const startedWithAxis = current;
+    const modified = {
+      ...current,
+      points: current.points.map((point) =>
+        point.id === remoteAxisPoint.id
+          ? { ...point, label: "Changed remotely" }
+          : point,
+      ),
+    };
+    expect(
+      saveSolidSectionRotationAboutAxis({
+        current: modified,
+        starting: startedWithAxis,
+        pointIds: ids,
+        axis: extraAxis,
+        angleDegrees: 10,
+        token: "stale-axis",
+      }),
+    ).toMatchObject({ status: "error", code: "invalid-source" });
+    const unrelated = {
+      ...current,
+      points: [
+        ...current.points,
+        { ...starting.points[2]!, id: solidPointId("solid-point:other-edit") },
+      ],
+    };
+    const accepted = saveSolidSectionRotationAboutAxis({
+      current: unrelated,
+      starting: startedWithAxis,
+      pointIds: ids,
+      axis,
+      angleDegrees: 15,
+      token: "unrelated",
+    });
+    expect(accepted.status).toBe("ok");
+    if (accepted.status === "ok") {
+      expect(
+        accepted.record.points.some(
+          ({ id }) => id === solidPointId("solid-point:other-edit"),
+        ),
+      ).toBe(true);
+    }
   });
 });

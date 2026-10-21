@@ -175,7 +175,7 @@ describe("3D section rotation UI", () => {
     expect(onSaveRotation).toHaveBeenCalledWith(
       record,
       points.map(({ id }) => id),
-      horizontalEdge.id,
+      { kind: "edge", edgeId: horizontalEdge.id },
       15,
       expect.any(String),
     );
@@ -239,6 +239,93 @@ describe("3D section rotation UI", () => {
       screen.getByRole("button", {
         name: "Сохранить повёрнутое сечение",
       }),
+    ).toBeDisabled();
+    expect(onSaveRotation).not.toHaveBeenCalled();
+  });
+});
+
+describe("two-point rotation UI", () => {
+  it("selects two semantic points and previews before one explicit save", () => {
+    const { onSaveRotation, onRecordChange } = renderSweep();
+    fireEvent.click(screen.getByLabelText("Вращать плоскость вокруг ребра"));
+    fireEvent.change(screen.getByLabelText("Тип оси вращения"), {
+      target: { value: "points" },
+    });
+    fireEvent.change(screen.getByLabelText("Первая точка оси"), {
+      target: { value: points[0]!.id },
+    });
+    fireEvent.change(screen.getByLabelText("Вторая точка оси"), {
+      target: { value: points[1]!.id },
+    });
+    fireEvent.change(
+      screen.getByRole("slider", { name: "Угол поворота секущей плоскости" }),
+      { target: { value: "15" } },
+    );
+    expect(screen.getByTestId("mock-sweep-section")).not.toHaveTextContent(
+      "none",
+    );
+    expect(onSaveRotation).not.toHaveBeenCalled();
+    expect(onRecordChange).not.toHaveBeenCalled();
+    const save = screen.getByRole("button", {
+      name: "Сохранить повёрнутое сечение",
+    });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    expect(onSaveRotation).toHaveBeenCalledTimes(1);
+    expect(onSaveRotation).toHaveBeenCalledWith(
+      record,
+      points.map(({ id }) => id),
+      { kind: "points", pointIds: [points[0]!.id, points[1]!.id] },
+      15,
+      expect.any(String),
+    );
+  });
+
+  it("blocks a coincident or missing two-point axis and resets angle on changes", () => {
+    const { onSaveRotation } = renderSweep();
+    fireEvent.click(screen.getByLabelText("Вращать плоскость вокруг ребра"));
+    fireEvent.change(screen.getByLabelText("Тип оси вращения"), {
+      target: { value: "points" },
+    });
+    fireEvent.change(screen.getByLabelText("Первая точка оси"), {
+      target: { value: points[0]!.id },
+    });
+    fireEvent.change(screen.getByLabelText("Вторая точка оси"), {
+      target: { value: points[0]!.id },
+    });
+    fireEvent.change(screen.getByLabelText("Точный угол, градусы"), {
+      target: { value: "25" },
+    });
+    expect(
+      screen.getByText("Для оси требуются две разные точки"),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Сохранить повёрнутое сечение" }),
+    ).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Вторая точка оси"), {
+      target: { value: points[1]!.id },
+    });
+    expect(screen.getByLabelText("Точный угол, градусы")).toHaveValue(0);
+    expect(onSaveRotation).not.toHaveBeenCalled();
+  });
+
+  it("permits read-only axis exploration but blocks save", () => {
+    const { onSaveRotation } = renderSweep(true);
+    fireEvent.click(screen.getByLabelText("Вращать плоскость вокруг ребра"));
+    fireEvent.change(screen.getByLabelText("Тип оси вращения"), {
+      target: { value: "points" },
+    });
+    fireEvent.change(screen.getByLabelText("Первая точка оси"), {
+      target: { value: points[0]!.id },
+    });
+    fireEvent.change(screen.getByLabelText("Вторая точка оси"), {
+      target: { value: points[1]!.id },
+    });
+    fireEvent.change(screen.getByLabelText("Точный угол, градусы"), {
+      target: { value: "15" },
+    });
+    expect(
+      screen.getByRole("button", { name: "Сохранить повёрнутое сечение" }),
     ).toBeDisabled();
     expect(onSaveRotation).not.toHaveBeenCalled();
   });

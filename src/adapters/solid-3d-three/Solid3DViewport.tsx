@@ -48,6 +48,8 @@ export interface Solid3DViewportProps {
   readonly record: Solid3DRecord;
   readonly resetToken: number;
   readonly section: SolidSectionResult | null;
+  /** Axis decoration is model-local and never persists in the document. */
+  readonly rotationAxis?: readonly [Vec3, Vec3] | null;
   readonly showSectionFill: boolean;
   readonly showSectionOutline: boolean;
   readonly highlightedElement?: SolidElementRef | null;
@@ -665,6 +667,27 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     }
     if (section !== null)
       overlays.add(sectionObject(section, showSectionFill, showSectionOutline));
+    if (props.rotationAxis !== null && props.rotationAxis !== undefined) {
+      const [first, second] = props.rotationAxis;
+      const axis = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(first.x, first.y, first.z),
+          new THREE.Vector3(second.x, second.y, second.z),
+        ]),
+        new THREE.LineDashedMaterial({
+          color: 0x475569,
+          dashSize: 0.12,
+          gapSize: 0.07,
+          depthTest: false,
+          transparent: true,
+          opacity: 0.78,
+        }),
+      );
+      axis.name = "solid-rotation-two-point-axis";
+      axis.computeLineDistances();
+      axis.renderOrder = 6;
+      overlays.add(axis);
+    }
     runtime.root.add(overlays);
     runtime.renderer.render(runtime.scene, runtime.camera);
   }, [
@@ -674,6 +697,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     showSectionOutline,
     highlightedElement,
     highlightedSurfaceId,
+    props.rotationAxis,
   ]);
 
   return failure !== null ? (

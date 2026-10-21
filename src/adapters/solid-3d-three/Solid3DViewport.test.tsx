@@ -6,6 +6,7 @@ const rendererLifecycle = vi.hoisted(() => ({
   disposed: 0,
   contextsLost: 0,
   gizmoVisible: null as boolean | null,
+  axisVisible: false,
 }));
 
 vi.mock("three", async () => {
@@ -31,6 +32,8 @@ vi.mock("three", async () => {
     }): void {
       rendererLifecycle.gizmoVisible =
         scene.getObjectByName("solid-rotation-gizmo")?.visible ?? null;
+      rendererLifecycle.axisVisible =
+        scene.getObjectByName("solid-rotation-two-point-axis") !== undefined;
     }
 
     setPixelRatio(): void {}
@@ -77,6 +80,7 @@ afterEach(() => {
   rendererLifecycle.disposed = 0;
   rendererLifecycle.contextsLost = 0;
   rendererLifecycle.gizmoVisible = null;
+  rendererLifecycle.axisVisible = false;
 });
 
 describe("Solid3DViewport WebGL lifecycle", () => {
@@ -110,6 +114,43 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     expect(rendererLifecycle.contextsLost).toBe(0);
     view.unmount();
     expect(rendererLifecycle.disposed).toBe(1);
+  });
+
+  it("shows the dashed point axis only during the tool without WebGL remount", async () => {
+    const props = {
+      cameraMode: "orthographic" as const,
+      mode: "view" as const,
+      onPointPlace: vi.fn(),
+      resetToken: 0,
+      section: null,
+      showSectionFill: false,
+      showSectionOutline: false,
+    };
+    const base = record();
+    const view = render(<Solid3DViewport {...props} record={base} />);
+    await waitFor(() => expect(rendererLifecycle.created).toBe(1));
+    expect(rendererLifecycle.axisVisible).toBe(false);
+
+    view.rerender(
+      <Solid3DViewport
+        {...props}
+        record={base}
+        rotationAxis={[
+          { x: -1, y: 0, z: 0 },
+          { x: 1, y: 0, z: 0 },
+        ]}
+      />,
+    );
+    expect(rendererLifecycle.axisVisible).toBe(true);
+    expect(rendererLifecycle.created).toBe(1);
+
+    view.rerender(
+      <Solid3DViewport {...props} record={base} rotationAxis={null} />,
+    );
+    expect(rendererLifecycle.axisVisible).toBe(false);
+    expect(rendererLifecycle.created).toBe(1);
+    view.unmount();
+    expect(rendererLifecycle.contextsLost).toBe(1);
   });
 
   it("updates a persisted rotation without recreating the renderer", async () => {
