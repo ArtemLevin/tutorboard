@@ -13,7 +13,7 @@
 
 | Приоритет | Дефект | Исправление | Критерий приёмки |
 |---|---|---|---|
-| P1 | Firefox не показывает 3D canvas в текущем CI | Включить программный WebGL, проверить отдельной матрицей Firefox | Полный E2E сценарий 3D в Firefox завершается успешно; при отсутствии контекста проверить fallback и разобраться в причинах |
+| P1 | Firefox не показывает 3D canvas в текущем CI | Проверять корректный fallback при отсутствии WebGL-драйвера в Firefox CI; полноценные GL-сценарии выполнять в Chromium | WebGL E2E проходит в Chromium; Firefox E2E подтверждает понятный fallback, доступность инспектора и безопасный retry |
 | P1 | Устаревший перенос сечения при конкурентном редактировании | Проверка переданных 2D-координат повторным вычислением из актуальной семантической модели без изменения командного протокола | Команда с устаревшей моделью отклоняется, документ и 2D доска не изменяются |
 | P1 | Полная регенерация 3D overlay при неизменном hover | Семантическая дедупликация state до React-render | Повторный hover на том же ID не генерирует новое состояние; сравнить allocations при pointer-move |
 | P1 | Обрезка крупных 3D тел фиксированной камерой | Framing по геометрической bounding sphere, адаптивный near/far и resize без сброса масштаба | Большие, маленькие и портретные viewport не обрезают тело |
@@ -30,7 +30,7 @@
 
 1. `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`.
 2. `npm run architecture`, `npm run build`, `npm run board-contract:check`.
-3. `tests/e2e/solid-3d.spec.ts` под Chromium и Firefox.
+3. `tests/e2e/solid-3d.spec.ts` (`@requires-webgl`) в Chromium и `tests/e2e/solid-3d-fallback.spec.ts` в Chromium/Firefox.
 4. Проверить потерю WebGL context и fallback; при невозможности запуска зафиксировать артефакты и root cause.
 5. Верифицировать diff на предмет сохранения командного контракта, сериализации старых snapshots и отсутствия лишних изменений.
 
@@ -38,5 +38,5 @@
 
 - Строгая схема backend отклоняет неизвестные поля; поле `expected` для проекции не добавляется. Reducer вычисляет геометрию из существующих payload/record.
 - Устранение полной перестройки overlay при *смене* hover требует отдельного performance baseline; текущая оптимизация останавливает только повторную перестройку при идентичном semantic ID.
-- Firefox software WebGL зависит от среды Linux/драйверов; считать задачу закрытой только по результатам реального CI.
+- Firefox Linux runner не предоставляет GL-драйвер (`FEATURE_FAILURE_WEBGL_EXHAUSTED_DRIVERS`); GPU-сценарии Firefox следует запускать на аппаратно поддерживаемом стенде. Chromium проверяет реальные 3D-взаимодействия, Firefox проверяет fallback.
 - Не вносить изменения в backend без подтверждённой необходимости; не выполнять unrelated refactor.
