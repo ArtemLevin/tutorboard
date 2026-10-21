@@ -2052,12 +2052,44 @@
       ],
       "type": "object"
     },
+    "SolidLinePlaneAngleMeasurement": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "line": {
+          "items": {
+            "$ref": "#/$defs/SolidDistanceEndpoint"
+          },
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "faceId": {
+          "$ref": "#/$defs/Identifier"
+        }
+      },
+      "required": [
+        "id",
+        "line",
+        "faceId"
+      ],
+      "type": "object"
+    },
     "Solid3DRecord": {
       "additionalProperties": false,
       "properties": {
         "angleMeasurements": {
           "items": {
             "$ref": "#/$defs/SolidAngleMeasurement"
+          },
+          "type": "array",
+          "maxItems": 12
+        },
+        "linePlaneMeasurements": {
+          "items": {
+            "$ref": "#/$defs/SolidLinePlaneAngleMeasurement"
           },
           "type": "array",
           "maxItems": 12
