@@ -6,6 +6,8 @@ import {
   createSolidTopology,
   resolveSolidDistanceEndpoint,
   calculateSolidLineAngle,
+  calculateSolidLinePlaneAngle,
+  type SolidLinePlaneAngleResult,
   type SolidAngleLine,
   type SolidLineAngleResult,
   solidPointId,
@@ -44,6 +46,9 @@ export interface Solid3DViewportProps {
   readonly onMeasurementPick?:
     ((endpoint: SolidDistanceEndpoint) => void) | undefined;
   readonly onAngleEdgePick?: ((edgeId: string) => void) | undefined;
+  readonly onFacePick?: ((faceId: string) => void) | undefined;
+  readonly linePlaneSelectedLine?: SolidAngleLine | null;
+  readonly linePlanePreview?: { readonly line: SolidAngleLine; readonly faceId: string } | null;
   readonly anglePreview?: readonly [SolidAngleLine, SolidAngleLine] | null;
   readonly measurementPreview?:
     readonly [SolidDistanceEndpoint, SolidDistanceEndpoint] | null;
@@ -281,6 +286,53 @@ function angleLinesObject(
   return root;
 }
 
+/** Scene-local auxiliary construction: projected direction and supporting plane. */
+function linePlaneObject(result: SolidLinePlaneAngleResult, saved: boolean): THREE.Group {
+  const group = new THREE.Group();
+  group.name = saved ? "solid-line-plane-saved" : "solid-line-plane-preview";
+  const color = saved ? 0x0f766e : 0xf59e0b;
+  const vector = (v: Vec3) => new THREE.Vector3(v.x, v.y, v.z);
+  const from = vector(result.line[0]);
+  const to = vector(result.line[1]);
+  const foot = vector(result.foot);
+  const normal = vector(result.normal);
+  const u = vector(result.direction);
+  const projected = vector(result.projectedDirection ?? result.tangent);
+  const line = (points: THREE.Vector3[], dashed: boolean): void => {
+    const material = dashed
+      ? new THREE.LineDashedMaterial({
+          color, dashSize: 0.1, gapSize: 0.07,
+          depthTest: false, transparent: true, opacity: 0.85,
+        })
+      : new THREE.LineBasicMaterial({ color, depthTest: false });
+    const shape = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material);
+    if (dashed) shape.computeLineDistances();
+    shape.renderOrder = 10;
+    group.add(shape);
+  };
+  line([from, to], false);
+  // The plane may not intersect the original segment. Draw the perpendicular
+  // from its first endpoint to the supporting plane (including outside the face).
+  line([from, foot], true);
+  line([foot, foot.clone().addScaledVector(u, 0.85)], true);
+  line([foot, foot.clone().addScaledVector(projected, 0.85)], false);
+  if (result.degrees > 0.01) {
+    const theta = result.degrees * Math.PI / 180;
+    const parallel = projected.clone().multiplyScalar(u.dot(projected));
+    const perpendicular = u.clone().sub(parallel).normalize();
+    const points = Array.from({ length: 25 }, (_, index) => {
+      const angle = theta * index / 24;
+      return foot.clone().add(
+        projected.clone().multiplyScalar(Math.cos(angle) * 0.38),
+      ).add(perpendicular.clone().multiplyScalar(Math.sin(angle) * 0.38));
+    });
+    line(points, false);
+  }
+  // Small face-normal marker reinforces the plane selected on the model.
+  line([foot, foot.clone().addScaledVector(normal, 0.3)], true);
+  return group;
+}
+
 export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const {
     cameraMode,
@@ -311,6 +363,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const onPointPlaceRef = useRef(props.onPointPlace);
   const onMeasurementPickRef = useRef(props.onMeasurementPick);
   const onAngleEdgePickRef = useRef(props.onAngleEdgePick);
+  const onFacePickRef = useRef(props.onFacePick);
   const onPointDragStartRef = useRef(props.onPointDragStart);
   const onPointDragPreviewRef = useRef(props.onPointDragPreview);
   const onPointDragEndRef = useRef(props.onPointDragEnd);
@@ -356,7 +409,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   useEffect(() => {
     onMeasurementPickRef.current = props.onMeasurementPick;
     onAngleEdgePickRef.current = props.onAngleEdgePick;
-  }, [props.onMeasurementPick, props.onAngleEdgePick]);
+    onFacePickRef.current = props.onFacePick;
+  }, [props.onMeasurementPick, props.onAngleEdgePick, props.onFacePick]);
 
   useEffect(() => {
     onModelRotationCommitRef.current = onModelRotationCommit;
@@ -587,6 +641,20 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
             );
       pointerOrigin = null;
       if (event.button !== 0 || moved > 4) return;
+      if (onFacePickRef.current !== undefined) {
+        const bounds = renderer.domElement.getBoundingClientRect();
+        pointer.set(
+          ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+          -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+        );
+        raycaster.setFromCamera(pointer, camera);
+        const hit = raycaster.intersectObject(built.mesh, false)[0];
+        const faceIds: unknown = built.mesh.userData.semanticFaceIds;
+        const faceId: unknown = Array.isArray(faceIds)
+          ? faceIds[hit?.faceIndex ?? -1] : undefined;
+        if (typeof faceId === "string") onFacePickRef.current(faceId);
+        return;
+      }
       if (onAngleEdgePickRef.current !== undefined) {
         const bounds = renderer.domElement.getBoundingClientRect();
         pointer.set(
@@ -974,6 +1042,33 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       const preview = calculateSolidLineAngle(record, props.anglePreview);
       if (preview !== null) overlays.add(angleLinesObject(preview, false));
     }
+    if (props.linePlaneSelectedLine !== null && props.linePlaneSelectedLine !== undefined
+      && (props.linePlanePreview === null || props.linePlanePreview === undefined)) {
+      const from = resolveSolidDistanceEndpoint(record, props.linePlaneSelectedLine[0]);
+      const to = resolveSolidDistanceEndpoint(record, props.linePlaneSelectedLine[1]);
+      if (from !== null && to !== null) {
+        const selected = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(from.x, from.y, from.z),
+            new THREE.Vector3(to.x, to.y, to.z),
+          ]),
+          new THREE.LineBasicMaterial({ color: 0xf59e0b, depthTest: false }),
+        );
+        selected.name = "solid-line-plane-selected-line";
+        selected.renderOrder = 9;
+        overlays.add(selected);
+      }
+    }
+    for (const item of record.linePlaneMeasurements ?? []) {
+      const result = calculateSolidLinePlaneAngle(record, item.line, item.faceId);
+      if (result !== null) overlays.add(linePlaneObject(result, true));
+    }
+    if (props.linePlanePreview !== null && props.linePlanePreview !== undefined) {
+      const result = calculateSolidLinePlaneAngle(
+        record, props.linePlanePreview.line, props.linePlanePreview.faceId,
+      );
+      if (result !== null) overlays.add(linePlaneObject(result, false));
+    }
     runtime.root.add(overlays);
     if (runtime.active) runtime.renderer.render(runtime.scene, runtime.camera);
   }, [
@@ -986,6 +1081,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     props.rotationAxis,
     props.measurementPreview,
     props.anglePreview,
+    props.linePlaneSelectedLine,
+    props.linePlanePreview,
   ]);
 
   return (
