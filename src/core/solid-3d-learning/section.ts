@@ -2,6 +2,7 @@ import {
   createSolidTopology,
   intersectAnalyticSolidWithPlane,
   intersectPolyhedronWithPlane,
+  isConvexSolidTopology,
   planeFromThreePoints,
   type Solid3DRecord,
   type SolidSectionResult,
@@ -24,5 +25,7 @@ export function calculateSectionForLearning(
   const topology = createSolidTopology(record.definition);
   return topology === null
     ? intersectAnalyticSolidWithPlane(record.definition, plane)
-    : intersectPolyhedronWithPlane(topology, plane);
+    : isConvexSolidTopology(topology)
+      ? intersectPolyhedronWithPlane(topology, plane)
+      : null;
 }

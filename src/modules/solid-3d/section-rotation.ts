@@ -4,6 +4,7 @@ import {
   cross3,
   dot3,
   intersectPolyhedronWithPlane,
+  isConvexSolidTopology,
   normalize3,
   planeFromThreePoints,
   resolveSolid3DPointPosition,
@@ -61,7 +62,7 @@ export function getSolidSectionRotationFrame(
   edgeId: string,
 ): SolidSectionRotationFrame | null {
   const topology = createSolidTopology(record.definition);
-  if (topology === null) return null;
+  if (topology === null || !isConvexSolidTopology(topology)) return null;
   const edge = topology.edges.find((candidate) => candidate.id === edgeId);
   if (edge === undefined) return null;
   const points = pointIds.map((id) =>

@@ -329,10 +329,26 @@ export function Solid3DEditorPanel({
   const activeSectionDefinition =
     record.sections.find(({ id }) => id === activeSectionId) ??
     record.sections.at(-1);
-  const activeSectionResult =
-    activeSectionDefinition === undefined
-      ? null
-      : calculateSolidSection(previewRecord, activeSectionDefinition.pointIds);
+  const savedSectionResults = useMemo(
+    () =>
+      new Map(
+        record.sections.map((section) => [
+          section.id,
+          calculateSolidSection(record, section.pointIds),
+        ]),
+      ),
+    [record],
+  );
+  const activeSectionResult = useMemo(
+    () =>
+      activeSectionDefinition === undefined
+        ? null
+        : calculateSolidSection(
+            previewRecord,
+            activeSectionDefinition.pointIds,
+          ),
+    [activeSectionDefinition, previewRecord],
+  );
   const activeSection =
     activeSectionResult?.status === "ok" &&
     activeSectionDefinition?.visible === true
@@ -884,7 +900,9 @@ export function Solid3DEditorPanel({
             >
               <h3>Динамическая секущая плоскость</h3>
               {sweepFrame === null ? (
-                <p>Выберите три неколлинеарные точки многогранника.</p>
+                <p>
+                  Выберите три неколлинеарные точки выпуклого многогранника.
+                </p>
               ) : (
                 <>
                   <label>
@@ -992,9 +1010,8 @@ export function Solid3DEditorPanel({
             ) : (
               <ol className="solid-3d-sections">
                 {record.sections.map((sectionDefinition, index) => {
-                  const calculated = calculateSolidSection(
-                    record,
-                    sectionDefinition.pointIds,
+                  const calculated = savedSectionResults.get(
+                    sectionDefinition.id,
                   );
                   const name =
                     sectionDefinition.label ??
@@ -1054,7 +1071,7 @@ export function Solid3DEditorPanel({
                         видно
                       </label>
                       <span>
-                        {calculated.status === "ok"
+                        {calculated?.status === "ok"
                           ? `S=${calculated.section.area.toFixed(2)}`
                           : "требует проверки"}
                       </span>
