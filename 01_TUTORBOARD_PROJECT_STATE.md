@@ -1116,3 +1116,15 @@ WebGL lifecycle audit      RECOMMENDED
 - Backend Draft PR #50 vendors the matching graph schema/DTO and implements authenticated multipart finalize with server-side graph integrity validation, durable idempotency, expiry cleanup and one committed revision.
 - Frontend Draft PR #274 includes 5,200-member group regression and 10,000-stroke Undo tests. Coordinated release-gate CI and pinned backend release manifest are required before merge.
 - Remaining limitations: >10,000 objects or >40 MiB, removed 3D learning attempts, mixed-version legacy clients, and live device/restart/backup soak.
+
+## 21.10.2026 — P0 3D collaborative record integrity
+
+После PR #284 проведена локализация lost update в `useBoardSolid3DController.updateRecord`:
+при конфликте с remote-редактированием использовался актуальный `expected`
+в сочетании со stale `replacement`. Добавлено трёхстороннее объединение
+семантических точек и сечений с запретом перезаписи конкурентных изменений
+одного ID, ограничениями для смены определения тела и явным feedback.
+Регрессионные тесты охватывают одновременные добавления, редактирование,
+удаление зависимостей, изменение размеров/проекции и ограничения модели.
+Проверки CI и статус PR фиксируются отдельно; production rollout без
+проверенного CI не считается завершённым.

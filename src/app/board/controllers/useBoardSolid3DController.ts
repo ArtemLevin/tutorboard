@@ -15,6 +15,7 @@ import {
   createProjectSolid3DSectionCommand,
   createUpdateSolid3DCommand,
   applySolidPointDrag,
+  rebaseSolid3DRecordUpdate,
   saveSolidSectionSweep,
   saveSolidSectionRotationAboutAxis,
   type SolidSectionRotationAxis,
@@ -100,18 +101,38 @@ export function useBoardSolid3DController({
   );
 
   const updateRecord = useCallback(
-    (replacement: Solid3DRecord) => {
-      const current = getDocument().solidModels[replacement.id];
-      if (current === undefined) return;
-      commitCommand(
+    (starting: Solid3DRecord | null, replacement: Solid3DRecord) => {
+      if (starting === null) return;
+      const current = getDocument().solidModels[starting.id];
+      if (current === undefined) {
+        announce("3D-модель удалена другим участником. Изменение отменено.");
+        return;
+      }
+      const rebased = rebaseSolid3DRecordUpdate({
+        current,
+        replacement,
+        starting,
+      });
+      if (rebased.status !== "ok") {
+        if (rebased.status === "conflict") {
+          announce(
+            "3D-модель изменена другим участником. Повторите действие на актуальной модели.",
+          );
+        }
+        return;
+      }
+      const result = commitCommand(
         createUpdateSolid3DCommand({
           expected: current,
           metadata: createCommandMetadata(),
-          replacement,
+          replacement: rebased.record,
         }),
       );
+      if (!result.ok && result.error.code === "command.stale-solid") {
+        announce("3D-модель изменилась при сохранении. Повторите действие.");
+      }
     },
-    [commitCommand, createCommandMetadata, getDocument],
+    [announce, commitCommand, createCommandMetadata, getDocument],
   );
 
   const movePoint = useCallback(
