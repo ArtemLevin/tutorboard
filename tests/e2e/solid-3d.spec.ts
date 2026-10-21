@@ -282,7 +282,13 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   await editor.getByRole("button", { name: "Отменить" }).click();
   await expect(savedSections).toHaveCount(before);
 
+  // Restore the source-plane selection after saving the previous section.
+  const pointSelectors = editor.locator(".solid-3d-points input[type='checkbox']");
+  await expect(pointSelectors).toHaveCount(3);
+  for (const selector of await pointSelectors.all()) await selector.check();
+
   // Use the same cutting plane with an axis determined by two placed points.
+  await editor.getByLabel("Вращать плоскость вокруг ребра").check();
   await editor.getByLabel("Тип оси вращения").selectOption("points");
   await editor.getByLabel("Первая точка оси").selectOption({ index: 1 });
   await editor.getByLabel("Вторая точка оси").selectOption({ index: 2 });
