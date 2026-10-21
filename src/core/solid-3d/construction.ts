@@ -168,6 +168,17 @@ export function replaceSolidConstructionDefinition(
     definition,
     points: [],
     sections: [],
+    // A construction replacement resets semantic vertex and face references.
+    // Clear every measurement in the same atomic update to avoid dangling
+    // references or silently reattaching a saved result to a different face.
+    ...(record.measurements !== undefined ? { measurements: [] } : {}),
+    ...(record.angleMeasurements !== undefined ? { angleMeasurements: [] } : {}),
+    ...(record.linePlaneMeasurements !== undefined
+      ? { linePlaneMeasurements: [] }
+      : {}),
+    ...(record.dihedralMeasurements !== undefined
+      ? { dihedralMeasurements: [] }
+      : {}),
   };
 }
 
