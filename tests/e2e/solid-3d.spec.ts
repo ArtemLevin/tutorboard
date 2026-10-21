@@ -290,7 +290,9 @@ test("rotates a plane about two selected 3D points with one undoable save", asyn
   const stage = await page.getByTestId("board-stage").boundingBox();
   if (stage === null) throw new Error("Board stage is unavailable");
   await page.getByRole("button", { name: "ИИ-инструменты" }).click();
-  await page.getByRole("menuitemradio", { name: "Построение по тексту" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
+    .click();
   await page.getByLabel("Текст построения").fill("куб");
   await page.getByRole("button", { name: "Выбрать для размещения" }).click();
   await page.mouse.click(
