@@ -18,12 +18,27 @@ import {
 import { Solid3DEditorPanel } from "./Solid3DEditorPanel";
 
 vi.mock("../../adapters/solid-3d-three/public", () => ({
-  Solid3DViewport: (props: { showRotationGizmo?: boolean; mode?: string }) => (
+  Solid3DViewport: (props: {
+    showRotationGizmo?: boolean;
+    mode?: string;
+    onMeasurementPick?: (point: { kind: "vertex"; id: string }) => void;
+    measurementPreview?: readonly unknown[] | null;
+  }) => (
     <div
       data-testid="mock-3d-viewport"
       data-rotation-gizmo={String(props.showRotationGizmo ?? false)}
       data-viewport-mode={props.mode}
-    />
+      data-measure-preview={String(props.measurementPreview != null)}
+    >
+      <button
+        onClick={() => props.onMeasurementPick?.({ kind: "vertex", id: "vertex:0" })}
+        type="button"
+      >Выбрать начало на модели</button>
+      <button
+        onClick={() => props.onMeasurementPick?.({ kind: "vertex", id: "vertex:1" })}
+        type="button"
+      >Выбрать конец на модели</button>
+    </div>
   ),
 }));
 
@@ -44,9 +59,13 @@ afterEach(cleanup);
 function renderPanel({
   onClose = vi.fn(),
   readOnly = false,
+  onRecordChange = vi.fn(),
+  initialRecord = record,
 }: {
   readonly onClose?: () => void;
   readonly readOnly?: boolean;
+  readonly onRecordChange?: (replacement: Solid3DRecord) => void;
+  readonly initialRecord?: Solid3DRecord;
 } = {}) {
   const onOutsideClick = vi.fn();
   const view = render(
@@ -64,13 +83,13 @@ function renderPanel({
         onLearningReset={vi.fn()}
         onLearningStart={vi.fn()}
         onProject={vi.fn()}
-        onRecordChange={vi.fn()}
+        onRecordChange={onRecordChange}
         onPointMove={vi.fn()}
         onSaveSweep={vi.fn()}
         onSaveRotation={vi.fn()}
         onUndo={vi.fn()}
         readOnly={readOnly}
-        record={record}
+        record={initialRecord}
       />
     </div>,
   );
@@ -154,6 +173,49 @@ describe("Solid3DEditorPanel embedded workspace", () => {
       screen.queryByRole("region", { name: "Точная настройка" }),
     ).toBeNull();
     expect(screen.getByTestId("mock-3d-viewport")).toBe(viewport);
+  });
+
+  it("measures two vertices directly on the model, previews and saves", () => {
+    const onRecordChange = vi.fn();
+    renderPanel({ onRecordChange });
+    const viewport = screen.getByTestId("mock-3d-viewport");
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    expect(screen.getByRole("button", { name: "Измерить" })).toHaveAttribute(
+      "aria-pressed", "true",
+    );
+    expect(viewport).toHaveAttribute("data-measure-preview", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать начало на модели" }));
+    expect(screen.getByText("Выберите вторую точку")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать конец на модели" }));
+    expect(viewport).toHaveAttribute("data-measure-preview", "true");
+    expect(screen.getByText(/Длина:/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить измерение" }));
+    expect(onRecordChange).toHaveBeenCalledOnce();
+    const saved = onRecordChange.mock.calls[0]?.[0] as Solid3DRecord;
+    expect(saved.measurements).toHaveLength(1);
+    expect(saved.measurements?.[0]?.first.id).toBe("vertex:0");
+    expect(saved.measurements?.[0]?.second.id).toBe("vertex:1");
+    expect(viewport).toHaveAttribute("data-measure-preview", "false");
+  });
+
+  it("shows saved distances and does not allow read-only changes", () => {
+    const measured: Solid3DRecord = {
+      ...record,
+      measurements: [{
+        id: "solid-distance:existing",
+        first: { kind: "vertex", id: "vertex:0" },
+        second: { kind: "vertex", id: "vertex:1" },
+      }],
+    };
+    const onRecordChange = vi.fn();
+    renderPanel({ initialRecord: measured, readOnly: true, onRecordChange });
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    expect(screen.getByText(/ед\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Сохранить измерение" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Удалить измерение solid-distance:existing" }),
+    ).toBeDisabled();
+    expect(onRecordChange).not.toHaveBeenCalled();
   });
 
   it("expands the model without remounting the viewport", () => {
