@@ -1970,6 +1970,62 @@
       ],
       "type": "object"
     },
+    "SolidDistanceEndpoint": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "vertex"
+            },
+            "id": {
+              "$ref": "#/$defs/Identifier"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "point"
+            },
+            "id": {
+              "$ref": "#/$defs/Identifier"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "SolidDistanceMeasurement": {
+      "additionalProperties": false,
+      "properties": {
+        "first": {
+          "$ref": "#/$defs/SolidDistanceEndpoint"
+        },
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "second": {
+          "$ref": "#/$defs/SolidDistanceEndpoint"
+        }
+      },
+      "required": [
+        "first",
+        "id",
+        "second"
+      ],
+      "type": "object"
+    },
     "Solid3DRecord": {
       "additionalProperties": false,
       "properties": {
@@ -1985,6 +2041,13 @@
         },
         "id": {
           "$ref": "#/$defs/Identifier"
+        },
+        "measurements": {
+          "items": {
+            "$ref": "#/$defs/SolidDistanceMeasurement"
+          },
+          "type": "array",
+          "maxItems": 16
         },
         "points": {
           "items": {

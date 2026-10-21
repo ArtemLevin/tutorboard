@@ -11,6 +11,9 @@ import {
 import {
   createSolidTopology,
   isSolidSectionHelperPoint,
+  calculateSolidDistance,
+  saveSolidDistance,
+  type SolidDistanceEndpoint,
   resolveAnalyticSolidPointAnchor,
   resolveSolid3DPointPosition,
   reprojectSolid3DRecord,
@@ -237,10 +240,13 @@ export function Solid3DEditorPanel({
   );
   const [mode, setMode] = useState<"points" | "view">("view");
   const [showRotationGizmo, setShowRotationGizmo] = useState(false);
-  const [workMode, setWorkMode] = useState<"explore" | "section" | "points">(
-    "explore",
-  );
+  const [workMode, setWorkMode] = useState<
+    "explore" | "section" | "points" | "measure"
+  >("explore");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [measureSelection, setMeasureSelection] = useState<
+    readonly SolidDistanceEndpoint[]
+  >([]);
   const [cameraMode, setCameraMode] = useState<"orthographic" | "perspective">(
     "orthographic",
   );
@@ -501,6 +507,54 @@ export function Solid3DEditorPanel({
       ? freeVisibleSection
       : null;
 
+  const measuredEndpoints = measureSelection.filter((endpoint) =>
+    endpoint.kind === "point"
+      ? previewRecord.points.some(({ id }) => id === endpoint.id)
+      : createSolidTopology(previewRecord.definition)?.vertices.some(
+          ({ id }) => id === endpoint.id,
+        ) === true,
+  );
+  const measurementPreview =
+    measuredEndpoints.length === 2
+      ? calculateSolidDistance(
+          previewRecord,
+          measuredEndpoints[0]!,
+          measuredEndpoints[1]!,
+        )
+      : null;
+  const chooseMeasurementEndpoint = (endpoint: SolidDistanceEndpoint): void => {
+    setMeasureSelection((selected) => {
+      if (selected.length >= 2) return [endpoint];
+      if (
+        selected.some(
+          (candidate) =>
+            candidate.id === endpoint.id && candidate.kind === endpoint.kind,
+        )
+      )
+        return selected;
+      return [...selected, endpoint];
+    });
+  };
+  const measurementEndpointLabel = (endpoint: SolidDistanceEndpoint): string =>
+    endpoint.kind === "point"
+      ? (record.points.find(({ id }) => id === endpoint.id)?.label ??
+        endpoint.id)
+      : (createSolidTopology(record.definition)?.vertices.find(
+          ({ id }) => id === endpoint.id,
+        )?.label ?? endpoint.id);
+  const saveMeasurement = (): void => {
+    if (readOnly || measuredEndpoints.length !== 2) return;
+    const replacement = saveSolidDistance(
+      record,
+      measuredEndpoints[0]!,
+      measuredEndpoints[1]!,
+      `solid-distance:${crypto.randomUUID()}`,
+    );
+    if (replacement === null) return;
+    onRecordChange(replacement);
+    setMeasureSelection([]);
+  };
+
   const placePoint = useCallback(
     (position: Vec3, anchor: SolidPointAnchor) => {
       if (readOnly || record.points.length >= 32) return;
@@ -590,7 +644,18 @@ export function Solid3DEditorPanel({
     replacement = {
       ...replacement,
       points: replacement.points.filter(({ id }) => id !== point.id),
+      measurements: (replacement.measurements ?? []).filter(
+        ({ first, second }) =>
+          !(first.kind === "point" && first.id === point.id) &&
+          !(second.kind === "point" && second.id === point.id),
+      ),
     };
+    setMeasureSelection((selected) =>
+      selected.filter(
+        (candidate) =>
+          !(candidate.kind === "point" && candidate.id === point.id),
+      ),
+    );
     if (
       activeSectionId !== null &&
       !replacement.sections.some(({ id }) => id === activeSectionId)
@@ -725,6 +790,17 @@ export function Solid3DEditorPanel({
             Поставить точку
           </button>
           <button
+            aria-pressed={experience === "free" && workMode === "measure"}
+            onClick={() => {
+              setExperience("free");
+              setWorkMode("measure");
+              setMode("view");
+            }}
+            type="button"
+          >
+            Измерить
+          </button>
+          <button
             aria-pressed={experience === "learning"}
             disabled={!learningEnabled}
             onClick={() => {
@@ -793,6 +869,18 @@ export function Solid3DEditorPanel({
                         withSolid3DModelQuaternion(record, rotation),
                       )
               }
+              onMeasurementPick={
+                experience === "free" && workMode === "measure"
+                  ? chooseMeasurementEndpoint
+                  : undefined
+              }
+              measurementPreview={
+                experience === "free" &&
+                workMode === "measure" &&
+                measuredEndpoints.length === 2
+                  ? [measuredEndpoints[0]!, measuredEndpoints[1]!]
+                  : null
+              }
               onPointPlace={placePoint}
               onPointDragStart={() => {
                 if (readOnly) return;
@@ -826,19 +914,30 @@ export function Solid3DEditorPanel({
               showSectionFill={showSectionFill}
               showSectionOutline={showSectionOutline}
             />
-            <div aria-live="polite" className="solid-3d-progress">
-              <strong>{sanitizedSelectedPointIds.length} / 3</strong>
-              <span>
-                {previewSection !== null
-                  ? `Preview · площадь ${previewSection.area.toFixed(2)} · периметр ${previewSection.perimeter.toFixed(2)}`
-                  : activeSection !== null
-                    ? `Сохранено · площадь ${activeSection.area.toFixed(2)} · периметр ${activeSection.perimeter.toFixed(2)}`
-                    : "Выберите три допустимые точки"}
-                {hoveredSurfaceId === null
-                  ? ""
-                  : ` · ${analyticSurfaceNames[hoveredSurfaceId]}`}
-              </span>
-            </div>
+            {experience === "free" && workMode === "measure" ? (
+              <div aria-live="polite" className="solid-3d-progress">
+                <strong>{measuredEndpoints.length} / 2</strong>
+                <span>
+                  {measurementPreview === null
+                    ? "Выберите два конца отрезка на модели"
+                    : `Расстояние: ${measurementPreview.toFixed(3)} ед.`}
+                </span>
+              </div>
+            ) : experience === "free" && workMode === "section" ? (
+              <div aria-live="polite" className="solid-3d-progress">
+                <strong>{sanitizedSelectedPointIds.length} / 3</strong>
+                <span>
+                  {previewSection !== null
+                    ? `Preview · площадь ${previewSection.area.toFixed(2)} · периметр ${previewSection.perimeter.toFixed(2)}`
+                    : activeSection !== null
+                      ? `Сохранено · площадь ${activeSection.area.toFixed(2)} · периметр ${activeSection.perimeter.toFixed(2)}`
+                      : "Выберите три допустимые точки"}
+                  {hoveredSurfaceId === null
+                    ? ""
+                    : ` · ${analyticSurfaceNames[hoveredSurfaceId]}`}
+                </span>
+              </div>
+            ) : null}
           </div>
           <aside className="solid-3d-inspector">
             <h3 className="solid-3d-inspector-title">Основное</h3>
@@ -869,9 +968,87 @@ export function Solid3DEditorPanel({
                 Контур сечения
               </label>
             </div>
+            {experience === "free" && workMode === "measure" ? (
+              <section
+                aria-label="Измерение расстояния"
+                className="solid-3d-measurements"
+              >
+                <h3>Расстояние между точками</h3>
+                <p>
+                  Щёлкните две вершины или ранее поставленные точки на модели.
+                </p>
+                <p aria-live="polite">
+                  {measuredEndpoints.length === 0
+                    ? "Выберите первую точку"
+                    : measuredEndpoints.length === 1
+                      ? "Выберите вторую точку"
+                      : measurementPreview === null
+                        ? "Недопустимый выбор"
+                        : `Длина: ${measurementPreview.toFixed(3)} ед.`}
+                </p>
+                <div className="solid-3d-measure-actions">
+                  <button
+                    disabled={
+                      readOnly ||
+                      measurementPreview === null ||
+                      (record.measurements?.length ?? 0) >= 16
+                    }
+                    onClick={saveMeasurement}
+                    type="button"
+                  >
+                    Сохранить измерение
+                  </button>
+                  <button
+                    disabled={measureSelection.length === 0}
+                    onClick={() => setMeasureSelection([])}
+                    type="button"
+                  >
+                    Сбросить выбор
+                  </button>
+                </div>
+                {(record.measurements?.length ?? 0) > 0 ? (
+                  <ol className="solid-3d-measure-list">
+                    {record.measurements?.map((measurement) => {
+                      const length = calculateSolidDistance(
+                        previewRecord,
+                        measurement.first,
+                        measurement.second,
+                      );
+                      return (
+                        <li key={measurement.id}>
+                          <span>
+                            {measurementEndpointLabel(measurement.first)} —{" "}
+                            {measurementEndpointLabel(measurement.second)}
+                            <strong> {length?.toFixed(3) ?? "—"} ед.</strong>
+                          </span>
+                          <button
+                            aria-label={`Удалить измерение ${measurement.id}`}
+                            disabled={readOnly}
+                            onClick={() =>
+                              onRecordChange({
+                                ...record,
+                                measurements: (
+                                  record.measurements ?? []
+                                ).filter(({ id }) => id !== measurement.id),
+                              })
+                            }
+                            type="button"
+                          >
+                            ×
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                ) : null}
+              </section>
+            ) : null}
             <div
               className="solid-3d-mode-content"
-              hidden={experience !== "free" || workMode === "explore"}
+              hidden={
+                experience !== "free" ||
+                (workMode !== "section" && workMode !== "points")
+              }
             >
               <h3>Точки</h3>
               {points.length === 0 ? (
