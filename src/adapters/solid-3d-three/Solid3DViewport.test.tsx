@@ -1,9 +1,12 @@
-import { render, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as THREE from "three";
 
 const rendererLifecycle = vi.hoisted(() => ({
   created: 0,
   disposed: 0,
+  renderCalls: 0,
+  failNextCreation: false,
   contextsLost: 0,
   gizmoVisible: null as boolean | null,
   axisVisible: false,
@@ -16,6 +19,10 @@ vi.mock("three", async () => {
     outputColorSpace = actual.SRGBColorSpace;
 
     constructor() {
+      if (rendererLifecycle.failNextCreation) {
+        rendererLifecycle.failNextCreation = false;
+        throw new Error("Simulated WebGL allocation failure");
+      }
       rendererLifecycle.created += 1;
     }
 
@@ -30,6 +37,7 @@ vi.mock("three", async () => {
     render(scene: {
       getObjectByName(name: string): { visible: boolean } | undefined;
     }): void {
+      rendererLifecycle.renderCalls += 1;
       rendererLifecycle.gizmoVisible =
         scene.getObjectByName("solid-rotation-gizmo")?.visible ?? null;
       rendererLifecycle.axisVisible =
@@ -78,6 +86,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
   rendererLifecycle.created = 0;
   rendererLifecycle.disposed = 0;
+  rendererLifecycle.renderCalls = 0;
+  rendererLifecycle.failNextCreation = false;
   rendererLifecycle.contextsLost = 0;
   rendererLifecycle.gizmoVisible = null;
   rendererLifecycle.axisVisible = false;
@@ -151,6 +161,163 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     expect(rendererLifecycle.created).toBe(1);
     view.unmount();
     expect(rendererLifecycle.contextsLost).toBe(1);
+  });
+
+  it("reuses the renderer for identical definitions and camera projection changes", async () => {
+    const initial = record();
+    const props = {
+      cameraMode: "orthographic" as const,
+      mode: "view" as const,
+      onPointPlace: vi.fn(),
+      resetToken: 0,
+      section: null,
+      showSectionFill: false,
+      showSectionOutline: false,
+    };
+    const view = render(<Solid3DViewport {...props} record={initial} />);
+    await waitFor(() => expect(rendererLifecycle.created).toBe(1));
+    const canvas = view.container.querySelector("canvas");
+    expect(canvas).not.toBeNull();
+    view.rerender(
+      <Solid3DViewport
+        {...props}
+        record={{ ...initial, definition: { ...initial.definition } }}
+      />,
+    );
+    expect(rendererLifecycle.created).toBe(1);
+    view.rerender(
+      <Solid3DViewport
+        {...props}
+        cameraMode="perspective"
+        record={{ ...initial, definition: { ...initial.definition } }}
+      />,
+    );
+    expect(view.container.querySelector("canvas")).toBe(canvas);
+    expect(rendererLifecycle.created).toBe(1);
+    expect(rendererLifecycle.contextsLost).toBe(0);
+    view.unmount();
+    expect(rendererLifecycle.disposed).toBe(1);
+    expect(rendererLifecycle.contextsLost).toBe(1);
+  });
+
+  it("keeps the original canvas during WebGL loss, resumes after restoration", async () => {
+    const base = record();
+    const props = {
+      cameraMode: "orthographic" as const,
+      mode: "view" as const,
+      onPointPlace: vi.fn(),
+      resetToken: 0,
+      section: null,
+      showSectionFill: false,
+      showSectionOutline: false,
+    };
+    const view = render(<Solid3DViewport {...props} record={base} />);
+    await waitFor(() => expect(rendererLifecycle.created).toBe(1));
+    const canvas = view.container.querySelector("canvas")!;
+    const beforeLoss = rendererLifecycle.renderCalls;
+    const lost = new Event("webglcontextlost", { cancelable: true });
+    act(() => canvas.dispatchEvent(lost));
+    expect(lost.defaultPrevented).toBe(true);
+    expect(screen.getByText("Контекст WebGL был потерян.")).toBeVisible();
+    expect(view.container.querySelector("canvas")).toBe(canvas);
+    view.rerender(
+      <Solid3DViewport
+        {...props}
+        record={{
+          ...base,
+          projection: { ...base.projection, viewportScale: 1.3 },
+        }}
+      />,
+    );
+    expect(rendererLifecycle.renderCalls).toBe(beforeLoss);
+    expect(rendererLifecycle.created).toBe(1);
+    expect(rendererLifecycle.contextsLost).toBe(0);
+    act(() => canvas.dispatchEvent(new Event("webglcontextrestored")));
+    expect(screen.queryByText("Контекст WebGL был потерян.")).toBeNull();
+    expect(view.container.querySelector("canvas")).toBe(canvas);
+    expect(rendererLifecycle.renderCalls).toBeGreaterThan(beforeLoss);
+    view.unmount();
+    expect(rendererLifecycle.disposed).toBe(1);
+    expect(rendererLifecycle.contextsLost).toBe(1);
+  });
+
+  it("retries a lost context with one cleanup and one fresh renderer", async () => {
+    const props = {
+      cameraMode: "perspective" as const,
+      mode: "view" as const,
+      onPointPlace: vi.fn(),
+      resetToken: 0,
+      section: null,
+      showSectionFill: false,
+      showSectionOutline: false,
+    };
+    const view = render(<Solid3DViewport {...props} record={record()} />);
+    const firstCanvas = view.container.querySelector("canvas")!;
+    act(() => firstCanvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true })));
+    act(() => screen.getByRole("button", { name: "Повторить запуск 3D" }).click());
+    expect(rendererLifecycle.created).toBe(2);
+    expect(rendererLifecycle.disposed).toBe(1);
+    expect(rendererLifecycle.contextsLost).toBe(1);
+    expect(view.container.querySelector("canvas")).not.toBe(firstCanvas);
+    expect(firstCanvas.isConnected).toBe(false);
+    act(() => firstCanvas.dispatchEvent(new Event("webglcontextrestored")));
+    expect(rendererLifecycle.created).toBe(2);
+    view.unmount();
+    expect(rendererLifecycle.disposed).toBe(2);
+    expect(rendererLifecycle.contextsLost).toBe(2);
+  });
+
+  it("keeps a visible retry path if initial WebGL allocation fails", async () => {
+    rendererLifecycle.failNextCreation = true;
+    const view = render(
+      <Solid3DViewport
+        cameraMode="orthographic"
+        mode="view"
+        onPointPlace={vi.fn()}
+        record={record()}
+        resetToken={0}
+        section={null}
+        showSectionFill={false}
+        showSectionOutline={false}
+      />,
+    );
+    await screen.findByText("WebGL не удалось запустить.");
+    expect(rendererLifecycle.created).toBe(0);
+    act(() => screen.getByRole("button", { name: "Повторить запуск 3D" }).click());
+    await waitFor(() => expect(rendererLifecycle.created).toBe(1));
+    expect(screen.queryByText("WebGL не удалось запустить.")).toBeNull();
+    view.unmount();
+    expect(rendererLifecycle.disposed).toBe(1);
+    expect(rendererLifecycle.contextsLost).toBe(1);
+  });
+
+  it("disposes GPU objects, controls and context across repeated openings", () => {
+    const geometryDisposed = vi.spyOn(THREE.BufferGeometry.prototype, "dispose");
+    const materialDisposed = vi.spyOn(THREE.Material.prototype, "dispose");
+    const props = {
+      cameraMode: "orthographic" as const,
+      mode: "view" as const,
+      onPointPlace: vi.fn(),
+      resetToken: 0,
+      section: null,
+      showSectionFill: false,
+      showSectionOutline: false,
+    };
+    try {
+      for (let index = 0; index < 3; index += 1) {
+        const view = render(<Solid3DViewport {...props} record={record()} />);
+        expect(view.container.querySelectorAll("canvas")).toHaveLength(1);
+        view.unmount();
+      }
+      expect(rendererLifecycle.created).toBe(3);
+      expect(rendererLifecycle.disposed).toBe(3);
+      expect(rendererLifecycle.contextsLost).toBe(3);
+      expect(geometryDisposed).toHaveBeenCalled();
+      expect(materialDisposed).toHaveBeenCalled();
+    } finally {
+      geometryDisposed.mockRestore();
+      materialDisposed.mockRestore();
+    }
   });
 
   it("updates a persisted rotation without recreating the renderer", async () => {
