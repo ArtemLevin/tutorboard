@@ -1,0 +1,30 @@
+name: Temporary 3D measurement contract and formatting
+on:
+  push:
+    branches: [feat/3d-point-distance-measurements-20261021]
+    paths:
+      - ".github/workflows/temporary-3d-measurement-contract.yml"
+permissions:
+  contents: write
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Regenerate board contract and run project Prettier
+        run: |
+          npm run board-contract:generate
+          npx prettier --write src/core/solid-3d/definitions.ts src/core/solid-3d/measurements.ts src/core/solid-3d/validation.ts src/core/solid-3d/public.ts src/core/board/validation/schema.ts src/modules/solid-3d/record-rebase.ts src/app/solid-3d/Solid3DEditorPanel.tsx src/app/solid-3d/Solid3DEditorPanel.test.tsx src/adapters/solid-3d-three/Solid3DViewport.tsx src/app/solid-3d/Solid3DEditorPanel.css tests/unit/core/solid-3d/measurements.test.ts scripts/board-contract-lib.mjs
+          git config user.name "TutorBoard CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add contracts/board/v1 src/core/solid-3d src/core/board/validation/schema.ts src/modules/solid-3d/record-rebase.ts src/app/solid-3d src/adapters/solid-3d-three/Solid3DViewport.tsx tests/unit/core/solid-3d/measurements.test.ts scripts/board-contract-lib.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "build(3d): sync measurement board contract and format sources"
+            git push origin HEAD:refs/heads/feat/3d-point-distance-measurements-20261021
+          fi
