@@ -105,6 +105,47 @@ describe("buildSolidScene", () => {
     }
   });
 
+  it("triangulates concave prism caps without filling their U-shaped notch", () => {
+    const base = [
+      { x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 },
+      { x: 4, y: 5 }, { x: 4, y: 1 }, { x: 1, y: 1 },
+      { x: 1, y: 5 }, { x: 0, y: 5 },
+    ];
+    const scene = buildSolidScene({ kind: "prism", base, height: 2 });
+    try {
+      const geometry = scene.mesh.geometry;
+      const faceIds = scene.mesh.userData.semanticFaceIds as string[];
+      expect(faceIds).toHaveLength(triangleCount(geometry));
+      expect(new Set(faceIds)).toEqual(new Set(
+        scene.topology?.faces.map(({ id }) => id),
+      ));
+      const positions = geometry.getAttribute("position");
+      for (const faceId of ["face:0", "face:1"]) {
+        let totalArea = 0;
+        for (let triangle = 0; triangle < faceIds.length; triangle += 1) {
+          if (faceIds[triangle] !== faceId) continue;
+          const a = new THREE.Vector3().fromBufferAttribute(positions, triangle * 3);
+          const b = new THREE.Vector3().fromBufferAttribute(positions, triangle * 3 + 1);
+          const c = new THREE.Vector3().fromBufferAttribute(positions, triangle * 3 + 2);
+          totalArea += Math.abs((b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x)) / 2;
+          const centroidX = (a.x + b.x + c.x) / 3;
+          const centroidZ = (a.z + b.z + c.z) / 3;
+          expect(centroidX > 1 && centroidX < 4 && centroidZ > 1 && centroidZ < 5).toBe(false);
+        }
+        // 5×5 bounding square minus the 3×4 notch.
+        expect(totalArea).toBeCloseTo(13, 6);
+      }
+      scene.mesh.updateMatrixWorld(true);
+      const ray = new THREE.Raycaster(
+        new THREE.Vector3(2.5, 3, 3),
+        new THREE.Vector3(0, -1, 0),
+      );
+      expect(ray.intersectObject(scene.mesh, false)).toHaveLength(0);
+    } finally {
+      disposeScene(scene);
+    }
+  });
+
   it("builds octahedron and dodecahedron from semantic topology", () => {
     for (const definition of [
       { edgeLength: 2, kind: "octahedron" } as const,
