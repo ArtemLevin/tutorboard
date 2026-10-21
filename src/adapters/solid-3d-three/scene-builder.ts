@@ -94,10 +94,14 @@ function polyhedronGeometry(topology: SolidTopology): BuiltPolyhedronGeometry {
           : new THREE.Vector2(point.x, point.y),
     );
     const triangles = THREE.ShapeUtils.triangulateShape(contour, []);
-    for (const [a, b, c] of triangles) {
-      const first = polygon[a]!;
-      let second = polygon[b]!;
-      let third = polygon[c]!;
+    for (const triangle of triangles) {
+      const [a, b, c] = triangle;
+      if (a === undefined || b === undefined || c === undefined) continue;
+      const first = polygon[a];
+      let second = polygon[b];
+      let third = polygon[c];
+      if (first === undefined || second === undefined || third === undefined)
+        continue;
       // Earcut's winding can differ from the solid's semantic face winding.
       // Keep the original orientation for normals and outside visibility.
       const triangleNormal = new THREE.Vector3(
