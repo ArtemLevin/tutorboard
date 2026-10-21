@@ -36,11 +36,13 @@ The source and replacement reuse the same object ID, so layer position and
 selection references stay stable. The reducer rejects missing, locked, grouped,
 imported and stale source snapshots.
 
-The canvas uses the Chromium-calibrated thresholds
+The legacy canvas diagnostic policy retains
 `minimumConfidence=0.34`, `ambiguityMargin=0.02` and `sampleCount=96`.
-Near-round ellipses with a minor-to-major axis ratio of at least `0.75` use the
-circle fit when its confidence is at least `0.25`. This widens tolerance for
-hand-drawn circles while keeping visibly elongated ellipses distinct.
+Smart Ink V2 now decides whether a completed stroke is automatically replaced:
+only `accepted` decisions with a matching class are eligible. Geometric
+confidence or the historical near-circle heuristic cannot override V2
+abstention or change V2's selected class. Accepted strokes alone enter
+multi-stroke auto-composition.
 
 ## Development diagnostics
 
@@ -71,4 +73,4 @@ documented in
 
 The checked-in Chromium corpus remains development evidence. Firefox capture
 is still required to close the cross-browser production gate. Auto-correction
-only runs for the recognizer's `recognized` status; other input stays as ink.
+only runs for a Smart Ink V2 `accepted` decision; other input stays as ink.

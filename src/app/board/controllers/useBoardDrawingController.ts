@@ -217,6 +217,8 @@ export function useBoardDrawingController({
               ? null
               : "Smart Ink: автокоррекция фигуры завершилась ошибкой.",
           );
+          // Only an accepted V2 conversion may participate in auto-composites.
+          if (accepted.ok) applySmartInkComposite(result.completedObject.id);
         } else {
           setSmartInkNotice(
             "Smart Ink: исходный штрих изменился до автокоррекции.",
@@ -224,12 +226,11 @@ export function useBoardDrawingController({
         }
       } else {
         setSmartInkNotice(
-          proposed.recognizer.status === "ambiguous"
+          proposed.decisionStatus === "ambiguous"
             ? "Smart Ink: форма неоднозначна, исходный штрих сохранён."
             : null,
         );
       }
-      applySmartInkComposite(result.completedObject.id);
     },
     [
       applySmartInkComposite,

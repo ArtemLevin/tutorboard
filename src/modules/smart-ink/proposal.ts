@@ -27,6 +27,7 @@ import type {
 import {
   recognizeSmartInkV2,
   recordSmartInkV2ShadowDiagnostic,
+  type SmartInkV2Decision,
   type SmartInkV2DecisionStatus,
 } from "./v2/public";
 
@@ -71,6 +72,7 @@ export type SmartInkBoardProposalResult =
   | {
       readonly recognizer: SmartInkProposal;
       readonly status: "skipped";
+      readonly decisionStatus: SmartInkV2DecisionStatus;
     };
 
 function degrees(radians: number): number {
@@ -254,27 +256,19 @@ function previewStyle(style: ObjectStyle): ObjectStyle {
   };
 }
 
-function selectCompatibilityCandidate(
-  recognizer: SmartInkProposal,
-): SmartInkCandidate | null {
-  const candidate = recognizer.candidates[0];
-  if (recognizer.status !== "recognized" || candidate === undefined) {
+// Smart Ink V2 is the sole authority for auto-correction. Legacy geometric
+// fitting remains available to V2 and to the versioned diagnostic record.
+export function selectSmartInkAutoCorrectionCandidate(
+  decision: Pick<SmartInkV2Decision, "status" | "candidate" | "selectedKind">,
+): SmartInkBoardCandidate | null {
+  if (
+    decision.status !== "accepted" ||
+    decision.candidate === null ||
+    decision.candidate.kind !== decision.selectedKind
+  ) {
     return null;
   }
-  if (candidate.kind !== "ellipse") {
-    return candidate;
-  }
-  const circle = recognizer.candidates.find(
-    (alternative) => alternative.kind === "circle",
-  );
-  const axisRatio = candidate.diagnostics.axisRatio;
-  return circle !== undefined &&
-    axisRatio !== undefined &&
-    axisRatio >= smartInkCanvasRecognitionPolicy.circle.minimumAxisRatio &&
-    circle.confidence >=
-      smartInkCanvasRecognitionPolicy.circle.minimumCandidateConfidence
-    ? circle
-    : candidate;
+  return decision.candidate;
 }
 
 function diagnosticReason(
@@ -306,14 +300,8 @@ export function proposeSmartInkReplacement(
     minimumConfidence: smartInkCanvasRecognitionPolicy.minimumConfidence,
     sampleCount: smartInkCanvasRecognitionPolicy.sampleCount,
   });
-  const compatibilityCandidate = selectCompatibilityCandidate(recognizer);
   const arrowRecognizer = decision.arrowProposal;
-  const candidate =
-    decision.candidate?.kind === "arrow"
-      ? decision.candidate
-      : (compatibilityCandidate ?? decision.candidate);
-  const effectiveStatus: SmartInkV2DecisionStatus =
-    candidate === null ? decision.status : "accepted";
+  const candidate = selectSmartInkAutoCorrectionCandidate(decision);
   const replacement =
     candidate === null
       ? null
@@ -322,16 +310,17 @@ export function proposeSmartInkReplacement(
   recordSmartInkDiagnostic({
     outcome: replacement === null ? "skipped" : "proposed",
     points: points.map((point) => ({ ...point })),
-    reason: diagnosticReason(effectiveStatus, candidate, replacement),
+    reason: diagnosticReason(decision.status, candidate, replacement),
     recognizer,
     replacementKind: replacement?.kind ?? null,
     schemaVersion: smartInkDiagnosticSchemaVersion,
     selectedCandidateKind: candidate?.kind ?? null,
     sourcePointCount: stroke.points.length,
+    v2Status: decision.status,
   });
 
   if (candidate === null || replacement === null) {
-    return { recognizer, status: "skipped" };
+    return { decisionStatus: decision.status, recognizer, status: "skipped" };
   }
   return {
     proposal: {

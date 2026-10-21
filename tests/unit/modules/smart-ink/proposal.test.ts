@@ -7,10 +7,12 @@ import {
 import {
   createSmartInkReplacementObject,
   proposeSmartInkReplacement,
+  recognizeSmartInkV2,
   type SmartInkArrowCandidate,
 } from "../../../../src/modules/smart-ink/public";
 import { type SmartInkCandidate } from "../../../../src/modules/smart-ink-spike/public";
-import { positiveStrokes } from "../smart-ink-spike/corpus-fixtures";
+import { selectSmartInkAutoCorrectionCandidate } from "../../../../src/modules/smart-ink/proposal";
+import { negativeStrokes, positiveStrokes } from "../smart-ink-spike/corpus-fixtures";
 
 function stroke(points = positiveStrokes.circle): PenStrokeObject {
   return {
@@ -167,5 +169,66 @@ describe("Smart Ink board proposal", () => {
         ? triangle.points.at(-1)
         : undefined,
     ).toEqual({ x: 0, y: 0 });
+  });
+
+  it.each(["ordinary-ink", "ambiguous", "unrecognized"] as const)(
+    "does not autocorrect when V2 returns %s, even with a legacy candidate",
+    (status) => {
+      const candidate: SmartInkCandidate = {
+        confidence: 0.99,
+        diagnostics: {},
+        fitError: 0,
+        geometry: {
+          center: { x: 10, y: 10 },
+          kind: "circle",
+          radius: 30,
+        },
+        kind: "circle",
+      };
+      expect(
+        selectSmartInkAutoCorrectionCandidate({
+          candidate,
+          selectedKind: "circle",
+          status,
+        }),
+      ).toBeNull();
+      expect(
+        selectSmartInkAutoCorrectionCandidate({
+          candidate,
+          selectedKind: "circle",
+          status: "accepted",
+        })?.kind,
+      ).toBe("circle");
+      expect(
+        selectSmartInkAutoCorrectionCandidate({
+          candidate,
+          selectedKind: "ellipse",
+          status: "accepted",
+        }),
+      ).toBeNull();
+    },
+  );
+
+  it("matches the authoritative V2 status and candidate on real strokes", () => {
+    for (const points of [
+      ...Object.values(positiveStrokes),
+      ...negativeStrokes.map(({ points }) => points),
+    ]) {
+      const source = stroke(points);
+      const decision = recognizeSmartInkV2(source, points);
+      const result = proposeSmartInkReplacement(source);
+      if (decision.status !== "accepted" || decision.candidate === null) {
+        expect(result.status).toBe("skipped");
+        if (result.status === "skipped") {
+          expect(result.decisionStatus).toBe(decision.status);
+        }
+      } else {
+        expect(result.status).toBe("proposed");
+        if (result.status === "proposed") {
+          expect(result.proposal.candidate.kind).toBe(decision.selectedKind);
+          expect(result.proposal.original).toBe(source);
+        }
+      }
+    }
   });
 });
