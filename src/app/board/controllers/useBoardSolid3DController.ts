@@ -113,11 +113,12 @@ export function useBoardSolid3DController({
         replacement,
         starting,
       });
-      if (rebased.status === "unchanged") return;
-      if (rebased.status === "conflict") {
-        announce(
-          "3D-модель изменена другим участником. Повторите действие на актуальной модели.",
-        );
+      if (rebased.status !== "ok") {
+        if (rebased.status === "conflict") {
+          announce(
+            "3D-модель изменена другим участником. Повторите действие на актуальной модели.",
+          );
+        }
         return;
       }
       const result = commitCommand(
