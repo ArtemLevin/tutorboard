@@ -5,6 +5,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import {
   createSolidTopology,
   resolveSolidDistanceEndpoint,
+  solidPointId,
   type SolidDistanceEndpoint,
   resolveSolid3DPointPosition,
   solid3DModelQuaternion,
@@ -528,11 +529,12 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         const hit = raycaster.intersectObjects(candidates, false)[0];
         const kind = hit?.object.userData.semanticKind;
         const id = hit?.object.userData.semanticId;
-        if ((kind === "vertex" || kind === "point") && typeof id === "string")
+        if (kind === "vertex" && typeof id === "string")
+          onMeasurementPickRef.current({ kind: "vertex", id });
+        else if (kind === "point" && typeof id === "string")
           onMeasurementPickRef.current({
-            kind,
-            id: id as SolidDistanceEndpoint["id"],
-          } as SolidDistanceEndpoint);
+            kind: "point", id: solidPointId(id),
+          });
         return;
       }
       if (modeRef.current !== "points") return;

@@ -669,3 +669,41 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+.solid-3d-measurements {
+  border-top: 1px solid #e2dace;
+  padding-top: 0.75rem;
+}
+.solid-3d-measurements p {
+  font-size: 0.85rem;
+  color: #526579;
+}
+.solid-3d-measure-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.solid-3d-measure-actions button,
+.solid-3d-measure-list button {
+  border: 1px solid #b9c9d7;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+}
+.solid-3d-measure-actions button:disabled,
+.solid-3d-measure-list button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.solid-3d-measure-list {
+  padding-left: 1.25rem;
+  overflow-wrap: anywhere;
+}
+.solid-3d-measure-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+  margin-block: 0.5rem;
+}

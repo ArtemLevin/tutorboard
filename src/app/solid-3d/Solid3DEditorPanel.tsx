@@ -13,7 +13,6 @@ import {
   isSolidSectionHelperPoint,
   calculateSolidDistance,
   saveSolidDistance,
-  createSolidTopology,
   type SolidDistanceEndpoint,
   resolveAnalyticSolidPointAnchor,
   resolveSolid3DPointPosition,
@@ -524,6 +523,12 @@ export function Solid3DEditorPanel({
       return [...selected, endpoint];
     });
   };
+  const measurementEndpointLabel = (endpoint: SolidDistanceEndpoint): string =>
+    endpoint.kind === "point"
+      ? record.points.find(({ id }) => id === endpoint.id)?.label ?? endpoint.id
+      : createSolidTopology(record.definition)?.vertices.find(
+          ({ id }) => id === endpoint.id,
+        )?.label ?? endpoint.id;
   const saveMeasurement = (): void => {
     if (readOnly || measuredEndpoints.length !== 2) return;
     const replacement = saveSolidDistance(
@@ -983,7 +988,8 @@ export function Solid3DEditorPanel({
                       return (
                         <li key={measurement.id}>
                           <span>
-                            {measurement.first.id} — {measurement.second.id}
+                            {measurementEndpointLabel(measurement.first)} —{" "}
+                            {measurementEndpointLabel(measurement.second)}
                             <strong> {length?.toFixed(3) ?? "—"} ед.</strong>
                           </span>
                           <button
