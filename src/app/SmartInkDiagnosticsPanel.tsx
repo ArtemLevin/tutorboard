@@ -33,6 +33,10 @@ const statusLabels = {
   unrecognized: "Не распознано",
 } as const;
 
+function recognitionStatusLabel(record: SmartInkDiagnosticRecord): string {
+  return statusLabels[record.v2Status ?? record.recognizer.status];
+}
+
 const reasonLabels: Readonly<
   Record<SmartInkDiagnosticRecord["reason"], string>
 > = {
@@ -172,9 +176,7 @@ export function SmartInkDiagnosticsPanel() {
               <dl>
                 <div>
                   <dt>Результат</dt>
-                  <dd>
-                    {statusLabels[view.record.v2Status ?? view.record.recognizer.status]}
-                  </dd>
+                  <dd>{recognitionStatusLabel(view.record)}</dd>
                 </div>
                 <div>
                   <dt>Выбрано</dt>
