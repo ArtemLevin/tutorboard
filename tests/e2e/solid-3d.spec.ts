@@ -162,9 +162,9 @@ test("chooses two cube edges, previews their line angle and saves it", async ({
     [-1, 0, 1],
   ]) {
     const projected = new THREE.Vector3(
-      position[0]!,
-      position[1]!,
-      position[2]!,
+      position[0],
+      position[1],
+      position[2],
     ).project(camera);
     await page.mouse.click(
       bounds.x + ((projected.x + 1) * bounds.width) / 2,
