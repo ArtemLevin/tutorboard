@@ -53,7 +53,7 @@ export class SolidRotationGizmoController {
 
   constructor(
     private readonly root: THREE.Group,
-    private readonly camera: THREE.Camera,
+    private camera: THREE.Camera,
     private readonly canvas: HTMLCanvasElement,
     private readonly controls: OrbitControls,
     private readonly render: () => void,
@@ -100,6 +100,10 @@ export class SolidRotationGizmoController {
     canvas.addEventListener("pointermove", this.pointerMove);
     canvas.addEventListener("pointerup", this.pointerUp);
     canvas.addEventListener("pointercancel", this.pointerCancel);
+  }
+
+  setCamera(camera: THREE.Camera): void {
+    this.camera = camera;
   }
 
   setEnabled(enabled: boolean): void {

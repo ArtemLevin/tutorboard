@@ -151,7 +151,6 @@ function builtHighlight(
   element: SolidElementRef,
 ): THREE.Object3D | null {
   const topology = createSolidTopology(record.definition);
-  const material = new THREE.LineBasicMaterial({ color: 0xf59e0b });
   if (element.kind === "point") {
     const point = record.points.find(({ id }) => id === element.id);
     if (point === undefined) return null;
@@ -199,7 +198,7 @@ function builtHighlight(
     points.push(points[0]!.clone());
   return new THREE.Line(
     new THREE.BufferGeometry().setFromPoints(points),
-    material,
+    new THREE.LineBasicMaterial({ color: 0xf59e0b }),
   );
 }
 
@@ -220,6 +219,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<{
     camera: THREE.Camera;
+    active: boolean;
     controls: OrbitControls;
     mesh: THREE.Mesh;
     renderer: THREE.WebGLRenderer;
@@ -241,6 +241,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
   const projectionRef = useRef(record.projection);
   const [failure, setFailure] = useState<WebGLFailure | null>(null);
   const [retryToken, setRetryToken] = useState(0);
+  // Stable semantic geometry must not lose its GPU context on reference-only updates.
+  const definitionKey = JSON.stringify(record.definition);
 
   useEffect(() => {
     modeRef.current = props.mode;
@@ -295,7 +297,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     const height = Math.max(260, container.clientHeight);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf5f0e7);
-    const camera: THREE.Camera =
+    let camera: THREE.Camera =
       cameraMode === "orthographic"
         ? new THREE.OrthographicCamera(
             (-2.8 * width) / height,
@@ -346,7 +348,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       modeRef.current === "points" ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
     controls.mouseButtons.RIGHT =
       modeRef.current === "points" ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
-    const render = () => renderer.render(scene, camera);
+    let contextReady = true;
+    const render = () => {
+      if (contextReady) renderer.render(scene, camera);
+    };
     const rotationGizmo = new SolidRotationGizmoController(
       built.root,
       camera,
@@ -361,7 +366,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       Boolean(showRotationGizmoRef.current && onModelRotationCommitRef.current),
     );
     controls.addEventListener("change", render);
-    const resizeObserver = new ResizeObserver(() => {
+    const resize = () => {
       const nextWidth = Math.max(320, container.clientWidth);
       const nextHeight = Math.max(260, container.clientHeight);
       if (camera instanceof THREE.PerspectiveCamera) {
@@ -374,15 +379,11 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         camera.right = 2.8 * aspect;
         camera.updateProjectionMatrix();
       }
-      renderer.setSize(nextWidth, nextHeight, false);
+      if (contextReady) renderer.setSize(nextWidth, nextHeight, false);
       render();
-    });
-    resizeObserver.observe(container);
-    const contextLost = (event: Event) => {
-      event.preventDefault();
-      setFailure("context-lost");
     };
-    renderer.domElement.addEventListener("webglcontextlost", contextLost);
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(container);
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let pointerOrigin: { readonly x: number; readonly y: number } | null = null;
@@ -401,6 +402,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       surfaceFaceIds: built.semanticSurfaceFaceIds,
     };
     const pointerDragDown = (event: PointerEvent) => {
+      if (!contextReady) return;
       // A canceled gesture may never emit click. Do not swallow the next click.
       if (drag === null) suppressClick = false;
       if (
@@ -426,6 +428,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       onPointDragStartRef.current?.(point.id);
     };
     const pointerDragMove = (event: PointerEvent) => {
+      if (!contextReady) return;
       const active = drag;
       if (active === null || active.pointerId !== event.pointerId) return;
       event.preventDefault();
@@ -467,9 +470,11 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     const pointerDragCancel = (event: PointerEvent) =>
       finishPointDrag(event, false);
     const pointerDown = (event: PointerEvent) => {
+      if (!contextReady) return;
       pointerOrigin = { x: event.clientX, y: event.clientY };
     };
     const click = (event: MouseEvent) => {
+      if (!contextReady) return;
       if (suppressClick) {
         suppressClick = false;
         pointerOrigin = null;
@@ -505,6 +510,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         onPointPlaceRef.current(placed.position, placed.anchor);
     };
     const pointerMove = (event: PointerEvent) => {
+      if (!contextReady) return;
       if (
         onElementHoverRef.current === undefined &&
         onSurfaceHoverRef.current === undefined
@@ -550,6 +556,43 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       onElementHoverRef.current?.(null);
       onSurfaceHoverRef.current?.(null);
     };
+    const contextLost = (event: Event) => {
+      event.preventDefault();
+      if (!contextReady) return;
+      contextReady = false;
+      if (runtimeRef.current?.renderer === renderer)
+        runtimeRef.current.active = false;
+      controls.enabled = false;
+      rotationGizmo.setEnabled(false);
+      if (dragFrame !== 0) window.cancelAnimationFrame(dragFrame);
+      dragFrame = 0;
+      if (drag !== null) {
+        const active = drag;
+        drag = null;
+        if (renderer.domElement.hasPointerCapture?.(active.pointerId))
+          renderer.domElement.releasePointerCapture(active.pointerId);
+        onPointDragEndRef.current?.(active.point.id, null);
+      }
+      pointerOrigin = null;
+      suppressClick = false;
+      onElementHoverRef.current?.(null);
+      onSurfaceHoverRef.current?.(null);
+      setFailure("context-lost");
+    };
+    const contextRestored = () => {
+      if (contextReady) return;
+      contextReady = true;
+      if (runtimeRef.current?.renderer === renderer)
+        runtimeRef.current.active = true;
+      controls.enabled = true;
+      rotationGizmo.setEnabled(
+        Boolean(showRotationGizmoRef.current && onModelRotationCommitRef.current),
+      );
+      resize();
+      setFailure(null);
+    };
+    renderer.domElement.addEventListener("webglcontextlost", contextLost);
+    renderer.domElement.addEventListener("webglcontextrestored", contextRestored);
     renderer.domElement.addEventListener("pointerdown", pointerDragDown, true);
     renderer.domElement.addEventListener("pointermove", pointerDragMove, true);
     renderer.domElement.addEventListener("pointerup", pointerDragUp, true);
@@ -564,6 +607,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     renderer.domElement.addEventListener("pointerleave", pointerLeave);
     runtimeRef.current = {
       camera,
+      active: true,
       controls,
       mesh: built.mesh,
       renderer,
@@ -599,15 +643,45 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       renderer.domElement.removeEventListener("pointermove", pointerMove);
       renderer.domElement.removeEventListener("pointerleave", pointerLeave);
       renderer.domElement.removeEventListener("webglcontextlost", contextLost);
+      renderer.domElement.removeEventListener("webglcontextrestored", contextRestored);
+      contextReady = false;
       rotationGizmoRef.current = null;
       scene.remove(rotationGizmo.group);
       rotationGizmo.dispose();
       disposeSolidScene(scene);
       renderer.dispose();
       renderer.forceContextLoss();
-      runtimeRef.current = null;
+      if (renderer.domElement.parentElement === container)
+        renderer.domElement.remove();
+      if (runtimeRef.current?.renderer === renderer) runtimeRef.current = null;
     };
-  }, [cameraMode, record.definition, resetToken, retryToken]);
+  }, [definitionKey, resetToken, retryToken]);
+
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (runtime === null) return;
+    const current = runtime.camera;
+    if (
+      (cameraMode === "orthographic" && current instanceof THREE.OrthographicCamera) ||
+      (cameraMode === "perspective" && current instanceof THREE.PerspectiveCamera)
+    ) return;
+    const container = containerRef.current;
+    if (container === null) return;
+    const width = Math.max(320, container.clientWidth);
+    const height = Math.max(260, container.clientHeight);
+    const next: THREE.Camera =
+      cameraMode === "orthographic"
+        ? new THREE.OrthographicCamera(-2.8 * width / height, 2.8 * width / height, 2.8, -2.8, 0.01, 100)
+        : new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
+    next.position.copy(current.position);
+    next.quaternion.copy(current.quaternion);
+    next.updateMatrixWorld(true);
+    runtime.camera = next;
+    runtime.controls.object = next;
+    rotationGizmoRef.current?.setCamera(next);
+    runtime.controls.update();
+    if (runtime.active) runtime.renderer.render(runtime.scene, next);
+  }, [cameraMode]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
@@ -620,7 +694,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       quaternion.w,
     );
     runtime.root.updateMatrixWorld(true);
-    runtime.renderer.render(runtime.scene, runtime.camera);
+    if (runtime.active) runtime.renderer.render(runtime.scene, runtime.camera);
   }, [record.projection]);
 
   useEffect(() => {
@@ -689,7 +763,7 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       overlays.add(axis);
     }
     runtime.root.add(overlays);
-    runtime.renderer.render(runtime.scene, runtime.camera);
+    if (runtime.active) runtime.renderer.render(runtime.scene, runtime.camera);
   }, [
     record,
     section,
@@ -700,39 +774,47 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     props.rotationAxis,
   ]);
 
-  return failure !== null ? (
-    <div className="solid-3d-fallback" role="status">
-      <div>
-        <strong>
-          {failure === "context-lost"
-            ? "Контекст WebGL был потерян."
-            : "WebGL не удалось запустить."}
-        </strong>
-        <p>Координаты и список элементов остаются доступны справа.</p>
-        <button
-          onClick={() => {
-            setFailure(null);
-            setRetryToken((value) => value + 1);
-          }}
-          type="button"
-        >
-          Повторить запуск 3D
-        </button>
-        <details>
-          <summary>Как проверить браузер</summary>
-          <p>
-            Включите аппаратное ускорение в настройках браузера, перезапустите
-            его и проверьте раздел «Graphics Feature Status» на странице
-            chrome://gpu.
-          </p>
-        </details>
-      </div>
+  return (
+    <div className="solid-3d-viewport-frame">
+      <div
+        aria-label="Интерактивная трёхмерная модель"
+        aria-hidden={failure !== null}
+        className="solid-3d-viewport"
+        ref={containerRef}
+      />
+      {failure !== null ? (
+        <div className="solid-3d-fallback" role="status">
+          <div>
+            <strong>
+              {failure === "context-lost"
+                ? "Контекст WebGL был потерян."
+                : "WebGL не удалось запустить."}
+            </strong>
+            <p>
+              {failure === "context-lost"
+                ? "Ожидаем восстановления графического контекста. Можно также перезапустить 3D."
+                : "Координаты и список элементов остаются доступны справа."}
+            </p>
+            <button
+              onClick={() => {
+                setFailure(null);
+                setRetryToken((value) => value + 1);
+              }}
+              type="button"
+            >
+              Повторить запуск 3D
+            </button>
+            <details>
+              <summary>Как проверить браузер</summary>
+              <p>
+                Включите аппаратное ускорение в настройках браузера,
+                перезапустите его и проверьте «Graphics Feature Status»
+                на странице chrome://gpu.
+              </p>
+            </details>
+          </div>
+        </div>
+      ) : null}
     </div>
-  ) : (
-    <div
-      aria-label="Интерактивная трёхмерная модель"
-      className="solid-3d-viewport"
-      ref={containerRef}
-    />
   );
 }
