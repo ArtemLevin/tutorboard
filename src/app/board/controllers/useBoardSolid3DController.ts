@@ -16,7 +16,8 @@ import {
   createUpdateSolid3DCommand,
   applySolidPointDrag,
   saveSolidSectionSweep,
-  saveSolidSectionRotation,
+  saveSolidSectionRotationAboutAxis,
+  type SolidSectionRotationAxis,
   findSolidModelBySelection,
 } from "../../../modules/solid-3d/public";
 import {
@@ -184,17 +185,17 @@ export function useBoardSolid3DController({
         Solid3DRecord["points"][number]["id"],
         Solid3DRecord["points"][number]["id"],
       ],
-      edgeId: string,
+      axis: SolidSectionRotationAxis,
       angleDegrees: number,
       token: string,
     ) => {
       const current = getDocument().solidModels[startingRecord.id];
       if (current === undefined) return null;
-      const result = saveSolidSectionRotation({
+      const result = saveSolidSectionRotationAboutAxis({
         current,
         starting: startingRecord,
         pointIds,
-        edgeId,
+        axis,
         angleDegrees,
         token,
       });

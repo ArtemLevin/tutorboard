@@ -18,10 +18,11 @@ import {
 import { Solid3DEditorPanel } from "./Solid3DEditorPanel";
 
 vi.mock("../../adapters/solid-3d-three/public", () => ({
-  Solid3DViewport: (props: { showRotationGizmo?: boolean }) => (
+  Solid3DViewport: (props: { showRotationGizmo?: boolean; mode?: string }) => (
     <div
       data-testid="mock-3d-viewport"
       data-rotation-gizmo={String(props.showRotationGizmo ?? false)}
+      data-viewport-mode={props.mode}
     />
   ),
 }));
@@ -94,6 +95,7 @@ describe("Solid3DEditorPanel embedded workspace", () => {
   it("keeps RGB rotation rings hidden until requested and hides them in point mode", () => {
     renderPanel();
     const viewport = screen.getByTestId("mock-3d-viewport");
+    fireEvent.click(screen.getByRole("button", { name: "Настройки" }));
     const show = screen.getByRole("button", {
       name: "Показать кольца поворота",
     });
@@ -111,12 +113,46 @@ describe("Solid3DEditorPanel embedded workspace", () => {
       screen.getByRole("button", { name: "Показать кольца поворота" }),
     ).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Вращение камеры" }));
+    fireEvent.click(screen.getByRole("button", { name: "Исследование" }));
     expect(viewport).toHaveAttribute("data-rotation-gizmo", "true");
     fireEvent.click(
       screen.getByRole("button", { name: "Скрыть кольца поворота" }),
     );
     expect(viewport).toHaveAttribute("data-rotation-gizmo", "false");
+    expect(screen.getByTestId("mock-3d-viewport")).toBe(viewport);
+  });
+
+  it("reveals advanced settings and section tools only when requested", () => {
+    renderPanel();
+    const viewport = screen.getByTestId("mock-3d-viewport");
+    expect(
+      screen.getByRole("button", { name: "Исследование" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Тип объёмного тела")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Точная настройка" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Создать сечение" }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Сечение" }));
+    expect(viewport).toHaveAttribute("data-viewport-mode", "points");
+    expect(
+      screen.getByRole("button", { name: "Создать сечение" }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Настройки" }));
+    expect(
+      screen.getByRole("region", { name: "Точная настройка" }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Поворот X")).toBeInTheDocument();
+    expect(screen.getByTestId("mock-3d-viewport")).toBe(viewport);
+    fireEvent.keyDown(screen.getByRole("region", { name: "Призма" }), {
+      key: "Escape",
+    });
+    expect(
+      screen.queryByRole("region", { name: "Точная настройка" }),
+    ).toBeNull();
     expect(screen.getByTestId("mock-3d-viewport")).toBe(viewport);
   });
 
@@ -143,15 +179,15 @@ describe("Solid3DEditorPanel embedded workspace", () => {
       bottom: 700,
       height: 700,
       left: 0,
-      right: 900,
+      right: 1500,
       top: 0,
-      width: 900,
+      width: 1500,
       x: 0,
       y: 0,
       toJSON: () => ({}),
     });
     fireEvent.resize(window);
-    await waitFor(() => expect(dock).toHaveStyle({ left: "274px" }));
+    await waitFor(() => expect(dock).toHaveStyle({ left: "604px" }));
     const viewport = screen.getByTestId("mock-3d-viewport");
     const move = screen.getByRole("button", { name: "Переместить 3D-окно" });
     fireEvent.pointerDown(move, {
@@ -166,7 +202,7 @@ describe("Solid3DEditorPanel embedded workspace", () => {
       pointerId: 1,
     });
     fireEvent.pointerUp(move, { pointerId: 1 });
-    expect(dock).toHaveStyle({ left: "174px", top: "46px" });
+    expect(dock).toHaveStyle({ left: "504px", top: "46px" });
 
     const resize = screen.getByRole("button", {
       name: "Изменить размер 3D-окна",
@@ -183,10 +219,10 @@ describe("Solid3DEditorPanel embedded workspace", () => {
       pointerId: 2,
     });
     fireEvent.pointerUp(resize, { pointerId: 2 });
-    expect(dock).toHaveStyle({ width: "660px", height: "540px" });
+    expect(dock).toHaveStyle({ width: "930px", height: "540px" });
 
     fireEvent.keyDown(move, { key: "ArrowLeft" });
-    expect(dock).toHaveStyle({ left: "164px" });
+    expect(dock).toHaveStyle({ left: "494px" });
     fireEvent.keyDown(resize, { key: "ArrowUp", shiftKey: true });
     expect(dock).toHaveStyle({ height: "508px" });
 
@@ -227,6 +263,7 @@ describe("Solid3DEditorPanel embedded workspace", () => {
       screen.getByRole("button", { name: "Поставить точку" }),
     ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Отменить" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Сечение" }));
     expect(
       screen.getByRole("button", { name: "Создать сечение" }),
     ).toBeDisabled();

@@ -28,12 +28,22 @@ type PointIds = readonly [
   Solid3DPoint["id"],
 ];
 
+export type SolidSectionRotationAxis =
+  | { readonly kind: "edge"; readonly edgeId: string }
+  | {
+      readonly kind: "points";
+      readonly pointIds: readonly [Solid3DPoint["id"], Solid3DPoint["id"]];
+    };
+
 export interface SolidSectionRotationFrame {
+  /** Retained for callers of the original edge-axis API; empty for point axes. */
   readonly edgeId: string;
+  readonly axis: SolidSectionRotationAxis;
   readonly plane: Plane3D;
   readonly planePoint: Vec3;
   readonly axisStart: Vec3;
   readonly axisDirection: Vec3;
+  readonly axisEnd: Vec3;
 }
 
 export interface SolidSectionRotationPreview {
@@ -55,16 +65,40 @@ function rotateAroundDirection(
   );
 }
 
-/** Both the original plane and axis are expressed in local solid coordinates. */
-export function getSolidSectionRotationFrame(
+/** A pair of semantic points defines the infinite rotation axis in solid-local space. */
+function axisEndpoints(
+  record: Solid3DRecord,
+  topology: SolidTopology,
+  axis: SolidSectionRotationAxis,
+): readonly [Vec3, Vec3] | null {
+  if (axis.kind === "points") {
+    const [firstId, secondId] = axis.pointIds;
+    if (firstId === secondId) return null;
+    const first = record.points.find(({ id }) => id === firstId);
+    const second = record.points.find(({ id }) => id === secondId);
+    if (first === undefined || second === undefined) return null;
+    return [
+      resolveSolid3DPointPosition(record.definition, first),
+      resolveSolid3DPointPosition(record.definition, second),
+    ];
+  }
+  const edge = topology.edges.find(({ id }) => id === axis.edgeId);
+  if (edge === undefined) return null;
+  const first = topology.vertices.find(({ id }) => id === edge.startVertexId);
+  const second = topology.vertices.find(({ id }) => id === edge.endVertexId);
+  return first === undefined || second === undefined
+    ? null
+    : [first.position, second.position];
+}
+
+/** Returns null for coincident/missing axis points and non-convex solids. */
+export function getSolidSectionRotationFrameForAxis(
   record: Solid3DRecord,
   pointIds: PointIds,
-  edgeId: string,
+  axis: SolidSectionRotationAxis,
 ): SolidSectionRotationFrame | null {
   const topology = createSolidTopology(record.definition);
   if (topology === null || !isConvexSolidTopology(topology)) return null;
-  const edge = topology.edges.find((candidate) => candidate.id === edgeId);
-  if (edge === undefined) return null;
   const points = pointIds.map((id) =>
     record.points.find((point) => point.id === id),
   );
@@ -78,22 +112,32 @@ export function getSolidSectionRotationFrame(
     positions[2]!,
   );
   if (plane === null) return null;
-  const axisStart = topology.vertices.find(
-    ({ id }) => id === edge.startVertexId,
-  )?.position;
-  const axisEnd = topology.vertices.find(
-    ({ id }) => id === edge.endVertexId,
-  )?.position;
-  if (axisStart === undefined || axisEnd === undefined) return null;
+  const ends = axisEndpoints(record, topology, axis);
+  if (ends === null) return null;
+  const [axisStart, axisEnd] = ends;
   const axisDirection = normalize3(subtract3(axisEnd, axisStart));
   if (axisDirection === null) return null;
   return {
+    axis,
+    edgeId: axis.kind === "edge" ? axis.edgeId : "",
     axisDirection,
     axisStart,
-    edgeId,
+    axisEnd,
     plane,
     planePoint: positions[0]!,
   };
+}
+
+/** Previous edge-based public contract is retained for existing callers. */
+export function getSolidSectionRotationFrame(
+  record: Solid3DRecord,
+  pointIds: PointIds,
+  edgeId: string,
+): SolidSectionRotationFrame | null {
+  return getSolidSectionRotationFrameForAxis(record, pointIds, {
+    kind: "edge",
+    edgeId,
+  });
 }
 
 /**
@@ -150,6 +194,67 @@ export function previewSolidSectionRotation(
     : previewSolidSectionRotationFrame(topology, frame, angleDegrees);
 }
 
+/** Preserve the original P1.3 edge rotation API. */
+export function previewSolidSectionRotationAboutAxis(
+  record: Solid3DRecord,
+  pointIds: PointIds,
+  axis: SolidSectionRotationAxis,
+  angleDegrees: number,
+): SolidSectionRotationPreview | null {
+  const frame = getSolidSectionRotationFrameForAxis(record, pointIds, axis);
+  const topology = createSolidTopology(record.definition);
+  return frame === null || topology === null
+    ? null
+    : previewSolidSectionRotationFrame(topology, frame, angleDegrees);
+}
+
+/**
+ * Axis points are read dependencies even when they are not section points.
+ * Reject stale source gestures before resolving new positions and committing.
+ */
+export function saveSolidSectionRotationAboutAxis(input: {
+  readonly current: Solid3DRecord;
+  readonly starting: Solid3DRecord;
+  readonly pointIds: PointIds;
+  readonly axis: SolidSectionRotationAxis;
+  readonly angleDegrees: number;
+  readonly token: string;
+}): SaveSolidSectionSweepResult {
+  const { current, starting, pointIds, axis, angleDegrees, token } = input;
+  if (axis.kind === "points") {
+    if (
+      axis.pointIds[0] === axis.pointIds[1] ||
+      axis.pointIds.some((id) => {
+        const initial = starting.points.find((point) => point.id === id);
+        const latest = current.points.find((point) => point.id === id);
+        return (
+          initial === undefined ||
+          latest === undefined ||
+          JSON.stringify(initial) !== JSON.stringify(latest)
+        );
+      })
+    )
+      return { status: "error", code: "invalid-source" };
+  }
+  const preview =
+    Math.abs(angleDegrees) < 1e-8
+      ? null
+      : previewSolidSectionRotationAboutAxis(
+          current,
+          pointIds,
+          axis,
+          angleDegrees,
+        );
+  return captureSolidSectionIntersection({
+    current,
+    starting,
+    pointIds,
+    section: preview?.section ?? null,
+    token,
+    kind: "rotation",
+  });
+}
+
 /** One optimistic update; preserves concurrent changes to unrelated points. */
 export function saveSolidSectionRotation(input: {
   readonly current: Solid3DRecord;
@@ -159,17 +264,8 @@ export function saveSolidSectionRotation(input: {
   readonly angleDegrees: number;
   readonly token: string;
 }): SaveSolidSectionSweepResult {
-  const { current, starting, pointIds, edgeId, angleDegrees, token } = input;
-  const preview =
-    Math.abs(angleDegrees) < 1e-8
-      ? null
-      : previewSolidSectionRotation(current, pointIds, edgeId, angleDegrees);
-  return captureSolidSectionIntersection({
-    current,
-    starting,
-    pointIds,
-    section: preview?.section ?? null,
-    token,
-    kind: "rotation",
+  return saveSolidSectionRotationAboutAxis({
+    ...input,
+    axis: { kind: "edge", edgeId: input.edgeId },
   });
 }

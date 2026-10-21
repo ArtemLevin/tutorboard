@@ -23,6 +23,8 @@ export interface Solid3DConstructionEditorProps {
   readonly onRecordChange: (replacement: Solid3DRecord) => void;
   readonly readOnly: boolean;
   readonly record: Solid3DRecord;
+  readonly basicOnly?: boolean;
+  readonly advancedOnly?: boolean;
 }
 
 const labels: Readonly<Record<SolidConstructionKind, string>> = {
@@ -66,10 +68,12 @@ const cloneBase = (base: readonly Vec2[]): Vec2[] =>
   base.map((point) => ({ x: point.x, y: point.y }));
 
 export function Solid3DConstructionEditor({
+  advancedOnly = false,
+  basicOnly = false,
   onRecordChange,
   readOnly,
   record,
-}: Solid3DConstructionEditorProps): ReactElement {
+}: Solid3DConstructionEditorProps): ReactElement | null {
   const kind = constructionKindFromDefinition(record.definition);
   const sideCount = constructionSideCount(record.definition);
   const currentBase = baseFromRecord(record);
@@ -200,30 +204,46 @@ export function Solid3DConstructionEditor({
     setMessage(null);
   };
 
+  if (advancedOnly && !supportsBase) return null;
+
   return (
     <section
-      aria-labelledby="solid-3d-construction-title"
+      aria-labelledby={
+        advancedOnly
+          ? "solid-3d-construction-advanced-title"
+          : "solid-3d-construction-title"
+      }
       className="solid-3d-construction"
     >
-      <h3 id="solid-3d-construction-title">Конструкция тела</h3>
-      <label>
-        <span>Тип</span>
-        <select
-          aria-label="Тип объёмного тела"
-          disabled={readOnly}
-          onChange={(event) =>
-            changeKind(event.currentTarget.value as SolidConstructionKind)
-          }
-          value={kind}
-        >
-          {kinds.map((item) => (
-            <option key={item} value={item}>
-              {labels[item]}
-            </option>
-          ))}
-        </select>
-      </label>
-      {sideCount === null ? null : (
+      <h3
+        id={
+          advancedOnly
+            ? "solid-3d-construction-advanced-title"
+            : "solid-3d-construction-title"
+        }
+      >
+        {advancedOnly ? "Форма основания" : "Тип тела"}
+      </h3>
+      {!advancedOnly ? (
+        <label>
+          <span>Тип</span>
+          <select
+            aria-label="Тип объёмного тела"
+            disabled={readOnly}
+            onChange={(event) =>
+              changeKind(event.currentTarget.value as SolidConstructionKind)
+            }
+            value={kind}
+          >
+            {kinds.map((item) => (
+              <option key={item} value={item}>
+                {labels[item]}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      {advancedOnly || sideCount === null ? null : (
         <label>
           <span>Сторон основания</span>
           <input
@@ -240,7 +260,7 @@ export function Solid3DConstructionEditor({
           />
         </label>
       )}
-      {supportsBase ? (
+      {!basicOnly && supportsBase ? (
         <label className="solid-3d-construction-mode">
           <input
             checked={customBase}
@@ -251,7 +271,7 @@ export function Solid3DConstructionEditor({
           Произвольное основание
         </label>
       ) : null}
-      {supportsBase && customBase ? (
+      {!basicOnly && supportsBase && customBase ? (
         <div className="solid-3d-base-editor">
           <div className="solid-3d-base-editor-heading">
             <strong>Нижнее основание</strong>

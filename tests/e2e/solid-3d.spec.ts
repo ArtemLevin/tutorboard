@@ -36,6 +36,7 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
     throw new Error("3D panel move handle bounds are unavailable");
   const canvas = editor.locator("canvas[data-engine]");
   await expect(canvas).toHaveCount(1);
+  await editor.getByRole("button", { name: "Настройки" }).click();
   const showRings = editor.getByRole("button", {
     name: "Показать кольца поворота",
   });
@@ -47,6 +48,7 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
   await expect(hideRings).toHaveAttribute("aria-pressed", "true");
   await hideRings.click();
   await expect(showRings).toHaveAttribute("aria-pressed", "false");
+  await editor.getByRole("button", { name: "Закрыть настройки" }).click();
   await expect(canvas).toHaveCount(1);
   await canvas.evaluate((node) =>
     node.setAttribute("data-viewport-instance", "same"),
@@ -93,6 +95,7 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
   ).toBeVisible();
   await editor.getByRole("button", { name: "Свернуть 3D-окно" }).click();
   await expect(editor.getByText("0 / 3")).toBeVisible();
+  await editor.getByRole("button", { name: "Сечение" }).click();
   await expect(
     editor.getByRole("button", {
       name: "Отобразить выбранное сечение на доске",
@@ -159,7 +162,7 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
     .locator("..")
     .getByRole("button", { name: "Начать" })
     .click();
-  await editor.getByRole("button", { name: "Свободное исследование" }).click();
+  await editor.getByRole("button", { name: "Сечение" }).click();
   await editor.getByRole("button", { name: "Поставить точку" }).click();
 
   const description = editor.locator("details", {
@@ -216,6 +219,7 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
     })
     .toBeGreaterThan(0.2);
 
+  await editor.getByRole("button", { name: "Сечение" }).click();
   // The same seeded three points define a plane sweep. Its initial
   // position is read-only preview; a completed save must add a section.
   const sweepToggle = editor.getByLabel("Параллельное перемещение плоскости");
@@ -261,7 +265,7 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
     .locator("..")
     .getByRole("button", { name: "Начать" })
     .click();
-  await editor.getByRole("button", { name: "Свободное исследование" }).click();
+  await editor.getByRole("button", { name: "Сечение" }).click();
   await editor.getByLabel("Вращать плоскость вокруг ребра").check();
   await editor.getByLabel("Ось вращения").selectOption({ label: "D—C" });
   await editor.getByRole("button", { name: "Изменить угол на +15°" }).click();
@@ -281,4 +285,51 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   // A captured rotation is exactly one document command, reversible by Undo.
   await editor.getByRole("button", { name: "Отменить" }).click();
   await expect(savedSections).toHaveCount(before);
+});
+
+test("rotates a plane about two selected 3D points with one undoable save", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const stage = await page.getByTestId("board-stage").boundingBox();
+  if (stage === null) throw new Error("Board stage is unavailable");
+  await page.getByRole("button", { name: "ИИ-инструменты" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
+    .click();
+  await page.getByLabel("Текст построения").fill("куб");
+  await page.getByRole("button", { name: "Выбрать для размещения" }).click();
+  await page.mouse.click(
+    stage.x + stage.width * 0.58,
+    stage.y + stage.height * 0.42,
+  );
+  await page.getByRole("button", { name: "Открыть в 3D" }).click();
+  const editor = page.getByRole("region", { name: "Куб" });
+  await editor.getByRole("button", { name: "Учебная задача" }).click();
+  await editor
+    .getByRole("heading", { name: "Куб: движение точки" })
+    .locator("..")
+    .getByRole("button", { name: "Начать" })
+    .click();
+  await editor.getByRole("button", { name: "Сечение" }).click();
+
+  await editor.getByLabel("Вращать плоскость вокруг ребра").check();
+  await editor.getByLabel("Тип оси вращения").selectOption("points");
+  await editor.getByLabel("Первая точка оси").selectOption({ index: 1 });
+  await editor.getByLabel("Вторая точка оси").selectOption({ index: 2 });
+  await editor.getByRole("button", { name: "Изменить угол на +15°" }).click();
+  await expect(
+    editor.getByRole("slider", { name: "Угол поворота секущей плоскости" }),
+  ).toHaveValue("15");
+  await expect(editor.getByText(/Вершин \d+ · площадь \d/)).toBeVisible();
+  const savedSections = editor.locator(".solid-3d-sections > li");
+  const previousCount = await savedSections.count();
+  const save = editor.getByRole("button", {
+    name: "Сохранить повёрнутое сечение",
+  });
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(savedSections).toHaveCount(previousCount + 1);
+  await editor.getByRole("button", { name: "Отменить" }).click();
+  await expect(savedSections).toHaveCount(previousCount);
 });
