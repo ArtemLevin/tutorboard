@@ -135,7 +135,10 @@ describe("Solid3DViewport WebGL lifecycle", () => {
       <Solid3DViewport
         {...props}
         record={base}
-        rotationAxis={[{ x: -1, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }]}
+        rotationAxis={[
+          { x: -1, y: 0, z: 0 },
+          { x: 1, y: 0, z: 0 },
+        ]}
       />,
     );
     expect(rendererLifecycle.axisVisible).toBe(true);

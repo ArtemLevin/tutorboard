@@ -16,8 +16,14 @@ export interface Solid3DSectionRotationControlsProps {
   readonly edgeId: string;
   readonly onEdgeChange: (edgeId: string) => void;
   readonly points: readonly Solid3DPoint[];
-  readonly axisPointIds: readonly [Solid3DPoint["id"] | "", Solid3DPoint["id"] | ""];
-  readonly onAxisPointChange: (index: 0 | 1, id: Solid3DPoint["id"] | "") => void;
+  readonly axisPointIds: readonly [
+    Solid3DPoint["id"] | "",
+    Solid3DPoint["id"] | "",
+  ];
+  readonly onAxisPointChange: (
+    index: 0 | 1,
+    id: Solid3DPoint["id"] | "",
+  ) => void;
   readonly angleDegrees: number;
   readonly onAngleChange: (angle: number) => void;
   readonly section: SolidSectionResult | null;
@@ -72,7 +78,9 @@ export function Solid3DSectionRotationControls({
               <select
                 id="solid-3d-rotation-kind"
                 onChange={(event) =>
-                  onAxisKindChange(event.currentTarget.value as "edge" | "points")
+                  onAxisKindChange(
+                    event.currentTarget.value as "edge" | "points",
+                  )
                 }
                 value={axisKind}
               >
@@ -84,7 +92,9 @@ export function Solid3DSectionRotationControls({
                   <label htmlFor="solid-3d-rotation-edge">Ось вращения</label>
                   <select
                     id="solid-3d-rotation-edge"
-                    onChange={(event) => onEdgeChange(event.currentTarget.value)}
+                    onChange={(event) =>
+                      onEdgeChange(event.currentTarget.value)
+                    }
                     value={edgeId}
                   >
                     <option value="">Выберите ребро</option>
@@ -108,7 +118,8 @@ export function Solid3DSectionRotationControls({
                         onChange={(event) =>
                           onAxisPointChange(
                             index,
-                            event.currentTarget.value as Solid3DPoint["id"] | "",
+                            event.currentTarget.value as
+                              Solid3DPoint["id"] | "",
                           )
                         }
                         value={axisPointIds[index]}
@@ -181,7 +192,8 @@ export function Solid3DSectionRotationControls({
                   : axisKind === "points" &&
                       (axisPointIds[0] === "" || axisPointIds[1] === "")
                     ? "Выберите две точки оси вращения"
-                    : axisKind === "points" && axisPointIds[0] === axisPointIds[1]
+                    : axisKind === "points" &&
+                        axisPointIds[0] === axisPointIds[1]
                       ? "Для оси требуются две разные точки"
                       : section === null
                         ? "Плоскость не образует сечение тела или ось вырождена"

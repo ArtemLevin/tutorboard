@@ -250,8 +250,12 @@ export function Solid3DEditorPanel({
   const [sweepOffset, setSweepOffset] = useState(0);
   const [rotationEnabled, setRotationEnabled] = useState(false);
   const [rotationEdgeId, setRotationEdgeId] = useState("");
-  const [rotationAxisKind, setRotationAxisKind] = useState<"edge" | "points">("edge");
-  const [rotationAxisPoints, setRotationAxisPoints] = useState<readonly [Solid3DPoint["id"] | "", Solid3DPoint["id"] | ""]>(["", ""]);
+  const [rotationAxisKind, setRotationAxisKind] = useState<"edge" | "points">(
+    "edge",
+  );
+  const [rotationAxisPoints, setRotationAxisPoints] = useState<
+    readonly [Solid3DPoint["id"] | "", Solid3DPoint["id"] | ""]
+  >(["", ""]);
   const [rotationAngle, setRotationAngle] = useState(0);
   const [resetToken, setResetToken] = useState(0);
   const {
@@ -746,7 +750,9 @@ export function Solid3DEditorPanel({
                 showRotationGizmo && mode === "view" && !readOnly
               }
               rotationAxis={
-                rotationEnabled && rotationAxisKind === "points" && rotationFrame !== null
+                rotationEnabled &&
+                rotationAxisKind === "points" &&
+                rotationFrame !== null
                   ? [rotationFrame.axisStart, rotationFrame.axisEnd]
                   : null
               }

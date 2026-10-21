@@ -261,10 +261,14 @@ describe("two-point rotation UI", () => {
       screen.getByRole("slider", { name: "Угол поворота секущей плоскости" }),
       { target: { value: "15" } },
     );
-    expect(screen.getByTestId("mock-sweep-section")).not.toHaveTextContent("none");
+    expect(screen.getByTestId("mock-sweep-section")).not.toHaveTextContent(
+      "none",
+    );
     expect(onSaveRotation).not.toHaveBeenCalled();
     expect(onRecordChange).not.toHaveBeenCalled();
-    const save = screen.getByRole("button", { name: "Сохранить повёрнутое сечение" });
+    const save = screen.getByRole("button", {
+      name: "Сохранить повёрнутое сечение",
+    });
     expect(save).toBeEnabled();
     fireEvent.click(save);
     expect(onSaveRotation).toHaveBeenCalledTimes(1);
@@ -292,8 +296,12 @@ describe("two-point rotation UI", () => {
     fireEvent.change(screen.getByLabelText("Точный угол, градусы"), {
       target: { value: "25" },
     });
-    expect(screen.getByText("Для оси требуются две разные точки")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Сохранить повёрнутое сечение" })).toBeDisabled();
+    expect(
+      screen.getByText("Для оси требуются две разные точки"),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Сохранить повёрнутое сечение" }),
+    ).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Вторая точка оси"), {
       target: { value: points[1]!.id },
     });
@@ -316,7 +324,9 @@ describe("two-point rotation UI", () => {
     fireEvent.change(screen.getByLabelText("Точный угол, градусы"), {
       target: { value: "15" },
     });
-    expect(screen.getByRole("button", { name: "Сохранить повёрнутое сечение" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Сохранить повёрнутое сечение" }),
+    ).toBeDisabled();
     expect(onSaveRotation).not.toHaveBeenCalled();
   });
 });

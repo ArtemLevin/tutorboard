@@ -224,11 +224,14 @@ export function saveSolidSectionRotationAboutAxis(input: {
       axis.pointIds.some((id) => {
         const initial = starting.points.find((point) => point.id === id);
         const latest = current.points.find((point) => point.id === id);
-        return initial === undefined ||
+        return (
+          initial === undefined ||
           latest === undefined ||
-          JSON.stringify(initial) !== JSON.stringify(latest);
+          JSON.stringify(initial) !== JSON.stringify(latest)
+        );
       })
-    ) return { status: "error", code: "invalid-source" };
+    )
+      return { status: "error", code: "invalid-source" };
   }
   const preview =
     Math.abs(angleDegrees) < 1e-8

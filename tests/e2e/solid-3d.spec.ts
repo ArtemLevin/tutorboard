@@ -283,7 +283,9 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   await expect(savedSections).toHaveCount(before);
 
   // Restore the source-plane selection after saving the previous section.
-  const pointSelectors = editor.locator(".solid-3d-points input[type='checkbox']");
+  const pointSelectors = editor.locator(
+    ".solid-3d-points input[type='checkbox']",
+  );
   await expect(pointSelectors).toHaveCount(3);
   for (const selector of await pointSelectors.all()) await selector.check();
 
