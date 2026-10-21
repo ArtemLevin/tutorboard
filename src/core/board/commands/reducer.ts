@@ -1,4 +1,12 @@
 import { validateCoordinatePlotDefinition } from "../coordinate-plot";
+import { intersectAnalyticSolidWithPlane } from "../../solid-3d/analytic-section";
+import type { Solid3DRecord } from "../../solid-3d/definitions";
+import { transformSolid3DSectionForProjection } from "../../solid-3d/model-transform";
+import { resolveSolid3DPointPosition } from "../../solid-3d/point-resolution";
+import { intersectPolyhedronWithPlane } from "../../solid-3d/polyhedron-section";
+import { projectSolidPoint } from "../../solid-3d/projection";
+import { createSolidTopology, isConvexSolidTopology } from "../../solid-3d/topology";
+import { planeFromThreePoints } from "../../solid-3d/vectors";
 import {
   applySolidLearningAction,
   resetSolidLearningAttempt,
@@ -1112,6 +1120,59 @@ function updateSolid3D(
   });
 }
 
+/** Validate projected coordinates against the latest semantic model, without
+ * changing the strict wire contract consumed by the standalone backend.
+ */
+function projectedSectionMatchesCurrentSolid(
+  solid: Solid3DRecord,
+  sectionId: string,
+  objects: readonly BoardObject[],
+): boolean {
+  const saved = solid.sections.find(({ id }) => id === sectionId);
+  if (saved === undefined) return false;
+  const points = saved.pointIds.map((id) =>
+    solid.points.find((point) => point.id === id),
+  );
+  if (points.some((point) => point === undefined)) return false;
+  const plane = planeFromThreePoints(
+    resolveSolid3DPointPosition(solid.definition, points[0]!),
+    resolveSolid3DPointPosition(solid.definition, points[1]!),
+    resolveSolid3DPointPosition(solid.definition, points[2]!),
+  );
+  if (plane === null) return false;
+  const topology = createSolidTopology(solid.definition);
+  const section = topology === null
+    ? intersectAnalyticSolidWithPlane(solid.definition, plane)
+    : isConvexSolidTopology(topology)
+      ? intersectPolyhedronWithPlane(topology, plane)
+      : null;
+  if (section === null) return false;
+  const projected = transformSolid3DSectionForProjection(solid, section)
+    .vertices.map((point) => projectSolidPoint(point, solid.projection));
+  if (projected.length < 3 || objects.length !== projected.length * 2)
+    return false;
+  const sameNumber = (actual: number, expected: number) =>
+    Number.isFinite(actual) &&
+    Math.abs(actual - expected) <= 1e-7 * Math.max(1, Math.abs(expected));
+  for (let index = 0; index < projected.length; index += 1) {
+    const start = projected[index]!;
+    const end = projected[(index + 1) % projected.length]!;
+    const line = objects[index * 2]!;
+    const marker = objects[index * 2 + 1]!;
+    if (
+      line.kind !== "drawing.line" ||
+      marker.kind !== "drawing.ellipse" ||
+      !sameNumber(line.position.x, start.x) ||
+      !sameNumber(line.position.y, start.y) ||
+      !sameNumber(line.end.x, end.x - start.x) ||
+      !sameNumber(line.end.y, end.y - start.y) ||
+      !sameNumber(marker.position.x, start.x) ||
+      !sameNumber(marker.position.y, start.y)
+    ) return false;
+  }
+  return true;
+}
+
 function projectSolid3DSection(
   document: BoardDocument,
   command: ProjectSolid3DSectionCommand,
@@ -1123,20 +1184,17 @@ function projectSolid3DSection(
       "command.solid-missing",
       "Section projection references a missing solid.",
     );
-  if (
-    command.expected !== undefined &&
-    !boardValuesEqual(solid, command.expected)
-  )
-    return failure(
-      document,
-      "command.stale-solid",
-      "Solid geometry changed before section projection.",
-    );
   if (!solid.sections.some((section) => section.id === command.sectionId))
     return failure(
       document,
       "command.invalid",
       "Section projection references a missing section.",
+    );
+  if (!projectedSectionMatchesCurrentSolid(solid, command.sectionId, command.objects))
+    return failure(
+      document,
+      "command.stale-solid",
+      "Projected section does not match current solid geometry.",
     );
   if (
     ownValue(document.groups, command.group.id) !== undefined ||

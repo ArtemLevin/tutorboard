@@ -147,8 +147,6 @@ export interface UpdateSolid3DCommand extends CommandMetadata {
 }
 
 export interface ProjectSolid3DSectionCommand extends CommandMetadata {
-  /** Optional for decoding previously persisted projection commands. */
-  readonly expected?: Solid3DRecord;
   readonly group: BoardGroup;
   readonly kind: "core.solid-3d.project-section";
   readonly objects: readonly BoardObject[];

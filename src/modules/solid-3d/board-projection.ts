@@ -84,7 +84,6 @@ export function createProjectSolid3DSectionCommand(input: {
   };
   return {
     ...input.metadata,
-    expected: input.record,
     group,
     kind: "core.solid-3d.project-section",
     objects,

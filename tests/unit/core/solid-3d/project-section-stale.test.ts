@@ -10,7 +10,10 @@ import {
   solidPointId,
   solidSectionId,
 } from "../../../../src/core/public";
-import { createProjectSolid3DSectionCommand } from "../../../../src/modules/solid-3d/public";
+import {
+  calculateSolidSection,
+  createProjectSolid3DSectionCommand,
+} from "../../../../src/modules/solid-3d/public";
 import {
   createTextShapePlacementCommand,
   textShapeCatalog,
@@ -76,24 +79,18 @@ describe("3D section projection optimistic concurrency", () => {
     });
     expect(configured.ok).toBe(true);
     if (!configured.ok) return;
+    const calculated = calculateSolidSection(saved, saved.sections[0]!.pointIds);
+    expect(calculated.status).toBe("ok");
+    if (calculated.status !== "ok") return;
     const projected = createProjectSolid3DSectionCommand({
       metadata: metadata("project"),
       record: saved,
       sectionId,
-      section: {
-        area: 2,
-        perimeter: 6,
-        intersections: 3,
-        vertices: [
-          { x: 0, y: 0, z: 0 },
-          { x: 1, y: 0, z: 0 },
-          { x: 0, y: 1, z: 0 },
-        ],
-      },
+      section: calculated.section,
       token: "project",
       translation: { x: 0, y: 0 },
     });
-    expect(projected.expected).toEqual(saved);
+    expect(reduceBoardDocument(configured.document, projected).ok).toBe(true);
     const rotated = {
       ...saved,
       projection: {
@@ -114,5 +111,16 @@ describe("3D section projection optimistic concurrency", () => {
     expect(stale.ok).toBe(false);
     if (!stale.ok) expect(stale.error.code).toBe("command.stale-solid");
     expect(stale.document).toEqual(concurrent.document);
+    const tampered = {
+      ...projected,
+      objects: projected.objects.map((object, index) =>
+        index === 0 && object.kind === "drawing.line"
+          ? { ...object, position: { ...object.position, x: object.position.x + 50 } }
+          : object,
+      ),
+    };
+    const rejected = reduceBoardDocument(configured.document, tampered);
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) expect(rejected.error.code).toBe("command.stale-solid");
   });
 });
