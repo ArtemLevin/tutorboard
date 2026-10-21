@@ -47,7 +47,7 @@ export function initialSolid3DWindowRect(
   workspace: Solid3DWorkspaceSize,
   expanded = false,
 ): Solid3DWindowRect {
-  const width = expanded ? 1120 : 610;
+  const width = expanded ? 1120 : 880;
   return clampSolid3DWindowRect(
     {
       left: workspace.width - width - INSET,

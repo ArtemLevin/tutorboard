@@ -47,6 +47,8 @@ import {
 } from "../../adapters/solid-3d-three/public";
 import { Solid3DLearningWorkspace } from "./Solid3DLearningWorkspace";
 import { Solid3DParameterEditor } from "./Solid3DParameterEditor";
+import { Solid3DOrientationEditor } from "./Solid3DOrientationEditor";
+import { Solid3DConstructionEditor } from "./Solid3DConstructionEditor";
 import { Solid3DSectionConstraintBuilder } from "./Solid3DSectionConstraintBuilder";
 import { Solid3DSectionRotationControls } from "./Solid3DSectionRotationControls";
 import { useSolid3DWindow } from "./useSolid3DWindow";
@@ -235,6 +237,10 @@ export function Solid3DEditorPanel({
   );
   const [mode, setMode] = useState<"points" | "view">("view");
   const [showRotationGizmo, setShowRotationGizmo] = useState(false);
+  const [workMode, setWorkMode] = useState<"explore" | "section" | "points">(
+    "explore",
+  );
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [cameraMode, setCameraMode] = useState<"orthographic" | "perspective">(
     "orthographic",
   );
@@ -627,7 +633,8 @@ export function Solid3DEditorPanel({
           event.stopPropagation();
           if (event.key === "Escape") {
             event.preventDefault();
-            onClose();
+            if (advancedOpen) setAdvancedOpen(false);
+            else onClose();
           }
         }}
         onPointerDown={(event) => event.stopPropagation()}
@@ -678,48 +685,67 @@ export function Solid3DEditorPanel({
           Вращайте модель, ставьте точки, предварительно просматривайте
           плоскость и явно сохраняйте нужные сечения.
         </p>
-        <div className="solid-3d-toolbar" role="toolbar">
+        <div
+          aria-label="Режимы работы с 3D"
+          className="solid-3d-toolbar"
+          role="toolbar"
+        >
           <button
-            aria-pressed={experience === "free"}
-            onClick={() => setExperience("free")}
+            aria-pressed={experience === "free" && workMode === "explore"}
+            onClick={() => {
+              setExperience("free");
+              setWorkMode("explore");
+              setMode("view");
+            }}
             type="button"
           >
-            Свободное исследование
+            Исследование
+          </button>
+          <button
+            aria-pressed={experience === "free" && workMode === "section"}
+            onClick={() => {
+              setExperience("free");
+              setWorkMode("section");
+              setMode("view");
+            }}
+            type="button"
+          >
+            Сечение
+          </button>
+          <button
+            aria-pressed={experience === "free" && workMode === "points"}
+            disabled={readOnly || record.points.length >= 32}
+            onClick={() => {
+              setExperience("free");
+              setWorkMode("points");
+              setMode("points");
+            }}
+            type="button"
+          >
+            Поставить точку
           </button>
           <button
             aria-pressed={experience === "learning"}
             disabled={!learningEnabled}
-            onClick={() => setExperience("learning")}
+            onClick={() => {
+              setExperience("learning");
+              setMode("view");
+            }}
             type="button"
           >
             Учебная задача
           </button>
           <button
-            aria-pressed={mode === "view"}
-            onClick={() => setMode("view")}
+            aria-controls="solid-3d-advanced"
+            aria-expanded={advancedOpen}
+            className="solid-3d-settings-trigger"
+            onClick={() => setAdvancedOpen((open) => !open)}
             type="button"
           >
-            Вращение камеры
+            Настройки <span aria-hidden="true">⚙</span>
           </button>
-          <button
-            aria-pressed={showRotationGizmo && mode === "view"}
-            disabled={readOnly || mode !== "view"}
-            onClick={() => setShowRotationGizmo((visible) => !visible)}
-            title="Включает кольца для поворота самой модели"
-            type="button"
-          >
-            {showRotationGizmo && mode === "view"
-              ? "Скрыть кольца поворота"
-              : "Показать кольца поворота"}
-          </button>
-          <button
-            aria-pressed={mode === "points"}
-            disabled={readOnly || record.points.length >= 32}
-            onClick={() => setMode("points")}
-            type="button"
-          >
-            Поставить точку
-          </button>
+        </div>
+        <div aria-label="Управление камерой" className="solid-3d-camera-bar">
           <button
             onClick={() =>
               setCameraMode((current) =>
@@ -741,11 +767,12 @@ export function Solid3DEditorPanel({
           <button disabled={readOnly} onClick={onUndo} type="button">
             Отменить
           </button>
+          <span className="solid-3d-camera-tip">
+            {mode === "points"
+              ? "ЛКМ — точка или перемещение · ПКМ — вращение"
+              : "ЛКМ — вращение · ПКМ — перемещение · колесо — масштаб"}
+          </span>
         </div>
-        <p className="solid-3d-controls-hint">
-          ЛКМ — вращение, ПКМ — перемещение, колесо — масштаб. В режиме точек:
-          ЛКМ — постановка точки или перемещение камеры, ПКМ — вращение.
-        </p>
         <div className="solid-3d-layout">
           <div className="solid-3d-stage">
             <Solid3DViewport
@@ -813,13 +840,40 @@ export function Solid3DEditorPanel({
               </span>
             </div>
           </div>
-          <aside>
+          <aside className="solid-3d-inspector">
+            <h3 className="solid-3d-inspector-title">Основное</h3>
             <Solid3DParameterEditor
               onRecordChange={onRecordChange}
               readOnly={readOnly}
               record={record}
             />
-            <h3>Точки</h3>
+            <div className="solid-3d-options">
+              <label>
+                <input
+                  checked={showSectionFill}
+                  onChange={(event) =>
+                    setShowSectionFill(event.currentTarget.checked)
+                  }
+                  type="checkbox"
+                />
+                Заливка сечения
+              </label>
+              <label>
+                <input
+                  checked={showSectionOutline}
+                  onChange={(event) =>
+                    setShowSectionOutline(event.currentTarget.checked)
+                  }
+                  type="checkbox"
+                />
+                Контур сечения
+              </label>
+            </div>
+            <div
+              className="solid-3d-mode-content"
+              hidden={experience !== "free" || workMode === "explore"}
+            >
+              <h3>Точки</h3>
             {points.length === 0 ? (
               <p>Включите режим постановки точек и щёлкните по модели.</p>
             ) : (
@@ -877,28 +931,7 @@ export function Solid3DEditorPanel({
                 ))}
               </ol>
             )}
-            <div className="solid-3d-options">
-              <label>
-                <input
-                  checked={showSectionFill}
-                  onChange={(event) =>
-                    setShowSectionFill(event.currentTarget.checked)
-                  }
-                  type="checkbox"
-                />
-                Заливка сечения
-              </label>
-              <label>
-                <input
-                  checked={showSectionOutline}
-                  onChange={(event) =>
-                    setShowSectionOutline(event.currentTarget.checked)
-                  }
-                  type="checkbox"
-                />
-                Контур сечения
-              </label>
-            </div>
+              <div className="solid-3d-section-content" hidden={workMode !== "section"}>
             {previewResult?.status === "error" ? (
               <p className="solid-3d-error" role="alert">
                 Выбранные точки дают вырожденную плоскость либо плоскость не
@@ -1147,6 +1180,7 @@ export function Solid3DEditorPanel({
             >
               Отобразить выбранное сечение на доске
             </button>
+              </div>
             <details>
               <summary>Доступное описание</summary>
               <p>
@@ -1170,8 +1204,54 @@ export function Solid3DEditorPanel({
                 })}
               </ul>
             </details>
+            </div>
           </aside>
         </div>
+        {advancedOpen ? (
+          <aside
+            aria-label="Точная настройка"
+            className="solid-3d-advanced"
+            id="solid-3d-advanced"
+            role="region"
+          >
+            <div className="solid-3d-advanced-heading">
+              <h3>Точная настройка</h3>
+              <button
+                aria-label="Закрыть настройки"
+                onClick={() => setAdvancedOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <p>Дополнительные параметры модели. Изменения сохраняются в документе.</p>
+            <Solid3DOrientationEditor
+              onRecordChange={onRecordChange}
+              readOnly={readOnly}
+              record={record}
+            />
+            <Solid3DConstructionEditor
+              advancedOnly
+              key={JSON.stringify(record.definition)}
+              onRecordChange={onRecordChange}
+              readOnly={readOnly}
+              record={record}
+            />
+            <button
+              aria-pressed={showRotationGizmo && mode === "view"}
+              disabled={readOnly || mode !== "view"}
+              onClick={() => setShowRotationGizmo((visible) => !visible)}
+              type="button"
+            >
+              {showRotationGizmo && mode === "view"
+                ? "Скрыть кольца поворота"
+                : "Показать кольца поворота"}
+            </button>
+            <p className="solid-3d-advanced-hint">
+              Кольца позволяют поворачивать само тело. В режиме точек они недоступны.
+            </p>
+          </aside>
+        ) : null}
         {experience === "learning" && learningEnabled ? (
           <Solid3DLearningWorkspace
             attempt={learningAttempt}
