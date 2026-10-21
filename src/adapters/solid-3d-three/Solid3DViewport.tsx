@@ -38,7 +38,7 @@ export interface Solid3DViewportProps {
   readonly highlightedSurfaceId?: SolidAnalyticSurfaceId | null;
   readonly mode: "points" | "view";
   readonly onPointPlace: (position: Vec3, anchor: SolidPointAnchor) => void;
-  readonly onMeasurementPick?: (endpoint: SolidDistanceEndpoint) => void;
+  readonly onMeasurementPick?: ((endpoint: SolidDistanceEndpoint) => void) | undefined;
   readonly measurementPreview?:
     readonly [SolidDistanceEndpoint, SolidDistanceEndpoint] | null;
   readonly onPointDragStart?: (pointId: string) => void;
