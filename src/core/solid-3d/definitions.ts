@@ -143,6 +143,14 @@ export interface SolidDistanceMeasurement {
   readonly second: SolidDistanceEndpoint;
 }
 
+/** Two directed points define an infinite, unoriented 3D line. */
+export type SolidAngleLine = readonly [SolidDistanceEndpoint, SolidDistanceEndpoint];
+
+export interface SolidAngleMeasurement {
+  readonly id: string;
+  readonly lines: readonly [SolidAngleLine, SolidAngleLine];
+}
+
 export interface Solid3DSectionDefinition {
   readonly id: SolidSectionId;
   readonly pointIds: readonly [SolidPointId, SolidPointId, SolidPointId];
@@ -173,6 +181,7 @@ export interface Solid3DRecord {
   readonly sections: readonly Solid3DSectionDefinition[];
   /** Optional for compatibility with existing 3D documents. */
   readonly measurements?: readonly SolidDistanceMeasurement[];
+  readonly angleMeasurements?: readonly SolidAngleMeasurement[];
   readonly schemaVersion: "1.0";
 }
 
