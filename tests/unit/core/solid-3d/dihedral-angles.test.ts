@@ -63,25 +63,41 @@ describe("linear angle of a 3D dihedral", () => {
 
   it("uses the local inward side of a reentrant edge on a concave truncated pyramid", () => {
     const bottomBase = [
-      { x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 },
-      { x: 4, y: 5 }, { x: 4, y: 1 }, { x: 1, y: 1 },
-      { x: 1, y: 5 }, { x: 0, y: 5 },
+      { x: 0, y: 0 },
+      { x: 5, y: 0 },
+      { x: 5, y: 5 },
+      { x: 4, y: 5 },
+      { x: 4, y: 1 },
+      { x: 1, y: 1 },
+      { x: 1, y: 5 },
+      { x: 0, y: 5 },
     ];
     const center = { x: 2.5, y: 2.75 };
     const topBase = bottomBase.map(({ x, y }) => ({
       x: center.x + (x - center.x) * 0.65,
       y: center.y + (y - center.y) * 0.65,
     }));
-    const definition = { kind: "truncated-pyramid" as const, bottomBase, topBase, height: 2 };
+    const definition = {
+      kind: "truncated-pyramid" as const,
+      bottomBase,
+      topBase,
+      height: 2,
+    };
     // Top cap and side face from the reentrant edge (4,5)→(4,1).
     // The centroid of all top-cap vertices lies outside the local interior.
-    const result = calculateSolidDihedralAngle(definition, ["face:1", "face:5"]);
+    const result = calculateSolidDihedralAngle(definition, [
+      "face:1",
+      "face:5",
+    ]);
     expect(result).not.toBeNull();
     if (result === null) return;
     expect(result.degrees).toBeCloseTo(75.2916961, 5);
     expect(result.rays[0].x).toBeGreaterThan(0);
     expect(result.rays[1].x).toBeGreaterThan(0);
-    const reversed = calculateSolidDihedralAngle(definition, ["face:5", "face:1"]);
+    const reversed = calculateSolidDihedralAngle(definition, [
+      "face:5",
+      "face:1",
+    ]);
     expect(reversed?.degrees).toBeCloseTo(result.degrees, 10);
   });
 

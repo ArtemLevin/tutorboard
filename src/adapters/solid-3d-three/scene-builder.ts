@@ -58,7 +58,9 @@ interface BuiltPolyhedronGeometry {
 }
 
 function polyhedronGeometry(topology: SolidTopology): BuiltPolyhedronGeometry {
-  const vertices = new Map(topology.vertices.map((item) => [item.id, item.position]));
+  const vertices = new Map(
+    topology.vertices.map((item) => [item.id, item.position]),
+  );
   const positions: number[] = [];
   const semanticFaceIds: string[] = [];
   for (const face of topology.faces) {
@@ -78,7 +80,11 @@ function polyhedronGeometry(topology: SolidTopology): BuiltPolyhedronGeometry {
       );
     }
     if (areaNormal.lengthSq() <= 1e-16) continue;
-    const abs = [Math.abs(areaNormal.x), Math.abs(areaNormal.y), Math.abs(areaNormal.z)];
+    const abs = [
+      Math.abs(areaNormal.x),
+      Math.abs(areaNormal.y),
+      Math.abs(areaNormal.z),
+    ];
     const primary = abs.indexOf(Math.max(...abs));
     const contour = polygon.map((point) =>
       primary === 0
@@ -95,10 +101,16 @@ function polyhedronGeometry(topology: SolidTopology): BuiltPolyhedronGeometry {
       // Earcut's winding can differ from the solid's semantic face winding.
       // Keep the original orientation for normals and outside visibility.
       const triangleNormal = new THREE.Vector3(
-        second.x - first.x, second.y - first.y, second.z - first.z,
-      ).cross(new THREE.Vector3(
-        third.x - first.x, third.y - first.y, third.z - first.z,
-      ));
+        second.x - first.x,
+        second.y - first.y,
+        second.z - first.z,
+      ).cross(
+        new THREE.Vector3(
+          third.x - first.x,
+          third.y - first.y,
+          third.z - first.z,
+        ),
+      );
       if (triangleNormal.dot(areaNormal) < 0) [second, third] = [third, second];
       for (const point of [first, second, third])
         positions.push(point.x, point.y, point.z);
@@ -106,7 +118,10 @@ function polyhedronGeometry(topology: SolidTopology): BuiltPolyhedronGeometry {
     }
   }
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
   geometry.computeVertexNormals();
   return { geometry, semanticFaceIds };
 }

@@ -40,7 +40,9 @@ function faceRay(
   );
   if (vertices.length < 3 || vertices.some((point) => point === undefined))
     return null;
-  const polygon = vertices.filter((point): point is Vec3 => point !== undefined);
+  const polygon = vertices.filter(
+    (point): point is Vec3 => point !== undefined,
+  );
   const origin = polygon[0]!;
   // Polygon winding gives the inward half-plane at *each* boundary edge.
   // A polygon-wide vertex centroid can lie outside a concave polygon.
@@ -61,9 +63,13 @@ function faceRay(
       Math.hypot(point.x - origin.x, point.y - origin.y, point.z - origin.z),
     ),
   );
-  if (polygon.some((point) =>
-    Math.abs(dot3(normal, subtract3(point, origin))) > extent * 1e-6,
-  )) return null;
+  if (
+    polygon.some(
+      (point) =>
+        Math.abs(dot3(normal, subtract3(point, origin))) > extent * 1e-6,
+    )
+  )
+    return null;
   const start = polygon[edgeIndex]!;
   const end = polygon[(edgeIndex + 1) % polygon.length]!;
   const orientedEdge = normalize3(subtract3(end, start));
