@@ -632,6 +632,7 @@
     border-right: 0;
     border-bottom: 1px solid #ddd4c7;
   }
+  .solid-3d-viewport-frame,
   .solid-3d-viewport,
   .solid-3d-fallback,
   .solid-3d-dock.is-expanded .solid-3d-viewport,
