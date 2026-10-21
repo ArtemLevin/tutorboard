@@ -90,18 +90,27 @@ describe("convex polyhedron guard for interactive cutting planes", () => {
     const positions = new Map(
       topology.vertices.map((vertex) => [vertex.id, vertex.position]),
     );
-    const verticalEdges = topology.edges.filter(({ startVertexId, endVertexId }) =>
-      Math.abs(positions.get(startVertexId)!.y - positions.get(endVertexId)!.y) > 1.5,
+    const verticalEdges = topology.edges.filter(
+      ({ startVertexId, endVertexId }) =>
+        Math.abs(
+          positions.get(startVertexId)!.y - positions.get(endVertexId)!.y,
+        ) > 1.5,
     );
-    const points: Solid3DPoint[] = verticalEdges.slice(0, 3).map((edge, index) => {
-      const anchor = { kind: "edge" as const, edgeId: edge.id, parameter: 0.5 };
-      return {
-        id: solidPointId(`solid-point:concave:${index}`),
-        label: `P${index}`,
-        position: resolveSolidPointAnchor(topology, anchor)!,
-        anchor,
-      };
-    });
+    const points: Solid3DPoint[] = verticalEdges
+      .slice(0, 3)
+      .map((edge, index) => {
+        const anchor = {
+          kind: "edge" as const,
+          edgeId: edge.id,
+          parameter: 0.5,
+        };
+        return {
+          id: solidPointId(`solid-point:concave:${index}`),
+          label: `P${index}`,
+          position: resolveSolidPointAnchor(topology, anchor)!,
+          anchor,
+        };
+      });
     const ids = [points[0]!.id, points[1]!.id, points[2]!.id] as const;
     const record: Solid3DRecord = {
       id: solid3DId("solid:concave"),
@@ -122,13 +131,15 @@ describe("convex polyhedron guard for interactive cutting planes", () => {
     expect(getSolidSectionRotationFrame(record, ids, edgeId)).toBeNull();
     expect(getSolidSectionSweepFrame(record, ids)).toBeNull();
     expect(previewSolidSectionRotation(record, ids, edgeId, 15)).toBeNull();
-    expect(saveSolidSectionRotation({
-      starting: record,
-      current: record,
-      pointIds: ids,
-      edgeId,
-      angleDegrees: 15,
-      token: "reject",
-    })).toMatchObject({ status: "error", code: "outside" });
+    expect(
+      saveSolidSectionRotation({
+        starting: record,
+        current: record,
+        pointIds: ids,
+        edgeId,
+        angleDegrees: 15,
+        token: "reject",
+      }),
+    ).toMatchObject({ status: "error", code: "outside" });
   });
 });
