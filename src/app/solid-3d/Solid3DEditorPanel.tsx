@@ -402,9 +402,7 @@ export function Solid3DEditorPanel({
   );
   const rotationAxisLine = useMemo(
     (): readonly [Vec3, Vec3] | null =>
-      rotationEnabled &&
-      rotationAxisKind === "points" &&
-      rotationFrame !== null
+      rotationEnabled && rotationAxisKind === "points" && rotationFrame !== null
         ? [rotationFrame.axisStart, rotationFrame.axisEnd]
         : null,
     [rotationEnabled, rotationAxisKind, rotationFrame],
