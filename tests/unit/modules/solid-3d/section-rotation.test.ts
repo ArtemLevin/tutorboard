@@ -70,6 +70,7 @@ describe("3D section rotation around a selected edge", () => {
     const initial = record();
     const frame = getSolidSectionRotationFrame(initial, ids, horizontalEdge.id);
     expect(frame).not.toBeNull();
+    expect(frame?.edgeId).toBe(horizontalEdge.id);
     const zero = previewSolidSectionRotation(
       initial,
       ids,
