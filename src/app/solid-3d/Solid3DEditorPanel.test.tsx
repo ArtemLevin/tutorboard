@@ -272,10 +272,9 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     expect(onRecordChange).toHaveBeenCalledOnce();
     const saved = onRecordChange.mock.calls[0]![0] as Solid3DRecord;
     expect(saved.angleMeasurements).toHaveLength(1);
-    expect(saved.angleMeasurements![0]!.lines[0].map(({ id }) => id).sort()).toEqual([
-      "vertex:0",
-      "vertex:1",
-    ]);
+    expect(
+      saved.angleMeasurements![0]!.lines[0].map(({ id }) => id).sort(),
+    ).toEqual(["vertex:0", "vertex:1"]);
     expect(viewport).toHaveAttribute("data-angle-preview", "false");
   });
 
