@@ -400,6 +400,17 @@ export function Solid3DConstructionEditor({
           </button>
         </div>
       ) : null}
+      {(record.points.length > 0 ||
+        record.sections.length > 0 ||
+        (record.measurements?.length ?? 0) > 0 ||
+        (record.angleMeasurements?.length ?? 0) > 0 ||
+        (record.linePlaneMeasurements?.length ?? 0) > 0 ||
+        (record.dihedralMeasurements?.length ?? 0) > 0) && (
+        <p role="note">
+          Изменение геометрии удалит сохранённые точки, сечения и измерения.
+          Восстановить их можно командой «Отменить».
+        </p>
+      )}
       {message === null ? null : (
         <p className="solid-3d-error" role="alert">
           {message}

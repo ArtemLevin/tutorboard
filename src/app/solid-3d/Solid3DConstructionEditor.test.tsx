@@ -69,6 +69,31 @@ describe("Solid3DConstructionEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Опустить вершину 1" }));
   });
 
+  it("warns that reconstruction clears saved annotations before applying it", () => {
+    const onRecordChange = vi.fn<(replacement: Solid3DRecord) => void>();
+    const annotated: Solid3DRecord = {
+      ...record,
+      dihedralMeasurements: [
+        { id: "solid-dihedral:old", faces: ["face:0", "face:2"] },
+      ],
+    };
+    render(
+      <Solid3DConstructionEditor
+        onRecordChange={onRecordChange}
+        readOnly={false}
+        record={annotated}
+      />,
+    );
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Изменение геометрии удалит сохранённые точки, сечения и измерения.",
+    );
+    fireEvent.change(screen.getByLabelText("Тип объёмного тела"), {
+      target: { value: "tetrahedron" },
+    });
+    expect(onRecordChange).toHaveBeenCalledOnce();
+    expect(onRecordChange.mock.calls[0]?.[0].dihedralMeasurements).toEqual([]);
+  });
+
   it("locks all structural editing in read-only mode", () => {
     render(
       <Solid3DConstructionEditor

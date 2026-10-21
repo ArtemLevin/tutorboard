@@ -1072,34 +1072,32 @@ export function Solid3DEditorPanel({
                 experience === "free" && workMode === "measure"
                   ? measureTool === "distance"
                     ? chooseMeasurementEndpoint
-                    : measureTool === "angle"
-                      ? angleMethod === "points"
-                        ? chooseAnglePoint
-                        : undefined
-                      : linePlaneMethod === "points"
+                    : measureTool === "angle" && angleMethod === "points"
+                      ? chooseAnglePoint
+                      : measureTool === "line-plane" &&
+                          linePlaneMethod === "points"
                         ? chooseLinePlanePoint
                         : undefined
                   : undefined
               }
               onAngleEdgePick={
-                (experience === "free" &&
-                  workMode === "measure" &&
-                  measureTool === "angle" &&
-                  angleMethod === "edges") ||
-                (measureTool === "line-plane" && linePlaneMethod === "edges")
-                  ? measureTool === "angle"
+                experience === "free" && workMode === "measure"
+                  ? measureTool === "angle" && angleMethod === "edges"
                     ? chooseAngleEdge
-                    : chooseLinePlaneEdge
+                    : measureTool === "line-plane" &&
+                        linePlaneMethod === "edges"
+                      ? chooseLinePlaneEdge
+                      : undefined
                   : undefined
               }
               onFacePick={
-                experience === "free" &&
-                workMode === "measure" &&
-                measureTool === "dihedral"
-                  ? chooseDihedralFace
-                  : measureTool === "line-plane" && linePlaneLine !== null
-                    ? chooseLinePlaneFace
-                    : undefined
+                experience === "free" && workMode === "measure"
+                  ? measureTool === "dihedral"
+                    ? chooseDihedralFace
+                    : measureTool === "line-plane" && linePlaneLine !== null
+                      ? chooseLinePlaneFace
+                      : undefined
+                  : undefined
               }
               dihedralSelectedFaces={
                 experience === "free" &&
