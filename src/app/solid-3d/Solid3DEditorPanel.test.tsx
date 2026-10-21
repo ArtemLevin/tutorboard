@@ -413,10 +413,14 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     expect(viewport).toHaveAttribute("data-dihedral-preview", "false");
     fireEvent.click(screen.getByRole("button", { name: "Выбрать грань" }));
     expect(viewport).toHaveAttribute("data-dihedral-count", "1");
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать соседнюю грань" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать соседнюю грань" }),
+    );
     expect(viewport).toHaveAttribute("data-dihedral-preview", "true");
     expect(screen.getByText("Линейный угол: 90.00°")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить двугранный угол" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Сохранить двугранный угол" }),
+    );
     expect(onRecordChange).toHaveBeenCalledOnce();
     const next = onRecordChange.mock.calls[0]![0] as Solid3DRecord;
     expect(next.dihedralMeasurements).toHaveLength(1);
@@ -430,9 +434,13 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
     fireEvent.click(screen.getByRole("button", { name: "Двугранный угол" }));
     fireEvent.click(screen.getByRole("button", { name: "Выбрать грань" }));
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать противоположную грань" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать противоположную грань" }),
+    );
     expect(screen.getByText(/единственное общее ребро/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Сохранить двугранный угол" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Сохранить двугранный угол" }),
+    ).toBeDisabled();
     expect(onRecordChange).not.toHaveBeenCalled();
   });
 
@@ -440,18 +448,24 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     const onRecordChange = vi.fn();
     const initialRecord: Solid3DRecord = {
       ...record,
-      dihedralMeasurements: [{
-        id: "solid-dihedral:existing",
-        faces: ["face:1", "face:2"],
-      }],
+      dihedralMeasurements: [
+        {
+          id: "solid-dihedral:existing",
+          faces: ["face:1", "face:2"],
+        },
+      ],
     };
     renderPanel({ initialRecord, readOnly: true, onRecordChange });
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
     fireEvent.click(screen.getByRole("button", { name: "Двугранный угол" }));
-    expect(screen.getByRole("button", { name: "Сохранить двугранный угол" })).toBeDisabled();
-    expect(screen.getByRole("button", {
-      name: "Удалить двугранный угол solid-dihedral:existing",
-    })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Сохранить двугранный угол" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Удалить двугранный угол solid-dihedral:existing",
+      }),
+    ).toBeDisabled();
     expect(onRecordChange).not.toHaveBeenCalled();
   });
 

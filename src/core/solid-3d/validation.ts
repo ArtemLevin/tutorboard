@@ -181,7 +181,8 @@ export function validateSolid3DRecord(
     new Set((record.dihedralMeasurements ?? []).map(({ id }) => id)).size !==
       (record.dihedralMeasurements?.length ?? 0) ||
     (record.dihedralMeasurements ?? []).some(
-      ({ faces }) => calculateSolidDihedralAngle(record.definition, faces) === null,
+      ({ faces }) =>
+        calculateSolidDihedralAngle(record.definition, faces) === null,
     )
   )
     diagnostics.push({

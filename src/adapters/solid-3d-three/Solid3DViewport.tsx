@@ -366,15 +366,21 @@ function dihedralAngleObject(
   const addLine = (positions: THREE.Vector3[], dashed: boolean): void => {
     const material = dashed
       ? new THREE.LineDashedMaterial({
-          color, dashSize: 0.11, gapSize: 0.07, depthTest: false,
-          transparent: true, opacity: 0.87,
+          color,
+          dashSize: 0.11,
+          gapSize: 0.07,
+          depthTest: false,
+          transparent: true,
+          opacity: 0.87,
         })
       : new THREE.LineBasicMaterial({ color, depthTest: false });
     const line = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints(positions),
       material,
     );
-    line.name = dashed ? "solid-dihedral-construction-ray" : "solid-dihedral-edge-or-arc";
+    line.name = dashed
+      ? "solid-dihedral-construction-ray"
+      : "solid-dihedral-edge-or-arc";
     if (dashed) line.computeLineDistances();
     line.renderOrder = 10;
     group.add(line);
@@ -384,15 +390,21 @@ function dihedralAngleObject(
   addLine([anchor, anchor.clone().addScaledVector(second, 0.9)], true);
   if (result.degrees > 0.005) {
     const theta = (result.degrees * Math.PI) / 180;
-    let perpendicular = second.clone().addScaledVector(first, -first.dot(second));
+    let perpendicular = second
+      .clone()
+      .addScaledVector(first, -first.dot(second));
     if (perpendicular.lengthSq() < 1e-12) {
-      const edgeAxis = vertex(result.edge[1]).sub(vertex(result.edge[0])).normalize();
+      const edgeAxis = vertex(result.edge[1])
+        .sub(vertex(result.edge[0]))
+        .normalize();
       perpendicular = new THREE.Vector3().crossVectors(edgeAxis, first);
     }
     perpendicular.normalize();
     const arc = Array.from({ length: 33 }, (_, index) => {
-      const t = theta * index / 32;
-      return anchor.clone().addScaledVector(first, Math.cos(t) * 0.48)
+      const t = (theta * index) / 32;
+      return anchor
+        .clone()
+        .addScaledVector(first, Math.cos(t) * 0.48)
         .addScaledVector(perpendicular, Math.sin(t) * 0.48);
     });
     addLine(arc, false);
@@ -1037,14 +1049,18 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         }
       }
     }
-    if (props.dihedralSelectedFaces !== undefined &&
-      props.dihedralSelectedFaces.length > 0) {
+    if (
+      props.dihedralSelectedFaces !== undefined &&
+      props.dihedralSelectedFaces.length > 0
+    ) {
       const faceIds: unknown = runtime.mesh.userData.semanticFaceIds;
       if (Array.isArray(faceIds)) {
         const selected = new Set(props.dihedralSelectedFaces);
         const faceFill = triangleHighlight(
           runtime.mesh.geometry,
-          faceIds.map((id: unknown) => typeof id === "string" && selected.has(id)),
+          faceIds.map(
+            (id: unknown) => typeof id === "string" && selected.has(id),
+          ),
         );
         if (faceFill !== null) overlays.add(faceFill);
       }
@@ -1168,11 +1184,17 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       if (result !== null) overlays.add(linePlaneObject(result, false));
     }
     for (const measurement of record.dihedralMeasurements ?? []) {
-      const result = calculateSolidDihedralAngle(record.definition, measurement.faces);
+      const result = calculateSolidDihedralAngle(
+        record.definition,
+        measurement.faces,
+      );
       if (result !== null) overlays.add(dihedralAngleObject(result, true));
     }
     if (props.dihedralPreview !== undefined && props.dihedralPreview !== null) {
-      const result = calculateSolidDihedralAngle(record.definition, props.dihedralPreview);
+      const result = calculateSolidDihedralAngle(
+        record.definition,
+        props.dihedralPreview,
+      );
       if (result !== null) overlays.add(dihedralAngleObject(result, false));
     }
     runtime.root.add(overlays);

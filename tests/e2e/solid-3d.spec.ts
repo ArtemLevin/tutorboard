@@ -251,7 +251,9 @@ test("selects adjacent cube faces and saves their dihedral angle in WebGL", asyn
   const stageBounds = await stage.boundingBox();
   if (stageBounds === null) throw new Error("Missing board stage");
   await page.getByRole("button", { name: "ИИ-инструменты" }).click();
-  await page.getByRole("menuitemradio", { name: "Построение по тексту" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
+    .click();
   await page.getByLabel("Текст построения").fill("куб");
   await page.getByRole("button", { name: "Выбрать для размещения" }).click();
   await page.mouse.click(
@@ -290,9 +292,12 @@ test("selects adjacent cube faces and saves their dihedral angle in WebGL", asyn
   await expect(editor.getByText("Выбрано граней: 1 из 2")).toBeVisible();
   await pick(0, 1, 0); // adjacent upper face
   await expect(editor.getByText("Линейный угол: 90.00°")).toBeVisible();
-  await editor.getByRole("button", { name: "Сохранить двугранный угол" }).click();
-  await expect(editor.getByRole("button", { name: /^Удалить двугранный угол/ }))
-    .toHaveCount(1);
+  await editor
+    .getByRole("button", { name: "Сохранить двугранный угол" })
+    .click();
+  await expect(
+    editor.getByRole("button", { name: /^Удалить двугранный угол/ }),
+  ).toHaveCount(1);
   await expect(canvas).toHaveCount(1);
 });
 
