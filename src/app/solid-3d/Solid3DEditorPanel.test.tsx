@@ -330,48 +330,67 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     renderPanel({ onRecordChange });
     const viewport = screen.getByTestId("mock-3d-viewport");
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
-    fireEvent.click(screen.getByRole("button", { name: "Угол прямой с плоскостью" }));
-    expect(screen.getByRole("button", { name: "По ребру" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Угол прямой с плоскостью" }),
+    );
+    expect(screen.getByRole("button", { name: "По ребру" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(viewport).toHaveAttribute("data-line-plane-preview", "false");
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать первое ребро" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать первое ребро" }),
+    );
     expect(screen.getByText("Шаг 2 из 2: плоскость")).toBeInTheDocument();
     expect(viewport).toHaveAttribute("data-line-plane-selected", "true");
     fireEvent.click(screen.getByRole("button", { name: "Выбрать грань" }));
     expect(viewport).toHaveAttribute("data-line-plane-preview", "true");
     expect(screen.getByText(/Меньший угол:/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить угол прямой и плоскости" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Сохранить угол прямой и плоскости" }),
+    );
     expect(onRecordChange).toHaveBeenCalledOnce();
     const updated = onRecordChange.mock.calls[0]![0] as Solid3DRecord;
     expect(updated.linePlaneMeasurements).toHaveLength(1);
     expect(updated.linePlaneMeasurements![0]!.faceId).toBe("face:1");
-    expect(updated.linePlaneMeasurements![0]!.line.map(({ id }) => id).sort())
-      .toEqual(["vertex:0", "vertex:1"]);
+    expect(
+      updated.linePlaneMeasurements![0]!.line.map(({ id }) => id).sort(),
+    ).toEqual(["vertex:0", "vertex:1"]);
     expect(viewport).toHaveAttribute("data-line-plane-preview", "false");
   });
 
   it("protects saved line-plane angles in read-only mode", () => {
     const initialRecord: Solid3DRecord = {
       ...record,
-      linePlaneMeasurements: [{
-        id: "solid-line-plane:read-only",
-        line: [
-          { kind: "vertex", id: "vertex:0" },
-          { kind: "vertex", id: "vertex:1" },
-        ],
-        faceId: "face:1",
-      }],
+      linePlaneMeasurements: [
+        {
+          id: "solid-line-plane:read-only",
+          line: [
+            { kind: "vertex", id: "vertex:0" },
+            { kind: "vertex", id: "vertex:1" },
+          ],
+          faceId: "face:1",
+        },
+      ],
     };
     const onRecordChange = vi.fn();
     renderPanel({ initialRecord, readOnly: true, onRecordChange });
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
-    fireEvent.click(screen.getByRole("button", { name: "Угол прямой с плоскостью" }));
-    expect(screen.getByRole("button", { name: "Сохранить угол прямой и плоскости" })).toBeDisabled();
-    expect(screen.getByRole("button", {
-      name: "Удалить угол прямой и плоскости solid-line-plane:read-only",
-    })).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Угол прямой с плоскостью" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Сохранить угол прямой и плоскости" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Удалить угол прямой и плоскости solid-line-plane:read-only",
+      }),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "По двум точкам" }));
-    expect(screen.getByRole("button", { name: "По двум точкам" }))
-      .toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "По двум точкам" }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(onRecordChange).not.toHaveBeenCalled();
   });
 
