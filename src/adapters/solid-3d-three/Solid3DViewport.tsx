@@ -587,13 +587,18 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
         runtimeRef.current.active = true;
       controls.enabled = true;
       rotationGizmo.setEnabled(
-        Boolean(showRotationGizmoRef.current && onModelRotationCommitRef.current),
+        Boolean(
+          showRotationGizmoRef.current && onModelRotationCommitRef.current,
+        ),
       );
       resize();
       setFailure(null);
     };
     renderer.domElement.addEventListener("webglcontextlost", contextLost);
-    renderer.domElement.addEventListener("webglcontextrestored", contextRestored);
+    renderer.domElement.addEventListener(
+      "webglcontextrestored",
+      contextRestored,
+    );
     renderer.domElement.addEventListener("pointerdown", pointerDragDown, true);
     renderer.domElement.addEventListener("pointermove", pointerDragMove, true);
     renderer.domElement.addEventListener("pointerup", pointerDragUp, true);
@@ -648,7 +653,10 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
       renderer.domElement.removeEventListener("pointermove", pointerMove);
       renderer.domElement.removeEventListener("pointerleave", pointerLeave);
       renderer.domElement.removeEventListener("webglcontextlost", contextLost);
-      renderer.domElement.removeEventListener("webglcontextrestored", contextRestored);
+      renderer.domElement.removeEventListener(
+        "webglcontextrestored",
+        contextRestored,
+      );
       contextReady = false;
       rotationGizmoRef.current = null;
       scene.remove(rotationGizmo.group);
@@ -667,16 +675,26 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
     if (runtime === null) return;
     const current = runtime.camera;
     if (
-      (cameraMode === "orthographic" && current instanceof THREE.OrthographicCamera) ||
-      (cameraMode === "perspective" && current instanceof THREE.PerspectiveCamera)
-    ) return;
+      (cameraMode === "orthographic" &&
+        current instanceof THREE.OrthographicCamera) ||
+      (cameraMode === "perspective" &&
+        current instanceof THREE.PerspectiveCamera)
+    )
+      return;
     const container = containerRef.current;
     if (container === null) return;
     const width = Math.max(320, container.clientWidth);
     const height = Math.max(260, container.clientHeight);
     const next: THREE.Camera =
       cameraMode === "orthographic"
-        ? new THREE.OrthographicCamera(-2.8 * width / height, 2.8 * width / height, 2.8, -2.8, 0.01, 100)
+        ? new THREE.OrthographicCamera(
+            (-2.8 * width) / height,
+            (2.8 * width) / height,
+            2.8,
+            -2.8,
+            0.01,
+            100,
+          )
         : new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
     next.position.copy(current.position);
     next.quaternion.copy(current.quaternion);
@@ -814,8 +832,8 @@ export function Solid3DViewport(props: Solid3DViewportProps): ReactElement {
               <summary>Как проверить браузер</summary>
               <p>
                 Включите аппаратное ускорение в настройках браузера,
-                перезапустите его и проверьте «Graphics Feature Status»
-                на странице chrome://gpu.
+                перезапустите его и проверьте «Graphics Feature Status» на
+                странице chrome://gpu.
               </p>
             </details>
           </div>

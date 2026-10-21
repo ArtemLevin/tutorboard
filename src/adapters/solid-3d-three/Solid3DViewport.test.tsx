@@ -253,8 +253,14 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     };
     const view = render(<Solid3DViewport {...props} record={record()} />);
     const firstCanvas = view.container.querySelector("canvas")!;
-    act(() => firstCanvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true })));
-    act(() => screen.getByRole("button", { name: "Повторить запуск 3D" }).click());
+    act(() =>
+      firstCanvas.dispatchEvent(
+        new Event("webglcontextlost", { cancelable: true }),
+      ),
+    );
+    act(() =>
+      screen.getByRole("button", { name: "Повторить запуск 3D" }).click(),
+    );
     expect(rendererLifecycle.created).toBe(2);
     expect(rendererLifecycle.disposed).toBe(1);
     expect(rendererLifecycle.contextsLost).toBe(1);
@@ -283,7 +289,9 @@ describe("Solid3DViewport WebGL lifecycle", () => {
     );
     await screen.findByText("WebGL не удалось запустить.");
     expect(rendererLifecycle.created).toBe(0);
-    act(() => screen.getByRole("button", { name: "Повторить запуск 3D" }).click());
+    act(() =>
+      screen.getByRole("button", { name: "Повторить запуск 3D" }).click(),
+    );
     await waitFor(() => expect(rendererLifecycle.created).toBe(1));
     expect(screen.queryByText("WebGL не удалось запустить.")).toBeNull();
     view.unmount();
@@ -292,7 +300,10 @@ describe("Solid3DViewport WebGL lifecycle", () => {
   });
 
   it("disposes GPU objects, controls and context across repeated openings", () => {
-    const geometryDisposed = vi.spyOn(THREE.BufferGeometry.prototype, "dispose");
+    const geometryDisposed = vi.spyOn(
+      THREE.BufferGeometry.prototype,
+      "dispose",
+    );
     const materialDisposed = vi.spyOn(THREE.Material.prototype, "dispose");
     const props = {
       cameraMode: "orthographic" as const,
