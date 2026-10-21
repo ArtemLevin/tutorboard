@@ -1,0 +1,27 @@
+name: Temporary P1.4 E2E formatting
+on:
+  push:
+    paths:
+      - ".github/workflows/temporary-p14-e2e-format.yml"
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: |
+          npx prettier --write tests/e2e/solid-3d.spec.ts
+          git config user.name "TutorBoard CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add tests/e2e/solid-3d.spec.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style(3d): format isolated two-point E2E"
+            git push origin HEAD:refs/heads/feat/solid-3d-rotation-two-points-p14-20261021
+          fi
