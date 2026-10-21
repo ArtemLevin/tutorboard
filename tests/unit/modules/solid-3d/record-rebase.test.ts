@@ -163,6 +163,24 @@ describe("3D collaborative editor three-way rebase", () => {
     ).toBe("conflict");
   });
 
+  it("rejects a newly created section when a source point moved remotely", () => {
+    const starting = { ...record(), sections: [] };
+    const newSection = section(starting.points);
+    const current = {
+      ...starting,
+      points: starting.points.map((entry, index) =>
+        index === 0 ? { ...entry, label: "Changed remotely" } : entry,
+      ),
+    };
+    expect(
+      rebaseSolid3DRecordUpdate({
+        starting,
+        current,
+        replacement: { ...starting, sections: [newSection] },
+      }).status,
+    ).toBe("conflict");
+  });
+
   it("keeps geometry edits atomic and rejects edits across a remote resize", () => {
     const starting = record();
     const current = { ...starting, points: [...starting.points, point(5)] };
