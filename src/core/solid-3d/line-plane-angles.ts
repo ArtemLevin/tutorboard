@@ -6,8 +6,13 @@ import type {
 import { resolveSolidDistanceEndpoint } from "./measurements";
 import { createSolidTopology } from "./topology";
 import {
-  dot3, normalize3, planeFromThreePoints, scale3,
-  signedDistanceToPlane, subtract3, type Vec3,
+  dot3,
+  normalize3,
+  planeFromThreePoints,
+  scale3,
+  signedDistanceToPlane,
+  subtract3,
+  type Vec3,
 } from "./vectors";
 
 export interface SolidLinePlaneAngleResult {
@@ -34,7 +39,8 @@ export function calculateSolidLinePlaneAngle(
 ): SolidLinePlaneAngleResult | null {
   const topology = createSolidTopology(record.definition);
   const face = topology?.faces.find(({ id }) => id === faceId);
-  if (topology === null || topology === undefined || face === undefined) return null;
+  if (topology === null || topology === undefined || face === undefined)
+    return null;
   const positions = face.vertexIds.map(
     (id) => topology.vertices.find((vertex) => vertex.id === id)?.position,
   );
@@ -54,11 +60,21 @@ export function calculateSolidLinePlaneAngle(
   }
   if (plane === null || tangent === null) return null;
   // Every polygon vertex must lie in the same supporting plane.
-  if (positions.some((position) =>
-    position === undefined ||
-    Math.abs(signedDistanceToPlane(plane, position)) > 1e-6 *
-      Math.max(1, Math.abs(position.x), Math.abs(position.y), Math.abs(position.z))
-  )) return null;
+  if (
+    positions.some(
+      (position) =>
+        position === undefined ||
+        Math.abs(signedDistanceToPlane(plane, position)) >
+          1e-6 *
+            Math.max(
+              1,
+              Math.abs(position.x),
+              Math.abs(position.y),
+              Math.abs(position.z),
+            ),
+    )
+  )
+    return null;
   const from = resolveSolidDistanceEndpoint(record, line[0]);
   const to = resolveSolidDistanceEndpoint(record, line[1]);
   if (from === null || to === null) return null;
@@ -67,9 +83,13 @@ export function calculateSolidLinePlaneAngle(
   const normalComponent = dot3(direction, plane.normal);
   const inPlane = subtract3(direction, scale3(plane.normal, normalComponent));
   const projectionLength = Math.hypot(inPlane.x, inPlane.y, inPlane.z);
-  const degrees = Math.atan2(Math.abs(normalComponent), projectionLength) * 180 / Math.PI;
+  const degrees =
+    (Math.atan2(Math.abs(normalComponent), projectionLength) * 180) / Math.PI;
   if (!Number.isFinite(degrees)) return null;
-  const foot = subtract3(from, scale3(plane.normal, signedDistanceToPlane(plane, from)));
+  const foot = subtract3(
+    from,
+    scale3(plane.normal, signedDistanceToPlane(plane, from)),
+  );
   return {
     degrees,
     line: [from, to],
@@ -93,10 +113,19 @@ export function saveSolidLinePlaneAngle(
   if (calculateSolidLinePlaneAngle(record, line, faceId) === null) return null;
   const saved = record.linePlaneMeasurements ?? [];
   const key = (item: SolidAngleLine) =>
-    item.map(({ kind, id: endpointId }) => `${kind}:${endpointId}`).sort().join("|");
-  if (saved.length >= 12 || saved.some(
-    (item) => item.id === id || (item.faceId === faceId && key(item.line) === key(line)),
-  )) return null;
+    item
+      .map(({ kind, id: endpointId }) => `${kind}:${endpointId}`)
+      .sort()
+      .join("|");
+  if (
+    saved.length >= 12 ||
+    saved.some(
+      (item) =>
+        item.id === id ||
+        (item.faceId === faceId && key(item.line) === key(line)),
+    )
+  )
+    return null;
   const measurement: SolidLinePlaneAngleMeasurement = { id, line, faceId };
   return { ...record, linePlaneMeasurements: [...saved, measurement] };
 }
