@@ -41,6 +41,9 @@ vi.mock("../../adapters/solid-3d-three/public", () => ({
       data-dihedral-preview={String(props.dihedralPreview != null)}
       data-dihedral-count={String(props.dihedralSelectedFaces?.length ?? 0)}
       data-line-plane-selected={String(props.linePlaneSelectedLine != null)}
+      data-face-picker={String(props.onFacePick !== undefined)}
+      data-edge-picker={String(props.onAngleEdgePick !== undefined)}
+      data-vertex-picker={String(props.onMeasurementPick !== undefined)}
     >
       <button type="button" onClick={() => props.onFacePick?.("face:0")}>
         Выбрать противоположную грань
@@ -333,6 +336,62 @@ describe("Solid3DEditorPanel embedded workspace", () => {
       }),
     ).toBeDisabled();
     expect(onRecordChange).not.toHaveBeenCalled();
+  });
+
+  it("isolates edge and face selection from other work modes and tools", () => {
+    const onRecordChange = vi.fn();
+    renderPanel({ onRecordChange });
+    const viewport = screen.getByTestId("mock-3d-viewport");
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Угол прямой с плоскостью" }));
+    expect(viewport).toHaveAttribute("data-edge-picker", "true");
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать первое ребро" }));
+    expect(viewport).toHaveAttribute("data-face-picker", "true");
+
+    // Switching work mode must release BOTH stale semantic interceptors.
+    fireEvent.click(screen.getByRole("button", { name: "Поставить точку" }));
+    expect(viewport).toHaveAttribute("data-viewport-mode", "points");
+    expect(viewport).toHaveAttribute("data-edge-picker", "false");
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
+    expect(viewport).toHaveAttribute("data-vertex-picker", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать грань" }));
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать первое ребро" }));
+    expect(onRecordChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Сечение" }));
+    expect(viewport).toHaveAttribute("data-edge-picker", "false");
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Двугранный угол" }));
+    expect(viewport).toHaveAttribute("data-face-picker", "true");
+    expect(viewport).toHaveAttribute("data-edge-picker", "false");
+    expect(viewport).toHaveAttribute("data-vertex-picker", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Исследование" }));
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
+  });
+
+  it("activates point picks exclusively for distance, line angle and line-plane tools", () => {
+    renderPanel();
+    const viewport = screen.getByTestId("mock-3d-viewport");
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Угол прямой с плоскостью" }));
+    fireEvent.click(screen.getByRole("button", { name: "По двум точкам" }));
+    expect(viewport).toHaveAttribute("data-vertex-picker", "true");
+    expect(viewport).toHaveAttribute("data-edge-picker", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Двугранный угол" }));
+    expect(viewport).toHaveAttribute("data-vertex-picker", "false");
+    expect(viewport).toHaveAttribute("data-face-picker", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Угол между прямыми" }));
+    expect(viewport).toHaveAttribute("data-edge-picker", "true");
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
+    expect(viewport).toHaveAttribute("data-vertex-picker", "false");
+    fireEvent.click(screen.getByRole("button", { name: "По четырём точкам" }));
+    expect(viewport).toHaveAttribute("data-edge-picker", "false");
+    expect(viewport).toHaveAttribute("data-vertex-picker", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Расстояние" }));
+    expect(viewport).toHaveAttribute("data-vertex-picker", "true");
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
   });
 
   it("selects a line and its face, previews and saves line-plane angle", () => {
