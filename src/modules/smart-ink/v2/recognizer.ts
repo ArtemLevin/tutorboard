@@ -92,29 +92,21 @@ function resolvedPairwiseRival(
   rival: SmartInkV2ShapeKind,
   proposal: ReturnType<typeof recognizeSmartInkStroke>,
 ): boolean {
+  const ellipse = proposal.candidates.find(({ kind }) => kind === "ellipse");
+  const square = proposal.candidates.find(({ kind }) => kind === "square");
+  const axisRatio = ellipse?.diagnostics.axisRatio;
+  const aspectRatio = square?.diagnostics.aspectRatio;
   if (selected === "circle" && rival === "ellipse") {
-    const ratio = proposal.candidates.find(
-      ({ kind }) => kind === "ellipse",
-    )?.diagnostics.axisRatio;
-    return ratio !== undefined && ratio >= 0.78;
+    return axisRatio !== undefined && axisRatio >= 0.78;
   }
   if (selected === "ellipse" && rival === "circle") {
-    const ratio = proposal.candidates.find(
-      ({ kind }) => kind === "ellipse",
-    )?.diagnostics.axisRatio;
-    return ratio !== undefined && ratio < 0.72;
+    return axisRatio !== undefined && axisRatio < 0.72;
   }
   if (selected === "square" && rival === "rectangle") {
-    const ratio = proposal.candidates.find(
-      ({ kind }) => kind === "square",
-    )?.diagnostics.aspectRatio;
-    return ratio !== undefined && ratio <= 1.22;
+    return aspectRatio !== undefined && aspectRatio <= 1.22;
   }
   if (selected === "rectangle" && rival === "square") {
-    const ratio = proposal.candidates.find(
-      ({ kind }) => kind === "square",
-    )?.diagnostics.aspectRatio;
-    return ratio !== undefined && ratio >= 1.42;
+    return aspectRatio !== undefined && aspectRatio >= 1.42;
   }
   return false;
 }
