@@ -28,6 +28,8 @@ test("recovers the same 3D canvas after a real WebGL context loss", async ({
     const extension = context?.getExtension("WEBGL_lose_context");
     if (extension === undefined || extension === null)
       throw new Error("WebGL context loss extension unavailable");
+    (element as HTMLCanvasElement & { testContextLoss?: WEBGL_lose_context })
+      .testContextLoss = extension;
     extension.loseContext();
   });
 
@@ -37,10 +39,11 @@ test("recovers the same 3D canvas after a real WebGL context loss", async ({
   await expect(canvas).toHaveCount(1);
   await expect(canvas).toHaveAttribute("data-webgl-lifecycle", "original");
   await canvas.evaluate((element) => {
-    const context = (element as HTMLCanvasElement).getContext("webgl2");
-    const extension = context?.getExtension("WEBGL_lose_context");
-    if (extension === undefined || extension === null)
-      throw new Error("WebGL context restoration extension unavailable");
+    const extension = (
+      element as HTMLCanvasElement & { testContextLoss?: WEBGL_lose_context }
+    ).testContextLoss;
+    if (extension === undefined)
+      throw new Error("Stored WebGL restore capability was lost");
     extension.restoreContext();
   });
   await expect(
