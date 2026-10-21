@@ -61,6 +61,28 @@ describe("Smart Ink automatic canvas policy", () => {
       ({ result }) => result.proposal.candidate.kind === "circle",
     );
 
+    const byClass = Object.fromEntries(
+      [...new Set(results.map(({ sample }) => sample.expectedKind))].map(
+        (kind) => [
+          kind,
+          {
+            accepted: results.filter(
+              ({ result, sample }) =>
+                sample.expectedKind === kind && result.status === "proposed",
+            ).length,
+            total: results.filter(({ sample }) => sample.expectedKind === kind)
+              .length,
+            circles: results.filter(
+              ({ result, sample }) =>
+                sample.expectedKind === kind &&
+                result.status === "proposed" &&
+                result.proposal.candidate.kind === "circle",
+            ).length,
+          },
+        ],
+      ),
+    );
+    console.info("V2_CANVAS_CORPUS_METRICS", JSON.stringify(byClass));
     expect(negativeProposals).toHaveLength(0);
     expect(positiveProposals).toHaveLength(125);
     expect(circleProposals).toHaveLength(20);
