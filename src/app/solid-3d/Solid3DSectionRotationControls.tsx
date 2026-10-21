@@ -1,14 +1,23 @@
 import type { ReactElement } from "react";
 
-import type { SolidSectionResult, SolidTopology } from "../../core/public";
+import type {
+  Solid3DPoint,
+  SolidSectionResult,
+  SolidTopology,
+} from "../../core/public";
 
 export interface Solid3DSectionRotationControlsProps {
   readonly topology: SolidTopology | null;
   readonly hasSourcePlane: boolean;
   readonly enabled: boolean;
   readonly onEnabledChange: (enabled: boolean) => void;
+  readonly axisKind: "edge" | "points";
+  readonly onAxisKindChange: (kind: "edge" | "points") => void;
   readonly edgeId: string;
   readonly onEdgeChange: (edgeId: string) => void;
+  readonly points: readonly Solid3DPoint[];
+  readonly axisPointIds: readonly [Solid3DPoint["id"] | "", Solid3DPoint["id"] | ""];
+  readonly onAxisPointChange: (index: 0 | 1, id: Solid3DPoint["id"] | "") => void;
   readonly angleDegrees: number;
   readonly onAngleChange: (angle: number) => void;
   readonly section: SolidSectionResult | null;
@@ -21,8 +30,13 @@ export function Solid3DSectionRotationControls({
   hasSourcePlane,
   enabled,
   onEnabledChange,
+  axisKind,
+  onAxisKindChange,
   edgeId,
   onEdgeChange,
+  points,
+  axisPointIds,
+  onAxisPointChange,
   angleDegrees,
   onAngleChange,
   section,
@@ -48,25 +62,73 @@ export function Solid3DSectionRotationControls({
               onChange={(event) => onEnabledChange(event.currentTarget.checked)}
               type="checkbox"
             />
-            Вращать плоскость вокруг ребра
+            {axisKind === "edge"
+              ? "Вращать плоскость вокруг ребра"
+              : "Вращать плоскость вокруг двух точек"}
           </label>
           {enabled ? (
             <>
-              <label htmlFor="solid-3d-rotation-edge">Ось вращения</label>
+              <label htmlFor="solid-3d-rotation-kind">Тип оси вращения</label>
               <select
-                id="solid-3d-rotation-edge"
-                onChange={(event) => onEdgeChange(event.currentTarget.value)}
-                value={edgeId}
+                id="solid-3d-rotation-kind"
+                onChange={(event) =>
+                  onAxisKindChange(event.currentTarget.value as "edge" | "points")
+                }
+                value={axisKind}
               >
-                <option value="">Выберите ребро</option>
-                {topology.edges.map((edge) => (
-                  <option key={edge.id} value={edge.id}>
-                    {vertexLabels.get(edge.startVertexId) ?? "?"}—
-                    {vertexLabels.get(edge.endVertexId) ?? "?"}
-                  </option>
-                ))}
+                <option value="edge">Ребро многогранника</option>
+                <option value="points">Две точки модели</option>
               </select>
-              <p>Вращение происходит вокруг прямой выбранного ребра.</p>
+              {axisKind === "edge" ? (
+                <>
+                  <label htmlFor="solid-3d-rotation-edge">Ось вращения</label>
+                  <select
+                    id="solid-3d-rotation-edge"
+                    onChange={(event) => onEdgeChange(event.currentTarget.value)}
+                    value={edgeId}
+                  >
+                    <option value="">Выберите ребро</option>
+                    {topology.edges.map((edge) => (
+                      <option key={edge.id} value={edge.id}>
+                        {vertexLabels.get(edge.startVertexId) ?? "?"}—
+                        {vertexLabels.get(edge.endVertexId) ?? "?"}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <>
+                  {([0, 1] as const).map((index) => (
+                    <label key={index}>
+                      {index === 0 ? "Первая точка оси" : "Вторая точка оси"}
+                      <select
+                        aria-label={
+                          index === 0 ? "Первая точка оси" : "Вторая точка оси"
+                        }
+                        onChange={(event) =>
+                          onAxisPointChange(
+                            index,
+                            event.currentTarget.value as Solid3DPoint["id"] | "",
+                          )
+                        }
+                        value={axisPointIds[index]}
+                      >
+                        <option value="">Выберите точку</option>
+                        {points.map((point) => (
+                          <option key={point.id} value={point.id}>
+                            {point.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </>
+              )}
+              <p>
+                {axisKind === "edge"
+                  ? "Вращение происходит вокруг прямой выбранного ребра."
+                  : "Ось проходит через две разные точки модели; она показана пунктиром."}
+              </p>
               <label htmlFor="solid-3d-rotation-slider">
                 Угол вращения: {angleDegrees.toFixed(1)}°
               </label>
@@ -114,11 +176,16 @@ export function Solid3DSectionRotationControls({
                 ))}
               </div>
               <p aria-live="polite">
-                {edgeId === ""
+                {axisKind === "edge" && edgeId === ""
                   ? "Выберите ребро для оси вращения"
-                  : section === null
-                    ? "Плоскость не образует сечение тела"
-                    : `Вершин ${section.vertices.length} · площадь ${section.area.toFixed(2)} · периметр ${section.perimeter.toFixed(2)}`}
+                  : axisKind === "points" &&
+                      (axisPointIds[0] === "" || axisPointIds[1] === "")
+                    ? "Выберите две точки оси вращения"
+                    : axisKind === "points" && axisPointIds[0] === axisPointIds[1]
+                      ? "Для оси требуются две разные точки"
+                      : section === null
+                        ? "Плоскость не образует сечение тела или ось вырождена"
+                        : `Вершин ${section.vertices.length} · площадь ${section.area.toFixed(2)} · периметр ${section.perimeter.toFixed(2)}`}
               </p>
               <button disabled={!canSave} onClick={onSave} type="button">
                 Сохранить повёрнутое сечение
