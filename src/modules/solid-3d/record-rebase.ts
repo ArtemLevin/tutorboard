@@ -107,7 +107,16 @@ export function rebaseSolid3DRecordUpdate(input: {
     current.sections,
     replacement.sections,
   );
-  if (pointChanges === null || sectionChanges === null)
+  const measurementChanges = mergeItems(
+    starting.measurements ?? [],
+    current.measurements ?? [],
+    replacement.measurements ?? [],
+  );
+  if (
+    pointChanges === null ||
+    sectionChanges === null ||
+    measurementChanges === null
+  )
     return { status: "conflict" };
 
   // An added or modified section was calculated from its source points.
@@ -138,6 +147,11 @@ export function rebaseSolid3DRecordUpdate(input: {
     ...current,
     points: pointChanges,
     sections: sectionChanges,
+    ...(measurementChanges.length > 0 ||
+    current.measurements !== undefined ||
+    replacement.measurements !== undefined
+      ? { measurements: measurementChanges }
+      : {}),
     projection: projectionChanged ? replacement.projection : current.projection,
   };
   if (validateSolid3DRecord(merged).length > 0) return { status: "conflict" };

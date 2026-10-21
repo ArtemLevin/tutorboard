@@ -673,6 +673,17 @@ const solidSectionSchema = z
     visible: z.boolean(),
   })
   .strict();
+const solidDistanceEndpointSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("point"), id: solidPointIdSchema }).strict(),
+  z.object({ kind: z.literal("vertex"), id: identifierSchema }).strict(),
+]);
+const solidDistanceMeasurementSchema = z
+  .object({
+    id: identifierSchema,
+    first: solidDistanceEndpointSchema,
+    second: solidDistanceEndpointSchema,
+  })
+  .strict();
 const solidProjectionSchema = z
   .object({
     hiddenEdgePolicy: z.enum(["dashed", "hidden"]),
@@ -704,6 +715,7 @@ const solidRecordSchema = z
     boardObjectIds: z.array(boardObjectIdSchema).max(5_000),
     definition: solidDefinitionSchema,
     id: solid3DIdSchema,
+    measurements: z.array(solidDistanceMeasurementSchema).max(16).optional(),
     points: z.array(solidPointSchema).max(32),
     projection: solidProjectionSchema,
     rootGroupId: groupIdSchema,
