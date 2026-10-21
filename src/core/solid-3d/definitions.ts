@@ -161,6 +161,12 @@ export interface SolidLinePlaneAngleMeasurement {
   readonly faceId: string;
 }
 
+/** Two neighboring half-planes, defined by stable semantic face IDs. */
+export interface SolidDihedralAngleMeasurement {
+  readonly id: string;
+  readonly faces: readonly [string, string];
+}
+
 export interface Solid3DSectionDefinition {
   readonly id: SolidSectionId;
   readonly pointIds: readonly [SolidPointId, SolidPointId, SolidPointId];
@@ -193,6 +199,7 @@ export interface Solid3DRecord {
   readonly measurements?: readonly SolidDistanceMeasurement[];
   readonly angleMeasurements?: readonly SolidAngleMeasurement[];
   readonly linePlaneMeasurements?: readonly SolidLinePlaneAngleMeasurement[];
+  readonly dihedralMeasurements?: readonly SolidDihedralAngleMeasurement[];
   readonly schemaVersion: "1.0";
 }
 

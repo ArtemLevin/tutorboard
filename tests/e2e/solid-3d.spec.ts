@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("recovers the same 3D canvas after a real WebGL context loss", async ({
+test("recovers the same 3D canvas after a real WebGL context loss @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -52,7 +52,7 @@ test("recovers the same 3D canvas after a real WebGL context loss", async ({
   await expect(canvas).toHaveAttribute("data-webgl-lifecycle", "original");
 });
 
-test("selects two 3D vertices, measures distance and saves the segment", async ({
+test("selects two 3D vertices, measures distance and saves the segment @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -115,7 +115,7 @@ test("selects two 3D vertices, measures distance and saves the segment", async (
   await expect(canvas).toHaveCount(1);
 });
 
-test("chooses two cube edges, previews their line angle and saves it", async ({
+test("chooses two cube edges, previews their line angle and saves it @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -179,7 +179,7 @@ test("chooses two cube edges, previews their line angle and saves it", async ({
   await expect(canvas).toHaveCount(1);
 });
 
-test("measures a line against a model face via real 3D picking", async ({
+test("measures a line against a model face via real 3D picking @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -243,7 +243,65 @@ test("measures a line against a model face via real 3D picking", async ({
   await expect(canvas).toHaveCount(1);
 });
 
-test("opens a semantic catalog solid in the lazy 3D editor", async ({
+test("selects adjacent cube faces and saves their dihedral angle in WebGL @requires-webgl", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const stage = page.getByTestId("board-stage");
+  const stageBounds = await stage.boundingBox();
+  if (stageBounds === null) throw new Error("Missing board stage");
+  await page.getByRole("button", { name: "ИИ-инструменты" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Построение по тексту" })
+    .click();
+  await page.getByLabel("Текст построения").fill("куб");
+  await page.getByRole("button", { name: "Выбрать для размещения" }).click();
+  await page.mouse.click(
+    stageBounds.x + stageBounds.width * 0.58,
+    stageBounds.y + stageBounds.height * 0.42,
+  );
+  await page.getByRole("button", { name: "Открыть в 3D" }).click();
+  const editor = page.getByRole("region", { name: "Куб" });
+  const canvas = editor.locator("canvas[data-engine]");
+  await expect(canvas).toHaveCount(1);
+  await editor.getByRole("button", { name: "Измерить" }).click();
+  await editor.getByRole("button", { name: "Двугранный угол" }).click();
+  const bounds = await canvas.boundingBox();
+  if (bounds === null) throw new Error("Missing WebGL canvas");
+  const THREE = await import("three");
+  const camera = new THREE.OrthographicCamera(
+    (-2.8 * bounds.width) / bounds.height,
+    (2.8 * bounds.width) / bounds.height,
+    2.8,
+    -2.8,
+    0.01,
+    100,
+  );
+  camera.position.set(4.8, 3.8, 5.4);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  camera.updateProjectionMatrix();
+  const pick = async (x: number, y: number, z: number) => {
+    const projected = new THREE.Vector3(x, y, z).project(camera);
+    await page.mouse.click(
+      bounds.x + ((projected.x + 1) * bounds.width) / 2,
+      bounds.y + ((1 - projected.y) * bounds.height) / 2,
+    );
+  };
+  await pick(0, 0, 1); // front face
+  await expect(editor.getByText("Выбрано граней: 1 из 2")).toBeVisible();
+  await pick(0, 1, 0); // adjacent upper face
+  await expect(editor.getByText("Линейный угол: 90.00°")).toBeVisible();
+  await editor
+    .getByRole("button", { name: "Сохранить двугранный угол" })
+    .click();
+  await expect(
+    editor.getByRole("button", { name: /^Удалить двугранный угол/ }),
+  ).toHaveCount(1);
+  await expect(canvas).toHaveCount(1);
+});
+
+test("opens a semantic catalog solid in the lazy 3D editor @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -378,7 +436,7 @@ test("opens a semantic catalog solid in the lazy 3D editor", async ({
   await expect(editor).toBeHidden();
 });
 
-test("drags a seeded edge point in 3D and persists its new position", async ({
+test("drags a seeded edge point in 3D and persists its new position @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -484,7 +542,7 @@ test("drags a seeded edge point in 3D and persists its new position", async ({
   await expect(savedSections).toHaveCount(previousCount + 1);
 });
 
-test("rotates a cutting plane around a cube edge and saves it as one undoable section", async ({
+test("rotates a cutting plane around a cube edge and saves it as one undoable section @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");
@@ -530,7 +588,7 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   await expect(savedSections).toHaveCount(before);
 });
 
-test("rotates a plane about two selected 3D points with one undoable save", async ({
+test("rotates a plane about two selected 3D points with one undoable save @requires-webgl", async ({
   page,
 }) => {
   await page.goto("/");

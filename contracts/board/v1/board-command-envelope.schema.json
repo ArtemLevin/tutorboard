@@ -2077,6 +2077,27 @@
       ],
       "type": "object"
     },
+    "SolidDihedralMeasurement": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "faces": {
+          "items": {
+            "$ref": "#/$defs/Identifier"
+          },
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "id",
+        "faces"
+      ],
+      "type": "object"
+    },
     "Solid3DRecord": {
       "additionalProperties": false,
       "properties": {
@@ -2090,6 +2111,13 @@
         "linePlaneMeasurements": {
           "items": {
             "$ref": "#/$defs/SolidLinePlaneAngleMeasurement"
+          },
+          "type": "array",
+          "maxItems": 12
+        },
+        "dihedralMeasurements": {
+          "items": {
+            "$ref": "#/$defs/SolidDihedralMeasurement"
           },
           "type": "array",
           "maxItems": 12

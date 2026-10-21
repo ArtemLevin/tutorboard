@@ -24,6 +24,8 @@ vi.mock("../../adapters/solid-3d-three/public", () => ({
     onMeasurementPick?: (point: { kind: "vertex"; id: string }) => void;
     onAngleEdgePick?: (edgeId: string) => void;
     onFacePick?: (faceId: string) => void;
+    dihedralSelectedFaces?: readonly string[];
+    dihedralPreview?: readonly [string, string] | null;
     linePlanePreview?: { readonly faceId: string } | null;
     linePlaneSelectedLine?: readonly unknown[] | null;
     anglePreview?: readonly unknown[] | null;
@@ -36,8 +38,19 @@ vi.mock("../../adapters/solid-3d-three/public", () => ({
       data-measure-preview={String(props.measurementPreview != null)}
       data-angle-preview={String(props.anglePreview != null)}
       data-line-plane-preview={String(props.linePlanePreview != null)}
+      data-dihedral-preview={String(props.dihedralPreview != null)}
+      data-dihedral-count={String(props.dihedralSelectedFaces?.length ?? 0)}
       data-line-plane-selected={String(props.linePlaneSelectedLine != null)}
+      data-face-picker={String(props.onFacePick !== undefined)}
+      data-edge-picker={String(props.onAngleEdgePick !== undefined)}
+      data-vertex-picker={String(props.onMeasurementPick !== undefined)}
     >
+      <button type="button" onClick={() => props.onFacePick?.("face:0")}>
+        Выбрать противоположную грань
+      </button>
+      <button type="button" onClick={() => props.onFacePick?.("face:2")}>
+        Выбрать соседнюю грань
+      </button>
       <button type="button" onClick={() => props.onFacePick?.("face:1")}>
         Выбрать грань
       </button>
@@ -325,6 +338,70 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     expect(onRecordChange).not.toHaveBeenCalled();
   });
 
+  it("isolates edge and face selection from other work modes and tools", () => {
+    const onRecordChange = vi.fn();
+    renderPanel({ onRecordChange });
+    const viewport = screen.getByTestId("mock-3d-viewport");
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Угол прямой с плоскостью" }),
+    );
+    expect(viewport).toHaveAttribute("data-edge-picker", "true");
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать первое ребро" }),
+    );
+    expect(viewport).toHaveAttribute("data-face-picker", "true");
+
+    // Switching work mode must release BOTH stale semantic interceptors.
+    fireEvent.click(screen.getByRole("button", { name: "Поставить точку" }));
+    expect(viewport).toHaveAttribute("data-viewport-mode", "points");
+    expect(viewport).toHaveAttribute("data-edge-picker", "false");
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
+    expect(viewport).toHaveAttribute("data-vertex-picker", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать грань" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать первое ребро" }),
+    );
+    expect(onRecordChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Сечение" }));
+    expect(viewport).toHaveAttribute("data-edge-picker", "false");
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Двугранный угол" }));
+    expect(viewport).toHaveAttribute("data-face-picker", "true");
+    expect(viewport).toHaveAttribute("data-edge-picker", "false");
+    expect(viewport).toHaveAttribute("data-vertex-picker", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Исследование" }));
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
+  });
+
+  it("activates point picks exclusively for distance, line angle and line-plane tools", () => {
+    renderPanel();
+    const viewport = screen.getByTestId("mock-3d-viewport");
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Угол прямой с плоскостью" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "По двум точкам" }));
+    expect(viewport).toHaveAttribute("data-vertex-picker", "true");
+    expect(viewport).toHaveAttribute("data-edge-picker", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Двугранный угол" }));
+    expect(viewport).toHaveAttribute("data-vertex-picker", "false");
+    expect(viewport).toHaveAttribute("data-face-picker", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Угол между прямыми" }));
+    expect(viewport).toHaveAttribute("data-edge-picker", "true");
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
+    expect(viewport).toHaveAttribute("data-vertex-picker", "false");
+    fireEvent.click(screen.getByRole("button", { name: "По четырём точкам" }));
+    expect(viewport).toHaveAttribute("data-edge-picker", "false");
+    expect(viewport).toHaveAttribute("data-vertex-picker", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Расстояние" }));
+    expect(viewport).toHaveAttribute("data-vertex-picker", "true");
+    expect(viewport).toHaveAttribute("data-face-picker", "false");
+  });
+
   it("selects a line and its face, previews and saves line-plane angle", () => {
     const onRecordChange = vi.fn();
     renderPanel({ onRecordChange });
@@ -391,6 +468,71 @@ describe("Solid3DEditorPanel embedded workspace", () => {
     expect(
       screen.getByRole("button", { name: "По двум точкам" }),
     ).toHaveAttribute("aria-pressed", "true");
+    expect(onRecordChange).not.toHaveBeenCalled();
+  });
+
+  it("selects two neighboring faces, previews and saves their dihedral", () => {
+    const onRecordChange = vi.fn();
+    renderPanel({ onRecordChange });
+    const viewport = screen.getByTestId("mock-3d-viewport");
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Двугранный угол" }));
+    expect(viewport).toHaveAttribute("data-dihedral-preview", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать грань" }));
+    expect(viewport).toHaveAttribute("data-dihedral-count", "1");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать соседнюю грань" }),
+    );
+    expect(viewport).toHaveAttribute("data-dihedral-preview", "true");
+    expect(screen.getByText("Линейный угол: 90.00°")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Сохранить двугранный угол" }),
+    );
+    expect(onRecordChange).toHaveBeenCalledOnce();
+    const next = onRecordChange.mock.calls[0]![0] as Solid3DRecord;
+    expect(next.dihedralMeasurements).toHaveLength(1);
+    expect(next.dihedralMeasurements![0]!.faces).toEqual(["face:1", "face:2"]);
+    expect(viewport).toHaveAttribute("data-dihedral-count", "0");
+  });
+
+  it("rejects nonadjacent faces and protects saved dihedrals in read-only mode", () => {
+    const onRecordChange = vi.fn();
+    renderPanel({ onRecordChange });
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Двугранный угол" }));
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать грань" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать противоположную грань" }),
+    );
+    expect(screen.getByText(/единственное общее ребро/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Сохранить двугранный угол" }),
+    ).toBeDisabled();
+    expect(onRecordChange).not.toHaveBeenCalled();
+  });
+
+  it("renders saved dihedrals with disabled deletion for a read-only guest", () => {
+    const onRecordChange = vi.fn();
+    const initialRecord: Solid3DRecord = {
+      ...record,
+      dihedralMeasurements: [
+        {
+          id: "solid-dihedral:existing",
+          faces: ["face:1", "face:2"],
+        },
+      ],
+    };
+    renderPanel({ initialRecord, readOnly: true, onRecordChange });
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Двугранный угол" }));
+    expect(
+      screen.getByRole("button", { name: "Сохранить двугранный угол" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Удалить двугранный угол solid-dihedral:existing",
+      }),
+    ).toBeDisabled();
     expect(onRecordChange).not.toHaveBeenCalled();
   });
 

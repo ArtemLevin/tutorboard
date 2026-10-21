@@ -503,6 +503,10 @@ const solidLinePlaneAngleMeasurement = strictObject({
   line: array(reference("SolidDistanceEndpoint"), { minItems: 2, maxItems: 2 }),
   faceId: reference("Identifier"),
 });
+const solidDihedralMeasurement = strictObject({
+  id: reference("Identifier"),
+  faces: array(reference("Identifier"), { minItems: 2, maxItems: 2 }),
+});
 const solidSection = strictObject({
   algorithmVersion: {
     enum: ["analytic-plane/1", "polyhedron-plane/1"],
@@ -540,6 +544,9 @@ const solid3DRecord = strictObject(
       maxItems: 12,
     }),
     linePlaneMeasurements: array(reference("SolidLinePlaneAngleMeasurement"), {
+      maxItems: 12,
+    }),
+    dihedralMeasurements: array(reference("SolidDihedralMeasurement"), {
       maxItems: 12,
     }),
     boardObjectIds: array(reference("Identifier"), { maxItems: 5_000 }),
@@ -871,6 +878,7 @@ const boardDefinitions = {
   SolidDistanceMeasurement: solidDistanceMeasurement,
   SolidAngleMeasurement: solidAngleMeasurement,
   SolidLinePlaneAngleMeasurement: solidLinePlaneAngleMeasurement,
+  SolidDihedralMeasurement: solidDihedralMeasurement,
   Solid3DRecord: solid3DRecord,
   Solid3DSectionDefinition: solidSection,
   Solid3DSource: solidSource,
