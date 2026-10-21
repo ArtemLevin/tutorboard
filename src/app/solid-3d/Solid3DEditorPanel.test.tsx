@@ -22,6 +22,8 @@ vi.mock("../../adapters/solid-3d-three/public", () => ({
     showRotationGizmo?: boolean;
     mode?: string;
     onMeasurementPick?: (point: { kind: "vertex"; id: string }) => void;
+    onAngleEdgePick?: (edgeId: string) => void;
+    anglePreview?: readonly unknown[] | null;
     measurementPreview?: readonly unknown[] | null;
   }) => (
     <div
@@ -29,7 +31,14 @@ vi.mock("../../adapters/solid-3d-three/public", () => ({
       data-rotation-gizmo={String(props.showRotationGizmo ?? false)}
       data-viewport-mode={props.mode}
       data-measure-preview={String(props.measurementPreview != null)}
+      data-angle-preview={String(props.anglePreview != null)}
     >
+      <button type="button" onClick={() =>
+        props.onAngleEdgePick?.("edge:0:1")
+      }>Выбрать первое ребро</button>
+      <button type="button" onClick={() =>
+        props.onAngleEdgePick?.("edge:0:3")
+      }>Выбрать второе ребро</button>
       <button
         onClick={() =>
           props.onMeasurementPick?.({ kind: "vertex", id: "vertex:0" })
@@ -236,6 +245,50 @@ describe("Solid3DEditorPanel embedded workspace", () => {
         name: "Удалить измерение solid-distance:existing",
       }),
     ).toBeDisabled();
+    expect(onRecordChange).not.toHaveBeenCalled();
+  });
+
+  it("selects two semantic edges to preview and save a 3D line angle", () => {
+    const onRecordChange = vi.fn();
+    renderPanel({ onRecordChange });
+    const viewport = screen.getByTestId("mock-3d-viewport");
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Угол между прямыми" }));
+    expect(screen.getByRole("button", { name: "По рёбрам" })).toHaveAttribute("aria-pressed", "true");
+    expect(viewport).toHaveAttribute("data-angle-preview", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать первое ребро" }));
+    expect(screen.getByText("Выбрано прямых: 1 из 2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать второе ребро" }));
+    expect(viewport).toHaveAttribute("data-angle-preview", "true");
+    expect(screen.getByText(/Меньший угол:/)).toHaveTextContent("90.00°");
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить угол" }));
+    expect(onRecordChange).toHaveBeenCalledOnce();
+    const saved = onRecordChange.mock.calls[0]![0] as Solid3DRecord;
+    expect(saved.angleMeasurements).toHaveLength(1);
+    expect(saved.angleMeasurements![0]!.lines[0][0].id).toBe("vertex:0");
+    expect(viewport).toHaveAttribute("data-angle-preview", "false");
+  });
+
+  it("switches to point-pair selection and protects saved angles in read-only mode", () => {
+    const initialRecord: Solid3DRecord = {
+      ...record,
+      angleMeasurements: [{
+        id: "solid-angle:read-only",
+        lines: [
+          [{ kind: "vertex", id: "vertex:0" }, { kind: "vertex", id: "vertex:1" }],
+          [{ kind: "vertex", id: "vertex:0" }, { kind: "vertex", id: "vertex:3" }],
+        ],
+      }],
+    };
+    const onRecordChange = vi.fn();
+    renderPanel({ initialRecord, readOnly: true, onRecordChange });
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Угол между прямыми" }));
+    expect(screen.getByText(/90.00°/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "По четырём точкам" }));
+    expect(screen.getByRole("button", { name: "По четырём точкам" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Сохранить угол" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Удалить угол solid-angle:read-only" })).toBeDisabled();
     expect(onRecordChange).not.toHaveBeenCalled();
   });
 
