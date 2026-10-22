@@ -1,0 +1,23 @@
+name: Temporary SI-G05A format probe
+on:
+  pull_request:
+    paths:
+      - 'src/modules/smart-ink/v2/glyph-open-set.ts'
+      - 'tests/unit/modules/smart-ink-v2/glyph-open-set.test.ts'
+      - 'scripts/train-smart-ink-glyph-prototype.mjs'
+      - '.github/workflows/smart-ink-open-set-format-probe.yml'
+permissions:
+  contents: read
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: |
+          npx prettier --write src/modules/smart-ink/v2/glyph-open-set.ts tests/unit/modules/smart-ink-v2/glyph-open-set.test.ts scripts/train-smart-ink-glyph-prototype.mjs
+          git diff -- src/modules/smart-ink/v2/glyph-open-set.ts tests/unit/modules/smart-ink-v2/glyph-open-set.test.ts scripts/train-smart-ink-glyph-prototype.mjs
