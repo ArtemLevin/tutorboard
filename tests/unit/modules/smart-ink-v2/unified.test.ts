@@ -77,7 +77,12 @@ describe("Smart Ink unified arbitration", () => {
 
   it("accepts a calibrated Greek glyph when geometry abstains", () => {
     const unified = resolveSmartInkUnifiedDecision(
-      { ...geometry, candidate: null, selectedKind: "ordinary-ink", status: "ordinary-ink" },
+      {
+        ...geometry,
+        candidate: null,
+        selectedKind: "ordinary-ink",
+        status: "ordinary-ink",
+      },
       {
         candidates: [
           { kind: "glyph", probability: 0.97, script: "Grek", text: "α" },
@@ -93,7 +98,12 @@ describe("Smart Ink unified arbitration", () => {
 
   it("preserves ambiguities across the Cyrillic and Latin alphabets", () => {
     const unified = resolveSmartInkUnifiedDecision(
-      { ...geometry, candidate: null, selectedKind: "ordinary-ink", status: "ordinary-ink" },
+      {
+        ...geometry,
+        candidate: null,
+        selectedKind: "ordinary-ink",
+        status: "ordinary-ink",
+      },
       {
         candidates: [
           { kind: "glyph", probability: 0.97, script: "Latn", text: "a" },
@@ -108,7 +118,12 @@ describe("Smart Ink unified arbitration", () => {
 
   it("rejects unsupported, malformed and uncalibrated symbol candidates", () => {
     const unified = resolveSmartInkUnifiedDecision(
-      { ...geometry, candidate: null, selectedKind: "ordinary-ink", status: "ordinary-ink" },
+      {
+        ...geometry,
+        candidate: null,
+        selectedKind: "ordinary-ink",
+        status: "ordinary-ink",
+      },
       {
         candidates: [
           { kind: "glyph", probability: Number.NaN, script: "Latn", text: "a" },
@@ -125,7 +140,12 @@ describe("Smart Ink unified arbitration", () => {
 
   it("retains source ink for low confidence digits", () => {
     const unified = resolveSmartInkUnifiedDecision(
-      { ...geometry, candidate: null, selectedKind: "ordinary-ink", status: "ordinary-ink" },
+      {
+        ...geometry,
+        candidate: null,
+        selectedKind: "ordinary-ink",
+        status: "ordinary-ink",
+      },
       {
         candidates: [
           { kind: "glyph", probability: 0.42, script: "Zyyy", text: "7" },
