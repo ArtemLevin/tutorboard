@@ -340,7 +340,9 @@ capture.addEventListener("pointercancel", () => abortPointer("Штрих отм�
 capture.addEventListener("lostpointercapture", () =>
   abortPointer("Захват указателя потерян."),
 );
-globalThis.window.addEventListener("blur", () => abortPointer("Запись прервана."));
+globalThis.window.addEventListener("blur", () =>
+  abortPointer("Запись прервана."),
+);
 globalThis.window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") resetDrawing("Черновик очищен.");
 });
