@@ -14,7 +14,11 @@ const glyph = (script: "Latn" | "Grek", character: string) => ({
   script,
   character,
 });
-const candidate = (distance: number, script: "Latn" | "Grek" = "Latn", character = "A") => ({
+const candidate = (
+  distance: number,
+  script: "Latn" | "Grek" = "Latn",
+  character = "A",
+) => ({
   distance,
   script,
   character,
@@ -98,8 +102,12 @@ describe("Smart Ink glyph open-set research gate", () => {
       example(glyph("Latn", "A"), candidate(0.01)),
     ]);
     expect(positiveOnly.maximumDistanceExclusive).toBeNull();
-    expect(selectGlyphResearchOnly(positiveOnly,
-      example(glyph("Latn", "A"), candidate(0)))).toBeNull();
+    expect(
+      selectGlyphResearchOnly(
+        positiveOnly,
+        example(glyph("Latn", "A"), candidate(0)),
+      ),
+    ).toBeNull();
 
     const collision = deriveGlyphExperimentalDistanceGate([
       example(glyph("Latn", "A"), candidate(0.1)),
@@ -110,11 +118,21 @@ describe("Smart Ink glyph open-set research gate", () => {
 
   it("rejects invalid or unsorted distances and handles empty candidates", () => {
     const policy = deriveGlyphExperimentalDistanceGate(calibration);
-    expect(() => selectGlyphResearchOnly(policy,
-      example(glyph("Latn", "A"), candidate(NaN)))).toThrow("distance");
-    expect(() => selectGlyphResearchOnly(policy,
-      example(glyph("Latn", "A"), candidate(0.15), candidate(0.1)))).toThrow("distance");
-    expect(selectGlyphResearchOnly(policy, example(glyph("Latn", "A")))).toBeNull();
+    expect(() =>
+      selectGlyphResearchOnly(
+        policy,
+        example(glyph("Latn", "A"), candidate(NaN)),
+      ),
+    ).toThrow("distance");
+    expect(() =>
+      selectGlyphResearchOnly(
+        policy,
+        example(glyph("Latn", "A"), candidate(0.15), candidate(0.1)),
+      ),
+    ).toThrow("distance");
+    expect(
+      selectGlyphResearchOnly(policy, example(glyph("Latn", "A"))),
+    ).toBeNull();
   });
 
   it("computes a nonzero 95% upper confidence bound for zero observed failures", () => {
