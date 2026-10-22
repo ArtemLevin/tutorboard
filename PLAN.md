@@ -2854,3 +2854,11 @@ Playwright browser tests (see
 The page runs at `/tools/smart-ink-glyph-corpus-capture.html` on Vite dev/preview.
 Captured samples are unreviewed; live writer collection, independent ground-truth
 review and model evaluation are still required before SI-G04/G05/G06.
+
+### Smart Ink SI-G04A prototype baseline (22.10.2026)
+
+Added deterministic experimental multilingual glyph classifier, strict model
+contract, cancel-aware provider and writer/device-disjoint train/evaluate CLI.
+The classifier returns **uncalibrated distances**; glyph auto-conversion stays
+disabled until reviewed real samples, calibration and SI-G05/SI-G06 browser gates.
+See [SI-G04A protocol](docs/spike/SMART_INK_GLYPH_PROTOTYPE_BASELINE.md).

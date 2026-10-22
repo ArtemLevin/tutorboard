@@ -90,3 +90,22 @@ export {
   type SmartInkUnifiedDecision,
   type SmartInkUnifiedPolicy,
 } from "./v2/public";
+
+export {
+  createGlyphPrototypeProvider,
+  extractGlyphPrototypeFeatures,
+  parseGlyphPrototypeModel,
+  rankGlyphPrototype,
+  smartInkGlyphPrototypeFeatureCount,
+  smartInkGlyphPrototypeFeatureVersion,
+  smartInkGlyphPrototypeSchema,
+  trainGlyphPrototypeModel,
+  type GlyphPrototypeClass,
+  type GlyphPrototypeExample,
+  type GlyphPrototypeModel,
+  type GlyphPrototypePoint,
+  type GlyphPrototypeRank,
+  type GlyphPrototypeResult,
+  type GlyphPrototypeStroke,
+  type SmartInkGlyphPrototypeProvider,
+} from "./v2/public";
