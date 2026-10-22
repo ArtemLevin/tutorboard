@@ -5,9 +5,11 @@ test("@smoke capture a multi-stroke Greek glyph and export a versioned corpus", 
   page,
 }) => {
   await page.goto("/tools/smart-ink-glyph-corpus-capture.html");
-  await expect(page.getByRole("heading", {
-    name: "Smart Ink 2.0 · Сбор рукописных символов",
-  })).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Smart Ink 2.0 · Сбор рукописных символов",
+    }),
+  ).toBeVisible();
   await page.locator("#writer").fill("writer-test-001");
   await page.locator("#device").fill("device-test-001");
   await page.locator("#script").selectOption("Grek");
@@ -61,6 +63,8 @@ test("@smoke cancels an unfinished stroke without adding a sample", async ({
   await page.mouse.move(rect.x + 180, rect.y + 200);
   await page.keyboard.press("Escape");
   await page.mouse.up();
-  await expect(page.getByRole("button", { name: "Добавить пример" })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Добавить пример" }),
+  ).toBeDisabled();
   await expect(page.locator("#counts")).toContainText("Собрано: 0");
 });
