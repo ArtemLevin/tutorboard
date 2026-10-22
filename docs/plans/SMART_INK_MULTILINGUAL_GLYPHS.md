@@ -135,3 +135,16 @@ See [open-set protocol](../spike/SMART_INK_GLYPH_OPEN_SET_EVALUATION.md).
 Remaining: independent human corpus, model comparison, model calibration,
 browser performance, SI-G06 canvas integration and collision regressions.
 
+
+## Calibration Studio — integrated collection UI (2026-10-22)
+
+A unified offline browser workspace lives at
+`/tools/smart-ink-calibration-studio.html`. Supports shapes, Cyrillic,
+Latin, Greek, digits, multi-stroke input, preview/relabel, explicit
+IndexedDB local backups and JSON import/export for both existing formats.
+Experimental recognition diagnostics never enable production auto-correction.
+See [Studio protocol](../spike/SMART_INK_CALIBRATION_STUDIO.md).
+
+Next: reviewed data from independent authors/devices, model benchmark,
+calibration and SI-G06 controller integration.
+

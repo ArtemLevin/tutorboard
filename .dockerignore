@@ -11,4 +11,11 @@ tests/*
 !tests/fixtures
 tests/fixtures/*
 !tests/fixtures/dense-board.ts
-tools
+# Only the static Smart Ink corpus/Studio entries are required for Vite's
+# multi-page production bundle. Keep tooling and test fixtures out of Docker.
+tools/*
+!tools/smart-ink-glyph-corpus-capture.html
+!tools/smart-ink-glyph-corpus.mjs
+!tools/smart-ink-calibration-studio.html
+!tools/smart-ink-calibration-studio.mjs
+!tools/smart-ink-calibration-studio-core.mjs

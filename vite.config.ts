@@ -13,6 +13,7 @@ export default defineConfig({
       input: {
         main: "index.html",
         glyphCapture: "tools/smart-ink-glyph-corpus-capture.html",
+        calibrationStudio: "tools/smart-ink-calibration-studio.html",
       },
     },
   },
