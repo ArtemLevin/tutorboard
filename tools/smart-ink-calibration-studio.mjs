@@ -22,7 +22,7 @@ import {
 } from "../src/modules/smart-ink/v2/glyph-prototype.ts";
 import { recognizeSmartInkStroke } from "../src/modules/smart-ink-spike/recognizer.ts";
 
-const $ = (selector) => document.querySelector(selector);
+const $ = (selector) => globalThis.document.querySelector(selector);
 const capture = $("#capture");
 const preview = $("#preview");
 const script = $("#script");
@@ -89,7 +89,7 @@ function renderTarget() {
   const previous = character.value;
   character.replaceChildren(
     ...choices.map((name) => {
-      const node = document.createElement("option");
+      const node = globalThis.document.createElement("option");
       node.value = name;
       node.textContent = shapes[name] ?? name;
       return node;
@@ -198,7 +198,7 @@ function updateList() {
   list.replaceChildren();
   const visible = corpus.samples.slice(-120).reverse();
   for (const sample of visible) {
-    const button = document.createElement("button");
+    const button = globalThis.document.createElement("button");
     button.textContent =
       textFor(sample.target) +
       " · " +
@@ -210,7 +210,7 @@ function updateList() {
     list.append(button);
   }
   if (corpus.samples.length > visible.length) {
-    const info = document.createElement("p");
+    const info = globalThis.document.createElement("p");
     info.className = "hint";
     info.textContent =
       "Показаны последние 120 образцов; полный набор сохраняется в JSON.";
@@ -340,8 +340,8 @@ capture.addEventListener("pointercancel", () => abortPointer("Штрих отм�
 capture.addEventListener("lostpointercapture", () =>
   abortPointer("Захват указателя потерян."),
 );
-window.addEventListener("blur", () => abortPointer("Запись прервана."));
-window.addEventListener("keydown", (event) => {
+globalThis.window.addEventListener("blur", () => abortPointer("Запись прервана."));
+globalThis.window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") resetDrawing("Черновик очищен.");
 });
 $("#remove-stroke").addEventListener("click", () => {
@@ -420,7 +420,7 @@ function downloadJson(filename, data) {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = globalThis.document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
@@ -473,7 +473,7 @@ $("#file-import").addEventListener("change", async (event) => {
 
 function openStore() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("tutorboard-smart-ink-studio", 1);
+    const request = globalThis.indexedDB.open("tutorboard-smart-ink-studio", 1);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains("backups"))
@@ -542,7 +542,7 @@ $("#load-local").addEventListener("click", async () => {
     const restored = parseStudioBackup(backup);
     if (
       corpus.samples.length &&
-      !confirm(
+      !globalThis.confirm(
         "Заменить текущие образцы локальной копией? Экспортируйте несохранённые данные перед заменой.",
       )
     )
@@ -565,7 +565,7 @@ $("#load-local").addEventListener("click", async () => {
 });
 $("#delete-local").addEventListener("click", async () => {
   if (
-    !confirm(
+    !globalThis.confirm(
       "Удалить локальную копию? Перед этим рекомендуется экспортировать JSON.",
     )
   )
