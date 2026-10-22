@@ -2845,3 +2845,12 @@ Dedicated plan: [`docs/plans/SMART_INK_MULTILINGUAL_GLYPHS.md`](docs/plans/SMART
 - SI-G02: bounded multi-stroke glyph session with explicit flush/expiry and preservation of source strokes.
 - This foundational PR keeps glyph recognition **disabled at runtime** while the model and controller integration remain pending. Current geometric Smart Ink V2 behavior and release gates must remain unchanged.
 - Next: SI-G03 annotated corpus and SI-G04 calibrated recognizer, followed by SI-G05 arbitration quality evaluation and SI-G06 canvas integration.
+
+### Smart Ink SI-G03 multilingual glyph corpus (22.10.2026)
+
+Added corpus capture, strict validation, writer/device-independent splitting and
+Playwright browser tests (see
+[`docs/spike/SMART_INK_GLYPH_CORPUS_PROTOCOL.md`](docs/spike/SMART_INK_GLYPH_CORPUS_PROTOCOL.md)).
+The page runs at `/tools/smart-ink-glyph-corpus-capture.html` on Vite dev/preview.
+Captured samples are unreviewed; live writer collection, independent ground-truth
+review and model evaluation are still required before SI-G04/G05/G06.

@@ -98,3 +98,16 @@ First-increment tests are:
 Release must pass `npm run check` and existing geometric positive/negative
 holdouts. Model accuracy and recognition runtime quality cannot be claimed
 until SI-G03–SI-G05 are completed and measured.
+
+## SI-G03 — Capture tooling (2026-10-22)
+
+Implementation: `tools/smart-ink-glyph-corpus-capture.html` backed by
+`tools/smart-ink-glyph-corpus.mjs`. Independent capture entry is available
+through Vite dev/preview. Multi-stroke input captures Unicode targets, script,
+pressure and monotonic relative timestamps. Strict validator and deterministic
+writer/device-connected split builder refuse unreviewed records and insufficient
+groups. See [corpus protocol](../spike/SMART_INK_GLYPH_CORPUS_PROTOCOL.md).
+
+Actual capture from multiple consenting writers and independent label review
+remain operational tasks. SI-G04 model selection/training remains open; there is
+no glyph auto-correction until model and mixed arbitration gates pass.

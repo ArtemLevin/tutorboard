@@ -6,6 +6,16 @@ const boardApiProxyTarget = process.env.TUTORBOARD_API_PROXY_TARGET;
 export default defineConfig({
   base: process.env.VITE_BASE_PATH ?? "/",
   plugins: [react()],
+  build: {
+    // Keep the corpus tool separate from the app but available in the
+    // production preview for deterministic capture E2E.
+    rollupOptions: {
+      input: {
+        main: "index.html",
+        glyphCapture: "tools/smart-ink-glyph-corpus-capture.html",
+      },
+    },
+  },
   preview: {
     proxy: {
       ...(boardApiProxyTarget === undefined
