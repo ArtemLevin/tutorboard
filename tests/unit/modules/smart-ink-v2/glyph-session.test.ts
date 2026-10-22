@@ -92,7 +92,9 @@ describe("Smart Ink glyph stroke grouping", () => {
       points: [{ x: 10, y: 8 }],
     });
     expect(next.finalized[0]?.map(({ id }) => id)).toEqual(["stem"]);
-    expect(flushSmartInkGlyphSession(next.session).finalized[0]?.map(({ id }) => id)).toEqual(["late"]);
+    expect(
+      flushSmartInkGlyphSession(next.session).finalized[0]?.map(({ id }) => id),
+    ).toEqual(["late"]);
   });
 
   it("finalizes a bounded group before accepting additional strokes", () => {
@@ -130,10 +132,11 @@ describe("Smart Ink glyph stroke grouping", () => {
 
   it("protects stored strokes against mutation of input points", () => {
     const points = [{ x: 5, y: 5 }];
-    const first = appendSmartInkGlyphSession(
-      initialSmartInkGlyphSession,
-      { endedAtMs: 100, id: "mutable", points },
-    );
+    const first = appendSmartInkGlyphSession(initialSmartInkGlyphSession, {
+      endedAtMs: 100,
+      id: "mutable",
+      points,
+    });
     points[0]!.x = 900;
     expect(first.session.pending[0]?.points[0]?.x).toBe(5);
   });
@@ -143,9 +146,9 @@ describe("Smart Ink glyph stroke grouping", () => {
       initialSmartInkGlyphSession,
       vertical,
     );
-    expect(() =>
-      appendSmartInkGlyphSession(first.session, vertical),
-    ).toThrow("Duplicate");
+    expect(() => appendSmartInkGlyphSession(first.session, vertical)).toThrow(
+      "Duplicate",
+    );
     expect(() =>
       appendSmartInkGlyphSession(first.session, {
         ...vertical,
