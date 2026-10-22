@@ -46,3 +46,26 @@ export {
   type SmartInkLinearModelArtifact,
   type SmartInkTrainingExample,
 } from "./training";
+
+export {
+  resolveSmartInkUnifiedDecision,
+  smartInkUnifiedDecisionVersion,
+  smartInkUnifiedDefaultPolicy,
+  type SmartInkGlyphCandidate,
+  type SmartInkGlyphEvidence,
+  type SmartInkGlyphScript,
+  type SmartInkUnifiedCandidate,
+  type SmartInkUnifiedDecision,
+  type SmartInkUnifiedPolicy,
+} from "./unified";
+export {
+  appendSmartInkGlyphSession,
+  expireSmartInkGlyphSession,
+  flushSmartInkGlyphSession,
+  initialSmartInkGlyphSession,
+  smartInkGlyphSessionPolicy,
+  type SmartInkGlyphSession,
+  type SmartInkGlyphSessionPolicy,
+  type SmartInkGlyphSessionStroke,
+  type SmartInkGlyphSessionTransition,
+} from "./glyph-session";
