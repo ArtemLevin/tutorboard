@@ -127,10 +127,10 @@ export function resolveSmartInkUnifiedDecision(
   policy: SmartInkUnifiedPolicy = smartInkUnifiedDefaultPolicy,
 ): SmartInkUnifiedDecision {
   const shape = shapeCandidate(geometry);
-  if (glyphEvidence.status === "pending") {
-    return decision("pending", null, shape === null ? [] : [shape]);
-  }
-  if (glyphEvidence.status === "disabled") {
+  if (glyphEvidence.status !== "ready") {
+    if (glyphEvidence.status === "pending") {
+      return decision("pending", null, shape === null ? [] : [shape]);
+    }
     return shape === null
       ? decision(geometry.status, null, [])
       : decision("accepted", shape, [shape]);
