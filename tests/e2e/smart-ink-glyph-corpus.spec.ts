@@ -16,6 +16,7 @@ test("@smoke capture a multi-stroke Greek glyph and export a versioned corpus", 
   await page.locator("#character").selectOption("α");
 
   const canvas = page.locator("#capture");
+  await canvas.scrollIntoViewIfNeeded();
   const rect = await canvas.boundingBox();
   expect(rect).not.toBeNull();
   if (!rect) throw new Error("Missing capture canvas.");
@@ -59,7 +60,9 @@ test("@smoke cancels an unfinished stroke without adding a sample", async ({
   page,
 }) => {
   await page.goto("/tools/smart-ink-glyph-corpus-capture.html");
-  const rect = await page.locator("#capture").boundingBox();
+  const canvas = page.locator("#capture");
+  await canvas.scrollIntoViewIfNeeded();
+  const rect = await canvas.boundingBox();
   if (!rect) throw new Error("Missing capture canvas.");
   await page.mouse.move(rect.x + 100, rect.y + 100);
   await page.mouse.down();
