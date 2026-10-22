@@ -53,9 +53,17 @@ export interface GlyphOpenSetEvaluation {
 }
 
 /** One-sided Wilson 95% upper bound, including the zero-error case. */
-export function wilsonUpper95(failures: number, attempts: number): number | null {
-  if (!Number.isSafeInteger(attempts) || attempts < 0 ||
-      !Number.isSafeInteger(failures) || failures < 0 || failures > attempts) {
+export function wilsonUpper95(
+  failures: number,
+  attempts: number,
+): number | null {
+  if (
+    !Number.isSafeInteger(attempts) ||
+    attempts < 0 ||
+    !Number.isSafeInteger(failures) ||
+    failures < 0 ||
+    failures > attempts
+  ) {
     throw new TypeError("Invalid Wilson sample counts.");
   }
   if (attempts === 0) return null;
@@ -64,28 +72,41 @@ export function wilsonUpper95(failures: number, attempts: number): number | null
   const zz = z * z;
   const denominator = 1 + zz / attempts;
   const center = p + zz / (2 * attempts);
-  const radius = z * Math.sqrt(
-    p * (1 - p) / attempts + zz / (4 * attempts * attempts),
-  );
+  const radius =
+    z * Math.sqrt((p * (1 - p)) / attempts + zz / (4 * attempts * attempts));
   return Math.min(1, (center + radius) / denominator);
 }
 
-function nearest(observation: GlyphEvaluationObservation): GlyphPrototypeRank | null {
+function nearest(
+  observation: GlyphEvaluationObservation,
+): GlyphPrototypeRank | null {
   const item = observation.candidates[0];
   if (item === undefined) return null;
-  if (!Number.isFinite(item.distance) || item.distance < 0 ||
-      observation.candidates.some((candidate, index) =>
+  if (
+    !Number.isFinite(item.distance) ||
+    item.distance < 0 ||
+    observation.candidates.some(
+      (candidate, index) =>
         !Number.isFinite(candidate.distance) ||
         candidate.distance < 0 ||
-        (index > 0 && candidate.distance < observation.candidates[index - 1]!.distance))) {
+        (index > 0 &&
+          candidate.distance < observation.candidates[index - 1]!.distance),
+    )
+  ) {
     throw new TypeError("Unsorted or invalid glyph candidate distances.");
   }
   return item;
 }
 
-function matches(target: GlyphEvaluationTarget, candidate: GlyphPrototypeRank): boolean {
-  return target.kind === "glyph" &&
-    target.script === candidate.script && target.character === candidate.character;
+function matches(
+  target: GlyphEvaluationTarget,
+  candidate: GlyphPrototypeRank,
+): boolean {
+  return (
+    target.kind === "glyph" &&
+    target.script === candidate.script &&
+    target.character === candidate.character
+  );
 }
 
 export function deriveGlyphExperimentalDistanceGate(
@@ -107,8 +128,10 @@ export function deriveGlyphExperimentalDistanceGate(
   // No negative samples means no defensible open-set cutoff.
   // No mistaken classifications or negatives with predictions also means no
   // data-driven upper limit: fail closed.
-  const cutoff = negatives > 0 && Number.isFinite(unsafeMinimum) &&
-    unsafeMinimum > 0 ? unsafeMinimum : null;
+  const cutoff =
+    negatives > 0 && Number.isFinite(unsafeMinimum) && unsafeMinimum > 0
+      ? unsafeMinimum
+      : null;
   return {
     schemaVersion: smartInkGlyphOpenSetVersion,
     status: "research-only",
@@ -124,11 +147,15 @@ export function selectGlyphResearchOnly(
   policy: GlyphExperimentalDistanceGate,
   observation: GlyphEvaluationObservation,
 ): GlyphPrototypeRank | null {
-  if (policy.status !== "research-only" ||
-      policy.schemaVersion !== smartInkGlyphOpenSetVersion ||
-      policy.maximumDistanceExclusive === null) return null;
+  if (
+    policy.status !== "research-only" ||
+    policy.schemaVersion !== smartInkGlyphOpenSetVersion ||
+    policy.maximumDistanceExclusive === null
+  )
+    return null;
   const top = nearest(observation);
-  if (top === null || top.distance >= policy.maximumDistanceExclusive) return null;
+  if (top === null || top.distance >= policy.maximumDistanceExclusive)
+    return null;
   const second = observation.candidates[1];
   // Equal-distance homographs require explicit script context or user choice.
   if (second !== undefined && second.distance <= top.distance) return null;
@@ -140,15 +167,20 @@ export function evaluateGlyphOpenSet(
   policy: GlyphExperimentalDistanceGate,
   observations: readonly GlyphEvaluationObservation[],
 ): GlyphOpenSetEvaluation {
-  let glyphCount = 0, negativeCount = 0;
-  let acceptedCorrectGlyphs = 0, acceptedWrongGlyphs = 0, acceptedNegatives = 0;
-  let rejectedGlyphs = 0, rejectedNegatives = 0;
+  let glyphCount = 0,
+    negativeCount = 0;
+  let acceptedCorrectGlyphs = 0,
+    acceptedWrongGlyphs = 0,
+    acceptedNegatives = 0;
+  let rejectedGlyphs = 0,
+    rejectedNegatives = 0;
   for (const observation of observations) {
     const selected = selectGlyphResearchOnly(policy, observation);
     if (observation.target.kind === "glyph") {
       glyphCount += 1;
       if (selected === null) rejectedGlyphs += 1;
-      else if (matches(observation.target, selected)) acceptedCorrectGlyphs += 1;
+      else if (matches(observation.target, selected))
+        acceptedCorrectGlyphs += 1;
       else acceptedWrongGlyphs += 1;
     } else {
       negativeCount += 1;
@@ -167,13 +199,16 @@ export function evaluateGlyphOpenSet(
     rejectedGlyphs,
     rejectedNegatives,
     glyphCoverage: glyphCount > 0 ? acceptedGlyphs / glyphCount : null,
-    acceptedGlyphPrecision: acceptedGlyphs > 0
-      ? acceptedCorrectGlyphs / acceptedGlyphs : null,
-    negativeFalseAcceptanceRate: negativeCount > 0
-      ? acceptedNegatives / negativeCount : null,
-    negativeFalseAcceptanceUpper95: wilsonUpper95(acceptedNegatives, negativeCount),
-    wrongGlyphAcceptanceRate: glyphCount > 0
-      ? acceptedWrongGlyphs / glyphCount : null,
+    acceptedGlyphPrecision:
+      acceptedGlyphs > 0 ? acceptedCorrectGlyphs / acceptedGlyphs : null,
+    negativeFalseAcceptanceRate:
+      negativeCount > 0 ? acceptedNegatives / negativeCount : null,
+    negativeFalseAcceptanceUpper95: wilsonUpper95(
+      acceptedNegatives,
+      negativeCount,
+    ),
+    wrongGlyphAcceptanceRate:
+      glyphCount > 0 ? acceptedWrongGlyphs / glyphCount : null,
     wrongGlyphAcceptanceUpper95: wilsonUpper95(acceptedWrongGlyphs, glyphCount),
   };
 }
