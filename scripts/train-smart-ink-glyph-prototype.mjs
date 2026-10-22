@@ -84,9 +84,10 @@ function assertIndependent(...corpora) {
 
 function openSetObservations(model, corpus, recognizer) {
   return corpus.samples.map((sample) => ({
-    target: sample.target.kind === "glyph"
-      ? sample.target
-      : { kind: sample.target.kind },
+    target:
+      sample.target.kind === "glyph"
+        ? sample.target
+        : { kind: sample.target.kind },
     candidates: recognizer.rankGlyphPrototype(model, sample.strokes).candidates,
   }));
 }
@@ -195,10 +196,14 @@ async function main(args) {
       })),
     );
     const calibrationObservations = openSetObservations(
-      artifact, calibration, recognizer,
+      artifact,
+      calibration,
+      recognizer,
     );
     const holdoutObservations = openSetObservations(
-      artifact, holdout, recognizer,
+      artifact,
+      holdout,
+      recognizer,
     );
     const gate = openSet.deriveGlyphExperimentalDistanceGate(
       calibrationObservations,
@@ -207,7 +212,10 @@ async function main(args) {
       schemaVersion: "tutorboard.smart-ink-glyph-experiment-report/1",
       experimentalOpenSet: {
         gate,
-        calibration: openSet.evaluateGlyphOpenSet(gate, calibrationObservations),
+        calibration: openSet.evaluateGlyphOpenSet(
+          gate,
+          calibrationObservations,
+        ),
         holdout: openSet.evaluateGlyphOpenSet(gate, holdoutObservations),
         runtimeAllowed: false,
       },
