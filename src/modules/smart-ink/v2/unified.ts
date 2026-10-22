@@ -1,7 +1,4 @@
-import type {
-  SmartInkV2Decision,
-  SmartInkV2ShapeKind,
-} from "./types";
+import type { SmartInkV2Decision, SmartInkV2ShapeKind } from "./types";
 
 export const smartInkUnifiedDecisionVersion =
   "tutorboard.smart-ink-unified/1" as const;
@@ -49,11 +46,7 @@ export interface SmartInkUnifiedDecision {
   readonly candidate: SmartInkUnifiedCandidate | null;
   readonly alternatives: readonly SmartInkUnifiedCandidate[];
   readonly status:
-    | "accepted"
-    | "ambiguous"
-    | "ordinary-ink"
-    | "pending"
-    | "unrecognized";
+    "accepted" | "ambiguous" | "ordinary-ink" | "pending" | "unrecognized";
   readonly version: typeof smartInkUnifiedDecisionVersion;
 }
 
@@ -144,33 +137,32 @@ export function resolveSmartInkUnifiedDecision(
         left.script.localeCompare(right.script) ||
         left.text.localeCompare(right.text),
     );
-  const alternatives = [
-    ...glyphs,
-    ...(shape === null ? [] : [shape]),
-  ].sort((left, right) => right.probability - left.probability);
+  const alternatives = [...glyphs, ...(shape === null ? [] : [shape])].sort(
+    (left, right) => right.probability - left.probability,
+  );
   const topGlyph = glyphs[0];
   if (topGlyph === undefined) {
     return shape === null
       ? decision(geometry.status, null, [])
       : decision("accepted", shape, [shape]);
   }
-  const glyphCredible =
-    topGlyph.probability >= policy.glyphAmbiguityThreshold;
+  const glyphCredible = topGlyph.probability >= policy.glyphAmbiguityThreshold;
   const glyphShapeConflict =
     shape !== null &&
     topGlyph.probability >= policy.glyphShapeConflictThreshold;
   const glyphsCompete =
     glyphs[1] !== undefined &&
-    topGlyph.probability - glyphs[1].probability <
-      policy.glyphTopTwoMargin;
+    topGlyph.probability - glyphs[1].probability < policy.glyphTopTwoMargin;
 
-  if (glyphShapeConflict || (glyphCredible && geometry.status === "ambiguous")) {
+  if (
+    glyphShapeConflict ||
+    (glyphCredible && geometry.status === "ambiguous")
+  ) {
     return decision("ambiguous", null, alternatives);
   }
   if (
     glyphCredible &&
-    (glyphsCompete ||
-      topGlyph.probability < policy.glyphAcceptanceThreshold)
+    (glyphsCompete || topGlyph.probability < policy.glyphAcceptanceThreshold)
   ) {
     return decision("ambiguous", null, alternatives);
   }
