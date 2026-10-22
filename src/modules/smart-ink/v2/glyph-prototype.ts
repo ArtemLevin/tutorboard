@@ -290,7 +290,12 @@ export function parseGlyphPrototypeModel(input: unknown): GlyphPrototypeModel {
       script,
       character: row.character,
       count: row.count,
-      features: [...row.features],
+      features: row.features.map((value: unknown) => {
+        if (typeof value !== "number") {
+          throw new TypeError("Invalid glyph prototype feature.");
+        }
+        return value;
+      }),
     });
   }
   if (totalCount > maximumSamples)
@@ -352,11 +357,13 @@ export function createGlyphPrototypeProvider(
 ): SmartInkGlyphPrototypeProvider {
   const model = parseGlyphPrototypeModel(untrustedModel);
   return {
-    async recognize(strokes, options) {
-      options.signal.throwIfAborted();
-      const result = rankGlyphPrototype(model, strokes, options.scriptHint);
-      options.signal.throwIfAborted();
-      return result;
+    recognize(strokes, options) {
+      return Promise.resolve().then(() => {
+        options.signal.throwIfAborted();
+        const result = rankGlyphPrototype(model, strokes, options.scriptHint);
+        options.signal.throwIfAborted();
+        return result;
+      });
     },
   };
 }
