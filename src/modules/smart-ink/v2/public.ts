@@ -88,3 +88,14 @@ export {
   type GlyphPrototypeStroke,
   type SmartInkGlyphPrototypeProvider,
 } from "./glyph-prototype";
+export {
+  deriveGlyphExperimentalDistanceGate,
+  evaluateGlyphOpenSet,
+  selectGlyphResearchOnly,
+  smartInkGlyphOpenSetVersion,
+  wilsonUpper95,
+  type GlyphEvaluationObservation,
+  type GlyphEvaluationTarget,
+  type GlyphExperimentalDistanceGate,
+  type GlyphOpenSetEvaluation,
+} from "./glyph-open-set";

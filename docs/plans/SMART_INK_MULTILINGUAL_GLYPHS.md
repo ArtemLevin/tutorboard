@@ -123,3 +123,15 @@ No human corpus is bundled; classifier accuracy has not been measured.
 Next SI-G04B/SI-G05: obtain reviewed writer-disjoint data, compare learned
 models, establish calibrated open-set rejection and resource budgets.
 See [experiment protocol](../spike/SMART_INK_GLYPH_PROTOTYPE_BASELINE.md).
+
+## SI-G05A — research-only open-set evaluation (2026-10-22)
+
+Added calibration-only distance threshold experiment and independent holdout
+reports for correct glyphs, wrong glyphs, shapes and ordinary ink. The
+report includes coverage, rejection rates and Wilson-95% upper bounds.
+**All results remain research-only and cannot authorize autocorrection**.
+See [open-set protocol](../spike/SMART_INK_GLYPH_OPEN_SET_EVALUATION.md).
+
+Remaining: independent human corpus, model comparison, model calibration,
+browser performance, SI-G06 canvas integration and collision regressions.
+
