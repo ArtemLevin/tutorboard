@@ -69,3 +69,22 @@ export {
   type SmartInkGlyphSessionStroke,
   type SmartInkGlyphSessionTransition,
 } from "./glyph-session";
+
+export {
+  createGlyphPrototypeProvider,
+  extractGlyphPrototypeFeatures,
+  parseGlyphPrototypeModel,
+  rankGlyphPrototype,
+  smartInkGlyphPrototypeFeatureCount,
+  smartInkGlyphPrototypeFeatureVersion,
+  smartInkGlyphPrototypeSchema,
+  trainGlyphPrototypeModel,
+  type GlyphPrototypeClass,
+  type GlyphPrototypeExample,
+  type GlyphPrototypeModel,
+  type GlyphPrototypePoint,
+  type GlyphPrototypeRank,
+  type GlyphPrototypeResult,
+  type GlyphPrototypeStroke,
+  type SmartInkGlyphPrototypeProvider,
+} from "./glyph-prototype";
