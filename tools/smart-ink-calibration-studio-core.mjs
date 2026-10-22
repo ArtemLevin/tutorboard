@@ -1,5 +1,4 @@
 import {
-  glyphShapeNegatives,
   mergeSmartInkGlyphCorpora,
   parseSmartInkGlyphCorpus,
   smartInkGlyphCorpusVersion,
@@ -31,6 +30,15 @@ export function mergeStudioCorpus(existing, incoming, metadata, idFactory) {
   return mergeSmartInkGlyphCorpora(first, candidate);
 }
 
+function stableLegacyId(value) {
+  const hash = (seed) => {
+    let state = seed;
+    for (const point of value) state = Math.imul(state ^ point.codePointAt(0), 16777619);
+    return (state >>> 0).toString(16).padStart(8, "0");
+  };
+  return "legacy-" + hash(2166136261) + hash(1804573);
+}
+
 export function convertLegacyGeometryCorpus(input, metadata, idFactory) {
   if (!record(input) || input.schemaVersion !== geometryLegacySchema ||
     !Array.isArray(input.samples) || input.samples.length > 2_000 ||
@@ -39,8 +47,11 @@ export function convertLegacyGeometryCorpus(input, metadata, idFactory) {
     !browsers.includes(metadata.browser) || typeof idFactory !== "function") {
     throw new TypeError("Invalid legacy geometry corpus or contributor metadata.");
   }
+  const seen = new Set();
   const result = input.samples.map((sample) => {
-    if (!record(sample) || typeof sample.expectedKind !== "string" ||
+    if (!record(sample) || typeof sample.id !== "string" ||
+      sample.id.length < 1 || sample.id.length > 160 || seen.has(sample.id) ||
+      typeof sample.expectedKind !== "string" ||
       ![...legacyKinds, "negative"].includes(sample.expectedKind) ||
       !Array.isArray(sample.points) ||
       sample.points.length < 2 || sample.points.length > 4_096 ||
@@ -48,6 +59,7 @@ export function convertLegacyGeometryCorpus(input, metadata, idFactory) {
       !finite(sample.metadata.durationMs, 0, 300_000)) {
       throw new TypeError("Unsupported legacy geometric sample.");
     }
+    seen.add(sample.id);
     const points = sample.points.map((point, index) => {
       if (!record(point) || !finite(point.x, 0, 2_000) ||
         !finite(point.y, 0, 2_000)) {
@@ -61,7 +73,7 @@ export function convertLegacyGeometryCorpus(input, metadata, idFactory) {
       };
     });
     return {
-      id: idFactory(),
+      id: stableLegacyId(sample.id),
       writerId: metadata.writerId,
       deviceId: metadata.deviceId,
       deviceProfile: metadata.deviceProfile,
