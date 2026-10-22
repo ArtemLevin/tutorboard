@@ -2836,3 +2836,12 @@ Evidence: `docs/C39_CLEAR_ZOOM_DIAGNOSTICS_2026-10-14.md`, PR #263, issue #201.
 - Backend Draft PR #50 vendors the matching graph schema/DTO and implements authenticated multipart finalize with server-side graph integrity validation, durable idempotency, expiry cleanup and one committed revision.
 - Frontend Draft PR #274 includes 5,200-member group regression and 10,000-stroke Undo tests. Coordinated release-gate CI and pinned backend release manifest are required before merge.
 - Remaining limitations: >10,000 objects or >40 MiB, removed 3D learning attempts, mixed-version legacy clients, and live device/restart/backup soak.
+
+## Smart Ink 2.0 — multilingual glyph recognition (22.10.2026)
+
+Dedicated plan: [`docs/plans/SMART_INK_MULTILINGUAL_GLYPHS.md`](docs/plans/SMART_INK_MULTILINGUAL_GLYPHS.md).
+
+- SI-G01: unified shape/glyph decision boundary with explicit `disabled`, `pending` and `ready` glyph evidence, abstention on credible shape/glyph conflict and strict Unicode character validation.
+- SI-G02: bounded multi-stroke glyph session with explicit flush/expiry and preservation of source strokes.
+- This foundational PR keeps glyph recognition **disabled at runtime** while the model and controller integration remain pending. Current geometric Smart Ink V2 behavior and release gates must remain unchanged.
+- Next: SI-G03 annotated corpus and SI-G04 calibrated recognizer, followed by SI-G05 arbitration quality evaluation and SI-G06 canvas integration.
