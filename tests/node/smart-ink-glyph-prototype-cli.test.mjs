@@ -119,6 +119,18 @@ describe("Smart Ink glyph prototype CLI", () => {
         holdout: { status: "experimental-uncalibrated", glyphs: 1 },
       });
       expect(report.holdout.falseAcceptanceRate).toBeNull();
+      // SI-G05: no negative calibration sample => gate abstains.
+      // The holdout is evaluated without learning a threshold from it.
+      expect(report.experimentalOpenSet).toMatchObject({
+        runtimeAllowed: false,
+        gate: {
+          status: "research-only",
+          maximumDistanceExclusive: null,
+          calibrationNegatives: 0,
+        },
+        calibration: { acceptedNegatives: 0, acceptedWrongGlyphs: 0 },
+        holdout: { acceptedNegatives: 0, acceptedWrongGlyphs: 0 },
+      });
       const repeated = invoke(files);
       expect(repeated.status).not.toBe(0);
       expect(await readFile(files.model, "utf8")).toBe(modelText);
