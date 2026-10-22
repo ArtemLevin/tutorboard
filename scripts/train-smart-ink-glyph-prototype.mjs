@@ -82,6 +82,15 @@ function assertIndependent(...corpora) {
   );
 }
 
+function openSetObservations(model, corpus, recognizer) {
+  return corpus.samples.map((sample) => ({
+    target: sample.target.kind === "glyph"
+      ? sample.target
+      : { kind: sample.target.kind },
+    candidates: recognizer.rankGlyphPrototype(model, sample.strokes).candidates,
+  }));
+}
+
 function evaluate(model, corpus, recognizer) {
   const confusion = {};
   const perScript = Object.fromEntries(
@@ -172,6 +181,9 @@ async function main(args) {
     const recognizer = await vite.ssrLoadModule(
       "/src/modules/smart-ink/v2/glyph-prototype.ts",
     );
+    const openSet = await vite.ssrLoadModule(
+      "/src/modules/smart-ink/v2/glyph-open-set.ts",
+    );
     const trainGlyphs = train.samples.filter(
       (sample) => sample.target.kind === "glyph",
     );
@@ -182,8 +194,23 @@ async function main(args) {
         strokes: sample.strokes,
       })),
     );
+    const calibrationObservations = openSetObservations(
+      artifact, calibration, recognizer,
+    );
+    const holdoutObservations = openSetObservations(
+      artifact, holdout, recognizer,
+    );
+    const gate = openSet.deriveGlyphExperimentalDistanceGate(
+      calibrationObservations,
+    );
     report = {
       schemaVersion: "tutorboard.smart-ink-glyph-experiment-report/1",
+      experimentalOpenSet: {
+        gate,
+        calibration: openSet.evaluateGlyphOpenSet(gate, calibrationObservations),
+        holdout: openSet.evaluateGlyphOpenSet(gate, holdoutObservations),
+        runtimeAllowed: false,
+      },
       modelVersion: artifact.schemaVersion,
       calibrated: false,
       trainedClasses: artifact.classes.length,
