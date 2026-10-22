@@ -22,7 +22,7 @@ function argumentsForRun(args) {
     opts[args[i]] = args[i + 1];
   }
   if (!opts["--input"]) {
-    throw new Error("Provide --input and either --out-prefix or --summary.");
+    throw new Error("Provide a corpus via --input.");
   }
   return opts;
 }
