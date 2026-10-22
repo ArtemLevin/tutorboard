@@ -436,6 +436,7 @@ jobs:
 
       - name: Assert non-root read-only runtime
         run: |
+          set -euo pipefail
           test "$(docker inspect --format '{{.Config.User}}' tutorboard:${GITHUB_SHA})" = "101"
           docker run --detach \
             --name tutorboard-release \
@@ -447,6 +448,11 @@ jobs:
             tutorboard:${GITHUB_SHA}
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:18080/healthz; then
+              # Verify both Vite HTML entrypoints were included in Docker.
+              curl --fail --silent http://127.0.0.1:18080/tools/smart-ink-calibration-studio.html \
+                | grep -F '<title>Smart Ink Calibration Studio'
+              curl --fail --silent http://127.0.0.1:18080/tools/smart-ink-glyph-corpus-capture.html \
+                | grep -F '<title>TutorBoard · Корпус символов Smart Ink'
               exit 0
             fi
             sleep 1
