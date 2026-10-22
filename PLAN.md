@@ -2862,3 +2862,15 @@ contract, cancel-aware provider and writer/device-disjoint train/evaluate CLI.
 The classifier returns **uncalibrated distances**; glyph auto-conversion stays
 disabled until reviewed real samples, calibration and SI-G05/SI-G06 browser gates.
 See [SI-G04A protocol](docs/spike/SMART_INK_GLYPH_PROTOTYPE_BASELINE.md).
+
+### Smart Ink SI-G05A: independent open-set experiment (22.10.2026)
+
+Implemented experimental distance rejection from **calibration only**,
+held-out false acceptance and wrong-glyph rates, and one-sided Wilson-95%
+upper bounds. Results always have `status: research-only` and
+`runtimeAllowed: false`. The existing geometry workflow stays unchanged.
+See [SI-G05A](docs/spike/SMART_INK_GLYPH_OPEN_SET_EVALUATION.md).
+
+Open: reviewed multiwriter glyph/negative corpus, stronger model comparison,
+production calibrated confidence and SI-G06 canvas/undo/reconnect integration.
+
