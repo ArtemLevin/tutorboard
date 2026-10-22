@@ -1,0 +1,21 @@
+name: Temporary Studio browser-global format probe
+on:
+  pull_request:
+    paths:
+      - 'tools/smart-ink-calibration-studio.mjs'
+      - '.github/workflows/smart-ink-studio-format-probe.yml'
+permissions:
+  contents: read
+jobs:
+  formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: |
+          npx prettier --write tools/smart-ink-calibration-studio.mjs
+          git diff -- tools/smart-ink-calibration-studio.mjs
