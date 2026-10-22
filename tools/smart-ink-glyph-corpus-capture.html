@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TutorBoard · Корпус символов Smart Ink</title>
+    <style>
+      :root { font-family: Inter, system-ui, sans-serif; color: #1b283d; background: #f3f6fb; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 24px; }
+      main { max-width: 1024px; margin: 0 auto; }
+      h1 { font-size: 25px; margin: 0 0 8px; }
+      p { color: #566477; line-height: 1.5; }
+      fieldset { border: 1px solid #c6cfdc; border-radius: 12px; margin: 12px 0; padding: 14px; }
+      legend { font-weight: 650; }
+      .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 12px; }
+      label { display: grid; font-weight: 600; font-size: 13px; gap: 6px; }
+      input, select, button { font: inherit; min-height: 38px; border: 1px solid #adbbcd; border-radius: 7px; background: white; color: inherit; }
+      input, select { padding: 6px; width: 100%; }
+      .prompt { display: flex; align-items: center; justify-content: center; min-height: 120px; background: white; border-radius: 12px; margin: 16px 0; }
+      .prompt strong { font-family: Georgia, serif; font-size: 76px; }
+      .prompt small { margin-left: 18px; color: #657084; font-size: 15px; }
+      canvas { width: 100%; aspect-ratio: 16/9; display: block; background: white; border: 2px solid #8491a9; border-radius: 12px; touch-action: none; cursor: crosshair; }
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0; }
+      button { padding: 6px 14px; cursor: pointer; }
+      button.primary { background: #155bd5; color: white; border-color: #155bd5; }
+      button:disabled { opacity: 0.42; cursor: not-allowed; }
+      #status { min-height: 28px; margin-top: 10px; }
+      #counts { font: 13px ui-monospace, monospace; color: #566477; line-height: 1.65; }
+      .notice { font-size: 14px; padding: 12px; border-left: 3px solid #426bb5; background: #e8eefc; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Smart Ink 2.0 · Сбор рукописных символов</h1>
+      <p>Пишите символ как обычно — одним или несколькими штрихами.
+        Подтвердите ожидаемый знак и добавьте пример. Это исследовательский
+        инструмент TutorBoard; данные остаются в памяти вкладки до явного экспорта.</p>
+      <p class="notice">Используйте случайные коды автора и устройства, без имён и
+        персональных сведений. Для последующих сеансов сохраните свои коды вручную.
+        Данные экспорта требуют отдельной проверки разметки до обучения модели.</p>
+
+      <fieldset>
+        <legend>Анонимная сессия записи</legend>
+        <div class="controls">
+          <label>Код автора (один на человека)<input id="writer" autocomplete="off" maxlength="40" /></label>
+          <label>Код устройства (один на устройство)<input id="device" autocomplete="off" maxlength="40" /></label>
+          <label>Устройство
+            <select id="profile">
+              <option value="windows-desktop">Windows-десктоп</option>
+              <option value="windows-laptop">Windows-ноутбук</option>
+              <option value="tablet">Планшет</option>
+              <option value="other-device">Другое</option>
+            </select>
+          </label>
+          <label>Браузер
+            <select id="browser">
+              <option value="chromium">Chromium / Chrome / Edge</option>
+              <option value="firefox">Firefox</option>
+              <option value="other">Другой</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Эталонный класс</legend>
+        <div class="controls">
+          <label>Алфавит / отрицательный пример
+            <select id="script">
+              <option value="Cyrl">Русский — кириллица</option>
+              <option value="Latn">Латинский</option>
+              <option value="Grek">Греческий</option>
+              <option value="Zyyy">Цифры 0–9</option>
+              <option value="shape">Геометрический негатив</option>
+              <option value="ordinary-ink">Произвольный штрих</option>
+            </select>
+          </label>
+          <label>Ожидаемый знак / фигура
+            <select id="character"></select>
+          </label>
+        </div>
+        <div class="prompt" id="prompt" aria-live="polite"></div>
+      </fieldset>
+
+      <canvas id="capture" width="960" height="540"
+        aria-label="Область записи нескольких рукописных штрихов"></canvas>
+      <section class="actions" aria-label="Управление образцами">
+        <button id="remove-stroke" disabled>Удалить последний штрих</button>
+        <button id="clear">Перерисовать</button>
+        <button id="add" class="primary" disabled>Добавить пример</button>
+        <button id="next">Следующий символ</button>
+        <button id="undo" disabled>Удалить последний пример</button>
+        <button id="import">Объединить с JSON</button>
+        <button id="export" disabled>Экспортировать JSON</button>
+        <input id="import-file" type="file" accept=".json,application/json" hidden />
+      </section>
+      <div id="status" role="status" aria-live="polite">Готово к записи.</div>
+      <div id="counts"></div>
+    </main>
+
+    <script type="module">
+      import {
+        glyphCharacterSets,
+        glyphShapeNegatives,
+        mergeSmartInkGlyphCorpora,
+        parseSmartInkGlyphCorpus,
+        smartInkGlyphCorpusLimits,
+        smartInkGlyphCorpusVersion,
+        summarizeSmartInkGlyphCorpus,
+        targetForGlyph,
+      } from "./smart-ink-glyph-corpus.mjs";
+
+      const $ = (selector) => document.querySelector(selector);
+      const canvas = $("#capture");
+      const ctx = canvas.getContext("2d");
+      const script = $("#script");
+      const character = $("#character");
+      const writer = $("#writer");
+      const device = $("#device");
+      const browser = $("#browser");
+      const profile = $("#profile");
+      const status = $("#status");
+      const samples = [];
+      let strokes = [];
+      let active = null;
+      let startMs = null;
+      let pointerType = "mouse";
+
+      const anonymousCode = (prefix) =>
+        prefix + "-" + Array.from(crypto.getRandomValues(new Uint8Array(6)))
+          .map((part) => part.toString(16).padStart(2, "0")).join("");
+      writer.value = anonymousCode("writer");
+      device.value = anonymousCode("device");
+      browser.value = navigator.userAgent.includes("Firefox")
+        ? "firefox"
+        : /Chrom|Edg/.test(navigator.userAgent)
+          ? "chromium"
+          : "other";
+
+      function setStatus(message) { status.textContent = message; }
+      function repaint() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "#1b283d";
+        ctx.fillStyle = "#1b283d";
+        ctx.lineWidth = 3;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        for (const stroke of [...strokes, ...(active === null ? [] : [active.points])]) {
+          if (stroke.length === 0) continue;
+          ctx.beginPath();
+          ctx.moveTo(stroke[0].x, stroke[0].y);
+          for (const point of stroke.slice(1)) ctx.lineTo(point.x, point.y);
+          ctx.stroke();
+          if (stroke.length === 1) {
+            ctx.beginPath();
+            ctx.arc(stroke[0].x, stroke[0].y, 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+      function updateCounts(message) {
+        const corpus = { schemaVersion: smartInkGlyphCorpusVersion, samples };
+        const info = summarizeSmartInkGlyphCorpus(corpus);
+        $("#counts").textContent =
+          `Собрано: ${info.total} · авторов: ${info.writers} · кириллица: ${info.scripts.Cyrl}` +
+          ` · латиница: ${info.scripts.Latn} · греческий: ${info.scripts.Grek}` +
+          ` · цифры: ${info.scripts.Zyyy} · негативы: ${info.negatives}` +
+          ` · классов: ${info.coveredClasses}/${info.expectedClasses}`;
+        $("#add").disabled = strokes.length === 0 ||
+          samples.length >= smartInkGlyphCorpusLimits.samples;
+        $("#remove-stroke").disabled = strokes.length === 0;
+        $("#undo").disabled = samples.length === 0;
+        $("#export").disabled = samples.length === 0;
+        if (message) setStatus(message);
+      }
+      function showTarget() {
+        const selected = script.value;
+        const chars = selected === "shape"
+          ? glyphShapeNegatives
+          : selected === "ordinary-ink"
+            ? ["ordinary-ink"]
+            : glyphCharacterSets[selected];
+        const previous = character.value;
+        character.replaceChildren(...chars.map((value) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = value;
+          return option;
+        }));
+        if (chars.includes(previous)) character.value = previous;
+        renderPrompt();
+      }
+      function renderPrompt() {
+        const value = character.value;
+        const prompt = $("#prompt");
+        prompt.replaceChildren();
+        const strong = document.createElement("strong");
+        strong.textContent = value;
+        const code = document.createElement("small");
+        code.textContent = script.value === "shape" || script.value === "ordinary-ink"
+          ? "отрицательный пример"
+          : `${script.value} · U+${value.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}`;
+        prompt.append(strong, code);
+      }
+      function discard(message = "Поле очищено.") {
+        if (active !== null) {
+          const id = active.pointerId;
+          active = null;
+          if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
+        }
+        strokes = [];
+        startMs = null;
+        repaint();
+        updateCounts(message);
+      }
+      function position(event) {
+        const bounds = canvas.getBoundingClientRect();
+        const x = ((event.clientX - bounds.left) / bounds.width) * canvas.width;
+        const y = ((event.clientY - bounds.top) / bounds.height) * canvas.height;
+        return {
+          x: Math.round(Math.max(0, Math.min(canvas.width, x)) * 1000) / 1000,
+          y: Math.round(Math.max(0, Math.min(canvas.height, y)) * 1000) / 1000,
+        };
+      }
+      function collect(event) {
+        const list = event.getCoalescedEvents?.() ?? [];
+        for (const pointEvent of list.length ? list : [event]) {
+          if (active.points.length >= smartInkGlyphCorpusLimits.pointsPerStroke) {
+            cancelPointer("Лимит точек штриха превышен."); return;
+          }
+          const point = position(pointEvent);
+          point.timeMs = Math.max(
+            active.points.at(-1)?.timeMs ?? 0,
+            Math.round(Math.max(0, performance.now() - startMs)),
+          );
+          point.pressure = Number.isFinite(pointEvent.pressure)
+            ? Math.max(0, Math.min(1, pointEvent.pressure)) : 0.5;
+          const prev = active.points.at(-1);
+          if (!prev || prev.x !== point.x || prev.y !== point.y) {
+            active.points.push(point);
+          }
+        }
+        repaint();
+      }
+      function cancelPointer(message) {
+        if (active === null) return;
+        const id = active.pointerId;
+        active = null;
+        if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
+        repaint();
+        updateCounts(message);
+      }
+      canvas.addEventListener("pointerdown", (event) => {
+        if (active || event.button !== 0) return;
+        if (strokes.length >= smartInkGlyphCorpusLimits.strokes ||
+            strokes.reduce((n, s) => n + s.length, 0) >=
+              smartInkGlyphCorpusLimits.totalPoints) {
+          setStatus("Достигнут лимит штрихов; сохраните пример.");
+          return;
+        }
+        if (startMs === null) startMs = performance.now();
+        canvas.setPointerCapture(event.pointerId);
+        active = { pointerId: event.pointerId, points: [] };
+        pointerType = ["mouse", "pen", "touch"].includes(event.pointerType)
+          ? event.pointerType : "mouse";
+        collect(event);
+        event.preventDefault();
+      });
+      canvas.addEventListener("pointermove", (event) => {
+        if (!active || active.pointerId !== event.pointerId) return;
+        collect(event);
+        event.preventDefault();
+      });
+      canvas.addEventListener("pointerup", (event) => {
+        if (!active || active.pointerId !== event.pointerId) return;
+        collect(event);
+        if (active === null) return;
+        const finished = active;
+        active = null;
+        if (canvas.hasPointerCapture(event.pointerId)) {
+          canvas.releasePointerCapture(event.pointerId);
+        }
+        const total = strokes.reduce((n, s) => n + s.length, 0);
+        if (total + finished.points.length > smartInkGlyphCorpusLimits.totalPoints ||
+            finished.points.at(-1).timeMs > smartInkGlyphCorpusLimits.durationMs) {
+          discard("Достигнут предел объёма образца; запись сброшена.");
+          return;
+        }
+        strokes.push(finished.points);
+        repaint();
+        updateCounts(`Штрихов: ${strokes.length}. Можно добавить ещё или сохранить пример.`);
+        event.preventDefault();
+      });
+      canvas.addEventListener("pointercancel", () => cancelPointer("Текущий штрих отменён."));
+      canvas.addEventListener("lostpointercapture", () => cancelPointer("Захват указателя потерян."));
+      window.addEventListener("blur", () => cancelPointer("Запись прервана."));
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") discard("Ввод очищен.");
+      });
+
+      function currentTarget() {
+        if (script.value === "shape") return { kind: "shape", shape: character.value };
+        if (script.value === "ordinary-ink") return { kind: "ordinary-ink" };
+        return targetForGlyph(script.value, character.value);
+      }
+      $("#add").addEventListener("click", () => {
+        if (active !== null || strokes.length === 0) return;
+        const candidate = {
+          id: anonymousCode("sample"),
+          writerId: writer.value.trim(),
+          deviceId: device.value.trim(),
+          deviceProfile: profile.value,
+          browser: browser.value,
+          pointerType,
+          labelStatus: "unreviewed",
+          provenance: "captured",
+          target: currentTarget(),
+          strokes: strokes.map((points) => ({ points })),
+        };
+        try {
+          parseSmartInkGlyphCorpus({
+            schemaVersion: smartInkGlyphCorpusVersion,
+            samples: [...samples, candidate],
+          });
+          samples.push(candidate);
+          discard("Образец сохранён в памяти. Разметка требует независимой проверки.");
+        } catch (error) {
+          setStatus(error instanceof Error ? error.message : "Ошибка сохранения.");
+        }
+      });
+      $("#remove-stroke").addEventListener("click", () => {
+        if (active !== null) cancelPointer("Текущий штрих удалён.");
+        strokes.pop();
+        if (strokes.length === 0) startMs = null;
+        repaint();
+        updateCounts("Последний штрих удалён.");
+      });
+      $("#clear").addEventListener("click", () => discard());
+      $("#undo").addEventListener("click", () => {
+        samples.pop();
+        updateCounts("Последний сохранённый образец удалён.");
+      });
+      $("#next").addEventListener("click", () => {
+        const options = [...character.options];
+        character.selectedIndex = (character.selectedIndex + 1) % options.length;
+        discard("Новый эталонный знак.");
+        renderPrompt();
+      });
+      script.addEventListener("change", () => {
+        if (strokes.length > 0 || active !== null) discard("Образец очищен при смене класса.");
+        showTarget();
+      });
+      character.addEventListener("change", renderPrompt);
+
+      $("#import").addEventListener("click", () => $("#import-file").click());
+      $("#import-file").addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) return;
+        try {
+          if (file.size > 8_000_000) throw new TypeError("Файл слишком большой.");
+          const input = JSON.parse(await file.text());
+          const merged = mergeSmartInkGlyphCorpora(
+            { schemaVersion: smartInkGlyphCorpusVersion, samples }, input,
+          );
+          samples.splice(0, samples.length, ...merged.samples);
+          updateCounts("Корпус объединён. Проверьте метки и экспортируйте JSON.");
+        } catch (error) {
+          setStatus(`Импорт отклонён: ${error instanceof Error ? error.message : "ошибка"}`);
+        }
+      });
+      $("#export").addEventListener("click", () => {
+        const corpus = parseSmartInkGlyphCorpus({
+          schemaVersion: smartInkGlyphCorpusVersion, samples,
+        });
+        const url = URL.createObjectURL(new Blob(
+          [JSON.stringify(corpus, null, 2)], { type: "application/json" },
+        ));
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "smart-ink-glyph-corpus.json";
+        anchor.click();
+        URL.revokeObjectURL(url);
+        updateCounts("JSON экспортирован. Храните его в защищённом месте.");
+      });
+      showTarget();
+      updateCounts("Готово к записи. Выберите символ.");
+    </script>
+  </body>
+</html>
