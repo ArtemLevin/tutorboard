@@ -15,8 +15,12 @@ const commands = new Set(["--input", "--out-prefix"]);
 function argumentsForRun(args) {
   const opts = {};
   for (let i = 0; i < args.length; i += 2) {
-    if (!commands.has(args[i]) || !args[i + 1] ||
-        args[i + 1].startsWith("--") || opts[args[i]] !== undefined) {
+    if (
+      !commands.has(args[i]) ||
+      !args[i + 1] ||
+      args[i + 1].startsWith("--") ||
+      opts[args[i]] !== undefined
+    ) {
       throw new Error("Usage: --input <corpus.json> [--out-prefix <path>]");
     }
     opts[args[i]] = args[i + 1];
@@ -39,7 +43,9 @@ async function main(args) {
   const opts = argumentsForRun(args);
   const corpus = await readCorpus(opts["--input"]);
   if (!opts["--out-prefix"]) {
-    process.stdout.write(JSON.stringify(summarizeSmartInkGlyphCorpus(corpus), null, 2) + "\n");
+    process.stdout.write(
+      JSON.stringify(summarizeSmartInkGlyphCorpus(corpus), null, 2) + "\n",
+    );
     return;
   }
   const split = splitSmartInkGlyphCorpus(corpus);
@@ -56,7 +62,8 @@ async function main(args) {
     for (const item of output) {
       const temp = item.file + "." + randomUUID() + ".tmp";
       await writeFile(temp, JSON.stringify(item.payload, null, 2) + "\n", {
-        encoding: "utf8", flag: "wx",
+        encoding: "utf8",
+        flag: "wx",
       });
       staged.push({ temp, final: item.file });
     }
@@ -68,16 +75,21 @@ async function main(args) {
     await Promise.all(published.map((path) => unlink(path)));
     throw error;
   } finally {
-    await Promise.all(staged.map(({ temp }) =>
-      unlink(temp).catch((error) => {
-        if (error.code !== "ENOENT") throw error;
-      }),
-    ));
+    await Promise.all(
+      staged.map(({ temp }) =>
+        unlink(temp).catch((error) => {
+          if (error.code !== "ENOENT") throw error;
+        }),
+      ),
+    );
   }
   process.stdout.write(JSON.stringify(split.summary, null, 2) + "\n");
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   main(process.argv.slice(2)).catch((error) => {
     process.stderr.write(String(error.message ?? error) + "\n");
     process.exitCode = 1;
