@@ -39,17 +39,20 @@ test("@smoke capture a multi-stroke Greek glyph and export a versioned corpus", 
   const download = await downloading;
   const path = await download.path();
   if (!path) throw new Error("Missing corpus download.");
-  const exported = JSON.parse(await readFile(path, "utf8"));
-  expect(exported.schemaVersion).toBe("tutorboard.smart-ink-glyph-corpus/1");
-  expect(exported.samples).toHaveLength(1);
-  expect(exported.samples[0]).toMatchObject({
-    target: { kind: "glyph", script: "Grek", character: "α" },
-    labelStatus: "unreviewed",
-    writerId: "writer-test-001",
-    deviceId: "device-test-001",
-    provenance: "captured",
+  const exported: unknown = JSON.parse(await readFile(path, "utf8"));
+  expect(exported).toMatchObject({
+    schemaVersion: "tutorboard.smart-ink-glyph-corpus/1",
+    samples: [
+      {
+        target: { kind: "glyph", script: "Grek", character: "α" },
+        labelStatus: "unreviewed",
+        writerId: "writer-test-001",
+        deviceId: "device-test-001",
+        provenance: "captured",
+      },
+    ],
   });
-  expect(exported.samples[0].strokes).toHaveLength(2);
+  expect(exported).toHaveProperty("samples.0.strokes.1.points");
 });
 
 test("@smoke cancels an unfinished stroke without adding a sample", async ({
