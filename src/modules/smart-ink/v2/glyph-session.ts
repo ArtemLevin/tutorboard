@@ -92,9 +92,7 @@ function validateStroke(
     stroke.points.length === 0 ||
     stroke.points.length > policy.maximumPointsPerStroke ||
     stroke.points.length > policy.maximumPointsPerGroup ||
-    stroke.points.some(
-      ({ x, y }) => !Number.isFinite(x) || !Number.isFinite(y),
-    )
+    stroke.points.some(({ x, y }) => !Number.isFinite(x) || !Number.isFinite(y))
   ) {
     throw new TypeError("Invalid Smart Ink glyph stroke.");
   }
@@ -159,8 +157,7 @@ export function expireSmartInkGlyphSession(
     throw new TypeError("Invalid Smart Ink glyph session clock.");
   }
   const last = session.pending.at(-1);
-  return last !== undefined &&
-    nowMs - last.endedAtMs >= policy.maximumGapMs
+  return last !== undefined && nowMs - last.endedAtMs >= policy.maximumGapMs
     ? flushSmartInkGlyphSession(session)
     : { finalized: [], session };
 }
