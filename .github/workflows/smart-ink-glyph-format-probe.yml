@@ -1,0 +1,34 @@
+name: Temporary SI-G03 formatting probe
+
+on:
+  pull_request:
+    paths:
+      - 'tools/smart-ink-glyph-corpus*'
+      - 'tests/node/smart-ink-glyph-corpus.test.mjs'
+      - 'tests/e2e/smart-ink-glyph-corpus.spec.ts'
+      - 'scripts/build-smart-ink-glyph-splits.mjs'
+      - 'vite.config.ts'
+      - '.github/workflows/smart-ink-glyph-format-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: |
+          npx prettier --write \
+            tools/smart-ink-glyph-corpus.mjs \
+            tools/smart-ink-glyph-corpus-capture.html \
+            tests/node/smart-ink-glyph-corpus.test.mjs \
+            tests/e2e/smart-ink-glyph-corpus.spec.ts \
+            scripts/build-smart-ink-glyph-splits.mjs \
+            vite.config.ts
+          git diff -- tools/smart-ink-glyph-corpus.mjs tools/smart-ink-glyph-corpus-capture.html tests/node/smart-ink-glyph-corpus.test.mjs tests/e2e/smart-ink-glyph-corpus.spec.ts scripts/build-smart-ink-glyph-splits.mjs vite.config.ts
