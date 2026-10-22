@@ -111,3 +111,15 @@ groups. See [corpus protocol](../spike/SMART_INK_GLYPH_CORPUS_PROTOCOL.md).
 Actual capture from multiple consenting writers and independent label review
 remain operational tasks. SI-G04 model selection/training remains open; there is
 no glyph auto-correction until model and mixed arbitration gates pass.
+
+## SI-G04A — deterministic experiment baseline (2026-10-22)
+
+Added bounded 12×12 glyph descriptor, nearest-centroid class model, strict
+artifact validation, AbortSignal-aware provider, independent three-way CLI
+with per-script top-1/top-3 and negative distance reporting. The result is
+always `uncalibrated` and cannot trigger any glyph auto-replacement.
+
+No human corpus is bundled; classifier accuracy has not been measured.
+Next SI-G04B/SI-G05: obtain reviewed writer-disjoint data, compare learned
+models, establish calibrated open-set rejection and resource budgets.
+See [experiment protocol](../spike/SMART_INK_GLYPH_PROTOTYPE_BASELINE.md).

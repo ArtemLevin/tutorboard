@@ -29,6 +29,7 @@
     "smart-ink:negative-holdout:evaluate": "node scripts/evaluate-smart-ink-negative-holdout.mjs",
     "smart-ink:corpus:hds": "node scripts/import-hds-corpus.mjs",
     "smart-ink:corpus:quickdraw": "node scripts/import-quickdraw-corpus.mjs",
+    "smart-ink:glyph:prototype": "node scripts/train-smart-ink-glyph-prototype.mjs",
     "test:watch": "vitest",
     "architecture": "node scripts/check-architecture.mjs",
     "e2e": "playwright test",
