@@ -2874,3 +2874,17 @@ See [SI-G05A](docs/spike/SMART_INK_GLYPH_OPEN_SET_EVALUATION.md).
 Open: reviewed multiwriter glyph/negative corpus, stronger model comparison,
 production calibrated confidence and SI-G06 canvas/undo/reconnect integration.
 
+
+### Smart Ink Calibration Studio — 22.10.2026
+
+Added unified browser calibration workspace for geometric shapes, Cyrillic,
+Latin, Greek, digits and ordinary ink. It supports multi-stroke recording,
+sample preview and relabeling, opt-in IndexedDB backups, import of previous
+shape/glyph corpora, old geometry JSON export and experimental recognition
+diagnostics. Existing capture pages and on-board Smart Ink remain unchanged.
+See [Studio protocol](docs/spike/SMART_INK_CALIBRATION_STUDIO.md).
+
+Still open: independently reviewed multiwriter dataset, production glyph
+model, calibrated open-set thresholds, Smart Ink V2 canvas integration and
+collaborative undo/reconnect validation.
+
