@@ -757,14 +757,18 @@ export function App({
     Object.hasOwn(document.objects, selectionInspectorObjectId) &&
     selection.state.selectedObjectIds.includes(selectionInspectorObjectId);
 
-  const canEnterLessonMode =
+  // Keep the dock button visually stable while an in-progress gesture
+  // temporarily prevents switching to lesson mode.
+  const lessonModeAvailable =
     !readOnly &&
     !settingsOpen &&
     !shortcutsOpen &&
     !geometry.open &&
     !selectionInspectorOpen &&
     plots.editor === null &&
-    solid3D.record === null &&
+    solid3D.record === null;
+  const canEnterLessonMode =
+    lessonModeAvailable &&
     drawing.state.kind === "idle" &&
     selection.state.interaction.kind === "idle" &&
     handwriting.state.kind === "idle" &&
@@ -1038,7 +1042,7 @@ export function App({
             onEnterLessonMode={() => {
               if (canEnterLessonMode) setLessonMode(true);
             }}
-            lessonModeAvailable={canEnterLessonMode}
+            lessonModeAvailable={lessonModeAvailable}
             plotEditorOpen={plots.editor !== null}
             quickTools={quickTools}
             onApplyPenPreset={applyPenPreset}

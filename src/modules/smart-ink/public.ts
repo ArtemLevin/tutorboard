@@ -69,3 +69,24 @@ export {
   type SmartInkV2ShadowDiagnostic,
   type SmartInkV2ShapeKind,
 } from "./v2/public";
+
+export {
+  appendSmartInkGlyphSession,
+  expireSmartInkGlyphSession,
+  flushSmartInkGlyphSession,
+  initialSmartInkGlyphSession,
+  resolveSmartInkUnifiedDecision,
+  smartInkGlyphSessionPolicy,
+  smartInkUnifiedDecisionVersion,
+  smartInkUnifiedDefaultPolicy,
+  type SmartInkGlyphCandidate,
+  type SmartInkGlyphEvidence,
+  type SmartInkGlyphScript,
+  type SmartInkGlyphSession,
+  type SmartInkGlyphSessionPolicy,
+  type SmartInkGlyphSessionStroke,
+  type SmartInkGlyphSessionTransition,
+  type SmartInkUnifiedCandidate,
+  type SmartInkUnifiedDecision,
+  type SmartInkUnifiedPolicy,
+} from "./v2/public";

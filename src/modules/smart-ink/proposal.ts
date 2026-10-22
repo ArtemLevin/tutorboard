@@ -26,6 +26,7 @@ import type {
 } from "./arrow-recognizer";
 import {
   recognizeSmartInkV2,
+  resolveSmartInkUnifiedDecision,
   recordSmartInkV2ShadowDiagnostic,
   type SmartInkV2Decision,
   type SmartInkV2DecisionStatus,
@@ -301,7 +302,15 @@ export function proposeSmartInkReplacement(
     sampleCount: smartInkCanvasRecognitionPolicy.sampleCount,
   });
   const arrowRecognizer = decision.arrowProposal;
-  const candidate = selectSmartInkAutoCorrectionCandidate(decision);
+  // Until a calibrated glyph provider is connected, unified arbitration
+  // runs in compatibility mode and preserves the production geometry policy.
+  const unified = resolveSmartInkUnifiedDecision(decision, {
+    status: "disabled",
+  });
+  const candidate =
+    unified.status === "accepted" && unified.candidate?.kind === "shape"
+      ? selectSmartInkAutoCorrectionCandidate(decision)
+      : null;
   const replacement =
     candidate === null
       ? null

@@ -241,6 +241,30 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps the lesson mode button stable during a stroke and blocks premature entry", () => {
+    render(<App />);
+    fireEvent.keyDown(window, { code: "KeyP", key: "p" });
+
+    const lessonModeButton = screen.getByRole("button", {
+      name: "Режим занятия",
+    });
+    expect(lessonModeButton).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Провести указкой" }));
+    expect(lessonModeButton).toBeEnabled();
+    fireEvent.click(lessonModeButton);
+    expect(
+      screen.queryByRole("toolbar", { name: "Инструменты режима занятия" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Отпустить указку" }));
+    expect(lessonModeButton).toBeEnabled();
+    fireEvent.click(lessonModeButton);
+    expect(
+      screen.getByRole("toolbar", { name: "Инструменты режима занятия" }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps the lesson mode local and restores the active tool after Escape", async () => {
     const onCommandCommitted = vi.fn();
     render(<App onCommandCommitted={onCommandCommitted} />);
