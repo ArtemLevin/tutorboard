@@ -52,22 +52,26 @@ async function withCorpusFiles(work) {
   try {
     await writeFile(
       files.train,
-      JSON.stringify(corpus([
-        sample("sample-train-i", "writer-0001", "device-0001", "I"),
-        sample("sample-train-l", "writer-0001", "device-0001", "L"),
-      ])),
+      JSON.stringify(
+        corpus([
+          sample("sample-train-i", "writer-0001", "device-0001", "I"),
+          sample("sample-train-l", "writer-0001", "device-0001", "L"),
+        ]),
+      ),
     );
     await writeFile(
       files.calibration,
-      JSON.stringify(corpus([
-        sample("sample-calibration-i", "writer-0002", "device-0002", "I"),
-      ])),
+      JSON.stringify(
+        corpus([
+          sample("sample-calibration-i", "writer-0002", "device-0002", "I"),
+        ]),
+      ),
     );
     await writeFile(
       files.holdout,
-      JSON.stringify(corpus([
-        sample("sample-holdout-l", "writer-0003", "device-0003", "L"),
-      ])),
+      JSON.stringify(
+        corpus([sample("sample-holdout-l", "writer-0003", "device-0003", "L")]),
+      ),
     );
     await work(files);
   } finally {
@@ -126,18 +130,26 @@ describe("Smart Ink glyph prototype CLI", () => {
     await withCorpusFiles(async (files) => {
       await writeFile(
         files.calibration,
-        JSON.stringify(corpus([
-          sample("sample-unreviewed", "writer-0002", "device-0002", "I", "unreviewed"),
-        ])),
+        JSON.stringify(
+          corpus([
+            sample(
+              "sample-unreviewed",
+              "writer-0002",
+              "device-0002",
+              "I",
+              "unreviewed",
+            ),
+          ]),
+        ),
       );
       const unreviewed = invoke(files);
       expect(unreviewed.status).not.toBe(0);
       expect(unreviewed.stderr).toContain("reviewed");
       await writeFile(
         files.calibration,
-        JSON.stringify(corpus([
-          sample("sample-overlap", "writer-0002", "device-0001", "I"),
-        ])),
+        JSON.stringify(
+          corpus([sample("sample-overlap", "writer-0002", "device-0001", "I")]),
+        ),
       );
       const leakage = invoke(files);
       expect(leakage.status).not.toBe(0);
