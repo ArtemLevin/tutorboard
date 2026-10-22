@@ -1,5 +1,6 @@
-import { readFile, stat, writeFile, unlink } from "node:fs/promises";
+import { link, readFile, stat, writeFile, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
+import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
 import { createServer } from "vite";
@@ -148,15 +149,35 @@ async function main(args) {
   const modelPath = resolve(argv["--model"]);
   const reportPath = resolve(argv["--report"]);
   if (modelPath === reportPath) throw new TypeError("Model and report paths must differ.");
-  const written = [];
+  // Stage in each target directory. Hard links publish without overwriting
+  // existing files; rollback removes only files created by this invocation.
+  const outputs = [
+    { path: modelPath, value: artifact },
+    { path: reportPath, value: report },
+  ];
+  const staged = [];
+  const published = [];
   try {
-    await writeFile(modelPath, JSON.stringify(artifact, null, 2) + "\n", { flag: "wx" });
-    written.push(modelPath);
-    await writeFile(reportPath, JSON.stringify(report, null, 2) + "\n", { flag: "wx" });
-    written.push(reportPath);
+    for (const output of outputs) {
+      const temp = output.path + "." + randomUUID() + ".tmp";
+      staged.push(temp);
+      await writeFile(temp, JSON.stringify(output.value, null, 2) + "\n", {
+        flag: "wx",
+      });
+    }
+    for (let index = 0; index < outputs.length; index += 1) {
+      await link(staged[index], outputs[index].path);
+      published.push(outputs[index].path);
+    }
   } catch (error) {
-    await Promise.all(written.map((path) => unlink(path)));
+    await Promise.all(published.map((path) => unlink(path)));
     throw error;
+  } finally {
+    await Promise.all(staged.map((path) =>
+      unlink(path).catch((error) => {
+        if (error.code !== "ENOENT") throw error;
+      }),
+    ));
   }
   process.stdout.write(JSON.stringify({
     trainingSamples: report.trainingSamples,
