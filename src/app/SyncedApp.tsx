@@ -1171,9 +1171,16 @@ function SyncedWorkspace({
               }
             });
           }}
-          onCommandCommitted={(command, document, previousDocument) => {
+          onCommandCommitted={(command, document, previousDocument, discardUndoHistory) => {
             if (!writeEnabled) return;
             renderedDocumentRef.current = document;
+            if (discardUndoHistory) {
+              // Avoid allocating a potentially huge inverse for a permanent clear.
+              undoStackRef.current = [];
+              setUndoCount(0);
+              trackOwnCommit(document, () => engine.queue(command, document));
+              return;
+            }
             const inverse = invertOwnBoardCommand(command, previousDocument, {
               actorId: state.actorId,
               createId: () => `command:undo:${crypto.randomUUID()}`,
