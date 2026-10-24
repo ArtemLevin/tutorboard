@@ -110,7 +110,7 @@ export interface AppProps {
   readonly initialDocument?: BoardDocument;
   readonly collaborativeUndoAvailable?: boolean;
   readonly onCollaborativeUndo?: () => void;
-  readonly onFullResetCommitted?: () => void;
+  readonly onFullResetCommitted?: (document: BoardDocument) => void;
   readonly onCommandCommitted?:
     | ((
         command: BoardCommand,
@@ -255,9 +255,9 @@ export function App({
   const [bookmarksVisible, setBookmarksVisible] = useState(
     readBookmarkVisibility,
   );
-  const [localInitialDocument] = useState(
-    () => initialDocument ?? createInitialDocument(),
-  );
+  // Keep only a small fallback seed. Retaining initialDocument here would
+  // pin the original large board in React state even after a full reset.
+  const [localInitialDocument] = useState(createInitialDocument);
   const documentController = useBoardDocumentController({
     collaborativeUndoAvailable,
     commandActorId,
@@ -644,7 +644,7 @@ export function App({
     if (!previousRenderContentRef.current.hasObjects) {
       setClearRenderGeneration((generation) => generation + 1);
     }
-    onFullResetCommitted?.();
+    onFullResetCommitted?.(documentController.getDocument());
   }, [clipboard, documentController, onFullResetCommitted]);
 
   useLayoutEffect(() => {
