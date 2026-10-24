@@ -388,7 +388,9 @@ export function BoardCanvas({
 
   const clearCanvas = (mode: "full" | "reversible") => {
     if (document.order.length > 0) {
-      const result = clipboard.clearAll();
+      const result = clipboard.clearAll({
+        discardUndoHistory: mode === "full",
+      });
       if (!result.ok) return;
       if (result.count > 0)
         announce(`Холст очищен: удалено объектов ${result.count}`);
