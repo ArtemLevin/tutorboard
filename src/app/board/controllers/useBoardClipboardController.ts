@@ -150,8 +150,14 @@ export function useBoardClipboardController({
     return insertPayload(copied.payload, "Дублировано");
   }, [getDocument, insertPayload, selection]);
 
+  const discardClipboard = useCallback(() => {
+    setPayload(null);
+    setNotice(null);
+  }, []);
+
   return {
     clearAll,
+    discardClipboard,
     copy,
     cut,
     duplicate,
