@@ -404,7 +404,8 @@ export function BoardCanvas({
     clearCoordinatePlotSamplingCache();
     setClearConfirmationOpen(false);
     setContextMenu(null);
-    if (mode === "full") announce("Доска полностью сброшена. История отмены очищена.");
+    if (mode === "full")
+      announce("Доска полностью сброшена. История отмены очищена.");
   };
 
   return (
