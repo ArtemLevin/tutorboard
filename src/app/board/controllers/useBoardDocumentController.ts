@@ -230,6 +230,25 @@ export function useBoardDocumentController({
     ],
   );
 
+  // Deliberately release Undo/Redo-owned document snapshots without mutating
+  // the current document or creating another persisted command.
+  const discardHistory = useCallback(() => {
+    const present = documentRef.current;
+    setState((current) => {
+      if (
+        current.history.present === present &&
+        current.history.past.length === 0 &&
+        current.history.future.length === 0
+      ) {
+        return current;
+      }
+      return {
+        ...current,
+        history: createDocumentHistory(present, current.history.limit),
+      };
+    });
+  }, []);
+
   const setCommandError = useCallback((message: string | null) => {
     setState((current) => ({ ...current, commandError: message }));
   }, []);
@@ -295,6 +314,7 @@ export function useBoardDocumentController({
     commitCommand,
     commitCommands,
     createCommandMetadata,
+    discardHistory,
     document,
     getDocument,
     history: state.history,
