@@ -172,11 +172,11 @@ export function useBoardDocumentController({
       } else {
         scheduleHistory();
         onCommandCommitted?.(
-            command,
-            result.document,
-            previousDocument,
-            options.discardUndoHistory,
-          );
+          command,
+          result.document,
+          previousDocument,
+          options.discardUndoHistory,
+        );
       }
       return result;
     },
