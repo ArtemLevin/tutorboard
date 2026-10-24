@@ -91,6 +91,8 @@ test("@smoke clear releases prepared JSON memory and preserves Undo/Redo and sub
   await stage.evaluate((element) => {
     element.dataset.preClearResourceGeneration = "old";
   });
+  // Keep the reversible path covered: its Undo deliberately retains the old document.
+  await page.getByRole("radio", { name: /Обычная очистка/ }).check();
   await page.getByRole("button", { name: "Очистить", exact: true }).click();
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   await expect(stage).not.toHaveAttribute(
