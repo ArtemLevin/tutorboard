@@ -152,6 +152,7 @@ test("@smoke eight GIFs share one loop, stop on clear and resume on undo", async
     { button: "right" },
   );
   await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+  await page.getByRole("radio", { name: /Обычная очистка/ }).check();
   await page.getByRole("button", { name: "Очистить", exact: true }).click();
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   await expect(page.getByTestId("persistence-status")).toHaveText(
