@@ -899,7 +899,7 @@ describe("App", () => {
     expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
   });
 
-  it("defaults to full reset, removes Undo and clipboard, and can reset an empty board", () => {
+  it("defaults to full reset, removes Undo and can reset an empty board", () => {
     const onFullResetCommitted = vi.fn();
     render(<App onFullResetCommitted={onFullResetCommitted} />);
     fireEvent.keyDown(window, { code: "KeyR", key: "r" });
@@ -922,8 +922,17 @@ describe("App", () => {
     fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
 
-    // A blank board can retain heavy history after an earlier reversible clear.
-    // The cleanup entry stays accessible even when object count is zero.
+    // A reversible clear can leave heavy Undo snapshots behind.
+    fireEvent.keyDown(window, { code: "KeyR", key: "r" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    fireEvent.click(screen.getByRole("button", { name: "Открыть меню холста" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Обычная очистка/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Очистить", exact: true }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    expect(screen.getByTestId("history-depth")).not.toHaveTextContent("0/0");
+
+    // Full reset remains available on the empty board and releases its history.
     const oldStage = screen.getByRole("application", {
       name: "Бесконечное полотно TutorBoard",
     });
