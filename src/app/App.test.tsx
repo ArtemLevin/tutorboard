@@ -858,7 +858,7 @@ describe("App", () => {
     expect(screen.getByRole("menuitem", { name: "Вставить" })).toBeDisabled();
     expect(
       screen.getByRole("menuitem", { name: "Очистить холст" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Текст" }));
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
@@ -892,10 +892,69 @@ describe("App", () => {
       screen.getByRole("button", { name: "Открыть меню холста" }),
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Обычная очистка/ }));
     fireEvent.click(screen.getByRole("button", { name: /^Очистить$/ }));
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
     fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
     expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
+  });
+
+  it("full reset discards Undo and works on empty boards", () => {
+    const onFullResetCommitted = vi.fn();
+    render(<App onFullResetCommitted={onFullResetCommitted} />);
+    fireEvent.keyDown(window, { code: "KeyR", key: "r" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
+    expect(
+      screen.getByRole("radio", { name: /Полный сброс \(по умолчанию\)/ }),
+    ).toBeChecked();
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "Восстановить удалённые объекты через Undo нельзя",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Очистить" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("0/0");
+    expect(onFullResetCommitted).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+
+    // A reversible clear can leave heavy Undo snapshots behind.
+    fireEvent.keyDown(window, { code: "KeyR", key: "r" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Обычная очистка/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Очистить" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    expect(screen.getByTestId("history-depth")).not.toHaveTextContent("0/0");
+
+    // Full reset remains available on the empty board and releases its history.
+    const oldStage = screen.getByRole("application", {
+      name: "Бесконечное полотно TutorBoard",
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
+    expect(
+      screen.getByRole("radio", { name: /Обычная очистка/ }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Очистить" }));
+    expect(onFullResetCommitted).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole("application", {
+        name: "Бесконечное полотно TutorBoard",
+      }),
+    ).not.toBe(oldStage);
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("0/0");
   });
 
   it("restores read-only guest bookmarks through local camera without document mutations", () => {

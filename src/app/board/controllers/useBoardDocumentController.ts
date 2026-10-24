@@ -34,6 +34,7 @@ export interface UseBoardDocumentControllerOptions {
         command: BoardCommand,
         document: BoardDocument,
         previousDocument: BoardDocument,
+        discardUndoHistory?: boolean,
       ) => void)
     | undefined;
   readonly onCommandsCommitted?:
@@ -125,7 +126,10 @@ export function useBoardDocumentController({
   }, [effectiveMutationPolicy]);
 
   const commitCommand = useCallback(
-    (command: BoardCommand): CommandResult => {
+    (
+      command: BoardCommand,
+      options: { readonly discardUndoHistory?: boolean } = {},
+    ): CommandResult => {
       if (!effectiveMutationPolicy.canWrite) {
         return rejectMutation();
       }
@@ -147,20 +151,32 @@ export function useBoardDocumentController({
       const scheduleHistory = () =>
         setState((current) => ({
           commandError: null,
-          history: isViewport
-            ? measureBoardFrameTrace("viewport-history", () =>
-                commitDocumentHistory(current.history, result.document),
-              )
-            : commitDocumentHistory(current.history, result.document),
+          history: options.discardUndoHistory
+            ? createDocumentHistory(result.document, current.history.limit)
+            : isViewport
+              ? measureBoardFrameTrace("viewport-history", () =>
+                  commitDocumentHistory(current.history, result.document),
+                )
+              : commitDocumentHistory(current.history, result.document),
         }));
       if (isViewport) {
         measureBoardFrameTrace("viewport-controller-schedule", scheduleHistory);
         measureBoardFrameTrace("viewport-controller-callbacks", () =>
-          onCommandCommitted?.(command, result.document, previousDocument),
+          onCommandCommitted?.(
+            command,
+            result.document,
+            previousDocument,
+            options.discardUndoHistory,
+          ),
         );
       } else {
         scheduleHistory();
-        onCommandCommitted?.(command, result.document, previousDocument);
+        onCommandCommitted?.(
+          command,
+          result.document,
+          previousDocument,
+          options.discardUndoHistory,
+        );
       }
       return result;
     },
@@ -230,6 +246,25 @@ export function useBoardDocumentController({
     ],
   );
 
+  // Deliberately release Undo/Redo-owned document snapshots without mutating
+  // the current document or creating another persisted command.
+  const discardHistory = useCallback(() => {
+    const present = documentRef.current;
+    setState((current) => {
+      if (
+        current.history.present === present &&
+        current.history.past.length === 0 &&
+        current.history.future.length === 0
+      ) {
+        return current;
+      }
+      return {
+        ...current,
+        history: createDocumentHistory(present, current.history.limit),
+      };
+    });
+  }, []);
+
   const setCommandError = useCallback((message: string | null) => {
     setState((current) => ({ ...current, commandError: message }));
   }, []);
@@ -295,6 +330,7 @@ export function useBoardDocumentController({
     commitCommand,
     commitCommands,
     createCommandMetadata,
+    discardHistory,
     document,
     getDocument,
     history: state.history,

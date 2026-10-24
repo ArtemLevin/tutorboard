@@ -117,6 +117,7 @@ interface WorkspaceProps {
   readonly initialRevisionId: LocalRevisionId | null;
   readonly notice: string | null;
   readonly persistedDocument: BoardDocument | null;
+  readonly onFullResetDocument?: (document: BoardDocument) => void;
   readonly repository: BoardDocumentRepository;
   readonly enableSnapshots: boolean;
   readonly geometryOsClient: GeometryOsClient | undefined;
@@ -130,6 +131,7 @@ function PersistedWorkspace({
   initialRevisionId,
   notice,
   persistedDocument,
+  onFullResetDocument,
   repository,
   geometryOsClient,
   mathInkRecognizer,
@@ -297,6 +299,12 @@ function PersistedWorkspace({
       key={workspaceKey}
       mathInkRecognizer={mathInkRecognizer}
       onDocumentChange={handleDocumentChange}
+      onFullResetCommitted={(clearedDocument) => {
+        // Release both the workspace seed and the bootstrap reference to the
+        // previously loaded board, once the clear command has succeeded.
+        setActiveDocument(clearedDocument);
+        onFullResetDocument?.(clearedDocument);
+      }}
       onExportDocument={exportDocument}
       onExportDiagnostics={() => void exportDiagnostics()}
       onExportPngSnapshot={
@@ -526,6 +534,17 @@ export function PersistedApp({
       mathInkRecognizer={mathInkRecognizer}
       notice={bootstrap.notice}
       persistedDocument={bootstrap.persistedDocument}
+      onFullResetDocument={(clearedDocument) => {
+        setBootstrap((current) =>
+          current.kind === "ready"
+            ? {
+                ...current,
+                document: clearedDocument,
+                persistedDocument: null,
+              }
+            : current,
+        );
+      }}
       onNotification={onNotification}
       repository={repository}
     />

@@ -42,6 +42,7 @@ test("uses the empty-canvas context menu for text, paste and clearing", async ({
 
   await openMenuAt(760, 380);
   await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+  await page.getByRole("radio", { name: /Обычная очистка/ }).check();
   await page.getByRole("button", { name: "Очистить", exact: true }).click();
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   await page.keyboard.press("Control+z");
