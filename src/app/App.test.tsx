@@ -917,9 +917,7 @@ describe("App", () => {
     expect(screen.getByRole("alertdialog")).toHaveTextContent(
       "Восстановить удалённые объекты через Undo нельзя",
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Очистить" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Очистить" }));
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
     expect(screen.getByTestId("history-depth")).toHaveTextContent("0/0");
     expect(onFullResetCommitted).toHaveBeenCalledTimes(1);
@@ -934,9 +932,7 @@ describe("App", () => {
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
     fireEvent.click(screen.getByRole("radio", { name: /Обычная очистка/ }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Очистить" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Очистить" }));
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
     expect(screen.getByTestId("history-depth")).not.toHaveTextContent("0/0");
 
@@ -951,9 +947,7 @@ describe("App", () => {
     expect(
       screen.getByRole("radio", { name: /Обычная очистка/ }),
     ).toBeDisabled();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Очистить" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Очистить" }));
     expect(onFullResetCommitted).toHaveBeenCalledTimes(2);
     expect(
       screen.getByRole("application", {
