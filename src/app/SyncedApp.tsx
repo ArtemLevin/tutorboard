@@ -1125,6 +1125,13 @@ function SyncedWorkspace({
           mediaResourceGeneration={mediaResources.resourceGeneration}
           mediaAssetImportEnabled={mediaAssetImportEnabled}
           mediaUploadSession={mediaUploadSession}
+          onFullResetCommitted={() => {
+            // The local inverse of this clear was registered by onCommandCommitted.
+            // Discard it and all earlier local Undo entries only after commit.
+            undoStackRef.current = [];
+            setUndoCount(0);
+            setUndoNotice(null);
+          }}
           onCollaborativeUndo={() => {
             if (!writeEnabled || undoInFlightRef.current) return;
             const inverse = undoStackRef.current.at(-1);
