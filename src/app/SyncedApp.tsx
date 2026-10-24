@@ -1171,7 +1171,12 @@ function SyncedWorkspace({
               }
             });
           }}
-          onCommandCommitted={(command, document, previousDocument, discardUndoHistory) => {
+          onCommandCommitted={(
+            command,
+            document,
+            previousDocument,
+            discardUndoHistory,
+          ) => {
             if (!writeEnabled) return;
             renderedDocumentRef.current = document;
             if (discardUndoHistory) {
