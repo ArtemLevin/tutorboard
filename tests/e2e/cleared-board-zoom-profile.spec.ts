@@ -192,6 +192,8 @@ test("@smoke clear/zoom frame probe", async ({
   await page.getByRole("menuitem", { name: "Очистить холст" }).click();
   await page.getByRole("button", { name: "Очистить", exact: true }).click();
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+  // Default full reset discards the heavy document previously held for Undo.
+  await expect(page.getByTestId("history-depth")).toHaveText("0/0");
   await expect(stage).toHaveAttribute("data-visible-object-count", "0");
   await expect(stage).toHaveAttribute("data-raster-active-decoded-count", "0");
   await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
