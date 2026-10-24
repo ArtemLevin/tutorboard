@@ -184,6 +184,10 @@ test("@smoke clear/zoom frame probe", async ({
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Сохранено локально",
   );
+  // Record the loaded-board baseline before the irreversible reset.
+  // The same mouse position and zoom gesture are used for every phase.
+  const beforeClear = await profileZoom(page, stage);
+  const beforeClearHeap = await heapAfterGc();
   await page.mouse.click(
     bounds.x + bounds.width * 0.9,
     bounds.y + bounds.height * 0.85,
@@ -207,9 +211,21 @@ test("@smoke clear/zoom frame probe", async ({
     browserName,
     source: "synthetic",
     empty,
+    beforeClear,
     afterClear,
     emptyHeap,
+    beforeClearHeap,
     afterClearHeap,
+    recovery: {
+      p95ChangeMs: beforeClear.p95Ms - afterClear.p95Ms,
+      p95AfterVsBefore:
+        beforeClear.p95Ms > 0 ? afterClear.p95Ms / beforeClear.p95Ms : null,
+      heapReclaimedBytes:
+        beforeClearHeap?.usedHeapBytes != null &&
+        afterClearHeap?.usedHeapBytes != null
+          ? beforeClearHeap.usedHeapBytes - afterClearHeap.usedHeapBytes
+          : null,
+    },
     fixture: { strokes: 3000, png: 10, zoom: "1x -> ~6.3x -> 1x" },
   };
   await mkdir("c39-clear-results", { recursive: true });
@@ -223,6 +239,7 @@ test("@smoke clear/zoom frame probe", async ({
     contentType: "application/json",
   });
   expect(empty.frameGapsMs.length).toBeGreaterThan(0);
+  expect(beforeClear.frameGapsMs.length).toBeGreaterThan(0);
   expect(afterClear.frameGapsMs.length).toBeGreaterThan(0);
   expect(empty.transformerSyncEvents).toBe(0);
   expect(afterClear.transformerSyncEvents).toBe(0);
