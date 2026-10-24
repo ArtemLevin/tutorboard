@@ -116,6 +116,7 @@ export interface AppProps {
         command: BoardCommand,
         document: BoardDocument,
         previousDocument: BoardDocument,
+        discardUndoHistory?: boolean,
       ) => void)
     | undefined;
   readonly onCommandsCommitted?:
