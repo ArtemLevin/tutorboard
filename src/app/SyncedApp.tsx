@@ -1125,6 +1125,13 @@ function SyncedWorkspace({
           mediaResourceGeneration={mediaResources.resourceGeneration}
           mediaAssetImportEnabled={mediaAssetImportEnabled}
           mediaUploadSession={mediaUploadSession}
+          onFullResetCommitted={() => {
+            // The local inverse of this clear was registered by onCommandCommitted.
+            // Discard it and all earlier local Undo entries only after commit.
+            undoStackRef.current = [];
+            setUndoCount(0);
+            setUndoNotice(null);
+          }}
           onCollaborativeUndo={() => {
             if (!writeEnabled || undoInFlightRef.current) return;
             const inverse = undoStackRef.current.at(-1);
@@ -1164,9 +1171,21 @@ function SyncedWorkspace({
               }
             });
           }}
-          onCommandCommitted={(command, document, previousDocument) => {
+          onCommandCommitted={(
+            command,
+            document,
+            previousDocument,
+            discardUndoHistory,
+          ) => {
             if (!writeEnabled) return;
             renderedDocumentRef.current = document;
+            if (discardUndoHistory) {
+              // Avoid allocating a potentially huge inverse for a permanent clear.
+              undoStackRef.current = [];
+              setUndoCount(0);
+              trackOwnCommit(document, () => engine.queue(command, document));
+              return;
+            }
             const inverse = invertOwnBoardCommand(command, previousDocument, {
               actorId: state.actorId,
               createId: () => `command:undo:${crypto.randomUUID()}`,

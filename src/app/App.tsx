@@ -110,11 +110,13 @@ export interface AppProps {
   readonly initialDocument?: BoardDocument;
   readonly collaborativeUndoAvailable?: boolean;
   readonly onCollaborativeUndo?: () => void;
+  readonly onFullResetCommitted?: (document: BoardDocument) => void;
   readonly onCommandCommitted?:
     | ((
         command: BoardCommand,
         document: BoardDocument,
         previousDocument: BoardDocument,
+        discardUndoHistory?: boolean,
       ) => void)
     | undefined;
   readonly onCommandsCommitted?:
@@ -224,6 +226,7 @@ export function App({
   onCommandCommitted,
   onCommandsCommitted,
   onCollaborativeUndo,
+  onFullResetCommitted,
   onDocumentChange,
   onExportDocument,
   onExportPngSnapshot,
@@ -252,9 +255,9 @@ export function App({
   const [bookmarksVisible, setBookmarksVisible] = useState(
     readBookmarkVisibility,
   );
-  const [localInitialDocument] = useState(
-    () => initialDocument ?? createInitialDocument(),
-  );
+  // Keep only a small fallback seed. Retaining initialDocument here would
+  // pin the original large board in React state even after a full reset.
+  const [localInitialDocument] = useState(createInitialDocument);
   const documentController = useBoardDocumentController({
     collaborativeUndoAvailable,
     commandActorId,
@@ -631,6 +634,19 @@ export function App({
   });
 
   const cancelPendingImport = media.cancelPendingImport;
+  const handleFullResetCommitted = useCallback(() => {
+    // The clear command has already committed successfully. Old snapshots must
+    // leave the local history and clipboard, including for an already empty board.
+    documentController.discardHistory();
+    clipboard.discardClipboard();
+    releaseBoardPlotSamplingCache();
+    // A blank board cannot produce a populated -> empty transition below.
+    if (!previousRenderContentRef.current.hasObjects) {
+      setClearRenderGeneration((generation) => generation + 1);
+    }
+    onFullResetCommitted?.(documentController.getDocument());
+  }, [clipboard, documentController, onFullResetCommitted]);
+
   useLayoutEffect(() => {
     const next = {
       documentId: String(document.id),
@@ -943,6 +959,8 @@ export function App({
           spotlightDimPercent={spotlightDimPercent}
           mediaAssetSourceResolver={mediaAssetSourceResolver}
           onClearCommitted={cancelPendingImport}
+          onFullResetCommitted={handleFullResetCommitted}
+          sharedBoard={!historyEnabled}
           onObjectSettingsRequest={requestObjectSettings}
           onPointerHover={handlePointerHover}
           onTransformPreviewChange={publishTransformPreview}

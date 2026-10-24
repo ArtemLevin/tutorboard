@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { Vec2 } from "../../core/public";
 import type { SelectionLayoutAction } from "../../modules/selection/public";
@@ -249,18 +249,23 @@ export function CanvasContextMenu({
   );
 }
 
+export type BoardClearMode = "full" | "reversible";
+
 export interface ClearCanvasDialogProps {
   readonly objectCount: number;
   readonly onCancel: () => void;
-  readonly onConfirm: () => void;
+  readonly onConfirm: (mode: BoardClearMode) => void;
+  readonly sharedBoard?: boolean;
 }
 
 export function ClearCanvasDialog({
   objectCount,
   onCancel,
   onConfirm,
+  sharedBoard = false,
 }: ClearCanvasDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const [mode, setMode] = useState<BoardClearMode>("full");
 
   useEffect(() => {
     cancelRef.current?.focus();
@@ -285,13 +290,56 @@ export function ClearCanvasDialog({
       >
         <h2 id="clear-canvas-title">Очистить холст?</h2>
         <p id="clear-canvas-description">
-          Будут удалены все объекты ({objectCount}). Действие можно отменить.
+          Будут удалены все объекты ({objectCount}). Выберите режим очистки.
         </p>
-        <div>
+        <fieldset className="clear-canvas-modes">
+          <legend>Режим очистки</legend>
+          <label>
+            <input
+              checked={mode === "full"}
+              name="board-clear-mode"
+              onChange={() => setMode("full")}
+              type="radio"
+              value="full"
+            />
+            <span>
+              <strong>Полный сброс (по умолчанию)</strong>
+              <small>
+                История Undo/Redo этой сессии и ресурсы холста будут сброшены.
+                Восстановить удалённые объекты через Undo нельзя.
+              </small>
+            </span>
+          </label>
+          <label>
+            <input
+              checked={mode === "reversible"}
+              disabled={objectCount === 0}
+              name="board-clear-mode"
+              onChange={() => setMode("reversible")}
+              type="radio"
+              value="reversible"
+            />
+            <span>
+              <strong>Обычная очистка</strong>
+              <small>Объекты можно восстановить через Undo.</small>
+            </span>
+          </label>
+        </fieldset>
+        {sharedBoard ? (
+          <p className="clear-canvas-shared-note">
+            В совместной доске сбрасывается история отмены текущего участника.
+            Истории других участников и серверный журнал сохраняются.
+          </p>
+        ) : null}
+        <div className="clear-canvas-actions">
           <button onClick={onCancel} ref={cancelRef} type="button">
             Отмена
           </button>
-          <button className="is-danger" onClick={onConfirm} type="button">
+          <button
+            className="is-danger"
+            onClick={() => onConfirm(mode)}
+            type="button"
+          >
             Очистить
           </button>
         </div>

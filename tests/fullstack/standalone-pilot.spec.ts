@@ -87,6 +87,7 @@ async function clearBoard(page: Page): Promise<void> {
     button: "right",
   });
   await page.getByRole("menuitem", { name: "Очистить холст" }).click();
+  await page.getByRole("radio", { name: /Обычная очистка/ }).check();
   await page.getByRole("button", { name: "Очистить", exact: true }).click();
 }
 
