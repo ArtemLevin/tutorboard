@@ -858,7 +858,7 @@ describe("App", () => {
     expect(screen.getByRole("menuitem", { name: "Вставить" })).toBeDisabled();
     expect(
       screen.getByRole("menuitem", { name: "Очистить холст" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Текст" }));
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
