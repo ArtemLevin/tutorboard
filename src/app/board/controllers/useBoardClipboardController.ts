@@ -74,22 +74,26 @@ export function useBoardClipboardController({
     return true;
   }, [commitCommand, createCommandMetadata, getDocument, selection]);
 
-  const clearAll = useCallback(() => {
-    const current = getDocument();
-    const copied = copyBoardSelection(current, current.order);
-    if (copied.status === "error") {
-      return { count: 0, ok: true as const };
-    }
-    const result = commitCommand(
-      createCutContentCommand(copied.payload, createCommandMetadata()),
-    );
-    if (!result.ok) {
-      setNotice(result.error.message);
-      return { error: result.error.message, ok: false as const };
-    }
-    selection.replaceSelection([]);
-    return { count: copied.payload.order.length, ok: true as const };
-  }, [commitCommand, createCommandMetadata, getDocument, selection]);
+  const clearAll = useCallback(
+    (options: { readonly discardUndoHistory?: boolean } = {}) => {
+      const current = getDocument();
+      const copied = copyBoardSelection(current, current.order);
+      if (copied.status === "error") {
+        return { count: 0, ok: true as const };
+      }
+      const result = commitCommand(
+        createCutContentCommand(copied.payload, createCommandMetadata()),
+        { discardUndoHistory: options.discardUndoHistory },
+      );
+      if (!result.ok) {
+        setNotice(result.error.message);
+        return { error: result.error.message, ok: false as const };
+      }
+      selection.replaceSelection([]);
+      return { count: copied.payload.order.length, ok: true as const };
+    },
+    [commitCommand, createCommandMetadata, getDocument, selection],
+  );
 
   const insertPayload = useCallback(
     (source: BoardClipboardPayload, action: "Вставлено" | "Дублировано") => {
