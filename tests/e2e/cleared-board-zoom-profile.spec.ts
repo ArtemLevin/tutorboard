@@ -20,6 +20,14 @@ interface ZoomProfile {
 }
 
 async function profileZoom(page: Page, stage: Locator): Promise<ZoomProfile> {
+  const bounds = await stage.boundingBox();
+  if (bounds === null) throw new Error("Missing board stage for zoom probe");
+  // Settings/import interactions move the pointer outside the stage.
+  // Wheel zoom must always target the canvas for comparable measurements.
+  await page.mouse.move(
+    bounds.x + bounds.width * 0.5,
+    bounds.y + bounds.height * 0.5,
+  );
   await page.evaluate(() => {
     const state = {
       frames: [] as number[],
