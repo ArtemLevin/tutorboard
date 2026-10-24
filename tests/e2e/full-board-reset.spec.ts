@@ -1,8 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("@smoke full reset clears local history after an ordinary clear and preserves subsequent drawing", async ({
-  page,
-}) => {
+test("@smoke full reset after reversible clear", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Сохранено локально",
@@ -38,7 +36,9 @@ test("@smoke full reset clears local history after an ordinary clear and preserv
   await expect(
     page.getByRole("radio", { name: /Полный сброс \(по умолчанию\)/ }),
   ).toBeChecked();
-  await expect(page.getByRole("radio", { name: /Обычная очистка/ })).toBeDisabled();
+  await expect(
+    page.getByRole("radio", { name: /Обычная очистка/ }),
+  ).toBeDisabled();
   await expect(page.getByRole("alertdialog")).toContainText(
     "Восстановить удалённые объекты через Undo нельзя",
   );
