@@ -83,7 +83,7 @@ export function useBoardClipboardController({
       }
       const result = commitCommand(
         createCutContentCommand(copied.payload, createCommandMetadata()),
-        { discardUndoHistory: options.discardUndoHistory },
+        { discardUndoHistory: options.discardUndoHistory === true },
       );
       if (!result.ok) {
         setNotice(result.error.message);
