@@ -112,6 +112,8 @@ export interface BoardCanvasProps {
   readonly mediaAssetSourceResolver?:
     ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
   readonly onClearCommitted?: (() => void) | undefined;
+  readonly onFullResetCommitted?: (() => void) | undefined;
+  readonly sharedBoard?: boolean;
   readonly onObjectSettingsRequest: (objectId: BoardObjectId) => void;
   readonly onPointerHover: (cursor: Vec2) => void;
   readonly onTransformPreviewChange: (
@@ -169,6 +171,8 @@ export function BoardCanvas({
   spotlightDimPercent,
   mediaAssetSourceResolver,
   onClearCommitted,
+  onFullResetCommitted,
+  sharedBoard = false,
   onObjectSettingsRequest,
   onPointerHover,
   onTransformPreviewChange,
@@ -382,10 +386,15 @@ export function BoardCanvas({
     announce("Ввод текста отменён: доска доступна только для чтения");
   }, [announce, interaction, readOnly, textPlacement]);
 
-  const clearCanvas = () => {
-    const result = clipboard.clearAll();
-    if (!result.ok) return;
+  const clearCanvas = (mode: "full" | "reversible") => {
+    if (document.order.length > 0) {
+      const result = clipboard.clearAll();
+      if (!result.ok) return;
+      if (result.count > 0)
+        announce(`Холст очищен: удалено объектов ${result.count}`);
+    }
     onClearCommitted?.();
+    if (mode === "full") onFullResetCommitted?.();
     interaction.resetAfterClear();
     plots.close();
     solid3D.close();
@@ -393,8 +402,7 @@ export function BoardCanvas({
     clearCoordinatePlotSamplingCache();
     setClearConfirmationOpen(false);
     setContextMenu(null);
-    if (result.count > 0)
-      announce(`Холст очищен: удалено объектов ${result.count}`);
+    if (mode === "full") announce("Доска полностью сброшена. История отмены очищена.");
   };
 
   return (
@@ -521,7 +529,7 @@ export function BoardCanvas({
       )}
       {contextMenu === null ? null : (
         <CanvasContextMenu
-          canClear={document.order.length > 0}
+          canClear={!readOnly}
           canAlign={
             selection.canAlign &&
             contextMenu.objectId !== null &&
@@ -587,6 +595,7 @@ export function BoardCanvas({
           objectCount={document.order.length}
           onCancel={() => setClearConfirmationOpen(false)}
           onConfirm={clearCanvas}
+          sharedBoard={sharedBoard}
         />
       ) : null}
     </>
