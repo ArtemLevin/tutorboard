@@ -1280,6 +1280,9 @@ describe("App", () => {
       "2 выбрано",
     );
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+    await waitFor(() =>
+      expect(onDocumentChange.mock.calls.at(-1)?.[0].order).toHaveLength(2),
+    );
 
     const before = onDocumentChange.mock.calls
       .at(-1)?.[0]
