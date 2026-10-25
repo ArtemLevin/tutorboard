@@ -283,7 +283,13 @@ export function useBoardSolid3DController({
         }),
       );
     },
-    [commitCommand, createCommandMetadata, getDocument, learningEnabled, record],
+    [
+      commitCommand,
+      createCommandMetadata,
+      getDocument,
+      learningEnabled,
+      record,
+    ],
   );
 
   const resetLearning = useCallback(() => {
