@@ -13,6 +13,9 @@ browser cache.
   identities are retired through `RasterDecodeCache.discardSourceWhenUnused`.
   Unreferenced bitmaps close immediately; active leases remain valid and close
   when the last consumer releases them. Other unrelated cached sources remain.
+  The former `BoardStage` global `trimUnused()` on scene teardown is removed:
+  resetting one board no longer flushes reusable idle bitmaps cached by another
+  board. The existing per-scene source retirement remains in place.
 - **Asset-backed media / GIF Blob URLs:** The outgoing canvas registry is
   disposed on full reset. It retires asset source keys; individual consumers
   release decode and Blob URL leases through the existing unmount and resource
