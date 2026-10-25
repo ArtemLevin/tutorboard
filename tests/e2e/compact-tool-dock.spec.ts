@@ -6,6 +6,31 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
 });
 
+test("@smoke begins as one icon and auto-collapses after three idle seconds", async ({
+  page,
+}) => {
+  await page.reload();
+  await page.clock.install();
+  const toggle = page.getByRole("button", {
+    name: "Развернуть инструменты",
+  });
+  const toolbar = page.getByRole("toolbar", { name: "Инструменты доски" });
+  await expect(toggle).toBeVisible();
+  await expect(toolbar).toHaveCount(0);
+
+  await toggle.hover();
+  await expect(toolbar).toBeVisible();
+  await page.clock.fastForward(2_999);
+  await expect(toolbar).toBeVisible();
+  await page.clock.fastForward(1);
+  await expect(toolbar).toHaveCount(0);
+
+  await toggle.click();
+  await expect(toolbar).toBeVisible();
+  await page.getByRole("button", { name: "Свернуть инструменты" }).click();
+  await expect(toolbar).toHaveCount(0);
+});
+
 test("opens every grouped menu exclusively and restores focus after Escape", async ({
   page,
 }) => {
