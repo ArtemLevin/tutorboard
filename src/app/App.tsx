@@ -626,7 +626,7 @@ export function App({
     onPasted: handleObjectsInserted,
     selection,
     sharedBoard: !historyEnabled,
-    canRestoreClear,
+    ...(canRestoreClear === undefined ? {} : { canRestoreClear }),
   });
   const resolveImageDisplaySize = useCallback(
     (intrinsicSize: Size2): Size2 => {
