@@ -1108,7 +1108,10 @@ export function App({
           onResetViewport={resetViewport}
           onShareBoard={onShareBoard}
           undoHistoryLimit={effectiveUndoHistoryLimit}
-          onUndoHistoryLimitChange={changeUndoHistoryLimit}
+          onUndoHistoryLimitChange={(limit) => {
+            changeUndoHistoryLimit(limit);
+            documentController.resizeHistory(limit);
+          }}
           open={settingsOpen}
           persistenceStatus={persistenceStatus}
           selection={selection}
