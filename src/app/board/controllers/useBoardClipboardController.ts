@@ -7,6 +7,8 @@ import {
   groupId,
   solid3DId,
   type ActorId,
+  type BoardCommand,
+  type BoardDocument,
   type BoardObjectId,
 } from "../../../core/public";
 import {
@@ -16,6 +18,11 @@ import {
   type BoardClipboardPayload,
 } from "../../../modules/clipboard/public";
 import { selectionIsLocked } from "../../../modules/selection/public";
+import {
+  maximumBoardCommandJsonBytes,
+  serializeBoardCommand,
+} from "../../../core/board/commands/codec/public";
+import { createFullBoardCut, planAtomicFullBoardClear } from "../atomic-clear-plan";
 import type { BoardDocumentController } from "./useBoardDocumentController";
 import type { BoardSelectionController } from "./useBoardSelectionController";
 
@@ -24,6 +31,11 @@ export interface UseBoardClipboardControllerOptions {
   readonly documentController: BoardDocumentController;
   readonly onPasted: (objectIds: readonly BoardObjectId[]) => void;
   readonly selection: BoardSelectionController;
+  readonly sharedBoard?: boolean;
+  readonly canRestoreClear?: (
+    command: BoardCommand,
+    source: BoardDocument,
+  ) => boolean;
 }
 
 export function useBoardClipboardController({
@@ -31,8 +43,10 @@ export function useBoardClipboardController({
   documentController,
   onPasted,
   selection,
+  sharedBoard = false,
+  canRestoreClear,
 }: UseBoardClipboardControllerOptions) {
-  const { commitCommand, createCommandMetadata, getDocument } =
+  const { commitCommand, commitCommands, createCommandMetadata, getDocument } =
     documentController;
   const [payload, setPayload] = useState<BoardClipboardPayload | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -77,22 +91,58 @@ export function useBoardClipboardController({
   const clearAll = useCallback(
     (options: { readonly discardUndoHistory?: boolean } = {}) => {
       const current = getDocument();
-      const copied = copyBoardSelection(current, current.order);
-      if (copied.status === "error") {
+      if (current.order.length === 0) {
         return { count: 0, ok: true as const };
       }
-      const result = commitCommand(
-        createCutContentCommand(copied.payload, createCommandMetadata()),
-        { discardUndoHistory: options.discardUndoHistory === true },
-      );
-      if (!result.ok) {
-        setNotice(result.error.message);
-        return { error: result.error.message, ok: false as const };
+      const full = options.discardUndoHistory === true;
+      const fail = (message: string) => {
+        setNotice(message);
+        return { error: message, ok: false as const };
+      };
+      const commands =
+        sharedBoard && full
+          ? planAtomicFullBoardClear(current, createCommandMetadata)
+          : [createFullBoardCut(current, createCommandMetadata())];
+      if (commands === null || commands.length === 0) {
+        return fail(
+          "Очистка превышает лимит атомарной синхронизации. Доска сохранена без изменений.",
+        );
       }
+      if (sharedBoard && !full) {
+        const command = commands[0]!;
+        const encoded = serializeBoardCommand(command);
+        if (
+          !encoded.ok ||
+          new TextEncoder().encode(encoded.json).byteLength >
+            maximumBoardCommandJsonBytes
+        ) {
+          return fail(
+            "Обратимая очистка превышает лимит передачи. Доска сохранена без изменений.",
+          );
+        }
+        if (canRestoreClear?.(command, current) !== true) {
+          return fail(
+            "Невозможно гарантировать Undo для этой очистки. Выберите полный сброс.",
+          );
+        }
+      }
+      const result =
+        commands.length === 1
+          ? commitCommand(commands[0]!, { discardUndoHistory: full })
+          : commitCommands(commands, { discardUndoHistory: full });
+      if (!result.ok) return fail(result.error.message);
       selection.replaceSelection([]);
-      return { count: copied.payload.order.length, ok: true as const };
+      return { count: current.order.length, ok: true as const };
     },
-    [commitCommand, createCommandMetadata, getDocument, selection],
+    [
+      canRestoreClear,
+      commitCommand,
+      commitCommands,
+      createCommandMetadata,
+      getDocument,
+      selection,
+      sharedBoard,
+    ],
   );
 
   const insertPayload = useCallback(
