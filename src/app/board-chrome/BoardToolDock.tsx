@@ -553,6 +553,14 @@ export function BoardToolDock(props: BoardToolDockProps) {
     scheduleCollapse();
   }, [scheduleCollapse]);
 
+  const previousActiveTool = useRef(props.activeTool);
+  useEffect(() => {
+    if (previousActiveTool.current === props.activeTool) return;
+    previousActiveTool.current = props.activeTool;
+    // Shortcuts should show the newly selected tool's settings.
+    expandDock();
+  }, [expandDock, props.activeTool]);
+
   useEffect(() => {
     const releasePointer = () => {
       if (!pointerDownRef.current) return;
