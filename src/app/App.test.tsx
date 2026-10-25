@@ -768,6 +768,7 @@ describe("App", () => {
       fireEvent.change(select, { target: { value: "3" } });
       expect(select).toHaveValue("3");
       expect(screen.getByTestId("history-depth")).toHaveTextContent("3/0");
+      expect(screen.getByTestId("object-count")).toHaveTextContent("8 объекта");
       expect(window.localStorage.getItem(undoHistoryLimitStorageKey)).toBe("3");
       fireEvent.click(screen.getByRole("button", { name: "Закрыть настройки доски" }));
 
