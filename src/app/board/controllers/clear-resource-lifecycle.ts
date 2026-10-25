@@ -18,9 +18,11 @@ export function releaseBoardPlotSamplingCache(): void {
 }
 
 /** Resolve document-owned bitmap identities before invoking the canvas adapter. */
+type RasterSourceRetirement = (sources: Iterable<string>) => void;
+
 export function releaseClearedBoardImageResources(
   document: Pick<BoardDocument, "order" | "objects">,
-  retireSources: (sources: Iterable<string>) => void = discardClearedBoardEmbeddedImages,
+  retireSources: RasterSourceRetirement = discardClearedBoardEmbeddedImages,
 ): void {
   const sources = new Set<string>();
   for (const id of document.order) {
