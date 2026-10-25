@@ -77,12 +77,8 @@ describe("scoped bitmap release after board clear", () => {
     cache.clear();
   });
 
-  it("skips absent or non-image objects without clearing shared cache", () => {
+  it("does nothing when no cached sources were supplied", () => {
     const discard = vi.fn();
-    const read = readBoardDocument(
-      createDenseBoardDocument({ strokeCount: 2, staticCount: 0 }),
-    );
-    if (read.status !== "ok") throw new Error("Invalid empty fixture");
     discardClearedBoardEmbeddedImages([], {
       discardSourceWhenUnused: discard,
     });
