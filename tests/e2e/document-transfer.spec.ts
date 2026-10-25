@@ -19,6 +19,7 @@ test("@smoke exports deterministic document and diagnostic snapshots", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   const settings = page.getByRole("dialog", { name: "Настройки доски" });
   await expect(settings).toBeVisible();
