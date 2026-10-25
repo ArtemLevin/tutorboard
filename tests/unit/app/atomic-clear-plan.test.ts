@@ -56,7 +56,7 @@ it("plans more than 10k objects as a single transportable atomic clear batch", (
 
 it("keeps a shared group dependency complete inside one cut", () => {
   const source = board(10_010);
-  const first = source.order[1]!;
+  const first = source.order.at(-10_010)!;
   const last = source.order.at(-1)!;
   const groupId = core.groupId("group:far-apart");
   const grouped: core.BoardDocument = {
