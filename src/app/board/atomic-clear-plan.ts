@@ -113,12 +113,15 @@ export function planAtomicFullBoardClear(
   };
 
   for (const group of Object.values(document.groups)) {
+    if (group === undefined) continue;
     if (!link(group.objectIds)) return null;
   }
   for (const record of Object.values(document.geometryImports)) {
+    if (record === undefined) continue;
     if (!link(record.boardObjectIds)) return null;
   }
   for (const record of Object.values(document.solidModels)) {
+    if (record === undefined) continue;
     if (!link(record.boardObjectIds)) return null;
   }
 
@@ -142,16 +145,19 @@ export function planAtomicFullBoardClear(
       : (components.get(root(position)) ?? null);
   };
   for (const group of Object.values(document.groups)) {
+    if (group === undefined) continue;
     const members = componentFor(group.objectIds);
     if (members === null) return null;
     members.groupIds.push(group.id);
   }
   for (const record of Object.values(document.geometryImports)) {
+    if (record === undefined) continue;
     const members = componentFor(record.boardObjectIds);
     if (members === null) return null;
     members.geometryImportIds.push(record.id);
   }
   for (const record of Object.values(document.solidModels)) {
+    if (record === undefined) continue;
     const members = componentFor(record.boardObjectIds);
     if (members === null) return null;
     members.solidIds.push(record.id);
