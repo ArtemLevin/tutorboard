@@ -3,6 +3,7 @@ export {
   createDocumentHistory,
   defaultHistoryLimit,
   redoDocumentHistory,
+  resizeDocumentHistory,
   undoDocumentHistory,
   type DocumentHistory,
 } from "./history";
