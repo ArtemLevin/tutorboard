@@ -28,9 +28,7 @@ import {
   mathInkRecognitionResultSchemaVersion,
 } from "../modules/handwritten-function/public";
 import { App, createInitialDocument } from "./App";
-import {
-  undoHistoryLimitStorageKey,
-} from "./board-chrome/undo-history-preferences";
+import { undoHistoryLimitStorageKey } from "./board-chrome/undo-history-preferences";
 
 function enableBookmarksForTest(): void {
   if (screen.queryByRole("button", { name: "Закладки областей" })) return;
