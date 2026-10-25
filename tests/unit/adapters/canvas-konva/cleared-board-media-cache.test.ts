@@ -57,7 +57,7 @@ describe("scoped bitmap release after board clear", () => {
     unrelated.release();
     expect(cache.snapshot().retainedEntryCount).toBe(1);
 
-    discardClearedBoardEmbeddedImages(doc, cache);
+    discardClearedBoardEmbeddedImages(new Set([embedded.dataUrl]), cache);
     expect(clearedClose).not.toHaveBeenCalled();
     expect(unrelatedClose).not.toHaveBeenCalled();
     shared.release();
@@ -71,7 +71,7 @@ describe("scoped bitmap release after board clear", () => {
     });
 
     // Repeating the cleanup is safe and never evicts a different source.
-    discardClearedBoardEmbeddedImages(doc, cache);
+    discardClearedBoardEmbeddedImages(new Set([embedded.dataUrl]), cache);
     expect(clearedClose).toHaveBeenCalledOnce();
     expect(unrelatedClose).not.toHaveBeenCalled();
     cache.clear();
@@ -83,7 +83,7 @@ describe("scoped bitmap release after board clear", () => {
       createDenseBoardDocument({ strokeCount: 2, staticCount: 0 }),
     );
     if (read.status !== "ok") throw new Error("Invalid empty fixture");
-    discardClearedBoardEmbeddedImages(read.document, {
+    discardClearedBoardEmbeddedImages([], {
       discardSourceWhenUnused: discard,
     });
     expect(discard).not.toHaveBeenCalled();
