@@ -4,6 +4,7 @@ test("@smoke spotlight follows cursor without changing board", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const stage = page.getByTestId("board-stage");
   await expect(stage).toBeVisible();
 
@@ -56,6 +57,7 @@ test("@smoke spotlight follows cursor without changing board", async ({
 
 test("@smoke spotlight in lesson mode preserves history", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const initial = await page.getByTestId("history-depth").textContent();
   await page.getByRole("button", { name: "Режим занятия" }).click();
   const lesson = page.getByRole("toolbar", {
