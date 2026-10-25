@@ -76,7 +76,7 @@ test("@smoke clear releases prepared JSON memory and preserves Undo/Redo and sub
     await expect(stage).not.toHaveAttribute("data-viewport-zoom", previousZoom);
     // Import resets local history; each viewport change must preserve
     // the configured limit independently of the bootstrap history depth.
-    await expect(page.getByTestId("history-depth")).toHaveText(/^[0-5]\\/0$/);
+    await expect(page.getByTestId("history-depth")).toHaveText(/^[0-5]\/0$/);
     await expect(page.getByTestId("persistence-status")).toHaveText(
       "Сохранено локально",
     );
