@@ -676,7 +676,9 @@ export function BoardToolDock(props: BoardToolDockProps) {
   return (
     <div
       className="board-tool-dock-shell"
-      onBlurCapture={scheduleCollapse}
+      onBlurCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
       onClickCapture={() => {
         if (dockExpanded) scheduleCollapse();
       }}
@@ -1227,23 +1229,25 @@ export function BoardToolDock(props: BoardToolDockProps) {
         </ToolSettingsVisibility>
       ) : null}
       <button
-          aria-controls="board-tool-dock-toolbar"
-          aria-expanded={dockExpanded}
-          aria-label={dockExpanded ? "Свернуть инструменты" : "Развернуть инструменты"}
-          className="board-tool-dock-toggle"
-          onClick={() => {
-            if (dockExpanded) collapseDock();
-            else expandDock();
-          }}
-          onPointerEnter={(event) => {
-            if (event.pointerType !== "touch") expandDock();
-          }}
-          ref={dockToggleRef}
-          title={dockExpanded ? "Свернуть инструменты" : "Инструменты доски"}
-          type="button"
-        >
-          <span aria-hidden="true">☷</span>
-        </button>
+        aria-controls="board-tool-dock-toolbar"
+        aria-expanded={dockExpanded}
+        aria-label={
+          dockExpanded ? "Свернуть инструменты" : "Развернуть инструменты"
+        }
+        className="board-tool-dock-toggle"
+        onClick={() => {
+          if (dockExpanded) collapseDock();
+          else expandDock();
+        }}
+        onPointerEnter={(event) => {
+          if (event.pointerType !== "touch") expandDock();
+        }}
+        ref={dockToggleRef}
+        title={dockExpanded ? "Свернуть инструменты" : "Инструменты доски"}
+        type="button"
+      >
+        <span aria-hidden="true">☷</span>
+      </button>
       <div
         id="board-tool-dock-toolbar"
         aria-label="Инструменты доски"
