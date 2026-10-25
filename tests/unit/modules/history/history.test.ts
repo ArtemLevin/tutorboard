@@ -59,9 +59,13 @@ describe("document history", () => {
     expect(resizeDocumentHistory(history, 1)).toMatchObject({
       past: [10],
       present: 11,
-      future: [12],
+      future: [],
       limit: 1,
     });
+    const withRedo = undoDocumentHistory(undoDocumentHistory(history));
+    const balanced = resizeDocumentHistory(withRedo, 2);
+    expect(balanced.past.length + balanced.future.length).toBe(2);
+    expect(balanced.future).toEqual([11, 12]);
     expect(resizeDocumentHistory(history, 3)).toBe(history);
     expect(() => resizeDocumentHistory(history, 0)).toThrow(RangeError);
   });
