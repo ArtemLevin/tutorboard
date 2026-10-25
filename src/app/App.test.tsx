@@ -959,9 +959,11 @@ describe("App", () => {
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
     expect(screen.getByTestId("history-depth")).toHaveTextContent("0/0");
     expect(onFullResetCommitted).toHaveBeenCalledTimes(1);
-    expect(discardClearedBoardEmbeddedImages).toHaveBeenCalledWith(
-      expect.objectContaining({ order: expect.any(Array) }),
-    );
+    expect(
+      vi
+        .mocked(discardClearedBoardEmbeddedImages)
+        .mock.calls.some(([previous]) => previous.order.length === 1),
+    ).toBe(true);
     fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
 
