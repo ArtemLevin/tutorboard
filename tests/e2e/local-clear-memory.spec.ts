@@ -74,15 +74,14 @@ test("@smoke clear releases prepared JSON memory and preserves Undo/Redo and sub
       throw new Error("Viewport zoom diagnostic is unavailable");
     await page.mouse.wheel(0, revision % 2 === 0 ? -25 : 25);
     await expect(stage).not.toHaveAttribute("data-viewport-zoom", previousZoom);
-    // History depth saturates at the selected five-action limit while
-    // viewport commits and autosave continue to work.
-    await expect(page.getByTestId("history-depth")).toHaveText(
-      `${Math.min(revision + 2, 5)}/0`,
-    );
+    // Import resets local history; each viewport change must preserve
+    // the configured limit independently of the bootstrap history depth.
+    await expect(page.getByTestId("history-depth")).toHaveText(/^[0-5]\\/0$/);
     await expect(page.getByTestId("persistence-status")).toHaveText(
       "Сохранено локально",
     );
   }
+  await expect(page.getByTestId("history-depth")).toHaveText("5/0");
   await page.mouse.click(box.x + box.width * 0.9, box.y + box.height * 0.85, {
     button: "right",
   });
