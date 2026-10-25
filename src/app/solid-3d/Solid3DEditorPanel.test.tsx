@@ -135,6 +135,14 @@ function renderPanel({
 }
 
 describe("Solid3DEditorPanel embedded workspace", () => {
+  it("hides the suspended exercise entry while preserving 3D model tools", () => {
+    renderPanel();
+    expect(screen.queryByRole("button", { name: "Учебная задача" })).toBeNull();
+    expect(screen.queryByText("Учебные сценарии")).toBeNull();
+    expect(screen.getByRole("button", { name: "Исследование" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Сечение" })).toBeEnabled();
+  });
+
   it("opens as a non-modal region and leaves the board interactive", () => {
     const { onClose, onOutsideClick } = renderPanel();
     const panel = screen.getByRole("region", { name: "Призма" });
