@@ -118,6 +118,12 @@ describe("CI gate routing", () => {
     });
   });
 
+  it("runs production image checks for board-owned bitmap cache lifecycle changes", () => {
+    expect(
+      routed("src/adapters/canvas-konva/cleared-board-media-cache.ts"),
+    ).toMatchObject({ production_image: true });
+  });
+
   it("routes nginx changes to both image and formula-recognition gates", () => {
     expect(routed("deploy/nginx.conf")).toEqual({
       ...allFalse,
