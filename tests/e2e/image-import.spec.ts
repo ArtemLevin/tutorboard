@@ -17,6 +17,7 @@ const gif1x1 = Buffer.from(
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await expect(
     page.getByRole("application", {
       name: "Бесконечное полотно TutorBoard",
