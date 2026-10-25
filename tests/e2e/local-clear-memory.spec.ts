@@ -69,14 +69,18 @@ test("@smoke clear releases prepared JSON memory and preserves Undo/Redo and sub
   if (box === null) throw new Error("Board stage is unavailable");
   await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.5);
   for (let revision = 0; revision < 16; revision += 1) {
-    const previousHistory = await page
-      .getByTestId("history-depth")
-      .textContent();
-    if (previousHistory === null)
-      throw new Error("History diagnostic is unavailable");
+    const previousZoom = await stage.getAttribute("data-viewport-zoom");
+    if (previousZoom === null)
+      throw new Error("Viewport zoom diagnostic is unavailable");
     await page.mouse.wheel(0, revision % 2 === 0 ? -25 : 25);
-    await expect(page.getByTestId("history-depth")).not.toHaveText(
-      previousHistory,
+    await expect(stage).not.toHaveAttribute(
+      "data-viewport-zoom",
+      previousZoom,
+    );
+    // History depth saturates at the selected five-action limit while
+    // viewport commits and autosave continue to work.
+    await expect(page.getByTestId("history-depth")).toHaveText(
+      `${Math.min(revision + 2, 5)}/0`,
     );
     await expect(page.getByTestId("persistence-status")).toHaveText(
       "Сохранено локально",
