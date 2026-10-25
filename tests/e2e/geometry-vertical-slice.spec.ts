@@ -75,6 +75,7 @@ test("imports, moves and restores the triangle-altitude fixture atomically", asy
   });
 
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await expect(
     page.getByRole("application", {
       name: "Бесконечное полотно TutorBoard",
