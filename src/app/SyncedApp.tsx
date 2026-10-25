@@ -292,6 +292,7 @@ function SyncedWorkspace({
   );
   const expectedAccessEpochRef = useRef<string | undefined>(undefined);
   const undoHistoryPreference = useUndoHistoryLimit();
+  const saveUndoHistoryLimit = undoHistoryPreference.changeLimit;
   const undoStackRef = useRef<readonly (readonly BoardCommand[])[]>([]);
   const undoInFlightRef = useRef(false);
   const [undoNotice, setUndoNotice] = useState<string | null>(null);
@@ -308,11 +309,11 @@ function SyncedWorkspace({
   const changeUndoHistoryLimit = useCallback(
     (limit: number) => {
       if (!isUndoHistoryLimit(limit)) return;
-      undoHistoryPreference.changeLimit(limit);
+      saveUndoHistoryLimit(limit);
       undoStackRef.current = undoStackRef.current.slice(-limit);
       setUndoCount(undoStackRef.current.length);
     },
-    [undoHistoryPreference.changeLimit],
+    [saveUndoHistoryLimit],
   );
   const renderedDocumentRef = useRef<BoardDocument | null>(null);
   const activeRef = useRef(false);
