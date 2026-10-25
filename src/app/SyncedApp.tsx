@@ -57,6 +57,7 @@ import {
 } from "./board/teacher-follow";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import { copyBoardShareUrl } from "./board-chrome/board-share";
+import { useUndoHistoryLimit } from "./board-chrome/undo-history-preferences";
 import { canFinalizeBoardEvidence } from "./synced-evidence";
 import {
   CollaborativeUndoAvailability,
@@ -287,7 +288,14 @@ function SyncedWorkspace({
     null,
   );
   const expectedAccessEpochRef = useRef<string | undefined>(undefined);
+  const undoHistoryPreference = useUndoHistoryLimit();
   const undoStackRef = useRef<readonly (readonly BoardCommand[])[]>([]);
+  useEffect(() => {
+    undoStackRef.current = undoStackRef.current.slice(
+      -undoHistoryPreference.limit,
+    );
+    setUndoCount(undoStackRef.current.length);
+  }, [undoHistoryPreference.limit]);
   const undoInFlightRef = useRef(false);
   const [undoNotice, setUndoNotice] = useState<string | null>(null);
   const pendingOwnCommitsRef = useRef(0);
@@ -1097,6 +1105,8 @@ function SyncedWorkspace({
           commandActorId={state.actorId}
           geometryOsClient={geometryOsClient}
           historyEnabled={false}
+          undoHistoryLimit={undoHistoryPreference.limit}
+          onUndoHistoryLimitChange={undoHistoryPreference.changeLimit}
           initialDocument={optimisticDocument ?? state.document}
           localViewportEnabled={state.role === "student"}
           teacherFollow={
@@ -1207,7 +1217,7 @@ function SyncedWorkspace({
               undoStackRef.current = [
                 ...undoStackRef.current,
                 prepared ?? inverse,
-              ].slice(-100);
+              ].slice(-undoHistoryPreference.limit);
               setUndoCount(undoStackRef.current.length);
             }
             trackOwnCommit(document, () => engine.queue(command, document));
@@ -1243,7 +1253,7 @@ function SyncedWorkspace({
               undoStackRef.current = [
                 ...undoStackRef.current,
                 prepared ?? inverse,
-              ].slice(-100);
+              ].slice(-undoHistoryPreference.limit);
               setUndoCount(undoStackRef.current.length);
             }
             trackOwnCommit(document, () =>
