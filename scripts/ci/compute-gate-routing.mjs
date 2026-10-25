@@ -97,6 +97,7 @@ const productionImageFiles = new Set([
   ".dockerignore",
   "Dockerfile",
   "deploy/nginx.conf",
+  "src/adapters/canvas-konva/cleared-board-media-cache.ts",
 ]);
 
 const smartInkFiles = new Set([
