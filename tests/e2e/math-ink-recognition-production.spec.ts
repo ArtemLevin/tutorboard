@@ -80,6 +80,7 @@ for (const provider of providers) {
     ).toBeVisible();
     await page.getByRole("radio", { name: provider.label }).click();
     await page.getByRole("link", { name: "Доска" }).click();
+    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
 
     const aiTools = page.getByRole("button", { name: "ИИ-инструменты" });
     await expect(aiTools).toBeVisible();
