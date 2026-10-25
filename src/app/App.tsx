@@ -677,7 +677,7 @@ export function App({
     cancelPendingImport();
     releaseBoardPlotSamplingCache();
     setClearRenderGeneration((generation) => generation + 1);
-  }, [cancelPendingImport, document.id, document.order.length]);
+  }, [cancelPendingImport, document]);
 
   const handleGeometrySelectionCreated = useCallback(
     (
