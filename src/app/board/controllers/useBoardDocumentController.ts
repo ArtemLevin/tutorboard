@@ -96,10 +96,10 @@ export function useBoardDocumentController({
         ? current
         : {
             commandError: null,
-            history: createDocumentHistory(initialDocument, historyLimit),
+            history: createDocumentHistory(initialDocument, current.history.limit),
           },
     );
-  }, [initialDocument, historyLimit]);
+  }, [initialDocument]);
 
   useEffect(() => {
     setState((current) => {
