@@ -192,6 +192,7 @@ export function BoardCanvas({
   const [contextMenu, setContextMenu] =
     useState<CanvasContextMenuRequest | null>(null);
   const [clearConfirmationOpen, setClearConfirmationOpen] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
   const [stylusEraserActive, setStylusEraserActive] = useState(false);
   const registry = useMemo(
     () =>
@@ -393,10 +394,14 @@ export function BoardCanvas({
       const result = clipboard.clearAll({
         discardUndoHistory: mode === "full",
       });
-      if (!result.ok) return;
+      if (!result.ok) {
+        setClearError(result.error);
+        return;
+      }
       if (result.count > 0)
         announce(`Холст очищен: удалено объектов ${result.count}`);
     }
+    setClearError(null);
     onClearCommitted?.();
     if (mode === "full") {
       // Retire the outgoing board's decoded images before the old canvas
@@ -569,6 +574,7 @@ export function BoardCanvas({
           disabled={readOnly}
           onClearRequest={() => {
             setContextMenu(null);
+            setClearError(null);
             setClearConfirmationOpen(true);
           }}
           onClose={() => setContextMenu(null)}
@@ -605,6 +611,7 @@ export function BoardCanvas({
       )}
       {clearConfirmationOpen ? (
         <ClearCanvasDialog
+          error={clearError}
           objectCount={document.order.length}
           onCancel={() => setClearConfirmationOpen(false)}
           onConfirm={clearCanvas}
