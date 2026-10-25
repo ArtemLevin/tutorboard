@@ -1856,6 +1856,24 @@ textarea:focus-visible,
   justify-content: space-between;
   margin: 0 0 12px;
 }
+.board-settings-undo-limit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.board-settings-undo-limit select {
+  min-width: 92px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid #c7d2d6;
+  border-radius: 9px;
+  background: #fff;
+  color: inherit;
+}
 .board-settings-section p,
 .board-settings-section li {
   color: #60717a;
