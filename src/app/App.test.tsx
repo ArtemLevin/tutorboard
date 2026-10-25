@@ -9,8 +9,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import generateSuccessJson from "../../contracts/geometryos/fixtures/generate-success.response.json?raw";
 import layoutSuccessJson from "../../contracts/geometryos/fixtures/layout-success.response.json?raw";
-import type {
-  BoardStageProps,
+import {
+  discardClearedBoardEmbeddedImages,
+  type BoardStageProps,
   SelectionPointerStartSample,
   WorldPointerSample,
 } from "../adapters/canvas-konva/public";
@@ -936,6 +937,7 @@ describe("App", () => {
   });
 
   it("full reset discards Undo and works on empty boards", () => {
+    vi.mocked(discardClearedBoardEmbeddedImages).mockClear();
     const onFullResetCommitted = vi.fn();
     render(<App onFullResetCommitted={onFullResetCommitted} />);
     fireEvent.keyDown(window, { code: "KeyR", key: "r" });
@@ -957,6 +959,9 @@ describe("App", () => {
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
     expect(screen.getByTestId("history-depth")).toHaveTextContent("0/0");
     expect(onFullResetCommitted).toHaveBeenCalledTimes(1);
+    expect(discardClearedBoardEmbeddedImages).toHaveBeenCalledWith(
+      expect.objectContaining({ order: expect.any(Array) }),
+    );
     fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
 
@@ -1160,6 +1165,7 @@ describe("App", () => {
   });
 
   it("releases renderer resources on a remote clear while keeping workspace UI and restore usable", async () => {
+    vi.mocked(discardClearedBoardEmbeddedImages).mockClear();
     const base = createInitialDocument();
     const textId = boardObjectId("object:remote-clear");
     const text: BoardObject = {
@@ -1202,6 +1208,7 @@ describe("App", () => {
     await waitFor(() =>
       expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта"),
     );
+    expect(discardClearedBoardEmbeddedImages).toHaveBeenCalledWith(populated);
     await waitFor(() =>
       expect(
         screen.getByRole("application", {
