@@ -7,6 +7,7 @@ import {
 } from "../../../core/public";
 import { selectionToolId } from "../../../modules/selection/public";
 import { BoardSettingsDialog } from "../../board-chrome/BoardSettingsDialog";
+import { undoHistoryLimitOptions } from "../../board-chrome/undo-history-preferences";
 import type { AppPersistenceStatus } from "../types";
 import type { BoardClipboardController } from "../controllers/useBoardClipboardController";
 import type { BoardInteractionRouter } from "../controllers/useBoardInteractionRouter";
@@ -14,6 +15,8 @@ import type { BoardSelectionController } from "../controllers/useBoardSelectionC
 
 export interface BoardSettingsPanelProps {
   readonly bookmarksVisible: boolean;
+  readonly undoHistoryLimit: number;
+  readonly onUndoHistoryLimitChange: (limit: number) => void;
   readonly onBookmarksVisibilityChange: (visible: boolean) => void;
   readonly clipboard: BoardClipboardController;
   readonly developmentDiagnostics: boolean;
@@ -48,6 +51,8 @@ export interface BoardSettingsPanelProps {
 export function BoardSettingsPanel({
   bookmarksVisible,
   onBookmarksVisibilityChange,
+  undoHistoryLimit,
+  onUndoHistoryLimitChange,
   clipboard,
   developmentDiagnostics,
   document,
@@ -286,6 +291,31 @@ export function BoardSettingsPanel({
             Центрировать доску
           </button>
         </div>
+      </section>
+      <section className="board-settings-section">
+        <h3>История действий</h3>
+        <label className="board-settings-undo-limit">
+          <span>Количество сохраняемых действий Undo</span>
+          <select
+            aria-label="Количество сохраняемых действий Undo"
+            value={undoHistoryLimit}
+            onChange={(event) =>
+              onUndoHistoryLimitChange(Number(event.currentTarget.value))
+            }
+          >
+            {undoHistoryLimitOptions.map((limit) => (
+              <option key={limit} value={limit}>
+                {limit}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p>
+          По умолчанию сохраняются 5 действий. Уменьшение значения сразу
+          удаляет самые старые записи истории. Настройка действует в этом
+          браузере, включая совместную доску; отмена других участников не
+          затрагивается.
+        </p>
       </section>
       {settingsExtra}
       <section className="board-settings-section">
