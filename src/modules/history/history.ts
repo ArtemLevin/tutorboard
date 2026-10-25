@@ -1,4 +1,4 @@
-export const defaultHistoryLimit = 100;
+export const defaultHistoryLimit = 5;
 
 export interface DocumentHistory<Value> {
   readonly future: readonly Value[];
@@ -15,6 +15,23 @@ export function createDocumentHistory<Value>(
     throw new RangeError("History limit must be a positive safe integer.");
   }
   return { future: [], limit, past: [], present };
+}
+
+export function resizeDocumentHistory<Value>(
+  history: DocumentHistory<Value>,
+  limit: number,
+): DocumentHistory<Value> {
+  if (!Number.isSafeInteger(limit) || limit < 1) {
+    throw new RangeError("History limit must be a positive safe integer.");
+  }
+  if (history.limit === limit) return history;
+  const past = history.past.slice(-limit);
+  return {
+    ...history,
+    limit,
+    past,
+    future: history.future.slice(0, Math.max(0, limit - past.length)),
+  };
 }
 
 export function commitDocumentHistory<Value>(

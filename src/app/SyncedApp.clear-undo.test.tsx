@@ -23,6 +23,7 @@ import {
 import { createDenseBoardDocument } from "../../tests/fixtures/dense-board";
 import type { AppProps } from "./App";
 import { SyncedApp } from "./SyncedApp";
+import { undoHistoryLimitStorageKey } from "./board-chrome/undo-history-preferences";
 
 const capture = vi.hoisted(() => ({
   props: null as AppProps | null,
@@ -82,6 +83,7 @@ afterEach(() => {
   vi.clearAllMocks();
   capture.props = null;
   capture.engine = null;
+  window.localStorage.removeItem(undoHistoryLimitStorageKey);
 });
 it.each([1_000, 10_000])(
   "checks a %s-stroke clear without trial restore and submits only transportable Undo",
@@ -270,6 +272,12 @@ it.each([1_000, 10_000])(
         clearSource = renamed.document;
       }
       await clear(clearSource, "command:clear");
+      if (strokeCount === 10_000) {
+        // Keep only the most recent inverse (the large clear). The older rename
+        // must no longer be undoable after changing the setting.
+        act(() => capture.props?.onUndoHistoryLimitChange?.(1));
+        await waitFor(() => expect(capture.props?.undoHistoryLimit).toBe(1));
+      }
       for (const title of ["Remote one", "Remote two"]) {
         const ms = await remoteCommand({
           actorId: core.actorId("actor:remote"),
@@ -293,6 +301,9 @@ it.each([1_000, 10_000])(
         );
         expect(server.order).toEqual(clearSource.order);
         expect(server.objects).toEqual(clearSource.objects);
+        await waitFor(() =>
+          expect(capture.props?.collaborativeUndoAvailable).toBe(false),
+        );
         expect(
           repository.push.mock.calls.at(-1)?.[0].commands.length,
         ).toBeGreaterThan(1);

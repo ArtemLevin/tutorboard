@@ -83,6 +83,7 @@ import {
   useQuickToolPreferences,
   type PenPresetSlot,
 } from "./board-chrome/quick-tool-preferences";
+import { useUndoHistoryLimit } from "./board-chrome/undo-history-preferences";
 import "./styles.css";
 
 export type { AppPersistenceStatus } from "./board/types";
@@ -101,6 +102,8 @@ export interface AppProps {
   readonly commandActorId?: ActorId;
   readonly geometryOsClient?: GeometryOsClient | undefined;
   readonly historyEnabled?: boolean;
+  readonly undoHistoryLimit?: number;
+  readonly onUndoHistoryLimitChange?: (limit: number) => void;
   readonly mathInkRecognizer?: MathInkRecognizer | undefined;
   readonly mediaAssetSourceResolver?:
     ((object: MediaAssetObject) => BoardMediaContentSource) | undefined;
@@ -217,6 +220,8 @@ export function App({
   collaborativeUndoAvailable = false,
   geometryOsClient,
   historyEnabled = true,
+  undoHistoryLimit,
+  onUndoHistoryLimitChange,
   mathInkRecognizer,
   mediaAssetSourceResolver,
   mediaAssetImportEnabled = false,
@@ -258,10 +263,16 @@ export function App({
   // Keep only a small fallback seed. Retaining initialDocument here would
   // pin the original large board in React state even after a full reset.
   const [localInitialDocument] = useState(createInitialDocument);
+  const undoHistoryPreference = useUndoHistoryLimit();
+  const effectiveUndoHistoryLimit =
+    undoHistoryLimit ?? undoHistoryPreference.limit;
+  const changeUndoHistoryLimit =
+    onUndoHistoryLimitChange ?? undoHistoryPreference.changeLimit;
   const documentController = useBoardDocumentController({
     collaborativeUndoAvailable,
     commandActorId,
     historyEnabled,
+    historyLimit: effectiveUndoHistoryLimit,
     initialDocument: initialDocument ?? localInitialDocument,
     onCollaborativeUndo,
     onCommandCommitted,
@@ -1096,6 +1107,11 @@ export function App({
           onOpenShortcuts={() => setShortcutsOpen(true)}
           onResetViewport={resetViewport}
           onShareBoard={onShareBoard}
+          undoHistoryLimit={effectiveUndoHistoryLimit}
+          onUndoHistoryLimitChange={(limit) => {
+            changeUndoHistoryLimit(limit);
+            documentController.resizeHistory(limit);
+          }}
           open={settingsOpen}
           persistenceStatus={persistenceStatus}
           selection={selection}

@@ -28,6 +28,7 @@ import {
   mathInkRecognitionResultSchemaVersion,
 } from "../modules/handwritten-function/public";
 import { App, createInitialDocument } from "./App";
+import { undoHistoryLimitStorageKey } from "./board-chrome/undo-history-preferences";
 
 function enableBookmarksForTest(): void {
   if (screen.queryByRole("button", { name: "Закладки областей" })) return;
@@ -749,6 +750,40 @@ describe("App", () => {
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
   });
 
+  it("defaults to five Undo actions, applies a smaller limit immediately and persists it", () => {
+    window.localStorage.removeItem(undoHistoryLimitStorageKey);
+    try {
+      render(<App />);
+      fireEvent.keyDown(window, { key: "r" });
+      for (let step = 0; step < 8; step += 1) {
+        fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+      }
+      expect(screen.getByTestId("history-depth")).toHaveTextContent("5/0");
+
+      fireEvent.click(screen.getByRole("button", { name: "Настройки доски" }));
+      const select = screen.getByRole("combobox", {
+        name: "Количество сохраняемых действий Undo",
+      });
+      expect(select).toHaveValue("5");
+      fireEvent.change(select, { target: { value: "3" } });
+      expect(select).toHaveValue("3");
+      expect(screen.getByTestId("history-depth")).toHaveTextContent("3/0");
+      expect(screen.getByTestId("object-count")).toHaveTextContent("8 объекта");
+      expect(window.localStorage.getItem(undoHistoryLimitStorageKey)).toBe("3");
+      fireEvent.click(
+        screen.getByRole("button", { name: "Закрыть настройки доски" }),
+      );
+
+      for (let step = 0; step < 3; step += 1) {
+        fireEvent.click(screen.getByRole("button", { name: /Отменить/ }));
+      }
+      expect(screen.getByTestId("history-depth")).toHaveTextContent("0/3");
+      expect(screen.getByTestId("object-count")).toHaveTextContent("5 объекта");
+    } finally {
+      window.localStorage.removeItem(undoHistoryLimitStorageKey);
+    }
+  });
+
   it("automatically accepts and atomically undoes a recognized Smart Ink figure", () => {
     render(<App />);
 
@@ -1245,6 +1280,9 @@ describe("App", () => {
       "2 выбрано",
     );
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+    await waitFor(() =>
+      expect(onDocumentChange.mock.calls.at(-1)?.[0].order).toHaveLength(2),
+    );
 
     const before = onDocumentChange.mock.calls
       .at(-1)?.[0]

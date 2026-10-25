@@ -57,6 +57,10 @@ import {
 } from "./board/teacher-follow";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import { copyBoardShareUrl } from "./board-chrome/board-share";
+import {
+  isUndoHistoryLimit,
+  useUndoHistoryLimit,
+} from "./board-chrome/undo-history-preferences";
 import { canFinalizeBoardEvidence } from "./synced-evidence";
 import {
   CollaborativeUndoAvailability,
@@ -287,6 +291,8 @@ function SyncedWorkspace({
     null,
   );
   const expectedAccessEpochRef = useRef<string | undefined>(undefined);
+  const undoHistoryPreference = useUndoHistoryLimit();
+  const saveUndoHistoryLimit = undoHistoryPreference.changeLimit;
   const undoStackRef = useRef<readonly (readonly BoardCommand[])[]>([]);
   const undoInFlightRef = useRef(false);
   const [undoNotice, setUndoNotice] = useState<string | null>(null);
@@ -300,6 +306,15 @@ function SyncedWorkspace({
     [],
   );
   const [undoCount, setUndoCount] = useState(0);
+  const changeUndoHistoryLimit = useCallback(
+    (limit: number) => {
+      if (!isUndoHistoryLimit(limit)) return;
+      saveUndoHistoryLimit(limit);
+      undoStackRef.current = undoStackRef.current.slice(-limit);
+      setUndoCount(undoStackRef.current.length);
+    },
+    [saveUndoHistoryLimit],
+  );
   const renderedDocumentRef = useRef<BoardDocument | null>(null);
   const activeRef = useRef(false);
   const trackOwnCommit = useCallback(
@@ -1097,6 +1112,8 @@ function SyncedWorkspace({
           commandActorId={state.actorId}
           geometryOsClient={geometryOsClient}
           historyEnabled={false}
+          undoHistoryLimit={undoHistoryPreference.limit}
+          onUndoHistoryLimitChange={changeUndoHistoryLimit}
           initialDocument={optimisticDocument ?? state.document}
           localViewportEnabled={state.role === "student"}
           teacherFollow={
@@ -1207,7 +1224,7 @@ function SyncedWorkspace({
               undoStackRef.current = [
                 ...undoStackRef.current,
                 prepared ?? inverse,
-              ].slice(-100);
+              ].slice(-undoHistoryPreference.limit);
               setUndoCount(undoStackRef.current.length);
             }
             trackOwnCommit(document, () => engine.queue(command, document));
@@ -1243,7 +1260,7 @@ function SyncedWorkspace({
               undoStackRef.current = [
                 ...undoStackRef.current,
                 prepared ?? inverse,
-              ].slice(-100);
+              ].slice(-undoHistoryPreference.limit);
               setUndoCount(undoStackRef.current.length);
             }
             trackOwnCommit(document, () =>

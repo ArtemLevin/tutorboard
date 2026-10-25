@@ -118,7 +118,7 @@ describe("C3.9 immutable snapshot viewport command cost", () => {
       const document = validatedDenseDocument(strokes);
       // Populate a realistic bounded undo history before timing; each entry
       // is an immutable snapshot holding the SAME content references.
-      let history = createDocumentHistory<BoardDocument>(document);
+      let history = createDocumentHistory<BoardDocument>(document, 100);
       for (let index = 0; index < 100; index += 1) {
         history = commitDocumentHistory(history, {
           ...document,
