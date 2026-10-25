@@ -9,10 +9,14 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  actorId,
+  createSolidLearningAttempt,
   defaultSolidProjection,
   definitionForSolidConstruction,
   groupId,
   solid3DId,
+  solidLearningAttemptId,
+  type Solid3DLearningAttempt,
   type Solid3DRecord,
 } from "../../core/public";
 import { Solid3DEditorPanel } from "./Solid3DEditorPanel";
@@ -99,7 +103,9 @@ function renderPanel({
   readOnly = false,
   onRecordChange = vi.fn(),
   initialRecord = record,
+  learningAttempt = null,
 }: {
+  readonly learningAttempt?: Solid3DLearningAttempt | null;
   readonly onClose?: () => void;
   readonly readOnly?: boolean;
   readonly onRecordChange?: (replacement: Solid3DRecord) => void;
@@ -112,8 +118,8 @@ function renderPanel({
         Действие на доске
       </button>
       <Solid3DEditorPanel
-        learningAttempt={null}
-        learningAttempts={[]}
+        learningAttempt={learningAttempt}
+        learningAttempts={learningAttempt === null ? [] : [learningAttempt]}
         learningEnabled={false}
         onClose={onClose}
         onLearningAction={vi.fn()}
@@ -136,7 +142,16 @@ function renderPanel({
 
 describe("Solid3DEditorPanel embedded workspace", () => {
   it("hides the suspended exercise entry while preserving 3D model tools", () => {
-    renderPanel();
+    const previousAttempt = createSolidLearningAttempt({
+      actorId: actorId("teacher:learning"),
+      id: solidLearningAttemptId("learning:existing"),
+      mode: "guided",
+      scenarioId: "section-intro",
+      scenarioVersion: "1.0",
+      solidId: record.id,
+      timestamp: "2026-10-25T16:00:00.000Z",
+    });
+    renderPanel({ learningAttempt: previousAttempt });
     expect(screen.queryByRole("button", { name: "Учебная задача" })).toBeNull();
     expect(screen.queryByText("Учебные сценарии")).toBeNull();
     expect(screen.getByRole("button", { name: "Исследование" })).toBeEnabled();
