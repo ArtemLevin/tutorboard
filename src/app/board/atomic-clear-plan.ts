@@ -32,13 +32,11 @@ function emptyMembers(): CutMembers {
   return { objectIds: [], groupIds: [], geometryImportIds: [], solidIds: [] };
 }
 
-function combine(left: CutMembers, right: CutMembers): CutMembers {
-  return {
-    objectIds: [...left.objectIds, ...right.objectIds],
-    groupIds: [...left.groupIds, ...right.groupIds],
-    geometryImportIds: [...left.geometryImportIds, ...right.geometryImportIds],
-    solidIds: [...left.solidIds, ...right.solidIds],
-  };
+function appendMembers(target: CutMembers, members: CutMembers): void {
+  target.objectIds.push(...members.objectIds);
+  target.groupIds.push(...members.groupIds);
+  target.geometryImportIds.push(...members.geometryImportIds);
+  target.solidIds.push(...members.solidIds);
 }
 
 function cut(members: CutMembers, metadata: CommandMetadata): Cut {
@@ -212,7 +210,7 @@ export function planAtomicFullBoardClear(
     ) {
       if (!flush()) return null;
     }
-    pending = combine(pending, component);
+    appendMembers(pending, component);
     pendingBytes += bytes;
   }
   if (!flush()) return null;
