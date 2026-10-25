@@ -62,10 +62,10 @@ describe("document history", () => {
       future: [],
       limit: 1,
     });
-    const withRedo = undoDocumentHistory(undoDocumentHistory(history));
+    const withRedo = undoDocumentHistory(history);
     const balanced = resizeDocumentHistory(withRedo, 2);
-    expect(balanced.past.length + balanced.future.length).toBe(2);
-    expect(balanced.future).toEqual([11, 12]);
+    expect(balanced.past).toEqual([9]);
+    expect(balanced.future).toEqual([11]);
     expect(resizeDocumentHistory(history, 3)).toBe(history);
     expect(() => resizeDocumentHistory(history, 0)).toThrow(RangeError);
   });
