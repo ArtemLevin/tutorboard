@@ -30,6 +30,7 @@ test("retains numeric 3D editing controls when the browser cannot create WebGL",
     });
   });
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const stage = page.getByTestId("board-stage");
   const bounds = await stage.boundingBox();
   if (bounds === null) throw new Error("Board stage missing");
