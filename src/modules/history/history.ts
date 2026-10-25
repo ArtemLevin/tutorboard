@@ -25,11 +25,12 @@ export function resizeDocumentHistory<Value>(
     throw new RangeError("History limit must be a positive safe integer.");
   }
   if (history.limit === limit) return history;
+  const past = history.past.slice(-limit);
   return {
     ...history,
     limit,
-    past: history.past.slice(-limit),
-    future: history.future.slice(0, limit),
+    past,
+    future: history.future.slice(0, Math.max(0, limit - past.length)),
   };
 }
 
