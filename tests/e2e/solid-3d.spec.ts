@@ -49,6 +49,7 @@ test("recovers the same 3D canvas after a real WebGL context loss @requires-webg
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const stage = page.getByTestId("board-stage");
   const bounds = await stage.boundingBox();
   if (bounds === null) throw new Error("Missing board stage");
@@ -101,6 +102,7 @@ test("selects two 3D vertices, measures distance and saves the segment @requires
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const stage = page.getByTestId("board-stage");
   const stageBounds = await stage.boundingBox();
   if (stageBounds === null) throw new Error("Missing board stage");
@@ -164,6 +166,7 @@ test("chooses two cube edges, previews their line angle and saves it @requires-w
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const stage = page.getByTestId("board-stage");
   const stageBounds = await stage.boundingBox();
   if (stageBounds === null) throw new Error("Missing board stage");
@@ -228,6 +231,7 @@ test("measures a line against a model face via real 3D picking @requires-webgl",
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const stage = page.getByTestId("board-stage");
   const stageBounds = await stage.boundingBox();
   if (stageBounds === null) throw new Error("Missing board stage");
@@ -292,6 +296,7 @@ test("selects adjacent cube faces and saves their dihedral angle in WebGL @requi
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const stage = page.getByTestId("board-stage");
   const stageBounds = await stage.boundingBox();
   if (stageBounds === null) throw new Error("Missing board stage");
@@ -350,6 +355,7 @@ test("opens a semantic catalog solid in the lazy 3D editor @requires-webgl", asy
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const stage = page.getByTestId("board-stage");
   const bounds = await stage.boundingBox();
   if (bounds === null) throw new Error("Expected TutorBoard stage bounds");
@@ -477,6 +483,7 @@ test("drags a seeded edge point in 3D and persists its new position @requires-we
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const board = page.getByTestId("board-stage");
   const stage = await board.boundingBox();
   if (stage === null) throw new Error("Board stage bounds unavailable");
@@ -583,6 +590,7 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const stage = await page.getByTestId("board-stage").boundingBox();
   if (stage === null) throw new Error("Board stage is unavailable");
   await page.getByRole("button", { name: "ИИ-инструменты" }).click();
@@ -624,6 +632,7 @@ test("rotates a plane about two selected 3D points with one undoable save @requi
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const stage = await page.getByTestId("board-stage").boundingBox();
   if (stage === null) throw new Error("Board stage is unavailable");
   await page.getByRole("button", { name: "ИИ-инструменты" }).click();

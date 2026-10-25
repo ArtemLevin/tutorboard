@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("copies, pastes, cuts and restores one selection", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await expect(page.getByTestId("board-stage")).toBeVisible();
   await page.keyboard.press("r");
   const bounds = await page.getByTestId("board-stage").boundingBox();

@@ -6,6 +6,7 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
+    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
     await expect(page.getByTestId("board-stage")).toBeVisible();
     await page.getByRole("button", { name: "Рисование" }).click();
     await page.getByRole("menuitemradio", { name: "Текст (T)" }).click();
@@ -61,6 +62,7 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
+    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
     await expect(page.getByTestId("board-stage")).toBeVisible();
     await page.keyboard.press("t");
     const bounds = await page.getByTestId("board-stage").boundingBox();
@@ -94,6 +96,7 @@ test("cancels an unsaved text draft with Escape and switches to selection", asyn
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await expect(page.getByTestId("board-stage")).toBeVisible();
   await page.keyboard.press("t");
   const bounds = await page.getByTestId("board-stage").boundingBox();
@@ -121,6 +124,7 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
+    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
     await expect(page.getByTestId("board-stage")).toBeVisible();
     await page.keyboard.press("t");
     const bounds = await page.getByTestId("board-stage").boundingBox();

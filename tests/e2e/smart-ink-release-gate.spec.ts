@@ -15,6 +15,7 @@ test("keeps Smart Ink unavailable in the production release candidate", async ({
     }),
   ).toBeVisible();
 
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   const toolDock = page.getByRole("toolbar", { name: "Инструменты доски" });
   await expect(toolDock).toBeVisible();
   await toolDock.getByRole("button", { name: "ИИ-инструменты" }).click();

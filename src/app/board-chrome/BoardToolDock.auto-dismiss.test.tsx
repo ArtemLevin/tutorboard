@@ -2,10 +2,10 @@ import {
   act,
   cleanup,
   fireEvent,
-  render,
+  render as reactRender,
   screen,
 } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { drawingTools } from "../../modules/drawing/public";
@@ -77,6 +77,15 @@ function fixture(): DockProps {
   };
 }
 
+function renderDock(element: ReactElement) {
+  const view = reactRender(element);
+  fireEvent.pointerEnter(
+    screen.getByRole("button", { name: "Развернуть инструменты" }),
+    { pointerType: "mouse" },
+  );
+  return view;
+}
+
 function advance(ms: number) {
   // React processes this synchronous fake-timer callback within the act scope.
   void act(() => vi.advanceTimersByTime(ms));
@@ -88,11 +97,76 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("compact dock collapse contract", () => {
+  const toggle = () =>
+    screen.getByRole("button", { name: "Развернуть инструменты" });
+  const toolbar = () =>
+    screen.getByRole("toolbar", { name: "Инструменты доски" });
+
+  it("starts as one icon and expands on mouse hover", () => {
+    reactRender(<BoardToolDock {...fixture()} />);
+    const trigger = toggle();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Рисование" })).toBeNull();
+
+    fireEvent.pointerEnter(trigger, { pointerType: "mouse" });
+    expect(toolbar()).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Свернуть инструменты" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    advance(2_999);
+    expect(toolbar()).toBeInTheDocument();
+    advance(1);
+    expect(screen.queryByRole("toolbar")).toBeNull();
+  });
+
+  it("resets three-second inactivity after a pointer move", () => {
+    reactRender(<BoardToolDock {...fixture()} />);
+    fireEvent.pointerEnter(toggle(), { pointerType: "mouse" });
+    const dock = toolbar();
+    advance(2_000);
+    fireEvent.pointerMove(dock);
+    advance(2_999);
+    expect(dock).toBeInTheDocument();
+    advance(1);
+    expect(screen.queryByRole("toolbar")).toBeNull();
+  });
+
+  it("supports tap and keyboard activation, and Escape restores the trigger", () => {
+    reactRender(<BoardToolDock {...fixture()} />);
+    const trigger = toggle();
+    fireEvent.pointerEnter(trigger, { pointerType: "touch" });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    fireEvent.click(trigger);
+    expect(toolbar()).toBeInTheDocument();
+    fireEvent.keyDown(toolbar(), { key: "Escape" });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(trigger).toHaveFocus();
+    fireEvent.click(trigger);
+    expect(toolbar()).toBeInTheDocument();
+  });
+
+  it("pauses a pointer drag and cleans up timers on unmount", () => {
+    const view = reactRender(<BoardToolDock {...fixture()} />);
+    fireEvent.click(toggle());
+    const dock = toolbar();
+    fireEvent.pointerDown(dock);
+    advance(4_000);
+    expect(dock).toBeInTheDocument();
+    fireEvent.pointerUp(window);
+    advance(3_000);
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
 describe("dock popup inactivity contract", () => {
   it("keeps one presentation button for both tools", () => {
     const props = fixture();
     const onActivate = vi.fn();
-    const view = render(
+    const view = renderDock(
       <BoardToolDock
         {...props}
         activeTool="navigation.pan"
@@ -141,7 +215,7 @@ describe("dock popup inactivity contract", () => {
     ["presentation.laser", "Настройки лазерной указки"],
     ["presentation.spotlight", "Настройки фонаря"],
   ])("dismisses %s after exactly two idle seconds", (tool, label) => {
-    render(<BoardToolDock {...fixture()} activeTool={tool} />);
+    renderDock(<BoardToolDock {...fixture()} activeTool={tool} />);
     expect(screen.getByRole("region", { name: label })).toBeInTheDocument();
     advance(1_999);
     expect(screen.getByRole("region", { name: label })).toBeInTheDocument();
@@ -160,7 +234,7 @@ describe("dock popup inactivity contract", () => {
     ["Медиа", "Меню медиа"],
     ["Экспорт доски", "Форматы экспорта"],
   ])("dismisses the %s menu and resets aria-expanded", (trigger, label) => {
-    render(<BoardToolDock {...fixture()} />);
+    renderDock(<BoardToolDock {...fixture()} />);
     fireEvent.click(screen.getByRole("button", { name: trigger }));
     expect(screen.getByRole("menu", { name: label })).toBeInTheDocument();
     advance(2_000);
@@ -174,7 +248,7 @@ describe("dock popup inactivity contract", () => {
   });
 
   it("counts interaction from the latest pointer, keyboard and input event", () => {
-    render(<BoardToolDock {...fixture()} />);
+    renderDock(<BoardToolDock {...fixture()} />);
     const panel = screen.getByRole("region", {
       name: "Первичные настройки инструмента",
     });
@@ -198,7 +272,7 @@ describe("dock popup inactivity contract", () => {
   });
 
   it("pauses during a slider drag and resumes after release outside the dock", () => {
-    render(<BoardToolDock {...fixture()} />);
+    renderDock(<BoardToolDock {...fixture()} />);
     const panel = screen.getByRole("region", {
       name: "Первичные настройки инструмента",
     });
@@ -215,7 +289,7 @@ describe("dock popup inactivity contract", () => {
   });
 
   it("reopens the pen panel when reselecting its active tool or preset", () => {
-    render(<BoardToolDock {...fixture()} />);
+    renderDock(<BoardToolDock {...fixture()} />);
     advance(2_000);
     expect(
       screen.queryByRole("region", { name: "Первичные настройки инструмента" }),
@@ -235,7 +309,7 @@ describe("dock popup inactivity contract", () => {
   });
 
   it("does not reveal the underlying pen settings when a dock menu expires", () => {
-    render(<BoardToolDock {...fixture()} />);
+    renderDock(<BoardToolDock {...fixture()} />);
     fireEvent.click(screen.getByRole("button", { name: "Рисование" }));
     advance(2_000);
     expect(screen.queryByRole("menu")).toBeNull();
@@ -257,7 +331,7 @@ describe("dock popup inactivity contract", () => {
   it("remounts the selection panel for another selection and cleans up timers", () => {
     const props = fixture();
     const selectedStyle = defaultDrawingToolStyle("drawing.pen");
-    const view = render(
+    const view = renderDock(
       <BoardToolDock
         {...props}
         selectedCount={1}

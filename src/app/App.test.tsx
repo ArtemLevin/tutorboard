@@ -1,7 +1,7 @@
 import {
   cleanup,
   fireEvent,
-  render,
+  render as reactRender,
   screen,
   waitFor,
 } from "@testing-library/react";
@@ -30,6 +30,17 @@ import {
 } from "../modules/handwritten-function/public";
 import { App, createInitialDocument } from "./App";
 import { undoHistoryLimitStorageKey } from "./board-chrome/undo-history-preferences";
+
+function render(...args: Parameters<typeof reactRender>) {
+  const view = reactRender(...args);
+  const toggle = screen.queryByRole("button", {
+    name: "Развернуть инструменты",
+  });
+  if (toggle !== null) {
+    fireEvent.pointerEnter(toggle, { pointerType: "mouse" });
+  }
+  return view;
+}
 
 function enableBookmarksForTest(): void {
   if (screen.queryByRole("button", { name: "Закладки областей" })) return;

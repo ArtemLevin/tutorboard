@@ -409,6 +409,7 @@ function SelectedTextEditor({
 }
 
 const dockPopupIdleMs = 2_000;
+const dockCollapseIdleMs = 3_000;
 
 /** One inactivity contract for transient dock menus and tool settings. */
 function ToolSettingsVisibility({
@@ -493,6 +494,10 @@ function ToolSettingsVisibility({
 export function BoardToolDock(props: BoardToolDockProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const dockToggleRef = useRef<HTMLButtonElement>(null);
+  const collapseTimeoutRef = useRef<number | null>(null);
+  const pointerDownRef = useRef(false);
+  const [dockExpanded, setDockExpanded] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [openMenu, setOpenMenu] = useState<DockMenuId | null>(null);
   const [settingsRevision, setSettingsRevision] = useState(0);
@@ -506,10 +511,78 @@ export function BoardToolDock(props: BoardToolDockProps) {
       ? `selection:${props.selectionKey ?? props.selectedCount}`
       : props.activeTool;
   const suppressFallback = suppressedFallbackKey === fallbackKey;
+  const hideFallback = !dockExpanded || suppressFallback;
   const activeDrawingTool = isDrawingToolId(props.activeTool)
     ? props.activeTool
     : null;
+  const clearCollapseTimer = useCallback(() => {
+    if (collapseTimeoutRef.current !== null) {
+      window.clearTimeout(collapseTimeoutRef.current);
+      collapseTimeoutRef.current = null;
+    }
+  }, []);
+
+  const collapseDock = useCallback(() => {
+    clearCollapseTimer();
+    pointerDownRef.current = false;
+    setOpenMenu(null);
+    setDockExpanded(false);
+  }, [clearCollapseTimer]);
+
+  const scheduleCollapse = useCallback(() => {
+    clearCollapseTimer();
+    if (pointerDownRef.current) return;
+    collapseTimeoutRef.current = window.setTimeout(() => {
+      collapseTimeoutRef.current = null;
+      // Never interrupt text entry or a slider controlled with the keyboard.
+      const focused = document.activeElement;
+      if (
+        focused instanceof HTMLElement &&
+        rootRef.current?.contains(focused) &&
+        focused.matches("input, textarea, select, [contenteditable='true']")
+      ) {
+        return;
+      }
+      setOpenMenu(null);
+      setDockExpanded(false);
+    }, dockCollapseIdleMs);
+  }, [clearCollapseTimer]);
+
+  const expandDock = useCallback(() => {
+    setDockExpanded(true);
+    scheduleCollapse();
+  }, [scheduleCollapse]);
+
+  const previousActiveTool = useRef(props.activeTool);
+  useEffect(() => {
+    if (previousActiveTool.current === props.activeTool) return;
+    previousActiveTool.current = props.activeTool;
+    // Shortcuts should show the newly selected tool's settings.
+    expandDock();
+  }, [expandDock, props.activeTool]);
+
+  useEffect(() => {
+    const releasePointer = () => {
+      if (!pointerDownRef.current) return;
+      pointerDownRef.current = false;
+      scheduleCollapse();
+    };
+    window.addEventListener("pointerup", releasePointer);
+    window.addEventListener("pointercancel", releasePointer);
+    return () => {
+      clearCollapseTimer();
+      window.removeEventListener("pointerup", releasePointer);
+      window.removeEventListener("pointercancel", releasePointer);
+    };
+  }, [clearCollapseTimer, scheduleCollapse]);
+
   const handleKeys = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape" && openMenu === null) {
+      event.preventDefault();
+      collapseDock();
+      dockToggleRef.current?.focus();
+      return;
+    }
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     const buttons = [
       ...(toolbarRef.current?.querySelectorAll<HTMLButtonElement>(
@@ -610,8 +683,36 @@ export function BoardToolDock(props: BoardToolDockProps) {
   ].filter((item): item is DrawingToolDefinition => item !== undefined);
 
   return (
-    <div className="board-tool-dock-shell" ref={rootRef}>
-      {openMenu === "export" ? (
+    <div
+      className="board-tool-dock-shell"
+      onBlurCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      onClickCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      onFocusCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      onInputCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      onKeyDownCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      onPointerDownCapture={() => {
+        pointerDownRef.current = true;
+        clearCollapseTimer();
+      }}
+      onPointerMoveCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      onWheelCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      ref={rootRef}
+    >
+      {dockExpanded && openMenu === "export" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:export"
@@ -650,7 +751,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             />
           )}
         </ToolSettingsVisibility>
-      ) : openMenu === "favorites" ? (
+      ) : dockExpanded && openMenu === "favorites" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:favorites"
@@ -684,7 +785,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             );
           })}
         </ToolSettingsVisibility>
-      ) : openMenu === "selection" ? (
+      ) : dockExpanded && openMenu === "selection" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:selection"
@@ -705,7 +806,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onClick={() => chooseTool(lassoSelectionToolId)}
           />
         </ToolSettingsVisibility>
-      ) : openMenu === "drawing" ? (
+      ) : dockExpanded && openMenu === "drawing" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:drawing"
@@ -731,7 +832,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onClick={() => chooseTool(eraserToolId)}
           />
         </ToolSettingsVisibility>
-      ) : openMenu === "math" ? (
+      ) : dockExpanded && openMenu === "math" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:math"
@@ -749,7 +850,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             }}
           />
         </ToolSettingsVisibility>
-      ) : openMenu === "ai" ? (
+      ) : dockExpanded && openMenu === "ai" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:ai"
@@ -787,7 +888,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             />
           ) : null}
         </ToolSettingsVisibility>
-      ) : openMenu === "media" ? (
+      ) : dockExpanded && openMenu === "media" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:media"
@@ -824,7 +925,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 : "PNG, JPEG, SVG и анимированные GIF до 8 МБ."}
           </p>
         </ToolSettingsVisibility>
-      ) : suppressFallback ? null : props.selectionInspectorOpen &&
+      ) : hideFallback ? null : props.selectionInspectorOpen &&
         props.selectedStyle !== undefined ? (
         <ToolSettingsVisibility
           className="dock-primary-settings dock-primary-settings--selection"
@@ -1136,9 +1237,32 @@ export function BoardToolDock(props: BoardToolDockProps) {
           ) : null}
         </ToolSettingsVisibility>
       ) : null}
+      <button
+        aria-controls="board-tool-dock-toolbar"
+        aria-expanded={dockExpanded}
+        aria-label={
+          dockExpanded ? "Свернуть инструменты" : "Развернуть инструменты"
+        }
+        className="board-tool-dock-toggle"
+        onClick={() => {
+          if (dockExpanded) collapseDock();
+          else expandDock();
+        }}
+        onPointerEnter={(event) => {
+          if (event.pointerType !== "touch") expandDock();
+        }}
+        ref={dockToggleRef}
+        title={dockExpanded ? "Свернуть инструменты" : "Инструменты доски"}
+        type="button"
+      >
+        <span aria-hidden="true">☷</span>
+      </button>
       <div
+        id="board-tool-dock-toolbar"
         aria-label="Инструменты доски"
         className="board-tool-dock"
+        hidden={!dockExpanded}
+        inert={!dockExpanded}
         onKeyDown={handleKeys}
         ref={toolbarRef}
         role="toolbar"

@@ -48,6 +48,7 @@ test.describe("handwritten function production workflow", () => {
   }) => {
     await page.goto("/");
     await expect(page.getByTestId("board-stage")).toBeVisible();
+    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
     await page.getByRole("button", { name: "ИИ-инструменты" }).click();
     await page
       .getByRole("menuitemradio", { name: "Рукописная функция (F)" })
