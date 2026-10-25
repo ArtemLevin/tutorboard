@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { readBoardDocument } from "../../../../src/core/public";
-import { discardClearedBoardEmbeddedImages } from "../../../../src/adapters/canvas-konva/cleared-board-media-cache";
+import {
+  discardClearedBoardEmbeddedImages,
+} from "../../../../src/adapters/canvas-konva/cleared-board-media-cache";
 import { RasterDecodeCache } from "../../../../src/adapters/canvas-konva/raster-decode-cache";
 import { RasterImageDiagnostics } from "../../../../src/adapters/canvas-konva/raster-image-diagnostics";
 import { createDenseBoardDocument } from "../../../fixtures/dense-board";
