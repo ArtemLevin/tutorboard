@@ -701,7 +701,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
       }}
       ref={rootRef}
     >
-      {dockExpanded ? (openMenu === "export" ? (
+      {dockExpanded && openMenu === "export" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:export"
@@ -740,7 +740,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             />
           )}
         </ToolSettingsVisibility>
-      ) : openMenu === "favorites" ? (
+      ) : dockExpanded && openMenu === "favorites" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:favorites"
@@ -774,7 +774,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             );
           })}
         </ToolSettingsVisibility>
-      ) : openMenu === "selection" ? (
+      ) : dockExpanded && openMenu === "selection" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:selection"
@@ -795,7 +795,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onClick={() => chooseTool(lassoSelectionToolId)}
           />
         </ToolSettingsVisibility>
-      ) : openMenu === "drawing" ? (
+      ) : dockExpanded && openMenu === "drawing" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:drawing"
@@ -821,7 +821,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             onClick={() => chooseTool(eraserToolId)}
           />
         </ToolSettingsVisibility>
-      ) : openMenu === "math" ? (
+      ) : dockExpanded && openMenu === "math" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:math"
@@ -839,7 +839,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             }}
           />
         </ToolSettingsVisibility>
-      ) : openMenu === "ai" ? (
+      ) : dockExpanded && openMenu === "ai" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:ai"
@@ -877,7 +877,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
             />
           ) : null}
         </ToolSettingsVisibility>
-      ) : openMenu === "media" ? (
+      ) : dockExpanded && openMenu === "media" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:media"
@@ -914,7 +914,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 : "PNG, JPEG, SVG и анимированные GIF до 8 МБ."}
           </p>
         </ToolSettingsVisibility>
-      ) : suppressFallback ? null : props.selectionInspectorOpen &&
+      ) : !dockExpanded || suppressFallback ? null : props.selectionInspectorOpen &&
         props.selectedStyle !== undefined ? (
         <ToolSettingsVisibility
           className="dock-primary-settings dock-primary-settings--selection"
@@ -1225,13 +1225,8 @@ export function BoardToolDock(props: BoardToolDockProps) {
             </label>
           ) : null}
         </ToolSettingsVisibility>
-      ) : null) : null}
-      <div
-        className={dockExpanded
-          ? "board-tool-dock-content is-expanded"
-          : "board-tool-dock-content"}
-      >
-        <button
+      ) : null}
+      <button
           aria-controls="board-tool-dock-toolbar"
           aria-expanded={dockExpanded}
           aria-label={dockExpanded ? "Свернуть инструменты" : "Развернуть инструменты"}
@@ -1249,11 +1244,12 @@ export function BoardToolDock(props: BoardToolDockProps) {
         >
           <span aria-hidden="true">☷</span>
         </button>
-        {dockExpanded ? (
       <div
         id="board-tool-dock-toolbar"
         aria-label="Инструменты доски"
         className="board-tool-dock"
+        hidden={!dockExpanded}
+        inert={!dockExpanded}
         onKeyDown={handleKeys}
         ref={toolbarRef}
         role="toolbar"
@@ -1435,8 +1431,6 @@ export function BoardToolDock(props: BoardToolDockProps) {
             }}
           />
         </div>
-      </div>
-        ) : null}
       </div>
     </div>
   );
