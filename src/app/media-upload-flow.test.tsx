@@ -37,6 +37,7 @@ vi.mock("../adapters/canvas-konva/public", () => ({
     </div>
   ),
   clearCoordinatePlotSamplingCache: vi.fn(),
+  discardClearedBoardEmbeddedImages: vi.fn(),
   createDefaultKonvaRendererRegistry: () => ({
     reconcileMediaAssets: vi.fn(),
     dispose: vi.fn(),

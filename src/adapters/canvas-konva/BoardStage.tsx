@@ -583,16 +583,6 @@ export function BoardStage({
   const [spacePressed, setSpacePressed] = useState(false);
   const size = useElementSize(rootRef);
   const selectedObjectIdsKey = selectedObjectIds.join("|");
-  const hasStaticRaster = useMemo(
-    () =>
-      scene.items.some(
-        ({ object }) =>
-          (object.kind === "image.embedded" || object.kind === "media.asset") &&
-          (object.mimeType === "image/png" || object.mimeType === "image/jpeg"),
-      ),
-    [scene.items],
-  );
-
   const embeddedRasterSources = useMemo(
     () =>
       new Set(
@@ -646,17 +636,6 @@ export function BoardStage({
 
   useEffect(() => () => animatedImageRedraw.dispose(), [animatedImageRedraw]);
   useEffect(() => () => wheelInkCache.dispose(), [wheelInkCache]);
-
-  useEffect(() => {
-    if (!hasStaticRaster) rasterDecodeCache.trimUnused();
-  }, [hasStaticRaster]);
-
-  useEffect(
-    () => () => {
-      queueMicrotask(() => rasterDecodeCache.trimUnused());
-    },
-    [],
-  );
 
   useEffect(() => {
     const root = rootRef.current;

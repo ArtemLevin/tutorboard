@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  releaseClearedBoardImageResources,
   resetBoardTransientStateAfterClear,
   shouldResetBoardRenderResources,
 } from "../../../src/app/board/controllers/clear-resource-lifecycle";
+import { readBoardDocument } from "../../../src/core/public";
 import { selectionToolId } from "../../../src/modules/selection/public";
+import { createDenseBoardDocument } from "../../fixtures/dense-board";
 
 describe("clear board transient lifecycle", () => {
   it("resets only after a same-board clear", () => {
@@ -18,6 +21,24 @@ describe("clear board transient lifecycle", () => {
     expect(shouldResetBoardRenderResources(cleared, populated)).toBe(false);
     const switched = shouldResetBoardRenderResources(populated, unrelatedEmpty);
     expect(switched).toBe(false);
+  });
+
+  it("extracts unique embedded sources without passing documents to the cache", () => {
+    const read = readBoardDocument(
+      createDenseBoardDocument({
+        strokeCount: 4,
+        staticCount: 2,
+        gifCount: 1,
+      }),
+    );
+    if (read.status !== "ok") throw new Error("Invalid image board");
+    const retireSources = vi.fn<(sources: Iterable<string>) => void>();
+
+    releaseClearedBoardImageResources(read.document, retireSources);
+    expect(retireSources).toHaveBeenCalledOnce();
+    const sources = retireSources.mock.calls[0]?.[0];
+    expect(sources).toBeInstanceOf(Set);
+    expect(sources === undefined ? [] : [...sources]).toHaveLength(2);
   });
 
   it("cancels transient sessions without touching undo-retained document state", () => {

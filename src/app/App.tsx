@@ -36,6 +36,7 @@ import {
 import { useBoardClipboardController } from "./board/controllers/useBoardClipboardController";
 import {
   releaseBoardPlotSamplingCache,
+  releaseClearedBoardImageResources,
   shouldResetBoardRenderResources,
 } from "./board/controllers/clear-resource-lifecycle";
 import { useBoardDocumentController } from "./board/controllers/useBoardDocumentController";
@@ -287,6 +288,7 @@ export function App({
   // full clear, including clears received from collaborators. The document
   // controller and its Undo/Redo snapshots remain mounted.
   const [clearRenderGeneration, setClearRenderGeneration] = useState(0);
+  const previousRenderDocumentRef = useRef(document);
   const previousRenderContentRef = useRef({
     documentId: String(document.id),
     hasObjects: document.order.length > 0,
@@ -659,6 +661,8 @@ export function App({
   }, [clipboard, documentController, onFullResetCommitted]);
 
   useLayoutEffect(() => {
+    const previousDocument = previousRenderDocumentRef.current;
+    previousRenderDocumentRef.current = document;
     const next = {
       documentId: String(document.id),
       hasObjects: document.order.length > 0,
@@ -666,11 +670,14 @@ export function App({
     const previous = previousRenderContentRef.current;
     previousRenderContentRef.current = next;
     if (!shouldResetBoardRenderResources(previous, next)) return;
+    // Release embedded bitmap decodes retained by the outgoing document.
+    // Active consumers (possibly in other boards) remain valid until released.
+    releaseClearedBoardImageResources(previousDocument);
     // Prevent an asynchronous upload from repopulating a just-cleared board.
     cancelPendingImport();
     releaseBoardPlotSamplingCache();
     setClearRenderGeneration((generation) => generation + 1);
-  }, [cancelPendingImport, document.id, document.order.length]);
+  }, [cancelPendingImport, document]);
 
   const handleGeometrySelectionCreated = useCallback(
     (
