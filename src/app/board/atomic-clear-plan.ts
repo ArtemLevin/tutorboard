@@ -132,10 +132,14 @@ export function planAtomicFullBoardClear(
     }
     members.objectIds.push(ids[i]!);
   }
-  const componentFor = (members: readonly BoardObjectId[]): CutMembers | null => {
+  const componentFor = (
+    members: readonly BoardObjectId[],
+  ): CutMembers | null => {
     const first = members[0];
     const position = first === undefined ? undefined : index.get(first);
-    return position === undefined ? null : (components.get(root(position)) ?? null);
+    return position === undefined
+      ? null
+      : (components.get(root(position)) ?? null);
   };
   for (const group of Object.values(document.groups)) {
     const members = componentFor(group.objectIds);
@@ -164,7 +168,8 @@ export function planAtomicFullBoardClear(
       (total, ids) =>
         total +
         ids.reduce(
-          (bytes, id) => bytes + encoder.encode(JSON.stringify(id)).byteLength + 1,
+          (bytes, id) =>
+            bytes + encoder.encode(JSON.stringify(id)).byteLength + 1,
           0,
         ),
       0,
