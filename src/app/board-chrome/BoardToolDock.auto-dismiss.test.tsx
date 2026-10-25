@@ -98,65 +98,65 @@ afterEach(() => {
 });
 
 describe("compact dock collapse contract", () => {
+  const toggle = () =>
+    screen.getByRole("button", { name: "Развернуть инструменты" });
+  const toolbar = () =>
+    screen.getByRole("toolbar", { name: "Инструменты доски" });
+
   it("starts as one icon and expands on mouse hover", () => {
     reactRender(<BoardToolDock {...fixture()} />);
-    const toggle = screen.getByRole("button", { name: "Развернуть инструменты" });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("toolbar", { name: "Инструменты доски" })).toBeNull();
+    const trigger = toggle();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("toolbar")).toBeNull();
     expect(screen.queryByRole("button", { name: "Рисование" })).toBeNull();
 
-    fireEvent.pointerEnter(toggle, { pointerType: "mouse" });
-    expect(screen.getByRole("toolbar", { name: "Инструменты доски" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Свернуть инструменты" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    fireEvent.pointerEnter(trigger, { pointerType: "mouse" });
+    expect(toolbar()).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Свернуть инструменты" }),
+    ).toHaveAttribute("aria-expanded", "true");
     advance(2_999);
-    expect(screen.getByRole("toolbar", { name: "Инструменты доски" })).toBeInTheDocument();
+    expect(toolbar()).toBeInTheDocument();
     advance(1);
-    expect(screen.queryByRole("toolbar", { name: "Инструменты доски" })).toBeNull();
+    expect(screen.queryByRole("toolbar")).toBeNull();
   });
 
   it("resets three-second inactivity after a pointer move", () => {
     reactRender(<BoardToolDock {...fixture()} />);
-    fireEvent.pointerEnter(screen.getByRole("button", { name: "Развернуть инструменты" }), {
-      pointerType: "mouse",
-    });
-    const toolbar = screen.getByRole("toolbar", { name: "Инструменты доски" });
+    fireEvent.pointerEnter(toggle(), { pointerType: "mouse" });
+    const dock = toolbar();
     advance(2_000);
-    fireEvent.pointerMove(toolbar);
+    fireEvent.pointerMove(dock);
     advance(2_999);
-    expect(toolbar).toBeInTheDocument();
+    expect(dock).toBeInTheDocument();
     advance(1);
-    expect(screen.queryByRole("toolbar", { name: "Инструменты доски" })).toBeNull();
+    expect(screen.queryByRole("toolbar")).toBeNull();
   });
 
   it("supports tap and keyboard activation, and Escape restores the trigger", () => {
     reactRender(<BoardToolDock {...fixture()} />);
-    const toggle = screen.getByRole("button", { name: "Развернуть инструменты" });
-    fireEvent.pointerEnter(toggle, { pointerType: "touch" });
-    expect(screen.queryByRole("toolbar", { name: "Инструменты доски" })).toBeNull();
-    fireEvent.click(toggle);
-    expect(screen.getByRole("toolbar", { name: "Инструменты доски" })).toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole("toolbar", { name: "Инструменты доски" }), {
-      key: "Escape",
-    });
-    expect(screen.queryByRole("toolbar", { name: "Инструменты доски" })).toBeNull();
-    expect(toggle).toHaveFocus();
-    fireEvent.click(toggle);
-    expect(screen.getByRole("toolbar", { name: "Инструменты доски" })).toBeInTheDocument();
+    const trigger = toggle();
+    fireEvent.pointerEnter(trigger, { pointerType: "touch" });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    fireEvent.click(trigger);
+    expect(toolbar()).toBeInTheDocument();
+    fireEvent.keyDown(toolbar(), { key: "Escape" });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(trigger).toHaveFocus();
+    fireEvent.click(trigger);
+    expect(toolbar()).toBeInTheDocument();
   });
 
-  it("keeps an active control during a pointer drag and disposes timers", () => {
+  it("pauses a pointer drag and cleans up timers on unmount", () => {
     const view = reactRender(<BoardToolDock {...fixture()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Развернуть инструменты" }));
-    const toolbar = screen.getByRole("toolbar", { name: "Инструменты доски" });
-    fireEvent.pointerDown(toolbar);
+    fireEvent.click(toggle());
+    const dock = toolbar();
+    fireEvent.pointerDown(dock);
     advance(4_000);
-    expect(toolbar).toBeInTheDocument();
+    expect(dock).toBeInTheDocument();
     fireEvent.pointerUp(window);
     advance(3_000);
-    expect(screen.queryByRole("toolbar", { name: "Инструменты доски" })).toBeNull();
+    expect(screen.queryByRole("toolbar")).toBeNull();
     view.unmount();
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -183,7 +183,7 @@ describe("dock popup inactivity contract", () => {
     });
     fireEvent.click(laserButton);
     expect(onActivate).toHaveBeenLastCalledWith("presentation.laser");
-    view.rerenderDock(
+    view.rerender(
       <BoardToolDock
         {...props}
         activeTool="presentation.laser"
@@ -192,7 +192,7 @@ describe("dock popup inactivity contract", () => {
     );
     fireEvent.click(laserButton);
     expect(onActivate).toHaveBeenLastCalledWith("presentation.spotlight");
-    view.rerenderDock(
+    view.rerender(
       <BoardToolDock
         {...props}
         activeTool="presentation.spotlight"
@@ -344,7 +344,7 @@ describe("dock popup inactivity contract", () => {
     expect(screen.getByRole("region", { name: label })).toBeInTheDocument();
     advance(2_000);
     expect(screen.queryByRole("region", { name: label })).toBeNull();
-    view.rerenderDock(
+    view.rerender(
       <BoardToolDock
         {...props}
         selectedCount={1}
