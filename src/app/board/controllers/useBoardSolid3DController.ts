@@ -296,7 +296,13 @@ export function useBoardSolid3DController({
         metadata: createCommandMetadata(),
       }),
     );
-  }, [commitCommand, createCommandMetadata, getDocument, learningEnabled, record]);
+  }, [
+    commitCommand,
+    createCommandMetadata,
+    getDocument,
+    learningEnabled,
+    record,
+  ]);
 
   const completeLearning = useCallback(() => {
     if (!learningEnabled || record === null) return;
@@ -308,7 +314,13 @@ export function useBoardSolid3DController({
         metadata: createCommandMetadata(),
       }),
     );
-  }, [commitCommand, createCommandMetadata, getDocument, learningEnabled, record]);
+  }, [
+    commitCommand,
+    createCommandMetadata,
+    getDocument,
+    learningEnabled,
+    record,
+  ]);
 
   return {
     close: () => setEditorId(null),
