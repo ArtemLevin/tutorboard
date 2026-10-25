@@ -7,9 +7,7 @@ import {
 } from "../../../core/public";
 import { selectionToolId } from "../../../modules/selection/public";
 import { BoardSettingsDialog } from "../../board-chrome/BoardSettingsDialog";
-import {
-  undoHistoryLimitOptions,
-} from "../../board-chrome/undo-history-preferences";
+import { undoHistoryLimitOptions } from "../../board-chrome/undo-history-preferences";
 import type { AppPersistenceStatus } from "../types";
 import type { BoardClipboardController } from "../controllers/useBoardClipboardController";
 import type { BoardInteractionRouter } from "../controllers/useBoardInteractionRouter";
@@ -313,10 +311,9 @@ export function BoardSettingsPanel({
           </select>
         </label>
         <p>
-          По умолчанию сохраняются 5 действий. Уменьшение значения сразу
-          удаляет самые старые записи истории. Настройка действует в этом
-          браузере, включая совместную доску; отмена других участников не
-          затрагивается.
+          По умолчанию сохраняются 5 действий. Уменьшение значения сразу удаляет
+          самые старые записи истории. Настройка действует в этом браузере,
+          включая совместную доску; отмена других участников не затрагивается.
         </p>
       </section>
       {settingsExtra}
