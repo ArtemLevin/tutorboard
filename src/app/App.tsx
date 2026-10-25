@@ -25,7 +25,6 @@ import {
   type Vec2,
   type ViewportState,
 } from "../core/public";
-import { discardClearedBoardEmbeddedImages } from "../adapters/canvas-konva/public";
 import { resolveEmbeddedImagePlacementSizeForScene } from "./image-import";
 import type { BoardMediaUploadSession } from "./media-asset-import";
 import {
@@ -37,6 +36,7 @@ import {
 import { useBoardClipboardController } from "./board/controllers/useBoardClipboardController";
 import {
   releaseBoardPlotSamplingCache,
+  releaseClearedBoardImageResources,
   shouldResetBoardRenderResources,
 } from "./board/controllers/clear-resource-lifecycle";
 import { useBoardDocumentController } from "./board/controllers/useBoardDocumentController";
@@ -672,7 +672,7 @@ export function App({
     if (!shouldResetBoardRenderResources(previous, next)) return;
     // Release embedded bitmap decodes retained by the outgoing document.
     // Active consumers (possibly in other boards) remain valid until released.
-    discardClearedBoardEmbeddedImages(previousDocument);
+    releaseClearedBoardImageResources(previousDocument);
     // Prevent an asynchronous upload from repopulating a just-cleared board.
     cancelPendingImport();
     releaseBoardPlotSamplingCache();
