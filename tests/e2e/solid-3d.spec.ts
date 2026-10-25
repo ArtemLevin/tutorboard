@@ -516,27 +516,26 @@ test("drags a seeded edge point in 3D and persists its new position @requires-we
   const rect = await canvas.boundingBox();
   if (rect === null) throw new Error("3D canvas unavailable");
 
-  const eye = [4.8, 3.8, 5.4];
-  const magnitude = Math.hypot(...eye);
-  const forward = eye.map((value) => value / magnitude);
-  const rightMagnitude = Math.hypot(forward[2]!, forward[0]!);
-  const right = [
-    forward[2]! / rightMagnitude,
-    0,
-    -forward[0]! / rightMagnitude,
-  ];
-  const up = [
-    -forward[1]! * right[2]!,
-    forward[2]! * right[0]! - forward[0]! * right[2]!,
-    forward[1]! * right[0]!,
-  ];
+  // Use the same camera projection as the free-point placement helper.
+  // Its exact matrices are needed to hit the drag handle within 16 CSS pixels.
+  const THREE = await import("three");
+  const camera = new THREE.OrthographicCamera(
+    (-2.8 * rect.width) / rect.height,
+    (2.8 * rect.width) / rect.height,
+    2.8,
+    -2.8,
+    0.01,
+    100,
+  );
+  camera.position.set(4.8, 3.8, 5.4);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  camera.updateProjectionMatrix();
   const screen = (y: number) => {
-    const p = [1, y, 1];
-    const x = p.reduce((sum, value, i) => sum + value * right[i]!, 0);
-    const z = p.reduce((sum, value, i) => sum + value * up[i]!, 0);
+    const position = new THREE.Vector3(1, y, 1).project(camera);
     return {
-      x: rect.x + rect.width / 2 + (x * rect.height) / 5.6,
-      y: rect.y + rect.height / 2 - (z * rect.height) / 5.6,
+      x: rect.x + ((position.x + 1) * rect.width) / 2,
+      y: rect.y + ((1 - position.y) * rect.height) / 2,
     };
   };
 
