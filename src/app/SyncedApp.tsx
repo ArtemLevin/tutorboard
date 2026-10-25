@@ -1142,8 +1142,22 @@ function SyncedWorkspace({
           mediaResourceGeneration={mediaResources.resourceGeneration}
           mediaAssetImportEnabled={mediaAssetImportEnabled}
           mediaUploadSession={mediaUploadSession}
+          canRestoreClear={(command, source) => {
+            if (!writeEnabled || command.kind !== "core.clipboard.cut") {
+              return false;
+            }
+            const inverse = invertOwnBoardCommand(command, source, {
+              actorId: state.actorId,
+              createId: () => `command:preflight:${crypto.randomUUID()}`,
+              now: () => new Date().toISOString(),
+            });
+            return (
+              inverse.length > 0 &&
+              undoAvailability.prepareCommittedCut(command, inverse) !== false
+            );
+          }}
           onFullResetCommitted={() => {
-            // The local inverse of this clear was registered by onCommandCommitted.
+            // Clear the local history only after the mutation has committed.
             // Discard it and all earlier local Undo entries only after commit.
             undoStackRef.current = [];
             setUndoCount(0);
@@ -1229,9 +1243,23 @@ function SyncedWorkspace({
             }
             trackOwnCommit(document, () => engine.queue(command, document));
           }}
-          onCommandsCommitted={(commands, document, previousDocument) => {
+          onCommandsCommitted={(
+            commands,
+            document,
+            previousDocument,
+            discardUndoHistory,
+          ) => {
             if (!writeEnabled || commands.length === 0) return;
             renderedDocumentRef.current = document;
+            if (discardUndoHistory) {
+              undoStackRef.current = [];
+              setUndoCount(0);
+              setUndoNotice(null);
+              trackOwnCommit(document, () =>
+                engine.queueBatch(commands, document),
+              );
+              return;
+            }
             let preview = previousDocument;
             const inverseGroups: (readonly BoardCommand[])[] = [];
             for (const command of commands) {
