@@ -30,7 +30,9 @@ describe("scoped bitmap release after board clear", () => {
       decoder: vi.fn((request: RasterDecodeRequest) =>
         Promise.resolve({
           close:
-            request.dataUrl === embedded.dataUrl ? clearedClose : unrelatedClose,
+            request.dataUrl === embedded.dataUrl
+              ? clearedClose
+              : unrelatedClose,
           height: 64,
           image: document.createElement("canvas"),
           width: 64,
