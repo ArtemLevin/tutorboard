@@ -4,6 +4,7 @@ test("supports keyboard movement, shortcut help and focus restoration", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await expect(
     page.getByRole("toolbar", { name: "Инструменты доски" }),
   ).toBeVisible();
