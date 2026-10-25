@@ -235,9 +235,10 @@ export function useBoardDocumentController({
       documentRef.current = currentDocument;
       setState((current) => ({
         commandError: null,
-        history: historyEnabled && !options.discardUndoHistory
-          ? commitDocumentHistory(current.history, currentDocument)
-          : createDocumentHistory(currentDocument, current.history.limit),
+        history:
+          historyEnabled && !options.discardUndoHistory
+            ? commitDocumentHistory(current.history, currentDocument)
+            : createDocumentHistory(currentDocument, current.history.limit),
       }));
       if (onCommandsCommitted !== undefined) {
         onCommandsCommitted(
