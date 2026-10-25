@@ -1,4 +1,3 @@
-import type { BoardDocument } from "../../core/public";
 import { rasterDecodeCache } from "./raster-decode-cache";
 
 /**
@@ -13,15 +12,13 @@ import { rasterDecodeCache } from "./raster-decode-cache";
  * per-canvas renderer registry when the old scene is disposed.
  */
 export function discardClearedBoardEmbeddedImages(
-  document: Pick<BoardDocument, "order" | "objects">,
+  sourceIdentities: Iterable<string>,
   cache: Pick<
     typeof rasterDecodeCache,
     "discardSourceWhenUnused"
   > = rasterDecodeCache,
 ): void {
-  for (const id of document.order) {
-    const object = document.objects[id];
-    if (object?.kind !== "image.embedded") continue;
-    cache.discardSourceWhenUnused(object.dataUrl);
+  for (const identity of sourceIdentities) {
+    cache.discardSourceWhenUnused(identity);
   }
 }
