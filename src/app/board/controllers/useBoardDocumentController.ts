@@ -19,6 +19,7 @@ import {
   commitDocumentHistory,
   createDocumentHistory,
   redoDocumentHistory,
+  resizeDocumentHistory,
   undoDocumentHistory,
 } from "../../../modules/history/public";
 
@@ -26,6 +27,7 @@ export interface UseBoardDocumentControllerOptions {
   readonly collaborativeUndoAvailable: boolean;
   readonly commandActorId: ActorId;
   readonly historyEnabled: boolean;
+  readonly historyLimit: number;
   readonly initialDocument: BoardDocument;
   readonly mutationPolicy?: BoardMutationPolicy;
   readonly onCollaborativeUndo?: (() => void) | undefined;
@@ -52,6 +54,7 @@ export function useBoardDocumentController({
   collaborativeUndoAvailable,
   commandActorId,
   historyEnabled,
+  historyLimit,
   initialDocument,
   mutationPolicy,
   onCollaborativeUndo,
@@ -62,7 +65,7 @@ export function useBoardDocumentController({
 }: UseBoardDocumentControllerOptions) {
   const [state, setState] = useState(() => ({
     commandError: null as string | null,
-    history: createDocumentHistory(initialDocument),
+    history: createDocumentHistory(initialDocument, historyLimit),
   }));
   const document = state.history.present;
   const documentRef = useRef(document);
@@ -93,10 +96,17 @@ export function useBoardDocumentController({
         ? current
         : {
             commandError: null,
-            history: createDocumentHistory(initialDocument),
+            history: createDocumentHistory(initialDocument, historyLimit),
           },
     );
-  }, [initialDocument]);
+  }, [initialDocument, historyLimit]);
+
+  useEffect(() => {
+    setState((current) => {
+      const history = resizeDocumentHistory(current.history, historyLimit);
+      return history === current.history ? current : { ...current, history };
+    });
+  }, [historyLimit]);
 
   const getDocument = useCallback(() => documentRef.current, []);
 
@@ -151,7 +161,7 @@ export function useBoardDocumentController({
       const scheduleHistory = () =>
         setState((current) => ({
           commandError: null,
-          history: options.discardUndoHistory
+          history: options.discardUndoHistory || !historyEnabled
             ? createDocumentHistory(result.document, current.history.limit)
             : isViewport
               ? measureBoardFrameTrace("viewport-history", () =>
@@ -180,7 +190,12 @@ export function useBoardDocumentController({
       }
       return result;
     },
-    [effectiveMutationPolicy.canWrite, onCommandCommitted, rejectMutation],
+    [
+      effectiveMutationPolicy.canWrite,
+      historyEnabled,
+      onCommandCommitted,
+      rejectMutation,
+    ],
   );
 
   const commitCommands = useCallback(
@@ -219,7 +234,9 @@ export function useBoardDocumentController({
       documentRef.current = currentDocument;
       setState((current) => ({
         commandError: null,
-        history: commitDocumentHistory(current.history, currentDocument),
+        history: historyEnabled
+          ? commitDocumentHistory(current.history, currentDocument)
+          : createDocumentHistory(currentDocument, current.history.limit),
       }));
       if (onCommandsCommitted !== undefined) {
         onCommandsCommitted(
@@ -240,6 +257,7 @@ export function useBoardDocumentController({
     },
     [
       effectiveMutationPolicy.canWrite,
+      historyEnabled,
       onCommandCommitted,
       onCommandsCommitted,
       rejectMutation,
