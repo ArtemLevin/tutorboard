@@ -96,7 +96,10 @@ export function useBoardDocumentController({
         ? current
         : {
             commandError: null,
-            history: createDocumentHistory(initialDocument, current.history.limit),
+            history: createDocumentHistory(
+              initialDocument,
+              current.history.limit,
+            ),
           },
     );
   }, [initialDocument]);
