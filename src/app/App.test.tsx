@@ -28,7 +28,9 @@ import {
   mathInkRecognitionResultSchemaVersion,
 } from "../modules/handwritten-function/public";
 import { App, createInitialDocument } from "./App";
-import { undoHistoryLimitStorageKey } from "./board-chrome/undo-history-preferences";
+import {
+  undoHistoryLimitStorageKey,
+} from "./board-chrome/undo-history-preferences";
 
 function enableBookmarksForTest(): void {
   if (screen.queryByRole("button", { name: "Закладки областей" })) return;
@@ -770,7 +772,9 @@ describe("App", () => {
       expect(screen.getByTestId("history-depth")).toHaveTextContent("3/0");
       expect(screen.getByTestId("object-count")).toHaveTextContent("8 объекта");
       expect(window.localStorage.getItem(undoHistoryLimitStorageKey)).toBe("3");
-      fireEvent.click(screen.getByRole("button", { name: "Закрыть настройки доски" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Закрыть настройки доски" }),
+      );
 
       for (let step = 0; step < 3; step += 1) {
         fireEvent.click(screen.getByRole("button", { name: /Отменить/ }));
