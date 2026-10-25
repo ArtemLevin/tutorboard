@@ -44,6 +44,7 @@ export interface UseBoardDocumentControllerOptions {
         commands: readonly BoardCommand[],
         document: BoardDocument,
         previousDocument: BoardDocument,
+        discardUndoHistory?: boolean,
       ) => void)
     | undefined;
   readonly onDocumentChange?: ((document: BoardDocument) => void) | undefined;
@@ -196,7 +197,10 @@ export function useBoardDocumentController({
   );
 
   const commitCommands = useCallback(
-    (commands: readonly BoardCommand[]): CommandResult => {
+    (
+      commands: readonly BoardCommand[],
+      options: { readonly discardUndoHistory?: boolean } = {},
+    ): CommandResult => {
       if (!effectiveMutationPolicy.canWrite) {
         return rejectMutation();
       }
@@ -231,7 +235,7 @@ export function useBoardDocumentController({
       documentRef.current = currentDocument;
       setState((current) => ({
         commandError: null,
-        history: historyEnabled
+        history: historyEnabled && !options.discardUndoHistory
           ? commitDocumentHistory(current.history, currentDocument)
           : createDocumentHistory(currentDocument, current.history.limit),
       }));
@@ -240,6 +244,7 @@ export function useBoardDocumentController({
           transitions.map(({ command }) => command),
           currentDocument,
           initialDocument,
+          options.discardUndoHistory,
         );
       } else {
         for (const transition of transitions) {
@@ -247,6 +252,7 @@ export function useBoardDocumentController({
             transition.command,
             transition.document,
             transition.previousDocument,
+            options.discardUndoHistory,
           );
         }
       }
