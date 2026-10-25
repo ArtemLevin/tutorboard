@@ -4,6 +4,7 @@ test("@smoke bookmarks a viewport and restores it after reload", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await expect(page.getByTestId("board-stage")).toBeVisible();
   await page.getByTestId("board-stage").hover();
   await page.mouse.wheel(0, -430);
@@ -64,6 +65,7 @@ test("@smoke saves bookmark preferences separately from board document", async (
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await expect(page.getByTestId("board-stage")).toBeVisible();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page
@@ -86,6 +88,7 @@ test("@smoke preserves bookmarks while hiding their shortcut", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await expect(
     page.getByRole("button", { name: "Закладки областей" }),
   ).toHaveCount(0);
