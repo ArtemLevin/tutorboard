@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
 });
 
 test("@smoke saves up to five favorite tool shortcuts and restores them after reload", async ({
@@ -41,6 +42,8 @@ test("@smoke saves up to five favorite tool shortcuts and restores them after re
   );
   await page.reload();
   await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await expect(
     toolbar.getByRole("button", { name: /Избранное: Эллипс/ }),
   ).toBeVisible();
@@ -76,6 +79,8 @@ test("@smoke saves two pen styles, switches instantly, and keeps classic color s
   );
   await page.reload();
   await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await page.getByRole("button", { name: "Применить стиль пера А" }).click();
   await expect(width).toHaveValue("4.5");
   await page.getByRole("button", { name: "Применить стиль пера Б" }).click();
