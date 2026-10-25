@@ -29,12 +29,12 @@ describe("scoped bitmap release after board clear", () => {
       diagnostics: new RasterImageDiagnostics(),
       decoder: vi.fn((request: RasterDecodeRequest) =>
         Promise.resolve({
-        close:
-          request.dataUrl === embedded.dataUrl ? clearedClose : unrelatedClose,
-        height: 64,
-        image: document.createElement("canvas"),
-        width: 64,
-      }),
+          close:
+            request.dataUrl === embedded.dataUrl ? clearedClose : unrelatedClose,
+          height: 64,
+          image: document.createElement("canvas"),
+          width: 64,
+        }),
       ),
     });
     const request = {
