@@ -72,6 +72,12 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      - name: Show exact cache test formatting
+        if: failure()
+        run: |
+          npx prettier --write tests/unit/adapters/canvas-konva/cleared-board-media-cache.test.ts
+          git diff -- tests/unit/adapters/canvas-konva/cleared-board-media-cache.test.ts
+
       - name: Lint
         run: npm run lint
 
