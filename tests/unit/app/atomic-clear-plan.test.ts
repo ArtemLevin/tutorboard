@@ -9,11 +9,7 @@ import {
   createFullBoardCut,
   planAtomicFullBoardClear,
 } from "../../../src/app/board/atomic-clear-plan";
-import {
-  loadCurrentBoardFixture,
-  metadata,
-  rectangle,
-} from "../core/helpers";
+import { loadCurrentBoardFixture, metadata, rectangle } from "../core/helpers";
 
 function board(count: number): core.BoardDocument {
   const parsed = core.readBoardDocument(loadCurrentBoardFixture());
@@ -89,12 +85,12 @@ it("keeps a shared group dependency complete inside one cut", () => {
     metadata(`group-cut:${++index}`),
   );
   expect(commands).not.toBeNull();
-  expect(commands?.filter((cut) => cut.groupIds.includes(groupId))).toHaveLength(
-    1,
-  );
-  expect(commands?.find((cut) => cut.groupIds.includes(groupId))?.objectIds).toEqual(
-    expect.arrayContaining([first, last]),
-  );
+  expect(
+    commands?.filter((cut) => cut.groupIds.includes(groupId)),
+  ).toHaveLength(1);
+  expect(
+    commands?.find((cut) => cut.groupIds.includes(groupId))?.objectIds,
+  ).toEqual(expect.arrayContaining([first, last]));
 });
 
 it("refuses an indivisible group above transport limits before any mutation", () => {
@@ -119,7 +115,9 @@ it("refuses an indivisible group above transport limits before any mutation", ()
       },
     },
   };
-  expect(planAtomicFullBoardClear(grouped, () => metadata("oversized"))).toBeNull();
+  expect(
+    planAtomicFullBoardClear(grouped, () => metadata("oversized")),
+  ).toBeNull();
   expect(grouped.order).toHaveLength(source.order.length);
 });
 
