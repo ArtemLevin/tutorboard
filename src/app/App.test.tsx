@@ -12,8 +12,8 @@ import layoutSuccessJson from "../../contracts/geometryos/fixtures/layout-succes
 import {
   discardClearedBoardEmbeddedImages,
   type BoardStageProps,
-  SelectionPointerStartSample,
-  WorldPointerSample,
+  type SelectionPointerStartSample,
+  type WorldPointerSample,
 } from "../adapters/canvas-konva/public";
 import { createGeometryOsHttpClient } from "../adapters/geometryos-http/public";
 import {
