@@ -19,7 +19,7 @@ describe("readEnvironment", () => {
           smartInk: stage !== "production",
           smartInkDiagnostics: stage !== "production",
           solid3D: stage !== "production",
-          solid3DLearning: stage !== "production",
+          solid3DLearning: false,
         },
         geometryOsBaseUrl: `${window.location.origin}/api/v1/geometryos`,
         mathInkApiBaseUrl: "/api/v1/formula-recognition",
@@ -97,7 +97,7 @@ describe("readEnvironment", () => {
         smartInk: true,
         smartInkDiagnostics: true,
         solid3D: true,
-        solid3DLearning: true,
+        solid3DLearning: false,
       },
       geometryOsBaseUrl: "https://geometry.example.test",
       mathInkApiBaseUrl: "/api/v1/formula-recognition",
@@ -162,6 +162,20 @@ describe("readEnvironment", () => {
     expect(() =>
       readEnvironment("test", undefined, { solid3D: "perhaps" }),
     ).toThrow("VITE_FEATURE_SOLID_3D");
+  });
+
+  it("suspends 3D exercises even when a stale deployment requests them", () => {
+    for (const stage of ["development", "test", "production"] as const) {
+      const features = readEnvironment(stage, undefined, {
+        solid3D: "true",
+        solid3DLearning: "true",
+      }).features;
+      expect(features.solid3D).toBe(true);
+      expect(features.solid3DLearning).toBe(false);
+    }
+    expect(() =>
+      readEnvironment("test", undefined, { solid3DLearning: "perhaps" }),
+    ).toThrow("VITE_FEATURE_SOLID_3D_LEARNING");
   });
 
   it("keeps diagnostics subordinate to the Smart Ink release flag", () => {
