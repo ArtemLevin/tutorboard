@@ -164,13 +164,14 @@ export function useBoardDocumentController({
       const scheduleHistory = () =>
         setState((current) => ({
           commandError: null,
-          history: options.discardUndoHistory || !historyEnabled
-            ? createDocumentHistory(result.document, current.history.limit)
-            : isViewport
-              ? measureBoardFrameTrace("viewport-history", () =>
-                  commitDocumentHistory(current.history, result.document),
-                )
-              : commitDocumentHistory(current.history, result.document),
+          history:
+            options.discardUndoHistory || !historyEnabled
+              ? createDocumentHistory(result.document, current.history.limit)
+              : isViewport
+                ? measureBoardFrameTrace("viewport-history", () =>
+                    commitDocumentHistory(current.history, result.document),
+                  )
+                : commitDocumentHistory(current.history, result.document),
         }));
       if (isViewport) {
         measureBoardFrameTrace("viewport-controller-schedule", scheduleHistory);
