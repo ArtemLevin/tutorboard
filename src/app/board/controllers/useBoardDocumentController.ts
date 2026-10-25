@@ -104,13 +104,6 @@ export function useBoardDocumentController({
     );
   }, [initialDocument]);
 
-  useEffect(() => {
-    setState((current) => {
-      const history = resizeDocumentHistory(current.history, historyLimit);
-      return history === current.history ? current : { ...current, history };
-    });
-  }, [historyLimit]);
-
   const getDocument = useCallback(() => documentRef.current, []);
 
   const createCommandMetadata = useCallback(
@@ -268,6 +261,13 @@ export function useBoardDocumentController({
     ],
   );
 
+  const resizeHistory = useCallback((limit: number) => {
+    setState((current) => {
+      const history = resizeDocumentHistory(current.history, limit);
+      return history === current.history ? current : { ...current, history };
+    });
+  }, []);
+
   // Deliberately release Undo/Redo-owned document snapshots without mutating
   // the current document or creating another persisted command.
   const discardHistory = useCallback(() => {
@@ -357,6 +357,7 @@ export function useBoardDocumentController({
     getDocument,
     history: state.history,
     redo,
+    resizeHistory,
     setCommandError,
     undo,
   } as const;
