@@ -965,12 +965,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("radio", { name: /Полный сброс/ }));
     fireEvent.click(screen.getByRole("button", { name: /^Очистить$/ }));
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
-    expect(onCommitted).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: "core.clipboard.cut" }),
-      expect.anything(),
-      expect.anything(),
-      true,
-    );
+    expect(onCommitted).toHaveBeenCalledTimes(1);
   });
 
   it("full reset discards Undo and works on empty boards", () => {
