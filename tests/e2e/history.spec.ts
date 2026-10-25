@@ -5,6 +5,7 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
     await expect(
       page.getByRole("application", {
         name: "Бесконечное полотно TutorBoard",
@@ -40,6 +41,7 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
     await page.getByRole("button", { name: "Настройки доски" }).click();
     const select = page.getByRole("combobox", {
       name: "Количество сохраняемых действий Undo",
