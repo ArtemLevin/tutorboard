@@ -20,6 +20,7 @@ export function releaseBoardPlotSamplingCache(): void {
 /** Resolve document-owned bitmap identities before invoking the canvas adapter. */
 export function releaseClearedBoardImageResources(
   document: Pick<BoardDocument, "order" | "objects">,
+  retireSources: (sources: Iterable<string>) => void = discardClearedBoardEmbeddedImages,
 ): void {
   const sources = new Set<string>();
   for (const id of document.order) {
@@ -28,7 +29,7 @@ export function releaseClearedBoardImageResources(
       sources.add(object.dataUrl);
     }
   }
-  discardClearedBoardEmbeddedImages(sources);
+  retireSources(sources);
 }
 
 export interface BoardRenderResourceState {
