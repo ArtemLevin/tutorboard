@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { releaseClearedBoardImageResources } from "../controllers/clear-resource-lifecycle";
+
 import {
   BoardStage,
   clearCoordinatePlotSamplingCache,
-  discardClearedBoardEmbeddedImages,
   createDefaultKonvaRendererRegistry,
   type BoardObjectTransformSnapshot,
   type CanvasContextMenuRequest,
@@ -400,7 +401,7 @@ export function BoardCanvas({
     if (mode === "full") {
       // Retire the outgoing board's decoded images before the old canvas
       // unmounts. Active handles are released by their normal cleanup.
-      discardClearedBoardEmbeddedImages(document);
+      releaseClearedBoardImageResources(document);
       // The registry owns asset source descriptors and retires their scoped
       // decode entries without touching other boards' live resource leases.
       registry.dispose();
