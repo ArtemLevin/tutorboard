@@ -960,7 +960,9 @@ describe("App", () => {
     expect(canRestoreClear).toHaveBeenCalledOnce();
     expect(onCommitted).not.toHaveBeenCalled();
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
-    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "Невозможно гарантировать Undo для этой очистки.",
+    );
 
     fireEvent.click(screen.getByRole("radio", { name: /Полный сброс/ }));
     fireEvent.click(screen.getByRole("button", { name: /^Очистить$/ }));
