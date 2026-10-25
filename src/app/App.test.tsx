@@ -33,7 +33,9 @@ import { undoHistoryLimitStorageKey } from "./board-chrome/undo-history-preferen
 
 function render(...args: Parameters<typeof reactRender>) {
   const view = reactRender(...args);
-  const toggle = screen.queryByRole("button", { name: "Развернуть инструменты" });
+  const toggle = screen.queryByRole("button", {
+    name: "Развернуть инструменты",
+  });
   if (toggle !== null) {
     fireEvent.pointerEnter(toggle, { pointerType: "mouse" });
   }
