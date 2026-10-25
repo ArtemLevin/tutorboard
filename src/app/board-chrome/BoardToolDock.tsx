@@ -511,6 +511,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
       ? `selection:${props.selectionKey ?? props.selectedCount}`
       : props.activeTool;
   const suppressFallback = suppressedFallbackKey === fallbackKey;
+  const hideFallback = !dockExpanded || suppressFallback;
   const activeDrawingTool = isDrawingToolId(props.activeTool)
     ? props.activeTool
     : null;
@@ -916,7 +917,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
                 : "PNG, JPEG, SVG и анимированные GIF до 8 МБ."}
           </p>
         </ToolSettingsVisibility>
-      ) : !dockExpanded || suppressFallback ? null : props.selectionInspectorOpen &&
+      ) : hideFallback ? null : props.selectionInspectorOpen &&
         props.selectedStyle !== undefined ? (
         <ToolSettingsVisibility
           className="dock-primary-settings dock-primary-settings--selection"
