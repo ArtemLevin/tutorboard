@@ -72,11 +72,6 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
-      - name: Show atomic-clear formatting diff
-        if: failure()
-        run: |
-          npx prettier --write src/app/board/atomic-clear-plan.ts src/app/board/controllers/useBoardClipboardController.ts src/app/board/controllers/useBoardDocumentController.ts tests/unit/app/atomic-clear-plan.test.ts
-          git diff -- src/app/board/atomic-clear-plan.ts src/app/board/controllers/useBoardClipboardController.ts src/app/board/controllers/useBoardDocumentController.ts tests/unit/app/atomic-clear-plan.test.ts
 
       - name: Lint
         run: npm run lint
