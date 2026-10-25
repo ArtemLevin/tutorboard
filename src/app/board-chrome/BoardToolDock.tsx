@@ -409,6 +409,7 @@ function SelectedTextEditor({
 }
 
 const dockPopupIdleMs = 2_000;
+const dockCollapseIdleMs = 3_000;
 
 /** One inactivity contract for transient dock menus and tool settings. */
 function ToolSettingsVisibility({
@@ -493,6 +494,10 @@ function ToolSettingsVisibility({
 export function BoardToolDock(props: BoardToolDockProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const dockToggleRef = useRef<HTMLButtonElement>(null);
+  const collapseTimeoutRef = useRef<number | null>(null);
+  const pointerDownRef = useRef(false);
+  const [dockExpanded, setDockExpanded] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [openMenu, setOpenMenu] = useState<DockMenuId | null>(null);
   const [settingsRevision, setSettingsRevision] = useState(0);
@@ -509,7 +514,66 @@ export function BoardToolDock(props: BoardToolDockProps) {
   const activeDrawingTool = isDrawingToolId(props.activeTool)
     ? props.activeTool
     : null;
+  const clearCollapseTimer = useCallback(() => {
+    if (collapseTimeoutRef.current !== null) {
+      window.clearTimeout(collapseTimeoutRef.current);
+      collapseTimeoutRef.current = null;
+    }
+  }, []);
+
+  const collapseDock = useCallback(() => {
+    clearCollapseTimer();
+    pointerDownRef.current = false;
+    setOpenMenu(null);
+    setDockExpanded(false);
+  }, [clearCollapseTimer]);
+
+  const scheduleCollapse = useCallback(() => {
+    clearCollapseTimer();
+    if (pointerDownRef.current) return;
+    collapseTimeoutRef.current = window.setTimeout(() => {
+      collapseTimeoutRef.current = null;
+      // Never interrupt text entry or a slider controlled with the keyboard.
+      const focused = document.activeElement;
+      if (
+        focused instanceof HTMLElement &&
+        rootRef.current?.contains(focused) &&
+        focused.matches("input, textarea, select, [contenteditable='true']")
+      ) {
+        return;
+      }
+      setOpenMenu(null);
+      setDockExpanded(false);
+    }, dockCollapseIdleMs);
+  }, [clearCollapseTimer]);
+
+  const expandDock = useCallback(() => {
+    setDockExpanded(true);
+    scheduleCollapse();
+  }, [scheduleCollapse]);
+
+  useEffect(() => {
+    const releasePointer = () => {
+      if (!pointerDownRef.current) return;
+      pointerDownRef.current = false;
+      scheduleCollapse();
+    };
+    window.addEventListener("pointerup", releasePointer);
+    window.addEventListener("pointercancel", releasePointer);
+    return () => {
+      clearCollapseTimer();
+      window.removeEventListener("pointerup", releasePointer);
+      window.removeEventListener("pointercancel", releasePointer);
+    };
+  }, [clearCollapseTimer, scheduleCollapse]);
+
   const handleKeys = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape" && openMenu === null) {
+      event.preventDefault();
+      collapseDock();
+      dockToggleRef.current?.focus();
+      return;
+    }
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     const buttons = [
       ...(toolbarRef.current?.querySelectorAll<HTMLButtonElement>(
@@ -610,8 +674,34 @@ export function BoardToolDock(props: BoardToolDockProps) {
   ].filter((item): item is DrawingToolDefinition => item !== undefined);
 
   return (
-    <div className="board-tool-dock-shell" ref={rootRef}>
-      {openMenu === "export" ? (
+    <div
+      className="board-tool-dock-shell"
+      onBlurCapture={scheduleCollapse}
+      onClickCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      onFocusCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      onInputCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      onKeyDownCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      onPointerDownCapture={() => {
+        pointerDownRef.current = true;
+        clearCollapseTimer();
+      }}
+      onPointerMoveCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      onWheelCapture={() => {
+        if (dockExpanded) scheduleCollapse();
+      }}
+      ref={rootRef}
+    >
+      {dockExpanded ? (openMenu === "export" ? (
         <ToolSettingsVisibility
           className="dock-menu"
           key="menu:export"
@@ -1135,8 +1225,33 @@ export function BoardToolDock(props: BoardToolDockProps) {
             </label>
           ) : null}
         </ToolSettingsVisibility>
-      ) : null}
+      ) : null) : null}
       <div
+        className={dockExpanded
+          ? "board-tool-dock-content is-expanded"
+          : "board-tool-dock-content"}
+      >
+        <button
+          aria-controls="board-tool-dock-toolbar"
+          aria-expanded={dockExpanded}
+          aria-label={dockExpanded ? "Свернуть инструменты" : "Развернуть инструменты"}
+          className="board-tool-dock-toggle"
+          onClick={() => {
+            if (dockExpanded) collapseDock();
+            else expandDock();
+          }}
+          onPointerEnter={(event) => {
+            if (event.pointerType !== "touch") expandDock();
+          }}
+          ref={dockToggleRef}
+          title={dockExpanded ? "Свернуть инструменты" : "Инструменты доски"}
+          type="button"
+        >
+          <span aria-hidden="true">☷</span>
+        </button>
+        {dockExpanded ? (
+      <div
+        id="board-tool-dock-toolbar"
         aria-label="Инструменты доски"
         className="board-tool-dock"
         onKeyDown={handleKeys}
@@ -1320,6 +1435,8 @@ export function BoardToolDock(props: BoardToolDockProps) {
             }}
           />
         </div>
+      </div>
+        ) : null}
       </div>
     </div>
   );
