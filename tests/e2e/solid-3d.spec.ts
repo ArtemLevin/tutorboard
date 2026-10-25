@@ -1,7 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 /** Prepare a geometric section using the ordinary 3D editor (no lessons). */
-async function placeFreeSectionPoints(page: Page, editor: Locator): Promise<void> {
+async function placeFreeSectionPoints(
+  page: Page,
+  editor: Locator,
+): Promise<void> {
   await editor.getByRole("button", { name: "Поставить точку" }).click();
   const canvas = editor.locator("canvas[data-engine]");
   await canvas.scrollIntoViewIfNeeded();
@@ -24,8 +27,8 @@ async function placeFreeSectionPoints(page: Page, editor: Locator): Promise<void
 
   // Three non-collinear surface points; C lies on the visible front edge.
   const points = [
-    [-1, 0.5, 1],
-    [1, 1, 0.2],
+    [0, 0, 1],
+    [0, 1, 0],
     [1, -0.4, 1],
   ] as const;
   for (const [index, position] of points.entries()) {
@@ -41,7 +44,6 @@ async function placeFreeSectionPoints(page: Page, editor: Locator): Promise<void
     ).toBeVisible();
   }
 }
-
 
 test("recovers the same 3D canvas after a real WebGL context loss @requires-webgl", async ({
   page,
