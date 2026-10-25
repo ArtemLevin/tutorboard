@@ -14,7 +14,10 @@ import { rasterDecodeCache } from "./raster-decode-cache";
  */
 export function discardClearedBoardEmbeddedImages(
   document: Pick<BoardDocument, "order" | "objects">,
-  cache: Pick<typeof rasterDecodeCache, "discardSourceWhenUnused"> = rasterDecodeCache,
+  cache: Pick<
+    typeof rasterDecodeCache,
+    "discardSourceWhenUnused"
+  > = rasterDecodeCache,
 ): void {
   for (const id of document.order) {
     const object = document.objects[id];
