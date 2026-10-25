@@ -18,6 +18,8 @@ type Cut = Extract<BoardCommand, { readonly kind: "core.clipboard.cut" }>;
 const maximumAtomicClearCommands = 100;
 const maximumAtomicClearBytes = 40 * 1024 * 1024;
 const envelopeAllowancePerCommand = 2_048;
+const maximumConservativeCommandBytes =
+  maximumBoardCommandJsonBytes - envelopeAllowancePerCommand;
 
 interface CutMembers {
   objectIds: BoardObjectId[];
@@ -151,8 +153,25 @@ export function planAtomicFullBoardClear(
     members.solidIds.push(record.id);
   }
 
+  const encoder = new TextEncoder();
+  const componentBytes = (members: CutMembers): number =>
+    [
+      members.objectIds,
+      members.groupIds,
+      members.geometryImportIds,
+      members.solidIds,
+    ].reduce(
+      (total, ids) =>
+        total +
+        ids.reduce(
+          (bytes, id) => bytes + encoder.encode(JSON.stringify(id)).byteLength + 1,
+          0,
+        ),
+      0,
+    );
   const commands: Cut[] = [];
   let pending = emptyMembers();
+  let pendingBytes = 0;
   let totalBytes = 0;
   const flush = (): boolean => {
     if (pending.objectIds.length === 0) return true;
@@ -163,21 +182,27 @@ export function planAtomicFullBoardClear(
     if (totalBytes > maximumAtomicClearBytes) return false;
     commands.push(command);
     pending = emptyMembers();
+    pendingBytes = 0;
     return commands.length <= maximumAtomicClearCommands;
   };
   for (const component of components.values()) {
-    if (component.objectIds.length > maximumBoardCommandTargets) return null;
-    const next = combine(pending, component);
+    const bytes = componentBytes(component);
     if (
-      next.objectIds.length > maximumBoardCommandTargets ||
-      serializedBytes(cut(next, metadata())) === null
+      component.objectIds.length > maximumBoardCommandTargets ||
+      bytes > maximumConservativeCommandBytes
+    ) {
+      return null;
+    }
+    if (
+      pending.objectIds.length > 0 &&
+      (pending.objectIds.length + component.objectIds.length >
+        maximumBoardCommandTargets ||
+        pendingBytes + bytes > maximumConservativeCommandBytes)
     ) {
       if (!flush()) return null;
-      pending = component;
-      if (serializedBytes(cut(pending, metadata())) === null) return null;
-    } else {
-      pending = next;
     }
+    pending = combine(pending, component);
+    pendingBytes += bytes;
   }
   if (!flush()) return null;
   return commands;
