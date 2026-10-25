@@ -707,6 +707,7 @@ export function App({
     announce,
     documentController,
     enabled: environment.features.solid3D,
+    learningEnabled: environment.features.solid3DLearning,
     selection,
   });
 

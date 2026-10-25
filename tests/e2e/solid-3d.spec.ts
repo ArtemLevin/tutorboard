@@ -1,4 +1,49 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+/** Prepare a geometric section using the ordinary 3D editor (no lessons). */
+async function placeFreeSectionPoints(
+  page: Page,
+  editor: Locator,
+): Promise<void> {
+  await editor.getByRole("button", { name: "Поставить точку" }).click();
+  const canvas = editor.locator("canvas[data-engine]");
+  await canvas.scrollIntoViewIfNeeded();
+  const bounds = await canvas.boundingBox();
+  if (bounds === null) throw new Error("Missing 3D canvas");
+
+  const THREE = await import("three");
+  const camera = new THREE.OrthographicCamera(
+    (-2.8 * bounds.width) / bounds.height,
+    (2.8 * bounds.width) / bounds.height,
+    2.8,
+    -2.8,
+    0.01,
+    100,
+  );
+  camera.position.set(4.8, 3.8, 5.4);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  camera.updateProjectionMatrix();
+
+  // Three non-collinear surface points; C lies on the visible front edge.
+  const points = [
+    [0, 0, 1],
+    [0, 1, 0],
+    [1, -0.4, 1],
+  ] as const;
+  for (const [index, position] of points.entries()) {
+    const projected = new THREE.Vector3(...position).project(camera);
+    await page.mouse.click(
+      bounds.x + ((projected.x + 1) * bounds.width) / 2,
+      bounds.y + ((1 - projected.y) * bounds.height) / 2,
+    );
+    await expect(
+      editor.getByRole("textbox", {
+        name: `Имя точки ${String.fromCharCode(65 + index)}`,
+      }),
+    ).toBeVisible();
+  }
+}
 
 test("recovers the same 3D canvas after a real WebGL context loss @requires-webgl", async ({
   page,
@@ -407,22 +452,14 @@ test("opens a semantic catalog solid in the lazy 3D editor @requires-webgl", asy
   await expect(
     editor.getByRole("button", { name: "Перспективная" }),
   ).toBeVisible();
-  await editor.getByRole("button", { name: "Учебная задача" }).click();
+  await expect(
+    editor.getByRole("button", { name: "Учебная задача" }),
+  ).toHaveCount(0);
   await expect(
     editor.getByRole("heading", { name: "Учебные сценарии" }),
-  ).toBeVisible();
-  await editor.getByRole("button", { name: "Начать" }).first().click();
-  await expect(
-    editor.getByText("Прогноз → построение → объяснение → проверка"),
-  ).toBeVisible();
-  await editor.getByRole("button", { name: "Начать прогноз" }).click();
-  await expect(
-    editor.getByRole("heading", { name: "Сначала предположите" }),
-  ).toBeVisible();
-  await editor.getByRole("button", { name: "Проверить прогноз" }).click();
-  await expect(
-    editor.getByRole("heading", { name: "Постройте сечение по граням" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
+  await editor.getByRole("button", { name: "Исследование" }).click();
+  await expect(canvas).toHaveCount(1);
   await page.setViewportSize({ width: 700, height: 640 });
   await expect(dock).toHaveCSS("position", "fixed");
   const mobileBounds = await dock.boundingBox();
@@ -457,12 +494,7 @@ test("drags a seeded edge point in 3D and persists its new position @requires-we
   await page.getByRole("button", { name: "Открыть в 3D" }).click();
 
   const editor = page.getByRole("region", { name: "Куб" });
-  await editor.getByRole("button", { name: "Учебная задача" }).click();
-  await editor
-    .getByRole("heading", { name: "Куб: движение точки" })
-    .locator("..")
-    .getByRole("button", { name: "Начать" })
-    .click();
+  await placeFreeSectionPoints(page, editor);
   await editor.getByRole("button", { name: "Сечение" }).click();
   await editor.getByRole("button", { name: "Поставить точку" }).click();
 
@@ -471,34 +503,39 @@ test("drags a seeded edge point in 3D and persists its new position @requires-we
   });
   await description.locator("summary").click();
   const pointLabel = description.locator("li").filter({ hasText: "C: x" });
-  await expect(pointLabel).toContainText("y -0.40");
+  await expect
+    .poll(async () => {
+      const label = await pointLabel.textContent();
+      const coordinate = /y (-?\d+\.\d+)/.exec(label ?? "");
+      return coordinate === null ? null : Number(coordinate[1]);
+    })
+    .toBeCloseTo(-0.4, 1);
 
   const canvas = editor.locator("canvas[data-engine]");
   await canvas.scrollIntoViewIfNeeded();
   const rect = await canvas.boundingBox();
   if (rect === null) throw new Error("3D canvas unavailable");
 
-  const eye = [4.8, 3.8, 5.4];
-  const magnitude = Math.hypot(...eye);
-  const forward = eye.map((value) => value / magnitude);
-  const rightMagnitude = Math.hypot(forward[2]!, forward[0]!);
-  const right = [
-    forward[2]! / rightMagnitude,
-    0,
-    -forward[0]! / rightMagnitude,
-  ];
-  const up = [
-    -forward[1]! * right[2]!,
-    forward[2]! * right[0]! - forward[0]! * right[2]!,
-    forward[1]! * right[0]!,
-  ];
+  // Use the same camera projection as the free-point placement helper.
+  // Its exact matrices are needed to hit the drag handle within 16 CSS pixels.
+  const THREE = await import("three");
+  const camera = new THREE.OrthographicCamera(
+    (-2.8 * rect.width) / rect.height,
+    (2.8 * rect.width) / rect.height,
+    2.8,
+    -2.8,
+    0.01,
+    100,
+  );
+  camera.position.set(4.8, 3.8, 5.4);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  camera.updateProjectionMatrix();
   const screen = (y: number) => {
-    const p = [-1, y, 1];
-    const x = p.reduce((sum, value, i) => sum + value * right[i]!, 0);
-    const z = p.reduce((sum, value, i) => sum + value * up[i]!, 0);
+    const position = new THREE.Vector3(1, y, 1).project(camera);
     return {
-      x: rect.x + rect.width / 2 + (x * rect.height) / 5.6,
-      y: rect.y + rect.height / 2 - (z * rect.height) / 5.6,
+      x: rect.x + ((position.x + 1) * rect.width) / 2,
+      y: rect.y + ((1 - position.y) * rect.height) / 2,
     };
   };
 
@@ -510,7 +547,7 @@ test("drags a seeded edge point in 3D and persists its new position @requires-we
   await page.mouse.up();
 
   await expect(pointLabel).not.toContainText("y -0.40");
-  await expect(pointLabel).toContainText("x -1.00");
+  await expect(pointLabel).toContainText("x 1.00");
   await expect(pointLabel).toContainText("z 1.00");
   await expect
     .poll(async () => {
@@ -521,7 +558,7 @@ test("drags a seeded edge point in 3D and persists its new position @requires-we
     .toBeGreaterThan(0.2);
 
   await editor.getByRole("button", { name: "Сечение" }).click();
-  // The same seeded three points define a plane sweep. Its initial
+  // The same three freely placed points define a plane sweep. Its initial
   // position is read-only preview; a completed save must add a section.
   const sweepToggle = editor.getByLabel("Параллельное перемещение плоскости");
   await sweepToggle.check();
@@ -560,12 +597,7 @@ test("rotates a cutting plane around a cube edge and saves it as one undoable se
   );
   await page.getByRole("button", { name: "Открыть в 3D" }).click();
   const editor = page.getByRole("region", { name: "Куб" });
-  await editor.getByRole("button", { name: "Учебная задача" }).click();
-  await editor
-    .getByRole("heading", { name: "Куб: движение точки" })
-    .locator("..")
-    .getByRole("button", { name: "Начать" })
-    .click();
+  await placeFreeSectionPoints(page, editor);
   await editor.getByRole("button", { name: "Сечение" }).click();
   await editor.getByLabel("Вращать плоскость вокруг ребра").check();
   await editor.getByLabel("Ось вращения").selectOption({ label: "D—C" });
@@ -606,12 +638,7 @@ test("rotates a plane about two selected 3D points with one undoable save @requi
   );
   await page.getByRole("button", { name: "Открыть в 3D" }).click();
   const editor = page.getByRole("region", { name: "Куб" });
-  await editor.getByRole("button", { name: "Учебная задача" }).click();
-  await editor
-    .getByRole("heading", { name: "Куб: движение точки" })
-    .locator("..")
-    .getByRole("button", { name: "Начать" })
-    .click();
+  await placeFreeSectionPoints(page, editor);
   await editor.getByRole("button", { name: "Сечение" }).click();
 
   await editor.getByLabel("Вращать плоскость вокруг ребра").check();

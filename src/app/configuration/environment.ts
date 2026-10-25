@@ -139,6 +139,15 @@ export function readEnvironment(
     stage !== "production",
   );
 
+  // Keep the setting parseable for existing deployments, but suspend the
+  // learning workflow in every build until reversible clear preserves attempts.
+  const requestedSolid3DLearning = booleanFlag(
+    "VITE_FEATURE_SOLID_3D_LEARNING",
+    featureInput.solid3DLearning,
+    false,
+  );
+  const solid3DLearningReleased = false;
+
   const features: AppFeatureFlags = {
     developmentDiagnostics: booleanFlag(
       "VITE_FEATURE_DEV_DIAGNOSTICS",
@@ -179,12 +188,7 @@ export function readEnvironment(
     smartInkDiagnostics: smartInk && smartInkDiagnostics,
     solid3D,
     solid3DLearning:
-      solid3D &&
-      booleanFlag(
-        "VITE_FEATURE_SOLID_3D_LEARNING",
-        featureInput.solid3DLearning,
-        stage !== "production",
-      ),
+      solid3D && solid3DLearningReleased && requestedSolid3DLearning,
   };
 
   if (boardProfile) {

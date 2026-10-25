@@ -244,7 +244,7 @@ export function Solid3DEditorPanel({
     [previewRecord.points],
   );
   const [experience, setExperience] = useState<"free" | "learning">(
-    learningAttempt === null ? "free" : "learning",
+    !learningEnabled || learningAttempt === null ? "free" : "learning",
   );
   const [mode, setMode] = useState<"points" | "view">("view");
   const [showRotationGizmo, setShowRotationGizmo] = useState(false);
@@ -463,6 +463,7 @@ export function Solid3DEditorPanel({
     scenario: Solid3DLearningScenario,
     learningMode: SolidLearningMode,
   ) => {
+    if (!learningEnabled) return;
     setSweepEnabled(false);
     setSweepOffset(0);
     setRotationEnabled(false);
@@ -1038,17 +1039,18 @@ export function Solid3DEditorPanel({
           >
             Измерить
           </button>
-          <button
-            aria-pressed={experience === "learning"}
-            disabled={!learningEnabled}
-            onClick={() => {
-              setExperience("learning");
-              setMode("view");
-            }}
-            type="button"
-          >
-            Учебная задача
-          </button>
+          {learningEnabled ? (
+            <button
+              aria-pressed={experience === "learning"}
+              onClick={() => {
+                setExperience("learning");
+                setMode("view");
+              }}
+              type="button"
+            >
+              Учебная задача
+            </button>
+          ) : null}
           <button
             aria-controls="solid-3d-advanced"
             aria-expanded={advancedOpen}

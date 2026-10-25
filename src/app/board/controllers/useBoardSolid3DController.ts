@@ -36,6 +36,7 @@ export interface UseBoardSolid3DControllerOptions {
   readonly announce: (message: string) => void;
   readonly documentController: BoardDocumentController;
   readonly enabled: boolean;
+  readonly learningEnabled: boolean;
   readonly selection: BoardSelectionController;
 }
 
@@ -43,6 +44,7 @@ export function useBoardSolid3DController({
   announce,
   documentController,
   enabled,
+  learningEnabled,
   selection,
 }: UseBoardSolid3DControllerOptions) {
   const { commitCommand, createCommandMetadata, document, getDocument } =
@@ -59,11 +61,13 @@ export function useBoardSolid3DController({
   const record: Solid3DRecord | null =
     editorId === null ? null : (document.solidModels[editorId] ?? null);
   const learningAttempt =
-    record === null
+    !learningEnabled || record === null
       ? null
       : selectActiveSolidLearningAttempt(document, record.id);
   const learningAttempts =
-    record === null ? [] : selectSolidLearningAttempts(document, record.id);
+    !learningEnabled || record === null
+      ? []
+      : selectSolidLearningAttempts(document, record.id);
 
   const openSelected = useCallback(() => {
     if (selectedRecord !== null) setEditorId(selectedRecord.id);
@@ -246,7 +250,7 @@ export function useBoardSolid3DController({
 
   const startLearning = useCallback(
     (scenario: Solid3DLearningScenario, mode: SolidLearningMode) => {
-      if (record === null) return;
+      if (!learningEnabled || record === null) return;
       commitCommand(
         createStartSolidLearningCommand({
           attemptId: solidLearningAttemptId(
@@ -260,12 +264,12 @@ export function useBoardSolid3DController({
         }),
       );
     },
-    [commitCommand, createCommandMetadata, record],
+    [commitCommand, createCommandMetadata, learningEnabled, record],
   );
 
   const learningAction = useCallback(
     (action: SolidLearningAttemptAction) => {
-      if (record === null) return;
+      if (!learningEnabled || record === null) return;
       const current = selectActiveSolidLearningAttempt(
         getDocument(),
         record.id,
@@ -279,11 +283,17 @@ export function useBoardSolid3DController({
         }),
       );
     },
-    [commitCommand, createCommandMetadata, getDocument, record],
+    [
+      commitCommand,
+      createCommandMetadata,
+      getDocument,
+      learningEnabled,
+      record,
+    ],
   );
 
   const resetLearning = useCallback(() => {
-    if (record === null) return;
+    if (!learningEnabled || record === null) return;
     const current = selectActiveSolidLearningAttempt(getDocument(), record.id);
     if (current === null) return;
     commitCommand(
@@ -292,10 +302,16 @@ export function useBoardSolid3DController({
         metadata: createCommandMetadata(),
       }),
     );
-  }, [commitCommand, createCommandMetadata, getDocument, record]);
+  }, [
+    commitCommand,
+    createCommandMetadata,
+    getDocument,
+    learningEnabled,
+    record,
+  ]);
 
   const completeLearning = useCallback(() => {
-    if (record === null) return;
+    if (!learningEnabled || record === null) return;
     const current = selectActiveSolidLearningAttempt(getDocument(), record.id);
     if (current === null) return;
     commitCommand(
@@ -304,7 +320,13 @@ export function useBoardSolid3DController({
         metadata: createCommandMetadata(),
       }),
     );
-  }, [commitCommand, createCommandMetadata, getDocument, record]);
+  }, [
+    commitCommand,
+    createCommandMetadata,
+    getDocument,
+    learningEnabled,
+    record,
+  ]);
 
   return {
     close: () => setEditorId(null),
