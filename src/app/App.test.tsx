@@ -959,11 +959,7 @@ describe("App", () => {
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
     expect(screen.getByTestId("history-depth")).toHaveTextContent("0/0");
     expect(onFullResetCommitted).toHaveBeenCalledTimes(1);
-    expect(
-      vi
-        .mocked(discardClearedBoardEmbeddedImages)
-        .mock.calls.some(([previous]) => previous.order.length === 1),
-    ).toBe(true);
+    expect(discardClearedBoardEmbeddedImages).toHaveBeenCalledWith(new Set());
     fireEvent.keyDown(window, { ctrlKey: true, key: "z" });
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
 
@@ -1210,7 +1206,7 @@ describe("App", () => {
     await waitFor(() =>
       expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта"),
     );
-    expect(discardClearedBoardEmbeddedImages).toHaveBeenCalledWith(populated);
+    expect(discardClearedBoardEmbeddedImages).toHaveBeenCalledWith(new Set());
     await waitFor(() =>
       expect(
         screen.getByRole("application", {
