@@ -252,6 +252,7 @@ export function CanvasContextMenu({
 export type BoardClearMode = "full" | "reversible";
 
 export interface ClearCanvasDialogProps {
+  readonly error?: string | null;
   readonly objectCount: number;
   readonly onCancel: () => void;
   readonly onConfirm: (mode: BoardClearMode) => void;
@@ -259,6 +260,7 @@ export interface ClearCanvasDialogProps {
 }
 
 export function ClearCanvasDialog({
+  error = null,
   objectCount,
   onCancel,
   onConfirm,
@@ -292,6 +294,11 @@ export function ClearCanvasDialog({
         <p id="clear-canvas-description">
           Будут удалены все объекты ({objectCount}). Выберите режим очистки.
         </p>
+        {error === null ? null : (
+          <p className="clear-canvas-error" role="alert">
+            {error}
+          </p>
+        )}
         <fieldset className="clear-canvas-modes">
           <legend>Режим очистки</legend>
           <label>
