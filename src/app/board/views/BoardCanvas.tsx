@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BoardStage,
   clearCoordinatePlotSamplingCache,
+  discardClearedBoardEmbeddedImages,
   createDefaultKonvaRendererRegistry,
   type BoardObjectTransformSnapshot,
   type CanvasContextMenuRequest,
@@ -396,7 +397,15 @@ export function BoardCanvas({
         announce(`Холст очищен: удалено объектов ${result.count}`);
     }
     onClearCommitted?.();
-    if (mode === "full") onFullResetCommitted?.();
+    if (mode === "full") {
+      // Retire the outgoing board's decoded images before the old canvas
+      // unmounts. Active handles are released by their normal cleanup.
+      discardClearedBoardEmbeddedImages(document);
+      // The registry owns asset source descriptors and retires their scoped
+      // decode entries without touching other boards' live resource leases.
+      registry.dispose();
+      onFullResetCommitted?.();
+    }
     interaction.resetAfterClear();
     plots.close();
     solid3D.close();
