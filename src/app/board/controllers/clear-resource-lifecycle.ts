@@ -1,4 +1,8 @@
-import { clearCoordinatePlotSamplingCache } from "../../../adapters/canvas-konva/public";
+import {
+  clearCoordinatePlotSamplingCache,
+  discardClearedBoardEmbeddedImages,
+} from "../../../adapters/canvas-konva/public";
+import type { BoardDocument } from "../../../core/public";
 import { selectionToolId } from "../../../modules/selection/public";
 import type { ActiveToolId } from "../active-tool";
 import type { BoardDrawingController } from "./useBoardDrawingController";
@@ -11,6 +15,20 @@ import type { BoardSelectionController } from "./useBoardSelectionController";
 /** Clear derived plot samples; the React renderer generation owns its GPU/media cleanup. */
 export function releaseBoardPlotSamplingCache(): void {
   clearCoordinatePlotSamplingCache();
+}
+
+/** Resolve document-owned bitmap identities before invoking the canvas adapter. */
+export function releaseClearedBoardImageResources(
+  document: Pick<BoardDocument, "order" | "objects">,
+): void {
+  const sources = new Set<string>();
+  for (const id of document.order) {
+    const object = document.objects[id];
+    if (object?.kind === "image.embedded") {
+      sources.add(object.dataUrl);
+    }
+  }
+  discardClearedBoardEmbeddedImages(sources);
 }
 
 export interface BoardRenderResourceState {
