@@ -22,7 +22,10 @@ import {
   maximumBoardCommandJsonBytes,
   serializeBoardCommand,
 } from "../../../core/board/commands/codec/public";
-import { createFullBoardCut, planAtomicFullBoardClear } from "../atomic-clear-plan";
+import {
+  createFullBoardCut,
+  planAtomicFullBoardClear,
+} from "../atomic-clear-plan";
 import type { BoardDocumentController } from "./useBoardDocumentController";
 import type { BoardSelectionController } from "./useBoardSelectionController";
 
