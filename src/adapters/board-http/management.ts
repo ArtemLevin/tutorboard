@@ -271,12 +271,17 @@ export function createTeacherBoardManagementRepository(
       parseBoard(
         await requestJson(`${boardPath(boardId)}/archive`, { method: "POST" }),
       ),
-    createBoard: async (title) =>
+    createBoard: async (title, options) =>
       parseBoard(
         await requestJson(
           "/boards",
           {
-            body: JSON.stringify(title === undefined ? {} : { title }),
+            body: JSON.stringify({
+              ...(title === undefined ? {} : { title }),
+              ...(options?.clientLessonId === undefined
+                ? {}
+                : { clientLessonId: options.clientLessonId }),
+            }),
             method: "POST",
           },
           "Не удалось создать доску.",
