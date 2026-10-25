@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
 });
 
 test("opens every grouped menu exclusively and restores focus after Escape", async ({
