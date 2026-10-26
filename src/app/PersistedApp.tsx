@@ -300,6 +300,9 @@ function PersistedWorkspace({
       mathInkRecognizer={mathInkRecognizer}
       onDocumentChange={handleDocumentChange}
       onFullResetCommitted={(clearedDocument) => {
+        // Old unstarted snapshots must not compete with the newly empty board.
+        // Preserve any already durable/in-flight work in revision order.
+        autosaveRef.current?.scheduleAfterFullReset(clearedDocument);
         // Release both the workspace seed and the bootstrap reference to the
         // previously loaded board, once the clear command has succeeded.
         setActiveDocument(clearedDocument);
