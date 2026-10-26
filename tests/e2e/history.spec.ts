@@ -1,6 +1,41 @@
 import { expect, test } from "@playwright/test";
 
 test(
+  "board Undo/Redo takes priority while settings controls have focus",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    await page.goto("/");
+    await page.keyboard.press("r");
+    const stage = page.getByTestId("board-stage");
+    const bounds = await stage.boundingBox();
+    if (bounds === null) throw new Error("Canvas has no bounds.");
+    await page.mouse.move(bounds.x + 240, bounds.y + 160);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + 360, bounds.y + 260, { steps: 5 });
+    await page.mouse.up();
+    await expect(page.getByTestId("history-depth")).toHaveText("1/0");
+
+    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await page.getByRole("button", { name: "Настройки доски" }).click();
+    const dialog = page.getByRole("dialog", { name: "Настройки доски" });
+    const select = dialog.getByRole("combobox", {
+      name: "Количество сохраняемых действий Undo",
+    });
+    await select.focus();
+
+    await page.keyboard.press("Control+z");
+    await expect(page.getByTestId("history-depth")).toHaveText("0/1");
+    await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
+    await expect(dialog).toBeVisible();
+
+    await page.keyboard.press("Control+Shift+z");
+    await expect(page.getByTestId("history-depth")).toHaveText("1/0");
+    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
+    await expect(dialog).toBeVisible();
+  },
+);
+
+test(
   "undoes and redoes a complete drawing gesture",
   { tag: "@smoke" },
   async ({ page }) => {
