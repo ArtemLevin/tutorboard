@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 
 async function openTextShapePanel(page: import("@playwright/test").Page) {
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "ИИ-инструменты" }).click();
   await page
     .getByRole("menuitemradio", { name: "Построение по тексту" })
