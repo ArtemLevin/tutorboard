@@ -120,15 +120,16 @@ export class LocalDocumentAutosave {
    */
   scheduleAfterFullReset(document: BoardDocument): void {
     if (this.#disposed) return;
-    for (let index = this.#tasks.length - 1; index >= 0; index -= 1) {
-      const task = this.#tasks[index]!;
+    let retained = 0;
+    for (const task of this.#tasks) {
       if (
-        task.priority === "background" &&
-        !this.#promotedTasks.has(task.operationId)
+        task.priority !== "background" ||
+        this.#promotedTasks.has(task.operationId)
       ) {
-        this.#tasks.splice(index, 1);
+        this.#tasks[retained++] = task;
       }
     }
+    this.#tasks.length = retained;
     // A failed obsolete snapshot must not be retried after a destructive reset.
     this.#lastFailedTask = null;
     this.schedule(document);
