@@ -112,7 +112,8 @@ async function expandBoardTools(page: Page): Promise<void> {
   });
   await toggle.waitFor({ state: "visible" });
   if ((await toggle.getAttribute("aria-expanded")) === "false") {
-    await toggle.click();
+    await toggle.hover();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
   }
 }
 
