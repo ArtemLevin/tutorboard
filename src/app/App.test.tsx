@@ -763,7 +763,7 @@ describe("App", () => {
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
   });
 
-  it("always undoes the board with a settings dialog and focused form control", () => {
+  it("undoes through focused settings controls", () => {
     render(<App />);
     fireEvent.keyDown(window, { key: "r" });
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
@@ -782,15 +782,18 @@ describe("App", () => {
     expect(dialog).toBeInTheDocument();
     expect(select).toHaveFocus();
 
-    expect(
-      fireEvent.keyDown(select, { key: "Z", ctrlKey: true, shiftKey: true }),
-    ).toBe(false);
+    const redoHandled = fireEvent.keyDown(select, {
+      key: "Z",
+      ctrlKey: true,
+      shiftKey: true,
+    });
+    expect(redoHandled).toBe(false);
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
     expect(dialog).toBeInTheDocument();
   });
 
-  it("uses board history over the shortcuts dialog and a focused button", () => {
+  it("undoes through the shortcuts dialog", () => {
     render(<App />);
     fireEvent.keyDown(window, { key: "p" });
     fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
@@ -810,7 +813,7 @@ describe("App", () => {
     expect(dialog).toBeInTheDocument();
   });
 
-  it("undoes board text creation even while its inline editor has focus", () => {
+  it("undoes from a focused inline text editor", () => {
     render(<App />);
     fireEvent.click(
       screen.getByRole("button", { name: "Открыть меню холста" }),
@@ -827,9 +830,11 @@ describe("App", () => {
       name: "Редактор выбранного текста",
     });
     selectedEditor.focus();
-    expect(
-      fireEvent.keyDown(selectedEditor, { key: "z", ctrlKey: true }),
-    ).toBe(false);
+    const undoHandled = fireEvent.keyDown(selectedEditor, {
+      key: "z",
+      ctrlKey: true,
+    });
+    expect(undoHandled).toBe(false);
     expect(screen.getByTestId("history-depth")).toHaveTextContent("0/1");
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
   });
