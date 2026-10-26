@@ -797,24 +797,28 @@ describe("App", () => {
 
     fireEvent.keyDown(window, { key: "?", shiftKey: true });
     const dialog = screen.getByRole("dialog", { name: "Горячие клавиши" });
-    const close = screen.getByRole("button", { name: "Закрыть горячие клавиши" });
+    const close = screen.getByRole("button", {
+      name: "Закрыть горячие клавиши",
+    });
     close.focus();
 
     expect(fireEvent.keyDown(close, { key: "z", metaKey: true })).toBe(false);
     expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
     expect(dialog).toBeInTheDocument();
-    expect(
-      fireEvent.keyDown(close, { key: "y", ctrlKey: true }),
-    ).toBe(false);
+    expect(fireEvent.keyDown(close, { key: "y", ctrlKey: true })).toBe(false);
     expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
     expect(dialog).toBeInTheDocument();
   });
 
   it("undoes board text creation even while its inline editor has focus", () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "Открыть меню холста" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
     fireEvent.click(screen.getByRole("menuitem", { name: "Текст" }));
-    const editor = screen.getByRole("textbox", { name: "Редактор текста на доске" });
+    const editor = screen.getByRole("textbox", {
+      name: "Редактор текста на доске",
+    });
     fireEvent.change(editor, { target: { value: "Заметка" } });
     fireEvent.blur(editor);
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
