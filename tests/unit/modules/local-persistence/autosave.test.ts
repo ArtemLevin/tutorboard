@@ -96,6 +96,45 @@ describe("LocalDocumentAutosave", () => {
     });
   }
 
+  it("drops stale queued background saves after full reset and persists the next drawing", async () => {
+    vi.useFakeTimers();
+    const repository = new BlockingRepository();
+    const states: string[] = [];
+    const autosave = blockingAutosave(repository, states);
+
+    autosave.schedule(document("Large active snapshot"));
+    await vi.advanceTimersByTimeAsync(10);
+    autosave.schedule(document("Obsolete background 1"));
+    await vi.advanceTimersByTimeAsync(10);
+    autosave.schedule(document("Obsolete background 2"));
+    await vi.advanceTimersByTimeAsync(10);
+
+    autosave.scheduleAfterFullReset(document("Empty board"));
+    // Drawing immediately after clear replaces the debounce, while the
+    // existing active transaction must still complete before this snapshot.
+    autosave.schedule(document("One new stroke"));
+    await vi.advanceTimersByTimeAsync(10);
+    expect(repository.calls.map(({ document }) => document.title)).toEqual([
+      "Large active snapshot",
+    ]);
+
+    repository.releaseBackground?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(repository.calls.map(({ document }) => document.title)).toEqual([
+      "Large active snapshot",
+      "One new stroke",
+    ]);
+    expect(repository.calls[1]?.expectedRevisionId).toBe(
+      localRevisionId("revision:operation:pending:1"),
+    );
+    expect(states).not.toContain("saved");
+
+    repository.releaseBackground?.();
+    await autosave.flush();
+    expect(states.at(-1)).toBe("saved");
+    autosave.dispose();
+  });
+
   it("does not report saved when an older write finishes before the newest debounce", async () => {
     vi.useFakeTimers();
     const repository = new BlockingRepository();
