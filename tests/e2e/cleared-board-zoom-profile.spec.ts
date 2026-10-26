@@ -255,7 +255,11 @@ test("@smoke clear/zoom frame probe", async ({
     afterClearHeap,
     recovery: {
       postClearDrawingSaved: true,
-      emptyDocumentReducerMaxMs: clearedReducer?.maxMs ?? null,
+      emptyDocumentReducerSamples: clearedReducer?.count ?? 0,
+      emptyDocumentReducerMaxMs:
+        clearedReducer !== undefined && clearedReducer.count > 0
+          ? clearedReducer.maxMs
+          : null,
       p95ChangeMs: beforeClear.p95Ms - afterClear.p95Ms,
       p95AfterVsBefore:
         beforeClear.p95Ms > 0 ? afterClear.p95Ms / beforeClear.p95Ms : null,
