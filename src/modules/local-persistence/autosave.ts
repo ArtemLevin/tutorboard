@@ -112,6 +112,28 @@ export class LocalDocumentAutosave {
     }, this.#debounceMs);
   }
 
+  /**
+   * Full reset makes pending, unstarted background snapshots obsolete.
+   * Already running saves and lifecycle-promoted tasks may have reached the
+   * repository and must finish in revision order. The cleared state remains
+   * the newest scheduled write, including when a user draws immediately.
+   */
+  scheduleAfterFullReset(document: BoardDocument): void {
+    if (this.#disposed) return;
+    for (let index = this.#tasks.length - 1; index >= 0; index -= 1) {
+      const task = this.#tasks[index]!;
+      if (
+        task.priority === "background" &&
+        !this.#promotedTasks.has(task.operationId)
+      ) {
+        this.#tasks.splice(index, 1);
+      }
+    }
+    // A failed obsolete snapshot must not be retried after a destructive reset.
+    this.#lastFailedTask = null;
+    this.schedule(document);
+  }
+
   async flush(
     priority: SaveBoardDocumentPriority = "background",
   ): Promise<void> {
