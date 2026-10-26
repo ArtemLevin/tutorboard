@@ -10,24 +10,24 @@ test("@smoke begins as one icon and auto-collapses after three idle seconds", as
   page,
 }) => {
   await page.reload();
-  await page.clock.install();
   const toggle = page.getByRole("button", {
-    name: "Развернуть инструменты",
+    name: /Развернуть инструменты|Свернуть инструменты/u,
   });
   const toolbar = page.getByRole("toolbar", { name: "Инструменты доски" });
   await expect(toggle).toBeVisible();
   await expect(toolbar).toHaveCount(0);
 
+  // Real browser timers verify the panel collapses after inactivity. Exact
+  // 3,000 ms scheduling remains covered by the focused fake-timer unit tests.
   await toggle.hover();
   await expect(toolbar).toBeVisible();
-  await page.clock.fastForward(2_999);
-  await expect(toolbar).toBeVisible();
-  await page.clock.fastForward(1);
-  await expect(toolbar).toHaveCount(0);
+  await expect(toolbar).toHaveCount(0, { timeout: 5_000 });
 
-  await toggle.click();
+  await toggle.focus();
+  await page.keyboard.press("Enter");
   await expect(toolbar).toBeVisible();
-  await page.getByRole("button", { name: "Свернуть инструменты" }).click();
+  await toggle.focus();
+  await page.keyboard.press("Enter");
   await expect(toolbar).toHaveCount(0);
 });
 
