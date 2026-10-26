@@ -20,6 +20,11 @@ async function resetLocalDatabase(page: import("@playwright/test").Page) {
 
 test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
   await resetLocalDatabase(page);
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   const mathTools = page.getByRole("button", { name: "Математика" });
   await expect(mathTools).toBeVisible();
   await mathTools.click();
