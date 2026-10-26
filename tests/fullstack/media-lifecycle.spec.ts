@@ -132,8 +132,13 @@ async function invitation(
 }
 
 async function expandBoardTools(page: Page): Promise<void> {
-  const toggle = page.getByRole("button", { name: "Развернуть инструменты" });
-  if ((await toggle.count()) > 0) await toggle.hover();
+  const toggle = page.getByRole("button", {
+    name: /Развернуть инструменты|Свернуть инструменты/u,
+  });
+  await toggle.waitFor({ state: "visible" });
+  if ((await toggle.getAttribute("aria-expanded")) === "false") {
+    await toggle.click();
+  }
 }
 
 async function uploadMedia(teacher: Page): Promise<void> {
