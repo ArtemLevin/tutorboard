@@ -221,7 +221,8 @@ test("@smoke clear/zoom frame probe", async ({
   // This is an observable write/zoom/persist guard after the frame probe.
   await page.keyboard.press("p");
   const postClearBounds = await stage.boundingBox();
-  if (postClearBounds === null) throw new Error("Board disappeared after clear");
+  if (postClearBounds === null)
+    throw new Error("Board disappeared after clear");
   await page.mouse.move(postClearBounds.x + 180, postClearBounds.y + 200);
   await page.mouse.down();
   await page.mouse.move(postClearBounds.x + 290, postClearBounds.y + 245, {
