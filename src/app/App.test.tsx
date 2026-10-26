@@ -763,6 +763,73 @@ describe("App", () => {
     expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
   });
 
+  it("always undoes the board with a settings dialog and focused form control", () => {
+    render(<App />);
+    fireEvent.keyDown(window, { key: "r" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+
+    fireEvent.click(screen.getByRole("button", { name: "Настройки доски" }));
+    const dialog = screen.getByRole("dialog", { name: "Настройки доски" });
+    const select = screen.getByRole("combobox", {
+      name: "Количество сохраняемых действий Undo",
+    });
+    select.focus();
+
+    expect(fireEvent.keyDown(select, { key: "z", ctrlKey: true })).toBe(false);
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("0/1");
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    expect(dialog).toBeInTheDocument();
+    expect(select).toHaveFocus();
+
+    expect(
+      fireEvent.keyDown(select, { key: "Z", ctrlKey: true, shiftKey: true }),
+    ).toBe(false);
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(dialog).toBeInTheDocument();
+  });
+
+  it("uses board history over the shortcuts dialog and a focused button", () => {
+    render(<App />);
+    fireEvent.keyDown(window, { key: "p" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+
+    fireEvent.keyDown(window, { key: "?", shiftKey: true });
+    const dialog = screen.getByRole("dialog", { name: "Горячие клавиши" });
+    const close = screen.getByRole("button", { name: "Закрыть горячие клавиши" });
+    close.focus();
+
+    expect(fireEvent.keyDown(close, { key: "z", metaKey: true })).toBe(false);
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    expect(dialog).toBeInTheDocument();
+    expect(
+      fireEvent.keyDown(close, { key: "y", ctrlKey: true }),
+    ).toBe(false);
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(dialog).toBeInTheDocument();
+  });
+
+  it("undoes board text creation even while its inline editor has focus", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Открыть меню холста" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Текст" }));
+    const editor = screen.getByRole("textbox", { name: "Редактор текста на доске" });
+    fireEvent.change(editor, { target: { value: "Заметка" } });
+    fireEvent.blur(editor);
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("1/0");
+
+    const selectedEditor = screen.getByRole("textbox", {
+      name: "Редактор выбранного текста",
+    });
+    selectedEditor.focus();
+    expect(
+      fireEvent.keyDown(selectedEditor, { key: "z", ctrlKey: true }),
+    ).toBe(false);
+    expect(screen.getByTestId("history-depth")).toHaveTextContent("0/1");
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+  });
+
   it("defaults to five Undo actions, applies a smaller limit immediately and persists it", () => {
     window.localStorage.removeItem(undoHistoryLimitStorageKey);
     try {
