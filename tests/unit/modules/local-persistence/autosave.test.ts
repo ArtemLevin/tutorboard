@@ -83,7 +83,10 @@ afterEach(() => {
 });
 
 describe("LocalDocumentAutosave", () => {
-  function blockingAutosave(repository: BoardDocumentRepository, states: string[]) {
+  function blockingAutosave(
+    repository: BoardDocumentRepository,
+    states: string[],
+  ) {
     let operation = 0;
     return new LocalDocumentAutosave({
       createOperationId: () =>
@@ -135,7 +138,7 @@ describe("LocalDocumentAutosave", () => {
     autosave.dispose();
   });
 
-  it("does not retry or surface a late failure from a pre-reset snapshot", async () => {
+  it("ignores late errors from snapshots superseded by clear", async () => {
     vi.useFakeTimers();
     const repository = new FakeRepository();
     let rejectOld: () => void = () => {
