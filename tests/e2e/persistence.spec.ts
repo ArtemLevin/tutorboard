@@ -85,6 +85,11 @@ test(
 test("falls back to the last good revision and keeps a recovery notice", async ({
   page,
 }) => {
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   const settings = page.getByRole("dialog", { name: "Настройки доски" });
   await settings.getByRole("button", { name: "Центрировать доску" }).click();

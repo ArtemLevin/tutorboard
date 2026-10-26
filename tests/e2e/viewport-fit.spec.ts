@@ -49,6 +49,11 @@ test("@smoke exposes safe fit controls and handles an empty board", async ({
   await page.goto("/");
   await expect(page.getByTestId("object-count")).toHaveText("0 объекта");
   const before = await page.getByTestId("viewport-offset").textContent();
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(
     page.getByRole("button", { name: "Показать выделенное" }),

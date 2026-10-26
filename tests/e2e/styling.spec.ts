@@ -14,6 +14,11 @@ test("edits the persisted style of a selected object", async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(bounds.x + 390, bounds.y + 290, { steps: 4 });
   await page.mouse.up();
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Выделение" }).click();
   await page.getByRole("menuitemradio", { name: "Выделение (V)" }).click();
   const objectPoint = { x: bounds.x + 280, y: bounds.y + 180 };

@@ -19,6 +19,11 @@ test("manages visibility, z-order and user groups from the settings sheet", asyn
   await draw("Прямоугольник (R)", 220);
   await draw("Эллипс (E)", 440);
 
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   let settings = page.getByRole("dialog", { name: "Настройки доски" });
   const layerList = settings.locator(".board-settings-layers");
@@ -46,6 +51,11 @@ test("manages visibility, z-order and user groups from the settings sheet", asyn
   await page.keyboard.up("Shift");
   await expect(page.getByTestId("selection-count")).toHaveText("2 выбрано");
 
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   settings = page.getByRole("dialog", { name: "Настройки доски" });
   await settings.getByRole("button", { name: "Сгруппировать" }).click();

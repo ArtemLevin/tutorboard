@@ -8,6 +8,13 @@ async function stagePoint(page: Page, x: number, y: number) {
 }
 
 async function selectPen(page: Page): Promise<void> {
+  const toggle = page.getByRole("button", {
+    name: /Развернуть инструменты|Свернуть инструменты/u,
+  });
+  await toggle.hover();
+  await expect(
+    page.getByRole("toolbar", { name: "Инструменты доски" }),
+  ).toBeVisible();
   const drawingMenu = page.getByRole("button", { name: "Рисование" });
   await drawingMenu.click();
   await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
@@ -148,6 +155,10 @@ test("keeps drag gestures in their active tools", async ({ page }) => {
 
 test("preserves click placement for text tools", async ({ page }) => {
   const stage = page.getByTestId("board-stage");
+  const toggle = page.getByRole("button", {
+    name: /Развернуть инструменты|Свернуть инструменты/u,
+  });
+  await toggle.hover();
   const drawingMenu = page.getByRole("button", { name: "Рисование" });
   await drawingMenu.click();
   await page.getByRole("menuitemradio", { name: "Текст (T)" }).click();

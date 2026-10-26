@@ -79,6 +79,11 @@ async function importBoard(
   document: ReturnType<typeof createDenseBoardDocument>,
 ) {
   await page.goto("/");
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(document)),
@@ -107,6 +112,11 @@ test("@smoke drawing over 300 strokes and 10 images keeps committed rasters out 
   await expect
     .poll(async () => (await snapshot(page)).rasterDraws)
     .toBeGreaterThanOrEqual(10);
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Рисование" }).click();
   await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
   const stage = page.getByTestId("board-stage");

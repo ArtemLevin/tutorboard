@@ -16,6 +16,11 @@ async function openBoardWithPen(page: Page): Promise<void> {
       name: "Бесконечное полотно TutorBoard",
     }),
   ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   const drawingMenu = page.getByRole("button", { name: "Рисование" });
   await drawingMenu.click();
   await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();

@@ -218,6 +218,11 @@ test("copies a stable lesson-bound link for collaborators", async ({
     "Синхронизировано · r7",
   );
 
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page
     .getByRole("button", { name: "Копировать ссылку на доску" })

@@ -21,6 +21,11 @@ test("@smoke keeps visible ink cache at full physical resolution when zoomed in"
     staticCount: 0,
   });
   document.viewport = { offset: { x: 0, y: 0 }, zoom: 2 };
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(document)),
