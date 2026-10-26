@@ -114,6 +114,8 @@ async function insertImages(
     readonly name: string;
   }[],
 ): Promise<void> {
+  const toggle = page.getByRole("button", { name: "Развернуть инструменты" });
+  if ((await toggle.count()) > 0) await toggle.hover();
   await page.getByRole("button", { name: "Медиа" }).click();
   const importInput = page.getByLabel("Вставить изображения");
   await expect(importInput).toHaveAttribute("accept", /image\/png/u);
@@ -256,6 +258,10 @@ test("F3.2.1 real PNG/JPEG/GIF upload precedes commands and survives guest sync 
 
     // Export must contain the real pixels (even after recovery), not metadata
     // placeholders, and must never expose the private storage key.
+    const settingsToggle = teacher.getByRole("button", {
+      name: "Развернуть инструменты",
+    });
+    if ((await settingsToggle.count()) > 0) await settingsToggle.hover();
     await teacher.getByRole("button", { name: "Настройки доски" }).click();
     const settings = teacher.getByRole("dialog", { name: "Настройки доски" });
     const svgDownloadPromise = teacher.waitForEvent("download");
