@@ -320,6 +320,10 @@ describe("dock popup inactivity contract", () => {
     expect(
       screen.queryByRole("region", { name: "Первичные настройки инструмента" }),
     ).toBeNull();
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: "Развернуть инструменты" }),
+      { pointerType: "mouse" },
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Применить стиль пера А" }),
     );

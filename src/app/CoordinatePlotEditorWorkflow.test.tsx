@@ -66,6 +66,10 @@ describe("coordinate plot editor application workflow", () => {
       />,
     );
 
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: "Развернуть инструменты" }),
+      { pointerType: "mouse" },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Математика" }));
     fireEvent.click(
       screen.getByRole("menuitemradio", {

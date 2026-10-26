@@ -48,8 +48,13 @@ vi.mock("../adapters/canvas-konva/public", () => ({
 afterEach(cleanup);
 
 describe("handwritten function workflow safeguards", () => {
-  const openHandwrittenTools = () =>
+  const openHandwrittenTools = () => {
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: "Развернуть инструменты" }),
+      { pointerType: "mouse" },
+    );
     fireEvent.click(screen.getByRole("button", { name: "ИИ-инструменты" }));
+  };
 
   it("disables the tool for a read-only board", () => {
     render(<App readOnly />);

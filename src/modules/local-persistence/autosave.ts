@@ -42,6 +42,7 @@ export interface LocalAutosaveOptions {
 
 interface SaveTask {
   readonly document: BoardDocument;
+  readonly resetGeneration: number;
   readonly operationId: PersistenceOperationId;
   readonly priority: SaveBoardDocumentPriority;
   readonly savedAt: string;
@@ -61,6 +62,7 @@ export class LocalDocumentAutosave {
     Promise<SaveBoardDocumentResult>
   >();
   #disposed = false;
+  #resetGeneration = 0;
   #inFlight: Promise<void> = Promise.resolve();
   #isSaving = false;
   #lifecyclePromotion: {
@@ -112,6 +114,30 @@ export class LocalDocumentAutosave {
     }, this.#debounceMs);
   }
 
+  /**
+   * Full reset makes pending, unstarted background snapshots obsolete.
+   * Already running saves and lifecycle-promoted tasks may have reached the
+   * repository and must finish in revision order. The cleared state remains
+   * the newest scheduled write, including when a user draws immediately.
+   */
+  scheduleAfterFullReset(document: BoardDocument): void {
+    if (this.#disposed) return;
+    this.#resetGeneration += 1;
+    let retained = 0;
+    for (const task of this.#tasks) {
+      if (
+        task.priority !== "background" ||
+        this.#promotedTasks.has(task.operationId)
+      ) {
+        this.#tasks[retained++] = task;
+      }
+    }
+    this.#tasks.length = retained;
+    // A failed obsolete snapshot must not be retried after a destructive reset.
+    this.#lastFailedTask = null;
+    this.schedule(document);
+  }
+
   async flush(
     priority: SaveBoardDocumentPriority = "background",
   ): Promise<void> {
@@ -158,6 +184,7 @@ export class LocalDocumentAutosave {
     }
     this.#enqueue({
       document,
+      resetGeneration: this.#resetGeneration,
       operationId: this.#createOperationId(),
       priority,
       savedAt: this.#now(),
@@ -182,6 +209,9 @@ export class LocalDocumentAutosave {
       try {
         await this.#persist(task);
       } catch (error) {
+        // An obsolete in-flight save may reject after a full reset.
+        // Never make its snapshot available through Retry.
+        if (task.resetGeneration !== this.#resetGeneration) continue;
         this.#lastFailedTask = task;
         this.#onStateChange({
           code: "persistence.save-threw",
@@ -260,6 +290,11 @@ export class LocalDocumentAutosave {
         revisionId: result.revisionId,
         savedAt: task.savedAt,
       });
+      return;
+    }
+    if (task.resetGeneration !== this.#resetGeneration) {
+      // Previously started writes remain ordered, but their errors cannot
+      // supersede the newer reset or its subsequent edits.
       return;
     }
     if (result.status === "conflict") {

@@ -177,6 +177,8 @@ test("@smoke clear/zoom frame probe", async ({
     visibleStrokeCount: 800,
     largeStaticDataUrls: images,
   });
+  // The compact toolbar starts collapsed; the heavy-board fixture must actually load.
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(heavy)),
@@ -215,6 +217,30 @@ test("@smoke clear/zoom frame probe", async ({
 
   const afterClear = await profileZoom(page, stage);
   const afterClearHeap = await heapAfterGc();
+  // A visually empty scene must once again behave like a fresh board.
+  // This is an observable write/zoom/persist guard after the frame probe.
+  await page.keyboard.press("p");
+  const postClearBounds = await stage.boundingBox();
+  if (postClearBounds === null)
+    throw new Error("Board disappeared after clear");
+  await page.mouse.move(postClearBounds.x + 180, postClearBounds.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(postClearBounds.x + 290, postClearBounds.y + 245, {
+    steps: 6,
+  });
+  await page.mouse.up();
+  await expect(page.getByTestId("object-count")).toHaveText("1 объекта", {
+    timeout: 10_000,
+  });
+  await expect(page.getByTestId("persistence-status")).toHaveText(
+    "Сохранено локально",
+  );
+  const clearedReducer = afterClear.phases.find(
+    (phase) => phase.kind === "viewport-reducer-total",
+  );
+  // Captures a stale heavy-document path without enforcing noisy rAF deadlines.
+  expect(clearedReducer?.count).toBeGreaterThan(0);
+  expect(clearedReducer?.maxMs).toBeLessThan(50);
   const report = {
     browserName,
     source: "synthetic",
@@ -225,6 +251,8 @@ test("@smoke clear/zoom frame probe", async ({
     beforeClearHeap,
     afterClearHeap,
     recovery: {
+      postClearDrawingSaved: true,
+      emptyDocumentReducerMaxMs: clearedReducer?.maxMs ?? null,
       p95ChangeMs: beforeClear.p95Ms - afterClear.p95Ms,
       p95AfterVsBefore:
         beforeClear.p95Ms > 0 ? afterClear.p95Ms / beforeClear.p95Ms : null,
@@ -251,6 +279,6 @@ test("@smoke clear/zoom frame probe", async ({
   expect(afterClear.frameGapsMs.length).toBeGreaterThan(0);
   expect(empty.transformerSyncEvents).toBe(0);
   expect(afterClear.transformerSyncEvents).toBe(0);
-  await expect(stage).toHaveAttribute("data-visible-object-count", "0");
+  await expect(stage).toHaveAttribute("data-visible-object-count", "1");
   await expect(stage).toHaveAttribute("data-wheel-cache-retained-runs", "0");
 });

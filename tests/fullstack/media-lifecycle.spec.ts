@@ -131,11 +131,23 @@ async function invitation(
   return { invitationId: body.invitation.invitationId, joinUrl: body.joinUrl };
 }
 
+async function expandBoardTools(page: Page): Promise<void> {
+  const toggle = page.getByRole("button", {
+    name: /Развернуть инструменты|Свернуть инструменты/u,
+  });
+  await toggle.waitFor({ state: "visible" });
+  if ((await toggle.getAttribute("aria-expanded")) === "false") {
+    await toggle.hover();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  }
+}
+
 async function uploadMedia(teacher: Page): Promise<void> {
   const png = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGPgEpH7DwABpAE8k4sOtwAAAABJRU5ErkJggg==",
     "base64",
   );
+  await expandBoardTools(teacher);
   await teacher.getByRole("button", { name: "Медиа" }).click();
   await expect(teacher.getByText(/в хранилище доски/u)).toBeVisible();
   await teacher.getByLabel("Вставить изображения").setInputFiles([
@@ -250,6 +262,7 @@ test("F3.3.2-D real PNG/GIF guest reconnect, permission epoch, revoke and board 
       csrfToken,
       false,
     );
+    await expandBoardTools(guest);
     await guest.getByRole("button", { name: "Настройки доски" }).click();
     await expect(guest.getByText("Режим только для чтения")).toBeVisible();
     await guest
@@ -271,6 +284,7 @@ test("F3.3.2-D real PNG/GIF guest reconnect, permission epoch, revoke and board 
       csrfToken,
       true,
     );
+    await expandBoardTools(guest);
     await guest.getByRole("button", { name: "Настройки доски" }).click();
     await expect(guest.getByText("Права доступа обновлены.")).toBeVisible();
     await expect(guest.getByText("Режим только для чтения")).toHaveCount(0);
