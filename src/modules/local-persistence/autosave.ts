@@ -42,6 +42,7 @@ export interface LocalAutosaveOptions {
 
 interface SaveTask {
   readonly document: BoardDocument;
+  readonly resetGeneration: number;
   readonly operationId: PersistenceOperationId;
   readonly priority: SaveBoardDocumentPriority;
   readonly savedAt: string;
@@ -61,6 +62,7 @@ export class LocalDocumentAutosave {
     Promise<SaveBoardDocumentResult>
   >();
   #disposed = false;
+  #resetGeneration = 0;
   #inFlight: Promise<void> = Promise.resolve();
   #isSaving = false;
   #lifecyclePromotion: {
@@ -120,6 +122,7 @@ export class LocalDocumentAutosave {
    */
   scheduleAfterFullReset(document: BoardDocument): void {
     if (this.#disposed) return;
+    this.#resetGeneration += 1;
     let retained = 0;
     for (const task of this.#tasks) {
       if (
@@ -181,6 +184,7 @@ export class LocalDocumentAutosave {
     }
     this.#enqueue({
       document,
+      resetGeneration: this.#resetGeneration,
       operationId: this.#createOperationId(),
       priority,
       savedAt: this.#now(),
@@ -205,6 +209,9 @@ export class LocalDocumentAutosave {
       try {
         await this.#persist(task);
       } catch (error) {
+        // An obsolete in-flight save may reject after a full reset.
+        // Never make its snapshot available through Retry.
+        if (task.resetGeneration !== this.#resetGeneration) continue;
         this.#lastFailedTask = task;
         this.#onStateChange({
           code: "persistence.save-threw",
@@ -283,6 +290,11 @@ export class LocalDocumentAutosave {
         revisionId: result.revisionId,
         savedAt: task.savedAt,
       });
+      return;
+    }
+    if (task.resetGeneration !== this.#resetGeneration) {
+      // Previously started writes remain ordered, but their errors cannot
+      // supersede the newer reset or its subsequent edits.
       return;
     }
     if (result.status === "conflict") {
