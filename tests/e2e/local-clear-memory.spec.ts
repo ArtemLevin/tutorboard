@@ -49,6 +49,7 @@ test("@smoke clear releases prepared JSON memory and preserves Undo/Redo and sub
     visibleStrokeCount: 800,
     largeStaticDataUrls: pngs,
   });
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(boardDocument)),
