@@ -17,6 +17,11 @@ async function openBoardWithPen(page: Page): Promise<void> {
   ).toBeVisible();
   const stage = page.getByTestId("board-stage");
   await expect(stage).toHaveAttribute("data-wet-ink-layer", "ready");
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   const drawingMenu = page.getByRole("button", { name: "Рисование" });
   await drawingMenu.click();
   await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
