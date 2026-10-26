@@ -91,7 +91,9 @@ export function BoardShortcutsDialog({
           </div>
           <div>
             <dt>Ctrl/Cmd + Z / Shift+Z</dt>
-            <dd>Отмена и повтор на доске, включая открытые окна и поля ввода</dd>
+            <dd>
+              Отмена и повтор на доске, включая открытые окна и поля ввода
+            </dd>
           </div>
           <div>
             <dt>Delete / Escape / ?</dt>
