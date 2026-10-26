@@ -113,6 +113,11 @@ test.beforeEach(async ({ page }) => {
 test("inserts, selects and restores one safe embedded SVG", async ({
   page,
 }) => {
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Медиа" }).click();
   await page.getByLabel("Вставить изображения").setInputFiles({
     buffer: Buffer.from(safeSvg),
@@ -137,6 +142,11 @@ test("inserts, selects and restores one safe embedded SVG", async ({
 test("rejects executable SVG without mutating the document", async ({
   page,
 }) => {
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Медиа" }).click();
   await page.getByLabel("Вставить изображения").setInputFiles({
     buffer: Buffer.from(
@@ -151,6 +161,11 @@ test("rejects executable SVG without mutating the document", async ({
 });
 
 test("falls back after a tampered embedded SVG revision", async ({ page }) => {
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Медиа" }).click();
   await page.getByLabel("Вставить изображения").setInputFiles({
     buffer: Buffer.from(safeSvg),
