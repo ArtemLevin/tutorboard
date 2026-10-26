@@ -135,6 +135,45 @@ describe("LocalDocumentAutosave", () => {
     autosave.dispose();
   });
 
+  it("does not retry or surface a late failure from a pre-reset snapshot", async () => {
+    vi.useFakeTimers();
+    const repository = new FakeRepository();
+    let rejectOld: (() => void) | null = null;
+    vi.spyOn(repository, "save").mockImplementation((input) => {
+      repository.calls.push(input);
+      if (input.document.title === "Old heavy board") {
+        return new Promise((_resolve, reject) => {
+          rejectOld = () => reject(new Error("Obsolete write failed"));
+        });
+      }
+      return Promise.resolve({
+        duplicate: false,
+        revisionId: localRevisionId(`revision:${input.operationId}`),
+        status: "saved" as const,
+      });
+    });
+    const states: string[] = [];
+    const autosave = blockingAutosave(repository as BlockingRepository, states);
+    autosave.schedule(document("Old heavy board"));
+    await vi.advanceTimersByTimeAsync(10);
+    autosave.scheduleAfterFullReset(document("Cleared board"));
+    await vi.advanceTimersByTimeAsync(10);
+    if (rejectOld === null) throw new Error("Old write did not start");
+    rejectOld();
+    await autosave.flush();
+
+    expect(repository.calls.map(({ document }) => document.title)).toEqual([
+      "Old heavy board",
+      "Cleared board",
+    ]);
+    expect(states).not.toContain("error");
+    expect(states.at(-1)).toBe("saved");
+    autosave.retry();
+    await autosave.flush();
+    expect(repository.calls).toHaveLength(2);
+    autosave.dispose();
+  });
+
   it("does not report saved when an older write finishes before the newest debounce", async () => {
     vi.useFakeTimers();
     const repository = new BlockingRepository();
