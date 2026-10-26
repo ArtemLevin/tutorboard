@@ -34,6 +34,11 @@ interface ExportedPlotDocument {
 }
 
 async function exportDocument(page: Page): Promise<ExportedPlotDocument> {
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   const settings = page.getByRole("dialog", { name: "Настройки доски" });
   const downloadPromise = page.waitForEvent("download");
