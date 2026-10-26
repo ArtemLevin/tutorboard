@@ -64,6 +64,12 @@ afterEach(() => {
 });
 
 function insertFile(): void {
+  const toggle = screen.queryByRole("button", {
+    name: "Развернуть инструменты",
+  });
+  if (toggle !== null) {
+    fireEvent.pointerEnter(toggle, { pointerType: "mouse" });
+  }
   fireEvent.click(screen.getByRole("button", { name: "Медиа" }));
   fireEvent.change(screen.getByLabelText("Вставить изображения"), {
     target: {
