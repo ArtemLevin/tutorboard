@@ -83,7 +83,7 @@ afterEach(() => {
 });
 
 describe("LocalDocumentAutosave", () => {
-  function blockingAutosave(repository: BlockingRepository, states: string[]) {
+  function blockingAutosave(repository: BoardDocumentRepository, states: string[]) {
     let operation = 0;
     return new LocalDocumentAutosave({
       createOperationId: () =>
@@ -138,7 +138,9 @@ describe("LocalDocumentAutosave", () => {
   it("does not retry or surface a late failure from a pre-reset snapshot", async () => {
     vi.useFakeTimers();
     const repository = new FakeRepository();
-    let rejectOld: (() => void) | null = null;
+    let rejectOld = () => {
+      throw new Error("Old write did not start");
+    };
     vi.spyOn(repository, "save").mockImplementation((input) => {
       repository.calls.push(input);
       if (input.document.title === "Old heavy board") {
@@ -153,12 +155,11 @@ describe("LocalDocumentAutosave", () => {
       });
     });
     const states: string[] = [];
-    const autosave = blockingAutosave(repository as BlockingRepository, states);
+    const autosave = blockingAutosave(repository, states);
     autosave.schedule(document("Old heavy board"));
     await vi.advanceTimersByTimeAsync(10);
     autosave.scheduleAfterFullReset(document("Cleared board"));
     await vi.advanceTimersByTimeAsync(10);
-    if (rejectOld === null) throw new Error("Old write did not start");
     rejectOld();
     await autosave.flush();
 
