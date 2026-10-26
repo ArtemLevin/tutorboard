@@ -102,6 +102,19 @@ export function useBoardKeyboardShortcuts({
   const { redo, undo } = documentController;
 
   useEffect(() => {
+    // Board history has priority over focused inputs, tool-specific handlers,
+    // dialogs, and the browser's native text undo stack.
+    const handleHistoryShortcut = (event: KeyboardEvent) => {
+      if ((!event.ctrlKey && !event.metaKey) || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key !== "z" && key !== "y") return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (key === "y" || event.shiftKey) redo();
+      else undo();
+    };
+
     const handleShortcut = (event: KeyboardEvent) => {
       const editing = isEditingTarget(event.target);
       if (event.key === "Escape" && shortcutsOpen) {
@@ -158,12 +171,6 @@ export function useBoardKeyboardShortcuts({
       const accelerator = event.ctrlKey || event.metaKey;
       if (accelerator && !event.altKey && !editing) {
         const key = event.key.toLowerCase();
-        if (key === "z" || key === "y") {
-          event.preventDefault();
-          if (key === "y" || (key === "z" && event.shiftKey)) redo();
-          else undo();
-          return;
-        }
         if (key === "c") {
           event.preventDefault();
           clipboard.copy();
@@ -305,8 +312,12 @@ export function useBoardKeyboardShortcuts({
       }
     };
 
+    window.addEventListener("keydown", handleHistoryShortcut, true);
     window.addEventListener("keydown", handleShortcut);
-    return () => window.removeEventListener("keydown", handleShortcut);
+    return () => {
+      window.removeEventListener("keydown", handleHistoryShortcut, true);
+      window.removeEventListener("keydown", handleShortcut);
+    };
   }, [
     activeTool,
     clipboard,
