@@ -138,7 +138,7 @@ describe("LocalDocumentAutosave", () => {
   it("does not retry or surface a late failure from a pre-reset snapshot", async () => {
     vi.useFakeTimers();
     const repository = new FakeRepository();
-    let rejectOld = () => {
+    let rejectOld: () => void = () => {
       throw new Error("Old write did not start");
     };
     vi.spyOn(repository, "save").mockImplementation((input) => {
