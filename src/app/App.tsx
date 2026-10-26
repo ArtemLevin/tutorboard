@@ -115,6 +115,10 @@ export interface AppProps {
   readonly collaborativeUndoAvailable?: boolean;
   readonly onCollaborativeUndo?: () => void;
   readonly onFullResetCommitted?: (document: BoardDocument) => void;
+  readonly canRestoreClear?: (
+    command: BoardCommand,
+    source: BoardDocument,
+  ) => boolean;
   readonly onCommandCommitted?:
     | ((
         command: BoardCommand,
@@ -128,6 +132,7 @@ export interface AppProps {
         commands: readonly BoardCommand[],
         document: BoardDocument,
         previousDocument: BoardDocument,
+        discardUndoHistory?: boolean,
       ) => void)
     | undefined;
   readonly onDocumentChange?: (document: BoardDocument) => void;
@@ -233,6 +238,7 @@ export function App({
   onCommandsCommitted,
   onCollaborativeUndo,
   onFullResetCommitted,
+  canRestoreClear,
   onDocumentChange,
   onExportDocument,
   onExportPngSnapshot,
@@ -619,6 +625,8 @@ export function App({
     documentController,
     onPasted: handleObjectsInserted,
     selection,
+    sharedBoard: !historyEnabled,
+    ...(canRestoreClear === undefined ? {} : { canRestoreClear }),
   });
   const resolveImageDisplaySize = useCallback(
     (intrinsicSize: Size2): Size2 => {

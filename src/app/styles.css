@@ -2079,6 +2079,11 @@ textarea:focus-visible,
   color: #60717a;
   line-height: 1.5;
 }
+.clear-canvas-dialog .clear-canvas-error {
+  margin-bottom: 12px;
+  color: #a33e39;
+  font-weight: 600;
+}
 .clear-canvas-dialog > div {
   display: flex;
   justify-content: flex-end;

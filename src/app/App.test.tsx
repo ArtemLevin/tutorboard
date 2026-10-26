@@ -1023,6 +1023,40 @@ describe("App", () => {
     expect(screen.getByTestId("object-count")).toHaveTextContent("2 объекта");
   });
 
+  it("refuses shared reversible clear before mutation if atomic Undo is unavailable", () => {
+    const onCommitted = vi.fn();
+    const canRestoreClear = vi.fn(() => false);
+    render(
+      <App
+        historyEnabled={false}
+        canRestoreClear={canRestoreClear}
+        onCommandCommitted={onCommitted}
+      />,
+    );
+    fireEvent.keyDown(window, { code: "KeyR", key: "r" });
+    fireEvent.click(screen.getByRole("button", { name: "Завершить жест" }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню холста" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Очистить холст" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Обычная очистка/ }));
+    onCommitted.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /^Очистить$/ }));
+    expect(canRestoreClear).toHaveBeenCalledOnce();
+    expect(onCommitted).not.toHaveBeenCalled();
+    expect(screen.getByTestId("object-count")).toHaveTextContent("1 объекта");
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "Невозможно гарантировать Undo для этой очистки.",
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: /Полный сброс/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Очистить$/ }));
+    expect(screen.getByTestId("object-count")).toHaveTextContent("0 объекта");
+    expect(onCommitted).toHaveBeenCalledTimes(1);
+  });
+
   it("full reset discards Undo and works on empty boards", () => {
     vi.mocked(discardClearedBoardEmbeddedImages).mockClear();
     const onFullResetCommitted = vi.fn();
