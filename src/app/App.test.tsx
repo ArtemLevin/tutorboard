@@ -31,14 +31,18 @@ import {
 import { App, createInitialDocument } from "./App";
 import { undoHistoryLimitStorageKey } from "./board-chrome/undo-history-preferences";
 
-function render(...args: Parameters<typeof reactRender>) {
-  const view = reactRender(...args);
+function expandToolbar(): void {
   const toggle = screen.queryByRole("button", {
     name: "Развернуть инструменты",
   });
   if (toggle !== null) {
     fireEvent.pointerEnter(toggle, { pointerType: "mouse" });
   }
+}
+
+function render(...args: Parameters<typeof reactRender>) {
+  const view = reactRender(...args);
+  expandToolbar();
   return view;
 }
 
@@ -311,6 +315,7 @@ describe("App", () => {
       screen.getByRole("button", { name: "Лазерная указка — режим занятия" }),
     ).toHaveAttribute("aria-pressed", "true");
     fireEvent.keyDown(window, { key: "Escape" });
+    expandToolbar();
     expect(
       screen.queryByRole("toolbar", { name: "Инструменты режима занятия" }),
     ).not.toBeInTheDocument();
@@ -372,6 +377,7 @@ describe("App", () => {
       screen.getByRole("toolbar", { name: "Инструменты режима занятия" }),
     ).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });
+    expandToolbar();
     expect(
       screen.getByRole("button", { name: "Режим занятия" }),
     ).toBeInTheDocument();
@@ -382,6 +388,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Режим занятия" }));
 
     rerender(<App readOnly />);
+    expandToolbar();
     expect(
       screen.queryByRole("toolbar", { name: "Инструменты режима занятия" }),
     ).not.toBeInTheDocument();
@@ -390,6 +397,7 @@ describe("App", () => {
     ).toBeDisabled();
 
     rerender(<App />);
+    expandToolbar();
     expect(
       screen.queryByRole("toolbar", { name: "Инструменты режима занятия" }),
     ).not.toBeInTheDocument();
@@ -413,6 +421,7 @@ describe("App", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Завершить режим занятия" }),
     );
+    expandToolbar();
     expect(
       screen.getByRole("button", { name: "Режим занятия" }),
     ).toBeInTheDocument();
