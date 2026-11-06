@@ -103,7 +103,7 @@ describe("compact dock collapse contract", () => {
   const toolbar = () =>
     screen.getByRole("toolbar", { name: "Инструменты доски" });
 
-  it("starts as one icon and expands on mouse hover", () => {
+  it("expands on mouse hover and stays open until the pointer leaves", () => {
     reactRender(<BoardToolDock {...fixture()} />);
     const trigger = toggle();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -115,28 +115,43 @@ describe("compact dock collapse contract", () => {
     expect(
       screen.getByRole("button", { name: "Свернуть инструменты" }),
     ).toHaveAttribute("aria-expanded", "true");
-    advance(2_999);
+    advance(6_000);
     expect(toolbar()).toBeInTheDocument();
-    advance(1);
+    fireEvent.pointerMove(toolbar(), { pointerType: "mouse" });
+    advance(4_000);
+    expect(toolbar()).toBeInTheDocument();
+
+    fireEvent.pointerLeave(toolbar().parentElement!, { pointerType: "mouse" });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("does not expand on tool changes after the mouse leaves", () => {
+    const props = fixture();
+    const view = reactRender(<BoardToolDock {...props} />);
+    fireEvent.pointerEnter(toggle(), { pointerType: "mouse" });
+    fireEvent.pointerLeave(toolbar().parentElement!, { pointerType: "mouse" });
+    view.rerender(<BoardToolDock {...props} activeTool="drawing.line" />);
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    advance(4_000);
     expect(screen.queryByRole("toolbar")).toBeNull();
   });
 
-  it("resets three-second inactivity after a pointer move", () => {
+  it("keeps mouse clicks hover-driven instead of toggling the dock", () => {
     reactRender(<BoardToolDock {...fixture()} />);
     fireEvent.pointerEnter(toggle(), { pointerType: "mouse" });
-    const dock = toolbar();
-    advance(2_000);
-    fireEvent.pointerMove(dock);
-    advance(2_999);
-    expect(dock).toBeInTheDocument();
-    advance(1);
-    expect(screen.queryByRole("toolbar")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Свернуть инструменты" }),
+      { detail: 1 },
+    );
+    expect(toolbar()).toBeInTheDocument();
   });
 
   it("supports tap and keyboard activation, and Escape restores the trigger", () => {
     reactRender(<BoardToolDock {...fixture()} />);
     const trigger = toggle();
     fireEvent.pointerEnter(trigger, { pointerType: "touch" });
+    fireEvent.pointerEnter(trigger, { pointerType: "pen" });
     expect(screen.queryByRole("toolbar")).toBeNull();
     fireEvent.click(trigger);
     expect(toolbar()).toBeInTheDocument();
@@ -145,6 +160,18 @@ describe("compact dock collapse contract", () => {
     expect(trigger).toHaveFocus();
     fireEvent.click(trigger);
     expect(toolbar()).toBeInTheDocument();
+  });
+
+  it("waits for pointer release before collapsing a mouse-dragged panel", () => {
+    reactRender(<BoardToolDock {...fixture()} />);
+    fireEvent.pointerEnter(toggle(), { pointerType: "mouse" });
+    const root = toolbar().parentElement!;
+    fireEvent.pointerDown(toolbar(), { pointerType: "mouse" });
+    fireEvent.pointerLeave(root, { pointerType: "mouse" });
+    expect(toolbar()).toBeInTheDocument();
+
+    fireEvent.pointerUp(window, { pointerType: "mouse" });
+    expect(screen.queryByRole("toolbar")).toBeNull();
   });
 
   it("pauses a pointer drag and cleans up timers on unmount", () => {
@@ -320,10 +347,9 @@ describe("dock popup inactivity contract", () => {
     expect(
       screen.queryByRole("region", { name: "Первичные настройки инструмента" }),
     ).toBeNull();
-    fireEvent.pointerEnter(
-      screen.getByRole("button", { name: "Развернуть инструменты" }),
-      { pointerType: "mouse" },
-    );
+    expect(
+      screen.getByRole("toolbar", { name: "Инструменты доски" }),
+    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Применить стиль пера А" }),
     );
