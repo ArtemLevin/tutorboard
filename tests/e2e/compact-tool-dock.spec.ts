@@ -6,10 +6,12 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
 });
 
-test("@smoke begins as one icon and auto-collapses after three idle seconds", async ({
+test("@smoke opens tools on mouse hover and collapses on pointer exit", async ({
   page,
 }) => {
   await page.reload();
+  await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page.mouse.move(10, 10);
   const toggle = page.getByRole("button", {
     name: /Развернуть инструменты|Свернуть инструменты/u,
   });
@@ -17,12 +19,22 @@ test("@smoke begins as one icon and auto-collapses after three idle seconds", as
   await expect(toggle).toBeVisible();
   await expect(toolbar).toHaveCount(0);
 
-  // Real browser timers verify the panel collapses after inactivity. Exact
-  // 3,000 ms scheduling remains covered by the focused fake-timer unit tests.
   await toggle.hover();
   await expect(toolbar).toBeVisible();
-  await expect(toolbar).toHaveCount(0, { timeout: 5_000 });
+  await toggle.click();
+  await expect(toolbar).toBeVisible();
+  await page.mouse.move(10, 10);
+  await expect(toolbar).toHaveCount(0);
 
+  // Changing tools with a keyboard shortcut must not reveal the dock.
+  await page.keyboard.press("i");
+  await expect(page.getByTestId("board-stage")).toHaveAttribute(
+    "data-drawing-mode",
+    "drawing.smart-ink",
+  );
+  await expect(toolbar).toHaveCount(0);
+
+  // Keyboard users and touch devices retain explicit toggle access.
   await toggle.focus();
   await page.keyboard.press("Enter");
   await expect(toolbar).toBeVisible();
