@@ -173,6 +173,11 @@ test("@smoke retains touch-size controls without horizontal page overflow", asyn
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   const toolbar = page.getByRole("toolbar", { name: "Инструменты доски" });
   await expect(toolbar).toBeVisible();
 
