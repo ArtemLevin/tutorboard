@@ -91,6 +91,7 @@ test("transforms a figure created by Smart Ink", async ({ page }) => {
   };
   await page.mouse.click(contour.x, contour.y);
   await rightDoubleClickAt(page, contour);
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await page
     .getByRole("button", { name: "Повернуть выделение на 15 градусов" })
     .click();
