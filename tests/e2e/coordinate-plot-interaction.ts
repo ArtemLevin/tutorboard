@@ -13,6 +13,11 @@ export async function stageCenter(page: Page): Promise<ScreenPoint> {
 
 export async function createCoordinatePlot(page: Page): Promise<void> {
   await expect(page.getByTestId("board-stage")).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
   await page.getByRole("button", { name: "Математика" }).click();
   await page
     .getByRole("menuitemradio", { name: "Координатная плоскость (G)" })
