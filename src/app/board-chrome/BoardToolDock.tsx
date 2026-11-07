@@ -497,6 +497,8 @@ export function BoardToolDock(props: BoardToolDockProps) {
   const dockToggleRef = useRef<HTMLButtonElement>(null);
   const collapseTimeoutRef = useRef<number | null>(null);
   const pointerDownRef = useRef(false);
+  const hoveringMouseRef = useRef(false);
+  const collapseAfterPointerReleaseRef = useRef(false);
   const [dockExpanded, setDockExpanded] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [openMenu, setOpenMenu] = useState<DockMenuId | null>(null);
@@ -525,13 +527,15 @@ export function BoardToolDock(props: BoardToolDockProps) {
   const collapseDock = useCallback(() => {
     clearCollapseTimer();
     pointerDownRef.current = false;
+    collapseAfterPointerReleaseRef.current = false;
     setOpenMenu(null);
     setDockExpanded(false);
   }, [clearCollapseTimer]);
 
   const scheduleCollapse = useCallback(() => {
     clearCollapseTimer();
-    if (pointerDownRef.current) return;
+    // Mouse-hovered tools stay open until the pointer actually leaves the dock.
+    if (pointerDownRef.current || hoveringMouseRef.current) return;
     collapseTimeoutRef.current = window.setTimeout(() => {
       collapseTimeoutRef.current = null;
       // Never interrupt text entry or a slider controlled with the keyboard.
@@ -553,19 +557,15 @@ export function BoardToolDock(props: BoardToolDockProps) {
     scheduleCollapse();
   }, [scheduleCollapse]);
 
-  const previousActiveTool = useRef(props.activeTool);
-  useEffect(() => {
-    if (previousActiveTool.current === props.activeTool) return;
-    previousActiveTool.current = props.activeTool;
-    // Shortcuts should show the newly selected tool's settings.
-    expandDock();
-  }, [expandDock, props.activeTool]);
-
   useEffect(() => {
     const releasePointer = () => {
       if (!pointerDownRef.current) return;
       pointerDownRef.current = false;
-      scheduleCollapse();
+      if (collapseAfterPointerReleaseRef.current) {
+        collapseDock();
+      } else {
+        scheduleCollapse();
+      }
     };
     window.addEventListener("pointerup", releasePointer);
     window.addEventListener("pointercancel", releasePointer);
@@ -574,7 +574,7 @@ export function BoardToolDock(props: BoardToolDockProps) {
       window.removeEventListener("pointerup", releasePointer);
       window.removeEventListener("pointercancel", releasePointer);
     };
-  }, [clearCollapseTimer, scheduleCollapse]);
+  }, [clearCollapseTimer, collapseDock, scheduleCollapse]);
 
   const handleKeys = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape" && openMenu === null) {
@@ -685,6 +685,22 @@ export function BoardToolDock(props: BoardToolDockProps) {
   return (
     <div
       className="board-tool-dock-shell"
+      onPointerEnter={(event) => {
+        if (event.pointerType !== "mouse") return;
+        hoveringMouseRef.current = true;
+        collapseAfterPointerReleaseRef.current = false;
+        expandDock();
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType !== "mouse") return;
+        hoveringMouseRef.current = false;
+        if (pointerDownRef.current) {
+          // Finish a drag even if it releases beyond the toolbar boundary.
+          collapseAfterPointerReleaseRef.current = true;
+        } else {
+          collapseDock();
+        }
+      }}
       onBlurCapture={() => {
         if (dockExpanded) scheduleCollapse();
       }}
@@ -1244,12 +1260,11 @@ export function BoardToolDock(props: BoardToolDockProps) {
           dockExpanded ? "Свернуть инструменты" : "Развернуть инструменты"
         }
         className="board-tool-dock-toggle"
-        onClick={() => {
+        onClick={(event) => {
+          // Mouse interaction is hover-driven; keep keyboard/touch toggling.
+          if (event.detail > 0 && hoveringMouseRef.current) return;
           if (dockExpanded) collapseDock();
           else expandDock();
-        }}
-        onPointerEnter={(event) => {
-          if (event.pointerType !== "touch") expandDock();
         }}
         ref={dockToggleRef}
         title={dockExpanded ? "Свернуть инструменты" : "Инструменты доски"}

@@ -47,6 +47,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   page,
 }) => {
   await resetLocalDatabase(page);
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
 
   const mathTools = page.getByRole("button", { name: "Математика" });
   await expect(mathTools).toBeVisible();
