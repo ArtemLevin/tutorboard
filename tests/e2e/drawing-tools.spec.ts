@@ -147,6 +147,7 @@ test(
 
     await page.keyboard.press("x");
     await expect(stage).toHaveAttribute("data-drawing-mode", "editing.eraser");
+    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
     const eraserSize = page.getByRole("slider", { name: "Размер ластика" });
     await expect(eraserSize).toHaveValue("24");
     await eraserSize.evaluate((element) => {
@@ -250,6 +251,7 @@ test(
     await page.mouse.up();
     await expect(count).toHaveText("1 объекта");
 
+    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
     await page.getByRole("button", { name: "Рисование" }).click();
     await page.getByRole("menuitemradio", { name: "Текст (T)" }).click();
     await page
