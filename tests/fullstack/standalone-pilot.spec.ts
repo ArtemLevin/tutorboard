@@ -112,6 +112,15 @@ async function expectRevision(page: Page, revision: number): Promise<void> {
   }
 }
 
+async function openBoardSettings(page: Page): Promise<void> {
+  await page
+    .getByRole("button", {
+      name: /Развернуть инструменты|Свернуть инструменты/u,
+    })
+    .hover();
+  await page.getByRole("button", { name: "Настройки доски" }).click();
+}
+
 async function expectQuarantinedChange(page: Page): Promise<void> {
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Изолировано изменений · 1",
@@ -233,7 +242,7 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
       new RegExp(`/b/${encodeURIComponent(boardId)}#/board$`),
     );
     await expectRevision(guest, 0);
-    await guest.getByRole("button", { name: "Настройки доски" }).click();
+    await openBoardSettings(guest);
     await expect(guest.getByText("Ученик · Пилотный ученик")).toBeVisible();
     await expect(guest.getByText("Режим только для чтения")).toHaveCount(0);
     await guest.keyboard.press("Escape");
@@ -276,7 +285,7 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     await expect(
       guest.getByRole("button", { name: "Следовать за преподавателем" }),
     ).toBeVisible();
-    await guest.getByRole("button", { name: "Настройки доски" }).click();
+    await openBoardSettings(guest);
     await expectCollaborationOnline(guest);
     await guest.keyboard.press("Escape");
 
@@ -302,7 +311,7 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
     await guestContext.setOffline(false);
     await expectQuarantinedChange(guest);
     await expect(guest.getByTestId("object-count")).toHaveText("3 объекта");
-    await guest.getByRole("button", { name: "Настройки доски" }).click();
+    await openBoardSettings(guest);
     await expect(guest.getByText("Режим только для чтения")).toBeVisible();
     await expectCollaborationOnline(guest);
     await guest.keyboard.press("Escape");
@@ -330,7 +339,7 @@ test("teacher invitation guest collaboration access convergence and revoke", asy
       teacherCsrf,
       true,
     );
-    await guest.getByRole("button", { name: "Настройки доски" }).click();
+    await openBoardSettings(guest);
     await expect(guest.getByText("Права доступа обновлены.")).toBeVisible();
     await expect(guest.getByText("Режим только для чтения")).toHaveCount(0);
     await expectCollaborationOnline(guest);
@@ -449,9 +458,7 @@ test("collaborative clear Undo preserves peer edits and survives immediate Undo 
     await expectRevision(teacher, 0);
     await expectRevision(guest, 0);
     for (const participant of [teacher, guest]) {
-      await participant
-        .getByRole("button", { name: "Настройки доски" })
-        .click();
+      await openBoardSettings(participant);
       await expectCollaborationOnline(participant);
       await participant.keyboard.press("Escape");
     }
