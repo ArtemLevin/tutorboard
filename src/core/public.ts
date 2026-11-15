@@ -155,6 +155,7 @@ export {
   createCoordinatePlotRenderModel,
   createPlotGridRenderModel,
   createPlotLegendLayout,
+  createPlotEndpointMarkers,
   enumeratePlotTicks,
   flattenPlotSegment,
   formatPlotTick,
@@ -163,6 +164,7 @@ export {
   type CoordinatePlotRenderModel,
   type CreateCoordinatePlotRenderModelInput,
   type PlotGridRenderModel,
+  type PlotEndpointMarker,
   type PlotLegendLayout,
   type PlotRenderTick,
 } from "./plot-rendering";
