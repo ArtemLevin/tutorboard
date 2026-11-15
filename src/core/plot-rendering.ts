@@ -4,9 +4,12 @@ import type {
   CoordinatePlotViewport,
   PlotLegendPosition,
   PlotLineStyle,
+  PlotSeriesStyle,
 } from "./board/coordinate-plot";
 import type { CoordinatePlotObject } from "./board/objects";
-import type { Size2 } from "./board/primitives";
+import type { Size2, Vec2 } from "./board/primitives";
+import type { PlotSeriesId } from "./board/identifiers";
+import { compilePlotExpression, evaluatePlotExpression } from "./plot-expression/public";
 import {
   plotDataToLocalPoint,
   sampleCoordinatePlotDefinition,
@@ -51,6 +54,81 @@ export interface CoordinatePlotRenderModel {
   readonly sampling: CoordinatePlotSamplingResult;
   readonly xAxisY: number | null;
   readonly yAxisX: number | null;
+}
+
+
+/** Screen-local markers for finite endpoints of explicitly restricted branches. */
+export interface PlotEndpointMarker {
+  readonly seriesId: PlotSeriesId;
+  readonly point: Vec2;
+  readonly included: boolean;
+  readonly style: PlotSeriesStyle;
+}
+
+/**
+ * Endpoint inclusion is represented separately from numerical sampling:
+ * rendering an excluded limit must still approach the limit continuously.
+ */
+export function createPlotEndpointMarkers(
+  definition: CoordinatePlotDefinition,
+  sampling: CoordinatePlotSamplingResult,
+): readonly PlotEndpointMarker[] {
+  const parameterNames = definition.parameters.map(({ name }) => name);
+  const bindings = Object.fromEntries(
+    definition.parameters.map(({ name, value }) => [name, value]),
+  );
+  const markers: PlotEndpointMarker[] = [];
+  for (const series of definition.series) {
+    if (series.kind !== "explicit" || !series.visible) continue;
+    const sample = sampling.series.find(({ seriesId }) => seriesId === series.id);
+    if (
+      sample === undefined ||
+      (sample.status !== "sampled" && sample.status !== "truncated")
+    ) continue;
+    const formula = compilePlotExpression(series.expression, {
+      context: "explicit-function",
+      parameterNames,
+    });
+    if (!formula.ok) continue;
+    for (const edge of ["min", "max"] as const) {
+      const boundSource = series.domain[`${edge}Expression`];
+      if (boundSource === null) continue;
+      const bound = compilePlotExpression(boundSource, {
+        context: "explicit-domain",
+        parameterNames,
+      });
+      if (!bound.ok) continue;
+      const value = evaluatePlotExpression(bound.expression, bindings);
+      if (value.kind !== "value" || !Number.isFinite(value.value)) continue;
+      const x = value.value;
+      if (
+        x < definition.coordinateViewport.xMin ||
+        x > definition.coordinateViewport.xMax
+      ) continue;
+      const yValue = evaluatePlotExpression(formula.expression, {
+        ...bindings,
+        x,
+      });
+      if (yValue.kind !== "value" || !Number.isFinite(yValue.value)) continue;
+      const y = yValue.value;
+      if (
+        y < definition.coordinateViewport.yMin ||
+        y > definition.coordinateViewport.yMax
+      ) continue;
+      markers.push({
+        seriesId: series.id,
+        point: plotDataToLocalPoint(
+          { x, y },
+          definition.coordinateViewport,
+          definition.size,
+        ),
+        included: series.domain[`${edge}Inclusive`] ?? true,
+        style: series.style,
+      });
+    }
+  }
+  // Filled points win at shared coordinates, even if an open branch appears later.
+  return markers.sort((left, right) => Number(left.included) - Number(right.included));
 }
 
 export interface CreateCoordinatePlotRenderModelInput {
