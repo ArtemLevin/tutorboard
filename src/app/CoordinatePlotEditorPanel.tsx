@@ -537,6 +537,7 @@ function SeriesEditor({
                   domain: {
                     ...series.domain,
                     minExpression: value.trim() === "" ? null : value,
+                    minInclusive: series.domain.minInclusive ?? true,
                   },
                 })
               }
@@ -558,6 +559,7 @@ function SeriesEditor({
                   domain: {
                     ...series.domain,
                     maxExpression: value.trim() === "" ? null : value,
+                    maxInclusive: series.domain.maxInclusive ?? true,
                   },
                 })
               }
