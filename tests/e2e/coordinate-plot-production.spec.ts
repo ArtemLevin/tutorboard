@@ -43,6 +43,12 @@ async function localRevisionCount(
   }, databaseName);
 }
 
+async function expandDockForSettings(page: import("@playwright/test").Page) {
+  const collapsed = page.getByRole("button", { name: "Развернуть инструменты" });
+  if (await collapsed.isVisible()) await collapsed.press("Enter");
+  await expect(page.getByRole("button", { name: "Настройки доски" })).toBeVisible();
+}
+
 test("discovers, persists, restores, duplicates and exports a production coordinate plot", async ({
   page,
 }) => {
@@ -279,7 +285,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await page.reload();
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
 
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await expandDockForSettings(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   const boardSettings = page.getByRole("dialog", { name: "Настройки доски" });
   await expect(boardSettings).toBeVisible();
@@ -335,7 +341,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     /Сохранено локально|Сохранено повторно/,
   );
 
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await expandDockForSettings(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(boardSettings).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
