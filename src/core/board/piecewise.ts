@@ -64,11 +64,19 @@ export function resolveExplicitPlotDomain(
  */
 export function validatePiecewisePlotDefinition(
   definition: CoordinatePlotDefinition,
-): readonly { readonly code: string; readonly path: string; readonly message: string }[] {
+): readonly {
+  readonly code: string;
+  readonly path: string;
+  readonly message: string;
+}[] {
   const issues: { code: string; path: string; message: string }[] = [];
   const groups = new Map<
     string,
-    { index: number; series: ExplicitPlotSeries; bounds: ResolvedExplicitDomain }[]
+    {
+      index: number;
+      series: ExplicitPlotSeries;
+      bounds: ResolvedExplicitDomain;
+    }[]
   >();
   definition.series.forEach((series, index) => {
     if (series.kind !== "explicit") return;
@@ -77,7 +85,8 @@ export function validatePiecewisePlotDefinition(
       issues.push({
         code: "plot.invalid-piecewise-domain",
         path: `series.${index}.domain`,
-        message: "Explicit domain bounds must be ordered and a singleton must include its point.",
+        message:
+          "Explicit domain bounds must be ordered and a singleton must include its point.",
       });
       return;
     }
@@ -99,7 +108,10 @@ export function validatePiecewisePlotDefinition(
       parameterNames,
     });
     if (!compiled.ok) return null;
-    const result = evaluatePlotExpression(compiled.expression, { ...bindings, x });
+    const result = evaluatePlotExpression(compiled.expression, {
+      ...bindings,
+      x,
+    });
     return result.kind === "value" && Number.isFinite(result.value)
       ? result.value
       : null;
@@ -117,7 +129,8 @@ export function validatePiecewisePlotDefinition(
           issues.push({
             code: "plot.piecewise-overlap",
             path,
-            message: "Branches in the same piecewise group overlap over an interval.",
+            message:
+              "Branches in the same piecewise group overlap over an interval.",
           });
           continue;
         }
@@ -125,17 +138,22 @@ export function validatePiecewisePlotDefinition(
           !Number.isFinite(intersectionMin) ||
           !includedAt(left.bounds, intersectionMin) ||
           !includedAt(right.bounds, intersectionMin)
-        ) continue;
+        )
+          continue;
         const firstValue = evaluateAt(left.series, intersectionMin);
         const secondValue = evaluateAt(right.series, intersectionMin);
         // Equality is exact here: any two different outputs violate
         // the single-valued-function invariant, even by 1e-10.
-        if (firstValue === null || secondValue === null ||
-            firstValue !== secondValue) {
+        if (
+          firstValue === null ||
+          secondValue === null ||
+          firstValue !== secondValue
+        ) {
           issues.push({
             code: "plot.piecewise-conflict",
             path,
-            message: "Two branches define different or undefined values at the same x.",
+            message:
+              "Two branches define different or undefined values at the same x.",
           });
         }
       }
