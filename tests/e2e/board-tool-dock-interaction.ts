@@ -1,13 +1,13 @@
 import { expect, type Page } from "@playwright/test";
 
-/** Open hover-driven tools deterministically after reload, drawing or focus changes. */
+/** Expand board tools via the accessible keyboard toggle on every browser. */
 export async function expandBoardToolDock(page: Page): Promise<void> {
-  const toggle = page.getByRole("button", { name: "Развернуть инструменты" });
-  if (await toggle.isVisible()) {
-    await toggle.hover();
-    if (await toggle.isVisible()) await toggle.press("Enter");
+  const toggle = page.locator(".board-tool-dock-toggle");
+  const toolbar = page.locator("#board-tool-dock-toolbar");
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+    await toggle.press("Enter");
   }
-  await expect(
-    page.getByRole("toolbar", { name: "Инструменты доски" }),
-  ).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(toolbar).toBeVisible();
 }
