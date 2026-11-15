@@ -79,6 +79,12 @@ export {
   type PlotSeriesStyle,
 } from "./board/coordinate-plot";
 export {
+  evaluatePiecewiseScalar,
+  nextPlotFloat,
+  resolveExplicitPlotDomain,
+  type ResolvedExplicitDomain,
+} from "./board/piecewise";
+export {
   compilePlotExpression,
   evaluatePlotExpression,
   expressionDiagnosticCodes,
