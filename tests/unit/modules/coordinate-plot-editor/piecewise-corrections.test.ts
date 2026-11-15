@@ -93,11 +93,13 @@ describe("piecewise mathematical regression checks", () => {
     if (original?.kind !== "explicit") throw new Error("Explicit plot expected");
     const definition = {
       ...object.definition,
-      series: [{
-        ...original,
-        expression: "2",
-        domain: { minExpression: "3", maxExpression: "3" },
-      }],
+      series: [
+        {
+          ...original,
+          expression: "2",
+          domain: { minExpression: "3", maxExpression: "3" },
+        },
+      ],
     };
     const model = createCoordinatePlotRenderModel({
       object: { ...object, definition },
