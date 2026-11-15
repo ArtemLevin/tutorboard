@@ -47,7 +47,9 @@ describe("piecewise coordinate plots", () => {
       domain: { minExpression: "0", minInclusive: true, maxExpression: null },
       kind: "explicit",
     });
-    expect(plot.definition.series[0]!.style).toEqual(plot.definition.series[1]!.style);
+    expect(plot.definition.series[0]!.style).toEqual(
+      plot.definition.series[1]!.style,
+    );
   });
 
   it("samples branches separately and distinguishes excluded and included ends", () => {
@@ -69,8 +71,12 @@ describe("piecewise coordinate plots", () => {
     });
     const leftSegments = model.sampling.series[0]?.sample?.segments ?? [];
     const rightSegments = model.sampling.series[1]?.sample?.segments ?? [];
-    expect(leftSegments.flat().every((point) => point.x <= 320 + 1e-6)).toBe(true);
-    expect(rightSegments.flat().every((point) => point.x >= 320 - 1e-6)).toBe(true);
+    expect(leftSegments.flat().every((point) => point.x <= 320 + 1e-6)).toBe(
+      true,
+    );
+    expect(rightSegments.flat().every((point) => point.x >= 320 - 1e-6)).toBe(
+      true,
+    );
   });
 
   it("round-trips branch inclusion flags through the existing document schema", () => {
