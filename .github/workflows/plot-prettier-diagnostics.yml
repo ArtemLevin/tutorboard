@@ -1,0 +1,21 @@
+name: Temporary piecewise Prettier diagnostics
+on:
+  pull_request:
+    paths:
+      - 'src/core/plot-rendering.ts'
+      - 'src/modules/document-transfer/snapshot.ts'
+      - '.github/workflows/plot-prettier-diagnostics.yml'
+jobs:
+  report-format-diff:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci
+      - run: npx prettier --write src/core/plot-rendering.ts src/modules/document-transfer/snapshot.ts
+      - name: Print formatter changes
+        run: git diff --no-ext-diff -- src/core/plot-rendering.ts src/modules/document-transfer/snapshot.ts
