@@ -93,6 +93,7 @@ export interface CoordinatePlotEditorPanelProps {
   readonly onDefinitionChange: (definition: CoordinatePlotDefinition) => void;
   readonly onSave: () => boolean;
   readonly onSelectedSeriesChange: (seriesId: PlotSeriesId | null) => void;
+  readonly onSplitSeries?: ((seriesId: PlotSeriesId) => void) | undefined;
   readonly readOnly: boolean;
   readonly selectedSeriesId: PlotSeriesId | null;
 }
@@ -565,6 +566,48 @@ function SeriesEditor({
               source={series.domain.maxExpression ?? ""}
             />
           </div>
+          <div className="plot-editor-grid two-columns">
+            <label className="plot-editor-check">
+              <input
+                aria-label="Включить левый конец ветви"
+                checked={series.domain.minInclusive ?? true}
+                disabled={series.domain.minExpression === null}
+                onChange={(event) =>
+                  replace({
+                    ...series,
+                    domain: {
+                      ...series.domain,
+                      minInclusive: event.currentTarget.checked,
+                    },
+                  })
+                }
+                type="checkbox"
+              />
+              Левый конец включён (●)
+            </label>
+            <label className="plot-editor-check">
+              <input
+                aria-label="Включить правый конец ветви"
+                checked={series.domain.maxInclusive ?? true}
+                disabled={series.domain.maxExpression === null}
+                onChange={(event) =>
+                  replace({
+                    ...series,
+                    domain: {
+                      ...series.domain,
+                      maxInclusive: event.currentTarget.checked,
+                    },
+                  })
+                }
+                type="checkbox"
+              />
+              Правый конец включён (●)
+            </label>
+          </div>
+          <p className="plot-editor-hint">
+            Для кусочной функции задайте отдельную формулу каждой ветви и её диапазон X.
+            Пустая граница означает бесконечность, ● — включённый конец, ○ — исключённый.
+          </p>
         </>
       ) : series.kind === "parametric" ? (
         <>
@@ -927,6 +970,7 @@ function FunctionsTab({
   onChange,
   onCreateParameter,
   onSelectedSeriesChange,
+  onSplitSeries,
   selectedSeries,
   selectedSeriesId,
 }: {
@@ -936,6 +980,7 @@ function FunctionsTab({
   readonly onChange: (definition: CoordinatePlotDefinition) => void;
   readonly onCreateParameter: (name: string) => void;
   readonly onSelectedSeriesChange: (seriesId: PlotSeriesId | null) => void;
+  readonly onSplitSeries?: ((seriesId: PlotSeriesId) => void) | undefined;
   readonly selectedSeries: PlotSeries | null;
   readonly selectedSeriesId: PlotSeriesId | null;
 }): ReactElement {
@@ -968,6 +1013,19 @@ function FunctionsTab({
               type="button"
             >
               + Уравнение / неравенство
+            </button>
+            <button
+              disabled={
+                onSplitSeries === undefined ||
+                selectedSeries?.kind !== "explicit" ||
+                definition.series.length >= maximumCoordinatePlotSeries
+              }
+              onClick={() => {
+                if (selectedSeries?.kind === "explicit") onSplitSeries?.(selectedSeries.id);
+              }}
+              type="button"
+            >
+              + Кусочная функция
             </button>
           </div>
         </div>
@@ -1545,6 +1603,7 @@ export function CoordinatePlotEditorPanel({
   onDefinitionChange,
   onSave,
   onSelectedSeriesChange,
+  onSplitSeries,
   readOnly,
   selectedSeriesId,
 }: CoordinatePlotEditorPanelProps): ReactElement {
@@ -1848,6 +1907,19 @@ export function CoordinatePlotEditorPanel({
                     type="button"
                   >
                     + Неравенство
+                  </button>
+                  <button
+                    disabled={
+                      onSplitSeries === undefined ||
+                      basicSeries?.kind !== "explicit" ||
+                      definition.series.length >= maximumCoordinatePlotSeries
+                    }
+                    onClick={() => {
+                      if (basicSeries?.kind === "explicit") onSplitSeries?.(basicSeries.id);
+                    }}
+                    type="button"
+                  >
+                    + Кусочная
                   </button>
                 </div>
               </div>
@@ -2184,6 +2256,7 @@ export function CoordinatePlotEditorPanel({
                       onChange={onDefinitionChange}
                       onCreateParameter={createAdvancedParameterFromFormula}
                       onSelectedSeriesChange={onSelectedSeriesChange}
+                      onSplitSeries={onSplitSeries}
                       selectedSeries={selectedSeries}
                       selectedSeriesId={selectedSeriesId}
                     />
