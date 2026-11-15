@@ -80,6 +80,8 @@ export interface ExplicitPlotSeries {
   readonly expression: string;
   readonly id: PlotSeriesId;
   readonly kind: "explicit";
+  /** Stable identity shared by branches of one piecewise function. */
+  readonly piecewiseGroupId?: PlotSeriesId | undefined;
   readonly name: string;
   readonly style: PlotSeriesStyle;
   readonly visible: boolean;
