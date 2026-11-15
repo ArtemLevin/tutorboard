@@ -256,9 +256,10 @@ const explicitPlotSeries = strictObject({
   id: reference("Identifier"),
   kind: { const: "explicit" },
   name: { maxLength: 128, minLength: 1, type: "string" },
+  piecewiseGroupId: reference("Identifier"),
   style: reference("PlotSeriesStyle"),
   visible: { type: "boolean" },
-});
+}, ["domain", "expression", "id", "kind", "name", "style", "visible"]);
 const parametricPlotSeries = strictObject({
   closed: { type: "boolean" },
   id: reference("Identifier"),
