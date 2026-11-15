@@ -1373,3 +1373,60 @@ body:has(.coordinate-plot-basic-editor-panel) .board-tool-dock-shell {
     max-height: 170px;
   }
 }
+
+/* Preview mode keeps the expression editable while exposing the canvas. */
+.plot-editor-heading > .plot-basic-heading-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.plot-editor-heading .plot-basic-preview-toggle {
+  width: auto;
+  min-width: 124px;
+  height: 34px;
+  padding: 5px 10px;
+  border-color: #bfd2f7;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+@media (min-width: 741px) {
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] {
+    width: min(390px, calc(100% - 32px));
+  }
+
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-sidebar,
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-conditions,
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-parameter-card,
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-main > .plot-workspace-disclosure,
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-basic-advanced-action,
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-examples {
+    display: none;
+  }
+
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-formula-card {
+    padding: 14px;
+  }
+
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-section-heading strong {
+    font-size: 15px;
+  }
+
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-formula-card .plot-expression-field input {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 740px) {
+  .plot-basic-preview-toggle {
+    display: none;
+  }
+}
