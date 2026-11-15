@@ -917,6 +917,12 @@
   }
 }
 
+/* Keep unrelated board tools out of the way while graph editing is active. */
+body:has(.coordinate-plot-basic-editor-panel) .board-tool-dock-shell {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* Graph editor: guided formula workspace and progressive disclosure */
 .plot-editor-basic-scroll {
   min-height: 0;
