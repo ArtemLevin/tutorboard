@@ -1019,85 +1019,11 @@ function FunctionsTab({
   readonly selectedSeriesId: PlotSeriesId | null;
 }): ReactElement {
   return (
-    <div className="plot-editor-tab-content">
-      <div className="plot-editor-section-card">
-        <div className="plot-editor-section-heading">
-          <div>
-            <strong>Графики, кривые и области</strong>
-            <span>{definition.series.length} серий</span>
-          </div>
-          <div className="plot-editor-actions compact">
-            <button
-              disabled={definition.series.length >= maximumCoordinatePlotSeries}
-              onClick={() => onAddSeries("explicit")}
-              type="button"
-            >
-              + Явная функция
-            </button>
-            <button
-              disabled={definition.series.length >= maximumCoordinatePlotSeries}
-              onClick={() => onAddSeries("parametric")}
-              type="button"
-            >
-              + Параметрическая кривая
-            </button>
-            <button
-              disabled={definition.series.length >= maximumCoordinatePlotSeries}
-              onClick={() => onAddSeries("relation")}
-              type="button"
-            >
-              + Уравнение / неравенство
-            </button>
-            <label>
-              Точка x =
-              <input
-                aria-label="Координата разделения ветви"
-                onChange={(event) =>
-                  onPiecewiseBoundaryChange(event.currentTarget.value)
-                }
-                style={{ width: 72 }}
-                value={piecewiseBoundary}
-              />
-            </label>
-            <button
-              disabled={
-                onSplitSeries === undefined ||
-                selectedSeries?.kind !== "explicit" ||
-                !canSplitCoordinatePlotSeries(
-                  definition,
-                  selectedSeries.id,
-                  piecewiseBoundary,
-                )
-              }
-              onClick={() => {
-                if (selectedSeries?.kind === "explicit") {
-                  onSplitSeries?.(selectedSeries.id, piecewiseBoundary);
-                }
-              }}
-              type="button"
-            >
-              + Разделить ветвь
-            </button>
-            <button
-              disabled={
-                onAddPoint === undefined ||
-                selectedSeries?.kind !== "explicit" ||
-                !canAddPiecewisePoint(
-                  definition,
-                  selectedSeries.id,
-                  piecewiseBoundary,
-                )
-              }
-              onClick={() => {
-                if (selectedSeries?.kind === "explicit") {
-                  onAddPoint?.(selectedSeries.id, piecewiseBoundary);
-                }
-              }}
-              type="button"
-            >
-              + Значение в точке
-            </button>
-          </div>
+    <div className="plot-editor-tab-content plot-advanced-functions-layout">
+      <section className="plot-editor-section-card plot-advanced-series-pane">
+        <div className="plot-workspace-section-heading">
+          <strong>Графики на плоскости</strong>
+          <small>Выберите график, чтобы изменить его формулу.</small>
         </div>
         <ol className="plot-series-list">
           {definition.series.map((series) => (
@@ -1127,9 +1053,7 @@ function FunctionsTab({
                 {series.name || "Без названия"}
               </button>
               <button
-                aria-label={`Удалить серию ${
-                  series.name || `№${definition.series.indexOf(series) + 1}`
-                }`}
+                aria-label={`Удалить серию ${series.name}`}
                 onClick={() => {
                   const next = removeCoordinatePlotSeries(
                     definition,
@@ -1147,31 +1071,128 @@ function FunctionsTab({
             </li>
           ))}
         </ol>
-      </div>
-      {selectedSeries?.kind === "explicit" &&
-      selectedSeries.piecewiseGroupId !== undefined ? (
         <button
-          onClick={() => {
-            onChange(removePiecewiseGroup(definition, selectedSeries.id));
-            onSelectedSeriesChange(null);
-          }}
+          disabled={definition.series.length >= maximumCoordinatePlotSeries}
+          onClick={() => onAddSeries("explicit")}
           type="button"
         >
-          Удалить всю кусочную функцию
+          + Добавить функцию
         </button>
-      ) : null}
-      <div className="plot-editor-section-card">
-        {selectedSeries === null ? (
-          <p>Добавьте первую функцию или кривую.</p>
-        ) : (
-          <SeriesEditor
-            definition={definition}
-            issues={issues}
-            onChange={onChange}
-            onCreateParameter={onCreateParameter}
-            series={selectedSeries}
-          />
-        )}
+        <details className="plot-workspace-add-other">
+          <summary>Добавить другой тип</summary>
+          <div className="plot-workspace-add-other-options">
+            <button
+              disabled={definition.series.length >= maximumCoordinatePlotSeries}
+              onClick={() => onAddSeries("relation")}
+              type="button"
+            >
+              Уравнение / неравенство
+            </button>
+            <button
+              disabled={definition.series.length >= maximumCoordinatePlotSeries}
+              onClick={() => onAddSeries("parametric")}
+              type="button"
+            >
+              Параметрическая кривая
+            </button>
+          </div>
+        </details>
+      </section>
+      <div className="plot-advanced-edit-pane">
+        <section className="plot-editor-section-card">
+          <div className="plot-workspace-section-heading">
+            <strong>Редактирование графика</strong>
+            <small>Формула, область определения и стиль линии.</small>
+          </div>
+          {selectedSeries === null ? (
+            <p>Добавьте функцию или кривую слева.</p>
+          ) : (
+            <SeriesEditor
+              definition={definition}
+              issues={issues}
+              onChange={onChange}
+              onCreateParameter={onCreateParameter}
+              series={selectedSeries}
+            />
+          )}
+        </section>
+        {selectedSeries?.kind === "explicit" ? (
+          <section className="plot-editor-section-card plot-advanced-piecewise">
+            <details
+              className="plot-workspace-disclosure"
+              defaultOpen={selectedSeries.piecewiseGroupId !== undefined}
+            >
+              <summary>
+                <span>
+                  <strong>Кусочная функция</strong>
+                  <small>Разделить ветвь или задать значение в точке</small>
+                </span>
+              </summary>
+              <div className="plot-workspace-disclosure-body">
+                <p className="plot-editor-hint">
+                  Выберите ветвь слева и задайте координату x. После
+                  разделения введите формулу каждой ветви отдельно.
+                </p>
+                <div className="plot-workspace-piecewise-actions">
+                  <label>
+                    Разделить при x =
+                    <input
+                      aria-label="Координата разделения ветви"
+                      onChange={(event) =>
+                        onPiecewiseBoundaryChange(event.currentTarget.value)
+                      }
+                      value={piecewiseBoundary}
+                    />
+                  </label>
+                  <button
+                    disabled={
+                      onSplitSeries === undefined ||
+                      !canSplitCoordinatePlotSeries(
+                        definition,
+                        selectedSeries.id,
+                        piecewiseBoundary,
+                      )
+                    }
+                    onClick={() =>
+                      onSplitSeries?.(selectedSeries.id, piecewiseBoundary)
+                    }
+                    type="button"
+                  >
+                    Разделить ветвь
+                  </button>
+                  <button
+                    disabled={
+                      onAddPoint === undefined ||
+                      !canAddPiecewisePoint(
+                        definition,
+                        selectedSeries.id,
+                        piecewiseBoundary,
+                      )
+                    }
+                    onClick={() =>
+                      onAddPoint?.(selectedSeries.id, piecewiseBoundary)
+                    }
+                    type="button"
+                  >
+                    Задать значение в точке
+                  </button>
+                </div>
+              </div>
+            </details>
+            {selectedSeries.piecewiseGroupId === undefined ? null : (
+              <button
+                className="plot-advanced-remove-group"
+                onClick={() => {
+                  onChange(removePiecewiseGroup(definition, selectedSeries.id));
+                  onSelectedSeriesChange(null);
+                }}
+                type="button"
+              >
+                Удалить всю кусочную функцию
+              </button>
+            )}
+          </section>
+        ) : null}
       </div>
     </div>
   );
