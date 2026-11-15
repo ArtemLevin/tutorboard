@@ -87,6 +87,27 @@ describe("piecewise mathematical regression checks", () => {
     expect(rendered.endpoints[0]?.included).toBe(true);
   });
 
+  it("renders singleton points with implicit legacy-inclusive bounds", () => {
+    const object = createPlot();
+    const original = object.definition.series[0];
+    if (original?.kind !== "explicit") throw new Error("Explicit plot expected");
+    const definition = {
+      ...object.definition,
+      series: [{
+        ...original,
+        expression: "2",
+        domain: { minExpression: "3", maxExpression: "3" },
+      }],
+    };
+    const model = createCoordinatePlotRenderModel({
+      object: { ...object, definition },
+      zoom: 1,
+    });
+    expect(model.sampling.series[0]?.status).toBe("sampled");
+    expect(model.endpoints).toHaveLength(1);
+    expect(model.endpoints[0]?.included).toBe(true);
+  });
+
   it("rejects distinct values at a shared included boundary even below 1e-9", () => {
     const object = createPlot();
     const primary = object.definition.series[0]!;
