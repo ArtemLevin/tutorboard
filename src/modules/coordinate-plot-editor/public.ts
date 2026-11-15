@@ -11,6 +11,7 @@ export {
   removeCoordinatePlotSeries,
   replaceCoordinatePlotSeriesKind,
   resetCoordinatePlotViewport,
+  splitCoordinatePlotSeries,
   standardCoordinatePlotViewport,
   updateCoordinatePlotParameter,
   updateCoordinatePlotSeries,
