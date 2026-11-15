@@ -73,10 +73,15 @@ export interface ExplicitPlotSeries {
   readonly domain: {
     readonly maxExpression: string | null;
     readonly minExpression: string | null;
+    /** Included by default for legacy explicit plots. */
+    readonly maxInclusive?: boolean | undefined;
+    readonly minInclusive?: boolean | undefined;
   };
   readonly expression: string;
   readonly id: PlotSeriesId;
   readonly kind: "explicit";
+  /** Stable identity shared by branches of one piecewise function. */
+  readonly piecewiseGroupId?: PlotSeriesId | undefined;
   readonly name: string;
   readonly style: PlotSeriesStyle;
   readonly visible: boolean;

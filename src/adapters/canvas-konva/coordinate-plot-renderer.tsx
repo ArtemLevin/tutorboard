@@ -7,7 +7,7 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { Arrow, Group, Line, Rect, Text } from "react-konva";
+import { Arrow, Circle, Group, Line, Rect, Text } from "react-konva";
 
 import {
   type CoordinatePlotObject,
@@ -528,6 +528,7 @@ export function CoordinatePlotRenderer({
       status === "invalid" || status === "truncated" || status === "aborted",
   ).length;
   const legendSeries = visibleSeries.slice(0, legend.visibleRowCount);
+  const endpoints = model.endpoints;
 
   const selectSeries = (seriesId: PlotSeriesId | null) => {
     if (!controlled) setInternalSelectedSeriesId(seriesId);
@@ -928,6 +929,19 @@ export function CoordinatePlotRenderer({
             ];
           });
         })}
+        {endpoints.map((marker, index) => (
+          <Circle
+            fill={marker.included ? marker.style.stroke : fill}
+            key={`plot-endpoint-${marker.seriesId}-${index}`}
+            listening={false}
+            opacity={marker.style.opacity}
+            radius={Math.max(4, marker.style.strokeWidth + 1)}
+            stroke={marker.style.stroke}
+            strokeWidth={Math.max(1.5, marker.style.strokeWidth / 2)}
+            x={marker.point.x}
+            y={marker.point.y}
+          />
+        ))}
       </Group>
       <Rect
         height={height}

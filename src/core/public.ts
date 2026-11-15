@@ -79,6 +79,12 @@ export {
   type PlotSeriesStyle,
 } from "./board/coordinate-plot";
 export {
+  evaluatePiecewiseScalar,
+  nextPlotFloat,
+  resolveExplicitPlotDomain,
+  type ResolvedExplicitDomain,
+} from "./board/piecewise";
+export {
   compilePlotExpression,
   evaluatePlotExpression,
   expressionDiagnosticCodes,
@@ -155,6 +161,7 @@ export {
   createCoordinatePlotRenderModel,
   createPlotGridRenderModel,
   createPlotLegendLayout,
+  createPlotEndpointMarkers,
   enumeratePlotTicks,
   flattenPlotSegment,
   formatPlotTick,
@@ -163,6 +170,7 @@ export {
   type CoordinatePlotRenderModel,
   type CreateCoordinatePlotRenderModelInput,
   type PlotGridRenderModel,
+  type PlotEndpointMarker,
   type PlotLegendLayout,
   type PlotRenderTick,
 } from "./plot-rendering";

@@ -1,5 +1,7 @@
 import {
   compilePlotExpression,
+  evaluatePiecewiseScalar,
+  resolveExplicitPlotDomain,
   coordinatePlotExpressionLanguage,
   evaluatePlotExpression,
   maximumCoordinatePlotParameters,
@@ -202,6 +204,185 @@ export function addCoordinatePlotSeries(
   return { ...definition, series: [...definition.series, series] };
 }
 
+/**
+ * Turn an explicit series into the first two branches of a piecewise function.
+ * Both branches remain ordinary explicit series, preserving persistence,
+ * collaboration and renderer contracts for existing boards.
+ */
+/** Whether the cut lies strictly inside the selected branch. */
+export function canSplitCoordinatePlotSeries(
+  definition: CoordinatePlotDefinition,
+  seriesId: PlotSeriesId,
+  boundary: string = "0",
+): boolean {
+  if (definition.series.length >= maximumCoordinatePlotSeries) return false;
+  const series = definition.series.find(({ id }) => id === seriesId);
+  if (series?.kind !== "explicit") return false;
+  const domain = resolveExplicitPlotDomain(definition, series);
+  const cut = evaluatePiecewiseScalar(definition, boundary);
+  return (
+    domain !== null && cut !== null && domain.min < cut && cut < domain.max
+  );
+}
+
+/** Split a branch in place, preserving its current outer bounds. */
+export function splitCoordinatePlotSeries(
+  definition: CoordinatePlotDefinition,
+  seriesId: PlotSeriesId,
+  secondId: PlotSeriesId,
+  boundary: string = "0",
+): CoordinatePlotDefinition {
+  if (
+    !canSplitCoordinatePlotSeries(definition, seriesId, boundary) ||
+    definition.series.some(({ id }) => id === secondId)
+  )
+    return definition;
+  const index = definition.series.findIndex(({ id }) => id === seriesId);
+  const source = definition.series[index];
+  if (source?.kind !== "explicit") return definition;
+  const groupId = source.piecewiseGroupId ?? source.id;
+  const members = definition.series.filter(
+    (series) =>
+      series.kind === "explicit" && series.piecewiseGroupId === groupId,
+  );
+  const baseName = source.name.replace(/ · ветвь \d+$/u, "");
+  const first: ExplicitPlotSeries = {
+    ...source,
+    piecewiseGroupId: groupId,
+    name:
+      source.piecewiseGroupId === undefined
+        ? `${baseName.slice(0, 110)} · ветвь 1`
+        : source.name,
+    domain: {
+      ...source.domain,
+      maxExpression: boundary,
+      maxInclusive: false,
+    },
+  };
+  const second: ExplicitPlotSeries = {
+    ...source,
+    id: secondId,
+    piecewiseGroupId: groupId,
+    name: `${baseName.slice(0, 110)} · ветвь ${members.length > 0 ? members.length + 1 : 2}`,
+    domain: {
+      ...source.domain,
+      minExpression: boundary,
+      minInclusive: true,
+    },
+  };
+  const series = [...definition.series];
+  series.splice(index, 1, first, second);
+  return { ...definition, series };
+}
+
+export function canAddPiecewisePoint(
+  definition: CoordinatePlotDefinition,
+  seriesId: PlotSeriesId,
+  boundary: string,
+): boolean {
+  if (definition.series.length >= maximumCoordinatePlotSeries) return false;
+  const selected = definition.series.find(({ id }) => id === seriesId);
+  if (
+    selected?.kind !== "explicit" ||
+    selected.piecewiseGroupId === undefined
+  ) {
+    return false;
+  }
+  const x = evaluatePiecewiseScalar(definition, boundary);
+  if (x === null) return false;
+  return !definition.series.some((series) => {
+    if (
+      series.kind !== "explicit" ||
+      series.piecewiseGroupId !== selected.piecewiseGroupId
+    )
+      return false;
+    const domain = resolveExplicitPlotDomain(definition, series);
+    return (
+      domain === null ||
+      (domain.min < x && x < domain.max) ||
+      (domain.singleton && domain.min === x)
+    );
+  });
+}
+
+/** Insert f(x₀) as a singleton branch and exclude it from adjacent branches. */
+export function addPiecewisePoint(
+  definition: CoordinatePlotDefinition,
+  seriesId: PlotSeriesId,
+  newId: PlotSeriesId,
+  boundary: string,
+): CoordinatePlotDefinition {
+  if (
+    !canAddPiecewisePoint(definition, seriesId, boundary) ||
+    definition.series.some(({ id }) => id === newId)
+  )
+    return definition;
+  const source = definition.series.find(({ id }) => id === seriesId);
+  if (source?.kind !== "explicit" || source.piecewiseGroupId === undefined) {
+    return definition;
+  }
+  const x = evaluatePiecewiseScalar(definition, boundary);
+  if (x === null) return definition;
+  const series = definition.series.map((item): PlotSeries => {
+    if (
+      item.kind !== "explicit" ||
+      item.piecewiseGroupId !== source.piecewiseGroupId
+    ) {
+      return item;
+    }
+    const domain = resolveExplicitPlotDomain(definition, item);
+    if (domain === null) return item;
+    return {
+      ...item,
+      domain: {
+        ...item.domain,
+        ...(domain.min === x && item.domain.minExpression !== null
+          ? { minInclusive: false }
+          : {}),
+        ...(domain.max === x && item.domain.maxExpression !== null
+          ? { maxInclusive: false }
+          : {}),
+      },
+    };
+  });
+  const index = series.findIndex(({ id }) => id === seriesId);
+  const point: ExplicitPlotSeries = {
+    ...source,
+    id: newId,
+    name: `${source.name.slice(0, 105)} · точка ${boundary.slice(0, 10)}`,
+    expression: "0",
+    domain: {
+      minExpression: boundary,
+      maxExpression: boundary,
+      minInclusive: true,
+      maxInclusive: true,
+    },
+  };
+  series.splice(index + 1, 0, point);
+  return { ...definition, series };
+}
+
+export function removePiecewiseGroup(
+  definition: CoordinatePlotDefinition,
+  seriesId: PlotSeriesId,
+): CoordinatePlotDefinition {
+  const selected = definition.series.find(({ id }) => id === seriesId);
+  if (
+    selected?.kind !== "explicit" ||
+    selected.piecewiseGroupId === undefined
+  ) {
+    return definition;
+  }
+  return {
+    ...definition,
+    series: definition.series.filter(
+      (series) =>
+        series.kind !== "explicit" ||
+        series.piecewiseGroupId !== selected.piecewiseGroupId,
+    ),
+  };
+}
+
 export function replaceCoordinatePlotSeriesKind(
   definition: CoordinatePlotDefinition,
   seriesId: PlotSeriesId,
@@ -253,6 +434,15 @@ export function updateCoordinatePlotSeriesInput(
   if (index < 0) return definition;
   const current = definition.series[index]!;
   if (current.kind === "parametric") return definition;
+  const preservedExplicit =
+    current.kind === "explicit"
+      ? {
+          domain: current.domain,
+          ...(current.piecewiseGroupId === undefined
+            ? {}
+            : { piecewiseGroupId: current.piecewiseGroupId }),
+        }
+      : {};
   const relation = parsePlotRelation(source);
   const explicitPrefix = /^\s*y\s*=\s*/iu.exec(source);
   let replacement: PlotSeries;
@@ -263,6 +453,7 @@ export function updateCoordinatePlotSeriesInput(
   ) {
     replacement = {
       ...createExplicitPlotSeries(current.id, index),
+      ...preservedExplicit,
       expression: relation.rightSource,
       name: current.name,
       style: current.style,
@@ -271,6 +462,7 @@ export function updateCoordinatePlotSeriesInput(
   } else if (explicitPrefix !== null) {
     replacement = {
       ...createExplicitPlotSeries(current.id, index),
+      ...preservedExplicit,
       expression: source.slice(explicitPrefix[0].length),
       name: current.name,
       style: current.style,
@@ -288,6 +480,7 @@ export function updateCoordinatePlotSeriesInput(
   } else {
     replacement = {
       ...createExplicitPlotSeries(current.id, index),
+      ...preservedExplicit,
       expression: source,
       name: current.name,
       style: current.style,
@@ -437,6 +630,110 @@ function relationExpressionIssues(
   ];
 }
 
+function piecewiseValidationIssues(
+  definition: CoordinatePlotDefinition,
+): CoordinatePlotEditorIssue[] {
+  const issues: CoordinatePlotEditorIssue[] = [];
+  const members = new Map<
+    PlotSeriesId,
+    {
+      index: number;
+      series: ExplicitPlotSeries;
+      bounds: NonNullable<ReturnType<typeof resolveExplicitPlotDomain>>;
+    }[]
+  >();
+  const add = (index: number, code: string, message: string) => {
+    issues.push({
+      blocking: true,
+      code,
+      end: null,
+      field: `series.${index}.domain`,
+      message,
+      start: null,
+    });
+  };
+  definition.series.forEach((series, index) => {
+    if (series.kind !== "explicit") return;
+    const bounds = resolveExplicitPlotDomain(definition, series);
+    if (bounds === null) {
+      add(
+        index,
+        "plot.invalid-piecewise-domain",
+        "Границы должны вычисляться, идти по возрастанию; одиночная точка требует включения обеих границ.",
+      );
+      return;
+    }
+    if (series.piecewiseGroupId === undefined) return;
+    const group = members.get(series.piecewiseGroupId) ?? [];
+    group.push({ index, series, bounds });
+    members.set(series.piecewiseGroupId, group);
+  });
+  const params = Object.fromEntries(
+    definition.parameters.map(({ name, value }) => [name, value]),
+  );
+  const parameterNames = definition.parameters.map(({ name }) => name);
+  const yAt = (series: ExplicitPlotSeries, x: number): number | null => {
+    const compiled = compilePlotExpression(series.expression, {
+      context: "explicit-function",
+      parameterNames,
+    });
+    if (!compiled.ok) return null;
+    const result = evaluatePlotExpression(compiled.expression, {
+      ...params,
+      x,
+    });
+    return result.kind === "value" && Number.isFinite(result.value)
+      ? result.value
+      : null;
+  };
+  const includes = (
+    bounds: NonNullable<ReturnType<typeof resolveExplicitPlotDomain>>,
+    x: number,
+  ): boolean =>
+    (x > bounds.min || (x === bounds.min && bounds.minInclusive)) &&
+    (x < bounds.max || (x === bounds.max && bounds.maxInclusive));
+  for (const group of members.values()) {
+    for (let i = 0; i < group.length; i += 1) {
+      for (let j = i + 1; j < group.length; j += 1) {
+        const first = group[i]!;
+        const second = group[j]!;
+        const lo = Math.max(first.bounds.min, second.bounds.min);
+        const hi = Math.min(first.bounds.max, second.bounds.max);
+        if (lo > hi) continue;
+        if (lo < hi) {
+          add(
+            second.index,
+            "plot.piecewise-overlap",
+            "Ветви одной кусочной функции перекрываются на интервале.",
+          );
+          continue;
+        }
+        if (
+          !Number.isFinite(lo) ||
+          !includes(first.bounds, lo) ||
+          !includes(second.bounds, lo)
+        )
+          continue;
+        const left = yAt(first.series, lo);
+        const right = yAt(second.series, lo);
+        if (
+          left === null ||
+          right === null ||
+          Math.abs(left - right) >
+            1e-9 * Math.max(1, Math.abs(left), Math.abs(right))
+        ) {
+          add(
+            second.index,
+            "plot.piecewise-conflict",
+            "В точке стыка кусочная функция имеет конфликтующие значения.",
+          );
+        }
+      }
+    }
+  }
+  return issues;
+}
+
 export function validateCoordinatePlotEditorDefinition(
   definition: CoordinatePlotDefinition,
 ): readonly CoordinatePlotEditorIssue[] {
@@ -517,7 +814,11 @@ export function validateCoordinatePlotEditorDefinition(
       parameterNames,
     );
   });
-  return [...structural, ...expressions];
+  return [
+    ...structural,
+    ...piecewiseValidationIssues(definition),
+    ...expressions,
+  ];
 }
 
 const maximumFitExpansionFactor = 100;

@@ -2,6 +2,7 @@ import type {
   CoordinatePlotDefinition,
   PlotSeries,
 } from "../board/coordinate-plot";
+import { nextPlotFloat, resolveExplicitPlotDomain } from "../board/piecewise";
 import type { Vec2 } from "../board/primitives";
 import {
   cacheKey,
@@ -159,11 +160,32 @@ export function sampleSeries(input: {
     input.series.kind === "explicit" && "expression" in compiled
       ? compiled.domain === null
         ? emptySample()
-        : sampleExplicitSeries({
-            ...common,
-            domain: compiled.domain,
-            expression: compiled.expression,
-          })
+        : (() => {
+            const bounds = resolveExplicitPlotDomain(
+              input.definition,
+              input.series,
+            );
+            if (bounds === null) return emptySample();
+            const min =
+              input.series.domain.minExpression !== null &&
+              compiled.domain.min === bounds.min &&
+              !bounds.minInclusive
+                ? nextPlotFloat(compiled.domain.min, "up")
+                : compiled.domain.min;
+            const max =
+              input.series.domain.maxExpression !== null &&
+              compiled.domain.max === bounds.max &&
+              !bounds.maxInclusive
+                ? nextPlotFloat(compiled.domain.max, "down")
+                : compiled.domain.max;
+            return min >= max
+              ? emptySample()
+              : sampleExplicitSeries({
+                  ...common,
+                  domain: { min, max },
+                  expression: compiled.expression,
+                });
+          })()
       : input.series.kind === "parametric" && "xExpression" in compiled
         ? sampleParametricSeries({
             ...common,

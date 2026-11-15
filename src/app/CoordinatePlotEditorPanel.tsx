@@ -24,10 +24,13 @@ import {
   type PlotSeriesId,
 } from "../core/public";
 import {
+  canAddPiecewisePoint,
+  canSplitCoordinatePlotSeries,
   coordinatePlotSeriesInput,
   fitCoordinatePlotDefinition,
   removeCoordinatePlotParameter,
   removeCoordinatePlotSeries,
+  removePiecewiseGroup,
   replaceCoordinatePlotSeriesKind,
   resetCoordinatePlotViewport,
   updateCoordinatePlotParameter,
@@ -88,11 +91,15 @@ export interface CoordinatePlotEditorPanelProps {
   readonly fallbackFocusRef?: RefObject<HTMLElement | null>;
   readonly issues: readonly CoordinatePlotEditorIssue[];
   readonly onAddParameter: (name?: string) => void;
+  readonly onAddPoint?:
+    ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
   readonly onAddSeries: (kind: PlotSeries["kind"], expression?: string) => void;
   readonly onClose: () => void;
   readonly onDefinitionChange: (definition: CoordinatePlotDefinition) => void;
   readonly onSave: () => boolean;
   readonly onSelectedSeriesChange: (seriesId: PlotSeriesId | null) => void;
+  readonly onSplitSeries?:
+    ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
   readonly readOnly: boolean;
   readonly selectedSeriesId: PlotSeriesId | null;
 }
@@ -536,6 +543,7 @@ function SeriesEditor({
                   domain: {
                     ...series.domain,
                     minExpression: value.trim() === "" ? null : value,
+                    minInclusive: series.domain.minInclusive ?? true,
                   },
                 })
               }
@@ -557,6 +565,7 @@ function SeriesEditor({
                   domain: {
                     ...series.domain,
                     maxExpression: value.trim() === "" ? null : value,
+                    maxInclusive: series.domain.maxInclusive ?? true,
                   },
                 })
               }
@@ -565,6 +574,49 @@ function SeriesEditor({
               source={series.domain.maxExpression ?? ""}
             />
           </div>
+          <div className="plot-editor-grid two-columns">
+            <label className="plot-editor-check">
+              <input
+                aria-label="Включить левый конец ветви"
+                checked={series.domain.minInclusive ?? true}
+                disabled={series.domain.minExpression === null}
+                onChange={(event) =>
+                  replace({
+                    ...series,
+                    domain: {
+                      ...series.domain,
+                      minInclusive: event.currentTarget.checked,
+                    },
+                  })
+                }
+                type="checkbox"
+              />
+              Левый конец включён (●)
+            </label>
+            <label className="plot-editor-check">
+              <input
+                aria-label="Включить правый конец ветви"
+                checked={series.domain.maxInclusive ?? true}
+                disabled={series.domain.maxExpression === null}
+                onChange={(event) =>
+                  replace({
+                    ...series,
+                    domain: {
+                      ...series.domain,
+                      maxInclusive: event.currentTarget.checked,
+                    },
+                  })
+                }
+                type="checkbox"
+              />
+              Правый конец включён (●)
+            </label>
+          </div>
+          <p className="plot-editor-hint">
+            Для кусочной функции задайте отдельную формулу каждой ветви и её
+            диапазон X. Пустая граница означает бесконечность, ● — включённый
+            конец, ○ — исключённый.
+          </p>
         </>
       ) : series.kind === "parametric" ? (
         <>
@@ -924,18 +976,28 @@ function FunctionsTab({
   definition,
   issues,
   onAddSeries,
+  onAddPoint,
   onChange,
   onCreateParameter,
   onSelectedSeriesChange,
+  onSplitSeries,
+  piecewiseBoundary,
+  onPiecewiseBoundaryChange,
   selectedSeries,
   selectedSeriesId,
 }: {
   readonly definition: CoordinatePlotDefinition;
   readonly issues: readonly CoordinatePlotEditorIssue[];
   readonly onAddSeries: (kind: PlotSeries["kind"]) => void;
+  readonly onAddPoint?:
+    ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
+  readonly onPiecewiseBoundaryChange: (boundary: string) => void;
+  readonly piecewiseBoundary: string;
   readonly onChange: (definition: CoordinatePlotDefinition) => void;
   readonly onCreateParameter: (name: string) => void;
   readonly onSelectedSeriesChange: (seriesId: PlotSeriesId | null) => void;
+  readonly onSplitSeries?:
+    ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
   readonly selectedSeries: PlotSeries | null;
   readonly selectedSeriesId: PlotSeriesId | null;
 }): ReactElement {
@@ -968,6 +1030,55 @@ function FunctionsTab({
               type="button"
             >
               + Уравнение / неравенство
+            </button>
+            <label>
+              Точка x =
+              <input
+                aria-label="Координата разделения ветви"
+                onChange={(event) =>
+                  onPiecewiseBoundaryChange(event.currentTarget.value)
+                }
+                style={{ width: 72 }}
+                value={piecewiseBoundary}
+              />
+            </label>
+            <button
+              disabled={
+                onSplitSeries === undefined ||
+                selectedSeries?.kind !== "explicit" ||
+                !canSplitCoordinatePlotSeries(
+                  definition,
+                  selectedSeries.id,
+                  piecewiseBoundary,
+                )
+              }
+              onClick={() => {
+                if (selectedSeries?.kind === "explicit") {
+                  onSplitSeries?.(selectedSeries.id, piecewiseBoundary);
+                }
+              }}
+              type="button"
+            >
+              + Разделить ветвь
+            </button>
+            <button
+              disabled={
+                onAddPoint === undefined ||
+                selectedSeries?.kind !== "explicit" ||
+                !canAddPiecewisePoint(
+                  definition,
+                  selectedSeries.id,
+                  piecewiseBoundary,
+                )
+              }
+              onClick={() => {
+                if (selectedSeries?.kind === "explicit") {
+                  onAddPoint?.(selectedSeries.id, piecewiseBoundary);
+                }
+              }}
+              type="button"
+            >
+              + Значение в точке
             </button>
           </div>
         </div>
@@ -1020,6 +1131,18 @@ function FunctionsTab({
           ))}
         </ol>
       </div>
+      {selectedSeries?.kind === "explicit" &&
+      selectedSeries.piecewiseGroupId !== undefined ? (
+        <button
+          onClick={() => {
+            onChange(removePiecewiseGroup(definition, selectedSeries.id));
+            onSelectedSeriesChange(null);
+          }}
+          type="button"
+        >
+          Удалить всю кусочную функцию
+        </button>
+      ) : null}
       <div className="plot-editor-section-card">
         {selectedSeries === null ? (
           <p>Добавьте первую функцию или кривую.</p>
@@ -1540,11 +1663,13 @@ export function CoordinatePlotEditorPanel({
   fallbackFocusRef,
   issues,
   onAddParameter,
+  onAddPoint,
   onAddSeries,
   onClose,
   onDefinitionChange,
   onSave,
   onSelectedSeriesChange,
+  onSplitSeries,
   readOnly,
   selectedSeriesId,
 }: CoordinatePlotEditorPanelProps): ReactElement {
@@ -1563,6 +1688,7 @@ export function CoordinatePlotEditorPanel({
   const [activeTab, setActiveTab] =
     useState<CoordinatePlotEditorTab>("functions");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [piecewiseBoundary, setPiecewiseBoundary] = useState("0");
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const [pendingParameterFocus, setPendingParameterFocus] = useState<
     string | null
@@ -1848,6 +1974,55 @@ export function CoordinatePlotEditorPanel({
                     type="button"
                   >
                     + Неравенство
+                  </button>
+                  <label>
+                    x =
+                    <input
+                      aria-label="Точка разбиения кусочной функции"
+                      onChange={(event) =>
+                        setPiecewiseBoundary(event.currentTarget.value)
+                      }
+                      style={{ width: 66 }}
+                      value={piecewiseBoundary}
+                    />
+                  </label>
+                  <button
+                    disabled={
+                      onSplitSeries === undefined ||
+                      basicSeries?.kind !== "explicit" ||
+                      !canSplitCoordinatePlotSeries(
+                        definition,
+                        basicSeries.id,
+                        piecewiseBoundary,
+                      )
+                    }
+                    onClick={() => {
+                      if (basicSeries?.kind === "explicit") {
+                        onSplitSeries?.(basicSeries.id, piecewiseBoundary);
+                      }
+                    }}
+                    type="button"
+                  >
+                    + Кусочная
+                  </button>
+                  <button
+                    disabled={
+                      onAddPoint === undefined ||
+                      basicSeries?.kind !== "explicit" ||
+                      !canAddPiecewisePoint(
+                        definition,
+                        basicSeries.id,
+                        piecewiseBoundary,
+                      )
+                    }
+                    onClick={() => {
+                      if (basicSeries?.kind === "explicit") {
+                        onAddPoint?.(basicSeries.id, piecewiseBoundary);
+                      }
+                    }}
+                    type="button"
+                  >
+                    + Точка
                   </button>
                 </div>
               </div>
@@ -2184,6 +2359,10 @@ export function CoordinatePlotEditorPanel({
                       onChange={onDefinitionChange}
                       onCreateParameter={createAdvancedParameterFromFormula}
                       onSelectedSeriesChange={onSelectedSeriesChange}
+                      onSplitSeries={onSplitSeries}
+                      onAddPoint={onAddPoint}
+                      onPiecewiseBoundaryChange={setPiecewiseBoundary}
+                      piecewiseBoundary={piecewiseBoundary}
                       selectedSeries={selectedSeries}
                       selectedSeriesId={selectedSeriesId}
                     />

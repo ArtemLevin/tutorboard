@@ -1034,6 +1034,9 @@
                 }
               ]
             },
+            "maxInclusive": {
+              "type": "boolean"
+            },
             "minExpression": {
               "anyOf": [
                 {
@@ -1045,6 +1048,9 @@
                   "type": "null"
                 }
               ]
+            },
+            "minInclusive": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -1068,6 +1074,9 @@
           "maxLength": 128,
           "minLength": 1,
           "type": "string"
+        },
+        "piecewiseGroupId": {
+          "$ref": "#/$defs/Identifier"
         },
         "style": {
           "$ref": "#/$defs/PlotSeriesStyle"

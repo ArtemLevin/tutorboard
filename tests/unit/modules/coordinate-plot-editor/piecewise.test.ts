@@ -1,0 +1,286 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  boardObjectId,
+  createCoordinatePlotRenderModel,
+  createEmptyBoardDocument,
+  createPlotEndpointMarkers,
+  deserializeBoardDocument,
+  documentId,
+  plotParameterId,
+  plotSeriesId,
+  serializeBoardDocument,
+} from "../../../../src/core/public";
+import {
+  createDefaultCoordinatePlotObject,
+  addPiecewisePoint,
+  canAddPiecewisePoint,
+  canSplitCoordinatePlotSeries,
+  splitCoordinatePlotSeries,
+  updateCoordinatePlotSeriesInput,
+  validateCoordinatePlotEditorDefinition,
+} from "../../../../src/modules/coordinate-plot-editor/public";
+import { renderBoardSnapshotSvg } from "../../../../src/modules/document-transfer/public";
+
+function createPiecewisePlot() {
+  const object = createDefaultCoordinatePlotObject({
+    center: { x: 320, y: 210 },
+    ids: {
+      objectId: boardObjectId("piecewise-test"),
+      parameterId: () => plotParameterId("piecewise-a"),
+      seriesId: () => plotSeriesId("piecewise-first"),
+    },
+  });
+  const firstSplit = splitCoordinatePlotSeries(
+    object.definition,
+    object.definition.series[0]!.id,
+    plotSeriesId("piecewise-second"),
+  );
+  const definition = updateCoordinatePlotSeriesInput(
+    firstSplit,
+    plotSeriesId("piecewise-second"),
+    "x^2",
+  );
+  return { ...object, definition };
+}
+
+describe("piecewise coordinate plots", () => {
+  it("splits an existing explicit function into adjacent independent branches", () => {
+    const plot = createPiecewisePlot();
+    expect(plot.definition.series).toHaveLength(2);
+    expect(plot.definition.series[0]).toMatchObject({
+      expression: "2*x+a",
+      domain: { minExpression: null, maxExpression: "0", maxInclusive: false },
+      kind: "explicit",
+    });
+    expect(plot.definition.series[1]).toMatchObject({
+      expression: "x^2",
+      domain: { minExpression: "0", minInclusive: true, maxExpression: null },
+      kind: "explicit",
+    });
+    expect(plot.definition.series[0]!.style).toEqual(
+      plot.definition.series[1]!.style,
+    );
+  });
+
+  it("keeps domain restrictions when a piece formula changes", () => {
+    const plot = createPiecewisePlot();
+    const first = plot.definition.series[0]!;
+    const second = plot.definition.series[1]!;
+    const changed = updateCoordinatePlotSeriesInput(
+      plot.definition,
+      first.id,
+      "y=-x",
+    );
+    expect(changed.series[0]).toMatchObject({
+      expression: "-x",
+      domain: { maxExpression: "0", maxInclusive: false },
+      piecewiseGroupId: first.id,
+    });
+    expect(changed.series[1]).toEqual(second);
+  });
+
+  it("samples branches separately and distinguishes excluded and included ends", () => {
+    const plot = createPiecewisePlot();
+    const model = createCoordinatePlotRenderModel({ object: plot, zoom: 1 });
+    expect(model.sampling.series.map(({ status }) => status)).toEqual([
+      "sampled",
+      "sampled",
+    ]);
+    const markers = createPlotEndpointMarkers(model.definition, model.sampling);
+    expect(markers).toHaveLength(2);
+    expect(markers[0]).toMatchObject({
+      included: false,
+      point: { x: 320, y: 180 },
+    });
+    expect(markers[1]).toMatchObject({
+      included: true,
+      point: { x: 320, y: 210 },
+    });
+    const leftSegments = model.sampling.series[0]?.sample?.segments ?? [];
+    const rightSegments = model.sampling.series[1]?.sample?.segments ?? [];
+    expect(leftSegments.flat().every((point) => point.x <= 320 + 1e-6)).toBe(
+      true,
+    );
+    expect(rightSegments.flat().every((point) => point.x >= 320 - 1e-6)).toBe(
+      true,
+    );
+  });
+
+  it("exports visible open and closed endpoint circles to SVG", () => {
+    const plot = createPiecewisePlot();
+    const document = createEmptyBoardDocument({
+      createdAt: "2026-11-15T08:00:00.000Z",
+      id: documentId("document:piecewise-export"),
+      title: "Кусочная функция",
+    });
+    const svg = renderBoardSnapshotSvg({
+      ...document,
+      objects: { [plot.id]: plot },
+      order: [plot.id],
+    });
+    expect(svg).toContain('data-coordinate-plot-endpoint="open"');
+    expect(svg).toContain('data-coordinate-plot-endpoint="closed"');
+    expect(svg).toContain('data-coordinate-plot-series-id="piecewise-first"');
+    expect(svg).toContain('data-coordinate-plot-series-id="piecewise-second"');
+  });
+
+  it("retains the outer domain when splitting a branch for the third piece", () => {
+    const plot = createPiecewisePlot();
+    const second = plot.definition.series[1]!;
+    expect(canSplitCoordinatePlotSeries(plot.definition, second.id, "0")).toBe(
+      false,
+    );
+    expect(canSplitCoordinatePlotSeries(plot.definition, second.id, "2")).toBe(
+      true,
+    );
+    const three = splitCoordinatePlotSeries(
+      plot.definition,
+      second.id,
+      plotSeriesId("piecewise-third"),
+      "2",
+    );
+    expect(three.series).toHaveLength(3);
+    expect(three.series[1]).toMatchObject({
+      domain: {
+        minExpression: "0",
+        maxExpression: "2",
+        minInclusive: true,
+        maxInclusive: false,
+      },
+    });
+    expect(three.series[2]).toMatchObject({
+      domain: { minExpression: "2", maxExpression: null, minInclusive: true },
+    });
+    expect(
+      new Set(
+        three.series.map((series) =>
+          series.kind === "explicit" ? series.piecewiseGroupId : null,
+        ),
+      ).size,
+    ).toBe(1);
+    expect(
+      validateCoordinatePlotEditorDefinition(three).filter(
+        ({ blocking }) => blocking,
+      ),
+    ).toEqual([]);
+  });
+
+  it("creates an isolated value at a junction and opens adjacent branches", () => {
+    const plot = createPiecewisePlot();
+    const first = plot.definition.series[0]!;
+    expect(canAddPiecewisePoint(plot.definition, first.id, "0")).toBe(true);
+    const withPoint = addPiecewisePoint(
+      plot.definition,
+      first.id,
+      plotSeriesId("piecewise-singleton"),
+      "0",
+    );
+    const point = withPoint.series.find(
+      ({ id }) => id === "piecewise-singleton",
+    );
+    expect(point).toMatchObject({
+      kind: "explicit",
+      domain: {
+        minExpression: "0",
+        maxExpression: "0",
+        minInclusive: true,
+        maxInclusive: true,
+      },
+    });
+    const second = withPoint.series.find(({ id }) => id === "piecewise-second");
+    expect(second).toMatchObject({ domain: { minInclusive: false } });
+    expect(
+      validateCoordinatePlotEditorDefinition(withPoint).filter(
+        ({ blocking }) => blocking,
+      ),
+    ).toEqual([]);
+    const model = createCoordinatePlotRenderModel({
+      object: { ...plot, definition: withPoint },
+      zoom: 1,
+    });
+    expect(model.endpoints.filter(({ included }) => included)).toHaveLength(1);
+    expect(model.endpoints).toHaveLength(3);
+  });
+
+  it("blocks overlapping, descending and ambiguous domains", () => {
+    const plot = createPiecewisePlot();
+    const second = plot.definition.series[1]!;
+    if (second.kind !== "explicit") throw new Error("Explicit branch expected");
+    const invalid = {
+      ...plot.definition,
+      series: plot.definition.series.map((s) =>
+        s.id === second.id
+          ? {
+              ...second,
+              domain: {
+                ...second.domain,
+                minExpression: "1",
+                maxExpression: "-1",
+              },
+            }
+          : s,
+      ),
+    };
+    expect(
+      validateCoordinatePlotEditorDefinition(invalid).some(
+        ({ code }) => code === "plot.invalid-piecewise-domain",
+      ),
+    ).toBe(true);
+    const overlapping = {
+      ...plot.definition,
+      series: plot.definition.series.map((s) =>
+        s.id === second.id
+          ? { ...second, domain: { ...second.domain, minExpression: "-1" } }
+          : s,
+      ),
+    };
+    expect(
+      validateCoordinatePlotEditorDefinition(overlapping).some(
+        ({ code }) => code === "plot.piecewise-overlap",
+      ),
+    ).toBe(true);
+    const touching = {
+      ...plot.definition,
+      series: plot.definition.series.map((s) =>
+        s.kind === "explicit" && s.id === "piecewise-first"
+          ? { ...s, domain: { ...s.domain, maxInclusive: true } }
+          : s,
+      ),
+    };
+    expect(
+      validateCoordinatePlotEditorDefinition(touching).some(
+        ({ code }) => code === "plot.piecewise-conflict",
+      ),
+    ).toBe(true);
+  });
+
+  it("round-trips branch inclusion flags through the existing document schema", () => {
+    const plot = createPiecewisePlot();
+    const document = createEmptyBoardDocument({
+      createdAt: "2026-11-15T08:00:00.000Z",
+      id: documentId("document:piecewise"),
+      title: "Кусочная функция",
+    });
+    const stored = {
+      ...document,
+      objects: { [plot.id]: plot },
+      order: [plot.id],
+    };
+    const serialized = serializeBoardDocument(stored);
+    expect(serialized.ok).toBe(true);
+    if (!serialized.ok) return;
+    const restored = deserializeBoardDocument(serialized.json);
+    expect(restored.status).toBe("ok");
+    if (restored.status !== "ok") return;
+    const result = restored.document.objects[plot.id];
+    expect(result?.kind).toBe("math.coordinate-plot");
+    if (result?.kind !== "math.coordinate-plot") return;
+    expect(result.definition.series[0]).toMatchObject({
+      domain: { maxExpression: "0", maxInclusive: false },
+    });
+    expect(result.definition.series[1]).toMatchObject({
+      domain: { minExpression: "0", minInclusive: true },
+    });
+  });
+});

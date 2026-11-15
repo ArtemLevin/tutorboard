@@ -18,9 +18,11 @@ import {
 import {
   addCoordinatePlotParameter,
   addCoordinatePlotSeries,
+  addPiecewisePoint,
   createDefaultCoordinatePlotObject,
   fitCoordinatePlotDefinition,
   resetCoordinatePlotViewport,
+  splitCoordinatePlotSeries,
   updateCoordinatePlotSeriesInput,
   validateCoordinatePlotEditorDefinition,
 } from "../../../modules/coordinate-plot-editor/public";
@@ -285,6 +287,36 @@ export function useCoordinatePlotController({
     [],
   );
 
+  const splitSeries = useCallback(
+    (seriesId: PlotSeriesId, boundary: string) => {
+      const newId = plotSeriesId(`plot-series:${crypto.randomUUID()}`);
+      setEditor((current) => {
+        if (current === null) return null;
+        const draft = splitCoordinatePlotSeries(
+          current.draft,
+          seriesId,
+          newId,
+          boundary,
+        );
+        return draft === current.draft
+          ? current
+          : { ...current, draft, selectedSeriesId: newId };
+      });
+    },
+    [],
+  );
+
+  const addPoint = useCallback((seriesId: PlotSeriesId, boundary: string) => {
+    const newId = plotSeriesId(`plot-series:${crypto.randomUUID()}`);
+    setEditor((current) => {
+      if (current === null) return null;
+      const draft = addPiecewisePoint(current.draft, seriesId, newId, boundary);
+      return draft === current.draft
+        ? current
+        : { ...current, draft, selectedSeriesId: newId };
+    });
+  }, []);
+
   const addParameter = useCallback((name?: string) => {
     const id = plotParameterId(`plot-parameter:${crypto.randomUUID()}`);
     setEditor((current) =>
@@ -321,6 +353,7 @@ export function useCoordinatePlotController({
 
   return {
     addParameter,
+    addPoint,
     addSeries,
     beginEditing,
     close: () => setEditor(null),
@@ -333,6 +366,7 @@ export function useCoordinatePlotController({
     save,
     selectSeries,
     setZoomAxis,
+    splitSeries,
     updateDraft,
     updateViewport,
     zoom,
