@@ -243,10 +243,15 @@ const plotSeriesStyle = strictObject({
 });
 const plotExpression = { maxLength: 2_000, minLength: 1, type: "string" };
 const explicitPlotSeries = strictObject({
-  domain: strictObject({
-    maxExpression: { anyOf: [plotExpression, { type: "null" }] },
-    minExpression: { anyOf: [plotExpression, { type: "null" }] },
-  }),
+  domain: strictObject(
+    {
+      maxExpression: { anyOf: [plotExpression, { type: "null" }] },
+      maxInclusive: { type: "boolean" },
+      minExpression: { anyOf: [plotExpression, { type: "null" }] },
+      minInclusive: { type: "boolean" },
+    },
+    ["maxExpression", "minExpression"],
+  ),
   expression: plotExpression,
   id: reference("Identifier"),
   kind: { const: "explicit" },
