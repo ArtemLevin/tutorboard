@@ -1,5 +1,11 @@
-import { compilePlotExpression, evaluatePlotExpression } from "../plot-expression/public";
-import type { CoordinatePlotDefinition, ExplicitPlotSeries } from "./coordinate-plot";
+import {
+  compilePlotExpression,
+  evaluatePlotExpression,
+} from "../plot-expression/public";
+import type {
+  CoordinatePlotDefinition,
+  ExplicitPlotSeries,
+} from "./coordinate-plot";
 
 export interface ResolvedExplicitDomain {
   readonly max: number;
@@ -20,7 +26,9 @@ export function evaluatePiecewiseScalar(
   if (!compiled.ok) return null;
   const value = evaluatePlotExpression(
     compiled.expression,
-    Object.fromEntries(definition.parameters.map(({ name, value }) => [name, value])),
+    Object.fromEntries(
+      definition.parameters.map(({ name, value }) => [name, value]),
+    ),
   );
   return value.kind === "value" && Number.isFinite(value.value)
     ? value.value
@@ -52,12 +60,13 @@ export function resolveExplicitPlotDomain(
 /** The closest representable floating-point value strictly inside an endpoint. */
 export function nextPlotFloat(value: number, direction: "up" | "down"): number {
   if (!Number.isFinite(value)) return value;
-  if (value === 0) return direction === "up" ? Number.MIN_VALUE : -Number.MIN_VALUE;
+  if (value === 0)
+    return direction === "up" ? Number.MIN_VALUE : -Number.MIN_VALUE;
   const buffer = new ArrayBuffer(8);
   const bits = new BigUint64Array(buffer);
   const numbers = new Float64Array(buffer);
   numbers[0] = value;
-  if ((value > 0) === (direction === "up")) bits[0] = bits[0]! + 1n;
+  if (value > 0 === (direction === "up")) bits[0] = bits[0]! + 1n;
   else bits[0] = bits[0]! - 1n;
   return numbers[0]!;
 }
