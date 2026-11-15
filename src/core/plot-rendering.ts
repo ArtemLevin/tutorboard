@@ -143,13 +143,16 @@ export function createPlotEndpointMarkers(
       series.kind !== "explicit" ||
       !series.visible ||
       (series.domain.minExpression === null &&
-        series.domain.maxExpression === null) ||
-      (series.domain.minInclusive === undefined &&
-        series.domain.maxInclusive === undefined)
+        series.domain.maxExpression === null)
     )
       continue;
     const bounds = resolveExplicitPlotDomain(definition, series);
     if (bounds === null) continue;
+    if (
+      !bounds.singleton &&
+      series.domain.minInclusive === undefined &&
+      series.domain.maxInclusive === undefined
+    ) continue;
     const sample = sampling.series.find(
       ({ seriesId }) => seriesId === series.id,
     );
