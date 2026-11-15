@@ -14,6 +14,7 @@ import {
 import {
   createDefaultCoordinatePlotObject,
   splitCoordinatePlotSeries,
+  updateCoordinatePlotSeriesInput,
 } from "../../../../src/modules/coordinate-plot-editor/public";
 
 function createPiecewisePlot() {
@@ -50,6 +51,22 @@ describe("piecewise coordinate plots", () => {
     expect(plot.definition.series[0]!.style).toEqual(
       plot.definition.series[1]!.style,
     );
+  });
+
+  it("keeps domain restrictions when a piece formula changes", () => {
+    const plot = createPiecewisePlot();
+    const first = plot.definition.series[0]!;
+    const second = plot.definition.series[1]!;
+    const changed = updateCoordinatePlotSeriesInput(
+      plot.definition,
+      first.id,
+      "y=-x",
+    );
+    expect(changed.series[0]).toMatchObject({
+      expression: "-x",
+      domain: { maxExpression: "0", maxInclusive: false },
+    });
+    expect(changed.series[1]).toEqual(second);
   });
 
   it("samples branches separately and distinguishes excluded and included ends", () => {
