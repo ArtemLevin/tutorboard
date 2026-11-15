@@ -21,7 +21,9 @@ test("guides formula entry, graph selection and domain editing", async ({
   await expect(
     editor.getByRole("button", { name: "+ Добавить функцию" }),
   ).toBeVisible();
-  await expect(editor.getByRole("button", { name: "Разделить ветвь" })).toBeHidden();
+  await expect(
+    editor.getByRole("button", { name: "Разделить ветвь" }),
+  ).toBeHidden();
 
   const expression = editor.getByLabel("Математическое выражение графика");
   await expect(expression).toHaveValue("y = 2*x+a");

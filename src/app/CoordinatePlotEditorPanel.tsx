@@ -97,8 +97,10 @@ function basicSeriesDomain(series: PlotSeries): string | null {
   const max = domain.maxExpression;
   if (min === null && max === null) return null;
   if (min !== null && min === max) return `x = ${min}`;
-  if (min === null) return `x ${domain.maxInclusive === false ? "<" : "≤"} ${max}`;
-  if (max === null) return `x ${domain.minInclusive === false ? ">" : "≥"} ${min}`;
+  if (min === null)
+    return `x ${domain.maxInclusive === false ? "<" : "≤"} ${max}`;
+  if (max === null)
+    return `x ${domain.minInclusive === false ? ">" : "≥"} ${min}`;
   return `${min} ${domain.minInclusive === false ? "<" : "≤"} x ${domain.maxInclusive === false ? "<" : "≤"} ${max}`;
 }
 
@@ -1130,8 +1132,8 @@ function FunctionsTab({
               </summary>
               <div className="plot-workspace-disclosure-body">
                 <p className="plot-editor-hint">
-                  Выберите ветвь слева и задайте координату x. После
-                  разделения введите формулу каждой ветви отдельно.
+                  Выберите ветвь слева и задайте координату x. После разделения
+                  введите формулу каждой ветви отдельно.
                 </p>
                 <div className="plot-workspace-piecewise-actions">
                   <label>
@@ -2011,7 +2013,9 @@ export function CoordinatePlotEditorPanel({
                           style={{ backgroundColor: series.style.stroke }}
                         />
                         <span className="plot-basic-series-description">
-                          <strong>{series.name || `График ${index + 1}`}</strong>
+                          <strong>
+                            {series.name || `График ${index + 1}`}
+                          </strong>
                           <small title={basicSeriesPreview(series)}>
                             {basicSeriesPreview(series)}
                           </small>
@@ -2073,18 +2077,18 @@ export function CoordinatePlotEditorPanel({
                     <div className="plot-workspace-add-other-options">
                       <button
                         disabled={
-                          definition.series.length >= maximumCoordinatePlotSeries
+                          definition.series.length >=
+                          maximumCoordinatePlotSeries
                         }
-                        onClick={() =>
-                          onAddSeries("relation", "x^2+y^2=25")
-                        }
+                        onClick={() => onAddSeries("relation", "x^2+y^2=25")}
                         type="button"
                       >
                         Уравнение / окружность
                       </button>
                       <button
                         disabled={
-                          definition.series.length >= maximumCoordinatePlotSeries
+                          definition.series.length >=
+                          maximumCoordinatePlotSeries
                         }
                         onClick={() => onAddSeries("relation", "y>=x^2")}
                         type="button"
@@ -2093,7 +2097,8 @@ export function CoordinatePlotEditorPanel({
                       </button>
                       <button
                         disabled={
-                          definition.series.length >= maximumCoordinatePlotSeries
+                          definition.series.length >=
+                          maximumCoordinatePlotSeries
                         }
                         onClick={() => onAddSeries("parametric")}
                         type="button"
@@ -2136,9 +2141,7 @@ export function CoordinatePlotEditorPanel({
                   ) : basicSeries.kind === "parametric" ? (
                     <div className="plot-editor-empty-state">
                       <strong>Кривая задаётся двумя формулами</strong>
-                      <span>
-                        Для неё потребуются x(t), y(t) и диапазон t.
-                      </span>
+                      <span>Для неё потребуются x(t), y(t) и диапазон t.</span>
                       <button
                         onClick={() => {
                           selectTab("functions");
@@ -2371,9 +2374,7 @@ export function CoordinatePlotEditorPanel({
                     </details>
                     <details
                       className="plot-workspace-disclosure"
-                      defaultOpen={
-                        basicSeries.piecewiseGroupId !== undefined
-                      }
+                      defaultOpen={basicSeries.piecewiseGroupId !== undefined}
                     >
                       <summary>
                         <span>
@@ -2409,10 +2410,7 @@ export function CoordinatePlotEditorPanel({
                               )
                             }
                             onClick={() =>
-                              onSplitSeries?.(
-                                basicSeries.id,
-                                piecewiseBoundary,
-                              )
+                              onSplitSeries?.(basicSeries.id, piecewiseBoundary)
                             }
                             type="button"
                           >
@@ -2428,10 +2426,7 @@ export function CoordinatePlotEditorPanel({
                               )
                             }
                             onClick={() =>
-                              onAddPoint?.(
-                                basicSeries.id,
-                                piecewiseBoundary,
-                              )
+                              onAddPoint?.(basicSeries.id, piecewiseBoundary)
                             }
                             type="button"
                           >

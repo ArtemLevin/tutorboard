@@ -1053,7 +1053,9 @@
   margin-top: 3px;
 }
 
-.coordinate-plot-basic-editor-panel .plot-basic-series-list input[type="checkbox"] {
+.coordinate-plot-basic-editor-panel
+  .plot-basic-series-list
+  input[type="checkbox"] {
   width: 16px;
   height: 16px;
   margin: 0;
