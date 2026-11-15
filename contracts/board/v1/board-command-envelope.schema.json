@@ -1034,6 +1034,9 @@
                 }
               ]
             },
+            "maxInclusive": {
+              "type": "boolean"
+            },
             "minExpression": {
               "anyOf": [
                 {
@@ -1045,6 +1048,9 @@
                   "type": "null"
                 }
               ]
+            },
+            "minInclusive": {
+              "type": "boolean"
             }
           },
           "required": [
