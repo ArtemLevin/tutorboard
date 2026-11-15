@@ -161,7 +161,10 @@ export function sampleSeries(input: {
       ? compiled.domain === null
         ? emptySample()
         : (() => {
-            const bounds = resolveExplicitPlotDomain(input.definition, input.series);
+            const bounds = resolveExplicitPlotDomain(
+              input.definition,
+              input.series,
+            );
             if (bounds === null) return emptySample();
             const min =
               input.series.domain.minExpression !== null &&
