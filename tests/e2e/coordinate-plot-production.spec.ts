@@ -46,9 +46,7 @@ async function localRevisionCount(
 async function expandDockForSettings(page: import("@playwright/test").Page) {
   const collapsed = page.getByRole("button", { name: "Развернуть инструменты" });
   if (await collapsed.isVisible()) await collapsed.press("Enter");
-  await expect(
-    page.getByRole("button", { name: "Настройки доски" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Настройки доски" })).toBeVisible();
 }
 
 test("discovers, persists, restores, duplicates and exports a production coordinate plot", async ({
