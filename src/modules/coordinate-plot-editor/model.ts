@@ -1,9 +1,7 @@
 import {
+  compilePlotExpression,
   evaluatePiecewiseScalar,
   resolveExplicitPlotDomain,
-} from "../../core/board/piecewise";
-import {
-  compilePlotExpression,
   coordinatePlotExpressionLanguage,
   evaluatePlotExpression,
   maximumCoordinatePlotParameters,
