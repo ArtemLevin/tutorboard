@@ -322,7 +322,10 @@ export function compileExplicit(input: {
       ],
       input.parameterNames,
     ),
-    domain: minimum < maximum ? { max: maximum, min: minimum } : null,
+    domain:
+      minimum < maximum || (singleton && minimum === maximum)
+        ? { max: maximum, min: minimum }
+        : null,
     expression: expression.expression,
     ok: true,
   };
