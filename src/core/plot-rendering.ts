@@ -7,9 +7,12 @@ import type {
   PlotSeriesStyle,
 } from "./board/coordinate-plot";
 import type { CoordinatePlotObject } from "./board/objects";
-import type { Size2, Vec2 } from "./board/primitives";
 import type { PlotSeriesId } from "./board/identifiers";
-import { compilePlotExpression, evaluatePlotExpression } from "./plot-expression/public";
+import type { Size2, Vec2 } from "./board/primitives";
+import {
+  compilePlotExpression,
+  evaluatePlotExpression,
+} from "./plot-expression/public";
 import {
   plotDataToLocalPoint,
   sampleCoordinatePlotDefinition,
@@ -79,7 +82,12 @@ export function createPlotEndpointMarkers(
   );
   const markers: PlotEndpointMarker[] = [];
   for (const series of definition.series) {
-    if (series.kind !== "explicit" || !series.visible) continue;
+    if (
+      series.kind !== "explicit" ||
+      !series.visible ||
+      (series.domain.minExpression === null &&
+        series.domain.maxExpression === null)
+    ) continue;
     const sample = sampling.series.find(({ seriesId }) => seriesId === series.id);
     if (
       sample === undefined ||
@@ -128,7 +136,9 @@ export function createPlotEndpointMarkers(
     }
   }
   // Filled points win at shared coordinates, even if an open branch appears later.
-  return markers.sort((left, right) => Number(left.included) - Number(right.included));
+  return markers.sort(
+    (left, right) => Number(left.included) - Number(right.included),
+  );
 }
 
 export interface CreateCoordinatePlotRenderModelInput {
