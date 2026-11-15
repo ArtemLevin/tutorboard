@@ -13,7 +13,6 @@ import {
   type CoordinatePlotObject,
   type CoordinatePlotSeriesSamplingResult,
   type CoordinatePlotViewport,
-  createPlotEndpointMarkers,
   type PlotSeries,
   type PlotSeriesId,
   type Vec2,
@@ -529,7 +528,7 @@ export function CoordinatePlotRenderer({
       status === "invalid" || status === "truncated" || status === "aborted",
   ).length;
   const legendSeries = visibleSeries.slice(0, legend.visibleRowCount);
-  const endpoints = createPlotEndpointMarkers(definition, sampling);
+  const endpoints = model.endpoints;
 
   const selectSeries = (seriesId: PlotSeriesId | null) => {
     if (!controlled) setInternalSelectedSeriesId(seriesId);
