@@ -59,7 +59,6 @@ export interface CoordinatePlotRenderModel {
   readonly yAxisX: number | null;
 }
 
-
 /** Screen-local markers for finite endpoints of explicitly restricted branches. */
 export interface PlotEndpointMarker {
   readonly seriesId: PlotSeriesId;
@@ -87,12 +86,16 @@ export function createPlotEndpointMarkers(
       !series.visible ||
       (series.domain.minExpression === null &&
         series.domain.maxExpression === null)
-    ) continue;
-    const sample = sampling.series.find(({ seriesId }) => seriesId === series.id);
+    )
+      continue;
+    const sample = sampling.series.find(
+      ({ seriesId }) => seriesId === series.id,
+    );
     if (
       sample === undefined ||
       (sample.status !== "sampled" && sample.status !== "truncated")
-    ) continue;
+    )
+      continue;
     const formula = compilePlotExpression(series.expression, {
       context: "explicit-function",
       parameterNames,
@@ -112,7 +115,8 @@ export function createPlotEndpointMarkers(
       if (
         x < definition.coordinateViewport.xMin ||
         x > definition.coordinateViewport.xMax
-      ) continue;
+      )
+        continue;
       const yValue = evaluatePlotExpression(formula.expression, {
         ...bindings,
         x,
@@ -122,7 +126,8 @@ export function createPlotEndpointMarkers(
       if (
         y < definition.coordinateViewport.yMin ||
         y > definition.coordinateViewport.yMax
-      ) continue;
+      )
+        continue;
       markers.push({
         seriesId: series.id,
         point: plotDataToLocalPoint(
