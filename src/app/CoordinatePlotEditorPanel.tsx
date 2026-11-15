@@ -1963,7 +1963,7 @@ export function CoordinatePlotEditorPanel({
     requestClose,
   ]);
 
-  return (
+  return createPortal(
     <aside
       aria-describedby={advancedOpen ? undefined : `${editorId}-status`}
       aria-hidden={advancedOpen || undefined}
@@ -2772,6 +2772,7 @@ export function CoordinatePlotEditorPanel({
           </section>
         </div>
       ) : null}
-    </aside>
+    </aside>,
+    document.body,
   );
 }
