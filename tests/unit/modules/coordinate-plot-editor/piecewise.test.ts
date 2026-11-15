@@ -75,6 +75,7 @@ describe("piecewise coordinate plots", () => {
     expect(changed.series[0]).toMatchObject({
       expression: "-x",
       domain: { maxExpression: "0", maxInclusive: false },
+      piecewiseGroupId: first.id,
     });
     expect(changed.series[1]).toEqual(second);
   });
