@@ -2,7 +2,6 @@ import { createRequire } from "node:module";
 
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-import { expandBoardToolDock } from "./board-tool-dock-interaction.js";
 import { createCoordinatePlot } from "./coordinate-plot-interaction.js";
 
 interface MediaPerformanceDocumentOptions {
@@ -239,7 +238,6 @@ async function importDocument(
   page: Page,
   document: ReturnType<typeof createMediaPerformanceDocument>,
 ): Promise<void> {
-  await expandBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(document)),
