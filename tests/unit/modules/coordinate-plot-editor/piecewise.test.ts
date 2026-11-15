@@ -13,8 +13,12 @@ import {
 } from "../../../../src/core/public";
 import {
   createDefaultCoordinatePlotObject,
+  addPiecewisePoint,
+  canAddPiecewisePoint,
+  canSplitCoordinatePlotSeries,
   splitCoordinatePlotSeries,
   updateCoordinatePlotSeriesInput,
+  validateCoordinatePlotEditorDefinition,
 } from "../../../../src/modules/coordinate-plot-editor/public";
 import { renderBoardSnapshotSvg } from "../../../../src/modules/document-transfer/public";
 
@@ -27,10 +31,15 @@ function createPiecewisePlot() {
       seriesId: () => plotSeriesId("piecewise-first"),
     },
   });
-  const definition = splitCoordinatePlotSeries(
+  const firstSplit = splitCoordinatePlotSeries(
     object.definition,
     object.definition.series[0]!.id,
     plotSeriesId("piecewise-second"),
+  );
+  const definition = updateCoordinatePlotSeriesInput(
+    firstSplit,
+    plotSeriesId("piecewise-second"),
+    "x^2",
   );
   return { ...object, definition };
 }
@@ -113,6 +122,91 @@ describe("piecewise coordinate plots", () => {
     expect(svg).toContain('data-coordinate-plot-endpoint="closed"');
     expect(svg).toContain('data-coordinate-plot-series-id="piecewise-first"');
     expect(svg).toContain('data-coordinate-plot-series-id="piecewise-second"');
+  });
+
+  it("retains the outer domain when splitting a branch for the third piece", () => {
+    const plot = createPiecewisePlot();
+    const second = plot.definition.series[1]!;
+    expect(canSplitCoordinatePlotSeries(plot.definition, second.id, "0")).toBe(false);
+    expect(canSplitCoordinatePlotSeries(plot.definition, second.id, "2")).toBe(true);
+    const three = splitCoordinatePlotSeries(
+      plot.definition, second.id, plotSeriesId("piecewise-third"), "2",
+    );
+    expect(three.series).toHaveLength(3);
+    expect(three.series[1]).toMatchObject({
+      domain: { minExpression: "0", maxExpression: "2", minInclusive: true, maxInclusive: false },
+    });
+    expect(three.series[2]).toMatchObject({
+      domain: { minExpression: "2", maxExpression: null, minInclusive: true },
+    });
+    expect(new Set(three.series.map((series) =>
+      series.kind === "explicit" ? series.piecewiseGroupId : null,
+    )).size).toBe(1);
+    expect(validateCoordinatePlotEditorDefinition(three).filter(({ blocking }) => blocking)).toEqual([]);
+  });
+
+  it("creates an isolated value at a junction and opens adjacent branches", () => {
+    const plot = createPiecewisePlot();
+    const first = plot.definition.series[0]!;
+    expect(canAddPiecewisePoint(plot.definition, first.id, "0")).toBe(true);
+    const withPoint = addPiecewisePoint(
+      plot.definition, first.id, plotSeriesId("piecewise-singleton"), "0",
+    );
+    const point = withPoint.series.find(({ id }) => id === "piecewise-singleton");
+    expect(point).toMatchObject({
+      kind: "explicit",
+      domain: {
+        minExpression: "0", maxExpression: "0",
+        minInclusive: true, maxInclusive: true,
+      },
+    });
+    const second = withPoint.series.find(({ id }) => id === "piecewise-second");
+    expect(second).toMatchObject({ domain: { minInclusive: false } });
+    expect(validateCoordinatePlotEditorDefinition(withPoint).filter(({ blocking }) => blocking)).toEqual([]);
+    const model = createCoordinatePlotRenderModel({
+      object: { ...plot, definition: withPoint }, zoom: 1,
+    });
+    expect(model.endpoints.filter(({ included }) => included)).toHaveLength(1);
+    expect(model.endpoints).toHaveLength(3);
+  });
+
+  it("blocks overlapping, descending and ambiguous domains", () => {
+    const plot = createPiecewisePlot();
+    const second = plot.definition.series[1]!;
+    if (second.kind !== "explicit") throw new Error("Explicit branch expected");
+    const invalid = {
+      ...plot.definition,
+      series: plot.definition.series.map((s) =>
+        s.id === second.id
+          ? { ...second, domain: { ...second.domain, minExpression: "1", maxExpression: "-1" } }
+          : s,
+      ),
+    };
+    expect(validateCoordinatePlotEditorDefinition(invalid).some(({ code }) =>
+      code === "plot.invalid-piecewise-domain",
+    )).toBe(true);
+    const overlapping = {
+      ...plot.definition,
+      series: plot.definition.series.map((s) =>
+        s.id === second.id
+          ? { ...second, domain: { ...second.domain, minExpression: "-1" } }
+          : s,
+      ),
+    };
+    expect(validateCoordinatePlotEditorDefinition(overlapping).some(({ code }) =>
+      code === "plot.piecewise-overlap",
+    )).toBe(true);
+    const touching = {
+      ...plot.definition,
+      series: plot.definition.series.map((s) =>
+        s.kind === "explicit" && s.id === "piecewise-first"
+          ? { ...s, domain: { ...s.domain, maxInclusive: true } }
+          : s,
+      ),
+    };
+    expect(validateCoordinatePlotEditorDefinition(touching).some(({ code }) =>
+      code === "plot.piecewise-conflict",
+    )).toBe(true);
   });
 
   it("round-trips branch inclusion flags through the existing document schema", () => {
