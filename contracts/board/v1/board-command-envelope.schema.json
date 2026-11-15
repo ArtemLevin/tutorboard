@@ -1075,6 +1075,9 @@
           "minLength": 1,
           "type": "string"
         },
+        "piecewiseGroupId": {
+          "$ref": "#/$defs/Identifier"
+        },
         "style": {
           "$ref": "#/$defs/PlotSeriesStyle"
         },
