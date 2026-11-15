@@ -320,6 +320,8 @@ const explicitPlotSeriesSchema = z
       .object({
         maxExpression: plotExpressionSchema.nullable(),
         minExpression: plotExpressionSchema.nullable(),
+        maxInclusive: z.boolean().optional(),
+        minInclusive: z.boolean().optional(),
       })
       .strict(),
     expression: plotExpressionSchema,
