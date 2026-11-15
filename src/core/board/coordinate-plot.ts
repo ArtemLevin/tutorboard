@@ -1,3 +1,4 @@
+import { validatePiecewisePlotDefinition } from "./piecewise";
 import { reservedPlotExpressionNames } from "../plot-expression/functions";
 import type { PlotParameterId, PlotSeriesId } from "./identifiers";
 import type { Size2 } from "./primitives";
@@ -302,5 +303,6 @@ export function validateCoordinatePlotDefinition(
       "Coordinate plot expressions exceed the per-object storage budget.",
     );
   }
+  issues.push(...validatePiecewisePlotDefinition(definition));
   return issues;
 }
