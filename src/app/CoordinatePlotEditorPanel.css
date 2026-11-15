@@ -638,6 +638,7 @@
 
 /* Two-level coordinate-plot editor */
 .coordinate-plot-basic-editor-panel {
+  position: fixed;
   z-index: 80;
   width: min(820px, calc(100% - 32px));
 }
