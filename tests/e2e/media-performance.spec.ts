@@ -3,7 +3,6 @@ import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
 
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
-import { expandBoardToolDock } from "./board-tool-dock-interaction.js";
 import { createCoordinatePlot } from "./coordinate-plot-interaction.js";
 
 const { PNG } = createRequire(import.meta.url)("pngjs") as {
@@ -392,7 +391,6 @@ async function importDocument(
   page: Page,
   document: { readonly order: readonly string[] },
 ): Promise<void> {
-  await expandBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(document)),
