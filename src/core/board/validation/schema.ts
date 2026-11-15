@@ -438,9 +438,11 @@ const coordinatePlotDefinitionSchema = z
       // outside the editor from overlapping or ambiguous piecewise branches.
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        path: issue.path.split(".").map((segment) =>
-          /^\\d+$/u.test(segment) ? Number(segment) : segment,
-        ),
+        path: issue.path
+          .split(".")
+          .map((segment) =>
+            /^\\d+$/u.test(segment) ? Number(segment) : segment,
+          ),
         message: issue.message,
       });
     }
