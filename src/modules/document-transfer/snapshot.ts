@@ -268,8 +268,9 @@ function coordinatePlotMarkup(object: CoordinatePlotObject): string {
     .join("");
 
   const endpointMarkup = createPlotEndpointMarkers(definition, sampling)
-    .map((endpoint) =>
-      `<circle data-coordinate-plot-endpoint="${endpoint.included ? "closed" : "open"}" data-coordinate-plot-series-id="${escapeXml(endpoint.seriesId)}" cx="${number(endpoint.point.x)}" cy="${number(endpoint.point.y)}" r="${number(Math.max(4, endpoint.style.strokeWidth + 1))}" fill="${escapeXml(endpoint.included ? endpoint.style.stroke : fill)}" stroke="${escapeXml(endpoint.style.stroke)}" stroke-opacity="${number(endpoint.style.opacity)}" stroke-width="${number(Math.max(1.5, endpoint.style.strokeWidth / 2))}"/>`,
+    .map(
+      (endpoint) =>
+        `<circle data-coordinate-plot-endpoint="${endpoint.included ? "closed" : "open"}" data-coordinate-plot-series-id="${escapeXml(endpoint.seriesId)}" cx="${number(endpoint.point.x)}" cy="${number(endpoint.point.y)}" r="${number(Math.max(4, endpoint.style.strokeWidth + 1))}" fill="${escapeXml(endpoint.included ? endpoint.style.stroke : fill)}" stroke="${escapeXml(endpoint.style.stroke)}" stroke-opacity="${number(endpoint.style.opacity)}" stroke-width="${number(Math.max(1.5, endpoint.style.strokeWidth / 2))}"/>`,
     )
     .join("");
 
