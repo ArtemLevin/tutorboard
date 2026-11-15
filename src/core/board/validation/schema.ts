@@ -5,6 +5,7 @@ import {
   maximumCoordinatePlotParameters,
   maximumCoordinatePlotSeries,
   maximumPlotExpressionLength,
+  validateCoordinatePlotDefinition,
   plotLegendPositions,
   plotLineStyles,
 } from "../coordinate-plot";
@@ -430,7 +431,22 @@ const coordinatePlotDefinitionSchema = z
       })
       .strict(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    for (const issue of validateCoordinatePlotDefinition(value)) {
+      // In addition to shape checking, protect documents imported from
+      // outside the editor from overlapping or ambiguous piecewise branches.
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: issue.path
+          .split(".")
+          .map((segment) =>
+            /^\\d+$/u.test(segment) ? Number(segment) : segment,
+          ),
+        message: issue.message,
+      });
+    }
+  });
 const coordinatePlotObjectSchema = z
   .object({
     ...objectBase,

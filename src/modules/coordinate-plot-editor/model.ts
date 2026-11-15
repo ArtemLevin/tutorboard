@@ -630,110 +630,6 @@ function relationExpressionIssues(
   ];
 }
 
-function piecewiseValidationIssues(
-  definition: CoordinatePlotDefinition,
-): CoordinatePlotEditorIssue[] {
-  const issues: CoordinatePlotEditorIssue[] = [];
-  const members = new Map<
-    PlotSeriesId,
-    {
-      index: number;
-      series: ExplicitPlotSeries;
-      bounds: NonNullable<ReturnType<typeof resolveExplicitPlotDomain>>;
-    }[]
-  >();
-  const add = (index: number, code: string, message: string) => {
-    issues.push({
-      blocking: true,
-      code,
-      end: null,
-      field: `series.${index}.domain`,
-      message,
-      start: null,
-    });
-  };
-  definition.series.forEach((series, index) => {
-    if (series.kind !== "explicit") return;
-    const bounds = resolveExplicitPlotDomain(definition, series);
-    if (bounds === null) {
-      add(
-        index,
-        "plot.invalid-piecewise-domain",
-        "Границы должны вычисляться, идти по возрастанию; одиночная точка требует включения обеих границ.",
-      );
-      return;
-    }
-    if (series.piecewiseGroupId === undefined) return;
-    const group = members.get(series.piecewiseGroupId) ?? [];
-    group.push({ index, series, bounds });
-    members.set(series.piecewiseGroupId, group);
-  });
-  const params = Object.fromEntries(
-    definition.parameters.map(({ name, value }) => [name, value]),
-  );
-  const parameterNames = definition.parameters.map(({ name }) => name);
-  const yAt = (series: ExplicitPlotSeries, x: number): number | null => {
-    const compiled = compilePlotExpression(series.expression, {
-      context: "explicit-function",
-      parameterNames,
-    });
-    if (!compiled.ok) return null;
-    const result = evaluatePlotExpression(compiled.expression, {
-      ...params,
-      x,
-    });
-    return result.kind === "value" && Number.isFinite(result.value)
-      ? result.value
-      : null;
-  };
-  const includes = (
-    bounds: NonNullable<ReturnType<typeof resolveExplicitPlotDomain>>,
-    x: number,
-  ): boolean =>
-    (x > bounds.min || (x === bounds.min && bounds.minInclusive)) &&
-    (x < bounds.max || (x === bounds.max && bounds.maxInclusive));
-  for (const group of members.values()) {
-    for (let i = 0; i < group.length; i += 1) {
-      for (let j = i + 1; j < group.length; j += 1) {
-        const first = group[i]!;
-        const second = group[j]!;
-        const lo = Math.max(first.bounds.min, second.bounds.min);
-        const hi = Math.min(first.bounds.max, second.bounds.max);
-        if (lo > hi) continue;
-        if (lo < hi) {
-          add(
-            second.index,
-            "plot.piecewise-overlap",
-            "Ветви одной кусочной функции перекрываются на интервале.",
-          );
-          continue;
-        }
-        if (
-          !Number.isFinite(lo) ||
-          !includes(first.bounds, lo) ||
-          !includes(second.bounds, lo)
-        )
-          continue;
-        const left = yAt(first.series, lo);
-        const right = yAt(second.series, lo);
-        if (
-          left === null ||
-          right === null ||
-          Math.abs(left - right) >
-            1e-9 * Math.max(1, Math.abs(left), Math.abs(right))
-        ) {
-          add(
-            second.index,
-            "plot.piecewise-conflict",
-            "В точке стыка кусочная функция имеет конфликтующие значения.",
-          );
-        }
-      }
-    }
-  }
-  return issues;
-}
-
 export function validateCoordinatePlotEditorDefinition(
   definition: CoordinatePlotDefinition,
 ): readonly CoordinatePlotEditorIssue[] {
@@ -814,11 +710,7 @@ export function validateCoordinatePlotEditorDefinition(
       parameterNames,
     );
   });
-  return [
-    ...structural,
-    ...piecewiseValidationIssues(definition),
-    ...expressions,
-  ];
+  return [...structural, ...expressions];
 }
 
 const maximumFitExpansionFactor = 100;
@@ -863,7 +755,7 @@ function fitSamplingViewport(
       parameterNames,
       bindings,
     );
-    return minimum !== null && maximum !== null && minimum < maximum
+    return minimum !== null && maximum !== null && minimum <= maximum
       ? [{ maximum, minimum }]
       : [];
   });
@@ -873,6 +765,15 @@ function fitSamplingViewport(
   const currentSpan = Math.max(1e-6, current.xMax - current.xMin);
   const maximumSpan = currentSpan * maximumFitExpansionFactor;
   const requestedSpan = requestedMaximum - requestedMinimum;
+  if (requestedSpan === 0) {
+    // A plot containing only f(x₀) still needs a non-degenerate viewport.
+    const margin = Math.max(0.25, currentSpan * 0.05);
+    return {
+      ...current,
+      xMin: requestedMinimum - margin,
+      xMax: requestedMaximum + margin,
+    };
+  }
   if (!(requestedSpan > maximumSpan)) {
     return { ...current, xMax: requestedMaximum, xMin: requestedMinimum };
   }

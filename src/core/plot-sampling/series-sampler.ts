@@ -4,6 +4,8 @@ import type {
 } from "../board/coordinate-plot";
 import { nextPlotFloat, resolveExplicitPlotDomain } from "../board/piecewise";
 import type { Vec2 } from "../board/primitives";
+import { plotDataToLocalPoint } from "./coordinates";
+import { evaluatePlotExpression } from "../plot-expression/public";
 import {
   cacheKey,
   compileExplicit,
@@ -91,7 +93,9 @@ export function resultStatus(
     return "invalid";
   }
   if (sample.truncated) return "truncated";
-  return sample.segments.length === 0 && sample.fillPolygons.length === 0
+  return sample.segments.length === 0 &&
+    sample.fillPolygons.length === 0 &&
+    (sample.points?.length ?? 0) === 0
     ? "empty"
     : "sampled";
 }
@@ -166,6 +170,34 @@ export function sampleSeries(input: {
               input.series,
             );
             if (bounds === null) return emptySample();
+            if (bounds.singleton) {
+              const x = bounds.min;
+              const result = evaluatePlotExpression(compiled.expression, {
+                ...input.bindings,
+                x,
+              });
+              if (result.kind !== "value" || !Number.isFinite(result.value))
+                return emptySample();
+              const y = result.value;
+              const point = plotDataToLocalPoint(
+                { x, y },
+                input.definition.coordinateViewport,
+                input.definition.size,
+              );
+              if (!Number.isFinite(point.x) || !Number.isFinite(point.y))
+                return emptySample();
+              const empty = emptySample();
+              return {
+                ...empty,
+                dataBounds: { xMin: x, xMax: x, yMin: y, yMax: y },
+                points: [point],
+                metrics: {
+                  ...empty.metrics,
+                  evaluationCount: 1,
+                  pointCount: 1,
+                },
+              };
+            }
             const min =
               input.series.domain.minExpression !== null &&
               compiled.domain.min === bounds.min &&

@@ -57,6 +57,111 @@ export function resolveExplicitPlotDomain(
   return { max, maxInclusive, min, minInclusive, singleton };
 }
 
+/**
+ * Domain constraints shared by editor, commands and document validation.
+ * Independent explicit series may overlap; only members of one piecewise group
+ * must represent a single-valued function.
+ */
+export function validatePiecewisePlotDefinition(
+  definition: CoordinatePlotDefinition,
+): readonly {
+  readonly code: string;
+  readonly path: string;
+  readonly message: string;
+}[] {
+  const issues: { code: string; path: string; message: string }[] = [];
+  const groups = new Map<
+    string,
+    {
+      index: number;
+      series: ExplicitPlotSeries;
+      bounds: ResolvedExplicitDomain;
+    }[]
+  >();
+  definition.series.forEach((series, index) => {
+    if (series.kind !== "explicit") return;
+    const bounds = resolveExplicitPlotDomain(definition, series);
+    if (bounds === null) {
+      issues.push({
+        code: "plot.invalid-piecewise-domain",
+        path: `series.${index}.domain`,
+        message:
+          "Explicit domain bounds must be ordered and a singleton must include its point.",
+      });
+      return;
+    }
+    if (series.piecewiseGroupId === undefined) return;
+    const members = groups.get(series.piecewiseGroupId) ?? [];
+    members.push({ index, series, bounds });
+    groups.set(series.piecewiseGroupId, members);
+  });
+  const parameterNames = definition.parameters.map(({ name }) => name);
+  const bindings = Object.fromEntries(
+    definition.parameters.map(({ name, value }) => [name, value]),
+  );
+  const includedAt = (bounds: ResolvedExplicitDomain, x: number): boolean =>
+    (x > bounds.min || (x === bounds.min && bounds.minInclusive)) &&
+    (x < bounds.max || (x === bounds.max && bounds.maxInclusive));
+  const evaluateAt = (series: ExplicitPlotSeries, x: number): number | null => {
+    const compiled = compilePlotExpression(series.expression, {
+      context: "explicit-function",
+      parameterNames,
+    });
+    if (!compiled.ok) return null;
+    const result = evaluatePlotExpression(compiled.expression, {
+      ...bindings,
+      x,
+    });
+    return result.kind === "value" && Number.isFinite(result.value)
+      ? result.value
+      : null;
+  };
+  for (const members of groups.values()) {
+    for (let i = 0; i < members.length; i += 1) {
+      for (let j = i + 1; j < members.length; j += 1) {
+        const left = members[i]!;
+        const right = members[j]!;
+        const intersectionMin = Math.max(left.bounds.min, right.bounds.min);
+        const intersectionMax = Math.min(left.bounds.max, right.bounds.max);
+        if (intersectionMin > intersectionMax) continue;
+        const path = `series.${right.index}.domain`;
+        if (intersectionMin < intersectionMax) {
+          issues.push({
+            code: "plot.piecewise-overlap",
+            path,
+            message:
+              "Branches in the same piecewise group overlap over an interval.",
+          });
+          continue;
+        }
+        if (
+          !Number.isFinite(intersectionMin) ||
+          !includedAt(left.bounds, intersectionMin) ||
+          !includedAt(right.bounds, intersectionMin)
+        )
+          continue;
+        const firstValue = evaluateAt(left.series, intersectionMin);
+        const secondValue = evaluateAt(right.series, intersectionMin);
+        // Equality is exact here: any two different outputs violate
+        // the single-valued-function invariant, even by 1e-10.
+        if (
+          firstValue === null ||
+          secondValue === null ||
+          firstValue !== secondValue
+        ) {
+          issues.push({
+            code: "plot.piecewise-conflict",
+            path,
+            message:
+              "Two branches define different or undefined values at the same x.",
+          });
+        }
+      }
+    }
+  }
+  return issues;
+}
+
 /** The closest representable floating-point value strictly inside an endpoint. */
 export function nextPlotFloat(value: number, direction: "up" | "down"): number {
   if (!Number.isFinite(value)) return value;
