@@ -120,7 +120,8 @@ function approximateOneSidedEndpoint(
       (value, index) =>
         index > 0 && Math.abs(value - recent[index - 1]!) > threshold,
     )
-  ) return null;
+  )
+    return null;
   return recent[3]!;
 }
 
