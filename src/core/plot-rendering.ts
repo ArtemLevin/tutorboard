@@ -7,6 +7,7 @@ import type {
   PlotSeriesStyle,
 } from "./board/coordinate-plot";
 import type { CoordinatePlotObject } from "./board/objects";
+import { resolveExplicitPlotDomain } from "./board/piecewise";
 import type { PlotSeriesId } from "./board/identifiers";
 import type { Size2, Vec2 } from "./board/primitives";
 import {
@@ -53,6 +54,7 @@ export interface PlotLegendLayout {
 
 export interface CoordinatePlotRenderModel {
   readonly definition: CoordinatePlotDefinition;
+  readonly endpoints: readonly PlotEndpointMarker[];
   readonly grid: PlotGridRenderModel;
   readonly sampling: CoordinatePlotSamplingResult;
   readonly xAxisY: number | null;
@@ -90,12 +92,16 @@ export function createPlotEndpointMarkers(
         series.domain.maxInclusive === undefined)
     )
       continue;
+    const bounds = resolveExplicitPlotDomain(definition, series);
+    if (bounds === null) continue;
     const sample = sampling.series.find(
       ({ seriesId }) => seriesId === series.id,
     );
     if (
       sample === undefined ||
-      (sample.status !== "sampled" && sample.status !== "truncated")
+      (sample.status !== "sampled" &&
+        sample.status !== "truncated" &&
+        !(bounds.singleton && sample.status === "empty"))
     )
       continue;
     const formula = compilePlotExpression(series.expression, {
@@ -104,6 +110,7 @@ export function createPlotEndpointMarkers(
     });
     if (!formula.ok) continue;
     for (const edge of ["min", "max"] as const) {
+      if (bounds.singleton && edge === "max") continue;
       const boundSource = series.domain[`${edge}Expression`];
       if (boundSource === null) continue;
       const bound = compilePlotExpression(boundSource, {
@@ -446,6 +453,7 @@ export function createCoordinatePlotRenderModel({
 
   return {
     definition,
+    endpoints: createPlotEndpointMarkers(definition, sampling),
     grid: createPlotGridRenderModel(definition.grid, viewport, definition.size),
     sampling,
     xAxisY: includesZero(viewport.yMin, viewport.yMax) ? origin.y : null,
