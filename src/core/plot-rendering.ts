@@ -7,12 +7,16 @@ import type {
   PlotSeriesStyle,
 } from "./board/coordinate-plot";
 import type { CoordinatePlotObject } from "./board/objects";
-import { resolveExplicitPlotDomain } from "./board/piecewise";
+import {
+  resolveExplicitPlotDomain,
+  type ResolvedExplicitDomain,
+} from "./board/piecewise";
 import type { PlotSeriesId } from "./board/identifiers";
 import type { Size2, Vec2 } from "./board/primitives";
 import {
   compilePlotExpression,
   evaluatePlotExpression,
+  type CompiledPlotExpression,
 } from "./plot-expression/public";
 import {
   plotDataToLocalPoint,
@@ -70,6 +74,57 @@ export interface PlotEndpointMarker {
 }
 
 /**
+ * One-sided finite-limit estimate for a removable discontinuity.
+ * Require four consecutive near-boundary evaluations to agree within a
+ * tenth of a screen pixel. Divergent and oscillating series are rejected.
+ * This is a bounded numerical approximation, not a symbolic limit solver.
+ */
+function approximateOneSidedEndpoint(
+  expression: CompiledPlotExpression,
+  bindings: Readonly<Record<string, number>>,
+  x: number,
+  edge: "min" | "max",
+  domain: ResolvedExplicitDomain,
+  viewport: CoordinatePlotViewport,
+  size: Size2,
+): number | null {
+  const other = edge === "min" ? domain.max : domain.min;
+  let step = Math.min(
+    (viewport.xMax - viewport.xMin) / 8,
+    Number.isFinite(other) ? Math.abs(other - x) / 2 : Infinity,
+  );
+  const direction = edge === "min" ? 1 : -1;
+  const threshold = Math.max(
+    1e-10,
+    ((viewport.yMax - viewport.yMin) / size.height) * 0.1,
+  );
+  const recent: number[] = [];
+  for (let iteration = 0; iteration < 28; iteration += 1) {
+    const candidateX = x + direction * step;
+    step /= 2;
+    if (candidateX === x) break;
+    const evaluated = evaluatePlotExpression(expression, {
+      ...bindings,
+      x: candidateX,
+    });
+    if (evaluated.kind !== "value" || !Number.isFinite(evaluated.value)) {
+      recent.length = 0;
+      continue;
+    }
+    recent.push(evaluated.value);
+    if (recent.length > 4) recent.shift();
+  }
+  if (recent.length !== 4) return null;
+  if (
+    recent.some(
+      (value, index) =>
+        index > 0 && Math.abs(value - recent[index - 1]!) > threshold,
+    )
+  ) return null;
+  return recent[3]!;
+}
+
+/**
  * Endpoint inclusion is represented separately from numerical sampling:
  * rendering an excluded limit must still approach the limit continuously.
  */
@@ -113,25 +168,33 @@ export function createPlotEndpointMarkers(
       if (bounds.singleton && edge === "max") continue;
       const boundSource = series.domain[`${edge}Expression`];
       if (boundSource === null) continue;
-      const bound = compilePlotExpression(boundSource, {
-        context: "explicit-domain",
-        parameterNames,
-      });
-      if (!bound.ok) continue;
-      const value = evaluatePlotExpression(bound.expression, bindings);
-      if (value.kind !== "value" || !Number.isFinite(value.value)) continue;
-      const x = value.value;
+      const x = bounds[edge];
+      if (!Number.isFinite(x)) continue;
       if (
         x < definition.coordinateViewport.xMin ||
         x > definition.coordinateViewport.xMax
       )
         continue;
+      const included = series.domain[`${edge}Inclusive`] ?? true;
       const yValue = evaluatePlotExpression(formula.expression, {
         ...bindings,
         x,
       });
-      if (yValue.kind !== "value" || !Number.isFinite(yValue.value)) continue;
-      const y = yValue.value;
+      const y =
+        yValue.kind === "value" && Number.isFinite(yValue.value)
+          ? yValue.value
+          : !included && !bounds.singleton
+            ? approximateOneSidedEndpoint(
+                formula.expression,
+                bindings,
+                x,
+                edge,
+                bounds,
+                definition.coordinateViewport,
+                definition.size,
+              )
+            : null;
+      if (y === null) continue;
       if (
         y < definition.coordinateViewport.yMin ||
         y > definition.coordinateViewport.yMax
@@ -144,7 +207,7 @@ export function createPlotEndpointMarkers(
           definition.coordinateViewport,
           definition.size,
         ),
-        included: series.domain[`${edge}Inclusive`] ?? true,
+        included,
         style: series.style,
       });
     }
