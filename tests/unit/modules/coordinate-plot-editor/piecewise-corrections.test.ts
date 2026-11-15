@@ -7,6 +7,7 @@ import {
   deserializeBoardDocument,
   documentId,
   plotParameterId,
+  plotDataToLocalPoint,
   plotSeriesId,
   serializeBoardDocument,
   validateCoordinatePlotDefinition,
@@ -209,18 +210,14 @@ describe("piecewise mathematical regression checks", () => {
       object: { ...object, definition },
       zoom: 1,
     });
-    console.log("HOLE_DIAGNOSTICS", JSON.stringify({
-      series: rendered.sampling.series.map(({ status, diagnostics, sample }) => ({
-        status,
-        diagnostics,
-        metrics: sample?.metrics,
-        segments: sample?.segments.length,
-      })),
-      markers: rendered.endpoints,
-    }));
+    const endpointX = plotDataToLocalPoint(
+      { x: 1, y: 2 },
+      rendered.definition.coordinateViewport,
+      rendered.definition.size,
+    ).x;
     const marker = rendered.endpoints.find(
       (endpoint) =>
-        !endpoint.included && Math.abs(endpoint.point.x - 352) < 0.01,
+        !endpoint.included && Math.abs(endpoint.point.x - endpointX) < 0.01,
     );
     expect(marker).toBeDefined();
     expect(marker?.point.y).toBeCloseTo(150, 0);
@@ -238,10 +235,15 @@ describe("piecewise mathematical regression checks", () => {
       object: { ...object, definition },
       zoom: 1,
     });
+    const endpointX = plotDataToLocalPoint(
+      { x: 1, y: 0 },
+      rendered.definition.coordinateViewport,
+      rendered.definition.size,
+    ).x;
     expect(
       rendered.endpoints.some(
         (endpoint) =>
-          !endpoint.included && Math.abs(endpoint.point.x - 352) < 0.01,
+          !endpoint.included && Math.abs(endpoint.point.x - endpointX) < 0.01,
       ),
     ).toBe(false);
   });
