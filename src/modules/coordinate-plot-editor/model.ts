@@ -755,7 +755,7 @@ function fitSamplingViewport(
       parameterNames,
       bindings,
     );
-    return minimum !== null && maximum !== null && minimum < maximum
+    return minimum !== null && maximum !== null && minimum <= maximum
       ? [{ maximum, minimum }]
       : [];
   });
@@ -765,6 +765,15 @@ function fitSamplingViewport(
   const currentSpan = Math.max(1e-6, current.xMax - current.xMin);
   const maximumSpan = currentSpan * maximumFitExpansionFactor;
   const requestedSpan = requestedMaximum - requestedMinimum;
+  if (requestedSpan === 0) {
+    // A plot containing only f(x₀) still needs a non-degenerate viewport.
+    const margin = Math.max(0.25, currentSpan * 0.05);
+    return {
+      ...current,
+      xMin: requestedMinimum - margin,
+      xMax: requestedMaximum + margin,
+    };
+  }
   if (!(requestedSpan > maximumSpan)) {
     return { ...current, xMax: requestedMaximum, xMin: requestedMinimum };
   }
