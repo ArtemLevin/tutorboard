@@ -436,6 +436,15 @@ export function updateCoordinatePlotSeriesInput(
   if (index < 0) return definition;
   const current = definition.series[index]!;
   if (current.kind === "parametric") return definition;
+  const preservedExplicit =
+    current.kind === "explicit"
+      ? {
+          domain: current.domain,
+          ...(current.piecewiseGroupId === undefined
+            ? {}
+            : { piecewiseGroupId: current.piecewiseGroupId }),
+        }
+      : {};
   const relation = parsePlotRelation(source);
   const explicitPrefix = /^\s*y\s*=\s*/iu.exec(source);
   let replacement: PlotSeries;
@@ -446,7 +455,7 @@ export function updateCoordinatePlotSeriesInput(
   ) {
     replacement = {
       ...createExplicitPlotSeries(current.id, index),
-      ...(current.kind === "explicit" ? { domain: current.domain } : {}),
+      ...preservedExplicit,
       expression: relation.rightSource,
       name: current.name,
       style: current.style,
@@ -455,7 +464,7 @@ export function updateCoordinatePlotSeriesInput(
   } else if (explicitPrefix !== null) {
     replacement = {
       ...createExplicitPlotSeries(current.id, index),
-      ...(current.kind === "explicit" ? { domain: current.domain } : {}),
+      ...preservedExplicit,
       expression: source.slice(explicitPrefix[0].length),
       name: current.name,
       style: current.style,
@@ -473,7 +482,7 @@ export function updateCoordinatePlotSeriesInput(
   } else {
     replacement = {
       ...createExplicitPlotSeries(current.id, index),
-      ...(current.kind === "explicit" ? { domain: current.domain } : {}),
+      ...preservedExplicit,
       expression: source,
       name: current.name,
       style: current.style,
