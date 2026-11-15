@@ -152,7 +152,8 @@ export function createPlotEndpointMarkers(
       !bounds.singleton &&
       series.domain.minInclusive === undefined &&
       series.domain.maxInclusive === undefined
-    ) continue;
+    )
+      continue;
     const sample = sampling.series.find(
       ({ seriesId }) => seriesId === series.id,
     );
