@@ -202,6 +202,48 @@ export function addCoordinatePlotSeries(
   return { ...definition, series: [...definition.series, series] };
 }
 
+/**
+ * Turn an explicit series into the first two branches of a piecewise function.
+ * Both branches remain ordinary explicit series, preserving persistence,
+ * collaboration and renderer contracts for existing boards.
+ */
+export function splitCoordinatePlotSeries(
+  definition: CoordinatePlotDefinition,
+  seriesId: PlotSeriesId,
+  secondId: PlotSeriesId,
+): CoordinatePlotDefinition {
+  if (
+    definition.series.length >= maximumCoordinatePlotSeries ||
+    definition.series.some((series) => series.id === secondId)
+  ) return definition;
+  const index = definition.series.findIndex((series) => series.id === seriesId);
+  const source = definition.series[index];
+  if (source?.kind !== "explicit") return definition;
+  const first: ExplicitPlotSeries = {
+    ...source,
+    name: `${source.name} · ветвь 1`,
+    domain: {
+      minExpression: null,
+      maxExpression: "0",
+      maxInclusive: false,
+    },
+  };
+  const second: ExplicitPlotSeries = {
+    ...createExplicitPlotSeries(secondId, index + 1),
+    expression: "x^2",
+    name: `${source.name} · ветвь 2`,
+    style: source.style,
+    domain: {
+      minExpression: "0",
+      minInclusive: true,
+      maxExpression: null,
+    },
+  };
+  const series = [...definition.series];
+  series.splice(index, 1, first, second);
+  return { ...definition, series };
+}
+
 export function replaceCoordinatePlotSeriesKind(
   definition: CoordinatePlotDefinition,
   seriesId: PlotSeriesId,
