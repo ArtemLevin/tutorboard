@@ -296,7 +296,11 @@ export function compileExplicit(input: {
   if (resolved === null) {
     return {
       diagnostics: [
-        diagnostic("sampling.invalid-domain", "domain", "Invalid interval bounds."),
+        diagnostic(
+          "sampling.invalid-domain",
+          "domain",
+          "Invalid interval bounds.",
+        ),
       ],
       ok: false,
     };
