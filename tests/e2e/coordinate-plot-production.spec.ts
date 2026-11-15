@@ -279,6 +279,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await page.reload();
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
 
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   const boardSettings = page.getByRole("dialog", { name: "Настройки доски" });
   await expect(boardSettings).toBeVisible();
@@ -334,6 +335,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     /Сохранено локально|Сохранено повторно/,
   );
 
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(boardSettings).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
