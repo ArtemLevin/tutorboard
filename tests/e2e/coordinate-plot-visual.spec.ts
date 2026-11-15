@@ -41,11 +41,26 @@ test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
     editor.getByLabel("Математическое выражение графика"),
   ).toHaveValue("y = 2*x+a");
   await expect(editor.getByLabel("Ползунок параметра a")).toBeVisible();
+  await expect(editor.getByText("Шаг 1")).toBeVisible();
+  await expect(editor.getByText("Шаг 2")).toBeVisible();
+
+  await expect(
+    editor.getByRole("button", { name: "Разделить ветвь" }),
+  ).toBeHidden();
   await expect(
     page.getByRole("toolbar", { name: "Навигация координатной плоскости" }),
   ).toBeVisible();
 
   const mobile = testInfo.project.name.includes("mobile");
+  if (!mobile) {
+    await expect(
+      editor.getByRole("button", { name: "Показать график" }),
+    ).toBeVisible();
+  }
+  if (!mobile) {
+    const desktopBox = await editor.boundingBox();
+    expect(desktopBox?.width).toBeGreaterThan(700);
+  }
   if (mobile) {
     const viewport = page.viewportSize();
     const box = await editor.boundingBox();
@@ -77,7 +92,7 @@ test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
     await advancedEditor.getByRole("tab", { name: "Функции" }).click();
     for (let index = 0; index < 11; index += 1) {
       await advancedEditor
-        .getByRole("button", { name: "+ Явная функция" })
+        .getByRole("button", { name: "+ Добавить функцию" })
         .click();
     }
     await advancedEditor.getByRole("button", { name: "Сохранить" }).click();

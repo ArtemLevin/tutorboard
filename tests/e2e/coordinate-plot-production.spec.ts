@@ -114,6 +114,9 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     .getByRole("button", { name: "Вместить все графики" })
     .click();
 
+  await editor.getByRole("button", { name: "Показать график" }).click();
+  await expect(editor).toHaveAttribute("data-preview-mode", "true");
+
   const stage = page.locator(".konvajs-content");
   const stageBox = await stage.boundingBox();
   expect(stageBox).not.toBeNull();
@@ -128,6 +131,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await expect(stage).toHaveCSS("cursor", "grabbing");
   await page.mouse.up();
   await expect(stage).toHaveCSS("cursor", "grab");
+  await editor.getByRole("button", { name: "Полный редактор" }).click();
   await navigation
     .getByRole("button", { name: "Сбросить диапазон графика" })
     .click();
@@ -248,13 +252,16 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     "Штриховая",
   );
 
-  await advancedEditor.getByRole("button", { name: "+ Явная функция" }).click();
+  await advancedEditor
+    .getByRole("button", { name: "+ Добавить функцию" })
+    .click();
   await advancedEditor
     .getByLabel("Математическое выражение серии")
     .fill("y=2*x+1");
 
+  await advancedEditor.getByText("Добавить другой тип").click();
   await advancedEditor
-    .getByRole("button", { name: "+ Параметрическая кривая" })
+    .getByRole("button", { name: "Параметрическая кривая" })
     .click();
   await advancedEditor.getByLabel("Параметрическая формула x").fill("3*cos(t)");
   await advancedEditor.getByLabel("Параметрическая формула y").fill("3*sin(t)");

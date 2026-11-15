@@ -175,12 +175,13 @@ describe("CoordinatePlotEditorPanel", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Расширенные настройки/ }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "+ Явная функция" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Добавить функцию" }));
+    fireEvent.click(screen.getByText("Добавить другой тип"));
     fireEvent.click(
-      screen.getByRole("button", { name: "+ Параметрическая кривая" }),
+      screen.getByRole("button", { name: "Параметрическая кривая" }),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "+ Уравнение / неравенство" }),
+      screen.getByRole("button", { name: "Уравнение / неравенство" }),
     );
     fireEvent.click(screen.getByRole("tab", { name: "Параметры (1)" }));
     fireEvent.click(screen.getByRole("button", { name: "Добавить параметр" }));
@@ -212,9 +213,14 @@ describe("CoordinatePlotEditorPanel", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "+ График" }));
-    fireEvent.click(screen.getByRole("button", { name: "+ Окружность" }));
-    fireEvent.click(screen.getByRole("button", { name: "+ Неравенство" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Добавить функцию" }));
+    fireEvent.click(screen.getByText("Другой тип построения"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Уравнение / окружность" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Неравенство и область" }),
+    );
 
     expect(onAddSeries.mock.calls).toEqual([
       ["explicit", "y=x"],

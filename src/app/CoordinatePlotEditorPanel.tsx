@@ -85,6 +85,25 @@ function relationSupportsFill(
   return relation.ok && relation.operator !== "=";
 }
 
+function basicSeriesPreview(series: PlotSeries): string {
+  if (series.kind === "parametric") return "x(t), y(t)";
+  return coordinatePlotSeriesInput(series);
+}
+
+function basicSeriesDomain(series: PlotSeries): string | null {
+  if (series.kind !== "explicit") return null;
+  const { domain } = series;
+  const min = domain.minExpression;
+  const max = domain.maxExpression;
+  if (min === null && max === null) return null;
+  if (min !== null && min === max) return `x = ${min}`;
+  if (min === null)
+    return `x ${domain.maxInclusive === false ? "<" : "≤"} ${max}`;
+  if (max === null)
+    return `x ${domain.minInclusive === false ? ">" : "≥"} ${min}`;
+  return `${min} ${domain.minInclusive === false ? "<" : "≤"} x ${domain.maxInclusive === false ? "<" : "≤"} ${max}`;
+}
+
 export interface CoordinatePlotEditorPanelProps {
   readonly definition: CoordinatePlotDefinition;
   readonly dirty: boolean;
@@ -1001,86 +1020,13 @@ function FunctionsTab({
   readonly selectedSeries: PlotSeries | null;
   readonly selectedSeriesId: PlotSeriesId | null;
 }): ReactElement {
+  const [advancedPiecewiseOpen, setAdvancedPiecewiseOpen] = useState(false);
   return (
-    <div className="plot-editor-tab-content">
-      <div className="plot-editor-section-card">
-        <div className="plot-editor-section-heading">
-          <div>
-            <strong>Графики, кривые и области</strong>
-            <span>{definition.series.length} серий</span>
-          </div>
-          <div className="plot-editor-actions compact">
-            <button
-              disabled={definition.series.length >= maximumCoordinatePlotSeries}
-              onClick={() => onAddSeries("explicit")}
-              type="button"
-            >
-              + Явная функция
-            </button>
-            <button
-              disabled={definition.series.length >= maximumCoordinatePlotSeries}
-              onClick={() => onAddSeries("parametric")}
-              type="button"
-            >
-              + Параметрическая кривая
-            </button>
-            <button
-              disabled={definition.series.length >= maximumCoordinatePlotSeries}
-              onClick={() => onAddSeries("relation")}
-              type="button"
-            >
-              + Уравнение / неравенство
-            </button>
-            <label>
-              Точка x =
-              <input
-                aria-label="Координата разделения ветви"
-                onChange={(event) =>
-                  onPiecewiseBoundaryChange(event.currentTarget.value)
-                }
-                style={{ width: 72 }}
-                value={piecewiseBoundary}
-              />
-            </label>
-            <button
-              disabled={
-                onSplitSeries === undefined ||
-                selectedSeries?.kind !== "explicit" ||
-                !canSplitCoordinatePlotSeries(
-                  definition,
-                  selectedSeries.id,
-                  piecewiseBoundary,
-                )
-              }
-              onClick={() => {
-                if (selectedSeries?.kind === "explicit") {
-                  onSplitSeries?.(selectedSeries.id, piecewiseBoundary);
-                }
-              }}
-              type="button"
-            >
-              + Разделить ветвь
-            </button>
-            <button
-              disabled={
-                onAddPoint === undefined ||
-                selectedSeries?.kind !== "explicit" ||
-                !canAddPiecewisePoint(
-                  definition,
-                  selectedSeries.id,
-                  piecewiseBoundary,
-                )
-              }
-              onClick={() => {
-                if (selectedSeries?.kind === "explicit") {
-                  onAddPoint?.(selectedSeries.id, piecewiseBoundary);
-                }
-              }}
-              type="button"
-            >
-              + Значение в точке
-            </button>
-          </div>
+    <div className="plot-editor-tab-content plot-advanced-functions-layout">
+      <section className="plot-editor-section-card plot-advanced-series-pane">
+        <div className="plot-workspace-section-heading">
+          <strong>Графики на плоскости</strong>
+          <small>Выберите график, чтобы изменить его формулу.</small>
         </div>
         <ol className="plot-series-list">
           {definition.series.map((series) => (
@@ -1110,9 +1056,7 @@ function FunctionsTab({
                 {series.name || "Без названия"}
               </button>
               <button
-                aria-label={`Удалить серию ${
-                  series.name || `№${definition.series.indexOf(series) + 1}`
-                }`}
+                aria-label={`Удалить серию ${series.name}`}
                 onClick={() => {
                   const next = removeCoordinatePlotSeries(
                     definition,
@@ -1130,31 +1074,131 @@ function FunctionsTab({
             </li>
           ))}
         </ol>
-      </div>
-      {selectedSeries?.kind === "explicit" &&
-      selectedSeries.piecewiseGroupId !== undefined ? (
         <button
-          onClick={() => {
-            onChange(removePiecewiseGroup(definition, selectedSeries.id));
-            onSelectedSeriesChange(null);
-          }}
+          disabled={definition.series.length >= maximumCoordinatePlotSeries}
+          onClick={() => onAddSeries("explicit")}
           type="button"
         >
-          Удалить всю кусочную функцию
+          + Добавить функцию
         </button>
-      ) : null}
-      <div className="plot-editor-section-card">
-        {selectedSeries === null ? (
-          <p>Добавьте первую функцию или кривую.</p>
-        ) : (
-          <SeriesEditor
-            definition={definition}
-            issues={issues}
-            onChange={onChange}
-            onCreateParameter={onCreateParameter}
-            series={selectedSeries}
-          />
-        )}
+        <details className="plot-workspace-add-other">
+          <summary>Добавить другой тип</summary>
+          <div className="plot-workspace-add-other-options">
+            <button
+              disabled={definition.series.length >= maximumCoordinatePlotSeries}
+              onClick={() => onAddSeries("relation")}
+              type="button"
+            >
+              Уравнение / неравенство
+            </button>
+            <button
+              disabled={definition.series.length >= maximumCoordinatePlotSeries}
+              onClick={() => onAddSeries("parametric")}
+              type="button"
+            >
+              Параметрическая кривая
+            </button>
+          </div>
+        </details>
+      </section>
+      <div className="plot-advanced-edit-pane">
+        <section className="plot-editor-section-card">
+          <div className="plot-workspace-section-heading">
+            <strong>Редактирование графика</strong>
+            <small>Формула, область определения и стиль линии.</small>
+          </div>
+          {selectedSeries === null ? (
+            <p>Добавьте функцию или кривую слева.</p>
+          ) : (
+            <SeriesEditor
+              definition={definition}
+              issues={issues}
+              onChange={onChange}
+              onCreateParameter={onCreateParameter}
+              series={selectedSeries}
+            />
+          )}
+        </section>
+        {selectedSeries?.kind === "explicit" ? (
+          <section className="plot-editor-section-card plot-advanced-piecewise">
+            <details
+              className="plot-workspace-disclosure"
+              onToggle={(event) =>
+                setAdvancedPiecewiseOpen(event.currentTarget.open)
+              }
+              open={advancedPiecewiseOpen}
+            >
+              <summary>
+                <span>
+                  <strong>Кусочная функция</strong>
+                  <small>Разделить ветвь или задать значение в точке</small>
+                </span>
+              </summary>
+              <div className="plot-workspace-disclosure-body">
+                <p className="plot-editor-hint">
+                  Выберите ветвь слева и задайте координату x. После разделения
+                  введите формулу каждой ветви отдельно.
+                </p>
+                <div className="plot-workspace-piecewise-actions">
+                  <label>
+                    Разделить при x =
+                    <input
+                      aria-label="Координата разделения ветви"
+                      onChange={(event) =>
+                        onPiecewiseBoundaryChange(event.currentTarget.value)
+                      }
+                      value={piecewiseBoundary}
+                    />
+                  </label>
+                  <button
+                    disabled={
+                      onSplitSeries === undefined ||
+                      !canSplitCoordinatePlotSeries(
+                        definition,
+                        selectedSeries.id,
+                        piecewiseBoundary,
+                      )
+                    }
+                    onClick={() =>
+                      onSplitSeries?.(selectedSeries.id, piecewiseBoundary)
+                    }
+                    type="button"
+                  >
+                    Разделить ветвь
+                  </button>
+                  <button
+                    disabled={
+                      onAddPoint === undefined ||
+                      !canAddPiecewisePoint(
+                        definition,
+                        selectedSeries.id,
+                        piecewiseBoundary,
+                      )
+                    }
+                    onClick={() =>
+                      onAddPoint?.(selectedSeries.id, piecewiseBoundary)
+                    }
+                    type="button"
+                  >
+                    Задать значение в точке
+                  </button>
+                </div>
+              </div>
+            </details>
+            {selectedSeries.piecewiseGroupId === undefined ? null : (
+              <button
+                className="plot-advanced-remove-group"
+                onClick={() => {
+                  onChange(removePiecewiseGroup(definition, selectedSeries.id));
+                  onSelectedSeriesChange(null);
+                }}
+                type="button"
+              >
+                Удалить всю кусочную функцию
+              </button>
+            )}
+          </section>
+        ) : null}
       </div>
     </div>
   );
@@ -1688,6 +1732,7 @@ export function CoordinatePlotEditorPanel({
   const [activeTab, setActiveTab] =
     useState<CoordinatePlotEditorTab>("functions");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const [piecewiseBoundary, setPiecewiseBoundary] = useState("0");
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const [pendingParameterFocus, setPendingParameterFocus] = useState<
@@ -1699,6 +1744,17 @@ export function CoordinatePlotEditorPanel({
     definition.series[0] ??
     null;
   const basicSeries = selectedSeries;
+  const [domainDisclosureOpen, setDomainDisclosureOpen] = useState(
+    () =>
+      selectedSeries?.kind === "explicit" &&
+      (selectedSeries.domain.minExpression !== null ||
+        selectedSeries.domain.maxExpression !== null),
+  );
+  const [piecewiseDisclosureOpen, setPiecewiseDisclosureOpen] = useState(
+    () =>
+      selectedSeries?.kind === "explicit" &&
+      selectedSeries.piecewiseGroupId !== undefined,
+  );
   const basicSeriesIndex =
     basicSeries === null
       ? -1
@@ -1908,13 +1964,14 @@ export function CoordinatePlotEditorPanel({
     requestClose,
   ]);
 
-  return (
+  return createPortal(
     <aside
       aria-describedby={advancedOpen ? undefined : `${editorId}-status`}
       aria-hidden={advancedOpen || undefined}
       aria-label="Редактор координатной плоскости"
       className="coordinate-plot-editor-panel coordinate-plot-basic-editor-panel"
       data-advanced-open={advancedOpen ? "true" : "false"}
+      data-preview-mode={previewMode ? "true" : "false"}
       data-testid="coordinate-plot-editor"
       ref={basicPanelRef}
       tabIndex={-1}
@@ -1923,134 +1980,54 @@ export function CoordinatePlotEditorPanel({
         <>
           <header className="plot-editor-heading plot-basic-heading">
             <div>
-              <strong id={`${editorId}-title`}>Настройки графика</strong>
+              <strong id={`${editorId}-title`}>Построение графиков</strong>
               <span aria-live="polite" id={`${editorId}-status`}>
                 {dirty ? "Есть несохранённые изменения" : "Изменения сохранены"}
               </span>
             </div>
-            <button
-              aria-label="Закрыть редактор графика"
-              onClick={requestClose}
-              type="button"
-            >
-              <span aria-hidden="true">×</span>
-            </button>
+            <div className="plot-basic-heading-actions">
+              <button
+                aria-pressed={previewMode}
+                className="plot-basic-preview-toggle"
+                onClick={() => setPreviewMode((current) => !current)}
+                type="button"
+              >
+                {previewMode ? "Полный редактор" : "Показать график"}
+              </button>
+              <button
+                aria-label="Закрыть редактор графика"
+                onClick={requestClose}
+                type="button"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
           </header>
 
           <div className="plot-editor-basic-scroll">
-            <section
-              className="plot-basic-card"
-              aria-labelledby={`${editorId}-formula-title`}
-            >
-              <div className="plot-basic-card-heading">
-                <div>
-                  <strong id={`${editorId}-formula-title`}>Графики</strong>
-                  <span>{definition.series.length} на одной плоскости</span>
+            <div className="plot-workspace-layout">
+              <section
+                aria-label="Список построений"
+                className="plot-workspace-sidebar"
+              >
+                <div className="plot-workspace-section-heading">
+                  <span className="plot-workspace-step">Шаг 1</span>
+                  <strong>Выберите график</strong>
+                  <small>
+                    {definition.series.length} на координатной плоскости
+                  </small>
                 </div>
-                <div className="plot-basic-add-series-actions">
-                  <button
-                    disabled={
-                      definition.series.length >= maximumCoordinatePlotSeries
-                    }
-                    onClick={() => onAddSeries("explicit", "y=x")}
-                    type="button"
-                  >
-                    + График
-                  </button>
-                  <button
-                    disabled={
-                      definition.series.length >= maximumCoordinatePlotSeries
-                    }
-                    onClick={() => onAddSeries("relation", "x^2+y^2=25")}
-                    type="button"
-                  >
-                    + Окружность
-                  </button>
-                  <button
-                    disabled={
-                      definition.series.length >= maximumCoordinatePlotSeries
-                    }
-                    onClick={() => onAddSeries("relation", "y>=x^2")}
-                    type="button"
-                  >
-                    + Неравенство
-                  </button>
-                  <label>
-                    x =
-                    <input
-                      aria-label="Точка разбиения кусочной функции"
-                      onChange={(event) =>
-                        setPiecewiseBoundary(event.currentTarget.value)
-                      }
-                      style={{ width: 66 }}
-                      value={piecewiseBoundary}
-                    />
-                  </label>
-                  <button
-                    disabled={
-                      onSplitSeries === undefined ||
-                      basicSeries?.kind !== "explicit" ||
-                      !canSplitCoordinatePlotSeries(
-                        definition,
-                        basicSeries.id,
-                        piecewiseBoundary,
-                      )
-                    }
-                    onClick={() => {
-                      if (basicSeries?.kind === "explicit") {
-                        onSplitSeries?.(basicSeries.id, piecewiseBoundary);
-                      }
-                    }}
-                    type="button"
-                  >
-                    + Кусочная
-                  </button>
-                  <button
-                    disabled={
-                      onAddPoint === undefined ||
-                      basicSeries?.kind !== "explicit" ||
-                      !canAddPiecewisePoint(
-                        definition,
-                        basicSeries.id,
-                        piecewiseBoundary,
-                      )
-                    }
-                    onClick={() => {
-                      if (basicSeries?.kind === "explicit") {
-                        onAddPoint?.(basicSeries.id, piecewiseBoundary);
-                      }
-                    }}
-                    type="button"
-                  >
-                    + Точка
-                  </button>
-                </div>
-              </div>
-              {definition.series.length === 0 ? null : (
                 <ol
                   aria-label="Графики на координатной плоскости"
                   className="plot-basic-series-list"
                 >
-                  {definition.series.map((series) => (
+                  {definition.series.map((series, index) => (
                     <li
                       className={
                         series.id === basicSeries?.id ? "is-selected" : ""
                       }
                       key={series.id}
                     >
-                      <input
-                        aria-label={`Показывать ${series.name}`}
-                        checked={series.visible}
-                        onChange={(event) =>
-                          onDefinitionChange(
-                            updateCoordinatePlotSeries(definition, {
-                              ...series,
-                              visible: event.currentTarget.checked,
-                            }),
-                          )
-                        }
-                        type="checkbox"
-                      />
                       <button
                         aria-pressed={series.id === basicSeries?.id}
                         className="plot-basic-series-select"
@@ -2062,10 +2039,37 @@ export function CoordinatePlotEditorPanel({
                           className="plot-basic-series-color"
                           style={{ backgroundColor: series.style.stroke }}
                         />
-                        {series.name || "Без названия"}
+                        <span className="plot-basic-series-description">
+                          <strong>
+                            {series.name || `График ${index + 1}`}
+                          </strong>
+                          <small title={basicSeriesPreview(series)}>
+                            {basicSeriesPreview(series)}
+                          </small>
+                          {basicSeriesDomain(series) === null ? null : (
+                            <small className="plot-basic-domain-preview">
+                              {basicSeriesDomain(series)}
+                            </small>
+                          )}
+                        </span>
                       </button>
+                      <input
+                        aria-label={`Показывать ${series.name}`}
+                        checked={series.visible}
+                        onChange={(event) =>
+                          onDefinitionChange(
+                            updateCoordinatePlotSeries(definition, {
+                              ...series,
+                              visible: event.currentTarget.checked,
+                            }),
+                          )
+                        }
+                        title="Показывать или скрыть график"
+                        type="checkbox"
+                      />
                       <button
                         aria-label={`Удалить серию ${series.name}`}
+                        className="plot-basic-series-delete"
                         onClick={() => {
                           const next = removeCoordinatePlotSeries(
                             definition,
@@ -2076,197 +2080,507 @@ export function CoordinatePlotEditorPanel({
                             onSelectedSeriesChange(next.series[0]?.id ?? null);
                           }
                         }}
+                        title="Удалить график"
                         type="button"
                       >
-                        ×
+                        <span aria-hidden="true">×</span>
                       </button>
                     </li>
                   ))}
                 </ol>
-              )}
-              {basicSeries === null ? (
-                <div className="plot-editor-empty-state plot-basic-empty-state">
-                  <strong>Добавьте первый график</strong>
-                  <span>
-                    На одной координатной плоскости доступно до 32 серий.
-                  </span>
-                </div>
-              ) : basicSeries.kind === "parametric" ? (
-                <div className="plot-editor-empty-state plot-basic-empty-state">
-                  <strong>Параметрическая кривая</strong>
-                  <span>
-                    Координаты x(t), y(t) и диапазон параметра доступны в
-                    расширенных настройках.
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <ExpressionField
-                    ariaLabel="Математическое выражение графика"
-                    existingParameterNames={definition.parameters.map(
-                      ({ name }) => name,
-                    )}
-                    field={`series.${basicSeriesIndex}.expression`}
-                    initialFocus
-                    issueId={`${editorId}-basic-formula-issues`}
-                    issues={issues}
-                    label="Математическое выражение"
-                    onCreateParameter={createBasicParameterFromFormula}
-                    onSourceChange={(expression) =>
-                      onDefinitionChange(
-                        updateCoordinatePlotSeriesInput(
-                          definition,
-                          basicSeries.id,
-                          expression,
-                        ),
-                      )
-                    }
-                    parameterLimitReached={
-                      definition.parameters.length >=
-                      maximumCoordinatePlotParameters
-                    }
-                    placeholder="y=x^2, x^2+y^2=25 или y>=x^2"
-                    showTools
-                    source={coordinatePlotSeriesInput(basicSeries)}
-                  />
-                  <p className="plot-editor-hint plot-basic-example">
-                    Введите выражение целиком. Поддерживаются функции,
-                    уравнения, неравенства и параметры.
-                  </p>
-                  {relationSupportsFill(basicSeries) ? (
-                    <label className="plot-basic-fill-control">
-                      <span>Заливка области решения</span>
-                      <input
-                        aria-label="Заливка области решения"
-                        max="0.5"
-                        min="0"
-                        onChange={(event) =>
-                          onDefinitionChange(
-                            updateCoordinatePlotSeries(definition, {
-                              ...basicSeries,
-                              fillOpacity: numberValue(
-                                event.currentTarget.value,
-                                basicSeries.fillOpacity,
-                              ),
-                            }),
-                          )
-                        }
-                        step="0.02"
-                        type="range"
-                        value={basicSeries.fillOpacity}
-                      />
-                    </label>
-                  ) : null}
-                </>
-              )}
-            </section>
-
-            <section
-              className="plot-basic-card"
-              aria-labelledby={`${editorId}-parameter-title`}
-            >
-              <div className="plot-basic-card-heading">
-                <div>
-                  <strong id={`${editorId}-parameter-title`}>Параметр</strong>
-                  <span>Быстрое управление графиком</span>
-                </div>
-                {basicParameter === null ? null : (
-                  <output
-                    className="plot-basic-parameter-value"
-                    htmlFor={`${editorId}-basic-parameter-slider`}
-                  >
-                    {basicParameter.name} = {basicParameter.value}
-                  </output>
-                )}
-              </div>
-              {basicParameter === null ? (
-                <div className="plot-basic-add-parameter">
-                  <p className="plot-editor-hint">
-                    Добавьте параметр <code>a</code> и используйте его в
-                    формуле.
-                  </p>
+                <div className="plot-workspace-create">
                   <button
+                    className="plot-workspace-add-primary"
                     disabled={
-                      definition.parameters.length >=
-                      maximumCoordinatePlotParameters
+                      definition.series.length >= maximumCoordinatePlotSeries
                     }
-                    onClick={() => onAddParameter("a")}
+                    onClick={() => onAddSeries("explicit", "y=x")}
                     type="button"
                   >
-                    Добавить параметр a
+                    + Добавить функцию
                   </button>
+                  <details className="plot-workspace-add-other">
+                    <summary>Другой тип построения</summary>
+                    <div className="plot-workspace-add-other-options">
+                      <button
+                        disabled={
+                          definition.series.length >=
+                          maximumCoordinatePlotSeries
+                        }
+                        onClick={() => onAddSeries("relation", "x^2+y^2=25")}
+                        type="button"
+                      >
+                        Уравнение / окружность
+                      </button>
+                      <button
+                        disabled={
+                          definition.series.length >=
+                          maximumCoordinatePlotSeries
+                        }
+                        onClick={() => onAddSeries("relation", "y>=x^2")}
+                        type="button"
+                      >
+                        Неравенство и область
+                      </button>
+                      <button
+                        disabled={
+                          definition.series.length >=
+                          maximumCoordinatePlotSeries
+                        }
+                        onClick={() => onAddSeries("parametric")}
+                        type="button"
+                      >
+                        Параметрическая кривая
+                      </button>
+                    </div>
+                  </details>
                 </div>
-              ) : basicParameterSliderAvailable ? (
-                <div className="plot-basic-slider-block">
-                  <div className="plot-basic-slider-row">
-                    <span>{basicParameter.min}</span>
-                    <input
-                      aria-label={`Ползунок параметра ${basicParameter.name}`}
-                      id={`${editorId}-basic-parameter-slider`}
-                      max={basicParameter.max ?? undefined}
-                      min={basicParameter.min ?? undefined}
-                      onChange={(event) =>
-                        onDefinitionChange(
-                          updateCoordinatePlotParameter(definition, {
-                            ...basicParameter,
-                            value: numberValue(
-                              event.currentTarget.value,
-                              basicParameter.value,
-                            ),
-                          }),
-                        )
-                      }
-                      step={basicParameter.step ?? undefined}
-                      type="range"
-                      value={Math.max(
-                        basicParameter.min ?? basicParameter.value,
-                        Math.min(
-                          basicParameter.max ?? basicParameter.value,
-                          basicParameter.value,
-                        ),
-                      )}
-                    />
-                    <span>{basicParameter.max}</span>
+              </section>
+
+              <div className="plot-workspace-main">
+                <section
+                  aria-labelledby={`${editorId}-formula-title`}
+                  className="plot-basic-card plot-workspace-formula-card"
+                >
+                  <div className="plot-workspace-section-heading">
+                    <span className="plot-workspace-step">Шаг 2</span>
+                    <strong id={`${editorId}-formula-title`}>
+                      {basicSeries?.kind === "parametric"
+                        ? "Настройте кривую"
+                        : basicSeries?.kind === "relation"
+                          ? "Введите уравнение или неравенство"
+                          : "Введите формулу"}
+                    </strong>
+                    <small>
+                      {basicSeries?.kind === "relation"
+                        ? "Запишите обе стороны равенства или неравенства."
+                        : "График обновляется при изменении выражения."}
+                    </small>
                   </div>
-                  <IssueList
-                    field={`parameters.${basicParameterIndex}`}
-                    issues={issues}
-                  />
-                </div>
-              ) : (
-                <div className="plot-editor-warning">
-                  Для параметра требуется корректный минимум, максимум и шаг.
-                  Точные значения доступны в расширенных настройках.
-                </div>
-              )}
-            </section>
 
-            {additionalParameters === 0 ? null : (
-              <p className="plot-basic-complexity-summary">
-                Дополнительно: {additionalParameters} параметров. Полный список
-                доступен в расширенных настройках.
-              </p>
-            )}
+                  {basicSeries === null ? (
+                    <div className="plot-editor-empty-state">
+                      <strong>Начните с функции</strong>
+                      <span>
+                        Нажмите «Добавить функцию» слева, затем введите y=x².
+                      </span>
+                    </div>
+                  ) : basicSeries.kind === "parametric" ? (
+                    <div className="plot-editor-empty-state">
+                      <strong>Кривая задаётся двумя формулами</strong>
+                      <span>Для неё потребуются x(t), y(t) и диапазон t.</span>
+                      <button
+                        onClick={() => {
+                          selectTab("functions");
+                          setAdvancedOpen(true);
+                        }}
+                        type="button"
+                      >
+                        Настроить x(t) и y(t)
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <ExpressionField
+                        ariaLabel="Математическое выражение графика"
+                        existingParameterNames={definition.parameters.map(
+                          ({ name }) => name,
+                        )}
+                        field={`series.${basicSeriesIndex}.expression`}
+                        initialFocus
+                        issueId={`${editorId}-basic-formula-issues`}
+                        issues={issues}
+                        label={
+                          basicSeries.kind === "explicit"
+                            ? "Формула y = f(x)"
+                            : "Уравнение или неравенство"
+                        }
+                        onCreateParameter={createBasicParameterFromFormula}
+                        onSourceChange={(expression) =>
+                          onDefinitionChange(
+                            updateCoordinatePlotSeriesInput(
+                              definition,
+                              basicSeries.id,
+                              expression,
+                            ),
+                          )
+                        }
+                        parameterLimitReached={
+                          definition.parameters.length >=
+                          maximumCoordinatePlotParameters
+                        }
+                        placeholder={
+                          basicSeries.kind === "explicit"
+                            ? "Например: y=x^2-4"
+                            : "Например: x^2+y^2=25"
+                        }
+                        showTools
+                        source={coordinatePlotSeriesInput(basicSeries)}
+                      />
+                      <div
+                        aria-label="Примеры формул"
+                        className="plot-workspace-examples"
+                        role="group"
+                      >
+                        <span>Примеры:</span>
+                        {(basicSeries.kind === "explicit"
+                          ? ["y=x^2", "y=sin(x)", "y=abs(x)"]
+                          : ["x^2+y^2=25", "y>=x^2"]
+                        ).map((example) => (
+                          <button
+                            key={example}
+                            onClick={() =>
+                              onDefinitionChange(
+                                updateCoordinatePlotSeriesInput(
+                                  definition,
+                                  basicSeries.id,
+                                  example,
+                                ),
+                              )
+                            }
+                            type="button"
+                          >
+                            {example}
+                          </button>
+                        ))}
+                      </div>
+                      <FormulaSyntaxHelp />
+                      {relationSupportsFill(basicSeries) ? (
+                        <label className="plot-basic-fill-control">
+                          <span>Заливка области решения</span>
+                          <input
+                            aria-label="Заливка области решения"
+                            max="0.5"
+                            min="0"
+                            onChange={(event) =>
+                              onDefinitionChange(
+                                updateCoordinatePlotSeries(definition, {
+                                  ...basicSeries,
+                                  fillOpacity: numberValue(
+                                    event.currentTarget.value,
+                                    basicSeries.fillOpacity,
+                                  ),
+                                }),
+                              )
+                            }
+                            step="0.02"
+                            type="range"
+                            value={basicSeries.fillOpacity}
+                          />
+                        </label>
+                      ) : null}
+                    </>
+                  )}
+                </section>
 
-            {blockingIssues.length === 0 ? null : (
-              <div className="plot-editor-error" role="alert">
-                Исправьте структурные ошибки перед сохранением.
-                <IssueList field="" issues={blockingIssues} />
+                {basicSeries?.kind === "explicit" ? (
+                  <section
+                    aria-label="Условия функции"
+                    className="plot-workspace-conditions"
+                  >
+                    <details
+                      className="plot-workspace-disclosure"
+                      onToggle={(event) =>
+                        setDomainDisclosureOpen(event.currentTarget.open)
+                      }
+                      open={domainDisclosureOpen}
+                    >
+                      <summary>
+                        <span>
+                          <strong>Область определения</strong>
+                          <small>Необязательно · ограничить значения x</small>
+                        </span>
+                      </summary>
+                      <div className="plot-workspace-disclosure-body">
+                        <p className="plot-editor-hint">
+                          Оставьте поля пустыми для всей числовой прямой.
+                          Например, от −2 до 3.
+                        </p>
+                        <div className="plot-workspace-domain-fields">
+                          <label>
+                            От x =
+                            <input
+                              aria-label="Левая граница x"
+                              onChange={(event) =>
+                                onDefinitionChange(
+                                  updateCoordinatePlotSeries(definition, {
+                                    ...basicSeries,
+                                    domain: {
+                                      ...basicSeries.domain,
+                                      minExpression:
+                                        event.currentTarget.value.trim() === ""
+                                          ? null
+                                          : event.currentTarget.value,
+                                      minInclusive:
+                                        basicSeries.domain.minInclusive ?? true,
+                                    },
+                                  }),
+                                )
+                              }
+                              placeholder="−∞"
+                              spellCheck={false}
+                              value={basicSeries.domain.minExpression ?? ""}
+                            />
+                          </label>
+                          <label>
+                            До x =
+                            <input
+                              aria-label="Правая граница x"
+                              onChange={(event) =>
+                                onDefinitionChange(
+                                  updateCoordinatePlotSeries(definition, {
+                                    ...basicSeries,
+                                    domain: {
+                                      ...basicSeries.domain,
+                                      maxExpression:
+                                        event.currentTarget.value.trim() === ""
+                                          ? null
+                                          : event.currentTarget.value,
+                                      maxInclusive:
+                                        basicSeries.domain.maxInclusive ?? true,
+                                    },
+                                  }),
+                                )
+                              }
+                              placeholder="+∞"
+                              spellCheck={false}
+                              value={basicSeries.domain.maxExpression ?? ""}
+                            />
+                          </label>
+                        </div>
+                        <div className="plot-workspace-domain-inclusion">
+                          <label className="plot-editor-check">
+                            <input
+                              aria-label="Включить левый конец ветви"
+                              checked={basicSeries.domain.minInclusive ?? true}
+                              disabled={
+                                basicSeries.domain.minExpression === null
+                              }
+                              onChange={(event) =>
+                                onDefinitionChange(
+                                  updateCoordinatePlotSeries(definition, {
+                                    ...basicSeries,
+                                    domain: {
+                                      ...basicSeries.domain,
+                                      minInclusive: event.currentTarget.checked,
+                                    },
+                                  }),
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            Включить левую границу ●
+                          </label>
+                          <label className="plot-editor-check">
+                            <input
+                              aria-label="Включить правый конец ветви"
+                              checked={basicSeries.domain.maxInclusive ?? true}
+                              disabled={
+                                basicSeries.domain.maxExpression === null
+                              }
+                              onChange={(event) =>
+                                onDefinitionChange(
+                                  updateCoordinatePlotSeries(definition, {
+                                    ...basicSeries,
+                                    domain: {
+                                      ...basicSeries.domain,
+                                      maxInclusive: event.currentTarget.checked,
+                                    },
+                                  }),
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            Включить правую границу ●
+                          </label>
+                        </div>
+                        <p className="plot-editor-hint">
+                          ● — точка включена, ○ — точка исключена.
+                        </p>
+                      </div>
+                    </details>
+                    <details
+                      className="plot-workspace-disclosure"
+                      onToggle={(event) =>
+                        setPiecewiseDisclosureOpen(event.currentTarget.open)
+                      }
+                      open={piecewiseDisclosureOpen}
+                    >
+                      <summary>
+                        <span>
+                          <strong>Кусочная функция</strong>
+                          <small>Разделить ветвь или добавить точку</small>
+                        </span>
+                      </summary>
+                      <div className="plot-workspace-disclosure-body">
+                        <p className="plot-editor-hint">
+                          Выберите ветвь слева, укажите точку разделения, затем
+                          задайте формулу каждой полученной ветви.
+                        </p>
+                        <div className="plot-workspace-piecewise-actions">
+                          <label>
+                            Разделить при x =
+                            <input
+                              aria-label="Точка разбиения кусочной функции"
+                              onChange={(event) =>
+                                setPiecewiseBoundary(event.currentTarget.value)
+                              }
+                              placeholder="0"
+                              spellCheck={false}
+                              value={piecewiseBoundary}
+                            />
+                          </label>
+                          <button
+                            disabled={
+                              onSplitSeries === undefined ||
+                              !canSplitCoordinatePlotSeries(
+                                definition,
+                                basicSeries.id,
+                                piecewiseBoundary,
+                              )
+                            }
+                            onClick={() =>
+                              onSplitSeries?.(basicSeries.id, piecewiseBoundary)
+                            }
+                            type="button"
+                          >
+                            Разделить ветвь
+                          </button>
+                          <button
+                            disabled={
+                              onAddPoint === undefined ||
+                              !canAddPiecewisePoint(
+                                definition,
+                                basicSeries.id,
+                                piecewiseBoundary,
+                              )
+                            }
+                            onClick={() =>
+                              onAddPoint?.(basicSeries.id, piecewiseBoundary)
+                            }
+                            type="button"
+                          >
+                            Задать значение в точке
+                          </button>
+                        </div>
+                        {basicSeries.piecewiseGroupId === undefined ? null : (
+                          <p className="plot-editor-hint">
+                            Ветви одной функции помечены общей областью
+                            определения. Выбирайте их по очереди слева.
+                          </p>
+                        )}
+                      </div>
+                    </details>
+                  </section>
+                ) : null}
+
+                {basicParameter === null ? (
+                  <details className="plot-workspace-disclosure">
+                    <summary>
+                      <span>
+                        <strong>Параметры</strong>
+                        <small>Например, коэффициент a в y=a*x</small>
+                      </span>
+                    </summary>
+                    <div className="plot-workspace-disclosure-body">
+                      <button
+                        disabled={
+                          definition.parameters.length >=
+                          maximumCoordinatePlotParameters
+                        }
+                        onClick={() => onAddParameter("a")}
+                        type="button"
+                      >
+                        Добавить параметр a
+                      </button>
+                    </div>
+                  </details>
+                ) : (
+                  <section className="plot-basic-card plot-workspace-parameter-card">
+                    <div className="plot-basic-card-heading">
+                      <div>
+                        <strong>Параметр {basicParameter.name}</strong>
+                        <span>Меняет график при перемещении ползунка</span>
+                      </div>
+                      <output
+                        className="plot-basic-parameter-value"
+                        htmlFor={`${editorId}-basic-parameter-slider`}
+                      >
+                        {basicParameter.name} = {basicParameter.value}
+                      </output>
+                    </div>
+                    {basicParameterSliderAvailable ? (
+                      <div className="plot-basic-slider-block">
+                        <div className="plot-basic-slider-row">
+                          <span>{basicParameter.min}</span>
+                          <input
+                            aria-label={`Ползунок параметра ${basicParameter.name}`}
+                            id={`${editorId}-basic-parameter-slider`}
+                            max={basicParameter.max ?? undefined}
+                            min={basicParameter.min ?? undefined}
+                            onChange={(event) =>
+                              onDefinitionChange(
+                                updateCoordinatePlotParameter(definition, {
+                                  ...basicParameter,
+                                  value: numberValue(
+                                    event.currentTarget.value,
+                                    basicParameter.value,
+                                  ),
+                                }),
+                              )
+                            }
+                            step={basicParameter.step ?? undefined}
+                            type="range"
+                            value={Math.max(
+                              basicParameter.min ?? basicParameter.value,
+                              Math.min(
+                                basicParameter.max ?? basicParameter.value,
+                                basicParameter.value,
+                              ),
+                            )}
+                          />
+                          <span>{basicParameter.max}</span>
+                        </div>
+                        <IssueList
+                          field={`parameters.${basicParameterIndex}`}
+                          issues={issues}
+                        />
+                      </div>
+                    ) : (
+                      <div className="plot-editor-warning">
+                        Укажите диапазон параметра в расширенных настройках.
+                      </div>
+                    )}
+                    {additionalParameters === 0 ? null : (
+                      <p className="plot-editor-hint">
+                        Дополнительные параметры: {additionalParameters}.
+                        Управление ими доступно в расширенных настройках.
+                      </p>
+                    )}
+                  </section>
+                )}
+
+                {blockingIssues.length === 0 ? null : (
+                  <div className="plot-editor-error" role="alert">
+                    Исправьте ошибки перед сохранением.
+                    <IssueList field="" issues={blockingIssues} />
+                  </div>
+                )}
+
+                <button
+                  className="plot-basic-advanced-action"
+                  onClick={() => setAdvancedOpen(true)}
+                  ref={advancedTriggerRef}
+                  type="button"
+                >
+                  <span>
+                    <strong>Расширенные настройки</strong>
+                    <small>Цвет, оси, сетка, параметры и оформление</small>
+                  </span>
+                  <span aria-hidden="true">→</span>
+                </button>
               </div>
-            )}
-
-            <button
-              className="plot-basic-advanced-action"
-              onClick={() => setAdvancedOpen(true)}
-              ref={advancedTriggerRef}
-              type="button"
-            >
-              <span>
-                <strong>Расширенные настройки</strong>
-                <small>Серии, параметры, оси, сетка, диапазоны и стили</small>
-              </span>
-              <span aria-hidden="true">→</span>
-            </button>
+            </div>
           </div>
 
           <footer className="plot-editor-footer plot-basic-footer">
@@ -2470,6 +2784,7 @@ export function CoordinatePlotEditorPanel({
           </section>
         </div>
       ) : null}
-    </aside>
+    </aside>,
+    document.body,
   );
 }

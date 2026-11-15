@@ -21,15 +21,16 @@ test("creates three branches and a distinct point through the plot editor", asyn
   });
   await expect(branches.locator("li")).toHaveCount(1);
 
-  await editor.getByRole("button", { name: "+ Кусочная" }).click();
+  await editor.getByText("Кусочная функция", { exact: true }).click();
+  await editor.getByRole("button", { name: "Разделить ветвь" }).click();
   await expect(branches.locator("li")).toHaveCount(2);
 
   await editor.getByLabel("Точка разбиения кусочной функции").fill("2");
-  await editor.getByRole("button", { name: "+ Кусочная" }).click();
+  await editor.getByRole("button", { name: "Разделить ветвь" }).click();
   await expect(branches.locator("li")).toHaveCount(3);
 
   await editor.getByLabel("Точка разбиения кусочной функции").fill("0");
-  await editor.getByRole("button", { name: "+ Точка" }).click();
+  await editor.getByRole("button", { name: "Задать значение в точке" }).click();
   await expect(branches.locator("li")).toHaveCount(4);
 
   await editor.getByRole("button", { name: /Расширенные настройки/ }).click();
