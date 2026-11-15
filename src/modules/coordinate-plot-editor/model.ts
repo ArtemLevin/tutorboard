@@ -215,13 +215,15 @@ export function splitCoordinatePlotSeries(
   if (
     definition.series.length >= maximumCoordinatePlotSeries ||
     definition.series.some((series) => series.id === secondId)
-  ) return definition;
+  ) {
+    return definition;
+  }
   const index = definition.series.findIndex((series) => series.id === seriesId);
   const source = definition.series[index];
   if (source?.kind !== "explicit") return definition;
   const first: ExplicitPlotSeries = {
     ...source,
-    name: `${source.name} · ветвь 1`,
+    name: `${source.name.slice(0, 115)} · ветвь 1`,
     domain: {
       minExpression: null,
       maxExpression: "0",
@@ -231,7 +233,7 @@ export function splitCoordinatePlotSeries(
   const second: ExplicitPlotSeries = {
     ...createExplicitPlotSeries(secondId, index + 1),
     expression: "x^2",
-    name: `${source.name} · ветвь 2`,
+    name: `${source.name.slice(0, 115)} · ветвь 2`,
     style: source.style,
     domain: {
       minExpression: "0",
