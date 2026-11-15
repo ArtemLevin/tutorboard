@@ -74,8 +74,8 @@ export interface ExplicitPlotSeries {
     readonly maxExpression: string | null;
     readonly minExpression: string | null;
     /** Included by default for legacy explicit plots. */
-    readonly maxInclusive?: boolean;
-    readonly minInclusive?: boolean;
+    readonly maxInclusive?: boolean | undefined;
+    readonly minInclusive?: boolean | undefined;
   };
   readonly expression: string;
   readonly id: PlotSeriesId;
