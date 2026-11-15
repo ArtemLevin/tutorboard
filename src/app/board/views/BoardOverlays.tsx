@@ -72,6 +72,7 @@ export function BoardOverlays({
             issues={plots.issues}
             onAddParameter={plots.addParameter}
             onAddSeries={plots.addSeries}
+            onSplitSeries={plots.splitSeries}
             onClose={plots.close}
             onDefinitionChange={plots.updateDraft}
             onSave={plots.save}
