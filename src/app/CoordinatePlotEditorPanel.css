@@ -1394,7 +1394,7 @@ body:has(.coordinate-plot-basic-editor-panel) .board-tool-dock-shell {
   font-weight: 750;
 }
 
-@media (min-width: 741px) {
+@media (min-width: 741px) and (min-height: 521px) {
   .coordinate-plot-basic-editor-panel[data-preview-mode="true"] {
     width: min(390px, calc(100% - 32px));
   }
@@ -1425,7 +1425,7 @@ body:has(.coordinate-plot-basic-editor-panel) .board-tool-dock-shell {
   }
 }
 
-@media (max-width: 740px) {
+@media (max-width: 740px), (max-width: 900px) and (max-height: 520px) {
   .plot-basic-preview-toggle {
     display: none;
   }
