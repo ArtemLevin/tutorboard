@@ -1,5 +1,6 @@
 import {
   createCoordinatePlotRenderModel,
+  createPlotEndpointMarkers,
   createPenStrokeRenderBounds,
   createPenStrokeRenderPaths,
   createPlotLegendLayout,
@@ -266,6 +267,12 @@ function coordinatePlotMarkup(object: CoordinatePlotObject): string {
     })
     .join("");
 
+  const endpointMarkup = createPlotEndpointMarkers(definition, sampling)
+    .map((endpoint) =>
+      `<circle data-coordinate-plot-endpoint="${endpoint.included ? "closed" : "open"}" data-coordinate-plot-series-id="${escapeXml(endpoint.seriesId)}" cx="${number(endpoint.point.x)}" cy="${number(endpoint.point.y)}" r="${number(Math.max(4, endpoint.style.strokeWidth + 1))}" fill="${escapeXml(endpoint.included ? endpoint.style.stroke : fill)}" stroke="${escapeXml(endpoint.style.stroke)}" stroke-opacity="${number(endpoint.style.opacity)}" stroke-width="${number(Math.max(1.5, endpoint.style.strokeWidth / 2))}"/>`,
+    )
+    .join("");
+
   const legendMarkup =
     definition.legend.visible && visibleSeries.length > 0
       ? [
@@ -301,7 +308,7 @@ function coordinatePlotMarkup(object: CoordinatePlotObject): string {
     `<g ${objectTransformAttribute(object)} aria-label="Coordinate plot with ${definition.series.length} series" data-coordinate-plot-id="${escapeXml(object.id)}" opacity="${number(object.style.opacity)}">`,
     `<defs><clipPath id="${clipId}"><rect height="${number(height)}" width="${number(width)}"/></clipPath><clipPath id="${legendLabelClipId}"><rect height="${number(legend.height)}" width="${number(legendLabelWidth)}" x="50" y="0"/></clipPath>${marker}</defs>`,
     `<rect fill="${escapeXml(fill)}" height="${number(height)}" width="${number(width)}"/>`,
-    `<g clip-path="url(#${clipId})">${minorGrid}${majorGrid}${axes}${tickLabels}${relationFills}${seriesMarkup}</g>`,
+    `<g clip-path="url(#${clipId})">${minorGrid}${majorGrid}${axes}${tickLabels}${relationFills}${seriesMarkup}${endpointMarkup}</g>`,
     `<rect fill="none" height="${number(height)}" stroke="${escapeXml(frameStroke)}" stroke-width="${number(Math.max(1, object.style.strokeWidth))}" width="${number(width)}"/>`,
     legendMarkup,
     statusMarkup,
