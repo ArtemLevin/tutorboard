@@ -16,6 +16,7 @@ import {
   splitCoordinatePlotSeries,
   updateCoordinatePlotSeriesInput,
 } from "../../../../src/modules/coordinate-plot-editor/public";
+import { renderBoardSnapshotSvg } from "../../../../src/modules/document-transfer/public";
 
 function createPiecewisePlot() {
   const object = createDefaultCoordinatePlotObject({
@@ -94,6 +95,24 @@ describe("piecewise coordinate plots", () => {
     expect(rightSegments.flat().every((point) => point.x >= 320 - 1e-6)).toBe(
       true,
     );
+  });
+
+  it("exports visible open and closed endpoint circles to SVG", () => {
+    const plot = createPiecewisePlot();
+    const document = createEmptyBoardDocument({
+      createdAt: "2026-11-15T08:00:00.000Z",
+      id: documentId("document:piecewise-export"),
+      title: "Кусочная функция",
+    });
+    const svg = renderBoardSnapshotSvg({
+      ...document,
+      objects: { [plot.id]: plot },
+      order: [plot.id],
+    });
+    expect(svg).toContain('data-coordinate-plot-endpoint="open"');
+    expect(svg).toContain('data-coordinate-plot-endpoint="closed"');
+    expect(svg).toContain('data-coordinate-plot-series-id="piecewise-first"');
+    expect(svg).toContain('data-coordinate-plot-series-id="piecewise-second"');
   });
 
   it("round-trips branch inclusion flags through the existing document schema", () => {
