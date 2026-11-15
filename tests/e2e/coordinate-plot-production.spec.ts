@@ -252,7 +252,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     "Штриховая",
   );
 
-  await advancedEditor.getByRole("button", { name: "+ Явная функция" }).click();
+  await advancedEditor.getByRole("button", { name: "+ Добавить функцию" }).click();
   await advancedEditor
     .getByLabel("Математическое выражение серии")
     .fill("y=2*x+1");
