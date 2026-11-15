@@ -1,0 +1,40 @@
+name: Temporary plot UI formatting and visual baseline
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/plot-ui-final-check.yml'
+jobs:
+  finalize:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feat/plot-editor-ux-redesign-20261115
+          persist-credentials: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Apply project formatter
+        run: npx prettier --write src/app/CoordinatePlotEditorPanel.tsx src/app/CoordinatePlotEditorPanel.css src/app/CoordinatePlotEditorPanel.test.tsx tests/e2e/coordinate-plot-workspace.spec.ts tests/e2e/coordinate-plot-production.spec.ts tests/e2e/coordinate-plot-visual.spec.ts
+      - run: npx playwright install --with-deps chromium firefox
+      - run: npm run build
+      - name: Update expected browser screenshots
+        run: npm run e2e:plot-visual:update
+      - name: Commit formatted code and snapshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/CoordinatePlotEditorPanel.tsx src/app/CoordinatePlotEditorPanel.css src/app/CoordinatePlotEditorPanel.test.tsx tests/e2e/coordinate-plot-workspace.spec.ts tests/e2e/coordinate-plot-production.spec.ts tests/e2e/coordinate-plot-visual.spec.ts tests/e2e/coordinate-plot-visual.spec.ts-snapshots
+          git diff --cached --stat
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "style(plot-ui): finalize preview mode and visual baselines"
+            git push origin HEAD:feat/plot-editor-ux-redesign-20261115
+          fi
