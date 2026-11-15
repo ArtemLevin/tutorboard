@@ -1315,3 +1315,50 @@
     overscroll-behavior: contain;
   }
 }
+
+/* Advanced workspace follows the same select-left / edit-right mental model */
+.plot-advanced-functions-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 250px) minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.plot-advanced-series-pane {
+  align-content: start;
+  background: #f8fafc;
+}
+
+.plot-advanced-series-pane .plot-series-list {
+  max-height: min(42vh, 340px);
+  overflow-y: auto;
+}
+
+.plot-advanced-edit-pane {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.plot-advanced-piecewise .plot-workspace-disclosure {
+  border: 0;
+}
+
+.plot-advanced-piecewise .plot-workspace-disclosure > summary {
+  padding: 2px 0;
+}
+
+.plot-advanced-remove-group {
+  justify-self: start;
+  color: #9f1239 !important;
+}
+
+@media (max-width: 740px) {
+  .plot-advanced-functions-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plot-advanced-series-pane .plot-series-list {
+    max-height: 170px;
+  }
+}
