@@ -2549,7 +2549,7 @@ export function CoordinatePlotEditorPanel({
                   type="button"
                 >
                   <span>
-                    <strong>Дополнительные настройки</strong>
+                    <strong>Расширенные настройки</strong>
                     <small>Цвет, оси, сетка, параметры и оформление</small>
                   </span>
                   <span aria-hidden="true">→</span>
