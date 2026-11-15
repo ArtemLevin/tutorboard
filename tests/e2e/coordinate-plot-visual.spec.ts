@@ -53,7 +53,9 @@ test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
 
   const mobile = testInfo.project.name.includes("mobile");
   if (!mobile) {
-    await expect(editor.getByRole("button", { name: "Показать график" })).toBeVisible();
+    await expect(
+      editor.getByRole("button", { name: "Показать график" }),
+    ).toBeVisible();
   }
   if (!mobile) {
     const desktopBox = await editor.boundingBox();

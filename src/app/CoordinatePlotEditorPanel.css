@@ -1399,28 +1399,42 @@ body:has(.coordinate-plot-basic-editor-panel) .board-tool-dock-shell {
     width: min(390px, calc(100% - 32px));
   }
 
-  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-layout {
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"]
+    .plot-workspace-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-sidebar,
-  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-conditions,
-  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-parameter-card,
-  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-main > .plot-workspace-disclosure,
-  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-basic-advanced-action,
-  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-examples {
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"]
+    .plot-workspace-sidebar,
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"]
+    .plot-workspace-conditions,
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"]
+    .plot-workspace-parameter-card,
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"]
+    .plot-workspace-main
+    > .plot-workspace-disclosure,
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"]
+    .plot-basic-advanced-action,
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"]
+    .plot-workspace-examples {
     display: none;
   }
 
-  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-formula-card {
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"]
+    .plot-workspace-formula-card {
     padding: 14px;
   }
 
-  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-section-heading strong {
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"]
+    .plot-workspace-section-heading
+    strong {
     font-size: 15px;
   }
 
-  .coordinate-plot-basic-editor-panel[data-preview-mode="true"] .plot-workspace-formula-card .plot-expression-field input {
+  .coordinate-plot-basic-editor-panel[data-preview-mode="true"]
+    .plot-workspace-formula-card
+    .plot-expression-field
+    input {
     font-size: 16px;
   }
 }
