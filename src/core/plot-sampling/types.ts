@@ -45,6 +45,8 @@ export interface SampledPlotSeries {
   readonly fillPolygons: readonly (readonly Vec2[])[];
   readonly metrics: PlotSamplingMetrics;
   readonly missingBindings: readonly string[];
+  /** Isolated data points in local coordinates, drawn by endpoint markers. */
+  readonly points?: readonly Vec2[] | undefined;
   readonly segments: readonly (readonly Vec2[])[];
   readonly stopReason: PlotSamplingStopReason | null;
   readonly truncated: boolean;
