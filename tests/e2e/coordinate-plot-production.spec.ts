@@ -257,8 +257,9 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     .getByLabel("Математическое выражение серии")
     .fill("y=2*x+1");
 
+  await advancedEditor.getByText("Добавить другой тип").click();
   await advancedEditor
-    .getByRole("button", { name: "+ Параметрическая кривая" })
+    .getByRole("button", { name: "Параметрическая кривая" })
     .click();
   await advancedEditor.getByLabel("Параметрическая формула x").fill("3*cos(t)");
   await advancedEditor.getByLabel("Параметрическая формула y").fill("3*sin(t)");
