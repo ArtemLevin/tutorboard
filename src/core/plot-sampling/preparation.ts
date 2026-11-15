@@ -1,3 +1,4 @@
+import { resolveExplicitPlotDomain } from "../board/piecewise";
 import type {
   CoordinatePlotDefinition,
   ExplicitPlotSeries,
@@ -271,10 +272,14 @@ export function compileExplicit(input: {
 
   const rawMinimum = domainValues.min!;
   const rawMaximum = domainValues.max!;
+  const singleton =
+    rawMinimum === rawMaximum &&
+    input.series.domain.minInclusive !== false &&
+    input.series.domain.maxInclusive !== false;
   if (
     !Number.isFinite(rawMinimum) ||
     !Number.isFinite(rawMaximum) ||
-    rawMinimum >= rawMaximum
+    (rawMinimum >= rawMaximum && !singleton)
   ) {
     return {
       diagnostics: [
@@ -283,6 +288,15 @@ export function compileExplicit(input: {
           "domain",
           "The explicit-function domain must have finite increasing bounds.",
         ),
+      ],
+      ok: false,
+    };
+  }
+  const resolved = resolveExplicitPlotDomain(input.definition, input.series);
+  if (resolved === null) {
+    return {
+      diagnostics: [
+        diagnostic("sampling.invalid-domain", "domain", "Invalid interval bounds."),
       ],
       ok: false,
     };
