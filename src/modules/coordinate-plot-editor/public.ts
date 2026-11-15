@@ -1,6 +1,9 @@
 export {
   addCoordinatePlotParameter,
   addCoordinatePlotSeries,
+  addPiecewisePoint,
+  canAddPiecewisePoint,
+  canSplitCoordinatePlotSeries,
   createDefaultCoordinatePlotObject,
   createExplicitPlotSeries,
   createParametricPlotSeries,
@@ -9,6 +12,7 @@ export {
   fitCoordinatePlotDefinition,
   removeCoordinatePlotParameter,
   removeCoordinatePlotSeries,
+  removePiecewiseGroup,
   replaceCoordinatePlotSeriesKind,
   resetCoordinatePlotViewport,
   splitCoordinatePlotSeries,
