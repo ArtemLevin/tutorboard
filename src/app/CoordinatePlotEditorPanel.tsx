@@ -91,13 +91,15 @@ export interface CoordinatePlotEditorPanelProps {
   readonly fallbackFocusRef?: RefObject<HTMLElement | null>;
   readonly issues: readonly CoordinatePlotEditorIssue[];
   readonly onAddParameter: (name?: string) => void;
-  readonly onAddPoint?: ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
+  readonly onAddPoint?:
+    ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
   readonly onAddSeries: (kind: PlotSeries["kind"], expression?: string) => void;
   readonly onClose: () => void;
   readonly onDefinitionChange: (definition: CoordinatePlotDefinition) => void;
   readonly onSave: () => boolean;
   readonly onSelectedSeriesChange: (seriesId: PlotSeriesId | null) => void;
-  readonly onSplitSeries?: ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
+  readonly onSplitSeries?:
+    ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
   readonly readOnly: boolean;
   readonly selectedSeriesId: PlotSeriesId | null;
 }
@@ -987,13 +989,15 @@ function FunctionsTab({
   readonly definition: CoordinatePlotDefinition;
   readonly issues: readonly CoordinatePlotEditorIssue[];
   readonly onAddSeries: (kind: PlotSeries["kind"]) => void;
-  readonly onAddPoint?: ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
+  readonly onAddPoint?:
+    ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
   readonly onPiecewiseBoundaryChange: (boundary: string) => void;
   readonly piecewiseBoundary: string;
   readonly onChange: (definition: CoordinatePlotDefinition) => void;
   readonly onCreateParameter: (name: string) => void;
   readonly onSelectedSeriesChange: (seriesId: PlotSeriesId | null) => void;
-  readonly onSplitSeries?: ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
+  readonly onSplitSeries?:
+    ((seriesId: PlotSeriesId, boundary: string) => void) | undefined;
   readonly selectedSeries: PlotSeries | null;
   readonly selectedSeriesId: PlotSeriesId | null;
 }): ReactElement {
@@ -1031,7 +1035,9 @@ function FunctionsTab({
               Точка x =
               <input
                 aria-label="Координата разделения ветви"
-                onChange={(event) => onPiecewiseBoundaryChange(event.currentTarget.value)}
+                onChange={(event) =>
+                  onPiecewiseBoundaryChange(event.currentTarget.value)
+                }
                 style={{ width: 72 }}
                 value={piecewiseBoundary}
               />
@@ -1040,7 +1046,11 @@ function FunctionsTab({
               disabled={
                 onSplitSeries === undefined ||
                 selectedSeries?.kind !== "explicit" ||
-                !canSplitCoordinatePlotSeries(definition, selectedSeries.id, piecewiseBoundary)
+                !canSplitCoordinatePlotSeries(
+                  definition,
+                  selectedSeries.id,
+                  piecewiseBoundary,
+                )
               }
               onClick={() => {
                 if (selectedSeries?.kind === "explicit") {
@@ -1055,7 +1065,11 @@ function FunctionsTab({
               disabled={
                 onAddPoint === undefined ||
                 selectedSeries?.kind !== "explicit" ||
-                !canAddPiecewisePoint(definition, selectedSeries.id, piecewiseBoundary)
+                !canAddPiecewisePoint(
+                  definition,
+                  selectedSeries.id,
+                  piecewiseBoundary,
+                )
               }
               onClick={() => {
                 if (selectedSeries?.kind === "explicit") {
@@ -1117,7 +1131,8 @@ function FunctionsTab({
           ))}
         </ol>
       </div>
-      {selectedSeries?.kind === "explicit" && selectedSeries.piecewiseGroupId !== undefined ? (
+      {selectedSeries?.kind === "explicit" &&
+      selectedSeries.piecewiseGroupId !== undefined ? (
         <button
           onClick={() => {
             onChange(removePiecewiseGroup(definition, selectedSeries.id));
@@ -1964,7 +1979,9 @@ export function CoordinatePlotEditorPanel({
                     x =
                     <input
                       aria-label="Точка разбиения кусочной функции"
-                      onChange={(event) => setPiecewiseBoundary(event.currentTarget.value)}
+                      onChange={(event) =>
+                        setPiecewiseBoundary(event.currentTarget.value)
+                      }
                       style={{ width: 66 }}
                       value={piecewiseBoundary}
                     />
@@ -1973,7 +1990,11 @@ export function CoordinatePlotEditorPanel({
                     disabled={
                       onSplitSeries === undefined ||
                       basicSeries?.kind !== "explicit" ||
-                      !canSplitCoordinatePlotSeries(definition, basicSeries.id, piecewiseBoundary)
+                      !canSplitCoordinatePlotSeries(
+                        definition,
+                        basicSeries.id,
+                        piecewiseBoundary,
+                      )
                     }
                     onClick={() => {
                       if (basicSeries?.kind === "explicit") {
@@ -1988,7 +2009,11 @@ export function CoordinatePlotEditorPanel({
                     disabled={
                       onAddPoint === undefined ||
                       basicSeries?.kind !== "explicit" ||
-                      !canAddPiecewisePoint(definition, basicSeries.id, piecewiseBoundary)
+                      !canAddPiecewisePoint(
+                        definition,
+                        basicSeries.id,
+                        piecewiseBoundary,
+                      )
                     }
                     onClick={() => {
                       if (basicSeries?.kind === "explicit") {
