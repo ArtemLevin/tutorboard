@@ -114,6 +114,9 @@ test("discovers, persists, restores, duplicates and exports a production coordin
     .getByRole("button", { name: "Вместить все графики" })
     .click();
 
+  await editor.getByRole("button", { name: "Показать график" }).click();
+  await expect(editor).toHaveAttribute("data-preview-mode", "true");
+
   const stage = page.locator(".konvajs-content");
   const stageBox = await stage.boundingBox();
   expect(stageBox).not.toBeNull();
@@ -128,6 +131,7 @@ test("discovers, persists, restores, duplicates and exports a production coordin
   await expect(stage).toHaveCSS("cursor", "grabbing");
   await page.mouse.up();
   await expect(stage).toHaveCSS("cursor", "grab");
+  await editor.getByRole("button", { name: "Полный редактор" }).click();
   await navigation
     .getByRole("button", { name: "Сбросить диапазон графика" })
     .click();
