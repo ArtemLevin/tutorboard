@@ -1020,6 +1020,7 @@ function FunctionsTab({
   readonly selectedSeries: PlotSeries | null;
   readonly selectedSeriesId: PlotSeriesId | null;
 }): ReactElement {
+  const [advancedPiecewiseOpen, setAdvancedPiecewiseOpen] = useState(false);
   return (
     <div className="plot-editor-tab-content plot-advanced-functions-layout">
       <section className="plot-editor-section-card plot-advanced-series-pane">
@@ -1122,7 +1123,10 @@ function FunctionsTab({
           <section className="plot-editor-section-card plot-advanced-piecewise">
             <details
               className="plot-workspace-disclosure"
-              defaultOpen={selectedSeries.piecewiseGroupId !== undefined}
+              onToggle={(event) =>
+                setAdvancedPiecewiseOpen(event.currentTarget.open)
+              }
+              open={advancedPiecewiseOpen}
             >
               <summary>
                 <span>
@@ -1739,6 +1743,17 @@ export function CoordinatePlotEditorPanel({
     definition.series[0] ??
     null;
   const basicSeries = selectedSeries;
+  const [domainDisclosureOpen, setDomainDisclosureOpen] = useState(
+    () =>
+      selectedSeries?.kind === "explicit" &&
+      (selectedSeries.domain.minExpression !== null ||
+        selectedSeries.domain.maxExpression !== null),
+  );
+  const [piecewiseDisclosureOpen, setPiecewiseDisclosureOpen] = useState(
+    () =>
+      selectedSeries?.kind === "explicit" &&
+      selectedSeries.piecewiseGroupId !== undefined,
+  );
   const basicSeriesIndex =
     basicSeries === null
       ? -1
@@ -2253,10 +2268,10 @@ export function CoordinatePlotEditorPanel({
                   >
                     <details
                       className="plot-workspace-disclosure"
-                      defaultOpen={
-                        basicSeries.domain.minExpression !== null ||
-                        basicSeries.domain.maxExpression !== null
+                      onToggle={(event) =>
+                        setDomainDisclosureOpen(event.currentTarget.open)
                       }
+                      open={domainDisclosureOpen}
                     >
                       <summary>
                         <span>
@@ -2374,7 +2389,10 @@ export function CoordinatePlotEditorPanel({
                     </details>
                     <details
                       className="plot-workspace-disclosure"
-                      defaultOpen={basicSeries.piecewiseGroupId !== undefined}
+                      onToggle={(event) =>
+                        setPiecewiseDisclosureOpen(event.currentTarget.open)
+                      }
+                      open={piecewiseDisclosureOpen}
                     >
                       <summary>
                         <span>
