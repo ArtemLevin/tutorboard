@@ -209,6 +209,15 @@ describe("piecewise mathematical regression checks", () => {
       object: { ...object, definition },
       zoom: 1,
     });
+    console.log("HOLE_DIAGNOSTICS", JSON.stringify({
+      series: rendered.sampling.series.map(({ status, diagnostics, sample }) => ({
+        status,
+        diagnostics,
+        metrics: sample?.metrics,
+        segments: sample?.segments.length,
+      })),
+      markers: rendered.endpoints,
+    }));
     const marker = rendered.endpoints.find(
       (endpoint) =>
         !endpoint.included && Math.abs(endpoint.point.x - 352) < 0.01,
