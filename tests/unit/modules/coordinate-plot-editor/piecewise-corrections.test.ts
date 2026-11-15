@@ -90,7 +90,8 @@ describe("piecewise mathematical regression checks", () => {
   it("renders singleton points with implicit legacy-inclusive bounds", () => {
     const object = createPlot();
     const original = object.definition.series[0];
-    if (original?.kind !== "explicit") throw new Error("Explicit plot expected");
+    if (original?.kind !== "explicit")
+      throw new Error("Explicit plot expected");
     const definition = {
       ...object.definition,
       series: [
