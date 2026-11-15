@@ -68,5 +68,5 @@ export function nextPlotFloat(value: number, direction: "up" | "down"): number {
   numbers[0] = value;
   if (value > 0 === (direction === "up")) bits[0] = bits[0]! + 1n;
   else bits[0] = bits[0]! - 1n;
-  return numbers[0]!;
+  return numbers[0];
 }
