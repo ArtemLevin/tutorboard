@@ -39,9 +39,7 @@ test("creates three branches and a distinct point through the plot editor", asyn
   await expect(
     advanced.getByRole("button", { name: "Удалить всю кусочную функцию" }),
   ).toBeVisible();
-  await expect(
-    advanced.getByLabel("Включить левый конец ветви"),
-  ).toBeChecked();
+  await expect(advanced.getByLabel("Включить левый конец ветви")).toBeChecked();
   await expect(
     advanced.getByLabel("Включить правый конец ветви"),
   ).toBeChecked();
