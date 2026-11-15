@@ -605,8 +605,9 @@ function SeriesEditor({
             </label>
           </div>
           <p className="plot-editor-hint">
-            Для кусочной функции задайте отдельную формулу каждой ветви и её диапазон X.
-            Пустая граница означает бесконечность, ● — включённый конец, ○ — исключённый.
+            Для кусочной функции задайте отдельную формулу каждой ветви и её
+            диапазон X. Пустая граница означает бесконечность, ● — включённый
+            конец, ○ — исключённый.
           </p>
         </>
       ) : series.kind === "parametric" ? (
@@ -1021,7 +1022,9 @@ function FunctionsTab({
                 definition.series.length >= maximumCoordinatePlotSeries
               }
               onClick={() => {
-                if (selectedSeries?.kind === "explicit") onSplitSeries?.(selectedSeries.id);
+                if (selectedSeries?.kind === "explicit") {
+                  onSplitSeries?.(selectedSeries.id);
+                }
               }}
               type="button"
             >
@@ -1915,7 +1918,9 @@ export function CoordinatePlotEditorPanel({
                       definition.series.length >= maximumCoordinatePlotSeries
                     }
                     onClick={() => {
-                      if (basicSeries?.kind === "explicit") onSplitSeries?.(basicSeries.id);
+                      if (basicSeries?.kind === "explicit") {
+                        onSplitSeries?.(basicSeries.id);
+                      }
                     }}
                     type="button"
                   >
