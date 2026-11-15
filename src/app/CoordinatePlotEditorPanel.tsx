@@ -1732,6 +1732,7 @@ export function CoordinatePlotEditorPanel({
   const [activeTab, setActiveTab] =
     useState<CoordinatePlotEditorTab>("functions");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const [piecewiseBoundary, setPiecewiseBoundary] = useState("0");
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const [pendingParameterFocus, setPendingParameterFocus] = useState<
@@ -1970,6 +1971,7 @@ export function CoordinatePlotEditorPanel({
       aria-label="Редактор координатной плоскости"
       className="coordinate-plot-editor-panel coordinate-plot-basic-editor-panel"
       data-advanced-open={advancedOpen ? "true" : "false"}
+      data-preview-mode={previewMode ? "true" : "false"}
       data-testid="coordinate-plot-editor"
       ref={basicPanelRef}
       tabIndex={-1}
@@ -1983,13 +1985,23 @@ export function CoordinatePlotEditorPanel({
                 {dirty ? "Есть несохранённые изменения" : "Изменения сохранены"}
               </span>
             </div>
-            <button
-              aria-label="Закрыть редактор графика"
-              onClick={requestClose}
-              type="button"
-            >
-              <span aria-hidden="true">×</span>
-            </button>
+            <div className="plot-basic-heading-actions">
+              <button
+                aria-pressed={previewMode}
+                className="plot-basic-preview-toggle"
+                onClick={() => setPreviewMode((current) => !current)}
+                type="button"
+              >
+                {previewMode ? "Полный редактор" : "Показать график"}
+              </button>
+              <button
+                aria-label="Закрыть редактор графика"
+                onClick={requestClose}
+                type="button"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
           </header>
 
           <div className="plot-editor-basic-scroll">
