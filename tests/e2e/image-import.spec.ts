@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 
 import { expect, test } from "@playwright/test";
-import { expandBoardToolDock } from "./board-tool-dock-interaction.js";
 import {
   rightDoubleClickAt,
   stageCenter,
@@ -18,7 +17,7 @@ const gif1x1 = Buffer.from(
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await expandBoardToolDock(page);
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await expect(
     page.getByRole("application", {
       name: "Бесконечное полотно TutorBoard",
@@ -42,7 +41,6 @@ test("@smoke imports a local image and transforms it", async ({ page }) => {
     "1",
   );
   await rightDoubleClickAt(page, await stageCenter(page));
-  await expandBoardToolDock(page);
   await page
     .getByRole("button", { name: "Увеличить выделение на 10%" })
     .click();
@@ -99,7 +97,6 @@ test("imports and preserves a GIF as an animated media object", async ({
   });
   await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
 
-  await expandBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Экспорт JSON" }).click();
