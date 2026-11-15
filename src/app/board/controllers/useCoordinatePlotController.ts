@@ -18,6 +18,7 @@ import {
 import {
   addCoordinatePlotParameter,
   addCoordinatePlotSeries,
+  addPiecewisePoint,
   createDefaultCoordinatePlotObject,
   fitCoordinatePlotDefinition,
   resetCoordinatePlotViewport,
@@ -286,11 +287,22 @@ export function useCoordinatePlotController({
     [],
   );
 
-  const splitSeries = useCallback((seriesId: PlotSeriesId) => {
+  const splitSeries = useCallback((seriesId: PlotSeriesId, boundary: string) => {
     const newId = plotSeriesId(`plot-series:${crypto.randomUUID()}`);
     setEditor((current) => {
       if (current === null) return null;
-      const draft = splitCoordinatePlotSeries(current.draft, seriesId, newId);
+      const draft = splitCoordinatePlotSeries(current.draft, seriesId, newId, boundary);
+      return draft === current.draft
+        ? current
+        : { ...current, draft, selectedSeriesId: newId };
+    });
+  }, []);
+
+  const addPoint = useCallback((seriesId: PlotSeriesId, boundary: string) => {
+    const newId = plotSeriesId(`plot-series:${crypto.randomUUID()}`);
+    setEditor((current) => {
+      if (current === null) return null;
+      const draft = addPiecewisePoint(current.draft, seriesId, newId, boundary);
       return draft === current.draft
         ? current
         : { ...current, draft, selectedSeriesId: newId };
@@ -333,6 +345,7 @@ export function useCoordinatePlotController({
 
   return {
     addParameter,
+    addPoint,
     addSeries,
     beginEditing,
     close: () => setEditor(null),
