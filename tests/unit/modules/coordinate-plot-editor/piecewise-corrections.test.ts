@@ -54,7 +54,8 @@ describe("piecewise mathematical regression checks", () => {
   it("samples a singleton as a point and includes it in fit-to-content", () => {
     const object = createPlot();
     const original = object.definition.series[0];
-    if (original?.kind !== "explicit") throw new Error("Explicit plot expected");
+    if (original?.kind !== "explicit")
+      throw new Error("Explicit plot expected");
     const singleton = withDomain(original, "123", "40", "40", true, true);
     const definition = {
       ...object.definition,
@@ -108,12 +109,16 @@ describe("piecewise mathematical regression checks", () => {
             },
       ),
     };
-    expect(validateCoordinatePlotDefinition(definition).some(
-      ({ code }) => code === "plot.piecewise-conflict",
-    )).toBe(true);
-    expect(validateCoordinatePlotEditorDefinition(definition).some(
-      ({ code, blocking }) => code === "plot.piecewise-conflict" && blocking,
-    )).toBe(true);
+    expect(
+      validateCoordinatePlotDefinition(definition).some(
+        ({ code }) => code === "plot.piecewise-conflict",
+      ),
+    ).toBe(true);
+    expect(
+      validateCoordinatePlotEditorDefinition(definition).some(
+        ({ code, blocking }) => code === "plot.piecewise-conflict" && blocking,
+      ),
+    ).toBe(true);
 
     const independent = {
       ...definition,
@@ -123,9 +128,11 @@ describe("piecewise mathematical regression checks", () => {
           : series,
       ),
     };
-    expect(validateCoordinatePlotDefinition(independent).some(
-      ({ code }) => code === "plot.piecewise-conflict",
-    )).toBe(false);
+    expect(
+      validateCoordinatePlotDefinition(independent).some(
+        ({ code }) => code === "plot.piecewise-conflict",
+      ),
+    ).toBe(false);
   });
 
   it("rejects overlapping piecewise branches through document storage and import", () => {
@@ -147,9 +154,11 @@ describe("piecewise mathematical regression checks", () => {
           : series,
       ),
     };
-    expect(validateCoordinatePlotDefinition(invalid).some(
-      ({ code }) => code === "plot.piecewise-overlap",
-    )).toBe(true);
+    expect(
+      validateCoordinatePlotDefinition(invalid).some(
+        ({ code }) => code === "plot.piecewise-overlap",
+      ),
+    ).toBe(true);
     const document = createEmptyBoardDocument({
       createdAt: "2026-11-15T12:00:00.000Z",
       id: documentId("document:piecewise-corrections"),
@@ -167,17 +176,25 @@ describe("piecewise mathematical regression checks", () => {
     const payload = JSON.parse(validJson.json) as {
       objects: Record<
         string,
-        { definition: { series: { domain: { minExpression: string | null } }[] } }
+        {
+          definition: {
+            series: { domain: { minExpression: string | null } }[];
+          };
+        }
       >;
     };
     payload.objects[object.id]!.definition.series[1]!.domain.minExpression =
       "-1";
-    expect(deserializeBoardDocument(JSON.stringify(payload)).status).not.toBe("ok");
-    expect(serializeBoardDocument({
-      ...document,
-      objects: { [object.id]: { ...object, definition: invalid } },
-      order: [object.id],
-    }).ok).toBe(false);
+    expect(deserializeBoardDocument(JSON.stringify(payload)).status).not.toBe(
+      "ok",
+    );
+    expect(
+      serializeBoardDocument({
+        ...document,
+        objects: { [object.id]: { ...object, definition: invalid } },
+        order: [object.id],
+      }).ok,
+    ).toBe(false);
   });
 
   it("renders an open circle at a removable discontinuity's one-sided limit", () => {
@@ -192,8 +209,9 @@ describe("piecewise mathematical regression checks", () => {
       object: { ...object, definition },
       zoom: 1,
     });
-    const marker = rendered.endpoints.find((endpoint) =>
-      !endpoint.included && Math.abs(endpoint.point.x - 352) < 0.01,
+    const marker = rendered.endpoints.find(
+      (endpoint) =>
+        !endpoint.included && Math.abs(endpoint.point.x - 352) < 0.01,
     );
     expect(marker).toBeDefined();
     expect(marker?.point.y).toBeCloseTo(150, 0);
@@ -211,8 +229,11 @@ describe("piecewise mathematical regression checks", () => {
       object: { ...object, definition },
       zoom: 1,
     });
-    expect(rendered.endpoints.some((endpoint) =>
-      !endpoint.included && Math.abs(endpoint.point.x - 352) < 0.01,
-    )).toBe(false);
+    expect(
+      rendered.endpoints.some(
+        (endpoint) =>
+          !endpoint.included && Math.abs(endpoint.point.x - 352) < 0.01,
+      ),
+    ).toBe(false);
   });
 });
