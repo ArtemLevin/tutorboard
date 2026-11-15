@@ -1,4 +1,7 @@
-import { evaluatePiecewiseScalar, resolveExplicitPlotDomain } from "../../core/board/piecewise";
+import {
+  evaluatePiecewiseScalar,
+  resolveExplicitPlotDomain,
+} from "../../core/board/piecewise";
 import {
   compilePlotExpression,
   coordinatePlotExpressionLanguage,
@@ -219,7 +222,9 @@ export function canSplitCoordinatePlotSeries(
   if (series?.kind !== "explicit") return false;
   const domain = resolveExplicitPlotDomain(definition, series);
   const cut = evaluatePiecewiseScalar(definition, boundary);
-  return domain !== null && cut !== null && domain.min < cut && cut < domain.max;
+  return (
+    domain !== null && cut !== null && domain.min < cut && cut < domain.max
+  );
 }
 
 /** Split a branch in place, preserving its current outer bounds. */
@@ -232,21 +237,24 @@ export function splitCoordinatePlotSeries(
   if (
     !canSplitCoordinatePlotSeries(definition, seriesId, boundary) ||
     definition.series.some(({ id }) => id === secondId)
-  ) return definition;
+  )
+    return definition;
   const index = definition.series.findIndex(({ id }) => id === seriesId);
   const source = definition.series[index];
   if (source?.kind !== "explicit") return definition;
   const groupId = source.piecewiseGroupId ?? source.id;
   const members = definition.series.filter(
-    (series) => series.kind === "explicit" && series.piecewiseGroupId === groupId,
+    (series) =>
+      series.kind === "explicit" && series.piecewiseGroupId === groupId,
   );
   const baseName = source.name.replace(/ · ветвь \d+$/u, "");
   const first: ExplicitPlotSeries = {
     ...source,
     piecewiseGroupId: groupId,
-    name: source.piecewiseGroupId === undefined
-      ? `${baseName.slice(0, 110)} · ветвь 1`
-      : source.name,
+    name:
+      source.piecewiseGroupId === undefined
+        ? `${baseName.slice(0, 110)} · ветвь 1`
+        : source.name,
     domain: {
       ...source.domain,
       maxExpression: boundary,
@@ -276,7 +284,10 @@ export function canAddPiecewisePoint(
 ): boolean {
   if (definition.series.length >= maximumCoordinatePlotSeries) return false;
   const selected = definition.series.find(({ id }) => id === seriesId);
-  if (selected?.kind !== "explicit" || selected.piecewiseGroupId === undefined) {
+  if (
+    selected?.kind !== "explicit" ||
+    selected.piecewiseGroupId === undefined
+  ) {
     return false;
   }
   const x = evaluatePiecewiseScalar(definition, boundary);
@@ -285,9 +296,14 @@ export function canAddPiecewisePoint(
     if (
       series.kind !== "explicit" ||
       series.piecewiseGroupId !== selected.piecewiseGroupId
-    ) return false;
+    )
+      return false;
     const domain = resolveExplicitPlotDomain(definition, series);
-    return domain === null || (domain.min < x && x < domain.max) || domain.singleton && domain.min === x;
+    return (
+      domain === null ||
+      (domain.min < x && x < domain.max) ||
+      (domain.singleton && domain.min === x)
+    );
   });
 }
 
@@ -301,7 +317,8 @@ export function addPiecewisePoint(
   if (
     !canAddPiecewisePoint(definition, seriesId, boundary) ||
     definition.series.some(({ id }) => id === newId)
-  ) return definition;
+  )
+    return definition;
   const source = definition.series.find(({ id }) => id === seriesId);
   if (source?.kind !== "explicit" || source.piecewiseGroupId === undefined) {
     return definition;
@@ -309,7 +326,10 @@ export function addPiecewisePoint(
   const x = evaluatePiecewiseScalar(definition, boundary);
   if (x === null) return definition;
   const series = definition.series.map((item): PlotSeries => {
-    if (item.kind !== "explicit" || item.piecewiseGroupId !== source.piecewiseGroupId) {
+    if (
+      item.kind !== "explicit" ||
+      item.piecewiseGroupId !== source.piecewiseGroupId
+    ) {
       return item;
     }
     const domain = resolveExplicitPlotDomain(definition, item);
@@ -349,13 +369,18 @@ export function removePiecewiseGroup(
   seriesId: PlotSeriesId,
 ): CoordinatePlotDefinition {
   const selected = definition.series.find(({ id }) => id === seriesId);
-  if (selected?.kind !== "explicit" || selected.piecewiseGroupId === undefined) {
+  if (
+    selected?.kind !== "explicit" ||
+    selected.piecewiseGroupId === undefined
+  ) {
     return definition;
   }
   return {
     ...definition,
     series: definition.series.filter(
-      (series) => series.kind !== "explicit" || series.piecewiseGroupId !== selected.piecewiseGroupId,
+      (series) =>
+        series.kind !== "explicit" ||
+        series.piecewiseGroupId !== selected.piecewiseGroupId,
     ),
   };
 }
@@ -602,11 +627,14 @@ function piecewiseValidationIssues(
   definition: CoordinatePlotDefinition,
 ): CoordinatePlotEditorIssue[] {
   const issues: CoordinatePlotEditorIssue[] = [];
-  const members = new Map<PlotSeriesId, {
-    index: number;
-    series: ExplicitPlotSeries;
-    bounds: NonNullable<ReturnType<typeof resolveExplicitPlotDomain>>;
-  }[]>();
+  const members = new Map<
+    PlotSeriesId,
+    {
+      index: number;
+      series: ExplicitPlotSeries;
+      bounds: NonNullable<ReturnType<typeof resolveExplicitPlotDomain>>;
+    }[]
+  >();
   const add = (index: number, code: string, message: string) => {
     issues.push({
       blocking: true,
@@ -621,8 +649,11 @@ function piecewiseValidationIssues(
     if (series.kind !== "explicit") return;
     const bounds = resolveExplicitPlotDomain(definition, series);
     if (bounds === null) {
-      add(index, "plot.invalid-piecewise-domain",
-        "Границы должны вычисляться, идти по возрастанию; одиночная точка требует включения обеих границ.");
+      add(
+        index,
+        "plot.invalid-piecewise-domain",
+        "Границы должны вычисляться, идти по возрастанию; одиночная точка требует включения обеих границ.",
+      );
       return;
     }
     if (series.piecewiseGroupId === undefined) return;
@@ -640,7 +671,10 @@ function piecewiseValidationIssues(
       parameterNames,
     });
     if (!compiled.ok) return null;
-    const result = evaluatePlotExpression(compiled.expression, { ...params, x });
+    const result = evaluatePlotExpression(compiled.expression, {
+      ...params,
+      x,
+    });
     return result.kind === "value" && Number.isFinite(result.value)
       ? result.value
       : null;
@@ -660,18 +694,32 @@ function piecewiseValidationIssues(
         const hi = Math.min(first.bounds.max, second.bounds.max);
         if (lo > hi) continue;
         if (lo < hi) {
-          add(second.index, "plot.piecewise-overlap",
-            "Ветви одной кусочной функции перекрываются на интервале.");
+          add(
+            second.index,
+            "plot.piecewise-overlap",
+            "Ветви одной кусочной функции перекрываются на интервале.",
+          );
           continue;
         }
-        if (!Number.isFinite(lo) || !includes(first.bounds, lo) ||
-            !includes(second.bounds, lo)) continue;
+        if (
+          !Number.isFinite(lo) ||
+          !includes(first.bounds, lo) ||
+          !includes(second.bounds, lo)
+        )
+          continue;
         const left = yAt(first.series, lo);
         const right = yAt(second.series, lo);
-        if (left === null || right === null ||
-            Math.abs(left - right) > 1e-9 * Math.max(1, Math.abs(left), Math.abs(right))) {
-          add(second.index, "plot.piecewise-conflict",
-            "В точке стыка кусочная функция имеет конфликтующие значения.");
+        if (
+          left === null ||
+          right === null ||
+          Math.abs(left - right) >
+            1e-9 * Math.max(1, Math.abs(left), Math.abs(right))
+        ) {
+          add(
+            second.index,
+            "plot.piecewise-conflict",
+            "В точке стыка кусочная функция имеет конфликтующие значения.",
+          );
         }
       }
     }
@@ -759,7 +807,11 @@ export function validateCoordinatePlotEditorDefinition(
       parameterNames,
     );
   });
-  return [...structural, ...piecewiseValidationIssues(definition), ...expressions];
+  return [
+    ...structural,
+    ...piecewiseValidationIssues(definition),
+    ...expressions,
+  ];
 }
 
 const maximumFitExpansionFactor = 100;
