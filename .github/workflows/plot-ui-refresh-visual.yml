@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/plot-ui-refresh-visual.yml'
+      - 'src/app/CoordinatePlotEditorPanel.css'
 jobs:
   refresh:
     if: github.event.pull_request.head.repo.full_name == github.repository
