@@ -93,7 +93,8 @@ export function resultStatus(
     return "invalid";
   }
   if (sample.truncated) return "truncated";
-  return sample.segments.length === 0 && sample.fillPolygons.length === 0 &&
+  return sample.segments.length === 0 &&
+    sample.fillPolygons.length === 0 &&
     (sample.points?.length ?? 0) === 0
     ? "empty"
     : "sampled";
@@ -190,7 +191,11 @@ export function sampleSeries(input: {
                 ...empty,
                 dataBounds: { xMin: x, xMax: x, yMin: y, yMax: y },
                 points: [point],
-                metrics: { ...empty.metrics, evaluationCount: 1, pointCount: 1 },
+                metrics: {
+                  ...empty.metrics,
+                  evaluationCount: 1,
+                  pointCount: 1,
+                },
               };
             }
             const min =
