@@ -1,0 +1,23 @@
+name: Temporary piecewise correction formatting
+on:
+  pull_request:
+    paths:
+      - 'src/core/board/piecewise.ts'
+      - 'src/core/board/validation/schema.ts'
+      - 'src/core/plot-rendering.ts'
+      - 'src/core/plot-sampling/series-sampler.ts'
+      - 'tests/unit/modules/coordinate-plot-editor/piecewise-corrections.test.ts'
+      - '.github/workflows/piecewise-correction-format.yml'
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci
+      - run: npx prettier --write src/core/board/piecewise.ts src/core/board/validation/schema.ts src/core/plot-rendering.ts src/core/plot-sampling/series-sampler.ts tests/unit/modules/coordinate-plot-editor/piecewise-corrections.test.ts
+      - run: git diff --no-ext-diff -- src/core/board/piecewise.ts src/core/board/validation/schema.ts src/core/plot-rendering.ts src/core/plot-sampling/series-sampler.ts tests/unit/modules/coordinate-plot-editor/piecewise-corrections.test.ts
