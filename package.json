@@ -37,7 +37,7 @@
     "e2e:collaboration": "node scripts/run-collaboration-e2e.mjs",
     "e2e:standalone-pilot": "playwright test --config playwright.standalone-pilot.config.ts",
     "e2e:media-fullstack": "playwright test --config playwright.media-fullstack.config.ts",
-    "e2e:plot-production": "playwright test tests/e2e/coordinate-plot-production.spec.ts tests/e2e/piecewise-coordinate-plot.spec.ts",
+    "e2e:plot-production": "playwright test tests/e2e/coordinate-plot-production.spec.ts tests/e2e/piecewise-coordinate-plot.spec.ts tests/e2e/coordinate-plot-workspace.spec.ts",
     "e2e:handwriting-production": "playwright test tests/e2e/handwritten-function-production.spec.ts",
     "check": "npm run geometryos:check && npm run board-contract:check && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run performance && npm run architecture && npm run build",
     "board-contract:generate": "node scripts/generate-board-contract.mjs",
