@@ -242,24 +242,27 @@ const plotSeriesStyle = strictObject({
   strokeWidth: { maximum: 32, minimum: 0.25, type: "number" },
 });
 const plotExpression = { maxLength: 2_000, minLength: 1, type: "string" };
-const explicitPlotSeries = strictObject({
-  domain: strictObject(
-    {
-      maxExpression: { anyOf: [plotExpression, { type: "null" }] },
-      maxInclusive: { type: "boolean" },
-      minExpression: { anyOf: [plotExpression, { type: "null" }] },
-      minInclusive: { type: "boolean" },
-    },
-    ["maxExpression", "minExpression"],
-  ),
-  expression: plotExpression,
-  id: reference("Identifier"),
-  kind: { const: "explicit" },
-  name: { maxLength: 128, minLength: 1, type: "string" },
-  piecewiseGroupId: reference("Identifier"),
-  style: reference("PlotSeriesStyle"),
-  visible: { type: "boolean" },
-}, ["domain", "expression", "id", "kind", "name", "style", "visible"]);
+const explicitPlotSeries = strictObject(
+  {
+    domain: strictObject(
+      {
+        maxExpression: { anyOf: [plotExpression, { type: "null" }] },
+        maxInclusive: { type: "boolean" },
+        minExpression: { anyOf: [plotExpression, { type: "null" }] },
+        minInclusive: { type: "boolean" },
+      },
+      ["maxExpression", "minExpression"],
+    ),
+    expression: plotExpression,
+    id: reference("Identifier"),
+    kind: { const: "explicit" },
+    name: { maxLength: 128, minLength: 1, type: "string" },
+    piecewiseGroupId: reference("Identifier"),
+    style: reference("PlotSeriesStyle"),
+    visible: { type: "boolean" },
+  },
+  ["domain", "expression", "id", "kind", "name", "style", "visible"],
+);
 const parametricPlotSeries = strictObject({
   closed: { type: "boolean" },
   id: reference("Identifier"),
