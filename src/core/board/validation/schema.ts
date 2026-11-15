@@ -327,6 +327,7 @@ const explicitPlotSeriesSchema = z
     expression: plotExpressionSchema,
     id: plotSeriesIdSchema,
     kind: z.literal("explicit"),
+    piecewiseGroupId: plotSeriesIdSchema.optional(),
     name: z.string().min(1).max(128),
     style: plotSeriesStyleSchema,
     visible: z.boolean(),
