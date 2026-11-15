@@ -43,6 +43,7 @@ test("coordinate plot editor visual matrix", async ({ page }, testInfo) => {
   await expect(editor.getByLabel("Ползунок параметра a")).toBeVisible();
   await expect(editor.getByText("Шаг 1")).toBeVisible();
   await expect(editor.getByText("Шаг 2")).toBeVisible();
+  await expect(editor.getByRole("button", { name: "Показать график" })).toBeVisible();
   await expect(
     editor.getByRole("button", { name: "Разделить ветвь" }),
   ).toBeHidden();
