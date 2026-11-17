@@ -1,11 +1,13 @@
 import { expect, test } from "@playwright/test";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 test("@smoke teacher can teach with compact tools and restore chrome", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
 
   const objectCount = await page.getByTestId("object-count").textContent();
   await page.getByRole("button", { name: "Режим занятия" }).click();
@@ -29,21 +31,7 @@ test("@smoke teacher can teach with compact tools and restore chrome", async ({
   ).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
   await expect(lesson).toHaveCount(0);
-  // Focus restoration can leave the hover-only dock either open or
-  // collapsed. Exercise its supported keyboard toggle deterministically.
-  const dockToggle = page.getByRole("button", {
-    name: /^(Развернуть|Свернуть) инструменты$/u,
-  });
-  if ((await dockToggle.getAttribute("aria-expanded")) === "false") {
-    await dockToggle.focus();
-    await dockToggle.press("Enter");
-  }
-  // A keyboard-only expansion expires after the dock idle period. Hover it
-  // while checking the returned toolbar, even on a busy CI runner.
-  await dockToggle.hover();
-  await expect(
-    page.getByRole("toolbar", { name: "Инструменты доски" }),
-  ).toBeVisible();
+  await revealBoardToolDock(page);
   await expect(
     page.getByRole("button", { name: "Лазерная указка (K)" }),
   ).toHaveAttribute("aria-pressed", "true");
@@ -55,7 +43,7 @@ test("@smoke lesson mode is ephemeral across reload and usable on mobile", async
 }) => {
   await page.setViewportSize({ width: 390, height: 760 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Режим занятия" }).click();
 
   const lesson = page.getByRole("toolbar", {
@@ -68,11 +56,11 @@ test("@smoke lesson mode is ephemeral across reload and usable on mobile", async
   expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(391);
   await page.getByRole("button", { name: "Завершить режим занятия" }).click();
   await expect(lesson).toHaveCount(0);
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Режим занятия" }).click();
   await page.reload();
   await expect(lesson).toHaveCount(0);
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
   await expect(
     page.getByRole("button", { name: "Режим занятия" }),
   ).toBeVisible();
