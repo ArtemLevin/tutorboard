@@ -788,6 +788,22 @@ for (const scenario of [
           ),
           prepared:
             (await stage.getAttribute("data-wheel-cache-prepared")) === "true",
+          ...(scenario.iceBaseline
+            ? {
+                visibleObjects: Number(
+                  await stage.getAttribute("data-visible-object-count"),
+                ),
+                camera: {
+                  zoom: Number(await stage.getAttribute("data-preview-zoom")),
+                  offsetX: Number(
+                    await stage.getAttribute("data-preview-offset-x"),
+                  ),
+                  offsetY: Number(
+                    await stage.getAttribute("data-preview-offset-y"),
+                  ),
+                },
+              }
+            : {}),
         };
         if (scenario.expectedLayers !== undefined) {
           expect(before.layers, "E2 composition changed unexpectedly").toBe(
@@ -982,6 +998,22 @@ for (const scenario of [
             prepared:
               (await stage.getAttribute("data-wheel-cache-prepared")) ===
               "true",
+            ...(scenario.iceBaseline
+              ? {
+                  visibleObjects: Number(
+                    await stage.getAttribute("data-visible-object-count"),
+                  ),
+                  camera: {
+                    zoom: Number(await stage.getAttribute("data-preview-zoom")),
+                    offsetX: Number(
+                        await stage.getAttribute("data-preview-offset-x"),
+                    ),
+                    offsetY: Number(
+                        await stage.getAttribute("data-preview-offset-y"),
+                    ),
+                  },
+                }
+              : {}),
           },
           wheelPauseStillActiveAfterInputs,
           ...phases,
