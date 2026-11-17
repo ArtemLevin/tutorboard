@@ -130,7 +130,10 @@ function verify(report, name, target, source) {
   );
   for (const phase of ["active", "commit", "settling"]) {
     const result = report.phases?.[phase];
-    check(Number.isInteger(result?.count) && result.count > 0, "Empty " + phase);
+    check(
+      Number.isInteger(result?.count) && result.count > 0,
+      "Empty " + phase,
+    );
     for (const key of ["p50Ms", "p95Ms", "p99Ms", "maxMs"]) {
       check(
         Number.isFinite(result[key]) && result[key] >= 0,
@@ -209,9 +212,10 @@ export function summarizeIceBaseline(matrices, { includeLarge = false } = {}) {
       mediaSha256,
       runs: reports.length,
       activeFrames,
-      p99Evidence: activeFrames >= 1000 && reports.length >= 5
-        ? "descriptive-only"
-        : "insufficient-independent-samples",
+      p99Evidence:
+        activeFrames >= 1000 && reports.length >= 5
+          ? "descriptive-only"
+          : "insufficient-independent-samples",
       medianActiveP50Ms: median(reports.map((r) => r.phases.active.p50Ms)),
       medianActiveP95Ms: median(reports.map((r) => r.phases.active.p95Ms)),
       medianActiveP99Ms: median(reports.map((r) => r.phases.active.p99Ms)),
