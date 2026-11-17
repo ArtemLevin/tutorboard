@@ -164,9 +164,9 @@ describe("ICE 2.0 baseline report integrity", () => {
     );
     const badPhase = matrix();
     badPhase.get("ice2-10000-static").phases.active.p99Ms = 1;
-    expect(() =>
-      summarizeIceBaseline([matrix(), badPhase, matrix()]),
-    ).toThrow(/percentile ordering/u);
+    expect(() => summarizeIceBaseline([matrix(), badPhase, matrix()])).toThrow(
+      /percentile ordering/u,
+    );
     const missingInput = matrix();
     missingInput.get("ice2-1000-static").inputTimesMs.pop();
     expect(() =>
