@@ -29,11 +29,15 @@ test("@smoke teacher can teach with compact tools and restore chrome", async ({
   ).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
   await expect(lesson).toHaveCount(0);
-  // Returning focus to the lesson-mode button may already expand the
-  // hover-only dock. Both toggle labels are valid at this point.
-  await page
-    .getByRole("button", { name: /^(Развернуть|Свернуть) инструменты$/u })
-    .hover();
+  // Focus restoration can leave the hover-only dock either open or
+  // collapsed. Exercise its supported keyboard toggle deterministically.
+  const dockToggle = page.getByRole("button", {
+    name: /^(Развернуть|Свернуть) инструменты$/u,
+  });
+  if ((await dockToggle.getAttribute("aria-expanded")) === "false") {
+    await dockToggle.focus();
+    await dockToggle.press("Enter");
+  }
   await expect(
     page.getByRole("toolbar", { name: "Инструменты доски" }),
   ).toBeVisible();
