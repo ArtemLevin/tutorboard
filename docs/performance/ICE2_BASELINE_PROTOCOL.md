@@ -67,15 +67,17 @@ Each report contains:
 - tested source SHA/browser/OS/CPU architecture and workload metadata;
 - SHA-256 of the complete generated BoardDocument JSON, including ordered
   ink/media items, and SHA-256 of real generated static media data URLs;
-- initial/final committed layer count, image dimensions and codecs;
+- initial/final committed layer count, **actual** visible object count,
+  executed preview camera zoom/offset, image dimensions and codecs;
 - all 18 observed wheel inputs and separate active, commit and settling
   frame p50/p95/p99/max, >25/>50/>100 ms counts;
 - import/restore duration, trace flag and any available existing C3.9
   attribution fields.
 
 The parser rejects missing/duplicate/unknown scenarios, changed source/browser
-and media/fixture hashes, inconsistent object/media dimensions, trace-on
-records, broken phase distributions and missing wheel inputs. Raw logs and
+and media/fixture hashes, actual visible membership or camera drift across
+repeats, inconsistent object/media dimensions, trace-on records, broken phase
+distributions and missing wheel inputs. Raw logs and
 Playwright JSON attachments are retained in Actions artifacts (14 days).
 A p99 from approximately 200 frames is flagged as **insufficient evidence**;
 the emitted number is descriptive only.
