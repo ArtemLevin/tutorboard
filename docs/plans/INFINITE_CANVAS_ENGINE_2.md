@@ -79,6 +79,8 @@ BoardDocument (canonical, immutable)
 
 ### ICE-01 — Reproducible performance laboratory (instrumentation/tests only)
 
+Первая часть измерителя: [ICE-01 baseline protocol](../performance/ICE2_BASELINE_PROTOCOL.md). Реализованы opt-in статические 1k/3k/5k/10k и отдельно 30k/100k research-сцены, parser+unit-тесты и CI workflow; реальный release evidence ещё требуется.
+
 - Расширить `tests/e2e/c39-large-board-profile.spec.ts`, `tests/fixtures/*` и profile scripts вместо создания не связанного с C3.9 измерителя.
 - Нагрузки: 1k, 3k + media, 5k + 10 images, 10k + 10 images, 30k, 100k, 10k mixed (plots/GIF/text), 2-user endurance. Для каждого отдельно total count/actual visible count, stroke complexity, z-order (2 runs / 3–6 / >6), DPR1/2, warm/cold cache.
 - Измерять input delivery, pointer-to-paint p50/p95, rAF frame p50/p95/p99/max, >25/>50/>100ms, wheel preview/persist/settling, React/Konva scene+hit, compositor, long tasks, rendered objects, bitmap/GPU memory (если доступна).
