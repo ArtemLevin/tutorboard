@@ -5,6 +5,7 @@ import {
   compilePlotExpression,
   createBoardSceneSelector,
   createBoardVisibilityIndex,
+  deriveBoardSceneDelta,
   createEmptyBoardDocument,
   documentId,
   sampleExplicitSeries,
@@ -129,6 +130,39 @@ describe("Phase 3 performance budgets", () => {
         indexedToUncachedRatio: indexedMs / Math.max(uncachedMs, 0.001),
       }),
     );
+  });
+
+  it("derives a single-item delta in a 5k immutable scene", () => {
+    const selector = createBoardSceneSelector();
+    const base = largeDocument(91);
+    const previousScene = selector(base);
+    const id = base.order[2_500]!;
+    const object = base.objects[id]!;
+    const updated = {
+      ...base,
+      objects: {
+        ...base.objects,
+        [id]: {
+          ...object,
+          position: { x: object.position.x + 1, y: object.position.y },
+        },
+      },
+    };
+    const nextScene = selector(updated);
+    const startedAt = performance.now();
+    const delta = deriveBoardSceneDelta({
+      previousDocument: base,
+      previousScene,
+      nextDocument: updated,
+      nextScene,
+    });
+    const elapsedMs = performance.now() - startedAt;
+
+    expect(delta.kind).toBe("patch");
+    expect(delta.changedIds).toEqual([id]);
+    expect(delta.updated).toHaveLength(1);
+    // Shared-runner regression guard, not an ICE frame-latency improvement.
+    expect(elapsedMs).toBeLessThan(500);
   });
 
   it("does not retain previously opened large documents", () => {
