@@ -36,7 +36,7 @@
 Полный отдельный план: **[docs/plans/INFINITE_CANVAS_ENGINE_2.md](docs/plans/INFINITE_CANVAS_ENGINE_2.md)** (ICE-00…ICE-12).
 
 - **Статус: plan only.** Новый renderer, runtime-флаги, протоколы и production поведение этим изменением не внедряются.
-- Цель: улучшить отзывчивость больших полотен (5k/10k обязательный gate; 30k/100k исследовательская цель) с сохранением \`BoardDocument\`, object IDs/z-order, Wet Ink, точного hit-testing, истории, экспорта, доступа и совместной работы.
+- Цель: улучшить отзывчивость больших полотен (5k/10k обязательный gate; 30k/100k исследовательская цель) с сохранением `BoardDocument`, object IDs/z-order, Wet Ink, точного hit-testing, истории, экспорта, доступа и совместной работы.
 - Порядок: архитектурный контракт/измеритель → incremental scene/spatial index → заменяемые adapter/feature flags → bounded tiles/cache → независимый A/B gate; GPU batching, Worker и LOD только по подтверждённой необходимости → interaction/collaboration → крупное хранение при необходимости → pilot/rollout.
 - Переиспользовать имеющиеся C3.9 профили, immutable snapshots и Konva fallback; не повторять NO-GO эксперименты с синхронной cold-cache и pixel/hit несовместимым DPR2 crop. Промежуточные PR проходят независимые correctness, resource и latency gates.
 - **Связь с C3.9:** ICE 2.0 — перспективная архитектурная программа, она не заменяет [Issue #201](https://github.com/ArtemLevin/tutorboard/issues/201), текущие performance-обязательства и обязательные Pilot/Production gates. Нельзя закрывать C3.9 по одному успешному эксперименту или объявлять 100k достигнутой характеристикой.
