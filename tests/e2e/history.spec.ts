@@ -5,8 +5,12 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
-    await page.keyboard.press("r");
     const stage = page.getByTestId("board-stage");
+    // Wait for the mounted app and shortcut handler. Dispatching "r" before
+    // hydration leaves navigation.pan active and records a viewport history
+    // entry instead of the rectangle this test intends to undo/redo.
+    await expect(stage).toBeVisible();
+    await page.keyboard.press("r");
     const bounds = await stage.boundingBox();
     if (bounds === null) throw new Error("Canvas has no bounds.");
     await page.mouse.move(bounds.x + 240, bounds.y + 160);
