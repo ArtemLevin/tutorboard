@@ -4,6 +4,8 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import { createCoordinatePlot } from "./coordinate-plot-interaction.js";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 interface MediaPerformanceDocumentOptions {
   readonly staticCount?: number;
   readonly gifCount?: number;
@@ -79,6 +81,7 @@ function createMediaPerformanceDocument(
 async function addInkAndPlot(page: Page, baseCount: number): Promise<void> {
   const box = await page.getByTestId("board-stage").boundingBox();
   if (box === null) throw new Error("Canvas not mounted");
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Рисование" }).click();
   await page.getByRole("menuitemradio", { name: /Перо/u }).click();
   await page.mouse.move(box.x + 160, box.y + 500);
@@ -238,6 +241,7 @@ async function importDocument(
   page: Page,
   document: ReturnType<typeof createMediaPerformanceDocument>,
 ): Promise<void> {
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(document)),
