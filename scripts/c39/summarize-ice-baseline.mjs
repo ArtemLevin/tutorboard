@@ -99,6 +99,24 @@ function verify(report, name, target, source) {
       report.after?.animatedLayers === 0,
     "Unexpected animated layers",
   );
+  for (const label of ["before", "after"]) {
+    const state = report[label];
+    check(
+      Number.isInteger(state.visibleObjects) &&
+        state.visibleObjects > 0 &&
+        state.visibleObjects <= target.strokes + 10,
+      "Invalid actual visible object count (" + label + ")",
+    );
+    check(
+      Number.isFinite(state.camera?.zoom) && state.camera.zoom > 0,
+      "Invalid camera zoom (" + label + ")",
+    );
+    check(
+      Number.isFinite(state.camera?.offsetX) &&
+        Number.isFinite(state.camera?.offsetY),
+      "Invalid camera offsets (" + label + ")",
+    );
+  }
   check(
     report.fixture?.workloadVersion === 1 &&
       report.fixture.strokeGeometry === "varied",
@@ -187,6 +205,23 @@ export function summarizeIceBaseline(matrices, { includeLarge = false } = {}) {
     });
     const documentSha256 = reports[0].fixture.documentSha256;
     const mediaSha256 = reports[0].fixture.mediaSha256;
+    // C3.9 uses a frame-paced wheel driver. Assert that browser stalls did
+    // not quietly alter the executed camera path or visible membership.
+    for (const report of reports.slice(1)) {
+      for (const phase of ["before", "after"]) {
+        const expected = reports[0][phase];
+        const observed = report[phase];
+        const comparableCamera =
+          Math.abs(expected.camera.zoom - observed.camera.zoom) <= 0.0001 &&
+          Math.abs(expected.camera.offsetX - observed.camera.offsetX) <= 0.05 &&
+          Math.abs(expected.camera.offsetY - observed.camera.offsetY) <= 0.05;
+        check(
+          expected.visibleObjects === observed.visibleObjects &&
+            comparableCamera,
+          "Camera / actual visible membership drift in " + name,
+        );
+      }
+    }
     for (const report of reports) {
       check(
         report.fixture.documentSha256 === documentSha256 &&
@@ -208,6 +243,10 @@ export function summarizeIceBaseline(matrices, { includeLarge = false } = {}) {
       strokes: target.strokes,
       requestedVisibleStrokes: target.visible,
       objectCount: target.strokes + 10,
+      visibleObjectsBefore: reports[0].before.visibleObjects,
+      visibleObjectsAfter: reports[0].after.visibleObjects,
+      initialCamera: reports[0].before.camera,
+      finalCamera: reports[0].after.camera,
       documentSha256,
       mediaSha256,
       runs: reports.length,
