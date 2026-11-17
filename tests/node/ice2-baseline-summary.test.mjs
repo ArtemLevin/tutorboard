@@ -64,8 +64,18 @@ function makeReport([name, strokes, visibleStrokes]) {
       pngWidthPx: 1536,
       pngHeightPx: 1536,
     },
-    before: { layers: 1, animatedLayers: 0 },
-    after: { layers: 1, animatedLayers: 0 },
+    before: {
+      layers: 1,
+      animatedLayers: 0,
+      visibleObjects: visibleStrokes + 10,
+      camera: { zoom: 1, offsetX: 0, offsetY: 0 },
+    },
+    after: {
+      layers: 1,
+      animatedLayers: 0,
+      visibleObjects: visibleStrokes + 10,
+      camera: { zoom: 1.04, offsetX: 12, offsetY: 17 },
+    },
     inputTimesMs: Array.from({ length: 18 }, (_unused, index) => index),
     importDurationMs: 110,
     phases: {
@@ -131,6 +141,19 @@ describe("ICE 2.0 baseline report integrity", () => {
     expect(() =>
       summarizeIceBaseline([matrix(), alteredSource, matrix()]),
     ).toThrow(/Source SHA/u);
+  });
+
+  it("rejects a different camera path and unexpected visible membership", () => {
+    const moved = matrix();
+    moved.get("ice2-5000-static").after.camera.offsetX = 50;
+    expect(() => summarizeIceBaseline([matrix(), moved, matrix()])).toThrow(
+      /Camera \/ actual visible membership drift/u,
+    );
+    const invalidCount = matrix();
+    invalidCount.get("ice2-3000-static").before.visibleObjects = 0;
+    expect(() =>
+      summarizeIceBaseline([matrix(), invalidCount, matrix()]),
+    ).toThrow(/actual visible object count/u);
   });
 
   it("rejects trace-on, invalid phase statistics and missing inputs", () => {
