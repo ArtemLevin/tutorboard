@@ -1,0 +1,40 @@
+name: ICE 2.0 temporary formatter diagnosis
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/ice2-format-diff.yml
+
+permissions:
+  contents: read
+
+jobs:
+  show-format-diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Print exact Prettier diff for review
+        run: |
+          set -euo pipefail
+          npx prettier --write \
+            scripts/c39/summarize-ice-baseline.mjs \
+            tests/node/ice2-baseline-summary.test.mjs \
+            src/core/scene/scene-delta.ts \
+            tests/unit/core/scene-delta.test.ts \
+            tests/performance/board-performance.test.ts \
+            tests/e2e/c39-large-board-profile.spec.ts \
+            .github/workflows/ice2-baseline.yml
+          git diff -- \
+            scripts/c39/summarize-ice-baseline.mjs \
+            tests/node/ice2-baseline-summary.test.mjs \
+            src/core/scene/scene-delta.ts \
+            tests/unit/core/scene-delta.test.ts \
+            tests/performance/board-performance.test.ts \
+            tests/e2e/c39-large-board-profile.spec.ts \
+            .github/workflows/ice2-baseline.yml
