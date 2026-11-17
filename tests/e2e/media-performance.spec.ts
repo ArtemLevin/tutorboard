@@ -391,6 +391,9 @@ async function importDocument(
   page: Page,
   document: { readonly order: readonly string[] },
 ): Promise<void> {
+  // The dock is hover-only and collapsed after a page reload or canvas drag.
+  // Its settings action is inaccessible until the mouse enters the toggle.
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(document)),
@@ -691,6 +694,7 @@ test("@smoke file import decodes static raster before A2 renderer mount", async 
   page,
 }) => {
   await resetLocalDatabase(page);
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await page.getByRole("button", { name: "Медиа" }).click();
   await resetProfile(page);
 
