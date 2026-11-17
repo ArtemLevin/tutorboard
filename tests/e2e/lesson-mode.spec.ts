@@ -31,6 +31,9 @@ test("@smoke teacher can teach with compact tools and restore chrome", async ({
   await expect(lesson).toHaveCount(0);
   await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await expect(
+    page.getByRole("toolbar", { name: "Инструменты доски" }),
+  ).toBeVisible();
+  await expect(
     page.getByRole("button", { name: "Лазерная указка (K)" }),
   ).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("object-count")).toHaveText(objectCount ?? "");
