@@ -95,8 +95,7 @@ function verify(report, name, target, source) {
     "Committed layer topology drift",
   );
   check(
-    report.before?.animatedLayers === 0 &&
-      report.after?.animatedLayers === 0,
+    report.before?.animatedLayers === 0 && report.after?.animatedLayers === 0,
     "Unexpected animated layers",
   );
   for (const label of ["before", "after"]) {
@@ -136,14 +135,12 @@ function verify(report, name, target, source) {
   check(
     report.inputTimesMs.every(
       (value, index, values) =>
-        Number.isFinite(value) &&
-        (index === 0 || value >= values[index - 1]),
+        Number.isFinite(value) && (index === 0 || value >= values[index - 1]),
     ),
     "Invalid wheel input times",
   );
   check(
-    Number.isFinite(report.importDurationMs) &&
-      report.importDurationMs >= 0,
+    Number.isFinite(report.importDurationMs) && report.importDurationMs >= 0,
     "Invalid document load duration",
   );
   for (const phase of ["active", "commit", "settling"]) {
