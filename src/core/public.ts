@@ -346,6 +346,14 @@ export {
   type BoardSceneReadModel,
 } from "./board/selectors";
 export {
+  deriveBoardSceneDelta,
+  type BoardSceneDelta,
+  type BoardSceneDeltaKind,
+  type BoardSceneItemChange,
+  type BoardSceneResetReason,
+  type DeriveBoardSceneDeltaInput,
+} from "./scene/scene-delta";
+export {
   deserializeBoardDocument,
   serializeBoardDocument,
   serializeBoardDocument14ForCompatibility,
