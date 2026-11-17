@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 test(
   "board Undo/Redo takes priority while settings controls have focus",
   { tag: "@smoke" },
@@ -22,7 +24,7 @@ test(
     await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
     await expect(page.getByTestId("history-depth")).toHaveText("1/0");
 
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await page.getByRole("button", { name: "Настройки доски" }).click();
     const dialog = page.getByRole("dialog", { name: "Настройки доски" });
     const select = dialog.getByRole("combobox", {
@@ -47,7 +49,7 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await expect(
       page.getByRole("application", {
         name: "Бесконечное полотно TutorBoard",
@@ -83,7 +85,7 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await page.getByRole("button", { name: "Настройки доски" }).click();
     const select = page.getByRole("combobox", {
       name: "Количество сохраняемых действий Undo",
@@ -108,7 +110,7 @@ test(
 
     // Drawing takes the pointer away from the hover-only dock. Re-open it
     // before accessing the settings button; clicking a hidden control hangs.
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await page.getByRole("button", { name: "Настройки доски" }).click();
     await select.selectOption("3");
     await expect(page.getByTestId("history-depth")).toHaveText("3/0");
@@ -119,7 +121,7 @@ test(
     await expect(page.getByTestId("object-count")).toHaveText("4 объекта");
     await expect(page.getByTestId("history-depth")).toHaveText("0/3");
     await page.reload();
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await page.getByRole("button", { name: "Настройки доски" }).click();
     await expect(select).toHaveValue("3");
   },
