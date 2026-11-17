@@ -1,0 +1,63 @@
+name: CI board dock and C3.9 smoke remediation
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/ci-board-dock-remediation.yml
+      - tests/e2e/history.spec.ts
+      - tests/e2e/image-import.spec.ts
+      - tests/e2e/lesson-mode.spec.ts
+      - tests/e2e/local-clear-memory.spec.ts
+      - tests/e2e/c39-large-board-profile.spec.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dock-remediation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install and build production
+        run: |
+          set -euo pipefail
+          npm ci
+          npx playwright install --with-deps ${{ matrix.browser }}
+          npm run build
+      - name: Run focused browser scenarios with one worker
+        run: |
+          set -o pipefail
+          npm run e2e -- \
+            tests/e2e/history.spec.ts \
+            tests/e2e/image-import.spec.ts \
+            tests/e2e/lesson-mode.spec.ts \
+            tests/e2e/local-clear-memory.spec.ts \
+            tests/e2e/c39-large-board-profile.spec.ts \
+            --grep @smoke \
+            --project=${{ matrix.browser }} \
+            --workers=1 --retries=0 --max-failures=3 \
+            --trace=retain-on-failure 2>&1 | tee focused-smoke.log
+      - name: Archive focused browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dock-remediation-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            focused-smoke.log
+            test-results
+          if-no-files-found: warn
+          retention-days: 7
