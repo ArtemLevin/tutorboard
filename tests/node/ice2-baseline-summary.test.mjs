@@ -110,7 +110,9 @@ describe("ICE 2.0 baseline report integrity", () => {
       ),
     ).toThrow(/Incomplete/u);
     expect(() =>
-      parseIceBaselineLog(log(matrix()) + "\nICE2_BASELINE " + JSON.stringify(entries[0])),
+      parseIceBaselineLog(
+        log(matrix()) + "\nICE2_BASELINE " + JSON.stringify(entries[0]),
+      ),
     ).toThrow(/Duplicate/u);
     const invalid = matrix();
     invalid.get("ice2-3000-static").scenario.name = "other";
@@ -163,6 +165,8 @@ describe("ICE 2.0 baseline report integrity", () => {
   });
 
   it("refuses a single-run performance claim", () => {
-    expect(() => summarizeIceBaseline([matrix()])).toThrow(/three independent/u);
+    expect(() => summarizeIceBaseline([matrix()])).toThrow(
+      /three independent/u,
+    );
   });
 });
