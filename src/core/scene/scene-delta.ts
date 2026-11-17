@@ -1,9 +1,6 @@
 import type { BoardDocument } from "../board/document";
 import type { BoardObjectId } from "../board/identifiers";
-import type {
-  BoardRenderItem,
-  BoardSceneReadModel,
-} from "../board/selectors";
+import type { BoardRenderItem, BoardSceneReadModel } from "../board/selectors";
 
 /**
  * Renderer-neutral, immutable changes between two validated board scenes.
@@ -13,10 +10,7 @@ import type {
 export type BoardSceneDeltaKind = "reset" | "patch" | "camera" | "noop";
 
 export type BoardSceneResetReason =
-  | "initial"
-  | "document-changed"
-  | "order-changed"
-  | "invalid-scene-order";
+  "initial" | "document-changed" | "order-changed" | "invalid-scene-order";
 
 export interface BoardSceneItemChange {
   readonly id: BoardObjectId;
