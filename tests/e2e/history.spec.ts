@@ -13,6 +13,9 @@ test(
     await page.mouse.down();
     await page.mouse.move(bounds.x + 360, bounds.y + 260, { steps: 5 });
     await page.mouse.up();
+    // An Undo stack entry alone could be a viewport commit; establish that
+    // the rectangle exists before testing history restoration.
+    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
     await expect(page.getByTestId("history-depth")).toHaveText("1/0");
 
     await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
