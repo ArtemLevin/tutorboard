@@ -5,6 +5,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 import { createCoordinatePlot } from "./coordinate-plot-interaction.js";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 const { PNG } = createRequire(import.meta.url)("pngjs") as {
   readonly PNG: {
     new (options: { readonly height: number; readonly width: number }): {
@@ -393,7 +395,7 @@ async function importDocument(
 ): Promise<void> {
   // The dock is hover-only and collapsed after a page reload or canvas drag.
   // Its settings action is inaccessible until the mouse enters the toggle.
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(document)),
@@ -413,6 +415,7 @@ async function addMixedSceneContent(
   const bounds = await stage.boundingBox();
   if (bounds === null) throw new Error("Board stage has no bounds");
 
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Рисование" }).click();
   await page.getByRole("menuitemradio", { name: /Перо/u }).click();
   await page.mouse.move(bounds.x + 180, bounds.y + 520);
@@ -694,7 +697,7 @@ test("@smoke file import decodes static raster before A2 renderer mount", async 
   page,
 }) => {
   await resetLocalDatabase(page);
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Медиа" }).click();
   await resetProfile(page);
 
@@ -918,6 +921,7 @@ async function profileLargeBoard(
   const idleFrames = await measureFrames(page, largeBoardFrameCount);
   const idleCounters = await snapshot(page);
 
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Рисование" }).click();
   await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
   const stage = page.getByTestId("board-stage");
