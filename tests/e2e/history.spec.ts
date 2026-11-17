@@ -99,6 +99,9 @@ test(
     }
     await expect(page.getByTestId("history-depth")).toHaveText("7/0");
 
+    // Drawing takes the pointer away from the hover-only dock. Re-open it
+    // before accessing the settings button; clicking a hidden control hangs.
+    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
     await page.getByRole("button", { name: "Настройки доски" }).click();
     await select.selectOption("3");
     await expect(page.getByTestId("history-depth")).toHaveText("3/0");
