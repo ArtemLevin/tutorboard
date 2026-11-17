@@ -650,15 +650,16 @@ function summarizePhases(
   };
 }
 
+const includeIceBaseline = process.env.ICE_BASELINE_PROFILE === "1";
+const includeIceLarge =
+  includeIceBaseline && process.env.ICE_BASELINE_LARGE === "1";
+
 for (const scenario of [
   ...scenarios,
   ...(process.env.C39_E2_PROFILE === "1" ? e2Scenarios : []),
   ...(process.env.C39_STATIC_HEAVY_PROFILE === "1" ? staticHeavyScenarios : []),
-  ...(process.env.ICE_BASELINE_PROFILE === "1" ? iceBaselineScenarios : []),
-  ...(process.env.ICE_BASELINE_PROFILE === "1" &&
-  process.env.ICE_BASELINE_LARGE === "1"
-    ? iceLargeScenarios
-    : []),
+  ...(includeIceBaseline ? iceBaselineScenarios : []),
+  ...(includeIceLarge ? iceLargeScenarios : []),
 ]) {
   test(
     (scenario.name === "3000-cold-mixed" ? "@smoke " : "") +
@@ -666,11 +667,11 @@ for (const scenario of [
         ? "@ice2-baseline "
         : scenario.staticHeavy
           ? "@c39-static-heavy "
-        : scenario.e2
-          ? "@c39-e2 "
-          : scenario.quick
-            ? "@media-profile @c39-quick "
-            : "@c39-extended ") +
+          : scenario.e2
+            ? "@c39-e2 "
+            : scenario.quick
+              ? "@media-profile @c39-quick "
+              : "@c39-extended ") +
       "representative zoom baseline: " +
       scenario.name,
     async ({ browser }, testInfo) => {
@@ -947,9 +948,9 @@ for (const scenario of [
             ? "ICE2-BASELINE"
             : scenario.staticHeavy
               ? "C3.9-STATIC"
-            : scenario.e2
-              ? "C3.9-E2"
-              : "C3.9",
+              : scenario.e2
+                ? "C3.9-E2"
+                : "C3.9",
           traceEnabled,
           scenario,
           ...(fixture === undefined ? {} : { fixture }),
@@ -1033,7 +1034,7 @@ for (const scenario of [
             scenario.name +
             ".json",
           {
-          body: Buffer.from(JSON.stringify(report, null, 2)),
+            body: Buffer.from(JSON.stringify(report, null, 2)),
             contentType: "application/json",
           },
         );
