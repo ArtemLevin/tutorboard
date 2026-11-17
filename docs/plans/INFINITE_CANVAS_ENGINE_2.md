@@ -91,6 +91,8 @@ BoardDocument (canonical, immutable)
 
 ### ICE-02 — SceneDelta & spatial index
 
+Первый подэтап ICE-02A: [renderer-neutral SceneDelta foundation](../performance/ICE2_SCENE_DELTA_FOUNDATION.md) — только pure core delta, строгие reset/fallback и unit/performance tests. World bounds и spatial index остаются ICE-02B.
+
 - Превратить существующую immutable scene selection в воспроизводимый event/diff для изменённых object IDs и old/new world bounds; не дублировать `BoardDocument`.
 - Исследовать R-tree/spatial hash для viewport broad phase, eraser, selection; согласовать z-order и точный narrow phase. Сравнить со штатным индексом видимости по реальным сценам.
 - Обрабатывать add/delete/move/style/visibility/order, group transformations, GeometryOS visual overrides, undo/redo, clear, remote ops, board replacement и viewport-only (без изменения geometry rev).
