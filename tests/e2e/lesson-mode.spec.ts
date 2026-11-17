@@ -38,6 +38,9 @@ test("@smoke teacher can teach with compact tools and restore chrome", async ({
     await dockToggle.focus();
     await dockToggle.press("Enter");
   }
+  // A keyboard-only expansion expires after the dock idle period. Hover it
+  // while checking the returned toolbar, even on a busy CI runner.
+  await dockToggle.hover();
   await expect(
     page.getByRole("toolbar", { name: "Инструменты доски" }),
   ).toBeVisible();
