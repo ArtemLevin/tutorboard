@@ -29,7 +29,11 @@ test("@smoke teacher can teach with compact tools and restore chrome", async ({
   ).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
   await expect(lesson).toHaveCount(0);
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  // Returning focus to the lesson-mode button may already expand the
+  // hover-only dock. Both toggle labels are valid at this point.
+  await page
+    .getByRole("button", { name: /^(Развернуть|Свернуть) инструменты$/u })
+    .hover();
   await expect(
     page.getByRole("toolbar", { name: "Инструменты доски" }),
   ).toBeVisible();
