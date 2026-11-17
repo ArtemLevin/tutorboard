@@ -1006,10 +1006,10 @@ for (const scenario of [
                   camera: {
                     zoom: Number(await stage.getAttribute("data-preview-zoom")),
                     offsetX: Number(
-                        await stage.getAttribute("data-preview-offset-x"),
+                      await stage.getAttribute("data-preview-offset-x"),
                     ),
                     offsetY: Number(
-                        await stage.getAttribute("data-preview-offset-y"),
+                      await stage.getAttribute("data-preview-offset-y"),
                     ),
                   },
                 }
