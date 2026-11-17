@@ -127,8 +127,9 @@ function empty(
  * immutable, and scenes originate from the corresponding document. The
  * function never validates/repairs untrusted documents itself.
  *
- * For reliable O(1) viewport-only classification, reuse the certified
- * immutable content records/order from the previous document.
+ * Reuse certified immutable content records/order to avoid rebuilding
+ * geometry. This first implementation still checks ordered item identity
+ * and therefore performs an O(N) scan over the scene.
  */
 export function deriveBoardSceneDelta({
   previousDocument,
