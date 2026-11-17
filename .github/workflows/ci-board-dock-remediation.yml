@@ -9,6 +9,11 @@ on:
       - tests/e2e/lesson-mode.spec.ts
       - tests/e2e/local-clear-memory.spec.ts
       - tests/e2e/c39-large-board-profile.spec.ts
+      - tests/e2e/board-tool-dock.ts
+      - tests/e2e/momentary-pan.spec.ts
+      - tests/e2e/oil-paint-brush.spec.ts
+      - tests/e2e/media-cache-lifecycle.spec.ts
+      - tests/e2e/qol-quick-tools.spec.ts
   workflow_dispatch:
 
 permissions:
@@ -47,6 +52,10 @@ jobs:
             tests/e2e/lesson-mode.spec.ts \
             tests/e2e/local-clear-memory.spec.ts \
             tests/e2e/c39-large-board-profile.spec.ts \
+            tests/e2e/momentary-pan.spec.ts \
+            tests/e2e/oil-paint-brush.spec.ts \
+            tests/e2e/media-cache-lifecycle.spec.ts \
+            tests/e2e/qol-quick-tools.spec.ts \
             --grep @smoke \
             --project=${{ matrix.browser }} \
             --workers=1 --retries=0 --max-failures=3 \
