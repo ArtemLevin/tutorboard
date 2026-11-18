@@ -69,6 +69,8 @@ BoardDocument (canonical, immutable)
 
 ### ICE-00 — Architecture & performance contract (docs only)
 
+Архитектурный контракт: [ADR-033 (proposed)](../adr/ADR-033-infinite-canvas-engine-2.md).
+
 - Зафиксировать renderer ownership и read-model/scene-delta контракты, жизненный цикл, область кеширования, точность, поддерживаемые браузеры и бюджет памяти.
 - Подготовить ADR, memory/quality/rollback matrix, указать ownership тестов и feature flags. Проверить влияние C3.9 и существующих Draft PR.
 - Установить одинаковые правила для teacher/guest, multi-board, disposal и runtime fallback.
