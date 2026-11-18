@@ -291,7 +291,7 @@ function localObjectPoints(object: BoardObject): readonly Vec2[] {
   }
 }
 
-function itemBounds(item: BoardRenderItem) {
+export function itemBounds(item: BoardRenderItem) {
   const objectTransform: Transform2D = {
     rotation: item.object.rotation,
     scale: item.object.scale,
@@ -315,9 +315,12 @@ function itemBounds(item: BoardRenderItem) {
   };
 }
 
-type BoardItemBounds = ReturnType<typeof itemBounds>;
+export type BoardItemBounds = ReturnType<typeof itemBounds>;
 
-function visibleWorldBounds(viewport: ViewportState, size: BoardViewportSize) {
+export function visibleWorldBounds(
+  viewport: ViewportState,
+  size: BoardViewportSize,
+) {
   const overscan = Math.max(0, size.overscan ?? 160);
   return {
     left: (-viewport.offset.x - overscan) / viewport.zoom,

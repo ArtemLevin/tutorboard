@@ -354,6 +354,15 @@ export {
   type DeriveBoardSceneDeltaInput,
 } from "./scene/scene-delta";
 export {
+  createBoardSceneSpatialIndex,
+  deriveSceneDirtyBounds,
+  type BoardSceneSpatialIndex,
+  type SceneDirtyBounds,
+  type SceneDirtyItem,
+  type SceneSpatialIndexStats,
+  type SceneWorldBounds,
+} from "./scene/scene-spatial-index";
+export {
   deserializeBoardDocument,
   serializeBoardDocument,
   serializeBoardDocument14ForCompatibility,
