@@ -61,7 +61,10 @@ export interface StandaloneBoardManagementRepository {
   readonly archiveBoard: (
     boardId: DocumentId,
   ) => Promise<StandaloneBoardDescriptor>;
-  readonly createBoard: (title?: string) => Promise<StandaloneBoardDescriptor>;
+  readonly createBoard: (
+    title?: string,
+    options?: { readonly clientLessonId?: string },
+  ) => Promise<StandaloneBoardDescriptor>;
   readonly createInvitation: (
     boardId: DocumentId,
     input: CreateBoardInvitationInput,

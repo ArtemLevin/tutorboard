@@ -8,7 +8,10 @@ import {
   type ReactNode,
 } from "react";
 
-import { createTeacherBoardManagementRepository } from "../adapters/board-http/public";
+import {
+  createTeacherBoardManagementRepository,
+  verifyTutorAssistantHandoff,
+} from "../adapters/board-http/public";
 import type {
   BoardInvitationSecretResult,
   BoardInvitationSummary,
@@ -17,7 +20,34 @@ import type {
   TeacherManagementContext,
 } from "../core/public";
 import type { AppEnvironment } from "./configuration/environment";
+import {
+  handoffCompletionUrl,
+  readLessonBoardHandoff,
+  validTutorBoardId,
+} from "./lesson-board-handoff";
 import "./teacher-boards.css";
+
+const inFlightLessonCreates = new Map<string, Promise<string>>();
+let cachedLessonBoardHandoff:
+  ReturnType<typeof readLessonBoardHandoff> | undefined;
+
+/** Reading once survives React StrictMode's deliberate double render. */
+function consumeLessonBoardHandoff(): ReturnType<
+  typeof readLessonBoardHandoff
+> {
+  if (cachedLessonBoardHandoff === undefined) {
+    cachedLessonBoardHandoff = readLessonBoardHandoff(window.location.hash);
+    if (cachedLessonBoardHandoff !== null) {
+      // Remove the secret fragment before any network request or redirects.
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + window.location.search,
+      );
+    }
+  }
+  return cachedLessonBoardHandoff;
+}
 
 type BoardTab = "active" | "archive";
 type ExpiryPreset = "1h" | "24h" | "7d" | "never";
@@ -675,6 +705,7 @@ export function TeacherBoardsWorkspace({
       }),
     [context, environment.boardApiBaseUrl],
   );
+  const handoff = useMemo(() => consumeLessonBoardHandoff(), []);
   const [boards, setBoards] = useState<readonly StandaloneBoardDescriptor[]>(
     [],
   );
@@ -684,6 +715,8 @@ export function TeacherBoardsWorkspace({
   const [tab, setTab] = useState<BoardTab>("active");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [handoffError, setHandoffError] = useState<string | null>(null);
+  const [handoffAttempt, setHandoffAttempt] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [renameBoard, setRenameBoard] =
@@ -692,6 +725,80 @@ export function TeacherBoardsWorkspace({
     useState<StandaloneBoardDescriptor | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [busyBoardId, setBusyBoardId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (handoff === null) return;
+    let cancelled = false;
+
+    const createAndLink = async () => {
+      try {
+        // The browser session must be exactly the configured teacher and tenant.
+        if (
+          context.userId !== handoff.teacherUserId ||
+          context.organizationId !== handoff.organizationId
+        ) {
+          throw new Error(
+            "Учётная запись TutorBoard отличается от ожидаемого преподавателя.",
+          );
+        }
+        // Authenticate the request against the running desktop application before POST.
+        await verifyTutorAssistantHandoff(handoff);
+        if (cancelled) return;
+
+        const storageKey = `tutor-assistant:board:${handoff.lessonId}`;
+        let boardId: string | null = null;
+        try {
+          const saved = window.sessionStorage.getItem(storageKey);
+          if (saved !== null && validTutorBoardId(saved)) boardId = saved;
+        } catch {
+          // Private browsing can disable session storage. In-memory deduplication remains.
+        }
+        if (boardId === null) {
+          let pending = inFlightLessonCreates.get(handoff.lessonId);
+          if (pending === undefined) {
+            pending = repository
+              .createBoard(handoff.title, { clientLessonId: handoff.lessonId })
+              .then((board) => board.boardId);
+            inFlightLessonCreates.set(handoff.lessonId, pending);
+          }
+          try {
+            boardId = await pending;
+          } catch (failure) {
+            inFlightLessonCreates.delete(handoff.lessonId);
+            throw failure;
+          }
+          if (!validTutorBoardId(boardId))
+            throw new Error("Неверный ID доски.");
+          try {
+            window.sessionStorage.setItem(storageKey, boardId);
+          } catch {
+            // The one-time callback still works without browser storage.
+          }
+        }
+        if (!cancelled) {
+          window.location.replace(handoffCompletionUrl(handoff, boardId));
+        }
+      } catch (caught) {
+        if (!cancelled) {
+          setHandoffError(
+            caught instanceof Error
+              ? caught.message
+              : "Не удалось создать доску занятия.",
+          );
+        }
+      }
+    };
+    void createAndLink();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    handoff,
+    repository,
+    handoffAttempt,
+    context.userId,
+    context.organizationId,
+  ]);
 
   const refreshBoards = useCallback(async () => {
     setLoading(true);
@@ -804,6 +911,17 @@ export function TeacherBoardsWorkspace({
             type="button"
           >
             ×
+          </button>
+        </div>
+      )}
+      {handoff === null || handoffError === null ? null : (
+        <div className="teacher-error" role="alert">
+          <span>{handoffError}</span>
+          <button
+            onClick={() => setHandoffAttempt((attempt) => attempt + 1)}
+            type="button"
+          >
+            Повторить привязку занятия
           </button>
         </div>
       )}
