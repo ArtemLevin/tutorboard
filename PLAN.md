@@ -39,6 +39,8 @@
 
 Измерительный этап ICE-01 (experimental, CI pending): [протокол baseline](docs/performance/ICE2_BASELINE_PROTOCOL.md).
 
+Первый базовый модуль ICE-02A (experimental): [scene-delta foundation](docs/performance/ICE2_SCENE_DELTA_FOUNDATION.md). Реальный тайловый renderer пока не подключён.
+
 - **Статус: plan only.** Новый renderer, runtime-флаги, протоколы и production поведение этим изменением не внедряются.
 - Цель: улучшить отзывчивость больших полотен (5k/10k обязательный gate; 30k/100k исследовательская цель) с сохранением `BoardDocument`, object IDs/z-order, Wet Ink, точного hit-testing, истории, экспорта, доступа и совместной работы.
 - Порядок: архитектурный контракт/измеритель → incremental scene/spatial index → заменяемые adapter/feature flags → bounded tiles/cache → независимый A/B gate; GPU batching, Worker и LOD только по подтверждённой необходимости → interaction/collaboration → крупное хранение при необходимости → pilot/rollout.
