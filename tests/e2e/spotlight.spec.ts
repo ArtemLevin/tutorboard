@@ -1,5 +1,6 @@
-import { revealBoardToolDock } from "./board-tool-dock";
 import { expect, test } from "@playwright/test";
+
+import { revealBoardToolDock } from "./board-tool-dock.js";
 
 test("@smoke spotlight follows cursor without changing board", async ({
   page,
