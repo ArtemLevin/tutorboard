@@ -20,6 +20,7 @@ on:
       - tests/e2e/text-editing.spec.ts
       - tests/e2e/standalone-launch.spec.ts
       - tests/e2e/stroke-smoothing.spec.ts
+      - tests/e2e/viewport-bookmarks.spec.ts
   workflow_dispatch:
 
 permissions:
@@ -68,6 +69,7 @@ jobs:
             tests/e2e/text-editing.spec.ts \
             tests/e2e/standalone-launch.spec.ts \
             tests/e2e/stroke-smoothing.spec.ts \
+            tests/e2e/viewport-bookmarks.spec.ts \
             --grep @smoke \
             --project=${{ matrix.browser }} \
             --workers=1 --retries=0 --max-failures=3 \
