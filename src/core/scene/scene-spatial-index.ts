@@ -80,8 +80,13 @@ function finiteBounds(bounds: SceneWorldBounds): boolean {
 }
 
 function safeBounds(item: BoardRenderItem): SceneWorldBounds | null {
-  const bounds = itemBounds(item);
-  return finiteBounds(bounds) ? bounds : null;
+  try {
+    const bounds = itemBounds(item);
+    return finiteBounds(bounds) ? bounds : null;
+  } catch {
+    // Excessive/unsupported geometry must fail open in the broad phase.
+    return null;
+  }
 }
 
 function cellKeys(
@@ -122,7 +127,9 @@ function overlaps(a: SceneWorldBounds, b: SceneWorldBounds): boolean {
 }
 
 /** Unknown geometry requires full invalidation, never a clipped dirty tile. */
-export function deriveSceneDirtyBounds(delta: BoardSceneDelta): SceneDirtyBounds {
+export function deriveSceneDirtyBounds(
+  delta: BoardSceneDelta,
+): SceneDirtyBounds {
   if (delta.kind === "reset") {
     return {
       fullInvalidation: true,
@@ -147,16 +154,19 @@ export function deriveSceneDirtyBounds(delta: BoardSceneDelta): SceneDirtyBounds
       after: safeBounds(change.next),
     })),
   ];
-  const known = items.every((change) => {
-    const hadOld = delta.removed.some(
-      (item) => item.object.id === change.id,
-    ) || delta.updated.some((item) => item.id === change.id);
-    const hasNew = delta.added.some(
-      (item) => item.object.id === change.id,
-    ) || delta.updated.some((item) => item.id === change.id);
-    return (!hadOld || change.before !== null) &&
-      (!hasNew || change.after !== null);
-  });
+  const oldIds = new Set([
+    ...delta.removed.map((item) => item.object.id),
+    ...delta.updated.map((change) => change.id),
+  ]);
+  const newIds = new Set([
+    ...delta.added.map((item) => item.object.id),
+    ...delta.updated.map((change) => change.id),
+  ]);
+  const known = items.every(
+    (change) =>
+      (!oldIds.has(change.id) || change.before !== null) &&
+      (!newIds.has(change.id) || change.after !== null),
+  );
   return {
     fullInvalidation: !known,
     viewportChanged: delta.viewportChanged,
@@ -192,8 +202,7 @@ export function createBoardSceneSpatialIndex(
     const id = item.object.id;
     remove(id);
     const bounds = safeBounds(item);
-    const cells =
-      bounds === null ? null : cellKeys(bounds, maximumCellsPerItem);
+    const cells = bounds === null ? null : cellKeys(bounds, maximumCellsPerItem);
     entries.set(id, { item, rank, bounds, cells });
     if (cells === null) {
       overflow.add(id);
@@ -230,11 +239,15 @@ export function createBoardSceneSpatialIndex(
       }
       const nextIds = nextScene.items.map((item) => item.object.id);
       const prefixLength = Math.min(order.length, nextIds.length);
+      const removedIds = new Set(
+        delta.removed.map((item) => item.object.id),
+      );
       if (
         order.slice(0, prefixLength).some((id, i) => id !== nextIds[i]) ||
-        delta.kind === "patch" &&
-          delta.changedIds.some((id) => !nextIds.includes(id) &&
-            !delta.removed.some((item) => item.object.id === id))
+        (delta.kind === "patch" &&
+          delta.changedIds.some(
+            (id) => !nextIds.includes(id) && !removedIds.has(id),
+          ))
       ) {
         rebuild(nextScene);
         return "rebuild";
@@ -243,7 +256,9 @@ export function createBoardSceneSpatialIndex(
       if (delta.kind === "camera" || delta.kind === "noop") {
         if (
           nextScene.items.length !== entries.size ||
-          nextScene.items.some((item) => entries.get(item.object.id)?.item !== item)
+          nextScene.items.some(
+            (item) => entries.get(item.object.id)?.item !== item,
+          )
         ) {
           rebuild(nextScene);
           return "rebuild";
@@ -254,7 +269,8 @@ export function createBoardSceneSpatialIndex(
       const changed = new Set(delta.changedIds);
       if (
         nextScene.items.some(
-          (item) => !changed.has(item.object.id) &&
+          (item) =>
+            !changed.has(item.object.id) &&
             entries.get(item.object.id)?.item !== item,
         )
       ) {
@@ -300,7 +316,9 @@ export function createBoardSceneSpatialIndex(
           candidates.push(entry);
         }
       }
-      return candidates.sort((a, b) => a.rank - b.rank).map((entry) => entry.item);
+      return candidates
+        .sort((a, b) => a.rank - b.rank)
+        .map((entry) => entry.item);
     },
 
     queryViewport(viewport, size) {
