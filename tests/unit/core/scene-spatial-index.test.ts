@@ -19,11 +19,7 @@ const secondId = boardObjectId("object:ice2b-second");
 const thirdId = boardObjectId("object:ice2b-third");
 const fourthId = boardObjectId("object:ice2b-fourth");
 
-function rectangle(
-  id: BoardObjectId,
-  x: number,
-  width = 60,
-): RectangleObject {
+function rectangle(id: BoardObjectId, x: number, width = 60): RectangleObject {
   return {
     id,
     kind: "drawing.rectangle",
