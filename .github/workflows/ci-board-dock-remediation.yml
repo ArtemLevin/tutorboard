@@ -14,6 +14,8 @@ on:
       - tests/e2e/oil-paint-brush.spec.ts
       - tests/e2e/media-cache-lifecycle.spec.ts
       - tests/e2e/qol-quick-tools.spec.ts
+      - tests/e2e/qol-stylus-eraser.spec.ts
+      - tests/e2e/spotlight.spec.ts
   workflow_dispatch:
 
 permissions:
@@ -56,6 +58,8 @@ jobs:
             tests/e2e/oil-paint-brush.spec.ts \
             tests/e2e/media-cache-lifecycle.spec.ts \
             tests/e2e/qol-quick-tools.spec.ts \
+            tests/e2e/qol-stylus-eraser.spec.ts \
+            tests/e2e/spotlight.spec.ts \
             --grep @smoke \
             --project=${{ matrix.browser }} \
             --workers=1 --retries=0 --max-failures=3 \
