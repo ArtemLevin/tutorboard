@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 
@@ -55,6 +56,8 @@ interface C39Scenario {
   readonly expectedAnimatedLayers?: number;
   /** User-priority scenario: large pen documents plus 10 static PNG/JPEG images. */
   readonly staticHeavy?: boolean;
+  /** ICE-01 descriptive trace-off baseline; never enabled in standard C3.9. */
+  readonly iceBaseline?: boolean;
 }
 
 // Small fast subset is automatically covered by the normal CI media profile.
@@ -295,6 +298,101 @@ const staticHeavyScenarios: readonly C39Scenario[] = [
     cold: true,
     quick: false,
     staticHeavy: true,
+    expectedLayers: 1,
+    expectedAnimatedLayers: 0,
+  },
+];
+
+// ICE-01 opt-in. Reuse the real 4 PNG + 6 JPEG C3.9 static-media
+// workload and IndexedDB restore; this is a descriptive baseline, not A/B.
+const iceBaselineScenarios: readonly C39Scenario[] = [
+  {
+    name: "ice2-1000-static",
+    strokes: 1000,
+    visibleStrokes: 800,
+    gifs: 0,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: true,
+    quick: false,
+    staticHeavy: true,
+    iceBaseline: true,
+    expectedLayers: 1,
+    expectedAnimatedLayers: 0,
+  },
+  {
+    name: "ice2-3000-static",
+    strokes: 3000,
+    visibleStrokes: 2400,
+    gifs: 0,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: true,
+    quick: false,
+    staticHeavy: true,
+    iceBaseline: true,
+    expectedLayers: 1,
+    expectedAnimatedLayers: 0,
+  },
+  {
+    name: "ice2-5000-static",
+    strokes: 5000,
+    visibleStrokes: 4000,
+    gifs: 0,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: true,
+    quick: false,
+    staticHeavy: true,
+    iceBaseline: true,
+    expectedLayers: 1,
+    expectedAnimatedLayers: 0,
+  },
+  {
+    name: "ice2-10000-static",
+    strokes: 10000,
+    visibleStrokes: 8000,
+    gifs: 0,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: true,
+    quick: false,
+    staticHeavy: true,
+    iceBaseline: true,
+    expectedLayers: 1,
+    expectedAnimatedLayers: 0,
+  },
+];
+
+// Research-only stress workloads, independently opted into by an explicit
+// environment flag. Offscreen placement isolates document size from paint.
+// No 30k/100k performance capability is claimed by adding these fixtures.
+const iceLargeScenarios: readonly C39Scenario[] = [
+  {
+    name: "ice2-30000-offscreen",
+    strokes: 30000,
+    visibleStrokes: 1000,
+    gifs: 0,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: true,
+    quick: false,
+    staticHeavy: true,
+    iceBaseline: true,
+    expectedLayers: 1,
+    expectedAnimatedLayers: 0,
+  },
+  {
+    name: "ice2-100000-offscreen",
+    strokes: 100000,
+    visibleStrokes: 1000,
+    gifs: 0,
+    dpr: 2,
+    zOrder: "trailing",
+    cold: true,
+    quick: false,
+    staticHeavy: true,
+    iceBaseline: true,
     expectedLayers: 1,
     expectedAnimatedLayers: 0,
   },
@@ -555,24 +653,38 @@ function summarizePhases(
   };
 }
 
+const includeIceBaseline = process.env.ICE_BASELINE_PROFILE === "1";
+const includeIceLarge =
+  includeIceBaseline && process.env.ICE_BASELINE_LARGE === "1";
+
 for (const scenario of [
   ...scenarios,
   ...(process.env.C39_E2_PROFILE === "1" ? e2Scenarios : []),
   ...(process.env.C39_STATIC_HEAVY_PROFILE === "1" ? staticHeavyScenarios : []),
+  ...(includeIceBaseline ? iceBaselineScenarios : []),
+  ...(includeIceLarge ? iceLargeScenarios : []),
 ]) {
   test(
     (scenario.name === "3000-cold-mixed" ? "@smoke " : "") +
-      (scenario.staticHeavy
-        ? "@c39-static-heavy "
-        : scenario.e2
-          ? "@c39-e2 "
-          : scenario.quick
-            ? "@media-profile @c39-quick "
-            : "@c39-extended ") +
+      (scenario.iceBaseline
+        ? "@ice2-baseline "
+        : scenario.staticHeavy
+          ? "@c39-static-heavy "
+          : scenario.e2
+            ? "@c39-e2 "
+            : scenario.quick
+              ? "@media-profile @c39-quick "
+              : "@c39-extended ") +
       "representative zoom baseline: " +
       scenario.name,
     async ({ browser }, testInfo) => {
-      test.setTimeout(scenario.staticHeavy ? 360_000 : 180_000);
+      test.setTimeout(
+        scenario.iceBaseline && scenario.strokes >= 30000
+          ? 900_000
+          : scenario.staticHeavy
+            ? 360_000
+            : 180_000,
+      );
       const context = await browser.newContext({
         deviceScaleFactor: scenario.dpr,
         viewport: { width: 1240, height: 820 },
@@ -582,8 +694,10 @@ for (const scenario of [
         // Trace-off is the same physical scene without JS event collection.
         // Each test gets an isolated browser context; production never opts in.
         const traceEnabled =
-          scenario.strokes >= 3000 && !scenario.traceDisabled;
-        if (traceEnabled || !scenario.e2) {
+          scenario.strokes >= 3000 &&
+          !scenario.traceDisabled &&
+          !scenario.iceBaseline;
+        if (traceEnabled || (!scenario.e2 && !scenario.iceBaseline)) {
           await page.addInitScript(() => {
             window.__tutorBoardC37Trace = { events: [] };
           });
@@ -644,6 +758,21 @@ for (const scenario of [
                 animatedGifSize: { width: 64, height: 64 },
               }),
         });
+        // Compute integrity manifests before timing the actual persisted load.
+        // This digest intentionally covers the real fixture's document bytes,
+        // including generated JPEG payloads and the complete object order.
+        const fixture = scenario.iceBaseline
+          ? {
+              workloadVersion: 1,
+              strokeGeometry: "varied" as const,
+              documentSha256: createHash("sha256")
+                .update(JSON.stringify(board))
+                .digest("hex"),
+              mediaSha256: createHash("sha256")
+                .update(staticUrls.join("\n"))
+                .digest("hex"),
+            }
+          : undefined;
         const importStart = performance.now();
         if (scenario.staticHeavy) {
           await restoreLargeBoardFromLocalStore(page, board);
@@ -662,6 +791,22 @@ for (const scenario of [
           ),
           prepared:
             (await stage.getAttribute("data-wheel-cache-prepared")) === "true",
+          ...(scenario.iceBaseline
+            ? {
+                visibleObjects: Number(
+                  await stage.getAttribute("data-visible-object-count"),
+                ),
+                camera: {
+                  zoom: Number(await stage.getAttribute("data-preview-zoom")),
+                  offsetX: Number(
+                    await stage.getAttribute("data-preview-offset-x"),
+                  ),
+                  offsetY: Number(
+                    await stage.getAttribute("data-preview-offset-y"),
+                  ),
+                },
+              }
+            : {}),
         };
         if (scenario.expectedLayers !== undefined) {
           expect(before.layers, "E2 composition changed unexpectedly").toBe(
@@ -818,13 +963,16 @@ for (const scenario of [
         const report = {
           schemaVersion: 1,
           baselineSha: process.env.GITHUB_SHA ?? "local",
-          experiment: scenario.staticHeavy
-            ? "C3.9-STATIC"
-            : scenario.e2
-              ? "C3.9-E2"
-              : "C3.9",
+          experiment: scenario.iceBaseline
+            ? "ICE2-BASELINE"
+            : scenario.staticHeavy
+              ? "C3.9-STATIC"
+              : scenario.e2
+                ? "C3.9-E2"
+                : "C3.9",
           traceEnabled,
           scenario,
+          ...(fixture === undefined ? {} : { fixture }),
           browser: browser.version(),
           platform: process.platform,
           arch: process.arch,
@@ -853,6 +1001,22 @@ for (const scenario of [
             prepared:
               (await stage.getAttribute("data-wheel-cache-prepared")) ===
               "true",
+            ...(scenario.iceBaseline
+              ? {
+                  visibleObjects: Number(
+                    await stage.getAttribute("data-visible-object-count"),
+                  ),
+                  camera: {
+                    zoom: Number(await stage.getAttribute("data-preview-zoom")),
+                    offsetX: Number(
+                      await stage.getAttribute("data-preview-offset-x"),
+                    ),
+                    offsetY: Number(
+                      await stage.getAttribute("data-preview-offset-y"),
+                    ),
+                  },
+                }
+              : {}),
           },
           wheelPauseStillActiveAfterInputs,
           ...phases,
@@ -867,7 +1031,11 @@ for (const scenario of [
                 : attribution.traceAlignment,
           },
         };
-        console.info("C39_REPRESENTATIVE_BASELINE " + JSON.stringify(report));
+        console.info(
+          (scenario.iceBaseline
+            ? "ICE2_BASELINE "
+            : "C39_REPRESENTATIVE_BASELINE ") + JSON.stringify(report),
+        );
         if (attribution.frames.length > 0) {
           // Keep the full evidence in the JSON attachment, while console
           // output displays a compact summary useful for CI triage.
@@ -896,10 +1064,15 @@ for (const scenario of [
               }),
           );
         }
-        await testInfo.attach("c39-baseline-" + scenario.name + ".json", {
-          body: Buffer.from(JSON.stringify(report, null, 2)),
-          contentType: "application/json",
-        });
+        await testInfo.attach(
+          (scenario.iceBaseline ? "ice2-baseline-" : "c39-baseline-") +
+            scenario.name +
+            ".json",
+          {
+            body: Buffer.from(JSON.stringify(report, null, 2)),
+            contentType: "application/json",
+          },
+        );
       } finally {
         await context.close();
       }
