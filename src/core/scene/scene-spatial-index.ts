@@ -202,7 +202,8 @@ export function createBoardSceneSpatialIndex(
     const id = item.object.id;
     remove(id);
     const bounds = safeBounds(item);
-    const cells = bounds === null ? null : cellKeys(bounds, maximumCellsPerItem);
+    const cells =
+      bounds === null ? null : cellKeys(bounds, maximumCellsPerItem);
     entries.set(id, { item, rank, bounds, cells });
     if (cells === null) {
       overflow.add(id);
@@ -239,9 +240,7 @@ export function createBoardSceneSpatialIndex(
       }
       const nextIds = nextScene.items.map((item) => item.object.id);
       const prefixLength = Math.min(order.length, nextIds.length);
-      const removedIds = new Set(
-        delta.removed.map((item) => item.object.id),
-      );
+      const removedIds = new Set(delta.removed.map((item) => item.object.id));
       if (
         order.slice(0, prefixLength).some((id, i) => id !== nextIds[i]) ||
         (delta.kind === "patch" &&
