@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
+import { revealBoardToolDock } from "../e2e/board-tool-dock";
+
 const password = "standalone-pilot-e2e-password";
 const teacherEmail = "standalone-pilot-teacher@example.test";
 const gif1x1 = Buffer.from(
@@ -106,16 +108,6 @@ async function rasterData(
   return Buffer.from(base64, "base64");
 }
 
-async function expandBoardTools(page: Page): Promise<void> {
-  const toggle = page.getByRole("button", {
-    name: /Развернуть инструменты|Свернуть инструменты/u,
-  });
-  await toggle.waitFor({ state: "visible" });
-  if ((await toggle.getAttribute("aria-expanded")) === "false") {
-    await toggle.hover();
-    await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  }
-}
 
 async function insertImages(
   page: Page,
@@ -125,7 +117,7 @@ async function insertImages(
     readonly name: string;
   }[],
 ): Promise<void> {
-  await expandBoardTools(page);
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Медиа" }).click();
   const importInput = page.getByLabel("Вставить изображения");
   await expect(importInput).toHaveAttribute("accept", /image\/png/u);
@@ -268,7 +260,7 @@ test("F3.2.1 real PNG/JPEG/GIF upload precedes commands and survives guest sync 
 
     // Export must contain the real pixels (even after recovery), not metadata
     // placeholders, and must never expose the private storage key.
-    await expandBoardTools(teacher);
+    await revealBoardToolDock(teacher);
     await teacher.getByRole("button", { name: "Настройки доски" }).click();
     const settings = teacher.getByRole("dialog", { name: "Настройки доски" });
     const svgDownloadPromise = teacher.waitForEvent("download");
