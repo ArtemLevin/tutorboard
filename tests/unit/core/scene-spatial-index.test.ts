@@ -62,7 +62,7 @@ function document(): BoardDocument {
 }
 
 describe("ICE-02B spatial broad phase", () => {
-  it("matches the shipping visibility selector and exact document z-order", () => {
+  it("matches viewport culling and authoritative z-order", () => {
     const scene = createBoardSceneSelector()(document());
     const spatial = createBoardSceneSpatialIndex(scene);
     const size = { width: 180, height: 140, overscan: 0 };
@@ -87,7 +87,7 @@ describe("ICE-02B spatial broad phase", () => {
     });
   });
 
-  it("updates one immutable item and reports old/new dirty world bounds", () => {
+  it("tracks one immutable item and its old/new dirty bounds", () => {
     const base = document();
     const selector = createBoardSceneSelector();
     const before = selector(base);
@@ -117,9 +117,9 @@ describe("ICE-02B spatial broad phase", () => {
     expect(dirty.items[0]?.after?.left).toBeGreaterThan(8_900);
 
     expect(spatial.apply(delta, after)).toBe("patch");
-    expect(spatial.queryWorld({ left: 250, top: 0, right: 340, bottom: 100 })).toEqual(
-      [],
-    );
+    expect(
+      spatial.queryWorld({ left: 250, top: 0, right: 340, bottom: 100 }),
+    ).toEqual([]);
     expect(
       spatial
         .queryWorld({ left: 8_990, top: 0, right: 9_090, bottom: 100 })
@@ -128,7 +128,7 @@ describe("ICE-02B spatial broad phase", () => {
     expect(spatial.boundsFor(secondId)).toEqual(dirty.items[0]?.after);
   });
 
-  it("supports safe tail edits, camera-only deltas and conservative reorder reset", () => {
+  it("supports tail edits, camera changes and reorder reset", () => {
     const base = document();
     const selector = createBoardSceneSelector();
     const before = selector(base);
@@ -171,7 +171,10 @@ describe("ICE-02B spatial broad phase", () => {
     expect(spatial.apply(camera, cameraScene)).toBe("unchanged");
     expect(deriveSceneDirtyBounds(camera).items).toHaveLength(0);
 
-    const reordered = { ...movedViewport, order: [secondId, firstId, thirdId, fourthId] };
+    const reordered = {
+      ...movedViewport,
+      order: [secondId, firstId, thirdId, fourthId],
+    };
     const reorderedScene = selector(reordered);
     const reset = deriveBoardSceneDelta({
       previousDocument: movedViewport,
@@ -189,7 +192,7 @@ describe("ICE-02B spatial broad phase", () => {
     ).toEqual(reordered.order);
   });
 
-  it("bounds memory for oversized objects and returns them via overflow scan", () => {
+  it("bounds oversized geometry using overflow scan", () => {
     const base = document();
     const huge = {
       ...base,
@@ -211,7 +214,7 @@ describe("ICE-02B spatial broad phase", () => {
     expect(spatial.stats().bucketReferences).toBe(0);
   });
 
-  it("preserves visibility and bounded references across repeated scene replacement", () => {
+  it("releases stale references across repeated board replacement", () => {
     const selector = createBoardSceneSelector();
     const initial = selector(document());
     const spatial = createBoardSceneSpatialIndex(initial);
