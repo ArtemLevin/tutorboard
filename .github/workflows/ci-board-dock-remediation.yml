@@ -10,6 +10,7 @@ on:
       - tests/e2e/local-clear-memory.spec.ts
       - tests/e2e/c39-large-board-profile.spec.ts
       - tests/e2e/board-tool-dock.ts
+      - tests/e2e/active-stroke-latency.spec.ts
       - tests/e2e/momentary-pan.spec.ts
       - tests/e2e/oil-paint-brush.spec.ts
       - tests/e2e/media-cache-lifecycle.spec.ts
