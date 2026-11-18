@@ -1,10 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 test("@smoke bookmarks a viewport and restores it after reload", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
   await expect(page.getByTestId("board-stage")).toBeVisible();
   await page.getByTestId("board-stage").hover();
   await page.mouse.wheel(0, -430);
@@ -15,22 +17,27 @@ test("@smoke bookmarks a viewport and restores it after reload", async ({
   await expect(
     page.getByRole("button", { name: "Закладки областей" }),
   ).toHaveCount(0);
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page
     .getByRole("checkbox", { name: "Показывать закладки областей" })
     .check();
   await page.getByRole("button", { name: "Закрыть настройки доски" }).click();
 
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Закладки областей" }).click();
   await page
     .getByRole("textbox", { name: "Название новой области" })
     .fill("Теория");
   await page.getByRole("button", { name: "Сохранить область" }).click();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Закладки областей" }).click();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByRole("button", { name: "Центрировать доску" }).click();
   await page.keyboard.press("Escape");
 
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Закладки областей" }).click();
   await page.getByRole("button", { name: "Перейти: Теория" }).click();
   await expect(page.getByTestId("viewport-offset")).toHaveText(
@@ -40,6 +47,7 @@ test("@smoke bookmarks a viewport and restores it after reload", async ({
 
   await page.reload();
   await expect(page.getByTestId("board-stage")).toBeVisible();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Закладки областей" }).click();
   await expect(
     page.getByRole("button", { name: "Перейти: Теория" }),
@@ -65,13 +73,15 @@ test("@smoke saves bookmark preferences separately from board document", async (
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
   await expect(page.getByTestId("board-stage")).toBeVisible();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page
     .getByRole("checkbox", { name: "Показывать закладки областей" })
     .check();
   await page.getByRole("button", { name: "Закрыть настройки доски" }).click();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Закладки областей" }).click();
   await page.getByRole("button", { name: "Сохранить область" }).click();
   const stored = await page.evaluate(() =>
@@ -88,18 +98,22 @@ test("@smoke preserves bookmarks while hiding their shortcut", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
   await expect(
     page.getByRole("button", { name: "Закладки областей" }),
   ).toHaveCount(0);
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page
     .getByRole("checkbox", { name: "Показывать закладки областей" })
     .check();
   await page.getByRole("button", { name: "Закрыть настройки доски" }).click();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Закладки областей" }).click();
   await page.getByRole("button", { name: "Сохранить область" }).click();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Закладки областей" }).click();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page
     .getByRole("checkbox", { name: "Показывать закладки областей" })
@@ -109,11 +123,13 @@ test("@smoke preserves bookmarks while hiding their shortcut", async ({
   await expect(
     page.getByRole("button", { name: "Закладки областей" }),
   ).toHaveCount(0);
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page
     .getByRole("checkbox", { name: "Показывать закладки областей" })
     .check();
   await page.getByRole("button", { name: "Закрыть настройки доски" }).click();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Закладки областей" }).click();
   await expect(
     page.getByRole("button", { name: "Перейти: Область 1" }),

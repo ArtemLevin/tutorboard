@@ -41,6 +41,9 @@ test("@smoke imports a local image and transforms it", async ({ page }) => {
     "1",
   );
   await rightDoubleClickAt(page, await stageCenter(page));
+  // The inspector belongs to the hover-only dock, which auto-collapses
+  // when the pointer moves onto the canvas for the double-click.
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await page
     .getByRole("button", { name: "Увеличить выделение на 10%" })
     .click();

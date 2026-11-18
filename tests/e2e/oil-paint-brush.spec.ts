@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 test("@smoke oil paint brush previews, commits and restores a stroke", async ({
   page,
 }) => {
@@ -10,6 +12,7 @@ test("@smoke oil paint brush previews, commits and restores a stroke", async ({
 
   await page.keyboard.press("p");
   await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.pen");
+  await revealBoardToolDock(page);
   const styleTrigger = page.getByRole("button", { name: /Стиль линии:/ });
   await styleTrigger.click();
   await page.getByRole("menuitemradio", { name: "Масляная кисть" }).click();

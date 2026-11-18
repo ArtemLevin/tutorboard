@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { rightDoubleClickAt } from "./coordinate-plot-interaction.js";
+import { revealBoardToolDock } from "./board-tool-dock.js";
 
 async function stagePoint(page: Page, x: number, y: number) {
   const bounds = await page.getByTestId("board-stage").boundingBox();
@@ -16,11 +17,7 @@ async function openBoardWithPen(page: Page): Promise<void> {
       name: "Бесконечное полотно TutorBoard",
     }),
   ).toBeVisible();
-  await page
-    .getByRole("button", {
-      name: /Развернуть инструменты|Свернуть инструменты/u,
-    })
-    .hover();
+  await revealBoardToolDock(page);
   const drawingMenu = page.getByRole("button", { name: "Рисование" });
   await drawingMenu.click();
   await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
@@ -68,6 +65,7 @@ test(
     await page.mouse.click(settingsPoint.x, settingsPoint.y);
     await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
     await rightDoubleClickAt(page, settingsPoint);
+    await revealBoardToolDock(page);
     await expect(
       page.getByRole("button", { name: "Увеличить выделение на 10%" }),
     ).toBeVisible();
@@ -82,6 +80,7 @@ test(
       "data-transformable-count",
       "1",
     );
+    await revealBoardToolDock(page);
 
     await page
       .getByRole("button", { name: "Увеличить выделение на 10%" })

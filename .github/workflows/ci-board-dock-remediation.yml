@@ -1,0 +1,134 @@
+name: CI board dock and C3.9 smoke remediation
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/ci-board-dock-remediation.yml
+      - tests/e2e/history.spec.ts
+      - tests/e2e/image-import.spec.ts
+      - tests/e2e/lesson-mode.spec.ts
+      - tests/e2e/local-clear-memory.spec.ts
+      - tests/e2e/c39-large-board-profile.spec.ts
+      - tests/e2e/board-tool-dock.ts
+      - tests/e2e/active-stroke-latency.spec.ts
+      - tests/e2e/momentary-pan.spec.ts
+      - tests/e2e/oil-paint-brush.spec.ts
+      - tests/e2e/media-cache-lifecycle.spec.ts
+      - tests/e2e/qol-quick-tools.spec.ts
+      - tests/e2e/qol-stylus-eraser.spec.ts
+      - tests/e2e/spotlight.spec.ts
+      - tests/e2e/styling.spec.ts
+      - tests/e2e/text-editing.spec.ts
+      - tests/e2e/standalone-launch.spec.ts
+      - tests/e2e/stroke-smoothing.spec.ts
+      - tests/e2e/viewport-bookmarks.spec.ts
+      - tests/e2e/media-performance.spec.ts
+      - tests/e2e/cleared-board-zoom-profile.spec.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dock-remediation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install and build production
+        run: |
+          set -euo pipefail
+          npm ci
+          npx playwright install --with-deps ${{ matrix.browser }}
+          npm run build
+      - name: Run focused browser scenarios with one worker
+        run: |
+          set -o pipefail
+          npm run e2e -- \
+            tests/e2e/history.spec.ts \
+            tests/e2e/image-import.spec.ts \
+            tests/e2e/lesson-mode.spec.ts \
+            tests/e2e/local-clear-memory.spec.ts \
+            tests/e2e/c39-large-board-profile.spec.ts \
+            tests/e2e/momentary-pan.spec.ts \
+            tests/e2e/oil-paint-brush.spec.ts \
+            tests/e2e/media-cache-lifecycle.spec.ts \
+            tests/e2e/qol-quick-tools.spec.ts \
+            tests/e2e/qol-stylus-eraser.spec.ts \
+            tests/e2e/spotlight.spec.ts \
+            tests/e2e/styling.spec.ts \
+            tests/e2e/text-editing.spec.ts \
+            tests/e2e/standalone-launch.spec.ts \
+            tests/e2e/stroke-smoothing.spec.ts \
+            tests/e2e/viewport-bookmarks.spec.ts \
+            tests/e2e/cleared-board-zoom-profile.spec.ts \
+            --grep @smoke \
+            --project=${{ matrix.browser }} \
+            --workers=1 --retries=0 --max-failures=3 \
+            --trace=retain-on-failure 2>&1 | tee focused-smoke.log
+      - name: Archive focused browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dock-remediation-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            focused-smoke.log
+            test-results
+          if-no-files-found: warn
+          retention-days: 7
+
+  isolated-perf:
+    name: isolated-pen-gif-perf (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install and build production
+        run: |
+          set -euo pipefail
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run build
+      - name: Enforce 240 Hz pen budget (three isolated repetitions)
+        run: |
+          set -o pipefail
+          npm run e2e -- \
+            tests/e2e/active-stroke-latency.spec.ts \
+            --grep @frame-budget --project=chromium \
+            --workers=1 --repeat-each=3 --retries=0 \
+            --trace=retain-on-failure 2>&1 | tee pen-frame-budget.log
+      - name: Enforce wheel/GIF live-gesture A/B isolation
+        run: |
+          set -o pipefail
+          npm run e2e -- \
+            tests/e2e/media-performance.spec.ts \
+            --grep large3000-animated --project=chromium \
+            --workers=1 --retries=0 --trace=retain-on-failure \
+            2>&1 | tee gif-wheel-ab.log
+      - name: Archive isolated performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dock-isolated-perf-${{ github.sha }}
+          path: |
+            pen-frame-budget.log
+            gif-wheel-ab.log
+            test-results
+          if-no-files-found: warn
+          retention-days: 7

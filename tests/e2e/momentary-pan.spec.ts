@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 test("@smoke holds Space to pan and restores the pen after pointer release", async ({
   page,
 }) => {
@@ -39,6 +41,7 @@ test("@smoke Space respects text input and clears after window blur", async ({
   await expect(stage).toBeVisible();
   await page.keyboard.press("t");
   await expect(stage).toHaveAttribute("data-drawing-mode", "drawing.text");
+  await revealBoardToolDock(page);
   const input = page.getByRole("textbox", { name: "Содержимое текста" });
   await input.focus();
   await page.keyboard.down("Space");

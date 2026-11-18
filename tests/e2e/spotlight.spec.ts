@@ -1,10 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 test("@smoke spotlight follows cursor without changing board", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
   const stage = page.getByTestId("board-stage");
   await expect(stage).toBeVisible();
 
@@ -35,6 +37,7 @@ test("@smoke spotlight follows cursor without changing board", async ({
   const historyCounter = page.getByTestId("history-depth");
   await expect(historyCounter).toHaveText(history ?? "");
 
+  await revealBoardToolDock(page);
   const radius = page.getByRole("slider", { name: "Диаметр фонаря" });
   const dim = page.getByRole("slider", { name: "Затемнение фонаря" });
   await radius.focus();
@@ -45,6 +48,7 @@ test("@smoke spotlight follows cursor without changing board", async ({
   await expect(mask).toHaveAttribute("data-spotlight-dim", "80");
 
   await stage.focus();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Фонарь (Shift+K)" }).click();
   await expect(mask).toHaveCount(0);
   await stage.focus();
@@ -57,7 +61,7 @@ test("@smoke spotlight follows cursor without changing board", async ({
 
 test("@smoke spotlight in lesson mode preserves history", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
   const initial = await page.getByTestId("history-depth").textContent();
   await page.getByRole("button", { name: "Режим занятия" }).click();
   const lesson = page.getByRole("toolbar", {
@@ -72,6 +76,7 @@ test("@smoke spotlight in lesson mode preserves history", async ({ page }) => {
 
   await page.keyboard.press("Escape");
   await expect(lesson).toHaveCount(0);
+  await revealBoardToolDock(page);
   const spotlightButton = page.getByRole("button", {
     name: "Фонарь (Shift+K)",
   });

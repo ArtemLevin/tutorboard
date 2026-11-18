@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { rightDoubleClickAt } from "./coordinate-plot-interaction.js";
+import { revealBoardToolDock } from "./board-tool-dock.js";
 
 test("edits the persisted style of a selected object", async ({ page }) => {
   await page.goto("/");
@@ -14,16 +15,13 @@ test("edits the persisted style of a selected object", async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(bounds.x + 390, bounds.y + 290, { steps: 4 });
   await page.mouse.up();
-  await page
-    .getByRole("button", {
-      name: /Развернуть инструменты|Свернуть инструменты/u,
-    })
-    .hover();
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Выделение" }).click();
   await page.getByRole("menuitemradio", { name: "Выделение (V)" }).click();
   const objectPoint = { x: bounds.x + 280, y: bounds.y + 180 };
   await page.mouse.click(objectPoint.x, objectPoint.y);
   await rightDoubleClickAt(page, objectPoint);
+  await revealBoardToolDock(page);
 
   await expect(
     page.getByRole("button", {
@@ -61,6 +59,7 @@ test("@smoke keeps numeric stroke width authoritative after style presets", asyn
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
   await page.keyboard.press("p");
+  await revealBoardToolDock(page);
 
   const width = page.getByRole("spinbutton", { name: "Толщина инструмента" });
   const styleTrigger = page.getByRole("button", { name: /Стиль линии:/ });

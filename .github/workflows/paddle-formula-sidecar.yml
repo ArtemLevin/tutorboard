@@ -128,7 +128,7 @@ jobs:
           expected = {
               "PaddlePaddle": "3.3.1",
               "Pillow": "13.0.0",
-              "msgpack": "1.2.1",
+              "msgpack": "1.2.3",
               "protobuf": "6.33.5",
               "setuptools": "83.0.0",
           }

@@ -377,6 +377,9 @@ async function importDocument(
   document: { readonly order: readonly string[] },
   timeoutMs = 5_000,
 ) {
+  // The compact dock starts collapsed. The standard C3.9 JSON-import path
+  // must explicitly expand it just as a teacher does with the mouse.
+  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(document)),
