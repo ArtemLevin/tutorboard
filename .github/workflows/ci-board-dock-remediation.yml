@@ -21,6 +21,8 @@ on:
       - tests/e2e/standalone-launch.spec.ts
       - tests/e2e/stroke-smoothing.spec.ts
       - tests/e2e/viewport-bookmarks.spec.ts
+      - tests/e2e/media-performance.spec.ts
+      - tests/e2e/cleared-board-zoom-profile.spec.ts
   workflow_dispatch:
 
 permissions:
@@ -70,6 +72,7 @@ jobs:
             tests/e2e/standalone-launch.spec.ts \
             tests/e2e/stroke-smoothing.spec.ts \
             tests/e2e/viewport-bookmarks.spec.ts \
+            tests/e2e/cleared-board-zoom-profile.spec.ts \
             --grep @smoke \
             --project=${{ matrix.browser }} \
             --workers=1 --retries=0 --max-failures=3 \
@@ -81,6 +84,50 @@ jobs:
           name: dock-remediation-${{ matrix.browser }}-${{ github.sha }}
           path: |
             focused-smoke.log
+            test-results
+          if-no-files-found: warn
+          retention-days: 7
+
+  isolated-perf:
+    name: isolated-pen-gif-perf (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install and build production
+        run: |
+          set -euo pipefail
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run build
+      - name: Enforce 240 Hz pen budget (three isolated repetitions)
+        run: |
+          set -o pipefail
+          npm run e2e -- \
+            tests/e2e/active-stroke-latency.spec.ts \
+            --grep @frame-budget --project=chromium \
+            --workers=1 --repeat-each=3 --retries=0 \
+            --trace=retain-on-failure 2>&1 | tee pen-frame-budget.log
+      - name: Enforce wheel/GIF live-gesture A/B isolation
+        run: |
+          set -o pipefail
+          npm run e2e -- \
+            tests/e2e/media-performance.spec.ts \
+            --grep large3000-animated --project=chromium \
+            --workers=1 --retries=0 --trace=retain-on-failure \
+            2>&1 | tee gif-wheel-ab.log
+      - name: Archive isolated performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dock-isolated-perf-${{ github.sha }}
+          path: |
+            pen-frame-budget.log
+            gif-wheel-ab.log
             test-results
           if-no-files-found: warn
           retention-days: 7
