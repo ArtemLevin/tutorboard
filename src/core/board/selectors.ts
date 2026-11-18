@@ -317,7 +317,10 @@ export function itemBounds(item: BoardRenderItem) {
 
 export type BoardItemBounds = ReturnType<typeof itemBounds>;
 
-export function visibleWorldBounds(viewport: ViewportState, size: BoardViewportSize) {
+export function visibleWorldBounds(
+  viewport: ViewportState,
+  size: BoardViewportSize,
+) {
   const overscan = Math.max(0, size.overscan ?? 160);
   return {
     left: (-viewport.offset.x - overscan) / viewport.zoom,
