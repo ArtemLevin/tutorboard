@@ -1,5 +1,6 @@
-import { revealBoardToolDock } from "./board-tool-dock";
 import { expect, test, type Page } from "@playwright/test";
+
+import { revealBoardToolDock } from "./board-tool-dock.js";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
