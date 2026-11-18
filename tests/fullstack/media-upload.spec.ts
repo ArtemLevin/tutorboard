@@ -108,7 +108,6 @@ async function rasterData(
   return Buffer.from(base64, "base64");
 }
 
-
 async function insertImages(
   page: Page,
   images: readonly {
