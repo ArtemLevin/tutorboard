@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
-import { revealBoardToolDock } from "../e2e/board-tool-dock";
+import { revealBoardToolDock } from "../e2e/board-tool-dock.js";
 
 const password = "standalone-pilot-e2e-password";
 const teacherEmail = "standalone-pilot-teacher@example.test";
