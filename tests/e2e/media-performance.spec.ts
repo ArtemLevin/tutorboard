@@ -1156,7 +1156,10 @@ async function profileLargeBoard(
         "data-wheel-cache-last-skipped-runs",
       ),
       ...(scenario.strokeCount === 3000
-        ? { c37Trace, gifInvalidationsDuringWheel: zoomGifMetrics?.duringWheel ?? null }
+        ? {
+            c37Trace,
+            gifInvalidationsDuringWheel: zoomGifMetrics?.duringWheel ?? null,
+          }
         : {}),
       ...(chromiumComposition === undefined ? {} : { chromiumComposition }),
       ...(c38Baseline === undefined ? {} : { c38Baseline }),
