@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+
 import { revealBoardToolDock } from "./board-tool-dock.js";
 
 const boardId = "document:lesson-01";
@@ -348,7 +349,7 @@ test(
     );
 
     await revealBoardToolDock(page);
-  await page.getByRole("button", { name: "Настройки доски" }).click();
+    await page.getByRole("button", { name: "Настройки доски" }).click();
     await expect(page.getByText("Ученик · Ксения")).toBeVisible();
     await expect(page.getByText("Режим только для чтения")).toBeVisible();
     await expect(
