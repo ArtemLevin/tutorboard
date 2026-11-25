@@ -1,0 +1,75 @@
+name: ICE 2.0 trace-off representative baseline
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/ice2-baseline.yml
+      - tests/e2e/c39-large-board-profile.spec.ts
+      - tests/node/ice2-baseline-summary.test.mjs
+      - scripts/c39/summarize-ice-baseline.mjs
+      - tests/fixtures/dense-board.ts
+  workflow_dispatch:
+    inputs:
+      include_large:
+        description: "Include research-only 30k and 100k offscreen workloads"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ice2-baseline-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trace-off:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      ICE_BASELINE_PROFILE: "1"
+      ICE_BASELINE_LARGE: ${{ github.event_name == 'workflow_dispatch' && inputs.include_large && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Build production and install Chromium
+        run: |
+          set -euo pipefail
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run build
+      - name: Unit-test baseline report integrity
+        run: npx vitest run tests/node/ice2-baseline-summary.test.mjs --reporter=verbose
+      - name: Three repeated browser matrices
+        run: |
+          set -euo pipefail
+          mkdir -p ice2-baseline-results
+          for repeat in 1 2 3; do
+            echo "ICE2 baseline repeat=$repeat large=$ICE_BASELINE_LARGE"
+            npm run e2e:c39-profile -- --grep @ice2-baseline 2>&1 |
+              tee "ice2-baseline-results/repeat-$repeat.log"
+          done
+      - name: Verify fixture identity and summarize descriptive results
+        run: |
+          set -euo pipefail
+          if [[ "$ICE_BASELINE_LARGE" == "1" ]]; then
+            node scripts/c39/summarize-ice-baseline.mjs \
+              ice2-baseline-results ice2-baseline-results/summary.json --large
+          else
+            node scripts/c39/summarize-ice-baseline.mjs \
+              ice2-baseline-results ice2-baseline-results/summary.json
+          fi
+      - name: Archive baseline logs and Playwright reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ice2-baseline-${{ github.sha }}
+          path: |
+            ice2-baseline-results
+            test-results
+          if-no-files-found: warn
+          retention-days: 14
