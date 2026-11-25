@@ -265,7 +265,8 @@ describe("Phase 3 performance budgets", () => {
         type Query = () => number;
         const queryReference: Query = () => {
           let total = 0;
-          for (const view of views) total += reference.select(view, size).length;
+          for (const view of views)
+            total += reference.select(view, size).length;
           return total;
         };
         const querySpatial: Query = () => {
@@ -311,7 +312,11 @@ describe("Phase 3 performance budgets", () => {
           const sorted = [...samples].sort((a, b) => a - b);
           const quantile = (q: number) =>
             sorted[Math.ceil(q * sorted.length) - 1]!;
-          return { p50: quantile(0.5), p95: quantile(0.95), max: sorted.at(-1) };
+          return {
+            p50: quantile(0.5),
+            p95: quantile(0.95),
+            max: sorted.at(-1),
+          };
         }
         console.info(
           "ICE2_SPATIAL_ABBA",
