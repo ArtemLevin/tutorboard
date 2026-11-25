@@ -233,6 +233,108 @@ describe("Phase 3 performance budgets", () => {
     },
   );
 
+  it.each([5_000, 10_000])(
+    "records paired ABBA culling profiles at %i objects",
+    (count) => {
+      for (const density of ["spread", "dense"] as const) {
+        const base = largeDocument(93, count);
+        const objects = { ...base.objects };
+        if (density === "dense") {
+          for (const id of base.order) {
+            const object = objects[id]!;
+            objects[id] = {
+              ...object,
+              position: {
+                x: object.position.x / 8,
+                y: object.position.y / 8,
+              },
+            };
+          }
+        }
+        const scene = createBoardSceneSelector()({ ...base, objects });
+        const reference = createBoardVisibilityIndex(scene.items);
+        const spatial = createBoardSceneSpatialIndex(scene);
+        const size = { height: 900, width: 1_600 };
+        const views = Array.from({ length: 48 }, (_value, i) => ({
+          offset: {
+            x: -((i % 12) * (density === "dense" ? 75 : 340)),
+            y: -(Math.floor(i / 12) * 160),
+          },
+          zoom: 0.5 + (i % 8) * 0.25,
+        }));
+        type Query = () => number;
+        const queryReference: Query = () => {
+          let total = 0;
+          for (const view of views) total += reference.select(view, size).length;
+          return total;
+        };
+        const querySpatial: Query = () => {
+          let total = 0;
+          for (const view of views)
+            total += spatial.queryViewport(view, size).length;
+          return total;
+        };
+        for (const view of views) {
+          const expected = reference.select(view, size);
+          const actual = spatial.queryViewport(view, size);
+          expect(actual).toHaveLength(expected.length);
+          expect(actual.every((item, i) => item === expected[i])).toBe(true);
+        }
+        const expectedTotal = queryReference();
+        for (let i = 0; i < 6; i += 1) {
+          expect(queryReference()).toBe(expectedTotal);
+          expect(querySpatial()).toBe(expectedTotal);
+        }
+        const referenceSamples: number[] = [];
+        const spatialSamples: number[] = [];
+        function measure(query: Query, samples: number[]): void {
+          const start = performance.now();
+          const total = query();
+          samples.push(performance.now() - start);
+          expect(total).toBe(expectedTotal);
+        }
+        // Balance first/last position and preserve all samples, including GC.
+        for (let i = 0; i < 10; i += 1) {
+          if (i % 2 === 0) {
+            measure(queryReference, referenceSamples);
+            measure(querySpatial, spatialSamples);
+            measure(querySpatial, spatialSamples);
+            measure(queryReference, referenceSamples);
+          } else {
+            measure(querySpatial, spatialSamples);
+            measure(queryReference, referenceSamples);
+            measure(queryReference, referenceSamples);
+            measure(querySpatial, spatialSamples);
+          }
+        }
+        function summarize(samples: readonly number[]) {
+          const sorted = [...samples].sort((a, b) => a - b);
+          const quantile = (q: number) =>
+            sorted[Math.ceil(q * sorted.length) - 1]!;
+          return { p50: quantile(0.5), p95: quantile(0.95), max: sorted.at(-1) };
+        }
+        console.info(
+          "ICE2_SPATIAL_ABBA",
+          JSON.stringify({
+            count,
+            density,
+            queriesPerSample: views.length,
+            reference: summarize(referenceSamples),
+            spatial: summarize(spatialSamples),
+            referenceSamples,
+            spatialSamples,
+            totalVisiblePerSample: expectedTotal,
+            stats: spatial.stats(),
+          }),
+        );
+        spatial.dispose();
+        expect(spatial.stats().items).toBe(0);
+        expect(spatial.stats().bucketReferences).toBe(0);
+      }
+    },
+    60_000,
+  );
+
   it("does not retain previously opened large documents", () => {
     const selector = createBoardSceneSelector();
     for (let index = 0; index < 8; index += 1) {
