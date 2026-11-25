@@ -4,6 +4,7 @@ import {
   boardObjectId,
   compilePlotExpression,
   createBoardSceneSelector,
+  createBoardSceneSpatialIndex,
   createBoardVisibilityIndex,
   deriveBoardSceneDelta,
   createEmptyBoardDocument,
@@ -16,14 +17,14 @@ import {
 
 const objectCount = 5_000;
 
-function largeDocument(seed = 0): BoardDocument {
+function largeDocument(seed = 0, count = objectCount): BoardDocument {
   const base = createEmptyBoardDocument({
     createdAt: "2026-07-24T12:00:00.000Z",
     id: documentId(`document:performance-${seed}`),
     title: "Representative large board",
   });
   const objects: Record<string, RectangleObject> = {};
-  const order = Array.from({ length: objectCount }, (_value, index) => {
+  const order = Array.from({ length: count }, (_value, index) => {
     const id = boardObjectId(`object:performance-${seed}-${index}`);
     objects[id] = {
       groupId: null,
@@ -164,6 +165,73 @@ describe("Phase 3 performance budgets", () => {
     // Shared-runner regression guard, not an ICE frame-latency improvement.
     expect(elapsedMs).toBeLessThan(500);
   });
+
+  it.each([5_000, 10_000])(
+    "profiles spatial query parity and bulk patches for %i objects",
+    (count) => {
+      const base = largeDocument(92, count);
+      const selector = createBoardSceneSelector();
+      const before = selector(base);
+      const reference = createBoardVisibilityIndex(before.items);
+      const spatial = createBoardSceneSpatialIndex(before);
+      const size = { height: 900, width: 1_600 };
+      const views = Array.from({ length: 48 }, (_value, index) => ({
+        offset: { x: -index * 170, y: -index * 75 },
+        zoom: 0.5 + (index % 8) * 0.25,
+      }));
+      // Warm both candidates and check exact object identity and z-order.
+      for (const view of views) {
+        const expected = reference.select(view, size);
+        const actual = spatial.queryViewport(view, size);
+        expect(actual).toHaveLength(expected.length);
+        expect(actual.every((item, i) => item === expected[i])).toBe(true);
+      }
+      const referenceStart = performance.now();
+      for (const view of views) reference.select(view, size);
+      const referenceMs = performance.now() - referenceStart;
+      const spatialStart = performance.now();
+      for (const view of views) spatial.queryViewport(view, size);
+      const spatialMs = performance.now() - spatialStart;
+
+      const objects = { ...base.objects };
+      for (const id of base.order.slice(0, count / 2)) {
+        const object = objects[id]!;
+        objects[id] = {
+          ...object,
+          position: { x: object.position.x + 512, y: object.position.y },
+        };
+      }
+      const next = { ...base, objects };
+      const after = selector(next);
+      const delta = deriveBoardSceneDelta({
+        previousDocument: base,
+        previousScene: before,
+        nextDocument: next,
+        nextScene: after,
+      });
+      expect(delta.updated).toHaveLength(count / 2);
+      const patchStart = performance.now();
+      const result = spatial.apply(delta, after);
+      const patchMs = performance.now() - patchStart;
+      expect(result).toBe("patch");
+      const updatedReference = createBoardVisibilityIndex(after.items);
+      for (const view of views) {
+        const expected = updatedReference.select(view, size);
+        const actual = spatial.queryViewport(view, size);
+        expect(actual).toHaveLength(expected.length);
+        expect(actual.every((item, i) => item === expected[i])).toBe(true);
+      }
+      expect(spatial.stats().items).toBe(count);
+      expect(spatial.stats().bucketReferences).toBeLessThanOrEqual(count * 64);
+      console.info(
+        "ICE2_SPATIAL_PROFILE",
+        JSON.stringify({ count, referenceMs, spatialMs, patchMs }),
+      );
+      spatial.dispose();
+      expect(spatial.stats().items).toBe(0);
+      expect(spatial.stats().bucketReferences).toBe(0);
+    },
+  );
 
   it("does not retain previously opened large documents", () => {
     const selector = createBoardSceneSelector();
