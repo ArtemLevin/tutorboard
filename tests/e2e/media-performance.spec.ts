@@ -5,6 +5,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { createDenseBoardDocument } from "../fixtures/dense-board.js";
 import { createCoordinatePlot } from "./coordinate-plot-interaction.js";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 const { PNG } = createRequire(import.meta.url)("pngjs") as {
   readonly PNG: {
     new (options: { readonly height: number; readonly width: number }): {
@@ -34,7 +36,9 @@ interface BrowserC37TraceEvent {
     | "react-other-run"
     | "konva-scene"
     | "konva-hit"
-    | "gif-invalidate";
+    | "gif-invalidate"
+    | "wheel-input"
+    | "wheel-animation-resume";
   readonly startMs: number;
   readonly durationMs: number;
   readonly detail?: string;
@@ -391,6 +395,9 @@ async function importDocument(
   page: Page,
   document: { readonly order: readonly string[] },
 ): Promise<void> {
+  // The dock is hover-only and collapsed after a page reload or canvas drag.
+  // Its settings action is inaccessible until the mouse enters the toggle.
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await page.getByLabel("Импорт документа JSON").setInputFiles({
     buffer: Buffer.from(JSON.stringify(document)),
@@ -410,6 +417,7 @@ async function addMixedSceneContent(
   const bounds = await stage.boundingBox();
   if (bounds === null) throw new Error("Board stage has no bounds");
 
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Рисование" }).click();
   await page.getByRole("menuitemradio", { name: /Перо/u }).click();
   await page.mouse.move(bounds.x + 180, bounds.y + 520);
@@ -691,6 +699,7 @@ test("@smoke file import decodes static raster before A2 renderer mount", async 
   page,
 }) => {
   await resetLocalDatabase(page);
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Медиа" }).click();
   await resetProfile(page);
 
@@ -772,6 +781,8 @@ interface LargeBoardInteractionMeasurement {
     readonly wheelCacheBuildPixels: number;
     readonly wheelCacheBuilds: number;
     readonly wheelCacheSkippedRuns: number;
+    /** GIF frame invalidations strictly between the first and last wheel inputs. */
+    readonly gifInvalidationsDuringWheel?: number | null;
     readonly c37Trace?: Record<
       string,
       {
@@ -785,11 +796,13 @@ interface LargeBoardInteractionMeasurement {
     readonly c38Baseline?: {
       readonly frames: FrameProfile;
       readonly gifInvalidations: number;
+      readonly gifInvalidationsDuringWheel: number | null;
       readonly directRendererDrawFrame?: ChromiumTraceSummary;
     };
     readonly c38BaselineRepeat?: {
       readonly frames: FrameProfile;
       readonly gifInvalidations: number;
+      readonly gifInvalidationsDuringWheel: number | null;
       readonly directRendererDrawFrame?: ChromiumTraceSummary;
     };
   };
@@ -866,6 +879,40 @@ async function startChromiumCompositorTrace(page: Page) {
   };
 }
 
+/** Measure only the live wheel-gesture window. A longer profile includes GIF
+ * redraws after wheel commit/resume, which are both correct and expected.
+ * The A/B control must animate during active wheel inputs; the optimized
+ * path must suspend the independent GIF coordinator during those inputs.
+ */
+async function readWheelGifInvalidations(page: Page): Promise<{
+  readonly total: number;
+  readonly duringWheel: number | null;
+}> {
+  return page.evaluate(() => {
+    const events = window.__tutorBoardC37Trace?.events ?? [];
+    const inputTimes = events
+      .filter((event) => event.kind === "wheel-input")
+      .map((event) => event.startMs);
+    const firstInput = inputTimes[0];
+    const lastInput = inputTimes.at(-1);
+    const invalidations = events.filter(
+      (event) => event.kind === "gif-invalidate",
+    );
+    return {
+      total: invalidations.length,
+      duringWheel:
+        firstInput === undefined ||
+        lastInput === undefined ||
+        firstInput >= lastInput
+          ? null
+          : invalidations.filter(
+              (event) =>
+                event.startMs >= firstInput && event.startMs < lastInput,
+            ).length,
+    };
+  });
+}
+
 async function integerStageMetric(page: Page, name: string): Promise<number> {
   const value = await page.getByTestId("board-stage").getAttribute(name);
   if (value === null || !Number.isFinite(Number(value))) {
@@ -914,6 +961,7 @@ async function profileLargeBoard(
   const idleFrames = await measureFrames(page, largeBoardFrameCount);
   const idleCounters = await snapshot(page);
 
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Рисование" }).click();
   await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();
   const stage = page.getByTestId("board-stage");
@@ -976,12 +1024,7 @@ async function profileLargeBoard(
             })(),
           ]);
           const composition = await finishBaselineTrace();
-          const gifInvalidations = await page.evaluate(
-            () =>
-              window.__tutorBoardC37Trace?.events.filter(
-                (event) => event.kind === "gif-invalidate",
-              ).length ?? 0,
-          );
+          const gifMetrics = await readWheelGifInvalidations(page);
           await measureFrames(page, 16);
           await page.evaluate(() => {
             if (window.__tutorBoardC37Trace === undefined) return;
@@ -990,7 +1033,8 @@ async function profileLargeBoard(
           });
           return {
             frames,
-            gifInvalidations,
+            gifInvalidations: gifMetrics.total,
+            gifInvalidationsDuringWheel: gifMetrics.duringWheel,
             ...(composition["DirectRenderer::DrawFrame"] === undefined
               ? {}
               : {
@@ -1023,6 +1067,10 @@ async function profileLargeBoard(
   const chromiumComposition =
     endChromiumTrace === null ? undefined : await endChromiumTrace();
   const zoomCounters = await snapshot(page);
+  const zoomGifMetrics =
+    scenario.strokeCount === 3000
+      ? await readWheelGifInvalidations(page)
+      : undefined;
   const c37Trace = await page.evaluate(() => {
     const events: readonly BrowserC37TraceEvent[] =
       window.__tutorBoardC37Trace?.events ?? [];
@@ -1107,7 +1155,12 @@ async function profileLargeBoard(
         page,
         "data-wheel-cache-last-skipped-runs",
       ),
-      ...(scenario.strokeCount === 3000 ? { c37Trace } : {}),
+      ...(scenario.strokeCount === 3000
+        ? {
+            c37Trace,
+            gifInvalidationsDuringWheel: zoomGifMetrics?.duringWheel ?? null,
+          }
+        : {}),
       ...(chromiumComposition === undefined ? {} : { chromiumComposition }),
       ...(c38Baseline === undefined ? {} : { c38Baseline }),
     },
@@ -1132,12 +1185,7 @@ async function profileLargeBoard(
             })(),
           ]);
           const composition = await finishRepeatTrace();
-          const gifInvalidations = await page.evaluate(
-            () =>
-              window.__tutorBoardC37Trace?.events.filter(
-                (event) => event.kind === "gif-invalidate",
-              ).length ?? 0,
-          );
+          const gifMetrics = await readWheelGifInvalidations(page);
           await measureFrames(page, 16);
           await page.evaluate(() => {
             if (window.__tutorBoardC37Trace === undefined) return;
@@ -1145,7 +1193,8 @@ async function profileLargeBoard(
           });
           return {
             frames,
-            gifInvalidations,
+            gifInvalidations: gifMetrics.total,
+            gifInvalidationsDuringWheel: gifMetrics.duringWheel,
             ...(composition["DirectRenderer::DrawFrame"] === undefined
               ? {}
               : {
@@ -1226,16 +1275,16 @@ for (const scenario of [
         expect(result.zoom.c37Trace?.["board-commit"]?.count).toBeGreaterThan(
           0,
         );
-        expect(result.zoom.c38Baseline?.gifInvalidations).toBeGreaterThan(0);
-        expect(result.zoom.c38BaselineRepeat?.gifInvalidations).toBeGreaterThan(
-          0,
-        );
+        // Compare like-for-like wheel input intervals. The full-frame trace
+        // also records the GIF frames resumed after a wheel gesture ends,
+        // so total-window counts may legitimately tie between A and B.
         expect(
-          result.zoom.c37Trace?.["gif-invalidate"]?.count ?? 0,
-        ).toBeLessThan(result.zoom.c38Baseline?.gifInvalidations ?? 0);
+          result.zoom.c38Baseline?.gifInvalidationsDuringWheel,
+        ).toBeGreaterThan(0);
         expect(
-          result.zoom.c37Trace?.["gif-invalidate"]?.count ?? 0,
-        ).toBeLessThan(result.zoom.c38BaselineRepeat?.gifInvalidations ?? 0);
+          result.zoom.c38BaselineRepeat?.gifInvalidationsDuringWheel,
+        ).toBeGreaterThan(0);
+        expect(result.zoom.gifInvalidationsDuringWheel).toBe(0);
         // Visibility culling can add/remove pen objects during wheel zoom,
         // which legitimately rerenders affected ink runs. The deterministic
         // same-membership test in dense-scene-rendering.test.ts verifies that

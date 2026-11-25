@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 const maximumMutableWetInkTailPoints = 120;
 
 async function openBoardWithPen(page: Page): Promise<void> {
@@ -41,6 +43,7 @@ async function openBoardWithPen(page: Page): Promise<void> {
   ).toBeVisible();
   const stage = page.getByTestId("board-stage");
   await expect(stage).toHaveAttribute("data-wet-ink-layer", "ready");
+  await revealBoardToolDock(page);
   const drawingMenu = page.getByRole("button", { name: "Рисование" });
   await drawingMenu.click();
   await page.getByRole("menuitemradio", { name: "Перо (P)" }).click();

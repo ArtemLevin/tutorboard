@@ -1,12 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { rightDoubleClickAt } from "./coordinate-plot-interaction.js";
+import { revealBoardToolDock } from "./board-tool-dock.js";
 
 test(
   "edits existing multiline text as one committed history item",
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await expect(page.getByTestId("board-stage")).toBeVisible();
     await page.getByRole("button", { name: "Рисование" }).click();
     await page.getByRole("menuitemradio", { name: "Текст (T)" }).click();
@@ -27,6 +28,7 @@ test(
     await expect(page.getByTestId("selection-count")).toHaveText("1 выбрано");
     const textPoint = { x: bounds.x + 330, y: bounds.y + 250 };
     await rightDoubleClickAt(page, textPoint);
+    await revealBoardToolDock(page);
 
     const editor = page.getByRole("textbox", {
       name: "Редактор выбранного текста",
@@ -62,7 +64,7 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await expect(page.getByTestId("board-stage")).toBeVisible();
     await page.keyboard.press("t");
     const bounds = await page.getByTestId("board-stage").boundingBox();
@@ -96,7 +98,7 @@ test("cancels an unsaved text draft with Escape and switches to selection", asyn
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+  await revealBoardToolDock(page);
   await expect(page.getByTestId("board-stage")).toBeVisible();
   await page.keyboard.press("t");
   const bounds = await page.getByTestId("board-stage").boundingBox();
@@ -124,7 +126,7 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await expect(page.getByTestId("board-stage")).toBeVisible();
     await page.keyboard.press("t");
     const bounds = await page.getByTestId("board-stage").boundingBox();
@@ -183,6 +185,7 @@ test(
 
     const textPoint = { x: bounds.x + 390, y: bounds.y + 290 };
     await rightDoubleClickAt(page, textPoint);
+    await revealBoardToolDock(page);
     const selectedEditor = page.getByRole("textbox", {
       name: "Редактор выбранного текста",
     });

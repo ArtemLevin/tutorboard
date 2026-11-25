@@ -69,8 +69,12 @@ async function profileZoom(page: Page, stage: Locator): Promise<ZoomProfile> {
   await expect
     .poll(async () => Number(await stage.getAttribute("data-viewport-zoom")))
     .toBeLessThan(1.001);
+  // A dense 3,000-stroke scene may require more than the default 5-second
+  // assertion window to durably persist the final zoom revision in Firefox.
+  // Keep the requirement that persistence settles before reading metrics.
   await expect(page.getByTestId("persistence-status")).toHaveText(
     "Сохранено локально",
+    { timeout: 20_000 },
   );
   return page.evaluate(() => {
     const scoped = window as Window & {

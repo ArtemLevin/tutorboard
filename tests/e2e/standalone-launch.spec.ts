@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 const boardId = "document:lesson-01";
 const createdAt = "2026-08-16T12:00:00.000Z";
 const guestCsrf = "csrf-guest-never-durable-standalone";
@@ -346,6 +348,7 @@ test(
       false,
     );
 
+    await revealBoardToolDock(page);
     await page.getByRole("button", { name: "Настройки доски" }).click();
     await expect(page.getByText("Ученик · Ксения")).toBeVisible();
     await expect(page.getByText("Режим только для чтения")).toBeVisible();
@@ -382,6 +385,7 @@ test("opens the same standalone document for a teacher with teacher capabilities
     false,
   );
 
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(
     page.getByText("Преподаватель · Артём Александрович"),
@@ -400,6 +404,7 @@ test("refreshes guest capabilities and reconnects collaboration with the new epo
   await installControllableWebSocket(page);
   const api = await installStandaloneApi(page, "guest");
   await page.goto(`/b/${encodeURIComponent(boardId)}#/board`);
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(page.getByText("Режим только для чтения")).toBeVisible();
   await expect.poll(() => api.collaborationClientIds.length).toBe(1);
@@ -452,6 +457,7 @@ test("refreshes guest capabilities changed while the browser was offline", async
   await page.goto(`/b/${encodeURIComponent(boardId)}#/board`);
   await expect.poll(() => api.collaborationClientIds.length).toBe(1);
   await emitCollaborationReady(page, api.collaborationClientIds[0]!, 1);
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(page.getByText("Режим только для чтения")).toHaveCount(0);
   await page.keyboard.press("Escape");
@@ -463,6 +469,7 @@ test("refreshes guest capabilities changed while the browser was offline", async
   ]);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
 
+  await revealBoardToolDock(page);
   await page.getByRole("button", { name: "Настройки доски" }).click();
   await expect(
     page.getByText("Права обновлены: доска доступна только для чтения."),

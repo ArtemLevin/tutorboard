@@ -1,21 +1,30 @@
 import { expect, test } from "@playwright/test";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 test(
   "board Undo/Redo takes priority while settings controls have focus",
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
-    await page.keyboard.press("r");
     const stage = page.getByTestId("board-stage");
+    // Wait for the mounted app and shortcut handler. Dispatching "r" before
+    // hydration leaves navigation.pan active and records a viewport history
+    // entry instead of the rectangle this test intends to undo/redo.
+    await expect(stage).toBeVisible();
+    await page.keyboard.press("r");
     const bounds = await stage.boundingBox();
     if (bounds === null) throw new Error("Canvas has no bounds.");
     await page.mouse.move(bounds.x + 240, bounds.y + 160);
     await page.mouse.down();
     await page.mouse.move(bounds.x + 360, bounds.y + 260, { steps: 5 });
     await page.mouse.up();
+    // An Undo stack entry alone could be a viewport commit; establish that
+    // the rectangle exists before testing history restoration.
+    await expect(page.getByTestId("object-count")).toHaveText("1 объекта");
     await expect(page.getByTestId("history-depth")).toHaveText("1/0");
 
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await page.getByRole("button", { name: "Настройки доски" }).click();
     const dialog = page.getByRole("dialog", { name: "Настройки доски" });
     const select = dialog.getByRole("combobox", {
@@ -40,7 +49,7 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await expect(
       page.getByRole("application", {
         name: "Бесконечное полотно TutorBoard",
@@ -76,7 +85,7 @@ test(
   { tag: "@smoke" },
   async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await page.getByRole("button", { name: "Настройки доски" }).click();
     const select = page.getByRole("combobox", {
       name: "Количество сохраняемых действий Undo",
@@ -99,6 +108,9 @@ test(
     }
     await expect(page.getByTestId("history-depth")).toHaveText("7/0");
 
+    // Drawing takes the pointer away from the hover-only dock. Re-open it
+    // before accessing the settings button; clicking a hidden control hangs.
+    await revealBoardToolDock(page);
     await page.getByRole("button", { name: "Настройки доски" }).click();
     await select.selectOption("3");
     await expect(page.getByTestId("history-depth")).toHaveText("3/0");
@@ -109,7 +121,7 @@ test(
     await expect(page.getByTestId("object-count")).toHaveText("4 объекта");
     await expect(page.getByTestId("history-depth")).toHaveText("0/3");
     await page.reload();
-    await page.getByRole("button", { name: "Развернуть инструменты" }).hover();
+    await revealBoardToolDock(page);
     await page.getByRole("button", { name: "Настройки доски" }).click();
     await expect(select).toHaveValue("3");
   },

@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { revealBoardToolDock } from "./board-tool-dock.js";
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("board-stage")).toBeVisible();
@@ -64,6 +66,7 @@ test("@smoke third pen profile saves and restores without altering the classic A
   page,
 }) => {
   await page.keyboard.press("p");
+  await revealBoardToolDock(page);
   const width = page.getByRole("spinbutton", { name: "Толщина инструмента" });
   await expect(width).toBeVisible();
   await page.getByRole("button", { name: "Применить стиль пера В" }).click();
@@ -78,6 +81,7 @@ test("@smoke third pen profile saves and restores without altering the classic A
     .getByRole("checkbox", { name: "Кнопка стилуса временно включает ластик" })
     .check();
   await page.reload();
+  await revealBoardToolDock(page);
   await expect(
     page.getByRole("button", { name: "Применить стиль пера В" }),
   ).toBeVisible();
@@ -102,6 +106,7 @@ test("@smoke a pen barrel button temporarily erases and safely restores the pen"
   await expect(stage).toHaveAttribute("data-stylus-eraser-active", "false");
   await penEvent(page, "pointerup", 71, 2, 0);
 
+  await revealBoardToolDock(page);
   await page
     .getByRole("checkbox", { name: "Кнопка стилуса временно включает ластик" })
     .check();
