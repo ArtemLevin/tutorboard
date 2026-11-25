@@ -210,6 +210,85 @@ describe("ICE-02B spatial broad phase", () => {
     expect(spatial.stats().bucketReferences).toBe(0);
   });
 
+  it("preserves identities and z-order across sparse and dense queries, undo, and clear", () => {
+    const base = document();
+    const objects: Record<string, RectangleObject> = {};
+    const order: BoardObjectId[] = [];
+    for (let i = 0; i < 512; i += 1) {
+      const id = boardObjectId(`object:ice2b-adaptive-${i}`);
+      order.push(id);
+      objects[id] = rectangle(id, i * 1_024);
+    }
+    const initial = { ...base, objects, order };
+    const selector = createBoardSceneSelector();
+    const scene = selector(initial);
+    const spatial = createBoardSceneSpatialIndex(scene);
+    const size = { width: 180, height: 140, overscan: 0 };
+    const sparse = { zoom: 1, offset: { x: -1_024, y: 0 } };
+    const dense = { zoom: 0.0001, offset: { x: 0, y: 0 } };
+    const assertParity = (
+      current: ReturnType<typeof selector>,
+      viewport: BoardDocument["viewport"],
+    ) => {
+      const expected = selectVisibleBoardItems(current.items, viewport, size);
+      const actual = spatial.queryViewport(viewport, size);
+      expect(actual).toHaveLength(expected.length);
+      expect(actual.every((item, i) => item === expected[i])).toBe(true);
+      expect(spatial.queryViewport(viewport, size)).toBe(actual);
+    };
+    assertParity(scene, sparse);
+    assertParity(scene, dense);
+
+    const lastId = order.at(-1)!;
+    const editedObjects = { ...objects };
+    delete editedObjects[lastId];
+    const edited = {
+      ...initial,
+      objects: editedObjects,
+      order: order.slice(0, -1),
+    };
+    const editedScene = selector(edited);
+    const removal = deriveBoardSceneDelta({
+      previousDocument: initial,
+      previousScene: scene,
+      nextDocument: edited,
+      nextScene: editedScene,
+    });
+    expect(spatial.apply(removal, editedScene)).toBe("patch");
+    expect(spatial.boundsFor(lastId)).toBeNull();
+    assertParity(editedScene, dense);
+
+    const restored = selector(initial);
+    const undo = deriveBoardSceneDelta({
+      previousDocument: edited,
+      previousScene: editedScene,
+      nextDocument: initial,
+      nextScene: restored,
+    });
+    expect(spatial.apply(undo, restored)).toBe("patch");
+    assertParity(restored, sparse);
+    assertParity(restored, dense);
+
+    const cleared = { ...initial, objects: {}, order: [] };
+    const clearedScene = selector(cleared);
+    const clearDelta = deriveBoardSceneDelta({
+      previousDocument: initial,
+      previousScene: restored,
+      nextDocument: cleared,
+      nextScene: clearedScene,
+    });
+    spatial.apply(clearDelta, clearedScene);
+    expect(spatial.queryViewport(dense, size)).toEqual([]);
+    expect(spatial.boundsFor(lastId)).toBeNull();
+    expect(spatial.stats()).toEqual({
+      items: 0,
+      buckets: 0,
+      bucketReferences: 0,
+      overflowItems: 0,
+    });
+    spatial.dispose();
+  });
+
   it("releases stale references across repeated board replacement", () => {
     const selector = createBoardSceneSelector();
     const initial = selector(document());
