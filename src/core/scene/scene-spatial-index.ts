@@ -1,0 +1,387 @@
+import type { BoardObjectId } from "../board/identifiers";
+import type { ViewportState } from "../board/primitives";
+import {
+  itemBounds,
+  visibleWorldBounds,
+  type BoardItemBounds,
+  type BoardRenderItem,
+  type BoardSceneReadModel,
+  type BoardViewportSize,
+} from "../board/selectors";
+import type { BoardSceneDelta } from "./scene-delta";
+
+/**
+ * ICE-02B: renderer-neutral, conservative broad-phase geometry.
+ *
+ * These world-space envelopes are the same envelopes as the existing
+ * visibility selector. They are safe for culling equivalence; exact pixel,
+ * hit, pressure/eraser and transformed-geometry narrow phases remain owned
+ * by the established renderer. No drawing, DOM, storage or GPU dependencies.
+ */
+export type SceneWorldBounds = Readonly<BoardItemBounds>;
+
+export interface SceneDirtyItem {
+  readonly id: BoardObjectId;
+  readonly before: SceneWorldBounds | null;
+  readonly after: SceneWorldBounds | null;
+}
+
+export interface SceneDirtyBounds {
+  readonly fullInvalidation: boolean;
+  readonly viewportChanged: boolean;
+  readonly items: readonly SceneDirtyItem[];
+}
+
+export interface SceneSpatialIndexStats {
+  readonly items: number;
+  readonly buckets: number;
+  readonly bucketReferences: number;
+  readonly overflowItems: number;
+}
+
+export interface BoardSceneSpatialIndex {
+  /** Incrementally apply a certified scene delta or safely rebuild. */
+  apply(
+    delta: BoardSceneDelta,
+    nextScene: BoardSceneReadModel,
+  ): "patch" | "rebuild" | "unchanged";
+  /** Candidate objects in original BoardDocument z-order. */
+  queryWorld(bounds: SceneWorldBounds): readonly BoardRenderItem[];
+  queryViewport(
+    viewport: ViewportState,
+    size: BoardViewportSize,
+  ): readonly BoardRenderItem[];
+  boundsFor(id: BoardObjectId): SceneWorldBounds | null;
+  stats(): SceneSpatialIndexStats;
+  /** Release all object and tile references on board switch/unmount. */
+  dispose(): void;
+}
+
+const cellSize = 512;
+const maximumCellsPerItem = 64;
+const maximumCellsPerQuery = 4_096;
+
+interface Entry {
+  readonly item: BoardRenderItem;
+  readonly rank: number;
+  readonly bounds: SceneWorldBounds | null;
+  readonly cells: readonly string[] | null;
+}
+
+function finiteBounds(bounds: SceneWorldBounds): boolean {
+  return (
+    Number.isFinite(bounds.left) &&
+    Number.isFinite(bounds.top) &&
+    Number.isFinite(bounds.right) &&
+    Number.isFinite(bounds.bottom) &&
+    bounds.left <= bounds.right &&
+    bounds.top <= bounds.bottom
+  );
+}
+
+function safeBounds(item: BoardRenderItem): SceneWorldBounds | null {
+  try {
+    const bounds = itemBounds(item);
+    return finiteBounds(bounds) ? bounds : null;
+  } catch {
+    // Excessive/unsupported geometry must fail open in the broad phase.
+    return null;
+  }
+}
+
+function cellKeys(
+  bounds: SceneWorldBounds,
+  maximum: number,
+): readonly string[] | null {
+  if (!finiteBounds(bounds)) return null;
+  const left = Math.floor(bounds.left / cellSize);
+  const right = Math.floor(bounds.right / cellSize);
+  const top = Math.floor(bounds.top / cellSize);
+  const bottom = Math.floor(bounds.bottom / cellSize);
+  if (![left, right, top, bottom].every(Number.isSafeInteger)) return null;
+  const columns = right - left + 1;
+  const rows = bottom - top + 1;
+  if (
+    !Number.isSafeInteger(columns) ||
+    !Number.isSafeInteger(rows) ||
+    columns < 1 ||
+    rows < 1 ||
+    columns * rows > maximum
+  ) {
+    return null;
+  }
+  const keys: string[] = [];
+  for (let x = left; x <= right; x += 1) {
+    for (let y = top; y <= bottom; y += 1) keys.push(`${x}:${y}`);
+  }
+  return keys;
+}
+
+function overlaps(a: SceneWorldBounds, b: SceneWorldBounds): boolean {
+  return (
+    a.left <= b.right &&
+    a.right >= b.left &&
+    a.top <= b.bottom &&
+    a.bottom >= b.top
+  );
+}
+
+/** Unknown geometry requires full invalidation, never a clipped dirty tile. */
+export function deriveSceneDirtyBounds(
+  delta: BoardSceneDelta,
+): SceneDirtyBounds {
+  if (delta.kind === "reset") {
+    return {
+      fullInvalidation: true,
+      viewportChanged: delta.viewportChanged,
+      items: [],
+    };
+  }
+  const items: SceneDirtyItem[] = [
+    ...delta.added.map((item) => ({
+      id: item.object.id,
+      before: null,
+      after: safeBounds(item),
+    })),
+    ...delta.removed.map((item) => ({
+      id: item.object.id,
+      before: safeBounds(item),
+      after: null,
+    })),
+    ...delta.updated.map((change) => ({
+      id: change.id,
+      before: safeBounds(change.previous),
+      after: safeBounds(change.next),
+    })),
+  ];
+  const oldIds = new Set([
+    ...delta.removed.map((item) => item.object.id),
+    ...delta.updated.map((change) => change.id),
+  ]);
+  const newIds = new Set([
+    ...delta.added.map((item) => item.object.id),
+    ...delta.updated.map((change) => change.id),
+  ]);
+  const known = items.every(
+    (change) =>
+      (!oldIds.has(change.id) || change.before !== null) &&
+      (!newIds.has(change.id) || change.after !== null),
+  );
+  return {
+    fullInvalidation: !known,
+    viewportChanged: delta.viewportChanged,
+    items,
+  };
+}
+
+/** Bounded uniform-grid broad phase with an overflow fallback for huge items. */
+export function createBoardSceneSpatialIndex(
+  initial: BoardSceneReadModel,
+): BoardSceneSpatialIndex {
+  const entries = new Map<BoardObjectId, Entry>();
+  const buckets = new Map<string, Set<Entry>>();
+  const overflow = new Set<Entry>();
+  let order: BoardObjectId[] = [];
+  let orderedEntries: Entry[] = [];
+  let previousVisible: readonly BoardRenderItem[] = [];
+
+  function remove(id: BoardObjectId): void {
+    const old = entries.get(id);
+    if (old === undefined) return;
+    if (old.cells === null) {
+      overflow.delete(old);
+    } else {
+      for (const key of old.cells) {
+        const bucket = buckets.get(key);
+        bucket?.delete(old);
+        if (bucket?.size === 0) buckets.delete(key);
+      }
+    }
+    entries.delete(id);
+  }
+
+  function insert(item: BoardRenderItem, rank: number): void {
+    const id = item.object.id;
+    remove(id);
+    const bounds = safeBounds(item);
+    const cells =
+      bounds === null ? null : cellKeys(bounds, maximumCellsPerItem);
+    const entry: Entry = { item, rank, bounds, cells };
+    entries.set(id, entry);
+    orderedEntries[rank] = entry;
+    if (cells === null) {
+      overflow.add(entry);
+    } else {
+      for (const key of cells) {
+        let bucket = buckets.get(key);
+        if (bucket === undefined) {
+          bucket = new Set<Entry>();
+          buckets.set(key, bucket);
+        }
+        bucket.add(entry);
+      }
+    }
+  }
+
+  function rebuild(scene: BoardSceneReadModel): void {
+    entries.clear();
+    buckets.clear();
+    overflow.clear();
+    order = [];
+    orderedEntries = [];
+    previousVisible = [];
+    scene.items.forEach((item, rank) => {
+      insert(item, rank);
+      order.push(item.object.id);
+    });
+  }
+
+  rebuild(initial);
+
+  return {
+    apply(delta, nextScene) {
+      if (delta.kind === "reset") {
+        rebuild(nextScene);
+        return "rebuild";
+      }
+      if (delta.kind === "camera" || delta.kind === "noop") {
+        if (
+          nextScene.items.length !== entries.size ||
+          nextScene.items.some(
+            (item, rank) =>
+              order[rank] !== item.object.id ||
+              entries.get(item.object.id)?.item !== item,
+          )
+        ) {
+          rebuild(nextScene);
+          return "rebuild";
+        }
+        return "unchanged";
+      }
+
+      const nextIds = nextScene.items.map((item) => item.object.id);
+      const prefixLength = Math.min(order.length, nextIds.length);
+      for (let rank = 0; rank < prefixLength; rank += 1) {
+        if (order[rank] !== nextIds[rank]) {
+          rebuild(nextScene);
+          return "rebuild";
+        }
+      }
+      // One linear rank table replaces per-change includes/indexOf scans.
+      const ranks = new Map(nextIds.map((id, rank) => [id, rank] as const));
+      const removedIds = new Set(delta.removed.map((item) => item.object.id));
+      const changed = new Set(delta.changedIds);
+      if (
+        ranks.size !== nextIds.length ||
+        delta.changedIds.some((id) => !ranks.has(id) && !removedIds.has(id)) ||
+        nextScene.items.some(
+          (item) =>
+            !changed.has(item.object.id) &&
+            entries.get(item.object.id)?.item !== item,
+        )
+      ) {
+        rebuild(nextScene);
+        return "rebuild";
+      }
+      for (const item of delta.removed) remove(item.object.id);
+      for (const change of delta.updated) {
+        const rank = ranks.get(change.id);
+        if (rank !== undefined) insert(change.next, rank);
+      }
+      for (const item of delta.added) {
+        const rank = ranks.get(item.object.id);
+        if (rank !== undefined) insert(item, rank);
+      }
+      order = nextIds;
+      orderedEntries.length = nextIds.length;
+      previousVisible = [];
+      if (entries.size !== nextScene.items.length) {
+        rebuild(nextScene);
+        return "rebuild";
+      }
+      return "patch";
+    },
+
+    queryWorld(bounds) {
+      const keys = cellKeys(bounds, maximumCellsPerQuery);
+      // Estimate an upper bound on grid visits without allocating candidates.
+      // Dense queries favor a linear, already z-ordered scan. This crossover
+      // is an experimental heuristic, not a calibrated production threshold.
+      let visits = overflow.size;
+      if (keys !== null) {
+        for (const key of keys) {
+          visits += buckets.get(key)?.size ?? 0;
+          if (visits * 4 >= orderedEntries.length) break;
+        }
+      }
+      const next: BoardRenderItem[] = [];
+      function matches(entry: Entry): boolean {
+        return (
+          entry.item.object.visible &&
+          (entry.bounds === null || overlaps(entry.bounds, bounds))
+        );
+      }
+      if (
+        keys === null ||
+        orderedEntries.length <= 256 ||
+        visits * 4 >= orderedEntries.length
+      ) {
+        for (const entry of orderedEntries) {
+          if (matches(entry)) next.push(entry.item);
+        }
+      } else {
+        // Direct entry references avoid a Map lookup per bucket member.
+        // Deduplicate only matching candidates; sort sparse results by rank.
+        const candidates = new Set<Entry>();
+        for (const entry of overflow) {
+          if (matches(entry)) candidates.add(entry);
+        }
+        for (const key of keys) {
+          const bucket = buckets.get(key);
+          if (bucket === undefined) continue;
+          for (const entry of bucket) {
+            if (matches(entry)) candidates.add(entry);
+          }
+        }
+        const sorted = [...candidates].sort((a, b) => a.rank - b.rank);
+        for (const entry of sorted) next.push(entry.item);
+      }
+      if (
+        next.length === previousVisible.length &&
+        next.every((item, rank) => item === previousVisible[rank])
+      ) {
+        return previousVisible;
+      }
+      previousVisible = next;
+      return next;
+    },
+
+    queryViewport(viewport, size) {
+      return this.queryWorld(visibleWorldBounds(viewport, size));
+    },
+
+    boundsFor(id) {
+      return entries.get(id)?.bounds ?? null;
+    },
+
+    stats() {
+      let bucketReferences = 0;
+      for (const bucket of buckets.values()) bucketReferences += bucket.size;
+      return {
+        items: entries.size,
+        buckets: buckets.size,
+        bucketReferences,
+        overflowItems: overflow.size,
+      };
+    },
+
+    dispose() {
+      entries.clear();
+      buckets.clear();
+      overflow.clear();
+      order = [];
+      orderedEntries = [];
+      previousVisible = [];
+    },
+  };
+}

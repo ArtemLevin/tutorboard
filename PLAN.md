@@ -41,6 +41,8 @@
 
 Первый базовый модуль ICE-02A (experimental): [scene-delta foundation](docs/performance/ICE2_SCENE_DELTA_FOUNDATION.md). Реальный тайловый renderer пока не подключён.
 
+ICE-02B (experimental, isolated Draft): [spatial broad-phase and world dirty bounds](docs/performance/ICE2_SPATIAL_SCENE_INDEX_FOUNDATION.md). Совместная предрелизная проверка ICE-00/01/02A — [Draft PR #323](https://github.com/ArtemLevin/tutorboard/pull/323); использование индекса в production остаётся закрытым до correctness/performance gate.
+
 - **Статус: plan only.** Новый renderer, runtime-флаги, протоколы и production поведение этим изменением не внедряются.
 - Цель: улучшить отзывчивость больших полотен (5k/10k обязательный gate; 30k/100k исследовательская цель) с сохранением `BoardDocument`, object IDs/z-order, Wet Ink, точного hit-testing, истории, экспорта, доступа и совместной работы.
 - Порядок: архитектурный контракт/измеритель → incremental scene/spatial index → заменяемые adapter/feature flags → bounded tiles/cache → независимый A/B gate; GPU batching, Worker и LOD только по подтверждённой необходимости → interaction/collaboration → крупное хранение при необходимости → pilot/rollout.
