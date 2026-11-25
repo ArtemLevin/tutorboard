@@ -8,6 +8,8 @@ import {
   deriveBoardSceneDelta,
   deriveSceneDirtyBounds,
   documentId,
+  geometryImportId,
+  groupId,
   selectVisibleBoardItems,
   type BoardDocument,
   type BoardObjectId,
@@ -286,6 +288,148 @@ describe("ICE-02B spatial broad phase", () => {
       bucketReferences: 0,
       overflowItems: 0,
     });
+    spatial.dispose();
+  });
+
+  it("tracks transformed groups and GeometryOS visual overrides", () => {
+    const base = document();
+    const group = groupId("group:ice2b-transform");
+    const root = groupId("group:ice2b-import");
+    const imported = geometryImportId("import:ice2b-visual");
+    // Synthetic selector fixture; no claim of canonical GIR validation.
+    const beforeDocument: BoardDocument = {
+      ...base,
+      objects: {
+        ...base.objects,
+        [firstId]: { ...rectangle(firstId, 0), groupId: group },
+        [thirdId]: {
+          ...rectangle(thirdId, 520),
+          groupId: root,
+          source: {
+            kind: "geometryos",
+            girEntityId: "rect",
+            girEntityType: "rectangle",
+            importId: imported,
+          },
+        },
+      },
+      groups: {
+        [group]: {
+          id: group,
+          locked: false,
+          objectIds: [firstId],
+          transform: {
+            rotation: 90,
+            scale: { x: 2, y: 1 },
+            translation: { x: 1_000, y: 100 },
+          },
+        },
+        [root]: {
+          id: root,
+          locked: false,
+          objectIds: [thirdId],
+          transform: {
+            rotation: 0,
+            scale: { x: 1, y: 1 },
+            translation: { x: 0, y: 0 },
+          },
+        },
+      },
+      geometryImports: {
+        [imported]: {
+          id: imported,
+          boardObjectIds: [thirdId],
+          canonicalGir: null,
+          rawResponse: null,
+          createdAt: base.createdAt,
+          geometryOsApiVersion: "1.0.0",
+          girSchemaVersion: "0.2.0",
+          mapping: { rect: [thirdId] },
+          prompt: "fixture",
+          requestId: null,
+          rootGroupId: root,
+          visualTransform: {
+            rotation: 0,
+            scale: { x: 1, y: 1 },
+            translation: { x: 2_000, y: 0 },
+          },
+          visualOverrides: {
+            [thirdId]: {
+              rotation: 0,
+              scale: { x: 1, y: 1 },
+              translation: { x: -500, y: 0 },
+              style: { strokeWidth: 8 },
+            },
+          },
+        },
+      },
+    };
+    const selector = createBoardSceneSelector();
+    const before = selector(beforeDocument);
+    const spatial = createBoardSceneSpatialIndex(before);
+    const grouped = spatial.boundsFor(firstId)!;
+    expect(grouped.left).toBeCloseTo(948);
+    expect(grouped.right).toBeCloseTo(992);
+    expect(grouped.top).toBeCloseTo(98);
+    expect(grouped.bottom).toBeCloseTo(222);
+    expect(spatial.boundsFor(thirdId)).toEqual({
+      left: 2_012,
+      right: 2_088,
+      top: 2,
+      bottom: 58,
+    });
+
+    const oldGroup = beforeDocument.groups[group]!;
+    const oldImport = beforeDocument.geometryImports[imported]!;
+    const afterDocument: BoardDocument = {
+      ...beforeDocument,
+      groups: {
+        ...beforeDocument.groups,
+        [group]: {
+          ...oldGroup,
+          transform: {
+            ...oldGroup.transform,
+            translation: { x: 4_000, y: 100 },
+          },
+        },
+      },
+      geometryImports: {
+        ...beforeDocument.geometryImports,
+        [imported]: {
+          ...oldImport,
+          visualOverrides: {
+            [thirdId]: {
+              ...oldImport.visualOverrides[thirdId]!,
+              translation: { x: -250, y: 0 },
+              style: { strokeWidth: 12 },
+            },
+          },
+        },
+      },
+    };
+    const after = selector(afterDocument);
+    const delta = deriveBoardSceneDelta({
+      previousDocument: beforeDocument,
+      previousScene: before,
+      nextDocument: afterDocument,
+      nextScene: after,
+    });
+    expect(delta.kind).toBe("patch");
+    expect(delta.changedIds).toEqual([firstId, thirdId]);
+    const dirty = deriveSceneDirtyBounds(delta);
+    expect(dirty.fullInvalidation).toBe(false);
+    expect(dirty.items[0]?.before).toEqual(grouped);
+    expect(dirty.items[0]?.after?.left).toBeCloseTo(3_948);
+    expect(dirty.items[1]?.before?.left).toBe(2_012);
+    expect(dirty.items[1]?.after?.left).toBe(2_258);
+    expect(spatial.apply(delta, after)).toBe("patch");
+    for (const x of [0, 900, 2_000, 2_250, 3_900]) {
+      const viewport = { zoom: 1, offset: { x: -x, y: 0 } };
+      const size = { width: 180, height: 300, overscan: 0 };
+      expect(spatial.queryViewport(viewport, size)).toEqual(
+        selectVisibleBoardItems(after.items, viewport, size),
+      );
+    }
     spatial.dispose();
   });
 
