@@ -179,19 +179,21 @@ export function createBoardSceneSpatialIndex(
   initial: BoardSceneReadModel,
 ): BoardSceneSpatialIndex {
   const entries = new Map<BoardObjectId, Entry>();
-  const buckets = new Map<string, Set<BoardObjectId>>();
-  const overflow = new Set<BoardObjectId>();
+  const buckets = new Map<string, Set<Entry>>();
+  const overflow = new Set<Entry>();
   let order: BoardObjectId[] = [];
+  let orderedEntries: Entry[] = [];
+  let previousVisible: readonly BoardRenderItem[] = [];
 
   function remove(id: BoardObjectId): void {
     const old = entries.get(id);
     if (old === undefined) return;
     if (old.cells === null) {
-      overflow.delete(id);
+      overflow.delete(old);
     } else {
       for (const key of old.cells) {
         const bucket = buckets.get(key);
-        bucket?.delete(id);
+        bucket?.delete(old);
         if (bucket?.size === 0) buckets.delete(key);
       }
     }
@@ -204,17 +206,19 @@ export function createBoardSceneSpatialIndex(
     const bounds = safeBounds(item);
     const cells =
       bounds === null ? null : cellKeys(bounds, maximumCellsPerItem);
-    entries.set(id, { item, rank, bounds, cells });
+    const entry: Entry = { item, rank, bounds, cells };
+    entries.set(id, entry);
+    orderedEntries[rank] = entry;
     if (cells === null) {
-      overflow.add(id);
+      overflow.add(entry);
     } else {
       for (const key of cells) {
         let bucket = buckets.get(key);
         if (bucket === undefined) {
-          bucket = new Set<BoardObjectId>();
+          bucket = new Set<Entry>();
           buckets.set(key, bucket);
         }
-        bucket.add(id);
+        bucket.add(entry);
       }
     }
   }
@@ -224,6 +228,8 @@ export function createBoardSceneSpatialIndex(
     buckets.clear();
     overflow.clear();
     order = [];
+    orderedEntries = [];
+    previousVisible = [];
     scene.items.forEach((item, rank) => {
       insert(item, rank);
       order.push(item.object.id);
@@ -287,6 +293,8 @@ export function createBoardSceneSpatialIndex(
         if (rank !== undefined) insert(item, rank);
       }
       order = nextIds;
+      orderedEntries.length = nextIds.length;
+      previousVisible = [];
       if (entries.size !== nextScene.items.length) {
         rebuild(nextScene);
         return "rebuild";
@@ -296,29 +304,56 @@ export function createBoardSceneSpatialIndex(
 
     queryWorld(bounds) {
       const keys = cellKeys(bounds, maximumCellsPerQuery);
-      const candidateIds =
-        keys === null
-          ? new Set(entries.keys())
-          : new Set<BoardObjectId>(overflow);
+      // Estimate an upper bound on grid visits without allocating candidates.
+      // Dense queries favor a linear, already z-ordered scan. This crossover
+      // is an experimental heuristic, not a calibrated production threshold.
+      let visits = overflow.size;
       if (keys !== null) {
         for (const key of keys) {
-          for (const id of buckets.get(key) ?? []) candidateIds.add(id);
+          visits += buckets.get(key)?.size ?? 0;
+          if (visits * 4 >= orderedEntries.length) break;
         }
       }
-      const candidates: Entry[] = [];
-      for (const id of candidateIds) {
-        const entry = entries.get(id);
-        if (
-          entry !== undefined &&
+      const next: BoardRenderItem[] = [];
+      function matches(entry: Entry): boolean {
+        return (
           entry.item.object.visible &&
           (entry.bounds === null || overlaps(entry.bounds, bounds))
-        ) {
-          candidates.push(entry);
-        }
+        );
       }
-      return candidates
-        .sort((a, b) => a.rank - b.rank)
-        .map((entry) => entry.item);
+      if (
+        keys === null ||
+        orderedEntries.length <= 256 ||
+        visits * 4 >= orderedEntries.length
+      ) {
+        for (const entry of orderedEntries) {
+          if (matches(entry)) next.push(entry.item);
+        }
+      } else {
+        // Direct entry references avoid a Map lookup per bucket member.
+        // Deduplicate only matching candidates; sort sparse results by rank.
+        const candidates = new Set<Entry>();
+        for (const entry of overflow) {
+          if (matches(entry)) candidates.add(entry);
+        }
+        for (const key of keys) {
+          const bucket = buckets.get(key);
+          if (bucket === undefined) continue;
+          for (const entry of bucket) {
+            if (matches(entry)) candidates.add(entry);
+          }
+        }
+        const sorted = [...candidates].sort((a, b) => a.rank - b.rank);
+        for (const entry of sorted) next.push(entry.item);
+      }
+      if (
+        next.length === previousVisible.length &&
+        next.every((item, rank) => item === previousVisible[rank])
+      ) {
+        return previousVisible;
+      }
+      previousVisible = next;
+      return next;
     },
 
     queryViewport(viewport, size) {
@@ -345,6 +380,8 @@ export function createBoardSceneSpatialIndex(
       buckets.clear();
       overflow.clear();
       order = [];
+      orderedEntries = [];
+      previousVisible = [];
     },
   };
 }
