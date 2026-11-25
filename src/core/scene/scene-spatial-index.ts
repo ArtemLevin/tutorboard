@@ -238,25 +238,13 @@ export function createBoardSceneSpatialIndex(
         rebuild(nextScene);
         return "rebuild";
       }
-      const nextIds = nextScene.items.map((item) => item.object.id);
-      const prefixLength = Math.min(order.length, nextIds.length);
-      const removedIds = new Set(delta.removed.map((item) => item.object.id));
-      if (
-        order.slice(0, prefixLength).some((id, i) => id !== nextIds[i]) ||
-        (delta.kind === "patch" &&
-          delta.changedIds.some(
-            (id) => !nextIds.includes(id) && !removedIds.has(id),
-          ))
-      ) {
-        rebuild(nextScene);
-        return "rebuild";
-      }
-
       if (delta.kind === "camera" || delta.kind === "noop") {
         if (
           nextScene.items.length !== entries.size ||
           nextScene.items.some(
-            (item) => entries.get(item.object.id)?.item !== item,
+            (item, rank) =>
+              order[rank] !== item.object.id ||
+              entries.get(item.object.id)?.item !== item,
           )
         ) {
           rebuild(nextScene);
@@ -265,8 +253,21 @@ export function createBoardSceneSpatialIndex(
         return "unchanged";
       }
 
+      const nextIds = nextScene.items.map((item) => item.object.id);
+      const prefixLength = Math.min(order.length, nextIds.length);
+      for (let rank = 0; rank < prefixLength; rank += 1) {
+        if (order[rank] !== nextIds[rank]) {
+          rebuild(nextScene);
+          return "rebuild";
+        }
+      }
+      // One linear rank table replaces per-change includes/indexOf scans.
+      const ranks = new Map(nextIds.map((id, rank) => [id, rank] as const));
+      const removedIds = new Set(delta.removed.map((item) => item.object.id));
       const changed = new Set(delta.changedIds);
       if (
+        ranks.size !== nextIds.length ||
+        delta.changedIds.some((id) => !ranks.has(id) && !removedIds.has(id)) ||
         nextScene.items.some(
           (item) =>
             !changed.has(item.object.id) &&
@@ -278,12 +279,12 @@ export function createBoardSceneSpatialIndex(
       }
       for (const item of delta.removed) remove(item.object.id);
       for (const change of delta.updated) {
-        const rank = nextIds.indexOf(change.id);
-        if (rank >= 0) insert(change.next, rank);
+        const rank = ranks.get(change.id);
+        if (rank !== undefined) insert(change.next, rank);
       }
       for (const item of delta.added) {
-        const rank = nextIds.indexOf(item.object.id);
-        if (rank >= 0) insert(item, rank);
+        const rank = ranks.get(item.object.id);
+        if (rank !== undefined) insert(item, rank);
       }
       order = nextIds;
       if (entries.size !== nextScene.items.length) {
